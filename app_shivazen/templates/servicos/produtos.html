@@ -1,0 +1,129 @@
+{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block titulo %}Produtos Naturais | Shiva Zen{% endblock %}
+
+{% block conteudo %}
+<!-- Page Hero -->
+<section class="position-relative text-white text-center d-flex align-items-center justify-content-center"
+    style="background: linear-gradient(135deg, #1a3323 0%, #2d5a3b 100%); min-height: 45vh;">
+    <div class="container position-relative fade-in">
+        <p class="text-uppercase fw-bold mb-3"
+            style="letter-spacing: 3px; color: var(--primary-color); font-size: 0.85rem;">Shiva Zen</p>
+        <h1 class="display-4 fw-bold mb-3" style="font-family: 'Playfair Display', serif;">Produtos Naturais</h1>
+        <div class="mx-auto mb-4" style="width: 60px; height: 2px; background: var(--primary-color);"></div>
+        <p class="lead opacity-75 mx-auto" style="max-width: 560px;">Linha artesanal com ingredientes 100% naturais para
+            o cuidado diário da sua pele e bem-estar.</p>
+    </div>
+</section>
+
+<!-- Produtos Grid -->
+<section class="py-5" style="background: var(--background-light);">
+    <div class="container py-4">
+        <div class="row g-4">
+
+            <div class="col-md-6 col-lg-4">
+                <div class="card border-0 glass-card h-100 shadow-hover transition-base overflow-hidden">
+                    <div class="p-4 text-center" style="background: linear-gradient(135deg, #f0f7ec 0%, #e8f5e3 100%);">
+                        <i class="fas fa-flask" style="font-size: 3rem; color: var(--secondary-color);"></i>
+                    </div>
+                    <div class="card-body p-4">
+                        <h3 class="h5 fw-bold mb-2">Sérum Vitamina C</h3>
+                        <p class="text-muted small mb-3">Sérum concentrado com vitamina C natural para iluminar e
+                            uniformizar o tom da pele com efeito antioxidante poderoso.</p>
+                        <span class="badge rounded-pill px-3 py-2 fw-bold"
+                            style="background-color: var(--primary-light); color: var(--primary-dark);">100%
+                            Natural</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-lg-4">
+                <div class="card border-0 glass-card h-100 shadow-hover transition-base overflow-hidden">
+                    <div class="p-4 text-center" style="background: linear-gradient(135deg, #f9f5e9 0%, #f5edd3 100%);">
+                        <i class="fas fa-leaf" style="font-size: 3rem; color: var(--secondary-color);"></i>
+                    </div>
+                    <div class="card-body p-4">
+                        <h3 class="h5 fw-bold mb-2">Óleo Corporal Zen</h3>
+                        <p class="text-muted small mb-3">Blend exclusivo de óleos vegetais nobres para hidratação
+                            profunda, firmeza e luminosidade da pele do corpo.</p>
+                        <span class="badge rounded-pill px-3 py-2 fw-bold"
+                            style="background-color: var(--primary-light); color: var(--primary-dark);">Artesanal</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-lg-4">
+                <div class="card border-0 glass-card h-100 shadow-hover transition-base overflow-hidden">
+                    <div class="p-4 text-center" style="background: linear-gradient(135deg, #eee8f7 0%, #e4d9f5 100%);">
+                        <i class="fas fa-mortar-pestle" style="font-size: 3rem; color: var(--secondary-color);"></i>
+                    </div>
+                    <div class="card-body p-4">
+                        <h3 class="h5 fw-bold mb-2">Esfoliante de Açúcar</h3>
+                        <p class="text-muted small mb-3">Esfoliante suave formulado com açúcar mascavo e óleos
+                            essenciais para renovar e suavizar a pele naturalmente.</p>
+                        <span class="badge rounded-pill px-3 py-2 fw-bold"
+                            style="background-color: var(--primary-light); color: var(--primary-dark);">Vegano</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-lg-4">
+                <div class="card border-0 glass-card h-100 shadow-hover transition-base overflow-hidden">
+                    <div class="p-4 text-center" style="background: linear-gradient(135deg, #fef1f0 0%, #fde8e5 100%);">
+                        <i class="fas fa-tint" style="font-size: 3rem; color: var(--secondary-color);"></i>
+                    </div>
+                    <div class="card-body p-4">
+                        <h3 class="h5 fw-bold mb-2">Água Micelar Botânica</h3>
+                        <p class="text-muted small mb-3">Limpeza delicada com ativos botânicos para remover maquiagem e
+                            impurezas sem agredir a barreira cutânea.</p>
+                        <span class="badge rounded-pill px-3 py-2 fw-bold"
+                            style="background-color: var(--primary-light); color: var(--primary-dark);">Sem
+                            Parabenos</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-lg-4">
+                <div class="card border-0 glass-card h-100 shadow-hover transition-base overflow-hidden">
+                    <div class="p-4 text-center" style="background: linear-gradient(135deg, #e9f3f9 0%, #d9ecf7 100%);">
+                        <i class="fas fa-seedling" style="font-size: 3rem; color: var(--secondary-color);"></i>
+                    </div>
+                    <div class="card-body p-4">
+                        <h3 class="h5 fw-bold mb-2">Máscara de Argila Verde</h3>
+                        <p class="text-muted small mb-3">Máscaras purificantes de argila verde para desobstruir poros,
+                            controlar oleosidade e revitalizar a pele.</p>
+                        <span class="badge rounded-pill px-3 py-2 fw-bold"
+                            style="background-color: var(--primary-light); color: var(--primary-dark);">Detox</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-lg-4">
+                <div class="card border-0 glass-card h-100 shadow-hover transition-base overflow-hidden">
+                    <div class="p-4 text-center" style="background: linear-gradient(135deg, #fffbec 0%, #fef4cc 100%);">
+                        <i class="fas fa-sun" style="font-size: 3rem; color: var(--secondary-color);"></i>
+                    </div>
+                    <div class="card-body p-4">
+                        <h3 class="h5 fw-bold mb-2">Protetor Solar Natural FPS 50</h3>
+                        <p class="text-muted small mb-3">Proteção solar avançada com filtros físicos e ingredientes
+                            naturais, textura leve e compatível com todos os tons.</p>
+                        <span class="badge rounded-pill px-3 py-2 fw-bold"
+                            style="background-color: var(--primary-light); color: var(--primary-dark);">FPS 50</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="text-center mt-5 pt-3">
+            <p class="text-muted mb-4">Interessou? Fale conosco para disponibilidade e preços.</p>
+            <a href="{% url 'shivazen:agendaContato' %}"
+                class="btn btn-primary rounded-pill px-5 py-3 fw-bold text-uppercase shadow-sm"
+                style="letter-spacing:1px;">
+                <i class="fas fa-envelope me-2"></i>Entre em Contato
+            </a>
+        </div>
+    </div>
+</section>
+{% endblock %}

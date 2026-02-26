@@ -1,0 +1,154 @@
+{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block titulo %}Contato | Shiva Zen{% endblock %}
+
+{% block conteudo %}
+<!-- Page Hero -->
+<section class="position-relative text-white text-center d-flex align-items-center justify-content-center"
+  style="background: linear-gradient(135deg, #2C2C2C 0%, #4a3728 100%); min-height: 40vh;">
+  <div class="container fade-in py-4">
+    <p class="text-uppercase fw-bold mb-3"
+      style="letter-spacing: 3px; color: var(--primary-color); font-size: 0.85rem;">Fale Conosco</p>
+    <h1 class="display-5 fw-bold mb-2" style="font-family: 'Playfair Display', serif;">Entre em Contato</h1>
+    <div class="mx-auto mt-3" style="width: 50px; height: 2px; background: var(--primary-color);"></div>
+  </div>
+</section>
+
+<!-- Contact Section -->
+<section class="py-5" style="background: var(--background-light);">
+  <div class="container py-4">
+    <div class="row g-5 align-items-start">
+
+      <!-- Info Block -->
+      <div class="col-lg-5">
+        <h2 class="fw-bold mb-2" style="font-family: 'Playfair Display', serif;">Como podemos ajudar?</h2>
+        <p class="text-muted mb-5">Estamos à disposição para tirar suas dúvidas, agendar procedimentos ou receber seus
+          feedbacks. Nosso atendimento é rápido e personalizado.</p>
+
+        <div class="d-flex align-items-center mb-4">
+          <div class="rounded-circle d-flex align-items-center justify-content-center me-4 flex-shrink-0 shadow-sm"
+            style="width:52px;height:52px;background:var(--primary-light);">
+            <i class="fas fa-phone-alt" style="color:var(--primary-dark);"></i>
+          </div>
+          <div>
+            <small class="text-uppercase text-muted fw-bold" style="letter-spacing:1px;">Telefone</small>
+            <p class="fw-bold mb-0">(XX) XXXX-XXXX</p>
+          </div>
+        </div>
+
+        <div class="d-flex align-items-center mb-4">
+          <div class="rounded-circle d-flex align-items-center justify-content-center me-4 flex-shrink-0 shadow-sm"
+            style="width:52px;height:52px;background:#dcf5e7;">
+            <i class="fab fa-whatsapp" style="color:#25D366;font-size:1.3rem;"></i>
+          </div>
+          <div>
+            <small class="text-uppercase text-muted fw-bold" style="letter-spacing:1px;">WhatsApp</small>
+            <p class="fw-bold mb-0">(XX) XXXXX-XXXX</p>
+          </div>
+        </div>
+
+        <div class="d-flex align-items-center mb-4">
+          <div class="rounded-circle d-flex align-items-center justify-content-center me-4 flex-shrink-0 shadow-sm"
+            style="width:52px;height:52px;background:var(--primary-light);">
+            <i class="fas fa-envelope" style="color:var(--primary-dark);"></i>
+          </div>
+          <div>
+            <small class="text-uppercase text-muted fw-bold" style="letter-spacing:1px;">E-mail</small>
+            <p class="fw-bold mb-0">contato@shivazen.com.br</p>
+          </div>
+        </div>
+
+        <div class="d-flex align-items-center mb-5">
+          <div class="rounded-circle d-flex align-items-center justify-content-center me-4 flex-shrink-0 shadow-sm"
+            style="width:52px;height:52px;background:var(--primary-light);">
+            <i class="fas fa-map-marker-alt" style="color:var(--primary-dark);"></i>
+          </div>
+          <div>
+            <small class="text-uppercase text-muted fw-bold" style="letter-spacing:1px;">Endereço</small>
+            <p class="fw-bold mb-0">Av. Exemplo, 1234 - Centro<br><small class="text-muted fw-normal">Sua Cidade –
+                SP</small></p>
+          </div>
+        </div>
+
+        <div class="glass-card p-4 rounded-4 border-0 shadow-sm">
+          <h5 class="fw-bold mb-3" style="color:var(--primary-dark);">
+            <i class="fas fa-clock me-2" style="color:var(--primary-color);"></i>Horário de Funcionamento
+          </h5>
+          <div class="d-flex justify-content-between border-bottom pb-2 mb-2">
+            <span class="text-muted">Segunda a Sexta</span>
+            <span class="fw-bold">09h — 19h</span>
+          </div>
+          <div class="d-flex justify-content-between border-bottom pb-2 mb-2">
+            <span class="text-muted">Sábado</span>
+            <span class="fw-bold">09h — 14h</span>
+          </div>
+          <div class="d-flex justify-content-between">
+            <span class="text-muted">Domingo</span>
+            <span class="text-danger fw-bold">Fechado</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Form Block -->
+      <div class="col-lg-7">
+        <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
+          <div class="card-body p-4 p-md-5">
+            <h3 class="fw-bold mb-4" style="font-family: 'Playfair Display', serif;">Envie sua Mensagem</h3>
+
+            {% if messages %}
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} mb-4 border-0 shadow-sm">{{ message }}</div>
+            {% endfor %}
+            {% endif %}
+
+            <form method="POST">
+              {% csrf_token %}
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label text-muted fw-bold small text-uppercase">Seu Nome</label>
+                  <input type="text" name="nome" class="form-control form-control-lg bg-light border-0"
+                    placeholder="Nome completo" required>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label text-muted fw-bold small text-uppercase">E-mail</label>
+                  <input type="email" name="email" class="form-control form-control-lg bg-light border-0"
+                    placeholder="seu@email.com" required>
+                </div>
+                <div class="col-12">
+                  <label class="form-label text-muted fw-bold small text-uppercase">Telefone</label>
+                  <input type="tel" name="telefone" class="form-control form-control-lg bg-light border-0"
+                    placeholder="(00) 00000-0000">
+                </div>
+                <div class="col-12">
+                  <label class="form-label text-muted fw-bold small text-uppercase">Assunto</label>
+                  <select name="assunto" class="form-control form-control-lg bg-light border-0">
+                    <option value="">Selecione o assunto...</option>
+                    <option>Agendamento de procedimento</option>
+                    <option>Informações sobre tratamentos</option>
+                    <option>Preços e pacotes</option>
+                    <option>Dúvidas gerais</option>
+                    <option>Outro</option>
+                  </select>
+                </div>
+                <div class="col-12">
+                  <label class="form-label text-muted fw-bold small text-uppercase">Mensagem</label>
+                  <textarea name="mensagem" class="form-control bg-light border-0" rows="5"
+                    placeholder="Escreva sua mensagem aqui..." required></textarea>
+                </div>
+                <div class="col-12 mt-3">
+                  <button type="submit" class="btn btn-primary w-100 rounded-pill py-3 fw-bold text-uppercase shadow-sm"
+                    style="letter-spacing:1px;">
+                    <i class="fas fa-paper-plane me-2"></i>Enviar Mensagem
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+{% endblock %}

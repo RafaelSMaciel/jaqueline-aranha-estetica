@@ -1,0 +1,210 @@
+{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block titulo %}Meu Painel | Shiva Zen{% endblock %}
+
+{% block conteudo %}
+<link rel="stylesheet" href="{% static 'css/painel.css' %}">
+
+<div style="min-height: 80vh; background: var(--background-light); padding: 3rem 0;">
+    <div class="container">
+
+        <!-- Welcome Banner -->
+        <div class="card border-0 rounded-4 shadow-sm mb-5 overflow-hidden"
+            style="background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-color) 100%);">
+            <div
+                class="card-body p-4 p-md-5 text-white d-flex align-items-center justify-content-between flex-wrap gap-4">
+                <div>
+                    <p class="text-uppercase fw-bold mb-1 opacity-75" style="letter-spacing:2px;font-size:0.75rem;">Área
+                        do Cliente</p>
+                    <h1 class="fw-bold mb-1" style="font-family: 'Playfair Display', serif; font-size: 2.2rem;">Olá, {{
+                        request.user.first_name|default:"Cliente" }}! 👋</h1>
+                    <p class="mb-0 opacity-75">Bem-vindo(a) de volta ao seu espaço zen.</p>
+                </div>
+                <a href="{% url 'shivazen:agendamento_publico' %}"
+                    class="btn rounded-pill px-4 py-2 fw-bold text-uppercase flex-shrink-0"
+                    style="background: rgba(255,255,255,0.2); color: white; border: 2px solid rgba(255,255,255,0.4); letter-spacing: 1px; font-size:0.82rem;">
+                    <i class="fas fa-plus me-2"></i>Novo Agendamento
+                </a>
+            </div>
+        </div>
+
+        <!-- Stats Row -->
+        <div class="row g-4 mb-5">
+            <div class="col-md-4">
+                <div class="stat-card card border-0 rounded-4 shadow-sm text-center p-4">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3"
+                        style="width:56px;height:56px;background:rgba(76,175,80,0.1);">
+                        <i class="fas fa-calendar-check fa-lg" style="color:#4CAF50;"></i>
+                    </div>
+                    <h2 class="fw-bold mb-1" style="font-size:2.5rem;">{{ total_agendamentos|default:0 }}</h2>
+                    <p class="text-muted mb-0 small">Total de Agendamentos</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card card border-0 rounded-4 shadow-sm text-center p-4">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3"
+                        style="width:56px;height:56px;background:rgba(212,175,55,0.15);">
+                        <i class="fas fa-clock fa-lg" style="color:var(--primary-dark);"></i>
+                    </div>
+                    <h2 class="fw-bold mb-1" style="font-size:2.5rem;">{{ agendamentos_proximos|length|default:0 }}</h2>
+                    <p class="text-muted mb-0 small">Próximos Agendamentos</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card card border-0 rounded-4 shadow-sm text-center p-4">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3"
+                        style="width:56px;height:56px;background:rgba(33,150,243,0.1);">
+                        <i class="fas fa-check-circle fa-lg" style="color:#2196F3;"></i>
+                    </div>
+                    <h2 class="fw-bold mb-1" style="font-size:2.5rem;">{{ agendamentos_realizados|default:0 }}</h2>
+                    <p class="text-muted mb-0 small">Realizados</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="row g-4 mb-5">
+            <div class="col-md-6">
+                <a href="{% url 'shivazen:agendamento_publico' %}"
+                    class="card text-decoration-none h-100 border-0 shadow-hover transition-base rounded-4 glass-card">
+                    <div class="card-body d-flex align-items-center p-4 gap-4">
+                        <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+                            style="width:56px;height:56px;background:var(--primary-light);">
+                            <i class="fas fa-calendar-plus fa-lg" style="color:var(--primary-dark);"></i>
+                        </div>
+                        <div>
+                            <h5 class="fw-bold mb-1">Agendar Procedimento</h5>
+                            <p class="text-muted mb-0 small">Escolha o horário ideal para você</p>
+                        </div>
+                        <i class="fas fa-chevron-right ms-auto text-muted"></i>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-6">
+                <a href="{% url 'shivazen:perfil' %}"
+                    class="card text-decoration-none h-100 border-0 shadow-hover transition-base rounded-4 glass-card">
+                    <div class="card-body d-flex align-items-center p-4 gap-4">
+                        <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+                            style="width:56px;height:56px;background:var(--primary-light);">
+                            <i class="fas fa-user-circle fa-lg" style="color:var(--primary-dark);"></i>
+                        </div>
+                        <div>
+                            <h5 class="fw-bold mb-1">Meu Perfil</h5>
+                            <p class="text-muted mb-0 small">Visualize e edite suas informações</p>
+                        </div>
+                        <i class="fas fa-chevron-right ms-auto text-muted"></i>
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        <!-- Próximos Agendamentos -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-body p-4">
+                <div class="d-flex align-items-center justify-content-between mb-4">
+                    <h4 class="fw-bold mb-0" style="font-family:'Playfair Display',serif;">
+                        <i class="fas fa-calendar-alt me-2" style="color:var(--primary-color);"></i>Próximos
+                        Agendamentos
+                    </h4>
+                </div>
+
+                {% if agendamentos_proximos %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead style="background:var(--background-light);">
+                            <tr>
+                                <th class="text-uppercase small text-muted fw-bold py-3" style="letter-spacing:1px;">
+                                    Data/Hora</th>
+                                <th class="text-uppercase small text-muted fw-bold">Procedimento</th>
+                                <th class="text-uppercase small text-muted fw-bold">Profissional</th>
+                                <th class="text-uppercase small text-muted fw-bold">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for agend in agendamentos_proximos %}
+                            <tr>
+                                <td>
+                                    <strong>{{ agend.data_hora_inicio|date:"d/m/Y" }}</strong><br>
+                                    <small class="text-muted">{{ agend.data_hora_inicio|time:"H:i" }}</small>
+                                </td>
+                                <td>{{ agend.procedimento.nome }}</td>
+                                <td>{{ agend.profissional.nome }}</td>
+                                <td>
+                                    {% if agend.status_atendimento == 'AGENDADO' %}
+                                    <span class="badge"
+                                        style="background:rgba(33,150,243,0.1);color:#1565C0;">Agendado</span>
+                                    {% elif agend.status_atendimento == 'CONFIRMADO' %}
+                                    <span class="badge"
+                                        style="background:rgba(76,175,80,0.1);color:#2E7D32;">Confirmado</span>
+                                    {% else %}
+                                    <span class="badge" style="background:rgba(158,158,158,0.1);color:#424242;">{{
+                                        agend.status_atendimento }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3"
+                        style="width:70px;height:70px;background:var(--background-light);">
+                        <i class="fas fa-calendar-times fa-2x text-muted"></i>
+                    </div>
+                    <h5 class="fw-bold mb-1">Nenhum agendamento próximo</h5>
+                    <p class="text-muted mb-4">Que tal agendar seu próximo cuidado?</p>
+                    <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-primary rounded-pill px-5">
+                        <i class="fas fa-plus me-2"></i>Agendar Agora
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Histórico Recente -->
+        {% if agendamentos %}
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-4">
+                <h4 class="fw-bold mb-4" style="font-family:'Playfair Display',serif;">
+                    <i class="fas fa-history me-2" style="color:var(--primary-color);"></i>Histórico Recente
+                </h4>
+                <div class="list-group list-group-flush">
+                    {% for agend in agendamentos %}
+                    <div class="list-group-item px-0 py-3 border-bottom">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="fw-bold mb-1">{{ agend.procedimento.nome }}</h6>
+                                <small class="text-muted">
+                                    {{ agend.data_hora_inicio|date:"d/m/Y" }} às {{ agend.data_hora_inicio|time:"H:i" }}
+                                    — {{ agend.profissional.nome }}
+                                </small>
+                            </div>
+                            <div>
+                                {% if agend.status_atendimento == 'REALIZADO' %}
+                                <span class="badge"
+                                    style="background:rgba(158,158,158,0.1);color:#424242;">Realizado</span>
+                                {% elif agend.status_atendimento == 'CANCELADO' %}
+                                <span class="badge"
+                                    style="background:rgba(244,67,54,0.1);color:#C62828;">Cancelado</span>
+                                {% else %}
+                                <span class="badge" style="background:rgba(33,150,243,0.1);color:#1565C0;">{{
+                                    agend.status_atendimento }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="text-center mt-4">
+                    <a href="{% url 'shivazen:perfil' %}" class="btn btn-outline-primary rounded-pill px-4">Ver
+                        Histórico Completo</a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,246 @@
+{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block conteudo %}
+<!-- Botão Flutuante WhatsApp -->
+<a href="https://wa.me/5511912345678?text=Olá!%20Gostaria%20de%20agendar%20um%20horário%20na%20Shiva%20Zen"
+  target="_blank" rel="noopener noreferrer" class="whatsapp-float" aria-label="Fale conosco no WhatsApp"
+  title="Fale conosco no WhatsApp">
+  <i class="fab fa-whatsapp" aria-hidden="true"></i>
+</a>
+
+<!-- Hero Section -->
+<section class="hero-section position-relative text-white text-center d-flex align-items-center justify-content-center"
+  style="background: url({% static 'assents/hero-soap.jpg' %}) no-repeat center center; background-size: cover; min-height: 85vh;">
+  <div class="overlay"
+    style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(44, 44, 44, 0.6);"></div>
+  <div class="container position-relative z-index-1 fade-in">
+    <img src="{% static 'assents/LogoCompletaSemFundo.png' %}" alt="Shiva Zen Logo" class="img-fluid mb-4"
+      style="max-width: 350px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));">
+    <h1 class="display-3 fw-bold mb-3" style="font-family: 'Playfair Display', serif; letter-spacing: 1px;">Bem-vindo à
+      Shiva Zen</h1>
+    <p class="lead mb-5 fs-4" style="font-weight: 300;">Estética Avançada & Bem-Estar para o seu corpo e alma.</p>
+    <div class="d-flex justify-content-center gap-3">
+      <a href="{% url 'shivazen:agendamento_publico' %}"
+        class="btn btn-primary btn-lg px-5 py-3 rounded-pill shadow-lg text-uppercase fw-bold"
+        style="letter-spacing: 1px;">Agende seu Horário</a>
+      <a href="#servicos" class="btn btn-outline-light btn-lg px-5 py-3 rounded-pill text-uppercase fw-bold"
+        style="letter-spacing: 1px;">Nossos Serviços</a>
+    </div>
+  </div>
+</section>
+
+<!-- Serviços Destaque -->
+<section id="servicos" class="py-5 section-spacing" aria-labelledby="servicos-title"
+  style="background-color: var(--background-light);">
+  <div class="container">
+    <div class="text-center mb-5">
+      <h2 id="servicos-title" class="display-5 fw-bold text-dark">Nossos Tratamentos Especiais</h2>
+      <div class="divider-custom mx-auto mb-3"
+        style="width: 60px; height: 3px; background-color: var(--primary-color);"></div>
+      <p class="lead text-muted">Descubra os serviços que vão transformar sua autoestima</p>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-md-4">
+        <div class="card h-100 text-center border-0 shadow-hover transition-base glass-card">
+          <div class="card-body p-5">
+            <div class="mb-4 icon-circle rounded-circle mx-auto d-flex align-items-center justify-content-center"
+              style="width: 80px; height: 80px; background-color: var(--primary-light);">
+              <i class="fas fa-spa fa-2x text-primary"></i>
+            </div>
+            <h3 class="card-title h4 mb-3">Tratamentos Faciais</h3>
+            <p class="card-text text-muted mb-4">Técnicas avançadas para rejuvenescimento e cuidados com a pele facial.
+            </p>
+            <a href="{% url 'shivazen:servicos_faciais' %}" class="btn btn-outline rounded-pill px-4">Saiba
+              mais</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="card h-100 text-center border-0 shadow-hover transition-base glass-card">
+          <div class="card-body p-5">
+            <div class="mb-4 icon-circle rounded-circle mx-auto d-flex align-items-center justify-content-center"
+              style="width: 80px; height: 80px; background-color: var(--primary-light);">
+              <i class="fas fa-heartbeat fa-2x text-primary"></i>
+            </div>
+            <h3 class="card-title h4 mb-3">Tratamentos Corporais</h3>
+            <p class="card-text text-muted mb-4">Procedimentos para modelagem corporal e tratamento de estrias e
+              celulite.</p>
+            <a href="{% url 'shivazen:servicos_corporais' %}" class="btn btn-outline rounded-pill px-4">Saiba
+              mais</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="card h-100 text-center border-0 shadow-hover transition-base glass-card">
+          <div class="card-body p-5">
+            <div class="mb-4 icon-circle rounded-circle mx-auto d-flex align-items-center justify-content-center"
+              style="width: 80px; height: 80px; background-color: var(--primary-light);">
+              <i class="fas fa-leaf fa-2x text-primary"></i>
+            </div>
+            <h3 class="card-title h4 mb-3">Produtos Naturais</h3>
+            <p class="card-text text-muted mb-4">Linha completa de produtos artesanais para cuidados diários.</p>
+            <a href="{% url 'shivazen:servicos_produtos' %}" class="btn btn-outline rounded-pill px-4">Saiba
+              mais</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Sobre Nós -->
+<section class="py-5 bg-white" aria-labelledby="sobre-title">
+  <div class="container">
+    <div class="row align-items-center g-5">
+      <div class="col-lg-6 mb-4 mb-lg-0">
+        <div class="position-relative">
+          <div class="position-absolute top-0 start-0 w-100 h-100 bg-primary rounded"
+            style="transform: translate(-15px, -15px); z-index: 0; opacity: 0.1;"></div>
+          <img src="{% static 'assents/tratamento1.jpg' %}" alt="Clínica Shiva Zen"
+            class="img-fluid rounded shadow-lg position-relative z-index-1" loading="lazy">
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <h2 id="sobre-title" class="display-5 fw-bold mb-4">Clínica de Estética Avançada</h2>
+        <p class="text-muted lead mb-4">
+          Somos especialistas e oferecemos mais de 20 tratamentos faciais e corporais, como bioestimuladores de
+          colágeno, preenchimento labial e facial, limpezas, massagens e muito mais.
+        </p>
+        <ul class="list-unstyled mt-4 mb-5">
+          <li class="d-flex align-items-center mb-3">
+            <i class="fas fa-check-circle text-primary me-3 fa-lg"></i>
+            <span class="fs-5">Profissionais qualificados</span>
+          </li>
+          <li class="d-flex align-items-center mb-3">
+            <i class="fas fa-check-circle text-primary me-3 fa-lg"></i>
+            <span class="fs-5">Tecnologia de ponta</span>
+          </li>
+          <li class="d-flex align-items-center">
+            <i class="fas fa-check-circle text-primary me-3 fa-lg"></i>
+            <span class="fs-5">Ambiente acolhedor</span>
+          </li>
+        </ul>
+        <a href="{% url 'shivazen:quemsomos' %}" class="btn btn-primary btn-lg rounded-pill px-5">Conheça nossa
+          equipe</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Depoimentos -->
+<section class="py-5 bg-light" aria-labelledby="depoimentos-title">
+  <div class="container">
+    <div class="text-center mb-5">
+      <h2 id="depoimentos-title" class="display-5 fw-bold">O que dizem nossos clientes</h2>
+      <div class="divider-custom mx-auto mb-3"
+        style="width: 60px; height: 3px; background-color: var(--primary-color);"></div>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-hover transition-base p-4 glass-card">
+          <div class="card-body position-relative">
+            <i class="fas fa-quote-left fa-3x position-absolute top-0 start-0 translate-middle-y ms-3"
+              style="color: var(--primary-light); opacity: 0.3;"></i>
+            <div class="text-warning mb-3" aria-label="5 estrelas">
+              <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i
+                class="fas fa-star"></i><i class="fas fa-star"></i>
+            </div>
+            <p class="card-text fst-italic mb-4">"Resultados incríveis no tratamento facial! Minha pele nunca esteve tão
+              bonita. O atendimento é impecável."</p>
+            <div class="d-flex align-items-center">
+              <div
+                class="bg-primary rounded-circle text-white d-flex align-items-center justify-content-center fw-bold me-3 shadow-sm"
+                style="width: 40px; height: 40px;">AC</div>
+              <div>
+                <h6 class="mb-0 fw-bold">Ana Claudia</h6>
+                <small class="text-muted">Paciente há 2 anos</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-sm p-4">
+          <div class="card-body position-relative">
+            <i class="fas fa-quote-left fa-3x text-light position-absolute top-0 start-0 translate-middle-y ms-3"
+              style="opacity: 0.5;"></i>
+            <div class="text-warning mb-3" aria-label="5 estrelas">
+              <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i
+                class="fas fa-star"></i><i class="fas fa-star"></i>
+            </div>
+            <p class="card-text fst-italic mb-4">"Profissionais extremamente capacitados e atenciosos. O ambiente
+              transmite uma paz incrível."</p>
+            <div class="d-flex align-items-center">
+              <div
+                class="bg-primary rounded-circle text-white d-flex align-items-center justify-content-center fw-bold me-3"
+                style="width: 40px; height: 40px;">RS</div>
+              <div>
+                <h6 class="mb-0 fw-bold">Roberto Santos</h6>
+                <small class="text-muted">Paciente há 1 ano</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-sm p-4">
+          <div class="card-body position-relative">
+            <i class="fas fa-quote-left fa-3x text-light position-absolute top-0 start-0 translate-middle-y ms-3"
+              style="opacity: 0.5;"></i>
+            <div class="text-warning mb-3" aria-label="4.5 estrelas">
+              <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i
+                class="fas fa-star"></i><i class="fas fa-star-half-alt"></i>
+            </div>
+            <p class="card-text fst-italic mb-4">"Os produtos naturais são de altíssima qualidade. Uso diariamente e
+              recomendo a todos!"</p>
+            <div class="d-flex align-items-center">
+              <div
+                class="bg-primary rounded-circle text-white d-flex align-items-center justify-content-center fw-bold me-3"
+                style="width: 40px; height: 40px;">MO</div>
+              <div>
+                <h6 class="mb-0 fw-bold">Mariana Oliveira</h6>
+                <small class="text-muted">Cliente frequente</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA Final -->
+<section class="py-5 bg-primary text-white text-center" aria-labelledby="cta-title">
+  <div class="container">
+    <h2 id="cta-title" class="display-5 fw-bold mb-4">Pronto para sua transformação?</h2>
+    <p class="lead mb-5 opacity-75">Agende sua consulta hoje mesmo e descubra o melhor de você.</p>
+    <div>
+      <a href="{% url 'shivazen:agendamento_publico' %}"
+        class="btn btn-light btn-lg rounded-pill px-5 py-3 text-primary fw-bold shadow-lg me-3">
+        <i class="fas fa-calendar-alt me-2"></i> Agende agora
+      </a>
+      <a href="{% url 'shivazen:agendaContato' %}" class="btn btn-outline-light btn-lg rounded-pill px-5 py-3 fw-bold">
+        <i class="fas fa-phone-alt me-2"></i> Fale conosco
+      </a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .shadow-hover:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 1rem 3rem rgba(0, 0, 0, .175) !important;
+  }
+
+  .transition-base {
+    transition: all 0.3s ease;
+  }
+</style>
+{% endblock %}

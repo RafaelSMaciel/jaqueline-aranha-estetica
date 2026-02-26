@@ -1,0 +1,60 @@
+{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block titulo %}Recuperar Senha | Shiva Zen{% endblock %}
+
+{% block conteudo %}
+<main style="min-height: 80vh; display: flex; align-items: center; background: var(--background-light);">
+  <div class="container py-5">
+    <div class="row justify-content-center">
+      <div class="col-md-8 col-lg-5">
+        <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
+          <div class="card-body p-4 p-md-5">
+            <div class="text-center mb-4">
+              <a href="{% url 'shivazen:inicio' %}">
+                <img src="{% static 'assents/LogoCompletaSemFundo.png' %}" alt="Shiva Zen" class="img-fluid mb-3"
+                  style="max-height: 70px;">
+              </a>
+              <div class="rounded-circle mx-auto d-flex align-items-center justify-content-center mb-3"
+                style="width:60px;height:60px;background:var(--primary-light);">
+                <i class="fas fa-lock-open fa-lg" style="color:var(--primary-dark);"></i>
+              </div>
+              <h2 class="fw-bold mb-1" style="font-family: 'Playfair Display', serif;">Recuperar Senha</h2>
+              <p class="text-muted small">Preencha o campo abaixo e enviaremos as instruções para redefinir sua senha
+                por e-mail.</p>
+            </div>
+
+            {% if messages %}
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} mb-4 border-0 shadow-sm" role="alert">{{ message }}</div>
+            {% endfor %}
+            {% endif %}
+
+            <form method="POST">
+              {% csrf_token %}
+              <div class="mb-4">
+                <label for="login" class="form-label text-muted fw-bold small text-uppercase">E-mail ou CPF</label>
+                <input type="text" id="login" name="login" class="form-control form-control-lg bg-light border-0"
+                  placeholder="Digite seu e-mail ou CPF" required>
+              </div>
+              <div class="d-grid mt-4">
+                <button type="submit" class="btn btn-primary btn-lg rounded-pill fw-bold text-uppercase shadow-sm"
+                  style="letter-spacing:1px;">
+                  <i class="fas fa-paper-plane me-2"></i>Solicitar Código
+                </button>
+              </div>
+            </form>
+
+            <div class="text-center mt-4 pt-3 border-top">
+              <a href="{% url 'shivazen:usuarioLogin' %}" class="text-decoration-none"
+                style="color:var(--primary-dark);">
+                <i class="fas fa-arrow-left me-1"></i>Voltar ao Login
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+{% endblock %}

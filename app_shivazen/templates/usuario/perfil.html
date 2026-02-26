@@ -1,0 +1,195 @@
+{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block conteudo %}
+<link rel="stylesheet" href="{% static 'css/painel.css' %}">
+
+<div class="admin-layout">
+    <!-- Sidebar -->
+    <aside class="admin-sidebar">
+        <div class="sidebar-header">
+            <a href="{% url 'shivazen:inicio' %}">
+                <img src="{% static 'assents/LogoSemFundo.png' %}" alt="Shiva Zen" class="sidebar-logo">
+            </a>
+        </div>
+
+        <nav class="sidebar-nav">
+            <div class="nav-section">
+                <div class="nav-section-title">Menu Principal</div>
+                <a href="{% url 'shivazen:painel' %}" class="nav-item">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{% url 'shivazen:painel_agendamentos' %}" class="nav-item">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>Agendamentos</span>
+                </a>
+                <a href="{% url 'shivazen:painel_clientes' %}" class="nav-item">
+                    <i class="fas fa-users"></i>
+                    <span>Clientes</span>
+                </a>
+                <a href="{% url 'shivazen:painel_profissionais' %}" class="nav-item">
+                    <i class="fas fa-user-md"></i>
+                    <span>Profissionais</span>
+                </a>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-section-title">Configurações</div>
+                <a href="{% url 'shivazen:perfil' %}" class="nav-item active">
+                    <i class="fas fa-user-circle"></i>
+                    <span>Meu Perfil</span>
+                </a>
+                <a href="{% url 'shivazen:usuarioLogout' %}" class="nav-item">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Sair</span>
+                </a>
+            </div>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="admin-main">
+        <div class="admin-header">
+            <h1 class="admin-title">Meu Perfil</h1>
+            <p class="admin-subtitle">Gerencie suas informações pessoais</p>
+        </div>
+
+        <div class="row">
+            <!-- Profile Info -->
+            <div class="col-lg-4 mb-4">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <div class="bg-primary rounded-circle text-white d-inline-flex align-items-center justify-content-center mb-3"
+                            style="width: 100px; height: 100px; font-size: 2.5rem; font-weight: bold;">
+                            {{ cliente.nome_completo|slice:":1"|default:"U" }}
+                        </div>
+                        <h3>{{ cliente.nome_completo|default:request.user.username }}</h3>
+                        <p class="text-muted">{{ request.user.email }}</p>
+                        <hr>
+                        <div class="text-start">
+                            <p class="mb-2"><i class="fas fa-phone text-primary me-2"></i> {{
+                                cliente.telefone|default:"Não informado" }}</p>
+                            <p class="mb-2"><i class="fas fa-id-card text-primary me-2"></i> {{ cliente.cpf|default:"Não
+                                informado" }}</p>
+                            <p class="mb-0"><i class="fas fa-calendar text-primary me-2"></i> Membro desde {{
+                                request.user.date_joined|date:"F Y" }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Edit Form -->
+            <div class="col-lg-8 mb-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h4 class="mb-4">Informações Pessoais</h4>
+
+                        {% if messages %}
+                        {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} mb-3">
+                            {{ message }}
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+
+                        <form method="POST">
+                            {% csrf_token %}
+
+                            <div class="row">
+                                <div class="col-md-12 mb-3">
+                                    <label class="form-label">Nome Completo</label>
+                                    <input type="text" name="nome_completo" class="form-control"
+                                        value="{{ cliente.nome_completo }}" required>
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Email</label>
+                                    <input type="email" class="form-control" value="{{ request.user.email }}" disabled>
+                                    <small class="text-muted">O email não pode ser alterado aqui</small>
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Telefone</label>
+                                    <input type="text" name="telefone" class="form-control"
+                                        value="{{ cliente.telefone }}" placeholder="(11) 99999-9999">
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">CPF</label>
+                                    <input type="text" class="form-control" value="{{ cliente.cpf }}" disabled>
+                                    <small class="text-muted">O CPF não pode ser alterado</small>
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Data de Nascimento</label>
+                                    <input type="date" class="form-control"
+                                        value="{{ cliente.data_nascimento|date:'Y-m-d' }}" disabled>
+                                </div>
+                            </div>
+
+                            <div class="text-end">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Salvar Alterações
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Appointment History -->
+        <div class="data-table-container">
+            <div class="table-header">
+                <h3 class="table-title">Histórico de Agendamentos</h3>
+            </div>
+
+            {% if historico %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Data/Hora</th>
+                        <th>Procedimento</th>
+                        <th>Profissional</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for agend in historico %}
+                    <tr>
+                        <td>
+                            {{ agend.data_hora_inicio|date:"d/m/Y" }}<br>
+                            <small class="text-muted">{{ agend.data_hora_inicio|time:"H:i" }}</small>
+                        </td>
+                        <td>{{ agend.procedimento.nome }}</td>
+                        <td>{{ agend.profissional.nome }}</td>
+                        <td>
+                            {% if agend.status_atendimento == 'AGENDADO' %}
+                            <span class="badge badge-info">Agendado</span>
+                            {% elif agend.status_atendimento == 'CONFIRMADO' %}
+                            <span class="badge badge-success">Confirmado</span>
+                            {% elif agend.status_atendimento == 'REALIZADO' %}
+                            <span class="badge badge-secondary">Realizado</span>
+                            {% elif agend.status_atendimento == 'CANCELADO' %}
+                            <span class="badge badge-danger">Cancelado</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-state-icon"><i class="fas fa-calendar"></i></div>
+                <h3 class="empty-state-title">Nenhum agendamento ainda</h3>
+                <p class="empty-state-text">Você ainda não fez nenhum agendamento.</p>
+                <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Fazer Primeiro Agendamento
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+</div>
+{% endblock %}

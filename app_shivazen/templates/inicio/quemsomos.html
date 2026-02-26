@@ -1,0 +1,217 @@
+{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block titulo %}Quem Somos | Shiva Zen{% endblock %}
+
+{% block conteudo %}
+<!-- Page Hero -->
+<section class="position-relative text-white text-center d-flex align-items-center justify-content-center"
+  style="background: linear-gradient(135deg, #2C2C2C 0%, #5c3d28 100%); min-height: 50vh;">
+  <div class="container position-relative fade-in py-5">
+    <p class="text-uppercase fw-bold mb-3"
+      style="letter-spacing: 3px; color: var(--primary-color); font-size: 0.85rem;">Nossa História</p>
+    <h1 class="display-4 fw-bold mb-3" style="font-family: 'Playfair Display', serif;">Conheça a Shiva Zen</h1>
+    <div class="mx-auto mb-4" style="width: 60px; height: 2px; background: var(--primary-color);"></div>
+    <p class="lead opacity-75 mx-auto" style="max-width: 580px;">Especialistas em estética avançada, unindo ciência e
+      natureza para transformar a sua autoestima.</p>
+  </div>
+</section>
+
+<!-- Nossa Missão -->
+<section class="py-5 bg-white">
+  <div class="container py-4">
+    <div class="row align-items-center g-5">
+      <div class="col-lg-6">
+        <p class="text-uppercase fw-bold mb-2"
+          style="color: var(--primary-color); letter-spacing: 2px; font-size: 0.8rem;">Nossa Missão</p>
+        <h2 class="fw-bold mb-4" style="font-family: 'Playfair Display', serif; font-size: 2.2rem;">Clínica de Estética
+          Avançada</h2>
+        <p class="text-muted lead mb-4">
+          Na Shiva Zen, somos especialistas em tratamentos estéticos faciais e corporais que melhoram sua pele com
+          técnicas avançadas, promovendo luminosidade, firmeza e rejuvenescimento natural.
+        </p>
+        <p class="text-muted mb-5">
+          Nossa clínica foi fundada com a missão de oferecer um ambiente acolhedor, seguro e sofisticado onde cada
+          cliente se sente especial e cuidado. Combinamos os melhores protocolos estéticos com uma abordagem humanizada.
+        </p>
+        <div class="row g-4">
+          <div class="col-6">
+            <div class="d-flex align-items-center">
+              <div class="rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0"
+                style="width:44px;height:44px;background:var(--primary-light);">
+                <i class="fas fa-award" style="color:var(--primary-dark);"></i>
+              </div>
+              <div>
+                <h6 class="fw-bold mb-0">+5 anos</h6>
+                <small class="text-muted">de experiência</small>
+              </div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="d-flex align-items-center">
+              <div class="rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0"
+                style="width:44px;height:44px;background:var(--primary-light);">
+                <i class="fas fa-users" style="color:var(--primary-dark);"></i>
+              </div>
+              <div>
+                <h6 class="fw-bold mb-0">+1.000</h6>
+                <small class="text-muted">clientes atendidos</small>
+              </div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="d-flex align-items-center">
+              <div class="rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0"
+                style="width:44px;height:44px;background:var(--primary-light);">
+                <i class="fas fa-spa" style="color:var(--primary-dark);"></i>
+              </div>
+              <div>
+                <h6 class="fw-bold mb-0">+20</h6>
+                <small class="text-muted">tratamentos</small>
+              </div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="d-flex align-items-center">
+              <div class="rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0"
+                style="width:44px;height:44px;background:var(--primary-light);">
+                <i class="fas fa-star" style="color:var(--primary-dark);"></i>
+              </div>
+              <div>
+                <h6 class="fw-bold mb-0">5 estrelas</h6>
+                <small class="text-muted">avaliação média</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="position-relative">
+          <div class="position-absolute rounded-4"
+            style="width:100%;height:100%;background:var(--primary-light);transform:translate(15px,15px);z-index:0;opacity:0.4;">
+          </div>
+          <img src="{% static 'assents/tratamento1.jpg' %}" alt="Equipe Shiva Zen"
+            class="img-fluid rounded-4 shadow-lg position-relative" style="z-index:1;" loading="lazy">
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Nossos Valores -->
+<section class="py-5" style="background: var(--background-light);">
+  <div class="container py-4">
+    <div class="text-center mb-5">
+      <p class="text-uppercase fw-bold mb-2"
+        style="color: var(--primary-color); letter-spacing: 2px; font-size: 0.8rem;">Nossos Pilares</p>
+      <h2 class="fw-bold" style="font-family: 'Playfair Display', serif;">O que nos diferencia</h2>
+      <div class="mx-auto mt-3" style="width: 50px; height: 2px; background: var(--primary-color);"></div>
+    </div>
+    <div class="row g-4">
+      <div class="col-md-4">
+        <div class="card border-0 glass-card h-100 text-center p-4 shadow-hover transition-base">
+          <div class="mb-4 rounded-circle mx-auto d-flex align-items-center justify-content-center"
+            style="width:70px;height:70px;background:var(--primary-light);">
+            <i class="fas fa-medal" style="color:var(--primary-dark);font-size:1.5rem;"></i>
+          </div>
+          <h4 class="h5 fw-bold mb-2">Excelência</h4>
+          <p class="text-muted small mb-0">Cada procedimento é realizado com rigor técnico, produtos de alta qualidade e
+            protocolos validados cientificamente.</p>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card border-0 glass-card h-100 text-center p-4 shadow-hover transition-base">
+          <div class="mb-4 rounded-circle mx-auto d-flex align-items-center justify-content-center"
+            style="width:70px;height:70px;background:var(--primary-light);">
+            <i class="fas fa-heart" style="color:var(--primary-dark);font-size:1.5rem;"></i>
+          </div>
+          <h4 class="h5 fw-bold mb-2">Cuidado Humanizado</h4>
+          <p class="text-muted small mb-0">Nossa equipe é treinada para oferecer um atendimento empático, atencioso e
+            totalmente personalizado para cada cliente.</p>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card border-0 glass-card h-100 text-center p-4 shadow-hover transition-base">
+          <div class="mb-4 rounded-circle mx-auto d-flex align-items-center justify-content-center"
+            style="width:70px;height:70px;background:var(--primary-light);">
+            <i class="fas fa-shield-alt" style="color:var(--primary-dark);font-size:1.5rem;"></i>
+          </div>
+          <h4 class="h5 fw-bold mb-2">Segurança</h4>
+          <p class="text-muted small mb-0">Todos os procedimentos seguem rígidos protocolos de higiene e biossegurança
+            para garantir sua total tranquilidade.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Nossos Tratamentos -->
+{% if tratamentos_faciais or tratamentos_corporais %}
+<section class="py-5 bg-white">
+  <div class="container py-4">
+    <div class="text-center mb-5">
+      <h2 class="fw-bold" style="font-family: 'Playfair Display', serif;">Nossos Tratamentos</h2>
+      <div class="mx-auto mt-3" style="width: 50px; height: 2px; background: var(--primary-color);"></div>
+    </div>
+
+    {% if tratamentos_faciais %}
+    <h3 class="h5 fw-bold mb-4" style="color: var(--secondary-color);">
+      <i class="fas fa-spa me-2"></i>Tratamentos Faciais
+    </h3>
+    <div class="row g-3 mb-5">
+      {% for t in tratamentos_faciais %}
+      <div class="col-md-6 col-lg-4">
+        <div class="d-flex align-items-start glass-card p-3 rounded-3 border-0 shadow-sm">
+          <div class="rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0"
+            style="width:36px;height:36px;background:var(--primary-light);">
+            <i class="fas fa-check-circle" style="color:var(--primary-dark);font-size:0.8rem;"></i>
+          </div>
+          <div>
+            <h6 class="fw-bold mb-1">{{ t.nome }}</h6>
+            {% if t.descricao %}<p class="text-muted small mb-0">{{ t.descricao }}</p>{% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if tratamentos_corporais %}
+    <h3 class="h5 fw-bold mb-4" style="color: var(--secondary-color);">
+      <i class="fas fa-heartbeat me-2"></i>Tratamentos Corporais
+    </h3>
+    <div class="row g-3">
+      {% for t in tratamentos_corporais %}
+      <div class="col-md-6 col-lg-4">
+        <div class="d-flex align-items-start glass-card p-3 rounded-3 border-0 shadow-sm">
+          <div class="rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0"
+            style="width:36px;height:36px;background:var(--primary-light);">
+            <i class="fas fa-check-circle" style="color:var(--primary-dark);font-size:0.8rem;"></i>
+          </div>
+          <div>
+            <h6 class="fw-bold mb-1">{{ t.nome }}</h6>
+            {% if t.descricao %}<p class="text-muted small mb-0">{{ t.descricao }}</p>{% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+<!-- CTA -->
+<section class="py-5 text-white text-center"
+  style="background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-color) 100%);">
+  <div class="container py-3">
+    <h2 class="fw-bold mb-3" style="font-family: 'Playfair Display', serif;">Pronto para começar sua transformação?</h2>
+    <p class="lead opacity-75 mb-4">Agende agora mesmo e descubra o melhor cuidado para você.</p>
+    <a href="{% url 'shivazen:agendamento_publico' %}"
+      class="btn btn-light px-5 py-3 rounded-pill fw-bold text-uppercase shadow"
+      style="letter-spacing:1px; color: var(--primary-dark);">
+      <i class="fas fa-calendar-alt me-2"></i>Agendar Consulta
+    </a>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends 'estrutura/baserodape.html' %}
+{% load static %}
+
+{% block titulo %}E-mail de Recuperação Enviado | Shiva Zen{% endblock %}
+
+{% block conteudo %}
+  <main class="main" style="min-height: 80vh; display: flex; align-items: center;">
+    <div class="container">
+      <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+          <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="card-body p-5 text-center">
+              <a href="{% url 'shivazen:inicio' %}">
+                <img src="{% static 'assents/LogoCompletaSemFundo.png' %}" alt="Shiva Zen" class="img-fluid mb-4" style="max-height: 80px;">
+              </a>
+              <h2 class="fw-bold mb-3" style="color: var(--earth-dark); font-family: 'Playfair Display', serif;">E-mail Enviado!</h2>
+              
+              <div class="alert alert-success d-flex align-items-center justify-content-center mb-4 border-0" style="background-color: #F8FAF5;">
+                <i class="fas fa-paper-plane fs-3 me-3 text-success"></i>
+                <div class="text-start">
+                  Acabamos de te enviar as instruções.<br>
+                  Verifique sua caixa de entrada (e a pasta de spam).
+                </div>
+              </div>
+
+              <div class="mt-4">
+                <a href="{% url 'shivazen:usuarioLogin' %}" class="btn btn-outline-primary rounded-pill px-4">
+                  Voltar para o Login
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+{% endblock %}

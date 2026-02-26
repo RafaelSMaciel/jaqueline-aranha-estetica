@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+    <title>Shiva Zen - Clínica de Estética Avançada</title>
+     {% load static %} 
+    {% include 'partials/head.html' %}
+</head>
+<body>
+    <main class="main-content">
+        {% block conteudo %}
+        {% endblock %}
+    </main>
+    
+    {% include 'partials/rodape.html' %}
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
+<script>
+  $(document).ready(function(){
+    // Máscaras para os campos
+    $('#cpf').mask('000.000.000-00', {reverse: true});
+    $('#telefone').mask('(00) 00000-0000');
+    
+    // Validação de senha
+    $('#cadastro-form').submit(function(e){
+      if($('#senha').val() !== $('#confirmar-senha').val()) {
+        alert('As senhas não coincidem!');
+        e.preventDefault();
+      } else if ($('#senha').val().length < 8) {
+        alert('A senha deve ter pelo menos 8 caracteres!');
+        e.preventDefault();
+      }
+    });
+    
+    // Validação em tempo real
+    $('#confirmar-senha').on('keyup', function() {
+      if($('#senha').val() !== $(this).val()) {
+        $(this).addClass('is-invalid').removeClass('is-valid');
+      } else {
+        $(this).removeClass('is-invalid').addClass('is-valid');
+      }
+    });
+  });
+</script>
+</body>
+</html>

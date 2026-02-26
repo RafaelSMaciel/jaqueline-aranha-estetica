@@ -1,0 +1,120 @@
+{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block titulo %}Tratamentos Faciais | Shiva Zen{% endblock %}
+
+{% block conteudo %}
+<!-- Page Hero -->
+<section class="position-relative text-white text-center d-flex align-items-center justify-content-center"
+    style="background: linear-gradient(135deg, #2C2C2C 0%, #4a3728 100%); min-height: 45vh;">
+    <div class="container position-relative fade-in">
+        <p class="text-uppercase fw-bold mb-3"
+            style="letter-spacing: 3px; color: var(--primary-color); font-size: 0.85rem;">Shiva Zen</p>
+        <h1 class="display-4 fw-bold mb-3" style="font-family: 'Playfair Display', serif;">Tratamentos Faciais</h1>
+        <div class="mx-auto mb-4" style="width: 60px; height: 2px; background: var(--primary-color);"></div>
+        <p class="lead opacity-75 mx-auto" style="max-width: 560px;">Técnicas avançadas para rejuvenescimento,
+            luminosidade e cuidados com a pele facial.</p>
+    </div>
+</section>
+
+<!-- Tratamentos Grid -->
+<section class="py-5" style="background: var(--background-light);">
+    <div class="container py-4">
+        <div class="row g-4">
+
+            <div class="col-md-6 col-lg-4">
+                <div class="card border-0 glass-card h-100 text-center p-2 shadow-hover transition-base">
+                    <div class="card-body p-4">
+                        <div class="mb-4 rounded-circle mx-auto d-flex align-items-center justify-content-center"
+                            style="width:70px;height:70px;background:var(--primary-light);">
+                            <i class="fas fa-spa" style="color:var(--primary-dark);font-size:1.6rem;"></i>
+                        </div>
+                        <h3 class="h5 fw-bold mb-2">Limpeza de Pele Profunda</h3>
+                        <p class="text-muted small">Remoção de impurezas, cravos e células mortas com técnicas
+                            especializadas para peles de todos os tipos.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-lg-4">
+                <div class="card border-0 glass-card h-100 text-center p-2 shadow-hover transition-base">
+                    <div class="card-body p-4">
+                        <div class="mb-4 rounded-circle mx-auto d-flex align-items-center justify-content-center"
+                            style="width:70px;height:70px;background:var(--primary-light);">
+                            <i class="fas fa-magic" style="color:var(--primary-dark);font-size:1.6rem;"></i>
+                        </div>
+                        <h3 class="h5 fw-bold mb-2">Preenchimento Labial e Facial</h3>
+                        <p class="text-muted small">Resultados naturais e duradouros com ácido hialurônico de alta
+                            qualidade, aplicado por profissionais certificados.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-lg-4">
+                <div class="card border-0 glass-card h-100 text-center p-2 shadow-hover transition-base">
+                    <div class="card-body p-4">
+                        <div class="mb-4 rounded-circle mx-auto d-flex align-items-center justify-content-center"
+                            style="width:70px;height:70px;background:var(--primary-light);">
+                            <i class="fas fa-leaf" style="color:var(--primary-dark);font-size:1.6rem;"></i>
+                        </div>
+                        <h3 class="h5 fw-bold mb-2">Bioestimulador de Colágeno</h3>
+                        <p class="text-muted small">Estímulo natural da produção de colágeno para pele mais firme, jovem
+                            e luminosa com efeitos progressivos.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-lg-4">
+                <div class="card border-0 glass-card h-100 text-center p-2 shadow-hover transition-base">
+                    <div class="card-body p-4">
+                        <div class="mb-4 rounded-circle mx-auto d-flex align-items-center justify-content-center"
+                            style="width:70px;height:70px;background:var(--primary-light);">
+                            <i class="fas fa-star" style="color:var(--primary-dark);font-size:1.6rem;"></i>
+                        </div>
+                        <h3 class="h5 fw-bold mb-2">Peelings Químicos</h3>
+                        <p class="text-muted small">Renovação celular intensa para eliminar manchas, cicatrizes de acne
+                            e linhas de expressão.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-lg-4">
+                <div class="card border-0 glass-card h-100 text-center p-2 shadow-hover transition-base">
+                    <div class="card-body p-4">
+                        <div class="mb-4 rounded-circle mx-auto d-flex align-items-center justify-content-center"
+                            style="width:70px;height:70px;background:var(--primary-light);">
+                            <i class="fas fa-sun" style="color:var(--primary-dark);font-size:1.6rem;"></i>
+                        </div>
+                        <h3 class="h5 fw-bold mb-2">Fototerapia LED</h3>
+                        <p class="text-muted small">Terapia de luz para tratar acne, reduzir inflamações e estimular a
+                            produção de colágeno de forma não invasiva.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-lg-4">
+                <div class="card border-0 glass-card h-100 text-center p-2 shadow-hover transition-base">
+                    <div class="card-body p-4">
+                        <div class="mb-4 rounded-circle mx-auto d-flex align-items-center justify-content-center"
+                            style="width:70px;height:70px;background:var(--primary-light);">
+                            <i class="fas fa-eye" style="color:var(--primary-dark);font-size:1.6rem;"></i>
+                        </div>
+                        <h3 class="h5 fw-bold mb-2">Harmonização Facial</h3>
+                        <p class="text-muted small">Conjunto de procedimentos para equilibrar e realçar as
+                            características faciais com resultados naturais e harmoniosos.</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <!-- CTA -->
+        <div class="text-center mt-5 pt-3">
+            <a href="{% url 'shivazen:agendamento_publico' %}"
+                class="btn btn-primary rounded-pill px-5 py-3 fw-bold text-uppercase shadow-sm"
+                style="letter-spacing:1px;">
+                <i class="fas fa-calendar-alt me-2"></i>Agende sua Consulta
+            </a>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,163 @@
+{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block conteudo %}
+<link rel="stylesheet" href="{% static 'css/painel.css' %}">
+
+<div class="admin-layout">
+    <!-- Sidebar -->
+    <aside class="admin-sidebar">
+        <div class="sidebar-header">
+            <a href="{% url 'shivazen:inicio' %}">
+                <img src="{% static 'assents/LogoSemFundo.png' %}" alt="Shiva Zen" class="sidebar-logo">
+            </a>
+        </div>
+
+        <nav class="sidebar-nav">
+            <div class="nav-section">
+                <div class="nav-section-title">Menu Principal</div>
+                <a href="{% url 'shivazen:painel' %}" class="nav-item">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{% url 'shivazen:painel_agendamentos' %}" class="nav-item">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>Agendamentos</span>
+                </a>
+                <a href="{% url 'shivazen:painel_clientes' %}" class="nav-item active">
+                    <i class="fas fa-users"></i>
+                    <span>Clientes</span>
+                </a>
+                <a href="{% url 'shivazen:painel_profissionais' %}" class="nav-item">
+                    <i class="fas fa-user-md"></i>
+                    <span>Profissionais</span>
+                </a>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-section-title">Configurações</div>
+                <a href="{% url 'shivazen:perfil' %}" class="nav-item">
+                    <i class="fas fa-user-circle"></i>
+                    <span>Meu Perfil</span>
+                </a>
+                <a href="{% url 'shivazen:usuarioLogout' %}" class="nav-item">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Sair</span>
+                </a>
+            </div>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="admin-main">
+        <div class="admin-header">
+            <h1 class="admin-title">Gerenciar Clientes</h1>
+            <p class="admin-subtitle">Visualize e gerencie todos os clientes</p>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <form method="GET" class="row g-3">
+                    <div class="col-md-10">
+                        <div class="search-bar">
+                            <i class="fas fa-search search-icon"></i>
+                            <input type="text" name="search" class="search-input"
+                                placeholder="Buscar por nome, CPF, email ou telefone..." value="{{ search }}">
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-search"></i> Buscar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Clientes Table -->
+        <div class="data-table-container">
+            <div class="table-header">
+                <h3 class="table-title">Clientes ({{ clientes|length }})</h3>
+                <div class="table-actions">
+                    <a href="{% url 'shivazen:usuarioCadastro' %}" class="btn btn-primary">
+                        <i class="fas fa-user-plus"></i> Novo Cliente
+                    </a>
+                </div>
+            </div>
+
+            {% if clientes %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nome</th>
+                        <th>Contato</th>
+                        <th>CPF</th>
+                        <th>Data Nascimento</th>
+                        <th>Cadastro</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cliente in clientes %}
+                    <tr>
+                        <td><strong>#{{ cliente.id_cliente }}</strong></td>
+                        <td>
+                            <strong>{{ cliente.nome_completo }}</strong>
+                        </td>
+                        <td>
+                            {% if cliente.telefone %}<i class="fas fa-phone text-muted"></i> {{ cliente.telefone
+                            }}<br>{% endif %}
+                            {% if cliente.email %}<i class="fas fa-envelope text-muted"></i> {{ cliente.email }}{% endif
+                            %}
+                        </td>
+                        <td>{{ cliente.cpf|default:"—" }}</td>
+                        <td>
+                            {% if cliente.data_nascimento %}
+                            {{ cliente.data_nascimento|date:"d/m/Y" }}
+                            {% else %}
+                            —
+                            {% endif %}
+                        </td>
+                        <td>{{ cliente.data_cadastro|date:"d/m/Y" }}</td>
+                        <td>
+                            {% if cliente.ativo %}
+                            <span class="badge badge-success">Ativo</span>
+                            {% else %}
+                            <span class="badge badge-danger">Inativo</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button class="btn-icon" title="Editar">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn-icon" title="Histórico">
+                                <i class="fas fa-history"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-state-icon"><i class="fas fa-users"></i></div>
+                <h3 class="empty-state-title">Nenhum cliente encontrado</h3>
+                <p class="empty-state-text">
+                    {% if search %}
+                    Não há clientes que correspondam à sua busca.
+                    {% else %}
+                    Não há clientes cadastrados no sistema.
+                    {% endif %}
+                </p>
+                <a href="{% url 'shivazen:usuarioCadastro' %}" class="btn btn-primary">
+                    <i class="fas fa-user-plus"></i> Cadastrar Novo Cliente
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+</div>
+{% endblock %}

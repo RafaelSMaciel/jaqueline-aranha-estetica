@@ -1,0 +1,72 @@
+{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block conteudo %}
+<main class="main" style="min-height: 80vh; display: flex; align-items: center;">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-5">
+                <div class="card border-0 shadow-lg rounded-4 overflow-hidden my-5">
+                    <div class="card-body p-4 p-md-5">
+                        <div class="text-center mb-4">
+                            <a href="{% url 'shivazen:inicio' %}">
+                                <img src="{% static 'assents/LogoCompletaSemFundo.png' %}" alt="Shiva Zen"
+                                    class="img-fluid mb-3" style="max-height: 70px;">
+                            </a>
+                            <h2 class="fw-bold mb-1"
+                                style="color: var(--earth-dark); font-family: 'Playfair Display', serif;">Acesse sua
+                                conta</h2>
+                            <p class="text-muted small">Bem-vindo de volta ao seu espaço zen</p>
+                        </div>
+
+                        <div class="login-body">
+                            {% if messages %}
+                            {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} mb-4 border-0 shadow-sm" role="alert">
+                                {{ message }}
+                            </div>
+                            {% endfor %}
+                            {% endif %}
+
+                            <form id="login-form" method="POST" action="{% url 'shivazen:usuarioLogin' %}">
+                                {% csrf_token %}
+                                <div class="mb-4">
+                                    <label for="login" class="form-label text-muted fw-bold small text-uppercase">E-mail
+                                        ou CPF</label>
+                                    <input type="text" id="login" name="login"
+                                        class="form-control form-control-lg bg-light border-0"
+                                        placeholder="Digite seu e-mail ou CPF" required>
+                                </div>
+                                <div class="mb-4">
+                                    <label for="senha"
+                                        class="form-label text-muted fw-bold small text-uppercase">Senha</label>
+                                    <input type="password" id="senha" name="senha"
+                                        class="form-control form-control-lg bg-light border-0"
+                                        placeholder="Digite sua senha" required>
+                                    <div class="text-end mt-2">
+                                        <a href="{% url 'shivazen:password_reset' %}"
+                                            class="text-decoration-none fw-bold"
+                                            style="color: var(--primary-color); font-size: 0.85rem;">Esqueceu sua
+                                            senha?</a>
+                                    </div>
+                                </div>
+                                <div class="d-grid gap-3 mt-5">
+                                    <button type="submit"
+                                        class="btn btn-primary btn-lg rounded-pill fw-bold text-uppercase shadow-sm"
+                                        style="letter-spacing: 1px;">Entrar</button>
+                                </div>
+                            </form>
+
+                            <div class="text-center mt-4 pt-3 border-top">
+                                <p class="text-muted mb-0">Ainda não tem conta? <a
+                                        href="{% url 'shivazen:usuarioCadastro' %}" class="text-decoration-none fw-bold"
+                                        style="color: var(--primary-dark);">Cadastre-se</a></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}

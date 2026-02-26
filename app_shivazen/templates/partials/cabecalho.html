@@ -1,0 +1,71 @@
+{% load static %}
+<header class="header-container fixed-top glass-card border-0 transition-base" style="border-radius: 0 0 20px 20px;"
+    role="banner">
+    <div class="container d-flex align-items-center justify-content-between py-2">
+        <div class="logo">
+            <a href="{% url 'shivazen:inicio' %}" aria-label="Página inicial Shiva Zen">
+                <img src="{% static 'assents/LogoSemFundo.png' %}" alt="Logo Shiva Zen" class="img-fluid header-logo">
+            </a>
+        </div>
+
+        <nav class="d-none d-md-flex align-items-center" aria-label="Navegação principal">
+            <ul class="navbar-nav d-flex flex-row align-items-center gap-4 mb-0">
+                {% if request.user.is_authenticated %}
+                <li class="nav-item">
+                    <a class="nav-link text-dark fw-bold" href="{% url 'shivazen:painel_redirect' %}"
+                        aria-label="Acessar meu painel" style="font-size: 0.9rem;">
+                        <i class="fas fa-user-circle me-2"></i>{{ request.user.first_name|default:"Meu Painel" }}
+                    </a>
+                </li>
+                <li class="nav-item ms-2">
+                    <a class="btn btn-outline-primary btn-sm rounded-pill px-3"
+                        href="{% url 'shivazen:usuarioLogout' %}" title="Sair" aria-label="Sair da conta">
+                        <i class="fas fa-sign-out-alt me-1" aria-hidden="true"></i> Sair
+                    </a>
+                </li>
+                {% else %}
+                <li class="nav-item">
+                    <a class="btn btn-primary btn-sm rounded-pill px-4 shadow-sm"
+                        href="{% url 'shivazen:usuarioLogin' %}" title="Login" aria-label="Fazer login">
+                        <i class="fas fa-user-circle me-2" aria-hidden="true"></i> LOGIN
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+
+        <button class="navbar-toggler d-md-none p-2 border-0 text-primary" type="button" data-bs-toggle="collapse"
+            data-bs-target="#mobileMenu" aria-controls="mobileMenu" aria-expanded="false"
+            aria-label="Toggle navigation menu">
+            <i class="fas fa-bars fs-3" aria-hidden="true"></i>
+        </button>
+    </div>
+
+    <div class="collapse navbar-collapse d-md-none mobile-menu-container bg-white border-top" id="mobileMenu">
+        <nav aria-label="Menu mobile" class="container py-4">
+            <ul class="navbar-nav d-flex flex-column gap-3">
+                {% if request.user.is_authenticated %}
+                <li class="nav-item">
+                    <span class="d-block text-muted mb-2">Bem-vindo, {{ request.user.first_name }}</span>
+                    <a class="nav-link fw-bold text-dark" href="{% url 'shivazen:painel_redirect' %}"
+                        aria-label="Acessar meu painel">Meu Painel</a>
+                </li>
+                <li class="nav-item mt-3">
+                    <a class="btn btn-outline-danger w-100 rounded-pill" href="{% url 'shivazen:usuarioLogout' %}"
+                        aria-label="Sair da conta">
+                        <i class="fas fa-sign-out-alt me-2" aria-hidden="true"></i> SAIR
+                    </a>
+                </li>
+                {% else %}
+                <li class="nav-item">
+                    <a class="btn btn-primary w-100 rounded-pill" href="{% url 'shivazen:usuarioLogin' %}"
+                        aria-label="Fazer login">
+                        <i class="fas fa-user-circle me-2" aria-hidden="true"></i> LOGIN
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+</header>
+<div class="header-spacer" style="height: 80px;" aria-hidden="true"></div>

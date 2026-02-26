@@ -1,0 +1,293 @@
+{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block conteudo %}
+<div class="booking-section py-5" style="background-color: var(--background-light);">
+  <div class="container">
+    <div class="text-center mb-5 fade-in">
+      <h2 class="display-4 mb-3" style="font-family: 'Playfair Display', serif; color: var(--primary-dark);">Agende seu
+        Momento</h2>
+      <p class="lead text-muted">Escolha o tratamento ideal para você e reserve seu horário.</p>
+      <div class="divider-custom mx-auto" style="width: 60px; height: 3px; background-color: var(--primary-color);">
+      </div>
+    </div>
+
+    <div class="row justify-content-center">
+      <div class="col-lg-10">
+        <form id="agendamento-form" method="POST" action="{% url 'shivazen:agendamento_publico' %}">
+          {% csrf_token %}
+          {% if messages %}
+          {% for message in messages %}
+          <div class="alert alert-{{ message.tags }} mb-4 shadow-sm border-0" role="alert">
+            <i class="fas fa-info-circle me-2"></i> {{ message }}
+          </div>
+          {% endfor %}
+          {% endif %}
+
+          <!-- Stepper (Visual) -->
+          <div class="position-relative mb-5 d-none d-md-block">
+            <div class="progress" style="height: 2px;">
+              <div class="progress-bar bg-primary" role="progressbar" style="width: 0%;" id="progress-bar"></div>
+            </div>
+            <div class="d-flex justify-content-between position-absolute top-0 w-100"
+              style="transform: translateY(-50%);">
+              <div class="step-indicator active" id="step-1-indicator"><i class="fas fa-spa"></i></div>
+              <div class="step-indicator" id="step-2-indicator"><i class="fas fa-calendar-alt"></i></div>
+              <div class="step-indicator" id="step-3-indicator"><i class="fas fa-clock"></i></div>
+            </div>
+          </div>
+
+          <!-- Passo 1: Escolher o Procedimento -->
+          <div id="step-1" class="booking-step fade-in">
+            <h3 class="h4 mb-4 text-center text-primary-dark">1. Qual experiência você deseja?</h3>
+            <div class="row g-4 justify-content-center">
+              {% for proc in procedimentos %}
+              <div class="col-md-6 col-lg-4">
+                <label class="service-card-radio w-100">
+                  <input type="radio" name="procedimento" value="{{ proc.id_procedimento }}" class="d-none" required>
+                  <div class="card h-100 border-0 shadow-sm service-card-inner">
+                    <div class="card-body text-center p-4">
+                      <div class="icon-wrapper mb-3">
+                        <i class="fas fa-spa fa-2x text-primary"></i>
+                      </div>
+                      <h5 class="card-title fw-bold mb-2">{{ proc.nome }}</h5>
+                      <p class="card-text text-muted small">{{ proc.descricao|default:"Um tratamento especial para
+                        você."|truncatechars:80 }}</p>
+                      <div class="selected-overlay">
+                        <i class="fas fa-check-circle fa-3x text-white"></i>
+                      </div>
+                    </div>
+                  </div>
+                </label>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- Passo 2: Escolher a Data -->
+          <div id="step-2" class="booking-step fade-in mt-5" style="display: none;">
+            <h3 class="h4 mb-4 text-center text-primary-dark">2. Escolha a melhor data</h3>
+            <div class="card border-0 shadow-sm p-4 mx-auto" style="max-width: 500px;">
+              <div class="form-group">
+                <label for="select-data" class="form-label text-muted">Data do Agendamento</label>
+                <input type="date" id="select-data" name="data" class="form-control form-control-lg border-0 bg-light"
+                  required>
+              </div>
+            </div>
+          </div>
+
+          <!-- Passo 3: Escolher o Horário -->
+          <div id="step-3" class="booking-step fade-in mt-5" style="display: none;">
+            <h3 class="h4 mb-4 text-center text-primary-dark">3. Selecione o horário</h3>
+            <div class="card border-0 shadow-sm p-4">
+              <div id="time-grid" class="d-flex flex-wrap justify-content-center gap-3">
+                <p class="text-muted">Selecione uma data para ver os horários.</p>
+              </div>
+            </div>
+          </div>
+
+          <input type="hidden" id="horario_selecionado" name="horario_selecionado">
+
+          <div class="text-center mt-5 action-buttons">
+            <button type="button" id="btn-voltar" class="btn btn-outline-secondary btn-lg px-5 me-2"
+              style="display: none;">Voltar</button>
+            <button id="btn-confirmar" type="submit" class="btn btn-primary btn-lg px-5 shadow-lg" disabled>
+              Confirmar Agendamento <i class="fas fa-arrow-right ms-2"></i>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Estilos específicos para a página de agendamento */
+  .step-indicator {
+    width: 40px;
+    height: 40px;
+    background-color: #e9ecef;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6c757d;
+    transition: all 0.3s ease;
+    z-index: 1;
+  }
+
+  .step-indicator.active {
+    background-color: var(--primary-color);
+    color: white;
+    box-shadow: 0 0 0 5px rgba(212, 175, 55, 0.2);
+  }
+
+  .service-card-inner {
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .service-card-radio input:checked+.service-card-inner {
+    border: 2px solid var(--primary-color) !important;
+    transform: translateY(-5px);
+  }
+
+  .service-card-radio input:checked+.service-card-inner .selected-overlay {
+    opacity: 1;
+  }
+
+  .selected-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(212, 175, 55, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .time-slot {
+    min-width: 100px;
+    padding: 10px 20px;
+    border-radius: 50px;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+
+  .time-slot:hover {
+    transform: scale(1.05);
+  }
+
+  .time-slot.selected {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+    box-shadow: 0 4px 10px rgba(212, 175, 55, 0.4);
+  }
+
+  .fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('agendamento-form');
+    const procedimentoInputs = document.querySelectorAll('input[name="procedimento"]');
+    const step2 = document.getElementById('step-2');
+    const step3 = document.getElementById('step-3');
+    const dataSelect = document.getElementById('select-data');
+    const timeGrid = document.getElementById('time-grid');
+    const btnConfirmar = document.getElementById('btn-confirmar');
+    const hiddenHorarioInput = document.getElementById('horario_selecionado');
+    const csrfToken = document.querySelector('input[name=csrfmiddlewaretoken]').value;
+    const progressBar = document.getElementById('progress-bar');
+    const stepIndicators = [
+      document.getElementById('step-1-indicator'),
+      document.getElementById('step-2-indicator'),
+      document.getElementById('step-3-indicator')
+    ];
+
+    // Data mínima: hoje
+    const hoje = new Date().toISOString().split('T')[0];
+    dataSelect.setAttribute('min', hoje);
+
+    function updateProgress(step) {
+      const width = ((step - 1) / 2) * 100;
+      progressBar.style.width = `${width}%`;
+
+      stepIndicators.forEach((indicator, index) => {
+        if (index < step) {
+          indicator.classList.add('active');
+        } else {
+          indicator.classList.remove('active');
+        }
+      });
+    }
+
+    procedimentoInputs.forEach(input => {
+      input.addEventListener('change', function () {
+        if (this.checked) {
+          step2.style.display = 'block';
+          updateProgress(2);
+          // Scroll suave para o próximo passo
+          step2.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+          // Resetar passos seguintes
+          step3.style.display = 'none';
+          dataSelect.value = '';
+          timeGrid.innerHTML = '<p class="text-muted">Selecione uma data para ver os horários.</p>';
+          btnConfirmar.disabled = true;
+        }
+      });
+    });
+
+    dataSelect.addEventListener('change', function () {
+      const idProcedimento = document.querySelector('input[name="procedimento"]:checked').value;
+      const data = this.value;
+
+      if (!idProcedimento || !data) return;
+
+      step3.style.display = 'block';
+      updateProgress(3);
+      step3.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      timeGrid.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Carregando...</span></div>';
+
+      fetch("{% url 'shivazen:buscar_horarios' %}", {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `id_procedimento=${idProcedimento}&data=${data}`
+      })
+        .then(response => response.json())
+        .then(data => {
+          timeGrid.innerHTML = '';
+          if (data.horarios && data.horarios.length > 0) {
+            data.horarios.forEach(horario => {
+              const btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'btn btn-outline-primary time-slot';
+              btn.textContent = horario;
+              btn.dataset.datetime = `${dataSelect.value}T${horario}:00`;
+
+              btn.addEventListener('click', function () {
+                document.querySelectorAll('.time-slot').forEach(el => el.classList.remove('selected'));
+                this.classList.add('selected');
+                hiddenHorarioInput.value = this.dataset.datetime;
+                btnConfirmar.disabled = false;
+              });
+
+              timeGrid.appendChild(btn);
+            });
+          } else {
+            timeGrid.innerHTML = '<div class="alert alert-warning w-100">Nenhum horário disponível para esta data.</div>';
+          }
+        })
+        .catch(error => {
+          console.error("Erro:", error);
+          timeGrid.innerHTML = '<div class="alert alert-danger w-100">Erro ao buscar horários.</div>';
+        });
+    });
+  });
+</script>
+{% endblock %}

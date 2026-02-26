@@ -1,0 +1,179 @@
+{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block conteudo %}
+<div style="min-height: 80vh; background-color: var(--background-light); padding: 3rem 0;">
+    <div class="container">
+        <!-- Breadcrumb -->
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'shivazen:painel_cliente' %}">Painel</a></li>
+                <li class="breadcrumb-item active">Meu Perfil</li>
+            </ol>
+        </nav>
+
+        <h1 class="mb-4" style="font-family: 'Playfair Display', serif;">Meu Perfil</h1>
+
+        <div class="row">
+            <!-- Profile Info Card -->
+            <div class="col-lg-4 mb-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center p-4">
+                        <div class="bg-primary rounded-circle text-white d-inline-flex align-items-center justify-content-center mb-3"
+                            style="width: 100px; height: 100px; font-size: 2.5rem; font-weight: bold;">
+                            {{ cliente.nome_completo|slice:":1"|default:"U" }}
+                        </div>
+                        <h3 class="mb-1">{{ cliente.nome_completo|default:request.user.username }}</h3>
+                        <p class="text-muted mb-3">{{ request.user.email }}</p>
+
+                        <hr>
+
+                        <div class="text-start">
+                            <p class="mb-2">
+                                <i class="fas fa-phone text-primary me-2"></i>
+                                {{ cliente.telefone|default:"Não informado" }}
+                            </p>
+                            <p class="mb-2">
+                                <i class="fas fa-id-card text-primary me-2"></i>
+                                {{ cliente.cpf|default:"Não informado" }}
+                            </p>
+                            {% if cliente.data_nascimento %}
+                            <p class="mb-2">
+                                <i class="fas fa-birthday-cake text-primary me-2"></i>
+                                {{ cliente.data_nascimento|date:"d/m/Y" }}
+                            </p>
+                            {% endif %}
+                            <p class="mb-0">
+                                <i class="fas fa-calendar text-primary me-2"></i>
+                                Membro desde {{ cliente.data_cadastro|date:"F Y"|default:"Recente" }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Edit Form -->
+            <div class="col-lg-8 mb-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-4">
+                        <h4 class="mb-4">
+                            <i class="fas fa-user-edit text-primary me-2"></i>
+                            Editar Informações
+                        </h4>
+
+                        {% if messages %}
+                        {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+
+                        <form method="POST">
+                            {% csrf_token %}
+
+                            <div class="row">
+                                <div class="col-md-12 mb-3">
+                                    <label class="form-label fw-bold">Nome Completo</label>
+                                    <input type="text" name="nome_completo" class="form-control"
+                                        value="{{ cliente.nome_completo }}" required>
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Email</label>
+                                    <input type="email" class="form-control" value="{{ request.user.email }}" disabled>
+                                    <small class="text-muted">O email não pode ser alterado</small>
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Telefone</label>
+                                    <input type="text" name="telefone" class="form-control"
+                                        value="{{ cliente.telefone }}" placeholder="(11) 99999-9999">
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">CPF</label>
+                                    <input type="text" class="form-control" value="{{ cliente.cpf }}" disabled>
+                                    <small class="text-muted">O CPF não pode ser alterado</small>
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Data de Nascimento</label>
+                                    <input type="date" class="form-control"
+                                        value="{{ cliente.data_nascimento|date:'Y-m-d' }}" disabled>
+                                </div>
+                            </div>
+
+                            <div class="d-flex gap-2 mt-4">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Salvar Alterações
+                                </button>
+                                <a href="{% url 'shivazen:painel_cliente' %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-arrow-left"></i> Voltar ao Painel
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Appointment History -->
+        <div class="card border-0 shadow-sm mt-4">
+            <div class="card-body p-4">
+                <h4 class="mb-4">
+                    <i class="fas fa-history text-primary me-2"></i>
+                    Histórico de Agendamentos
+                </h4>
+
+                {% if historico %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Data/Hora</th>
+                                <th>Procedimento</th>
+                                <th>Profissional</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for agend in historico %}
+                            <tr>
+                                <td>
+                                    <strong>{{ agend.data_hora_inicio|date:"d/m/Y" }}</strong><br>
+                                    <small class="text-muted">{{ agend.data_hora_inicio|time:"H:i" }}</small>
+                                </td>
+                                <td>{{ agend.procedimento.nome }}</td>
+                                <td>{{ agend.profissional.nome }}</td>
+                                <td>
+                                    {% if agend.status_atendimento == 'AGENDADO' %}
+                                    <span class="badge bg-info">Agendado</span>
+                                    {% elif agend.status_atendimento == 'CONFIRMADO' %}
+                                    <span class="badge bg-success">Confirmado</span>
+                                    {% elif agend.status_atendimento == 'REALIZADO' %}
+                                    <span class="badge bg-secondary">Realizado</span>
+                                    {% elif agend.status_atendimento == 'CANCELADO' %}
+                                    <span class="badge bg-danger">Cancelado</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-calendar fa-3x text-muted mb-3"></i>
+                    <p class="text-muted mb-3">Você ainda não fez nenhum agendamento.</p>
+                    <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Fazer Primeiro Agendamento
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
