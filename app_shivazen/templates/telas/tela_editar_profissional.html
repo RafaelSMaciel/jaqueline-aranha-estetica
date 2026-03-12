@@ -1,0 +1,177 @@
+{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block conteudo %}
+<link rel="stylesheet" href="{% static 'css/painel.css' %}">
+
+<div class="admin-layout">
+    <!-- Sidebar -->
+    <aside class="admin-sidebar">
+        <div class="sidebar-header">
+            <a href="{% url 'shivazen:inicio' %}">
+                <img src="{% static 'assents/LogoSemFundo.png' %}" alt="Shiva Zen" class="sidebar-logo">
+            </a>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="nav-section">
+                <div class="nav-section-title">Menu Principal</div>
+                <a href="{% url 'shivazen:adminDashboard' %}" class="nav-item">
+                    <i class="fas fa-chart-line"></i><span>Dashboard</span>
+                </a>
+                <a href="{% url 'shivazen:painel_profissionais' %}" class="nav-item active">
+                    <i class="fas fa-user-md"></i><span>Profissionais</span>
+                </a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-section-title">Configurações</div>
+                <a href="{% url 'shivazen:perfil' %}" class="nav-item">
+                    <i class="fas fa-user-circle"></i><span>Meu Perfil</span>
+                </a>
+                <a href="{% url 'shivazen:usuarioLogout' %}" class="nav-item">
+                    <i class="fas fa-sign-out-alt"></i><span>Sair</span>
+                </a>
+            </div>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="admin-main">
+        <div class="admin-header">
+            <h1 class="admin-title">Editar Profissional</h1>
+            <p class="admin-subtitle">Atualize os dados de {{ profissional.nome }}</p>
+        </div>
+
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-4 p-md-5">
+                {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} border-0 shadow-sm mb-4">{{ message }}</div>
+                {% endfor %}
+                {% endif %}
+
+                <form method="POST">
+                    {% csrf_token %}
+
+                    <!-- Dados Básicos -->
+                    <h5 class="fw-bold mb-3" style="color: var(--primary-dark);">
+                        <i class="fas fa-user me-2"></i>Dados do Profissional
+                    </h5>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label text-muted fw-bold small text-uppercase">Nome Completo</label>
+                            <input type="text" name="nome" class="form-control form-control-lg bg-light border-0"
+                                value="{{ profissional.nome }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label text-muted fw-bold small text-uppercase">Especialidade</label>
+                            <input type="text" name="especialidade"
+                                class="form-control form-control-lg bg-light border-0"
+                                value="{{ profissional.especialidade|default:'' }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label text-muted fw-bold small text-uppercase">Status</label>
+                            <div class="form-check form-switch mt-2">
+                                <input class="form-check-input" type="checkbox" name="ativo" id="ativo" {% if
+                                    profissional.ativo %}checked{% endif %}>
+                                <label class="form-check-label" for="ativo">Ativo</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Procedimentos -->
+                    <h5 class="fw-bold mb-3 mt-4" style="color: var(--primary-dark);">
+                        <i class="fas fa-spa me-2"></i>Procedimentos
+                    </h5>
+                    <div class="row g-2 mb-4">
+                        {% for proc in procedimentos %}
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="procedimentos"
+                                    value="{{ proc.id_procedimento }}" id="proc_{{ proc.id_procedimento }}" {% if
+                                    proc.id_procedimento in procedimentos_atuais %}checked{% endif %}>
+                                <label class="form-check-label" for="proc_{{ proc.id_procedimento }}">
+                                    {{ proc.nome }} <small class="text-muted">({{ proc.duracao_minutos }}min)</small>
+                                </label>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Disponibilidade -->
+                    <h5 class="fw-bold mb-3 mt-4" style="color: var(--primary-dark);">
+                        <i class="fas fa-clock me-2"></i>Disponibilidade Semanal
+                    </h5>
+                    <div class="table-responsive mb-4">
+                        <table class="table align-middle">
+                            <thead>
+                                <tr>
+                                    <th class="text-uppercase small text-muted fw-bold" style="letter-spacing:1px;">Dia
+                                    </th>
+                                    <th class="text-uppercase small text-muted fw-bold text-center">Trabalha</th>
+                                    <th class="text-uppercase small text-muted fw-bold">Início</th>
+                                    <th class="text-uppercase small text-muted fw-bold">Fim</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for key, nome_dia in dias_semana.items %}
+                                <tr>
+                                    <td class="fw-bold">{{ nome_dia }}</td>
+                                    <td class="text-center">
+                                        <input class="form-check-input" type="checkbox" name="trabalha_{{ key }}"
+                                            id="trabalha_{{ key }}" {% if key in disponibilidades_map %}checked{% endif
+                                            %} onchange="toggleHorario('{{ key }}')">
+                                    </td>
+                                    <td>
+                                        <input type="time" name="hora_inicio_{{ key }}" id="hora_inicio_{{ key }}"
+                                            class="form-control bg-light border-0"
+                                            value="{% if key in disponibilidades_map %}{{ disponibilidades_map|default_if_none:'' }}{% else %}09:00{% endif %}"
+                                            {% if key not in disponibilidades_map %}disabled{% endif %}>
+                                    </td>
+                                    <td>
+                                        <input type="time" name="hora_fim_{{ key }}" id="hora_fim_{{ key }}"
+                                            class="form-control bg-light border-0"
+                                            value="{% if key in disponibilidades_map %}{{ disponibilidades_map|default_if_none:'' }}{% else %}18:00{% endif %}"
+                                            {% if key not in disponibilidades_map %}disabled{% endif %}>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="d-flex gap-3 mt-4">
+                        <button type="submit" class="btn btn-primary rounded-pill px-5 py-3 fw-bold text-uppercase">
+                            <i class="fas fa-save me-2"></i>Salvar Alterações
+                        </button>
+                        <a href="{% url 'shivazen:painel_profissionais' %}"
+                            class="btn btn-outline rounded-pill px-4 py-3">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function toggleHorario(dia) {
+        const checkbox = document.getElementById('trabalha_' + dia);
+        const inicio = document.getElementById('hora_inicio_' + dia);
+        const fim = document.getElementById('hora_fim_' + dia);
+        inicio.disabled = !checkbox.checked;
+        fim.disabled = !checkbox.checked;
+    }
+
+    // Pre-fill available times from server data
+    document.addEventListener('DOMContentLoaded', function () {
+        {% for key, disp in disponibilidades_map.items %}
+        const inicio_{{ key }
+    } = document.getElementById('hora_inicio_{{ key }}');
+    const fim_{{ key }} = document.getElementById('hora_fim_{{ key }}');
+    if (inicio_{ { key } }) inicio_{ { key } }.value = '{{ disp.hora_inicio }}';
+    if (fim_{ { key } }) fim_{ { key } }.value = '{{ disp.hora_fim }}';
+    {% endfor %}
+    });
+</script>
+{% endblock %}

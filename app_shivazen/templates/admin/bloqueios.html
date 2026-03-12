@@ -1,0 +1,118 @@
+{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block conteudo %}
+<link rel="stylesheet" href="{% static 'css/painel.css' %}">
+
+<div class="admin-layout">
+    <!-- Sidebar -->
+    <aside class="admin-sidebar">
+        <div class="sidebar-header">
+            <a href="{% url 'shivazen:inicio' %}">
+                <img src="{% static 'assents/LogoSemFundo.png' %}" alt="Shiva Zen" class="sidebar-logo">
+            </a>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="nav-section">
+                <div class="nav-section-title">Menu Principal</div>
+                <a href="{% url 'shivazen:adminDashboard' %}" class="nav-item">
+                    <i class="fas fa-chart-line"></i><span>Dashboard</span>
+                </a>
+                <a href="{% url 'shivazen:adminAgendamentos' %}" class="nav-item">
+                    <i class="fas fa-calendar-alt"></i><span>Agendamentos</span>
+                </a>
+                <a href="{% url 'shivazen:painel_clientes' %}" class="nav-item">
+                    <i class="fas fa-users"></i><span>Clientes</span>
+                </a>
+                <a href="{% url 'shivazen:painel_profissionais' %}" class="nav-item">
+                    <i class="fas fa-user-md"></i><span>Profissionais</span>
+                </a>
+                <a href="{% url 'shivazen:adminProcedimentos' %}" class="nav-item">
+                    <i class="fas fa-spa"></i><span>Procedimentos</span>
+                </a>
+                <a href="{% url 'shivazen:adminBloqueios' %}" class="nav-item active">
+                    <i class="fas fa-calendar-times"></i><span>Bloqueios</span>
+                </a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-section-title">Configurações</div>
+                <a href="{% url 'shivazen:perfil' %}" class="nav-item">
+                    <i class="fas fa-user-circle"></i><span>Meu Perfil</span>
+                </a>
+                <a href="{% url 'shivazen:usuarioLogout' %}" class="nav-item">
+                    <i class="fas fa-sign-out-alt"></i><span>Sair</span>
+                </a>
+            </div>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="admin-main">
+        <div class="admin-header d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h1 class="admin-title">Bloqueios de Agenda</h1>
+                <p class="admin-subtitle">Gerencie os bloqueios de horários dos profissionais</p>
+            </div>
+            <a href="{% url 'shivazen:criarBloqueio' %}" class="btn btn-primary rounded-pill px-4">
+                <i class="fas fa-plus me-2"></i>Novo Bloqueio
+            </a>
+        </div>
+
+        {% if bloqueios %}
+        <div class="data-table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Profissional</th>
+                        <th>Início</th>
+                        <th>Fim</th>
+                        <th>Motivo</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for bloqueio in bloqueios %}
+                    <tr>
+                        <td>
+                            {% if bloqueio.profissional %}
+                            <strong>{{ bloqueio.profissional.nome }}</strong>
+                            {% else %}
+                            <span class="text-muted">Todos</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ bloqueio.data_hora_inicio|date:"d/m/Y" }}<br>
+                            <small class="text-muted">{{ bloqueio.data_hora_inicio|time:"H:i" }}</small>
+                        </td>
+                        <td>
+                            {{ bloqueio.data_hora_fim|date:"d/m/Y" }}<br>
+                            <small class="text-muted">{{ bloqueio.data_hora_fim|time:"H:i" }}</small>
+                        </td>
+                        <td>{{ bloqueio.motivo|default:"-" }}</td>
+                        <td>
+                            <form method="POST" action="{% url 'shivazen:excluirBloqueio' bloqueio.id_bloqueio %}"
+                                onsubmit="return confirm('Tem certeza que deseja excluir este bloqueio?');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-icon text-danger" title="Excluir">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon"><i class="fas fa-calendar-check"></i></div>
+            <h3 class="empty-state-title">Nenhum bloqueio ativo</h3>
+            <p class="empty-state-text">Não há bloqueios de agenda no momento.</p>
+            <a href="{% url 'shivazen:criarBloqueio' %}" class="btn btn-primary rounded-pill px-4">
+                <i class="fas fa-plus me-2"></i>Criar Bloqueio
+            </a>
+        </div>
+        {% endif %}
+    </main>
+</div>
+{% endblock %}

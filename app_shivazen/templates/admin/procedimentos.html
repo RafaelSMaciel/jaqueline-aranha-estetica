@@ -1,0 +1,118 @@
+{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block conteudo %}
+<link rel="stylesheet" href="{% static 'css/painel.css' %}">
+
+<div class="admin-layout">
+    <!-- Sidebar -->
+    <aside class="admin-sidebar">
+        <div class="sidebar-header">
+            <a href="{% url 'shivazen:inicio' %}">
+                <img src="{% static 'assents/LogoSemFundo.png' %}" alt="Shiva Zen" class="sidebar-logo">
+            </a>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="nav-section">
+                <div class="nav-section-title">Menu Principal</div>
+                <a href="{% url 'shivazen:adminDashboard' %}" class="nav-item">
+                    <i class="fas fa-chart-line"></i><span>Dashboard</span>
+                </a>
+                <a href="{% url 'shivazen:adminAgendamentos' %}" class="nav-item">
+                    <i class="fas fa-calendar-alt"></i><span>Agendamentos</span>
+                </a>
+                <a href="{% url 'shivazen:painel_clientes' %}" class="nav-item">
+                    <i class="fas fa-users"></i><span>Clientes</span>
+                </a>
+                <a href="{% url 'shivazen:painel_profissionais' %}" class="nav-item">
+                    <i class="fas fa-user-md"></i><span>Profissionais</span>
+                </a>
+                <a href="{% url 'shivazen:adminProcedimentos' %}" class="nav-item active">
+                    <i class="fas fa-spa"></i><span>Procedimentos</span>
+                </a>
+                <a href="{% url 'shivazen:adminBloqueios' %}" class="nav-item">
+                    <i class="fas fa-calendar-times"></i><span>Bloqueios</span>
+                </a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-section-title">Configurações</div>
+                <a href="{% url 'shivazen:perfil' %}" class="nav-item">
+                    <i class="fas fa-user-circle"></i><span>Meu Perfil</span>
+                </a>
+                <a href="{% url 'shivazen:usuarioLogout' %}" class="nav-item">
+                    <i class="fas fa-sign-out-alt"></i><span>Sair</span>
+                </a>
+            </div>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="admin-main">
+        <div class="admin-header">
+            <h1 class="admin-title">Procedimentos</h1>
+            <p class="admin-subtitle">Gerencie os procedimentos e preços da clínica</p>
+        </div>
+
+        {% if procedimentos %}
+        <div class="row g-4">
+            {% for proc in procedimentos %}
+            <div class="col-md-6 col-lg-4">
+                <div class="card border-0 shadow-sm rounded-4 h-100">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0"
+                                style="width:48px;height:48px;background:var(--primary-light);">
+                                <i class="fas fa-spa" style="color:var(--primary-dark);"></i>
+                            </div>
+                            <div>
+                                <h5 class="fw-bold mb-0">{{ proc.nome }}</h5>
+                                <small class="text-muted">{{ proc.duracao_minutos }} min</small>
+                            </div>
+                        </div>
+
+                        {% if proc.descricao %}
+                        <p class="text-muted small mb-3">{{ proc.descricao }}</p>
+                        {% endif %}
+
+                        {% if proc.preco_set.all %}
+                        <div class="border-top pt-3">
+                            <h6 class="text-uppercase text-muted small fw-bold mb-2" style="letter-spacing:1px;">Preços
+                            </h6>
+                            {% for preco in proc.preco_set.all %}
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="small">
+                                    {% if preco.profissional %}{{ preco.profissional.nome }}{% else %}Padrão{% endif %}
+                                    {% if preco.descricao %} — {{ preco.descricao }}{% endif %}
+                                </span>
+                                <span class="fw-bold" style="color: var(--primary-dark);">R$ {{
+                                    preco.valor|floatformat:2 }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="border-top pt-3">
+                            <p class="text-muted small mb-0"><i class="fas fa-info-circle me-1"></i>Nenhum preço
+                                cadastrado</p>
+                        </div>
+                        {% endif %}
+
+                        <div class="mt-3 d-flex gap-2">
+                            <span class="badge {% if proc.ativo %}badge-success{% else %}badge-danger{% endif %}">
+                                {% if proc.ativo %}Ativo{% else %}Inativo{% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon"><i class="fas fa-spa"></i></div>
+            <h3 class="empty-state-title">Nenhum procedimento encontrado</h3>
+            <p class="empty-state-text">Cadastre procedimentos para começar a usar o sistema.</p>
+        </div>
+        {% endif %}
+    </main>
+</div>
+{% endblock %}

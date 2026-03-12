@@ -1,9 +1,13 @@
 # shivazen/settings.py
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load .env file
+load_dotenv(BASE_DIR / '.env')
 
 # --- Configuração de Segurança (Variáveis de Ambiente) ---
 # Em produção (Railway), crie variáveis de ambiente para estes valores.
@@ -123,6 +127,35 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # --- Adicionado: Apontando para o novo Modelo de Usuário ---
 AUTH_USER_MODEL = 'app_shivazen.Usuario'
+
+# --- URLs de Autenticação (Admin Only) ---
+LOGIN_URL = '/admin-login/'
+LOGIN_REDIRECT_URL = '/painel/'
+LOGOUT_REDIRECT_URL = '/'
+
+# --- Configurações de Segurança ---
+SECURE_BROWSER_XSS_FILTER = True
+X_FRAME_OPTIONS = 'DENY'
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True
+
+# Em produção, ativar:
+# SECURE_SSL_REDIRECT = True
+# SESSION_COOKIE_SECURE = True
+# CSRF_COOKIE_SECURE = True
+# SECURE_HSTS_SECONDS = 31536000
+# SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+# SECURE_HSTS_PRELOAD = True
+
+# --- Configuração de Email (para recuperação de senha) ---
+EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@shivazen.com.br')
 
 # --- Configurações do JAZZMIN (Mantidas mas não usadas se app removido) ---
 # Vou manter as configs do Jazzmin caso o usuário queira reativar no futuro, 

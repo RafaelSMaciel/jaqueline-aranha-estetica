@@ -10,27 +10,25 @@
 
         <nav class="d-none d-md-flex align-items-center" aria-label="Navegação principal">
             <ul class="navbar-nav d-flex flex-row align-items-center gap-4 mb-0">
-                {% if request.user.is_authenticated %}
                 <li class="nav-item">
-                    <a class="nav-link text-dark fw-bold" href="{% url 'shivazen:painel_redirect' %}"
-                        aria-label="Acessar meu painel" style="font-size: 0.9rem;">
-                        <i class="fas fa-user-circle me-2"></i>{{ request.user.first_name|default:"Meu Painel" }}
-                    </a>
+                    <a class="nav-link text-dark fw-bold" href="{% url 'shivazen:agendamento_publico' %}"
+                        style="font-size: 0.9rem;"><i class="fas fa-calendar-alt me-1"></i>Agendar</a>
                 </li>
-                <li class="nav-item ms-2">
-                    <a class="btn btn-outline-primary btn-sm rounded-pill px-3"
-                        href="{% url 'shivazen:usuarioLogout' %}" title="Sair" aria-label="Sair da conta">
-                        <i class="fas fa-sign-out-alt me-1" aria-hidden="true"></i> Sair
-                    </a>
-                </li>
-                {% else %}
                 <li class="nav-item">
-                    <a class="btn btn-primary btn-sm rounded-pill px-4 shadow-sm"
-                        href="{% url 'shivazen:usuarioLogin' %}" title="Login" aria-label="Fazer login">
-                        <i class="fas fa-user-circle me-2" aria-hidden="true"></i> LOGIN
+                    <a class="nav-link text-dark fw-bold" href="{% url 'shivazen:promocoes' %}"
+                        style="font-size: 0.9rem;"><i class="fas fa-tag me-1"></i>Promoções</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link text-dark fw-bold" href="{% url 'shivazen:meus_agendamentos' %}"
+                        style="font-size: 0.9rem;"><i class="far fa-calendar-check me-1"></i>Meus Agendamentos</a>
+                </li>
+                <li class="nav-item">
+                    <a class="btn btn-sm rounded-pill px-4 shadow-sm fw-bold"
+                        href="https://wa.me/5500000000000" target="_blank"
+                        style="background:#25D366;color:white;font-size:0.85rem;">
+                        <i class="fab fa-whatsapp me-1"></i> WhatsApp
                     </a>
                 </li>
-                {% endif %}
             </ul>
         </nav>
 
@@ -44,26 +42,25 @@
     <div class="collapse navbar-collapse d-md-none mobile-menu-container bg-white border-top" id="mobileMenu">
         <nav aria-label="Menu mobile" class="container py-4">
             <ul class="navbar-nav d-flex flex-column gap-3">
-                {% if request.user.is_authenticated %}
                 <li class="nav-item">
-                    <span class="d-block text-muted mb-2">Bem-vindo, {{ request.user.first_name }}</span>
-                    <a class="nav-link fw-bold text-dark" href="{% url 'shivazen:painel_redirect' %}"
-                        aria-label="Acessar meu painel">Meu Painel</a>
+                    <a class="nav-link fw-bold text-dark" href="{% url 'shivazen:agendamento_publico' %}">
+                        <i class="fas fa-calendar-alt me-2"></i>Agendar Horário</a>
                 </li>
-                <li class="nav-item mt-3">
-                    <a class="btn btn-outline-danger w-100 rounded-pill" href="{% url 'shivazen:usuarioLogout' %}"
-                        aria-label="Sair da conta">
-                        <i class="fas fa-sign-out-alt me-2" aria-hidden="true"></i> SAIR
+                <li class="nav-item">
+                    <a class="nav-link fw-bold text-dark" href="{% url 'shivazen:promocoes' %}">
+                        <i class="fas fa-tag me-2"></i>Promoções</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link fw-bold text-dark" href="{% url 'shivazen:meus_agendamentos' %}">
+                        <i class="far fa-calendar-check me-2"></i>Meus Agendamentos</a>
+                </li>
+                <li class="nav-item mt-2">
+                    <a class="btn w-100 rounded-pill py-2 fw-bold shadow-sm"
+                       href="https://wa.me/5500000000000" target="_blank"
+                       style="background:#25D366;color:white;">
+                        <i class="fab fa-whatsapp me-2"></i>Falar no WhatsApp
                     </a>
                 </li>
-                {% else %}
-                <li class="nav-item">
-                    <a class="btn btn-primary w-100 rounded-pill" href="{% url 'shivazen:usuarioLogin' %}"
-                        aria-label="Fazer login">
-                        <i class="fas fa-user-circle me-2" aria-hidden="true"></i> LOGIN
-                    </a>
-                </li>
-                {% endif %}
             </ul>
         </nav>
     </div>

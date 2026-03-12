@@ -1,59 +1,49 @@
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib import messages
-from django.contrib.auth import login, logout, authenticate
-from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
-from datetime import datetime, timedelta
+from django.shortcuts import render
 from django.utils import timezone
-from django.db.models import Q, Sum, F
-from django.core.mail import send_mail
-from django.template.loader import render_to_string
-from django.utils.html import strip_tags
-from django.urls import reverse
-import json
 
-from ..models import * 
+from ..models import Procedimento, Promocao, Preco
 
 
 def home(request):
-
     return render(request, 'inicio/home.html')
 
 
-
-
-
 def termosUso(request):
-
     return render(request, 'inicio/termosUso.html')
 
 
-
-
-
 def politicaPrivacidade(request):
-
     return render(request, 'inicio/politicaPrivacidade.html')
 
 
-
-
-
 def quemsomos(request):
-
     return render(request, 'inicio/quemsomos.html')
 
 
-
-
-
 def agendaContato(request):
-
     return render(request, 'agenda/contato.html')
 
 
+def promocoes(request):
+    """Lista de promoções ativas e vigentes"""
+    hoje = timezone.now().date()
+    promos = Promocao.objects.filter(
+        ativa=True,
+        data_inicio__lte=hoje,
+        data_fim__gte=hoje
+    ).select_related('procedimento').order_by('-data_inicio')
 
-# --- Autenticação e Cadastro (Refatorado) ---
+    # Enriquecer com preço original
+    for promo in promos:
+        if promo.procedimento:
+            preco_obj = Preco.objects.filter(
+                procedimento=promo.procedimento, profissional__isnull=True
+            ).first()
+            if not preco_obj:
+                preco_obj = Preco.objects.filter(procedimento=promo.procedimento).first()
+            promo.preco_original = float(preco_obj.valor) if preco_obj else None
+        else:
+            promo.preco_original = None
 
-
-
+    context = {'promocoes': promos}
+    return render(request, 'inicio/promocoes.html', context)

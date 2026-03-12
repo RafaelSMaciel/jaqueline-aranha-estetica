@@ -1,0 +1,73 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Página não encontrada | Shiva Zen</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Lato', sans-serif;
+            background: linear-gradient(135deg, #2c2015 0%, #4A3425 50%, #6D4C41 100%);
+            min-height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+            color: white; text-align: center;
+            padding: 2rem;
+        }
+        .container { max-width: 520px; }
+        .error-code {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(5rem, 15vw, 10rem);
+            font-weight: 700; line-height: 1;
+            background: linear-gradient(135deg, #C9A84C, #f0d98c, #C9A84C);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text; margin-bottom: 1rem;
+        }
+        .error-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.5rem; font-weight: 700;
+            margin-bottom: 1rem; color: white;
+        }
+        .error-text { color: rgba(255,255,255,0.6); margin-bottom: 2rem; line-height: 1.7; }
+        .divider { width: 50px; height: 2px; background: #C9A84C; margin: 1.5rem auto; }
+        .btn-group { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+        .btn-back {
+            padding: 0.85rem 2rem; border-radius: 50px; font-weight: 700;
+            font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px;
+            text-decoration: none; transition: all 0.25s; display: inline-flex;
+            align-items: center; gap: 0.5rem;
+        }
+        .btn-gold { background: #C9A84C; color: white; border: none; }
+        .btn-gold:hover { background: #b8940f; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(201,168,76,0.4); }
+        .btn-outline { background: transparent; color: white; border: 1.5px solid rgba(255,255,255,0.3); }
+        .btn-outline:hover { border-color: #C9A84C; color: #C9A84C; }
+        .btn-wpp { background: #25D366; color: white; border: none; }
+        .btn-wpp:hover { background: #20bd5a; transform: translateY(-2px); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="error-code">404</div>
+        <h1 class="error-title">Página não encontrada</h1>
+        <div class="divider"></div>
+        <p class="error-text">
+            A página que você procura não existe ou foi movida.<br>
+            Que tal agendar um momento de bem-estar?
+        </p>
+        <div class="btn-group">
+            <a href="/" class="btn-back btn-gold">
+                <i class="fas fa-home"></i> Início
+            </a>
+            <a href="/agendamento/" class="btn-back btn-gold">
+                <i class="fas fa-calendar-alt"></i> Agendar
+            </a>
+            <a href="https://wa.me/5500000000000" target="_blank" class="btn-back btn-wpp">
+                <i class="fab fa-whatsapp"></i> WhatsApp
+            </a>
+        </div>
+    </div>
+</body>
+</html>
