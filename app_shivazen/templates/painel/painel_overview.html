@@ -88,7 +88,10 @@
 <div class="dash-chart-card">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div class="dash-chart-title mb-0"><i class="fas fa-list-ul me-1"></i>Próximos Agendamentos</div>
-        <a href="{% url 'shivazen:painel_agendamentos' %}" class="small fw-bold" style="color:#C9A84C;text-decoration:none;">Ver Todos →</a>
+        <div>
+            <a href="{% url 'shivazen:exportar_relatorio_excel' %}" class="btn btn-sm" style="background-color: #217346; color: white; border-radius: 8px; font-size: 0.75rem; font-weight:700;"><i class="fas fa-file-excel me-1"></i>Exportar (30 dias)</a>
+            <a href="{% url 'shivazen:painel_agendamentos' %}" class="small fw-bold ms-2" style="color:#C9A84C;text-decoration:none;">Ver Todos →</a>
+        </div>
     </div>
 
     {% if proximos_agendamentos %}

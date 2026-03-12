@@ -39,6 +39,7 @@ urlpatterns = [
     path('painel/prontuario/', views.prontuarioconsentimento, name='prontuarioconsentimento'),
     path('painel/cadastrar-profissional/', views.profissionalCadastro, name='profissionalCadastro'),
     path('painel/editar-profissional/<int:pk>/', views.profissionalEditar, name='profissionalEditar'),
+    path('painel/exportar-relatorio/', views.exportar_relatorio_excel, name='exportar_relatorio_excel'),
 
     # ─── Admin Promoções (CRUD) ───
     path('painel/promocoes/', views.admin_promocoes, name='admin_promocoes'),

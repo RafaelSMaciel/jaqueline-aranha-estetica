@@ -2,8 +2,9 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
-from django.db.models import Q, Sum, F
+from django.db.models import Q, Sum, F, Count
 from datetime import datetime, timedelta
+import json
 
 from ..models import (
     Cliente, Atendimento, Profissional, Procedimento
@@ -57,6 +58,24 @@ def painel_overview(request):
         status_atendimento__in=['AGENDADO', 'CONFIRMADO']
     ).select_related('cliente', 'profissional', 'procedimento').order_by('data_hora_inicio')[:10]
 
+    # --- Dados para os Gráficos ---
+    dias_semana_list = [(inicio_semana + timedelta(days=i)).strftime('%d/%m') for i in range(7)]
+    dados_grafico_list = []
+    for i in range(7):
+        dia_atual = inicio_semana + timedelta(days=i)
+        count = Atendimento.objects.filter(
+            data_hora_inicio__date=dia_atual,
+            status_atendimento__in=['AGENDADO', 'CONFIRMADO', 'REALIZADO']
+        ).count()
+        dados_grafico_list.append(count)
+
+    dias_semana = json.dumps(dias_semana_list)
+    dados_grafico_semana = json.dumps(dados_grafico_list)
+
+    agendamentos_por_status = list(Atendimento.objects.filter(
+        data_hora_inicio__gte=inicio_mes
+    ).values('status_atendimento').annotate(total=Count('pk')))
+
     context = {
         'agendamentos_hoje': agendamentos_hoje,
         'agendamentos_semana': agendamentos_semana,
@@ -64,6 +83,9 @@ def painel_overview(request):
         'novos_clientes': novos_clientes,
         'receita_mensal': receita_mensal,
         'proximos_agendamentos': proximos_agendamentos,
+        'dias_semana': dias_semana,
+        'dados_grafico_semana': dados_grafico_semana,
+        'agendamentos_por_status': agendamentos_por_status,
     }
 
     return render(request, 'painel/painel_overview.html', context)
@@ -141,3 +163,39 @@ def painel_profissionais(request):
 
     context = {'profissionais': profissionais}
     return render(request, 'painel/painel_profissionais.html', context)
+
+@staff_required
+def exportar_relatorio_excel(request):
+    """Gera um relatório Excel dos últimos 30 dias de atendimentos"""
+    import openpyxl
+    from django.http import HttpResponse
+
+    data_limite = timezone.now() - timedelta(days=30)
+    atendimentos = Atendimento.objects.filter(data_hora_inicio__gte=data_limite).select_related('cliente', 'profissional', 'procedimento')
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="relatorio_atendimentos.xlsx"'
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Atendimentos Últimos 30 dias"
+
+    # Header
+    columns = ['ID', 'Data', 'Hora', 'Cliente', 'Profissional', 'Procedimento', 'Status', 'Valor (R$)']
+    ws.append(columns)
+
+    for at in atendimentos:
+        valor = at.valor_cobrado if at.valor_cobrado else at.procedimento.preco_set.first().valor if at.procedimento.preco_set.exists() else 0
+        ws.append([
+            at.pk,
+            at.data_hora_inicio.strftime('%d/%m/%Y'),
+            at.data_hora_inicio.strftime('%H:%M'),
+            at.cliente.nome_completo,
+            at.profissional.nome,
+            at.procedimento.nome,
+            at.status_atendimento,
+            float(valor)
+        ])
+
+    wb.save(response)
+    return response

@@ -20,11 +20,11 @@ SECRET_KEY = os.environ.get(
 )
 
 # Em produção, defina a variável de ambiente DEBUG=False
-DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
 # Em produção, defina ALLOWED_HOSTS=seu-dominio.com,www.seu-dominio.com
-# O 'default' '*' é SÓ para desenvolvimento.
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
+# O 'default' listado é voltado para testes locais apenas.
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
 
 
 # Application definition
@@ -116,8 +116,11 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'app_shivazen/static')]
 
-# Pasta para onde o 'collectstatic' vai copiar os arquivos
+# Padrão WhiteNoise 
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') 
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Adicionado: Armazenamento otimizado do WhiteNoise
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
@@ -140,13 +143,16 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
 
-# Em produção, ativar:
-# SECURE_SSL_REDIRECT = True
-# SESSION_COOKIE_SECURE = True
-# CSRF_COOKIE_SECURE = True
-# SECURE_HSTS_SECONDS = 31536000
-# SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-# SECURE_HSTS_PRELOAD = True
+# Em produção (HTTPS), ative a variável USE_HTTPS=True
+USE_HTTPS = os.environ.get('USE_HTTPS', 'False') == 'True'
+if USE_HTTPS:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
 
 # --- Configuração de Email (para recuperação de senha) ---
 EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
@@ -160,6 +166,37 @@ DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@shivazen.com.
 # --- Configurações do JAZZMIN (Mantidas mas não usadas se app removido) ---
 # Vou manter as configs do Jazzmin caso o usuário queira reativar no futuro, 
 # mas como o app foi removido, elas serão ignoradas pelo Django.
+
+# --- Logging Config ---
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'WARNING',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': os.environ.get('DJANGO_LOG_LEVEL', 'INFO'),
+            'propagate': False,
+        },
+    },
+}
+
+
 JAZZMIN_SETTINGS = {
     "site_title": "Shiva Zen Admin",
     "site_header": "Shiva Zen",
@@ -269,8 +306,29 @@ JAZZMIN_UI_TWEAKS = {
         "primary": "btn-primary",
         "secondary": "btn-secondary",
         "info": "btn-info",
-        "warning": "btn-warning",
         "danger": "btn-danger",
         "success": "btn-success"
     }
 }
+
+# --- Configurações do Celery e Redis ---
+# URL do Redis para filas do Celery
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+
+# Configuração agendamento do Celery Beat (tarefas recorrentes)
+from celery.schedules import crontab
+CELERY_BEAT_SCHEDULE = {
+    'lembretes-diarios-08h': {
+        'task': 'app_shivazen.tasks.job_enviar_lembrete_dia_seguinte',
+        'schedule': crontab(hour=8, minute=0), # Roda todo dia as 08:00
+    },
+    'envio-pesquisa-nps-diaria': {
+        'task': 'app_shivazen.tasks.job_pesquisa_satisfacao_24h',
+        'schedule': crontab(hour=10, minute=0), # Roda todo dia as 10:00
+    },
+}

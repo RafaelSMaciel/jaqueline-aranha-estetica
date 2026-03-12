@@ -22,6 +22,15 @@ admin.site.register(Notificacao)
 admin.site.register(TermoConsentimento)
 admin.site.register(LogAuditoria)
 
+# Novos Modelos Premium
+admin.site.register(Pacote)
+admin.site.register(ItemPacote)
+admin.site.register(PacoteCliente)
+admin.site.register(SessaoPacote)
+admin.site.register(ListaEspera)
+admin.site.register(AvaliacaoNPS)
+admin.site.register(MetaProfissional)
+admin.site.register(TokenGoogleAgenda)
 # --- CONFIGURAÇÃO CORRIGIDA PARA O ADMIN DE USUÁRIO ---
 # Substitua a classe UsuarioAdmin antiga por esta:
 

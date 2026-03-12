@@ -341,3 +341,105 @@ class CodigoVerificacao(models.Model):
         from django.utils import timezone
         # Código expira em 10 minutos
         return not self.usado and (timezone.now() - self.criado_em).total_seconds() < 600
+
+# =====================================================================
+# MODELOS DE EXPANSÃO (Novas Funcionalidades Premium)
+# =====================================================================
+
+class Pacote(models.Model):
+    id_pacote = models.AutoField(primary_key=True)
+    nome = models.CharField(max_length=150)
+    descricao = models.TextField(blank=True, null=True)
+    preco_total = models.DecimalField(max_digits=10, decimal_places=2)
+    ativo = models.BooleanField(default=True)
+    
+    class Meta:
+        managed = True
+        db_table = 'pacote'
+
+class ItemPacote(models.Model):
+    id_item_pacote = models.AutoField(primary_key=True)
+    pacote = models.ForeignKey(Pacote, on_delete=models.CASCADE, related_name='itens')
+    procedimento = models.ForeignKey(Procedimento, on_delete=models.CASCADE)
+    quantidade_sessoes = models.IntegerField(default=1)
+
+    class Meta:
+        managed = True
+        db_table = 'item_pacote'
+
+class PacoteCliente(models.Model):
+    id_pacote_cliente = models.AutoField(primary_key=True)
+    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='pacotes_comprados')
+    pacote = models.ForeignKey(Pacote, on_delete=models.RESTRICT)
+    data_compra = models.DateTimeField(auto_now_add=True)
+    valor_pago = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=20, default='ATIVO') # ATIVO, FINALIZADO, CANCELADO
+
+    class Meta:
+        managed = True
+        db_table = 'pacote_cliente'
+
+class SessaoPacote(models.Model):
+    id_sessao_pacote = models.AutoField(primary_key=True)
+    pacote_cliente = models.ForeignKey(PacoteCliente, on_delete=models.CASCADE, related_name='sessoes_realizadas')
+    atendimento = models.OneToOneField(Atendimento, on_delete=models.RESTRICT, related_name='sessao_pacote_vinculada')
+    data_debito = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = True
+        db_table = 'sessao_pacote'
+
+
+class ListaEspera(models.Model):
+    id_lista_espera = models.AutoField(primary_key=True)
+    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE)
+    procedimento = models.ForeignKey(Procedimento, on_delete=models.CASCADE)
+    profissional_desejado = models.ForeignKey(Profissional, on_delete=models.CASCADE, blank=True, null=True)
+    data_desejada = models.DateField()
+    turno_desejado = models.CharField(max_length=20, blank=True, null=True) # MANHA, TARDE, NOITE
+    notificado = models.BooleanField(default=False)
+    data_registro = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = True
+        db_table = 'lista_espera'
+
+
+class AvaliacaoNPS(models.Model):
+    id_avaliacao = models.AutoField(primary_key=True)
+    atendimento = models.OneToOneField(Atendimento, on_delete=models.CASCADE)
+    nota = models.IntegerField() # 1 a 5
+    comentario = models.TextField(blank=True, null=True)
+    data_avaliacao = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = True
+        db_table = 'avaliacao_nps'
+
+
+class MetaProfissional(models.Model):
+    id_meta = models.AutoField(primary_key=True)
+    profissional = models.ForeignKey(Profissional, on_delete=models.CASCADE)
+    mes = models.IntegerField()
+    ano = models.IntegerField()
+    valor_meta = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    class Meta:
+        managed = True
+        db_table = 'meta_profissional'
+        unique_together = (('profissional', 'mes', 'ano'),)
+
+
+class TokenGoogleAgenda(models.Model):
+    id_token = models.AutoField(primary_key=True)
+    profissional = models.OneToOneField(Profissional, on_delete=models.CASCADE)
+    access_token = models.CharField(max_length=255)
+    refresh_token = models.CharField(max_length=255)
+    token_uri = models.CharField(max_length=255)
+    client_id = models.CharField(max_length=255)
+    client_secret = models.CharField(max_length=255)
+    scopes = models.TextField()
+
+    class Meta:
+        managed = True
+        db_table = 'token_google_agenda'
