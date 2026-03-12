@@ -1,9 +1,7 @@
 {% extends 'estrutura/base.html' %}
 {% load static %}
 
-{% block titulo %}Agende seu Horário | Shiva Zen{% endblock %}
-
-{% block css %}
+{% block conteudo %}
 <style>
     :root {
         --gold: #C9A84C;
@@ -14,22 +12,17 @@
         --bg: #F5F3EE;
     }
 
-    /* ─── PAGE BACKGROUND ─── */
-    .booking-page {
-        background: var(--bg);
-        min-height: 100vh;
-    }
+    .booking-page { background: var(--bg); min-height: 100vh; }
 
-    /* ─── HERO BANNER ─── */
+    /* ─── HERO ─── */
     .booking-banner {
         background: linear-gradient(135deg, #2c2015 0%, #4A3425 55%, #6D4C41 100%);
-        padding: 4.5rem 0 8rem;
-        position: relative;
-        overflow: hidden;
+        padding: 4rem 0 7rem;
         text-align: center;
         color: white;
+        position: relative;
+        overflow: hidden;
     }
-
     .booking-banner::before {
         content: '';
         position: absolute;
@@ -38,666 +31,677 @@
             radial-gradient(circle at 20% 80%, rgba(201, 168, 76, 0.12) 0%, transparent 50%),
             radial-gradient(circle at 80% 20%, rgba(201, 168, 76, 0.08) 0%, transparent 50%);
     }
-
-    .booking-banner-inner {
-        position: relative;
-        z-index: 2;
-    }
-
+    .booking-banner-inner { position: relative; z-index: 2; }
     .booking-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        background: rgba(201, 168, 76, 0.2);
-        border: 1px solid rgba(201, 168, 76, 0.5);
-        color: #f0d98c;
-        padding: 0.4rem 1.25rem;
-        border-radius: 50px;
-        font-size: 0.72rem;
-        font-weight: 700;
-        letter-spacing: 2.5px;
-        text-transform: uppercase;
-        margin-bottom: 1.25rem;
+        display: inline-flex; align-items: center; gap: 0.5rem;
+        background: rgba(201, 168, 76, 0.2); border: 1px solid rgba(201, 168, 76, 0.5);
+        color: #f0d98c; padding: 0.4rem 1.25rem; border-radius: 50px;
+        font-size: 0.72rem; font-weight: 700; letter-spacing: 2.5px;
+        text-transform: uppercase; margin-bottom: 1.25rem;
     }
-
     .booking-banner h1 {
         font-family: 'Playfair Display', serif;
-        font-size: clamp(2rem, 5vw, 3.5rem);
-        font-weight: 700;
-        margin-bottom: 0.75rem;
+        font-size: clamp(2rem, 5vw, 3rem);
+        font-weight: 700; margin-bottom: 0.75rem;
     }
+    .booking-banner p { opacity: 0.75; font-size: 1.05rem; max-width: 460px; margin: 0 auto; }
 
-    .booking-banner p {
-        opacity: 0.75;
-        font-size: 1.1rem;
-        max-width: 460px;
-        margin: 0 auto;
-    }
-
-    /* ─── FLOATING CARD OVER HERO ─── */
+    /* ─── FLOATING CARD ─── */
     .booking-float {
-        margin-top: -5rem;
-        padding: 0 1.5rem 3rem;
-        position: relative;
-        z-index: 10;
+        margin-top: -4.5rem; padding: 0 1.5rem 3rem;
+        position: relative; z-index: 10;
     }
-
     .booking-card {
-        background: white;
-        border-radius: 28px;
-        box-shadow: 0 16px 60px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.06);
-        overflow: hidden;
-        max-width: 1160px;
-        margin: 0 auto;
+        background: white; border-radius: 24px;
+        box-shadow: 0 16px 60px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.06);
+        overflow: hidden; max-width: 1000px; margin: 0 auto;
     }
 
-    /* ─── WEEK NAVIGATOR ─── */
-    .week-nav {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 1.25rem 2rem;
-        border-bottom: 1px solid #F0EDE8;
-        background: #FDFCFA;
-        gap: 1rem;
-        flex-wrap: wrap;
+    /* ─── STEP INDICATOR ─── */
+    .steps-bar {
+        display: flex; background: #FDFCFA; border-bottom: 1px solid #F0EDE8;
+        padding: 0;
+    }
+    .step-item {
+        flex: 1; text-align: center; padding: 1.1rem 0.5rem;
+        font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 1.5px; color: #CCC; position: relative;
+        transition: color 0.3s; cursor: default;
+    }
+    .step-item.active { color: var(--earth); }
+    .step-item.active::after {
+        content: ''; position: absolute; bottom: 0; left: 20%; right: 20%;
+        height: 3px; background: var(--gold); border-radius: 2px 2px 0 0;
+    }
+    .step-item.done { color: var(--gold); }
+    .step-num {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 28px; height: 28px; border-radius: 50%;
+        background: #F0EDE8; color: #BBB; font-size: 0.72rem; font-weight: 800;
+        margin-right: 0.5rem; vertical-align: middle; transition: all 0.3s;
+    }
+    .step-item.active .step-num { background: var(--gold); color: white; }
+    .step-item.done .step-num { background: var(--gold); color: white; }
+
+    /* ─── STEP PANELS — CRITICAL HIDE/SHOW ─── */
+    .step-panel { display: none !important; padding: 2rem; }
+    .step-panel.active { display: block !important; }
+
+    /* ─── PROCEDURE CARDS ─── */
+    .proc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
+    .proc-card {
+        border: 2px solid #F0EDE8; border-radius: 16px; padding: 1.5rem;
+        cursor: pointer; transition: all 0.25s ease; background: white;
+    }
+    .proc-card:hover {
+        border-color: var(--gold); transform: translateY(-3px);
+        box-shadow: 0 8px 24px rgba(201,168,76,0.15);
+    }
+    .proc-card.selected {
+        border-color: var(--gold); background: linear-gradient(145deg, #fffef9, #fff9e8);
+        box-shadow: 0 8px 24px rgba(201,168,76,0.2);
+    }
+    .proc-icon {
+        width: 48px; height: 48px; border-radius: 50%; background: var(--gold-light);
+        display: flex; align-items: center; justify-content: center; margin-bottom: 1rem;
+    }
+    .proc-icon i { color: var(--gold); font-size: 1.2rem; }
+    .proc-name { font-weight: 700; font-size: 1rem; color: var(--earth); margin-bottom: 0.3rem; }
+    .proc-desc { font-size: 0.82rem; color: #999; margin-bottom: 0.8rem; line-height: 1.45; }
+    .proc-meta { display: flex; align-items: center; gap: 1rem; }
+    .proc-price { font-weight: 800; color: var(--gold); font-size: 1.1rem; }
+    .proc-duration {
+        font-size: 0.75rem; color: #BBB; font-weight: 600;
+        display: flex; align-items: center; gap: 0.3rem;
     }
 
-    .week-nav-center {
-        text-align: center;
-        flex: 1;
-        min-width: 180px;
-    }
-
-    .week-label {
-        font-family: 'Playfair Display', serif;
-        font-size: 1.25rem;
-        font-weight: 700;
-        color: var(--earth);
-        display: block;
-        margin-bottom: 0.15rem;
-    }
-
-    .week-sub {
-        font-size: 0.75rem;
-        color: #AAA;
-        letter-spacing: 0.5px;
-    }
-
-    .nav-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.6rem 1.4rem;
-        background: white;
-        border: 1.5px solid rgba(201, 168, 76, 0.4);
-        border-radius: 50px;
-        color: var(--earth);
-        font-size: 0.85rem;
-        font-weight: 700;
-        text-decoration: none;
-        transition: all 0.22s ease;
-        white-space: nowrap;
-    }
-
-    .nav-pill:hover {
-        background: var(--gold);
-        border-color: var(--gold);
-        color: white;
-        transform: translateY(-1px);
-        box-shadow: 0 6px 20px rgba(201, 168, 76, 0.3);
-    }
-
-    .nav-pill i {
-        font-size: 0.78rem;
-    }
-
-    /* ─── CALENDAR GRID ─── */
-    .cal-scroll {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-
-    .cal-grid {
-        display: grid;
-        grid-template-columns: 72px repeat(7, 1fr);
-        min-width: 700px;
-    }
-
-    /* Header */
-    .cal-th {
-        padding: 1.1rem 0.5rem;
-        text-align: center;
-        background: #FAFAF8;
-        border-bottom: 2px solid #EEEBE5;
-        border-right: 1px solid #EEEBE5;
-    }
-
-    .cal-th:first-child {
-        background: white;
-        border-right: 2px solid #EEEBE5;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .cal-th:first-child i {
-        color: var(--gold);
-        font-size: 1.1rem;
-    }
-
-    .th-day {
-        font-weight: 700;
-        font-size: 0.9rem;
-        font-family: 'Playfair Display', serif;
-        color: var(--earth);
-        display: block;
-        margin-bottom: 0.15rem;
-    }
-
-    .th-date {
-        font-size: 0.72rem;
-        color: #BBB;
-        font-weight: 500;
-        display: block;
-    }
-
-    /* Time column */
-    .cal-time {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0.4rem;
-        font-size: 0.75rem;
-        font-weight: 700;
-        color: #C0B8AA;
-        background: #FAFAF8;
-        border-right: 2px solid #EEEBE5;
-        border-bottom: 1px solid #F5F2EE;
-        min-height: 76px;
-        letter-spacing: 0.3px;
-    }
-
-    /* Slot cells */
-    .cal-cell {
-        border-right: 1px solid #F5F2EE;
-        border-bottom: 1px solid #F5F2EE;
-        padding: 0.4rem;
-        min-height: 76px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: white;
-    }
-
-    /* Slot buttons — available */
-    .slot-avail {
-        width: 100%;
-        min-height: 60px;
-        border: 1.5px solid rgba(201, 168, 76, 0.3);
-        border-radius: 12px;
-        background: linear-gradient(145deg, #fffef9 0%, #fffbee 100%);
-        color: var(--earth);
-        font-size: 0.72rem;
-        font-weight: 700;
-        letter-spacing: 0.5px;
-        text-transform: uppercase;
-        cursor: pointer;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 4px;
-        transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
-        position: relative;
-        overflow: hidden;
-    }
-
-    .slot-avail .sicon {
-        font-size: 1rem;
-        color: var(--gold);
-        transition: color 0.2s;
-    }
-
-    .slot-avail:hover {
-        background: var(--gold);
-        border-color: var(--gold);
-        color: white;
-        transform: translateY(-3px) scale(1.04);
-        box-shadow: 0 10px 28px rgba(201, 168, 76, 0.4);
-    }
-
-    .slot-avail:hover .sicon {
-        color: white;
-    }
-
-    /* Slot buttons — unavailable */
-    .slot-busy {
-        width: 100%;
-        min-height: 60px;
-        border: none;
-        border-radius: 12px;
-        background: #F8F5F2;
-        color: #CCC;
-        font-size: 0.7rem;
-        font-weight: 600;
-        letter-spacing: 0.5px;
-        text-transform: uppercase;
-        cursor: not-allowed;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 4px;
-    }
-
-    .slot-busy .sicon {
-        font-size: 0.9rem;
-        color: #DDD;
-    }
-
-    /* Legend footer */
-    .cal-footer {
-        padding: 0.9rem 1.5rem;
-        display: flex;
-        align-items: center;
-        gap: 1.5rem;
-        font-size: 0.78rem;
-        color: #AAA;
-        border-top: 1px solid #F0EDE8;
-        background: #FDFCFA;
-        flex-wrap: wrap;
-    }
-
-    .leg {
-        display: flex;
-        align-items: center;
-        gap: 0.45rem;
-    }
-
-    .leg-dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-    }
-
-    .ld-avail {
-        background: var(--gold);
-    }
-
-    .ld-busy {
-        background: #DDD;
-    }
-
-    /* ─── BOOKING MODAL ─── */
-    .modal-content {
-        border-radius: 24px;
-        border: none;
-        overflow: hidden;
-        box-shadow: 0 32px 80px rgba(0, 0, 0, 0.22);
-    }
-
-    .mhdr {
-        background: linear-gradient(135deg, #2c2015 0%, #6D4C41 100%);
-        padding: 1.75rem 2rem 1.5rem;
-        color: white;
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-    }
-
-    .mhdr-title {
-        font-family: 'Playfair Display', serif;
-        font-size: 1.5rem;
-        font-weight: 700;
-        margin-bottom: 0.15rem;
-    }
-
-    .mhdr-sub {
-        font-size: 0.78rem;
-        opacity: 0.65;
-        letter-spacing: 0.5px;
-    }
-
-    .m-time-card {
-        background: linear-gradient(145deg, #FFFEF5 0%, #FFF9E3 100%);
-        border: 2px solid var(--gold);
-        border-radius: 18px;
-        padding: 1.25rem 1.5rem;
-        text-align: center;
+    /* ─── CALENDAR ─── */
+    .cal-header {
+        display: flex; align-items: center; justify-content: space-between;
         margin-bottom: 1.5rem;
     }
+    .cal-title {
+        font-family: 'Playfair Display', serif; font-size: 1.3rem;
+        font-weight: 700; color: var(--earth); text-transform: capitalize;
+    }
+    .cal-nav { display: flex; gap: 0.5rem; }
+    .cal-nav-btn {
+        width: 36px; height: 36px; border-radius: 50%;
+        border: 1.5px solid #E0DBD3; background: white;
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer; transition: all 0.2s; color: var(--earth);
+    }
+    .cal-nav-btn:hover { background: var(--gold); border-color: var(--gold); color: white; }
 
-    .m-time-badge {
-        font-size: 0.68rem;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 2px;
-        color: var(--gold);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.4rem;
+    .cal-weekdays {
+        display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
         margin-bottom: 0.5rem;
     }
+    .cal-weekday {
+        text-align: center; font-size: 0.7rem; font-weight: 800;
+        text-transform: uppercase; letter-spacing: 1px; color: #BBB; padding: 0.5rem 0;
+    }
+    .cal-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .cal-day {
+        aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+        border-radius: 12px; font-weight: 600; font-size: 0.9rem;
+        cursor: default; color: #DDD; transition: all 0.2s;
+    }
+    .cal-day.available {
+        color: var(--earth); cursor: pointer; background: #FAFAF8;
+        border: 1.5px solid transparent;
+    }
+    .cal-day.available:hover {
+        background: var(--gold-light); border-color: var(--gold); transform: scale(1.1);
+    }
+    .cal-day.selected {
+        background: var(--gold) !important; color: white !important;
+        border-color: var(--gold) !important;
+        transform: scale(1.1); box-shadow: 0 4px 12px rgba(201,168,76,0.3);
+    }
+    .cal-day.today { border: 2px solid var(--gold); }
+    .cal-day.empty { border: none; }
 
-    .m-time-value {
-        font-family: 'Playfair Display', serif;
-        font-size: 1.4rem;
-        font-weight: 700;
-        color: var(--earth);
-        text-transform: capitalize;
+    /* ─── TIME SLOTS ─── */
+    .slots-container { margin-top: 1.5rem; }
+    .slots-title { font-weight: 700; color: var(--earth); margin-bottom: 1rem; font-size: 0.95rem; }
+    .slots-grid { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+    .slot-btn {
+        padding: 0.7rem 1.2rem; border-radius: 12px;
+        border: 1.5px solid #E8E4DD; background: white;
+        font-weight: 700; font-size: 0.85rem; color: var(--earth);
+        cursor: pointer; transition: all 0.2s; min-width: 80px; text-align: center;
+    }
+    .slot-btn:hover { border-color: var(--gold); background: var(--gold-light); }
+    .slot-btn.selected {
+        background: var(--gold); color: white; border-color: var(--gold);
+        box-shadow: 0 4px 12px rgba(201,168,76,0.3);
+    }
+    .slots-loading { text-align: center; padding: 2rem; color: #BBB; }
+
+    /* ─── PROFISSIONAL SELECT ─── */
+    .prof-options { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1rem; }
+    .prof-btn {
+        padding: 0.6rem 1.2rem; border-radius: 12px;
+        border: 1.5px solid #E8E4DD; background: white;
+        font-weight: 600; font-size: 0.85rem; color: var(--earth);
+        cursor: pointer; transition: all 0.2s;
+    }
+    .prof-btn:hover { border-color: var(--gold); background: var(--gold-light); }
+    .prof-btn.selected { background: var(--gold); color: white; border-color: var(--gold); }
+
+    /* ─── STEP 3 FORM ─── */
+    .confirm-summary {
+        background: linear-gradient(145deg, #FFFEF5, #FFF9E3);
+        border: 2px solid var(--gold); border-radius: 18px;
+        padding: 1.5rem; margin-bottom: 1.5rem; text-align: center;
+    }
+    .summary-badge {
+        font-size: 0.68rem; font-weight: 800; text-transform: uppercase;
+        letter-spacing: 2px; color: var(--gold); margin-bottom: 0.5rem;
+    }
+    .summary-line { font-size: 0.9rem; color: var(--earth); margin-bottom: 0.3rem; }
+    .summary-line strong { font-weight: 700; }
+
+    .form-field { margin-bottom: 1.25rem; }
+    .form-field label {
+        font-size: 0.72rem; font-weight: 800; text-transform: uppercase;
+        letter-spacing: 1.5px; color: #999; display: flex;
+        align-items: center; gap: 0.4rem; margin-bottom: 0.5rem;
+    }
+    .form-field label i { color: var(--gold); }
+    .form-input {
+        width: 100%; padding: 0.85rem 1rem; border: 2px solid #EBEBEB;
+        border-radius: 14px; font-size: 0.95rem; background: #FAFAFA;
+        color: var(--earth); font-weight: 500; transition: border-color 0.2s;
+    }
+    .form-input:focus {
+        outline: none; border-color: var(--gold);
+        box-shadow: 0 0 0 4px rgba(201,168,76,0.12); background: white;
     }
 
-    .m-field {
-        margin-bottom: 1.25rem;
+    .btn-confirm-booking {
+        width: 100%; padding: 0.95rem; background: var(--gold);
+        color: white; border: none; border-radius: 50px;
+        font-size: 0.92rem; font-weight: 800; text-transform: uppercase;
+        letter-spacing: 1.2px; cursor: pointer; transition: all 0.25s;
+        box-shadow: 0 6px 20px rgba(201,168,76,0.35);
     }
+    .btn-confirm-booking:hover {
+        background: #b8940f; transform: translateY(-2px);
+        box-shadow: 0 10px 28px rgba(201,168,76,0.45);
+    }
+    .btn-back-step {
+        display: inline-flex; align-items: center; gap: 0.5rem;
+        padding: 0.7rem 1.4rem; background: white; border: 1.5px solid #E0DBD3;
+        border-radius: 50px; color: var(--earth); font-weight: 600;
+        font-size: 0.85rem; cursor: pointer; transition: all 0.2s;
+        margin-top: 0.75rem;
+    }
+    .btn-back-step:hover { background: #F5F2EE; }
 
-    .m-label {
-        font-size: 0.72rem;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 1.5px;
-        color: #999;
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        margin-bottom: 0.55rem;
+    .wpp-note {
+        display: flex; align-items: center; gap: 0.7rem;
+        background: #dcf5e7; border-left: 4px solid #25D366;
+        border-radius: 12px; padding: 1rem; margin: 1.25rem 0;
+        font-size: 0.85rem; color: #1B5E20; line-height: 1.5;
     }
+    .wpp-note i { font-size: 1.2rem; color: #25D366; flex-shrink: 0; }
 
-    .m-label i {
-        color: var(--gold);
+    .empty-procs {
+        text-align: center; padding: 3rem 1rem; color: #BBB;
     }
-
-    .m-select {
-        width: 100%;
-        padding: 0.85rem 1rem;
-        border: 2px solid #EBEBEB;
-        border-radius: 14px;
-        font-size: 0.95rem;
-        background: #FAFAFA;
-        color: var(--earth);
-        font-weight: 500;
-        transition: border-color 0.2s, box-shadow 0.2s;
-        cursor: pointer;
-    }
-
-    .m-select:focus {
-        outline: none;
-        border-color: var(--gold);
-        box-shadow: 0 0 0 4px rgba(201, 168, 76, 0.12);
-        background: white;
-    }
-
-    .m-note {
-        display: flex;
-        align-items: flex-start;
-        gap: 0.7rem;
-        background: #F0F7FF;
-        border-left: 4px solid #5B9BD5;
-        border-radius: 12px;
-        padding: 1rem 1.1rem;
-        margin: 1.25rem 0;
-        font-size: 0.85rem;
-        color: #1D4E89;
-        line-height: 1.55;
-    }
-
-    .m-note i {
-        opacity: 0.8;
-        font-size: 1rem;
-        margin-top: 0.1rem;
-        flex-shrink: 0;
-    }
-
-    .btn-confirm {
-        width: 100%;
-        padding: 0.95rem;
-        background: var(--gold);
-        color: white;
-        border: none;
-        border-radius: 50px;
-        font-size: 0.92rem;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 1.2px;
-        cursor: pointer;
-        transition: all 0.25s ease;
-        box-shadow: 0 6px 20px rgba(201, 168, 76, 0.35);
-        margin-bottom: 0.65rem;
-    }
-
-    .btn-confirm:hover {
-        background: #b8940f;
-        transform: translateY(-2px);
-        box-shadow: 0 10px 28px rgba(201, 168, 76, 0.45);
-    }
-
-    .btn-back {
-        width: 100%;
-        padding: 0.85rem;
-        background: transparent;
-        color: #AAA;
-        border: 1.5px solid #E5E5E5;
-        border-radius: 50px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-
-    .btn-back:hover {
-        background: #F5F5F5;
-        color: #777;
-    }
+    .empty-procs i { font-size: 3rem; margin-bottom: 1rem; color: #E0DBD3; }
 
     @media (max-width: 768px) {
-        .booking-banner {
-            padding: 3rem 0 7rem;
-        }
-
-        .booking-float {
-            padding: 0 0.75rem 2rem;
-        }
-
-        .week-nav {
-            padding: 1rem;
-        }
-
-        .nav-pill {
-            font-size: 0.8rem;
-            padding: 0.55rem 1rem;
-        }
-
-        .mhdr {
-            padding: 1.5rem;
-        }
+        .booking-banner { padding: 3rem 0 6rem; }
+        .booking-float { padding: 0 0.75rem 2rem; }
+        .step-panel { padding: 1.25rem !important; }
+        .proc-grid { grid-template-columns: 1fr; }
+        .step-text { display: none; }
     }
 </style>
-{% endblock %}
 
-{% block conteudo %}
+<div class="booking-page">
 
-<!-- Hero Banner -->
+<!-- Hero -->
 <div class="booking-banner">
     <div class="booking-banner-inner container">
-        <div class="booking-pill"><i class="fas fa-spa"></i>Shiva Zen &mdash; Agendamento Online</div>
+        <div class="booking-pill"><i class="fas fa-spa"></i>Shiva Zen — Agendamento Online</div>
         <h1>Agende seu Espaço<br>de Bem-Estar</h1>
-        <p>Selecione um dia e horário — cuidar de você é prioridade.</p>
+        <p>Escolha seu tratamento, selecione a data e confirme — tudo sem precisar criar conta.</p>
     </div>
 </div>
 
-<!-- Floating Booking Card -->
+<!-- Floating Card -->
 <div class="booking-float">
     <div class="booking-card">
 
-        <!-- Week Navigator -->
-        <div class="week-nav">
-            <a href="?semana={{ semana_anterior }}" class="nav-pill">
-                <i class="fas fa-chevron-left"></i> Semana anterior
-            </a>
-            <div class="week-nav-center">
-                <span class="week-label">{{ semana_atual_display }}</span>
-                <span class="week-sub">Clique num horário livre para agendar</span>
+        <!-- Steps Bar -->
+        <div class="steps-bar">
+            <div class="step-item active" id="step-ind-1">
+                <span class="step-num">1</span>
+                <span class="step-text">Procedimento</span>
             </div>
-            <a href="?semana={{ semana_seguinte }}" class="nav-pill">
-                Próxima semana <i class="fas fa-chevron-right"></i>
-            </a>
+            <div class="step-item" id="step-ind-2">
+                <span class="step-num">2</span>
+                <span class="step-text">Data & Horário</span>
+            </div>
+            <div class="step-item" id="step-ind-3">
+                <span class="step-num">3</span>
+                <span class="step-text">Confirmar</span>
+            </div>
         </div>
 
-        <!-- Calendar Grid -->
-        <div class="cal-scroll">
-            <div class="cal-grid">
+        <!-- ═══ STEP 1: Escolher Procedimento ═══ -->
+        <div class="step-panel active" id="step-1">
+            <h3 style="font-family:'Playfair Display',serif;font-weight:700;color:var(--earth);margin-bottom:0.3rem;">
+                Escolha seu Tratamento
+            </h3>
+            <p style="color:#999;font-size:0.9rem;margin-bottom:1.5rem;">
+                Selecione o procedimento desejado para ver as datas disponíveis.
+            </p>
 
-                <!-- Headers -->
-                <div class="cal-th"><i class="far fa-clock"></i></div>
-                {% for dia in dias_semana %}
-                <div class="cal-th">
-                    <span class="th-day">
-                        {% if dia.verbose == 'Monday' %}Seg
-                        {% elif dia.verbose == 'Tuesday' %}Ter
-                        {% elif dia.verbose == 'Wednesday' %}Qua
-                        {% elif dia.verbose == 'Thursday' %}Qui
-                        {% elif dia.verbose == 'Friday' %}Sex
-                        {% elif dia.verbose == 'Saturday' %}Sáb
-                        {% elif dia.verbose == 'Sunday' %}Dom
-                        {% else %}{{ dia.verbose }}{% endif %}
-                    </span>
-                    <span class="th-date">{{ dia.data|date:"d/m" }}</span>
-                </div>
-                {% endfor %}
-
-                <!-- Rows per time slot -->
-                {% for horario, slots in agenda_semanal.items %}
-                <div class="cal-time">{{ horario }}</div>
-                {% for slot in slots %}
-                <div class="cal-cell">
-                    {% if slot.disponivel %}
-                    <button class="slot-avail" data-bs-toggle="modal" data-bs-target="#bookingModal"
-                        data-datetime="{{ slot.datetime_iso }}" data-profissionais="{{ slot.profissionais_json }}">
-                        <i class="fas fa-leaf sicon"></i>
-                        <span>Disponível</span>
-                    </button>
-                    {% else %}
-                    <button class="slot-busy" disabled>
-                        <i class="fas fa-ban sicon"></i>
-                        <span>Ocupado</span>
-                    </button>
+            {% if procedimentos %}
+            <div class="proc-grid">
+                {% for proc in procedimentos %}
+                <div class="proc-card" data-proc-id="{{ proc.id }}" data-proc-nome="{{ proc.nome }}"
+                     data-proc-preco="{{ proc.preco }}" data-proc-duracao="{{ proc.duracao_minutos }}">
+                    <div class="proc-icon"><i class="fas fa-spa"></i></div>
+                    <div class="proc-name">{{ proc.nome }}</div>
+                    {% if proc.descricao %}
+                    <div class="proc-desc">{{ proc.descricao|truncatewords:15 }}</div>
                     {% endif %}
+                    <div class="proc-meta">
+                        <span class="proc-price">R$ {{ proc.preco|floatformat:2 }}</span>
+                        <span class="proc-duration">
+                            <i class="far fa-clock"></i>{{ proc.duracao_minutos }} min
+                        </span>
+                    </div>
                 </div>
                 {% endfor %}
-                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-procs">
+                <i class="fas fa-spa"></i>
+                <h4 style="font-weight:700;color:#BBB;">Nenhum procedimento cadastrado</h4>
+                <p>Em breve nossos tratamentos estarão disponíveis para agendamento.</p>
+                <a href="https://wa.me/{{ whatsapp_numero }}" target="_blank" class="btn btn-success rounded-pill px-4 py-2 fw-bold mt-2">
+                    <i class="fab fa-whatsapp me-2"></i>Agendar via WhatsApp
+                </a>
+            </div>
+            {% endif %}
+        </div>
 
+        <!-- ═══ STEP 2: Calendário + Horários ═══ -->
+        <div class="step-panel" id="step-2">
+            <div class="row g-4">
+                <!-- Calendário -->
+                <div class="col-lg-6">
+                    <div class="cal-header">
+                        <span class="cal-title" id="cal-month-label">—</span>
+                        <div class="cal-nav">
+                            <button class="cal-nav-btn" id="cal-prev" type="button"><i class="fas fa-chevron-left"></i></button>
+                            <button class="cal-nav-btn" id="cal-next" type="button"><i class="fas fa-chevron-right"></i></button>
+                        </div>
+                    </div>
+                    <div class="cal-weekdays">
+                        <div class="cal-weekday">Dom</div>
+                        <div class="cal-weekday">Seg</div>
+                        <div class="cal-weekday">Ter</div>
+                        <div class="cal-weekday">Qua</div>
+                        <div class="cal-weekday">Qui</div>
+                        <div class="cal-weekday">Sex</div>
+                        <div class="cal-weekday">Sáb</div>
+                    </div>
+                    <div class="cal-days" id="cal-days-grid"></div>
+
+                    <button class="btn-back-step" type="button" onclick="goToStep(1)">
+                        <i class="fas fa-arrow-left"></i> Voltar aos Procedimentos
+                    </button>
+                </div>
+
+                <!-- Horários -->
+                <div class="col-lg-6">
+                    <div class="slots-container" id="slots-container">
+                        <div class="slots-loading">
+                            <i class="far fa-calendar fa-2x" style="color:#DDD;display:block;margin-bottom:0.75rem;"></i>
+                            <span style="font-size:0.9rem;">Selecione uma data no calendário</span>
+                        </div>
+                    </div>
+
+                    <!-- Profissional (aparece após selecionar horário) -->
+                    <div id="prof-section" style="display:none !important;margin-top:1.5rem;">
+                        <div class="slots-title">
+                            <i class="fas fa-user-md me-1" style="color:var(--gold);"></i> Escolha o Profissional
+                        </div>
+                        <div class="prof-options" id="prof-options"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Legend -->
-        <div class="cal-footer">
-            <div class="leg">
-                <div class="leg-dot ld-avail"></div><span>Disponível — clique para agendar</span>
+        <!-- ═══ STEP 3: Dados + Confirmação ═══ -->
+        <div class="step-panel" id="step-3">
+            <div class="row justify-content-center">
+                <div class="col-lg-7">
+                    <h3 style="font-family:'Playfair Display',serif;font-weight:700;color:var(--earth);margin-bottom:1.5rem;text-align:center;">
+                        Confirme seu Agendamento
+                    </h3>
+
+                    <!-- Resumo -->
+                    <div class="confirm-summary">
+                        <div class="summary-badge"><i class="fas fa-check-circle me-1"></i>Resumo</div>
+                        <div class="summary-line"><strong id="sum-proc">—</strong></div>
+                        <div class="summary-line" id="sum-datetime" style="color:var(--gold);font-weight:600;">—</div>
+                        <div class="summary-line"><small id="sum-prof" style="color:#999;">—</small></div>
+                        <div class="summary-line" style="font-size:1.2rem;font-weight:800;color:var(--earth);margin-top:0.5rem;" id="sum-price">—</div>
+                    </div>
+
+                    <form id="booking-form" action="{% url 'shivazen:confirmar_agendamento' %}" method="POST">
+                        {% csrf_token %}
+                        <input type="hidden" name="procedimento" id="form-procedimento">
+                        <input type="hidden" name="profissional" id="form-profissional">
+                        <input type="hidden" name="datetime" id="form-datetime">
+
+                        <div class="form-field">
+                            <label><i class="fas fa-user"></i>Seu Nome</label>
+                            <input type="text" name="nome" class="form-input" placeholder="Nome completo" required id="form-nome">
+                        </div>
+
+                        <div class="form-field">
+                            <label><i class="fab fa-whatsapp"></i>Celular (WhatsApp)</label>
+                            <input type="tel" name="telefone" class="form-input" placeholder="(00) 00000-0000" required id="form-telefone">
+                        </div>
+
+                        <div class="wpp-note">
+                            <i class="fab fa-whatsapp"></i>
+                            <span>Após confirmar, você será redirecionado para o WhatsApp para receber a confirmação.</span>
+                        </div>
+
+                        <button type="submit" class="btn-confirm-booking">
+                            <i class="fas fa-calendar-check me-2"></i>Confirmar Agendamento
+                        </button>
+                    </form>
+
+                    <div class="text-center">
+                        <button class="btn-back-step" type="button" onclick="goToStep(2)">
+                            <i class="fas fa-arrow-left"></i> Voltar
+                        </button>
+                    </div>
+                </div>
             </div>
-            <div class="leg">
-                <div class="leg-dot ld-busy"></div><span>Ocupado</span>
-            </div>
-            <span class="ms-auto d-none d-md-inline" style="font-style:italic;font-size:0.73rem;">
-                Atendimentos de Segunda a Sábado
-            </span>
         </div>
 
-    </div>
+    </div><!-- /booking-card -->
 </div><!-- /booking-float -->
 
-
-<!-- ─── BOOKING MODAL ─── -->
-<div class="modal fade" id="bookingModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" style="max-width:500px; padding: 0 1rem;">
-        <div class="modal-content">
-
-            <!-- Header -->
-            <div class="mhdr">
-                <div>
-                    <p class="mhdr-sub mb-1"><i class="fas fa-calendar-check me-1"
-                            style="color:var(--gold);"></i>CONFIRMAR HORÁRIO</p>
-                    <h5 class="mhdr-title mb-0">Detalhes do Agendamento</h5>
-                </div>
-                <button type="button" class="btn-close btn-close-white ms-4" data-bs-dismiss="modal"
-                    aria-label="Fechar"></button>
-            </div>
-
-            <!-- Body -->
-            <div class="p-4">
-                <form id="booking-form" action="{% url 'shivazen:confirmar_agendamento' %}" method="POST">
-                    {% csrf_token %}
-
-                    <!-- Time Card -->
-                    <div class="m-time-card">
-                        <div class="m-time-badge"><i class="fas fa-clock"></i> Horário Selecionado</div>
-                        <div class="m-time-value" id="selected-time-text">—</div>
-                    </div>
-
-                    <input type="hidden" id="datetime-input" name="datetime">
-
-                    <!-- Procedimento -->
-                    <div class="m-field">
-                        <label class="m-label"><i class="fas fa-spa"></i>Procedimento</label>
-                        <select id="procedimento-select" name="procedimento" class="m-select" required>
-                            <option value="" disabled selected>Selecione o procedimento...</option>
-                            {% for proc in todos_procedimentos %}
-                            <option value="{{ proc.id_procedimento }}">{{ proc.nome }} — R$ {{ proc.preco.valor }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <!-- Profissional -->
-                    <div class="m-field">
-                        <label class="m-label"><i class="fas fa-user-md"></i>Profissional</label>
-                        <select id="profissional-select" name="profissional" class="m-select" required>
-                            <!-- populated via JS -->
-                        </select>
-                    </div>
-
-                    <!-- Note -->
-                    <div class="m-note">
-                        <i class="fas fa-info-circle"></i>
-                        <span>Para finalizar, você será direcionado ao login ou ao cadastro — rápido e gratuito.</span>
-                    </div>
-
-                    <button type="submit" class="btn-confirm">
-                        <i class="fas fa-arrow-right me-2"></i>Confirmar Agendamento
-                    </button>
-                    <button type="button" class="btn-back" data-bs-dismiss="modal">Cancelar</button>
-
-                </form>
-            </div>
-
-        </div>
-    </div>
+<!-- Dúvidas CTA -->
+<div class="text-center py-4">
+    <p style="color:#999;font-size:0.9rem;">Ficou com alguma dúvida?</p>
+    <a href="https://wa.me/{{ whatsapp_numero }}" target="_blank"
+       class="btn btn-success rounded-pill px-4 py-2 fw-bold shadow-sm"
+       style="letter-spacing:0.5px;">
+        <i class="fab fa-whatsapp me-2"></i>Fale conosco no WhatsApp
+    </a>
 </div>
 
+</div><!-- /booking-page -->
 {% endblock %}
 
 {% block scripts %}
 <script>
-    document.getElementById('bookingModal').addEventListener('show.bs.modal', function (e) {
-        const btn = e.relatedTarget;
-        const datetime = btn.dataset.datetime;
-        const profissionais = JSON.parse(btn.dataset.profissionais);
+(function() {
+    // ═══ STATE ═══
+    var selectedProc = null;
+    var selectedDate = null;
+    var selectedSlot = null;
+    var selectedProf = null;
+    var currentMonth = new Date();
+    var diasDisponiveis = [];
+    var horariosData = [];
 
-        // Format date nicely
-        const d = new Date(datetime);
-        const opts = { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' };
-        document.getElementById('selected-time-text').textContent = d.toLocaleDateString('pt-BR', opts);
-        document.getElementById('datetime-input').value = datetime;
+    var meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+                 'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
-        // Populate professionals
-        const sel = document.getElementById('profissional-select');
-        sel.innerHTML = '';
-        if (profissionais.length === 0) {
-            sel.add(new Option('Nenhum profissional disponível', ''));
-        } else {
-            profissionais.forEach(p => sel.add(new Option(p.nome, p.id)));
+    var preselect = '{{ proc_preselect }}';
+
+    // ═══ STEP NAVIGATION ═══
+    window.goToStep = function(n) {
+        // Hide all panels
+        var panels = document.querySelectorAll('.step-panel');
+        for (var i = 0; i < panels.length; i++) {
+            panels[i].classList.remove('active');
         }
+        // Show target panel
+        document.getElementById('step-' + n).classList.add('active');
+
+        // Update step indicators
+        var items = document.querySelectorAll('.step-item');
+        for (var i = 0; i < items.length; i++) {
+            items[i].classList.remove('active', 'done');
+            // Remove ::after pseudo-element by clearing class
+            if (i + 1 < n) items[i].classList.add('done');
+            if (i + 1 === n) items[i].classList.add('active');
+        }
+    };
+
+    // ═══ STEP 1: SELECT PROCEDURE ═══
+    var procCards = document.querySelectorAll('.proc-card');
+    for (var c = 0; c < procCards.length; c++) {
+        procCards[c].addEventListener('click', function() {
+            var allCards = document.querySelectorAll('.proc-card');
+            for (var j = 0; j < allCards.length; j++) allCards[j].classList.remove('selected');
+            this.classList.add('selected');
+
+            selectedProc = {
+                id: this.dataset.procId,
+                nome: this.dataset.procNome,
+                preco: parseFloat(this.dataset.procPreco),
+                duracao: parseInt(this.dataset.procDuracao)
+            };
+
+            selectedDate = null;
+            selectedSlot = null;
+            selectedProf = null;
+
+            goToStep(2);
+            currentMonth = new Date();
+            loadMonth();
+        });
+    }
+
+    // ═══ STEP 2: CALENDAR ═══
+    function loadMonth() {
+        var year = currentMonth.getFullYear();
+        var month = currentMonth.getMonth();
+        document.getElementById('cal-month-label').textContent = meses[month] + ' ' + year;
+
+        var mesStr = year + '-' + String(month + 1).padStart(2, '0');
+
+        fetch('/ajax/dias-disponiveis/?mes=' + mesStr + '&procedimento_id=' + selectedProc.id)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                diasDisponiveis = data.dias_disponiveis || [];
+                renderCalendar(year, month);
+            })
+            .catch(function() { renderCalendar(year, month); });
+    }
+
+    function renderCalendar(year, month) {
+        var grid = document.getElementById('cal-days-grid');
+        grid.innerHTML = '';
+
+        var firstDay = new Date(year, month, 1).getDay();
+        var daysInMonth = new Date(year, month + 1, 0).getDate();
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        for (var i = 0; i < firstDay; i++) {
+            var empty = document.createElement('div');
+            empty.className = 'cal-day empty';
+            grid.appendChild(empty);
+        }
+
+        for (var d = 1; d <= daysInMonth; d++) {
+            var dateObj = new Date(year, month, d);
+            var dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+            var isToday = dateObj.getTime() === today.getTime();
+            var isAvailable = diasDisponiveis.indexOf(dateStr) !== -1;
+
+            var div = document.createElement('div');
+            div.textContent = d;
+            div.className = 'cal-day';
+            if (isToday) div.classList.add('today');
+            if (isAvailable) {
+                div.classList.add('available');
+                div.setAttribute('data-date', dateStr);
+                div.addEventListener('click', function() {
+                    selectDate(this.getAttribute('data-date'));
+                });
+            }
+            grid.appendChild(div);
+        }
+    }
+
+    document.getElementById('cal-prev').addEventListener('click', function() {
+        currentMonth.setMonth(currentMonth.getMonth() - 1);
+        loadMonth();
     });
+    document.getElementById('cal-next').addEventListener('click', function() {
+        currentMonth.setMonth(currentMonth.getMonth() + 1);
+        loadMonth();
+    });
+
+    function selectDate(dateStr) {
+        selectedDate = dateStr;
+        selectedSlot = null;
+        selectedProf = null;
+        document.getElementById('prof-section').style.display = 'none';
+
+        var allDays = document.querySelectorAll('.cal-day');
+        for (var i = 0; i < allDays.length; i++) allDays[i].classList.remove('selected');
+        var sel = document.querySelector('.cal-day[data-date="' + dateStr + '"]');
+        if (sel) sel.classList.add('selected');
+
+        var container = document.getElementById('slots-container');
+        container.innerHTML = '<div class="slots-loading"><i class="fas fa-spinner fa-spin fa-2x" style="color:var(--gold);display:block;margin-bottom:0.75rem;"></i>Carregando horários...</div>';
+
+        fetch('/ajax/horarios-disponiveis/?data=' + dateStr + '&procedimento_id=' + selectedProc.id)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                horariosData = data.horarios || [];
+                if (horariosData.length === 0) {
+                    container.innerHTML = '<div class="slots-loading"><i class="fas fa-exclamation-circle fa-2x" style="color:#DDD;display:block;margin-bottom:0.75rem;"></i>Nenhum horário disponível nesta data.</div>';
+                    return;
+                }
+
+                var parts = dateStr.split('-');
+                var dateDisplay = parts[2] + '/' + parts[1] + '/' + parts[0];
+
+                var html = '<div class="slots-title"><i class="far fa-clock me-1" style="color:var(--gold);"></i> Horários para ' + dateDisplay + '</div>';
+                html += '<div class="slots-grid">';
+                for (var i = 0; i < horariosData.length; i++) {
+                    var slot = horariosData[i];
+                    html += '<button type="button" class="slot-btn" data-idx="' + i + '">' + slot.horario + '</button>';
+                }
+                html += '</div>';
+                container.innerHTML = html;
+
+                var btns = container.querySelectorAll('.slot-btn');
+                for (var j = 0; j < btns.length; j++) {
+                    btns[j].addEventListener('click', function() { selectSlot(this); });
+                }
+            })
+            .catch(function() {
+                container.innerHTML = '<div class="slots-loading">Erro ao carregar horários.</div>';
+            });
+    }
+
+    function selectSlot(btn) {
+        var allBtns = document.querySelectorAll('.slot-btn');
+        for (var i = 0; i < allBtns.length; i++) allBtns[i].classList.remove('selected');
+        btn.classList.add('selected');
+
+        var idx = parseInt(btn.getAttribute('data-idx'));
+        var slot = horariosData[idx];
+        selectedSlot = {
+            horario: slot.horario,
+            iso: slot.datetime_iso,
+            profissionais: slot.profissionais
+        };
+
+        var profSection = document.getElementById('prof-section');
+        var profOptions = document.getElementById('prof-options');
+        profSection.style.display = 'block';
+        profSection.style.setProperty('display', 'block', 'important');
+        profOptions.innerHTML = '';
+
+        if (selectedSlot.profissionais.length === 1) {
+            selectedProf = selectedSlot.profissionais[0];
+            var pbtn = document.createElement('button');
+            pbtn.type = 'button';
+            pbtn.className = 'prof-btn selected';
+            pbtn.textContent = selectedProf.nome;
+            profOptions.appendChild(pbtn);
+            setTimeout(function() { goToStep3(); }, 500);
+        } else {
+            for (var p = 0; p < selectedSlot.profissionais.length; p++) {
+                (function(prof) {
+                    var pbtn = document.createElement('button');
+                    pbtn.type = 'button';
+                    pbtn.className = 'prof-btn';
+                    pbtn.textContent = prof.nome;
+                    pbtn.addEventListener('click', function() {
+                        var all = document.querySelectorAll('.prof-btn');
+                        for (var k = 0; k < all.length; k++) all[k].classList.remove('selected');
+                        this.classList.add('selected');
+                        selectedProf = prof;
+                        setTimeout(function() { goToStep3(); }, 500);
+                    });
+                    profOptions.appendChild(pbtn);
+                })(selectedSlot.profissionais[p]);
+            }
+        }
+    }
+
+    function goToStep3() {
+        if (!selectedProc || !selectedSlot || !selectedProf) return;
+
+        document.getElementById('sum-proc').textContent = selectedProc.nome;
+
+        var d = new Date(selectedSlot.iso);
+        var opts = {weekday:'long', day:'numeric', month:'long', hour:'2-digit', minute:'2-digit'};
+        document.getElementById('sum-datetime').textContent = d.toLocaleDateString('pt-BR', opts);
+        document.getElementById('sum-prof').textContent = 'Profissional: ' + selectedProf.nome;
+        document.getElementById('sum-price').textContent = 'R$ ' + selectedProc.preco.toFixed(2).replace('.', ',');
+
+        document.getElementById('form-procedimento').value = selectedProc.id;
+        document.getElementById('form-profissional').value = selectedProf.id;
+        document.getElementById('form-datetime').value = selectedSlot.iso;
+
+        goToStep(3);
+    }
+
+    // ═══ PHONE MASK ═══
+    var telInput = document.getElementById('form-telefone');
+    if (telInput) {
+        telInput.addEventListener('input', function(e) {
+            var v = e.target.value.replace(/\D/g, '');
+            if (v.length > 11) v = v.slice(0, 11);
+            if (v.length > 6) v = '(' + v.slice(0,2) + ') ' + v.slice(2,7) + '-' + v.slice(7);
+            else if (v.length > 2) v = '(' + v.slice(0,2) + ') ' + v.slice(2);
+            else if (v.length > 0) v = '(' + v;
+            e.target.value = v;
+        });
+    }
+
+    // Pre-select
+    if (preselect) {
+        var card = document.querySelector('.proc-card[data-proc-id="' + preselect + '"]');
+        if (card) card.click();
+    }
+
+})();
 </script>
 {% endblock %}

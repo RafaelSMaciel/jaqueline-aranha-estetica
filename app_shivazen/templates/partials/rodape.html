@@ -3,31 +3,30 @@
     <div class="container py-5">
         <div class="row gy-5 align-items-start">
             <!-- Brand -->
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <a href="{% url 'shivazen:inicio' %}">
                     <img src="{% static 'assents/LogoSemFundo.png' %}" alt="Shiva Zen"
                         style="height: 45px; opacity: 0.9; filter: brightness(1.2);" class="mb-4">
                 </a>
                 <p class="small mb-4" style="color: #999; line-height: 1.8;">
-                    Clínica de estética avançada especializada em tratamentos faciais e corporais que transformam sua
-                    autoestima e bem-estar.
+                    Clínica de estética avançada especializada em tratamentos faciais e corporais.
                 </p>
                 <div class="d-flex gap-2">
                     <a href="#" aria-label="Instagram" target="_blank" rel="noopener noreferrer"
-                        class="d-flex align-items-center justify-content-center rounded-circle border-0 text-white transition-base"
+                        class="d-flex align-items-center justify-content-center rounded-circle text-white"
                         style="width:38px;height:38px;background:rgba(255,255,255,0.08);">
                         <i class="fab fa-instagram"></i>
                     </a>
                     <a href="#" aria-label="Facebook" target="_blank" rel="noopener noreferrer"
-                        class="d-flex align-items-center justify-content-center rounded-circle text-white transition-base"
+                        class="d-flex align-items-center justify-content-center rounded-circle text-white"
                         style="width:38px;height:38px;background:rgba(255,255,255,0.08);">
                         <i class="fab fa-facebook-f"></i>
                     </a>
-                    <a href="https://wa.me/5511912345678" aria-label="WhatsApp" target="_blank"
+                    <a href="https://wa.me/5500000000000" aria-label="WhatsApp" target="_blank"
                         rel="noopener noreferrer"
-                        class="d-flex align-items-center justify-content-center rounded-circle text-white transition-base"
-                        style="width:38px;height:38px;background:rgba(255,255,255,0.08);">
-                        <i class="fab fa-whatsapp"></i>
+                        class="d-flex align-items-center justify-content-center rounded-circle text-white"
+                        style="width:38px;height:38px;background:rgba(37,211,102,0.2);">
+                        <i class="fab fa-whatsapp" style="color:#25D366;"></i>
                     </a>
                 </div>
             </div>
@@ -38,53 +37,49 @@
                     Serviços</h6>
                 <ul class="list-unstyled mb-0">
                     <li class="mb-2"><a href="{% url 'shivazen:servicos_faciais' %}" class="text-decoration-none small"
-                            style="color:#999;" onmouseover="this.style.color='var(--primary-color)'"
-                            onmouseout="this.style.color='#999'">Tratamentos Faciais</a></li>
+                            style="color:#999;">Tratamentos Faciais</a></li>
                     <li class="mb-2"><a href="{% url 'shivazen:servicos_corporais' %}"
-                            class="text-decoration-none small" style="color:#999;"
-                            onmouseover="this.style.color='var(--primary-color)'"
-                            onmouseout="this.style.color='#999'">Tratamentos Corporais</a></li>
+                            class="text-decoration-none small" style="color:#999;">Tratamentos Corporais</a></li>
                     <li class="mb-2"><a href="{% url 'shivazen:servicos_produtos' %}" class="text-decoration-none small"
-                            style="color:#999;" onmouseover="this.style.color='var(--primary-color)'"
-                            onmouseout="this.style.color='#999'">Produtos Naturais</a></li>
-                    <li class="mb-2"><a href="{% url 'shivazen:agendamento_publico' %}"
-                            class="text-decoration-none small" style="color:#999;"
-                            onmouseover="this.style.color='var(--primary-color)'"
-                            onmouseout="this.style.color='#999'">Agendar Horário</a></li>
+                            style="color:#999;">Produtos Naturais</a></li>
                 </ul>
             </div>
 
             <!-- Links -->
             <div class="col-md-2">
                 <h6 class="text-white fw-bold mb-4 text-uppercase" style="letter-spacing:2px;font-size:0.75rem;">
-                    Institucional</h6>
+                    Links Úteis</h6>
                 <ul class="list-unstyled mb-0">
+                    <li class="mb-2"><a href="{% url 'shivazen:agendamento_publico' %}" class="text-decoration-none small"
+                            style="color:#999;"><i class="fas fa-calendar-alt me-1" style="color:#C9A84C;"></i>Agendar</a></li>
+                    <li class="mb-2"><a href="{% url 'shivazen:meus_agendamentos' %}" class="text-decoration-none small"
+                            style="color:#999;"><i class="far fa-calendar-check me-1" style="color:#C9A84C;"></i>Meus Agendamentos</a></li>
+                    <li class="mb-2"><a href="{% url 'shivazen:promocoes' %}" class="text-decoration-none small"
+                            style="color:#999;"><i class="fas fa-tag me-1" style="color:#C9A84C;"></i>Promoções</a></li>
                     <li class="mb-2"><a href="{% url 'shivazen:quemsomos' %}" class="text-decoration-none small"
-                            style="color:#999;" onmouseover="this.style.color='var(--primary-color)'"
-                            onmouseout="this.style.color='#999'">Quem Somos</a></li>
-                    <li class="mb-2"><a href="{% url 'shivazen:agendaContato' %}" class="text-decoration-none small"
-                            style="color:#999;" onmouseover="this.style.color='var(--primary-color)'"
-                            onmouseout="this.style.color='#999'">Contato</a></li>
+                            style="color:#999;">Quem Somos</a></li>
                     <li class="mb-2"><a href="{% url 'shivazen:termosUso' %}" class="text-decoration-none small"
-                            style="color:#999;" onmouseover="this.style.color='var(--primary-color)'"
-                            onmouseout="this.style.color='#999'">Termos de Uso</a></li>
+                            style="color:#999;">Termos de Uso</a></li>
                     <li class="mb-2"><a href="{% url 'shivazen:politicaPrivacidade' %}"
-                            class="text-decoration-none small" style="color:#999;"
-                            onmouseover="this.style.color='var(--primary-color)'"
-                            onmouseout="this.style.color='#999'">Privacidade</a></li>
+                            class="text-decoration-none small" style="color:#999;">Privacidade</a></li>
                 </ul>
             </div>
 
-            <!-- CTA -->
+            <!-- CTA WhatsApp -->
             <div class="col-md-3">
-                <h6 class="text-white fw-bold mb-4 text-uppercase" style="letter-spacing:2px;font-size:0.75rem;">Agende
-                    Agora</h6>
-                <p class="small mb-4" style="color:#999;">Transforme sua autoestima com um de nossos tratamentos
-                    exclusivos.</p>
+                <h6 class="text-white fw-bold mb-4 text-uppercase" style="letter-spacing:2px;font-size:0.75rem;">
+                    Agende Agora</h6>
+                <p class="small mb-3" style="color:#999;">Transforme sua autoestima com um de nossos tratamentos exclusivos.</p>
                 <a href="{% url 'shivazen:agendamento_publico' %}"
+                    class="btn w-100 rounded-pill py-2 fw-bold text-uppercase text-decoration-none mb-3"
+                    style="background: #C9A84C; color: white; font-size:0.8rem; letter-spacing:1px;">
+                    <i class="fas fa-calendar-alt me-2"></i>Agendar Online
+                </a>
+                <a href="https://wa.me/5500000000000?text=Olá! Gostaria de agendar um horário."
+                    target="_blank"
                     class="btn w-100 rounded-pill py-2 fw-bold text-uppercase text-decoration-none"
-                    style="background: var(--primary-color); color: white; font-size:0.8rem; letter-spacing:1px;">
-                    <i class="fas fa-calendar-alt me-2"></i>Agendar
+                    style="background: #25D366; color: white; font-size:0.8rem; letter-spacing:1px;">
+                    <i class="fab fa-whatsapp me-2"></i>WhatsApp
                 </a>
             </div>
         </div>
@@ -93,8 +88,16 @@
     <!-- Bottom Bar -->
     <div style="border-top: 1px solid rgba(255,255,255,0.07);">
         <div class="container py-3">
-            <p class="mb-0 text-center small" style="color:#555;">&copy; 2025 Shiva Zen. Todos os direitos reservados.
-            </p>
+            <p class="mb-0 text-center small" style="color:#555;">&copy; 2025 Shiva Zen. Todos os direitos reservados.</p>
         </div>
     </div>
 </footer>
+
+<!-- WhatsApp Float Button -->
+<a href="https://wa.me/5500000000000" target="_blank" rel="noopener noreferrer"
+    class="position-fixed d-flex align-items-center justify-content-center rounded-circle shadow-lg"
+    style="bottom:24px;right:24px;width:56px;height:56px;background:#25D366;color:white;z-index:9999;text-decoration:none;transition:transform 0.2s;"
+    aria-label="Falar no WhatsApp"
+    onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+    <i class="fab fa-whatsapp fa-lg"></i>
+</a>

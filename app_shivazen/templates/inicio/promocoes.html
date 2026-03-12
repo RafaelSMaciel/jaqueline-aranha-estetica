@@ -1,0 +1,120 @@
+{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block titulo %}Promoções | Shiva Zen{% endblock %}
+
+{% block conteudo %}
+<!-- Hero -->
+<section class="position-relative text-white text-center d-flex align-items-center justify-content-center"
+    style="background: linear-gradient(135deg, #2C2C2C 0%, #5c3d28 100%); min-height: 45vh;">
+    <div class="container position-relative fade-in py-5">
+        <p class="text-uppercase fw-bold mb-3"
+            style="letter-spacing:3px;color:var(--primary-color);font-size:0.85rem;">Ofertas Especiais</p>
+        <h1 class="display-4 fw-bold mb-3" style="font-family:'Playfair Display',serif;">Promoções</h1>
+        <div class="mx-auto mb-4" style="width:60px;height:2px;background:var(--primary-color);"></div>
+        <p class="lead opacity-75 mx-auto" style="max-width:560px;">
+            Aproveite condições especiais em nossos tratamentos. Ofertas por tempo limitado!
+        </p>
+    </div>
+</section>
+
+<section class="py-5" style="background: var(--background-light);">
+    <div class="container py-4">
+
+        {% if promocoes %}
+        <div class="row g-4">
+            {% for promo in promocoes %}
+            <div class="col-md-6 col-lg-4">
+                <div class="card border-0 shadow-sm rounded-4 h-100 overflow-hidden" style="transition:all 0.3s;">
+
+                    <!-- Badge -->
+                    <div class="position-relative" style="background:linear-gradient(135deg,#4A3425 0%,#6D4C41 100%);padding:1.5rem;color:white;">
+                        {% if promo.desconto_percentual %}
+                        <span class="position-absolute badge rounded-pill px-3 py-2" 
+                              style="top:1rem;right:1rem;background:#FF5722;font-size:0.82rem;font-weight:800;">
+                            -{{ promo.desconto_percentual|floatformat:0 }}%
+                        </span>
+                        {% endif %}
+                        <div class="mb-2" style="width:48px;height:48px;background:rgba(201,168,76,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                            <i class="fas fa-tag fa-lg" style="color:#C9A84C;"></i>
+                        </div>
+                        <h4 class="fw-bold mb-1" style="font-family:'Playfair Display',serif;">{{ promo.nome }}</h4>
+                        {% if promo.procedimento %}
+                        <small class="opacity-75">{{ promo.procedimento.nome }}</small>
+                        {% endif %}
+                    </div>
+
+                    <div class="card-body p-4">
+                        {% if promo.descricao %}
+                        <p class="text-muted small mb-3">{{ promo.descricao }}</p>
+                        {% endif %}
+
+                        <!-- Preço -->
+                        <div class="d-flex align-items-center gap-3 mb-3">
+                            {% if promo.desconto_percentual and promo.procedimento %}
+                            <span class="text-decoration-line-through text-muted" style="font-size:0.9rem;">
+                                R$ {{ promo.preco_original|floatformat:2 }}
+                            </span>
+                            {% endif %}
+                            {% if promo.preco_promocional %}
+                            <span class="fw-bold" style="color:#C9A84C;font-size:1.4rem;">
+                                R$ {{ promo.preco_promocional|floatformat:2 }}
+                            </span>
+                            {% endif %}
+                        </div>
+
+                        <!-- Validade -->
+                        <div class="d-flex align-items-center gap-2 mb-3" style="font-size:0.78rem;color:#999;">
+                            <i class="far fa-clock"></i>
+                            <span>Válido de {{ promo.data_inicio|date:"d/m/Y" }} até {{ promo.data_fim|date:"d/m/Y" }}</span>
+                        </div>
+
+                        {% if promo.procedimento %}
+                        <a href="{% url 'shivazen:agendamento_publico' %}?procedimento={{ promo.procedimento.id_procedimento }}"
+                           class="btn w-100 rounded-pill py-2 fw-bold text-uppercase shadow-sm"
+                           style="background:#C9A84C;color:white;letter-spacing:0.5px;font-size:0.85rem;">
+                            <i class="fas fa-calendar-alt me-2"></i>Agendar com Desconto
+                        </a>
+                        {% else %}
+                        <a href="{% url 'shivazen:agendamento_publico' %}"
+                           class="btn w-100 rounded-pill py-2 fw-bold text-uppercase shadow-sm"
+                           style="background:#C9A84C;color:white;letter-spacing:0.5px;font-size:0.85rem;">
+                            <i class="fas fa-calendar-alt me-2"></i>Agendar Agora
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% else %}
+        <!-- Sem promoções ativas -->
+        <div class="text-center py-5">
+            <div class="mb-4" style="width:80px;height:80px;background:var(--primary-light);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;">
+                <i class="fas fa-tag fa-2x" style="color:var(--primary-dark);"></i>
+            </div>
+            <h3 class="fw-bold mb-2" style="color:#BBB;">Nenhuma promoção ativa</h3>
+            <p class="text-muted mb-4">Fique de olho! Novas promoções em breve.</p>
+            <a href="{% url 'shivazen:agendamento_publico' %}" class="btn rounded-pill px-5 py-3 fw-bold shadow-sm"
+               style="background:#C9A84C;color:white;">
+                <i class="fas fa-calendar-alt me-2"></i>Ver Agenda
+            </a>
+        </div>
+        {% endif %}
+
+    </div>
+</section>
+
+<!-- CTA WhatsApp -->
+<section class="py-5 text-center" style="background:linear-gradient(135deg,#1B5E20 0%,#2E7D32 100%);color:white;">
+    <div class="container py-3">
+        <h3 class="fw-bold mb-2" style="font-family:'Playfair Display',serif;">Quer um desconto personalizado?</h3>
+        <p class="opacity-75 mb-4">Fale conosco pelo WhatsApp e negocie condições exclusivas.</p>
+        <a href="https://wa.me/5500000000000?text=Olá! Gostaria de saber sobre promoções exclusivas." target="_blank"
+           class="btn btn-light rounded-pill px-5 py-3 fw-bold shadow" style="color:#2E7D32;">
+            <i class="fab fa-whatsapp me-2 fa-lg"></i>Falar no WhatsApp
+        </a>
+    </div>
+</section>
+{% endblock %}

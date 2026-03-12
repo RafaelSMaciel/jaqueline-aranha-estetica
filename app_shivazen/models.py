@@ -300,3 +300,44 @@ class LogAuditoria(models.Model):
     class Meta:
         managed = False
         db_table = 'log_auditoria'
+
+
+class Promocao(models.Model):
+    id_promocao = models.AutoField(primary_key=True)
+    nome = models.CharField(max_length=150)
+    descricao = models.TextField(blank=True, null=True)
+    procedimento = models.ForeignKey(Procedimento, on_delete=models.CASCADE, db_column='id_procedimento', blank=True, null=True)
+    desconto_percentual = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    preco_promocional = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    data_inicio = models.DateField()
+    data_fim = models.DateField()
+    ativa = models.BooleanField(default=True)
+    imagem_url = models.CharField(max_length=500, blank=True, null=True)
+
+    class Meta:
+        managed = True
+        db_table = 'promocao'
+
+    @property
+    def esta_vigente(self):
+        from django.utils import timezone
+        hoje = timezone.now().date()
+        return self.ativa and self.data_inicio <= hoje <= self.data_fim
+
+
+class CodigoVerificacao(models.Model):
+    id = models.AutoField(primary_key=True)
+    telefone = models.CharField(max_length=20)
+    codigo = models.CharField(max_length=6)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    usado = models.BooleanField(default=False)
+
+    class Meta:
+        managed = True
+        db_table = 'codigo_verificacao'
+
+    @property
+    def esta_valido(self):
+        from django.utils import timezone
+        # Código expira em 10 minutos
+        return not self.usado and (timezone.now() - self.criado_em).total_seconds() < 600

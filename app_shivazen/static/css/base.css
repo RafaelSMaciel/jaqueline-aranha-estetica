@@ -418,26 +418,163 @@ a:hover {
   animation: slideUp 0.5s ease-out;
 }
 
-/* Responsive */
+/* ═══════════════════════════════════════
+   MOBILE BOTTOM NAVIGATION BAR
+   ═══════════════════════════════════════ */
+.mobile-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  display: none; /* Hidden by default — shown via media query */
+  align-items: center;
+  justify-content: space-around;
+  z-index: 9999;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.mobile-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  height: 100%;
+  text-decoration: none;
+  color: #999;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  transition: all 0.2s ease;
+  gap: 3px;
+  position: relative;
+}
+
+.mobile-nav-item i {
+  font-size: 1.15rem;
+  transition: all 0.2s ease;
+}
+
+.mobile-nav-item.active {
+  color: var(--primary-color);
+}
+
+.mobile-nav-item.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 25%;
+  right: 25%;
+  height: 3px;
+  background: var(--primary-color);
+  border-radius: 0 0 3px 3px;
+}
+
+.mobile-nav-item.active i {
+  transform: scale(1.15);
+}
+
+/* ═══════════════════════════════════════
+   RESPONSIVE — MOBILE
+   ═══════════════════════════════════════ */
 @media (max-width: 768px) {
+  /* Show bottom nav on mobile */
+  .mobile-bottom-nav {
+    display: flex !important;
+  }
+
+  /* Body padding for bottom nav */
+  body {
+    padding-bottom: 72px;
+  }
+
   .container {
-    padding: 0 20px;
+    padding: 0 16px;
   }
 
-  h1 {
-    font-size: 2rem;
+  h1 { font-size: 1.75rem; }
+  h2 { font-size: 1.5rem; }
+  h3 { font-size: 1.25rem; }
+
+  /* Hide desktop header on mobile */
+  .header-container .d-none.d-md-flex {
+    display: none !important;
   }
 
-  h2 {
-    font-size: 1.75rem;
+  /* Touch-friendly: min 44px tap targets */
+  .btn {
+    min-height: 44px;
+    font-size: 0.9rem;
   }
 
+  .form-control {
+    min-height: 48px;
+    font-size: 16px; /* prevents iOS zoom */
+  }
+
+  /* Cards: no hover lift on touch */
+  .card:hover {
+    transform: none;
+  }
+
+  /* Section spacing reduced */
+  .py-5 {
+    padding-top: 2rem !important;
+    padding-bottom: 2rem !important;
+  }
+
+  .section-spacing {
+    padding: 2rem 0;
+  }
+
+  /* Hero section compact */
+  .hero-section {
+    min-height: 60vh !important;
+  }
+
+  .hero-section h1 {
+    font-size: 1.6rem !important;
+  }
+
+  .hero-section .lead {
+    font-size: 0.95rem !important;
+  }
+
+  .hero-section .btn {
+    padding: 10px 24px;
+    font-size: 0.8rem;
+  }
+
+  /* WhatsApp float above bottom nav */
   .whatsapp-float {
-    bottom: 20px;
-    right: 20px;
-    width: 50px;
-    height: 50px;
-    font-size: 24px;
+    bottom: 80px;
+    right: 16px;
+    width: 48px;
+    height: 48px;
+    font-size: 22px;
+  }
+
+  /* Footer: hide on mobile (bottom nav replaces) */
+  footer .d-flex.gap-2 a {
+    width: 34px !important;
+    height: 34px !important;
+  }
+
+  footer {
+    padding-bottom: 80px !important;
+  }
+}
+
+/* Tablet adjustments */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .container {
+    max-width: 960px;
   }
 }
 

@@ -1,0 +1,66 @@
+{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block titulo %}Agendamento Confirmado | Shiva Zen{% endblock %}
+
+{% block conteudo %}
+<section class="py-5" style="background: var(--background-light); min-height: 70vh;">
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-md-7 col-lg-5">
+                <div class="card border-0 shadow-lg rounded-4 overflow-hidden text-center">
+                    <!-- Header -->
+                    <div style="background: linear-gradient(135deg, #2c2015 0%, #6D4C41 100%); padding: 2.5rem 2rem; color: white;">
+                        <div class="mb-3" style="width:72px;height:72px;background:rgba(201,168,76,0.2);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;">
+                            <i class="fas fa-check-circle fa-2x" style="color:#C9A84C;"></i>
+                        </div>
+                        <h2 class="fw-bold mb-1" style="font-family:'Playfair Display',serif;">Agendamento Confirmado!</h2>
+                        <p class="opacity-75 mb-0">Seu horário foi reservado com sucesso</p>
+                    </div>
+
+                    <!-- Details -->
+                    <div class="p-4">
+                        <div class="mb-4 p-3 rounded-3" style="background: linear-gradient(145deg, #FFFEF5, #FFF9E3); border: 1.5px solid rgba(201,168,76,0.3);">
+                            <div class="mb-2">
+                                <i class="fas fa-spa me-1" style="color:#C9A84C;"></i>
+                                <strong>{{ dados.procedimento }}</strong>
+                            </div>
+                            <div class="mb-2" style="color:#C9A84C;font-weight:600;">
+                                <i class="far fa-calendar-alt me-1"></i>{{ dados.data_hora }}
+                            </div>
+                            <div class="mb-2" style="color:#999;">
+                                <i class="fas fa-user-md me-1"></i>{{ dados.profissional }}
+                            </div>
+                            <div style="font-size:1.3rem;font-weight:800;color:#4A3425;">
+                                {{ dados.valor }}
+                            </div>
+                        </div>
+
+                        <!-- WhatsApp CTA -->
+                        <a href="{{ dados.wpp_url }}" target="_blank"
+                           class="btn w-100 rounded-pill py-3 fw-bold text-uppercase mb-3 shadow-sm"
+                           style="background:#25D366;color:white;letter-spacing:1px;font-size:0.9rem;">
+                            <i class="fab fa-whatsapp me-2 fa-lg"></i>Confirmar via WhatsApp
+                        </a>
+
+                        <p class="text-muted small mb-3">
+                            Envie a mensagem no WhatsApp para receber a confirmação da clínica.
+                        </p>
+
+                        <hr style="border-color:#F0EDE8;">
+
+                        <div class="d-flex gap-2 justify-content-center">
+                            <a href="{% url 'shivazen:meus_agendamentos' %}" class="btn btn-outline-secondary rounded-pill px-4 py-2 fw-bold" style="font-size:0.82rem;">
+                                <i class="far fa-calendar me-1"></i>Meus Agendamentos
+                            </a>
+                            <a href="{% url 'shivazen:inicio' %}" class="btn btn-outline-secondary rounded-pill px-4 py-2 fw-bold" style="font-size:0.82rem;">
+                                <i class="fas fa-home me-1"></i>Início
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

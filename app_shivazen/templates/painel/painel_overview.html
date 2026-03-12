@@ -1,209 +1,221 @@
-{% extends 'estrutura/base.html' %}
-{% load static %}
+{% extends 'painel/admin_base.html' %}
 
-{% block conteudo %}
-<link rel="stylesheet" href="{% static 'css/painel.css' %}">
+{% block page_title %}Dashboard{% endblock %}
+{% block page_subtitle %}Bem-vindo, {{ request.user.nome }}{% endblock %}
 
-<div class="admin-layout">
-    <!-- Sidebar -->
-    <aside class="admin-sidebar">
-        <div class="sidebar-header">
-            <a href="{% url 'shivazen:inicio' %}">
-                <img src="{% static 'assents/LogoSemFundo.png' %}" alt="Shiva Zen" class="sidebar-logo">
-            </a>
+{% block admin_css %}
+.dash-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6rem; margin-bottom: 1.5rem; }
+@media(min-width:769px) { .dash-stats { grid-template-columns: repeat(4, 1fr); } }
+.dash-chart-card {
+    background: white; border-radius: 16px; padding: 1.25rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 1rem;
+}
+.dash-chart-title { font-weight: 800; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: #999; margin-bottom: 1rem; }
+.dash-appt-item {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.75rem; background: white; border-radius: 14px;
+    margin-bottom: 0.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.dash-appt-avatar {
+    width: 40px; height: 40px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 0.7rem; flex-shrink: 0;
+    background: #e8f5e9; color: #2e7d32;
+}
+.dash-appt-info { flex: 1; min-width: 0; }
+.dash-appt-name { font-weight: 700; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dash-appt-meta { font-size: 0.7rem; color: #999; }
+.dash-appt-actions { display: flex; gap: 0.3rem; flex-shrink: 0; }
+.dash-appt-actions button, .dash-appt-actions a {
+    width: 30px; height: 30px; border-radius: 8px; border: none;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem; cursor: pointer; text-decoration: none;
+}
+.btn-confirm { background: #e8f5e9; color: #2e7d32; }
+.btn-confirm:hover { background: #c8e6c9; }
+.btn-cancel { background: #fce4ec; color: #c62828; }
+.btn-cancel:hover { background: #f8bbd0; }
+.btn-wpp { background: #dcf5e7; color: #25D366; }
+.btn-wpp:hover { background: #c8ebd8; }
+.status-select {
+    padding: 0.2rem 0.4rem; border-radius: 8px; border: 2px solid #eee;
+    font-size: 0.7rem; font-weight: 700; cursor: pointer; background: white;
+}
+{% endblock %}
+
+{% block admin_content %}
+<!-- Stats Grid -->
+<div class="dash-stats">
+    <div class="stat-card">
+        <div class="stat-card-icon" style="background:#e3f2fd;color:#1565c0;"><i class="fas fa-calendar-day"></i></div>
+        <div class="stat-card-value">{{ agendamentos_hoje|default:0 }}</div>
+        <div class="stat-card-label">Hoje</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-icon" style="background:#e8f5e9;color:#2e7d32;"><i class="fas fa-calendar-week"></i></div>
+        <div class="stat-card-value">{{ agendamentos_semana|default:0 }}</div>
+        <div class="stat-card-label">Semana</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-icon" style="background:#f3e5f5;color:#7b1fa2;"><i class="fas fa-users"></i></div>
+        <div class="stat-card-value">{{ total_clientes|default:0 }}</div>
+        <div class="stat-card-label">Clientes</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-icon" style="background:#fff8e1;color:#f57f17;"><i class="fas fa-dollar-sign"></i></div>
+        <div class="stat-card-value" style="font-size:1.1rem;">R$ {{ receita_mensal|default:"0,00" }}</div>
+        <div class="stat-card-label">Receita Mês</div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-3 mb-3">
+    <div class="col-md-7">
+        <div class="dash-chart-card">
+            <div class="dash-chart-title"><i class="fas fa-chart-bar me-1"></i>Agendamentos por Dia da Semana</div>
+            <canvas id="chartSemana" height="200"></canvas>
         </div>
-
-        <nav class="sidebar-nav">
-            <div class="nav-section">
-                <div class="nav-section-title">Menu Principal</div>
-                <a href="{% url 'shivazen:painel' %}" class="nav-item active">
-                    <i class="fas fa-chart-line"></i>
-                    <span>Dashboard</span>
-                </a>
-                <a href="{% url 'shivazen:painel_agendamentos' %}" class="nav-item">
-                    <i class="fas fa-calendar-alt"></i>
-                    <span>Agendamentos</span>
-                </a>
-                <a href="{% url 'shivazen:painel_clientes' %}" class="nav-item">
-                    <i class="fas fa-users"></i>
-                    <span>Clientes</span>
-                </a>
-                <a href="{% url 'shivazen:painel_profissionais' %}" class="nav-item">
-                    <i class="fas fa-user-md"></i>
-                    <span>Profissionais</span>
-                </a>
-            </div>
-
-            <div class="nav-section">
-                <div class="nav-section-title">Configurações</div>
-                <a href="{% url 'shivazen:perfil' %}" class="nav-item">
-                    <i class="fas fa-user-circle"></i>
-                    <span>Meu Perfil</span>
-                </a>
-                <a href="{% url 'shivazen:usuarioLogout' %}" class="nav-item">
-                    <i class="fas fa-sign-out-alt"></i>
-                    <span>Sair</span>
-                </a>
-            </div>
-        </nav>
-    </aside>
-
-    <!-- Main Content -->
-    <main class="admin-main">
-        <div class="admin-header">
-            <h1 class="admin-title">Dashboard</h1>
-            <p class="admin-subtitle">Bem-vindo de volta, {{ request.user.first_name }}!</p>
+    </div>
+    <div class="col-md-5">
+        <div class="dash-chart-card">
+            <div class="dash-chart-title"><i class="fas fa-chart-pie me-1"></i>Status dos Agendamentos</div>
+            <canvas id="chartStatus" height="200"></canvas>
         </div>
+    </div>
+</div>
 
-        <!-- Stats Cards -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-card-header">
-                    <div>
-                        <div class="stat-value">{{ agendamentos_hoje|default:0 }}</div>
-                        <div class="stat-label">Agendamentos Hoje</div>
-                    </div>
-                    <div class="stat-icon primary">
-                        <i class="fas fa-calendar-day"></i>
-                    </div>
-                </div>
-                <div class="stat-change positive">
-                    <i class="fas fa-arrow-up"></i> 12% vs ontem
-                </div>
-            </div>
+<!-- Próximos Agendamentos -->
+<div class="dash-chart-card">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="dash-chart-title mb-0"><i class="fas fa-list-ul me-1"></i>Próximos Agendamentos</div>
+        <a href="{% url 'shivazen:painel_agendamentos' %}" class="small fw-bold" style="color:#C9A84C;text-decoration:none;">Ver Todos →</a>
+    </div>
 
-            <div class="stat-card">
-                <div class="stat-card-header">
-                    <div>
-                        <div class="stat-value">{{ agendamentos_semana|default:0 }}</div>
-                        <div class="stat-label">Agendamentos esta Semana</div>
-                    </div>
-                    <div class="stat-icon success">
-                        <i class="fas fa-calendar-week"></i>
-                    </div>
-                </div>
-                <div class="stat-change positive">
-                    <i class="fas fa-arrow-up"></i> 8% vs semana passada
-                </div>
-            </div>
-
-            <div class="stat-card">
-                <div class="stat-card-header">
-                    <div>
-                        <div class="stat-value">{{ total_clientes|default:0 }}</div>
-                        <div class="stat-label">Total de Clientes</div>
-                    </div>
-                    <div class="stat-icon info">
-                        <i class="fas fa-users"></i>
-                    </div>
-                </div>
-                <div class="stat-change positive">
-                    <i class="fas fa-arrow-up"></i> {{ novos_clientes|default:0 }} novos este mês
-                </div>
-            </div>
-
-            <div class="stat-card">
-                <div class="stat-card-header">
-                    <div>
-                        <div class="stat-value">R$ {{ receita_mensal|default:"0,00" }}</div>
-                        <div class="stat-label">Receita do Mês</div>
-                    </div>
-                    <div class="stat-icon warning">
-                        <i class="fas fa-dollar-sign"></i>
-                    </div>
-                </div>
-                <div class="stat-change positive">
-                    <i class="fas fa-arrow-up"></i> 15% vs mês anterior
-                </div>
+    {% if proximos_agendamentos %}
+    {% for agend in proximos_agendamentos %}
+    <div class="dash-appt-item" id="appt-{{ agend.id_atendimento }}">
+        <div class="dash-appt-avatar">
+            {{ agend.cliente.nome_completo|make_list|first }}{{ agend.cliente.nome_completo|make_list|last }}
+        </div>
+        <div class="dash-appt-info">
+            <div class="dash-appt-name">{{ agend.cliente.nome_completo }}</div>
+            <div class="dash-appt-meta">
+                {{ agend.procedimento.nome }} &bull; {{ agend.data_hora_inicio|date:"d/m H:i" }}
+                &bull; <span class="status-text-{{ agend.id_atendimento }}"
+                    style="font-weight:800;color:{% if agend.status_atendimento == 'CONFIRMADO' %}#2e7d32{% elif agend.status_atendimento == 'CANCELADO' %}#c62828{% else %}#f57f17{% endif %};">
+                    {{ agend.status_atendimento }}
+                </span>
             </div>
         </div>
-
-        <!-- Quick Actions -->
-        <div class="quick-actions">
-            <a href="{% url 'shivazen:agendamento_publico' %}" class="quick-action-btn">
-                <div class="quick-action-icon"><i class="fas fa-plus-circle"></i></div>
-                <div class="quick-action-text">Novo Agendamento</div>
+        <div class="dash-appt-actions">
+            <!-- Status Change -->
+            <select class="status-select" onchange="atualizarStatus({{ agend.id_atendimento }}, this.value)"
+                    title="Alterar status">
+                <option value="">⚡</option>
+                <option value="CONFIRMADO" {% if agend.status_atendimento == 'CONFIRMADO' %}disabled{% endif %}>✅ Confirmar</option>
+                <option value="REALIZADO" {% if agend.status_atendimento == 'REALIZADO' %}disabled{% endif %}>✔️ Realizado</option>
+                <option value="CANCELADO" {% if agend.status_atendimento == 'CANCELADO' %}disabled{% endif %}>❌ Cancelar</option>
+                <option value="FALTOU">⛔ Faltou</option>
+            </select>
+            <!-- WhatsApp -->
+            {% if agend.cliente.telefone %}
+            <a href="https://wa.me/55{{ agend.cliente.telefone|cut:'(' |cut:')' |cut:'-' |cut:' ' }}?text=Ol%C3%A1%20{{ agend.cliente.nome_completo|urlencode }}%2C%20confirmamos%20seu%20agendamento%20de%20{{ agend.procedimento.nome|urlencode }}%20para%20{{ agend.data_hora_inicio|date:'d/m/Y' }}%20%C3%A0s%20{{ agend.data_hora_inicio|time:'H:i' }}.%20Shiva%20Zen"
+               target="_blank" class="btn-wpp" title="Confirmar via WhatsApp">
+                <i class="fab fa-whatsapp"></i>
             </a>
-            <a href="{% url 'shivazen:painel_clientes' %}?action=new" class="quick-action-btn">
-                <div class="quick-action-icon"><i class="fas fa-user-plus"></i></div>
-                <div class="quick-action-text">Novo Cliente</div>
-            </a>
-            <a href="{% url 'shivazen:painel_agendamentos' %}?filter=today" class="quick-action-btn">
-                <div class="quick-action-icon"><i class="fas fa-list-ul"></i></div>
-                <div class="quick-action-text">Ver Agenda Hoje</div>
-            </a>
-        </div>
-
-        <!-- Recent Appointments -->
-        <div class="data-table-container">
-            <div class="table-header">
-                <h3 class="table-title">Próximos Agendamentos</h3>
-                <div class="table-actions">
-                    <a href="{% url 'shivazen:painel_agendamentos' %}" class="btn btn-sm btn-outline">
-                        Ver Todos
-                    </a>
-                </div>
-            </div>
-
-            {% if proximos_agendamentos %}
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Cliente</th>
-                        <th>Procedimento</th>
-                        <th>Profissional</th>
-                        <th>Data/Hora</th>
-                        <th>Status</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for agend in proximos_agendamentos %}
-                    <tr>
-                        <td>
-                            <strong>{{ agend.cliente.nome_completo }}</strong><br>
-                            <small class="text-muted">{{ agend.cliente.telefone }}</small>
-                        </td>
-                        <td>{{ agend.procedimento.nome }}</td>
-                        <td>{{ agend.profissional.nome }}</td>
-                        <td>
-                            {{ agend.data_hora_inicio|date:"d/m/Y" }}<br>
-                            <small class="text-muted">{{ agend.data_hora_inicio|time:"H:i" }}</small>
-                        </td>
-                        <td>
-                            {% if agend.status_atendimento == 'AGENDADO' %}
-                            <span class="badge badge-info">Agendado</span>
-                            {% elif agend.status_atendimento == 'CONFIRMADO' %}
-                            <span class="badge badge-success">Confirmado</span>
-                            {% elif agend.status_atendimento == 'CANCELADO' %}
-                            <span class="badge badge-danger">Cancelado</span>
-                            {% else %}
-                            <span class="badge badge-secondary">{{ agend.status_atendimento }}</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <button class="btn-icon" title="Editar">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button class="btn-icon" title="Cancelar">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <div class="empty-state">
-                <div class="empty-state-icon"><i class="fas fa-calendar-times"></i></div>
-                <h3 class="empty-state-title">Nenhum agendamento próximo</h3>
-                <p class="empty-state-text">Não há agendamentos programados no momento.</p>
-                <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-primary">
-                    <i class="fas fa-plus"></i> Criar Novo Agendamento
-                </a>
-            </div>
             {% endif %}
         </div>
-    </main>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="text-center py-4">
+        <i class="fas fa-calendar-check fa-2x" style="color:#ddd;"></i>
+        <p class="text-muted small mt-2 mb-0">Nenhum agendamento próximo</p>
+    </div>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block admin_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// Chart: Agendamentos por dia da semana
+var ctxSemana = document.getElementById('chartSemana').getContext('2d');
+new Chart(ctxSemana, {
+    type: 'bar',
+    data: {
+        labels: {{ dias_semana|safe }},
+        datasets: [{
+            label: 'Agendamentos',
+            data: {{ dados_grafico_semana|safe }},
+            backgroundColor: 'rgba(201, 168, 76, 0.7)',
+            borderColor: '#C9A84C',
+            borderWidth: 2,
+            borderRadius: 8,
+            borderSkipped: false,
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: { beginAtZero: true, ticks: { stepSize: 1 } },
+            x: { grid: { display: false } }
+        }
+    }
+});
+
+// Chart: Status
+var ctxStatus = document.getElementById('chartStatus').getContext('2d');
+new Chart(ctxStatus, {
+    type: 'doughnut',
+    data: {
+        labels: [{% for s in agendamentos_por_status %}'{{ s.status_atendimento }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+        datasets: [{
+            data: [{% for s in agendamentos_por_status %}{{ s.total }}{% if not forloop.last %},{% endif %}{% endfor %}],
+            backgroundColor: ['#C9A84C', '#4caf50', '#2196f3', '#f44336', '#9e9e9e'],
+            borderWidth: 0,
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '65%',
+        plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 12, padding: 8, font: { size: 11 } } }
+        }
+    }
+});
+
+// Status update via AJAX
+function atualizarStatus(id, status) {
+    if (!status) return;
+    if (!confirm('Alterar status para ' + status + '?')) return;
+
+    fetch('{% url "shivazen:admin_atualizar_status" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ atendimento_id: id, status: status })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.sucesso) {
+            var el = document.querySelector('.status-text-' + id);
+            if (el) {
+                el.textContent = data.status_novo;
+                el.style.color = data.status_novo === 'CONFIRMADO' ? '#2e7d32' :
+                                  data.status_novo === 'CANCELADO' ? '#c62828' : '#f57f17';
+            }
+            alert('Status atualizado: ' + data.status_novo);
+        } else {
+            alert('Erro: ' + data.erro);
+        }
+    })
+    .catch(function(err) { alert('Erro de rede'); });
+}
+</script>
 {% endblock %}

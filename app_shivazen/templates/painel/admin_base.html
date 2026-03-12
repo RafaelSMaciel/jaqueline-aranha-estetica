@@ -1,0 +1,196 @@
+{% load static %}
+<!doctype html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Admin — Shiva Zen</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <style>
+        :root { --admin-dark: #1a1a2e; --admin-accent: #C9A84C; }
+
+        .admin-topbar {
+            background: var(--admin-dark);
+            color: white;
+            padding: 0.75rem 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky; top: 0; z-index: 100;
+        }
+        .admin-topbar-brand { font-weight: 700; font-size: 0.9rem; }
+        .admin-topbar-brand i { color: var(--admin-accent); margin-right: 0.4rem; }
+        .admin-topbar-actions a {
+            color: rgba(255,255,255,0.6); margin-left: 1rem;
+            font-size: 0.85rem; text-decoration: none;
+        }
+        .admin-topbar-actions a:hover { color: white; }
+
+        /* Admin bottom nav */
+        .admin-bottom-nav {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            height: 60px; background: var(--admin-dark);
+            display: flex; align-items: center; justify-content: space-around;
+            z-index: 9999; border-top: 1px solid rgba(255,255,255,0.08);
+        }
+        .admin-nav-item {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; flex: 1; height: 100%;
+            text-decoration: none; color: rgba(255,255,255,0.4);
+            font-size: 0.6rem; font-weight: 700; gap: 2px;
+            transition: all 0.2s;
+        }
+        .admin-nav-item i { font-size: 1.1rem; }
+        .admin-nav-item.active { color: var(--admin-accent); }
+
+        .admin-body {
+            background: #f0f0f5;
+            min-height: 100vh;
+            padding-bottom: 80px;
+        }
+
+        .admin-page-header {
+            padding: 1.25rem 1rem;
+            background: white;
+            border-bottom: 1px solid #eee;
+        }
+        .admin-page-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.3rem; font-weight: 700;
+            margin: 0;
+        }
+
+        /* Stat cards */
+        .stat-card {
+            background: white; border-radius: 16px;
+            padding: 1.25rem; box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            text-align: center;
+        }
+        .stat-card-icon {
+            width: 42px; height: 42px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 0.6rem; font-size: 1rem;
+        }
+        .stat-card-value {
+            font-size: 1.5rem; font-weight: 800;
+            line-height: 1; margin-bottom: 0.25rem;
+        }
+        .stat-card-label {
+            font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 1px; color: #999;
+        }
+
+        /* List items */
+        .admin-list-item {
+            background: white; border-radius: 14px; padding: 1rem;
+            margin-bottom: 0.6rem; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+            display: flex; align-items: center; gap: 0.75rem;
+        }
+        .admin-list-avatar {
+            width: 40px; height: 40px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 0.75rem; flex-shrink: 0;
+        }
+        .admin-list-info { flex: 1; min-width: 0; }
+        .admin-list-title {
+            font-weight: 700; font-size: 0.9rem;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .admin-list-meta { font-size: 0.75rem; color: #999; }
+        .admin-list-action { flex-shrink: 0; }
+
+        /* Badge */
+        .admin-badge {
+            display: inline-block; padding: 0.2rem 0.6rem;
+            border-radius: 20px; font-size: 0.65rem; font-weight: 800;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .admin-badge-green { background: #e8f5e9; color: #2e7d32; }
+        .admin-badge-yellow { background: #fff8e1; color: #f57f17; }
+        .admin-badge-red { background: #fce4ec; color: #c62828; }
+        .admin-badge-blue { background: #e3f2fd; color: #1565c0; }
+
+        /* FAB button */
+        .admin-fab {
+            position: fixed; bottom: 76px; right: 16px;
+            width: 52px; height: 52px; border-radius: 50%;
+            background: var(--admin-accent); color: white;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem; box-shadow: 0 4px 16px rgba(201,168,76,0.4);
+            text-decoration: none; z-index: 999; transition: all 0.2s;
+        }
+        .admin-fab:hover { transform: scale(1.1); color: white; }
+
+        @media (min-width: 769px) {
+            .admin-body { padding-left: 240px; }
+            .admin-bottom-nav {
+                position: fixed; left: 0; top: 0; bottom: 0;
+                width: 240px; height: auto;
+                flex-direction: column; justify-content: flex-start;
+                padding-top: 80px; gap: 0.25rem;
+                border-top: none; border-right: 1px solid rgba(255,255,255,0.08);
+            }
+            .admin-nav-item {
+                flex-direction: row; justify-content: flex-start;
+                padding: 0.75rem 1.5rem; gap: 0.75rem;
+                font-size: 0.85rem; border-radius: 0;
+            }
+            .admin-nav-item.active { background: rgba(201,168,76,0.15); }
+            .admin-fab { bottom: 24px; right: 24px; }
+            .stat-card { text-align: left; }
+            .stat-card-icon { margin: 0 0 0.6rem 0; }
+        }
+
+        {% block admin_css %}{% endblock %}
+    </style>
+</head>
+<body class="admin-body">
+    <!-- Top Bar -->
+    <div class="admin-topbar">
+        <div class="admin-topbar-brand"><i class="fas fa-spa"></i>Shiva Zen Admin</div>
+        <div class="admin-topbar-actions">
+            <a href="{% url 'shivazen:inicio' %}" title="Ver site"><i class="fas fa-external-link-alt"></i></a>
+            <a href="{% url 'shivazen:usuarioLogout' %}" title="Sair"><i class="fas fa-sign-out-alt"></i></a>
+        </div>
+    </div>
+
+    <!-- Page Header -->
+    <div class="admin-page-header">
+        <h1 class="admin-page-title">{% block page_title %}Painel{% endblock %}</h1>
+        <p class="text-muted small mb-0" style="margin-top:0.2rem;">{% block page_subtitle %}{% endblock %}</p>
+    </div>
+
+    <!-- Content -->
+    <div class="p-3">
+        {% block admin_content %}{% endblock %}
+    </div>
+
+    <!-- Bottom Nav (mobile) / Side Nav (desktop) -->
+    <nav class="admin-bottom-nav">
+        <a href="{% url 'shivazen:painel_overview' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'painel_overview' or request.resolver_match.url_name == 'painel' %}active{% endif %}">
+            <i class="fas fa-chart-pie"></i><span>Dashboard</span>
+        </a>
+        <a href="{% url 'shivazen:painel_agendamentos' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'painel_agendamentos' %}active{% endif %}">
+            <i class="fas fa-calendar-day"></i><span>Agenda</span>
+        </a>
+        <a href="{% url 'shivazen:admin_promocoes' %}" class="admin-nav-item {% if 'promoco' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="fas fa-tag"></i><span>Promoções</span>
+        </a>
+        <a href="{% url 'shivazen:painel_clientes' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'painel_clientes' %}active{% endif %}">
+            <i class="fas fa-users"></i><span>Clientes</span>
+        </a>
+        <a href="{% url 'shivazen:admin_auditoria' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'admin_auditoria' %}active{% endif %}">
+            <i class="fas fa-clipboard-list"></i><span>Auditoria</span>
+        </a>
+    </nav>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {% block admin_scripts %}{% endblock %}
+</body>
+</html>

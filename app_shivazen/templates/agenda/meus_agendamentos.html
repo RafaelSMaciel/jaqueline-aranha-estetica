@@ -1,0 +1,340 @@
+{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block titulo %}Meus Agendamentos | Shiva Zen{% endblock %}
+
+{% block css %}
+<style>
+    .verify-card {
+        max-width: 480px; margin: 0 auto;
+        background: white; border-radius: 24px;
+        box-shadow: 0 16px 60px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    .verify-header {
+        background: linear-gradient(135deg, #2c2015 0%, #6D4C41 100%);
+        padding: 2rem; color: white; text-align: center;
+    }
+    .verify-body { padding: 2rem; }
+    .code-inputs {
+        display: flex; gap: 0.5rem; justify-content: center; margin: 1.5rem 0;
+    }
+    .code-input {
+        width: 48px; height: 56px; border: 2px solid #E8E4DD;
+        border-radius: 12px; text-align: center; font-size: 1.4rem;
+        font-weight: 700; color: #4A3425; background: #FAFAFA;
+        transition: border-color 0.2s;
+    }
+    .code-input:focus {
+        outline: none; border-color: #C9A84C;
+        box-shadow: 0 0 0 4px rgba(201,168,76,0.12); background: white;
+    }
+    .agend-card {
+        border: 1.5px solid #F0EDE8; border-radius: 16px; padding: 1.25rem;
+        margin-bottom: 1rem; transition: all 0.2s;
+    }
+    .agend-card:hover {
+        border-color: rgba(201,168,76,0.3);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    }
+    .status-badge {
+        display: inline-block; padding: 0.25rem 0.75rem; border-radius: 50px;
+        font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .status-agendado { background: #E3F2FD; color: #1565C0; }
+    .status-confirmado { background: #E8F5E9; color: #2E7D32; }
+    .status-realizado { background: #F3E5F5; color: #7B1FA2; }
+    .status-cancelado { background: #FFEBEE; color: #C62828; }
+</style>
+{% endblock %}
+
+{% block conteudo %}
+<section class="position-relative text-white text-center d-flex align-items-center justify-content-center"
+    style="background: linear-gradient(135deg, #2C2C2C 0%, #4a3728 100%); min-height: 35vh;">
+    <div class="container fade-in py-4">
+        <p class="text-uppercase fw-bold mb-3" style="letter-spacing:3px;color:#C9A84C;font-size:0.85rem;">Área do Cliente</p>
+        <h1 class="display-5 fw-bold mb-2" style="font-family:'Playfair Display',serif;">Meus Agendamentos</h1>
+        <div class="mx-auto mt-3" style="width:50px;height:2px;background:#C9A84C;"></div>
+    </div>
+</section>
+
+<section class="py-5" style="background: var(--background-light);">
+    <div class="container py-3">
+
+        {% if step == '1' %}
+        <!-- ═══ STEP 1: Informar Celular ═══ -->
+        <div class="verify-card">
+            <div class="verify-header">
+                <div class="mb-2" style="width:56px;height:56px;background:rgba(201,168,76,0.2);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;">
+                    <i class="fas fa-mobile-alt fa-lg" style="color:#C9A84C;"></i>
+                </div>
+                <h3 class="fw-bold mb-1" style="font-family:'Playfair Display',serif;">Verificação por Celular</h3>
+                <p class="opacity-75 mb-0 small">Informe seu celular para acessar seus agendamentos</p>
+            </div>
+            <div class="verify-body">
+                <div class="mb-3">
+                    <label class="form-label text-muted fw-bold small text-uppercase" style="letter-spacing:1px;">
+                        <i class="fab fa-whatsapp me-1" style="color:#25D366;"></i>Celular (WhatsApp)
+                    </label>
+                    <input type="tel" id="tel-input" class="form-control form-control-lg bg-light border-0" 
+                           placeholder="(00) 00000-0000" style="border-radius:14px;">
+                </div>
+
+                <button id="btn-enviar-codigo" class="btn w-100 rounded-pill py-3 fw-bold text-uppercase shadow-sm"
+                    style="background:#C9A84C;color:white;letter-spacing:1px;">
+                    <i class="fas fa-paper-plane me-2"></i>Enviar Código
+                </button>
+
+                <div id="error-msg" class="alert alert-danger mt-3 border-0 shadow-sm" style="display:none;border-radius:12px;"></div>
+
+                <!-- Step 2: Código (aparece após enviar) -->
+                <div id="code-section" style="display:none;margin-top:2rem;">
+                    <hr style="border-color:#F0EDE8;">
+                    <p class="text-center text-muted small mb-2">
+                        <i class="fas fa-lock me-1" style="color:#C9A84C;"></i>
+                        Digite o código de verificação:
+                    </p>
+                    <div id="debug-code" class="text-center mb-2" style="display:none;">
+                        <span class="badge rounded-pill px-3 py-2" style="background:rgba(201,168,76,0.1);color:#C9A84C;font-size:1rem;letter-spacing:3px;"></span>
+                    </div>
+                    <div class="code-inputs">
+                        <input type="text" class="code-input" maxlength="1" data-idx="0">
+                        <input type="text" class="code-input" maxlength="1" data-idx="1">
+                        <input type="text" class="code-input" maxlength="1" data-idx="2">
+                        <input type="text" class="code-input" maxlength="1" data-idx="3">
+                        <input type="text" class="code-input" maxlength="1" data-idx="4">
+                        <input type="text" class="code-input" maxlength="1" data-idx="5">
+                    </div>
+                    <button id="btn-verificar" class="btn w-100 rounded-pill py-3 fw-bold text-uppercase shadow-sm"
+                        style="background:#4A3425;color:white;letter-spacing:1px;">
+                        <i class="fas fa-check-circle me-2"></i>Verificar
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        {% elif step == '3' %}
+        <!-- ═══ STEP 3: Lista de Agendamentos ═══ -->
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                    <div>
+                        <h3 class="fw-bold mb-0" style="font-family:'Playfair Display',serif;color:#4A3425;">
+                            Seus Agendamentos
+                        </h3>
+                        <small class="text-muted">Celular: {{ telefone }}</small>
+                    </div>
+                    <a href="{% url 'shivazen:agendamento_publico' %}" class="btn rounded-pill px-4 py-2 fw-bold shadow-sm"
+                       style="background:#C9A84C;color:white;">
+                        <i class="fas fa-plus me-1"></i>Novo Agendamento
+                    </a>
+                </div>
+
+                {% if agendamentos_futuros %}
+                <h5 class="fw-bold mb-3" style="color:#C9A84C;">
+                    <i class="far fa-calendar-alt me-2"></i>Próximos
+                </h5>
+                {% for ag in agendamentos_futuros %}
+                <div class="agend-card">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                        <div>
+                            <h6 class="fw-bold mb-1">{{ ag.procedimento.nome }}</h6>
+                            <p class="text-muted small mb-1">
+                                <i class="fas fa-user-md me-1"></i>{{ ag.profissional.nome }}
+                            </p>
+                            <p class="mb-0" style="color:#C9A84C;font-weight:600;">
+                                <i class="far fa-calendar me-1"></i>{{ ag.data_hora_inicio|date:"d/m/Y" }} às {{ ag.data_hora_inicio|time:"H:i" }}
+                            </p>
+                        </div>
+                        <div class="text-end">
+                            <span class="status-badge {% if ag.status_atendimento == 'AGENDADO' %}status-agendado{% elif ag.status_atendimento == 'CONFIRMADO' %}status-confirmado{% endif %}">
+                                {{ ag.status_atendimento }}
+                            </span>
+                            {% if ag.valor_cobrado %}
+                            <p class="fw-bold mt-2 mb-0" style="color:#4A3425;">R$ {{ ag.valor_cobrado|floatformat:2 }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="mt-2 pt-2 border-top" style="border-color:#F0EDE8 !important;">
+                        <a href="https://wa.me/{{ whatsapp_numero }}?text=Olá! Gostaria de reagendar o meu atendimento de {{ ag.procedimento.nome }} do dia {{ ag.data_hora_inicio|date:'d/m/Y' }}."
+                           target="_blank" class="btn btn-sm btn-outline-success rounded-pill px-3" style="font-size:0.78rem;">
+                            <i class="fab fa-whatsapp me-1"></i>Reagendar via WhatsApp
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+                {% endif %}
+
+                {% if agendamentos_passados %}
+                <h5 class="fw-bold mb-3 mt-4" style="color:#999;">
+                    <i class="fas fa-history me-2"></i>Histórico
+                </h5>
+                {% for ag in agendamentos_passados %}
+                <div class="agend-card" style="opacity:0.7;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="fw-bold mb-1">{{ ag.procedimento.nome }}</h6>
+                            <p class="text-muted small mb-0">
+                                {{ ag.data_hora_inicio|date:"d/m/Y" }} — {{ ag.profissional.nome }}
+                            </p>
+                        </div>
+                        <span class="status-badge {% if ag.status_atendimento == 'REALIZADO' %}status-realizado{% elif ag.status_atendimento == 'CANCELADO' %}status-cancelado{% else %}status-agendado{% endif %}">
+                            {{ ag.status_atendimento }}
+                        </span>
+                    </div>
+                </div>
+                {% endfor %}
+                {% endif %}
+
+                {% if not agendamentos_futuros and not agendamentos_passados %}
+                <div class="text-center py-5">
+                    <i class="far fa-calendar-times fa-3x mb-3" style="color:#DDD;"></i>
+                    <h4 class="fw-bold" style="color:#BBB;">Nenhum agendamento encontrado</h4>
+                    <p class="text-muted mb-4">Você ainda não realizou nenhum agendamento.</p>
+                    <a href="{% url 'shivazen:agendamento_publico' %}" class="btn rounded-pill px-5 py-3 fw-bold shadow-sm"
+                       style="background:#C9A84C;color:white;">
+                        <i class="fas fa-calendar-plus me-2"></i>Agendar agora
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    // Phone mask
+    const telInput = document.getElementById('tel-input');
+    if (telInput) {
+        telInput.addEventListener('input', function(e) {
+            let v = e.target.value.replace(/\D/g, '');
+            if (v.length > 11) v = v.slice(0, 11);
+            if (v.length > 6) v = `(${v.slice(0,2)}) ${v.slice(2,7)}-${v.slice(7)}`;
+            else if (v.length > 2) v = `(${v.slice(0,2)}) ${v.slice(2)}`;
+            else if (v.length > 0) v = `(${v}`;
+            e.target.value = v;
+        });
+    }
+
+    let telefoneForVerify = '';
+
+    // Send code
+    const btnEnviar = document.getElementById('btn-enviar-codigo');
+    if (btnEnviar) {
+        btnEnviar.addEventListener('click', function() {
+            const tel = telInput.value.replace(/\D/g, '');
+            if (tel.length < 10) {
+                showError('Informe um celular válido.');
+                return;
+            }
+            telefoneForVerify = tel;
+
+            btnEnviar.disabled = true;
+            btnEnviar.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Enviando...';
+
+            fetch('{% url "shivazen:verificar_telefone" %}', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken')},
+                body: JSON.stringify({action: 'enviar', telefone: tel})
+            })
+            .then(r => r.json().then(d => ({ok: r.ok, data: d})))
+            .then(({ok, data}) => {
+                btnEnviar.disabled = false;
+                btnEnviar.innerHTML = '<i class="fas fa-paper-plane me-2"></i>Enviar Código';
+                if (!ok) {
+                    showError(data.error || 'Erro ao enviar código.');
+                } else {
+                    hideError();
+                    document.getElementById('code-section').style.display = 'block';
+                    // Show debug code (remove in production)
+                    if (data.codigo_debug) {
+                        const dbg = document.getElementById('debug-code');
+                        dbg.style.display = 'block';
+                        dbg.querySelector('span').textContent = data.codigo_debug;
+                    }
+                    document.querySelector('.code-input[data-idx="0"]').focus();
+                }
+            })
+            .catch(() => {
+                btnEnviar.disabled = false;
+                btnEnviar.innerHTML = '<i class="fas fa-paper-plane me-2"></i>Enviar Código';
+                showError('Erro de conexão.');
+            });
+        });
+    }
+
+    // Code inputs auto-advance
+    document.querySelectorAll('.code-input').forEach(input => {
+        input.addEventListener('input', function() {
+            this.value = this.value.replace(/\D/g, '');
+            if (this.value.length === 1) {
+                const next = this.nextElementSibling;
+                if (next && next.classList.contains('code-input')) next.focus();
+            }
+        });
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Backspace' && !this.value) {
+                const prev = this.previousElementSibling;
+                if (prev && prev.classList.contains('code-input')) prev.focus();
+            }
+        });
+    });
+
+    // Verify code
+    const btnVerificar = document.getElementById('btn-verificar');
+    if (btnVerificar) {
+        btnVerificar.addEventListener('click', function() {
+            let codigo = '';
+            document.querySelectorAll('.code-input').forEach(i => codigo += i.value);
+            if (codigo.length !== 6) {
+                showError('Digite o código completo de 6 dígitos.');
+                return;
+            }
+
+            btnVerificar.disabled = true;
+            btnVerificar.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Verificando...';
+
+            fetch('{% url "shivazen:verificar_telefone" %}', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken')},
+                body: JSON.stringify({action: 'verificar', telefone: telefoneForVerify, codigo: codigo})
+            })
+            .then(r => r.json().then(d => ({ok: r.ok, data: d})))
+            .then(({ok, data}) => {
+                btnVerificar.disabled = false;
+                btnVerificar.innerHTML = '<i class="fas fa-check-circle me-2"></i>Verificar';
+                if (!ok) {
+                    showError(data.error || 'Código inválido.');
+                } else if (data.redirect) {
+                    window.location.href = data.redirect;
+                }
+            })
+            .catch(() => {
+                btnVerificar.disabled = false;
+                btnVerificar.innerHTML = '<i class="fas fa-check-circle me-2"></i>Verificar';
+                showError('Erro de conexão.');
+            });
+        });
+    }
+
+    function showError(msg) {
+        const el = document.getElementById('error-msg');
+        if (el) { el.textContent = msg; el.style.display = 'block'; }
+    }
+    function hideError() {
+        const el = document.getElementById('error-msg');
+        if (el) { el.style.display = 'none'; }
+    }
+    function getCookie(name) {
+        const val = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+        return val ? val.pop() : '';
+    }
+})();
+</script>
+{% endblock %}
