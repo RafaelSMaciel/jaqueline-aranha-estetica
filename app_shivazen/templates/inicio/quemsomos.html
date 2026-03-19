@@ -4,170 +4,207 @@
 {% block titulo %}Quem Somos | Shiva Zen{% endblock %}
 
 {% block conteudo %}
-<section class="hero-section" style="min-height:50vh;">
-  <img src="{% static 'assents/hero_about.png' %}" alt="Clínica Shiva Zen" class="hero-bg" loading="eager">
-  <div class="container fade-in py-5">
-    <span class="hero-badge">Nossa História</span>
-    <h1 class="display-4 fw-bold mb-3 text-white" style="font-family:'Playfair Display',serif;">Conheça a Shiva Zen</h1>
-    <p class="lead mx-auto" style="max-width:580px;color:rgba(255,255,255,0.9);">Especialistas em estética avançada, unindo ciência e natureza para transformar a sua autoestima.</p>
+<!-- ═══ PAGE TITLE / HERO ═══ -->
+<section class="page-title section bg-light py-5">
+  <div class="container text-center" data-aos="fade-in">
+    <h1 class="display-4 fw-bold mb-3" style="color: var(--heading-color);">Conheça a Shiva Zen</h1>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb justify-content-center mb-0">
+        <li class="breadcrumb-item"><a href="{% url 'shivazen:inicio' %}">Início</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Quem Somos</li>
+      </ol>
+    </nav>
   </div>
 </section>
 
-<!-- Nossa Missão -->
-<section class="py-5 bg-white">
-  <div class="container py-4">
-    <div class="row align-items-center g-5 reveal">
-      <div class="col-lg-6">
-        <span class="section-label">Nossa Missão</span>
-        <h2 class="section-title">Clínica de Estética Avançada</h2>
-        <p style="color:var(--text-body);font-size:1.05rem;line-height:1.8;" class="mb-4">
-          Na Shiva Zen, somos especialistas em tratamentos estéticos faciais e corporais que melhoram sua pele com
-          técnicas avançadas, promovendo luminosidade, firmeza e rejuvenescimento natural.
-        </p>
-        <p style="color:var(--text-body);" class="mb-4">
-          Nossa clínica foi fundada com a missão de oferecer um ambiente acolhedor, seguro e sofisticado onde cada
-          cliente se sente especial. Combinamos os melhores protocolos estéticos com uma abordagem humanizada.
-        </p>
-        <div class="row g-4">
-          <div class="col-6">
-            <div class="d-flex align-items-center gap-3">
-              <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" style="width:48px;height:48px;background:var(--primary-light);">
-                <i class="fas fa-award" style="color:var(--primary-dark);"></i>
-              </div>
-              <div><h6 class="fw-bold mb-0" style="color:var(--text-dark);">+5 anos</h6><small class="text-muted">de experiência</small></div>
-            </div>
-          </div>
-          <div class="col-6">
-            <div class="d-flex align-items-center gap-3">
-              <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" style="width:48px;height:48px;background:var(--secondary-light);">
-                <i class="fas fa-users" style="color:var(--secondary);"></i>
-              </div>
-              <div><h6 class="fw-bold mb-0" style="color:var(--text-dark);">+1.000</h6><small class="text-muted">clientes atendidos</small></div>
-            </div>
-          </div>
-          <div class="col-6">
-            <div class="d-flex align-items-center gap-3">
-              <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" style="width:48px;height:48px;background:var(--primary-light);">
-                <i class="fas fa-spa" style="color:var(--primary-dark);"></i>
-              </div>
-              <div><h6 class="fw-bold mb-0" style="color:var(--text-dark);">+20</h6><small class="text-muted">tratamentos</small></div>
-            </div>
-          </div>
-          <div class="col-6">
-            <div class="d-flex align-items-center gap-3">
-              <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" style="width:48px;height:48px;background:var(--secondary-light);">
-                <i class="fas fa-star" style="color:var(--secondary);"></i>
-              </div>
-              <div><h6 class="fw-bold mb-0" style="color:var(--text-dark);">5 estrelas</h6><small class="text-muted">avaliação média</small></div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="col-lg-6">
-        <div class="position-relative">
-          <div class="position-absolute rounded-4" style="width:100%;height:100%;background:var(--primary-light);transform:translate(12px,12px);z-index:0;opacity:0.5;"></div>
-          <img src="{% static 'assents/tratamento1.jpg' %}" alt="Equipe Shiva Zen"
-            class="img-fluid rounded-4 shadow-lg position-relative" style="z-index:1;" loading="lazy">
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
+<!-- ═══ SOBRE NÓS ═══ -->
+<section id="about" class="about section">
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
 
-<!-- Nossos Valores -->
-<section class="py-5" style="background:var(--bg-warm);">
-  <div class="container py-4">
-    <div class="text-center mb-5 reveal">
-      <span class="section-label">Nossos Pilares</span>
-      <h2 class="section-title">O que nos diferencia</h2>
-      <div class="section-divider"></div>
-    </div>
-    <div class="row g-4 reveal-stagger">
-      <div class="col-md-4">
-        <div class="service-card h-100">
-          <div class="service-card-icon"><i class="fas fa-medal"></i></div>
-          <h4 class="h5 fw-bold mb-2">Excelência</h4>
-          <p class="text-muted small mb-0">Cada procedimento é realizado com rigor técnico, produtos de alta qualidade e protocolos validados.</p>
-        </div>
-      </div>
-      <div class="col-md-4">
-        <div class="service-card h-100">
-          <div class="service-card-icon"><i class="fas fa-heart"></i></div>
-          <h4 class="h5 fw-bold mb-2">Cuidado Humanizado</h4>
-          <p class="text-muted small mb-0">Atendimento empático, atencioso e totalmente personalizado para cada cliente.</p>
-        </div>
-      </div>
-      <div class="col-md-4">
-        <div class="service-card h-100">
-          <div class="service-card-icon"><i class="fas fa-shield-alt"></i></div>
-          <h4 class="h5 fw-bold mb-2">Segurança</h4>
-          <p class="text-muted small mb-0">Rígidos protocolos de higiene e biossegurança para garantir sua total tranquilidade.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- Tratamentos -->
-{% if tratamentos_faciais or tratamentos_corporais %}
-<section class="py-5 bg-white">
-  <div class="container py-4">
-    <div class="text-center mb-5 reveal">
-      <span class="section-label">Nossos Serviços</span>
-      <h2 class="section-title">Tratamentos</h2>
-      <div class="section-divider"></div>
-    </div>
-    {% if tratamentos_faciais %}
-    <h3 class="h5 fw-bold mb-4" style="color:var(--text-dark);"><i class="fas fa-spa me-2" style="color:var(--primary);"></i>Tratamentos Faciais</h3>
-    <div class="row g-3 mb-5">
-      {% for t in tratamentos_faciais %}
-      <div class="col-md-6 col-lg-4">
-        <div class="d-flex align-items-start p-3 rounded-3 bg-white border" style="border-color:var(--border) !important;">
-          <div class="rounded-3 d-flex align-items-center justify-content-center me-3 flex-shrink-0" style="width:36px;height:36px;background:var(--primary-light);">
-            <i class="fas fa-check" style="color:var(--primary-dark);font-size:0.75rem;"></i>
+    <div class="row align-items-stretch min-vh-50">
+      <div class="col-lg-6 d-flex align-items-center" data-aos="fade-right" data-aos-delay="100">
+        <div class="about-content py-5">
+          <h2 class="display-5 fw-light mb-4">Cuidado Humanizado para Sua Beleza e Bem-Estar</h2>
+          
+          <div class="about-text">
+            <p class="lead fw-normal mb-4">
+              A Shiva Zen é uma clínica de estética especialista em tratamentos faciais e corporais, com técnicas avançadas para promover luminosidade, firmeza e rejuvenescimento natural.
+            </p>
+            
+            <p class="mb-4">
+              Nossa clínica foi fundada com a missão de oferecer um ambiente acolhedor, seguro e sofisticado onde cada cliente se sente especial. Combinamos os melhores protocolos estéticos com uma abordagem totalmente humanizada.
+            </p>
+            
+            <p class="mb-4">
+              Há anos, dedicamo-nos a proporcionar resultados excepcionais. Nosso compromisso vai além dos procedimentos — acreditamos em construir relacionamentos duradouros com nossos clientes, baseados em confiança, resultados reais e elevação da autoestima.
+            </p>
           </div>
-          <div><h6 class="fw-bold mb-1" style="color:var(--text-dark);">{{ t.nome }}</h6>{% if t.descricao %}<p class="text-muted small mb-0">{{ t.descricao }}</p>{% endif %}</div>
+
+          <div class="stats-grid d-flex flex-wrap justify-content-center justify-content-sm-between gap-4 mt-4 pt-3 border-top">
+            <div class="stat-item text-center">
+              <span class="stat-number display-6 fw-light text-primary" data-purecounter-start="0" data-purecounter-end="1000" data-purecounter-duration="2"></span><span class="display-6 fw-light text-primary">+</span>
+              <span class="stat-label d-block text-muted small text-uppercase mt-2">Clientes Atendidos</span>
+            </div>
+            <div class="stat-item text-center">
+              <span class="stat-number display-6 fw-light text-primary" data-purecounter-start="0" data-purecounter-end="5" data-purecounter-duration="2"></span><span class="display-6 fw-light text-primary">+</span>
+              <span class="stat-label d-block text-muted small text-uppercase mt-2">Anos de Experiência</span>
+            </div>
+            <div class="stat-item text-center">
+              <span class="stat-number display-6 fw-light text-primary" data-purecounter-start="0" data-purecounter-end="20" data-purecounter-duration="2"></span><span class="display-6 fw-light text-primary">+</span>
+              <span class="stat-label d-block text-muted small text-uppercase mt-2">Tratamentos</span>
+            </div>
+          </div><!-- End Stats Grid -->
+        </div><!-- End About Content -->
+      </div>
+
+      <div class="col-lg-6" data-aos="fade-left" data-aos-delay="200">
+        <div class="image-wrapper position-relative h-100 p-4">
+          <img src="{% static 'assents/tratamento1.jpg' %}" class="img-fluid rounded-4 shadow-lg w-100 object-fit-cover" alt="Equipe Shiva Zen" style="min-height: 500px;">
+          <div class="experience-badge position-absolute bottom-0 end-0 mb-5 me-5 bg-white p-3 rounded-circle shadow-lg text-center d-flex align-items-center justify-content-center" style="width: 120px; height: 120px; z-index: 10;">
+             <div>
+               <h4 class="text-primary mb-0 fw-bold">5+</h4>
+               <small class="text-muted" style="font-size: 0.75rem;">Anos<br>Excelência</small>
+             </div>
+          </div>
         </div>
       </div>
-      {% endfor %}
+    </div>
+
+    <!-- ═══ VALORES ═══ -->
+    <div class="values-section mt-5 pt-5" data-aos="fade-up" data-aos-delay="300">
+      <div class="row">
+        <div class="col-lg-12 text-center">
+          <h3 class="display-6 fw-light mb-3">Nossos Pilares</h3>
+          <p class="section-description text-muted mb-5">Estes princípios guiam tudo o que fazemos em nosso compromisso com a excelência em estética</p>
+        </div>
+      </div>
+
+      <div class="row g-4">
+        <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="100">
+          <div class="value-item text-center p-4 h-100 border rounded-3 hover-shadow transition">
+            <div class="value-icon mb-3">
+              <i class="bi bi-heart fs-1 text-primary"></i>
+            </div>
+            <h4 class="h5 fw-semibold mb-3">Cuidado Humanizado</h4>
+            <p class="small text-muted mb-0">Oferecemos cuidado com empatia e compreensão, atendendo às necessidades únicas de cada cliente e garantindo um atendimento totalmente personalizado.</p>
+          </div>
+        </div>
+
+        <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="200">
+          <div class="value-item text-center p-4 h-100 border rounded-3 hover-shadow transition">
+            <div class="value-icon mb-3">
+              <i class="bi bi-award fs-1 text-primary"></i>
+            </div>
+            <h4 class="h5 fw-semibold mb-3">Excelência</h4>
+            <p class="small text-muted mb-0">Mantemos os mais altos padrões em procedimentos estéticos, utilizando protocolos validados, rigor técnico e produtos de altíssima qualidade.</p>
+          </div>
+        </div>
+
+        <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="300">
+          <div class="value-item text-center p-4 h-100 border rounded-3 hover-shadow transition">
+            <div class="value-icon mb-3">
+              <i class="bi bi-shield-check fs-1 text-primary"></i>
+            </div>
+            <h4 class="h5 fw-semibold mb-3">Segurança e Ética</h4>
+            <p class="small text-muted mb-0">Rígidos protocolos de higiene, biossegurança e uma comunicação sempre transparente para construir relacionamentos de confiança duradouros.</p>
+          </div>
+        </div>
+      </div><!-- End Values Row -->
+    </div><!-- End Values Section -->
+
+    <!-- ═══ TRATAMENTOS ═══ -->
+    {% if tratamentos_faciais or tratamentos_corporais %}
+    <div class="certifications-section mt-5 pt-5" data-aos="fade-up" data-aos-delay="400">
+      <div class="row">
+        <div class="col-lg-12 text-center">
+          <h3 class="display-6 fw-light mb-3">Nossos Tratamentos</h3>
+          <p class="section-description text-muted mb-5">Procedimentos avançados selecionados especialmente para você</p>
+        </div>
+      </div>
+
+      <div class="row g-4 justify-content-center">
+        {% if tratamentos_faciais %}
+        <div class="col-lg-6">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-body p-4">
+              <div class="d-flex align-items-center mb-4">
+                <i class="bi bi-person-fill fs-2 text-primary me-3"></i>
+                <h4 class="h5 fw-bold mb-0">Tratamentos Faciais</h4>
+              </div>
+              <ul class="list-group list-group-flush">
+                {% for t in tratamentos_faciais %}
+                <li class="list-group-item d-flex align-items-center px-0 bg-transparent border-bottom-dashed py-3">
+                  <i class="bi bi-check2-circle text-primary fs-5 me-3"></i>
+                  <div>
+                    <h6 class="mb-1">{{ t.nome }}</h6>
+                    {% if t.descricao %}
+                    <small class="text-muted">{{ t.descricao }}</small>
+                    {% endif %}
+                  </div>
+                </li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        {% if tratamentos_corporais %}
+        <div class="col-lg-6">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-body p-4">
+              <div class="d-flex align-items-center mb-4">
+                <i class="bi bi-lungs-fill fs-2 text-primary me-3"></i>
+                <h4 class="h5 fw-bold mb-0">Tratamentos Corporais</h4>
+              </div>
+              <ul class="list-group list-group-flush">
+                {% for t in tratamentos_corporais %}
+                <li class="list-group-item d-flex align-items-center px-0 bg-transparent border-bottom-dashed py-3">
+                  <i class="bi bi-check2-circle text-primary fs-5 me-3"></i>
+                  <div>
+                    <h6 class="mb-1">{{ t.nome }}</h6>
+                    {% if t.descricao %}
+                    <small class="text-muted">{{ t.descricao }}</small>
+                    {% endif %}
+                  </div>
+                </li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+      </div>
     </div>
     {% endif %}
-    {% if tratamentos_corporais %}
-    <h3 class="h5 fw-bold mb-4" style="color:var(--text-dark);"><i class="fas fa-heartbeat me-2" style="color:var(--secondary);"></i>Tratamentos Corporais</h3>
-    <div class="row g-3">
-      {% for t in tratamentos_corporais %}
-      <div class="col-md-6 col-lg-4">
-        <div class="d-flex align-items-start p-3 rounded-3 bg-white border" style="border-color:var(--border) !important;">
-          <div class="rounded-3 d-flex align-items-center justify-content-center me-3 flex-shrink-0" style="width:36px;height:36px;background:var(--secondary-light);">
-            <i class="fas fa-check" style="color:var(--secondary);font-size:0.75rem;"></i>
+
+  </div>
+</section>
+
+<!-- ═══ CTA FINAL ═══ -->
+<section class="call-to-action section light-background mt-4">
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
+    <div class="hero-content">
+      <div class="row align-items-center justify-content-center text-center">
+        <div class="col-lg-8">
+          <div class="content-wrapper bg-white p-5 rounded-4 shadow-sm" data-aos="fade-up" data-aos-delay="200">
+            <i class="bi bi-stars fs-1 text-primary mb-3 d-block"></i>
+            <h2 class="display-6 fw-bold mb-3">Pronta para começar sua transformação?</h2>
+            <p class="lead mb-4 text-muted">A Shiva Zen é o lugar ideal para renovar sua autoestima. Agende agora e descubra o melhor cuidado para você.</p>
+            <div class="cta-wrapper justify-content-center">
+              <a href="{% url 'shivazen:agendamento_publico' %}" class="primary-cta">
+                <span>Agendar Consulta</span>
+                <i class="bi bi-calendar-check ms-2"></i>
+              </a>
+              <a href="https://wa.me/5517000000000" target="_blank" rel="noopener" class="secondary-cta">
+                <span>Tirar Dúvidas no WhatsApp</span>
+                <i class="bi bi-whatsapp ms-2"></i>
+              </a>
+            </div>
           </div>
-          <div><h6 class="fw-bold mb-1" style="color:var(--text-dark);">{{ t.nome }}</h6>{% if t.descricao %}<p class="text-muted small mb-0">{{ t.descricao }}</p>{% endif %}</div>
         </div>
       </div>
-      {% endfor %}
     </div>
-    {% endif %}
   </div>
 </section>
-{% endif %}
-
-<!-- CTA -->
-<section class="py-5 text-white text-center" style="background:linear-gradient(135deg, var(--bg-dark-warm), #3D352E);">
-  <div class="container py-3 reveal">
-    <h2 class="fw-bold mb-3" style="font-family:'Playfair Display',serif;color:white;">Pronta para começar sua transformação?</h2>
-    <p class="lead mb-4" style="color:rgba(255,255,255,0.7);">Agende agora e descubra o melhor cuidado para você.</p>
-    <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-primary px-5 py-3 rounded-pill fw-bold text-uppercase shadow" style="letter-spacing:1px;">
-      <i class="fas fa-calendar-alt me-2"></i>Agendar Consulta
-    </a>
-  </div>
-</section>
-{% endblock %}
-
-{% block scripts %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  var obs = new IntersectionObserver(function(e) { e.forEach(function(x) { if(x.isIntersecting) x.target.classList.add('visible'); }); }, {threshold:0.1});
-  document.querySelectorAll('.reveal,.reveal-stagger').forEach(function(el) { obs.observe(el); });
-});
-</script>
 {% endblock %}

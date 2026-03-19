@@ -4,87 +4,106 @@
 {% block titulo %}Contato | Shiva Zen{% endblock %}
 
 {% block conteudo %}
-<section class="hero-section" style="min-height:45vh;">
-    <img src="{% static 'assents/hero_home.png' %}" alt="Contato Shiva Zen" class="hero-bg" loading="eager">
-    <div class="container fade-in py-5">
-        <span class="hero-badge">Fale Conosco</span>
-        <h1 class="display-5 fw-bold mb-3 text-white" style="font-family:'Playfair Display',serif;">Entre em Contato</h1>
-        <p class="lead mx-auto" style="max-width:560px;color:rgba(255,255,255,0.9);">Tire suas dúvidas ou agende sua consulta. Estamos prontos para atendê-la!</p>
-    </div>
+<!-- ═══ PAGE TITLE ═══ -->
+<section class="page-title section bg-light py-5">
+  <div class="container text-center" data-aos="fade-in">
+    <h1 class="display-4 fw-bold mb-3" style="color: var(--heading-color);">Entre em Contato</h1>
+    <p class="lead text-muted mx-auto" style="max-width: 650px;">
+      Tire suas dúvidas, saiba mais sobre nossos procedimentos ou agende sua avaliação. Estamos prontos para oferecer o melhor atendimento e cuidar do seu bem-estar.
+    </p>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb justify-content-center mb-0 mt-3">
+        <li class="breadcrumb-item"><a href="{% url 'shivazen:inicio' %}">Início</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Contato</li>
+      </ol>
+    </nav>
+  </div>
 </section>
 
-<section class="py-5" style="background:var(--bg-cream);">
-    <div class="container py-4">
-        <div class="row g-4">
-            <!-- Informações -->
-            <div class="col-lg-5 reveal">
-                <span class="section-label">Informações</span>
-                <h2 class="section-title mb-4">Como nos encontrar</h2>
-
-                <div class="d-flex align-items-start gap-3 mb-4">
-                    <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" style="width:48px;height:48px;background:var(--primary-light);">
-                        <i class="fas fa-map-marker-alt" style="color:var(--primary-dark);"></i>
-                    </div>
-                    <div>
-                        <h6 class="fw-bold mb-1" style="color:var(--text-dark);">Endereço</h6>
-                        <p class="small mb-0 text-muted">R. Humberto Delboni, 1107 — Jardim Fuscaldo<br>São José do Rio Preto — SP, 15061-320</p>
-                    </div>
-                </div>
-
-                <div class="d-flex align-items-start gap-3 mb-4">
-                    <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" style="width:48px;height:48px;background:rgba(37,211,102,0.1);">
-                        <i class="fab fa-whatsapp" style="color:#25D366;"></i>
-                    </div>
-                    <div>
-                        <h6 class="fw-bold mb-1" style="color:var(--text-dark);">WhatsApp</h6>
-                        <a href="https://wa.me/5517000000000" target="_blank" rel="noopener" class="small fw-bold" style="color:#25D366;">(17) 00000-0000</a>
-                    </div>
-                </div>
-
-                <div class="d-flex align-items-start gap-3 mb-4">
-                    <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" style="width:48px;height:48px;background:var(--secondary-light);">
-                        <i class="fas fa-clock" style="color:var(--secondary);"></i>
-                    </div>
-                    <div>
-                        <h6 class="fw-bold mb-1" style="color:var(--text-dark);">Horários</h6>
-                        <p class="small mb-0 text-muted">
-                            Seg a Sex: 09:00 — 18:00<br>
-                            Sábado: 09:00 — 15:00<br>
-                            Domingo: Fechado
-                        </p>
-                    </div>
-                </div>
-
-                <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-primary rounded-pill px-4 py-3 fw-bold w-100 mt-2">
-                    <i class="fas fa-calendar-alt me-2"></i>Agendar Online
-                </a>
+<!-- ═══ CONTATO ═══ -->
+<section id="contact" class="contact section">
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
+    
+    <div class="row g-5">
+      <!-- Informações de Contato -->
+      <div class="col-lg-5">
+        <div class="contact-info-wrapper">
+          
+          <div class="contact-info-item" data-aos="fade-up" data-aos-delay="100">
+            <div class="info-icon">
+              <i class="bi bi-geo-alt"></i>
             </div>
-
-            <!-- Mapa -->
-            <div class="col-lg-7 reveal">
-                <div class="info-card h-100">
-                    <div class="info-card-header">
-                        <h5 class="fw-bold mb-1"><i class="fas fa-map-marker-alt me-2" style="color:var(--primary);"></i>Nossa Localização</h5>
-                        <p class="small mb-0 opacity-75">Jardim Fuscaldo — São José do Rio Preto</p>
-                    </div>
-                    <div style="height:380px;">
-                        <iframe
-                            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3734.855!2d-49.3793!3d-20.8197!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94bdad6e5e2b7b1f%3A0x0!2sR.%20Humberto%20Delboni%2C%201107%20-%20Jardim%20Fuscaldo%2C%20S%C3%A3o%20Jos%C3%A9%20do%20Rio%20Preto%20-%20SP!5e0!3m2!1spt-BR!2sbr!4v1"
-                            width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy"
-                            referrerpolicy="no-referrer-when-downgrade"></iframe>
-                    </div>
-                </div>
+            <div class="info-content">
+              <h3 class="h5 fw-bold">Nosso Endereço</h3>
+              <p class="mb-1">R. Humberto Delboni, 1107 — Jardim Fuscaldo</p>
+              <p class="mb-0">São José do Rio Preto — SP, 15061-320</p>
             </div>
+          </div>
+
+          <div class="contact-info-item" data-aos="fade-up" data-aos-delay="200">
+            <div class="info-icon">
+              <i class="bi bi-whatsapp"></i>
+            </div>
+            <div class="info-content">
+              <h3 class="h5 fw-bold">WhatsApp</h3>
+              <p class="mb-1"><a href="https://wa.me/5517000000000" target="_blank" rel="noopener" class="text-primary fw-bold">(17) 00000-0000</a></p>
+              <p class="small text-muted mt-1">Atendimento online para dúvidas e agendamentos</p>
+            </div>
+          </div>
+
+          <div class="contact-info-item" data-aos="fade-up" data-aos-delay="300">
+            <div class="info-icon">
+              <i class="bi bi-clock"></i>
+            </div>
+            <div class="info-content">
+              <h3 class="h5 fw-bold">Horário de Funcionamento</h3>
+              <p class="mb-1">Segunda a Sexta: 09:00 às 18:00</p>
+              <p class="mb-1">Sábado: 09:00 às 15:00</p>
+              <p class="mb-0 small text-muted mt-1">Atendimento mediante agendamento</p>
+            </div>
+          </div>
+
         </div>
-    </div>
-</section>
-{% endblock %}
+      </div>
 
-{% block scripts %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  var obs = new IntersectionObserver(function(e) { e.forEach(function(x) { if(x.isIntersecting) x.target.classList.add('visible'); }); }, {threshold:0.1});
-  document.querySelectorAll('.reveal,.reveal-stagger').forEach(function(el) { obs.observe(el); });
-});
-</script>
+      <!-- Card CTA / Agendamento -->
+      <div class="col-lg-7">
+        <div class="contact-form-card h-100 d-flex flex-column justify-content-center" data-aos="fade-up" data-aos-delay="200" style="padding: 3rem; background: var(--surface-color); border-radius: 1rem; box-shadow: 0 10px 30px rgba(0,0,0,0.05);">
+          <div class="text-center mb-4">
+            <i class="bi bi-calendar-heart fs-1 text-primary mb-3"></i>
+            <h2 class="h3 fw-bold">Agende sua Avaliação</h2>
+            <p class="text-muted">A praticidade que você merece. Agende seu horário de forma 100% online, rápida e segura em nossa plataforma de agendamentos.</p>
+          </div>
+          
+          <div class="d-grid gap-3 d-md-flex justify-content-md-center mt-4">
+            <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-primary px-5 py-3 fw-bold rounded-pill text-uppercase shadow-sm">
+              <i class="bi bi-calendar-check me-2"></i>Agendamento Online
+            </a>
+          </div>
+          
+          <div class="mt-5 text-center px-4 py-3 bg-light rounded-3 border">
+            <div class="d-flex align-items-center justify-content-center gap-2">
+              <i class="bi bi-shield-check text-success fs-5"></i>
+              <span class="small fw-semibold text-muted">Confirmamos seu horário automaticamente.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mapa -->
+  <div class="container-fluid map-container mt-5 pt-4" data-aos="fade-up" data-aos-delay="200">
+    <div class="map-overlay"></div>
+    <iframe 
+      src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3734.855!2d-49.3793!3d-20.8197!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94bdad6e5e2b7b1f%3A0x0!2sR.%20Humberto%20Delboni%2C%201107%20-%20Jardim%20Fuscaldo%2C%20S%C3%A3o%20Jos%C3%A9%20do%20Rio%20Preto%20-%20SP!5e0!3m2!1spt-BR!2sbr!4v1" 
+      width="100%" 
+      height="500" 
+      style="border:0; border-radius: 1rem;" 
+      allowfullscreen="" 
+      loading="lazy" 
+      referrerpolicy="no-referrer-when-downgrade">
+    </iframe>
+  </div>
+</section>
 {% endblock %}

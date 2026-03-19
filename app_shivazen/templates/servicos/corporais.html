@@ -4,75 +4,161 @@
 {% block titulo %}Tratamentos Corporais | Shiva Zen{% endblock %}
 
 {% block conteudo %}
-<section class="hero-section" style="min-height:50vh;">
-    <img src="{% static 'assents/hero_corporal.png' %}" alt="Tratamentos Corporais" class="hero-bg" loading="eager">
-    <div class="container fade-in py-5">
-        <span class="hero-badge">Shiva Zen</span>
-        <h1 class="display-5 fw-bold mb-3 text-white" style="font-family:'Playfair Display',serif;">Tratamentos Corporais</h1>
-        <p class="lead mx-auto" style="max-width:560px;color:rgba(255,255,255,0.9);">Procedimentos de excelência para modelagem corporal, tratamento de estrias e bem-estar integral.</p>
-    </div>
+<!-- ═══ PAGE TITLE ═══ -->
+<section class="page-title section bg-light py-5">
+  <div class="container text-center" data-aos="fade-in">
+    <h1 class="display-4 fw-bold mb-3" style="color: var(--heading-color);">Tratamentos Corporais</h1>
+    <p class="lead text-muted mx-auto" style="max-width: 600px;">
+      Procedimentos de excelência para modelagem corporal, tratamento de estrias e bem-estar integral.
+    </p>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb justify-content-center mb-0 mt-3">
+        <li class="breadcrumb-item"><a href="{% url 'shivazen:inicio' %}">Início</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Corporais</li>
+      </ol>
+    </nav>
+  </div>
 </section>
 
-<section class="py-5" style="background:var(--bg-cream);">
-    <div class="container py-4">
-        <div class="row g-4 reveal-stagger">
-            <div class="col-md-6 col-lg-4">
-                <div class="service-card h-100">
-                    <div class="service-card-icon"><i class="fas fa-heartbeat"></i></div>
-                    <h4 class="h5 fw-bold mb-2">Massagem Modeladora</h4>
-                    <p class="text-muted small mb-0">Técnica avançada para redução de medidas, melhora da circulação e diminuição da celulite.</p>
-                </div>
-            </div>
-            <div class="col-md-6 col-lg-4">
-                <div class="service-card h-100">
-                    <div class="service-card-icon"><i class="fas fa-bolt"></i></div>
-                    <h4 class="h5 fw-bold mb-2">Radiofrequência Corporal</h4>
-                    <p class="text-muted small mb-0">Tecnologia para flacidez e gordura localizada, com aquecimento profundo sem dor.</p>
-                </div>
-            </div>
-            <div class="col-md-6 col-lg-4">
-                <div class="service-card h-100">
-                    <div class="service-card-icon"><i class="fas fa-water"></i></div>
-                    <h4 class="h5 fw-bold mb-2">Drenagem Linfática</h4>
-                    <p class="text-muted small mb-0">Técnica manual para estimular o sistema linfático, reduzir inchaço e desintoxicar.</p>
-                </div>
-            </div>
-            <div class="col-md-6 col-lg-4">
-                <div class="service-card h-100">
-                    <div class="service-card-icon"><i class="fas fa-layer-group"></i></div>
-                    <h4 class="h5 fw-bold mb-2">Tratamento de Estrias</h4>
-                    <p class="text-muted small mb-0">Combinação de técnicas especializadas para minimizar estrias antigas e recentes.</p>
-                </div>
-            </div>
-            <div class="col-md-6 col-lg-4">
-                <div class="service-card h-100">
-                    <div class="service-card-icon"><i class="fas fa-snowflake"></i></div>
-                    <h4 class="h5 fw-bold mb-2">Criolipólise</h4>
-                    <p class="text-muted small mb-0">Eliminação de gordura localizada por congelamento, sem cirurgia, com resultados duradouros.</p>
-                </div>
-            </div>
-            <div class="col-md-6 col-lg-4">
-                <div class="service-card h-100">
-                    <div class="service-card-icon"><i class="fas fa-gem"></i></div>
-                    <h4 class="h5 fw-bold mb-2">Esfoliação Corporal Premium</h4>
-                    <p class="text-muted small mb-0">Renovação da pele com esfoliantes naturais, deixando o corpo hidratado e luminoso.</p>
-                </div>
-            </div>
-        </div>
-        <div class="text-center mt-5 pt-3 reveal">
-            <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-primary rounded-pill px-5 py-3 fw-bold text-uppercase shadow-sm" style="letter-spacing:1px;">
-                <i class="fas fa-calendar-alt me-2"></i>Agende sua Consulta
-            </a>
-        </div>
-    </div>
-</section>
-{% endblock %}
+<!-- ═══ SERVIÇOS ═══ -->
+<section id="services" class="services section">
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
 
-{% block scripts %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  var obs = new IntersectionObserver(function(e) { e.forEach(function(x) { if(x.isIntersecting) x.target.classList.add('visible'); }); }, {threshold:0.1});
-  document.querySelectorAll('.reveal,.reveal-stagger').forEach(function(el) { obs.observe(el); });
-});
-</script>
+    <div class="row gy-4">
+
+      <!-- Massagem Modeladora -->
+      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="200">
+        <div class="service-item h-100">
+          <div class="service-image position-relative overflow-hidden">
+            <img src="{% static 'assents/template_img/health/neurology-4.webp' %}" alt="Massagem Modeladora" class="img-fluid w-100" style="height: 250px; object-fit: cover;">
+            <div class="service-overlay position-absolute bottom-0 start-0 w-100 p-3 bg-white" style="opacity: 0.9;">
+              <i class="bi bi-heart-pulse fs-3 text-primary"></i>
+            </div>
+          </div>
+          <div class="service-content p-4 border border-top-0 rounded-bottom">
+            <h3 class="h5 fw-bold mb-3">Massagem Modeladora</h3>
+            <p class="text-muted small">Técnica avançada para redução de medidas, melhora da circulação e diminuição da celulite.</p>
+            <div class="service-features mb-4">
+              <div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i><span class="small">Redução de medidas</span></div>
+              <div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i><span class="small">Melhora da circulação</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Radiofrequência Corporal -->
+      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="250">
+        <div class="service-item h-100">
+          <div class="service-image position-relative overflow-hidden">
+            <img src="{% static 'assents/template_img/health/cardiology-3.webp' %}" alt="Radiofrequência Corporal" class="img-fluid w-100" style="height: 250px; object-fit: cover;">
+            <div class="service-overlay position-absolute bottom-0 start-0 w-100 p-3 bg-white" style="opacity: 0.9;">
+              <i class="bi bi-lightning-charge fs-3 text-primary"></i>
+            </div>
+          </div>
+          <div class="service-content p-4 border border-top-0 rounded-bottom">
+            <h3 class="h5 fw-bold mb-3">Radiofrequência</h3>
+            <p class="text-muted small">Tecnologia para flacidez e gordura localizada, com aquecimento profundo, indolor e seguro.</p>
+            <div class="service-features mb-4">
+              <div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i><span class="small">Combate a flacidez</span></div>
+              <div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i><span class="small">Gordura localizada</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Drenagem Linfática -->
+      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="300">
+        <div class="service-item h-100">
+          <div class="service-image position-relative overflow-hidden">
+            <img src="{% static 'assents/template_img/health/maternal-2.webp' %}" alt="Drenagem Linfática" class="img-fluid w-100" style="height: 250px; object-fit: cover;">
+            <div class="service-overlay position-absolute bottom-0 start-0 w-100 p-3 bg-white" style="opacity: 0.9;">
+              <i class="bi bi-droplet fs-3 text-primary"></i>
+            </div>
+          </div>
+          <div class="service-content p-4 border border-top-0 rounded-bottom">
+            <h3 class="h5 fw-bold mb-3">Drenagem Linfática</h3>
+            <p class="text-muted small">Técnica manual para estimular o sistema linfático, reduzir o inchaço e desintoxicar o corpo.</p>
+            <div class="service-features mb-4">
+              <div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i><span class="small">Redução de inchaço</span></div>
+              <div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i><span class="small">Desintoxicação</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tratamento de Estrias -->
+      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="350">
+        <div class="service-item h-100">
+          <div class="service-image position-relative overflow-hidden">
+            <img src="{% static 'assents/template_img/health/pediatrics-4.webp' %}" alt="Tratamento de Estrias" class="img-fluid w-100" style="height: 250px; object-fit: cover;">
+            <div class="service-overlay position-absolute bottom-0 start-0 w-100 p-3 bg-white" style="opacity: 0.9;">
+              <i class="bi bi-layers fs-3 text-primary"></i>
+            </div>
+          </div>
+          <div class="service-content p-4 border border-top-0 rounded-bottom">
+            <h3 class="h5 fw-bold mb-3">Tratamento de Estrias</h3>
+            <p class="text-muted small">Combinação de técnicas especializadas para minimizar estrias, tanto antigas quanto recentes.</p>
+            <div class="service-features mb-4">
+              <div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i><span class="small">Renovação da pele</span></div>
+              <div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i><span class="small">Resultados visíveis</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Criolipólise -->
+      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="400">
+        <div class="service-item h-100">
+          <div class="service-image position-relative overflow-hidden">
+            <img src="{% static 'assents/template_img/health/facilities-6.webp' %}" alt="Criolipólise" class="img-fluid w-100" style="height: 250px; object-fit: cover;">
+            <div class="service-overlay position-absolute bottom-0 start-0 w-100 p-3 bg-white" style="opacity: 0.9;">
+              <i class="bi bi-snow fs-3 text-primary"></i>
+            </div>
+          </div>
+          <div class="service-content p-4 border border-top-0 rounded-bottom">
+            <h3 class="h5 fw-bold mb-3">Criolipólise</h3>
+            <p class="text-muted small">Eliminação de gordura localizada por congelamento, sem cirurgia, com resultados duradouros.</p>
+            <div class="service-features mb-4">
+              <div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i><span class="small">Gordura localizada</span></div>
+              <div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i><span class="small">Sem cirurgia</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Esfoliação -->
+      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="450">
+        <div class="service-item h-100">
+          <div class="service-image position-relative overflow-hidden">
+            <img src="{% static 'assents/template_img/health/laboratory-3.webp' %}" alt="Esfoliação Corporal Premium" class="img-fluid w-100" style="height: 250px; object-fit: cover;">
+            <div class="service-overlay position-absolute bottom-0 start-0 w-100 p-3 bg-white" style="opacity: 0.9;">
+              <i class="bi bi-gem fs-3 text-primary"></i>
+            </div>
+          </div>
+          <div class="service-content p-4 border border-top-0 rounded-bottom">
+            <h3 class="h5 fw-bold mb-3">Esfoliação Corporal</h3>
+            <p class="text-muted small">Renovação da pele com esfoliantes naturais, deixando o corpo hidratado, viçoso e mais luminoso.</p>
+            <div class="service-features mb-4">
+              <div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i><span class="small">Hidratação profunda</span></div>
+              <div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i><span class="small">Pele renovada</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- CTA -->
+    <div class="text-center mt-5 pt-4" data-aos="fade-up" data-aos-delay="500">
+      <div class="p-5 bg-white rounded-4 shadow-sm border border-light">
+        <h3 class="mb-3">Corpo em harmonia</h3>
+        <p class="text-muted mb-4 mx-auto" style="max-width: 600px;">Nossos procedimentos corporais são selecionados para trazer as melhores respostas fisiológicas para o seu corpo. Agende sua avaliação.</p>
+        <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-primary px-5 py-3 fw-bold rounded-pill text-uppercase shadow-sm">
+          <i class="bi bi-calendar-heart me-2"></i>Agendar Minha Avaliação
+        </a>
+      </div>
+    </div>
+
+  </div>
+</section>
 {% endblock %}

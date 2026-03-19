@@ -315,7 +315,7 @@ class Promocao(models.Model):
     imagem_url = models.CharField(max_length=500, blank=True, null=True)
 
     class Meta:
-        managed = True
+        managed = False
         db_table = 'promocao'
 
     @property
@@ -333,7 +333,7 @@ class CodigoVerificacao(models.Model):
     usado = models.BooleanField(default=False)
 
     class Meta:
-        managed = True
+        managed = False
         db_table = 'codigo_verificacao'
 
     @property
@@ -354,7 +354,7 @@ class Pacote(models.Model):
     ativo = models.BooleanField(default=True)
     
     class Meta:
-        managed = True
+        managed = False
         db_table = 'pacote'
 
 class ItemPacote(models.Model):
@@ -364,7 +364,7 @@ class ItemPacote(models.Model):
     quantidade_sessoes = models.IntegerField(default=1)
 
     class Meta:
-        managed = True
+        managed = False
         db_table = 'item_pacote'
 
 class PacoteCliente(models.Model):
@@ -376,7 +376,7 @@ class PacoteCliente(models.Model):
     status = models.CharField(max_length=20, default='ATIVO') # ATIVO, FINALIZADO, CANCELADO
 
     class Meta:
-        managed = True
+        managed = False
         db_table = 'pacote_cliente'
 
 class SessaoPacote(models.Model):
@@ -386,7 +386,7 @@ class SessaoPacote(models.Model):
     data_debito = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        managed = True
+        managed = False
         db_table = 'sessao_pacote'
 
 
@@ -401,7 +401,7 @@ class ListaEspera(models.Model):
     data_registro = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        managed = True
+        managed = False
         db_table = 'lista_espera'
 
 
@@ -413,7 +413,7 @@ class AvaliacaoNPS(models.Model):
     data_avaliacao = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        managed = True
+        managed = False
         db_table = 'avaliacao_nps'
 
 
@@ -425,7 +425,7 @@ class MetaProfissional(models.Model):
     valor_meta = models.DecimalField(max_digits=10, decimal_places=2)
     
     class Meta:
-        managed = True
+        managed = False
         db_table = 'meta_profissional'
         unique_together = (('profissional', 'mes', 'ano'),)
 
@@ -441,7 +441,7 @@ class TokenGoogleAgenda(models.Model):
     scopes = models.TextField()
 
     class Meta:
-        managed = True
+        managed = False
         db_table = 'token_google_agenda'
 
 
@@ -468,7 +468,7 @@ class Venda(models.Model):
     data_criacao = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        managed = True
+        managed = False
         db_table = 'venda'
         ordering = ['-data']
 
@@ -517,7 +517,7 @@ class Orcamento(models.Model):
     data_criacao = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        managed = True
+        managed = False
         db_table = 'orcamento'
         ordering = ['-data_criacao']
 
