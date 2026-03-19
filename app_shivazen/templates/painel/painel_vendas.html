@@ -1,0 +1,175 @@
+{% extends 'painel/admin_base.html' %}
+
+{% block page_title %}Controle de Vendas{% endblock %}
+{% block page_subtitle %}Gerencie vendas de procedimentos{% endblock %}
+
+{% block admin_css %}
+.vendas-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6rem; margin-bottom: 1.5rem; }
+@media(min-width:769px) { .vendas-stats { grid-template-columns: repeat(3, 1fr); } }
+.venda-card {
+    background: white; border-radius: 14px; padding: 1rem;
+    margin-bottom: 0.6rem; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.filter-bar { background: white; border-radius: 14px; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+{% endblock %}
+
+{% block admin_content %}
+<!-- Stats -->
+<div class="vendas-stats">
+    <div class="stat-card">
+        <div class="stat-card-icon" style="background:#e8f5e9;color:#2e7d32;"><i class="fas fa-shopping-cart"></i></div>
+        <div class="stat-card-value">{{ total_vendas|default:0 }}</div>
+        <div class="stat-card-label">Total Vendas</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-icon" style="background:#fff8e1;color:#f57f17;"><i class="fas fa-dollar-sign"></i></div>
+        <div class="stat-card-value" style="font-size:1.1rem;">R$ {{ total_valor|floatformat:2 }}</div>
+        <div class="stat-card-label">Receita (Pagas)</div>
+    </div>
+    <div class="stat-card" style="cursor:pointer;" onclick="document.getElementById('modalNovaVenda').classList.add('show'); document.getElementById('modalNovaVenda').style.display='block'; document.body.classList.add('modal-open');">
+        <div class="stat-card-icon" style="background:#e3f2fd;color:#1565c0;"><i class="fas fa-plus"></i></div>
+        <div class="stat-card-value" style="font-size:1rem;">Nova</div>
+        <div class="stat-card-label">Registrar Venda</div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="filter-bar">
+    <form method="GET" class="row g-2 align-items-end">
+        <div class="col-6 col-md-3">
+            <input type="text" name="search" value="{{ search }}" class="form-control form-control-sm" placeholder="Buscar cliente...">
+        </div>
+        <div class="col-6 col-md-2">
+            <select name="status" class="form-select form-select-sm">
+                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Todos</option>
+                <option value="PENDENTE" {% if status_filter == 'PENDENTE' %}selected{% endif %}>Pendente</option>
+                <option value="PAGO" {% if status_filter == 'PAGO' %}selected{% endif %}>Pago</option>
+                <option value="CANCELADO" {% if status_filter == 'CANCELADO' %}selected{% endif %}>Cancelado</option>
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <input type="date" name="data" value="{{ data_filter }}" class="form-control form-control-sm">
+        </div>
+        <div class="col-6 col-md-2">
+            <button type="submit" class="btn btn-sm w-100" style="background:#C9A84C;color:white;border-radius:8px;font-weight:700;">
+                <i class="fas fa-search me-1"></i>Filtrar
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Lista de Vendas -->
+{% if vendas %}
+{% for venda in vendas %}
+<div class="venda-card">
+    <div class="d-flex align-items-center gap-3">
+        <div class="admin-list-avatar" style="background:{% if venda.status == 'PAGO' %}#e8f5e9;color:#2e7d32{% elif venda.status == 'CANCELADO' %}#fce4ec;color:#c62828{% else %}#fff8e1;color:#f57f17{% endif %};">
+            <i class="fas {% if venda.status == 'PAGO' %}fa-check{% elif venda.status == 'CANCELADO' %}fa-times{% else %}fa-clock{% endif %}"></i>
+        </div>
+        <div class="admin-list-info">
+            <div class="admin-list-title">{{ venda.cliente.nome_completo }}</div>
+            <div class="admin-list-meta">
+                {{ venda.procedimento.nome }} &bull; {{ venda.sessoes }} sessão(ões) &bull; {{ venda.data|date:"d/m/Y" }}
+                {% if venda.profissional %}&bull; {{ venda.profissional.nome }}{% endif %}
+            </div>
+        </div>
+        <div class="text-end">
+            <div class="fw-bold" style="color:#2e7d32;">R$ {{ venda.valor|floatformat:2 }}</div>
+            <span class="admin-badge {% if venda.status == 'PAGO' %}admin-badge-green{% elif venda.status == 'CANCELADO' %}admin-badge-red{% else %}admin-badge-yellow{% endif %}">
+                {{ venda.status }}
+            </span>
+        </div>
+    </div>
+    {% if venda.observacoes %}
+    <div class="mt-2 small text-muted"><i class="fas fa-sticky-note me-1"></i>{{ venda.observacoes }}</div>
+    {% endif %}
+</div>
+{% endfor %}
+{% else %}
+<div class="text-center py-5">
+    <i class="fas fa-shopping-cart fa-3x" style="color:#ddd;"></i>
+    <p class="text-muted mt-3">Nenhuma venda encontrada</p>
+</div>
+{% endif %}
+
+<!-- Modal Nova Venda -->
+<div class="modal fade" id="modalNovaVenda" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="border-radius:16px;border:none;">
+            <div class="modal-header border-0" style="background:#1a1a2e;color:white;border-radius:16px 16px 0 0;">
+                <h5 class="modal-title fw-bold"><i class="fas fa-shopping-cart me-2" style="color:#C9A84C;"></i>Nova Venda</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{% url 'shivazen:criar_venda' %}">
+                {% csrf_token %}
+                <div class="modal-body p-4">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Cliente *</label>
+                            <select name="cliente" class="form-select" required>
+                                <option value="">Selecione...</option>
+                                {% for cli in clientes %}
+                                <option value="{{ cli.id_cliente }}">{{ cli.nome_completo }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Procedimento *</label>
+                            <select name="procedimento" class="form-select" required>
+                                <option value="">Selecione...</option>
+                                {% for proc in procedimentos %}
+                                <option value="{{ proc.id_procedimento }}">{{ proc.nome }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Profissional</label>
+                            <select name="profissional" class="form-select">
+                                <option value="">Opcional</option>
+                                {% for prof in profissionais %}
+                                <option value="{{ prof.id_profissional }}">{{ prof.nome }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Data *</label>
+                            <input type="date" name="data" class="form-control" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Sessões</label>
+                            <input type="number" name="sessoes" value="1" min="1" class="form-control">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Valor (R$) *</label>
+                            <input type="number" name="valor" step="0.01" min="0" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Status</label>
+                            <select name="status" class="form-select">
+                                <option value="PENDENTE">Pendente</option>
+                                <option value="PAGO">Pago</option>
+                                <option value="CANCELADO">Cancelado</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Observações</label>
+                            <textarea name="observacoes" class="form-control" rows="2" placeholder="Observações opcionais..."></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn rounded-pill px-4 fw-bold" style="background:#C9A84C;color:white;">
+                        <i class="fas fa-check me-1"></i>Registrar Venda
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- FAB -->
+<a href="#" class="admin-fab" data-bs-toggle="modal" data-bs-target="#modalNovaVenda" title="Nova Venda">
+    <i class="fas fa-plus"></i>
+</a>
+{% endblock %}

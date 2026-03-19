@@ -1,65 +1,69 @@
-{% extends 'estrutura/base.html' %}
 {% load static %}
-
-{% block conteudo %}
-<main class="main" style="min-height: 80vh; display: flex; align-items: center;">
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-md-8 col-lg-5">
-                <div class="card border-0 shadow-lg rounded-4 overflow-hidden my-5">
-                    <div class="card-body p-4 p-md-5">
-                        <div class="text-center mb-4">
-                            <a href="{% url 'shivazen:inicio' %}">
-                                <img src="{% static 'assents/LogoCompletaSemFundo.png' %}" alt="Shiva Zen"
-                                    class="img-fluid mb-3" style="max-height: 70px;">
-                            </a>
-                            <h2 class="fw-bold mb-1"
-                                style="color: var(--earth-dark); font-family: 'Playfair Display', serif;">Acesse sua
-                                conta</h2>
-                            <p class="text-muted small">Bem-vindo de volta ao seu espaço zen</p>
-                        </div>
-
-                        <div class="login-body">
-                            {% if messages %}
-                            {% for message in messages %}
-                            <div class="alert alert-{{ message.tags }} mb-4 border-0 shadow-sm" role="alert">
-                                {{ message }}
-                            </div>
-                            {% endfor %}
-                            {% endif %}
-
-                            <form id="login-form" method="POST" action="{% url 'shivazen:usuarioLogin' %}">
-                                {% csrf_token %}
-                                <div class="mb-4">
-                                    <label for="login" class="form-label text-muted fw-bold small text-uppercase">E-mail
-                                        ou CPF</label>
-                                    <input type="text" id="login" name="login"
-                                        class="form-control form-control-lg bg-light border-0"
-                                        placeholder="Digite seu e-mail ou CPF" required>
-                                </div>
-                                <div class="mb-4">
-                                    <label for="senha"
-                                        class="form-label text-muted fw-bold small text-uppercase">Senha</label>
-                                    <input type="password" id="senha" name="senha"
-                                        class="form-control form-control-lg bg-light border-0"
-                                        placeholder="Digite sua senha" required>
-
-                                </div>
-                                <div class="d-grid gap-3 mt-5">
-                                    <button type="submit"
-                                        class="btn btn-primary btn-lg rounded-pill fw-bold text-uppercase shadow-sm"
-                                        style="letter-spacing: 1px;">Entrar</button>
-                                </div>
-                            </form>
-
-                            <div class="text-center mt-4 pt-3 border-top">
-                                <p class="text-muted mb-0 small">Área restrita para administradores da clínica.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+<!doctype html>
+<html lang="pt-br">
+<head>
+    {% include 'partials/head.html' %}
+    <style>
+        body { background: var(--bg-cream); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .login-container { width: 100%; max-width: 420px; padding: 0 20px; }
+        .login-card {
+            background: white; border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md); padding: 2.5rem;
+            border: 1px solid var(--border);
+        }
+        .login-input {
+            width: 100%; padding: 14px 18px;
+            border: 2px solid var(--border); border-radius: var(--radius-sm);
+            font-size: 1rem; font-family: 'Lato', sans-serif;
+            transition: all 0.3s; background: var(--bg-cream);
+            color: var(--text-dark);
+        }
+        .login-input:focus {
+            outline: none; border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(196, 163, 90, 0.15);
+            background: white;
+        }
+        .login-input::placeholder { color: var(--text-light); }
+    </style>
+</head>
+<body>
+    <div class="login-container fade-in">
+        <div class="text-center mb-4">
+            <a href="{% url 'shivazen:inicio' %}">
+                <img src="{% static 'assents/LogoCompletaSemFundo.png' %}" alt="Shiva Zen" style="max-height:60px;" class="mb-3">
+            </a>
+            <h1 class="h4 fw-bold" style="font-family:'Playfair Display',serif;color:var(--text-dark);">Painel Administrativo</h1>
+            <p class="small text-muted">Acesse com suas credenciais</p>
         </div>
+
+        <div class="login-card">
+            {% if messages %}
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} small rounded-3 mb-3 py-2 px-3" style="border:none;{% if message.tags == 'error' %}background:#FEE2E2;color:#991B1B;{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            <form method="POST" action="{% url 'shivazen:usuarioLogin' %}">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label" style="font-size:0.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Usuário</label>
+                    <input type="text" name="username" class="login-input" placeholder="Seu nome de usuário" required autofocus>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label" style="font-size:0.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Senha</label>
+                    <input type="password" name="password" class="login-input" placeholder="Sua senha" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 py-3 fw-bold" style="font-size:0.95rem;">
+                    <i class="fas fa-sign-in-alt me-2"></i>Entrar
+                </button>
+            </form>
+        </div>
+
+        <p class="text-center mt-4 small text-muted">
+            <a href="{% url 'shivazen:inicio' %}" style="color:var(--primary);font-weight:600;">← Voltar ao site</a>
+        </p>
     </div>
-</main>
-{% endblock %}
+</body>
+</html>

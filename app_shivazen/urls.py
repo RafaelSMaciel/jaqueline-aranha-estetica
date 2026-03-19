@@ -47,6 +47,22 @@ urlpatterns = [
     path('painel/promocoes/<int:pk>/editar/', views.admin_editar_promocao, name='admin_editar_promocao'),
     path('painel/promocoes/<int:pk>/excluir/', views.admin_excluir_promocao, name='admin_excluir_promocao'),
 
+    # ─── Vendas (CRUD) ───
+    path('painel/vendas/', views.painel_vendas, name='painel_vendas'),
+    path('painel/vendas/criar/', views.criar_venda, name='criar_venda'),
+    path('painel/vendas/<int:pk>/editar/', views.editar_venda, name='editar_venda'),
+
+    # ─── Orçamentos (CRUD) ───
+    path('painel/orcamentos/', views.painel_orcamentos, name='painel_orcamentos'),
+    path('painel/orcamentos/criar/', views.criar_orcamento, name='criar_orcamento'),
+    path('painel/orcamentos/<int:pk>/editar/', views.editar_orcamento, name='editar_orcamento'),
+
+    # ─── Auditoria ───
+    path('painel/auditoria/', views.admin_auditoria, name='admin_auditoria'),
+
+    # ─── Status Update (AJAX) ───
+    path('painel/atualizar-status/', views.admin_atualizar_status, name='admin_atualizar_status'),
+
     # ─── Dashboard Admin (legado) ───
     path('dashboard-admin/', views.adminDashboard, name='adminDashboard'),
 

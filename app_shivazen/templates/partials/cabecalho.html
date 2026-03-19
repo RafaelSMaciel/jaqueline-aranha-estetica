@@ -1,6 +1,5 @@
 {% load static %}
-<header class="header-container fixed-top glass-card border-0 transition-base" style="border-radius: 0 0 20px 20px;"
-    role="banner">
+<header class="header-container fixed-top border-0" style="border-radius: 0 0 16px 16px;" role="banner">
     <div class="container d-flex align-items-center justify-content-between py-2">
         <div class="logo">
             <a href="{% url 'shivazen:inicio' %}" aria-label="Página inicial Shiva Zen">
@@ -9,22 +8,26 @@
         </div>
 
         <nav class="d-none d-md-flex align-items-center" aria-label="Navegação principal">
-            <ul class="navbar-nav d-flex flex-row align-items-center gap-4 mb-0">
+            <ul class="navbar-nav d-flex flex-row align-items-center gap-1 mb-0">
                 <li class="nav-item">
-                    <a class="nav-link text-dark fw-bold" href="{% url 'shivazen:agendamento_publico' %}"
-                        style="font-size: 0.9rem;"><i class="fas fa-calendar-alt me-1"></i>Agendar</a>
+                    <a class="nav-link" href="{% url 'shivazen:agendamento_publico' %}">
+                        <i class="fas fa-calendar-alt me-1"></i>Agendar</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link text-dark fw-bold" href="{% url 'shivazen:promocoes' %}"
-                        style="font-size: 0.9rem;"><i class="fas fa-tag me-1"></i>Promoções</a>
+                    <a class="nav-link" href="{% url 'shivazen:promocoes' %}">
+                        <i class="fas fa-tag me-1"></i>Promoções</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link text-dark fw-bold" href="{% url 'shivazen:meus_agendamentos' %}"
-                        style="font-size: 0.9rem;"><i class="far fa-calendar-check me-1"></i>Meus Agendamentos</a>
+                    <a class="nav-link" href="{% url 'shivazen:quemsomos' %}">
+                        <i class="fas fa-info-circle me-1"></i>Sobre</a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link" href="{% url 'shivazen:meus_agendamentos' %}">
+                        <i class="far fa-calendar-check me-1"></i>Meus Agendamentos</a>
+                </li>
+                <li class="nav-item ms-2">
                     <a class="btn btn-sm rounded-pill px-4 shadow-sm fw-bold"
-                        href="https://wa.me/5500000000000" target="_blank"
+                        href="https://wa.me/5517000000000" target="_blank" rel="noopener"
                         style="background:#25D366;color:white;font-size:0.85rem;">
                         <i class="fab fa-whatsapp me-1"></i> WhatsApp
                     </a>
@@ -32,31 +35,35 @@
             </ul>
         </nav>
 
-        <button class="navbar-toggler d-md-none p-2 border-0 text-primary" type="button" data-bs-toggle="collapse"
+        <button class="navbar-toggler d-md-none p-2 border-0" type="button" data-bs-toggle="collapse"
             data-bs-target="#mobileMenu" aria-controls="mobileMenu" aria-expanded="false"
-            aria-label="Toggle navigation menu">
+            aria-label="Toggle navigation menu" style="color:var(--primary);">
             <i class="fas fa-bars fs-3" aria-hidden="true"></i>
         </button>
     </div>
 
-    <div class="collapse navbar-collapse d-md-none mobile-menu-container bg-white border-top" id="mobileMenu">
+    <div class="collapse navbar-collapse d-md-none bg-white border-top" id="mobileMenu">
         <nav aria-label="Menu mobile" class="container py-4">
             <ul class="navbar-nav d-flex flex-column gap-3">
                 <li class="nav-item">
-                    <a class="nav-link fw-bold text-dark" href="{% url 'shivazen:agendamento_publico' %}">
+                    <a class="nav-link fw-bold" style="color:var(--text-dark);" href="{% url 'shivazen:agendamento_publico' %}">
                         <i class="fas fa-calendar-alt me-2"></i>Agendar Horário</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link fw-bold text-dark" href="{% url 'shivazen:promocoes' %}">
+                    <a class="nav-link fw-bold" style="color:var(--text-dark);" href="{% url 'shivazen:promocoes' %}">
                         <i class="fas fa-tag me-2"></i>Promoções</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link fw-bold text-dark" href="{% url 'shivazen:meus_agendamentos' %}">
+                    <a class="nav-link fw-bold" style="color:var(--text-dark);" href="{% url 'shivazen:quemsomos' %}">
+                        <i class="fas fa-info-circle me-2"></i>Quem Somos</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link fw-bold" style="color:var(--text-dark);" href="{% url 'shivazen:meus_agendamentos' %}">
                         <i class="far fa-calendar-check me-2"></i>Meus Agendamentos</a>
                 </li>
                 <li class="nav-item mt-2">
-                    <a class="btn w-100 rounded-pill py-2 fw-bold shadow-sm"
-                       href="https://wa.me/5500000000000" target="_blank"
+                    <a class="btn w-100 rounded-pill py-3 fw-bold shadow-sm"
+                       href="https://wa.me/5517000000000" target="_blank" rel="noopener"
                        style="background:#25D366;color:white;">
                         <i class="fab fa-whatsapp me-2"></i>Falar no WhatsApp
                     </a>

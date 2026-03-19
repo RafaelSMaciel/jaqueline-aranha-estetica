@@ -5,3 +5,5 @@ from .ajax import *
 from .admin import *
 from .dashboard import *
 from .booking import *
+from .vendas import *
+from .orcamentos import *

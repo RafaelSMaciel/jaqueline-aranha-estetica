@@ -16,6 +16,9 @@ from ..models import (
 )
 from ..decorators import staff_required
 from ..utils.audit import registrar_log
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @staff_required
@@ -77,7 +80,8 @@ def profissionalCadastro(request):
             return redirect('shivazen:painel_profissionais')
 
         except Exception as e:
-            messages.error(request, f'Erro ao cadastrar profissional: {e}')
+            logger.error(f'Erro ao cadastrar profissional: {e}', exc_info=True)
+            messages.error(request, 'Erro ao cadastrar profissional. Verifique os dados e tente novamente.')
 
     procedimentos = Procedimento.objects.filter(ativo=True)
     dias_semana = {
@@ -148,7 +152,8 @@ def profissionalEditar(request, pk=None):
             return redirect('shivazen:painel_profissionais')
 
         except Exception as e:
-            messages.error(request, f'Erro ao atualizar profissional: {e}')
+            logger.error(f'Erro ao atualizar profissional: {e}', exc_info=True)
+            messages.error(request, 'Erro ao atualizar profissional. Verifique os dados e tente novamente.')
 
     procedimentos = Procedimento.objects.filter(ativo=True)
     disponibilidades = DisponibilidadeProfissional.objects.filter(profissional=profissional)
@@ -366,7 +371,8 @@ def criarBloqueio(request):
             return redirect('shivazen:adminBloqueios')
 
         except Exception as e:
-            messages.error(request, f'Erro ao criar bloqueio: {e}')
+            logger.error(f'Erro ao criar bloqueio: {e}', exc_info=True)
+            messages.error(request, 'Erro ao criar bloqueio. Verifique os dados e tente novamente.')
 
     profissionais = Profissional.objects.filter(ativo=True)
     context = {'profissionais': profissionais}
@@ -422,7 +428,8 @@ def admin_criar_promocao(request):
             registrar_log(request.user, f'Criou promoção: {promo.nome}', 'promocao', promo.pk, {'desconto': str(promo.desconto_percentual)})
             messages.success(request, 'Promoção criada com sucesso!')
         except Exception as e:
-            messages.error(request, f'Erro ao criar promoção: {e}')
+            logger.error(f'Erro ao criar promoção: {e}', exc_info=True)
+            messages.error(request, 'Erro ao criar promoção. Verifique os dados e tente novamente.')
     return redirect('shivazen:admin_promocoes')
 
 
@@ -443,7 +450,8 @@ def admin_editar_promocao(request, pk):
             registrar_log(request.user, f'Editou promoção: {promo.nome}', 'promocao', promo.pk)
             messages.success(request, 'Promoção atualizada!')
         except Exception as e:
-            messages.error(request, f'Erro ao atualizar promoção: {e}')
+            logger.error(f'Erro ao atualizar promoção: {e}', exc_info=True)
+            messages.error(request, 'Erro ao atualizar promoção. Verifique os dados e tente novamente.')
     return redirect('shivazen:admin_promocoes')
 
 
@@ -458,7 +466,8 @@ def admin_excluir_promocao(request, pk):
             registrar_log(request.user, f'Excluiu promoção: {nome}', 'promocao', pk)
             messages.success(request, 'Promoção excluída!')
         except Exception as e:
-            messages.error(request, f'Erro ao excluir: {e}')
+            logger.error(f'Erro ao excluir promoção: {e}', exc_info=True)
+            messages.error(request, 'Erro ao excluir promoção.')
     return redirect('shivazen:admin_promocoes')
 
 
@@ -546,4 +555,5 @@ def admin_atualizar_status(request):
     except json.JSONDecodeError:
         return JsonResponse({'erro': 'Dados inválidos'}, status=400)
     except Exception as e:
-        return JsonResponse({'erro': str(e)}, status=500)
+        logger.error(f'Erro ao atualizar status: {e}', exc_info=True)
+        return JsonResponse({'erro': 'Ocorreu um erro interno. Tente novamente.'}, status=500)

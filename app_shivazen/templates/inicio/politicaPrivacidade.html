@@ -2,17 +2,14 @@
 {% load static %}
 
 {% block conteudo %}
-<section class="hero-section">
-  <div class="hero-container">
-    <div class="hero-overlay">
-      <div class="hero-content text-center">
+<section class="position-relative text-white text-center d-flex align-items-center justify-content-center" style="background: linear-gradient(135deg, #2C2C2C 0%, #4a3728 100%); min-height: 35vh;">
+    <div class="container fade-in py-5">
         <a href="{% url 'shivazen:inicio' %}">
-            <img src="{% static 'assents/LogoCompletaSemFundo.png' %}" alt="Shiva Zen" class="login-logo">
+            <img src="{% static 'assents/LogoCompletaSemFundo.png' %}" alt="Shiva Zen" style="max-height:80px; filter: brightness(2);" class="mb-4">
         </a>
-        <h5 class="hero-title">Politica de Privacidade</h5>
-      </div>
+        <h1 class="display-5 fw-bold mb-2 text-white" style="font-family:'Playfair Display',serif;">Política de Privacidade</h1>
+        <div class="mx-auto" style="width:60px;height:2px;background:var(--primary);"></div>
     </div>
-  </div>
 </section>
 
 <div class="container py-5">

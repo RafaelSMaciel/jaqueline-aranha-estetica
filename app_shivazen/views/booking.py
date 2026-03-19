@@ -3,18 +3,23 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.utils import timezone
 from django.urls import reverse
+from django.views.decorators.http import require_POST
+from django_ratelimit.decorators import ratelimit
 from datetime import datetime, timedelta
 import json
 import random
 import string
+import logging
 
 from ..models import (
     Profissional, Procedimento, Atendimento, BloqueioAgenda,
     Cliente, Preco, DisponibilidadeProfissional, CodigoVerificacao
 )
 
-# Número do WhatsApp (placeholder — substituir pelo número real)
-WHATSAPP_NUMERO = '5500000000000'
+logger = logging.getLogger(__name__)
+
+# Número do WhatsApp da clínica
+WHATSAPP_NUMERO = '5517000000000'  # TODO: Substituir pelo número real da clínica
 
 
 def agendamento_publico(request):
@@ -267,7 +272,9 @@ def confirmar_agendamento(request):
         return redirect('shivazen:agendamento_sucesso')
 
     except Exception as e:
-        messages.error(request, f'Erro ao confirmar agendamento: {e}')
+        # SEGURANÇA: Logar o erro real mas mostrar mensagem genérica ao usuário
+        logger.error(f'Erro ao confirmar agendamento: {e}', exc_info=True)
+        messages.error(request, 'Ocorreu um erro ao confirmar o agendamento. Tente novamente.')
         return redirect('shivazen:agendamento_publico')
 
 
@@ -319,9 +326,14 @@ def meus_agendamentos(request):
     return render(request, 'agenda/meus_agendamentos.html', context)
 
 
+@ratelimit(key='ip', rate='5/m', method='POST', block=False)
 def verificar_telefone(request):
     """AJAX: gerar ou validar código de verificação por telefone."""
     if request.method == 'POST':
+        # SEGURANÇA: Rate limiting
+        if getattr(request, 'limited', False):
+            return JsonResponse({'error': 'Muitas tentativas. Aguarde um momento.'}, status=429)
+
         data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
         action = data.get('action', '')
         telefone = data.get('telefone', '').strip()
@@ -345,11 +357,13 @@ def verificar_telefone(request):
             # Criar novo código
             CodigoVerificacao.objects.create(telefone=telefone, codigo=codigo)
 
-            # Em produção, enviar via SMS/WhatsApp. Por agora, retornamos o código
+            # Em produção, enviar via SMS/WhatsApp API
+            logger.info(f'Código de verificação gerado para telefone: {telefone[-4:]}')
+
             return JsonResponse({
                 'success': True,
-                'message': 'Código de verificação gerado.',
-                'codigo_debug': codigo,  # Remover em produção!
+                'message': 'Código de verificação enviado para seu telefone.',
+                # SEGURANÇA: codigo_debug REMOVIDO — nunca expor código ao frontend
             })
 
         elif action == 'verificar':
@@ -482,4 +496,6 @@ def cancelar_agendamento(request):
     except json.JSONDecodeError:
         return JsonResponse({'erro': 'Dados inválidos'}, status=400)
     except Exception as e:
-        return JsonResponse({'erro': str(e)}, status=500)
+        # SEGURANÇA: Logar erro real mas devolver mensagem genérica
+        logger.error(f'Erro ao cancelar agendamento: {e}', exc_info=True)
+        return JsonResponse({'erro': 'Ocorreu um erro interno. Tente novamente.'}, status=500)

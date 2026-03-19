@@ -4,151 +4,87 @@
 {% block titulo %}Contato | Shiva Zen{% endblock %}
 
 {% block conteudo %}
-<!-- Page Hero -->
-<section class="position-relative text-white text-center d-flex align-items-center justify-content-center"
-  style="background: linear-gradient(135deg, #2C2C2C 0%, #4a3728 100%); min-height: 40vh;">
-  <div class="container fade-in py-4">
-    <p class="text-uppercase fw-bold mb-3"
-      style="letter-spacing: 3px; color: var(--primary-color); font-size: 0.85rem;">Fale Conosco</p>
-    <h1 class="display-5 fw-bold mb-2 text-white" style="font-family: 'Playfair Display', serif;">Entre em Contato</h1>
-    <div class="mx-auto mt-3" style="width: 50px; height: 2px; background: var(--primary-color);"></div>
-  </div>
-</section>
-
-<!-- Contact Section -->
-<section class="py-5" style="background: var(--background-light);">
-  <div class="container py-4">
-    <div class="row g-5 align-items-start">
-
-      <!-- Info Block -->
-      <div class="col-lg-5">
-        <h2 class="fw-bold mb-2" style="font-family: 'Playfair Display', serif;">Como podemos ajudar?</h2>
-        <p class="text-muted mb-5">Estamos à disposição para tirar suas dúvidas, agendar procedimentos ou receber seus
-          feedbacks. Nosso atendimento é rápido e personalizado.</p>
-
-        <div class="d-flex align-items-center mb-4">
-          <div class="rounded-circle d-flex align-items-center justify-content-center me-4 flex-shrink-0 shadow-sm"
-            style="width:52px;height:52px;background:var(--primary-light);">
-            <i class="fas fa-phone-alt" style="color:var(--primary-dark);"></i>
-          </div>
-          <div>
-            <small class="text-uppercase text-muted fw-bold" style="letter-spacing:1px;">Telefone</small>
-            <p class="fw-bold mb-0">(XX) XXXX-XXXX</p>
-          </div>
-        </div>
-
-        <div class="d-flex align-items-center mb-4">
-          <div class="rounded-circle d-flex align-items-center justify-content-center me-4 flex-shrink-0 shadow-sm"
-            style="width:52px;height:52px;background:#dcf5e7;">
-            <i class="fab fa-whatsapp" style="color:#25D366;font-size:1.3rem;"></i>
-          </div>
-          <div>
-            <small class="text-uppercase text-muted fw-bold" style="letter-spacing:1px;">WhatsApp</small>
-            <p class="fw-bold mb-0">(XX) XXXXX-XXXX</p>
-          </div>
-        </div>
-
-        <div class="d-flex align-items-center mb-4">
-          <div class="rounded-circle d-flex align-items-center justify-content-center me-4 flex-shrink-0 shadow-sm"
-            style="width:52px;height:52px;background:var(--primary-light);">
-            <i class="fas fa-envelope" style="color:var(--primary-dark);"></i>
-          </div>
-          <div>
-            <small class="text-uppercase text-muted fw-bold" style="letter-spacing:1px;">E-mail</small>
-            <p class="fw-bold mb-0">contato@shivazen.com.br</p>
-          </div>
-        </div>
-
-        <div class="d-flex align-items-center mb-5">
-          <div class="rounded-circle d-flex align-items-center justify-content-center me-4 flex-shrink-0 shadow-sm"
-            style="width:52px;height:52px;background:var(--primary-light);">
-            <i class="fas fa-map-marker-alt" style="color:var(--primary-dark);"></i>
-          </div>
-          <div>
-            <small class="text-uppercase text-muted fw-bold" style="letter-spacing:1px;">Endereço</small>
-            <p class="fw-bold mb-0">Av. Exemplo, 1234 - Centro<br><small class="text-muted fw-normal">Sua Cidade –
-                SP</small></p>
-          </div>
-        </div>
-
-        <div class="glass-card p-4 rounded-4 border-0 shadow-sm">
-          <h5 class="fw-bold mb-3" style="color:var(--primary-dark);">
-            <i class="fas fa-clock me-2" style="color:var(--primary-color);"></i>Horário de Funcionamento
-          </h5>
-          <div class="d-flex justify-content-between border-bottom pb-2 mb-2">
-            <span class="text-muted">Segunda a Sexta</span>
-            <span class="fw-bold">09h — 19h</span>
-          </div>
-          <div class="d-flex justify-content-between border-bottom pb-2 mb-2">
-            <span class="text-muted">Sábado</span>
-            <span class="fw-bold">09h — 14h</span>
-          </div>
-          <div class="d-flex justify-content-between">
-            <span class="text-muted">Domingo</span>
-            <span class="text-danger fw-bold">Fechado</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Form Block -->
-      <div class="col-lg-7">
-        <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
-          <div class="card-body p-4 p-md-5">
-            <h3 class="fw-bold mb-4" style="font-family: 'Playfair Display', serif;">Envie sua Mensagem</h3>
-
-            {% if messages %}
-            {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} mb-4 border-0 shadow-sm">{{ message }}</div>
-            {% endfor %}
-            {% endif %}
-
-            <form method="POST">
-              {% csrf_token %}
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <label class="form-label text-muted fw-bold small text-uppercase">Seu Nome</label>
-                  <input type="text" name="nome" class="form-control form-control-lg bg-light border-0"
-                    placeholder="Nome completo" required>
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label text-muted fw-bold small text-uppercase">E-mail</label>
-                  <input type="email" name="email" class="form-control form-control-lg bg-light border-0"
-                    placeholder="seu@email.com" required>
-                </div>
-                <div class="col-12">
-                  <label class="form-label text-muted fw-bold small text-uppercase">Telefone</label>
-                  <input type="tel" name="telefone" class="form-control form-control-lg bg-light border-0"
-                    placeholder="(00) 00000-0000">
-                </div>
-                <div class="col-12">
-                  <label class="form-label text-muted fw-bold small text-uppercase">Assunto</label>
-                  <select name="assunto" class="form-control form-control-lg bg-light border-0">
-                    <option value="">Selecione o assunto...</option>
-                    <option>Agendamento de procedimento</option>
-                    <option>Informações sobre tratamentos</option>
-                    <option>Preços e pacotes</option>
-                    <option>Dúvidas gerais</option>
-                    <option>Outro</option>
-                  </select>
-                </div>
-                <div class="col-12">
-                  <label class="form-label text-muted fw-bold small text-uppercase">Mensagem</label>
-                  <textarea name="mensagem" class="form-control bg-light border-0" rows="5"
-                    placeholder="Escreva sua mensagem aqui..." required></textarea>
-                </div>
-                <div class="col-12 mt-3">
-                  <button type="submit" class="btn btn-primary w-100 rounded-pill py-3 fw-bold text-uppercase shadow-sm"
-                    style="letter-spacing:1px;">
-                    <i class="fas fa-paper-plane me-2"></i>Enviar Mensagem
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-
+<section class="hero-section" style="min-height:45vh;">
+    <img src="{% static 'assents/hero_home.png' %}" alt="Contato Shiva Zen" class="hero-bg" loading="eager">
+    <div class="container fade-in py-5">
+        <span class="hero-badge">Fale Conosco</span>
+        <h1 class="display-5 fw-bold mb-3 text-white" style="font-family:'Playfair Display',serif;">Entre em Contato</h1>
+        <p class="lead mx-auto" style="max-width:560px;color:rgba(255,255,255,0.9);">Tire suas dúvidas ou agende sua consulta. Estamos prontos para atendê-la!</p>
     </div>
-  </div>
 </section>
+
+<section class="py-5" style="background:var(--bg-cream);">
+    <div class="container py-4">
+        <div class="row g-4">
+            <!-- Informações -->
+            <div class="col-lg-5 reveal">
+                <span class="section-label">Informações</span>
+                <h2 class="section-title mb-4">Como nos encontrar</h2>
+
+                <div class="d-flex align-items-start gap-3 mb-4">
+                    <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" style="width:48px;height:48px;background:var(--primary-light);">
+                        <i class="fas fa-map-marker-alt" style="color:var(--primary-dark);"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold mb-1" style="color:var(--text-dark);">Endereço</h6>
+                        <p class="small mb-0 text-muted">R. Humberto Delboni, 1107 — Jardim Fuscaldo<br>São José do Rio Preto — SP, 15061-320</p>
+                    </div>
+                </div>
+
+                <div class="d-flex align-items-start gap-3 mb-4">
+                    <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" style="width:48px;height:48px;background:rgba(37,211,102,0.1);">
+                        <i class="fab fa-whatsapp" style="color:#25D366;"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold mb-1" style="color:var(--text-dark);">WhatsApp</h6>
+                        <a href="https://wa.me/5517000000000" target="_blank" rel="noopener" class="small fw-bold" style="color:#25D366;">(17) 00000-0000</a>
+                    </div>
+                </div>
+
+                <div class="d-flex align-items-start gap-3 mb-4">
+                    <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" style="width:48px;height:48px;background:var(--secondary-light);">
+                        <i class="fas fa-clock" style="color:var(--secondary);"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold mb-1" style="color:var(--text-dark);">Horários</h6>
+                        <p class="small mb-0 text-muted">
+                            Seg a Sex: 09:00 — 18:00<br>
+                            Sábado: 09:00 — 15:00<br>
+                            Domingo: Fechado
+                        </p>
+                    </div>
+                </div>
+
+                <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-primary rounded-pill px-4 py-3 fw-bold w-100 mt-2">
+                    <i class="fas fa-calendar-alt me-2"></i>Agendar Online
+                </a>
+            </div>
+
+            <!-- Mapa -->
+            <div class="col-lg-7 reveal">
+                <div class="info-card h-100">
+                    <div class="info-card-header">
+                        <h5 class="fw-bold mb-1"><i class="fas fa-map-marker-alt me-2" style="color:var(--primary);"></i>Nossa Localização</h5>
+                        <p class="small mb-0 opacity-75">Jardim Fuscaldo — São José do Rio Preto</p>
+                    </div>
+                    <div style="height:380px;">
+                        <iframe
+                            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3734.855!2d-49.3793!3d-20.8197!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94bdad6e5e2b7b1f%3A0x0!2sR.%20Humberto%20Delboni%2C%201107%20-%20Jardim%20Fuscaldo%2C%20S%C3%A3o%20Jos%C3%A9%20do%20Rio%20Preto%20-%20SP!5e0!3m2!1spt-BR!2sbr!4v1"
+                            width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy"
+                            referrerpolicy="no-referrer-when-downgrade"></iframe>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var obs = new IntersectionObserver(function(e) { e.forEach(function(x) { if(x.isIntersecting) x.target.classList.add('visible'); }); }, {threshold:0.1});
+  document.querySelectorAll('.reveal,.reveal-stagger').forEach(function(el) { obs.observe(el); });
+});
+</script>
 {% endblock %}

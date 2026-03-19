@@ -443,3 +443,83 @@ class TokenGoogleAgenda(models.Model):
     class Meta:
         managed = True
         db_table = 'token_google_agenda'
+
+
+# =====================================================================
+# CONTROLE DE VENDAS E ORÇAMENTOS
+# =====================================================================
+
+class Venda(models.Model):
+    STATUS_CHOICES = [
+        ('PENDENTE', 'Pendente'),
+        ('PAGO', 'Pago'),
+        ('CANCELADO', 'Cancelado'),
+    ]
+
+    id_venda = models.AutoField(primary_key=True)
+    cliente = models.ForeignKey(Cliente, on_delete=models.RESTRICT, db_column='id_cliente', related_name='vendas')
+    procedimento = models.ForeignKey(Procedimento, on_delete=models.RESTRICT, db_column='id_procedimento')
+    profissional = models.ForeignKey(Profissional, on_delete=models.SET_NULL, db_column='id_profissional', null=True, blank=True)
+    data = models.DateField()
+    sessoes = models.IntegerField(default=1)
+    valor = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDENTE')
+    observacoes = models.TextField(blank=True, null=True)
+    data_criacao = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = True
+        db_table = 'venda'
+        ordering = ['-data']
+
+    def __str__(self):
+        return f'Venda #{self.pk} - {self.cliente.nome_completo} - {self.procedimento.nome}'
+
+
+class Orcamento(models.Model):
+    STATUS_CHOICES = [
+        ('PENDENTE', 'Pendente'),
+        ('APROVADO', 'Aprovado'),
+        ('RECUSADO', 'Recusado'),
+        ('EXPIRADO', 'Expirado'),
+    ]
+
+    id_orcamento = models.AutoField(primary_key=True)
+    # Dados do cliente
+    nome_completo = models.CharField(max_length=150)
+    data_nascimento = models.DateField(blank=True, null=True)
+    profissao = models.CharField(max_length=100, blank=True, null=True)
+    endereco_cep = models.CharField(max_length=200, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
+    rg = models.CharField(max_length=20, blank=True, null=True)
+    cpf = models.CharField(max_length=14, blank=True, null=True)
+    telefone = models.CharField(max_length=20, blank=True, null=True)
+
+    # Dados do orçamento
+    procedimento = models.ForeignKey(Procedimento, on_delete=models.RESTRICT, db_column='id_procedimento')
+    sessoes = models.IntegerField(default=1)
+    valor = models.DecimalField(max_digits=10, decimal_places=2)
+    data = models.DateField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDENTE')
+    observacoes = models.TextField(blank=True, null=True)
+
+    # Questionário pré-procedimento
+    tratamento_estetico_anterior = models.TextField(blank=True, null=True, verbose_name='Realizou algum tratamento estético? Se sim, qual?')
+    doenca_pele = models.TextField(blank=True, null=True, verbose_name='Possui doença de pele (psoríase, vitiligo, dermatites, lúpus)?')
+    tratamento_cancer = models.TextField(blank=True, null=True, verbose_name='Está em tratamento de câncer ou fez tratamento há menos de 5 anos?')
+    melasma_pintas = models.TextField(blank=True, null=True, verbose_name='Tem melasma ou pintas mais pigmentadas? Se sim, em qual local?')
+    uso_acido = models.TextField(blank=True, null=True, verbose_name='Utiliza algum tipo de ácido?')
+    medicacao_continua = models.TextField(blank=True, null=True, verbose_name='Toma alguma medicação contínua?')
+    gravida_amamentando = models.TextField(blank=True, null=True, verbose_name='Está grávida ou amamentando?')
+    alergia = models.TextField(blank=True, null=True, verbose_name='Tem alergia a algum medicamento ou alimento? Se sim, qual?')
+    implante_marcapasso = models.TextField(blank=True, null=True, verbose_name='Tem algum implante, marcapasso ou prótese de metal?')
+
+    data_criacao = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = True
+        db_table = 'orcamento'
+        ordering = ['-data_criacao']
+
+    def __str__(self):
+        return f'Orçamento #{self.pk} - {self.nome_completo} - {self.procedimento.nome}'

@@ -9,6 +9,22 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Load .env file
 load_dotenv(BASE_DIR / '.env')
 
+# --- Configuração Sentry (opcional) ---
+try:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+
+    sentry_dsn = os.environ.get('SENTRY_DSN')
+    if sentry_dsn:
+        sentry_sdk.init(
+            dsn=sentry_dsn,
+            integrations=[DjangoIntegration()],
+            traces_sample_rate=float(os.environ.get('SENTRY_TRACES_SAMPLE_RATE', '0.2')),
+            send_default_pii=False,  # SEGURANÇA: Nunca enviar dados pessoais ao Sentry
+        )
+except ImportError:
+    pass  # sentry_sdk não instalado — ignorar em desenvolvimento local
+
 # --- Configuração de Segurança (Variáveis de Ambiente) ---
 # Em produção (Railway), crie variáveis de ambiente para estes valores.
 # O valor depois da vírgula é um 'default' para desenvolvimento local.
@@ -143,6 +159,21 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
 
+# Proteção contra CSRF e Session Hijacking
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_AGE = 3600  # Sessão expira em 1 hora
+SESSION_SAVE_EVERY_REQUEST = True  # Renova sessão a cada request
+
+# Headers de segurança adicionais
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
+
+# CSRF Trusted Origins (adicionar domínio de produção)
+CSRF_TRUSTED_ORIGINS = os.environ.get(
+    'CSRF_TRUSTED_ORIGINS', 'http://127.0.0.1:8000,http://localhost:8000'
+).split(',')
+
 # Em produção (HTTPS), ative a variável USE_HTTPS=True
 USE_HTTPS = os.environ.get('USE_HTTPS', 'False') == 'True'
 if USE_HTTPS:
@@ -152,6 +183,7 @@ if USE_HTTPS:
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 
 # --- Configuração de Email (para recuperação de senha) ---
@@ -318,6 +350,21 @@ CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://localho
 CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
+
+# --- Configurações de Cache (Redis) ---
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": os.environ.get('REDIS_URL', CELERY_BROKER_URL),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        }
+    }
+}
+# Sessões vão usar o cache para ficarem mais rápidas
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_CACHE_ALIAS = "default"
+
 CELERY_TIMEZONE = TIME_ZONE
 
 # Configuração agendamento do Celery Beat (tarefas recorrentes)

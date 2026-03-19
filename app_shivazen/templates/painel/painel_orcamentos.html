@@ -1,0 +1,242 @@
+{% extends 'painel/admin_base.html' %}
+
+{% block page_title %}Orçamentos{% endblock %}
+{% block page_subtitle %}Gerencie orçamentos e questionários pré-procedimento{% endblock %}
+
+{% block admin_css %}
+.orc-card {
+    background: white; border-radius: 14px; padding: 1rem;
+    margin-bottom: 0.6rem; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.filter-bar { background: white; border-radius: 14px; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+.quest-section { background: #f8f7f5; border-radius: 12px; padding: 1rem; margin-top: 0.5rem; }
+.quest-label { font-size: 0.75rem; font-weight: 700; color: #666; margin-bottom: 0.25rem; }
+{% endblock %}
+
+{% block admin_content %}
+<!-- Filters -->
+<div class="filter-bar">
+    <form method="GET" class="row g-2 align-items-end">
+        <div class="col-5 col-md-3">
+            <input type="text" name="search" value="{{ search }}" class="form-control form-control-sm" placeholder="Buscar nome/CPF...">
+        </div>
+        <div class="col-4 col-md-2">
+            <select name="status" class="form-select form-select-sm">
+                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Todos</option>
+                <option value="PENDENTE" {% if status_filter == 'PENDENTE' %}selected{% endif %}>Pendente</option>
+                <option value="APROVADO" {% if status_filter == 'APROVADO' %}selected{% endif %}>Aprovado</option>
+                <option value="RECUSADO" {% if status_filter == 'RECUSADO' %}selected{% endif %}>Recusado</option>
+                <option value="EXPIRADO" {% if status_filter == 'EXPIRADO' %}selected{% endif %}>Expirado</option>
+            </select>
+        </div>
+        <div class="col-3 col-md-2">
+            <button type="submit" class="btn btn-sm w-100" style="background:#C9A84C;color:white;border-radius:8px;font-weight:700;">
+                <i class="fas fa-search me-1"></i>Filtrar
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Lista de Orçamentos -->
+{% if orcamentos %}
+{% for orc in orcamentos %}
+<div class="orc-card">
+    <div class="d-flex align-items-center gap-3">
+        <div class="admin-list-avatar" style="background:{% if orc.status == 'APROVADO' %}#e8f5e9;color:#2e7d32{% elif orc.status == 'RECUSADO' %}#fce4ec;color:#c62828{% elif orc.status == 'EXPIRADO' %}#e0e0e0;color:#666{% else %}#e3f2fd;color:#1565c0{% endif %};">
+            <i class="fas {% if orc.status == 'APROVADO' %}fa-check-circle{% elif orc.status == 'RECUSADO' %}fa-times-circle{% elif orc.status == 'EXPIRADO' %}fa-hourglass-end{% else %}fa-file-invoice{% endif %}"></i>
+        </div>
+        <div class="admin-list-info">
+            <div class="admin-list-title">{{ orc.nome_completo }}</div>
+            <div class="admin-list-meta">
+                {{ orc.procedimento.nome }} &bull; {{ orc.sessoes }} sessão(ões) &bull; {{ orc.data|date:"d/m/Y" }}
+                {% if orc.cpf %}&bull; CPF: {{ orc.cpf }}{% endif %}
+            </div>
+        </div>
+        <div class="text-end">
+            <div class="fw-bold" style="color:#1565c0;">R$ {{ orc.valor|floatformat:2 }}</div>
+            <span class="admin-badge {% if orc.status == 'APROVADO' %}admin-badge-green{% elif orc.status == 'RECUSADO' %}admin-badge-red{% elif orc.status == 'EXPIRADO' %}admin-badge-yellow{% else %}admin-badge-blue{% endif %}">
+                {{ orc.status }}
+            </span>
+        </div>
+    </div>
+    {% if orc.telefone or orc.email %}
+    <div class="mt-2 small text-muted">
+        {% if orc.telefone %}<i class="fas fa-phone me-1"></i>{{ orc.telefone }} {% endif %}
+        {% if orc.email %}<i class="fas fa-envelope ms-2 me-1"></i>{{ orc.email }}{% endif %}
+    </div>
+    {% endif %}
+    {% if orc.observacoes %}
+    <div class="mt-1 small text-muted"><i class="fas fa-sticky-note me-1"></i>{{ orc.observacoes }}</div>
+    {% endif %}
+    <!-- Questionário resumido -->
+    {% if orc.tratamento_estetico_anterior or orc.doenca_pele or orc.alergia %}
+    <details class="mt-2">
+        <summary class="small fw-bold" style="color:#C9A84C;cursor:pointer;">
+            <i class="fas fa-file-medical me-1"></i>Ver Questionário Pré-Procedimento
+        </summary>
+        <div class="quest-section mt-2">
+            {% if orc.tratamento_estetico_anterior %}<div class="quest-label">Tratamento estético anterior:</div><div class="small mb-2">{{ orc.tratamento_estetico_anterior }}</div>{% endif %}
+            {% if orc.doenca_pele %}<div class="quest-label">Doença de pele:</div><div class="small mb-2">{{ orc.doenca_pele }}</div>{% endif %}
+            {% if orc.tratamento_cancer %}<div class="quest-label">Tratamento de câncer:</div><div class="small mb-2">{{ orc.tratamento_cancer }}</div>{% endif %}
+            {% if orc.melasma_pintas %}<div class="quest-label">Melasma/pintas:</div><div class="small mb-2">{{ orc.melasma_pintas }}</div>{% endif %}
+            {% if orc.uso_acido %}<div class="quest-label">Uso de ácido:</div><div class="small mb-2">{{ orc.uso_acido }}</div>{% endif %}
+            {% if orc.medicacao_continua %}<div class="quest-label">Medicação contínua:</div><div class="small mb-2">{{ orc.medicacao_continua }}</div>{% endif %}
+            {% if orc.gravida_amamentando %}<div class="quest-label">Grávida/amamentando:</div><div class="small mb-2">{{ orc.gravida_amamentando }}</div>{% endif %}
+            {% if orc.alergia %}<div class="quest-label">Alergias:</div><div class="small mb-2">{{ orc.alergia }}</div>{% endif %}
+            {% if orc.implante_marcapasso %}<div class="quest-label">Implante/marcapasso:</div><div class="small mb-2">{{ orc.implante_marcapasso }}</div>{% endif %}
+        </div>
+    </details>
+    {% endif %}
+</div>
+{% endfor %}
+{% else %}
+<div class="text-center py-5">
+    <i class="fas fa-file-invoice fa-3x" style="color:#ddd;"></i>
+    <p class="text-muted mt-3">Nenhum orçamento encontrado</p>
+</div>
+{% endif %}
+
+<!-- Modal Novo Orçamento -->
+<div class="modal fade" id="modalNovoOrcamento" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" style="border-radius:16px;border:none;">
+            <div class="modal-header border-0" style="background:#1a1a2e;color:white;border-radius:16px 16px 0 0;">
+                <h5 class="modal-title fw-bold"><i class="fas fa-file-invoice me-2" style="color:#C9A84C;"></i>Novo Orçamento</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{% url 'shivazen:criar_orcamento' %}">
+                {% csrf_token %}
+                <div class="modal-body p-4" style="max-height:70vh;overflow-y:auto;">
+                    <!-- Dados do Cliente -->
+                    <h6 class="fw-bold mb-3" style="color:#C9A84C;"><i class="fas fa-user me-2"></i>Dados do Cliente</h6>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Nome Completo *</label>
+                            <input type="text" name="nome_completo" class="form-control" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Data de Nascimento</label>
+                            <input type="date" name="data_nascimento" class="form-control">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Profissão</label>
+                            <input type="text" name="profissao" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Endereço com CEP</label>
+                            <input type="text" name="endereco_cep" class="form-control" placeholder="Rua, nº - Bairro, Cidade/UF - CEP">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">E-mail</label>
+                            <input type="email" name="email" class="form-control">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Telefone</label>
+                            <input type="tel" name="telefone" class="form-control" placeholder="(00) 00000-0000">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">RG</label>
+                            <input type="text" name="rg" class="form-control">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">CPF</label>
+                            <input type="text" name="cpf" class="form-control" placeholder="000.000.000-00">
+                        </div>
+                    </div>
+
+                    <!-- Dados do Orçamento -->
+                    <h6 class="fw-bold mb-3" style="color:#C9A84C;"><i class="fas fa-file-invoice-dollar me-2"></i>Dados do Orçamento</h6>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Procedimento *</label>
+                            <select name="procedimento" class="form-select" required>
+                                <option value="">Selecione...</option>
+                                {% for proc in procedimentos %}
+                                <option value="{{ proc.id_procedimento }}">{{ proc.nome }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Sessões</label>
+                            <input type="number" name="sessoes" value="1" min="1" class="form-control">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Valor (R$) *</label>
+                            <input type="number" name="valor" step="0.01" min="0" class="form-control" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Data *</label>
+                            <input type="date" name="data" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Status</label>
+                            <select name="status" class="form-select">
+                                <option value="PENDENTE">Pendente</option>
+                                <option value="APROVADO">Aprovado</option>
+                                <option value="RECUSADO">Recusado</option>
+                            </select>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Observações</label>
+                            <textarea name="observacoes" class="form-control" rows="2"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Questionário Pré-Procedimento -->
+                    <h6 class="fw-bold mb-3" style="color:#C9A84C;"><i class="fas fa-file-medical me-2"></i>Questionário Pré-Procedimento 👩🏻‍⚕️🗂️</h6>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">Realizou algum tratamento estético? Se sim, qual?</label>
+                            <textarea name="tratamento_estetico_anterior" class="form-control form-control-sm" rows="2"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">Possui alguma doença de pele (psoríase, vitiligo, dermatites, lúpus)?</label>
+                            <textarea name="doenca_pele" class="form-control form-control-sm" rows="2"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">Está em tratamento de câncer ou já fez tratamento há menos de 5 anos?</label>
+                            <textarea name="tratamento_cancer" class="form-control form-control-sm" rows="2"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">Tem melasma ou pintas mais pigmentadas? Se sim, em qual local?</label>
+                            <textarea name="melasma_pintas" class="form-control form-control-sm" rows="2"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">Utiliza algum tipo de ácido?</label>
+                            <textarea name="uso_acido" class="form-control form-control-sm" rows="2"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">Toma alguma medicação contínua?</label>
+                            <textarea name="medicacao_continua" class="form-control form-control-sm" rows="2"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">Está grávida ou amamentando?</label>
+                            <textarea name="gravida_amamentando" class="form-control form-control-sm" rows="2"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">Tem alergia a algum medicamento ou alimento? Se sim, qual?</label>
+                            <textarea name="alergia" class="form-control form-control-sm" rows="2"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">Tem algum implante, marcapasso ou prótese de metal?</label>
+                            <textarea name="implante_marcapasso" class="form-control form-control-sm" rows="2"></textarea>
+                        </div>
+                    </div>
+                    <p class="small text-muted mt-3 mb-0"><i class="fas fa-lock me-1"></i>Essas informações serão anexadas à ficha e arquivadas com total sigilo ☺️</p>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn rounded-pill px-4 fw-bold" style="background:#C9A84C;color:white;">
+                        <i class="fas fa-check me-1"></i>Criar Orçamento
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- FAB -->
+<a href="#" class="admin-fab" data-bs-toggle="modal" data-bs-target="#modalNovoOrcamento" title="Novo Orçamento">
+    <i class="fas fa-plus"></i>
+</a>
+{% endblock %}
