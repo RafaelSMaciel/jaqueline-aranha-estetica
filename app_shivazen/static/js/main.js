@@ -1,45 +1,56 @@
-// Main JavaScript for UX improvements
+// Main JavaScript for Shiva Zen — UX + Template vendors
+// Merged: original project JS + BootstrapMade Clinic template initializations
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Scroll to top button
+    // === Original Project Functions ===
     initScrollToTop();
-    
-    // Header scroll effect
     initHeaderScroll();
-    
-    // Smooth scroll for anchor links
     initSmoothScroll();
-    
-    // Form validation enhancements
     initFormValidation();
-    
-    // Loading states for buttons
     initButtonLoading();
-    
-    // Intersection Observer for fade-in animations
     initScrollAnimations();
-    
-    // Mobile menu improvements
     initMobileMenu();
+
+    // === Template Vendor Initializations ===
+    initAOS();
+    initGLightbox();
+    initPureCounter();
+    initSwiper();
+    initFAQ();
 });
+
+// ══════════════════════════════════════════════
+// ORIGINAL PROJECT FUNCTIONS
+// ══════════════════════════════════════════════
 
 // Scroll to top button
 function initScrollToTop() {
-    const scrollBtn = document.createElement('button');
-    scrollBtn.className = 'scroll-to-top';
-    scrollBtn.innerHTML = '<i class="fas fa-arrow-up"></i>';
-    scrollBtn.setAttribute('aria-label', 'Voltar ao topo');
-    document.body.appendChild(scrollBtn);
+    // Check if scroll-top element already exists in HTML
+    let scrollBtn = document.querySelector('.scroll-top');
     
-    window.addEventListener('scroll', function() {
-        if (window.pageYOffset > 300) {
+    if (!scrollBtn) {
+        scrollBtn = document.createElement('button');
+        scrollBtn.className = 'scroll-to-top scroll-top';
+        scrollBtn.innerHTML = '<i class="fas fa-arrow-up"></i>';
+        scrollBtn.setAttribute('aria-label', 'Voltar ao topo');
+        document.body.appendChild(scrollBtn);
+    }
+    
+    function toggleScrollTop() {
+        if (window.scrollY > 300) {
             scrollBtn.classList.add('visible');
+            scrollBtn.classList.add('active');
         } else {
             scrollBtn.classList.remove('visible');
+            scrollBtn.classList.remove('active');
         }
-    });
+    }
+
+    window.addEventListener('scroll', toggleScrollTop);
+    window.addEventListener('load', toggleScrollTop);
     
-    scrollBtn.addEventListener('click', function() {
+    scrollBtn.addEventListener('click', function(e) {
+        e.preventDefault();
         window.scrollTo({
             top: 0,
             behavior: 'smooth'
@@ -58,8 +69,10 @@ function initHeaderScroll() {
         
         if (currentScroll > 100) {
             header.classList.add('scrolled');
+            document.body.classList.add('scrolled');
         } else {
             header.classList.remove('scrolled');
+            document.body.classList.remove('scrolled');
         }
         
         lastScroll = currentScroll;
@@ -97,7 +110,6 @@ function initFormValidation() {
         const inputs = form.querySelectorAll('input, select, textarea');
         
         inputs.forEach(input => {
-            // Real-time validation feedback
             input.addEventListener('blur', function() {
                 validateField(this);
             });
@@ -109,7 +121,6 @@ function initFormValidation() {
             });
         });
         
-        // Form submission validation
         form.addEventListener('submit', function(e) {
             let isValid = true;
             
@@ -136,18 +147,15 @@ function validateField(field) {
     let isValid = true;
     let errorMessage = '';
     
-    // Remove previous validation classes
     field.classList.remove('is-valid', 'is-invalid');
     const feedback = field.parentElement.querySelector('.invalid-feedback');
     if (feedback) feedback.remove();
     
-    // Required validation
     if (field.hasAttribute('required') && !value) {
         isValid = false;
         errorMessage = 'Este campo é obrigatório';
     }
     
-    // Email validation
     if (field.type === 'email' && value) {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(value)) {
@@ -156,7 +164,6 @@ function validateField(field) {
         }
     }
     
-    // Password validation
     if (field.type === 'password' && value) {
         if (value.length < 6) {
             isValid = false;
@@ -164,7 +171,6 @@ function validateField(field) {
         }
     }
     
-    // Apply validation classes
     if (isValid && value) {
         field.classList.add('is-valid');
     } else if (!isValid) {
@@ -195,7 +201,6 @@ function initButtonLoading() {
                     submitBtn.appendChild(spinner);
                 }
                 
-                // Re-enable after 10 seconds as fallback
                 setTimeout(() => {
                     submitBtn.classList.remove('loading');
                     submitBtn.disabled = false;
@@ -222,7 +227,6 @@ function initScrollAnimations() {
         });
     }, observerOptions);
     
-    // Observe elements with animation classes
     document.querySelectorAll('.card, .service-card, .testimonial-card, .gallery-card').forEach(el => {
         observer.observe(el);
     });
@@ -235,7 +239,6 @@ function initMobileMenu() {
     
     if (!toggler || !menu) return;
     
-    // Close menu when clicking outside
     document.addEventListener('click', function(e) {
         if (menu.classList.contains('show') && 
             !menu.contains(e.target) && 
@@ -247,7 +250,6 @@ function initMobileMenu() {
         }
     });
     
-    // Close menu when clicking a link
     menu.querySelectorAll('a').forEach(link => {
         link.addEventListener('click', function() {
             const bsCollapse = bootstrap.Collapse.getInstance(menu);
@@ -257,7 +259,6 @@ function initMobileMenu() {
         });
     });
     
-    // Animate menu items
     menu.addEventListener('shown.bs.collapse', function() {
         const items = menu.querySelectorAll('.nav-item');
         items.forEach((item, index) => {
@@ -272,7 +273,71 @@ function initMobileMenu() {
     });
 }
 
-// Utility: Debounce function
+// ══════════════════════════════════════════════
+// TEMPLATE VENDOR INITIALIZATIONS
+// ══════════════════════════════════════════════
+
+// AOS — Animate On Scroll
+function initAOS() {
+    if (typeof AOS !== 'undefined') {
+        AOS.init({
+            duration: 600,
+            easing: 'ease-in-out',
+            once: true,
+            mirror: false
+        });
+    }
+}
+
+// GLightbox — Lightbox for images/videos
+function initGLightbox() {
+    if (typeof GLightbox !== 'undefined') {
+        GLightbox({
+            selector: '.glightbox'
+        });
+    }
+}
+
+// PureCounter — Animated counters
+function initPureCounter() {
+    if (typeof PureCounter !== 'undefined') {
+        new PureCounter();
+    }
+}
+
+// Swiper — Carousels/Sliders
+function initSwiper() {
+    if (typeof Swiper === 'undefined') return;
+    
+    document.querySelectorAll(".init-swiper").forEach(function(swiperElement) {
+        if (!swiperElement) return;
+        
+        const configEl = swiperElement.querySelector(".swiper-config");
+        if (!configEl) return;
+        
+        let config = JSON.parse(configEl.innerHTML.trim());
+
+        if (swiperElement.classList.contains("swiper-tab")) {
+            initSwiperWithCustomPagination(swiperElement, config);
+        } else {
+            new Swiper(swiperElement, config);
+        }
+    });
+}
+
+// FAQ Toggle (template style accordions)
+function initFAQ() {
+    document.querySelectorAll('.faq-item h3, .faq-item .faq-toggle, .faq-item .faq-header').forEach((faqItem) => {
+        faqItem.addEventListener('click', () => {
+            faqItem.parentNode.classList.toggle('faq-active');
+        });
+    });
+}
+
+// ══════════════════════════════════════════════
+// UTILITY FUNCTIONS
+// ══════════════════════════════════════════════
+
 function debounce(func, wait) {
     let timeout;
     return function executedFunction(...args) {
@@ -285,7 +350,6 @@ function debounce(func, wait) {
     };
 }
 
-// Utility: Throttle function
 function throttle(func, limit) {
     let inThrottle;
     return function() {
@@ -298,4 +362,3 @@ function throttle(func, limit) {
         }
     };
 }
-
