@@ -6291,5 +6291,288 @@ section,
 .starter-section {
   padding-top: 60px;
   padding-bottom: 60px;
-  /* Add your styles here */
+}
+
+/*--------------------------------------------------------------
+# Service Hero Section (reuses hero styles)
+--------------------------------------------------------------*/
+.service-hero {
+  padding: 80px 0 60px;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 20px;
+  background: rgba(180, 140, 76, 0.1);
+  color: var(--accent-color);
+  border-radius: 50px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  letter-spacing: 0.5px;
+}
+
+/*--------------------------------------------------------------
+# Service Process Section
+--------------------------------------------------------------*/
+.service-process {
+  padding: 80px 0;
+}
+
+.process-step {
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+  background: var(--surface-color);
+  border-radius: 1rem;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+  position: relative;
+  height: 100%;
+}
+
+.process-step:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
+}
+
+.process-step .step-number {
+  position: absolute;
+  top: 1rem;
+  right: 1.5rem;
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: rgba(180, 140, 76, 0.15);
+  font-family: var(--heading-font);
+  line-height: 1;
+}
+
+.process-step .step-icon {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: rgba(180, 140, 76, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.5rem;
+}
+
+.process-step .step-icon i {
+  font-size: 1.8rem;
+  color: var(--accent-color);
+}
+
+.process-step h4 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+}
+
+.process-step p {
+  font-size: 0.9rem;
+  color: #666;
+  line-height: 1.6;
+  margin-bottom: 0;
+}
+
+/*--------------------------------------------------------------
+# Promotion Cards
+--------------------------------------------------------------*/
+.promo-card {
+  background: var(--surface-color);
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.promo-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.1);
+}
+
+.promo-header {
+  background: linear-gradient(135deg, #4A3425 0%, #6D4C41 100%);
+  padding: 2rem;
+  color: white;
+  position: relative;
+}
+
+.promo-header .promo-badge {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: #FF5722;
+  color: white;
+  padding: 6px 14px;
+  border-radius: 50px;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.promo-header .promo-icon {
+  width: 48px;
+  height: 48px;
+  background: rgba(201, 168, 76, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+}
+
+.promo-header .promo-icon i {
+  color: #C9A84C;
+  font-size: 1.2rem;
+}
+
+.promo-header h4 {
+  color: white;
+  font-family: var(--heading-font);
+  font-weight: 700;
+  font-size: 1.2rem;
+  margin-bottom: 0.25rem;
+}
+
+.promo-header small {
+  opacity: 0.75;
+}
+
+.promo-body {
+  padding: 1.5rem 2rem 2rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.promo-description {
+  color: #666;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+
+.promo-pricing {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.promo-old-price {
+  text-decoration: line-through;
+  color: #999;
+  font-size: 0.9rem;
+}
+
+.promo-new-price {
+  font-weight: 700;
+  color: #C9A84C;
+  font-size: 1.4rem;
+}
+
+.promo-validity {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  color: #999;
+  margin-bottom: 1.25rem;
+}
+
+.promo-cta {
+  display: block;
+  width: 100%;
+  text-align: center;
+  background: #C9A84C;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 50px;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+  margin-top: auto;
+}
+
+.promo-cta:hover {
+  background: #b48c4c;
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(180, 140, 76, 0.3);
+}
+
+/*--------------------------------------------------------------
+# Contact Info Items (reusable)
+--------------------------------------------------------------*/
+.contact-info-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.contact-info-item {
+  display: flex;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  background: var(--surface-color);
+  border-radius: 1rem;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+}
+
+.contact-info-item:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+}
+
+.contact-info-item .info-icon {
+  width: 55px;
+  height: 55px;
+  min-width: 55px;
+  border-radius: 50%;
+  background: rgba(180, 140, 76, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.contact-info-item .info-icon i {
+  font-size: 1.4rem;
+  color: var(--accent-color);
+}
+
+.contact-info-item .info-content h3 {
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.contact-info-item .info-content p {
+  margin-bottom: 0;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+@media (max-width: 768px) {
+  .service-hero {
+    padding: 60px 0 40px;
+  }
+
+  .process-step {
+    padding: 1.5rem 1rem;
+  }
+
+  .promo-header {
+    padding: 1.5rem;
+  }
+
+  .promo-body {
+    padding: 1.25rem 1.5rem 1.5rem;
+  }
 }
