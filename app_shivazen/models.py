@@ -523,3 +523,104 @@ class Orcamento(models.Model):
 
     def __str__(self):
         return f'Orçamento #{self.pk} - {self.nome_completo} - {self.procedimento.nome}'
+
+
+# =====================================================================
+# CONTROLE DE ESTOQUE
+# =====================================================================
+
+class CategoriaProduto(models.Model):
+    id_categoria = models.AutoField(primary_key=True)
+    nome = models.CharField(max_length=100, unique=True)
+    descricao = models.TextField(blank=True, null=True)
+    ativo = models.BooleanField(default=True)
+
+    class Meta:
+        managed = False
+        db_table = 'categoria_produto'
+
+    def __str__(self):
+        return self.nome
+
+
+class Produto(models.Model):
+    id_produto = models.AutoField(primary_key=True)
+    categoria = models.ForeignKey(CategoriaProduto, on_delete=models.SET_NULL, db_column='id_categoria', null=True, blank=True, related_name='produtos')
+    nome = models.CharField(max_length=150)
+    descricao = models.TextField(blank=True, null=True)
+    marca = models.CharField(max_length=100, blank=True, null=True)
+    codigo_barras = models.CharField(max_length=50, unique=True, blank=True, null=True)
+    preco_custo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    preco_venda = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    quantidade_estoque = models.IntegerField(default=0)
+    estoque_minimo = models.IntegerField(default=5)
+    unidade = models.CharField(max_length=20, default='UN')  # UN, ML, G, KG
+    ativo = models.BooleanField(default=True)
+    data_cadastro = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = False
+        db_table = 'produto'
+        ordering = ['nome']
+
+    def __str__(self):
+        return f'{self.nome} ({self.marca or "Sem marca"})'
+
+    @property
+    def estoque_baixo(self):
+        return self.quantidade_estoque <= self.estoque_minimo
+
+    @property
+    def valor_estoque(self):
+        return self.quantidade_estoque * self.preco_custo
+
+    @property
+    def margem_lucro(self):
+        if self.preco_custo and self.preco_custo > 0:
+            return ((self.preco_venda - self.preco_custo) / self.preco_custo) * 100
+        return 0
+
+
+class MovimentacaoEstoque(models.Model):
+    TIPO_CHOICES = [
+        ('ENTRADA', 'Entrada'),
+        ('SAIDA', 'Saída'),
+        ('AJUSTE', 'Ajuste'),
+        ('PERDA', 'Perda'),
+    ]
+
+    id_movimentacao = models.AutoField(primary_key=True)
+    produto = models.ForeignKey(Produto, on_delete=models.CASCADE, db_column='id_produto', related_name='movimentacoes')
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
+    quantidade = models.IntegerField()
+    quantidade_anterior = models.IntegerField(default=0)
+    quantidade_posterior = models.IntegerField(default=0)
+    motivo = models.TextField(blank=True, null=True)
+    usuario = models.ForeignKey('Usuario', on_delete=models.SET_NULL, db_column='id_usuario', null=True, blank=True)
+    data_movimentacao = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = False
+        db_table = 'movimentacao_estoque'
+        ordering = ['-data_movimentacao']
+
+    def __str__(self):
+        return f'{self.tipo} - {self.produto.nome} ({self.quantidade})'
+
+
+# =====================================================================
+# CONFIGURAÇÕES DO SISTEMA
+# =====================================================================
+
+class ConfiguracaoSistema(models.Model):
+    id_config = models.AutoField(primary_key=True)
+    chave = models.CharField(max_length=100, unique=True)
+    valor = models.TextField(blank=True, null=True)
+    descricao = models.CharField(max_length=255, blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'configuracao_sistema'
+
+    def __str__(self):
+        return f'{self.chave}: {self.valor}'

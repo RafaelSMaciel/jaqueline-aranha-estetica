@@ -80,4 +80,16 @@ urlpatterns = [
     path('ajax/dias-disponiveis/', views.api_dias_disponiveis, name='api_dias_disponiveis'),
     path('ajax/verificar-telefone/', views.verificar_telefone, name='verificar_telefone'),
     path('ajax/cancelar-agendamento/', views.cancelar_agendamento, name='cancelar_agendamento'),
+
+    # ─── Estoque (CRUD) ───
+    path('painel/estoque/', views.painel_estoque, name='painel_estoque'),
+    path('painel/estoque/criar/', views.criar_produto, name='criar_produto'),
+    path('painel/estoque/<int:pk>/editar/', views.editar_produto, name='editar_produto'),
+    path('painel/estoque/movimentar/', views.movimentar_estoque, name='movimentar_estoque'),
+    path('painel/estoque/movimentacoes/', views.historico_movimentacoes, name='historico_movimentacoes'),
+    path('painel/estoque/categorias/criar/', views.criar_categoria, name='criar_categoria'),
+
+    # ─── WhatsApp Bot API ───
+    path('api/whatsapp/webhook/', views.whatsapp_webhook, name='whatsapp_webhook'),
+    path('api/whatsapp/verify/', views.whatsapp_webhook_verify, name='whatsapp_webhook_verify'),
 ]

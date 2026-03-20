@@ -1,158 +1,82 @@
-{% extends 'estrutura/base.html' %}
-{% load static %}
+{% extends 'painel/admin_base.html' %}
 
-{% block conteudo %}
-<link rel="stylesheet" href="{% static 'css/painel.css' %}">
+{% block page_title %}Cadastrar Profissional{% endblock %}
+{% block page_subtitle %}Adicione um novo profissional à equipe{% endblock %}
 
-<div class="admin-layout">
-    <!-- Sidebar -->
-    <aside class="admin-sidebar">
-        <div class="sidebar-header">
-            <a href="{% url 'shivazen:inicio' %}">
-                <img src="{% static 'assents/LogoSemFundo.png' %}" alt="Shiva Zen" class="sidebar-logo">
-            </a>
-        </div>
-        <nav class="sidebar-nav">
-            <div class="nav-section">
-                <div class="nav-section-title">Menu Principal</div>
-                <a href="{% url 'shivazen:adminDashboard' %}" class="nav-item">
-                    <i class="fas fa-chart-line"></i><span>Dashboard</span>
-                </a>
-                <a href="{% url 'shivazen:painel_profissionais' %}" class="nav-item active">
-                    <i class="fas fa-user-md"></i><span>Profissionais</span>
-                </a>
-            </div>
-            <div class="nav-section">
-                <div class="nav-section-title">Configurações</div>
-                <a href="{% url 'shivazen:perfil' %}" class="nav-item">
-                    <i class="fas fa-user-circle"></i><span>Meu Perfil</span>
-                </a>
-                <a href="{% url 'shivazen:usuarioLogout' %}" class="nav-item">
-                    <i class="fas fa-sign-out-alt"></i><span>Sair</span>
-                </a>
-            </div>
-        </nav>
-    </aside>
-
-    <!-- Main Content -->
-    <main class="admin-main">
-        <div class="admin-header">
-            <h1 class="admin-title">Cadastrar Profissional</h1>
-            <p class="admin-subtitle">Adicione um novo profissional à equipe Shiva Zen</p>
-        </div>
-
-        <div class="card border-0 shadow-sm rounded-4">
-            <div class="card-body p-4 p-md-5">
-                {% if messages %}
-                {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} border-0 shadow-sm mb-4">{{ message }}</div>
-                {% endfor %}
-                {% endif %}
-
-                <form method="POST">
-                    {% csrf_token %}
-
-                    <!-- Dados Básicos -->
-                    <h5 class="fw-bold mb-3" style="color: var(--primary-dark);">
-                        <i class="fas fa-user me-2"></i>Dados do Profissional
-                    </h5>
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-6">
-                            <label class="form-label text-muted fw-bold small text-uppercase">Nome Completo</label>
-                            <input type="text" name="nome" class="form-control form-control-lg bg-light border-0"
-                                placeholder="Nome do profissional" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label text-muted fw-bold small text-uppercase">Especialidade</label>
-                            <input type="text" name="especialidade"
-                                class="form-control form-control-lg bg-light border-0" placeholder="Ex: Dermatologista">
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label text-muted fw-bold small text-uppercase">Status</label>
-                            <div class="form-check form-switch mt-2">
-                                <input class="form-check-input" type="checkbox" name="ativo" id="ativo" checked>
-                                <label class="form-check-label" for="ativo">Ativo</label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Procedimentos -->
-                    <h5 class="fw-bold mb-3 mt-4" style="color: var(--primary-dark);">
-                        <i class="fas fa-spa me-2"></i>Procedimentos
-                    </h5>
-                    <div class="row g-2 mb-4">
-                        {% for proc in procedimentos %}
-                        <div class="col-md-4">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="procedimentos"
-                                    value="{{ proc.id_procedimento }}" id="proc_{{ proc.id_procedimento }}">
-                                <label class="form-check-label" for="proc_{{ proc.id_procedimento }}">
-                                    {{ proc.nome }} <small class="text-muted">({{ proc.duracao_minutos }}min)</small>
-                                </label>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-
-                    <!-- Disponibilidade -->
-                    <h5 class="fw-bold mb-3 mt-4" style="color: var(--primary-dark);">
-                        <i class="fas fa-clock me-2"></i>Disponibilidade Semanal
-                    </h5>
-                    <div class="table-responsive mb-4">
-                        <table class="table align-middle">
-                            <thead>
-                                <tr>
-                                    <th class="text-uppercase small text-muted fw-bold" style="letter-spacing:1px;">Dia
-                                    </th>
-                                    <th class="text-uppercase small text-muted fw-bold text-center">Trabalha</th>
-                                    <th class="text-uppercase small text-muted fw-bold">Início</th>
-                                    <th class="text-uppercase small text-muted fw-bold">Fim</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for key, nome_dia in dias_semana.items %}
-                                <tr>
-                                    <td class="fw-bold">{{ nome_dia }}</td>
-                                    <td class="text-center">
-                                        <input class="form-check-input" type="checkbox" name="trabalha_{{ key }}"
-                                            id="trabalha_{{ key }}" onchange="toggleHorario('{{ key }}')">
-                                    </td>
-                                    <td>
-                                        <input type="time" name="hora_inicio_{{ key }}" id="hora_inicio_{{ key }}"
-                                            class="form-control bg-light border-0" value="09:00" disabled>
-                                    </td>
-                                    <td>
-                                        <input type="time" name="hora_fim_{{ key }}" id="hora_fim_{{ key }}"
-                                            class="form-control bg-light border-0" value="18:00" disabled>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div class="d-flex gap-3 mt-4">
-                        <button type="submit" class="btn btn-primary rounded-pill px-5 py-3 fw-bold text-uppercase">
-                            <i class="fas fa-save me-2"></i>Cadastrar Profissional
-                        </button>
-                        <a href="{% url 'shivazen:painel_profissionais' %}"
-                            class="btn btn-outline rounded-pill px-4 py-3">Cancelar</a>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </main>
-</div>
+{% block admin_css %}
+.form-card {
+    background: white; border-radius: 16px; padding: 1.5rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 1rem;
+}
+.form-card-title {
+    font-weight: 800; font-size: 0.75rem; text-transform: uppercase;
+    letter-spacing: 1px; color: #C9A84C; margin-bottom: 1rem;
+}
+.dia-check { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+.dia-check label { font-weight: 700; font-size: 0.85rem; min-width: 110px; }
 {% endblock %}
 
-{% block scripts %}
-<script>
-    function toggleHorario(dia) {
-        const checkbox = document.getElementById('trabalha_' + dia);
-        const inicio = document.getElementById('hora_inicio_' + dia);
-        const fim = document.getElementById('hora_fim_' + dia);
-        inicio.disabled = !checkbox.checked;
-        fim.disabled = !checkbox.checked;
-    }
-</script>
+{% block admin_content %}
+<form method="post" action="{% url 'shivazen:profissionalCadastro' %}">
+    {% csrf_token %}
+
+    <div class="form-card">
+        <div class="form-card-title"><i class="fas fa-user-md me-2"></i>Dados do Profissional</div>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label small fw-bold text-muted">Nome Completo *</label>
+                <input type="text" name="nome" class="form-control" required style="border-radius:10px;">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small fw-bold text-muted">Especialidade</label>
+                <input type="text" name="especialidade" class="form-control" placeholder="Ex: Estética Avançada" style="border-radius:10px;">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-bold text-muted">Ativo</label>
+                <div class="form-check form-switch mt-1">
+                    <input type="checkbox" name="ativo" class="form-check-input" checked>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-card">
+        <div class="form-card-title"><i class="fas fa-clock me-2"></i>Disponibilidade Semanal</div>
+        {% for dia_key, dia_nome in dias_semana.items %}
+        <div class="dia-check">
+            <input type="checkbox" name="trabalha_{{ dia_key }}" id="dia_{{ dia_key }}" class="form-check-input"
+                   onchange="document.getElementById('horas_{{ dia_key }}').style.display = this.checked ? 'flex' : 'none';">
+            <label for="dia_{{ dia_key }}">{{ dia_nome }}</label>
+            <div id="horas_{{ dia_key }}" style="display:none;gap:0.5rem;align-items:center;">
+                <input type="time" name="hora_inicio_{{ dia_key }}" class="form-control form-control-sm" value="09:00" style="border-radius:8px;width:auto;">
+                <span class="small text-muted">até</span>
+                <input type="time" name="hora_fim_{{ dia_key }}" class="form-control form-control-sm" value="18:00" style="border-radius:8px;width:auto;">
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="form-card">
+        <div class="form-card-title"><i class="fas fa-spa me-2"></i>Procedimentos</div>
+        <div class="row g-2">
+            {% for proc in procedimentos %}
+            <div class="col-6 col-md-4">
+                <div class="form-check">
+                    <input type="checkbox" name="procedimentos" value="{{ proc.id_procedimento }}" class="form-check-input" id="proc_{{ proc.id_procedimento }}">
+                    <label class="form-check-label small" for="proc_{{ proc.id_procedimento }}">{{ proc.nome }}</label>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <a href="{% url 'shivazen:painel_profissionais' %}" class="btn btn-sm" style="background:#eee;color:#666;border-radius:10px;font-weight:700;">
+            <i class="fas fa-arrow-left me-1"></i>Cancelar
+        </a>
+        <button type="submit" class="btn btn-sm flex-grow-1" style="background:#C9A84C;color:white;border-radius:10px;font-weight:700;">
+            <i class="fas fa-check me-1"></i>Cadastrar Profissional
+        </button>
+    </div>
+</form>
 {% endblock %}

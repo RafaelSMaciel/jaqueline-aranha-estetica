@@ -1,177 +1,163 @@
-{% extends 'estrutura/base.html' %}
-{% load static %}
+{% extends 'painel/admin_base.html' %}
 
-{% block conteudo %}
-<link rel="stylesheet" href="{% static 'css/painel.css' %}">
+{% block page_title %}Agendamentos{% endblock %}
+{% block page_subtitle %}Gerencie todos os agendamentos da clínica{% endblock %}
 
-<div class="admin-layout">
-    <!-- Sidebar -->
-    <aside class="admin-sidebar">
-        <div class="sidebar-header">
-            <a href="{% url 'shivazen:inicio' %}">
-                <img src="{% static 'assents/LogoSemFundo.png' %}" alt="Shiva Zen" class="sidebar-logo">
+{% block admin_css %}
+.agend-filters {
+    background: white; border-radius: 16px; padding: 1rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 1rem;
+}
+.agend-card {
+    background: white; border-radius: 14px; padding: 1rem;
+    margin-bottom: 0.6rem; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    display: flex; align-items: center; gap: 0.75rem;
+}
+.agend-avatar {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 0.75rem; flex-shrink: 0;
+}
+.agend-info { flex: 1; min-width: 0; }
+.agend-name { font-weight: 700; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.agend-meta { font-size: 0.72rem; color: #999; }
+.agend-actions { display: flex; gap: 0.3rem; flex-shrink: 0; align-items: center; }
+.status-select {
+    padding: 0.2rem 0.4rem; border-radius: 8px; border: 2px solid #eee;
+    font-size: 0.7rem; font-weight: 700; cursor: pointer; background: white;
+}
+.btn-wpp-sm {
+    width: 30px; height: 30px; border-radius: 8px; border: none;
+    display: flex; align-items: center; justify-content: center;
+    background: #dcf5e7; color: #25D366; font-size: 0.8rem;
+    cursor: pointer; text-decoration: none;
+}
+.btn-wpp-sm:hover { background: #c8ebd8; }
+{% endblock %}
+
+{% block admin_content %}
+<!-- Filters -->
+<div class="agend-filters">
+    <form method="GET" class="row g-2 align-items-end">
+        <div class="col-4 col-md-2">
+            <select name="status" class="form-select form-select-sm" style="border-radius:10px;">
+                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Todos</option>
+                <option value="agendado" {% if status_filter == 'agendado' %}selected{% endif %}>Agendado</option>
+                <option value="confirmado" {% if status_filter == 'confirmado' %}selected{% endif %}>Confirmado</option>
+                <option value="realizado" {% if status_filter == 'realizado' %}selected{% endif %}>Realizado</option>
+                <option value="cancelado" {% if status_filter == 'cancelado' %}selected{% endif %}>Cancelado</option>
+                <option value="faltou" {% if status_filter == 'faltou' %}selected{% endif %}>Faltou</option>
+            </select>
+        </div>
+        <div class="col-4 col-md-2">
+            <input type="date" name="data" class="form-control form-control-sm" value="{{ request.GET.data }}" style="border-radius:10px;">
+        </div>
+        <div class="col-4 col-md-2">
+            <select name="profissional" class="form-select form-select-sm" style="border-radius:10px;">
+                <option value="">Todos profissionais</option>
+                {% for prof in profissionais %}
+                <option value="{{ prof.id_profissional }}" {% if request.GET.profissional == prof.id_profissional|stringformat:"d" %}selected{% endif %}>{{ prof.nome }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <button type="submit" class="btn btn-sm w-100" style="background:#C9A84C;color:white;border-radius:10px;font-weight:700;">
+                <i class="fas fa-search me-1"></i>Filtrar
+            </button>
+        </div>
+        <div class="col-6 col-md-4 text-end">
+            <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-sm" style="background:#1a1a2e;color:white;border-radius:10px;font-weight:700;">
+                <i class="fas fa-plus me-1"></i>Novo Agendamento
+            </a>
+            <a href="{% url 'shivazen:exportar_relatorio_excel' %}" class="btn btn-sm" style="background:#217346;color:white;border-radius:10px;font-weight:700;">
+                <i class="fas fa-file-excel me-1"></i>Excel
             </a>
         </div>
-
-        <nav class="sidebar-nav">
-            <div class="nav-section">
-                <div class="nav-section-title">Menu Principal</div>
-                <a href="{% url 'shivazen:painel' %}" class="nav-item">
-                    <i class="fas fa-chart-line"></i>
-                    <span>Dashboard</span>
-                </a>
-                <a href="{% url 'shivazen:painel_agendamentos' %}" class="nav-item active">
-                    <i class="fas fa-calendar-alt"></i>
-                    <span>Agendamentos</span>
-                </a>
-                <a href="{% url 'shivazen:painel_clientes' %}" class="nav-item">
-                    <i class="fas fa-users"></i>
-                    <span>Clientes</span>
-                </a>
-                <a href="{% url 'shivazen:painel_profissionais' %}" class="nav-item">
-                    <i class="fas fa-user-md"></i>
-                    <span>Profissionais</span>
-                </a>
-            </div>
-
-            <div class="nav-section">
-                <div class="nav-section-title">Configurações</div>
-                <a href="{% url 'shivazen:perfil' %}" class="nav-item">
-                    <i class="fas fa-user-circle"></i>
-                    <span>Meu Perfil</span>
-                </a>
-                <a href="{% url 'shivazen:usuarioLogout' %}" class="nav-item">
-                    <i class="fas fa-sign-out-alt"></i>
-                    <span>Sair</span>
-                </a>
-            </div>
-        </nav>
-    </aside>
-
-    <!-- Main Content -->
-    <main class="admin-main">
-        <div class="admin-header">
-            <h1 class="admin-title">Gerenciar Agendamentos</h1>
-            <p class="admin-subtitle">Visualize e gerencie todos os agendamentos</p>
-        </div>
-
-        <!-- Filters -->
-        <div class="card mb-4">
-            <div class="card-body">
-                <form method="GET" class="row g-3">
-                    <div class="col-md-3">
-                        <label class="form-label">Status</label>
-                        <select name="status" class="form-control">
-                            <option value="all" {% if status_filter=='all' %}selected{% endif %}>Todos</option>
-                            <option value="agendado" {% if status_filter=='agendado' %}selected{% endif %}>Agendado
-                            </option>
-                            <option value="confirmado" {% if status_filter=='confirmado' %}selected{% endif %}>
-                                Confirmado</option>
-                            <option value="realizado" {% if status_filter=='realizado' %}selected{% endif %}>Realizado
-                            </option>
-                            <option value="cancelado" {% if status_filter=='cancelado' %}selected{% endif %}>Cancelado
-                            </option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Data</label>
-                        <input type="date" name="data" class="form-control" value="{{ request.GET.data }}">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Profissional</label>
-                        <select name="profissional" class="form-control">
-                            <option value="">Todos</option>
-                            {% for prof in profissionais %}
-                            <option value="{{ prof.id_profissional }}">{{ prof.nome }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-md-3 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary w-100">
-                            <i class="fas fa-filter"></i> Filtrar
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- Agendamentos Table -->
-        <div class="data-table-container">
-            <div class="table-header">
-                <h3 class="table-title">Agendamentos ({{ agendamentos|length }})</h3>
-                <div class="table-actions">
-                    <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-primary">
-                        <i class="fas fa-plus"></i> Novo Agendamento
-                    </a>
-                </div>
-            </div>
-
-            {% if agendamentos %}
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Cliente</th>
-                        <th>Procedimento</th>
-                        <th>Profissional</th>
-                        <th>Data/Hora</th>
-                        <th>Duração</th>
-                        <th>Status</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for agend in agendamentos %}
-                    <tr>
-                        <td><strong>#{{ agend.id_atendimento }}</strong></td>
-                        <td>
-                            <strong>{{ agend.cliente.nome_completo }}</strong><br>
-                            <small class="text-muted">{{ agend.cliente.telefone }}</small>
-                        </td>
-                        <td>{{ agend.procedimento.nome }}</td>
-                        <td>{{ agend.profissional.nome }}</td>
-                        <td>
-                            {{ agend.data_hora_inicio|date:"d/m/Y" }}<br>
-                            <small class="text-muted">{{ agend.data_hora_inicio|time:"H:i" }} - {{
-                                agend.data_hora_fim|time:"H:i" }}</small>
-                        </td>
-                        <td>{{ agend.procedimento.duracao_minutos }} min</td>
-                        <td>
-                            {% if agend.status_atendimento == 'AGENDADO' %}
-                            <span class="badge badge-info">Agendado</span>
-                            {% elif agend.status_atendimento == 'CONFIRMADO' %}
-                            <span class="badge badge-success">Confirmado</span>
-                            {% elif agend.status_atendimento == 'REALIZADO' %}
-                            <span class="badge badge-secondary">Realizado</span>
-                            {% elif agend.status_atendimento == 'CANCELADO' %}
-                            <span class="badge badge-danger">Cancelado</span>
-                            {% else %}
-                            <span class="badge badge-secondary">{{ agend.status_atendimento }}</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <button class="btn-icon" title="Editar">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button class="btn-icon" title="Detalhes">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <div class="empty-state">
-                <div class="empty-state-icon"><i class="fas fa-calendar-times"></i></div>
-                <h3 class="empty-state-title">Nenhum agendamento encontrado</h3>
-                <p class="empty-state-text">Não há agendamentos com os filtros selecionados.</p>
-                <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-primary">
-                    <i class="fas fa-plus"></i> Criar Novo Agendamento
-                </a>
-            </div>
-            {% endif %}
-        </div>
-    </main>
+    </form>
 </div>
+
+<!-- Lista -->
+<div class="small text-muted mb-2 fw-bold"><i class="fas fa-list me-1"></i>{{ agendamentos|length }} agendamento(s)</div>
+
+{% for agend in agendamentos %}
+<div class="agend-card" id="appt-{{ agend.id_atendimento }}">
+    <div class="agend-avatar" style="background:{% if agend.status_atendimento == 'CONFIRMADO' %}#e8f5e9;color:#2e7d32{% elif agend.status_atendimento == 'CANCELADO' %}#fce4ec;color:#c62828{% elif agend.status_atendimento == 'REALIZADO' %}#e3f2fd;color:#1565c0{% elif agend.status_atendimento == 'FALTOU' %}#f3e5f5;color:#7b1fa2{% else %}#fff8e1;color:#f57f17{% endif %}">
+        {{ agend.cliente.nome_completo|make_list|first }}{{ agend.cliente.nome_completo|make_list|last }}
+    </div>
+    <div class="agend-info">
+        <div class="agend-name">{{ agend.cliente.nome_completo }}</div>
+        <div class="agend-meta">
+            {{ agend.procedimento.nome }} &bull; {{ agend.profissional.nome }}
+            &bull; {{ agend.data_hora_inicio|date:"d/m/Y" }} {{ agend.data_hora_inicio|time:"H:i" }}-{{ agend.data_hora_fim|time:"H:i" }}
+            &bull; <span class="status-text-{{ agend.id_atendimento }}"
+                style="font-weight:800;color:{% if agend.status_atendimento == 'CONFIRMADO' %}#2e7d32{% elif agend.status_atendimento == 'CANCELADO' %}#c62828{% elif agend.status_atendimento == 'REALIZADO' %}#1565c0{% else %}#f57f17{% endif %};">
+                {{ agend.status_atendimento }}
+            </span>
+        </div>
+        {% if agend.cliente.telefone %}
+        <div class="agend-meta"><i class="fas fa-phone me-1"></i>{{ agend.cliente.telefone }}</div>
+        {% endif %}
+    </div>
+    <div class="agend-actions">
+        {% if agend.valor_cobrado %}
+        <span class="small fw-bold" style="color:#2e7d32;">R$ {{ agend.valor_cobrado|floatformat:2 }}</span>
+        {% endif %}
+        <select class="status-select" onchange="atualizarStatus({{ agend.id_atendimento }}, this.value)" title="Alterar status">
+            <option value="">⚡</option>
+            <option value="CONFIRMADO" {% if agend.status_atendimento == 'CONFIRMADO' %}disabled{% endif %}>✅ Confirmar</option>
+            <option value="REALIZADO" {% if agend.status_atendimento == 'REALIZADO' %}disabled{% endif %}>✔️ Realizado</option>
+            <option value="CANCELADO" {% if agend.status_atendimento == 'CANCELADO' %}disabled{% endif %}>❌ Cancelar</option>
+            <option value="FALTOU" {% if agend.status_atendimento == 'FALTOU' %}disabled{% endif %}>⛔ Faltou</option>
+        </select>
+        {% if agend.cliente.telefone %}
+        <a href="https://wa.me/55{{ agend.cliente.telefone|cut:'(' |cut:')' |cut:'-' |cut:' ' }}?text=Ol%C3%A1%20{{ agend.cliente.nome_completo|urlencode }}%2C%20confirmamos%20seu%20agendamento%20de%20{{ agend.procedimento.nome|urlencode }}%20para%20{{ agend.data_hora_inicio|date:'d/m/Y' }}%20%C3%A0s%20{{ agend.data_hora_inicio|time:'H:i' }}.%20Shiva%20Zen"
+           target="_blank" class="btn-wpp-sm" title="WhatsApp">
+            <i class="fab fa-whatsapp"></i>
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% empty %}
+<div class="text-center py-5">
+    <i class="fas fa-calendar-check fa-3x" style="color:#ddd;"></i>
+    <p class="text-muted mt-3">Nenhum agendamento encontrado</p>
+    <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-sm" style="background:#C9A84C;color:white;border-radius:10px;font-weight:700;">
+        <i class="fas fa-plus me-1"></i>Criar Agendamento
+    </a>
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block admin_scripts %}
+<script>
+function atualizarStatus(id, status) {
+    if (!status) return;
+    if (!confirm('Alterar status para ' + status + '?')) return;
+
+    fetch('{% url "shivazen:admin_atualizar_status" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ atendimento_id: id, status: status })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.sucesso) {
+            var el = document.querySelector('.status-text-' + id);
+            if (el) {
+                el.textContent = data.status_novo;
+                el.style.color = data.status_novo === 'CONFIRMADO' ? '#2e7d32' :
+                                  data.status_novo === 'CANCELADO' ? '#c62828' :
+                                  data.status_novo === 'REALIZADO' ? '#1565c0' : '#f57f17';
+            }
+            alert('Status atualizado: ' + data.status_novo);
+        } else {
+            alert('Erro: ' + (data.erro || 'Erro desconhecido'));
+        }
+    })
+    .catch(function(err) { alert('Erro de rede'); });
+}
+</script>
 {% endblock %}
