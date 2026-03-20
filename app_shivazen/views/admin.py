@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Sum, Q
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from datetime import datetime, timedelta
 from django.utils import timezone
 from django.core.paginator import Paginator
@@ -432,3 +432,31 @@ def admin_atualizar_status(request):
     except Exception as e:
         logger.error(f'Erro ao atualizar status: {e}', exc_info=True)
         return JsonResponse({'erro': 'Ocorreu um erro interno. Tente novamente.'}, status=500)
+
+
+def setup_seed(request):
+    """Roda o seed via URL protegida por token.
+    Uso: /setup-seed/?token=DJANGO_SECRET_KEY
+    """
+    from django.conf import settings as django_settings
+    import importlib, io, contextlib
+
+    token = request.GET.get('token', '')
+    if not token or token != django_settings.SECRET_KEY:
+        return HttpResponse('Acesso negado.', status=403)
+
+    # Roda o seed capturando output
+    output = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(output):
+            # Import and run seed
+            spec = importlib.util.spec_from_file_location('seed', django_settings.BASE_DIR / 'seed.py')
+            seed_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(seed_module)
+            seed_module.seed()
+        result = output.getvalue()
+        return HttpResponse(f'<pre>Seed executado com sucesso!\n\n{result}</pre>', content_type='text/html')
+    except Exception as e:
+        logger.error(f'Erro no seed: {e}', exc_info=True)
+        result = output.getvalue()
+        return HttpResponse(f'<pre>Erro no seed: {e}\n\nOutput parcial:\n{result}</pre>', status=500, content_type='text/html')

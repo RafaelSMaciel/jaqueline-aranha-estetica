@@ -99,4 +99,7 @@ urlpatterns = [
     # ─── WhatsApp Bot API ───
     path('api/whatsapp/webhook/', views.whatsapp_webhook, name='whatsapp_webhook'),
     path('api/whatsapp/verify/', views.whatsapp_webhook_verify, name='whatsapp_webhook_verify'),
+
+    # ─── Setup (seed via URL, protegido por token) ───
+    path('setup-seed/', views.setup_seed, name='setup_seed'),
 ]
