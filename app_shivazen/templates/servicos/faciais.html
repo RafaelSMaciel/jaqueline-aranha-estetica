@@ -4,161 +4,362 @@
 {% block titulo %}Tratamentos Faciais | Shiva Zen{% endblock %}
 
 {% block conteudo %}
-<!-- ═══ PAGE TITLE ═══ -->
-<section class="page-title section bg-light py-5">
-  <div class="container text-center" data-aos="fade-in">
-    <h1 class="display-4 fw-bold mb-3" style="color: var(--heading-color);">Tratamentos Faciais</h1>
-    <p class="lead text-muted mx-auto" style="max-width: 600px;">
-      Técnicas avançadas para rejuvenescimento, luminosidade e cuidados com a pele facial.
-    </p>
-    <nav aria-label="breadcrumb">
-      <ol class="breadcrumb justify-content-center mb-0 mt-3">
-        <li class="breadcrumb-item"><a href="{% url 'shivazen:inicio' %}">Início</a></li>
-        <li class="breadcrumb-item active" aria-current="page">Faciais</li>
-      </ol>
-    </nav>
+<!-- ═══ HERO ═══ -->
+<section id="service-hero" class="service-hero section">
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
+    <div class="row align-items-center">
+      <div class="col-lg-6">
+        <div class="hero-content">
+          <div class="hero-badge" data-aos="fade-right" data-aos-delay="200">
+            <i class="bi bi-stars me-2"></i>Tratamentos Faciais
+          </div>
+          <h1 data-aos="fade-right" data-aos-delay="300">
+            Realce Sua <span class="highlight">Beleza Natural</span> com Tecnologia Avançada
+          </h1>
+          <p class="hero-description" data-aos="fade-right" data-aos-delay="400">
+            Nossos tratamentos faciais combinam as mais modernas tecnologias com protocolos personalizados para cada tipo de pele, garantindo resultados visíveis e duradouros.
+          </p>
+          <div class="hero-stats mb-4" data-aos="fade-right" data-aos-delay="500">
+            <div class="stat-item">
+              <h3><span data-purecounter-start="0" data-purecounter-end="6" data-purecounter-duration="2" class="purecounter"></span>+</h3>
+              <p>Procedimentos Faciais</p>
+            </div>
+            <div class="stat-item">
+              <h3><span data-purecounter-start="0" data-purecounter-end="98" data-purecounter-duration="2" class="purecounter"></span>%</h3>
+              <p>Satisfação</p>
+            </div>
+          </div>
+          <div class="hero-actions" data-aos="fade-right" data-aos-delay="600">
+            <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-primary">Agendar Avaliação</a>
+            <a href="#services-grid" class="btn btn-outline">
+              <i class="bi bi-arrow-down me-2"></i>Ver Tratamentos
+            </a>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="hero-visual" data-aos="fade-left" data-aos-delay="400">
+          <div class="main-image">
+            <img src="{% static 'assents/template_img/health/dermatology-1.webp' %}" alt="Tratamentos Faciais Shiva Zen" class="img-fluid">
+            <div class="floating-card appointment-card">
+              <div class="card-icon">
+                <i class="bi bi-shield-check"></i>
+              </div>
+              <div class="card-content">
+                <h6>Procedimentos Seguros</h6>
+                <p>Protocolos Validados</p>
+                <small>Biomédica Especialista</small>
+              </div>
+            </div>
+            <div class="floating-card rating-card">
+              <div class="card-content">
+                <div class="rating-stars">
+                  <i class="bi bi-star-fill"></i>
+                  <i class="bi bi-star-fill"></i>
+                  <i class="bi bi-star-fill"></i>
+                  <i class="bi bi-star-fill"></i>
+                  <i class="bi bi-star-fill"></i>
+                </div>
+                <h6>5.0/5</h6>
+                <small>Avaliação dos Clientes</small>
+              </div>
+            </div>
+          </div>
+          <div class="background-elements">
+            <div class="element element-1"></div>
+            <div class="element element-2"></div>
+            <div class="element element-3"></div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 
-<!-- ═══ SERVIÇOS ═══ -->
-<section id="services" class="services section">
+<!-- ═══ PROCESSO ═══ -->
+<section id="service-process" class="service-process section light-background">
+  <div class="container section-title" data-aos="fade-up">
+    <h2>Como Funciona</h2>
+    <p>Nosso processo garante resultados seguros e personalizados</p>
+  </div>
+
   <div class="container" data-aos="fade-up" data-aos-delay="100">
+    <div class="row g-4">
+      <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="100">
+        <div class="process-step">
+          <div class="step-number">01</div>
+          <div class="step-icon"><i class="bi bi-clipboard2-pulse"></i></div>
+          <h4>Avaliação</h4>
+          <p>Análise detalhada do seu tipo de pele e necessidades específicas.</p>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="200">
+        <div class="process-step">
+          <div class="step-number">02</div>
+          <div class="step-icon"><i class="bi bi-journal-medical"></i></div>
+          <h4>Protocolo</h4>
+          <p>Elaboração do protocolo personalizado para o seu tratamento.</p>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="300">
+        <div class="process-step">
+          <div class="step-number">03</div>
+          <div class="step-icon"><i class="bi bi-heart-pulse"></i></div>
+          <h4>Procedimento</h4>
+          <p>Execução do tratamento com equipamentos de última geração.</p>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="400">
+        <div class="process-step">
+          <div class="step-number">04</div>
+          <div class="step-icon"><i class="bi bi-calendar-check"></i></div>
+          <h4>Acompanhamento</h4>
+          <p>Monitoramento dos resultados e ajustes conforme necessário.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 
-    <div class="row gy-4">
+<!-- ═══ GRID DE SERVIÇOS ═══ -->
+<section id="services-grid" class="featured-departments section">
+  <div class="container section-title" data-aos="fade-up">
+    <h2>Nossos Tratamentos Faciais</h2>
+    <p>Procedimentos exclusivos para cada necessidade da sua pele</p>
+  </div>
 
-      <!-- Limpeza de Pele -->
-      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="200">
-        <div class="service-item h-100">
-          <div class="service-image position-relative overflow-hidden">
-            <img src="{% static 'assents/template_img/health/dermatology-1.webp' %}" alt="Limpeza de Pele Profunda" class="img-fluid w-100" style="height: 250px; object-fit: cover;">
-            <div class="service-overlay position-absolute bottom-0 start-0 w-100 p-3 bg-white" style="opacity: 0.9;">
-              <i class="bi bi-stars fs-3 text-primary"></i>
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
+    <div class="row g-5">
+
+      <!-- Harmonização Facial - destaque -->
+      <div class="col-lg-6" data-aos="zoom-in" data-aos-delay="100">
+        <div class="specialty-card">
+          <div class="specialty-content">
+            <div class="specialty-meta">
+              <span class="specialty-label">Mais Procurado</span>
             </div>
+            <h3>Harmonização Facial</h3>
+            <p>Procedimentos para equilibrar e realçar as características faciais com naturalidade, devolvendo simetria e jovialidade ao rosto.</p>
+            <div class="specialty-features">
+              <span><i class="bi bi-check-circle-fill"></i>Ácido Hialurônico</span>
+              <span><i class="bi bi-check-circle-fill"></i>Toxina Botulínica</span>
+              <span><i class="bi bi-check-circle-fill"></i>Bioestimuladores</span>
+            </div>
+            <a href="{% url 'shivazen:agendamento_publico' %}" class="specialty-link">
+              Agendar <i class="bi bi-arrow-right"></i>
+            </a>
           </div>
-          <div class="service-content p-4 border border-top-0 rounded-bottom">
-            <h3 class="h5 fw-bold mb-3">Limpeza de Pele Profunda</h3>
-            <p class="text-muted small">Remoção de impurezas, cravos e células mortas com técnicas especializadas para todos os tipos de pele.</p>
-            <div class="service-features mb-4">
-              <div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i><span class="small">Extração de impurezas</span></div>
-              <div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i><span class="small">Hidratação profunda</span></div>
+          <div class="specialty-visual">
+            <img src="{% static 'assents/template_img/health/pediatrics-3.webp' %}" alt="Harmonização Facial" class="img-fluid">
+            <div class="visual-overlay">
+              <i class="bi bi-person-bounding-box"></i>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Preenchimento Facial -->
-      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="250">
-        <div class="service-item h-100">
-          <div class="service-image position-relative overflow-hidden">
-            <img src="{% static 'assents/template_img/health/dermatology-4.webp' %}" alt="Preenchimento Facial" class="img-fluid w-100" style="height: 250px; object-fit: cover;">
-            <div class="service-overlay position-absolute bottom-0 start-0 w-100 p-3 bg-white" style="opacity: 0.9;">
-              <i class="bi bi-magic fs-3 text-primary"></i>
+      <!-- Preenchimento Facial - destaque -->
+      <div class="col-lg-6" data-aos="zoom-in" data-aos-delay="200">
+        <div class="specialty-card">
+          <div class="specialty-content">
+            <div class="specialty-meta">
+              <span class="specialty-label">Resultado Imediato</span>
             </div>
-          </div>
-          <div class="service-content p-4 border border-top-0 rounded-bottom">
-            <h3 class="h5 fw-bold mb-3">Preenchimento Facial</h3>
-            <p class="text-muted small">Resultados naturais com ácido hialurônico de alta qualidade, aplicado de forma segura.</p>
-            <div class="service-features mb-4">
-              <div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i><span class="small">Ácido hialurônico</span></div>
-              <div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i><span class="small">Resultados imediatos</span></div>
+            <h3>Preenchimento Facial</h3>
+            <p>Resultados naturais com ácido hialurônico de alta qualidade, para restaurar volume, contornos e suavizar linhas de expressão.</p>
+            <div class="specialty-features">
+              <span><i class="bi bi-check-circle-fill"></i>Ácido Hialurônico</span>
+              <span><i class="bi bi-check-circle-fill"></i>Resultados Naturais</span>
+              <span><i class="bi bi-check-circle-fill"></i>Sem Downtime</span>
             </div>
+            <a href="{% url 'shivazen:agendamento_publico' %}" class="specialty-link">
+              Agendar <i class="bi bi-arrow-right"></i>
+            </a>
           </div>
-        </div>
-      </div>
-
-      <!-- Bioestimulador de Colágeno -->
-      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="300">
-        <div class="service-item h-100">
-          <div class="service-image position-relative overflow-hidden">
-            <img src="{% static 'assents/template_img/health/neurology-3.webp' %}" alt="Bioestimulador de Colágeno" class="img-fluid w-100" style="height: 250px; object-fit: cover;">
-            <div class="service-overlay position-absolute bottom-0 start-0 w-100 p-3 bg-white" style="opacity: 0.9;">
-              <i class="bi bi-activity fs-3 text-primary"></i>
-            </div>
-          </div>
-          <div class="service-content p-4 border border-top-0 rounded-bottom">
-            <h3 class="h5 fw-bold mb-3">Bioestimulador</h3>
-            <p class="text-muted small">Estímulo natural da produção de colágeno para uma pele mais firme, jovem e luminosa.</p>
-            <div class="service-features mb-4">
-              <div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i><span class="small">Firmeza e sustentação</span></div>
-              <div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i><span class="small">Duração prolongada</span></div>
+          <div class="specialty-visual">
+            <img src="{% static 'assents/template_img/health/dermatology-4.webp' %}" alt="Preenchimento Facial" class="img-fluid">
+            <div class="visual-overlay">
+              <i class="bi bi-magic"></i>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Peelings Químicos -->
-      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="350">
-        <div class="service-item h-100">
-          <div class="service-image position-relative overflow-hidden">
-            <img src="{% static 'assents/template_img/health/cardiology-1.webp' %}" alt="Peelings Químicos" class="img-fluid w-100" style="height: 250px; object-fit: cover;">
-            <div class="service-overlay position-absolute bottom-0 start-0 w-100 p-3 bg-white" style="opacity: 0.9;">
-              <i class="bi bi-brightness-high fs-3 text-primary"></i>
-            </div>
+      <!-- Cards menores -->
+      <div class="col-lg-4" data-aos="fade-up" data-aos-delay="100">
+        <div class="department-highlight">
+          <div class="highlight-icon">
+            <i class="bi bi-stars"></i>
           </div>
-          <div class="service-content p-4 border border-top-0 rounded-bottom">
-            <h3 class="h5 fw-bold mb-3">Peelings Químicos</h3>
-            <p class="text-muted small">Renovação celular para eliminar manchas, cicatrizes de acne e linhas de expressão de forma eficaz.</p>
-            <div class="service-features mb-4">
-              <div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i><span class="small">Clareamento de manchas</span></div>
-              <div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i><span class="small">Textura uniforme</span></div>
-            </div>
-          </div>
+          <h4>Limpeza de Pele Profunda</h4>
+          <p>Remoção completa de impurezas, cravos e células mortas com técnicas especializadas para todos os tipos de pele.</p>
+          <ul class="highlight-list">
+            <li>Extração de impurezas</li>
+            <li>Hidratação profunda</li>
+            <li>Máscaras revitalizantes</li>
+          </ul>
+          <a href="{% url 'shivazen:agendamento_publico' %}" class="highlight-cta">Agendar</a>
         </div>
       </div>
 
-      <!-- Fototerapia LED -->
-      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="400">
-        <div class="service-item h-100">
-          <div class="service-image position-relative overflow-hidden">
-            <img src="{% static 'assents/template_img/health/oncology-2.webp' %}" alt="Fototerapia LED" class="img-fluid w-100" style="height: 250px; object-fit: cover;">
-            <div class="service-overlay position-absolute bottom-0 start-0 w-100 p-3 bg-white" style="opacity: 0.9;">
-              <i class="bi bi-sun fs-3 text-primary"></i>
-            </div>
+      <div class="col-lg-4" data-aos="fade-up" data-aos-delay="200">
+        <div class="department-highlight">
+          <div class="highlight-icon">
+            <i class="bi bi-activity"></i>
           </div>
-          <div class="service-content p-4 border border-top-0 rounded-bottom">
-            <h3 class="h5 fw-bold mb-3">Fototerapia LED</h3>
-            <p class="text-muted small">Terapia de luz para tratar acne, reduzir inflamações e estimular colágeno de forma não invasiva.</p>
-            <div class="service-features mb-4">
-              <div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i><span class="small">Combate à acne</span></div>
-              <div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i><span class="small">Ação anti-inflamatória</span></div>
-            </div>
-          </div>
+          <h4>Bioestimulador de Colágeno</h4>
+          <p>Estímulo natural da produção de colágeno para uma pele mais firme, jovem e com sustentação natural.</p>
+          <ul class="highlight-list">
+            <li>Firmeza e sustentação</li>
+            <li>Duração prolongada</li>
+            <li>Efeito lifting natural</li>
+          </ul>
+          <a href="{% url 'shivazen:agendamento_publico' %}" class="highlight-cta">Agendar</a>
         </div>
       </div>
 
-      <!-- Harmonização Facial -->
-      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="450">
-        <div class="service-item h-100">
-          <div class="service-image position-relative overflow-hidden">
-            <img src="{% static 'assents/template_img/health/pediatrics-3.webp' %}" alt="Harmonização Facial" class="img-fluid w-100" style="height: 250px; object-fit: cover;">
-            <div class="service-overlay position-absolute bottom-0 start-0 w-100 p-3 bg-white" style="opacity: 0.9;">
-              <i class="bi bi-person-bounding-box fs-3 text-primary"></i>
-            </div>
+      <div class="col-lg-4" data-aos="fade-up" data-aos-delay="300">
+        <div class="department-highlight">
+          <div class="highlight-icon">
+            <i class="bi bi-brightness-high"></i>
           </div>
-          <div class="service-content p-4 border border-top-0 rounded-bottom">
-            <h3 class="h5 fw-bold mb-3">Harmonização Facial</h3>
-            <p class="text-muted small">Procedimentos para equilibrar e realçar as características faciais com naturalidade.</p>
-            <div class="service-features mb-4">
-              <div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i><span class="small">Perfil harmônico</span></div>
-              <div class="d-flex align-items-center mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i><span class="small">Realce da beleza natural</span></div>
-            </div>
-          </div>
+          <h4>Peelings Químicos</h4>
+          <p>Renovação celular para eliminar manchas, cicatrizes de acne e linhas de expressão com ácidos específicos.</p>
+          <ul class="highlight-list">
+            <li>Clareamento de manchas</li>
+            <li>Textura uniforme</li>
+            <li>Rejuvenescimento</li>
+          </ul>
+          <a href="{% url 'shivazen:agendamento_publico' %}" class="highlight-cta">Agendar</a>
         </div>
       </div>
 
     </div>
+  </div>
+</section>
 
-    <!-- CTA do final -->
-    <div class="text-center mt-5 pt-4" data-aos="fade-up" data-aos-delay="500">
-      <div class="p-5 bg-white rounded-4 shadow-sm border border-light">
-        <h3 class="mb-3">Desperte a sua melhor versão</h3>
-        <p class="text-muted mb-4 mx-auto" style="max-width: 600px;">Nossos tratamentos são personalizados após uma avaliação detalhada. Agende sua consulta para recomendarmos o protocolo ideal para a sua pele.</p>
-        <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-primary px-5 py-3 fw-bold rounded-pill text-uppercase shadow-sm">
-          <i class="bi bi-calendar-heart me-2"></i>Agendar Minha Avaliação
-        </a>
+<!-- ═══ SERVIÇO EM DESTAQUE ═══ -->
+<section id="featured-services" class="featured-services section">
+  <div class="container section-title" data-aos="fade-up">
+    <h2>Tecnologia a Seu Favor</h2>
+    <p>Tratamentos com equipamentos de última geração</p>
+  </div>
+
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
+    <div class="row g-0">
+      <div class="col-lg-8" data-aos="fade-right" data-aos-delay="200">
+        <div class="featured-service-main">
+          <div class="service-image-wrapper">
+            <img src="{% static 'assents/template_img/health/neurology-3.webp' %}" alt="Fototerapia LED" class="img-fluid" loading="lazy">
+            <div class="service-overlay">
+              <div class="service-badge">
+                <i class="bi bi-sun"></i>
+                <span>Tecnologia LED</span>
+              </div>
+            </div>
+          </div>
+          <div class="service-details">
+            <h2>Fototerapia LED</h2>
+            <p>Terapia de luz não invasiva que utiliza diferentes comprimentos de onda para tratar acne, estimular colágeno e reduzir inflamações. Sem dor, sem downtime e com resultados progressivos visíveis.</p>
+            <a href="{% url 'shivazen:agendamento_publico' %}" class="main-cta">Agendar Fototerapia</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-4" data-aos="fade-left" data-aos-delay="300">
+        <div class="services-sidebar">
+          <div class="service-item" data-aos="fade-up" data-aos-delay="400">
+            <div class="service-icon-wrapper">
+              <i class="bi bi-droplet-half"></i>
+            </div>
+            <div class="service-info">
+              <h4>Microagulhamento</h4>
+              <p>Estímulo da produção de colágeno com microagulhas para rejuvenescimento e redução de cicatrizes.</p>
+              <a href="{% url 'shivazen:agendamento_publico' %}" class="service-link">Agendar</a>
+            </div>
+          </div>
+
+          <div class="service-item" data-aos="fade-up" data-aos-delay="500">
+            <div class="service-icon-wrapper">
+              <i class="bi bi-moisture"></i>
+            </div>
+            <div class="service-info">
+              <h4>Skinbooster</h4>
+              <p>Hidratação profunda com ácido hialurônico injetável para luminosidade e viço da pele.</p>
+              <a href="{% url 'shivazen:agendamento_publico' %}" class="service-link">Agendar</a>
+            </div>
+          </div>
+
+          <div class="service-item" data-aos="fade-up" data-aos-delay="600">
+            <div class="service-icon-wrapper">
+              <i class="bi bi-lightning-charge"></i>
+            </div>
+            <div class="service-info">
+              <h4>Laser Fracionado</h4>
+              <p>Tratamento a laser para cicatrizes, manchas e rejuvenescimento profundo da pele facial.</p>
+              <a href="{% url 'shivazen:agendamento_publico' %}" class="service-link">Agendar</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ CTA FINAL ═══ -->
+<section id="call-to-action" class="call-to-action section light-background">
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
+    <div class="hero-content">
+      <div class="row align-items-center">
+        <div class="col-lg-6">
+          <div class="content-wrapper" data-aos="fade-up" data-aos-delay="200">
+            <h1>Desperte a Sua Melhor Versão</h1>
+            <p>Nossos tratamentos faciais são personalizados após uma avaliação detalhada. Agende sua consulta para recomendarmos o protocolo ideal para a sua pele.</p>
+            <div class="cta-wrapper">
+              <a href="{% url 'shivazen:agendamento_publico' %}" class="primary-cta">
+                <span>Agendar Avaliação</span>
+                <i class="bi bi-arrow-right"></i>
+              </a>
+              <a href="https://wa.me/5517000000000?text=Olá! Gostaria de saber mais sobre os tratamentos faciais." target="_blank" rel="noopener" class="secondary-cta">
+                <span>Tirar Dúvidas</span>
+                <i class="bi bi-whatsapp"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="image-container" data-aos="fade-left" data-aos-delay="300">
+            <img src="{% static 'assents/template_img/health/consultation-4.webp' %}" alt="Tratamentos Faciais Shiva Zen" class="img-fluid">
+          </div>
+        </div>
       </div>
     </div>
 
+    <div class="features-section">
+      <div class="row g-0">
+        <div class="col-lg-4">
+          <div class="feature-block" data-aos="fade-up" data-aos-delay="200">
+            <div class="feature-icon"><i class="bi bi-shield-check"></i></div>
+            <h3>Biomédica Especialista</h3>
+            <p>Profissional habilitada com formação específica em estética avançada.</p>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="feature-block" data-aos="fade-up" data-aos-delay="300">
+            <div class="feature-icon"><i class="bi bi-award"></i></div>
+            <h3>Produtos Premium</h3>
+            <p>Utilizamos apenas produtos de marcas reconhecidas e certificadas pela ANVISA.</p>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="feature-block" data-aos="fade-up" data-aos-delay="400">
+            <div class="feature-icon"><i class="bi bi-heart-pulse"></i></div>
+            <h3>Resultados Naturais</h3>
+            <p>Técnicas que respeitam a anatomia facial e proporcionam harmonia natural.</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 {% endblock %}

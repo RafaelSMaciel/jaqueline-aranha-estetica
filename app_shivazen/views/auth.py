@@ -3,6 +3,7 @@ from django.contrib import messages
 from django.contrib.auth import login as auth_login, logout as auth_logout, authenticate
 from django.contrib.auth.decorators import login_required
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.http import require_http_methods
 from django_ratelimit.decorators import ratelimit
 import logging
 
@@ -10,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 @ratelimit(key='ip', rate='5/m', method='POST', block=False)
+@require_http_methods(["GET", "POST"])
 def usuarioLogin(request):
     """Login exclusivo para administradores da clínica."""
     # Se já logado, vai direto pro painel
@@ -23,8 +25,8 @@ def usuarioLogin(request):
             messages.error(request, 'Muitas tentativas de login. Aguarde um momento e tente novamente.')
             return redirect('shivazen:usuarioLogin')
 
-        email = request.POST.get('login', '').strip()
-        senha = request.POST.get('senha', '')
+        email = request.POST.get('username', '').strip()
+        senha = request.POST.get('password', '')
 
         if not email or not senha:
             messages.error(request, 'Preencha e-mail e senha.')
@@ -34,6 +36,8 @@ def usuarioLogin(request):
 
         if usuario is not None and usuario.is_staff:
             auth_login(request, usuario)
+            # SEGURANÇA: Regenerar sessão para prevenir Session Fixation
+            request.session.cycle_key()
             request.session['usuario_id'] = usuario.pk
             request.session['usuario_nome'] = usuario.nome
 
@@ -47,8 +51,9 @@ def usuarioLogin(request):
             messages.success(request, f'Bem-vindo(a), {usuario.nome}!')
             return redirect(next_url or 'shivazen:painel_overview')
         else:
-            # SEGURANÇA: Log de tentativa falha (sem expor detalhes ao usuário)
-            logger.warning(f'Tentativa de login falha para email: {email} | IP: {request.META.get("REMOTE_ADDR")}')
+            # SEGURANÇA: Log sem PII (apenas últimos 4 chars do email para rastreabilidade)
+            email_masked = f'***{email[-4:]}' if len(email) > 4 else '***'
+            logger.warning(f'Login falho para: {email_masked} | IP: {request.META.get("REMOTE_ADDR")}')
             messages.error(request, 'Credenciais inválidas ou acesso não autorizado.')
             return redirect('shivazen:usuarioLogin')
 
@@ -56,6 +61,7 @@ def usuarioLogin(request):
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
 def usuarioLogout(request):
     """Logout — aceita GET e POST por praticidade."""
     auth_logout(request)

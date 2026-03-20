@@ -48,12 +48,12 @@
             <form method="POST" action="{% url 'shivazen:usuarioLogin' %}">
                 {% csrf_token %}
                 <div class="mb-3">
-                    <label class="form-label" style="font-size:0.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Usuário</label>
-                    <input type="text" name="username" class="login-input" placeholder="Seu nome de usuário" required autofocus>
+                    <label class="form-label" style="font-size:0.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">E-mail</label>
+                    <input type="email" name="username" class="login-input" placeholder="seu@email.com" required autofocus autocomplete="email">
                 </div>
                 <div class="mb-4">
                     <label class="form-label" style="font-size:0.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Senha</label>
-                    <input type="password" name="password" class="login-input" placeholder="Sua senha" required>
+                    <input type="password" name="password" class="login-input" placeholder="Sua senha" required autocomplete="current-password">
                 </div>
                 <button type="submit" class="btn btn-primary w-100 py-3 fw-bold" style="font-size:0.95rem;">
                     <i class="fas fa-sign-in-alt me-2"></i>Entrar

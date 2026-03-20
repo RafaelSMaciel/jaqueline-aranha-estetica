@@ -1,3 +1,4 @@
+from django.db import OperationalError, ProgrammingError
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.http import JsonResponse
@@ -29,21 +30,24 @@ def agendamento_publico(request):
     2. Escolher data/horário (calendário)
     3. Informar dados + confirmar
     """
-    procedimentos = Procedimento.objects.filter(ativo=True)
-
-    # Enriquecer procedimentos com preços
     procedimentos_com_preco = []
-    for proc in procedimentos:
-        preco_obj = Preco.objects.filter(procedimento=proc, profissional__isnull=True).first()
-        if not preco_obj:
-            preco_obj = Preco.objects.filter(procedimento=proc).first()
-        procedimentos_com_preco.append({
-            'id': proc.id_procedimento,
-            'nome': proc.nome,
-            'descricao': proc.descricao or '',
-            'duracao_minutos': proc.duracao_minutos,
-            'preco': float(preco_obj.valor) if preco_obj else 0,
-        })
+    try:
+        procedimentos = Procedimento.objects.filter(ativo=True)
+
+        # Enriquecer procedimentos com preços
+        for proc in procedimentos:
+            preco_obj = Preco.objects.filter(procedimento=proc, profissional__isnull=True).first()
+            if not preco_obj:
+                preco_obj = Preco.objects.filter(procedimento=proc).first()
+            procedimentos_com_preco.append({
+                'id': proc.id_procedimento,
+                'nome': proc.nome,
+                'descricao': proc.descricao or '',
+                'duracao_minutos': proc.duracao_minutos,
+                'preco': float(preco_obj.valor) if preco_obj else 0,
+            })
+    except (OperationalError, ProgrammingError):
+        logger.warning('Tabelas de procedimento/preço não encontradas.')
 
     # Pré-seleção de procedimento (vindo de promoções)
     proc_preselect = request.GET.get('procedimento', '')
@@ -58,6 +62,7 @@ def agendamento_publico(request):
     return render(request, 'agenda/agendamento_publico.html', context)
 
 
+@ratelimit(key='ip', rate='30/m', method='GET', block=True)
 def api_horarios_disponiveis(request):
     """
     AJAX endpoint: retorna horários disponíveis para uma data + procedimento.
@@ -391,6 +396,7 @@ def verificar_telefone(request):
     return JsonResponse({'error': 'Método não permitido'}, status=405)
 
 
+@ratelimit(key='ip', rate='30/m', method='GET', block=True)
 def api_dias_disponiveis(request):
     """
     AJAX: retorna quais dias do mês têm disponibilidade para um procedimento.
