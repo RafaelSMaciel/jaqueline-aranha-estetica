@@ -311,39 +311,22 @@
 {% endblock %}
 
 {% block conteudo %}
-<!-- ═══ HERO ═══ -->
-<section class="hero section" style="background: linear-gradient(135deg, #2C2C2C 0%, #4a3728 50%, #6D4C41 100%); padding: 4rem 0 5rem; position: relative; overflow: hidden;">
-    <div style="position:absolute;inset:0;background:radial-gradient(circle at 20% 80%,rgba(201,168,76,0.12) 0%,transparent 50%),radial-gradient(circle at 80% 20%,rgba(201,168,76,0.08) 0%,transparent 50%);"></div>
-    <div class="container text-center text-white position-relative" data-aos="fade-up" data-aos-delay="100">
-        <div class="d-inline-flex align-items-center gap-2 mb-3 px-4 py-2 rounded-pill" style="background:rgba(201,168,76,0.2);border:1px solid rgba(201,168,76,0.5);">
-            <i class="bi bi-person-circle" style="color:#f0d98c;"></i>
-            <span style="color:#f0d98c;font-size:0.72rem;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;">Area do Cliente</span>
-        </div>
-        <h1 data-aos="fade-up" data-aos-delay="200" style="font-family:'Playfair Display',serif;font-size:clamp(2rem,5vw,3rem);font-weight:700;color:white !important;">
-            Meus Agendamentos
-        </h1>
-        <p data-aos="fade-up" data-aos-delay="300" style="opacity:0.75;font-size:1.05rem;max-width:460px;margin:0 auto;color:white !important;">
-            Consulte e gerencie seus horarios de forma rapida e segura.
-        </p>
-    </div>
-</section>
-
 <!-- ═══ CONTENT ═══ -->
-<section class="verify-section section" style="padding: 4rem 0;">
+<section class="verify-section section" style="padding: 3rem 0; min-height: 70vh;">
     <div class="container">
 
         {% if step == '1' %}
         <!-- ═══════════════════════════════════════════ -->
         <!-- ═══ STEP 1: Informar Celular + Codigo ═══ -->
         <!-- ═══════════════════════════════════════════ -->
-        <div class="verify-card" data-aos="fade-up" data-aos-delay="100">
-            <div class="verify-header">
-                <div class="verify-icon-wrap">
-                    <i class="bi bi-shield-lock" style="color:#C9A84C;font-size:2rem;"></i>
+        <div class="verify-card" data-aos="fade-up">
+            <div class="verify-header" style="padding:2rem 2rem 1.75rem;">
+                <div class="verify-icon-wrap" style="width:64px;height:64px;margin-bottom:1rem;">
+                    <i class="bi bi-calendar-check" style="color:#C9A84C;font-size:1.5rem;"></i>
                 </div>
-                <h3 class="fw-bold mb-2" style="font-family:'Playfair Display',serif;font-size:1.5rem;">Acesse seus Agendamentos</h3>
-                <p class="mb-0 small" style="opacity:0.8;max-width:320px;margin:0 auto;">
-                    Verificamos seu celular para garantir a seguranca dos seus dados.
+                <h3 class="fw-bold mb-1" style="font-family:'Playfair Display',serif;font-size:1.35rem;">Meus Agendamentos</h3>
+                <p class="mb-0 small" style="opacity:0.7;font-size:0.85rem;">
+                    Informe seu celular para consultar seus horarios.
                 </p>
             </div>
             <div class="verify-body">
@@ -355,34 +338,18 @@
                     <div class="phone-input-wrap">
                         <i class="bi bi-whatsapp phone-icon" style="color:#25D366;"></i>
                         <input type="tel" id="tel-input" class="form-control"
-                               placeholder="(00) 00000-0000" autocomplete="tel">
+                               placeholder="(00) 00000-0000" autocomplete="tel" autofocus>
                     </div>
                 </div>
 
-                <button id="btn-enviar-codigo" class="btn btn-gold w-100 rounded-pill py-3 fw-bold text-uppercase"
-                    style="letter-spacing:1px;font-size:0.88rem;">
-                    <i class="bi bi-send-fill me-2"></i>Enviar Codigo de Verificacao
+                <button id="btn-enviar-codigo" class="btn btn-gold w-100 rounded-pill py-3 fw-bold"
+                    style="font-size:0.9rem;">
+                    <i class="bi bi-send-fill me-2"></i>Enviar Codigo
                 </button>
 
                 <div id="error-msg" class="alert alert-danger mt-3 border-0 shadow-sm rounded-3 d-flex align-items-center gap-2" style="display:none !important;" role="alert">
                     <i class="bi bi-exclamation-triangle-fill"></i>
                     <span id="error-msg-text"></span>
-                </div>
-
-                <!-- Helper steps -->
-                <div class="helper-steps" data-aos="fade-up" data-aos-delay="300">
-                    <div class="helper-step">
-                        <div class="helper-step-icon">1</div>
-                        <div class="helper-step-text">Informe seu celular cadastrado</div>
-                    </div>
-                    <div class="helper-step">
-                        <div class="helper-step-icon">2</div>
-                        <div class="helper-step-text">Receba um codigo de 6 digitos via WhatsApp</div>
-                    </div>
-                    <div class="helper-step">
-                        <div class="helper-step-icon">3</div>
-                        <div class="helper-step-text">Acesse seus agendamentos com seguranca</div>
-                    </div>
                 </div>
 
                 <!-- Step 2: Codigo (aparece apos enviar) -->
@@ -633,23 +600,6 @@
     </div>
 </section>
 
-<!-- ═══ CTA WhatsApp ═══ -->
-<section class="wpp-cta-section" data-aos="fade-up">
-    <div class="container">
-        <div class="wpp-cta-card">
-            <div class="wpp-cta-icon">
-                <i class="bi bi-whatsapp" style="color:#25D366;font-size:1.5rem;"></i>
-            </div>
-            <h5 class="fw-bold mb-1" style="font-family:'Playfair Display',serif;color:#4A3425;">Ficou com alguma duvida?</h5>
-            <p class="text-muted small mb-3">Estamos prontos para ajudar voce pelo WhatsApp.</p>
-            <a href="https://wa.me/{{ whatsapp_numero }}" target="_blank" rel="noopener"
-               class="btn rounded-pill px-4 py-2 fw-bold shadow-sm"
-               style="background:#25D366;color:white;letter-spacing:0.5px;font-size:0.88rem;">
-                <i class="bi bi-whatsapp me-2"></i>Fale Conosco
-            </a>
-        </div>
-    </div>
-</section>
 {% endblock %}
 
 {% block scripts %}
