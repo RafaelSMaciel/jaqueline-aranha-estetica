@@ -44,6 +44,9 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost').split(','
 RAILWAY_DOMAIN = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '')
 if RAILWAY_DOMAIN:
     ALLOWED_HOSTS.append(RAILWAY_DOMAIN)
+# Railway: aceitar qualquer subdomínio .railway.app e health checks internos
+if os.environ.get('RAILWAY_ENVIRONMENT_NAME'):
+    ALLOWED_HOSTS.extend(['.railway.app', '.up.railway.app'])
 
 
 # Application definition
