@@ -35,6 +35,35 @@ def seed():
     print("Iniciando seed de dados de teste...")
 
     # ──────────────────────────────────────────
+    # 0. ADMIN USER (criado primeiro para garantir acesso ao painel)
+    # ──────────────────────────────────────────
+    try:
+        perfil_admin, _ = Perfil.objects.get_or_create(
+            nome='Administrador',
+            defaults={'descricao': 'Acesso total a todas as funcionalidades do sistema.'}
+        )
+        admin_user, created = Usuario.objects.get_or_create(
+            email='admin@shivazen.com',
+            defaults={
+                'nome': 'Administrador',
+                'perfil': perfil_admin,
+                'ativo': True,
+            }
+        )
+        if created:
+            admin_user.set_password('admin123')
+            admin_user.save()
+            print("  Admin: Criado (admin@shivazen.com / admin123)")
+        else:
+            # Garante que a senha esteja correta mesmo se o user ja existia
+            admin_user.set_password('admin123')
+            admin_user.perfil = perfil_admin
+            admin_user.save()
+            print("  Admin: Já existente (senha resetada)")
+    except Exception as e:
+        print(f"  Admin: Erro ao criar ({e})")
+
+    # ──────────────────────────────────────────
     # 1. PROFISSIONAIS
     # ──────────────────────────────────────────
     prof1, _ = Profissional.objects.get_or_create(
@@ -474,31 +503,6 @@ def seed():
         )
 
     print(f"  Configurações: {len(configs_data)} criadas/existentes")
-
-    # ──────────────────────────────────────────
-    # 16. ADMIN USER (para acesso ao painel)
-    # ──────────────────────────────────────────
-    try:
-        perfil_admin, _ = Perfil.objects.get_or_create(
-            nome='Administrador',
-            defaults={'descricao': 'Acesso total a todas as funcionalidades do sistema.'}
-        )
-        admin_user, created = Usuario.objects.get_or_create(
-            email='admin@shivazen.com',
-            defaults={
-                'nome': 'Administrador',
-                'perfil': perfil_admin,
-                'ativo': True,
-            }
-        )
-        if created:
-            admin_user.set_password('admin123')
-            admin_user.save()
-            print("  Admin: Criado (admin@shivazen.com / admin123)")
-        else:
-            print("  Admin: Já existente")
-    except Exception as e:
-        print(f"  Admin: Erro ao criar ({e})")
 
     print("\nSeed concluído com sucesso!")
     print("=" * 50)
