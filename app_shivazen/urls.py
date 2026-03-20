@@ -23,6 +23,9 @@ urlpatterns = [
     path('agendamento/confirmar/', views.confirmar_agendamento, name='confirmar_agendamento'),
     path('agendamento/sucesso/', views.agendamento_sucesso, name='agendamento_sucesso'),
 
+    # ─── Confirmação de Presença (link público via WhatsApp) ───
+    path('confirmar/<str:token>/', views.confirmar_presenca, name='confirmar_presenca'),
+
     # ─── Meus Agendamentos (via celular) ───
     path('meus-agendamentos/', views.meus_agendamentos, name='meus_agendamentos'),
 
@@ -56,6 +59,10 @@ urlpatterns = [
     path('painel/orcamentos/', views.painel_orcamentos, name='painel_orcamentos'),
     path('painel/orcamentos/criar/', views.criar_orcamento, name='criar_orcamento'),
     path('painel/orcamentos/<int:pk>/editar/', views.editar_orcamento, name='editar_orcamento'),
+
+    # ─── Notificações ───
+    path('painel/notificacoes/', views.painel_notificacoes, name='painel_notificacoes'),
+    path('painel/cancelar-agendamento/', views.admin_cancelar_agendamento, name='admin_cancelar_agendamento'),
 
     # ─── Auditoria ───
     path('painel/auditoria/', views.admin_auditoria, name='admin_auditoria'),

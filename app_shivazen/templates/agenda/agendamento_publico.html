@@ -16,7 +16,7 @@
 
     /* ─── HERO ─── */
     .booking-banner {
-        background: linear-gradient(135deg, #2c2015 0%, #4A3425 55%, #6D4C41 100%);
+        background: linear-gradient(135deg, #2C2C2C 0%, #4a3728 50%, #6D4C41 100%);
         padding: 4rem 0 7rem;
         text-align: center;
         color: white;
@@ -267,15 +267,15 @@
 
 <!-- Hero -->
 <div class="booking-banner">
-    <div class="booking-banner-inner container">
-        <div class="booking-pill"><i class="fas fa-spa"></i>Shiva Zen — Agendamento Online</div>
-        <h1>Agende seu Espaço<br>de Bem-Estar</h1>
-        <p>Escolha seu tratamento, selecione a data e confirme — tudo sem precisar criar conta.</p>
+    <div class="booking-banner-inner container" data-aos="fade-up" data-aos-delay="100">
+        <div class="booking-pill"><i class="bi bi-stars"></i>Shiva Zen — Agendamento Online</div>
+        <h1 data-aos="fade-up" data-aos-delay="200">Agende seu Espaco<br>de Bem-Estar</h1>
+        <p data-aos="fade-up" data-aos-delay="300">Escolha seu tratamento, selecione a data e confirme — tudo sem precisar criar conta.</p>
     </div>
 </div>
 
 <!-- Floating Card -->
-<div class="booking-float">
+<div class="booking-float" data-aos="fade-up" data-aos-delay="200">
     <div class="booking-card">
 
         <!-- Steps Bar -->
@@ -308,7 +308,7 @@
                 {% for proc in procedimentos %}
                 <div class="proc-card" data-proc-id="{{ proc.id }}" data-proc-nome="{{ proc.nome }}"
                      data-proc-preco="{{ proc.preco }}" data-proc-duracao="{{ proc.duracao_minutos }}">
-                    <div class="proc-icon"><i class="fas fa-spa"></i></div>
+                    <div class="proc-icon"><i class="bi bi-stars"></i></div>
                     <div class="proc-name">{{ proc.nome }}</div>
                     {% if proc.descricao %}
                     <div class="proc-desc">{{ proc.descricao|truncatewords:15 }}</div>
@@ -316,7 +316,7 @@
                     <div class="proc-meta">
                         <span class="proc-price">R$ {{ proc.preco|floatformat:2 }}</span>
                         <span class="proc-duration">
-                            <i class="far fa-clock"></i>{{ proc.duracao_minutos }} min
+                            <i class="bi bi-clock"></i>{{ proc.duracao_minutos }} min
                         </span>
                     </div>
                 </div>
@@ -324,11 +324,11 @@
             </div>
             {% else %}
             <div class="empty-procs">
-                <i class="fas fa-spa"></i>
+                <i class="bi bi-stars"></i>
                 <h4 style="font-weight:700;color:#BBB;">Nenhum procedimento cadastrado</h4>
                 <p>Em breve nossos tratamentos estarão disponíveis para agendamento.</p>
                 <a href="https://wa.me/{{ whatsapp_numero }}" target="_blank" class="btn btn-success rounded-pill px-4 py-2 fw-bold mt-2">
-                    <i class="fab fa-whatsapp me-2"></i>Agendar via WhatsApp
+                    <i class="bi bi-whatsapp me-2"></i>Agendar via WhatsApp
                 </a>
             </div>
             {% endif %}
@@ -342,8 +342,8 @@
                     <div class="cal-header">
                         <span class="cal-title" id="cal-month-label">—</span>
                         <div class="cal-nav">
-                            <button class="cal-nav-btn" id="cal-prev" type="button"><i class="fas fa-chevron-left"></i></button>
-                            <button class="cal-nav-btn" id="cal-next" type="button"><i class="fas fa-chevron-right"></i></button>
+                            <button class="cal-nav-btn" id="cal-prev" type="button"><i class="bi bi-chevron-left"></i></button>
+                            <button class="cal-nav-btn" id="cal-next" type="button"><i class="bi bi-chevron-right"></i></button>
                         </div>
                     </div>
                     <div class="cal-weekdays">
@@ -358,7 +358,7 @@
                     <div class="cal-days" id="cal-days-grid"></div>
 
                     <button class="btn-back-step" type="button" onclick="goToStep(1)">
-                        <i class="fas fa-arrow-left"></i> Voltar aos Procedimentos
+                        <i class="bi bi-arrow-left"></i> Voltar aos Procedimentos
                     </button>
                 </div>
 
@@ -374,7 +374,7 @@
                     <!-- Profissional (aparece após selecionar horário) -->
                     <div id="prof-section" style="display:none !important;margin-top:1.5rem;">
                         <div class="slots-title">
-                            <i class="fas fa-user-md me-1" style="color:var(--gold);"></i> Escolha o Profissional
+                            <i class="bi bi-person me-1" style="color:var(--gold);"></i> Escolha o Profissional
                         </div>
                         <div class="prof-options" id="prof-options"></div>
                     </div>
@@ -392,7 +392,7 @@
 
                     <!-- Resumo -->
                     <div class="confirm-summary">
-                        <div class="summary-badge"><i class="fas fa-check-circle me-1"></i>Resumo</div>
+                        <div class="summary-badge"><i class="bi bi-check-circle me-1"></i>Resumo</div>
                         <div class="summary-line"><strong id="sum-proc">—</strong></div>
                         <div class="summary-line" id="sum-datetime" style="color:var(--gold);font-weight:600;">—</div>
                         <div class="summary-line"><small id="sum-prof" style="color:#999;">—</small></div>
@@ -406,28 +406,28 @@
                         <input type="hidden" name="datetime" id="form-datetime">
 
                         <div class="form-field">
-                            <label><i class="fas fa-user"></i>Seu Nome</label>
+                            <label><i class="bi bi-person"></i>Seu Nome</label>
                             <input type="text" name="nome" class="form-input" placeholder="Nome completo" required id="form-nome">
                         </div>
 
                         <div class="form-field">
-                            <label><i class="fab fa-whatsapp"></i>Celular (WhatsApp)</label>
+                            <label><i class="bi bi-whatsapp"></i>Celular (WhatsApp)</label>
                             <input type="tel" name="telefone" class="form-input" placeholder="(00) 00000-0000" required id="form-telefone">
                         </div>
 
                         <div class="wpp-note">
-                            <i class="fab fa-whatsapp"></i>
+                            <i class="bi bi-whatsapp"></i>
                             <span>Após confirmar, você será redirecionado para o WhatsApp para receber a confirmação.</span>
                         </div>
 
                         <button type="submit" class="btn-confirm-booking">
-                            <i class="fas fa-calendar-check me-2"></i>Confirmar Agendamento
+                            <i class="bi bi-calendar-check me-2"></i>Confirmar Agendamento
                         </button>
                     </form>
 
                     <div class="text-center">
                         <button class="btn-back-step" type="button" onclick="goToStep(2)">
-                            <i class="fas fa-arrow-left"></i> Voltar
+                            <i class="bi bi-arrow-left"></i> Voltar
                         </button>
                     </div>
                 </div>
@@ -443,7 +443,7 @@
     <a href="https://wa.me/{{ whatsapp_numero }}" target="_blank"
        class="btn btn-success rounded-pill px-4 py-2 fw-bold shadow-sm"
        style="letter-spacing:0.5px;">
-        <i class="fab fa-whatsapp me-2"></i>Fale conosco no WhatsApp
+        <i class="bi bi-whatsapp me-2"></i>Fale conosco no WhatsApp
     </a>
 </div>
 

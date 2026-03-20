@@ -4,13 +4,26 @@ from django.contrib.auth import login as auth_login, logout as auth_logout, auth
 from django.contrib.auth.decorators import login_required
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods
-from django_ratelimit.decorators import ratelimit
+from django.core.cache import cache
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-@ratelimit(key='ip', rate='5/m', method='POST', block=False)
+def _check_rate_limit(request, max_attempts=5, window=60):
+    """Rate limiting simples usando Django cache (funciona com qualquer backend)."""
+    try:
+        ip = request.META.get('REMOTE_ADDR', '0.0.0.0')
+        cache_key = f'login_attempts_{ip}'
+        attempts = cache.get(cache_key, 0)
+        if attempts >= max_attempts:
+            return True  # bloqueado
+        cache.set(cache_key, attempts + 1, window)
+    except Exception:
+        pass  # Se o cache falhar, não bloquear o login
+    return False
+
+
 @require_http_methods(["GET", "POST"])
 def usuarioLogin(request):
     """Login exclusivo para administradores da clínica."""
@@ -20,8 +33,7 @@ def usuarioLogin(request):
 
     if request.method == 'POST':
         # SEGURANÇA: Rate limiting — bloquear após 5 tentativas por minuto
-        was_limited = getattr(request, 'limited', False)
-        if was_limited:
+        if _check_rate_limit(request):
             messages.error(request, 'Muitas tentativas de login. Aguarde um momento e tente novamente.')
             return redirect('shivazen:usuarioLogin')
 
