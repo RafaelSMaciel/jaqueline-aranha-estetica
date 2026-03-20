@@ -36,7 +36,7 @@ SECRET_KEY = os.environ.get(
 )
 
 # Em produção, defina a variável de ambiente DEBUG=False
-DEBUG = os.environ.get('DEBUG', 'False') == 'True'
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 # Em produção, defina ALLOWED_HOSTS=seu-dominio.com,www.seu-dominio.com
 # O 'default' listado é voltado para testes locais apenas.
@@ -169,6 +169,15 @@ SESSION_SAVE_EVERY_REQUEST = True  # Renova sessão a cada request
 SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
 
+# django-ratelimit: usar cache padrão e falhar silenciosamente se o cache estiver indisponível
+RATELIMIT_USE_CACHE = 'default'
+RATELIMIT_FAIL_OPEN = True  # Se o cache falhar, não bloquear o request
+
+# Limites de upload (protecao contra upload abuse)
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024   # 5MB
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 200
+
 # CSRF Trusted Origins (adicionar domínio de produção)
 CSRF_TRUSTED_ORIGINS = os.environ.get(
     'CSRF_TRUSTED_ORIGINS', 'http://127.0.0.1:8000,http://localhost:8000'
@@ -194,10 +203,6 @@ EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@shivazen.com.br')
-
-# --- Configurações do JAZZMIN (Mantidas mas não usadas se app removido) ---
-# Vou manter as configs do Jazzmin caso o usuário queira reativar no futuro, 
-# mas como o app foi removido, elas serão ignoradas pelo Django.
 
 # --- Logging Config ---
 LOGGING = {
@@ -229,120 +234,6 @@ LOGGING = {
 }
 
 
-JAZZMIN_SETTINGS = {
-    "site_title": "Shiva Zen Admin",
-    "site_header": "Shiva Zen",
-    "site_brand": "Shiva Zen Admin",
-    "login_logo": None,
-    "site_logo": None,
-    "login_logo_dark": None,
-    "site_logo_classes": "img-circle",
-    "site_icon": None,
-    "welcome_sign": "Bem-vindo à Administração da Shiva Zen",
-    "copyright": "Shiva Zen © 2024",
-    "search_model": ["app_shivazen.Cliente", "app_shivazen.Profissional", "app_shivazen.Atendimento"],
-
-    # Links no topo
-    "topmenu_links": [
-        {"name": "Dashboard", "url": "shivazen:adminDashboard", "icon": "fas fa-tachometer-alt"},
-        {"name": "Voltar ao Site",  "url": "shivazen:inicio", "new_window": True, "icon": "fas fa-home"},
-    ],
-
-    "navigation": [
-        {"name": "PRINCIPAL", "icon": "fas fa-tachometer-alt"},
-        {"name": "Dashboard", "url": "shivazen:adminDashboard", "icon": "fas fa-chart-line"},
-        {"name": "Agenda", "icon": "fas fa-calendar-alt", "models": [
-            {"model": "app_shivazen.atendimento", "label": "Ver Agendamentos", "icon": "fas fa-calendar-check"},
-            {"model": "app_shivazen.disponibilidadeprofissional", "label": "Disponibilidades", "icon": "fas fa-clock"},
-            {"model": "app_shivazen.bloqueioagenda", "label": "Bloqueios de Agenda", "icon": "fas fa-calendar-times"},
-        ]},
-        {"name": "Cadastros", "icon": "fas fa-edit", "models": [
-            {"model": "app_shivazen.cliente", "label": "Clientes", "icon": "fas fa-address-book"},
-            {"model": "app_shivazen.profissional", "label": "Profissionais", "icon": "fas fa-user-md"},
-            {"model": "app_shivazen.procedimento", "label": "Procedimentos", "icon": "fas fa-spa"},
-            {"model": "app_shivazen.preco", "label": "Tabela de Preços", "icon": "fas fa-dollar-sign"},
-        ]},
-        {"name": "Configurações", "icon": "fas fa-cogs", "models": [
-            {"name": "Perguntas do Prontuário", "model": "app_shivazen.prontuariopergunta", "icon": "fas fa-question-circle"},
-            {"label": "Administração do Site", "icon": "fas fa-tools", "models": [
-                {"name": "Usuários (Sistema)", "model": "app_shivazen.usuario", "icon": "fas fa-user-shield"},
-                {"name": "Perfis de Acesso", "model": "app_shivazen.perfil", "icon": "fas fa-id-card"},
-                {"name": "Funcionalidades", "model": "app_shivazen.funcionalidade", "icon": "fas fa-key"},
-                {"name": "Logs de Auditoria", "model": "app_shivazen.logauditoria", "icon": "fas fa-history"},
-            ]},
-        ]},
-    ],
-   
-    "icons": {
-        "auth": "fas fa-users-cog",
-        "auth.user": "fas fa-user",
-        "auth.Group": "fas fa-users",
-        "app_shivazen.Usuario": "fas fa-user-shield",
-        "app_shivazen.Perfil": "fas fa-id-card",
-        "app_shivazen.Funcionalidade": "fas fa-key",
-        "app_shivazen.Cliente": "fas fa-address-book",
-        "app_shivazen.Profissional": "fas fa-user-md",
-        "app_shivazen.Procedimento": "fas fa-spa",
-        "app_shivazen.Preco": "fas fa-dollar-sign",
-        "app_shivazen.Atendimento": "fas fa-calendar-check",
-        "app_shivazen.DisponibilidadeProfissional": "fas fa-clock",
-        "app_shivazen.BloqueioAgenda": "fas fa-calendar-times",
-        "app_shivazen.Prontuario": "fas fa-file-medical",
-        "app_shivazen.ProntuarioPergunta": "fas fa-question-circle",
-        "app_shivazen.ProntuarioResposta": "fas fa-check-circle",
-        "app_shivazen.TermoConsentimento": "fas fa-file-signature",
-        "app_shivazen.Notificacao": "fas fa-bell",
-        "app_shivazen.LogAuditoria": "fas fa-history",
-    },
-    
-    "default_icon_parents": "fas fa-chevron-circle-right",
-    "default_icon_children": "fas fa-circle",
-    
-    "related_modal_active": True,
-    "custom_css": None,
-    "custom_js": None,
-    "use_google_fonts_cdn": True,
-    "show_ui_builder": False,
-    "changeform_format": "horizontal_tabs",
-    "changeform_format_overrides": {
-        "app_shivazen.usuario": "collapsible",
-        "app_shivazen.atendimento": "collapsible",
-    },
-    "show_sidebar": True,
-    "navigation_expanded": True,
-    "hide_apps": [],
-    "hide_models": [],
-    "order_with_respect_to": ["app_shivazen"],
-}
-
-JAZZMIN_UI_TWEAKS = {
-    "theme": "lux",
-    "dark_theme": "darkly",
-    "brand_colour": "#E48A2A",
-    "accent": "accent-primary",
-    "navbar": "navbar-dark",
-    "navbar_fixed": True,
-    "sidebar_fixed": True,
-    "sidebar": "sidebar-dark-primary",
-    "sidebar_nav_child_indent": True,
-    "sidebar_nav_compact_style": False,
-    "sidebar_nav_legacy_style": False,
-    "sidebar_nav_flat_style": False,
-    "actions_sticky_top": True,
-    "theme_switcher": True,
-    "navbar_small_text": False,
-    "footer_small_text": False,
-    "body_small_text": False,
-    "brand_small_text": False,
-    "button_classes": {
-        "primary": "btn-primary",
-        "secondary": "btn-secondary",
-        "info": "btn-info",
-        "danger": "btn-danger",
-        "success": "btn-success"
-    }
-}
-
 # --- Configurações do Celery e Redis ---
 # URL do Redis para filas do Celery
 CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
@@ -351,19 +242,30 @@ CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 
-# --- Configurações de Cache (Redis) ---
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": os.environ.get('REDIS_URL', CELERY_BROKER_URL),
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+# --- Configurações de Cache e Sessão ---
+# Em produção (com Redis), usar cache Redis para sessões.
+# Em desenvolvimento local, usar sessões baseadas no banco de dados.
+REDIS_URL = os.environ.get('REDIS_URL', '')
+
+if REDIS_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": REDIS_URL,
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            }
         }
     }
-}
-# Sessões vão usar o cache para ficarem mais rápidas
-SESSION_ENGINE = "django.contrib.sessions.backends.cache"
-SESSION_CACHE_ALIAS = "default"
+    SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+    SESSION_CACHE_ALIAS = "default"
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        }
+    }
+    SESSION_ENGINE = "django.contrib.sessions.backends.db"
 
 CELERY_TIMEZONE = TIME_ZONE
 
@@ -372,10 +274,14 @@ from celery.schedules import crontab
 CELERY_BEAT_SCHEDULE = {
     'lembretes-diarios-08h': {
         'task': 'app_shivazen.tasks.job_enviar_lembrete_dia_seguinte',
-        'schedule': crontab(hour=8, minute=0), # Roda todo dia as 08:00
+        'schedule': crontab(hour=8, minute=0),  # Roda todo dia as 08:00
+    },
+    'lembrete-2h-antes': {
+        'task': 'app_shivazen.tasks.job_enviar_lembrete_2h',
+        'schedule': crontab(minute='*/30'),  # A cada 30 min verifica agendamentos proximos
     },
     'envio-pesquisa-nps-diaria': {
         'task': 'app_shivazen.tasks.job_pesquisa_satisfacao_24h',
-        'schedule': crontab(hour=10, minute=0), # Roda todo dia as 10:00
+        'schedule': crontab(hour=10, minute=0),  # Roda todo dia as 10:00
     },
 }

@@ -1,8 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Sum
-from django.db.models.functions import ExtractWeekDay
+from django.db.models import Count, Sum, Q
 from django.http import JsonResponse
 from datetime import datetime, timedelta
 from django.utils import timezone
@@ -23,7 +22,44 @@ logger = logging.getLogger(__name__)
 
 @staff_required
 def prontuarioconsentimento(request):
-    return render(request, 'telas/ProntuarioConsentimento.html')
+    """Prontuario e consentimento — lista clientes com status do prontuario."""
+    from ..models import Prontuario, ProntuarioPergunta, ProntuarioResposta, TermoConsentimento
+    search = request.GET.get('search', '')
+
+    clientes = Cliente.objects.all().order_by('nome_completo')
+    if search:
+        clientes = clientes.filter(
+            Q(nome_completo__icontains=search) |
+            Q(cpf__icontains=search) |
+            Q(telefone__icontains=search)
+        )
+
+    # Enriquecer clientes com info do prontuario
+    clientes_list = []
+    for c in clientes[:50]:
+        prontuario = Prontuario.objects.filter(cliente=c).first()
+        total_respostas = ProntuarioResposta.objects.filter(
+            atendimento__cliente=c
+        ).count() if prontuario else 0
+        total_termos = TermoConsentimento.objects.filter(
+            atendimento__cliente=c
+        ).count()
+        clientes_list.append({
+            'cliente': c,
+            'tem_prontuario': prontuario is not None,
+            'total_respostas': total_respostas,
+            'total_termos': total_termos,
+        })
+
+    perguntas = ProntuarioPergunta.objects.filter(ativa=True)
+
+    context = {
+        'clientes_list': clientes_list,
+        'perguntas': perguntas,
+        'total_perguntas': perguntas.count(),
+        'search': search,
+    }
+    return render(request, 'painel/painel_prontuario.html', context)
 
 
 @staff_required
@@ -192,206 +228,45 @@ def profissionalEditar(request, pk=None):
     return render(request, 'telas/tela_editar_profissional.html', context)
 
 
+# ═══════════════════════════════════════
+#   LEGACY ADMIN VIEWS — Redirect to new Painel
+# ═══════════════════════════════════════
+
 @staff_required
 def adminDashboard(request):
-    """Dashboard administrativo com estatísticas e informações gerais"""
-    hoje = datetime.now().date()
-
-    total_clientes = Cliente.objects.filter(ativo=True).count()
-    total_profissionais = Profissional.objects.filter(ativo=True).count()
-    total_procedimentos = Procedimento.objects.filter(ativo=True).count()
-
-    agendamentos_hoje = Atendimento.objects.filter(
-        data_hora_inicio__date=hoje
-    ).count()
-
-    agendamentos_mes = Atendimento.objects.filter(
-        data_hora_inicio__month=hoje.month,
-        data_hora_inicio__year=hoje.year
-    ).count()
-
-    agendamentos_pendentes = Atendimento.objects.filter(
-        status_atendimento='AGENDADO'
-    ).count()
-
-    agendamentos_confirmados = Atendimento.objects.filter(
-        status_atendimento='CONFIRMADO'
-    ).count()
-
-    agendamentos_recentes = Atendimento.objects.select_related(
-        'cliente', 'profissional', 'procedimento'
-    ).order_by('-data_hora_inicio')[:10]
-
-    agendamentos_por_status = Atendimento.objects.values('status_atendimento').annotate(
-        total=Count('id_atendimento')
-    ).order_by('-total')
-
-    proximos_7_dias = hoje + timedelta(days=7)
-    agendamentos_proximos = Atendimento.objects.filter(
-        data_hora_inicio__date__gte=hoje,
-        data_hora_inicio__date__lte=proximos_7_dias
-    ).select_related('cliente', 'profissional', 'procedimento').order_by('data_hora_inicio')[:10]
-
-    receita_mes = Atendimento.objects.filter(
-        data_hora_inicio__month=hoje.month,
-        data_hora_inicio__year=hoje.year,
-        valor_cobrado__isnull=False
-    ).aggregate(total=Sum('valor_cobrado'))['total'] or 0
-
-    profissionais_ocupados = Profissional.objects.annotate(
-        total_agendamentos=Count('atendimento')
-    ).filter(ativo=True).order_by('-total_agendamentos')[:5]
-
-    procedimentos_populares = Procedimento.objects.annotate(
-        total_agendamentos=Count('atendimento')
-    ).filter(ativo=True).order_by('-total_agendamentos')[:5]
-
-    # Gráfico de agendamentos por dia da semana (últimos 30 dias)
-    agendamentos_semana = Atendimento.objects.filter(
-        data_hora_inicio__gte=hoje - timedelta(days=30)
-    ).annotate(
-        dia_semana=ExtractWeekDay('data_hora_inicio')
-    ).values('dia_semana').annotate(
-        total=Count('id_atendimento')
-    ).order_by('dia_semana')
-
-    dias_semana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
-    dados_grafico_semana = [0] * 7
-    for item in agendamentos_semana:
-        idx = (item['dia_semana'] - 1) % 7
-        dados_grafico_semana[idx] = item['total']
-
-    context = {
-        'total_clientes': total_clientes,
-        'total_profissionais': total_profissionais,
-        'total_procedimentos': total_procedimentos,
-        'agendamentos_hoje': agendamentos_hoje,
-        'agendamentos_mes': agendamentos_mes,
-        'agendamentos_pendentes': agendamentos_pendentes,
-        'agendamentos_confirmados': agendamentos_confirmados,
-        'agendamentos_recentes': agendamentos_recentes,
-        'agendamentos_proximos': agendamentos_proximos,
-        'agendamentos_por_status': agendamentos_por_status,
-        'receita_mes': float(receita_mes),
-        'profissionais_ocupados': profissionais_ocupados,
-        'procedimentos_populares': procedimentos_populares,
-        'dados_grafico_semana': json.dumps(dados_grafico_semana),
-        'dias_semana': json.dumps(dias_semana),
-    }
-
-    return render(request, 'admin/dashboard.html', context)
+    """Legacy: redireciona para o novo painel."""
+    return redirect('shivazen:painel_overview')
 
 
 @staff_required
 def adminAgendamentos(request):
-    """Lista todos os agendamentos para administradores"""
-    status_filter = request.GET.get('status', '')
-    data_filter = request.GET.get('data', '')
-
-    agendamentos = Atendimento.objects.select_related(
-        'cliente', 'profissional', 'procedimento'
-    ).order_by('-data_hora_inicio')
-
-    if status_filter:
-        agendamentos = agendamentos.filter(status_atendimento=status_filter)
-
-    if data_filter:
-        try:
-            data = datetime.strptime(data_filter, '%Y-%m-%d').date()
-            agendamentos = agendamentos.filter(data_hora_inicio__date=data)
-        except ValueError:
-            pass
-
-    context = {
-        'agendamentos': agendamentos[:50],
-        'status_filter': status_filter,
-        'data_filter': data_filter,
-    }
-
-    return render(request, 'admin/agendamentos.html', context)
+    """Legacy: redireciona para o novo painel de agendamentos."""
+    return redirect('shivazen:painel_agendamentos')
 
 
 @staff_required
 def adminProcedimentos(request):
-    """Gestão de procedimentos e preços"""
-    procedimentos = Procedimento.objects.prefetch_related('preco_set').filter(ativo=True)
-    profissionais = Profissional.objects.filter(ativo=True)
-
-    context = {
-        'procedimentos': procedimentos,
-        'profissionais': profissionais,
-    }
-
-    return render(request, 'admin/procedimentos.html', context)
+    """Legacy: redireciona para o novo painel."""
+    return redirect('shivazen:painel_overview')
 
 
 @staff_required
 def adminBloqueios(request):
-    """Lista bloqueios de agenda"""
-    bloqueios = BloqueioAgenda.objects.select_related('profissional').order_by('-data_hora_inicio')
-    hoje = timezone.now()
-    bloqueios_ativos = bloqueios.filter(data_hora_fim__gte=hoje)
-
-    context = {
-        'bloqueios': bloqueios_ativos[:30],
-    }
-
-    return render(request, 'admin/bloqueios.html', context)
+    """Legacy: redireciona para o novo painel de agendamentos."""
+    return redirect('shivazen:painel_agendamentos')
 
 
 @staff_required
 def criarBloqueio(request):
-    """Cria um novo bloqueio de agenda"""
-    if request.method == 'POST':
-        try:
-            profissional_id = request.POST.get('profissional')
-            data_hora_inicio_str = request.POST.get('data_hora_inicio')
-            data_hora_fim_str = request.POST.get('data_hora_fim')
-            motivo = request.POST.get('motivo', '')
-
-            data_hora_inicio = datetime.fromisoformat(data_hora_inicio_str.replace('T', ' '))
-            data_hora_fim = datetime.fromisoformat(data_hora_fim_str.replace('T', ' '))
-
-            if data_hora_fim <= data_hora_inicio:
-                messages.error(request, 'A data/hora de fim deve ser posterior à de início.')
-                return redirect('shivazen:criarBloqueio')
-
-            profissional = None
-            if profissional_id:
-                profissional = Profissional.objects.get(pk=profissional_id)
-
-            BloqueioAgenda.objects.create(
-                profissional=profissional,
-                data_hora_inicio=data_hora_inicio,
-                data_hora_fim=data_hora_fim,
-                motivo=motivo
-            )
-
-            messages.success(request, 'Bloqueio criado com sucesso!')
-            return redirect('shivazen:adminBloqueios')
-
-        except Exception as e:
-            logger.error(f'Erro ao criar bloqueio: {e}', exc_info=True)
-            messages.error(request, 'Erro ao criar bloqueio. Verifique os dados e tente novamente.')
-
-    profissionais = Profissional.objects.filter(ativo=True)
-    context = {'profissionais': profissionais}
-    return render(request, 'admin/criar_bloqueio.html', context)
+    """Legacy: redireciona para o novo painel de agendamentos."""
+    return redirect('shivazen:painel_agendamentos')
 
 
 @staff_required
 def excluirBloqueio(request, bloqueio_id):
-    """Exclui um bloqueio de agenda"""
-    if request.method == 'POST':
-        try:
-            bloqueio = BloqueioAgenda.objects.get(pk=bloqueio_id)
-            bloqueio.delete()
-            messages.success(request, 'Bloqueio excluído com sucesso!')
-        except BloqueioAgenda.DoesNotExist:
-            messages.error(request, 'Bloqueio não encontrado.')
-        except Exception as e:
-            messages.error(request, f'Erro ao excluir bloqueio: {e}')
-    return redirect('shivazen:adminBloqueios')
+    """Legacy: redireciona para o novo painel de agendamentos."""
+    return redirect('shivazen:painel_agendamentos')
+
 
 
 # ═══════════════════════════════════════

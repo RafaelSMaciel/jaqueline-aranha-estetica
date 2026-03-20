@@ -3,6 +3,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from django.db.models import Q, Sum, F, Count
+from django.db.models.functions import TruncDate
 from datetime import datetime, timedelta
 import json
 
@@ -58,16 +59,19 @@ def painel_overview(request):
         status_atendimento__in=['AGENDADO', 'CONFIRMADO']
     ).select_related('cliente', 'profissional', 'procedimento').order_by('data_hora_inicio')[:10]
 
-    # --- Dados para os Gráficos ---
+    # --- Dados para os Gráficos (1 query instead of 7) ---
     dias_semana_list = [(inicio_semana + timedelta(days=i)).strftime('%d/%m') for i in range(7)]
-    dados_grafico_list = []
-    for i in range(7):
-        dia_atual = inicio_semana + timedelta(days=i)
-        count = Atendimento.objects.filter(
-            data_hora_inicio__date=dia_atual,
+    agendamentos_por_dia = dict(
+        Atendimento.objects.filter(
+            data_hora_inicio__date__range=[inicio_semana, fim_semana],
             status_atendimento__in=['AGENDADO', 'CONFIRMADO', 'REALIZADO']
-        ).count()
-        dados_grafico_list.append(count)
+        ).annotate(
+            dia=TruncDate('data_hora_inicio')
+        ).values('dia').annotate(total=Count('pk')).values_list('dia', 'total')
+    )
+    dados_grafico_list = [
+        agendamentos_por_dia.get((inicio_semana + timedelta(days=i)), 0) for i in range(7)
+    ]
 
     dias_semana = json.dumps(dias_semana_list)
     dados_grafico_semana = json.dumps(dados_grafico_list)
@@ -151,15 +155,17 @@ def painel_clientes(request):
 @staff_required
 def painel_profissionais(request):
     """Gerenciamento de profissionais"""
-    profissionais = Profissional.objects.all().order_by('nome')
-
-    for prof in profissionais:
-        prof.total_agendamentos = Atendimento.objects.filter(profissional=prof).count()
-        prof.agendamentos_mes = Atendimento.objects.filter(
-            profissional=prof,
-            data_hora_inicio__month=timezone.now().month,
-            data_hora_inicio__year=timezone.now().year
-        ).count()
+    agora = timezone.now()
+    profissionais = Profissional.objects.all().annotate(
+        total_agendamentos=Count('atendimento'),
+        agendamentos_mes=Count(
+            'atendimento',
+            filter=Q(
+                atendimento__data_hora_inicio__month=agora.month,
+                atendimento__data_hora_inicio__year=agora.year
+            )
+        )
+    ).order_by('nome')
 
     context = {'profissionais': profissionais}
     return render(request, 'painel/painel_profissionais.html', context)

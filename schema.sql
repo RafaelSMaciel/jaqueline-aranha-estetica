@@ -299,6 +299,201 @@ BEGIN
 END;
 $$;
 
+-- =====================================================================
+-- CONTROLE DE ESTOQUE
+-- =====================================================================
+
+CREATE TABLE shivazen_app.categoria_produto (
+    id_categoria SERIAL PRIMARY KEY,
+    nome VARCHAR(100) UNIQUE NOT NULL,
+    descricao TEXT,
+    ativo BOOLEAN DEFAULT TRUE
+);
+
+CREATE TABLE shivazen_app.produto (
+    id_produto SERIAL PRIMARY KEY,
+    id_categoria INTEGER REFERENCES shivazen_app.categoria_produto(id_categoria) ON DELETE SET NULL,
+    nome VARCHAR(150) NOT NULL,
+    descricao TEXT,
+    marca VARCHAR(100),
+    codigo_barras VARCHAR(50) UNIQUE,
+    preco_custo DECIMAL(10, 2) NOT NULL DEFAULT 0,
+    preco_venda DECIMAL(10, 2) NOT NULL DEFAULT 0,
+    quantidade_estoque INTEGER NOT NULL DEFAULT 0,
+    estoque_minimo INTEGER NOT NULL DEFAULT 5,
+    unidade VARCHAR(20) NOT NULL DEFAULT 'UN',
+    ativo BOOLEAN DEFAULT TRUE,
+    data_cadastro TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE shivazen_app.movimentacao_estoque (
+    id_movimentacao SERIAL PRIMARY KEY,
+    id_produto INTEGER NOT NULL REFERENCES shivazen_app.produto(id_produto) ON DELETE CASCADE,
+    tipo VARCHAR(20) NOT NULL,
+    quantidade INTEGER NOT NULL,
+    quantidade_anterior INTEGER NOT NULL DEFAULT 0,
+    quantidade_posterior INTEGER NOT NULL DEFAULT 0,
+    motivo TEXT,
+    id_usuario INTEGER REFERENCES shivazen_app.usuario(id_usuario) ON DELETE SET NULL,
+    data_movimentacao TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE shivazen_app.configuracao_sistema (
+    id_config SERIAL PRIMARY KEY,
+    chave VARCHAR(100) UNIQUE NOT NULL,
+    valor TEXT,
+    descricao VARCHAR(255)
+);
+
+-- Indices de estoque
+CREATE INDEX idx_produto_categoria ON shivazen_app.produto(id_categoria);
+CREATE INDEX idx_produto_codigo_barras ON shivazen_app.produto(codigo_barras);
+CREATE INDEX idx_movimentacao_produto ON shivazen_app.movimentacao_estoque(id_produto);
+CREATE INDEX idx_movimentacao_data ON shivazen_app.movimentacao_estoque(data_movimentacao);
+
+-- Configurações iniciais
+INSERT INTO shivazen_app.configuracao_sistema (chave, valor, descricao) VALUES
+('WHATSAPP_NUMERO', '5517000000000', 'Número do WhatsApp da clínica'),
+('NOME_CLINICA', 'Shiva Zen', 'Nome da clínica'),
+('HORARIO_FUNCIONAMENTO', 'Seg-Sex: 9h-18h | Sáb: 9h-14h', 'Horário de funcionamento'),
+('ENDERECO', 'Rua Example, 123 - Centro, Cidade/SP', 'Endereço da clínica'),
+('EMAIL_CONTATO', 'contato@shivazen.com', 'Email de contato'),
+('INSTAGRAM', '@shivazen', 'Instagram da clínica');
+
+-- Promoção tables
+CREATE TABLE IF NOT EXISTS shivazen_app.promocao (
+    id_promocao SERIAL PRIMARY KEY,
+    nome VARCHAR(150) NOT NULL,
+    descricao TEXT,
+    id_procedimento INTEGER REFERENCES shivazen_app.procedimento(id_procedimento) ON DELETE CASCADE,
+    desconto_percentual DECIMAL(5, 2) DEFAULT 0,
+    preco_promocional DECIMAL(10, 2),
+    data_inicio DATE NOT NULL,
+    data_fim DATE NOT NULL,
+    ativa BOOLEAN DEFAULT TRUE,
+    imagem_url VARCHAR(500)
+);
+
+CREATE TABLE IF NOT EXISTS shivazen_app.codigo_verificacao (
+    id SERIAL PRIMARY KEY,
+    telefone VARCHAR(20) NOT NULL,
+    codigo VARCHAR(6) NOT NULL,
+    criado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    usado BOOLEAN DEFAULT FALSE
+);
+
+-- Expansion tables
+CREATE TABLE IF NOT EXISTS shivazen_app.pacote (
+    id_pacote SERIAL PRIMARY KEY,
+    nome VARCHAR(150) NOT NULL,
+    descricao TEXT,
+    preco_total DECIMAL(10, 2) NOT NULL,
+    ativo BOOLEAN DEFAULT TRUE
+);
+
+CREATE TABLE IF NOT EXISTS shivazen_app.item_pacote (
+    id_item_pacote SERIAL PRIMARY KEY,
+    id_pacote INTEGER NOT NULL REFERENCES shivazen_app.pacote(id_pacote) ON DELETE CASCADE,
+    id_procedimento INTEGER NOT NULL REFERENCES shivazen_app.procedimento(id_procedimento) ON DELETE CASCADE,
+    quantidade_sessoes INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS shivazen_app.pacote_cliente (
+    id_pacote_cliente SERIAL PRIMARY KEY,
+    id_cliente INTEGER NOT NULL REFERENCES shivazen_app.cliente(id_cliente) ON DELETE CASCADE,
+    id_pacote INTEGER NOT NULL REFERENCES shivazen_app.pacote(id_pacote) ON DELETE RESTRICT,
+    data_compra TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    valor_pago DECIMAL(10, 2) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'ATIVO'
+);
+
+CREATE TABLE IF NOT EXISTS shivazen_app.sessao_pacote (
+    id_sessao_pacote SERIAL PRIMARY KEY,
+    id_pacote_cliente INTEGER NOT NULL REFERENCES shivazen_app.pacote_cliente(id_pacote_cliente) ON DELETE CASCADE,
+    id_atendimento INTEGER NOT NULL UNIQUE REFERENCES shivazen_app.atendimento(id_atendimento) ON DELETE RESTRICT,
+    data_debito TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS shivazen_app.lista_espera (
+    id_lista_espera SERIAL PRIMARY KEY,
+    id_cliente INTEGER NOT NULL REFERENCES shivazen_app.cliente(id_cliente) ON DELETE CASCADE,
+    id_procedimento INTEGER NOT NULL REFERENCES shivazen_app.procedimento(id_procedimento) ON DELETE CASCADE,
+    id_profissional INTEGER REFERENCES shivazen_app.profissional(id_profissional) ON DELETE CASCADE,
+    data_desejada DATE NOT NULL,
+    turno_desejado VARCHAR(20),
+    notificado BOOLEAN DEFAULT FALSE,
+    data_registro TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS shivazen_app.avaliacao_nps (
+    id_avaliacao SERIAL PRIMARY KEY,
+    id_atendimento INTEGER NOT NULL UNIQUE REFERENCES shivazen_app.atendimento(id_atendimento) ON DELETE CASCADE,
+    nota INTEGER NOT NULL CHECK (nota >= 1 AND nota <= 5),
+    comentario TEXT,
+    data_avaliacao TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS shivazen_app.meta_profissional (
+    id_meta SERIAL PRIMARY KEY,
+    id_profissional INTEGER NOT NULL REFERENCES shivazen_app.profissional(id_profissional) ON DELETE CASCADE,
+    mes INTEGER NOT NULL,
+    ano INTEGER NOT NULL,
+    valor_meta DECIMAL(10, 2) NOT NULL,
+    UNIQUE(id_profissional, mes, ano)
+);
+
+CREATE TABLE IF NOT EXISTS shivazen_app.token_google_agenda (
+    id_token SERIAL PRIMARY KEY,
+    id_profissional INTEGER NOT NULL UNIQUE REFERENCES shivazen_app.profissional(id_profissional) ON DELETE CASCADE,
+    access_token VARCHAR(255) NOT NULL,
+    refresh_token VARCHAR(255) NOT NULL,
+    token_uri VARCHAR(255) NOT NULL,
+    client_id VARCHAR(255) NOT NULL,
+    client_secret VARCHAR(255) NOT NULL,
+    scopes TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS shivazen_app.venda (
+    id_venda SERIAL PRIMARY KEY,
+    id_cliente INTEGER NOT NULL REFERENCES shivazen_app.cliente(id_cliente) ON DELETE RESTRICT,
+    id_procedimento INTEGER NOT NULL REFERENCES shivazen_app.procedimento(id_procedimento) ON DELETE RESTRICT,
+    id_profissional INTEGER REFERENCES shivazen_app.profissional(id_profissional) ON DELETE SET NULL,
+    data DATE NOT NULL,
+    sessoes INTEGER NOT NULL DEFAULT 1,
+    valor DECIMAL(10, 2) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDENTE',
+    observacoes TEXT,
+    data_criacao TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS shivazen_app.orcamento (
+    id_orcamento SERIAL PRIMARY KEY,
+    nome_completo VARCHAR(150) NOT NULL,
+    data_nascimento DATE,
+    profissao VARCHAR(100),
+    endereco_cep VARCHAR(200),
+    email VARCHAR(100),
+    rg VARCHAR(20),
+    cpf VARCHAR(14),
+    telefone VARCHAR(20),
+    id_procedimento INTEGER NOT NULL REFERENCES shivazen_app.procedimento(id_procedimento) ON DELETE RESTRICT,
+    sessoes INTEGER NOT NULL DEFAULT 1,
+    valor DECIMAL(10, 2) NOT NULL,
+    data DATE NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDENTE',
+    observacoes TEXT,
+    tratamento_estetico_anterior TEXT,
+    doenca_pele TEXT,
+    tratamento_cancer TEXT,
+    melasma_pintas TEXT,
+    uso_acido TEXT,
+    medicacao_continua TEXT,
+    gravida_amamentando TEXT,
+    alergia TEXT,
+    implante_marcapasso TEXT,
+    data_criacao TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE ROLE shiva_zen_app_role WITH LOGIN PASSWORD 'shivazen@fam@2026';
 GRANT USAGE ON SCHEMA shivazen_app TO shiva_zen_app_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA shivazen_app TO shiva_zen_app_role;

@@ -1,127 +1,97 @@
-{% extends 'estrutura/base.html' %}
-{% load static %}
+{% extends 'painel/admin_base.html' %}
 
-{% block conteudo %}
-<link rel="stylesheet" href="{% static 'css/painel.css' %}">
+{% block page_title %}Profissionais{% endblock %}
+{% block page_subtitle %}Gerencie a equipe da clínica{% endblock %}
 
-<div class="admin-layout">
-    <!-- Sidebar -->
-    <aside class="admin-sidebar">
-        <div class="sidebar-header">
-            <a href="{% url 'shivazen:inicio' %}">
-                <img src="{% static 'assents/LogoSemFundo.png' %}" alt="Shiva Zen" class="sidebar-logo">
-            </a>
-        </div>
+{% block admin_css %}
+.prof-grid { display: grid; grid-template-columns: 1fr; gap: 0.75rem; }
+@media(min-width:769px) { .prof-grid { grid-template-columns: repeat(2, 1fr); } }
+@media(min-width:1200px) { .prof-grid { grid-template-columns: repeat(3, 1fr); } }
+.prof-card {
+    background: white; border-radius: 16px; padding: 1.25rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06); position: relative;
+    overflow: hidden; transition: transform 0.2s;
+}
+.prof-card:hover { transform: translateY(-2px); }
+.prof-card-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
+.prof-avatar {
+    width: 52px; height: 52px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 1.1rem; flex-shrink: 0;
+    background: linear-gradient(135deg, #C9A84C, #e8c94f); color: white;
+}
+.prof-name { font-weight: 700; font-size: 1rem; }
+.prof-spec { font-size: 0.75rem; color: #999; }
+.prof-status {
+    position: absolute; top: 1rem; right: 1rem;
+    width: 10px; height: 10px; border-radius: 50%;
+}
+.prof-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin-bottom: 1rem; }
+.prof-stat {
+    text-align: center; padding: 0.75rem; border-radius: 12px;
+    background: #f8f7f5;
+}
+.prof-stat-value { font-weight: 800; font-size: 1.2rem; line-height: 1; }
+.prof-stat-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; color: #999; letter-spacing: 0.5px; }
+.prof-actions { display: flex; gap: 0.5rem; }
+.prof-actions a {
+    flex: 1; text-align: center; padding: 0.5rem; border-radius: 10px;
+    font-size: 0.75rem; font-weight: 700; text-decoration: none;
+    transition: all 0.2s;
+}
+{% endblock %}
 
-        <nav class="sidebar-nav">
-            <div class="nav-section">
-                <div class="nav-section-title">Menu Principal</div>
-                <a href="{% url 'shivazen:painel' %}" class="nav-item">
-                    <i class="fas fa-chart-line"></i>
-                    <span>Dashboard</span>
-                </a>
-                <a href="{% url 'shivazen:painel_agendamentos' %}" class="nav-item">
-                    <i class="fas fa-calendar-alt"></i>
-                    <span>Agendamentos</span>
-                </a>
-                <a href="{% url 'shivazen:painel_clientes' %}" class="nav-item">
-                    <i class="fas fa-users"></i>
-                    <span>Clientes</span>
-                </a>
-                <a href="{% url 'shivazen:painel_profissionais' %}" class="nav-item active">
-                    <i class="fas fa-user-md"></i>
-                    <span>Profissionais</span>
-                </a>
-            </div>
-
-            <div class="nav-section">
-                <div class="nav-section-title">Configurações</div>
-                <a href="{% url 'shivazen:perfil' %}" class="nav-item">
-                    <i class="fas fa-user-circle"></i>
-                    <span>Meu Perfil</span>
-                </a>
-                <a href="{% url 'shivazen:usuarioLogout' %}" class="nav-item">
-                    <i class="fas fa-sign-out-alt"></i>
-                    <span>Sair</span>
-                </a>
-            </div>
-        </nav>
-    </aside>
-
-    <!-- Main Content -->
-    <main class="admin-main">
-        <div class="admin-header">
-            <h1 class="admin-title">Gerenciar Profissionais</h1>
-            <p class="admin-subtitle">Visualize e gerencie todos os profissionais</p>
-        </div>
-
-        <!-- Profissionais Grid -->
-        <div class="row g-4 mb-4">
-            {% for prof in profissionais %}
-            <div class="col-md-6 col-lg-4">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <div class="d-flex align-items-center mb-3">
-                            <div class="bg-primary rounded-circle text-white d-flex align-items-center justify-content-center me-3"
-                                style="width: 60px; height: 60px; font-size: 1.5rem; font-weight: bold;">
-                                {{ prof.nome|slice:":1" }}
-                            </div>
-                            <div class="flex-grow-1">
-                                <h4 class="mb-1">{{ prof.nome }}</h4>
-                                <p class="text-muted mb-0 small">{{ prof.especialidade|default:"Profissional" }}</p>
-                            </div>
-                            {% if prof.ativo %}
-                            <span class="badge badge-success">Ativo</span>
-                            {% else %}
-                            <span class="badge badge-secondary">Inativo</span>
-                            {% endif %}
-                        </div>
-
-                        <hr>
-
-                        <div class="row text-center">
-                            <div class="col-6">
-                                <div class="text-muted small">Total Agendamentos</div>
-                                <div class="fs-4 fw-bold text-primary">{{ prof.total_agendamentos|default:0 }}</div>
-                            </div>
-                            <div class="col-6">
-                                <div class="text-muted small">Este Mês</div>
-                                <div class="fs-4 fw-bold text-success">{{ prof.agendamentos_mes|default:0 }}</div>
-                            </div>
-                        </div>
-
-                        <div class="mt-3 d-flex gap-2">
-                            <button class="btn btn-outline-primary btn-sm flex-grow-1">
-                                <i class="fas fa-edit"></i> Editar
-                            </button>
-                            <button class="btn btn-outline-secondary btn-sm flex-grow-1">
-                                <i class="fas fa-calendar"></i> Agenda
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% empty %}
-            <div class="col-12">
-                <div class="empty-state">
-                    <div class="empty-state-icon"><i class="fas fa-user-md"></i></div>
-                    <h3 class="empty-state-title">Nenhum profissional cadastrado</h3>
-                    <p class="empty-state-text">Cadastre profissionais para começar a agendar procedimentos.</p>
-                    <a href="{% url 'shivazen:profissionalCadastro' %}" class="btn btn-primary">
-                        <i class="fas fa-user-plus"></i> Cadastrar Profissional
-                    </a>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-
-        {% if profissionais %}
-        <div class="text-center">
-            <a href="{% url 'shivazen:profissionalCadastro' %}" class="btn btn-primary">
-                <i class="fas fa-user-plus"></i> Cadastrar Novo Profissional
-            </a>
-        </div>
-        {% endif %}
-    </main>
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="small text-muted fw-bold"><i class="fas fa-user-md me-1"></i>{{ profissionais|length }} profissional(is)</div>
+    <a href="{% url 'shivazen:profissionalCadastro' %}" class="btn btn-sm" style="background:#1a1a2e;color:white;border-radius:10px;font-weight:700;">
+        <i class="fas fa-plus me-1"></i>Novo Profissional
+    </a>
 </div>
+
+<div class="prof-grid">
+    {% for prof in profissionais %}
+    <div class="prof-card">
+        <div class="prof-status" style="background:{% if prof.ativo %}#4caf50{% else %}#ccc{% endif %};"></div>
+        <div class="prof-card-header">
+            <div class="prof-avatar">{{ prof.nome|make_list|first }}</div>
+            <div>
+                <div class="prof-name">{{ prof.nome }}</div>
+                <div class="prof-spec">{{ prof.especialidade|default:"Profissional" }}</div>
+            </div>
+        </div>
+        <div class="prof-stats">
+            <div class="prof-stat">
+                <div class="prof-stat-value" style="color:#1565c0;">{{ prof.total_agendamentos|default:0 }}</div>
+                <div class="prof-stat-label">Total</div>
+            </div>
+            <div class="prof-stat">
+                <div class="prof-stat-value" style="color:#2e7d32;">{{ prof.agendamentos_mes|default:0 }}</div>
+                <div class="prof-stat-label">Este Mês</div>
+            </div>
+        </div>
+        <div class="prof-actions">
+            <a href="{% url 'shivazen:profissionalEditar' prof.pk %}" style="background:#e3f2fd;color:#1565c0;">
+                <i class="fas fa-pen me-1"></i>Editar
+            </a>
+            <a href="{% url 'shivazen:painel_agendamentos' %}?profissional={{ prof.pk }}" style="background:#e8f5e9;color:#2e7d32;">
+                <i class="fas fa-calendar me-1"></i>Agenda
+            </a>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12 text-center py-5">
+        <i class="fas fa-user-md fa-3x" style="color:#ddd;"></i>
+        <p class="text-muted mt-3">Nenhum profissional cadastrado</p>
+        <a href="{% url 'shivazen:profissionalCadastro' %}" class="btn btn-sm" style="background:#C9A84C;color:white;border-radius:10px;font-weight:700;">
+            <i class="fas fa-plus me-1"></i>Cadastrar Profissional
+        </a>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- FAB -->
+<a href="{% url 'shivazen:profissionalCadastro' %}" class="admin-fab" title="Novo Profissional">
+    <i class="fas fa-plus"></i>
+</a>
 {% endblock %}
