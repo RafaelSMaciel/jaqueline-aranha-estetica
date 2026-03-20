@@ -29,7 +29,7 @@
                             {% endfor %}
                             {% endif %}
 
-                            <form id="cadastro-form" method="POST" action="{% url 'shivazen:usuarioCadastro' %}">
+                            <form id="cadastro-form" method="POST" action="{% url 'shivazen:inicio' %}">
                                 {% csrf_token %}
                                 <div class="row g-3">
                                     <div class="col-md-6 mb-3">

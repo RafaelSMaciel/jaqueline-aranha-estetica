@@ -10,7 +10,8 @@ from app_shivazen.models import (
     Profissional, Procedimento, ProfissionalProcedimento,
     DisponibilidadeProfissional, Cliente, Atendimento,
     Promocao, Preco, Pacote, ItemPacote, ProntuarioPergunta,
-    Venda, Orcamento
+    Venda, Orcamento, CategoriaProduto, Produto, MovimentacaoEstoque,
+    ConfiguracaoSistema, Perfil, Usuario
 )
 
 
@@ -433,6 +434,121 @@ def seed():
 
     print(f"  Orçamentos: {orcamentos_criados} criados")
 
+    # ──────────────────────────────────────────
+    # 13. CATEGORIAS DE PRODUTOS
+    # ──────────────────────────────────────────
+    categorias_data = [
+        {'nome': 'Dermocosméticos', 'descricao': 'Produtos de cuidado com a pele profissionais'},
+        {'nome': 'Injetáveis', 'descricao': 'Produtos injetáveis para procedimentos estéticos'},
+        {'nome': 'Equipamentos', 'descricao': 'Equipamentos e acessórios para procedimentos'},
+        {'nome': 'Consumíveis', 'descricao': 'Materiais de consumo para procedimentos'},
+        {'nome': 'Higiene e Limpeza', 'descricao': 'Produtos de higienização e limpeza'},
+    ]
+
+    categorias = []
+    for cd in categorias_data:
+        cat, _ = CategoriaProduto.objects.get_or_create(
+            nome=cd['nome'],
+            defaults={'descricao': cd['descricao'], 'ativo': True}
+        )
+        categorias.append(cat)
+
+    print(f"  Categorias: {len(categorias)} criadas/existentes")
+
+    # ──────────────────────────────────────────
+    # 14. PRODUTOS (Estoque)
+    # ──────────────────────────────────────────
+    produtos_data = [
+        # Dermocosméticos
+        {'nome': 'Sérum Vitamina C 30ml', 'categoria': categorias[0], 'marca': 'Adcos', 'preco_custo': Decimal('45.00'), 'preco_venda': Decimal('89.90'), 'quantidade_estoque': 25, 'estoque_minimo': 5, 'unidade': 'UN'},
+        {'nome': 'Protetor Solar FPS 70', 'categoria': categorias[0], 'marca': 'La Roche-Posay', 'preco_custo': Decimal('38.00'), 'preco_venda': Decimal('79.90'), 'quantidade_estoque': 30, 'estoque_minimo': 10, 'unidade': 'UN'},
+        {'nome': 'Ácido Hialurônico Tópico', 'categoria': categorias[0], 'marca': 'SkinCeuticals', 'preco_custo': Decimal('120.00'), 'preco_venda': Decimal('249.90'), 'quantidade_estoque': 15, 'estoque_minimo': 3, 'unidade': 'UN'},
+        {'nome': 'Hidratante Facial Noturno', 'categoria': categorias[0], 'marca': 'Vichy', 'preco_custo': Decimal('55.00'), 'preco_venda': Decimal('119.90'), 'quantidade_estoque': 20, 'estoque_minimo': 5, 'unidade': 'UN'},
+        {'nome': 'Água Micelar 400ml', 'categoria': categorias[0], 'marca': 'Bioderma', 'preco_custo': Decimal('42.00'), 'preco_venda': Decimal('89.90'), 'quantidade_estoque': 18, 'estoque_minimo': 5, 'unidade': 'UN'},
+        # Injetáveis
+        {'nome': 'Ácido Hialurônico 1ml', 'categoria': categorias[1], 'marca': 'Juvederm', 'preco_custo': Decimal('350.00'), 'preco_venda': Decimal('750.00'), 'quantidade_estoque': 10, 'estoque_minimo': 3, 'unidade': 'UN'},
+        {'nome': 'Toxina Botulínica 100U', 'categoria': categorias[1], 'marca': 'Botox Allergan', 'preco_custo': Decimal('450.00'), 'preco_venda': Decimal('900.00'), 'quantidade_estoque': 8, 'estoque_minimo': 2, 'unidade': 'UN'},
+        {'nome': 'Bioestimulador PLLA', 'categoria': categorias[1], 'marca': 'Sculptra', 'preco_custo': Decimal('600.00'), 'preco_venda': Decimal('1200.00'), 'quantidade_estoque': 5, 'estoque_minimo': 2, 'unidade': 'UN'},
+        {'nome': 'Skinbooster 1ml', 'categoria': categorias[1], 'marca': 'Restylane', 'preco_custo': Decimal('280.00'), 'preco_venda': Decimal('600.00'), 'quantidade_estoque': 12, 'estoque_minimo': 3, 'unidade': 'UN'},
+        # Equipamentos
+        {'nome': 'Ponteira Criolipólise P', 'categoria': categorias[2], 'marca': 'HTM', 'preco_custo': Decimal('200.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 4, 'estoque_minimo': 2, 'unidade': 'UN'},
+        {'nome': 'Agulha Microagulhamento 36P', 'categoria': categorias[2], 'marca': 'Dr. Pen', 'preco_custo': Decimal('15.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 50, 'estoque_minimo': 20, 'unidade': 'UN'},
+        # Consumíveis
+        {'nome': 'Luvas Nitrílicas (cx 100)', 'categoria': categorias[3], 'marca': 'Supermax', 'preco_custo': Decimal('28.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 15, 'estoque_minimo': 5, 'unidade': 'CX'},
+        {'nome': 'Gaze Estéril (pct 500)', 'categoria': categorias[3], 'marca': 'Cremer', 'preco_custo': Decimal('22.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 10, 'estoque_minimo': 3, 'unidade': 'PCT'},
+        {'nome': 'Máscara Descartável (cx 50)', 'categoria': categorias[3], 'marca': 'Medix', 'preco_custo': Decimal('12.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 20, 'estoque_minimo': 5, 'unidade': 'CX'},
+        {'nome': 'Papel Lençol (rolo)', 'categoria': categorias[3], 'marca': 'Kolplast', 'preco_custo': Decimal('18.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 12, 'estoque_minimo': 4, 'unidade': 'RL'},
+        # Higiene
+        {'nome': 'Álcool 70% (1L)', 'categoria': categorias[4], 'marca': 'Start', 'preco_custo': Decimal('8.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 25, 'estoque_minimo': 10, 'unidade': 'UN'},
+        {'nome': 'Sabonete Antisséptico (500ml)', 'categoria': categorias[4], 'marca': 'Riocare', 'preco_custo': Decimal('15.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 8, 'estoque_minimo': 3, 'unidade': 'UN'},
+        {'nome': 'Clorexidina Alcoólica (100ml)', 'categoria': categorias[4], 'marca': 'Vic Pharma', 'preco_custo': Decimal('12.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 15, 'estoque_minimo': 5, 'unidade': 'UN'},
+    ]
+
+    produtos = []
+    for pd in produtos_data:
+        produto, _ = Produto.objects.get_or_create(
+            nome=pd['nome'],
+            defaults={
+                'categoria': pd['categoria'],
+                'marca': pd['marca'],
+                'preco_custo': pd['preco_custo'],
+                'preco_venda': pd['preco_venda'],
+                'quantidade_estoque': pd['quantidade_estoque'],
+                'estoque_minimo': pd['estoque_minimo'],
+                'unidade': pd['unidade'],
+                'ativo': True,
+            }
+        )
+        produtos.append(produto)
+
+    print(f"  Produtos: {len(produtos)} criados/existentes")
+
+    # ──────────────────────────────────────────
+    # 15. CONFIGURAÇÕES DO SISTEMA
+    # ──────────────────────────────────────────
+    configs_data = [
+        {'chave': 'WHATSAPP_NUMERO', 'valor': '5517000000000', 'descricao': 'Número do WhatsApp da clínica'},
+        {'chave': 'NOME_CLINICA', 'valor': 'Shiva Zen', 'descricao': 'Nome da clínica'},
+        {'chave': 'HORARIO_FUNCIONAMENTO', 'valor': 'Seg-Sex: 9h-18h | Sáb: 9h-14h', 'descricao': 'Horário de funcionamento'},
+        {'chave': 'ENDERECO', 'valor': 'Rua Example, 123 - Centro, Cidade/SP', 'descricao': 'Endereço da clínica'},
+        {'chave': 'EMAIL_CONTATO', 'valor': 'contato@shivazen.com', 'descricao': 'Email de contato'},
+        {'chave': 'INSTAGRAM', 'valor': '@shivazen', 'descricao': 'Instagram da clínica'},
+        {'chave': 'WHATSAPP_BOT_ATIVO', 'valor': 'false', 'descricao': 'Ativar bot do WhatsApp'},
+    ]
+
+    for cfg in configs_data:
+        ConfiguracaoSistema.objects.get_or_create(
+            chave=cfg['chave'],
+            defaults={'valor': cfg['valor'], 'descricao': cfg['descricao']}
+        )
+
+    print(f"  Configurações: {len(configs_data)} criadas/existentes")
+
+    # ──────────────────────────────────────────
+    # 16. ADMIN USER (para acesso ao painel)
+    # ──────────────────────────────────────────
+    try:
+        perfil_admin, _ = Perfil.objects.get_or_create(
+            nome='Administrador',
+            defaults={'descricao': 'Acesso total a todas as funcionalidades do sistema.'}
+        )
+        admin_user, created = Usuario.objects.get_or_create(
+            email='admin@shivazen.com',
+            defaults={
+                'nome': 'Administrador',
+                'perfil': perfil_admin,
+                'ativo': True,
+            }
+        )
+        if created:
+            admin_user.set_password('admin123')
+            admin_user.save()
+            print("  Admin: Criado (admin@shivazen.com / admin123)")
+        else:
+            print("  Admin: Já existente")
+    except Exception as e:
+        print(f"  Admin: Erro ao criar ({e})")
+
     print("\nSeed concluído com sucesso!")
     print("=" * 50)
     print(f"  Profissionais:  {Profissional.objects.filter(ativo=True).count()}")
@@ -443,6 +559,8 @@ def seed():
     print(f"  Pacotes:        {Pacote.objects.filter(ativo=True).count()}")
     print(f"  Vendas:         {Venda.objects.count()}")
     print(f"  Orçamentos:     {Orcamento.objects.count()}")
+    print(f"  Produtos:       {Produto.objects.filter(ativo=True).count()}")
+    print(f"  Categorias:     {CategoriaProduto.objects.filter(ativo=True).count()}")
     print("=" * 50)
 
 
