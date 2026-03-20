@@ -39,8 +39,11 @@ SECRET_KEY = os.environ.get(
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 # Em produção, defina ALLOWED_HOSTS=seu-dominio.com,www.seu-dominio.com
-# O 'default' listado é voltado para testes locais apenas.
+# Railway define RAILWAY_PUBLIC_DOMAIN automaticamente
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
+RAILWAY_DOMAIN = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '')
+if RAILWAY_DOMAIN:
+    ALLOWED_HOSTS.append(RAILWAY_DOMAIN)
 
 
 # Application definition
@@ -86,30 +89,36 @@ TEMPLATES = [
 WSGI_APPLICATION = 'shivazen.wsgi.application'
 
 
-# --- Banco de Dados com Variáveis de Ambiente ---
-DB_ENGINE = os.environ.get('DB_ENGINE', 'django.db.backends.sqlite3')
+# --- Banco de Dados ---
+# Railway fornece DATABASE_URL automaticamente ao adicionar PostgreSQL
+import dj_database_url
 
-if DB_ENGINE == 'django.db.backends.sqlite3':
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+if DATABASE_URL:
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
+        'default': dj_database_url.config(default=DATABASE_URL, conn_max_age=600)
     }
 else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.environ.get('DB_NAME', 'shivazen_prod'),
-            'USER': os.environ.get('DB_USER', 'postgres'),
-            'PASSWORD': os.environ.get('DB_PASSWORD', ''), 
-            'HOST': os.environ.get('DB_HOST', 'localhost'),
-            'PORT': os.environ.get('DB_PORT', '5432'),
-            'OPTIONS': {
-                'options': '-c search_path=shivazen_prod,shivazen_app'
+    DB_ENGINE = os.environ.get('DB_ENGINE', 'django.db.backends.sqlite3')
+    if DB_ENGINE == 'django.db.backends.sqlite3':
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': BASE_DIR / 'db.sqlite3',
             }
         }
-    }
+    else:
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': os.environ.get('DB_NAME', 'shivazen_prod'),
+                'USER': os.environ.get('DB_USER', 'postgres'),
+                'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+                'HOST': os.environ.get('DB_HOST', 'localhost'),
+                'PORT': os.environ.get('DB_PORT', '5432'),
+            }
+        }
 
 
 # Password validation
@@ -182,6 +191,8 @@ DATA_UPLOAD_MAX_NUMBER_FIELDS = 200
 CSRF_TRUSTED_ORIGINS = os.environ.get(
     'CSRF_TRUSTED_ORIGINS', 'http://127.0.0.1:8000,http://localhost:8000'
 ).split(',')
+if RAILWAY_DOMAIN:
+    CSRF_TRUSTED_ORIGINS.append(f'https://{RAILWAY_DOMAIN}')
 
 # Em produção (HTTPS), ative a variável USE_HTTPS=True
 USE_HTTPS = os.environ.get('USE_HTTPS', 'False') == 'True'
