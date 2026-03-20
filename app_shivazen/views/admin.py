@@ -1,3 +1,4 @@
+import os
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -435,14 +436,16 @@ def admin_atualizar_status(request):
 
 
 def setup_seed(request):
-    """Roda o seed via URL protegida por token.
-    Uso: /setup-seed/?token=DJANGO_SECRET_KEY
+    """Roda o seed via URL protegida por token simples.
+    Uso: /setup-seed/?token=shivazen-seed-2026
     """
     from django.conf import settings as django_settings
     import importlib, io, contextlib
 
     token = request.GET.get('token', '')
-    if not token or token != django_settings.SECRET_KEY:
+    # Token fixo simples para evitar problemas com caracteres especiais na URL
+    SEED_TOKEN = os.environ.get('SEED_TOKEN', 'shivazen-seed-2026')
+    if not token or token != SEED_TOKEN:
         return HttpResponse('Acesso negado.', status=403)
 
     # Roda o seed capturando output
