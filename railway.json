@@ -6,7 +6,6 @@
   "deploy": {
     "numReplicas": 1,
     "startCommand": "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn shivazen.wsgi --bind 0.0.0.0:$PORT",
-    "healthcheckPath": "/",
     "restartPolicyType": "ON_FAILURE"
   }
 }
