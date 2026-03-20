@@ -48,9 +48,7 @@ def painel_overview(request):
     receita_total = Atendimento.objects.filter(
         data_hora_inicio__gte=inicio_mes,
         status_atendimento='REALIZADO'
-    ).annotate(
-        valor=F('procedimento__preco__valor')
-    ).aggregate(total=Sum('valor'))['total'] or 0
+    ).aggregate(total=Sum('valor_cobrado'))['total'] or 0
 
     receita_mensal = f"{receita_total:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
 

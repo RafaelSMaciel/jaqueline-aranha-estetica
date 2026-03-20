@@ -1,7 +1,7 @@
 # app_shivazen/models.py
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from django.contrib.auth.signals import user_logged_in
 from django.contrib.auth.models import update_last_login
 
@@ -560,6 +560,8 @@ class Produto(models.Model):
     quantidade_estoque = models.IntegerField(default=0)
     estoque_minimo = models.IntegerField(default=5)
     unidade = models.CharField(max_length=20, default='UN')  # UN, ML, G, KG
+    data_validade = models.DateField(blank=True, null=True)
+    lote = models.CharField(max_length=50, blank=True, null=True)
     ativo = models.BooleanField(default=True)
     data_cadastro = models.DateTimeField(auto_now_add=True)
 
@@ -584,6 +586,23 @@ class Produto(models.Model):
         if self.preco_custo and self.preco_custo > 0:
             return ((self.preco_venda - self.preco_custo) / self.preco_custo) * 100
         return 0
+
+    @property
+    def vencido(self):
+        if self.data_validade:
+            return self.data_validade < date.today()
+        return False
+
+    @property
+    def proximo_vencer(self):
+        if self.data_validade:
+            hoje = date.today()
+            return hoje <= self.data_validade <= hoje + timedelta(days=30)
+        return False
+
+    @property
+    def precisa_comprar(self):
+        return self.estoque_baixo
 
 
 class MovimentacaoEstoque(models.Model):

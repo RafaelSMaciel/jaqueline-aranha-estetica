@@ -4,6 +4,7 @@ from django.http import JsonResponse
 from django.db.models import Q, Sum, F
 from django.utils import timezone
 from django.core.paginator import Paginator
+from datetime import date, timedelta
 import json
 import logging
 
@@ -20,6 +21,7 @@ def painel_estoque(request):
     search = request.GET.get('search', '')
     categoria_filter = request.GET.get('categoria', '')
     estoque_filter = request.GET.get('estoque', '')  # baixo, normal, all
+    vencimento_filter = request.GET.get('vencimento', '')  # vencido, proximo, all
 
     produtos = Produto.objects.select_related('categoria').filter(ativo=True)
 
@@ -34,6 +36,14 @@ def painel_estoque(request):
     if estoque_filter == 'baixo':
         produtos = produtos.filter(quantidade_estoque__lte=F('estoque_minimo'))
 
+    hoje = date.today()
+    limite_vencimento = hoje + timedelta(days=30)
+
+    if vencimento_filter == 'vencido':
+        produtos = produtos.filter(data_validade__lt=hoje)
+    elif vencimento_filter == 'proximo':
+        produtos = produtos.filter(data_validade__gte=hoje, data_validade__lte=limite_vencimento)
+
     # Estatísticas
     total_produtos = Produto.objects.filter(ativo=True).count()
     produtos_estoque_baixo = Produto.objects.filter(
@@ -43,6 +53,20 @@ def painel_estoque(request):
         total=Sum(F('quantidade_estoque') * F('preco_custo'))
     )['total'] or 0
     total_categorias = CategoriaProduto.objects.filter(ativo=True).count()
+
+    # Novas estatísticas de vencimento e compra
+    produtos_vencidos = Produto.objects.filter(
+        ativo=True, data_validade__lt=hoje
+    ).count()
+    produtos_proximo_vencer = Produto.objects.filter(
+        ativo=True, data_validade__gte=hoje, data_validade__lte=limite_vencimento
+    ).count()
+    produtos_comprar = produtos_estoque_baixo  # mesma lógica: estoque baixo = precisa comprar
+
+    # Lista de produtos que precisam ser comprados (para alerta)
+    lista_comprar = Produto.objects.select_related('categoria').filter(
+        ativo=True, quantidade_estoque__lte=F('estoque_minimo')
+    ).order_by('quantidade_estoque')[:10]
 
     categorias = CategoriaProduto.objects.filter(ativo=True).order_by('nome')
 
@@ -58,9 +82,14 @@ def painel_estoque(request):
         'produtos_estoque_baixo': produtos_estoque_baixo,
         'valor_total_estoque': valor_total_estoque,
         'total_categorias': total_categorias,
+        'produtos_vencidos': produtos_vencidos,
+        'produtos_proximo_vencer': produtos_proximo_vencer,
+        'produtos_comprar': produtos_comprar,
+        'lista_comprar': lista_comprar,
         'search': search,
         'categoria_filter': categoria_filter,
         'estoque_filter': estoque_filter,
+        'vencimento_filter': vencimento_filter,
     }
     return render(request, 'painel/painel_estoque.html', context)
 
@@ -75,6 +104,11 @@ def criar_produto(request):
             if cat_id:
                 categoria = get_object_or_404(CategoriaProduto, pk=cat_id)
 
+            data_validade_str = request.POST.get('data_validade', '').strip()
+            data_validade = None
+            if data_validade_str:
+                data_validade = data_validade_str
+
             produto = Produto.objects.create(
                 nome=request.POST.get('nome', '').strip(),
                 descricao=request.POST.get('descricao', '').strip(),
@@ -86,6 +120,8 @@ def criar_produto(request):
                 quantidade_estoque=int(request.POST.get('quantidade_estoque', 0)),
                 estoque_minimo=int(request.POST.get('estoque_minimo', 5)),
                 unidade=request.POST.get('unidade', 'UN'),
+                data_validade=data_validade,
+                lote=request.POST.get('lote', '').strip() or None,
                 ativo=True,
             )
             registrar_log(request.user, f'Criou produto: {produto.nome}', 'produto', produto.pk)
@@ -114,6 +150,11 @@ def editar_produto(request, pk):
             produto.preco_venda = request.POST.get('preco_venda', produto.preco_venda)
             produto.estoque_minimo = int(request.POST.get('estoque_minimo', produto.estoque_minimo))
             produto.unidade = request.POST.get('unidade', produto.unidade)
+
+            data_validade_str = request.POST.get('data_validade', '').strip()
+            produto.data_validade = data_validade_str if data_validade_str else None
+            produto.lote = request.POST.get('lote', '').strip() or None
+
             produto.ativo = request.POST.get('ativo') != '0'
             produto.save()
 

@@ -5,67 +5,307 @@
 
 {% block css %}
 <style>
+    /* ═══ BASE ═══ */
     .verify-section { background: #F5F3EE; }
+
+    /* ═══ STEP 1: VERIFY CARD ═══ */
     .verify-card {
-        max-width: 480px; margin: 0 auto;
-        background: white; border-radius: 24px;
-        box-shadow: 0 16px 60px rgba(0,0,0,0.1);
+        max-width: 500px; margin: 0 auto;
+        background: white; border-radius: 28px;
+        box-shadow: 0 20px 70px rgba(0,0,0,0.08);
         overflow: hidden;
     }
     .verify-header {
         background: linear-gradient(135deg, #2c2015 0%, #6D4C41 100%);
-        padding: 2.5rem 2rem; color: white; text-align: center;
+        padding: 3rem 2rem 2.5rem; color: white; text-align: center;
+        position: relative; overflow: hidden;
     }
-    .verify-body { padding: 2rem; }
+    .verify-header::before {
+        content: ''; position: absolute; inset: 0;
+        background: radial-gradient(circle at 30% 80%, rgba(201,168,76,0.15) 0%, transparent 60%),
+                    radial-gradient(circle at 70% 20%, rgba(201,168,76,0.1) 0%, transparent 50%);
+    }
+    .verify-header > * { position: relative; z-index: 1; }
+    .verify-icon-wrap {
+        width: 88px; height: 88px; margin: 0 auto 1.25rem;
+        background: rgba(201,168,76,0.15); border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        border: 2px solid rgba(201,168,76,0.3);
+    }
+    .verify-body { padding: 2rem 2rem 2.5rem; }
+
+    .phone-input-wrap {
+        position: relative;
+    }
+    .phone-input-wrap .form-control {
+        padding-left: 3.2rem; font-weight: 600; font-size: 1.1rem;
+        background: #FAFAF8; border: 2px solid #E8E4DD; border-radius: 16px;
+        height: 56px; color: #4A3425; transition: all 0.25s;
+    }
+    .phone-input-wrap .form-control:focus {
+        border-color: #C9A84C; background: white;
+        box-shadow: 0 0 0 4px rgba(201,168,76,0.12);
+    }
+    .phone-input-wrap .phone-icon {
+        position: absolute; left: 1rem; top: 50%; transform: translateY(-50%);
+        color: #C9A84C; font-size: 1.2rem;
+    }
+
+    .helper-steps {
+        display: flex; gap: 0.75rem; margin-top: 1.5rem;
+    }
+    .helper-step {
+        flex: 1; display: flex; align-items: flex-start; gap: 0.5rem;
+        padding: 0.75rem; border-radius: 12px; background: #FAF9F6;
+    }
+    .helper-step-icon {
+        width: 28px; height: 28px; min-width: 28px; border-radius: 50%;
+        background: rgba(201,168,76,0.12); display: flex;
+        align-items: center; justify-content: center;
+        color: #C9A84C; font-size: 0.7rem; font-weight: 700;
+    }
+    .helper-step-text {
+        font-size: 0.72rem; color: #8A7F72; line-height: 1.35;
+    }
+
+    /* ═══ CODE INPUT ═══ */
+    .code-section-inner {
+        background: #FAF9F6; border-radius: 20px; padding: 1.5rem;
+        border: 1px solid #EDE9E2; margin-top: 1.5rem;
+    }
     .code-inputs {
-        display: flex; gap: 0.5rem; justify-content: center; margin: 1.5rem 0;
+        display: flex; gap: 0.6rem; justify-content: center; margin: 1.25rem 0 1.5rem;
     }
     .code-input {
-        width: 48px; height: 56px; border: 2px solid #E8E4DD;
-        border-radius: 12px; text-align: center; font-size: 1.4rem;
-        font-weight: 700; color: #4A3425; background: #FAFAFA;
-        transition: border-color 0.2s;
+        width: 52px; height: 62px; border: 2px solid #E0DBD3;
+        border-radius: 14px; text-align: center; font-size: 1.5rem;
+        font-weight: 700; color: #4A3425; background: white;
+        transition: all 0.2s; font-family: 'Lato', monospace;
     }
     .code-input:focus {
         outline: none; border-color: #C9A84C;
-        box-shadow: 0 0 0 4px rgba(201,168,76,0.12); background: white;
+        box-shadow: 0 0 0 4px rgba(201,168,76,0.15);
+        transform: scale(1.05);
     }
+    .code-input.filled {
+        border-color: #C9A84C; background: rgba(201,168,76,0.04);
+    }
+
+    /* ═══ SUMMARY CARD ═══ */
+    .summary-row {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 1rem; margin-bottom: 2rem;
+    }
+    .summary-card {
+        background: white; border-radius: 20px; padding: 1.25rem 1rem;
+        text-align: center; border: 1.5px solid #F0EDE8;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.03);
+        transition: all 0.25s;
+    }
+    .summary-card:hover { border-color: rgba(201,168,76,0.3); transform: translateY(-2px); }
+    .summary-icon {
+        width: 44px; height: 44px; border-radius: 50%; margin: 0 auto 0.6rem;
+        display: flex; align-items: center; justify-content: center; font-size: 1.1rem;
+    }
+    .summary-number {
+        font-family: 'Playfair Display', serif; font-size: 1.5rem; font-weight: 700;
+        color: #4A3425; line-height: 1;
+    }
+    .summary-label { font-size: 0.72rem; color: #8A7F72; margin-top: 0.2rem; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+
+    /* ═══ SECTION DIVIDER ═══ */
+    .section-divider {
+        display: flex; align-items: center; gap: 1rem; margin: 2rem 0 1.25rem;
+    }
+    .section-divider-line { flex: 1; height: 1px; background: linear-gradient(90deg, #E0DBD3, transparent); }
+    .section-divider-line.right { background: linear-gradient(270deg, #E0DBD3, transparent); }
+    .section-divider-label {
+        display: inline-flex; align-items: center; gap: 0.5rem;
+        padding: 0.4rem 1rem; border-radius: 50px;
+        font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    /* ═══ APPOINTMENT CARD ═══ */
     .agend-card {
-        background: white; border: 1.5px solid #F0EDE8; border-radius: 16px;
-        padding: 1.25rem; margin-bottom: 1rem; transition: all 0.25s;
+        background: white; border: 1.5px solid #F0EDE8; border-radius: 20px;
+        margin-bottom: 1rem; transition: all 0.25s; overflow: hidden;
     }
     .agend-card:hover {
         border-color: rgba(201,168,76,0.3);
-        box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+        box-shadow: 0 12px 32px rgba(0,0,0,0.06);
         transform: translateY(-2px);
     }
+    .agend-card-body {
+        display: flex; gap: 1rem; padding: 1.25rem;
+        align-items: flex-start;
+    }
+    .agend-date-block {
+        min-width: 64px; text-align: center;
+        background: linear-gradient(135deg, #FAF7F0, #F5F1E8);
+        border-radius: 14px; padding: 0.6rem 0.75rem;
+        border: 1px solid #EDE9E2;
+    }
+    .agend-date-day {
+        font-family: 'Playfair Display', serif; font-size: 1.6rem;
+        font-weight: 700; color: #4A3425; line-height: 1;
+    }
+    .agend-date-month {
+        font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 1px; color: #C9A84C;
+    }
+    .agend-date-weekday {
+        font-size: 0.6rem; color: #8A7F72; text-transform: uppercase;
+        letter-spacing: 0.5px; margin-top: 0.15rem;
+    }
+    .agend-info { flex: 1; min-width: 0; }
+    .agend-procedure {
+        font-family: 'Playfair Display', serif; font-weight: 700;
+        font-size: 1.05rem; color: #4A3425; margin-bottom: 0.25rem;
+    }
+    .agend-meta {
+        display: flex; flex-wrap: wrap; gap: 0.5rem 1rem;
+        font-size: 0.82rem; color: #8A7F72;
+    }
+    .agend-meta i { color: #C9A84C; margin-right: 0.2rem; }
+
+    .agend-card-footer {
+        display: flex; justify-content: space-between; align-items: center;
+        flex-wrap: wrap; gap: 0.5rem;
+        padding: 0.75rem 1.25rem; background: #FDFCFA;
+        border-top: 1px solid #F0EDE8;
+    }
+
+    /* ═══ STATUS BADGE ═══ */
     .status-badge {
-        display: inline-block; padding: 0.25rem 0.75rem; border-radius: 50px;
-        font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+        display: inline-flex; align-items: center; gap: 0.35rem;
+        padding: 0.3rem 0.85rem; border-radius: 50px;
+        font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
         letter-spacing: 0.5px;
     }
+    .status-badge .dot {
+        width: 6px; height: 6px; border-radius: 50%;
+    }
     .status-agendado { background: #E3F2FD; color: #1565C0; }
+    .status-agendado .dot { background: #1565C0; }
     .status-confirmado { background: #E8F5E9; color: #2E7D32; }
+    .status-confirmado .dot { background: #2E7D32; }
     .status-realizado { background: #F3E5F5; color: #7B1FA2; }
+    .status-realizado .dot { background: #7B1FA2; }
     .status-cancelado { background: #FFEBEE; color: #C62828; }
+    .status-cancelado .dot { background: #C62828; }
     .status-faltou { background: #FFF3E0; color: #E65100; }
+    .status-faltou .dot { background: #E65100; }
+
+    /* ═══ BUTTONS ═══ */
     .btn-gold {
-        background: #C9A84C; color: white; border: none;
+        background: linear-gradient(135deg, #C9A84C, #B89430); color: white; border: none;
         transition: all 0.25s; box-shadow: 0 6px 20px rgba(201,168,76,0.35);
     }
     .btn-gold:hover {
-        background: #b8940f; color: white; transform: translateY(-2px);
+        background: linear-gradient(135deg, #B89430, #A68520); color: white;
+        transform: translateY(-2px);
         box-shadow: 0 10px 28px rgba(201,168,76,0.45);
     }
     .btn-earth {
-        background: #4A3425; color: white; border: none;
+        background: linear-gradient(135deg, #4A3425, #5D4037); color: white; border: none;
         transition: all 0.25s;
     }
-    .btn-earth:hover { background: #3a2a1d; color: white; transform: translateY(-2px); }
+    .btn-earth:hover { background: linear-gradient(135deg, #3a2a1d, #4A3425); color: white; transform: translateY(-2px); }
+
+    .btn-cancel-agend {
+        background: transparent; border: 1.5px solid #FFCDD2; color: #C62828;
+        font-size: 0.75rem; font-weight: 600; border-radius: 50px;
+        padding: 0.3rem 0.85rem; transition: all 0.25s;
+    }
+    .btn-cancel-agend:hover {
+        background: #FFEBEE; border-color: #EF9A9A; color: #B71C1C;
+    }
+
+    /* ═══ REFRESH ═══ */
+    .btn-refresh {
+        width: 40px; height: 40px; border-radius: 50%;
+        border: 1.5px solid #E0DBD3; background: white;
+        display: inline-flex; align-items: center; justify-content: center;
+        color: #8A7F72; transition: all 0.25s; cursor: pointer;
+    }
+    .btn-refresh:hover { border-color: #C9A84C; color: #C9A84C; transform: rotate(90deg); }
+
+    /* ═══ EMPTY STATE ═══ */
     .empty-state {
         text-align: center; padding: 4rem 2rem;
-        background: white; border-radius: 24px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.06);
+        background: white; border-radius: 28px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.04);
+        border: 1.5px solid #F0EDE8;
+    }
+    .empty-illustration {
+        width: 120px; height: 120px; margin: 0 auto 1.5rem;
+        background: linear-gradient(135deg, rgba(201,168,76,0.08), rgba(201,168,76,0.15));
+        border-radius: 50%; display: flex; align-items: center; justify-content: center;
+        position: relative;
+    }
+    .empty-illustration::after {
+        content: ''; position: absolute; inset: -8px;
+        border: 2px dashed rgba(201,168,76,0.2); border-radius: 50%;
+    }
+
+    /* ═══ HISTORY CARD (dimmed) ═══ */
+    .agend-card.history { opacity: 0.72; }
+    .agend-card.history:hover { opacity: 0.9; }
+    .agend-card.history .agend-date-block {
+        background: linear-gradient(135deg, #F5F4F2, #EEEDE9);
+    }
+
+    /* ═══ CANCEL MODAL ═══ */
+    .cancel-modal-overlay {
+        position: fixed; inset: 0; z-index: 9999;
+        background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+        display: none; align-items: center; justify-content: center;
+        padding: 1rem;
+    }
+    .cancel-modal-overlay.active { display: flex; }
+    .cancel-modal-box {
+        background: white; border-radius: 24px; padding: 2rem;
+        max-width: 400px; width: 100%; text-align: center;
+        box-shadow: 0 24px 80px rgba(0,0,0,0.15);
+        animation: modalIn 0.3s ease;
+    }
+    @keyframes modalIn {
+        from { transform: scale(0.9) translateY(20px); opacity: 0; }
+        to { transform: scale(1) translateY(0); opacity: 1; }
+    }
+
+    /* ═══ WHATSAPP CTA ═══ */
+    .wpp-cta-section {
+        background: linear-gradient(135deg, #F5F3EE 0%, #EDE8DF 100%);
+        padding: 3rem 0;
+    }
+    .wpp-cta-card {
+        background: white; border-radius: 20px; padding: 2rem;
+        text-align: center; max-width: 480px; margin: 0 auto;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.04);
+        border: 1.5px solid #F0EDE8;
+    }
+    .wpp-cta-icon {
+        width: 56px; height: 56px; border-radius: 50%;
+        background: rgba(37,211,102,0.1); display: inline-flex;
+        align-items: center; justify-content: center; margin-bottom: 1rem;
+    }
+
+    /* ═══ RESPONSIVE ═══ */
+    @media (max-width: 575.98px) {
+        .verify-body { padding: 1.5rem; }
+        .code-input { width: 44px; height: 54px; font-size: 1.3rem; }
+        .code-inputs { gap: 0.4rem; }
+        .helper-steps { flex-direction: column; }
+        .agend-card-body { flex-direction: column; gap: 0.75rem; }
+        .agend-date-block {
+            display: flex; align-items: center; gap: 0.5rem;
+            min-width: unset; padding: 0.5rem 0.75rem;
+        }
+        .agend-date-day { font-size: 1.2rem; }
+        .summary-row { grid-template-columns: repeat(2, 1fr); }
+        .agend-card-footer { flex-direction: column; align-items: stretch; }
     }
 </style>
 {% endblock %}
@@ -93,141 +333,296 @@
     <div class="container">
 
         {% if step == '1' %}
-        <!-- ═══ STEP 1: Informar Celular ═══ -->
+        <!-- ═══════════════════════════════════════════ -->
+        <!-- ═══ STEP 1: Informar Celular + Codigo ═══ -->
+        <!-- ═══════════════════════════════════════════ -->
         <div class="verify-card" data-aos="fade-up" data-aos-delay="100">
             <div class="verify-header">
-                <div class="mb-3" style="width:64px;height:64px;background:rgba(201,168,76,0.2);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;">
-                    <i class="bi bi-phone" style="color:#C9A84C;font-size:1.5rem;"></i>
+                <div class="verify-icon-wrap">
+                    <i class="bi bi-shield-lock" style="color:#C9A84C;font-size:2rem;"></i>
                 </div>
-                <h3 class="fw-bold mb-1" style="font-family:'Playfair Display',serif;">Verificacao por Celular</h3>
-                <p class="opacity-75 mb-0 small">Informe seu celular para acessar seus agendamentos</p>
+                <h3 class="fw-bold mb-2" style="font-family:'Playfair Display',serif;font-size:1.5rem;">Acesse seus Agendamentos</h3>
+                <p class="mb-0 small" style="opacity:0.8;max-width:320px;margin:0 auto;">
+                    Verificamos seu celular para garantir a seguranca dos seus dados.
+                </p>
             </div>
             <div class="verify-body">
+                <!-- Phone input -->
                 <div class="mb-3">
-                    <label class="form-label text-muted fw-bold small text-uppercase" style="letter-spacing:1px;">
-                        <i class="bi bi-whatsapp me-1" style="color:#25D366;"></i>Celular (WhatsApp)
+                    <label class="form-label fw-bold small text-uppercase mb-2" style="letter-spacing:1px;color:#8A7F72;font-size:0.72rem;">
+                        Celular com WhatsApp
                     </label>
-                    <input type="tel" id="tel-input" class="form-control form-control-lg border-0 rounded-4"
-                           placeholder="(00) 00000-0000" style="background:#FAFAFA;font-weight:500;">
+                    <div class="phone-input-wrap">
+                        <i class="bi bi-whatsapp phone-icon" style="color:#25D366;"></i>
+                        <input type="tel" id="tel-input" class="form-control"
+                               placeholder="(00) 00000-0000" autocomplete="tel">
+                    </div>
                 </div>
 
                 <button id="btn-enviar-codigo" class="btn btn-gold w-100 rounded-pill py-3 fw-bold text-uppercase"
-                    style="letter-spacing:1px;">
-                    <i class="bi bi-send me-2"></i>Enviar Codigo
+                    style="letter-spacing:1px;font-size:0.88rem;">
+                    <i class="bi bi-send-fill me-2"></i>Enviar Codigo de Verificacao
                 </button>
 
-                <div id="error-msg" class="alert alert-danger mt-3 border-0 shadow-sm rounded-3" style="display:none;"></div>
+                <div id="error-msg" class="alert alert-danger mt-3 border-0 shadow-sm rounded-3 d-flex align-items-center gap-2" style="display:none !important;" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <span id="error-msg-text"></span>
+                </div>
+
+                <!-- Helper steps -->
+                <div class="helper-steps" data-aos="fade-up" data-aos-delay="300">
+                    <div class="helper-step">
+                        <div class="helper-step-icon">1</div>
+                        <div class="helper-step-text">Informe seu celular cadastrado</div>
+                    </div>
+                    <div class="helper-step">
+                        <div class="helper-step-icon">2</div>
+                        <div class="helper-step-text">Receba um codigo de 6 digitos via WhatsApp</div>
+                    </div>
+                    <div class="helper-step">
+                        <div class="helper-step-icon">3</div>
+                        <div class="helper-step-text">Acesse seus agendamentos com seguranca</div>
+                    </div>
+                </div>
 
                 <!-- Step 2: Codigo (aparece apos enviar) -->
-                <div id="code-section" style="display:none;margin-top:2rem;">
-                    <hr style="border-color:#F0EDE8;">
-                    <p class="text-center text-muted small mb-2">
-                        <i class="bi bi-lock me-1" style="color:#C9A84C;"></i>
-                        Digite o codigo de verificacao:
-                    </p>
-                    <div id="debug-code" class="text-center mb-2" style="display:none;">
-                        <span class="badge rounded-pill px-3 py-2" style="background:rgba(201,168,76,0.1);color:#C9A84C;font-size:1rem;letter-spacing:3px;"></span>
+                <div id="code-section" style="display:none;">
+                    <div class="code-section-inner">
+                        <div class="text-center mb-1">
+                            <div style="width:48px;height:48px;background:rgba(201,168,76,0.1);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:0.5rem;">
+                                <i class="bi bi-chat-dots" style="color:#C9A84C;font-size:1.2rem;"></i>
+                            </div>
+                            <p class="fw-bold mb-0" style="color:#4A3425;font-size:0.92rem;">Codigo enviado!</p>
+                            <p class="text-muted small mb-0">
+                                Digite o codigo de 6 digitos que enviamos para seu WhatsApp.
+                            </p>
+                        </div>
+                        <div id="debug-code" class="text-center mb-2" style="display:none;">
+                            <span class="badge rounded-pill px-3 py-2" style="background:rgba(201,168,76,0.1);color:#C9A84C;font-size:1rem;letter-spacing:3px;"></span>
+                        </div>
+                        <div class="code-inputs">
+                            <input type="text" class="code-input" maxlength="1" data-idx="0" inputmode="numeric" autocomplete="one-time-code">
+                            <input type="text" class="code-input" maxlength="1" data-idx="1" inputmode="numeric">
+                            <input type="text" class="code-input" maxlength="1" data-idx="2" inputmode="numeric">
+                            <input type="text" class="code-input" maxlength="1" data-idx="3" inputmode="numeric">
+                            <input type="text" class="code-input" maxlength="1" data-idx="4" inputmode="numeric">
+                            <input type="text" class="code-input" maxlength="1" data-idx="5" inputmode="numeric">
+                        </div>
+                        <button id="btn-verificar" class="btn btn-earth w-100 rounded-pill py-3 fw-bold text-uppercase"
+                            style="letter-spacing:1px;font-size:0.88rem;">
+                            <i class="bi bi-check-circle-fill me-2"></i>Verificar Codigo
+                        </button>
+                        <p class="text-center mt-3 mb-0">
+                            <button id="btn-reenviar" class="btn btn-link btn-sm text-muted text-decoration-none p-0" style="font-size:0.78rem;" disabled>
+                                <i class="bi bi-arrow-clockwise me-1"></i>Reenviar codigo <span id="resend-timer">(60s)</span>
+                            </button>
+                        </p>
                     </div>
-                    <div class="code-inputs">
-                        <input type="text" class="code-input" maxlength="1" data-idx="0" inputmode="numeric">
-                        <input type="text" class="code-input" maxlength="1" data-idx="1" inputmode="numeric">
-                        <input type="text" class="code-input" maxlength="1" data-idx="2" inputmode="numeric">
-                        <input type="text" class="code-input" maxlength="1" data-idx="3" inputmode="numeric">
-                        <input type="text" class="code-input" maxlength="1" data-idx="4" inputmode="numeric">
-                        <input type="text" class="code-input" maxlength="1" data-idx="5" inputmode="numeric">
-                    </div>
-                    <button id="btn-verificar" class="btn btn-earth w-100 rounded-pill py-3 fw-bold text-uppercase"
-                        style="letter-spacing:1px;">
-                        <i class="bi bi-check-circle me-2"></i>Verificar
-                    </button>
                 </div>
             </div>
         </div>
 
         {% elif step == '3' %}
+        <!-- ═══════════════════════════════════════ -->
         <!-- ═══ STEP 3: Lista de Agendamentos ═══ -->
+        <!-- ═══════════════════════════════════════ -->
         <div class="row justify-content-center">
             <div class="col-lg-8">
+
+                <!-- Header row -->
                 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2" data-aos="fade-up">
                     <div>
-                        <h3 class="fw-bold mb-0" style="font-family:'Playfair Display',serif;color:#4A3425;">
+                        <h3 class="fw-bold mb-1" style="font-family:'Playfair Display',serif;color:#4A3425;font-size:1.5rem;">
                             Seus Agendamentos
                         </h3>
-                        <small class="text-muted"><i class="bi bi-phone me-1"></i>{{ telefone }}</small>
-                    </div>
-                    <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-gold rounded-pill px-4 py-2 fw-bold shadow-sm">
-                        <i class="bi bi-plus-lg me-1"></i>Novo Agendamento
-                    </a>
-                </div>
-
-                {% if agendamentos_futuros %}
-                <h5 class="fw-bold mb-3" style="color:#C9A84C;" data-aos="fade-up" data-aos-delay="100">
-                    <i class="bi bi-calendar-event me-2"></i>Proximos
-                </h5>
-                {% for ag in agendamentos_futuros %}
-                <div class="agend-card" data-aos="fade-up" data-aos-delay="{{ forloop.counter0|add:1 }}00">
-                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
-                        <div>
-                            <h6 class="fw-bold mb-1" style="color:#4A3425;">{{ ag.procedimento.nome }}</h6>
-                            <p class="text-muted small mb-1">
-                                <i class="bi bi-person me-1"></i>{{ ag.profissional.nome }}
-                            </p>
-                            <p class="mb-0" style="color:#C9A84C;font-weight:600;">
-                                <i class="bi bi-calendar3 me-1"></i>{{ ag.data_hora_inicio|date:"d/m/Y" }} as {{ ag.data_hora_inicio|time:"H:i" }}
-                            </p>
-                        </div>
-                        <div class="text-end">
-                            <span class="status-badge {% if ag.status_atendimento == 'AGENDADO' %}status-agendado{% elif ag.status_atendimento == 'CONFIRMADO' %}status-confirmado{% elif ag.status_atendimento == 'FALTOU' %}status-faltou{% endif %}">
-                                {{ ag.status_atendimento }}
-                            </span>
-                            {% if ag.valor_cobrado %}
-                            <p class="fw-bold mt-2 mb-0" style="color:#4A3425;">R$ {{ ag.valor_cobrado|floatformat:2 }}</p>
-                            {% endif %}
+                        <div class="d-flex align-items-center gap-2">
+                            <small class="text-muted"><i class="bi bi-phone me-1" style="color:#C9A84C;"></i>{{ telefone }}</small>
+                            <span style="color:#E0DBD3;">|</span>
+                            <a href="{% url 'shivazen:meus_agendamentos' %}" class="text-muted text-decoration-none" style="font-size:0.78rem;">
+                                <i class="bi bi-box-arrow-right me-1"></i>Trocar numero
+                            </a>
                         </div>
                     </div>
-                    <div class="mt-2 pt-2 border-top" style="border-color:#F0EDE8 !important;">
-                        <a href="https://wa.me/{{ whatsapp_numero }}?text=Ola! Gostaria de reagendar o meu atendimento de {{ ag.procedimento.nome }} do dia {{ ag.data_hora_inicio|date:'d/m/Y' }}."
-                           target="_blank" rel="noopener" class="btn btn-sm btn-outline-success rounded-pill px-3" style="font-size:0.78rem;">
-                            <i class="bi bi-whatsapp me-1"></i>Reagendar via WhatsApp
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn-refresh" onclick="window.location.reload();" title="Atualizar">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                        <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-gold rounded-pill px-4 py-2 fw-bold shadow-sm" style="font-size:0.85rem;">
+                            <i class="bi bi-plus-lg me-1"></i>Novo Agendamento
                         </a>
                     </div>
                 </div>
-                {% endfor %}
-                {% endif %}
 
-                {% if agendamentos_passados %}
-                <h5 class="fw-bold mb-3 mt-4" style="color:#999;" data-aos="fade-up">
-                    <i class="bi bi-clock-history me-2"></i>Historico
-                </h5>
-                {% for ag in agendamentos_passados %}
-                <div class="agend-card" style="opacity:0.7;" data-aos="fade-up" data-aos-delay="{{ forloop.counter0|add:1 }}00">
-                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                        <div>
-                            <h6 class="fw-bold mb-1">{{ ag.procedimento.nome }}</h6>
-                            <p class="text-muted small mb-0">
-                                {{ ag.data_hora_inicio|date:"d/m/Y" }} — {{ ag.profissional.nome }}
-                            </p>
+                <!-- Summary cards -->
+                <div class="summary-row" data-aos="fade-up" data-aos-delay="100">
+                    <div class="summary-card">
+                        <div class="summary-icon" style="background:rgba(201,168,76,0.1);">
+                            <i class="bi bi-calendar-check" style="color:#C9A84C;"></i>
                         </div>
-                        <span class="status-badge {% if ag.status_atendimento == 'REALIZADO' %}status-realizado{% elif ag.status_atendimento == 'CANCELADO' %}status-cancelado{% elif ag.status_atendimento == 'FALTOU' %}status-faltou{% else %}status-agendado{% endif %}">
-                            {{ ag.status_atendimento }}
-                        </span>
+                        <div class="summary-number">{{ agendamentos_futuros|length|default:"0" }}</div>
+                        <div class="summary-label">Proximos</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-icon" style="background:rgba(123,31,162,0.08);">
+                            <i class="bi bi-check-circle" style="color:#7B1FA2;"></i>
+                        </div>
+                        <div class="summary-number">{{ agendamentos_passados|length|default:"0" }}</div>
+                        <div class="summary-label">Historico</div>
+                    </div>
+                    {% if agendamentos_futuros %}
+                    <div class="summary-card" style="border-color:rgba(201,168,76,0.25);">
+                        <div class="summary-icon" style="background:rgba(21,101,192,0.08);">
+                            <i class="bi bi-clock" style="color:#1565C0;"></i>
+                        </div>
+                        <div class="summary-number" style="font-size:1rem;">
+                            {% with prox=agendamentos_futuros.0 %}
+                            {{ prox.data_hora_inicio|date:"d/m" }}
+                            {% endwith %}
+                        </div>
+                        <div class="summary-label">Proximo</div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- ═══ PROXIMOS ═══ -->
+                {% if agendamentos_futuros %}
+                <div class="section-divider" data-aos="fade-up" data-aos-delay="150">
+                    <div class="section-divider-line"></div>
+                    <div class="section-divider-label" style="background:rgba(201,168,76,0.08);color:#C9A84C;">
+                        <i class="bi bi-calendar-event"></i> Proximos Agendamentos
+                    </div>
+                    <div class="section-divider-line right"></div>
+                </div>
+
+                {% for ag in agendamentos_futuros %}
+                <div class="agend-card" data-aos="fade-up" data-aos-delay="{{ forloop.counter0|add:1 }}50" id="agend-{{ ag.id_atendimento }}">
+                    <div class="agend-card-body">
+                        <!-- Date block -->
+                        <div class="agend-date-block">
+                            <div class="agend-date-day">{{ ag.data_hora_inicio|date:"d" }}</div>
+                            <div class="agend-date-month">{{ ag.data_hora_inicio|date:"M" }}</div>
+                            <div class="agend-date-weekday">{{ ag.data_hora_inicio|date:"D" }}</div>
+                        </div>
+                        <!-- Info -->
+                        <div class="agend-info">
+                            <div class="agend-procedure">{{ ag.procedimento.nome }}</div>
+                            <div class="agend-meta">
+                                <span><i class="bi bi-person"></i> {{ ag.profissional.nome }}</span>
+                                <span><i class="bi bi-clock"></i> {{ ag.data_hora_inicio|time:"H:i" }}h</span>
+                                {% if ag.valor_cobrado %}
+                                <span><i class="bi bi-tag"></i> R$ {{ ag.valor_cobrado|floatformat:2 }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <!-- Status -->
+                        <div class="text-end" style="min-width:fit-content;">
+                            <span class="status-badge {% if ag.status_atendimento == 'AGENDADO' %}status-agendado{% elif ag.status_atendimento == 'CONFIRMADO' %}status-confirmado{% elif ag.status_atendimento == 'FALTOU' %}status-faltou{% endif %}">
+                                <span class="dot"></span>
+                                {{ ag.status_atendimento }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="agend-card-footer">
+                        <a href="https://wa.me/{{ whatsapp_numero }}?text=Ola! Gostaria de reagendar o meu atendimento de {{ ag.procedimento.nome }} do dia {{ ag.data_hora_inicio|date:'d/m/Y' }}."
+                           target="_blank" rel="noopener"
+                           class="btn btn-sm rounded-pill px-3 fw-bold"
+                           style="font-size:0.75rem;border:1.5px solid #C8E6C9;color:#2E7D32;background:rgba(46,125,50,0.04);">
+                            <i class="bi bi-whatsapp me-1"></i>Reagendar
+                        </a>
+                        {% if ag.status_atendimento == 'AGENDADO' %}
+                        <button class="btn-cancel-agend"
+                                onclick="openCancelModal('{{ ag.id_atendimento }}', '{{ ag.procedimento.nome|escapejs }}', '{{ ag.data_hora_inicio|date:&quot;d/m/Y&quot; }}')">
+                            <i class="bi bi-x-circle me-1"></i>Cancelar
+                        </button>
+                        {% endif %}
                     </div>
                 </div>
                 {% endfor %}
                 {% endif %}
 
+                <!-- ═══ HISTORICO ═══ -->
+                {% if agendamentos_passados %}
+                <div class="section-divider" data-aos="fade-up">
+                    <div class="section-divider-line"></div>
+                    <div class="section-divider-label" style="background:rgba(0,0,0,0.04);color:#8A7F72;">
+                        <i class="bi bi-clock-history"></i> Historico
+                    </div>
+                    <div class="section-divider-line right"></div>
+                </div>
+
+                {% for ag in agendamentos_passados %}
+                <div class="agend-card history" data-aos="fade-up" data-aos-delay="{{ forloop.counter0|add:1 }}50">
+                    <div class="agend-card-body">
+                        <!-- Date block -->
+                        <div class="agend-date-block">
+                            <div class="agend-date-day">{{ ag.data_hora_inicio|date:"d" }}</div>
+                            <div class="agend-date-month">{{ ag.data_hora_inicio|date:"M" }}</div>
+                        </div>
+                        <!-- Info -->
+                        <div class="agend-info">
+                            <div class="agend-procedure" style="font-size:0.95rem;">{{ ag.procedimento.nome }}</div>
+                            <div class="agend-meta">
+                                <span><i class="bi bi-person"></i> {{ ag.profissional.nome }}</span>
+                                <span><i class="bi bi-clock"></i> {{ ag.data_hora_inicio|time:"H:i" }}h</span>
+                            </div>
+                        </div>
+                        <!-- Status -->
+                        <div class="text-end" style="min-width:fit-content;">
+                            <span class="status-badge {% if ag.status_atendimento == 'REALIZADO' %}status-realizado{% elif ag.status_atendimento == 'CANCELADO' %}status-cancelado{% elif ag.status_atendimento == 'FALTOU' %}status-faltou{% else %}status-agendado{% endif %}">
+                                <span class="dot"></span>
+                                {{ ag.status_atendimento }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                {% endif %}
+
+                <!-- ═══ EMPTY STATE ═══ -->
                 {% if not agendamentos_futuros and not agendamentos_passados %}
                 <div class="empty-state" data-aos="fade-up">
-                    <div class="mb-3" style="width:80px;height:80px;background:rgba(201,168,76,0.1);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;">
-                        <i class="bi bi-calendar-x" style="font-size:2rem;color:#C9A84C;"></i>
+                    <div class="empty-illustration">
+                        <i class="bi bi-calendar-x" style="font-size:2.8rem;color:#C9A84C;"></i>
                     </div>
-                    <h4 class="fw-bold" style="color:#4A3425;font-family:'Playfair Display',serif;">Nenhum agendamento encontrado</h4>
-                    <p class="text-muted mb-4">Voce ainda nao realizou nenhum agendamento.</p>
-                    <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-gold rounded-pill px-5 py-3 fw-bold">
-                        <i class="bi bi-calendar-plus me-2"></i>Agendar agora
+                    <h4 class="fw-bold mb-2" style="color:#4A3425;font-family:'Playfair Display',serif;">
+                        Nenhum agendamento encontrado
+                    </h4>
+                    <p class="text-muted mb-1" style="max-width:320px;margin:0 auto;">
+                        Voce ainda nao possui agendamentos registrados neste numero.
+                    </p>
+                    <p class="text-muted small mb-4" style="max-width:320px;margin:0 auto;">
+                        Que tal agendar seu primeiro atendimento?
+                    </p>
+                    <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-gold rounded-pill px-5 py-3 fw-bold" style="font-size:0.9rem;">
+                        <i class="bi bi-calendar-plus me-2"></i>Agendar Agora
                     </a>
                 </div>
                 {% endif %}
+            </div>
+        </div>
+
+        <!-- Cancel confirmation modal -->
+        <div class="cancel-modal-overlay" id="cancelModal">
+            <div class="cancel-modal-box" data-aos="zoom-in">
+                <div style="width:64px;height:64px;background:rgba(198,40,40,0.08);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:1rem;">
+                    <i class="bi bi-exclamation-triangle" style="font-size:1.5rem;color:#C62828;"></i>
+                </div>
+                <h5 class="fw-bold mb-2" style="font-family:'Playfair Display',serif;color:#4A3425;">Cancelar Agendamento?</h5>
+                <p class="text-muted small mb-1" id="cancelModalProcedure"></p>
+                <p class="text-muted small mb-3" id="cancelModalDate"></p>
+                <p class="small mb-4" style="color:#C62828;background:#FFF8F8;padding:0.5rem 1rem;border-radius:12px;display:inline-block;">
+                    <i class="bi bi-info-circle me-1"></i>Esta acao nao pode ser desfeita.
+                </p>
+                <div class="d-flex gap-2 justify-content-center">
+                    <button class="btn rounded-pill px-4 py-2 fw-bold" style="border:1.5px solid #E0DBD3;color:#8A7F72;font-size:0.85rem;" onclick="closeCancelModal()">
+                        <i class="bi bi-arrow-left me-1"></i>Voltar
+                    </button>
+                    <button class="btn rounded-pill px-4 py-2 fw-bold" id="btnConfirmCancel"
+                            style="background:#C62828;color:white;font-size:0.85rem;"
+                            onclick="confirmCancel()">
+                        <i class="bi bi-x-circle me-1"></i>Sim, Cancelar
+                    </button>
+                </div>
             </div>
         </div>
         {% endif %}
@@ -236,13 +631,20 @@
 </section>
 
 <!-- ═══ CTA WhatsApp ═══ -->
-<section class="section" style="background:#F5F3EE;padding:2rem 0 4rem;">
-    <div class="container text-center" data-aos="fade-up">
-        <p style="color:#999;font-size:0.9rem;">Ficou com alguma duvida?</p>
-        <a href="https://wa.me/{{ whatsapp_numero }}" target="_blank" rel="noopener"
-           class="btn btn-success rounded-pill px-4 py-2 fw-bold shadow-sm" style="letter-spacing:0.5px;">
-            <i class="bi bi-whatsapp me-2"></i>Fale conosco no WhatsApp
-        </a>
+<section class="wpp-cta-section" data-aos="fade-up">
+    <div class="container">
+        <div class="wpp-cta-card">
+            <div class="wpp-cta-icon">
+                <i class="bi bi-whatsapp" style="color:#25D366;font-size:1.5rem;"></i>
+            </div>
+            <h5 class="fw-bold mb-1" style="font-family:'Playfair Display',serif;color:#4A3425;">Ficou com alguma duvida?</h5>
+            <p class="text-muted small mb-3">Estamos prontos para ajudar voce pelo WhatsApp.</p>
+            <a href="https://wa.me/{{ whatsapp_numero }}" target="_blank" rel="noopener"
+               class="btn rounded-pill px-4 py-2 fw-bold shadow-sm"
+               style="background:#25D366;color:white;letter-spacing:0.5px;font-size:0.88rem;">
+                <i class="bi bi-whatsapp me-2"></i>Fale Conosco
+            </a>
+        </div>
     </div>
 </section>
 {% endblock %}
@@ -250,6 +652,7 @@
 {% block scripts %}
 <script>
 (function() {
+    /* ═══ PHONE MASK ═══ */
     var telInput = document.getElementById('tel-input');
     if (telInput) {
         telInput.addEventListener('input', function(e) {
@@ -263,15 +666,17 @@
     }
 
     var telefoneForVerify = '';
+    var resendTimer = null;
 
+    /* ═══ SEND CODE ═══ */
     var btnEnviar = document.getElementById('btn-enviar-codigo');
     if (btnEnviar) {
         btnEnviar.addEventListener('click', function() {
             var tel = telInput.value.replace(/\D/g, '');
-            if (tel.length < 10) { showError('Informe um celular valido.'); return; }
+            if (tel.length < 10) { showError('Informe um celular valido com DDD.'); return; }
             telefoneForVerify = tel;
             btnEnviar.disabled = true;
-            btnEnviar.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Enviando...';
+            btnEnviar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Enviando...';
 
             fetch('{% url "shivazen:verificar_telefone" %}', {
                 method: 'POST',
@@ -281,53 +686,101 @@
             .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
             .then(function(res) {
                 btnEnviar.disabled = false;
-                btnEnviar.innerHTML = '<i class="bi bi-send me-2"></i>Enviar Codigo';
+                btnEnviar.innerHTML = '<i class="bi bi-send-fill me-2"></i>Enviar Codigo de Verificacao';
                 if (!res.ok) {
                     showError(res.data.error || 'Erro ao enviar codigo.');
                 } else {
                     hideError();
                     document.getElementById('code-section').style.display = 'block';
+                    document.getElementById('code-section').scrollIntoView({behavior: 'smooth', block: 'center'});
                     if (res.data.codigo_debug) {
                         var dbg = document.getElementById('debug-code');
                         dbg.style.display = 'block';
                         dbg.querySelector('span').textContent = res.data.codigo_debug;
                     }
                     document.querySelector('.code-input[data-idx="0"]').focus();
+                    startResendTimer();
                 }
             })
             .catch(function() {
                 btnEnviar.disabled = false;
-                btnEnviar.innerHTML = '<i class="bi bi-send me-2"></i>Enviar Codigo';
-                showError('Erro de conexao.');
+                btnEnviar.innerHTML = '<i class="bi bi-send-fill me-2"></i>Enviar Codigo de Verificacao';
+                showError('Erro de conexao. Tente novamente.');
             });
         });
     }
 
+    /* ═══ RESEND TIMER ═══ */
+    function startResendTimer() {
+        var seconds = 60;
+        var btnResend = document.getElementById('btn-reenviar');
+        var timerSpan = document.getElementById('resend-timer');
+        btnResend.disabled = true;
+        if (resendTimer) clearInterval(resendTimer);
+        resendTimer = setInterval(function() {
+            seconds--;
+            timerSpan.textContent = '(' + seconds + 's)';
+            if (seconds <= 0) {
+                clearInterval(resendTimer);
+                btnResend.disabled = false;
+                timerSpan.textContent = '';
+                btnResend.style.color = '#C9A84C';
+            }
+        }, 1000);
+    }
+
+    var btnReenviar = document.getElementById('btn-reenviar');
+    if (btnReenviar) {
+        btnReenviar.addEventListener('click', function() {
+            if (btnEnviar) btnEnviar.click();
+        });
+    }
+
+    /* ═══ CODE INPUTS ═══ */
     document.querySelectorAll('.code-input').forEach(function(input) {
         input.addEventListener('input', function() {
             this.value = this.value.replace(/\D/g, '');
+            if (this.value) this.classList.add('filled');
+            else this.classList.remove('filled');
             if (this.value.length === 1) {
                 var next = this.nextElementSibling;
                 if (next && next.classList.contains('code-input')) next.focus();
+            }
+            // Auto-verify when all 6 filled
+            var allFilled = true;
+            document.querySelectorAll('.code-input').forEach(function(ci) {
+                if (!ci.value) allFilled = false;
+            });
+            if (allFilled) {
+                setTimeout(function() { document.getElementById('btn-verificar').click(); }, 200);
             }
         });
         input.addEventListener('keydown', function(e) {
             if (e.key === 'Backspace' && !this.value) {
                 var prev = this.previousElementSibling;
-                if (prev && prev.classList.contains('code-input')) prev.focus();
+                if (prev && prev.classList.contains('code-input')) {
+                    prev.focus();
+                    prev.value = '';
+                    prev.classList.remove('filled');
+                }
             }
         });
+        input.addEventListener('focus', function() { this.select(); });
         input.addEventListener('paste', function(e) {
             e.preventDefault();
             var text = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
             var inputs = document.querySelectorAll('.code-input');
             for (var i = 0; i < Math.min(text.length, inputs.length); i++) {
                 inputs[i].value = text[i];
+                inputs[i].classList.add('filled');
             }
-            if (text.length >= 6) document.getElementById('btn-verificar').click();
+            if (text.length >= 6) {
+                setTimeout(function() { document.getElementById('btn-verificar').click(); }, 200);
+            }
         });
     });
 
+    /* ═══ VERIFY CODE ═══ */
     var btnVerificar = document.getElementById('btn-verificar');
     if (btnVerificar) {
         btnVerificar.addEventListener('click', function() {
@@ -336,7 +789,7 @@
             if (codigo.length !== 6) { showError('Digite o codigo completo de 6 digitos.'); return; }
 
             btnVerificar.disabled = true;
-            btnVerificar.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Verificando...';
+            btnVerificar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Verificando...';
 
             fetch('{% url "shivazen:verificar_telefone" %}', {
                 method: 'POST',
@@ -346,25 +799,125 @@
             .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
             .then(function(res) {
                 btnVerificar.disabled = false;
-                btnVerificar.innerHTML = '<i class="bi bi-check-circle me-2"></i>Verificar';
-                if (!res.ok) showError(res.data.error || 'Codigo invalido.');
+                btnVerificar.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Verificar Codigo';
+                if (!res.ok) {
+                    showError(res.data.error || 'Codigo invalido.');
+                    // Shake the code inputs
+                    document.querySelectorAll('.code-input').forEach(function(ci) {
+                        ci.style.borderColor = '#C62828';
+                        ci.value = '';
+                        ci.classList.remove('filled');
+                        setTimeout(function() { ci.style.borderColor = ''; }, 1500);
+                    });
+                    document.querySelector('.code-input[data-idx="0"]').focus();
+                }
                 else if (res.data.redirect) window.location.href = res.data.redirect;
             })
             .catch(function() {
                 btnVerificar.disabled = false;
-                btnVerificar.innerHTML = '<i class="bi bi-check-circle me-2"></i>Verificar';
-                showError('Erro de conexao.');
+                btnVerificar.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Verificar Codigo';
+                showError('Erro de conexao. Tente novamente.');
             });
         });
     }
 
+    /* ═══ CANCEL APPOINTMENT ═══ */
+    var cancelAtendimentoId = null;
+
+    window.openCancelModal = function(id, nome, data) {
+        cancelAtendimentoId = id;
+        document.getElementById('cancelModalProcedure').innerHTML = '<strong>' + nome + '</strong>';
+        document.getElementById('cancelModalDate').textContent = 'Data: ' + data;
+        document.getElementById('cancelModal').classList.add('active');
+    };
+
+    window.closeCancelModal = function() {
+        document.getElementById('cancelModal').classList.remove('active');
+        cancelAtendimentoId = null;
+    };
+
+    window.confirmCancel = function() {
+        if (!cancelAtendimentoId) return;
+        var btn = document.getElementById('btnConfirmCancel');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Cancelando...';
+
+        fetch('{% url "shivazen:cancelar_agendamento" %}', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken')},
+            body: JSON.stringify({
+                atendimento_id: cancelAtendimentoId,
+                telefone: '{{ telefone|default:"" }}'
+            })
+        })
+        .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
+        .then(function(res) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-x-circle me-1"></i>Sim, Cancelar';
+            if (res.ok && res.data.sucesso) {
+                closeCancelModal();
+                // Remove card with animation
+                var card = document.getElementById('agend-' + cancelAtendimentoId);
+                if (card) {
+                    card.style.transition = 'all 0.4s ease';
+                    card.style.opacity = '0';
+                    card.style.transform = 'translateX(-20px)';
+                    setTimeout(function() { card.remove(); }, 400);
+                }
+                // Show success toast
+                showToast(res.data.mensagem || 'Agendamento cancelado com sucesso.');
+            } else {
+                closeCancelModal();
+                showToast(res.data.erro || 'Erro ao cancelar. Tente novamente.', true);
+            }
+        })
+        .catch(function() {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-x-circle me-1"></i>Sim, Cancelar';
+            closeCancelModal();
+            showToast('Erro de conexao. Tente novamente.', true);
+        });
+    };
+
+    // Close modal on overlay click
+    var overlay = document.getElementById('cancelModal');
+    if (overlay) {
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) closeCancelModal();
+        });
+    }
+
+    /* ═══ TOAST ═══ */
+    function showToast(msg, isError) {
+        var toast = document.createElement('div');
+        toast.style.cssText = 'position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);z-index:10000;padding:0.75rem 1.5rem;border-radius:50px;font-size:0.88rem;font-weight:600;color:white;box-shadow:0 8px 32px rgba(0,0,0,0.15);animation:toastIn 0.4s ease;max-width:90vw;text-align:center;';
+        toast.style.background = isError ? '#C62828' : '#2E7D32';
+        toast.innerHTML = '<i class="bi ' + (isError ? 'bi-exclamation-triangle' : 'bi-check-circle') + ' me-2"></i>' + msg;
+        document.body.appendChild(toast);
+        setTimeout(function() {
+            toast.style.transition = 'all 0.4s ease';
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(-50%) translateY(20px)';
+            setTimeout(function() { toast.remove(); }, 400);
+        }, 3500);
+    }
+
+    /* ═══ HELPERS ═══ */
     function showError(msg) {
         var el = document.getElementById('error-msg');
-        if (el) { el.textContent = msg; el.style.display = 'block'; }
+        var textEl = document.getElementById('error-msg-text');
+        if (el && textEl) {
+            textEl.textContent = msg;
+            el.style.display = 'flex';
+            el.style.setProperty('display', 'flex', 'important');
+        }
     }
     function hideError() {
         var el = document.getElementById('error-msg');
-        if (el) el.style.display = 'none';
+        if (el) {
+            el.style.display = 'none';
+            el.style.setProperty('display', 'none', 'important');
+        }
     }
     function getCookie(name) {
         var val = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
@@ -372,4 +925,10 @@
     }
 })();
 </script>
+<style>
+@keyframes toastIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+</style>
 {% endblock %}

@@ -41,6 +41,15 @@
     padding: 0.2rem 0.4rem; border-radius: 8px; border: 2px solid #eee;
     font-size: 0.7rem; font-weight: 700; cursor: pointer; background: white;
 }
+.dash-toast {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+    background: #323232; color: white; padding: 0.6rem 1.2rem;
+    border-radius: 10px; font-size: 0.8rem; font-weight: 700;
+    z-index: 10000; opacity: 0; transition: opacity 0.3s;
+    pointer-events: none; white-space: nowrap;
+}
+.dash-toast.show { opacity: 1; }
+.dash-toast.error { background: #c62828; }
 {% endblock %}
 
 {% block admin_content %}
@@ -60,6 +69,7 @@
         <div class="stat-card-icon" style="background:#f3e5f5;color:#7b1fa2;"><i class="fas fa-users"></i></div>
         <div class="stat-card-value">{{ total_clientes|default:0 }}</div>
         <div class="stat-card-label">Clientes</div>
+        {% if novos_clientes %}<div class="small mt-1" style="color:#7b1fa2;font-size:0.65rem;font-weight:700;">+{{ novos_clientes }} este m&ecirc;s</div>{% endif %}
     </div>
     <div class="stat-card">
         <div class="stat-card-icon" style="background:#fff8e1;color:#f57f17;"><i class="fas fa-dollar-sign"></i></div>
@@ -98,7 +108,7 @@
     {% for agend in proximos_agendamentos %}
     <div class="dash-appt-item" id="appt-{{ agend.id_atendimento }}">
         <div class="dash-appt-avatar">
-            {{ agend.cliente.nome_completo|make_list|first }}{{ agend.cliente.nome_completo|make_list|last }}
+            {{ agend.cliente.nome_completo|make_list|first }}
         </div>
         <div class="dash-appt-info">
             <div class="dash-appt-name">{{ agend.cliente.nome_completo }}</div>
@@ -191,6 +201,21 @@ new Chart(ctxStatus, {
     }
 });
 
+// Toast helper
+function showToast(msg, isError) {
+    var t = document.getElementById('dashToast');
+    if (!t) {
+        t = document.createElement('div');
+        t.id = 'dashToast';
+        t.className = 'dash-toast';
+        document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.className = 'dash-toast' + (isError ? ' error' : '') + ' show';
+    clearTimeout(t._timer);
+    t._timer = setTimeout(function() { t.className = 'dash-toast'; }, 2500);
+}
+
 // Status update via AJAX
 function atualizarStatus(id, status) {
     if (!status) return;
@@ -213,12 +238,12 @@ function atualizarStatus(id, status) {
                 el.style.color = data.status_novo === 'CONFIRMADO' ? '#2e7d32' :
                                   data.status_novo === 'CANCELADO' ? '#c62828' : '#f57f17';
             }
-            alert('Status atualizado: ' + data.status_novo);
+            showToast('Status atualizado: ' + data.status_novo);
         } else {
-            alert('Erro: ' + data.erro);
+            showToast('Erro: ' + data.erro, true);
         }
     })
-    .catch(function(err) { alert('Erro de rede'); });
+    .catch(function(err) { showToast('Erro de rede', true); });
 }
 </script>
 {% endblock %}

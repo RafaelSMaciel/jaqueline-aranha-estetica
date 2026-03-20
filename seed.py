@@ -440,44 +440,50 @@ def seed():
     # ──────────────────────────────────────────
     produtos_data = [
         # Dermocosméticos
-        {'nome': 'Sérum Vitamina C 30ml', 'categoria': categorias[0], 'marca': 'Adcos', 'preco_custo': Decimal('45.00'), 'preco_venda': Decimal('89.90'), 'quantidade_estoque': 25, 'estoque_minimo': 5, 'unidade': 'UN'},
-        {'nome': 'Protetor Solar FPS 70', 'categoria': categorias[0], 'marca': 'La Roche-Posay', 'preco_custo': Decimal('38.00'), 'preco_venda': Decimal('79.90'), 'quantidade_estoque': 30, 'estoque_minimo': 10, 'unidade': 'UN'},
-        {'nome': 'Ácido Hialurônico Tópico', 'categoria': categorias[0], 'marca': 'SkinCeuticals', 'preco_custo': Decimal('120.00'), 'preco_venda': Decimal('249.90'), 'quantidade_estoque': 15, 'estoque_minimo': 3, 'unidade': 'UN'},
-        {'nome': 'Hidratante Facial Noturno', 'categoria': categorias[0], 'marca': 'Vichy', 'preco_custo': Decimal('55.00'), 'preco_venda': Decimal('119.90'), 'quantidade_estoque': 20, 'estoque_minimo': 5, 'unidade': 'UN'},
-        {'nome': 'Água Micelar 400ml', 'categoria': categorias[0], 'marca': 'Bioderma', 'preco_custo': Decimal('42.00'), 'preco_venda': Decimal('89.90'), 'quantidade_estoque': 18, 'estoque_minimo': 5, 'unidade': 'UN'},
+        {'nome': 'Sérum Vitamina C 30ml', 'categoria': categorias[0], 'marca': 'Adcos', 'preco_custo': Decimal('45.00'), 'preco_venda': Decimal('89.90'), 'quantidade_estoque': 25, 'estoque_minimo': 5, 'unidade': 'UN', 'data_validade': hoje + timedelta(days=180), 'lote': 'ADC-2025-001'},
+        {'nome': 'Protetor Solar FPS 70', 'categoria': categorias[0], 'marca': 'La Roche-Posay', 'preco_custo': Decimal('38.00'), 'preco_venda': Decimal('79.90'), 'quantidade_estoque': 30, 'estoque_minimo': 10, 'unidade': 'UN', 'data_validade': hoje + timedelta(days=365), 'lote': 'LRP-2025-045'},
+        {'nome': 'Ácido Hialurônico Tópico', 'categoria': categorias[0], 'marca': 'SkinCeuticals', 'preco_custo': Decimal('120.00'), 'preco_venda': Decimal('249.90'), 'quantidade_estoque': 15, 'estoque_minimo': 3, 'unidade': 'UN', 'data_validade': hoje + timedelta(days=20), 'lote': 'SKC-2025-112'},
+        {'nome': 'Hidratante Facial Noturno', 'categoria': categorias[0], 'marca': 'Vichy', 'preco_custo': Decimal('55.00'), 'preco_venda': Decimal('119.90'), 'quantidade_estoque': 20, 'estoque_minimo': 5, 'unidade': 'UN', 'data_validade': hoje - timedelta(days=15), 'lote': 'VCH-2024-088'},
+        {'nome': 'Água Micelar 400ml', 'categoria': categorias[0], 'marca': 'Bioderma', 'preco_custo': Decimal('42.00'), 'preco_venda': Decimal('89.90'), 'quantidade_estoque': 18, 'estoque_minimo': 5, 'unidade': 'UN', 'data_validade': hoje + timedelta(days=240), 'lote': 'BIO-2025-033'},
         # Injetáveis
-        {'nome': 'Ácido Hialurônico 1ml', 'categoria': categorias[1], 'marca': 'Juvederm', 'preco_custo': Decimal('350.00'), 'preco_venda': Decimal('750.00'), 'quantidade_estoque': 10, 'estoque_minimo': 3, 'unidade': 'UN'},
-        {'nome': 'Toxina Botulínica 100U', 'categoria': categorias[1], 'marca': 'Botox Allergan', 'preco_custo': Decimal('450.00'), 'preco_venda': Decimal('900.00'), 'quantidade_estoque': 8, 'estoque_minimo': 2, 'unidade': 'UN'},
-        {'nome': 'Bioestimulador PLLA', 'categoria': categorias[1], 'marca': 'Sculptra', 'preco_custo': Decimal('600.00'), 'preco_venda': Decimal('1200.00'), 'quantidade_estoque': 5, 'estoque_minimo': 2, 'unidade': 'UN'},
-        {'nome': 'Skinbooster 1ml', 'categoria': categorias[1], 'marca': 'Restylane', 'preco_custo': Decimal('280.00'), 'preco_venda': Decimal('600.00'), 'quantidade_estoque': 12, 'estoque_minimo': 3, 'unidade': 'UN'},
-        # Equipamentos
+        {'nome': 'Ácido Hialurônico 1ml', 'categoria': categorias[1], 'marca': 'Juvederm', 'preco_custo': Decimal('350.00'), 'preco_venda': Decimal('750.00'), 'quantidade_estoque': 10, 'estoque_minimo': 3, 'unidade': 'UN', 'data_validade': hoje + timedelta(days=15), 'lote': 'JUV-2025-007'},
+        {'nome': 'Toxina Botulínica 100U', 'categoria': categorias[1], 'marca': 'Botox Allergan', 'preco_custo': Decimal('450.00'), 'preco_venda': Decimal('900.00'), 'quantidade_estoque': 8, 'estoque_minimo': 2, 'unidade': 'UN', 'data_validade': hoje - timedelta(days=5), 'lote': 'BOT-2024-199'},
+        {'nome': 'Bioestimulador PLLA', 'categoria': categorias[1], 'marca': 'Sculptra', 'preco_custo': Decimal('600.00'), 'preco_venda': Decimal('1200.00'), 'quantidade_estoque': 5, 'estoque_minimo': 2, 'unidade': 'UN', 'data_validade': hoje + timedelta(days=90), 'lote': 'SCP-2025-021'},
+        {'nome': 'Skinbooster 1ml', 'categoria': categorias[1], 'marca': 'Restylane', 'preco_custo': Decimal('280.00'), 'preco_venda': Decimal('600.00'), 'quantidade_estoque': 12, 'estoque_minimo': 3, 'unidade': 'UN', 'data_validade': hoje + timedelta(days=120), 'lote': 'RST-2025-055'},
+        # Equipamentos (sem validade)
         {'nome': 'Ponteira Criolipólise P', 'categoria': categorias[2], 'marca': 'HTM', 'preco_custo': Decimal('200.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 4, 'estoque_minimo': 2, 'unidade': 'UN'},
-        {'nome': 'Agulha Microagulhamento 36P', 'categoria': categorias[2], 'marca': 'Dr. Pen', 'preco_custo': Decimal('15.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 50, 'estoque_minimo': 20, 'unidade': 'UN'},
+        {'nome': 'Agulha Microagulhamento 36P', 'categoria': categorias[2], 'marca': 'Dr. Pen', 'preco_custo': Decimal('15.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 50, 'estoque_minimo': 20, 'unidade': 'UN', 'lote': 'DRP-2025-300'},
         # Consumíveis
-        {'nome': 'Luvas Nitrílicas (cx 100)', 'categoria': categorias[3], 'marca': 'Supermax', 'preco_custo': Decimal('28.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 15, 'estoque_minimo': 5, 'unidade': 'CX'},
-        {'nome': 'Gaze Estéril (pct 500)', 'categoria': categorias[3], 'marca': 'Cremer', 'preco_custo': Decimal('22.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 10, 'estoque_minimo': 3, 'unidade': 'PCT'},
-        {'nome': 'Máscara Descartável (cx 50)', 'categoria': categorias[3], 'marca': 'Medix', 'preco_custo': Decimal('12.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 20, 'estoque_minimo': 5, 'unidade': 'CX'},
+        {'nome': 'Luvas Nitrílicas (cx 100)', 'categoria': categorias[3], 'marca': 'Supermax', 'preco_custo': Decimal('28.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 15, 'estoque_minimo': 5, 'unidade': 'CX', 'data_validade': hoje + timedelta(days=730), 'lote': 'SMX-2025-150'},
+        {'nome': 'Gaze Estéril (pct 500)', 'categoria': categorias[3], 'marca': 'Cremer', 'preco_custo': Decimal('22.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 10, 'estoque_minimo': 3, 'unidade': 'PCT', 'data_validade': hoje + timedelta(days=25), 'lote': 'CRM-2025-078'},
+        {'nome': 'Máscara Descartável (cx 50)', 'categoria': categorias[3], 'marca': 'Medix', 'preco_custo': Decimal('12.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 20, 'estoque_minimo': 5, 'unidade': 'CX', 'data_validade': hoje + timedelta(days=500), 'lote': 'MDX-2025-200'},
         {'nome': 'Papel Lençol (rolo)', 'categoria': categorias[3], 'marca': 'Kolplast', 'preco_custo': Decimal('18.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 12, 'estoque_minimo': 4, 'unidade': 'RL'},
         # Higiene
-        {'nome': 'Álcool 70% (1L)', 'categoria': categorias[4], 'marca': 'Start', 'preco_custo': Decimal('8.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 25, 'estoque_minimo': 10, 'unidade': 'UN'},
-        {'nome': 'Sabonete Antisséptico (500ml)', 'categoria': categorias[4], 'marca': 'Riocare', 'preco_custo': Decimal('15.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 8, 'estoque_minimo': 3, 'unidade': 'UN'},
-        {'nome': 'Clorexidina Alcoólica (100ml)', 'categoria': categorias[4], 'marca': 'Vic Pharma', 'preco_custo': Decimal('12.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 15, 'estoque_minimo': 5, 'unidade': 'UN'},
+        {'nome': 'Álcool 70% (1L)', 'categoria': categorias[4], 'marca': 'Start', 'preco_custo': Decimal('8.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 25, 'estoque_minimo': 10, 'unidade': 'UN', 'data_validade': hoje - timedelta(days=30), 'lote': 'STR-2024-400'},
+        {'nome': 'Sabonete Antisséptico (500ml)', 'categoria': categorias[4], 'marca': 'Riocare', 'preco_custo': Decimal('15.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 8, 'estoque_minimo': 3, 'unidade': 'UN', 'data_validade': hoje + timedelta(days=300), 'lote': 'RCR-2025-060'},
+        {'nome': 'Clorexidina Alcoólica (100ml)', 'categoria': categorias[4], 'marca': 'Vic Pharma', 'preco_custo': Decimal('12.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 15, 'estoque_minimo': 5, 'unidade': 'UN', 'data_validade': hoje + timedelta(days=10), 'lote': 'VPH-2025-018'},
     ]
 
     produtos = []
     for pd in produtos_data:
+        defaults = {
+            'categoria': pd['categoria'],
+            'marca': pd['marca'],
+            'preco_custo': pd['preco_custo'],
+            'preco_venda': pd['preco_venda'],
+            'quantidade_estoque': pd['quantidade_estoque'],
+            'estoque_minimo': pd['estoque_minimo'],
+            'unidade': pd['unidade'],
+            'ativo': True,
+        }
+        if 'data_validade' in pd:
+            defaults['data_validade'] = pd['data_validade']
+        if 'lote' in pd:
+            defaults['lote'] = pd['lote']
+
         produto, _ = Produto.objects.get_or_create(
             nome=pd['nome'],
-            defaults={
-                'categoria': pd['categoria'],
-                'marca': pd['marca'],
-                'preco_custo': pd['preco_custo'],
-                'preco_venda': pd['preco_venda'],
-                'quantidade_estoque': pd['quantidade_estoque'],
-                'estoque_minimo': pd['estoque_minimo'],
-                'unidade': pd['unidade'],
-                'ativo': True,
-            }
+            defaults=defaults,
         )
         produtos.append(produto)
 
