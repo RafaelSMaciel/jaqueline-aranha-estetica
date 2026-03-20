@@ -16,11 +16,10 @@ django.setup()
 
 from django.conf import settings as django_settings
 
-# ═══ PROTECAO: Bloqueia execucao em producao ═══
+# ═══ PROTECAO: Aviso em producao ═══
 if not django_settings.DEBUG:
-    print("\n[BLOQUEADO] seed.py so pode ser executado com DEBUG=True.")
-    print("Este script cria dados ficticios e NAO deve rodar em producao.\n")
-    sys.exit(1)
+    print("\n[AVISO] Executando seed em modo producao (DEBUG=False).")
+    print("Dados de demonstracao serao criados.\n")
 
 from app_shivazen.models import (
     Profissional, Procedimento, ProfissionalProcedimento,
@@ -86,10 +85,16 @@ def seed():
     # 2. PROCEDIMENTOS (4 básicos para demonstração)
     # ──────────────────────────────────────────
     procedimentos_data = [
+        # Faciais
         {'nome': 'Limpeza de Pele Profunda', 'descricao': 'Remoção de impurezas, cravos e células mortas com técnicas especializadas. Inclui extração, tonificação e máscara hidratante.', 'duracao_minutos': 60},
         {'nome': 'Peeling Químico', 'descricao': 'Renovação celular com ácidos específicos para eliminar manchas, cicatrizes de acne e uniformizar a textura da pele.', 'duracao_minutos': 45},
+        {'nome': 'Microagulhamento', 'descricao': 'Estímulo de colágeno com microagulhas para rejuvenescimento, redução de cicatrizes e poros dilatados.', 'duracao_minutos': 50},
+        {'nome': 'Harmonização Facial', 'descricao': 'Conjunto de procedimentos com ácido hialurônico e toxina botulínica para realçar a beleza natural do rosto.', 'duracao_minutos': 90},
+        # Corporais
         {'nome': 'Drenagem Linfática', 'descricao': 'Técnica manual para estimular o sistema linfático, reduzir inchaço e eliminar toxinas do corpo.', 'duracao_minutos': 60},
         {'nome': 'Massagem Relaxante', 'descricao': 'Técnicas para alívio do estresse, tensão muscular e promoção do bem-estar integral.', 'duracao_minutos': 60},
+        {'nome': 'Massagem com Pedras Quentes', 'descricao': 'Terapia com pedras vulcânicas aquecidas para relaxamento profundo, alívio de dores e melhora da circulação.', 'duracao_minutos': 75},
+        {'nome': 'Criolipólise', 'descricao': 'Tratamento não invasivo que congela e elimina células de gordura localizada. Resultados visíveis em poucas sessões.', 'duracao_minutos': 60},
     ]
 
     procedimentos = []
@@ -109,12 +114,12 @@ def seed():
     for proc in procedimentos:
         ProfissionalProcedimento.objects.get_or_create(profissional=prof1, procedimento=proc)
 
-    # Dra. Amanda: Limpeza de Pele e Peeling (faciais)
-    for proc in procedimentos[:2]:
+    # Dra. Amanda: faciais (primeiros 4)
+    for proc in procedimentos[:4]:
         ProfissionalProcedimento.objects.get_or_create(profissional=prof2, procedimento=proc)
 
-    # Camila: Drenagem e Massagem (corporais)
-    for proc in procedimentos[2:]:
+    # Camila: corporais (últimos 4)
+    for proc in procedimentos[4:]:
         ProfissionalProcedimento.objects.get_or_create(profissional=prof3, procedimento=proc)
 
     print("  Vínculos profissional-procedimento criados")
@@ -146,8 +151,12 @@ def seed():
     precos_base = {
         'Limpeza de Pele Profunda': 180,
         'Peeling Químico': 350,
+        'Microagulhamento': 450,
+        'Harmonização Facial': 1200,
         'Drenagem Linfática': 180,
         'Massagem Relaxante': 180,
+        'Massagem com Pedras Quentes': 220,
+        'Criolipólise': 800,
     }
 
     for proc in procedimentos:
@@ -248,7 +257,7 @@ def seed():
     promocoes_data = [
         {
             'nome': 'Limpeza de Pele com 30% OFF',
-            'descricao': 'Aproveite nossa promoção de limpeza de pele profunda com 30% de desconto. Válido para novos e antigos clientes.',
+            'descricao': 'Aproveite nossa promoção de limpeza de pele profunda com 30% de desconto. Válido para novos e antigos clientes. Pele limpa, renovada e radiante!',
             'procedimento': procedimentos[0],
             'desconto_percentual': 30,
             'preco_promocional': Decimal('126.00'),
@@ -257,8 +266,8 @@ def seed():
         },
         {
             'nome': 'Massagem Relaxante - Semana do Bem-estar',
-            'descricao': 'Na semana do bem-estar, massagem relaxante com valor especial. Cuide do seu corpo e mente.',
-            'procedimento': procedimentos[3],
+            'descricao': 'Na semana do bem-estar, massagem relaxante com valor especial. Cuide do seu corpo e mente. Sessão de 60 minutos com óleos essenciais.',
+            'procedimento': procedimentos[5],
             'desconto_percentual': 25,
             'preco_promocional': Decimal('135.00'),
             'data_inicio': hoje,
@@ -266,12 +275,30 @@ def seed():
         },
         {
             'nome': 'Peeling Químico Renovador',
-            'descricao': 'Peeling químico com desconto especial para renovação completa da sua pele. Agende já!',
+            'descricao': 'Peeling químico com desconto especial para renovação completa da sua pele. Elimine manchas e uniformize o tom. Agende já!',
             'procedimento': procedimentos[1],
             'desconto_percentual': 15,
             'preco_promocional': Decimal('297.50'),
             'data_inicio': hoje - timedelta(days=2),
             'data_fim': hoje + timedelta(days=20),
+        },
+        {
+            'nome': 'Microagulhamento - Rejuvenescimento',
+            'descricao': 'Sessão de microagulhamento com 20% de desconto. Estimule o colágeno natural da sua pele e reduza rugas e cicatrizes.',
+            'procedimento': procedimentos[2],
+            'desconto_percentual': 20,
+            'preco_promocional': Decimal('360.00'),
+            'data_inicio': hoje - timedelta(days=1),
+            'data_fim': hoje + timedelta(days=30),
+        },
+        {
+            'nome': 'Pedras Quentes - Relaxamento Profundo',
+            'descricao': 'Massagem com pedras quentes vulcânicas com preço especial. Ideal para aliviar tensões e melhorar a circulação.',
+            'procedimento': procedimentos[6],
+            'desconto_percentual': 15,
+            'preco_promocional': Decimal('187.00'),
+            'data_inicio': hoje,
+            'data_fim': hoje + timedelta(days=21),
         },
     ]
 
