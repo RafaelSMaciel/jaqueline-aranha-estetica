@@ -1,16 +1,33 @@
+"""
+seed.py — Gera dados de teste para desenvolvimento local.
+
+ATENCAO: Este arquivo NAO deve ser executado em producao.
+Ele cria dados fictícios, incluindo um usuario admin com senha fraca.
+"""
 import os
+import sys
 import django
 from datetime import time, date, datetime, timedelta
+from django.utils import timezone as tz
 from decimal import Decimal
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'shivazen.settings')
 django.setup()
 
+from django.conf import settings as django_settings
+
+# ═══ PROTECAO: Bloqueia execucao em producao ═══
+if not django_settings.DEBUG:
+    print("\n[BLOQUEADO] seed.py so pode ser executado com DEBUG=True.")
+    print("Este script cria dados ficticios e NAO deve rodar em producao.\n")
+    sys.exit(1)
+
 from app_shivazen.models import (
     Profissional, Procedimento, ProfissionalProcedimento,
     DisponibilidadeProfissional, Cliente, Atendimento,
     Promocao, Preco, Pacote, ItemPacote, ProntuarioPergunta,
-    Venda, Orcamento
+    Venda, Orcamento, CategoriaProduto, Produto, MovimentacaoEstoque,
+    ConfiguracaoSistema, Perfil, Usuario
 )
 
 
@@ -37,31 +54,13 @@ def seed():
     print(f"  Profissionais: {len(profissionais)} criados/existentes")
 
     # ──────────────────────────────────────────
-    # 2. PROCEDIMENTOS (Faciais + Corporais)
+    # 2. PROCEDIMENTOS (4 básicos para demonstração)
     # ──────────────────────────────────────────
     procedimentos_data = [
-        # Faciais
         {'nome': 'Limpeza de Pele Profunda', 'descricao': 'Remoção de impurezas, cravos e células mortas com técnicas especializadas. Inclui extração, tonificação e máscara hidratante.', 'duracao_minutos': 60},
-        {'nome': 'Preenchimento Facial', 'descricao': 'Aplicação de ácido hialurônico para restaurar volume, contornos e suavizar linhas de expressão com resultado natural.', 'duracao_minutos': 45},
-        {'nome': 'Harmonização Facial', 'descricao': 'Conjunto de procedimentos para equilibrar e realçar as características faciais com simetria e naturalidade.', 'duracao_minutos': 90},
-        {'nome': 'Bioestimulador de Colágeno', 'descricao': 'Estímulo natural da produção de colágeno com ácido poli-L-láctico para firmeza e sustentação.', 'duracao_minutos': 60},
-        {'nome': 'Toxina Botulínica (Botox)', 'descricao': 'Aplicação de toxina botulínica para suavizar rugas e linhas de expressão na testa, glabela e pés de galinha.', 'duracao_minutos': 30},
-        {'nome': 'Peeling Químico', 'descricao': 'Renovação celular com ácidos específicos para eliminar manchas, cicatrizes de acne e uniformizar a textura.', 'duracao_minutos': 45},
-        {'nome': 'Fototerapia LED', 'descricao': 'Terapia de luz não invasiva com diferentes comprimentos de onda para tratar acne, estimular colágeno e reduzir inflamações.', 'duracao_minutos': 30},
-        {'nome': 'Microagulhamento', 'descricao': 'Estímulo da produção de colágeno com microagulhas para rejuvenescimento e redução de cicatrizes.', 'duracao_minutos': 60},
-        {'nome': 'Skinbooster', 'descricao': 'Hidratação profunda com ácido hialurônico injetável para luminosidade e viço da pele facial.', 'duracao_minutos': 45},
-        {'nome': 'Laser Fracionado', 'descricao': 'Tratamento a laser para cicatrizes, manchas e rejuvenescimento profundo da pele facial.', 'duracao_minutos': 45},
-        # Corporais
-        {'nome': 'Massagem Modeladora', 'descricao': 'Técnica com manobras firmes para redução de medidas, melhora da circulação e diminuição da celulite.', 'duracao_minutos': 60},
-        {'nome': 'Radiofrequência Corporal', 'descricao': 'Aquecimento profundo dos tecidos para combater flacidez, celulite e gordura localizada de forma indolor.', 'duracao_minutos': 50},
+        {'nome': 'Peeling Químico', 'descricao': 'Renovação celular com ácidos específicos para eliminar manchas, cicatrizes de acne e uniformizar a textura da pele.', 'duracao_minutos': 45},
         {'nome': 'Drenagem Linfática', 'descricao': 'Técnica manual para estimular o sistema linfático, reduzir inchaço e eliminar toxinas do corpo.', 'duracao_minutos': 60},
-        {'nome': 'Criolipólise', 'descricao': 'Eliminação de gordura localizada por congelamento controlado, sem cirurgia e com resultados definitivos.', 'duracao_minutos': 60},
-        {'nome': 'Lipocavitação', 'descricao': 'Ultrassom de alta potência que rompe células de gordura de forma não invasiva para modelagem corporal.', 'duracao_minutos': 45},
-        {'nome': 'Tratamento de Estrias', 'descricao': 'Combinação de microagulhamento e ativos para minimizar estrias antigas e recentes.', 'duracao_minutos': 50},
-        {'nome': 'Esfoliação Corporal', 'descricao': 'Renovação da pele com esfoliantes profissionais para hidratação, luminosidade e maciez.', 'duracao_minutos': 40},
         {'nome': 'Massagem Relaxante', 'descricao': 'Técnicas para alívio do estresse, tensão muscular e promoção do bem-estar integral.', 'duracao_minutos': 60},
-        {'nome': 'Pós-operatório Estético', 'descricao': 'Protocolos para recuperação de cirurgias plásticas, minimizando edema, fibrose e desconfortos.', 'duracao_minutos': 60},
-        {'nome': 'Estética Íntima', 'descricao': 'Procedimentos especializados para o bem-estar e saúde íntima com total discrição e profissionalismo.', 'duracao_minutos': 45},
     ]
 
     procedimentos = []
@@ -81,12 +80,12 @@ def seed():
     for proc in procedimentos:
         ProfissionalProcedimento.objects.get_or_create(profissional=prof1, procedimento=proc)
 
-    # Dra. Amanda: procedimentos faciais (primeiros 10)
-    for proc in procedimentos[:10]:
+    # Dra. Amanda: Limpeza de Pele e Peeling (faciais)
+    for proc in procedimentos[:2]:
         ProfissionalProcedimento.objects.get_or_create(profissional=prof2, procedimento=proc)
 
-    # Camila: procedimentos corporais (últimos 10)
-    for proc in procedimentos[10:]:
+    # Camila: Drenagem e Massagem (corporais)
+    for proc in procedimentos[2:]:
         ProfissionalProcedimento.objects.get_or_create(profissional=prof3, procedimento=proc)
 
     print("  Vínculos profissional-procedimento criados")
@@ -117,25 +116,9 @@ def seed():
     # ──────────────────────────────────────────
     precos_base = {
         'Limpeza de Pele Profunda': 180,
-        'Preenchimento Facial': 1200,
-        'Harmonização Facial': 2500,
-        'Bioestimulador de Colágeno': 1800,
-        'Toxina Botulínica (Botox)': 900,
         'Peeling Químico': 350,
-        'Fototerapia LED': 150,
-        'Microagulhamento': 450,
-        'Skinbooster': 800,
-        'Laser Fracionado': 600,
-        'Massagem Modeladora': 200,
-        'Radiofrequência Corporal': 250,
         'Drenagem Linfática': 180,
-        'Criolipólise': 800,
-        'Lipocavitação': 300,
-        'Tratamento de Estrias': 400,
-        'Esfoliação Corporal': 150,
         'Massagem Relaxante': 180,
-        'Pós-operatório Estético': 250,
-        'Estética Íntima': 500,
     }
 
     for proc in procedimentos:
@@ -187,29 +170,29 @@ def seed():
     agendamentos_data = [
         # Hoje
         {'cliente': clientes[0], 'profissional': prof1, 'procedimento': procedimentos[0], 'hora': time(9, 0), 'dia_offset': 0, 'status': 'AGENDADO'},
-        {'cliente': clientes[1], 'profissional': prof1, 'procedimento': procedimentos[1], 'hora': time(10, 30), 'dia_offset': 0, 'status': 'CONFIRMADO'},
-        {'cliente': clientes[2], 'profissional': prof2, 'procedimento': procedimentos[4], 'hora': time(14, 0), 'dia_offset': 0, 'status': 'AGENDADO'},
+        {'cliente': clientes[1], 'profissional': prof2, 'procedimento': procedimentos[1], 'hora': time(10, 30), 'dia_offset': 0, 'status': 'CONFIRMADO'},
+        {'cliente': clientes[2], 'profissional': prof3, 'procedimento': procedimentos[2], 'hora': time(14, 0), 'dia_offset': 0, 'status': 'AGENDADO'},
         # Amanhã
-        {'cliente': clientes[3], 'profissional': prof1, 'procedimento': procedimentos[2], 'hora': time(9, 0), 'dia_offset': 1, 'status': 'AGENDADO'},
-        {'cliente': clientes[4], 'profissional': prof2, 'procedimento': procedimentos[5], 'hora': time(11, 0), 'dia_offset': 1, 'status': 'AGENDADO'},
-        {'cliente': clientes[5], 'profissional': prof3, 'procedimento': procedimentos[10], 'hora': time(14, 0), 'dia_offset': 1, 'status': 'CONFIRMADO'},
+        {'cliente': clientes[3], 'profissional': prof1, 'procedimento': procedimentos[3], 'hora': time(9, 0), 'dia_offset': 1, 'status': 'AGENDADO'},
+        {'cliente': clientes[4], 'profissional': prof2, 'procedimento': procedimentos[0], 'hora': time(11, 0), 'dia_offset': 1, 'status': 'AGENDADO'},
+        {'cliente': clientes[5], 'profissional': prof3, 'procedimento': procedimentos[2], 'hora': time(14, 0), 'dia_offset': 1, 'status': 'CONFIRMADO'},
         # Próximos dias
-        {'cliente': clientes[6], 'profissional': prof1, 'procedimento': procedimentos[3], 'hora': time(10, 0), 'dia_offset': 2, 'status': 'AGENDADO'},
-        {'cliente': clientes[7], 'profissional': prof3, 'procedimento': procedimentos[12], 'hora': time(15, 0), 'dia_offset': 2, 'status': 'AGENDADO'},
-        {'cliente': clientes[8], 'profissional': prof2, 'procedimento': procedimentos[7], 'hora': time(9, 0), 'dia_offset': 3, 'status': 'AGENDADO'},
-        {'cliente': clientes[9], 'profissional': prof1, 'procedimento': procedimentos[8], 'hora': time(11, 0), 'dia_offset': 3, 'status': 'AGENDADO'},
+        {'cliente': clientes[6], 'profissional': prof1, 'procedimento': procedimentos[1], 'hora': time(10, 0), 'dia_offset': 2, 'status': 'AGENDADO'},
+        {'cliente': clientes[7], 'profissional': prof3, 'procedimento': procedimentos[3], 'hora': time(15, 0), 'dia_offset': 2, 'status': 'AGENDADO'},
+        {'cliente': clientes[8], 'profissional': prof1, 'procedimento': procedimentos[0], 'hora': time(9, 0), 'dia_offset': 3, 'status': 'AGENDADO'},
+        {'cliente': clientes[9], 'profissional': prof2, 'procedimento': procedimentos[1], 'hora': time(11, 0), 'dia_offset': 3, 'status': 'AGENDADO'},
         # Passados (concluídos/cancelados)
-        {'cliente': clientes[0], 'profissional': prof1, 'procedimento': procedimentos[6], 'hora': time(10, 0), 'dia_offset': -2, 'status': 'CONCLUIDO'},
-        {'cliente': clientes[1], 'profissional': prof2, 'procedimento': procedimentos[9], 'hora': time(14, 0), 'dia_offset': -3, 'status': 'CONCLUIDO'},
-        {'cliente': clientes[2], 'profissional': prof3, 'procedimento': procedimentos[11], 'hora': time(9, 0), 'dia_offset': -1, 'status': 'CANCELADO'},
-        {'cliente': clientes[3], 'profissional': prof1, 'procedimento': procedimentos[13], 'hora': time(16, 0), 'dia_offset': -5, 'status': 'CONCLUIDO'},
-        {'cliente': clientes[4], 'profissional': prof3, 'procedimento': procedimentos[17], 'hora': time(11, 0), 'dia_offset': -7, 'status': 'CONCLUIDO'},
+        {'cliente': clientes[0], 'profissional': prof1, 'procedimento': procedimentos[2], 'hora': time(10, 0), 'dia_offset': -2, 'status': 'CONCLUIDO'},
+        {'cliente': clientes[1], 'profissional': prof2, 'procedimento': procedimentos[1], 'hora': time(14, 0), 'dia_offset': -3, 'status': 'CONCLUIDO'},
+        {'cliente': clientes[2], 'profissional': prof3, 'procedimento': procedimentos[3], 'hora': time(9, 0), 'dia_offset': -1, 'status': 'CANCELADO'},
+        {'cliente': clientes[3], 'profissional': prof1, 'procedimento': procedimentos[0], 'hora': time(16, 0), 'dia_offset': -5, 'status': 'CONCLUIDO'},
+        {'cliente': clientes[4], 'profissional': prof3, 'procedimento': procedimentos[2], 'hora': time(11, 0), 'dia_offset': -7, 'status': 'CONCLUIDO'},
     ]
 
     agendamentos_criados = 0
     for ad in agendamentos_data:
         data_agend = hoje + timedelta(days=ad['dia_offset'])
-        dt_inicio = datetime.combine(data_agend, ad['hora'])
+        dt_inicio = tz.make_aware(datetime.combine(data_agend, ad['hora']))
         dt_fim = dt_inicio + timedelta(minutes=ad['procedimento'].duracao_minutos)
 
         preco = precos_base.get(ad['procedimento'].nome, 200)
@@ -244,40 +227,22 @@ def seed():
             'data_fim': hoje + timedelta(days=25),
         },
         {
-            'nome': 'Combo Harmonização',
-            'descricao': 'Pacote especial de harmonização facial com botox + preenchimento. Condições imperdíveis para transformar seu visual.',
-            'procedimento': procedimentos[2],
-            'desconto_percentual': 20,
-            'preco_promocional': Decimal('2000.00'),
-            'data_inicio': hoje - timedelta(days=3),
-            'data_fim': hoje + timedelta(days=30),
-        },
-        {
             'nome': 'Massagem Relaxante - Semana do Bem-estar',
             'descricao': 'Na semana do bem-estar, massagem relaxante com valor especial. Cuide do seu corpo e mente.',
-            'procedimento': procedimentos[17],
+            'procedimento': procedimentos[3],
             'desconto_percentual': 25,
             'preco_promocional': Decimal('135.00'),
             'data_inicio': hoje,
             'data_fim': hoje + timedelta(days=14),
         },
         {
-            'nome': 'Peeling + Fototerapia LED',
-            'descricao': 'Combine peeling químico com fototerapia LED por um preço especial. Renovação completa da sua pele.',
-            'procedimento': procedimentos[5],
+            'nome': 'Peeling Químico Renovador',
+            'descricao': 'Peeling químico com desconto especial para renovação completa da sua pele. Agende já!',
+            'procedimento': procedimentos[1],
             'desconto_percentual': 15,
             'preco_promocional': Decimal('297.50'),
             'data_inicio': hoje - timedelta(days=2),
             'data_fim': hoje + timedelta(days=20),
-        },
-        {
-            'nome': 'Criolipólise - Verão Sem Gordura',
-            'descricao': 'Elimine a gordura localizada com criolipólise e chegue ao verão em forma. Resultados duradouros.',
-            'procedimento': procedimentos[13],
-            'desconto_percentual': 10,
-            'preco_promocional': Decimal('720.00'),
-            'data_inicio': hoje,
-            'data_fim': hoje + timedelta(days=45),
         },
     ]
 
@@ -303,23 +268,15 @@ def seed():
     pacote1, _ = Pacote.objects.get_or_create(
         nome='Pacote Facial Completo',
         defaults={
-            'descricao': 'Limpeza de pele + Peeling + Fototerapia (4 sessões de cada)',
-            'preco_total': Decimal('2200.00'),
+            'descricao': 'Limpeza de pele + Peeling Químico (4 sessões de cada)',
+            'preco_total': Decimal('1900.00'),
             'ativo': True,
         }
     )
     pacote2, _ = Pacote.objects.get_or_create(
-        nome='Pacote Modelagem Corporal',
+        nome='Pacote Bem-estar Corporal',
         defaults={
-            'descricao': 'Massagem modeladora + Radiofrequência + Drenagem (8 sessões de cada)',
-            'preco_total': Decimal('4500.00'),
-            'ativo': True,
-        }
-    )
-    pacote3, _ = Pacote.objects.get_or_create(
-        nome='Pacote Bem-estar',
-        defaults={
-            'descricao': 'Massagem relaxante + Esfoliação corporal (6 sessões de cada)',
+            'descricao': 'Drenagem Linfática + Massagem Relaxante (6 sessões de cada)',
             'preco_total': Decimal('1800.00'),
             'ativo': True,
         }
@@ -327,17 +284,12 @@ def seed():
 
     # Itens dos pacotes
     ItemPacote.objects.get_or_create(pacote=pacote1, procedimento=procedimentos[0], defaults={'quantidade_sessoes': 4})
-    ItemPacote.objects.get_or_create(pacote=pacote1, procedimento=procedimentos[5], defaults={'quantidade_sessoes': 4})
-    ItemPacote.objects.get_or_create(pacote=pacote1, procedimento=procedimentos[6], defaults={'quantidade_sessoes': 4})
+    ItemPacote.objects.get_or_create(pacote=pacote1, procedimento=procedimentos[1], defaults={'quantidade_sessoes': 4})
 
-    ItemPacote.objects.get_or_create(pacote=pacote2, procedimento=procedimentos[10], defaults={'quantidade_sessoes': 8})
-    ItemPacote.objects.get_or_create(pacote=pacote2, procedimento=procedimentos[11], defaults={'quantidade_sessoes': 8})
-    ItemPacote.objects.get_or_create(pacote=pacote2, procedimento=procedimentos[12], defaults={'quantidade_sessoes': 8})
+    ItemPacote.objects.get_or_create(pacote=pacote2, procedimento=procedimentos[2], defaults={'quantidade_sessoes': 6})
+    ItemPacote.objects.get_or_create(pacote=pacote2, procedimento=procedimentos[3], defaults={'quantidade_sessoes': 6})
 
-    ItemPacote.objects.get_or_create(pacote=pacote3, procedimento=procedimentos[17], defaults={'quantidade_sessoes': 6})
-    ItemPacote.objects.get_or_create(pacote=pacote3, procedimento=procedimentos[16], defaults={'quantidade_sessoes': 6})
-
-    print("  Pacotes: 3 criados com itens")
+    print("  Pacotes: 2 criados com itens")
 
     # ──────────────────────────────────────────
     # 10. PERGUNTAS DO PRONTUÁRIO
@@ -368,10 +320,10 @@ def seed():
     # ──────────────────────────────────────────
     vendas_data = [
         {'cliente': clientes[0], 'procedimento': procedimentos[0], 'profissional': prof1, 'valor': Decimal('180.00'), 'status': 'PAGO', 'dia_offset': -10},
-        {'cliente': clientes[1], 'procedimento': procedimentos[4], 'profissional': prof2, 'valor': Decimal('900.00'), 'status': 'PAGO', 'dia_offset': -8},
-        {'cliente': clientes[3], 'procedimento': procedimentos[2], 'profissional': prof1, 'valor': Decimal('2500.00'), 'status': 'PENDENTE', 'dia_offset': -3},
-        {'cliente': clientes[4], 'procedimento': procedimentos[17], 'profissional': prof3, 'valor': Decimal('180.00'), 'status': 'PAGO', 'dia_offset': -7},
-        {'cliente': clientes[5], 'procedimento': procedimentos[13], 'profissional': prof1, 'valor': Decimal('720.00'), 'status': 'PENDENTE', 'dia_offset': -1},
+        {'cliente': clientes[1], 'procedimento': procedimentos[1], 'profissional': prof2, 'valor': Decimal('350.00'), 'status': 'PAGO', 'dia_offset': -8},
+        {'cliente': clientes[3], 'procedimento': procedimentos[2], 'profissional': prof3, 'valor': Decimal('180.00'), 'status': 'PENDENTE', 'dia_offset': -3},
+        {'cliente': clientes[4], 'procedimento': procedimentos[3], 'profissional': prof3, 'valor': Decimal('180.00'), 'status': 'PAGO', 'dia_offset': -7},
+        {'cliente': clientes[5], 'procedimento': procedimentos[0], 'profissional': prof1, 'valor': Decimal('180.00'), 'status': 'PENDENTE', 'dia_offset': -1},
     ]
 
     vendas_criadas = 0
@@ -399,18 +351,18 @@ def seed():
     orcamentos_data = [
         {
             'nome_completo': 'Carolina Mendes', 'telefone': '(17) 99888-0001',
-            'email': 'carolina@teste.com', 'procedimento': procedimentos[2],
-            'valor': Decimal('2500.00'), 'status': 'PENDENTE', 'sessoes': 1,
+            'email': 'carolina@teste.com', 'procedimento': procedimentos[0],
+            'valor': Decimal('180.00'), 'status': 'PENDENTE', 'sessoes': 1,
         },
         {
             'nome_completo': 'Daniela Freitas', 'telefone': '(17) 99888-0002',
-            'email': 'daniela@teste.com', 'procedimento': procedimentos[13],
-            'valor': Decimal('800.00'), 'status': 'APROVADO', 'sessoes': 1,
+            'email': 'daniela@teste.com', 'procedimento': procedimentos[2],
+            'valor': Decimal('1080.00'), 'status': 'APROVADO', 'sessoes': 6,
         },
         {
             'nome_completo': 'Luiza Nascimento', 'telefone': '(17) 99888-0003',
-            'email': 'luiza@teste.com', 'procedimento': procedimentos[10],
-            'valor': Decimal('1600.00'), 'status': 'PENDENTE', 'sessoes': 8,
+            'email': 'luiza@teste.com', 'procedimento': procedimentos[3],
+            'valor': Decimal('900.00'), 'status': 'PENDENTE', 'sessoes': 5,
         },
     ]
 
@@ -433,6 +385,121 @@ def seed():
 
     print(f"  Orçamentos: {orcamentos_criados} criados")
 
+    # ──────────────────────────────────────────
+    # 13. CATEGORIAS DE PRODUTOS
+    # ──────────────────────────────────────────
+    categorias_data = [
+        {'nome': 'Dermocosméticos', 'descricao': 'Produtos de cuidado com a pele profissionais'},
+        {'nome': 'Injetáveis', 'descricao': 'Produtos injetáveis para procedimentos estéticos'},
+        {'nome': 'Equipamentos', 'descricao': 'Equipamentos e acessórios para procedimentos'},
+        {'nome': 'Consumíveis', 'descricao': 'Materiais de consumo para procedimentos'},
+        {'nome': 'Higiene e Limpeza', 'descricao': 'Produtos de higienização e limpeza'},
+    ]
+
+    categorias = []
+    for cd in categorias_data:
+        cat, _ = CategoriaProduto.objects.get_or_create(
+            nome=cd['nome'],
+            defaults={'descricao': cd['descricao'], 'ativo': True}
+        )
+        categorias.append(cat)
+
+    print(f"  Categorias: {len(categorias)} criadas/existentes")
+
+    # ──────────────────────────────────────────
+    # 14. PRODUTOS (Estoque)
+    # ──────────────────────────────────────────
+    produtos_data = [
+        # Dermocosméticos
+        {'nome': 'Sérum Vitamina C 30ml', 'categoria': categorias[0], 'marca': 'Adcos', 'preco_custo': Decimal('45.00'), 'preco_venda': Decimal('89.90'), 'quantidade_estoque': 25, 'estoque_minimo': 5, 'unidade': 'UN'},
+        {'nome': 'Protetor Solar FPS 70', 'categoria': categorias[0], 'marca': 'La Roche-Posay', 'preco_custo': Decimal('38.00'), 'preco_venda': Decimal('79.90'), 'quantidade_estoque': 30, 'estoque_minimo': 10, 'unidade': 'UN'},
+        {'nome': 'Ácido Hialurônico Tópico', 'categoria': categorias[0], 'marca': 'SkinCeuticals', 'preco_custo': Decimal('120.00'), 'preco_venda': Decimal('249.90'), 'quantidade_estoque': 15, 'estoque_minimo': 3, 'unidade': 'UN'},
+        {'nome': 'Hidratante Facial Noturno', 'categoria': categorias[0], 'marca': 'Vichy', 'preco_custo': Decimal('55.00'), 'preco_venda': Decimal('119.90'), 'quantidade_estoque': 20, 'estoque_minimo': 5, 'unidade': 'UN'},
+        {'nome': 'Água Micelar 400ml', 'categoria': categorias[0], 'marca': 'Bioderma', 'preco_custo': Decimal('42.00'), 'preco_venda': Decimal('89.90'), 'quantidade_estoque': 18, 'estoque_minimo': 5, 'unidade': 'UN'},
+        # Injetáveis
+        {'nome': 'Ácido Hialurônico 1ml', 'categoria': categorias[1], 'marca': 'Juvederm', 'preco_custo': Decimal('350.00'), 'preco_venda': Decimal('750.00'), 'quantidade_estoque': 10, 'estoque_minimo': 3, 'unidade': 'UN'},
+        {'nome': 'Toxina Botulínica 100U', 'categoria': categorias[1], 'marca': 'Botox Allergan', 'preco_custo': Decimal('450.00'), 'preco_venda': Decimal('900.00'), 'quantidade_estoque': 8, 'estoque_minimo': 2, 'unidade': 'UN'},
+        {'nome': 'Bioestimulador PLLA', 'categoria': categorias[1], 'marca': 'Sculptra', 'preco_custo': Decimal('600.00'), 'preco_venda': Decimal('1200.00'), 'quantidade_estoque': 5, 'estoque_minimo': 2, 'unidade': 'UN'},
+        {'nome': 'Skinbooster 1ml', 'categoria': categorias[1], 'marca': 'Restylane', 'preco_custo': Decimal('280.00'), 'preco_venda': Decimal('600.00'), 'quantidade_estoque': 12, 'estoque_minimo': 3, 'unidade': 'UN'},
+        # Equipamentos
+        {'nome': 'Ponteira Criolipólise P', 'categoria': categorias[2], 'marca': 'HTM', 'preco_custo': Decimal('200.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 4, 'estoque_minimo': 2, 'unidade': 'UN'},
+        {'nome': 'Agulha Microagulhamento 36P', 'categoria': categorias[2], 'marca': 'Dr. Pen', 'preco_custo': Decimal('15.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 50, 'estoque_minimo': 20, 'unidade': 'UN'},
+        # Consumíveis
+        {'nome': 'Luvas Nitrílicas (cx 100)', 'categoria': categorias[3], 'marca': 'Supermax', 'preco_custo': Decimal('28.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 15, 'estoque_minimo': 5, 'unidade': 'CX'},
+        {'nome': 'Gaze Estéril (pct 500)', 'categoria': categorias[3], 'marca': 'Cremer', 'preco_custo': Decimal('22.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 10, 'estoque_minimo': 3, 'unidade': 'PCT'},
+        {'nome': 'Máscara Descartável (cx 50)', 'categoria': categorias[3], 'marca': 'Medix', 'preco_custo': Decimal('12.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 20, 'estoque_minimo': 5, 'unidade': 'CX'},
+        {'nome': 'Papel Lençol (rolo)', 'categoria': categorias[3], 'marca': 'Kolplast', 'preco_custo': Decimal('18.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 12, 'estoque_minimo': 4, 'unidade': 'RL'},
+        # Higiene
+        {'nome': 'Álcool 70% (1L)', 'categoria': categorias[4], 'marca': 'Start', 'preco_custo': Decimal('8.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 25, 'estoque_minimo': 10, 'unidade': 'UN'},
+        {'nome': 'Sabonete Antisséptico (500ml)', 'categoria': categorias[4], 'marca': 'Riocare', 'preco_custo': Decimal('15.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 8, 'estoque_minimo': 3, 'unidade': 'UN'},
+        {'nome': 'Clorexidina Alcoólica (100ml)', 'categoria': categorias[4], 'marca': 'Vic Pharma', 'preco_custo': Decimal('12.00'), 'preco_venda': Decimal('0.00'), 'quantidade_estoque': 15, 'estoque_minimo': 5, 'unidade': 'UN'},
+    ]
+
+    produtos = []
+    for pd in produtos_data:
+        produto, _ = Produto.objects.get_or_create(
+            nome=pd['nome'],
+            defaults={
+                'categoria': pd['categoria'],
+                'marca': pd['marca'],
+                'preco_custo': pd['preco_custo'],
+                'preco_venda': pd['preco_venda'],
+                'quantidade_estoque': pd['quantidade_estoque'],
+                'estoque_minimo': pd['estoque_minimo'],
+                'unidade': pd['unidade'],
+                'ativo': True,
+            }
+        )
+        produtos.append(produto)
+
+    print(f"  Produtos: {len(produtos)} criados/existentes")
+
+    # ──────────────────────────────────────────
+    # 15. CONFIGURAÇÕES DO SISTEMA
+    # ──────────────────────────────────────────
+    configs_data = [
+        {'chave': 'WHATSAPP_NUMERO', 'valor': '5517000000000', 'descricao': 'Número do WhatsApp da clínica'},
+        {'chave': 'NOME_CLINICA', 'valor': 'Shiva Zen', 'descricao': 'Nome da clínica'},
+        {'chave': 'HORARIO_FUNCIONAMENTO', 'valor': 'Seg-Sex: 9h-18h | Sáb: 9h-14h', 'descricao': 'Horário de funcionamento'},
+        {'chave': 'ENDERECO', 'valor': 'Rua Example, 123 - Centro, Cidade/SP', 'descricao': 'Endereço da clínica'},
+        {'chave': 'EMAIL_CONTATO', 'valor': 'contato@shivazen.com', 'descricao': 'Email de contato'},
+        {'chave': 'INSTAGRAM', 'valor': '@shivazen', 'descricao': 'Instagram da clínica'},
+        {'chave': 'WHATSAPP_BOT_ATIVO', 'valor': 'false', 'descricao': 'Ativar bot do WhatsApp'},
+    ]
+
+    for cfg in configs_data:
+        ConfiguracaoSistema.objects.get_or_create(
+            chave=cfg['chave'],
+            defaults={'valor': cfg['valor'], 'descricao': cfg['descricao']}
+        )
+
+    print(f"  Configurações: {len(configs_data)} criadas/existentes")
+
+    # ──────────────────────────────────────────
+    # 16. ADMIN USER (para acesso ao painel)
+    # ──────────────────────────────────────────
+    try:
+        perfil_admin, _ = Perfil.objects.get_or_create(
+            nome='Administrador',
+            defaults={'descricao': 'Acesso total a todas as funcionalidades do sistema.'}
+        )
+        admin_user, created = Usuario.objects.get_or_create(
+            email='admin@shivazen.com',
+            defaults={
+                'nome': 'Administrador',
+                'perfil': perfil_admin,
+                'ativo': True,
+            }
+        )
+        if created:
+            admin_user.set_password('admin123')
+            admin_user.save()
+            print("  Admin: Criado (admin@shivazen.com / admin123)")
+        else:
+            print("  Admin: Já existente")
+    except Exception as e:
+        print(f"  Admin: Erro ao criar ({e})")
+
     print("\nSeed concluído com sucesso!")
     print("=" * 50)
     print(f"  Profissionais:  {Profissional.objects.filter(ativo=True).count()}")
@@ -440,9 +507,11 @@ def seed():
     print(f"  Clientes:       {Cliente.objects.filter(ativo=True).count()}")
     print(f"  Agendamentos:   {Atendimento.objects.count()}")
     print(f"  Promoções:      {Promocao.objects.filter(ativa=True).count()}")
-    print(f"  Pacotes:        {Pacote.objects.filter(ativo=True).count()}")
+    print(f"  Pacotes:        {Pacote.objects.count()}")
     print(f"  Vendas:         {Venda.objects.count()}")
     print(f"  Orçamentos:     {Orcamento.objects.count()}")
+    print(f"  Produtos:       {Produto.objects.filter(ativo=True).count()}")
+    print(f"  Categorias:     {CategoriaProduto.objects.filter(ativo=True).count()}")
     print("=" * 50)
 
 

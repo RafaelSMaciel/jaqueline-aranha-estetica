@@ -178,8 +178,17 @@
         <a href="{% url 'shivazen:painel_agendamentos' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'painel_agendamentos' %}active{% endif %}">
             <i class="fas fa-calendar-day"></i><span>Agenda</span>
         </a>
+        <a href="{% url 'shivazen:painel_profissionais' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'painel_profissionais' or request.resolver_match.url_name == 'profissionalCadastro' or request.resolver_match.url_name == 'profissionalEditar' %}active{% endif %}">
+            <i class="fas fa-user-md"></i><span>Profissionais</span>
+        </a>
+        <a href="{% url 'shivazen:painel_clientes' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'painel_clientes' %}active{% endif %}">
+            <i class="fas fa-users"></i><span>Clientes</span>
+        </a>
         <a href="{% url 'shivazen:admin_promocoes' %}" class="admin-nav-item {% if 'promoco' in request.resolver_match.url_name %}active{% endif %}">
             <i class="fas fa-tag"></i><span>Promoções</span>
+        </a>
+        <a href="{% url 'shivazen:painel_estoque' %}" class="admin-nav-item {% if 'estoque' in request.resolver_match.url_name or 'produto' in request.resolver_match.url_name or 'movimentac' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="fas fa-boxes"></i><span>Estoque</span>
         </a>
         <a href="{% url 'shivazen:painel_vendas' %}" class="admin-nav-item {% if 'venda' in request.resolver_match.url_name %}active{% endif %}">
             <i class="fas fa-shopping-cart"></i><span>Vendas</span>
@@ -187,8 +196,11 @@
         <a href="{% url 'shivazen:painel_orcamentos' %}" class="admin-nav-item {% if 'orcamento' in request.resolver_match.url_name %}active{% endif %}">
             <i class="fas fa-file-invoice-dollar"></i><span>Orçamentos</span>
         </a>
-        <a href="{% url 'shivazen:painel_clientes' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'painel_clientes' %}active{% endif %}">
-            <i class="fas fa-users"></i><span>Clientes</span>
+        <a href="{% url 'shivazen:painel_notificacoes' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'painel_notificacoes' %}active{% endif %}">
+            <i class="fas fa-bell"></i><span>Notificações</span>
+        </a>
+        <a href="{% url 'shivazen:prontuarioconsentimento' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'prontuarioconsentimento' %}active{% endif %}">
+            <i class="fas fa-file-medical"></i><span>Prontuario</span>
         </a>
         <a href="{% url 'shivazen:admin_auditoria' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'admin_auditoria' %}active{% endif %}">
             <i class="fas fa-clipboard-list"></i><span>Auditoria</span>
