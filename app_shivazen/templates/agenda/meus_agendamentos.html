@@ -531,7 +531,10 @@
                         </a>
                         {% if ag.status_atendimento == 'AGENDADO' %}
                         <button class="btn-cancel-agend"
-                                onclick="openCancelModal('{{ ag.id_atendimento }}', '{{ ag.procedimento.nome|escapejs }}', '{{ ag.data_hora_inicio|date:&quot;d/m/Y&quot; }}')">
+                                data-id="{{ ag.id_atendimento }}"
+                                data-nome="{{ ag.procedimento.nome }}"
+                                data-data="{{ ag.data_hora_inicio|date:'d/m/Y' }}"
+                                onclick="openCancelModal(this.dataset.id, this.dataset.nome, this.dataset.data)">
                             <i class="bi bi-x-circle me-1"></i>Cancelar
                         </button>
                         {% endif %}
@@ -651,6 +654,7 @@
 
 {% block scripts %}
 <script>
+var CSRF_TOKEN = '{{ csrf_token }}';
 (function() {
     /* ═══ PHONE MASK ═══ */
     var telInput = document.getElementById('tel-input');
@@ -680,7 +684,7 @@
 
             fetch('{% url "shivazen:verificar_telefone" %}', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken')},
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
                 body: JSON.stringify({action: 'enviar', telefone: tel})
             })
             .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
@@ -793,7 +797,7 @@
 
             fetch('{% url "shivazen:verificar_telefone" %}', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken')},
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
                 body: JSON.stringify({action: 'verificar', telefone: telefoneForVerify, codigo: codigo})
             })
             .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
@@ -844,7 +848,7 @@
 
         fetch('{% url "shivazen:cancelar_agendamento" %}', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken')},
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
             body: JSON.stringify({
                 atendimento_id: cancelAtendimentoId,
                 telefone: '{{ telefone|default:"" }}'
