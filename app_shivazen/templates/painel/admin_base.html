@@ -196,6 +196,12 @@
         <a href="{% url 'shivazen:painel_orcamentos' %}" class="admin-nav-item {% if 'orcamento' in request.resolver_match.url_name %}active{% endif %}">
             <i class="fas fa-file-invoice-dollar"></i><span>Orçamentos</span>
         </a>
+        <a href="{% url 'shivazen:painel_notificacoes' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'painel_notificacoes' %}active{% endif %}">
+            <i class="fas fa-bell"></i><span>Notificações</span>
+        </a>
+        <a href="{% url 'shivazen:prontuarioconsentimento' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'prontuarioconsentimento' %}active{% endif %}">
+            <i class="fas fa-file-medical"></i><span>Prontuario</span>
+        </a>
         <a href="{% url 'shivazen:admin_auditoria' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'admin_auditoria' %}active{% endif %}">
             <i class="fas fa-clipboard-list"></i><span>Auditoria</span>
         </a>

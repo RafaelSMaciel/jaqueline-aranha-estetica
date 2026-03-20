@@ -14,7 +14,7 @@ class Funcionalidade(models.Model):
     descricao = models.TextField(blank=True, null=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'funcionalidade'
 
 class Perfil(models.Model):
@@ -24,7 +24,7 @@ class Perfil(models.Model):
     funcionalidades = models.ManyToManyField(Funcionalidade, through='PerfilFuncionalidade')
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'perfil'
 
 class PerfilFuncionalidade(models.Model):
@@ -32,7 +32,7 @@ class PerfilFuncionalidade(models.Model):
     funcionalidade = models.ForeignKey(Funcionalidade, on_delete=models.CASCADE, db_column='id_funcionalidade')
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'perfil_funcionalidade'
         unique_together = (('perfil', 'funcionalidade'),)
 
@@ -43,7 +43,7 @@ class Profissional(models.Model):
     ativo = models.BooleanField(default=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'profissional'
 
     def get_horarios_disponiveis(self, data_selecionada):
@@ -123,7 +123,7 @@ class Usuario(AbstractBaseUser):
     objects = UsuarioManager()
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'usuario'
 
     @property
@@ -165,7 +165,7 @@ class Cliente(models.Model):
     data_cadastro = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'cliente'
 
 class ProntuarioPergunta(models.Model):
@@ -175,7 +175,7 @@ class ProntuarioPergunta(models.Model):
     ativa = models.BooleanField(default=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'prontuario_pergunta'
 
 class Procedimento(models.Model):
@@ -187,7 +187,7 @@ class Procedimento(models.Model):
     profissionais = models.ManyToManyField(Profissional, through='ProfissionalProcedimento')
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'procedimento'
 
 class ProfissionalProcedimento(models.Model):
@@ -195,7 +195,7 @@ class ProfissionalProcedimento(models.Model):
     procedimento = models.ForeignKey(Procedimento, on_delete=models.CASCADE, db_column='id_procedimento')
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'profissional_procedimento'
         unique_together = (('profissional', 'procedimento'),)
 
@@ -204,7 +204,7 @@ class Prontuario(models.Model):
     cliente = models.OneToOneField(Cliente, on_delete=models.CASCADE, db_column='id_cliente')
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'prontuario'
 
 class Preco(models.Model):
@@ -215,7 +215,7 @@ class Preco(models.Model):
     descricao = models.CharField(max_length=255, blank=True, null=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'preco'
 
 class DisponibilidadeProfissional(models.Model):
@@ -226,7 +226,7 @@ class DisponibilidadeProfissional(models.Model):
     hora_fim = models.TimeField()
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'disponibilidade_profissional'
 
 class BloqueioAgenda(models.Model):
@@ -237,7 +237,7 @@ class BloqueioAgenda(models.Model):
     motivo = models.TextField(blank=True, null=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'bloqueio_agenda'
 
 class Atendimento(models.Model):
@@ -252,7 +252,7 @@ class Atendimento(models.Model):
     observacoes = models.TextField(blank=True, null=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'atendimento'
 
 class ProntuarioResposta(models.Model):
@@ -263,18 +263,23 @@ class ProntuarioResposta(models.Model):
     resposta_boolean = models.BooleanField(blank=True, null=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'prontuario_resposta'
 
 class Notificacao(models.Model):
     id_notificacao = models.AutoField(primary_key=True)
     atendimento = models.ForeignKey(Atendimento, on_delete=models.CASCADE, db_column='id_atendimento')
-    canal = models.CharField(max_length=20)
-    status_envio = models.CharField(max_length=20)
+    tipo = models.CharField(max_length=30, default='LEMBRETE')  # LEMBRETE, CONFIRMACAO, CANCELAMENTO, NPS
+    canal = models.CharField(max_length=20, default='WHATSAPP')
+    status_envio = models.CharField(max_length=20, default='PENDENTE')  # PENDENTE, ENVIADO, FALHOU
+    resposta_cliente = models.CharField(max_length=20, blank=True, null=True)  # CONFIRMOU, CANCELOU
+    token = models.CharField(max_length=64, unique=True, blank=True, null=True)
     data_hora_envio = models.DateTimeField(blank=True, null=True)
+    data_hora_resposta = models.DateTimeField(blank=True, null=True)
+    mensagem = models.TextField(blank=True, null=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'notificacao'
 
 class TermoConsentimento(models.Model):
@@ -285,7 +290,7 @@ class TermoConsentimento(models.Model):
     data_hora_assinatura = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'termo_consentimento'
 
 class LogAuditoria(models.Model):
@@ -298,7 +303,7 @@ class LogAuditoria(models.Model):
     data_hora = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'log_auditoria'
 
 
@@ -315,7 +320,7 @@ class Promocao(models.Model):
     imagem_url = models.CharField(max_length=500, blank=True, null=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'promocao'
 
     @property
@@ -333,7 +338,7 @@ class CodigoVerificacao(models.Model):
     usado = models.BooleanField(default=False)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'codigo_verificacao'
 
     @property
@@ -354,7 +359,7 @@ class Pacote(models.Model):
     ativo = models.BooleanField(default=True)
     
     class Meta:
-        managed = False
+        managed = True
         db_table = 'pacote'
 
 class ItemPacote(models.Model):
@@ -364,7 +369,7 @@ class ItemPacote(models.Model):
     quantidade_sessoes = models.IntegerField(default=1)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'item_pacote'
 
 class PacoteCliente(models.Model):
@@ -376,7 +381,7 @@ class PacoteCliente(models.Model):
     status = models.CharField(max_length=20, default='ATIVO') # ATIVO, FINALIZADO, CANCELADO
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'pacote_cliente'
 
 class SessaoPacote(models.Model):
@@ -386,7 +391,7 @@ class SessaoPacote(models.Model):
     data_debito = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'sessao_pacote'
 
 
@@ -401,7 +406,7 @@ class ListaEspera(models.Model):
     data_registro = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'lista_espera'
 
 
@@ -413,7 +418,7 @@ class AvaliacaoNPS(models.Model):
     data_avaliacao = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'avaliacao_nps'
 
 
@@ -425,7 +430,7 @@ class MetaProfissional(models.Model):
     valor_meta = models.DecimalField(max_digits=10, decimal_places=2)
     
     class Meta:
-        managed = False
+        managed = True
         db_table = 'meta_profissional'
         unique_together = (('profissional', 'mes', 'ano'),)
 
@@ -441,7 +446,7 @@ class TokenGoogleAgenda(models.Model):
     scopes = models.TextField()
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'token_google_agenda'
 
 
@@ -468,7 +473,7 @@ class Venda(models.Model):
     data_criacao = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'venda'
         ordering = ['-data']
 
@@ -517,7 +522,7 @@ class Orcamento(models.Model):
     data_criacao = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'orcamento'
         ordering = ['-data_criacao']
 
@@ -536,7 +541,7 @@ class CategoriaProduto(models.Model):
     ativo = models.BooleanField(default=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'categoria_produto'
 
     def __str__(self):
@@ -559,7 +564,7 @@ class Produto(models.Model):
     data_cadastro = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'produto'
         ordering = ['nome']
 
@@ -600,7 +605,7 @@ class MovimentacaoEstoque(models.Model):
     data_movimentacao = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'movimentacao_estoque'
         ordering = ['-data_movimentacao']
 
@@ -619,7 +624,7 @@ class ConfiguracaoSistema(models.Model):
     descricao = models.CharField(max_length=255, blank=True, null=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'configuracao_sistema'
 
     def __str__(self):

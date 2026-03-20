@@ -365,11 +365,17 @@ def verificar_telefone(request):
             # Em produção, enviar via SMS/WhatsApp API
             logger.info(f'Código de verificação gerado para telefone: {telefone[-4:]}')
 
-            return JsonResponse({
+            response_data = {
                 'success': True,
                 'message': 'Código de verificação enviado para seu telefone.',
-                # SEGURANÇA: codigo_debug REMOVIDO — nunca expor código ao frontend
-            })
+            }
+
+            # Em modo DEBUG, retornar código para facilitar testes
+            from django.conf import settings as django_settings
+            if django_settings.DEBUG:
+                response_data['codigo_debug'] = codigo
+
+            return JsonResponse(response_data)
 
         elif action == 'verificar':
             codigo_input = data.get('codigo', '').strip()
