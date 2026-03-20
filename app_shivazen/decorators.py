@@ -15,6 +15,6 @@ def staff_required(view_func):
     def _wrapped_view(request, *args, **kwargs):
         if not request.user.is_staff:
             messages.error(request, 'Acesso negado. Você precisa ser administrador.')
-            return redirect('shivazen:painel_redirect')
+            return redirect('shivazen:inicio')
         return view_func(request, *args, **kwargs)
     return _wrapped_view
