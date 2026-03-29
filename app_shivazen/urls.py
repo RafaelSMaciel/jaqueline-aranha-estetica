@@ -50,15 +50,6 @@ urlpatterns = [
     path('painel/promocoes/<int:pk>/editar/', views.admin_editar_promocao, name='admin_editar_promocao'),
     path('painel/promocoes/<int:pk>/excluir/', views.admin_excluir_promocao, name='admin_excluir_promocao'),
 
-    # ─── Vendas (CRUD) ───
-    path('painel/vendas/', views.painel_vendas, name='painel_vendas'),
-    path('painel/vendas/criar/', views.criar_venda, name='criar_venda'),
-    path('painel/vendas/<int:pk>/editar/', views.editar_venda, name='editar_venda'),
-
-    # ─── Orçamentos (CRUD) ───
-    path('painel/orcamentos/', views.painel_orcamentos, name='painel_orcamentos'),
-    path('painel/orcamentos/criar/', views.criar_orcamento, name='criar_orcamento'),
-    path('painel/orcamentos/<int:pk>/editar/', views.editar_orcamento, name='editar_orcamento'),
 
     # ─── Notificações ───
     path('painel/notificacoes/', views.painel_notificacoes, name='painel_notificacoes'),
@@ -88,13 +79,6 @@ urlpatterns = [
     path('ajax/verificar-telefone/', views.verificar_telefone, name='verificar_telefone'),
     path('ajax/cancelar-agendamento/', views.cancelar_agendamento, name='cancelar_agendamento'),
 
-    # ─── Estoque (CRUD) ───
-    path('painel/estoque/', views.painel_estoque, name='painel_estoque'),
-    path('painel/estoque/criar/', views.criar_produto, name='criar_produto'),
-    path('painel/estoque/<int:pk>/editar/', views.editar_produto, name='editar_produto'),
-    path('painel/estoque/movimentar/', views.movimentar_estoque, name='movimentar_estoque'),
-    path('painel/estoque/movimentacoes/', views.historico_movimentacoes, name='historico_movimentacoes'),
-    path('painel/estoque/categorias/criar/', views.criar_categoria, name='criar_categoria'),
 
     # ─── WhatsApp Bot API ───
     path('api/whatsapp/webhook/', views.whatsapp_webhook, name='whatsapp_webhook'),

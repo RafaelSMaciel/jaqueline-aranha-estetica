@@ -64,20 +64,5 @@ def servicos_corporais(request):
 
 
 def servicos_produtos(request):
-    """Página de produtos/dermocosméticos."""
-    from ..models import Produto, CategoriaProduto
-    produtos = []
-    categorias = []
-    try:
-        produtos = list(Produto.objects.filter(
-            ativo=True, preco_venda__gt=0
-        ).select_related('categoria').order_by('nome'))
-        categorias = list(CategoriaProduto.objects.filter(ativo=True).order_by('nome'))
-    except (OperationalError, ProgrammingError):
-        logger.warning('Tabelas de produto não encontradas.')
-
-    context = {
-        'produtos': produtos,
-        'categorias': categorias,
-    }
-    return render(request, 'servicos/produtos.html', context)
+    """Pagina de produtos/dermocosmeticos."""
+    return render(request, 'servicos/produtos.html', {})

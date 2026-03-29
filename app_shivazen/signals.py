@@ -8,10 +8,6 @@ logger = logging.getLogger(__name__)
 
 @receiver(pre_save, sender=Atendimento)
 def capturar_status_anterior(sender, instance, **kwargs):
-    """
-    Captura o status do atendimento antes de salvar, para podermos
-    comparar se houve mudança no post_save.
-    """
     if instance.pk:
         try:
             old_instance = Atendimento.objects.get(pk=instance.pk)
@@ -23,49 +19,58 @@ def capturar_status_anterior(sender, instance, **kwargs):
 
 @receiver(post_save, sender=Atendimento)
 def processar_mudanca_status(sender, instance, created, **kwargs):
-    """
-    Ao mudar o status do atendimento, verifica regras de negócio:
-    1. Se foi CANCELADO: Dispara Notificação para a Fila de Espera.
-    2. Se foi REALIZADO: Verifica se o cliente tem um Pacote Ativo e desconta sessão.
-    """
     status_atual = instance.status_atendimento
     status_anterior = getattr(instance, '_old_status', None)
 
     if status_atual == status_anterior:
-        return # Nada mudou
+        return
 
-    # REGRA 1: FILA DE ESPERA
+    # REGRA: FILA DE ESPERA — cancelamento ou falta libera vaga
     if status_atual in ['CANCELADO', 'FALTOU'] and status_anterior in ['AGENDADO', 'CONFIRMADO']:
         job_notificar_fila_espera.delay(
             procedimento_id=instance.procedimento.pk,
             data_livre_str=instance.data_hora_inicio.isoformat()
         )
 
-    # REGRA 2: PACOTES
+    # REGRA: REGISTRO DE FALTA — 3-strike system
+    if status_atual == 'FALTOU' and status_anterior in ['AGENDADO', 'CONFIRMADO']:
+        instance.cliente.registrar_falta()
+        logger.info(f"[FALTA] Cliente {instance.cliente.pk} — faltas: {instance.cliente.faltas_consecutivas}")
+
+    # REGRA: REALIZADO — resetar faltas + debitar pacote
     if status_atual == 'REALIZADO':
-        # Checar se já existe sessão debitada pra esse atendimento para não cobrar 2x
+        # Reset faltas consecutivas
+        instance.cliente.resetar_faltas()
+
+        # Debitar sessao de pacote
         if not hasattr(instance, 'sessao_pacote_vinculada'):
-            # Buscar pacotes ativos do cliente
             pacotes_ativos = PacoteCliente.objects.filter(
                 cliente=instance.cliente,
                 status='ATIVO'
-            )
+            ).order_by('data_compra')
+
             for pc in pacotes_ativos:
-                # Checar se o pacote tem o procedimento do atendimento
+                # Verificar validade
+                if pc.data_expiracao:
+                    from django.utils import timezone
+                    if pc.data_expiracao < timezone.now().date():
+                        pc.status = 'EXPIRADO'
+                        pc.save()
+                        continue
+
                 itens = pc.pacote.itens.filter(procedimento=instance.procedimento)
                 if itens.exists():
                     item = itens.first()
-                    # Contar quantas sessoes ja foram feitas
-                    sessoes_ja_feitas = pc.sessoes_realizadas.filter(atendimento__procedimento=instance.procedimento).count()
+                    sessoes_ja_feitas = pc.sessoes_realizadas.filter(
+                        atendimento__procedimento=instance.procedimento
+                    ).count()
                     if sessoes_ja_feitas < item.quantidade_sessoes:
-                        # Ainda tem crédito! Debitar.
                         SessaoPacote.objects.create(
                             pacote_cliente=pc,
                             atendimento=instance
                         )
-                        logger.info(f"[PACOTE] Sessão {sessoes_ja_feitas + 1}/{item.quantidade_sessoes} debitada do pacote {pc.pk} para Atendimento {instance.pk}")
-                        
-                        # Se gastou a última sessão deste e de todos os itens, podemos finalizar o pacote (Lógica simplificada)
-                        # Aqui você poderia adicionar uma checagem mais complexa se o pacote tiver multiplos procedimentos.
-                        
-                        break # Se debitou de um pacote, não debita do outro
+                        logger.info(f"[PACOTE] Sessao {sessoes_ja_feitas + 1}/{item.quantidade_sessoes} debitada do pacote {pc.pk}")
+
+                        # Verificar se pacote foi finalizado
+                        pc.verificar_finalizacao()
+                        break

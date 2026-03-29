@@ -194,15 +194,6 @@
         <a href="{% url 'shivazen:admin_promocoes' %}" class="admin-nav-item {% if 'promoco' in request.resolver_match.url_name %}active{% endif %}">
             <i class="fas fa-tag"></i><span>Promoções</span>
         </a>
-        <a href="{% url 'shivazen:painel_estoque' %}" class="admin-nav-item {% if 'estoque' in request.resolver_match.url_name or 'produto' in request.resolver_match.url_name or 'movimentac' in request.resolver_match.url_name %}active{% endif %}">
-            <i class="fas fa-boxes"></i><span>Estoque</span>
-        </a>
-        <a href="{% url 'shivazen:painel_vendas' %}" class="admin-nav-item {% if 'venda' in request.resolver_match.url_name %}active{% endif %}">
-            <i class="fas fa-shopping-cart"></i><span>Vendas</span>
-        </a>
-        <a href="{% url 'shivazen:painel_orcamentos' %}" class="admin-nav-item {% if 'orcamento' in request.resolver_match.url_name %}active{% endif %}">
-            <i class="fas fa-file-invoice-dollar"></i><span>Orçamentos</span>
-        </a>
         <a href="{% url 'shivazen:painel_notificacoes' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'painel_notificacoes' %}active{% endif %}">
             <i class="fas fa-bell"></i><span>Notificações</span>
         </a>

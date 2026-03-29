@@ -29,10 +29,8 @@ admin.site.register(PacoteCliente)
 admin.site.register(SessaoPacote)
 admin.site.register(ListaEspera)
 admin.site.register(AvaliacaoNPS)
-admin.site.register(MetaProfissional)
-admin.site.register(TokenGoogleAgenda)
-# --- CONFIGURAÇÃO CORRIGIDA PARA O ADMIN DE USUÁRIO ---
-# Substitua a classe UsuarioAdmin antiga por esta:
+
+
 
 @admin.register(Usuario)
 class UsuarioAdmin(admin.ModelAdmin):

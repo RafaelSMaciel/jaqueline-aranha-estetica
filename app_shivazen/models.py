@@ -163,10 +163,26 @@ class Cliente(models.Model):
     endereco = models.TextField(blank=True, null=True)
     ativo = models.BooleanField(default=True)
     data_cadastro = models.DateTimeField(auto_now_add=True)
+    faltas_consecutivas = models.IntegerField(default=0)
+    bloqueado_online = models.BooleanField(default=False)
+    aceite_termos = models.BooleanField(default=False)
+    data_aceite_termos = models.DateTimeField(blank=True, null=True)
+    ip_aceite_termos = models.CharField(max_length=45, blank=True, null=True)
 
     class Meta:
         managed = True
         db_table = 'cliente'
+
+    def registrar_falta(self):
+        self.faltas_consecutivas += 1
+        if self.faltas_consecutivas >= 3:
+            self.bloqueado_online = True
+        self.save()
+
+    def resetar_faltas(self):
+        self.faltas_consecutivas = 0
+        self.bloqueado_online = False
+        self.save()
 
 class ProntuarioPergunta(models.Model):
     id_pergunta = models.AutoField(primary_key=True)
@@ -250,6 +266,10 @@ class Atendimento(models.Model):
     valor_cobrado = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     status_atendimento = models.CharField(max_length=20, default='AGENDADO')
     observacoes = models.TextField(blank=True, null=True)
+    promocao = models.ForeignKey('Promocao', on_delete=models.SET_NULL, db_column='id_promocao', blank=True, null=True)
+    valor_original = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    descricao_preco = models.CharField(max_length=255, blank=True, null=True)
+    reagendado_de = models.ForeignKey('self', on_delete=models.SET_NULL, blank=True, null=True, related_name='reagendamentos')
 
     class Meta:
         managed = True
@@ -347,17 +367,14 @@ class CodigoVerificacao(models.Model):
         # Código expira em 10 minutos
         return not self.usado and (timezone.now() - self.criado_em).total_seconds() < 600
 
-# =====================================================================
-# MODELOS DE EXPANSÃO (Novas Funcionalidades Premium)
-# =====================================================================
-
 class Pacote(models.Model):
     id_pacote = models.AutoField(primary_key=True)
     nome = models.CharField(max_length=150)
     descricao = models.TextField(blank=True, null=True)
     preco_total = models.DecimalField(max_digits=10, decimal_places=2)
     ativo = models.BooleanField(default=True)
-    
+    validade_meses = models.IntegerField(default=12)
+
     class Meta:
         managed = True
         db_table = 'pacote'
@@ -378,11 +395,29 @@ class PacoteCliente(models.Model):
     pacote = models.ForeignKey(Pacote, on_delete=models.RESTRICT)
     data_compra = models.DateTimeField(auto_now_add=True)
     valor_pago = models.DecimalField(max_digits=10, decimal_places=2)
-    status = models.CharField(max_length=20, default='ATIVO') # ATIVO, FINALIZADO, CANCELADO
+    status = models.CharField(max_length=20, default='ATIVO') # ATIVO, FINALIZADO, CANCELADO, EXPIRADO
+    data_expiracao = models.DateField(blank=True, null=True)
 
     class Meta:
         managed = True
         db_table = 'pacote_cliente'
+
+    def save(self, *args, **kwargs):
+        if not self.data_expiracao and self.pacote and self.pacote.validade_meses:
+            from django.utils import timezone
+            from dateutil.relativedelta import relativedelta
+            self.data_expiracao = (timezone.now() + relativedelta(months=self.pacote.validade_meses)).date()
+        super().save(*args, **kwargs)
+
+    def verificar_finalizacao(self):
+        for item in self.pacote.itens.all():
+            sessoes_feitas = self.sessoes_realizadas.filter(
+                atendimento__procedimento=item.procedimento
+            ).count()
+            if sessoes_feitas < item.quantidade_sessoes:
+                return
+        self.status = 'FINALIZADO'
+        self.save()
 
 class SessaoPacote(models.Model):
     id_sessao_pacote = models.AutoField(primary_key=True)
@@ -404,6 +439,8 @@ class ListaEspera(models.Model):
     turno_desejado = models.CharField(max_length=20, blank=True, null=True) # MANHA, TARDE, NOITE
     notificado = models.BooleanField(default=False)
     data_registro = models.DateTimeField(auto_now_add=True)
+    token_reserva = models.CharField(max_length=64, blank=True, null=True)
+    expira_em = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         managed = True
@@ -416,220 +453,12 @@ class AvaliacaoNPS(models.Model):
     nota = models.IntegerField() # 1 a 5
     comentario = models.TextField(blank=True, null=True)
     data_avaliacao = models.DateTimeField(auto_now_add=True)
+    alerta_enviado = models.BooleanField(default=False)
 
     class Meta:
         managed = True
         db_table = 'avaliacao_nps'
 
-
-class MetaProfissional(models.Model):
-    id_meta = models.AutoField(primary_key=True)
-    profissional = models.ForeignKey(Profissional, on_delete=models.CASCADE)
-    mes = models.IntegerField()
-    ano = models.IntegerField()
-    valor_meta = models.DecimalField(max_digits=10, decimal_places=2)
-    
-    class Meta:
-        managed = True
-        db_table = 'meta_profissional'
-        unique_together = (('profissional', 'mes', 'ano'),)
-
-
-class TokenGoogleAgenda(models.Model):
-    id_token = models.AutoField(primary_key=True)
-    profissional = models.OneToOneField(Profissional, on_delete=models.CASCADE)
-    access_token = models.CharField(max_length=255)
-    refresh_token = models.CharField(max_length=255)
-    token_uri = models.CharField(max_length=255)
-    client_id = models.CharField(max_length=255)
-    client_secret = models.CharField(max_length=255)
-    scopes = models.TextField()
-
-    class Meta:
-        managed = True
-        db_table = 'token_google_agenda'
-
-
-# =====================================================================
-# CONTROLE DE VENDAS E ORÇAMENTOS
-# =====================================================================
-
-class Venda(models.Model):
-    STATUS_CHOICES = [
-        ('PENDENTE', 'Pendente'),
-        ('PAGO', 'Pago'),
-        ('CANCELADO', 'Cancelado'),
-    ]
-
-    id_venda = models.AutoField(primary_key=True)
-    cliente = models.ForeignKey(Cliente, on_delete=models.RESTRICT, db_column='id_cliente', related_name='vendas')
-    procedimento = models.ForeignKey(Procedimento, on_delete=models.RESTRICT, db_column='id_procedimento')
-    profissional = models.ForeignKey(Profissional, on_delete=models.SET_NULL, db_column='id_profissional', null=True, blank=True)
-    data = models.DateField()
-    sessoes = models.IntegerField(default=1)
-    valor = models.DecimalField(max_digits=10, decimal_places=2)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDENTE')
-    observacoes = models.TextField(blank=True, null=True)
-    data_criacao = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        managed = True
-        db_table = 'venda'
-        ordering = ['-data']
-
-    def __str__(self):
-        return f'Venda #{self.pk} - {self.cliente.nome_completo} - {self.procedimento.nome}'
-
-
-class Orcamento(models.Model):
-    STATUS_CHOICES = [
-        ('PENDENTE', 'Pendente'),
-        ('APROVADO', 'Aprovado'),
-        ('RECUSADO', 'Recusado'),
-        ('EXPIRADO', 'Expirado'),
-    ]
-
-    id_orcamento = models.AutoField(primary_key=True)
-    # Dados do cliente
-    nome_completo = models.CharField(max_length=150)
-    data_nascimento = models.DateField(blank=True, null=True)
-    profissao = models.CharField(max_length=100, blank=True, null=True)
-    endereco_cep = models.CharField(max_length=200, blank=True, null=True)
-    email = models.EmailField(blank=True, null=True)
-    rg = models.CharField(max_length=20, blank=True, null=True)
-    cpf = models.CharField(max_length=14, blank=True, null=True)
-    telefone = models.CharField(max_length=20, blank=True, null=True)
-
-    # Dados do orçamento
-    procedimento = models.ForeignKey(Procedimento, on_delete=models.RESTRICT, db_column='id_procedimento')
-    sessoes = models.IntegerField(default=1)
-    valor = models.DecimalField(max_digits=10, decimal_places=2)
-    data = models.DateField()
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDENTE')
-    observacoes = models.TextField(blank=True, null=True)
-
-    # Questionário pré-procedimento
-    tratamento_estetico_anterior = models.TextField(blank=True, null=True, verbose_name='Realizou algum tratamento estético? Se sim, qual?')
-    doenca_pele = models.TextField(blank=True, null=True, verbose_name='Possui doença de pele (psoríase, vitiligo, dermatites, lúpus)?')
-    tratamento_cancer = models.TextField(blank=True, null=True, verbose_name='Está em tratamento de câncer ou fez tratamento há menos de 5 anos?')
-    melasma_pintas = models.TextField(blank=True, null=True, verbose_name='Tem melasma ou pintas mais pigmentadas? Se sim, em qual local?')
-    uso_acido = models.TextField(blank=True, null=True, verbose_name='Utiliza algum tipo de ácido?')
-    medicacao_continua = models.TextField(blank=True, null=True, verbose_name='Toma alguma medicação contínua?')
-    gravida_amamentando = models.TextField(blank=True, null=True, verbose_name='Está grávida ou amamentando?')
-    alergia = models.TextField(blank=True, null=True, verbose_name='Tem alergia a algum medicamento ou alimento? Se sim, qual?')
-    implante_marcapasso = models.TextField(blank=True, null=True, verbose_name='Tem algum implante, marcapasso ou prótese de metal?')
-
-    data_criacao = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        managed = True
-        db_table = 'orcamento'
-        ordering = ['-data_criacao']
-
-    def __str__(self):
-        return f'Orçamento #{self.pk} - {self.nome_completo} - {self.procedimento.nome}'
-
-
-# =====================================================================
-# CONTROLE DE ESTOQUE
-# =====================================================================
-
-class CategoriaProduto(models.Model):
-    id_categoria = models.AutoField(primary_key=True)
-    nome = models.CharField(max_length=100, unique=True)
-    descricao = models.TextField(blank=True, null=True)
-    ativo = models.BooleanField(default=True)
-
-    class Meta:
-        managed = True
-        db_table = 'categoria_produto'
-
-    def __str__(self):
-        return self.nome
-
-
-class Produto(models.Model):
-    id_produto = models.AutoField(primary_key=True)
-    categoria = models.ForeignKey(CategoriaProduto, on_delete=models.SET_NULL, db_column='id_categoria', null=True, blank=True, related_name='produtos')
-    nome = models.CharField(max_length=150)
-    descricao = models.TextField(blank=True, null=True)
-    marca = models.CharField(max_length=100, blank=True, null=True)
-    codigo_barras = models.CharField(max_length=50, unique=True, blank=True, null=True)
-    preco_custo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    preco_venda = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    quantidade_estoque = models.IntegerField(default=0)
-    estoque_minimo = models.IntegerField(default=5)
-    unidade = models.CharField(max_length=20, default='UN')  # UN, ML, G, KG
-    data_validade = models.DateField(blank=True, null=True)
-    lote = models.CharField(max_length=50, blank=True, null=True)
-    ativo = models.BooleanField(default=True)
-    data_cadastro = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        managed = True
-        db_table = 'produto'
-        ordering = ['nome']
-
-    def __str__(self):
-        return f'{self.nome} ({self.marca or "Sem marca"})'
-
-    @property
-    def estoque_baixo(self):
-        return self.quantidade_estoque <= self.estoque_minimo
-
-    @property
-    def valor_estoque(self):
-        return self.quantidade_estoque * self.preco_custo
-
-    @property
-    def margem_lucro(self):
-        if self.preco_custo and self.preco_custo > 0:
-            return ((self.preco_venda - self.preco_custo) / self.preco_custo) * 100
-        return 0
-
-    @property
-    def vencido(self):
-        if self.data_validade:
-            return self.data_validade < date.today()
-        return False
-
-    @property
-    def proximo_vencer(self):
-        if self.data_validade:
-            hoje = date.today()
-            return hoje <= self.data_validade <= hoje + timedelta(days=30)
-        return False
-
-    @property
-    def precisa_comprar(self):
-        return self.estoque_baixo
-
-
-class MovimentacaoEstoque(models.Model):
-    TIPO_CHOICES = [
-        ('ENTRADA', 'Entrada'),
-        ('SAIDA', 'Saída'),
-        ('AJUSTE', 'Ajuste'),
-        ('PERDA', 'Perda'),
-    ]
-
-    id_movimentacao = models.AutoField(primary_key=True)
-    produto = models.ForeignKey(Produto, on_delete=models.CASCADE, db_column='id_produto', related_name='movimentacoes')
-    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
-    quantidade = models.IntegerField()
-    quantidade_anterior = models.IntegerField(default=0)
-    quantidade_posterior = models.IntegerField(default=0)
-    motivo = models.TextField(blank=True, null=True)
-    usuario = models.ForeignKey('Usuario', on_delete=models.SET_NULL, db_column='id_usuario', null=True, blank=True)
-    data_movimentacao = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        managed = True
-        db_table = 'movimentacao_estoque'
-        ordering = ['-data_movimentacao']
-
-    def __str__(self):
-        return f'{self.tipo} - {self.produto.nome} ({self.quantidade})'
 
 
 # =====================================================================
