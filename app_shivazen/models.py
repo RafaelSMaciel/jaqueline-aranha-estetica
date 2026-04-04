@@ -21,6 +21,9 @@ class Funcionalidade(models.Model):
         managed = True
         db_table = 'funcionalidade'
 
+    def __str__(self):
+        return self.nome
+
 
 class Perfil(models.Model):
     nome = models.CharField(max_length=50, unique=True)
@@ -30,6 +33,9 @@ class Perfil(models.Model):
     class Meta:
         managed = True
         db_table = 'perfil'
+
+    def __str__(self):
+        return self.nome
 
 
 class PerfilFuncionalidade(models.Model):
@@ -54,6 +60,9 @@ class Profissional(models.Model):
     class Meta:
         managed = True
         db_table = 'profissional'
+
+    def __str__(self):
+        return self.nome
 
     def get_horarios_disponiveis(self, data_selecionada):
         from datetime import datetime, timedelta
@@ -117,7 +126,17 @@ class UsuarioManager(BaseUserManager):
 
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault('ativo', True)
-        return self.create_user(email, password, **extra_fields)
+        user = self.create_user(email, password, **extra_fields)
+        # Vincular ao perfil Administrador (cria se nao existir)
+        from django.apps import apps
+        Perfil = apps.get_model('app_shivazen', 'Perfil')
+        perfil_admin, _ = Perfil.objects.get_or_create(
+            nome='Administrador',
+            defaults={'descricao': 'Acesso total ao sistema'}
+        )
+        user.perfil = perfil_admin
+        user.save(update_fields=['perfil_id'])
+        return user
 
 
 class Usuario(AbstractBaseUser):
@@ -146,11 +165,7 @@ class Usuario(AbstractBaseUser):
 
     @property
     def is_staff(self):
-        if self.perfil and self.perfil.nome == 'Administrador':
-            return True
-        if self.email == 'admin@shivazen.com':
-            return True
-        return False
+        return bool(self.perfil and self.perfil.nome == 'Administrador')
 
     @property
     def first_name(self):
@@ -185,6 +200,12 @@ class Cliente(models.Model):
     class Meta:
         managed = True
         db_table = 'cliente'
+        indexes = [
+            models.Index(fields=['telefone'], name='idx_cliente_telefone'),
+        ]
+
+    def __str__(self):
+        return self.nome_completo
 
     def registrar_falta(self):
         self.faltas_consecutivas += 1
@@ -212,6 +233,9 @@ class Procedimento(models.Model):
     class Meta:
         managed = True
         db_table = 'procedimento'
+
+    def __str__(self):
+        return self.nome
 
 
 class ProfissionalProcedimento(models.Model):
@@ -331,6 +355,11 @@ class Atendimento(models.Model):
     class Meta:
         managed = True
         db_table = 'atendimento'
+        indexes = [
+            models.Index(fields=['status'], name='idx_atendimento_status'),
+            models.Index(fields=['data_hora_inicio'], name='idx_atendimento_data'),
+            models.Index(fields=['cliente', 'status'], name='idx_atendimento_cli_status'),
+        ]
         constraints = [
             models.CheckConstraint(
                 check=models.Q(status__in=[

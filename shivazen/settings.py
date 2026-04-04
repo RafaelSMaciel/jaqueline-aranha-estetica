@@ -29,14 +29,14 @@ except ImportError:
 # Em produção (Railway), crie variáveis de ambiente para estes valores.
 # O valor depois da vírgula é um 'default' para desenvolvimento local.
 
-# ATENÇÃO: Troque o valor padrão da SECRET_KEY por um novo se desejar
-SECRET_KEY = os.environ.get(
-    'DJANGO_SECRET_KEY', 
-    'django-insecure-change-me'
-)
+# SEGURANCA: Em producao, DJANGO_SECRET_KEY deve ser definida como variavel de ambiente.
+_secret_key = os.environ.get('DJANGO_SECRET_KEY')
+if not _secret_key and os.environ.get('RAILWAY_ENVIRONMENT_NAME'):
+    raise RuntimeError('DJANGO_SECRET_KEY nao definida em producao!')
+SECRET_KEY = _secret_key or 'django-insecure-dev-only-key-do-not-use-in-production'
 
-# Em produção, defina a variável de ambiente DEBUG=False
-DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+# SEGURANCA: DEBUG padrao False. Em dev local, defina DEBUG=True no .env
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
 # Em produção, defina ALLOWED_HOSTS=seu-dominio.com,www.seu-dominio.com
 # Railway define RAILWAY_PUBLIC_DOMAIN automaticamente
@@ -183,7 +183,7 @@ SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
 
 # django-ratelimit: usar cache padrão e falhar silenciosamente se o cache estiver indisponível
 RATELIMIT_USE_CACHE = 'default'
-RATELIMIT_FAIL_OPEN = True  # Se o cache falhar, não bloquear o request
+RATELIMIT_FAIL_OPEN = False  # SEGURANCA: se cache falhar, bloquear requests (fail-closed)
 
 # Limites de upload (protecao contra upload abuse)
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5MB
@@ -297,5 +297,21 @@ CELERY_BEAT_SCHEDULE = {
     'envio-pesquisa-nps-diaria': {
         'task': 'app_shivazen.tasks.job_pesquisa_satisfacao_24h',
         'schedule': crontab(hour=10, minute=0),  # Roda todo dia as 10:00
+    },
+    'alerta-detrator-nps': {
+        'task': 'app_shivazen.tasks.job_alerta_detrator_nps',
+        'schedule': crontab(hour=10, minute=30),
+    },
+    'verificar-pacotes-expirando': {
+        'task': 'app_shivazen.tasks.job_verificar_pacotes_expirando',
+        'schedule': crontab(hour=7, minute=0),
+    },
+    'expirar-pacotes': {
+        'task': 'app_shivazen.tasks.job_expirar_pacotes',
+        'schedule': crontab(hour=0, minute=30),  # Meia-noite
+    },
+    'limpeza-status-atendimentos': {
+        'task': 'app_shivazen.tasks.job_limpeza_status_atendimentos',
+        'schedule': crontab(hour=23, minute=0),  # Fim do dia
     },
 }

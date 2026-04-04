@@ -93,8 +93,8 @@ def enviar_lembrete_agendamento(atendimento):
     from ..models import Notificacao
 
     token = gerar_token()
-    link_confirmar = f'{SITE_URL}/confirmar-presenca/{token}/?acao=confirmar'
-    link_cancelar = f'{SITE_URL}/confirmar-presenca/{token}/?acao=cancelar'
+    link_confirmar = f'{SITE_URL}/confirmar/{token}/?acao=confirmar'
+    link_cancelar = f'{SITE_URL}/confirmar/{token}/?acao=cancelar'
 
     data_formatada = atendimento.data_hora_inicio.strftime('%d/%m/%Y')
     hora_formatada = atendimento.data_hora_inicio.strftime('%H:%M')

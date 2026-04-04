@@ -1,0 +1,375 @@
+-- =====================================================================
+-- ShivaZen - DDL do Banco de Dados (PostgreSQL)
+-- Schema v3 - Redesign Final
+-- Gerado em: 2026-04-04
+-- =====================================================================
+
+BEGIN;
+
+-- =====================================================================
+-- CONTROLE DE ACESSO
+-- =====================================================================
+
+CREATE TABLE funcionalidade (
+    id              SERIAL PRIMARY KEY,
+    nome            VARCHAR(100) NOT NULL UNIQUE,
+    descricao       TEXT
+);
+
+CREATE TABLE perfil (
+    id              SERIAL PRIMARY KEY,
+    nome            VARCHAR(50) NOT NULL UNIQUE,
+    descricao       TEXT
+);
+
+CREATE TABLE perfil_funcionalidade (
+    id                  SERIAL PRIMARY KEY,
+    perfil_id           INTEGER NOT NULL REFERENCES perfil(id) ON DELETE CASCADE,
+    funcionalidade_id   INTEGER NOT NULL REFERENCES funcionalidade(id) ON DELETE CASCADE,
+    UNIQUE (perfil_id, funcionalidade_id)
+);
+
+CREATE TABLE profissional (
+    id              SERIAL PRIMARY KEY,
+    nome            VARCHAR(100) NOT NULL,
+    especialidade   TEXT,
+    ativo           BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE usuario (
+    id              SERIAL PRIMARY KEY,
+    perfil_id       INTEGER REFERENCES perfil(id) ON DELETE RESTRICT,
+    profissional_id INTEGER UNIQUE REFERENCES profissional(id) ON DELETE SET NULL,
+    nome            VARCHAR(100) NOT NULL,
+    email           VARCHAR(100) NOT NULL UNIQUE,
+    senha_hash      VARCHAR(255) NOT NULL,
+    ativo           BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+-- =====================================================================
+-- CLIENTES
+-- =====================================================================
+
+CREATE TABLE cliente (
+    id                      SERIAL PRIMARY KEY,
+    nome_completo           VARCHAR(150) NOT NULL,
+    data_nascimento         DATE,
+    cpf                     VARCHAR(14) UNIQUE,
+    rg                      VARCHAR(20),
+    profissao               TEXT,
+    email                   VARCHAR(100),
+    telefone                VARCHAR(20),
+    cep                     VARCHAR(10),
+    endereco                TEXT,
+    ativo                   BOOLEAN NOT NULL DEFAULT TRUE,
+    faltas_consecutivas     SMALLINT NOT NULL DEFAULT 0,
+    bloqueado_online        BOOLEAN NOT NULL DEFAULT FALSE,
+    criado_em               TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- =====================================================================
+-- PROCEDIMENTOS E PRECOS
+-- =====================================================================
+
+CREATE TABLE procedimento (
+    id              SERIAL PRIMARY KEY,
+    nome            VARCHAR(100) NOT NULL,
+    descricao       TEXT,
+    duracao_minutos SMALLINT NOT NULL,
+    ativo           BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE profissional_procedimento (
+    id                  SERIAL PRIMARY KEY,
+    profissional_id     INTEGER NOT NULL REFERENCES profissional(id) ON DELETE CASCADE,
+    procedimento_id     INTEGER NOT NULL REFERENCES procedimento(id) ON DELETE CASCADE,
+    UNIQUE (profissional_id, procedimento_id)
+);
+
+CREATE TABLE preco (
+    id                  SERIAL PRIMARY KEY,
+    procedimento_id     INTEGER NOT NULL REFERENCES procedimento(id) ON DELETE CASCADE,
+    profissional_id     INTEGER REFERENCES profissional(id) ON DELETE CASCADE,
+    valor               DECIMAL(10,2) NOT NULL,
+    descricao           TEXT,
+    vigente_desde       DATE NOT NULL DEFAULT CURRENT_DATE
+);
+COMMENT ON COLUMN preco.profissional_id IS 'NULL = preco generico do procedimento';
+
+CREATE TABLE disponibilidade_profissional (
+    id                  SERIAL PRIMARY KEY,
+    profissional_id     INTEGER NOT NULL REFERENCES profissional(id) ON DELETE CASCADE,
+    dia_semana          SMALLINT NOT NULL,
+    hora_inicio         TIME NOT NULL,
+    hora_fim            TIME NOT NULL,
+    CONSTRAINT chk_disponibilidade_dia_semana CHECK (dia_semana BETWEEN 1 AND 7)
+);
+COMMENT ON COLUMN disponibilidade_profissional.dia_semana IS '1=Dom, 2=Seg, 3=Ter, 4=Qua, 5=Qui, 6=Sex, 7=Sab';
+
+CREATE TABLE bloqueio_agenda (
+    id                  SERIAL PRIMARY KEY,
+    profissional_id     INTEGER REFERENCES profissional(id) ON DELETE CASCADE,
+    data_hora_inicio    TIMESTAMPTZ NOT NULL,
+    data_hora_fim       TIMESTAMPTZ NOT NULL,
+    motivo              TEXT
+);
+
+-- =====================================================================
+-- PROMOCOES
+-- =====================================================================
+
+CREATE TABLE promocao (
+    id                      SERIAL PRIMARY KEY,
+    procedimento_id         INTEGER REFERENCES procedimento(id) ON DELETE CASCADE,
+    nome                    VARCHAR(150) NOT NULL,
+    descricao               TEXT,
+    desconto_percentual     DECIMAL(5,2) NOT NULL DEFAULT 0,
+    preco_promocional       DECIMAL(10,2),
+    data_inicio             DATE NOT NULL,
+    data_fim                DATE NOT NULL,
+    ativa                   BOOLEAN NOT NULL DEFAULT TRUE,
+    imagem_url              TEXT
+);
+
+-- =====================================================================
+-- AGENDAMENTO
+-- =====================================================================
+
+CREATE TABLE atendimento (
+    id                  SERIAL PRIMARY KEY,
+    cliente_id          INTEGER NOT NULL REFERENCES cliente(id) ON DELETE RESTRICT,
+    profissional_id     INTEGER NOT NULL REFERENCES profissional(id) ON DELETE RESTRICT,
+    procedimento_id     INTEGER NOT NULL REFERENCES procedimento(id) ON DELETE RESTRICT,
+    promocao_id         INTEGER REFERENCES promocao(id) ON DELETE SET NULL,
+    reagendado_de_id    INTEGER REFERENCES atendimento(id) ON DELETE SET NULL,
+    data_hora_inicio    TIMESTAMPTZ NOT NULL,
+    data_hora_fim       TIMESTAMPTZ NOT NULL,
+    valor_cobrado       DECIMAL(10,2),
+    valor_original      DECIMAL(10,2),
+    descricao_preco     TEXT,
+    status              VARCHAR(20) NOT NULL DEFAULT 'AGENDADO',
+    criado_em           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_atendimento_status CHECK (
+        status IN ('AGENDADO', 'CONFIRMADO', 'REALIZADO', 'CANCELADO', 'FALTOU')
+    )
+);
+
+CREATE INDEX idx_atendimento_cliente ON atendimento(cliente_id);
+CREATE INDEX idx_atendimento_profissional ON atendimento(profissional_id);
+CREATE INDEX idx_atendimento_data ON atendimento(data_hora_inicio);
+CREATE INDEX idx_atendimento_status ON atendimento(status);
+
+-- =====================================================================
+-- PRONTUARIO (HIBRIDO)
+-- =====================================================================
+
+CREATE TABLE prontuario (
+    id                  SERIAL PRIMARY KEY,
+    cliente_id          INTEGER NOT NULL UNIQUE REFERENCES cliente(id) ON DELETE CASCADE,
+    alergias            TEXT,
+    contraindicacoes    TEXT,
+    historico_saude     TEXT,
+    medicamentos_uso    TEXT,
+    observacoes_gerais  TEXT,
+    atualizado_em       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+COMMENT ON TABLE prontuario IS 'Anamnese base permanente do cliente (1:1 com cliente)';
+
+CREATE TABLE prontuario_pergunta (
+    id              SERIAL PRIMARY KEY,
+    texto           TEXT NOT NULL,
+    tipo_resposta   VARCHAR(50) NOT NULL,
+    ativa           BOOLEAN NOT NULL DEFAULT TRUE,
+    CONSTRAINT chk_prontuario_pergunta_tipo CHECK (
+        tipo_resposta IN ('TEXTO', 'BOOLEAN', 'SELECAO')
+    )
+);
+
+CREATE TABLE prontuario_resposta (
+    id                  SERIAL PRIMARY KEY,
+    prontuario_id       INTEGER NOT NULL REFERENCES prontuario(id) ON DELETE CASCADE,
+    pergunta_id         INTEGER NOT NULL REFERENCES prontuario_pergunta(id) ON DELETE RESTRICT,
+    resposta_texto      TEXT,
+    resposta_boolean    BOOLEAN,
+    atualizado_em       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (prontuario_id, pergunta_id)
+);
+
+CREATE TABLE anotacao_sessao (
+    id              SERIAL PRIMARY KEY,
+    atendimento_id  INTEGER NOT NULL REFERENCES atendimento(id) ON DELETE CASCADE,
+    usuario_id      INTEGER REFERENCES usuario(id) ON DELETE SET NULL,
+    texto           TEXT NOT NULL,
+    criado_em       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+COMMENT ON TABLE anotacao_sessao IS 'Observacoes clinicas especificas de cada atendimento';
+
+-- =====================================================================
+-- TERMOS DE CONSENTIMENTO (VERSIONADOS)
+-- =====================================================================
+
+CREATE TABLE versao_termo (
+    id                  SERIAL PRIMARY KEY,
+    tipo                VARCHAR(20) NOT NULL,
+    procedimento_id     INTEGER REFERENCES procedimento(id) ON DELETE CASCADE,
+    titulo              TEXT NOT NULL,
+    conteudo            TEXT NOT NULL,
+    versao              VARCHAR(20) NOT NULL,
+    vigente_desde       DATE NOT NULL,
+    ativa               BOOLEAN NOT NULL DEFAULT TRUE,
+    CONSTRAINT chk_versao_termo_tipo CHECK (tipo IN ('LGPD', 'PROCEDIMENTO'))
+);
+COMMENT ON COLUMN versao_termo.procedimento_id IS 'NULL quando tipo = LGPD';
+
+CREATE TABLE aceite_privacidade (
+    id                  SERIAL PRIMARY KEY,
+    cliente_id          INTEGER NOT NULL REFERENCES cliente(id) ON DELETE CASCADE,
+    versao_termo_id     INTEGER NOT NULL REFERENCES versao_termo(id) ON DELETE RESTRICT,
+    ip                  VARCHAR(45),
+    criado_em           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (cliente_id, versao_termo_id)
+);
+COMMENT ON TABLE aceite_privacidade IS 'LGPD: cliente assina uma vez por versao de termo de privacidade';
+
+CREATE TABLE assinatura_termo_procedimento (
+    id                  SERIAL PRIMARY KEY,
+    cliente_id          INTEGER NOT NULL REFERENCES cliente(id) ON DELETE CASCADE,
+    versao_termo_id     INTEGER NOT NULL REFERENCES versao_termo(id) ON DELETE RESTRICT,
+    atendimento_id      INTEGER REFERENCES atendimento(id) ON DELETE SET NULL,
+    ip                  VARCHAR(45),
+    criado_em           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (cliente_id, versao_termo_id)
+);
+COMMENT ON TABLE assinatura_termo_procedimento IS 'Termo por procedimento: assinado 1x por cliente por versao, persiste entre sessoes';
+
+-- =====================================================================
+-- NOTIFICACOES
+-- =====================================================================
+
+CREATE TABLE notificacao (
+    id                  SERIAL PRIMARY KEY,
+    atendimento_id      INTEGER NOT NULL REFERENCES atendimento(id) ON DELETE CASCADE,
+    tipo                VARCHAR(30) NOT NULL DEFAULT 'LEMBRETE',
+    canal               VARCHAR(20) NOT NULL DEFAULT 'WHATSAPP',
+    status_envio        VARCHAR(20) NOT NULL DEFAULT 'PENDENTE',
+    resposta_cliente    VARCHAR(20),
+    token               VARCHAR(64) UNIQUE,
+    mensagem            TEXT,
+    enviado_em          TIMESTAMPTZ,
+    respondido_em       TIMESTAMPTZ,
+    criado_em           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_notificacao_token ON notificacao(token);
+CREATE INDEX idx_notificacao_atendimento ON notificacao(atendimento_id);
+
+-- =====================================================================
+-- AVALIACAO NPS
+-- =====================================================================
+
+CREATE TABLE avaliacao_nps (
+    id                  SERIAL PRIMARY KEY,
+    atendimento_id      INTEGER NOT NULL UNIQUE REFERENCES atendimento(id) ON DELETE CASCADE,
+    nota                SMALLINT NOT NULL,
+    comentario          TEXT,
+    alerta_enviado      BOOLEAN NOT NULL DEFAULT FALSE,
+    criado_em           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_avaliacao_nps_nota CHECK (nota BETWEEN 0 AND 10)
+);
+COMMENT ON TABLE avaliacao_nps IS 'Escala NPS real 0-10. Detratores: 0-6, Neutros: 7-8, Promotores: 9-10';
+
+-- =====================================================================
+-- PACOTES
+-- =====================================================================
+
+CREATE TABLE pacote (
+    id                  SERIAL PRIMARY KEY,
+    nome                VARCHAR(150) NOT NULL,
+    descricao           TEXT,
+    preco_total         DECIMAL(10,2) NOT NULL,
+    ativo               BOOLEAN NOT NULL DEFAULT TRUE,
+    validade_meses      SMALLINT NOT NULL DEFAULT 12
+);
+
+CREATE TABLE item_pacote (
+    id                      SERIAL PRIMARY KEY,
+    pacote_id               INTEGER NOT NULL REFERENCES pacote(id) ON DELETE CASCADE,
+    procedimento_id         INTEGER NOT NULL REFERENCES procedimento(id) ON DELETE CASCADE,
+    quantidade_sessoes      SMALLINT NOT NULL DEFAULT 1,
+    UNIQUE (pacote_id, procedimento_id)
+);
+
+CREATE TABLE pacote_cliente (
+    id                  SERIAL PRIMARY KEY,
+    cliente_id          INTEGER NOT NULL REFERENCES cliente(id) ON DELETE CASCADE,
+    pacote_id           INTEGER NOT NULL REFERENCES pacote(id) ON DELETE RESTRICT,
+    criado_em           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    valor_pago          DECIMAL(10,2) NOT NULL,
+    status              VARCHAR(20) NOT NULL DEFAULT 'ATIVO',
+    data_expiracao      DATE,
+    CONSTRAINT chk_pacote_cliente_status CHECK (
+        status IN ('ATIVO', 'FINALIZADO', 'CANCELADO', 'EXPIRADO')
+    )
+);
+
+CREATE TABLE sessao_pacote (
+    id                  SERIAL PRIMARY KEY,
+    pacote_cliente_id   INTEGER NOT NULL REFERENCES pacote_cliente(id) ON DELETE CASCADE,
+    atendimento_id      INTEGER NOT NULL UNIQUE REFERENCES atendimento(id) ON DELETE RESTRICT,
+    criado_em           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- =====================================================================
+-- LISTA DE ESPERA
+-- =====================================================================
+
+CREATE TABLE lista_espera (
+    id                          SERIAL PRIMARY KEY,
+    cliente_id                  INTEGER NOT NULL REFERENCES cliente(id) ON DELETE CASCADE,
+    procedimento_id             INTEGER NOT NULL REFERENCES procedimento(id) ON DELETE CASCADE,
+    profissional_desejado_id    INTEGER REFERENCES profissional(id) ON DELETE SET NULL,
+    data_desejada               DATE NOT NULL,
+    turno_desejado              VARCHAR(20),
+    notificado                  BOOLEAN NOT NULL DEFAULT FALSE,
+    criado_em                   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    token_reserva               VARCHAR(64),
+    expira_em                   TIMESTAMPTZ,
+    CONSTRAINT chk_lista_espera_turno CHECK (
+        turno_desejado IS NULL OR turno_desejado IN ('MANHA', 'TARDE', 'NOITE')
+    )
+);
+
+-- =====================================================================
+-- AUDITORIA E SISTEMA
+-- =====================================================================
+
+CREATE TABLE log_auditoria (
+    id                      SERIAL PRIMARY KEY,
+    usuario_id              INTEGER REFERENCES usuario(id) ON DELETE SET NULL,
+    acao                    TEXT NOT NULL,
+    tabela_afetada          VARCHAR(100),
+    id_registro_afetado     INTEGER,
+    detalhes                JSONB,
+    criado_em               TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_log_auditoria_criado ON log_auditoria(criado_em);
+
+CREATE TABLE configuracao_sistema (
+    id              SERIAL PRIMARY KEY,
+    chave           VARCHAR(100) NOT NULL UNIQUE,
+    valor           TEXT,
+    descricao       TEXT
+);
+
+CREATE TABLE codigo_verificacao (
+    id              SERIAL PRIMARY KEY,
+    telefone        VARCHAR(20) NOT NULL,
+    codigo          VARCHAR(6) NOT NULL,
+    criado_em       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    usado           BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+CREATE INDEX idx_codigo_verificacao_telefone ON codigo_verificacao(telefone);
+
+COMMIT;

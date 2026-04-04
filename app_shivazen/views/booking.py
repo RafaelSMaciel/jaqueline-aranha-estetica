@@ -178,6 +178,7 @@ def api_horarios_disponiveis(request):
     })
 
 
+@ratelimit(key='ip', rate='10/m', method='POST', block=True)
 def confirmar_agendamento(request):
     """
     Processa a confirmação do agendamento SEM login.

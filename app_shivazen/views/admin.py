@@ -432,18 +432,21 @@ def admin_atualizar_status(request):
         return JsonResponse({'erro': 'Ocorreu um erro interno. Tente novamente.'}, status=500)
 
 
+@login_required
 def setup_seed(request):
-    """Roda o seed via URL protegida por token simples.
-    Uso: /setup-seed/?token=shivazen-seed-2026
+    """Roda o seed via URL protegida por autenticacao de staff + token.
+    Uso: /setup-seed/?token=<SEED_TOKEN>
     """
+    if not request.user.is_staff:
+        return HttpResponse('Acesso negado.', status=403)
+
     from django.conf import settings as django_settings
     import importlib, io, contextlib
 
     token = request.GET.get('token', '')
-    # Token fixo simples para evitar problemas com caracteres especiais na URL
-    SEED_TOKEN = os.environ.get('SEED_TOKEN', 'shivazen-seed-2026')
-    if not token or token != SEED_TOKEN:
-        return HttpResponse('Acesso negado.', status=403)
+    SEED_TOKEN = os.environ.get('SEED_TOKEN', '')
+    if not SEED_TOKEN or not token or token != SEED_TOKEN:
+        return HttpResponse('Token invalido.', status=403)
 
     # Roda o seed capturando output
     output = io.StringIO()

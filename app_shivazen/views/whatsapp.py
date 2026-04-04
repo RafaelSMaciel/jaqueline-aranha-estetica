@@ -1,15 +1,38 @@
+import hashlib
+import hmac
 import json
 import logging
+import os
 
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django_ratelimit.decorators import ratelimit
 
 logger = logging.getLogger(__name__)
 
-# WhatsApp — Webhook API (apenas notificacoes, sem chatbot)
-# Integracao com WhatsApp Business API (Meta)
+WHATSAPP_APP_SECRET = os.environ.get('WHATSAPP_APP_SECRET', '')
+WHATSAPP_VERIFY_TOKEN = os.environ.get('WHATSAPP_VERIFY_TOKEN', '')
+
+
+def _verify_signature(request):
+    """Verifica X-Hub-Signature-256 da Meta Business API."""
+    if not WHATSAPP_APP_SECRET:
+        # Dev sem secret configurado — aceitar (apenas em DEBUG)
+        from django.conf import settings
+        return settings.DEBUG
+
+    signature = request.headers.get('X-Hub-Signature-256', '')
+    if not signature.startswith('sha256='):
+        return False
+
+    expected = hmac.new(
+        WHATSAPP_APP_SECRET.encode(),
+        request.body,
+        hashlib.sha256,
+    ).hexdigest()
+
+    return hmac.compare_digest(signature[7:], expected)
 
 
 @csrf_exempt
@@ -20,6 +43,10 @@ def whatsapp_webhook(request):
     Webhook para receber respostas de notificacoes do WhatsApp.
     Processa confirmacoes, cancelamentos e notas NPS.
     """
+    if not _verify_signature(request):
+        logger.warning('WhatsApp webhook: assinatura invalida')
+        return JsonResponse({'error': 'Assinatura invalida'}, status=403)
+
     try:
         data = json.loads(request.body)
         telefone = data.get('from', data.get('From', '')).strip()
@@ -30,8 +57,8 @@ def whatsapp_webhook(request):
 
         telefone_limpo = ''.join(filter(str.isdigit, telefone))
 
-        # Processar resposta NPS (nota 1-5)
-        if mensagem.strip() in ['1', '2', '3', '4', '5']:
+        # Processar resposta NPS (escala 0-10)
+        if mensagem.strip().isdigit() and 0 <= int(mensagem.strip()) <= 10:
             from ..models import AvaliacaoNPS, Cliente
             nota = int(mensagem.strip())
             cliente = Cliente.objects.filter(telefone__icontains=telefone_limpo).first()
@@ -39,7 +66,7 @@ def whatsapp_webhook(request):
                 avaliacao = AvaliacaoNPS.objects.filter(
                     atendimento__cliente=cliente,
                     nota=0
-                ).order_by('-data_avaliacao').first()
+                ).order_by('-criado_em').first()
                 if avaliacao:
                     avaliacao.nota = nota
                     avaliacao.save()
@@ -60,15 +87,17 @@ def whatsapp_webhook(request):
 @require_http_methods(["GET"])
 def whatsapp_webhook_verify(request):
     """
-    Verificacao de webhook (handshake) — Meta Business API.
+    Verificacao de webhook (handshake) -- Meta Business API.
     """
     mode = request.GET.get('hub.mode', '')
     token = request.GET.get('hub.verify_token', '')
     challenge = request.GET.get('hub.challenge', '')
 
-    VERIFY_TOKEN = 'shivazen_whatsapp_verify_2024'
+    if not WHATSAPP_VERIFY_TOKEN:
+        logger.error('WHATSAPP_VERIFY_TOKEN nao configurado')
+        return JsonResponse({'error': 'Token nao configurado'}, status=500)
 
-    if mode == 'subscribe' and token == VERIFY_TOKEN:
-        return JsonResponse(int(challenge) if challenge.isdigit() else challenge, safe=False)
+    if mode == 'subscribe' and token == WHATSAPP_VERIFY_TOKEN:
+        return HttpResponse(challenge, content_type='text/plain')
 
     return JsonResponse({'error': 'Verificacao falhou'}, status=403)
