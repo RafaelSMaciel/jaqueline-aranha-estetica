@@ -107,7 +107,7 @@
             </div>
 
             {% if promo.procedimento %}
-            <a href="{% url 'shivazen:agendamento_publico' %}?procedimento={{ promo.procedimento.id_procedimento }}" class="promo-cta">
+            <a href="{% url 'shivazen:agendamento_publico' %}?procedimento={{ promo.procedimento.pk }}" class="promo-cta">
               <i class="bi bi-calendar-check me-2"></i>Agendar com Desconto
             </a>
             {% else %}

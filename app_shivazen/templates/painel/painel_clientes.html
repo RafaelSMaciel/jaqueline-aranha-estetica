@@ -61,7 +61,7 @@
         <div class="cliente-meta">
             {% if cliente.cpf %}CPF: {{ cliente.cpf }} &bull; {% endif %}
             {% if cliente.data_nascimento %}Nasc: {{ cliente.data_nascimento|date:"d/m/Y" }} &bull; {% endif %}
-            Cadastro: {{ cliente.data_cadastro|date:"d/m/Y" }}
+            Cadastro: {{ cliente.criado_em|date:"d/m/Y" }}
             &bull; <span style="color:{% if cliente.ativo %}#2e7d32{% else %}#c62828{% endif %};font-weight:800;">{% if cliente.ativo %}ATIVO{% else %}INATIVO{% endif %}</span>
         </div>
     </div>

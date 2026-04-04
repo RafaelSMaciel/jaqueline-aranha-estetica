@@ -34,27 +34,27 @@ def painel_overview(request):
 
     agendamentos_hoje = Atendimento.objects.filter(
         data_hora_inicio__date=hoje,
-        status_atendimento__in=['AGENDADO', 'CONFIRMADO']
+        status__in=['AGENDADO', 'CONFIRMADO']
     ).count()
 
     agendamentos_semana = Atendimento.objects.filter(
         data_hora_inicio__date__range=[inicio_semana, fim_semana],
-        status_atendimento__in=['AGENDADO', 'CONFIRMADO']
+        status__in=['AGENDADO', 'CONFIRMADO']
     ).count()
 
     total_clientes = Cliente.objects.filter(ativo=True).count()
-    novos_clientes = Cliente.objects.filter(data_cadastro__gte=inicio_mes).count()
+    novos_clientes = Cliente.objects.filter(criado_em__gte=inicio_mes).count()
 
     receita_total = Atendimento.objects.filter(
         data_hora_inicio__gte=inicio_mes,
-        status_atendimento='REALIZADO'
+        status='REALIZADO'
     ).aggregate(total=Sum('valor_cobrado'))['total'] or 0
 
     receita_mensal = f"{receita_total:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
 
     proximos_agendamentos = Atendimento.objects.filter(
         data_hora_inicio__gte=timezone.now(),
-        status_atendimento__in=['AGENDADO', 'CONFIRMADO']
+        status__in=['AGENDADO', 'CONFIRMADO']
     ).select_related('cliente', 'profissional', 'procedimento').order_by('data_hora_inicio')[:10]
 
     # --- Dados para os Gráficos (1 query instead of 7) ---
@@ -62,7 +62,7 @@ def painel_overview(request):
     agendamentos_por_dia = dict(
         Atendimento.objects.filter(
             data_hora_inicio__date__range=[inicio_semana, fim_semana],
-            status_atendimento__in=['AGENDADO', 'CONFIRMADO', 'REALIZADO']
+            status__in=['AGENDADO', 'CONFIRMADO', 'REALIZADO']
         ).annotate(
             dia=TruncDate('data_hora_inicio')
         ).values('dia').annotate(total=Count('pk')).values_list('dia', 'total')
@@ -76,7 +76,7 @@ def painel_overview(request):
 
     agendamentos_por_status = list(Atendimento.objects.filter(
         data_hora_inicio__gte=inicio_mes
-    ).values('status_atendimento').annotate(total=Count('pk')))
+    ).values('status').annotate(total=Count('pk')))
 
     context = {
         'agendamentos_hoje': agendamentos_hoje,
@@ -105,7 +105,7 @@ def painel_agendamentos(request):
     ).order_by('-data_hora_inicio')
 
     if status_filter != 'all':
-        agendamentos = agendamentos.filter(status_atendimento=status_filter.upper())
+        agendamentos = agendamentos.filter(status=status_filter.upper())
 
     if data_filter:
         try:
@@ -132,7 +132,7 @@ def painel_agendamentos(request):
 def painel_clientes(request):
     """Gerenciamento de clientes"""
     search = request.GET.get('search', '')
-    clientes = Cliente.objects.all().order_by('-data_cadastro')
+    clientes = Cliente.objects.all().order_by('-criado_em')
 
     if search:
         clientes = clientes.filter(
@@ -197,7 +197,7 @@ def exportar_relatorio_excel(request):
             at.cliente.nome_completo,
             at.profissional.nome,
             at.procedimento.nome,
-            at.status_atendimento,
+            at.status,
             float(valor)
         ])
 

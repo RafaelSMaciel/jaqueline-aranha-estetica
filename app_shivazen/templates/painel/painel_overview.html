@@ -106,7 +106,7 @@
 
     {% if proximos_agendamentos %}
     {% for agend in proximos_agendamentos %}
-    <div class="dash-appt-item" id="appt-{{ agend.id_atendimento }}">
+    <div class="dash-appt-item" id="appt-{{ agend.pk }}">
         <div class="dash-appt-avatar">
             {{ agend.cliente.nome_completo|make_list|first }}
         </div>
@@ -114,20 +114,20 @@
             <div class="dash-appt-name">{{ agend.cliente.nome_completo }}</div>
             <div class="dash-appt-meta">
                 {{ agend.procedimento.nome }} &bull; {{ agend.data_hora_inicio|date:"d/m H:i" }}
-                &bull; <span class="status-text-{{ agend.id_atendimento }}"
-                    style="font-weight:800;color:{% if agend.status_atendimento == 'CONFIRMADO' %}#2e7d32{% elif agend.status_atendimento == 'CANCELADO' %}#c62828{% else %}#f57f17{% endif %};">
-                    {{ agend.status_atendimento }}
+                &bull; <span class="status-text-{{ agend.pk }}"
+                    style="font-weight:800;color:{% if agend.status == 'CONFIRMADO' %}#2e7d32{% elif agend.status == 'CANCELADO' %}#c62828{% else %}#f57f17{% endif %};">
+                    {{ agend.status }}
                 </span>
             </div>
         </div>
         <div class="dash-appt-actions">
             <!-- Status Change -->
-            <select class="status-select" onchange="atualizarStatus({{ agend.id_atendimento }}, this.value)"
+            <select class="status-select" onchange="atualizarStatus({{ agend.pk }}, this.value)"
                     title="Alterar status">
                 <option value="">⚡</option>
-                <option value="CONFIRMADO" {% if agend.status_atendimento == 'CONFIRMADO' %}disabled{% endif %}>✅ Confirmar</option>
-                <option value="REALIZADO" {% if agend.status_atendimento == 'REALIZADO' %}disabled{% endif %}>✔️ Realizado</option>
-                <option value="CANCELADO" {% if agend.status_atendimento == 'CANCELADO' %}disabled{% endif %}>❌ Cancelar</option>
+                <option value="CONFIRMADO" {% if agend.status == 'CONFIRMADO' %}disabled{% endif %}>✅ Confirmar</option>
+                <option value="REALIZADO" {% if agend.status == 'REALIZADO' %}disabled{% endif %}>✔️ Realizado</option>
+                <option value="CANCELADO" {% if agend.status == 'CANCELADO' %}disabled{% endif %}>❌ Cancelar</option>
                 <option value="FALTOU">⛔ Faltou</option>
             </select>
             <!-- WhatsApp -->
@@ -184,7 +184,7 @@ var ctxStatus = document.getElementById('chartStatus').getContext('2d');
 new Chart(ctxStatus, {
     type: 'doughnut',
     data: {
-        labels: [{% for s in agendamentos_por_status %}'{{ s.status_atendimento }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+        labels: [{% for s in agendamentos_por_status %}'{{ s.status }}'{% if not forloop.last %},{% endif %}{% endfor %}],
         datasets: [{
             data: [{% for s in agendamentos_por_status %}{{ s.total }}{% if not forloop.last %},{% endif %}{% endfor %}],
             backgroundColor: ['#C9A84C', '#4caf50', '#2196f3', '#f44336', '#9e9e9e'],

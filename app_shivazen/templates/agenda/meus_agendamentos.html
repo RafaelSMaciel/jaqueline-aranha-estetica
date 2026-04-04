@@ -462,7 +462,7 @@
                 </div>
 
                 {% for ag in agendamentos_futuros %}
-                <div class="agend-card" data-aos="fade-up" data-aos-delay="{{ forloop.counter0|add:1 }}50" id="agend-{{ ag.id_atendimento }}">
+                <div class="agend-card" data-aos="fade-up" data-aos-delay="{{ forloop.counter0|add:1 }}50" id="agend-{{ ag.pk }}">
                     <div class="agend-card-body">
                         <!-- Date block -->
                         <div class="agend-date-block">
@@ -483,9 +483,9 @@
                         </div>
                         <!-- Status -->
                         <div class="text-end" style="min-width:fit-content;">
-                            <span class="status-badge {% if ag.status_atendimento == 'AGENDADO' %}status-agendado{% elif ag.status_atendimento == 'CONFIRMADO' %}status-confirmado{% elif ag.status_atendimento == 'FALTOU' %}status-faltou{% endif %}">
+                            <span class="status-badge {% if ag.status == 'AGENDADO' %}status-agendado{% elif ag.status == 'CONFIRMADO' %}status-confirmado{% elif ag.status == 'FALTOU' %}status-faltou{% endif %}">
                                 <span class="dot"></span>
-                                {{ ag.status_atendimento }}
+                                {{ ag.status }}
                             </span>
                         </div>
                     </div>
@@ -496,9 +496,9 @@
                            style="font-size:0.75rem;border:1.5px solid #C8E6C9;color:#2E7D32;background:rgba(46,125,50,0.04);">
                             <i class="bi bi-whatsapp me-1"></i>Reagendar
                         </a>
-                        {% if ag.status_atendimento == 'AGENDADO' %}
+                        {% if ag.status == 'AGENDADO' %}
                         <button class="btn-cancel-agend"
-                                data-id="{{ ag.id_atendimento }}"
+                                data-id="{{ ag.pk }}"
                                 data-nome="{{ ag.procedimento.nome }}"
                                 data-data="{{ ag.data_hora_inicio|date:'d/m/Y' }}"
                                 onclick="openCancelModal(this.dataset.id, this.dataset.nome, this.dataset.data)">
@@ -538,9 +538,9 @@
                         </div>
                         <!-- Status -->
                         <div class="text-end" style="min-width:fit-content;">
-                            <span class="status-badge {% if ag.status_atendimento == 'REALIZADO' %}status-realizado{% elif ag.status_atendimento == 'CANCELADO' %}status-cancelado{% elif ag.status_atendimento == 'FALTOU' %}status-faltou{% else %}status-agendado{% endif %}">
+                            <span class="status-badge {% if ag.status == 'REALIZADO' %}status-realizado{% elif ag.status == 'CANCELADO' %}status-cancelado{% elif ag.status == 'FALTOU' %}status-faltou{% else %}status-agendado{% endif %}">
                                 <span class="dot"></span>
-                                {{ ag.status_atendimento }}
+                                {{ ag.status }}
                             </span>
                         </div>
                     </div>

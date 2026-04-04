@@ -111,7 +111,7 @@
                         <label class="form-label">Procedimento</label>
                         <select name="procedimento" class="form-control" required>
                             {% for proc in procedimentos %}
-                            <option value="{{ proc.id_procedimento }}" {% if proc.id_procedimento == promo.procedimento_id %}selected{% endif %}>{{ proc.nome }}</option>
+                            <option value="{{ proc.pk }}" {% if proc.pk == promo.procedimento_id %}selected{% endif %}>{{ proc.nome }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -177,7 +177,7 @@
                         <select name="procedimento" class="form-control" required>
                             <option value="">Selecione...</option>
                             {% for proc in procedimentos %}
-                            <option value="{{ proc.id_procedimento }}">{{ proc.nome }}</option>
+                            <option value="{{ proc.pk }}">{{ proc.nome }}</option>
                             {% endfor %}
                         </select>
                     </div>

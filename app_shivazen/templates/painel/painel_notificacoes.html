@@ -91,10 +91,10 @@
                 {{ notif.atendimento.data_hora_inicio|date:"d/m/Y H:i" }} &middot;
                 {{ notif.atendimento.profissional.nome }}
             </div>
-            {% if notif.data_hora_envio %}
+            {% if notif.enviado_em %}
             <div class="admin-list-meta">
-                Enviado: {{ notif.data_hora_envio|date:"d/m/Y H:i" }}
-                {% if notif.data_hora_resposta %} &middot; Resposta: {{ notif.data_hora_resposta|date:"d/m/Y H:i" }}{% endif %}
+                Enviado: {{ notif.enviado_em|date:"d/m/Y H:i" }}
+                {% if notif.respondido_em %} &middot; Resposta: {{ notif.respondido_em|date:"d/m/Y H:i" }}{% endif %}
             </div>
             {% endif %}
         </div>

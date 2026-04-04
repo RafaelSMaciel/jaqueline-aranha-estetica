@@ -10,7 +10,7 @@ from ..models import Procedimento
 def buscar_procedimentos(request):
     """Retorna procedimentos ativos (endpoint público para agendamento)."""
     procedimentos = Procedimento.objects.filter(ativo=True).values(
-        'id_procedimento', 'nome', 'duracao_minutos'
+        'id', 'nome', 'duracao_minutos'
     )
     return JsonResponse({'procedimentos': list(procedimentos)})
 

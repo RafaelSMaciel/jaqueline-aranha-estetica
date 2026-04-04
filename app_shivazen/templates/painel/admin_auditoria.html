@@ -83,7 +83,7 @@
         <div class="audit-action">{{ log.acao }}</div>
         <div class="audit-meta">
             <span class="audit-user">{{ log.usuario.nome|default:"Sistema" }}</span>
-            &bull; {{ log.data_hora|date:"d/m/Y H:i" }}
+            &bull; {{ log.criado_em|date:"d/m/Y H:i" }}
             {% if log.tabela_afetada %}
             &bull; <span class="audit-table-badge">{{ log.tabela_afetada }}</span>
             {% endif %}

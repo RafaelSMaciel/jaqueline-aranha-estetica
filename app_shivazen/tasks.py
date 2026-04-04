@@ -1,7 +1,7 @@
 from celery import shared_task
 from django.utils import timezone
 from datetime import timedelta
-from .models import Atendimento
+from .models import Atendimento, ListaEspera, AvaliacaoNPS
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,7 +15,7 @@ def job_enviar_lembrete_dia_seguinte():
     amanha = timezone.now().date() + timedelta(days=1)
     agendamentos = Atendimento.objects.filter(
         data_hora_inicio__date=amanha,
-        status_atendimento='AGENDADO'
+        status='AGENDADO'
     ).select_related('cliente', 'profissional', 'procedimento')
 
     logger.info(f"[JOB LEMBRETE] {agendamentos.count()} agendamentos para amanha ({amanha}).")
@@ -46,7 +46,7 @@ def job_enviar_lembrete_2h():
     limite = agora + timedelta(hours=2)
     agendamentos = Atendimento.objects.filter(
         data_hora_inicio__range=[agora, limite],
-        status_atendimento='AGENDADO'
+        status='AGENDADO'
     ).select_related('cliente', 'profissional', 'procedimento')
 
     for agendamento in agendamentos:
@@ -66,10 +66,8 @@ def job_enviar_lembrete_2h():
         )
         enviar_whatsapp(agendamento.cliente.telefone, mensagem)
 
-    logger.info(f"[JOB 2H] {agendamentos.count()} lembretes de 2h enviados.")
+    logger.info(f"[JOB 2H] {agendamentos.count()} lembretes de 2h processados.")
 
-
-from .models import ListaEspera, AvaliacaoNPS
 
 @shared_task
 def job_notificar_fila_espera(procedimento_id, data_livre_str):
@@ -82,7 +80,7 @@ def job_notificar_fila_espera(procedimento_id, data_livre_str):
         procedimento_id=procedimento_id,
         data_desejada=data_livre,
         notificado=False
-    ).select_related('cliente', 'procedimento').order_by('data_registro')
+    ).select_related('cliente', 'procedimento').order_by('criado_em')
 
     for espera in interessados:
         mensagem = (
@@ -103,7 +101,7 @@ def job_pesquisa_satisfacao_24h():
 
     limite = timezone.now() - timedelta(days=1)
     agendamentos = Atendimento.objects.filter(
-        status_atendimento='REALIZADO',
+        status='REALIZADO',
         data_hora_fim__lte=limite,
         avaliacaonps__isnull=True
     ).select_related('cliente', 'procedimento')
@@ -115,7 +113,7 @@ def job_pesquisa_satisfacao_24h():
         mensagem = (
             f"Ola {agendamento.cliente.nome_completo}! "
             f"Como foi seu atendimento de {agendamento.procedimento.nome}? "
-            f"Avalie de 1 a 5 respondendo esta mensagem. "
+            f"Avalie de 0 a 10 respondendo esta mensagem. "
             f"Sua opiniao e muito importante para nos! "
             f"Shiva Zen"
         )
@@ -124,11 +122,9 @@ def job_pesquisa_satisfacao_24h():
 
 @shared_task
 def job_alerta_detrator_nps():
-    """Alerta admin quando NPS <= 2 (detrator) — RN23"""
-    from .utils.whatsapp import enviar_whatsapp
-
+    """Alerta admin quando NPS <= 6 (detrator na escala 0-10)"""
     detratores = AvaliacaoNPS.objects.filter(
-        nota__in=[1, 2],
+        nota__lte=6,
         alerta_enviado=False
     ).select_related('atendimento__cliente', 'atendimento__procedimento')
 
@@ -141,7 +137,7 @@ def job_alerta_detrator_nps():
 
 @shared_task
 def job_verificar_pacotes_expirando():
-    """Notifica clientes com pacotes expirando em 7 dias ou 1 dia — RN34"""
+    """Notifica clientes com pacotes expirando em 7 dias ou 1 dia"""
     from .utils.whatsapp import enviar_whatsapp
     from .models import PacoteCliente
 
@@ -176,7 +172,7 @@ def job_verificar_pacotes_expirando():
 
 @shared_task
 def job_expirar_pacotes():
-    """Expira pacotes vencidos automaticamente — RN33"""
+    """Expira pacotes vencidos automaticamente"""
     from .models import PacoteCliente
 
     hoje = timezone.now().date()
@@ -191,15 +187,15 @@ def job_expirar_pacotes():
 
 @shared_task
 def job_limpeza_status_atendimentos():
-    """Marca como FALTOU atendimentos passados ha 24h ainda em AGENDADO/CONFIRMADO — RN15"""
+    """Marca como FALTOU atendimentos passados há 24h ainda em AGENDADO/CONFIRMADO"""
     limite = timezone.now() - timedelta(hours=24)
 
     pendentes = Atendimento.objects.filter(
         data_hora_fim__lt=limite,
-        status_atendimento__in=['AGENDADO', 'CONFIRMADO']
+        status__in=['AGENDADO', 'CONFIRMADO']
     )
 
     for atendimento in pendentes:
-        atendimento.status_atendimento = 'FALTOU'
-        atendimento.save()  # Triggers signal for fault tracking
+        atendimento.status = 'FALTOU'
+        atendimento.save()
         logger.info(f"[LIMPEZA] Atendimento {atendimento.pk} marcado como FALTOU automaticamente")

@@ -56,7 +56,7 @@
             <select name="profissional" class="form-select form-select-sm" style="border-radius:10px;">
                 <option value="">Todos profissionais</option>
                 {% for prof in profissionais %}
-                <option value="{{ prof.id_profissional }}" {% if request.GET.profissional == prof.id_profissional|stringformat:"d" %}selected{% endif %}>{{ prof.nome }}</option>
+                <option value="{{ prof.pk }}" {% if request.GET.profissional == prof.pk|stringformat:"d" %}selected{% endif %}>{{ prof.nome }}</option>
                 {% endfor %}
             </select>
         </div>
@@ -80,8 +80,8 @@
 <div class="small text-muted mb-2 fw-bold"><i class="fas fa-list me-1"></i>{{ agendamentos|length }} agendamento(s)</div>
 
 {% for agend in agendamentos %}
-<div class="agend-card" id="appt-{{ agend.id_atendimento }}">
-    <div class="agend-avatar" style="background:{% if agend.status_atendimento == 'CONFIRMADO' %}#e8f5e9;color:#2e7d32{% elif agend.status_atendimento == 'CANCELADO' %}#fce4ec;color:#c62828{% elif agend.status_atendimento == 'REALIZADO' %}#e3f2fd;color:#1565c0{% elif agend.status_atendimento == 'FALTOU' %}#f3e5f5;color:#7b1fa2{% else %}#fff8e1;color:#f57f17{% endif %}">
+<div class="agend-card" id="appt-{{ agend.pk }}">
+    <div class="agend-avatar" style="background:{% if agend.status == 'CONFIRMADO' %}#e8f5e9;color:#2e7d32{% elif agend.status == 'CANCELADO' %}#fce4ec;color:#c62828{% elif agend.status == 'REALIZADO' %}#e3f2fd;color:#1565c0{% elif agend.status == 'FALTOU' %}#f3e5f5;color:#7b1fa2{% else %}#fff8e1;color:#f57f17{% endif %}">
         {{ agend.cliente.nome_completo|make_list|first }}{{ agend.cliente.nome_completo|make_list|last }}
     </div>
     <div class="agend-info">
@@ -89,9 +89,9 @@
         <div class="agend-meta">
             {{ agend.procedimento.nome }} &bull; {{ agend.profissional.nome }}
             &bull; {{ agend.data_hora_inicio|date:"d/m/Y" }} {{ agend.data_hora_inicio|time:"H:i" }}-{{ agend.data_hora_fim|time:"H:i" }}
-            &bull; <span class="status-text-{{ agend.id_atendimento }}"
-                style="font-weight:800;color:{% if agend.status_atendimento == 'CONFIRMADO' %}#2e7d32{% elif agend.status_atendimento == 'CANCELADO' %}#c62828{% elif agend.status_atendimento == 'REALIZADO' %}#1565c0{% else %}#f57f17{% endif %};">
-                {{ agend.status_atendimento }}
+            &bull; <span class="status-text-{{ agend.pk }}"
+                style="font-weight:800;color:{% if agend.status == 'CONFIRMADO' %}#2e7d32{% elif agend.status == 'CANCELADO' %}#c62828{% elif agend.status == 'REALIZADO' %}#1565c0{% else %}#f57f17{% endif %};">
+                {{ agend.status }}
             </span>
         </div>
         {% if agend.cliente.telefone %}
@@ -102,12 +102,12 @@
         {% if agend.valor_cobrado %}
         <span class="small fw-bold" style="color:#2e7d32;">R$ {{ agend.valor_cobrado|floatformat:2 }}</span>
         {% endif %}
-        <select class="status-select" onchange="atualizarStatus({{ agend.id_atendimento }}, this.value)" title="Alterar status">
+        <select class="status-select" onchange="atualizarStatus({{ agend.pk }}, this.value)" title="Alterar status">
             <option value="">⚡</option>
-            <option value="CONFIRMADO" {% if agend.status_atendimento == 'CONFIRMADO' %}disabled{% endif %}>✅ Confirmar</option>
-            <option value="REALIZADO" {% if agend.status_atendimento == 'REALIZADO' %}disabled{% endif %}>✔️ Realizado</option>
-            <option value="CANCELADO" {% if agend.status_atendimento == 'CANCELADO' %}disabled{% endif %}>❌ Cancelar</option>
-            <option value="FALTOU" {% if agend.status_atendimento == 'FALTOU' %}disabled{% endif %}>⛔ Faltou</option>
+            <option value="CONFIRMADO" {% if agend.status == 'CONFIRMADO' %}disabled{% endif %}>✅ Confirmar</option>
+            <option value="REALIZADO" {% if agend.status == 'REALIZADO' %}disabled{% endif %}>✔️ Realizado</option>
+            <option value="CANCELADO" {% if agend.status == 'CANCELADO' %}disabled{% endif %}>❌ Cancelar</option>
+            <option value="FALTOU" {% if agend.status == 'FALTOU' %}disabled{% endif %}>⛔ Faltou</option>
         </select>
         {% if agend.cliente.telefone %}
         <a href="https://wa.me/55{{ agend.cliente.telefone|cut:'(' |cut:')' |cut:'-' |cut:' ' }}?text=Ol%C3%A1%20{{ agend.cliente.nome_completo|urlencode }}%2C%20confirmamos%20seu%20agendamento%20de%20{{ agend.procedimento.nome|urlencode }}%20para%20{{ agend.data_hora_inicio|date:'d/m/Y' }}%20%C3%A0s%20{{ agend.data_hora_inicio|time:'H:i' }}.%20Shiva%20Zen"

@@ -118,7 +118,7 @@ def enviar_lembrete_agendamento(atendimento):
         canal='WHATSAPP',
         status_envio='ENVIADO' if sucesso else 'FALHOU',
         token=token,
-        data_hora_envio=timezone.now(),
+        enviado_em=timezone.now(),
         mensagem=mensagem,
     )
 
@@ -181,6 +181,6 @@ def enviar_cancelamento_cliente(atendimento):
         canal='WHATSAPP',
         status_envio='ENVIADO' if sucesso else 'FALHOU',
         token=gerar_token(),
-        data_hora_envio=timezone.now(),
+        enviado_em=timezone.now(),
         mensagem=mensagem,
     )
