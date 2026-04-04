@@ -40,7 +40,7 @@ def agendamento_publico(request):
             if not preco_obj:
                 preco_obj = Preco.objects.filter(procedimento=proc).first()
             procedimentos_com_preco.append({
-                'id': proc.id_procedimento,
+                'id': proc.pk,
                 'nome': proc.nome,
                 'descricao': proc.descricao or '',
                 'duracao_minutos': proc.duracao_minutos,
@@ -91,7 +91,7 @@ def api_horarios_disponiveis(request):
     ).values_list('profissional_id', flat=True)
 
     profissionais = Profissional.objects.filter(
-        id_profissional__in=prof_ids, ativo=True
+        pk__in=prof_ids, ativo=True
     )
 
     # Se não há profissionais vinculados, pegar todos os ativos
@@ -127,7 +127,7 @@ def api_horarios_disponiveis(request):
                 profissional=prof,
                 data_hora_inicio__lt=fim_procedimento,
                 data_hora_fim__gt=dt_aware,
-                status_atendimento__in=['AGENDADO', 'CONFIRMADO']
+                status__in=['AGENDADO', 'CONFIRMADO']
             ).exists()
 
             # Checar bloqueios
@@ -146,7 +146,7 @@ def api_horarios_disponiveis(request):
                 horarios.append({
                     'horario': horario_str,
                     'datetime_iso': dt_aware.isoformat(),
-                    'profissional_id': prof.id_profissional,
+                    'profissional_id': prof.pk,
                     'profissional_nome': prof.nome,
                 })
 
@@ -221,7 +221,7 @@ def confirmar_agendamento(request):
             profissional=profissional,
             data_hora_inicio__lt=data_hora_fim,
             data_hora_fim__gt=data_hora,
-            status_atendimento__in=['AGENDADO', 'CONFIRMADO']
+            status__in=['AGENDADO', 'CONFIRMADO']
         ).exists()
 
         if conflito:
@@ -247,7 +247,7 @@ def confirmar_agendamento(request):
             data_hora_inicio=data_hora,
             data_hora_fim=data_hora_fim,
             valor_cobrado=valor,
-            status_atendimento='AGENDADO'
+            status='AGENDADO'
         )
 
         # Montar mensagem WhatsApp
@@ -311,13 +311,13 @@ def meus_agendamentos(request):
 
     agendamentos_futuros = agendamentos.filter(
         data_hora_inicio__gte=timezone.now(),
-        status_atendimento__in=['AGENDADO', 'CONFIRMADO']
+        status__in=['AGENDADO', 'CONFIRMADO']
     )
 
     agendamentos_passados = agendamentos.filter(
         data_hora_inicio__lt=timezone.now()
     ) | agendamentos.filter(
-        status_atendimento__in=['REALIZADO', 'CANCELADO']
+        status__in=['REALIZADO', 'CANCELADO']
     )
 
     context = {
@@ -436,7 +436,7 @@ def api_dias_disponiveis(request):
     ).values_list('profissional_id', flat=True)
 
     profissionais = Profissional.objects.filter(
-        id_profissional__in=prof_ids, ativo=True
+        pk__in=prof_ids, ativo=True
     )
     if not profissionais.exists():
         profissionais = Profissional.objects.filter(ativo=True)
@@ -480,7 +480,7 @@ def cancelar_agendamento(request):
         # Buscar atendimento
         try:
             atendimento = Atendimento.objects.select_related('cliente', 'procedimento').get(
-                id_atendimento=atendimento_id
+                pk=atendimento_id
             )
         except Atendimento.DoesNotExist:
             return JsonResponse({'erro': 'Agendamento não encontrado'}, status=404)
@@ -497,7 +497,7 @@ def cancelar_agendamento(request):
             return JsonResponse({'erro': 'Não é possível cancelar agendamentos passados'}, status=400)
 
         # Cancelar
-        atendimento.status_atendimento = 'CANCELADO'
+        atendimento.status = 'CANCELADO'
         atendimento.save()
 
         return JsonResponse({

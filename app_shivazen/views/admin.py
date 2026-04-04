@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 @staff_required
 def prontuarioconsentimento(request):
     """Prontuario e consentimento — lista clientes com status do prontuario."""
-    from ..models import Prontuario, ProntuarioPergunta, ProntuarioResposta, TermoConsentimento
+    from ..models import Prontuario, ProntuarioPergunta, ProntuarioResposta, AceitePrivacidade
     search = request.GET.get('search', '')
 
     clientes = Cliente.objects.all().order_by('nome_completo')
@@ -35,21 +35,18 @@ def prontuarioconsentimento(request):
             Q(telefone__icontains=search)
         )
 
-    # Enriquecer clientes com info do prontuario
     clientes_list = []
     for c in clientes[:50]:
         prontuario = Prontuario.objects.filter(cliente=c).first()
         total_respostas = ProntuarioResposta.objects.filter(
-            atendimento__cliente=c
+            prontuario=prontuario
         ).count() if prontuario else 0
-        total_termos = TermoConsentimento.objects.filter(
-            atendimento__cliente=c
-        ).count()
+        total_aceites = AceitePrivacidade.objects.filter(cliente=c).count()
         clientes_list.append({
             'cliente': c,
             'tem_prontuario': prontuario is not None,
             'total_respostas': total_respostas,
-            'total_termos': total_termos,
+            'total_termos': total_aceites,
         })
 
     perguntas = ProntuarioPergunta.objects.filter(ativa=True)
@@ -354,7 +351,7 @@ def admin_excluir_promocao(request, pk):
 @staff_required
 def admin_auditoria(request):
     """Timeline de auditoria com filtros"""
-    logs = LogAuditoria.objects.select_related('usuario').order_by('-data_hora')
+    logs = LogAuditoria.objects.select_related('usuario').order_by('-criado_em')
 
     # Filtros
     tabela = request.GET.get('tabela', '')
@@ -368,7 +365,7 @@ def admin_auditoria(request):
     if data_filter:
         try:
             data = datetime.strptime(data_filter, '%Y-%m-%d').date()
-            logs = logs.filter(data_hora__date=data)
+            logs = logs.filter(criado_em__date=data)
         except ValueError:
             pass
 
@@ -410,8 +407,8 @@ def admin_atualizar_status(request):
             return JsonResponse({'erro': f'Status inválido. Use: {", ".join(status_validos)}'}, status=400)
 
         atendimento = get_object_or_404(Atendimento, pk=atendimento_id)
-        status_anterior = atendimento.status_atendimento
-        atendimento.status_atendimento = novo_status
+        status_anterior = atendimento.status
+        atendimento.status = novo_status
         atendimento.save()
 
         registrar_log(

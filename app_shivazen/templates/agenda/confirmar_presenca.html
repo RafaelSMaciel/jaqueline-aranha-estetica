@@ -75,18 +75,18 @@
 
             {% if ja_respondeu %}
             <!-- Ja respondeu -->
-            <div class="confirm-header {% if resposta == 'CONFIRMOU' or atendimento.status_atendimento == 'CONFIRMADO' %}confirmed{% elif resposta == 'CANCELOU' or atendimento.status_atendimento == 'CANCELADO' %}cancelled{% else %}pending{% endif %}">
+            <div class="confirm-header {% if resposta == 'CONFIRMOU' or atendimento.status == 'CONFIRMADO' %}confirmed{% elif resposta == 'CANCELOU' or atendimento.status == 'CANCELADO' %}cancelled{% else %}pending{% endif %}">
                 <div class="mb-2" style="width:64px;height:64px;background:rgba(255,255,255,0.2);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;">
-                    {% if resposta == 'CONFIRMOU' or atendimento.status_atendimento == 'CONFIRMADO' %}
+                    {% if resposta == 'CONFIRMOU' or atendimento.status == 'CONFIRMADO' %}
                     <i class="bi bi-check-circle" style="font-size:2rem;"></i>
-                    {% elif resposta == 'CANCELOU' or atendimento.status_atendimento == 'CANCELADO' %}
+                    {% elif resposta == 'CANCELOU' or atendimento.status == 'CANCELADO' %}
                     <i class="bi bi-x-circle" style="font-size:2rem;"></i>
                     {% endif %}
                 </div>
-                {% if resposta == 'CONFIRMOU' or atendimento.status_atendimento == 'CONFIRMADO' %}
+                {% if resposta == 'CONFIRMOU' or atendimento.status == 'CONFIRMADO' %}
                 <h3 class="fw-bold mb-1" style="font-family:'Playfair Display',serif;">Presenca Confirmada!</h3>
                 <p class="opacity-75 mb-0 small">Obrigado por confirmar. Te esperamos!</p>
-                {% elif resposta == 'CANCELOU' or atendimento.status_atendimento == 'CANCELADO' %}
+                {% elif resposta == 'CANCELOU' or atendimento.status == 'CANCELADO' %}
                 <h3 class="fw-bold mb-1" style="font-family:'Playfair Display',serif;">Agendamento Cancelado</h3>
                 <p class="opacity-75 mb-0 small">Seu agendamento foi cancelado com sucesso.</p>
                 {% endif %}
@@ -146,7 +146,7 @@
                     <a href="{% url 'shivazen:meus_agendamentos' %}" class="btn btn-outline-secondary rounded-pill px-4 py-2 fw-bold me-2" style="font-size:0.82rem;">
                         <i class="bi bi-calendar3 me-1"></i>Meus Agendamentos
                     </a>
-                    {% if resposta == 'CANCELOU' or atendimento.status_atendimento == 'CANCELADO' %}
+                    {% if resposta == 'CANCELOU' or atendimento.status == 'CANCELADO' %}
                     <a href="{% url 'shivazen:agendamento_publico' %}" class="btn rounded-pill px-4 py-2 fw-bold" style="background:#C9A84C;color:white;font-size:0.82rem;">
                         <i class="bi bi-calendar-plus me-1"></i>Reagendar
                     </a>

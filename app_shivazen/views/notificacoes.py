@@ -31,19 +31,19 @@ def confirmar_presenca(request, token):
         acao = request.POST.get('acao', '')
 
         if acao == 'confirmar':
-            atendimento.status_atendimento = 'CONFIRMADO'
+            atendimento.status = 'CONFIRMADO'
             atendimento.save()
             notif.resposta_cliente = 'CONFIRMOU'
-            notif.data_hora_resposta = timezone.now()
+            notif.respondido_em = timezone.now()
             notif.save()
             enviar_confirmacao_admin(atendimento, 'CONFIRMOU')
             logger.info(f'Cliente {atendimento.cliente.nome_completo} CONFIRMOU agendamento #{atendimento.pk}')
 
         elif acao == 'cancelar':
-            atendimento.status_atendimento = 'CANCELADO'
+            atendimento.status = 'CANCELADO'
             atendimento.save()
             notif.resposta_cliente = 'CANCELOU'
-            notif.data_hora_resposta = timezone.now()
+            notif.respondido_em = timezone.now()
             notif.save()
             enviar_confirmacao_admin(atendimento, 'CANCELOU')
             logger.info(f'Cliente {atendimento.cliente.nome_completo} CANCELOU agendamento #{atendimento.pk}')
@@ -66,7 +66,7 @@ def painel_notificacoes(request):
 
     notifs = Notificacao.objects.select_related(
         'atendimento__cliente', 'atendimento__profissional', 'atendimento__procedimento'
-    ).order_by('-data_hora_envio')
+    ).order_by('-enviado_em')
 
     if tipo_filter != 'all':
         notifs = notifs.filter(tipo=tipo_filter)
@@ -101,8 +101,8 @@ def admin_cancelar_agendamento(request):
         atendimento_id = request.POST.get('atendimento_id')
         atendimento = get_object_or_404(Atendimento, pk=atendimento_id)
 
-        status_anterior = atendimento.status_atendimento
-        atendimento.status_atendimento = 'CANCELADO'
+        status_anterior = atendimento.status
+        atendimento.status = 'CANCELADO'
         atendimento.save()
 
         # Notifica cliente via WhatsApp

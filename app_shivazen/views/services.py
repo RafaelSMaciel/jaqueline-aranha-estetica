@@ -23,7 +23,7 @@ def _get_procedimentos_com_preco(tipo='facial'):
         else:
             procedimentos = Procedimento.objects.filter(ativo=True).exclude(nome__in=nomes_faciais)
 
-        proc_ids = list(procedimentos.values_list('id_procedimento', flat=True))
+        proc_ids = list(procedimentos.values_list('pk', flat=True))
 
         # Fetch all prices in one query, prefer profissional=NULL (generic price)
         precos = Preco.objects.filter(procedimento_id__in=proc_ids).order_by('profissional')
@@ -35,11 +35,11 @@ def _get_procedimentos_com_preco(tipo='facial'):
 
         for proc in procedimentos:
             procedimentos_com_preco.append({
-                'id': proc.id_procedimento,
+                'id': proc.pk,
                 'nome': proc.nome,
                 'descricao': proc.descricao or '',
                 'duracao_minutos': proc.duracao_minutos,
-                'preco': float(preco_map.get(proc.id_procedimento, 0)),
+                'preco': float(preco_map.get(proc.pk, 0)),
             })
     except (OperationalError, ProgrammingError):
         logger.warning('Tabelas não encontradas para procedimentos.')

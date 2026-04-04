@@ -67,10 +67,10 @@
             {% for proc in procedimentos %}
             <div class="col-6 col-md-4">
                 <div class="form-check">
-                    <input type="checkbox" name="procedimentos" value="{{ proc.id_procedimento }}" class="form-check-input"
-                           id="proc_{{ proc.id_procedimento }}"
-                           {% if proc.id_procedimento in procedimentos_atuais %}checked{% endif %}>
-                    <label class="form-check-label small" for="proc_{{ proc.id_procedimento }}">{{ proc.nome }}</label>
+                    <input type="checkbox" name="procedimentos" value="{{ proc.pk }}" class="form-check-input"
+                           id="proc_{{ proc.pk }}"
+                           {% if proc.pk in procedimentos_atuais %}checked{% endif %}>
+                    <label class="form-check-label small" for="proc_{{ proc.pk }}">{{ proc.nome }}</label>
                 </div>
             </div>
             {% endfor %}

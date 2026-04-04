@@ -11,7 +11,7 @@ def capturar_status_anterior(sender, instance, **kwargs):
     if instance.pk:
         try:
             old_instance = Atendimento.objects.get(pk=instance.pk)
-            instance._old_status = old_instance.status_atendimento
+            instance._old_status = old_instance.status
         except Atendimento.DoesNotExist:
             instance._old_status = None
     else:
@@ -19,7 +19,7 @@ def capturar_status_anterior(sender, instance, **kwargs):
 
 @receiver(post_save, sender=Atendimento)
 def processar_mudanca_status(sender, instance, created, **kwargs):
-    status_atual = instance.status_atendimento
+    status_atual = instance.status
     status_anterior = getattr(instance, '_old_status', None)
 
     if status_atual == status_anterior:
@@ -47,7 +47,7 @@ def processar_mudanca_status(sender, instance, created, **kwargs):
             pacotes_ativos = PacoteCliente.objects.filter(
                 cliente=instance.cliente,
                 status='ATIVO'
-            ).order_by('data_compra')
+            ).order_by('criado_em')
 
             for pc in pacotes_ativos:
                 # Verificar validade
