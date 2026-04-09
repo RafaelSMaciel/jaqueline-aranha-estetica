@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from django.db.models import Q, Sum, F, Count
 from django.db.models.functions import TruncDate
+from django.core.paginator import Paginator
 from datetime import datetime, timedelta
 import json
 
@@ -117,10 +118,14 @@ def painel_agendamentos(request):
     if profissional_filter:
         agendamentos = agendamentos.filter(profissional_id=profissional_filter)
 
+    paginator = Paginator(agendamentos, 50)
+    page = request.GET.get('page', 1)
+    agendamentos_page = paginator.get_page(page)
+
     profissionais = Profissional.objects.filter(ativo=True)
 
     context = {
-        'agendamentos': agendamentos[:50],
+        'agendamentos': agendamentos_page,
         'profissionais': profissionais,
         'status_filter': status_filter,
     }
@@ -142,8 +147,12 @@ def painel_clientes(request):
             Q(telefone__icontains=search)
         )
 
+    paginator = Paginator(clientes, 50)
+    page = request.GET.get('page', 1)
+    clientes_page = paginator.get_page(page)
+
     context = {
-        'clientes': clientes[:100],
+        'clientes': clientes_page,
         'search': search,
     }
 
@@ -165,7 +174,11 @@ def painel_profissionais(request):
         )
     ).order_by('nome')
 
-    context = {'profissionais': profissionais}
+    paginator = Paginator(profissionais, 30)
+    page = request.GET.get('page', 1)
+    profissionais_page = paginator.get_page(page)
+
+    context = {'profissionais': profissionais_page}
     return render(request, 'painel/painel_profissionais.html', context)
 
 @staff_required
@@ -189,7 +202,7 @@ def exportar_relatorio_excel(request):
     ws.append(columns)
 
     for at in atendimentos:
-        valor = at.valor_cobrado if at.valor_cobrado else at.procedimento.preco_set.first().valor if at.procedimento.preco_set.exists() else 0
+        valor = at.valor_cobrado or 0
         ws.append([
             at.pk,
             at.data_hora_inicio.strftime('%d/%m/%Y'),

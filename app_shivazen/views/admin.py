@@ -35,24 +35,33 @@ def prontuarioconsentimento(request):
             Q(telefone__icontains=search)
         )
 
-    clientes_list = []
-    for c in clientes[:50]:
-        prontuario = Prontuario.objects.filter(cliente=c).first()
-        total_respostas = ProntuarioResposta.objects.filter(
-            prontuario=prontuario
-        ).count() if prontuario else 0
-        total_aceites = AceitePrivacidade.objects.filter(cliente=c).count()
-        clientes_list.append({
+    from django.db.models import Count, Exists, OuterRef, Subquery
+
+    clientes = clientes.annotate(
+        tem_prontuario=Exists(Prontuario.objects.filter(cliente=OuterRef('pk'))),
+        total_respostas=Count('prontuario__prontuarioresposta', distinct=True),
+        total_termos=Count('aceiteprivacidade', distinct=True),
+    )
+
+    paginator = Paginator(clientes, 50)
+    page = request.GET.get('page', 1)
+    clientes_page = paginator.get_page(page)
+
+    clientes_list = [
+        {
             'cliente': c,
-            'tem_prontuario': prontuario is not None,
-            'total_respostas': total_respostas,
-            'total_termos': total_aceites,
-        })
+            'tem_prontuario': c.tem_prontuario,
+            'total_respostas': c.total_respostas,
+            'total_termos': c.total_termos,
+        }
+        for c in clientes_page
+    ]
 
     perguntas = ProntuarioPergunta.objects.filter(ativa=True)
 
     context = {
         'clientes_list': clientes_list,
+        'clientes_page': clientes_page,
         'perguntas': perguntas,
         'total_perguntas': perguntas.count(),
         'search': search,
@@ -227,47 +236,6 @@ def profissionalEditar(request, pk=None):
 
 
 # ═══════════════════════════════════════
-#   LEGACY ADMIN VIEWS — Redirect to new Painel
-# ═══════════════════════════════════════
-
-@staff_required
-def adminDashboard(request):
-    """Legacy: redireciona para o novo painel."""
-    return redirect('shivazen:painel_overview')
-
-
-@staff_required
-def adminAgendamentos(request):
-    """Legacy: redireciona para o novo painel de agendamentos."""
-    return redirect('shivazen:painel_agendamentos')
-
-
-@staff_required
-def adminProcedimentos(request):
-    """Legacy: redireciona para o novo painel."""
-    return redirect('shivazen:painel_overview')
-
-
-@staff_required
-def adminBloqueios(request):
-    """Legacy: redireciona para o novo painel de agendamentos."""
-    return redirect('shivazen:painel_agendamentos')
-
-
-@staff_required
-def criarBloqueio(request):
-    """Legacy: redireciona para o novo painel de agendamentos."""
-    return redirect('shivazen:painel_agendamentos')
-
-
-@staff_required
-def excluirBloqueio(request, bloqueio_id):
-    """Legacy: redireciona para o novo painel de agendamentos."""
-    return redirect('shivazen:painel_agendamentos')
-
-
-
-# ═══════════════════════════════════════
 #   PROMOÇÕES — CRUD
 # ═══════════════════════════════════════
 
@@ -275,9 +243,14 @@ def excluirBloqueio(request, bloqueio_id):
 def admin_promocoes(request):
     """Lista todas as promoções"""
     promocoes = Promocao.objects.select_related('procedimento').order_by('-ativa', '-data_inicio')
+
+    paginator = Paginator(promocoes, 30)
+    page = request.GET.get('page', 1)
+    promocoes_page = paginator.get_page(page)
+
     procedimentos = Procedimento.objects.filter(ativo=True)
     context = {
-        'promocoes': promocoes,
+        'promocoes': promocoes_page,
         'procedimentos': procedimentos,
     }
     return render(request, 'painel/admin_promocoes.html', context)
@@ -448,12 +421,16 @@ def setup_seed(request):
     if not SEED_TOKEN or not token or token != SEED_TOKEN:
         return HttpResponse('Token invalido.', status=403)
 
+    # Verifica se seed.py existe
+    seed_path = django_settings.BASE_DIR / 'seed.py'
+    if not seed_path.exists():
+        return HttpResponse('<pre>Erro: seed.py nao encontrado no projeto.</pre>', status=404, content_type='text/html')
+
     # Roda o seed capturando output
     output = io.StringIO()
     try:
         with contextlib.redirect_stdout(output):
-            # Import and run seed
-            spec = importlib.util.spec_from_file_location('seed', django_settings.BASE_DIR / 'seed.py')
+            spec = importlib.util.spec_from_file_location('seed', seed_path)
             seed_module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(seed_module)
             seed_module.seed()
