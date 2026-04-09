@@ -33,6 +33,12 @@ urlpatterns = [
     path('admin-login/', views.usuarioLogin, name='usuarioLogin'),
     path('admin-logout/', views.usuarioLogout, name='usuarioLogout'),
 
+    # ─── Recuperação de Senha ───
+    path('admin-login/recuperar/', views.ShivaZenPasswordResetView.as_view(), name='password_reset'),
+    path('admin-login/recuperar/enviado/', views.ShivaZenPasswordResetDoneView.as_view(), name='password_reset_done'),
+    path('admin-login/recuperar/<uidb64>/<token>/', views.ShivaZenPasswordResetConfirmView.as_view(), name='password_reset_confirm'),
+    path('admin-login/recuperar/completo/', views.ShivaZenPasswordResetCompleteView.as_view(), name='password_reset_complete'),
+
     # ─── Painel Administrativo (staff only) ───
     path('painel/', views.painel, name='painel'),
     path('painel/overview/', views.painel_overview, name='painel_overview'),
@@ -55,21 +61,49 @@ urlpatterns = [
     path('painel/notificacoes/', views.painel_notificacoes, name='painel_notificacoes'),
     path('painel/cancelar-agendamento/', views.admin_cancelar_agendamento, name='admin_cancelar_agendamento'),
 
+    # ─── Prontuario ───
+    path('painel/prontuario/<int:cliente_id>/', views.prontuario_detalhe, name='prontuario_detalhe'),
+    path('painel/prontuario/<int:cliente_id>/salvar/', views.prontuario_salvar, name='prontuario_salvar'),
+    path('painel/anotacao/<int:atendimento_id>/salvar/', views.anotacao_sessao_salvar, name='anotacao_sessao_salvar'),
+
+    # ─── Pacotes ───
+    path('painel/pacotes/', views.admin_pacotes, name='admin_pacotes'),
+    path('painel/pacotes/criar/', views.admin_criar_pacote, name='admin_criar_pacote'),
+    path('painel/pacotes/<int:pk>/editar/', views.admin_editar_pacote, name='admin_editar_pacote'),
+    path('painel/pacotes/vender/', views.admin_vender_pacote, name='admin_vender_pacote'),
+
+    # ─── Bloqueios de Agenda ───
+    path('painel/bloqueios/', views.admin_bloqueios, name='admin_bloqueios'),
+    path('painel/bloqueios/criar/', views.admin_criar_bloqueio, name='admin_criar_bloqueio'),
+    path('painel/bloqueios/<int:bloqueio_id>/excluir/', views.admin_excluir_bloqueio, name='admin_excluir_bloqueio'),
+
+    # ─── Procedimentos (CRUD) ───
+    path('painel/procedimentos/', views.admin_procedimentos, name='admin_procedimentos'),
+    path('painel/procedimentos/criar/', views.admin_criar_procedimento, name='admin_criar_procedimento'),
+    path('painel/procedimentos/<int:pk>/editar/', views.admin_editar_procedimento, name='admin_editar_procedimento'),
+
+    # ─── Cliente Detalhe ───
+    path('painel/clientes/<int:pk>/', views.admin_cliente_detalhe, name='admin_cliente_detalhe'),
+
+    # ─── Lista de Espera ───
+    path('painel/lista-espera/', views.admin_lista_espera, name='admin_lista_espera'),
+    path('painel/lista-espera/<int:pk>/notificar/', views.admin_notificar_espera, name='admin_notificar_espera'),
+
+    # ─── Termos de Consentimento ───
+    path('painel/termos/', views.admin_termos, name='admin_termos'),
+    path('painel/termos/criar/', views.admin_criar_termo, name='admin_criar_termo'),
+
+    # ─── NPS Web (público) ───
+    path('nps/<str:token>/', views.nps_web, name='nps_web'),
+
+    # ─── Assinatura de Termos (público) ───
+    path('termo/<str:token>/', views.termo_assinatura, name='termo_assinatura'),
+
     # ─── Auditoria ───
     path('painel/auditoria/', views.admin_auditoria, name='admin_auditoria'),
 
     # ─── Status Update (AJAX) ───
     path('painel/atualizar-status/', views.admin_atualizar_status, name='admin_atualizar_status'),
-
-    # ─── Dashboard Admin (legado) ───
-    path('dashboard-admin/', views.adminDashboard, name='adminDashboard'),
-
-    # ─── Administrativo ───
-    path('admin/agendamentos/', views.adminAgendamentos, name='adminAgendamentos'),
-    path('admin/procedimentos/', views.adminProcedimentos, name='adminProcedimentos'),
-    path('admin/bloqueios/', views.adminBloqueios, name='adminBloqueios'),
-    path('admin/bloqueios/criar/', views.criarBloqueio, name='criarBloqueio'),
-    path('admin/bloqueios/<int:bloqueio_id>/excluir/', views.excluirBloqueio, name='excluirBloqueio'),
 
     # ─── AJAX ───
     path('ajax/buscar-procedimentos/', views.buscar_procedimentos, name='buscar_procedimentos'),
