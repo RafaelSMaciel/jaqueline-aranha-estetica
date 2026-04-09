@@ -71,7 +71,8 @@ def job_enviar_lembrete_2h():
 
 @shared_task
 def job_notificar_fila_espera(procedimento_id, data_livre_str):
-    from .utils.whatsapp import enviar_whatsapp
+    from .utils.whatsapp import enviar_whatsapp, SITE_URL
+    site_url = SITE_URL.rstrip('/')
 
     data_livre = timezone.datetime.fromisoformat(data_livre_str).date()
     logger.info(f"[JOB ESPERA] Vaga liberada para procedimento {procedimento_id} na data {data_livre}.")
@@ -87,7 +88,7 @@ def job_notificar_fila_espera(procedimento_id, data_livre_str):
             f"Ola {espera.cliente.nome_completo}! "
             f"Uma vaga para {espera.procedimento.nome} ficou disponivel "
             f"no dia {data_livre.strftime('%d/%m/%Y')}. "
-            f"Acesse shivazen.com/agendamento para reservar! "
+            f"Acesse {site_url}/agendamento para reservar! "
             f"Shiva Zen"
         )
         enviar_whatsapp(espera.cliente.telefone, mensagem)
@@ -97,23 +98,37 @@ def job_notificar_fila_espera(procedimento_id, data_livre_str):
 
 @shared_task
 def job_pesquisa_satisfacao_24h():
-    from .utils.whatsapp import enviar_whatsapp
+    from .utils.whatsapp import enviar_whatsapp, SITE_URL
+    from .models import Notificacao
+    import uuid
+
+    site_url = SITE_URL.rstrip('/')
 
     limite = timezone.now() - timedelta(days=1)
     agendamentos = Atendimento.objects.filter(
         status='REALIZADO',
         data_hora_fim__lte=limite,
         avaliacaonps__isnull=True
+    ).exclude(
+        notificacao__tipo='NPS'
     ).select_related('cliente', 'procedimento')
 
     logger.info(f"[JOB NPS] {agendamentos.count()} atendimentos sem avaliacao.")
 
     for agendamento in agendamentos:
-        AvaliacaoNPS.objects.create(atendimento=agendamento, nota=0)
+        token = uuid.uuid4().hex[:32]
+        Notificacao.objects.create(
+            atendimento=agendamento,
+            tipo='NPS',
+            canal='WHATSAPP',
+            token=token,
+            status_envio='PENDENTE',
+        )
+        nps_url = f"{site_url}/nps/{token}/"
         mensagem = (
             f"Ola {agendamento.cliente.nome_completo}! "
             f"Como foi seu atendimento de {agendamento.procedimento.nome}? "
-            f"Avalie de 0 a 10 respondendo esta mensagem. "
+            f"Avalie pelo link: {nps_url} "
             f"Sua opiniao e muito importante para nos! "
             f"Shiva Zen"
         )
@@ -138,8 +153,9 @@ def job_alerta_detrator_nps():
 @shared_task
 def job_verificar_pacotes_expirando():
     """Notifica clientes com pacotes expirando em 7 dias ou 1 dia"""
-    from .utils.whatsapp import enviar_whatsapp
+    from .utils.whatsapp import enviar_whatsapp, SITE_URL
     from .models import PacoteCliente
+    site_url = SITE_URL.rstrip('/')
 
     hoje = timezone.now().date()
 
@@ -163,7 +179,7 @@ def job_verificar_pacotes_expirando():
                     f"Ola {pc.cliente.nome_completo}! "
                     f"Seu pacote {pc.pacote.nome} expira em {dias} dia(s). "
                     f"Voce ainda tem {sessoes_restantes} sessao(oes) disponiveis. "
-                    f"Agende agora em shivazen.com/agendamento! "
+                    f"Agende agora em {site_url}/agendamento! "
                     f"Shiva Zen"
                 )
                 enviar_whatsapp(pc.cliente.telefone, mensagem)
