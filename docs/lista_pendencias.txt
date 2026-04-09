@@ -1,9 +1,9 @@
 =====================================================================
  ShivaZen - Lista de Pendencias e Proximos Passos
- Data: 2026-04-04
+ Data: 2026-04-04 (Atualizado - Sessao 2)
 =====================================================================
 
-=== CORRIGIDOS NESTA SESSAO ===
+=== CORRIGIDOS NA SESSAO 1 ===
 
 [OK] SECRET_KEY: erro em producao se nao definida (era insecure default)
 [OK] DEBUG: padrao False (era True)
@@ -25,39 +25,64 @@
 [OK] Regras de negocio documentadas (docs/regras_negocio_banco.txt)
 [OK] Miro ERD: 3 sub-diagramas organizados por dominio
 
+=== CORRIGIDOS NA SESSAO 2 ===
+
+[OK] #1: IDOR no cancelamento: token_cancelamento adicionado ao
+     Atendimento, view usa token em vez de telefone+ID
+[OK] #2: CSP header: middleware ContentSecurityPolicyMiddleware criado
+     com script-src, style-src, font-src configurados para CDNs
+[OK] #3: Verificacao de telefone: envio real via WhatsApp em prod,
+     funcao enviar_codigo_verificacao criada
+[OK] #4: Debug code leak: codigo_debug removido da resposta
+[OK] #5: Termos de Uso: conteudo real (12 secoes) substituiu Lorem Ipsum
+[OK] #6: Politica de Privacidade: conteudo LGPD completo (11 secoes)
+[OK] #13: Prontuario: views e template de detalhe com formulario de
+      anamnese, questionario dinamico e anotacoes por sessao
+[OK] #15: Pacotes CRUD: views para criar, editar e vender pacotes,
+      template admin com modal de venda
+[OK] #23: Wildcard imports: trocados por imports explicitos
+[OK] #24: WhatsApp numero: centralizado via env var + context processor
+[OK] #25: Nomes hardcoded: campo 'categoria' adicionado ao Procedimento
+[OK] #26: N+1 no prontuario: annotate/Exists em vez de queries por cliente
+[OK] #27: N+1 no exportar_relatorio: removida busca de preco N+1
+[OK] #28: django-jazzmin: removido do requirements.txt
+[OK] #29: static/assents/ renomeado para static/assets/
+[OK] #30: jQuery atualizado para 3.7.1 (era 3.6.0)
+[OK] #31: JS morto removido do baserodape.html
+[OK] #32: Django Admin URL registrada (/django-admin-sv/)
+[OK] Documento de Requisitos v3 gerado (.docx + .pdf)
+
+=== CORRIGIDOS NA SESSAO 3 (06/04/2026) ===
+
+[OK] Integrar features.py — 13 views orfas exportadas com URLs funcionais
+[OK] Bug AvaliacaoNPS — campos inexistentes classificacao/canal removidos
+[OK] 9 templates criados — bloqueios, procedimentos, cliente detalhe,
+     lista espera, termos, NPS web, termo assinatura
+[OK] #19: Bloqueio de Agenda (UI): CRUD completo em features.py com
+     criar/excluir bloqueios + template admin
+[OK] #20: CRUD de Procedimentos: criar/editar procedimentos com preco
+     base + template admin
+[OK] #21: Detalhe/Edicao de Cliente: ficha com formulario de edicao
+     + historico de atendimentos
+[OK] #16: Lista de Espera (UI admin): listar e notificar clientes
+     da fila via template admin
+
+=== CORRIGIDOS NA SESSAO 4 (09/04/2026) ===
+
+[OK] #14: Termos workflow: trigger automatico de envio de link de
+     consentimento ao confirmar agendamento via WhatsApp
+[OK] #17: NPS via Web: link para formulario web incluido na mensagem
+     WhatsApp de pesquisa de satisfacao
+[OK] #18: Recuperacao de Senha: views Django com templates customizados
+     Shiva Zen, link "Esqueci minha senha" no login
+[OK] #22: Paginacao: Django Paginator aplicado em agendamentos,
+     profissionais, notificacoes e promocoes + partial reutilizavel
+
 =====================================================================
-PENDENCIAS - SEGURANCA (Prioridade Alta)
+PENDENCIAS RESTANTES
 =====================================================================
 
-1. [ ] Cancelamento de agendamento (IDOR): atualmente usa apenas
-   telefone + ID do atendimento. Deveria usar token unico ou
-   verificacao por codigo SMS.
-   Arquivo: views/booking.py -> cancelar_agendamento
-
-2. [ ] Content-Security-Policy header: nao esta configurado.
-   Templates carregam JS de CDNs externos (jQuery, Bootstrap).
-   Adicionar middleware ou meta tag com CSP.
-
-3. [ ] Verificacao de telefone (SMS/WhatsApp): codigo gerado mas
-   nunca enviado. Em producao, integrar com API de SMS ou
-   WhatsApp Business para enviar o codigo de 6 digitos.
-   Arquivo: views/booking.py -> verificar_telefone
-
-4. [ ] Debug code leak: verificar_telefone retorna codigo_debug
-   quando DEBUG=True. Remover antes de producao.
-   Arquivo: views/booking.py:376
-
-=====================================================================
-PENDENCIAS - FRONTEND (Template Shivazen)
-=====================================================================
-
-5. [ ] Termos de Uso: conteudo Lorem Ipsum. Adaptar conteudo real
-   do repositorio template (html/configuracoes/termos.html).
-   Arquivo: templates/inicio/termosUso.html
-
-6. [ ] Politica de Privacidade: conteudo Lorem Ipsum. Adaptar
-   conteudo real (html/configuracoes/privacidade.html).
-   Arquivo: templates/inicio/politicaPrivacidade.html
+--- FRONTEND (Paginas do template) ---
 
 7. [ ] Pagina de Depoimentos/Avaliacoes: criar pagina publica com
    carousel Swiper de reviews de clientes.
@@ -79,80 +104,13 @@ PENDENCIAS - FRONTEND (Template Shivazen)
     descricao completa, areas de tratamento e CTA.
     Referencia: html/Profissional/servicoDetalhe.html
 
-=====================================================================
-PENDENCIAS - BACKEND / FUNCIONALIDADES
-=====================================================================
+--- BACKEND / FUNCIONALIDADES ---
 
 12. [ ] Produtos/Dermocosmeticos: pagina servicos/produtos.html eh
     estatica. Se necessario, criar model Produto ou integrar com
     catalogo externo.
 
-13. [ ] Prontuario: painel lista clientes mas nao tem formularios
-    para criar/editar dados de anamnese (alergias, contraindicacoes).
-    Arquivo: views/admin.py -> prontuarioconsentimento
-
-14. [ ] Termos de Consentimento (workflow): models existem
-    (VersaoTermo, AceitePrivacidade, AssinaturaTermoProcedimento)
-    mas nao ha views/templates para coleta de assinaturas.
-
-15. [ ] Pacotes (CRUD admin): models existem (Pacote, ItemPacote,
-    PacoteCliente, SessaoPacote) mas nao ha interface admin
-    para criar pacotes ou vender para clientes.
-
-16. [ ] Lista de Espera (UI): model existe mas nao ha views para
-    cliente solicitar vaga ou admin gerenciar a lista.
-
-17. [ ] NPS via Web: apenas parcial via WhatsApp. Falta interface
-    web (link no email/sms) para coletar avaliacao.
-
-18. [ ] Recuperacao de Senha: configuracao de email existe mas nao
-    ha views de forgot-password/reset-password.
-
-19. [ ] Bloqueio de Agenda (UI): endpoints criarBloqueio e
-    excluirBloqueio sao stubs que redirecionam.
-
-20. [ ] CRUD de Procedimentos: adminProcedimentos redireciona
-    para overview. Falta UI para gerenciar procedimentos.
-
-21. [ ] Detalhe/Edicao de Cliente: painel_clientes lista mas nao
-    tem tela de detalhe com edicao.
-
-22. [ ] Paginacao: views admin usam slicing simples (:50, :100).
-    Implementar paginacao real com Django Paginator.
-
-=====================================================================
-PENDENCIAS - QUALIDADE DE CODIGO
-=====================================================================
-
-23. [ ] Wildcard imports: views/__init__.py usa 9x "from .mod import *"
-    Trocar por imports explicitos.
-
-24. [ ] WhatsApp numero placeholder: 5517000000000 hardcoded em 10+
-    locais. Centralizar em ConfiguracaoSistema ou env var.
-
-25. [ ] Nomes de procedimentos hardcoded: services.py tem lista fixa
-    de nomes faciais. Adicionar campo 'categoria' no model ou
-    usar tags/labels.
-
-26. [ ] N+1 queries: prontuarioconsentimento faz 2-3 queries por
-    cliente. Usar annotate/prefetch_related.
-
-27. [ ] N+1 no exportar_relatorio_excel: busca preco por atendimento
-    sem prefetch. Usar select_related.
-
-28. [ ] django-jazzmin em requirements.txt mas nao em INSTALLED_APPS.
-    Remover do requirements ou configurar.
-
-29. [ ] Diretorio static/assents/ (typo de "assets"). Renomear para
-    static/assets/ e atualizar todas as referencias.
-
-30. [ ] jQuery 3.6.0 desatualizado. Atualizar para 3.7.x+ via CDN.
-
-31. [ ] JS morto em baserodape.html: validacao de formulario de
-    cadastro (#cadastro-form) que nao existe.
-
-32. [ ] Django Admin URL nao registrada em urls.py. Decidir se vai
-    usar o admin nativo ou remover as registrations em admin.py.
+--- QUALIDADE ---
 
 33. [ ] Testes: zero testes no projeto. CI roda `manage.py test`
     sem nenhum test case. Priorizar testes para:
@@ -162,18 +120,16 @@ PENDENCIAS - QUALIDADE DE CODIGO
     - Webhook WhatsApp (assinatura HMAC)
 
 =====================================================================
-RESUMO
+RESUMO ATUALIZADO
 =====================================================================
 
-Total de pendencias: 33 itens
-- Seguranca: 4 itens
-- Frontend: 7 itens (paginas do template)
-- Backend/Features: 11 itens (funcionalidades)
-- Qualidade: 11 itens (refactoring/tech debt)
+Total original: 33 itens
+Corrigidos: 27 itens (sessao 1: 17, sessao 2: 3, sessao 3: 7, sessao 4: 4)
+Restantes: 7 itens
+- Frontend: 5 itens (paginas do template)
+- Backend/Features: 1 item (produtos/dermocosmeticos)
+- Qualidade: 1 item (testes)
 
-Prioridade sugerida:
-1. Seguranca (#1-4)
-2. Conteudo legal (#5-6, termos e privacidade)
-3. Features core (#13-16, prontuario, pacotes, termos consent)
-4. Frontend publico (#7-11, depoimentos, galeria, equipe)
-5. Qualidade de codigo (#23-33)
+Prioridade sugerida para proxima sessao:
+1. Frontend publico (#7-11)
+2. Testes automatizados (#33)
