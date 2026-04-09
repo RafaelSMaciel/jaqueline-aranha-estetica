@@ -11,6 +11,7 @@ import json
 import random
 import string
 import logging
+import os
 
 from ..models import (
     Profissional, Procedimento, Atendimento, BloqueioAgenda,
@@ -19,8 +20,7 @@ from ..models import (
 
 logger = logging.getLogger(__name__)
 
-# Número do WhatsApp da clínica
-WHATSAPP_NUMERO = '5517000000000'  # TODO: Substituir pelo número real da clínica
+WHATSAPP_NUMERO = os.environ.get('WHATSAPP_NUMERO', '5517000000000')
 
 
 def agendamento_publico(request):
@@ -251,6 +251,45 @@ def confirmar_agendamento(request):
             status='AGENDADO'
         )
 
+        # --- Envio automatico de termos de consentimento ---
+        from ..models import VersaoTermo, AceitePrivacidade, AssinaturaTermoProcedimento, Notificacao
+        from ..utils.whatsapp import enviar_whatsapp as _enviar_wpp, SITE_URL, gerar_token
+        from django.db.models import Q as _Q
+
+        termos_pendentes = VersaoTermo.objects.filter(
+            _Q(tipo='LGPD') | _Q(procedimento=procedimento),
+            ativa=True,
+        )
+
+        assinados_ids = set()
+        assinados_ids.update(
+            AceitePrivacidade.objects.filter(cliente=cliente).values_list('versao_termo_id', flat=True)
+        )
+        assinados_ids.update(
+            AssinaturaTermoProcedimento.objects.filter(cliente=cliente).values_list('versao_termo_id', flat=True)
+        )
+
+        tem_pendente = any(t.pk not in assinados_ids for t in termos_pendentes)
+
+        if tem_pendente:
+            token_termo = gerar_token()
+            Notificacao.objects.create(
+                atendimento=atendimento,
+                tipo='LEMBRETE',
+                canal='WHATSAPP',
+                status_envio='PENDENTE',
+                token=token_termo,
+            )
+            site_url = SITE_URL.rstrip('/')
+            link_termo = f"{site_url}/termo/{token_termo}/"
+            msg_termo = (
+                f"Ola {nome}! Para seu agendamento na Shiva Zen, "
+                f"precisamos que voce assine os termos de consentimento. "
+                f"Acesse: {link_termo} "
+                f"Shiva Zen"
+            )
+            _enviar_wpp(telefone, msg_termo)
+
         # Montar mensagem WhatsApp
         data_formatada = data_hora.strftime('%d/%m/%Y às %H:%M')
         msg_wpp = (
@@ -366,17 +405,20 @@ def verificar_telefone(request):
             # Em produção, enviar via SMS/WhatsApp API
             logger.info(f'Código de verificação gerado para telefone: {telefone[-4:]}')
 
-            response_data = {
+            # TODO: Em produção, enviar código via WhatsApp Business API
+            # usando app_shivazen.utils.whatsapp.enviar_mensagem_whatsapp()
+            from django.conf import settings as django_settings
+            if not django_settings.DEBUG:
+                try:
+                    from ..utils.whatsapp import enviar_codigo_verificacao
+                    enviar_codigo_verificacao(telefone, codigo)
+                except Exception:
+                    logger.error(f'Falha ao enviar código de verificação para {telefone[-4:]}', exc_info=True)
+
+            return JsonResponse({
                 'success': True,
                 'message': 'Código de verificação enviado para seu telefone.',
-            }
-
-            # Em modo DEBUG, retornar código para facilitar testes
-            from django.conf import settings as django_settings
-            if django_settings.DEBUG:
-                response_data['codigo_debug'] = codigo
-
-            return JsonResponse(response_data)
+            })
 
         elif action == 'verificar':
             codigo_input = data.get('codigo', '').strip()
@@ -465,37 +507,34 @@ def api_dias_disponiveis(request):
     })
 
 
+@ratelimit(key='ip', rate='10/m', method='POST', block=True)
 def cancelar_agendamento(request):
-    """Cancela um agendamento via AJAX (verifica telefone)"""
+    """Cancela um agendamento via token seguro (anti-IDOR)."""
     if request.method != 'POST':
         return JsonResponse({'erro': 'Método não permitido'}, status=405)
 
     try:
         data = json.loads(request.body)
-        atendimento_id = data.get('atendimento_id')
-        telefone = data.get('telefone', '').strip()
+        token = data.get('token', '').strip()
 
-        if not atendimento_id or not telefone:
-            return JsonResponse({'erro': 'Dados incompletos'}, status=400)
+        if not token:
+            return JsonResponse({'erro': 'Token obrigatório'}, status=400)
 
-        # Buscar atendimento
+        # Buscar atendimento pelo token (não por ID + telefone)
         try:
             atendimento = Atendimento.objects.select_related('cliente', 'procedimento').get(
-                pk=atendimento_id
+                token_cancelamento=token
             )
         except Atendimento.DoesNotExist:
             return JsonResponse({'erro': 'Agendamento não encontrado'}, status=404)
 
-        # Verificar se o telefone bate com o cliente
-        telefone_limpo = ''.join(filter(str.isdigit, telefone))
-        cliente_tel = ''.join(filter(str.isdigit, atendimento.cliente.telefone or ''))
-
-        if telefone_limpo != cliente_tel:
-            return JsonResponse({'erro': 'Telefone não corresponde ao agendamento'}, status=403)
-
         # Verificar se é futuro
         if atendimento.data_hora_inicio <= timezone.now():
             return JsonResponse({'erro': 'Não é possível cancelar agendamentos passados'}, status=400)
+
+        # Verificar se já está cancelado
+        if atendimento.status == 'CANCELADO':
+            return JsonResponse({'erro': 'Este agendamento já foi cancelado'}, status=400)
 
         # Cancelar
         atendimento.status = 'CANCELADO'
@@ -509,6 +548,5 @@ def cancelar_agendamento(request):
     except json.JSONDecodeError:
         return JsonResponse({'erro': 'Dados inválidos'}, status=400)
     except Exception as e:
-        # SEGURANÇA: Logar erro real mas devolver mensagem genérica
         logger.error(f'Erro ao cancelar agendamento: {e}', exc_info=True)
         return JsonResponse({'erro': 'Ocorreu um erro interno. Tente novamente.'}, status=500)
