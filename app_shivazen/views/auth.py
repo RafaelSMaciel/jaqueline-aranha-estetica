@@ -2,6 +2,11 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth import login as auth_login, logout as auth_logout, authenticate
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import (
+    PasswordResetView, PasswordResetDoneView,
+    PasswordResetConfirmView, PasswordResetCompleteView,
+)
+from django.urls import reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods
 from django.core.cache import cache
@@ -79,3 +84,31 @@ def usuarioLogout(request):
     auth_logout(request)
     messages.info(request, 'Você saiu da sua conta.')
     return redirect('shivazen:inicio')
+
+
+# ─── Password Recovery (Class-Based Views) ───
+
+class ShivaZenPasswordResetView(PasswordResetView):
+    template_name = 'usuario/password_reset.html'
+    email_template_name = 'usuario/password_reset_email.html'
+    subject_template_name = 'usuario/password_reset_subject.txt'
+    success_url = reverse_lazy('shivazen:password_reset_done')
+
+
+class ShivaZenPasswordResetDoneView(PasswordResetDoneView):
+    template_name = 'usuario/password_reset_done.html'
+
+
+class ShivaZenPasswordResetConfirmView(PasswordResetConfirmView):
+    template_name = 'usuario/password_reset_confirm.html'
+    success_url = reverse_lazy('shivazen:password_reset_complete')
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        form.fields['new_password1'].widget.attrs.update({'class': 'form-input'})
+        form.fields['new_password2'].widget.attrs.update({'class': 'form-input'})
+        return form
+
+
+class ShivaZenPasswordResetCompleteView(PasswordResetCompleteView):
+    template_name = 'usuario/password_reset_complete.html'
