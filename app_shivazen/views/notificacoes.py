@@ -5,6 +5,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.utils import timezone
 from django.contrib import messages
+from django.core.paginator import Paginator
 import logging
 
 from ..models import Notificacao, Atendimento
@@ -82,8 +83,12 @@ def painel_notificacoes(request):
     cancelados = notifs.filter(resposta_cliente='CANCELOU').count()
     sem_resposta = notifs.filter(resposta_cliente__isnull=True).count()
 
+    paginator = Paginator(notifs, 50)
+    page = request.GET.get('page', 1)
+    notifs_page = paginator.get_page(page)
+
     context = {
-        'notificacoes': notifs[:100],
+        'notificacoes': notifs_page,
         'total': total,
         'confirmados': confirmados,
         'cancelados': cancelados,
