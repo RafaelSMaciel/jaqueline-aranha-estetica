@@ -1,0 +1,35 @@
+{% extends 'estrutura/base.html' %}
+
+{% block css %}
+<style>
+    .obrigado-container {
+        max-width: 500px; margin: 4rem auto; padding: 2rem 1.5rem;
+        text-align: center;
+    }
+    .obrigado-icon { font-size: 3.5rem; margin-bottom: 1rem; }
+    .obrigado-title {
+        font-family: 'Playfair Display', serif;
+        font-size: 1.5rem; font-weight: 700; color: #1a1a2e;
+        margin-bottom: 0.5rem;
+    }
+    .obrigado-msg { font-size: 0.9rem; color: #999; line-height: 1.6; }
+</style>
+{% endblock %}
+
+{% block conteudo %}
+<div class="obrigado-container">
+    {% if nota >= 9 %}
+    <div class="obrigado-icon">&#128525;</div>
+    {% elif nota >= 7 %}
+    <div class="obrigado-icon">&#128522;</div>
+    {% else %}
+    <div class="obrigado-icon">&#128591;</div>
+    {% endif %}
+
+    <div class="obrigado-title">Obrigado, {{ cliente.nome_completo|truncatewords:2 }}!</div>
+    <div class="obrigado-msg">
+        Sua avaliacao e muito importante para a Shiva Zen.<br>
+        Usamos seu feedback para melhorar continuamente nossos servicos.
+    </div>
+</div>
+{% endblock %}

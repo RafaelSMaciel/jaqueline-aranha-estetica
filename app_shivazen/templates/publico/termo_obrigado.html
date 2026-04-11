@@ -1,0 +1,28 @@
+{% extends 'estrutura/base.html' %}
+
+{% block css %}
+<style>
+    .obrigado-container {
+        max-width: 500px; margin: 4rem auto; padding: 2rem 1.5rem;
+        text-align: center;
+    }
+    .obrigado-icon { font-size: 3.5rem; color: #4caf50; margin-bottom: 1rem; }
+    .obrigado-title {
+        font-family: 'Playfair Display', serif;
+        font-size: 1.5rem; font-weight: 700; color: #1a1a2e;
+        margin-bottom: 0.5rem;
+    }
+    .obrigado-msg { font-size: 0.9rem; color: #999; line-height: 1.6; }
+</style>
+{% endblock %}
+
+{% block conteudo %}
+<div class="obrigado-container">
+    <div class="obrigado-icon"><i class="fas fa-file-signature"></i></div>
+    <div class="obrigado-title">Termos assinados!</div>
+    <div class="obrigado-msg">
+        Obrigado, {{ cliente.nome_completo|truncatewords:2 }}.<br>
+        Seus termos de consentimento foram registrados com sucesso.
+    </div>
+</div>
+{% endblock %}

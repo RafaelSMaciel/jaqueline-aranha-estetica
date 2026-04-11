@@ -3,7 +3,7 @@
     <div class="container d-flex align-items-center justify-content-between py-2">
         <div class="logo">
             <a href="{% url 'shivazen:inicio' %}" aria-label="Página inicial Shiva Zen">
-                <img src="{% static 'assents/LogoSemFundo.png' %}" alt="Logo Shiva Zen" class="img-fluid header-logo">
+                <img src="{% static 'assets/LogoSemFundo.png' %}" alt="Logo Shiva Zen" class="img-fluid header-logo">
             </a>
         </div>
 
@@ -27,7 +27,7 @@
                 </li>
                 <li class="nav-item ms-2">
                     <a class="btn btn-sm rounded-pill px-4 shadow-sm fw-bold"
-                        href="https://wa.me/5517000000000" target="_blank" rel="noopener"
+                        href="https://wa.me/{{ WHATSAPP_NUMERO }}" target="_blank" rel="noopener"
                         style="background:#25D366;color:white;font-size:0.85rem;">
                         <i class="fab fa-whatsapp me-1"></i> WhatsApp
                     </a>
@@ -63,7 +63,7 @@
                 </li>
                 <li class="nav-item mt-2">
                     <a class="btn w-100 rounded-pill py-3 fw-bold shadow-sm"
-                       href="https://wa.me/5517000000000" target="_blank" rel="noopener"
+                       href="https://wa.me/{{ WHATSAPP_NUMERO }}" target="_blank" rel="noopener"
                        style="background:#25D366;color:white;">
                         <i class="fab fa-whatsapp me-2"></i>Falar no WhatsApp
                     </a>

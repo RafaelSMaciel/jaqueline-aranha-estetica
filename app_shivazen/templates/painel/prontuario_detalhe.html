@@ -1,0 +1,246 @@
+{% extends 'painel/admin_base.html' %}
+
+{% block page_title %}Prontuario — {{ cliente.nome_completo }}{% endblock %}
+{% block page_subtitle %}Ficha de anamnese, historico e termos de consentimento{% endblock %}
+
+{% block admin_content %}
+
+<!-- Info do Cliente -->
+<div class="card border-0 shadow-sm rounded-4 mb-4">
+    <div class="card-body p-3">
+        <div class="row">
+            <div class="col-md-4">
+                <small class="text-muted d-block">Telefone</small>
+                <strong>{{ cliente.telefone|default:"Nao informado" }}</strong>
+            </div>
+            <div class="col-md-4">
+                <small class="text-muted d-block">E-mail</small>
+                <strong>{{ cliente.email|default:"Nao informado" }}</strong>
+            </div>
+            <div class="col-md-4">
+                <small class="text-muted d-block">Data de Nascimento</small>
+                <strong>{{ cliente.data_nascimento|date:"d/m/Y"|default:"Nao informado" }}</strong>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Formulario de Anamnese -->
+<div class="card border-0 shadow-sm rounded-4 mb-4">
+    <div class="card-body p-3">
+        <h6 class="fw-bold mb-3">
+            <i class="fas fa-file-medical me-2" style="color:#C9A84C;"></i>Ficha de Anamnese
+        </h6>
+        <form method="POST" action="{% url 'shivazen:prontuario_salvar' cliente_id=cliente.pk %}">
+            {% csrf_token %}
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold small">Alergias</label>
+                    <textarea name="alergias" class="form-control bg-light border-0" rows="3"
+                        placeholder="Descreva alergias conhecidas...">{{ prontuario.alergias|default:"" }}</textarea>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold small">Contraindicacoes</label>
+                    <textarea name="contraindicacoes" class="form-control bg-light border-0" rows="3"
+                        placeholder="Contraindicacoes a procedimentos...">{{ prontuario.contraindicacoes|default:"" }}</textarea>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold small">Historico de Saude</label>
+                    <textarea name="historico_saude" class="form-control bg-light border-0" rows="3"
+                        placeholder="Condicoes medicas relevantes...">{{ prontuario.historico_saude|default:"" }}</textarea>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold small">Medicamentos em Uso</label>
+                    <textarea name="medicamentos_uso" class="form-control bg-light border-0" rows="3"
+                        placeholder="Medicamentos atuais...">{{ prontuario.medicamentos_uso|default:"" }}</textarea>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold small">Observacoes Gerais</label>
+                <textarea name="observacoes_gerais" class="form-control bg-light border-0" rows="2"
+                    placeholder="Outras observacoes...">{{ prontuario.observacoes_gerais|default:"" }}</textarea>
+            </div>
+
+            <!-- Questionario dinamico -->
+            {% if perguntas %}
+            <h6 class="fw-bold mt-4 mb-3">
+                <i class="fas fa-clipboard-list me-2" style="color:#2196F3;"></i>Questionario de Anamnese
+            </h6>
+            {% for pergunta in perguntas %}
+            <div class="mb-3">
+                <label class="form-label fw-bold small">{{ pergunta.texto }}</label>
+                {% if pergunta.tipo_resposta == 'BOOLEAN' %}
+                    <div class="d-flex gap-3">
+                        <div class="form-check">
+                            <input type="radio" name="pergunta_{{ pergunta.pk }}" value="sim"
+                                class="form-check-input" id="p{{ pergunta.pk }}_sim"
+                                {% if pergunta.pk in respostas and respostas|dictsort:"0" %}
+                                {% with resp=respostas %}{% endwith %}
+                                {% endif %}>
+                            <label class="form-check-label" for="p{{ pergunta.pk }}_sim">Sim</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="radio" name="pergunta_{{ pergunta.pk }}" value="nao"
+                                class="form-check-input" id="p{{ pergunta.pk }}_nao">
+                            <label class="form-check-label" for="p{{ pergunta.pk }}_nao">Nao</label>
+                        </div>
+                    </div>
+                {% else %}
+                    <textarea name="pergunta_{{ pergunta.pk }}" class="form-control bg-light border-0"
+                        rows="2" placeholder="Resposta..."></textarea>
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            <button type="submit" class="btn px-4 rounded-pill" style="background:#C9A84C;color:white;">
+                <i class="fas fa-save me-1"></i>Salvar Prontuario
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Historico de Atendimentos -->
+<div class="card border-0 shadow-sm rounded-4 mb-4">
+    <div class="card-body p-3">
+        <h6 class="fw-bold mb-3">
+            <i class="fas fa-history me-2" style="color:#4CAF50;"></i>Historico de Atendimentos
+        </h6>
+
+        {% if atendimentos %}
+        {% for atend in atendimentos %}
+        <div class="admin-list-item">
+            <div class="admin-list-avatar" style="background:rgba(76,175,80,0.1);color:#4CAF50;">
+                <i class="fas fa-calendar-check"></i>
+            </div>
+            <div class="admin-list-info">
+                <div class="admin-list-title">{{ atend.procedimento.nome }}</div>
+                <div class="admin-list-meta">
+                    {{ atend.data_hora_inicio|date:"d/m/Y H:i" }} &middot;
+                    {{ atend.profissional.nome }} &middot;
+                    <span class="admin-badge {% if atend.status == 'REALIZADO' %}admin-badge-green{% elif atend.status == 'CANCELADO' %}admin-badge-red{% elif atend.status == 'CONFIRMADO' %}admin-badge-blue{% else %}admin-badge-yellow{% endif %}">
+                        {{ atend.status }}
+                    </span>
+                </div>
+                {% for anot in atend.anotacoes.all %}
+                <div class="mt-1 p-2 rounded bg-light small">
+                    <i class="fas fa-sticky-note me-1" style="color:#C9A84C;"></i>{{ anot.texto }}
+                    <span class="text-muted">— {{ anot.criado_em|date:"d/m/Y H:i" }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="admin-list-action">
+                <button class="btn btn-sm btn-outline-secondary rounded-pill btn-anotacao"
+                    data-atendimento-id="{{ atend.pk }}" data-bs-toggle="modal" data-bs-target="#modalAnotacao">
+                    <i class="fas fa-plus"></i> Nota
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="text-muted text-center py-3">Nenhum atendimento registrado.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Termos Assinados -->
+{% if aceites or assinaturas %}
+<div class="card border-0 shadow-sm rounded-4 mb-4">
+    <div class="card-body p-3">
+        <h6 class="fw-bold mb-3">
+            <i class="fas fa-file-signature me-2" style="color:#2196F3;"></i>Termos Assinados
+        </h6>
+        {% for a in aceites %}
+        <div class="admin-list-item">
+            <div class="admin-list-avatar" style="background:rgba(33,150,243,0.1);color:#2196F3;">
+                <i class="fas fa-shield-alt"></i>
+            </div>
+            <div class="admin-list-info">
+                <div class="admin-list-title">{{ a.versao_termo.titulo }}</div>
+                <div class="admin-list-meta">LGPD v{{ a.versao_termo.versao }} &middot; {{ a.criado_em|date:"d/m/Y H:i" }}</div>
+            </div>
+            <span class="admin-badge admin-badge-green">Aceito</span>
+        </div>
+        {% endfor %}
+        {% for a in assinaturas %}
+        <div class="admin-list-item">
+            <div class="admin-list-avatar" style="background:rgba(255,152,0,0.1);color:#FF9800;">
+                <i class="fas fa-pen-nib"></i>
+            </div>
+            <div class="admin-list-info">
+                <div class="admin-list-title">{{ a.versao_termo.titulo }}</div>
+                <div class="admin-list-meta">Procedimento v{{ a.versao_termo.versao }} &middot; {{ a.criado_em|date:"d/m/Y H:i" }}</div>
+            </div>
+            <span class="admin-badge admin-badge-green">Assinado</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Modal Anotacao -->
+<div class="modal fade" id="modalAnotacao" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content rounded-4">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold">Adicionar Anotacao</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <textarea id="anotacao-texto" class="form-control bg-light border-0" rows="4"
+                    placeholder="Observacoes clinicas desta sessao..."></textarea>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn rounded-pill px-4" id="btn-salvar-anotacao"
+                    style="background:#C9A84C;color:white;">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Back button -->
+<a href="{% url 'shivazen:prontuarioconsentimento' %}" class="btn btn-outline-secondary rounded-pill mt-3">
+    <i class="fas fa-arrow-left me-1"></i>Voltar
+</a>
+
+{% endblock %}
+
+{% block admin_scripts %}
+<script>
+let atendimentoIdAtual = null;
+
+document.querySelectorAll('.btn-anotacao').forEach(btn => {
+    btn.addEventListener('click', function() {
+        atendimentoIdAtual = this.dataset.atendimentoId;
+    });
+});
+
+document.getElementById('btn-salvar-anotacao').addEventListener('click', function() {
+    const texto = document.getElementById('anotacao-texto').value.trim();
+    if (!texto) return;
+
+    const formData = new FormData();
+    formData.append('texto', texto);
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+    fetch(`/painel/anotacao/${atendimentoIdAtual}/salvar/`, {
+        method: 'POST',
+        body: formData,
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.sucesso) {
+            location.reload();
+        } else {
+            alert(data.erro || 'Erro ao salvar.');
+        }
+    });
+});
+</script>
+{% endblock %}

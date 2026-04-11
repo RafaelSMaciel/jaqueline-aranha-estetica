@@ -118,7 +118,7 @@
 
 {% if clientes_list %}
     {% for item in clientes_list %}
-    <div class="admin-list-item">
+    <a href="{% url 'shivazen:prontuario_detalhe' cliente_id=item.cliente.pk %}" class="admin-list-item text-decoration-none" style="color:inherit;">
         <div class="admin-list-avatar" style="background:{% if item.tem_prontuario %}rgba(76,175,80,0.1);color:#4CAF50{% else %}rgba(201,168,76,0.1);color:#C9A84C{% endif %};">
             {{ item.cliente.nome_completo|truncatechars:2 }}
         </div>
@@ -142,7 +142,7 @@
                 <span class="admin-badge admin-badge-green">{{ item.total_termos }} termos</span>
             {% endif %}
         </div>
-    </div>
+    </a>
     {% endfor %}
 {% else %}
     <div class="text-center py-5">

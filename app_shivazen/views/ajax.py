@@ -18,5 +18,22 @@ def buscar_procedimentos(request):
 @require_GET
 @ratelimit(key='ip', rate='30/m', method='GET', block=True)
 def buscar_horarios(request):
-    """Placeholder para busca de horários."""
-    return JsonResponse({'status': 'ok'})
+    """Retorna horarios disponiveis para um profissional em uma data.
+    Params: profissional_id, data (YYYY-MM-DD), procedimento_id
+    """
+    from datetime import datetime
+    from ..models import Profissional
+
+    prof_id = request.GET.get('profissional_id')
+    data_str = request.GET.get('data')
+    if not prof_id or not data_str:
+        return JsonResponse({'horarios': []})
+
+    try:
+        profissional = Profissional.objects.get(pk=prof_id, ativo=True)
+        data = datetime.strptime(data_str, '%Y-%m-%d').date()
+    except (Profissional.DoesNotExist, ValueError):
+        return JsonResponse({'horarios': []})
+
+    horarios = profissional.get_horarios_disponiveis(data)
+    return JsonResponse({'horarios': horarios})

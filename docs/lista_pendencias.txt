@@ -1,9 +1,10 @@
 =====================================================================
  ShivaZen - Lista de Pendencias e Proximos Passos
- Data: 2026-04-04 (Atualizado - Sessao 2)
+ (arquivo consolidado — substitui pendencias.md da raiz)
+ Atualizado: 2026-04-10
 =====================================================================
 
-=== CORRIGIDOS NA SESSAO 1 ===
+=== CORRIGIDOS NA SESSAO 1 (04/04/2026) ===
 
 [OK] SECRET_KEY: erro em producao se nao definida (era insecure default)
 [OK] DEBUG: padrao False (era True)
@@ -25,7 +26,7 @@
 [OK] Regras de negocio documentadas (docs/regras_negocio_banco.txt)
 [OK] Miro ERD: 3 sub-diagramas organizados por dominio
 
-=== CORRIGIDOS NA SESSAO 2 ===
+=== CORRIGIDOS NA SESSAO 2 (04/04/2026) ===
 
 [OK] #1: IDOR no cancelamento: token_cancelamento adicionado ao
      Atendimento, view usa token em vez de telefone+ID
@@ -78,58 +79,142 @@
 [OK] #22: Paginacao: Django Paginator aplicado em agendamentos,
      profissionais, notificacoes e promocoes + partial reutilizavel
 
+=== CORRIGIDOS NA SESSAO 5 (10/04/2026) ===
+
+[OK] MER: gerada documentacao base narrativa (docs/mer_base_documentacao.txt)
+[OK] Limpeza: removidas pastas __pycache__ e diretorio legado static/assents
+[OK] Pendencias consolidadas em um unico arquivo
+
 =====================================================================
-PENDENCIAS RESTANTES
+ PENDENCIAS RESTANTES
 =====================================================================
 
---- FRONTEND (Paginas do template) ---
+--- FRONTEND (Paginas do template publico) ---
 
-7. [ ] Pagina de Depoimentos/Avaliacoes: criar pagina publica com
-   carousel Swiper de reviews de clientes.
-   Referencia: html/cliente/avaliacao.html
+#7  [ ] Pagina de Depoimentos/Avaliacoes: criar pagina publica com
+       carousel Swiper de reviews de clientes.
+       Referencia: html/cliente/avaliacao.html
 
-8. [ ] Galeria da Clinica: criar pagina com fotos do espaco usando
-   GLightbox (ja existe no vendor local).
-   Referencia: html/cliente/galeria.html
+#8  [ ] Galeria da Clinica: criar pagina com fotos do espaco usando
+       GLightbox (ja existe no vendor local).
+       Referencia: html/cliente/galeria.html
 
-9. [ ] Pagina Equipe/Profissionais (publica): criar pagina mostrando
-   profissionais com foto, especialidade e botao de agendar.
-   Referencia: html/Profissional/index.html
+#9  [ ] Pagina Equipe/Profissionais (publica): criar pagina mostrando
+       profissionais com foto, especialidade e botao de agendar.
+       Referencia: html/Profissional/index.html
 
-10. [ ] Pagina de Especialidades: criar pagina com tabs por area
-    (Harmonizacao Facial, Corporal, Skin Care, etc).
-    Referencia: html/Profissional/especialidade.html
+#10 [ ] Pagina de Especialidades: criar pagina com tabs por area
+       (Harmonizacao Facial, Corporal, Skin Care, etc).
+       Referencia: html/Profissional/especialidade.html
 
-11. [ ] Detalhe de Servico: pagina individual por procedimento com
-    descricao completa, areas de tratamento e CTA.
-    Referencia: html/Profissional/servicoDetalhe.html
+#11 [ ] Detalhe de Servico: pagina individual por procedimento com
+       descricao completa, areas de tratamento e CTA.
 
 --- BACKEND / FUNCIONALIDADES ---
 
-12. [ ] Produtos/Dermocosmeticos: pagina servicos/produtos.html eh
-    estatica. Se necessario, criar model Produto ou integrar com
-    catalogo externo.
+#12 [ ] Produtos/Dermocosmeticos: pagina servicos/produtos.html eh
+       estatica. Se necessario, criar model Produto ou integrar com
+       catalogo externo.
+
+#34 [ ] WhatsApp Business API: integrar envio real de mensagens.
+       O arquivo utils/whatsapp.py tem a estrutura mas a funcao
+       enviar_whatsapp ainda eh placeholder em varios caminhos.
+
+#35 [ ] Lista de espera UI publica: permitir que cliente se inscreva
+       via UI publica. Hoje so o admin gerencia a fila.
+
+#36 [ ] Procedimento CRUD preco: modal de edicao nao carrega o preco
+       atual — precisa de query adicional para popular o campo.
+
+#37 [ ] NPS escala: resolver divergencia entre documentacao funcional
+       (1-5) e implementacao (0-10). Decidir lado a manter.
 
 --- QUALIDADE ---
 
-33. [ ] Testes: zero testes no projeto. CI roda `manage.py test`
-    sem nenhum test case. Priorizar testes para:
-    - Agendamento (confirmar_agendamento)
-    - Controle de faltas (registrar_falta/resetar_faltas)
-    - Pacotes (verificar_finalizacao)
-    - Webhook WhatsApp (assinatura HMAC)
+#33 [ ] Testes: zero testes no projeto. CI roda `manage.py test`
+       sem nenhum test case. Priorizar testes para:
+       - Agendamento (confirmar_agendamento)
+       - Controle de faltas (registrar_falta/resetar_faltas)
+       - Pacotes (verificar_finalizacao)
+       - Webhook WhatsApp (assinatura HMAC)
+
+#38 [ ] Django admin customizado: UsuarioAdmin ja esta bom, mas
+       outros models poderiam ganhar list_display/list_filter para
+       acelerar operacao direta via admin.
+
+#39 [ ] __str__ mais descritivos: alguns models retornam apenas
+       nome. Atendimento, Notificacao e PacoteCliente ficariam mais
+       uteis com contexto de data/cliente.
+
+--- DEVOPS / PRODUCAO ---
+
+#40 [ ] CI/CD: .github/workflows existe mas nao tem pipeline ativo.
+       Configurar ao menos lint + test no push/PR para main.
+
+#41 [ ] Logs estruturados: configurar logging para producao em formato
+       JSON com rotacao. Hoje eh logging default para stdout.
+
+#42 [ ] Backup automatico: definir estrategia de backup do PostgreSQL
+       em producao (pg_dump agendado + retencao).
+
+#43 [ ] Monitoramento: healthcheck endpoint e metricas basicas
+       (tempo de resposta, erros 5xx, fila Celery pendente).
+
+#44 [ ] HTTPS e headers: validar HSTS, X-Frame-Options e demais
+       headers de seguranca em producao.
+
+#45 [ ] Static files producao: revisar collectstatic + whitenoise ou
+       migracao para S3/CDN conforme escala.
+
+#46 [ ] SEO: meta tags, Open Graph, sitemap.xml e robots.txt nas
+       paginas publicas.
+
+#47 [ ] PWA: manifest.json e service worker para instalacao como app
+       mobile no celular dos clientes.
+
+#48 [ ] seed.py: criar arquivo de seed para popular dados de
+       demonstracao em ambiente de desenvolvimento.
 
 =====================================================================
-RESUMO ATUALIZADO
+ RESUMO
 =====================================================================
 
-Total original: 33 itens
-Corrigidos: 27 itens (sessao 1: 17, sessao 2: 3, sessao 3: 7, sessao 4: 4)
-Restantes: 7 itens
-- Frontend: 5 itens (paginas do template)
-- Backend/Features: 1 item (produtos/dermocosmeticos)
-- Qualidade: 1 item (testes)
+Total historico: 33 itens originais do audit + 15 itens incorporados
+do pendencias.md (backlog adicional) = 48 itens conhecidos
+
+Corrigidos: 30 itens
+  - Sessao 1: 17
+  - Sessao 2: 3
+  - Sessao 3: 7
+  - Sessao 4: 4 (NPS web, recuperacao senha, termos workflow, paginacao)
+  - Sessao 5: 3 (MER narrativo, limpeza, consolidacao deste arquivo)
+
+Restantes: 18 itens
+  - Frontend publico: 5
+  - Backend / features: 4
+  - Qualidade: 3
+  - DevOps / producao: 9 (cobertos pelas prioridades baixas do backlog)
 
 Prioridade sugerida para proxima sessao:
-1. Frontend publico (#7-11)
-2. Testes automatizados (#33)
+  1. Testes automatizados (#33) — bloqueio para producao
+  2. WhatsApp Business API real (#34) — bloqueio para operacao
+  3. Frontend publico (#7-11) — para lancamento do site
+  4. DevOps basico: CI/CD (#40) + backup (#42) + HTTPS (#44)
+
+=====================================================================
+ INVENTARIO DO PROJETO (snapshot 10/04/2026)
+=====================================================================
+
+  Models:        30 (era 28 no inventario anterior)
+  Views:         ~52 funcoes
+  URLs:          ~107 rotas
+  Templates:     45+
+  CSS:           3 custom + vendors
+  JS:            1 custom + vendors
+  Celery tasks:  8
+  Migrations:    4 (0001_initial .. 0004_add_categoria_procedimento)
+  Signals:       2 em Atendimento (pre_save + post_save)
+
+=====================================================================
+ FIM
+=====================================================================
