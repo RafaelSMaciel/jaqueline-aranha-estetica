@@ -65,7 +65,6 @@ class Profissional(models.Model):
         return self.nome
 
     def get_horarios_disponiveis(self, data_selecionada):
-        from datetime import datetime, timedelta
         from django.utils import timezone
 
         dia_semana = data_selecionada.isoweekday() % 7 + 1
@@ -224,9 +223,17 @@ class Cliente(models.Model):
 # =====================================================================
 
 class Procedimento(models.Model):
+    CATEGORIA_CHOICES = [
+        ('FACIAL', 'Facial'),
+        ('CORPORAL', 'Corporal'),
+        ('CAPILAR', 'Capilar'),
+        ('OUTRO', 'Outro'),
+    ]
+
     nome = models.CharField(max_length=100)
     descricao = models.TextField(blank=True, null=True)
     duracao_minutos = models.SmallIntegerField()
+    categoria = models.CharField(max_length=20, default='OUTRO', choices=CATEGORIA_CHOICES)
     ativo = models.BooleanField(default=True)
     profissionais = models.ManyToManyField(Profissional, through='ProfissionalProcedimento')
 
@@ -350,7 +357,14 @@ class Atendimento(models.Model):
     valor_original = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     descricao_preco = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=20, default='AGENDADO', choices=STATUS_CHOICES)
+    token_cancelamento = models.CharField(max_length=64, unique=True, blank=True, null=True)
     criado_em = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if not self.token_cancelamento:
+            import secrets
+            self.token_cancelamento = secrets.token_urlsafe(32)
+        super().save(*args, **kwargs)
 
     class Meta:
         managed = True

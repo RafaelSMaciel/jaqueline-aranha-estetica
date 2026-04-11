@@ -53,7 +53,7 @@
         {{ cliente.nome_completo|make_list|first }}{{ cliente.nome_completo|make_list|last }}
     </div>
     <div class="cliente-info">
-        <div class="cliente-nome">{{ cliente.nome_completo }}</div>
+        <div class="cliente-nome"><a href="{% url 'shivazen:admin_cliente_detalhe' cliente.pk %}" style="text-decoration:none; color:inherit;">{{ cliente.nome_completo }}</a></div>
         <div class="cliente-meta">
             {% if cliente.telefone %}<i class="fas fa-phone me-1"></i>{{ cliente.telefone }} {% endif %}
             {% if cliente.email %}&bull; <i class="fas fa-envelope me-1"></i>{{ cliente.email }}{% endif %}

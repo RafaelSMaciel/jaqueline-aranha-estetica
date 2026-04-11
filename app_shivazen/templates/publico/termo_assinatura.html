@@ -1,0 +1,79 @@
+{% extends 'estrutura/base.html' %}
+
+{% block css %}
+<style>
+    .termo-container {
+        max-width: 600px; margin: 2rem auto; padding: 1.5rem;
+    }
+    .termo-header {
+        text-align: center; margin-bottom: 2rem;
+    }
+    .termo-header h1 {
+        font-family: 'Playfair Display', serif;
+        font-size: 1.4rem; font-weight: 700; color: #1a1a2e;
+    }
+    .termo-header p { font-size: 0.85rem; color: #999; }
+    .termo-item {
+        background: white; border-radius: 16px; padding: 1.25rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 1rem;
+    }
+    .termo-item-title { font-weight: 700; font-size: 0.95rem; margin-bottom: 0.5rem; }
+    .termo-item-tipo { font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 8px; font-weight: 700; }
+    .tipo-LGPD { background: #e3f2fd; color: #1565c0; }
+    .tipo-PROCEDIMENTO { background: #f3e5f5; color: #7b1fa2; }
+    .termo-item-content {
+        font-size: 0.8rem; color: #666; line-height: 1.6;
+        max-height: 200px; overflow-y: auto; margin: 0.75rem 0;
+        padding: 0.75rem; background: #f8f9fa; border-radius: 8px;
+    }
+    .termo-item-check {
+        display: flex; align-items: center; gap: 0.5rem;
+        font-size: 0.85rem; font-weight: 700; color: #333;
+    }
+    .termo-item-check input[type="checkbox"] { width: 18px; height: 18px; }
+    .btn-assinar {
+        background: linear-gradient(135deg, #C9A84C, #e8c94f); color: white;
+        border: none; padding: 0.75rem 2rem; border-radius: 12px;
+        font-weight: 700; font-size: 0.9rem; cursor: pointer; width: 100%;
+        margin-top: 1rem; transition: transform 0.2s;
+    }
+    .btn-assinar:hover { transform: scale(1.02); }
+    .empty-msg { text-align: center; padding: 2rem; color: #bbb; }
+</style>
+{% endblock %}
+
+{% block conteudo %}
+<div class="termo-container">
+    <div class="termo-header">
+        <h1>Termos de Consentimento</h1>
+        <p>{{ cliente.nome_completo }} &middot; {{ atendimento.procedimento.nome }}</p>
+    </div>
+
+    {% if termos_pendentes %}
+    <form method="post">
+        {% csrf_token %}
+        {% for termo in termos_pendentes %}
+        <div class="termo-item">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                <span class="termo-item-title">{{ termo.titulo }}</span>
+                <span class="termo-item-tipo tipo-{{ termo.tipo }}">{{ termo.tipo }}</span>
+                <span style="font-size: 0.7rem; color: #bbb;">v{{ termo.versao }}</span>
+            </div>
+            <div class="termo-item-content">{{ termo.conteudo|linebreaksbr }}</div>
+            <label class="termo-item-check">
+                <input type="checkbox" name="aceite_{{ termo.pk }}" value="1" required>
+                Li e concordo com este termo
+            </label>
+        </div>
+        {% endfor %}
+
+        <button type="submit" class="btn-assinar">Assinar Termos</button>
+    </form>
+    {% else %}
+    <div class="empty-msg">
+        <i class="fas fa-check-circle" style="font-size: 2.5rem; color: #4caf50; margin-bottom: 0.5rem;"></i>
+        <p>Todos os termos ja foram assinados.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

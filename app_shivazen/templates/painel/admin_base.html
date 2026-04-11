@@ -197,15 +197,30 @@
         <a href="{% url 'shivazen:painel_notificacoes' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'painel_notificacoes' %}active{% endif %}">
             <i class="fas fa-bell"></i><span>Notificações</span>
         </a>
-        <a href="{% url 'shivazen:prontuarioconsentimento' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'prontuarioconsentimento' %}active{% endif %}">
+        <a href="{% url 'shivazen:prontuarioconsentimento' %}" class="admin-nav-item {% if 'prontuario' in request.resolver_match.url_name %}active{% endif %}">
             <i class="fas fa-file-medical"></i><span>Prontuario</span>
+        </a>
+        <a href="{% url 'shivazen:admin_pacotes' %}" class="admin-nav-item {% if 'pacote' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="fas fa-box"></i><span>Pacotes</span>
+        </a>
+        <a href="{% url 'shivazen:admin_procedimentos' %}" class="admin-nav-item {% if 'procedimento' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="fas fa-stethoscope"></i><span>Procedimentos</span>
+        </a>
+        <a href="{% url 'shivazen:admin_bloqueios' %}" class="admin-nav-item {% if 'bloqueio' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="fas fa-calendar-times"></i><span>Bloqueios</span>
+        </a>
+        <a href="{% url 'shivazen:admin_lista_espera' %}" class="admin-nav-item {% if 'espera' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="fas fa-hourglass-half"></i><span>Espera</span>
+        </a>
+        <a href="{% url 'shivazen:admin_termos' %}" class="admin-nav-item {% if 'termo' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="fas fa-file-contract"></i><span>Termos</span>
         </a>
         <a href="{% url 'shivazen:admin_auditoria' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'admin_auditoria' %}active{% endif %}">
             <i class="fas fa-clipboard-list"></i><span>Auditoria</span>
         </a>
     </nav>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     {% block admin_scripts %}{% endblock %}
 </body>

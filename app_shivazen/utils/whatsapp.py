@@ -85,6 +85,16 @@ def enviar_whatsapp(telefone, mensagem):
         return False
 
 
+def enviar_codigo_verificacao(telefone, codigo):
+    """Envia codigo de verificacao de 6 digitos via WhatsApp."""
+    mensagem = (
+        f"Shiva Zen - Codigo de Verificacao\n\n"
+        f"Seu codigo: {codigo}\n\n"
+        f"Valido por 10 minutos. Nao compartilhe este codigo."
+    )
+    return enviar_whatsapp(telefone, mensagem)
+
+
 def enviar_lembrete_agendamento(atendimento):
     """
     Envia lembrete de agendamento com link de confirmacao/cancelamento.

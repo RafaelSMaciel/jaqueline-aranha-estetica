@@ -2,7 +2,6 @@ asgiref==3.8.1
 certifi==2026.2.25
 dj-database-url==3.1.0
 Django==5.2.1
-django-jazzmin==2.6.0
 django-ratelimit==4.1.0
 django-redis==6.0.0
 gunicorn==21.2.0

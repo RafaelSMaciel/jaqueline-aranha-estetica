@@ -44,9 +44,6 @@ node_modules/
 *.swp
 *.swo
 
-# Claude Code
-.claude/
-
 # Configurações sensíveis
 .env
 .env.*
@@ -57,3 +54,4 @@ schema.sql
 generate_mer.py
 template_temp/
 docs/
+pendencias.md

@@ -1,0 +1,84 @@
+{% extends 'estrutura/base.html' %}
+
+{% block css %}
+<style>
+    .nps-container {
+        max-width: 500px; margin: 3rem auto; padding: 2rem 1.5rem;
+        text-align: center;
+    }
+    .nps-title {
+        font-family: 'Playfair Display', serif;
+        font-size: 1.5rem; font-weight: 700; color: #1a1a2e;
+        margin-bottom: 0.5rem;
+    }
+    .nps-subtitle { font-size: 0.9rem; color: #999; margin-bottom: 2rem; }
+    .nps-scale { display: flex; justify-content: center; gap: 0.4rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .nps-btn {
+        width: 42px; height: 42px; border-radius: 12px; border: 2px solid #ddd;
+        background: white; font-weight: 700; font-size: 0.9rem; cursor: pointer;
+        transition: all 0.2s; color: #666;
+    }
+    .nps-btn:hover { border-color: #C9A84C; color: #C9A84C; }
+    .nps-btn.selected { background: linear-gradient(135deg, #C9A84C, #e8c94f); color: white; border-color: #C9A84C; }
+    .nps-labels { display: flex; justify-content: space-between; font-size: 0.7rem; color: #bbb; margin-top: -0.5rem; margin-bottom: 1.5rem; }
+    .nps-comment {
+        width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 12px;
+        font-size: 0.85rem; resize: vertical; min-height: 80px; margin-bottom: 1rem;
+    }
+    .nps-submit {
+        background: linear-gradient(135deg, #C9A84C, #e8c94f); color: white;
+        border: none; padding: 0.75rem 2rem; border-radius: 12px;
+        font-weight: 700; font-size: 0.9rem; cursor: pointer;
+        transition: transform 0.2s;
+    }
+    .nps-submit:hover { transform: scale(1.03); }
+    .nps-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    .nps-respondido { padding: 3rem; text-align: center; color: #999; }
+</style>
+{% endblock %}
+
+{% block conteudo %}
+<div class="nps-container">
+    {% if ja_respondeu %}
+    <div class="nps-respondido">
+        <i class="fas fa-check-circle" style="font-size: 3rem; color: #4caf50; margin-bottom: 1rem;"></i>
+        <h2 style="font-size: 1.2rem; color: #333;">Obrigado!</h2>
+        <p>Voce ja respondeu esta pesquisa.</p>
+    </div>
+    {% else %}
+    <div class="nps-title">Como foi sua experiencia?</div>
+    <div class="nps-subtitle">
+        {{ atendimento.procedimento.nome }} com {{ atendimento.profissional.nome }}
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="nota" id="nota_input" value="">
+        <div class="nps-scale">
+            {% for i in "012345678910" %}
+            {% with nota=forloop.counter0 %}
+            <button type="button" class="nps-btn" data-nota="{{ nota }}" onclick="selectNota(this, {{ nota }})">{{ nota }}</button>
+            {% endwith %}
+            {% endfor %}
+        </div>
+        <div class="nps-labels">
+            <span>Nada provavel</span>
+            <span>Muito provavel</span>
+        </div>
+
+        <textarea name="comentario" class="nps-comment" placeholder="Conte-nos mais sobre sua experiencia (opcional)..."></textarea>
+
+        <button type="submit" class="nps-submit" id="nps_submit" disabled>Enviar Avaliacao</button>
+    </form>
+    {% endif %}
+</div>
+
+<script>
+function selectNota(el, nota) {
+    document.querySelectorAll('.nps-btn').forEach(b => b.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('nota_input').value = nota;
+    document.getElementById('nps_submit').disabled = false;
+}
+</script>
+{% endblock %}

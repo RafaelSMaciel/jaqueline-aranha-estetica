@@ -7,21 +7,11 @@ from ..models import Procedimento, Preco, Promocao
 logger = logging.getLogger(__name__)
 
 
-def _get_procedimentos_com_preco(tipo='facial'):
-    """Retorna procedimentos enriquecidos com preços."""
+def _get_procedimentos_com_preco(categoria='FACIAL'):
+    """Retorna procedimentos de uma categoria enriquecidos com precos."""
     procedimentos_com_preco = []
     try:
-        # Define quais procedimentos são faciais
-        nomes_faciais = [
-            'Limpeza de Pele Profunda', 'Preenchimento Facial', 'Harmonização Facial',
-            'Bioestimulador de Colágeno', 'Toxina Botulínica (Botox)', 'Peeling Químico',
-            'Fototerapia LED', 'Microagulhamento', 'Skinbooster', 'Laser Fracionado'
-        ]
-
-        if tipo == 'facial':
-            procedimentos = Procedimento.objects.filter(ativo=True, nome__in=nomes_faciais)
-        else:
-            procedimentos = Procedimento.objects.filter(ativo=True).exclude(nome__in=nomes_faciais)
+        procedimentos = Procedimento.objects.filter(ativo=True, categoria=categoria)
 
         proc_ids = list(procedimentos.values_list('pk', flat=True))
 
@@ -29,7 +19,6 @@ def _get_procedimentos_com_preco(tipo='facial'):
         precos = Preco.objects.filter(procedimento_id__in=proc_ids).order_by('profissional')
         preco_map = {}
         for p in precos:
-            # First match wins; profissional=NULL sorts first (NULL < value)
             if p.procedimento_id not in preco_map:
                 preco_map[p.procedimento_id] = p.valor
 
@@ -42,23 +31,23 @@ def _get_procedimentos_com_preco(tipo='facial'):
                 'preco': float(preco_map.get(proc.pk, 0)),
             })
     except (OperationalError, ProgrammingError):
-        logger.warning('Tabelas não encontradas para procedimentos.')
+        logger.warning('Tabelas nao encontradas para procedimentos.')
 
     return procedimentos_com_preco
 
 
 def servicos_faciais(request):
-    """Página de serviços faciais com dados reais."""
+    """Pagina de servicos faciais com dados reais."""
     context = {
-        'procedimentos': _get_procedimentos_com_preco('facial'),
+        'procedimentos': _get_procedimentos_com_preco('FACIAL'),
     }
     return render(request, 'servicos/faciais.html', context)
 
 
 def servicos_corporais(request):
-    """Página de serviços corporais com dados reais."""
+    """Pagina de servicos corporais com dados reais."""
     context = {
-        'procedimentos': _get_procedimentos_com_preco('corporal'),
+        'procedimentos': _get_procedimentos_com_preco('CORPORAL'),
     }
     return render(request, 'servicos/corporais.html', context)
 

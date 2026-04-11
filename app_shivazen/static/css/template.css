@@ -1014,7 +1014,7 @@ section,
   left: 0;
   right: 0;
   bottom: 0;
-  background: url("../assents/template_img/bg/abstract-bg-3.webp") center/cover;
+  background: url("../assets/template_img/bg/abstract-bg-3.webp") center/cover;
   opacity: 0.08;
   z-index: 0;
 }
