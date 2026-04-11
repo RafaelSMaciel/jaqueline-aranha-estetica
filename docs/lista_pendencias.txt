@@ -1,7 +1,7 @@
 =====================================================================
  ShivaZen - Lista de Pendencias e Proximos Passos
  (arquivo consolidado — substitui pendencias.md da raiz)
- Atualizado: 2026-04-10
+ Atualizado: 2026-04-11
 =====================================================================
 
 === CORRIGIDOS NA SESSAO 1 (04/04/2026) ===
@@ -85,30 +85,25 @@
 [OK] Limpeza: removidas pastas __pycache__ e diretorio legado static/assents
 [OK] Pendencias consolidadas em um unico arquivo
 
+=== CORRIGIDOS NA SESSAO 6 (11/04/2026) ===
+
+[OK] #7  Depoimentos: carousel Swiper com AvaliacaoNPS nota>=9 e comentario
+         preenchido em /depoimentos/
+[OK] #8  Galeria: pagina /galeria/ estatica com grid + GLightbox usando
+         assets existentes do template_img
+[OK] #9  Equipe publica: /equipe/ com cards de Profissional (iniciais em
+         circulo dourado, botao agendar preenchendo profissional)
+[OK] #10 Especialidades: /especialidades/ com tabs Bootstrap por categoria
+         (FACIAL, CORPORAL, CAPILAR, OUTRO) listando procedimentos+preco
+[OK] #11 Detalhe de Servico: migration 0005 adiciona slug, descricao_longa
+         e imagem_destaque ao Procedimento. Rota /servicos/detalhe/<slug>/
+         com hero + profissionais + relacionados. Slug auto-gerado via save()
+[OK] Menu publico atualizado: header e mobile_nav com Especialidades,
+     Equipe, Depoimentos e Galeria
+
 =====================================================================
  PENDENCIAS RESTANTES
 =====================================================================
-
---- FRONTEND (Paginas do template publico) ---
-
-#7  [ ] Pagina de Depoimentos/Avaliacoes: criar pagina publica com
-       carousel Swiper de reviews de clientes.
-       Referencia: html/cliente/avaliacao.html
-
-#8  [ ] Galeria da Clinica: criar pagina com fotos do espaco usando
-       GLightbox (ja existe no vendor local).
-       Referencia: html/cliente/galeria.html
-
-#9  [ ] Pagina Equipe/Profissionais (publica): criar pagina mostrando
-       profissionais com foto, especialidade e botao de agendar.
-       Referencia: html/Profissional/index.html
-
-#10 [ ] Pagina de Especialidades: criar pagina com tabs por area
-       (Harmonizacao Facial, Corporal, Skin Care, etc).
-       Referencia: html/Profissional/especialidade.html
-
-#11 [ ] Detalhe de Servico: pagina individual por procedimento com
-       descricao completa, areas de tratamento e CTA.
 
 --- BACKEND / FUNCIONALIDADES ---
 
@@ -182,37 +177,37 @@
 Total historico: 33 itens originais do audit + 15 itens incorporados
 do pendencias.md (backlog adicional) = 48 itens conhecidos
 
-Corrigidos: 30 itens
+Corrigidos: 35 itens
   - Sessao 1: 17
   - Sessao 2: 3
   - Sessao 3: 7
   - Sessao 4: 4 (NPS web, recuperacao senha, termos workflow, paginacao)
   - Sessao 5: 3 (MER narrativo, limpeza, consolidacao deste arquivo)
+  - Sessao 6: 5 (frontend publico completo #7-11)
 
-Restantes: 18 itens
-  - Frontend publico: 5
-  - Backend / features: 4
-  - Qualidade: 3
-  - DevOps / producao: 9 (cobertos pelas prioridades baixas do backlog)
+Restantes: 17 itens
+  - Backend / features: 5  (#12, #34, #35, #36, #37)
+  - Qualidade: 3           (#33, #38, #39)
+  - DevOps / producao: 9   (#40-#48)
 
 Prioridade sugerida para proxima sessao:
   1. Testes automatizados (#33) — bloqueio para producao
   2. WhatsApp Business API real (#34) — bloqueio para operacao
-  3. Frontend publico (#7-11) — para lancamento do site
-  4. DevOps basico: CI/CD (#40) + backup (#42) + HTTPS (#44)
+  3. CI/CD (#40) + backup (#42) + HTTPS (#44) — DevOps basico
+  4. SEO (#46) — agora que existem paginas detalhe de servico
 
 =====================================================================
- INVENTARIO DO PROJETO (snapshot 10/04/2026)
+ INVENTARIO DO PROJETO (snapshot 11/04/2026)
 =====================================================================
 
-  Models:        30 (era 28 no inventario anterior)
-  Views:         ~52 funcoes
-  URLs:          ~107 rotas
-  Templates:     45+
+  Models:        30 (Procedimento agora com slug/imagem_destaque)
+  Views:         ~57 funcoes (5 novas publicas)
+  URLs:          ~112 rotas
+  Templates:     50+ (5 novos templates publicos)
   CSS:           3 custom + vendors
   JS:            1 custom + vendors
   Celery tasks:  8
-  Migrations:    4 (0001_initial .. 0004_add_categoria_procedimento)
+  Migrations:    5 (0001_initial .. 0005_add_procedimento_slug_imagem)
   Signals:       2 em Atendimento (pre_save + post_save)
 
 =====================================================================

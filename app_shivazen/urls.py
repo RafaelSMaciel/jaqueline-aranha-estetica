@@ -18,6 +18,13 @@ urlpatterns = [
     path('servicos/corporais/', views.servicos_corporais, name='servicos_corporais'),
     path('servicos/produtos/', views.servicos_produtos, name='servicos_produtos'),
 
+    # ─── Páginas Públicas (Equipe, Especialidades, Depoimentos, Galeria) ───
+    path('equipe/', views.equipe, name='equipe'),
+    path('especialidades/', views.especialidades, name='especialidades'),
+    path('depoimentos/', views.depoimentos, name='depoimentos'),
+    path('galeria/', views.galeria, name='galeria'),
+    path('servicos/detalhe/<slug:slug>/', views.servico_detalhe, name='servico_detalhe'),
+
     # ─── Agendamento Público (SEM LOGIN) ───
     path('agendamento/', views.agendamento_publico, name='agendamento_publico'),
     path('agendamento/confirmar/', views.confirmar_agendamento, name='confirmar_agendamento'),
