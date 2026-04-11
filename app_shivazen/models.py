@@ -231,9 +231,12 @@ class Procedimento(models.Model):
     ]
 
     nome = models.CharField(max_length=100)
+    slug = models.SlugField(max_length=140, unique=True, blank=True, null=True)
     descricao = models.TextField(blank=True, null=True)
+    descricao_longa = models.TextField(blank=True, null=True)
     duracao_minutos = models.SmallIntegerField()
     categoria = models.CharField(max_length=20, default='OUTRO', choices=CATEGORIA_CHOICES)
+    imagem_destaque = models.URLField(max_length=500, blank=True, null=True)
     ativo = models.BooleanField(default=True)
     profissionais = models.ManyToManyField(Profissional, through='ProfissionalProcedimento')
 
@@ -243,6 +246,18 @@ class Procedimento(models.Model):
 
     def __str__(self):
         return self.nome
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            from django.utils.text import slugify
+            base = slugify(self.nome) or f'procedimento-{self.pk or "novo"}'
+            slug = base
+            counter = 1
+            while Procedimento.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                counter += 1
+                slug = f'{base}-{counter}'
+            self.slug = slug
+        super().save(*args, **kwargs)
 
 
 class ProfissionalProcedimento(models.Model):

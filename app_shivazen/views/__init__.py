@@ -4,7 +4,10 @@ from .auth import (
     ShivaZenPasswordResetView, ShivaZenPasswordResetDoneView,
     ShivaZenPasswordResetConfirmView, ShivaZenPasswordResetCompleteView,
 )
-from .public import home, termosUso, politicaPrivacidade, quemsomos, agendaContato, promocoes
+from .public import (
+    home, termosUso, politicaPrivacidade, quemsomos, agendaContato, promocoes,
+    equipe, especialidades, depoimentos, galeria, servico_detalhe,
+)
 from .services import servicos_faciais, servicos_corporais, servicos_produtos
 from .ajax import buscar_procedimentos, buscar_horarios
 from .admin import (

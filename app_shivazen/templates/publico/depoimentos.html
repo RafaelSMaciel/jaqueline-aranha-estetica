@@ -1,0 +1,106 @@
+{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block titulo %}Depoimentos | Shiva Zen{% endblock %}
+
+{% block conteudo %}
+<!-- ═══ HERO ═══ -->
+<section id="dep-hero" class="section" style="padding-top:60px;padding-bottom:40px;">
+  <div class="container" data-aos="fade-up">
+    <div class="text-center mx-auto" style="max-width:720px;">
+      <div class="hero-badge d-inline-block mb-3">
+        <i class="bi bi-chat-quote me-2"></i>Depoimentos
+      </div>
+      <h1 class="mb-3">O Que Nossos <span class="highlight">Clientes</span> Dizem</h1>
+      <p class="hero-description">
+        Histórias reais de quem já viveu a experiência Shiva Zen.
+        Depoimentos coletados através da nossa pesquisa de satisfação.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ CAROUSEL SWIPER ═══ -->
+<section id="dep-carousel" class="section light-background">
+  <div class="container" data-aos="fade-up">
+    {% if avaliacoes %}
+      <div class="swiper depoimentos-swiper">
+        <div class="swiper-wrapper">
+          {% for av in avaliacoes %}
+            <div class="swiper-slide">
+              <div class="card border-0 shadow-sm h-100 mx-2"
+                   style="border-radius:20px;padding:30px;background:#fff;">
+                <div class="mb-3">
+                  {% for _ in "xxxxxxxxxx"|make_list %}
+                    {% if forloop.counter <= av.nota %}
+                      <i class="bi bi-star-fill" style="color:#C9A84C;font-size:1.1rem;"></i>
+                    {% else %}
+                      <i class="bi bi-star" style="color:#ddd;font-size:1.1rem;"></i>
+                    {% endif %}
+                  {% endfor %}
+                  <span class="ms-2 text-muted small">{{ av.nota }}/10</span>
+                </div>
+                <i class="bi bi-quote" style="font-size:3rem;color:#C9A84C;opacity:0.3;line-height:0.5;"></i>
+                <p class="mb-4" style="font-style:italic;color:#555;min-height:120px;">
+                  "{{ av.comentario|truncatechars:220 }}"
+                </p>
+                <div class="d-flex align-items-center mt-auto pt-3 border-top">
+                  <div class="d-flex align-items-center justify-content-center me-3"
+                       style="width:50px;height:50px;border-radius:50%;background:linear-gradient(135deg,#C9A84C,#a8882f);color:#fff;font-family:'Playfair Display',serif;font-weight:700;font-size:1.3rem;">
+                    {{ av.atendimento.cliente.nome_completo|slice:":1"|upper }}
+                  </div>
+                  <div>
+                    <strong style="color:#2d2d2d;">
+                      {{ av.atendimento.cliente.nome_completo|truncatechars:24 }}
+                    </strong>
+                    <br>
+                    <small class="text-muted">
+                      <i class="bi bi-calendar-check me-1"></i>
+                      {{ av.criado_em|date:"d/m/Y" }}
+                    </small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="swiper-pagination mt-4"></div>
+      </div>
+    {% else %}
+      <div class="text-center py-5">
+        <i class="bi bi-chat-heart" style="font-size:4rem;color:#C9A84C;"></i>
+        <h3 class="mt-3">Seja o primeiro a compartilhar</h3>
+        <p class="text-muted">Ainda não temos depoimentos publicados. Agende sua primeira experiência!</p>
+        <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-primary mt-3">
+          <i class="bi bi-calendar-check me-2"></i>Agendar Horário
+        </a>
+      </div>
+    {% endif %}
+  </div>
+</section>
+
+{% if avaliacoes %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  if (typeof Swiper !== 'undefined') {
+    new Swiper('.depoimentos-swiper', {
+      slidesPerView: 1,
+      spaceBetween: 24,
+      loop: {{ avaliacoes|length|stringformat:"s" }} > 2,
+      autoplay: { delay: 5500, disableOnInteraction: false },
+      pagination: { el: '.swiper-pagination', clickable: true },
+      breakpoints: {
+        768:  { slidesPerView: 2 },
+        992:  { slidesPerView: 3 },
+      }
+    });
+  }
+});
+</script>
+{% endif %}
+
+<style>
+.depoimentos-swiper { padding-bottom: 50px; }
+.depoimentos-swiper .swiper-pagination-bullet-active { background: #C9A84C; }
+</style>
+{% endblock %}
