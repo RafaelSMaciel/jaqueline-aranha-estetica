@@ -1,95 +1,127 @@
-﻿{% extends 'estrutura/baserodape.html' %}
+{% extends 'estrutura/base.html' %}
 {% load static %}
 
+{% block body_class %}privacy-page{% endblock %}
+{% block titulo %}Política de Privacidade | {{ CLINIC_NAME }}{% endblock %}
+
 {% block conteudo %}
-<section class="position-relative text-white text-center d-flex align-items-center justify-content-center" style="background: linear-gradient(135deg, #2C2C2C 0%, #4a3728 100%); min-height: 35vh;">
-    <div class="container fade-in py-5">
-        <a href="{% url 'shivazen:inicio' %}">
-            <img src="{% static 'assets/LogoCompletaSemFundo.png' %}" alt="{{ CLINIC_NAME }}" style="max-height:80px; filter: brightness(2);" class="mb-4">
-        </a>
-        <h1 class="display-5 fw-bold mb-2 text-white" style="font-family:'Playfair Display',serif;">Politica de Privacidade</h1>
-        <div class="mx-auto" style="width:60px;height:2px;background:var(--primary);"></div>
+<!-- Privacy Section -->
+<section id="privacy" class="privacy section pt-5 mt-4">
+  <div class="container" data-aos="fade-up">
+
+    <!-- Header -->
+    <div class="privacy-header" data-aos="fade-up">
+      <div class="header-content">
+        <div class="last-updated">Data de Vigência: Abril de 2026</div>
+        <h1>Política de Privacidade</h1>
+        <p class="intro-text">A {{ CLINIC_NAME }} Clínica de Estética está comprometida com a proteção dos dados pessoais dos seus clientes e usuários, em conformidade com a Lei Geral de Proteção de Dados Pessoais (LGPD - Lei nº 13.709/2018).</p>
+      </div>
     </div>
+
+    <!-- Main Content -->
+    <div class="privacy-content" data-aos="fade-up" data-aos-delay="200">
+
+      <div class="content-section">
+        <h2>1. Dados Pessoais Coletados</h2>
+        <p>Coletamos os seguintes dados pessoais para prestação dos nossos serviços:</p>
+        <ul>
+          <li><strong>Dados de identificação:</strong> nome completo, telefone celular, e-mail e data de nascimento;</li>
+          <li><strong>Dados de saúde (dados sensíveis):</strong> ficha de anamnese, alergias, condições médicas, medicamentos em uso e contraindicações a procedimentos;</li>
+          <li><strong>Dados de atendimento:</strong> histórico de agendamentos, procedimentos realizados, evolução clínica e fotos antes/depois;</li>
+          <li><strong>Dados de navegação:</strong> endereço IP, data e horário de acesso (para fins de segurança e auditoria).</li>
+        </ul>
+      </div>
+
+      <div class="content-section">
+        <h2>2. Finalidade do Tratamento</h2>
+        <p>Os dados pessoais são tratados para as seguintes finalidades:</p>
+        <ul>
+          <li>Agendamento e gestão de consultas e procedimentos;</li>
+          <li>Comunicação com o cliente via e-mail e WhatsApp (lembretes, confirmações, pesquisa de satisfação);</li>
+          <li>Elaboração e manutenção de prontuário clínico;</li>
+          <li>Gestão de pacotes de serviços contratados;</li>
+          <li>Emissão de relatórios financeiros e administrativos;</li>
+          <li>Cumprimento de obrigações legais e regulatórias.</li>
+        </ul>
+      </div>
+
+      <div class="content-section">
+        <h2>3. Base Legal</h2>
+        <p>O tratamento dos dados pessoais é realizado com base em:</p>
+        <ul>
+          <li><strong>Consentimento do titular</strong> (art. 7º, I da LGPD) — para dados de saúde e comunicação;</li>
+          <li><strong>Execução de contrato</strong> (art. 7º, V) — para prestação dos serviços agendados;</li>
+          <li><strong>Obrigação legal</strong> (art. 7º, II) — para manutenção de prontuários conforme regulamentação sanitária;</li>
+          <li><strong>Interesse legítimo</strong> (art. 7º, IX) — para segurança do sistema e prevenção a fraudes.</li>
+        </ul>
+      </div>
+
+      <div class="content-section">
+        <h2>4. Compartilhamento de Dados</h2>
+        <p>Os dados pessoais podem ser compartilhados com:</p>
+        <ul>
+          <li><strong>Profissionais da Clínica:</strong> que necessitem acessar o prontuário para realização do atendimento;</li>
+          <li><strong>Provedores de tecnologia:</strong> serviços de hospedagem (Railway), comunicação (WhatsApp Business API) e monitoramento (Sentry), todos com contratos de proteção de dados;</li>
+          <li><strong>Autoridades competentes:</strong> quando exigido por lei ou determinação judicial.</li>
+        </ul>
+        <div class="info-box">
+          <i class="bi bi-info-circle"></i>
+          <p>A Clínica <strong>não vende, aluga ou compartilha</strong> dados pessoais com terceiros para fins de marketing.</p>
+        </div>
+      </div>
+
+      <div class="content-section">
+        <h2>5. Armazenamento e Segurança</h2>
+        <p>Os dados são armazenados em servidores seguros com as seguintes medidas de proteção:</p>
+        <ul>
+          <li>Criptografia de senhas com PBKDF2-SHA256;</li>
+          <li>Comunicação criptografada via HTTPS/TLS;</li>
+          <li>Controle de acesso baseado em perfis (RBAC);</li>
+          <li>Registro de auditoria de ações administrativas;</li>
+          <li>Rate limiting para prevenção de ataques automatizados.</li>
+        </ul>
+      </div>
+
+      <div class="content-section">
+        <h2>6. Retenção de Dados</h2>
+        <p>Os dados pessoais serão retidos pelo período necessário ao cumprimento das finalidades descritas. Prontuários clínicos serão mantidos pelo prazo mínimo de 20 anos conforme Resolução CFM nº 1.821/2007. Demais dados serão eliminados após solicitação do titular ou quando não forem mais necessários.</p>
+      </div>
+
+      <div class="content-section">
+        <h2>7. Direitos do Titular</h2>
+        <p>Conforme a LGPD, você tem direito a:</p>
+        <ul>
+          <li>Confirmar a existência de tratamento de seus dados;</li>
+          <li>Acessar seus dados pessoais;</li>
+          <li>Corrigir dados incompletos, inexatos ou desatualizados;</li>
+          <li>Solicitar a anonimização, bloqueio ou eliminação de dados desnecessários;</li>
+          <li>Revogar o consentimento a qualquer momento;</li>
+          <li>Solicitar a portabilidade dos dados;</li>
+          <li>Obter informações sobre compartilhamento de dados.</li>
+        </ul>
+      </div>
+
+      <div class="content-section">
+        <h2>8. Termos de Consentimento</h2>
+        <p>Para procedimentos que exijam consentimento específico, a Clínica utiliza termos de consentimento versionados. Cada versão é imutável após publicação, garantindo a rastreabilidade do aceite do cliente.</p>
+      </div>
+
+      <div class="content-section">
+        <h2>9. Cookies e Sessões</h2>
+        <p>O sistema utiliza cookies de sessão estritamente necessários para o funcionamento da plataforma (autenticação e navegação). Não utilizamos cookies de rastreamento ou publicidade.</p>
+      </div>
+
+      <div class="content-section">
+        <h2>10. Alterações nesta Política</h2>
+        <p>Esta Política de Privacidade pode ser atualizada periodicamente. A versão vigente estará sempre disponível nesta página, com indicação da data da última atualização.</p>
+      </div>
+
+      <div class="content-section">
+        <h2>11. Contato e Encarregado (DPO)</h2>
+        <p>Para exercer seus direitos ou esclarecer dúvidas sobre o tratamento de dados pessoais, entre em contato através dos canais disponíveis na <a href="{% url 'shivazen:agendaContato' %}">página de contato</a> do site ou via WhatsApp da Clínica.</p>
+      </div>
+
+    </div>
+  </div>
 </section>
-
-<div class="container py-5">
-    <p class="text-muted mb-4"><em>Ultima atualizacao: Abril de 2026</em></p>
-
-    <p>A {{ CLINIC_NAME }} Clinica de Estetica ("Clinica") esta comprometida com a protecao dos dados pessoais dos seus clientes e usuarios, em conformidade com a Lei Geral de Protecao de Dados Pessoais (LGPD - Lei n. 13.709/2018).</p>
-
-    <h4>1. Dados Pessoais Coletados</h4>
-    <p>Coletamos os seguintes dados pessoais para prestacao dos nossos servicos:</p>
-    <ul>
-        <li><strong>Dados de identificacao:</strong> nome completo, telefone celular, e-mail e data de nascimento;</li>
-        <li><strong>Dados de saude (dados sensiveis):</strong> ficha de anamnese, alergias, condicoes medicas, medicamentos em uso e contraindicacoes a procedimentos;</li>
-        <li><strong>Dados de atendimento:</strong> historico de agendamentos, procedimentos realizados, evolucao clinica e fotos antes/depois;</li>
-        <li><strong>Dados de navegacao:</strong> endereco IP, data e horario de acesso (para fins de seguranca e auditoria).</li>
-    </ul>
-
-    <h4>2. Finalidade do Tratamento</h4>
-    <p>Os dados pessoais sao tratados para as seguintes finalidades:</p>
-    <ul>
-        <li>Agendamento e gestao de consultas e procedimentos;</li>
-        <li>Comunicacao com o cliente via WhatsApp (lembretes, confirmacoes, pesquisa de satisfacao);</li>
-        <li>Elaboracao e manutencao de prontuario clinico;</li>
-        <li>Gestao de pacotes de servicos contratados;</li>
-        <li>Emissao de relatorios financeiros e administrativos;</li>
-        <li>Cumprimento de obrigacoes legais e regulatorias.</li>
-    </ul>
-
-    <h4>3. Base Legal</h4>
-    <p>O tratamento dos dados pessoais e realizado com base em:</p>
-    <ul>
-        <li><strong>Consentimento do titular</strong> (art. 7, I da LGPD) - para dados de saude e comunicacao via WhatsApp;</li>
-        <li><strong>Execucao de contrato</strong> (art. 7, V) - para prestacao dos servicos agendados;</li>
-        <li><strong>Obrigacao legal</strong> (art. 7, II) - para manutencao de prontuarios conforme regulamentacao sanitaria;</li>
-        <li><strong>Interesse legitimo</strong> (art. 7, IX) - para seguranca do sistema e prevencao a fraudes.</li>
-    </ul>
-
-    <h4>4. Compartilhamento de Dados</h4>
-    <p>Os dados pessoais podem ser compartilhados com:</p>
-    <ul>
-        <li><strong>Profissionais da Clinica:</strong> que necessitem acessar o prontuario para realizacao do atendimento;</li>
-        <li><strong>Provedores de tecnologia:</strong> servicos de hospedagem (Railway), comunicacao (WhatsApp Business API) e monitoramento (Sentry), todos com contratos de protecao de dados;</li>
-        <li><strong>Autoridades competentes:</strong> quando exigido por lei ou determinacao judicial.</li>
-    </ul>
-    <p>A Clinica <strong>nao vende, aluga ou compartilha</strong> dados pessoais com terceiros para fins de marketing.</p>
-
-    <h4>5. Armazenamento e Seguranca</h4>
-    <p>Os dados sao armazenados em servidores seguros com as seguintes medidas de protecao:</p>
-    <ul>
-        <li>Criptografia de senhas com PBKDF2-SHA256;</li>
-        <li>Comunicacao criptografada via HTTPS/TLS;</li>
-        <li>Controle de acesso baseado em perfis (RBAC);</li>
-        <li>Registro de auditoria de acoes administrativas;</li>
-        <li>Rate limiting para prevencao de ataques automatizados.</li>
-    </ul>
-
-    <h4>6. Retencao de Dados</h4>
-    <p>Os dados pessoais serao retidos pelo periodo necessario ao cumprimento das finalidades descritas. Prontuarios clinicos serao mantidos pelo prazo minimo de 20 anos conforme Resolucao CFM n. 1.821/2007. Demais dados serao eliminados apos solicitacao do titular ou quando nao forem mais necessarios.</p>
-
-    <h4>7. Direitos do Titular</h4>
-    <p>Conforme a LGPD, voce tem direito a:</p>
-    <ul>
-        <li>Confirmar a existencia de tratamento de seus dados;</li>
-        <li>Acessar seus dados pessoais;</li>
-        <li>Corrigir dados incompletos, inexatos ou desatualizados;</li>
-        <li>Solicitar a anonimizacao, bloqueio ou eliminacao de dados desnecessarios;</li>
-        <li>Revogar o consentimento a qualquer momento;</li>
-        <li>Solicitar a portabilidade dos dados;</li>
-        <li>Obter informacoes sobre compartilhamento de dados.</li>
-    </ul>
-
-    <h4>8. Termos de Consentimento</h4>
-    <p>Para procedimentos que exijam consentimento especifico, a Clinica utiliza termos de consentimento versionados. Cada versao e imutavel apos publicacao, garantindo a rastreabilidade do aceite do cliente.</p>
-
-    <h4>9. Cookies e Sessoes</h4>
-    <p>O sistema utiliza cookies de sessao estritamente necessarios para o funcionamento da plataforma (autenticacao e navegacao). Nao utilizamos cookies de rastreamento ou publicidade.</p>
-
-    <h4>10. Alteracoes nesta Politica</h4>
-    <p>Esta Politica de Privacidade pode ser atualizada periodicamente. A versao vigente estara sempre disponivel nesta pagina, com indicacao da data da ultima atualizacao.</p>
-
-    <h4>11. Contato e Encarregado (DPO)</h4>
-    <p>Para exercer seus direitos ou esclarecer duvidas sobre o tratamento de dados pessoais, entre em contato atraves dos canais disponiveis na pagina de contato do site ou via WhatsApp da Clinica.</p>
-</div>
 {% endblock %}

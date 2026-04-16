@@ -35,6 +35,7 @@ class ConfirmarAgendamentoTests(TestCase):
         data = {
             'nome': 'Maria Teste',
             'telefone': '17999991111',
+            'data_nascimento': '1990-06-15',
             'procedimento': self.proc.pk,
             'profissional': self.prof.pk,
             'datetime': self.datetime_str,

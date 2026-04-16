@@ -1,8 +1,9 @@
-from django.shortcuts import render
-from django.db import OperationalError, ProgrammingError
 import logging
 
-from ..models import Procedimento, Preco, Promocao
+from django.db import OperationalError, ProgrammingError
+from django.shortcuts import render
+
+from ..models import Preco, Procedimento
 
 logger = logging.getLogger(__name__)
 

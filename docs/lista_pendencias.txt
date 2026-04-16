@@ -85,6 +85,32 @@
 [OK] Limpeza: removidas pastas __pycache__ e diretorio legado static/assents
 [OK] Pendencias consolidadas em um unico arquivo
 
+=== CORRIGIDOS NA SESSAO 8 (16/04/2026 - Melhorias Gerais) ===
+
+[OK] #53 SQLite para testes: configurado fallback SQLite em settings.py
+     quando `test` em sys.argv. Compatibilidade select_for_update.
+[OK] #54 Fix test_security: helper _criar_staff com Perfil(Administrador)
+     em vez de setar property is_staff. 5 erros corrigidos.
+[OK] #55 DB indexes+constraints: migration 0008 com 10+ indexes e 10+
+     CHECK constraints em Preco, Procedimento, Pacote, BloqueioAgenda,
+     Promocao, ItemPacote, Notificacao, LogAuditoria, PacoteCliente.
+[OK] #56 Security audit OWASP: removido |safe, adicionado CSRF AJAX em
+     main.js, rate limiting em 3 endpoints publicos (nps_web,
+     termo_assinatura, reagendar_agendamento).
+[OK] #57 Refatoracao views: booking.py split (booking_api.py), admin.py
+     split (admin_professional.py, admin_promotions.py). Dead code removido.
+     Imports organizados em 17 view files.
+[OK] #58 Celery retry: bind=True, max_retries=3, default_retry_delay=60
+     em todas as 8 tasks com try/except+logging.
+[OK] #59 Frontend fixes: CSS btn-primary global, card hover, WhatsApp float.
+     AOS delay corrigido em equipe/especialidades. Stars loop corrigido
+     em depoimentos.
+[OK] #60 Novos testes: 26 testes adicionados — signals (7), decorators (6),
+     context_processors (3), integration booking (3), integration packages
+     (3), integration NPS (4). Suite total: 98 testes.
+[OK] #61 Django admin: readonly_fields adicionados em AvaliacaoNPS e
+     PacoteCliente.
+
 === CORRIGIDOS NA SESSAO 6 (11/04/2026) ===
 
 [OK] #7  Depoimentos: carousel Swiper com AvaliacaoNPS nota>=9 e comentario
@@ -238,9 +264,9 @@
  RESUMO
 =====================================================================
 
-Total historico: 52 itens conhecidos
+Total historico: 61 itens conhecidos
 
-Corrigidos: 49 itens
+Corrigidos: 58 itens
   - Sessao 1: 17
   - Sessao 2: 3
   - Sessao 3: 7
@@ -252,6 +278,10 @@ Corrigidos: 49 itens
     #36 preco modal, #38 admin, #39 __str__, #40 CI/CD, #41 logs,
     #43 healthcheck, #46 SEO, #48 seed, #50 reagendar,
     #51 badge alergia, #52 portal profissional
+  - Sessao 8 (16/04/2026): 9
+    #53 SQLite testes, #54 fix test_security, #55 DB indexes,
+    #56 security OWASP, #57 refatoracao views, #58 Celery retry,
+    #59 frontend fixes, #60 novos testes, #61 Django admin
 
 Restantes: 3 itens
   - #42 Backup automatico PostgreSQL
@@ -263,15 +293,15 @@ Restantes: 3 itens
  INVENTARIO DO PROJETO (snapshot 15/04/2026)
 =====================================================================
 
-  Models:        30 (Procedimento com slug/imagem_destaque)
-  Views:         ~60 funcoes (+ healthcheck, profissional portal)
-  URLs:          ~145 rotas (+ health, sitemap, robots)
-  Templates:     55+ (+ profissional/agenda, profissional/anotar, robots.txt)
-  CSS:           3 custom + vendors
-  JS:            1 custom + vendors
-  Celery tasks:  8
-  Tests:         11 arquivos de teste
-  Migrations:    7 (0001_initial .. 0007_add_performance_indexes)
+  Models:        30 (com indexes+constraints otimizados)
+  Views:         ~70 funcoes em 17 modulos (refatorados)
+  URLs:          ~145 rotas
+  Templates:     55+
+  CSS:           3 custom + vendors (com fixes visuais)
+  JS:            1 custom + vendors (com CSRF AJAX)
+  Celery tasks:  8 (com retry policy)
+  Tests:         16 arquivos, 98 testes passando
+  Migrations:    8 (0001_initial .. 0008_add_indexes_constraints)
   Signals:       2 em Atendimento (pre_save + post_save)
   CI/CD:         GitHub Actions (lint + test + migration check)
   SEO:           sitemap.xml, robots.txt, meta tags, Open Graph

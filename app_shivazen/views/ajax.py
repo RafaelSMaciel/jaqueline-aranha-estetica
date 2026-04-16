@@ -1,8 +1,10 @@
+from datetime import datetime
+
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 from django_ratelimit.decorators import ratelimit
 
-from ..models import Procedimento
+from ..models import Procedimento, Profissional
 
 
 @require_GET
@@ -21,9 +23,6 @@ def buscar_horarios(request):
     """Retorna horarios disponiveis para um profissional em uma data.
     Params: profissional_id, data (YYYY-MM-DD), procedimento_id
     """
-    from datetime import datetime
-    from ..models import Profissional
-
     prof_id = request.GET.get('profissional_id')
     data_str = request.GET.get('data')
     if not prof_id or not data_str:

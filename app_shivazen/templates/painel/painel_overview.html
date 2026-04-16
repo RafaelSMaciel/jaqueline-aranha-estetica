@@ -150,17 +150,21 @@
 {% endblock %}
 
 {% block admin_scripts %}
+{{ dias_semana|json_script:"id_dias_semana" }}
+{{ dados_grafico_semana|json_script:"id_dados_grafico_semana" }}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 // Chart: Agendamentos por dia da semana
 var ctxSemana = document.getElementById('chartSemana').getContext('2d');
+var diasSemanaData = JSON.parse(document.getElementById('id_dias_semana').textContent);
+var dadosGraficoData = JSON.parse(document.getElementById('id_dados_grafico_semana').textContent);
 new Chart(ctxSemana, {
     type: 'bar',
     data: {
-        labels: {{ dias_semana|safe }},
+        labels: diasSemanaData,
         datasets: [{
             label: 'Agendamentos',
-            data: {{ dados_grafico_semana|safe }},
+            data: dadosGraficoData,
             backgroundColor: 'rgba(201, 168, 76, 0.7)',
             borderColor: '#C9A84C',
             borderWidth: 2,

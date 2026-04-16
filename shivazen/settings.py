@@ -116,6 +116,14 @@ else:
         }
     }
 
+# --- Test Database (SQLite para testes locais) ---
+import sys
+if 'test' in sys.argv or 'test_coverage' in sys.argv:
+    DATABASES['default'] = {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db_test.sqlite3',
+    }
+
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [

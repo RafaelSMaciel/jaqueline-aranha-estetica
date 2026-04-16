@@ -1,120 +1,188 @@
-﻿{% extends 'estrutura/base.html' %}
+{% extends 'estrutura/base.html' %}
 {% load static %}
 
+{% block body_class %}especialidade-page{% endblock %}
 {% block titulo %}Especialidades | {{ CLINIC_NAME }}{% endblock %}
 
 {% block conteudo %}
-<!-- ═══ HERO ═══ -->
-<section id="esp-hero" class="section" style="padding-top:60px;padding-bottom:40px;">
-  <div class="container" data-aos="fade-up">
-    <div class="text-center mx-auto" style="max-width:720px;">
-      <div class="hero-badge d-inline-block mb-3">
-        <i class="bi bi-stars me-2"></i>Nossas Especialidades
-      </div>
-      <h1 class="mb-3">Tratamentos <span class="highlight">Especializados</span> por Área</h1>
-      <p class="hero-description">
-        Navegue pelas nossas áreas de atuação e encontre o tratamento ideal para você.
-        Todos os procedimentos são realizados por profissionais qualificados.
-      </p>
-    </div>
-  </div>
-</section>
+<!-- Departments Tabs Section -->
+<section id="departments-tabs" class="departments-tabs section">
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
 
-<!-- ═══ TABS DE CATEGORIAS ═══ -->
-<section id="esp-tabs" class="section light-background">
-  <div class="container" data-aos="fade-up">
     {% if grupos %}
-      <ul class="nav nav-pills justify-content-center mb-5 flex-wrap gap-2" id="especialidadesTab" role="tablist">
-        {% for grupo in grupos %}
-          <li class="nav-item" role="presentation">
-            <button class="nav-link {% if forloop.first %}active{% endif %}"
-                    id="tab-{{ grupo.key|lower }}"
-                    data-bs-toggle="pill"
-                    data-bs-target="#panel-{{ grupo.key|lower }}"
-                    type="button"
-                    role="tab"
-                    aria-controls="panel-{{ grupo.key|lower }}"
-                    aria-selected="{% if forloop.first %}true{% else %}false{% endif %}"
-                    style="border-radius:30px;padding:12px 28px;font-weight:600;">
-              <i class="bi {{ grupo.icon }} me-2"></i>{{ grupo.label }}
-            </button>
-          </li>
-        {% endfor %}
-      </ul>
-
-      <div class="tab-content" id="especialidadesTabContent">
-        {% for grupo in grupos %}
-          <div class="tab-pane fade {% if forloop.first %}show active{% endif %}"
-               id="panel-{{ grupo.key|lower }}"
-               role="tabpanel"
-               aria-labelledby="tab-{{ grupo.key|lower }}">
-            <div class="row g-4">
-              {% for item in grupo.itens %}
-                <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="{{ forloop.counter0|add:100 }}">
-                  <div class="card border-0 shadow-sm h-100" style="border-radius:18px;">
-                    <div class="card-body p-4 d-flex flex-column">
-                      <div class="d-flex align-items-start justify-content-between mb-3">
-                        <h5 style="font-family:'Playfair Display',serif;color:#2d2d2d;margin:0;">
-                          {{ item.nome }}
-                        </h5>
-                        <span class="badge rounded-pill" style="background:#f8f5ec;color:#C9A84C;font-weight:600;">
-                          <i class="bi bi-clock me-1"></i>{{ item.duracao_minutos }}min
-                        </span>
-                      </div>
-                      {% if item.descricao %}
-                        <p class="text-muted small flex-grow-1">{{ item.descricao|truncatechars:140 }}</p>
-                      {% else %}
-                        <p class="text-muted small flex-grow-1">Agende uma avaliação gratuita para saber mais sobre este tratamento.</p>
-                      {% endif %}
-                      <div class="d-flex align-items-center justify-content-between mt-3 pt-3 border-top">
-                        <div>
-                          {% if item.preco > 0 %}
-                            <small class="text-muted d-block">A partir de</small>
-                            <strong style="color:#C9A84C;font-size:1.2rem;">
-                              R$ {{ item.preco|floatformat:2 }}
-                            </strong>
-                          {% else %}
-                            <small class="text-muted">Consulte valores</small>
-                          {% endif %}
-                        </div>
-                        <a href="{% url 'shivazen:agendamento_publico' %}?procedimento={{ item.id }}"
-                           class="btn btn-sm btn-primary">
-                          Agendar
-                        </a>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+    <div class="medical-specialties">
+      <div class="row">
+        <div class="col-12">
+          <div class="specialty-navigation">
+            <div class="nav nav-pills d-flex" id="specialty-tabs" role="tablist" data-aos="fade-up" data-aos-delay="400">
+              {% for grupo in grupos %}
+              <a class="nav-link department-tab {% if forloop.first %}active{% endif %}"
+                 id="tab-{{ grupo.key|lower }}"
+                 data-bs-toggle="pill"
+                 href="#departments-tabs-{{ grupo.key|lower }}"
+                 role="tab"
+                 aria-controls="departments-tabs-{{ grupo.key|lower }}"
+                 aria-selected="{% if forloop.first %}true{% else %}false{% endif %}"
+                 data-aos="fade-up"
+                 data-aos-delay="{{ forloop.counter0|add:1 }}00">{{ grupo.label }}</a>
               {% endfor %}
             </div>
           </div>
-        {% endfor %}
+        </div>
+
+        <div class="col-12">
+          <div class="tab-content department-content" id="specialty-content" data-aos="fade-up" data-aos-delay="500">
+            {% for grupo in grupos %}
+            <div class="tab-pane fade {% if forloop.first %}show active{% endif %}"
+                 id="departments-tabs-{{ grupo.key|lower }}"
+                 role="tabpanel"
+                 aria-labelledby="tab-{{ grupo.key|lower }}">
+              <div class="row department-layout">
+                <div class="col-lg-8">
+                  <div class="department-info">
+                    <h2 class="department-title">{{ grupo.label }}</h2>
+                    <p class="department-description">{{ grupo.descricao|default:"Tratamentos especializados com profissionais qualificados e tecnologia avançada." }}</p>
+
+                    <div class="row mt-4">
+                      {% for item in grupo.itens %}
+                      <div class="col-md-6">
+                        <div class="service-item">
+                          <div class="service-icon">
+                            <i class="fas fa-spa"></i>
+                          </div>
+                          <div class="service-content">
+                            <h4>{{ item.nome }}</h4>
+                            <p>{{ item.descricao|default:"Agende uma avaliação para saber mais."|truncatechars:100 }}
+                            {% if item.duracao_minutos %}<br><small class="text-muted"><i class="bi bi-clock me-1"></i>{{ item.duracao_minutos }}min</small>{% endif %}
+                            {% if item.preco > 0 %}<br><small class="text-muted">A partir de <strong>R$ {{ item.preco|floatformat:2 }}</strong></small>{% endif %}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
       </div>
+    </div>
     {% else %}
-      <div class="text-center py-5">
-        <i class="bi bi-hourglass-split" style="font-size:4rem;color:#C9A84C;"></i>
-        <h3 class="mt-3">Especialidades em atualização</h3>
-        <p class="text-muted">Em breve nosso catálogo completo estará disponível.</p>
-      </div>
+    <div class="text-center py-5">
+      <i class="bi bi-hourglass-split fs-1 text-primary mb-3 d-block"></i>
+      <h3>Especialidades em atualização</h3>
+      <p class="text-muted">Em breve nosso catálogo completo estará disponível.</p>
+    </div>
     {% endif %}
+
   </div>
 </section>
 
-<style>
-#especialidadesTab .nav-link {
-  color: #2d2d2d;
-  background: #fff;
-  border: 2px solid transparent;
-  transition: all 0.3s ease;
-}
-#especialidadesTab .nav-link:hover {
-  border-color: #C9A84C;
-  color: #C9A84C;
-}
-#especialidadesTab .nav-link.active {
-  background: linear-gradient(135deg,#C9A84C,#a8882f);
-  color: #fff;
-  box-shadow: 0 6px 18px rgba(201,168,76,0.3);
-}
-</style>
+<!-- Departments Section (Cards) -->
+<section id="departments" class="departments section">
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
+    <div class="row g-5">
+
+      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="100">
+        <div class="department-card">
+          <div class="department-icon">
+            <i class="fas fa-face-smile"></i>
+          </div>
+          <div class="department-content">
+            <h3>Harmonização Facial</h3>
+            <p>Procedimentos minimamente invasivos para realçar sua beleza natural com ácido hialurônico, botox e bioestimuladores.</p>
+            <a href="{% url 'shivazen:servicos_faciais' %}" class="learn-more">
+              <span>Saiba Mais</span>
+              <i class="fas fa-arrow-right"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="200">
+        <div class="department-card">
+          <div class="department-icon">
+            <i class="fas fa-person-walking"></i>
+          </div>
+          <div class="department-content">
+            <h3>Modelagem Corporal</h3>
+            <p>Tecnologias avançadas para redução de medidas, celulite e flacidez com criolipólise, radiofrequência e lipocavitação.</p>
+            <a href="{% url 'shivazen:servicos_corporais' %}" class="learn-more">
+              <span>Saiba Mais</span>
+              <i class="fas fa-arrow-right"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="300">
+        <div class="department-card">
+          <div class="department-icon">
+            <i class="fas fa-hand"></i>
+          </div>
+          <div class="department-content">
+            <h3>Skin Care</h3>
+            <p>Tratamentos personalizados para todos os tipos de pele com limpeza profunda, peeling químico e hidratação intensiva.</p>
+            <a href="{% url 'shivazen:servicos_faciais' %}" class="learn-more">
+              <span>Saiba Mais</span>
+              <i class="fas fa-arrow-right"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="100">
+        <div class="department-card">
+          <div class="department-icon">
+            <i class="fas fa-bolt"></i>
+          </div>
+          <div class="department-content">
+            <h3>Depilação a Laser</h3>
+            <p>Remoção definitiva dos pelos com tecnologia de ponta, segura para todos os fototipos de pele.</p>
+            <a href="{% url 'shivazen:servicos_corporais' %}" class="learn-more">
+              <span>Saiba Mais</span>
+              <i class="fas fa-arrow-right"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="200">
+        <div class="department-card">
+          <div class="department-icon">
+            <i class="fas fa-spa"></i>
+          </div>
+          <div class="department-content">
+            <h3>Massagens Terapêuticas</h3>
+            <p>Técnicas especializadas para alívio do estresse, relaxamento muscular e bem-estar integral.</p>
+            <a href="{% url 'shivazen:servicos_corporais' %}" class="learn-more">
+              <span>Saiba Mais</span>
+              <i class="fas fa-arrow-right"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="300">
+        <div class="department-card">
+          <div class="department-icon">
+            <i class="fas fa-heart-pulse"></i>
+          </div>
+          <div class="department-content">
+            <h3>Pós-operatório</h3>
+            <p>Protocolos específicos para auxiliar na recuperação de cirurgias plásticas, minimizando desconfortos.</p>
+            <a href="{% url 'shivazen:servicos_corporais' %}" class="learn-more">
+              <span>Saiba Mais</span>
+              <i class="fas fa-arrow-right"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
 {% endblock %}

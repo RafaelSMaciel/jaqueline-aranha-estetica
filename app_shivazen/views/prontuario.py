@@ -1,17 +1,22 @@
 """Views para prontuario, anamnese e termos de consentimento."""
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib import messages
-from django.http import JsonResponse
-from django.utils import timezone
-import json
 import logging
 
-from ..models import (
-    Cliente, Prontuario, ProntuarioPergunta, ProntuarioResposta,
-    Atendimento, AnotacaoSessao, VersaoTermo, AceitePrivacidade,
-    AssinaturaTermoProcedimento,
-)
+from django.contrib import messages
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+
 from ..decorators import staff_required
+from ..models import (
+    AceitePrivacidade,
+    AnotacaoSessao,
+    AssinaturaTermoProcedimento,
+    Atendimento,
+    Cliente,
+    Prontuario,
+    ProntuarioPergunta,
+    ProntuarioResposta,
+    VersaoTermo,
+)
 from ..utils.audit import registrar_log
 
 logger = logging.getLogger(__name__)

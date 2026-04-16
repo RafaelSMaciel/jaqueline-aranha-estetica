@@ -1,23 +1,31 @@
 """Views para features pendentes: bloqueios, procedimentos, clientes detalhe,
 lista de espera, NPS web, termos de consentimento."""
-from django.shortcuts import render, redirect, get_object_or_404
+import logging
+from datetime import datetime
+
 from django.contrib import messages
-from django.http import JsonResponse
-from django.utils import timezone
 from django.core.paginator import Paginator
 from django.db.models import Q
-from datetime import datetime
-import json
-import logging
-
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django_ratelimit.decorators import ratelimit
 
-from ..models import (
-    BloqueioAgenda, Profissional, Procedimento, Preco,
-    Cliente, Atendimento, ListaEspera, AvaliacaoNPS,
-    VersaoTermo, AceitePrivacidade, AssinaturaTermoProcedimento,
-)
 from ..decorators import staff_required
+from ..models import (
+    AceitePrivacidade,
+    AssinaturaTermoProcedimento,
+    Atendimento,
+    AvaliacaoNPS,
+    BloqueioAgenda,
+    Cliente,
+    ListaEspera,
+    Notificacao,
+    Preco,
+    Procedimento,
+    Profissional,
+    VersaoTermo,
+)
 from ..utils.audit import registrar_log
 
 logger = logging.getLogger(__name__)
@@ -264,9 +272,9 @@ def admin_notificar_espera(request, pk):
 #   NPS VIA WEB
 # ═══════════════════════════════════════
 
+@ratelimit(key='ip', rate='10/m', method='POST', block=True)
 def nps_web(request, token):
     """Pagina publica para coletar NPS via link (email/SMS)."""
-    from ..models import Notificacao
     notif = get_object_or_404(Notificacao, token=token, tipo='NPS')
     atendimento = notif.atendimento
 
@@ -342,9 +350,9 @@ def admin_criar_termo(request):
     return redirect('shivazen:admin_termos')
 
 
+@ratelimit(key='ip', rate='10/m', method='POST', block=True)
 def termo_assinatura(request, token):
     """Pagina publica para cliente assinar termo de consentimento."""
-    from ..models import Notificacao
     notif = get_object_or_404(Notificacao, token=token)
     atendimento = notif.atendimento
     cliente = atendimento.cliente

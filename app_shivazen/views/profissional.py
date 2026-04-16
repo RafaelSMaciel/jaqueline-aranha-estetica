@@ -1,12 +1,13 @@
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib import messages
-from django.views.decorators.http import require_POST
-from django.utils import timezone
-from datetime import timedelta, datetime
 import logging
+from datetime import datetime, timedelta
 
-from ..models import Atendimento, AnotacaoSessao
+from django.contrib import messages
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.views.decorators.http import require_POST
+
 from ..decorators import profissional_required
+from ..models import AnotacaoSessao, Atendimento
 
 logger = logging.getLogger(__name__)
 

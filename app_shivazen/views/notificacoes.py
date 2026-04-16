@@ -1,17 +1,18 @@
 """
 Views de notificacao — confirmacao/cancelamento via link e painel admin.
 """
-from django.shortcuts import render, redirect, get_object_or_404
-from django.http import JsonResponse
-from django.utils import timezone
-from django.contrib import messages
-from django.core.paginator import Paginator
 import logging
 
-from ..models import Notificacao, Atendimento
+from django.contrib import messages
+from django.core.paginator import Paginator
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+
 from ..decorators import staff_required
-from ..utils.whatsapp import enviar_confirmacao_admin, enviar_cancelamento_cliente
+from ..models import Atendimento, Notificacao
 from ..utils.audit import registrar_log
+from ..utils.whatsapp import enviar_cancelamento_cliente, enviar_confirmacao_admin
 
 logger = logging.getLogger(__name__)
 

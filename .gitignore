@@ -36,3 +36,4 @@ node_modules/
 
 # Gerados / temporários
 .claude/
+db_test.sqlite3

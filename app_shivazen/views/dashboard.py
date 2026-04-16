@@ -1,12 +1,14 @@
-from django.shortcuts import render, redirect
-from django.contrib import messages
-from django.contrib.auth.decorators import login_required
-from django.utils import timezone
-from django.db.models import Q, Sum, F, Count
-from django.db.models.functions import TruncDate
-from django.core.paginator import Paginator
-from datetime import datetime, timedelta
 import json
+from datetime import datetime, timedelta
+
+from django.contrib.auth import logout as auth_logout
+from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
+from django.db.models import Count, Q, Sum
+from django.db.models.functions import TruncDate
+from django.http import HttpResponse
+from django.shortcuts import redirect, render
+from django.utils import timezone
 
 from ..models import (
     Cliente, Atendimento, Profissional, Procedimento
@@ -20,7 +22,6 @@ def painel(request):
     if request.user.is_staff:
         return redirect('shivazen:painel_overview')
     # Se não for staff, desloga e manda para home
-    from django.contrib.auth import logout as auth_logout
     auth_logout(request)
     return redirect('shivazen:inicio')
 
@@ -185,7 +186,6 @@ def painel_profissionais(request):
 def exportar_relatorio_excel(request):
     """Gera um relatório Excel dos últimos 30 dias de atendimentos"""
     import openpyxl
-    from django.http import HttpResponse
 
     data_limite = timezone.now() - timedelta(days=30)
     atendimentos = Atendimento.objects.filter(data_hora_inicio__gte=data_limite).select_related('cliente', 'profissional', 'procedimento')
