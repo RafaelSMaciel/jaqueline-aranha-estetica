@@ -7,6 +7,7 @@ from django.http import JsonResponse, HttpResponse
 from datetime import datetime, timedelta
 from django.utils import timezone
 from django.core.paginator import Paginator
+from django_ratelimit.decorators import ratelimit
 import json
 
 from ..models import (
@@ -257,6 +258,7 @@ def admin_promocoes(request):
 
 
 @staff_required
+@ratelimit(key='user', rate='30/m', method='POST', block=True)
 def admin_criar_promocao(request):
     """Cria nova promoção via POST"""
     if request.method == 'POST':
@@ -280,6 +282,7 @@ def admin_criar_promocao(request):
 
 
 @staff_required
+@ratelimit(key='user', rate='30/m', method='POST', block=True)
 def admin_editar_promocao(request, pk):
     """Edita promoção existente via POST"""
     promo = get_object_or_404(Promocao, pk=pk)
@@ -302,6 +305,7 @@ def admin_editar_promocao(request, pk):
 
 
 @staff_required
+@ratelimit(key='user', rate='30/m', method='POST', block=True)
 def admin_excluir_promocao(request, pk):
     """Exclui promoção via POST"""
     if request.method == 'POST':
@@ -365,6 +369,7 @@ def admin_auditoria(request):
 # ═══════════════════════════════════════
 
 @staff_required
+@ratelimit(key='user', rate='60/m', method='POST', block=True)
 def admin_atualizar_status(request):
     """Atualiza status de um agendamento via AJAX"""
     if request.method != 'POST':
@@ -405,38 +410,6 @@ def admin_atualizar_status(request):
         return JsonResponse({'erro': 'Ocorreu um erro interno. Tente novamente.'}, status=500)
 
 
-@login_required
-def setup_seed(request):
-    """Roda o seed via URL protegida por autenticacao de staff + token.
-    Uso: /setup-seed/?token=<SEED_TOKEN>
-    """
-    if not request.user.is_staff:
-        return HttpResponse('Acesso negado.', status=403)
-
-    from django.conf import settings as django_settings
-    import importlib, io, contextlib
-
-    token = request.GET.get('token', '')
-    SEED_TOKEN = os.environ.get('SEED_TOKEN', '')
-    if not SEED_TOKEN or not token or token != SEED_TOKEN:
-        return HttpResponse('Token invalido.', status=403)
-
-    # Verifica se seed.py existe
-    seed_path = django_settings.BASE_DIR / 'seed.py'
-    if not seed_path.exists():
-        return HttpResponse('<pre>Erro: seed.py nao encontrado no projeto.</pre>', status=404, content_type='text/html')
-
-    # Roda o seed capturando output
-    output = io.StringIO()
-    try:
-        with contextlib.redirect_stdout(output):
-            spec = importlib.util.spec_from_file_location('seed', seed_path)
-            seed_module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(seed_module)
-            seed_module.seed()
-        result = output.getvalue()
-        return HttpResponse(f'<pre>Seed executado com sucesso!\n\n{result}</pre>', content_type='text/html')
-    except Exception as e:
-        logger.error(f'Erro no seed: {e}', exc_info=True)
-        result = output.getvalue()
-        return HttpResponse(f'<pre>Erro no seed: {e}\n\nOutput parcial:\n{result}</pre>', status=500, content_type='text/html')
+# Nota: a antiga view setup_seed(request) foi substituida pelo management
+# command `python manage.py seed` (app_shivazen/management/commands/seed.py),
+# eliminando token em query param e execucao remota via URL.

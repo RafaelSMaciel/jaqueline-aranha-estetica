@@ -18,3 +18,22 @@ def staff_required(view_func):
             return redirect('shivazen:inicio')
         return view_func(request, *args, **kwargs)
     return _wrapped_view
+
+
+def profissional_required(view_func):
+    """
+    Acesso restrito a usuarios vinculados a um Profissional ativo.
+    Staff tambem pode acessar (visao gerencial).
+    """
+    @wraps(view_func)
+    @login_required
+    def _wrapped_view(request, *args, **kwargs):
+        user = request.user
+        if user.is_staff:
+            return view_func(request, *args, **kwargs)
+        prof = getattr(user, 'profissional', None)
+        if not prof or not prof.ativo:
+            messages.error(request, 'Acesso restrito a profissionais cadastrados.')
+            return redirect('shivazen:inicio')
+        return view_func(request, *args, **kwargs)
+    return _wrapped_view

@@ -1,0 +1,17 @@
+{
+  "name": "{{ CLINIC_NAME }}",
+  "short_name": "{{ CLINIC_NAME }}",
+  "start_url": "/painel/",
+  "display": "standalone",
+  "background_color": "#F5F3EE",
+  "theme_color": "#C9A84C",
+  "description": "Painel Administrativo da {{ CLINIC_NAME }}",
+  "icons": [
+    {
+      "src": "/static/assets/LogoCompleta.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

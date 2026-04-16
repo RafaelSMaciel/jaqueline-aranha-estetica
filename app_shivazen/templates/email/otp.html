@@ -1,0 +1,15 @@
+{% extends "email/base_email.html" %}
+{% block content %}
+<p style="color:#4A3425;font-size:16px;margin:0 0 8px;">Ola!</p>
+<p style="color:#666;font-size:15px;margin:0 0 24px;">Seu codigo de verificacao para acessar o {{ clinic_name }}:</p>
+
+<div style="text-align:center;margin:24px 0;">
+<div style="display:inline-block;background:linear-gradient(145deg,#FFFEF5,#FFF9E3);border:2px solid #C9A84C;border-radius:16px;padding:20px 48px;">
+<span style="font-size:36px;font-weight:800;letter-spacing:12px;color:#4A3425;">{{ codigo }}</span>
+</div>
+</div>
+
+<p style="color:#999;font-size:13px;text-align:center;margin:24px 0 0;">
+Valido por 10 minutos. Nao compartilhe este codigo.
+</p>
+{% endblock %}

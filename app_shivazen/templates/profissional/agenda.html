@@ -1,0 +1,280 @@
+﻿{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block titulo %}Minha Agenda | {{ CLINIC_NAME }}{% endblock %}
+
+{% block conteudo %}
+<style>
+    :root {
+        --gold: #C9A84C;
+        --gold-light: #f9f1d8;
+        --earth: #4A3425;
+        --bg: #F5F3EE;
+    }
+    .prof-page { background: var(--bg); min-height: 100vh; padding: 2rem 0 5rem; }
+    .prof-container { max-width: 960px; margin: 0 auto; padding: 0 1rem; }
+    .prof-header {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.75rem;
+    }
+    .prof-title {
+        font-family: 'Playfair Display', serif;
+        font-size: 1.5rem; color: var(--earth); margin: 0;
+    }
+    .prof-badge {
+        background: var(--gold-light); color: #8b6f2b;
+        padding: 0.35rem 1rem; border-radius: 20px;
+        font-weight: 700; font-size: 0.8rem;
+    }
+
+    /* Navegacao de dia */
+    .day-nav {
+        display: flex; align-items: center; gap: 0.75rem;
+        justify-content: center; margin-bottom: 1.5rem;
+    }
+    .day-nav a {
+        color: var(--earth); text-decoration: none;
+        width: 36px; height: 36px; border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        background: white; box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+        transition: all 0.15s;
+    }
+    .day-nav a:hover { background: var(--gold-light); }
+    .day-label {
+        font-weight: 700; font-size: 1.1rem; color: var(--earth);
+        min-width: 200px; text-align: center;
+    }
+    .day-today { font-size: 0.7rem; color: var(--gold); font-weight: 700; }
+
+    /* Tabs dia/semana */
+    .view-tabs {
+        display: flex; gap: 0.5rem; justify-content: center; margin-bottom: 1.5rem;
+    }
+    .view-tab {
+        padding: 0.45rem 1.2rem; border-radius: 10px; border: 2px solid #e5e5e5;
+        background: white; color: #777; font-weight: 700; font-size: 0.85rem;
+        cursor: pointer; text-decoration: none; transition: all 0.15s;
+    }
+    .view-tab.active, .view-tab:hover {
+        background: var(--gold); color: white; border-color: var(--gold);
+    }
+
+    /* Card de atendimento */
+    .atn-card {
+        background: white; border-radius: 14px; padding: 1rem 1.25rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 0.75rem;
+        border-left: 4px solid var(--gold);
+        display: flex; align-items: center; gap: 1rem;
+        transition: transform 0.15s;
+    }
+    .atn-card:hover { transform: translateX(4px); }
+    .atn-card.status-CONFIRMADO { border-left-color: #4caf50; }
+    .atn-card.status-REALIZADO { border-left-color: #1565c0; }
+    .atn-card.status-CANCELADO { border-left-color: #c62828; opacity: 0.6; }
+    .atn-card.status-FALTOU { border-left-color: #7b1fa2; opacity: 0.6; }
+    .atn-card.status-REAGENDADO { border-left-color: #ff8f00; opacity: 0.6; }
+
+    .atn-hora {
+        font-size: 1.2rem; font-weight: 800; color: var(--earth);
+        min-width: 60px; text-align: center;
+    }
+    .atn-info { flex: 1; min-width: 0; }
+    .atn-cliente { font-weight: 700; font-size: 0.95rem; color: var(--earth); }
+    .atn-proc { font-size: 0.8rem; color: #888; margin-top: 0.15rem; }
+    .atn-status {
+        font-size: 0.65rem; font-weight: 800; text-transform: uppercase;
+        padding: 0.15rem 0.5rem; border-radius: 6px; display: inline-block;
+        margin-top: 0.3rem;
+    }
+    .atn-status-AGENDADO { background: #fff8e1; color: #f57f17; }
+    .atn-status-CONFIRMADO { background: #e8f5e9; color: #2e7d32; }
+    .atn-status-REALIZADO { background: #e3f2fd; color: #1565c0; }
+    .atn-status-CANCELADO { background: #fce4ec; color: #c62828; }
+    .atn-status-FALTOU { background: #f3e5f5; color: #7b1fa2; }
+    .atn-status-REAGENDADO { background: #fff3e0; color: #ff8f00; }
+
+    .atn-badge-alergia {
+        display: inline-block; background: #ffebee; color: #c62828;
+        border: 1px solid #ef9a9a; border-radius: 6px;
+        padding: 0.1rem 0.4rem; font-size: 0.6rem; font-weight: 700;
+        margin-left: 0.4rem; vertical-align: middle;
+    }
+
+    .atn-actions { display: flex; gap: 0.4rem; flex-shrink: 0; }
+    .btn-action {
+        padding: 0.4rem 0.75rem; border-radius: 8px; border: none;
+        font-size: 0.75rem; font-weight: 700; cursor: pointer;
+        text-decoration: none; display: inline-flex; align-items: center; gap: 0.3rem;
+        transition: all 0.15s;
+    }
+    .btn-realizado { background: #e8f5e9; color: #2e7d32; }
+    .btn-realizado:hover { background: #c8e6c9; }
+    .btn-anotar { background: #e3f2fd; color: #1565c0; }
+    .btn-anotar:hover { background: #bbdefb; }
+
+    /* Semana grid */
+    .week-grid {
+        display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.5rem;
+    }
+    .week-day {
+        background: white; border-radius: 12px; padding: 0.75rem 0.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04); min-height: 120px;
+    }
+    .week-day-header {
+        font-size: 0.7rem; font-weight: 800; text-transform: uppercase;
+        color: #999; text-align: center; margin-bottom: 0.5rem;
+        padding-bottom: 0.4rem; border-bottom: 2px solid #f0f0f0;
+    }
+    .week-day-header.today { color: var(--gold); border-bottom-color: var(--gold); }
+    .week-day-date {
+        font-size: 0.85rem; font-weight: 700; color: var(--earth);
+        text-align: center;
+    }
+    .week-atn {
+        font-size: 0.65rem; padding: 0.3rem 0.4rem; margin-top: 0.3rem;
+        border-radius: 6px; background: var(--gold-light); color: var(--earth);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .week-atn-time { font-weight: 800; }
+
+    .empty-state {
+        text-align: center; padding: 3rem 1rem; color: #bbb;
+    }
+    .empty-state i { font-size: 2.5rem; margin-bottom: 0.75rem; }
+
+    @media (max-width: 768px) {
+        .week-grid { grid-template-columns: 1fr; }
+        .week-day { min-height: auto; }
+        .atn-card { flex-wrap: wrap; }
+        .atn-actions { width: 100%; justify-content: flex-end; }
+    }
+</style>
+
+<div class="prof-page">
+    <div class="prof-container">
+
+        <!-- Header -->
+        <div class="prof-header">
+            <h1 class="prof-title">
+                <i class="fas fa-calendar-alt" style="color:var(--gold);margin-right:0.5rem;"></i>
+                Minha Agenda
+            </h1>
+            {% if profissional %}
+            <span class="prof-badge">
+                <i class="fas fa-user-md me-1"></i>{{ profissional.nome }}
+            </span>
+            {% endif %}
+        </div>
+
+        <!-- View Tabs -->
+        <div class="view-tabs">
+            <a href="#dia" class="view-tab active" onclick="showView('dia', this)" id="tab-dia">
+                <i class="fas fa-calendar-day me-1"></i>Dia
+            </a>
+            <a href="#semana" class="view-tab" onclick="showView('semana', this)" id="tab-semana">
+                <i class="fas fa-calendar-week me-1"></i>Semana
+            </a>
+        </div>
+
+        <!-- ============== DIA VIEW ============== -->
+        <div id="view-dia">
+            <div class="day-nav">
+                <a href="?data={{ dia_anterior|date:'Y-m-d' }}" title="Dia anterior">
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+                <div>
+                    <div class="day-label">{{ dia|date:"l, d \d\e F" }}</div>
+                    {% if dia == hoje %}
+                    <div class="day-today text-center">HOJE</div>
+                    {% endif %}
+                </div>
+                <a href="?data={{ dia_seguinte|date:'Y-m-d' }}" title="Próximo dia">
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+            </div>
+
+            {% for atd in atendimentos_dia %}
+            <div class="atn-card status-{{ atd.status }}">
+                <div class="atn-hora">{{ atd.data_hora_inicio|time:"H:i" }}</div>
+                <div class="atn-info">
+                    <div class="atn-cliente">
+                        {{ atd.cliente.nome_completo }}
+                        {% if atd.cliente.prontuario.alergias or atd.cliente.prontuario.contraindicacoes %}
+                        <span class="atn-badge-alergia"
+                              title="{% if atd.cliente.prontuario.alergias %}Alergias: {{ atd.cliente.prontuario.alergias }}{% endif %}{% if atd.cliente.prontuario.contraindicacoes %}{% if atd.cliente.prontuario.alergias %} | {% endif %}CI: {{ atd.cliente.prontuario.contraindicacoes }}{% endif %}">
+                            <i class="fas fa-exclamation-triangle"></i> Alerta
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="atn-proc">
+                        {{ atd.procedimento.nome }} &bull;
+                        {{ atd.data_hora_inicio|time:"H:i" }}–{{ atd.data_hora_fim|time:"H:i" }}
+                    </div>
+                    <span class="atn-status atn-status-{{ atd.status }}">{{ atd.get_status_display }}</span>
+                </div>
+                <div class="atn-actions">
+                    {% if atd.status == 'AGENDADO' or atd.status == 'CONFIRMADO' %}
+                    <form method="post" action="{% url 'shivazen:profissional_marcar_realizado' pk=atd.pk %}" style="margin:0;">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{% url 'shivazen:profissional_agenda' %}?data={{ dia|date:'Y-m-d' }}">
+                        <button type="submit" class="btn-action btn-realizado" onclick="return confirm('Marcar como realizado?')">
+                            <i class="fas fa-check-circle"></i> Realizado
+                        </button>
+                    </form>
+                    {% endif %}
+                    <a href="{% url 'shivazen:profissional_anotar' pk=atd.pk %}" class="btn-action btn-anotar">
+                        <i class="fas fa-pen"></i> Anotar
+                    </a>
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty-state">
+                <i class="fas fa-calendar-check d-block"></i>
+                <p>Nenhum atendimento para este dia.</p>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- ============== SEMANA VIEW ============== -->
+        <div id="view-semana" style="display:none;">
+            {% load tz %}
+            <div class="week-grid">
+                {% for d, atds in agenda_por_dia.items %}
+                <div class="week-day">
+                    <div class="week-day-header {% if d == hoje %}today{% endif %}">
+                        {{ d|date:"D" }}
+                    </div>
+                    <div class="week-day-date">{{ d|date:"d/m" }}</div>
+                    {% for atd in atds %}
+                    <div class="week-atn">
+                        <span class="week-atn-time">{{ atd.data_hora_inicio|time:"H:i" }}</span>
+                        {{ atd.cliente.nome_completo|truncatechars:12 }}
+                    </div>
+                    {% empty %}
+                    <div style="font-size:0.65rem;color:#ccc;text-align:center;margin-top:0.5rem;">—</div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Botao voltar -->
+        <div class="text-center mt-4">
+            <a href="{% url 'shivazen:profissional_agenda' %}?data={{ hoje|date:'Y-m-d' }}"
+               style="color:var(--gold);text-decoration:none;font-weight:700;font-size:0.85rem;">
+                <i class="fas fa-home me-1"></i>Voltar para hoje
+            </a>
+        </div>
+
+    </div>
+</div>
+
+<script>
+function showView(view, tab) {
+    document.getElementById('view-dia').style.display = view === 'dia' ? 'block' : 'none';
+    document.getElementById('view-semana').style.display = view === 'semana' ? 'block' : 'none';
+    document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+    if (tab) tab.classList.add('active');
+}
+</script>
+{% endblock %}

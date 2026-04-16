@@ -1,7 +1,7 @@
 =====================================================================
  ShivaZen - Lista de Pendencias e Proximos Passos
  (arquivo consolidado — substitui pendencias.md da raiz)
- Atualizado: 2026-04-11
+ Atualizado: 2026-04-15
 =====================================================================
 
 === CORRIGIDOS NA SESSAO 1 (04/04/2026) ===
@@ -107,53 +107,66 @@
 
 --- BACKEND / FUNCIONALIDADES ---
 
-#12 [ ] Produtos/Dermocosmeticos: pagina servicos/produtos.html eh
-       estatica. Se necessario, criar model Produto ou integrar com
-       catalogo externo.
+[OK] #12 Produtos/Dermocosmeticos: decisao de manter pagina estatica.
+     Catalogo pequeno (8 produtos), todos levam ao WhatsApp para
+     consulta (nao ha checkout no site). Criar model + CRUD nao se
+     justifica hoje. Reavaliar quando surgir e-commerce ou inventario.
 
-#34 [ ] WhatsApp Business API: integrar envio real de mensagens.
-       O arquivo utils/whatsapp.py tem a estrutura mas a funcao
-       enviar_whatsapp ainda eh placeholder em varios caminhos.
+[OK] #34 WhatsApp Business API: enviar_whatsapp com retry exponencial
+     (max 3 tentativas), enviar_template_whatsapp para templates Meta,
+     WHATSAPP_TEMPLATE_LEMBRETE env var. Atualizado em 15/04/2026.
 
-#35 [ ] Lista de espera UI publica: permitir que cliente se inscreva
-       via UI publica. Hoje so o admin gerencia a fila.
+[OK] #35 Lista de espera UI publica: templates, views, URLs e testes
+     implementados. lista_espera_publica + lista_espera_sucesso em
+     views/public.py com test_lista_espera_publica.py.
 
-#36 [ ] Procedimento CRUD preco: modal de edicao nao carrega o preco
-       atual — precisa de query adicional para popular o campo.
+[OK] #36 Procedimento CRUD preco: modal de edicao ja carrega preco
+     via preco_map em features.py:106-115 e JS openEdit() passando
+     proc.preco_base ao campo edit_preco.
 
-#37 [ ] NPS escala: resolver divergencia entre documentacao funcional
-       (1-5) e implementacao (0-10). Decidir lado a manter.
+[OK] #37 NPS escala 0-10 confirmada: codigo, DDL, regras_negocio e
+     template nps_web agora consistentes. Fix extra: loop do template
+     iterava a string "012345678910" gerando 12 botoes — trocado por
+     range(11) no contexto da view features.nps_web.
 
 --- QUALIDADE ---
 
-#33 [ ] Testes: zero testes no projeto. CI roda `manage.py test`
-       sem nenhum test case. Priorizar testes para:
-       - Agendamento (confirmar_agendamento)
-       - Controle de faltas (registrar_falta/resetar_faltas)
-       - Pacotes (verificar_finalizacao)
-       - Webhook WhatsApp (assinatura HMAC)
+[OK] #33 Testes: 11 arquivos de teste implementados cobrindo:
+     - Seguranca (staff_required, prontuario, status AJAX)
+     - Agendamento (confirmar, conflito, token cancelamento)
+     - Faltas (3-strike, bloqueio, reset)
+     - Pacotes (finalizacao, debito session)
+     - NPS (escala 0-10, sobrescrita, web)
+     - Webhook WhatsApp (HMAC, NPS via resposta)
+     - Token expiry (consumir, TTL, duplo uso)
+     - Job expirar pacotes
+     - Lista espera publica
+     - Models __str__
 
-#38 [ ] Django admin customizado: UsuarioAdmin ja esta bom, mas
-       outros models poderiam ganhar list_display/list_filter para
-       acelerar operacao direta via admin.
+[OK] #38 Django admin: 20 ModelAdmin classes com list_display,
+     list_filter, search_fields, ordering, date_hierarchy,
+     autocomplete_fields e readonly_fields configurados.
 
-#39 [ ] __str__ mais descritivos: alguns models retornam apenas
-       nome. Atendimento, Notificacao e PacoteCliente ficariam mais
-       uteis com contexto de data/cliente.
+[OK] #39 __str__ descritivos: Atendimento (data+cliente+proc),
+     Notificacao (tipo+cliente+data), PacoteCliente (cliente+pacote+status)
+     ja implementados em models.py.
 
 --- DEVOPS / PRODUCAO ---
 
-#40 [ ] CI/CD: .github/workflows existe mas nao tem pipeline ativo.
-       Configurar ao menos lint + test no push/PR para main.
+[OK] #40 CI/CD: .github/workflows/django.yml com lint (flake8),
+     migration check (--dry-run), testes verbose, Redis service,
+     pip cache. Roda em push/PR para main.
 
-#41 [ ] Logs estruturados: configurar logging para producao em formato
-       JSON com rotacao. Hoje eh logging default para stdout.
+[OK] #41 Logs estruturados: python-json-logger configurado em
+     settings.py. JSON em producao, verbose em dev. Logger
+     app_shivazen com nivel DEBUG/INFO conforme ambiente.
 
 #42 [ ] Backup automatico: definir estrategia de backup do PostgreSQL
        em producao (pg_dump agendado + retencao).
 
-#43 [ ] Monitoramento: healthcheck endpoint e metricas basicas
-       (tempo de resposta, erros 5xx, fila Celery pendente).
+[OK] #43 Healthcheck: endpoint /health/ retorna JSON com status
+     do banco (SELECT 1), timestamp. 200 ok / 503 degraded.
+     views/health.py + URL wired.
 
 #44 [ ] HTTPS e headers: validar HSTS, X-Frame-Options e demais
        headers de seguranca em producao.
@@ -161,54 +174,107 @@
 #45 [ ] Static files producao: revisar collectstatic + whitenoise ou
        migracao para S3/CDN conforme escala.
 
-#46 [ ] SEO: meta tags, Open Graph, sitemap.xml e robots.txt nas
-       paginas publicas.
+[OK] #46 SEO: meta description, Open Graph tags, canonical URL em
+     base.html. sitemap.xml (StaticViewSitemap + ProcedimentoSitemap)
+     e robots.txt configurados em shivazen/urls.py.
 
 #47 [ ] PWA: manifest.json e service worker para instalacao como app
        mobile no celular dos clientes.
 
-#48 [ ] seed.py: criar arquivo de seed para popular dados de
-       demonstracao em ambiente de desenvolvimento.
+[OK] #48 seed.py: arquivo de seed na raiz do projeto. Cria 3 profs,
+     8 procedimentos, 5 clientes, 10 atendimentos, promocoes,
+     pacote, admin e usuario profissional. Idempotente.
+
+--- FEATURES DERIVADAS DO DIAGRAMA DE CASOS DE USO ---
+(aprovadas em 15/04/2026 apos cruzar diagrama com codigo)
+
+[OK] #49 Notificacao automatica de vaga na fila de espera
+     JA IMPLEMENTADO (descoberto em 15/04/2026):
+      - signals.py:29-33 dispara em status CANCELADO/FALTOU
+      - tasks.py:72-96 job_notificar_fila_espera busca ListaEspera
+        com procedimento+data compativeis, envia WhatsApp e marca
+        notificado=True
+     Item mantido no diagrama como caso de uso ativo.
+
+[OK] #50 Reagendar atendimento (publico): booking.py:504-631
+     completo com validacao de janela 24h, transacao atomica,
+     SELECT FOR UPDATE contra race condition, status REAGENDADO.
+     Template agenda/reagendar.html implementado.
+
+[OK] #51 Badge de alergias: painel_agendamentos.html:90-95 exibe
+     badge vermelho com tooltip quando cliente tem alergias ou
+     contraindicacoes no prontuario. Tambem presente no template
+     profissional/agenda.html.
+
+[OK] #52 Portal do Profissional (versao minima):
+     - views/profissional.py: agenda, marcar_realizado, anotar
+     - Decorator profissional_required
+     - Templates: profissional/agenda.html (dia+semana),
+       profissional/anotar.html (anotacao de sessao)
+     - URLs: /profissional/, /profissional/atendimento/<pk>/realizado/,
+       /profissional/atendimento/<pk>/anotar/
+
+--- DECISOES DE NAO FAZER (derivadas do diagrama) ---
+
+[NAO] Cupons de desconto manuais:
+      Promocao automatica ja cobre o caso de uso. Cupom adicionaria
+      complexidade (validade, limite de uso, antifraude) sem ganho.
+
+[NAO] Notificar preferencias de canal pelo cliente:
+      Clinica usa WhatsApp como canal unico. Feature sem demanda real.
+
+[NAO] Sair da fila de espera (self-service):
+      Turnover baixo, gestao manual funciona. Marginal.
+
+[NAO] Comprovante digital em PDF:
+      Cliente recebe confirmacao WhatsApp. PDF so se houver demanda
+      fiscal/contabil explicita.
+
+[NAO] Reposicao de sessao automatica:
+      Requer politica clara do negocio. Levantar com dono da clinica
+      antes de criar modelo + workflow.
 
 =====================================================================
  RESUMO
 =====================================================================
 
-Total historico: 33 itens originais do audit + 15 itens incorporados
-do pendencias.md (backlog adicional) = 48 itens conhecidos
+Total historico: 52 itens conhecidos
 
-Corrigidos: 35 itens
+Corrigidos: 49 itens
   - Sessao 1: 17
   - Sessao 2: 3
   - Sessao 3: 7
-  - Sessao 4: 4 (NPS web, recuperacao senha, termos workflow, paginacao)
-  - Sessao 5: 3 (MER narrativo, limpeza, consolidacao deste arquivo)
-  - Sessao 6: 5 (frontend publico completo #7-11)
+  - Sessao 4: 4
+  - Sessao 5: 3
+  - Sessao 6: 5
+  - Sessao 7 (15/04/2026): 10
+    #33 testes, #34 WhatsApp retry+templates, #35 lista espera,
+    #36 preco modal, #38 admin, #39 __str__, #40 CI/CD, #41 logs,
+    #43 healthcheck, #46 SEO, #48 seed, #50 reagendar,
+    #51 badge alergia, #52 portal profissional
 
-Restantes: 17 itens
-  - Backend / features: 5  (#12, #34, #35, #36, #37)
-  - Qualidade: 3           (#33, #38, #39)
-  - DevOps / producao: 9   (#40-#48)
-
-Prioridade sugerida para proxima sessao:
-  1. Testes automatizados (#33) — bloqueio para producao
-  2. WhatsApp Business API real (#34) — bloqueio para operacao
-  3. CI/CD (#40) + backup (#42) + HTTPS (#44) — DevOps basico
-  4. SEO (#46) — agora que existem paginas detalhe de servico
+Restantes: 3 itens
+  - #42 Backup automatico PostgreSQL
+  - #44 HTTPS e headers producao
+  - #45 Static files producao (S3/CDN)
+  - #47 PWA (manifest.json + service worker)
 
 =====================================================================
- INVENTARIO DO PROJETO (snapshot 11/04/2026)
+ INVENTARIO DO PROJETO (snapshot 15/04/2026)
 =====================================================================
 
-  Models:        30 (Procedimento agora com slug/imagem_destaque)
-  Views:         ~57 funcoes (5 novas publicas)
-  URLs:          ~112 rotas
-  Templates:     50+ (5 novos templates publicos)
+  Models:        30 (Procedimento com slug/imagem_destaque)
+  Views:         ~60 funcoes (+ healthcheck, profissional portal)
+  URLs:          ~145 rotas (+ health, sitemap, robots)
+  Templates:     55+ (+ profissional/agenda, profissional/anotar, robots.txt)
   CSS:           3 custom + vendors
   JS:            1 custom + vendors
   Celery tasks:  8
-  Migrations:    5 (0001_initial .. 0005_add_procedimento_slug_imagem)
+  Tests:         11 arquivos de teste
+  Migrations:    7 (0001_initial .. 0007_add_performance_indexes)
   Signals:       2 em Atendimento (pre_save + post_save)
+  CI/CD:         GitHub Actions (lint + test + migration check)
+  SEO:           sitemap.xml, robots.txt, meta tags, Open Graph
 
 =====================================================================
  FIM

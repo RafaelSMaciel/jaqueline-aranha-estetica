@@ -1,0 +1,190 @@
+{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block conteudo %}
+<style>
+    :root {
+        --gold: #C9A84C;
+        --gold-light: #f9f1d8;
+        --earth: #4A3425;
+        --bg: #F5F3EE;
+    }
+    .reag-page { background: var(--bg); min-height: 100vh; padding: 3rem 0; }
+    .reag-container { max-width: 720px; margin: 0 auto; padding: 0 1rem; }
+    .reag-card {
+        background: white; border-radius: 16px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+        padding: 2rem; margin-bottom: 1.5rem;
+    }
+    .reag-title {
+        font-family: 'Playfair Display', serif;
+        font-size: 1.75rem; color: var(--earth);
+        margin-bottom: 0.5rem;
+    }
+    .reag-subtitle { color: #777; margin-bottom: 1.5rem; }
+    .reag-atual {
+        background: var(--gold-light);
+        border-left: 4px solid var(--gold);
+        padding: 1rem 1.25rem; border-radius: 8px;
+        margin-bottom: 1.5rem;
+    }
+    .reag-atual-label {
+        font-size: 0.75rem; color: #8b6f2b;
+        text-transform: uppercase; letter-spacing: 1px;
+        font-weight: 700; margin-bottom: 0.4rem;
+    }
+    .reag-atual-info { color: var(--earth); font-weight: 600; }
+    .reag-field { margin-bottom: 1.25rem; }
+    .reag-label {
+        display: block; font-weight: 700; color: var(--earth);
+        margin-bottom: 0.5rem; font-size: 0.9rem;
+    }
+    .reag-input {
+        width: 100%; padding: 0.75rem 1rem;
+        border: 2px solid #e5e5e5; border-radius: 10px;
+        font-size: 1rem;
+    }
+    .reag-input:focus { outline: none; border-color: var(--gold); }
+    .horarios-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+        gap: 0.5rem; margin-top: 0.75rem;
+    }
+    .horario-btn {
+        padding: 0.6rem 0.5rem; border: 2px solid #e5e5e5;
+        background: white; border-radius: 8px; cursor: pointer;
+        font-weight: 600; transition: all 0.15s;
+    }
+    .horario-btn:hover { border-color: var(--gold); }
+    .horario-btn.selected {
+        background: var(--gold); border-color: var(--gold); color: white;
+    }
+    .btn-confirmar {
+        background: var(--gold); color: white; border: none;
+        padding: 0.9rem 2rem; border-radius: 50px;
+        font-weight: 700; font-size: 1rem; cursor: pointer;
+        width: 100%; transition: all 0.2s;
+    }
+    .btn-confirmar:hover { background: #b59140; transform: translateY(-1px); }
+    .btn-confirmar:disabled { background: #ccc; cursor: not-allowed; transform: none; }
+    .alerta {
+        background: #fff3cd; border: 1px solid #ffc107;
+        padding: 0.75rem 1rem; border-radius: 8px;
+        color: #856404; font-size: 0.9rem; margin-bottom: 1rem;
+    }
+</style>
+
+<div class="reag-page">
+    <div class="reag-container">
+
+        {% if messages %}
+            {% for m in messages %}
+                <div class="alerta">{{ m }}</div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="reag-card">
+            <h1 class="reag-title"><i class="fas fa-calendar-alt me-2" style="color:var(--gold);"></i>Reagendar Atendimento</h1>
+            <p class="reag-subtitle">Escolha uma nova data e horário para seu atendimento.</p>
+
+            <div class="reag-atual">
+                <div class="reag-atual-label">Agendamento atual</div>
+                <div class="reag-atual-info">
+                    {{ atendimento.procedimento.nome }}<br>
+                    com {{ atendimento.profissional.nome }}<br>
+                    {{ atendimento.data_hora_inicio|date:"d/m/Y" }} às {{ atendimento.data_hora_inicio|time:"H:i" }}
+                </div>
+            </div>
+
+            <form method="post" id="form-reagendar">
+                {% csrf_token %}
+                <input type="hidden" name="datetime" id="hidden-datetime" value="">
+                <input type="hidden" name="profissional" id="hidden-profissional" value="{{ atendimento.profissional.pk }}">
+
+                <div class="reag-field">
+                    <label class="reag-label" for="nova-data">Nova data</label>
+                    <input type="date" id="nova-data" class="reag-input" required
+                           min="{{ data_min|default_if_none:'' }}">
+                </div>
+
+                <div class="reag-field" id="box-horarios" style="display:none;">
+                    <label class="reag-label">Horários disponíveis</label>
+                    <div class="horarios-grid" id="grid-horarios"></div>
+                    <div id="no-horarios" class="text-muted mt-2" style="display:none;">
+                        Nenhum horário disponível neste dia. Escolha outro.
+                    </div>
+                </div>
+
+                <button type="submit" id="btn-confirmar" class="btn-confirmar" disabled>
+                    Confirmar reagendamento
+                </button>
+            </form>
+        </div>
+
+        <div class="text-center">
+            <a href="{% url 'shivazen:meus_agendamentos' %}" class="text-muted">
+                <i class="fas fa-arrow-left me-1"></i>Voltar para meus agendamentos
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const PROC_ID = {{ atendimento.procedimento.pk }};
+    const dataInput = document.getElementById('nova-data');
+    const gridHorarios = document.getElementById('grid-horarios');
+    const boxHorarios = document.getElementById('box-horarios');
+    const noHorarios = document.getElementById('no-horarios');
+    const hiddenDT = document.getElementById('hidden-datetime');
+    const hiddenProf = document.getElementById('hidden-profissional');
+    const btn = document.getElementById('btn-confirmar');
+
+    const amanha = new Date();
+    amanha.setDate(amanha.getDate() + 1);
+    dataInput.min = amanha.toISOString().slice(0, 10);
+
+    dataInput.addEventListener('change', async function () {
+        const data = this.value;
+        if (!data) return;
+
+        gridHorarios.innerHTML = '<div class="text-muted">Carregando...</div>';
+        boxHorarios.style.display = 'block';
+        noHorarios.style.display = 'none';
+        hiddenDT.value = '';
+        btn.disabled = true;
+
+        try {
+            const resp = await fetch(`{% url 'shivazen:api_horarios_disponiveis' %}?data=${data}&procedimento_id=${PROC_ID}`);
+            const json = await resp.json();
+
+            if (!json.horarios || json.horarios.length === 0) {
+                gridHorarios.innerHTML = '';
+                noHorarios.style.display = 'block';
+                return;
+            }
+
+            gridHorarios.innerHTML = '';
+            json.horarios.forEach(h => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'horario-btn';
+                b.textContent = h.horario;
+                b.dataset.iso = h.datetime_iso;
+                b.dataset.prof = h.profissionais[0].id;
+                b.addEventListener('click', function () {
+                    document.querySelectorAll('.horario-btn').forEach(x => x.classList.remove('selected'));
+                    b.classList.add('selected');
+                    hiddenDT.value = b.dataset.iso;
+                    hiddenProf.value = b.dataset.prof;
+                    btn.disabled = false;
+                });
+                gridHorarios.appendChild(b);
+            });
+        } catch (e) {
+            gridHorarios.innerHTML = '<div class="text-danger">Erro ao carregar horários.</div>';
+        }
+    });
+})();
+</script>
+{% endblock %}

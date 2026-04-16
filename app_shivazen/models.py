@@ -314,6 +314,11 @@ class BloqueioAgenda(models.Model):
         managed = True
         db_table = 'bloqueio_agenda'
 
+    def __str__(self):
+        prof = self.profissional.nome if self.profissional_id else 'Todos'
+        ini = self.data_hora_inicio.strftime('%d/%m/%Y %H:%M') if self.data_hora_inicio else '?'
+        return f'Bloqueio {prof} @ {ini}'
+
 
 # =====================================================================
 # PROMOÇÕES
@@ -342,6 +347,9 @@ class Promocao(models.Model):
         hoje = timezone.now().date()
         return self.ativa and self.data_inicio <= hoje <= self.data_fim
 
+    def __str__(self):
+        return self.nome
+
 
 # =====================================================================
 # AGENDAMENTO
@@ -354,6 +362,7 @@ class Atendimento(models.Model):
         ('REALIZADO', 'Realizado'),
         ('CANCELADO', 'Cancelado'),
         ('FALTOU', 'Faltou'),
+        ('REAGENDADO', 'Reagendado'),
     ]
 
     cliente = models.ForeignKey(Cliente, on_delete=models.RESTRICT)
@@ -392,11 +401,18 @@ class Atendimento(models.Model):
         constraints = [
             models.CheckConstraint(
                 check=models.Q(status__in=[
-                    'AGENDADO', 'CONFIRMADO', 'REALIZADO', 'CANCELADO', 'FALTOU'
+                    'AGENDADO', 'CONFIRMADO', 'REALIZADO', 'CANCELADO', 'FALTOU',
+                    'REAGENDADO',
                 ]),
                 name='chk_atendimento_status'
             )
         ]
+
+    def __str__(self):
+        data_fmt = self.data_hora_inicio.strftime('%d/%m/%Y %H:%M') if self.data_hora_inicio else 's/ data'
+        cliente_nome = self.cliente.nome_completo if self.cliente_id else 's/ cliente'
+        proc_nome = self.procedimento.nome if self.procedimento_id else 's/ procedimento'
+        return f'{data_fmt} — {cliente_nome} ({proc_nome})'
 
 
 # =====================================================================
@@ -572,6 +588,15 @@ class Notificacao(models.Model):
         managed = True
         db_table = 'notificacao'
 
+    def __str__(self):
+        data_fmt = self.criado_em.strftime('%d/%m/%Y %H:%M') if self.criado_em else 's/ data'
+        cliente_nome = (
+            self.atendimento.cliente.nome_completo
+            if self.atendimento_id and self.atendimento.cliente_id
+            else 's/ cliente'
+        )
+        return f'{self.get_tipo_display()} — {cliente_nome} ({data_fmt})'
+
 
 # =====================================================================
 # AVALIAÇÃO NPS
@@ -594,6 +619,14 @@ class AvaliacaoNPS(models.Model):
             )
         ]
 
+    def __str__(self):
+        cliente_nome = (
+            self.atendimento.cliente.nome_completo
+            if self.atendimento_id and self.atendimento.cliente_id
+            else 's/ cliente'
+        )
+        return f'NPS {self.nota}/10 — {cliente_nome}'
+
 
 # =====================================================================
 # PACOTES
@@ -609,6 +642,9 @@ class Pacote(models.Model):
     class Meta:
         managed = True
         db_table = 'pacote'
+
+    def __str__(self):
+        return self.nome
 
 
 class ItemPacote(models.Model):
@@ -666,6 +702,11 @@ class PacoteCliente(models.Model):
         self.status = 'FINALIZADO'
         self.save()
 
+    def __str__(self):
+        cliente_nome = self.cliente.nome_completo if self.cliente_id else 's/ cliente'
+        pacote_nome = self.pacote.nome if self.pacote_id else 's/ pacote'
+        return f'{cliente_nome} — {pacote_nome} ({self.get_status_display()})'
+
 
 class SessaoPacote(models.Model):
     pacote_cliente = models.ForeignKey(
@@ -719,6 +760,12 @@ class ListaEspera(models.Model):
             )
         ]
 
+    def __str__(self):
+        cliente_nome = self.cliente.nome_completo if self.cliente_id else 's/ cliente'
+        proc_nome = self.procedimento.nome if self.procedimento_id else 's/ procedimento'
+        data = self.data_desejada.strftime('%d/%m/%Y') if self.data_desejada else 's/ data'
+        return f'{cliente_nome} — {proc_nome} ({data})'
+
 
 # =====================================================================
 # AUDITORIA E SISTEMA
@@ -751,6 +798,8 @@ class ConfiguracaoSistema(models.Model):
 
 
 class CodigoVerificacao(models.Model):
+    TTL_SEGUNDOS = 600  # 10 minutos
+
     telefone = models.CharField(max_length=20)
     codigo = models.CharField(max_length=6)
     criado_em = models.DateTimeField(auto_now_add=True)
@@ -763,4 +812,40 @@ class CodigoVerificacao(models.Model):
     @property
     def esta_valido(self):
         from django.utils import timezone
-        return not self.usado and (timezone.now() - self.criado_em).total_seconds() < 600
+        return (
+            not self.usado
+            and (timezone.now() - self.criado_em).total_seconds() < self.TTL_SEGUNDOS
+        )
+
+    @classmethod
+    def consumir(cls, telefone, codigo):
+        """Valida e marca usado atomicamente.
+
+        Retorna True se o codigo existe, esta nao-usado, dentro do TTL e foi
+        marcado como usado pela chamada. Previne TOCTOU entre validacao e uso:
+        duas requests concorrentes nao conseguem consumir o mesmo codigo.
+        """
+        from datetime import timedelta
+        from django.db import transaction
+        from django.utils import timezone
+
+        limite = timezone.now() - timedelta(seconds=cls.TTL_SEGUNDOS)
+
+        with transaction.atomic():
+            row = (
+                cls.objects
+                .select_for_update(skip_locked=True)
+                .filter(
+                    telefone=telefone,
+                    codigo=codigo,
+                    usado=False,
+                    criado_em__gte=limite,
+                )
+                .order_by('-criado_em')
+                .first()
+            )
+            if not row:
+                return False
+            row.usado = True
+            row.save(update_fields=['usado'])
+        return True

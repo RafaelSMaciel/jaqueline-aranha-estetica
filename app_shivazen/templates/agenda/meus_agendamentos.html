@@ -1,7 +1,7 @@
-{% extends 'estrutura/base.html' %}
+﻿{% extends 'estrutura/base.html' %}
 {% load static %}
 
-{% block titulo %}Meus Agendamentos | Shiva Zen{% endblock %}
+{% block titulo %}Meus Agendamentos | {{ CLINIC_NAME }}{% endblock %}
 
 {% block css %}
 <style>
@@ -490,12 +490,13 @@
                         </div>
                     </div>
                     <div class="agend-card-footer">
-                        <a href="https://wa.me/{{ whatsapp_numero }}?text=Ola! Gostaria de reagendar o meu atendimento de {{ ag.procedimento.nome }} do dia {{ ag.data_hora_inicio|date:'d/m/Y' }}."
-                           target="_blank" rel="noopener"
+                        {% if ag.status in 'AGENDADO CONFIRMADO' and ag.token_cancelamento %}
+                        <a href="{% url 'shivazen:reagendar_agendamento' token=ag.token_cancelamento %}"
                            class="btn btn-sm rounded-pill px-3 fw-bold"
                            style="font-size:0.75rem;border:1.5px solid #C8E6C9;color:#2E7D32;background:rgba(46,125,50,0.04);">
-                            <i class="bi bi-whatsapp me-1"></i>Reagendar
+                            <i class="bi bi-calendar-event me-1"></i>Reagendar
                         </a>
+                        {% endif %}
                         {% if ag.status == 'AGENDADO' %}
                         <button class="btn-cancel-agend"
                                 data-id="{{ ag.pk }}"

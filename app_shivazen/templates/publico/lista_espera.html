@@ -1,0 +1,102 @@
+﻿{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block titulo %}Lista de Espera | {{ CLINIC_NAME }}{% endblock %}
+
+{% block conteudo %}
+<section id="lista-espera-hero" class="section" style="padding-top:60px;padding-bottom:30px;">
+  <div class="container" data-aos="fade-up">
+    <div class="text-center mx-auto" style="max-width:720px;">
+      <div class="hero-badge d-inline-block mb-3">
+        <i class="bi bi-hourglass-split me-2"></i>Lista de Espera
+      </div>
+      <h1 class="mb-3">Nao encontrou um <span class="highlight">horario?</span></h1>
+      <p class="hero-description">
+        Cadastre-se na lista de espera. Assim que um horario liberar para a
+        data e turno que voce prefere, entraremos em contato via WhatsApp.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="section light-background">
+  <div class="container" data-aos="fade-up" style="max-width:640px;">
+
+    {% if messages %}
+      {% for m in messages %}
+        <div class="alert alert-{% if m.tags == 'error' %}danger{% else %}{{ m.tags|default:'info' }}{% endif %} shadow-sm"
+             style="border-radius:14px;">
+          {{ m }}
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    <form method="post" class="card border-0 shadow-sm p-4"
+          style="border-radius:18px;background:#fff;">
+      {% csrf_token %}
+
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Nome completo</label>
+        <input type="text" name="nome" class="form-control" required
+               placeholder="Seu nome" maxlength="150">
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label fw-semibold">WhatsApp / Celular</label>
+        <input type="tel" name="telefone" class="form-control" required
+               placeholder="(17) 99999-9999" maxlength="20">
+        <small class="text-muted">Vamos usar este numero para notificar.</small>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Procedimento desejado</label>
+        <select name="procedimento" class="form-select" required>
+          <option value="">Selecione...</option>
+          {% for p in procedimentos %}
+            <option value="{{ p.pk }}">{{ p.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Profissional preferido
+          <small class="text-muted fw-normal">(opcional)</small>
+        </label>
+        <select name="profissional" class="form-select">
+          <option value="">Qualquer profissional</option>
+          {% for prof in profissionais %}
+            <option value="{{ prof.pk }}">{{ prof.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="row g-3 mb-3">
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Data desejada</label>
+          <input type="date" name="data_desejada" class="form-control" required
+                 min="{{ data_minima }}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Turno preferido</label>
+          <select name="turno" class="form-select">
+            <option value="">Qualquer turno</option>
+            {% for val, label in turnos %}
+              <option value="{{ val }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary w-100"
+              style="border-radius:12px;padding:12px;font-weight:700;">
+        <i class="bi bi-check2-circle me-2"></i>Entrar na Lista de Espera
+      </button>
+    </form>
+
+    <p class="text-center text-muted small mt-3">
+      Seu cadastro nao garante reserva imediata. Entraremos em contato assim
+      que um horario compativel for liberado.
+    </p>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "email/base_email.html" %}
+{% block content %}
+<p style="color:#4A3425;font-size:16px;margin:0 0 8px;">Ola, {{ dados.nome }}!</p>
+<p style="color:#666;font-size:15px;margin:0 0 24px;">Seu agendamento foi cancelado.</p>
+
+<div style="background:#fff5f5;border:2px solid #e57373;border-radius:16px;padding:24px;margin:0 0 24px;">
+<p style="margin:0 0 8px;color:#4A3425;font-weight:700;">{{ dados.procedimento }}</p>
+<p style="margin:0 0 4px;color:#999;">{{ dados.data_hora }}</p>
+<p style="margin:0;color:#999;">{{ dados.profissional }}</p>
+</div>
+
+<p style="color:#666;font-size:14px;margin:0 0 16px;">Para reagendar, acesse:</p>
+<a href="{{ site_url }}/agendamento/" style="display:inline-block;background:#C9A84C;color:white;padding:12px 32px;border-radius:50px;text-decoration:none;font-weight:700;font-size:14px;">Agendar Novamente</a>
+{% endblock %}

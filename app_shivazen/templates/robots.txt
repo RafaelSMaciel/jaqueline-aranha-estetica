@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+
+Disallow: /painel/
+Disallow: /admin-login/
+Disallow: /admin-logout/
+Disallow: /django-admin-sv/
+Disallow: /ajax/
+Disallow: /api/
+Disallow: /profissional/
+
+Sitemap: {{ request.scheme }}://{{ request.get_host }}/sitemap.xml

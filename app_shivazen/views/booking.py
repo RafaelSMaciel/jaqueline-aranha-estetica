@@ -1,4 +1,4 @@
-from django.db import OperationalError, ProgrammingError
+from django.db import OperationalError, ProgrammingError, transaction
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.http import JsonResponse
@@ -17,10 +17,12 @@ from ..models import (
     Profissional, Procedimento, Atendimento, BloqueioAgenda,
     Cliente, Preco, DisponibilidadeProfissional, CodigoVerificacao
 )
+from ..utils.precos import preco_base_map, preco_para
 
 logger = logging.getLogger(__name__)
 
-WHATSAPP_NUMERO = os.environ.get('WHATSAPP_NUMERO', '5517000000000')
+WHATSAPP_NUMERO = os.environ.get('WHATSAPP_NUMERO', '')
+CLINIC_NAME = os.environ.get('CLINIC_NAME', 'Clinica Estetica')
 
 
 def agendamento_publico(request):
@@ -32,19 +34,16 @@ def agendamento_publico(request):
     """
     procedimentos_com_preco = []
     try:
-        procedimentos = Procedimento.objects.filter(ativo=True)
-
-        # Enriquecer procedimentos com preços
+        procedimentos = list(Procedimento.objects.filter(ativo=True))
+        precos = preco_base_map(procedimentos)
         for proc in procedimentos:
-            preco_obj = Preco.objects.filter(procedimento=proc, profissional__isnull=True).first()
-            if not preco_obj:
-                preco_obj = Preco.objects.filter(procedimento=proc).first()
+            valor = precos.get(proc.pk)
             procedimentos_com_preco.append({
                 'id': proc.pk,
                 'nome': proc.nome,
                 'descricao': proc.descricao or '',
                 'duracao_minutos': proc.duracao_minutos,
-                'preco': float(preco_obj.valor) if preco_obj else 0,
+                'preco': float(valor) if valor is not None else 0,
             })
     except (OperationalError, ProgrammingError):
         logger.warning('Tabelas de procedimento/preço não encontradas.')
@@ -190,12 +189,31 @@ def confirmar_agendamento(request):
 
     nome = request.POST.get('nome', '').strip()
     telefone = request.POST.get('telefone', '').strip()
+    data_nascimento_str = request.POST.get('data_nascimento', '').strip()
+    email = request.POST.get('email', '').strip() or None
     procedimento_id = request.POST.get('procedimento')
     profissional_id = request.POST.get('profissional')
     datetime_str = request.POST.get('datetime')
 
-    if not all([nome, telefone, procedimento_id, profissional_id, datetime_str]):
-        messages.error(request, 'Todos os campos são obrigatórios.')
+    if not all([nome, telefone, data_nascimento_str, procedimento_id, profissional_id, datetime_str]):
+        messages.error(request, 'Todos os campos obrigatórios devem ser preenchidos.')
+        return redirect('shivazen:agendamento_publico')
+
+    # Parse data de nascimento
+    try:
+        from datetime import date as _date
+        data_nascimento = datetime.strptime(data_nascimento_str, '%Y-%m-%d').date()
+    except ValueError:
+        messages.error(request, 'Data de nascimento inválida.')
+        return redirect('shivazen:agendamento_publico')
+
+    # Validar idade mínima: 18 anos
+    hoje = timezone.now().date()
+    idade = hoje.year - data_nascimento.year - (
+        (hoje.month, hoje.day) < (data_nascimento.month, data_nascimento.day)
+    )
+    if idade < 18:
+        messages.error(request, 'É necessário ter pelo menos 18 anos para agendar.')
         return redirect('shivazen:agendamento_publico')
 
     try:
@@ -204,107 +222,133 @@ def confirmar_agendamento(request):
         data_hora = datetime.fromisoformat(datetime_str)
         data_hora_fim = data_hora + timedelta(minutes=procedimento.duracao_minutos)
 
-        # Encontrar ou criar cliente pelo telefone
-        cliente, created = Cliente.objects.get_or_create(
-            telefone=telefone,
-            defaults={
-                'nome_completo': nome,
-                'ativo': True,
-            }
-        )
-        if not created and cliente.nome_completo != nome:
-            # Atualiza nome se mudou
-            cliente.nome_completo = nome
-            cliente.save()
-
-        # Verificar conflitos
-        conflito = Atendimento.objects.filter(
-            profissional=profissional,
-            data_hora_inicio__lt=data_hora_fim,
-            data_hora_fim__gt=data_hora,
-            status__in=['AGENDADO', 'CONFIRMADO']
-        ).exists()
-
-        if conflito:
-            messages.error(request, 'Este horário já foi reservado. Por favor, escolha outro.')
-            return redirect('shivazen:agendamento_publico')
-
-        # Buscar preço
-        preco_obj = Preco.objects.filter(
-            procedimento=procedimento, profissional=profissional
-        ).first()
-        if not preco_obj:
-            preco_obj = Preco.objects.filter(
-                procedimento=procedimento, profissional__isnull=True
-            ).first()
-
-        valor = float(preco_obj.valor) if preco_obj else None
-
-        # Criar agendamento
-        atendimento = Atendimento.objects.create(
-            cliente=cliente,
-            profissional=profissional,
-            procedimento=procedimento,
-            data_hora_inicio=data_hora,
-            data_hora_fim=data_hora_fim,
-            valor_cobrado=valor,
-            status='AGENDADO'
-        )
-
-        # --- Envio automatico de termos de consentimento ---
-        from ..models import VersaoTermo, AceitePrivacidade, AssinaturaTermoProcedimento, Notificacao
-        from ..utils.whatsapp import enviar_whatsapp as _enviar_wpp, SITE_URL, gerar_token
-        from django.db.models import Q as _Q
-
-        termos_pendentes = VersaoTermo.objects.filter(
-            _Q(tipo='LGPD') | _Q(procedimento=procedimento),
-            ativa=True,
-        )
-
-        assinados_ids = set()
-        assinados_ids.update(
-            AceitePrivacidade.objects.filter(cliente=cliente).values_list('versao_termo_id', flat=True)
-        )
-        assinados_ids.update(
-            AssinaturaTermoProcedimento.objects.filter(cliente=cliente).values_list('versao_termo_id', flat=True)
-        )
-
-        tem_pendente = any(t.pk not in assinados_ids for t in termos_pendentes)
-
-        if tem_pendente:
-            token_termo = gerar_token()
-            Notificacao.objects.create(
-                atendimento=atendimento,
-                tipo='LEMBRETE',
-                canal='WHATSAPP',
-                status_envio='PENDENTE',
-                token=token_termo,
+        # Transacao atomica: cliente + atendimento + notificacao de termo
+        # devem persistir juntos ou nenhum (evita Cliente orfao em falha).
+        with transaction.atomic():
+            cliente, created = Cliente.objects.select_for_update().get_or_create(
+                telefone=telefone,
+                defaults={
+                    'nome_completo': nome,
+                    'data_nascimento': data_nascimento,
+                    'email': email,
+                    'ativo': True,
+                }
             )
-            site_url = SITE_URL.rstrip('/')
-            link_termo = f"{site_url}/termo/{token_termo}/"
-            msg_termo = (
-                f"Ola {nome}! Para seu agendamento na Shiva Zen, "
-                f"precisamos que voce assine os termos de consentimento. "
-                f"Acesse: {link_termo} "
-                f"Shiva Zen"
+            if not created:
+                atualizar = False
+                if cliente.nome_completo != nome:
+                    cliente.nome_completo = nome
+                    atualizar = True
+                if not cliente.data_nascimento and data_nascimento:
+                    cliente.data_nascimento = data_nascimento
+                    atualizar = True
+                if not cliente.email and email:
+                    cliente.email = email
+                    atualizar = True
+                if atualizar:
+                    cliente.save()
+
+            # Verificar conflitos dentro da transacao com SELECT FOR UPDATE
+            # para evitar race condition em reservas simultaneas no mesmo slot.
+            conflito = Atendimento.objects.select_for_update().filter(
+                profissional=profissional,
+                data_hora_inicio__lt=data_hora_fim,
+                data_hora_fim__gt=data_hora,
+                status__in=['AGENDADO', 'CONFIRMADO']
+            ).first() is not None
+
+            if conflito:
+                messages.error(request, 'Este horário já foi reservado. Por favor, escolha outro.')
+                return redirect('shivazen:agendamento_publico')
+
+            preco_obj = preco_para(procedimento, profissional)
+            valor = float(preco_obj.valor) if preco_obj else None
+
+            atendimento = Atendimento.objects.create(
+                cliente=cliente,
+                profissional=profissional,
+                procedimento=procedimento,
+                data_hora_inicio=data_hora,
+                data_hora_fim=data_hora_fim,
+                valor_cobrado=valor,
+                status='AGENDADO'
             )
+
+            # --- Notificacao de termos pendentes (dentro da transacao) ---
+            from ..models import (
+                VersaoTermo, AceitePrivacidade,
+                AssinaturaTermoProcedimento, Notificacao,
+            )
+            from ..utils.whatsapp import (
+                enviar_whatsapp as _enviar_wpp,
+                SITE_URL,
+                gerar_token,
+            )
+            from django.db.models import Q as _Q
+
+            termos_pendentes = VersaoTermo.objects.filter(
+                _Q(tipo='LGPD') | _Q(procedimento=procedimento),
+                ativa=True,
+            )
+
+            assinados_ids = set()
+            assinados_ids.update(
+                AceitePrivacidade.objects.filter(cliente=cliente).values_list('versao_termo_id', flat=True)
+            )
+            assinados_ids.update(
+                AssinaturaTermoProcedimento.objects.filter(cliente=cliente).values_list('versao_termo_id', flat=True)
+            )
+
+            tem_pendente = any(t.pk not in assinados_ids for t in termos_pendentes)
+            msg_termo = None
+            if tem_pendente:
+                token_termo = gerar_token()
+                Notificacao.objects.create(
+                    atendimento=atendimento,
+                    tipo='LEMBRETE',
+                    canal='WHATSAPP',
+                    status_envio='PENDENTE',
+                    token=token_termo,
+                )
+                site_url = SITE_URL.rstrip('/')
+                link_termo = f"{site_url}/termo/{token_termo}/"
+                msg_termo = (
+                    f"Ola {nome}! Para seu agendamento no {CLINIC_NAME}, "
+                    f"precisamos que voce assine os termos de consentimento. "
+                    f"Acesse: {link_termo} "
+                    f"{CLINIC_NAME}"
+                )
+
+        # --- Envio do WhatsApp fora da transacao (I/O externo) ---
+        if msg_termo:
             _enviar_wpp(telefone, msg_termo)
 
-        # Montar mensagem WhatsApp
-        data_formatada = data_hora.strftime('%d/%m/%Y às %H:%M')
-        msg_wpp = (
-            f"✅ *Agendamento Confirmado - Shiva Zen*\n\n"
-            f"👤 Nome: {nome}\n"
-            f"📋 Procedimento: {procedimento.nome}\n"
-            f"👩‍⚕️ Profissional: {profissional.nome}\n"
-            f"📅 Data/Hora: {data_formatada}\n"
-            f"💰 Valor: R$ {valor:.2f}" if valor else ""
-        )
+        # Confirmacao de agendamento por EMAIL (gratis)
+        data_formatada = data_hora.strftime('%d/%m/%Y as %H:%M')
+        dados_confirmacao = {
+            'nome': nome,
+            'procedimento': procedimento.nome,
+            'profissional': profissional.nome,
+            'data_hora': data_formatada,
+            'valor': f"R$ {valor:.2f}" if valor else 'A consultar',
+        }
+
+        if email:
+            from ..utils.email import enviar_confirmacao_agendamento_email
+            enviar_confirmacao_agendamento_email(email, dados_confirmacao)
 
         import urllib.parse
+        msg_wpp = (
+            f"Agendamento Confirmado - {CLINIC_NAME}\n\n"
+            f"Nome: {nome}\n"
+            f"Procedimento: {procedimento.nome}\n"
+            f"Profissional: {profissional.nome}\n"
+            f"Data/Hora: {data_formatada}\n"
+            + (f"Valor: R$ {valor:.2f}" if valor else "")
+        )
         wpp_url = f"https://wa.me/{WHATSAPP_NUMERO}?text={urllib.parse.quote(msg_wpp)}"
 
-        # Armazenar na sessão para a página de sucesso
+        # Armazenar na sessao para a pagina de sucesso
         request.session['agendamento_sucesso'] = {
             'nome': nome,
             'procedimento': procedimento.nome,
@@ -402,45 +446,34 @@ def verificar_telefone(request):
             # Criar novo código
             CodigoVerificacao.objects.create(telefone=telefone, codigo=codigo)
 
-            # Em produção, enviar via SMS/WhatsApp API
-            logger.info(f'Código de verificação gerado para telefone: {telefone[-4:]}')
+            # Em producao, enviar via Email
+            logger.info(f'Codigo de verificacao gerado para telefone: {telefone[-4:]}')
 
-            # TODO: Em produção, enviar código via WhatsApp Business API
-            # usando app_shivazen.utils.whatsapp.enviar_mensagem_whatsapp()
-            from django.conf import settings as django_settings
-            if not django_settings.DEBUG:
+            # Buscar email do cliente para enviar OTP
+            cliente_otp = Cliente.objects.filter(telefone=telefone).first()
+            if cliente_otp and cliente_otp.email:
                 try:
-                    from ..utils.whatsapp import enviar_codigo_verificacao
-                    enviar_codigo_verificacao(telefone, codigo)
+                    from ..utils.email import enviar_codigo_otp_email
+                    enviar_codigo_otp_email(cliente_otp.email, codigo)
                 except Exception:
-                    logger.error(f'Falha ao enviar código de verificação para {telefone[-4:]}', exc_info=True)
+                    logger.error(f'Falha ao enviar OTP por email para {telefone[-4:]}', exc_info=True)
 
             return JsonResponse({
                 'success': True,
-                'message': 'Código de verificação enviado para seu telefone.',
+                'message': 'Codigo de verificacao enviado para seu email cadastrado.',
             })
 
         elif action == 'verificar':
             codigo_input = data.get('codigo', '').strip()
-            verificacao = CodigoVerificacao.objects.filter(
-                telefone=telefone, codigo=codigo_input, usado=False
-            ).order_by('-criado_em').first()
-
-            if verificacao and verificacao.esta_valido:
-                verificacao.usado = True
-                verificacao.save()
-
-                # Salvar na sessão
+            if CodigoVerificacao.consumir(telefone, codigo_input):
                 request.session['telefone_verificado'] = telefone
-
                 return JsonResponse({
                     'success': True,
                     'redirect': reverse('shivazen:meus_agendamentos') + '?step=3'
                 })
-            else:
-                return JsonResponse({
-                    'error': 'Código inválido ou expirado.'
-                }, status=400)
+            return JsonResponse({
+                'error': 'Código inválido ou expirado.'
+            }, status=400)
 
     return JsonResponse({'error': 'Método não permitido'}, status=405)
 
@@ -505,6 +538,139 @@ def api_dias_disponiveis(request):
         'mes': mes_str,
         'dias_disponiveis': dias_com_disponibilidade,
     })
+
+
+JANELA_MINIMA_REAGENDAMENTO = timedelta(hours=24)
+
+
+def reagendar_agendamento(request, token):
+    """
+    Fluxo publico de reagendamento via token seguro.
+    GET: exibe calendario para escolher nova data/horario.
+    POST: cria novo Atendimento apontando reagendado_de -> antigo,
+          marca antigo como REAGENDADO. Tudo em transacao atomica.
+    """
+    try:
+        atendimento = Atendimento.objects.select_related(
+            'cliente', 'profissional', 'procedimento'
+        ).get(token_cancelamento=token)
+    except Atendimento.DoesNotExist:
+        messages.error(request, 'Agendamento nao encontrado.')
+        return redirect('shivazen:agendamento_publico')
+
+    agora = timezone.now()
+    if atendimento.data_hora_inicio <= agora:
+        messages.error(request, 'Nao e possivel reagendar atendimentos passados.')
+        return redirect('shivazen:meus_agendamentos')
+
+    if atendimento.status in ['CANCELADO', 'REALIZADO', 'FALTOU', 'REAGENDADO']:
+        messages.error(
+            request,
+            f'Este atendimento esta {atendimento.get_status_display().lower()} e nao pode ser reagendado.'
+        )
+        return redirect('shivazen:meus_agendamentos')
+
+    if (atendimento.data_hora_inicio - agora) < JANELA_MINIMA_REAGENDAMENTO:
+        messages.error(
+            request,
+            'Reagendamento requer no minimo 24h de antecedencia. '
+            'Entre em contato pelo WhatsApp para ajustes de ultima hora.'
+        )
+        return redirect('shivazen:meus_agendamentos')
+
+    if request.method == 'GET':
+        procedimentos_json = json.dumps([{
+            'id': atendimento.procedimento.pk,
+            'nome': atendimento.procedimento.nome,
+            'duracao_minutos': atendimento.procedimento.duracao_minutos,
+        }])
+        context = {
+            'atendimento': atendimento,
+            'procedimentos_json': procedimentos_json,
+            'whatsapp_numero': WHATSAPP_NUMERO,
+        }
+        return render(request, 'agenda/reagendar.html', context)
+
+    datetime_str = request.POST.get('datetime', '').strip()
+    profissional_id = request.POST.get('profissional') or atendimento.profissional_id
+
+    if not datetime_str:
+        messages.error(request, 'Selecione uma nova data e horario.')
+        return redirect('shivazen:reagendar_agendamento', token=token)
+
+    try:
+        nova_data = datetime.fromisoformat(datetime_str)
+    except ValueError:
+        messages.error(request, 'Data/horario invalidos.')
+        return redirect('shivazen:reagendar_agendamento', token=token)
+
+    if nova_data <= agora:
+        messages.error(request, 'Escolha uma data futura.')
+        return redirect('shivazen:reagendar_agendamento', token=token)
+
+    try:
+        profissional = Profissional.objects.get(pk=profissional_id, ativo=True)
+    except Profissional.DoesNotExist:
+        messages.error(request, 'Profissional indisponivel.')
+        return redirect('shivazen:reagendar_agendamento', token=token)
+
+    nova_data_fim = nova_data + timedelta(minutes=atendimento.procedimento.duracao_minutos)
+
+    try:
+        with transaction.atomic():
+            antigo = Atendimento.objects.select_for_update().get(pk=atendimento.pk)
+
+            if antigo.status in ['CANCELADO', 'REALIZADO', 'FALTOU', 'REAGENDADO']:
+                messages.error(
+                    request,
+                    'Este atendimento ja foi processado em outra operacao.'
+                )
+                return redirect('shivazen:meus_agendamentos')
+
+            conflito = Atendimento.objects.select_for_update().filter(
+                profissional=profissional,
+                data_hora_inicio__lt=nova_data_fim,
+                data_hora_fim__gt=nova_data,
+                status__in=['AGENDADO', 'CONFIRMADO']
+            ).exclude(pk=antigo.pk).first() is not None
+
+            if conflito:
+                messages.error(request, 'Este horario acabou de ser reservado. Escolha outro.')
+                return redirect('shivazen:reagendar_agendamento', token=token)
+
+            novo = Atendimento.objects.create(
+                cliente=antigo.cliente,
+                profissional=profissional,
+                procedimento=antigo.procedimento,
+                promocao=antigo.promocao,
+                reagendado_de=antigo,
+                data_hora_inicio=nova_data,
+                data_hora_fim=nova_data_fim,
+                valor_cobrado=antigo.valor_cobrado,
+                valor_original=antigo.valor_original,
+                descricao_preco=antigo.descricao_preco,
+                status='AGENDADO',
+            )
+
+            antigo.status = 'REAGENDADO'
+            antigo.save()
+
+        data_fmt = nova_data.strftime('%d/%m/%Y as %H:%M')
+        request.session['agendamento_sucesso'] = {
+            'nome': antigo.cliente.nome_completo,
+            'procedimento': antigo.procedimento.nome,
+            'profissional': profissional.nome,
+            'data_hora': data_fmt,
+            'valor': f'R$ {float(novo.valor_cobrado):.2f}' if novo.valor_cobrado else 'A consultar',
+            'wpp_url': f"https://wa.me/{WHATSAPP_NUMERO}",
+            'reagendamento': True,
+        }
+        return redirect('shivazen:agendamento_sucesso')
+
+    except Exception as e:
+        logger.error(f'Erro ao reagendar atendimento {atendimento.pk}: {e}', exc_info=True)
+        messages.error(request, 'Ocorreu um erro ao reagendar. Tente novamente.')
+        return redirect('shivazen:reagendar_agendamento', token=token)
 
 
 @ratelimit(key='ip', rate='10/m', method='POST', block=True)

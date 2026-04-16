@@ -1,12 +1,17 @@
 import logging
+from datetime import datetime
 
+from django.contrib import messages
 from django.db import OperationalError, ProgrammingError
 from django.db.models import Q
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django_ratelimit.decorators import ratelimit
 
 from ..models import (
     AvaliacaoNPS,
+    Cliente,
+    ListaEspera,
     Preco,
     Procedimento,
     Profissional,
@@ -159,6 +164,105 @@ def galeria(request):
         {'src': 'assets/template_img/health/cardiology-1.webp', 'titulo': 'Tecnologia Avancada'},
     ]
     return render(request, 'publico/galeria.html', {'fotos': fotos})
+
+
+@ratelimit(key='ip', rate='10/m', method='POST', block=True)
+def lista_espera_publica(request):
+    """Formulario publico para cliente se inscrever na lista de espera."""
+    procedimentos = []
+    profissionais = []
+    try:
+        procedimentos = list(
+            Procedimento.objects.filter(ativo=True).order_by('nome')
+        )
+        profissionais = list(
+            Profissional.objects.filter(ativo=True).order_by('nome')
+        )
+    except (OperationalError, ProgrammingError):
+        logger.warning('Tabelas de procedimento/profissional nao encontradas.')
+
+    if request.method == 'POST':
+        nome = request.POST.get('nome', '').strip()
+        telefone = request.POST.get('telefone', '').strip()
+        procedimento_id = request.POST.get('procedimento', '')
+        profissional_id = request.POST.get('profissional', '')
+        data_desejada = request.POST.get('data_desejada', '')
+        turno = request.POST.get('turno', '') or None
+
+        if not all([nome, telefone, procedimento_id, data_desejada]):
+            messages.error(request, 'Preencha nome, telefone, procedimento e data.')
+            return redirect('shivazen:lista_espera_publica')
+
+        try:
+            procedimento = Procedimento.objects.get(pk=procedimento_id, ativo=True)
+        except Procedimento.DoesNotExist:
+            messages.error(request, 'Procedimento invalido.')
+            return redirect('shivazen:lista_espera_publica')
+
+        profissional = None
+        if profissional_id:
+            try:
+                profissional = Profissional.objects.get(pk=profissional_id, ativo=True)
+            except Profissional.DoesNotExist:
+                profissional = None
+
+        try:
+            data_obj = datetime.strptime(data_desejada, '%Y-%m-%d').date()
+        except ValueError:
+            messages.error(request, 'Data invalida.')
+            return redirect('shivazen:lista_espera_publica')
+
+        if data_obj < timezone.now().date():
+            messages.error(request, 'Escolha uma data futura.')
+            return redirect('shivazen:lista_espera_publica')
+
+        if turno and turno not in {'MANHA', 'TARDE', 'NOITE'}:
+            turno = None
+
+        cliente, _created = Cliente.objects.get_or_create(
+            telefone=telefone,
+            defaults={'nome_completo': nome, 'ativo': True},
+        )
+        if not _created and cliente.nome_completo != nome and nome:
+            cliente.nome_completo = nome
+            cliente.save(update_fields=['nome_completo'])
+
+        ja_inscrito = ListaEspera.objects.filter(
+            cliente=cliente,
+            procedimento=procedimento,
+            data_desejada=data_obj,
+            notificado=False,
+        ).exists()
+
+        if ja_inscrito:
+            messages.info(
+                request,
+                'Voce ja esta na lista de espera para este procedimento e data.'
+            )
+            return redirect('shivazen:lista_espera_sucesso')
+
+        ListaEspera.objects.create(
+            cliente=cliente,
+            procedimento=procedimento,
+            profissional_desejado=profissional,
+            data_desejada=data_obj,
+            turno_desejado=turno,
+        )
+
+        return redirect('shivazen:lista_espera_sucesso')
+
+    context = {
+        'procedimentos': procedimentos,
+        'profissionais': profissionais,
+        'turnos': [('MANHA', 'Manha'), ('TARDE', 'Tarde'), ('NOITE', 'Noite')],
+        'data_minima': timezone.now().date().isoformat(),
+    }
+    return render(request, 'publico/lista_espera.html', context)
+
+
+def lista_espera_sucesso(request):
+    """Confirmacao de inscricao na lista de espera."""
+    return render(request, 'publico/lista_espera_sucesso.html')
 
 
 def servico_detalhe(request, slug):

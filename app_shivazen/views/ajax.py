@@ -27,13 +27,17 @@ def buscar_horarios(request):
     prof_id = request.GET.get('profissional_id')
     data_str = request.GET.get('data')
     if not prof_id or not data_str:
-        return JsonResponse({'horarios': []})
+        return JsonResponse({'error': 'Parâmetros obrigatórios: profissional_id, data'}, status=400)
+
+    try:
+        data = datetime.strptime(data_str, '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({'error': 'Data inválida. Use YYYY-MM-DD.'}, status=400)
 
     try:
         profissional = Profissional.objects.get(pk=prof_id, ativo=True)
-        data = datetime.strptime(data_str, '%Y-%m-%d').date()
-    except (Profissional.DoesNotExist, ValueError):
-        return JsonResponse({'horarios': []})
+    except Profissional.DoesNotExist:
+        return JsonResponse({'error': 'Profissional não encontrado'}, status=404)
 
     horarios = profissional.get_horarios_disponiveis(data)
     return JsonResponse({'horarios': horarios})

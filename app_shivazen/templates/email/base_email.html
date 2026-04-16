@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f5f3ee;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f3ee;padding:40px 0;">
+<tr><td align="center">
+<table width="520" cellpadding="0" cellspacing="0" style="background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+
+<!-- Header -->
+<tr><td style="background:linear-gradient(135deg,#2C2C2C,#4a3728,#6D4C41);padding:32px 40px;text-align:center;">
+<h1 style="color:white;margin:0;font-size:24px;font-weight:700;">{{ clinic_name }}</h1>
+</td></tr>
+
+<!-- Content -->
+<tr><td style="padding:40px;">
+{% block content %}{% endblock %}
+</td></tr>
+
+<!-- Footer -->
+<tr><td style="background:#fafaf8;padding:24px 40px;text-align:center;border-top:1px solid #f0ede8;">
+<p style="margin:0;color:#999;font-size:12px;">
+{{ clinic_name }}<br>
+Este e um email automatico, nao responda.
+</p>
+</td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>

@@ -1,5 +1,10 @@
 """Audit logging helper for Shivazen admin actions."""
+import logging
+import sys
+
 from ..models import LogAuditoria
+
+logger = logging.getLogger(__name__)
 
 
 def registrar_log(usuario, acao, tabela=None, id_registro=None, detalhes=None):
@@ -21,6 +26,6 @@ def registrar_log(usuario, acao, tabela=None, id_registro=None, detalhes=None):
             id_registro_afetado=id_registro,
             detalhes=detalhes,
         )
-    except Exception:
-        # Falha silenciosa — logging não deve quebrar a operação principal
-        pass
+    except Exception as e:
+        # Nao propagar — audit log nunca deve quebrar a operacao principal
+        logger.warning('registrar_log falhou: %s | acao=%s tabela=%s id=%s', e, acao, tabela, id_registro)

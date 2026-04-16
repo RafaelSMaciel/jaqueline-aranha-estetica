@@ -1,7 +1,7 @@
-{% extends 'estrutura/base.html' %}
+﻿{% extends 'estrutura/base.html' %}
 {% load static %}
 
-{% block titulo %}Depoimentos | Shiva Zen{% endblock %}
+{% block titulo %}Depoimentos | {{ CLINIC_NAME }}{% endblock %}
 
 {% block conteudo %}
 <!-- ═══ HERO ═══ -->
@@ -13,7 +13,7 @@
       </div>
       <h1 class="mb-3">O Que Nossos <span class="highlight">Clientes</span> Dizem</h1>
       <p class="hero-description">
-        Histórias reais de quem já viveu a experiência Shiva Zen.
+        Histórias reais de quem já viveu a experiência {{ CLINIC_NAME }}.
         Depoimentos coletados através da nossa pesquisa de satisfação.
       </p>
     </div>

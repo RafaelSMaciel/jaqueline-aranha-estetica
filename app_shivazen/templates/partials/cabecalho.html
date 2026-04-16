@@ -1,9 +1,9 @@
-{% load static %}
+﻿{% load static %}
 <header class="header-container fixed-top border-0" style="border-radius: 0 0 16px 16px;" role="banner">
     <div class="container d-flex align-items-center justify-content-between py-2">
         <div class="logo">
-            <a href="{% url 'shivazen:inicio' %}" aria-label="Página inicial Shiva Zen">
-                <img src="{% static 'assets/LogoSemFundo.png' %}" alt="Logo Shiva Zen" class="img-fluid header-logo">
+            <a href="{% url 'shivazen:inicio' %}" aria-label="Página inicial {{ CLINIC_NAME }}">
+                <img src="{% static 'assets/LogoSemFundo.png' %}" alt="Logo {{ CLINIC_NAME }}" class="img-fluid header-logo">
             </a>
         </div>
 

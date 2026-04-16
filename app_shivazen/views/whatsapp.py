@@ -3,13 +3,18 @@ import hmac
 import json
 import logging
 import os
+from datetime import timedelta
 
 from django.http import JsonResponse, HttpResponse
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django_ratelimit.decorators import ratelimit
 
 logger = logging.getLogger(__name__)
+
+# Janela para correlacionar resposta WhatsApp com Notificacao NPS enviada.
+NPS_JANELA_RESPOSTA = timedelta(days=7)
 
 WHATSAPP_APP_SECRET = os.environ.get('WHATSAPP_APP_SECRET', '')
 WHATSAPP_VERIFY_TOKEN = os.environ.get('WHATSAPP_VERIFY_TOKEN', '')
@@ -59,20 +64,42 @@ def whatsapp_webhook(request):
 
         # Processar resposta NPS (escala 0-10)
         if mensagem.strip().isdigit() and 0 <= int(mensagem.strip()) <= 10:
-            from ..models import AvaliacaoNPS, Cliente
+            from django.db.models import Q as _Q
+            from ..models import AvaliacaoNPS, Notificacao
             nota = int(mensagem.strip())
-            cliente = Cliente.objects.filter(telefone__icontains=telefone_limpo).first()
-            if cliente:
-                avaliacao = AvaliacaoNPS.objects.filter(
-                    atendimento__cliente=cliente,
-                    nota=0
-                ).order_by('-criado_em').first()
-                if avaliacao:
-                    avaliacao.nota = nota
-                    avaliacao.save()
-                    logger.info(f'NPS registrado: cliente {cliente.pk}, nota {nota}')
+            # SEGURANCA: match exato por telefone (com e sem codigo do pais BR 55)
+            # para evitar colisao entre clientes diferentes (anti-IDOR).
+            candidatos = [telefone_limpo]
+            if telefone_limpo.startswith('55') and len(telefone_limpo) > 11:
+                candidatos.append(telefone_limpo[2:])  # sem codigo do pais
+            elif len(telefone_limpo) <= 11:
+                candidatos.append('55' + telefone_limpo)  # com codigo do pais
+            notif = (
+                Notificacao.objects
+                .filter(
+                    tipo='NPS',
+                    canal='WHATSAPP',
+                    status_envio='ENVIADO',
+                    criado_em__gte=timezone.now() - NPS_JANELA_RESPOSTA,
+                    atendimento__cliente__telefone__in=candidatos,
+                )
+                .select_related('atendimento')
+                .order_by('-criado_em')
+                .first()
+            )
+            if notif:
+                avaliacao, criada = AvaliacaoNPS.objects.get_or_create(
+                    atendimento=notif.atendimento,
+                    defaults={'nota': nota},
+                )
+                if criada:
+                    logger.info(
+                        'NPS registrado via WhatsApp: atendimento=%s nota=%s',
+                        notif.atendimento_id, nota,
+                    )
 
-        logger.info(f'WhatsApp webhook: mensagem de ***{telefone_limpo[-4:] if len(telefone_limpo) > 4 else "????"}')
+        from ..utils.precos import mask_telefone
+        logger.info('WhatsApp webhook: mensagem de %s', mask_telefone(telefone_limpo))
 
         return JsonResponse({'status': 'ok'})
 

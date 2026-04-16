@@ -1,7 +1,7 @@
-{% extends 'estrutura/base.html' %}
+﻿{% extends 'estrutura/base.html' %}
 {% load static %}
 
-{% block titulo %}Shiva Zen — Clínica de Estética Avançada{% endblock %}
+{% block titulo %}{{ CLINIC_NAME }} — Clínica de Estética Avançada{% endblock %}
 
 {% block conteudo %}
 <!-- ═══ HERO ═══ -->
@@ -14,7 +14,7 @@
             Excelência em <span class="highlight">Estética</span> com Cuidado e Bem-Estar
           </h1>
           <p class="hero-description" data-aos="fade-right" data-aos-delay="400">
-            Na Shiva Zen, unimos tecnologia avançada e atendimento humanizado para proporcionar experiências únicas de cuidado e beleza. Nossa clínica oferece tratamentos faciais e corporais personalizados para realçar sua autoestima.
+            Na {{ CLINIC_NAME }}, unimos tecnologia avançada e atendimento humanizado para proporcionar experiências únicas de cuidado e beleza. Nossa clínica oferece tratamentos faciais e corporais personalizados para realçar sua autoestima.
           </p>
           <div class="hero-stats mb-4" data-aos="fade-right" data-aos-delay="500">
             <div class="stat-item">
@@ -49,7 +49,7 @@
       <div class="col-lg-6">
         <div class="hero-visual" data-aos="fade-left" data-aos-delay="400">
           <div class="main-image">
-            <img src="{% static 'assets/template_img/health/staff-10.webp' %}" alt="Clínica Shiva Zen" class="img-fluid">
+            <img src="{% static 'assets/template_img/health/staff-10.webp' %}" alt="Clínica {{ CLINIC_NAME }}" class="img-fluid">
             <div class="floating-card appointment-card">
               <div class="card-icon">
                 <i class="bi bi-calendar-check"></i>
@@ -92,7 +92,7 @@
       <div class="col-lg-6 mb-5 mb-lg-0" data-aos="fade-right" data-aos-delay="200">
         <div class="about-content">
           <h2 class="section-heading">Cuidado Humanizado, Tecnologia Avançada</h2>
-          <p class="lead-text">Na Shiva Zen, unimos ciência e cuidado em um ambiente acolhedor. Nossa biomédica esteta traz experiência e dedicação para cada procedimento, garantindo resultados naturais e seguros.</p>
+          <p class="lead-text">Na {{ CLINIC_NAME }}, unimos ciência e cuidado em um ambiente acolhedor. Nossa biomédica esteta traz experiência e dedicação para cada procedimento, garantindo resultados naturais e seguros.</p>
           <p>Nossa equipe trabalha em colaboração para garantir que cada cliente receba um atendimento completo e personalizado às suas necessidades únicas. Dos serviços preventivos aos procedimentos mais avançados, mantemos os mais altos padrões de excelência em estética.</p>
           <div class="stats-grid">
             <div class="stat-item">
@@ -113,7 +113,7 @@
       <div class="col-lg-6" data-aos="fade-left" data-aos-delay="300">
         <div class="about-visual">
           <div class="main-image">
-            <img src="{% static 'assets/hero_about.png' %}" alt="Espaço Shiva Zen" class="img-fluid">
+            <img src="{% static 'assets/hero_about.png' %}" alt="Espaço {{ CLINIC_NAME }}" class="img-fluid">
           </div>
           <div class="floating-card">
             <div class="card-content">
@@ -142,7 +142,7 @@
 <section id="featured-departments" class="featured-departments section">
   <div class="container section-title" data-aos="fade-up">
     <h2>Nossas Especialidades</h2>
-    <p>Conheça as principais áreas de atuação da Shiva Zen</p>
+    <p>Conheça as principais áreas de atuação da {{ CLINIC_NAME }}</p>
   </div>
 
   <div class="container" data-aos="fade-up" data-aos-delay="100">
@@ -274,7 +274,7 @@
 <section id="featured-services" class="featured-services section">
   <div class="container section-title" data-aos="fade-up">
     <h2>Serviços em Destaque</h2>
-    <p>Conheça os procedimentos mais procurados da Shiva Zen</p>
+    <p>Conheça os procedimentos mais procurados da {{ CLINIC_NAME }}</p>
   </div>
 
   <div class="container" data-aos="fade-up" data-aos-delay="100">
@@ -293,7 +293,7 @@
           </div>
           <div class="service-details">
             <h2>Excelência em Procedimentos Estéticos</h2>
-            <p>Na Shiva Zen, cada procedimento é realizado com rigor técnico e atenção aos detalhes, garantindo resultados naturais e satisfatórios. Nossa estrutura foi pensada para oferecer conforto e segurança em todas as etapas do seu tratamento.</p>
+            <p>Na {{ CLINIC_NAME }}, cada procedimento é realizado com rigor técnico e atenção aos detalhes, garantindo resultados naturais e satisfatórios. Nossa estrutura foi pensada para oferecer conforto e segurança em todas as etapas do seu tratamento.</p>
             <a href="{% url 'shivazen:servicos_faciais' %}" class="main-cta">Conheça Nossos Serviços</a>
           </div>
         </div>
@@ -349,7 +349,7 @@
         <div class="col-lg-6">
           <div class="content-wrapper" data-aos="fade-up" data-aos-delay="200">
             <h1>Excelência em Estética, Todos os Dias</h1>
-            <p>Na Shiva Zen, cada detalhe é pensado para proporcionar a melhor experiência em cuidados estéticos. Agende sua avaliação e descubra como podemos realçar sua beleza natural.</p>
+            <p>Na {{ CLINIC_NAME }}, cada detalhe é pensado para proporcionar a melhor experiência em cuidados estéticos. Agende sua avaliação e descubra como podemos realçar sua beleza natural.</p>
             <div class="cta-wrapper">
               <a href="{% url 'shivazen:agendamento_publico' %}" class="primary-cta">
                 <span>Agende sua Avaliação</span>
@@ -365,7 +365,7 @@
 
         <div class="col-lg-6">
           <div class="image-container" data-aos="fade-left" data-aos-delay="300">
-            <img src="{% static 'assets/template_img/health/facilities-9.webp' %}" alt="Shiva Zen" class="img-fluid">
+            <img src="{% static 'assets/template_img/health/facilities-9.webp' %}" alt="{{ CLINIC_NAME }}" class="img-fluid">
           </div>
         </div>
       </div>

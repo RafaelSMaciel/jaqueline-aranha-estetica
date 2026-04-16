@@ -1,5 +1,6 @@
 # app_shivazen/urls.py
 from django.urls import path
+from django.views.generic import TemplateView
 from . import views
 
 app_name = 'shivazen'
@@ -33,8 +34,15 @@ urlpatterns = [
     # ─── Confirmação de Presença (link público via WhatsApp) ───
     path('confirmar/<str:token>/', views.confirmar_presenca, name='confirmar_presenca'),
 
+    # ─── Reagendamento Público (link via WhatsApp / meus-agendamentos) ───
+    path('reagendar/<str:token>/', views.reagendar_agendamento, name='reagendar_agendamento'),
+
     # ─── Meus Agendamentos (via celular) ───
     path('meus-agendamentos/', views.meus_agendamentos, name='meus_agendamentos'),
+
+    # ─── Lista de Espera (público) ───
+    path('lista-espera/', views.lista_espera_publica, name='lista_espera_publica'),
+    path('lista-espera/sucesso/', views.lista_espera_sucesso, name='lista_espera_sucesso'),
 
     # ─── Admin Login (URL oculta) ───
     path('admin-login/', views.usuarioLogin, name='usuarioLogin'),
@@ -121,10 +129,17 @@ urlpatterns = [
     path('ajax/cancelar-agendamento/', views.cancelar_agendamento, name='cancelar_agendamento'),
 
 
+    # ─── Portal do Profissional ───
+    path('profissional/', views.profissional_agenda, name='profissional_agenda'),
+    path('profissional/atendimento/<int:pk>/realizado/', views.profissional_marcar_realizado, name='profissional_marcar_realizado'),
+    path('profissional/atendimento/<int:pk>/anotar/', views.profissional_anotar, name='profissional_anotar'),
+
+    # ─── Healthcheck ───
+    path('health/', views.healthcheck, name='healthcheck'),
+
     # ─── WhatsApp Bot API ───
     path('api/whatsapp/webhook/', views.whatsapp_webhook, name='whatsapp_webhook'),
-    path('api/whatsapp/verify/', views.whatsapp_webhook_verify, name='whatsapp_webhook_verify'),
-
-    # ─── Setup (seed via URL, protegido por token) ───
-    path('setup-seed/', views.setup_seed, name='setup_seed'),
+    # ─── PWA (Admin) ───
+    path('manifest.json', TemplateView.as_view(template_name='pwa/manifest.json', content_type='application/json'), name='manifest'),
+    path('sw.js', TemplateView.as_view(template_name='pwa/sw.js', content_type='application/javascript'), name='sw'),
 ]

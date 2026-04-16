@@ -1,0 +1,13 @@
+{% extends "email/base_email.html" %}
+{% block content %}
+<p style="color:#4A3425;font-size:16px;margin:0 0 8px;">Ola, {{ dados.nome }}!</p>
+<p style="color:#666;font-size:15px;margin:0 0 24px;">Seu pacote <strong>{{ dados.pacote }}</strong> expira em <strong>{{ dados.dias }} dia(s)</strong>.</p>
+
+<div style="background:#fff8e1;border:2px solid #ffc107;border-radius:16px;padding:24px;text-align:center;margin:0 0 24px;">
+<p style="margin:0 0 4px;font-size:14px;color:#999;">Sessoes restantes</p>
+<p style="margin:0;font-size:32px;font-weight:800;color:#4A3425;">{{ dados.sessoes_restantes }}</p>
+</div>
+
+<p style="color:#666;font-size:14px;margin:0 0 16px;">Agende agora para nao perder:</p>
+<a href="{{ site_url }}/agendamento/" style="display:inline-block;background:#C9A84C;color:white;padding:12px 32px;border-radius:50px;text-decoration:none;font-weight:700;font-size:14px;">Agendar Sessao</a>
+{% endblock %}

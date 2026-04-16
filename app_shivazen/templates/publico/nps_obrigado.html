@@ -1,4 +1,4 @@
-{% extends 'estrutura/base.html' %}
+﻿{% extends 'estrutura/base.html' %}
 
 {% block css %}
 <style>
@@ -28,7 +28,7 @@
 
     <div class="obrigado-title">Obrigado, {{ cliente.nome_completo|truncatewords:2 }}!</div>
     <div class="obrigado-msg">
-        Sua avaliacao e muito importante para a Shiva Zen.<br>
+        Sua avaliacao e muito importante para a {{ CLINIC_NAME }}.<br>
         Usamos seu feedback para melhorar continuamente nossos servicos.
     </div>
 </div>
