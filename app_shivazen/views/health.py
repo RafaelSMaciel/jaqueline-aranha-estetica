@@ -1,5 +1,6 @@
 """Healthcheck endpoint para monitoramento."""
 import logging
+
 from django.db import connection
 from django.http import JsonResponse
 from django.utils import timezone

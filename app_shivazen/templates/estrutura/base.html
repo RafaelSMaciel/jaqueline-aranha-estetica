@@ -1,31 +1,13 @@
-﻿<!doctype html>
+{% load static %}
+<!doctype html>
 <html lang="pt-br">
 
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block titulo %}{{ CLINIC_NAME }} - Clínica de Estética Avançada{% endblock %}</title>
-    <meta name="description" content="{% block meta_description %}{{ CLINIC_NAME }} — Clínica de Estética Avançada. Tratamentos faciais, corporais e capilares. Agende online!{% endblock %}">
-    <meta name="robots" content="index, follow">
-    <link rel="canonical" href="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}">
-
-    <!-- Open Graph -->
-    <meta property="og:title" content="{% block og_title %}{{ CLINIC_NAME }} - Clínica de Estética Avançada{% endblock %}">
-    <meta property="og:description" content="{% block og_description %}Tratamentos estéticos avançados com profissionais especializados. Agende online!{% endblock %}">
-    <meta property="og:type" content="website">
-    <meta property="og:locale" content="pt_BR">
-    <meta property="og:url" content="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}">
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap"
-        rel="stylesheet">
     {% include 'partials/head.html' %}
     {% block css %}{% endblock %}
 </head>
 
-<body class="index-page">
+<body class="{% block body_class %}index-page{% endblock %}">
     {% include 'partials/cabecalho.html' %}
 
     <!-- Django Messages (hidden, consumed by toast system) -->
@@ -37,21 +19,18 @@
     </div>
     {% endif %}
 
-    <main class="main-content">
+    <main class="main">
         {% block conteudo %}
         {% endblock %}
     </main>
 
     {% include 'partials/rodape.html' %}
     {% include 'partials/toasts.html' %}
-    {% include 'partials/mobile_nav.html' %}
 
+    <!-- Vendor JS Files -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
-    <!-- Vendor JS (Template) -->
-    {% load static %}
     <script src="{% static 'vendor/aos/aos.js' %}"></script>
     <script src="{% static 'vendor/glightbox/js/glightbox.min.js' %}"></script>
     <script src="{% static 'vendor/purecounter/purecounter_vanilla.js' %}"></script>

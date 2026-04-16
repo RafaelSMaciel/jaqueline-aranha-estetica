@@ -13,14 +13,19 @@ from .factories import (
 
 
 def _criar_staff(username='admin_test', password='senha123'):
-    u = Usuario.objects.create_user(username=username, password=password)
-    u.is_staff = True
-    u.save()
+    from app_shivazen.models import Perfil
+    perfil_admin, _ = Perfil.objects.get_or_create(
+        nome='Administrador',
+        defaults={'descricao': 'Acesso total ao sistema'},
+    )
+    u = Usuario.objects.create_user(email=f'{username}@test.com', password=password)
+    u.perfil = perfil_admin
+    u.save(update_fields=['perfil_id'])
     return u
 
 
 def _criar_usuario_comum(username='user_test', password='senha123'):
-    return Usuario.objects.create_user(username=username, password=password)
+    return Usuario.objects.create_user(email=f'{username}@test.com', password=password)
 
 
 class StaffRequiredTests(TestCase):

@@ -1,68 +1,105 @@
-﻿{% extends 'estrutura/baserodape.html' %}
+{% extends 'estrutura/base.html' %}
 {% load static %}
 
+{% block body_class %}terms-page{% endblock %}
+{% block titulo %}Termos de Uso | {{ CLINIC_NAME }}{% endblock %}
+
 {% block conteudo %}
-<section class="position-relative text-white text-center d-flex align-items-center justify-content-center" style="background: linear-gradient(135deg, #2C2C2C 0%, #4a3728 100%); min-height: 35vh;">
-    <div class="container fade-in py-5">
-        <a href="{% url 'shivazen:inicio' %}">
-            <img src="{% static 'assets/LogoCompletaSemFundo.png' %}" alt="{{ CLINIC_NAME }}" style="max-height:80px; filter: brightness(2);" class="mb-4">
-        </a>
-        <h1 class="display-5 fw-bold mb-2 text-white" style="font-family:'Playfair Display',serif;">Termos de Uso</h1>
-        <div class="mx-auto" style="width:60px;height:2px;background:var(--primary);"></div>
+<!-- Terms Section -->
+<section id="terms" class="terms-of-service section pt-5 mt-4">
+  <div class="container" data-aos="fade-up">
+
+    <!-- Header -->
+    <div class="tos-header" data-aos="fade-up">
+      <div class="last-updated">Última atualização: Abril de 2026</div>
+      <h2>Termos de Uso</h2>
+      <p>Ao acessar e utilizar o sistema de agendamento online da {{ CLINIC_NAME }} Clínica de Estética ("Clínica"), você concorda integralmente com estes Termos de Uso.</p>
     </div>
+
+    <!-- Main Content -->
+    <div class="tos-content" data-aos="fade-up" data-aos-delay="200">
+
+      <div class="content-section">
+        <h3>1. Aceitação dos Termos</h3>
+        <p>Ao acessar e utilizar o sistema de agendamento online da {{ CLINIC_NAME }} Clínica de Estética ("Clínica"), você concorda integralmente com estes Termos de Uso. Caso não concorde com alguma das condições descritas, solicitamos que não utilize nossos serviços digitais.</p>
+      </div>
+
+      <div class="content-section">
+        <h3>2. Descrição dos Serviços</h3>
+        <p>A {{ CLINIC_NAME }} oferece, por meio desta plataforma, os seguintes serviços digitais:</p>
+        <ul class="list-items">
+          <li>Agendamento online de procedimentos estéticos;</li>
+          <li>Consulta e gerenciamento de agendamentos existentes;</li>
+          <li>Confirmação e cancelamento de consultas via link;</li>
+          <li>Recebimento de lembretes e notificações via e-mail e WhatsApp;</li>
+          <li>Pesquisa de satisfação (NPS) após atendimento.</li>
+        </ul>
+      </div>
+
+      <div class="content-section">
+        <h3>3. Cadastro e Dados do Usuário</h3>
+        <p>Para utilizar os serviços de agendamento, o usuário deverá fornecer dados pessoais como nome completo, telefone celular e, opcionalmente, e-mail e data de nascimento. O usuário se compromete a fornecer informações verdadeiras e atualizadas.</p>
+      </div>
+
+      <div class="content-section">
+        <h3>4. Verificação de Identidade</h3>
+        <p>A verificação de identidade do cliente é realizada por meio de código de 6 dígitos enviado ao e-mail cadastrado. Este código possui validade limitada e não deve ser compartilhado com terceiros.</p>
+      </div>
+
+      <div class="content-section">
+        <h3>5. Agendamentos e Cancelamentos</h3>
+        <p>Os agendamentos estão sujeitos à disponibilidade de horários e profissionais. O cancelamento pode ser realizado através do link seguro enviado por e-mail ou pela área de "Meus Agendamentos" no site.</p>
+        <div class="alert-box">
+          <i class="bi bi-exclamation-triangle"></i>
+          <div class="alert-content">
+            <h5>Política de faltas</h5>
+            <p>O acúmulo de 3 (três) faltas consecutivas sem aviso prévio poderá resultar no bloqueio temporário para novos agendamentos, até que a situação seja regularizada junto à recepção.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="content-section">
+        <h3>6. Procedimentos Estéticos</h3>
+        <p>Determinados procedimentos podem exigir a assinatura de termo de consentimento informado antes da realização, conforme legislação vigente. A Clínica se reserva o direito de recusar a realização de procedimentos quando identificar contraindicações na ficha de anamnese do cliente.</p>
+      </div>
+
+      <div class="content-section">
+        <h3>7. Responsabilidades do Usuário</h3>
+        <p>O usuário se compromete a:</p>
+        <ul class="list-items">
+          <li>Comparecer aos agendamentos nos horários marcados ou cancelar com antecedência;</li>
+          <li>Informar corretamente seu histórico de saúde, alergias e medicamentos em uso;</li>
+          <li>Não utilizar a plataforma para fins ilícitos ou que prejudiquem terceiros;</li>
+          <li>Manter a segurança de seus códigos de verificação e links pessoais.</li>
+        </ul>
+      </div>
+
+      <div class="content-section">
+        <h3>8. Propriedade Intelectual</h3>
+        <p>Todo o conteúdo deste site, incluindo textos, imagens, logotipos, layout e software, é propriedade da {{ CLINIC_NAME }} ou de seus licenciadores, sendo protegido pela legislação de propriedade intelectual brasileira.</p>
+      </div>
+
+      <div class="content-section">
+        <h3>9. Limitação de Responsabilidade</h3>
+        <p>A Clínica não se responsabiliza por interrupções no serviço decorrentes de fatores externos, como falhas de internet, indisponibilidade de APIs de terceiros (WhatsApp Business, provedores de hospedagem) ou força maior.</p>
+      </div>
+
+      <div class="content-section">
+        <h3>10. Alterações nos Termos</h3>
+        <p>A {{ CLINIC_NAME }} reserva-se o direito de modificar estes Termos de Uso a qualquer momento. Alterações significativas serão comunicadas por meio da plataforma. O uso continuado dos serviços após a publicação das alterações constitui aceitação dos novos termos.</p>
+      </div>
+
+      <div class="content-section">
+        <h3>11. Foro</h3>
+        <p>Para a resolução de quaisquer controvérsias oriundas destes Termos, fica eleito o foro da Comarca de São José do Rio Preto - SP, com exclusão de qualquer outro, por mais privilegiado que seja.</p>
+      </div>
+
+      <div class="content-section">
+        <h3>12. Contato</h3>
+        <p>Para dúvidas sobre estes Termos de Uso, entre em contato através dos canais disponíveis na <a href="{% url 'shivazen:agendaContato' %}">página de contato</a> do site ou via WhatsApp da Clínica.</p>
+      </div>
+
+    </div>
+  </div>
 </section>
-
-<div class="container py-5">
-    <p class="text-muted mb-4"><em>Ultima atualizacao: Abril de 2026</em></p>
-
-    <h4>1. Aceitacao dos Termos</h4>
-    <p>Ao acessar e utilizar o sistema de agendamento online da {{ CLINIC_NAME }} Clinica de Estetica ("Clinica"), voce concorda integralmente com estes Termos de Uso. Caso nao concorde com alguma das condicoes descritas, solicitamos que nao utilize nossos servicos digitais.</p>
-
-    <h4>2. Descricao dos Servicos</h4>
-    <p>A {{ CLINIC_NAME }} oferece, por meio desta plataforma, os seguintes servicos digitais:</p>
-    <ul>
-        <li>Agendamento online de procedimentos esteticos;</li>
-        <li>Consulta e gerenciamento de agendamentos existentes;</li>
-        <li>Confirmacao e cancelamento de consultas via link;</li>
-        <li>Recebimento de lembretes e notificacoes via WhatsApp;</li>
-        <li>Pesquisa de satisfacao (NPS) apos atendimento.</li>
-    </ul>
-
-    <h4>3. Cadastro e Dados do Usuario</h4>
-    <p>Para utilizar os servicos de agendamento, o usuario devera fornecer dados pessoais como nome completo, telefone celular e, opcionalmente, e-mail e data de nascimento. O usuario se compromete a fornecer informacoes verdadeiras e atualizadas.</p>
-
-    <h4>4. Verificacao de Identidade</h4>
-    <p>A verificacao de identidade do cliente e realizada por meio de codigo de 6 digitos enviado ao telefone cadastrado. Este codigo possui validade limitada e nao deve ser compartilhado com terceiros.</p>
-
-    <h4>5. Agendamentos e Cancelamentos</h4>
-    <p>Os agendamentos estao sujeitos a disponibilidade de horarios e profissionais. O cancelamento pode ser realizado atraves do link seguro enviado por WhatsApp ou pela area de "Meus Agendamentos" no site.</p>
-    <p><strong>Politica de faltas:</strong> O acumulo de 3 (tres) faltas consecutivas sem aviso previo podera resultar no bloqueio temporario para novos agendamentos, ate que a situacao seja regularizada junto a recepcao.</p>
-
-    <h4>6. Procedimentos Esteticos</h4>
-    <p>Determinados procedimentos podem exigir a assinatura de termo de consentimento informado antes da realizacao, conforme legislacao vigente. A Clinica se reserva o direito de recusar a realizacao de procedimentos quando identificar contraindicacoes na ficha de anamnese do cliente.</p>
-
-    <h4>7. Responsabilidades do Usuario</h4>
-    <p>O usuario se compromete a:</p>
-    <ul>
-        <li>Comparecer aos agendamentos nos horarios marcados ou cancelar com antecedencia;</li>
-        <li>Informar corretamente seu historico de saude, alergias e medicamentos em uso;</li>
-        <li>Nao utilizar a plataforma para fins ilicitos ou que prejudiquem terceiros;</li>
-        <li>Manter a seguranca de seus codigos de verificacao e links pessoais.</li>
-    </ul>
-
-    <h4>8. Propriedade Intelectual</h4>
-    <p>Todo o conteudo deste site, incluindo textos, imagens, logotipos, layout e software, e propriedade da {{ CLINIC_NAME }} ou de seus licenciadores, sendo protegido pela legislacao de propriedade intelectual brasileira.</p>
-
-    <h4>9. Limitacao de Responsabilidade</h4>
-    <p>A Clinica nao se responsabiliza por interrupcoes no servico decorrentes de fatores externos, como falhas de internet, indisponibilidade de APIs de terceiros (WhatsApp Business, provedores de hospedagem) ou forca maior.</p>
-
-    <h4>10. Alteracoes nos Termos</h4>
-    <p>A {{ CLINIC_NAME }} reserva-se o direito de modificar estes Termos de Uso a qualquer momento. Alteracoes significativas serao comunicadas por meio da plataforma. O uso continuado dos servicos apos a publicacao das alteracoes constitui aceitacao dos novos termos.</p>
-
-    <h4>11. Foro</h4>
-    <p>Para a resolucao de quaisquer controversias oriundas destes Termos, fica eleito o foro da Comarca de Sao Jose do Rio Preto - SP, com exclusao de qualquer outro, por mais privilegiado que seja.</p>
-
-    <h4>12. Contato</h4>
-    <p>Para duvidas sobre estes Termos de Uso, entre em contato atraves dos canais disponiveis na pagina de contato do site ou via WhatsApp da Clinica.</p>
-</div>
 {% endblock %}

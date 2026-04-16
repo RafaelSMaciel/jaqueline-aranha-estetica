@@ -1,16 +1,20 @@
 """Views para gestao de pacotes (CRUD admin + venda)."""
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib import messages
-from django.db.models import Count, Sum
-from django.utils import timezone
-from datetime import timedelta
 import logging
+from datetime import timedelta
 
-from ..models import (
-    Pacote, ItemPacote, PacoteCliente, SessaoPacote,
-    Cliente, Procedimento,
-)
+from django.contrib import messages
+from django.db.models import Count
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+
 from ..decorators import staff_required
+from ..models import (
+    Cliente,
+    ItemPacote,
+    Pacote,
+    PacoteCliente,
+    Procedimento,
+)
 from ..utils.audit import registrar_log
 
 logger = logging.getLogger(__name__)

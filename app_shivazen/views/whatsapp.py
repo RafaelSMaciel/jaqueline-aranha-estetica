@@ -5,11 +5,14 @@ import logging
 import os
 from datetime import timedelta
 
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django_ratelimit.decorators import ratelimit
+
+from ..models import AvaliacaoNPS, Notificacao
+from ..utils.precos import mask_telefone
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +20,6 @@ logger = logging.getLogger(__name__)
 NPS_JANELA_RESPOSTA = timedelta(days=7)
 
 WHATSAPP_APP_SECRET = os.environ.get('WHATSAPP_APP_SECRET', '')
-WHATSAPP_VERIFY_TOKEN = os.environ.get('WHATSAPP_VERIFY_TOKEN', '')
 
 
 def _verify_signature(request):
@@ -64,8 +66,6 @@ def whatsapp_webhook(request):
 
         # Processar resposta NPS (escala 0-10)
         if mensagem.strip().isdigit() and 0 <= int(mensagem.strip()) <= 10:
-            from django.db.models import Q as _Q
-            from ..models import AvaliacaoNPS, Notificacao
             nota = int(mensagem.strip())
             # SEGURANCA: match exato por telefone (com e sem codigo do pais BR 55)
             # para evitar colisao entre clientes diferentes (anti-IDOR).
@@ -98,7 +98,6 @@ def whatsapp_webhook(request):
                         notif.atendimento_id, nota,
                     )
 
-        from ..utils.precos import mask_telefone
         logger.info('WhatsApp webhook: mensagem de %s', mask_telefone(telefone_limpo))
 
         return JsonResponse({'status': 'ok'})
@@ -109,22 +108,3 @@ def whatsapp_webhook(request):
         logger.error(f'Erro no webhook WhatsApp: {e}', exc_info=True)
         return JsonResponse({'error': 'Erro interno'}, status=500)
 
-
-@csrf_exempt
-@require_http_methods(["GET"])
-def whatsapp_webhook_verify(request):
-    """
-    Verificacao de webhook (handshake) -- Meta Business API.
-    """
-    mode = request.GET.get('hub.mode', '')
-    token = request.GET.get('hub.verify_token', '')
-    challenge = request.GET.get('hub.challenge', '')
-
-    if not WHATSAPP_VERIFY_TOKEN:
-        logger.error('WHATSAPP_VERIFY_TOKEN nao configurado')
-        return JsonResponse({'error': 'Token nao configurado'}, status=500)
-
-    if mode == 'subscribe' and token == WHATSAPP_VERIFY_TOKEN:
-        return HttpResponse(challenge, content_type='text/plain')
-
-    return JsonResponse({'error': 'Verificacao falhou'}, status=403)

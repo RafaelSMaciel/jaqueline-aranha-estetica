@@ -12,20 +12,34 @@ from .public import (
 from .services import servicos_faciais, servicos_corporais, servicos_produtos
 from .ajax import buscar_procedimentos, buscar_horarios
 from .admin import (
-    prontuarioconsentimento, profissionalCadastro, profissionalEditar,
-    admin_promocoes, admin_criar_promocao, admin_editar_promocao, admin_excluir_promocao,
+    prontuarioconsentimento,
     admin_auditoria, admin_atualizar_status,
+)
+from .admin_professional import (
+    profissionalCadastro,
+    profissionalEditar,
+)
+from .admin_promotions import (
+    admin_criar_promocao,
+    admin_editar_promocao,
+    admin_excluir_promocao,
+    admin_promocoes,
 )
 from .dashboard import (
     painel, painel_overview, painel_agendamentos, painel_clientes,
     painel_profissionais, exportar_relatorio_excel,
 )
 from .booking import (
-    agendamento_publico, api_horarios_disponiveis, confirmar_agendamento,
-    agendamento_sucesso, meus_agendamentos, verificar_telefone,
-    api_dias_disponiveis, cancelar_agendamento, reagendar_agendamento,
+    agendamento_publico, confirmar_agendamento,
+    agendamento_sucesso, meus_agendamentos, reagendar_agendamento,
 )
-from .whatsapp import whatsapp_webhook, whatsapp_webhook_verify
+from .booking_api import (
+    api_dias_disponiveis,
+    api_horarios_disponiveis,
+    cancelar_agendamento,
+    verificar_telefone,
+)
+from .whatsapp import whatsapp_webhook
 from .notificacoes import confirmar_presenca, painel_notificacoes, admin_cancelar_agendamento
 from .prontuario import prontuario_detalhe, prontuario_salvar, anotacao_sessao_salvar
 from .pacotes import admin_pacotes, admin_criar_pacote, admin_editar_pacote, admin_vender_pacote

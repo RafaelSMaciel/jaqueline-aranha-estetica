@@ -238,6 +238,7 @@ class AvaliacaoNPSAdmin(admin.ModelAdmin):
     search_fields = ('atendimento__cliente__nome_completo', 'comentario')
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
+    readonly_fields = ('criado_em',)
     autocomplete_fields = ('atendimento',)
 
 
@@ -274,6 +275,7 @@ class PacoteClienteAdmin(admin.ModelAdmin):
     search_fields = ('cliente__nome_completo', 'pacote__nome')
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
+    readonly_fields = ('criado_em',)
     autocomplete_fields = ('cliente', 'pacote')
 
 

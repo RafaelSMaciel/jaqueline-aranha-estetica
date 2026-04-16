@@ -60,6 +60,9 @@ class Profissional(models.Model):
     class Meta:
         managed = True
         db_table = 'profissional'
+        indexes = [
+            models.Index(fields=['ativo'], name='idx_profissional_ativo'),
+        ]
 
     def __str__(self):
         return self.nome
@@ -243,6 +246,20 @@ class Procedimento(models.Model):
     class Meta:
         managed = True
         db_table = 'procedimento'
+        indexes = [
+            models.Index(fields=['ativo'], name='idx_procedimento_ativo'),
+            models.Index(fields=['categoria'], name='idx_procedimento_categoria'),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(duracao_minutos__gt=0),
+                name='chk_procedimento_duracao_positiva'
+            ),
+            models.CheckConstraint(
+                check=models.Q(categoria__in=['FACIAL', 'CORPORAL', 'CAPILAR', 'OUTRO']),
+                name='chk_procedimento_categoria'
+            ),
+        ]
 
     def __str__(self):
         return self.nome
@@ -282,6 +299,15 @@ class Preco(models.Model):
     class Meta:
         managed = True
         db_table = 'preco'
+        indexes = [
+            models.Index(fields=['procedimento', 'profissional', '-vigente_desde'], name='idx_preco_lookup'),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(valor__gte=0),
+                name='chk_preco_valor_positivo'
+            ),
+        ]
 
 
 class DisponibilidadeProfissional(models.Model):
@@ -313,6 +339,12 @@ class BloqueioAgenda(models.Model):
     class Meta:
         managed = True
         db_table = 'bloqueio_agenda'
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(data_hora_fim__gt=models.F('data_hora_inicio')),
+                name='chk_bloqueio_fim_maior_inicio'
+            ),
+        ]
 
     def __str__(self):
         prof = self.profissional.nome if self.profissional_id else 'Todos'
@@ -340,6 +372,15 @@ class Promocao(models.Model):
     class Meta:
         managed = True
         db_table = 'promocao'
+        indexes = [
+            models.Index(fields=['ativa', 'data_inicio', 'data_fim'], name='idx_promocao_vigente'),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(data_fim__gte=models.F('data_inicio')),
+                name='chk_promocao_data_fim_valida'
+            ),
+        ]
 
     @property
     def esta_vigente(self):
@@ -587,6 +628,10 @@ class Notificacao(models.Model):
     class Meta:
         managed = True
         db_table = 'notificacao'
+        indexes = [
+            models.Index(fields=['tipo', 'status_envio'], name='idx_notificacao_tipo_status'),
+            models.Index(fields=['-criado_em'], name='idx_notificacao_criado'),
+        ]
 
     def __str__(self):
         data_fmt = self.criado_em.strftime('%d/%m/%Y %H:%M') if self.criado_em else 's/ data'
@@ -642,6 +687,16 @@ class Pacote(models.Model):
     class Meta:
         managed = True
         db_table = 'pacote'
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(preco_total__gte=0),
+                name='chk_pacote_preco_positivo'
+            ),
+            models.CheckConstraint(
+                check=models.Q(validade_meses__gt=0),
+                name='chk_pacote_validade_positiva'
+            ),
+        ]
 
     def __str__(self):
         return self.nome
@@ -656,6 +711,12 @@ class ItemPacote(models.Model):
         managed = True
         db_table = 'item_pacote'
         unique_together = (('pacote', 'procedimento'),)
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(quantidade_sessoes__gt=0),
+                name='chk_item_pacote_qtd_positiva'
+            ),
+        ]
 
 
 class PacoteCliente(models.Model):
@@ -676,6 +737,9 @@ class PacoteCliente(models.Model):
     class Meta:
         managed = True
         db_table = 'pacote_cliente'
+        indexes = [
+            models.Index(fields=['cliente', 'status'], name='idx_pacote_cli_status'),
+        ]
         constraints = [
             models.CheckConstraint(
                 check=models.Q(status__in=['ATIVO', 'FINALIZADO', 'CANCELADO', 'EXPIRADO']),
@@ -782,6 +846,10 @@ class LogAuditoria(models.Model):
     class Meta:
         managed = True
         db_table = 'log_auditoria'
+        indexes = [
+            models.Index(fields=['tabela_afetada'], name='idx_auditoria_tabela'),
+            models.Index(fields=['-criado_em'], name='idx_auditoria_criado'),
+        ]
 
 
 class ConfiguracaoSistema(models.Model):
@@ -826,24 +894,23 @@ class CodigoVerificacao(models.Model):
         duas requests concorrentes nao conseguem consumir o mesmo codigo.
         """
         from datetime import timedelta
-        from django.db import transaction
+        from django.db import connection, transaction
         from django.utils import timezone
 
         limite = timezone.now() - timedelta(seconds=cls.TTL_SEGUNDOS)
 
         with transaction.atomic():
-            row = (
-                cls.objects
-                .select_for_update(skip_locked=True)
-                .filter(
-                    telefone=telefone,
-                    codigo=codigo,
-                    usado=False,
-                    criado_em__gte=limite,
-                )
-                .order_by('-criado_em')
-                .first()
-            )
+            qs = cls.objects.filter(
+                telefone=telefone,
+                codigo=codigo,
+                usado=False,
+                criado_em__gte=limite,
+            ).order_by('-criado_em')
+
+            if connection.vendor != 'sqlite':
+                qs = qs.select_for_update(skip_locked=True)
+
+            row = qs.first()
             if not row:
                 return False
             row.usado = True
