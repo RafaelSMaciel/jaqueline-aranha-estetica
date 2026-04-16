@@ -44,9 +44,7 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost').split(','
 RAILWAY_DOMAIN = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '')
 if RAILWAY_DOMAIN:
     ALLOWED_HOSTS.append(RAILWAY_DOMAIN)
-# Railway: aceitar qualquer subdomínio .railway.app e health checks internos
-if os.environ.get('RAILWAY_ENVIRONMENT_NAME'):
-    ALLOWED_HOSTS.extend(['.railway.app', '.up.railway.app'])
+# SEGURANCA: wildcard .railway.app removido — apenas o dominio especifico eh adicionado acima.
 
 
 # Application definition
@@ -59,6 +57,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sitemaps',
 ]
 
 MIDDLEWARE = [
@@ -105,25 +104,17 @@ if DATABASE_URL:
         'default': dj_database_url.config(default=DATABASE_URL, conn_max_age=600)
     }
 else:
-    DB_ENGINE = os.environ.get('DB_ENGINE', 'django.db.backends.sqlite3')
-    if DB_ENGINE == 'django.db.backends.sqlite3':
-        DATABASES = {
-            'default': {
-                'ENGINE': 'django.db.backends.sqlite3',
-                'NAME': BASE_DIR / 'db.sqlite3',
-            }
+    # Dev local — requer DATABASE_URL no .env ou PostgreSQL local
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('DB_NAME', 'shivazen_dev'),
+            'USER': os.environ.get('DB_USER', 'postgres'),
+            'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+            'HOST': os.environ.get('DB_HOST', 'localhost'),
+            'PORT': os.environ.get('DB_PORT', '5432'),
         }
-    else:
-        DATABASES = {
-            'default': {
-                'ENGINE': 'django.db.backends.postgresql',
-                'NAME': os.environ.get('DB_NAME', 'shivazen_prod'),
-                'USER': os.environ.get('DB_USER', 'postgres'),
-                'PASSWORD': os.environ.get('DB_PASSWORD', ''),
-                'HOST': os.environ.get('DB_HOST', 'localhost'),
-                'PORT': os.environ.get('DB_PORT', '5432'),
-            }
-        }
+    }
 
 
 # Password validation
@@ -218,9 +209,17 @@ EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@shivazen.com.br')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@clinica.com.br')
 
 # --- Logging Config ---
+_LOG_FORMATTER = 'verbose'
+if not DEBUG:
+    try:
+        import pythonjsonlogger  # noqa: F401
+        _LOG_FORMATTER = 'json'
+    except ImportError:
+        pass
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -229,11 +228,18 @@ LOGGING = {
             'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
             'style': '{',
         },
+        'json': {
+            '()': 'pythonjsonlogger.jsonlogger.JsonFormatter',
+            'format': '%(asctime)s %(name)s %(levelname)s %(message)s',
+        } if not DEBUG else {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
     },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
+            'formatter': _LOG_FORMATTER,
         },
     },
     'root': {
@@ -244,6 +250,11 @@ LOGGING = {
         'django': {
             'handlers': ['console'],
             'level': os.environ.get('DJANGO_LOG_LEVEL', 'INFO'),
+            'propagate': False,
+        },
+        'app_shivazen': {
+            'handlers': ['console'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
             'propagate': False,
         },
     },
@@ -285,20 +296,16 @@ else:
 
 CELERY_TIMEZONE = TIME_ZONE
 
-# Configuração agendamento do Celery Beat (tarefas recorrentes)
+# Configuracao agendamento do Celery Beat (tarefas recorrentes)
 from celery.schedules import crontab
 CELERY_BEAT_SCHEDULE = {
     'lembretes-diarios-08h': {
         'task': 'app_shivazen.tasks.job_enviar_lembrete_dia_seguinte',
-        'schedule': crontab(hour=8, minute=0),  # Roda todo dia as 08:00
-    },
-    'lembrete-2h-antes': {
-        'task': 'app_shivazen.tasks.job_enviar_lembrete_2h',
-        'schedule': crontab(minute='*/30'),  # A cada 30 min verifica agendamentos proximos
+        'schedule': crontab(hour=8, minute=0),
     },
     'envio-pesquisa-nps-diaria': {
         'task': 'app_shivazen.tasks.job_pesquisa_satisfacao_24h',
-        'schedule': crontab(hour=10, minute=0),  # Roda todo dia as 10:00
+        'schedule': crontab(hour=10, minute=0),
     },
     'alerta-detrator-nps': {
         'task': 'app_shivazen.tasks.job_alerta_detrator_nps',
@@ -310,10 +317,14 @@ CELERY_BEAT_SCHEDULE = {
     },
     'expirar-pacotes': {
         'task': 'app_shivazen.tasks.job_expirar_pacotes',
-        'schedule': crontab(hour=0, minute=30),  # Meia-noite
+        'schedule': crontab(hour=0, minute=30),
     },
     'limpeza-status-atendimentos': {
         'task': 'app_shivazen.tasks.job_limpeza_status_atendimentos',
-        'schedule': crontab(hour=23, minute=0),  # Fim do dia
+        'schedule': crontab(hour=23, minute=0),
+    },
+    'aniversario-clientes': {
+        'task': 'app_shivazen.tasks.job_aniversario_clientes',
+        'schedule': crontab(hour=9, minute=0),  # Todo dia as 09:00
     },
 }

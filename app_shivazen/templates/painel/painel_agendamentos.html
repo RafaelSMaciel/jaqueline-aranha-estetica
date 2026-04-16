@@ -85,7 +85,15 @@
         {{ agend.cliente.nome_completo|make_list|first }}{{ agend.cliente.nome_completo|make_list|last }}
     </div>
     <div class="agend-info">
-        <div class="agend-name">{{ agend.cliente.nome_completo }}</div>
+        <div class="agend-name">
+            {{ agend.cliente.nome_completo }}
+            {% if agend.cliente.prontuario.alergias or agend.cliente.prontuario.contraindicacoes %}
+            <span class="badge-alergia" title="{% if agend.cliente.prontuario.alergias %}Alergias: {{ agend.cliente.prontuario.alergias }}{% endif %}{% if agend.cliente.prontuario.contraindicacoes %}{% if agend.cliente.prontuario.alergias %} | {% endif %}Contraindicações: {{ agend.cliente.prontuario.contraindicacoes }}{% endif %}"
+                  style="display:inline-block;background:#ffebee;color:#c62828;border:1px solid #c62828;border-radius:12px;padding:1px 8px;font-size:0.7rem;font-weight:700;margin-left:6px;vertical-align:middle;">
+                <i class="fas fa-exclamation-triangle"></i> Alergia/Restrição
+            </span>
+            {% endif %}
+        </div>
         <div class="agend-meta">
             {{ agend.procedimento.nome }} &bull; {{ agend.profissional.nome }}
             &bull; {{ agend.data_hora_inicio|date:"d/m/Y" }} {{ agend.data_hora_inicio|time:"H:i" }}-{{ agend.data_hora_fim|time:"H:i" }}

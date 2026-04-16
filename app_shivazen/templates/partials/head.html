@@ -1,17 +1,17 @@
-{% load static %}
+﻿{% load static %}
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{% block titulo %}Shiva Zen — Estética Avançada{% endblock %}</title>
+<title>{% block titulo %}{{ CLINIC_NAME }} — Estética Avançada{% endblock %}</title>
 
 <!-- SEO -->
-<meta name="description" content="Shiva Zen — Clínica de estética avançada em São José do Rio Preto. Tratamentos faciais e corporais com biomédica especialista. Agende sua consulta!">
+<meta name="description" content="{{ CLINIC_NAME }} — Clínica de estética avançada em São José do Rio Preto. Tratamentos faciais e corporais com biomédica especialista. Agende sua consulta!">
 <meta name="keywords" content="estética, clínica, São José do Rio Preto, tratamento facial, corporal, biomédica, harmonização, peeling, bioestimulador">
-<meta name="author" content="Shiva Zen">
+<meta name="author" content="{{ CLINIC_NAME }}">
 <meta name="robots" content="index, follow">
 
 <!-- Open Graph -->
-<meta property="og:title" content="Shiva Zen — Clínica de Estética Avançada">
+<meta property="og:title" content="{{ CLINIC_NAME }} — Clínica de Estética Avançada">
 <meta property="og:description" content="Tratamentos faciais e corporais com biomédica especialista em São José do Rio Preto.">
 <meta property="og:type" content="website">
 <meta property="og:image" content="{% static 'assets/LogoCompleta.png' %}">

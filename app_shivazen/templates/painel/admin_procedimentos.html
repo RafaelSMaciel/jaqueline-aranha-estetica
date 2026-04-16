@@ -82,7 +82,7 @@
             <div style="font-size: 0.8rem; color: #888; margin-top: 0.2rem;">{{ proc.descricao|truncatewords:20 }}</div>
             {% endif %}
         </div>
-        <button class="btn-edit" onclick="openEdit({{ proc.pk }}, '{{ proc.nome|escapejs }}', '{{ proc.descricao|default_if_none:''|escapejs }}', {{ proc.duracao_minutos }}, '{{ proc.categoria }}', {{ proc.ativo|yesno:'1,0' }})">
+        <button class="btn-edit" onclick="openEdit({{ proc.pk }}, '{{ proc.nome|escapejs }}', '{{ proc.descricao|default_if_none:''|escapejs }}', {{ proc.duracao_minutos }}, '{{ proc.categoria }}', {{ proc.ativo|yesno:'1,0' }}, '{{ proc.preco_base|default_if_none:''|escapejs }}')">
             <i class="fas fa-edit"></i> Editar
         </button>
     </div>
@@ -150,13 +150,14 @@
 </div>
 
 <script>
-function openEdit(pk, nome, descricao, duracao, categoria, ativo) {
+function openEdit(pk, nome, descricao, duracao, categoria, ativo, preco) {
     document.getElementById('editForm').action = '/painel/procedimentos/' + pk + '/editar/';
     document.getElementById('edit_nome').value = nome;
     document.getElementById('edit_descricao').value = descricao;
     document.getElementById('edit_duracao').value = duracao;
     document.getElementById('edit_categoria').value = categoria;
     document.getElementById('edit_ativo').checked = ativo === 1;
+    document.getElementById('edit_preco').value = preco || '';
     document.getElementById('editModal').classList.add('active');
 }
 function closeEdit() { document.getElementById('editModal').classList.remove('active'); }

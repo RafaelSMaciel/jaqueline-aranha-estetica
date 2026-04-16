@@ -1,11 +1,11 @@
-{% extends 'estrutura/baserodape.html' %}
+﻿{% extends 'estrutura/baserodape.html' %}
 {% load static %}
 
 {% block conteudo %}
 <section class="position-relative text-white text-center d-flex align-items-center justify-content-center" style="background: linear-gradient(135deg, #2C2C2C 0%, #4a3728 100%); min-height: 35vh;">
     <div class="container fade-in py-5">
         <a href="{% url 'shivazen:inicio' %}">
-            <img src="{% static 'assets/LogoCompletaSemFundo.png' %}" alt="Shiva Zen" style="max-height:80px; filter: brightness(2);" class="mb-4">
+            <img src="{% static 'assets/LogoCompletaSemFundo.png' %}" alt="{{ CLINIC_NAME }}" style="max-height:80px; filter: brightness(2);" class="mb-4">
         </a>
         <h1 class="display-5 fw-bold mb-2 text-white" style="font-family:'Playfair Display',serif;">Termos de Uso</h1>
         <div class="mx-auto" style="width:60px;height:2px;background:var(--primary);"></div>
@@ -16,10 +16,10 @@
     <p class="text-muted mb-4"><em>Ultima atualizacao: Abril de 2026</em></p>
 
     <h4>1. Aceitacao dos Termos</h4>
-    <p>Ao acessar e utilizar o sistema de agendamento online da Shiva Zen Clinica de Estetica ("Clinica"), voce concorda integralmente com estes Termos de Uso. Caso nao concorde com alguma das condicoes descritas, solicitamos que nao utilize nossos servicos digitais.</p>
+    <p>Ao acessar e utilizar o sistema de agendamento online da {{ CLINIC_NAME }} Clinica de Estetica ("Clinica"), voce concorda integralmente com estes Termos de Uso. Caso nao concorde com alguma das condicoes descritas, solicitamos que nao utilize nossos servicos digitais.</p>
 
     <h4>2. Descricao dos Servicos</h4>
-    <p>A Shiva Zen oferece, por meio desta plataforma, os seguintes servicos digitais:</p>
+    <p>A {{ CLINIC_NAME }} oferece, por meio desta plataforma, os seguintes servicos digitais:</p>
     <ul>
         <li>Agendamento online de procedimentos esteticos;</li>
         <li>Consulta e gerenciamento de agendamentos existentes;</li>
@@ -51,13 +51,13 @@
     </ul>
 
     <h4>8. Propriedade Intelectual</h4>
-    <p>Todo o conteudo deste site, incluindo textos, imagens, logotipos, layout e software, e propriedade da Shiva Zen ou de seus licenciadores, sendo protegido pela legislacao de propriedade intelectual brasileira.</p>
+    <p>Todo o conteudo deste site, incluindo textos, imagens, logotipos, layout e software, e propriedade da {{ CLINIC_NAME }} ou de seus licenciadores, sendo protegido pela legislacao de propriedade intelectual brasileira.</p>
 
     <h4>9. Limitacao de Responsabilidade</h4>
     <p>A Clinica nao se responsabiliza por interrupcoes no servico decorrentes de fatores externos, como falhas de internet, indisponibilidade de APIs de terceiros (WhatsApp Business, provedores de hospedagem) ou forca maior.</p>
 
     <h4>10. Alteracoes nos Termos</h4>
-    <p>A Shiva Zen reserva-se o direito de modificar estes Termos de Uso a qualquer momento. Alteracoes significativas serao comunicadas por meio da plataforma. O uso continuado dos servicos apos a publicacao das alteracoes constitui aceitacao dos novos termos.</p>
+    <p>A {{ CLINIC_NAME }} reserva-se o direito de modificar estes Termos de Uso a qualquer momento. Alteracoes significativas serao comunicadas por meio da plataforma. O uso continuado dos servicos apos a publicacao das alteracoes constitui aceitacao dos novos termos.</p>
 
     <h4>11. Foro</h4>
     <p>Para a resolucao de quaisquer controversias oriundas destes Termos, fica eleito o foro da Comarca de Sao Jose do Rio Preto - SP, com exclusao de qualquer outro, por mais privilegiado que seja.</p>

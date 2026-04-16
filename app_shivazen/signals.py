@@ -13,6 +13,7 @@ def capturar_status_anterior(sender, instance, **kwargs):
             old_instance = Atendimento.objects.get(pk=instance.pk)
             instance._old_status = old_instance.status
         except Atendimento.DoesNotExist:
+            logger.warning('capturar_status_anterior: Atendimento pk=%s nao encontrado no pre_save', instance.pk)
             instance._old_status = None
     else:
         instance._old_status = None
@@ -25,8 +26,8 @@ def processar_mudanca_status(sender, instance, created, **kwargs):
     if status_atual == status_anterior:
         return
 
-    # REGRA: FILA DE ESPERA — cancelamento ou falta libera vaga
-    if status_atual in ['CANCELADO', 'FALTOU'] and status_anterior in ['AGENDADO', 'CONFIRMADO']:
+    # REGRA: FILA DE ESPERA — cancelamento, falta ou reagendamento libera vaga
+    if status_atual in ['CANCELADO', 'FALTOU', 'REAGENDADO'] and status_anterior in ['AGENDADO', 'CONFIRMADO']:
         job_notificar_fila_espera.delay(
             procedimento_id=instance.procedimento.pk,
             data_livre_str=instance.data_hora_inicio.isoformat()

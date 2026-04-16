@@ -1,11 +1,11 @@
-{% extends 'estrutura/baserodape.html' %}
+﻿{% extends 'estrutura/baserodape.html' %}
 {% load static %}
 
 {% block conteudo %}
 <section class="position-relative text-white text-center d-flex align-items-center justify-content-center" style="background: linear-gradient(135deg, #2C2C2C 0%, #4a3728 100%); min-height: 35vh;">
     <div class="container fade-in py-5">
         <a href="{% url 'shivazen:inicio' %}">
-            <img src="{% static 'assets/LogoCompletaSemFundo.png' %}" alt="Shiva Zen" style="max-height:80px; filter: brightness(2);" class="mb-4">
+            <img src="{% static 'assets/LogoCompletaSemFundo.png' %}" alt="{{ CLINIC_NAME }}" style="max-height:80px; filter: brightness(2);" class="mb-4">
         </a>
         <h1 class="display-5 fw-bold mb-2 text-white" style="font-family:'Playfair Display',serif;">Politica de Privacidade</h1>
         <div class="mx-auto" style="width:60px;height:2px;background:var(--primary);"></div>
@@ -15,7 +15,7 @@
 <div class="container py-5">
     <p class="text-muted mb-4"><em>Ultima atualizacao: Abril de 2026</em></p>
 
-    <p>A Shiva Zen Clinica de Estetica ("Clinica") esta comprometida com a protecao dos dados pessoais dos seus clientes e usuarios, em conformidade com a Lei Geral de Protecao de Dados Pessoais (LGPD - Lei n. 13.709/2018).</p>
+    <p>A {{ CLINIC_NAME }} Clinica de Estetica ("Clinica") esta comprometida com a protecao dos dados pessoais dos seus clientes e usuarios, em conformidade com a Lei Geral de Protecao de Dados Pessoais (LGPD - Lei n. 13.709/2018).</p>
 
     <h4>1. Dados Pessoais Coletados</h4>
     <p>Coletamos os seguintes dados pessoais para prestacao dos nossos servicos:</p>

@@ -1,7 +1,7 @@
-{% extends 'estrutura/base.html' %}
+﻿{% extends 'estrutura/base.html' %}
 {% load static %}
 
-{% block titulo %}Galeria | Shiva Zen{% endblock %}
+{% block titulo %}Galeria | {{ CLINIC_NAME }}{% endblock %}
 
 {% block conteudo %}
 <!-- ═══ HERO ═══ -->
@@ -54,7 +54,7 @@
   <div class="container">
     <div class="text-center p-5" style="background:linear-gradient(135deg,#C9A84C,#a8882f);border-radius:24px;color:#fff;">
       <h2 style="font-family:'Playfair Display',serif;">Venha nos visitar</h2>
-      <p class="mb-4">Agende uma avaliação e conheça pessoalmente a Shiva Zen.</p>
+      <p class="mb-4">Agende uma avaliação e conheça pessoalmente a {{ CLINIC_NAME }}.</p>
       <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-light btn-lg rounded-pill px-5 fw-bold">
         Agendar Visita
       </a>

@@ -1,4 +1,4 @@
-{% extends 'estrutura/base.html' %}
+﻿{% extends 'estrutura/base.html' %}
 {% load static %}
 
 {% block conteudo %}
@@ -268,7 +268,7 @@
 <!-- Hero -->
 <div class="booking-banner">
     <div class="booking-banner-inner container" data-aos="fade-up" data-aos-delay="100">
-        <div class="booking-pill"><i class="bi bi-stars"></i>Shiva Zen — Agendamento Online</div>
+        <div class="booking-pill"><i class="bi bi-stars"></i>{{ CLINIC_NAME }} — Agendamento Online</div>
         <h1 data-aos="fade-up" data-aos-delay="200">Agende seu Espaco<br>de Bem-Estar</h1>
         <p data-aos="fade-up" data-aos-delay="300">Escolha seu tratamento, selecione a data e confirme — tudo sem precisar criar conta.</p>
     </div>
@@ -327,7 +327,7 @@
                 <i class="bi bi-calendar-heart" style="font-size:3.5rem;color:#C9A84C;display:block;margin-bottom:1.25rem;"></i>
                 <h4 style="font-weight:700;color:#4A3425;font-family:'Playfair Display',serif;font-size:1.4rem;">Em breve</h4>
                 <p style="color:#8A7F72;max-width:360px;margin:0.5rem auto 1.5rem;">Nossos tratamentos estarao disponiveis para agendamento online em breve.</p>
-                <a href="https://wa.me/{{ whatsapp_numero }}?text=Ola! Gostaria de agendar um horario na Shiva Zen." target="_blank" rel="noopener"
+                <a href="https://wa.me/{{ whatsapp_numero }}?text=Ola! Gostaria de agendar um horario na {{ CLINIC_NAME }}." target="_blank" rel="noopener"
                    class="btn rounded-pill px-4 py-2 fw-bold d-inline-flex align-items-center gap-2"
                    style="background:#25D366;color:white;font-size:0.9rem;box-shadow:0 4px 16px rgba(37,211,102,0.3);">
                     <i class="bi bi-whatsapp" style="font-size:1.1rem;"></i>Agendar via WhatsApp
@@ -410,6 +410,18 @@
                         <div class="form-field">
                             <label><i class="bi bi-person"></i>Seu Nome</label>
                             <input type="text" name="nome" class="form-input" placeholder="Nome completo" required id="form-nome">
+                        </div>
+
+                        <div class="form-field">
+                            <label><i class="bi bi-calendar-heart"></i>Data de Nascimento</label>
+                            <input type="date" name="data_nascimento" class="form-input" required id="form-nascimento"
+                                   style="color-scheme: light;">
+                            <small style="color:#BBB;font-size:0.72rem;margin-top:0.3rem;display:block;">Obrigatório ser maior de 18 anos</small>
+                        </div>
+
+                        <div class="form-field">
+                            <label><i class="bi bi-envelope"></i>E-mail <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#CCC;">(opcional)</span></label>
+                            <input type="email" name="email" class="form-input" placeholder="seu@email.com" id="form-email">
                         </div>
 
                         <div class="form-field">

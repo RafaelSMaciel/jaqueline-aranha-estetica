@@ -1,0 +1,16 @@
+{% extends "email/base_email.html" %}
+{% block content %}
+<p style="color:#4A3425;font-size:16px;margin:0 0 8px;">Feliz Aniversario, {{ dados.nome }}! 🎂🎉</p>
+<p style="color:#666;font-size:15px;margin:0 0 24px;">O {{ clinic_name }} preparou um presente especial para voce:</p>
+
+<div style="background:linear-gradient(145deg,#FFFEF5,#FFF9E3);border:2px solid #C9A84C;border-radius:16px;padding:32px;text-align:center;margin:0 0 24px;">
+<p style="margin:0 0 4px;font-size:14px;color:#999;font-weight:700;text-transform:uppercase;letter-spacing:2px;">Desconto exclusivo</p>
+<p style="margin:0;font-size:48px;font-weight:800;color:#C9A84C;">{{ dados.desconto }}%</p>
+<p style="margin:8px 0 0;font-size:14px;color:#999;">em qualquer procedimento</p>
+</div>
+
+<p style="color:#999;font-size:13px;margin:0 0 16px;text-align:center;">Valido por 7 dias</p>
+<div style="text-align:center;">
+<a href="{{ site_url }}/agendamento/" style="display:inline-block;background:#C9A84C;color:white;padding:12px 32px;border-radius:50px;text-decoration:none;font-weight:700;font-size:14px;">Agendar com Desconto</a>
+</div>
+{% endblock %}

@@ -1,0 +1,8 @@
+{% extends "email/base_email.html" %}
+{% block content %}
+<p style="color:#4A3425;font-size:16px;margin:0 0 8px;">Boa noticia, {{ dados.nome }}! 🎉</p>
+<p style="color:#666;font-size:15px;margin:0 0 24px;">Uma vaga para <strong>{{ dados.procedimento }}</strong> abriu no dia <strong>{{ dados.data }}</strong>.</p>
+
+<p style="color:#666;font-size:14px;margin:0 0 16px;">Agende rapido antes que outra pessoa reserve:</p>
+<a href="{{ site_url }}/agendamento/" style="display:inline-block;background:#C9A84C;color:white;padding:12px 32px;border-radius:50px;text-decoration:none;font-weight:700;font-size:14px;">Agendar Agora</a>
+{% endblock %}

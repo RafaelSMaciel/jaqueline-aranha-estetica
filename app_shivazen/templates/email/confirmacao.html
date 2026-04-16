@@ -1,0 +1,22 @@
+{% extends "email/base_email.html" %}
+{% block content %}
+<p style="color:#4A3425;font-size:16px;margin:0 0 8px;">Ola, {{ dados.nome }}!</p>
+<p style="color:#666;font-size:15px;margin:0 0 24px;">Seu agendamento foi confirmado com sucesso.</p>
+
+<div style="background:linear-gradient(145deg,#FFFEF5,#FFF9E3);border:2px solid #C9A84C;border-radius:16px;padding:24px;margin:0 0 24px;">
+<table width="100%" cellpadding="0" cellspacing="0">
+<tr><td style="padding:4px 0;color:#999;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Procedimento</td></tr>
+<tr><td style="padding:0 0 12px;color:#4A3425;font-size:16px;font-weight:700;">{{ dados.procedimento }}</td></tr>
+<tr><td style="padding:4px 0;color:#999;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Profissional</td></tr>
+<tr><td style="padding:0 0 12px;color:#4A3425;font-size:15px;">{{ dados.profissional }}</td></tr>
+<tr><td style="padding:4px 0;color:#999;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Data e Horario</td></tr>
+<tr><td style="padding:0 0 12px;color:#C9A84C;font-size:16px;font-weight:700;">{{ dados.data_hora }}</td></tr>
+{% if dados.valor %}<tr><td style="padding:4px 0;color:#999;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Valor</td></tr>
+<tr><td style="padding:0;color:#4A3425;font-size:18px;font-weight:800;">{{ dados.valor }}</td></tr>{% endif %}
+</table>
+</div>
+
+<p style="color:#999;font-size:13px;margin:0;">
+Para cancelar ou reagendar, acesse: <a href="{{ site_url }}/meus-agendamentos/" style="color:#C9A84C;">Meus Agendamentos</a>
+</p>
+{% endblock %}

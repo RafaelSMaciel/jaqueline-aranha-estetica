@@ -55,10 +55,8 @@
         {% csrf_token %}
         <input type="hidden" name="nota" id="nota_input" value="">
         <div class="nps-scale">
-            {% for i in "012345678910" %}
-            {% with nota=forloop.counter0 %}
+            {% for nota in notas_range %}
             <button type="button" class="nps-btn" data-nota="{{ nota }}" onclick="selectNota(this, {{ nota }})">{{ nota }}</button>
-            {% endwith %}
             {% endfor %}
         </div>
         <div class="nps-labels">

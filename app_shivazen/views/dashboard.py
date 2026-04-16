@@ -102,7 +102,7 @@ def painel_agendamentos(request):
     profissional_filter = request.GET.get('profissional')
 
     agendamentos = Atendimento.objects.all().select_related(
-        'cliente', 'profissional', 'procedimento'
+        'cliente', 'cliente__prontuario', 'profissional', 'procedimento'
     ).order_by('-data_hora_inicio')
 
     if status_filter != 'all':

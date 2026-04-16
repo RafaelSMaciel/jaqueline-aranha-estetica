@@ -1,7 +1,7 @@
-{% extends 'estrutura/base.html' %}
+﻿{% extends 'estrutura/base.html' %}
 {% load static %}
 
-{% block titulo %}Produtos Naturais | Shiva Zen{% endblock %}
+{% block titulo %}Produtos Naturais | {{ CLINIC_NAME }}{% endblock %}
 
 {% block conteudo %}
 <!-- ═══ HERO ═══ -->
@@ -42,7 +42,7 @@
       <div class="col-lg-6">
         <div class="hero-visual" data-aos="fade-left" data-aos-delay="400">
           <div class="main-image">
-            <img src="{% static 'assets/template_img/health/laboratory-3.webp' %}" alt="Produtos Naturais Shiva Zen" class="img-fluid">
+            <img src="{% static 'assets/template_img/health/laboratory-3.webp' %}" alt="Produtos Naturais {{ CLINIC_NAME }}" class="img-fluid">
             <div class="floating-card appointment-card">
               <div class="card-icon">
                 <i class="bi bi-leaf"></i>

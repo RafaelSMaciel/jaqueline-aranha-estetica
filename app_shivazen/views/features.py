@@ -10,6 +10,8 @@ from datetime import datetime
 import json
 import logging
 
+from django_ratelimit.decorators import ratelimit
+
 from ..models import (
     BloqueioAgenda, Profissional, Procedimento, Preco,
     Cliente, Atendimento, ListaEspera, AvaliacaoNPS,
@@ -46,6 +48,7 @@ def admin_bloqueios(request):
 
 
 @staff_required
+@ratelimit(key='user', rate='30/m', method='POST', block=True)
 def admin_criar_bloqueio(request):
     """Cria bloqueio de agenda via POST."""
     if request.method != 'POST':
@@ -96,7 +99,20 @@ def admin_excluir_bloqueio(request, bloqueio_id):
 @staff_required
 def admin_procedimentos(request):
     """Lista e gerencia procedimentos."""
-    procedimentos = Procedimento.objects.all().order_by('-ativo', 'categoria', 'nome')
+    procedimentos = list(
+        Procedimento.objects.all().order_by('-ativo', 'categoria', 'nome')
+    )
+
+    # Precos base (profissional=NULL) por procedimento — um único query
+    preco_map = {
+        p.procedimento_id: p.valor
+        for p in Preco.objects.filter(
+            procedimento_id__in=[pr.pk for pr in procedimentos],
+            profissional__isnull=True,
+        )
+    }
+    for proc in procedimentos:
+        proc.preco_base = preco_map.get(proc.pk)
 
     paginator = Paginator(procedimentos, 30)
     page = request.GET.get('page', 1)
@@ -110,6 +126,7 @@ def admin_procedimentos(request):
 
 
 @staff_required
+@ratelimit(key='user', rate='30/m', method='POST', block=True)
 def admin_criar_procedimento(request):
     """Cria procedimento via POST."""
     if request.method != 'POST':
@@ -139,6 +156,7 @@ def admin_criar_procedimento(request):
 
 
 @staff_required
+@ratelimit(key='user', rate='30/m', method='POST', block=True)
 def admin_editar_procedimento(request, pk):
     """Edita procedimento via POST."""
     proc = get_object_or_404(Procedimento, pk=pk)
@@ -274,6 +292,7 @@ def nps_web(request, token):
     context = {
         'atendimento': atendimento,
         'ja_respondeu': ja_respondeu,
+        'notas_range': range(11),  # 0..10 (escala NPS real)
     }
     return render(request, 'publico/nps_web.html', context)
 

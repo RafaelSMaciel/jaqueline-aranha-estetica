@@ -1,7 +1,7 @@
-{% extends 'estrutura/base.html' %}
+﻿{% extends 'estrutura/base.html' %}
 {% load static %}
 
-{% block titulo %}Nossa Equipe | Shiva Zen{% endblock %}
+{% block titulo %}Nossa Equipe | {{ CLINIC_NAME }}{% endblock %}
 
 {% block conteudo %}
 <!-- ═══ HERO ═══ -->
@@ -13,7 +13,7 @@
       </div>
       <h1 class="mb-3">Profissionais <span class="highlight">Qualificados</span> a Seu Dispor</h1>
       <p class="hero-description">
-        Conheça os especialistas que vão cuidar de você. Cada profissional da Shiva Zen
+        Conheça os especialistas que vão cuidar de você. Cada profissional da {{ CLINIC_NAME }}
         é selecionado com base em formação, experiência e compromisso com o bem-estar do cliente.
       </p>
     </div>
@@ -44,7 +44,7 @@
                 {% else %}
                   <p class="text-muted mb-3" style="min-height:48px;">
                     <i class="bi bi-award me-1" style="color:#C9A84C;"></i>
-                    Profissional Shiva Zen
+                    Profissional {{ CLINIC_NAME }}
                   </p>
                 {% endif %}
                 <a href="{% url 'shivazen:agendamento_publico' %}?profissional={{ prof.pk }}"

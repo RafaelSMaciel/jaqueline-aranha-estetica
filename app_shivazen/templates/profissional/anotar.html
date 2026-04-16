@@ -1,0 +1,147 @@
+﻿{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block titulo %}Anotação de Sessão | {{ CLINIC_NAME }}{% endblock %}
+
+{% block conteudo %}
+<style>
+    :root {
+        --gold: #C9A84C;
+        --gold-light: #f9f1d8;
+        --earth: #4A3425;
+        --bg: #F5F3EE;
+    }
+    .anotar-page { background: var(--bg); min-height: 100vh; padding: 2rem 0 5rem; }
+    .anotar-container { max-width: 720px; margin: 0 auto; padding: 0 1rem; }
+    .anotar-card {
+        background: white; border-radius: 16px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+        padding: 1.75rem; margin-bottom: 1.5rem;
+    }
+    .anotar-title {
+        font-family: 'Playfair Display', serif;
+        font-size: 1.5rem; color: var(--earth);
+        margin-bottom: 0.5rem;
+    }
+    .anotar-subtitle { color: #777; margin-bottom: 1.5rem; font-size: 0.9rem; }
+
+    /* Info do atendimento */
+    .atn-summary {
+        background: var(--gold-light);
+        border-left: 4px solid var(--gold);
+        padding: 1rem 1.25rem; border-radius: 8px;
+        margin-bottom: 1.5rem;
+    }
+    .atn-summary-label {
+        font-size: 0.7rem; color: #8b6f2b;
+        text-transform: uppercase; letter-spacing: 1px;
+        font-weight: 700; margin-bottom: 0.4rem;
+    }
+    .atn-summary-info { color: var(--earth); font-weight: 600; font-size: 0.95rem; }
+
+    /* Form */
+    .anotar-textarea {
+        width: 100%; padding: 1rem; border: 2px solid #e5e5e5;
+        border-radius: 12px; font-size: 0.95rem; font-family: inherit;
+        resize: vertical; min-height: 120px; transition: border-color 0.2s;
+    }
+    .anotar-textarea:focus { outline: none; border-color: var(--gold); }
+    .btn-salvar {
+        background: var(--gold); color: white; border: none;
+        padding: 0.9rem 2rem; border-radius: 50px;
+        font-weight: 700; font-size: 1rem; cursor: pointer;
+        width: 100%; margin-top: 1rem; transition: all 0.2s;
+    }
+    .btn-salvar:hover { background: #b59140; transform: translateY(-1px); }
+
+    /* Historico de anotacoes */
+    .hist-title {
+        font-weight: 700; font-size: 0.9rem; color: var(--earth);
+        margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;
+    }
+    .hist-item {
+        background: #f8f9fa; border-radius: 10px; padding: 0.85rem 1rem;
+        margin-bottom: 0.5rem; border-left: 3px solid #e0e0e0;
+    }
+    .hist-meta {
+        font-size: 0.7rem; color: #999; margin-bottom: 0.3rem;
+    }
+    .hist-text { font-size: 0.88rem; color: #444; line-height: 1.5; }
+    .hist-empty { font-size: 0.85rem; color: #bbb; font-style: italic; }
+</style>
+
+<div class="anotar-page">
+    <div class="anotar-container">
+
+        {% if messages %}
+            {% for m in messages %}
+                <div class="alert alert-{% if m.tags == 'error' %}danger{% else %}{{ m.tags|default:'info' }}{% endif %}"
+                     style="border-radius:14px;margin-bottom:1rem;">
+                    {{ m }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="anotar-card">
+            <h1 class="anotar-title">
+                <i class="fas fa-pen-fancy" style="color:var(--gold);margin-right:0.5rem;"></i>
+                Anotação de Sessão
+            </h1>
+            <p class="anotar-subtitle">
+                Registre observações clínicas sobre este atendimento.
+            </p>
+
+            <div class="atn-summary">
+                <div class="atn-summary-label">Atendimento</div>
+                <div class="atn-summary-info">
+                    <i class="fas fa-user me-1"></i> {{ atendimento.cliente.nome_completo }}<br>
+                    <i class="fas fa-stethoscope me-1"></i> {{ atendimento.procedimento.nome }}<br>
+                    <i class="fas fa-calendar me-1"></i> {{ atendimento.data_hora_inicio|date:"d/m/Y" }}
+                    às {{ atendimento.data_hora_inicio|time:"H:i" }}
+                </div>
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+                <label style="font-weight:700;font-size:0.85rem;color:var(--earth);margin-bottom:0.5rem;display:block;">
+                    Nova anotação
+                </label>
+                <textarea name="texto" class="anotar-textarea"
+                          placeholder="Descreva as observações da sessão, produtos utilizados, reações observadas..."
+                          required></textarea>
+                <button type="submit" class="btn-salvar">
+                    <i class="fas fa-check me-2"></i>Salvar Anotação
+                </button>
+            </form>
+        </div>
+
+        <!-- Historico -->
+        <div class="anotar-card">
+            <div class="hist-title">
+                <i class="fas fa-history" style="color:var(--gold);"></i>
+                Histórico de Anotações ({{ anotacoes|length }})
+            </div>
+
+            {% for nota in anotacoes %}
+            <div class="hist-item">
+                <div class="hist-meta">
+                    <i class="fas fa-user-circle me-1"></i>
+                    {{ nota.usuario.nome|default:"Sistema" }} &bull;
+                    {{ nota.criado_em|date:"d/m/Y H:i" }}
+                </div>
+                <div class="hist-text">{{ nota.texto }}</div>
+            </div>
+            {% empty %}
+            <div class="hist-empty">Nenhuma anotação registrada para este atendimento.</div>
+            {% endfor %}
+        </div>
+
+        <div class="text-center">
+            <a href="{% url 'shivazen:profissional_agenda' %}" style="color:#999;text-decoration:none;font-size:0.85rem;">
+                <i class="fas fa-arrow-left me-1"></i>Voltar para a agenda
+            </a>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
