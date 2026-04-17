@@ -4,7 +4,7 @@
 {% block page_subtitle %}Ficha do cliente{% endblock %}
 
 {% block admin_content %}
-<style>
+<style nonce="{{ csp_nonce }}">
     .detail-card {
         background: white; border-radius: 16px; padding: 1.25rem;
         box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 1rem;

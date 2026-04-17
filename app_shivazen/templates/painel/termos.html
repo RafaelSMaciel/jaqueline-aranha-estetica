@@ -4,7 +4,7 @@
 {% block page_subtitle %}Gerencie versoes de termos LGPD e de procedimento{% endblock %}
 
 {% block admin_content %}
-<style>
+<style nonce="{{ csp_nonce }}">
     .termo-card {
         background: white; border-radius: 16px; padding: 1rem;
         box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 0.75rem;
@@ -95,7 +95,7 @@
 </div>
 {% endfor %}
 
-<script>
+<script nonce="{{ csp_nonce }}">
 document.getElementById('tipo_termo').addEventListener('change', function() {
     document.getElementById('proc_group').style.display = this.value === 'PROCEDIMENTO' ? '' : 'none';
 });

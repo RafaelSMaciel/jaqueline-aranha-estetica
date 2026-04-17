@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block conteudo %}
-<style>
+<style nonce="{{ csp_nonce }}">
     :root {
         --gold: #C9A84C;
         --gold-light: #f9f1d8;
@@ -129,7 +129,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce }}">
 (function () {
     const PROC_ID = {{ atendimento.procedimento.pk }};
     const dataInput = document.getElementById('nova-data');

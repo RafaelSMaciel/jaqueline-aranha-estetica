@@ -1,7 +1,7 @@
 {% extends 'estrutura/base.html' %}
 
 {% block css %}
-<style>
+<style nonce="{{ csp_nonce }}">
     .obrigado-container {
         max-width: 500px; margin: 4rem auto; padding: 2rem 1.5rem;
         text-align: center;

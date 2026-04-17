@@ -367,9 +367,9 @@
       }
     }
 
+    // Default light; only dark if user explicitly opted in.
     var stored = localStorage.getItem(STORAGE_KEY);
-    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    apply(stored || (prefersDark ? 'dark' : 'light'));
+    apply(stored === 'dark' ? 'dark' : 'light');
 
     if (btn) {
       btn.addEventListener('click', function() {

@@ -4,7 +4,7 @@
 {% block titulo %}Minha Agenda | {{ CLINIC_NAME }}{% endblock %}
 
 {% block conteudo %}
-<style>
+<style nonce="{{ csp_nonce }}">
     :root {
         --gold: #C9A84C;
         --gold-light: #f9f1d8;
@@ -269,7 +269,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce }}">
 function showView(view, tab) {
     document.getElementById('view-dia').style.display = view === 'dia' ? 'block' : 'none';
     document.getElementById('view-semana').style.display = view === 'semana' ? 'block' : 'none';

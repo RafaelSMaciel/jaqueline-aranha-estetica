@@ -88,7 +88,12 @@ class ContentSecurityPolicyMiddleware:
         csp = "; ".join([
             "default-src 'self'",
             f"script-src {' '.join(script_src)}",
+            # CSP3: inline event handlers (onclick=...) e style="..." sao
+            # governados por -attr. Permitimos inline attrs enquanto nao
+            # migramos tudo pro CSS/listener externo.
+            "script-src-attr 'unsafe-inline'",
             f"style-src {' '.join(style_src)}",
+            "style-src-attr 'unsafe-inline'",
             f"font-src {' '.join(self.ALLOWED_FONT_SRCS)}",
             f"img-src {' '.join(self.ALLOWED_IMG_SRCS)}",
             f"connect-src {' '.join(self.ALLOWED_CONNECT_SRCS)}",
