@@ -82,6 +82,31 @@ Ordenados por valor/esforco.
 - **Externo:** OpenAI/Anthropic API (~$50/mes)
 - **Compliance:** **CUIDADO LGPD** — dados saude para 3rd-party requer consentimento explicito
 
+## Frontend/admin — deferido (requer asset pipeline ou redesenho)
+
+### Frontend publico
+- **WebP/AVIF + srcset** — conversao lote das imagens `assets/health/*` (Pillow ou cwebp externo)
+- **Critical CSS inline** — extrair above-the-fold (~14KB) via critters/critical
+- **Self-host Google Fonts subset** — baixar woff2 subset latin, servir de `static/fonts/`
+- **Tree-shake Bootstrap** — bundle custom so com componentes usados
+- **Image sitemap** — `ImageSitemap` separado em `sitemaps.py`
+- **Google Reviews widget / social proof** — componente com API externa
+- **A/B testing hero CTA** — django-waffle + variantes
+- **Antes/depois galeria interativa** — library compare-slider
+- **Calculadora pacote** — formulario dinamico preco
+
+### Admin PWA
+- **FullCalendar drag-drop** — substituir lista por calendar view (~20h)
+- **Push notifications VAPID** — backend envio + SW subscribe UI
+- **Command palette cmd+k** — fuzzy search global (kbar-like)
+- **IndexedDB offline-first** — cache agendamentos + sync queue
+- **WebAuthn biometric login** — opcional extra MFA
+- **Virtualizacao listas** — react-window ou intersection-observer lazy
+- **Inline edit / quick view modal** — edicao direta sem navegar
+- **Bulk actions expandido** — select-all + multi-action
+- **Chart.js cohort/funil/heatmap** — relatorios avancados
+- **IP allowlist UI** — tabela gerenciar IPs permitidos (complementa Cloudflare Access)
+
 ## Backlog (sem prazo)
 
 - **TISS integration** — convenios saude, padronizacao ANS
