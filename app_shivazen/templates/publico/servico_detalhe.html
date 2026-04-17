@@ -57,11 +57,11 @@
             <img src="{{ procedimento.imagem_destaque }}" alt="{{ procedimento.nome }}" class="img-fluid w-100">
           {% else %}
             {% if procedimento.categoria == 'FACIAL' %}
-              <img src="{% static 'assets/template_img/health/dermatology-1.webp' %}" alt="{{ procedimento.nome }}" class="img-fluid w-100">
+              <img src="{% static 'assets/health/dermatology-1.webp' %}" alt="{{ procedimento.nome }}" class="img-fluid w-100">
             {% elif procedimento.categoria == 'CORPORAL' %}
-              <img src="{% static 'assets/template_img/health/maternal-2.webp' %}" alt="{{ procedimento.nome }}" class="img-fluid w-100">
+              <img src="{% static 'assets/health/maternal-2.webp' %}" alt="{{ procedimento.nome }}" class="img-fluid w-100">
             {% else %}
-              <img src="{% static 'assets/template_img/health/consultation-4.webp' %}" alt="{{ procedimento.nome }}" class="img-fluid w-100">
+              <img src="{% static 'assets/health/consultation-4.webp' %}" alt="{{ procedimento.nome }}" class="img-fluid w-100">
             {% endif %}
           {% endif %}
         </div>

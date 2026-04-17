@@ -1,0 +1,156 @@
+{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block body_class %}terms-page{% endblock %}
+{% block titulo %}Termos de Serviço | {{ CLINIC_NAME }}{% endblock %}
+
+{% block conteudo %}
+<!-- Terms Of Service Section -->
+<section id="terms-of-service" class="terms-of-service section pt-5 mt-4">
+
+  <div class="container" data-aos="fade-up">
+    <!-- Page Header -->
+    <div class="tos-header text-center" data-aos="fade-up">
+      <span class="last-updated">Última Atualização: 26 de Março de 2026</span>
+      <h2>Termos de Serviço</h2>
+      <p>Por favor, leia atentamente estes termos de serviço antes de utilizar nossos serviços</p>
+    </div>
+
+    <!-- Content -->
+    <div class="tos-content" data-aos="fade-up" data-aos-delay="200">
+      <!-- Agreement Section -->
+      <div id="agreement" class="content-section">
+        <h3>1. Aceitação dos Termos</h3>
+        <p>Ao acessar nosso site e serviços, você concorda em cumprir estes Termos de Serviço e todas as leis e regulamentos aplicáveis. Se você não concordar com qualquer um destes termos, está proibido de usar ou acessar nossos serviços.</p>
+        <div class="info-box">
+          <i class="bi bi-info-circle"></i>
+          <p>Estes termos se aplicam a todos os usuários, visitantes e demais pessoas que acessam ou utilizam nossos serviços.</p>
+        </div>
+      </div>
+
+      <!-- Intellectual Property -->
+      <div id="intellectual-property" class="content-section">
+        <h3>2. Direitos de Propriedade Intelectual</h3>
+        <p>Nosso serviço e seu conteúdo original, características e funcionalidades são de nossa propriedade e são protegidos por leis internacionais de direitos autorais, marcas registradas, patentes, segredos comerciais e outras leis de propriedade intelectual.</p>
+        <ul class="list-items">
+          <li>Todo o conteúdo é propriedade exclusiva da {{ CLINIC_NAME }}</li>
+          <li>Você não pode copiar ou modificar o conteúdo</li>
+          <li>Nossas marcas não podem ser usadas sem permissão</li>
+          <li>O conteúdo é apenas para uso pessoal e não comercial</li>
+        </ul>
+      </div>
+
+      <!-- User Accounts -->
+      <div id="user-accounts" class="content-section">
+        <h3>3. Contas de Usuário</h3>
+        <p>Ao criar uma conta conosco, você deve fornecer informações precisas, completas e atualizadas. O não cumprimento desta obrigação constitui uma violação dos Termos, que pode resultar no encerramento imediato da sua conta.</p>
+        <div class="alert-box">
+          <i class="bi bi-exclamation-triangle"></i>
+          <div class="alert-content">
+            <h5>Aviso Importante</h5>
+            <p>Você é responsável por proteger sua senha e por todas as atividades que ocorrem em sua conta.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Prohibited Activities -->
+      <div id="prohibited" class="content-section">
+        <h3>4. Atividades Proibidas</h3>
+        <p>Você não pode acessar ou usar o Serviço para qualquer finalidade diferente daquela para a qual o disponibilizamos.</p>
+        <div class="prohibited-list">
+          <div class="prohibited-item">
+            <i class="bi bi-x-circle"></i>
+            <span>Coleta sistemática de dados ou conteúdo</span>
+          </div>
+          <div class="prohibited-item">
+            <i class="bi bi-x-circle"></i>
+            <span>Publicação de conteúdo malicioso</span>
+          </div>
+          <div class="prohibited-item">
+            <i class="bi bi-x-circle"></i>
+            <span>Engajar-se em enquadramento não autorizado</span>
+          </div>
+          <div class="prohibited-item">
+            <i class="bi bi-x-circle"></i>
+            <span>Tentar obter acesso não autorizado</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Disclaimers -->
+      <div id="disclaimer" class="content-section">
+        <h3>5. Isenção de Responsabilidade</h3>
+        <p>O uso do nosso serviço é por sua conta e risco. O serviço é fornecido "COMO ESTÁ" e "CONFORME DISPONÍVEL", sem garantias de qualquer tipo, expressas ou implícitas.</p>
+        <div class="disclaimer-box">
+          <p>Não garantimos que:</p>
+          <ul>
+            <li>O serviço atenderá às suas necessidades</li>
+            <li>O serviço será ininterrupto ou livre de erros</li>
+            <li>Os resultados do uso do serviço serão precisos</li>
+            <li>Quaisquer erros serão corrigidos</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Limitation of Liability -->
+      <div id="limitation" class="content-section">
+        <h3>6. Limitação de Responsabilidade</h3>
+        <p>Em nenhum caso seremos responsáveis por quaisquer danos indiretos, punitivos, incidentais, especiais, consequenciais ou exemplares decorrentes ou relacionados ao uso do serviço.</p>
+      </div>
+
+      <!-- Indemnification -->
+      <div id="indemnification" class="content-section">
+        <h3>7. Indenização</h3>
+        <p>Você concorda em defender, indenizar e isentar a {{ CLINIC_NAME }} de quaisquer reivindicações, responsabilidades, danos, perdas e despesas decorrentes do uso do serviço.</p>
+      </div>
+
+      <!-- Termination -->
+      <div id="termination" class="content-section">
+        <h3>8. Rescisão</h3>
+        <p>Podemos rescindir ou suspender sua conta imediatamente, sem aviso prévio ou responsabilidade, por qualquer motivo, incluindo, sem limitação, se você violar os Termos.</p>
+      </div>
+
+      <!-- Governing Law -->
+      <div id="governing-law" class="content-section">
+        <h3>9. Lei Aplicável</h3>
+        <p>Estes Termos serão regidos e interpretados de acordo com as leis da República Federativa do Brasil, sem considerar seus conflitos de disposições legais.</p>
+      </div>
+
+      <!-- Changes -->
+      <div id="changes" class="content-section">
+        <h3>10. Alterações nos Termos</h3>
+        <p>Reservamo-nos o direito de modificar ou substituir estes Termos a qualquer momento. Forneceremos aviso sobre quaisquer alterações publicando os novos Termos nesta página.</p>
+        <div class="notice-box">
+          <i class="bi bi-bell"></i>
+          <p>Ao continuar a acessar ou usar nosso serviço após a entrada em vigor dessas revisões, você concorda em ficar vinculado aos termos revisados.</p>
+        </div>
+      </div>
+
+      <!-- LGPD Section -->
+      <div id="lgpd" class="content-section">
+        <h3>11. Proteção de Dados (LGPD)</h3>
+        <p>Em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018), a {{ CLINIC_NAME }} se compromete a proteger a privacidade e os dados pessoais de seus clientes. Coletamos e tratamos dados apenas para fins de prestação de serviços, agendamentos e comunicação, sempre com base no consentimento do titular.</p>
+        <div class="notice-box">
+          <i class="bi bi-shield-lock"></i>
+          <p>Você tem direito a solicitar acesso, correção, exclusão e portabilidade dos seus dados a qualquer momento através do nosso canal de atendimento.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contact Section -->
+    <div class="tos-contact" data-aos="fade-up" data-aos-delay="300">
+      <div class="contact-box">
+        <div class="contact-icon">
+          <i class="bi bi-envelope"></i>
+        </div>
+        <div class="contact-content">
+          <h4>Dúvidas sobre os Termos?</h4>
+          <p>Se você tiver alguma dúvida sobre estes Termos, entre em contato conosco.</p>
+          <a href="{% url 'shivazen:agendaContato' %}" class="contact-link">Fale Conosco</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</section><!-- /Terms Of Service Section -->
+{% endblock %}

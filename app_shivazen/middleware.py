@@ -7,6 +7,7 @@ class ContentSecurityPolicyMiddleware:
     # CDNs usados nos templates
     ALLOWED_SCRIPT_SRCS = [
         "'self'",
+        "'unsafe-inline'",
         "https://cdn.jsdelivr.net",
         "https://cdnjs.cloudflare.com",
         "https://code.jquery.com",
@@ -22,6 +23,7 @@ class ContentSecurityPolicyMiddleware:
     ]
     ALLOWED_FONT_SRCS = [
         "'self'",
+        "data:",
         "https://fonts.gstatic.com",
         "https://cdn.jsdelivr.net",
         "https://cdnjs.cloudflare.com",
@@ -40,6 +42,7 @@ class ContentSecurityPolicyMiddleware:
             f"style-src {' '.join(self.ALLOWED_STYLE_SRCS)}",
             f"font-src {' '.join(self.ALLOWED_FONT_SRCS)}",
             f"img-src {' '.join(self.ALLOWED_IMG_SRCS)}",
+            f"frame-src 'self' https://www.google.com",
             f"connect-src 'self'",
             f"frame-ancestors 'none'",
             f"form-action 'self'",

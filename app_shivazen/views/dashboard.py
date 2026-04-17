@@ -36,12 +36,12 @@ def painel_overview(request):
 
     agendamentos_hoje = Atendimento.objects.filter(
         data_hora_inicio__date=hoje,
-        status__in=['AGENDADO', 'CONFIRMADO']
+        status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO']
     ).count()
 
     agendamentos_semana = Atendimento.objects.filter(
         data_hora_inicio__date__range=[inicio_semana, fim_semana],
-        status__in=['AGENDADO', 'CONFIRMADO']
+        status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO']
     ).count()
 
     total_clientes = Cliente.objects.filter(ativo=True).count()
@@ -56,7 +56,7 @@ def painel_overview(request):
 
     proximos_agendamentos = Atendimento.objects.filter(
         data_hora_inicio__gte=timezone.now(),
-        status__in=['AGENDADO', 'CONFIRMADO']
+        status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO']
     ).select_related('cliente', 'profissional', 'procedimento').order_by('data_hora_inicio')[:10]
 
     # --- Dados para os Gráficos (1 query instead of 7) ---
@@ -64,7 +64,7 @@ def painel_overview(request):
     agendamentos_por_dia = dict(
         Atendimento.objects.filter(
             data_hora_inicio__date__range=[inicio_semana, fim_semana],
-            status__in=['AGENDADO', 'CONFIRMADO', 'REALIZADO']
+            status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO', 'REALIZADO']
         ).annotate(
             dia=TruncDate('data_hora_inicio')
         ).values('dia').annotate(total=Count('pk')).values_list('dia', 'total')
@@ -92,7 +92,7 @@ def painel_overview(request):
         'agendamentos_por_status': agendamentos_por_status,
     }
 
-    return render(request, 'painel/painel_overview.html', context)
+    return render(request, 'painel/overview.html', context)
 
 
 @staff_required
@@ -131,7 +131,7 @@ def painel_agendamentos(request):
         'status_filter': status_filter,
     }
 
-    return render(request, 'painel/painel_agendamentos.html', context)
+    return render(request, 'painel/agendamentos.html', context)
 
 
 @staff_required
@@ -157,7 +157,7 @@ def painel_clientes(request):
         'search': search,
     }
 
-    return render(request, 'painel/painel_clientes.html', context)
+    return render(request, 'painel/clientes.html', context)
 
 
 @staff_required
@@ -180,7 +180,7 @@ def painel_profissionais(request):
     profissionais_page = paginator.get_page(page)
 
     context = {'profissionais': profissionais_page}
-    return render(request, 'painel/painel_profissionais.html', context)
+    return render(request, 'painel/profissionais.html', context)
 
 @staff_required
 def exportar_relatorio_excel(request):

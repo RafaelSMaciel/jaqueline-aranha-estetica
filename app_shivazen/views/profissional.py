@@ -7,7 +7,8 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from ..decorators import profissional_required
-from ..models import AnotacaoSessao, Atendimento
+from ..models import AnotacaoSessao, Atendimento, Notificacao
+from ..utils.email import enviar_confirmacao_agendamento_email, enviar_cancelamento_email
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,13 @@ def agenda(request):
     for at in atendimentos_semana:
         agenda_por_dia[at.data_hora_inicio.date()].append(at)
 
+    # Agendamentos pendentes de aprovação
+    pendentes = Atendimento.objects.filter(
+        profissional=prof,
+        status='PENDENTE',
+        data_hora_inicio__gte=timezone.now(),
+    ).select_related('cliente', 'procedimento').order_by('data_hora_inicio')
+
     context = {
         'profissional': prof,
         'dia': dia,
@@ -64,6 +72,7 @@ def agenda(request):
         'atendimentos_dia': atendimentos_dia,
         'agenda_por_dia': agenda_por_dia,
         'dias_semana': dias_semana,
+        'pendentes': pendentes,
     }
     return render(request, 'profissional/agenda.html', context)
 
@@ -79,7 +88,7 @@ def marcar_realizado(request, pk):
         messages.error(request, 'Este atendimento nao e seu.')
         return redirect('shivazen:profissional_agenda')
 
-    if atendimento.status in ['REALIZADO', 'CANCELADO', 'FALTOU', 'REAGENDADO']:
+    if atendimento.status in ['PENDENTE', 'REALIZADO', 'CANCELADO', 'FALTOU', 'REAGENDADO']:
         messages.warning(
             request,
             f'Atendimento ja esta como {atendimento.get_status_display().lower()}.'
@@ -128,3 +137,74 @@ def anotar(request, pk):
         'anotacoes': anotacoes,
     }
     return render(request, 'profissional/anotar.html', context)
+
+
+@profissional_required
+@require_POST
+def aprovar_agendamento(request, pk):
+    """Profissional aprova agendamento pendente → status AGENDADO."""
+    prof = _profissional_do_usuario(request.user)
+    atendimento = get_object_or_404(
+        Atendimento.objects.select_related('cliente', 'procedimento', 'profissional'),
+        pk=pk,
+    )
+
+    if prof and atendimento.profissional_id != prof.pk:
+        messages.error(request, 'Este atendimento nao e seu.')
+        return redirect('shivazen:profissional_agenda')
+
+    if atendimento.status != 'PENDENTE':
+        messages.warning(request, f'Atendimento ja esta como {atendimento.get_status_display().lower()}.')
+        return redirect('shivazen:profissional_agenda')
+
+    atendimento.status = 'AGENDADO'
+    atendimento.save()
+
+    # Notificar cliente por email
+    if atendimento.cliente.email:
+        data_fmt = atendimento.data_hora_inicio.strftime('%d/%m/%Y as %H:%M')
+        enviar_confirmacao_agendamento_email(atendimento.cliente.email, {
+            'nome': atendimento.cliente.nome_completo,
+            'procedimento': atendimento.procedimento.nome,
+            'profissional': atendimento.profissional.nome,
+            'data_hora': data_fmt,
+            'valor': f'R$ {float(atendimento.valor_cobrado):.2f}' if atendimento.valor_cobrado else 'A consultar',
+        })
+
+    messages.success(request, f'Agendamento de {atendimento.cliente.nome_completo} aprovado.')
+    return redirect('shivazen:profissional_agenda')
+
+
+@profissional_required
+@require_POST
+def rejeitar_agendamento(request, pk):
+    """Profissional rejeita agendamento pendente → status CANCELADO."""
+    prof = _profissional_do_usuario(request.user)
+    atendimento = get_object_or_404(
+        Atendimento.objects.select_related('cliente', 'procedimento', 'profissional'),
+        pk=pk,
+    )
+
+    if prof and atendimento.profissional_id != prof.pk:
+        messages.error(request, 'Este atendimento nao e seu.')
+        return redirect('shivazen:profissional_agenda')
+
+    if atendimento.status != 'PENDENTE':
+        messages.warning(request, f'Atendimento ja esta como {atendimento.get_status_display().lower()}.')
+        return redirect('shivazen:profissional_agenda')
+
+    atendimento.status = 'CANCELADO'
+    atendimento.save()
+
+    # Notificar cliente por email
+    if atendimento.cliente.email:
+        data_fmt = atendimento.data_hora_inicio.strftime('%d/%m/%Y as %H:%M')
+        enviar_cancelamento_email(atendimento.cliente.email, {
+            'nome': atendimento.cliente.nome_completo,
+            'procedimento': atendimento.procedimento.nome,
+            'data_hora': data_fmt,
+            'profissional': atendimento.profissional.nome,
+        })
+
+    messages.success(request, f'Agendamento de {atendimento.cliente.nome_completo} rejeitado.')
+    return redirect('shivazen:profissional_agenda')

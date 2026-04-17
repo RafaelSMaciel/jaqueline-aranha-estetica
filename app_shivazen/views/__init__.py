@@ -8,9 +8,8 @@ from .public import (
     home, termosUso, politicaPrivacidade, quemsomos, agendaContato, promocoes,
     equipe, especialidades, depoimentos, galeria, servico_detalhe,
     lista_espera_publica, lista_espera_sucesso,
+    servicos_faciais, servicos_corporais, servicos_produtos,
 )
-from .services import servicos_faciais, servicos_corporais, servicos_produtos
-from .ajax import buscar_procedimentos, buscar_horarios
 from .admin import (
     prontuarioconsentimento,
     admin_auditoria, admin_atualizar_status,
@@ -38,12 +37,14 @@ from .booking_api import (
     api_horarios_disponiveis,
     cancelar_agendamento,
     verificar_telefone,
+    buscar_procedimentos,
+    buscar_horarios,
 )
 from .whatsapp import whatsapp_webhook
 from .notificacoes import confirmar_presenca, painel_notificacoes, admin_cancelar_agendamento
 from .prontuario import prontuario_detalhe, prontuario_salvar, anotacao_sessao_salvar
 from .pacotes import admin_pacotes, admin_criar_pacote, admin_editar_pacote, admin_vender_pacote
-from .features import (
+from .admin_management import (
     admin_bloqueios, admin_criar_bloqueio, admin_excluir_bloqueio,
     admin_procedimentos, admin_criar_procedimento, admin_editar_procedimento,
     admin_cliente_detalhe, admin_lista_espera, admin_notificar_espera,
@@ -53,5 +54,7 @@ from .profissional import (
     agenda as profissional_agenda,
     marcar_realizado as profissional_marcar_realizado,
     anotar as profissional_anotar,
+    aprovar_agendamento as profissional_aprovar,
+    rejeitar_agendamento as profissional_rejeitar,
 )
 from .health import healthcheck

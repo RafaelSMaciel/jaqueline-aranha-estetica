@@ -67,7 +67,7 @@ def prontuarioconsentimento(request):
         'total_perguntas': perguntas.count(),
         'search': search,
     }
-    return render(request, 'painel/painel_prontuario.html', context)
+    return render(request, 'painel/prontuario.html', context)
 
 
 # ═══════════════════════════════════════
@@ -110,7 +110,7 @@ def admin_auditoria(request):
         'acao_filter': acao_filter,
         'data_filter': data_filter,
     }
-    return render(request, 'painel/admin_auditoria.html', context)
+    return render(request, 'painel/auditoria.html', context)
 
 
 # ═══════════════════════════════════════
@@ -129,7 +129,7 @@ def admin_atualizar_status(request):
         atendimento_id = data.get('atendimento_id')
         novo_status = data.get('status', '').upper()
 
-        status_validos = ['AGENDADO', 'CONFIRMADO', 'REALIZADO', 'CANCELADO', 'FALTOU']
+        status_validos = ['PENDENTE', 'AGENDADO', 'CONFIRMADO', 'REALIZADO', 'CANCELADO', 'FALTOU']
         if novo_status not in status_validos:
             return JsonResponse({'erro': f'Status inválido. Use: {", ".join(status_validos)}'}, status=400)
 

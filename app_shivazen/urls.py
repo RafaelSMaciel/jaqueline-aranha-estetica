@@ -133,6 +133,8 @@ urlpatterns = [
     path('profissional/', views.profissional_agenda, name='profissional_agenda'),
     path('profissional/atendimento/<int:pk>/realizado/', views.profissional_marcar_realizado, name='profissional_marcar_realizado'),
     path('profissional/atendimento/<int:pk>/anotar/', views.profissional_anotar, name='profissional_anotar'),
+    path('profissional/atendimento/<int:pk>/aprovar/', views.profissional_aprovar, name='profissional_aprovar'),
+    path('profissional/atendimento/<int:pk>/rejeitar/', views.profissional_rejeitar, name='profissional_rejeitar'),
 
     # ─── Healthcheck ───
     path('health/', views.healthcheck, name='healthcheck'),

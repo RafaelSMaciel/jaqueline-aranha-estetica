@@ -50,7 +50,7 @@ class ConfirmarAgendamentoTests(TestCase):
         self.assertEqual(Atendimento.objects.count(), 1)
 
         atd = Atendimento.objects.first()
-        self.assertEqual(atd.status, 'AGENDADO')
+        self.assertEqual(atd.status, 'PENDENTE')
         self.assertEqual(atd.cliente.nome_completo, 'Maria Teste')
         self.assertEqual(atd.valor_cobrado, Decimal('120.00'))
 

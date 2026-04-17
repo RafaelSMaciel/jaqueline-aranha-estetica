@@ -27,14 +27,14 @@ def processar_mudanca_status(sender, instance, created, **kwargs):
         return
 
     # REGRA: FILA DE ESPERA — cancelamento, falta ou reagendamento libera vaga
-    if status_atual in ['CANCELADO', 'FALTOU', 'REAGENDADO'] and status_anterior in ['AGENDADO', 'CONFIRMADO']:
+    if status_atual in ['CANCELADO', 'FALTOU', 'REAGENDADO'] and status_anterior in ['PENDENTE', 'AGENDADO', 'CONFIRMADO']:
         job_notificar_fila_espera.delay(
             procedimento_id=instance.procedimento.pk,
             data_livre_str=instance.data_hora_inicio.isoformat()
         )
 
     # REGRA: REGISTRO DE FALTA — 3-strike system
-    if status_atual == 'FALTOU' and status_anterior in ['AGENDADO', 'CONFIRMADO']:
+    if status_atual == 'FALTOU' and status_anterior in ['PENDENTE', 'AGENDADO', 'CONFIRMADO']:
         instance.cliente.registrar_falta()
         logger.info(f"[FALTA] Cliente {instance.cliente.pk} — faltas: {instance.cliente.faltas_consecutivas}")
 

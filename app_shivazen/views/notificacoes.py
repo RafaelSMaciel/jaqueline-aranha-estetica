@@ -97,7 +97,7 @@ def painel_notificacoes(request):
         'tipo_filter': tipo_filter,
         'status_filter': status_filter,
     }
-    return render(request, 'painel/painel_notificacoes.html', context)
+    return render(request, 'painel/notificacoes.html', context)
 
 
 @staff_required

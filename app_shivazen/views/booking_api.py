@@ -6,6 +6,7 @@ import string
 from datetime import datetime, timedelta
 
 from django.http import JsonResponse
+from django.views.decorators.http import require_GET
 from django.urls import reverse
 from django.utils import timezone
 from django_ratelimit.decorators import ratelimit
@@ -89,7 +90,7 @@ def api_horarios_disponiveis(request):
                 profissional=prof,
                 data_hora_inicio__lt=fim_procedimento,
                 data_hora_fim__gt=dt_aware,
-                status__in=['AGENDADO', 'CONFIRMADO']
+                status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO']
             ).exists()
 
             # Checar bloqueios
@@ -306,3 +307,38 @@ def cancelar_agendamento(request):
     except Exception as e:
         logger.error(f'Erro ao cancelar agendamento: {e}', exc_info=True)
         return JsonResponse({'erro': 'Ocorreu um erro interno. Tente novamente.'}, status=500)
+
+
+# ─── AJAX endpoints (antigo ajax.py) ───
+
+@require_GET
+@ratelimit(key='ip', rate='30/m', method='GET', block=True)
+def buscar_procedimentos(request):
+    """Retorna procedimentos ativos (endpoint publico para agendamento)."""
+    procedimentos = Procedimento.objects.filter(ativo=True).values(
+        'id', 'nome', 'duracao_minutos'
+    )
+    return JsonResponse({'procedimentos': list(procedimentos)})
+
+
+@require_GET
+@ratelimit(key='ip', rate='30/m', method='GET', block=True)
+def buscar_horarios(request):
+    """Retorna horarios disponiveis para um profissional em uma data."""
+    prof_id = request.GET.get('profissional_id')
+    data_str = request.GET.get('data')
+    if not prof_id or not data_str:
+        return JsonResponse({'error': 'Parâmetros obrigatórios: profissional_id, data'}, status=400)
+
+    try:
+        data = datetime.strptime(data_str, '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({'error': 'Data inválida. Use YYYY-MM-DD.'}, status=400)
+
+    try:
+        profissional = Profissional.objects.get(pk=prof_id, ativo=True)
+    except Profissional.DoesNotExist:
+        return JsonResponse({'error': 'Profissional não encontrado'}, status=404)
+
+    horarios = profissional.get_horarios_disponiveis(data)
+    return JsonResponse({'horarios': horarios})

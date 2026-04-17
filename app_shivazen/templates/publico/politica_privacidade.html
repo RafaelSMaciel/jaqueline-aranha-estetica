@@ -1,0 +1,174 @@
+{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block body_class %}privacy-page{% endblock %}
+{% block titulo %}Política de Privacidade | {{ CLINIC_NAME }}{% endblock %}
+
+{% block conteudo %}
+<!-- Privacy Section -->
+<section id="privacy" class="privacy section pt-5 mt-4">
+
+  <div class="container" data-aos="fade-up">
+    <!-- Header -->
+    <div class="privacy-header" data-aos="fade-up">
+      <div class="header-content">
+        <div class="last-updated">Data de Vigência: 26 de Março de 2026</div>
+        <h1>Política de Privacidade</h1>
+        <p class="intro-text">Esta Política de Privacidade descreve como a {{ CLINIC_NAME }} coleta, usa, processa e divulga suas informações, incluindo dados pessoais, em conjunto com seu acesso e uso de nossos serviços.</p>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="privacy-content" data-aos="fade-up">
+      <!-- Introduction -->
+      <div class="content-section">
+        <h2>1. Introdução</h2>
+        <p>Ao utilizar nossos serviços, você confia suas informações a nós. Entendemos que esta é uma grande responsabilidade e trabalhamos arduamente para proteger suas informações e dar a você o controle sobre elas.</p>
+        <p>Esta Política de Privacidade foi elaborada para ajudá-lo a entender quais informações coletamos, por que as coletamos e como você pode atualizar, gerenciar, exportar e excluir suas informações.</p>
+      </div>
+
+      <!-- Information Collection -->
+      <div class="content-section">
+        <h2>2. Informações que Coletamos</h2>
+        <p>Coletamos informações para fornecer melhores serviços aos nossos usuários. Os tipos de informações que coletamos incluem:</p>
+
+        <h3>2.1 Informações Fornecidas por Você</h3>
+        <p>Ao criar uma conta ou utilizar nossos serviços, você nos fornece informações pessoais que incluem:</p>
+        <ul>
+          <li>Nome completo e dados de contato</li>
+          <li>Credenciais de acesso à conta</li>
+          <li>Informações de pagamento quando necessário</li>
+          <li>Preferências de comunicação e agendamento</li>
+          <li>Histórico de tratamentos e procedimentos realizados</li>
+        </ul>
+
+        <h3>2.2 Informações Automáticas</h3>
+        <p>Coletamos e armazenamos automaticamente certas informações quando você utiliza nossos serviços:</p>
+        <ul>
+          <li>Informações do dispositivo e identificadores</li>
+          <li>Dados de log e estatísticas de uso</li>
+          <li>Informações de localização quando permitido</li>
+          <li>Tipo de navegador e configurações</li>
+          <li>Endereço de IP e dados de conexão</li>
+        </ul>
+      </div>
+
+      <!-- Use of Information -->
+      <div class="content-section">
+        <h2>3. Como Utilizamos Suas Informações</h2>
+        <p>Utilizamos as informações coletadas para fornecer, manter e melhorar nossos serviços. Especificamente, utilizamos suas informações para:</p>
+        <ul>
+          <li>Fornecer e personalizar nossos serviços estéticos</li>
+          <li>Processar agendamentos e enviar confirmações</li>
+          <li>Enviar notificações e atualizações sobre nossos serviços</li>
+          <li>Manter a segurança e verificar identidade</li>
+          <li>Analisar e melhorar nossos serviços</li>
+          <li>Manter prontuários e histórico de tratamentos com seu consentimento</li>
+        </ul>
+      </div>
+
+      <!-- LGPD Section -->
+      <div class="content-section">
+        <h2>4. Base Legal para o Tratamento de Dados (LGPD)</h2>
+        <p>Em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018), tratamos seus dados pessoais com base nas seguintes hipóteses legais:</p>
+        <ul>
+          <li><strong>Consentimento:</strong> Para finalidades específicas, como comunicação e marketing, solicitamos seu consentimento explícito.</li>
+          <li><strong>Cumprimento de obrigação legal:</strong> Para atender exigências legais e regulatórias.</li>
+          <li><strong>Execução de contrato:</strong> Para a prestação dos serviços contratados e agendamentos.</li>
+          <li><strong>Proteção da vida:</strong> Em situações de emergência que envolvam sua saúde e bem-estar.</li>
+        </ul>
+        <div class="info-box">
+          <i class="bi bi-shield-lock"></i>
+          <p>Você tem o direito de revogar seu consentimento a qualquer momento através do nosso canal de atendimento.</p>
+        </div>
+      </div>
+
+      <!-- Information Sharing -->
+      <div class="content-section">
+        <h2>5. Compartilhamento e Divulgação de Informações</h2>
+        <p>Não compartilhamos informações pessoais com empresas, organizações ou indivíduos fora da {{ CLINIC_NAME }}, exceto nos seguintes casos:</p>
+
+        <h3>5.1 Com Seu Consentimento</h3>
+        <p>Compartilharemos informações pessoais com empresas, organizações ou indivíduos fora da {{ CLINIC_NAME }} quando tivermos seu consentimento para fazê-lo.</p>
+
+        <h3>5.2 Por Razões Legais</h3>
+        <p>Compartilharemos informações pessoais se acreditarmos de boa-fé que o acesso, uso, preservação ou divulgação das informações é razoavelmente necessário para:</p>
+        <ul>
+          <li>Cumprir qualquer lei, regulamento, processo legal ou solicitação governamental aplicável</li>
+          <li>Fiscalizar o cumprimento dos Termos de Serviço aplicáveis</li>
+          <li>Detectar, prevenir ou abordar questões de fraude, segurança ou técnicas</li>
+          <li>Proteger contra danos aos direitos, propriedade ou segurança de nossos usuários</li>
+        </ul>
+
+        <h3>5.3 Prestadores de Serviços</h3>
+        <p>Compartilhamos informações com prestadores de serviços que realizam funções em nosso nome, como processamento de pagamentos, envio de e-mails e hospedagem de dados, sempre sob contratos que garantem a proteção dos seus dados.</p>
+      </div>
+
+      <!-- Data Security -->
+      <div class="content-section">
+        <h2>6. Segurança de Dados</h2>
+        <p>Trabalhamos arduamente para proteger nossos usuários contra acesso não autorizado ou alteração, divulgação ou destruição não autorizada das informações que possuímos. Em particular:</p>
+        <ul>
+          <li>Utilizamos criptografia SSL em nossos serviços</li>
+          <li>Revisamos regularmente nossas práticas de coleta, armazenamento e processamento</li>
+          <li>Restringimos o acesso a informações pessoais a funcionários que necessitam dessas informações para realizar seu trabalho</li>
+          <li>Implementamos controles de acesso e autenticação de dois fatores</li>
+          <li>Realizamos backups regulares e testes de segurança</li>
+        </ul>
+      </div>
+
+      <!-- Your Rights -->
+      <div class="content-section">
+        <h2>7. Seus Direitos como Titular de Dados (LGPD)</h2>
+        <p>Como titular de dados pessoais, você possui os seguintes direitos, que podem ser exercidos a qualquer momento:</p>
+        <ul>
+          <li><strong>Confirmação da existência de tratamento:</strong> Saber se seus dados são tratados por nós</li>
+          <li><strong>Acesso aos dados:</strong> Solicitar acesso às suas informações pessoais</li>
+          <li><strong>Correção de dados incompletos:</strong> Corrigir informações imprecisas ou desatualizadas</li>
+          <li><strong>Anonimização, bloqueio ou eliminação:</strong> Solicitar a eliminação de dados desnecessários ou tratados em desacordo com a lei</li>
+          <li><strong>Portabilidade dos dados:</strong> Solicitar a transferência de seus dados para outro fornecedor</li>
+          <li><strong>Eliminação dos dados:</strong> Solicitar a exclusão de seus dados pessoais tratados com consentimento</li>
+          <li><strong>Revogação do consentimento:</strong> Retirar seu consentimento a qualquer momento</li>
+        </ul>
+        <div class="alert-box">
+          <i class="bi bi-envelope"></i>
+          <div class="alert-content">
+            <h5>Como Exercer Seus Direitos</h5>
+            <p>Para exercer qualquer um dos seus direitos, entre em contato conosco através do e-mail <strong>{{ CLINIC_EMAIL }}</strong> ou pelo telefone {{ CLINIC_PHONE }}.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Retention -->
+      <div class="content-section">
+        <h2>8. Retenção de Dados</h2>
+        <p>Mantemos seus dados pessoais pelo período necessário para cumprir as finalidades para as quais foram coletados, incluindo o cumprimento de obrigações legais, contratuais e regulatórias. Em geral, os dados são mantidos por até 5 anos após o último contato, conforme exigido pelo Código de Defesa do Consumidor e outras legislações aplicáveis.</p>
+      </div>
+
+      <!-- Policy Updates -->
+      <div class="content-section">
+        <h2>9. Alterações nesta Política</h2>
+        <p>Podemos atualizar esta Política de Privacidade periodicamente. Notificaremos você sobre quaisquer alterações publicando a nova Política de Privacidade nesta página e atualizando a data de vigência no topo.</p>
+        <p>O uso continuado de nossos serviços após quaisquer alterações nesta Política de Privacidade constitui sua aceitação de tais alterações.</p>
+        <div class="notice-box">
+          <i class="bi bi-bell"></i>
+          <p>Recomendamos que você revise esta política periodicamente para se manter informado sobre como protegemos suas informações.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contact Section -->
+    <div class="privacy-contact" data-aos="fade-up">
+      <h2>Fale Conosco</h2>
+      <p>Se você tiver alguma dúvida sobre esta Política de Privacidade ou sobre nossas práticas de proteção de dados, entre em contato conosco:</p>
+      <div class="contact-details">
+        <p><strong>E-mail:</strong> {{ CLINIC_EMAIL }}</p>
+        <p><strong>Telefone:</strong> {{ CLINIC_PHONE }}</p>
+        <p><strong>Endereço:</strong> {{ CLINIC_ADDRESS }}</p>
+      </div>
+    </div>
+
+  </div>
+
+</section><!-- /Privacy Section -->
+{% endblock %}

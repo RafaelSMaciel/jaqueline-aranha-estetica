@@ -1,0 +1,123 @@
+{% extends 'painel/base.html' %}
+
+{% block page_title %}Notificacoes{% endblock %}
+{% block page_subtitle %}Historico de lembretes, confirmacoes e cancelamentos{% endblock %}
+
+{% block admin_content %}
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-card-icon" style="background:rgba(33,150,243,0.1);">
+                <i class="fas fa-paper-plane" style="color:#2196F3;"></i>
+            </div>
+            <div class="stat-card-value" style="color:#2196F3;">{{ total }}</div>
+            <div class="stat-card-label">Enviadas</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-card-icon" style="background:rgba(76,175,80,0.1);">
+                <i class="fas fa-check-circle" style="color:#4CAF50;"></i>
+            </div>
+            <div class="stat-card-value" style="color:#4CAF50;">{{ confirmados }}</div>
+            <div class="stat-card-label">Confirmados</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-card-icon" style="background:rgba(244,67,54,0.1);">
+                <i class="fas fa-times-circle" style="color:#F44336;"></i>
+            </div>
+            <div class="stat-card-value" style="color:#F44336;">{{ cancelados }}</div>
+            <div class="stat-card-label">Cancelados</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-card-icon" style="background:rgba(255,152,0,0.1);">
+                <i class="fas fa-clock" style="color:#FF9800;"></i>
+            </div>
+            <div class="stat-card-value" style="color:#FF9800;">{{ sem_resposta }}</div>
+            <div class="stat-card-label">Sem Resposta</div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card border-0 shadow-sm rounded-4 mb-4">
+    <div class="card-body p-3">
+        <form method="GET" class="d-flex gap-2 flex-wrap">
+            <select name="tipo" class="form-select form-select-sm bg-light border-0 rounded-pill" style="max-width:180px;">
+                <option value="all" {% if tipo_filter == 'all' %}selected{% endif %}>Todos os tipos</option>
+                <option value="LEMBRETE" {% if tipo_filter == 'LEMBRETE' %}selected{% endif %}>Lembretes</option>
+                <option value="CANCELAMENTO" {% if tipo_filter == 'CANCELAMENTO' %}selected{% endif %}>Cancelamentos</option>
+                <option value="NPS" {% if tipo_filter == 'NPS' %}selected{% endif %}>NPS</option>
+            </select>
+            <select name="status" class="form-select form-select-sm bg-light border-0 rounded-pill" style="max-width:180px;">
+                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Todos os status</option>
+                <option value="respondido" {% if status_filter == 'respondido' %}selected{% endif %}>Respondidos</option>
+                <option value="pendente" {% if status_filter == 'pendente' %}selected{% endif %}>Sem resposta</option>
+            </select>
+            <button type="submit" class="btn btn-sm rounded-pill px-3" style="background:#C9A84C;color:white;">
+                <i class="fas fa-filter me-1"></i>Filtrar
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Notifications List -->
+{% if notificacoes %}
+    {% for notif in notificacoes %}
+    <div class="admin-list-item">
+        <div class="admin-list-avatar" style="background:{% if notif.resposta_cliente == 'CONFIRMOU' %}rgba(76,175,80,0.1);color:#4CAF50{% elif notif.resposta_cliente == 'CANCELOU' %}rgba(244,67,54,0.1);color:#F44336{% elif notif.tipo == 'CANCELAMENTO' %}rgba(244,67,54,0.1);color:#F44336{% else %}rgba(33,150,243,0.1);color:#2196F3{% endif %};">
+            {% if notif.resposta_cliente == 'CONFIRMOU' %}
+                <i class="fas fa-check"></i>
+            {% elif notif.resposta_cliente == 'CANCELOU' %}
+                <i class="fas fa-times"></i>
+            {% elif notif.tipo == 'CANCELAMENTO' %}
+                <i class="fas fa-ban"></i>
+            {% elif notif.tipo == 'NPS' %}
+                <i class="fas fa-star"></i>
+            {% else %}
+                <i class="fas fa-bell"></i>
+            {% endif %}
+        </div>
+        <div class="admin-list-info">
+            <div class="admin-list-title">{{ notif.atendimento.cliente.nome_completo }}</div>
+            <div class="admin-list-meta">
+                {{ notif.atendimento.procedimento.nome }} &middot;
+                {{ notif.atendimento.data_hora_inicio|date:"d/m/Y H:i" }} &middot;
+                {{ notif.atendimento.profissional.nome }}
+            </div>
+            {% if notif.enviado_em %}
+            <div class="admin-list-meta">
+                Enviado: {{ notif.enviado_em|date:"d/m/Y H:i" }}
+                {% if notif.respondido_em %} &middot; Resposta: {{ notif.respondido_em|date:"d/m/Y H:i" }}{% endif %}
+            </div>
+            {% endif %}
+        </div>
+        <div class="admin-list-action d-flex flex-column align-items-end gap-1">
+            <span class="admin-badge {% if notif.tipo == 'LEMBRETE' %}admin-badge-blue{% elif notif.tipo == 'CANCELAMENTO' %}admin-badge-red{% elif notif.tipo == 'NPS' %}admin-badge-yellow{% else %}admin-badge-blue{% endif %}">
+                {{ notif.tipo }}
+            </span>
+            {% if notif.resposta_cliente == 'CONFIRMOU' %}
+                <span class="admin-badge admin-badge-green">Confirmou</span>
+            {% elif notif.resposta_cliente == 'CANCELOU' %}
+                <span class="admin-badge admin-badge-red">Cancelou</span>
+            {% elif notif.tipo == 'LEMBRETE' %}
+                <span class="admin-badge admin-badge-yellow">Aguardando</span>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <div class="text-center py-5">
+        <i class="fas fa-bell-slash fa-2x mb-3" style="color:#DDD;"></i>
+        <h6 class="text-muted">Nenhuma notificacao encontrada</h6>
+        <p class="text-muted small">As notificacoes aparecerao aqui quando os lembretes forem enviados.</p>
+    </div>
+{% endif %}
+
+{% endblock %}

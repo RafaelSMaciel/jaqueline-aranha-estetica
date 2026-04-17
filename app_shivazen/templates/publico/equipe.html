@@ -6,7 +6,7 @@
 
 {% block conteudo %}
 <!-- Doctors Section -->
-<section id="doctors" class="doctors section pt-5 mt-4">
+<section id="doctors" class="doctors section">
   <div class="container" data-aos="fade-up" data-aos-delay="100">
 
     <!-- Section Header -->
@@ -40,9 +40,12 @@
           <div class="doctor-content">
             <h4>{{ prof.nome }}</h4>
             <span class="specialty">{{ prof.especialidade|default:"Profissional de Estética" }}</span>
-            {% if prof.especialidade %}
-            <p>{{ prof.especialidade|truncatechars:120 }}</p>
-            {% endif %}
+            <div class="doctor-meta">
+              <div class="experience">
+                <i class="bi bi-award"></i>
+                <span>Profissional Especializado</span>
+              </div>
+            </div>
             <a href="{% url 'shivazen:agendamento_publico' %}?profissional={{ prof.pk }}" class="btn-appointment">Agendar Consulta</a>
           </div>
         </div>

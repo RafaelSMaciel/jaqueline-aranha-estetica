@@ -82,7 +82,7 @@ class IntegrationBookingFlowTests(TestCase):
         atendimentos = Atendimento.objects.filter(cliente=cliente)
         self.assertEqual(atendimentos.count(), 1, 'Exactly one Atendimento should exist')
         atd = atendimentos.first()
-        self.assertEqual(atd.status, 'AGENDADO')
+        self.assertEqual(atd.status, 'PENDENTE')
         self.assertEqual(atd.procedimento, self.proc)
         self.assertEqual(atd.profissional, self.prof)
 

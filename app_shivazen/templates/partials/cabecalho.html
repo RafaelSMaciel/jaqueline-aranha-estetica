@@ -8,13 +8,13 @@
         <i class="bi bi-phone d-flex align-items-center ms-4"><span>{{ CLINIC_PHONE }}</span></i>
       </div>
       <div class="social-links d-none d-md-flex align-items-center">
-        <a href="https://www.instagram.com/shivazensjrp/" target="_blank" rel="noopener" class="instagram"><i class="bi bi-instagram"></i></a>
+        <a href="{{ INSTAGRAM_URL }}" target="_blank" rel="noopener" class="instagram"><i class="bi bi-instagram"></i></a>
         <a href="https://wa.me/{{ WHATSAPP_NUMERO }}" target="_blank" rel="noopener" class="whatsapp"><i class="bi bi-whatsapp"></i></a>
       </div>
     </div>
   </div>
 
-  <div class="branding d-flex align-items-cente">
+  <div class="branding d-flex align-items-center">
     <div class="container position-relative d-flex align-items-center justify-content-between">
       <a href="{% url 'shivazen:inicio' %}" class="logo d-flex align-items-center">
         <h1 class="sitename">{{ CLINIC_NAME }}</h1>
@@ -23,20 +23,20 @@
       <nav id="navmenu" class="navmenu">
         <ul>
           <li><a href="{% url 'shivazen:inicio' %}" class="{% if request.resolver_match.url_name == 'inicio' %}active{% endif %}">Home</a></li>
-          <li><a href="{% url 'shivazen:agendaContato' %}">Contato</a></li>
-          <li><a href="{% url 'shivazen:quemsomos' %}">Sobre</a></li>
-          <li><a href="{% url 'shivazen:especialidades' %}">Especialidades</a></li>
-          <li><a href="{% url 'shivazen:servicos_faciais' %}">Serviços</a></li>
-          <li><a href="{% url 'shivazen:equipe' %}">Profissionais</a></li>
-          <li class="dropdown"><a href="#"><span>+</span> <i class="bi bi-chevron-down toggle-dropdown"></i></a>
+          <li><a href="{% url 'shivazen:agendaContato' %}" class="{% if request.resolver_match.url_name == 'agendaContato' %}active{% endif %}">Contato</a></li>
+          <li><a href="{% url 'shivazen:quemsomos' %}" class="{% if request.resolver_match.url_name == 'quemsomos' %}active{% endif %}">Sobre</a></li>
+          <li><a href="{% url 'shivazen:especialidades' %}" class="{% if request.resolver_match.url_name == 'especialidades' %}active{% endif %}">Especialidades</a></li>
+          <li><a href="{% url 'shivazen:servicos_faciais' %}" class="{% if request.resolver_match.url_name == 'servicos_faciais' or request.resolver_match.url_name == 'servicos_corporais' %}active{% endif %}">Serviços</a></li>
+          <li><a href="{% url 'shivazen:equipe' %}" class="{% if request.resolver_match.url_name == 'equipe' %}active{% endif %}">Profissionais</a></li>
+          <li class="dropdown"><a href="#" class="{% if request.resolver_match.url_name in 'agendamento_publico,depoimentos,galeria,promocoes,meus_agendamentos,termosUso,politicaPrivacidade' %}active{% endif %}"><span>Mais</span> <i class="bi bi-chevron-down toggle-dropdown"></i></a>
             <ul>
-              <li><a href="{% url 'shivazen:agendamento_publico' %}">Agendamento</a></li>
-              <li><a href="{% url 'shivazen:depoimentos' %}">Depoimentos</a></li>
-              <li><a href="{% url 'shivazen:galeria' %}">Galeria</a></li>
-              <li><a href="{% url 'shivazen:promocoes' %}">Promoções</a></li>
-              <li><a href="{% url 'shivazen:meus_agendamentos' %}">Meus Agendamentos</a></li>
-              <li><a href="{% url 'shivazen:termosUso' %}">Termos</a></li>
-              <li><a href="{% url 'shivazen:politicaPrivacidade' %}">Privacidade</a></li>
+              <li><a href="{% url 'shivazen:agendamento_publico' %}" class="{% if request.resolver_match.url_name == 'agendamento_publico' %}active{% endif %}">Agendamento</a></li>
+              <li><a href="{% url 'shivazen:depoimentos' %}" class="{% if request.resolver_match.url_name == 'depoimentos' %}active{% endif %}">Depoimentos</a></li>
+              <li><a href="{% url 'shivazen:galeria' %}" class="{% if request.resolver_match.url_name == 'galeria' %}active{% endif %}">Galeria</a></li>
+              <li><a href="{% url 'shivazen:promocoes' %}" class="{% if request.resolver_match.url_name == 'promocoes' %}active{% endif %}">Promoções</a></li>
+              <li><a href="{% url 'shivazen:meus_agendamentos' %}" class="{% if request.resolver_match.url_name == 'meus_agendamentos' %}active{% endif %}">Meus Agendamentos</a></li>
+              <li><a href="{% url 'shivazen:termosUso' %}" class="{% if request.resolver_match.url_name == 'termosUso' %}active{% endif %}">Termos</a></li>
+              <li><a href="{% url 'shivazen:politicaPrivacidade' %}" class="{% if request.resolver_match.url_name == 'politicaPrivacidade' %}active{% endif %}">Privacidade</a></li>
             </ul>
           </li>
         </ul>

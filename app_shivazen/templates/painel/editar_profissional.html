@@ -1,0 +1,89 @@
+{% extends 'painel/base.html' %}
+
+{% block page_title %}Editar Profissional{% endblock %}
+{% block page_subtitle %}{{ profissional.nome }}{% endblock %}
+
+{% block admin_css %}
+.form-card {
+    background: white; border-radius: 16px; padding: 1.5rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 1rem;
+}
+.form-card-title {
+    font-weight: 800; font-size: 0.75rem; text-transform: uppercase;
+    letter-spacing: 1px; color: #C9A84C; margin-bottom: 1rem;
+}
+.dia-check { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+.dia-check label { font-weight: 700; font-size: 0.85rem; min-width: 110px; }
+{% endblock %}
+
+{% block admin_content %}
+<form method="post" action="{% url 'shivazen:profissionalEditar' profissional.pk %}">
+    {% csrf_token %}
+
+    <div class="form-card">
+        <div class="form-card-title"><i class="fas fa-user-md me-2"></i>Dados do Profissional</div>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label small fw-bold text-muted">Nome Completo *</label>
+                <input type="text" name="nome" class="form-control" value="{{ profissional.nome }}" required style="border-radius:10px;">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small fw-bold text-muted">Especialidade</label>
+                <input type="text" name="especialidade" class="form-control" value="{{ profissional.especialidade|default:'' }}" style="border-radius:10px;">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-bold text-muted">Ativo</label>
+                <div class="form-check form-switch mt-1">
+                    <input type="checkbox" name="ativo" class="form-check-input" {% if profissional.ativo %}checked{% endif %}>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-card">
+        <div class="form-card-title"><i class="fas fa-clock me-2"></i>Disponibilidade Semanal</div>
+        {% for dia_key, dia_nome in dias_semana.items %}
+        <div class="dia-check">
+            <input type="checkbox" name="trabalha_{{ dia_key }}" id="dia_{{ dia_key }}" class="form-check-input"
+                   {% if dia_key in disponibilidades_map %}checked{% endif %}
+                   onchange="document.getElementById('horas_{{ dia_key }}').style.display = this.checked ? 'flex' : 'none';">
+            <label for="dia_{{ dia_key }}">{{ dia_nome }}</label>
+            <div id="horas_{{ dia_key }}" style="display:{% if dia_key in disponibilidades_map %}flex{% else %}none{% endif %};gap:0.5rem;align-items:center;">
+                <input type="time" name="hora_inicio_{{ dia_key }}" class="form-control form-control-sm"
+                       value="{% if dia_key in disponibilidades_map %}{{ disponibilidades_map|dictsort:dia_key }}{% endif %}"
+                       style="border-radius:8px;width:auto;">
+                <span class="small text-muted">até</span>
+                <input type="time" name="hora_fim_{{ dia_key }}" class="form-control form-control-sm"
+                       value="{% if dia_key in disponibilidades_map %}{{ disponibilidades_map|dictsort:dia_key }}{% endif %}"
+                       style="border-radius:8px;width:auto;">
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="form-card">
+        <div class="form-card-title"><i class="fas fa-spa me-2"></i>Procedimentos</div>
+        <div class="row g-2">
+            {% for proc in procedimentos %}
+            <div class="col-6 col-md-4">
+                <div class="form-check">
+                    <input type="checkbox" name="procedimentos" value="{{ proc.pk }}" class="form-check-input"
+                           id="proc_{{ proc.pk }}"
+                           {% if proc.pk in procedimentos_atuais %}checked{% endif %}>
+                    <label class="form-check-label small" for="proc_{{ proc.pk }}">{{ proc.nome }}</label>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <a href="{% url 'shivazen:painel_profissionais' %}" class="btn btn-sm" style="background:#eee;color:#666;border-radius:10px;font-weight:700;">
+            <i class="fas fa-arrow-left me-1"></i>Cancelar
+        </a>
+        <button type="submit" class="btn btn-sm flex-grow-1" style="background:#C9A84C;color:white;border-radius:10px;font-weight:700;">
+            <i class="fas fa-save me-1"></i>Salvar Alterações
+        </button>
+    </div>
+</form>
+{% endblock %}
