@@ -86,7 +86,7 @@ def profissionalCadastro(request):
         'procedimentos': procedimentos,
         'dias_semana': dias_semana
     }
-    return render(request, 'telas/tela_cadastro_profissional.html', context)
+    return render(request, 'painel/cadastro_profissional.html', context)
 
 
 @staff_required
@@ -178,4 +178,4 @@ def profissionalEditar(request, pk=None):
         'dias_semana': dias_semana,
         'disponibilidades_map': disponibilidades_map,
     }
-    return render(request, 'telas/tela_editar_profissional.html', context)
+    return render(request, 'painel/editar_profissional.html', context)

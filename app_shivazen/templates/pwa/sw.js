@@ -3,8 +3,8 @@ const CACHE_NAME = 'shivazen-admin-cache-v1';
 // URLs to cache purely for offline UI shell (if any)
 const URLS_TO_CACHE = [
   '/offline', // Optional fallback URL
-  '/static/assets/LogoCompleta.png',
-  '/static/assets/LogoSemFundo.png'
+  '/static/assets/logo-completa.png',
+  '/static/assets/logo-sem-fundo.png'
 ];
 
 self.addEventListener('install', (event) => {

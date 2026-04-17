@@ -1,0 +1,583 @@
+{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block titulo %}{{ CLINIC_NAME }} — Clínica de Estética{% endblock %}
+
+{% block conteudo %}
+<!-- Hero Section -->
+<section id="hero" class="hero section">
+
+  <div class="container" data-aos="fade-up">
+
+    <div class="row align-items-center">
+      <div class="col-lg-6">
+        <div class="hero-content">
+          <h1 data-aos="fade-right">
+            Excelência em <span class="highlight">Estética</span> com Cuidado e Bem-Estar
+          </h1>
+
+          <p class="hero-description" data-aos="fade-right">
+            Na {{ CLINIC_NAME }}, unimos tecnologia avançada e atendimento humanizado para proporcionar experiências únicas de cuidado e beleza. Nossa clínica oferece tratamentos faciais e corporais personalizados para realçar sua autoestima.
+          </p>
+
+          <div class="hero-stats mb-4" data-aos="fade-right">
+            <div class="stat-item">
+              <h3><span data-purecounter-start="0" data-purecounter-end="15" data-purecounter-duration="2" class="purecounter"></span>+</h3>
+              <p>Anos de Experiência</p>
+            </div>
+            <div class="stat-item">
+              <h3><span data-purecounter-start="0" data-purecounter-end="5000" data-purecounter-duration="2" class="purecounter"></span>+</h3>
+              <p>Clientes Atendidos</p>
+            </div>
+            <div class="stat-item">
+              <h3><span data-purecounter-start="0" data-purecounter-end="50" data-purecounter-duration="2" class="purecounter"></span>+</h3>
+              <p>Profissionais Especializados</p>
+            </div>
+          </div>
+
+          <div class="hero-actions" data-aos="fade-right">
+            <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-primary">Agendar Horário</a>
+            <a href="{% url 'shivazen:quemsomos' %}" class="btn btn-outline">
+              <i class="bi bi-play-circle me-2"></i>
+              Conheça Nossa História
+            </a>
+          </div>
+
+          <div class="emergency-contact" data-aos="fade-right">
+            <div class="emergency-icon">
+              <i class="bi bi-telephone-fill"></i>
+            </div>
+            <div class="emergency-info">
+              <small>Atendimento Prioritário</small>
+              <strong>{{ CLINIC_PHONE }}</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-6">
+        <div class="hero-visual" data-aos="fade-left">
+          <div class="main-image">
+            <img src="{% static 'assets/health/staff-10.webp' %}" alt="Clínica {{ CLINIC_NAME }}" class="img-fluid">
+            <div class="floating-card appointment-card">
+              <div class="card-icon">
+                <i class="bi bi-calendar-check"></i>
+              </div>
+              <div class="card-content">
+                <h6>Próximo Horário</h6>
+                <p>Hoje às 14:30</p>
+                <small>Dra. Ana Beatriz</small>
+              </div>
+            </div>
+            <div class="floating-card rating-card">
+              <div class="card-content">
+                <div class="rating-stars">
+                  <i class="bi bi-star-fill"></i>
+                  <i class="bi bi-star-fill"></i>
+                  <i class="bi bi-star-fill"></i>
+                  <i class="bi bi-star-fill"></i>
+                  <i class="bi bi-star-fill"></i>
+                </div>
+                <h6>4.9/5</h6>
+                <small>1.234 Avaliações</small>
+              </div>
+            </div>
+          </div>
+          <div class="background-elements">
+            <div class="element element-1"></div>
+            <div class="element element-2"></div>
+            <div class="element element-3"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</section><!-- /Hero Section -->
+
+<!-- Home About Section -->
+<section id="home-about" class="home-about section">
+
+  <div class="container" data-aos="fade-up">
+
+    <div class="row align-items-center">
+      <div class="col-lg-6 mb-5 mb-lg-0" data-aos="fade-right">
+        <div class="about-content">
+          <h2 class="section-heading">Cuidado Humanizado, Tecnologia Avançada</h2>
+          <p class="lead-text">Há mais de uma década, dedicamo-nos a proporcionar tratamentos estéticos excepcionais que combinam o que há de mais moderno em tecnologia com o toque pessoal que nossos clientes merecem.</p>
+
+          <p>Nossa equipe multidisciplinar de especialistas trabalha em colaboração para garantir que cada cliente receba um atendimento completo e personalizado às suas necessidades únicas. Dos serviços preventivos aos procedimentos mais avançados, mantemos os mais altos padrões de excelência em estética, promovendo um ambiente de confiança e bem-estar.</p>
+
+          <div class="stats-grid">
+            <div class="stat-item">
+              <div class="stat-number purecounter" data-purecounter-start="0" data-purecounter-end="15000" data-purecounter-duration="1"></div>
+              <div class="stat-label">Clientes Atendidos</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-number purecounter" data-purecounter-start="0" data-purecounter-end="12" data-purecounter-duration="1"></div>
+              <div class="stat-label">Anos de Excelência</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-number purecounter" data-purecounter-start="0" data-purecounter-end="15" data-purecounter-duration="1"></div>
+              <div class="stat-label">Especialistas em Estética</div>
+            </div>
+          </div>
+
+          <div class="cta-section">
+            <a href="{% url 'shivazen:quemsomos' %}" class="btn-primary">Conheça Nossa História</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-6" data-aos="fade-left">
+        <div class="about-visual">
+          <div class="main-image">
+            <img src="{% static 'assets/health/facilities-9.webp' %}" alt="Espaço {{ CLINIC_NAME }}" class="img-fluid">
+          </div>
+          <div class="floating-card">
+            <div class="card-content">
+              <div class="icon">
+                <i class="bi bi-heart-pulse"></i>
+              </div>
+              <div class="card-text">
+                <h4>Atendimento Personalizado</h4>
+                <p>Sempre prontos para cuidar de você</p>
+              </div>
+            </div>
+          </div>
+          <div class="experience-badge">
+            <div class="badge-content">
+              <span class="years">12+</span>
+              <span class="text">Anos de Cuidado e Dedicação</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</section><!-- /Home About Section -->
+
+<!-- Featured Departments Section -->
+<section id="featured-departments" class="featured-departments section">
+
+  <div class="container section-title" data-aos="fade-up">
+    <h2>Nossas Especialidades</h2>
+    <p>Conheça as principais áreas de atuação da {{ CLINIC_NAME }}</p>
+  </div>
+
+  <div class="container" data-aos="fade-up">
+
+    <div class="row g-5">
+
+      <div class="col-lg-6" data-aos="zoom-in">
+        <div class="specialty-card">
+          <div class="specialty-content">
+            <div class="specialty-meta">
+              <span class="specialty-label">Tratamentos Faciais</span>
+            </div>
+            <h3>Harmonização Facial</h3>
+            <p>Técnicas avançadas para realçar sua beleza natural com procedimentos minimamente invasivos e resultados surpreendentes.</p>
+            <div class="specialty-features">
+              <span><i class="bi bi-check-circle-fill"></i>Ácido Hialurônico</span>
+              <span><i class="bi bi-check-circle-fill"></i>Botox</span>
+              <span><i class="bi bi-check-circle-fill"></i>Bioestimuladores</span>
+            </div>
+            <a href="{% url 'shivazen:servicos_faciais' %}" class="specialty-link">
+              Saiba Mais <i class="bi bi-arrow-right"></i>
+            </a>
+          </div>
+          <div class="specialty-visual">
+            <img src="{% static 'assets/health/cardiology-1.webp' %}" alt="Harmonização Facial" class="img-fluid">
+            <div class="visual-overlay">
+              <i class="bi bi-heart-pulse"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-6" data-aos="zoom-in">
+        <div class="specialty-card">
+          <div class="specialty-content">
+            <div class="specialty-meta">
+              <span class="specialty-label">Tratamentos Corporais</span>
+            </div>
+            <h3>Modelagem Corporal</h3>
+            <p>Tecnologias de ponta para redução de medidas, celulite e flacidez, com protocolos personalizados para cada biotipo.</p>
+            <div class="specialty-features">
+              <span><i class="bi bi-check-circle-fill"></i>Criolipólise</span>
+              <span><i class="bi bi-check-circle-fill"></i>Radiofrequência</span>
+              <span><i class="bi bi-check-circle-fill"></i>Lipocavitação</span>
+            </div>
+            <a href="{% url 'shivazen:servicos_corporais' %}" class="specialty-link">
+              Saiba Mais <i class="bi bi-arrow-right"></i>
+            </a>
+          </div>
+          <div class="specialty-visual">
+            <img src="{% static 'assets/health/neurology-4.webp' %}" alt="Modelagem Corporal" class="img-fluid">
+            <div class="visual-overlay">
+              <i class="bi bi-cpu"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-4" data-aos="fade-up">
+        <div class="department-highlight">
+          <div class="highlight-icon">
+            <i class="bi bi-shield-plus"></i>
+          </div>
+          <h4>Limpeza de Pele</h4>
+          <p>Tratamento profundo para remoção de impurezas e renovação celular, devolvendo a vitalidade e luminosidade à sua pele.</p>
+          <ul class="highlight-list">
+            <li>Extração de cravos</li>
+            <li>Hidratação profunda</li>
+            <li>Máscaras específicas</li>
+          </ul>
+          <a href="{% url 'shivazen:servicos_faciais' %}" class="highlight-cta">Saiba Mais</a>
+        </div>
+      </div>
+
+      <div class="col-lg-4" data-aos="fade-up">
+        <div class="department-highlight">
+          <div class="highlight-icon">
+            <i class="bi bi-people"></i>
+          </div>
+          <h4>Massagens Terapêuticas</h4>
+          <p>Técnicas milenares combinadas com abordagens modernas para alívio do estresse e bem-estar integral.</p>
+          <ul class="highlight-list">
+            <li>Massagem relaxante</li>
+            <li>Drenagem linfática</li>
+            <li>Quick massage</li>
+          </ul>
+          <a href="{% url 'shivazen:servicos_corporais' %}" class="highlight-cta">Saiba Mais</a>
+        </div>
+      </div>
+
+      <div class="col-lg-4" data-aos="fade-up">
+        <div class="department-highlight">
+          <div class="highlight-icon">
+            <i class="bi bi-activity"></i>
+          </div>
+          <h4>Depilação a Laser</h4>
+          <p>Tecnologia de última geração para remoção definitiva dos pelos com segurança e conforto.</p>
+          <ul class="highlight-list">
+            <li>Alta potência</li>
+            <li>Indolor e rápido</li>
+            <li>Todos os fototipos</li>
+          </ul>
+          <a href="{% url 'shivazen:servicos_corporais' %}" class="highlight-cta">Saiba Mais</a>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="emergency-banner" data-aos="fade-up">
+      <div class="row align-items-center">
+        <div class="col-lg-8">
+          <div class="emergency-content">
+            <h3>Atendimento Personalizado 24/7</h3>
+            <p>Nossa equipe está sempre disponível para esclarecer dúvidas e auxiliar no agendamento dos seus procedimentos.</p>
+          </div>
+        </div>
+        <div class="col-lg-4 text-lg-end">
+          <a href="https://wa.me/{{ WHATSAPP_NUMERO }}" target="_blank" rel="noopener" class="emergency-btn">
+            <i class="bi bi-telephone-fill"></i>
+            Fale Conosco: {{ CLINIC_PHONE }}
+          </a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</section><!-- /Featured Departments Section -->
+
+<!-- Featured Services Section -->
+<section id="featured-services" class="featured-services section">
+
+  <div class="container section-title" data-aos="fade-up">
+    <h2>Serviços em Destaque</h2>
+    <p>Conheça os procedimentos mais procurados da {{ CLINIC_NAME }}</p>
+  </div>
+
+  <div class="container" data-aos="fade-up">
+
+    <div class="row g-0">
+
+      <div class="col-lg-8" data-aos="fade-right">
+        <div class="featured-service-main">
+          <div class="service-image-wrapper">
+            <img src="{% static 'assets/health/consultation-4.webp' %}" alt="Procedimentos Estéticos" class="img-fluid" loading="lazy">
+            <div class="service-overlay">
+              <div class="service-badge">
+                <i class="bi bi-heart-pulse"></i>
+                <span>Alta Qualidade</span>
+              </div>
+            </div>
+          </div>
+          <div class="service-details">
+            <h2>Excelência em Procedimentos Estéticos</h2>
+            <p>Na {{ CLINIC_NAME }}, cada procedimento é realizado com rigor técnico e atenção aos detalhes, garantindo resultados naturais e satisfatórios. Nossa estrutura foi pensada para oferecer conforto e segurança em todas as etapas do seu tratamento.</p>
+            <a href="{% url 'shivazen:servicos_faciais' %}" class="main-cta">Conheça Nossos Serviços</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-4" data-aos="fade-left">
+        <div class="services-sidebar">
+
+          <div class="service-item" data-aos="fade-up">
+            <div class="service-icon-wrapper">
+              <i class="bi bi-capsule"></i>
+            </div>
+            <div class="service-info">
+              <h4>Skin Care</h4>
+              <p>Tratamentos personalizados para cada tipo de pele, com produtos de alta performance e tecnologias avançadas.</p>
+              <a href="{% url 'shivazen:servicos_faciais' %}" class="service-link">Saiba Mais</a>
+            </div>
+          </div>
+
+          <div class="service-item" data-aos="fade-up">
+            <div class="service-icon-wrapper">
+              <i class="bi bi-bandaid"></i>
+            </div>
+            <div class="service-info">
+              <h4>Estética Íntima</h4>
+              <p>Procedimentos especializados para o bem-estar e saúde íntima, realizados com total discrição e profissionalismo.</p>
+              <a href="{% url 'shivazen:servicos_corporais' %}" class="service-link">Saiba Mais</a>
+            </div>
+          </div>
+
+          <div class="service-item" data-aos="fade-up">
+            <div class="service-icon-wrapper">
+              <i class="bi bi-activity"></i>
+            </div>
+            <div class="service-info">
+              <h4>Pós-operatório</h4>
+              <p>Protocolos específicos para auxiliar na recuperação de cirurgias plásticas, minimizando desconfortos e otimizando resultados.</p>
+              <a href="{% url 'shivazen:servicos_corporais' %}" class="service-link">Saiba Mais</a>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <div class="specialties-grid" data-aos="fade-up">
+      <div class="row align-items-center">
+
+        <div class="col-lg-3 col-md-6">
+          <div class="specialty-card">
+            <div class="specialty-image">
+              <img src="{% static 'assets/health/maternal-2.webp' %}" alt="Gestantes" class="img-fluid" loading="lazy">
+            </div>
+            <div class="specialty-content">
+              <h5>Gestantes</h5>
+              <span>Cuidados especiais para o pré e pós-parto</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+          <div class="specialty-card">
+            <div class="specialty-image">
+              <img src="{% static 'assets/health/vaccination-3.webp' %}" alt="Saúde da Pele" class="img-fluid" loading="lazy">
+            </div>
+            <div class="specialty-content">
+              <h5>Saúde da Pele</h5>
+              <span>Prevenção e tratamento de doenças dermatológicas</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+          <div class="specialty-card">
+            <div class="specialty-image">
+              <img src="{% static 'assets/health/emergency-1.webp' %}" alt="Emergências Estéticas" class="img-fluid" loading="lazy">
+            </div>
+            <div class="specialty-content">
+              <h5>Pronto Atendimento</h5>
+              <span>Atendimento rápido para intercorrências estéticas</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+          <div class="specialty-card">
+            <div class="specialty-image">
+              <img src="{% static 'assets/health/facilities-6.webp' %}" alt="Tecnologia Avançada" class="img-fluid" loading="lazy">
+            </div>
+            <div class="specialty-content">
+              <h5>Tecnologia de Ponta</h5>
+              <span>Equipamentos modernos para resultados superiores</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+</section><!-- /Featured Services Section -->
+
+<!-- Find A Doctor Section -->
+<section id="find-a-doctor" class="find-a-doctor section">
+
+  <div class="container section-title" data-aos="fade-up">
+    <h2>Nossa Equipe</h2>
+    <p>Profissionais especializados e dedicados ao seu bem-estar</p>
+  </div>
+
+  <div class="container" data-aos="fade-up">
+
+    {% if profissionais %}
+    <div class="doctors-grid" data-aos="fade-up">
+      {% for prof in profissionais %}
+      <div class="doctor-profile" data-aos="zoom-in">
+        <div class="profile-header">
+          <div class="doctor-avatar">
+            {% if prof.foto %}
+            <img src="{{ prof.foto.url }}" alt="{{ prof.nome }}" class="img-fluid">
+            {% else %}
+            <div class="d-flex align-items-center justify-content-center" style="width:100%;height:100%;background:var(--gold-light, #f9f1d8);border-radius:50%;">
+              <span style="font-size:2rem;color:var(--accent-color);font-weight:700;">{{ prof.nome|slice:":1"|upper }}</span>
+            </div>
+            {% endif %}
+            <div class="status-indicator available"></div>
+          </div>
+          <div class="doctor-details">
+            <h4>{{ prof.nome }}</h4>
+            <span class="specialty-tag">{{ prof.especialidade|default:"Profissional de Estética" }}</span>
+          </div>
+        </div>
+        <div class="action-buttons">
+          <a href="{% url 'shivazen:equipe' %}" class="btn-secondary">Ver Perfil</a>
+          <a href="{% url 'shivazen:agendamento_publico' %}?profissional={{ prof.pk }}" class="btn-primary">Agendar</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+      <i class="bi bi-people fs-1 mb-3 d-block" style="color:var(--accent-color);"></i>
+      <h3>Conheça nossa equipe</h3>
+      <p class="text-muted">Em breve apresentaremos nossos profissionais.</p>
+    </div>
+    {% endif %}
+
+    <div class="text-center mt-5" data-aos="fade-up">
+      <a href="{% url 'shivazen:equipe' %}" class="btn-view-all">
+        Conheça Todos os Profissionais
+        <i class="bi bi-arrow-right"></i>
+      </a>
+    </div>
+
+  </div>
+
+</section><!-- /Find A Doctor Section -->
+
+<!-- Call To Action Section -->
+<section id="call-to-action" class="call-to-action section light-background">
+
+  <div class="container" data-aos="fade-up">
+
+    <div class="hero-content">
+      <div class="row align-items-center">
+
+        <div class="col-lg-6">
+          <div class="content-wrapper" data-aos="fade-up">
+            <h1>Excelência em Estética, Todos os Dias</h1>
+            <p>Na {{ CLINIC_NAME }}, cada detalhe é pensado para proporcionar a melhor experiência em cuidados estéticos. Agende sua avaliação e descubra como podemos realçar sua beleza natural.</p>
+
+            <div class="cta-wrapper">
+              <a href="{% url 'shivazen:agendamento_publico' %}" class="primary-cta">
+                <span>Agende sua Avaliação</span>
+                <i class="bi bi-arrow-right"></i>
+              </a>
+              <a href="{% url 'shivazen:servicos_faciais' %}" class="secondary-cta">
+                <span>Conheça Nossos Serviços</span>
+                <i class="bi bi-arrow-right"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-6">
+          <div class="image-container" data-aos="fade-left">
+            <img src="{% static 'assets/health/facilities-9.webp' %}" alt="{{ CLINIC_NAME }}" class="img-fluid">
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="features-section">
+
+      <div class="row g-0">
+
+        <div class="col-lg-4">
+          <div class="feature-block" data-aos="fade-up">
+            <div class="feature-icon">
+              <i class="bi bi-shield-check"></i>
+            </div>
+            <h3>Tecnologia Avançada</h3>
+            <p>Equipamentos de última geração e técnicas inovadoras para resultados superiores e seguros.</p>
+          </div>
+        </div>
+
+        <div class="col-lg-4">
+          <div class="feature-block" data-aos="fade-up">
+            <div class="feature-icon">
+              <i class="bi bi-clock"></i>
+            </div>
+            <h3>Horário Flexível</h3>
+            <p>Agendamento online 24 horas e horários especiais para atender à sua rotina.</p>
+          </div>
+        </div>
+
+        <div class="col-lg-4">
+          <div class="feature-block" data-aos="fade-up">
+            <div class="feature-icon">
+              <i class="bi bi-people"></i>
+            </div>
+            <h3>Equipe Especializada</h3>
+            <p>Profissionais altamente capacitados e em constante atualização.</p>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <div class="contact-block">
+      <div class="row">
+
+        <div class="col-lg-8">
+          <div class="contact-content" data-aos="fade-up">
+            <h2>Precisa de atendimento personalizado?</h2>
+            <p>Nossa equipe está pronta para esclarecer suas dúvidas e auxiliar no agendamento dos seus procedimentos.</p>
+          </div>
+        </div>
+
+        <div class="col-lg-4">
+          <div class="contact-actions" data-aos="fade-up">
+            <a href="https://wa.me/{{ WHATSAPP_NUMERO }}" target="_blank" rel="noopener" class="emergency-call">
+              <i class="bi bi-telephone"></i>
+              <span>{{ CLINIC_PHONE }}</span>
+            </a>
+            <a href="{% url 'shivazen:agendaContato' %}" class="contact-link">Nossa Localização</a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+</section><!-- /Call To Action Section -->
+{% endblock %}

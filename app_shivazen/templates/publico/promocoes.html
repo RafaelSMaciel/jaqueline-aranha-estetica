@@ -1,0 +1,197 @@
+﻿{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block body_class %}promocoes-page{% endblock %}
+{% block titulo %}Promoções | {{ CLINIC_NAME }}{% endblock %}
+
+{% block conteudo %}
+<!-- ═══ HERO ═══ -->
+<section id="service-hero" class="service-hero section">
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
+    <div class="row align-items-center">
+      <div class="col-lg-6">
+        <div class="hero-content">
+          <div class="hero-badge" data-aos="fade-right" data-aos-delay="200">
+            <i class="bi bi-tag me-2"></i>Ofertas Especiais
+          </div>
+          <h1 data-aos="fade-right" data-aos-delay="300">
+            <span class="highlight">Promoções</span> Exclusivas Para Você
+          </h1>
+          <p class="hero-description" data-aos="fade-right" data-aos-delay="400">
+            Aproveite condições especiais nos nossos tratamentos de estética. Ofertas por tempo limitado com os mesmos padrões de qualidade e excelência que você merece.
+          </p>
+          <div class="hero-actions" data-aos="fade-right" data-aos-delay="600">
+            <a href="#promo-grid" class="btn btn-primary">Ver Promoções</a>
+            <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Olá! Gostaria de saber sobre promoções exclusivas." target="_blank" rel="noopener" class="btn btn-outline">
+              <i class="bi bi-whatsapp me-2"></i>Desconto Exclusivo
+            </a>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="hero-visual" data-aos="fade-left" data-aos-delay="400">
+          <div class="main-image">
+            <img src="{% static 'assets/health/staff-14.webp' %}" alt="Promoções {{ CLINIC_NAME }}" class="img-fluid">
+            <div class="floating-card appointment-card">
+              <div class="card-icon">
+                <i class="bi bi-percent"></i>
+              </div>
+              <div class="card-content">
+                <h6>Descontos Especiais</h6>
+                <p>Por Tempo Limitado</p>
+                <small>Aproveite agora!</small>
+              </div>
+            </div>
+            <div class="floating-card rating-card">
+              <div class="card-content">
+                <div class="rating-stars">
+                  <i class="bi bi-gift-fill"></i>
+                </div>
+                <h6>Exclusivo</h6>
+                <small>Condições Imperdíveis</small>
+              </div>
+            </div>
+          </div>
+          <div class="background-elements">
+            <div class="element element-1"></div>
+            <div class="element element-2"></div>
+            <div class="element element-3"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ PROMOÇÕES GRID ═══ -->
+<section id="promo-grid" class="section light-background">
+  <div class="container section-title" data-aos="fade-up">
+    <h2>Promoções Ativas</h2>
+    <p>Aproveite nossas ofertas especiais por tempo limitado</p>
+  </div>
+
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
+    {% if promocoes %}
+    <div class="row g-4">
+      {% for promo in promocoes %}
+      <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="{{ forloop.counter0|add:1 }}00">
+        <div class="promo-card">
+          <div class="promo-header">
+            {% if promo.desconto_percentual %}
+            <span class="promo-badge">-{{ promo.desconto_percentual|floatformat:0 }}%</span>
+            {% endif %}
+            <div class="promo-icon">
+              <i class="bi bi-tag-fill"></i>
+            </div>
+            <h4>{{ promo.nome }}</h4>
+            {% if promo.procedimento %}
+            <small>{{ promo.procedimento.nome }}</small>
+            {% endif %}
+          </div>
+          <div class="promo-body">
+            {% if promo.descricao %}
+            <p class="promo-description">{{ promo.descricao }}</p>
+            {% endif %}
+
+            <div class="promo-pricing">
+              {% if promo.desconto_percentual and promo.procedimento and promo.preco_original %}
+              <span class="promo-old-price">R$ {{ promo.preco_original|floatformat:2 }}</span>
+              {% endif %}
+              {% if promo.preco_promocional %}
+              <span class="promo-new-price">R$ {{ promo.preco_promocional|floatformat:2 }}</span>
+              {% endif %}
+            </div>
+
+            <div class="promo-validity">
+              <i class="bi bi-clock"></i>
+              <span>Válido de {{ promo.data_inicio|date:"d/m/Y" }} até {{ promo.data_fim|date:"d/m/Y" }}</span>
+            </div>
+
+            {% if promo.procedimento %}
+            <a href="{% url 'shivazen:agendamento_publico' %}?procedimento={{ promo.procedimento.pk }}" class="promo-cta">
+              <i class="bi bi-calendar-check me-2"></i>Agendar com Desconto
+            </a>
+            {% else %}
+            <a href="{% url 'shivazen:agendamento_publico' %}" class="promo-cta">
+              <i class="bi bi-calendar-check me-2"></i>Agendar Agora
+            </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% else %}
+    <!-- Sem promoções ativas -->
+    <div class="text-center py-5">
+      <div class="mb-4" style="width: 100px; height: 100px; background: rgba(180, 140, 76, 0.1); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;">
+        <i class="bi bi-tag fs-1" style="color: var(--accent-color);"></i>
+      </div>
+      <h3 class="fw-bold mb-2" style="color: #999;">Nenhuma promoção ativa no momento</h3>
+      <p class="text-muted mb-4 mx-auto" style="max-width: 500px;">Fique de olho! Novas promoções serão publicadas em breve. Enquanto isso, conheça nossos tratamentos com preços acessíveis.</p>
+      <div class="d-flex gap-3 justify-content-center flex-wrap">
+        <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-primary px-4 py-3 rounded-pill fw-bold">
+          <i class="bi bi-calendar-check me-2"></i>Agendar Avaliação
+        </a>
+        <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Olá! Gostaria de saber sobre promoções." target="_blank" rel="noopener" class="btn btn-outline-primary px-4 py-3 rounded-pill fw-bold">
+          <i class="bi bi-whatsapp me-2"></i>Pedir Desconto
+        </a>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<!-- ═══ CTA WHATSAPP ═══ -->
+<section id="call-to-action" class="call-to-action section">
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
+    <div class="hero-content">
+      <div class="row align-items-center justify-content-center text-center">
+        <div class="col-lg-8">
+          <div class="content-wrapper" data-aos="fade-up" data-aos-delay="200">
+            <h1>Quer um Desconto Personalizado?</h1>
+            <p>Fale conosco pelo WhatsApp e negocie condições exclusivas para o seu tratamento. Pacotes especiais e combos com preços diferenciados.</p>
+            <div class="cta-wrapper justify-content-center">
+              <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Olá! Gostaria de saber sobre promoções exclusivas." target="_blank" rel="noopener" class="primary-cta">
+                <span>Falar no WhatsApp</span>
+                <i class="bi bi-whatsapp"></i>
+              </a>
+              <a href="{% url 'shivazen:servicos_faciais' %}" class="secondary-cta">
+                <span>Ver Tratamentos</span>
+                <i class="bi bi-arrow-right"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="features-section">
+      <div class="row g-0">
+        <div class="col-lg-4">
+          <div class="feature-block" data-aos="fade-up" data-aos-delay="200">
+            <div class="feature-icon"><i class="bi bi-percent"></i></div>
+            <h3>Descontos Reais</h3>
+            <p>Promoções genuínas com economia real nos nossos tratamentos.</p>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="feature-block" data-aos="fade-up" data-aos-delay="300">
+            <div class="feature-icon"><i class="bi bi-box-seam"></i></div>
+            <h3>Combos e Pacotes</h3>
+            <p>Combine tratamentos com preços especiais e potencialize resultados.</p>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="feature-block" data-aos="fade-up" data-aos-delay="400">
+            <div class="feature-icon"><i class="bi bi-gift"></i></div>
+            <h3>Primeira Consulta</h3>
+            <p>Condições especiais para novos clientes na avaliação inicial.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

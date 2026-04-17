@@ -27,7 +27,7 @@ def admin_promocoes(request):
         'promocoes': promocoes_page,
         'procedimentos': procedimentos,
     }
-    return render(request, 'painel/admin_promocoes.html', context)
+    return render(request, 'painel/promocoes.html', context)
 
 
 @staff_required

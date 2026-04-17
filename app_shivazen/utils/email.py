@@ -13,7 +13,7 @@ from django.utils.html import strip_tags
 
 logger = logging.getLogger(__name__)
 
-CLINIC_NAME = os.environ.get('CLINIC_NAME', 'Clinica Estetica')
+CLINIC_NAME = os.environ.get('CLINIC_NAME', 'Shiva Zen')
 DEFAULT_FROM = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@clinica.com.br')
 SITE_URL = os.environ.get('SITE_URL', 'http://127.0.0.1:8000').rstrip('/')
 
@@ -96,5 +96,35 @@ def enviar_aniversario_email(email, dados):
         destinatario=email,
         assunto=f'Feliz Aniversario! {CLINIC_NAME} tem um presente para voce',
         template='email/aniversario.html',
+        contexto={'dados': dados},
+    )
+
+
+def enviar_aprovacao_profissional_email(email, dados):
+    """Notifica profissional que há novo agendamento pendente de aprovação."""
+    return _enviar_email(
+        destinatario=email,
+        assunto=f'{CLINIC_NAME} — Novo Agendamento Pendente',
+        template='email/aprovacao_profissional.html',
+        contexto={'dados': dados},
+    )
+
+
+def enviar_nps_email(email, dados):
+    """Envia pesquisa NPS por email 24h após atendimento."""
+    return _enviar_email(
+        destinatario=email,
+        assunto=f'{CLINIC_NAME} — Como foi seu atendimento?',
+        template='email/nps.html',
+        contexto={'dados': dados},
+    )
+
+
+def enviar_termos_pendentes_email(email, dados):
+    """Notifica cliente sobre termos pendentes por email."""
+    return _enviar_email(
+        destinatario=email,
+        assunto=f'{CLINIC_NAME} — Termos de Consentimento Pendentes',
+        template='email/termos_pendentes.html',
         contexto={'dados': dados},
     )

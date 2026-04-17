@@ -1,222 +1,159 @@
-﻿{% extends 'estrutura/base.html' %}
+{% extends 'estrutura/base.html' %}
 {% load static %}
 
+{% block body_class %}contact-page{% endblock %}
 {% block titulo %}Contato | {{ CLINIC_NAME }}{% endblock %}
 
 {% block conteudo %}
-<!-- ═══ HERO ═══ -->
-<section id="service-hero" class="service-hero section">
-  <div class="container" data-aos="fade-up" data-aos-delay="100">
-    <div class="row align-items-center">
-      <div class="col-lg-6">
-        <div class="hero-content">
-          <div class="hero-badge" data-aos="fade-right" data-aos-delay="200">
-            <i class="bi bi-geo-alt me-2"></i>Fale Conosco
-          </div>
-          <h1 data-aos="fade-right" data-aos-delay="300">
-            Entre em <span class="highlight">Contato</span> Conosco
-          </h1>
-          <p class="hero-description" data-aos="fade-right" data-aos-delay="400">
-            Tire suas dúvidas, saiba mais sobre nossos procedimentos ou agende sua avaliação. Estamos prontos para oferecer o melhor atendimento e cuidar do seu bem-estar.
+<div class="page-title">
+  <div class="heading">
+    <div class="container">
+      <div class="row d-flex justify-content-center text-center">
+        <div class="col-lg-8">
+          <h1 class="heading-title">Contato</h1>
+          <p class="mb-0">
+            Estamos prontos para atender você! Entre em contato conosco para agendar sua avaliação,
+            tirar dúvidas sobre nossos procedimentos ou saber mais sobre a {{ CLINIC_NAME }}. Nossa equipe
+            está disponível para oferecer o melhor atendimento e cuidar do seu bem-estar.
           </p>
-          <div class="hero-actions" data-aos="fade-right" data-aos-delay="600">
-            <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-primary">Agendar Online</a>
-            <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Olá! Gostaria de tirar dúvidas." target="_blank" rel="noopener" class="btn btn-outline">
-              <i class="bi bi-whatsapp me-2"></i>WhatsApp
-            </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<section id="contact" class="contact section">
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
+    <div class="row g-5">
+      <div class="col-lg-5">
+        <div class="contact-info-wrapper">
+          <div class="contact-info-item" data-aos="fade-up" data-aos-delay="100">
+            <div class="info-icon">
+              <i class="bi bi-geo-alt"></i>
+            </div>
+            <div class="info-content">
+              <h3>Nosso Endereço</h3>
+              <p>{{ CLINIC_ADDRESS }}</p>
+            </div>
+          </div>
+
+          <div class="contact-info-item" data-aos="fade-up" data-aos-delay="200">
+            <div class="info-icon">
+              <i class="bi bi-envelope"></i>
+            </div>
+            <div class="info-content">
+              <h3>E-mail</h3>
+              <p>{{ CLINIC_EMAIL }}</p>
+            </div>
+          </div>
+
+          <div class="contact-info-item" data-aos="fade-up" data-aos-delay="300">
+            <div class="info-icon">
+              <i class="bi bi-headset"></i>
+            </div>
+            <div class="info-content">
+              <h3>Horário de Funcionamento</h3>
+              <p>Segunda a Sexta: 9h às 20h</p>
+              <p>Sábado: 9h às 18h</p>
+              <p class="small text-muted mt-2">Atendimento mediante agendamento</p>
+            </div>
+          </div>
+
+          <div class="contact-info-item" data-aos="fade-up" data-aos-delay="400">
+            <div class="info-icon">
+              <i class="bi bi-telephone"></i>
+            </div>
+            <div class="info-content">
+              <h3>Telefone / WhatsApp</h3>
+              <p>{{ CLINIC_PHONE }}</p>
+              <p class="small text-muted mt-2">Atendimento via WhatsApp das 9h às 18h</p>
+            </div>
+          </div>
+
+          <div class="contact-info-item" data-aos="fade-up" data-aos-delay="500">
+            <div class="info-icon">
+              <i class="bi bi-shield-lock"></i>
+            </div>
+            <div class="info-content">
+              <h3>LGPD e Privacidade</h3>
+              <p>Seus dados estão protegidos conforme a Lei Geral de Proteção de Dados.</p>
+              <p class="small text-muted">Consulte nossa <a href="{% url 'shivazen:politicaPrivacidade' %}">Política de Privacidade</a> para mais informações.</p>
+            </div>
           </div>
         </div>
       </div>
-      <div class="col-lg-6">
-        <div class="hero-visual" data-aos="fade-left" data-aos-delay="400">
-          <div class="main-image">
-            <img src="{% static 'assets/template_img/health/staff-11.webp' %}" alt="Contato {{ CLINIC_NAME }}" class="img-fluid">
-            <div class="floating-card appointment-card">
-              <div class="card-icon">
-                <i class="bi bi-calendar-check"></i>
+
+      <div class="col-lg-7">
+        <div class="contact-form-card" data-aos="fade-up" data-aos-delay="200">
+          <h2>Envie sua Mensagem</h2>
+          <p class="mb-4">Tem dúvidas ou quer saber mais sobre nossos serviços? Preencha o formulário abaixo e nossa equipe entrará em contato em breve.</p>
+
+          <form action="{% url 'shivazen:agendaContato' %}" method="post" class="php-email-form">
+            {% csrf_token %}
+            <div class="row g-4">
+              <div class="col-md-6">
+                <input type="text" class="form-control" name="name" id="name" placeholder="Seu Nome" required="">
               </div>
-              <div class="card-content">
-                <h6>Agendamento Online</h6>
-                <p>24 horas por dia</p>
-                <small>Rápido e prático</small>
+
+              <div class="col-md-6">
+                <input type="email" class="form-control" name="email" id="email" placeholder="Seu E-mail" required="">
               </div>
-            </div>
-            <div class="floating-card rating-card">
-              <div class="card-content">
-                <div class="rating-stars">
-                  <i class="bi bi-telephone-fill"></i>
+
+              <div class="col-md-6">
+                <input type="tel" class="form-control" name="phone" id="phone" placeholder="Seu Telefone (opcional)">
+              </div>
+
+              <div class="col-md-6">
+                <select class="form-select" name="subject" id="subject" required="">
+                  <option value="" selected disabled>Assunto</option>
+                  <option value="agendamento">Agendamento</option>
+                  <option value="duvida">Dúvidas sobre procedimentos</option>
+                  <option value="orcamento">Solicitar orçamento</option>
+                  <option value="parceria">Parcerias</option>
+                  <option value="outros">Outros</option>
+                </select>
+              </div>
+
+              <div class="col-12">
+                <textarea class="form-control" name="message" id="message" placeholder="Sua Mensagem" rows="6" required=""></textarea>
+              </div>
+
+              <div class="col-12">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="privacy" required>
+                  <label class="form-check-label small" for="privacy">
+                    Li e concordo com a <a href="{% url 'shivazen:politicaPrivacidade' %}">Política de Privacidade</a> e aceito receber comunicações da {{ CLINIC_NAME }}.
+                  </label>
                 </div>
-                <h6>(17) 99999-9999</h6>
-                <small>Atendimento Prioritário</small>
+              </div>
+
+              <div class="col-12">
+                <div class="loading">Enviando...</div>
+                <div class="error-message"></div>
+                <div class="sent-message">Sua mensagem foi enviada com sucesso! Entraremos em contato em breve.</div>
+              </div>
+
+              <div class="col-12">
+                <button type="submit" class="btn btn-submit">Enviar Mensagem</button>
               </div>
             </div>
-          </div>
-          <div class="background-elements">
-            <div class="element element-1"></div>
-            <div class="element element-2"></div>
-            <div class="element element-3"></div>
-          </div>
+          </form>
         </div>
       </div>
     </div>
   </div>
-</section>
 
-<!-- ═══ INFORMAÇÕES DE CONTATO ═══ -->
-<section id="service-process" class="service-process section light-background">
-  <div class="container section-title" data-aos="fade-up">
-    <h2>Nossas Informações</h2>
-    <p>Encontre-nos facilmente ou entre em contato pelos nossos canais</p>
-  </div>
-
-  <div class="container" data-aos="fade-up" data-aos-delay="100">
-    <div class="row g-4">
-      <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="100">
-        <div class="process-step">
-          <div class="step-number"><i class="bi bi-geo-alt"></i></div>
-          <div class="step-icon"><i class="bi bi-pin-map"></i></div>
-          <h4>Endereço</h4>
-          <p>R. Humberto Delboni, 1107<br>Jardim Fuscaldo<br>São José do Rio Preto - SP</p>
-        </div>
-      </div>
-      <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="200">
-        <div class="process-step">
-          <div class="step-number"><i class="bi bi-whatsapp"></i></div>
-          <div class="step-icon"><i class="bi bi-chat-dots"></i></div>
-          <h4>WhatsApp</h4>
-          <p><a href="https://wa.me/{{ WHATSAPP_NUMERO }}" target="_blank" rel="noopener" style="color: var(--accent-color); font-weight: 700;">(17) 00000-0000</a><br>Dúvidas e agendamentos</p>
-        </div>
-      </div>
-      <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="300">
-        <div class="process-step">
-          <div class="step-number"><i class="bi bi-clock"></i></div>
-          <div class="step-icon"><i class="bi bi-calendar-week"></i></div>
-          <h4>Horário</h4>
-          <p>Seg a Sex: 09h - 18h<br>Sábado: 09h - 15h<br>Mediante agendamento</p>
-        </div>
-      </div>
-      <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="400">
-        <div class="process-step">
-          <div class="step-number"><i class="bi bi-laptop"></i></div>
-          <div class="step-icon"><i class="bi bi-calendar-check"></i></div>
-          <h4>Online</h4>
-          <p>Agendamento 24h<br>pela nossa plataforma<br><a href="{% url 'shivazen:agendamento_publico' %}" style="color: var(--accent-color); font-weight: 700;">Agendar agora</a></p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══ AGENDAMENTO CTA ═══ -->
-<section id="featured-services" class="featured-services section">
-  <div class="container" data-aos="fade-up" data-aos-delay="100">
-    <div class="row g-0">
-      <div class="col-lg-8" data-aos="fade-right" data-aos-delay="200">
-        <div class="featured-service-main">
-          <div class="service-image-wrapper">
-            <img src="{% static 'assets/template_img/health/facilities-9.webp' %}" alt="Agendamento Online" class="img-fluid" loading="lazy">
-            <div class="service-overlay">
-              <div class="service-badge">
-                <i class="bi bi-calendar-heart"></i>
-                <span>Agendamento</span>
-              </div>
-            </div>
-          </div>
-          <div class="service-details">
-            <h2>Agende Sua Avaliação</h2>
-            <p>A praticidade que você merece. Agende seu horário de forma 100% online, rápida e segura em nossa plataforma de agendamentos. Confirmamos seu horário automaticamente.</p>
-            <a href="{% url 'shivazen:agendamento_publico' %}" class="main-cta">Agendamento Online</a>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-lg-4" data-aos="fade-left" data-aos-delay="300">
-        <div class="services-sidebar">
-          <div class="service-item" data-aos="fade-up" data-aos-delay="400">
-            <div class="service-icon-wrapper">
-              <i class="bi bi-shield-check"></i>
-            </div>
-            <div class="service-info">
-              <h4>Confirmação Automática</h4>
-              <p>Seu agendamento é confirmado instantaneamente pela plataforma.</p>
-            </div>
-          </div>
-
-          <div class="service-item" data-aos="fade-up" data-aos-delay="500">
-            <div class="service-icon-wrapper">
-              <i class="bi bi-bell"></i>
-            </div>
-            <div class="service-info">
-              <h4>Lembretes</h4>
-              <p>Receba lembretes por WhatsApp no dia anterior ao seu agendamento.</p>
-            </div>
-          </div>
-
-          <div class="service-item" data-aos="fade-up" data-aos-delay="600">
-            <div class="service-icon-wrapper">
-              <i class="bi bi-arrow-repeat"></i>
-            </div>
-            <div class="service-info">
-              <h4>Reagendamento Fácil</h4>
-              <p>Cancele ou reagende com facilidade pelo próprio sistema online.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══ MAPA ═══ -->
-<section class="section light-background">
-  <div class="container section-title" data-aos="fade-up">
-    <h2>Nossa Localização</h2>
-    <p>Visite nossa clínica em São José do Rio Preto</p>
-  </div>
-
-  <div class="container" data-aos="fade-up" data-aos-delay="100">
-    <div style="border-radius: 1rem; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.08);">
-      <iframe
-        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3734.855!2d-49.3793!3d-20.8197!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94bdad6e5e2b7b1f%3A0x0!2sR.%20Humberto%20Delboni%2C%201107%20-%20Jardim%20Fuscaldo%2C%20S%C3%A3o%20Jos%C3%A9%20do%20Rio%20Preto%20-%20SP!5e0!3m2!1spt-BR!2sbr!4v1"
-        width="100%"
-        height="450"
-        style="border:0;"
-        allowfullscreen=""
-        loading="lazy"
-        referrerpolicy="no-referrer-when-downgrade">
-      </iframe>
-    </div>
-  </div>
-</section>
-
-<!-- ═══ CTA FINAL ═══ -->
-<section id="call-to-action" class="call-to-action section">
-  <div class="container" data-aos="fade-up" data-aos-delay="100">
-    <div class="features-section">
-      <div class="row g-0">
-        <div class="col-lg-4">
-          <div class="feature-block" data-aos="fade-up" data-aos-delay="200">
-            <div class="feature-icon"><i class="bi bi-geo-alt"></i></div>
-            <h3>Fácil Acesso</h3>
-            <p>Localização privilegiada com estacionamento disponível na região.</p>
-          </div>
-        </div>
-        <div class="col-lg-4">
-          <div class="feature-block" data-aos="fade-up" data-aos-delay="300">
-            <div class="feature-icon"><i class="bi bi-wifi"></i></div>
-            <h3>Ambiente Confortável</h3>
-            <p>Espaço acolhedor e climatizado para sua comodidade.</p>
-          </div>
-        </div>
-        <div class="col-lg-4">
-          <div class="feature-block" data-aos="fade-up" data-aos-delay="400">
-            <div class="feature-icon"><i class="bi bi-cup-hot"></i></div>
-            <h3>Recepção Especial</h3>
-            <p>Atendimento personalizado desde o primeiro contato.</p>
-          </div>
-        </div>
-      </div>
-    </div>
+  <div class="container-fluid map-container" data-aos="fade-up" data-aos-delay="200">
+    <div class="map-overlay"></div>
+    <iframe
+      src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3734.855!2d-49.3793!3d-20.8197!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94bdad6e5e2b7b1f%3A0x0!2sR.%20Humberto%20Delboni%2C%201107%20-%20Jardim%20Fuscaldo%2C%20S%C3%A3o%20Jos%C3%A9%20do%20Rio%20Preto%20-%20SP!5e0!3m2!1spt-BR!2sbr!4v1"
+      width="100%"
+      height="500"
+      style="border:0;"
+      allowfullscreen=""
+      loading="lazy"
+      referrerpolicy="no-referrer-when-downgrade">
+    </iframe>
   </div>
 </section>
 {% endblock %}

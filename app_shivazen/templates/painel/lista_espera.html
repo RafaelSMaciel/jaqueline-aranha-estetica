@@ -1,0 +1,66 @@
+{% extends 'painel/base.html' %}
+
+{% block page_title %}Lista de Espera{% endblock %}
+{% block page_subtitle %}Clientes aguardando vagas{% endblock %}
+
+{% block admin_content %}
+<style>
+    .espera-card {
+        background: white; border-radius: 16px; padding: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 0.75rem;
+        border-left: 4px solid #ff9800;
+    }
+    .espera-card.notificado { border-left-color: #4caf50; opacity: 0.7; }
+    .espera-nome { font-weight: 700; font-size: 0.95rem; }
+    .espera-info { font-size: 0.8rem; color: #999; margin-top: 0.25rem; }
+    .espera-turno { font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 10px; background: #fff3e0; color: #e65100; font-weight: 700; }
+    .badge-notificado { font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 10px; background: #e8f5e9; color: #2e7d32; font-weight: 700; }
+    .btn-notificar { background: #e3f2fd; color: #1565c0; border: none; padding: 0.35rem 0.75rem; border-radius: 8px; font-size: 0.75rem; font-weight: 700; cursor: pointer; }
+</style>
+
+{% for item in lista_espera %}
+<div class="espera-card {% if item.notificado %}notificado{% endif %}">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div>
+            <div class="espera-nome">{{ item.cliente.nome_completo }}</div>
+            <div class="espera-info">
+                <i class="fas fa-stethoscope"></i> {{ item.procedimento.nome }}
+                {% if item.profissional_desejado %} &middot; Prefere: {{ item.profissional_desejado.nome }}{% endif %}
+            </div>
+            <div class="espera-info">
+                <i class="far fa-calendar"></i> {{ item.data_desejada|date:"d/m/Y" }}
+                {% if item.turno_desejado %}<span class="espera-turno">{{ item.get_turno_desejado_display }}</span>{% endif %}
+            </div>
+            <div style="font-size: 0.7rem; color: #ccc; margin-top: 0.2rem;">Cadastro: {{ item.criado_em|date:"d/m/Y H:i" }}</div>
+        </div>
+        <div>
+            {% if item.notificado %}
+            <span class="badge-notificado"><i class="fas fa-check"></i> Notificado</span>
+            {% else %}
+            <form method="post" action="{% url 'shivazen:admin_notificar_espera' item.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn-notificar"><i class="fas fa-bell"></i> Notificar</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% empty %}
+<div style="text-align: center; padding: 3rem; color: #bbb;">
+    <i class="fas fa-hourglass-half" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
+    <p>Nenhum cliente na lista de espera.</p>
+</div>
+{% endfor %}
+
+{% if lista_espera.has_other_pages %}
+<div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 1rem;">
+    {% if lista_espera.has_previous %}
+    <a href="?page={{ lista_espera.previous_page_number }}" style="padding: 0.4rem 0.8rem; background: #f0f0f0; border-radius: 8px; text-decoration: none; color: #333; font-size: 0.8rem;">Anterior</a>
+    {% endif %}
+    <span style="padding: 0.4rem 0.8rem; font-size: 0.8rem; color: #999;">{{ lista_espera.number }} / {{ lista_espera.paginator.num_pages }}</span>
+    {% if lista_espera.has_next %}
+    <a href="?page={{ lista_espera.next_page_number }}" style="padding: 0.4rem 0.8rem; background: #f0f0f0; border-radius: 8px; text-decoration: none; color: #333; font-size: 0.8rem;">Proximo</a>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

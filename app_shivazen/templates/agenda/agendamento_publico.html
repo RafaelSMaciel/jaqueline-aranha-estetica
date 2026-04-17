@@ -1,25 +1,28 @@
 ﻿{% extends 'estrutura/base.html' %}
 {% load static %}
 
+{% block body_class %}agendamento-page{% endblock %}
+{% block titulo %}Agendamento Online | {{ CLINIC_NAME }}{% endblock %}
+
 {% block conteudo %}
 <style>
     :root {
-        --gold: #C9A84C;
-        --gold-light: #f9f1d8;
-        --gold-mid: rgba(201, 168, 76, 0.15);
-        --earth: #4A3425;
-        --earth-mid: #6D4C41;
-        --bg: #F5F3EE;
+        --gold: #b48c4c;
+        --gold-light: #f5edd8;
+        --gold-mid: rgba(180, 140, 76, 0.15);
+        --earth: #3c4049;
+        --earth-mid: #5a5f6a;
+        --bg: #f8f7f4;
     }
 
     .booking-page { background: var(--bg); min-height: 100vh; }
 
     /* ─── HERO ─── */
     .booking-banner {
-        background: linear-gradient(135deg, #2C2C2C 0%, #4a3728 50%, #6D4C41 100%);
+        background: linear-gradient(135deg, #faf6ee 0%, #f5edd8 50%, #ede3cc 100%);
         padding: 4rem 0 7rem;
         text-align: center;
-        color: white;
+        color: var(--earth);
         position: relative;
         overflow: hidden;
     }
@@ -28,24 +31,24 @@
         position: absolute;
         inset: 0;
         background:
-            radial-gradient(circle at 20% 80%, rgba(201, 168, 76, 0.12) 0%, transparent 50%),
-            radial-gradient(circle at 80% 20%, rgba(201, 168, 76, 0.08) 0%, transparent 50%);
+            radial-gradient(circle at 20% 80%, rgba(180, 140, 76, 0.1) 0%, transparent 50%),
+            radial-gradient(circle at 80% 20%, rgba(180, 140, 76, 0.06) 0%, transparent 50%);
     }
     .booking-banner-inner { position: relative; z-index: 2; }
     .booking-pill {
         display: inline-flex; align-items: center; gap: 0.5rem;
-        background: rgba(201, 168, 76, 0.2); border: 1px solid rgba(201, 168, 76, 0.5);
-        color: #f0d98c; padding: 0.4rem 1.25rem; border-radius: 50px;
+        background: rgba(180, 140, 76, 0.15); border: 1px solid rgba(180, 140, 76, 0.4);
+        color: #8b5c00; padding: 0.4rem 1.25rem; border-radius: 50px;
         font-size: 0.72rem; font-weight: 700; letter-spacing: 2.5px;
         text-transform: uppercase; margin-bottom: 1.25rem;
     }
     .booking-banner h1 {
-        font-family: 'Playfair Display', serif;
+        font-family: var(--heading-font, 'Playfair Display', serif);
         font-size: clamp(2rem, 5vw, 3rem);
         font-weight: 700; margin-bottom: 0.75rem;
-        color: white !important;
+        color: #8b5c00 !important;
     }
-    .booking-banner p { opacity: 0.75; font-size: 1.05rem; max-width: 460px; margin: 0 auto; color: white !important; }
+    .booking-banner p { opacity: 0.85; font-size: 1.05rem; max-width: 460px; margin: 0 auto; color: var(--earth) !important; }
 
     /* ─── FLOATING CARD ─── */
     .booking-float {
@@ -122,7 +125,7 @@
         margin-bottom: 1.5rem;
     }
     .cal-title {
-        font-family: 'Playfair Display', serif; font-size: 1.3rem;
+        font-family: var(--heading-font, 'Playfair Display', serif); font-size: 1.3rem;
         font-weight: 700; color: var(--earth); text-transform: capitalize;
     }
     .cal-nav { display: flex; gap: 0.5rem; }
@@ -229,7 +232,7 @@
         box-shadow: 0 6px 20px rgba(201,168,76,0.35);
     }
     .btn-confirm-booking:hover {
-        background: #b8940f; transform: translateY(-2px);
+        background: #8b5c00; transform: translateY(-2px);
         box-shadow: 0 10px 28px rgba(201,168,76,0.45);
     }
     .btn-back-step {
@@ -269,7 +272,7 @@
 <div class="booking-banner">
     <div class="booking-banner-inner container" data-aos="fade-up" data-aos-delay="100">
         <div class="booking-pill"><i class="bi bi-stars"></i>{{ CLINIC_NAME }} — Agendamento Online</div>
-        <h1 data-aos="fade-up" data-aos-delay="200">Agende seu Espaco<br>de Bem-Estar</h1>
+        <h1 data-aos="fade-up" data-aos-delay="200">Agende seu Espaço<br>de Bem-Estar</h1>
         <p data-aos="fade-up" data-aos-delay="300">Escolha seu tratamento, selecione a data e confirme — tudo sem precisar criar conta.</p>
     </div>
 </div>
@@ -425,13 +428,13 @@
                         </div>
 
                         <div class="form-field">
-                            <label><i class="bi bi-whatsapp"></i>Celular (WhatsApp)</label>
+                            <label><i class="bi bi-phone"></i>Celular</label>
                             <input type="tel" name="telefone" class="form-input" placeholder="(00) 00000-0000" required id="form-telefone">
                         </div>
 
-                        <div class="wpp-note">
-                            <i class="bi bi-whatsapp"></i>
-                            <span>Após confirmar, você será redirecionado para o WhatsApp para receber a confirmação.</span>
+                        <div class="wpp-note" style="background:#FFF9E3;border-left-color:#C9A84C;">
+                            <i class="bi bi-envelope-check" style="color:#C9A84C;"></i>
+                            <span style="color:#8B5C00;">Apos confirmar, o profissional ira avaliar seu agendamento e voce recebera a confirmacao por e-mail.</span>
                         </div>
 
                         <button type="submit" class="btn-confirm-booking">

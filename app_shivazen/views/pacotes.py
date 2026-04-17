@@ -31,7 +31,7 @@ def admin_pacotes(request):
         'pacotes': pacotes,
         'procedimentos': Procedimento.objects.filter(ativo=True),
     }
-    return render(request, 'painel/admin_pacotes.html', context)
+    return render(request, 'painel/pacotes.html', context)
 
 
 @staff_required

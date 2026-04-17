@@ -1,0 +1,166 @@
+{% extends 'painel/base.html' %}
+
+{% block page_title %}Procedimentos{% endblock %}
+{% block page_subtitle %}Gerencie servicos e precos{% endblock %}
+
+{% block admin_content %}
+<style>
+    .proc-card {
+        background: white; border-radius: 16px; padding: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 0.75rem;
+        position: relative;
+    }
+    .proc-card-active { border-left: 4px solid #4caf50; }
+    .proc-card-inactive { border-left: 4px solid #ccc; opacity: 0.7; }
+    .proc-nome { font-weight: 700; font-size: 1rem; }
+    .proc-cat { font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 10px; background: #f0f0f0; color: #666; font-weight: 700; }
+    .proc-info { font-size: 0.8rem; color: #999; margin-top: 0.3rem; }
+    .proc-actions { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+    .btn-criar { background: linear-gradient(135deg, #C9A84C, #e8c94f); color: white; border: none; padding: 0.5rem 1.2rem; border-radius: 10px; font-weight: 700; font-size: 0.85rem; cursor: pointer; }
+    .btn-edit { background: #e3f2fd; color: #1565c0; border: none; padding: 0.35rem 0.75rem; border-radius: 8px; font-size: 0.75rem; font-weight: 700; cursor: pointer; }
+    .form-section { background: #f8f9fa; border-radius: 16px; padding: 1.25rem; margin-bottom: 1.5rem; }
+    .form-section h3 { font-size: 0.9rem; font-weight: 700; margin-bottom: 1rem; }
+    .form-group { margin-bottom: 0.75rem; }
+    .form-group label { font-size: 0.75rem; font-weight: 700; color: #666; display: block; margin-bottom: 0.25rem; }
+    .form-group input, .form-group select, .form-group textarea {
+        width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 8px; font-size: 0.85rem;
+    }
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+    .modal-overlay.active { display: flex; }
+    .modal-box { background: white; border-radius: 16px; padding: 1.5rem; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; }
+</style>
+
+<!-- Formulario de criacao -->
+<div class="form-section">
+    <h3><i class="fas fa-plus-circle" style="color: #C9A84C;"></i> Novo Procedimento</h3>
+    <form method="post" action="{% url 'shivazen:admin_criar_procedimento' %}">
+        {% csrf_token %}
+        <div class="form-group">
+            <label>Nome</label>
+            <input type="text" name="nome" required placeholder="Ex: Limpeza de Pele">
+        </div>
+        <div class="form-group">
+            <label>Descricao</label>
+            <textarea name="descricao" rows="2" placeholder="Descricao do procedimento..."></textarea>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem;">
+            <div class="form-group">
+                <label>Duracao (min)</label>
+                <input type="number" name="duracao_minutos" value="30" min="5" required>
+            </div>
+            <div class="form-group">
+                <label>Categoria</label>
+                <select name="categoria">
+                    {% for val, label in categorias %}
+                    <option value="{{ val }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Preco (R$)</label>
+                <input type="number" name="preco" step="0.01" min="0" placeholder="0.00">
+            </div>
+        </div>
+        <button type="submit" class="btn-criar">Criar Procedimento</button>
+    </form>
+</div>
+
+<!-- Lista de procedimentos -->
+{% for proc in procedimentos %}
+<div class="proc-card {% if proc.ativo %}proc-card-active{% else %}proc-card-inactive{% endif %}">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span class="proc-nome">{{ proc.nome }}</span>
+                <span class="proc-cat">{{ proc.get_categoria_display }}</span>
+            </div>
+            <div class="proc-info">
+                <i class="far fa-clock"></i> {{ proc.duracao_minutos }} min
+                {% if not proc.ativo %} &middot; <span style="color: #c62828;">Inativo</span>{% endif %}
+            </div>
+            {% if proc.descricao %}
+            <div style="font-size: 0.8rem; color: #888; margin-top: 0.2rem;">{{ proc.descricao|truncatewords:20 }}</div>
+            {% endif %}
+        </div>
+        <button class="btn-edit" onclick="openEdit({{ proc.pk }}, '{{ proc.nome|escapejs }}', '{{ proc.descricao|default_if_none:''|escapejs }}', {{ proc.duracao_minutos }}, '{{ proc.categoria }}', {{ proc.ativo|yesno:'1,0' }}, '{{ proc.preco_base|default_if_none:''|escapejs }}')">
+            <i class="fas fa-edit"></i> Editar
+        </button>
+    </div>
+</div>
+{% empty %}
+<div style="text-align: center; padding: 3rem; color: #bbb;">
+    <i class="fas fa-stethoscope" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
+    <p>Nenhum procedimento cadastrado.</p>
+</div>
+{% endfor %}
+
+{% if procedimentos.has_other_pages %}
+<div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 1rem;">
+    {% if procedimentos.has_previous %}
+    <a href="?page={{ procedimentos.previous_page_number }}" style="padding: 0.4rem 0.8rem; background: #f0f0f0; border-radius: 8px; text-decoration: none; color: #333; font-size: 0.8rem;">Anterior</a>
+    {% endif %}
+    <span style="padding: 0.4rem 0.8rem; font-size: 0.8rem; color: #999;">{{ procedimentos.number }} / {{ procedimentos.paginator.num_pages }}</span>
+    {% if procedimentos.has_next %}
+    <a href="?page={{ procedimentos.next_page_number }}" style="padding: 0.4rem 0.8rem; background: #f0f0f0; border-radius: 8px; text-decoration: none; color: #333; font-size: 0.8rem;">Proximo</a>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Modal de edicao -->
+<div class="modal-overlay" id="editModal">
+    <div class="modal-box">
+        <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 1rem;">Editar Procedimento</h3>
+        <form method="post" id="editForm">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>Nome</label>
+                <input type="text" name="nome" id="edit_nome" required>
+            </div>
+            <div class="form-group">
+                <label>Descricao</label>
+                <textarea name="descricao" id="edit_descricao" rows="2"></textarea>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                <div class="form-group">
+                    <label>Duracao (min)</label>
+                    <input type="number" name="duracao_minutos" id="edit_duracao" min="5" required>
+                </div>
+                <div class="form-group">
+                    <label>Categoria</label>
+                    <select name="categoria" id="edit_categoria">
+                        {% for val, label in categorias %}
+                        <option value="{{ val }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Preco (R$)</label>
+                <input type="number" name="preco" id="edit_preco" step="0.01" min="0">
+            </div>
+            <div class="form-group">
+                <label><input type="checkbox" name="ativo" id="edit_ativo" value="1"> Ativo</label>
+            </div>
+            <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                <button type="button" onclick="closeEdit()" style="padding: 0.4rem 1rem; border-radius: 8px; border: 1px solid #ddd; background: white; cursor: pointer;">Cancelar</button>
+                <button type="submit" class="btn-criar">Salvar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openEdit(pk, nome, descricao, duracao, categoria, ativo, preco) {
+    document.getElementById('editForm').action = '/painel/procedimentos/' + pk + '/editar/';
+    document.getElementById('edit_nome').value = nome;
+    document.getElementById('edit_descricao').value = descricao;
+    document.getElementById('edit_duracao').value = duracao;
+    document.getElementById('edit_categoria').value = categoria;
+    document.getElementById('edit_ativo').checked = ativo === 1;
+    document.getElementById('edit_preco').value = preco || '';
+    document.getElementById('editModal').classList.add('active');
+}
+function closeEdit() { document.getElementById('editModal').classList.remove('active'); }
+document.getElementById('editModal').addEventListener('click', function(e) { if (e.target === this) closeEdit(); });
+</script>
+{% endblock %}

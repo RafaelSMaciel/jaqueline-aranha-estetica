@@ -1,0 +1,25 @@
+{% extends "email/base_email.html" %}
+{% block content %}
+<p style="color:#4A3425;font-size:16px;margin:0 0 8px;">Ola, {{ dados.profissional }}!</p>
+<p style="color:#666;font-size:15px;margin:0 0 24px;">Voce tem um novo agendamento pendente de aprovacao.</p>
+
+<div style="background:linear-gradient(145deg,#FFFEF5,#FFF9E3);border:2px solid #C9A84C;border-radius:16px;padding:24px;margin:0 0 24px;">
+<table width="100%" cellpadding="0" cellspacing="0">
+<tr><td style="padding:4px 0;color:#999;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Cliente</td></tr>
+<tr><td style="padding:0 0 12px;color:#4A3425;font-size:16px;font-weight:700;">{{ dados.cliente }}</td></tr>
+<tr><td style="padding:4px 0;color:#999;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Procedimento</td></tr>
+<tr><td style="padding:0 0 12px;color:#4A3425;font-size:15px;">{{ dados.procedimento }}</td></tr>
+<tr><td style="padding:4px 0;color:#999;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Data e Horario</td></tr>
+<tr><td style="padding:0 0 12px;color:#C9A84C;font-size:16px;font-weight:700;">{{ dados.data_hora }}</td></tr>
+</table>
+</div>
+
+<div style="text-align:center;margin:0 0 24px;">
+<a href="{{ dados.link_aprovar }}" style="display:inline-block;background:#C9A84C;color:white;padding:12px 32px;border-radius:50px;text-decoration:none;font-weight:700;font-size:14px;margin-right:8px;">Aprovar</a>
+<a href="{{ dados.link_rejeitar }}" style="display:inline-block;background:#dc3545;color:white;padding:12px 32px;border-radius:50px;text-decoration:none;font-weight:700;font-size:14px;">Rejeitar</a>
+</div>
+
+<p style="color:#999;font-size:13px;margin:0;">
+Ou acesse sua agenda: <a href="{{ site_url }}/profissional/" style="color:#C9A84C;">Portal do Profissional</a>
+</p>
+{% endblock %}

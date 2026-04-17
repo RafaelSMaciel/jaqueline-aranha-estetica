@@ -22,19 +22,28 @@ logger = logging.getLogger(__name__)
 
 
 def home(request):
-    return render(request, 'inicio/home.html')
+    profissionais = []
+    try:
+        profissionais = list(
+            Profissional.objects.filter(ativo=True).order_by('nome')[:6]
+        )
+    except (OperationalError, ProgrammingError):
+        pass
+    return render(request, 'publico/home.html', {
+        'profissionais': profissionais,
+    })
 
 
 def termosUso(request):
-    return render(request, 'inicio/termosUso.html')
+    return render(request, 'publico/termos_uso.html')
 
 
 def politicaPrivacidade(request):
-    return render(request, 'inicio/politicaPrivacidade.html')
+    return render(request, 'publico/politica_privacidade.html')
 
 
 def quemsomos(request):
-    return render(request, 'inicio/quemsomos.html')
+    return render(request, 'publico/quem_somos.html')
 
 
 def agendaContato(request):
@@ -67,7 +76,7 @@ def promocoes(request):
         logger.warning('Tabela de promoções não encontrada — exibindo página sem promoções.')
 
     context = {'promocoes': promos}
-    return render(request, 'inicio/promocoes.html', context)
+    return render(request, 'publico/promocoes.html', context)
 
 
 def equipe(request):
@@ -153,15 +162,15 @@ def galeria(request):
     """Pagina publica com galeria estatica da clinica (GLightbox)."""
     # Imagens usam o template_img ja presente em static/assets/
     fotos = [
-        {'src': 'assets/template_img/health/facilities-6.webp', 'titulo': 'Recepcao'},
-        {'src': 'assets/template_img/health/facilities-9.webp', 'titulo': 'Sala de Espera'},
-        {'src': 'assets/template_img/health/dermatology-1.webp', 'titulo': 'Sala de Tratamento Facial'},
-        {'src': 'assets/template_img/health/dermatology-4.webp', 'titulo': 'Procedimento Facial'},
-        {'src': 'assets/template_img/health/maternal-2.webp', 'titulo': 'Ambiente Relaxante'},
-        {'src': 'assets/template_img/health/consultation-4.webp', 'titulo': 'Sala de Avaliacao'},
-        {'src': 'assets/template_img/health/laboratory-3.webp', 'titulo': 'Equipamentos'},
-        {'src': 'assets/template_img/health/vaccination-3.webp', 'titulo': 'Atendimento Personalizado'},
-        {'src': 'assets/template_img/health/cardiology-1.webp', 'titulo': 'Tecnologia Avancada'},
+        {'src': 'assets/health/facilities-6.webp', 'titulo': 'Recepcao'},
+        {'src': 'assets/health/facilities-9.webp', 'titulo': 'Sala de Espera'},
+        {'src': 'assets/health/dermatology-1.webp', 'titulo': 'Sala de Tratamento Facial'},
+        {'src': 'assets/health/dermatology-4.webp', 'titulo': 'Procedimento Facial'},
+        {'src': 'assets/health/maternal-2.webp', 'titulo': 'Ambiente Relaxante'},
+        {'src': 'assets/health/consultation-4.webp', 'titulo': 'Sala de Avaliacao'},
+        {'src': 'assets/health/laboratory-3.webp', 'titulo': 'Equipamentos'},
+        {'src': 'assets/health/vaccination-3.webp', 'titulo': 'Atendimento Personalizado'},
+        {'src': 'assets/health/cardiology-1.webp', 'titulo': 'Tecnologia Avancada'},
     ]
     return render(request, 'publico/galeria.html', {'fotos': fotos})
 
@@ -296,3 +305,46 @@ def servico_detalhe(request, slug):
         'relacionados': relacionados,
     }
     return render(request, 'publico/servico_detalhe.html', context)
+
+
+# ─── Servicos por categoria ───
+
+def _get_procedimentos_com_preco(categoria='FACIAL'):
+    """Retorna procedimentos de uma categoria enriquecidos com precos."""
+    procedimentos_com_preco = []
+    try:
+        procedimentos = Procedimento.objects.filter(ativo=True, categoria=categoria)
+        proc_ids = list(procedimentos.values_list('pk', flat=True))
+        precos = Preco.objects.filter(procedimento_id__in=proc_ids).order_by('profissional')
+        preco_map = {}
+        for p in precos:
+            if p.procedimento_id not in preco_map:
+                preco_map[p.procedimento_id] = p.valor
+
+        for proc in procedimentos:
+            procedimentos_com_preco.append({
+                'id': proc.pk,
+                'nome': proc.nome,
+                'descricao': proc.descricao or '',
+                'duracao_minutos': proc.duracao_minutos,
+                'preco': float(preco_map.get(proc.pk, 0)),
+            })
+    except (OperationalError, ProgrammingError):
+        logger.warning('Tabelas nao encontradas para procedimentos.')
+    return procedimentos_com_preco
+
+
+def servicos_faciais(request):
+    return render(request, 'servicos/faciais.html', {
+        'procedimentos': _get_procedimentos_com_preco('FACIAL'),
+    })
+
+
+def servicos_corporais(request):
+    return render(request, 'servicos/corporais.html', {
+        'procedimentos': _get_procedimentos_com_preco('CORPORAL'),
+    })
+
+
+def servicos_produtos(request):
+    return render(request, 'servicos/produtos.html', {})

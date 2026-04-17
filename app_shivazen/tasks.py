@@ -15,7 +15,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-CLINIC_NAME = os.environ.get('CLINIC_NAME', 'Clinica Estetica')
+CLINIC_NAME = os.environ.get('CLINIC_NAME', 'Shiva Zen')
 
 
 # ═══════════════════════════════════════
@@ -63,9 +63,10 @@ def job_enviar_lembrete_dia_seguinte(self):
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def job_pesquisa_satisfacao_24h(self):
-    """Envia pesquisa NPS via WhatsApp 24h apos atendimento REALIZADO."""
+    """Envia pesquisa NPS por EMAIL 24h apos atendimento REALIZADO."""
     try:
-        from .utils.whatsapp import enviar_whatsapp, SITE_URL
+        from .utils.email import enviar_nps_email
+        from .utils.whatsapp import SITE_URL
         from .models import Notificacao
         import uuid
 
@@ -87,19 +88,21 @@ def job_pesquisa_satisfacao_24h(self):
             Notificacao.objects.create(
                 atendimento=agendamento,
                 tipo='NPS',
-                canal='WHATSAPP',
+                canal='EMAIL',
                 token=token,
                 status_envio='PENDENTE',
             )
             nps_url = f"{site_url}/nps/{token}/"
-            mensagem = (
-                f"Ola {agendamento.cliente.nome_completo}! "
-                f"Como foi seu atendimento de {agendamento.procedimento.nome}? "
-                f"Avalie pelo link: {nps_url} "
-                f"Sua opiniao e muito importante para nos! "
-                f"{CLINIC_NAME}"
-            )
-            enviar_whatsapp(agendamento.cliente.telefone, mensagem)
+
+            if agendamento.cliente.email:
+                enviar_nps_email(agendamento.cliente.email, {
+                    'nome': agendamento.cliente.nome_completo,
+                    'procedimento': agendamento.procedimento.nome,
+                    'link_nps': nps_url,
+                })
+                logger.info(f"[NPS] Email enviado para cliente {agendamento.cliente.pk}")
+            else:
+                logger.warning(f"[NPS] Cliente {agendamento.cliente.pk} sem email — NPS nao enviado")
     except Exception as exc:
         logger.exception('Erro em job_pesquisa_satisfacao_24h: %s', exc)
         raise self.retry(exc=exc)
@@ -309,13 +312,13 @@ def job_expirar_pacotes(self):
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def job_limpeza_status_atendimentos(self):
-    """Marca como FALTOU atendimentos passados ha 24h ainda em AGENDADO/CONFIRMADO."""
+    """Marca como FALTOU atendimentos passados ha 24h ainda em PENDENTE/AGENDADO/CONFIRMADO."""
     try:
         limite = timezone.now() - timedelta(hours=24)
 
         pendentes = Atendimento.objects.filter(
             data_hora_fim__lt=limite,
-            status__in=['AGENDADO', 'CONFIRMADO']
+            status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO']
         )
 
         for atendimento in pendentes:

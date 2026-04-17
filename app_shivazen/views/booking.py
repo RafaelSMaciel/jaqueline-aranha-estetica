@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import urllib.parse
 from datetime import datetime, timedelta
 
 from django.contrib import messages
@@ -21,14 +20,18 @@ from ..models import (
     Profissional,
     VersaoTermo,
 )
-from ..utils.email import enviar_confirmacao_agendamento_email
+from ..utils.email import (
+    enviar_confirmacao_agendamento_email,
+    enviar_aprovacao_profissional_email,
+    enviar_termos_pendentes_email,
+)
 from ..utils.precos import preco_base_map, preco_para
-from ..utils.whatsapp import SITE_URL, enviar_whatsapp as _enviar_wpp, gerar_token
+from ..utils.whatsapp import SITE_URL, gerar_token
 
 logger = logging.getLogger(__name__)
 
-WHATSAPP_NUMERO = os.environ.get('WHATSAPP_NUMERO', '')
-CLINIC_NAME = os.environ.get('CLINIC_NAME', 'Clinica Estetica')
+WHATSAPP_NUMERO = os.environ.get('WHATSAPP_NUMERO', '5517999990000')
+CLINIC_NAME = os.environ.get('CLINIC_NAME', 'Shiva Zen')
 
 
 def agendamento_publico(request):
@@ -144,7 +147,7 @@ def confirmar_agendamento(request):
                 profissional=profissional,
                 data_hora_inicio__lt=data_hora_fim,
                 data_hora_fim__gt=data_hora,
-                status__in=['AGENDADO', 'CONFIRMADO']
+                status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO']
             ).first() is not None
 
             if conflito:
@@ -161,7 +164,7 @@ def confirmar_agendamento(request):
                 data_hora_inicio=data_hora,
                 data_hora_fim=data_hora_fim,
                 valor_cobrado=valor,
-                status='AGENDADO'
+                status='PENDENTE'
             )
 
             # --- Notificacao de termos pendentes (dentro da transacao) ---
@@ -179,30 +182,30 @@ def confirmar_agendamento(request):
             )
 
             tem_pendente = any(t.pk not in assinados_ids for t in termos_pendentes)
-            msg_termo = None
+            dados_termo = None
             if tem_pendente:
                 token_termo = gerar_token()
                 Notificacao.objects.create(
                     atendimento=atendimento,
                     tipo='LEMBRETE',
-                    canal='WHATSAPP',
+                    canal='EMAIL',
                     status_envio='PENDENTE',
                     token=token_termo,
                 )
                 site_url = SITE_URL.rstrip('/')
                 link_termo = f"{site_url}/termo/{token_termo}/"
-                msg_termo = (
-                    f"Ola {nome}! Para seu agendamento no {CLINIC_NAME}, "
-                    f"precisamos que voce assine os termos de consentimento. "
-                    f"Acesse: {link_termo} "
-                    f"{CLINIC_NAME}"
-                )
+                dados_termo = {
+                    'nome': nome,
+                    'link_termo': link_termo,
+                }
 
-        # --- Envio do WhatsApp fora da transacao (I/O externo) ---
-        if msg_termo:
-            _enviar_wpp(telefone, msg_termo)
+        # --- Envio de emails fora da transacao (I/O externo) ---
 
-        # Confirmacao de agendamento por EMAIL (gratis)
+        # Termos pendentes por email
+        if dados_termo and email:
+            enviar_termos_pendentes_email(email, dados_termo)
+
+        # Confirmacao de agendamento por email pro cliente
         data_formatada = data_hora.strftime('%d/%m/%Y as %H:%M')
         dados_confirmacao = {
             'nome': nome,
@@ -215,15 +218,19 @@ def confirmar_agendamento(request):
         if email:
             enviar_confirmacao_agendamento_email(email, dados_confirmacao)
 
-        msg_wpp = (
-            f"Agendamento Confirmado - {CLINIC_NAME}\n\n"
-            f"Nome: {nome}\n"
-            f"Procedimento: {procedimento.nome}\n"
-            f"Profissional: {profissional.nome}\n"
-            f"Data/Hora: {data_formatada}\n"
-            + (f"Valor: R$ {valor:.2f}" if valor else "")
-        )
-        wpp_url = f"https://wa.me/{WHATSAPP_NUMERO}?text={urllib.parse.quote(msg_wpp)}"
+        # Notificar profissional por email sobre agendamento pendente
+        site_url = SITE_URL.rstrip('/')
+        prof_email = getattr(profissional, 'usuario', None)
+        prof_email = prof_email.email if prof_email else None
+        if prof_email:
+            enviar_aprovacao_profissional_email(prof_email, {
+                'profissional': profissional.nome,
+                'cliente': nome,
+                'procedimento': procedimento.nome,
+                'data_hora': data_formatada,
+                'link_aprovar': f"{site_url}/profissional/atendimento/{atendimento.pk}/aprovar/",
+                'link_rejeitar': f"{site_url}/profissional/atendimento/{atendimento.pk}/rejeitar/",
+            })
 
         # Armazenar na sessao para a pagina de sucesso
         request.session['agendamento_sucesso'] = {
@@ -232,7 +239,7 @@ def confirmar_agendamento(request):
             'profissional': profissional.nome,
             'data_hora': data_formatada,
             'valor': f"R$ {valor:.2f}" if valor else 'A consultar',
-            'wpp_url': wpp_url,
+            'pendente': True,
         }
 
         return redirect('shivazen:agendamento_sucesso')
@@ -272,7 +279,7 @@ def meus_agendamentos(request):
 
     agendamentos_futuros = agendamentos.filter(
         data_hora_inicio__gte=timezone.now(),
-        status__in=['AGENDADO', 'CONFIRMADO']
+        status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO']
     )
 
     agendamentos_passados = agendamentos.filter(
@@ -384,7 +391,7 @@ def reagendar_agendamento(request, token):
                 profissional=profissional,
                 data_hora_inicio__lt=nova_data_fim,
                 data_hora_fim__gt=nova_data,
-                status__in=['AGENDADO', 'CONFIRMADO']
+                status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO']
             ).exclude(pk=antigo.pk).first() is not None
 
             if conflito:
@@ -415,7 +422,7 @@ def reagendar_agendamento(request, token):
             'profissional': profissional.nome,
             'data_hora': data_fmt,
             'valor': f'R$ {float(novo.valor_cobrado):.2f}' if novo.valor_cobrado else 'A consultar',
-            'wpp_url': f"https://wa.me/{WHATSAPP_NUMERO}",
+            'pendente': True,
             'reagendamento': True,
         }
         return redirect('shivazen:agendamento_sucesso')

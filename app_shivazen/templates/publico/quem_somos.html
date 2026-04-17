@@ -1,0 +1,137 @@
+{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block body_class %}about-page{% endblock %}
+{% block titulo %}Quem Somos | {{ CLINIC_NAME }}{% endblock %}
+
+{% block conteudo %}
+<!-- About Section -->
+<section id="about" class="about section">
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
+
+    <div class="row align-items-stretch min-vh-50">
+      <div class="col-lg-6 d-flex align-items-center" data-aos="fade-right" data-aos-delay="100">
+        <div class="about-content py-5">
+          <h2 class="display-5 fw-light mb-4">Cuidado Humanizado para Sua Beleza e Bem-Estar</h2>
+
+          <div class="about-text">
+            <p class="lead fw-normal mb-4">
+              A {{ CLINIC_NAME }} é uma clínica de estética de pequeno porte, especializada em tratamentos faciais e corporais,
+              localizada na cidade de São José do Rio Preto (SP).
+            </p>
+
+            <p class="mb-4">
+              Desenvolvemos um sistema web personalizado para substituir processos manuais desorganizados por uma
+              plataforma digital integrada, oferecendo agendamento automático, prontuário eletrônico e controle robusto
+              da disponibilidade dos profissionais.
+            </p>
+
+            <p class="mb-4">
+              Há mais de uma década, dedicamo-nos a proporcionar tratamentos estéticos excepcionais na região.
+              Nosso compromisso vai além dos procedimentos — acreditamos em construir relacionamentos duradouros
+              com nossos clientes, baseados em confiança e resultados.
+            </p>
+
+            <p class="mb-5">
+              Utilizamos metodologia ágil Scrum e arquitetura monolítica MVT com Django e PostgreSQL, oferecendo
+              funcionalidades como agendamento automático, prontuário eletrônico e controle robusto da disponibilidade
+              dos profissionais.
+            </p>
+          </div>
+
+          <div class="stats-grid d-flex justify-content-between mt-4 pt-3 border-top">
+            <div class="stat-item text-center">
+              <span class="stat-number display-6 fw-light text-primary" data-purecounter-start="0" data-purecounter-end="5000" data-purecounter-duration="2">5000</span>
+              <span class="stat-label d-block text-muted small text-uppercase mt-2">Clientes Atendidos</span>
+            </div>
+            <div class="stat-item text-center">
+              <span class="stat-number display-6 fw-light text-primary" data-purecounter-start="0" data-purecounter-end="12" data-purecounter-duration="2">12</span>
+              <span class="stat-label d-block text-muted small text-uppercase mt-2">Anos de Experiência</span>
+            </div>
+            <div class="stat-item text-center">
+              <span class="stat-number display-6 fw-light text-primary" data-purecounter-start="0" data-purecounter-end="15" data-purecounter-duration="2">15</span>
+              <span class="stat-label d-block text-muted small text-uppercase mt-2">Profissionais</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-6" data-aos="fade-left" data-aos-delay="200">
+        <div class="image-wrapper h-100 position-relative">
+          <img src="{% static 'assets/health/facilities-6.webp' %}" class="img-fluid w-100 h-100 object-fit-cover" alt="Espaço {{ CLINIC_NAME }}" style="min-height: 600px;">
+        </div>
+      </div>
+    </div>
+
+    <div class="values-section mt-5 pt-5" data-aos="fade-up" data-aos-delay="300">
+      <div class="row">
+        <div class="col-lg-12 text-center">
+          <h3 class="display-6 fw-light mb-3">Nossos Valores</h3>
+          <p class="section-description text-muted mb-5">Estes princípios guiam tudo o que fazemos em nosso compromisso com a excelência em estética</p>
+        </div>
+      </div>
+
+      <div class="row g-4">
+        <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="100">
+          <div class="value-item text-center p-4 h-100 border rounded-3 hover-shadow transition">
+            <div class="value-icon mb-3">
+              <i class="bi bi-heart-pulse fs-1 text-primary"></i>
+            </div>
+            <h4 class="h5 fw-semibold mb-3">Humanização</h4>
+            <p class="small text-muted mb-0">Oferecemos cuidado com empatia e compreensão, atendendo às necessidades únicas de cada cliente.</p>
+          </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="200">
+          <div class="value-item text-center p-4 h-100 border rounded-3 hover-shadow transition">
+            <div class="value-icon mb-3">
+              <i class="bi bi-shield-check fs-1 text-primary"></i>
+            </div>
+            <h4 class="h5 fw-semibold mb-3">Excelência</h4>
+            <p class="small text-muted mb-0">Mantemos os mais altos padrões em procedimentos estéticos através de aprendizado contínuo e inovação.</p>
+          </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="300">
+          <div class="value-item text-center p-4 h-100 border rounded-3 hover-shadow transition">
+            <div class="value-icon mb-3">
+              <i class="bi bi-people fs-1 text-primary"></i>
+            </div>
+            <h4 class="h5 fw-semibold mb-3">Confiança</h4>
+            <p class="small text-muted mb-0">Construímos relacionamentos duradouros através de comunicação transparente e práticas éticas.</p>
+          </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="400">
+          <div class="value-item text-center p-4 h-100 border rounded-3 hover-shadow transition">
+            <div class="value-icon mb-3">
+              <i class="bi bi-lightbulb fs-1 text-primary"></i>
+            </div>
+            <h4 class="h5 fw-semibold mb-3">Tecnologia</h4>
+            <p class="small text-muted mb-0">Incorporamos tecnologias de ponta e tratamentos inovadores para melhores resultados.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="certifications-section mt-5 pt-4" data-aos="fade-up" data-aos-delay="400">
+      <div class="row">
+        <div class="col-lg-12 text-center">
+          <h3 class="display-6 fw-light mb-3">Certificações & Conformidade</h3>
+          <p class="section-description text-muted mb-4">Compromisso com a segurança de dados e qualidade no atendimento</p>
+        </div>
+      </div>
+      <div class="row justify-content-center">
+        <div class="col-lg-10">
+          <div class="alert alert-light border rounded-4 p-4 text-center bg-light">
+            <i class="bi bi-shield-lock fs-1 text-primary mb-3 d-block"></i>
+            <p class="mb-0 text-muted">Nosso sistema implementa autenticação de dois fatores, gestão digital de termos de consentimento e logs de auditoria detalhados, atendendo às exigências da Lei Geral de Proteção de Dados (LGPD).</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</section><!-- /About Section -->
+{% endblock %}

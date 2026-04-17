@@ -1,4 +1,4 @@
-# Python
+# ── Python ──
 __pycache__/
 *.py[cod]
 *$py.class
@@ -9,31 +9,53 @@ dist/
 *.egg-info/
 *.egg
 
-# Virtual environments
+# ── Virtual environments ──
 venv/
 env/
+.venv/
 
-# Django
+# ── Django ──
 *.log
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+db_test.sqlite3
+db_dev.sqlite3
 staticfiles/
 media/
 
-# Node
+# ── Node ──
 node_modules/
 
-# IDE
+# ── IDE / Editor ──
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 
-# Configurações sensíveis
+# ── Configuracoes sensiveis ──
 .env
 .env.*
+!.env.example
 
-# Gerados / temporários
+# ── Ferramentas CI / Dev ──
 .claude/
-db_test.sqlite3
+.playwright-mcp/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# ── Artefatos temporarios ──
+docs/superpowers/
+tasks/
+screenshots/
+scripts/
+
+# ── Screenshots / prints soltos na raiz ──
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp

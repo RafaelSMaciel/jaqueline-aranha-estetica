@@ -1,0 +1,103 @@
+{% extends 'painel/base.html' %}
+
+{% block page_title %}Termos de Consentimento{% endblock %}
+{% block page_subtitle %}Gerencie versoes de termos LGPD e de procedimento{% endblock %}
+
+{% block admin_content %}
+<style>
+    .termo-card {
+        background: white; border-radius: 16px; padding: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 0.75rem;
+    }
+    .termo-card-active { border-left: 4px solid #4caf50; }
+    .termo-card-inactive { border-left: 4px solid #ccc; opacity: 0.7; }
+    .termo-titulo { font-weight: 700; font-size: 1rem; }
+    .termo-tipo { font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 10px; font-weight: 700; }
+    .tipo-LGPD { background: #e3f2fd; color: #1565c0; }
+    .tipo-PROCEDIMENTO { background: #f3e5f5; color: #7b1fa2; }
+    .termo-info { font-size: 0.8rem; color: #999; margin-top: 0.3rem; }
+    .btn-criar { background: linear-gradient(135deg, #C9A84C, #e8c94f); color: white; border: none; padding: 0.5rem 1.2rem; border-radius: 10px; font-weight: 700; font-size: 0.85rem; cursor: pointer; }
+    .form-section { background: #f8f9fa; border-radius: 16px; padding: 1.25rem; margin-bottom: 1.5rem; }
+    .form-section h3 { font-size: 0.9rem; font-weight: 700; margin-bottom: 1rem; }
+    .form-group { margin-bottom: 0.75rem; }
+    .form-group label { font-size: 0.75rem; font-weight: 700; color: #666; display: block; margin-bottom: 0.25rem; }
+    .form-group input, .form-group select, .form-group textarea {
+        width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 8px; font-size: 0.85rem;
+    }
+</style>
+
+<!-- Formulario -->
+<div class="form-section">
+    <h3><i class="fas fa-plus-circle" style="color: #C9A84C;"></i> Novo Termo</h3>
+    <form method="post" action="{% url 'shivazen:admin_criar_termo' %}">
+        {% csrf_token %}
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div class="form-group">
+                <label>Tipo</label>
+                <select name="tipo" id="tipo_termo">
+                    <option value="LGPD">LGPD / Privacidade</option>
+                    <option value="PROCEDIMENTO">Procedimento</option>
+                </select>
+            </div>
+            <div class="form-group" id="proc_group" style="display:none;">
+                <label>Procedimento</label>
+                <select name="procedimento_id">
+                    <option value="">Geral (todos)</option>
+                    {% for p in procedimentos %}
+                    <option value="{{ p.pk }}">{{ p.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Titulo</label>
+            <input type="text" name="titulo" required placeholder="Ex: Termo de Consentimento para Peeling">
+        </div>
+        <div class="form-group">
+            <label>Conteudo</label>
+            <textarea name="conteudo" rows="5" required placeholder="Texto completo do termo..."></textarea>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div class="form-group">
+                <label>Versao</label>
+                <input type="text" name="versao" value="1.0" required>
+            </div>
+            <div class="form-group">
+                <label>Vigente Desde</label>
+                <input type="date" name="vigente_desde" required>
+            </div>
+        </div>
+        <button type="submit" class="btn-criar">Criar Termo</button>
+    </form>
+</div>
+
+<!-- Lista -->
+{% for t in termos %}
+<div class="termo-card {% if t.ativa %}termo-card-active{% else %}termo-card-inactive{% endif %}">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span class="termo-titulo">{{ t.titulo }}</span>
+                <span class="termo-tipo tipo-{{ t.tipo }}">{{ t.tipo }}</span>
+            </div>
+            <div class="termo-info">
+                v{{ t.versao }} &middot; Vigente desde {{ t.vigente_desde|date:"d/m/Y" }}
+                {% if t.procedimento %} &middot; {{ t.procedimento.nome }}{% endif %}
+                {% if not t.ativa %} &middot; <span style="color: #c62828;">Inativo</span>{% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% empty %}
+<div style="text-align: center; padding: 3rem; color: #bbb;">
+    <i class="fas fa-file-contract" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
+    <p>Nenhum termo cadastrado.</p>
+</div>
+{% endfor %}
+
+<script>
+document.getElementById('tipo_termo').addEventListener('change', function() {
+    document.getElementById('proc_group').style.display = this.value === 'PROCEDIMENTO' ? '' : 'none';
+});
+</script>
+{% endblock %}
