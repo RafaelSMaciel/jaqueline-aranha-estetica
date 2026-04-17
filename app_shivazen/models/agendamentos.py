@@ -1,4 +1,6 @@
 # app_shivazen/models/agendamentos.py — Atendimentos e notificacoes
+import secrets
+from django.core.validators import MinValueValidator
 from django.db import models
 
 from .clientes import Cliente
@@ -29,16 +31,24 @@ class Atendimento(models.Model):
     )
     data_hora_inicio = models.DateTimeField()
     data_hora_fim = models.DateTimeField()
-    valor_cobrado = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    valor_original = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    valor_cobrado = models.DecimalField(
+        max_digits=10, decimal_places=2, blank=True, null=True,
+        validators=[MinValueValidator(0)],
+    )
+    valor_original = models.DecimalField(
+        max_digits=10, decimal_places=2, blank=True, null=True,
+        validators=[MinValueValidator(0)],
+    )
     descricao_preco = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=20, default='PENDENTE', choices=STATUS_CHOICES)
-    token_cancelamento = models.CharField(max_length=64, unique=True, blank=True, null=True)
+    token_cancelamento = models.CharField(
+        max_length=64, unique=True, blank=True, null=True, db_index=True,
+    )
     criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True, null=True)
 
     def save(self, *args, **kwargs):
         if not self.token_cancelamento:
-            import secrets
             self.token_cancelamento = secrets.token_urlsafe(32)
         super().save(*args, **kwargs)
 
@@ -50,6 +60,7 @@ class Atendimento(models.Model):
             models.Index(fields=['data_hora_inicio'], name='idx_atendimento_data'),
             models.Index(fields=['cliente', 'status'], name='idx_atendimento_cli_status'),
             models.Index(fields=['cliente'], name='idx_atendimento_cliente'),
+            models.Index(fields=['profissional', 'data_hora_inicio'], name='idx_atend_prof_data'),
         ]
         constraints = [
             models.CheckConstraint(
@@ -58,7 +69,11 @@ class Atendimento(models.Model):
                     'CANCELADO', 'FALTOU', 'REAGENDADO',
                 ]),
                 name='chk_atendimento_status_v2'
-            )
+            ),
+            models.CheckConstraint(
+                check=models.Q(data_hora_fim__gt=models.F('data_hora_inicio')),
+                name='chk_atendimento_fim_apos_inicio',
+            ),
         ]
 
     def __str__(self):
