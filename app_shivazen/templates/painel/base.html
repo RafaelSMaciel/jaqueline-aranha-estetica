@@ -170,7 +170,7 @@
         <div class="admin-topbar-brand"><i class="fas fa-spa"></i>{{ CLINIC_NAME }} Admin</div>
         <div class="admin-topbar-actions">
             <a href="{% url 'shivazen:inicio' %}" title="Ver site"><i class="fas fa-external-link-alt"></i></a>
-            <a href="{% url 'shivazen:usuarioLogout' %}" title="Sair"><i class="fas fa-sign-out-alt"></i></a>
+            <a href="{% url 'shivazen:usuario_logout' %}" title="Sair"><i class="fas fa-sign-out-alt"></i></a>
         </div>
     </div>
 
@@ -193,7 +193,7 @@
         <a href="{% url 'shivazen:painel_agendamentos' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'painel_agendamentos' %}active{% endif %}">
             <i class="fas fa-calendar-day"></i><span>Agenda</span>
         </a>
-        <a href="{% url 'shivazen:painel_profissionais' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'painel_profissionais' or request.resolver_match.url_name == 'profissionalCadastro' or request.resolver_match.url_name == 'profissionalEditar' %}active{% endif %}">
+        <a href="{% url 'shivazen:painel_profissionais' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'painel_profissionais' or request.resolver_match.url_name == 'profissional_cadastro' or request.resolver_match.url_name == 'profissional_editar' %}active{% endif %}">
             <i class="fas fa-user-md"></i><span>Profissionais</span>
         </a>
         <a href="{% url 'shivazen:painel_clientes' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'painel_clientes' %}active{% endif %}">
@@ -205,7 +205,7 @@
         <a href="{% url 'shivazen:painel_notificacoes' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'painel_notificacoes' %}active{% endif %}">
             <i class="fas fa-bell"></i><span>Notificações</span>
         </a>
-        <a href="{% url 'shivazen:prontuarioconsentimento' %}" class="admin-nav-item {% if 'prontuario' in request.resolver_match.url_name %}active{% endif %}">
+        <a href="{% url 'shivazen:prontuario_consentimento' %}" class="admin-nav-item {% if 'prontuario' in request.resolver_match.url_name %}active{% endif %}">
             <i class="fas fa-file-medical"></i><span>Prontuario</span>
         </a>
         <a href="{% url 'shivazen:admin_pacotes' %}" class="admin-nav-item {% if 'pacote' in request.resolver_match.url_name %}active{% endif %}">

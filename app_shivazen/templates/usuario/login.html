@@ -246,7 +246,7 @@
             {% endfor %}
             {% endif %}
 
-            <form method="post" action="{% url 'shivazen:usuarioLogin' %}">
+            <form method="post" action="{% url 'shivazen:usuario_login' %}">
                 {% csrf_token %}
                 <div class="form-group">
                     <label for="username">E-mail</label>

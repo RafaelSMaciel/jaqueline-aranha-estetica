@@ -1,22 +1,22 @@
 # Views — imports explicitos (sem wildcard)
 from .auth import (
-    usuarioLogin, usuarioLogout,
+    usuario_login, usuario_logout,
     ShivaZenPasswordResetView, ShivaZenPasswordResetDoneView,
     ShivaZenPasswordResetConfirmView, ShivaZenPasswordResetCompleteView,
 )
 from .public import (
-    home, termosUso, politicaPrivacidade, quemsomos, agendaContato, promocoes,
+    home, termos_uso, politica_privacidade, quem_somos, agenda_contato, promocoes,
     equipe, especialidades, depoimentos, galeria, servico_detalhe,
     lista_espera_publica, lista_espera_sucesso,
     servicos_faciais, servicos_corporais, servicos_produtos,
 )
 from .admin import (
-    prontuarioconsentimento,
+    prontuario_consentimento,
     admin_auditoria, admin_atualizar_status,
 )
 from .admin_professional import (
-    profissionalCadastro,
-    profissionalEditar,
+    profissional_cadastro,
+    profissional_editar,
 )
 from .admin_promotions import (
     admin_criar_promocao,

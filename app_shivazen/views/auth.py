@@ -31,7 +31,7 @@ def _check_rate_limit(request, max_attempts=5, window=60):
 
 
 @require_http_methods(["GET", "POST"])
-def usuarioLogin(request):
+def usuario_login(request):
     """Login exclusivo para administradores da clínica."""
     # Se já logado, vai direto pro painel
     if request.user.is_authenticated and request.user.is_staff:
@@ -41,14 +41,14 @@ def usuarioLogin(request):
         # SEGURANÇA: Rate limiting — bloquear após 5 tentativas por minuto
         if _check_rate_limit(request):
             messages.error(request, 'Muitas tentativas de login. Aguarde um momento e tente novamente.')
-            return redirect('shivazen:usuarioLogin')
+            return redirect('shivazen:usuario_login')
 
         email = request.POST.get('username', '').strip()
         senha = request.POST.get('password', '')
 
         if not email or not senha:
             messages.error(request, 'Preencha e-mail e senha.')
-            return redirect('shivazen:usuarioLogin')
+            return redirect('shivazen:usuario_login')
 
         usuario = authenticate(request, email=email, password=senha)
 
@@ -73,14 +73,14 @@ def usuarioLogin(request):
             email_masked = f'***{email[-4:]}' if len(email) > 4 else '***'
             logger.warning(f'Login falho para: {email_masked} | IP: {request.META.get("REMOTE_ADDR")}')
             messages.error(request, 'Credenciais inválidas ou acesso não autorizado.')
-            return redirect('shivazen:usuarioLogin')
+            return redirect('shivazen:usuario_login')
 
     return render(request, 'usuario/login.html')
 
 
 @login_required
 @require_http_methods(["GET", "POST"])
-def usuarioLogout(request):
+def usuario_logout(request):
     """Logout — aceita GET e POST por praticidade."""
     auth_logout(request)
     messages.info(request, 'Você saiu da sua conta.')

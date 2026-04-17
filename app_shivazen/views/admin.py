@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 @staff_required
-def prontuarioconsentimento(request):
+def prontuario_consentimento(request):
     """Prontuario e consentimento — lista clientes com status do prontuario."""
     search = request.GET.get('search', '')
 
