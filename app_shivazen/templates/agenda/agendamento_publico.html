@@ -409,35 +409,73 @@
                         <input type="hidden" name="procedimento" id="form-procedimento">
                         <input type="hidden" name="profissional" id="form-profissional">
                         <input type="hidden" name="datetime" id="form-datetime">
+                        {# honeypot — humano nao ve, bot preenche #}
+                        <input type="text" name="website" tabindex="-1" autocomplete="off"
+                               style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
 
+                        <!-- ─── Email + OTP ─── -->
                         <div class="form-field">
-                            <label><i class="bi bi-person"></i>Seu Nome</label>
-                            <input type="text" name="nome" class="form-input" placeholder="Nome completo" required id="form-nome">
+                            <label><i class="bi bi-envelope"></i>E-mail</label>
+                            <div style="display:flex;gap:8px;">
+                                <input type="email" name="email" class="form-input" placeholder="seu@email.com" required id="form-email" style="flex:1;">
+                                <button type="button" id="btn-enviar-otp" class="btn btn-outline-secondary" style="white-space:nowrap;">
+                                    <i class="bi bi-send"></i> Enviar codigo
+                                </button>
+                            </div>
+                            <small style="color:#999;font-size:0.72rem;margin-top:0.3rem;display:block;">
+                                Vamos enviar um codigo para validar seu e-mail.
+                            </small>
                         </div>
 
-                        <div class="form-field">
-                            <label><i class="bi bi-calendar-heart"></i>Data de Nascimento</label>
-                            <input type="date" name="data_nascimento" class="form-input" required id="form-nascimento"
-                                   style="color-scheme: light;">
-                            <small style="color:#BBB;font-size:0.72rem;margin-top:0.3rem;display:block;">Obrigatório ser maior de 18 anos</small>
+                        <div class="form-field" id="otp-field" style="display:none;">
+                            <label><i class="bi bi-shield-lock"></i>Codigo de verificacao (6 digitos)</label>
+                            <div style="display:flex;gap:8px;">
+                                <input type="text" id="otp-codigo" class="form-input" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code" style="flex:1;letter-spacing:6px;font-size:1.2rem;text-align:center;">
+                                <button type="button" id="btn-verificar-otp" class="btn btn-primary" style="white-space:nowrap;">
+                                    <i class="bi bi-check2"></i> Verificar
+                                </button>
+                            </div>
+                            <small id="otp-msg" style="display:block;margin-top:0.4rem;font-size:0.78rem;"></small>
                         </div>
 
-                        <div class="form-field">
-                            <label><i class="bi bi-envelope"></i>E-mail <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#CCC;">(opcional)</span></label>
-                            <input type="email" name="email" class="form-input" placeholder="seu@email.com" id="form-email">
+                        <!-- ─── Dados pessoais (mostra apos OTP ou se novo) ─── -->
+                        <div id="dados-fields" style="display:none;">
+                            <div class="form-field">
+                                <label><i class="bi bi-person"></i>Seu Nome</label>
+                                <input type="text" name="nome" class="form-input" placeholder="Nome completo" id="form-nome">
+                            </div>
+
+                            <div class="form-field">
+                                <label><i class="bi bi-calendar-heart"></i>Data de Nascimento</label>
+                                <input type="date" name="data_nascimento" class="form-input" id="form-nascimento" style="color-scheme: light;">
+                                <small style="color:#BBB;font-size:0.72rem;margin-top:0.3rem;display:block;">Obrigatorio ser maior de 18 anos</small>
+                            </div>
+
+                            <div class="form-field">
+                                <label><i class="bi bi-phone"></i>Celular</label>
+                                <input type="tel" name="telefone" class="form-input" placeholder="(00) 00000-0000" id="form-telefone">
+                            </div>
+
+                            <div class="form-field" id="cadastro-check-wrap" style="display:none;">
+                                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                                    <input type="checkbox" name="aceita_cadastro" id="form-aceita-cadastro" checked style="width:auto;">
+                                    <span style="color:var(--earth);">Quero me cadastrar para agendar mais rapido da proxima vez</span>
+                                </label>
+                            </div>
                         </div>
 
-                        <div class="form-field">
-                            <label><i class="bi bi-phone"></i>Celular</label>
-                            <input type="tel" name="telefone" class="form-input" placeholder="(00) 00000-0000" required id="form-telefone">
+                        {% if turnstile_enabled %}
+                        <div class="form-field" id="captcha-field" style="display:none;">
+                            <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" data-theme="light"></div>
                         </div>
+                        {% endif %}
 
                         <div class="wpp-note" style="background:#FFF9E3;border-left-color:#C9A84C;">
                             <i class="bi bi-envelope-check" style="color:#C9A84C;"></i>
                             <span style="color:#8B5C00;">Apos confirmar, o profissional ira avaliar seu agendamento e voce recebera a confirmacao por e-mail.</span>
                         </div>
 
-                        <button type="submit" class="btn-confirm-booking">
+                        <button type="submit" class="btn-confirm-booking" id="btn-confirmar" disabled>
                             <i class="bi bi-calendar-check me-2"></i>Confirmar Agendamento
                         </button>
                     </form>
@@ -720,6 +758,124 @@
         if (card) card.click();
     }
 
+    // ═══ OTP FLOW ═══
+    var OTP_CSRF = document.querySelector('#booking-form input[name="csrfmiddlewaretoken"]').value;
+    var otpVerificado = false;
+
+    function setOtpMsg(texto, ok) {
+        var el = document.getElementById('otp-msg');
+        if (!el) return;
+        el.textContent = texto;
+        el.style.color = ok ? '#1a7f37' : '#b42318';
+    }
+
+    function mostrarDados(prefill, clienteExistente) {
+        var dados = document.getElementById('dados-fields');
+        var captcha = document.getElementById('captcha-field');
+        var checkWrap = document.getElementById('cadastro-check-wrap');
+        dados.style.display = '';
+        if (captcha) captcha.style.display = '';
+        var nome = document.getElementById('form-nome');
+        var nasc = document.getElementById('form-nascimento');
+        var tel = document.getElementById('form-telefone');
+        if (prefill) {
+            nome.value = prefill.nome || '';
+            nasc.value = prefill.data_nascimento || '';
+            tel.value = prefill.telefone || '';
+            // dispara a mascara
+            tel.dispatchEvent(new Event('input'));
+        }
+        nome.required = true;
+        nasc.required = true;
+        tel.required = true;
+        if (!clienteExistente) {
+            checkWrap.style.display = '';
+        }
+        document.getElementById('btn-confirmar').disabled = false;
+    }
+
+    var btnEnviar = document.getElementById('btn-enviar-otp');
+    if (btnEnviar) {
+        btnEnviar.addEventListener('click', function() {
+            var email = (document.getElementById('form-email').value || '').trim();
+            if (!email || email.indexOf('@') < 0) {
+                setOtpMsg('Informe um e-mail valido.', false);
+                return;
+            }
+            btnEnviar.disabled = true;
+            setOtpMsg('Enviando codigo...', true);
+            var fd = new FormData();
+            fd.append('email', email);
+            fd.append('csrfmiddlewaretoken', OTP_CSRF);
+            var cap = document.querySelector('#captcha-field .cf-turnstile input[name="cf-turnstile-response"]');
+            if (cap) fd.append('cf-turnstile-response', cap.value);
+            fetch('{% url "shivazen:solicitar_otp_agendamento" %}', {method:'POST', body: fd, headers:{'X-CSRFToken': OTP_CSRF}})
+                .then(function(r) { return r.json().then(function(d){ return {status:r.status, data:d}; }); })
+                .then(function(res) {
+                    btnEnviar.disabled = false;
+                    if (res.data.ok) {
+                        document.getElementById('otp-field').style.display = '';
+                        setOtpMsg('Codigo enviado para seu e-mail. Valido por 10min.', true);
+                        btnEnviar.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Reenviar';
+                    } else if (res.data.erro === 'aguarde') {
+                        setOtpMsg('Aguarde alguns segundos antes de reenviar.', false);
+                    } else {
+                        setOtpMsg('Falha ao enviar. Tente novamente.', false);
+                    }
+                })
+                .catch(function() {
+                    btnEnviar.disabled = false;
+                    setOtpMsg('Erro de conexao.', false);
+                });
+        });
+    }
+
+    var btnVerif = document.getElementById('btn-verificar-otp');
+    if (btnVerif) {
+        btnVerif.addEventListener('click', function() {
+            var email = (document.getElementById('form-email').value || '').trim();
+            var codigo = (document.getElementById('otp-codigo').value || '').trim();
+            if (!/^\d{6}$/.test(codigo)) {
+                setOtpMsg('Codigo deve ter 6 digitos.', false);
+                return;
+            }
+            btnVerif.disabled = true;
+            var fd = new FormData();
+            fd.append('email', email);
+            fd.append('codigo', codigo);
+            fd.append('csrfmiddlewaretoken', OTP_CSRF);
+            fetch('{% url "shivazen:verificar_otp_agendamento" %}', {method:'POST', body: fd, headers:{'X-CSRFToken': OTP_CSRF}})
+                .then(function(r) { return r.json().then(function(d){ return {status:r.status, data:d}; }); })
+                .then(function(res) {
+                    btnVerif.disabled = false;
+                    if (res.data.ok) {
+                        otpVerificado = true;
+                        setOtpMsg('E-mail verificado!', true);
+                        var existe = !!res.data.prefill;
+                        mostrarDados(res.data.prefill, existe);
+                        // esconde botoes OTP apos sucesso
+                        btnEnviar.style.display = 'none';
+                        btnVerif.style.display = 'none';
+                        document.getElementById('otp-codigo').disabled = true;
+                    } else if (res.data.erro && res.data.erro.indexOf('incorreto') === 0) {
+                        var restante = res.data.erro.split(':')[1] || '';
+                        setOtpMsg('Codigo incorreto. Tentativas restantes: ' + restante, false);
+                    } else if (res.data.erro === 'bloqueado') {
+                        setOtpMsg('Muitas tentativas. Solicite um novo codigo.', false);
+                    } else {
+                        setOtpMsg('Codigo expirado. Solicite um novo.', false);
+                    }
+                })
+                .catch(function() {
+                    btnVerif.disabled = false;
+                    setOtpMsg('Erro de conexao.', false);
+                });
+        });
+    }
+
 })();
 </script>
+{% if turnstile_enabled %}
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer nonce="{{ csp_nonce }}"></script>
+{% endif %}
 {% endblock %}

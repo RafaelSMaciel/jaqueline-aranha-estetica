@@ -4,10 +4,13 @@ import os
 from datetime import datetime, timedelta
 
 from django.contrib import messages
+from django.core.cache import cache
 from django.db import OperationalError, ProgrammingError, transaction
 from django.db.models import Q
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 from django_ratelimit.decorators import ratelimit
 
 from ..models import (
@@ -16,10 +19,13 @@ from ..models import (
     Atendimento,
     Cliente,
     Notificacao,
+    OtpCode,
     Procedimento,
     Profissional,
     VersaoTermo,
 )
+from ..services import otp_service
+from ..utils.captcha import turnstile_enabled, turnstile_site_key, verificar_turnstile
 from ..utils.email import (
     enviar_confirmacao_agendamento_email,
     enviar_aprovacao_profissional_email,
@@ -65,9 +71,65 @@ def agendamento_publico(request):
         'procedimentos_json': json.dumps(procedimentos_com_preco),
         'whatsapp_numero': WHATSAPP_NUMERO,
         'proc_preselect': proc_preselect,
+        'turnstile_site_key': turnstile_site_key(),
+        'turnstile_enabled': turnstile_enabled(),
     }
 
     return render(request, 'agenda/agendamento_publico.html', context)
+
+
+def _client_ip(request):
+    xff = request.META.get('HTTP_X_FORWARDED_FOR', '')
+    if xff:
+        return xff.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR')
+
+
+@require_POST
+@ratelimit(key='ip', rate='5/m', method='POST', block=True)
+def solicitar_otp_agendamento(request):
+    """AJAX: envia OTP por email. Anti-timing: resposta uniforme."""
+    email = (request.POST.get('email') or '').strip().lower()
+    captcha_token = request.POST.get('cf-turnstile-response', '')
+
+    if turnstile_enabled() and not verificar_turnstile(captcha_token, ip=_client_ip(request)):
+        return JsonResponse({'ok': False, 'erro': 'captcha'}, status=400)
+
+    if not email or '@' not in email:
+        return JsonResponse({'ok': False, 'erro': 'email_invalido'}, status=400)
+
+    existe = Cliente.objects.filter(email__iexact=email, ativo=True).exists()
+
+    # Sempre gera OTP (nao revela se email existe) — resposta identica.
+    ok, motivo = otp_service.solicitar_otp(email, request=request, proposito=OtpCode.PROPOSITO_AGENDAMENTO)
+    if not ok and motivo == 'aguarde':
+        return JsonResponse({'ok': False, 'erro': 'aguarde'}, status=429)
+    return JsonResponse({'ok': True, 'cliente_existente': existe})
+
+
+@require_POST
+@ratelimit(key='ip', rate='10/m', method='POST', block=True)
+def verificar_otp_agendamento(request):
+    """AJAX: valida codigo; se cliente existe, devolve pre-fill."""
+    email = (request.POST.get('email') or '').strip().lower()
+    codigo = (request.POST.get('codigo') or '').strip()
+
+    ok, motivo = otp_service.verificar_otp(email, codigo, proposito=OtpCode.PROPOSITO_AGENDAMENTO)
+    if not ok:
+        return JsonResponse({'ok': False, 'erro': motivo}, status=400)
+
+    request.session['otp_agendamento_email'] = email
+    request.session['otp_agendamento_expira'] = (timezone.now() + timedelta(minutes=30)).isoformat()
+
+    cliente = Cliente.objects.filter(email__iexact=email, ativo=True).first()
+    prefill = None
+    if cliente:
+        prefill = {
+            'nome': cliente.nome_completo,
+            'telefone': cliente.telefone or '',
+            'data_nascimento': cliente.data_nascimento.isoformat() if cliente.data_nascimento else '',
+        }
+    return JsonResponse({'ok': True, 'prefill': prefill})
 
 
 @ratelimit(key='ip', rate='10/m', method='POST', block=True)
@@ -76,9 +138,22 @@ def confirmar_agendamento(request):
     Processa a confirmação do agendamento SEM login.
     Recebe: nome, telefone, procedimento, profissional, datetime.
     Cria/encontra cliente pelo telefone e agenda.
+    Protecoes: honeypot, Turnstile, OTP (se email existir) e slot lock.
     """
     if request.method != 'POST':
         return redirect('shivazen:agendamento_publico')
+
+    # Honeypot — bots que preenchem tudo falham aqui
+    if request.POST.get('website', '').strip():
+        logger.info('[BOOKING] honeypot triggered ip=%s', _client_ip(request))
+        return redirect('shivazen:agendamento_publico')
+
+    # Turnstile CAPTCHA
+    if turnstile_enabled():
+        captcha_token = request.POST.get('cf-turnstile-response', '')
+        if not verificar_turnstile(captcha_token, ip=_client_ip(request)):
+            messages.error(request, 'Validacao de seguranca falhou. Tente novamente.')
+            return redirect('shivazen:agendamento_publico')
 
     nome = request.POST.get('nome', '').strip()
     telefone = request.POST.get('telefone', '').strip()
@@ -91,6 +166,21 @@ def confirmar_agendamento(request):
     if not all([nome, telefone, data_nascimento_str, procedimento_id, profissional_id, datetime_str]):
         messages.error(request, 'Todos os campos obrigatórios devem ser preenchidos.')
         return redirect('shivazen:agendamento_publico')
+
+    # Se ja existe cliente com esse email, exige OTP verificado
+    if email:
+        cliente_existente = Cliente.objects.filter(email__iexact=email, ativo=True).exists()
+        otp_email = request.session.get('otp_agendamento_email')
+        otp_exp = request.session.get('otp_agendamento_expira')
+        otp_ok = bool(otp_email) and otp_email == email.lower()
+        if otp_ok and otp_exp:
+            try:
+                otp_ok = datetime.fromisoformat(otp_exp) > timezone.now()
+            except ValueError:
+                otp_ok = False
+        if cliente_existente and not otp_ok:
+            messages.error(request, 'Verifique seu e-mail com o codigo enviado antes de confirmar.')
+            return redirect('shivazen:agendamento_publico')
 
     # Parse data de nascimento
     try:
@@ -114,6 +204,13 @@ def confirmar_agendamento(request):
         profissional = Profissional.objects.get(pk=profissional_id)
         data_hora = datetime.fromisoformat(datetime_str)
         data_hora_fim = data_hora + timedelta(minutes=procedimento.duracao_minutos)
+
+        # Lock de reserva de slot (cache, 30s) — reduz janela de race entre
+        # dois clicks simultaneos no mesmo horario antes do SELECT FOR UPDATE.
+        slot_key = f'booking_slot:{profissional_id}:{datetime_str}'
+        if not cache.add(slot_key, '1', timeout=30):
+            messages.error(request, 'Este horario esta sendo confirmado por outra pessoa. Tente outro.')
+            return redirect('shivazen:agendamento_publico')
 
         # Transacao atomica: cliente + atendimento + notificacao de termo
         # devem persistir juntos ou nenhum (evita Cliente orfao em falha).
@@ -241,6 +338,9 @@ def confirmar_agendamento(request):
             'valor': f"R$ {valor:.2f}" if valor else 'A consultar',
             'pendente': True,
         }
+        # Limpa OTP session apos sucesso
+        request.session.pop('otp_agendamento_email', None)
+        request.session.pop('otp_agendamento_expira', None)
 
         return redirect('shivazen:agendamento_sucesso')
 
@@ -260,19 +360,16 @@ def agendamento_sucesso(request):
 
 
 def meus_agendamentos(request):
-    """
-    Página para ver agendamentos pelo telefone celular.
-    Fluxo: informar celular → verificar código → ver agendamentos.
-    """
-    step = request.GET.get('step', '1')
-    telefone = request.session.get('telefone_verificado')
+    """Listagem autenticada via OTP por email."""
+    email = request.session.get('meus_agendamentos_email')
+    if not email:
+        return render(request, 'agenda/meus_agendamentos.html', {
+            'step': '1',
+            'turnstile_site_key': turnstile_site_key(),
+            'turnstile_enabled': turnstile_enabled(),
+        })
 
-    if step == '1' or not telefone:
-        # Step 1: Informar celular
-        return render(request, 'agenda/meus_agendamentos.html', {'step': '1'})
-
-    # Step 3: Mostrar agendamentos
-    clientes = Cliente.objects.filter(telefone=telefone)
+    clientes = Cliente.objects.filter(email__iexact=email, ativo=True)
     agendamentos = Atendimento.objects.filter(
         cliente__in=clientes
     ).select_related('profissional', 'procedimento').order_by('-data_hora_inicio')
@@ -281,22 +378,57 @@ def meus_agendamentos(request):
         data_hora_inicio__gte=timezone.now(),
         status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO']
     )
-
     agendamentos_passados = agendamentos.filter(
-        data_hora_inicio__lt=timezone.now()
-    ) | agendamentos.filter(
-        status__in=['REALIZADO', 'CANCELADO']
+        Q(data_hora_inicio__lt=timezone.now()) | Q(status__in=['REALIZADO', 'CANCELADO', 'FALTOU', 'REAGENDADO'])
     )
 
-    context = {
+    return render(request, 'agenda/meus_agendamentos.html', {
         'step': '3',
-        'telefone': telefone,
+        'email': email,
         'agendamentos_futuros': agendamentos_futuros[:20],
         'agendamentos_passados': agendamentos_passados.distinct()[:20],
         'whatsapp_numero': WHATSAPP_NUMERO,
-    }
+    })
 
-    return render(request, 'agenda/meus_agendamentos.html', context)
+
+@require_POST
+@ratelimit(key='ip', rate='5/m', method='POST', block=True)
+def meus_agendamentos_enviar_otp(request):
+    """Envia OTP para login em 'Meus Agendamentos'."""
+    email = (request.POST.get('email') or '').strip().lower()
+    captcha_token = request.POST.get('cf-turnstile-response', '')
+
+    if turnstile_enabled() and not verificar_turnstile(captcha_token, ip=_client_ip(request)):
+        return JsonResponse({'ok': False, 'erro': 'captcha'}, status=400)
+    if not email or '@' not in email:
+        return JsonResponse({'ok': False, 'erro': 'email_invalido'}, status=400)
+
+    # Anti-timing: sempre retorna ok (nao revela se email existe)
+    ok, motivo = otp_service.solicitar_otp(email, request=request, proposito=OtpCode.PROPOSITO_LOGIN)
+    if not ok and motivo == 'aguarde':
+        return JsonResponse({'ok': False, 'erro': 'aguarde'}, status=429)
+    return JsonResponse({'ok': True})
+
+
+@require_POST
+@ratelimit(key='ip', rate='10/m', method='POST', block=True)
+def meus_agendamentos_verificar_otp(request):
+    """Valida OTP; cria sessao se ok."""
+    email = (request.POST.get('email') or '').strip().lower()
+    codigo = (request.POST.get('codigo') or '').strip()
+
+    ok, motivo = otp_service.verificar_otp(email, codigo, proposito=OtpCode.PROPOSITO_LOGIN)
+    if not ok:
+        return JsonResponse({'ok': False, 'erro': motivo}, status=400)
+
+    request.session['meus_agendamentos_email'] = email
+    request.session.set_expiry(3600)  # 1h
+    return JsonResponse({'ok': True, 'redirect': '/meus-agendamentos/'})
+
+
+def meus_agendamentos_logout(request):
+    request.session.pop('meus_agendamentos_email', None)
+    return redirect('shivazen:meus_agendamentos')
 
 
 JANELA_MINIMA_REAGENDAMENTO = timedelta(hours=24)

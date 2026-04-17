@@ -30,6 +30,8 @@ urlpatterns = [
     path('agendamento/', views.agendamento_publico, name='agendamento_publico'),
     path('agendamento/confirmar/', views.confirmar_agendamento, name='confirmar_agendamento'),
     path('agendamento/sucesso/', views.agendamento_sucesso, name='agendamento_sucesso'),
+    path('agendamento/otp/solicitar/', views.solicitar_otp_agendamento, name='solicitar_otp_agendamento'),
+    path('agendamento/otp/verificar/', views.verificar_otp_agendamento, name='verificar_otp_agendamento'),
 
     # ─── Confirmação de Presença (link público via WhatsApp) ───
     path('confirmar/<str:token>/', views.confirmar_presenca, name='confirmar_presenca'),
@@ -37,8 +39,11 @@ urlpatterns = [
     # ─── Reagendamento Público (link via WhatsApp / meus-agendamentos) ───
     path('reagendar/<str:token>/', views.reagendar_agendamento, name='reagendar_agendamento'),
 
-    # ─── Meus Agendamentos (via celular) ───
+    # ─── Meus Agendamentos (login via OTP email) ───
     path('meus-agendamentos/', views.meus_agendamentos, name='meus_agendamentos'),
+    path('meus-agendamentos/otp/enviar/', views.meus_agendamentos_enviar_otp, name='meus_agendamentos_enviar_otp'),
+    path('meus-agendamentos/otp/verificar/', views.meus_agendamentos_verificar_otp, name='meus_agendamentos_verificar_otp'),
+    path('meus-agendamentos/sair/', views.meus_agendamentos_logout, name='meus_agendamentos_logout'),
 
     # ─── Lista de Espera (público) ───
     path('lista-espera/', views.lista_espera_publica, name='lista_espera_publica'),

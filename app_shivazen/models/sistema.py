@@ -125,3 +125,117 @@ class CodigoVerificacao(models.Model):
             row.usado = True
             row.save(update_fields=['usado'])
         return True
+
+
+class OtpCode(models.Model):
+    """OTP por email: codigo hashed, TTL, rate limit por tentativas, IP."""
+
+    PROPOSITO_AGENDAMENTO = 'AGENDAMENTO'
+    PROPOSITO_LOGIN = 'LOGIN_CLIENTE'
+    PROPOSITO_CHOICES = [
+        (PROPOSITO_AGENDAMENTO, 'Agendamento'),
+        (PROPOSITO_LOGIN, 'Login cliente'),
+    ]
+
+    TTL_SEGUNDOS = 600  # 10 min
+    MAX_TENTATIVAS = 5
+    REENVIO_MINIMO_SEG = 60  # janela para re-envio
+
+    email = models.EmailField()
+    codigo_hash = models.CharField(max_length=64)  # sha256 hex
+    proposito = models.CharField(max_length=20, choices=PROPOSITO_CHOICES, default=PROPOSITO_AGENDAMENTO)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    expira_em = models.DateTimeField()
+    usado_em = models.DateTimeField(blank=True, null=True)
+    tentativas = models.PositiveSmallIntegerField(default=0)
+    ip_origem = models.GenericIPAddressField(blank=True, null=True)
+
+    class Meta:
+        managed = True
+        db_table = 'otp_code'
+        indexes = [
+            models.Index(fields=['email', '-criado_em'], name='idx_otp_email_data'),
+            models.Index(fields=['proposito', '-criado_em'], name='idx_otp_prop_data'),
+        ]
+
+    def __str__(self):
+        return f'OTP {self.email} ({self.proposito})'
+
+    @property
+    def esta_valido(self):
+        from django.utils import timezone
+        return (
+            self.usado_em is None
+            and self.expira_em > timezone.now()
+            and self.tentativas < self.MAX_TENTATIVAS
+        )
+
+    @classmethod
+    def pode_reenviar(cls, email, proposito=PROPOSITO_AGENDAMENTO):
+        """True se passou REENVIO_MINIMO_SEG desde ultimo codigo."""
+        from datetime import timedelta
+        from django.utils import timezone
+        limite = timezone.now() - timedelta(seconds=cls.REENVIO_MINIMO_SEG)
+        return not cls.objects.filter(
+            email=email, proposito=proposito, criado_em__gt=limite
+        ).exists()
+
+    @classmethod
+    def gerar(cls, email, ip=None, proposito=PROPOSITO_AGENDAMENTO):
+        """Invalida anteriores, cria novo. Retorna (codigo_plano, obj)."""
+        import hashlib
+        import secrets
+        from datetime import timedelta
+        from django.utils import timezone
+
+        codigo = f'{secrets.randbelow(1_000_000):06d}'
+        codigo_hash = hashlib.sha256(codigo.encode()).hexdigest()
+        agora = timezone.now()
+
+        cls.objects.filter(
+            email=email, proposito=proposito, usado_em__isnull=True
+        ).update(usado_em=agora)
+
+        obj = cls.objects.create(
+            email=email,
+            codigo_hash=codigo_hash,
+            proposito=proposito,
+            expira_em=agora + timedelta(seconds=cls.TTL_SEGUNDOS),
+            ip_origem=ip,
+        )
+        return codigo, obj
+
+    @classmethod
+    def verificar(cls, email, codigo, proposito=PROPOSITO_AGENDAMENTO):
+        """Consome atomicamente. Retorna (ok, motivo)."""
+        import hashlib
+        from django.db import connection, transaction
+        from django.utils import timezone
+
+        codigo_hash = hashlib.sha256((codigo or '').encode()).hexdigest()
+
+        with transaction.atomic():
+            qs = cls.objects.filter(
+                email=email,
+                proposito=proposito,
+                usado_em__isnull=True,
+                expira_em__gt=timezone.now(),
+            ).order_by('-criado_em')
+            if connection.vendor != 'sqlite':
+                qs = qs.select_for_update(skip_locked=True)
+
+            obj = qs.first()
+            if not obj:
+                return False, 'expirado'
+            if obj.tentativas >= cls.MAX_TENTATIVAS:
+                obj.usado_em = timezone.now()
+                obj.save(update_fields=['usado_em'])
+                return False, 'bloqueado'
+            if obj.codigo_hash != codigo_hash:
+                obj.tentativas += 1
+                obj.save(update_fields=['tentativas'])
+                restante = cls.MAX_TENTATIVAS - obj.tentativas
+                return False, f'incorreto:{restante}'
+            obj.usado_em = timezone.now()
+            obj.save(update_fields=['usado_em'])
+            return True, 'ok'

@@ -11,6 +11,7 @@ from .pacote import PacoteService
 from .notificacao import NotificacaoService
 from .lgpd import LgpdService
 from .auditoria import AuditoriaService
+from . import otp as otp_service
 
 __all__ = [
     'AgendamentoService',
@@ -18,4 +19,5 @@ __all__ = [
     'NotificacaoService',
     'LgpdService',
     'AuditoriaService',
+    'otp_service',
 ]

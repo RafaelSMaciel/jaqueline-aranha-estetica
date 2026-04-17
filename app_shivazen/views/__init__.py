@@ -31,6 +31,9 @@ from .dashboard import (
 from .booking import (
     agendamento_publico, confirmar_agendamento,
     agendamento_sucesso, meus_agendamentos, reagendar_agendamento,
+    solicitar_otp_agendamento, verificar_otp_agendamento,
+    meus_agendamentos_enviar_otp, meus_agendamentos_verificar_otp,
+    meus_agendamentos_logout,
 )
 from .booking_api import (
     api_dias_disponiveis,

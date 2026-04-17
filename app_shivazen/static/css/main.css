@@ -6545,3 +6545,82 @@ body.theme-dark img:not([src*=".svg"]),
   max-height: 600px;
   padding: 0 20px 16px;
 }
+
+/* ── Nav CTA "Agendar" + Meus Agendamentos topbar ── */
+.btn-agendar-cta {
+  background: linear-gradient(135deg, var(--accent-color, #c9a84c), #b08930);
+  color: #fff !important;
+  padding: 0.55rem 1.5rem;
+  border-radius: 50px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  box-shadow: 0 4px 18px rgba(201, 168, 76, 0.35);
+  transition: transform 0.2s, box-shadow 0.2s, filter 0.2s;
+  text-decoration: none;
+  margin-left: 1rem;
+}
+.btn-agendar-cta:hover {
+  color: #fff !important;
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+  box-shadow: 0 6px 22px rgba(201, 168, 76, 0.45);
+}
+.btn-agendar-cta i { font-size: 1rem; }
+
+.topbar-link {
+  color: inherit;
+  text-decoration: none;
+  opacity: 0.85;
+  transition: opacity 0.2s, color 0.2s;
+}
+.topbar-link:hover { opacity: 1; color: var(--accent-color, #c9a84c); }
+.topbar-link i { font-size: 0.95rem; }
+
+/* Floating CTA visibility boost on mobile */
+@media (max-width: 991.98px) {
+  .floating-cta { bottom: 1rem !important; right: 1rem !important; }
+}
+
+/* Floating CTA group (Agendar + Meus Agendamentos) */
+.floating-cta-group {
+  position: fixed;
+  right: 1.5rem;
+  bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  align-items: flex-end;
+  z-index: 996;
+}
+.floating-cta-group .floating-cta {
+  position: static;
+  right: auto;
+  bottom: auto;
+}
+.floating-cta-mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: #fff;
+  color: var(--accent-color, #c9a84c);
+  border: 1.5px solid rgba(201, 168, 76, 0.35);
+  padding: 0.55rem 1rem;
+  border-radius: 50px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s, border-color 0.2s, color 0.2s;
+}
+.floating-cta-mini:hover {
+  color: #8b5c00;
+  border-color: var(--accent-color, #c9a84c);
+  transform: translateY(-2px);
+}
+body.theme-dark .floating-cta-mini {
+  background: #2a2a2a;
+  color: #eaddb9;
+  border-color: rgba(201, 168, 76, 0.45);
+}
