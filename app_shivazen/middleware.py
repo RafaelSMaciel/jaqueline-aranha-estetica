@@ -47,6 +47,7 @@ class ContentSecurityPolicyMiddleware:
         "https://cdnjs.cloudflare.com",
         "https://code.jquery.com",
         "https://unpkg.com",
+        "https://challenges.cloudflare.com",
     ]
     ALLOWED_STYLE_SRCS = [
         "'self'",
@@ -97,7 +98,7 @@ class ContentSecurityPolicyMiddleware:
             f"font-src {' '.join(self.ALLOWED_FONT_SRCS)}",
             f"img-src {' '.join(self.ALLOWED_IMG_SRCS)}",
             f"connect-src {' '.join(self.ALLOWED_CONNECT_SRCS)}",
-            "frame-src 'self' https://www.google.com",
+            "frame-src 'self' https://www.google.com https://challenges.cloudflare.com",
             "frame-ancestors 'none'",
             "form-action 'self'",
             "base-uri 'self'",

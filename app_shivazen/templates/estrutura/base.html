@@ -29,10 +29,16 @@
     {% include 'partials/toasts.html' %}
     {% include 'partials/cookie_consent.html' %}
 
-    <!-- Floating CTA -->
-    <a href="{% url 'shivazen:agendamento_publico' %}" class="floating-cta" id="floatingCta" aria-label="Agendar consulta online">
-      <i class="bi bi-calendar-check" aria-hidden="true"></i> Agendar
-    </a>
+    <!-- Floating CTAs: agendar (primario) + meus agendamentos (secundario) -->
+    <div class="floating-cta-group" aria-label="Atalhos de agendamento">
+      <a href="{% url 'shivazen:meus_agendamentos' %}" class="floating-cta-mini" aria-label="Ver meus agendamentos">
+        <i class="bi bi-calendar-heart" aria-hidden="true"></i>
+        <span class="d-none d-md-inline ms-1">Meus</span>
+      </a>
+      <a href="{% url 'shivazen:agendamento_publico' %}" class="floating-cta" id="floatingCta" aria-label="Agendar consulta online">
+        <i class="bi bi-calendar-check" aria-hidden="true"></i> Agendar
+      </a>
+    </div>
 
     <!-- Vendor JS Files (defer — execute after HTML parsed, preserve order) -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" defer></script>

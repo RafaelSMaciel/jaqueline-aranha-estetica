@@ -326,21 +326,27 @@
                 </div>
                 <h3 class="fw-bold mb-1" style="font-family:'Playfair Display',serif;font-size:1.35rem;">Meus Agendamentos</h3>
                 <p class="mb-0 small" style="opacity:0.7;font-size:0.85rem;">
-                    Informe seu celular para consultar seus horarios.
+                    Informe seu e-mail para consultar seus horarios.
                 </p>
             </div>
             <div class="verify-body">
-                <!-- Phone input -->
+                <!-- Email input -->
                 <div class="mb-3">
                     <label class="form-label fw-bold small text-uppercase mb-2" style="letter-spacing:1px;color:#8A7F72;font-size:0.72rem;">
-                        Celular Cadastrado
+                        E-mail Cadastrado
                     </label>
                     <div class="phone-input-wrap">
-                        <i class="bi bi-phone phone-icon" style="color:#C9A84C;"></i>
-                        <input type="tel" id="tel-input" class="form-control"
-                               placeholder="(00) 00000-0000" autocomplete="tel" autofocus>
+                        <i class="bi bi-envelope phone-icon" style="color:#C9A84C;"></i>
+                        <input type="email" id="email-input" class="form-control"
+                               placeholder="seu@email.com" autocomplete="email" autofocus>
                     </div>
                 </div>
+
+                {% if turnstile_enabled %}
+                <div class="mb-3">
+                    <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" data-theme="light"></div>
+                </div>
+                {% endif %}
 
                 <button id="btn-enviar-codigo" class="btn btn-gold w-100 rounded-pill py-3 fw-bold"
                     style="font-size:0.9rem;">
@@ -403,10 +409,10 @@
                             Seus Agendamentos
                         </h3>
                         <div class="d-flex align-items-center gap-2">
-                            <small class="text-muted"><i class="bi bi-phone me-1" style="color:#C9A84C;"></i>{{ telefone }}</small>
+                            <small class="text-muted"><i class="bi bi-envelope me-1" style="color:#C9A84C;"></i>{{ email }}</small>
                             <span style="color:#E0DBD3;">|</span>
-                            <a href="{% url 'shivazen:meus_agendamentos' %}" class="text-muted text-decoration-none" style="font-size:0.78rem;">
-                                <i class="bi bi-box-arrow-right me-1"></i>Trocar numero
+                            <a href="{% url 'shivazen:meus_agendamentos_logout' %}" class="text-muted text-decoration-none" style="font-size:0.78rem;">
+                                <i class="bi bi-box-arrow-right me-1"></i>Sair
                             </a>
                         </div>
                     </div>
@@ -497,12 +503,13 @@
                             <i class="bi bi-calendar-event me-1"></i>Reagendar
                         </a>
                         {% endif %}
-                        {% if ag.status == 'AGENDADO' %}
+                        {% if ag.status == 'AGENDADO' and ag.token_cancelamento %}
                         <button class="btn-cancel-agend"
                                 data-id="{{ ag.pk }}"
+                                data-token="{{ ag.token_cancelamento }}"
                                 data-nome="{{ ag.procedimento.nome }}"
                                 data-data="{{ ag.data_hora_inicio|date:'d/m/Y' }}"
-                                onclick="openCancelModal(this.dataset.id, this.dataset.nome, this.dataset.data)">
+                                onclick="openCancelModal(this.dataset.id, this.dataset.token, this.dataset.nome, this.dataset.data)">
                             <i class="bi bi-x-circle me-1"></i>Cancelar
                         </button>
                         {% endif %}
@@ -620,46 +627,50 @@ var CSRF_TOKEN = '{{ csrf_token }}';
         });
     }
 
-    var telefoneForVerify = '';
+    var emailForVerify = '';
     var resendTimer = null;
 
     /* ═══ SEND CODE ═══ */
     var btnEnviar = document.getElementById('btn-enviar-codigo');
     if (btnEnviar) {
         btnEnviar.addEventListener('click', function() {
-            var tel = telInput.value.replace(/\D/g, '');
-            if (tel.length < 10) { showError('Informe um celular valido com DDD.'); return; }
-            telefoneForVerify = tel;
+            var emailEl = document.getElementById('email-input');
+            var email = (emailEl.value || '').trim().toLowerCase();
+            if (!email || email.indexOf('@') < 0) { showError('Informe um e-mail valido.'); return; }
+            emailForVerify = email;
             btnEnviar.disabled = true;
             btnEnviar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Enviando...';
 
-            fetch('{% url "shivazen:verificar_telefone" %}', {
+            var fd = new FormData();
+            fd.append('email', email);
+            fd.append('csrfmiddlewaretoken', CSRF_TOKEN);
+            var cap = document.querySelector('input[name="cf-turnstile-response"]');
+            if (cap) fd.append('cf-turnstile-response', cap.value);
+
+            fetch('{% url "shivazen:meus_agendamentos_enviar_otp" %}', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
-                body: JSON.stringify({action: 'enviar', telefone: tel})
+                headers: {'X-CSRFToken': CSRF_TOKEN},
+                body: fd,
             })
             .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
             .then(function(res) {
                 btnEnviar.disabled = false;
-                btnEnviar.innerHTML = '<i class="bi bi-send-fill me-2"></i>Enviar Codigo de Verificacao';
+                btnEnviar.innerHTML = '<i class="bi bi-send-fill me-2"></i>Enviar Codigo';
                 if (!res.ok) {
-                    showError(res.data.error || 'Erro ao enviar codigo.');
+                    if (res.data.erro === 'captcha') showError('Validacao de seguranca falhou. Recarregue.');
+                    else if (res.data.erro === 'aguarde') showError('Aguarde alguns segundos antes de reenviar.');
+                    else showError('Erro ao enviar codigo.');
                 } else {
                     hideError();
                     document.getElementById('code-section').style.display = 'block';
                     document.getElementById('code-section').scrollIntoView({behavior: 'smooth', block: 'center'});
-                    if (res.data.codigo_debug) {
-                        var dbg = document.getElementById('debug-code');
-                        dbg.style.display = 'block';
-                        dbg.querySelector('span').textContent = res.data.codigo_debug;
-                    }
                     document.querySelector('.code-input[data-idx="0"]').focus();
                     startResendTimer();
                 }
             })
             .catch(function() {
                 btnEnviar.disabled = false;
-                btnEnviar.innerHTML = '<i class="bi bi-send-fill me-2"></i>Enviar Codigo de Verificacao';
+                btnEnviar.innerHTML = '<i class="bi bi-send-fill me-2"></i>Enviar Codigo';
                 showError('Erro de conexao. Tente novamente.');
             });
         });
@@ -746,17 +757,27 @@ var CSRF_TOKEN = '{{ csrf_token }}';
             btnVerificar.disabled = true;
             btnVerificar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Verificando...';
 
-            fetch('{% url "shivazen:verificar_telefone" %}', {
+            var fd = new FormData();
+            fd.append('email', emailForVerify);
+            fd.append('codigo', codigo);
+            fd.append('csrfmiddlewaretoken', CSRF_TOKEN);
+
+            fetch('{% url "shivazen:meus_agendamentos_verificar_otp" %}', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
-                body: JSON.stringify({action: 'verificar', telefone: telefoneForVerify, codigo: codigo})
+                headers: {'X-CSRFToken': CSRF_TOKEN},
+                body: fd,
             })
             .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
             .then(function(res) {
                 btnVerificar.disabled = false;
                 btnVerificar.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Verificar Codigo';
                 if (!res.ok) {
-                    showError(res.data.error || 'Codigo invalido.');
+                    var msg = 'Codigo invalido.';
+                    if (res.data.erro && res.data.erro.indexOf('incorreto') === 0) {
+                        msg = 'Codigo incorreto. Restam: ' + (res.data.erro.split(':')[1] || '');
+                    } else if (res.data.erro === 'bloqueado') msg = 'Muitas tentativas. Solicite outro codigo.';
+                    else if (res.data.erro === 'expirado') msg = 'Codigo expirado.';
+                    showError(msg);
                     // Shake the code inputs
                     document.querySelectorAll('.code-input').forEach(function(ci) {
                         ci.style.borderColor = '#C62828';
@@ -778,9 +799,11 @@ var CSRF_TOKEN = '{{ csrf_token }}';
 
     /* ═══ CANCEL APPOINTMENT ═══ */
     var cancelAtendimentoId = null;
+    var cancelToken = null;
 
-    window.openCancelModal = function(id, nome, data) {
+    window.openCancelModal = function(id, token, nome, data) {
         cancelAtendimentoId = id;
+        cancelToken = token;
         document.getElementById('cancelModalProcedure').innerHTML = '<strong>' + nome + '</strong>';
         document.getElementById('cancelModalDate').textContent = 'Data: ' + data;
         document.getElementById('cancelModal').classList.add('active');
@@ -789,10 +812,11 @@ var CSRF_TOKEN = '{{ csrf_token }}';
     window.closeCancelModal = function() {
         document.getElementById('cancelModal').classList.remove('active');
         cancelAtendimentoId = null;
+        cancelToken = null;
     };
 
     window.confirmCancel = function() {
-        if (!cancelAtendimentoId) return;
+        if (!cancelToken) return;
         var btn = document.getElementById('btnConfirmCancel');
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Cancelando...';
@@ -800,10 +824,7 @@ var CSRF_TOKEN = '{{ csrf_token }}';
         fetch('{% url "shivazen:cancelar_agendamento" %}', {
             method: 'POST',
             headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
-            body: JSON.stringify({
-                atendimento_id: cancelAtendimentoId,
-                telefone: '{{ telefone|default:"" }}'
-            })
+            body: JSON.stringify({token: cancelToken})
         })
         .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
         .then(function(res) {

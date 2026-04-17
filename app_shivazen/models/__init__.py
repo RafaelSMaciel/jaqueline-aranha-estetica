@@ -20,7 +20,7 @@ from .termos import VersaoTermo, AceitePrivacidade, AssinaturaTermoProcedimento
 from .nps import AvaliacaoNPS
 from .pacotes import Pacote, ItemPacote, PacoteCliente, SessaoPacote
 from .sistema import (
-    ListaEspera, LogAuditoria, ConfiguracaoSistema, CodigoVerificacao,
+    ListaEspera, LogAuditoria, ConfiguracaoSistema, CodigoVerificacao, OtpCode,
 )
 
 __all__ = [
@@ -33,5 +33,5 @@ __all__ = [
     'VersaoTermo', 'AceitePrivacidade', 'AssinaturaTermoProcedimento',
     'AvaliacaoNPS',
     'Pacote', 'ItemPacote', 'PacoteCliente', 'SessaoPacote',
-    'ListaEspera', 'LogAuditoria', 'ConfiguracaoSistema', 'CodigoVerificacao',
+    'ListaEspera', 'LogAuditoria', 'ConfiguracaoSistema', 'CodigoVerificacao', 'OtpCode',
 ]
