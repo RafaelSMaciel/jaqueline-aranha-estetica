@@ -4,7 +4,7 @@
 {% block titulo %}Meus Agendamentos | {{ CLINIC_NAME }}{% endblock %}
 
 {% block css %}
-<style>
+<style nonce="{{ csp_nonce }}">
     /* ═══ BASE ═══ */
     .verify-section { background: #F5F3EE; }
 
@@ -604,7 +604,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
 var CSRF_TOKEN = '{{ csrf_token }}';
 (function() {
     /* ═══ PHONE MASK ═══ */
@@ -880,7 +880,7 @@ var CSRF_TOKEN = '{{ csrf_token }}';
     }
 })();
 </script>
-<style>
+<style nonce="{{ csp_nonce }}">
 @keyframes toastIn {
     from { opacity: 0; transform: translateX(-50%) translateY(20px); }
     to { opacity: 1; transform: translateX(-50%) translateY(0); }

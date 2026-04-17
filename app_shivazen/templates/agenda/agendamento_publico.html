@@ -5,7 +5,7 @@
 {% block titulo %}Agendamento Online | {{ CLINIC_NAME }}{% endblock %}
 
 {% block conteudo %}
-<style>
+<style nonce="{{ csp_nonce }}">
     :root {
         --gold: #b48c4c;
         --gold-light: #f5edd8;
@@ -468,7 +468,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
 (function() {
     // ═══ STATE ═══
     var selectedProc = null;

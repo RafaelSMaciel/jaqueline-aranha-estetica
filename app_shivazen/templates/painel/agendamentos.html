@@ -137,7 +137,7 @@
 {% endblock %}
 
 {% block admin_scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
 function atualizarStatus(id, status) {
     if (!status) return;
     if (!confirm('Alterar status para ' + status + '?')) return;

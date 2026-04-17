@@ -4,7 +4,7 @@
 {% block titulo %}Confirmar Presenca | {{ CLINIC_NAME }}{% endblock %}
 
 {% block css %}
-<style>
+<style nonce="{{ csp_nonce }}">
     .confirm-card {
         max-width: 480px; margin: 0 auto;
         background: white; border-radius: 24px;

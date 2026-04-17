@@ -19,7 +19,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
-    <style>
+    <style nonce="{{ csp_nonce }}">
         :root { --admin-dark: #1a1a2e; --admin-accent: #C9A84C; }
 
         .admin-topbar {
@@ -283,7 +283,7 @@
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" defer></script>
-    <script>
+    <script nonce="{{ csp_nonce }}">
         // SW registration
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
@@ -307,9 +307,9 @@
                 var next = document.body.classList.contains('admin-dark') ? 'light' : 'dark';
                 localStorage.setItem(KEY, next); apply(next);
             }};
+            // Default light; only dark if user explicitly opted in.
             var stored = localStorage.getItem(KEY);
-            var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-            apply(stored || (prefersDark ? 'dark' : 'light'));
+            apply(stored === 'dark' ? 'dark' : 'light');
             document.addEventListener('DOMContentLoaded', function(){
                 var btn = document.getElementById('adminThemeToggle');
                 if (btn) btn.addEventListener('click', function(e){ e.preventDefault(); window._adminTheme.toggle(); });

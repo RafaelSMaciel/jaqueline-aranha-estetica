@@ -212,7 +212,7 @@
 {% endblock %}
 
 {% block admin_scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
 let atendimentoIdAtual = null;
 
 document.querySelectorAll('.btn-anotacao').forEach(btn => {

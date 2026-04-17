@@ -1,7 +1,7 @@
 <!-- Create a toast notification system -->
 <div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>
 
-<script>
+<script nonce="{{ csp_nonce }}">
     // Toast Notification System
     function showToast(message, type = 'info') {
         const container = document.getElementById('toast-container');
@@ -54,7 +54,7 @@
     });
 </script>
 
-<style>
+<style nonce="{{ csp_nonce }}">
     .toast-notification {
         background: white;
         border-radius: 8px;

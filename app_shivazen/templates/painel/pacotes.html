@@ -175,7 +175,7 @@
 {% endblock %}
 
 {% block admin_scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
 document.getElementById('btn-add-item').addEventListener('click', function() {
     const container = document.getElementById('itens-container');
     const row = container.querySelector('.item-row').cloneNode(true);
