@@ -54,12 +54,45 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.sitemaps',
+    'axes',
+    'rest_framework',
+    'drf_spectacular',
 ]
+
+# DRF
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '60/hour',
+        'user': '1000/hour',
+    },
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Shiva Zen API',
+    'DESCRIPTION': 'API REST da plataforma de clinica estetica',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -67,7 +100,21 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'app_shivazen.middleware.ContentSecurityPolicyMiddleware',
     'app_shivazen.middleware.SecurityHeadersMiddleware',
+    'axes.middleware.AxesMiddleware',
 ]
+
+AUTHENTICATION_BACKENDS = [
+    'axes.backends.AxesStandaloneBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+# django-axes config
+AXES_FAILURE_LIMIT = int(os.environ.get('AXES_FAILURE_LIMIT', 5))
+AXES_COOLOFF_TIME = float(os.environ.get('AXES_COOLOFF_TIME_HOURS', '1'))
+AXES_LOCKOUT_PARAMETERS = ['ip_address', 'username']
+AXES_RESET_ON_SUCCESS = True
+AXES_LOCKOUT_TEMPLATE = None
+AXES_VERBOSE = True
 
 ROOT_URLCONF = 'shivazen.urls'
 
@@ -148,7 +195,15 @@ LOGOUT_REDIRECT_URL = '/'
 LANGUAGE_CODE = 'pt-br'
 TIME_ZONE = 'America/Sao_Paulo'
 USE_I18N = True
+USE_L10N = True
 USE_TZ = True
+
+LANGUAGES = [
+    ('pt-br', 'Portugues'),
+    ('en', 'English'),
+    ('es', 'Espanol'),
+]
+LOCALE_PATHS = [BASE_DIR / 'locale']
 
 
 # ─── STATIC / MEDIA ──────────────────────────────────────────────────
@@ -158,6 +213,24 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# django-storages opcional (S3 / R2 / GCS) - ativa via AWS_STORAGE_BUCKET_NAME
+_S3_BUCKET = os.environ.get('AWS_STORAGE_BUCKET_NAME')
+if _S3_BUCKET:
+    try:
+        import storages  # noqa: F401
+        DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+        AWS_STORAGE_BUCKET_NAME = _S3_BUCKET
+        AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
+        AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
+        AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME', 'us-east-1')
+        AWS_S3_ENDPOINT_URL = os.environ.get('AWS_S3_ENDPOINT_URL')  # R2/MinIO
+        AWS_S3_CUSTOM_DOMAIN = os.environ.get('AWS_S3_CUSTOM_DOMAIN')
+        AWS_DEFAULT_ACL = None
+        AWS_S3_FILE_OVERWRITE = False
+        AWS_QUERYSTRING_AUTH = False
+    except ImportError:
+        pass
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -303,5 +376,9 @@ CELERY_BEAT_SCHEDULE = {
     'aniversario-clientes': {
         'task': 'app_shivazen.tasks.job_aniversario_clientes',
         'schedule': crontab(hour=9, minute=0),
+    },
+    'lgpd-purgar-inativos': {
+        'task': 'app_shivazen.tasks.job_lgpd_purgar_inativos',
+        'schedule': crontab(hour=3, minute=0, day_of_week=0),  # Domingo 3h
     },
 }

@@ -1,0 +1,27 @@
+# CODEOWNERS — review obrigatorio em areas sensiveis
+# Sintaxe: <pattern> <user/team>
+
+# Default — qualquer arquivo
+*                                   @RafaelSMaciel
+
+# Seguranca / settings — sempre revisar
+shivazen/settings/                  @RafaelSMaciel
+app_shivazen/middleware.py          @RafaelSMaciel
+app_shivazen/utils/security.py      @RafaelSMaciel
+app_shivazen/validators.py          @RafaelSMaciel
+.github/                            @RafaelSMaciel
+Dockerfile                          @RafaelSMaciel
+docker-compose.yml                  @RafaelSMaciel
+railway.json                        @RafaelSMaciel
+Procfile                            @RafaelSMaciel
+requirements*.txt                   @RafaelSMaciel
+.env.example                        @RafaelSMaciel
+
+# LGPD — review obrigatorio
+app_shivazen/services/lgpd.py       @RafaelSMaciel
+app_shivazen/services/auditoria.py  @RafaelSMaciel
+app_shivazen/views/lgpd.py          @RafaelSMaciel
+
+# Models / migrations
+app_shivazen/models/                @RafaelSMaciel
+app_shivazen/migrations/            @RafaelSMaciel
