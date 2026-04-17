@@ -53,6 +53,7 @@ class LogAuditoria(models.Model):
     tabela_afetada = models.CharField(max_length=100, blank=True, null=True)
     id_registro_afetado = models.IntegerField(blank=True, null=True)
     detalhes = models.JSONField(blank=True, null=True)
+    ip_origem = models.GenericIPAddressField(blank=True, null=True)
     criado_em = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -61,6 +62,7 @@ class LogAuditoria(models.Model):
         indexes = [
             models.Index(fields=['tabela_afetada'], name='idx_auditoria_tabela'),
             models.Index(fields=['-criado_em'], name='idx_auditoria_criado'),
+            models.Index(fields=['usuario', '-criado_em'], name='idx_auditoria_user_data'),
         ]
 
 

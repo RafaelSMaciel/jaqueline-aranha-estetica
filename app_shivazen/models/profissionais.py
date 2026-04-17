@@ -86,7 +86,15 @@ class DisponibilidadeProfissional(models.Model):
             models.CheckConstraint(
                 check=models.Q(dia_semana__gte=1) & models.Q(dia_semana__lte=7),
                 name='chk_disponibilidade_dia_semana'
-            )
+            ),
+            models.CheckConstraint(
+                check=models.Q(hora_fim__gt=models.F('hora_inicio')),
+                name='chk_disponibilidade_hora_fim_apos_inicio',
+            ),
+            models.UniqueConstraint(
+                fields=['profissional', 'dia_semana', 'hora_inicio'],
+                name='uniq_disponibilidade_prof_dia_hora',
+            ),
         ]
 
 
