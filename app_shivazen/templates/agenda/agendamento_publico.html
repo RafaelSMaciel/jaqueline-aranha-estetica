@@ -413,6 +413,18 @@
                         <input type="text" name="website" tabindex="-1" autocomplete="off"
                                style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
 
+                        <!-- Info box explicativo -->
+                        <div id="info-otp" class="wpp-note" style="background:#F0F7FF;border-left-color:#1565C0;margin-top:0;">
+                            <i class="bi bi-shield-check" style="color:#1565C0;"></i>
+                            <span style="color:#0D3D6B;">
+                                <strong>Seguranca:</strong> enviaremos um codigo de 6 digitos para validar seu e-mail.
+                                Se voce ja e cliente, seus dados aparecerao automaticamente.
+                            </span>
+                        </div>
+
+                        <!-- Badge status cliente (aparece apos OTP) -->
+                        <div id="cliente-badge" style="display:none;margin-bottom:1rem;padding:0.75rem 1rem;border-radius:12px;font-size:0.88rem;font-weight:600;"></div>
+
                         <!-- ─── Email + OTP ─── -->
                         <div class="form-field">
                             <label><i class="bi bi-envelope"></i>E-mail</label>
@@ -423,7 +435,7 @@
                                 </button>
                             </div>
                             <small style="color:#999;font-size:0.72rem;margin-top:0.3rem;display:block;">
-                                Vamos enviar um codigo para validar seu e-mail.
+                                Digite seu e-mail e clique em <strong>Enviar codigo</strong> para continuar.
                             </small>
                         </div>
 
@@ -475,9 +487,12 @@
                             <span style="color:#8B5C00;">Apos confirmar, o profissional ira avaliar seu agendamento e voce recebera a confirmacao por e-mail.</span>
                         </div>
 
-                        <button type="submit" class="btn-confirm-booking" id="btn-confirmar" disabled>
+                        <button type="submit" class="btn-confirm-booking" id="btn-confirmar" disabled title="Verifique o codigo enviado ao seu e-mail primeiro">
                             <i class="bi bi-calendar-check me-2"></i>Confirmar Agendamento
                         </button>
+                        <small id="btn-confirmar-hint" style="display:block;text-align:center;color:#b42318;font-size:0.78rem;margin-top:0.5rem;">
+                            <i class="bi bi-info-circle me-1"></i>Verifique o codigo enviado ao seu e-mail para habilitar a confirmacao.
+                        </small>
                     </form>
 
                     <div class="text-center">
@@ -773,6 +788,8 @@
         var dados = document.getElementById('dados-fields');
         var captcha = document.getElementById('captcha-field');
         var checkWrap = document.getElementById('cadastro-check-wrap');
+        var badge = document.getElementById('cliente-badge');
+        var hint = document.getElementById('btn-confirmar-hint');
         dados.style.display = '';
         if (captcha) captcha.style.display = '';
         var nome = document.getElementById('form-nome');
@@ -782,16 +799,27 @@
             nome.value = prefill.nome || '';
             nasc.value = prefill.data_nascimento || '';
             tel.value = prefill.telefone || '';
-            // dispara a mascara
             tel.dispatchEvent(new Event('input'));
         }
         nome.required = true;
         nasc.required = true;
         tel.required = true;
-        if (!clienteExistente) {
+        if (clienteExistente) {
+            badge.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Bem-vindo de volta! Seus dados foram carregados.';
+            badge.style.background = '#E8F5E9';
+            badge.style.color = '#2E7D32';
+            badge.style.border = '1px solid #C8E6C9';
+        } else {
+            badge.innerHTML = '<i class="bi bi-stars me-2"></i>Novo por aqui! Preencha seus dados para concluir.';
+            badge.style.background = '#FFF9E3';
+            badge.style.color = '#8B5C00';
+            badge.style.border = '1px solid #F5D888';
             checkWrap.style.display = '';
         }
+        badge.style.display = 'block';
         document.getElementById('btn-confirmar').disabled = false;
+        document.getElementById('btn-confirmar').title = '';
+        if (hint) hint.style.display = 'none';
     }
 
     var btnEnviar = document.getElementById('btn-enviar-otp');
