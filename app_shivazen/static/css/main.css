@@ -1154,11 +1154,23 @@ section,
 .hero .hero-content .hero-actions .btn.btn-primary {
   background: var(--accent-color);
   color: var(--contrast-color);
+  font-size: 1.15rem;
+  padding: 1.1rem 2.8rem;
+  letter-spacing: 0.3px;
+  box-shadow: 0 4px 20px rgba(201, 168, 76, 0.35);
+  animation: cta-glow 2.5s ease-in-out infinite;
+}
+
+@keyframes cta-glow {
+  0%, 100% { box-shadow: 0 4px 20px rgba(201, 168, 76, 0.35); }
+  50% { box-shadow: 0 6px 30px rgba(201, 168, 76, 0.55); }
 }
 
 .hero .hero-content .hero-actions .btn.btn-primary:hover {
   background: color-mix(in srgb, var(--accent-color), black 10%);
-  transform: translateY(-2px);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 32px rgba(201, 168, 76, 0.5);
+  animation: none;
 }
 
 .hero .hero-content .hero-actions .btn.btn-outline {
@@ -6333,4 +6345,54 @@ section,
 [data-aos]:not(.aos-init) {
   opacity: 1 !important;
   transform: none !important;
+}
+
+/* ─── Floating CTA Button ─── */
+.floating-cta {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 999;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 28px;
+  background: var(--accent-color);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  border-radius: 50px;
+  text-decoration: none;
+  box-shadow: 0 6px 24px rgba(201, 168, 76, 0.45);
+  transition: all 0.3s ease;
+  opacity: 0;
+  transform: translateY(20px);
+  pointer-events: none;
+}
+
+.floating-cta.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.floating-cta:hover {
+  background: color-mix(in srgb, var(--accent-color), black 12%);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 32px rgba(201, 168, 76, 0.6);
+  color: #fff;
+  text-decoration: none;
+}
+
+.floating-cta i {
+  font-size: 1.15rem;
+}
+
+@media (max-width: 576px) {
+  .floating-cta {
+    bottom: 16px;
+    right: 16px;
+    padding: 12px 22px;
+    font-size: 0.9rem;
+  }
 }

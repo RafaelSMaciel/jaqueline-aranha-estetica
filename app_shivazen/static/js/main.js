@@ -329,11 +329,25 @@
     }, 500);
   }
 
+  /**
+   * Floating CTA — show after scrolling past hero
+   */
+  function setupFloatingCta() {
+    const cta = document.getElementById('floatingCta');
+    if (!cta) return;
+    const hero = document.getElementById('hero');
+    const threshold = hero ? hero.offsetHeight : 400;
+    window.addEventListener('scroll', function() {
+      cta.classList.toggle('visible', window.scrollY > threshold);
+    });
+  }
+
   // Boot
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeAll);
+    document.addEventListener('DOMContentLoaded', function() { initializeAll(); setupFloatingCta(); });
   } else {
     initializeAll();
+    setupFloatingCta();
   }
 
 })();
