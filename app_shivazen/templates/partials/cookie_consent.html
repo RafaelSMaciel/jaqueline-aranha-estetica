@@ -1,32 +1,54 @@
-{# Banner de consentimento de cookies LGPD. Inclua em base.html antes do fim do body. #}
+{# Banner de consentimento granular de cookies LGPD. Inclua em base.html antes do fim do body. #}
 {% if not request.session.cookie_consent %}
 <div id="cookie-consent-banner" class="cookie-consent-banner" role="dialog" aria-live="polite" aria-label="Aviso de cookies">
   <div class="cookie-consent-inner">
     <p class="cookie-consent-text">
-      Usamos cookies essenciais para o funcionamento do site e cookies analiticos opcionais para
-      melhorar sua experiencia. Veja nossa
-      <a href="{% url 'shivazen:politica_privacidade' %}">Politica de Privacidade</a>.
+      Usamos cookies para garantir o funcionamento do site, analisar uso e personalizar sua experiencia.
+      Veja nossa <a href="{% url 'shivazen:politica_privacidade' %}">Politica de Privacidade</a>.
     </p>
+    <div class="cookie-consent-categories">
+      <label><input type="checkbox" checked disabled> Essenciais (sempre)</label>
+      <label><input type="checkbox" id="cc-analytics" checked> Analytics</label>
+      <label><input type="checkbox" id="cc-marketing"> Marketing</label>
+    </div>
     <div class="cookie-consent-actions">
-      <button type="button" id="cookie-consent-accept" class="btn btn-primary btn-sm">Aceitar</button>
-      <a href="{% url 'shivazen:politica_privacidade' %}" class="btn btn-link btn-sm">Saber mais</a>
+      <button type="button" id="cc-reject" class="btn btn-outline-secondary btn-sm">Rejeitar opcionais</button>
+      <button type="button" id="cc-customize" class="btn btn-outline-primary btn-sm">Salvar selecao</button>
+      <button type="button" id="cc-accept-all" class="btn btn-primary btn-sm">Aceitar todos</button>
     </div>
   </div>
 </div>
 <script nonce="{{ csp_nonce }}">
 (function() {
-  var btn = document.getElementById('cookie-consent-accept');
   var banner = document.getElementById('cookie-consent-banner');
-  if (!btn || !banner) return;
-  btn.addEventListener('click', function() {
-    fetch('{% url "shivazen:lgpd_aceitar_cookies" %}', {
+  if (!banner) return;
+  var url = '{% url "shivazen:lgpd_aceitar_cookies" %}';
+  var csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value
+    || document.cookie.split('; ').find(function(r){return r.startsWith('csrftoken=');})?.split('=')[1] || '';
+
+  function send(prefs) {
+    var body = new FormData();
+    body.append('analytics', prefs.analytics ? '1' : '0');
+    body.append('marketing', prefs.marketing ? '1' : '0');
+    return fetch(url, {
       method: 'POST',
       credentials: 'same-origin',
-      headers: {
-        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value
-          || document.cookie.split('; ').find(r=>r.startsWith('csrftoken='))?.split('=')[1] || ''
-      }
+      headers: { 'X-CSRFToken': csrf },
+      body: body,
     }).finally(function() { banner.remove(); });
+  }
+
+  document.getElementById('cc-accept-all').addEventListener('click', function() {
+    send({ analytics: true, marketing: true });
+  });
+  document.getElementById('cc-reject').addEventListener('click', function() {
+    send({ analytics: false, marketing: false });
+  });
+  document.getElementById('cc-customize').addEventListener('click', function() {
+    send({
+      analytics: document.getElementById('cc-analytics').checked,
+      marketing: document.getElementById('cc-marketing').checked,
+    });
   });
 })();
 </script>

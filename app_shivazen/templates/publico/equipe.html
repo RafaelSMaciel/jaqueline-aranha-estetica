@@ -24,7 +24,7 @@
         <div class="doctor-card">
           <div class="doctor-image">
             {% if prof.foto %}
-            <img src="{{ prof.foto.url }}" alt="{{ prof.nome }}" class="img-fluid">
+            <img src="{{ prof.foto.url }}" alt="{{ prof.nome }}" class="img-fluid" loading="lazy">
             {% else %}
             <div class="d-flex align-items-center justify-content-center bg-light" style="height:300px;">
               <span style="font-size:4rem;color:var(--accent-color);font-weight:700;">{{ prof.nome|slice:":1"|upper }}</span>

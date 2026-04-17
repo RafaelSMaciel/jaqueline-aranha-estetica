@@ -82,7 +82,14 @@ def unsubscribe(request, token: str):
 @ratelimit(key='ip', rate='30/m', method='POST', block=True)
 @require_http_methods(['POST'])
 def aceitar_cookies(request):
-    """Endpoint AJAX para registrar consentimento de cookies em sessao."""
+    """Registra consentimento granular de cookies (essencial sempre, analytics, marketing)."""
+    from datetime import datetime
+    prefs = {
+        'essential': True,
+        'analytics': request.POST.get('analytics', '0') == '1',
+        'marketing': request.POST.get('marketing', '0') == '1',
+    }
     request.session['cookie_consent'] = True
-    request.session['cookie_consent_ts'] = str(__import__('datetime').datetime.now().isoformat())
-    return JsonResponse({'success': True})
+    request.session['cookie_consent_prefs'] = prefs
+    request.session['cookie_consent_ts'] = datetime.now().isoformat()
+    return JsonResponse({'success': True, 'prefs': prefs})

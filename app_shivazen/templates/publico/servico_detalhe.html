@@ -54,14 +54,14 @@
       <div class="col-lg-6">
         <div class="position-relative" style="border-radius:24px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.1);">
           {% if procedimento.imagem_destaque %}
-            <img src="{{ procedimento.imagem_destaque }}" alt="{{ procedimento.nome }}" class="img-fluid w-100">
+            <img src="{{ procedimento.imagem_destaque }}" alt="{{ procedimento.nome }}" class="img-fluid w-100" loading="lazy">
           {% else %}
             {% if procedimento.categoria == 'FACIAL' %}
-              <img src="{% static 'assets/health/dermatology-1.webp' %}" alt="{{ procedimento.nome }}" class="img-fluid w-100">
+              <img src="{% static 'assets/health/dermatology-1.webp' %}" alt="{{ procedimento.nome }}" class="img-fluid w-100" loading="lazy">
             {% elif procedimento.categoria == 'CORPORAL' %}
-              <img src="{% static 'assets/health/maternal-2.webp' %}" alt="{{ procedimento.nome }}" class="img-fluid w-100">
+              <img src="{% static 'assets/health/maternal-2.webp' %}" alt="{{ procedimento.nome }}" class="img-fluid w-100" loading="lazy">
             {% else %}
-              <img src="{% static 'assets/health/consultation-4.webp' %}" alt="{{ procedimento.nome }}" class="img-fluid w-100">
+              <img src="{% static 'assets/health/consultation-4.webp' %}" alt="{{ procedimento.nome }}" class="img-fluid w-100" loading="lazy">
             {% endif %}
           {% endif %}
         </div>

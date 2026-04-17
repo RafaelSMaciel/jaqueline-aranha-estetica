@@ -328,3 +328,20 @@ def job_limpeza_status_atendimentos(self):
     except Exception as exc:
         logger.exception('Erro em job_limpeza_status_atendimentos: %s', exc)
         raise self.retry(exc=exc)
+
+
+# ═══════════════════════════════════════
+#  LGPD — Anonimizacao automatica retencao
+# ═══════════════════════════════════════
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=300)
+def job_lgpd_purgar_inativos(self):
+    """Anonimiza clientes inativos ha mais de N dias (default 5 anos)."""
+    from .services.lgpd import LgpdService
+    try:
+        count = LgpdService.purgar_inativos()
+        logger.info('[LGPD] %s clientes inativos anonimizados', count)
+        return count
+    except Exception as exc:
+        logger.exception('Erro em job_lgpd_purgar_inativos: %s', exc)
+        raise self.retry(exc=exc)

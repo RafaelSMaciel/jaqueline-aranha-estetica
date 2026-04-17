@@ -52,7 +52,6 @@ htmlcov/
 docs/superpowers/
 tasks/
 screenshots/
-scripts/
 
 # ── Screenshots / prints soltos na raiz ──
 /*.png

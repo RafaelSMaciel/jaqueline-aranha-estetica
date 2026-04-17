@@ -58,7 +58,7 @@
       <div class="col-lg-6">
         <div class="hero-visual" data-aos="fade-left">
           <div class="main-image">
-            <img src="{% static 'assets/health/staff-10.webp' %}" alt="Clínica {{ CLINIC_NAME }}" class="img-fluid">
+            <img src="{% static 'assets/health/staff-10.webp' %}" alt="Clínica {{ CLINIC_NAME }}" class="img-fluid" loading="lazy">
             <div class="floating-card appointment-card">
               <div class="card-icon">
                 <i class="bi bi-calendar-check"></i>
@@ -133,7 +133,7 @@
       <div class="col-lg-6" data-aos="fade-left">
         <div class="about-visual">
           <div class="main-image">
-            <img src="{% static 'assets/health/facilities-9.webp' %}" alt="Espaço {{ CLINIC_NAME }}" class="img-fluid">
+            <img src="{% static 'assets/health/facilities-9.webp' %}" alt="Espaço {{ CLINIC_NAME }}" class="img-fluid" loading="lazy">
           </div>
           <div class="floating-card">
             <div class="card-content">
@@ -190,7 +190,7 @@
             </a>
           </div>
           <div class="specialty-visual">
-            <img src="{% static 'assets/health/cardiology-1.webp' %}" alt="Harmonização Facial" class="img-fluid">
+            <img src="{% static 'assets/health/cardiology-1.webp' %}" alt="Harmonização Facial" class="img-fluid" loading="lazy">
             <div class="visual-overlay">
               <i class="bi bi-heart-pulse"></i>
             </div>
@@ -216,7 +216,7 @@
             </a>
           </div>
           <div class="specialty-visual">
-            <img src="{% static 'assets/health/neurology-4.webp' %}" alt="Modelagem Corporal" class="img-fluid">
+            <img src="{% static 'assets/health/neurology-4.webp' %}" alt="Modelagem Corporal" class="img-fluid" loading="lazy">
             <div class="visual-overlay">
               <i class="bi bi-cpu"></i>
             </div>
@@ -442,7 +442,7 @@
         <div class="profile-header">
           <div class="doctor-avatar">
             {% if prof.foto %}
-            <img src="{{ prof.foto.url }}" alt="{{ prof.nome }}" class="img-fluid">
+            <img src="{{ prof.foto.url }}" alt="{{ prof.nome }}" class="img-fluid" loading="lazy">
             {% else %}
             <div class="d-flex align-items-center justify-content-center" style="width:100%;height:100%;background:var(--gold-light, #f9f1d8);border-radius:50%;">
               <span style="font-size:2rem;color:var(--accent-color);font-weight:700;">{{ prof.nome|slice:":1"|upper }}</span>
@@ -509,7 +509,7 @@
 
         <div class="col-lg-6">
           <div class="image-container" data-aos="fade-left">
-            <img src="{% static 'assets/health/facilities-9.webp' %}" alt="{{ CLINIC_NAME }}" class="img-fluid">
+            <img src="{% static 'assets/health/facilities-9.webp' %}" alt="{{ CLINIC_NAME }}" class="img-fluid" loading="lazy">
           </div>
         </div>
 
