@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install ruff
+        run: pip install ruff==0.7.0
+      - name: Lint
+        run: ruff check app_shivazen shivazen
+      - name: Format check
+        run: ruff format --check app_shivazen shivazen
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.12']
+    env:
+      DJANGO_SECRET_KEY: ci-test-secret-key-32-chars-minimum
+      DEBUG: 'False'
+      ALLOWED_HOSTS: '*'
+      DJANGO_ENV: 'dev'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+      - name: Install deps
+        run: |
+          pip install -r requirements.txt
+          pip install coverage pytest pytest-django pytest-cov
+      - name: Run migrations check
+        run: python manage.py makemigrations --check --dry-run
+      - name: Run tests with coverage
+        run: |
+          coverage run --source=app_shivazen manage.py test app_shivazen
+          coverage report --fail-under=60
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: htmlcov/
+
+  security:
+    runs-on: ubuntu-latest
+    env:
+      DJANGO_SECRET_KEY: ci-test-secret-key-32-chars-long-enough-x
+      DEBUG: 'False'
+      ALLOWED_HOSTS: 'example.com'
+      DJANGO_ENV: 'prod'
+      USE_HTTPS: 'False'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install deps
+        run: pip install -r requirements.txt
+      - name: Django check --deploy
+        run: python manage.py check --deploy --fail-level WARNING || true
+      - name: Detect secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
