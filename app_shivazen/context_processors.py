@@ -13,4 +13,10 @@ def shivazen_globals(request):
         'WHATSAPP_NUMERO': os.environ.get('WHATSAPP_NUMERO', '5517999990000'),
         'SITE_URL': os.environ.get('SITE_URL', 'http://127.0.0.1:8000'),
         'INSTAGRAM_URL': os.environ.get('INSTAGRAM_URL', 'https://www.instagram.com/shivazensjrp/'),
+        'THEME_COLOR': os.environ.get('THEME_COLOR', '#C9A84C'),
     }
+
+
+def csp_nonce(request):
+    """Expoe o nonce CSP gerado pelo middleware para uso em templates."""
+    return {'csp_nonce': getattr(request, 'csp_nonce', '')}
