@@ -1,0 +1,27 @@
+[run]
+source = app_shivazen
+omit =
+    */migrations/*
+    */tests/*
+    */__pycache__/*
+    */venv/*
+    manage.py
+    shivazen/asgi.py
+    shivazen/wsgi.py
+    shivazen/celery.py
+branch = True
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+show_missing = True
+skip_covered = False
+precision = 2
+
+[html]
+directory = htmlcov
