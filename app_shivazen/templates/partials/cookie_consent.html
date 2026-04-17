@@ -1,0 +1,33 @@
+{# Banner de consentimento de cookies LGPD. Inclua em base.html antes do fim do body. #}
+{% if not request.session.cookie_consent %}
+<div id="cookie-consent-banner" class="cookie-consent-banner" role="dialog" aria-live="polite" aria-label="Aviso de cookies">
+  <div class="cookie-consent-inner">
+    <p class="cookie-consent-text">
+      Usamos cookies essenciais para o funcionamento do site e cookies analiticos opcionais para
+      melhorar sua experiencia. Veja nossa
+      <a href="{% url 'shivazen:politica_privacidade' %}">Politica de Privacidade</a>.
+    </p>
+    <div class="cookie-consent-actions">
+      <button type="button" id="cookie-consent-accept" class="btn btn-primary btn-sm">Aceitar</button>
+      <a href="{% url 'shivazen:politica_privacidade' %}" class="btn btn-link btn-sm">Saber mais</a>
+    </div>
+  </div>
+</div>
+<script nonce="{{ csp_nonce }}">
+(function() {
+  var btn = document.getElementById('cookie-consent-accept');
+  var banner = document.getElementById('cookie-consent-banner');
+  if (!btn || !banner) return;
+  btn.addEventListener('click', function() {
+    fetch('{% url "shivazen:lgpd_aceitar_cookies" %}', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value
+          || document.cookie.split('; ').find(r=>r.startsWith('csrftoken='))?.split('=')[1] || ''
+      }
+    }).finally(function() { banner.remove(); });
+  });
+})();
+</script>
+{% endif %}

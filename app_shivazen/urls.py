@@ -144,4 +144,9 @@ urlpatterns = [
     # ─── PWA (Admin) ───
     path('manifest.json', TemplateView.as_view(template_name='pwa/manifest.json', content_type='application/json'), name='manifest'),
     path('sw.js', TemplateView.as_view(template_name='pwa/sw.js', content_type='application/javascript'), name='sw'),
+
+    # ─── LGPD ───
+    path('lgpd/meus-dados/', views.lgpd_meus_dados, name='lgpd_meus_dados'),
+    path('lgpd/unsubscribe/<str:token>/', views.lgpd_unsubscribe, name='lgpd_unsubscribe'),
+    path('lgpd/aceitar-cookies/', views.lgpd_aceitar_cookies, name='lgpd_aceitar_cookies'),
 ]

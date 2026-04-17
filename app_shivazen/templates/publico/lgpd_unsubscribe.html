@@ -1,0 +1,27 @@
+{% extends 'estrutura/base.html' %}
+
+{% block titulo %}Descadastro — {{ CLINIC_NAME }}{% endblock %}
+
+{% block conteudo %}
+<section class="py-5">
+  <div class="container text-center">
+    {% if sucesso %}
+      <h1 class="mb-3">Descadastro Confirmado</h1>
+      <p class="lead">
+        {{ cliente.nome_completo }}, voce foi removido da nossa lista de comunicacoes.
+        Nao enviaremos mais lembretes, promocoes ou pesquisas por e-mail/WhatsApp.
+      </p>
+      <p>
+        Se desejar voltar a receber, fale conosco em
+        <a href="mailto:{{ CLINIC_EMAIL }}">{{ CLINIC_EMAIL }}</a>.
+      </p>
+    {% else %}
+      <h1 class="mb-3">Link Invalido ou Expirado</h1>
+      <p class="lead">
+        Nao foi possivel localizar o cadastro. Entre em contato com a clinica.
+      </p>
+    {% endif %}
+    <a href="{% url 'shivazen:inicio' %}" class="btn btn-primary mt-3">Voltar ao site</a>
+  </div>
+</section>
+{% endblock %}
