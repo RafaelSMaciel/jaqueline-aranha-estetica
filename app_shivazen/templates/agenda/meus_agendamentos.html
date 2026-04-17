@@ -310,26 +310,35 @@
 </style>
 {% endblock %}
 
+{% block body_class %}meus-agendamentos-page{% endblock %}
+
 {% block conteudo %}
-<!-- ═══ CONTENT ═══ -->
-<section class="verify-section section" style="padding: 3rem 0; min-height: 70vh;">
-    <div class="container">
+<div class="booking-page">
+
+<!-- Hero -->
+<div class="booking-banner">
+    <div class="booking-banner-inner container" data-aos="fade-up" data-aos-delay="100">
+        <div class="booking-pill"><i class="bi bi-calendar-heart"></i>{{ CLINIC_NAME }} — Meus Agendamentos</div>
+        {% if step == '1' %}
+        <h1 data-aos="fade-up" data-aos-delay="200">Acesse seus<br>agendamentos</h1>
+        <p data-aos="fade-up" data-aos-delay="300">Informe seu e-mail cadastrado e receba um codigo para consultar seus horarios com seguranca.</p>
+        {% else %}
+        <h1 data-aos="fade-up" data-aos-delay="200">Seus<br>agendamentos</h1>
+        <p data-aos="fade-up" data-aos-delay="300">Gerencie seus atendimentos, reagende ou cancele quando precisar.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Floating Card -->
+<div class="booking-float" data-aos="fade-up" data-aos-delay="200">
+    <div class="booking-card" style="padding: 2rem 1.5rem;">
 
         {% if step == '1' %}
         <!-- ═══════════════════════════════════════════ -->
-        <!-- ═══ STEP 1: Informar Celular + Codigo ═══ -->
+        <!-- ═══ STEP 1: Informar Email + Codigo ═══ -->
         <!-- ═══════════════════════════════════════════ -->
-        <div class="verify-card" data-aos="fade-up">
-            <div class="verify-header" style="padding:2rem 2rem 1.75rem;">
-                <div class="verify-icon-wrap" style="width:64px;height:64px;margin-bottom:1rem;">
-                    <i class="bi bi-calendar-check" style="color:#C9A84C;font-size:1.5rem;"></i>
-                </div>
-                <h3 class="fw-bold mb-1" style="font-family:'Playfair Display',serif;font-size:1.35rem;">Meus Agendamentos</h3>
-                <p class="mb-0 small" style="opacity:0.7;font-size:0.85rem;">
-                    Informe seu e-mail para consultar seus horarios.
-                </p>
-            </div>
-            <div class="verify-body">
+        <div class="verify-card" style="box-shadow:none;max-width:540px;" data-aos="fade-up">
+            <div class="verify-body" style="padding:0.5rem 1rem 1rem;">
                 <!-- Email input -->
                 <div class="mb-3">
                     <label class="form-label fw-bold small text-uppercase mb-2" style="letter-spacing:1px;color:#8A7F72;font-size:0.72rem;">
@@ -400,7 +409,7 @@
         <!-- ═══ STEP 3: Lista de Agendamentos ═══ -->
         <!-- ═══════════════════════════════════════ -->
         <div class="row justify-content-center">
-            <div class="col-lg-8">
+            <div class="col-lg-10">
 
                 <!-- Header row -->
                 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2" data-aos="fade-up">
@@ -605,8 +614,10 @@
         </div>
         {% endif %}
 
-    </div>
-</section>
+    </div><!-- /booking-card -->
+</div><!-- /booking-float -->
+
+</div><!-- /booking-page -->
 
 {% endblock %}
 
