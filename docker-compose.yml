@@ -1,0 +1,79 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: shivazen
+      POSTGRES_USER: shivazen
+      POSTGRES_PASSWORD: shivazen
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shivazen"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    command: sh -c "python manage.py migrate --noinput && gunicorn shivazen.wsgi --bind 0.0.0.0:8000 --workers 4 --threads 2 --log-file -"
+    volumes:
+      - .:/app
+      - media_data:/app/media
+    ports:
+      - "8000:8000"
+    environment:
+      DJANGO_ENV: dev
+      DATABASE_URL: postgres://shivazen:shivazen@db:5432/shivazen
+      REDIS_URL: redis://redis:6379/0
+      DJANGO_SECRET_KEY: dev-secret-do-not-use-in-prod
+      DEBUG: "True"
+      ALLOWED_HOSTS: "localhost,127.0.0.1,web"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: .
+    command: celery -A shivazen worker --loglevel=info --concurrency=2
+    volumes:
+      - .:/app
+    environment:
+      DJANGO_ENV: dev
+      DATABASE_URL: postgres://shivazen:shivazen@db:5432/shivazen
+      REDIS_URL: redis://redis:6379/0
+      DJANGO_SECRET_KEY: dev-secret-do-not-use-in-prod
+    depends_on:
+      - db
+      - redis
+
+  beat:
+    build: .
+    command: celery -A shivazen beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - .:/app
+    environment:
+      DJANGO_ENV: dev
+      DATABASE_URL: postgres://shivazen:shivazen@db:5432/shivazen
+      REDIS_URL: redis://redis:6379/0
+      DJANGO_SECRET_KEY: dev-secret-do-not-use-in-prod
+    depends_on:
+      - db
+      - redis
+
+volumes:
+  postgres_data:
+  media_data:
