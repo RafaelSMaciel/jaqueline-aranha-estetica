@@ -77,7 +77,7 @@
             <div class="info-content">
               <h3>LGPD e Privacidade</h3>
               <p>Seus dados estão protegidos conforme a Lei Geral de Proteção de Dados.</p>
-              <p class="small text-muted">Consulte nossa <a href="{% url 'shivazen:politicaPrivacidade' %}">Política de Privacidade</a> para mais informações.</p>
+              <p class="small text-muted">Consulte nossa <a href="{% url 'shivazen:politica_privacidade' %}">Política de Privacidade</a> para mais informações.</p>
             </div>
           </div>
         </div>
@@ -88,7 +88,7 @@
           <h2>Envie sua Mensagem</h2>
           <p class="mb-4">Tem dúvidas ou quer saber mais sobre nossos serviços? Preencha o formulário abaixo e nossa equipe entrará em contato em breve.</p>
 
-          <form action="{% url 'shivazen:agendaContato' %}" method="post" class="php-email-form">
+          <form action="{% url 'shivazen:agenda_contato' %}" method="post" class="php-email-form">
             {% csrf_token %}
             <div class="row g-4">
               <div class="col-md-6">
@@ -122,7 +122,7 @@
                 <div class="form-check">
                   <input class="form-check-input" type="checkbox" id="privacy" required>
                   <label class="form-check-label small" for="privacy">
-                    Li e concordo com a <a href="{% url 'shivazen:politicaPrivacidade' %}">Política de Privacidade</a> e aceito receber comunicações da {{ CLINIC_NAME }}.
+                    Li e concordo com a <a href="{% url 'shivazen:politica_privacidade' %}">Política de Privacidade</a> e aceito receber comunicações da {{ CLINIC_NAME }}.
                   </label>
                 </div>
               </div>

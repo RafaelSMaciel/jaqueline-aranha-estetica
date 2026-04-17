@@ -34,19 +34,19 @@ def home(request):
     })
 
 
-def termosUso(request):
+def termos_uso(request):
     return render(request, 'publico/termos_uso.html')
 
 
-def politicaPrivacidade(request):
+def politica_privacidade(request):
     return render(request, 'publico/politica_privacidade.html')
 
 
-def quemsomos(request):
+def quem_somos(request):
     return render(request, 'publico/quem_somos.html')
 
 
-def agendaContato(request):
+def agenda_contato(request):
     return render(request, 'agenda/contato.html')
 
 

@@ -13,8 +13,8 @@ class StaticViewSitemap(Sitemap):
     def items(self):
         return [
             'shivazen:inicio',
-            'shivazen:quemsomos',
-            'shivazen:agendaContato',
+            'shivazen:quem_somos',
+            'shivazen:agenda_contato',
             'shivazen:promocoes',
             'shivazen:equipe',
             'shivazen:especialidades',
@@ -25,8 +25,8 @@ class StaticViewSitemap(Sitemap):
             'shivazen:servicos_faciais',
             'shivazen:servicos_corporais',
             'shivazen:servicos_produtos',
-            'shivazen:termosUso',
-            'shivazen:politicaPrivacidade',
+            'shivazen:termos_uso',
+            'shivazen:politica_privacidade',
         ]
 
     def location(self, item):

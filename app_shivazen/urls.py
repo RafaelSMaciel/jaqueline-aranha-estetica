@@ -8,10 +8,10 @@ app_name = 'shivazen'
 urlpatterns = [
     # ─── Público ───
     path('', views.home, name='inicio'),
-    path('quemsomos/', views.quemsomos, name='quemsomos'),
-    path('termos-de-uso/', views.termosUso, name='termosUso'),
-    path('politica-de-privacidade/', views.politicaPrivacidade, name='politicaPrivacidade'),
-    path('contato/', views.agendaContato, name='agendaContato'),
+    path('quem-somos/', views.quem_somos, name='quem_somos'),
+    path('termos-de-uso/', views.termos_uso, name='termos_uso'),
+    path('politica-de-privacidade/', views.politica_privacidade, name='politica_privacidade'),
+    path('contato/', views.agenda_contato, name='agenda_contato'),
     path('promocoes/', views.promocoes, name='promocoes'),
 
     # ─── Serviços ───
@@ -45,8 +45,8 @@ urlpatterns = [
     path('lista-espera/sucesso/', views.lista_espera_sucesso, name='lista_espera_sucesso'),
 
     # ─── Admin Login (URL oculta) ───
-    path('admin-login/', views.usuarioLogin, name='usuarioLogin'),
-    path('admin-logout/', views.usuarioLogout, name='usuarioLogout'),
+    path('admin-login/', views.usuario_login, name='usuario_login'),
+    path('admin-logout/', views.usuario_logout, name='usuario_logout'),
 
     # ─── Recuperação de Senha ───
     path('admin-login/recuperar/', views.ShivaZenPasswordResetView.as_view(), name='password_reset'),
@@ -60,9 +60,9 @@ urlpatterns = [
     path('painel/agendamentos/', views.painel_agendamentos, name='painel_agendamentos'),
     path('painel/clientes/', views.painel_clientes, name='painel_clientes'),
     path('painel/profissionais/', views.painel_profissionais, name='painel_profissionais'),
-    path('painel/prontuario/', views.prontuarioconsentimento, name='prontuarioconsentimento'),
-    path('painel/cadastrar-profissional/', views.profissionalCadastro, name='profissionalCadastro'),
-    path('painel/editar-profissional/<int:pk>/', views.profissionalEditar, name='profissionalEditar'),
+    path('painel/prontuario/', views.prontuario_consentimento, name='prontuario_consentimento'),
+    path('painel/cadastrar-profissional/', views.profissional_cadastro, name='profissional_cadastro'),
+    path('painel/editar-profissional/<int:pk>/', views.profissional_editar, name='profissional_editar'),
     path('painel/exportar-relatorio/', views.exportar_relatorio_excel, name='exportar_relatorio_excel'),
 
     # ─── Admin Promoções (CRUD) ───

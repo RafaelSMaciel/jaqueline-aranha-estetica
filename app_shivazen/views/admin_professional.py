@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 @staff_required
-def profissionalCadastro(request):
+def profissional_cadastro(request):
     if request.method == 'POST':
         try:
             nome = request.POST.get('nome', '').strip()
@@ -25,7 +25,7 @@ def profissionalCadastro(request):
 
             if not nome:
                 messages.error(request, 'O nome do profissional é obrigatório.')
-                return redirect('shivazen:profissionalCadastro')
+                return redirect('shivazen:profissional_cadastro')
 
             profissional = Profissional.objects.create(
                 nome=nome,
@@ -90,7 +90,7 @@ def profissionalCadastro(request):
 
 
 @staff_required
-def profissionalEditar(request, pk=None):
+def profissional_editar(request, pk=None):
     """Editar profissional existente"""
     if pk:
         profissional = get_object_or_404(Profissional, pk=pk)
