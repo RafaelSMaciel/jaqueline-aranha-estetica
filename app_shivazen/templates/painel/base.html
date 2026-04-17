@@ -161,6 +161,25 @@
             .stat-card-icon { margin: 0 0 0.6rem 0; }
         }
 
+        /* Dark mode admin */
+        body.admin-dark { background: #0e1216; color: #e6e6e6; }
+        body.admin-dark .admin-body { background: #0e1216; }
+        body.admin-dark .admin-page-header { background: #171c22; border-bottom-color: #222; }
+        body.admin-dark .admin-page-title { color: #f5d98a; }
+        body.admin-dark .stat-card,
+        body.admin-dark .admin-list-item,
+        body.admin-dark .dash-chart-card,
+        body.admin-dark .dash-appt-item { background: #171c22; color: #e6e6e6; box-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+        body.admin-dark .stat-card-label,
+        body.admin-dark .dash-chart-title,
+        body.admin-dark .admin-list-meta,
+        body.admin-dark .text-muted { color: #9aa4ae !important; }
+        body.admin-dark .admin-page-header p { color: #9aa4ae; }
+        body.admin-dark table { color: #e6e6e6; }
+        body.admin-dark .form-control,
+        body.admin-dark .form-select { background: #0e1216; color: #e6e6e6; border-color: #2a2f36; }
+        body.admin-dark kbd { background: #2a2f36; color: #f5d98a; border-color: #3a4048; }
+
         {% block admin_css %}{% endblock %}
     </style>
 </head>
@@ -169,9 +188,43 @@
     <div class="admin-topbar">
         <div class="admin-topbar-brand"><i class="fas fa-spa"></i>{{ CLINIC_NAME }} Admin</div>
         <div class="admin-topbar-actions">
-            <a href="{% url 'shivazen:inicio' %}" title="Ver site"><i class="fas fa-external-link-alt"></i></a>
+            <a href="#" id="adminShortcutsBtn" title="Atalhos de teclado (?)"><i class="fas fa-keyboard"></i></a>
+            <a href="#" id="adminThemeToggle" title="Alternar tema (T)"><i class="fas fa-moon" id="adminThemeIcon"></i></a>
+            <a href="{% url 'shivazen:inicio' %}" title="Ver site" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i></a>
             <a href="{% url 'shivazen:usuario_logout' %}" title="Sair"><i class="fas fa-sign-out-alt"></i></a>
         </div>
+    </div>
+
+    <!-- Session timeout warning modal -->
+    <div id="sessionWarning" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10050;align-items:center;justify-content:center;">
+      <div style="background:#fff;border-radius:14px;padding:28px 32px;max-width:420px;width:calc(100% - 32px);text-align:center;box-shadow:0 10px 40px rgba(0,0,0,0.25);">
+        <div style="font-size:2.3rem;color:#f57f17;"><i class="fas fa-clock"></i></div>
+        <h5 style="margin-top:10px;font-weight:800;">Sua sessão vai expirar</h5>
+        <p class="text-muted small mb-3">Por segurança, você será desconectado em <strong id="sessionCountdown">5:00</strong>. Deseja continuar conectado?</p>
+        <button type="button" class="btn btn-warning btn-sm fw-bold" id="sessionKeepAlive"><i class="fas fa-redo me-1"></i>Continuar</button>
+        <a href="{% url 'shivazen:usuario_logout' %}" class="btn btn-outline-secondary btn-sm">Sair agora</a>
+      </div>
+    </div>
+
+    <!-- Keyboard shortcuts modal -->
+    <div id="shortcutsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10050;align-items:center;justify-content:center;">
+      <div style="background:#fff;border-radius:14px;padding:24px 28px;max-width:480px;width:calc(100% - 32px);box-shadow:0 10px 40px rgba(0,0,0,0.25);">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 style="font-weight:800;margin:0;"><i class="fas fa-keyboard me-2"></i>Atalhos</h5>
+          <button type="button" id="shortcutsClose" class="btn-close" aria-label="Fechar"></button>
+        </div>
+        <table class="table table-sm mb-0" style="font-size:0.85rem;">
+          <tbody>
+            <tr><td><kbd>?</kbd></td><td>Abrir/fechar este painel</td></tr>
+            <tr><td><kbd>t</kbd></td><td>Alternar tema claro/escuro</td></tr>
+            <tr><td><kbd>g</kbd> <kbd>d</kbd></td><td>Ir para Dashboard</td></tr>
+            <tr><td><kbd>g</kbd> <kbd>a</kbd></td><td>Ir para Agenda</td></tr>
+            <tr><td><kbd>g</kbd> <kbd>c</kbd></td><td>Ir para Clientes</td></tr>
+            <tr><td><kbd>g</kbd> <kbd>p</kbd></td><td>Ir para Profissionais</td></tr>
+            <tr><td><kbd>esc</kbd></td><td>Fechar modal</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <!-- Page Header -->
@@ -228,16 +281,135 @@
         </a>
     </nav>
 
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" defer></script>
     <script>
+        // SW registration
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register("{% url 'shivazen:sw' %}")
-                    .then(reg => console.log('PWA Admin registrado!', reg.scope))
-                    .catch(err => console.log('Falha no PWA', err));
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register("{% url 'shivazen:sw' %}").catch(function(err){ console.warn('SW:', err); });
             });
         }
+
+        // Admin dark mode
+        (function(){
+            var KEY = 'shivazen-admin-theme';
+            function apply(theme){
+                if (theme === 'dark') {
+                    document.body.classList.add('admin-dark');
+                    var i = document.getElementById('adminThemeIcon'); if (i) i.className = 'fas fa-sun';
+                } else {
+                    document.body.classList.remove('admin-dark');
+                    var i = document.getElementById('adminThemeIcon'); if (i) i.className = 'fas fa-moon';
+                }
+            }
+            window._adminTheme = { apply: apply, toggle: function(){
+                var next = document.body.classList.contains('admin-dark') ? 'light' : 'dark';
+                localStorage.setItem(KEY, next); apply(next);
+            }};
+            var stored = localStorage.getItem(KEY);
+            var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            apply(stored || (prefersDark ? 'dark' : 'light'));
+            document.addEventListener('DOMContentLoaded', function(){
+                var btn = document.getElementById('adminThemeToggle');
+                if (btn) btn.addEventListener('click', function(e){ e.preventDefault(); window._adminTheme.toggle(); });
+            });
+        })();
+
+        // Session timeout warning (fires 5 min before server session expiry)
+        (function(){
+            var SESSION_SECS = 1800;  // conservative estimate; warn 5 min before server expiry
+            var WARN_SECS = 300;  // warn 5 min before expiry
+            var lastActivity = Date.now();
+            var warnTimer, countdownTimer;
+
+            ['click','keypress','scroll','mousemove','touchstart'].forEach(function(ev){
+                document.addEventListener(ev, function(){ lastActivity = Date.now(); }, { passive:true });
+            });
+
+            function schedule(){
+                clearTimeout(warnTimer);
+                var elapsed = (Date.now() - lastActivity) / 1000;
+                var remaining = SESSION_SECS - elapsed;
+                var until = Math.max(5, (remaining - WARN_SECS) * 1000);
+                warnTimer = setTimeout(showWarning, until);
+            }
+
+            function showWarning(){
+                var modal = document.getElementById('sessionWarning');
+                if (!modal) return;
+                modal.style.display = 'flex';
+                var left = WARN_SECS;
+                var el = document.getElementById('sessionCountdown');
+                function tick(){
+                    left--;
+                    var m = Math.floor(left / 60), s = left % 60;
+                    if (el) el.textContent = m + ':' + (s < 10 ? '0' + s : s);
+                    if (left <= 0) { clearInterval(countdownTimer); window.location.href = "{% url 'shivazen:usuario_logout' %}"; }
+                }
+                clearInterval(countdownTimer);
+                countdownTimer = setInterval(tick, 1000);
+            }
+
+            function dismiss(){
+                clearInterval(countdownTimer);
+                document.getElementById('sessionWarning').style.display = 'none';
+                // ping server to reset session
+                fetch(window.location.pathname, { method: 'HEAD', credentials: 'same-origin' }).catch(function(){});
+                lastActivity = Date.now();
+                schedule();
+            }
+
+            document.addEventListener('DOMContentLoaded', function(){
+                var keep = document.getElementById('sessionKeepAlive');
+                if (keep) keep.addEventListener('click', dismiss);
+                schedule();
+            });
+        })();
+
+        // Keyboard shortcuts
+        (function(){
+            var gBuffer = null, gTimer = null;
+            var routes = {
+                d: "{% url 'shivazen:painel_overview' %}",
+                a: "{% url 'shivazen:painel_agendamentos' %}",
+                c: "{% url 'shivazen:painel_clientes' %}",
+                p: "{% url 'shivazen:painel_profissionais' %}"
+            };
+            function closeModals(){
+                document.getElementById('shortcutsModal').style.display = 'none';
+                document.getElementById('sessionWarning').style.display = 'none';
+            }
+            function showShortcuts(){
+                var m = document.getElementById('shortcutsModal');
+                m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
+            }
+            document.addEventListener('DOMContentLoaded', function(){
+                var btn = document.getElementById('adminShortcutsBtn');
+                if (btn) btn.addEventListener('click', function(e){ e.preventDefault(); showShortcuts(); });
+                var close = document.getElementById('shortcutsClose');
+                if (close) close.addEventListener('click', function(){ document.getElementById('shortcutsModal').style.display = 'none'; });
+            });
+            document.addEventListener('keydown', function(e){
+                var tag = (e.target.tagName || '').toLowerCase();
+                if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
+                if (e.key === 'Escape') { closeModals(); return; }
+                if (e.key === '?' || (e.shiftKey && e.key === '/')) { e.preventDefault(); showShortcuts(); return; }
+                if (e.key === 't' || e.key === 'T') { window._adminTheme.toggle(); return; }
+                if (e.key === 'g') {
+                    gBuffer = 'g';
+                    clearTimeout(gTimer);
+                    gTimer = setTimeout(function(){ gBuffer = null; }, 1200);
+                    return;
+                }
+                if (gBuffer === 'g' && routes[e.key]) {
+                    e.preventDefault();
+                    gBuffer = null;
+                    clearTimeout(gTimer);
+                    window.location.href = routes[e.key];
+                }
+            });
+        })();
     </script>
     {% block admin_scripts %}{% endblock %}
 </body>

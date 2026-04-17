@@ -11,6 +11,16 @@
 <!-- Canonical -->
 <link rel="canonical" href="{{ SITE_URL }}{{ request.path }}">
 
+<!-- hreflang alternates -->
+<link rel="alternate" hreflang="pt-br" href="{{ SITE_URL }}{{ request.path }}">
+<link rel="alternate" hreflang="en" href="{{ SITE_URL }}/en{{ request.path }}">
+<link rel="alternate" hreflang="es" href="{{ SITE_URL }}/es{{ request.path }}">
+<link rel="alternate" hreflang="x-default" href="{{ SITE_URL }}{{ request.path }}">
+
+<!-- DNS prefetch / preconnect -->
+<link rel="dns-prefetch" href="//code.jquery.com">
+<link rel="dns-prefetch" href="//cdnjs.cloudflare.com">
+
 <!-- Open Graph -->
 <meta property="og:type" content="{% block og_type %}website{% endblock %}">
 <meta property="og:title" content="{% block og_title %}{{ CLINIC_NAME }} — {{ CLINIC_SUBTITLE }}{% endblock %}">
@@ -55,17 +65,24 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "LocalBusiness",
+  "@type": "MedicalBusiness",
   "name": "{{ CLINIC_NAME }}",
   "description": "{{ CLINIC_SUBTITLE }}",
   "url": "{{ SITE_URL }}",
   "telephone": "{{ CLINIC_PHONE }}",
   "email": "{{ CLINIC_EMAIL }}",
+  "image": "{{ SITE_URL }}{% static 'assets/health/staff-10.webp' %}",
+  "priceRange": "$$",
   "address": {
     "@type": "PostalAddress",
     "streetAddress": "{{ CLINIC_ADDRESS }}",
     "addressCountry": "BR"
   },
+  "openingHoursSpecification": [
+    {"@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday"], "opens": "09:00", "closes": "18:00"},
+    {"@type": "OpeningHoursSpecification", "dayOfWeek": "Saturday", "opens": "09:00", "closes": "15:00"}
+  ],
   "sameAs": ["{{ INSTAGRAM_URL }}"]
 }
 </script>
+{% block schema_extra %}{% endblock %}

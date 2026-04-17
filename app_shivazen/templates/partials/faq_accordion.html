@@ -1,0 +1,41 @@
+{% comment %}
+Reusable FAQ accordion partial.
+Context:
+  faqs — list of dicts: [{'q': 'pergunta', 'a': 'resposta'}, ...]
+  faq_schema — optional bool; if True, emit FAQPage JSON-LD schema inline.
+{% endcomment %}
+{% if faqs %}
+<div class="faq-accordion" role="region" aria-label="Perguntas frequentes">
+  {% for faq in faqs %}
+  <div class="faq-item">
+    <button type="button" class="faq-question" aria-expanded="false">
+      <span>{{ faq.q }}</span>
+    </button>
+    <div class="faq-answer" role="region">
+      <p>{{ faq.a|linebreaksbr }}</p>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% if faq_schema %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {% for faq in faqs %}
+    {
+      "@type": "Question",
+      "name": "{{ faq.q|escapejs }}",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "{{ faq.a|escapejs }}"
+      }
+    }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+  ]
+}
+</script>
+{% endif %}
+{% endif %}

@@ -342,12 +342,70 @@
     });
   }
 
+  /**
+   * Theme toggle (light/dark) with localStorage persistence.
+   */
+  function setupThemeToggle() {
+    var STORAGE_KEY = 'shivazen-theme';
+    var root = document.documentElement;
+    var body = document.body;
+    var btn = document.getElementById('themeToggle');
+
+    function apply(theme) {
+      if (theme === 'dark') {
+        body.classList.add('theme-dark');
+        root.setAttribute('data-theme', 'dark');
+      } else {
+        body.classList.remove('theme-dark');
+        root.setAttribute('data-theme', 'light');
+      }
+      if (btn) {
+        var icon = btn.querySelector('i');
+        if (icon) {
+          icon.className = theme === 'dark' ? 'bi bi-sun' : 'bi bi-moon-stars';
+        }
+      }
+    }
+
+    var stored = localStorage.getItem(STORAGE_KEY);
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    apply(stored || (prefersDark ? 'dark' : 'light'));
+
+    if (btn) {
+      btn.addEventListener('click', function() {
+        var next = body.classList.contains('theme-dark') ? 'light' : 'dark';
+        localStorage.setItem(STORAGE_KEY, next);
+        apply(next);
+      });
+    }
+  }
+
+  /**
+   * FAQ accordion (.faq-item > .faq-question + .faq-answer).
+   */
+  function setupFaqAccordion() {
+    document.querySelectorAll('.faq-item .faq-question').forEach(function(q) {
+      q.addEventListener('click', function() {
+        var item = q.closest('.faq-item');
+        if (!item) return;
+        var open = item.classList.contains('open');
+        item.classList.toggle('open');
+        q.setAttribute('aria-expanded', open ? 'false' : 'true');
+      });
+    });
+  }
+
   // Boot
+  function bootExtras() {
+    setupFloatingCta();
+    setupThemeToggle();
+    setupFaqAccordion();
+  }
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function() { initializeAll(); setupFloatingCta(); });
+    document.addEventListener('DOMContentLoaded', function() { initializeAll(); bootExtras(); });
   } else {
     initializeAll();
-    setupFloatingCta();
+    bootExtras();
   }
 
 })();
