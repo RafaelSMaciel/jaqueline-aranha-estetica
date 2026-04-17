@@ -580,4 +580,15 @@
   </div>
 
 </section><!-- /Call To Action Section -->
+
+<!-- FAQ Section -->
+<section id="faq" class="faq section light-background">
+  <div class="container section-title" data-aos="fade-up">
+    <h2>Perguntas Frequentes</h2>
+    <p>Tire suas principais dúvidas sobre nossos tratamentos e atendimento.</p>
+  </div>
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
+    {% include 'partials/faq_accordion.html' with faqs=faqs faq_schema=True %}
+  </div>
+</section><!-- /FAQ Section -->
 {% endblock %}

@@ -2,6 +2,33 @@
 {% load static %}
 
 {% block titulo %}{{ procedimento.nome }} | {{ CLINIC_NAME }}{% endblock %}
+{% block meta_description %}{{ procedimento.descricao|default:procedimento.nome|truncatechars:155 }}{% endblock %}
+
+{% block schema_extra %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {"@type": "ListItem", "position": 1, "name": "Início", "item": "{{ SITE_URL }}"},
+    {"@type": "ListItem", "position": 2, "name": "Especialidades", "item": "{{ SITE_URL }}{% url 'shivazen:especialidades' %}"},
+    {"@type": "ListItem", "position": 3, "name": "{{ procedimento.nome|escapejs }}", "item": "{{ SITE_URL }}{{ request.path }}"}
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Service",
+  "name": "{{ procedimento.nome|escapejs }}",
+  "description": "{{ procedimento.descricao|default:procedimento.nome|escapejs }}",
+  "provider": {"@type": "MedicalBusiness", "name": "{{ CLINIC_NAME }}", "url": "{{ SITE_URL }}"},
+  "areaServed": "BR",
+  "category": "{{ procedimento.get_categoria_display|escapejs }}"{% if preco %},
+  "offers": {"@type": "Offer", "price": "{{ preco|stringformat:'.2f' }}", "priceCurrency": "BRL"}{% endif %}
+}
+</script>
+{% endblock %}
 
 {% block conteudo %}
 <!-- ═══ HERO ═══ -->

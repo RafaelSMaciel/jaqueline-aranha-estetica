@@ -29,8 +29,21 @@ def home(request):
         )
     except (OperationalError, ProgrammingError):
         pass
+    faqs = [
+        {'q': 'Como faço para agendar um atendimento?',
+         'a': 'Você pode agendar online pelo nosso sistema, por WhatsApp ou por telefone. O agendamento online está disponível 24h.'},
+        {'q': 'Quais são as formas de pagamento aceitas?',
+         'a': 'Aceitamos PIX, cartão de débito, crédito (com parcelamento) e dinheiro. Pacotes têm condições especiais.'},
+        {'q': 'Posso cancelar ou remarcar meu horário?',
+         'a': 'Sim. Cancelamentos e remarcações podem ser feitos com até 24h de antecedência sem custo, via painel "Meus Agendamentos".'},
+        {'q': 'Os tratamentos são indicados para todos os tipos de pele?',
+         'a': 'Nossos profissionais realizam avaliação individualizada antes de qualquer procedimento para indicar o protocolo mais adequado.'},
+        {'q': 'Como é feito o armazenamento dos meus dados?',
+         'a': 'Seguimos a LGPD. Seus dados são armazenados de forma segura e você pode solicitar exclusão ou acesso pela área "Meus Dados".'},
+    ]
     return render(request, 'publico/home.html', {
         'profissionais': profissionais,
+        'faqs': faqs,
     })
 
 
