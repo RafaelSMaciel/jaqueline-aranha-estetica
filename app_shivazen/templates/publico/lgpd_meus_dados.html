@@ -1,0 +1,49 @@
+{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block titulo %}Meus Dados (LGPD) — {{ CLINIC_NAME }}{% endblock %}
+
+{% block conteudo %}
+<section class="py-5">
+  <div class="container">
+    <h1 class="mb-4">Solicitar Meus Dados</h1>
+    <p class="lead mb-4">
+      Conforme a Lei Geral de Protecao de Dados (LGPD), voce tem direito a acessar os dados
+      pessoais que mantemos sobre voce. Informe seu telefone cadastrado para receber um
+      codigo de verificacao.
+    </p>
+
+    {% if messages %}
+      {% for m in messages %}
+        <div class="alert alert-{{ m.tags|default:'info' }}">{{ m }}</div>
+      {% endfor %}
+    {% endif %}
+
+    <form method="post" class="card p-4 shadow-sm">
+      {% csrf_token %}
+      <div class="mb-3">
+        <label class="form-label">Telefone cadastrado (com DDD)</label>
+        <input type="tel" name="telefone" class="form-control"
+               value="{{ telefone|default_if_none:'' }}"
+               {% if aguardando_codigo %}readonly{% endif %} required>
+      </div>
+
+      {% if aguardando_codigo %}
+        <div class="mb-3">
+          <label class="form-label">Codigo de verificacao (6 digitos)</label>
+          <input type="text" name="codigo" class="form-control" maxlength="6" required autofocus>
+        </div>
+      {% endif %}
+
+      <button type="submit" class="btn btn-primary">
+        {% if aguardando_codigo %}Confirmar e Baixar Dados{% else %}Solicitar Codigo{% endif %}
+      </button>
+    </form>
+
+    <div class="mt-4">
+      <a href="{% url 'shivazen:politica_privacidade' %}">Politica de Privacidade</a> ·
+      <a href="{% url 'shivazen:termos_uso' %}">Termos de Uso</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

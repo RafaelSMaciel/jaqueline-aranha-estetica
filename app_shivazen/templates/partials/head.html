@@ -1,17 +1,35 @@
 {% load static %}
 <meta charset="utf-8">
 <meta content="width=device-width, initial-scale=1.0" name="viewport">
+<meta name="theme-color" content="{{ THEME_COLOR|default:'#C9A84C' }}">
+<meta name="robots" content="{% block robots %}index,follow{% endblock %}">
+
 <title>{% block titulo %}{{ CLINIC_NAME }} — {{ CLINIC_SUBTITLE }}{% endblock %}</title>
 <meta name="description" content="{% block meta_description %}Clínica de estética especializada em tratamentos faciais e corporais. Agendamento online, prontuário eletrônico e profissionais especializados.{% endblock %}">
 <meta name="keywords" content="estética, tratamentos faciais, tratamentos corporais, agendamento online, clínica de estética, {{ CLINIC_NAME }}">
 
+<!-- Canonical -->
+<link rel="canonical" href="{{ SITE_URL }}{{ request.path }}">
+
 <!-- Open Graph -->
-<meta property="og:type" content="website">
-<meta property="og:title" content="{{ CLINIC_NAME }} — {{ CLINIC_SUBTITLE }}">
-<meta property="og:description" content="Tratamentos estéticos faciais e corporais com tecnologia avançada e atendimento humanizado. Agende online.">
-<meta property="og:url" content="{{ SITE_URL }}">
-<meta property="og:image" content="{{ SITE_URL }}{% static 'assets/health/staff-10.webp' %}">
+<meta property="og:type" content="{% block og_type %}website{% endblock %}">
+<meta property="og:title" content="{% block og_title %}{{ CLINIC_NAME }} — {{ CLINIC_SUBTITLE }}{% endblock %}">
+<meta property="og:description" content="{% block og_description %}Tratamentos estéticos faciais e corporais com tecnologia avançada e atendimento humanizado. Agende online.{% endblock %}">
+<meta property="og:url" content="{{ SITE_URL }}{{ request.path }}">
+<meta property="og:image" content="{% block og_image %}{{ SITE_URL }}{% static 'assets/health/staff-10.webp' %}{% endblock %}">
 <meta property="og:locale" content="pt_BR">
+<meta property="og:site_name" content="{{ CLINIC_NAME }}">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ CLINIC_NAME }}">
+<meta name="twitter:description" content="{% block tw_description %}Tratamentos estéticos e bem-estar.{% endblock %}">
+
+<!-- PWA -->
+<link rel="manifest" href="{% url 'shivazen:manifest' %}">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="{{ CLINIC_NAME }}">
 
 <!-- Favicons -->
 <link href="{% static 'assets/favicon.png' %}" rel="icon">
@@ -32,3 +50,22 @@
 
 <!-- Main Stylesheet -->
 <link href="{% static 'css/main.css' %}" rel="stylesheet">
+
+<!-- Schema.org LocalBusiness -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "name": "{{ CLINIC_NAME }}",
+  "description": "{{ CLINIC_SUBTITLE }}",
+  "url": "{{ SITE_URL }}",
+  "telephone": "{{ CLINIC_PHONE }}",
+  "email": "{{ CLINIC_EMAIL }}",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "{{ CLINIC_ADDRESS }}",
+    "addressCountry": "BR"
+  },
+  "sameAs": ["{{ INSTAGRAM_URL }}"]
+}
+</script>

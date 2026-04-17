@@ -26,6 +26,7 @@
 
     {% include 'partials/rodape.html' %}
     {% include 'partials/toasts.html' %}
+    {% include 'partials/cookie_consent.html' %}
 
     <!-- Floating CTA -->
     <a href="{% url 'shivazen:agendamento_publico' %}" class="floating-cta" id="floatingCta">
@@ -44,6 +45,17 @@
 
     <!-- Main JS -->
     <script src="{% static 'js/main.js' %}"></script>
+
+    <!-- PWA: Service Worker registration -->
+    <script nonce="{{ csp_nonce }}">
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('{% url "shivazen:sw" %}').catch(function (err) {
+            console.warn('SW registration failed:', err);
+          });
+        });
+      }
+    </script>
 
     {% block scripts %}
     {% endblock %}

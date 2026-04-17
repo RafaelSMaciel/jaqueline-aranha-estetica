@@ -1,5 +1,7 @@
 # app_shivazen/admin.py
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.utils import timezone
+
 from .models import (
     Funcionalidade, Perfil, PerfilFuncionalidade,
     Profissional, DisponibilidadeProfissional, BloqueioAgenda, ProfissionalProcedimento,
@@ -25,6 +27,7 @@ class FuncionalidadeAdmin(admin.ModelAdmin):
     list_display = ('nome', 'descricao')
     search_fields = ('nome',)
     ordering = ('nome',)
+    list_per_page = 50
 
 
 @admin.register(Perfil)
@@ -39,6 +42,7 @@ class PerfilFuncionalidadeAdmin(admin.ModelAdmin):
     list_display = ('perfil', 'funcionalidade')
     list_filter = ('perfil',)
     search_fields = ('perfil__nome', 'funcionalidade__nome')
+    list_select_related = ('perfil', 'funcionalidade')
 
 
 @admin.register(Usuario)
@@ -48,11 +52,18 @@ class UsuarioAdmin(admin.ModelAdmin):
     search_fields = ('nome', 'email')
     ordering = ('email',)
     autocomplete_fields = ('perfil', 'profissional')
+    list_select_related = ('perfil', 'profissional')
+    list_per_page = 50
 
 
 # =====================================================================
 # PROFISSIONAIS
 # =====================================================================
+
+class DisponibilidadeInline(admin.TabularInline):
+    model = DisponibilidadeProfissional
+    extra = 0
+
 
 @admin.register(Profissional)
 class ProfissionalAdmin(admin.ModelAdmin):
@@ -60,6 +71,8 @@ class ProfissionalAdmin(admin.ModelAdmin):
     list_filter = ('ativo',)
     search_fields = ('nome', 'especialidade')
     ordering = ('-ativo', 'nome')
+    inlines = [DisponibilidadeInline]
+    list_per_page = 50
 
 
 @admin.register(DisponibilidadeProfissional)
@@ -69,6 +82,7 @@ class DisponibilidadeProfissionalAdmin(admin.ModelAdmin):
     search_fields = ('profissional__nome',)
     ordering = ('profissional', 'dia_semana', 'hora_inicio')
     autocomplete_fields = ('profissional',)
+    list_select_related = ('profissional',)
 
 
 @admin.register(BloqueioAgenda)
@@ -79,6 +93,7 @@ class BloqueioAgendaAdmin(admin.ModelAdmin):
     ordering = ('-data_hora_inicio',)
     date_hierarchy = 'data_hora_inicio'
     autocomplete_fields = ('profissional',)
+    list_select_related = ('profissional',)
 
 
 @admin.register(ProfissionalProcedimento)
@@ -87,10 +102,11 @@ class ProfissionalProcedimentoAdmin(admin.ModelAdmin):
     list_filter = ('profissional',)
     search_fields = ('profissional__nome', 'procedimento__nome')
     autocomplete_fields = ('profissional', 'procedimento')
+    list_select_related = ('profissional', 'procedimento')
 
 
 # =====================================================================
-# PROCEDIMENTOS E PREÇOS
+# PROCEDIMENTOS E PRECOS
 # =====================================================================
 
 @admin.register(Procedimento)
@@ -100,6 +116,7 @@ class ProcedimentoAdmin(admin.ModelAdmin):
     search_fields = ('nome', 'descricao')
     prepopulated_fields = {'slug': ('nome',)}
     ordering = ('-ativo', 'categoria', 'nome')
+    list_per_page = 50
 
 
 @admin.register(Preco)
@@ -109,6 +126,7 @@ class PrecoAdmin(admin.ModelAdmin):
     search_fields = ('procedimento__nome', 'profissional__nome')
     ordering = ('-vigente_desde', 'procedimento')
     autocomplete_fields = ('procedimento', 'profissional')
+    list_select_related = ('procedimento', 'profissional')
 
 
 @admin.register(Promocao)
@@ -119,6 +137,7 @@ class PromocaoAdmin(admin.ModelAdmin):
     ordering = ('-ativa', '-data_inicio')
     date_hierarchy = 'data_inicio'
     autocomplete_fields = ('procedimento',)
+    list_select_related = ('procedimento',)
 
 
 # =====================================================================
@@ -127,16 +146,61 @@ class PromocaoAdmin(admin.ModelAdmin):
 
 @admin.register(Cliente)
 class ClienteAdmin(admin.ModelAdmin):
-    list_display = ('nome_completo', 'telefone', 'email', 'faltas_consecutivas', 'bloqueado_online', 'ativo', 'criado_em')
-    list_filter = ('ativo', 'bloqueado_online')
+    list_display = (
+        'nome_completo', 'telefone', 'email', 'faltas_consecutivas',
+        'bloqueado_online', 'ativo', 'aceita_comunicacao', 'criado_em',
+    )
+    list_filter = ('ativo', 'bloqueado_online', 'aceita_comunicacao')
     search_fields = ('nome_completo', 'telefone', 'email', 'cpf')
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
-    readonly_fields = ('criado_em',)
+    readonly_fields = ('criado_em', 'atualizado_em', 'deletado_em', 'unsubscribe_token')
+    list_per_page = 50
+    fieldsets = (
+        ('Identificacao', {
+            'fields': ('nome_completo', 'data_nascimento', 'cpf', 'rg', 'profissao'),
+        }),
+        ('Contato', {
+            'fields': ('email', 'telefone', 'cep', 'endereco'),
+        }),
+        ('Status e LGPD', {
+            'fields': (
+                'ativo', 'aceita_comunicacao', 'unsubscribe_token',
+                'faltas_consecutivas', 'bloqueado_online',
+            ),
+        }),
+        ('Metadados', {
+            'classes': ('collapse',),
+            'fields': ('criado_em', 'atualizado_em', 'deletado_em'),
+        }),
+    )
+    actions = ['acao_anonimizar_lgpd', 'acao_bloquear_online', 'acao_resetar_faltas']
+
+    def get_queryset(self, request):
+        return Cliente.all_objects.get_queryset()
+
+    @admin.action(description='Anonimizar (direito ao esquecimento LGPD)')
+    def acao_anonimizar_lgpd(self, request, queryset):
+        from .services import LgpdService
+        count = 0
+        for cliente in queryset:
+            LgpdService.esquecer_cliente(cliente)
+            count += 1
+        self.message_user(request, f'{count} cliente(s) anonimizado(s).', messages.SUCCESS)
+
+    @admin.action(description='Bloquear agendamento online')
+    def acao_bloquear_online(self, request, queryset):
+        count = queryset.update(bloqueado_online=True)
+        self.message_user(request, f'{count} cliente(s) bloqueado(s).')
+
+    @admin.action(description='Resetar contador de faltas')
+    def acao_resetar_faltas(self, request, queryset):
+        count = queryset.update(faltas_consecutivas=0, bloqueado_online=False)
+        self.message_user(request, f'{count} cliente(s) com faltas resetadas.')
 
 
 # =====================================================================
-# PRONTUÁRIO
+# PRONTUARIO
 # =====================================================================
 
 @admin.register(Prontuario)
@@ -145,6 +209,7 @@ class ProntuarioAdmin(admin.ModelAdmin):
     search_fields = ('cliente__nome_completo',)
     ordering = ('-atualizado_em',)
     autocomplete_fields = ('cliente',)
+    list_select_related = ('cliente',)
 
 
 @admin.register(ProntuarioPergunta)
@@ -159,6 +224,7 @@ class ProntuarioRespostaAdmin(admin.ModelAdmin):
     list_display = ('prontuario', 'pergunta', 'atualizado_em')
     search_fields = ('prontuario__cliente__nome_completo', 'pergunta__texto')
     autocomplete_fields = ('prontuario', 'pergunta')
+    list_select_related = ('prontuario', 'pergunta', 'prontuario__cliente')
 
 
 @admin.register(AnotacaoSessao)
@@ -168,6 +234,7 @@ class AnotacaoSessaoAdmin(admin.ModelAdmin):
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
     autocomplete_fields = ('atendimento', 'usuario')
+    list_select_related = ('atendimento', 'atendimento__cliente', 'usuario')
 
 
 # =====================================================================
@@ -181,6 +248,7 @@ class VersaoTermoAdmin(admin.ModelAdmin):
     search_fields = ('titulo', 'procedimento__nome', 'versao')
     ordering = ('-ativa', '-vigente_desde')
     autocomplete_fields = ('procedimento',)
+    list_select_related = ('procedimento',)
 
 
 @admin.register(AceitePrivacidade)
@@ -190,6 +258,7 @@ class AceitePrivacidadeAdmin(admin.ModelAdmin):
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
     autocomplete_fields = ('cliente', 'versao_termo')
+    list_select_related = ('cliente', 'versao_termo')
 
 
 @admin.register(AssinaturaTermoProcedimento)
@@ -199,21 +268,63 @@ class AssinaturaTermoProcedimentoAdmin(admin.ModelAdmin):
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
     autocomplete_fields = ('cliente', 'versao_termo', 'atendimento')
+    list_select_related = ('cliente', 'versao_termo', 'atendimento')
 
 
 # =====================================================================
 # AGENDAMENTO
 # =====================================================================
 
+class NotificacaoInline(admin.TabularInline):
+    model = Notificacao
+    extra = 0
+    readonly_fields = ('tipo', 'canal', 'status_envio', 'resposta_cliente', 'enviado_em', 'criado_em')
+    can_delete = False
+
+
 @admin.register(Atendimento)
 class AtendimentoAdmin(admin.ModelAdmin):
-    list_display = ('data_hora_inicio', 'cliente', 'profissional', 'procedimento', 'status', 'valor_cobrado')
+    list_display = (
+        'data_hora_inicio', 'cliente', 'profissional', 'procedimento',
+        'status', 'valor_cobrado',
+    )
     list_filter = ('status', 'profissional', 'procedimento')
     search_fields = ('cliente__nome_completo', 'cliente__telefone', 'profissional__nome')
     ordering = ('-data_hora_inicio',)
     date_hierarchy = 'data_hora_inicio'
-    readonly_fields = ('criado_em', 'token_cancelamento')
+    readonly_fields = ('criado_em', 'atualizado_em', 'token_cancelamento')
     autocomplete_fields = ('cliente', 'profissional', 'procedimento', 'promocao', 'reagendado_de')
+    list_select_related = ('cliente', 'profissional', 'procedimento')
+    list_per_page = 50
+    inlines = [NotificacaoInline]
+    actions = ['acao_marcar_realizado', 'acao_marcar_cancelado', 'acao_marcar_faltou']
+
+    @admin.action(description='Marcar selecionados como REALIZADO')
+    def acao_marcar_realizado(self, request, queryset):
+        count = 0
+        for at in queryset.exclude(status__in=['REALIZADO', 'CANCELADO']):
+            at.status = 'REALIZADO'
+            at.save(update_fields=['status', 'atualizado_em'])
+            count += 1
+        self.message_user(request, f'{count} atendimento(s) marcado(s) como realizado.')
+
+    @admin.action(description='Cancelar selecionados')
+    def acao_marcar_cancelado(self, request, queryset):
+        count = 0
+        for at in queryset.exclude(status__in=['REALIZADO', 'CANCELADO']):
+            at.status = 'CANCELADO'
+            at.save(update_fields=['status', 'atualizado_em'])
+            count += 1
+        self.message_user(request, f'{count} atendimento(s) cancelado(s).')
+
+    @admin.action(description='Marcar como FALTOU')
+    def acao_marcar_faltou(self, request, queryset):
+        count = 0
+        for at in queryset.exclude(status__in=['REALIZADO', 'CANCELADO', 'FALTOU']):
+            at.status = 'FALTOU'
+            at.save(update_fields=['status', 'atualizado_em'])
+            count += 1
+        self.message_user(request, f'{count} atendimento(s) marcado(s) como faltou.')
 
 
 @admin.register(Notificacao)
@@ -225,10 +336,12 @@ class NotificacaoAdmin(admin.ModelAdmin):
     date_hierarchy = 'criado_em'
     readonly_fields = ('token', 'criado_em')
     autocomplete_fields = ('atendimento',)
+    list_select_related = ('atendimento', 'atendimento__cliente')
+    list_per_page = 50
 
 
 # =====================================================================
-# AVALIAÇÃO NPS
+# AVALIACAO NPS
 # =====================================================================
 
 @admin.register(AvaliacaoNPS)
@@ -240,6 +353,7 @@ class AvaliacaoNPSAdmin(admin.ModelAdmin):
     date_hierarchy = 'criado_em'
     readonly_fields = ('criado_em',)
     autocomplete_fields = ('atendimento',)
+    list_select_related = ('atendimento', 'atendimento__cliente')
 
 
 # =====================================================================
@@ -266,6 +380,7 @@ class ItemPacoteAdmin(admin.ModelAdmin):
     list_display = ('pacote', 'procedimento', 'quantidade_sessoes')
     search_fields = ('pacote__nome', 'procedimento__nome')
     autocomplete_fields = ('pacote', 'procedimento')
+    list_select_related = ('pacote', 'procedimento')
 
 
 @admin.register(PacoteCliente)
@@ -277,6 +392,7 @@ class PacoteClienteAdmin(admin.ModelAdmin):
     date_hierarchy = 'criado_em'
     readonly_fields = ('criado_em',)
     autocomplete_fields = ('cliente', 'pacote')
+    list_select_related = ('cliente', 'pacote')
 
 
 @admin.register(SessaoPacote)
@@ -289,6 +405,7 @@ class SessaoPacoteAdmin(admin.ModelAdmin):
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
     autocomplete_fields = ('pacote_cliente', 'atendimento')
+    list_select_related = ('pacote_cliente', 'atendimento', 'pacote_cliente__cliente')
 
 
 # =====================================================================
@@ -303,22 +420,51 @@ class ListaEsperaAdmin(admin.ModelAdmin):
     ordering = ('-criado_em',)
     date_hierarchy = 'data_desejada'
     autocomplete_fields = ('cliente', 'procedimento', 'profissional_desejado')
+    list_select_related = ('cliente', 'procedimento', 'profissional_desejado')
 
 
 # =====================================================================
 # AUDITORIA E SISTEMA
 # =====================================================================
 
+class UltimosDiasFilter(admin.SimpleListFilter):
+    title = 'Periodo'
+    parameter_name = 'periodo'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('7', 'Ultimos 7 dias'),
+            ('30', 'Ultimos 30 dias'),
+            ('90', 'Ultimos 90 dias'),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value():
+            from datetime import timedelta
+            dias = int(self.value())
+            limite = timezone.now() - timedelta(days=dias)
+            return queryset.filter(criado_em__gte=limite)
+        return queryset
+
+
 @admin.register(LogAuditoria)
 class LogAuditoriaAdmin(admin.ModelAdmin):
-    list_display = ('criado_em', 'usuario', 'acao', 'tabela_afetada', 'id_registro_afetado')
-    list_filter = ('tabela_afetada',)
+    list_display = ('criado_em', 'usuario', 'acao', 'tabela_afetada', 'id_registro_afetado', 'ip_origem')
+    list_filter = ('tabela_afetada', UltimosDiasFilter)
     search_fields = ('acao', 'usuario__email', 'tabela_afetada')
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
-    readonly_fields = ('usuario', 'acao', 'tabela_afetada', 'id_registro_afetado', 'detalhes', 'criado_em')
+    readonly_fields = (
+        'usuario', 'acao', 'tabela_afetada', 'id_registro_afetado',
+        'detalhes', 'ip_origem', 'criado_em',
+    )
+    list_select_related = ('usuario',)
+    list_per_page = 100
 
     def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False
 
 
