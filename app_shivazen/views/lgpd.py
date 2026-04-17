@@ -15,6 +15,8 @@ from ..services.auditoria import AuditoriaService
 logger = logging.getLogger(__name__)
 
 
+@ratelimit(key='ip', rate='10/h', method='POST', block=True)
+@ratelimit(key='post:telefone', rate='5/h', method='POST', block=True)
 def meus_dados(request):
     """Pagina DSAR: cliente solicita seus dados (via telefone + OTP)."""
     if request.method == 'GET':
@@ -77,6 +79,7 @@ def unsubscribe(request, token: str):
     return render(request, 'publico/lgpd_unsubscribe.html', {'sucesso': True, 'cliente': cliente})
 
 
+@ratelimit(key='ip', rate='30/m', method='POST', block=True)
 @require_http_methods(['POST'])
 def aceitar_cookies(request):
     """Endpoint AJAX para registrar consentimento de cookies em sessao."""

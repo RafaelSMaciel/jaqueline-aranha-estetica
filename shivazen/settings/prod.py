@@ -18,3 +18,16 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Session mais curta em prod
 SESSION_COOKIE_AGE = int(os.environ.get('SESSION_COOKIE_AGE', 1800))  # 30 min default
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
+# Trust proxy headers do Railway
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
+
+# DB connection health checks (Django 4.1+)
+DATABASES['default']['CONN_HEALTH_CHECKS'] = True
+DATABASES['default']['CONN_MAX_AGE'] = 600
+
+# Logging mais restrito em prod
+LOGGING['root']['level'] = 'WARNING'
+LOGGING['loggers']['django']['level'] = 'WARNING'

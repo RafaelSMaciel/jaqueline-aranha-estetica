@@ -12,6 +12,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods
+from django_ratelimit.decorators import ratelimit
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,8 @@ def _check_rate_limit(request, max_attempts=5, window=60):
     return False
 
 
+@ratelimit(key='ip', rate='10/m', method='POST', block=True)
+@ratelimit(key='post:username', rate='5/m', method='POST', block=True)
 @require_http_methods(["GET", "POST"])
 def usuario_login(request):
     """Login exclusivo para administradores da clínica."""
