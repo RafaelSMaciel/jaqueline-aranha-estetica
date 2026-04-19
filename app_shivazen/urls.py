@@ -150,6 +150,9 @@ urlpatterns = [
     path('health/', views.healthcheck, name='healthcheck'),       # readiness
     path('healthz/', views.liveness, name='liveness'),            # liveness
 
+    # ─── Cron externo (cron-job.org) ───
+    path('cron/run/<str:job_name>/', views.cron_run_job, name='cron_run_job'),
+
     # ─── WhatsApp Bot API ───
     path('api/whatsapp/webhook/', views.whatsapp_webhook, name='whatsapp_webhook'),
     path('api/zenvia/webhook/', views.zenvia_sms_webhook, name='zenvia_sms_webhook'),

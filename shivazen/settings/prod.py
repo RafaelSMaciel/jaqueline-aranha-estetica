@@ -34,11 +34,7 @@ DATABASES['default']['CONN_MAX_AGE'] = 600
 LOGGING['root']['level'] = 'WARNING'
 LOGGING['loggers']['django']['level'] = 'WARNING'
 
-# Prod sem Redis = risco (cache/session/rate-limit cross-worker inconsistente)
+# Sem Redis = Celery roda eager (sincrono). Cron externo chama via HTTP.
 if not os.environ.get('REDIS_URL'):
-    import warnings
-    warnings.warn(
-        'REDIS_URL ausente em producao — cache/session/rate-limit degradados. '
-        'Configure Redis para correcao entre workers.',
-        RuntimeWarning,
-    )
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = False
