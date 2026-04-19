@@ -5,7 +5,7 @@
   },
   "deploy": {
     "numReplicas": 1,
-    "startCommand": "python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn shivazen.wsgi --bind 0.0.0.0:$PORT --workers 4 --threads 2 --log-file -",
+    "startCommand": "set -x && echo PORT=$PORT && python manage.py migrate --noinput && python manage.py collectstatic --noinput --verbosity 0 && exec gunicorn shivazen.wsgi --bind 0.0.0.0:${PORT:-8080} --workers 2 --threads 2 --timeout 120 --log-level info --access-logfile - --error-logfile -",
     "restartPolicyType": "ON_FAILURE",
     "healthcheckPath": "/healthz/",
     "healthcheckTimeout": 60
