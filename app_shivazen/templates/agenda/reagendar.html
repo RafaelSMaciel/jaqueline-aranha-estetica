@@ -96,7 +96,7 @@
                 </div>
             </div>
 
-            <form method="post" id="form-reagendar">
+            <form method="post" id="form-reagendar" data-loading-msg="Enviando confirmacao por e-mail...">
                 {% csrf_token %}
                 <input type="hidden" name="datetime" id="hidden-datetime" value="">
                 <input type="hidden" name="profissional" id="hidden-profissional" value="{{ atendimento.profissional.pk }}">

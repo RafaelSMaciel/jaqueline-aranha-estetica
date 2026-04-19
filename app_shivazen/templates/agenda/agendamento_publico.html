@@ -453,7 +453,7 @@
                         </div>
                     </div>
 
-                    <form id="booking-form" action="{% url 'shivazen:confirmar_agendamento' %}" method="POST">
+                    <form id="booking-form" action="{% url 'shivazen:confirmar_agendamento' %}" method="POST" data-loading-msg="Enviando confirmacao por e-mail...">
                         {% csrf_token %}
                         <input type="hidden" name="procedimento" id="form-procedimento">
                         <input type="hidden" name="profissional" id="form-profissional">

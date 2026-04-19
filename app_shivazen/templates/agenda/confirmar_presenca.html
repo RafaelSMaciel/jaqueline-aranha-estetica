@@ -130,7 +130,7 @@
                 {% if not ja_respondeu %}
                 <!-- Botoes de acao -->
                 <div class="mt-4">
-                    <form method="POST">
+                    <form method="POST" data-loading-msg="Processando...">
                         {% csrf_token %}
                         <button type="submit" name="acao" value="confirmar" class="btn-confirm">
                             <i class="bi bi-check-circle me-2"></i>Confirmar Presenca
