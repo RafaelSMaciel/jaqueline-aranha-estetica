@@ -79,7 +79,7 @@ Ordenados por valor/esforco.
 ### AI features
 - **Acao:** Sugestao horario (LLM), classificacao NPS sentimento, sumarizacao prontuario
 - **Esforco:** ~20h por feature
-- **Externo:** OpenAI/Anthropic API (~$50/mes)
+- **Externo:** provedor LLM (~$50/mes)
 - **Compliance:** **CUIDADO LGPD** — dados saude para 3rd-party requer consentimento explicito
 
 ## Frontend/admin — deferido (requer asset pipeline ou redesenho)
