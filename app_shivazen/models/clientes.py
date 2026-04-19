@@ -48,6 +48,10 @@ class Cliente(models.Model):
     consent_whatsapp_nps_at = models.DateTimeField(blank=True, null=True)
     consent_whatsapp_nps_ip = models.GenericIPAddressField(blank=True, null=True)
 
+    consent_whatsapp_confirmacao = models.BooleanField(default=False)
+    consent_whatsapp_confirmacao_at = models.DateTimeField(blank=True, null=True)
+    consent_whatsapp_confirmacao_ip = models.GenericIPAddressField(blank=True, null=True)
+
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True, null=True)
     deletado_em = models.DateTimeField(blank=True, null=True, db_index=True)

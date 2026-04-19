@@ -21,7 +21,7 @@ from ..models import (
     Profissional,
     ProfissionalProcedimento,
 )
-from ..utils.email import enviar_codigo_otp_email
+# OTP email removido: SMS exclusivo via OTPService
 
 logger = logging.getLogger(__name__)
 
@@ -233,20 +233,22 @@ def verificar_telefone(request):
             # Criar novo código
             CodigoVerificacao.objects.create(telefone=telefone, codigo=codigo)
 
-            # Em producao, enviar via Email
             logger.info(f'Codigo de verificacao gerado para telefone: {telefone[-4:]}')
 
-            # Buscar email do cliente para enviar OTP
-            cliente_otp = Cliente.objects.filter(telefone=telefone).first()
-            if cliente_otp and cliente_otp.email:
-                try:
-                    enviar_codigo_otp_email(cliente_otp.email, codigo)
-                except Exception:
-                    logger.error(f'Falha ao enviar OTP por email para {telefone[-4:]}', exc_info=True)
+            # OTP via SMS Zenvia exclusivo (sem fallback email)
+            from ..services.notificacao import OTPService
+            from ..utils.security import client_ip as _ip
+            ip = _ip(request)
+            sucesso_sms = OTPService.enviar_codigo(telefone, codigo, ip=ip)
+            if not sucesso_sms:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Nao foi possivel enviar o codigo por SMS. Tente novamente.',
+                }, status=500)
 
             return JsonResponse({
                 'success': True,
-                'message': 'Codigo de verificacao enviado para seu email cadastrado.',
+                'message': 'Codigo de verificacao enviado por SMS para seu telefone cadastrado.',
             })
 
         elif action == 'verificar':

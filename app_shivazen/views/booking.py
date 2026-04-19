@@ -84,7 +84,7 @@ from ..utils.security import client_ip as _client_ip  # unify
 @require_POST
 @ratelimit(key='ip', rate='5/m', method='POST', block=True)
 def solicitar_otp_agendamento(request):
-    """AJAX: envia OTP. SMS primario se telefone disponivel, email fallback."""
+    """AJAX: envia OTP via SMS (Zenvia). Requer telefone — sem fallback email."""
     email = (request.POST.get('email') or '').strip().lower()
     telefone = (request.POST.get('telefone') or '').strip() or None
     captcha_token = request.POST.get('cf-turnstile-response', '')
@@ -96,22 +96,26 @@ def solicitar_otp_agendamento(request):
         return JsonResponse({'ok': False, 'erro': 'email_invalido'}, status=400)
 
     existe = Cliente.objects.filter(email__iexact=email, ativo=True).exists()
-    # Se cliente ja existe, usa telefone cadastrado (melhora deliverability)
+    # Se cliente ja existe, usa telefone cadastrado (prioridade sobre form)
     if existe and not telefone:
         c = Cliente.objects.filter(email__iexact=email, ativo=True).only('telefone').first()
         if c and c.telefone:
             telefone = c.telefone
 
-    canal_pref = OtpCode.CANAL_SMS if telefone else OtpCode.CANAL_EMAIL
+    if not telefone:
+        return JsonResponse({'ok': False, 'erro': 'telefone_ausente'}, status=400)
+
     ok, motivo, canal_usado = otp_service.solicitar_otp(
         email,
         request=request,
         proposito=OtpCode.PROPOSITO_AGENDAMENTO,
         telefone=telefone,
-        canal_preferido=canal_pref,
+        canal_preferido=OtpCode.CANAL_SMS,
     )
     if not ok and motivo == 'aguarde':
         return JsonResponse({'ok': False, 'erro': 'aguarde'}, status=429)
+    if not ok:
+        return JsonResponse({'ok': False, 'erro': motivo}, status=400)
     return JsonResponse({'ok': True, 'cliente_existente': existe, 'canal': canal_usado})
 
 
@@ -172,6 +176,7 @@ def confirmar_agendamento(request):
     datetime_str = request.POST.get('datetime')
     consent_email_marketing = request.POST.get('consent_email_marketing') == 'on'
     consent_whatsapp_nps = request.POST.get('consent_whatsapp_nps') == 'on'
+    consent_whatsapp_confirmacao = request.POST.get('consent_whatsapp_confirmacao') == 'on'
 
     if not all([nome, telefone, data_nascimento_str, procedimento_id, profissional_id, datetime_str]):
         messages.error(request, 'Todos os campos obrigatórios devem ser preenchidos.')
@@ -251,6 +256,12 @@ def confirmar_agendamento(request):
                     'consent_whatsapp_nps_at': agora,
                     'consent_whatsapp_nps_ip': ip_origem,
                 })
+            if consent_whatsapp_confirmacao:
+                defaults.update({
+                    'consent_whatsapp_confirmacao': True,
+                    'consent_whatsapp_confirmacao_at': agora,
+                    'consent_whatsapp_confirmacao_ip': ip_origem,
+                })
 
             cliente, created = Cliente.objects.select_for_update().get_or_create(
                 telefone=telefone,
@@ -276,6 +287,11 @@ def confirmar_agendamento(request):
                     cliente.consent_whatsapp_nps = True
                     cliente.consent_whatsapp_nps_at = agora
                     cliente.consent_whatsapp_nps_ip = ip_origem
+                    atualizar = True
+                if consent_whatsapp_confirmacao and not cliente.consent_whatsapp_confirmacao:
+                    cliente.consent_whatsapp_confirmacao = True
+                    cliente.consent_whatsapp_confirmacao_at = agora
+                    cliente.consent_whatsapp_confirmacao_ip = ip_origem
                     atualizar = True
                 if atualizar:
                     cliente.save()
@@ -362,8 +378,9 @@ def confirmar_agendamento(request):
         if dados_termo and email:
             _enqueue('enviar_termos_pendentes_email', email, dados_termo)
 
-        if email:
-            _enqueue('enviar_confirmacao_agendamento_email', email, dados_confirmacao)
+        # Confirmacao de agendamento: exibida na tela + "Meus Agendamentos".
+        # Email reservado para promocoes/marketing/pacotes/compras.
+        # Lembrete D-1 e NPS via WhatsApp (se consent).
 
         prof_email_obj = getattr(profissional, 'usuario', None)
         prof_email = prof_email_obj.email if prof_email_obj else None
@@ -451,22 +468,25 @@ def meus_agendamentos_enviar_otp(request):
     if not email or '@' not in email:
         return JsonResponse({'ok': False, 'erro': 'email_invalido'}, status=400)
 
-    # Para login, prefere SMS se cliente tem telefone cadastrado
+    # OTP via SMS (Zenvia) exclusivo. Requer telefone cadastrado.
     telefone = None
     cliente = Cliente.objects.filter(email__iexact=email, ativo=True).only('telefone').first()
     if cliente and cliente.telefone:
         telefone = cliente.telefone
-    canal_pref = OtpCode.CANAL_SMS if telefone else OtpCode.CANAL_EMAIL
+    if not telefone:
+        return JsonResponse({'ok': False, 'erro': 'telefone_nao_cadastrado'}, status=400)
 
     ok, motivo, canal_usado = otp_service.solicitar_otp(
         email,
         request=request,
         proposito=OtpCode.PROPOSITO_LOGIN,
         telefone=telefone,
-        canal_preferido=canal_pref,
+        canal_preferido=OtpCode.CANAL_SMS,
     )
     if not ok and motivo == 'aguarde':
         return JsonResponse({'ok': False, 'erro': 'aguarde'}, status=429)
+    if not ok:
+        return JsonResponse({'ok': False, 'erro': motivo}, status=400)
     return JsonResponse({'ok': True, 'canal': canal_usado})
 
 
