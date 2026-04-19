@@ -63,4 +63,5 @@ from .profissional import (
     rejeitar_agendamento as profissional_rejeitar,
 )
 from .health import healthcheck, liveness
+from .cron import run_job as cron_run_job
 from .lgpd import meus_dados as lgpd_meus_dados, unsubscribe as lgpd_unsubscribe, aceitar_cookies as lgpd_aceitar_cookies
