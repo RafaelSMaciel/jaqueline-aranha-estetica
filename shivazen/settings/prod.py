@@ -7,6 +7,8 @@ DEBUG = False
 
 # HTTPS obrigatorio em producao
 SECURE_SSL_REDIRECT = os.environ.get('USE_HTTPS', 'True') == 'True'
+# Healthchecks do Railway usam HTTP na rede interna; excluir do redirect
+SECURE_REDIRECT_EXEMPT = [r'^healthz/$', r'^health/$']
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
