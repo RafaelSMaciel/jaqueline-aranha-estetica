@@ -22,6 +22,11 @@ class Profissional(models.Model):
     def get_horarios_disponiveis(self, data_selecionada):
         from django.utils import timezone
 
+        # Feriados/recessos bloqueiam o dia inteiro — evita agendar em 25/12, 01/01, etc.
+        Feriado = self._get_model('Feriado')
+        if Feriado.objects.filter(data=data_selecionada, bloqueia_agendamento=True).exists():
+            return []
+
         dia_semana = data_selecionada.isoweekday() % 7 + 1
         disponibilidades = DisponibilidadeProfissional.objects.filter(
             profissional=self,

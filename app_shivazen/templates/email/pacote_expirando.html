@@ -1,13 +1,25 @@
 {% extends "email/base_email.html" %}
+{% block header_sub %}<div style="color:rgba(255,255,255,0.88);font-size:13px;letter-spacing:2.4px;text-transform:uppercase;margin-top:6px;">Pacote expirando</div>{% endblock %}
 {% block content %}
-<p style="color:#4A3425;font-size:16px;margin:0 0 8px;">Ola, {{ dados.nome }}!</p>
-<p style="color:#666;font-size:15px;margin:0 0 24px;">Seu pacote <strong>{{ dados.pacote }}</strong> expira em <strong>{{ dados.dias }} dia(s)</strong>.</p>
+<h1 class="hero-title text-main" style="margin:0 0 12px;color:#2c2418;font-size:26px;font-weight:700;line-height:1.25;">Ola, {{ dados.nome }}</h1>
+<p class="text-soft" style="margin:0 0 28px;color:#6b6256;font-size:15px;line-height:1.6;">
+  Seu pacote <strong>{{ dados.pacote }}</strong> expira em <strong>{{ dados.dias }} dia{{ dados.dias|pluralize:"s" }}</strong>. Voce ainda tem sessoes disponiveis &mdash; vale a pena aproveitar.
+</p>
 
-<div style="background:#fff8e1;border:2px solid #ffc107;border-radius:16px;padding:24px;text-align:center;margin:0 0 24px;">
-<p style="margin:0 0 4px;font-size:14px;color:#999;">Sessoes restantes</p>
-<p style="margin:0;font-size:32px;font-weight:800;color:#4A3425;">{{ dados.sessoes_restantes }}</p>
-</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+<table role="presentation" cellpadding="0" cellspacing="0" class="card-inner" style="background:linear-gradient(145deg,#FFF8E1,#FFE8A5);border:2px solid #E4B64A;border-radius:18px;margin-bottom:24px;">
+<tr><td style="padding:28px 44px;text-align:center;">
+  <div style="color:#8a6a2a;font-size:11px;letter-spacing:3px;text-transform:uppercase;margin-bottom:8px;">Sessoes restantes</div>
+  <div style="font-family:'Playfair Display',Georgia,serif;font-size:64px;font-weight:800;color:#6b5324;line-height:1;">{{ dados.sessoes_restantes }}</div>
+  <div style="margin-top:12px;display:inline-block;background:#ffffff;padding:6px 14px;border-radius:999px;color:#8a6a2a;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">Expira em {{ dados.dias }} dia{{ dados.dias|pluralize:"s" }}</div>
+</td></tr>
+</table>
+</td></tr></table>
 
-<p style="color:#666;font-size:14px;margin:0 0 16px;">Agende agora para nao perder:</p>
-<a href="{{ site_url }}/agendamento/" style="display:inline-block;background:#C9A84C;color:white;padding:12px 32px;border-radius:50px;text-decoration:none;font-weight:700;font-size:14px;">Agendar Sessao</a>
+<p class="text-soft" style="margin:0 0 20px;color:#6b6256;font-size:14px;line-height:1.6;text-align:center;">
+  Agende sua proxima sessao agora para nao perder o que ja foi contratado.
+</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+  <a href="{{ site_url }}/agendamento/" style="display:inline-block;background:linear-gradient(135deg,#C4A35A,#B8915F);color:#ffffff;padding:14px 36px;border-radius:999px;text-decoration:none;font-weight:700;font-size:14px;letter-spacing:0.5px;box-shadow:0 4px 12px rgba(196,163,90,0.35);">Agendar sessao</a>
+</td></tr></table>
 {% endblock %}

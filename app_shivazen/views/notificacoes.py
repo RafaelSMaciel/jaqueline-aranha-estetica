@@ -12,7 +12,7 @@ from django.utils import timezone
 from ..decorators import staff_required
 from ..models import Atendimento, Notificacao
 from ..utils.audit import registrar_log
-from ..utils.whatsapp import enviar_cancelamento_cliente, enviar_confirmacao_admin
+from ..utils.email import enviar_cancelamento_email
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,6 @@ def confirmar_presenca(request, token):
             notif.resposta_cliente = 'CONFIRMOU'
             notif.respondido_em = timezone.now()
             notif.save()
-            enviar_confirmacao_admin(atendimento, 'CONFIRMOU')
             logger.info(f'Cliente {atendimento.cliente.nome_completo} CONFIRMOU agendamento #{atendimento.pk}')
 
         elif acao == 'cancelar':
@@ -47,7 +46,6 @@ def confirmar_presenca(request, token):
             notif.resposta_cliente = 'CANCELOU'
             notif.respondido_em = timezone.now()
             notif.save()
-            enviar_confirmacao_admin(atendimento, 'CANCELOU')
             logger.info(f'Cliente {atendimento.cliente.nome_completo} CANCELOU agendamento #{atendimento.pk}')
 
     context = {
@@ -102,7 +100,7 @@ def painel_notificacoes(request):
 
 @staff_required
 def admin_cancelar_agendamento(request):
-    """Admin cancela agendamento e notifica cliente via WhatsApp."""
+    """Admin cancela agendamento e notifica cliente via EMAIL."""
     if request.method == 'POST':
         atendimento_id = request.POST.get('atendimento_id')
         atendimento = get_object_or_404(Atendimento, pk=atendimento_id)
@@ -111,16 +109,46 @@ def admin_cancelar_agendamento(request):
         atendimento.status = 'CANCELADO'
         atendimento.save()
 
-        # Notifica cliente via WhatsApp
-        enviar_cancelamento_cliente(atendimento)
+        cliente = atendimento.cliente
+        canal = 'nenhum canal'
+        if cliente.email:
+            from ..tasks import send_email_async
+            dados_cancel = {
+                'nome': cliente.nome_completo,
+                'procedimento': atendimento.procedimento.nome,
+                'data_hora': atendimento.data_hora_inicio.strftime('%d/%m/%Y as %H:%M'),
+                'profissional': atendimento.profissional.nome,
+            }
+            try:
+                send_email_async.delay('enviar_cancelamento_email', cliente.email, dados_cancel)
+            except Exception as e:
+                logger.warning('[EMAIL] Celery indisponivel, fallback sync: %s', e)
+                enviar_cancelamento_email(cliente.email, dados_cancel)
+            Notificacao.objects.create(
+                atendimento=atendimento,
+                tipo='CANCELAMENTO',
+                canal='EMAIL',
+                status_envio='ENVIADO',
+                token=__import__('secrets').token_urlsafe(32),
+                enviado_em=timezone.now(),
+            )
+            canal = 'email'
+        else:
+            logger.warning(
+                'Cancelamento atendimento %s sem email do cliente — sem notificacao enviada',
+                atendimento_id,
+            )
 
         registrar_log(
             request.user,
-            f'Cancelou agendamento e notificou cliente',
+            'Cancelou agendamento e notificou cliente',
             'atendimento',
             atendimento_id,
-            {'status_anterior': status_anterior, 'cliente': atendimento.cliente.nome_completo}
+            {'status_anterior': status_anterior, 'cliente': cliente.nome_completo, 'canal': canal}
         )
-        messages.success(request, f'Agendamento cancelado. Cliente {atendimento.cliente.nome_completo} notificado via WhatsApp.')
+        messages.success(
+            request,
+            f'Agendamento cancelado. Cliente {cliente.nome_completo} notificado via {canal}.'
+        )
 
     return redirect('shivazen:painel_agendamentos')

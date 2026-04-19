@@ -36,8 +36,8 @@
   <div class="container" data-aos="fade-up">
     <nav aria-label="breadcrumb" class="mb-4">
       <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="{% url 'shivazen:inicio' %}" style="color:#C9A84C;">Início</a></li>
-        <li class="breadcrumb-item"><a href="{% url 'shivazen:especialidades' %}" style="color:#C9A84C;">Especialidades</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'shivazen:inicio' %}" style="color:#7a5f1f;">Início</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'shivazen:especialidades' %}" style="color:#7a5f1f;">Especialidades</a></li>
         <li class="breadcrumb-item active" aria-current="page">{{ procedimento.nome }}</li>
       </ol>
     </nav>
@@ -51,12 +51,12 @@
 
         <div class="d-flex flex-wrap gap-3 mb-4">
           <div class="d-flex align-items-center" style="background:#f8f5ec;padding:10px 18px;border-radius:30px;">
-            <i class="bi bi-clock me-2" style="color:#C9A84C;"></i>
+            <i class="bi bi-clock me-2" style="color:#7a5f1f;"></i>
             <strong>{{ procedimento.duracao_minutos }} minutos</strong>
           </div>
           {% if preco %}
             <div class="d-flex align-items-center" style="background:#f8f5ec;padding:10px 18px;border-radius:30px;">
-              <i class="bi bi-tag me-2" style="color:#C9A84C;"></i>
+              <i class="bi bi-tag me-2" style="color:#7a5f1f;"></i>
               <strong>A partir de R$ {{ preco|floatformat:2 }}</strong>
             </div>
           {% endif %}
@@ -161,7 +161,7 @@
           <a href="{% url 'shivazen:servico_detalhe' rel.slug %}" class="text-decoration-none">
             <div class="card border-0 shadow-sm h-100" style="border-radius:16px;transition:transform 0.3s ease;">
               <div class="card-body text-center p-4">
-                <i class="bi bi-stars" style="font-size:2.5rem;color:#C9A84C;"></i>
+                <i class="bi bi-stars" style="font-size:2.5rem;color:#7a5f1f;"></i>
                 <h6 class="mt-3 mb-2" style="color:#2d2d2d;">{{ rel.nome }}</h6>
                 <small class="text-muted">
                   <i class="bi bi-clock me-1"></i>{{ rel.duracao_minutos }} min

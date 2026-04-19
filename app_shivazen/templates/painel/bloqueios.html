@@ -26,7 +26,7 @@
 
 <!-- Formulario de criacao -->
 <div class="form-section">
-    <h3><i class="fas fa-plus-circle" style="color: #C9A84C;"></i> Novo Bloqueio</h3>
+    <h3><i class="fas fa-plus-circle" style="color: #7a5f1f;"></i> Novo Bloqueio</h3>
     <form method="post" action="{% url 'shivazen:admin_criar_bloqueio' %}">
         {% csrf_token %}
         <div class="form-group">
@@ -77,10 +77,7 @@
     </div>
 </div>
 {% empty %}
-<div style="text-align: center; padding: 3rem; color: #bbb;">
-    <i class="fas fa-calendar-check" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
-    <p>Nenhum bloqueio cadastrado.</p>
-</div>
+{% include 'partials/_empty_state.html' with icon='bi-calendar-x' title='Nenhum bloqueio cadastrado' message='Use o formulario acima para bloquear datas ou horarios.' %}
 {% endfor %}
 
 {% if bloqueios.has_other_pages %}

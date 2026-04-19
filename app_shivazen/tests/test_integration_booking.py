@@ -8,7 +8,7 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from app_shivazen.models import Atendimento, Cliente
+from app_shivazen.models import Atendimento, Cliente, Feriado
 
 from .factories import (
     criar_cliente,
@@ -27,14 +27,20 @@ def _future_datetime_iso(days=2, hour=10):
     return dt.isoformat()
 
 
-@override_settings(RATELIMIT_ENABLE=False)
+@override_settings(
+    RATELIMIT_ENABLE=False,
+    CELERY_TASK_ALWAYS_EAGER=True,
+    CELERY_TASK_EAGER_PROPAGATES=False,
+)
 @patch('app_shivazen.utils.whatsapp.enviar_whatsapp', return_value=True)
-@patch('app_shivazen.utils.email.enviar_confirmacao_agendamento_email', return_value=None)
+@patch('app_shivazen.utils.email.enviar_confirmacao_agendamento_email', return_value=True)
 class IntegrationBookingFlowTests(TestCase):
     """End-to-end tests exercising the booking view via Django test client."""
 
     def setUp(self):
         cache.clear()
+        # Feriados seeded via migration 0012 pode colidir com datas dos testes.
+        Feriado.objects.all().delete()
         self.client = Client()
         self.prof = criar_profissional()
         self.proc = criar_procedimento(profissional=self.prof, preco=Decimal('150.00'))
@@ -184,3 +190,23 @@ class IntegrationBookingFlowTests(TestCase):
         # If the booking somehow succeeded (no past-date guard), the test notes it
         # but the redirect itself confirms the view handled it without 500.
         self.assertNotEqual(resp.status_code, 500)
+
+    def test_consent_email_marketing_captura(self, mock_email, mock_wpp):
+        """POST com consent_email_marketing=on salva True + timestamp + IP."""
+        resp = self._post(
+            telefone='17988883333',
+            consent_email_marketing='on',
+            email='ana@example.com',
+        )
+        self.assertEqual(resp.status_code, 302)
+        cli = Cliente.objects.get(telefone='17988883333')
+        self.assertTrue(cli.consent_email_marketing)
+        self.assertIsNotNone(cli.consent_email_marketing_at)
+
+    def test_consent_whatsapp_nps_opt_out_default(self, mock_email, mock_wpp):
+        """POST sem consent_whatsapp_nps mantem False (opt-in required)."""
+        resp = self._post(telefone='17988884444')
+        self.assertEqual(resp.status_code, 302)
+        cli = Cliente.objects.get(telefone='17988884444')
+        self.assertFalse(cli.consent_whatsapp_nps)
+        self.assertFalse(cli.consent_email_marketing)

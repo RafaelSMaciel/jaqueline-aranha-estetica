@@ -67,3 +67,6 @@ class AnotacaoSessao(models.Model):
     class Meta:
         managed = True
         db_table = 'anotacao_sessao'
+        indexes = [
+            models.Index(fields=['atendimento', '-criado_em'], name='idx_anot_atn_criado'),
+        ]

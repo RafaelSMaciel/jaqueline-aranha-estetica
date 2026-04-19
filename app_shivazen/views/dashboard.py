@@ -136,7 +136,7 @@ def painel_agendamentos(request):
 
 @staff_required
 def painel_clientes(request):
-    """Gerenciamento de clientes"""
+    """Gerenciamento de clientes + relatorio de consent por canal."""
     search = request.GET.get('search', '')
     clientes = Cliente.objects.all().order_by('-criado_em')
 
@@ -152,9 +152,21 @@ def painel_clientes(request):
     page = request.GET.get('page', 1)
     clientes_page = paginator.get_page(page)
 
+    # Relatorio de consent por canal (base ativa)
+    base = Cliente.objects.filter(ativo=True)
+    total_ativos = base.count()
+    consent_stats = {
+        'total': total_ativos,
+        'email_marketing': base.filter(consent_email_marketing=True).count(),
+        'whatsapp_nps': base.filter(consent_whatsapp_nps=True).count(),
+        'com_email': base.exclude(email='').exclude(email__isnull=True).count(),
+        'com_telefone': base.exclude(telefone='').exclude(telefone__isnull=True).count(),
+    }
+
     context = {
         'clientes': clientes_page,
         'search': search,
+        'consent_stats': consent_stats,
     }
 
     return render(request, 'painel/clientes.html', context)

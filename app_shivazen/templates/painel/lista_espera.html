@@ -46,10 +46,7 @@
     </div>
 </div>
 {% empty %}
-<div style="text-align: center; padding: 3rem; color: #bbb;">
-    <i class="fas fa-hourglass-half" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
-    <p>Nenhum cliente na lista de espera.</p>
-</div>
+{% include 'partials/_empty_state.html' with icon='bi-hourglass-split' title='Lista de espera vazia' message='Nenhum cliente aguardando no momento.' %}
 {% endfor %}
 
 {% if lista_espera.has_other_pages %}

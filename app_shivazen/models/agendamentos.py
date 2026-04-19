@@ -85,7 +85,8 @@ class Atendimento(models.Model):
 
 class Notificacao(models.Model):
     TIPO_CHOICES = [
-        ('LEMBRETE', 'Lembrete'),
+        ('LEMBRETE', 'Lembrete D-1'),
+        ('LEMBRETE_2H', 'Lembrete T-2h'),
         ('CONFIRMACAO', 'Confirmação'),
         ('CANCELAMENTO', 'Cancelamento'),
         ('NPS', 'Pesquisa NPS'),
@@ -125,6 +126,8 @@ class Notificacao(models.Model):
         indexes = [
             models.Index(fields=['tipo', 'status_envio'], name='idx_notificacao_tipo_status'),
             models.Index(fields=['-criado_em'], name='idx_notificacao_criado'),
+            models.Index(fields=['tipo', 'canal', 'status_envio', '-criado_em'], name='idx_notif_nps_lookup'),
+            models.Index(fields=['atendimento', 'tipo'], name='idx_notif_atend_tipo'),
         ]
 
     def __str__(self):

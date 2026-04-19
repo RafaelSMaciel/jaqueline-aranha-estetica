@@ -1,15 +1,26 @@
 {% extends "email/base_email.html" %}
+{% block header_sub %}<div style="color:rgba(255,255,255,0.88);font-size:13px;letter-spacing:2.4px;text-transform:uppercase;margin-top:6px;">Codigo de verificacao</div>{% endblock %}
 {% block content %}
-<p style="color:#4A3425;font-size:16px;margin:0 0 8px;">Ola!</p>
-<p style="color:#666;font-size:15px;margin:0 0 24px;">Seu codigo de verificacao para acessar o {{ clinic_name }}:</p>
+<h1 class="hero-title text-main" style="margin:0 0 12px;color:#2c2418;font-size:26px;font-weight:700;line-height:1.25;">Seu codigo de acesso</h1>
+<p class="text-soft" style="margin:0 0 28px;color:#6b6256;font-size:15px;line-height:1.6;">
+  Use o codigo abaixo para concluir sua verificacao no {{ clinic_name }}. Ele expira em <strong>10 minutos</strong>.
+</p>
 
-<div style="text-align:center;margin:24px 0;">
-<div style="display:inline-block;background:linear-gradient(145deg,#FFFEF5,#FFF9E3);border:2px solid #C9A84C;border-radius:16px;padding:20px 48px;">
-<span style="font-size:36px;font-weight:800;letter-spacing:12px;color:#4A3425;">{{ codigo }}</span>
-</div>
-</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:8px 0 24px;">
+  <div class="card-inner" style="display:inline-block;background:linear-gradient(145deg,#FFFEF5,#FFF4D6);border:2px solid #C4A35A;border-radius:18px;padding:24px 48px;">
+    <div style="color:#8a7e6b;font-size:11px;letter-spacing:3px;text-transform:uppercase;margin-bottom:10px;">Codigo</div>
+    <div class="otp-code" style="font-family:'SF Mono','Consolas',Menlo,monospace;font-size:40px;font-weight:800;letter-spacing:14px;color:#7a5f1f;line-height:1;">{{ codigo }}</div>
+  </div>
+</td></tr></table>
 
-<p style="color:#999;font-size:13px;text-align:center;margin:24px 0 0;">
-Valido por 10 minutos. Nao compartilhe este codigo.
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fff8ec;border-left:3px solid #C4A35A;border-radius:6px;margin-top:8px;">
+<tr><td style="padding:14px 18px;">
+  <p style="margin:0;color:#6b5324;font-size:13px;line-height:1.5;">
+    <strong>Nunca compartilhe</strong> este codigo. Nossa equipe jamais solicita o codigo por telefone ou WhatsApp.
+  </p>
+</td></tr></table>
+
+<p class="text-muted" style="margin:24px 0 0;color:#8a7e6b;font-size:12px;line-height:1.6;">
+  Nao foi voce que solicitou? Ignore este email &mdash; seu acesso continua seguro.
 </p>
 {% endblock %}

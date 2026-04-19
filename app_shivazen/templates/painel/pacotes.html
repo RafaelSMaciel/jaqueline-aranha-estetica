@@ -76,8 +76,10 @@
                         <label class="form-label fw-bold small">Cliente</label>
                         <select name="cliente_id" class="form-select bg-light border-0" required>
                             <option value="">Selecione...</option>
+                            {% for c in clientes_ativos %}
+                            <option value="{{ c.pk }}">{{ c.nome_completo }}{% if c.telefone %} — {{ c.telefone }}{% endif %}</option>
+                            {% endfor %}
                         </select>
-                        <small class="text-muted">Carregue a lista de clientes apos abrir o modal.</small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold small">Valor Pago (R$)</label>
@@ -184,17 +186,5 @@ document.getElementById('btn-add-item').addEventListener('click', function() {
     container.appendChild(row);
 });
 
-// Carregar clientes nos modals de venda
-document.querySelectorAll('[id^="modalVenda"]').forEach(modal => {
-    modal.addEventListener('show.bs.modal', function() {
-        const select = this.querySelector('select[name="cliente_id"]');
-        if (select.options.length > 1) return;
-        fetch('{% url "shivazen:buscar_procedimentos" %}')
-            .catch(() => {});
-        // Busca simples de clientes via API interna
-        fetch('/ajax/buscar-horarios/?tipo=clientes')
-            .catch(() => {});
-    });
-});
 </script>
 {% endblock %}

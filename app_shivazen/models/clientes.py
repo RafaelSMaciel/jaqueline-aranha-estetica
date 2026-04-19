@@ -35,9 +35,18 @@ class Cliente(models.Model):
     faltas_consecutivas = models.SmallIntegerField(default=0, validators=[MinValueValidator(0)])
     bloqueado_online = models.BooleanField(default=False)
 
-    # LGPD: consentimento de comunicacao e unsubscribe via token publico
+    # LGPD: consentimento legado (comunicacao transacional) e unsubscribe token
     aceita_comunicacao = models.BooleanField(default=True)
     unsubscribe_token = models.CharField(max_length=64, blank=True, null=True, db_index=True)
+
+    # LGPD: consents granulares por canal/uso — opt-in explicito com audit trail
+    consent_email_marketing = models.BooleanField(default=False)
+    consent_email_marketing_at = models.DateTimeField(blank=True, null=True)
+    consent_email_marketing_ip = models.GenericIPAddressField(blank=True, null=True)
+
+    consent_whatsapp_nps = models.BooleanField(default=False)
+    consent_whatsapp_nps_at = models.DateTimeField(blank=True, null=True)
+    consent_whatsapp_nps_ip = models.GenericIPAddressField(blank=True, null=True)
 
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True, null=True)

@@ -39,6 +39,10 @@ class ListaEspera(models.Model):
                 name='chk_lista_espera_turno'
             )
         ]
+        indexes = [
+            models.Index(fields=['cliente'], name='idx_espera_cliente'),
+            models.Index(fields=['procedimento', 'data_desejada', 'notificado'], name='idx_espera_proc_data_notif'),
+        ]
 
     def __str__(self):
         cliente_nome = self.cliente.nome_completo if self.cliente_id else 's/ cliente'
@@ -64,6 +68,43 @@ class LogAuditoria(models.Model):
             models.Index(fields=['-criado_em'], name='idx_auditoria_criado'),
             models.Index(fields=['usuario', '-criado_em'], name='idx_auditoria_user_data'),
         ]
+
+
+class Feriado(models.Model):
+    """Datas bloqueadas para agendamento — feriados nacionais/locais e recessos da clinica."""
+
+    ESCOPO_NACIONAL = 'NACIONAL'
+    ESCOPO_LOCAL = 'LOCAL'
+    ESCOPO_CLINICA = 'CLINICA'
+    ESCOPO_CHOICES = [
+        (ESCOPO_NACIONAL, 'Nacional'),
+        (ESCOPO_LOCAL, 'Local (estadual/municipal)'),
+        (ESCOPO_CLINICA, 'Recesso da clinica'),
+    ]
+
+    data = models.DateField()
+    nome = models.CharField(max_length=120)
+    escopo = models.CharField(max_length=20, choices=ESCOPO_CHOICES, default=ESCOPO_NACIONAL)
+    bloqueia_agendamento = models.BooleanField(
+        default=True,
+        help_text='Se True, impede geracao de horarios livres nesta data.',
+    )
+    observacao = models.CharField(max_length=255, blank=True, null=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = True
+        db_table = 'feriado'
+        constraints = [
+            models.UniqueConstraint(fields=['data', 'escopo'], name='uq_feriado_data_escopo'),
+        ]
+        indexes = [
+            models.Index(fields=['data'], name='idx_feriado_data'),
+        ]
+        ordering = ['data']
+
+    def __str__(self):
+        return f'{self.data.strftime("%d/%m/%Y")} — {self.nome}'
 
 
 class ConfiguracaoSistema(models.Model):
@@ -128,7 +169,7 @@ class CodigoVerificacao(models.Model):
 
 
 class OtpCode(models.Model):
-    """OTP por email: codigo hashed, TTL, rate limit por tentativas, IP."""
+    """OTP por email ou SMS: codigo hashed, TTL, rate limit por tentativas, IP."""
 
     PROPOSITO_AGENDAMENTO = 'AGENDAMENTO'
     PROPOSITO_LOGIN = 'LOGIN_CLIENTE'
@@ -137,11 +178,18 @@ class OtpCode(models.Model):
         (PROPOSITO_LOGIN, 'Login cliente'),
     ]
 
-    TTL_SEGUNDOS = 600  # 10 min
-    MAX_TENTATIVAS = 5
-    REENVIO_MINIMO_SEG = 60  # janela para re-envio
+    CANAL_EMAIL = 'EMAIL'
+    CANAL_SMS = 'SMS'
+    CANAL_CHOICES = [(CANAL_EMAIL, 'Email'), (CANAL_SMS, 'SMS')]
+
+    import os as _os
+    TTL_SEGUNDOS = int(_os.environ.get('OTP_TTL_SEGUNDOS', '600'))  # 10 min default
+    MAX_TENTATIVAS = int(_os.environ.get('OTP_MAX_TENTATIVAS', '5'))
+    REENVIO_MINIMO_SEG = int(_os.environ.get('OTP_REENVIO_MINIMO_SEG', '60'))
 
     email = models.EmailField()
+    telefone = models.CharField(max_length=20, blank=True, null=True)
+    canal = models.CharField(max_length=10, choices=CANAL_CHOICES, default=CANAL_EMAIL)
     codigo_hash = models.CharField(max_length=64)  # sha256 hex
     proposito = models.CharField(max_length=20, choices=PROPOSITO_CHOICES, default=PROPOSITO_AGENDAMENTO)
     criado_em = models.DateTimeField(auto_now_add=True)
@@ -181,7 +229,7 @@ class OtpCode(models.Model):
         ).exists()
 
     @classmethod
-    def gerar(cls, email, ip=None, proposito=PROPOSITO_AGENDAMENTO):
+    def gerar(cls, email, ip=None, proposito=PROPOSITO_AGENDAMENTO, canal=CANAL_EMAIL, telefone=None):
         """Invalida anteriores, cria novo. Retorna (codigo_plano, obj)."""
         import hashlib
         import secrets
@@ -198,6 +246,8 @@ class OtpCode(models.Model):
 
         obj = cls.objects.create(
             email=email,
+            telefone=telefone,
+            canal=canal,
             codigo_hash=codigo_hash,
             proposito=proposito,
             expira_em=agora + timedelta(seconds=cls.TTL_SEGUNDOS),

@@ -18,7 +18,8 @@
   --background-color: #ffffff; /* Background color for the entire website, including individual sections */
   --default-color: #3c4049; /* Default color used for the majority of the text content across the entire website */
   --heading-color: #8b5c00; /* Color for headings, subheadings and title throughout the website */
-  --accent-color: #b48c4c; /* Accent color that represents your brand on the website. It's used for buttons, links, and other elements that need to stand out */
+  --accent-color: #b48c4c; /* Accent color — use on large/decorative areas, buttons, borders. Fails WCAG AA for text on white, use --accent-text instead when rendering TEXT on light backgrounds. */
+  --accent-text: #7a5f1f; /* AA-compliant (6.03:1 on white) dourado para TEXTO em fundo claro. Use em <a>, <span>, .text-accent etc. */
   --surface-color: #ffffff; /* The surface color is used as a background of boxed elements within sections, such as cards, icon boxes, or other elements that require a visual separation from the global background. */
   --contrast-color: #ffffff; /* Contrast color for text, ensuring readability against backgrounds of accent, heading, or default colors. */
 }
@@ -26,11 +27,11 @@
 /* Nav Menu Colors - The following color variables are used specifically for the navigation menu. They are separate from the global colors to allow for more customization options */
 :root {
   --nav-color: #3c4049;  /* The default color of the main navmenu links */
-  --nav-hover-color: #b48c4c; /* Applied to main navmenu links when they are hovered over or active */
+  --nav-hover-color: #7a5f1f; /* Applied to main navmenu links when they are hovered over or active — AA-compliant text */
   --nav-mobile-background-color: #ffffff; /* Used as the background color for mobile navigation menu */
   --nav-dropdown-background-color: #ffffff; /* Used as the background color for dropdown items that appear when hovering over primary navigation items */
   --nav-dropdown-color: #3c4049; /* Used for navigation links of the dropdown items in the navigation menu. */
-  --nav-dropdown-hover-color: #b48c4c; /* Similar to --nav-hover-color, this color is applied to dropdown navigation links when they are hovered over. */
+  --nav-dropdown-hover-color: #7a5f1f; /* Similar to --nav-hover-color, this color is applied to dropdown navigation links when they are hovered over. */
 }
 
 /* Color Presets - These classes override global colors when applied to any section or element, providing reuse of the sam color scheme. */
@@ -63,7 +64,7 @@ body {
 }
 
 a {
-  color: var(--accent-color);
+  color: var(--accent-text);
   text-decoration: none;
   transition: 0.3s;
 }
@@ -536,7 +537,7 @@ h6 {
 
 .footer-16 .brand-section .contact-info .contact-item i {
   font-size: 16px;
-  color: var(--accent-color);
+  color: var(--accent-text);
   margin-right: 12px;
   margin-top: 3px;
   flex-shrink: 0;
@@ -586,7 +587,7 @@ h6 {
 }
 
 .footer-16 .nav-column .footer-nav a:hover {
-  color: var(--accent-color);
+  color: var(--accent-text);
   transform: translateX(4px);
 }
 
@@ -659,7 +660,7 @@ h6 {
 }
 
 .footer-16 .footer-social .social-links .social-link:hover {
-  color: var(--accent-color);
+  color: var(--accent-text);
   transform: translateY(-2px);
 }
 
@@ -707,7 +708,7 @@ h6 {
 }
 
 .footer-16 .footer-bottom .legal-links a:hover {
-  color: var(--accent-color);
+  color: var(--accent-text);
 }
 
 .footer-16 .footer-bottom .legal-links .credits {
@@ -729,7 +730,7 @@ h6 {
 }
 
 .footer-16 .footer-bottom .legal-links .credits a {
-  color: var(--accent-color);
+  color: var(--accent-text);
   font-size: 12px;
 }
 
@@ -1035,7 +1036,7 @@ section,
   padding: 0.5rem 1rem;
   background: color-mix(in srgb, var(--accent-color), transparent 90%);
   border-radius: 50px;
-  color: var(--accent-color);
+  color: var(--accent-text);
   font-size: 0.875rem;
   font-weight: 500;
 }
@@ -1064,7 +1065,7 @@ section,
 }
 
 .hero .hero-content h1 .highlight {
-  color: var(--accent-color);
+  color: var(--accent-text);
   position: relative;
 }
 
@@ -1111,7 +1112,7 @@ section,
 .hero .hero-content .hero-stats .stat-item h3 {
   font-size: 2rem;
   font-weight: 700;
-  color: var(--accent-color);
+  color: var(--accent-text);
   margin: 0;
   line-height: 1;
 }
@@ -1174,7 +1175,7 @@ section,
 }
 
 .hero .hero-content .hero-actions .btn.btn-outline {
-  color: var(--accent-color);
+  color: var(--accent-text);
   border-color: var(--accent-color);
   background: transparent;
 }
@@ -1274,7 +1275,7 @@ section,
   width: 50px;
   height: 50px;
   background: color-mix(in srgb, var(--accent-color), transparent 90%);
-  color: var(--accent-color);
+  color: var(--accent-text);
   border-radius: 12px;
   display: flex;
   align-items: center;
@@ -1486,7 +1487,7 @@ section,
 .home-about .about-content .stats-grid .stat-item .stat-number {
   font-size: 2.5rem;
   font-weight: 300;
-  color: var(--accent-color);
+  color: var(--accent-text);
   display: block;
   line-height: 1;
 }
@@ -1540,11 +1541,11 @@ section,
 
 .home-about .about-content .cta-section .btn-secondary i {
   font-size: 1.5rem;
-  color: var(--accent-color);
+  color: var(--accent-text);
 }
 
 .home-about .about-content .cta-section .btn-secondary:hover {
-  color: var(--accent-color);
+  color: var(--accent-text);
   transform: translateX(5px);
 }
 
@@ -1606,7 +1607,7 @@ section,
 }
 
 .home-about .about-visual .floating-card .card-content .icon i {
-  color: var(--accent-color);
+  color: var(--accent-text);
   font-size: 1.5rem;
 }
 
@@ -1708,7 +1709,7 @@ section,
 .featured-departments .specialty-meta .specialty-label {
   display: inline-block;
   background: color-mix(in srgb, var(--accent-color), transparent 90%);
-  color: var(--accent-color);
+  color: var(--accent-text);
   font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
@@ -1749,7 +1750,7 @@ section,
 }
 
 .featured-departments .specialty-features span i {
-  color: var(--accent-color);
+  color: var(--accent-text);
   font-size: 16px;
 }
 
@@ -1757,7 +1758,7 @@ section,
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  color: var(--accent-color);
+  color: var(--accent-text);
   font-weight: 400;
   font-size: 16px;
   text-decoration: none;
@@ -1805,7 +1806,7 @@ section,
 }
 
 .featured-departments .specialty-visual .visual-overlay i {
-  color: var(--accent-color);
+  color: var(--accent-text);
   font-size: 24px;
 }
 
@@ -1873,13 +1874,13 @@ section,
 
 .featured-departments .highlight-list li:before {
   content: "→";
-  color: var(--accent-color);
+  color: var(--accent-text);
   font-weight: bold;
   margin-right: 10px;
 }
 
 .featured-departments .highlight-cta {
-  color: var(--accent-color);
+  color: var(--accent-text);
   text-decoration: none;
   font-weight: 500;
   font-size: 14px;
@@ -1919,7 +1920,7 @@ section,
   align-items: center;
   gap: 12px;
   background: var(--contrast-color);
-  color: var(--accent-color);
+  color: var(--accent-text);
   padding: 16px 30px;
   border-radius: 50px;
   text-decoration: none;
@@ -1931,7 +1932,7 @@ section,
 .featured-departments .emergency-btn:hover {
   background: color-mix(in srgb, var(--contrast-color), transparent 10%);
   transform: translateY(-2px);
-  color: var(--accent-color);
+  color: var(--accent-text);
 }
 
 .featured-departments .emergency-btn i {
@@ -2050,7 +2051,7 @@ section,
 
 .featured-services .service-badge i {
   font-size: 20px;
-  color: var(--accent-color);
+  color: var(--accent-text);
 }
 
 .featured-services .service-badge span {
@@ -2082,7 +2083,7 @@ section,
   display: inline-flex;
   align-items: center;
   padding: 0;
-  color: var(--accent-color);
+  color: var(--accent-text);
   text-decoration: none;
   font-weight: 400;
   font-size: 16px;
@@ -2147,7 +2148,7 @@ section,
 
 .featured-services .service-icon-wrapper i {
   font-size: 20px;
-  color: var(--accent-color);
+  color: var(--accent-text);
   transition: all 0.3s ease;
 }
 
@@ -2181,7 +2182,7 @@ section,
 
 .featured-services .service-link {
   font-size: 13px;
-  color: var(--accent-color);
+  color: var(--accent-text);
   text-decoration: none;
   font-weight: 500;
   transition: all 0.3s ease;
@@ -2476,7 +2477,7 @@ section,
 .find-a-doctor .doctor-profile .profile-header .doctor-details .specialty-tag {
   display: inline-block;
   background: color-mix(in srgb, var(--accent-color), transparent 90%);
-  color: var(--accent-color);
+  color: var(--accent-text);
   font-size: 0.875rem;
   font-weight: 500;
   padding: 4px 12px;
@@ -2579,7 +2580,7 @@ section,
   gap: 0.75rem;
   padding: 16px 32px;
   background: transparent;
-  color: var(--accent-color);
+  color: var(--accent-text);
   border: 2px solid var(--accent-color);
   border-radius: 50px;
   font-weight: 500;
@@ -2766,7 +2767,7 @@ section,
 }
 
 .call-to-action .hero-content .cta-wrapper .primary-cta {
-  color: var(--accent-color);
+  color: var(--accent-text);
   border-bottom: 1px solid var(--accent-color);
   padding-bottom: 2px;
 }
@@ -2836,7 +2837,7 @@ section,
 
 .call-to-action .features-section .feature-block .feature-icon i {
   font-size: 2.5rem;
-  color: var(--accent-color);
+  color: var(--accent-text);
 }
 
 .call-to-action .features-section .feature-block h3 {
@@ -2972,7 +2973,7 @@ section,
 }
 
 .about .stats-grid .stat-number {
-  color: var(--accent-color);
+  color: var(--accent-text);
   font-size: 2.5rem;
   font-weight: 300;
   line-height: 1.2;
@@ -3014,7 +3015,7 @@ section,
 }
 
 .about .certifications-section .alert i {
-  color: var(--accent-color);
+  color: var(--accent-text);
 }
 
 .about {
@@ -3073,7 +3074,7 @@ section,
   display: block;
   font-size: 2.5rem;
   font-weight: 300;
-  color: var(--accent-color);
+  color: var(--accent-text);
   margin-bottom: 0.5rem;
 }
 
@@ -3164,7 +3165,7 @@ section,
 
 .about .values-section .value-item .value-icon i {
   font-size: 2rem;
-  color: var(--accent-color);
+  color: var(--accent-text);
 }
 
 .about .values-section .value-item h4 {
@@ -3292,7 +3293,7 @@ section,
 # Departments Tabs Section
 --------------------------------------------------------------*/
 .departments-tabs .section-label {
-  color: var(--accent-color);
+  color: var(--accent-text);
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 3px;
@@ -3545,7 +3546,7 @@ section,
 }
 
 .departments .department-card:hover .learn-more {
-  color: var(--accent-color);
+  color: var(--accent-text);
 }
 
 .departments .department-card:hover .learn-more i {
@@ -3563,7 +3564,7 @@ section,
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--accent-color);
+  color: var(--accent-text);
   font-size: 24px;
   transition: all 0.4s ease;
   z-index: 2;
@@ -3672,7 +3673,7 @@ section,
   display: inline-block;
   padding: 0.5rem 1rem;
   background-color: color-mix(in srgb, var(--accent-color), transparent 90%);
-  color: var(--accent-color);
+  color: var(--accent-text);
   font-size: 0.875rem;
   font-weight: 500;
   border-radius: 20px;
@@ -3713,7 +3714,7 @@ section,
 .department-details .department-hero .key-highlights .highlight-item .highlight-number {
   font-size: 2.25rem;
   font-weight: 300;
-  color: var(--accent-color);
+  color: var(--accent-text);
   line-height: 1;
   margin-bottom: 0.25rem;
 }
@@ -3766,7 +3767,7 @@ section,
 }
 
 .department-details .department-hero .action-group .btn-secondary:hover {
-  color: var(--accent-color);
+  color: var(--accent-text);
 }
 
 .department-details .department-hero .action-group .btn-secondary:hover i {
@@ -3918,7 +3919,7 @@ section,
 
 .department-details .services-overview .services-grid .service-item .service-icon i {
   font-size: 1.5rem;
-  color: var(--accent-color);
+  color: var(--accent-text);
   transition: color 0.3s ease;
 }
 
@@ -3976,7 +3977,7 @@ section,
 }
 
 .department-details .expert-care-section .expert-content .expertise-list .expertise-item i {
-  color: var(--accent-color);
+  color: var(--accent-text);
   font-size: 1.125rem;
   flex-shrink: 0;
 }
@@ -3997,7 +3998,7 @@ section,
   width: 40px;
   height: 40px;
   background-color: color-mix(in srgb, var(--accent-color), transparent 90%);
-  color: var(--accent-color);
+  color: var(--accent-text);
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -4141,7 +4142,7 @@ section,
 }
 
 .services .service-content .service-features .feature-item i {
-  color: var(--accent-color);
+  color: var(--accent-text);
   font-size: 0.75rem;
   margin-right: 8px;
 }
@@ -4321,7 +4322,7 @@ section,
   display: block;
   font-size: 1.8rem;
   font-weight: 700;
-  color: var(--accent-color);
+  color: var(--accent-text);
   line-height: 1;
 }
 
@@ -4381,7 +4382,7 @@ section,
 }
 
 .service-details-2 .service-overview .features-grid .feature i {
-  color: var(--accent-color);
+  color: var(--accent-text);
   font-size: 1.2rem;
 }
 
@@ -4454,7 +4455,7 @@ section,
 }
 
 .service-details-2 .action-card.primary .card-header i {
-  color: var(--accent-color);
+  color: var(--accent-text);
 }
 
 .service-details-2 .action-card.primary .btn-action {
@@ -4482,7 +4483,7 @@ section,
 }
 
 .service-details-2 .action-card.secondary .btn-action:hover {
-  color: var(--accent-color);
+  color: var(--accent-text);
   border-color: var(--accent-color);
   transform: translateY(-3px);
 }
@@ -4502,7 +4503,7 @@ section,
 }
 
 .service-details-2 .action-card.tertiary .btn-action:hover {
-  color: var(--accent-color);
+  color: var(--accent-text);
   border-color: var(--accent-color);
   transform: translateY(-3px);
 }
@@ -4643,7 +4644,7 @@ section,
   width: 35px;
   height: 35px;
   background: var(--contrast-color);
-  color: var(--accent-color);
+  color: var(--accent-text);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -4669,7 +4670,7 @@ section,
 }
 
 .doctors .doctor-content .specialty {
-  color: var(--accent-color);
+  color: var(--accent-text);
   font-weight: 600;
   font-size: 16px;
   margin-bottom: 15px;
@@ -4700,7 +4701,7 @@ section,
 
 .doctors .doctor-meta .experience i,
 .doctors .doctor-meta .department i {
-  color: var(--accent-color);
+  color: var(--accent-text);
   font-size: 14px;
 }
 
@@ -4998,7 +4999,7 @@ section,
 
 .featured-testimonials .testimonial-item .profile .info h4 i {
   font-size: 14px;
-  color: var(--accent-color);
+  color: var(--accent-text);
   margin-left: 4px;
 }
 
@@ -5228,16 +5229,16 @@ section,
 }
 
 .faq .faq-item.faq-active .faq-header .faq-number {
-  color: var(--accent-color);
+  color: var(--accent-text);
   font-weight: 500;
 }
 
 .faq .faq-item.faq-active .faq-header h4 {
-  color: var(--accent-color);
+  color: var(--accent-text);
 }
 
 .faq .faq-item.faq-active .faq-header .faq-toggle {
-  color: var(--accent-color);
+  color: var(--accent-text);
   transform: rotate(0deg);
 }
 
@@ -5429,7 +5430,7 @@ section,
 
 .contact .contact-info-item .info-icon i {
   font-size: 24px;
-  color: var(--accent-color);
+  color: var(--accent-text);
 }
 
 .contact .contact-info-item .info-content h3 {
@@ -5621,7 +5622,7 @@ section,
   padding: 8px 20px;
   background-color: color-mix(in srgb, var(--accent-color), transparent 90%);
   border-radius: 30px;
-  color: var(--accent-color);
+  color: var(--accent-text);
   font-size: 0.95rem;
   margin-bottom: 20px;
 }
@@ -5675,7 +5676,7 @@ section,
 
 .terms-of-service .tos-content .content-section .info-box i {
   font-size: 1.5rem;
-  color: var(--accent-color);
+  color: var(--accent-text);
   flex-shrink: 0;
 }
 
@@ -5724,7 +5725,7 @@ section,
 
 .terms-of-service .tos-content .content-section .alert-box i {
   font-size: 2rem;
-  color: var(--accent-color);
+  color: var(--accent-text);
   flex-shrink: 0;
 }
 
@@ -5804,7 +5805,7 @@ section,
   content: "•";
   position: absolute;
   left: 8px;
-  color: var(--accent-color);
+  color: var(--accent-text);
 }
 
 .terms-of-service .tos-content .content-section .notice-box {
@@ -5819,7 +5820,7 @@ section,
 
 .terms-of-service .tos-content .content-section .notice-box i {
   font-size: 1.5rem;
-  color: var(--accent-color);
+  color: var(--accent-text);
   flex-shrink: 0;
 }
 
@@ -6000,7 +6001,7 @@ section,
   content: "•";
   position: absolute;
   left: 8px;
-  color: var(--accent-color);
+  color: var(--accent-text);
 }
 
 .privacy .privacy-contact {
@@ -6177,7 +6178,7 @@ section,
 
 .error-404 .error-actions .btn-primary:hover {
   background-color: transparent;
-  color: var(--accent-color);
+  color: var(--accent-text);
   transform: translateY(-2px);
 }
 
@@ -6202,7 +6203,7 @@ section,
 
 .error-404 .error-actions .btn-secondary:hover {
   border-color: var(--accent-color);
-  color: var(--accent-color);
+  color: var(--accent-text);
   transform: translateY(-2px);
 }
 
@@ -6252,13 +6253,13 @@ section,
 .error-404 .helpful-links .link-item:hover {
   transform: translateY(-4px);
   box-shadow: 0 8px 30px color-mix(in srgb, var(--default-color), transparent 90%);
-  color: var(--accent-color);
+  color: var(--accent-text);
   border-color: color-mix(in srgb, var(--accent-color), transparent 70%);
 }
 
 .error-404 .helpful-links .link-item i {
   font-size: 24px;
-  color: var(--accent-color);
+  color: var(--accent-text);
   transition: all 0.3s ease;
 }
 
@@ -6420,7 +6421,7 @@ section,
   margin: 0 auto;
 }
 .cookie-consent-text { margin: 0; flex: 1 1 300px; }
-.cookie-consent-text a { color: #C9A84C; text-decoration: underline; }
+.cookie-consent-text a { color: #7a5f1f; text-decoration: underline; }
 .cookie-consent-actions { display: flex; gap: 8px; }
 @media (max-width: 576px) {
   .cookie-consent-banner { padding: 12px 14px; font-size: 0.85rem; }
@@ -6583,6 +6584,10 @@ body.theme-dark img:not([src*=".svg"]),
   .floating-cta { bottom: 1rem !important; right: 1rem !important; }
 }
 
+/* Hide redundant "Agendar" CTA on pages already in booking flow */
+body.agendamento-page .floating-cta,
+body.meus-agendamentos-page .floating-cta { display: none !important; }
+
 /* Floating CTA group (Agendar + Meus Agendamentos) */
 .floating-cta-group {
   position: fixed;
@@ -6679,4 +6684,54 @@ body:not(.index-page) > .main { padding-top: 140px; }
 @media (max-width: 575.98px) {
   .booking-banner { padding: 3rem 0 6rem; }
   .booking-float { padding: 0 0.75rem 2rem; }
+}
+
+/* ═══ UNIFIED STATUS BADGE ═══ */
+.status-badge {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.22rem 0.65rem; border-radius: 999px;
+  font-weight: 700; font-size: 0.72rem;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  line-height: 1.4; white-space: nowrap;
+  border: 1px solid transparent;
+}
+.status-badge.status-size-md { font-size: 0.82rem; padding: 0.3rem 0.85rem; }
+.status-badge i { font-size: 0.75em; }
+.status-confirmado { background: #e8f5e9; color: #2e7d32; border-color: #c8e6c9; }
+.status-realizado  { background: #e3f2fd; color: #1565c0; border-color: #bbdefb; }
+.status-cancelado  { background: #fce4ec; color: #c62828; border-color: #f8bbd0; }
+.status-faltou     { background: #f3e5f5; color: #7b1fa2; border-color: #e1bee7; }
+.status-agendado   { background: #fff8e1; color: #b07a0f; border-color: #ffe7a3; }
+.status-pendente   { background: #fff3cd; color: #8b5c00; border-color: #ffe69c; }
+.status-default    { background: #f5f2ee; color: #6b6256; border-color: #e0dbd3; }
+
+/* ═══ REUSABLE EMPTY STATE ═══ */
+.empty-state {
+  text-align: center; padding: 3rem 1.5rem;
+  background: white; border-radius: 16px;
+  border: 1px dashed #e0dbd3;
+}
+.empty-state-icon {
+  font-size: 2.8rem; color: #7a5f1f; opacity: 0.65;
+  display: block; margin-bottom: 1rem;
+}
+.empty-state-title {
+  font-family: 'Playfair Display', serif;
+  font-weight: 700; font-size: 1.2rem; color: #3c4049;
+  margin: 0 0 0.4rem;
+}
+.empty-state-message {
+  color: #6b6256; font-size: 0.88rem;
+  max-width: 380px; margin: 0 auto 1.25rem;
+}
+.empty-state-action {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  background: #c9a84c; color: white;
+  padding: 0.55rem 1.25rem; border-radius: 999px;
+  font-weight: 700; font-size: 0.82rem;
+  text-decoration: none; transition: transform 0.15s, box-shadow 0.2s;
+}
+.empty-state-action:hover {
+  color: white; transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(201,168,76,0.35);
 }

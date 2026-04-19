@@ -30,6 +30,7 @@ def admin_pacotes(request):
     context = {
         'pacotes': pacotes,
         'procedimentos': Procedimento.objects.filter(ativo=True),
+        'clientes_ativos': Cliente.objects.filter(ativo=True).order_by('nome_completo'),
     }
     return render(request, 'painel/pacotes.html', context)
 

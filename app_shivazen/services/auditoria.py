@@ -25,8 +25,14 @@ class AuditoriaService:
         ip = client_ip(request) if request is not None else None
         detalhes_sanitizados = cls._sanitize(detalhes) if detalhes else {}
 
+        # Resolve usuario: param explicito > request.user autenticado > None (anonimo).
+        if usuario is None and request is not None:
+            req_user = getattr(request, 'user', None)
+            if req_user is not None and getattr(req_user, 'is_authenticated', False):
+                usuario = req_user
+
         return LogAuditoria.objects.create(
-            usuario=usuario or (getattr(request, 'user', None) if request else None),
+            usuario=usuario,
             acao=acao,
             tabela_afetada=tabela_afetada,
             id_registro_afetado=id_registro,

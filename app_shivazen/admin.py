@@ -169,6 +169,12 @@ class ClienteAdmin(admin.ModelAdmin):
                 'faltas_consecutivas', 'bloqueado_online',
             ),
         }),
+        ('Consents granulares (LGPD)', {
+            'fields': (
+                'consent_email_marketing', 'consent_email_marketing_at', 'consent_email_marketing_ip',
+                'consent_whatsapp_nps', 'consent_whatsapp_nps_at', 'consent_whatsapp_nps_ip',
+            ),
+        }),
         ('Metadados', {
             'classes': ('collapse',),
             'fields': ('criado_em', 'atualizado_em', 'deletado_em'),

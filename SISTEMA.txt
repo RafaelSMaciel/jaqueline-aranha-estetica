@@ -1,0 +1,493 @@
+================================================================================
+SHIVA ZEN — SISTEMA DE GESTAO DE CLINICA DE ESTETICA
+Especificacao Tecnica Detalhada
+================================================================================
+
+1. VISAO GERAL
+--------------------------------------------------------------------------------
+Plataforma web monolitica (Django 5.2.1 + Python 3.14) para gerenciamento
+completo de uma clinica de estetica de pequeno porte (~40 clientes/mes).
+Cobre agendamento publico sem login, portal do cliente, portal do profissional,
+painel administrativo, prontuario, pacotes de sessoes, NPS pos-atendimento,
+campanhas de email marketing com consent LGPD granular, e auditoria de
+operacoes sensiveis. Deploy alvo: Railway + Cloudflare + Postgres + Redis.
+
+Arquitetura: Django MVT classico, sem SPA. Templates server-rendered com
+progressive enhancement via fetch. PWA com service worker apenas para o
+painel administrativo. REST API v1 (DRF + drf-spectacular / OpenAPI) exposta
+em /api/ para futuras integracoes, mas o fluxo principal e HTTP+forms.
+
+
+2. DOMINIOS E MODELOS
+--------------------------------------------------------------------------------
+
+2.1 ACESSO (app_shivazen/models/acesso.py)
+- Usuario: AbstractBaseUser customizado. USERNAME_FIELD='email'.
+  Sem last_login (nao presente no schema). is_staff derivado de
+  perfil.nome=='Administrador'. Senha em campo 'senha_hash'.
+- Perfil / Funcionalidade / PerfilFuncionalidade: ACL baseada em perfis
+  (nao permissions nativas do Django). Administrador tem acesso total;
+  demais perfis filtram por funcionalidade.
+
+2.2 CLIENTE (app_shivazen/models/clientes.py)
+- Cliente: nome, telefone (unique), email, CPF, data_nascimento, endereco,
+  profissao. Soft-delete via deletado_em. aceita_comunicacao (consent
+  legado). unsubscribe_token (secrets.token_urlsafe(32), auto-gerado).
+- Consents granulares LGPD:
+    consent_email_marketing (+ _at, _ip)
+    consent_whatsapp_nps    (+ _at, _ip)
+    consent_lgpd            (aceite termo geral)
+  Cada consent armazena timestamp + IP de origem para prova de opt-in.
+- faltas_consecutivas + bloqueado_online: cliente com N faltas seguidas
+  e bloqueado para agendamento publico. resetar_faltas() chamado em
+  signal quando Atendimento vira REALIZADO.
+
+2.3 PROFISSIONAIS (app_shivazen/models/profissionais.py)
+- Profissional: ativo, especialidades, conselho_profissional.
+- DisponibilidadeProfissional: dia_semana (1-7) + hora_inicio/fim.
+  Multiplas janelas por dia suportadas.
+- BloqueioAgenda: intervalos especificos (ferias, afastamento).
+
+2.4 PROCEDIMENTOS (app_shivazen/models/procedimentos.py)
+- Procedimento: nome, duracao_minutos, categoria (FACIAL/CORPORAL/PRODUTOS),
+  slug publico, descricao.
+- ProfissionalProcedimento: M2M explicito (quem executa o que).
+- Preco: tabela com (procedimento, profissional NULL). Preco especifico
+  por profissional tem prioridade sobre preco base. Resolvido via
+  utils.precos.preco_para().
+- Promocao: nome, desconto_percentual, periodo de vigencia. Disparada
+  por staff via admin_disparar_promocao -> Celery job_promocao_mensal.
+
+2.5 AGENDAMENTOS (app_shivazen/models/agendamentos.py)
+- Atendimento: cliente, profissional, procedimento, data_hora_inicio/fim,
+  valor_cobrado, status. Maquina de estados:
+    PENDENTE -> AGENDADO -> CONFIRMADO -> REALIZADO
+                                        -> FALTOU (job 24h apos horario)
+                         -> CANCELADO
+                         -> REAGENDADO
+- Notificacao: tipo (LEMBRETE/NPS/CANCELAMENTO), canal (EMAIL/WHATSAPP/SMS),
+  token unico, status_envio, resposta_cliente. Token usado em links
+  publicos (confirmar/cancelar/NPS).
+- Indices compostos para queries hot:
+    idx_notif_nps_lookup (tipo, canal, status_envio, -criado_em)
+    idx_notif_atend_tipo (atendimento, tipo)
+
+2.6 PACOTES (app_shivazen/models/pacotes.py)
+- Pacote: nome, preco_total, validade_meses.
+- ItemPacote: (pacote, procedimento, quantidade_sessoes).
+- PacoteCliente: cliente compra pacote; status ATIVO/EXPIRADO/CANCELADO.
+- SessaoPacote: vincula atendimento_realizado -> pacote_cliente, abatendo
+  sessao disponivel. Job job_expirar_pacotes roda diariamente.
+
+2.7 PRONTUARIO (app_shivazen/models/prontuario.py)
+- Prontuario: 1:1 com Cliente.
+- ProntuarioPergunta: questionario customizavel (admin define perguntas).
+- ProntuarioResposta: (prontuario, pergunta, resposta_texto).
+- AnotacaoSessao: nota do profissional apos atendimento, visivel no
+  portal do profissional e prontuario do cliente.
+
+2.8 NPS (app_shivazen/models/nps.py)
+- AvaliacaoNPS: nota 0-10, comentario, vinculado a Atendimento.
+  Trigger: job_pesquisa_satisfacao_24h 24h apos status=REALIZADO.
+  Deduplicacao: nao sobrescreve avaliacao existente (anti-IDOR).
+  Detrator (nota <=6): job_alerta_detrator_nps notifica admin via email.
+
+2.9 LISTA DE ESPERA (app_shivazen/models/sistema.py::ListaEspera)
+- Cliente se inscreve para (procedimento, data_desejada, turno).
+- Quando slot abre, job_notificar_fila_espera notifica via email na
+  ordem criado_em. token_reserva + expira_em permitem reserva temporaria.
+
+2.10 LGPD / TERMOS (app_shivazen/models/termos.py)
+- VersaoTermo: tipo (LGPD/PROCEDIMENTO), versao, texto, ativa.
+  Toda alteracao cria nova versao (imutavel). Procedimento pode exigir
+  termo especifico (ex: laser exige TCLE).
+- AceitePrivacidade: cliente assina termo LGPD (uma versao de cada vez).
+- AssinaturaTermoProcedimento: assinatura TCLE por procedimento + versao.
+  Fluxo de booking detecta termos pendentes e envia email com link
+  publico /termo/<token>/ para assinatura antes do atendimento.
+
+2.11 SISTEMA (app_shivazen/models/sistema.py)
+- Feriado: (data, nome, escopo). Seeded via migration 0012 com feriados
+  nacionais fixos + moveis 2026-2027 (Paixao, Corpus Christi, Carnaval).
+  bloqueia_agendamento=True impede booking na data. Management command
+  carregar_feriados permite popular anos adicionais.
+- LogAuditoria: usuario (NULL para anonimo), acao, tabela_afetada,
+  id_registro_afetado, detalhes (JSONField sanitizado), ip_origem.
+  AuditoriaService aplica PII masking (email/cpf/telefone) antes de
+  persistir.
+- CodigoVerificacao: OTP legado via telefone. Mantido para DSAR.
+- OtpCode: OTP moderno por email/SMS com hash SHA-256 do codigo
+  (nao armazena codigo em claro). TTL/MAX_TENTATIVAS/REENVIO_MINIMO_SEG
+  configuraveis via env. Consumo atomico com select_for_update
+  skip_locked em Postgres; silenciosamente ignorado em SQLite.
+- ConfiguracaoSistema: key-value store para configs editaveis pelo admin
+  (email_admin, cooldown entre agendamentos, etc).
+
+
+3. AUTENTICACAO E AUTORIZACAO
+--------------------------------------------------------------------------------
+Tres perfis distintos:
+
+3.1 CLIENTE FINAL (anonimo ou autenticado via OTP email)
+- Agendamento publico sem login (fluxo principal).
+- "Meus Agendamentos": login por OTP enviado ao email cadastrado.
+  Sessao curta (30min) armazenada em request.session.
+- Rate limit por IP e por email (django_ratelimit + cache Redis).
+
+3.2 PROFISSIONAL (django auth tradicional)
+- Usuario vinculado a Profissional via FK OneToOne.
+- Acesso a /profissional/: agenda propria, aprovar/rejeitar PENDENTE,
+  marcar REALIZADO, adicionar anotacoes.
+- decorator @profissional_required verifica login + vinculo.
+
+3.3 ADMIN STAFF (django auth + perfil=Administrador)
+- URL de login oculta (/admin-login/, nao /admin/).
+- django-axes: lockout apos 5 tentativas em 1h.
+- Password reset por email com token temporario (Django padrao).
+- Acesso total ao painel: /painel/*.
+- decorator @staff_required.
+
+MFA: nao implementado. 40 clientes/mes nao justifica ainda.
+
+
+4. FLUXO PRINCIPAL — AGENDAMENTO PUBLICO
+--------------------------------------------------------------------------------
+
+4.1 Selecao (view agendamento_publico)
+- Cliente escolhe procedimento -> profissional -> data -> horario.
+- Endpoints AJAX:
+    /ajax/dias-disponiveis/    retorna dias com slots livres (7 dias)
+    /ajax/horarios-disponiveis retorna slots de 30min do dia escolhido
+- Disponibilidade calculada dinamicamente:
+    DisponibilidadeProfissional (grade semanal)
+    - BloqueioAgenda (intervalos especificos)
+    - Atendimentos existentes (PENDENTE/AGENDADO/CONFIRMADO)
+    - Feriado bloqueia_agendamento=True
+    - Preferencia do cliente + duracao do procedimento
+
+4.2 Identificacao (view solicitar_otp_agendamento)
+- Cliente informa email -> sistema gera OTP 6 digitos.
+- Cliente existente (email cadastrado) exige OTP verificado para
+  confirmar; cliente novo nao precisa (anti-fricao), mas o email recebe
+  confirmacao.
+- OTP enviado via utils.email.enviar_codigo_otp_email (template MJML).
+- Turnstile (Cloudflare CAPTCHA) validado antes do envio.
+
+4.3 Confirmacao (view confirmar_agendamento)
+Sequencia de validacoes:
+  a) Honeypot (campo website oculto).
+  b) Turnstile CAPTCHA.
+  c) Campos obrigatorios.
+  d) OTP verificado (se email ja existia).
+  e) Parse data_nascimento, idade >= 18.
+  f) Feriado/recesso (defesa em profundidade alem da listagem).
+  g) Slot lock via cache.add(key, timeout=30) para mitigar double-click.
+  h) transaction.atomic:
+       - get_or_create(Cliente) com select_for_update.
+       - Update granular (nome, email, consents) se cliente existia.
+       - Conflict check com select_for_update em Atendimento
+         (intersecao de horarios).
+       - create(Atendimento, status=PENDENTE).
+       - create(Notificacao) para termo pendente, se houver.
+  i) Dispara emails via Celery send_email_async.delay() com fallback
+     sincrono se broker indisponivel:
+       - enviar_termos_pendentes_email (se aplicavel)
+       - enviar_confirmacao_agendamento_email (cliente)
+       - enviar_aprovacao_profissional_email (profissional aprova)
+  j) Limpa OTP da sessao, redireciona /agendamento/sucesso/.
+
+4.4 Aprovacao (profissional)
+- Profissional acessa /profissional/, ve PENDENTES.
+- aprovar_agendamento -> status=AGENDADO + email de confirmacao final.
+- rejeitar_agendamento -> status=CANCELADO + email de cancelamento.
+
+4.5 D-1 (celery beat)
+- job_enviar_lembrete_dia_seguinte roda em horario fixo (ex: 18h).
+- Para cada Atendimento AGENDADO de amanha com cliente.telefone:
+  WhatsApp Cloud API template 'confirmacao_d1' com links
+  /confirmar/<token>/?acao=confirmar e ?acao=cancelar.
+- Cliente clica -> view confirmar_presenca atualiza status para
+  CONFIRMADO ou CANCELADO.
+
+4.6 Pos-atendimento
+- Profissional marca REALIZADO.
+- 24h depois, job_pesquisa_satisfacao_24h envia NPS via WhatsApp
+  template 'nps_pos_atendimento' (apenas clientes com
+  consent_whatsapp_nps=True).
+- Alternativa: link web /nps/<token>/ com TTL 7 dias (410 Gone apos).
+- NPS <=6 dispara job_alerta_detrator_nps -> email para admin.
+
+
+5. COMUNICACAO MULTICANAL
+--------------------------------------------------------------------------------
+Estrategia definida em 2026-04-18:
+
+5.1 EMAIL (utils/email.py)
+- Todos os transacionais: OTP, confirmacao, cancelamento, pacotes,
+  fila de espera, aniversario, aprovacao profissional, termos pendentes,
+  NPS fallback, alertas admin.
+- Marketing (promocao, aniversario): headers RFC 8058:
+    List-Unsubscribe: <https://.../lgpd/unsubscribe/<token>/>, <mailto:...>
+    List-Unsubscribe-Post: List-Unsubscribe=One-Click
+- Preheader support via contexto de template.
+- EmailMultiAlternatives (text + HTML).
+- narrow exceptions: (smtplib.SMTPException, OSError).
+
+5.2 WHATSAPP (utils/whatsapp.py)
+- Apenas 2 templates aprovados no Meta Business (UTILITY/MARKETING):
+    confirmacao_d1      (D-1 lembrete)
+    nps_pos_atendimento (NPS 24h apos REALIZADO)
+- Messaging via Cloud API (graph.facebook.com/v18.0).
+- Webhook /api/whatsapp/webhook/:
+    HMAC-SHA256 via X-Hub-Signature-256 (fail-closed sem secret em prod).
+    Parseia resposta numerica 0-10 -> grava AvaliacaoNPS.
+    Valida Notificacao NPS existente para o telefone (anti-IDOR).
+- Retry exponencial (2^n) em timeouts 5xx.
+
+5.3 SMS (utils/sms.py)
+- Provider Zenvia REST API v2 (X-API-TOKEN).
+- Uso restrito: OTP como canal primario (email fallback).
+- Rate limit tri-layer via cache:
+    SMS_MAX_POR_TELEFONE (10/h)
+    SMS_MAX_POR_IP       (5/h)
+    SMS_MAX_GLOBAL       (100/h)
+- Webhook /api/zenvia/webhook/: IP allowlist com CIDR matching
+  (ZENVIA_ALLOWED_IPS env) + HMAC opcional.
+
+5.4 FILA ASSINCRONA (Celery)
+- Broker: Redis (REDIS_URL env).
+- Tasks com @shared_task(bind=True, max_retries=3, default_retry_delay=60).
+- send_email_async task generica com autoretry_for=(Exception,),
+  retry_backoff=True. Chamada como .delay() com fallback sincrono se
+  broker indisponivel (dev local sem Redis).
+- Beat schedule (shivazen/settings/base.py::CELERY_BEAT_SCHEDULE):
+    02:00  job_limpeza_status_atendimentos  (marca FALTOU apos 24h)
+    06:00  job_expirar_pacotes
+    08:00  job_aniversario_clientes         (consent_email_marketing)
+    09:00  job_verificar_pacotes_expirando  (7d e 1d antes)
+    10:00  job_pesquisa_satisfacao_24h
+    18:00  job_enviar_lembrete_dia_seguinte
+    --:15  job_alerta_detrator_nps          (hourly)
+    03:00  job_lgpd_purgar_inativos         (weekly Monday)
+
+
+6. SEGURANCA
+--------------------------------------------------------------------------------
+
+6.1 HEADERS (middleware customizada)
+- ContentSecurityPolicyMiddleware: CSP com nonce por request.
+  Inline scripts assinados; externals restritos a Turnstile, CDN jsdelivr,
+  Google Fonts.
+- SecurityHeadersMiddleware: X-Content-Type-Options nosniff,
+  Referrer-Policy same-origin, Permissions-Policy restritiva.
+- SecurityMiddleware (Django): HSTS em prod, SECURE_SSL_REDIRECT,
+  SESSION_COOKIE_SECURE, CSRF_COOKIE_SECURE, SECURE_BROWSER_XSS_FILTER.
+- SECURE_PROXY_SSL_HEADER=('HTTP_X_FORWARDED_PROTO', 'https') para
+  Cloudflare/Railway.
+
+6.2 AUTENTICACAO
+- django-axes: 5 tentativas em 1h -> lockout 1h. Key: username+IP.
+- Password reset: tokens Django com TTL 24h.
+- Sessoes: cookies HTTPOnly, SameSite=Lax, Secure em prod.
+- force_login apenas via staff_required ou profissional_required.
+
+6.3 PROTECAO CONTRA ABUSO
+- django_ratelimit em views sensiveis:
+    agendamento publico: 5/h por IP + 3/h por telefone
+    OTP solicitar:       3/h por IP + 2/h por email
+    LGPD meus_dados:     10/h por IP + 5/h por telefone
+    unsubscribe:         5/m por IP
+- Turnstile CAPTCHA em forms publicos (booking, OTP, lista espera).
+- Honeypot fields em forms criticos.
+- Slot locking via cache para prevenir race conditions em booking.
+
+6.4 WEBHOOKS (defense-in-depth)
+- WhatsApp: IP allowlist do Meta + HMAC SHA-256 obrigatorio em prod.
+- Zenvia: IP allowlist com CIDR + HMAC.
+- Fail-closed: sem secret configurado em prod retorna 403.
+
+6.5 PII / DADOS SENSIVEIS
+- AuditoriaService aplica masking automatico em campos sensiveis
+  antes de persistir em log_auditoria:
+    email   -> a***@gmail.com
+    cpf     -> ***.123.456-**
+    telefone -> ***9999
+    senha/password -> ***
+- Logger utils.security.mask_* usado em info/warning logs.
+- Anonimizacao via LgpdService.esquecer_cliente (direito ao esquecimento).
+- Purge automatico de clientes inativos ha 2 anos (configurable).
+
+6.6 CORS / CSRF
+- CSRF obrigatorio em todas as views POST.
+- CORS nao habilitado (monolito, sem frontend separado).
+- CSRF_TRUSTED_ORIGINS configuravel via env (multi-dominio).
+
+
+7. LGPD
+--------------------------------------------------------------------------------
+
+7.1 BASE LEGAL
+- Transacional (lembrete de agendamento, confirmacao, etc):
+  execucao de contrato -> nao exige consent especifico.
+- Marketing (promocoes, aniversario): consent_email_marketing=True exigido.
+- NPS via WhatsApp: consent_whatsapp_nps=True exigido (outside 24h
+  service window + estrategia Meta de opt-in explicito).
+- Cada consent armazena timestamp + IP para prova.
+
+7.2 DSAR (Data Subject Access Request) — /lgpd/meus-dados/
+- Cliente informa telefone -> OTP enviado.
+- Verificacao -> exporta JSON com: dados pessoais, preferencias,
+  atendimentos, avaliacoes NPS. Formato application/json attachment.
+- Auditado em log_auditoria.
+
+7.3 UNSUBSCRIBE — /lgpd/unsubscribe/<token>/
+- RFC 8058 one-click: GET e POST ambos marcam opt-out.
+- Limpa TRES flags:
+    aceita_comunicacao = False (legado)
+    consent_email_marketing = False
+    consent_whatsapp_nps = False
+- Auditado.
+
+7.4 COOKIES — /lgpd/aceitar-cookies/
+- Banner granular com 3 categorias: essential (sempre), analytics, marketing.
+- Preferencias salvas em session + cookie signed.
+
+7.5 RETENCAO
+- Clientes inativos ha 2 anos (RETENCAO_CLIENTE_INATIVO_DIAS):
+  anonimizacao automatica via job_lgpd_purgar_inativos (weekly).
+  Nome -> [ANONIMIZADO-<pk>], PII nullificada, soft-delete.
+- LogAuditoria: retencao de 1 ano (nao purgado automaticamente ainda).
+
+
+8. INTEGRACOES EXTERNAS
+--------------------------------------------------------------------------------
+- Meta WhatsApp Cloud API: templates UTILITY/MARKETING.
+- Zenvia SMS REST v2: OTP primario.
+- Cloudflare Turnstile: CAPTCHA invisible.
+- SMTP: SendGrid/AWS SES via Django EmailBackend padrao.
+- Sentry: error tracking com sentry-sdk[django].
+- Redis: cache + Celery broker + session store + ratelimit backend.
+- Postgres: database principal (psycopg2-binary).
+
+
+9. OBSERVABILIDADE
+--------------------------------------------------------------------------------
+
+9.1 HEALTH CHECKS
+- /health/   readiness: checa DB (SELECT 1) + cache (SET/GET probe).
+             Opcional celery ping via ?celery=1. 200 ok / 503 degraded.
+- /healthz/  liveness: sempre 200 (processo vivo, sem checar deps).
+
+9.2 LOGGING
+- Python logging com python-json-logger em prod (structured JSON).
+- Nivel INFO em prod, DEBUG em dev.
+- sensitive fields mascarados antes de log.
+
+9.3 AUDITORIA
+- Todas as operacoes staff passam por AuditoriaService.registrar.
+- Painel /painel/auditoria/ com filtros por usuario, tabela, data.
+
+
+10. INFRAESTRUTURA
+--------------------------------------------------------------------------------
+
+10.1 DEPLOY (Railway)
+- Dockerfile: python:3.14-slim, gunicorn --workers 2.
+- Procfile:
+    web:    gunicorn shivazen.wsgi
+    worker: celery -A shivazen worker -l info
+    beat:   celery -A shivazen beat -l info
+- railway.json: healthcheckPath=/health/, restart on failure.
+
+10.2 SETTINGS
+- shivazen/settings/base.py: common.
+- shivazen/settings/dev.py:  DEBUG=True, console email, sqlite3.
+- shivazen/settings/prod.py: DEBUG=False, Postgres, Redis obrigatorio,
+  SMTP configurado, SECURE_* flags ativadas.
+- Selecao via DJANGO_ENV env var (default: dev).
+
+10.3 STATIC FILES
+- WhiteNoise serve /static/ em prod (sem CDN separado).
+- STATIC_ROOT=staticfiles/, coletado via manage.py collectstatic.
+
+10.4 PWA
+- /manifest.json e /sw.js servidos por TemplateView.
+- Install prompt apenas no painel admin (iOS/Android).
+- Service worker com workbox (precache + runtime cache de assets).
+
+
+11. REST API (/api/)
+--------------------------------------------------------------------------------
+- DRF + drf-spectacular para OpenAPI 3 schema.
+- Endpoints documentados em /api/schema/ e /api/schema/redoc/.
+- Uso atual: readonly para integracoes futuras. Principal fluxo ainda
+  e HTML server-rendered.
+- Token auth (SimpleJWT nao usado; apenas session auth por enquanto).
+
+
+12. TESTES
+--------------------------------------------------------------------------------
+- 135 tests em app_shivazen/tests/ (pytest ou manage.py test).
+- Coverage areas:
+    Security: CSRF, axes lockout, rate limit, webhook HMAC, honeypot
+    Integration: booking full flow, reaproveitamento de cliente, NPS
+    Units: models str, validators, cliente faltas, token expiry
+    LGPD: DSAR export, unsubscribe one-click
+    Celery: job_expirar_pacotes com freezegun
+- Tests usam SQLite in-memory (file:memorydb_default?mode=memory&cache=shared).
+- Override RATELIMIT_ENABLE=False + CELERY_TASK_ALWAYS_EAGER em tests.
+
+
+13. VARIAVEIS DE AMBIENTE OBRIGATORIAS (producao)
+--------------------------------------------------------------------------------
+DJANGO_SECRET_KEY               chave secreta (obrigatoria em prod)
+DEBUG=False
+ALLOWED_HOSTS                   dominios separados por virgula
+CSRF_TRUSTED_ORIGINS            urls com esquema (https://...)
+DATABASE_URL                    postgres://user:pw@host/db
+REDIS_URL                       redis://...
+DJANGO_ENV=prod
+SECURE_SSL_REDIRECT=True
+DEFAULT_FROM_EMAIL              noreply@dominio
+EMAIL_HOST + EMAIL_HOST_USER/PASSWORD + EMAIL_PORT (SMTP)
+SITE_URL                        https://dominio
+CLINIC_NAME                     nome comercial
+WHATSAPP_TOKEN + WHATSAPP_PHONE_ID + WHATSAPP_APP_SECRET
+WHATSAPP_TEMPLATE_D1 + WHATSAPP_TEMPLATE_NPS
+ZENVIA_API_TOKEN + ZENVIA_FROM + ZENVIA_ALLOWED_IPS
+TURNSTILE_SITE_KEY + TURNSTILE_SECRET_KEY
+SENTRY_DSN
+ADMIN_EMAIL                     destino de alertas detrator
+
+Opcionais com default sensato:
+OTP_TTL_SEGUNDOS=600
+OTP_MAX_TENTATIVAS=5
+OTP_REENVIO_MINIMO_SEG=60
+SMS_MAX_POR_TELEFONE_HORA=10
+SMS_MAX_POR_IP_HORA=5
+SMS_MAX_GLOBAL_HORA=100
+
+
+14. ESCALA E LIMITES CONHECIDOS
+--------------------------------------------------------------------------------
+Dimensionado para ~40 clientes/mes (clinica pequena single-tenant).
+NAO implementado (fora de escopo para esta escala):
+- Multi-tenancy.
+- Read replicas / sharding.
+- Dead-letter queue para Celery.
+- Distributed tracing (OpenTelemetry).
+- Feature flags.
+- A/B testing.
+- CDN para static assets.
+- Lighthouse/performance budgets em CI.
+
+Se crescer alem de ~500 clientes/mes, prioridades:
+1. Migrar cache de IP-based ratelimit para token bucket dedicado.
+2. Separar worker de email alta-prioridade vs marketing.
+3. Adicionar OpenTelemetry.
+4. CDN (Cloudflare R2 ou similar) para assets.
+5. Indexes adicionais conforme profiling.
+
+================================================================================
+FIM
+================================================================================

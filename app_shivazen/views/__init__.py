@@ -23,6 +23,7 @@ from .admin_promotions import (
     admin_editar_promocao,
     admin_excluir_promocao,
     admin_promocoes,
+    admin_disparar_promocao,
 )
 from .dashboard import (
     painel, painel_overview, painel_agendamentos, painel_clientes,
@@ -43,7 +44,7 @@ from .booking_api import (
     buscar_procedimentos,
     buscar_horarios,
 )
-from .whatsapp import whatsapp_webhook
+from .whatsapp import whatsapp_webhook, zenvia_sms_webhook
 from .notificacoes import confirmar_presenca, painel_notificacoes, admin_cancelar_agendamento
 from .prontuario import prontuario_detalhe, prontuario_salvar, anotacao_sessao_salvar
 from .pacotes import admin_pacotes, admin_criar_pacote, admin_editar_pacote, admin_vender_pacote
@@ -52,6 +53,7 @@ from .admin_management import (
     admin_procedimentos, admin_criar_procedimento, admin_editar_procedimento,
     admin_cliente_detalhe, admin_lista_espera, admin_notificar_espera,
     nps_web, admin_termos, admin_criar_termo, termo_assinatura,
+    admin_email_preview,
 )
 from .profissional import (
     agenda as profissional_agenda,
@@ -60,5 +62,5 @@ from .profissional import (
     aprovar_agendamento as profissional_aprovar,
     rejeitar_agendamento as profissional_rejeitar,
 )
-from .health import healthcheck
+from .health import healthcheck, liveness
 from .lgpd import meus_dados as lgpd_meus_dados, unsubscribe as lgpd_unsubscribe, aceitar_cookies as lgpd_aceitar_cookies

@@ -1,11 +1,13 @@
 """Views para prontuario, anamnese e termos de consentimento."""
 import logging
+from functools import wraps
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
-from ..decorators import staff_required
 from ..models import (
     AceitePrivacidade,
     AnotacaoSessao,
@@ -22,7 +24,49 @@ from ..utils.audit import registrar_log
 logger = logging.getLogger(__name__)
 
 
-@staff_required
+def _usuario_pode_ver_prontuario(user, cliente):
+    """Admin OU profissional que ja atendeu o cliente."""
+    if not user.is_authenticated:
+        return False
+    if user.is_staff:
+        return True
+    prof = getattr(user, 'profissional', None)
+    if not prof or not prof.ativo:
+        return False
+    return Atendimento.objects.filter(cliente=cliente, profissional=prof).exists()
+
+
+from ..utils.security import client_ip
+
+
+def _ip_request(request):
+    return client_ip(request) or None
+
+
+def prontuario_access_required(view_func):
+    """Autoriza acesso ao prontuario e registra cada leitura/edicao em LogAuditoria (LGPD)."""
+    @wraps(view_func)
+    @login_required
+    def _wrapped(request, cliente_id, *args, **kwargs):
+        cliente = get_object_or_404(Cliente, pk=cliente_id)
+        if not _usuario_pode_ver_prontuario(request.user, cliente):
+            registrar_log(
+                request.user, f'Acesso NEGADO a prontuario de {cliente.nome_completo}',
+                tabela='prontuario', id_registro=cliente.pk,
+                detalhes={'ip': _ip_request(request), 'motivo': 'sem vinculo de atendimento'},
+            )
+            raise PermissionDenied('Acesso ao prontuario restrito a admin ou profissional que ja atendeu o cliente.')
+        registrar_log(
+            request.user, f'Acessou prontuario de {cliente.nome_completo}',
+            tabela='prontuario', id_registro=cliente.pk,
+            detalhes={'ip': _ip_request(request), 'view': view_func.__name__},
+        )
+        request._cliente_prontuario = cliente
+        return view_func(request, cliente_id, *args, **kwargs)
+    return _wrapped
+
+
+@prontuario_access_required
 def prontuario_detalhe(request, cliente_id):
     """Detalhe do prontuario de um cliente com formulario de anamnese."""
     cliente = get_object_or_404(Cliente, pk=cliente_id)
@@ -63,7 +107,7 @@ def prontuario_detalhe(request, cliente_id):
     return render(request, 'painel/prontuario_detalhe.html', context)
 
 
-@staff_required
+@prontuario_access_required
 def prontuario_salvar(request, cliente_id):
     """Salva dados de anamnese do prontuario."""
     if request.method != 'POST':
@@ -97,13 +141,26 @@ def prontuario_salvar(request, cliente_id):
     return redirect('shivazen:prontuario_detalhe', cliente_id=cliente_id)
 
 
-@staff_required
+@login_required
 def anotacao_sessao_salvar(request, atendimento_id):
-    """Adiciona anotacao clinica a um atendimento."""
+    """Adiciona anotacao clinica a um atendimento — admin ou profissional do atendimento."""
     if request.method != 'POST':
         return JsonResponse({'erro': 'Metodo nao permitido'}, status=405)
 
     atendimento = get_object_or_404(Atendimento, pk=atendimento_id)
+    user = request.user
+    autorizado = user.is_staff
+    if not autorizado:
+        prof = getattr(user, 'profissional', None)
+        autorizado = bool(prof and prof.ativo and atendimento.profissional_id == prof.pk)
+    if not autorizado:
+        registrar_log(
+            user, f'Tentativa NEGADA de anotar atendimento {atendimento_id}',
+            tabela='anotacao_sessao', id_registro=atendimento_id,
+            detalhes={'ip': _ip_request(request)},
+        )
+        return JsonResponse({'erro': 'Sem permissao'}, status=403)
+
     texto = request.POST.get('texto', '').strip()
 
     if not texto:

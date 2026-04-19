@@ -37,10 +37,15 @@
         <div class="col-8 col-md-9">
             <input type="text" name="search" class="form-control form-control-sm" placeholder="Buscar por nome, CPF, email ou telefone..." value="{{ search }}" style="border-radius:10px;">
         </div>
-        <div class="col-4 col-md-3">
-            <button type="submit" class="btn btn-sm w-100" style="background:#C9A84C;color:white;border-radius:10px;font-weight:700;">
+        <div class="col-4 col-md-3 d-flex gap-1">
+            <button type="submit" class="btn btn-sm flex-grow-1" style="background:#C9A84C;color:white;border-radius:10px;font-weight:700;">
                 <i class="fas fa-search me-1"></i>Buscar
             </button>
+            {% if search %}
+            <a href="{% url 'shivazen:painel_clientes' %}" class="btn btn-sm btn-outline-secondary" style="border-radius:10px;" title="Limpar" aria-label="Limpar busca">
+                <i class="fas fa-times"></i>
+            </a>
+            {% endif %}
         </div>
     </form>
 </div>

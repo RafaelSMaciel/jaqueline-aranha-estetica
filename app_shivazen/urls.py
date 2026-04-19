@@ -75,6 +75,7 @@ urlpatterns = [
     path('painel/promocoes/criar/', views.admin_criar_promocao, name='admin_criar_promocao'),
     path('painel/promocoes/<int:pk>/editar/', views.admin_editar_promocao, name='admin_editar_promocao'),
     path('painel/promocoes/<int:pk>/excluir/', views.admin_excluir_promocao, name='admin_excluir_promocao'),
+    path('painel/promocoes/<int:pk>/disparar/', views.admin_disparar_promocao, name='admin_disparar_promocao'),
 
 
     # ─── Notificações ───
@@ -125,6 +126,10 @@ urlpatterns = [
     # ─── Status Update (AJAX) ───
     path('painel/atualizar-status/', views.admin_atualizar_status, name='admin_atualizar_status'),
 
+    # ─── Email Preview (staff debug) ───
+    path('painel/email-preview/', views.admin_email_preview, name='admin_email_preview'),
+    path('painel/email-preview/<str:nome>/', views.admin_email_preview, name='admin_email_preview_nome'),
+
     # ─── AJAX ───
     path('ajax/buscar-procedimentos/', views.buscar_procedimentos, name='buscar_procedimentos'),
     path('ajax/buscar-horarios/', views.buscar_horarios, name='buscar_horarios'),
@@ -142,10 +147,12 @@ urlpatterns = [
     path('profissional/atendimento/<int:pk>/rejeitar/', views.profissional_rejeitar, name='profissional_rejeitar'),
 
     # ─── Healthcheck ───
-    path('health/', views.healthcheck, name='healthcheck'),
+    path('health/', views.healthcheck, name='healthcheck'),       # readiness
+    path('healthz/', views.liveness, name='liveness'),            # liveness
 
     # ─── WhatsApp Bot API ───
     path('api/whatsapp/webhook/', views.whatsapp_webhook, name='whatsapp_webhook'),
+    path('api/zenvia/webhook/', views.zenvia_sms_webhook, name='zenvia_sms_webhook'),
     # ─── PWA (Admin) ───
     path('manifest.json', TemplateView.as_view(template_name='pwa/manifest.json', content_type='application/json'), name='manifest'),
     path('sw.js', TemplateView.as_view(template_name='pwa/sw.js', content_type='application/javascript'), name='sw'),

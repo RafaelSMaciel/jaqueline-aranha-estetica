@@ -1,11 +1,14 @@
 """
 WhatsApp Notification Service — Plataforma de Clinicas
 
-Canal WhatsApp usado APENAS para:
-  - Lembrete D-1 (com link de confirmacao/cancelamento)
-  - Pesquisa NPS (24h apos atendimento)
+Canal WhatsApp usado APENAS para (conforme estrategia aprovada 2026-04-18):
+  - Confirmacao D-1 (lembrete com link de confirmacao/cancelamento)
+  - Pesquisa NPS (24h apos atendimento REALIZADO)
 
-Demais mensagens vao por email (OTP, confirmacao, cancelamento, pacotes, fila).
+Todas as demais mensagens usam EMAIL:
+  OTP, confirmacao pos-agendamento, cancelamento, pacotes, fila,
+  aniversario, aprovacao profissional, termos pendentes.
+Notificacoes para admin usam EMAIL ou painel interno (nao WhatsApp).
 """
 import os
 import logging
@@ -28,6 +31,10 @@ SITE_URL = os.environ.get('SITE_URL', 'http://127.0.0.1:8000')
 CLINIC_NAME = os.environ.get('CLINIC_NAME', 'Shiva Zen')
 MAX_RETRIES = 3
 
+# Nomes dos templates aprovados no Meta Business API
+TEMPLATE_CONFIRMACAO_D1 = os.environ.get('WHATSAPP_TEMPLATE_D1', 'confirmacao_d1')
+TEMPLATE_NPS = os.environ.get('WHATSAPP_TEMPLATE_NPS', 'nps_pos_atendimento')
+
 
 def gerar_token():
     """Gera token unico para link de confirmacao."""
@@ -46,9 +53,10 @@ def formatar_telefone(telefone):
 
 def enviar_whatsapp(telefone, mensagem, _tentativa=1):
     """
-    Envia mensagem via WhatsApp.
+    Envia mensagem free-form via WhatsApp Cloud API.
+    Uso restrito a janela de 24h apos interacao do cliente.
+    Para mensagens iniciadas pela clinica, usar enviar_template_whatsapp.
     Em dev (sem token), apenas loga.
-    Em prod (com token), usa a API configurada com retry exponencial.
     """
     telefone_formatado = formatar_telefone(telefone)
 
@@ -102,20 +110,24 @@ def enviar_whatsapp(telefone, mensagem, _tentativa=1):
             return enviar_whatsapp(telefone, mensagem, _tentativa=_tentativa + 1)
         logger.error('[WHATSAPP] Timeout apos %d tentativas', MAX_RETRIES)
         return False
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
         logger.error(f'[WHATSAPP] Falha ao enviar: {e}')
         return False
 
 
 def enviar_template_whatsapp(telefone, template_name, components=None):
-    """Envia mensagem via template pre-aprovado no Meta Business API."""
+    """Envia mensagem via template pre-aprovado no Meta Business API.
+
+    components: lista no formato WhatsApp Cloud API, ex:
+      [{'type': 'body', 'parameters': [{'type': 'text', 'text': 'Joao'}]}]
+    """
     telefone_formatado = formatar_telefone(telefone)
 
     if not WHATSAPP_TOKEN or settings.DEBUG:
         from .precos import mask_telefone
         logger.info(
-            '[WHATSAPP DEV] Template "%s" para: %s',
-            template_name, mask_telefone(telefone_formatado),
+            '[WHATSAPP DEV] Template "%s" para: %s | components: %s',
+            template_name, mask_telefone(telefone_formatado), components,
         )
         return True
 
@@ -144,17 +156,25 @@ def enviar_template_whatsapp(telefone, template_name, components=None):
         else:
             logger.error('[WHATSAPP] Template erro %d: %s', response.status_code, response.text[:200])
             return False
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
         logger.error('[WHATSAPP] Falha ao enviar template: %s', e)
         return False
 
 
-# ─── MENSAGENS ESPECIFICAS (WhatsApp apenas D-1 e NPS) ───
+# ─── MENSAGENS PERMITIDAS (WhatsApp apenas D-1 e NPS) ───
 
-def enviar_lembrete_agendamento(atendimento):
+def enviar_confirmacao_d1(atendimento):
     """
-    Lembrete D-1 via WhatsApp com link de confirmacao/cancelamento.
-    UNICA mensagem de lembrete (sem lembrete 2h).
+    Lembrete/confirmacao D-1 via WhatsApp com link de confirmacao/cancelamento.
+    Usa template aprovado TEMPLATE_CONFIRMACAO_D1 (categoria UTILITY).
+    Parametros do template (ordem):
+      {{1}} nome do cliente
+      {{2}} data formatada (dd/mm/aaaa)
+      {{3}} hora formatada (HH:MM)
+      {{4}} procedimento
+      {{5}} profissional
+      {{6}} link confirmar
+      {{7}} link cancelar
     """
     from ..models import Notificacao
 
@@ -166,89 +186,70 @@ def enviar_lembrete_agendamento(atendimento):
     data_formatada = atendimento.data_hora_inicio.strftime('%d/%m/%Y')
     hora_formatada = atendimento.data_hora_inicio.strftime('%H:%M')
 
-    mensagem = (
-        f"Ola {atendimento.cliente.nome_completo}! "
-        f"Lembrando do seu agendamento no {CLINIC_NAME}:\n\n"
-        f"Procedimento: {atendimento.procedimento.nome}\n"
-        f"Data: {data_formatada} as {hora_formatada}\n"
-        f"Profissional: {atendimento.profissional.nome}\n\n"
-        f"Confirmar presenca:\n{link_confirmar}\n\n"
-        f"Precisa remarcar?\n{link_cancelar}\n\n"
-        f"{CLINIC_NAME}"
+    components = [{
+        'type': 'body',
+        'parameters': [
+            {'type': 'text', 'text': atendimento.cliente.nome_completo},
+            {'type': 'text', 'text': data_formatada},
+            {'type': 'text', 'text': hora_formatada},
+            {'type': 'text', 'text': atendimento.procedimento.nome},
+            {'type': 'text', 'text': atendimento.profissional.nome},
+            {'type': 'text', 'text': link_confirmar},
+            {'type': 'text', 'text': link_cancelar},
+        ],
+    }]
+
+    sucesso = enviar_template_whatsapp(
+        atendimento.cliente.telefone, TEMPLATE_CONFIRMACAO_D1, components
     )
 
-    sucesso = enviar_whatsapp(atendimento.cliente.telefone, mensagem)
+    mensagem_preview = (
+        f'[Template {TEMPLATE_CONFIRMACAO_D1}] '
+        f'{atendimento.cliente.nome_completo} / '
+        f'{data_formatada} {hora_formatada} / '
+        f'{atendimento.procedimento.nome} c/ {atendimento.profissional.nome}'
+    )
 
-    notif = Notificacao.objects.create(
+    return Notificacao.objects.create(
         atendimento=atendimento,
         tipo='LEMBRETE',
         canal='WHATSAPP',
         status_envio='ENVIADO' if sucesso else 'FALHOU',
         token=token,
         enviado_em=timezone.now(),
-        mensagem=mensagem,
+        mensagem=mensagem_preview,
     )
 
-    return notif
 
+def enviar_nps_whatsapp(atendimento, link_nps, token_notif):
+    """Envia pesquisa NPS via WhatsApp (template MARKETING/UTILITY aprovado).
 
-def enviar_confirmacao_admin(atendimento, acao, telefone_admin=None):
-    """Notifica o admin quando um cliente confirma ou cancela."""
-    data_formatada = atendimento.data_hora_inicio.strftime('%d/%m/%Y as %H:%M')
-    emoji = "Confirmou" if acao == 'CONFIRMOU' else "CANCELOU"
-
-    mensagem = (
-        f"[{CLINIC_NAME} - NOTIFICACAO ADMIN]\n\n"
-        f"Cliente: {atendimento.cliente.nome_completo}\n"
-        f"Procedimento: {atendimento.procedimento.nome}\n"
-        f"Data: {data_formatada}\n"
-        f"Profissional: {atendimento.profissional.nome}\n\n"
-        f"Status: {emoji}\n"
-        f"Telefone: {atendimento.cliente.telefone}"
-    )
-
-    from ..models import ConfiguracaoSistema
-    if not telefone_admin:
-        config = ConfiguracaoSistema.objects.filter(chave='whatsapp_admin').first()
-        telefone_admin = config.valor if config else None
-
-    if telefone_admin:
-        enviar_whatsapp(telefone_admin, mensagem)
-
-    logger.info(f'[ADMIN NOTIF] {emoji} - {atendimento.cliente.nome_completo} - {data_formatada}')
-
-
-def enviar_cancelamento_cliente(atendimento):
-    """Notifica o cliente que seu agendamento foi cancelado — via EMAIL."""
-    from .email import enviar_cancelamento_email
-
-    data_formatada = atendimento.data_hora_inicio.strftime('%d/%m/%Y as %H:%M')
-
-    if atendimento.cliente.email:
-        enviar_cancelamento_email(atendimento.cliente.email, {
-            'nome': atendimento.cliente.nome_completo,
-            'procedimento': atendimento.procedimento.nome,
-            'data_hora': data_formatada,
-            'profissional': atendimento.profissional.nome,
-        })
-    else:
-        # Fallback WhatsApp se nao tem email
-        mensagem = (
-            f"Ola {atendimento.cliente.nome_completo},\n\n"
-            f"Seu agendamento foi cancelado:\n\n"
-            f"Procedimento: {atendimento.procedimento.nome}\n"
-            f"Data: {data_formatada}\n\n"
-            f"Para reagendar: {SITE_URL.rstrip('/')}/agendamento/\n\n"
-            f"{CLINIC_NAME}"
-        )
-        enviar_whatsapp(atendimento.cliente.telefone, mensagem)
-
+    Parametros do template (ordem):
+      {{1}} nome do cliente
+      {{2}} procedimento
+      {{3}} link NPS
+    """
     from ..models import Notificacao
-    Notificacao.objects.create(
-        atendimento=atendimento,
-        tipo='CANCELAMENTO',
-        canal='EMAIL' if atendimento.cliente.email else 'WHATSAPP',
-        status_envio='ENVIADO',
-        token=gerar_token(),
-        enviado_em=timezone.now(),
+
+    components = [{
+        'type': 'body',
+        'parameters': [
+            {'type': 'text', 'text': atendimento.cliente.nome_completo},
+            {'type': 'text', 'text': atendimento.procedimento.nome},
+            {'type': 'text', 'text': link_nps},
+        ],
+    }]
+
+    sucesso = enviar_template_whatsapp(
+        atendimento.cliente.telefone, TEMPLATE_NPS, components
     )
+
+    try:
+        notif = Notificacao.objects.get(token=token_notif)
+        notif.status_envio = 'ENVIADO' if sucesso else 'FALHOU'
+        notif.enviado_em = timezone.now()
+        notif.mensagem = f'[Template {TEMPLATE_NPS}] NPS {atendimento.procedimento.nome}'
+        notif.save(update_fields=['status_envio', 'enviado_em', 'mensagem'])
+    except Notificacao.DoesNotExist:
+        logger.warning('[NPS WA] Notificacao token %s nao encontrada', token_notif)
+    return sucesso

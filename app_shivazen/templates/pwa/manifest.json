@@ -1,17 +1,32 @@
 {
   "name": "{{ CLINIC_NAME }}",
   "short_name": "{{ CLINIC_NAME }}",
-  "start_url": "/painel/",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#F5F3EE",
   "theme_color": "#C9A84C",
-  "description": "Painel Administrativo da {{ CLINIC_NAME }}",
+  "description": "{{ CLINIC_NAME }} — Agende seu atendimento com bem-estar e beleza.",
   "icons": [
     {
       "src": "/static/assets/logo-completa.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Agendar",
+      "short_name": "Agendar",
+      "url": "/agendamento/",
+      "description": "Novo agendamento"
+    },
+    {
+      "name": "Meus agendamentos",
+      "short_name": "Agenda",
+      "url": "/meus-agendamentos/",
+      "description": "Ver meus agendamentos"
     }
   ]
 }

@@ -10,6 +10,7 @@ class ClienteForm(forms.ModelForm):
         fields = [
             'nome_completo', 'data_nascimento', 'cpf', 'rg', 'profissao',
             'email', 'telefone', 'cep', 'endereco', 'aceita_comunicacao',
+            'consent_email_marketing', 'consent_whatsapp_nps',
         ]
         widgets = {
             'data_nascimento': forms.DateInput(attrs={'type': 'date'}),

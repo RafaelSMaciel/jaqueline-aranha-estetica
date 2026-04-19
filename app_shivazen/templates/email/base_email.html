@@ -1,31 +1,73 @@
 <!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f5f3ee;font-family:'Segoe UI',Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f3ee;padding:40px 0;">
-<tr><td align="center">
-<table width="520" cellpadding="0" cellspacing="0" style="background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>{{ clinic_name }}</title>
+<!--[if mso]><style type="text/css">table{border-collapse:collapse;mso-table-lspace:0;mso-table-rspace:0}</style><![endif]-->
+<style>
+@media (prefers-color-scheme: dark) {
+  .email-bg { background:#1a1510 !important; }
+  .email-card { background:#201913 !important; }
+  .text-main { color:#f3ece1 !important; }
+  .text-soft { color:#b8ac9a !important; }
+  .text-muted { color:#8a7e6b !important; }
+  .divider { border-top-color:#3a2f24 !important; }
+  .card-inner { background:linear-gradient(145deg,#2a2118,#3a2b1c) !important; border-color:#8a6a2a !important; }
+}
+@media only screen and (max-width:600px) {
+  .container { width:100% !important; border-radius:0 !important; }
+  .px-40 { padding-left:24px !important; padding-right:24px !important; }
+  .py-40 { padding-top:28px !important; padding-bottom:28px !important; }
+  .hero-title { font-size:22px !important; }
+  .otp-code { font-size:32px !important; letter-spacing:8px !important; padding:16px 24px !important; }
+}
+a { color:#C4A35A; }
+</style>
+</head>
+<body class="email-bg" style="margin:0;padding:0;background:#f5f3ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased;">
 
-<!-- Header -->
-<tr><td style="background:linear-gradient(135deg,#2C2C2C,#4a3728,#6D4C41);padding:32px 40px;text-align:center;">
-<h1 style="color:white;margin:0;font-size:24px;font-weight:700;">{{ clinic_name }}</h1>
+{% if preheader %}<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">{{ preheader }}</div>{% endif %}
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="email-bg" style="background:#f5f3ee;padding:32px 16px;">
+<tr><td align="center">
+
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" class="container email-card" style="width:600px;max-width:600px;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 8px 32px rgba(110,85,45,0.12);">
+
+<!-- Header com brand gradient (gold → rose) -->
+<tr><td style="background:linear-gradient(135deg,#C4A35A 0%,#B8915F 45%,#C08B7F 100%);padding:36px 40px;text-align:center;">
+  <div style="font-family:'Playfair Display',Georgia,serif;color:#ffffff;font-size:28px;font-weight:700;letter-spacing:2px;text-shadow:0 1px 2px rgba(0,0,0,0.12);">{{ clinic_name }}</div>
+  {% block header_sub %}<div style="color:rgba(255,255,255,0.88);font-size:13px;letter-spacing:2.4px;text-transform:uppercase;margin-top:6px;">Bem-estar &amp; cuidado</div>{% endblock %}
 </td></tr>
 
-<!-- Content -->
-<tr><td style="padding:40px;">
+<!-- Conteudo -->
+<tr><td class="px-40 py-40" style="padding:40px;">
 {% block content %}{% endblock %}
 </td></tr>
 
+<!-- Divisor -->
+<tr><td style="padding:0 40px;"><div class="divider" style="border-top:1px solid #f0ede8;"></div></td></tr>
+
 <!-- Footer -->
-<tr><td style="background:#fafaf8;padding:24px 40px;text-align:center;border-top:1px solid #f0ede8;">
-<p style="margin:0;color:#999;font-size:12px;">
-{{ clinic_name }}<br>
-Este e um email automatico, nao responda.
-</p>
+<tr><td style="padding:24px 40px 32px;text-align:center;">
+  <p class="text-muted" style="margin:0 0 8px;color:#8a7e6b;font-size:12px;line-height:1.6;">
+    {{ clinic_name }} &middot; Este e um email automatico, favor nao responder.
+  </p>
+  {% block footer_extra %}{% endblock %}
+  {% if unsubscribe_url %}
+  <p class="text-muted" style="margin:12px 0 0;color:#8a7e6b;font-size:11px;">
+    Para deixar de receber este tipo de email, <a href="{{ unsubscribe_url }}" style="color:#8a7e6b;text-decoration:underline;">descadastre-se aqui</a>.
+  </p>
+  {% endif %}
 </td></tr>
 
 </table>
+
 </td></tr>
 </table>
+
 </body>
 </html>

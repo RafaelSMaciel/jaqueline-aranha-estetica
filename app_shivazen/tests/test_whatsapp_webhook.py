@@ -95,9 +95,9 @@ class WhatsAppWebhookNPSTests(TestCase):
     def setUp(self):
         self.client = Client()
         self.url = reverse('shivazen:whatsapp_webhook')
-        # Sem APP_SECRET + DEBUG=True -> aceita (dev)
+        # Secret obrigatorio (fail-closed) — mesmo em DEBUG.
         import app_shivazen.views.whatsapp as whatsapp_mod
-        whatsapp_mod.WHATSAPP_APP_SECRET = ''
+        whatsapp_mod.WHATSAPP_APP_SECRET = APP_SECRET
 
         self.cliente = criar_cliente(telefone='17988887777')
         self.prof = criar_profissional()
@@ -106,22 +106,28 @@ class WhatsAppWebhookNPSTests(TestCase):
         # Notificacao NPS enviada habilita correlacao segura da resposta.
         _criar_notificacao_nps(self.atd)
 
+    def _post(self, payload):
+        body = json.dumps(payload).encode()
+        return self.client.post(
+            self.url,
+            data=body,
+            content_type='application/json',
+            HTTP_X_HUB_SIGNATURE_256=_assinar(body),
+        )
+
     def test_resposta_numerica_valida_registra_nota(self):
-        body = json.dumps({'from': '5517988887777', 'body': '9'})
-        resp = self.client.post(self.url, data=body, content_type='application/json')
+        resp = self._post({'from': '5517988887777', 'body': '9'})
         self.assertEqual(resp.status_code, 200)
         nps = AvaliacaoNPS.objects.get(atendimento=self.atd)
         self.assertEqual(nps.nota, 9)
 
     def test_resposta_nao_numerica_ignora(self):
-        body = json.dumps({'from': '5517988887777', 'body': 'obrigado'})
-        resp = self.client.post(self.url, data=body, content_type='application/json')
+        resp = self._post({'from': '5517988887777', 'body': 'obrigado'})
         self.assertEqual(resp.status_code, 200)
         self.assertFalse(AvaliacaoNPS.objects.filter(atendimento=self.atd).exists())
 
     def test_resposta_fora_do_intervalo_ignora(self):
-        body = json.dumps({'from': '5517988887777', 'body': '11'})
-        resp = self.client.post(self.url, data=body, content_type='application/json')
+        resp = self._post({'from': '5517988887777', 'body': '11'})
         self.assertEqual(resp.status_code, 200)
         self.assertFalse(AvaliacaoNPS.objects.filter(atendimento=self.atd).exists())
 
@@ -129,16 +135,13 @@ class WhatsAppWebhookNPSTests(TestCase):
         """Sem Notificacao NPS enviada recentemente, resposta e descartada (anti-IDOR)."""
         outro = criar_cliente(telefone='17911112222')
         atd_outro = criar_atendimento(outro, self.prof, self.proc)
-        # Nenhuma Notificacao NPS criada para este cliente.
-        body = json.dumps({'from': '5517911112222', 'body': '10'})
-        resp = self.client.post(self.url, data=body, content_type='application/json')
+        resp = self._post({'from': '5517911112222', 'body': '10'})
         self.assertEqual(resp.status_code, 200)
         self.assertFalse(AvaliacaoNPS.objects.filter(atendimento=atd_outro).exists())
 
     def test_nao_sobrescreve_avaliacao_existente(self):
         AvaliacaoNPS.objects.create(atendimento=self.atd, nota=7)
-        body = json.dumps({'from': '5517988887777', 'body': '10'})
-        resp = self.client.post(self.url, data=body, content_type='application/json')
+        resp = self._post({'from': '5517988887777', 'body': '10'})
         self.assertEqual(resp.status_code, 200)
         nps = AvaliacaoNPS.objects.get(atendimento=self.atd)
         self.assertEqual(nps.nota, 7)
