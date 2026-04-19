@@ -1,0 +1,31 @@
+{% extends "email/base_email.html" %}
+{% block header_sub %}<div style="color:rgba(255,255,255,0.92);font-size:13px;letter-spacing:2.4px;text-transform:uppercase;margin-top:6px;">Oferta especial</div>{% endblock %}
+{% block content %}
+<h1 class="hero-title text-main" style="margin:0 0 14px;color:#2c2418;font-size:28px;font-weight:700;line-height:1.2;">{% if nome %}{{ nome }},{% endif %} uma oferta feita para voce</h1>
+
+{% if corpo_html %}
+<div class="text-soft" style="color:#6b6256;font-size:15px;line-height:1.7;margin-bottom:24px;">
+  {{ corpo_html|safe }}
+</div>
+{% endif %}
+
+{% if cupom %}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+<table role="presentation" cellpadding="0" cellspacing="0" class="card-inner" style="background:linear-gradient(160deg,#FFFEF5 0%,#FFF4D6 50%,#FBE3D9 100%);border:2px solid #C4A35A;border-radius:20px;margin:8px 0 24px;">
+<tr><td style="padding:28px 36px;text-align:center;">
+  <div style="color:#8a7e6b;font-size:11px;letter-spacing:3px;text-transform:uppercase;margin-bottom:8px;">Seu cupom</div>
+  <div style="display:inline-block;padding:12px 28px;background:#ffffff;border:1px dashed #C08B7F;border-radius:10px;font-family:Consolas,monospace;font-size:22px;letter-spacing:4px;color:#2c2418;font-weight:800;">{{ cupom }}</div>
+  {% if validade %}<div class="text-muted" style="color:#8a7e6b;font-size:12px;margin-top:12px;">Valido ate {{ validade }}</div>{% endif %}
+</td></tr>
+</table>
+</td></tr></table>
+{% endif %}
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:4px 0 12px;">
+  <a href="{{ site_url }}/agendamento/" style="display:inline-block;background:linear-gradient(135deg,#C4A35A,#C08B7F);color:#ffffff;padding:16px 40px;border-radius:999px;text-decoration:none;font-weight:700;font-size:15px;letter-spacing:0.5px;box-shadow:0 4px 14px rgba(196,163,90,0.35);">Aproveitar oferta</a>
+</td></tr></table>
+{% endblock %}
+{% block footer_extra %}
+<p class="text-muted" style="margin:8px 0 0;color:#8a7e6b;font-size:11px;line-height:1.6;">Voce recebe esta comunicacao porque autorizou receber promocoes por e-mail.</p>
+{% if unsubscribe_token %}<p style="margin:6px 0 0;"><a href="{{ site_url }}/unsubscribe/{{ unsubscribe_token }}/" style="color:#8a7e6b;font-size:11px;text-decoration:underline;">Cancelar inscricao</a></p>{% endif %}
+{% endblock %}

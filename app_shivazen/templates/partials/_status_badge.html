@@ -1,0 +1,16 @@
+{% comment %}
+  Unified status badge for appointments (AGENDADO/CONFIRMADO/REALIZADO/CANCELADO/FALTOU/PENDENTE).
+  Usage: {% include 'partials/_status_badge.html' with status=agend.status size='sm' %}
+  Sizes: 'sm' (default) | 'md'
+{% endcomment %}
+{% spaceless %}
+<span class="status-badge status-{{ status|lower|default:'default' }} status-size-{{ size|default:'sm' }}">
+  {% if status == 'CONFIRMADO' %}<i class="bi bi-check-circle-fill"></i>Confirmado
+  {% elif status == 'REALIZADO' %}<i class="bi bi-check2-all"></i>Realizado
+  {% elif status == 'CANCELADO' %}<i class="bi bi-x-circle-fill"></i>Cancelado
+  {% elif status == 'FALTOU' %}<i class="bi bi-exclamation-triangle-fill"></i>Faltou
+  {% elif status == 'AGENDADO' %}<i class="bi bi-calendar-event"></i>Agendado
+  {% elif status == 'PENDENTE' %}<i class="bi bi-hourglass-split"></i>Pendente
+  {% else %}<i class="bi bi-circle"></i>{{ status|default:'—' }}{% endif %}
+</span>
+{% endspaceless %}

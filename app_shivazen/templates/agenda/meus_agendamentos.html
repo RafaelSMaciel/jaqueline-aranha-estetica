@@ -48,7 +48,7 @@
     }
     .phone-input-wrap .phone-icon {
         position: absolute; left: 1rem; top: 50%; transform: translateY(-50%);
-        color: #C9A84C; font-size: 1.2rem;
+        color: #7a5f1f; font-size: 1.2rem;
     }
 
     .helper-steps {
@@ -62,10 +62,10 @@
         width: 28px; height: 28px; min-width: 28px; border-radius: 50%;
         background: rgba(201,168,76,0.12); display: flex;
         align-items: center; justify-content: center;
-        color: #C9A84C; font-size: 0.7rem; font-weight: 700;
+        color: #7a5f1f; font-size: 0.7rem; font-weight: 700;
     }
     .helper-step-text {
-        font-size: 0.72rem; color: #8A7F72; line-height: 1.35;
+        font-size: 0.72rem; color: #6B6256; line-height: 1.35;
     }
 
     /* ═══ CODE INPUT ═══ */
@@ -111,7 +111,7 @@
         font-family: 'Playfair Display', serif; font-size: 1.5rem; font-weight: 700;
         color: #4A3425; line-height: 1;
     }
-    .summary-label { font-size: 0.72rem; color: #8A7F72; margin-top: 0.2rem; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+    .summary-label { font-size: 0.72rem; color: #6B6256; margin-top: 0.2rem; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
 
     /* ═══ SECTION DIVIDER ═══ */
     .section-divider {
@@ -152,10 +152,10 @@
     }
     .agend-date-month {
         font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
-        letter-spacing: 1px; color: #C9A84C;
+        letter-spacing: 1px; color: #7a5f1f;
     }
     .agend-date-weekday {
-        font-size: 0.6rem; color: #8A7F72; text-transform: uppercase;
+        font-size: 0.6rem; color: #6B6256; text-transform: uppercase;
         letter-spacing: 0.5px; margin-top: 0.15rem;
     }
     .agend-info { flex: 1; min-width: 0; }
@@ -165,9 +165,9 @@
     }
     .agend-meta {
         display: flex; flex-wrap: wrap; gap: 0.5rem 1rem;
-        font-size: 0.82rem; color: #8A7F72;
+        font-size: 0.82rem; color: #6B6256;
     }
-    .agend-meta i { color: #C9A84C; margin-right: 0.2rem; }
+    .agend-meta i { color: #7a5f1f; margin-right: 0.2rem; }
 
     .agend-card-footer {
         display: flex; justify-content: space-between; align-items: center;
@@ -175,27 +175,6 @@
         padding: 0.75rem 1.25rem; background: #FDFCFA;
         border-top: 1px solid #F0EDE8;
     }
-
-    /* ═══ STATUS BADGE ═══ */
-    .status-badge {
-        display: inline-flex; align-items: center; gap: 0.35rem;
-        padding: 0.3rem 0.85rem; border-radius: 50px;
-        font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    .status-badge .dot {
-        width: 6px; height: 6px; border-radius: 50%;
-    }
-    .status-agendado { background: #E3F2FD; color: #1565C0; }
-    .status-agendado .dot { background: #1565C0; }
-    .status-confirmado { background: #E8F5E9; color: #2E7D32; }
-    .status-confirmado .dot { background: #2E7D32; }
-    .status-realizado { background: #F3E5F5; color: #7B1FA2; }
-    .status-realizado .dot { background: #7B1FA2; }
-    .status-cancelado { background: #FFEBEE; color: #C62828; }
-    .status-cancelado .dot { background: #C62828; }
-    .status-faltou { background: #FFF3E0; color: #E65100; }
-    .status-faltou .dot { background: #E65100; }
 
     /* ═══ BUTTONS ═══ */
     .btn-gold {
@@ -227,9 +206,9 @@
         width: 40px; height: 40px; border-radius: 50%;
         border: 1.5px solid #E0DBD3; background: white;
         display: inline-flex; align-items: center; justify-content: center;
-        color: #8A7F72; transition: all 0.25s; cursor: pointer;
+        color: #6B6256; transition: all 0.25s; cursor: pointer;
     }
-    .btn-refresh:hover { border-color: #C9A84C; color: #C9A84C; transform: rotate(90deg); }
+    .btn-refresh:hover { border-color: #C9A84C; color: #7a5f1f; transform: rotate(90deg); }
 
     /* ═══ EMPTY STATE ═══ */
     .empty-state {
@@ -341,11 +320,11 @@
             <div class="verify-body" style="padding:0.5rem 1rem 1rem;">
                 <!-- Email input -->
                 <div class="mb-3">
-                    <label class="form-label fw-bold small text-uppercase mb-2" style="letter-spacing:1px;color:#8A7F72;font-size:0.72rem;">
+                    <label class="form-label fw-bold small text-uppercase mb-2" style="letter-spacing:1px;color:#6B6256;font-size:0.72rem;">
                         E-mail Cadastrado
                     </label>
                     <div class="phone-input-wrap">
-                        <i class="bi bi-envelope phone-icon" style="color:#C9A84C;"></i>
+                        <i class="bi bi-envelope phone-icon" style="color:#7a5f1f;"></i>
                         <input type="email" id="email-input" class="form-control"
                                placeholder="seu@email.com" autocomplete="email" autofocus>
                     </div>
@@ -372,7 +351,7 @@
                     <div class="code-section-inner">
                         <div class="text-center mb-1">
                             <div style="width:48px;height:48px;background:rgba(201,168,76,0.1);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:0.5rem;">
-                                <i class="bi bi-chat-dots" style="color:#C9A84C;font-size:1.2rem;"></i>
+                                <i class="bi bi-chat-dots" style="color:#7a5f1f;font-size:1.2rem;"></i>
                             </div>
                             <p class="fw-bold mb-0" style="color:#4A3425;font-size:0.92rem;">Codigo enviado!</p>
                             <p class="text-muted small mb-0">
@@ -380,7 +359,7 @@
                             </p>
                         </div>
                         <div id="debug-code" class="text-center mb-2" style="display:none;">
-                            <span class="badge rounded-pill px-3 py-2" style="background:rgba(201,168,76,0.1);color:#C9A84C;font-size:1rem;letter-spacing:3px;"></span>
+                            <span class="badge rounded-pill px-3 py-2" style="background:rgba(201,168,76,0.1);color:#7a5f1f;font-size:1rem;letter-spacing:3px;"></span>
                         </div>
                         <div class="code-inputs">
                             <input type="text" class="code-input" maxlength="1" data-idx="0" inputmode="numeric" autocomplete="one-time-code">
@@ -418,7 +397,7 @@
                             Seus Agendamentos
                         </h3>
                         <div class="d-flex align-items-center gap-2">
-                            <small class="text-muted"><i class="bi bi-envelope me-1" style="color:#C9A84C;"></i>{{ email }}</small>
+                            <small class="text-muted"><i class="bi bi-envelope me-1" style="color:#7a5f1f;"></i>{{ email }}</small>
                             <span style="color:#E0DBD3;">|</span>
                             <a href="{% url 'shivazen:meus_agendamentos_logout' %}" class="text-muted text-decoration-none" style="font-size:0.78rem;">
                                 <i class="bi bi-box-arrow-right me-1"></i>Sair
@@ -439,7 +418,7 @@
                 <div class="summary-row" data-aos="fade-up" data-aos-delay="100">
                     <div class="summary-card">
                         <div class="summary-icon" style="background:rgba(201,168,76,0.1);">
-                            <i class="bi bi-calendar-check" style="color:#C9A84C;"></i>
+                            <i class="bi bi-calendar-check" style="color:#7a5f1f;"></i>
                         </div>
                         <div class="summary-number">{{ agendamentos_futuros|length|default:"0" }}</div>
                         <div class="summary-label">Proximos</div>
@@ -470,7 +449,7 @@
                 {% if agendamentos_futuros %}
                 <div class="section-divider" data-aos="fade-up" data-aos-delay="150">
                     <div class="section-divider-line"></div>
-                    <div class="section-divider-label" style="background:rgba(201,168,76,0.08);color:#C9A84C;">
+                    <div class="section-divider-label" style="background:rgba(201,168,76,0.08);color:#7a5f1f;">
                         <i class="bi bi-calendar-event"></i> Proximos Agendamentos
                     </div>
                     <div class="section-divider-line right"></div>
@@ -498,10 +477,7 @@
                         </div>
                         <!-- Status -->
                         <div class="text-end" style="min-width:fit-content;">
-                            <span class="status-badge {% if ag.status == 'AGENDADO' %}status-agendado{% elif ag.status == 'CONFIRMADO' %}status-confirmado{% elif ag.status == 'FALTOU' %}status-faltou{% endif %}">
-                                <span class="dot"></span>
-                                {{ ag.status }}
-                            </span>
+                            {% include 'partials/_status_badge.html' with status=ag.status size='md' %}
                         </div>
                     </div>
                     <div class="agend-card-footer">
@@ -531,7 +507,7 @@
                 {% if agendamentos_passados %}
                 <div class="section-divider" data-aos="fade-up">
                     <div class="section-divider-line"></div>
-                    <div class="section-divider-label" style="background:rgba(0,0,0,0.04);color:#8A7F72;">
+                    <div class="section-divider-label" style="background:rgba(0,0,0,0.04);color:#6B6256;">
                         <i class="bi bi-clock-history"></i> Historico
                     </div>
                     <div class="section-divider-line right"></div>
@@ -555,10 +531,7 @@
                         </div>
                         <!-- Status -->
                         <div class="text-end" style="min-width:fit-content;">
-                            <span class="status-badge {% if ag.status == 'REALIZADO' %}status-realizado{% elif ag.status == 'CANCELADO' %}status-cancelado{% elif ag.status == 'FALTOU' %}status-faltou{% else %}status-agendado{% endif %}">
-                                <span class="dot"></span>
-                                {{ ag.status }}
-                            </span>
+                            {% include 'partials/_status_badge.html' with status=ag.status size='md' %}
                         </div>
                     </div>
                 </div>
@@ -569,7 +542,7 @@
                 {% if not agendamentos_futuros and not agendamentos_passados %}
                 <div class="empty-state" data-aos="fade-up">
                     <div class="empty-illustration">
-                        <i class="bi bi-calendar-x" style="font-size:2.8rem;color:#C9A84C;"></i>
+                        <i class="bi bi-calendar-x" style="font-size:2.8rem;color:#7a5f1f;"></i>
                     </div>
                     <h4 class="fw-bold mb-2" style="color:#4A3425;font-family:'Playfair Display',serif;">
                         Nenhum agendamento encontrado
@@ -601,7 +574,7 @@
                     <i class="bi bi-info-circle me-1"></i>Esta acao nao pode ser desfeita.
                 </p>
                 <div class="d-flex gap-2 justify-content-center">
-                    <button class="btn rounded-pill px-4 py-2 fw-bold" style="border:1.5px solid #E0DBD3;color:#8A7F72;font-size:0.85rem;" onclick="closeCancelModal()">
+                    <button class="btn rounded-pill px-4 py-2 fw-bold" style="border:1.5px solid #E0DBD3;color:#6B6256;font-size:0.85rem;" onclick="closeCancelModal()">
                         <i class="bi bi-arrow-left me-1"></i>Voltar
                     </button>
                     <button class="btn rounded-pill px-4 py-2 fw-bold" id="btnConfirmCancel"

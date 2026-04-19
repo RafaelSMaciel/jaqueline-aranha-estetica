@@ -160,16 +160,21 @@ def aprovar_agendamento(request, pk):
     atendimento.status = 'AGENDADO'
     atendimento.save()
 
-    # Notificar cliente por email
     if atendimento.cliente.email:
         data_fmt = atendimento.data_hora_inicio.strftime('%d/%m/%Y as %H:%M')
-        enviar_confirmacao_agendamento_email(atendimento.cliente.email, {
+        dados = {
             'nome': atendimento.cliente.nome_completo,
             'procedimento': atendimento.procedimento.nome,
             'profissional': atendimento.profissional.nome,
             'data_hora': data_fmt,
             'valor': f'R$ {float(atendimento.valor_cobrado):.2f}' if atendimento.valor_cobrado else 'A consultar',
-        })
+        }
+        from ..tasks import send_email_async
+        try:
+            send_email_async.delay('enviar_confirmacao_agendamento_email',
+                                    atendimento.cliente.email, dados)
+        except Exception:
+            enviar_confirmacao_agendamento_email(atendimento.cliente.email, dados)
 
     messages.success(request, f'Agendamento de {atendimento.cliente.nome_completo} aprovado.')
     return redirect('shivazen:profissional_agenda')
@@ -196,15 +201,19 @@ def rejeitar_agendamento(request, pk):
     atendimento.status = 'CANCELADO'
     atendimento.save()
 
-    # Notificar cliente por email
     if atendimento.cliente.email:
         data_fmt = atendimento.data_hora_inicio.strftime('%d/%m/%Y as %H:%M')
-        enviar_cancelamento_email(atendimento.cliente.email, {
+        dados = {
             'nome': atendimento.cliente.nome_completo,
             'procedimento': atendimento.procedimento.nome,
             'data_hora': data_fmt,
             'profissional': atendimento.profissional.nome,
-        })
+        }
+        from ..tasks import send_email_async
+        try:
+            send_email_async.delay('enviar_cancelamento_email', atendimento.cliente.email, dados)
+        except Exception:
+            enviar_cancelamento_email(atendimento.cliente.email, dados)
 
     messages.success(request, f'Agendamento de {atendimento.cliente.nome_completo} rejeitado.')
     return redirect('shivazen:profissional_agenda')

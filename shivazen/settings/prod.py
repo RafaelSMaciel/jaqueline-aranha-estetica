@@ -31,3 +31,12 @@ DATABASES['default']['CONN_MAX_AGE'] = 600
 # Logging mais restrito em prod
 LOGGING['root']['level'] = 'WARNING'
 LOGGING['loggers']['django']['level'] = 'WARNING'
+
+# Prod sem Redis = risco (cache/session/rate-limit cross-worker inconsistente)
+if not os.environ.get('REDIS_URL'):
+    import warnings
+    warnings.warn(
+        'REDIS_URL ausente em producao — cache/session/rate-limit degradados. '
+        'Configure Redis para correcao entre workers.',
+        RuntimeWarning,
+    )

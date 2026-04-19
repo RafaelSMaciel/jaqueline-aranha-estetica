@@ -78,6 +78,32 @@ def admin_editar_promocao(request, pk):
 
 
 @staff_required
+@ratelimit(key='user', rate='5/h', method='POST', block=True)
+def admin_disparar_promocao(request, pk):
+    """Dispara email de promocao para clientes com consent_email_marketing=True."""
+    if request.method != 'POST':
+        return redirect('shivazen:admin_promocoes')
+
+    promo = get_object_or_404(Promocao, pk=pk)
+    from ..tasks import job_promocao_mensal
+
+    assunto = f'{promo.nome} — {promo.desconto_percentual}% OFF'
+    corpo = (promo.descricao or '')
+    cupom = request.POST.get('cupom', '').strip() or None
+    validade_dias = int(request.POST.get('validade_dias', 30))
+
+    try:
+        job_promocao_mensal.delay(assunto, corpo, cupom=cupom, validade_dias=validade_dias)
+        registrar_log(request.user, f'Disparou promocao: {promo.nome}', 'promocao', promo.pk,
+                      {'cupom': cupom, 'validade_dias': validade_dias})
+        messages.success(request, f'Promocao "{promo.nome}" agendada para envio.')
+    except Exception as e:
+        logger.error('Erro ao disparar promocao: %s', e, exc_info=True)
+        messages.error(request, 'Erro ao agendar envio. Verifique Celery/Redis.')
+    return redirect('shivazen:admin_promocoes')
+
+
+@staff_required
 @ratelimit(key='user', rate='30/m', method='POST', block=True)
 def admin_excluir_promocao(request, pk):
     """Exclui promoção via POST"""

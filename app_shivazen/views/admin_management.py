@@ -1,7 +1,9 @@
 """Views para features pendentes: bloqueios, procedimentos, clientes detalhe,
 lista de espera, NPS web, termos de consentimento."""
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
+
+NPS_TOKEN_EXPIRY = timedelta(days=7)
 
 from django.contrib import messages
 from django.core.paginator import Paginator
@@ -278,6 +280,13 @@ def nps_web(request, token):
     notif = get_object_or_404(Notificacao, token=token, tipo='NPS')
     atendimento = notif.atendimento
 
+    idade_token = timezone.now() - notif.criado_em
+    if idade_token > NPS_TOKEN_EXPIRY:
+        return render(request, 'publico/nps_obrigado.html', {
+            'expirado': True,
+            'cliente': atendimento.cliente,
+        }, status=410)
+
     ja_respondeu = AvaliacaoNPS.objects.filter(atendimento=atendimento).exists()
 
     if request.method == 'POST' and not ja_respondeu:
@@ -375,9 +384,8 @@ def termo_assinatura(request, token):
     termos_pendentes = [t for t in termos if t.pk not in assinados_ids]
 
     if request.method == 'POST':
-        ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', ''))
-        if ',' in ip:
-            ip = ip.split(',')[0].strip()
+        from ..utils.security import client_ip
+        ip = client_ip(request)
 
         for termo in termos_pendentes:
             if request.POST.get(f'aceite_{termo.pk}') == '1':
@@ -401,3 +409,82 @@ def termo_assinatura(request, token):
         'termos_pendentes': termos_pendentes,
     }
     return render(request, 'publico/termo_assinatura.html', context)
+
+
+# ═══════════════════════════════════════
+#   EMAIL PREVIEW (staff debug)
+# ═══════════════════════════════════════
+
+EMAIL_PREVIEW_FIXTURES = {
+    'otp': {
+        'template': 'email/otp.html',
+        'contexto': {'codigo': '123456', 'clinic_name': 'Shiva Zen',
+                     'preheader': 'Seu codigo de verificacao'},
+    },
+    'confirmacao': {
+        'template': 'email/confirmacao.html',
+        'contexto': {'dados': {
+            'nome': 'Maria Silva', 'procedimento': 'Limpeza de Pele',
+            'profissional': 'Dra. Joana', 'data_hora': '20/04/2026 as 14:00',
+            'valor': '180,00',
+        }, 'clinic_name': 'Shiva Zen'},
+    },
+    'aniversario': {
+        'template': 'email/aniversario.html',
+        'contexto': {'dados': {'nome': 'Maria Silva', 'desconto': 15},
+                     'clinic_name': 'Shiva Zen',
+                     'unsub_url': '#preview', 'preheader': 'Presente de aniversario'},
+    },
+    'promocao': {
+        'template': 'email/promocao.html',
+        'contexto': {'dados': {
+            'nome': 'Maria Silva', 'corpo_html': '<p>Desconto especial!</p>',
+            'cupom': 'VIP15', 'validade': '30/05/2026',
+        }, 'clinic_name': 'Shiva Zen', 'unsub_url': '#preview'},
+    },
+    'cancelamento': {
+        'template': 'email/cancelamento.html',
+        'contexto': {'dados': {
+            'nome': 'Maria Silva', 'procedimento': 'Limpeza de Pele',
+            'data_hora': '20/04/2026 as 14:00', 'profissional': 'Dra. Joana',
+        }, 'clinic_name': 'Shiva Zen'},
+    },
+    'nps': {
+        'template': 'email/nps.html',
+        'contexto': {'dados': {
+            'nome': 'Maria Silva', 'procedimento': 'Limpeza de Pele',
+            'link': '#preview',
+        }, 'clinic_name': 'Shiva Zen'},
+    },
+    'fila_espera': {
+        'template': 'email/fila_espera.html',
+        'contexto': {'dados': {
+            'nome': 'Maria Silva', 'procedimento': 'Limpeza de Pele',
+            'data': '20/04/2026',
+        }, 'clinic_name': 'Shiva Zen'},
+    },
+    'pacote_expirando': {
+        'template': 'email/pacote_expirando.html',
+        'contexto': {'dados': {
+            'nome': 'Maria Silva', 'pacote': 'Facial Premium',
+            'dias': 7, 'sessoes_restantes': 3,
+        }, 'clinic_name': 'Shiva Zen'},
+    },
+}
+
+
+@staff_required
+def admin_email_preview(request, nome=None):
+    """Preview de templates de email para staff. Renderiza com fixture."""
+    from django.http import HttpResponse
+    from django.template.loader import render_to_string
+
+    if nome is None or nome not in EMAIL_PREVIEW_FIXTURES:
+        lista = '<br>'.join(
+            f'<a href="/painel/email-preview/{k}/">{k}</a>' for k in EMAIL_PREVIEW_FIXTURES
+        )
+        return HttpResponse(f'<h1>Email Previews</h1>{lista}')
+
+    fx = EMAIL_PREVIEW_FIXTURES[nome]
+    html = render_to_string(fx['template'], fx['contexto'])
+    return HttpResponse(html)

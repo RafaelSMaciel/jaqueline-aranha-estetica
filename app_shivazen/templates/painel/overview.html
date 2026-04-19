@@ -100,7 +100,7 @@
         <div class="dash-chart-title mb-0"><i class="fas fa-list-ul me-1"></i>Próximos Agendamentos</div>
         <div>
             <a href="{% url 'shivazen:exportar_relatorio_excel' %}" class="btn btn-sm" style="background-color: #217346; color: white; border-radius: 8px; font-size: 0.75rem; font-weight:700;"><i class="fas fa-file-excel me-1"></i>Exportar (30 dias)</a>
-            <a href="{% url 'shivazen:painel_agendamentos' %}" class="small fw-bold ms-2" style="color:#C9A84C;text-decoration:none;">Ver Todos →</a>
+            <a href="{% url 'shivazen:painel_agendamentos' %}" class="small fw-bold ms-2" style="color:#7a5f1f;text-decoration:none;">Ver Todos →</a>
         </div>
     </div>
 
@@ -114,10 +114,7 @@
             <div class="dash-appt-name">{{ agend.cliente.nome_completo }}</div>
             <div class="dash-appt-meta">
                 {{ agend.procedimento.nome }} &bull; {{ agend.data_hora_inicio|date:"d/m H:i" }}
-                &bull; <span class="status-text-{{ agend.pk }}"
-                    style="font-weight:800;color:{% if agend.status == 'CONFIRMADO' %}#2e7d32{% elif agend.status == 'CANCELADO' %}#c62828{% else %}#f57f17{% endif %};">
-                    {{ agend.status }}
-                </span>
+                &bull; <span class="status-text-{{ agend.pk }}">{% include 'partials/_status_badge.html' with status=agend.status %}</span>
             </div>
         </div>
         <div class="dash-appt-actions">
@@ -238,9 +235,10 @@ function atualizarStatus(id, status) {
         if (data.sucesso) {
             var el = document.querySelector('.status-text-' + id);
             if (el) {
-                el.textContent = data.status_novo;
-                el.style.color = data.status_novo === 'CONFIRMADO' ? '#2e7d32' :
-                                  data.status_novo === 'CANCELADO' ? '#c62828' : '#f57f17';
+                var s = data.status_novo || '';
+                var icons = {CONFIRMADO:'bi-check-circle-fill',REALIZADO:'bi-check2-all',CANCELADO:'bi-x-circle-fill',FALTOU:'bi-exclamation-triangle-fill',AGENDADO:'bi-calendar-event',PENDENTE:'bi-hourglass-split'};
+                var labels = {CONFIRMADO:'Confirmado',REALIZADO:'Realizado',CANCELADO:'Cancelado',FALTOU:'Faltou',AGENDADO:'Agendado',PENDENTE:'Pendente'};
+                el.innerHTML = '<span class="status-badge status-' + s.toLowerCase() + ' status-size-sm"><i class="bi ' + (icons[s]||'bi-circle') + '"></i>' + (labels[s]||s) + '</span>';
             }
             showToast('Status atualizado: ' + data.status_novo);
         } else {

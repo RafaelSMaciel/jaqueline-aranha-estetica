@@ -60,10 +60,15 @@
                 {% endfor %}
             </select>
         </div>
-        <div class="col-6 col-md-2">
-            <button type="submit" class="btn btn-sm w-100" style="background:#C9A84C;color:white;border-radius:10px;font-weight:700;">
+        <div class="col-6 col-md-2 d-flex gap-1">
+            <button type="submit" class="btn btn-sm flex-grow-1" style="background:#C9A84C;color:white;border-radius:10px;font-weight:700;">
                 <i class="fas fa-search me-1"></i>Filtrar
             </button>
+            {% if request.GET.status or request.GET.data or request.GET.profissional %}
+            <a href="{% url 'shivazen:painel_agendamentos' %}" class="btn btn-sm btn-outline-secondary" style="border-radius:10px;" title="Limpar filtros" aria-label="Limpar filtros">
+                <i class="fas fa-times"></i>
+            </a>
+            {% endif %}
         </div>
         <div class="col-6 col-md-4 text-end">
             <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-sm" style="background:#1a1a2e;color:white;border-radius:10px;font-weight:700;">
@@ -97,10 +102,7 @@
         <div class="agend-meta">
             {{ agend.procedimento.nome }} &bull; {{ agend.profissional.nome }}
             &bull; {{ agend.data_hora_inicio|date:"d/m/Y" }} {{ agend.data_hora_inicio|time:"H:i" }}-{{ agend.data_hora_fim|time:"H:i" }}
-            &bull; <span class="status-text-{{ agend.pk }}"
-                style="font-weight:800;color:{% if agend.status == 'CONFIRMADO' %}#2e7d32{% elif agend.status == 'CANCELADO' %}#c62828{% elif agend.status == 'REALIZADO' %}#1565c0{% else %}#f57f17{% endif %};">
-                {{ agend.status }}
-            </span>
+            &bull; <span class="status-text-{{ agend.pk }}">{% include 'partials/_status_badge.html' with status=agend.status %}</span>
         </div>
         {% if agend.cliente.telefone %}
         <div class="agend-meta"><i class="fas fa-phone me-1"></i>{{ agend.cliente.telefone }}</div>
@@ -126,12 +128,7 @@
     </div>
 </div>
 {% empty %}
-<div class="text-center py-5">
-    <i class="fas fa-calendar-check fa-3x" style="color:#ddd;"></i>
-    <p class="text-muted mt-3">Nenhum agendamento encontrado</p>
-    <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-sm" style="background:#C9A84C;color:white;border-radius:10px;font-weight:700;">
-        <i class="fas fa-plus me-1"></i>Criar Agendamento
-    </a>
+{% include 'partials/_empty_state.html' with icon='bi-calendar-check' title='Nenhum agendamento encontrado' message='Ajuste os filtros ou crie um novo agendamento.' action_url='/agendar/' action_label='Novo agendamento' action_icon='bi-plus-lg' %}
 </div>
 {% endfor %}
 {% endblock %}
@@ -155,10 +152,10 @@ function atualizarStatus(id, status) {
         if (data.sucesso) {
             var el = document.querySelector('.status-text-' + id);
             if (el) {
-                el.textContent = data.status_novo;
-                el.style.color = data.status_novo === 'CONFIRMADO' ? '#2e7d32' :
-                                  data.status_novo === 'CANCELADO' ? '#c62828' :
-                                  data.status_novo === 'REALIZADO' ? '#1565c0' : '#f57f17';
+                var s = data.status_novo || '';
+                var icons = {CONFIRMADO:'bi-check-circle-fill',REALIZADO:'bi-check2-all',CANCELADO:'bi-x-circle-fill',FALTOU:'bi-exclamation-triangle-fill',AGENDADO:'bi-calendar-event',PENDENTE:'bi-hourglass-split'};
+                var labels = {CONFIRMADO:'Confirmado',REALIZADO:'Realizado',CANCELADO:'Cancelado',FALTOU:'Faltou',AGENDADO:'Agendado',PENDENTE:'Pendente'};
+                el.innerHTML = '<span class="status-badge status-' + s.toLowerCase() + ' status-size-sm"><i class="bi ' + (icons[s]||'bi-circle') + '"></i>' + (labels[s]||s) + '</span>';
             }
             alert('Status atualizado: ' + data.status_novo);
         } else {

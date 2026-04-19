@@ -70,6 +70,11 @@
     <button type="submit" style="background:#C9A84C;color:white;border:none;border-radius:12px;padding:0.5rem 1rem;font-weight:700;font-size:0.8rem;cursor:pointer;">
         <i class="fas fa-filter"></i> Filtrar
     </button>
+    {% if request.GET.tabela or request.GET.acao or request.GET.data %}
+    <a href="{% url 'shivazen:admin_auditoria' %}" style="background:#f5f2ee;color:#6B6256;border:1px solid #E0DBD3;border-radius:12px;padding:0.5rem 1rem;font-weight:700;font-size:0.8rem;text-decoration:none;display:inline-flex;align-items:center;gap:0.3rem;" title="Limpar filtros">
+        <i class="fas fa-times"></i> Limpar
+    </a>
+    {% endif %}
 </form>
 
 <!-- Logs -->

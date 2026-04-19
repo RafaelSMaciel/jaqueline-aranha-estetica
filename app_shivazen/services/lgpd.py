@@ -60,13 +60,23 @@ class LgpdService:
 
     @staticmethod
     def unsubscribe_por_token(token: str) -> Cliente | None:
-        """Marca cliente como nao-comunicavel via token publico."""
+        """Marca cliente como nao-comunicavel via token publico.
+
+        Limpa tanto consent legado (aceita_comunicacao) quanto granulares
+        (consent_email_marketing, consent_whatsapp_nps) — o opt-out global
+        aplicado por clique unico precisa cobrir todos os canais ativos.
+        """
         try:
             cliente = Cliente.objects.get(unsubscribe_token=token)
         except Cliente.DoesNotExist:
             return None
         cliente.aceita_comunicacao = False
-        cliente.save(update_fields=['aceita_comunicacao', 'atualizado_em'])
+        cliente.consent_email_marketing = False
+        cliente.consent_whatsapp_nps = False
+        cliente.save(update_fields=[
+            'aceita_comunicacao', 'consent_email_marketing',
+            'consent_whatsapp_nps', 'atualizado_em',
+        ])
         logger.info('Cliente %s opt-out via token.', cliente.pk)
         return cliente
 

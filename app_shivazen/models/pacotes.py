@@ -112,3 +112,6 @@ class SessaoPacote(models.Model):
     class Meta:
         managed = True
         db_table = 'sessao_pacote'
+        indexes = [
+            models.Index(fields=['pacote_cliente'], name='idx_sessao_pct_cli'),
+        ]

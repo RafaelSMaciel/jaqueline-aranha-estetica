@@ -19,7 +19,7 @@ urlpatterns = [
     path('', include('app_shivazen.urls')),
 ]
 
-if settings.DEBUG:
+if settings.DEBUG and 'debug_toolbar' in getattr(settings, 'INSTALLED_APPS', []):
     try:
         import debug_toolbar
         urlpatterns = [path('__debug__/', include(debug_toolbar.urls))] + urlpatterns

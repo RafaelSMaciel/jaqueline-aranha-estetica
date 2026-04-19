@@ -2,12 +2,13 @@
 Email Notification Service — Plataforma de Clinicas
 
 Envia emails transacionais: OTP, confirmacao, cancelamento, pacotes, aniversario.
-Usa Django send_mail com templates HTML renderizados.
+Usa Django EmailMultiAlternatives com headers RFC 8058 para marketing.
 """
-import os
 import logging
-from django.conf import settings
-from django.core.mail import send_mail
+import os
+import smtplib
+
+from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 
@@ -18,24 +19,40 @@ DEFAULT_FROM = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@clinica.com.br')
 SITE_URL = os.environ.get('SITE_URL', 'http://127.0.0.1:8000').rstrip('/')
 
 
-def _enviar_email(destinatario, assunto, template, contexto):
-    """Envia email HTML usando template Django. Retorna True/False."""
+def _enviar_email(destinatario, assunto, template, contexto,
+                  marketing=False, preheader='', unsub_token=None):
+    """Envia email HTML. Marketing inclui List-Unsubscribe (RFC 8058 one-click).
+
+    unsub_token: Cliente.unsubscribe_token. Obrigatorio para marketing=True.
+    """
     contexto.setdefault('clinic_name', CLINIC_NAME)
     contexto.setdefault('site_url', SITE_URL)
+    contexto.setdefault('preheader', preheader)
+
+    headers = {}
+    if marketing and unsub_token:
+        unsub_url = f'{SITE_URL}/lgpd/unsubscribe/{unsub_token}/'
+        headers['List-Unsubscribe'] = (
+            f'<{unsub_url}>, <mailto:{DEFAULT_FROM}?subject=unsubscribe>'
+        )
+        headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click'
+        contexto.setdefault('unsub_url', unsub_url)
+
     try:
         html = render_to_string(template, contexto)
         texto = strip_tags(html)
-        send_mail(
+        msg = EmailMultiAlternatives(
             subject=assunto,
-            message=texto,
+            body=texto,
             from_email=DEFAULT_FROM,
-            recipient_list=[destinatario],
-            html_message=html,
-            fail_silently=False,
+            to=[destinatario],
+            headers=headers or None,
         )
+        msg.attach_alternative(html, 'text/html')
+        msg.send(fail_silently=False)
         logger.info('[EMAIL] Enviado para %s: %s', destinatario, assunto)
         return True
-    except Exception as e:
+    except (smtplib.SMTPException, OSError) as e:
         logger.error('[EMAIL] Falha ao enviar para %s: %s', destinatario, e)
         return False
 
@@ -90,13 +107,30 @@ def enviar_fila_espera_email(email, dados):
     )
 
 
-def enviar_aniversario_email(email, dados):
-    """Envia email de aniversario com desconto."""
+def enviar_aniversario_email(email, dados, unsub_token=None):
+    """Envia email de aniversario com desconto (marketing)."""
     return _enviar_email(
         destinatario=email,
         assunto=f'Feliz Aniversario! {CLINIC_NAME} tem um presente para voce',
         template='email/aniversario.html',
         contexto={'dados': dados},
+        marketing=True,
+        preheader='Presente de aniversario dentro — descontos exclusivos',
+        unsub_token=unsub_token,
+    )
+
+
+def enviar_promocao_email(email, dados, unsub_token=None):
+    """Envia promocao mensal (marketing)."""
+    preheader = dados.get('preheader', '') if isinstance(dados, dict) else ''
+    return _enviar_email(
+        destinatario=email,
+        assunto=f'{CLINIC_NAME} — Ofertas especiais deste mes',
+        template='email/promocao.html',
+        contexto={'dados': dados},
+        marketing=True,
+        preheader=preheader,
+        unsub_token=unsub_token,
     )
 
 

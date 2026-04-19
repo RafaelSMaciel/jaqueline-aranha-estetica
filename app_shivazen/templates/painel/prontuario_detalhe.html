@@ -29,7 +29,7 @@
 <div class="card border-0 shadow-sm rounded-4 mb-4">
     <div class="card-body p-3">
         <h6 class="fw-bold mb-3">
-            <i class="fas fa-file-medical me-2" style="color:#C9A84C;"></i>Ficha de Anamnese
+            <i class="fas fa-file-medical me-2" style="color:#7a5f1f;"></i>Ficha de Anamnese
         </h6>
         <form method="POST" action="{% url 'shivazen:prontuario_salvar' cliente_id=cliente.pk %}">
             {% csrf_token %}
@@ -129,7 +129,7 @@
                 </div>
                 {% for anot in atend.anotacoes.all %}
                 <div class="mt-1 p-2 rounded bg-light small">
-                    <i class="fas fa-sticky-note me-1" style="color:#C9A84C;"></i>{{ anot.texto }}
+                    <i class="fas fa-sticky-note me-1" style="color:#7a5f1f;"></i>{{ anot.texto }}
                     <span class="text-muted">— {{ anot.criado_em|date:"d/m/Y H:i" }}</span>
                 </div>
                 {% endfor %}

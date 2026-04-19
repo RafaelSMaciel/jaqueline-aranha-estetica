@@ -43,6 +43,6 @@ def verificar_turnstile(token, ip=None):
         if not data.get('success'):
             logger.info('[TURNSTILE] falha: %s', data.get('error-codes'))
         return bool(data.get('success'))
-    except Exception as e:
+    except (requests.exceptions.RequestException, ValueError) as e:
         logger.error('[TURNSTILE] erro HTTP: %s', e)
         return False

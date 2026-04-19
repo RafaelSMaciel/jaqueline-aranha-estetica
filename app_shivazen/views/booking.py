@@ -78,18 +78,15 @@ def agendamento_publico(request):
     return render(request, 'agenda/agendamento_publico.html', context)
 
 
-def _client_ip(request):
-    xff = request.META.get('HTTP_X_FORWARDED_FOR', '')
-    if xff:
-        return xff.split(',')[0].strip()
-    return request.META.get('REMOTE_ADDR')
+from ..utils.security import client_ip as _client_ip  # unify
 
 
 @require_POST
 @ratelimit(key='ip', rate='5/m', method='POST', block=True)
 def solicitar_otp_agendamento(request):
-    """AJAX: envia OTP por email. Anti-timing: resposta uniforme."""
+    """AJAX: envia OTP. SMS primario se telefone disponivel, email fallback."""
     email = (request.POST.get('email') or '').strip().lower()
+    telefone = (request.POST.get('telefone') or '').strip() or None
     captcha_token = request.POST.get('cf-turnstile-response', '')
 
     if turnstile_enabled() and not verificar_turnstile(captcha_token, ip=_client_ip(request)):
@@ -99,12 +96,23 @@ def solicitar_otp_agendamento(request):
         return JsonResponse({'ok': False, 'erro': 'email_invalido'}, status=400)
 
     existe = Cliente.objects.filter(email__iexact=email, ativo=True).exists()
+    # Se cliente ja existe, usa telefone cadastrado (melhora deliverability)
+    if existe and not telefone:
+        c = Cliente.objects.filter(email__iexact=email, ativo=True).only('telefone').first()
+        if c and c.telefone:
+            telefone = c.telefone
 
-    # Sempre gera OTP (nao revela se email existe) — resposta identica.
-    ok, motivo = otp_service.solicitar_otp(email, request=request, proposito=OtpCode.PROPOSITO_AGENDAMENTO)
+    canal_pref = OtpCode.CANAL_SMS if telefone else OtpCode.CANAL_EMAIL
+    ok, motivo, canal_usado = otp_service.solicitar_otp(
+        email,
+        request=request,
+        proposito=OtpCode.PROPOSITO_AGENDAMENTO,
+        telefone=telefone,
+        canal_preferido=canal_pref,
+    )
     if not ok and motivo == 'aguarde':
         return JsonResponse({'ok': False, 'erro': 'aguarde'}, status=429)
-    return JsonResponse({'ok': True, 'cliente_existente': existe})
+    return JsonResponse({'ok': True, 'cliente_existente': existe, 'canal': canal_usado})
 
 
 @require_POST
@@ -162,6 +170,8 @@ def confirmar_agendamento(request):
     procedimento_id = request.POST.get('procedimento')
     profissional_id = request.POST.get('profissional')
     datetime_str = request.POST.get('datetime')
+    consent_email_marketing = request.POST.get('consent_email_marketing') == 'on'
+    consent_whatsapp_nps = request.POST.get('consent_whatsapp_nps') == 'on'
 
     if not all([nome, telefone, data_nascimento_str, procedimento_id, profissional_id, datetime_str]):
         messages.error(request, 'Todos os campos obrigatórios devem ser preenchidos.')
@@ -205,6 +215,12 @@ def confirmar_agendamento(request):
         data_hora = datetime.fromisoformat(datetime_str)
         data_hora_fim = data_hora + timedelta(minutes=procedimento.duracao_minutos)
 
+        # Feriado/recesso: bloqueia agendamento (defesa em profundidade alem da listagem de horarios).
+        from ..models import Feriado
+        if Feriado.objects.filter(data=data_hora.date(), bloqueia_agendamento=True).exists():
+            messages.error(request, 'Esta data e um feriado/recesso — nao aceitamos agendamentos.')
+            return redirect('shivazen:agendamento_publico')
+
         # Lock de reserva de slot (cache, 30s) — reduz janela de race entre
         # dois clicks simultaneos no mesmo horario antes do SELECT FOR UPDATE.
         slot_key = f'booking_slot:{profissional_id}:{datetime_str}'
@@ -215,14 +231,30 @@ def confirmar_agendamento(request):
         # Transacao atomica: cliente + atendimento + notificacao de termo
         # devem persistir juntos ou nenhum (evita Cliente orfao em falha).
         with transaction.atomic():
+            agora = timezone.now()
+            ip_origem = _client_ip(request)
+            defaults = {
+                'nome_completo': nome,
+                'data_nascimento': data_nascimento,
+                'email': email,
+                'ativo': True,
+            }
+            if consent_email_marketing:
+                defaults.update({
+                    'consent_email_marketing': True,
+                    'consent_email_marketing_at': agora,
+                    'consent_email_marketing_ip': ip_origem,
+                })
+            if consent_whatsapp_nps:
+                defaults.update({
+                    'consent_whatsapp_nps': True,
+                    'consent_whatsapp_nps_at': agora,
+                    'consent_whatsapp_nps_ip': ip_origem,
+                })
+
             cliente, created = Cliente.objects.select_for_update().get_or_create(
                 telefone=telefone,
-                defaults={
-                    'nome_completo': nome,
-                    'data_nascimento': data_nascimento,
-                    'email': email,
-                    'ativo': True,
-                }
+                defaults=defaults,
             )
             if not created:
                 atualizar = False
@@ -234,6 +266,16 @@ def confirmar_agendamento(request):
                     atualizar = True
                 if not cliente.email and email:
                     cliente.email = email
+                    atualizar = True
+                if consent_email_marketing and not cliente.consent_email_marketing:
+                    cliente.consent_email_marketing = True
+                    cliente.consent_email_marketing_at = agora
+                    cliente.consent_email_marketing_ip = ip_origem
+                    atualizar = True
+                if consent_whatsapp_nps and not cliente.consent_whatsapp_nps:
+                    cliente.consent_whatsapp_nps = True
+                    cliente.consent_whatsapp_nps_at = agora
+                    cliente.consent_whatsapp_nps_ip = ip_origem
                     atualizar = True
                 if atualizar:
                     cliente.save()
@@ -296,13 +338,9 @@ def confirmar_agendamento(request):
                     'link_termo': link_termo,
                 }
 
-        # --- Envio de emails fora da transacao (I/O externo) ---
+        # --- Envio de emails via Celery (nao bloqueia request) ---
+        from ..tasks import send_email_async
 
-        # Termos pendentes por email
-        if dados_termo and email:
-            enviar_termos_pendentes_email(email, dados_termo)
-
-        # Confirmacao de agendamento por email pro cliente
         data_formatada = data_hora.strftime('%d/%m/%Y as %H:%M')
         dados_confirmacao = {
             'nome': nome,
@@ -311,16 +349,26 @@ def confirmar_agendamento(request):
             'data_hora': data_formatada,
             'valor': f"R$ {valor:.2f}" if valor else 'A consultar',
         }
+        site_url = SITE_URL.rstrip('/')
+
+        def _enqueue(fn_name, *args):
+            try:
+                send_email_async.delay(fn_name, *args)
+            except Exception as e:
+                logger.warning('[EMAIL] Celery indisponivel, fallback sync: %s', e)
+                from ..utils import email as _em
+                getattr(_em, fn_name)(*args)
+
+        if dados_termo and email:
+            _enqueue('enviar_termos_pendentes_email', email, dados_termo)
 
         if email:
-            enviar_confirmacao_agendamento_email(email, dados_confirmacao)
+            _enqueue('enviar_confirmacao_agendamento_email', email, dados_confirmacao)
 
-        # Notificar profissional por email sobre agendamento pendente
-        site_url = SITE_URL.rstrip('/')
-        prof_email = getattr(profissional, 'usuario', None)
-        prof_email = prof_email.email if prof_email else None
+        prof_email_obj = getattr(profissional, 'usuario', None)
+        prof_email = prof_email_obj.email if prof_email_obj else None
         if prof_email:
-            enviar_aprovacao_profissional_email(prof_email, {
+            _enqueue('enviar_aprovacao_profissional_email', prof_email, {
                 'profissional': profissional.nome,
                 'cliente': nome,
                 'procedimento': procedimento.nome,
@@ -403,11 +451,23 @@ def meus_agendamentos_enviar_otp(request):
     if not email or '@' not in email:
         return JsonResponse({'ok': False, 'erro': 'email_invalido'}, status=400)
 
-    # Anti-timing: sempre retorna ok (nao revela se email existe)
-    ok, motivo = otp_service.solicitar_otp(email, request=request, proposito=OtpCode.PROPOSITO_LOGIN)
+    # Para login, prefere SMS se cliente tem telefone cadastrado
+    telefone = None
+    cliente = Cliente.objects.filter(email__iexact=email, ativo=True).only('telefone').first()
+    if cliente and cliente.telefone:
+        telefone = cliente.telefone
+    canal_pref = OtpCode.CANAL_SMS if telefone else OtpCode.CANAL_EMAIL
+
+    ok, motivo, canal_usado = otp_service.solicitar_otp(
+        email,
+        request=request,
+        proposito=OtpCode.PROPOSITO_LOGIN,
+        telefone=telefone,
+        canal_preferido=canal_pref,
+    )
     if not ok and motivo == 'aguarde':
         return JsonResponse({'ok': False, 'erro': 'aguarde'}, status=429)
-    return JsonResponse({'ok': True})
+    return JsonResponse({'ok': True, 'canal': canal_usado})
 
 
 @require_POST
@@ -507,6 +567,12 @@ def reagendar_agendamento(request, token):
         return redirect('shivazen:reagendar_agendamento', token=token)
 
     nova_data_fim = nova_data + timedelta(minutes=atendimento.procedimento.duracao_minutos)
+
+    # Feriado/recesso: impede reagendar para data bloqueada.
+    from ..models import Feriado
+    if Feriado.objects.filter(data=nova_data.date(), bloqueia_agendamento=True).exists():
+        messages.error(request, 'A data escolhida e um feriado/recesso. Escolha outro dia.')
+        return redirect('shivazen:reagendar_agendamento', token=token)
 
     try:
         with transaction.atomic():

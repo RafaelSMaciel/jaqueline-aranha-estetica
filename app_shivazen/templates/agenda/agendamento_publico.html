@@ -195,17 +195,55 @@
     .prof-btn.selected { background: var(--gold); color: white; border-color: var(--gold); }
 
     /* ─── STEP 3 FORM ─── */
-    .confirm-summary {
-        background: linear-gradient(145deg, #FFFEF5, #FFF9E3);
-        border: 2px solid var(--gold); border-radius: 18px;
-        padding: 1.5rem; margin-bottom: 1.5rem; text-align: center;
+    .booking-recap {
+        background: #fbfaf7; border: 1px solid #ece6d8; border-radius: 16px;
+        padding: 1.25rem 1.5rem; margin-bottom: 1.75rem;
     }
-    .summary-badge {
-        font-size: 0.68rem; font-weight: 800; text-transform: uppercase;
-        letter-spacing: 2px; color: var(--gold); margin-bottom: 0.5rem;
+    .recap-row {
+        display: flex; justify-content: space-between; align-items: baseline;
+        padding: 0.55rem 0; border-bottom: 1px solid #f0ebde;
+        font-size: 0.9rem; gap: 1rem;
     }
-    .summary-line { font-size: 0.9rem; color: var(--earth); margin-bottom: 0.3rem; }
-    .summary-line strong { font-weight: 700; }
+    .recap-row:last-child { border-bottom: none; }
+    .recap-label {
+        color: #9a8f7c; font-size: 0.72rem; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 1.2px; flex-shrink: 0;
+    }
+    .recap-value { color: var(--earth); font-weight: 600; text-align: right; }
+    .recap-price .recap-value {
+        font-family: 'Playfair Display', serif; font-size: 1.35rem;
+        font-weight: 700; color: var(--gold);
+    }
+
+    .fields-divider {
+        display: flex; align-items: center; gap: 0.85rem;
+        margin: 1.5rem 0 1rem; color: #b5a994;
+        font-size: 0.7rem; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 1.8px;
+    }
+    .fields-divider::before, .fields-divider::after {
+        content: ''; flex: 1; height: 1px; background: #e8e2d4;
+    }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 576px) { .field-row { grid-template-columns: 1fr; gap: 0; } }
+
+    .cliente-badge {
+        display: flex; align-items: center; gap: 0.6rem;
+        padding: 0.7rem 1rem; border-radius: 12px; margin-bottom: 1rem;
+        font-size: 0.85rem; font-weight: 600;
+    }
+    .cliente-badge[data-state="existing"] {
+        background: #edf7ee; color: #2e7d32; border: 1px solid #c8e6c9;
+    }
+    .cliente-badge[data-state="new"] {
+        background: #fbf6e6; color: #8b5c00; border: 1px solid #ecd894;
+    }
+
+    .confirm-subnote {
+        display: block; text-align: center; margin-top: 0.75rem;
+        font-size: 0.76rem; color: #9a8f7c; line-height: 1.5;
+    }
+    .confirm-subnote i { color: var(--gold); margin-right: 0.3rem; }
 
     .form-field { margin-bottom: 1.25rem; }
     .form-field label {
@@ -327,9 +365,9 @@
             </div>
             {% else %}
             <div class="empty-procs" style="padding:4rem 2rem;">
-                <i class="bi bi-calendar-heart" style="font-size:3.5rem;color:#C9A84C;display:block;margin-bottom:1.25rem;"></i>
+                <i class="bi bi-calendar-heart" style="font-size:3.5rem;color:#7a5f1f;display:block;margin-bottom:1.25rem;"></i>
                 <h4 style="font-weight:700;color:#4A3425;font-family:'Playfair Display',serif;font-size:1.4rem;">Em breve</h4>
-                <p style="color:#8A7F72;max-width:360px;margin:0.5rem auto 1.5rem;">Nossos tratamentos estarao disponiveis para agendamento online em breve.</p>
+                <p style="color:#6B6256;max-width:360px;margin:0.5rem auto 1.5rem;">Nossos tratamentos estarao disponiveis para agendamento online em breve.</p>
                 <a href="https://wa.me/{{ whatsapp_numero }}?text=Ola! Gostaria de agendar um horario na {{ CLINIC_NAME }}." target="_blank" rel="noopener"
                    class="btn rounded-pill px-4 py-2 fw-bold d-inline-flex align-items-center gap-2"
                    style="background:#25D366;color:white;font-size:0.9rem;box-shadow:0 4px 16px rgba(37,211,102,0.3);">
@@ -396,12 +434,23 @@
                     </h3>
 
                     <!-- Resumo -->
-                    <div class="confirm-summary">
-                        <div class="summary-badge"><i class="bi bi-check-circle me-1"></i>Resumo</div>
-                        <div class="summary-line"><strong id="sum-proc">—</strong></div>
-                        <div class="summary-line" id="sum-datetime" style="color:var(--gold);font-weight:600;">—</div>
-                        <div class="summary-line"><small id="sum-prof" style="color:#999;">—</small></div>
-                        <div class="summary-line" style="font-size:1.2rem;font-weight:800;color:var(--earth);margin-top:0.5rem;" id="sum-price">—</div>
+                    <div class="booking-recap">
+                        <div class="recap-row">
+                            <span class="recap-label">Tratamento</span>
+                            <span class="recap-value" id="sum-proc">—</span>
+                        </div>
+                        <div class="recap-row">
+                            <span class="recap-label">Data & Horario</span>
+                            <span class="recap-value" id="sum-datetime">—</span>
+                        </div>
+                        <div class="recap-row">
+                            <span class="recap-label">Profissional</span>
+                            <span class="recap-value" id="sum-prof">—</span>
+                        </div>
+                        <div class="recap-row recap-price">
+                            <span class="recap-label">Investimento</span>
+                            <span class="recap-value" id="sum-price">—</span>
+                        </div>
                     </div>
 
                     <form id="booking-form" action="{% url 'shivazen:confirmar_agendamento' %}" method="POST">
@@ -413,36 +462,27 @@
                         <input type="text" name="website" tabindex="-1" autocomplete="off"
                                style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
 
-                        <!-- Info box explicativo -->
-                        <div id="info-otp" class="wpp-note" style="background:#F0F7FF;border-left-color:#1565C0;margin-top:0;">
-                            <i class="bi bi-shield-check" style="color:#1565C0;"></i>
-                            <span style="color:#0D3D6B;">
-                                <strong>Seguranca:</strong> enviaremos um codigo de 6 digitos para validar seu e-mail.
-                                Se voce ja e cliente, seus dados aparecerao automaticamente.
-                            </span>
-                        </div>
-
                         <!-- Badge status cliente (aparece apos OTP) -->
-                        <div id="cliente-badge" style="display:none;margin-bottom:1rem;padding:0.75rem 1rem;border-radius:12px;font-size:0.88rem;font-weight:600;"></div>
+                        <div id="cliente-badge" class="cliente-badge" style="display:none;"></div>
 
                         <!-- ─── Email + OTP ─── -->
                         <div class="form-field">
                             <label><i class="bi bi-envelope"></i>E-mail</label>
                             <div style="display:flex;gap:8px;">
-                                <input type="email" name="email" class="form-input" placeholder="seu@email.com" required id="form-email" style="flex:1;">
+                                <input type="email" name="email" class="form-input" placeholder="seu@email.com" required id="form-email" aria-label="E-mail" style="flex:1;">
                                 <button type="button" id="btn-enviar-otp" class="btn btn-outline-secondary" style="white-space:nowrap;">
                                     <i class="bi bi-send"></i> Enviar codigo
                                 </button>
                             </div>
-                            <small style="color:#999;font-size:0.72rem;margin-top:0.3rem;display:block;">
-                                Digite seu e-mail e clique em <strong>Enviar codigo</strong> para continuar.
+                            <small style="color:#9a8f7c;font-size:0.72rem;margin-top:0.35rem;display:block;">
+                                Enviaremos um codigo de 6 digitos para validar seu e-mail. Se ja for cliente, seus dados serao preenchidos automaticamente.
                             </small>
                         </div>
 
                         <div class="form-field" id="otp-field" style="display:none;">
-                            <label><i class="bi bi-shield-lock"></i>Codigo de verificacao (6 digitos)</label>
+                            <label><i class="bi bi-shield-lock"></i>Codigo de verificacao</label>
                             <div style="display:flex;gap:8px;">
-                                <input type="text" id="otp-codigo" class="form-input" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code" style="flex:1;letter-spacing:6px;font-size:1.2rem;text-align:center;">
+                                <input type="text" id="otp-codigo" class="form-input" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code" aria-label="Codigo de verificacao de 6 digitos" style="flex:1;letter-spacing:6px;font-size:1.2rem;text-align:center;">
                                 <button type="button" id="btn-verificar-otp" class="btn btn-primary" style="white-space:nowrap;">
                                     <i class="bi bi-check2"></i> Verificar
                                 </button>
@@ -452,26 +492,42 @@
 
                         <!-- ─── Dados pessoais (mostra apos OTP ou se novo) ─── -->
                         <div id="dados-fields" style="display:none;">
-                            <div class="form-field">
-                                <label><i class="bi bi-person"></i>Seu Nome</label>
-                                <input type="text" name="nome" class="form-input" placeholder="Nome completo" id="form-nome">
-                            </div>
+                            <div class="fields-divider">Seus dados</div>
 
                             <div class="form-field">
-                                <label><i class="bi bi-calendar-heart"></i>Data de Nascimento</label>
-                                <input type="date" name="data_nascimento" class="form-input" id="form-nascimento" style="color-scheme: light;">
-                                <small style="color:#BBB;font-size:0.72rem;margin-top:0.3rem;display:block;">Obrigatorio ser maior de 18 anos</small>
+                                <label><i class="bi bi-person"></i>Nome completo</label>
+                                <input type="text" name="nome" class="form-input" placeholder="Nome completo" id="form-nome" aria-label="Nome completo">
                             </div>
 
-                            <div class="form-field">
-                                <label><i class="bi bi-phone"></i>Celular</label>
-                                <input type="tel" name="telefone" class="form-input" placeholder="(00) 00000-0000" id="form-telefone">
+                            <div class="field-row">
+                                <div class="form-field">
+                                    <label><i class="bi bi-calendar-heart"></i>Nascimento</label>
+                                    <input type="date" name="data_nascimento" class="form-input" id="form-nascimento" aria-label="Data de nascimento" style="color-scheme: light;">
+                                </div>
+                                <div class="form-field">
+                                    <label><i class="bi bi-phone"></i>Celular</label>
+                                    <input type="tel" name="telefone" class="form-input" placeholder="(00) 00000-0000" id="form-telefone" aria-label="Telefone celular">
+                                </div>
                             </div>
 
-                            <div class="form-field" id="cadastro-check-wrap" style="display:none;">
-                                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <div class="form-field" id="cadastro-check-wrap" style="display:none;margin-bottom:0;">
+                                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.82rem;color:#6b6256;text-transform:none;letter-spacing:0;font-weight:500;">
                                     <input type="checkbox" name="aceita_cadastro" id="form-aceita-cadastro" checked style="width:auto;">
-                                    <span style="color:var(--earth);">Quero me cadastrar para agendar mais rapido da proxima vez</span>
+                                    <span>Salvar meus dados para agendar mais rapido da proxima vez</span>
+                                </label>
+                            </div>
+
+                            <div class="form-field" style="margin-bottom:0.5rem;">
+                                <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:0.82rem;color:#6b6256;text-transform:none;letter-spacing:0;font-weight:500;">
+                                    <input type="checkbox" name="consent_email_marketing" id="form-consent-email" style="width:auto;margin-top:3px;">
+                                    <span>Aceito receber promocoes e novidades por e-mail. Posso cancelar a qualquer momento.</span>
+                                </label>
+                            </div>
+
+                            <div class="form-field" style="margin-bottom:0;">
+                                <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:0.82rem;color:#6b6256;text-transform:none;letter-spacing:0;font-weight:500;">
+                                    <input type="checkbox" name="consent_whatsapp_nps" id="form-consent-nps" style="width:auto;margin-top:3px;">
+                                    <span>Aceito receber pesquisa de satisfacao por WhatsApp apos o atendimento.</span>
                                 </label>
                             </div>
                         </div>
@@ -482,16 +538,11 @@
                         </div>
                         {% endif %}
 
-                        <div class="wpp-note" style="background:#FFF9E3;border-left-color:#C9A84C;">
-                            <i class="bi bi-envelope-check" style="color:#C9A84C;"></i>
-                            <span style="color:#8B5C00;">Apos confirmar, o profissional ira avaliar seu agendamento e voce recebera a confirmacao por e-mail.</span>
-                        </div>
-
                         <button type="submit" class="btn-confirm-booking" id="btn-confirmar" disabled title="Verifique o codigo enviado ao seu e-mail primeiro">
                             <i class="bi bi-calendar-check me-2"></i>Confirmar Agendamento
                         </button>
-                        <small id="btn-confirmar-hint" style="display:block;text-align:center;color:#b42318;font-size:0.78rem;margin-top:0.5rem;">
-                            <i class="bi bi-info-circle me-1"></i>Verifique o codigo enviado ao seu e-mail para habilitar a confirmacao.
+                        <small class="confirm-subnote">
+                            <i class="bi bi-envelope-check"></i>O profissional avalia seu pedido e voce recebe a confirmacao por e-mail.
                         </small>
                     </form>
 
@@ -506,16 +557,6 @@
 
     </div><!-- /booking-card -->
 </div><!-- /booking-float -->
-
-<!-- Dúvidas CTA -->
-<div class="text-center py-4">
-    <p style="color:#999;font-size:0.9rem;">Ficou com alguma dúvida?</p>
-    <a href="https://wa.me/{{ whatsapp_numero }}" target="_blank"
-       class="btn btn-success rounded-pill px-4 py-2 fw-bold shadow-sm"
-       style="letter-spacing:0.5px;">
-        <i class="bi bi-whatsapp me-2"></i>Fale conosco no WhatsApp
-    </a>
-</div>
 
 </div><!-- /booking-page -->
 {% endblock %}
@@ -744,7 +785,7 @@
         var d = new Date(selectedSlot.iso);
         var opts = {weekday:'long', day:'numeric', month:'long', hour:'2-digit', minute:'2-digit'};
         document.getElementById('sum-datetime').textContent = d.toLocaleDateString('pt-BR', opts);
-        document.getElementById('sum-prof').textContent = 'Profissional: ' + selectedProf.nome;
+        document.getElementById('sum-prof').textContent = selectedProf.nome;
         document.getElementById('sum-price').textContent = 'R$ ' + selectedProc.preco.toFixed(2).replace('.', ',');
 
         document.getElementById('form-procedimento').value = selectedProc.id;
@@ -789,7 +830,6 @@
         var captcha = document.getElementById('captcha-field');
         var checkWrap = document.getElementById('cadastro-check-wrap');
         var badge = document.getElementById('cliente-badge');
-        var hint = document.getElementById('btn-confirmar-hint');
         dados.style.display = '';
         if (captcha) captcha.style.display = '';
         var nome = document.getElementById('form-nome');
@@ -805,21 +845,16 @@
         nasc.required = true;
         tel.required = true;
         if (clienteExistente) {
-            badge.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Bem-vindo de volta! Seus dados foram carregados.';
-            badge.style.background = '#E8F5E9';
-            badge.style.color = '#2E7D32';
-            badge.style.border = '1px solid #C8E6C9';
+            badge.innerHTML = '<i class="bi bi-check-circle-fill"></i>Bem-vindo de volta — seus dados foram carregados.';
+            badge.setAttribute('data-state', 'existing');
         } else {
-            badge.innerHTML = '<i class="bi bi-stars me-2"></i>Novo por aqui! Preencha seus dados para concluir.';
-            badge.style.background = '#FFF9E3';
-            badge.style.color = '#8B5C00';
-            badge.style.border = '1px solid #F5D888';
+            badge.innerHTML = '<i class="bi bi-stars"></i>Novo por aqui — preencha seus dados abaixo.';
+            badge.setAttribute('data-state', 'new');
             checkWrap.style.display = '';
         }
-        badge.style.display = 'block';
+        badge.style.display = '';
         document.getElementById('btn-confirmar').disabled = false;
         document.getElementById('btn-confirmar').title = '';
-        if (hint) hint.style.display = 'none';
     }
 
     var btnEnviar = document.getElementById('btn-enviar-otp');

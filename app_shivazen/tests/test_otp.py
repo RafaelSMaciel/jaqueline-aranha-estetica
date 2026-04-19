@@ -59,14 +59,25 @@ class TestOtpCodeModel:
 class TestOtpService:
     def test_solicitar_envia_email(self):
         mail.outbox.clear()
-        ok, motivo = otp_service.solicitar_otp('foo@example.com')
+        ok, motivo, canal = otp_service.solicitar_otp('foo@example.com')
         assert ok and motivo == 'ok'
+        assert canal == OtpCode.CANAL_EMAIL
         assert len(mail.outbox) == 1
         assert 'foo@example.com' in mail.outbox[0].to
 
+    def test_solicitar_sms_preferido_com_telefone(self):
+        """Com telefone e canal_preferido=SMS, canal resultante deve ser SMS (dev log-only)."""
+        ok, motivo, canal = otp_service.solicitar_otp(
+            'sms@example.com',
+            telefone='11999999999',
+            canal_preferido=OtpCode.CANAL_SMS,
+        )
+        assert ok and motivo == 'ok'
+        assert canal == OtpCode.CANAL_SMS
+
     def test_rate_limit_reenvio(self):
         otp_service.solicitar_otp('rl@example.com')
-        ok, motivo = otp_service.solicitar_otp('rl@example.com')
+        ok, motivo, _ = otp_service.solicitar_otp('rl@example.com')
         assert not ok and motivo == 'aguarde'
 
     def test_verificar_email_vazio(self):
