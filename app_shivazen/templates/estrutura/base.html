@@ -57,6 +57,22 @@
       }
     </script>
 
+    <!-- Submit feedback global: spinner em forms com data-loading-msg (email sync ~2-3s) -->
+    <script nonce="{{ csp_nonce }}">
+      (function () {
+        document.addEventListener('submit', function (e) {
+          var form = e.target;
+          if (!form || !form.matches('form[data-loading-msg]')) return;
+          var btn = form.querySelector('button[type="submit"]:not([data-no-loading])');
+          if (!btn || btn.disabled) return;
+          var msg = form.getAttribute('data-loading-msg') || 'Enviando...';
+          btn.dataset.originalHtml = btn.innerHTML;
+          btn.disabled = true;
+          btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>' + msg;
+        });
+      })();
+    </script>
+
     {% block scripts %}
     {% endblock %}
 </body>
