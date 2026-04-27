@@ -418,7 +418,7 @@ def termo_assinatura(request, token):
 EMAIL_PREVIEW_FIXTURES = {
     'otp': {
         'template': 'email/otp.html',
-        'contexto': {'codigo': '123456', 'clinic_name': 'Shiva Zen',
+        'contexto': {'codigo': '123456', 'clinic_name': 'Dra. Jaqueline Aranha',
                      'preheader': 'Seu codigo de verificacao'},
     },
     'confirmacao': {
@@ -427,12 +427,12 @@ EMAIL_PREVIEW_FIXTURES = {
             'nome': 'Maria Silva', 'procedimento': 'Limpeza de Pele',
             'profissional': 'Dra. Joana', 'data_hora': '20/04/2026 as 14:00',
             'valor': '180,00',
-        }, 'clinic_name': 'Shiva Zen'},
+        }, 'clinic_name': 'Dra. Jaqueline Aranha'},
     },
     'aniversario': {
         'template': 'email/aniversario.html',
         'contexto': {'dados': {'nome': 'Maria Silva', 'desconto': 15},
-                     'clinic_name': 'Shiva Zen',
+                     'clinic_name': 'Dra. Jaqueline Aranha',
                      'unsub_url': '#preview', 'preheader': 'Presente de aniversario'},
     },
     'promocao': {
@@ -440,35 +440,35 @@ EMAIL_PREVIEW_FIXTURES = {
         'contexto': {'dados': {
             'nome': 'Maria Silva', 'corpo_html': '<p>Desconto especial!</p>',
             'cupom': 'VIP15', 'validade': '30/05/2026',
-        }, 'clinic_name': 'Shiva Zen', 'unsub_url': '#preview'},
+        }, 'clinic_name': 'Dra. Jaqueline Aranha', 'unsub_url': '#preview'},
     },
     'cancelamento': {
         'template': 'email/cancelamento.html',
         'contexto': {'dados': {
             'nome': 'Maria Silva', 'procedimento': 'Limpeza de Pele',
             'data_hora': '20/04/2026 as 14:00', 'profissional': 'Dra. Joana',
-        }, 'clinic_name': 'Shiva Zen'},
+        }, 'clinic_name': 'Dra. Jaqueline Aranha'},
     },
     'nps': {
         'template': 'email/nps.html',
         'contexto': {'dados': {
             'nome': 'Maria Silva', 'procedimento': 'Limpeza de Pele',
             'link': '#preview',
-        }, 'clinic_name': 'Shiva Zen'},
+        }, 'clinic_name': 'Dra. Jaqueline Aranha'},
     },
     'fila_espera': {
         'template': 'email/fila_espera.html',
         'contexto': {'dados': {
             'nome': 'Maria Silva', 'procedimento': 'Limpeza de Pele',
             'data': '20/04/2026',
-        }, 'clinic_name': 'Shiva Zen'},
+        }, 'clinic_name': 'Dra. Jaqueline Aranha'},
     },
     'pacote_expirando': {
         'template': 'email/pacote_expirando.html',
         'contexto': {'dados': {
             'nome': 'Maria Silva', 'pacote': 'Facial Premium',
             'dias': 7, 'sessoes_restantes': 3,
-        }, 'clinic_name': 'Shiva Zen'},
+        }, 'clinic_name': 'Dra. Jaqueline Aranha'},
     },
 }
 
