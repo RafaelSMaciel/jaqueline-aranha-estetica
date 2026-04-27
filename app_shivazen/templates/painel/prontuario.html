@@ -13,7 +13,7 @@
                 <i class="fas fa-file-medical" style="color:#4CAF50;"></i>
             </div>
             <div class="stat-card-value" style="color:#4CAF50;">{{ clientes_list|length }}</div>
-            <div class="stat-card-label">Clientes</div>
+            <div class="stat-card-label">Pacientes</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
@@ -114,7 +114,7 @@
 {% endif %}
 
 <!-- Clientes List -->
-<h6 class="fw-bold mb-3"><i class="fas fa-users me-2" style="color:#7a5f1f;"></i>Clientes</h6>
+<h6 class="fw-bold mb-3"><i class="fas fa-users me-2" style="color:#7a5f1f;"></i>Pacientes</h6>
 
 {% if clientes_list %}
     {% for item in clientes_list %}
@@ -147,7 +147,7 @@
 {% else %}
     <div class="text-center py-5">
         <i class="fas fa-search fa-2x mb-3" style="color:#DDD;"></i>
-        <h6 class="text-muted">Nenhum cliente encontrado</h6>
+        <h6 class="text-muted">Nenhum paciente encontrado</h6>
     </div>
 {% endif %}
 

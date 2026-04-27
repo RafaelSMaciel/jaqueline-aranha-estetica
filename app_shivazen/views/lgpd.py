@@ -45,7 +45,7 @@ def meus_dados(request):
 
     cliente = Cliente.objects.filter(telefone=telefone).first()
     if not cliente:
-        messages.error(request, 'Cliente nao encontrado.')
+        messages.error(request, 'Paciente nao encontrado.')
         return render(request, 'publico/lgpd_meus_dados.html', {})
 
     dados = LgpdService.exportar_dados_cliente(cliente)
