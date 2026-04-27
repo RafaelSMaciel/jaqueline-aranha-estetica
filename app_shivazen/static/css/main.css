@@ -341,6 +341,14 @@ h6 {
     font-size: 15px;
     text-transform: none;
     color: var(--nav-dropdown-color);
+    font-family: var(--nav-font);
+    font-weight: 500;
+    transition: 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    white-space: nowrap;
+    border-left: 2px solid transparent;
   }
 
   .navmenu .dropdown ul a i {
@@ -349,8 +357,11 @@ h6 {
 
   .navmenu .dropdown ul a:hover,
   .navmenu .dropdown ul .active:hover,
-  .navmenu .dropdown ul li:hover>a {
+  .navmenu .dropdown ul li:hover>a,
+  .navmenu .dropdown ul .active {
     color: var(--nav-dropdown-hover-color);
+    border-left-color: var(--accent-color);
+    background-color: color-mix(in srgb, var(--accent-color), transparent 92%);
   }
 
   .navmenu .dropdown:hover>ul {
