@@ -14,7 +14,7 @@ from django.utils.html import strip_tags
 
 logger = logging.getLogger(__name__)
 
-CLINIC_NAME = os.environ.get('CLINIC_NAME', 'Shiva Zen')
+CLINIC_NAME = os.environ.get('CLINIC_NAME', 'Dra. Jaqueline Aranha')
 DEFAULT_FROM = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@clinica.com.br')
 SITE_URL = os.environ.get('SITE_URL', 'http://127.0.0.1:8000').rstrip('/')
 

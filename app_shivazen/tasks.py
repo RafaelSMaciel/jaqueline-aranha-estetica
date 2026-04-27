@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-CLINIC_NAME = os.environ.get('CLINIC_NAME', 'Shiva Zen')
+CLINIC_NAME = os.environ.get('CLINIC_NAME', 'Dra. Jaqueline Aranha')
 
 
 # ═══════════════════════════════════════

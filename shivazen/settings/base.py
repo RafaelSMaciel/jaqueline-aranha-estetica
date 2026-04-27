@@ -81,7 +81,7 @@ REST_FRAMEWORK = {
 }
 
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'Shiva Zen API',
+    'TITLE': 'Dra. Jaqueline Aranha API',
     'DESCRIPTION': 'API REST da plataforma de clinica estetica',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,

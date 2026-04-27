@@ -37,7 +37,7 @@ from ..utils.whatsapp import SITE_URL, gerar_token
 logger = logging.getLogger(__name__)
 
 WHATSAPP_NUMERO = os.environ.get('WHATSAPP_NUMERO', '5517999990000')
-CLINIC_NAME = os.environ.get('CLINIC_NAME', 'Shiva Zen')
+CLINIC_NAME = os.environ.get('CLINIC_NAME', 'Dra. Jaqueline Aranha')
 
 
 def agendamento_publico(request):
