@@ -70,11 +70,88 @@
             padding: 1.25rem 1rem;
             background: white;
             border-bottom: 1px solid #eee;
+            position: relative;
+        }
+        .admin-page-header::before {
+            content: ""; position: absolute; left: 0; top: 0; bottom: 0;
+            width: 3px; background: linear-gradient(180deg, var(--admin-accent) 0%, #b48c4c 100%);
         }
         .admin-page-title {
             font-family: 'Playfair Display', serif;
-            font-size: 1.3rem; font-weight: 700;
-            margin: 0;
+            font-size: 1.4rem; font-weight: 700;
+            margin: 0; color: var(--admin-dark); letter-spacing: -0.01em;
+        }
+        .admin-page-header p { font-size: 0.78rem; }
+
+        /* Botões padrão admin */
+        .btn-admin-primary {
+            background: var(--admin-accent); color: white; border: none;
+            border-radius: 10px; font-weight: 700; padding: 0.4rem 1rem;
+            transition: all 0.2s; text-decoration: none;
+            display: inline-flex; align-items: center; gap: 0.35rem;
+        }
+        .btn-admin-primary:hover { background: #b48c4c; color: white; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(201,168,76,0.35); }
+        .btn-admin-dark {
+            background: var(--admin-dark); color: white; border: none;
+            border-radius: 10px; font-weight: 700; padding: 0.4rem 1rem;
+            transition: all 0.2s; text-decoration: none;
+            display: inline-flex; align-items: center; gap: 0.35rem;
+        }
+        .btn-admin-dark:hover { background: #16213e; color: white; }
+        .form-control, .form-select { border-radius: 10px; }
+
+        /* Tabelas com overflow no mobile */
+        .admin-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 14px; background: white; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+        .admin-table-wrap table { margin: 0; min-width: 640px; }
+        .admin-table-wrap th { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #666; font-weight: 700; }
+
+        /* Hover sutil em cards interativos */
+        .admin-list-item, .cliente-card, .agend-card, .stat-card {
+            transition: box-shadow 0.2s, transform 0.2s;
+        }
+        .admin-list-item:hover, .cliente-card:hover, .agend-card:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08); transform: translateY(-1px);
+        }
+
+        /* Empty state padronizado */
+        .admin-empty-state {
+            background: white; border-radius: 16px;
+            padding: 3rem 1.5rem; text-align: center;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        }
+        .admin-empty-state .icon {
+            width: 72px; height: 72px; margin: 0 auto 1rem;
+            border-radius: 50%; background: rgba(201,168,76,0.12);
+            display: flex; align-items: center; justify-content: center;
+            color: var(--admin-accent); font-size: 1.8rem;
+        }
+        .admin-empty-state h5 { font-weight: 700; color: var(--admin-dark); margin-bottom: 0.4rem; }
+        .admin-empty-state p { color: #888; font-size: 0.85rem; margin-bottom: 1rem; }
+
+        /* Empty state legado (partials/_empty_state.html) - alinha com tema admin */
+        .empty-state {
+            text-align: center; padding: 2.5rem 1.5rem;
+            background: white; border-radius: 16px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04); border: none;
+        }
+        .empty-state-icon { font-size: 2.4rem; color: var(--admin-accent); opacity: 0.85; display: block; margin-bottom: 0.8rem; }
+        .empty-state-title { font-family: 'Playfair Display', serif; font-weight: 700; font-size: 1.1rem; color: var(--admin-dark); margin: 0 0 0.4rem; }
+        .empty-state-message { color: #888; font-size: 0.85rem; max-width: 380px; margin: 0 auto 1rem; }
+        .empty-state-action {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            background: var(--admin-accent); color: white;
+            padding: 0.5rem 1.1rem; border-radius: 10px;
+            font-weight: 700; font-size: 0.82rem;
+            text-decoration: none; transition: all 0.2s;
+        }
+        .empty-state-action:hover { color: white; background: #b48c4c; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(201,168,76,0.35); }
+
+        /* Bottom-nav: indicador de scroll lateral mobile */
+        .admin-bottom-nav-wrap { position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999; }
+        .admin-bottom-nav-wrap::after {
+            content: ""; position: absolute; right: 0; top: 0; bottom: 0;
+            width: 24px; pointer-events: none;
+            background: linear-gradient(90deg, transparent, var(--admin-dark));
         }
 
         /* Stat cards */
@@ -118,14 +195,16 @@
 
         /* Badge */
         .admin-badge {
-            display: inline-block; padding: 0.2rem 0.6rem;
+            display: inline-block; padding: 0.25rem 0.7rem;
             border-radius: 20px; font-size: 0.65rem; font-weight: 800;
             text-transform: uppercase; letter-spacing: 0.5px;
+            line-height: 1.2; border: 1px solid transparent;
         }
-        .admin-badge-green { background: #e8f5e9; color: #2e7d32; }
-        .admin-badge-yellow { background: #fff8e1; color: #f57f17; }
-        .admin-badge-red { background: #fce4ec; color: #c62828; }
-        .admin-badge-blue { background: #e3f2fd; color: #1565c0; }
+        .admin-badge-green { background: #e8f5e9; color: #2e7d32; border-color: #c8e6c9; }
+        .admin-badge-yellow { background: #fff8e1; color: #f57f17; border-color: #ffe0a3; }
+        .admin-badge-red { background: #fce4ec; color: #c62828; border-color: #f8bbd0; }
+        .admin-badge-blue { background: #e3f2fd; color: #1565c0; border-color: #bbdefb; }
+        .admin-badge-gold { background: rgba(201,168,76,0.12); color: #8a6d2c; border-color: rgba(201,168,76,0.3); }
 
         /* FAB button */
         .admin-fab {
