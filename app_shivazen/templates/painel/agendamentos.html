@@ -61,8 +61,8 @@
             </select>
         </div>
         <div class="col-6 col-md-2 d-flex gap-1">
-            <button type="submit" class="btn btn-sm flex-grow-1" style="background:#C9A84C;color:white;border-radius:10px;font-weight:700;">
-                <i class="fas fa-search me-1"></i>Filtrar
+            <button type="submit" class="btn-admin-primary btn-sm flex-grow-1 justify-content-center">
+                <i class="fas fa-search"></i>Filtrar
             </button>
             {% if request.GET.status or request.GET.data or request.GET.profissional %}
             <a href="{% url 'shivazen:painel_agendamentos' %}" class="btn btn-sm btn-outline-secondary" style="border-radius:10px;" title="Limpar filtros" aria-label="Limpar filtros">
@@ -71,8 +71,8 @@
             {% endif %}
         </div>
         <div class="col-6 col-md-4 text-end">
-            <a href="{% url 'shivazen:agendamento_publico' %}" class="btn btn-sm" style="background:#1a1a2e;color:white;border-radius:10px;font-weight:700;">
-                <i class="fas fa-plus me-1"></i>Novo Agendamento
+            <a href="{% url 'shivazen:agendamento_publico' %}" class="btn-admin-dark btn-sm">
+                <i class="fas fa-plus"></i>Novo Agendamento
             </a>
             <a href="{% url 'shivazen:exportar_relatorio_excel' %}" class="btn btn-sm" style="background:#217346;color:white;border-radius:10px;font-weight:700;">
                 <i class="fas fa-file-excel me-1"></i>Excel
