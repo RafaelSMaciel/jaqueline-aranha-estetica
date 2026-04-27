@@ -25,7 +25,7 @@
         .admin-topbar {
             background: linear-gradient(135deg, var(--admin-dark) 0%, #16213e 50%, #0f3460 100%);
             color: white;
-            padding: 0.75rem 1rem;
+            padding: 0.65rem 1.25rem; min-height: 56px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -39,31 +39,60 @@
         }
         .admin-topbar-actions a:hover { color: white; }
 
-        /* Admin bottom nav */
-        .admin-bottom-nav {
-            position: fixed; bottom: 0; left: 0; right: 0;
-            height: 60px; background: var(--admin-dark);
-            display: flex; align-items: center; justify-content: flex-start;
-            z-index: 9999; border-top: 1px solid rgba(255,255,255,0.08);
-            overflow-x: auto; -webkit-overflow-scrolling: touch;
-            scrollbar-width: none;
+        /* Admin side nav (drawer mobile, fixed sidebar desktop) */
+        .admin-sidenav {
+            position: fixed; top: 0; left: 0; bottom: 0;
+            width: 250px; background: var(--admin-dark); color: #e6e6e6;
+            z-index: 9999; border-right: 1px solid rgba(255,255,255,0.08);
+            display: flex; flex-direction: column;
+            overflow-y: auto; overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            transform: translateX(-100%);
+            transition: transform 0.25s ease;
         }
-        .admin-bottom-nav::-webkit-scrollbar { display: none; }
+        .admin-sidenav.is-open { transform: translateX(0); }
+        .admin-sidenav-header {
+            padding: 1rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.08);
+            display: flex; align-items: center; gap: 0.5rem;
+            font-family: 'Playfair Display', serif; font-weight: 700; font-size: 1rem;
+            color: white;
+        }
+        .admin-sidenav-header i { color: var(--admin-accent); }
+        .admin-sidenav-section {
+            padding: 0.75rem 1.25rem 0.35rem; font-size: 0.65rem;
+            text-transform: uppercase; letter-spacing: 1px;
+            color: rgba(255,255,255,0.45); font-weight: 700;
+        }
         .admin-nav-item {
-            display: flex; flex-direction: column; align-items: center;
-            justify-content: center; flex: 0 0 auto; min-width: 60px; height: 100%;
-            padding: 0 0.4rem;
-            text-decoration: none; color: rgba(255,255,255,0.72);
-            font-size: 0.6rem; font-weight: 700; gap: 2px;
-            transition: all 0.2s;
+            display: flex; align-items: center; gap: 0.75rem;
+            padding: 0.65rem 1.25rem;
+            text-decoration: none; color: rgba(255,255,255,0.78);
+            font-size: 0.85rem; font-weight: 500;
+            border-left: 3px solid transparent;
+            transition: all 0.18s;
         }
-        .admin-nav-item i { font-size: 1.1rem; }
-        .admin-nav-item.active { color: var(--admin-accent); }
+        .admin-nav-item i { font-size: 1rem; width: 18px; text-align: center; }
+        .admin-nav-item:hover { color: white; background: rgba(255,255,255,0.04); }
+        .admin-nav-item.active {
+            color: var(--admin-accent); background: rgba(201,168,76,0.12);
+            border-left-color: var(--admin-accent); font-weight: 700;
+        }
+        .admin-sidenav-backdrop {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+            z-index: 9998; opacity: 0; pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        .admin-sidenav-backdrop.is-open { opacity: 1; pointer-events: auto; }
+        .admin-hamburger {
+            background: none; border: none; color: white; cursor: pointer;
+            font-size: 1.25rem; padding: 0.25rem 0.5rem; margin-right: 0.5rem;
+            line-height: 1;
+        }
+        .admin-hamburger:hover { color: var(--admin-accent); }
 
         .admin-body {
             background: #f0f0f5;
             min-height: 100vh;
-            padding-bottom: 80px;
         }
 
         .admin-page-header {
@@ -146,13 +175,23 @@
         }
         .empty-state-action:hover { color: white; background: #b48c4c; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(201,168,76,0.35); }
 
-        /* Bottom-nav: indicador de scroll lateral mobile */
-        .admin-bottom-nav-wrap { position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999; }
-        .admin-bottom-nav-wrap::after {
-            content: ""; position: absolute; right: 0; top: 0; bottom: 0;
-            width: 24px; pointer-events: none;
-            background: linear-gradient(90deg, transparent, var(--admin-dark));
-        }
+        /* (legacy bottom-nav-wrap removido — substituido por admin-sidenav drawer) */
+
+        /* Painel toasts */
+        #adminToasts { position: fixed; top: 70px; right: 20px; z-index: 10060; display: flex; flex-direction: column; gap: 0.5rem; max-width: 360px; }
+        .admin-toast { background: white; border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.15); padding: 0.85rem 1rem; font-size: 0.85rem; border-left: 4px solid var(--admin-accent); display: flex; align-items: flex-start; gap: 0.6rem; animation: toastIn 0.25s ease; }
+        .admin-toast.success { border-left-color: #2e7d32; }
+        .admin-toast.error { border-left-color: #c62828; }
+        .admin-toast.warning { border-left-color: #f57f17; }
+        .admin-toast .close { background: none; border: none; cursor: pointer; color: #999; padding: 0; margin-left: auto; }
+        @keyframes toastIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        /* Skeletons */
+        .skeleton { background: linear-gradient(90deg, #eee 25%, #f5f5f5 50%, #eee 75%); background-size: 200% 100%; animation: skelShim 1.4s linear infinite; border-radius: 8px; }
+        @keyframes skelShim { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        .skeleton-line { height: 12px; margin: 0.4rem 0; }
+        .skeleton-line.lg { height: 16px; }
+        body.admin-dark .skeleton { background: linear-gradient(90deg, #1f262e 25%, #2a3038 50%, #1f262e 75%); background-size: 200% 100%; }
 
         /* Stat cards */
         .stat-card {
@@ -217,24 +256,11 @@
         }
         .admin-fab:hover { transform: scale(1.1); color: white; }
 
-        @media (min-width: 769px) {
-            .admin-body { padding-left: 240px; }
-            .admin-bottom-nav {
-                position: fixed; left: 0; top: 0; bottom: 0;
-                width: 240px; height: auto;
-                flex-direction: column; justify-content: flex-start;
-                padding-top: 80px; gap: 0.25rem;
-                border-top: none; border-right: 1px solid rgba(255,255,255,0.08);
-                overflow-x: visible; overflow-y: auto;
-            }
-            .admin-nav-item {
-                flex: 0 0 auto; min-width: unset;
-                flex-direction: row; justify-content: flex-start;
-                padding: 0.75rem 1.5rem; gap: 0.75rem;
-                font-size: 0.85rem; border-radius: 0;
-                width: 100%;
-            }
-            .admin-nav-item.active { background: rgba(201,168,76,0.15); }
+        @media (min-width: 992px) {
+            .admin-body { padding-left: 250px; }
+            .admin-sidenav { transform: translateX(0); }
+            .admin-sidenav-backdrop { display: none; }
+            .admin-hamburger { display: none; }
             .admin-fab { bottom: 24px; right: 24px; }
             .stat-card { text-align: left; }
             .stat-card-icon { margin: 0 0 0.6rem 0; }
@@ -265,13 +291,28 @@
 <body class="admin-body">
     <!-- Top Bar -->
     <div class="admin-topbar">
+        <button type="button" class="admin-hamburger" id="sidenavToggle" aria-label="Abrir menu" aria-controls="sidenavMain" aria-expanded="false"><i class="fas fa-bars"></i></button>
         <div class="admin-topbar-brand"><i class="fas fa-spa"></i>{{ CLINIC_NAME }} Admin</div>
+        <div class="admin-topbar-search d-none d-md-flex" style="flex:1;max-width:380px;margin:0 1rem;">
+            <input type="search" id="adminGlobalSearch" placeholder="Buscar paciente, agendamento..." style="width:100%;padding:0.4rem 0.75rem;border-radius:8px;border:none;background:rgba(255,255,255,0.1);color:white;font-size:0.85rem;" aria-label="Busca rapida (Ctrl+K)">
+        </div>
         <div class="admin-topbar-actions">
             <a href="#" id="adminShortcutsBtn" title="Atalhos de teclado (?)"><i class="fas fa-keyboard"></i></a>
             <a href="#" id="adminThemeToggle" title="Alternar tema (T)"><i class="fas fa-moon" id="adminThemeIcon"></i></a>
             <a href="{% url 'shivazen:inicio' %}" title="Ver site" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i></a>
             <a href="{% url 'shivazen:usuario_logout' %}" title="Sair"><i class="fas fa-sign-out-alt"></i></a>
         </div>
+    </div>
+
+    <!-- Toasts container (renderiza Django messages como toasts) -->
+    <div id="adminToasts" aria-live="polite" aria-atomic="true">
+        {% if messages %}{% for message in messages %}
+        <div class="admin-toast {{ message.tags }}">
+            <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-times-circle{% elif message.tags == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %}" style="color:var(--admin-accent);"></i>
+            <div style="flex:1;">{{ message }}</div>
+            <button type="button" class="close" aria-label="Fechar">&times;</button>
+        </div>
+        {% endfor %}{% endif %}
     </div>
 
     <!-- Session timeout warning modal -->
@@ -320,40 +361,47 @@
         {% block admin_content %}{% endblock %}
     </div>
 
-    <!-- Bottom Nav (mobile) / Side Nav (desktop) -->
-    <nav class="admin-bottom-nav">
+    <!-- Side nav (drawer mobile, fixo desktop) -->
+    <div class="admin-sidenav-backdrop" id="sidenavBackdrop"></div>
+    <nav class="admin-sidenav" id="sidenavMain">
+        <div class="admin-sidenav-header"><i class="fas fa-spa"></i>{{ CLINIC_NAME }}</div>
+        <div class="admin-sidenav-section">Operação</div>
         <a href="{% url 'shivazen:painel_overview' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'painel_overview' or request.resolver_match.url_name == 'painel' %}active{% endif %}">
             <i class="fas fa-chart-pie"></i><span>Dashboard</span>
         </a>
         <a href="{% url 'shivazen:painel_agendamentos' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'painel_agendamentos' %}active{% endif %}">
             <i class="fas fa-calendar-day"></i><span>Agenda</span>
         </a>
-        <a href="{% url 'shivazen:painel_profissionais' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'painel_profissionais' or request.resolver_match.url_name == 'profissional_cadastro' or request.resolver_match.url_name == 'profissional_editar' %}active{% endif %}">
-            <i class="fas fa-user-md"></i><span>Profissionais</span>
-        </a>
         <a href="{% url 'shivazen:painel_clientes' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'painel_clientes' %}active{% endif %}">
             <i class="fas fa-users"></i><span>Pacientes</span>
         </a>
-        <a href="{% url 'shivazen:admin_promocoes' %}" class="admin-nav-item {% if 'promoco' in request.resolver_match.url_name %}active{% endif %}">
-            <i class="fas fa-tag"></i><span>Promoções</span>
+        <a href="{% url 'shivazen:prontuario_consentimento' %}" class="admin-nav-item {% if 'prontuario' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="fas fa-file-medical"></i><span>Prontuário</span>
         </a>
         <a href="{% url 'shivazen:painel_notificacoes' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'painel_notificacoes' %}active{% endif %}">
             <i class="fas fa-bell"></i><span>Notificações</span>
         </a>
-        <a href="{% url 'shivazen:prontuario_consentimento' %}" class="admin-nav-item {% if 'prontuario' in request.resolver_match.url_name %}active{% endif %}">
-            <i class="fas fa-file-medical"></i><span>Prontuario</span>
+
+        <div class="admin-sidenav-section">Cadastros</div>
+        <a href="{% url 'shivazen:admin_procedimentos' %}" class="admin-nav-item {% if 'procedimento' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="fas fa-stethoscope"></i><span>Procedimentos</span>
+        </a>
+        <a href="{% url 'shivazen:admin_promocoes' %}" class="admin-nav-item {% if 'promoco' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="fas fa-tag"></i><span>Promoções</span>
         </a>
         <a href="{% url 'shivazen:admin_pacotes' %}" class="admin-nav-item {% if 'pacote' in request.resolver_match.url_name %}active{% endif %}">
             <i class="fas fa-box"></i><span>Pacotes</span>
         </a>
-        <a href="{% url 'shivazen:admin_procedimentos' %}" class="admin-nav-item {% if 'procedimento' in request.resolver_match.url_name %}active{% endif %}">
-            <i class="fas fa-stethoscope"></i><span>Procedimentos</span>
+        <a href="{% url 'shivazen:painel_profissionais' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'painel_profissionais' or request.resolver_match.url_name == 'profissional_cadastro' or request.resolver_match.url_name == 'profissional_editar' %}active{% endif %}">
+            <i class="fas fa-user-md"></i><span>Profissionais</span>
         </a>
+
+        <div class="admin-sidenav-section">Sistema</div>
         <a href="{% url 'shivazen:admin_bloqueios' %}" class="admin-nav-item {% if 'bloqueio' in request.resolver_match.url_name %}active{% endif %}">
             <i class="fas fa-calendar-times"></i><span>Bloqueios</span>
         </a>
         <a href="{% url 'shivazen:admin_lista_espera' %}" class="admin-nav-item {% if 'espera' in request.resolver_match.url_name %}active{% endif %}">
-            <i class="fas fa-hourglass-half"></i><span>Espera</span>
+            <i class="fas fa-hourglass-half"></i><span>Lista de espera</span>
         </a>
         <a href="{% url 'shivazen:admin_termos' %}" class="admin-nav-item {% if 'termo' in request.resolver_match.url_name %}active{% endif %}">
             <i class="fas fa-file-contract"></i><span>Termos</span>
@@ -372,6 +420,32 @@
                 navigator.serviceWorker.register("{% url 'shivazen:sw' %}").catch(function(err){ console.warn('SW:', err); });
             });
         }
+
+
+        // Toast close + auto-dismiss
+        (function(){ document.querySelectorAll('#adminToasts .admin-toast').forEach(function(t){ var b=t.querySelector('.close'); if(b) b.addEventListener('click', function(){ t.style.opacity='0'; setTimeout(function(){t.remove();},250); }); setTimeout(function(){ t.style.opacity='0'; setTimeout(function(){t.remove();},250); }, 5000); }); })();
+        // Ctrl+K focus global search
+        document.addEventListener('keydown', function(e){ if((e.ctrlKey||e.metaKey)&&e.key==='k'){ e.preventDefault(); var s=document.getElementById('adminGlobalSearch'); if(s) s.focus(); } });
+        // Sidenav drawer toggle (mobile)
+        (function(){
+            var nav = document.getElementById('sidenavMain');
+            var bd = document.getElementById('sidenavBackdrop');
+            var btn = document.getElementById('sidenavToggle');
+            function open(){ nav.classList.add('is-open'); bd.classList.add('is-open'); btn && btn.setAttribute('aria-expanded','true'); }
+            function close(){ nav.classList.remove('is-open'); bd.classList.remove('is-open'); btn && btn.setAttribute('aria-expanded','false'); }
+            btn && btn.addEventListener('click', function(){
+                nav.classList.contains('is-open') ? close() : open();
+            });
+            bd && bd.addEventListener('click', close);
+            // close on nav link click (mobile)
+            nav && nav.querySelectorAll('a.admin-nav-item').forEach(function(a){
+                a.addEventListener('click', function(){ if (window.innerWidth < 992) close(); });
+            });
+            // ESC fecha
+            document.addEventListener('keydown', function(e){
+                if (e.key === 'Escape' && nav.classList.contains('is-open')) close();
+            });
+        })();
 
         // Admin dark mode
         (function(){
