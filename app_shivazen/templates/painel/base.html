@@ -219,7 +219,7 @@
             <tr><td><kbd>t</kbd></td><td>Alternar tema claro/escuro</td></tr>
             <tr><td><kbd>g</kbd> <kbd>d</kbd></td><td>Ir para Dashboard</td></tr>
             <tr><td><kbd>g</kbd> <kbd>a</kbd></td><td>Ir para Agenda</td></tr>
-            <tr><td><kbd>g</kbd> <kbd>c</kbd></td><td>Ir para Clientes</td></tr>
+            <tr><td><kbd>g</kbd> <kbd>c</kbd></td><td>Ir para Pacientes</td></tr>
             <tr><td><kbd>g</kbd> <kbd>p</kbd></td><td>Ir para Profissionais</td></tr>
             <tr><td><kbd>esc</kbd></td><td>Fechar modal</td></tr>
           </tbody>
@@ -250,7 +250,7 @@
             <i class="fas fa-user-md"></i><span>Profissionais</span>
         </a>
         <a href="{% url 'shivazen:painel_clientes' %}" class="admin-nav-item {% if request.resolver_match.url_name == 'painel_clientes' %}active{% endif %}">
-            <i class="fas fa-users"></i><span>Clientes</span>
+            <i class="fas fa-users"></i><span>Pacientes</span>
         </a>
         <a href="{% url 'shivazen:admin_promocoes' %}" class="admin-nav-item {% if 'promoco' in request.resolver_match.url_name %}active{% endif %}">
             <i class="fas fa-tag"></i><span>Promoções</span>

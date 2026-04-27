@@ -224,7 +224,7 @@ def admin_cliente_detalhe(request, pk):
         cliente.ativo = request.POST.get('ativo') == '1'
         cliente.save()
         registrar_log(request.user, f'Editou cliente: {cliente.nome_completo}', 'cliente', cliente.pk)
-        messages.success(request, 'Cliente atualizado!')
+        messages.success(request, 'Paciente atualizado!')
         return redirect('shivazen:admin_cliente_detalhe', pk=pk)
 
     atendimentos = Atendimento.objects.filter(

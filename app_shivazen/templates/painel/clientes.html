@@ -1,7 +1,7 @@
 {% extends 'painel/base.html' %}
 
-{% block page_title %}Clientes{% endblock %}
-{% block page_subtitle %}Gerencie todos os clientes da clínica{% endblock %}
+{% block page_title %}Pacientes{% endblock %}
+{% block page_subtitle %}Gerencie todos os pacientes da clínica{% endblock %}
 
 {% block admin_css %}
 .clientes-search {
@@ -50,7 +50,7 @@
     </form>
 </div>
 
-<div class="small text-muted mb-2 fw-bold"><i class="fas fa-users me-1"></i>{{ clientes|length }} cliente(s)</div>
+<div class="small text-muted mb-2 fw-bold"><i class="fas fa-users me-1"></i>{{ clientes|length }} paciente(s)</div>
 
 {% for cliente in clientes %}
 <div class="cliente-card">
@@ -88,7 +88,7 @@
 <div class="text-center py-5">
     <i class="fas fa-users fa-3x" style="color:#ddd;"></i>
     <p class="text-muted mt-3">
-        {% if search %}Nenhum cliente encontrado para "{{ search }}"{% else %}Nenhum cliente cadastrado{% endif %}
+        {% if search %}Nenhum paciente encontrado para "{{ search }}"{% else %}Nenhum paciente cadastrado{% endif %}
     </p>
 </div>
 {% endfor %}
