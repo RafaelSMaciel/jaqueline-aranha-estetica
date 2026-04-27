@@ -2,6 +2,9 @@
 
 {% block page_title %}Pacientes{% endblock %}
 {% block page_subtitle %}Gerencie todos os pacientes da clínica{% endblock %}
+{% block page_actions %}
+<a href="{% url 'shivazen:admin_lista_espera' %}" class="btn-admin-primary btn-sm" style="background:#fff;color:#C9A84C;border:2px solid #C9A84C;"><i class="bi bi-hourglass-half"></i> Lista de espera</a>
+{% endblock %}
 
 {% block admin_css %}
 .clientes-search {

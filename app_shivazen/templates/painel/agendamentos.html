@@ -2,6 +2,10 @@
 
 {% block page_title %}Agendamentos{% endblock %}
 {% block page_subtitle %}Gerencie todos os agendamentos da clínica{% endblock %}
+{% block page_actions %}
+<a href="{% url 'shivazen:agendamento_publico' %}" class="btn-admin-primary btn-sm"><i class="bi bi-plus-lg"></i> Novo agendamento</a>
+<a href="{% url 'shivazen:exportar_relatorio_excel' %}" class="btn btn-sm btn-outline-secondary" style="border-radius:10px;"><i class="bi bi-file-earmark-excel"></i> Excel</a>
+{% endblock %}
 
 {% block admin_css %}
 .agend-filters {
