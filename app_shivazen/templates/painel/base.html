@@ -53,7 +53,7 @@
             display: flex; flex-direction: column; align-items: center;
             justify-content: center; flex: 0 0 auto; min-width: 60px; height: 100%;
             padding: 0 0.4rem;
-            text-decoration: none; color: rgba(255,255,255,0.4);
+            text-decoration: none; color: rgba(255,255,255,0.72);
             font-size: 0.6rem; font-weight: 700; gap: 2px;
             transition: all 0.2s;
         }
@@ -307,9 +307,12 @@
     </div>
 
     <!-- Page Header -->
-    <div class="admin-page-header">
-        <h1 class="admin-page-title">{% block page_title %}Painel{% endblock %}</h1>
-        <p class="text-muted small mb-0" style="margin-top:0.2rem;">{% block page_subtitle %}{% endblock %}</p>
+    <div class="admin-page-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+        <div style="flex:1;min-width:0;padding-left:0.5rem;">
+            <h1 class="admin-page-title">{% block page_title %}Painel{% endblock %}</h1>
+            <p class="text-muted small mb-0" style="margin-top:0.2rem;">{% block page_subtitle %}{% endblock %}</p>
+        </div>
+        <div class="admin-page-actions" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">{% block page_actions %}{% endblock %}</div>
     </div>
 
     <!-- Content -->
