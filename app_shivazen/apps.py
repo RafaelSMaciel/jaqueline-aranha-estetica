@@ -7,3 +7,7 @@ class AppShivazenConfig(AppConfig):
 
     def ready(self):
         import app_shivazen.signals
+        # Forca 2FA no Django Admin (substitui classe do site)
+        from django.contrib import admin
+        from two_factor.admin import AdminSiteOTPRequired
+        admin.site.__class__ = AdminSiteOTPRequired

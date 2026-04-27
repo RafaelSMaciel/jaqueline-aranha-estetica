@@ -54,6 +54,10 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.sitemaps',
+    'django_otp',
+    'django_otp.plugins.otp_totp',
+    'django_otp.plugins.otp_static',
+    'two_factor',
     'axes',
     'rest_framework',
     'drf_spectacular',
@@ -97,6 +101,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django_otp.middleware.OTPMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'app_shivazen.middleware.ContentSecurityPolicyMiddleware',
@@ -193,6 +198,13 @@ AUTH_PASSWORD_VALIDATORS = [
 AUTH_USER_MODEL = 'app_shivazen.Usuario'
 LOGIN_URL = '/admin-login/'
 LOGIN_REDIRECT_URL = '/painel/'
+
+# 2FA (django-two-factor-auth)
+TWO_FACTOR_PATCH_ADMIN = False  # admin patched manualmente via shivazen.urls
+TWO_FACTOR_REMEMBER_COOKIE_AGE = int(os.environ.get('TWO_FACTOR_REMEMBER_COOKIE_AGE', 30 * 24 * 3600))
+TWO_FACTOR_REMEMBER_COOKIE_SECURE = not DEBUG
+TWO_FACTOR_REMEMBER_COOKIE_HTTPONLY = True
+TWO_FACTOR_REMEMBER_COOKIE_SAMESITE = 'Lax'
 LOGOUT_REDIRECT_URL = '/'
 
 
