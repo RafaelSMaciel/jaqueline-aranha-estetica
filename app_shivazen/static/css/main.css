@@ -211,10 +211,18 @@ h6 {
 }
 
 .header .logo h1 {
-  font-size: 30px;
+  font-size: 26px;
   margin: 0;
   font-weight: 600;
   color: var(--heading-color);
+  white-space: nowrap;
+  line-height: 1.2;
+}
+@media (max-width: 1399.98px) {
+  .header .logo h1 { font-size: 22px; }
+}
+@media (max-width: 991.98px) {
+  .header .logo h1 { font-size: 20px; }
 }
 
 .scrolled .header .topbar {
@@ -6630,13 +6638,21 @@ body.theme-dark .floating-cta-mini {
   border-color: rgba(201, 168, 76, 0.45);
 }
 
-/* ── Offset global p/ header fixo em paginas nao-home ── */
-body:not(.index-page) > .main { padding-top: 140px; }
+/* ── Offset global p/ header fixo em todas as paginas ── */
+body > .main { padding-top: 140px; }
 @media (max-width: 1199.98px) {
-  body:not(.index-page) > .main { padding-top: 120px; }
+  body > .main { padding-top: 120px; }
 }
 @media (max-width: 575.98px) {
-  body:not(.index-page) > .main { padding-top: 100px; }
+  body > .main { padding-top: 100px; }
+}
+/* Em home (index-page), hero tem min-height 100vh — descontar offset do header */
+body.index-page .hero { min-height: calc(100vh - 140px); }
+@media (max-width: 1199.98px) {
+  body.index-page .hero { min-height: calc(100vh - 120px); }
+}
+@media (max-width: 575.98px) {
+  body.index-page .hero { min-height: calc(100vh - 100px); }
 }
 
 /* ── Booking hero/card (compartilhado agendamento + meus agendamentos) ── */
