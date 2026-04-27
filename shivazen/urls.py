@@ -5,7 +5,11 @@ from django.contrib.sitemaps.views import sitemap
 from django.urls import path, include
 from django.views.generic import TemplateView
 
+from two_factor.urls import urlpatterns as tf_urlpatterns
+
 from app_shivazen.sitemaps import StaticViewSitemap, ProcedimentoSitemap
+
+# admin.site.__class__ -> AdminSiteOTPRequired aplicado em app_shivazen.apps.ready()
 
 sitemaps = {
     'static': StaticViewSitemap,
@@ -14,6 +18,8 @@ sitemaps = {
 
 urlpatterns = [
     path('django-admin-sv/', admin.site.urls),
+    # 2FA: setup TOTP, login com OTP, backup tokens
+    path('', include(tf_urlpatterns)),
     path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
     path('robots.txt', TemplateView.as_view(template_name='robots.txt', content_type='text/plain')),
     path('', include('app_shivazen.urls')),
