@@ -53,10 +53,21 @@
     </form>
 </div>
 
-<div class="small text-muted mb-2 fw-bold"><i class="fas fa-users me-1"></i>{{ clientes|length }} paciente(s)</div>
+<div class="clientes-search" style="padding:0.5rem 1rem;">
+    <input type="text" id="filtroClientesInstant" class="form-control form-control-sm"
+           placeholder="Filtrar visíveis..." style="border-radius:10px;"
+           data-search-filter="#listaClientes"
+           data-search-counter="#cntClientesVisiveis"
+           data-search-empty="#emptyFiltroClientes">
+</div>
 
+<div class="small text-muted mb-2 fw-bold">
+    <i class="fas fa-users me-1"></i><span id="cntClientesVisiveis">{{ clientes|length }}</span> paciente(s)
+</div>
+
+<div id="listaClientes" data-search-rows=".cliente-card">
 {% for cliente in clientes %}
-<div class="cliente-card">
+<div class="cliente-card" data-search-text="{{ cliente.nome_completo }} {{ cliente.cpf|default:'' }} {{ cliente.email|default:'' }} {{ cliente.telefone|default:'' }}">
     <div class="cliente-avatar">
         {{ cliente.nome_completo|make_list|first }}{{ cliente.nome_completo|make_list|last }}
     </div>
@@ -99,4 +110,11 @@
     {% endif %}
 </div>
 {% endfor %}
+</div>
+
+<div id="emptyFiltroClientes" class="admin-empty-state" style="display:none;">
+    <div class="icon"><i class="fas fa-filter"></i></div>
+    <h5>Nenhum paciente bate com o filtro</h5>
+    <p>Ajuste o termo ou limpe o campo.</p>
+</div>
 {% endblock %}

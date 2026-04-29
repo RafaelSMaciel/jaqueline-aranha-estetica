@@ -236,9 +236,32 @@ def admin_cliente_detalhe(request, pk):
         cliente=cliente
     ).select_related('profissional', 'procedimento').order_by('-data_hora_inicio')[:20]
 
+    realizados_qs = Atendimento.objects.filter(cliente=cliente, status='REALIZADO')
+    from django.db.models import Sum, Count, Avg, Max
+    agg = realizados_qs.aggregate(
+        total=Sum('valor_cobrado'),
+        qtd=Count('pk'),
+        ticket_medio=Avg('valor_cobrado'),
+        ultima=Max('data_hora_inicio'),
+    )
+    proc_top = realizados_qs.values(
+        'procedimento__nome'
+    ).annotate(c=Count('pk')).order_by('-c').first()
+
+    cliente_stats = {
+        'ltv': agg['total'] or 0,
+        'qtd_realizados': agg['qtd'] or 0,
+        'ticket_medio': agg['ticket_medio'] or 0,
+        'ultima_visita': agg['ultima'],
+        'procedimento_mais_frequente': proc_top['procedimento__nome'] if proc_top else None,
+        'no_show_count': Atendimento.objects.filter(cliente=cliente, status='FALTOU').count(),
+        'cancelados_count': Atendimento.objects.filter(cliente=cliente, status='CANCELADO').count(),
+    }
+
     context = {
         'cliente': cliente,
         'atendimentos': atendimentos,
+        'cliente_stats': cliente_stats,
     }
     return render(request, 'painel/cliente_detalhe.html', context)
 
