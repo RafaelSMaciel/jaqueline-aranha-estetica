@@ -119,9 +119,19 @@
         <button type="button" id="bulkClear" class="btn btn-sm" style="background:transparent; color:rgba(255,255,255,0.7); border:1px solid rgba(255,255,255,0.3); border-radius:8px; padding:0.35rem 0.7rem;">Limpar</button>
     </div>
 
+<!-- Filtro instantaneo -->
+<div style="background:white; border-radius:12px; padding:0.5rem 0.75rem; margin-bottom:0.5rem; box-shadow:0 1px 4px rgba(0,0,0,0.04);">
+    <input type="text" id="filtroAgendInstant" class="form-control form-control-sm"
+           placeholder="Filtrar visíveis (paciente, procedimento, profissional)..."
+           style="border-radius:10px;"
+           data-search-filter="#listaAgendamentos"
+           data-search-counter="#cntAgendVisiveis"
+           data-search-empty="#emptyFiltroAgend">
+</div>
+
 <!-- Lista -->
 <div class="d-flex justify-content-between align-items-center mb-2">
-    <div class="small text-muted fw-bold"><i class="fas fa-list me-1"></i>{{ agendamentos|length }} agendamento(s)</div>
+    <div class="small text-muted fw-bold"><i class="fas fa-list me-1"></i><span id="cntAgendVisiveis">{{ agendamentos|length }}</span> agendamento(s)</div>
     {% if agendamentos %}
     <label class="small fw-bold" style="cursor:pointer; color:#666;">
         <input type="checkbox" id="bulkSelectAll"> Selecionar todos pendentes
@@ -129,8 +139,9 @@
     {% endif %}
 </div>
 
+<div id="listaAgendamentos" data-search-rows=".agend-card">
 {% for agend in agendamentos %}
-<div class="agend-card {% if agend.status == 'PENDENTE' %}is-pendente{% endif %}" id="appt-{{ agend.pk }}">
+<div class="agend-card {% if agend.status == 'PENDENTE' %}is-pendente{% endif %}" id="appt-{{ agend.pk }}" data-search-text="{{ agend.cliente.nome_completo }} {{ agend.procedimento.nome }} {{ agend.profissional.nome }} {{ agend.status }}">
     {% if agend.status == 'PENDENTE' %}
     <input type="checkbox" name="ids" value="{{ agend.pk }}" class="bulk-checkbox" style="width:18px; height:18px; flex-shrink:0; cursor:pointer; accent-color:#8b6f47;">
     {% endif %}
@@ -193,6 +204,13 @@
 {% include 'partials/_empty_state.html' with icon='bi-calendar-check' title='Nenhum agendamento encontrado' message='Ajuste os filtros ou crie um novo agendamento.' action_url='/agendar/' action_label='Novo agendamento' action_icon='bi-plus-lg' %}
 </div>
 {% endfor %}
+</div>
+
+<div id="emptyFiltroAgend" class="admin-empty-state" style="display:none;">
+    <div class="icon"><i class="fas fa-filter"></i></div>
+    <h5>Nenhum agendamento bate com o filtro</h5>
+    <p>Ajuste o termo ou limpe o campo.</p>
+</div>
 </form>
 {% endblock %}
 

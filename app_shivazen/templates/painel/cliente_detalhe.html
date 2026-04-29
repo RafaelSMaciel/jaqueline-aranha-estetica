@@ -26,7 +26,92 @@
     .status-CANCELADO { background: #fce4ec; color: #c62828; }
     .status-FALTOU { background: #fff3e0; color: #e65100; }
     .info-badge { font-size: 0.7rem; padding: 0.2rem 0.6rem; border-radius: 8px; font-weight: 700; }
+
+    /* Stats grid */
+    .cli-stats-grid {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 0.6rem; margin-bottom: 1rem;
+    }
+    .cli-stat {
+        background: white; border-radius: 14px; padding: 0.85rem;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.04); position: relative;
+    }
+    .cli-stat-label {
+        font-size: 0.65rem; color: #999; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .cli-stat-value {
+        font-size: 1.15rem; font-weight: 800; color: #1a1a2e;
+        margin-top: 0.2rem; word-break: break-word;
+    }
+    .cli-stat-icon {
+        position: absolute; top: 0.7rem; right: 0.7rem;
+        font-size: 1rem; opacity: 0.4;
+    }
+
+    /* Timeline */
+    .cli-timeline { position: relative; padding-left: 1.6rem; }
+    .cli-timeline::before {
+        content: ''; position: absolute; top: 0.3rem; bottom: 0.3rem;
+        left: 0.55rem; width: 2px; background: #e8e8e8;
+    }
+    .cli-tl-item { position: relative; padding-bottom: 0.85rem; }
+    .cli-tl-item::before {
+        content: ''; position: absolute; left: -1.4rem; top: 0.3rem;
+        width: 12px; height: 12px; border-radius: 50%;
+        background: white; border: 3px solid #C9A84C;
+    }
+    .cli-tl-item.is-FALTOU::before { border-color: #e65100; }
+    .cli-tl-item.is-CANCELADO::before { border-color: #c62828; }
+    .cli-tl-item.is-REALIZADO::before { border-color: #7b1fa2; }
+    .cli-tl-item.is-CONFIRMADO::before { border-color: #2e7d32; }
+    .cli-tl-data { font-size: 0.7rem; color: #999; font-weight: 700; }
+    .cli-tl-titulo { font-size: 0.88rem; font-weight: 700; color: #333; margin-top: 0.1rem; }
+    .cli-tl-meta { font-size: 0.75rem; color: #777; margin-top: 0.15rem; }
+    .cli-tl-extras { display: flex; gap: 0.4rem; margin-top: 0.3rem; flex-wrap: wrap; align-items: center; }
 </style>
+
+<!-- KPIs do paciente -->
+<div class="cli-stats-grid">
+    <div class="cli-stat">
+        <i class="fas fa-coins cli-stat-icon" style="color:#f9a825;"></i>
+        <div class="cli-stat-label">LTV</div>
+        <div class="cli-stat-value">R$ {{ cliente_stats.ltv|floatformat:2 }}</div>
+    </div>
+    <div class="cli-stat">
+        <i class="fas fa-check-circle cli-stat-icon" style="color:#7b1fa2;"></i>
+        <div class="cli-stat-label">Atendimentos</div>
+        <div class="cli-stat-value">{{ cliente_stats.qtd_realizados }}</div>
+    </div>
+    <div class="cli-stat">
+        <i class="fas fa-receipt cli-stat-icon" style="color:#c2185b;"></i>
+        <div class="cli-stat-label">Ticket Medio</div>
+        <div class="cli-stat-value">R$ {{ cliente_stats.ticket_medio|floatformat:2 }}</div>
+    </div>
+    <div class="cli-stat">
+        <i class="fas fa-calendar-check cli-stat-icon" style="color:#1565c0;"></i>
+        <div class="cli-stat-label">Ultima Visita</div>
+        <div class="cli-stat-value" style="font-size:0.85rem;">
+            {% if cliente_stats.ultima_visita %}{{ cliente_stats.ultima_visita|date:"d/m/Y" }}{% else %}—{% endif %}
+        </div>
+    </div>
+    {% if cliente_stats.procedimento_mais_frequente %}
+    <div class="cli-stat">
+        <i class="fas fa-star cli-stat-icon" style="color:#ef6c00;"></i>
+        <div class="cli-stat-label">Top Procedimento</div>
+        <div class="cli-stat-value" style="font-size:0.8rem;">{{ cliente_stats.procedimento_mais_frequente }}</div>
+    </div>
+    {% endif %}
+    {% if cliente_stats.no_show_count or cliente_stats.cancelados_count %}
+    <div class="cli-stat">
+        <i class="fas fa-exclamation-triangle cli-stat-icon" style="color:#c62828;"></i>
+        <div class="cli-stat-label">No-show / Cancel</div>
+        <div class="cli-stat-value" style="font-size:0.95rem;">
+            {{ cliente_stats.no_show_count }} / {{ cliente_stats.cancelados_count }}
+        </div>
+    </div>
+    {% endif %}
+</div>
 
 <!-- Dados do cliente -->
 <div class="detail-card">
@@ -106,23 +191,29 @@
     </form>
 </div>
 
-<!-- Historico de atendimentos -->
+<!-- Timeline de atendimentos -->
 <div class="detail-card">
-    <h3><i class="fas fa-history" style="color: #7a5f1f;"></i> Ultimos Atendimentos</h3>
-    {% for a in atendimentos %}
-    <div class="atend-item">
-        <div>
-            <div style="font-weight: 700; font-size: 0.85rem;">{{ a.procedimento.nome }}</div>
-            <div style="font-size: 0.75rem; color: #999;">
-                {{ a.data_hora_inicio|date:"d/m/Y H:i" }} &middot; {{ a.profissional.nome }}
+    <h3><i class="fas fa-history" style="color: #7a5f1f;"></i> Linha do tempo (ultimos 20)</h3>
+    {% if atendimentos %}
+    <div class="cli-timeline">
+        {% for a in atendimentos %}
+        <div class="cli-tl-item is-{{ a.status }}">
+            <div class="cli-tl-data">{{ a.data_hora_inicio|date:"D, d/m/Y H:i" }}</div>
+            <div class="cli-tl-titulo">{{ a.procedimento.nome }}</div>
+            <div class="cli-tl-meta"><i class="fas fa-user-md me-1"></i>{{ a.profissional.nome }}</div>
+            <div class="cli-tl-extras">
+                <span class="status-badge status-{{ a.status }}">{{ a.get_status_display }}</span>
+                {% if a.valor_cobrado %}
+                <span class="info-badge" style="background:#fff8e1;color:#f57f17;">R$ {{ a.valor_cobrado|floatformat:2 }}</span>
+                {% endif %}
             </div>
         </div>
-        <span class="status-badge status-{{ a.status }}">{{ a.status }}</span>
+        {% endfor %}
     </div>
-    {% empty %}
+    {% else %}
     <div style="text-align: center; padding: 1.5rem; color: #ccc; font-size: 0.85rem;">
         Nenhum atendimento registrado.
     </div>
-    {% endfor %}
+    {% endif %}
 </div>
 {% endblock %}
