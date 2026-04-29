@@ -1,4 +1,4 @@
-# Review do Projeto — shivazen-app (Dra. Jaqueline Aranha)
+# Review do Projeto — shivazen-app (Jaqueline Aranha)
 
 Data: 2026-04-27 · Branch: `claude/quizzical-grothendieck-3d4b34` (HEAD = `c29ce88`, sincronizado com `origin/main` e `origin/dev`)
 
@@ -93,11 +93,11 @@ Comando `python manage.py seed` falha silencioso ([seed.py:32-38](app_shivazen/m
 - Bypass `/admin/`, `/painel/`, `/api/`, `/health` ✓
 - `VERSION = 'v3'` — bump em deploy invalidate caches
 
-**🟡 Versão antiga "Shiva Zen" no celular do usuário NÃO é SW** — é deploy Railway que não atualizou (item 2).
+**🟡 Versão antiga "Jaqueline Aranha Estética" no celular do usuário NÃO é SW** — é deploy Railway que não atualizou (item 2).
 
 **🟢 Acessibilidade básica:** grep `<img` sem `alt=` em templates públicos = 0 hits. Bom.
 
-**🟢 SEO:** `sitemaps.py` + `robots.txt` presentes. Verificar `og:*` tags em templates publico — usuário viu `og:site_name="Shiva Zen"`, vai atualizar pós-deploy.
+**🟢 SEO:** `sitemaps.py` + `robots.txt` presentes. Verificar `og:*` tags em templates publico — usuário viu `og:site_name="Jaqueline Aranha Estética"`, vai atualizar pós-deploy.
 
 **🟡 SW VERSION manual:** dev precisa lembrar bump `VERSION` em mudanças sensíveis. Considerar gerar via build hash.
 
@@ -136,7 +136,7 @@ Ambas agora em `c29ce88`. Decidir: única branch ou git-flow disciplinado.
 
 **🟡 Warning Django 6:** `CheckConstraint.check` deprecated → migrar p/ `condition` ([sistema.py:34](app_shivazen/models/sistema.py:34)). Outros models também.
 
-**🟢 README.md** decente. Considerar atualizar nome cliente (ainda diz "ShivaZen" como product name).
+**🟢 README.md** atualizado em 2026-04-29 — brand unificada como "Jaqueline Aranha Estética" (resolvido).
 
 ---
 

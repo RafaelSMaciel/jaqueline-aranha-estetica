@@ -1,4 +1,4 @@
-# E-mail Síncrono vs Assíncrono — Shiva Zen
+# E-mail Síncrono vs Assíncrono — Jaqueline Aranha Estética
 
 Documento de referência para decisão futura de migração do envio de e-mails.
 

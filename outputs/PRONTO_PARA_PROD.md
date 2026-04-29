@@ -1,4 +1,4 @@
-# Checklist Pronto Para Produção — Plataforma Dra. Jaqueline Aranha
+# Checklist Pronto Para Produção — Jaqueline Aranha Estética
 
 Data: 2026-04-27 · Branch: `main` (HEAD `481cc35`)
 

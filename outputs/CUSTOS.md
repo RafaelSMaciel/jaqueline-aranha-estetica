@@ -1,4 +1,4 @@
-# Cobertura de Custos / Serviços Externos — Plataforma Dra. Jaqueline Aranha
+# Cobertura de Custos / Serviços Externos — Jaqueline Aranha Estética
 
 Data: 2026-04-27 · Valores 2025-2026 (USD/BRL aproximados, USD≈R$5,30)
 

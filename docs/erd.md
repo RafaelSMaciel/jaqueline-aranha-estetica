@@ -1,7 +1,6 @@
-# ShivaZen — MER (Modelo Entidade-Relacionamento)
+# Jaqueline Aranha Estética — MER (Modelo Entidade-Relacionamento)
 
-> Fonte da verdade: `app_shivazen/models.py` (Django) + `signals.py`.
-> Documentacao narrativa complementar: `docs/mer_base_documentacao.txt`.
+> Fonte da verdade: `app_shivazen/models/` (Django, modular) + `signals.py`.
 > Renderiza nativo no GitHub/GitLab/VS Code com suporte a Mermaid.
 
 O modelo foi dividido em 3 paginas para caber em A4 landscape sem

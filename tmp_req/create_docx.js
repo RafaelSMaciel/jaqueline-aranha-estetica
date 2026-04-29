@@ -442,7 +442,7 @@ const doc = new Document({
         new Paragraph({
           spacing: { after: 40 },
           alignment: AlignmentType.CENTER,
-          children: [new TextRun({ text: "Instala\u00e7\u00e3o piloto: Cl\u00ednica Dra. Jaqueline Aranha", font: "Arial", size: 20, color: MUTED, italics: true })]
+          children: [new TextRun({ text: "Instala\u00e7\u00e3o piloto: Jaqueline Aranha Est\u00e9tica", font: "Arial", size: 20, color: MUTED, italics: true })]
         }),
         new Paragraph({
           spacing: { after: 400 },
@@ -490,7 +490,7 @@ const doc = new Document({
             border: { bottom: { style: BorderStyle.SINGLE, size: 2, color: ACCENT_LIGHT, space: 4 } },
             tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
             children: [
-              new TextRun({ text: "ShivaZen", bold: true, font: "Arial", size: 16, color: ACCENT }),
+              new TextRun({ text: "Jaqueline Aranha Est\u00e9tica", bold: true, font: "Arial", size: 16, color: ACCENT }),
               new TextRun({ text: "\tRequisitos Funcionais e N\u00e3o Funcionais", font: "Arial", size: 16, color: MUTED }),
             ]
           })]
