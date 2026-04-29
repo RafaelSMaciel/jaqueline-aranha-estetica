@@ -41,6 +41,21 @@ urlpatterns = [
     path('painel/integrations/google/connect/<int:prof_id>/', views.gcal_connect, name='gcal_connect'),
     path('painel/integrations/google/callback/', views.gcal_callback, name='gcal_callback'),
     path('painel/integrations/google/pull/<int:prof_id>/', views.gcal_pull, name='gcal_pull'),
+
+    # ─── Workflows ───
+    path('painel/workflows/', views.admin_workflows, name='admin_workflows'),
+    path('painel/workflows/novo/', views.admin_workflow_form, name='admin_workflow_criar'),
+    path('painel/workflows/<int:pk>/editar/', views.admin_workflow_form, name='admin_workflow_editar'),
+    path('painel/workflows/<int:pk>/excluir/', views.admin_workflow_excluir, name='admin_workflow_excluir'),
+    path('painel/workflows/<int:pk>/toggle/', views.admin_workflow_toggle, name='admin_workflow_toggle'),
+    path('painel/workflows/<int:pk>/execucoes/', views.admin_workflow_execucoes, name='admin_workflow_execucoes'),
+
+    # ─── Anamnese ───
+    path('painel/anamneses/', views.admin_anamneses, name='admin_anamneses'),
+    path('painel/anamneses/novo/', views.admin_anamnese_form, name='admin_anamnese_criar'),
+    path('painel/anamneses/<int:pk>/editar/', views.admin_anamnese_form, name='admin_anamnese_editar'),
+    path('painel/anamneses/<int:pk>/excluir/', views.admin_anamnese_excluir, name='admin_anamnese_excluir'),
+    path('painel/anamneses/<int:pk>/respostas/', views.admin_anamnese_respostas, name='admin_anamnese_respostas'),
     path('agendamento/confirmar/', views.confirmar_agendamento, name='confirmar_agendamento'),
     path('agendamento/sucesso/', views.agendamento_sucesso, name='agendamento_sucesso'),
     path('agendamento/otp/solicitar/', views.solicitar_otp_agendamento, name='solicitar_otp_agendamento'),

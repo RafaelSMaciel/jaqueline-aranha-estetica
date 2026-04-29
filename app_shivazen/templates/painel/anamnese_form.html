@@ -1,0 +1,108 @@
+{% extends 'painel/base.html' %}
+
+{% block page_title %}{% if form_obj %}Editar{% else %}Novo{% endif %} formulario{% endblock %}
+{% block page_subtitle %}{% if form_obj %}{{ form_obj.nome }}{% else %}Anamnese{% endif %}{% endblock %}
+
+{% block admin_css %}
+.an-form-card {
+    background: white; border-radius: 16px; padding: 1.25rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 1rem;
+}
+.an-form-card label {
+    display: block; font-size: 0.75rem; font-weight: 700;
+    color: #666; margin-bottom: 0.3rem; text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+.an-form-card input, .an-form-card select, .an-form-card textarea {
+    width: 100%; padding: 0.55rem 0.75rem;
+    border: 1px solid #ddd; border-radius: 8px;
+    font-size: 0.9rem; margin-bottom: 0.85rem;
+    font-family: inherit;
+}
+.an-form-card textarea { min-height: 200px; }
+.an-form-card .help {
+    font-size: 0.72rem; color: #999; margin-top: -0.65rem;
+    margin-bottom: 0.85rem;
+}
+.an-form-card code {
+    background: #f5f5f5; padding: 0.1rem 0.35rem;
+    border-radius: 4px; font-size: 0.78rem;
+}
+{% endblock %}
+
+{% block admin_content %}
+<form method="post" class="an-form-card">
+    {% csrf_token %}
+
+    <label>Nome</label>
+    <input type="text" name="nome" value="{{ form_obj.nome|default:'' }}" required maxlength="120">
+
+    <label>Escopo</label>
+    <select name="escopo" id="anEscopo">
+        {% for v, l in ESCOPO_CHOICES %}
+        <option value="{{ v }}" {% if form_obj.escopo == v %}selected{% endif %}>{{ l }}</option>
+        {% endfor %}
+    </select>
+
+    <div id="anCategoriaWrap" style="display:none;">
+        <label>Categoria</label>
+        <select name="categoria">
+            <option value="">—</option>
+            <option value="FACIAL" {% if form_obj.categoria == 'FACIAL' %}selected{% endif %}>Facial</option>
+            <option value="CORPORAL" {% if form_obj.categoria == 'CORPORAL' %}selected{% endif %}>Corporal</option>
+            <option value="CAPILAR" {% if form_obj.categoria == 'CAPILAR' %}selected{% endif %}>Capilar</option>
+            <option value="OUTRO" {% if form_obj.categoria == 'OUTRO' %}selected{% endif %}>Outro</option>
+        </select>
+    </div>
+
+    <div id="anProcedimentoWrap" style="display:none;">
+        <label>Procedimento</label>
+        <select name="procedimento">
+            <option value="">—</option>
+            {% for p in procedimentos %}
+            <option value="{{ p.pk }}" {% if form_obj.procedimento_id == p.pk %}selected{% endif %}>{{ p.nome }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <label>schema_json</label>
+    <textarea name="schema_json" style="font-family:monospace;font-size:0.82rem;">{% if form_obj %}{{ form_obj.schema_json|safe }}{% else %}[
+  {"key": "gestante", "tipo": "bool", "label": "Esta gestante?", "obrigatorio": true},
+  {"key": "alergias", "tipo": "text", "label": "Possui alergias?", "obrigatorio": false}
+]{% endif %}</textarea>
+    <div class="help">
+        Lista de campos. Tipos: <code>bool</code>, <code>text</code>, <code>longtext</code>,
+        <code>select</code> (c/ <code>opcoes</code>), <code>number</code>, <code>date</code>.
+    </div>
+
+    <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;text-transform:none;letter-spacing:0;">
+        <input type="checkbox" name="ativo" value="1" {% if not form_obj or form_obj.ativo %}checked{% endif %} style="width:auto;margin:0;">
+        Ativo
+    </label>
+    <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;text-transform:none;letter-spacing:0;">
+        <input type="checkbox" name="obrigatorio" value="1" {% if form_obj.obrigatorio %}checked{% endif %} style="width:auto;margin:0;">
+        Obrigatorio (bloqueia agendamento se nao preenchido)
+    </label>
+
+    <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+        <button type="submit" class="btn-admin-primary">
+            <i class="fas fa-save"></i> {% if form_obj %}Salvar{% else %}Criar{% endif %}
+        </button>
+        <a href="{% url 'shivazen:admin_anamneses' %}" class="btn btn-outline-secondary">Cancelar</a>
+    </div>
+</form>
+
+<script nonce="{{ csp_nonce }}">
+(function(){
+    var sel = document.getElementById('anEscopo');
+    var cat = document.getElementById('anCategoriaWrap');
+    var proc = document.getElementById('anProcedimentoWrap');
+    function toggle(){
+        cat.style.display = sel.value === 'CATEGORIA' ? '' : 'none';
+        proc.style.display = sel.value === 'PROCEDIMENTO' ? '' : 'none';
+    }
+    sel.addEventListener('change', toggle);
+    toggle();
+})();
+</script>
+{% endblock %}

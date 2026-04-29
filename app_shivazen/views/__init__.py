@@ -82,3 +82,11 @@ from .admin_branding import admin_branding
 from .agenda_publica import agendar_por_profissional, ics_feed_profissional, embed_agendar
 from .webpush_views import webpush_public_key, webpush_subscribe, webpush_unsubscribe
 from .admin_gcal import gcal_connect, gcal_callback, gcal_pull
+from .admin_workflows import (
+    admin_workflows, admin_workflow_form, admin_workflow_excluir,
+    admin_workflow_toggle, admin_workflow_execucoes,
+)
+from .admin_anamnese import (
+    admin_anamneses, admin_anamnese_form, admin_anamnese_excluir,
+    admin_anamnese_respostas,
+)

@@ -272,6 +272,53 @@ const rfModules = [
       ["RF71", "O sistema deve disponibilizar formul\u00e1rio de contato para envio de mensagens \u00e0 cl\u00ednica."],
     ]
   },
+  {
+    name: "M\u00f3dulo: Regras de Agenda Avan\u00e7adas (Sprint 1)",
+    reqs: [
+      ["RF72", "O sistema deve permitir definir buffer (em minutos, 0-120) por procedimento, bloqueando slots adjacentes ap\u00f3s atendimento para evitar overbook."],
+      ["RF73", "O sistema deve permitir configurar min_notice_horas (anteced\u00eancia m\u00ednima) e max_advance_dias (janela m\u00e1xima futura) por profissional."],
+      ["RF74", "O sistema deve permitir cadastrar exce\u00e7\u00f5es de disponibilidade por data (FOLGA bloqueia o dia; HORARIO_DIFERENTE substitui regra semanal)."],
+      ["RF75", "O painel deve oferecer visualiza\u00e7\u00e3o de calend\u00e1rio (FullCalendar) com views m\u00eas/semana/dia, drag-drop para reagendar, eventos de bloqueio e folga em background."],
+      ["RF76", "O dashboard overview deve exibir KPIs: ticket m\u00e9dio, taxa de ocupa\u00e7\u00e3o semanal, clientes ativos 90 dias e NPS m\u00e9dio 30 dias."],
+    ]
+  },
+  {
+    name: "M\u00f3dulo: UX Painel + PWA (Sprint 2)",
+    reqs: [
+      ["RF77", "O painel deve oferecer filtro instant\u00e2neo client-side em listas de agendamentos, pacientes e usu\u00e1rios, com normaliza\u00e7\u00e3o de acentos e debounce."],
+      ["RF78", "A ficha do paciente deve exibir KPIs: LTV, ticket m\u00e9dio, qtd realizados, \u00faltima visita, procedimento mais frequente e contadores de no-show/cancelamento."],
+      ["RF79", "A ficha do paciente deve apresentar timeline visual cronol\u00f3gica dos atendimentos com cores por status."],
+      ["RF80", "O sistema deve operar como PWA com manifest, service worker (cache-first imagens c/ TTL, stale-while-revalidate est\u00e1ticos, network-first HTML c/ fallback offline) e instalable em home screen."],
+    ]
+  },
+  {
+    name: "M\u00f3dulo: UX P\u00fablico + Integra\u00e7\u00f5es Externas (Sprint 3)",
+    reqs: [
+      ["RF81", "Cada profissional ativo deve possuir slug \u00fanico e URL p\u00fablica /agendar/<slug>/ que redireciona ao booking com profissional pr\u00e9-selecionado."],
+      ["RF82", "Cada profissional deve possuir feed iCalendar (text/calendar) protegido por token em /agenda/<slug>/feed.ics?token=<>, exportando atendimentos AGENDADO/CONFIRMADO/REALIZADO no range -30d..+90d."],
+      ["RF83", "O booking p\u00fablico deve permitir filtrar procedimentos por categoria (Facial, Corporal, Capilar, Outro) via tabs."],
+      ["RF84", "O sistema deve permitir reagendamento self-service via link m\u00e1gico /reagendar/<token>/ com janela m\u00ednima de 24h, transi\u00e7\u00e3o at\u00f4mica do antigo para REAGENDADO."],
+    ]
+  },
+  {
+    name: "M\u00f3dulo: Workflow + Push + FSM (Sprint 4)",
+    reqs: [
+      ["RF85", "O sistema deve oferecer engine de workflows configur\u00e1veis por regra (trigger ON_BOOK/BEFORE_EVENT/AFTER_EVENT/ON_CANCEL/ON_NO_SHOW + offset + a\u00e7\u00e3o SEND_EMAIL/SMS/WHATSAPP/PUSH/WEBHOOK + template + config_json)."],
+      ["RF86", "O sistema deve garantir deduplica\u00e7\u00e3o de execu\u00e7\u00f5es de workflow via constraint UNIQUE(regra, atendimento) e registrar status (OK/FALHOU/SKIPPED) em WorkflowExecucao."],
+      ["RF87", "O sistema deve suportar Web Push (VAPID/pywebpush) com subscription por usu\u00e1rio admin/profissional, endpoints /webpush/{public-key,subscribe,unsubscribe} e disparo autom\u00e1tico ao profissional em novo agendamento."],
+      ["RF88", "Atendimento deve expor m\u00e9todos de transi\u00e7\u00e3o FSM (confirmar/cancelar/marcar_realizado/marcar_falta/aprovar) com valida\u00e7\u00e3o de origem e auditoria autom\u00e1tica em LogAuditoria."],
+    ]
+  },
+  {
+    name: "M\u00f3dulo: Recorr\u00eancia + Anamnese + GCal + Embed (Sprint 5)",
+    reqs: [
+      ["RF89", "BloqueioAgenda deve aceitar regra iCal RRULE para recorr\u00eancia (ex: FREQ=WEEKLY;BYDAY=WE) com data limite opcional, expandindo ocorr\u00eancias na janela do dia consultado."],
+      ["RF90", "O sistema deve oferecer formul\u00e1rios de anamnese configur\u00e1veis (escopo GLOBAL/CATEGORIA/PROCEDIMENTO) com schema JSON din\u00e2mico (bool/text/longtext/select/number/date), renderizados no booking p\u00fablico antes da confirma\u00e7\u00e3o."],
+      ["RF91", "O sistema deve oferecer integra\u00e7\u00e3o OAuth bidirecional com Google Calendar por profissional (refresh_token, push outbound em novo agendamento, pull eventos externos como BloqueioAgenda)."],
+      ["RF92", "O sistema deve disponibilizar widget standalone /embed/agendar/ (X-Frame-Options exempt) para inser\u00e7\u00e3o em iframe no Linktree, Instagram bio ou sites externos."],
+      ["RF93", "O service worker deve aplicar cache stale-while-revalidate a APIs p\u00fablicas (/api/dias-disponiveis, /api/horarios-disponiveis, /api/buscar-procedimentos) com pre-cache de shell e limite de entradas."],
+    ]
+  },
 ];
 
 // ── RNF ──
@@ -341,6 +388,17 @@ const rnfModules = [
       ["RNF28", "Banco de dados PostgreSQL com suporte a JSONB para detalhes em logs de auditoria."],
       ["RNF29", "Arquivos est\u00e1ticos devem ser servidos via WhiteNoise com versionamento de cache."],
       ["RNF30", "O reposit\u00f3rio deve seguir estrutura monorepo: back-end Django + aplicativo mobile (futuro), compartilhando o mesmo banco de dados."],
+    ]
+  },
+  {
+    name: "M\u00f3dulo: Integra\u00e7\u00f5es Externas + Performance Avan\u00e7ada",
+    reqs: [
+      ["RNF31", "O service worker deve segmentar caches por tipo (STATIC, RUNTIME, IMAGE, API) com vers\u00e3o (v4), trim por limite de entradas e expira\u00e7\u00e3o ativa em mudan\u00e7a de vers\u00e3o."],
+      ["RNF32", "Web Push deve usar VAPID via pywebpush, com fallback gracioso quando lib ou chaves estiverem ausentes (sem quebrar boot da aplica\u00e7\u00e3o)."],
+      ["RNF33", "Integra\u00e7\u00e3o Google Calendar deve carregar libs google-auth via lazy import; aus\u00eancia das libs ou env vars n\u00e3o deve quebrar funcionalidades n\u00e3o-relacionadas."],
+      ["RNF34", "Workflow engine deve operar via dois caminhos: signals s\u00edncronos (ON_BOOK/ON_CANCEL/ON_NO_SHOW) e endpoint cron HTTP idempotente (/cron/workflow_pendentes para BEFORE/AFTER_EVENT)."],
+      ["RNF35", "Embed widget /embed/agendar/ deve ser servido com X-Frame-Options exempt e CSS standalone (sem chrome do painel admin) para uso em iframes externos."],
+      ["RNF36", "Slot generator deve aplicar em ordem: (1) feriado bloqueador, (2) max_advance, (3) exce\u00e7\u00e3o de disponibilidade, (4) regra semanal, (5) min_notice, (6) atendimentos com buffer, (7) bloqueios pontuais, (8) bloqueios recorrentes via dateutil.rrule."],
     ]
   },
 ];

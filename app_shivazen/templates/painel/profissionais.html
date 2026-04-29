@@ -78,6 +78,40 @@
                 <i class="fas fa-calendar me-1"></i>Agenda
             </a>
         </div>
+
+        <!-- Integracoes -->
+        <div style="margin-top:0.6rem;padding-top:0.6rem;border-top:1px dashed #eee;">
+            <div style="font-size:0.7rem;color:#999;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.4rem;">
+                <i class="fas fa-plug me-1"></i>Integracoes
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.35rem;">
+                {% if prof.slug and prof.ics_token %}
+                <div style="display:flex;align-items:center;gap:0.4rem;font-size:0.75rem;">
+                    <i class="fas fa-rss" style="color:#ef6c00;width:14px;"></i>
+                    <span style="font-weight:700;color:#666;">ICS feed</span>
+                    <code id="ics-{{ prof.pk }}" style="flex:1;font-size:0.65rem;padding:0.2rem 0.4rem;background:#fafafa;border-radius:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ request.scheme }}://{{ request.get_host }}/agenda/{{ prof.slug }}/feed.ics?token={{ prof.ics_token }}</code>
+                    <button type="button" class="btn-copy-ics" data-prof-id="{{ prof.pk }}"
+                            style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:0.15rem 0.4rem;font-size:0.7rem;cursor:pointer;" title="Copiar URL">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                {% endif %}
+                <div style="display:flex;align-items:center;gap:0.4rem;font-size:0.75rem;">
+                    <i class="fab fa-google" style="color:#4285f4;width:14px;"></i>
+                    <span style="font-weight:700;color:#666;">Google Calendar</span>
+                    {% if prof.gcal_refresh_token %}
+                    <span style="color:#2e7d32;font-weight:700;font-size:0.7rem;">Conectado</span>
+                    <a href="{% url 'shivazen:gcal_pull' prof.pk %}" style="background:#e3f2fd;color:#1565c0;padding:0.15rem 0.5rem;border-radius:6px;font-size:0.7rem;text-decoration:none;font-weight:700;margin-left:auto;">
+                        <i class="fas fa-sync"></i> Sync
+                    </a>
+                    {% else %}
+                    <a href="{% url 'shivazen:gcal_connect' prof.pk %}" style="background:#fff;color:#4285f4;border:1px solid #4285f4;padding:0.15rem 0.5rem;border-radius:6px;font-size:0.7rem;text-decoration:none;font-weight:700;margin-left:auto;">
+                        Conectar
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
     </div>
     {% empty %}
     <div class="col-12 text-center py-5">
@@ -94,4 +128,23 @@
 <a href="{% url 'shivazen:profissional_cadastro' %}" class="admin-fab" title="Novo Profissional">
     <i class="fas fa-plus"></i>
 </a>
+
+<script nonce="{{ csp_nonce }}">
+(function(){
+    document.querySelectorAll('.btn-copy-ics').forEach(function(btn){
+        btn.addEventListener('click', function(){
+            var pid = btn.dataset.profId;
+            var code = document.getElementById('ics-' + pid);
+            if (!code) return;
+            var url = code.textContent.trim();
+            navigator.clipboard.writeText(url).then(function(){
+                btn.innerHTML = '<i class="fas fa-check" style="color:#2e7d32;"></i>';
+                setTimeout(function(){ btn.innerHTML = '<i class="fas fa-copy"></i>'; }, 1500);
+            }).catch(function(){
+                window.prompt('Copie a URL:', url);
+            });
+        });
+    });
+})();
+</script>
 {% endblock %}
