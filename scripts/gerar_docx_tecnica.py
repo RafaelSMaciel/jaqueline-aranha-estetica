@@ -49,13 +49,13 @@ def build():
     footer = doc.sections[0].footer
     p = footer.paragraphs[0]
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p.text = 'Shiva Zen — Documentação Técnica — página '
+    p.text = 'Jaqueline Aranha Estetica — Documentação Técnica — página '
     add_page_number(p)
 
     # ═══ Capa ═══
     title = doc.add_paragraph()
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = title.add_run('SHIVA ZEN')
+    run = title.add_run('JAQUELINE ARANHA ESTETICA')
     run.bold = True
     run.font.size = Pt(32)
     run.font.color.rgb = RGBColor(0x2C, 0x3E, 0x50)
@@ -119,7 +119,7 @@ def build():
     # ═══ 1. Visão Geral ═══
     doc.add_heading('1. Visão Geral', level=1)
     doc.add_paragraph(
-        'O Shiva Zen é uma plataforma web monolítica (Django 5.2.1 + Python 3.14) '
+        'O Jaqueline Aranha Estetica é uma plataforma web monolítica (Django 5.2.1 + Python 3.14) '
         'para gestão de uma clínica de estética de pequeno porte '
         '(aproximadamente 40 clientes/mês). Cobre o ciclo completo: agendamento '
         'público sem login, portal do cliente, portal do profissional, painel '
@@ -666,7 +666,7 @@ def build():
     # ═══ 21. Testes ═══
     doc.add_heading('21. Testes', level=1)
     doc.add_paragraph(
-        '135 testes unitários + integração em app_shivazen/tests/. SQLite em '
+        '135 testes unitários + integração em aranha_estetica/tests/. SQLite em '
         'memória (override em DATABASES quando sys.argv contém test ou env '
         'PYTEST_CURRENT_TEST setada).'
     )
@@ -719,7 +719,7 @@ def build():
         ('SMS_MAX_POR_IP_HORA', 'Não', 'Default 10 SMS/hora por IP.'),
         ('SMS_MAX_GLOBAL_HORA', 'Não', 'Default 60 SMS/hora global.'),
         ('SITE_URL', 'Não', 'URL base (usada em links de NPS).'),
-        ('CLINIC_NAME', 'Não', 'Default "Shiva Zen".'),
+        ('CLINIC_NAME', 'Não', 'Default "Jaqueline Aranha Estetica".'),
     ]:
         r = t.add_row().cells
         r[0].text = var

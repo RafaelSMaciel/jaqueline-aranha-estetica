@@ -81,7 +81,7 @@ Considerar migração quando ocorrer **qualquer** um destes:
 ## Arquitetura alvo (quando migrar)
 
 ```
-Railway project: shivazen-app
+Railway project: jaqueline-aranha-estetica
 ├── web        (Django + gunicorn)           $5
 ├── worker     (celery -A clinica worker)   $5
 ├── Postgres                                  $5
@@ -96,7 +96,7 @@ Celery Beat: usar worker embarcado
 
 ## Código já preparado
 
-O código em `app_shivazen/tasks.py` já usa `@shared_task`. A migração
+O código em `aranha_estetica/tasks.py` já usa `@shared_task`. A migração
 envolve:
 
 1. Provisionar Redis na Railway

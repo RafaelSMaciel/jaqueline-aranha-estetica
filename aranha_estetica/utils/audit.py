@@ -1,4 +1,4 @@
-"""Audit logging helper for Shivazen admin actions."""
+"""Audit logging helper for Jaqueline Aranha Estetica admin actions."""
 import logging
 import sys
 

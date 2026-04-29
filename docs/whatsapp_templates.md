@@ -72,7 +72,7 @@ Obrigado por escolher a gente.
 ### Observacoes para aprovacao
 
 - Submeter como UTILITY (pesquisa pos-transacao). Se Meta reclassificar como MARKETING, precisa opt-in `consent_whatsapp_nps=True` do cliente (ja implementado no model Cliente).
-- Enviado apenas para clientes com `consent_whatsapp_nps=True` — ver `job_pesquisa_satisfacao_24h` em `app_shivazen/tasks.py`.
+- Enviado apenas para clientes com `consent_whatsapp_nps=True` — ver `job_pesquisa_satisfacao_24h` em `aranha_estetica/tasks.py`.
 
 ---
 

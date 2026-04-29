@@ -432,7 +432,7 @@ const doc = new Document({
         new Paragraph({
           spacing: { after: 120 },
           alignment: AlignmentType.CENTER,
-          children: [new TextRun({ text: "SHIVAZEN", bold: true, font: "Arial", size: 56, color: DARK, characterSpacing: 400 })]
+          children: [new TextRun({ text: "jaqueline-aranha-estetica", bold: true, font: "Arial", size: 56, color: DARK, characterSpacing: 400 })]
         }),
         new Paragraph({
           spacing: { after: 60 },
@@ -529,7 +529,7 @@ const doc = new Document({
   ]
 });
 
-const outputPath = "C:/Users/rafae/OneDrive/Projeto FAM - Shivazen/Diagramas/Requisitos Funcionais e Nao Funcionais.docx";
+const outputPath = "C:/Users/rafae/OneDrive/Projeto FAM - Jaqueline Aranha Estetica/Diagramas/Requisitos Funcionais e Nao Funcionais.docx";
 
 Packer.toBuffer(doc).then(buffer => {
   fs.writeFileSync(outputPath, buffer);

@@ -1,4 +1,4 @@
-# Endpoints — shivazen-app
+# Endpoints — jaqueline-aranha-estetica
 
 Não há REST API formal. Listagem dos endpoints HTTP organizados por área.
 

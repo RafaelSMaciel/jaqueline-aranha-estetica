@@ -2,7 +2,7 @@
 
 Sistema de agendamento online e gestão para clínica de estética da biomédica Jaqueline Aranha. Django 5.2 + PostgreSQL + Redis + Celery, com painel administrativo, PWA, web push e integrações externas (Google Calendar, WhatsApp Business, MercadoPago opcional).
 
-> **Nota técnica:** módulos Python renomeados em 2026-04-29 (`app_shivazen` → `aranha_estetica`, `shivazen` → `clinica`). O `app_label` interno permanece `app_shivazen` para preservar `django_migrations` e `content_type` rows sem mexer no DB. O nome do repositório local pode ainda aparecer como `shivazen-app/` — pode ser renomeado livremente. Marca de produto: **Jaqueline Aranha Estética**, configurável via env var `CLINIC_NAME`.
+> **Nota técnica:** módulos Python: `aranha_estetica` (app Django) e `clinica` (project Django). Marca de produto: **Jaqueline Aranha Estética**, configurável via env var `CLINIC_NAME`.
 
 ## Visão Geral
 
@@ -71,8 +71,8 @@ Plataforma single-tenant white-label para clínica estética, atendimento exclus
 ## Estrutura
 
 ```
-shivazen-app/                   # Pasta local do repo (nome legado, pode ser renomeada)
-├── aranha_estetica/             # App Django principal (label interno: app_shivazen)
+jaqueline-aranha-estetica/                   # Pasta local do repo (nome legado, pode ser renomeada)
+├── aranha_estetica/             # App Django principal
 │   ├── models/                  # Domínio modular (clientes, agendamentos, workflow, push, anamnese...)
 │   ├── views/                   # Views por domínio (booking, admin_*, profissional, webpush, etc.)
 │   ├── services/                # Lógica de negócio (workflow_engine, push, gcal, otp, notificacao)

@@ -1,8 +1,8 @@
 # Views — imports explicitos (sem wildcard)
 from .auth import (
     usuario_login, usuario_logout,
-    ShivaZenPasswordResetView, ShivaZenPasswordResetDoneView,
-    ShivaZenPasswordResetConfirmView, ShivaZenPasswordResetCompleteView,
+    ClinicaPasswordResetView, ClinicaPasswordResetDoneView,
+    ClinicaPasswordResetConfirmView, ClinicaPasswordResetCompleteView,
 )
 from .public import (
     home, termos_uso, politica_privacidade, quem_somos, agenda_contato, promocoes,

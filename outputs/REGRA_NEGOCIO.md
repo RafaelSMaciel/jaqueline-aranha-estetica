@@ -112,7 +112,7 @@ Configuração atual (commit `a655f85`, alinhada com schema):
 | NPS pós-atendimento (D+1) | **WhatsApp** | Idem |
 | Alertas internos (NPS baixo, agendamento pendente) | Email para staff | Dashboard + notificação |
 
-**Consentimento granular** ([clientes.py:38](app_shivazen/models/clientes.py:38)): cliente opta in/out por canal/tipo independentemente. OTP não exige consent explícito (é necessário para entrar). Marketing pede opt-in explícito (LGPD compliant).
+**Consentimento granular** ([clientes.py:38](aranha_estetica/models/clientes.py:38)): cliente opta in/out por canal/tipo independentemente. OTP não exige consent explícito (é necessário para entrar). Marketing pede opt-in explícito (LGPD compliant).
 
 **Bloqueador atual (Sprint 2):** templates WhatsApp Meta `lembrete_d1`, `nps`, `confirmacao` precisam ser submetidos no Business Manager. Sem aprovação, mensagens fora da janela 24h falham.
 

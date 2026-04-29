@@ -111,7 +111,7 @@ Alta prioridade, **não-bloqueante** mas fortemente recomendado antes de divulga
 - **Estimativa:** 4-6h · Dra (com guia) ou Rafael
 
 ### 2.6 Robots.txt + sitemap.xml respondendo
-- **Estado:** **OK em código** ✓ — confirmado que estão registrados em `shivazen/urls.py`
+- **Estado:** **OK em código** ✓ — confirmado que estão registrados em `clinica/urls.py`
 - **Ação:** validar em prod com `curl https://<dominio>/robots.txt` e `curl https://<dominio>/sitemap.xml` após deploy
 - **Estimativa:** 5 min · Rafael
 

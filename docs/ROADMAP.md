@@ -1,4 +1,4 @@
-# Roadmap — shivazen-app
+# Roadmap — jaqueline-aranha-estetica
 
 Itens que requerem setup externo, contas pagas, ou redesign arquitetural.
 Ordenados por valor/esforco.

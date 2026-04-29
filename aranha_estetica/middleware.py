@@ -1,4 +1,4 @@
-"""Middlewares de seguranca — ShivaZen.
+"""Middlewares de seguranca — Jaqueline Aranha Estetica.
 
 Inclui Content-Security-Policy com nonce por request e headers adicionais
 (Permissions-Policy, X-Content-Type-Options, Cross-Origin-*).
