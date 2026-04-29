@@ -59,6 +59,8 @@ def agendamento_publico(request):
                 'descricao': proc.descricao or '',
                 'duracao_minutos': proc.duracao_minutos,
                 'preco': float(valor) if valor is not None else 0,
+                'categoria': proc.categoria,
+                'categoria_label': proc.get_categoria_display(),
             })
     except (OperationalError, ProgrammingError):
         logger.warning('Tabelas de procedimento/preço não encontradas.')
@@ -66,9 +68,14 @@ def agendamento_publico(request):
     # Pré-seleção de procedimento (vindo de promoções)
     proc_preselect = request.GET.get('procedimento', '')
 
+    categorias_disponiveis = sorted({
+        (p['categoria'], p['categoria_label']) for p in procedimentos_com_preco
+    })
+
     context = {
         'procedimentos': procedimentos_com_preco,
         'procedimentos_json': json.dumps(procedimentos_com_preco),
+        'categorias_disponiveis': categorias_disponiveis,
         'whatsapp_numero': WHATSAPP_NUMERO,
         'proc_preselect': proc_preselect,
         'turnstile_site_key': turnstile_site_key(),

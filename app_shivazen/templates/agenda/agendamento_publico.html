@@ -345,10 +345,26 @@
             </p>
 
             {% if procedimentos %}
+            {% if categorias_disponiveis|length > 1 %}
+            <div class="cat-tabs" role="tablist" aria-label="Filtrar por categoria"
+                 style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-bottom:1rem;">
+                <button type="button" class="cat-tab active" data-cat=""
+                        style="background:var(--gold,#C9A84C); color:white; border:none; border-radius:999px; padding:0.4rem 1rem; font-size:0.78rem; font-weight:700; cursor:pointer;">
+                    Todos
+                </button>
+                {% for cat_value, cat_label in categorias_disponiveis %}
+                <button type="button" class="cat-tab" data-cat="{{ cat_value }}"
+                        style="background:#fff; color:#7a5f1f; border:1px solid #C9A84C; border-radius:999px; padding:0.4rem 1rem; font-size:0.78rem; font-weight:700; cursor:pointer;">
+                    {{ cat_label }}
+                </button>
+                {% endfor %}
+            </div>
+            {% endif %}
             <div class="proc-grid">
                 {% for proc in procedimentos %}
                 <div class="proc-card" data-proc-id="{{ proc.id }}" data-proc-nome="{{ proc.nome }}"
-                     data-proc-preco="{{ proc.preco }}" data-proc-duracao="{{ proc.duracao_minutos }}">
+                     data-proc-preco="{{ proc.preco }}" data-proc-duracao="{{ proc.duracao_minutos }}"
+                     data-categoria="{{ proc.categoria }}">
                     <div class="proc-icon"><i class="bi bi-stars"></i></div>
                     <div class="proc-name">{{ proc.nome }}</div>
                     {% if proc.descricao %}
@@ -363,6 +379,29 @@
                 </div>
                 {% endfor %}
             </div>
+            <script nonce="{{ csp_nonce }}">
+            (function(){
+                var tabs = document.querySelectorAll('.cat-tab');
+                var cards = document.querySelectorAll('.proc-card');
+                if (!tabs.length) return;
+                tabs.forEach(function(tab){
+                    tab.addEventListener('click', function(){
+                        var cat = tab.dataset.cat;
+                        tabs.forEach(function(t){
+                            t.classList.remove('active');
+                            t.style.background = '#fff';
+                            t.style.color = '#7a5f1f';
+                        });
+                        tab.classList.add('active');
+                        tab.style.background = 'var(--gold,#C9A84C)';
+                        tab.style.color = 'white';
+                        cards.forEach(function(c){
+                            c.style.display = (!cat || c.dataset.categoria === cat) ? '' : 'none';
+                        });
+                    });
+                });
+            })();
+            </script>
             {% else %}
             <div class="empty-procs" style="padding:4rem 2rem;">
                 <i class="bi bi-calendar-heart" style="font-size:3.5rem;color:#7a5f1f;display:block;margin-bottom:1.25rem;"></i>

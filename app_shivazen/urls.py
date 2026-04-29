@@ -28,6 +28,8 @@ urlpatterns = [
 
     # ─── Agendamento Público (SEM LOGIN) ───
     path('agendamento/', views.agendamento_publico, name='agendamento_publico'),
+    path('agendar/<slug:slug>/', views.agendar_por_profissional, name='agendar_por_profissional'),
+    path('agenda/<slug:slug>/feed.ics', views.ics_feed_profissional, name='ics_feed_profissional'),
     path('agendamento/confirmar/', views.confirmar_agendamento, name='confirmar_agendamento'),
     path('agendamento/sucesso/', views.agendamento_sucesso, name='agendamento_sucesso'),
     path('agendamento/otp/solicitar/', views.solicitar_otp_agendamento, name='solicitar_otp_agendamento'),
