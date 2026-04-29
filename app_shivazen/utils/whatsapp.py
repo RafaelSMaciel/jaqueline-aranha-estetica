@@ -28,7 +28,7 @@ WHATSAPP_API_URL = os.environ.get(
     f'https://graph.facebook.com/v18.0/{WHATSAPP_PHONE_ID}/messages'
 )
 SITE_URL = os.environ.get('SITE_URL', 'http://127.0.0.1:8000')
-CLINIC_NAME = os.environ.get('CLINIC_NAME', 'Dra. Jaqueline Aranha')
+CLINIC_NAME = os.environ.get('CLINIC_NAME', 'Jaqueline Aranha Estética')
 MAX_RETRIES = 3
 
 # Nomes dos templates aprovados no Meta Business API

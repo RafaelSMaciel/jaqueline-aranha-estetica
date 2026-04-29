@@ -85,7 +85,7 @@ REST_FRAMEWORK = {
 }
 
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'Dra. Jaqueline Aranha API',
+    'TITLE': 'Jaqueline Aranha Estética — API',
     'DESCRIPTION': 'API REST da plataforma de clinica estetica',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,

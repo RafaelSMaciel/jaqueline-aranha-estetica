@@ -1,6 +1,6 @@
-"""Seed do ambiente para Cl. Dra. Jaqueline Aranha.
+"""Seed do ambiente para Jaqueline Aranha Estetica.
 
-Cria unica profissional ativa (Dra. Jaqueline Aranha), desativa outras,
+Cria unica profissional ativa (Jaqueline Aranha — biomedica), desativa outras,
 substitui procedimentos pelos 23 da lista oficial com precos base.
 
 Uso:
@@ -48,7 +48,7 @@ PROCEDIMENTOS = [
 
 
 class Command(BaseCommand):
-    help = 'Seed para Dra. Jaqueline Aranha (profissional unica + procedimentos oficiais).'
+    help = 'Seed para Jaqueline Aranha Estetica (biomedica unica + procedimentos oficiais).'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -58,20 +58,22 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def handle(self, *args, **opts):
-        self.stdout.write(self.style.NOTICE('=== Seed Dra. Jaqueline Aranha ==='))
+        self.stdout.write(self.style.NOTICE('=== Seed Jaqueline Aranha Estetica ==='))
 
-        # 1. Profissional unica
-        prof, created = Profissional.objects.get_or_create(
-            nome='Dra. Jaqueline Aranha',
-            defaults={
-                'especialidade': 'Estética facial e corporal · Harmonização · Injetáveis',
-                'ativo': True,
-            },
+        # 1. Profissional unica — biomedica Jaqueline Aranha (renomeia se existir
+        #    registro anterior com 'Dra. Jaqueline Aranha').
+        prof = (
+            Profissional.objects.filter(nome__in=['Dra. Jaqueline Aranha', 'Jaqueline Aranha'])
+            .first()
         )
-        if not created:
-            prof.especialidade = 'Estética facial e corporal · Harmonização · Injetáveis'
-            prof.ativo = True
-            prof.save()
+        created = prof is None
+        if prof is None:
+            prof = Profissional(nome='Jaqueline Aranha')
+        else:
+            prof.nome = 'Jaqueline Aranha'
+        prof.especialidade = 'Biomédica · Estética facial e corporal · Injetáveis'
+        prof.ativo = True
+        prof.save()
         self.stdout.write(self.style.SUCCESS(
             f'{"Criada" if created else "Atualizada"} profissional pk={prof.pk}'
         ))
