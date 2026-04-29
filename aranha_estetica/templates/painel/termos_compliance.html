@@ -1,0 +1,187 @@
+{% extends 'painel/base.html' %}
+
+{% block page_title %}Compliance de Termos{% endblock %}
+{% block page_subtitle %}Quem assinou · pendências por termo{% endblock %}
+
+{% block admin_css %}
+.cmp-filtros {
+    background: white; border-radius: 14px; padding: 0.75rem;
+    margin-bottom: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.cmp-filtros select, .cmp-filtros button {
+    border: 1px solid #e8e8e8; border-radius: 10px;
+    padding: 0.4rem 0.7rem; font-size: 0.8rem; background: #fafafa;
+}
+.cmp-filtros button { background: #1a1a2e; color: white; border: none; font-weight: 700; cursor: pointer; }
+
+.cmp-card {
+    background: white; border-radius: 14px; padding: 1rem;
+    margin-bottom: 0.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.cmp-titulo { font-weight: 800; font-size: 0.92rem; margin-bottom: 0.3rem; }
+.cmp-tipo-badge {
+    display: inline-block; padding: 0.1rem 0.55rem; border-radius: 999px;
+    font-size: 0.6rem; font-weight: 800; text-transform: uppercase;
+    margin-left: 0.3rem;
+}
+.cmp-tipo-lgpd { background: #e3f2fd; color: #1565c0; }
+.cmp-tipo-proc { background: #f3e5f5; color: #7b1fa2; }
+
+.cmp-stats { display: flex; gap: 1rem; margin-top: 0.6rem; flex-wrap: wrap; }
+.cmp-stat { text-align: center; min-width: 75px; }
+.cmp-stat-val { font-size: 1.1rem; font-weight: 800; line-height: 1; }
+.cmp-stat-lab {
+    font-size: 0.6rem; font-weight: 700; color: #999;
+    text-transform: uppercase; letter-spacing: 0.5px; margin-top: 0.2rem;
+}
+.cmp-stat.assinados .cmp-stat-val { color: #2e7d32; }
+.cmp-stat.pendentes .cmp-stat-val { color: #c62828; }
+.cmp-stat.total .cmp-stat-val { color: #555; }
+
+.progress-bar-wrap {
+    background: #f0f0f0; border-radius: 10px;
+    height: 8px; overflow: hidden; margin-top: 0.5rem;
+}
+.progress-bar-fill {
+    height: 100%; background: linear-gradient(90deg, #8b6f47, #c9a58a);
+    border-radius: 10px; transition: width 0.3s;
+}
+
+.cmp-link-detalhe {
+    color: #8b6f47; font-weight: 700; font-size: 0.78rem;
+    text-decoration: none; margin-top: 0.5rem; display: inline-block;
+}
+
+.pendente-item {
+    background: white; border-radius: 10px; padding: 0.6rem 0.9rem;
+    margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.75rem;
+    border-left: 3px solid #c62828;
+}
+.pendente-nome { flex: 1; font-weight: 700; font-size: 0.88rem; }
+.pendente-contato { font-size: 0.7rem; color: #999; }
+.pendente-acoes { display: flex; gap: 0.3rem; flex-shrink: 0; }
+.pendente-acoes a {
+    padding: 0.35rem 0.7rem; border-radius: 8px;
+    font-size: 0.72rem; font-weight: 700; text-decoration: none;
+}
+.act-wpp { background: #dcf5e7; color: #25D366; }
+.act-email { background: #e3f2fd; color: #1565c0; }
+
+.section-h {
+    font-size: 0.8rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 1px; color: #999; margin: 1.2rem 0 0.6rem;
+}
+{% endblock %}
+
+{% block admin_content %}
+<form method="get" class="cmp-filtros">
+    <select name="tipo">
+        <option value="">Todos tipos</option>
+        {% for code, label in tipos %}
+            <option value="{{ code }}" {% if tipo_filter == code %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit">Filtrar</button>
+</form>
+
+<div class="section-h">Termos ativos ({{ resumo_versoes|length }})</div>
+
+{% for r in resumo_versoes %}
+<div class="cmp-card">
+    <div class="cmp-titulo">
+        {{ r.versao.titulo|truncatechars:90 }}
+        {% if r.versao.tipo == 'LGPD' %}
+            <span class="cmp-tipo-badge cmp-tipo-lgpd">LGPD</span>
+        {% else %}
+            <span class="cmp-tipo-badge cmp-tipo-proc">Procedimento</span>
+        {% endif %}
+    </div>
+    <div style="font-size: 0.72rem; color: #888;">
+        v{{ r.versao.versao }} · Vigente desde {{ r.versao.vigente_desde|date:"d/m/Y" }}
+        {% if r.versao.procedimento %} · {{ r.versao.procedimento.nome }}{% endif %}
+    </div>
+    <div class="cmp-stats">
+        <div class="cmp-stat assinados">
+            <div class="cmp-stat-val">{{ r.assinados }}</div>
+            <div class="cmp-stat-lab">Assinados</div>
+        </div>
+        <div class="cmp-stat pendentes">
+            <div class="cmp-stat-val">{{ r.pendentes }}</div>
+            <div class="cmp-stat-lab">Pendentes</div>
+        </div>
+        <div class="cmp-stat total">
+            <div class="cmp-stat-val">{{ r.relevantes }}</div>
+            <div class="cmp-stat-lab">Clientes alvo</div>
+        </div>
+        <div style="flex:1;"></div>
+        <div style="font-size: 1.3rem; font-weight: 800; color: #8b6f47;">{{ r.pct }}%</div>
+    </div>
+    <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" data-pct="{{ r.pct }}"></div>
+    </div>
+    {% if r.pendentes > 0 %}
+    <a href="?versao={{ r.versao.pk }}" class="cmp-link-detalhe">
+        <i class="fas fa-list me-1"></i> Ver {{ r.pendentes }} pendente(s) →
+    </a>
+    {% endif %}
+</div>
+{% empty %}
+<div style="text-align:center; padding:2rem; color:#999;">
+    Nenhuma versão de termo ativa. Cadastre em Termos.
+</div>
+{% endfor %}
+
+{% if versao_obj %}
+<div class="section-h">
+    Pendentes — {{ versao_obj.titulo|truncatechars:70 }}
+</div>
+<div style="background:#fff8e1; border-left:3px solid #f9a825; border-radius:10px; padding:0.7rem 1rem; margin-bottom:0.8rem; font-size:0.82rem; color:#8b6f2b;">
+    <i class="fas fa-info-circle me-1"></i>
+    {{ pendentes_lista.paginator.count|default:0 }} cliente(s) ainda não assinaram este termo.
+</div>
+
+{% for c in pendentes_lista %}
+<div class="pendente-item">
+    <div style="flex:1;">
+        <div class="pendente-nome">
+            <a href="{% url 'aranha:admin_cliente_detalhe' c.pk %}" style="color:inherit; text-decoration:none;">
+                {{ c.nome_completo }}
+            </a>
+        </div>
+        <div class="pendente-contato">
+            {% if c.telefone %}<i class="fas fa-phone me-1"></i>{{ c.telefone }}{% endif %}
+            {% if c.email %} · <i class="fas fa-envelope me-1"></i>{{ c.email }}{% endif %}
+        </div>
+    </div>
+    <div class="pendente-acoes">
+        {% if c.telefone %}
+        <a href="https://wa.me/55{{ c.telefone|cut:'(' |cut:')' |cut:'-' |cut:' ' }}?text=Ol%C3%A1%20{{ c.nome_completo|urlencode }}%2C%20precisamos%20que%20voc%C3%AA%20assine%20o%20termo%20de%20consentimento."
+           target="_blank" class="act-wpp">
+            <i class="fab fa-whatsapp"></i> WhatsApp
+        </a>
+        {% endif %}
+        {% if c.email %}
+        <a href="mailto:{{ c.email }}?subject=Termo%20de%20consentimento%20pendente" class="act-email">
+            <i class="fas fa-envelope"></i> E-mail
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}
+
+{% if pendentes_lista.has_other_pages %}
+<nav class="mt-3 text-center">
+    {% if pendentes_lista.has_previous %}<a href="?versao={{ versao_obj.pk }}&page={{ pendentes_lista.previous_page_number }}" class="btn btn-sm btn-outline-secondary">‹</a>{% endif %}
+    <span class="small fw-bold mx-2">{{ pendentes_lista.number }} / {{ pendentes_lista.paginator.num_pages }}</span>
+    {% if pendentes_lista.has_next %}<a href="?versao={{ versao_obj.pk }}&page={{ pendentes_lista.next_page_number }}" class="btn btn-sm btn-outline-secondary">›</a>{% endif %}
+</nav>
+{% endif %}
+{% endif %}
+
+<script nonce="{{ csp_nonce }}">
+document.querySelectorAll('.progress-bar-fill').forEach(function(bar){
+    bar.style.width = (bar.dataset.pct || 0) + '%';
+});
+</script>
+{% endblock %}

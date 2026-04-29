@@ -1,0 +1,119 @@
+{% load static %}
+<footer id="footer" class="footer-16 footer position-relative">
+
+  <div class="container">
+    <div class="footer-main" data-aos="fade-up" data-aos-delay="100">
+      <div class="row align-items-start">
+        <div class="col-lg-5">
+          <div class="brand-section">
+            <a href="{% url 'aranha:inicio' %}" class="logo d-flex align-items-center mb-4">
+              <span class="sitename">{{ CLINIC_NAME }}</span>
+            </a>
+            <p class="brand-description">Excelência em cuidados estéticos, unindo tecnologia avançada e atendimento humanizado para realçar sua beleza natural.</p>
+
+            <div class="contact-info mt-5">
+              <div class="contact-item">
+                <i class="bi bi-geo-alt"></i>
+                <span>{{ CLINIC_ADDRESS }}</span>
+              </div>
+              <div class="contact-item">
+                <i class="bi bi-telephone"></i>
+                <span>{{ CLINIC_PHONE }}</span>
+              </div>
+              <div class="contact-item">
+                <i class="bi bi-envelope"></i>
+                <span>{{ CLINIC_EMAIL }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-7">
+          <div class="footer-nav-wrapper">
+            <div class="row">
+              <div class="col-6 col-lg-3">
+                <div class="nav-column">
+                  <h6>{{ CLINIC_NAME }}</h6>
+                  <nav class="footer-nav">
+                    <a href="{% url 'aranha:quem_somos' %}">Sobre Nós</a>
+                    <a href="{% url 'aranha:equipe' %}">Nossa Equipe</a>
+                    <a href="{% url 'aranha:galeria' %}">Galeria</a>
+                    <a href="{% url 'aranha:depoimentos' %}">Depoimentos</a>
+                    <a href="{% url 'aranha:agenda_contato' %}">Contato</a>
+                  </nav>
+                </div>
+              </div>
+
+              <div class="col-6 col-lg-3">
+                <div class="nav-column">
+                  <h6>Serviços</h6>
+                  <nav class="footer-nav">
+                    <a href="{% url 'aranha:servicos_faciais' %}">Tratamentos Faciais</a>
+                    <a href="{% url 'aranha:servicos_corporais' %}">Tratamentos Corporais</a>
+                    <a href="{% url 'aranha:especialidades' %}">Especialidades</a>
+                    <a href="{% url 'aranha:promocoes' %}">Promoções</a>
+                  </nav>
+                </div>
+              </div>
+
+              <div class="col-6 col-lg-3">
+                <div class="nav-column">
+                  <h6>Atendimento</h6>
+                  <nav class="footer-nav">
+                    <a href="{% url 'aranha:agendamento_publico' %}">Agendamento Online</a>
+                    <a href="{% url 'aranha:politica_privacidade' %}">Política de Privacidade</a>
+                    <a href="{% url 'aranha:termos_uso' %}">Termos de Uso</a>
+                  </nav>
+                </div>
+              </div>
+
+              <div class="col-6 col-lg-3">
+                <div class="nav-column">
+                  <h6>Horários</h6>
+                  <nav class="footer-nav">
+                    <span>Seg - Sex: 9h às 18h</span>
+                    <span>Sábado: 9h às 15h</span>
+                    <span>Domingo: Fechado</span>
+                  </nav>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-bottom">
+    <div class="container">
+      <div class="bottom-content" data-aos="fade-up" data-aos-delay="300">
+        <div class="row align-items-center">
+          <div class="col-lg-6">
+            <div class="copyright">
+              <p>© <span class="sitename">{{ CLINIC_NAME }}</span>. Todos os direitos reservados.</p>
+            </div>
+          </div>
+          <div class="col-lg-6">
+            <div class="legal-links">
+              <a href="{% url 'aranha:politica_privacidade' %}">Política de Privacidade</a>
+              <a href="{% url 'aranha:termos_uso' %}">Termos de Serviço</a>
+              <div class="credits">
+                Design por <a href="https://bootstrapmade.com/">BootstrapMade</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- Scroll Top -->
+<a href="#" id="scroll-top" class="scroll-top d-flex align-items-center justify-content-center">
+  <i class="bi bi-arrow-up-short"></i>
+</a>
+
+<!-- WhatsApp Float -->
+<a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Olá!%20Gostaria%20de%20agendar%20um%20horário." target="_blank" rel="noopener" class="whatsapp-float" aria-label="Falar no WhatsApp">
+  <i class="fab fa-whatsapp"></i>
+</a>

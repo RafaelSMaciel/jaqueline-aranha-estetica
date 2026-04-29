@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Agendar - {{ CLINIC_NAME }}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style nonce="{{ csp_nonce }}">
+        :root { --gold: #C9A84C; --earth: #4A3425; }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Lato', system-ui, sans-serif;
+            margin: 0; padding: 0; background: #fff; color: #333;
+        }
+        .embed-wrap { padding: 1rem; max-width: 720px; margin: 0 auto; }
+        .embed-head {
+            text-align: center; padding: 0.75rem 0 1rem;
+            border-bottom: 1px solid #eee; margin-bottom: 1rem;
+        }
+        .embed-head h1 {
+            font-size: 1.1rem; font-weight: 800; color: var(--earth);
+            margin: 0 0 0.2rem;
+        }
+        .embed-head p { font-size: 0.8rem; color: #777; margin: 0; }
+        .proc-list {
+            display: grid; gap: 0.5rem;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            margin-bottom: 1rem;
+        }
+        .proc-mini {
+            background: white; border: 1px solid #eee; border-radius: 12px;
+            padding: 0.75rem; cursor: pointer; transition: all 0.2s;
+            text-decoration: none; color: inherit; display: block;
+        }
+        .proc-mini:hover { border-color: var(--gold); transform: translateY(-2px); }
+        .proc-mini-name { font-weight: 700; font-size: 0.9rem; color: var(--earth); }
+        .proc-mini-meta { font-size: 0.75rem; color: #999; margin-top: 0.25rem; }
+        .proc-mini-price { color: var(--gold); font-weight: 800; font-size: 0.85rem; }
+        .embed-cta {
+            display: block; background: var(--gold); color: white;
+            text-align: center; padding: 0.7rem; border-radius: 10px;
+            text-decoration: none; font-weight: 700; font-size: 0.9rem;
+        }
+        .embed-foot {
+            text-align: center; font-size: 0.7rem; color: #aaa;
+            margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="embed-wrap">
+        <div class="embed-head">
+            <h1><i class="fas fa-calendar-check" style="color:var(--gold);"></i> {{ CLINIC_NAME }}</h1>
+            <p>Selecione o procedimento desejado</p>
+        </div>
+        {% if procedimentos %}
+        <div class="proc-list">
+            {% for p in procedimentos %}
+            <a class="proc-mini" href="{{ booking_url }}?procedimento={{ p.id }}" target="_top" rel="noopener">
+                <div class="proc-mini-name">{{ p.nome }}</div>
+                <div class="proc-mini-meta">
+                    {% if p.preco > 0 %}
+                    <span class="proc-mini-price">A partir de R$ {{ p.preco|floatformat:2 }}</span>
+                    {% else %}
+                    <span class="proc-mini-price">A consultar</span>
+                    {% endif %}
+                    &middot; {{ p.duracao_minutos }} min
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p style="text-align:center;color:#999;padding:1rem;">Nenhum procedimento ativo no momento.</p>
+        {% endif %}
+        <a href="{{ booking_url }}" target="_top" rel="noopener" class="embed-cta">
+            <i class="fas fa-calendar-plus"></i> Agendar agora
+        </a>
+        <div class="embed-foot">Powered by Jaqueline Aranha Estética</div>
+    </div>
+</body>
+</html>

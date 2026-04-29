@@ -2,7 +2,7 @@
 from pathlib import Path
 import re
 
-ROOT = Path(__file__).resolve().parent.parent / 'app_shivazen' / 'templates'
+ROOT = Path(__file__).resolve().parent.parent / 'aranha_estetica' / 'templates'
 NONCE = '{{ csp_nonce }}'
 
 # Match exact bare tags (no attrs) but NOT already-nonce'd ones

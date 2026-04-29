@@ -1,0 +1,211 @@
+{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block body_class %}especialidade-page{% endblock %}
+{% block titulo %}Especialidades | {{ CLINIC_NAME }}{% endblock %}
+
+{% block conteudo %}
+<!-- Departments Tabs Section -->
+<section id="departments-tabs" class="departments-tabs section">
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
+
+    {% if grupos %}
+    <div class="medical-specialties">
+      <div class="row">
+        <div class="col-12">
+          <div class="specialty-navigation">
+            <div class="nav nav-pills d-flex" id="specialty-tabs" role="tablist" data-aos="fade-up" data-aos-delay="400">
+              {% for grupo in grupos %}
+              <a class="nav-link department-tab {% if forloop.first %}active{% endif %}"
+                 id="tab-{{ grupo.key|lower }}"
+                 data-bs-toggle="pill"
+                 href="#departments-tabs-{{ grupo.key|lower }}"
+                 role="tab"
+                 aria-controls="departments-tabs-{{ grupo.key|lower }}"
+                 aria-selected="{% if forloop.first %}true{% else %}false{% endif %}"
+                 data-aos="fade-up"
+                 data-aos-delay="{{ forloop.counter0|add:1 }}00">{{ grupo.label }}</a>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12">
+          <div class="tab-content department-content" id="specialty-content" data-aos="fade-up" data-aos-delay="500">
+            {% for grupo in grupos %}
+            <div class="tab-pane fade {% if forloop.first %}show active{% endif %}"
+                 id="departments-tabs-{{ grupo.key|lower }}"
+                 role="tabpanel"
+                 aria-labelledby="tab-{{ grupo.key|lower }}">
+              <div class="row department-layout">
+                <div class="col-lg-4 order-lg-2">
+                  <div class="department-image">
+                    <img src="{% static 'assets/clinica/consulta-1.webp' %}" alt="{{ grupo.label }}" class="img-fluid" loading="lazy">
+                  </div>
+                </div>
+                <div class="col-lg-8 order-lg-1">
+                  <div class="department-info">
+                    <h2 class="department-title">{{ grupo.label }}</h2>
+                    <p class="department-description">{{ grupo.descricao|default:"Tratamentos especializados com profissionais qualificados e tecnologia avançada." }}</p>
+
+                    <div class="row mt-4">
+                      {% for item in grupo.itens %}
+                      <div class="col-md-6">
+                        <div class="service-item">
+                          <div class="service-icon">
+                            <i class="fas fa-spa"></i>
+                          </div>
+                          <div class="service-content">
+                            <h4>{{ item.nome }}</h4>
+                            <p>{{ item.descricao|default:"Agende uma avaliação para saber mais."|truncatechars:100 }}
+                            {% if item.duracao_minutos %}<br><small class="text-muted"><i class="bi bi-clock me-1"></i>{{ item.duracao_minutos }}min</small>{% endif %}
+                            {% if item.preco > 0 %}<br><small class="text-muted">A partir de <strong>R$ {{ item.preco|floatformat:2 }}</strong></small>{% endif %}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+      <i class="bi bi-hourglass-split fs-1 text-primary mb-3 d-block"></i>
+      <h3>Especialidades em atualização</h3>
+      <p class="text-muted">Em breve nosso catálogo completo estará disponível.</p>
+    </div>
+    {% endif %}
+
+  </div>
+</section>
+
+<!-- Departments Section (Cards) -->
+<section id="departments" class="departments section">
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
+    <div class="row g-5">
+
+      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="100">
+        <div class="department-card">
+          <div class="department-icon">
+            <i class="fas fa-face-smile"></i>
+          </div>
+          <div class="department-image">
+            <img src="{% static 'assets/clinica/facial-4.webp' %}" alt="Tratamentos Faciais Injetáveis" class="img-fluid" loading="lazy">
+          </div>
+          <div class="department-content">
+            <h3>Tratamentos Faciais Injetáveis</h3>
+            <p>Botox (1, 2 ou 3 regiões), preenchimentos labiais, bigode chinês, malar, rinomodelação, bioestimulador e PRP.</p>
+            <a href="{% url 'aranha:servicos_faciais' %}" class="learn-more">
+              <span>Saiba Mais</span>
+              <i class="fas fa-arrow-right"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="200">
+        <div class="department-card">
+          <div class="department-icon">
+            <i class="fas fa-person-walking"></i>
+          </div>
+          <div class="department-image">
+            <img src="{% static 'assets/clinica/corporal-2.webp' %}" alt="Modelagem Corporal" class="img-fluid" loading="lazy">
+          </div>
+          <div class="department-content">
+            <h3>Modelagem Corporal</h3>
+            <p>Aplicações enzimáticas para gordura localizada, flacidez e estrias, somadas a drenagem linfática e endermoterapia.</p>
+            <a href="{% url 'aranha:servicos_corporais' %}" class="learn-more">
+              <span>Saiba Mais</span>
+              <i class="fas fa-arrow-right"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="300">
+        <div class="department-card">
+          <div class="department-icon">
+            <i class="fas fa-hand"></i>
+          </div>
+          <div class="department-image">
+            <img src="{% static 'assets/clinica/facial-3.webp' %}" alt="Skin Care" class="img-fluid" loading="lazy">
+          </div>
+          <div class="department-content">
+            <h3>Skin Care</h3>
+            <p>Limpeza de pele, skinbooster e microagulhamento — protocolos personalizados para hidratação profunda e renovação.</p>
+            <a href="{% url 'aranha:servicos_faciais' %}" class="learn-more">
+              <span>Saiba Mais</span>
+              <i class="fas fa-arrow-right"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="100">
+        <div class="department-card">
+          <div class="department-icon">
+            <i class="fas fa-bolt"></i>
+          </div>
+          <div class="department-image">
+            <img src="{% static 'assets/clinica/depilacao-1.webp' %}" alt="Depilação a Laser" class="img-fluid" loading="lazy">
+          </div>
+          <div class="department-content">
+            <h3>Depilação a Laser</h3>
+            <p>Remoção definitiva dos pelos com tecnologia de ponta, segura para todos os fototipos de pele.</p>
+            <a href="{% url 'aranha:servicos_corporais' %}" class="learn-more">
+              <span>Saiba Mais</span>
+              <i class="fas fa-arrow-right"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="200">
+        <div class="department-card">
+          <div class="department-icon">
+            <i class="fas fa-spa"></i>
+          </div>
+          <div class="department-image">
+            <img src="{% static 'assets/clinica/massagem-1.webp' %}" alt="Massagens" class="img-fluid" loading="lazy">
+          </div>
+          <div class="department-content">
+            <h3>Massagens Terapêuticas</h3>
+            <p>Técnicas especializadas para alívio do estresse, relaxamento muscular e bem-estar integral.</p>
+            <a href="{% url 'aranha:servicos_corporais' %}" class="learn-more">
+              <span>Saiba Mais</span>
+              <i class="fas fa-arrow-right"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="300">
+        <div class="department-card">
+          <div class="department-icon">
+            <i class="fas fa-heart-pulse"></i>
+          </div>
+          <div class="department-image">
+            <img src="{% static 'assets/clinica/pos-operatorio-1.webp' %}" alt="Pós-operatório" class="img-fluid" loading="lazy">
+          </div>
+          <div class="department-content">
+            <h3>Pós-operatório</h3>
+            <p>Protocolos específicos para auxiliar na recuperação de cirurgias plásticas, minimizando desconfortos.</p>
+            <a href="{% url 'aranha:servicos_corporais' %}" class="learn-more">
+              <span>Saiba Mais</span>
+              <i class="fas fa-arrow-right"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+{% endblock %}

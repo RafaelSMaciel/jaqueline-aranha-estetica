@@ -1,0 +1,68 @@
+{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block body_class %}doctors-page{% endblock %}
+{% block titulo %}Nossa Equipe | {{ CLINIC_NAME }}{% endblock %}
+
+{% block conteudo %}
+<!-- Doctors Section -->
+<section id="doctors" class="doctors section">
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
+
+    <!-- Section Header -->
+    <div class="row justify-content-center mb-5">
+      <div class="col-lg-8 text-center">
+        <h2 class="display-6 fw-light mb-3">Nossa Equipe de Profissionais</h2>
+        <p class="text-muted">Conheça os especialistas que vão cuidar de você. Cada profissional da {{ CLINIC_NAME }} é selecionado com base em formação, experiência e compromisso com o bem-estar do paciente.</p>
+      </div>
+    </div>
+
+    {% if profissionais %}
+    <div class="row gy-4">
+      {% for prof in profissionais %}
+      <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="{{ forloop.counter0|add:1 }}00">
+        <div class="doctor-card">
+          <div class="doctor-image">
+            {% if prof.foto %}
+            <img src="{{ prof.foto.url }}" alt="{{ prof.nome }}" class="img-fluid" loading="lazy">
+            {% else %}
+            <div class="d-flex align-items-center justify-content-center bg-light" style="height:300px;">
+              <span style="font-size:4rem;color:var(--accent-color);font-weight:700;">{{ prof.nome|slice:":1"|upper }}</span>
+            </div>
+            {% endif %}
+            <div class="doctor-overlay">
+              <div class="social-links">
+                <a href="{% url 'aranha:agendamento_publico' %}?profissional={{ prof.pk }}"><i class="bi bi-calendar-check"></i></a>
+                <a href="https://wa.me/{{ WHATSAPP_NUMERO }}" target="_blank" rel="noopener"><i class="bi bi-whatsapp"></i></a>
+              </div>
+            </div>
+          </div>
+          <div class="doctor-content">
+            <h4>{{ prof.nome }}</h4>
+            <span class="specialty">{{ prof.especialidade|default:"Profissional de Estética" }}</span>
+            <div class="doctor-meta">
+              <div class="experience">
+                <i class="bi bi-award"></i>
+                <span>Profissional Especializado</span>
+              </div>
+            </div>
+            <a href="{% url 'aranha:agendamento_publico' %}?profissional={{ prof.pk }}" class="btn-appointment">Agendar Consulta</a>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+      <i class="bi bi-people fs-1 text-primary mb-3 d-block"></i>
+      <h3>Equipe em formação</h3>
+      <p class="text-muted">Em breve apresentaremos nossos profissionais aqui.</p>
+      <a href="https://wa.me/{{ WHATSAPP_NUMERO }}" target="_blank" rel="noopener" class="btn btn-primary mt-3">
+        <i class="bi bi-whatsapp me-2"></i>Falar no WhatsApp
+      </a>
+    </div>
+    {% endif %}
+
+  </div>
+</section>
+{% endblock %}

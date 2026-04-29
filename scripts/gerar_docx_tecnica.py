@@ -592,7 +592,7 @@ def build():
         '/health/: readiness — checa DB + cache. Retorna 503 em degradação. '
         'Parâmetro ?celery=1 força check adicional de broker (se configurado).',
         'Logging JSON estruturado em produção (python-json-logger). Nível '
-        'WARNING root, INFO django, INFO app_shivazen.',
+        'WARNING root, INFO django, INFO aranha_estetica.',
         'Sentry integra Django via DjangoIntegration. TRACES_SAMPLE_RATE '
         'configurável (default 0.2).',
         'LogAuditoria (DB): trilha imutável de operações sensíveis; admin '
@@ -640,7 +640,7 @@ def build():
         'builder: NIXPACKS (detecção automática Django + requirements.txt).',
         'startCommand: sh -c "python manage.py migrate --noinput && '
         'python manage.py collectstatic --noinput --verbosity 0 && exec '
-        'gunicorn shivazen.wsgi --bind 0.0.0.0:${PORT:-8080} --workers 1 '
+        'gunicorn clinica.wsgi --bind 0.0.0.0:${PORT:-8080} --workers 1 '
         '--threads 4 --timeout 120 --access-logfile - --error-logfile -".',
         'healthcheckPath: /healthz/, healthcheckTimeout: 60s.',
         'restartPolicyType: ON_FAILURE, maxRetries: 10.',

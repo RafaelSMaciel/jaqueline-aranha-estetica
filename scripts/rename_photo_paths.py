@@ -29,7 +29,7 @@ mapping = {
 }
 
 target_files = []
-for root, _, fs in os.walk("app_shivazen"):
+for root, _, fs in os.walk("aranha_estetica"):
     for f in fs:
         if f.endswith((".html", ".py")) and "__pycache__" not in root:
             target_files.append(os.path.join(root, f))

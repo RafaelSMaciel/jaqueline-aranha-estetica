@@ -29,4 +29,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD curl -f http://localhost:8000/health/ || exit 1
 
-CMD ["sh", "-c", "python manage.py migrate --noinput && gunicorn shivazen.wsgi --bind 0.0.0.0:${PORT:-8000} --workers 4 --threads 2 --log-file -"]
+CMD ["sh", "-c", "python manage.py migrate --noinput && gunicorn clinica.wsgi --bind 0.0.0.0:${PORT:-8000} --workers 4 --threads 2 --log-file -"]

@@ -179,7 +179,7 @@ def replace_in_text_segments(content: str) -> str:
 
 
 def main():
-    target_dir = os.path.join("app_shivazen", "templates")
+    target_dir = os.path.join("aranha_estetica", "templates")
     files = []
     for root, _, fs in os.walk(target_dir):
         for f in fs:
