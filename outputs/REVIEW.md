@@ -7,11 +7,11 @@ Data: 2026-04-27 · Branch: `claude/quizzical-grothendieck-3d4b34` (HEAD = `c29c
 ## 1. Segurança
 
 ### OK
-- `DJANGO_SECRET_KEY` obrigatória em prod ([base.py:34-37](shivazen/settings/base.py:34))
-- `DEBUG=False` em prod ([prod.py:6](shivazen/settings/prod.py:6))
-- HSTS 1 ano + preload + includeSubDomains ([prod.py:16-18](shivazen/settings/prod.py:16))
-- Cookies `Secure` em prod ([prod.py:12-13](shivazen/settings/prod.py:12))
-- `SECURE_PROXY_SSL_HEADER` correto p/ Railway ([prod.py:19](shivazen/settings/prod.py:19))
+- `DJANGO_SECRET_KEY` obrigatória em prod ([base.py:34-37](clinica/settings/base.py:34))
+- `DEBUG=False` em prod ([prod.py:6](clinica/settings/prod.py:6))
+- HSTS 1 ano + preload + includeSubDomains ([prod.py:16-18](clinica/settings/prod.py:16))
+- Cookies `Secure` em prod ([prod.py:12-13](clinica/settings/prod.py:12))
+- `SECURE_PROXY_SSL_HEADER` correto p/ Railway ([prod.py:19](clinica/settings/prod.py:19))
 - CSP com nonce per-request ([middleware.py](app_shivazen/middleware.py))
 - `django-axes` (lockout) + `django-ratelimit` em endpoints sensíveis (login, OTP, admin POSTs)
 - `CRON_TOKEN` via `X-Cron-Token` em endpoints cron ([cron.py:30](app_shivazen/views/cron.py:30))
@@ -29,7 +29,7 @@ TODO declarado. Migrar templates legados pra nonce/hash exclusivo.
 - **Esforço:** M (12-20h)
 - **Impacto:** médio — XSS exploitable se inline injetado
 
-**🟡 `SECURE_SSL_REDIRECT` opt-out via `USE_HTTPS=False`** ([prod.py:9](shivazen/settings/prod.py:9))
+**🟡 `SECURE_SSL_REDIRECT` opt-out via `USE_HTTPS=False`** ([prod.py:9](clinica/settings/prod.py:9))
 Default `True`. Deixar fixo `True` em prod, sem env var.
 
 **🟢 Secrets no histórico:** scan limpo. Apenas `senha123`/`admin123` em fixtures de teste — aceitável.
@@ -42,8 +42,8 @@ Default `True`. Deixar fixo `True` em prod, sem env var.
 
 ### OK
 - Healthcheck `/healthz/` ([railway.json:10](railway.json:10))
-- Sentry SDK wired ([base.py:16-30](shivazen/settings/base.py:16))
-- Logging estruturado JSON em prod ([base.py:282+](shivazen/settings/base.py:282))
+- Sentry SDK wired ([base.py:16-30](clinica/settings/base.py:16))
+- Logging estruturado JSON em prod ([base.py:282+](clinica/settings/base.py:282))
 - Cron HTTP endpoint substituiu Celery Beat (free tier)
 
 ### Pendências
@@ -122,7 +122,7 @@ Code envia via `graph.facebook.com/v18.0`. Sem templates aprovados, mensagens fo
 **🟡 Branches `main` vs `dev` divergem historicamente**
 Ambas agora em `c29ce88`. Decidir: única branch ou git-flow disciplinado.
 
-**🟢 Tests:** 144 coletados (precisa `DJANGO_SETTINGS_MODULE=shivazen.settings.dev`). Sem `pytest.ini` / `pyproject.toml [tool.pytest]` — adicionar pra remover boilerplate.
+**🟢 Tests:** 144 coletados (precisa `DJANGO_SETTINGS_MODULE=clinica.settings.dev`). Sem `pytest.ini` / `pyproject.toml [tool.pytest]` — adicionar pra remover boilerplate.
 
 **🟡 Migrations:** 18 arquivos. Squash candidato pós-MVP.
 
@@ -164,7 +164,7 @@ Bonus rápidos:
 railway login && railway status && railway logs --tail 100
 
 # Rodar tests local
-DJANGO_SETTINGS_MODULE=shivazen.settings.dev pytest app_shivazen/tests/
+DJANGO_SETTINGS_MODULE=clinica.settings.dev pytest app_shivazen/tests/
 
 # Bump SW cache
 sed -i "s/VERSION = 'v3'/VERSION = 'v4'/" app_shivazen/templates/pwa/sw.js

@@ -58,10 +58,10 @@ coverage report
 coverage html  # gera htmlcov/
 
 # Celery worker (dev)
-celery -A shivazen worker --loglevel=info
+celery -A clinica worker --loglevel=info
 
 # Celery beat (dev)
-celery -A shivazen beat --loglevel=info
+celery -A clinica beat --loglevel=info
 
 # Shell Django
 python manage.py shell
@@ -73,7 +73,7 @@ python manage.py collectstatic --noinput
 ## Estrutura
 
 ```
-shivazen/
+clinica/
   settings/
     __init__.py    # seleciona dev|prod via DJANGO_ENV
     base.py        # config comum
@@ -82,7 +82,7 @@ shivazen/
   celery.py
   urls.py
 
-app_shivazen/
+app_clinica/
   models/          # divididos por domínio
   views/           # divididos por domínio
   forms/           # ModelForms com validators

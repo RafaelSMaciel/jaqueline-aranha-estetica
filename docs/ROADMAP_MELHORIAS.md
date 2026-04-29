@@ -118,7 +118,7 @@ Escopo: clínica single-tenant (biomédica Jaqueline Aranha — atendimento excl
 
 ### #7 AdminLTE base.html (sidebar/topbar — opcional refactor)
 
-**Decisão**: shivazen já tem visual custom (admin-topbar dark gradient). **Pular AdminLTE full migration** — só roubar componentes específicos quando precisar.
+**Decisão**: a aplicação já tem visual custom (admin-topbar dark gradient). **Pular AdminLTE full migration** — só roubar componentes específicos quando precisar.
 
 **Steps reduzidos**:
 1. Manter base.html atual.
@@ -182,7 +182,7 @@ Escopo: clínica single-tenant (biomédica Jaqueline Aranha — atendimento excl
 ```python
 from django_ical.views import ICalFeed
 class ProfissionalAgendaFeed(ICalFeed):
-    product_id = '-//shivazen//agenda//PT-BR'
+    product_id = '-//aranha-estetica//agenda//PT-BR'
     timezone = 'America/Sao_Paulo'
     def get_object(self, request, slug): ...
     def items(self, prof): return Atendimento.objects.filter(profissional=prof, status__in=['AGENDADO','CONFIRMADO'])
@@ -374,7 +374,7 @@ class WorkflowRegra(models.Model):
 2. Headers: `X-Frame-Options: ALLOW-FROM` (ou CSP frame-ancestors).
 3. CSS minimal, paleta clinic.
 4. Documentar p/ Jaqueline: tag iframe pra colar Linktree/Instagram bio.
-5. Postman snippet: `<iframe src="https://shivazen.com.br/embed/agendar/jaqueline-aranha/" width="100%" height="700"></iframe>`.
+5. Postman snippet: `<iframe src="https://jaquelineearanha.com.br/embed/agendar/jaqueline-aranha/" width="100%" height="700"></iframe>`.
 
 ### #25 Cache offline avançado (Workbox)
 

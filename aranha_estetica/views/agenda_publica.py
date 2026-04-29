@@ -66,7 +66,7 @@ def ics_feed_profissional(request, slug):
     lines = [
         'BEGIN:VCALENDAR',
         'VERSION:2.0',
-        'PRODID:-//shivazen//agenda profissional//PT-BR',
+        'PRODID:-//aranha-estetica//agenda profissional//PT-BR',
         'CALSCALE:GREGORIAN',
         'METHOD:PUBLISH',
         f'X-WR-CALNAME:{_ics_escape(prof.nome)} - Agenda',

@@ -1,5 +1,5 @@
 """
-ASGI config for shivazen project.
+ASGI config for clinica project.
 
 It exposes the ASGI callable as a module-level variable named ``application``.
 
