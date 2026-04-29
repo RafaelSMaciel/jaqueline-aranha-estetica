@@ -26,7 +26,7 @@
           <li><a href="{% url 'shivazen:quem_somos' %}" class="{% if request.resolver_match.url_name == 'quem_somos' %}active{% endif %}">Sobre</a></li>
           <li><a href="{% url 'shivazen:servicos_faciais' %}" class="{% if request.resolver_match.url_name == 'servicos_faciais' or request.resolver_match.url_name == 'servicos_corporais' %}active{% endif %}">Serviços</a></li>
           <li><a href="{% url 'shivazen:equipe' %}" class="{% if request.resolver_match.url_name == 'equipe' %}active{% endif %}">Profissionais</a></li>
-          <li><a href="{% url 'shivazen:meus_agendamentos' %}" class="{% if request.resolver_match.url_name == 'meus_agendamentos' %}active{% endif %}"><i class="bi bi-calendar-heart me-1"></i>Meus Agendamentos</a></li>
+          <li><a href="{% url 'shivazen:meus_agendamentos' %}" class="{% if request.resolver_match.url_name == 'meus_agendamentos' %}active{% endif %}">Meus Agendamentos</a></li>
           <li class="dropdown"><a href="#" class="{% if request.resolver_match.url_name in 'especialidades,depoimentos,galeria,promocoes,agenda_contato,termos_uso,politica_privacidade' %}active{% endif %}"><span>Mais</span> <i class="bi bi-chevron-down toggle-dropdown"></i></a>
             <ul>
               <li><a href="{% url 'shivazen:especialidades' %}" class="{% if request.resolver_match.url_name == 'especialidades' %}active{% endif %}">Especialidades</a></li>
