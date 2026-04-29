@@ -117,6 +117,26 @@
         <div class="stat-card-value" style="font-size:1.1rem;">R$ {{ receita_mensal|default:"0,00" }}</div>
         <div class="stat-card-label">Receita Mês</div>
     </div>
+    <div class="stat-card">
+        <div class="stat-card-icon" style="background:#fce4ec;color:#c2185b;"><i class="fas fa-receipt"></i></div>
+        <div class="stat-card-value" style="font-size:1.1rem;">R$ {{ ticket_medio|default:"0,00" }}</div>
+        <div class="stat-card-label">Ticket Médio</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-icon" style="background:#e0f2f1;color:#00796b;"><i class="fas fa-percent"></i></div>
+        <div class="stat-card-value">{{ taxa_ocupacao|default:0 }}%</div>
+        <div class="stat-card-label">Ocupação Semana</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-icon" style="background:#ede7f6;color:#5e35b1;"><i class="fas fa-user-check"></i></div>
+        <div class="stat-card-value">{{ clientes_ativos_90d|default:0 }}</div>
+        <div class="stat-card-label">Ativos 90d</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-icon" style="background:#fff3e0;color:#ef6c00;"><i class="fas fa-star"></i></div>
+        <div class="stat-card-value">{% if nps_medio is not None %}{{ nps_medio }}{% else %}—{% endif %}</div>
+        <div class="stat-card-label">NPS 30d</div>
+    </div>
 </div>
 
 <!-- Pendentes de aprovação -->

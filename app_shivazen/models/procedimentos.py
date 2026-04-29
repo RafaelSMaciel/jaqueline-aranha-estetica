@@ -19,6 +19,7 @@ class Procedimento(models.Model):
     descricao = models.TextField(blank=True, null=True)
     descricao_longa = models.TextField(blank=True, null=True)
     duracao_minutos = models.SmallIntegerField()
+    buffer_minutos = models.SmallIntegerField(default=0)
     categoria = models.CharField(max_length=20, default='OUTRO', choices=CATEGORIA_CHOICES)
     imagem_destaque = models.URLField(max_length=500, blank=True, null=True)
     ativo = models.BooleanField(default=True)
@@ -35,6 +36,10 @@ class Procedimento(models.Model):
             models.CheckConstraint(
                 check=models.Q(duracao_minutos__gt=0),
                 name='chk_procedimento_duracao_positiva'
+            ),
+            models.CheckConstraint(
+                check=models.Q(buffer_minutos__gte=0) & models.Q(buffer_minutos__lte=120),
+                name='chk_procedimento_buffer_range'
             ),
             models.CheckConstraint(
                 check=models.Q(categoria__in=['FACIAL', 'CORPORAL', 'CAPILAR', 'OUTRO']),

@@ -61,9 +61,6 @@ INSTALLED_APPS = [
     'axes',
     'rest_framework',
     'drf_spectacular',
-    'django_otp',
-    'django_otp.plugins.otp_totp',
-    'django_otp.plugins.otp_static',
 ]
 
 # DRF
