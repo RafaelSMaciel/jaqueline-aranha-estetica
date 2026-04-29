@@ -28,7 +28,7 @@ ZENVIA_API_URL = os.environ.get(
 )
 MAX_RETRIES = 3
 
-CLINIC_NAME = os.environ.get('CLINIC_NAME', 'Dra. Jaqueline Aranha')
+CLINIC_NAME = os.environ.get('CLINIC_NAME', 'Jaqueline Aranha Estética')
 
 # Rate limit por telefone (anti-abuse): 3 SMS por hora
 SMS_MAX_POR_HORA = int(os.environ.get('SMS_MAX_POR_HORA', '3'))

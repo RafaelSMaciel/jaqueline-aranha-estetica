@@ -5,8 +5,8 @@ import os
 def shivazen_globals(request):
     """Injeta variaveis de marca e configuracao em todos os templates."""
     return {
-        'CLINIC_NAME': os.environ.get('CLINIC_NAME', 'Dra. Jaqueline Aranha'),
-        'CLINIC_SUBTITLE': os.environ.get('CLINIC_SUBTITLE', 'Clínica de Estética e Bem-Estar'),
+        'CLINIC_NAME': os.environ.get('CLINIC_NAME', 'Jaqueline Aranha Estética'),
+        'CLINIC_SUBTITLE': os.environ.get('CLINIC_SUBTITLE', 'Estética facial e corporal · Atendimento exclusivo'),
         'CLINIC_EMAIL': os.environ.get('CLINIC_EMAIL', 'contato@clinica.com.br'),
         'CLINIC_PHONE': os.environ.get('CLINIC_PHONE', '(17) 99999-0000'),
         'CLINIC_ADDRESS': os.environ.get('CLINIC_ADDRESS', 'R. Humberto Delboni, 1107 - Jardim Fuscaldo, São José do Rio Preto - SP'),
