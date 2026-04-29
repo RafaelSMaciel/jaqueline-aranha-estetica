@@ -73,6 +73,49 @@
     .atn-card.status-CANCELADO { border-left-color: #c62828; opacity: 0.6; }
     .atn-card.status-FALTOU { border-left-color: #7b1fa2; opacity: 0.6; }
     .atn-card.status-REAGENDADO { border-left-color: #ff8f00; opacity: 0.6; }
+    .atn-card.status-PENDENTE { border-left-color: #f9a825; background: #fffdf4; }
+
+    /* Pendentes section */
+    .pendentes-box {
+        background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);
+        border-radius: 14px; padding: 1rem 1.25rem; margin-bottom: 1.5rem;
+        border-left: 4px solid #f9a825;
+    }
+    .pendentes-head {
+        display: flex; align-items: center; gap: 0.5rem;
+        font-weight: 800; color: #8b6f2b; margin-bottom: 0.75rem;
+        font-size: 0.95rem;
+    }
+    .pendentes-head .count {
+        background: #f9a825; color: white; border-radius: 50%;
+        min-width: 22px; height: 22px; display: inline-flex;
+        align-items: center; justify-content: center;
+        font-size: 0.75rem; font-weight: 800;
+    }
+    .pend-card {
+        background: white; border-radius: 10px; padding: 0.75rem 1rem;
+        margin-bottom: 0.5rem; display: flex; align-items: center;
+        gap: 0.75rem; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    }
+    .pend-card:last-child { margin-bottom: 0; }
+    .pend-info { flex: 1; min-width: 0; }
+    .pend-cliente { font-weight: 700; color: var(--earth); font-size: 0.9rem; }
+    .pend-meta { font-size: 0.75rem; color: #888; margin-top: 0.1rem; }
+    .pend-actions { display: flex; gap: 0.4rem; flex-shrink: 0; }
+    .btn-aprovar {
+        background: #2e7d32; color: white; border: none;
+        padding: 0.4rem 0.8rem; border-radius: 8px; cursor: pointer;
+        font-size: 0.75rem; font-weight: 700;
+        display: inline-flex; align-items: center; gap: 0.3rem;
+    }
+    .btn-aprovar:hover { background: #1b5e20; }
+    .btn-rejeitar {
+        background: white; color: #c62828; border: 1.5px solid #c62828;
+        padding: 0.4rem 0.8rem; border-radius: 8px; cursor: pointer;
+        font-size: 0.75rem; font-weight: 700;
+        display: inline-flex; align-items: center; gap: 0.3rem;
+    }
+    .btn-rejeitar:hover { background: #c62828; color: white; }
 
     .atn-hora {
         font-size: 1.2rem; font-weight: 800; color: var(--earth);
@@ -165,6 +208,42 @@
             </span>
             {% endif %}
         </div>
+
+        <!-- Pendentes de aprovação -->
+        {% if pendentes %}
+        <div class="pendentes-box">
+            <div class="pendentes-head">
+                <i class="fas fa-hourglass-half"></i>
+                Aguardando sua aprovação
+                <span class="count">{{ pendentes|length }}</span>
+            </div>
+            {% for p in pendentes %}
+            <div class="pend-card">
+                <div class="pend-info">
+                    <div class="pend-cliente">{{ p.cliente.nome_completo }}</div>
+                    <div class="pend-meta">
+                        {{ p.procedimento.nome }} &bull;
+                        {{ p.data_hora_inicio|date:"d/m/Y" }} às {{ p.data_hora_inicio|time:"H:i" }}
+                    </div>
+                </div>
+                <div class="pend-actions">
+                    <form method="post" action="{% url 'shivazen:profissional_aprovar' pk=p.pk %}" style="margin:0;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-aprovar" onclick="return confirm('Aprovar agendamento?')">
+                            <i class="fas fa-check"></i> Aprovar
+                        </button>
+                    </form>
+                    <form method="post" action="{% url 'shivazen:profissional_rejeitar' pk=p.pk %}" style="margin:0;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-rejeitar" onclick="return confirm('Rejeitar agendamento?')">
+                            <i class="fas fa-times"></i> Rejeitar
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
 
         <!-- View Tabs -->
         <div class="view-tabs">

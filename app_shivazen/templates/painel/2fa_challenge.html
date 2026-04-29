@@ -1,0 +1,52 @@
+{% extends 'painel/base.html' %}
+
+{% block page_title %}Verificação 2FA{% endblock %}
+{% block page_subtitle %}Digite o código do app autenticador{% endblock %}
+
+{% block admin_content %}
+<style nonce="{{ csp_nonce }}">
+.challenge-card {
+    max-width: 420px; margin: 2rem auto;
+    background: white; border-radius: 20px; padding: 2rem 1.5rem;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08); text-align: center;
+}
+.challenge-icon {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: linear-gradient(135deg, #8b6f47, #c9a58a);
+    color: white; display: flex; align-items: center; justify-content: center;
+    font-size: 1.8rem; margin: 0 auto 1rem;
+}
+.input-token {
+    width: 100%; padding: 1rem;
+    border: 2px solid #ddd; border-radius: 12px;
+    font-size: 1.8rem; text-align: center; letter-spacing: 10px;
+    font-weight: 700; font-family: 'Courier New', monospace;
+    margin-bottom: 1rem;
+}
+.input-token:focus { border-color: #8b6f47; outline: none; }
+.btn-verify {
+    width: 100%; padding: 0.8rem;
+    background: linear-gradient(135deg, #8b6f47, #c9a58a);
+    color: white; border: none; border-radius: 12px;
+    font-weight: 800; font-size: 1rem; cursor: pointer;
+}
+</style>
+
+<div class="challenge-card">
+    <div class="challenge-icon"><i class="fas fa-shield-check"></i></div>
+    <h3 style="font-weight:800;">Autenticação 2FA</h3>
+    <p style="color:#666; font-size:0.88rem; margin-bottom:1.5rem;">
+        Abra seu app autenticador e digite os 6 dígitos:
+    </p>
+    <form method="post" action="{% url 'shivazen:admin_2fa_verify' %}">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}">
+        <input type="text" name="token" class="input-token"
+            maxlength="6" pattern="\d{6}" autocomplete="one-time-code"
+            placeholder="000000" required autofocus>
+        <button type="submit" class="btn-verify">
+            <i class="fas fa-check me-1"></i> Verificar
+        </button>
+    </form>
+</div>
+{% endblock %}

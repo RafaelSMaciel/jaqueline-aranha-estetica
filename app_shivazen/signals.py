@@ -1,10 +1,17 @@
-from django.db.models.signals import pre_save, post_save
+from django.core.cache import cache
+from django.db.models.signals import pre_save, post_save, post_delete
 from django.dispatch import receiver
-from .models import Atendimento, PacoteCliente, SessaoPacote, ListaEspera
+from .models import Atendimento, PacoteCliente, SessaoPacote, ListaEspera, ConfiguracaoSistema
 from .tasks import job_notificar_fila_espera
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+@receiver([post_save, post_delete], sender=ConfiguracaoSistema)
+def invalidar_cache_branding(sender, instance, **kwargs):
+    """Zera cache de branding quando ConfiguracaoSistema muda."""
+    cache.delete('branding_config_v1')
 
 @receiver(pre_save, sender=Atendimento)
 def capturar_status_anterior(sender, instance, **kwargs):

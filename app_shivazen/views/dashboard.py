@@ -59,6 +59,16 @@ def painel_overview(request):
         status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO']
     ).select_related('cliente', 'profissional', 'procedimento').order_by('data_hora_inicio')[:10]
 
+    # Pendentes de aprovação (todos)
+    pendentes_aprovacao = Atendimento.objects.filter(
+        status='PENDENTE',
+        data_hora_inicio__gte=timezone.now(),
+    ).select_related('cliente', 'profissional', 'procedimento').order_by('data_hora_inicio')[:15]
+    total_pendentes = Atendimento.objects.filter(
+        status='PENDENTE',
+        data_hora_inicio__gte=timezone.now(),
+    ).count()
+
     # --- Dados para os Gráficos (1 query instead of 7) ---
     dias_semana_list = [(inicio_semana + timedelta(days=i)).strftime('%d/%m') for i in range(7)]
     agendamentos_por_dia = dict(
@@ -90,6 +100,8 @@ def painel_overview(request):
         'dias_semana': dias_semana,
         'dados_grafico_semana': dados_grafico_semana,
         'agendamentos_por_status': agendamentos_por_status,
+        'pendentes_aprovacao': pendentes_aprovacao,
+        'total_pendentes': total_pendentes,
     }
 
     return render(request, 'painel/overview.html', context)

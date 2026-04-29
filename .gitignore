@@ -58,3 +58,4 @@ screenshots/
 /*.jpg
 /*.jpeg
 /*.webp
+tmp_req/node_modules/

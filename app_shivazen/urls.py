@@ -113,6 +113,7 @@ urlpatterns = [
     # ─── Termos de Consentimento ───
     path('painel/termos/', views.admin_termos, name='admin_termos'),
     path('painel/termos/criar/', views.admin_criar_termo, name='admin_criar_termo'),
+    path('painel/termos/compliance/', views.admin_termos_compliance, name='admin_termos_compliance'),
 
     # ─── NPS Web (público) ───
     path('nps/<str:token>/', views.nps_web, name='nps_web'),
@@ -125,6 +126,37 @@ urlpatterns = [
 
     # ─── Status Update (AJAX) ───
     path('painel/atualizar-status/', views.admin_atualizar_status, name='admin_atualizar_status'),
+
+    # ─── Aprovação gerente (PENDENTE → AGENDADO / CANCELADO) ───
+    path('painel/agendamentos/<int:pk>/aprovar/', views.admin_aprovar_agendamento, name='admin_aprovar_agendamento'),
+    path('painel/agendamentos/<int:pk>/rejeitar/', views.admin_rejeitar_agendamento, name='admin_rejeitar_agendamento'),
+    path('painel/agendamentos/bulk/', views.admin_bulk_agendamentos, name='admin_bulk_agendamentos'),
+
+    # ─── Usuarios Admin (CRUD + reset senha + ativar/desativar) ───
+    path('painel/usuarios/', views.admin_usuarios, name='admin_usuarios'),
+    path('painel/usuarios/criar/', views.admin_criar_usuario, name='admin_criar_usuario'),
+    path('painel/usuarios/<int:pk>/editar/', views.admin_editar_usuario, name='admin_editar_usuario'),
+    path('painel/usuarios/<int:pk>/resetar-senha/', views.admin_resetar_senha_usuario, name='admin_resetar_senha_usuario'),
+    path('painel/usuarios/<int:pk>/toggle-ativo/', views.admin_desativar_usuario, name='admin_desativar_usuario'),
+
+    # ─── Configuracoes do Sistema (chave-valor editavel via painel) ───
+    path('painel/configuracoes/', views.admin_configuracoes, name='admin_configuracoes'),
+    path('painel/configuracoes/criar/', views.admin_criar_configuracao, name='admin_criar_configuracao'),
+    path('painel/configuracoes/<int:pk>/editar/', views.admin_editar_configuracao, name='admin_editar_configuracao'),
+    path('painel/configuracoes/<int:pk>/excluir/', views.admin_excluir_configuracao, name='admin_excluir_configuracao'),
+
+    # ─── Branding (logo, cores, textos editaveis via UI) ───
+    path('painel/branding/', views.admin_branding, name='admin_branding'),
+
+    # ─── Calendario (FullCalendar drag-drop) ───
+    path('painel/calendario/', views.admin_calendar, name='admin_calendar'),
+    path('painel/calendario/eventos/', views.admin_calendar_events, name='admin_calendar_events'),
+    path('painel/calendario/mover/', views.admin_calendar_mover, name='admin_calendar_mover'),
+
+    # ─── 2FA (TOTP) ───
+    path('painel/seguranca/2fa/', views.admin_2fa_setup, name='admin_2fa_setup'),
+    path('painel/seguranca/2fa/verificar/', views.admin_2fa_verify, name='admin_2fa_verify'),
+    path('painel/seguranca/2fa/challenge/', views.admin_2fa_challenge, name='admin_2fa_challenge'),
 
     # ─── Email Preview (staff debug) ───
     path('painel/email-preview/', views.admin_email_preview, name='admin_email_preview'),

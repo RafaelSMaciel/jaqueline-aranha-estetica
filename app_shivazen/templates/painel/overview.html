@@ -50,6 +50,47 @@
 }
 .dash-toast.show { opacity: 1; }
 .dash-toast.error { background: #c62828; }
+
+/* Pendentes de aprovação */
+.pend-card-wrap {
+    background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);
+    border-left: 4px solid #f9a825;
+    border-radius: 16px; padding: 1.25rem; margin-bottom: 1rem;
+}
+.pend-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 0.75rem;
+}
+.pend-title {
+    font-weight: 800; color: #8b6f2b; font-size: 0.85rem;
+    text-transform: uppercase; letter-spacing: 1px;
+    display: flex; align-items: center; gap: 0.5rem;
+}
+.pend-count {
+    background: #f9a825; color: white; border-radius: 999px;
+    padding: 0.15rem 0.6rem; font-size: 0.7rem; font-weight: 800;
+}
+.pend-item {
+    background: white; border-radius: 10px; padding: 0.65rem 0.9rem;
+    margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.75rem;
+}
+.pend-item:last-child { margin-bottom: 0; }
+.pend-item-info { flex: 1; min-width: 0; }
+.pend-item-name { font-weight: 700; font-size: 0.85rem; color: #4A3425; }
+.pend-item-meta { font-size: 0.7rem; color: #888; margin-top: 0.1rem; }
+.pend-item-actions { display: flex; gap: 0.35rem; flex-shrink: 0; }
+.btn-aprovar-mini {
+    background: #2e7d32; color: white; border: none;
+    padding: 0.35rem 0.7rem; border-radius: 8px; cursor: pointer;
+    font-size: 0.7rem; font-weight: 700;
+}
+.btn-aprovar-mini:hover { background: #1b5e20; }
+.btn-rejeitar-mini {
+    background: white; color: #c62828; border: 1.5px solid #c62828;
+    padding: 0.35rem 0.7rem; border-radius: 8px; cursor: pointer;
+    font-size: 0.7rem; font-weight: 700;
+}
+.btn-rejeitar-mini:hover { background: #c62828; color: white; }
 {% endblock %}
 
 {% block admin_content %}
@@ -77,6 +118,47 @@
         <div class="stat-card-label">Receita Mês</div>
     </div>
 </div>
+
+<!-- Pendentes de aprovação -->
+{% if pendentes_aprovacao %}
+<div class="pend-card-wrap">
+    <div class="pend-head">
+        <div class="pend-title">
+            <i class="fas fa-hourglass-half"></i>
+            Pendentes de aprovação
+            <span class="pend-count">{{ total_pendentes }}</span>
+        </div>
+        <a href="{% url 'shivazen:painel_agendamentos' %}?status=pendente" class="small fw-bold" style="color:#8b6f2b;text-decoration:none;">
+            Ver todos &rarr;
+        </a>
+    </div>
+    {% for p in pendentes_aprovacao %}
+    <div class="pend-item">
+        <div class="pend-item-info">
+            <div class="pend-item-name">{{ p.cliente.nome_completo }}</div>
+            <div class="pend-item-meta">
+                {{ p.procedimento.nome }} &bull; {{ p.profissional.nome }} &bull;
+                {{ p.data_hora_inicio|date:"d/m H:i" }}
+            </div>
+        </div>
+        <div class="pend-item-actions">
+            <form method="post" action="{% url 'shivazen:admin_aprovar_agendamento' pk=p.pk %}" style="margin:0;">
+                {% csrf_token %}
+                <button type="submit" class="btn-aprovar-mini" onclick="return confirm('Aprovar agendamento de {{ p.cliente.nome_completo|escapejs }}?')">
+                    <i class="fas fa-check"></i> Aprovar
+                </button>
+            </form>
+            <form method="post" action="{% url 'shivazen:admin_rejeitar_agendamento' pk=p.pk %}" style="margin:0;">
+                {% csrf_token %}
+                <button type="submit" class="btn-rejeitar-mini" onclick="return confirm('Rejeitar agendamento de {{ p.cliente.nome_completo|escapejs }}?')">
+                    <i class="fas fa-times"></i> Rejeitar
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
 
 <!-- Charts Row -->
 <div class="row g-3 mb-3">
@@ -129,7 +211,7 @@
             </select>
             <!-- WhatsApp -->
             {% if agend.cliente.telefone %}
-            <a href="https://wa.me/55{{ agend.cliente.telefone|cut:'(' |cut:')' |cut:'-' |cut:' ' }}?text=Ol%C3%A1%20{{ agend.cliente.nome_completo|urlencode }}%2C%20confirmamos%20seu%20agendamento%20de%20{{ agend.procedimento.nome|urlencode }}%20para%20{{ agend.data_hora_inicio|date:'d/m/Y' }}%20%C3%A0s%20{{ agend.data_hora_inicio|time:'H:i' }}.%20Shiva%20Zen"
+            <a href="https://wa.me/55{{ agend.cliente.telefone|cut:'(' |cut:')' |cut:'-' |cut:' ' }}?text=Ol%C3%A1%20{{ agend.cliente.nome_completo|urlencode }}%2C%20confirmamos%20seu%20agendamento%20de%20{{ agend.procedimento.nome|urlencode }}%20para%20{{ agend.data_hora_inicio|date:'d/m/Y' }}%20%C3%A0s%20{{ agend.data_hora_inicio|time:'H:i' }}.%20{{ CLINIC_NAME|urlencode }}"
                target="_blank" class="btn-wpp" title="Confirmar via WhatsApp">
                 <i class="fab fa-whatsapp"></i>
             </a>

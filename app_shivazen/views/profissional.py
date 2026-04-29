@@ -8,6 +8,7 @@ from django.views.decorators.http import require_POST
 
 from ..decorators import profissional_required
 from ..models import AnotacaoSessao, Atendimento, Notificacao
+from ..utils.audit import registrar_log
 from ..utils.email import enviar_confirmacao_agendamento_email, enviar_cancelamento_email
 
 logger = logging.getLogger(__name__)
@@ -159,6 +160,7 @@ def aprovar_agendamento(request, pk):
 
     atendimento.status = 'AGENDADO'
     atendimento.save()
+    registrar_log(request.user, 'Aprovou agendamento (profissional)', 'atendimento', atendimento.pk)
 
     if atendimento.cliente.email:
         data_fmt = atendimento.data_hora_inicio.strftime('%d/%m/%Y as %H:%M')
@@ -200,6 +202,7 @@ def rejeitar_agendamento(request, pk):
 
     atendimento.status = 'CANCELADO'
     atendimento.save()
+    registrar_log(request.user, 'Rejeitou agendamento (profissional)', 'atendimento', atendimento.pk)
 
     if atendimento.cliente.email:
         data_fmt = atendimento.data_hora_inicio.strftime('%d/%m/%Y as %H:%M')
