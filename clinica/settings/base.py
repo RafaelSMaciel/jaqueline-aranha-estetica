@@ -196,7 +196,7 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-AUTH_USER_MODEL = 'app_shivazen.Usuario'
+AUTH_USER_MODEL = 'aranha_estetica.Usuario'
 LOGIN_URL = '/admin-login/'
 LOGIN_REDIRECT_URL = '/painel/'
 

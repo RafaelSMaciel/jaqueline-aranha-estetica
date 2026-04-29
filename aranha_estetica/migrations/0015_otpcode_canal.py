@@ -5,7 +5,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('app_shivazen', '0014_cliente_consent_channels'),
+        ('aranha_estetica', '0014_cliente_consent_channels'),
     ]
 
     operations = [

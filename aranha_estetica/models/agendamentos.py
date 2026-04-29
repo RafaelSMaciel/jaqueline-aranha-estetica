@@ -1,4 +1,4 @@
-# app_shivazen/models/agendamentos.py — Atendimentos e notificacoes
+# aranha_estetica/models/agendamentos.py — Atendimentos e notificacoes
 import secrets
 from django.core.validators import MinValueValidator
 from django.db import models

@@ -1,4 +1,4 @@
-# app_shivazen/models/procedimentos.py — Procedimentos, precos, promocoes
+# aranha_estetica/models/procedimentos.py — Procedimentos, precos, promocoes
 from datetime import date
 
 from django.db import models

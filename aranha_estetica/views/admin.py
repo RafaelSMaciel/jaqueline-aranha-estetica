@@ -160,5 +160,5 @@ def admin_atualizar_status(request):
 
 
 # Nota: a antiga view setup_seed(request) foi substituida pelo management
-# command `python manage.py seed` (app_shivazen/management/commands/seed.py),
+# command `python manage.py seed` (aranha_estetica/management/commands/seed.py),
 # eliminando token em query param e execucao remota via URL.

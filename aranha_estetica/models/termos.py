@@ -1,4 +1,4 @@
-# app_shivazen/models/termos.py — Termos de consentimento
+# aranha_estetica/models/termos.py — Termos de consentimento
 from django.db import models
 
 from .clientes import Cliente

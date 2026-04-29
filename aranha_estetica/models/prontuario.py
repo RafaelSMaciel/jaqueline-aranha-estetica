@@ -1,4 +1,4 @@
-# app_shivazen/models/prontuario.py — Prontuario e anotacoes clinicas
+# aranha_estetica/models/prontuario.py — Prontuario e anotacoes clinicas
 from django.db import models
 
 from .clientes import Cliente

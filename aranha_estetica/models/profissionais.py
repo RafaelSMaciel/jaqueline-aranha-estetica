@@ -1,4 +1,4 @@
-# app_shivazen/models/profissionais.py — Profissionais, disponibilidade, bloqueios
+# aranha_estetica/models/profissionais.py — Profissionais, disponibilidade, bloqueios
 from datetime import datetime, timedelta
 
 from django.db import models

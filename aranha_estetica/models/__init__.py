@@ -1,4 +1,4 @@
-# app_shivazen/models/__init__.py — Re-exporta todos os models
+# aranha_estetica/models/__init__.py — Re-exporta todos os models
 # Imports existentes continuam funcionando: from aranha_estetica.models import X
 
 from .acesso import (

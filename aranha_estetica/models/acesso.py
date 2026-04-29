@@ -1,4 +1,4 @@
-# app_shivazen/models/acesso.py — Controle de acesso e usuarios
+# aranha_estetica/models/acesso.py — Controle de acesso e usuarios
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.signals import user_logged_in
 from django.contrib.auth.models import update_last_login

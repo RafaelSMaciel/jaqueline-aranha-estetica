@@ -1,4 +1,4 @@
-# app_shivazen/admin.py
+# aranha_estetica/admin.py
 from django.contrib import admin, messages
 from django.utils import timezone
 

@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('app_shivazen', '0016_add_notif_nps_indexes'),
+        ('aranha_estetica', '0016_add_notif_nps_indexes'),
     ]
 
     operations = [

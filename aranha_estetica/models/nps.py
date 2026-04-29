@@ -1,4 +1,4 @@
-# app_shivazen/models/nps.py — Avaliacao NPS
+# aranha_estetica/models/nps.py — Avaliacao NPS
 from django.db import models
 
 

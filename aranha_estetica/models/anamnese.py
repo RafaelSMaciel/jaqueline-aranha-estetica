@@ -1,4 +1,4 @@
-# app_shivazen/models/anamnese.py — Formulario anamnese pre-agendamento
+# aranha_estetica/models/anamnese.py — Formulario anamnese pre-agendamento
 from django.db import models
 
 from .clientes import Cliente

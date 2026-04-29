@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('app_shivazen', '0019_profissional_ics_token_profissional_slug'),
+        ('aranha_estetica', '0019_profissional_ics_token_profissional_slug'),
     ]
 
     operations = [

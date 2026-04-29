@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('app_shivazen', '0009_add_pendente_status_and_indexes'),
+        ('aranha_estetica', '0009_add_pendente_status_and_indexes'),
     ]
 
     operations = [
