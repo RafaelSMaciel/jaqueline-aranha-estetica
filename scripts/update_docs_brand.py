@@ -10,9 +10,9 @@ Replaces (case-sensitive, ordem importa):
 
 PRESERVA (nao mexer):
   - 'shivazen-app'  (nome repo)
-  - 'app_shivazen'  (Python module)
-  - 'shivazen.settings'  (Python module)
-  - 'shivazen:'  (Django URL namespace)
+  - 'aranha_estetica'  (Python module)
+  - 'clinica.settings'  (Python module)
+  - 'aranha:'  (Django URL namespace)
   - 'shivazensjrp'  (Instagram handle)
 """
 import os

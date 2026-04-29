@@ -1,0 +1,200 @@
+{% extends 'painel/base.html' %}
+
+{% block page_title %}Calendário{% endblock %}
+{% block page_subtitle %}Visão semanal · arraste para reagendar{% endblock %}
+
+{% block admin_css %}
+.cal-filtros {
+    background: white; border-radius: 14px; padding: 0.75rem;
+    margin-bottom: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.cal-filtros select, .cal-filtros a {
+    border: 1px solid #e8e8e8; border-radius: 10px;
+    padding: 0.4rem 0.7rem; font-size: 0.8rem; background: #fafafa;
+    text-decoration: none; color: #333;
+}
+.cal-legenda { display: flex; gap: 0.75rem; flex-wrap: wrap; font-size: 0.7rem; }
+.cal-legenda-item { display: flex; align-items: center; gap: 0.3rem; }
+.cal-legenda-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+#calendar {
+    background: white; border-radius: 14px; padding: 0.75rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.fc .fc-toolbar-title { font-size: 1.1rem !important; font-weight: 800; }
+.fc-event { cursor: grab; font-size: 0.75rem; padding: 2px 4px; }
+.fc-event:active { cursor: grabbing; }
+
+#calModal {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.4); z-index: 200;
+    align-items: center; justify-content: center; padding: 1rem;
+}
+#calModal.show { display: flex; }
+#calModal .modal-box {
+    background: white; border-radius: 16px; padding: 1.25rem;
+    max-width: 420px; width: 100%;
+}
+#calModal h4 { font-weight: 800; margin-bottom: 0.75rem; }
+#calModal .row-info {
+    display: flex; padding: 0.35rem 0;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 0.85rem;
+}
+#calModal .row-info:last-child { border: none; }
+#calModal .lbl { color: #999; min-width: 110px; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; }
+#calModal .val { flex: 1; color: #333; }
+#calModal .status-pill {
+    display: inline-block; padding: 0.15rem 0.6rem; border-radius: 999px;
+    font-size: 0.7rem; font-weight: 800; color: white;
+}
+{% endblock %}
+
+{% block admin_content %}
+<div class="cal-filtros">
+    <label class="small fw-bold" style="color:#666;">Profissional:</label>
+    <select id="filtroProfissional">
+        <option value="">Todos</option>
+        {% for p in profissionais %}
+        <option value="{{ p.pk }}">{{ p.nome }}</option>
+        {% endfor %}
+    </select>
+    <div style="flex:1;"></div>
+    <a href="{% url 'aranha:painel_agendamentos' %}">
+        <i class="fas fa-list me-1"></i> Ver como lista
+    </a>
+</div>
+
+<div class="cal-legenda mb-2">
+    {% for status, color in status_colors.items %}
+    <div class="cal-legenda-item">
+        <span class="cal-legenda-dot" style="background:{{ color }}"></span>
+        <span>{{ status|title }}</span>
+    </div>
+    {% endfor %}
+</div>
+
+<div id="calendar"></div>
+
+<!-- Modal evento -->
+<div id="calModal">
+    <div class="modal-box">
+        <h4 id="cmClienteNome">–</h4>
+        <div class="row-info"><div class="lbl">Status</div><div class="val"><span id="cmStatus" class="status-pill">–</span></div></div>
+        <div class="row-info"><div class="lbl">Procedimento</div><div class="val" id="cmProcedimento">–</div></div>
+        <div class="row-info"><div class="lbl">Profissional</div><div class="val" id="cmProfissional">–</div></div>
+        <div class="row-info"><div class="lbl">Data</div><div class="val" id="cmData">–</div></div>
+        <div class="row-info"><div class="lbl">Telefone</div><div class="val" id="cmTelefone">–</div></div>
+        <div class="row-info"><div class="lbl">Valor</div><div class="val" id="cmValor">–</div></div>
+        <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+            <button id="cmFechar" class="btn btn-sm" style="background:white; border:1px solid #ddd; border-radius:8px; flex:1;">Fechar</button>
+        </div>
+    </div>
+</div>
+
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/main.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.11/locales/pt-br.global.min.js"></script>
+
+<script nonce="{{ csp_nonce }}">
+(function(){
+    var statusColors = {{ status_colors|safe }};
+    var filtroProfissional = document.getElementById('filtroProfissional');
+    var calendarEl = document.getElementById('calendar');
+    var modal = document.getElementById('calModal');
+    var calendar;
+
+    function eventsSource(info, success, failure) {
+        var url = '{% url "aranha:admin_calendar_events" %}?start=' + encodeURIComponent(info.startStr) +
+                  '&end=' + encodeURIComponent(info.endStr);
+        if (filtroProfissional.value) {
+            url += '&profissional=' + filtroProfissional.value;
+        }
+        fetch(url, { credentials: 'same-origin' })
+            .then(function(r){ return r.json(); })
+            .then(success)
+            .catch(failure);
+    }
+
+    function showEvent(info) {
+        var e = info.event;
+        var p = e.extendedProps || {};
+        document.getElementById('cmClienteNome').textContent = p.cliente_nome || e.title;
+        var statusEl = document.getElementById('cmStatus');
+        statusEl.textContent = p.status || '–';
+        statusEl.style.background = statusColors[p.status] || '#999';
+        document.getElementById('cmProcedimento').textContent = p.procedimento || '–';
+        document.getElementById('cmProfissional').textContent = p.profissional || '–';
+        document.getElementById('cmData').textContent =
+            e.start ? e.start.toLocaleString('pt-BR') : '–';
+        document.getElementById('cmTelefone').textContent = p.cliente_telefone || '–';
+        document.getElementById('cmValor').textContent =
+            p.valor ? 'R$ ' + p.valor.toFixed(2).replace('.', ',') : '–';
+        modal.classList.add('show');
+    }
+
+    function moverEvento(info) {
+        if (!confirm('Reagendar para ' + info.event.start.toLocaleString('pt-BR') + '?')) {
+            info.revert();
+            return;
+        }
+        fetch('{% url "aranha:admin_calendar_mover" %}', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            body: JSON.stringify({
+                id: info.event.id,
+                start: info.event.start.toISOString(),
+                end: info.event.end ? info.event.end.toISOString() : info.event.start.toISOString(),
+            }),
+        })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+            if (!data.sucesso) {
+                alert('Erro: ' + (data.erro || 'Falha ao mover'));
+                info.revert();
+            }
+        })
+        .catch(function(){ alert('Erro de rede.'); info.revert(); });
+    }
+
+    document.addEventListener('DOMContentLoaded', function(){
+        calendar = new FullCalendar.Calendar(calendarEl, {
+            locale: 'pt-br',
+            initialView: 'timeGridWeek',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay',
+            },
+            nowIndicator: true,
+            editable: true,
+            eventDurationEditable: false,
+            slotMinTime: '07:00:00',
+            slotMaxTime: '21:00:00',
+            slotDuration: '00:30:00',
+            height: 700,
+            events: eventsSource,
+            eventClick: showEvent,
+            eventDrop: moverEvento,
+        });
+        calendar.render();
+
+        filtroProfissional.addEventListener('change', function(){
+            calendar.refetchEvents();
+        });
+
+        document.getElementById('cmFechar').addEventListener('click', function(){
+            modal.classList.remove('show');
+        });
+        modal.addEventListener('click', function(e){
+            if (e.target === modal) modal.classList.remove('show');
+        });
+    });
+})();
+</script>
+{% endblock %}

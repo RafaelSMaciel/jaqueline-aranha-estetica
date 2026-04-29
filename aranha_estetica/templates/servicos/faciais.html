@@ -1,0 +1,366 @@
+﻿{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block body_class %}serviços-page{% endblock %}
+{% block titulo %}Tratamentos Faciais | {{ CLINIC_NAME }}{% endblock %}
+
+{% block conteudo %}
+<!-- ═══ HERO ═══ -->
+<section id="service-hero" class="service-hero section">
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
+    <div class="row align-items-center">
+      <div class="col-lg-6">
+        <div class="hero-content">
+          <div class="hero-badge" data-aos="fade-right" data-aos-delay="200">
+            <i class="bi bi-stars me-2"></i>Tratamentos Faciais
+          </div>
+          <h1 data-aos="fade-right" data-aos-delay="300">
+            Realce Sua <span class="highlight">Beleza Natural</span> com Tecnologia Avançada
+          </h1>
+          <p class="hero-description" data-aos="fade-right" data-aos-delay="400">
+            Nossos tratamentos faciais combinam as mais modernas tecnologias com protocolos personalizados para cada tipo de pele, garantindo resultados visíveis e duradouros.
+          </p>
+          <div class="hero-stats mb-4" data-aos="fade-right" data-aos-delay="500">
+            <div class="stat-item">
+              <h3><span data-purecounter-start="0" data-purecounter-end="6" data-purecounter-duration="2" class="purecounter"></span>+</h3>
+              <p>Procedimentos Faciais</p>
+            </div>
+            <div class="stat-item">
+              <h3><span data-purecounter-start="0" data-purecounter-end="98" data-purecounter-duration="2" class="purecounter"></span>%</h3>
+              <p>Satisfação</p>
+            </div>
+          </div>
+          <div class="hero-actions" data-aos="fade-right" data-aos-delay="600">
+            <a href="{% url 'aranha:agendamento_publico' %}" class="btn btn-primary">Agendar Avaliação</a>
+            <a href="#services-grid" class="btn btn-outline">
+              <i class="bi bi-arrow-down me-2"></i>Ver Tratamentos
+            </a>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="hero-visual" data-aos="fade-left" data-aos-delay="400">
+          <div class="main-image">
+            <img src="{% static 'assets/clinica/facial-2.webp' %}" alt="Tratamentos Faciais {{ CLINIC_NAME }}" class="img-fluid" loading="lazy">
+            <div class="floating-card appointment-card">
+              <div class="card-icon">
+                <i class="bi bi-shield-check"></i>
+              </div>
+              <div class="card-content">
+                <h6>Procedimentos Seguros</h6>
+                <p>Protocolos Validados</p>
+                <small>Biomédica Especialista</small>
+              </div>
+            </div>
+            <div class="floating-card rating-card">
+              <div class="card-content">
+                <div class="rating-stars">
+                  <i class="bi bi-star-fill"></i>
+                  <i class="bi bi-star-fill"></i>
+                  <i class="bi bi-star-fill"></i>
+                  <i class="bi bi-star-fill"></i>
+                  <i class="bi bi-star-fill"></i>
+                </div>
+                <h6>5.0/5</h6>
+                <small>Avaliação dos Pacientes</small>
+              </div>
+            </div>
+          </div>
+          <div class="background-elements">
+            <div class="element element-1"></div>
+            <div class="element element-2"></div>
+            <div class="element element-3"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ PROCESSO ═══ -->
+<section id="service-process" class="service-process section light-background">
+  <div class="container section-title" data-aos="fade-up">
+    <h2>Como Funciona</h2>
+    <p>Nosso processo garante resultados seguros e personalizados</p>
+  </div>
+
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
+    <div class="row g-4">
+      <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="100">
+        <div class="process-step">
+          <div class="step-number">01</div>
+          <div class="step-icon"><i class="bi bi-clipboard2-pulse"></i></div>
+          <h4>Avaliação</h4>
+          <p>Análise detalhada do seu tipo de pele e necessidades específicas.</p>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="200">
+        <div class="process-step">
+          <div class="step-number">02</div>
+          <div class="step-icon"><i class="bi bi-journal-medical"></i></div>
+          <h4>Protocolo</h4>
+          <p>Elaboração do protocolo personalizado para o seu tratamento.</p>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="300">
+        <div class="process-step">
+          <div class="step-number">03</div>
+          <div class="step-icon"><i class="bi bi-heart-pulse"></i></div>
+          <h4>Procedimento</h4>
+          <p>Execução do tratamento com equipamentos de última geração.</p>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="400">
+        <div class="process-step">
+          <div class="step-number">04</div>
+          <div class="step-icon"><i class="bi bi-calendar-check"></i></div>
+          <h4>Acompanhamento</h4>
+          <p>Monitoramento dos resultados e ajustes conforme necessário.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ GRID DE SERVIÇOS ═══ -->
+<section id="services-grid" class="featured-departments section">
+  <div class="container section-title" data-aos="fade-up">
+    <h2>Nossos Tratamentos Faciais</h2>
+    <p>Procedimentos exclusivos para cada necessidade da sua pele</p>
+  </div>
+
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
+    <div class="row g-5">
+
+      <!-- Botox - destaque -->
+      <div class="col-lg-6" data-aos="zoom-in" data-aos-delay="100">
+        <div class="specialty-card">
+          <div class="specialty-content">
+            <div class="specialty-meta">
+              <span class="specialty-label">Mais Procurado</span>
+            </div>
+            <h3>Botox &amp; Toxina Botulínica</h3>
+            <p>Aplicação em uma, duas ou três regiões do rosto para suavizar linhas de expressão e devolver jovialidade com naturalidade.</p>
+            <div class="specialty-features">
+              <span><i class="bi bi-check-circle-fill"></i>Botox 1 região</span>
+              <span><i class="bi bi-check-circle-fill"></i>Botox 2 regiões</span>
+              <span><i class="bi bi-check-circle-fill"></i>Botox 3 regiões</span>
+            </div>
+            <a href="{% url 'aranha:agendamento_publico' %}" class="specialty-link">
+              Agendar <i class="bi bi-arrow-right"></i>
+            </a>
+          </div>
+          <div class="specialty-visual">
+            <img src="{% static 'assets/clinica/facial-1.webp' %}" alt="Botox e Toxina Botulínica" class="img-fluid" loading="lazy">
+            <div class="visual-overlay">
+              <i class="bi bi-person-bounding-box"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Preenchimento Facial - destaque -->
+      <div class="col-lg-6" data-aos="zoom-in" data-aos-delay="200">
+        <div class="specialty-card">
+          <div class="specialty-content">
+            <div class="specialty-meta">
+              <span class="specialty-label">Resultado Imediato</span>
+            </div>
+            <h3>Preenchimentos Faciais</h3>
+            <p>Ácido hialurônico para restaurar volume, definir contornos e harmonizar a face com resultados imediatos e naturais.</p>
+            <div class="specialty-features">
+              <span><i class="bi bi-check-circle-fill"></i>Preenchimento Labial</span>
+              <span><i class="bi bi-check-circle-fill"></i>Bigode Chinês</span>
+              <span><i class="bi bi-check-circle-fill"></i>Malar &amp; Rinomodelação</span>
+            </div>
+            <a href="{% url 'aranha:agendamento_publico' %}" class="specialty-link">
+              Agendar <i class="bi bi-arrow-right"></i>
+            </a>
+          </div>
+          <div class="specialty-visual">
+            <img src="{% static 'assets/clinica/facial-3.webp' %}" alt="Preenchimento Facial" class="img-fluid" loading="lazy">
+            <div class="visual-overlay">
+              <i class="bi bi-magic"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cards menores -->
+      <div class="col-lg-4" data-aos="fade-up" data-aos-delay="100">
+        <div class="department-highlight">
+          <div class="highlight-icon">
+            <i class="bi bi-stars"></i>
+          </div>
+          <h4>Limpeza de Pele Profunda</h4>
+          <p>Remoção completa de impurezas, cravos e células mortas com técnicas especializadas para todos os tipos de pele.</p>
+          <ul class="highlight-list">
+            <li>Extração de impurezas</li>
+            <li>Hidratação profunda</li>
+            <li>Máscaras revitalizantes</li>
+          </ul>
+          <a href="{% url 'aranha:agendamento_publico' %}" class="highlight-cta">Agendar</a>
+        </div>
+      </div>
+
+      <div class="col-lg-4" data-aos="fade-up" data-aos-delay="200">
+        <div class="department-highlight">
+          <div class="highlight-icon">
+            <i class="bi bi-activity"></i>
+          </div>
+          <h4>Bioestimulador de Colágeno</h4>
+          <p>Estímulo natural da produção de colágeno para uma pele mais firme, jovem e com sustentação natural.</p>
+          <ul class="highlight-list">
+            <li>Firmeza e sustentação</li>
+            <li>Duração prolongada</li>
+            <li>Efeito lifting natural</li>
+          </ul>
+          <a href="{% url 'aranha:agendamento_publico' %}" class="highlight-cta">Agendar</a>
+        </div>
+      </div>
+
+      <div class="col-lg-4" data-aos="fade-up" data-aos-delay="300">
+        <div class="department-highlight">
+          <div class="highlight-icon">
+            <i class="bi bi-brightness-high"></i>
+          </div>
+          <h4>PRP (Fibrina) &amp; Preenchimento com PRP</h4>
+          <p>Plasma rico em plaquetas para regeneração celular, estímulo de colágeno e rejuvenescimento natural.</p>
+          <ul class="highlight-list">
+            <li>PRP (Fibrina) por sessão</li>
+            <li>Preenchimento com PRP</li>
+            <li>Resultado progressivo</li>
+          </ul>
+          <a href="{% url 'aranha:agendamento_publico' %}" class="highlight-cta">Agendar</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SERVIÇO EM DESTAQUE ═══ -->
+<section id="featured-services" class="featured-services section">
+  <div class="container section-title" data-aos="fade-up">
+    <h2>Tecnologia a Seu Favor</h2>
+    <p>Tratamentos com equipamentos de última geração</p>
+  </div>
+
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
+    <div class="row g-0">
+      <div class="col-lg-8" data-aos="fade-right" data-aos-delay="200">
+        <div class="featured-service-main">
+          <div class="service-image-wrapper">
+            <img src="{% static 'assets/clinica/facial-2.webp' %}" alt="Bioestimulador de Colágeno" class="img-fluid" loading="lazy">
+            <div class="service-overlay">
+              <div class="service-badge">
+                <i class="bi bi-stars"></i>
+                <span>Estímulo Natural</span>
+              </div>
+            </div>
+          </div>
+          <div class="service-details">
+            <h2>Bioestimulador de Colágeno</h2>
+            <p>Estímulo à produção natural de colágeno para firmeza, sustentação e rejuvenescimento progressivo. Resultado lifting natural com duração prolongada.</p>
+            <a href="{% url 'aranha:agendamento_publico' %}" class="main-cta">Agendar Bioestimulador</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-4" data-aos="fade-left" data-aos-delay="300">
+        <div class="services-sidebar">
+          <div class="service-item" data-aos="fade-up" data-aos-delay="400">
+            <div class="service-icon-wrapper">
+              <i class="bi bi-droplet-half"></i>
+            </div>
+            <div class="service-info">
+              <h4>Microagulhamento</h4>
+              <p>Estímulo da produção de colágeno com microagulhas para rejuvenescimento e redução de cicatrizes.</p>
+              <a href="{% url 'aranha:agendamento_publico' %}" class="service-link">Agendar</a>
+            </div>
+          </div>
+
+          <div class="service-item" data-aos="fade-up" data-aos-delay="500">
+            <div class="service-icon-wrapper">
+              <i class="bi bi-moisture"></i>
+            </div>
+            <div class="service-info">
+              <h4>Skinbooster</h4>
+              <p>Hidratação profunda com ácido hialurônico injetável para luminosidade e viço da pele.</p>
+              <a href="{% url 'aranha:agendamento_publico' %}" class="service-link">Agendar</a>
+            </div>
+          </div>
+
+          <div class="service-item" data-aos="fade-up" data-aos-delay="600">
+            <div class="service-icon-wrapper">
+              <i class="bi bi-droplet"></i>
+            </div>
+            <div class="service-info">
+              <h4>Drenagem Linfática Facial</h4>
+              <p>Drenagem manual facial para reduzir inchaço, melhorar circulação e devolver viço à pele.</p>
+              <a href="{% url 'aranha:agendamento_publico' %}" class="service-link">Agendar</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ CTA FINAL ═══ -->
+<section id="call-to-action" class="call-to-action section light-background">
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
+    <div class="hero-content">
+      <div class="row align-items-center">
+        <div class="col-lg-6">
+          <div class="content-wrapper" data-aos="fade-up" data-aos-delay="200">
+            <h1>Desperte a Sua Melhor Versão</h1>
+            <p>Nossos tratamentos faciais são personalizados após uma avaliação detalhada. Agende sua consulta para recomendarmos o protocolo ideal para a sua pele.</p>
+            <div class="cta-wrapper">
+              <a href="{% url 'aranha:agendamento_publico' %}" class="primary-cta">
+                <span>Agendar Avaliação</span>
+                <i class="bi bi-arrow-right"></i>
+              </a>
+              <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Olá! Gostaria de saber mais sobre os tratamentos faciais." target="_blank" rel="noopener" class="secondary-cta">
+                <span>Tirar Dúvidas</span>
+                <i class="bi bi-whatsapp"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="image-container" data-aos="fade-left" data-aos-delay="300">
+            <img src="{% static 'assets/clinica/consulta-1.webp' %}" alt="Tratamentos Faciais {{ CLINIC_NAME }}" class="img-fluid" loading="lazy">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="features-section">
+      <div class="row g-0">
+        <div class="col-lg-4">
+          <div class="feature-block" data-aos="fade-up" data-aos-delay="200">
+            <div class="feature-icon"><i class="bi bi-shield-check"></i></div>
+            <h3>Biomédica Especialista</h3>
+            <p>Profissional habilitada com formação específica em estética avançada.</p>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="feature-block" data-aos="fade-up" data-aos-delay="300">
+            <div class="feature-icon"><i class="bi bi-award"></i></div>
+            <h3>Produtos Premium</h3>
+            <p>Utilizamos apenas produtos de marcas reconhecidas e certificadas pela ANVISA.</p>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="feature-block" data-aos="fade-up" data-aos-delay="400">
+            <div class="feature-icon"><i class="bi bi-heart-pulse"></i></div>
+            <h3>Resultados Naturais</h3>
+            <p>Técnicas que respeitam a anatomia facial e proporcionam harmonia natural.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

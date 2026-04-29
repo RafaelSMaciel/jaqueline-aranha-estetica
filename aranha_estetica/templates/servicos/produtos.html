@@ -1,0 +1,362 @@
+﻿{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block titulo %}Produtos Naturais | {{ CLINIC_NAME }}{% endblock %}
+
+{% block conteudo %}
+<!-- ═══ HERO ═══ -->
+<section id="service-hero" class="service-hero section">
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
+    <div class="row align-items-center">
+      <div class="col-lg-6">
+        <div class="hero-content">
+          <div class="hero-badge" data-aos="fade-right" data-aos-delay="200">
+            <i class="bi bi-flower1 me-2"></i>Produtos Naturais
+          </div>
+          <h1 data-aos="fade-right" data-aos-delay="300">
+            Cuidados <span class="highlight">Naturais</span> para Sua Pele
+          </h1>
+          <p class="hero-description" data-aos="fade-right" data-aos-delay="400">
+            Linha artesanal exclusiva com ingredientes 100% naturais, desenvolvida pela nossa biomédica para complementar os resultados dos tratamentos e manter sua pele saudável no dia a dia.
+          </p>
+          <div class="hero-stats mb-4" data-aos="fade-right" data-aos-delay="500">
+            <div class="stat-item">
+              <h3><span data-purecounter-start="0" data-purecounter-end="6" data-purecounter-duration="2" class="purecounter"></span>+</h3>
+              <p>Produtos Exclusivos</p>
+            </div>
+            <div class="stat-item">
+              <h3><span data-purecounter-start="0" data-purecounter-end="100" data-purecounter-duration="2" class="purecounter"></span>%</h3>
+              <p>Natural</p>
+            </div>
+          </div>
+          <div class="hero-actions" data-aos="fade-right" data-aos-delay="600">
+            <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Olá! Gostaria de saber mais sobre os produtos naturais." target="_blank" rel="noopener" class="btn btn-primary">
+              <i class="bi bi-whatsapp me-2"></i>Consultar Produtos
+            </a>
+            <a href="#products-grid" class="btn btn-outline">
+              <i class="bi bi-arrow-down me-2"></i>Ver Produtos
+            </a>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="hero-visual" data-aos="fade-left" data-aos-delay="400">
+          <div class="main-image">
+            <img src="{% static 'assets/clinica/laboratorio-1.webp' %}" alt="Produtos Naturais {{ CLINIC_NAME }}" class="img-fluid" loading="lazy">
+            <div class="floating-card appointment-card">
+              <div class="card-icon">
+                <i class="bi bi-leaf"></i>
+              </div>
+              <div class="card-content">
+                <h6>100% Natural</h6>
+                <p>Sem Parabenos</p>
+                <small>Ingredientes selecionados</small>
+              </div>
+            </div>
+            <div class="floating-card rating-card">
+              <div class="card-content">
+                <div class="rating-stars">
+                  <i class="bi bi-star-fill"></i>
+                  <i class="bi bi-star-fill"></i>
+                  <i class="bi bi-star-fill"></i>
+                  <i class="bi bi-star-fill"></i>
+                  <i class="bi bi-star-fill"></i>
+                </div>
+                <h6>Artesanal</h6>
+                <small>Produção Exclusiva</small>
+              </div>
+            </div>
+          </div>
+          <div class="background-elements">
+            <div class="element element-1"></div>
+            <div class="element element-2"></div>
+            <div class="element element-3"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ DIFERENCIAIS ═══ -->
+<section id="service-process" class="service-process section light-background">
+  <div class="container section-title" data-aos="fade-up">
+    <h2>Por Que Escolher Nossos Produtos</h2>
+    <p>Qualidade e cuidado em cada detalhe da formulação</p>
+  </div>
+
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
+    <div class="row g-4">
+      <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="100">
+        <div class="process-step">
+          <div class="step-number"><i class="bi bi-leaf"></i></div>
+          <div class="step-icon"><i class="bi bi-patch-check"></i></div>
+          <h4>100% Natural</h4>
+          <p>Ingredientes puros sem químicos agressivos, parabenos ou sulfatos.</p>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="200">
+        <div class="process-step">
+          <div class="step-number"><i class="bi bi-flower2"></i></div>
+          <div class="step-icon"><i class="bi bi-hand-thumbs-up"></i></div>
+          <h4>Vegano & Cruelty Free</h4>
+          <p>Nenhum teste em animais e sem ingredientes de origem animal.</p>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="300">
+        <div class="process-step">
+          <div class="step-number"><i class="bi bi-mortarboard"></i></div>
+          <div class="step-icon"><i class="bi bi-journal-medical"></i></div>
+          <h4>Formulação Profissional</h4>
+          <p>Desenvolvidos por biomédica com base em evidência científica.</p>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="400">
+        <div class="process-step">
+          <div class="step-number"><i class="bi bi-recycle"></i></div>
+          <div class="step-icon"><i class="bi bi-box-seam"></i></div>
+          <h4>Embalagem Sustentável</h4>
+          <p>Embalagens recicláveis e processo de produção eco-friendly.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ GRID DE PRODUTOS ═══ -->
+<section id="products-grid" class="featured-departments section">
+  <div class="container section-title" data-aos="fade-up">
+    <h2>Nossa Linha de Produtos</h2>
+    <p>Dermocosméticos artesanais para o cuidado completo da sua pele</p>
+  </div>
+
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
+    <div class="row g-5">
+
+      <!-- Sérum Vitamina C - destaque -->
+      <div class="col-lg-6" data-aos="zoom-in" data-aos-delay="100">
+        <div class="specialty-card">
+          <div class="specialty-content">
+            <div class="specialty-meta">
+              <span class="specialty-label">Mais Vendido</span>
+            </div>
+            <h3>Sérum Vitamina C</h3>
+            <p>Sérum concentrado com vitamina C natural para iluminar, uniformizar o tom da pele e combater os radicais livres com poderosa ação antioxidante.</p>
+            <div class="specialty-features">
+              <span><i class="bi bi-check-circle-fill"></i>Antioxidante</span>
+              <span><i class="bi bi-check-circle-fill"></i>Clareador</span>
+              <span><i class="bi bi-check-circle-fill"></i>Anti-aging</span>
+            </div>
+            <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Olá! Gostaria de saber sobre o Sérum Vitamina C." target="_blank" rel="noopener" class="specialty-link">
+              Consultar <i class="bi bi-whatsapp"></i>
+            </a>
+          </div>
+          <div class="specialty-visual">
+            <img src="{% static 'assets/clinica/massagem-1.webp' %}" alt="Sérum Vitamina C" class="img-fluid" loading="lazy">
+            <div class="visual-overlay">
+              <i class="bi bi-droplet-half"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Protetor Solar - destaque -->
+      <div class="col-lg-6" data-aos="zoom-in" data-aos-delay="200">
+        <div class="specialty-card">
+          <div class="specialty-content">
+            <div class="specialty-meta">
+              <span class="specialty-label">Essencial</span>
+            </div>
+            <h3>Protetor Solar FPS 50</h3>
+            <p>Proteção solar avançada com filtros físicos e ingredientes naturais. Textura leve, não oleosa e compatível com todos os tons de pele.</p>
+            <div class="specialty-features">
+              <span><i class="bi bi-check-circle-fill"></i>FPS 50</span>
+              <span><i class="bi bi-check-circle-fill"></i>Filtro Físico</span>
+              <span><i class="bi bi-check-circle-fill"></i>Textura Leve</span>
+            </div>
+            <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Olá! Gostaria de saber sobre o Protetor Solar." target="_blank" rel="noopener" class="specialty-link">
+              Consultar <i class="bi bi-whatsapp"></i>
+            </a>
+          </div>
+          <div class="specialty-visual">
+            <img src="{% static 'assets/clinica/pele-1.webp' %}" alt="Protetor Solar" class="img-fluid" loading="lazy">
+            <div class="visual-overlay">
+              <i class="bi bi-brightness-alt-high"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cards menores -->
+      <div class="col-lg-4" data-aos="fade-up" data-aos-delay="100">
+        <div class="department-highlight">
+          <div class="highlight-icon">
+            <i class="bi bi-flower1"></i>
+          </div>
+          <h4>Óleo Corporal Zen</h4>
+          <p>Blend exclusivo de óleos vegetais nobres para hidratação profunda, firmeza e luminosidade da pele do corpo.</p>
+          <ul class="highlight-list">
+            <li>Hidratação profunda</li>
+            <li>Firmeza da pele</li>
+            <li>Aroma relaxante</li>
+          </ul>
+          <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Olá! Gostaria de saber sobre o Óleo Corporal Zen." target="_blank" rel="noopener" class="highlight-cta">Consultar</a>
+        </div>
+      </div>
+
+      <div class="col-lg-4" data-aos="fade-up" data-aos-delay="200">
+        <div class="department-highlight">
+          <div class="highlight-icon">
+            <i class="bi bi-stars"></i>
+          </div>
+          <h4>Esfoliante de Açúcar</h4>
+          <p>Esfoliante suave com açúcar mascavo e óleos essenciais para renovar e suavizar a pele naturalmente.</p>
+          <ul class="highlight-list">
+            <li>Fórmula vegana</li>
+            <li>Renovação celular</li>
+            <li>Pele macia</li>
+          </ul>
+          <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Olá! Gostaria de saber sobre o Esfoliante." target="_blank" rel="noopener" class="highlight-cta">Consultar</a>
+        </div>
+      </div>
+
+      <div class="col-lg-4" data-aos="fade-up" data-aos-delay="300">
+        <div class="department-highlight">
+          <div class="highlight-icon">
+            <i class="bi bi-water"></i>
+          </div>
+          <h4>Água Micelar Natural</h4>
+          <p>Limpeza delicada com ativos botânicos para remover maquiagem e impurezas sem agredir a barreira cutânea.</p>
+          <ul class="highlight-list">
+            <li>Sem parabenos</li>
+            <li>Limpeza suave</li>
+            <li>Hidratante</li>
+          </ul>
+          <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Olá! Gostaria de saber sobre a Água Micelar." target="_blank" rel="noopener" class="highlight-cta">Consultar</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══ DESTAQUE MÁSCARA ═══ -->
+<section id="featured-services" class="featured-services section">
+  <div class="container section-title" data-aos="fade-up">
+    <h2>Cuidados Especiais</h2>
+    <p>Produtos para tratamentos intensivos em casa</p>
+  </div>
+
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
+    <div class="row g-0">
+      <div class="col-lg-8" data-aos="fade-right" data-aos-delay="200">
+        <div class="featured-service-main">
+          <div class="service-image-wrapper">
+            <img src="{% static 'assets/clinica/procedimento-2.webp' %}" alt="Máscara de Argila" class="img-fluid" loading="lazy">
+            <div class="service-overlay">
+              <div class="service-badge">
+                <i class="bi bi-layers"></i>
+                <span>Detox Natural</span>
+              </div>
+            </div>
+          </div>
+          <div class="service-details">
+            <h2>Máscara de Argila Verde</h2>
+            <p>Máscaras purificantes de argila verde para desobstruir poros, controlar oleosidade e revitalizar a pele. Ideal para peles mistas e oleosas, com ação detox e anti-inflamatória natural.</p>
+            <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Olá! Gostaria de saber sobre a Máscara de Argila." target="_blank" rel="noopener" class="main-cta">Consultar Produto</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-4" data-aos="fade-left" data-aos-delay="300">
+        <div class="services-sidebar">
+          <div class="service-item" data-aos="fade-up" data-aos-delay="400">
+            <div class="service-icon-wrapper">
+              <i class="bi bi-moisture"></i>
+            </div>
+            <div class="service-info">
+              <h4>Hidratante Facial</h4>
+              <p>Creme hidratante com ácido hialurônico vegetal e aloe vera para nutrição e proteção diária.</p>
+              <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Olá! Gostaria de saber sobre o Hidratante Facial." target="_blank" rel="noopener" class="service-link">Consultar</a>
+            </div>
+          </div>
+
+          <div class="service-item" data-aos="fade-up" data-aos-delay="500">
+            <div class="service-icon-wrapper">
+              <i class="bi bi-moon-stars"></i>
+            </div>
+            <div class="service-info">
+              <h4>Sérum Noturno</h4>
+              <p>Tratamento noturno com retinol natural e vitamina E para regeneração celular durante o sono.</p>
+              <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Olá! Gostaria de saber sobre o Sérum Noturno." target="_blank" rel="noopener" class="service-link">Consultar</a>
+            </div>
+          </div>
+
+          <div class="service-item" data-aos="fade-up" data-aos-delay="600">
+            <div class="service-icon-wrapper">
+              <i class="bi bi-eye"></i>
+            </div>
+            <div class="service-info">
+              <h4>Creme Área dos Olhos</h4>
+              <p>Tratamento específico para olheiras, bolsas e linhas finas na região periorbital.</p>
+              <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Olá! Gostaria de saber sobre o Creme para Olhos." target="_blank" rel="noopener" class="service-link">Consultar</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ CTA FINAL ═══ -->
+<section id="call-to-action" class="call-to-action section light-background">
+  <div class="container" data-aos="fade-up" data-aos-delay="100">
+    <div class="hero-content">
+      <div class="row align-items-center justify-content-center text-center">
+        <div class="col-lg-8">
+          <div class="content-wrapper" data-aos="fade-up" data-aos-delay="200">
+            <h1>Se Interessou Pelos Nossos Produtos?</h1>
+            <p>Entre em contato conosco para verificar disponibilidade e consultar preços. Cuidamos de você com o que a natureza tem de melhor.</p>
+            <div class="cta-wrapper justify-content-center">
+              <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Olá! Gostaria de saber mais sobre os produtos naturais." target="_blank" rel="noopener" class="primary-cta">
+                <span>Falar no WhatsApp</span>
+                <i class="bi bi-whatsapp"></i>
+              </a>
+              <a href="{% url 'aranha:servicos_faciais' %}" class="secondary-cta">
+                <span>Ver Tratamentos</span>
+                <i class="bi bi-arrow-right"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="features-section">
+      <div class="row g-0">
+        <div class="col-lg-4">
+          <div class="feature-block" data-aos="fade-up" data-aos-delay="200">
+            <div class="feature-icon"><i class="bi bi-leaf"></i></div>
+            <h3>Ingredientes Naturais</h3>
+            <p>Formulações com ingredientes puros e selecionados da natureza.</p>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="feature-block" data-aos="fade-up" data-aos-delay="300">
+            <div class="feature-icon"><i class="bi bi-heart"></i></div>
+            <h3>Cruelty Free</h3>
+            <p>Nenhum produto é testado em animais. Respeito pela vida em todas as formas.</p>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="feature-block" data-aos="fade-up" data-aos-delay="400">
+            <div class="feature-icon"><i class="bi bi-recycle"></i></div>
+            <h3>Sustentável</h3>
+            <p>Embalagens recicláveis e produção eco-friendly para um futuro melhor.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

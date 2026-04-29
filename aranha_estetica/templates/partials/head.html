@@ -1,0 +1,88 @@
+{% load static %}
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<meta name="theme-color" content="{{ THEME_COLOR|default:'#C9A84C' }}">
+<meta name="robots" content="{% block robots %}index,follow{% endblock %}">
+
+<title>{% block titulo %}{{ CLINIC_NAME }} — {{ CLINIC_SUBTITLE }}{% endblock %}</title>
+<meta name="description" content="{% block meta_description %}Clínica de estética especializada em tratamentos faciais e corporais. Agendamento online, prontuário eletrônico e profissionais especializados.{% endblock %}">
+<meta name="keywords" content="estética, tratamentos faciais, tratamentos corporais, agendamento online, clínica de estética, {{ CLINIC_NAME }}">
+
+<!-- Canonical -->
+<link rel="canonical" href="{{ SITE_URL }}{{ request.path }}">
+
+<!-- hreflang alternates -->
+<link rel="alternate" hreflang="pt-br" href="{{ SITE_URL }}{{ request.path }}">
+<link rel="alternate" hreflang="en" href="{{ SITE_URL }}/en{{ request.path }}">
+<link rel="alternate" hreflang="es" href="{{ SITE_URL }}/es{{ request.path }}">
+<link rel="alternate" hreflang="x-default" href="{{ SITE_URL }}{{ request.path }}">
+
+<!-- DNS prefetch / preconnect -->
+<link rel="dns-prefetch" href="//code.jquery.com">
+<link rel="dns-prefetch" href="//cdnjs.cloudflare.com">
+
+<!-- Open Graph -->
+<meta property="og:type" content="{% block og_type %}website{% endblock %}">
+<meta property="og:title" content="{% block og_title %}{{ CLINIC_NAME }} — {{ CLINIC_SUBTITLE }}{% endblock %}">
+<meta property="og:description" content="{% block og_description %}Tratamentos estéticos faciais e corporais com tecnologia avançada e atendimento humanizado. Agende online.{% endblock %}">
+<meta property="og:url" content="{{ SITE_URL }}{{ request.path }}">
+<meta property="og:image" content="{% block og_image %}{{ SITE_URL }}{% static 'assets/clinica/equipe-1.webp' %}{% endblock %}">
+<meta property="og:locale" content="pt_BR">
+<meta property="og:site_name" content="{{ CLINIC_NAME }}">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ CLINIC_NAME }}">
+<meta name="twitter:description" content="{% block tw_description %}Tratamentos estéticos e bem-estar.{% endblock %}">
+
+<!-- PWA -->
+<link rel="manifest" href="{% url 'aranha:manifest' %}">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="{{ CLINIC_NAME }}">
+
+<!-- Favicons -->
+<link href="{% static 'assets/favicon.png' %}" rel="icon">
+<link href="{% static 'assets/apple-touch-icon.png' %}" rel="apple-touch-icon">
+
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link href="https://fonts.gstatic.com" rel="preconnect" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500&family=Roboto:wght@300;400;500;700&family=Montserrat:wght@400;500;600;700;800&family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet">
+
+<!-- Vendor CSS Files -->
+<link href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
+<link href="{% static 'vendor/bootstrap-icons/bootstrap-icons.css' %}" rel="stylesheet">
+<link href="{% static 'vendor/aos/aos.css' %}" rel="stylesheet">
+<link href="{% static 'vendor/glightbox/css/glightbox.min.css' %}" rel="stylesheet">
+<link href="{% static 'vendor/fontawesome-free/css/all.min.css' %}" rel="stylesheet">
+<link href="{% static 'vendor/swiper/swiper-bundle.min.css' %}" rel="stylesheet">
+
+<!-- Main Stylesheet -->
+<link href="{% static 'css/main.css' %}" rel="stylesheet">
+
+<!-- Schema.org LocalBusiness -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "MedicalBusiness",
+  "name": "{{ CLINIC_NAME }}",
+  "description": "{{ CLINIC_SUBTITLE }}",
+  "url": "{{ SITE_URL }}",
+  "telephone": "{{ CLINIC_PHONE }}",
+  "email": "{{ CLINIC_EMAIL }}",
+  "image": "{{ SITE_URL }}{% static 'assets/clinica/equipe-1.webp' %}",
+  "priceRange": "$$",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "{{ CLINIC_ADDRESS }}",
+    "addressCountry": "BR"
+  },
+  "openingHoursSpecification": [
+    {"@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday"], "opens": "09:00", "closes": "18:00"},
+    {"@type": "OpeningHoursSpecification", "dayOfWeek": "Saturday", "opens": "09:00", "closes": "15:00"}
+  ],
+  "sameAs": ["{{ INSTAGRAM_URL }}"]
+}
+</script>
+{% block schema_extra %}{% endblock %}

@@ -1,0 +1,162 @@
+{% extends 'painel/base.html' %}
+
+{% block page_title %}Usuários{% endblock %}
+{% block page_subtitle %}Gerencie equipe com acesso ao painel{% endblock %}
+
+{% block admin_css %}
+.user-card {
+    background: white; border-radius: 14px; padding: 0.9rem 1rem;
+    margin-bottom: 0.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    display: flex; align-items: center; gap: 0.75rem;
+}
+.user-card.inativo { opacity: 0.55; }
+.user-avatar {
+    width: 42px; height: 42px; border-radius: 12px;
+    background: #eef0f8; color: #3f3d56;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 0.85rem; flex-shrink: 0;
+}
+.user-info { flex: 1; min-width: 0; }
+.user-nome {
+    font-weight: 700; font-size: 0.9rem;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.user-meta { font-size: 0.72rem; color: #888; margin-top: 0.1rem; }
+.user-badge {
+    display: inline-block; padding: 0.15rem 0.55rem;
+    border-radius: 999px; font-size: 0.6rem; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin-left: 0.3rem;
+}
+.user-badge.adm { background: #e3f2fd; color: #1565c0; }
+.user-badge.rec { background: #f3e5f5; color: #7b1fa2; }
+.user-badge.prof { background: #e8f5e9; color: #2e7d32; }
+.user-badge.inativo { background: #fce4ec; color: #c62828; }
+.user-actions { display: flex; gap: 0.3rem; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+.user-actions a, .user-actions button {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    border: none; cursor: pointer; font-size: 0.75rem;
+    text-decoration: none;
+}
+.btn-user-edit { background: #e3f2fd; color: #1565c0; }
+.btn-user-reset { background: #fff8e1; color: #f57f17; }
+.btn-user-toggle { background: #fce4ec; color: #c62828; }
+.btn-user-toggle.ativar { background: #e8f5e9; color: #2e7d32; }
+.filtros-user {
+    background: white; border-radius: 14px; padding: 0.75rem;
+    margin-bottom: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.filtros-user input, .filtros-user select {
+    border: 1px solid #e8e8e8; border-radius: 10px;
+    padding: 0.4rem 0.7rem; font-size: 0.8rem; background: #fafafa;
+}
+.filtros-user input[type=text] { flex: 1; min-width: 160px; }
+.filtros-user button {
+    background: #1a1a2e; color: white; border: none;
+    border-radius: 10px; padding: 0.4rem 1rem;
+    font-size: 0.8rem; font-weight: 700; cursor: pointer;
+}
+.admin-add-btn {
+    position: fixed; bottom: 75px; right: 1rem;
+    background: #8b6f47; color: white; width: 52px; height: 52px;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 16px rgba(139,111,71,0.4); font-size: 1.2rem;
+    text-decoration: none; z-index: 50;
+}
+{% endblock %}
+
+{% block admin_content %}
+<form method="get" class="filtros-user">
+    <input type="text" name="q" value="{{ busca }}" placeholder="Buscar nome ou email...">
+    <select name="perfil">
+        <option value="">Todos perfis</option>
+        {% for p in perfis %}
+            <option value="{{ p.pk }}" {% if perfil_filter == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.nome }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit">Filtrar</button>
+</form>
+
+<div class="filtros-user" style="margin-top:-0.25rem;">
+    <input type="text" id="filtroUsuariosInstant" placeholder="Filtrar visíveis..."
+           data-search-filter="#listaUsuarios"
+           data-search-counter="#cntUsuariosVisiveis"
+           data-search-empty="#emptyFiltroUsuarios">
+</div>
+
+<div class="small text-muted mb-2 fw-bold">
+    <i class="fas fa-users-cog me-1"></i><span id="cntUsuariosVisiveis">{{ usuarios.paginator.count }}</span> usuário(s)
+</div>
+
+<div id="listaUsuarios" data-search-rows=".user-card">
+{% for u in usuarios %}
+<div class="user-card {% if not u.ativo %}inativo{% endif %}" data-search-text="{{ u.nome }} {{ u.email }} {{ u.perfil.nome|default:'' }}">
+    <div class="user-avatar">
+        {{ u.nome|make_list|first }}{{ u.nome|make_list|slice:"1:2"|join:"" }}
+    </div>
+    <div class="user-info">
+        <div class="user-nome">
+            {{ u.nome }}
+            {% if u.perfil %}
+                {% if u.perfil.nome == "Administrador" %}<span class="user-badge adm">ADM</span>
+                {% elif u.perfil.nome == "Recepcionista" %}<span class="user-badge rec">Recep</span>
+                {% elif u.perfil.nome == "Profissional" %}<span class="user-badge prof">Prof</span>
+                {% else %}<span class="user-badge adm">{{ u.perfil.nome }}</span>{% endif %}
+            {% endif %}
+            {% if not u.ativo %}<span class="user-badge inativo">Inativo</span>{% endif %}
+        </div>
+        <div class="user-meta">
+            <i class="fas fa-envelope me-1"></i>{{ u.email }}
+            {% if u.profissional %} &bull; <i class="fas fa-user-md me-1"></i>{{ u.profissional.nome }}{% endif %}
+        </div>
+    </div>
+    <div class="user-actions">
+        <a href="{% url 'aranha:admin_editar_usuario' u.pk %}" class="btn-user-edit" title="Editar">
+            <i class="fas fa-pen"></i>
+        </a>
+        <form method="post" action="{% url 'aranha:admin_resetar_senha_usuario' u.pk %}" style="margin:0;">
+            {% csrf_token %}
+            <button type="submit" class="btn-user-reset" title="Enviar reset de senha"
+                    onclick="return confirm('Enviar email de reset de senha para {{ u.email|escapejs }}?')">
+                <i class="fas fa-key"></i>
+            </button>
+        </form>
+        {% if u.pk != request.user.pk %}
+        <form method="post" action="{% url 'aranha:admin_desativar_usuario' u.pk %}" style="margin:0;">
+            {% csrf_token %}
+            <button type="submit" class="btn-user-toggle {% if not u.ativo %}ativar{% endif %}"
+                    title="{% if u.ativo %}Desativar{% else %}Ativar{% endif %}"
+                    onclick="return confirm('{% if u.ativo %}Desativar{% else %}Ativar{% endif %} acesso de {{ u.nome|escapejs }}?')">
+                <i class="fas fa-{% if u.ativo %}ban{% else %}check{% endif %}"></i>
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% empty %}
+<div style="text-align:center; padding:3rem 1rem; color:#999;">
+    <i class="fas fa-user-slash" style="font-size:2.5rem; color:#ddd; display:block; margin-bottom:1rem;"></i>
+    Nenhum usuário encontrado.
+</div>
+{% endfor %}
+</div>
+
+<div id="emptyFiltroUsuarios" style="display:none; text-align:center; padding:2rem 1rem; color:#999;">
+    <i class="fas fa-filter" style="font-size:2rem; color:#ddd; display:block; margin-bottom:0.75rem;"></i>
+    Nenhum usuário bate com o filtro.
+</div>
+
+{% if usuarios.has_other_pages %}
+<nav class="mt-3 text-center">
+    {% if usuarios.has_previous %}<a href="?page={{ usuarios.previous_page_number }}&q={{ busca }}&perfil={{ perfil_filter }}" class="btn btn-sm btn-outline-secondary">‹</a>{% endif %}
+    <span class="small fw-bold mx-2">{{ usuarios.number }} / {{ usuarios.paginator.num_pages }}</span>
+    {% if usuarios.has_next %}<a href="?page={{ usuarios.next_page_number }}&q={{ busca }}&perfil={{ perfil_filter }}" class="btn btn-sm btn-outline-secondary">›</a>{% endif %}
+</nav>
+{% endif %}
+
+<a href="{% url 'aranha:admin_criar_usuario' %}" class="admin-add-btn" title="Novo usuário">
+    <i class="fas fa-plus"></i>
+</a>
+{% endblock %}

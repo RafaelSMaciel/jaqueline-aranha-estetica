@@ -1,0 +1,1117 @@
+﻿{% extends 'estrutura/base.html' %}
+{% load static %}
+
+{% block body_class %}agendamento-page{% endblock %}
+{% block titulo %}Agendamento Online | {{ CLINIC_NAME }}{% endblock %}
+
+{% block conteudo %}
+<style nonce="{{ csp_nonce }}">
+    :root {
+        --gold: #b48c4c;
+        --gold-light: #f5edd8;
+        --gold-mid: rgba(180, 140, 76, 0.15);
+        --earth: #3c4049;
+        --earth-mid: #5a5f6a;
+        --bg: #f8f7f4;
+    }
+
+    .booking-page { background: var(--bg); min-height: 100vh; }
+
+    /* ─── HERO ─── */
+    .booking-banner {
+        background: linear-gradient(135deg, #faf6ee 0%, #f5edd8 50%, #ede3cc 100%);
+        padding: 4rem 0 7rem;
+        text-align: center;
+        color: var(--earth);
+        position: relative;
+        overflow: hidden;
+    }
+    .booking-banner::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background:
+            radial-gradient(circle at 20% 80%, rgba(180, 140, 76, 0.1) 0%, transparent 50%),
+            radial-gradient(circle at 80% 20%, rgba(180, 140, 76, 0.06) 0%, transparent 50%);
+    }
+    .booking-banner-inner { position: relative; z-index: 2; }
+    .booking-pill {
+        display: inline-flex; align-items: center; gap: 0.5rem;
+        background: rgba(180, 140, 76, 0.15); border: 1px solid rgba(180, 140, 76, 0.4);
+        color: #8b5c00; padding: 0.4rem 1.25rem; border-radius: 50px;
+        font-size: 0.72rem; font-weight: 700; letter-spacing: 2.5px;
+        text-transform: uppercase; margin-bottom: 1.25rem;
+    }
+    .booking-banner h1 {
+        font-family: var(--heading-font, 'Playfair Display', serif);
+        font-size: clamp(2rem, 5vw, 3rem);
+        font-weight: 700; margin-bottom: 0.75rem;
+        color: #8b5c00 !important;
+    }
+    .booking-banner p { opacity: 0.85; font-size: 1.05rem; max-width: 460px; margin: 0 auto; color: var(--earth) !important; }
+
+    /* ─── FLOATING CARD ─── */
+    .booking-float {
+        margin-top: -4.5rem; padding: 0 1.5rem 3rem;
+        position: relative; z-index: 10;
+    }
+    .booking-card {
+        background: white; border-radius: 24px;
+        box-shadow: 0 16px 60px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.06);
+        overflow: hidden; max-width: 1000px; margin: 0 auto;
+    }
+
+    /* ─── STEP INDICATOR ─── */
+    .steps-bar {
+        display: flex; background: #FDFCFA; border-bottom: 1px solid #F0EDE8;
+        padding: 0;
+    }
+    .step-item {
+        flex: 1; text-align: center; padding: 1.1rem 0.5rem;
+        font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 1.5px; color: #CCC; position: relative;
+        transition: color 0.3s; cursor: default;
+    }
+    .step-item.active { color: var(--earth); }
+    .step-item.active::after {
+        content: ''; position: absolute; bottom: 0; left: 20%; right: 20%;
+        height: 3px; background: var(--gold); border-radius: 2px 2px 0 0;
+    }
+    .step-item.done { color: var(--gold); }
+    .step-num {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 28px; height: 28px; border-radius: 50%;
+        background: #F0EDE8; color: #BBB; font-size: 0.72rem; font-weight: 800;
+        margin-right: 0.5rem; vertical-align: middle; transition: all 0.3s;
+    }
+    .step-item.active .step-num { background: var(--gold); color: white; }
+    .step-item.done .step-num { background: var(--gold); color: white; }
+
+    /* ─── STEP PANELS — CRITICAL HIDE/SHOW ─── */
+    .step-panel { display: none !important; padding: 2rem; }
+    .step-panel.active { display: block !important; }
+
+    /* ─── PROCEDURE CARDS ─── */
+    .proc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
+    .proc-card {
+        border: 2px solid #F0EDE8; border-radius: 16px; padding: 1.5rem;
+        cursor: pointer; transition: all 0.25s ease; background: white;
+    }
+    .proc-card:hover {
+        border-color: var(--gold); transform: translateY(-3px);
+        box-shadow: 0 8px 24px rgba(201,168,76,0.15);
+    }
+    .proc-card.selected {
+        border-color: var(--gold); background: linear-gradient(145deg, #fffef9, #fff9e8);
+        box-shadow: 0 8px 24px rgba(201,168,76,0.2);
+    }
+    .proc-icon {
+        width: 48px; height: 48px; border-radius: 50%; background: var(--gold-light);
+        display: flex; align-items: center; justify-content: center; margin-bottom: 1rem;
+    }
+    .proc-icon i { color: var(--gold); font-size: 1.2rem; }
+    .proc-name { font-weight: 700; font-size: 1rem; color: var(--earth); margin-bottom: 0.3rem; }
+    .proc-desc { font-size: 0.82rem; color: #999; margin-bottom: 0.8rem; line-height: 1.45; }
+    .proc-meta { display: flex; align-items: center; gap: 1rem; }
+    .proc-price { font-weight: 800; color: var(--gold); font-size: 1.1rem; }
+    .proc-duration {
+        font-size: 0.75rem; color: #BBB; font-weight: 600;
+        display: flex; align-items: center; gap: 0.3rem;
+    }
+
+    /* ─── CALENDAR ─── */
+    .cal-header {
+        display: flex; align-items: center; justify-content: space-between;
+        margin-bottom: 1.5rem;
+    }
+    .cal-title {
+        font-family: var(--heading-font, 'Playfair Display', serif); font-size: 1.3rem;
+        font-weight: 700; color: var(--earth); text-transform: capitalize;
+    }
+    .cal-nav { display: flex; gap: 0.5rem; }
+    .cal-nav-btn {
+        width: 36px; height: 36px; border-radius: 50%;
+        border: 1.5px solid #E0DBD3; background: white;
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer; transition: all 0.2s; color: var(--earth);
+    }
+    .cal-nav-btn:hover { background: var(--gold); border-color: var(--gold); color: white; }
+
+    .cal-weekdays {
+        display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+        margin-bottom: 0.5rem;
+    }
+    .cal-weekday {
+        text-align: center; font-size: 0.7rem; font-weight: 800;
+        text-transform: uppercase; letter-spacing: 1px; color: #BBB; padding: 0.5rem 0;
+    }
+    .cal-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .cal-day {
+        aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+        border-radius: 12px; font-weight: 600; font-size: 0.9rem;
+        cursor: default; color: #DDD; transition: all 0.2s;
+    }
+    .cal-day.available {
+        color: var(--earth); cursor: pointer; background: #FAFAF8;
+        border: 1.5px solid transparent;
+    }
+    .cal-day.available:hover {
+        background: var(--gold-light); border-color: var(--gold); transform: scale(1.1);
+    }
+    .cal-day.selected {
+        background: var(--gold) !important; color: white !important;
+        border-color: var(--gold) !important;
+        transform: scale(1.1); box-shadow: 0 4px 12px rgba(201,168,76,0.3);
+    }
+    .cal-day.today { border: 2px solid var(--gold); }
+    .cal-day.empty { border: none; }
+
+    /* ─── TIME SLOTS ─── */
+    .slots-container { margin-top: 1.5rem; }
+    .slots-title { font-weight: 700; color: var(--earth); margin-bottom: 1rem; font-size: 0.95rem; }
+    .slots-grid { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+    .slot-btn {
+        padding: 0.7rem 1.2rem; border-radius: 12px;
+        border: 1.5px solid #E8E4DD; background: white;
+        font-weight: 700; font-size: 0.85rem; color: var(--earth);
+        cursor: pointer; transition: all 0.2s; min-width: 80px; text-align: center;
+    }
+    .slot-btn:hover { border-color: var(--gold); background: var(--gold-light); }
+    .slot-btn.selected {
+        background: var(--gold); color: white; border-color: var(--gold);
+        box-shadow: 0 4px 12px rgba(201,168,76,0.3);
+    }
+    .slots-loading { text-align: center; padding: 2rem; color: #BBB; }
+
+    /* ─── PROFISSIONAL SELECT ─── */
+    .prof-options { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1rem; }
+    .prof-btn {
+        padding: 0.6rem 1.2rem; border-radius: 12px;
+        border: 1.5px solid #E8E4DD; background: white;
+        font-weight: 600; font-size: 0.85rem; color: var(--earth);
+        cursor: pointer; transition: all 0.2s;
+    }
+    .prof-btn:hover { border-color: var(--gold); background: var(--gold-light); }
+    .prof-btn.selected { background: var(--gold); color: white; border-color: var(--gold); }
+
+    /* ─── STEP 3 FORM ─── */
+    .booking-recap {
+        background: #fbfaf7; border: 1px solid #ece6d8; border-radius: 16px;
+        padding: 1.25rem 1.5rem; margin-bottom: 1.75rem;
+    }
+    .recap-row {
+        display: flex; justify-content: space-between; align-items: baseline;
+        padding: 0.55rem 0; border-bottom: 1px solid #f0ebde;
+        font-size: 0.9rem; gap: 1rem;
+    }
+    .recap-row:last-child { border-bottom: none; }
+    .recap-label {
+        color: #9a8f7c; font-size: 0.72rem; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 1.2px; flex-shrink: 0;
+    }
+    .recap-value { color: var(--earth); font-weight: 600; text-align: right; }
+    .recap-price .recap-value {
+        font-family: 'Playfair Display', serif; font-size: 1.35rem;
+        font-weight: 700; color: var(--gold);
+    }
+
+    .fields-divider {
+        display: flex; align-items: center; gap: 0.85rem;
+        margin: 1.5rem 0 1rem; color: #b5a994;
+        font-size: 0.7rem; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 1.8px;
+    }
+    .fields-divider::before, .fields-divider::after {
+        content: ''; flex: 1; height: 1px; background: #e8e2d4;
+    }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 576px) { .field-row { grid-template-columns: 1fr; gap: 0; } }
+
+    /* OTP row: grid 1fr + botao fixo — evita reflow quando texto do botao muda */
+    .otp-row {
+        display: grid;
+        grid-template-columns: 1fr 150px;
+        gap: 8px;
+        align-items: stretch;
+    }
+    .otp-row .form-input { width: 100%; min-width: 0; box-sizing: border-box; }
+    .otp-btn {
+        white-space: nowrap; min-width: 150px; max-width: 150px;
+        display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+    }
+    @media (max-width: 420px) {
+        .otp-row { grid-template-columns: 1fr 110px; }
+        .otp-btn { min-width: 110px; max-width: 110px; padding: 0.45rem 0.55rem; font-size: 0.8rem; }
+        .otp-btn-text { font-size: 0.78rem; }
+    }
+
+    .cliente-badge {
+        display: flex; align-items: center; gap: 0.6rem;
+        padding: 0.7rem 1rem; border-radius: 12px; margin-bottom: 1rem;
+        font-size: 0.85rem; font-weight: 600;
+    }
+    .cliente-badge[data-state="existing"] {
+        background: #edf7ee; color: #2e7d32; border: 1px solid #c8e6c9;
+    }
+    .cliente-badge[data-state="new"] {
+        background: #fbf6e6; color: #8b5c00; border: 1px solid #ecd894;
+    }
+
+    .confirm-subnote {
+        display: block; text-align: center; margin-top: 0.75rem;
+        font-size: 0.76rem; color: #9a8f7c; line-height: 1.5;
+    }
+    .confirm-subnote i { color: var(--gold); margin-right: 0.3rem; }
+
+    .form-field { margin-bottom: 1.25rem; }
+    .form-field label {
+        font-size: 0.72rem; font-weight: 800; text-transform: uppercase;
+        letter-spacing: 1.5px; color: #999; display: flex;
+        align-items: center; gap: 0.4rem; margin-bottom: 0.5rem;
+    }
+    .form-field label i { color: var(--gold); }
+    .form-input {
+        width: 100%; padding: 0.85rem 1rem; border: 2px solid #EBEBEB;
+        border-radius: 14px; font-size: 0.95rem; background: #FAFAFA;
+        color: var(--earth); font-weight: 500; transition: border-color 0.2s;
+    }
+    .form-input:focus {
+        outline: none; border-color: var(--gold);
+        box-shadow: 0 0 0 4px rgba(201,168,76,0.12); background: white;
+    }
+
+    .btn-confirm-booking {
+        width: 100%; padding: 0.95rem; background: var(--gold);
+        color: white; border: none; border-radius: 50px;
+        font-size: 0.92rem; font-weight: 800; text-transform: uppercase;
+        letter-spacing: 1.2px; cursor: pointer; transition: all 0.25s;
+        box-shadow: 0 6px 20px rgba(201,168,76,0.35);
+    }
+    .btn-confirm-booking:hover {
+        background: #8b5c00; transform: translateY(-2px);
+        box-shadow: 0 10px 28px rgba(201,168,76,0.45);
+    }
+    .btn-back-step {
+        display: inline-flex; align-items: center; gap: 0.5rem;
+        padding: 0.7rem 1.4rem; background: white; border: 1.5px solid #E0DBD3;
+        border-radius: 50px; color: var(--earth); font-weight: 600;
+        font-size: 0.85rem; cursor: pointer; transition: all 0.2s;
+        margin-top: 0.75rem;
+    }
+    .btn-back-step:hover { background: #F5F2EE; }
+
+    .wpp-note {
+        display: flex; align-items: center; gap: 0.7rem;
+        background: #dcf5e7; border-left: 4px solid #25D366;
+        border-radius: 12px; padding: 1rem; margin: 1.25rem 0;
+        font-size: 0.85rem; color: #1B5E20; line-height: 1.5;
+    }
+    .wpp-note i { font-size: 1.2rem; color: #25D366; flex-shrink: 0; }
+
+    .empty-procs {
+        text-align: center; padding: 3rem 1rem; color: #BBB;
+    }
+    .empty-procs i { font-size: 3rem; margin-bottom: 1rem; color: #E0DBD3; }
+
+    @media (max-width: 768px) {
+        .booking-banner { padding: 3rem 0 6rem; }
+        .booking-float { padding: 0 0.75rem 2rem; }
+        .step-panel { padding: 1.25rem !important; }
+        .proc-grid { grid-template-columns: 1fr; }
+        .step-text { display: none; }
+    }
+</style>
+
+<div class="booking-page">
+
+<!-- Hero -->
+<div class="booking-banner">
+    <div class="booking-banner-inner container" data-aos="fade-up" data-aos-delay="100">
+        <div class="booking-pill"><i class="bi bi-stars"></i>{{ CLINIC_NAME }} — Agendamento Online</div>
+        <h1 data-aos="fade-up" data-aos-delay="200">Agende seu Espaço<br>de Bem-Estar</h1>
+        <p data-aos="fade-up" data-aos-delay="300">Escolha seu tratamento, selecione a data e confirme — tudo sem precisar criar conta.</p>
+    </div>
+</div>
+
+<!-- Floating Card -->
+<div class="booking-float" data-aos="fade-up" data-aos-delay="200">
+    <div class="booking-card">
+
+        <!-- Steps Bar -->
+        <div class="steps-bar">
+            <div class="step-item active" id="step-ind-1">
+                <span class="step-num">1</span>
+                <span class="step-text">Procedimento</span>
+            </div>
+            <div class="step-item" id="step-ind-2">
+                <span class="step-num">2</span>
+                <span class="step-text">Data & Horário</span>
+            </div>
+            <div class="step-item" id="step-ind-3">
+                <span class="step-num">3</span>
+                <span class="step-text">Confirmar</span>
+            </div>
+        </div>
+
+        <!-- ═══ STEP 1: Escolher Procedimento ═══ -->
+        <div class="step-panel active" id="step-1">
+            <h3 style="font-family:'Playfair Display',serif;font-weight:700;color:var(--earth);margin-bottom:0.3rem;">
+                Escolha seu Tratamento
+            </h3>
+            <p style="color:#999;font-size:0.9rem;margin-bottom:1.5rem;">
+                Selecione o procedimento desejado para ver as datas disponíveis.
+            </p>
+
+            {% if procedimentos %}
+            {% if categorias_disponiveis|length > 1 %}
+            <div class="cat-tabs" role="tablist" aria-label="Filtrar por categoria"
+                 style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-bottom:1rem;">
+                <button type="button" class="cat-tab active" data-cat=""
+                        style="background:var(--gold,#C9A84C); color:white; border:none; border-radius:999px; padding:0.4rem 1rem; font-size:0.78rem; font-weight:700; cursor:pointer;">
+                    Todos
+                </button>
+                {% for cat_value, cat_label in categorias_disponiveis %}
+                <button type="button" class="cat-tab" data-cat="{{ cat_value }}"
+                        style="background:#fff; color:#7a5f1f; border:1px solid #C9A84C; border-radius:999px; padding:0.4rem 1rem; font-size:0.78rem; font-weight:700; cursor:pointer;">
+                    {{ cat_label }}
+                </button>
+                {% endfor %}
+            </div>
+            {% endif %}
+            <div class="proc-grid">
+                {% for proc in procedimentos %}
+                <div class="proc-card" data-proc-id="{{ proc.id }}" data-proc-nome="{{ proc.nome }}"
+                     data-proc-preco="{{ proc.preco }}" data-proc-duracao="{{ proc.duracao_minutos }}"
+                     data-categoria="{{ proc.categoria }}">
+                    <div class="proc-icon"><i class="bi bi-stars"></i></div>
+                    <div class="proc-name">{{ proc.nome }}</div>
+                    {% if proc.descricao %}
+                    <div class="proc-desc">{{ proc.descricao|truncatewords:15 }}</div>
+                    {% endif %}
+                    <div class="proc-meta">
+                        <span class="proc-price">
+                            {% if proc.preco > 0 %}
+                                <small style="font-size:0.65rem;font-weight:600;color:#999;letter-spacing:0.5px;">A partir de</small>
+                                R$ {{ proc.preco|floatformat:2 }}
+                            {% else %}
+                                <small style="font-size:0.78rem;font-weight:700;color:#7a5f1f;">A consultar</small>
+                            {% endif %}
+                        </span>
+                        <span class="proc-duration">
+                            <i class="bi bi-clock"></i>{{ proc.duracao_minutos }} min
+                        </span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <script nonce="{{ csp_nonce }}">
+            (function(){
+                var tabs = document.querySelectorAll('.cat-tab');
+                var cards = document.querySelectorAll('.proc-card');
+                if (!tabs.length) return;
+                tabs.forEach(function(tab){
+                    tab.addEventListener('click', function(){
+                        var cat = tab.dataset.cat;
+                        tabs.forEach(function(t){
+                            t.classList.remove('active');
+                            t.style.background = '#fff';
+                            t.style.color = '#7a5f1f';
+                        });
+                        tab.classList.add('active');
+                        tab.style.background = 'var(--gold,#C9A84C)';
+                        tab.style.color = 'white';
+                        cards.forEach(function(c){
+                            c.style.display = (!cat || c.dataset.categoria === cat) ? '' : 'none';
+                        });
+                    });
+                });
+            })();
+            </script>
+            {% else %}
+            <div class="empty-procs" style="padding:4rem 2rem;">
+                <i class="bi bi-calendar-heart" style="font-size:3.5rem;color:#7a5f1f;display:block;margin-bottom:1.25rem;"></i>
+                <h4 style="font-weight:700;color:#4A3425;font-family:'Playfair Display',serif;font-size:1.4rem;">Em breve</h4>
+                <p style="color:#6B6256;max-width:360px;margin:0.5rem auto 1.5rem;">Nossos tratamentos estarao disponiveis para agendamento online em breve.</p>
+                <a href="https://wa.me/{{ whatsapp_numero }}?text=Ola! Gostaria de agendar um horario na {{ CLINIC_NAME }}." target="_blank" rel="noopener"
+                   class="btn rounded-pill px-4 py-2 fw-bold d-inline-flex align-items-center gap-2"
+                   style="background:#25D366;color:white;font-size:0.9rem;box-shadow:0 4px 16px rgba(37,211,102,0.3);">
+                    <i class="bi bi-whatsapp" style="font-size:1.1rem;"></i>Agendar via WhatsApp
+                </a>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- ═══ STEP 2: Calendário + Horários ═══ -->
+        <div class="step-panel" id="step-2">
+            <div class="row g-4">
+                <!-- Calendário -->
+                <div class="col-lg-6">
+                    <div class="cal-header">
+                        <span class="cal-title" id="cal-month-label">—</span>
+                        <div class="cal-nav">
+                            <button class="cal-nav-btn" id="cal-prev" type="button"><i class="bi bi-chevron-left"></i></button>
+                            <button class="cal-nav-btn" id="cal-next" type="button"><i class="bi bi-chevron-right"></i></button>
+                        </div>
+                    </div>
+                    <div class="cal-weekdays">
+                        <div class="cal-weekday">Dom</div>
+                        <div class="cal-weekday">Seg</div>
+                        <div class="cal-weekday">Ter</div>
+                        <div class="cal-weekday">Qua</div>
+                        <div class="cal-weekday">Qui</div>
+                        <div class="cal-weekday">Sex</div>
+                        <div class="cal-weekday">Sáb</div>
+                    </div>
+                    <div class="cal-days" id="cal-days-grid"></div>
+
+                    <button class="btn-back-step" type="button" onclick="goToStep(1)">
+                        <i class="bi bi-arrow-left"></i> Voltar aos Procedimentos
+                    </button>
+                </div>
+
+                <!-- Horários -->
+                <div class="col-lg-6">
+                    <div class="slots-container" id="slots-container">
+                        <div class="slots-loading">
+                            <i class="far fa-calendar fa-2x" style="color:#DDD;display:block;margin-bottom:0.75rem;"></i>
+                            <span style="font-size:0.9rem;">Selecione uma data no calendário</span>
+                        </div>
+                    </div>
+
+                    <!-- Profissional (aparece após selecionar horário) -->
+                    <div id="prof-section" style="display:none !important;margin-top:1.5rem;">
+                        <div class="slots-title">
+                            <i class="bi bi-person me-1" style="color:var(--gold);"></i> Escolha o Profissional
+                        </div>
+                        <div class="prof-options" id="prof-options"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ STEP 3: Dados + Confirmação ═══ -->
+        <div class="step-panel" id="step-3">
+            <div class="row justify-content-center">
+                <div class="col-lg-7">
+                    <h3 style="font-family:'Playfair Display',serif;font-weight:700;color:var(--earth);margin-bottom:1.5rem;text-align:center;">
+                        Confirme seu Agendamento
+                    </h3>
+
+                    <!-- Resumo -->
+                    <div class="booking-recap">
+                        <div class="recap-row">
+                            <span class="recap-label">Tratamento</span>
+                            <span class="recap-value" id="sum-proc">—</span>
+                        </div>
+                        <div class="recap-row">
+                            <span class="recap-label">Data & Horário</span>
+                            <span class="recap-value" id="sum-datetime">—</span>
+                        </div>
+                        <div class="recap-row">
+                            <span class="recap-label">Profissional</span>
+                            <span class="recap-value" id="sum-prof">—</span>
+                        </div>
+                        <div class="recap-row recap-price">
+                            <span class="recap-label">Investimento</span>
+                            <span class="recap-value" id="sum-price">—</span>
+                        </div>
+                    </div>
+
+                    <form id="booking-form" action="{% url 'aranha:confirmar_agendamento' %}" method="POST" data-loading-msg="Enviando confirmação por e-mail...">
+                        {% csrf_token %}
+                        <input type="hidden" name="procedimento" id="form-procedimento">
+                        <input type="hidden" name="profissional" id="form-profissional">
+                        <input type="hidden" name="datetime" id="form-datetime">
+                        {# honeypot — humano não ve, bot preenche #}
+                        <input type="text" name="website" tabindex="-1" autocomplete="off"
+                               style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
+
+                        <!-- Badge status cliente (aparece apos OTP) -->
+                        <div id="cliente-badge" class="cliente-badge" style="display:none;"></div>
+
+                        <!-- ─── E-mail + OTP ─── -->
+                        <div class="form-field">
+                            <label><i class="bi bi-envelope"></i>E-mail</label>
+                            <div class="otp-row">
+                                <input type="email" name="email" class="form-input" placeholder="seu@email.com" required id="form-email" aria-label="E-mail">
+                                <button type="button" id="btn-enviar-otp" class="btn btn-outline-secondary otp-btn">
+                                    <i class="bi bi-send"></i><span class="otp-btn-text">Enviar código</span>
+                                </button>
+                            </div>
+                            <small style="color:#9a8f7c;font-size:0.72rem;margin-top:0.35rem;display:block;">
+                                Enviaremos um código de 6 dígitos para validar seu e-mail. Se já for paciente, seus dados serão preenchidos automaticamente.
+                            </small>
+                        </div>
+
+                        <div class="form-field" id="otp-field" style="display:none;">
+                            <label><i class="bi bi-shield-lock"></i>Código de verificação</label>
+                            <div class="otp-row">
+                                <input type="text" id="otp-codigo" class="form-input" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code" aria-label="Código de verificação de 6 dígitos" style="letter-spacing:6px;font-size:1.2rem;text-align:center;">
+                                <button type="button" id="btn-verificar-otp" class="btn btn-primary otp-btn">
+                                    <i class="bi bi-check2"></i><span class="otp-btn-text">Verificar</span>
+                                </button>
+                            </div>
+                            <small id="otp-msg" style="display:block;margin-top:0.4rem;font-size:0.78rem;"></small>
+                        </div>
+
+                        <!-- ─── Dados pessoais (mostra apos OTP ou se novo) ─── -->
+                        <div id="dados-fields" style="display:none;">
+                            <div class="fields-divider">Seus dados</div>
+
+                            <div class="form-field">
+                                <label><i class="bi bi-person"></i>Nome completo</label>
+                                <input type="text" name="nome" class="form-input" placeholder="Nome completo" id="form-nome" aria-label="Nome completo">
+                            </div>
+
+                            <div class="field-row">
+                                <div class="form-field">
+                                    <label><i class="bi bi-calendar-heart"></i>Nascimento</label>
+                                    <input type="date" name="data_nascimento" class="form-input" id="form-nascimento" aria-label="Data de nascimento" style="color-scheme: light;">
+                                </div>
+                                <div class="form-field">
+                                    <label><i class="bi bi-phone"></i>Celular</label>
+                                    <input type="tel" name="telefone" class="form-input" placeholder="(00) 00000-0000" id="form-telefone" aria-label="Telefone celular">
+                                </div>
+                            </div>
+
+                            <div class="form-field" id="cadastro-check-wrap" style="display:none;margin-bottom:0;">
+                                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.82rem;color:#6b6256;text-transform:none;letter-spacing:0;font-weight:500;">
+                                    <input type="checkbox" name="aceita_cadastro" id="form-aceita-cadastro" checked style="width:auto;">
+                                    <span>Salvar meus dados para agendar mais rápido da próxima vez</span>
+                                </label>
+                            </div>
+
+                            <div class="form-field" style="margin-bottom:0.5rem;">
+                                <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:0.82rem;color:#6b6256;text-transform:none;letter-spacing:0;font-weight:500;">
+                                    <input type="checkbox" name="consent_email_marketing" id="form-consent-email" style="width:auto;margin-top:3px;">
+                                    <span>Aceito receber promocoes e novidades por e-mail. Posso cancelar a qualquer momento.</span>
+                                </label>
+                            </div>
+
+                            <div class="form-field" style="margin-bottom:0.5rem;">
+                                <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:0.82rem;color:#6b6256;text-transform:none;letter-spacing:0;font-weight:500;">
+                                    <input type="checkbox" name="consent_whatsapp_confirmacao" id="form-consent-wa-d1" checked style="width:auto;margin-top:3px;">
+                                    <span>Aceito receber lembrete do meu agendamento por WhatsApp 24h antes.</span>
+                                </label>
+                            </div>
+
+                            <div class="form-field" style="margin-bottom:0;">
+                                <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:0.82rem;color:#6b6256;text-transform:none;letter-spacing:0;font-weight:500;">
+                                    <input type="checkbox" name="consent_whatsapp_nps" id="form-consent-nps" style="width:auto;margin-top:3px;">
+                                    <span>Aceito receber pesquisa de satisfação por WhatsApp após o atendimento.</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Anamnese dinamica (preenchida via JS conforme procedimento) -->
+                        <div id="anamneseContainer" style="display:none;">
+                            <div style="font-weight:700;color:#7a5f1f;margin:1rem 0 0.5rem;font-size:0.9rem;">
+                                <i class="bi bi-clipboard-heart"></i> Questionario pre-atendimento
+                            </div>
+                            <div id="anamneseFields"></div>
+                            <input type="hidden" name="anamnese_respostas" id="anamneseRespostasJson" value="">
+                        </div>
+
+                        {% if turnstile_enabled %}
+                        <div class="form-field" id="captcha-field" style="display:none;">
+                            <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" data-theme="light"></div>
+                        </div>
+                        {% endif %}
+
+                        <button type="submit" class="btn-confirm-booking" id="btn-confirmar" disabled title="Verifique o codigo enviado ao seu e-mail primeiro">
+                            <i class="bi bi-calendar-check me-2"></i>Confirmar Agendamento
+                        </button>
+                        <small class="confirm-subnote">
+                            <i class="bi bi-envelope-check"></i>O profissional avalia seu pedido e você recebe a confirmação por e-mail.
+                        </small>
+                    </form>
+
+                    <div class="text-center">
+                        <button class="btn-back-step" type="button" onclick="goToStep(2)">
+                            <i class="bi bi-arrow-left"></i> Voltar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /booking-card -->
+</div><!-- /booking-float -->
+
+</div><!-- /booking-page -->
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+(function() {
+    // ═══ STATE ═══
+    var selectedProc = null;
+    var selectedDate = null;
+    var selectedSlot = null;
+    var selectedProf = null;
+    var currentMonth = new Date();
+    var diasDisponiveis = [];
+    var horariosData = [];
+
+    var meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+                 'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+    var preselect = '{{ proc_preselect }}';
+
+    // ═══ STEP NAVIGATION ═══
+    window.goToStep = function(n) {
+        // Hide all panels
+        var panels = document.querySelectorAll('.step-panel');
+        for (var i = 0; i < panels.length; i++) {
+            panels[i].classList.remove('active');
+        }
+        // Show target panel
+        document.getElementById('step-' + n).classList.add('active');
+
+        // Update step indicators
+        var items = document.querySelectorAll('.step-item');
+        for (var i = 0; i < items.length; i++) {
+            items[i].classList.remove('active', 'done');
+            // Remove ::after pseudo-element by clearing class
+            if (i + 1 < n) items[i].classList.add('done');
+            if (i + 1 === n) items[i].classList.add('active');
+        }
+    };
+
+    // ═══ STEP 1: SELECT PROCEDURE ═══
+    var procCards = document.querySelectorAll('.proc-card');
+    for (var c = 0; c < procCards.length; c++) {
+        procCards[c].addEventListener('click', function() {
+            var allCards = document.querySelectorAll('.proc-card');
+            for (var j = 0; j < allCards.length; j++) allCards[j].classList.remove('selected');
+            this.classList.add('selected');
+
+            selectedProc = {
+                id: this.dataset.procId,
+                nome: this.dataset.procNome,
+                preco: parseFloat(this.dataset.procPreco),
+                duracao: parseInt(this.dataset.procDuracao)
+            };
+
+            selectedDate = null;
+            selectedSlot = null;
+            selectedProf = null;
+
+            goToStep(2);
+            currentMonth = new Date();
+            loadMonth();
+        });
+    }
+
+    // ═══ STEP 2: CALENDAR ═══
+    function loadMonth() {
+        var year = currentMonth.getFullYear();
+        var month = currentMonth.getMonth();
+        document.getElementById('cal-month-label').textContent = meses[month] + ' ' + year;
+
+        var mesStr = year + '-' + String(month + 1).padStart(2, '0');
+
+        fetch('/ajax/dias-disponiveis/?mes=' + mesStr + '&procedimento_id=' + selectedProc.id)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                diasDisponiveis = data.dias_disponiveis || [];
+                renderCalendar(year, month);
+            })
+            .catch(function() { renderCalendar(year, month); });
+    }
+
+    function renderCalendar(year, month) {
+        var grid = document.getElementById('cal-days-grid');
+        grid.innerHTML = '';
+
+        var firstDay = new Date(year, month, 1).getDay();
+        var daysInMonth = new Date(year, month + 1, 0).getDate();
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        for (var i = 0; i < firstDay; i++) {
+            var empty = document.createElement('div');
+            empty.className = 'cal-day empty';
+            grid.appendChild(empty);
+        }
+
+        for (var d = 1; d <= daysInMonth; d++) {
+            var dateObj = new Date(year, month, d);
+            var dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+            var isToday = dateObj.getTime() === today.getTime();
+            var isAvailable = diasDisponiveis.indexOf(dateStr) !== -1;
+
+            var div = document.createElement('div');
+            div.textContent = d;
+            div.className = 'cal-day';
+            if (isToday) div.classList.add('today');
+            if (isAvailable) {
+                div.classList.add('available');
+                div.setAttribute('data-date', dateStr);
+                div.addEventListener('click', function() {
+                    selectDate(this.getAttribute('data-date'));
+                });
+            }
+            grid.appendChild(div);
+        }
+    }
+
+    document.getElementById('cal-prev').addEventListener('click', function() {
+        currentMonth.setMonth(currentMonth.getMonth() - 1);
+        loadMonth();
+    });
+    document.getElementById('cal-next').addEventListener('click', function() {
+        currentMonth.setMonth(currentMonth.getMonth() + 1);
+        loadMonth();
+    });
+
+    function selectDate(dateStr) {
+        selectedDate = dateStr;
+        selectedSlot = null;
+        selectedProf = null;
+        document.getElementById('prof-section').style.display = 'none';
+
+        var allDays = document.querySelectorAll('.cal-day');
+        for (var i = 0; i < allDays.length; i++) allDays[i].classList.remove('selected');
+        var sel = document.querySelector('.cal-day[data-date="' + dateStr + '"]');
+        if (sel) sel.classList.add('selected');
+
+        var container = document.getElementById('slots-container');
+        container.innerHTML = '<div class="slots-loading"><i class="fas fa-spinner fa-spin fa-2x" style="color:var(--gold);display:block;margin-bottom:0.75rem;"></i>Carregando horários...</div>';
+
+        fetch('/ajax/horarios-disponiveis/?data=' + dateStr + '&procedimento_id=' + selectedProc.id)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                horariosData = data.horarios || [];
+                if (horariosData.length === 0) {
+                    container.innerHTML = '<div class="slots-loading"><i class="fas fa-exclamation-circle fa-2x" style="color:#DDD;display:block;margin-bottom:0.75rem;"></i>Nenhum horário disponível nesta data.</div>';
+                    return;
+                }
+
+                var parts = dateStr.split('-');
+                var dateDisplay = parts[2] + '/' + parts[1] + '/' + parts[0];
+
+                var html = '<div class="slots-title"><i class="far fa-clock me-1" style="color:var(--gold);"></i> Horários para ' + dateDisplay + '</div>';
+                html += '<div class="slots-grid">';
+                for (var i = 0; i < horariosData.length; i++) {
+                    var slot = horariosData[i];
+                    html += '<button type="button" class="slot-btn" data-idx="' + i + '">' + slot.horario + '</button>';
+                }
+                html += '</div>';
+                container.innerHTML = html;
+
+                var btns = container.querySelectorAll('.slot-btn');
+                for (var j = 0; j < btns.length; j++) {
+                    btns[j].addEventListener('click', function() { selectSlot(this); });
+                }
+            })
+            .catch(function() {
+                container.innerHTML = '<div class="slots-loading">Erro ao carregar horários.</div>';
+            });
+    }
+
+    function selectSlot(btn) {
+        var allBtns = document.querySelectorAll('.slot-btn');
+        for (var i = 0; i < allBtns.length; i++) allBtns[i].classList.remove('selected');
+        btn.classList.add('selected');
+
+        var idx = parseInt(btn.getAttribute('data-idx'));
+        var slot = horariosData[idx];
+        selectedSlot = {
+            horario: slot.horario,
+            iso: slot.datetime_iso,
+            profissionais: slot.profissionais
+        };
+
+        var profSection = document.getElementById('prof-section');
+        var profOptions = document.getElementById('prof-options');
+        profSection.style.display = 'block';
+        profSection.style.setProperty('display', 'block', 'important');
+        profOptions.innerHTML = '';
+
+        if (selectedSlot.profissionais.length === 1) {
+            selectedProf = selectedSlot.profissionais[0];
+            var pbtn = document.createElement('button');
+            pbtn.type = 'button';
+            pbtn.className = 'prof-btn selected';
+            pbtn.textContent = selectedProf.nome;
+            profOptions.appendChild(pbtn);
+            setTimeout(function() { goToStep3(); }, 500);
+        } else {
+            for (var p = 0; p < selectedSlot.profissionais.length; p++) {
+                (function(prof) {
+                    var pbtn = document.createElement('button');
+                    pbtn.type = 'button';
+                    pbtn.className = 'prof-btn';
+                    pbtn.textContent = prof.nome;
+                    pbtn.addEventListener('click', function() {
+                        var all = document.querySelectorAll('.prof-btn');
+                        for (var k = 0; k < all.length; k++) all[k].classList.remove('selected');
+                        this.classList.add('selected');
+                        selectedProf = prof;
+                        setTimeout(function() { goToStep3(); }, 500);
+                    });
+                    profOptions.appendChild(pbtn);
+                })(selectedSlot.profissionais[p]);
+            }
+        }
+    }
+
+    function goToStep3() {
+        if (!selectedProc || !selectedSlot || !selectedProf) return;
+
+        document.getElementById('sum-proc').textContent = selectedProc.nome;
+
+        var d = new Date(selectedSlot.iso);
+        var opts = {weekday:'long', day:'numeric', month:'long', hour:'2-digit', minute:'2-digit'};
+        document.getElementById('sum-datetime').textContent = d.toLocaleDateString('pt-BR', opts);
+        document.getElementById('sum-prof').textContent = selectedProf.nome;
+        document.getElementById('sum-price').textContent = 'R$ ' + selectedProc.preco.toFixed(2).replace('.', ',');
+
+        document.getElementById('form-procedimento').value = selectedProc.id;
+        document.getElementById('form-profissional').value = selectedProf.id;
+        document.getElementById('form-datetime').value = selectedSlot.iso;
+
+        renderAnamnese();
+
+        goToStep(3);
+    }
+
+    // ═══ ANAMNESE DINAMICA ═══
+    var FORMULARIOS_ANAMNESE = {{ formularios_anamnese_json|safe }};
+
+    function formularioAplicaAoProc(form, proc) {
+        if (form.escopo === 'GLOBAL') return true;
+        if (form.escopo === 'CATEGORIA') return form.categoria === proc.categoria;
+        if (form.escopo === 'PROCEDIMENTO') return form.procedimento_id === proc.id;
+        return false;
+    }
+
+    function renderAnamnese() {
+        var container = document.getElementById('anamneseContainer');
+        var fields = document.getElementById('anamneseFields');
+        if (!container || !fields || !selectedProc) return;
+        fields.innerHTML = '';
+
+        var aplicaveis = FORMULARIOS_ANAMNESE.filter(function(f){
+            return formularioAplicaAoProc(f, selectedProc);
+        });
+        if (aplicaveis.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+        container.style.display = '';
+
+        aplicaveis.forEach(function(form){
+            var formWrap = document.createElement('div');
+            formWrap.style.cssText = 'border:1px solid #eee;border-radius:10px;padding:0.75rem;margin-bottom:0.6rem;background:#fafafa;';
+            var ttl = document.createElement('div');
+            ttl.style.cssText = 'font-weight:700;color:#4A3425;font-size:0.85rem;margin-bottom:0.5rem;';
+            ttl.textContent = form.nome;
+            formWrap.appendChild(ttl);
+
+            (form.schema || []).forEach(function(field){
+                var fwrap = document.createElement('div');
+                fwrap.style.marginBottom = '0.5rem';
+                var lbl = document.createElement('label');
+                lbl.style.cssText = 'display:block;font-size:0.78rem;color:#666;font-weight:600;margin-bottom:0.2rem;';
+                lbl.textContent = field.label + (field.obrigatorio ? ' *' : '');
+                fwrap.appendChild(lbl);
+
+                var input;
+                if (field.tipo === 'bool') {
+                    input = document.createElement('select');
+                    input.innerHTML = '<option value="">—</option><option value="sim">Sim</option><option value="nao">Nao</option>';
+                } else if (field.tipo === 'select') {
+                    input = document.createElement('select');
+                    input.innerHTML = '<option value="">—</option>';
+                    (field.opcoes || []).forEach(function(o){
+                        var opt = document.createElement('option');
+                        opt.value = o; opt.textContent = o;
+                        input.appendChild(opt);
+                    });
+                } else if (field.tipo === 'longtext') {
+                    input = document.createElement('textarea');
+                    input.rows = 2;
+                } else if (field.tipo === 'number') {
+                    input = document.createElement('input'); input.type = 'number';
+                } else if (field.tipo === 'date') {
+                    input = document.createElement('input'); input.type = 'date';
+                } else {
+                    input = document.createElement('input'); input.type = 'text';
+                }
+                input.style.cssText = 'width:100%;padding:0.45rem;border:1px solid #ddd;border-radius:6px;font-size:0.85rem;';
+                input.dataset.formId = form.id;
+                input.dataset.fieldKey = field.key;
+                input.dataset.obrigatorio = field.obrigatorio ? '1' : '';
+                if (field.obrigatorio) input.required = true;
+                fwrap.appendChild(input);
+                formWrap.appendChild(fwrap);
+            });
+            fields.appendChild(formWrap);
+        });
+    }
+
+    function coletarAnamnese() {
+        var dados = {};
+        document.querySelectorAll('#anamneseFields [data-form-id]').forEach(function(el){
+            var fid = el.dataset.formId;
+            var key = el.dataset.fieldKey;
+            if (!dados[fid]) dados[fid] = {};
+            dados[fid][key] = el.value;
+        });
+        document.getElementById('anamneseRespostasJson').value = JSON.stringify(dados);
+    }
+
+    var bookingForm = document.getElementById('booking-form');
+    if (bookingForm) {
+        bookingForm.addEventListener('submit', coletarAnamnese);
+    }
+
+    // ═══ PHONE MASK ═══
+    var telInput = document.getElementById('form-telefone');
+    if (telInput) {
+        telInput.addEventListener('input', function(e) {
+            var v = e.target.value.replace(/\D/g, '');
+            if (v.length > 11) v = v.slice(0, 11);
+            if (v.length > 6) v = '(' + v.slice(0,2) + ') ' + v.slice(2,7) + '-' + v.slice(7);
+            else if (v.length > 2) v = '(' + v.slice(0,2) + ') ' + v.slice(2);
+            else if (v.length > 0) v = '(' + v;
+            e.target.value = v;
+        });
+    }
+
+    // Pre-select
+    if (preselect) {
+        var card = document.querySelector('.proc-card[data-proc-id="' + preselect + '"]');
+        if (card) card.click();
+    }
+
+    // ═══ OTP FLOW ═══
+    var OTP_CSRF = document.querySelector('#booking-form input[name="csrfmiddlewaretoken"]').value;
+    var otpVerificado = false;
+
+    function setOtpMsg(texto, ok) {
+        var el = document.getElementById('otp-msg');
+        if (!el) return;
+        el.textContent = texto;
+        el.style.color = ok ? '#1a7f37' : '#b42318';
+    }
+
+    function mostrarDados(prefill, clienteExistente) {
+        var dados = document.getElementById('dados-fields');
+        var captcha = document.getElementById('captcha-field');
+        var checkWrap = document.getElementById('cadastro-check-wrap');
+        var badge = document.getElementById('cliente-badge');
+        dados.style.display = '';
+        if (captcha) captcha.style.display = '';
+        var nome = document.getElementById('form-nome');
+        var nasc = document.getElementById('form-nascimento');
+        var tel = document.getElementById('form-telefone');
+        if (prefill) {
+            nome.value = prefill.nome || '';
+            nasc.value = prefill.data_nascimento || '';
+            tel.value = prefill.telefone || '';
+            tel.dispatchEvent(new Event('input'));
+        }
+        nome.required = true;
+        nasc.required = true;
+        tel.required = true;
+        if (clienteExistente) {
+            badge.innerHTML = '<i class="bi bi-check-circle-fill"></i>Bem-vindo de volta — seus dados foram carregados.';
+            badge.setAttribute('data-state', 'existing');
+        } else {
+            badge.innerHTML = '<i class="bi bi-stars"></i>Novo por aqui — preencha seus dados abaixo.';
+            badge.setAttribute('data-state', 'new');
+            checkWrap.style.display = '';
+        }
+        badge.style.display = '';
+        document.getElementById('btn-confirmar').disabled = false;
+        document.getElementById('btn-confirmar').title = '';
+    }
+
+    var btnEnviar = document.getElementById('btn-enviar-otp');
+    if (btnEnviar) {
+        btnEnviar.addEventListener('click', function() {
+            var email = (document.getElementById('form-email').value || '').trim();
+            if (!email || email.indexOf('@') < 0) {
+                setOtpMsg('Informe um e-mail valido.', false);
+                return;
+            }
+            btnEnviar.disabled = true;
+            setOtpMsg('Enviando codigo...', true);
+            var fd = new FormData();
+            fd.append('email', email);
+            fd.append('csrfmiddlewaretoken', OTP_CSRF);
+            var cap = document.querySelector('#captcha-field .cf-turnstile input[name="cf-turnstile-response"]');
+            if (cap) fd.append('cf-turnstile-response', cap.value);
+            fetch('{% url "aranha:solicitar_otp_agendamento" %}', {method:'POST', body: fd, headers:{'X-CSRFToken': OTP_CSRF}})
+                .then(function(r) { return r.json().then(function(d){ return {status:r.status, data:d}; }); })
+                .then(function(res) {
+                    btnEnviar.disabled = false;
+                    if (res.data.ok) {
+                        document.getElementById('otp-field').style.display = '';
+                        setOtpMsg('Codigo enviado para seu e-mail. Valido por 10min.', true);
+                        btnEnviar.innerHTML = '<i class="bi bi-arrow-clockwise"></i><span class="otp-btn-text">Reenviar</span>';
+                    } else if (res.data.erro === 'aguarde') {
+                        setOtpMsg('Aguarde alguns segundos antes de reenviar.', false);
+                    } else {
+                        setOtpMsg('Falha ao enviar. Tente novamente.', false);
+                    }
+                })
+                .catch(function() {
+                    btnEnviar.disabled = false;
+                    setOtpMsg('Erro de conexao.', false);
+                });
+        });
+    }
+
+    var btnVerif = document.getElementById('btn-verificar-otp');
+    if (btnVerif) {
+        btnVerif.addEventListener('click', function() {
+            var email = (document.getElementById('form-email').value || '').trim();
+            var codigo = (document.getElementById('otp-codigo').value || '').trim();
+            if (!/^\d{6}$/.test(codigo)) {
+                setOtpMsg('Codigo deve ter 6 digitos.', false);
+                return;
+            }
+            btnVerif.disabled = true;
+            var fd = new FormData();
+            fd.append('email', email);
+            fd.append('codigo', codigo);
+            fd.append('csrfmiddlewaretoken', OTP_CSRF);
+            fetch('{% url "aranha:verificar_otp_agendamento" %}', {method:'POST', body: fd, headers:{'X-CSRFToken': OTP_CSRF}})
+                .then(function(r) { return r.json().then(function(d){ return {status:r.status, data:d}; }); })
+                .then(function(res) {
+                    btnVerif.disabled = false;
+                    if (res.data.ok) {
+                        otpVerificado = true;
+                        setOtpMsg('E-mail verificado!', true);
+                        var existe = !!res.data.prefill;
+                        mostrarDados(res.data.prefill, existe);
+                        // esconde botoes OTP apos sucesso
+                        btnEnviar.style.display = 'none';
+                        btnVerif.style.display = 'none';
+                        document.getElementById('otp-codigo').disabled = true;
+                    } else if (res.data.erro && res.data.erro.indexOf('incorreto') === 0) {
+                        var restante = res.data.erro.split(':')[1] || '';
+                        setOtpMsg('Codigo incorreto. Tentativas restantes: ' + restante, false);
+                    } else if (res.data.erro === 'bloqueado') {
+                        setOtpMsg('Muitas tentativas. Solicite um novo codigo.', false);
+                    } else {
+                        setOtpMsg('Codigo expirado. Solicite um novo.', false);
+                    }
+                })
+                .catch(function() {
+                    btnVerif.disabled = false;
+                    setOtpMsg('Erro de conexao.', false);
+                });
+        });
+    }
+
+})();
+</script>
+{% if turnstile_enabled %}
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer nonce="{{ csp_nonce }}"></script>
+{% endif %}
+{% endblock %}
