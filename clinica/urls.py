@@ -1,4 +1,4 @@
-# shivazen/urls.py
+# clinica/urls.py
 from django.conf import settings
 from django.contrib import admin
 from django.contrib.sitemaps.views import sitemap

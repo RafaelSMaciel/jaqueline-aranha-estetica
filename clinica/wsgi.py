@@ -1,5 +1,5 @@
 """
-WSGI config for shivazen project.
+WSGI config for clinica project.
 
 It exposes the WSGI callable as a module-level variable named ``application``.
 

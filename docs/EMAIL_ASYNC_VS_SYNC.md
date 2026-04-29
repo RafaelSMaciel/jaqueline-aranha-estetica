@@ -83,7 +83,7 @@ Considerar migração quando ocorrer **qualquer** um destes:
 ```
 Railway project: shivazen-app
 ├── web        (Django + gunicorn)           $5
-├── worker     (celery -A shivazen worker)   $5
+├── worker     (celery -A clinica worker)   $5
 ├── Postgres                                  $5
 └── Redis      (broker + result backend)      $5
 
@@ -101,7 +101,7 @@ envolve:
 
 1. Provisionar Redis na Railway
 2. Setar env vars `REDIS_URL`, `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`
-3. Criar serviço `worker` com startCommand `celery -A shivazen worker --beat -l info`
+3. Criar serviço `worker` com startCommand `celery -A clinica worker --beat -l info`
 4. Trocar chamadas síncronas `enviar_email(...)` por `enviar_email_task.delay(...)`
 5. Remover endpoint `/cron/run/<job>/` (substituído por Celery Beat)
 

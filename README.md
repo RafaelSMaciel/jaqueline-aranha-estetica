@@ -1,8 +1,8 @@
-# Jaqueline Aranha Estética — shivazen-app
+# Jaqueline Aranha Estética
 
 Sistema de agendamento online e gestão para clínica de estética da biomédica Jaqueline Aranha. Django 5.2 + PostgreSQL + Redis + Celery, com painel administrativo, PWA, web push e integrações externas (Google Calendar, WhatsApp Business, MercadoPago opcional).
 
-> **Nota técnica:** o nome do repositório/projeto Python (`shivazen-app`, `app_shivazen`, `shivazen/`) é mantido por compatibilidade. A marca de produto exibida ao usuário final é **Jaqueline Aranha Estética**, configurável via env var `CLINIC_NAME`.
+> **Nota técnica:** módulos Python renomeados em 2026-04-29 (`app_shivazen` → `aranha_estetica`, `shivazen` → `clinica`). O `app_label` interno permanece `app_shivazen` para preservar `django_migrations` e `content_type` rows sem mexer no DB. O nome do repositório local pode ainda aparecer como `shivazen-app/` — pode ser renomeado livremente. Marca de produto: **Jaqueline Aranha Estética**, configurável via env var `CLINIC_NAME`.
 
 ## Visão Geral
 
@@ -71,8 +71,8 @@ Plataforma single-tenant white-label para clínica estética, atendimento exclus
 ## Estrutura
 
 ```
-shivazen-app/
-├── app_shivazen/
+shivazen-app/                   # Pasta local do repo (nome legado, pode ser renomeada)
+├── aranha_estetica/             # App Django principal (label interno: app_shivazen)
 │   ├── models/                  # Domínio modular (clientes, agendamentos, workflow, push, anamnese...)
 │   ├── views/                   # Views por domínio (booking, admin_*, profissional, webpush, etc.)
 │   ├── services/                # Lógica de negócio (workflow_engine, push, gcal, otp, notificacao)
@@ -92,11 +92,11 @@ shivazen-app/
 │   ├── signals.py               # Reativo (faltas, pacotes, fila, workflow ON_BOOK/CANCEL)
 │   ├── decorators.py            # staff_required, etc.
 │   ├── middleware.py            # CSP nonce, axes, etc.
-│   ├── urls.py                  # Rotas da app
+│   ├── urls.py                  # Rotas da app (namespace: aranha)
 │   ├── management/commands/
 │   │   └── seed_jaqueline.py    # Seed da clínica + 23 procedimentos oficiais
 │   └── migrations/              # 21 migrações
-├── shivazen/                    # Projeto Django (settings, celery, urls, wsgi)
+├── clinica/                     # Projeto Django (settings, celery, urls, wsgi)
 ├── docs/                        # Documentação técnica
 ├── outputs/                     # Reports (review, custos, regras, prontidão)
 ├── scripts/                     # Utilitários (fix_accents, rename_photo_paths, update_docs_brand)

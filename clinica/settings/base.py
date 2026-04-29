@@ -171,7 +171,7 @@ else:
         DATABASES = {
             'default': {
                 'ENGINE': _dev_engine,
-                'NAME': os.environ.get('DB_NAME', 'shivazen_dev'),
+                'NAME': os.environ.get('DB_NAME', 'aranha_estetica_dev'),
                 'USER': os.environ.get('DB_USER', 'postgres'),
                 'PASSWORD': os.environ.get('DB_PASSWORD', ''),
                 'HOST': os.environ.get('DB_HOST', 'localhost'),
