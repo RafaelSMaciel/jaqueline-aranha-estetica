@@ -1,0 +1,93 @@
+{% extends 'painel/base.html' %}
+
+{% block page_title %}Workflows{% endblock %}
+{% block page_subtitle %}Regras automaticas: notificacoes, push, webhooks{% endblock %}
+{% block page_actions %}
+<a href="{% url 'shivazen:admin_workflow_criar' %}" class="btn-admin-primary btn-sm">
+    <i class="fas fa-plus"></i> Nova regra
+</a>
+{% endblock %}
+
+{% block admin_css %}
+.wf-card {
+    background: white; border-radius: 14px; padding: 1rem;
+    margin-bottom: 0.6rem; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.wf-card.inativa { opacity: 0.55; }
+.wf-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
+.wf-nome { font-weight: 800; font-size: 0.95rem; color: #1a1a2e; flex: 1; }
+.wf-pill {
+    font-size: 0.65rem; padding: 0.15rem 0.55rem;
+    border-radius: 999px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.5px;
+}
+.wf-pill.trigger { background: #e3f2fd; color: #1565c0; }
+.wf-pill.acao { background: #e8f5e9; color: #2e7d32; }
+.wf-pill.offset { background: #fff3e0; color: #ef6c00; }
+.wf-pill.inativa { background: #fce4ec; color: #c62828; }
+.wf-actions { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-top: 0.6rem; }
+.wf-actions a, .wf-actions button {
+    padding: 0.3rem 0.7rem; border-radius: 8px;
+    font-size: 0.75rem; font-weight: 700;
+    text-decoration: none; border: none; cursor: pointer;
+}
+.wf-tpl {
+    background: #fafafa; padding: 0.5rem 0.75rem; border-radius: 8px;
+    font-size: 0.78rem; color: #666; font-family: monospace;
+    white-space: pre-wrap; margin-top: 0.35rem;
+}
+{% endblock %}
+
+{% block admin_content %}
+<div class="small text-muted mb-2 fw-bold">
+    <i class="fas fa-bolt me-1"></i>{{ regras|length }} regra(s)
+</div>
+
+{% for r in regras %}
+<div class="wf-card {% if not r.ativo %}inativa{% endif %}">
+    <div class="wf-head">
+        <span class="wf-nome">{{ r.nome }}</span>
+        {% if not r.ativo %}<span class="wf-pill inativa">Inativa</span>{% endif %}
+    </div>
+    <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-bottom:0.3rem;">
+        <span class="wf-pill trigger">{{ r.get_trigger_display }}</span>
+        <span class="wf-pill acao">{{ r.get_acao_display }}</span>
+        {% if r.trigger == 'BEFORE_EVENT' or r.trigger == 'AFTER_EVENT' %}
+        <span class="wf-pill offset">{{ r.offset_minutos }} min</span>
+        {% endif %}
+    </div>
+    {% if r.template %}<div class="wf-tpl">{{ r.template }}</div>{% endif %}
+    <div class="wf-actions">
+        <a href="{% url 'shivazen:admin_workflow_editar' r.pk %}" style="background:#e3f2fd;color:#1565c0;">
+            <i class="fas fa-pen"></i> Editar
+        </a>
+        <a href="{% url 'shivazen:admin_workflow_execucoes' r.pk %}" style="background:#f3e5f5;color:#7b1fa2;">
+            <i class="fas fa-history"></i> Execucoes
+        </a>
+        <form method="post" action="{% url 'shivazen:admin_workflow_toggle' r.pk %}" style="display:inline;margin:0;">
+            {% csrf_token %}
+            <button type="submit" style="background:{% if r.ativo %}#fff8e1;color:#f57f17{% else %}#e8f5e9;color:#2e7d32{% endif %};">
+                <i class="fas fa-{% if r.ativo %}pause{% else %}play{% endif %}"></i>
+                {% if r.ativo %}Desativar{% else %}Ativar{% endif %}
+            </button>
+        </form>
+        <form method="post" action="{% url 'shivazen:admin_workflow_excluir' r.pk %}" style="display:inline;margin:0;"
+              onsubmit="return confirm('Excluir regra {{ r.nome|escapejs }}?')">
+            {% csrf_token %}
+            <button type="submit" style="background:#fce4ec;color:#c62828;">
+                <i class="fas fa-trash"></i>
+            </button>
+        </form>
+    </div>
+</div>
+{% empty %}
+<div class="admin-empty-state">
+    <div class="icon"><i class="fas fa-bolt"></i></div>
+    <h5>Nenhuma regra cadastrada</h5>
+    <p>Crie regras p/ disparar notificacoes/push/webhooks automaticos.</p>
+    <a href="{% url 'shivazen:admin_workflow_criar' %}" class="btn-admin-primary">
+        <i class="fas fa-plus"></i> Criar primeira regra
+    </a>
+</div>
+{% endfor %}
+{% endblock %}

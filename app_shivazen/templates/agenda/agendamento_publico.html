@@ -578,6 +578,15 @@
                             </div>
                         </div>
 
+                        <!-- Anamnese dinamica (preenchida via JS conforme procedimento) -->
+                        <div id="anamneseContainer" style="display:none;">
+                            <div style="font-weight:700;color:#7a5f1f;margin:1rem 0 0.5rem;font-size:0.9rem;">
+                                <i class="bi bi-clipboard-heart"></i> Questionario pre-atendimento
+                            </div>
+                            <div id="anamneseFields"></div>
+                            <input type="hidden" name="anamnese_respostas" id="anamneseRespostasJson" value="">
+                        </div>
+
                         {% if turnstile_enabled %}
                         <div class="form-field" id="captcha-field" style="display:none;">
                             <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" data-theme="light"></div>
@@ -838,7 +847,100 @@
         document.getElementById('form-profissional').value = selectedProf.id;
         document.getElementById('form-datetime').value = selectedSlot.iso;
 
+        renderAnamnese();
+
         goToStep(3);
+    }
+
+    // ═══ ANAMNESE DINAMICA ═══
+    var FORMULARIOS_ANAMNESE = {{ formularios_anamnese_json|safe }};
+
+    function formularioAplicaAoProc(form, proc) {
+        if (form.escopo === 'GLOBAL') return true;
+        if (form.escopo === 'CATEGORIA') return form.categoria === proc.categoria;
+        if (form.escopo === 'PROCEDIMENTO') return form.procedimento_id === proc.id;
+        return false;
+    }
+
+    function renderAnamnese() {
+        var container = document.getElementById('anamneseContainer');
+        var fields = document.getElementById('anamneseFields');
+        if (!container || !fields || !selectedProc) return;
+        fields.innerHTML = '';
+
+        var aplicaveis = FORMULARIOS_ANAMNESE.filter(function(f){
+            return formularioAplicaAoProc(f, selectedProc);
+        });
+        if (aplicaveis.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+        container.style.display = '';
+
+        aplicaveis.forEach(function(form){
+            var formWrap = document.createElement('div');
+            formWrap.style.cssText = 'border:1px solid #eee;border-radius:10px;padding:0.75rem;margin-bottom:0.6rem;background:#fafafa;';
+            var ttl = document.createElement('div');
+            ttl.style.cssText = 'font-weight:700;color:#4A3425;font-size:0.85rem;margin-bottom:0.5rem;';
+            ttl.textContent = form.nome;
+            formWrap.appendChild(ttl);
+
+            (form.schema || []).forEach(function(field){
+                var fwrap = document.createElement('div');
+                fwrap.style.marginBottom = '0.5rem';
+                var lbl = document.createElement('label');
+                lbl.style.cssText = 'display:block;font-size:0.78rem;color:#666;font-weight:600;margin-bottom:0.2rem;';
+                lbl.textContent = field.label + (field.obrigatorio ? ' *' : '');
+                fwrap.appendChild(lbl);
+
+                var input;
+                if (field.tipo === 'bool') {
+                    input = document.createElement('select');
+                    input.innerHTML = '<option value="">—</option><option value="sim">Sim</option><option value="nao">Nao</option>';
+                } else if (field.tipo === 'select') {
+                    input = document.createElement('select');
+                    input.innerHTML = '<option value="">—</option>';
+                    (field.opcoes || []).forEach(function(o){
+                        var opt = document.createElement('option');
+                        opt.value = o; opt.textContent = o;
+                        input.appendChild(opt);
+                    });
+                } else if (field.tipo === 'longtext') {
+                    input = document.createElement('textarea');
+                    input.rows = 2;
+                } else if (field.tipo === 'number') {
+                    input = document.createElement('input'); input.type = 'number';
+                } else if (field.tipo === 'date') {
+                    input = document.createElement('input'); input.type = 'date';
+                } else {
+                    input = document.createElement('input'); input.type = 'text';
+                }
+                input.style.cssText = 'width:100%;padding:0.45rem;border:1px solid #ddd;border-radius:6px;font-size:0.85rem;';
+                input.dataset.formId = form.id;
+                input.dataset.fieldKey = field.key;
+                input.dataset.obrigatorio = field.obrigatorio ? '1' : '';
+                if (field.obrigatorio) input.required = true;
+                fwrap.appendChild(input);
+                formWrap.appendChild(fwrap);
+            });
+            fields.appendChild(formWrap);
+        });
+    }
+
+    function coletarAnamnese() {
+        var dados = {};
+        document.querySelectorAll('#anamneseFields [data-form-id]').forEach(function(el){
+            var fid = el.dataset.formId;
+            var key = el.dataset.fieldKey;
+            if (!dados[fid]) dados[fid] = {};
+            dados[fid][key] = el.value;
+        });
+        document.getElementById('anamneseRespostasJson').value = JSON.stringify(dados);
+    }
+
+    var bookingForm = document.getElementById('booking-form');
+    if (bookingForm) {
+        bookingForm.addEventListener('submit', coletarAnamnese);
     }
 
     // ═══ PHONE MASK ═══

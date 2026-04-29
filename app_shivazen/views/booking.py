@@ -72,10 +72,28 @@ def agendamento_publico(request):
         (p['categoria'], p['categoria_label']) for p in procedimentos_com_preco
     })
 
+    # Anamneses ativas — JS escolhe quais aplicam baseado no procedimento selecionado
+    formularios_anamnese = []
+    try:
+        from ..models import FormularioAnamnese
+        for f in FormularioAnamnese.objects.filter(ativo=True):
+            formularios_anamnese.append({
+                'id': f.pk,
+                'nome': f.nome,
+                'escopo': f.escopo,
+                'categoria': f.categoria,
+                'procedimento_id': f.procedimento_id,
+                'obrigatorio': f.obrigatorio,
+                'schema': f.schema_json,
+            })
+    except (OperationalError, ProgrammingError):
+        pass
+
     context = {
         'procedimentos': procedimentos_com_preco,
         'procedimentos_json': json.dumps(procedimentos_com_preco),
         'categorias_disponiveis': categorias_disponiveis,
+        'formularios_anamnese_json': json.dumps(formularios_anamnese),
         'whatsapp_numero': WHATSAPP_NUMERO,
         'proc_preselect': proc_preselect,
         'turnstile_site_key': turnstile_site_key(),
@@ -328,6 +346,27 @@ def confirmar_agendamento(request):
                 valor_cobrado=valor,
                 status='PENDENTE'
             )
+
+            # --- Anamnese: salva respostas se enviadas ---
+            anamnese_raw = request.POST.get('anamnese_respostas', '').strip()
+            if anamnese_raw:
+                try:
+                    from ..models import FormularioAnamnese, RespostaAnamnese
+                    anamnese_data = json.loads(anamnese_raw)
+                    if isinstance(anamnese_data, dict):
+                        for form_id_str, respostas in anamnese_data.items():
+                            try:
+                                form_id = int(form_id_str)
+                                f = FormularioAnamnese.objects.filter(pk=form_id, ativo=True).first()
+                                if f and isinstance(respostas, dict):
+                                    RespostaAnamnese.objects.create(
+                                        formulario=f, cliente=cliente,
+                                        atendimento=atendimento, respostas_json=respostas,
+                                    )
+                            except (ValueError, TypeError):
+                                continue
+                except (ValueError, TypeError):
+                    logger.warning('[BOOKING] anamnese_respostas JSON invalido')
 
             # --- Notificacao de termos pendentes (dentro da transacao) ---
             termos_pendentes = VersaoTermo.objects.filter(
