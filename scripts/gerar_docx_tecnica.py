@@ -143,7 +143,7 @@ def build():
     # ═══ 2. Arquitetura ═══
     doc.add_heading('2. Arquitetura da Aplicação', level=1)
     doc.add_paragraph(
-        'Código organizado em uma app Django única (app_shivazen) com separação '
+        'Código organizado em uma app Django única (aranha_estetica) com separação '
         'por responsabilidade:'
     )
     bullets(doc, [
@@ -775,7 +775,7 @@ def build():
         '7. Staging dev isolado com Postgres próprio (~$5/mês adicional).',
         '8. Redis + Celery quando volume > 200 clientes/mês (+$10-15/mês).',
         '9. Custom domain com HTTPS (Railway emite certificado automático).',
-        '10. Split do app_shivazen em apps menores se crescer para > 50 modelos.',
+        '10. Split do aranha_estetica em apps menores se crescer para > 50 modelos.',
     ]:
         doc.add_paragraph(item)
 
