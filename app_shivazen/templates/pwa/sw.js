@@ -118,3 +118,35 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
 });
+
+// Web Push: recebe payload e exibe notification
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (e) {
+    data = { head: 'Notificacao', body: event.data ? event.data.text() : '' };
+  }
+  const title = data.head || 'shivazen';
+  const options = {
+    body: data.body || '',
+    icon: data.icon || '/static/assets/logo-completa.png',
+    badge: data.badge || '/static/assets/favicon.png',
+    data: { url: data.url || '/painel/' },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Click na notification: abre/foca janela
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || '/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
+      for (const w of wins) {
+        if (w.url.includes(targetUrl) && 'focus' in w) return w.focus();
+      }
+      if (clients.openWindow) return clients.openWindow(targetUrl);
+    })
+  );
+});

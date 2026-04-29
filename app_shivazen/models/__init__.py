@@ -22,6 +22,8 @@ from .pacotes import Pacote, ItemPacote, PacoteCliente, SessaoPacote
 from .sistema import (
     ListaEspera, LogAuditoria, ConfiguracaoSistema, CodigoVerificacao, OtpCode, Feriado,
 )
+from .workflow import WorkflowRegra, WorkflowExecucao
+from .push import WebPushSubscription
 
 __all__ = [
     'Funcionalidade', 'Perfil', 'PerfilFuncionalidade', 'Usuario', 'UsuarioManager',
@@ -35,4 +37,6 @@ __all__ = [
     'Pacote', 'ItemPacote', 'PacoteCliente', 'SessaoPacote',
     'ListaEspera', 'LogAuditoria', 'ConfiguracaoSistema', 'CodigoVerificacao', 'OtpCode',
     'Feriado',
+    'WorkflowRegra', 'WorkflowExecucao',
+    'WebPushSubscription',
 ]

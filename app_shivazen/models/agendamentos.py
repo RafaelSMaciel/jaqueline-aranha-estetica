@@ -52,6 +52,62 @@ class Atendimento(models.Model):
             self.token_cancelamento = secrets.token_urlsafe(32)
         super().save(*args, **kwargs)
 
+    # ───────── FSM transitions (hybrid: campo continua CharField) ─────────
+    # Garante transicoes validas. Codigo legado que faz `status = X; save()`
+    # continua funcionando — uso desses metodos eh recomendado em codigo novo.
+
+    TRANSICOES = {
+        'PENDENTE': {'AGENDADO', 'CONFIRMADO', 'CANCELADO', 'REAGENDADO'},
+        'AGENDADO': {'CONFIRMADO', 'CANCELADO', 'FALTOU', 'REAGENDADO', 'REALIZADO'},
+        'CONFIRMADO': {'REALIZADO', 'CANCELADO', 'FALTOU', 'REAGENDADO'},
+        'REALIZADO': set(),
+        'CANCELADO': set(),
+        'FALTOU': set(),
+        'REAGENDADO': set(),
+    }
+
+    class TransicaoInvalida(Exception):
+        pass
+
+    def _transicionar(self, novo_status, motivo=None, by_user=None):
+        permitido = self.TRANSICOES.get(self.status, set())
+        if novo_status not in permitido:
+            raise self.TransicaoInvalida(
+                f'Transicao {self.status} -> {novo_status} nao permitida'
+            )
+        anterior = self.status
+        self.status = novo_status
+        self.save(update_fields=['status', 'atualizado_em'])
+        try:
+            from .sistema import LogAuditoria
+            LogAuditoria.objects.create(
+                usuario=by_user,
+                acao=f'Atendimento {self.pk}: {anterior} -> {novo_status}'
+                     + (f' ({motivo})' if motivo else ''),
+                tabela_afetada='atendimento',
+                id_registro_afetado=self.pk,
+            )
+        except Exception:
+            pass  # auditoria best-effort
+
+    def confirmar(self, by_user=None):
+        self._transicionar('CONFIRMADO', by_user=by_user)
+
+    def cancelar(self, motivo='', by_user=None):
+        self._transicionar('CANCELADO', motivo=motivo, by_user=by_user)
+
+    def marcar_realizado(self, by_user=None):
+        self._transicionar('REALIZADO', by_user=by_user)
+
+    def marcar_falta(self, by_user=None):
+        self._transicionar('FALTOU', by_user=by_user)
+
+    def marcar_reagendado(self, by_user=None):
+        self._transicionar('REAGENDADO', by_user=by_user)
+
+    def aprovar(self, by_user=None):
+        self._transicionar('AGENDADO', by_user=by_user)
+
     class Meta:
         managed = True
         db_table = 'atendimento'

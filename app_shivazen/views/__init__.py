@@ -80,3 +80,4 @@ from .admin_2fa import admin_2fa_setup, admin_2fa_verify, admin_2fa_challenge
 from .admin_calendar import admin_calendar, admin_calendar_events, admin_calendar_mover
 from .admin_branding import admin_branding
 from .agenda_publica import agendar_por_profissional, ics_feed_profissional
+from .webpush_views import webpush_public_key, webpush_subscribe, webpush_unsubscribe
