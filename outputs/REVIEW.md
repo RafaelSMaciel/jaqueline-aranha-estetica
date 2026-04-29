@@ -1,6 +1,6 @@
 # Review do Projeto — jaqueline-aranha-estetica (Jaqueline Aranha)
 
-Data: 2026-04-27 · Branch: `claude/quizzical-grothendieck-3d4b34` (HEAD = `c29ce88`, sincronizado com `origin/main` e `origin/dev`)
+Data: 2026-04-27 · Branch: `dev`
 
 ---
 
