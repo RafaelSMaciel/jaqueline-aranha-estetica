@@ -4,12 +4,14 @@ ICS feed requer query param ?token=<ics_token> p/ nao vazar agenda.
 """
 from datetime import datetime, timedelta
 
+from django.db.utils import OperationalError, ProgrammingError
 from django.http import HttpResponse, Http404
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
+from django.views.decorators.clickjacking import xframe_options_exempt
 
-from ..models import Atendimento, Profissional
+from ..models import Atendimento, Procedimento, Profissional
 
 
 def agendar_por_profissional(request, slug):
@@ -96,3 +98,34 @@ def ics_feed_profissional(request, slug):
     resp = HttpResponse(body, content_type='text/calendar; charset=utf-8')
     resp['Content-Disposition'] = f'inline; filename="{prof.slug}-agenda.ics"'
     return resp
+
+
+@xframe_options_exempt
+def embed_agendar(request):
+    """Widget standalone p/ iframe (Linktree, Instagram bio, site externo).
+
+    Lista procedimentos ativos com link p/ booking publico c/ ?procedimento=X.
+    Permite iframe (X-Frame-Options OFF).
+    """
+    procedimentos = []
+    try:
+        from ..services.agendamento import preco_base_map
+        procs_qs = list(Procedimento.objects.filter(ativo=True))
+        precos = preco_base_map(procs_qs)
+        for p in procs_qs:
+            valor = precos.get(p.pk)
+            procedimentos.append({
+                'id': p.pk,
+                'nome': p.nome,
+                'duracao_minutos': p.duracao_minutos,
+                'preco': float(valor) if valor is not None else 0,
+            })
+    except (OperationalError, ProgrammingError, ImportError):
+        pass
+
+    booking_url = request.build_absolute_uri('/agendamento/')
+    context = {
+        'procedimentos': procedimentos,
+        'booking_url': booking_url,
+    }
+    return render(request, 'agenda/embed.html', context)

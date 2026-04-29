@@ -30,11 +30,17 @@ urlpatterns = [
     path('agendamento/', views.agendamento_publico, name='agendamento_publico'),
     path('agendar/<slug:slug>/', views.agendar_por_profissional, name='agendar_por_profissional'),
     path('agenda/<slug:slug>/feed.ics', views.ics_feed_profissional, name='ics_feed_profissional'),
+    path('embed/agendar/', views.embed_agendar, name='embed_agendar'),
 
     # ─── Web Push ───
     path('webpush/public-key/', views.webpush_public_key, name='webpush_public_key'),
     path('webpush/subscribe/', views.webpush_subscribe, name='webpush_subscribe'),
     path('webpush/unsubscribe/', views.webpush_unsubscribe, name='webpush_unsubscribe'),
+
+    # ─── Google Calendar OAuth ───
+    path('painel/integrations/google/connect/<int:prof_id>/', views.gcal_connect, name='gcal_connect'),
+    path('painel/integrations/google/callback/', views.gcal_callback, name='gcal_callback'),
+    path('painel/integrations/google/pull/<int:prof_id>/', views.gcal_pull, name='gcal_pull'),
     path('agendamento/confirmar/', views.confirmar_agendamento, name='confirmar_agendamento'),
     path('agendamento/sucesso/', views.agendamento_sucesso, name='agendamento_sucesso'),
     path('agendamento/otp/solicitar/', views.solicitar_otp_agendamento, name='solicitar_otp_agendamento'),

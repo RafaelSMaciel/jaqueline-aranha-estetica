@@ -12,6 +12,11 @@ class Profissional(models.Model):
     min_notice_horas = models.SmallIntegerField(default=2)
     max_advance_dias = models.SmallIntegerField(default=60)
     ics_token = models.CharField(max_length=64, unique=True, blank=True, null=True)
+    # Google Calendar sync — preenchido apos OAuth dance
+    gcal_refresh_token = models.TextField(blank=True, default='')
+    gcal_calendar_id = models.CharField(max_length=200, blank=True, default='primary')
+    gcal_sync_token = models.TextField(blank=True, default='')
+    gcal_ultimo_sync_em = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         managed = True
@@ -100,11 +105,27 @@ class Profissional(models.Model):
             status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO']
         ).select_related('procedimento'))
 
-        bloqueios = list(BloqueioAgenda.objects.filter(
+        from datetime import datetime as _dt
+        dia_inicio = _dt.combine(data_selecionada, _dt.min.time())
+        dia_fim = _dt.combine(data_selecionada, _dt.max.time())
+        if timezone.is_naive(dia_inicio):
+            tz = timezone.get_current_timezone()
+            dia_inicio = timezone.make_aware(dia_inicio, tz)
+            dia_fim = timezone.make_aware(dia_fim, tz)
+
+        # Bloqueios pontuais (sem recorrencia) intersectando o dia
+        bloqueios_raw = list(BloqueioAgenda.objects.filter(
             profissional=self,
-            data_hora_inicio__date__lte=data_selecionada,
-            data_hora_fim__date__gte=data_selecionada
+        ).filter(
+            models.Q(regra_recorrencia='') &
+            models.Q(data_hora_inicio__date__lte=data_selecionada) &
+            models.Q(data_hora_fim__date__gte=data_selecionada)
         ))
+        # Bloqueios recorrentes (qualquer profissional self) — expande p/ janela do dia
+        recorrentes = BloqueioAgenda.objects.filter(profissional=self).exclude(regra_recorrencia='')
+        bloqueios_intervalos = [(b.data_hora_inicio, b.data_hora_fim) for b in bloqueios_raw]
+        for b in recorrentes:
+            bloqueios_intervalos.extend(b.expandir_ocorrencias(dia_inicio, dia_fim))
 
         buffer_proc = timedelta(minutes=procedimento.buffer_minutos) if procedimento else timedelta(0)
 
@@ -132,8 +153,8 @@ class Profissional(models.Model):
                         horario_ocupado = True
                         break
                 if not horario_ocupado:
-                    for bl in bloqueios:
-                        if bl.data_hora_inicio <= hora_atual < bl.data_hora_fim:
+                    for bl_ini, bl_fim in bloqueios_intervalos:
+                        if bl_ini <= hora_atual < bl_fim:
                             horario_ocupado = True
                             break
                 if not horario_ocupado:
@@ -182,6 +203,11 @@ class BloqueioAgenda(models.Model):
     data_hora_inicio = models.DateTimeField()
     data_hora_fim = models.DateTimeField()
     motivo = models.TextField(blank=True, null=True)
+    # iCal RRULE (RFC 5545). Vazio = bloqueio unico (sem recorrencia).
+    # Ex: "FREQ=WEEKLY;BYDAY=WE" (toda quarta), "FREQ=MONTHLY;BYDAY=1SA" (1o sabado).
+    regra_recorrencia = models.CharField(max_length=255, blank=True, default='')
+    # Limite de expansao da regra. None = sem fim (mas engine usa janela).
+    recorrencia_ate = models.DateField(blank=True, null=True)
 
     class Meta:
         managed = True
@@ -196,7 +222,54 @@ class BloqueioAgenda(models.Model):
     def __str__(self):
         prof = self.profissional.nome if self.profissional_id else 'Todos'
         ini = self.data_hora_inicio.strftime('%d/%m/%Y %H:%M') if self.data_hora_inicio else '?'
-        return f'Bloqueio {prof} @ {ini}'
+        sfx = f' (recorrente: {self.regra_recorrencia})' if self.regra_recorrencia else ''
+        return f'Bloqueio {prof} @ {ini}{sfx}'
+
+    def expandir_ocorrencias(self, range_inicio, range_fim):
+        """Retorna lista de (inicio, fim) entre range_inicio e range_fim.
+
+        Sem recorrencia: retorna a unica ocorrencia se intersectar.
+        Com recorrencia: usa dateutil.rrule p/ expandir.
+        """
+        from datetime import timedelta as _td
+        duracao = self.data_hora_fim - self.data_hora_inicio
+
+        if not self.regra_recorrencia:
+            if self.data_hora_fim > range_inicio and self.data_hora_inicio < range_fim:
+                return [(self.data_hora_inicio, self.data_hora_fim)]
+            return []
+
+        try:
+            from dateutil.rrule import rrulestr
+        except ImportError:
+            return [(self.data_hora_inicio, self.data_hora_fim)]
+
+        try:
+            rule = rrulestr(
+                f'DTSTART:{self.data_hora_inicio.strftime("%Y%m%dT%H%M%SZ")}\n'
+                f'RRULE:{self.regra_recorrencia}',
+                forceset=True,
+            )
+        except (ValueError, TypeError):
+            return [(self.data_hora_inicio, self.data_hora_fim)]
+
+        ate = self.recorrencia_ate
+        fim_busca = range_fim
+        if ate:
+            from datetime import datetime as _dt
+            limite = _dt.combine(ate, _dt.min.time())
+            from django.utils import timezone as _tz
+            if _tz.is_naive(limite):
+                limite = _tz.make_aware(limite, _tz.get_current_timezone())
+            if limite < fim_busca:
+                fim_busca = limite
+
+        ocorrencias = []
+        for inicio in rule.between(range_inicio - duracao, fim_busca, inc=True):
+            fim = inicio + duracao
+            if fim > range_inicio and inicio < range_fim:
+                ocorrencias.append((inicio, fim))
+        return ocorrencias
 
 
 class ExcecaoDisponibilidade(models.Model):
