@@ -21,6 +21,24 @@ CLINIC_NAME = os.environ.get('CLINIC_NAME', 'Dra. Jaqueline Aranha')
 
 
 # ═══════════════════════════════════════
+#  WORKFLOW ENGINE — regras dinamicas BEFORE/AFTER_EVENT
+# ═══════════════════════════════════════
+
+@shared_task(bind=True, max_retries=2, default_retry_delay=120)
+def job_workflow_executar_pendentes(self):
+    """Executa regras BEFORE_EVENT / AFTER_EVENT elegiveis."""
+    try:
+        from .services.workflow_engine import executar_pendentes
+        resultado = executar_pendentes()
+        total = sum(resultado.values())
+        logger.info('[WORKFLOW] %s acoes disparadas (regras: %s)', total, resultado)
+        return f'{total} acao(es) disparada(s)'
+    except Exception as e:
+        logger.exception('[WORKFLOW] Erro executando pendentes')
+        raise self.retry(exc=e)
+
+
+# ═══════════════════════════════════════
 #  WHATSAPP — Confirmacao D-1
 # ═══════════════════════════════════════
 
