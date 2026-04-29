@@ -1,14 +1,21 @@
 // Service Worker — estrategia hibrida (cache-first estaticos, network-first HTML)
-const VERSION = 'v3';
+const VERSION = 'v4';
 const STATIC_CACHE = `shivazen-static-${VERSION}`;
 const RUNTIME_CACHE = `shivazen-runtime-${VERSION}`;
 const IMAGE_CACHE = `shivazen-img-${VERSION}`;
+const API_CACHE = `shivazen-api-${VERSION}`;
 
 const PRECACHE_URLS = [
+  '/',
   '/static/assets/logo-completa.png',
   '/static/assets/logo-sem-fundo.png',
   '/static/assets/favicon.png',
+  '/static/css/base.css',
+  '/static/js/admin-search.js',
 ];
+
+const MAX_API_ENTRIES = 30;
+const MAX_RUNTIME_ENTRIES = 80;
 
 const MAX_IMAGE_ENTRIES = 60;
 const IMAGE_TTL_DAYS = 30;
@@ -21,7 +28,7 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  const allowed = new Set([STATIC_CACHE, RUNTIME_CACHE, IMAGE_CACHE]);
+  const allowed = new Set([STATIC_CACHE, RUNTIME_CACHE, IMAGE_CACHE, API_CACHE]);
   event.waitUntil(
     caches.keys().then((names) =>
       Promise.all(names.filter((n) => !allowed.has(n)).map((n) => caches.delete(n)))
@@ -45,14 +52,35 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  if (url.pathname.startsWith('/api/') ||
-      url.pathname.startsWith('/ajax/') ||
+  // Bypass total: admin/painel/lgpd/health (privado, dinamico)
+  if (url.pathname.startsWith('/ajax/') ||
       url.pathname.startsWith('/admin/') ||
       url.pathname.startsWith('/painel/') ||
       url.pathname.startsWith('/lgpd/aceitar-cookies') ||
       url.pathname.startsWith('/health')) {
     return;
   }
+
+  // Stale-while-revalidate p/ leitura de API publica (procedimentos, dias, horarios)
+  if (url.pathname.startsWith('/api/dias-disponiveis') ||
+      url.pathname.startsWith('/api/horarios-disponiveis') ||
+      url.pathname.startsWith('/api/buscar-procedimentos')) {
+    event.respondWith(
+      caches.open(API_CACHE).then(async (cache) => {
+        const cached = await cache.match(req);
+        const network = fetch(req).then((resp) => {
+          if (resp.ok) {
+            cache.put(req, resp.clone());
+            trimCache(API_CACHE, MAX_API_ENTRIES);
+          }
+          return resp;
+        }).catch(() => cached);
+        return cached || network;
+      })
+    );
+    return;
+  }
+  if (url.pathname.startsWith('/api/')) return;
 
   // Estrategia: imagens - cache-first com TTL e limite
   if (req.destination === 'image' || /\.(png|jpg|jpeg|webp|gif|svg|ico)$/i.test(url.pathname)) {
@@ -81,7 +109,10 @@ self.addEventListener('fetch', (event) => {
       caches.open(RUNTIME_CACHE).then(async (cache) => {
         const cached = await cache.match(req);
         const network = fetch(req).then((resp) => {
-          if (resp.ok) cache.put(req, resp.clone());
+          if (resp.ok) {
+            cache.put(req, resp.clone());
+            trimCache(RUNTIME_CACHE, MAX_RUNTIME_ENTRIES);
+          }
           return resp;
         }).catch(() => cached);
         return cached || network;

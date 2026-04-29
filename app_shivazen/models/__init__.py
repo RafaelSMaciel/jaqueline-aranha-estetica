@@ -24,6 +24,7 @@ from .sistema import (
 )
 from .workflow import WorkflowRegra, WorkflowExecucao
 from .push import WebPushSubscription
+from .anamnese import FormularioAnamnese, RespostaAnamnese
 
 __all__ = [
     'Funcionalidade', 'Perfil', 'PerfilFuncionalidade', 'Usuario', 'UsuarioManager',
@@ -39,4 +40,5 @@ __all__ = [
     'Feriado',
     'WorkflowRegra', 'WorkflowExecucao',
     'WebPushSubscription',
+    'FormularioAnamnese', 'RespostaAnamnese',
 ]

@@ -54,6 +54,14 @@ def processar_mudanca_status(sender, instance, created, **kwargs):
         except Exception as e:
             logger.exception('push profissional falhou: %s', e)
 
+        # Sync outbound p/ Google Calendar (gracioso)
+        try:
+            from .services.gcal import push_atendimento, gcal_disponivel
+            if gcal_disponivel() and instance.profissional.gcal_refresh_token:
+                push_atendimento(instance)
+        except Exception as e:
+            logger.exception('gcal push falhou: %s', e)
+
     if status_atual == status_anterior:
         return
 
