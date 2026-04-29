@@ -3,7 +3,7 @@ from django.db import migrations, models
 
 def seed_feriados_nacionais(apps, schema_editor):
     """Insere feriados nacionais fixos 2026-2027 (exceto moveis: Carnaval, Paixao, Corpus Christi)."""
-    Feriado = apps.get_model('app_shivazen', 'Feriado')
+    Feriado = apps.get_model('aranha_estetica', 'Feriado')
 
     fixos = [
         ('01-01', 'Confraternizacao Universal'),
@@ -43,14 +43,14 @@ def seed_feriados_nacionais(apps, schema_editor):
 
 
 def unseed_feriados(apps, schema_editor):
-    Feriado = apps.get_model('app_shivazen', 'Feriado')
+    Feriado = apps.get_model('aranha_estetica', 'Feriado')
     Feriado.objects.filter(escopo='NACIONAL').delete()
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('app_shivazen', '0011_otpcode'),
+        ('aranha_estetica', '0011_otpcode'),
     ]
 
     operations = [

@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('app_shivazen', '0007_add_performance_indexes'),
+        ('aranha_estetica', '0007_add_performance_indexes'),
     ]
 
     operations = [

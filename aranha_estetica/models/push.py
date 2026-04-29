@@ -1,4 +1,4 @@
-# app_shivazen/models/push.py — Web Push subscriptions
+# aranha_estetica/models/push.py — Web Push subscriptions
 from django.conf import settings
 from django.db import models
 

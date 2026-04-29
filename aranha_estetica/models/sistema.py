@@ -1,4 +1,4 @@
-# app_shivazen/models/sistema.py — Auditoria, configuracao, lista de espera, verificacao
+# aranha_estetica/models/sistema.py — Auditoria, configuracao, lista de espera, verificacao
 from django.db import models
 
 from .clientes import Cliente

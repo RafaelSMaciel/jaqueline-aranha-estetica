@@ -1,4 +1,4 @@
-# app_shivazen/urls.py
+# aranha_estetica/urls.py
 from django.urls import include, path
 from django.views.generic import TemplateView
 from . import views

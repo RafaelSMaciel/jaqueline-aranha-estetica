@@ -1,4 +1,4 @@
-# app_shivazen/models/workflow.py — Regras de workflow configuraveis
+# aranha_estetica/models/workflow.py — Regras de workflow configuraveis
 from django.db import models
 
 

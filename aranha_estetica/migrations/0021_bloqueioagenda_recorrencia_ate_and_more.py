@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('app_shivazen', '0020_workflowregra_webpushsubscription_workflowexecucao'),
+        ('aranha_estetica', '0020_workflowregra_webpushsubscription_workflowexecucao'),
     ]
 
     operations = [

@@ -4,7 +4,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('app_shivazen', '0012_feriado_and_lembrete2h'),
+        ('aranha_estetica', '0012_feriado_and_lembrete2h'),
     ]
 
     operations = [

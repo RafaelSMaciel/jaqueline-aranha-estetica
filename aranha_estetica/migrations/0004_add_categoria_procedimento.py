@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('app_shivazen', '0003_add_token_cancelamento_atendimento'),
+        ('aranha_estetica', '0003_add_token_cancelamento_atendimento'),
     ]
 
     operations = [

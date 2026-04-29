@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('app_shivazen', '0017_consent_whatsapp_confirmacao'),
+        ('aranha_estetica', '0017_consent_whatsapp_confirmacao'),
     ]
 
     operations = [

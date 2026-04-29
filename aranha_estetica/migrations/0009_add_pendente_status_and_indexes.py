@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('app_shivazen', '0008_add_indexes_constraints'),
+        ('aranha_estetica', '0008_add_indexes_constraints'),
     ]
 
     operations = [

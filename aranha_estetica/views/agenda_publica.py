@@ -83,7 +83,7 @@ def ics_feed_profissional(request, slug):
         )
         lines.extend([
             'BEGIN:VEVENT',
-            f'UID:atend-{at.pk}@shivazen',
+            f'UID:atend-{at.pk}@aranha-estetica',
             f'DTSTAMP:{_ics_format_dt(at.atualizado_em or at.criado_em or agora)}',
             f'DTSTART:{_ics_format_dt(at.data_hora_inicio)}',
             f'DTEND:{_ics_format_dt(at.data_hora_fim)}',

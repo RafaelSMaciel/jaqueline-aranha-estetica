@@ -4,7 +4,7 @@ from django.utils.text import slugify
 
 def gerar_slugs_existentes(apps, schema_editor):
     """Gera slug unico para procedimentos ja cadastrados."""
-    Procedimento = apps.get_model('app_shivazen', 'Procedimento')
+    Procedimento = apps.get_model('aranha_estetica', 'Procedimento')
     usados = set()
     for proc in Procedimento.objects.all():
         base = slugify(proc.nome) or f'procedimento-{proc.pk}'
@@ -19,14 +19,14 @@ def gerar_slugs_existentes(apps, schema_editor):
 
 
 def reverter_slugs(apps, schema_editor):
-    Procedimento = apps.get_model('app_shivazen', 'Procedimento')
+    Procedimento = apps.get_model('aranha_estetica', 'Procedimento')
     Procedimento.objects.update(slug=None)
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('app_shivazen', '0004_add_categoria_procedimento'),
+        ('aranha_estetica', '0004_add_categoria_procedimento'),
     ]
 
     operations = [

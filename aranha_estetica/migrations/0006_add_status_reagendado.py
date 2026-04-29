@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('app_shivazen', '0005_add_procedimento_slug_imagem'),
+        ('aranha_estetica', '0005_add_procedimento_slug_imagem'),
     ]
 
     operations = [

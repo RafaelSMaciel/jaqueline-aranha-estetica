@@ -5,7 +5,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('app_shivazen', '0013_add_missing_fk_indexes'),
+        ('aranha_estetica', '0013_add_missing_fk_indexes'),
     ]
 
     operations = [

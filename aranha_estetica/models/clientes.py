@@ -1,4 +1,4 @@
-# app_shivazen/models/clientes.py — Clientes
+# aranha_estetica/models/clientes.py — Clientes
 import secrets
 from django.db import models
 from django.core.validators import MinValueValidator

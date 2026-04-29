@@ -1,4 +1,4 @@
-# app_shivazen/models/pacotes.py — Pacotes de servicos
+# aranha_estetica/models/pacotes.py — Pacotes de servicos
 from django.db import models
 
 from .clientes import Cliente
