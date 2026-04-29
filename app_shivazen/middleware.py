@@ -5,6 +5,58 @@ Inclui Content-Security-Policy com nonce por request e headers adicionais
 """
 import secrets
 
+from django.shortcuts import redirect
+from django.urls import resolve, reverse
+from django.urls.exceptions import Resolver404
+
+
+class Enforce2FAMiddleware:
+    """Exige verificacao 2FA pos-login para acessar /painel/ quando usuario tem TOTP ativo.
+
+    Fluxo:
+      1. Usuario loga (session cria);
+      2. Se tiver TOTPDevice.confirmed=True e sessao sem 'otp_verified', redireciona p/ challenge;
+      3. Apos verificar token correto, session['otp_verified']=True libera /painel/.
+    """
+
+    EXEMPT_NAMES = {
+        'admin_2fa_challenge', 'admin_2fa_verify', 'admin_2fa_setup',
+        'usuario_login', 'usuario_logout',
+        'password_reset', 'password_reset_done',
+        'password_reset_confirm', 'password_reset_complete',
+    }
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if not request.user.is_authenticated:
+            return self.get_response(request)
+
+        path = request.path or ''
+        if not path.startswith('/painel/') and not path.startswith('/profissional/'):
+            return self.get_response(request)
+
+        try:
+            match = resolve(path)
+            if match.url_name in self.EXEMPT_NAMES:
+                return self.get_response(request)
+        except Resolver404:
+            pass
+
+        if request.session.get('otp_verified'):
+            return self.get_response(request)
+
+        try:
+            from django_otp.plugins.otp_totp.models import TOTPDevice
+            if TOTPDevice.objects.filter(user=request.user, confirmed=True).exists():
+                challenge_url = reverse('shivazen:admin_2fa_challenge')
+                return redirect(f'{challenge_url}?next={path}')
+        except Exception:
+            pass
+
+        return self.get_response(request)
+
 
 class SecurityHeadersMiddleware:
     """Headers de seguranca adicionais nao cobertos pelo Django core."""

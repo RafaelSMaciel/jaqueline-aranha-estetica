@@ -57,9 +57,32 @@
                 <input type="date" name="data_nascimento" value="{{ cliente.data_nascimento|date:'Y-m-d' }}">
             </div>
         </div>
-        <div class="form-group">
-            <label>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div class="form-group">
+                <label>RG</label>
+                <input type="text" name="rg" value="{{ cliente.rg|default_if_none:'' }}">
+            </div>
+            <div class="form-group">
+                <label>Profissão</label>
+                <input type="text" name="profissao" value="{{ cliente.profissao|default_if_none:'' }}">
+            </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 0.75rem;">
+            <div class="form-group">
+                <label>CEP</label>
+                <input type="text" name="cep" value="{{ cliente.cep|default_if_none:'' }}" placeholder="00000-000">
+            </div>
+            <div class="form-group">
+                <label>Endereço</label>
+                <input type="text" name="endereco" value="{{ cliente.endereco|default_if_none:'' }}" placeholder="Rua, nº - Bairro">
+            </div>
+        </div>
+        <div class="form-group" style="display:flex; gap:1.5rem; flex-wrap:wrap;">
+            <label style="display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;">
                 <input type="checkbox" name="ativo" value="1" {% if cliente.ativo %}checked{% endif %}> Ativo
+            </label>
+            <label style="display:inline-flex; align-items:center; gap:0.3rem; cursor:pointer;">
+                <input type="checkbox" name="aceita_comunicacao" value="1" {% if cliente.aceita_comunicacao %}checked{% endif %}> Aceita comunicação
             </label>
         </div>
 

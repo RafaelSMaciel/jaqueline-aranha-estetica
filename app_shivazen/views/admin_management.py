@@ -215,6 +215,10 @@ def admin_cliente_detalhe(request, pk):
         cliente.telefone = request.POST.get('telefone', cliente.telefone).strip()
         cliente.email = request.POST.get('email', '').strip() or None
         cliente.cpf = request.POST.get('cpf', '').strip() or None
+        cliente.rg = request.POST.get('rg', '').strip() or None
+        cliente.profissao = request.POST.get('profissao', '').strip() or None
+        cliente.cep = request.POST.get('cep', '').strip() or None
+        cliente.endereco = request.POST.get('endereco', '').strip() or None
         data_nasc = request.POST.get('data_nascimento', '')
         if data_nasc:
             try:
@@ -222,6 +226,7 @@ def admin_cliente_detalhe(request, pk):
             except ValueError:
                 pass
         cliente.ativo = request.POST.get('ativo') == '1'
+        cliente.aceita_comunicacao = request.POST.get('aceita_comunicacao') == '1'
         cliente.save()
         registrar_log(request.user, f'Editou cliente: {cliente.nome_completo}', 'cliente', cliente.pk)
         messages.success(request, 'Paciente atualizado!')
@@ -425,7 +430,7 @@ EMAIL_PREVIEW_FIXTURES = {
         'template': 'email/confirmacao.html',
         'contexto': {'dados': {
             'nome': 'Maria Silva', 'procedimento': 'Limpeza de Pele',
-            'profissional': 'Dra. Joana', 'data_hora': '20/04/2026 as 14:00',
+            'profissional': 'Dra. Jaqueline Aranha', 'data_hora': '20/04/2026 as 14:00',
             'valor': '180,00',
         }, 'clinic_name': 'Dra. Jaqueline Aranha'},
     },
@@ -446,7 +451,7 @@ EMAIL_PREVIEW_FIXTURES = {
         'template': 'email/cancelamento.html',
         'contexto': {'dados': {
             'nome': 'Maria Silva', 'procedimento': 'Limpeza de Pele',
-            'data_hora': '20/04/2026 as 14:00', 'profissional': 'Dra. Joana',
+            'data_hora': '20/04/2026 as 14:00', 'profissional': 'Dra. Jaqueline Aranha',
         }, 'clinic_name': 'Dra. Jaqueline Aranha'},
     },
     'nps': {
@@ -488,3 +493,172 @@ def admin_email_preview(request, nome=None):
     fx = EMAIL_PREVIEW_FIXTURES[nome]
     html = render_to_string(fx['template'], fx['contexto'])
     return HttpResponse(html)
+
+
+# ═══════════════════════════════════════
+#   APROVACAO — STAFF / GERENTE
+# ═══════════════════════════════════════
+
+from django.views.decorators.http import require_POST
+
+
+@staff_required
+@require_POST
+@ratelimit(key='user', rate='60/m', method='POST', block=True)
+def admin_aprovar_agendamento(request, pk):
+    """Gerente/recepção aprova agendamento PENDENTE → AGENDADO."""
+    atendimento = get_object_or_404(
+        Atendimento.objects.select_related('cliente', 'procedimento', 'profissional'),
+        pk=pk,
+    )
+    if atendimento.status != 'PENDENTE':
+        messages.warning(request, f'Atendimento já está como {atendimento.get_status_display().lower()}.')
+        return redirect(request.META.get('HTTP_REFERER', 'shivazen:painel_agendamentos'))
+
+    atendimento.status = 'AGENDADO'
+    atendimento.save()
+    registrar_log(request.user, 'Aprovou agendamento', 'atendimento', atendimento.pk)
+
+    if atendimento.cliente.email:
+        data_fmt = atendimento.data_hora_inicio.strftime('%d/%m/%Y as %H:%M')
+        dados = {
+            'nome': atendimento.cliente.nome_completo,
+            'procedimento': atendimento.procedimento.nome,
+            'profissional': atendimento.profissional.nome,
+            'data_hora': data_fmt,
+            'valor': f'R$ {float(atendimento.valor_cobrado):.2f}' if atendimento.valor_cobrado else 'A consultar',
+        }
+        from ..tasks import send_email_async
+        try:
+            send_email_async.delay('enviar_confirmacao_agendamento_email',
+                                   atendimento.cliente.email, dados)
+        except Exception:
+            from ..utils.email import enviar_confirmacao_agendamento_email
+            enviar_confirmacao_agendamento_email(atendimento.cliente.email, dados)
+
+    messages.success(request, f'Agendamento de {atendimento.cliente.nome_completo} aprovado.')
+    return redirect(request.META.get('HTTP_REFERER', 'shivazen:painel_agendamentos'))
+
+
+@staff_required
+@require_POST
+@ratelimit(key='user', rate='60/m', method='POST', block=True)
+def admin_rejeitar_agendamento(request, pk):
+    """Gerente/recepção rejeita agendamento PENDENTE → CANCELADO."""
+    atendimento = get_object_or_404(
+        Atendimento.objects.select_related('cliente', 'procedimento', 'profissional'),
+        pk=pk,
+    )
+    if atendimento.status != 'PENDENTE':
+        messages.warning(request, f'Atendimento já está como {atendimento.get_status_display().lower()}.')
+        return redirect(request.META.get('HTTP_REFERER', 'shivazen:painel_agendamentos'))
+
+    atendimento.status = 'CANCELADO'
+    atendimento.save()
+    registrar_log(request.user, 'Rejeitou agendamento', 'atendimento', atendimento.pk)
+
+    if atendimento.cliente.email:
+        data_fmt = atendimento.data_hora_inicio.strftime('%d/%m/%Y as %H:%M')
+        dados = {
+            'nome': atendimento.cliente.nome_completo,
+            'procedimento': atendimento.procedimento.nome,
+            'profissional': atendimento.profissional.nome,
+            'data_hora': data_fmt,
+        }
+        from ..tasks import send_email_async
+        try:
+            send_email_async.delay('enviar_cancelamento_email', atendimento.cliente.email, dados)
+        except Exception:
+            from ..utils.email import enviar_cancelamento_email
+            enviar_cancelamento_email(atendimento.cliente.email, dados)
+
+    messages.success(request, f'Agendamento de {atendimento.cliente.nome_completo} rejeitado.')
+    return redirect(request.META.get('HTTP_REFERER', 'shivazen:painel_agendamentos'))
+
+
+@staff_required
+@require_POST
+@ratelimit(key='user', rate='10/m', method='POST', block=True)
+def admin_bulk_agendamentos(request):
+    """Aprovacao/rejeicao em massa de agendamentos PENDENTES.
+
+    POST: ids=[...] + acao=aprovar|rejeitar
+    """
+    ids_raw = request.POST.getlist('ids') or []
+    acao = request.POST.get('acao', '').strip().lower()
+    redirect_to = request.META.get('HTTP_REFERER') or 'shivazen:painel_agendamentos'
+
+    if acao not in ('aprovar', 'rejeitar'):
+        messages.error(request, 'Acao invalida.')
+        return redirect(redirect_to)
+
+    try:
+        ids = [int(x) for x in ids_raw]
+    except (TypeError, ValueError):
+        messages.error(request, 'IDs invalidos.')
+        return redirect(redirect_to)
+
+    if not ids:
+        messages.warning(request, 'Nenhum agendamento selecionado.')
+        return redirect(redirect_to)
+
+    from ..tasks import send_email_async
+    from ..utils.email import (
+        enviar_confirmacao_agendamento_email, enviar_cancelamento_email,
+    )
+
+    novo_status = 'AGENDADO' if acao == 'aprovar' else 'CANCELADO'
+    atendimentos = list(
+        Atendimento.objects.select_related('cliente', 'procedimento', 'profissional')
+        .filter(pk__in=ids, status='PENDENTE')
+    )
+
+    processados = 0
+    for at in atendimentos:
+        at.status = novo_status
+        at.save(update_fields=['status', 'atualizado_em'])
+        registrar_log(
+            request.user,
+            ('Aprovou agendamento (bulk)' if acao == 'aprovar'
+             else 'Rejeitou agendamento (bulk)'),
+            'atendimento', at.pk,
+        )
+
+        if at.cliente.email:
+            data_fmt = at.data_hora_inicio.strftime('%d/%m/%Y as %H:%M')
+            dados = {
+                'nome': at.cliente.nome_completo,
+                'procedimento': at.procedimento.nome,
+                'profissional': at.profissional.nome,
+                'data_hora': data_fmt,
+            }
+            if acao == 'aprovar':
+                dados['valor'] = (
+                    f'R$ {float(at.valor_cobrado):.2f}'
+                    if at.valor_cobrado else 'A consultar'
+                )
+                try:
+                    send_email_async.delay(
+                        'enviar_confirmacao_agendamento_email',
+                        at.cliente.email, dados,
+                    )
+                except Exception:
+                    enviar_confirmacao_agendamento_email(at.cliente.email, dados)
+            else:
+                try:
+                    send_email_async.delay(
+                        'enviar_cancelamento_email',
+                        at.cliente.email, dados,
+                    )
+                except Exception:
+                    enviar_cancelamento_email(at.cliente.email, dados)
+
+        processados += 1
+
+    ignorados = len(ids) - processados
+    msg_acao = 'aprovado(s)' if acao == 'aprovar' else 'rejeitado(s)'
+    msg = f'{processados} agendamento(s) {msg_acao}.'
+    if ignorados:
+        msg += f' {ignorados} ignorado(s) (nao estavam PENDENTE).'
+    messages.success(request, msg)
+    return redirect(redirect_to)

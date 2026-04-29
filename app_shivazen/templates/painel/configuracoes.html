@@ -1,0 +1,129 @@
+{% extends 'painel/base.html' %}
+
+{% block page_title %}Configurações{% endblock %}
+{% block page_subtitle %}Parâmetros do sistema (chave · valor){% endblock %}
+
+{% block admin_css %}
+.cfg-card {
+    background: white; border-radius: 14px; padding: 1rem;
+    margin-bottom: 0.6rem; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.cfg-chave {
+    font-family: 'Courier New', monospace; font-size: 0.8rem;
+    font-weight: 800; color: #8b6f47; margin-bottom: 0.2rem;
+}
+.cfg-descricao { font-size: 0.72rem; color: #888; margin-bottom: 0.5rem; }
+.cfg-form {
+    display: grid; grid-template-columns: 1fr auto auto;
+    gap: 0.4rem; align-items: center;
+}
+.cfg-form input {
+    padding: 0.45rem 0.7rem; border: 1px solid #e0e0e0;
+    border-radius: 8px; font-size: 0.85rem; background: #fafafa;
+}
+.cfg-form button {
+    border: none; padding: 0.45rem 0.9rem; border-radius: 8px;
+    font-size: 0.75rem; font-weight: 700; cursor: pointer;
+}
+.btn-salvar { background: #2e7d32; color: white; }
+.btn-excluir { background: #fce4ec; color: #c62828; }
+
+.sugestao-card {
+    background: #fff8e1; border: 1px dashed #f9a825;
+    border-radius: 12px; padding: 0.7rem 1rem;
+    margin-bottom: 0.4rem;
+}
+.sugestao-card .cfg-chave { color: #8b6f2b; }
+.sugestao-card button {
+    background: #f9a825; color: white; border: none;
+    padding: 0.3rem 0.8rem; border-radius: 8px;
+    font-size: 0.75rem; font-weight: 700; cursor: pointer;
+}
+
+.section-title {
+    font-size: 0.8rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 1px; color: #999; margin: 1rem 0 0.6rem;
+}
+
+.nova-form {
+    background: white; border-radius: 14px; padding: 1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 1rem;
+}
+.nova-form .form-grid {
+    display: grid; grid-template-columns: 1fr 1fr 2fr auto;
+    gap: 0.5rem;
+}
+.nova-form input {
+    padding: 0.5rem 0.7rem; border: 1px solid #ddd;
+    border-radius: 8px; font-size: 0.85rem;
+}
+.nova-form button {
+    background: #1a1a2e; color: white; border: none;
+    border-radius: 8px; padding: 0.5rem 1rem;
+    font-weight: 700; font-size: 0.85rem; cursor: pointer;
+}
+@media (max-width: 640px) {
+    .nova-form .form-grid { grid-template-columns: 1fr; }
+    .cfg-form { grid-template-columns: 1fr; }
+}
+{% endblock %}
+
+{% block admin_content %}
+
+<!-- Criar nova configuracao -->
+<div class="nova-form">
+    <div class="small fw-bold mb-2" style="color:#666;">
+        <i class="fas fa-plus-circle me-1"></i>Nova configuração
+    </div>
+    <form method="post" action="{% url 'shivazen:admin_criar_configuracao' %}">
+        {% csrf_token %}
+        <div class="form-grid">
+            <input type="text" name="chave" placeholder="CHAVE_EXEMPLO" required>
+            <input type="text" name="valor" placeholder="valor">
+            <input type="text" name="descricao" placeholder="Descrição (opcional)">
+            <button type="submit">Criar</button>
+        </div>
+    </form>
+</div>
+
+{% if sugestoes %}
+<div class="section-title">
+    <i class="fas fa-lightbulb me-1"></i>Sugestões de configurações ({{ sugestoes|length }})
+</div>
+{% for s in sugestoes %}
+<div class="sugestao-card">
+    <div class="cfg-chave">{{ s.chave }}</div>
+    <div class="cfg-descricao">{{ s.descricao }}</div>
+    <form method="post" action="{% url 'shivazen:admin_criar_configuracao' %}" style="display:flex; gap:0.4rem; align-items:center;">
+        {% csrf_token %}
+        <input type="hidden" name="chave" value="{{ s.chave }}">
+        <input type="hidden" name="descricao" value="{{ s.descricao }}">
+        <input type="text" name="valor" value="{{ s.valor }}" style="flex:1; padding:0.4rem 0.7rem; border:1px solid #f9a825; border-radius:8px; font-size:0.85rem; background:white;">
+        <button type="submit"><i class="fas fa-check"></i> Adicionar</button>
+    </form>
+</div>
+{% endfor %}
+{% endif %}
+
+<div class="section-title">
+    <i class="fas fa-cogs me-1"></i>Configurações ativas ({{ configs|length }})
+</div>
+
+{% for c in configs %}
+<div class="cfg-card">
+    <div class="cfg-chave">{{ c.chave }}</div>
+    {% if c.descricao %}<div class="cfg-descricao">{{ c.descricao }}</div>{% endif %}
+    <form method="post" action="{% url 'shivazen:admin_editar_configuracao' c.pk %}" class="cfg-form">
+        {% csrf_token %}
+        <input type="text" name="valor" value="{{ c.valor|default:'' }}">
+        <button type="submit" class="btn-salvar" title="Salvar"><i class="fas fa-save"></i></button>
+        <button type="submit" class="btn-excluir" formaction="{% url 'shivazen:admin_excluir_configuracao' c.pk %}" onclick="return confirm('Excluir {{ c.chave|escapejs }}?')" title="Excluir"><i class="fas fa-trash"></i></button>
+    </form>
+</div>
+{% empty %}
+<div style="text-align:center; padding:2rem 1rem; color:#999;">
+    Nenhuma configuração cadastrada. Use as sugestões acima ou crie uma nova.
+</div>
+{% endfor %}
+
+{% endblock %}

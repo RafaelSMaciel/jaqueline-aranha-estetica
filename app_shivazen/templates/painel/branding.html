@@ -1,0 +1,137 @@
+{% extends 'painel/base.html' %}
+
+{% block page_title %}Branding{% endblock %}
+{% block page_subtitle %}Identidade visual · logo · cores · contatos{% endblock %}
+
+{% block admin_css %}
+.brand-card {
+    background: white; border-radius: 16px; padding: 1.25rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 1rem;
+}
+.brand-card h5 { font-weight: 800; font-size: 0.95rem; margin-bottom: 1rem; }
+.form-group { margin-bottom: 0.85rem; }
+.form-group label {
+    display: block; font-size: 0.72rem; font-weight: 700;
+    color: #666; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.form-group input[type=text],
+.form-group input[type=email],
+.form-group input[type=url] {
+    width: 100%; padding: 0.55rem 0.7rem;
+    border: 1px solid #ddd; border-radius: 10px;
+    font-size: 0.88rem; background: #fafafa;
+}
+.form-group input[type=color] {
+    width: 60px; height: 40px; border: 1px solid #ddd;
+    border-radius: 10px; cursor: pointer; background: white;
+}
+.form-group .color-preview {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+}
+.form-group .color-hex {
+    font-family: 'Courier New', monospace; font-size: 0.85rem;
+    color: #8b6f47; font-weight: 700; padding: 0.3rem 0.6rem;
+    background: #fafafa; border-radius: 8px;
+}
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+@media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } }
+
+.logo-preview {
+    background: #f5efe8; border-radius: 14px; padding: 1.5rem;
+    text-align: center; margin-bottom: 1rem;
+}
+.logo-preview img {
+    max-width: 200px; max-height: 150px;
+    border-radius: 10px; background: white;
+    padding: 0.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.logo-preview .empty {
+    color: #999; font-size: 0.85rem; padding: 2rem; font-style: italic;
+}
+
+input[type=file] {
+    width: 100%; padding: 0.5rem;
+    border: 2px dashed #c9a58a; border-radius: 10px;
+    background: #fafafa; cursor: pointer; font-size: 0.85rem;
+}
+
+.btn-save {
+    background: linear-gradient(135deg, #8b6f47, #c9a58a);
+    color: white; border: none; padding: 0.7rem 1.5rem;
+    border-radius: 12px; font-weight: 800; font-size: 0.95rem;
+    cursor: pointer;
+}
+.btn-save:hover { filter: brightness(1.05); }
+
+.info-aviso {
+    background: #e3f2fd; color: #1565c0;
+    padding: 0.7rem 1rem; border-radius: 10px;
+    font-size: 0.82rem; margin-bottom: 1rem;
+    border-left: 3px solid #1565c0;
+}
+{% endblock %}
+
+{% block admin_content %}
+<div class="info-aviso">
+    <i class="fas fa-info-circle me-1"></i>
+    Alterações aqui substituem variáveis de ambiente. Cache 5min — mudanças aparecem em até 5 minutos em todas páginas públicas.
+</div>
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <!-- Logo -->
+    <div class="brand-card">
+        <h5><i class="fas fa-image me-1"></i> Logo</h5>
+        <div class="logo-preview">
+            {% if logo_url %}
+                <img src="{{ logo_url }}" alt="Logo atual">
+            {% else %}
+                <div class="empty">
+                    <i class="fas fa-image" style="font-size:2rem; color:#ccc; display:block; margin-bottom:0.5rem;"></i>
+                    Sem logo personalizado. Usando placeholder padrão.
+                </div>
+            {% endif %}
+        </div>
+        <div class="form-group">
+            <label>Substituir logo (PNG · JPG · SVG · WebP · max 5MB)</label>
+            <input type="file" name="logo" accept="image/png,image/jpeg,image/svg+xml,image/webp">
+        </div>
+    </div>
+
+    <!-- Identidade -->
+    <div class="brand-card">
+        <h5><i class="fas fa-building me-1"></i> Identidade da clínica</h5>
+        {% for c in campos %}
+            {% if c.tipo != 'color' %}
+            <div class="form-group">
+                <label>{{ c.label }}</label>
+                <input type="{{ c.tipo }}" name="{{ c.chave }}" value="{{ c.valor }}" autocomplete="off">
+            </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+
+    <!-- Paleta de cores -->
+    <div class="brand-card">
+        <h5><i class="fas fa-palette me-1"></i> Paleta de cores</h5>
+        <div class="form-grid">
+            {% for c in campos %}
+                {% if c.tipo == 'color' %}
+                <div class="form-group">
+                    <label>{{ c.label }}</label>
+                    <div class="color-preview">
+                        <input type="color" name="{{ c.chave }}" value="{{ c.valor|default:'#8b6f47' }}">
+                        <span class="color-hex">{{ c.valor|default:'—' }}</span>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <button type="submit" class="btn-save">
+        <i class="fas fa-save me-1"></i> Salvar alterações
+    </button>
+</form>
+{% endblock %}

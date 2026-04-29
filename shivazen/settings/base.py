@@ -61,6 +61,9 @@ INSTALLED_APPS = [
     'axes',
     'rest_framework',
     'drf_spectacular',
+    'django_otp',
+    'django_otp.plugins.otp_totp',
+    'django_otp.plugins.otp_static',
 ]
 
 # DRF
@@ -106,6 +109,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'app_shivazen.middleware.ContentSecurityPolicyMiddleware',
     'app_shivazen.middleware.SecurityHeadersMiddleware',
+    'app_shivazen.middleware.Enforce2FAMiddleware',
     'axes.middleware.AxesMiddleware',
 ]
 

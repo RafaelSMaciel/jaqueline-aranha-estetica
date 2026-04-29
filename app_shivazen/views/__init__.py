@@ -54,6 +54,8 @@ from .admin_management import (
     admin_cliente_detalhe, admin_lista_espera, admin_notificar_espera,
     nps_web, admin_termos, admin_criar_termo, termo_assinatura,
     admin_email_preview,
+    admin_aprovar_agendamento, admin_rejeitar_agendamento,
+    admin_bulk_agendamentos,
 )
 from .profissional import (
     agenda as profissional_agenda,
@@ -65,3 +67,15 @@ from .profissional import (
 from .health import healthcheck, liveness
 from .cron import run_job as cron_run_job
 from .lgpd import meus_dados as lgpd_meus_dados, unsubscribe as lgpd_unsubscribe, aceitar_cookies as lgpd_aceitar_cookies
+from .admin_usuarios import (
+    admin_usuarios, admin_criar_usuario, admin_editar_usuario,
+    admin_resetar_senha_usuario, admin_desativar_usuario,
+)
+from .admin_config import (
+    admin_configuracoes, admin_criar_configuracao,
+    admin_editar_configuracao, admin_excluir_configuracao,
+)
+from .admin_termos_compliance import admin_termos_compliance
+from .admin_2fa import admin_2fa_setup, admin_2fa_verify, admin_2fa_challenge
+from .admin_calendar import admin_calendar, admin_calendar_events, admin_calendar_mover
+from .admin_branding import admin_branding

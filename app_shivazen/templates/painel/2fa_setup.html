@@ -1,0 +1,138 @@
+{% extends 'painel/base.html' %}
+
+{% block page_title %}Autenticação 2FA{% endblock %}
+{% block page_subtitle %}Proteja sua conta com código de 6 dígitos{% endblock %}
+
+{% block admin_css %}
+.card-2fa {
+    background: white; border-radius: 16px; padding: 1.5rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 1rem;
+}
+.status-2fa {
+    padding: 0.8rem 1rem; border-radius: 12px;
+    font-weight: 700; font-size: 0.85rem; margin-bottom: 1rem;
+    display: flex; align-items: center; gap: 0.5rem;
+}
+.status-2fa.ativo { background: #e8f5e9; color: #2e7d32; }
+.status-2fa.inativo { background: #fff8e1; color: #e65100; }
+.qr-wrap {
+    text-align: center; padding: 1.5rem;
+    background: #f5efe8; border-radius: 14px; margin-bottom: 1rem;
+}
+.qr-wrap img {
+    max-width: 240px; border: 6px solid white;
+    border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+}
+.secret-box {
+    font-family: 'Courier New', monospace; font-size: 0.9rem;
+    background: #fafafa; padding: 0.6rem 0.9rem;
+    border-radius: 8px; border: 1px dashed #c9a58a;
+    word-break: break-all; margin-top: 0.75rem;
+    color: #8b6f47; font-weight: 700;
+}
+.btn-2fa {
+    border: none; padding: 0.6rem 1.3rem;
+    border-radius: 10px; font-weight: 700;
+    font-size: 0.9rem; cursor: pointer;
+}
+.btn-primary-2fa { background: linear-gradient(135deg, #8b6f47, #c9a58a); color: white; }
+.btn-danger-2fa { background: #fce4ec; color: #c62828; }
+.input-token {
+    width: 100%; padding: 0.8rem;
+    border: 2px solid #ddd; border-radius: 12px;
+    font-size: 1.5rem; text-align: center; letter-spacing: 6px;
+    font-weight: 700; font-family: 'Courier New', monospace;
+}
+.input-token:focus { border-color: #8b6f47; outline: none; }
+{% endblock %}
+
+{% block admin_content %}
+
+{% if device_confirmado %}
+<div class="status-2fa ativo">
+    <i class="fas fa-shield-check"></i>
+    2FA ATIVO · dispositivo: {{ device_confirmado.name }}
+</div>
+<div class="card-2fa">
+    <p style="color:#666; font-size:0.88rem;">
+        Sua conta está protegida com autenticação de 2 fatores. A cada login você precisará digitar o código de 6 dígitos gerado pelo app.
+    </p>
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="desativar">
+        <button type="submit" class="btn-2fa btn-danger-2fa"
+            onclick="return confirm('Desativar 2FA? Sua conta ficará menos segura.')">
+            <i class="fas fa-shield-slash"></i> Desativar 2FA
+        </button>
+    </form>
+</div>
+
+{% elif device_pendente and qr_b64 %}
+<div class="status-2fa inativo">
+    <i class="fas fa-exclamation-triangle"></i>
+    2FA PENDENTE · confirme o código para ativar
+</div>
+
+<div class="card-2fa">
+    <h5 style="font-weight:800; margin-bottom:0.5rem;">Passo 1: escaneie o QR code</h5>
+    <p style="color:#666; font-size:0.85rem;">
+        Abra <strong>Google Authenticator</strong>, <strong>Authy</strong> ou <strong>Microsoft Authenticator</strong> e escaneie:
+    </p>
+    <div class="qr-wrap">
+        <img src="data:image/png;base64,{{ qr_b64 }}" alt="QR code TOTP">
+    </div>
+    <details>
+        <summary style="cursor:pointer; color:#8b6f47; font-weight:700; font-size:0.85rem;">
+            Não consegue escanear? Digite manualmente
+        </summary>
+        <div class="secret-box">{{ secret_b32 }}</div>
+    </details>
+</div>
+
+<div class="card-2fa">
+    <h5 style="font-weight:800; margin-bottom:0.5rem;">Passo 2: confirme o código gerado</h5>
+    <p style="color:#666; font-size:0.85rem;">
+        Digite os 6 dígitos que apareceram no app:
+    </p>
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="confirmar">
+        <input type="text" name="token" class="input-token"
+            maxlength="6" pattern="\d{6}" autocomplete="one-time-code"
+            placeholder="000000" required autofocus>
+        <div style="margin-top:1rem; display:flex; gap:0.5rem;">
+            <button type="submit" class="btn-2fa btn-primary-2fa">
+                <i class="fas fa-check"></i> Confirmar e ativar
+            </button>
+            <button type="submit" name="acao" value="gerar" class="btn-2fa"
+                style="background:white; color:#666; border:1px solid #ddd;">
+                Gerar novo QR
+            </button>
+        </div>
+    </form>
+</div>
+
+{% else %}
+<div class="status-2fa inativo">
+    <i class="fas fa-shield"></i>
+    2FA DESATIVADO · sua conta só protegida por senha
+</div>
+<div class="card-2fa">
+    <p style="color:#666; font-size:0.9rem; margin-bottom:1rem;">
+        Autenticação de 2 fatores adiciona uma camada extra de segurança: além da senha,
+        você precisará digitar um código de 6 dígitos gerado a cada 30 segundos pelo app.
+    </p>
+    <p style="color:#666; font-size:0.88rem;">
+        Apps compatíveis: <strong>Google Authenticator</strong>, <strong>Authy</strong>, <strong>Microsoft Authenticator</strong>, <strong>1Password</strong>.
+    </p>
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="gerar">
+        <button type="submit" class="btn-2fa btn-primary-2fa">
+            <i class="fas fa-shield-check"></i> Ativar 2FA agora
+        </button>
+    </form>
+</div>
+{% endif %}
+
+{% endblock %}
