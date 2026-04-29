@@ -6,10 +6,12 @@ from django.db import models
 
 class Profissional(models.Model):
     nome = models.CharField(max_length=100)
+    slug = models.SlugField(max_length=140, unique=True, blank=True, null=True)
     especialidade = models.TextField(blank=True, null=True)
     ativo = models.BooleanField(default=True)
     min_notice_horas = models.SmallIntegerField(default=2)
     max_advance_dias = models.SmallIntegerField(default=60)
+    ics_token = models.CharField(max_length=64, unique=True, blank=True, null=True)
 
     class Meta:
         managed = True
@@ -30,6 +32,21 @@ class Profissional(models.Model):
 
     def __str__(self):
         return self.nome
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            from django.utils.text import slugify
+            base = slugify(self.nome) or 'profissional'
+            slug = base
+            counter = 1
+            while Profissional.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                counter += 1
+                slug = f'{base}-{counter}'
+            self.slug = slug
+        if not self.ics_token:
+            import secrets
+            self.ics_token = secrets.token_urlsafe(32)
+        super().save(*args, **kwargs)
 
     def get_horarios_disponiveis(self, data_selecionada, procedimento=None):
         """Slots livres no dia, considerando:
