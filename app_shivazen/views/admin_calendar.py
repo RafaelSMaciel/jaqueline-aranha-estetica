@@ -8,7 +8,7 @@ from django.views.decorators.http import require_POST
 from django_ratelimit.decorators import ratelimit
 
 from ..decorators import staff_required
-from ..models import Atendimento, Profissional
+from ..models import Atendimento, BloqueioAgenda, ExcecaoDisponibilidade, Profissional
 from ..utils.audit import registrar_log
 
 
@@ -71,6 +71,41 @@ def admin_calendar_events(request):
                 'status': at.status,
                 'valor': float(at.valor_cobrado) if at.valor_cobrado else None,
             },
+        })
+
+    bloq_qs = BloqueioAgenda.objects.filter(
+        data_hora_inicio__lt=dt_end,
+        data_hora_fim__gt=dt_start,
+    )
+    if prof_filter:
+        bloq_qs = bloq_qs.filter(profissional_id=prof_filter)
+    for bl in bloq_qs:
+        eventos.append({
+            'id': f'bloq-{bl.pk}',
+            'title': f'Bloqueio: {bl.motivo or "—"}',
+            'start': bl.data_hora_inicio.isoformat(),
+            'end': bl.data_hora_fim.isoformat(),
+            'display': 'background',
+            'backgroundColor': '#bdbdbd',
+            'editable': False,
+        })
+
+    folgas_qs = ExcecaoDisponibilidade.objects.filter(
+        tipo='FOLGA',
+        data__gte=dt_start.date(),
+        data__lt=dt_end.date(),
+    )
+    if prof_filter:
+        folgas_qs = folgas_qs.filter(profissional_id=prof_filter)
+    for ex in folgas_qs:
+        eventos.append({
+            'id': f'folga-{ex.pk}',
+            'title': f'Folga: {ex.motivo or "—"}',
+            'start': ex.data.isoformat(),
+            'allDay': True,
+            'display': 'background',
+            'backgroundColor': '#ffe0b2',
+            'editable': False,
         })
 
     return JsonResponse(eventos, safe=False)

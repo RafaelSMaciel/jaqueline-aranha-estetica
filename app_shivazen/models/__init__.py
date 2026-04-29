@@ -6,7 +6,7 @@ from .acesso import (
     Usuario, UsuarioManager,
 )
 from .profissionais import (
-    Profissional, DisponibilidadeProfissional, BloqueioAgenda,
+    Profissional, DisponibilidadeProfissional, BloqueioAgenda, ExcecaoDisponibilidade,
 )
 from .clientes import Cliente
 from .procedimentos import (
@@ -25,7 +25,7 @@ from .sistema import (
 
 __all__ = [
     'Funcionalidade', 'Perfil', 'PerfilFuncionalidade', 'Usuario', 'UsuarioManager',
-    'Profissional', 'DisponibilidadeProfissional', 'BloqueioAgenda',
+    'Profissional', 'DisponibilidadeProfissional', 'BloqueioAgenda', 'ExcecaoDisponibilidade',
     'Cliente',
     'Procedimento', 'ProfissionalProcedimento', 'Preco', 'Promocao',
     'Atendimento', 'Notificacao',

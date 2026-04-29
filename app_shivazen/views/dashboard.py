@@ -4,14 +4,15 @@ from datetime import datetime, timedelta
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Count, Q, Sum
+from django.db.models import Avg, Count, F, Q, Sum
 from django.db.models.functions import TruncDate
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 
 from ..models import (
-    Cliente, Atendimento, Profissional, Procedimento
+    AvaliacaoNPS, Cliente, Atendimento, DisponibilidadeProfissional,
+    Procedimento, Profissional,
 )
 from ..decorators import staff_required
 
@@ -53,6 +54,38 @@ def painel_overview(request):
     ).aggregate(total=Sum('valor_cobrado'))['total'] or 0
 
     receita_mensal = f"{receita_total:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+
+    realizados_mes = Atendimento.objects.filter(
+        data_hora_inicio__gte=inicio_mes,
+        status='REALIZADO',
+    )
+    realizados_count = realizados_mes.count()
+    ticket_medio_val = (receita_total / realizados_count) if realizados_count else 0
+    ticket_medio = f"{ticket_medio_val:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+
+    realizados_semana = Atendimento.objects.filter(
+        data_hora_inicio__date__range=[inicio_semana, fim_semana],
+        status='REALIZADO',
+    ).count()
+    slots_semana = 0
+    for d in DisponibilidadeProfissional.objects.select_related('profissional').filter(profissional__ativo=True):
+        minutos_dia = (
+            datetime.combine(hoje, d.hora_fim) - datetime.combine(hoje, d.hora_inicio)
+        ).seconds // 60
+        slots_semana += minutos_dia // 30
+    taxa_ocupacao = round((realizados_semana / slots_semana) * 100, 1) if slots_semana else 0
+
+    limite_90d = timezone.now() - timedelta(days=90)
+    clientes_ativos_90d = Cliente.objects.filter(
+        atendimento__data_hora_inicio__gte=limite_90d,
+        atendimento__status__in=['REALIZADO', 'CONFIRMADO'],
+    ).distinct().count()
+
+    limite_30d = timezone.now() - timedelta(days=30)
+    nps_avg = AvaliacaoNPS.objects.filter(
+        criado_em__gte=limite_30d
+    ).aggregate(media=Avg('nota'))['media']
+    nps_medio = round(nps_avg, 1) if nps_avg is not None else None
 
     proximos_agendamentos = Atendimento.objects.filter(
         data_hora_inicio__gte=timezone.now(),
@@ -96,6 +129,10 @@ def painel_overview(request):
         'total_clientes': total_clientes,
         'novos_clientes': novos_clientes,
         'receita_mensal': receita_mensal,
+        'ticket_medio': ticket_medio,
+        'taxa_ocupacao': taxa_ocupacao,
+        'clientes_ativos_90d': clientes_ativos_90d,
+        'nps_medio': nps_medio,
         'proximos_agendamentos': proximos_agendamentos,
         'dias_semana': dias_semana,
         'dados_grafico_semana': dados_grafico_semana,
