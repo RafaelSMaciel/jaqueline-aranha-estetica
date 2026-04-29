@@ -64,7 +64,7 @@ def gerar(tamanho, path):
     print(f"Gerado: {path} ({tamanho}x{tamanho})")
 
 
-OUT = "app_shivazen/static/assets"
+OUT = "aranha_estetica/static/assets"
 os.makedirs(OUT, exist_ok=True)
 
 gerar(512, f"{OUT}/logo-ja-v2.png")

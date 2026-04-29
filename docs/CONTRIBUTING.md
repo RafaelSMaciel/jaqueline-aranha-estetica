@@ -1,4 +1,4 @@
-# Contribuindo — shivazen-app
+# Contribuindo — jaqueline-aranha-estetica
 
 ## Workflow
 
@@ -13,23 +13,23 @@
 - **ModelForm** sempre que tocar input de usuário (não usar `request.POST.get` cru)
 - **Service layer** para regra de negócio. Views ficam finas, só HTTP.
 - **`@transaction.atomic`** em qualquer operação multi-tabela
-- **Validators** centralizados em `app_shivazen/validators.py`
+- **Validators** centralizados em `aranha_estetica/validators.py`
 - **PII masking** obrigatório em logs e LogAuditoria
 
 ## Testes
 
 ```bash
-python manage.py test app_shivazen
+python manage.py test aranha_estetica
 ```
 
 - Testes para nova lógica de negócio são **obrigatórios**
 - Tests não devem mockar DB (usar SQLite in-memory de teste)
-- Use factories de `app_shivazen/tests/factories.py` em vez de criar objetos cru
+- Use factories de `aranha_estetica/tests/factories.py` em vez de criar objetos cru
 
 ## Migrations
 
-- Criar via `python manage.py makemigrations app_shivazen`
-- Sempre revisar SQL gerado: `python manage.py sqlmigrate app_shivazen 0010`
+- Criar via `python manage.py makemigrations aranha_estetica`
+- Sempre revisar SQL gerado: `python manage.py sqlmigrate aranha_estetica 0010`
 - Migrations destrutivas (drop column) precisam de janela de manutenção
 
 ## Segurança

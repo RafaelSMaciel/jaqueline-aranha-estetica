@@ -25,7 +25,7 @@ Escopo: clínica single-tenant (biomédica Jaqueline Aranha — atendimento excl
 **Estado atual**: `DisponibilidadeProfissional` (semanal) + `BloqueioAgenda` (datetime range) + `Feriado`. Falta override por data específica c/ horário diferente (não só bloqueio).
 
 **Steps**:
-1. Criar model `ExcecaoDisponibilidade` em `app_shivazen/models/profissionais.py`:
+1. Criar model `ExcecaoDisponibilidade` em `aranha_estetica/models/profissionais.py`:
    - `profissional` FK
    - `data` DateField
    - `tipo` choices: `FOLGA` / `HORARIO_DIFERENTE`
@@ -33,7 +33,7 @@ Escopo: clínica single-tenant (biomédica Jaqueline Aranha — atendimento excl
    - `hora_fim` Time nullable
    - `motivo` Text nullable
 2. Adicionar ao `__init__.py` exports.
-3. Migration: `python manage.py makemigrations app_shivazen`.
+3. Migration: `python manage.py makemigrations aranha_estetica`.
 4. Atualizar `Profissional.get_horarios_disponiveis()` p/ consultar exceção antes da regra semanal.
 5. Tela admin: `painel/disponibilidade.html` c/ tabela exceções + form add/edit.
 6. View: `views/admin_disponibilidade.py`.
@@ -103,7 +103,7 @@ Escopo: clínica single-tenant (biomédica Jaqueline Aranha — atendimento excl
 
 ### #10 PWA drop-in (django-pwa)
 
-**Estado atual**: meta tags PWA já em base.html. Manifest URL roteada (`shivazen:manifest`) mas sem lib oficial.
+**Estado atual**: meta tags PWA já em base.html. Manifest URL roteada (`jaqueline-aranha-estetica:manifest`) mas sem lib oficial.
 
 **Steps**:
 1. `pip install django-pwa==2.0.1` → adicionar requirements.txt.
@@ -279,7 +279,7 @@ class Atendimento(models.Model):
 **Estado atual**: `Notificacao` é tabela registro, não regra. Tasks Celery hardcoded.
 
 **Steps**:
-1. Criar models em `app_shivazen/models/workflow.py`:
+1. Criar models em `aranha_estetica/models/workflow.py`:
 ```python
 class WorkflowRegra(models.Model):
     nome = CharField(max_length=100)

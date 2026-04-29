@@ -1,4 +1,4 @@
-# Setup — shivazen-app
+# Setup — jaqueline-aranha-estetica
 
 ## Requisitos
 
@@ -11,7 +11,7 @@
 
 ```bash
 git clone <repo>
-cd shivazen-app
+cd jaqueline-aranha-estetica
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
@@ -50,10 +50,10 @@ Veja `.env.example`. Chaves críticas:
 
 ```bash
 # Rodar testes
-python manage.py test app_shivazen
+python manage.py test aranha_estetica
 
 # Rodar com coverage
-coverage run --source=app_shivazen manage.py test
+coverage run --source=aranha_estetica manage.py test
 coverage report
 coverage html  # gera htmlcov/
 

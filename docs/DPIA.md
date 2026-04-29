@@ -1,6 +1,6 @@
 # DPIA — Relatório de Impacto sobre Proteção de Dados
 
-**Sistema:** shivazen-app (clinica de estetica)
+**Sistema:** jaqueline-aranha-estetica (clinica de estetica)
 **Versao:** 1.0
 **Data:** 2026-04-17
 **Responsavel:** Encarregado de Dados (DPO)

@@ -1,6 +1,6 @@
 # Jaqueline Aranha Estética — MER (Modelo Entidade-Relacionamento)
 
-> Fonte da verdade: `app_shivazen/models/` (Django, modular) + `signals.py`.
+> Fonte da verdade: `aranha_estetica/models/` (Django, modular) + `signals.py`.
 > Renderiza nativo no GitHub/GitLab/VS Code com suporte a Mermaid.
 
 O modelo foi dividido em 3 paginas para caber em A4 landscape sem

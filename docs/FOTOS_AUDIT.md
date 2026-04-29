@@ -1,4 +1,4 @@
-# Audit de Fotos — shivazen-app
+# Audit de Fotos — jaqueline-aranha-estetica
 
 Data: 2026-04-29
 Diagnóstico: pasta `static/assets/health/` tem 23 fotos nomeadas como **clínica médica/hospital** (cardiology, neurology, oncology, pediatrics) sendo usadas como ilustrações de **clínica estética**. Resultado: nome do arquivo não casa com `alt` text → confusão semântica + risco de imagem visual errada.

@@ -82,10 +82,10 @@ urlpatterns = [
     path('admin-logout/', views.usuario_logout, name='usuario_logout'),
 
     # ─── Recuperação de Senha ───
-    path('admin-login/recuperar/', views.ShivaZenPasswordResetView.as_view(), name='password_reset'),
-    path('admin-login/recuperar/enviado/', views.ShivaZenPasswordResetDoneView.as_view(), name='password_reset_done'),
-    path('admin-login/recuperar/<uidb64>/<token>/', views.ShivaZenPasswordResetConfirmView.as_view(), name='password_reset_confirm'),
-    path('admin-login/recuperar/completo/', views.ShivaZenPasswordResetCompleteView.as_view(), name='password_reset_complete'),
+    path('admin-login/recuperar/', views.ClinicaPasswordResetView.as_view(), name='password_reset'),
+    path('admin-login/recuperar/enviado/', views.ClinicaPasswordResetDoneView.as_view(), name='password_reset_done'),
+    path('admin-login/recuperar/<uidb64>/<token>/', views.ClinicaPasswordResetConfirmView.as_view(), name='password_reset_confirm'),
+    path('admin-login/recuperar/completo/', views.ClinicaPasswordResetCompleteView.as_view(), name='password_reset_complete'),
 
     # ─── Painel Administrativo (staff only) ───
     path('painel/', views.painel, name='painel'),

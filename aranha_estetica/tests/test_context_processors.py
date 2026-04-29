@@ -6,7 +6,7 @@ from django.test import RequestFactory, TestCase
 from aranha_estetica.context_processors import clinica_globals
 
 
-class ShivazenGlobalsTests(TestCase):
+class Jaqueline Aranha EsteticaGlobalsTests(TestCase):
     """Tests that clinica_globals injects clinic variables."""
 
     def setUp(self):

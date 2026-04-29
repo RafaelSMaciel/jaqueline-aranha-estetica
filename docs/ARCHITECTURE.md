@@ -1,4 +1,4 @@
-# Arquitetura — shivazen-app
+# Arquitetura — jaqueline-aranha-estetica
 
 ## Visão geral
 

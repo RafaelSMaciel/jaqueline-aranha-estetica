@@ -1,4 +1,4 @@
-# Review do Projeto — shivazen-app (Jaqueline Aranha)
+# Review do Projeto — jaqueline-aranha-estetica (Jaqueline Aranha)
 
 Data: 2026-04-27 · Branch: `claude/quizzical-grothendieck-3d4b34` (HEAD = `c29ce88`, sincronizado com `origin/main` e `origin/dev`)
 
@@ -12,9 +12,9 @@ Data: 2026-04-27 · Branch: `claude/quizzical-grothendieck-3d4b34` (HEAD = `c29c
 - HSTS 1 ano + preload + includeSubDomains ([prod.py:16-18](clinica/settings/prod.py:16))
 - Cookies `Secure` em prod ([prod.py:12-13](clinica/settings/prod.py:12))
 - `SECURE_PROXY_SSL_HEADER` correto p/ Railway ([prod.py:19](clinica/settings/prod.py:19))
-- CSP com nonce per-request ([middleware.py](app_shivazen/middleware.py))
+- CSP com nonce per-request ([middleware.py](aranha_estetica/middleware.py))
 - `django-axes` (lockout) + `django-ratelimit` em endpoints sensíveis (login, OTP, admin POSTs)
-- `CRON_TOKEN` via `X-Cron-Token` em endpoints cron ([cron.py:30](app_shivazen/views/cron.py:30))
+- `CRON_TOKEN` via `X-Cron-Token` em endpoints cron ([cron.py:30](aranha_estetica/views/cron.py:30))
 - Rate limits granulares: login `5/m` por user + `10/m` por IP, promoções `5/h`
 
 ### Pendências
@@ -24,7 +24,7 @@ Grep `django.otp|two_factor|django_otp|totp|2fa` retorna **0 hits**. Memória `S
 - **Esforço:** ~8h (django-two-factor-auth)
 - **Impacto:** alto — admin sem 2FA é maior vetor risco
 
-**🟡 CSP `'unsafe-inline'` em script-src + style-src** ([middleware.py:45,55](app_shivazen/middleware.py:45))
+**🟡 CSP `'unsafe-inline'` em script-src + style-src** ([middleware.py:45,55](aranha_estetica/middleware.py:45))
 TODO declarado. Migrar templates legados pra nonce/hash exclusivo.
 - **Esforço:** M (12-20h)
 - **Impacto:** médio — XSS exploitable se inline injetado
@@ -65,15 +65,15 @@ Push em `main` E `dev` (ambos `c29ce88`) — site não atualizou após 5min. Con
 Sem `RUNBOOK.md`. Em incidente: como reverter? Trocar Railway pra deploy anterior é UI manual.
 
 **🟡 `seed.py` raiz não existe**
-Comando `python manage.py seed` falha silencioso ([seed.py:32-38](app_shivazen/management/commands/seed.py)). Memória S172 cita 23 procedimentos seed — perdido em algum branch/reset.
+Comando `python manage.py seed` falha silencioso ([seed.py:32-38](aranha_estetica/management/commands/seed.py)). Memória S172 cita 23 procedimentos seed — perdido em algum branch/reset.
 
 ---
 
 ## 3. Performance
 
 **🟢 N+1 candidates baixo:** apenas 2 hits suspeitos
-- [admin_management.py:119](app_shivazen/views/admin_management.py:119) — `for p in Preco.objects.filter(...)` — verificar se está dentro de outro loop
-- [prontuario.py:79](app_shivazen/views/prontuario.py:79) — `for r in ProntuarioResposta.objects.filter(...)`
+- [admin_management.py:119](aranha_estetica/views/admin_management.py:119) — `for p in Preco.objects.filter(...)` — verificar se está dentro de outro loop
+- [prontuario.py:79](aranha_estetica/views/prontuario.py:79) — `for r in ProntuarioResposta.objects.filter(...)`
 - **Ação:** adicionar `select_related`/`prefetch_related` se confirmado
 
 **🟡 Cache queries:** sem `cache.get_or_set` em queries pesadas (procedimentos públicos, horários disponíveis). Free Redis Railway disponível.
@@ -86,7 +86,7 @@ Comando `python manage.py seed` falha silencioso ([seed.py:32-38](app_shivazen/m
 
 ## 4. UX / Front-end
 
-**🟢 PWA SW estratégia híbrida correta** ([sw.js](app_shivazen/templates/pwa/sw.js))
+**🟢 PWA SW estratégia híbrida correta** ([sw.js](aranha_estetica/templates/pwa/sw.js))
 - HTML: network-first ✓ (não causa cache versão antiga)
 - Static: stale-while-revalidate ✓
 - Image: cache-first com TTL/limit ✓
@@ -109,9 +109,9 @@ Comando `python manage.py seed` falha silencioso ([seed.py:32-38](app_shivazen/m
 Code envia via `graph.facebook.com/v18.0`. Sem templates aprovados, mensagens fora da janela 24h falham. Bloqueador real.
 - **Ação:** business.facebook.com → submeter templates `lembrete_d1`, `nps`, `confirmacao` (24-72h aprovação)
 
-**🟢 Email sync** com spinner UX ([commit eb1427b](https://github.com/RafaelSMaciel/shivazen-app/commit/eb1427b)) — solução pragmática free tier.
+**🟢 Email sync** com spinner UX ([commit eb1427b](https://github.com/RafaelSMaciel/jaqueline-aranha-estetica/commit/eb1427b)) — solução pragmática free tier.
 
-**🟡 SMS Zenvia:** `SMS_MAX_POR_HORA=3` rate limit por telefone ([sms.py:34](app_shivazen/utils/sms.py:34)). Custo por mensagem — adicionar alarme se uso explodir.
+**🟡 SMS Zenvia:** `SMS_MAX_POR_HORA=3` rate limit por telefone ([sms.py:34](aranha_estetica/utils/sms.py:34)). Custo por mensagem — adicionar alarme se uso explodir.
 
 **🟢 GA / pixel:** sem hits no grep — provável que ainda não tem ou está só em template head. LGPD exige consentimento prévio para tracking — verificar cookie banner gating GA.
 
@@ -134,7 +134,7 @@ Ambas agora em `c29ce88`. Decidir: única branch ou git-flow disciplinado.
 - requests 2.32 → 2.33
 - Total: 28 outdated. Rodar `pip-compile` + testes antes upgrade.
 
-**🟡 Warning Django 6:** `CheckConstraint.check` deprecated → migrar p/ `condition` ([sistema.py:34](app_shivazen/models/sistema.py:34)). Outros models também.
+**🟡 Warning Django 6:** `CheckConstraint.check` deprecated → migrar p/ `condition` ([sistema.py:34](aranha_estetica/models/sistema.py:34)). Outros models também.
 
 **🟢 README.md** atualizado em 2026-04-29 — brand unificada como "Jaqueline Aranha Estética" (resolvido).
 
@@ -164,10 +164,10 @@ Bonus rápidos:
 railway login && railway status && railway logs --tail 100
 
 # Rodar tests local
-DJANGO_SETTINGS_MODULE=clinica.settings.dev pytest app_shivazen/tests/
+DJANGO_SETTINGS_MODULE=clinica.settings.dev pytest aranha_estetica/tests/
 
 # Bump SW cache
-sed -i "s/VERSION = 'v3'/VERSION = 'v4'/" app_shivazen/templates/pwa/sw.js
+sed -i "s/VERSION = 'v3'/VERSION = 'v4'/" aranha_estetica/templates/pwa/sw.js
 
 # Cleanup branches duplicadas (após decidir estratégia)
 git push origin --delete dev   # OU manter ambas e definir gitflow

@@ -101,7 +101,7 @@ from django.utils.decorators import method_decorator
     ratelimit(key='ip', rate='3/15m', method='POST', block=True),
     name='dispatch'
 )
-class ShivaZenPasswordResetView(PasswordResetView):
+class ClinicaPasswordResetView(PasswordResetView):
     template_name = 'usuario/password_reset.html'
     email_template_name = 'usuario/password_reset_email.html'
     subject_template_name = 'usuario/password_reset_subject.txt'
@@ -123,11 +123,11 @@ class ShivaZenPasswordResetView(PasswordResetView):
         return super().form_valid(form)
 
 
-class ShivaZenPasswordResetDoneView(PasswordResetDoneView):
+class ClinicaPasswordResetDoneView(PasswordResetDoneView):
     template_name = 'usuario/password_reset_done.html'
 
 
-class ShivaZenPasswordResetConfirmView(PasswordResetConfirmView):
+class ClinicaPasswordResetConfirmView(PasswordResetConfirmView):
     template_name = 'usuario/password_reset_confirm.html'
     success_url = reverse_lazy('aranha:password_reset_complete')
 
@@ -155,5 +155,5 @@ class ShivaZenPasswordResetConfirmView(PasswordResetConfirmView):
         return super().form_valid(form)
 
 
-class ShivaZenPasswordResetCompleteView(PasswordResetCompleteView):
+class ClinicaPasswordResetCompleteView(PasswordResetCompleteView):
     template_name = 'usuario/password_reset_complete.html'
