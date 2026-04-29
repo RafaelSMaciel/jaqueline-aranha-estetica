@@ -227,6 +227,24 @@
     .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
     @media (max-width: 576px) { .field-row { grid-template-columns: 1fr; gap: 0; } }
 
+    /* OTP row: grid 1fr + botao fixo — evita reflow quando texto do botao muda */
+    .otp-row {
+        display: grid;
+        grid-template-columns: 1fr 150px;
+        gap: 8px;
+        align-items: stretch;
+    }
+    .otp-row .form-input { width: 100%; min-width: 0; box-sizing: border-box; }
+    .otp-btn {
+        white-space: nowrap; min-width: 150px; max-width: 150px;
+        display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+    }
+    @media (max-width: 420px) {
+        .otp-row { grid-template-columns: 1fr 110px; }
+        .otp-btn { min-width: 110px; max-width: 110px; padding: 0.45rem 0.55rem; font-size: 0.8rem; }
+        .otp-btn-text { font-size: 0.78rem; }
+    }
+
     .cliente-badge {
         display: flex; align-items: center; gap: 0.6rem;
         padding: 0.7rem 1rem; border-radius: 12px; margin-bottom: 1rem;
@@ -479,7 +497,7 @@
                             <span class="recap-value" id="sum-proc">—</span>
                         </div>
                         <div class="recap-row">
-                            <span class="recap-label">Data & Horario</span>
+                            <span class="recap-label">Data & Horário</span>
                             <span class="recap-value" id="sum-datetime">—</span>
                         </div>
                         <div class="recap-row">
@@ -492,38 +510,38 @@
                         </div>
                     </div>
 
-                    <form id="booking-form" action="{% url 'shivazen:confirmar_agendamento' %}" method="POST" data-loading-msg="Enviando confirmacao por e-mail...">
+                    <form id="booking-form" action="{% url 'shivazen:confirmar_agendamento' %}" method="POST" data-loading-msg="Enviando confirmação por e-mail...">
                         {% csrf_token %}
                         <input type="hidden" name="procedimento" id="form-procedimento">
                         <input type="hidden" name="profissional" id="form-profissional">
                         <input type="hidden" name="datetime" id="form-datetime">
-                        {# honeypot — humano nao ve, bot preenche #}
+                        {# honeypot — humano não ve, bot preenche #}
                         <input type="text" name="website" tabindex="-1" autocomplete="off"
                                style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
 
                         <!-- Badge status cliente (aparece apos OTP) -->
                         <div id="cliente-badge" class="cliente-badge" style="display:none;"></div>
 
-                        <!-- ─── Email + OTP ─── -->
+                        <!-- ─── E-mail + OTP ─── -->
                         <div class="form-field">
                             <label><i class="bi bi-envelope"></i>E-mail</label>
-                            <div style="display:flex;gap:8px;">
-                                <input type="email" name="email" class="form-input" placeholder="seu@email.com" required id="form-email" aria-label="E-mail" style="flex:1;">
-                                <button type="button" id="btn-enviar-otp" class="btn btn-outline-secondary" style="white-space:nowrap;">
-                                    <i class="bi bi-send"></i> Enviar codigo
+                            <div class="otp-row">
+                                <input type="email" name="email" class="form-input" placeholder="seu@email.com" required id="form-email" aria-label="E-mail">
+                                <button type="button" id="btn-enviar-otp" class="btn btn-outline-secondary otp-btn">
+                                    <i class="bi bi-send"></i><span class="otp-btn-text">Enviar código</span>
                                 </button>
                             </div>
                             <small style="color:#9a8f7c;font-size:0.72rem;margin-top:0.35rem;display:block;">
-                                Enviaremos um codigo de 6 digitos para validar seu e-mail. Se ja for paciente, seus dados serao preenchidos automaticamente.
+                                Enviaremos um código de 6 dígitos para validar seu e-mail. Se já for paciente, seus dados serão preenchidos automaticamente.
                             </small>
                         </div>
 
                         <div class="form-field" id="otp-field" style="display:none;">
-                            <label><i class="bi bi-shield-lock"></i>Codigo de verificacao</label>
-                            <div style="display:flex;gap:8px;">
-                                <input type="text" id="otp-codigo" class="form-input" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code" aria-label="Codigo de verificacao de 6 digitos" style="flex:1;letter-spacing:6px;font-size:1.2rem;text-align:center;">
-                                <button type="button" id="btn-verificar-otp" class="btn btn-primary" style="white-space:nowrap;">
-                                    <i class="bi bi-check2"></i> Verificar
+                            <label><i class="bi bi-shield-lock"></i>Código de verificação</label>
+                            <div class="otp-row">
+                                <input type="text" id="otp-codigo" class="form-input" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code" aria-label="Código de verificação de 6 dígitos" style="letter-spacing:6px;font-size:1.2rem;text-align:center;">
+                                <button type="button" id="btn-verificar-otp" class="btn btn-primary otp-btn">
+                                    <i class="bi bi-check2"></i><span class="otp-btn-text">Verificar</span>
                                 </button>
                             </div>
                             <small id="otp-msg" style="display:block;margin-top:0.4rem;font-size:0.78rem;"></small>
@@ -552,7 +570,7 @@
                             <div class="form-field" id="cadastro-check-wrap" style="display:none;margin-bottom:0;">
                                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.82rem;color:#6b6256;text-transform:none;letter-spacing:0;font-weight:500;">
                                     <input type="checkbox" name="aceita_cadastro" id="form-aceita-cadastro" checked style="width:auto;">
-                                    <span>Salvar meus dados para agendar mais rapido da proxima vez</span>
+                                    <span>Salvar meus dados para agendar mais rápido da próxima vez</span>
                                 </label>
                             </div>
 
@@ -573,7 +591,7 @@
                             <div class="form-field" style="margin-bottom:0;">
                                 <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:0.82rem;color:#6b6256;text-transform:none;letter-spacing:0;font-weight:500;">
                                     <input type="checkbox" name="consent_whatsapp_nps" id="form-consent-nps" style="width:auto;margin-top:3px;">
-                                    <span>Aceito receber pesquisa de satisfacao por WhatsApp apos o atendimento.</span>
+                                    <span>Aceito receber pesquisa de satisfação por WhatsApp após o atendimento.</span>
                                 </label>
                             </div>
                         </div>
@@ -597,7 +615,7 @@
                             <i class="bi bi-calendar-check me-2"></i>Confirmar Agendamento
                         </button>
                         <small class="confirm-subnote">
-                            <i class="bi bi-envelope-check"></i>O profissional avalia seu pedido e voce recebe a confirmacao por e-mail.
+                            <i class="bi bi-envelope-check"></i>O profissional avalia seu pedido e você recebe a confirmação por e-mail.
                         </small>
                     </form>
 
@@ -1027,7 +1045,7 @@
                     if (res.data.ok) {
                         document.getElementById('otp-field').style.display = '';
                         setOtpMsg('Codigo enviado para seu e-mail. Valido por 10min.', true);
-                        btnEnviar.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Reenviar';
+                        btnEnviar.innerHTML = '<i class="bi bi-arrow-clockwise"></i><span class="otp-btn-text">Reenviar</span>';
                     } else if (res.data.erro === 'aguarde') {
                         setOtpMsg('Aguarde alguns segundos antes de reenviar.', false);
                     } else {

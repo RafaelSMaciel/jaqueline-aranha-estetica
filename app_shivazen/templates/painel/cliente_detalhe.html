@@ -90,7 +90,7 @@
     </div>
     <div class="cli-stat">
         <i class="fas fa-calendar-check cli-stat-icon" style="color:#1565c0;"></i>
-        <div class="cli-stat-label">Ultima Visita</div>
+        <div class="cli-stat-label">Última Visita</div>
         <div class="cli-stat-value" style="font-size:0.85rem;">
             {% if cliente_stats.ultima_visita %}{{ cliente_stats.ultima_visita|date:"d/m/Y" }}{% else %}—{% endif %}
         </div>
@@ -193,7 +193,7 @@
 
 <!-- Timeline de atendimentos -->
 <div class="detail-card">
-    <h3><i class="fas fa-history" style="color: #7a5f1f;"></i> Linha do tempo (ultimos 20)</h3>
+    <h3><i class="fas fa-history" style="color: #7a5f1f;"></i> Linha do tempo (últimos 20)</h3>
     {% if atendimentos %}
     <div class="cli-timeline">
         {% for a in atendimentos %}

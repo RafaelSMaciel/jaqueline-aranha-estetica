@@ -8,9 +8,9 @@
   <div class="container">
     <h1 class="mb-4">Solicitar Meus Dados</h1>
     <p class="lead mb-4">
-      Conforme a Lei Geral de Protecao de Dados (LGPD), voce tem direito a acessar os dados
-      pessoais que mantemos sobre voce. Informe seu telefone cadastrado para receber um
-      codigo de verificacao.
+      Conforme a Lei Geral de Protecao de Dados (LGPD), você tem direito a acessar os dados
+      pessoais que mantemos sobre você. Informe seu telefone cadastrado para receber um
+      código de verificação.
     </p>
 
     {% if messages %}
@@ -30,13 +30,13 @@
 
       {% if aguardando_codigo %}
         <div class="mb-3">
-          <label class="form-label">Codigo de verificacao (6 digitos)</label>
+          <label class="form-label">Código de verificação (6 dígitos)</label>
           <input type="text" name="codigo" class="form-control" maxlength="6" required autofocus>
         </div>
       {% endif %}
 
       <button type="submit" class="btn btn-primary">
-        {% if aguardando_codigo %}Confirmar e Baixar Dados{% else %}Solicitar Codigo{% endif %}
+        {% if aguardando_codigo %}Confirmar e Baixar Dados{% else %}Solicitar Código{% endif %}
       </button>
     </form>
 

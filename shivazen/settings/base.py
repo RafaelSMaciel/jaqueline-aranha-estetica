@@ -289,6 +289,9 @@ EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@clinica.com.br')
 
+# Password reset: token TTL 1h (default Django = 3 dias). Reduz janela de ataque.
+PASSWORD_RESET_TIMEOUT = int(os.environ.get('PASSWORD_RESET_TIMEOUT_SECONDS', 3600))
+
 
 # ─── LOGGING ─────────────────────────────────────────────────────────
 _LOG_FORMATTER = 'verbose'

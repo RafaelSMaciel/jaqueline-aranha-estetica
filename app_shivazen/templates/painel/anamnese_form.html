@@ -67,8 +67,8 @@
 
     <label>schema_json</label>
     <textarea name="schema_json" style="font-family:monospace;font-size:0.82rem;">{% if form_obj %}{{ form_obj.schema_json|safe }}{% else %}[
-  {"key": "gestante", "tipo": "bool", "label": "Esta gestante?", "obrigatorio": true},
-  {"key": "alergias", "tipo": "text", "label": "Possui alergias?", "obrigatorio": false}
+  {"key": "gestante", "tipo": "bool", "label": "Esta gestante?", "obrigatório": true},
+  {"key": "alergias", "tipo": "text", "label": "Possui alergias?", "obrigatório": false}
 ]{% endif %}</textarea>
     <div class="help">
         Lista de campos. Tipos: <code>bool</code>, <code>text</code>, <code>longtext</code>,
@@ -81,7 +81,7 @@
     </label>
     <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;text-transform:none;letter-spacing:0;">
         <input type="checkbox" name="obrigatorio" value="1" {% if form_obj.obrigatorio %}checked{% endif %} style="width:auto;margin:0;">
-        Obrigatorio (bloqueia agendamento se nao preenchido)
+        Obrigatorio (bloqueia agendamento se não preenchido)
     </label>
 
     <div style="display:flex; gap:0.5rem; margin-top:1rem;">
