@@ -54,12 +54,14 @@
             <i class="bi bi-clock me-2" style="color:#7a5f1f;"></i>
             <strong>{{ procedimento.duracao_minutos }} minutos</strong>
           </div>
-          {% if preco %}
-            <div class="d-flex align-items-center" style="background:#f8f5ec;padding:10px 18px;border-radius:30px;">
-              <i class="bi bi-tag me-2" style="color:#7a5f1f;"></i>
+          <div class="d-flex align-items-center" style="background:#f8f5ec;padding:10px 18px;border-radius:30px;">
+            <i class="bi bi-tag me-2" style="color:#7a5f1f;"></i>
+            {% if preco %}
               <strong>A partir de R$ {{ preco|floatformat:2 }}</strong>
-            </div>
-          {% endif %}
+            {% else %}
+              <strong>Valor a consultar</strong>
+            {% endif %}
+          </div>
         </div>
 
         {% if procedimento.descricao %}

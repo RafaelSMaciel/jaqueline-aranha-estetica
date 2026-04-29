@@ -389,7 +389,14 @@
                     <div class="proc-desc">{{ proc.descricao|truncatewords:15 }}</div>
                     {% endif %}
                     <div class="proc-meta">
-                        <span class="proc-price">R$ {{ proc.preco|floatformat:2 }}</span>
+                        <span class="proc-price">
+                            {% if proc.preco > 0 %}
+                                <small style="font-size:0.65rem;font-weight:600;color:#999;letter-spacing:0.5px;">A partir de</small>
+                                R$ {{ proc.preco|floatformat:2 }}
+                            {% else %}
+                                <small style="font-size:0.78rem;font-weight:700;color:#7a5f1f;">A consultar</small>
+                            {% endif %}
+                        </span>
                         <span class="proc-duration">
                             <i class="bi bi-clock"></i>{{ proc.duracao_minutos }} min
                         </span>

@@ -60,7 +60,11 @@
             <a class="proc-mini" href="{{ booking_url }}?procedimento={{ p.id }}" target="_top" rel="noopener">
                 <div class="proc-mini-name">{{ p.nome }}</div>
                 <div class="proc-mini-meta">
-                    <span class="proc-mini-price">R$ {{ p.preco|floatformat:2 }}</span>
+                    {% if p.preco > 0 %}
+                    <span class="proc-mini-price">A partir de R$ {{ p.preco|floatformat:2 }}</span>
+                    {% else %}
+                    <span class="proc-mini-price">A consultar</span>
+                    {% endif %}
                     &middot; {{ p.duracao_minutos }} min
                 </div>
             </a>
