@@ -175,15 +175,15 @@ def galeria(request):
     """Pagina publica com galeria estatica da clinica (GLightbox)."""
     # Imagens usam o template_img ja presente em static/assets/
     fotos = [
-        {'src': 'assets/health/facilities-6.webp', 'titulo': 'Recepcao'},
-        {'src': 'assets/health/facilities-9.webp', 'titulo': 'Sala de Espera'},
-        {'src': 'assets/health/dermatology-1.webp', 'titulo': 'Sala de Tratamento Facial'},
-        {'src': 'assets/health/dermatology-4.webp', 'titulo': 'Procedimento Facial'},
-        {'src': 'assets/health/maternal-2.webp', 'titulo': 'Ambiente Relaxante'},
-        {'src': 'assets/health/consultation-4.webp', 'titulo': 'Sala de Avaliacao'},
-        {'src': 'assets/health/laboratory-3.webp', 'titulo': 'Equipamentos'},
-        {'src': 'assets/health/vaccination-3.webp', 'titulo': 'Atendimento Personalizado'},
-        {'src': 'assets/health/cardiology-1.webp', 'titulo': 'Tecnologia Avancada'},
+        {'src': 'assets/clinica/espaco-1.webp', 'titulo': 'Recepcao'},
+        {'src': 'assets/clinica/espaco-2.webp', 'titulo': 'Sala de Espera'},
+        {'src': 'assets/clinica/facial-2.webp', 'titulo': 'Sala de Tratamento Facial'},
+        {'src': 'assets/clinica/facial-3.webp', 'titulo': 'Procedimento Facial'},
+        {'src': 'assets/clinica/gestante-1.webp', 'titulo': 'Ambiente Relaxante'},
+        {'src': 'assets/clinica/consulta-1.webp', 'titulo': 'Sala de Avaliacao'},
+        {'src': 'assets/clinica/laboratorio-1.webp', 'titulo': 'Equipamentos'},
+        {'src': 'assets/clinica/pele-1.webp', 'titulo': 'Atendimento Personalizado'},
+        {'src': 'assets/clinica/facial-1.webp', 'titulo': 'Tecnologia Avancada'},
     ]
     return render(request, 'publico/galeria.html', {'fotos': fotos})
 

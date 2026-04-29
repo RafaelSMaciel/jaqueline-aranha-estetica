@@ -84,11 +84,11 @@
             <img src="{{ procedimento.imagem_destaque }}" alt="{{ procedimento.nome }}" class="img-fluid w-100" loading="lazy">
           {% else %}
             {% if procedimento.categoria == 'FACIAL' %}
-              <img src="{% static 'assets/health/dermatology-1.webp' %}" alt="{{ procedimento.nome }}" class="img-fluid w-100" loading="lazy">
+              <img src="{% static 'assets/clinica/facial-2.webp' %}" alt="{{ procedimento.nome }}" class="img-fluid w-100" loading="lazy">
             {% elif procedimento.categoria == 'CORPORAL' %}
-              <img src="{% static 'assets/health/maternal-2.webp' %}" alt="{{ procedimento.nome }}" class="img-fluid w-100" loading="lazy">
+              <img src="{% static 'assets/clinica/gestante-1.webp' %}" alt="{{ procedimento.nome }}" class="img-fluid w-100" loading="lazy">
             {% else %}
-              <img src="{% static 'assets/health/consultation-4.webp' %}" alt="{{ procedimento.nome }}" class="img-fluid w-100" loading="lazy">
+              <img src="{% static 'assets/clinica/consulta-1.webp' %}" alt="{{ procedimento.nome }}" class="img-fluid w-100" loading="lazy">
             {% endif %}
           {% endif %}
         </div>
