@@ -1,4 +1,4 @@
-# Regras de Negócio — Plataforma Dra. Jaqueline Aranha
+# Regras de Negócio — Jaqueline Aranha Estética
 
 Documento descritivo do domínio de produto. Linguagem de negócio, sem código.
 
@@ -11,11 +11,11 @@ Data: 2026-04-27 · Branch: `main` (HEAD `e8892e2`)
 ### Cliente (paciente final)
 Pessoa física que busca tratamentos estéticos. Acessa o site público, agenda consultas, consulta histórico próprio, recebe lembretes e pode dar nota NPS após atendimento. **Não tem login tradicional** — verifica identidade por OTP (código por SMS) toda vez que precisa acessar área restrita pessoal.
 
-### Profissional (Dra. Jaqueline Aranha — modelo single-professional atual)
-Atende clientes, registra prontuário (anamnese, evolução, fotos), confirma realização de atendimento. Tem login no painel. O sistema foi modelado para **N profissionais**, mas está configurado para 1 (Dra. Jaqueline) — abertura para multi-profissional já existe no schema.
+### Profissional (Jaqueline Aranha — modelo single-professional atual)
+Atende clientes, registra prontuário (anamnese, evolução, fotos), confirma realização de atendimento. Tem login no painel. O sistema foi modelado para **N profissionais**, mas está configurado para 1 (Jaqueline) — abertura para multi-profissional já existe no schema.
 
 ### Administrador (clínica)
-Pode ser a própria Dra. Jaqueline ou recepção. Gerencia agenda completa, clientes, procedimentos, preços, promoções, pacotes, relatórios. Acessa `/painel/`. Acesso protegido por login + (após esta sessão) 2FA TOTP.
+Pode ser a própria Jaqueline ou recepção. Gerencia agenda completa, clientes, procedimentos, preços, promoções, pacotes, relatórios. Acessa `/painel/`. Acesso protegido por login + (após esta sessão) 2FA TOTP.
 
 ### Sistema externo
 Cron-job.org dispara endpoints HTTP autenticados (`X-Cron-Token`) para tarefas agendadas (lembrete D-1, NPS, expiração de pacotes, anonimização LGPD).

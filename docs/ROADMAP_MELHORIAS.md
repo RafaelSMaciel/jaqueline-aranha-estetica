@@ -1,8 +1,9 @@
-# Roadmap Melhorias — shivazen-app
+# Roadmap Melhorias — Jaqueline Aranha Estética
 
-Versão: 2026-04-28
-Stack atual: Django 5.2 + Postgres + Redis + Celery + DRF + Bootstrap 5 + Cloudflare Turnstile
-Escopo: clínica single-tenant (Dra. Jaqueline Aranha)
+Versão: 2026-04-29
+Status: **Sprints 1-5 concluídas** ✅
+Stack: Django 5.2 + Postgres + Redis + Celery + DRF + Bootstrap 5 + Cloudflare Turnstile
+Escopo: clínica single-tenant (biomédica Jaqueline Aranha — atendimento exclusivo)
 
 ---
 

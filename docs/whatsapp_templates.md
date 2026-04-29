@@ -1,6 +1,6 @@
 # WhatsApp Templates — Meta Business API
 
-Apenas dois templates WhatsApp sao usados no projeto Shiva Zen (estrategia aprovada 2026-04-18).
+Apenas dois templates WhatsApp sao usados no projeto Jaqueline Aranha Estética (estrategia aprovada 2026-04-18).
 Todos os outros fluxos de comunicacao usam email (ou SMS para OTP).
 
 ## 1. `confirmacao_d1` — Confirmacao D-1
@@ -14,7 +14,7 @@ Todos os outros fluxos de comunicacao usam email (ou SMS para OTP).
 ### Corpo do template (submeter no Meta Business Manager)
 
 ```
-Oi {{1}}! Passando para lembrar do seu agendamento amanha ({{2}} as {{3}}) no Shiva Zen.
+Oi {{1}}! Passando para lembrar do seu agendamento amanha ({{2}} as {{3}}) no Jaqueline Aranha Estética.
 
 - Procedimento: {{4}}
 - Profissional: {{5}}
@@ -54,7 +54,7 @@ Qualquer duvida, responda esta mensagem.
 ### Corpo do template
 
 ```
-Oi {{1}}, como foi o seu atendimento de {{2}} no Shiva Zen?
+Oi {{1}}, como foi o seu atendimento de {{2}} no Jaqueline Aranha Estética?
 
 Sua avaliacao e o que guia nosso cuidado. Leva menos de 1 minuto:
 
