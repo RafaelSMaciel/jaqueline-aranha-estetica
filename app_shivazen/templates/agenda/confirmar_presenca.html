@@ -1,7 +1,7 @@
 ﻿{% extends 'estrutura/base.html' %}
 {% load static %}
 
-{% block titulo %}Confirmar Presenca | {{ CLINIC_NAME }}{% endblock %}
+{% block titulo %}Confirmar Presença | {{ CLINIC_NAME }}{% endblock %}
 
 {% block css %}
 <style nonce="{{ csp_nonce }}">
@@ -60,10 +60,10 @@
     <div class="container text-center text-white position-relative" data-aos="fade-up">
         <div class="d-inline-flex align-items-center gap-2 mb-3 px-4 py-2 rounded-pill" style="background:rgba(201,168,76,0.2);border:1px solid rgba(201,168,76,0.5);">
             <i class="bi bi-calendar-check" style="color:#f0d98c;"></i>
-            <span style="color:#f0d98c;font-size:0.72rem;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;">Confirmacao</span>
+            <span style="color:#f0d98c;font-size:0.72rem;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;">Confirmação</span>
         </div>
         <h1 style="font-family:'Playfair Display',serif;font-size:clamp(1.8rem,4vw,2.5rem);font-weight:700;color:white !important;">
-            Confirmar Presenca
+            Confirmar Presença
         </h1>
     </div>
 </section>
@@ -84,7 +84,7 @@
                     {% endif %}
                 </div>
                 {% if resposta == 'CONFIRMOU' or atendimento.status == 'CONFIRMADO' %}
-                <h3 class="fw-bold mb-1" style="font-family:'Playfair Display',serif;">Presenca Confirmada!</h3>
+                <h3 class="fw-bold mb-1" style="font-family:'Playfair Display',serif;">Presença Confirmada!</h3>
                 <p class="opacity-75 mb-0 small">Obrigado por confirmar. Te esperamos!</p>
                 {% elif resposta == 'CANCELOU' or atendimento.status == 'CANCELADO' %}
                 <h3 class="fw-bold mb-1" style="font-family:'Playfair Display',serif;">Agendamento Cancelado</h3>
@@ -98,8 +98,8 @@
                 <div class="mb-2" style="width:64px;height:64px;background:rgba(201,168,76,0.2);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;">
                     <i class="bi bi-calendar-event" style="color:#7a5f1f;font-size:1.8rem;"></i>
                 </div>
-                <h3 class="fw-bold mb-1" style="font-family:'Playfair Display',serif;">Confirme sua Presenca</h3>
-                <p class="opacity-75 mb-0 small">Voce pode confirmar ou cancelar seu agendamento</p>
+                <h3 class="fw-bold mb-1" style="font-family:'Playfair Display',serif;">Confirme sua Presença</h3>
+                <p class="opacity-75 mb-0 small">Você pode confirmar ou cancelar seu agendamento</p>
             </div>
             {% endif %}
 
@@ -115,7 +115,7 @@
                 <div class="detail-row">
                     <div class="detail-icon"><i class="bi bi-calendar3"></i></div>
                     <div>
-                        <div class="detail-label">Data e Horario</div>
+                        <div class="detail-label">Data e Horário</div>
                         <div class="detail-value">{{ atendimento.data_hora_inicio|date:"d/m/Y" }} as {{ atendimento.data_hora_inicio|time:"H:i" }}</div>
                     </div>
                 </div>
@@ -133,7 +133,7 @@
                     <form method="POST" data-loading-msg="Processando...">
                         {% csrf_token %}
                         <button type="submit" name="acao" value="confirmar" class="btn-confirm">
-                            <i class="bi bi-check-circle me-2"></i>Confirmar Presenca
+                            <i class="bi bi-check-circle me-2"></i>Confirmar Presença
                         </button>
                         <button type="submit" name="acao" value="cancelar" class="btn-cancel">
                             <i class="bi bi-x-circle me-2"></i>Cancelar Agendamento

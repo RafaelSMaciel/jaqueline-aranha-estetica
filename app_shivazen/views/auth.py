@@ -91,12 +91,36 @@ def usuario_logout(request):
 
 
 # ─── Password Recovery (Class-Based Views) ───
+# Hardening: rate limit por IP + audit log, alem do token one-time + TTL Django.
+# Resposta sempre generica (Django default) — nao revela se email existe.
 
+from django.utils.decorators import method_decorator
+
+
+@method_decorator(
+    ratelimit(key='ip', rate='3/15m', method='POST', block=True),
+    name='dispatch'
+)
 class ShivaZenPasswordResetView(PasswordResetView):
     template_name = 'usuario/password_reset.html'
     email_template_name = 'usuario/password_reset_email.html'
     subject_template_name = 'usuario/password_reset_subject.txt'
     success_url = reverse_lazy('shivazen:password_reset_done')
+
+    def form_valid(self, form):
+        email = form.cleaned_data.get('email', '').strip().lower()
+        ip = self.request.META.get('REMOTE_ADDR', '0.0.0.0')
+        logger.info('[PASSWORD_RESET] request email=%s ip=%s', email, ip)
+        try:
+            from ..models import LogAuditoria
+            LogAuditoria.objects.create(
+                acao=f'Solicitacao de reset de senha (email: {email})',
+                tabela_afetada='usuario',
+                ip_origem=ip,
+            )
+        except Exception:
+            pass
+        return super().form_valid(form)
 
 
 class ShivaZenPasswordResetDoneView(PasswordResetDoneView):
@@ -112,6 +136,23 @@ class ShivaZenPasswordResetConfirmView(PasswordResetConfirmView):
         form.fields['new_password1'].widget.attrs.update({'class': 'form-input'})
         form.fields['new_password2'].widget.attrs.update({'class': 'form-input'})
         return form
+
+    def form_valid(self, form):
+        user = form.user
+        ip = self.request.META.get('REMOTE_ADDR', '0.0.0.0')
+        logger.info('[PASSWORD_RESET] effective user_id=%s ip=%s', user.pk, ip)
+        try:
+            from ..models import LogAuditoria
+            LogAuditoria.objects.create(
+                usuario=user,
+                acao='Senha redefinida via reset de senha',
+                tabela_afetada='usuario',
+                id_registro_afetado=user.pk,
+                ip_origem=ip,
+            )
+        except Exception:
+            pass
+        return super().form_valid(form)
 
 
 class ShivaZenPasswordResetCompleteView(PasswordResetCompleteView):

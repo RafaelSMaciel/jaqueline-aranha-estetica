@@ -300,7 +300,7 @@
         <div class="booking-pill"><i class="bi bi-calendar-heart"></i>{{ CLINIC_NAME }} — Meus Agendamentos</div>
         {% if step == '1' %}
         <h1 data-aos="fade-up" data-aos-delay="200">Acesse seus<br>agendamentos</h1>
-        <p data-aos="fade-up" data-aos-delay="300">Informe seu e-mail cadastrado e receba um codigo para consultar seus horarios com seguranca.</p>
+        <p data-aos="fade-up" data-aos-delay="300">Informe seu e-mail cadastrado e receba um código para consultar seus horários com segurança.</p>
         {% else %}
         <h1 data-aos="fade-up" data-aos-delay="200">Seus<br>agendamentos</h1>
         <p data-aos="fade-up" data-aos-delay="300">Gerencie seus atendimentos, reagende ou cancele quando precisar.</p>
@@ -338,7 +338,7 @@
 
                 <button id="btn-enviar-codigo" class="btn btn-gold w-100 rounded-pill py-3 fw-bold"
                     style="font-size:0.9rem;">
-                    <i class="bi bi-send-fill me-2"></i>Enviar Codigo
+                    <i class="bi bi-send-fill me-2"></i>Enviar Código
                 </button>
 
                 <div id="error-msg" class="alert alert-danger mt-3 border-0 shadow-sm rounded-3 d-flex align-items-center gap-2" style="display:none !important;" role="alert">
@@ -353,9 +353,9 @@
                             <div style="width:48px;height:48px;background:rgba(201,168,76,0.1);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:0.5rem;">
                                 <i class="bi bi-chat-dots" style="color:#7a5f1f;font-size:1.2rem;"></i>
                             </div>
-                            <p class="fw-bold mb-0" style="color:#4A3425;font-size:0.92rem;">Codigo enviado!</p>
+                            <p class="fw-bold mb-0" style="color:#4A3425;font-size:0.92rem;">Código enviado!</p>
                             <p class="text-muted small mb-0">
-                                Digite o codigo de 6 digitos que enviamos para seu e-mail cadastrado.
+                                Digite o código de 6 dígitos que enviamos para seu e-mail cadastrado.
                             </p>
                         </div>
                         <div id="debug-code" class="text-center mb-2" style="display:none;">
@@ -371,11 +371,11 @@
                         </div>
                         <button id="btn-verificar" class="btn btn-earth w-100 rounded-pill py-3 fw-bold text-uppercase"
                             style="letter-spacing:1px;font-size:0.88rem;">
-                            <i class="bi bi-check-circle-fill me-2"></i>Verificar Codigo
+                            <i class="bi bi-check-circle-fill me-2"></i>Verificar Código
                         </button>
                         <p class="text-center mt-3 mb-0">
                             <button id="btn-reenviar" class="btn btn-link btn-sm text-muted text-decoration-none p-0" style="font-size:0.78rem;" disabled>
-                                <i class="bi bi-arrow-clockwise me-1"></i>Reenviar codigo <span id="resend-timer">(60s)</span>
+                                <i class="bi bi-arrow-clockwise me-1"></i>Reenviar código <span id="resend-timer">(60s)</span>
                             </button>
                         </p>
                     </div>
@@ -428,7 +428,7 @@
                             <i class="bi bi-check-circle" style="color:#7B1FA2;"></i>
                         </div>
                         <div class="summary-number">{{ agendamentos_passados|length|default:"0" }}</div>
-                        <div class="summary-label">Historico</div>
+                        <div class="summary-label">Histórico</div>
                     </div>
                     {% if agendamentos_futuros %}
                     <div class="summary-card" style="border-color:rgba(201,168,76,0.25);">
@@ -440,7 +440,7 @@
                             {{ prox.data_hora_inicio|date:"d/m" }}
                             {% endwith %}
                         </div>
-                        <div class="summary-label">Proximo</div>
+                        <div class="summary-label">Próximo</div>
                     </div>
                     {% endif %}
                 </div>
@@ -508,7 +508,7 @@
                 <div class="section-divider" data-aos="fade-up">
                     <div class="section-divider-line"></div>
                     <div class="section-divider-label" style="background:rgba(0,0,0,0.04);color:#6B6256;">
-                        <i class="bi bi-clock-history"></i> Historico
+                        <i class="bi bi-clock-history"></i> Histórico
                     </div>
                     <div class="section-divider-line right"></div>
                 </div>
@@ -548,7 +548,7 @@
                         Nenhum agendamento encontrado
                     </h4>
                     <p class="text-muted mb-1" style="max-width:320px;margin:0 auto;">
-                        Voce ainda nao possui agendamentos registrados neste numero.
+                        Você ainda não possui agendamentos registrados neste número.
                     </p>
                     <p class="text-muted small mb-4" style="max-width:320px;margin:0 auto;">
                         Que tal agendar seu primeiro atendimento?
@@ -571,7 +571,7 @@
                 <p class="text-muted small mb-1" id="cancelModalProcedure"></p>
                 <p class="text-muted small mb-3" id="cancelModalDate"></p>
                 <p class="small mb-4" style="color:#C62828;background:#FFF8F8;padding:0.5rem 1rem;border-radius:12px;display:inline-block;">
-                    <i class="bi bi-info-circle me-1"></i>Esta acao nao pode ser desfeita.
+                    <i class="bi bi-info-circle me-1"></i>Esta acao não pode ser desfeita.
                 </p>
                 <div class="d-flex gap-2 justify-content-center">
                     <button class="btn rounded-pill px-4 py-2 fw-bold" style="border:1.5px solid #E0DBD3;color:#6B6256;font-size:0.85rem;" onclick="closeCancelModal()">

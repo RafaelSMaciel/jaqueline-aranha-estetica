@@ -1,7 +1,7 @@
 {% extends 'painel/base.html' %}
 
 {% block page_title %}Prontuario — {{ cliente.nome_completo }}{% endblock %}
-{% block page_subtitle %}Ficha de anamnese, historico e termos de consentimento{% endblock %}
+{% block page_subtitle %}Ficha de anamnese, histórico e termos de consentimento{% endblock %}
 
 {% block admin_content %}
 
@@ -49,7 +49,7 @@
 
             <div class="row g-3 mb-3">
                 <div class="col-md-6">
-                    <label class="form-label fw-bold small">Historico de Saude</label>
+                    <label class="form-label fw-bold small">Histórico de Saude</label>
                     <textarea name="historico_saude" class="form-control bg-light border-0" rows="3"
                         placeholder="Condicoes medicas relevantes...">{{ prontuario.historico_saude|default:"" }}</textarea>
                 </div>
@@ -87,7 +87,7 @@
                         <div class="form-check">
                             <input type="radio" name="pergunta_{{ pergunta.pk }}" value="nao"
                                 class="form-check-input" id="p{{ pergunta.pk }}_nao">
-                            <label class="form-check-label" for="p{{ pergunta.pk }}_nao">Nao</label>
+                            <label class="form-check-label" for="p{{ pergunta.pk }}_nao">Não</label>
                         </div>
                     </div>
                 {% else %}
@@ -109,7 +109,7 @@
 <div class="card border-0 shadow-sm rounded-4 mb-4">
     <div class="card-body p-3">
         <h6 class="fw-bold mb-3">
-            <i class="fas fa-history me-2" style="color:#4CAF50;"></i>Historico de Atendimentos
+            <i class="fas fa-history me-2" style="color:#4CAF50;"></i>Histórico de Atendimentos
         </h6>
 
         {% if atendimentos %}

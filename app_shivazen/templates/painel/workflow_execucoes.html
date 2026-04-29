@@ -28,7 +28,7 @@
 
 {% block admin_content %}
 <div class="small text-muted mb-2 fw-bold">
-    <i class="fas fa-history me-1"></i>{{ execucoes|length }} execucao(es) recente(s)
+    <i class="fas fa-history me-1"></i>{{ execucoes|length }} execução(es) recente(s)
 </div>
 
 {% for e in execucoes %}
@@ -44,8 +44,8 @@
 {% empty %}
 <div class="admin-empty-state">
     <div class="icon"><i class="fas fa-history"></i></div>
-    <h5>Nenhuma execucao registrada</h5>
-    <p>Esta regra ainda nao foi disparada.</p>
+    <h5>Nenhuma execução registrada</h5>
+    <p>Esta regra ainda não foi disparada.</p>
 </div>
 {% endfor %}
 {% endblock %}
