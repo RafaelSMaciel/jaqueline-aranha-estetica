@@ -1,0 +1,140 @@
+{% extends 'painel/base.html' %}
+
+{% block page_title %}Exceções de agenda{% endblock %}
+{% block page_subtitle %}{{ prof.nome }} — folgas e horários diferentes por data{% endblock %}
+{% block page_actions %}
+<a href="{% url 'aranha:profissional_editar' prof.pk %}" class="btn btn-sm btn-outline-secondary">
+    <i class="fas fa-arrow-left"></i> Voltar ao profissional
+</a>
+{% endblock %}
+
+{% block admin_css %}
+.exc-form-card {
+    background: white; border-radius: 16px; padding: 1.25rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 1rem;
+}
+.exc-form-card label { font-size: 0.75rem; font-weight: 700; color: #666; display: block; margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.4px; }
+.exc-form-card input, .exc-form-card select, .exc-form-card textarea {
+    width: 100%; padding: 0.55rem 0.75rem; border: 1px solid #ddd;
+    border-radius: 8px; font-size: 0.9rem; margin-bottom: 0.85rem;
+}
+.exc-row {
+    background: white; border-radius: 12px; padding: 0.75rem 1rem;
+    margin-bottom: 0.45rem; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+}
+.exc-data { font-weight: 800; min-width: 120px; }
+.exc-tipo {
+    font-size: 0.65rem; font-weight: 800; padding: 0.15rem 0.55rem;
+    border-radius: 999px; text-transform: uppercase;
+}
+.exc-tipo.FOLGA { background: #fce4ec; color: #c62828; }
+.exc-tipo.HORARIO_DIFERENTE { background: #fff8e1; color: #f57f17; }
+.exc-horario { font-size: 0.85rem; color: #666; }
+.exc-motivo { color: #999; font-size: 0.8rem; flex: 1; min-width: 160px; }
+.exc-passada { opacity: 0.55; }
+.legend-card {
+    background: #f8f5ec; border-left: 3px solid #C9A84C; border-radius: 8px;
+    padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.82rem; color: #6b5520;
+}
+{% endblock %}
+
+{% block admin_content %}
+<div class="legend-card">
+    <strong>Como funciona:</strong>
+    <ul style="margin: 0.4rem 0 0 1.2rem; padding: 0;">
+        <li><strong>FOLGA</strong>: bloqueia o dia inteiro (substitui regra semanal).</li>
+        <li><strong>HORÁRIO DIFERENTE</strong>: substitui horário do dia (ex: meio-período em véspera de feriado).</li>
+    </ul>
+</div>
+
+<form method="post" action="{% url 'aranha:admin_excecao_criar' prof.pk %}" class="exc-form-card">
+    {% csrf_token %}
+    <h6 style="font-weight:800;margin-bottom:0.75rem;color:#1a1a2e;">
+        <i class="fas fa-plus-circle" style="color:#C9A84C;"></i> Nova exceção
+    </h6>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.6rem;">
+        <div>
+            <label>Data</label>
+            <input type="date" name="data" required>
+        </div>
+        <div>
+            <label>Tipo</label>
+            <select name="tipo" id="excTipo" required>
+                {% for v, l in TIPO_CHOICES %}
+                <option value="{{ v }}">{{ l }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="exc-horario-field" style="display:none;">
+            <label>Hora início</label>
+            <input type="time" name="hora_inicio">
+        </div>
+        <div class="exc-horario-field" style="display:none;">
+            <label>Hora fim</label>
+            <input type="time" name="hora_fim">
+        </div>
+    </div>
+    <label>Motivo (opcional)</label>
+    <input type="text" name="motivo" placeholder="Ex: Feriado nacional, viagem, congresso...">
+    <button type="submit" class="btn-admin-primary">
+        <i class="fas fa-save"></i> Adicionar exceção
+    </button>
+</form>
+
+<h6 style="font-weight:800;margin:1.5rem 0 0.5rem;color:#666;font-size:0.78rem;text-transform:uppercase;letter-spacing:0.5px;">
+    <i class="fas fa-calendar-alt"></i> Próximas exceções ({{ excecoes|length }})
+</h6>
+{% for e in excecoes %}
+<div class="exc-row">
+    <span class="exc-data">{{ e.data|date:"D, d/m/Y" }}</span>
+    <span class="exc-tipo {{ e.tipo }}">{{ e.get_tipo_display }}</span>
+    {% if e.tipo == 'HORARIO_DIFERENTE' %}
+    <span class="exc-horario">{{ e.hora_inicio|time:"H:i" }} – {{ e.hora_fim|time:"H:i" }}</span>
+    {% endif %}
+    <span class="exc-motivo">{% if e.motivo %}{{ e.motivo }}{% else %}—{% endif %}</span>
+    <form method="post" action="{% url 'aranha:admin_excecao_excluir' e.pk %}" style="margin:0;"
+          onsubmit="return confirm('Remover exceção?')">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-sm" style="background:#fce4ec;color:#c62828;border:none;border-radius:8px;">
+            <i class="fas fa-trash"></i>
+        </button>
+    </form>
+</div>
+{% empty %}
+<div class="admin-empty-state">
+    <div class="icon"><i class="fas fa-calendar-check"></i></div>
+    <h5>Nenhuma exceção futura</h5>
+    <p>Use o formulário acima para folgas ou horários diferentes.</p>
+</div>
+{% endfor %}
+
+{% if excecoes_passadas %}
+<h6 style="font-weight:800;margin:2rem 0 0.5rem;color:#999;font-size:0.78rem;text-transform:uppercase;letter-spacing:0.5px;">
+    <i class="fas fa-history"></i> Histórico ({{ excecoes_passadas|length }})
+</h6>
+{% for e in excecoes_passadas %}
+<div class="exc-row exc-passada">
+    <span class="exc-data">{{ e.data|date:"d/m/Y" }}</span>
+    <span class="exc-tipo {{ e.tipo }}">{{ e.get_tipo_display }}</span>
+    {% if e.tipo == 'HORARIO_DIFERENTE' %}
+    <span class="exc-horario">{{ e.hora_inicio|time:"H:i" }}–{{ e.hora_fim|time:"H:i" }}</span>
+    {% endif %}
+    <span class="exc-motivo">{% if e.motivo %}{{ e.motivo }}{% else %}—{% endif %}</span>
+</div>
+{% endfor %}
+{% endif %}
+
+<script nonce="{{ csp_nonce }}">
+(function(){
+    var sel = document.getElementById('excTipo');
+    var fields = document.querySelectorAll('.exc-horario-field');
+    function toggle() {
+        var show = sel.value === 'HORARIO_DIFERENTE';
+        fields.forEach(function(f){ f.style.display = show ? '' : 'none'; });
+    }
+    sel.addEventListener('change', toggle);
+    toggle();
+})();
+</script>
+{% endblock %}

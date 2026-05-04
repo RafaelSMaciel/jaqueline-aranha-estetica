@@ -1,0 +1,54 @@
+{
+  "name": "{{ CLINIC_NAME }} — Painel",
+  "short_name": "{{ CLINIC_NAME }} Admin",
+  "id": "/painel/",
+  "start_url": "/painel/",
+  "scope": "/painel/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1a1a2e",
+  "theme_color": "#C9A84C",
+  "description": "Painel administrativo {{ CLINIC_NAME }} — agenda, pacientes, prontuário.",
+  "categories": ["business", "medical", "productivity"],
+  "icons": [
+    {
+      "src": "/static/assets/logo-completa.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/assets/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Calendário",
+      "short_name": "Agenda",
+      "url": "/painel/calendario/",
+      "description": "Calendário de agendamentos"
+    },
+    {
+      "name": "Agendamentos",
+      "short_name": "Lista",
+      "url": "/painel/agendamentos/",
+      "description": "Lista de agendamentos"
+    },
+    {
+      "name": "Pacientes",
+      "short_name": "Pacientes",
+      "url": "/painel/clientes/",
+      "description": "Gestão de pacientes"
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Início",
+      "url": "/painel/",
+      "description": "Visão geral"
+    }
+  ],
+  "prefer_related_applications": false
+}

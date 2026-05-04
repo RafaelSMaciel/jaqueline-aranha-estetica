@@ -56,6 +56,12 @@ urlpatterns = [
     path('painel/anamneses/<int:pk>/editar/', views.admin_anamnese_form, name='admin_anamnese_editar'),
     path('painel/anamneses/<int:pk>/excluir/', views.admin_anamnese_excluir, name='admin_anamnese_excluir'),
     path('painel/anamneses/<int:pk>/respostas/', views.admin_anamnese_respostas, name='admin_anamnese_respostas'),
+
+    # ─── Exceções de disponibilidade (folga / horário diferente por data) ───
+    path('painel/profissionais/<int:prof_id>/excecoes/', views.admin_excecoes, name='admin_excecoes'),
+    path('painel/profissionais/<int:prof_id>/excecoes/criar/', views.admin_excecao_criar, name='admin_excecao_criar'),
+    path('painel/excecoes/<int:pk>/excluir/', views.admin_excecao_excluir, name='admin_excecao_excluir'),
+
     path('agendamento/confirmar/', views.confirmar_agendamento, name='confirmar_agendamento'),
     path('agendamento/sucesso/', views.agendamento_sucesso, name='agendamento_sucesso'),
     path('agendamento/otp/solicitar/', views.solicitar_otp_agendamento, name='solicitar_otp_agendamento'),
@@ -216,8 +222,9 @@ urlpatterns = [
     # ─── WhatsApp Bot API ───
     path('api/whatsapp/webhook/', views.whatsapp_webhook, name='whatsapp_webhook'),
     path('api/zenvia/webhook/', views.zenvia_sms_webhook, name='zenvia_sms_webhook'),
-    # ─── PWA (Admin) ───
+    # ─── PWA ───
     path('manifest.json', TemplateView.as_view(template_name='pwa/manifest.json', content_type='application/json'), name='manifest'),
+    path('painel/manifest.json', TemplateView.as_view(template_name='pwa/manifest_admin.json', content_type='application/json'), name='manifest_admin'),
     path('sw.js', TemplateView.as_view(template_name='pwa/sw.js', content_type='application/javascript'), name='sw'),
 
     # ─── LGPD ───
