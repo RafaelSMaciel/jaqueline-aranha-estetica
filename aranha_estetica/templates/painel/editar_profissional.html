@@ -2,6 +2,11 @@
 
 {% block page_title %}Editar Profissional{% endblock %}
 {% block page_subtitle %}{{ profissional.nome }}{% endblock %}
+{% block page_actions %}
+<a href="{% url 'aranha:admin_excecoes' profissional.pk %}" class="btn btn-sm btn-outline-secondary">
+    <i class="fas fa-calendar-times"></i> Exceções (folgas/horários)
+</a>
+{% endblock %}
 
 {% block admin_css %}
 .form-card {
