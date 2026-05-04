@@ -35,6 +35,14 @@ class Cliente(models.Model):
     faltas_consecutivas = models.SmallIntegerField(default=0, validators=[MinValueValidator(0)])
     bloqueado_online = models.BooleanField(default=False)
 
+    # Estetica/CRM
+    foto_url = models.URLField(max_length=600, blank=True, default='', help_text='URL S3 / storage')
+    indicado_por = models.ForeignKey(
+        'self', on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='indicacoes',
+        help_text='Cliente que indicou este (programa fidelidade)',
+    )
+
     # LGPD: consentimento legado (comunicacao transacional) e unsubscribe token
     aceita_comunicacao = models.BooleanField(default=True)
     unsubscribe_token = models.CharField(max_length=64, blank=True, null=True, db_index=True)
