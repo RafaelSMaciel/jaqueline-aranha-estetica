@@ -8,6 +8,8 @@ class Profissional(models.Model):
     nome = models.CharField(max_length=100)
     slug = models.SlugField(max_length=140, unique=True, blank=True, null=True)
     especialidade = models.TextField(blank=True, null=True)
+    foto_url = models.URLField(max_length=600, blank=True, default='')
+    bio = models.TextField(blank=True, default='', help_text='Biografia publica do profissional')
     ativo = models.BooleanField(default=True)
     min_notice_horas = models.SmallIntegerField(default=2)
     max_advance_dias = models.SmallIntegerField(default=60)
