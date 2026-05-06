@@ -14,6 +14,12 @@ class Procedimento(models.Model):
         ('OUTRO', 'Outro'),
     ]
 
+    MODALIDADE_CHOICES = [
+        ('PRESENCIAL', 'Presencial'),
+        ('ONLINE', 'Online'),
+        ('HIBRIDO', 'Híbrido (presencial + online)'),
+    ]
+
     nome = models.CharField(max_length=100)
     slug = models.SlugField(max_length=140, unique=True, blank=True, null=True)
     descricao = models.TextField(blank=True, null=True)
@@ -21,6 +27,10 @@ class Procedimento(models.Model):
     duracao_minutos = models.SmallIntegerField()
     buffer_minutos = models.SmallIntegerField(default=0)
     categoria = models.CharField(max_length=20, default='OUTRO', choices=CATEGORIA_CHOICES)
+    modalidade = models.CharField(
+        max_length=12, default='PRESENCIAL', choices=MODALIDADE_CHOICES, db_index=True,
+    )
+    link_videoconferencia = models.URLField(max_length=500, blank=True, default='')
     imagem_destaque = models.URLField(max_length=500, blank=True, null=True)
     ativo = models.BooleanField(default=True)
     profissionais = models.ManyToManyField(Profissional, through='ProfissionalProcedimento')
@@ -44,6 +54,10 @@ class Procedimento(models.Model):
             models.CheckConstraint(
                 check=models.Q(categoria__in=['FACIAL', 'CORPORAL', 'CAPILAR', 'OUTRO']),
                 name='chk_procedimento_categoria'
+            ),
+            models.CheckConstraint(
+                check=models.Q(modalidade__in=['PRESENCIAL', 'ONLINE', 'HIBRIDO']),
+                name='chk_procedimento_modalidade'
             ),
         ]
 

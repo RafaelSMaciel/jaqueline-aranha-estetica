@@ -34,6 +34,7 @@ MAX_RETRIES = 3
 # Nomes dos templates aprovados no Meta Business API
 TEMPLATE_CONFIRMACAO_D1 = os.environ.get('WHATSAPP_TEMPLATE_D1', 'confirmacao_d1')
 TEMPLATE_NPS = os.environ.get('WHATSAPP_TEMPLATE_NPS', 'nps_pos_atendimento')
+TEMPLATE_PESQUISA = os.environ.get('WHATSAPP_TEMPLATE_PESQUISA', 'pesquisa_online')
 
 
 def gerar_token():
@@ -253,3 +254,26 @@ def enviar_nps_whatsapp(atendimento, link_nps, token_notif):
     except Notificacao.DoesNotExist:
         logger.warning('[NPS WA] Notificacao token %s nao encontrada', token_notif)
     return sucesso
+
+
+def enviar_pesquisa_whatsapp(atendimento, link_pesquisa):
+    """Envia pesquisa pos-atendimento detalhada via WhatsApp template `pesquisa_online`.
+
+    Parametros do template (ordem):
+      {{1}} nome do cliente
+      {{2}} procedimento (ex: "consulta online")
+      {{3}} link da pesquisa
+    Notificacao ja foi criada externamente — funcao apenas envia.
+    """
+    components = [{
+        'type': 'body',
+        'parameters': [
+            {'type': 'text', 'text': atendimento.cliente.nome_completo},
+            {'type': 'text', 'text': atendimento.procedimento.nome},
+            {'type': 'text', 'text': link_pesquisa},
+        ],
+    }]
+
+    return enviar_template_whatsapp(
+        atendimento.cliente.telefone, TEMPLATE_PESQUISA, components
+    )

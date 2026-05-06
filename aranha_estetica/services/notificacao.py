@@ -201,3 +201,50 @@ class WhatsAppService(_BaseNotificacao):
         except Exception as e:
             logger.exception('[WA NPS] falha envio (cli=%s): %s', cliente.pk, e)
             return None
+
+    @staticmethod
+    def enviar_pesquisa(atendimento: Atendimento, formulario) -> Optional[Notificacao]:
+        """Pesquisa pos-atendimento detalhada via WhatsApp template `pesquisa_online`.
+
+        Cria RespostaAnamnese vazia com token, manda link para o cliente preencher.
+        Idempotente: se ja existe notificacao tipo PESQUISA enviada, no-op.
+        """
+        from ..models import RespostaAnamnese
+
+        cliente = atendimento.cliente
+        if not WhatsAppService._tem_telefone(cliente):
+            return None
+        if not cliente.consent_whatsapp_nps:
+            logger.info('[WA PESQUISA] ignorado: sem consent NPS (cli=%s)', cliente.pk)
+            return None
+        ja_enviou = Notificacao.objects.filter(
+            atendimento=atendimento, tipo='PESQUISA', canal='WHATSAPP', status_envio='ENVIADO',
+        ).exists()
+        if ja_enviou:
+            return None
+
+        # Cria RespostaAnamnese vazia (gera token automaticamente)
+        resposta, _ = RespostaAnamnese.objects.get_or_create(
+            formulario=formulario,
+            cliente=cliente,
+            atendimento=atendimento,
+        )
+
+        try:
+            from ..utils.whatsapp import enviar_pesquisa_whatsapp, SITE_URL
+            notif = Notificacao.objects.create(
+                atendimento=atendimento, tipo='PESQUISA', canal='WHATSAPP',
+                token=resposta.token, status_envio='PENDENTE',
+            )
+            link = f'{SITE_URL.rstrip("/")}/pesquisa/{resposta.token}/'
+            if enviar_pesquisa_whatsapp(atendimento, link):
+                notif.status_envio = 'ENVIADO'
+                notif.enviado_em = timezone.now()
+                notif.save(update_fields=['status_envio', 'enviado_em'])
+            else:
+                notif.status_envio = 'FALHOU'
+                notif.save(update_fields=['status_envio'])
+            return notif
+        except Exception as e:
+            logger.exception('[WA PESQUISA] falha envio (cli=%s): %s', cliente.pk, e)
+            return None

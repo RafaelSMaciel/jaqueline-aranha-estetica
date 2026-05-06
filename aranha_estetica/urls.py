@@ -152,6 +152,13 @@ urlpatterns = [
     # ─── NPS Web (público) ───
     path('nps/<str:token>/', views.nps_web, name='nps_web'),
 
+    # ─── Anamnese / Pesquisa públicas (link mago via WhatsApp/Email) ───
+    # IMPORTANTE: rotas /obrigado/ devem vir ANTES de <str:token>/ p/ não colidir
+    path('anamnese/obrigado/', views.anamnese_obrigado, name='anamnese_obrigado'),
+    path('anamnese/<str:token>/', views.anamnese_publica, name='anamnese_publica'),
+    path('pesquisa/obrigado/', views.pesquisa_obrigado, name='pesquisa_obrigado'),
+    path('pesquisa/<str:token>/', views.pesquisa_publica, name='pesquisa_publica'),
+
     # ─── Assinatura de Termos (público) ───
     path('termo/<str:token>/', views.termo_assinatura, name='termo_assinatura'),
 

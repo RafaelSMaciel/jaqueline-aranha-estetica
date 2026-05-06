@@ -22,8 +22,10 @@ def admin_anamnese_form(request, pk=None):
 
     if request.method == 'POST':
         nome = request.POST.get('nome', '').strip()
+        tipo = request.POST.get('tipo', 'ANAMNESE').strip()
         escopo = request.POST.get('escopo', 'GLOBAL').strip()
         categoria = request.POST.get('categoria', '').strip()
+        modalidade = request.POST.get('modalidade', '').strip()
         proc_id = request.POST.get('procedimento') or None
         schema_raw = request.POST.get('schema_json', '[]').strip() or '[]'
         ativo = request.POST.get('ativo') == '1'
@@ -50,8 +52,9 @@ def admin_anamnese_form(request, pk=None):
             })
 
         defaults = dict(
-            nome=nome, escopo=escopo,
+            nome=nome, tipo=tipo, escopo=escopo,
             categoria=categoria if escopo == 'CATEGORIA' else '',
+            modalidade=modalidade if escopo == 'MODALIDADE' else '',
             procedimento_id=proc_id if escopo == 'PROCEDIMENTO' else None,
             schema_json=schema, ativo=ativo, obrigatorio=obrigatorio,
         )
@@ -71,6 +74,12 @@ def admin_anamnese_form(request, pk=None):
         'form_obj': form,
         'procedimentos': procedimentos,
         'ESCOPO_CHOICES': FormularioAnamnese.ESCOPO_CHOICES,
+        'TIPO_CHOICES': FormularioAnamnese.TIPO_CHOICES,
+        'MODALIDADE_CHOICES': [
+            ('PRESENCIAL', 'Presencial'),
+            ('ONLINE', 'Online'),
+            ('HIBRIDO', 'Hibrido'),
+        ],
     })
 
 

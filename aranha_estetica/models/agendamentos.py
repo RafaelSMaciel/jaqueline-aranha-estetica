@@ -146,6 +146,7 @@ class Notificacao(models.Model):
         ('CONFIRMACAO', 'Confirmação'),
         ('CANCELAMENTO', 'Cancelamento'),
         ('NPS', 'Pesquisa NPS'),
+        ('PESQUISA', 'Pesquisa de satisfação detalhada'),
         ('APROVACAO', 'Aprovação Profissional'),
     ]
     CANAL_CHOICES = [

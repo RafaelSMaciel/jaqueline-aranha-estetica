@@ -75,7 +75,49 @@ def _disparar_webhook(regra, atendimento):
         return False, f'erro: {e}'
 
 
+def _condicao_match(regra, atendimento):
+    """Filtros configuraveis em config_json. Retorna (ok, detalhe_skip)."""
+    cfg = regra.config_json or {}
+    modalidade_filter = cfg.get('modalidade_filter')
+    if modalidade_filter:
+        modalidade = getattr(atendimento.procedimento, 'modalidade', None)
+        if modalidade != modalidade_filter:
+            return False, f'skip modalidade={modalidade} != {modalidade_filter}'
+    categoria_filter = cfg.get('categoria_filter')
+    if categoria_filter:
+        if atendimento.procedimento.categoria != categoria_filter:
+            return False, f'skip categoria={atendimento.procedimento.categoria} != {categoria_filter}'
+    return True, ''
+
+
+def _disparar_pesquisa_whatsapp(regra, atendimento):
+    """Cria RespostaAnamnese + manda WhatsApp template pesquisa_online."""
+    cfg = regra.config_json or {}
+    formulario_id = cfg.get('formulario_id')
+    if not formulario_id:
+        return False, 'formulario_id ausente em config_json'
+
+    from ..models import FormularioAnamnese
+    try:
+        formulario = FormularioAnamnese.objects.get(pk=formulario_id, ativo=True, tipo='PESQUISA')
+    except FormularioAnamnese.DoesNotExist:
+        return False, f'FormularioAnamnese pk={formulario_id} (tipo PESQUISA, ativo) nao encontrado'
+
+    from .notificacao import WhatsAppService
+    notif = WhatsAppService.enviar_pesquisa(atendimento, formulario)
+    if notif and notif.status_envio == 'ENVIADO':
+        return True, f'pesquisa enviada notif={notif.pk}'
+    return False, f'falha envio pesquisa (notif={notif.pk if notif else None})'
+
+
 def _executar_acao(regra, atendimento):
+    cfg = regra.config_json or {}
+    tipo_notif = cfg.get('tipo_notificacao')
+
+    # Branch especial: pesquisa pos-atendimento detalhada
+    if tipo_notif == 'PESQUISA' and regra.acao == 'SEND_WHATSAPP':
+        return _disparar_pesquisa_whatsapp(regra, atendimento)
+
     if regra.acao in ('SEND_EMAIL', 'SEND_SMS', 'SEND_WHATSAPP'):
         return _enfileirar_notificacao(regra, atendimento)
     if regra.acao == 'SEND_PUSH':
@@ -87,6 +129,12 @@ def _executar_acao(regra, atendimento):
 
 def _executar_regra(regra, atendimento):
     """Executa regra com deduplicacao via UNIQUE(regra, atendimento)."""
+    # Filtros pre-reserva (sem criar WorkflowExecucao p/ permitir disparo futuro
+    # se atendimento for editado e voltar a satisfazer condicao)
+    cond_ok, cond_detalhe = _condicao_match(regra, atendimento)
+    if not cond_ok:
+        return False
+
     try:
         with transaction.atomic():
             exec_row = WorkflowExecucao.objects.create(

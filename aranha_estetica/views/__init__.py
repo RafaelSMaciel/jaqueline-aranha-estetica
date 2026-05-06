@@ -90,6 +90,10 @@ from .admin_anamnese import (
     admin_anamneses, admin_anamnese_form, admin_anamnese_excluir,
     admin_anamnese_respostas,
 )
+from .anamnese_publica import (
+    anamnese_publica, pesquisa_publica,
+    anamnese_obrigado, pesquisa_obrigado,
+)
 from .admin_excecoes import (
     admin_excecoes, admin_excecao_criar, admin_excecao_excluir,
 )
