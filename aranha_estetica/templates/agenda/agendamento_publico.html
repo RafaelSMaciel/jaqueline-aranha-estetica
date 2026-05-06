@@ -539,7 +539,7 @@
                                 </button>
                             </div>
                             <small style="color:#9a8f7c;font-size:0.72rem;margin-top:0.35rem;display:block;">
-                                Enviaremos um código de 6 dígitos para validar seu e-mail. Se já for paciente, seus dados serão preenchidos automaticamente.
+                                Enviaremos um SMS com código de 6 dígitos para validar seu telefone. Se já for paciente, seus dados serão preenchidos automaticamente.
                             </small>
                         </div>
 
@@ -618,7 +618,7 @@
                         </div>
                         {% endif %}
 
-                        <button type="submit" class="btn-confirm-booking" id="btn-confirmar" disabled title="Verifique o codigo enviado ao seu e-mail primeiro">
+                        <button type="submit" class="btn-confirm-booking" id="btn-confirmar" disabled title="Verifique o código enviado por SMS ao seu telefone primeiro">
                             <i class="bi bi-calendar-check me-2"></i>Confirmar Agendamento
                         </button>
                         <small class="confirm-subnote">
@@ -1051,7 +1051,7 @@
                     btnEnviar.disabled = false;
                     if (res.data.ok) {
                         document.getElementById('otp-field').style.display = '';
-                        setOtpMsg('Codigo enviado para seu e-mail. Valido por 10min.', true);
+                        setOtpMsg('Código enviado por SMS para seu telefone. Válido por 10min.', true);
                         btnEnviar.innerHTML = '<i class="bi bi-arrow-clockwise"></i><span class="otp-btn-text">Reenviar</span>';
                     } else if (res.data.erro === 'aguarde') {
                         setOtpMsg('Aguarde alguns segundos antes de reenviar.', false);
@@ -1086,7 +1086,7 @@
                     btnVerif.disabled = false;
                     if (res.data.ok) {
                         otpVerificado = true;
-                        setOtpMsg('E-mail verificado!', true);
+                        setOtpMsg('Telefone verificado!', true);
                         var existe = !!res.data.prefill;
                         mostrarDados(res.data.prefill, existe);
                         // esconde botoes OTP apos sucesso

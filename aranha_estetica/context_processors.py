@@ -12,7 +12,7 @@ def clinica_globals(request):
         'CLINIC_ADDRESS': os.environ.get('CLINIC_ADDRESS', 'R. Humberto Delboni, 1107 - Jardim Fuscaldo, São José do Rio Preto - SP'),
         'WHATSAPP_NUMERO': os.environ.get('WHATSAPP_NUMERO', '5517999990000'),
         'SITE_URL': os.environ.get('SITE_URL', 'http://127.0.0.1:8000'),
-        'INSTAGRAM_URL': os.environ.get('INSTAGRAM_URL', 'https://www.instagram.com/shivazensjrp/'),
+        'INSTAGRAM_URL': os.environ.get('INSTAGRAM_URL', ''),
         'THEME_COLOR': os.environ.get('THEME_COLOR', '#C9A84C'),
     }
 
