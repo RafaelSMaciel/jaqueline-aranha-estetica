@@ -10,8 +10,12 @@ logger = logging.getLogger(__name__)
 
 @receiver([post_save, post_delete], sender=ConfiguracaoSistema)
 def invalidar_cache_branding(sender, instance, **kwargs):
-    """Zera cache de branding quando ConfiguracaoSistema muda."""
-    cache.delete('branding_config_v1')
+    """Zera cache de branding quando ConfiguracaoSistema muda.
+
+    Chaves cacheadas (manter sincronizadas com utils/cache.py + admin_branding.py):
+    """
+    cache.delete('branding_config_v1')   # legado
+    cache.delete('branding_config_dict')  # novo (admin_branding._get_config_dict)
 
 @receiver(pre_save, sender=Atendimento)
 def capturar_status_anterior(sender, instance, **kwargs):

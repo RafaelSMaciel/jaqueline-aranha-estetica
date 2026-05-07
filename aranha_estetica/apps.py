@@ -10,3 +10,9 @@ class AranhaEsteticaConfig(AppConfig):
         from django.contrib import admin
         from two_factor.admin import AdminSiteOTPRequired
         admin.site.__class__ = AdminSiteOTPRequired
+
+        # Registra signals legados
+        from . import signals  # noqa: F401
+
+        # Registra handlers do EventBus de dominio
+        from .domain import handlers  # noqa: F401

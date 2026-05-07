@@ -2,10 +2,62 @@
 import secrets
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.utils import timezone
 
 from .clientes import Cliente
 from .procedimentos import Procedimento, Promocao
 from .profissionais import Profissional
+
+
+class AtendimentoQuerySet(models.QuerySet):
+    """QuerySet com queries reutilizaveis — encapsula conhecimento de dominio."""
+
+    def ativos(self):
+        """Atendimentos nao cancelados/reagendados/faltados."""
+        return self.exclude(status__in=['CANCELADO', 'REAGENDADO', 'FALTOU'])
+
+    def futuros(self):
+        return self.filter(data_hora_inicio__gte=timezone.now())
+
+    def passados(self):
+        return self.filter(data_hora_fim__lt=timezone.now())
+
+    def hoje(self):
+        hoje = timezone.localdate()
+        return self.filter(data_hora_inicio__date=hoje)
+
+    def pendentes_aprovacao(self):
+        return self.filter(status='PENDENTE')
+
+    def realizados(self):
+        return self.filter(status='REALIZADO')
+
+    def do_profissional(self, profissional):
+        return self.filter(profissional=profissional)
+
+    def conflito_com(self, profissional, data_inicio, data_fim):
+        """Atendimentos que conflitam com janela [data_inicio, data_fim)."""
+        return self.filter(
+            profissional=profissional,
+            data_hora_inicio__lt=data_fim,
+            data_hora_fim__gt=data_inicio,
+            status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO'],
+        )
+
+
+class AtendimentoManager(models.Manager):
+    def get_queryset(self):
+        return AtendimentoQuerySet(self.model, using=self._db)
+
+    # Proxy methods do queryset p/ chamadas curtas
+    def ativos(self): return self.get_queryset().ativos()
+    def futuros(self): return self.get_queryset().futuros()
+    def hoje(self): return self.get_queryset().hoje()
+    def pendentes_aprovacao(self): return self.get_queryset().pendentes_aprovacao()
+    def realizados(self): return self.get_queryset().realizados()
+    def do_profissional(self, prof): return self.get_queryset().do_profissional(prof)
+    def conflito_com(self, prof, data_inicio, data_fim):
+        return self.get_queryset().conflito_com(prof, data_inicio, data_fim)
 
 
 class Atendimento(models.Model):
@@ -107,6 +159,8 @@ class Atendimento(models.Model):
 
     def aprovar(self, by_user=None):
         self._transicionar('AGENDADO', by_user=by_user)
+
+    objects = AtendimentoManager()
 
     class Meta:
         managed = True
