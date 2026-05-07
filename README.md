@@ -249,16 +249,8 @@ python manage.py runserver
 
 ## Documentação
 
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — arquitetura
-- [docs/SETUP.md](docs/SETUP.md) — setup local
-- [docs/SETUP_PROD.md](docs/SETUP_PROD.md) — variáveis de produção + serviços externos
-- [docs/API.md](docs/API.md) — endpoints
-- [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) — contribuição
-- [docs/DB_AUDIT.md](docs/DB_AUDIT.md) — auditoria comparativa do banco
-- [docs/DPIA.md](docs/DPIA.md) — DPIA / LGPD
-- [docs/erd.md](docs/erd.md) — modelo entidade-relacionamento
-- [docs/ROADMAP_MELHORIAS.md](docs/ROADMAP_MELHORIAS.md) — sprints (regras, PWA, ICS, workflow, anamnese, extras, pesquisa pós-online)
-- [docs/whatsapp_templates.md](docs/whatsapp_templates.md) — templates WhatsApp Meta
+- **[docs/PROJECT.md](docs/PROJECT.md)** — documentação consolidada (setup, arquitetura, segurança, LGPD, API, WhatsApp, contributing). **Single source of truth.**
+- [docs/erd.md](docs/erd.md) — Modelo Entidade-Relacionamento detalhado (Mermaid)
 
 ---
 
