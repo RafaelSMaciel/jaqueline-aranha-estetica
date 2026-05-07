@@ -527,37 +527,20 @@ def admin_email_preview(request, nome=None):
 @require_POST
 @ratelimit(key='user', rate='60/m', method='POST', block=True)
 def admin_aprovar_agendamento(request, pk):
-    """Gerente/recepção aprova agendamento PENDENTE → AGENDADO."""
+    """Gerente/recepção aprova agendamento PENDENTE → AGENDADO.
+
+    View thin: delega regras + email + audit ao AgendamentoService.
+    """
     atendimento = get_object_or_404(
         Atendimento.objects.select_related('cliente', 'procedimento', 'profissional'),
         pk=pk,
     )
-    if atendimento.status != 'PENDENTE':
+    from ..services.agendamento_service import AgendamentoService
+    transitou = AgendamentoService().aprovar(atendimento, by_user=request.user)
+    if not transitou:
         messages.warning(request, f'Atendimento já está como {atendimento.get_status_display().lower()}.')
-        return redirect(request.META.get('HTTP_REFERER', 'aranha:painel_agendamentos'))
-
-    atendimento.status = 'AGENDADO'
-    atendimento.save()
-    registrar_log(request.user, 'Aprovou agendamento', 'atendimento', atendimento.pk)
-
-    if atendimento.cliente.email:
-        data_fmt = atendimento.data_hora_inicio.strftime('%d/%m/%Y as %H:%M')
-        dados = {
-            'nome': atendimento.cliente.nome_completo,
-            'procedimento': atendimento.procedimento.nome,
-            'profissional': atendimento.profissional.nome,
-            'data_hora': data_fmt,
-            'valor': f'R$ {float(atendimento.valor_cobrado):.2f}' if atendimento.valor_cobrado else 'A consultar',
-        }
-        from ..tasks import send_email_async
-        try:
-            send_email_async.delay('enviar_confirmacao_agendamento_email',
-                                   atendimento.cliente.email, dados)
-        except Exception:
-            from ..utils.email import enviar_confirmacao_agendamento_email
-            enviar_confirmacao_agendamento_email(atendimento.cliente.email, dados)
-
-    messages.success(request, f'Agendamento de {atendimento.cliente.nome_completo} aprovado.')
+    else:
+        messages.success(request, f'Agendamento de {atendimento.cliente.nome_completo} aprovado.')
     return redirect(request.META.get('HTTP_REFERER', 'aranha:painel_agendamentos'))
 
 
@@ -565,35 +548,20 @@ def admin_aprovar_agendamento(request, pk):
 @require_POST
 @ratelimit(key='user', rate='60/m', method='POST', block=True)
 def admin_rejeitar_agendamento(request, pk):
-    """Gerente/recepção rejeita agendamento PENDENTE → CANCELADO."""
+    """Gerente/recepção rejeita agendamento PENDENTE → CANCELADO.
+
+    View thin: delega regras + email + audit ao AgendamentoService.
+    """
     atendimento = get_object_or_404(
         Atendimento.objects.select_related('cliente', 'procedimento', 'profissional'),
         pk=pk,
     )
-    if atendimento.status != 'PENDENTE':
+    from ..services.agendamento_service import AgendamentoService
+    transitou = AgendamentoService().rejeitar(atendimento, by_user=request.user)
+    if not transitou:
         messages.warning(request, f'Atendimento já está como {atendimento.get_status_display().lower()}.')
-        return redirect(request.META.get('HTTP_REFERER', 'aranha:painel_agendamentos'))
-
-    atendimento.status = 'CANCELADO'
-    atendimento.save()
-    registrar_log(request.user, 'Rejeitou agendamento', 'atendimento', atendimento.pk)
-
-    if atendimento.cliente.email:
-        data_fmt = atendimento.data_hora_inicio.strftime('%d/%m/%Y as %H:%M')
-        dados = {
-            'nome': atendimento.cliente.nome_completo,
-            'procedimento': atendimento.procedimento.nome,
-            'profissional': atendimento.profissional.nome,
-            'data_hora': data_fmt,
-        }
-        from ..tasks import send_email_async
-        try:
-            send_email_async.delay('enviar_cancelamento_email', atendimento.cliente.email, dados)
-        except Exception:
-            from ..utils.email import enviar_cancelamento_email
-            enviar_cancelamento_email(atendimento.cliente.email, dados)
-
-    messages.success(request, f'Agendamento de {atendimento.cliente.nome_completo} rejeitado.')
+    else:
+        messages.success(request, f'Agendamento de {atendimento.cliente.nome_completo} rejeitado.')
     return redirect(request.META.get('HTTP_REFERER', 'aranha:painel_agendamentos'))
 
 

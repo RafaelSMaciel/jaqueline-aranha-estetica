@@ -61,14 +61,27 @@ class AtendimentoManager(models.Manager):
 
 
 class Atendimento(models.Model):
+    # Constantes publicas — referencia unica p/ status (substitui magic strings)
+    STATUS_PENDENTE = 'PENDENTE'
+    STATUS_AGENDADO = 'AGENDADO'
+    STATUS_CONFIRMADO = 'CONFIRMADO'
+    STATUS_REALIZADO = 'REALIZADO'
+    STATUS_CANCELADO = 'CANCELADO'
+    STATUS_FALTOU = 'FALTOU'
+    STATUS_REAGENDADO = 'REAGENDADO'
+
+    # Grupos para queries semanticas
+    STATUS_FINALIZADOS = (STATUS_REALIZADO, STATUS_CANCELADO, STATUS_FALTOU, STATUS_REAGENDADO)
+    STATUS_ATIVOS = (STATUS_PENDENTE, STATUS_AGENDADO, STATUS_CONFIRMADO)
+
     STATUS_CHOICES = [
-        ('PENDENTE', 'Pendente de Confirmação'),
-        ('AGENDADO', 'Agendado'),
-        ('CONFIRMADO', 'Confirmado'),
-        ('REALIZADO', 'Realizado'),
-        ('CANCELADO', 'Cancelado'),
-        ('FALTOU', 'Faltou'),
-        ('REAGENDADO', 'Reagendado'),
+        (STATUS_PENDENTE, 'Pendente de Confirmação'),
+        (STATUS_AGENDADO, 'Agendado'),
+        (STATUS_CONFIRMADO, 'Confirmado'),
+        (STATUS_REALIZADO, 'Realizado'),
+        (STATUS_CANCELADO, 'Cancelado'),
+        (STATUS_FALTOU, 'Faltou'),
+        (STATUS_REAGENDADO, 'Reagendado'),
     ]
 
     cliente = models.ForeignKey(Cliente, on_delete=models.RESTRICT)

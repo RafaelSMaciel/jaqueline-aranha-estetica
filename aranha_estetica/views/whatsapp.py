@@ -111,8 +111,10 @@ def zenvia_sms_webhook(request):
     message_id = data.get('messageId') or data.get('id', '')
     status = data.get('messageStatus', {}).get('code') or data.get('status', '')
     to = data.get('to', '')
-    logger.info('[ZENVIA] msg=%s to=%s status=%s',
-                message_id, mask_telefone(to), status)
+    logger.info(
+        'zenvia_status_callback',
+        extra={'message_id': message_id, 'to_mask': mask_telefone(to), 'status': status},
+    )
     return JsonResponse({'status': 'ok'})
 
 

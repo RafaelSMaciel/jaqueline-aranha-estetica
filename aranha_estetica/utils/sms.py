@@ -60,15 +60,15 @@ def pode_enviar(telefone: str, ip: str = None) -> bool:
     key_global = 'sms_rl:global'
 
     if cache.get(key_tel, 0) >= SMS_MAX_POR_HORA:
-        logger.warning('[SMS] rate limit telefone excedido %s', _mask(tel_fmt))
+        logger.warning('sms_rate_limit_telefone', extra={'telefone_mask': _mask(tel_fmt)})
         return False
     if cache.get(key_global, 0) >= SMS_MAX_GLOBAL_HORA:
-        logger.warning('[SMS] rate limit global excedido')
+        logger.warning('sms_rate_limit_global')
         return False
     if ip:
         key_ip = f'sms_rl:ip:{ip}'
         if cache.get(key_ip, 0) >= SMS_MAX_POR_IP_HORA:
-            logger.warning('[SMS] rate limit IP excedido %s', ip)
+            logger.warning('sms_rate_limit_ip', extra={'ip': ip})
             return False
 
     try:
@@ -88,17 +88,20 @@ def enviar_sms(telefone: str, mensagem: str, _tentativa: int = 1) -> bool:
     """
     telefone_fmt = formatar_telefone(telefone)
     if not telefone_fmt:
-        logger.warning('[SMS] telefone invalido')
+        logger.warning('sms_telefone_invalido')
         return False
 
     dev_only = bool(getattr(settings, 'DEBUG', False)) or not ZENVIA_API_TOKEN \
         or os.environ.get('SMS_DEV_LOG_ONLY', '').lower() == 'true'
     if dev_only:
-        logger.info('[SMS DEV] Para: %s | %s', _mask(telefone_fmt), mensagem[:200])
+        logger.info(
+            'sms_dev_log',
+            extra={'telefone_mask': _mask(telefone_fmt), 'preview': mensagem[:200]},
+        )
         return True
 
     if not ZENVIA_FROM:
-        logger.error('[SMS] ZENVIA_FROM nao configurado')
+        logger.error('sms_zenvia_from_nao_configurado')
         return False
 
     payload = {
@@ -114,25 +117,35 @@ def enviar_sms(telefone: str, mensagem: str, _tentativa: int = 1) -> bool:
     try:
         response = requests.post(ZENVIA_API_URL, json=payload, headers=headers, timeout=10)
         if response.status_code in (200, 201, 202):
-            logger.info('[SMS] Enviado para %s', _mask(telefone_fmt))
+            logger.info('sms_enviado', extra={'telefone_mask': _mask(telefone_fmt)})
             return True
         if response.status_code >= 500 and _tentativa < MAX_RETRIES:
             wait = 2 ** _tentativa
-            logger.warning('[SMS] Erro %d, retry %d/%d em %ds',
-                           response.status_code, _tentativa, MAX_RETRIES, wait)
+            logger.warning(
+                'sms_retry',
+                extra={
+                    'status': response.status_code,
+                    'tentativa': _tentativa,
+                    'max': MAX_RETRIES,
+                    'wait': wait,
+                },
+            )
             time.sleep(wait)
             return enviar_sms(telefone, mensagem, _tentativa=_tentativa + 1)
-        logger.error('[SMS] Erro %d: %s', response.status_code, response.text[:200])
+        logger.error(
+            'sms_erro_http',
+            extra={'status': response.status_code, 'body': response.text[:200]},
+        )
         return False
     except requests.exceptions.Timeout:
         if _tentativa < MAX_RETRIES:
             wait = 2 ** _tentativa
             time.sleep(wait)
             return enviar_sms(telefone, mensagem, _tentativa=_tentativa + 1)
-        logger.error('[SMS] Timeout apos %d tentativas', MAX_RETRIES)
+        logger.error('sms_timeout_max_retries', extra={'max': MAX_RETRIES})
         return False
     except requests.exceptions.RequestException as e:
-        logger.error('[SMS] Falha: %s', e)
+        logger.error('sms_request_exception', extra={'error': str(e)})
         return False
 
 

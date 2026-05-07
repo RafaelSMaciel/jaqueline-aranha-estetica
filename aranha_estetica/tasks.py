@@ -31,10 +31,10 @@ def job_workflow_executar_pendentes(self):
         from .services.workflow_engine import executar_pendentes
         resultado = executar_pendentes()
         total = sum(resultado.values())
-        logger.info('[WORKFLOW] %s acoes disparadas (regras: %s)', total, resultado)
+        logger.info('workflow_pendentes_executado', extra={'total': total, 'por_regra': resultado})
         return f'{total} acao(es) disparada(s)'
     except Exception as e:
-        logger.exception('[WORKFLOW] Erro executando pendentes')
+        logger.exception('workflow_pendentes_erro')
         raise self.retry(exc=e) from e
 
 
@@ -156,11 +156,14 @@ def job_alerta_detrator_nps(self):
         email_admin = config.valor if config else os.environ.get('ADMIN_EMAIL', '')
 
         if not email_admin:
-            logger.warning('[NPS DETRATOR] Sem email_admin configurado — alerta nao enviado')
+            logger.warning('nps_detrator_sem_email_admin')
             for avaliacao in detratores:
                 logger.warning(
-                    f"[NPS DETRATOR] Cliente {avaliacao.atendimento.cliente.nome_completo} "
-                    f"deu nota {avaliacao.nota}"
+                    'nps_detrator_sem_email_admin_cliente',
+                    extra={
+                        'cliente': avaliacao.atendimento.cliente.nome_completo,
+                        'nota': avaliacao.nota,
+                    },
                 )
             return
 
@@ -188,10 +191,14 @@ def job_alerta_detrator_nps(self):
                 avaliacao.alerta_enviado = True
                 avaliacao.save(update_fields=['alerta_enviado'])
                 logger.warning(
-                    f"[NPS DETRATOR] Alerta enviado: {at.cliente.nome_completo} nota {avaliacao.nota}"
+                    'nps_detrator_alerta_enviado',
+                    extra={
+                        'cliente': at.cliente.nome_completo,
+                        'nota': avaliacao.nota,
+                    },
                 )
             except Exception as e:
-                logger.error('[NPS DETRATOR] Falha ao enviar alerta: %s', e)
+                logger.error('nps_detrator_falha_alerta', extra={'error': str(e)})
     except Exception as exc:
         logger.exception('Erro em job_alerta_detrator_nps: %s', exc)
         raise self.retry(exc=exc) from exc
@@ -431,7 +438,7 @@ def send_email_async(self, funcao_nome, *args, **kwargs):
 
     func = getattr(email_mod, funcao_nome, None)
     if not func:
-        logger.error('[EMAIL ASYNC] funcao %s nao encontrada', funcao_nome)
+        logger.error('email_async_funcao_nao_encontrada', extra={'funcao': funcao_nome})
         return False
     ok = func(*args, **kwargs)
     if not ok:
@@ -449,7 +456,7 @@ def job_lgpd_purgar_inativos(self):
     from .services.lgpd import LgpdService
     try:
         count = LgpdService.purgar_inativos()
-        logger.info('[LGPD] %s clientes inativos anonimizados', count)
+        logger.info('lgpd_clientes_anonimizados', extra={'count': count})
         return count
     except Exception as exc:
         logger.exception('Erro em job_lgpd_purgar_inativos: %s', exc)
@@ -472,5 +479,5 @@ def dispatch_webhook(self, url: str, payload: dict):
         resp.raise_for_status()
         return f'http {resp.status_code}'
     except requests.RequestException as exc:
-        logger.warning('[WEBHOOK] %s falhou: %s', url, exc)
+        logger.warning('webhook_falhou', extra={'url': url, 'error': str(exc)})
         raise self.retry(exc=exc) from exc

@@ -88,31 +88,40 @@ def enviar_whatsapp(telefone, mensagem, _tentativa=1):
         )
         if response.status_code in (200, 201):
             from .precos import mask_telefone
-            logger.info('[WHATSAPP] Enviado para %s', mask_telefone(telefone_formatado))
+            logger.info('whatsapp_enviado', extra={'telefone_mask': mask_telefone(telefone_formatado)})
             return True
         elif response.status_code >= 500 and _tentativa < MAX_RETRIES:
             wait = 2 ** _tentativa
             logger.warning(
-                '[WHATSAPP] Erro %d, retry %d/%d em %ds',
-                response.status_code, _tentativa, MAX_RETRIES, wait,
+                'whatsapp_retry',
+                extra={
+                    'status': response.status_code,
+                    'tentativa': _tentativa,
+                    'max': MAX_RETRIES,
+                    'wait': wait,
+                },
             )
             time.sleep(wait)
             return enviar_whatsapp(telefone, mensagem, _tentativa=_tentativa + 1)
         else:
             logger.error(
-                f'[WHATSAPP] Erro {response.status_code}: {response.text[:200]}'
+                'whatsapp_erro_http',
+                extra={'status': response.status_code, 'body': response.text[:200]},
             )
             return False
     except requests.exceptions.Timeout:
         if _tentativa < MAX_RETRIES:
             wait = 2 ** _tentativa
-            logger.warning('[WHATSAPP] Timeout, retry %d/%d em %ds', _tentativa, MAX_RETRIES, wait)
+            logger.warning(
+                'whatsapp_timeout_retry',
+                extra={'tentativa': _tentativa, 'max': MAX_RETRIES, 'wait': wait},
+            )
             time.sleep(wait)
             return enviar_whatsapp(telefone, mensagem, _tentativa=_tentativa + 1)
-        logger.error('[WHATSAPP] Timeout apos %d tentativas', MAX_RETRIES)
+        logger.error('whatsapp_timeout_max_retries', extra={'max': MAX_RETRIES})
         return False
     except requests.exceptions.RequestException as e:
-        logger.error(f'[WHATSAPP] Falha ao enviar: {e}')
+        logger.error('whatsapp_request_exception', extra={'error': str(e)})
         return False
 
 
@@ -127,8 +136,12 @@ def enviar_template_whatsapp(telefone, template_name, components=None):
     if not WHATSAPP_TOKEN or settings.DEBUG:
         from .precos import mask_telefone
         logger.info(
-            '[WHATSAPP DEV] Template "%s" para: %s | components: %s',
-            template_name, mask_telefone(telefone_formatado), components,
+            'whatsapp_dev_template',
+            extra={
+                'template': template_name,
+                'telefone_mask': mask_telefone(telefone_formatado),
+                'components': components,
+            },
         )
         return True
 
@@ -152,13 +165,22 @@ def enviar_template_whatsapp(telefone, template_name, components=None):
         response = requests.post(WHATSAPP_API_URL, json=payload, headers=headers, timeout=10)
         if response.status_code in (200, 201):
             from .precos import mask_telefone
-            logger.info('[WHATSAPP] Template "%s" enviado para %s', template_name, mask_telefone(telefone_formatado))
+            logger.info(
+                'whatsapp_template_enviado',
+                extra={
+                    'template': template_name,
+                    'telefone_mask': mask_telefone(telefone_formatado),
+                },
+            )
             return True
         else:
-            logger.error('[WHATSAPP] Template erro %d: %s', response.status_code, response.text[:200])
+            logger.error(
+                'whatsapp_template_erro_http',
+                extra={'status': response.status_code, 'body': response.text[:200]},
+            )
             return False
     except requests.exceptions.RequestException as e:
-        logger.error('[WHATSAPP] Falha ao enviar template: %s', e)
+        logger.error('whatsapp_template_request_exception', extra={'error': str(e)})
         return False
 
 
@@ -252,7 +274,7 @@ def enviar_nps_whatsapp(atendimento, link_nps, token_notif):
         notif.mensagem = f'[Template {TEMPLATE_NPS}] NPS {atendimento.procedimento.nome}'
         notif.save(update_fields=['status_envio', 'enviado_em', 'mensagem'])
     except Notificacao.DoesNotExist:
-        logger.warning('[NPS WA] Notificacao token %s nao encontrada', token_notif)
+        logger.warning('nps_wa_notificacao_nao_encontrada', extra={'token': token_notif})
     return sucesso
 
 
