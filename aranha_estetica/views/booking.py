@@ -69,19 +69,25 @@ def agendamento_publico(request):
     })
 
     # Anamneses ativas — JS escolhe quais aplicam baseado no procedimento selecionado
+    # Single query via .values() — evita N+1 e instanciacao de modelo nao usada
     formularios_anamnese = []
     try:
         from ..models import FormularioAnamnese
-        for f in FormularioAnamnese.objects.filter(ativo=True):
-            formularios_anamnese.append({
-                'id': f.pk,
-                'nome': f.nome,
-                'escopo': f.escopo,
-                'categoria': f.categoria,
-                'procedimento_id': f.procedimento_id,
-                'obrigatorio': f.obrigatorio,
-                'schema': f.schema_json,
-            })
+        formularios_anamnese = [
+            {
+                'id': row['id'],
+                'nome': row['nome'],
+                'escopo': row['escopo'],
+                'categoria': row['categoria'],
+                'procedimento_id': row['procedimento_id'],
+                'obrigatorio': row['obrigatorio'],
+                'schema': row['schema_json'],
+            }
+            for row in FormularioAnamnese.objects.filter(ativo=True).values(
+                'id', 'nome', 'escopo', 'categoria',
+                'procedimento_id', 'obrigatorio', 'schema_json',
+            )
+        ]
     except (OperationalError, ProgrammingError):
         pass
 
@@ -175,7 +181,7 @@ def confirmar_agendamento(request):
 
     # Honeypot — bots que preenchem tudo falham aqui
     if request.POST.get('website', '').strip():
-        logger.info('[BOOKING] honeypot triggered ip=%s', _client_ip(request))
+        logger.info('booking_honeypot_triggered', extra={'ip': _client_ip(request)})
         return redirect('aranha:agendamento_publico')
 
     # Turnstile CAPTCHA
@@ -358,7 +364,7 @@ def confirmar_agendamento(request):
                             except (ValueError, TypeError):
                                 continue
                 except (ValueError, TypeError):
-                    logger.warning('[BOOKING] anamnese_respostas JSON invalido')
+                    logger.warning('booking_anamnese_json_invalido')
 
             # --- Notificacao de termos pendentes (dentro da transacao) ---
             termos_pendentes = VersaoTermo.objects.filter(
@@ -402,7 +408,7 @@ def confirmar_agendamento(request):
             try:
                 send_email_async.delay(fn_name, *args)
             except Exception as e:
-                logger.warning('[EMAIL] Celery indisponivel, fallback sync: %s', e)
+                logger.warning('email_celery_indisponivel_fallback_sync', extra={'error': str(e)})
                 from ..utils import email as _em
                 getattr(_em, fn_name)(*args)
 

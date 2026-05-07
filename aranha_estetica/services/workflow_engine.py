@@ -6,8 +6,11 @@ Triggers:
 
 Deduplicacao: WorkflowExecucao(regra, atendimento) UNIQUE.
 """
+from __future__ import annotations
+
 import logging
 from datetime import timedelta
+from typing import Tuple, TYPE_CHECKING
 
 from django.db import IntegrityError, transaction
 from django.utils import timezone
@@ -16,10 +19,20 @@ from ..models import (
     Atendimento, Notificacao, WorkflowExecucao, WorkflowRegra,
 )
 
+if TYPE_CHECKING:
+    from ..models import WorkflowRegra as _Regra  # noqa: F401
+
 logger = logging.getLogger(__name__)
 
+# Janela de busca para regras temporais (BEFORE/AFTER_EVENT)
+JANELA_BUSCA_PASSADO = timedelta(days=7)
+JANELA_BUSCA_FUTURO = timedelta(days=30)
+WEBHOOK_TIMEOUT_SEGUNDOS = 5
 
-def _enfileirar_notificacao(regra, atendimento):
+ActionResult = Tuple[bool, str]
+
+
+def _enfileirar_notificacao(regra: WorkflowRegra, atendimento: Atendimento) -> ActionResult:
     """Cria Notificacao pendente. Dispatcher existente (tasks.py) consome."""
     canal_map = {
         'SEND_EMAIL': 'EMAIL',
@@ -40,7 +53,8 @@ def _enfileirar_notificacao(regra, atendimento):
     return True, 'enfileirada'
 
 
-def _disparar_push(regra, atendimento):
+def _disparar_push(regra: WorkflowRegra, atendimento: Atendimento) -> ActionResult:
+    """Dispara Web Push para o profissional vinculado ao atendimento."""
     try:
         from .push import send_push_to_user
     except ImportError:
@@ -57,8 +71,8 @@ def _disparar_push(regra, atendimento):
     return ok, 'push enviado' if ok else 'falha push'
 
 
-def _disparar_webhook(regra, atendimento):
-    """Enfileira webhook em Celery — nao bloqueia tick do Beat (60s)."""
+def _disparar_webhook(regra: WorkflowRegra, atendimento: Atendimento) -> ActionResult:
+    """Enfileira webhook em Celery — fallback sincrono se Celery indisponivel."""
     url = regra.config_json.get('webhook_url')
     if not url:
         return False, 'webhook_url ausente'
@@ -73,17 +87,17 @@ def _disparar_webhook(regra, atendimento):
         from ..tasks import dispatch_webhook
         dispatch_webhook.delay(url, payload)
         return True, 'enfileirado'
-    except Exception as exc:
-        # Fallback sincrono se Celery indisponivel (dev sem Redis)
+    except (ImportError, AttributeError) as exc:
+        # Celery/broker indisponivel — fallback sincrono
         import requests
         try:
-            resp = requests.post(url, json=payload, timeout=5)
+            resp = requests.post(url, json=payload, timeout=WEBHOOK_TIMEOUT_SEGUNDOS)
             return resp.ok, f'http {resp.status_code} (sync fallback)'
         except requests.RequestException as e:
             return False, f'erro: {e} (sync fallback {exc})'
 
 
-def _condicao_match(regra, atendimento):
+def _condicao_match(regra: WorkflowRegra, atendimento: Atendimento) -> ActionResult:
     """Filtros configuraveis em config_json. Retorna (ok, detalhe_skip)."""
     cfg = regra.config_json or {}
     modalidade_filter = cfg.get('modalidade_filter')
@@ -98,7 +112,7 @@ def _condicao_match(regra, atendimento):
     return True, ''
 
 
-def _disparar_pesquisa_whatsapp(regra, atendimento):
+def _disparar_pesquisa_whatsapp(regra: WorkflowRegra, atendimento: Atendimento) -> ActionResult:
     """Cria RespostaAnamnese + manda WhatsApp template pesquisa_online."""
     cfg = regra.config_json or {}
     formulario_id = cfg.get('formulario_id')
@@ -118,7 +132,8 @@ def _disparar_pesquisa_whatsapp(regra, atendimento):
     return False, f'falha envio pesquisa (notif={notif.pk if notif else None})'
 
 
-def _executar_acao(regra, atendimento):
+def _executar_acao(regra: WorkflowRegra, atendimento: Atendimento) -> ActionResult:
+    """Roteia para handler conforme regra.acao."""
     cfg = regra.config_json or {}
     tipo_notif = cfg.get('tipo_notificacao')
 
@@ -135,11 +150,11 @@ def _executar_acao(regra, atendimento):
     return False, f'acao desconhecida: {regra.acao}'
 
 
-def _executar_regra(regra, atendimento):
+def _executar_regra(regra: WorkflowRegra, atendimento: Atendimento) -> bool:
     """Executa regra com deduplicacao via UNIQUE(regra, atendimento)."""
     # Filtros pre-reserva (sem criar WorkflowExecucao p/ permitir disparo futuro
     # se atendimento for editado e voltar a satisfazer condicao)
-    cond_ok, cond_detalhe = _condicao_match(regra, atendimento)
+    cond_ok, _cond_detalhe = _condicao_match(regra, atendimento)
     if not cond_ok:
         return False
 
@@ -157,18 +172,35 @@ def _executar_regra(regra, atendimento):
         exec_row.detalhe = detalhe[:500]
         exec_row.save(update_fields=['status', 'detalhe'])
         return ok
-    except Exception as e:
-        logger.exception('Workflow regra %s falhou: %s', regra.pk, e)
+    except (ConnectionError, TimeoutError) as exc:
+        logger.warning(
+            'workflow_regra_network_error',
+            extra={'regra_id': regra.pk, 'atendimento_id': atendimento.pk, 'error': str(exc)},
+        )
         exec_row.status = 'FALHOU'
-        exec_row.detalhe = str(e)[:500]
+        exec_row.detalhe = f'network: {exc}'[:500]
+        exec_row.save(update_fields=['status', 'detalhe'])
+        return False
+    except (ValueError, KeyError, AttributeError, IntegrityError) as exc:
+        logger.exception(
+            'workflow_regra_payload_error',
+            extra={'regra_id': regra.pk, 'atendimento_id': atendimento.pk, 'error': str(exc)},
+        )
+        exec_row.status = 'FALHOU'
+        exec_row.detalhe = str(exc)[:500]
         exec_row.save(update_fields=['status', 'detalhe'])
         return False
 
 
-def disparar_evento(trigger_tipo, atendimento):
+def disparar_evento(trigger_tipo: str, atendimento: Atendimento) -> int:
     """Chamar em signals/views apos transicao.
 
-    trigger_tipo: 'ON_BOOK' | 'ON_CANCEL' | 'ON_NO_SHOW'
+    Args:
+        trigger_tipo: 'ON_BOOK' | 'ON_CANCEL' | 'ON_NO_SHOW'.
+        atendimento: instancia que triggou.
+
+    Returns:
+        Numero de regras disparadas com sucesso.
     """
     regras = WorkflowRegra.objects.filter(ativo=True, trigger=trigger_tipo)
     disparadas = 0
@@ -178,17 +210,19 @@ def disparar_evento(trigger_tipo, atendimento):
     return disparadas
 
 
-def executar_pendentes():
+def executar_pendentes() -> dict[int, int]:
     """Avalia regras BEFORE_EVENT / AFTER_EVENT e dispara as elegiveis.
 
     Janela de busca: -7d..+30d. Dedup via WorkflowExecucao.
-    Retorna dict {regra_id: count}.
+
+    Returns:
+        Dict {regra_id: count_disparos}.
     """
     agora = timezone.now()
-    janela_inicio = agora - timedelta(days=7)
-    janela_fim = agora + timedelta(days=30)
+    janela_inicio = agora - JANELA_BUSCA_PASSADO
+    janela_fim = agora + JANELA_BUSCA_FUTURO
 
-    resultado = {}
+    resultado: dict[int, int] = {}
     regras_temporais = WorkflowRegra.objects.filter(
         ativo=True, trigger__in=['BEFORE_EVENT', 'AFTER_EVENT']
     )

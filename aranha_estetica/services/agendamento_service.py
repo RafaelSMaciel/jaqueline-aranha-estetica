@@ -150,6 +150,89 @@ class AgendamentoService:
         )
         return atendimento
 
+    @transaction.atomic
+    def aprovar(self, atendimento: Atendimento, by_user=None) -> bool:
+        """Aprova atendimento PENDENTE -> AGENDADO + dispara email confirmacao.
+
+        Returns:
+            True se transitou. False se ja estava em outro estado (no-op).
+
+        Side effects:
+            - Audit log via registrar_log
+            - Email assincrono de confirmacao (Celery, fallback sync)
+        """
+        if atendimento.status != Atendimento.STATUS_PENDENTE:
+            return False
+
+        atendimento.aprovar(by_user=by_user)
+        registrar_log(by_user, 'Aprovou agendamento', 'atendimento', atendimento.pk)
+
+        if atendimento.cliente.email:
+            data_fmt = atendimento.data_hora_inicio.strftime('%d/%m/%Y as %H:%M')
+            valor = atendimento.valor_cobrado
+            dados = {
+                'nome': atendimento.cliente.nome_completo,
+                'procedimento': atendimento.procedimento.nome,
+                'profissional': atendimento.profissional.nome,
+                'data_hora': data_fmt,
+                'valor': f'R$ {float(valor):.2f}' if valor else 'A consultar',
+            }
+            transaction.on_commit(
+                lambda: self._enviar_email_confirmacao(atendimento.cliente.email, dados)
+            )
+        return True
+
+    @transaction.atomic
+    def rejeitar(self, atendimento: Atendimento, motivo: str = '', by_user=None) -> bool:
+        """Rejeita atendimento PENDENTE -> CANCELADO.
+
+        Returns:
+            True se transitou. False se ja estava em outro estado.
+
+        Side effects:
+            - Audit log
+            - Email assincrono de cancelamento (Celery, fallback sync)
+        """
+        if atendimento.status != Atendimento.STATUS_PENDENTE:
+            return False
+        atendimento.cancelar(motivo=motivo or 'rejeitado pela recepcao', by_user=by_user)
+        registrar_log(by_user, 'Rejeitou agendamento', 'atendimento', atendimento.pk)
+
+        if atendimento.cliente.email:
+            data_fmt = atendimento.data_hora_inicio.strftime('%d/%m/%Y as %H:%M')
+            dados = {
+                'nome': atendimento.cliente.nome_completo,
+                'procedimento': atendimento.procedimento.nome,
+                'profissional': atendimento.profissional.nome,
+                'data_hora': data_fmt,
+            }
+            transaction.on_commit(
+                lambda: self._enviar_email_cancelamento(atendimento.cliente.email, dados)
+            )
+        return True
+
+    @staticmethod
+    def _enviar_email_cancelamento(email: str, dados: dict) -> None:
+        """Envia email de cancelamento via Celery (fallback sync)."""
+        try:
+            from ..tasks import send_email_async
+            send_email_async.delay('enviar_cancelamento_email', email, dados)
+        except (ImportError, AttributeError) as exc:
+            logger.warning('email_celery_indisponivel_fallback_sync', extra={'error': str(exc)})
+            from ..utils.email import enviar_cancelamento_email
+            enviar_cancelamento_email(email, dados)
+
+    @staticmethod
+    def _enviar_email_confirmacao(email: str, dados: dict) -> None:
+        """Envia email de confirmacao via Celery (fallback sync)."""
+        try:
+            from ..tasks import send_email_async
+            send_email_async.delay('enviar_confirmacao_agendamento_email', email, dados)
+        except (ImportError, AttributeError) as exc:
+            logger.warning('email_celery_indisponivel_fallback_sync', extra={'error': str(exc)})
+            from ..utils.email import enviar_confirmacao_agendamento_email
+            enviar_confirmacao_agendamento_email(email, dados)
+
     # ─── Helpers ──────────────────────────────────────────────────────
     def _upsert_cliente(self, cmd: CriarAgendamentoCommand) -> Cliente:
         """Upsert cliente por email (se houver) ou cria novo."""

@@ -50,10 +50,13 @@ def _enviar_email(destinatario, assunto, template, contexto,
         )
         msg.attach_alternative(html, 'text/html')
         msg.send(fail_silently=False)
-        logger.info('[EMAIL] Enviado para %s: %s', destinatario, assunto)
+        logger.info('email_enviado', extra={'destinatario': destinatario, 'assunto': assunto})
         return True
     except (smtplib.SMTPException, OSError) as e:
-        logger.error('[EMAIL] Falha ao enviar para %s: %s', destinatario, e)
+        logger.error(
+            'email_falha_envio',
+            extra={'destinatario': destinatario, 'error': str(e)},
+        )
         return False
 
 

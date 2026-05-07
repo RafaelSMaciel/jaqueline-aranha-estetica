@@ -17,11 +17,17 @@ Uso:
   from .gcal import build_authorization_url, handle_oauth_callback,
                     push_atendimento, pull_eventos_externos
 """
+from __future__ import annotations
+
 import logging
 import os
 from datetime import timedelta
+from typing import Optional, Tuple, TYPE_CHECKING
 
 from django.utils import timezone
+
+if TYPE_CHECKING:
+    from ..models import Atendimento, Profissional
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +35,10 @@ SCOPES = ['https://www.googleapis.com/auth/calendar']
 GOOGLE_OAUTH_CLIENT_ID = os.environ.get('GOOGLE_OAUTH_CLIENT_ID', '')
 GOOGLE_OAUTH_CLIENT_SECRET = os.environ.get('GOOGLE_OAUTH_CLIENT_SECRET', '')
 GOOGLE_OAUTH_REDIRECT_URI = os.environ.get('GOOGLE_OAUTH_REDIRECT_URI', '')
+
+# Janela default de pull (passado/futuro a partir de "agora")
+PULL_JANELA_PASSADO = timedelta(days=1)
+PULL_JANELA_FUTURO = timedelta(days=60)
 
 
 def _flow():
@@ -49,17 +59,19 @@ def _flow():
     )
 
 
-def gcal_disponivel():
+def gcal_disponivel() -> bool:
+    """Retorna True se libs google estiverem instaladas e env vars setadas."""
     if not (GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET):
         return False
     try:
-        import google_auth_oauthlib  # noqa
+        import google_auth_oauthlib  # noqa: F401
         return True
     except ImportError:
         return False
 
 
-def build_authorization_url(state):
+def build_authorization_url(state: str) -> Optional[str]:
+    """Gera URL de consentimento OAuth para o profissional autorizar GCal."""
     if not gcal_disponivel():
         return None
     flow = _flow()
@@ -72,23 +84,37 @@ def build_authorization_url(state):
     return auth_url
 
 
-def handle_oauth_callback(profissional, code):
-    """Troca code por tokens, salva refresh_token no profissional."""
+def handle_oauth_callback(profissional: 'Profissional', code: str) -> Tuple[bool, str]:
+    """Troca code por tokens, persiste refresh_token no profissional.
+
+    Returns:
+        (True, 'ok') ou (False, motivo).
+    """
     if not gcal_disponivel():
         return False, 'libs nao disponiveis'
     flow = _flow()
     try:
         flow.fetch_token(code=code)
-    except Exception as e:
-        logger.exception('gcal callback falhou: %s', e)
-        return False, str(e)
+    except (ConnectionError, TimeoutError) as exc:
+        logger.warning(
+            'gcal_oauth_network_error',
+            extra={'profissional_id': profissional.pk, 'error': str(exc)},
+        )
+        return False, 'network'
+    except (ValueError, KeyError) as exc:
+        logger.exception(
+            'gcal_oauth_payload_error',
+            extra={'profissional_id': profissional.pk, 'error': str(exc)},
+        )
+        return False, 'payload'
     creds = flow.credentials
     profissional.gcal_refresh_token = creds.refresh_token or profissional.gcal_refresh_token
     profissional.save(update_fields=['gcal_refresh_token'])
     return True, 'ok'
 
 
-def _service(profissional):
+def _service(profissional: 'Profissional'):
+    """Retorna client da Calendar API ou None se nao configurado."""
     if not profissional.gcal_refresh_token:
         return None
     if not gcal_disponivel():
@@ -106,8 +132,12 @@ def _service(profissional):
     return build('calendar', 'v3', credentials=creds, cache_discovery=False)
 
 
-def push_atendimento(atendimento):
-    """Cria/atualiza evento no Google Calendar do profissional."""
+def push_atendimento(atendimento: 'Atendimento') -> bool:
+    """Cria/atualiza evento no Google Calendar do profissional.
+
+    Returns:
+        True se criado/atualizado. False em qualquer falha.
+    """
     prof = atendimento.profissional
     svc = _service(prof)
     if not svc:
@@ -122,20 +152,35 @@ def push_atendimento(atendimento):
     try:
         svc.events().insert(calendarId=prof.gcal_calendar_id or 'primary', body=body).execute()
         return True
-    except Exception as e:
-        logger.exception('gcal push falhou: %s', e)
+    except (ConnectionError, TimeoutError) as exc:
+        logger.warning(
+            'gcal_push_network_error',
+            extra={'atendimento_id': atendimento.pk, 'error': str(exc)},
+        )
+        return False
+    except Exception as exc:  # googleapiclient.errors.HttpError + RefreshError
+        # libs google levantam classes proprias (HttpError, RefreshError) —
+        # captura larga aqui evita import condicional. Logamos e seguimos.
+        logger.exception(
+            'gcal_push_api_error',
+            extra={'atendimento_id': atendimento.pk, 'error': str(exc)},
+        )
         return False
 
 
-def pull_eventos_externos(profissional):
-    """Importa eventos do GCal como BloqueioAgenda (sem aranha_atendimento_id)."""
+def pull_eventos_externos(profissional: 'Profissional') -> int:
+    """Importa eventos do GCal como BloqueioAgenda (sem aranha_atendimento_id).
+
+    Returns:
+        Numero de bloqueios importados (zero em caso de falha).
+    """
     from ..models import BloqueioAgenda
     svc = _service(profissional)
     if not svc:
         return 0
     agora = timezone.now()
-    inicio = agora - timedelta(days=1)
-    fim = agora + timedelta(days=60)
+    inicio = agora - PULL_JANELA_PASSADO
+    fim = agora + PULL_JANELA_FUTURO
     try:
         events = svc.events().list(
             calendarId=profissional.gcal_calendar_id or 'primary',
@@ -144,8 +189,17 @@ def pull_eventos_externos(profissional):
             singleEvents=True,
             orderBy='startTime',
         ).execute()
-    except Exception as e:
-        logger.exception('gcal pull falhou: %s', e)
+    except (ConnectionError, TimeoutError) as exc:
+        logger.warning(
+            'gcal_pull_network_error',
+            extra={'profissional_id': profissional.pk, 'error': str(exc)},
+        )
+        return 0
+    except Exception as exc:  # HttpError, RefreshError, etc
+        logger.exception(
+            'gcal_pull_api_error',
+            extra={'profissional_id': profissional.pk, 'error': str(exc)},
+        )
         return 0
     importados = 0
     for ev in events.get('items', []):

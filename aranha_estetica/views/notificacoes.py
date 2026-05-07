@@ -121,7 +121,7 @@ def admin_cancelar_agendamento(request):
             try:
                 send_email_async.delay('enviar_cancelamento_email', cliente.email, dados_cancel)
             except Exception as e:
-                logger.warning('[EMAIL] Celery indisponivel, fallback sync: %s', e)
+                logger.warning('email_celery_indisponivel_fallback_sync', extra={'error': str(e)})
                 enviar_cancelamento_email(cliente.email, dados_cancel)
             Notificacao.objects.create(
                 atendimento=atendimento,

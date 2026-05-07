@@ -29,7 +29,7 @@ def verificar_turnstile(token, ip=None):
     if not secret:
         if settings.DEBUG:
             return True
-        logger.warning('[TURNSTILE] secret key ausente em producao')
+        logger.warning('turnstile_secret_ausente_em_producao')
         return False
     if not token:
         return False
@@ -41,8 +41,8 @@ def verificar_turnstile(token, ip=None):
         )
         data = resp.json()
         if not data.get('success'):
-            logger.info('[TURNSTILE] falha: %s', data.get('error-codes'))
+            logger.info('turnstile_falha_validacao', extra={'codes': data.get('error-codes')})
         return bool(data.get('success'))
     except (requests.exceptions.RequestException, ValueError) as e:
-        logger.error('[TURNSTILE] erro HTTP: %s', e)
+        logger.error('turnstile_erro_http', extra={'error': str(e)})
         return False

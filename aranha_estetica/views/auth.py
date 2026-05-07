@@ -109,7 +109,7 @@ class ClinicaPasswordResetView(PasswordResetView):
     def form_valid(self, form):
         email = form.cleaned_data.get('email', '').strip().lower()
         ip = self.request.META.get('REMOTE_ADDR', '0.0.0.0')
-        logger.info('[PASSWORD_RESET] request email=%s ip=%s', email, ip)
+        logger.info('password_reset_requested', extra={'email_hash': hash(email), 'ip': ip})
         try:
             from ..models import LogAuditoria
             LogAuditoria.objects.create(
@@ -139,7 +139,7 @@ class ClinicaPasswordResetConfirmView(PasswordResetConfirmView):
     def form_valid(self, form):
         user = form.user
         ip = self.request.META.get('REMOTE_ADDR', '0.0.0.0')
-        logger.info('[PASSWORD_RESET] effective user_id=%s ip=%s', user.pk, ip)
+        logger.info('password_reset_effective', extra={'user_id': user.pk, 'ip': ip})
         try:
             from ..models import LogAuditoria
             LogAuditoria.objects.create(

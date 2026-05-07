@@ -73,7 +73,7 @@ class OTPService(_BaseNotificacao):
     def enviar_codigo(telefone: str, codigo: str, ip: Optional[str] = None) -> bool:
         from ..utils.sms import enviar_otp_sms
         if not telefone:
-            logger.warning('[OTP] telefone ausente, envio abortado')
+            logger.warning('otp_telefone_ausente_envio_abortado')
             return False
         return enviar_otp_sms(telefone, codigo, ip=ip)
 
@@ -95,8 +95,10 @@ class EmailService(_BaseNotificacao):
     def enviar_promocao(cliente: Cliente, dados: dict) -> bool:
         """Campanha marketing. Requer consent_email_marketing."""
         if not EmailService._tem_consent_marketing(cliente):
-            logger.info('[EMAIL PROMO] ignorado: sem consent marketing (cli=%s)',
-                        cliente.pk if cliente else None)
+            logger.info(
+                'email_promo_skipped_no_consent',
+                extra={'cliente_id': cliente.pk if cliente else None},
+            )
             return False
         from ..utils.email import enviar_promocao_email
         return enviar_promocao_email(cliente.email, dados, unsub_token=cliente.unsubscribe_token)
@@ -149,7 +151,7 @@ class WhatsAppService(_BaseNotificacao):
         if not WhatsAppService._tem_telefone(cliente):
             return None
         if not cliente.consent_whatsapp_confirmacao:
-            logger.info('[WA D-1] ignorado: sem consent confirmacao (cli=%s)', cliente.pk)
+            logger.info('wa_d1_skipped_no_consent', extra={'cliente_id': cliente.pk})
             return None
         # evita duplicidade
         ja_enviou = Notificacao.objects.filter(
@@ -159,11 +161,21 @@ class WhatsAppService(_BaseNotificacao):
             return None
 
         try:
+            import requests  # noqa: F401  (ensure available p/ except)
             from ..utils.whatsapp import enviar_confirmacao_d1
             # enviar_confirmacao_d1 ja cria Notificacao e grava status
             return enviar_confirmacao_d1(atendimento)
-        except Exception as e:
-            logger.exception('[WA D-1] falha envio (cli=%s): %s', cliente.pk, e)
+        except (ConnectionError, TimeoutError) as exc:
+            logger.warning(
+                'wa_d1_network_error',
+                extra={'cliente_id': cliente.pk, 'error': str(exc)},
+            )
+            return None
+        except (ValueError, KeyError, AttributeError) as exc:
+            logger.exception(
+                'wa_d1_payload_error',
+                extra={'cliente_id': cliente.pk, 'error': str(exc)},
+            )
             return None
 
     @staticmethod
@@ -173,7 +185,7 @@ class WhatsAppService(_BaseNotificacao):
         if not WhatsAppService._tem_telefone(cliente):
             return None
         if not cliente.consent_whatsapp_nps:
-            logger.info('[WA NPS] ignorado: sem consent NPS (cli=%s)', cliente.pk)
+            logger.info('wa_nps_skipped_no_consent', extra={'cliente_id': cliente.pk})
             return None
         ja_enviou = Notificacao.objects.filter(
             atendimento=atendimento, tipo='NPS', canal='WHATSAPP', status_envio='ENVIADO',
@@ -198,8 +210,17 @@ class WhatsAppService(_BaseNotificacao):
                 notif.status_envio = 'FALHOU'
                 notif.save(update_fields=['status_envio'])
             return notif
-        except Exception as e:
-            logger.exception('[WA NPS] falha envio (cli=%s): %s', cliente.pk, e)
+        except (ConnectionError, TimeoutError) as exc:
+            logger.warning(
+                'wa_nps_network_error',
+                extra={'cliente_id': cliente.pk, 'error': str(exc)},
+            )
+            return None
+        except (ValueError, KeyError, AttributeError) as exc:
+            logger.exception(
+                'wa_nps_payload_error',
+                extra={'cliente_id': cliente.pk, 'error': str(exc)},
+            )
             return None
 
     @staticmethod
@@ -215,7 +236,7 @@ class WhatsAppService(_BaseNotificacao):
         if not WhatsAppService._tem_telefone(cliente):
             return None
         if not cliente.consent_whatsapp_nps:
-            logger.info('[WA PESQUISA] ignorado: sem consent NPS (cli=%s)', cliente.pk)
+            logger.info('wa_pesquisa_skipped_no_consent', extra={'cliente_id': cliente.pk})
             return None
         ja_enviou = Notificacao.objects.filter(
             atendimento=atendimento, tipo='PESQUISA', canal='WHATSAPP', status_envio='ENVIADO',
@@ -245,6 +266,15 @@ class WhatsAppService(_BaseNotificacao):
                 notif.status_envio = 'FALHOU'
                 notif.save(update_fields=['status_envio'])
             return notif
-        except Exception as e:
-            logger.exception('[WA PESQUISA] falha envio (cli=%s): %s', cliente.pk, e)
+        except (ConnectionError, TimeoutError) as exc:
+            logger.warning(
+                'wa_pesquisa_network_error',
+                extra={'cliente_id': cliente.pk, 'error': str(exc)},
+            )
+            return None
+        except (ValueError, KeyError, AttributeError) as exc:
+            logger.exception(
+                'wa_pesquisa_payload_error',
+                extra={'cliente_id': cliente.pk, 'error': str(exc)},
+            )
             return None
