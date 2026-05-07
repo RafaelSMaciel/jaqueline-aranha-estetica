@@ -6762,3 +6762,212 @@ body.index-page .hero { min-height: calc(100vh - 140px); }
   color: white; transform: translateY(-1px);
   box-shadow: 0 6px 18px rgba(201,168,76,0.35);
 }
+
+/*--------------------------------------------------------------
+# Mobile Fix Pack — overflow-x + hero height + spacing
+--------------------------------------------------------------*/
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+/* Container das sections com decoracao absoluta — corta overflow */
+.hero,
+.home-about,
+.featured-departments,
+.featured-services,
+.call-to-action,
+.find-a-doctor,
+.faq {
+  overflow-x: clip;
+  position: relative;
+}
+
+/* AOS: durante init translate ainda esta deslocado — clip */
+[data-aos] {
+  max-width: 100%;
+}
+
+@media (max-width: 991.98px) {
+  /* Hero menos alto em mobile (era 100vh) */
+  body.index-page .hero,
+  .hero {
+    min-height: auto;
+    padding-top: 5rem;
+    padding-bottom: 3rem;
+  }
+
+  /* Hero-visual: reduz e centraliza, evita overflow das floating-cards */
+  .hero .hero-visual {
+    margin-top: 2rem;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .hero .hero-visual .main-image {
+    max-width: 100%;
+  }
+
+  .hero .hero-visual .main-image img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Floating cards encavalando — reposiciona dentro do container */
+  .hero .hero-visual .main-image .floating-card {
+    position: relative !important;
+    margin: 0.75rem 0;
+    inset: auto !important;
+    transform: none !important;
+  }
+
+  /* Background decorations: contem dentro do parent */
+  .hero .background-elements,
+  .hero .element {
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  /* Sections: padding vertical reduzido em mobile */
+  .featured-departments,
+  .featured-services,
+  .call-to-action,
+  .home-about,
+  .find-a-doctor,
+  .faq {
+    padding: 3rem 0 !important;
+  }
+
+  /* Row gutter reduzido em mobile (g-5 = 3rem -> 1.5rem) */
+  .row.g-5 {
+    --bs-gutter-x: 1.5rem;
+    --bs-gutter-y: 1.5rem;
+  }
+
+  /* Cards: padding interno menor */
+  .featured-departments .specialty-content,
+  .featured-departments .department-highlight,
+  .featured-services .specialty-card,
+  .call-to-action .col-lg-6,
+  .call-to-action .col-lg-4 {
+    padding: 1.5rem !important;
+  }
+
+  /* Imagens nunca passam container */
+  img,
+  .img-fluid {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Container: garante padding lateral consistente */
+  .container,
+  .container-fluid {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+@media (max-width: 575.98px) {
+  /* Tipografia: hero h1 menor em XS */
+  .hero .hero-content h1 {
+    font-size: 1.75rem !important;
+    line-height: 1.2;
+  }
+
+  .hero .hero-content .hero-description {
+    font-size: 0.95rem;
+  }
+
+  /* Stats em coluna em XS */
+  .hero .hero-content .hero-stats {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  /* Botoes hero: full width em XS */
+  .hero .hero-content .hero-actions {
+    flex-direction: column;
+  }
+
+  .hero .hero-content .hero-actions .btn {
+    width: 100%;
+  }
+
+  /* Section titles menores */
+  .section-title h2,
+  .featured-departments h3,
+  .featured-services h3,
+  h2.section-title {
+    font-size: 1.5rem !important;
+  }
+
+  /* Footer: padding menor */
+  .footer {
+    padding: 2rem 0 1rem !important;
+  }
+}
+
+/*--------------------------------------------------------------
+# Mobile Fix Pack v2 — encurtar hero + esconder decoracoes
+--------------------------------------------------------------*/
+@media (max-width: 991.98px) {
+  /* Hero: esconde decoracoes absolutas que so fazem sentido em desktop */
+  .hero .hero-visual .floating-card,
+  .hero .background-elements,
+  .hero .element {
+    display: none !important;
+  }
+
+  /* Hero-visual: reduzir altura imagem em mobile */
+  .hero .hero-visual {
+    margin-top: 1.5rem;
+    margin-bottom: 0;
+  }
+
+  .hero .hero-visual .main-image img {
+    max-height: 280px;
+    object-fit: cover;
+    border-radius: 16px;
+  }
+
+  /* Hero geral mais compacto */
+  body.index-page .hero,
+  .hero {
+    padding-top: 4rem;
+    padding-bottom: 2rem;
+  }
+
+  /* Trust badges em coluna se nao couber */
+  .hero .hero-content .trust-badges {
+    gap: 0.5rem;
+  }
+
+  /* Hero-content padding interno menor */
+  .hero .hero-content {
+    padding: 1rem 0;
+  }
+}
+
+@media (max-width: 575.98px) {
+  /* Hero img ainda menor em XS */
+  .hero .hero-visual .main-image img {
+    max-height: 220px;
+  }
+
+  /* Esconde imagem hero em XS — texto fica mais focado */
+  .hero .hero-visual {
+    display: none;
+  }
+}
+
+/* AOS: assegura que animacoes nao causem overflow durante init */
+[data-aos="fade-right"],
+[data-aos="fade-left"] {
+  overflow: hidden;
+}
+
+[data-aos]:not(.aos-animate) {
+  /* Limita translate de animacoes nao-disparadas */
+  max-width: 100% !important;
+}
