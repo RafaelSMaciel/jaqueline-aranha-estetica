@@ -35,7 +35,7 @@ def job_workflow_executar_pendentes(self):
         return f'{total} acao(es) disparada(s)'
     except Exception as e:
         logger.exception('[WORKFLOW] Erro executando pendentes')
-        raise self.retry(exc=e)
+        raise self.retry(exc=e) from e
 
 
 # ═══════════════════════════════════════
@@ -76,7 +76,7 @@ def job_enviar_lembrete_dia_seguinte(self):
         return f'{enviados} lembretes enviados'
     except Exception as exc:
         logger.exception('Erro em job_enviar_lembrete_dia_seguinte: %s', exc)
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc) from exc
 
 
 # ═══════════════════════════════════════
@@ -130,7 +130,7 @@ def job_pesquisa_satisfacao_24h(self):
         return f'{enviados} NPS enviados'
     except Exception as exc:
         logger.exception('Erro em job_pesquisa_satisfacao_24h: %s', exc)
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc) from exc
 
 
 # ═══════════════════════════════════════
@@ -194,7 +194,7 @@ def job_alerta_detrator_nps(self):
                 logger.error('[NPS DETRATOR] Falha ao enviar alerta: %s', e)
     except Exception as exc:
         logger.exception('Erro em job_alerta_detrator_nps: %s', exc)
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc) from exc
 
 
 # ═══════════════════════════════════════
@@ -232,7 +232,7 @@ def job_notificar_fila_espera(self, procedimento_id, data_livre_str):
                 )
     except Exception as exc:
         logger.exception('Erro em job_notificar_fila_espera: %s', exc)
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc) from exc
 
 
 # ═══════════════════════════════════════
@@ -278,7 +278,7 @@ def job_verificar_pacotes_expirando(self):
                     )
     except Exception as exc:
         logger.exception('Erro em job_verificar_pacotes_expirando: %s', exc)
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc) from exc
 
 
 # ═══════════════════════════════════════
@@ -313,7 +313,7 @@ def job_aniversario_clientes(self):
             })
     except Exception as exc:
         logger.exception('Erro em job_aniversario_clientes: %s', exc)
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc) from exc
 
 
 # ═══════════════════════════════════════
@@ -363,7 +363,7 @@ def job_promocao_mensal(self, assunto, corpo_html_partial, cupom=None, validade_
         return f'{enviados} promocoes enviadas'
     except Exception as exc:
         logger.exception('Erro em job_promocao_mensal: %s', exc)
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc) from exc
 
 
 # ═══════════════════════════════════════
@@ -386,7 +386,7 @@ def job_expirar_pacotes(self):
             logger.info(f"[PACOTE] {expirados} pacote(s) expirado(s) automaticamente.")
     except Exception as exc:
         logger.exception('Erro em job_expirar_pacotes: %s', exc)
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc) from exc
 
 
 # ═══════════════════════════════════════
@@ -410,7 +410,7 @@ def job_limpeza_status_atendimentos(self):
             logger.info(f"[LIMPEZA] Atendimento {atendimento.pk} marcado como FALTOU automaticamente")
     except Exception as exc:
         logger.exception('Erro em job_limpeza_status_atendimentos: %s', exc)
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc) from exc
 
 
 # ═══════════════════════════════════════
@@ -427,7 +427,6 @@ def send_email_async(self, funcao_nome, *args, **kwargs):
     funcao_nome: string com nome da funcao em utils.email (ex: 'enviar_codigo_otp_email').
     args/kwargs: repassados diretamente.
     """
-    from . import utils
     from .utils import email as email_mod
 
     func = getattr(email_mod, funcao_nome, None)
@@ -454,4 +453,4 @@ def job_lgpd_purgar_inativos(self):
         return count
     except Exception as exc:
         logger.exception('Erro em job_lgpd_purgar_inativos: %s', exc)
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc) from exc

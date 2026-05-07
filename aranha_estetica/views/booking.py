@@ -26,12 +26,8 @@ from ..models import (
 )
 from ..services import otp_service
 from ..utils.captcha import turnstile_enabled, turnstile_site_key, verificar_turnstile
-from ..utils.email import (
-    enviar_confirmacao_agendamento_email,
-    enviar_aprovacao_profissional_email,
-    enviar_termos_pendentes_email,
-)
 from ..utils.precos import preco_base_map, preco_para
+from ..utils.security import client_ip as _client_ip
 from ..utils.whatsapp import SITE_URL, gerar_token
 
 logger = logging.getLogger(__name__)
@@ -101,9 +97,6 @@ def agendamento_publico(request):
     }
 
     return render(request, 'agenda/agendamento_publico.html', context)
-
-
-from ..utils.security import client_ip as _client_ip  # unify
 
 
 @require_POST
@@ -224,7 +217,6 @@ def confirmar_agendamento(request):
 
     # Parse data de nascimento
     try:
-        from datetime import date as _date
         data_nascimento = datetime.strptime(data_nascimento_str, '%Y-%m-%d').date()
     except ValueError:
         messages.error(request, 'Data de nascimento inválida.')
@@ -404,13 +396,6 @@ def confirmar_agendamento(request):
         from ..tasks import send_email_async
 
         data_formatada = data_hora.strftime('%d/%m/%Y as %H:%M')
-        dados_confirmacao = {
-            'nome': nome,
-            'procedimento': procedimento.nome,
-            'profissional': profissional.nome,
-            'data_hora': data_formatada,
-            'valor': f"R$ {valor:.2f}" if valor else 'A consultar',
-        }
         site_url = SITE_URL.rstrip('/')
 
         def _enqueue(fn_name, *args):

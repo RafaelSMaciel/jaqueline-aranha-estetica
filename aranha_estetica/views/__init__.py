@@ -1,4 +1,5 @@
 # Views — imports explicitos (sem wildcard)
+# ruff: noqa: F401  (re-exports intencionais p/ urls.py)
 from .auth import (
     usuario_login, usuario_logout,
     ClinicaPasswordResetView, ClinicaPasswordResetDoneView,

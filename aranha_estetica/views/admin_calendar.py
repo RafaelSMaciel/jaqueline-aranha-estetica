@@ -3,7 +3,6 @@ from datetime import datetime
 
 from django.http import JsonResponse
 from django.shortcuts import render
-from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django_ratelimit.decorators import ratelimit
 

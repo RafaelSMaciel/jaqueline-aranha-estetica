@@ -28,8 +28,8 @@ class Command(BaseCommand):
         email = options['email']
         try:
             user = User.objects.get(email=email)
-        except User.DoesNotExist:
-            raise CommandError(f'Usuario {email} nao encontrado.')
+        except User.DoesNotExist as exc:
+            raise CommandError(f'Usuario {email} nao encontrado.') from exc
 
         existing = TOTPDevice.objects.filter(user=user, name=options['name']).first()
         if existing and not options['force']:

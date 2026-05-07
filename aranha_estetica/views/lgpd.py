@@ -4,7 +4,7 @@ import logging
 
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 from django_ratelimit.decorators import ratelimit
 
@@ -83,7 +83,7 @@ def unsubscribe(request, token: str):
 @require_http_methods(['POST'])
 def aceitar_cookies(request):
     """Registra consentimento granular de cookies (essencial sempre, analytics, marketing)."""
-    from datetime import datetime
+    from django.utils import timezone
     prefs = {
         'essential': True,
         'analytics': request.POST.get('analytics', '0') == '1',
@@ -91,5 +91,5 @@ def aceitar_cookies(request):
     }
     request.session['cookie_consent'] = True
     request.session['cookie_consent_prefs'] = prefs
-    request.session['cookie_consent_ts'] = datetime.now().isoformat()
+    request.session['cookie_consent_ts'] = timezone.now().isoformat()
     return JsonResponse({'success': True, 'prefs': prefs})

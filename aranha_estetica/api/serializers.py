@@ -1,8 +1,13 @@
 """Serializers DRF para exposicao read-only de dominios principais."""
+from typing import Optional
+
 from rest_framework import serializers
 
 from aranha_estetica.models import (
-    Atendimento, Cliente, Procedimento, Profissional,
+    Atendimento,
+    Cliente,
+    Procedimento,
+    Profissional,
 )
 from aranha_estetica.utils.security import mask_cpf, mask_email, mask_telefone
 
@@ -20,7 +25,7 @@ class ProcedimentoSerializer(serializers.ModelSerializer):
 
 
 class ClienteSerializer(serializers.ModelSerializer):
-    """Cliente com PII mascarada por padrao."""
+    """Cliente com PII mascarada por padrao (LGPD)."""
     cpf = serializers.SerializerMethodField()
     email = serializers.SerializerMethodField()
     telefone = serializers.SerializerMethodField()
@@ -29,13 +34,14 @@ class ClienteSerializer(serializers.ModelSerializer):
         model = Cliente
         fields = ['id', 'nome_completo', 'cpf', 'email', 'telefone', 'criado_em']
 
-    def get_cpf(self, obj):
-        return mask_cpf(getattr(obj, 'cpf', None)) if getattr(obj, 'cpf', None) else None
+    def get_cpf(self, obj: Cliente) -> Optional[str]:
+        cpf = getattr(obj, 'cpf', None)
+        return mask_cpf(cpf) if cpf else None
 
-    def get_email(self, obj):
+    def get_email(self, obj: Cliente) -> Optional[str]:
         return mask_email(obj.email) if obj.email else None
 
-    def get_telefone(self, obj):
+    def get_telefone(self, obj: Cliente) -> Optional[str]:
         return mask_telefone(obj.telefone) if obj.telefone else None
 
 

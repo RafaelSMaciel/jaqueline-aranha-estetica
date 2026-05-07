@@ -1,6 +1,5 @@
 """Forms de procedimento."""
 from django import forms
-from django.core.validators import MinValueValidator
 
 from aranha_estetica.models import Procedimento
 

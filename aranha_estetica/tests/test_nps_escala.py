@@ -1,5 +1,4 @@
 """Testes de consistencia da escala NPS (0-10) no template web e na view."""
-from unittest.mock import patch
 
 from django.core.cache import cache
 from django.test import Client, TestCase, override_settings

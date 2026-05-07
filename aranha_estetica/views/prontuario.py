@@ -17,9 +17,9 @@ from ..models import (
     Prontuario,
     ProntuarioPergunta,
     ProntuarioResposta,
-    VersaoTermo,
 )
 from ..utils.audit import registrar_log
+from ..utils.security import client_ip
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +34,6 @@ def _usuario_pode_ver_prontuario(user, cliente):
     if not prof or not prof.ativo:
         return False
     return Atendimento.objects.filter(cliente=cliente, profissional=prof).exists()
-
-
-from ..utils.security import client_ip
 
 
 def _ip_request(request):

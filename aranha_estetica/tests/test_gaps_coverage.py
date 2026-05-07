@@ -11,7 +11,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from aranha_estetica.models import (
-    AvaliacaoNPS, Cliente, CodigoVerificacao, Notificacao, Usuario,
+    AvaliacaoNPS, CodigoVerificacao, Notificacao, Usuario,
 )
 from .factories import (
     criar_atendimento, criar_cliente, criar_procedimento, criar_profissional,
@@ -96,7 +96,7 @@ class DsarExportTests(TestCase):
         self.assertNotIn('attachment', resp.get('Content-Disposition', ''))
 
     def test_dsar_fluxo_completo_exporta_json(self):
-        cv = CodigoVerificacao.objects.create(telefone='17933334444', codigo='123456')
+        CodigoVerificacao.objects.create(telefone='17933334444', codigo='123456')
         resp = self.client.post(self.url, {'telefone': '17933334444', 'codigo': '123456'})
         self.assertEqual(resp.status_code, 200)
         self.assertIn('attachment', resp.get('Content-Disposition', ''))

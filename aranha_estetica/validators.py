@@ -21,7 +21,7 @@ def validate_cpf(value: str) -> None:
         raise ValidationError(_("CPF invalido."), code="invalid_cpf")
 
     def dv(base: str, peso_inicial: int) -> int:
-        total = sum(int(d) * p for d, p in zip(base, range(peso_inicial, 1, -1)))
+        total = sum(int(d) * p for d, p in zip(base, range(peso_inicial, 1, -1), strict=False))
         resto = (total * 10) % 11
         return 0 if resto == 10 else resto
 

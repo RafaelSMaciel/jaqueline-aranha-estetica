@@ -2,23 +2,19 @@ import json
 import logging
 from datetime import datetime
 
-from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db.models import Count, Exists, OuterRef, Q, Subquery
+from django.db.models import Count, Exists, OuterRef, Q
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404, redirect, render
-from django.utils import timezone
+from django.shortcuts import get_object_or_404, render
 from django_ratelimit.decorators import ratelimit
 
 from ..decorators import staff_required
 from ..models import (
-    AceitePrivacidade,
     Atendimento,
     Cliente,
     LogAuditoria,
     Prontuario,
     ProntuarioPergunta,
-    ProntuarioResposta,
 )
 from ..utils.audit import registrar_log
 

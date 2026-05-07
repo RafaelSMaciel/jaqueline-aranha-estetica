@@ -1,4 +1,5 @@
 """Settings de desenvolvimento local."""
+# ruff: noqa: E402, F405  (star import + conditional imports intencionais)
 from .base import *  # noqa: F401,F403
 
 DEBUG = True

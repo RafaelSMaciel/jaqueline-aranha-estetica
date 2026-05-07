@@ -1,4 +1,5 @@
 """Settings de producao."""
+# ruff: noqa: F405  (star import intencional)
 import os
 
 from .base import *  # noqa: F401,F403

@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from ..decorators import profissional_required
-from ..models import AnotacaoSessao, Atendimento, Notificacao
+from ..models import AnotacaoSessao, Atendimento
 from ..utils.audit import registrar_log
 from ..utils.email import enviar_confirmacao_agendamento_email, enviar_cancelamento_email
 

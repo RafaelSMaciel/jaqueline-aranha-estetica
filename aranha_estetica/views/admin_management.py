@@ -3,14 +3,12 @@ lista de espera, NPS web, termos de consentimento."""
 import logging
 from datetime import datetime, timedelta
 
-NPS_TOKEN_EXPIRY = timedelta(days=7)
-
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Q
-from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 from django_ratelimit.decorators import ratelimit
 
 from ..decorators import staff_required
@@ -31,6 +29,8 @@ from ..models import (
 from ..utils.audit import registrar_log
 
 logger = logging.getLogger(__name__)
+
+NPS_TOKEN_EXPIRY = timedelta(days=7)
 
 
 # ═══════════════════════════════════════
@@ -521,8 +521,6 @@ def admin_email_preview(request, nome=None):
 # ═══════════════════════════════════════
 #   APROVACAO — STAFF / GERENTE
 # ═══════════════════════════════════════
-
-from django.views.decorators.http import require_POST
 
 
 @staff_required

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Avg, Count, F, Q, Sum
+from django.db.models import Avg, Count, Q, Sum
 from django.db.models.functions import TruncDate
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from ..models import (
     AvaliacaoNPS, Cliente, Atendimento, DisponibilidadeProfissional,
-    Procedimento, Profissional,
+    Profissional,
 )
 from ..decorators import staff_required
 

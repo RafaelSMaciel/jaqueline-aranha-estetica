@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
-from aranha_estetica.models import Atendimento, PacoteCliente, SessaoPacote
+from aranha_estetica.models import SessaoPacote
 
 from .factories import (
     criar_atendimento,
@@ -33,7 +33,7 @@ class FaltaSignalTests(TestCase):
 
     @patch('aranha_estetica.signals.job_notificar_fila_espera.delay')
     def test_tres_faltas_bloqueiam_online(self, mock_delay):
-        for i in range(3):
+        for _i in range(3):
             atd = criar_atendimento(self.cli, self.prof, self.proc, status='CONFIRMADO')
             atd.status = 'FALTOU'
             atd.save()
@@ -69,7 +69,7 @@ class PacoteDebitoSignalTests(TestCase):
         self.assertEqual(SessaoPacote.objects.filter(pacote_cliente=self.pc).count(), 1)
 
     def test_pacote_finaliza_quando_todas_sessoes_usadas(self):
-        for i in range(3):
+        for _i in range(3):
             atd = criar_atendimento(self.cli, self.prof, self.proc, status='CONFIRMADO')
             atd.status = 'REALIZADO'
             atd.save()

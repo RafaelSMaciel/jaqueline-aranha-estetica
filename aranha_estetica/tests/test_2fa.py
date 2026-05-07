@@ -1,8 +1,7 @@
 """Testes 2FA — django-two-factor-auth integration."""
 import pytest
 from django.contrib.auth import get_user_model
-from django.urls import reverse
-from django_otp.plugins.otp_static.models import StaticDevice, StaticToken
+from django_otp.plugins.otp_static.models import StaticDevice
 from django_otp.plugins.otp_totp.models import TOTPDevice
 
 

@@ -2,7 +2,7 @@
 
 ICS feed requer query param ?token=<ics_token> p/ nao vazar agenda.
 """
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from django.db.utils import OperationalError, ProgrammingError
 from django.http import HttpResponse, Http404

@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
-from aranha_estetica.models import PacoteCliente, SessaoPacote
+from aranha_estetica.models import SessaoPacote
 
 from .factories import (
     criar_atendimento,

@@ -4,7 +4,6 @@ import secrets
 
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect
-from django.urls import reverse
 
 from ..decorators import staff_required
 from ..models import Profissional

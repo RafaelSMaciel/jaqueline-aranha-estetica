@@ -10,6 +10,7 @@ from django.contrib.auth.views import (
 from django.core.cache import cache
 from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
+from django.utils.decorators import method_decorator
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods
 from django_ratelimit.decorators import ratelimit
@@ -93,8 +94,6 @@ def usuario_logout(request):
 # ─── Password Recovery (Class-Based Views) ───
 # Hardening: rate limit por IP + audit log, alem do token one-time + TTL Django.
 # Resposta sempre generica (Django default) — nao revela se email existe.
-
-from django.utils.decorators import method_decorator
 
 
 @method_decorator(

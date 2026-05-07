@@ -9,7 +9,7 @@ from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
 
-from .mixins import SoftDeleteMixin, TimestampedMixin
+from .mixins import TimestampedMixin
 from .clientes import Cliente
 from .procedimentos import Procedimento
 from .profissionais import Profissional

@@ -1,6 +1,5 @@
 """Audit logging helper for Jaqueline Aranha Estetica admin actions."""
 import logging
-import sys
 
 from ..models import LogAuditoria
 

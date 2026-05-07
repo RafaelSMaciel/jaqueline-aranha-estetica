@@ -1,6 +1,5 @@
 """Testes de CodigoVerificacao: TTL, consumo atomico, e reuso."""
 from datetime import timedelta
-from unittest.mock import patch
 
 from django.test import TestCase
 from django.utils import timezone

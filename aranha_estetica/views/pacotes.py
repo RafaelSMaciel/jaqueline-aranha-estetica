@@ -62,7 +62,7 @@ def admin_criar_pacote(request):
         # Itens do pacote
         proc_ids = request.POST.getlist('procedimento_ids')
         qtds = request.POST.getlist('quantidades')
-        for proc_id, qtd in zip(proc_ids, qtds):
+        for proc_id, qtd in zip(proc_ids, qtds, strict=False):
             if proc_id and qtd:
                 ItemPacote.objects.create(
                     pacote=pacote,
@@ -99,7 +99,7 @@ def admin_editar_pacote(request, pk):
         ItemPacote.objects.filter(pacote=pacote).delete()
         proc_ids = request.POST.getlist('procedimento_ids')
         qtds = request.POST.getlist('quantidades')
-        for proc_id, qtd in zip(proc_ids, qtds):
+        for proc_id, qtd in zip(proc_ids, qtds, strict=False):
             if proc_id and qtd:
                 ItemPacote.objects.create(
                     pacote=pacote,

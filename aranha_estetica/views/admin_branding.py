@@ -5,7 +5,6 @@ Persiste em ConfiguracaoSistema (chave-valor). O context_processor
 """
 import os
 
-from django.conf import settings
 from django.contrib import messages
 from django.core.files.storage import default_storage
 from django.shortcuts import redirect, render

@@ -233,7 +233,6 @@ class BloqueioAgenda(models.Model):
         Sem recorrencia: retorna a unica ocorrencia se intersectar.
         Com recorrencia: usa dateutil.rrule p/ expandir.
         """
-        from datetime import timedelta as _td
         duracao = self.data_hora_fim - self.data_hora_inicio
 
         if not self.regra_recorrencia:

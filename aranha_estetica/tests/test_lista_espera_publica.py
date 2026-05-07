@@ -1,6 +1,5 @@
 """Testes da inscricao publica na lista de espera."""
-from datetime import date, timedelta
-from unittest.mock import patch
+from datetime import timedelta
 
 from django.core.cache import cache
 from django.test import Client, TestCase, override_settings

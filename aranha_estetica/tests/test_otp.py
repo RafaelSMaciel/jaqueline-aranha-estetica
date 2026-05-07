@@ -4,7 +4,6 @@ from datetime import timedelta
 
 import pytest
 from django.core import mail
-from django.urls import reverse
 from django.utils import timezone
 
 from aranha_estetica.models import OtpCode

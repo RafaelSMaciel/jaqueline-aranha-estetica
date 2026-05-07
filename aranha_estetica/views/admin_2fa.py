@@ -23,7 +23,7 @@ def admin_2fa_setup(request):
 
         if acao == 'gerar':
             TOTPDevice.objects.filter(user=request.user, confirmed=False).delete()
-            device = TOTPDevice.objects.create(
+            TOTPDevice.objects.create(
                 user=request.user, name=f'{request.user.email}-totp', confirmed=False
             )
             messages.info(request, 'Escaneie o QR code com Google Authenticator/Authy e confirme o codigo.')
