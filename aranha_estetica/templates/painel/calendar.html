@@ -97,9 +97,10 @@
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.11/locales/pt-br.global.min.js"></script>
 
+{{ status_colors|json_script:"status-colors-data" }}
 <script nonce="{{ csp_nonce }}">
 (function(){
-    var statusColors = {{ status_colors|safe }};
+    var statusColors = JSON.parse(document.getElementById('status-colors-data').textContent);
     var filtroProfissional = document.getElementById('filtroProfissional');
     var calendarEl = document.getElementById('calendar');
     var modal = document.getElementById('calModal');

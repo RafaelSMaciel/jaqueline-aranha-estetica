@@ -19,6 +19,24 @@ def _profissional_do_usuario(user):
     return getattr(user, 'profissional', None)
 
 
+def _atendimento_do_profissional(user, pk, *, select_related=None):
+    """Resolve Atendimento aplicando ownership.
+
+    - Staff: vê qualquer atendimento.
+    - Profissional: SOMENTE atendimentos seus (404 caso contrário — anti-BOLA).
+    """
+    qs = Atendimento.objects.all()
+    if select_related:
+        qs = qs.select_related(*select_related)
+    if user.is_staff:
+        return get_object_or_404(qs, pk=pk)
+    prof = _profissional_do_usuario(user)
+    if not prof:
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied
+    return get_object_or_404(qs, pk=pk, profissional=prof)
+
+
 @profissional_required
 def agenda(request):
     """Agenda do profissional logado — dia e semana."""
@@ -82,12 +100,9 @@ def agenda(request):
 @require_POST
 def marcar_realizado(request, pk):
     """Profissional marca atendimento como realizado."""
-    prof = _profissional_do_usuario(request.user)
-    atendimento = get_object_or_404(Atendimento, pk=pk)
-
-    if prof and atendimento.profissional_id != prof.pk:
-        messages.error(request, 'Este atendimento nao e seu.')
-        return redirect('aranha:profissional_agenda')
+    atendimento = _atendimento_do_profissional(
+        request.user, pk, select_related=['cliente'],
+    )
 
     if atendimento.status in ['PENDENTE', 'REALIZADO', 'CANCELADO', 'FALTOU', 'REAGENDADO']:
         messages.warning(
@@ -105,15 +120,9 @@ def marcar_realizado(request, pk):
 @profissional_required
 def anotar(request, pk):
     """Formulario para adicionar anotacao de sessao ao atendimento."""
-    prof = _profissional_do_usuario(request.user)
-    atendimento = get_object_or_404(
-        Atendimento.objects.select_related('cliente', 'procedimento'),
-        pk=pk,
+    atendimento = _atendimento_do_profissional(
+        request.user, pk, select_related=['cliente', 'procedimento'],
     )
-
-    if prof and atendimento.profissional_id != prof.pk:
-        messages.error(request, 'Este atendimento nao e seu.')
-        return redirect('aranha:profissional_agenda')
 
     anotacoes = AnotacaoSessao.objects.filter(
         atendimento=atendimento
@@ -144,15 +153,10 @@ def anotar(request, pk):
 @require_POST
 def aprovar_agendamento(request, pk):
     """Profissional aprova agendamento pendente → status AGENDADO."""
-    prof = _profissional_do_usuario(request.user)
-    atendimento = get_object_or_404(
-        Atendimento.objects.select_related('cliente', 'procedimento', 'profissional'),
-        pk=pk,
+    atendimento = _atendimento_do_profissional(
+        request.user, pk,
+        select_related=['cliente', 'procedimento', 'profissional'],
     )
-
-    if prof and atendimento.profissional_id != prof.pk:
-        messages.error(request, 'Este atendimento nao e seu.')
-        return redirect('aranha:profissional_agenda')
 
     if atendimento.status != 'PENDENTE':
         messages.warning(request, f'Atendimento ja esta como {atendimento.get_status_display().lower()}.')
@@ -186,15 +190,10 @@ def aprovar_agendamento(request, pk):
 @require_POST
 def rejeitar_agendamento(request, pk):
     """Profissional rejeita agendamento pendente → status CANCELADO."""
-    prof = _profissional_do_usuario(request.user)
-    atendimento = get_object_or_404(
-        Atendimento.objects.select_related('cliente', 'procedimento', 'profissional'),
-        pk=pk,
+    atendimento = _atendimento_do_profissional(
+        request.user, pk,
+        select_related=['cliente', 'procedimento', 'profissional'],
     )
-
-    if prof and atendimento.profissional_id != prof.pk:
-        messages.error(request, 'Este atendimento nao e seu.')
-        return redirect('aranha:profissional_agenda')
 
     if atendimento.status != 'PENDENTE':
         messages.warning(request, f'Atendimento ja esta como {atendimento.get_status_display().lower()}.')

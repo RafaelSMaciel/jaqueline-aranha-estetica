@@ -642,6 +642,8 @@
 {% endblock %}
 
 {% block scripts %}
+{# JSON crus via json_script — Django escapa <,>,&,' p/ XSS-safe #}
+{{ formularios_anamnese_data|json_script:"formularios-anamnese-data" }}
 <script nonce="{{ csp_nonce }}">
 (function() {
     // ═══ STATE ═══
@@ -877,8 +879,10 @@
         goToStep(3);
     }
 
-    // ═══ ANAMNESE DINAMICA ═══
-    var FORMULARIOS_ANAMNESE = {{ formularios_anamnese_json|safe }};
+    // ═══ ANAMNESE DINAMICA (JSON via json_script p/ XSS-safe) ═══
+    var FORMULARIOS_ANAMNESE = JSON.parse(
+      document.getElementById('formularios-anamnese-data').textContent
+    );
 
     function formularioAplicaAoProc(form, proc) {
         if (form.escopo === 'GLOBAL') return true;

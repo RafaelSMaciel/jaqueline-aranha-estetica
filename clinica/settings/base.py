@@ -125,7 +125,8 @@ AXES_COOLOFF_TIME = float(os.environ.get('AXES_COOLOFF_TIME_HOURS', '1'))
 AXES_LOCKOUT_PARAMETERS = ['ip_address', 'username']
 AXES_RESET_ON_SUCCESS = True
 AXES_LOCKOUT_TEMPLATE = None
-AXES_VERBOSE = True
+# Verbose so em dev (em prod gera logs excessivos via Sentry)
+AXES_VERBOSE = os.environ.get('DEBUG', 'False') == 'True'
 
 ROOT_URLCONF = 'clinica.urls'
 
@@ -261,8 +262,11 @@ SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SAMESITE = 'Lax'
-SESSION_COOKIE_AGE = 3600
-SESSION_SAVE_EVERY_REQUEST = True
+# 8h jornada (configuravel) — antes era 1h, ruim p/ profissionais que ficam logados o dia
+SESSION_COOKIE_AGE = int(os.environ.get('SESSION_COOKIE_AGE', 8 * 3600))
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+# False evita gravar sessao em DB/Redis a cada request (overhead em alta carga)
+SESSION_SAVE_EVERY_REQUEST = False
 SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
 

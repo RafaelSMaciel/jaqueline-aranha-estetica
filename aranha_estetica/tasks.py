@@ -454,3 +454,23 @@ def job_lgpd_purgar_inativos(self):
     except Exception as exc:
         logger.exception('Erro em job_lgpd_purgar_inativos: %s', exc)
         raise self.retry(exc=exc) from exc
+
+
+# ═══════════════════════════════════════
+#  WEBHOOK DISPATCH (workflow_engine)
+# ═══════════════════════════════════════
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def dispatch_webhook(self, url: str, payload: dict):
+    """Dispara HTTP POST p/ webhook configurado em WorkflowRegra.
+
+    Async + retry com backoff p/ nao travar Celery Beat tick.
+    """
+    import requests
+    try:
+        resp = requests.post(url, json=payload, timeout=10)
+        resp.raise_for_status()
+        return f'http {resp.status_code}'
+    except requests.RequestException as exc:
+        logger.warning('[WEBHOOK] %s falhou: %s', url, exc)
+        raise self.retry(exc=exc) from exc

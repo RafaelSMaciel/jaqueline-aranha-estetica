@@ -58,21 +58,29 @@ def _disparar_push(regra, atendimento):
 
 
 def _disparar_webhook(regra, atendimento):
-    import requests
+    """Enfileira webhook em Celery — nao bloqueia tick do Beat (60s)."""
     url = regra.config_json.get('webhook_url')
     if not url:
         return False, 'webhook_url ausente'
+    payload = {
+        'evento': regra.trigger,
+        'atendimento_id': atendimento.pk,
+        'cliente_id': atendimento.cliente_id,
+        'data_hora_inicio': atendimento.data_hora_inicio.isoformat(),
+        'status': atendimento.status,
+    }
     try:
-        resp = requests.post(url, json={
-            'evento': regra.trigger,
-            'atendimento_id': atendimento.pk,
-            'cliente_id': atendimento.cliente_id,
-            'data_hora_inicio': atendimento.data_hora_inicio.isoformat(),
-            'status': atendimento.status,
-        }, timeout=5)
-        return resp.ok, f'http {resp.status_code}'
-    except requests.RequestException as e:
-        return False, f'erro: {e}'
+        from ..tasks import dispatch_webhook
+        dispatch_webhook.delay(url, payload)
+        return True, 'enfileirado'
+    except Exception as exc:
+        # Fallback sincrono se Celery indisponivel (dev sem Redis)
+        import requests
+        try:
+            resp = requests.post(url, json=payload, timeout=5)
+            return resp.ok, f'http {resp.status_code} (sync fallback)'
+        except requests.RequestException as e:
+            return False, f'erro: {e} (sync fallback {exc})'
 
 
 def _condicao_match(regra, atendimento):

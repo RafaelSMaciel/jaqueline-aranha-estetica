@@ -30,9 +30,25 @@ BRANDING_FIELDS = [
 
 LOGO_UPLOAD_DIR = 'branding'
 
+CONFIG_CACHE_KEY = 'branding_config_dict'
+CONFIG_CACHE_TTL = 600  # 10min
+
 
 def _get_config_dict():
-    return {c.chave: c.valor for c in ConfiguracaoSistema.objects.all()}
+    """Retorna dict {chave: valor} de ConfiguracaoSistema com cache TTL 10min."""
+    from django.core.cache import cache
+    cached = cache.get(CONFIG_CACHE_KEY)
+    if cached is not None:
+        return cached
+    data = {c.chave: c.valor for c in ConfiguracaoSistema.objects.all()}
+    cache.set(CONFIG_CACHE_KEY, data, CONFIG_CACHE_TTL)
+    return data
+
+
+def _invalidar_cache_branding():
+    """Chamar apos save/delete em ConfiguracaoSistema."""
+    from django.core.cache import cache
+    cache.delete(CONFIG_CACHE_KEY)
 
 
 @staff_required
@@ -74,6 +90,7 @@ def admin_branding(request):
                 alterados.append('LOGO_URL')
 
         if alterados:
+            _invalidar_cache_branding()
             registrar_log(
                 request.user, 'Atualizou branding',
                 'configuracao_sistema', None,

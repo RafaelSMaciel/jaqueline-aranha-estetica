@@ -121,8 +121,34 @@ def enviar_aniversario_email(email, dados, unsub_token=None):
 
 
 def enviar_promocao_email(email, dados, unsub_token=None):
-    """Envia promocao mensal (marketing)."""
+    """Envia promocao mensal (marketing).
+
+    Sanitiza `dados['corpo_html']` via bleach se presente — mitiga XSS
+    e limita tags HTML permitidas (admin trusted mas defesa em profundidade).
+    """
     preheader = dados.get('preheader', '') if isinstance(dados, dict) else ''
+    if isinstance(dados, dict) and dados.get('corpo_html'):
+        try:
+            import bleach
+            dados = dict(dados)  # shallow copy p/ nao mutar original
+            dados['corpo_html'] = bleach.clean(
+                dados['corpo_html'],
+                tags=['p', 'br', 'strong', 'em', 'a', 'ul', 'ol', 'li',
+                      'h2', 'h3', 'h4', 'img', 'span', 'div'],
+                attributes={
+                    'a': ['href', 'title', 'target', 'rel'],
+                    'img': ['src', 'alt', 'width', 'height'],
+                    'span': ['style'],
+                    'div': ['style'],
+                },
+                protocols=['http', 'https', 'mailto'],
+                strip=True,
+            )
+        except ImportError:
+            # bleach nao instalado — fallback escape total
+            from django.utils.html import escape
+            dados = dict(dados)
+            dados['corpo_html'] = escape(dados['corpo_html'])
     return _enviar_email(
         destinatario=email,
         assunto=f'{CLINIC_NAME} — Ofertas especiais deste mes',

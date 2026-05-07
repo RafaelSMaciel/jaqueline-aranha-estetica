@@ -87,9 +87,9 @@ def agendamento_publico(request):
 
     context = {
         'procedimentos': procedimentos_com_preco,
-        'procedimentos_json': json.dumps(procedimentos_com_preco),
         'categorias_disponiveis': categorias_disponiveis,
-        'formularios_anamnese_json': json.dumps(formularios_anamnese),
+        # Dados crus — template usa json_script para escape XSS-safe
+        'formularios_anamnese_data': formularios_anamnese,
         'whatsapp_numero': WHATSAPP_NUMERO,
         'proc_preselect': proc_preselect,
         'turnstile_site_key': turnstile_site_key(),
