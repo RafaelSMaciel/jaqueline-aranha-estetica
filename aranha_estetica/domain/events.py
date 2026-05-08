@@ -84,3 +84,38 @@ class PacoteVendido(DomainEvent):
 class SessaoConsumida(DomainEvent):
     pacote_cliente_id: int = 0
     atendimento_id: int = 0
+
+
+# ─── Retorno (F-RET) ─────────────────────────────────────────────────
+@dataclass(frozen=True)
+class RetornoSugerido(DomainEvent):
+    atendimento_origem_id: int = 0
+    atendimento_retorno_id: int = 0
+    cliente_id: int = 0
+    procedimento_id: int = 0
+
+
+# ─── Cashback (F-CSB) ────────────────────────────────────────────────
+@dataclass(frozen=True)
+class CashbackLiberado(DomainEvent):
+    movimento_id: int = 0
+    cliente_indicador_id: int = 0
+    cliente_indicada_id: int = 0
+    valor: str = '0.00'  # Decimal serializado p/ frozen
+
+
+@dataclass(frozen=True)
+class CashbackEstornado(DomainEvent):
+    movimento_estorno_id: int = 0
+    cliente_indicador_id: int = 0
+    valor: str = '0.00'
+    motivo: str = ''
+
+
+# ─── Comissao ─────────────────────────────────────────────────────────
+@dataclass(frozen=True)
+class ComissaoCalculada(DomainEvent):
+    movimento_comissao_id: int = 0
+    profissional_id: int = 0
+    atendimento_id: int = 0
+    valor: str = '0.00'

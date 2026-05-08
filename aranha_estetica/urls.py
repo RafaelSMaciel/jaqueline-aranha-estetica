@@ -111,6 +111,9 @@ urlpatterns = [
     path('painel/promocoes/<int:pk>/excluir/', views.admin_excluir_promocao, name='admin_excluir_promocao'),
     path('painel/promocoes/<int:pk>/disparar/', views.admin_disparar_promocao, name='admin_disparar_promocao'),
 
+    # ─── Dashboard Financeiro ───
+    path('painel/financeiro/', views.dashboard_financeiro, name='dashboard_financeiro'),
+
 
     # ─── Notificações ───
     path('painel/notificacoes/', views.painel_notificacoes, name='painel_notificacoes'),

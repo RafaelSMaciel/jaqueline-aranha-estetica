@@ -31,6 +31,7 @@ from .extras import (
     Tag, ClienteTag,
     PlanoTratamento, ItemPlanoTratamento,
     CreditoCliente, MovimentoCredito,
+    RegraComissao, MovimentoComissao,
 )
 
 __all__ = [
@@ -54,4 +55,5 @@ __all__ = [
     'Tag', 'ClienteTag',
     'PlanoTratamento', 'ItemPlanoTratamento',
     'CreditoCliente', 'MovimentoCredito',
+    'RegraComissao', 'MovimentoComissao',
 ]
