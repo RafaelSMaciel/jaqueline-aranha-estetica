@@ -16,3 +16,9 @@ class AranhaEsteticaConfig(AppConfig):
 
         # Registra handlers do EventBus de dominio
         from .domain import handlers  # noqa: F401
+
+        # Registra services com handlers EventBus (F-RET, F-CSB, comissao, lista espera)
+        from .services import retorno_service  # noqa: F401
+        from .services import fidelidade_service  # noqa: F401
+        from .services import comissao_service  # noqa: F401
+        from .services import lista_espera_service  # noqa: F401

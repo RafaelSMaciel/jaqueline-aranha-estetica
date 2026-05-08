@@ -26,6 +26,7 @@ from .admin_promotions import (
     admin_promocoes,
     admin_disparar_promocao,
 )
+from .admin_financeiro import dashboard_financeiro
 from .dashboard import (
     painel, painel_overview, painel_agendamentos, painel_clientes,
     painel_profissionais, exportar_relatorio_excel,

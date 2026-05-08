@@ -94,6 +94,12 @@ class Atendimento(models.Model):
         'self', on_delete=models.SET_NULL, blank=True, null=True,
         related_name='reagendamentos'
     )
+    # F-RET — vinculo entre sessao principal e retorno gratuito
+    atendimento_origem = models.ForeignKey(
+        'self', on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='retornos',
+    )
+    is_retorno = models.BooleanField(default=False, db_index=True)
     data_hora_inicio = models.DateTimeField()
     data_hora_fim = models.DateTimeField()
     valor_cobrado = models.DecimalField(
@@ -157,21 +163,49 @@ class Atendimento(models.Model):
 
     def confirmar(self, by_user=None):
         self._transicionar('CONFIRMADO', by_user=by_user)
+        self._publish_event('AtendimentoConfirmado', confirmado_por_id=getattr(by_user, 'pk', None))
 
     def cancelar(self, motivo='', by_user=None):
         self._transicionar('CANCELADO', motivo=motivo, by_user=by_user)
+        self._publish_event(
+            'AtendimentoCancelado',
+            motivo=motivo or '',
+            cancelado_por_cliente=(by_user is None),
+        )
 
     def marcar_realizado(self, by_user=None):
         self._transicionar('REALIZADO', by_user=by_user)
+        self._publish_event(
+            'AtendimentoRealizado',
+            cliente_id=self.cliente_id,
+            profissional_id=self.profissional_id,
+        )
 
     def marcar_falta(self, by_user=None):
         self._transicionar('FALTOU', by_user=by_user)
+        self._publish_event('AtendimentoFaltou', cliente_id=self.cliente_id)
 
     def marcar_reagendado(self, by_user=None):
         self._transicionar('REAGENDADO', by_user=by_user)
 
     def aprovar(self, by_user=None):
         self._transicionar('AGENDADO', by_user=by_user)
+
+    def _publish_event(self, event_name: str, **fields) -> None:
+        """Publica DomainEvent via bus. Best-effort — falha nao quebra transicao."""
+        try:
+            from django.utils import timezone
+            from ..domain import event_bus, events as domain_events
+            event_cls = getattr(domain_events, event_name, None)
+            if not event_cls:
+                return
+            event_bus.EventBus.publish(event_cls(
+                occurred_at=timezone.now(),
+                atendimento_id=self.pk,
+                **fields,
+            ))
+        except Exception:  # pylint: disable=broad-except
+            pass  # bus best-effort
 
     objects = AtendimentoManager()
 
@@ -196,6 +230,19 @@ class Atendimento(models.Model):
             models.CheckConstraint(
                 check=models.Q(data_hora_fim__gt=models.F('data_hora_inicio')),
                 name='chk_atendimento_fim_apos_inicio',
+            ),
+            models.CheckConstraint(
+                check=(
+                    models.Q(is_retorno=False) | models.Q(atendimento_origem__isnull=False)
+                ),
+                name='chk_retorno_tem_origem',
+            ),
+            models.CheckConstraint(
+                check=(
+                    models.Q(is_retorno=False) | models.Q(valor_cobrado=0) |
+                    models.Q(valor_cobrado__isnull=True)
+                ),
+                name='chk_retorno_valor_zero',
             ),
         ]
 

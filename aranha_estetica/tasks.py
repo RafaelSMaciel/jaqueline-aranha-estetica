@@ -294,12 +294,13 @@ def job_verificar_pacotes_expirando(self):
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def job_aniversario_clientes(self):
-    """Envia email de aniversario com desconto para clientes aniversariantes.
+    """Envia email + WhatsApp de aniversario com desconto.
 
-    Respeita consent_email_marketing=True.
+    Email: requer consent_email_marketing=True.
+    WhatsApp: requer consent_whatsapp_confirmacao=True (template utility).
     """
     try:
-        from .utils.email import enviar_aniversario_email
+        from .constants import DESCONTO_ANIVERSARIO_PERCENTUAL
         from .models import Cliente
 
         hoje = timezone.now().date()
@@ -307,20 +308,55 @@ def job_aniversario_clientes(self):
             data_nascimento__month=hoje.month,
             data_nascimento__day=hoje.day,
             ativo=True,
-            email__isnull=False,
-            consent_email_marketing=True,
-        ).exclude(email='')
+        )
 
-        logger.info(f"[JOB ANIVERSARIO] {aniversariantes.count()} aniversariante(s) hoje com consent.")
+        emails_enviados = 0
+        whatsapps_enviados = 0
 
         for cliente in aniversariantes:
-            enviar_aniversario_email(cliente.email, {
-                'nome': cliente.nome_completo,
-                'desconto': 15,
-            })
+            dados = {'nome': cliente.nome_completo, 'desconto': DESCONTO_ANIVERSARIO_PERCENTUAL}
+
+            # Email (requer consent marketing)
+            if cliente.email and cliente.consent_email_marketing:
+                from .utils.email import enviar_aniversario_email
+                enviar_aniversario_email(cliente.email, dados)
+                emails_enviados += 1
+
+            # WhatsApp (requer consent confirmacao + telefone)
+            if cliente.telefone and cliente.consent_whatsapp_confirmacao:
+                _enviar_aniversario_whatsapp(cliente, DESCONTO_ANIVERSARIO_PERCENTUAL)
+                whatsapps_enviados += 1
+
+        logger.info(
+            'aniversario_disparado',
+            extra={
+                'aniversariantes': aniversariantes.count(),
+                'emails': emails_enviados,
+                'whatsapps': whatsapps_enviados,
+            },
+        )
     except Exception as exc:
-        logger.exception('Erro em job_aniversario_clientes: %s', exc)
+        logger.exception('aniversario_erro')
         raise self.retry(exc=exc) from exc
+
+
+def _enviar_aniversario_whatsapp(cliente, desconto_percentual: int) -> None:
+    """Best-effort WhatsApp template aniversario_estetica."""
+    try:
+        from .utils.whatsapp import enviar_template_whatsapp
+        components = [{
+            'type': 'body',
+            'parameters': [
+                {'type': 'text', 'text': cliente.nome_completo},
+                {'type': 'text', 'text': str(desconto_percentual)},
+            ],
+        }]
+        enviar_template_whatsapp(cliente.telefone, 'aniversario_estetica', components=components)
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.warning(
+            'aniversario_wa_falha',
+            extra={'cliente_id': cliente.pk, 'error': str(exc)},
+        )
 
 
 # ═══════════════════════════════════════

@@ -22,6 +22,13 @@ _is_testing = (
     or bool(_os.environ.get('PYTEST_CURRENT_TEST'))
     or _os.environ.get('TESTING', '').lower() == 'true'
 )
+if _is_testing:
+    # Em test: Celery executa sincronamente, sem Redis
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True
+    CELERY_BROKER_URL = 'memory://'
+    CELERY_RESULT_BACKEND = 'cache+memory://'
+
 if not _is_testing:
     try:
         import debug_toolbar  # noqa: F401

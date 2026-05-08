@@ -42,6 +42,10 @@ class Cliente(models.Model):
         related_name='indicacoes',
         help_text='Cliente que indicou este (programa fidelidade)',
     )
+    codigo_indicacao = models.CharField(
+        max_length=12, unique=True, blank=True, null=True, db_index=True,
+        help_text='Codigo curto compartilhavel (ex: A1B2C3D4) gerado automaticamente.',
+    )
 
     # LGPD: consentimento legado (comunicacao transacional) e unsubscribe token
     aceita_comunicacao = models.BooleanField(default=True)
@@ -83,6 +87,10 @@ class Cliente(models.Model):
                 condition=models.Q(deletado_em__isnull=True) & ~models.Q(email__isnull=True) & ~models.Q(email=''),
                 name='uniq_cliente_email_ativo',
             ),
+            models.CheckConstraint(
+                check=~models.Q(indicado_por_id=models.F('id')),
+                name='chk_cliente_nao_indica_si_mesmo',
+            ),
         ]
 
     def __str__(self):
@@ -91,7 +99,19 @@ class Cliente(models.Model):
     def save(self, *args, **kwargs):
         if not self.unsubscribe_token:
             self.unsubscribe_token = secrets.token_urlsafe(32)
+        if not self.codigo_indicacao:
+            self.codigo_indicacao = self._gerar_codigo_indicacao()
         super().save(*args, **kwargs)
+
+    @staticmethod
+    def _gerar_codigo_indicacao() -> str:
+        """Gera codigo unico 8 chars hex maiusculo. Tenta 8 vezes — alfabeto 16^8 = 4G colisao improvavel."""
+        for _ in range(8):
+            candidato = secrets.token_hex(4).upper()
+            if not Cliente.all_objects.filter(codigo_indicacao=candidato).exists():
+                return candidato
+        # fallback: 12 chars caso 8 colisoes (loteria)
+        return secrets.token_hex(6).upper()
 
     def registrar_falta(self):
         self.faltas_consecutivas += 1

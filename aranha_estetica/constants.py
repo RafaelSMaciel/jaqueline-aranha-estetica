@@ -41,6 +41,24 @@ CACHE_TTL_CONFIG = 600         # 10min
 TAXA_NO_SHOW_PERCENTUAL = Decimal('0.50')
 
 
+# ─── Fidelidade / Cashback (F-CSB) ─────────────────────────────────────
+VALOR_CASHBACK_INDICACAO = Decimal('50.00')
+SALDO_MINIMO_USO_CASHBACK = Decimal('10.00')
+
+
+# ─── Aniversario ───────────────────────────────────────────────────────
+DESCONTO_ANIVERSARIO_PERCENTUAL = 15
+VALIDADE_CUPOM_ANIVERSARIO_DIAS = 7
+
+
+# ─── Reagendamento self-service ────────────────────────────────────────
+TTL_LINK_REAGENDAMENTO_HORAS = 48
+
+
+# ─── Lista de Espera ───────────────────────────────────────────────────
+TTL_RESERVA_LISTA_ESPERA_MINUTOS = 30
+
+
 # ─── Limits de upload ───────────────────────────────────────────────────
 TAMANHO_MAX_LOGO_MB = 5
 TAMANHO_MAX_LOGO_BYTES = TAMANHO_MAX_LOGO_MB * 1024 * 1024
