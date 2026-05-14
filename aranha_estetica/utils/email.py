@@ -1,7 +1,9 @@
 """
 Email Notification Service — Plataforma de Clinicas
 
-Envia emails transacionais: OTP, confirmacao, cancelamento, pacotes, aniversario.
+Envia emails transacionais: confirmacao, cancelamento, pacotes, aniversario,
+fila de espera, aprovacao profissional, promocao, termos pendentes.
+(OTP nao usa email — canal exclusivo SMS via utils.sms.)
 Usa Django EmailMultiAlternatives com headers RFC 8058 para marketing.
 """
 import logging
@@ -58,16 +60,6 @@ def _enviar_email(destinatario, assunto, template, contexto,
             extra={'destinatario': destinatario, 'error': str(e)},
         )
         return False
-
-
-def enviar_codigo_otp_email(email, codigo):
-    """Envia codigo OTP de 6 digitos por email."""
-    return _enviar_email(
-        destinatario=email,
-        assunto=f'{CLINIC_NAME} — Codigo de Verificacao',
-        template='email/otp.html',
-        contexto={'codigo': codigo},
-    )
 
 
 def enviar_confirmacao_agendamento_email(email, dados):
@@ -169,16 +161,6 @@ def enviar_aprovacao_profissional_email(email, dados):
         destinatario=email,
         assunto=f'{CLINIC_NAME} — Novo Agendamento Pendente',
         template='email/aprovacao_profissional.html',
-        contexto={'dados': dados},
-    )
-
-
-def enviar_nps_email(email, dados):
-    """Envia pesquisa NPS por email 24h após atendimento."""
-    return _enviar_email(
-        destinatario=email,
-        assunto=f'{CLINIC_NAME} — Como foi seu atendimento?',
-        template='email/nps.html',
         contexto={'dados': dados},
     )
 

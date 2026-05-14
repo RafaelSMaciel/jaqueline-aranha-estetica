@@ -107,6 +107,11 @@ class AgendamentoService:
         if self._slot_ocupado(profissional, cmd.data_hora_inicio, procedimento.duracao_minutos):
             raise BusinessRuleViolation('Horario indisponivel.')
 
+        # Registra consents ANTES de persistir Atendimento — LGPD: audit
+        # trail de consent precisa preceder processamento de dado pessoal.
+        # Transaction.atomic garante rollback se Atendimento falhar depois.
+        self._registrar_consents(cliente, cmd)
+
         # Cria atendimento
         from datetime import timedelta
         data_fim = cmd.data_hora_inicio + timedelta(minutes=procedimento.duracao_minutos)
@@ -118,9 +123,6 @@ class AgendamentoService:
             data_hora_fim=data_fim,
             status='PENDENTE',
         )
-
-        # Registra consents granulares
-        self._registrar_consents(cliente, cmd)
 
         # Audit + LGPD
         registrar_log(

@@ -32,11 +32,14 @@ except ImportError:
 
 # ─── SECURITY ────────────────────────────────────────────────────────
 _secret_key = os.environ.get('DJANGO_SECRET_KEY')
-if not _secret_key and os.environ.get('RAILWAY_ENVIRONMENT_NAME'):
-    raise RuntimeError('DJANGO_SECRET_KEY nao definida em producao!')
+DEBUG = os.environ.get('DEBUG', '').lower() in ('true', '1', 'yes', 'on')
+if not _secret_key and (
+    os.environ.get('RAILWAY_ENVIRONMENT_NAME') or not DEBUG
+):
+    raise RuntimeError(
+        'DJANGO_SECRET_KEY nao definida — exigida fora de DEBUG=True ou em ambiente Railway.'
+    )
 SECRET_KEY = _secret_key or 'django-insecure-dev-only-key-do-not-use-in-production'
-
-DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
 RAILWAY_DOMAIN = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '')

@@ -36,12 +36,16 @@ WHATSAPP_NUMERO = os.environ.get('WHATSAPP_NUMERO', '5517999990000')
 CLINIC_NAME = os.environ.get('CLINIC_NAME', 'Jaqueline Aranha Estética')
 
 
+@ratelimit(key='ip', rate='60/h', method='GET', block=True)
 def agendamento_publico(request):
     """
     Página de agendamento público — 3 steps:
     1. Escolher procedimento
     2. Escolher data/horário (calendário)
     3. Informar dados + confirmar
+
+    Rate limit GET: 60/h por IP — anti-enumeration/scraping (Procedimento listing
+    expoe nome+preco+categoria; abuse bot poderia indexar).
     """
     procedimentos_com_preco = []
     try:
@@ -174,7 +178,7 @@ def confirmar_agendamento(request):
     Processa a confirmação do agendamento SEM login.
     Recebe: nome, telefone, procedimento, profissional, datetime.
     Cria/encontra cliente pelo telefone e agenda.
-    Protecoes: honeypot, Turnstile, OTP (se email existir) e slot lock.
+    Protecoes: honeypot, Turnstile, OTP por SMS (cliente ja cadastrado) e slot lock.
     """
     if request.method != 'POST':
         return redirect('aranha:agendamento_publico')
@@ -218,7 +222,7 @@ def confirmar_agendamento(request):
             except ValueError:
                 otp_ok = False
         if cliente_existente and not otp_ok:
-            messages.error(request, 'Verifique seu e-mail com o codigo enviado antes de confirmar.')
+            messages.error(request, 'Confirme com o codigo SMS enviado ao seu telefone antes de prosseguir.')
             return redirect('aranha:agendamento_publico')
 
     # Parse data de nascimento

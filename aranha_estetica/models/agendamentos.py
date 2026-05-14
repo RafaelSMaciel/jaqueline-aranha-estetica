@@ -1,7 +1,7 @@
 # aranha_estetica/models/agendamentos.py — Atendimentos e notificacoes
 import secrets
 from django.core.validators import MinValueValidator
-from django.db import models
+from django.db import DatabaseError, IntegrityError, models
 from django.utils import timezone
 
 from .clientes import Cliente
@@ -158,8 +158,13 @@ class Atendimento(models.Model):
                 tabela_afetada='atendimento',
                 id_registro_afetado=self.pk,
             )
-        except Exception:
-            pass  # auditoria best-effort
+        except (DatabaseError, IntegrityError) as exc:
+            # Auditoria best-effort — falha de DB nao bloqueia transicao de status
+            import logging
+            logging.getLogger(__name__).warning(
+                'log_auditoria_falhou',
+                extra={'atendimento_id': self.pk, 'erro': str(exc)},
+            )
 
     def confirmar(self, by_user=None):
         self._transicionar('CONFIRMADO', by_user=by_user)

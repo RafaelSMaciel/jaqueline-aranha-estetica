@@ -467,7 +467,7 @@ def job_limpeza_status_atendimentos(self):
 def send_email_async(self, funcao_nome, *args, **kwargs):
     """Dispara email via funcao enviar_*_email em background.
 
-    funcao_nome: string com nome da funcao em utils.email (ex: 'enviar_codigo_otp_email').
+    funcao_nome: string com nome da funcao em utils.email (ex: 'enviar_confirmacao_agendamento_email').
     args/kwargs: repassados diretamente.
     """
     from .utils import email as email_mod

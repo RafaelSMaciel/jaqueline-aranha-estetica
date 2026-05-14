@@ -5,6 +5,7 @@ Inclui Content-Security-Policy com nonce por request e headers adicionais
 """
 import secrets
 
+from django.db import OperationalError, ProgrammingError
 from django.shortcuts import redirect
 from django.urls import resolve, reverse
 from django.urls.exceptions import Resolver404
@@ -52,7 +53,9 @@ class Enforce2FAMiddleware:
             if TOTPDevice.objects.filter(user=request.user, confirmed=True).exists():
                 challenge_url = reverse('aranha:admin_2fa_challenge')
                 return redirect(f'{challenge_url}?next={path}')
-        except Exception:
+        except (ImportError, OperationalError, ProgrammingError):
+            # TOTPDevice nao disponivel (app desinstalado) ou tabela inexistente
+            # (migrations pendentes). Nao bloqueia request — segue sem 2FA challenge.
             pass
 
         return self.get_response(request)

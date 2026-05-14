@@ -17,6 +17,7 @@
 - [8. Endpoints & API](#8-endpoints--api)
 - [9. Banco de Dados](#9-banco-de-dados)
 - [10. Contribuindo](#10-contribuindo)
+- [11. Audit & Refactor (2026-05-13)](#11-audit--refactor-2026-05-13)
 
 ---
 
@@ -53,11 +54,7 @@ jaqueline-aranha-estetica/
 │   └── migrations/               # 24 migrations versionadas
 ├── clinica/                      # Settings Django + celery + urls
 ├── docs/
-│   ├── PROJECT.md                # ← este arquivo (single source of truth)
-│   └── erd.md                    # MER detalhado (referência)
-├── scripts/
-│   ├── gerar_docx_tecnica.py     # Gera DOCX técnica do projeto
-│   └── smoke_test.sh             # CI/CD post-deploy
+│   └── PROJECT.md                # ← este arquivo (single source of truth)
 ├── Dockerfile                    # Multi-stage build
 ├── Procfile                      # Railway processes (web/worker/beat/release)
 ├── railway.json                  # Railway config
@@ -518,7 +515,7 @@ Pode nos ajudar com 2 minutos respondendo essa pesquisa?
 
 ### MER detalhado
 
-Ver `docs/erd.md` (Mermaid) ou diagramas em `OneDrive/Projeto FAM - Shivazen/Diagramas/`.
+Diagramas em `OneDrive/Projeto FAM - Shivazen/Diagramas/`.
 
 ---
 
@@ -567,7 +564,32 @@ python manage.py test --keepdb
 2. PWA → TWA (publicação Play Store)
 3. Multi-tenant SaaS (Row-Level Security PostgreSQL + onboarding self-service)
 
+## 11. Audit & Refactor (2026-05-13)
+
+Audit completo em 2026-05-13 (rating 7/10). Plano de execução em 3 lotes:
+
+### Lote 1 — Quick wins (em execução)
+1. `DJANGO_SECRET_KEY` exigida em prod/Railway (settings/base.py)
+2. `except Exception` → specific (`OperationalError`, `ProgrammingError`, `ImportError`) em middleware.py
+3. `except Exception` → `(DatabaseError, IntegrityError)` em models/agendamentos.py
+4. Rate limit GET em `agendamento_publico` (60/h por IP, anti-enumeration)
+5. `FormularioAnamnese.clean()` valida `schema_json` (tipos, opcoes, keys unicas)
+6. Reorder LGPD: `_registrar_consents` ANTES de `Atendimento.objects.create()`
+7. Pin exato em `python-dateutil` e `python-json-logger`
+8. Test matrix `ComissaoService.resolver_regra` (4 niveis + inativa + outro prof/proc)
+9. Cleanup: `tmp_req/`, `seed_jaqueline.py`, `seed_pesquisa_online_v1.py`
+
+### Lote 2 — Refactor (proximo)
+- Extrair lógica de view → `AgendamentoService` (parse_data, validar_slot, upsert_cliente)
+- Split `booking.py` → `booking_public.py` + `booking_otp.py` + `booking_ajax.py`
+- Remover sync fallback em `agendamento_service.py` (sempre-async via Celery)
+- Mascarar PII em logs (`utils/logging.py` + Sentry `before_send`)
+- Squash migrations 0001-0010
+
+### Lote 3 — CSP unsafe-inline
+4 fases: audit inline handlers → infra nonce → migracao templates → validacao+remocao `'unsafe-inline'` do CSP.
+
 ---
 
 **Mantenedor:** Rafael Maciel — `rafael-sebastiao@hotmail.com`
-**Última atualização:** 2026-05-07
+**Última atualização:** 2026-05-13
