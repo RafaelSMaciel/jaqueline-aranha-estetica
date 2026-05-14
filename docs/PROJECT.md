@@ -586,8 +586,20 @@ Audit completo em 2026-05-13 (rating 7/10). Plano de execução em 3 lotes:
 - PII mascarada em logs de booking (booking_public, booking_otp)
 - Squash migrations 0001-0010: **adiado** (Railway prod ainda lê migrations individuais; coordenar com freeze antes)
 
-### Lote 3 — CSP unsafe-inline
-4 fases: audit inline handlers → infra nonce → migracao templates → validacao+remocao `'unsafe-inline'` do CSP.
+### Lote 3 — CSP unsafe-inline (parcial - concluido)
+**Removido `'unsafe-inline'` de:** `script-src` e `style-src` (todos `<script>`/`<style>` inline tem nonce).
+**Mantido `'unsafe-inline'` em:** `script-src-attr` e `style-src-attr` (34 handlers `onclick=` + 645 `style=""` em 69 templates - refactor adiado para Lote 3.5).
+
+Audit Lote 3:
+- 53 `<script>` total: 23 nonced + 30 src= externos + 5 data scripts (nonce adicionado) = 0 inline executavel sem nonce
+- 28 `<style>` blocks: 26 nonced + 2 em email templates (CSP nao aplica)
+- Novo `aranha_estetica/tests/test_csp.py`: 4 regressao tests garantem que `'unsafe-inline'` nao volta a script-src/style-src
+
+### Lote 3.5 — Inline handlers + styles (futuro)
+- Migrar 34 handlers inline (`onclick=`, `onchange=`, etc) para `addEventListener` em script blocks nonced
+- Migrar 645 `style=""` attrs para classes utilitarias / CSS modulares
+- Remover `'unsafe-inline'` de `script-src-attr` e `style-src-attr`
+- Templates afetados: 19 (handlers) + 69 (styles, inclui 13 email - skip)
 
 ---
 
