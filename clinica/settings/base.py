@@ -20,11 +20,13 @@ try:
 
     _sentry_dsn = os.environ.get('SENTRY_DSN')
     if _sentry_dsn:
+        from aranha_estetica.utils.pii import sentry_before_send
         sentry_sdk.init(
             dsn=_sentry_dsn,
             integrations=[DjangoIntegration()],
             traces_sample_rate=float(os.environ.get('SENTRY_TRACES_SAMPLE_RATE', '0.2')),
             send_default_pii=False,
+            before_send=sentry_before_send,
         )
 except ImportError:
     pass

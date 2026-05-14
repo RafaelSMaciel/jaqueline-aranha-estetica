@@ -31,12 +31,16 @@ from .dashboard import (
     painel, painel_overview, painel_agendamentos, painel_clientes,
     painel_profissionais, exportar_relatorio_excel,
 )
-from .booking import (
-    agendamento_publico, confirmar_agendamento,
-    agendamento_sucesso, meus_agendamentos, reagendar_agendamento,
+from .booking_public import (
+    agendamento_publico, confirmar_agendamento, agendamento_sucesso,
+)
+from .booking_otp import (
     solicitar_otp_agendamento, verificar_otp_agendamento,
     meus_agendamentos_enviar_otp, meus_agendamentos_verificar_otp,
     meus_agendamentos_logout,
+)
+from .booking_reagendar import (
+    meus_agendamentos, reagendar_agendamento,
 )
 from .booking_api import (
     api_dias_disponiveis,

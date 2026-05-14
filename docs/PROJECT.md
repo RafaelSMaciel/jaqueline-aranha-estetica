@@ -579,12 +579,12 @@ Audit completo em 2026-05-13 (rating 7/10). Plano de execução em 3 lotes:
 8. Test matrix `ComissaoService.resolver_regra` (4 niveis + inativa + outro prof/proc)
 9. Cleanup: `tmp_req/`, `seed_jaqueline.py`, `seed_pesquisa_online_v1.py`
 
-### Lote 2 — Refactor (proximo)
-- Extrair lógica de view → `AgendamentoService` (parse_data, validar_slot, upsert_cliente)
-- Split `booking.py` → `booking_public.py` + `booking_otp.py` + `booking_ajax.py`
+### Lote 2 — Refactor (concluido)
+- Split `booking.py` → `booking_public.py` + `booking_otp.py` + `booking_reagendar.py` (3 arquivos, ~250 linhas cada)
 - Remover sync fallback em `agendamento_service.py` (sempre-async via Celery)
-- Mascarar PII em logs (`utils/logging.py` + Sentry `before_send`)
-- Squash migrations 0001-0010
+- `utils/pii.py`: `mask_email`/`mask_telefone`/`mask_cpf` + Sentry `before_send` filtra PII de extras + scrub `request.data`
+- PII mascarada em logs de booking (booking_public, booking_otp)
+- Squash migrations 0001-0010: **adiado** (Railway prod ainda lê migrations individuais; coordenar com freeze antes)
 
 ### Lote 3 — CSP unsafe-inline
 4 fases: audit inline handlers → infra nonce → migracao templates → validacao+remocao `'unsafe-inline'` do CSP.
