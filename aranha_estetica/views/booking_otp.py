@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 @require_POST
 @ratelimit(key='ip', rate='5/m', method='POST', block=True)
 def solicitar_otp_agendamento(request):
-    """AJAX: envia OTP via SMS (Zenvia). Requer telefone — sem fallback email."""
+    """AJAX: envia OTP via SMS (Zenvia). Telefone obrigatorio. Email opcional."""
     email = (request.POST.get('email') or '').strip().lower()
     telefone = (request.POST.get('telefone') or '').strip() or None
     captcha_token = request.POST.get('cf-turnstile-response', '')
@@ -31,17 +31,23 @@ def solicitar_otp_agendamento(request):
     if turnstile_enabled() and not verificar_turnstile(captcha_token, ip=_client_ip(request)):
         return JsonResponse({'ok': False, 'erro': 'captcha'}, status=400)
 
-    if not email or '@' not in email:
-        return JsonResponse({'ok': False, 'erro': 'email_invalido'}, status=400)
-
-    existe = Cliente.objects.filter(email__iexact=email, ativo=True).exists()
-    if existe and not telefone:
-        c = Cliente.objects.filter(email__iexact=email, ativo=True).only('telefone').first()
-        if c and c.telefone:
-            telefone = c.telefone
-
     if not telefone:
         return JsonResponse({'ok': False, 'erro': 'telefone_ausente'}, status=400)
+
+    # Se telefone ja existe na base, recupera email cadastrado p/ identificar cliente
+    digitos = ''.join(c for c in telefone if c.isdigit())
+    cliente_existente = (
+        Cliente.objects.filter(telefone__contains=digitos[-9:], ativo=True).first()
+        if len(digitos) >= 9 else None
+    )
+    if cliente_existente and not email:
+        email = (cliente_existente.email or '').lower()
+
+    # Email pseudo p/ chave do OTP quando cliente nao tem email (cadastro via SMS-only)
+    if not email or '@' not in email:
+        email = f'sms+{digitos}@shivazen.local'
+
+    existe = Cliente.objects.filter(email__iexact=email, ativo=True).exists() or bool(cliente_existente)
 
     ok, motivo, canal_usado = otp_service.solicitar_otp(
         email,

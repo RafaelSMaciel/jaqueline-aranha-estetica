@@ -17,7 +17,11 @@
   <div class="branding d-flex align-items-center">
     <div class="container position-relative d-flex align-items-center justify-content-between">
       <a href="{% url 'aranha:inicio' %}" class="logo d-flex align-items-center">
-        <h1 class="sitename">{{ CLINIC_NAME }}</h1>
+        <img src="{% static 'assets/logo-monograma.svg' %}"
+             alt=""
+             class="logo-img"
+             aria-hidden="true">
+        <h1 class="sitename mb-0">{{ CLINIC_NAME }}</h1>
       </a>
 
       <nav id="navmenu" class="navmenu">
