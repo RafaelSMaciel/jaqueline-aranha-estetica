@@ -20,11 +20,13 @@ try:
 
     _sentry_dsn = os.environ.get('SENTRY_DSN')
     if _sentry_dsn:
+        from aranha_estetica.utils.pii import sentry_before_send
         sentry_sdk.init(
             dsn=_sentry_dsn,
             integrations=[DjangoIntegration()],
             traces_sample_rate=float(os.environ.get('SENTRY_TRACES_SAMPLE_RATE', '0.2')),
             send_default_pii=False,
+            before_send=sentry_before_send,
         )
 except ImportError:
     pass
@@ -32,11 +34,14 @@ except ImportError:
 
 # ─── SECURITY ────────────────────────────────────────────────────────
 _secret_key = os.environ.get('DJANGO_SECRET_KEY')
-if not _secret_key and os.environ.get('RAILWAY_ENVIRONMENT_NAME'):
-    raise RuntimeError('DJANGO_SECRET_KEY nao definida em producao!')
+DEBUG = os.environ.get('DEBUG', '').lower() in ('true', '1', 'yes', 'on')
+if not _secret_key and (
+    os.environ.get('RAILWAY_ENVIRONMENT_NAME') or not DEBUG
+):
+    raise RuntimeError(
+        'DJANGO_SECRET_KEY nao definida — exigida fora de DEBUG=True ou em ambiente Railway.'
+    )
 SECRET_KEY = _secret_key or 'django-insecure-dev-only-key-do-not-use-in-production'
-
-DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
 RAILWAY_DOMAIN = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '')

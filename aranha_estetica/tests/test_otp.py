@@ -56,27 +56,27 @@ class TestOtpCodeModel:
 
 @pytest.mark.django_db
 class TestOtpService:
-    def test_solicitar_envia_email(self):
+    def test_solicitar_sem_telefone_falha(self):
+        """OTP exige telefone — sem ele, retorna falha sem enviar nada."""
         mail.outbox.clear()
         ok, motivo, canal = otp_service.solicitar_otp('foo@example.com')
-        assert ok and motivo == 'ok'
-        assert canal == OtpCode.CANAL_EMAIL
-        assert len(mail.outbox) == 1
-        assert 'foo@example.com' in mail.outbox[0].to
+        assert not ok
+        assert motivo == 'telefone_ausente'
+        assert canal is None
+        assert len(mail.outbox) == 0
 
-    def test_solicitar_sms_preferido_com_telefone(self):
-        """Com telefone e canal_preferido=SMS, canal resultante deve ser SMS (dev log-only)."""
+    def test_solicitar_sms_com_telefone(self):
+        """Com telefone, canal resultante e SMS (dev log-only em DEBUG/sem token)."""
         ok, motivo, canal = otp_service.solicitar_otp(
             'sms@example.com',
             telefone='11999999999',
-            canal_preferido=OtpCode.CANAL_SMS,
         )
         assert ok and motivo == 'ok'
         assert canal == OtpCode.CANAL_SMS
 
     def test_rate_limit_reenvio(self):
-        otp_service.solicitar_otp('rl@example.com')
-        ok, motivo, _ = otp_service.solicitar_otp('rl@example.com')
+        otp_service.solicitar_otp('rl@example.com', telefone='11999999999')
+        ok, motivo, _ = otp_service.solicitar_otp('rl@example.com', telefone='11999999999')
         assert not ok and motivo == 'aguarde'
 
     def test_verificar_email_vazio(self):

@@ -17,6 +17,7 @@
 - [8. Endpoints & API](#8-endpoints--api)
 - [9. Banco de Dados](#9-banco-de-dados)
 - [10. Contribuindo](#10-contribuindo)
+- [11. Audit & Refactor (2026-05-13)](#11-audit--refactor-2026-05-13)
 
 ---
 
@@ -53,11 +54,7 @@ jaqueline-aranha-estetica/
 │   └── migrations/               # 24 migrations versionadas
 ├── clinica/                      # Settings Django + celery + urls
 ├── docs/
-│   ├── PROJECT.md                # ← este arquivo (single source of truth)
-│   └── erd.md                    # MER detalhado (referência)
-├── scripts/
-│   ├── gerar_docx_tecnica.py     # Gera DOCX técnica do projeto
-│   └── smoke_test.sh             # CI/CD post-deploy
+│   └── PROJECT.md                # ← este arquivo (single source of truth)
 ├── Dockerfile                    # Multi-stage build
 ├── Procfile                      # Railway processes (web/worker/beat/release)
 ├── railway.json                  # Railway config
@@ -518,7 +515,7 @@ Pode nos ajudar com 2 minutos respondendo essa pesquisa?
 
 ### MER detalhado
 
-Ver `docs/erd.md` (Mermaid) ou diagramas em `OneDrive/Projeto FAM - Shivazen/Diagramas/`.
+Diagramas em `OneDrive/Projeto FAM - Shivazen/Diagramas/`.
 
 ---
 
@@ -567,7 +564,44 @@ python manage.py test --keepdb
 2. PWA → TWA (publicação Play Store)
 3. Multi-tenant SaaS (Row-Level Security PostgreSQL + onboarding self-service)
 
+## 11. Audit & Refactor (2026-05-13)
+
+Audit completo em 2026-05-13 (rating 7/10). Plano de execução em 3 lotes:
+
+### Lote 1 — Quick wins (em execução)
+1. `DJANGO_SECRET_KEY` exigida em prod/Railway (settings/base.py)
+2. `except Exception` → specific (`OperationalError`, `ProgrammingError`, `ImportError`) em middleware.py
+3. `except Exception` → `(DatabaseError, IntegrityError)` em models/agendamentos.py
+4. Rate limit GET em `agendamento_publico` (60/h por IP, anti-enumeration)
+5. `FormularioAnamnese.clean()` valida `schema_json` (tipos, opcoes, keys unicas)
+6. Reorder LGPD: `_registrar_consents` ANTES de `Atendimento.objects.create()`
+7. Pin exato em `python-dateutil` e `python-json-logger`
+8. Test matrix `ComissaoService.resolver_regra` (4 niveis + inativa + outro prof/proc)
+9. Cleanup: `tmp_req/`, `seed_jaqueline.py`, `seed_pesquisa_online_v1.py`
+
+### Lote 2 — Refactor (concluido)
+- Split `booking.py` → `booking_public.py` + `booking_otp.py` + `booking_reagendar.py` (3 arquivos, ~250 linhas cada)
+- Remover sync fallback em `agendamento_service.py` (sempre-async via Celery)
+- `utils/pii.py`: `mask_email`/`mask_telefone`/`mask_cpf` + Sentry `before_send` filtra PII de extras + scrub `request.data`
+- PII mascarada em logs de booking (booking_public, booking_otp)
+- Squash migrations 0001-0010: **adiado** (Railway prod ainda lê migrations individuais; coordenar com freeze antes)
+
+### Lote 3 — CSP unsafe-inline (parcial - concluido)
+**Removido `'unsafe-inline'` de:** `script-src` e `style-src` (todos `<script>`/`<style>` inline tem nonce).
+**Mantido `'unsafe-inline'` em:** `script-src-attr` e `style-src-attr` (34 handlers `onclick=` + 645 `style=""` em 69 templates - refactor adiado para Lote 3.5).
+
+Audit Lote 3:
+- 53 `<script>` total: 23 nonced + 30 src= externos + 5 data scripts (nonce adicionado) = 0 inline executavel sem nonce
+- 28 `<style>` blocks: 26 nonced + 2 em email templates (CSP nao aplica)
+- Novo `aranha_estetica/tests/test_csp.py`: 4 regressao tests garantem que `'unsafe-inline'` nao volta a script-src/style-src
+
+### Lote 3.5 — Inline handlers + styles (futuro)
+- Migrar 34 handlers inline (`onclick=`, `onchange=`, etc) para `addEventListener` em script blocks nonced
+- Migrar 645 `style=""` attrs para classes utilitarias / CSS modulares
+- Remover `'unsafe-inline'` de `script-src-attr` e `style-src-attr`
+- Templates afetados: 19 (handlers) + 69 (styles, inclui 13 email - skip)
+
 ---
 
 **Mantenedor:** Rafael Maciel — `rafael-sebastiao@hotmail.com`
-**Última atualização:** 2026-05-07
+**Última atualização:** 2026-05-13

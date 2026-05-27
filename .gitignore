@@ -60,3 +60,4 @@ screenshots/
 /*.webp
 tmp_req/node_modules/
 db_dev.sqlite3.bak-*
+default_*.sqlite3

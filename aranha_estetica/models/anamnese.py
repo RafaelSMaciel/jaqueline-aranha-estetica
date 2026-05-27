@@ -1,11 +1,17 @@
 # aranha_estetica/models/anamnese.py — Formularios pre/pos atendimento
 import secrets
 
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.urls import reverse
 
 from .clientes import Cliente
 from .procedimentos import Procedimento
+
+_ANAMNESE_TIPOS_CAMPO = {
+    'bool', 'text', 'longtext', 'select', 'scale',
+    'checkboxes', 'number', 'date', 'email',
+}
 
 
 class FormularioAnamnese(models.Model):
@@ -65,6 +71,51 @@ class FormularioAnamnese(models.Model):
 
     def __str__(self):
         return f'{self.nome} ({self.get_tipo_display()} | {self.get_escopo_display()})'
+
+    def clean(self):
+        """Valida formato do schema_json (lista de campos com keys obrigatorias)."""
+        super().clean()
+        schema = self.schema_json
+        if schema is None:
+            return
+        if not isinstance(schema, list):
+            raise ValidationError({'schema_json': 'schema_json deve ser uma lista de campos.'})
+        keys_vistas: set[str] = set()
+        for idx, campo in enumerate(schema):
+            if not isinstance(campo, dict):
+                raise ValidationError({
+                    'schema_json': f'campo[{idx}] deve ser objeto (dict).',
+                })
+            obrigatorios = {'key', 'tipo', 'label'}
+            faltam = obrigatorios - campo.keys()
+            if faltam:
+                raise ValidationError({
+                    'schema_json': f'campo[{idx}] faltando: {sorted(faltam)}',
+                })
+            key = campo['key']
+            if not isinstance(key, str) or not key.strip():
+                raise ValidationError({
+                    'schema_json': f'campo[{idx}].key deve ser string nao-vazia.',
+                })
+            if key in keys_vistas:
+                raise ValidationError({
+                    'schema_json': f'key duplicada: {key!r}',
+                })
+            keys_vistas.add(key)
+            tipo = campo['tipo']
+            if tipo not in _ANAMNESE_TIPOS_CAMPO:
+                raise ValidationError({
+                    'schema_json':
+                        f'campo[{idx}].tipo {tipo!r} invalido. '
+                        f'Permitidos: {sorted(_ANAMNESE_TIPOS_CAMPO)}',
+                })
+            if tipo in ('select', 'scale', 'checkboxes'):
+                opcoes = campo.get('opcoes')
+                if not isinstance(opcoes, list) or not opcoes:
+                    raise ValidationError({
+                        'schema_json':
+                            f'campo[{idx}] tipo {tipo!r} requer "opcoes" (lista nao-vazia).',
+                    })
 
 
 def _gen_resposta_token():

@@ -250,7 +250,6 @@ python manage.py runserver
 ## Documentação
 
 - **[docs/PROJECT.md](docs/PROJECT.md)** — documentação consolidada (setup, arquitetura, segurança, LGPD, API, WhatsApp, contributing). **Single source of truth.**
-- [docs/erd.md](docs/erd.md) — Modelo Entidade-Relacionamento detalhado (Mermaid)
 
 ---
 

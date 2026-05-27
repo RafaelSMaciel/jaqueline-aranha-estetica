@@ -5,7 +5,7 @@
 {% block meta_description %}{{ procedimento.descricao|default:procedimento.nome|truncatechars:155 }}{% endblock %}
 
 {% block schema_extra %}
-<script type="application/ld+json">
+<script type="application/ld+json" nonce="{{ csp_nonce }}">
 {
   "@context": "https://schema.org",
   "@type": "BreadcrumbList",
@@ -16,7 +16,7 @@
   ]
 }
 </script>
-<script type="application/ld+json">
+<script type="application/ld+json" nonce="{{ csp_nonce }}">
 {
   "@context": "https://schema.org",
   "@type": "Service",

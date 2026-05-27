@@ -107,6 +107,11 @@ class AgendamentoService:
         if self._slot_ocupado(profissional, cmd.data_hora_inicio, procedimento.duracao_minutos):
             raise BusinessRuleViolation('Horario indisponivel.')
 
+        # Registra consents ANTES de persistir Atendimento — LGPD: audit
+        # trail de consent precisa preceder processamento de dado pessoal.
+        # Transaction.atomic garante rollback se Atendimento falhar depois.
+        self._registrar_consents(cliente, cmd)
+
         # Cria atendimento
         from datetime import timedelta
         data_fim = cmd.data_hora_inicio + timedelta(minutes=procedimento.duracao_minutos)
@@ -118,9 +123,6 @@ class AgendamentoService:
             data_hora_fim=data_fim,
             status='PENDENTE',
         )
-
-        # Registra consents granulares
-        self._registrar_consents(cliente, cmd)
 
         # Audit + LGPD
         registrar_log(
@@ -213,25 +215,15 @@ class AgendamentoService:
 
     @staticmethod
     def _enviar_email_cancelamento(email: str, dados: dict) -> None:
-        """Envia email de cancelamento via Celery (fallback sync)."""
-        try:
-            from ..tasks import send_email_async
-            send_email_async.delay('enviar_cancelamento_email', email, dados)
-        except (ImportError, AttributeError) as exc:
-            logger.warning('email_celery_indisponivel_fallback_sync', extra={'error': str(exc)})
-            from ..utils.email import enviar_cancelamento_email
-            enviar_cancelamento_email(email, dados)
+        """Enfileira email de cancelamento via Celery."""
+        from ..tasks import send_email_async
+        send_email_async.delay('enviar_cancelamento_email', email, dados)
 
     @staticmethod
     def _enviar_email_confirmacao(email: str, dados: dict) -> None:
-        """Envia email de confirmacao via Celery (fallback sync)."""
-        try:
-            from ..tasks import send_email_async
-            send_email_async.delay('enviar_confirmacao_agendamento_email', email, dados)
-        except (ImportError, AttributeError) as exc:
-            logger.warning('email_celery_indisponivel_fallback_sync', extra={'error': str(exc)})
-            from ..utils.email import enviar_confirmacao_agendamento_email
-            enviar_confirmacao_agendamento_email(email, dados)
+        """Enfileira email de confirmacao via Celery."""
+        from ..tasks import send_email_async
+        send_email_async.delay('enviar_confirmacao_agendamento_email', email, dados)
 
     # ─── Helpers ──────────────────────────────────────────────────────
     def _upsert_cliente(self, cmd: CriarAgendamentoCommand) -> Cliente:

@@ -517,7 +517,7 @@
                         </div>
                     </div>
 
-                    <form id="booking-form" action="{% url 'aranha:confirmar_agendamento' %}" method="POST" data-loading-msg="Enviando confirmação por e-mail...">
+                    <form id="booking-form" action="{% url 'aranha:confirmar_agendamento' %}" method="POST" data-loading-msg="Enviando código de verificação por SMS...">
                         {% csrf_token %}
                         <input type="hidden" name="procedimento" id="form-procedimento">
                         <input type="hidden" name="profissional" id="form-profissional">
@@ -529,17 +529,17 @@
                         <!-- Badge status cliente (aparece apos OTP) -->
                         <div id="cliente-badge" class="cliente-badge" style="display:none;"></div>
 
-                        <!-- ─── E-mail + OTP ─── -->
+                        <!-- ─── Celular + OTP via SMS ─── -->
                         <div class="form-field">
-                            <label><i class="bi bi-envelope"></i>E-mail</label>
+                            <label><i class="bi bi-phone"></i>Celular</label>
                             <div class="otp-row">
-                                <input type="email" name="email" class="form-input" placeholder="seu@email.com" required id="form-email" aria-label="E-mail">
+                                <input type="tel" name="telefone" class="form-input" placeholder="(00) 00000-0000" required id="form-telefone" aria-label="Telefone celular" inputmode="tel" autocomplete="tel">
                                 <button type="button" id="btn-enviar-otp" class="btn btn-outline-secondary otp-btn">
-                                    <i class="bi bi-send"></i><span class="otp-btn-text">Enviar código</span>
+                                    <i class="bi bi-chat-square-text"></i><span class="otp-btn-text">Enviar SMS</span>
                                 </button>
                             </div>
                             <small style="color:#9a8f7c;font-size:0.72rem;margin-top:0.35rem;display:block;">
-                                Enviaremos um SMS com código de 6 dígitos para validar seu telefone. Se já for paciente, seus dados serão preenchidos automaticamente.
+                                Enviaremos um SMS com codigo de 6 digitos para validar seu telefone. Se ja for paciente, seus dados serao preenchidos automaticamente.
                             </small>
                         </div>
 
@@ -569,8 +569,8 @@
                                     <input type="date" name="data_nascimento" class="form-input" id="form-nascimento" aria-label="Data de nascimento" style="color-scheme: light;">
                                 </div>
                                 <div class="form-field">
-                                    <label><i class="bi bi-phone"></i>Celular</label>
-                                    <input type="tel" name="telefone" class="form-input" placeholder="(00) 00000-0000" id="form-telefone" aria-label="Telefone celular">
+                                    <label><i class="bi bi-envelope"></i>E-mail</label>
+                                    <input type="email" name="email" class="form-input" placeholder="seu@email.com" id="form-email" aria-label="E-mail" autocomplete="email">
                                 </div>
                             </div>
 
@@ -622,7 +622,7 @@
                             <i class="bi bi-calendar-check me-2"></i>Confirmar Agendamento
                         </button>
                         <small class="confirm-subnote">
-                            <i class="bi bi-envelope-check"></i>O profissional avalia seu pedido e você recebe a confirmação por e-mail.
+                            <i class="bi bi-envelope-check"></i>Após a aprovação do profissional, o recibo de confirmação chega por e-mail.
                         </small>
                     </form>
 
@@ -1037,15 +1037,20 @@
     var btnEnviar = document.getElementById('btn-enviar-otp');
     if (btnEnviar) {
         btnEnviar.addEventListener('click', function() {
-            var email = (document.getElementById('form-email').value || '').trim();
-            if (!email || email.indexOf('@') < 0) {
-                setOtpMsg('Informe um e-mail valido.', false);
+            var telefone = (document.getElementById('form-telefone').value || '').trim();
+            var emailEl = document.getElementById('form-email');
+            var email = emailEl ? (emailEl.value || '').trim() : '';
+            var soDigitos = telefone.replace(/\D/g, '');
+            if (soDigitos.length < 10) {
+                setOtpMsg('Informe um celular valido (DDD + numero).', false);
                 return;
             }
             btnEnviar.disabled = true;
-            setOtpMsg('Enviando codigo...', true);
+            setOtpMsg('Enviando SMS...', true);
             var fd = new FormData();
-            fd.append('email', email);
+            fd.append('telefone', telefone);
+            // email opcional aqui — backend deriva pseudo-email se vazio
+            if (email) fd.append('email', email);
             fd.append('csrfmiddlewaretoken', OTP_CSRF);
             var cap = document.querySelector('#captcha-field .cf-turnstile input[name="cf-turnstile-response"]');
             if (cap) fd.append('cf-turnstile-response', cap.value);
@@ -1073,7 +1078,12 @@
     var btnVerif = document.getElementById('btn-verificar-otp');
     if (btnVerif) {
         btnVerif.addEventListener('click', function() {
-            var email = (document.getElementById('form-email').value || '').trim();
+            var emailEl = document.getElementById('form-email');
+            var email = emailEl ? (emailEl.value || '').trim() : '';
+            var telefone = (document.getElementById('form-telefone').value || '').trim();
+            var soDigitosV = telefone.replace(/\D/g, '');
+            // Se nao informou email, deriva pseudo-email do telefone (mesmo padrao backend)
+            if (!email) email = 'sms+' + soDigitosV + '@shivazen.local';
             var codigo = (document.getElementById('otp-codigo').value || '').trim();
             if (!/^\d{6}$/.test(codigo)) {
                 setOtpMsg('Codigo deve ter 6 digitos.', false);
@@ -1082,6 +1092,7 @@
             btnVerif.disabled = true;
             var fd = new FormData();
             fd.append('email', email);
+            fd.append('telefone', telefone);
             fd.append('codigo', codigo);
             fd.append('csrfmiddlewaretoken', OTP_CSRF);
             fetch('{% url "aranha:verificar_otp_agendamento" %}', {method:'POST', body: fd, headers:{'X-CSRFToken': OTP_CSRF}})

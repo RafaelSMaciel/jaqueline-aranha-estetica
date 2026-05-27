@@ -205,9 +205,32 @@ h6 {
   line-height: 1;
 }
 
-.header .logo img {
-  max-height: 36px;
-  margin-right: 8px;
+.header .logo {
+  text-decoration: none;
+}
+.header .logo img.logo-img {
+  height: 44px;
+  width: auto;
+  margin-right: 12px;
+  display: block;
+  flex-shrink: 0;
+}
+.header .logo h1.sitename {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--heading-color, #2d2d2d);
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  line-height: 1.1;
+}
+@media (max-width: 991.98px) {
+  .header .logo img.logo-img { height: 38px; margin-right: 10px; }
+  .header .logo h1.sitename { font-size: 20px; }
+}
+@media (max-width: 575.98px) {
+  .header .logo img.logo-img { height: 32px; margin-right: 8px; }
+  .header .logo h1.sitename { font-size: 16px; }
 }
 
 .header .logo h1 {

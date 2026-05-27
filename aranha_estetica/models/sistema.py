@@ -189,7 +189,7 @@ class OtpCode(models.Model):
 
     email = models.EmailField()
     telefone = models.CharField(max_length=20, blank=True, null=True)
-    canal = models.CharField(max_length=10, choices=CANAL_CHOICES, default=CANAL_EMAIL)
+    canal = models.CharField(max_length=10, choices=CANAL_CHOICES, default=CANAL_SMS)
     codigo_hash = models.CharField(max_length=64)  # sha256 hex
     proposito = models.CharField(max_length=20, choices=PROPOSITO_CHOICES, default=PROPOSITO_AGENDAMENTO)
     criado_em = models.DateTimeField(auto_now_add=True)
@@ -229,7 +229,7 @@ class OtpCode(models.Model):
         ).exists()
 
     @classmethod
-    def gerar(cls, email, ip=None, proposito=PROPOSITO_AGENDAMENTO, canal=CANAL_EMAIL, telefone=None):
+    def gerar(cls, email, ip=None, proposito=PROPOSITO_AGENDAMENTO, canal=CANAL_SMS, telefone=None):
         """Invalida anteriores, cria novo. Retorna (codigo_plano, obj)."""
         import hashlib
         import secrets

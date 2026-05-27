@@ -5,6 +5,7 @@ Inclui Content-Security-Policy com nonce por request e headers adicionais
 """
 import secrets
 
+from django.db import OperationalError, ProgrammingError
 from django.shortcuts import redirect
 from django.urls import resolve, reverse
 from django.urls.exceptions import Resolver404
@@ -52,7 +53,9 @@ class Enforce2FAMiddleware:
             if TOTPDevice.objects.filter(user=request.user, confirmed=True).exists():
                 challenge_url = reverse('aranha:admin_2fa_challenge')
                 return redirect(f'{challenge_url}?next={path}')
-        except Exception:
+        except (ImportError, OperationalError, ProgrammingError):
+            # TOTPDevice nao disponivel (app desinstalado) ou tabela inexistente
+            # (migrations pendentes). Nao bloqueia request — segue sem 2FA challenge.
             pass
 
         return self.get_response(request)
@@ -85,16 +88,18 @@ class ContentSecurityPolicyMiddleware:
 
     O nonce e injetado em `request.csp_nonce` e disponivel no template
     via context processor `clinica_globals`. Em scripts/styles inline
-    use `<script nonce="{{ csp_nonce }}">`.
+    use `<script nonce="{{ csp_nonce }}">` / `<style nonce="{{ csp_nonce }}">`.
 
-    NOTA: `'unsafe-inline'` ainda e tolerado para compatibilidade com
-    templates legados que usam handlers inline (onclick, etc). Navegadores
-    modernos ignoram `unsafe-inline` quando nonce/hash estao presentes.
+    `script-src` e `style-src`: SEM `'unsafe-inline'`. Todos os blocks
+    `<script>`/`<style>` devem ter nonce (verificado via audit Lote 3).
+
+    `script-src-attr` e `style-src-attr`: AINDA com `'unsafe-inline'`.
+    Cobrem handlers inline (onclick=...) e style=... attributes.
+    Refactor desses (34 handlers + 645 style attrs) fica para Lote 3.5.
     """
 
     ALLOWED_SCRIPT_SRCS = [
         "'self'",
-        "'unsafe-inline'",  # TODO: migrar templates legados e remover
         "https://cdn.jsdelivr.net",
         "https://cdnjs.cloudflare.com",
         "https://code.jquery.com",
@@ -103,7 +108,6 @@ class ContentSecurityPolicyMiddleware:
     ]
     ALLOWED_STYLE_SRCS = [
         "'self'",
-        "'unsafe-inline'",
         "https://cdn.jsdelivr.net",
         "https://cdnjs.cloudflare.com",
         "https://fonts.googleapis.com",
