@@ -12,7 +12,7 @@ from django.utils.http import urlsafe_base64_encode
 from django.views.decorators.http import require_POST
 
 from ..decorators import staff_required
-from ..models import Perfil, Profissional, Usuario
+from ..models import Profissional, Usuario
 from ..utils.audit import registrar_log
 
 
@@ -20,25 +20,23 @@ from ..utils.audit import registrar_log
 def admin_usuarios(request):
     """Lista todos os usuarios do sistema."""
     busca = request.GET.get('q', '').strip()
-    perfil_filter = request.GET.get('perfil', '')
+    papel_filter = request.GET.get('papel', '')
 
-    qs = Usuario.objects.select_related('perfil', 'profissional').order_by('nome')
+    qs = Usuario.objects.select_related('profissional').order_by('nome')
     if busca:
         qs = qs.filter(nome__icontains=busca) | qs.filter(email__icontains=busca)
-    if perfil_filter:
-        qs = qs.filter(perfil_id=perfil_filter)
+    if papel_filter:
+        qs = qs.filter(papel=papel_filter)
 
     paginator = Paginator(qs, 30)
     page = request.GET.get('page', 1)
     usuarios = paginator.get_page(page)
 
-    perfis = Perfil.objects.order_by('nome')
-
     context = {
         'usuarios': usuarios,
-        'perfis': perfis,
+        'papeis': Usuario.PAPEL_CHOICES,
         'busca': busca,
-        'perfil_filter': perfil_filter,
+        'papel_filter': papel_filter,
     }
     return render(request, 'painel/usuarios.html', context)
 
@@ -46,27 +44,26 @@ def admin_usuarios(request):
 @staff_required
 def admin_criar_usuario(request):
     """Cria um novo usuario admin (recepcionista, gerente, profissional logado)."""
-    perfis = Perfil.objects.order_by('nome')
     profissionais = Profissional.objects.filter(ativo=True).order_by('nome')
 
     if request.method == 'POST':
         nome = request.POST.get('nome', '').strip()
         email = request.POST.get('email', '').strip().lower()
-        perfil_id = request.POST.get('perfil_id') or None
+        papel = request.POST.get('papel') or Usuario.PAPEL_RECEPCAO
         profissional_id = request.POST.get('profissional_id') or None
         senha = request.POST.get('senha', '')
 
         if not nome or not email:
             messages.error(request, 'Nome e email sao obrigatorios.')
             return render(request, 'painel/usuario_form.html', {
-                'perfis': perfis, 'profissionais': profissionais,
+                'papeis': Usuario.PAPEL_CHOICES, 'profissionais': profissionais,
                 'form_data': request.POST, 'modo': 'criar',
             })
 
         if Usuario.objects.filter(email=email).exists():
             messages.error(request, 'Ja existe usuario com esse email.')
             return render(request, 'painel/usuario_form.html', {
-                'perfis': perfis, 'profissionais': profissionais,
+                'papeis': Usuario.PAPEL_CHOICES, 'profissionais': profissionais,
                 'form_data': request.POST, 'modo': 'criar',
             })
 
@@ -77,14 +74,14 @@ def admin_criar_usuario(request):
             email=email,
             password=senha,
             nome=nome,
-            perfil_id=perfil_id,
+            papel=papel,
             profissional_id=profissional_id,
             ativo=True,
         )
         registrar_log(
             request.user, f'Criou usuario: {usuario.email}',
             'usuario', usuario.pk,
-            detalhes={'perfil_id': perfil_id, 'profissional_id': profissional_id},
+            detalhes={'papel': papel, 'profissional_id': profissional_id},
         )
 
         _enviar_email_boas_vindas(request, usuario, senha)
@@ -96,16 +93,15 @@ def admin_criar_usuario(request):
         return redirect('aranha:admin_usuarios')
 
     return render(request, 'painel/usuario_form.html', {
-        'perfis': perfis, 'profissionais': profissionais,
+        'papeis': Usuario.PAPEL_CHOICES, 'profissionais': profissionais,
         'modo': 'criar',
     })
 
 
 @staff_required
 def admin_editar_usuario(request, pk):
-    """Edita dados do usuario (nome, email, perfil, profissional vinculado)."""
+    """Edita dados do usuario (nome, email, papel, profissional vinculado)."""
     usuario = get_object_or_404(Usuario, pk=pk)
-    perfis = Perfil.objects.order_by('nome')
     profissionais = Profissional.objects.filter(ativo=True).order_by('nome')
 
     if request.method == 'POST':
@@ -115,7 +111,7 @@ def admin_editar_usuario(request, pk):
             messages.error(request, 'Email ja em uso por outro usuario.')
         else:
             usuario.email = novo_email
-            usuario.perfil_id = request.POST.get('perfil_id') or None
+            usuario.papel = request.POST.get('papel') or usuario.papel
             usuario.profissional_id = request.POST.get('profissional_id') or None
             usuario.ativo = request.POST.get('ativo') == '1'
             usuario.save()
@@ -125,7 +121,7 @@ def admin_editar_usuario(request, pk):
 
     return render(request, 'painel/usuario_form.html', {
         'usuario': usuario,
-        'perfis': perfis, 'profissionais': profissionais,
+        'papeis': Usuario.PAPEL_CHOICES, 'profissionais': profissionais,
         'modo': 'editar',
     })
 

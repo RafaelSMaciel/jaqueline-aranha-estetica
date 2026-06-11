@@ -3,7 +3,6 @@ from django.contrib import admin, messages
 from django.utils import timezone
 
 from .models import (
-    Funcionalidade, Perfil, PerfilFuncionalidade,
     Profissional, DisponibilidadeProfissional, BloqueioAgenda, ProfissionalProcedimento,
     Procedimento, Preco, Promocao,
     Cliente,
@@ -22,37 +21,14 @@ from .models import (
 # CONTROLE DE ACESSO
 # =====================================================================
 
-@admin.register(Funcionalidade)
-class FuncionalidadeAdmin(admin.ModelAdmin):
-    list_display = ('nome', 'descricao')
-    search_fields = ('nome',)
-    ordering = ('nome',)
-    list_per_page = 50
-
-
-@admin.register(Perfil)
-class PerfilAdmin(admin.ModelAdmin):
-    list_display = ('nome', 'descricao')
-    search_fields = ('nome',)
-    ordering = ('nome',)
-
-
-@admin.register(PerfilFuncionalidade)
-class PerfilFuncionalidadeAdmin(admin.ModelAdmin):
-    list_display = ('perfil', 'funcionalidade')
-    list_filter = ('perfil',)
-    search_fields = ('perfil__nome', 'funcionalidade__nome')
-    list_select_related = ('perfil', 'funcionalidade')
-
-
 @admin.register(Usuario)
 class UsuarioAdmin(admin.ModelAdmin):
-    list_display = ('email', 'nome', 'perfil', 'profissional', 'ativo')
-    list_filter = ('perfil', 'ativo')
+    list_display = ('email', 'nome', 'papel', 'profissional', 'ativo')
+    list_filter = ('papel', 'ativo')
     search_fields = ('nome', 'email')
     ordering = ('email',)
-    autocomplete_fields = ('perfil', 'profissional')
-    list_select_related = ('perfil', 'profissional')
+    autocomplete_fields = ('profissional',)
+    list_select_related = ('profissional',)
     list_per_page = 50
 
 

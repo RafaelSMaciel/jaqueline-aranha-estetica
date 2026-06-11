@@ -1,7 +1,7 @@
 """Tests for access control decorators."""
 from django.test import Client, TestCase
 
-from aranha_estetica.models import Perfil, Profissional, Usuario
+from aranha_estetica.models import Profissional, Usuario
 
 
 class StaffRequiredDecoratorTests(TestCase):
@@ -12,7 +12,7 @@ class StaffRequiredDecoratorTests(TestCase):
         resp = client.get('/painel/overview/')
         self.assertIn(resp.status_code, [302, 403])
 
-    def test_usuario_sem_perfil_redireciona(self):
+    def test_usuario_recepcao_sem_admin_redireciona(self):
         user = Usuario.objects.create_user(email='normal@test.com', password='senha123')
         client = Client()
         client.force_login(user)
@@ -20,10 +20,9 @@ class StaffRequiredDecoratorTests(TestCase):
         self.assertEqual(resp.status_code, 302)
 
     def test_admin_acessa(self):
-        perfil, _ = Perfil.objects.get_or_create(nome='Administrador')
-        user = Usuario.objects.create_user(email='admin@test.com', password='senha123')
-        user.perfil = perfil
-        user.save(update_fields=['perfil_id'])
+        user = Usuario.objects.create_user(
+            email='admin@test.com', password='senha123', papel=Usuario.PAPEL_ADMIN,
+        )
         client = Client()
         client.force_login(user)
         resp = client.get('/painel/overview/')
@@ -54,10 +53,9 @@ class ProfissionalRequiredDecoratorTests(TestCase):
         self.assertEqual(resp.status_code, 302)
 
     def test_staff_acessa_portal_profissional(self):
-        perfil, _ = Perfil.objects.get_or_create(nome='Administrador')
-        user = Usuario.objects.create_user(email='staff@test.com', password='senha123')
-        user.perfil = perfil
-        user.save(update_fields=['perfil_id'])
+        user = Usuario.objects.create_user(
+            email='staff@test.com', password='senha123', papel=Usuario.PAPEL_ADMIN,
+        )
         client = Client()
         client.force_login(user)
         resp = client.get('/profissional/', follow=True)

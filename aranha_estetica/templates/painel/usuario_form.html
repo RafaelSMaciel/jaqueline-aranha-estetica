@@ -50,18 +50,17 @@
                     value="{{ usuario.email|default:form_data.email }}">
             </div>
             <div class="form-group">
-                <label>Perfil</label>
-                <select name="perfil_id">
-                    <option value="">— sem perfil —</option>
-                    {% for p in perfis %}
-                        <option value="{{ p.pk }}"
-                            {% if usuario.perfil_id == p.pk %}selected{% endif %}
-                            {% if form_data.perfil_id == p.pk|stringformat:"s" %}selected{% endif %}>
-                            {{ p.nome }}
+                <label>Papel</label>
+                <select name="papel">
+                    {% for valor, rotulo in papeis %}
+                        <option value="{{ valor }}"
+                            {% if usuario.papel == valor %}selected{% endif %}
+                            {% if form_data.papel == valor %}selected{% endif %}>
+                            {{ rotulo }}
                         </option>
                     {% endfor %}
                 </select>
-                <small>Administrador · Recepcionista · Profissional</small>
+                <small>Administrador · Profissional · Recepcao</small>
             </div>
         </div>
 

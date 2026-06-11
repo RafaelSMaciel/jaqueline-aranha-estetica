@@ -7,15 +7,11 @@ from django_otp.plugins.otp_totp.models import TOTPDevice
 
 @pytest.fixture
 def staff_user(db):
-    from aranha_estetica.models import Perfil
     User = get_user_model()
-    perfil, _ = Perfil.objects.get_or_create(nome='Administrador')
-    u = User.objects.create_user(
-        email='admin2fa@test.com', password='senha123', nome='Admin 2FA'
+    return User.objects.create_user(
+        email='admin2fa@test.com', password='senha123', nome='Admin 2FA',
+        papel=User.PAPEL_ADMIN,
     )
-    u.perfil = perfil
-    u.save()
-    return u
 
 
 @pytest.mark.django_db

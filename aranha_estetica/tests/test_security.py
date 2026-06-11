@@ -13,15 +13,9 @@ from .factories import (
 
 
 def _criar_staff(username='admin_test', password='senha123'):
-    from aranha_estetica.models import Perfil
-    perfil_admin, _ = Perfil.objects.get_or_create(
-        nome='Administrador',
-        defaults={'descricao': 'Acesso total ao sistema'},
+    return Usuario.objects.create_user(
+        email=f'{username}@test.com', password=password, papel=Usuario.PAPEL_ADMIN,
     )
-    u = Usuario.objects.create_user(email=f'{username}@test.com', password=password)
-    u.perfil = perfil_admin
-    u.save(update_fields=['perfil_id'])
-    return u
 
 
 def _criar_usuario_comum(username='user_test', password='senha123'):

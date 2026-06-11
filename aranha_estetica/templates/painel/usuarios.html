@@ -70,10 +70,10 @@
 {% block admin_content %}
 <form method="get" class="filtros-user">
     <input type="text" name="q" value="{{ busca }}" placeholder="Buscar nome ou email...">
-    <select name="perfil">
-        <option value="">Todos perfis</option>
-        {% for p in perfis %}
-            <option value="{{ p.pk }}" {% if perfil_filter == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.nome }}</option>
+    <select name="papel">
+        <option value="">Todos papeis</option>
+        {% for valor, rotulo in papeis %}
+            <option value="{{ valor }}" {% if papel_filter == valor %}selected{% endif %}>{{ rotulo }}</option>
         {% endfor %}
     </select>
     <button type="submit">Filtrar</button>
@@ -92,19 +92,16 @@
 
 <div id="listaUsuarios" data-search-rows=".user-card">
 {% for u in usuarios %}
-<div class="user-card {% if not u.ativo %}inativo{% endif %}" data-search-text="{{ u.nome }} {{ u.email }} {{ u.perfil.nome|default:'' }}">
+<div class="user-card {% if not u.ativo %}inativo{% endif %}" data-search-text="{{ u.nome }} {{ u.email }} {{ u.get_papel_display }}">
     <div class="user-avatar">
         {{ u.nome|make_list|first }}{{ u.nome|make_list|slice:"1:2"|join:"" }}
     </div>
     <div class="user-info">
         <div class="user-nome">
             {{ u.nome }}
-            {% if u.perfil %}
-                {% if u.perfil.nome == "Administrador" %}<span class="user-badge adm">ADM</span>
-                {% elif u.perfil.nome == "Recepcionista" %}<span class="user-badge rec">Recep</span>
-                {% elif u.perfil.nome == "Profissional" %}<span class="user-badge prof">Prof</span>
-                {% else %}<span class="user-badge adm">{{ u.perfil.nome }}</span>{% endif %}
-            {% endif %}
+            {% if u.papel == "ADMIN" %}<span class="user-badge adm">ADM</span>
+            {% elif u.papel == "RECEPCAO" %}<span class="user-badge rec">Recep</span>
+            {% elif u.papel == "PROFISSIONAL" %}<span class="user-badge prof">Prof</span>{% endif %}
             {% if not u.ativo %}<span class="user-badge inativo">Inativo</span>{% endif %}
         </div>
         <div class="user-meta">
@@ -150,9 +147,9 @@
 
 {% if usuarios.has_other_pages %}
 <nav class="mt-3 text-center">
-    {% if usuarios.has_previous %}<a href="?page={{ usuarios.previous_page_number }}&q={{ busca }}&perfil={{ perfil_filter }}" class="btn btn-sm btn-outline-secondary">‹</a>{% endif %}
+    {% if usuarios.has_previous %}<a href="?page={{ usuarios.previous_page_number }}&q={{ busca }}&papel={{ papel_filter }}" class="btn btn-sm btn-outline-secondary">‹</a>{% endif %}
     <span class="small fw-bold mx-2">{{ usuarios.number }} / {{ usuarios.paginator.num_pages }}</span>
-    {% if usuarios.has_next %}<a href="?page={{ usuarios.next_page_number }}&q={{ busca }}&perfil={{ perfil_filter }}" class="btn btn-sm btn-outline-secondary">›</a>{% endif %}
+    {% if usuarios.has_next %}<a href="?page={{ usuarios.next_page_number }}&q={{ busca }}&papel={{ papel_filter }}" class="btn btn-sm btn-outline-secondary">›</a>{% endif %}
 </nav>
 {% endif %}
 
