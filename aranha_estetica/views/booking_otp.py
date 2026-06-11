@@ -45,7 +45,7 @@ def solicitar_otp_agendamento(request):
 
     # Email pseudo p/ chave do OTP quando cliente nao tem email (cadastro via SMS-only)
     if not email or '@' not in email:
-        email = f'sms+{digitos}@shivazen.local'
+        email = OtpCode.email_para_telefone(telefone)
 
     existe = Cliente.objects.filter(email__iexact=email, ativo=True).exists() or bool(cliente_existente)
 

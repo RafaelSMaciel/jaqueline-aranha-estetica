@@ -13,7 +13,7 @@ from .models import (
     AvaliacaoNPS,
     Pacote, ItemPacote, PacoteCliente, SessaoPacote,
     ListaEspera,
-    LogAuditoria, ConfiguracaoSistema, CodigoVerificacao,
+    LogAuditoria, ConfiguracaoSistema, OtpCode,
     Usuario,
 )
 
@@ -481,13 +481,17 @@ class ConfiguracaoSistemaAdmin(admin.ModelAdmin):
     ordering = ('chave',)
 
 
-@admin.register(CodigoVerificacao)
-class CodigoVerificacaoAdmin(admin.ModelAdmin):
-    list_display = ('telefone', 'codigo', 'usado', 'criado_em')
-    list_filter = ('usado',)
-    search_fields = ('telefone',)
+@admin.register(OtpCode)
+class OtpCodeAdmin(admin.ModelAdmin):
+    """Read-only: codigo e hashed — admin ve apenas metadados do challenge."""
+    list_display = ('email', 'telefone', 'proposito', 'canal', 'tentativas', 'usado_em', 'expira_em', 'criado_em')
+    list_filter = ('proposito', 'canal')
+    search_fields = ('email', 'telefone')
     ordering = ('-criado_em',)
-    readonly_fields = ('telefone', 'codigo', 'usado', 'criado_em')
+    readonly_fields = (
+        'email', 'telefone', 'canal', 'codigo_hash', 'proposito',
+        'tentativas', 'usado_em', 'expira_em', 'ip_origem', 'criado_em',
+    )
 
     def has_add_permission(self, request):
         return False

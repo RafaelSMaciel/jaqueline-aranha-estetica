@@ -20,7 +20,7 @@ from .termos import VersaoTermo, AceitePrivacidade, AssinaturaTermoProcedimento
 from .nps import AvaliacaoNPS
 from .pacotes import Pacote, ItemPacote, PacoteCliente, SessaoPacote
 from .sistema import (
-    ListaEspera, LogAuditoria, ConfiguracaoSistema, CodigoVerificacao, OtpCode, Feriado,
+    ListaEspera, LogAuditoria, ConfiguracaoSistema, OtpCode, Feriado,
 )
 from .workflow import WorkflowRegra, WorkflowExecucao
 from .push import WebPushSubscription
@@ -40,7 +40,7 @@ __all__ = [
     'VersaoTermo', 'AceitePrivacidade', 'AssinaturaTermoProcedimento',
     'AvaliacaoNPS',
     'Pacote', 'ItemPacote', 'PacoteCliente', 'SessaoPacote',
-    'ListaEspera', 'LogAuditoria', 'ConfiguracaoSistema', 'CodigoVerificacao', 'OtpCode',
+    'ListaEspera', 'LogAuditoria', 'ConfiguracaoSistema', 'OtpCode',
     'Feriado',
     'WorkflowRegra', 'WorkflowExecucao',
     'WebPushSubscription',

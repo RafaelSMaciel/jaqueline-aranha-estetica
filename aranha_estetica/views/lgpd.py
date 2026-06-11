@@ -8,7 +8,7 @@ from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 from django_ratelimit.decorators import ratelimit
 
-from ..models import Cliente, CodigoVerificacao
+from ..models import Cliente, OtpCode
 from ..services import LgpdService
 from ..services.auditoria import AuditoriaService
 
@@ -30,16 +30,22 @@ def meus_dados(request):
         return render(request, 'publico/lgpd_meus_dados.html', {})
 
     if not codigo:
-        # Emitir OTP via servico existente — fallback sem integracao real
-        import secrets
-        ultimo = CodigoVerificacao.objects.create(
-            telefone=telefone, codigo=f'{secrets.randbelow(1000000):06d}',
-        )
-        logger.info('LGPD OTP emitido para %s (codigo=%s)', telefone[:4] + '***', ultimo.codigo)
-        messages.info(request, 'Codigo enviado. Verifique seu WhatsApp/SMS.')
+        # OTP hashed + envio SMS real. Anti-enumeracao: mensagem identica
+        # exista o cliente ou nao; codigo NUNCA vai para log.
+        from ..services.notificacao import OTPService
+        from ..utils.security import client_ip
+        if Cliente.objects.filter(telefone=telefone).exists():
+            codigo_plano, _obj = OtpCode.gerar_sms(
+                telefone, ip=client_ip(request), proposito=OtpCode.PROPOSITO_DSAR,
+            )
+            if not OTPService.enviar_codigo(telefone, codigo_plano, ip=client_ip(request)):
+                logger.warning('lgpd_dsar_sms_falha', extra={'tel_suffix': telefone[-4:]})
+        logger.info('lgpd_dsar_otp_solicitado', extra={'tel_suffix': telefone[-4:]})
+        messages.info(request, 'Se houver cadastro, o codigo chegara por SMS.')
         return render(request, 'publico/lgpd_meus_dados.html', {'aguardando_codigo': True, 'telefone': telefone})
 
-    if not CodigoVerificacao.consumir(telefone, codigo):
+    ok, _motivo = OtpCode.verificar_sms(telefone, codigo, proposito=OtpCode.PROPOSITO_DSAR)
+    if not ok:
         messages.error(request, 'Codigo invalido ou expirado.')
         return render(request, 'publico/lgpd_meus_dados.html', {'aguardando_codigo': True, 'telefone': telefone})
 

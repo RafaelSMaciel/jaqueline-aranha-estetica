@@ -118,52 +118,10 @@ class ConfiguracaoSistema(models.Model):
         return f'{self.chave}: {self.valor}'
 
 
-class CodigoVerificacao(models.Model):
-    TTL_SEGUNDOS = 600  # 10 minutos
-
-    telefone = models.CharField(max_length=20)
-    codigo = models.CharField(max_length=6)
-    criado_em = models.DateTimeField(auto_now_add=True)
-    usado = models.BooleanField(default=False)
-
-    class Meta:
-        managed = True
-        db_table = 'codigo_verificacao'
-
-    @property
-    def esta_valido(self):
-        from django.utils import timezone
-        return (
-            not self.usado
-            and (timezone.now() - self.criado_em).total_seconds() < self.TTL_SEGUNDOS
-        )
-
-    @classmethod
-    def consumir(cls, telefone, codigo):
-        """Valida e marca usado atomicamente."""
-        from datetime import timedelta
-        from django.db import connection, transaction
-        from django.utils import timezone
-
-        limite = timezone.now() - timedelta(seconds=cls.TTL_SEGUNDOS)
-
-        with transaction.atomic():
-            qs = cls.objects.filter(
-                telefone=telefone,
-                codigo=codigo,
-                usado=False,
-                criado_em__gte=limite,
-            ).order_by('-criado_em')
-
-            if connection.vendor != 'sqlite':
-                qs = qs.select_for_update(skip_locked=True)
-
-            row = qs.first()
-            if not row:
-                return False
-            row.usado = True
-            row.save(update_fields=['usado'])
-        return True
+# CodigoVerificacao removido na remodelagem v2.1 fase 1b — guardava OTP em
+# TEXTO PLANO e sem contador de tentativas. Substituido por OtpCode (hash
+# sha256 + lockout). Fluxos migrados: booking_api.verificar_telefone e
+# lgpd.meus_dados (proposito DSAR).
 
 
 class OtpCode(models.Model):
@@ -171,9 +129,11 @@ class OtpCode(models.Model):
 
     PROPOSITO_AGENDAMENTO = 'AGENDAMENTO'
     PROPOSITO_LOGIN = 'LOGIN_CLIENTE'
+    PROPOSITO_DSAR = 'DSAR'
     PROPOSITO_CHOICES = [
         (PROPOSITO_AGENDAMENTO, 'Agendamento'),
         (PROPOSITO_LOGIN, 'Login cliente'),
+        (PROPOSITO_DSAR, 'Export de dados LGPD'),
     ]
 
     CANAL_EMAIL = 'EMAIL'
@@ -215,6 +175,29 @@ class OtpCode(models.Model):
             and self.expira_em > timezone.now()
             and self.tentativas < self.MAX_TENTATIVAS
         )
+
+    @staticmethod
+    def email_para_telefone(telefone: str) -> str:
+        """Pseudo-email canonico p/ fluxos telefone-only (chave do challenge).
+
+        Mesmo padrao usado no booking publico: 'sms+<digitos>@shivazen.local'.
+        Centralizado aqui p/ os fluxos DSAR / meus-agendamentos nao divergirem.
+        """
+        digitos = ''.join(c for c in (telefone or '') if c.isdigit())
+        return f'sms+{digitos}@shivazen.local'
+
+    @classmethod
+    def gerar_sms(cls, telefone, ip=None, proposito=PROPOSITO_AGENDAMENTO):
+        """Gera OTP p/ fluxo telefone-only. Retorna (codigo_plano, obj)."""
+        return cls.gerar(
+            cls.email_para_telefone(telefone),
+            ip=ip, proposito=proposito, canal=cls.CANAL_SMS, telefone=telefone,
+        )
+
+    @classmethod
+    def verificar_sms(cls, telefone, codigo, proposito=PROPOSITO_AGENDAMENTO):
+        """Consome OTP de fluxo telefone-only. Retorna (ok, motivo)."""
+        return cls.verificar(cls.email_para_telefone(telefone), codigo, proposito=proposito)
 
     @classmethod
     def pode_reenviar(cls, email, proposito=PROPOSITO_AGENDAMENTO):

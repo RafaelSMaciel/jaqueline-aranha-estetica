@@ -1,8 +1,6 @@
 """AJAX/API endpoints para agendamento — horarios, dias, verificacao, cancelamento."""
 import json
 import logging
-import random
-import string
 from datetime import datetime, timedelta
 
 from django.http import JsonResponse
@@ -15,8 +13,8 @@ from ..models import (
     Atendimento,
     BloqueioAgenda,
     Cliente,
-    CodigoVerificacao,
     DisponibilidadeProfissional,
+    OtpCode,
     Procedimento,
     Profissional,
     ProfissionalProcedimento,
@@ -218,42 +216,30 @@ def verificar_telefone(request):
             return JsonResponse({'error': 'Telefone obrigatório'}, status=400)
 
         if action == 'enviar':
-            # Verificar se existe algum cliente com esse telefone
-            if not Cliente.objects.filter(telefone=telefone).exists():
-                return JsonResponse({
-                    'error': 'Nenhum agendamento encontrado com esse telefone.'
-                }, status=404)
-
-            # Gerar código de 6 dígitos
-            codigo = ''.join(random.choices(string.digits, k=6))
-
-            # Invalidar códigos anteriores
-            CodigoVerificacao.objects.filter(telefone=telefone, usado=False).update(usado=True)
-
-            # Criar novo código
-            CodigoVerificacao.objects.create(telefone=telefone, codigo=codigo)
-
-            logger.info(f'Codigo de verificacao gerado para telefone: {telefone[-4:]}')
-
-            # OTP via SMS Zenvia exclusivo (sem fallback email)
             from ..services.notificacao import OTPService
             from ..utils.security import client_ip as _ip
             ip = _ip(request)
-            sucesso_sms = OTPService.enviar_codigo(telefone, codigo, ip=ip)
-            if not sucesso_sms:
-                return JsonResponse({
-                    'success': False,
-                    'message': 'Nao foi possivel enviar o codigo por SMS. Tente novamente.',
-                }, status=500)
 
+            # Anti-enumeracao: resposta identica exista o cliente ou nao.
+            # OTP so e gerado/enviado se houver cadastro — atacante nao distingue.
+            if Cliente.objects.filter(telefone=telefone).exists():
+                codigo, _obj = OtpCode.gerar_sms(
+                    telefone, ip=ip, proposito=OtpCode.PROPOSITO_LOGIN,
+                )
+                if not OTPService.enviar_codigo(telefone, codigo, ip=ip):
+                    logger.warning('otp_login_sms_falha', extra={'tel_suffix': telefone[-4:]})
             return JsonResponse({
                 'success': True,
-                'message': 'Codigo de verificacao enviado por SMS para seu telefone cadastrado.',
+                'message': 'Se houver cadastro com esse telefone, o codigo chegara por SMS.',
             })
 
         elif action == 'verificar':
             codigo_input = data.get('codigo', '').strip()
-            if CodigoVerificacao.consumir(telefone, codigo_input):
+            ok, _motivo = OtpCode.verificar_sms(
+                telefone, codigo_input, proposito=OtpCode.PROPOSITO_LOGIN,
+            )
+            if ok:
+                request.session.cycle_key()  # anti session-fixation
                 request.session['telefone_verificado'] = telefone
                 return JsonResponse({
                     'success': True,

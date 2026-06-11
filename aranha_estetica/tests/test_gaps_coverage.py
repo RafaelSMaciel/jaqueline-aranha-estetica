@@ -11,7 +11,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from aranha_estetica.models import (
-    AvaliacaoNPS, CodigoVerificacao, Notificacao, Usuario,
+    AvaliacaoNPS, Notificacao, OtpCode, Usuario,
 )
 from .factories import (
     criar_atendimento, criar_cliente, criar_procedimento, criar_profissional,
@@ -87,7 +87,15 @@ class DsarExportTests(TestCase):
     def test_dsar_exige_codigo(self):
         resp = self.client.post(self.url, {'telefone': '17933334444'})
         self.assertEqual(resp.status_code, 200)
-        self.assertTrue(CodigoVerificacao.objects.filter(telefone='17933334444').exists())
+        self.assertTrue(OtpCode.objects.filter(
+            telefone='17933334444', proposito=OtpCode.PROPOSITO_DSAR,
+        ).exists())
+
+    def test_dsar_nao_emite_otp_para_telefone_desconhecido(self):
+        """Anti-enumeracao: resposta identica, mas OTP so existe se ha cadastro."""
+        resp = self.client.post(self.url, {'telefone': '17900000000'})
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(OtpCode.objects.filter(telefone='17900000000').exists())
 
     def test_dsar_codigo_invalido_rejeita(self):
         resp = self.client.post(self.url, {'telefone': '17933334444', 'codigo': '000000'})
@@ -96,8 +104,8 @@ class DsarExportTests(TestCase):
         self.assertNotIn('attachment', resp.get('Content-Disposition', ''))
 
     def test_dsar_fluxo_completo_exporta_json(self):
-        CodigoVerificacao.objects.create(telefone='17933334444', codigo='123456')
-        resp = self.client.post(self.url, {'telefone': '17933334444', 'codigo': '123456'})
+        codigo, _ = OtpCode.gerar_sms('17933334444', proposito=OtpCode.PROPOSITO_DSAR)
+        resp = self.client.post(self.url, {'telefone': '17933334444', 'codigo': codigo})
         self.assertEqual(resp.status_code, 200)
         self.assertIn('attachment', resp.get('Content-Disposition', ''))
         self.assertIn(b'Joao DSAR', resp.content)
