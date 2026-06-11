@@ -98,9 +98,7 @@ class Feriado(models.Model):
         constraints = [
             models.UniqueConstraint(fields=['data', 'escopo'], name='uq_feriado_data_escopo'),
         ]
-        indexes = [
-            models.Index(fields=['data'], name='idx_feriado_data'),
-        ]
+        # idx_feriado_data removido — prefixo de uq_feriado_data_escopo cobre
         ordering = ['data']
 
     def __str__(self):

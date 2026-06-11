@@ -221,7 +221,7 @@ class Atendimento(models.Model):
             models.Index(fields=['status'], name='idx_atendimento_status'),
             models.Index(fields=['data_hora_inicio'], name='idx_atendimento_data'),
             models.Index(fields=['cliente', 'status'], name='idx_atendimento_cli_status'),
-            models.Index(fields=['cliente'], name='idx_atendimento_cliente'),
+            # idx_atendimento_cliente removido — prefixo de idx_atendimento_cli_status cobre
             models.Index(fields=['profissional', 'data_hora_inicio'], name='idx_atend_prof_data'),
         ]
         constraints = [

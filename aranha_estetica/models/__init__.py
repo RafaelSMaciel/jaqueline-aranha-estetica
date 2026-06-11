@@ -26,10 +26,6 @@ from .workflow import WorkflowRegra, WorkflowExecucao
 from .push import WebPushSubscription
 from .anamnese import FormularioAnamnese, RespostaAnamnese
 from .extras import (
-    PatchTest, FotoAntesDepois,
-    Produto, MovimentoEstoque,
-    Tag, ClienteTag,
-    PlanoTratamento, ItemPlanoTratamento,
     CreditoCliente, MovimentoCredito,
     RegraComissao, MovimentoComissao,
 )
@@ -49,11 +45,7 @@ __all__ = [
     'WorkflowRegra', 'WorkflowExecucao',
     'WebPushSubscription',
     'FormularioAnamnese', 'RespostaAnamnese',
-    # extras
-    'PatchTest', 'FotoAntesDepois',
-    'Produto', 'MovimentoEstoque',
-    'Tag', 'ClienteTag',
-    'PlanoTratamento', 'ItemPlanoTratamento',
+    # extras (financeiro auxiliar)
     'CreditoCliente', 'MovimentoCredito',
     'RegraComissao', 'MovimentoComissao',
 ]

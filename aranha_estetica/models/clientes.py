@@ -25,7 +25,8 @@ class Cliente(models.Model):
     )
     rg = models.CharField(max_length=20, blank=True, null=True)
     profissao = models.CharField(max_length=100, blank=True, null=True)
-    email = models.EmailField(max_length=254, blank=True, null=True, db_index=True)
+    # email indexado pelo UNIQUE parcial uniq_cliente_email_ativo — sem db_index redundante
+    email = models.EmailField(max_length=254, blank=True, null=True)
     telefone = models.CharField(
         max_length=20, blank=True, null=True, validators=[validate_telefone_br],
     )
@@ -77,7 +78,7 @@ class Cliente(models.Model):
         indexes = [
             models.Index(fields=['telefone'], name='idx_cliente_telefone'),
             models.Index(fields=['nome_completo'], name='idx_cliente_nome'),
-            models.Index(fields=['email'], name='idx_cliente_email'),
+            # idx_cliente_email removido — uniq_cliente_email_ativo ja indexa
         ]
         constraints = [
             # UNIQUE parcial: email duplicado proibido entre clientes ativos
