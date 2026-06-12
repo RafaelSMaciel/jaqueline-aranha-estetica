@@ -13,8 +13,7 @@ from django_ratelimit.decorators import ratelimit
 
 from ..decorators import staff_required
 from ..models import (
-    AceitePrivacidade,
-    AssinaturaTermoProcedimento,
+    AceiteTermo,
     Atendimento,
     AvaliacaoNPS,
     BloqueioAgenda,
@@ -403,10 +402,10 @@ def termo_assinatura(request, token):
     # Filtrar os ja assinados
     assinados_ids = set()
     assinados_ids.update(
-        AceitePrivacidade.objects.filter(cliente=cliente).values_list('versao_termo_id', flat=True)
+        AceiteTermo.objects.filter(cliente=cliente).values_list('versao_termo_id', flat=True)
     )
     assinados_ids.update(
-        AssinaturaTermoProcedimento.objects.filter(cliente=cliente).values_list('versao_termo_id', flat=True)
+        AceiteTermo.objects.filter(cliente=cliente).values_list('versao_termo_id', flat=True)
     )
 
     termos_pendentes = [t for t in termos if t.pk not in assinados_ids]
@@ -418,12 +417,12 @@ def termo_assinatura(request, token):
         for termo in termos_pendentes:
             if request.POST.get(f'aceite_{termo.pk}') == '1':
                 if termo.tipo == 'LGPD':
-                    AceitePrivacidade.objects.get_or_create(
+                    AceiteTermo.objects.get_or_create(
                         cliente=cliente, versao_termo=termo,
                         defaults={'ip': ip}
                     )
                 else:
-                    AssinaturaTermoProcedimento.objects.get_or_create(
+                    AceiteTermo.objects.get_or_create(
                         cliente=cliente, versao_termo=termo,
                         defaults={'atendimento': atendimento, 'ip': ip}
                     )

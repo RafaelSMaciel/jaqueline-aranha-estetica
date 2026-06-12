@@ -44,30 +44,35 @@ class VersaoTermo(models.Model):
         ]
 
 
-class AceitePrivacidade(models.Model):
-    """LGPD: cliente assina uma vez por versao de termo de privacidade."""
-    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE)
-    versao_termo = models.ForeignKey(VersaoTermo, on_delete=models.RESTRICT)
-    ip = models.CharField(max_length=45, blank=True, null=True)
-    criado_em = models.DateTimeField(auto_now_add=True)
+class AceiteTermo(models.Model):
+    """Aceite/assinatura de termo pelo cliente — LGPD ou procedimento.
 
-    class Meta:
-        managed = True
-        db_table = 'aceite_privacidade'
-        unique_together = (('cliente', 'versao_termo'),)
-
-
-class AssinaturaTermoProcedimento(models.Model):
-    """Termo de procedimento: assinado uma vez por cliente por versao."""
-    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE)
+    Unifica AceitePrivacidade + AssinaturaTermoProcedimento (remodelagem
+    v2.1 fase 6): a distincao vive em versao_termo.tipo. atendimento so
+    e preenchido em termos de procedimento. on_delete=PROTECT no cliente:
+    aceite e evidencia legal (LGPD art. 8) — anonimizar, nunca cascatear.
+    """
+    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='aceites')
     versao_termo = models.ForeignKey(VersaoTermo, on_delete=models.RESTRICT)
     atendimento = models.ForeignKey(
-        'Atendimento', on_delete=models.SET_NULL, blank=True, null=True
+        'Atendimento', on_delete=models.SET_NULL, blank=True, null=True,
     )
-    ip = models.CharField(max_length=45, blank=True, null=True)
+    ip = models.GenericIPAddressField(blank=True, null=True)
+    user_agent = models.CharField(max_length=500, blank=True, default='')
     criado_em = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         managed = True
-        db_table = 'assinatura_termo_procedimento'
-        unique_together = (('cliente', 'versao_termo'),)
+        db_table = 'aceite_termo'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['cliente', 'versao_termo'],
+                name='uniq_aceite_cliente_versao',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['cliente', '-criado_em'], name='idx_aceite_cli_data'),
+        ]
+
+    def __str__(self):
+        return f'Aceite {self.versao_termo} por cliente {self.cliente_id}'

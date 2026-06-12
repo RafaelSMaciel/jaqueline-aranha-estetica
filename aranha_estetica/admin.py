@@ -7,7 +7,7 @@ from .models import (
     Procedimento, Preco, Promocao,
     Cliente,
     Prontuario, AnotacaoSessao,
-    VersaoTermo, AceitePrivacidade, AssinaturaTermoProcedimento,
+    VersaoTermo, AceiteTermo,
     Atendimento, Notificacao,
     AvaliacaoNPS,
     Pacote, ItemPacote, CompraPacote, ConsumoSessao,
@@ -218,19 +218,11 @@ class VersaoTermoAdmin(admin.ModelAdmin):
     list_select_related = ('procedimento',)
 
 
-@admin.register(AceitePrivacidade)
-class AceitePrivacidadeAdmin(admin.ModelAdmin):
-    list_display = ('cliente', 'versao_termo', 'ip', 'criado_em')
-    search_fields = ('cliente__nome', 'versao_termo__titulo')
-    ordering = ('-criado_em',)
-    date_hierarchy = 'criado_em'
-    autocomplete_fields = ('cliente', 'versao_termo')
-    list_select_related = ('cliente', 'versao_termo')
-
-
-@admin.register(AssinaturaTermoProcedimento)
-class AssinaturaTermoProcedimentoAdmin(admin.ModelAdmin):
+@admin.register(AceiteTermo)
+class AceiteTermoAdmin(admin.ModelAdmin):
+    """Unificado (fase 6): LGPD e procedimento — tipo via versao_termo."""
     list_display = ('cliente', 'versao_termo', 'atendimento', 'ip', 'criado_em')
+    list_filter = ('versao_termo__tipo',)
     search_fields = ('cliente__nome', 'versao_termo__titulo')
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'

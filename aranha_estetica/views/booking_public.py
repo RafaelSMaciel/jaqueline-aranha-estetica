@@ -17,8 +17,7 @@ from django.utils import timezone
 from django_ratelimit.decorators import ratelimit
 
 from ..models import (
-    AceitePrivacidade,
-    AssinaturaTermoProcedimento,
+    AceiteTermo,
     Atendimento,
     Cliente,
     Feriado,
@@ -294,10 +293,10 @@ def confirmar_agendamento(request):
 
             assinados_ids = set()
             assinados_ids.update(
-                AceitePrivacidade.objects.filter(cliente=cliente).values_list('versao_termo_id', flat=True)
+                AceiteTermo.objects.filter(cliente=cliente).values_list('versao_termo_id', flat=True)
             )
             assinados_ids.update(
-                AssinaturaTermoProcedimento.objects.filter(cliente=cliente).values_list('versao_termo_id', flat=True)
+                AceiteTermo.objects.filter(cliente=cliente).values_list('versao_termo_id', flat=True)
             )
 
             tem_pendente = any(t.pk not in assinados_ids for t in termos_pendentes)

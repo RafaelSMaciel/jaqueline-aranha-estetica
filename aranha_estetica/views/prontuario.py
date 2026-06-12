@@ -9,9 +9,8 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from ..models import (
-    AceitePrivacidade,
     AnotacaoSessao,
-    AssinaturaTermoProcedimento,
+    AceiteTermo,
     Atendimento,
     Cliente,
     Prontuario,
@@ -96,11 +95,11 @@ def prontuario_detalhe(request, cliente_id):
     ).order_by('-data_hora_inicio')[:30]
 
     # Termos assinados
-    aceites = AceitePrivacidade.objects.filter(
+    aceites = AceiteTermo.objects.filter(
         cliente=cliente
     ).select_related('versao_termo').order_by('-criado_em')
 
-    assinaturas = AssinaturaTermoProcedimento.objects.filter(
+    assinaturas = AceiteTermo.objects.filter(
         cliente=cliente
     ).select_related('versao_termo', 'atendimento').order_by('-criado_em')
 

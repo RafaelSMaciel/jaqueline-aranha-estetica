@@ -11,7 +11,7 @@ from .procedimentos import (
 )
 from .agendamentos import Atendimento, Notificacao
 from .prontuario import Prontuario, AnotacaoSessao
-from .termos import VersaoTermo, AceitePrivacidade, AssinaturaTermoProcedimento
+from .termos import VersaoTermo, AceiteTermo
 from .nps import AvaliacaoNPS
 from .pacotes import Pacote, ItemPacote, CompraPacote, ConsumoSessao
 from .sistema import (
@@ -31,7 +31,7 @@ __all__ = [
     'Procedimento', 'Habilitacao', 'Preco', 'Promocao',
     'Atendimento', 'Notificacao',
     'Prontuario', 'AnotacaoSessao',
-    'VersaoTermo', 'AceitePrivacidade', 'AssinaturaTermoProcedimento',
+    'VersaoTermo', 'AceiteTermo',
     'AvaliacaoNPS',
     'Pacote', 'ItemPacote', 'CompraPacote', 'ConsumoSessao',
     'ListaEspera', 'LogAuditoria', 'Configuracao', 'CodigoOtp',

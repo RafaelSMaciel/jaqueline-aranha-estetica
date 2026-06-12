@@ -30,7 +30,7 @@ from ..exceptions import (
     ValidationError,
 )
 from ..models import (
-    AceitePrivacidade,
+    AceiteTermo,
     Atendimento,
     Cliente,
     Procedimento,
@@ -260,15 +260,19 @@ class AgendamentoService:
         ).exists()
 
     def _registrar_consents(self, cliente: Cliente, cmd: CriarAgendamentoCommand) -> None:
-        """Registra AceitePrivacidade + atualiza flags granulares de consent."""
-        # Aceite LGPD versionado
-        versao = VersaoTermo.objects.filter(tipo='PRIVACIDADE', vigente=True).first()
+        """Registra AceiteTermo + atualiza flags granulares de consent."""
+        # Aceite LGPD versionado (fix: campos reais sao tipo='LGPD', ativa,
+        # FK versao_termo — versao anterior usava nomes inexistentes e
+        # quebraria em runtime; bug apontado na auditoria)
+        versao = VersaoTermo.objects.filter(tipo='LGPD', ativa=True).first()
         if versao:
-            AceitePrivacidade.objects.create(
+            AceiteTermo.objects.get_or_create(
                 cliente=cliente,
-                versao=versao,
-                ip=cmd.ip,
-                user_agent=(cmd.user_agent or '')[:500],
+                versao_termo=versao,
+                defaults={
+                    'ip': cmd.ip,
+                    'user_agent': (cmd.user_agent or '')[:500],
+                },
             )
 
         # Consents granulares

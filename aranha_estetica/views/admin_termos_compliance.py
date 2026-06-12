@@ -5,8 +5,7 @@ from django.shortcuts import render
 
 from ..decorators import staff_required
 from ..models import (
-    AceitePrivacidade,
-    AssinaturaTermoProcedimento,
+    AceiteTermo,
     Atendimento,
     Cliente,
     VersaoTermo,
@@ -26,11 +25,11 @@ def admin_termos_compliance(request):
     resumo_versoes = []
     for v in versoes:
         if v.tipo == 'LGPD':
-            assinaturas_count = AceitePrivacidade.objects.filter(versao_termo=v).count()
+            assinaturas_count = AceiteTermo.objects.filter(versao_termo=v).count()
             clientes_relevantes = Cliente.objects.filter(ativo=True).count()
             pendentes = clientes_relevantes - assinaturas_count
         else:
-            assinaturas_count = AssinaturaTermoProcedimento.objects.filter(versao_termo=v).count()
+            assinaturas_count = AceiteTermo.objects.filter(versao_termo=v).count()
             if v.procedimento_id:
                 clientes_relevantes = (
                     Atendimento.objects.filter(procedimento_id=v.procedimento_id)
@@ -58,7 +57,7 @@ def admin_termos_compliance(request):
 
     if versao_obj:
         if versao_obj.tipo == 'LGPD':
-            assinatura_sub = AceitePrivacidade.objects.filter(
+            assinatura_sub = AceiteTermo.objects.filter(
                 cliente=OuterRef('pk'), versao_termo=versao_obj
             )
             pendentes_qs = Cliente.objects.filter(ativo=True).annotate(
@@ -70,7 +69,7 @@ def admin_termos_compliance(request):
                     Atendimento.objects.filter(procedimento_id=versao_obj.procedimento_id)
                     .values_list('cliente_id', flat=True).distinct()
                 )
-                assinatura_sub = AssinaturaTermoProcedimento.objects.filter(
+                assinatura_sub = AceiteTermo.objects.filter(
                     cliente=OuterRef('pk'), versao_termo=versao_obj
                 )
                 pendentes_qs = Cliente.objects.filter(
