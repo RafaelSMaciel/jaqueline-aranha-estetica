@@ -105,26 +105,26 @@ class Feriado(models.Model):
         return f'{self.data.strftime("%d/%m/%Y")} — {self.nome}'
 
 
-class ConfiguracaoSistema(models.Model):
+class Configuracao(models.Model):
     chave = models.CharField(max_length=100, unique=True)
     valor = models.TextField(blank=True, null=True)
     descricao = models.TextField(blank=True, null=True)
 
     class Meta:
         managed = True
-        db_table = 'configuracao_sistema'
+        db_table = 'configuracao'
 
     def __str__(self):
         return f'{self.chave}: {self.valor}'
 
 
 # CodigoVerificacao removido na remodelagem v2.1 fase 1b — guardava OTP em
-# TEXTO PLANO e sem contador de tentativas. Substituido por OtpCode (hash
+# TEXTO PLANO e sem contador de tentativas. Substituido por CodigoOtp (hash
 # sha256 + lockout). Fluxos migrados: booking_api.verificar_telefone e
 # lgpd.meus_dados (proposito DSAR).
 
 
-class OtpCode(models.Model):
+class CodigoOtp(models.Model):
     """OTP por email ou SMS: codigo hashed, TTL, rate limit por tentativas, IP."""
 
     PROPOSITO_AGENDAMENTO = 'AGENDAMENTO'
@@ -158,7 +158,7 @@ class OtpCode(models.Model):
 
     class Meta:
         managed = True
-        db_table = 'otp_code'
+        db_table = 'codigo_otp'
         indexes = [
             models.Index(fields=['email', '-criado_em'], name='idx_otp_email_data'),
             models.Index(fields=['proposito', '-criado_em'], name='idx_otp_prop_data'),

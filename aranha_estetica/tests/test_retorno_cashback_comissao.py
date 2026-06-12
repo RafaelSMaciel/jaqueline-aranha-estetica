@@ -7,10 +7,10 @@ from django.utils import timezone
 
 from aranha_estetica.models import (
     Atendimento,
-    CreditoCliente,
+    Carteira,
     ListaEspera,
     MovimentoComissao,
-    MovimentoCredito,
+    MovimentoCarteira,
     RegraComissao,
 )
 from aranha_estetica.services.comissao_service import ComissaoService
@@ -88,39 +88,39 @@ class FidelidadeServiceTests(TestCase):
 
     def test_credita_indicador_no_primeiro_pago(self):
         self._atend_realizado_pago(self.indicada)
-        cred = CreditoCliente.objects.get(cliente=self.indicadora)
+        cred = Carteira.objects.get(cliente=self.indicadora)
         self.assertEqual(cred.saldo, Decimal('50.00'))
-        mov = MovimentoCredito.objects.get(credito=cred, origem='CASHBACK_INDICACAO')
+        mov = MovimentoCarteira.objects.get(carteira=cred, origem='CASHBACK_INDICACAO')
         self.assertEqual(mov.valor, Decimal('50.00'))
 
     def test_nao_credita_se_segundo_pago(self):
         self._atend_realizado_pago(self.indicada)
         # 2o atendimento pago da indicada — nao deve gerar novo cashback
         self._atend_realizado_pago(self.indicada)
-        cred = CreditoCliente.objects.get(cliente=self.indicadora)
+        cred = Carteira.objects.get(cliente=self.indicadora)
         self.assertEqual(cred.saldo, Decimal('50.00'))  # ainda 1 credito so
 
     def test_nao_credita_se_indicada_sem_indicador(self):
         cliente_sem_indicador = criar_cliente(nome='Sozinha')
         self._atend_realizado_pago(cliente_sem_indicador)
-        self.assertFalse(CreditoCliente.objects.filter(cliente=self.indicadora).exists())
+        self.assertFalse(Carteira.objects.filter(cliente=self.indicadora).exists())
 
     def test_nao_credita_se_valor_zero(self):
         atend = criar_atendimento(self.indicada, self.prof, self.proc, status='AGENDADO')
         atend.valor_cobrado = Decimal('0.00')
         atend.save()
         atend.marcar_realizado()
-        self.assertFalse(CreditoCliente.objects.filter(cliente=self.indicadora).exists())
+        self.assertFalse(Carteira.objects.filter(cliente=self.indicadora).exists())
 
     def test_estorna_em_cancelamento(self):
         atend = self._atend_realizado_pago(self.indicada)
         # Forcar cancelamento (FSM nao permite REALIZADO->CANCELADO normal,
         # entao chamamos service direto p/ teste do estorno)
         FidelidadeService.estornar_cashback_de_atendimento(atend, motivo='teste')
-        cred = CreditoCliente.objects.get(cliente=self.indicadora)
+        cred = Carteira.objects.get(cliente=self.indicadora)
         self.assertEqual(cred.saldo, Decimal('0.00'))
-        estorno = MovimentoCredito.objects.filter(
-            credito=cred, origem='CASHBACK_ESTORNO',
+        estorno = MovimentoCarteira.objects.filter(
+            carteira=cred, origem='CASHBACK_ESTORNO',
         ).first()
         self.assertIsNotNone(estorno)
 

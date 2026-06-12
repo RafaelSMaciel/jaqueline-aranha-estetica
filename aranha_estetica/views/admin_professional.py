@@ -9,7 +9,7 @@ from ..models import (
     DisponibilidadeProfissional,
     Procedimento,
     Profissional,
-    ProfissionalProcedimento,
+    Habilitacao,
 )
 
 logger = logging.getLogger(__name__)
@@ -58,7 +58,7 @@ def profissional_cadastro(request):
             for proc_id in procedimentos_ids:
                 try:
                     procedimento = Procedimento.objects.get(pk=proc_id)
-                    ProfissionalProcedimento.objects.get_or_create(
+                    Habilitacao.objects.get_or_create(
                         profissional=profissional,
                         procedimento=procedimento
                     )
@@ -125,12 +125,12 @@ def profissional_editar(request, pk=None):
                     )
 
             # Atualiza procedimentos
-            ProfissionalProcedimento.objects.filter(profissional=profissional).delete()
+            Habilitacao.objects.filter(profissional=profissional).delete()
             procedimentos_ids = request.POST.getlist('procedimentos')
             for proc_id in procedimentos_ids:
                 try:
                     procedimento = Procedimento.objects.get(pk=proc_id)
-                    ProfissionalProcedimento.objects.get_or_create(
+                    Habilitacao.objects.get_or_create(
                         profissional=profissional,
                         procedimento=procedimento
                     )
@@ -146,7 +146,7 @@ def profissional_editar(request, pk=None):
 
     procedimentos = Procedimento.objects.filter(ativo=True)
     disponibilidades = DisponibilidadeProfissional.objects.filter(profissional=profissional)
-    procedimentos_atuais = ProfissionalProcedimento.objects.filter(
+    procedimentos_atuais = Habilitacao.objects.filter(
         profissional=profissional
     ).values_list('procedimento_id', flat=True)
 

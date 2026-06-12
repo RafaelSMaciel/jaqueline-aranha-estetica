@@ -16,7 +16,7 @@ def cached(key_fn, ttl: int = 300):
 
         @cached(lambda: 'branding_dict', ttl=600)
         def branding_dict():
-            return {c.chave: c.valor for c in ConfiguracaoSistema.objects.all()}
+            return {c.chave: c.valor for c in Configuracao.objects.all()}
 
         branding_dict.invalidate()
     """

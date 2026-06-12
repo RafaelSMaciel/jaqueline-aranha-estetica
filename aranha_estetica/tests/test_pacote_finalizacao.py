@@ -1,15 +1,15 @@
-"""Testes de PacoteCliente.verificar_finalizacao e debito via signal."""
+"""Testes de CompraPacote.verificar_finalizacao e debito via signal."""
 from unittest.mock import patch
 
 from django.test import TestCase
 
-from aranha_estetica.models import SessaoPacote
+from aranha_estetica.models import ConsumoSessao
 
 from .factories import (
     criar_atendimento,
     criar_cliente,
     criar_pacote,
-    criar_pacote_cliente,
+    criar_compra_pacote,
     criar_procedimento,
     criar_profissional,
 )
@@ -22,7 +22,7 @@ class PacoteFinalizacaoTests(TestCase):
         self.prof = criar_profissional()
         self.proc = criar_procedimento(profissional=self.prof)
         self.pacote = criar_pacote(procedimento=self.proc, sessoes=3)
-        self.pc = criar_pacote_cliente(self.cliente, self.pacote)
+        self.pc = criar_compra_pacote(self.cliente, self.pacote)
 
     def test_verificar_finalizacao_mantem_ativo_com_sessoes_faltando(self, _mock):
         self.pc.verificar_finalizacao()
@@ -34,7 +34,7 @@ class PacoteFinalizacaoTests(TestCase):
         atd.status = 'REALIZADO'
         atd.save()
 
-        self.assertTrue(SessaoPacote.objects.filter(atendimento=atd).exists())
+        self.assertTrue(ConsumoSessao.objects.filter(atendimento=atd).exists())
         self.pc.refresh_from_db()
         self.assertEqual(self.pc.status, 'ATIVO')  # Ainda 1 de 3
 
@@ -47,7 +47,7 @@ class PacoteFinalizacaoTests(TestCase):
         self.pc.refresh_from_db()
         self.assertEqual(self.pc.status, 'FINALIZADO')
         self.assertEqual(
-            SessaoPacote.objects.filter(pacote_cliente=self.pc).count(),
+            ConsumoSessao.objects.filter(compra_pacote=self.pc).count(),
             3
         )
 
@@ -55,7 +55,7 @@ class PacoteFinalizacaoTests(TestCase):
         # Cria sessoes diretamente (bypass signal)
         for _ in range(3):
             atd = criar_atendimento(self.cliente, self.prof, self.proc)
-            SessaoPacote.objects.create(pacote_cliente=self.pc, atendimento=atd)
+            ConsumoSessao.objects.create(compra_pacote=self.pc, atendimento=atd)
 
         self.pc.verificar_finalizacao()
         self.pc.refresh_from_db()

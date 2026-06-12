@@ -3,13 +3,13 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
-from aranha_estetica.models import SessaoPacote
+from aranha_estetica.models import ConsumoSessao
 
 from .factories import (
     criar_atendimento,
     criar_cliente,
     criar_pacote,
-    criar_pacote_cliente,
+    criar_compra_pacote,
     criar_procedimento,
     criar_profissional,
 )
@@ -25,7 +25,7 @@ class PackageLifecycleTests(TestCase):
 
     def test_compra_e_consumo_completo(self):
         pacote = criar_pacote(procedimento=self.proc, sessoes=2)
-        pc = criar_pacote_cliente(self.cli, pacote)
+        pc = criar_compra_pacote(self.cli, pacote)
         self.assertEqual(pc.status, 'ATIVO')
 
         # Session 1
@@ -34,7 +34,7 @@ class PackageLifecycleTests(TestCase):
         atd1.save()
         pc.refresh_from_db()
         self.assertEqual(pc.status, 'ATIVO')
-        self.assertEqual(SessaoPacote.objects.filter(pacote_cliente=pc).count(), 1)
+        self.assertEqual(ConsumoSessao.objects.filter(compra_pacote=pc).count(), 1)
 
         # Session 2 — should auto-finalize
         atd2 = criar_atendimento(self.cli, self.prof, self.proc, status='CONFIRMADO')
@@ -42,7 +42,7 @@ class PackageLifecycleTests(TestCase):
         atd2.save()
         pc.refresh_from_db()
         self.assertEqual(pc.status, 'FINALIZADO')
-        self.assertEqual(SessaoPacote.objects.filter(pacote_cliente=pc).count(), 2)
+        self.assertEqual(ConsumoSessao.objects.filter(compra_pacote=pc).count(), 2)
 
     @patch('aranha_estetica.signals.job_notificar_fila_espera.delay')
     def test_tres_strikes_e_reset(self, mock_delay):
@@ -68,13 +68,13 @@ class PackageLifecycleTests(TestCase):
     def test_pacote_nao_debita_procedimento_diferente(self):
         """Session for a different procedure should NOT debit the package."""
         pacote = criar_pacote(procedimento=self.proc, sessoes=2)
-        pc = criar_pacote_cliente(self.cli, pacote)
+        pc = criar_compra_pacote(self.cli, pacote)
 
         outro_proc = criar_procedimento(nome='Outro Procedimento', profissional=self.prof)
         atd = criar_atendimento(self.cli, self.prof, outro_proc, status='CONFIRMADO')
         atd.status = 'REALIZADO'
         atd.save()
 
-        self.assertEqual(SessaoPacote.objects.filter(pacote_cliente=pc).count(), 0)
+        self.assertEqual(ConsumoSessao.objects.filter(compra_pacote=pc).count(), 0)
         pc.refresh_from_db()
         self.assertEqual(pc.status, 'ATIVO')

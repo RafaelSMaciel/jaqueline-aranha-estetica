@@ -33,7 +33,7 @@ class Procedimento(models.Model):
     link_videoconferencia = models.URLField(max_length=500, blank=True, default='')
     imagem_destaque = models.URLField(max_length=500, blank=True, null=True)
     ativo = models.BooleanField(default=True)
-    profissionais = models.ManyToManyField(Profissional, through='ProfissionalProcedimento')
+    profissionais = models.ManyToManyField(Profissional, through='Habilitacao')
 
     # F-RET — configuracao de retorno obrigatorio
     exige_retorno = models.BooleanField(default=False)
@@ -93,13 +93,13 @@ class Procedimento(models.Model):
         super().save(*args, **kwargs)
 
 
-class ProfissionalProcedimento(models.Model):
+class Habilitacao(models.Model):
     profissional = models.ForeignKey(Profissional, on_delete=models.CASCADE)
     procedimento = models.ForeignKey(Procedimento, on_delete=models.CASCADE)
 
     class Meta:
         managed = True
-        db_table = 'profissional_procedimento'
+        db_table = 'habilitacao'
         unique_together = (('profissional', 'procedimento'),)
 
 

@@ -12,7 +12,7 @@ from ..models import (
     Cliente,
     ItemPacote,
     Pacote,
-    PacoteCliente,
+    CompraPacote,
     Procedimento,
 )
 from ..utils.audit import registrar_log
@@ -132,7 +132,7 @@ def admin_vender_pacote(request):
 
         data_expiracao = (timezone.now() + timedelta(days=30 * pacote.validade_meses)).date()
 
-        pc = PacoteCliente.objects.create(
+        pc = CompraPacote.objects.create(
             cliente=cliente,
             pacote=pacote,
             valor_pago=valor_pago,
@@ -143,7 +143,7 @@ def admin_vender_pacote(request):
         registrar_log(
             request.user,
             f'Vendeu pacote "{pacote.nome}" para {cliente.nome_completo}',
-            'pacote_cliente', pc.pk,
+            'compra_pacote', pc.pk,
         )
         messages.success(request, f'Pacote vendido para {cliente.nome_completo}!')
     except Exception as e:

@@ -1,6 +1,6 @@
 """UI de branding — edita nome, cores, contatos e logo sem redeploy.
 
-Persiste em ConfiguracaoSistema (chave-valor). O context_processor
+Persiste em Configuracao (chave-valor). O context_processor
 `clinica_globals` precisa ser ajustado para ler DO banco com fallback env var.
 """
 import os
@@ -10,7 +10,7 @@ from django.core.files.storage import default_storage
 from django.shortcuts import redirect, render
 
 from ..decorators import staff_required
-from ..models import ConfiguracaoSistema
+from ..models import Configuracao
 from ..utils.audit import registrar_log
 
 
@@ -35,18 +35,18 @@ CONFIG_CACHE_TTL = 600  # 10min
 
 
 def _get_config_dict():
-    """Retorna dict {chave: valor} de ConfiguracaoSistema com cache TTL 10min."""
+    """Retorna dict {chave: valor} de Configuracao com cache TTL 10min."""
     from django.core.cache import cache
     cached = cache.get(CONFIG_CACHE_KEY)
     if cached is not None:
         return cached
-    data = {c.chave: c.valor for c in ConfiguracaoSistema.objects.all()}
+    data = {c.chave: c.valor for c in Configuracao.objects.all()}
     cache.set(CONFIG_CACHE_KEY, data, CONFIG_CACHE_TTL)
     return data
 
 
 def _invalidar_cache_branding():
-    """Chamar apos save/delete em ConfiguracaoSistema."""
+    """Chamar apos save/delete em Configuracao."""
     from django.core.cache import cache
     cache.delete(CONFIG_CACHE_KEY)
 
@@ -62,7 +62,7 @@ def admin_branding(request):
             novo_valor = request.POST.get(chave, '').strip()
             atual = configs_dict.get(chave, '')
             if novo_valor != atual:
-                config, _ = ConfiguracaoSistema.objects.get_or_create(
+                config, _ = Configuracao.objects.get_or_create(
                     chave=chave, defaults={'valor': novo_valor}
                 )
                 config.valor = novo_valor
@@ -82,7 +82,7 @@ def admin_branding(request):
                     default_storage.delete(destino)
                 nome_salvo = default_storage.save(destino, logo_file)
                 url_logo = default_storage.url(nome_salvo)
-                config, _ = ConfiguracaoSistema.objects.get_or_create(
+                config, _ = Configuracao.objects.get_or_create(
                     chave='LOGO_URL', defaults={'valor': url_logo}
                 )
                 config.valor = url_logo

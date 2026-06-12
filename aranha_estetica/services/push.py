@@ -18,7 +18,7 @@ from typing import Any, Mapping, TYPE_CHECKING
 from django.utils import timezone
 
 if TYPE_CHECKING:
-    from ..models import Usuario, WebPushSubscription
+    from ..models import Usuario, AssinaturaPush
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +34,11 @@ def _claims() -> dict[str, str]:
     }
 
 
-def send_push(subscription: 'WebPushSubscription', payload: Mapping[str, Any]) -> bool:
+def send_push(subscription: 'AssinaturaPush', payload: Mapping[str, Any]) -> bool:
     """Envia push notification para uma subscription.
 
     Args:
-        subscription: registro WebPushSubscription do banco.
+        subscription: registro AssinaturaPush do banco.
         payload: dict serializavel JSON com {head, body, url, icon}.
 
     Returns:
@@ -105,10 +105,10 @@ def send_push_to_user(user: 'Usuario', payload: Mapping[str, Any]) -> int:
     Returns:
         Numero de entregas bem-sucedidas (inscricoes inativas ignoradas).
     """
-    from ..models import WebPushSubscription
+    from ..models import AssinaturaPush
     enviadas = 0
     subscriptions = (
-        WebPushSubscription.objects
+        AssinaturaPush.objects
         .filter(user=user, ativo=True)
         .only('id', 'endpoint', 'p256dh', 'auth', 'ativo', 'ultima_falha_em')
     )

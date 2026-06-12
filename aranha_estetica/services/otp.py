@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Optional, Tuple, TYPE_CHECKING
 
-from ..models import OtpCode
+from ..models import CodigoOtp
 from .notificacao import OTPService
 
 if TYPE_CHECKING:
@@ -32,9 +32,9 @@ def solicitar_otp(
     email: str,
     *,
     request: Optional['HttpRequest'] = None,
-    proposito: str = OtpCode.PROPOSITO_AGENDAMENTO,
+    proposito: str = CodigoOtp.PROPOSITO_AGENDAMENTO,
     telefone: Optional[str] = None,
-    canal_preferido: str = OtpCode.CANAL_SMS,
+    canal_preferido: str = CodigoOtp.CANAL_SMS,
 ) -> OtpResult:
     """Gera codigo OTP e envia via SMS Zenvia (canal exclusivo).
 
@@ -67,17 +67,17 @@ def solicitar_otp(
         )
         return False, 'telefone_ausente', None
 
-    if not OtpCode.pode_reenviar(email, proposito=proposito):
+    if not CodigoOtp.pode_reenviar(email, proposito=proposito):
         return False, 'aguarde', None
 
     ip = _client_ip(request)
-    codigo, _obj = OtpCode.gerar(
+    codigo, _obj = CodigoOtp.gerar(
         email, ip=ip, proposito=proposito,
-        canal=OtpCode.CANAL_SMS, telefone=telefone,
+        canal=CodigoOtp.CANAL_SMS, telefone=telefone,
     )
     if OTPService.enviar_codigo(telefone, codigo, ip=ip):
         logger.info('otp_sms_enviado', extra={'proposito': proposito})
-        return True, 'ok', OtpCode.CANAL_SMS
+        return True, 'ok', CodigoOtp.CANAL_SMS
 
     logger.error('otp_sms_falha', extra={'email_hash': hash(email), 'proposito': proposito})
     return False, 'sms_falha', None
@@ -87,7 +87,7 @@ def verificar_otp(
     email: str,
     codigo: str,
     *,
-    proposito: str = OtpCode.PROPOSITO_AGENDAMENTO,
+    proposito: str = CodigoOtp.PROPOSITO_AGENDAMENTO,
 ) -> Tuple[bool, str]:
     """Valida codigo OTP previamente enviado, atomicamente.
 
@@ -104,4 +104,4 @@ def verificar_otp(
     codigo = (codigo or '').strip()
     if not email or not codigo:
         return False, 'dados_ausentes'
-    return OtpCode.verificar(email, codigo, proposito=proposito)
+    return CodigoOtp.verificar(email, codigo, proposito=proposito)

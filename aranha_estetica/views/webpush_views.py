@@ -7,7 +7,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_POST, require_GET
 
-from ..models import WebPushSubscription
+from ..models import AssinaturaPush
 from ..services.push import get_vapid_public_key
 
 logger = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ def webpush_subscribe(request):
 
     user_agent = request.META.get('HTTP_USER_AGENT', '')[:300]
 
-    sub, created = WebPushSubscription.objects.update_or_create(
+    sub, created = AssinaturaPush.objects.update_or_create(
         endpoint=endpoint,
         defaults={
             'user': request.user,
@@ -63,7 +63,7 @@ def webpush_unsubscribe(request):
     if not endpoint:
         return JsonResponse({'ok': False, 'erro': 'endpoint ausente'}, status=400)
 
-    deleted, _ = WebPushSubscription.objects.filter(
+    deleted, _ = AssinaturaPush.objects.filter(
         user=request.user, endpoint=endpoint
     ).delete()
     return JsonResponse({'ok': True, 'deleted': deleted})

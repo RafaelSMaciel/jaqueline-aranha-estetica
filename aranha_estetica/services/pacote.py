@@ -4,7 +4,7 @@ import logging
 from django.db import transaction
 from django.utils import timezone
 
-from aranha_estetica.models import Atendimento, PacoteCliente, SessaoPacote
+from aranha_estetica.models import Atendimento, CompraPacote, ConsumoSessao
 
 logger = logging.getLogger(__name__)
 
@@ -12,13 +12,13 @@ logger = logging.getLogger(__name__)
 class PacoteService:
     @classmethod
     @transaction.atomic
-    def debitar_sessao_por_atendimento(cls, atendimento: Atendimento) -> SessaoPacote | None:
+    def debitar_sessao_por_atendimento(cls, atendimento: Atendimento) -> ConsumoSessao | None:
         """Encontra pacote ativo do cliente com o procedimento e debita uma sessao.
 
-        Retorna SessaoPacote criada ou None se nao havia pacote aplicavel.
+        Retorna ConsumoSessao criada ou None se nao havia pacote aplicavel.
         """
         pacotes_ativos = (
-            PacoteCliente.objects
+            CompraPacote.objects
             .filter(cliente=atendimento.cliente, status='ATIVO')
             .select_related('pacote')
             .prefetch_related('pacote__itens', 'sessoes_realizadas')
@@ -42,8 +42,8 @@ class PacoteService:
             if sessoes_ja_feitas >= item.quantidade_sessoes:
                 continue
 
-            sessao = SessaoPacote.objects.create(
-                pacote_cliente=pc,
+            sessao = ConsumoSessao.objects.create(
+                compra_pacote=pc,
                 atendimento=atendimento,
             )
             logger.info(

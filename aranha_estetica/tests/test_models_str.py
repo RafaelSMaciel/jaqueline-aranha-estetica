@@ -17,7 +17,7 @@ from .factories import (
     criar_atendimento,
     criar_cliente,
     criar_pacote,
-    criar_pacote_cliente,
+    criar_compra_pacote,
     criar_procedimento,
     criar_profissional,
 )
@@ -44,9 +44,9 @@ class ModelStrTests(TestCase):
         self.assertIn('Joao Silva', texto)
         self.assertIn('Lembrete', texto)
 
-    def test_pacote_cliente_str_contem_cliente_pacote_status(self):
+    def test_compra_pacote_str_contem_cliente_pacote_status(self):
         pacote = criar_pacote(nome='Plano Facial', procedimento=self.proc, sessoes=4)
-        pc = criar_pacote_cliente(self.cliente, pacote)
+        pc = criar_compra_pacote(self.cliente, pacote)
         texto = str(pc)
         self.assertIn('Joao Silva', texto)
         self.assertIn('Plano Facial', texto)

@@ -20,22 +20,22 @@ from .profissionais import Profissional
 #  CREDITO CLIENTE (saldo)
 # ═══════════════════════════════════════
 
-class CreditoCliente(TimestampedMixin):
+class Carteira(TimestampedMixin):
     """Saldo do cliente (vale presente, credito de cancelamento, refund)."""
-    cliente = models.OneToOneField(Cliente, on_delete=models.CASCADE, related_name='credito')
+    cliente = models.OneToOneField(Cliente, on_delete=models.CASCADE, related_name='carteira')
     saldo = models.DecimalField(
         max_digits=10, decimal_places=2, default=Decimal('0'),
     )
 
     class Meta:
         managed = True
-        db_table = 'credito_cliente'
+        db_table = 'carteira'
 
     def __str__(self):
         return f'Credito {self.cliente.nome_completo}: R$ {self.saldo}'
 
 
-class MovimentoCredito(models.Model):
+class MovimentoCarteira(models.Model):
     """Entrada/saida do credito do cliente."""
     TIPO_CHOICES = [
         ('CREDITO', 'Credito (vale, refund, ajuste+)'),
@@ -51,7 +51,7 @@ class MovimentoCredito(models.Model):
         ('OUTRO', 'Outro'),
     ]
 
-    credito = models.ForeignKey(CreditoCliente, on_delete=models.CASCADE, related_name='movimentos')
+    carteira = models.ForeignKey(Carteira, on_delete=models.CASCADE, related_name='movimentos')
     tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
     origem = models.CharField(max_length=30, choices=ORIGEM_CHOICES, default='OUTRO')
     valor = models.DecimalField(max_digits=10, decimal_places=2)
@@ -67,15 +67,15 @@ class MovimentoCredito(models.Model):
 
     class Meta:
         managed = True
-        db_table = 'movimento_credito'
+        db_table = 'movimento_carteira'
         indexes = [
-            models.Index(fields=['credito', '-criado_em'], name='idx_movcred_cred'),
+            models.Index(fields=['carteira', '-criado_em'], name='idx_movcart_cart'),
             models.Index(fields=['origem', 'tipo'], name='idx_movcred_origem_tipo'),
         ]
         constraints = [
             # Idempotencia F-CSB: 1 unico CASHBACK_INDICACAO por (credito, atendimento)
             models.UniqueConstraint(
-                fields=['credito', 'atendimento'],
+                fields=['carteira', 'atendimento'],
                 condition=models.Q(origem='CASHBACK_INDICACAO'),
                 name='uniq_cashback_indicacao_por_atendimento',
             ),

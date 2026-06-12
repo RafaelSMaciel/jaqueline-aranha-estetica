@@ -10,11 +10,11 @@ from aranha_estetica.models import (
     DisponibilidadeProfissional,
     ItemPacote,
     Pacote,
-    PacoteCliente,
+    CompraPacote,
     Preco,
     Procedimento,
     Profissional,
-    ProfissionalProcedimento,
+    Habilitacao,
 )
 
 
@@ -42,7 +42,7 @@ def criar_procedimento(nome='Limpeza de Pele', duracao=30, categoria='FACIAL',
     if preco is not None:
         Preco.objects.create(procedimento=proc, valor=preco)
     if profissional:
-        ProfissionalProcedimento.objects.create(
+        Habilitacao.objects.create(
             profissional=profissional, procedimento=proc
         )
     return proc
@@ -86,8 +86,8 @@ def criar_pacote(nome='Pacote Glow', preco=Decimal('600.00'),
     return pac
 
 
-def criar_pacote_cliente(cliente, pacote, valor_pago=None, status='ATIVO'):
-    return PacoteCliente.objects.create(
+def criar_compra_pacote(cliente, pacote, valor_pago=None, status='ATIVO'):
+    return CompraPacote.objects.create(
         cliente=cliente,
         pacote=pacote,
         valor_pago=valor_pago or pacote.preco_total,

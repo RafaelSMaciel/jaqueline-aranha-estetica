@@ -3,16 +3,16 @@ from django.contrib import admin, messages
 from django.utils import timezone
 
 from .models import (
-    Profissional, DisponibilidadeProfissional, BloqueioAgenda, ProfissionalProcedimento,
+    Profissional, DisponibilidadeProfissional, BloqueioAgenda, Habilitacao,
     Procedimento, Preco, Promocao,
     Cliente,
     Prontuario, ProntuarioPergunta, ProntuarioResposta, AnotacaoSessao,
     VersaoTermo, AceitePrivacidade, AssinaturaTermoProcedimento,
     Atendimento, Notificacao,
     AvaliacaoNPS,
-    Pacote, ItemPacote, PacoteCliente, SessaoPacote,
+    Pacote, ItemPacote, CompraPacote, ConsumoSessao,
     ListaEspera,
-    LogAuditoria, ConfiguracaoSistema, OtpCode,
+    LogAuditoria, Configuracao, CodigoOtp,
     Usuario,
 )
 
@@ -72,7 +72,7 @@ class BloqueioAgendaAdmin(admin.ModelAdmin):
     list_select_related = ('profissional',)
 
 
-@admin.register(ProfissionalProcedimento)
+@admin.register(Habilitacao)
 class ProfissionalProcedimentoAdmin(admin.ModelAdmin):
     list_display = ('profissional', 'procedimento')
     list_filter = ('profissional',)
@@ -365,7 +365,7 @@ class ItemPacoteAdmin(admin.ModelAdmin):
     list_select_related = ('pacote', 'procedimento')
 
 
-@admin.register(PacoteCliente)
+@admin.register(CompraPacote)
 class PacoteClienteAdmin(admin.ModelAdmin):
     list_display = ('cliente', 'pacote', 'status', 'valor_pago', 'data_expiracao', 'criado_em')
     list_filter = ('status',)
@@ -377,17 +377,17 @@ class PacoteClienteAdmin(admin.ModelAdmin):
     list_select_related = ('cliente', 'pacote')
 
 
-@admin.register(SessaoPacote)
+@admin.register(ConsumoSessao)
 class SessaoPacoteAdmin(admin.ModelAdmin):
-    list_display = ('pacote_cliente', 'atendimento', 'criado_em')
+    list_display = ('compra_pacote', 'atendimento', 'criado_em')
     search_fields = (
-        'pacote_cliente__cliente__nome_completo',
-        'pacote_cliente__pacote__nome',
+        'compra_pacote__cliente__nome_completo',
+        'compra_pacote__pacote__nome',
     )
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
-    autocomplete_fields = ('pacote_cliente', 'atendimento')
-    list_select_related = ('pacote_cliente', 'atendimento', 'pacote_cliente__cliente')
+    autocomplete_fields = ('compra_pacote', 'atendimento')
+    list_select_related = ('compra_pacote', 'atendimento', 'compra_pacote__cliente')
 
 
 # =====================================================================
@@ -450,14 +450,14 @@ class LogAuditoriaAdmin(admin.ModelAdmin):
         return False
 
 
-@admin.register(ConfiguracaoSistema)
+@admin.register(Configuracao)
 class ConfiguracaoSistemaAdmin(admin.ModelAdmin):
     list_display = ('chave', 'valor', 'descricao')
     search_fields = ('chave', 'valor')
     ordering = ('chave',)
 
 
-@admin.register(OtpCode)
+@admin.register(CodigoOtp)
 class OtpCodeAdmin(admin.ModelAdmin):
     """Read-only: codigo e hashed — admin ve apenas metadados do challenge."""
     list_display = ('email', 'telefone', 'proposito', 'canal', 'tentativas', 'usado_em', 'expira_em', 'criado_em')

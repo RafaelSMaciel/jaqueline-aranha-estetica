@@ -14,10 +14,10 @@ from ..models import (
     BloqueioAgenda,
     Cliente,
     DisponibilidadeProfissional,
-    OtpCode,
+    CodigoOtp,
     Procedimento,
     Profissional,
-    ProfissionalProcedimento,
+    Habilitacao,
 )
 # OTP email removido: SMS exclusivo via OTPService
 
@@ -47,7 +47,7 @@ def api_horarios_disponiveis(request):
         return JsonResponse({'error': 'Procedimento não encontrado'}, status=404)
 
     # Buscar profissionais que fazem esse procedimento
-    prof_ids = ProfissionalProcedimento.objects.filter(
+    prof_ids = Habilitacao.objects.filter(
         procedimento=procedimento
     ).values_list('profissional_id', flat=True)
 
@@ -167,7 +167,7 @@ def api_dias_disponiveis(request):
         return JsonResponse({'error': 'Procedimento não encontrado'}, status=404)
 
     # Para cada dia do mês, verificar se algum profissional tem disponibilidade
-    prof_ids = ProfissionalProcedimento.objects.filter(
+    prof_ids = Habilitacao.objects.filter(
         procedimento=procedimento
     ).values_list('profissional_id', flat=True)
 
@@ -223,8 +223,8 @@ def verificar_telefone(request):
             # Anti-enumeracao: resposta identica exista o cliente ou nao.
             # OTP so e gerado/enviado se houver cadastro — atacante nao distingue.
             if Cliente.objects.filter(telefone=telefone).exists():
-                codigo, _obj = OtpCode.gerar_sms(
-                    telefone, ip=ip, proposito=OtpCode.PROPOSITO_LOGIN,
+                codigo, _obj = CodigoOtp.gerar_sms(
+                    telefone, ip=ip, proposito=CodigoOtp.PROPOSITO_LOGIN,
                 )
                 if not OTPService.enviar_codigo(telefone, codigo, ip=ip):
                     logger.warning('otp_login_sms_falha', extra={'tel_suffix': telefone[-4:]})
@@ -235,8 +235,8 @@ def verificar_telefone(request):
 
         elif action == 'verificar':
             codigo_input = data.get('codigo', '').strip()
-            ok, _motivo = OtpCode.verificar_sms(
-                telefone, codigo_input, proposito=OtpCode.PROPOSITO_LOGIN,
+            ok, _motivo = CodigoOtp.verificar_sms(
+                telefone, codigo_input, proposito=CodigoOtp.PROPOSITO_LOGIN,
             )
             if ok:
                 request.session.cycle_key()  # anti session-fixation

@@ -8,7 +8,7 @@ from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 from django_ratelimit.decorators import ratelimit
 
-from ..models import Cliente, OtpCode
+from ..models import Cliente, CodigoOtp
 from ..services import LgpdService
 from ..services.auditoria import AuditoriaService
 
@@ -35,8 +35,8 @@ def meus_dados(request):
         from ..services.notificacao import OTPService
         from ..utils.security import client_ip
         if Cliente.objects.filter(telefone=telefone).exists():
-            codigo_plano, _obj = OtpCode.gerar_sms(
-                telefone, ip=client_ip(request), proposito=OtpCode.PROPOSITO_DSAR,
+            codigo_plano, _obj = CodigoOtp.gerar_sms(
+                telefone, ip=client_ip(request), proposito=CodigoOtp.PROPOSITO_DSAR,
             )
             if not OTPService.enviar_codigo(telefone, codigo_plano, ip=client_ip(request)):
                 logger.warning('lgpd_dsar_sms_falha', extra={'tel_suffix': telefone[-4:]})
@@ -44,7 +44,7 @@ def meus_dados(request):
         messages.info(request, 'Se houver cadastro, o codigo chegara por SMS.')
         return render(request, 'publico/lgpd_meus_dados.html', {'aguardando_codigo': True, 'telefone': telefone})
 
-    ok, _motivo = OtpCode.verificar_sms(telefone, codigo, proposito=OtpCode.PROPOSITO_DSAR)
+    ok, _motivo = CodigoOtp.verificar_sms(telefone, codigo, proposito=CodigoOtp.PROPOSITO_DSAR)
     if not ok:
         messages.error(request, 'Codigo invalido ou expirado.')
         return render(request, 'publico/lgpd_meus_dados.html', {'aguardando_codigo': True, 'telefone': telefone})

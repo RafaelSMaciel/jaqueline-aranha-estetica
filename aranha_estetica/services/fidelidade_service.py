@@ -1,10 +1,10 @@
 """F-CSB — Programa de Fidelidade por Indicacao.
 
-Reusa CreditoCliente + MovimentoCredito existentes.
-Origem 'CASHBACK_INDICACAO' = credito gerado por 1o atendimento pago da indicada.
+Reusa Carteira + MovimentoCarteira existentes.
+Origem 'CASHBACK_INDICACAO' = carteira gerado por 1o atendimento pago da indicada.
 Origem 'CASHBACK_ESTORNO' = anulacao em cancelamento.
 
-Idempotencia via UNIQUE(credito, atendimento, origem='CASHBACK_INDICACAO').
+Idempotencia via UNIQUE(carteira, atendimento, origem='CASHBACK_INDICACAO').
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from ..domain.events import (
     CashbackEstornado,
     CashbackLiberado,
 )
-from ..models import Atendimento, CreditoCliente, MovimentoCredito
+from ..models import Atendimento, Carteira, MovimentoCarteira
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class FidelidadeService:
 
     @staticmethod
     @transaction.atomic
-    def liberar_cashback_indicacao(atendimento: Atendimento) -> Optional[MovimentoCredito]:
+    def liberar_cashback_indicacao(atendimento: Atendimento) -> Optional[MovimentoCarteira]:
         """Credita VALOR_CASHBACK_INDICACAO no indicador.
 
         Pre-condicoes (qualquer falha -> None):
@@ -42,7 +42,7 @@ class FidelidadeService:
           - cliente.indicado_por preenchido
           - 1o REALIZADO + pago da cliente (valor_cobrado > 0)
 
-        Idempotencia: UNIQUE(credito, atendimento, origem='CASHBACK_INDICACAO').
+        Idempotencia: UNIQUE(carteira, atendimento, origem='CASHBACK_INDICACAO').
         """
         cliente = atendimento.cliente
         if not cliente.indicado_por_id:
@@ -63,14 +63,14 @@ class FidelidadeService:
         ).exclude(pk=atendimento.pk).exists():
             return None
 
-        credito, _ = CreditoCliente.objects.select_for_update().get_or_create(
+        carteira, _ = Carteira.objects.select_for_update().get_or_create(
             cliente_id=cliente.indicado_por_id,
         )
-        novo_saldo = credito.saldo + VALOR_CASHBACK_INDICACAO
+        novo_saldo = carteira.saldo + VALOR_CASHBACK_INDICACAO
 
         try:
-            movimento = MovimentoCredito.objects.create(
-                credito=credito,
+            movimento = MovimentoCarteira.objects.create(
+                carteira=carteira,
                 tipo='CREDITO',
                 origem='CASHBACK_INDICACAO',
                 valor=VALOR_CASHBACK_INDICACAO,
@@ -85,8 +85,8 @@ class FidelidadeService:
             )
             return None
 
-        credito.saldo = novo_saldo
-        credito.save(update_fields=['saldo', 'atualizado_em'])
+        carteira.saldo = novo_saldo
+        carteira.save(update_fields=['saldo', 'atualizado_em'])
 
         transaction.on_commit(lambda: EventBus.publish(CashbackLiberado(
             occurred_at=timezone.now(),
@@ -113,20 +113,20 @@ class FidelidadeService:
         Cria movimento DEBITO origem CASHBACK_ESTORNO. Saldo nunca negativo.
         Returns: numero de movimentos estornados.
         """
-        creditos = MovimentoCredito.objects.select_for_update().filter(
+        creditos = MovimentoCarteira.objects.select_for_update().filter(
             atendimento=atendimento,
             origem='CASHBACK_INDICACAO',
             tipo='CREDITO',
         )
         estornados = 0
         for cred_mov in creditos:
-            credito = cred_mov.credito
-            saldo_anterior = credito.saldo
+            carteira = cred_mov.carteira
+            saldo_anterior = carteira.saldo
             valor = cred_mov.valor
             saldo_pos = max(Decimal('0.00'), saldo_anterior - valor)
 
-            MovimentoCredito.objects.create(
-                credito=credito,
+            MovimentoCarteira.objects.create(
+                carteira=carteira,
                 tipo='DEBITO',
                 origem='CASHBACK_ESTORNO',
                 valor=valor,
@@ -135,21 +135,21 @@ class FidelidadeService:
                 observacoes=f'Estorno credito #{cred_mov.pk}: {motivo}',
             )
 
-            credito.saldo = saldo_pos
-            credito.save(update_fields=['saldo', 'atualizado_em'])
+            carteira.saldo = saldo_pos
+            carteira.save(update_fields=['saldo', 'atualizado_em'])
 
             if saldo_anterior < valor:
                 logger.warning(
                     'cashback_estorno_saldo_insuficiente',
                     extra={
                         'movimento_origem_id': cred_mov.pk,
-                        'credito_id': credito.pk,
+                        'credito_id': carteira.pk,
                         'saldo_anterior': str(saldo_anterior),
                         'valor_estorno': str(valor),
                     },
                 )
 
-            transaction.on_commit(lambda v=valor, c=credito: EventBus.publish(
+            transaction.on_commit(lambda v=valor, c=carteira: EventBus.publish(
                 CashbackEstornado(
                     occurred_at=timezone.now(),
                     movimento_estorno_id=cred_mov.pk,
@@ -174,7 +174,7 @@ def _on_realizado_libera_cashback(event: AtendimentoRealizado) -> None:
 
 @EventBus.subscribe(AtendimentoCancelado)
 def _on_cancelado_estorna_cashback(event: AtendimentoCancelado) -> None:
-    """Handler: AtendimentoCancelado -> estorna credito gerado."""
+    """Handler: AtendimentoCancelado -> estorna carteira gerado."""
     try:
         atendimento = Atendimento.objects.get(pk=event.atendimento_id)
     except Atendimento.DoesNotExist:

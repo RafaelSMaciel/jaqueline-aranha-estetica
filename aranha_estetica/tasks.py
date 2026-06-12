@@ -128,7 +128,7 @@ def job_alerta_detrator_nps(self):
     """Alerta admin por EMAIL quando NPS <= 6 (detrator)."""
     try:
         from django.core.mail import send_mail
-        from .models import ConfiguracaoSistema
+        from .models import Configuracao
 
         detratores = AvaliacaoNPS.objects.filter(
             nota__lte=6,
@@ -138,7 +138,7 @@ def job_alerta_detrator_nps(self):
         if not detratores.exists():
             return
 
-        config = ConfiguracaoSistema.objects.filter(chave='email_admin').first()
+        config = Configuracao.objects.filter(chave='email_admin').first()
         email_admin = config.valor if config else os.environ.get('ADMIN_EMAIL', '')
 
         if not email_admin:
@@ -237,13 +237,13 @@ def job_verificar_pacotes_expirando(self):
     """Notifica clientes com pacotes expirando em 7 ou 1 dia — por EMAIL."""
     try:
         from .utils.email import enviar_pacote_expirando_email
-        from .models import PacoteCliente
+        from .models import CompraPacote
 
         hoje = timezone.now().date()
 
         for dias in [7, 1]:
             data_alvo = hoje + timedelta(days=dias)
-            pacotes = PacoteCliente.objects.filter(
+            pacotes = CompraPacote.objects.filter(
                 status='ATIVO',
                 data_expiracao=data_alvo
             ).select_related('cliente', 'pacote')
@@ -403,10 +403,10 @@ def job_promocao_mensal(self, assunto, corpo_html_partial, cupom=None, validade_
 def job_expirar_pacotes(self):
     """Expira pacotes vencidos automaticamente."""
     try:
-        from .models import PacoteCliente
+        from .models import CompraPacote
 
         hoje = timezone.now().date()
-        expirados = PacoteCliente.objects.filter(
+        expirados = CompraPacote.objects.filter(
             status='ATIVO',
             data_expiracao__lt=hoje
         ).update(status='EXPIRADO')

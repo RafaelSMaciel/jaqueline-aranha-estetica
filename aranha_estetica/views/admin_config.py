@@ -1,10 +1,10 @@
-"""CRUD de ConfiguracaoSistema (chave-valor editavel via painel)."""
+"""CRUD de Configuracao (chave-valor editavel via painel)."""
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from ..decorators import staff_required
-from ..models import ConfiguracaoSistema
+from ..models import Configuracao
 from ..utils.audit import registrar_log
 
 
@@ -24,7 +24,7 @@ CONFIG_SUGERIDAS = [
 @staff_required
 def admin_configuracoes(request):
     """Lista todas configuracoes + sugestoes de chaves nao cadastradas."""
-    configs = ConfiguracaoSistema.objects.order_by('chave')
+    configs = Configuracao.objects.order_by('chave')
     chaves_existentes = set(configs.values_list('chave', flat=True))
 
     sugestoes = [
@@ -52,11 +52,11 @@ def admin_criar_configuracao(request):
             messages.error(request, 'Chave e obrigatoria.')
             return redirect('aranha:admin_configuracoes')
 
-        if ConfiguracaoSistema.objects.filter(chave=chave).exists():
+        if Configuracao.objects.filter(chave=chave).exists():
             messages.warning(request, f'Chave "{chave}" ja existe. Edite em vez de duplicar.')
             return redirect('aranha:admin_configuracoes')
 
-        config = ConfiguracaoSistema.objects.create(
+        config = Configuracao.objects.create(
             chave=chave, valor=valor, descricao=descricao
         )
         registrar_log(
@@ -73,7 +73,7 @@ def admin_criar_configuracao(request):
 @require_POST
 def admin_editar_configuracao(request, pk):
     """Edita valor/descricao de configuracao existente."""
-    config = get_object_or_404(ConfiguracaoSistema, pk=pk)
+    config = get_object_or_404(Configuracao, pk=pk)
     valor_antigo = config.valor
 
     config.valor = request.POST.get('valor', '').strip()
@@ -95,7 +95,7 @@ def admin_editar_configuracao(request, pk):
 @require_POST
 def admin_excluir_configuracao(request, pk):
     """Remove configuracao."""
-    config = get_object_or_404(ConfiguracaoSistema, pk=pk)
+    config = get_object_or_404(Configuracao, pk=pk)
     chave = config.chave
     config.delete()
     registrar_log(

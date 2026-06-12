@@ -47,7 +47,7 @@ class ItemPacote(models.Model):
         ]
 
 
-class PacoteCliente(models.Model):
+class CompraPacote(models.Model):
     STATUS_CHOICES = [
         ('ATIVO', 'Ativo'),
         ('FINALIZADO', 'Finalizado'),
@@ -64,7 +64,7 @@ class PacoteCliente(models.Model):
 
     class Meta:
         managed = True
-        db_table = 'pacote_cliente'
+        db_table = 'compra_pacote'
         indexes = [
             models.Index(fields=['cliente', 'status'], name='idx_pacote_cli_status'),
         ]
@@ -100,9 +100,9 @@ class PacoteCliente(models.Model):
         return f'{cliente_nome} — {pacote_nome} ({self.get_status_display()})'
 
 
-class SessaoPacote(models.Model):
-    pacote_cliente = models.ForeignKey(
-        PacoteCliente, on_delete=models.CASCADE, related_name='sessoes_realizadas'
+class ConsumoSessao(models.Model):
+    compra_pacote = models.ForeignKey(
+        CompraPacote, on_delete=models.CASCADE, related_name='sessoes_realizadas'
     )
     atendimento = models.OneToOneField(
         'Atendimento', on_delete=models.RESTRICT, related_name='sessao_pacote_vinculada'
@@ -111,7 +111,7 @@ class SessaoPacote(models.Model):
 
     class Meta:
         managed = True
-        db_table = 'sessao_pacote'
+        db_table = 'consumo_sessao'
         indexes = [
-            models.Index(fields=['pacote_cliente'], name='idx_sessao_pct_cli'),
+            models.Index(fields=['compra_pacote'], name='idx_sessao_pct_cli'),
         ]

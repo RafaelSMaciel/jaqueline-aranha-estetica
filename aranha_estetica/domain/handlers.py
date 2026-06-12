@@ -38,7 +38,7 @@ def notificar_admin_novo_agendamento(event: AtendimentoCriado) -> None:
 # ─── Atendimento realizado ───────────────────────────────────────────
 @EventBus.subscribe(AtendimentoRealizado)
 def consumir_sessao_pacote(event: AtendimentoRealizado) -> None:
-    """Se atendimento estava vinculado a PacoteCliente, decrementa sessao."""
+    """Se atendimento estava vinculado a CompraPacote, decrementa sessao."""
     logger.info(
         'handler_consumir_sessao',
         extra={'atendimento_id': event.atendimento_id},

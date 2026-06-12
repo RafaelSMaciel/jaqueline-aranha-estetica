@@ -76,13 +76,13 @@ class ConsentRegistrado(DomainEvent):
 # ─── Pacote ──────────────────────────────────────────────────────────
 @dataclass(frozen=True)
 class PacoteVendido(DomainEvent):
-    pacote_cliente_id: int = 0
+    compra_pacote_id: int = 0
     cliente_id: int = 0
 
 
 @dataclass(frozen=True)
 class SessaoConsumida(DomainEvent):
-    pacote_cliente_id: int = 0
+    compra_pacote_id: int = 0
     atendimento_id: int = 0
 
 

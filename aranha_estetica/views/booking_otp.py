@@ -11,7 +11,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django_ratelimit.decorators import ratelimit
 
-from ..models import Cliente, OtpCode
+from ..models import Cliente, CodigoOtp
 from ..services import otp_service
 from ..utils.captcha import turnstile_enabled, verificar_turnstile
 from ..utils.pii import mask_email, mask_telefone
@@ -45,16 +45,16 @@ def solicitar_otp_agendamento(request):
 
     # Email pseudo p/ chave do OTP quando cliente nao tem email (cadastro via SMS-only)
     if not email or '@' not in email:
-        email = OtpCode.email_para_telefone(telefone)
+        email = CodigoOtp.email_para_telefone(telefone)
 
     existe = Cliente.objects.filter(email__iexact=email, ativo=True).exists() or bool(cliente_existente)
 
     ok, motivo, canal_usado = otp_service.solicitar_otp(
         email,
         request=request,
-        proposito=OtpCode.PROPOSITO_AGENDAMENTO,
+        proposito=CodigoOtp.PROPOSITO_AGENDAMENTO,
         telefone=telefone,
-        canal_preferido=OtpCode.CANAL_SMS,
+        canal_preferido=CodigoOtp.CANAL_SMS,
     )
     if not ok and motivo == 'aguarde':
         return JsonResponse({'ok': False, 'erro': 'aguarde'}, status=429)
@@ -73,7 +73,7 @@ def verificar_otp_agendamento(request):
     email = (request.POST.get('email') or '').strip().lower()
     codigo = (request.POST.get('codigo') or '').strip()
 
-    ok, motivo = otp_service.verificar_otp(email, codigo, proposito=OtpCode.PROPOSITO_AGENDAMENTO)
+    ok, motivo = otp_service.verificar_otp(email, codigo, proposito=CodigoOtp.PROPOSITO_AGENDAMENTO)
     if not ok:
         return JsonResponse({'ok': False, 'erro': motivo}, status=400)
 
@@ -113,9 +113,9 @@ def meus_agendamentos_enviar_otp(request):
     ok, motivo, canal_usado = otp_service.solicitar_otp(
         email,
         request=request,
-        proposito=OtpCode.PROPOSITO_LOGIN,
+        proposito=CodigoOtp.PROPOSITO_LOGIN,
         telefone=telefone,
-        canal_preferido=OtpCode.CANAL_SMS,
+        canal_preferido=CodigoOtp.CANAL_SMS,
     )
     if not ok and motivo == 'aguarde':
         return JsonResponse({'ok': False, 'erro': 'aguarde'}, status=429)
@@ -131,7 +131,7 @@ def meus_agendamentos_verificar_otp(request):
     email = (request.POST.get('email') or '').strip().lower()
     codigo = (request.POST.get('codigo') or '').strip()
 
-    ok, motivo = otp_service.verificar_otp(email, codigo, proposito=OtpCode.PROPOSITO_LOGIN)
+    ok, motivo = otp_service.verificar_otp(email, codigo, proposito=CodigoOtp.PROPOSITO_LOGIN)
     if not ok:
         return JsonResponse({'ok': False, 'erro': motivo}, status=400)
 

@@ -3,7 +3,7 @@ from django.conf import settings
 from django.db import models
 
 
-class WebPushSubscription(models.Model):
+class AssinaturaPush(models.Model):
     """Subscription Web Push (VAPID) por usuario admin/profissional.
 
     endpoint, p256dh, auth: dados retornados pelo PushManager.subscribe().
@@ -23,7 +23,7 @@ class WebPushSubscription(models.Model):
 
     class Meta:
         managed = True
-        db_table = 'web_push_subscription'
+        db_table = 'assinatura_push'
         indexes = [
             models.Index(fields=['user', 'ativo'], name='idx_pushsub_user_ativo'),
         ]

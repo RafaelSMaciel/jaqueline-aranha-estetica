@@ -7,7 +7,7 @@ from .profissionais import (
 )
 from .clientes import Cliente
 from .procedimentos import (
-    Procedimento, ProfissionalProcedimento, Preco, Promocao,
+    Procedimento, Habilitacao, Preco, Promocao,
 )
 from .agendamentos import Atendimento, Notificacao
 from .prontuario import (
@@ -15,14 +15,14 @@ from .prontuario import (
 )
 from .termos import VersaoTermo, AceitePrivacidade, AssinaturaTermoProcedimento
 from .nps import AvaliacaoNPS
-from .pacotes import Pacote, ItemPacote, PacoteCliente, SessaoPacote
+from .pacotes import Pacote, ItemPacote, CompraPacote, ConsumoSessao
 from .sistema import (
-    ListaEspera, LogAuditoria, ConfiguracaoSistema, OtpCode, Feriado,
+    ListaEspera, LogAuditoria, Configuracao, CodigoOtp, Feriado,
 )
-from .push import WebPushSubscription
+from .push import AssinaturaPush
 from .anamnese import FormularioAnamnese, RespostaAnamnese
 from .extras import (
-    CreditoCliente, MovimentoCredito,
+    Carteira, MovimentoCarteira,
     RegraComissao, MovimentoComissao,
 )
 
@@ -30,17 +30,17 @@ __all__ = [
     'Usuario', 'UsuarioManager',
     'Profissional', 'DisponibilidadeProfissional', 'BloqueioAgenda', 'ExcecaoDisponibilidade',
     'Cliente',
-    'Procedimento', 'ProfissionalProcedimento', 'Preco', 'Promocao',
+    'Procedimento', 'Habilitacao', 'Preco', 'Promocao',
     'Atendimento', 'Notificacao',
     'Prontuario', 'ProntuarioPergunta', 'ProntuarioResposta', 'AnotacaoSessao',
     'VersaoTermo', 'AceitePrivacidade', 'AssinaturaTermoProcedimento',
     'AvaliacaoNPS',
-    'Pacote', 'ItemPacote', 'PacoteCliente', 'SessaoPacote',
-    'ListaEspera', 'LogAuditoria', 'ConfiguracaoSistema', 'OtpCode',
+    'Pacote', 'ItemPacote', 'CompraPacote', 'ConsumoSessao',
+    'ListaEspera', 'LogAuditoria', 'Configuracao', 'CodigoOtp',
     'Feriado',
-    'WebPushSubscription',
+    'AssinaturaPush',
     'FormularioAnamnese', 'RespostaAnamnese',
     # extras (financeiro auxiliar)
-    'CreditoCliente', 'MovimentoCredito',
+    'Carteira', 'MovimentoCarteira',
     'RegraComissao', 'MovimentoComissao',
 ]

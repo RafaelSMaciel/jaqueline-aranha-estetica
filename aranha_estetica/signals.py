@@ -1,16 +1,16 @@
 from django.core.cache import cache
 from django.db.models.signals import pre_save, post_save, post_delete
 from django.dispatch import receiver
-from .models import Atendimento, PacoteCliente, SessaoPacote, ConfiguracaoSistema
+from .models import Atendimento, CompraPacote, ConsumoSessao, Configuracao
 from .tasks import job_notificar_fila_espera
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-@receiver([post_save, post_delete], sender=ConfiguracaoSistema)
+@receiver([post_save, post_delete], sender=Configuracao)
 def invalidar_cache_branding(sender, instance, **kwargs):
-    """Zera cache de branding quando ConfiguracaoSistema muda.
+    """Zera cache de branding quando Configuracao muda.
 
     Chaves cacheadas (manter sincronizadas com utils/cache.py + admin_branding.py):
     """
@@ -81,7 +81,7 @@ def processar_mudanca_status(sender, instance, created, **kwargs):
 
         # Debitar sessao de pacote
         if not hasattr(instance, 'sessao_pacote_vinculada'):
-            pacotes_ativos = PacoteCliente.objects.filter(
+            pacotes_ativos = CompraPacote.objects.filter(
                 cliente=instance.cliente,
                 status='ATIVO'
             ).order_by('criado_em')
@@ -102,8 +102,8 @@ def processar_mudanca_status(sender, instance, created, **kwargs):
                         atendimento__procedimento=instance.procedimento
                     ).count()
                     if sessoes_ja_feitas < item.quantidade_sessoes:
-                        SessaoPacote.objects.create(
-                            pacote_cliente=pc,
+                        ConsumoSessao.objects.create(
+                            compra_pacote=pc,
                             atendimento=instance
                         )
                         logger.info(f"[PACOTE] Sessao {sessoes_ja_feitas + 1}/{item.quantidade_sessoes} debitada do pacote {pc.pk}")

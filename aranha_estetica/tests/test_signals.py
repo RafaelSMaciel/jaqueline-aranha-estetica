@@ -3,13 +3,13 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
-from aranha_estetica.models import SessaoPacote
+from aranha_estetica.models import ConsumoSessao
 
 from .factories import (
     criar_atendimento,
     criar_cliente,
     criar_pacote,
-    criar_pacote_cliente,
+    criar_compra_pacote,
     criar_procedimento,
     criar_profissional,
 )
@@ -60,13 +60,13 @@ class PacoteDebitoSignalTests(TestCase):
         self.proc = criar_procedimento(profissional=self.prof)
         self.cli = criar_cliente()
         self.pacote = criar_pacote(procedimento=self.proc, sessoes=3)
-        self.pc = criar_pacote_cliente(self.cli, self.pacote)
+        self.pc = criar_compra_pacote(self.cli, self.pacote)
 
     def test_realizado_debita_sessao_pacote(self):
         atd = criar_atendimento(self.cli, self.prof, self.proc, status='CONFIRMADO')
         atd.status = 'REALIZADO'
         atd.save()
-        self.assertEqual(SessaoPacote.objects.filter(pacote_cliente=self.pc).count(), 1)
+        self.assertEqual(ConsumoSessao.objects.filter(compra_pacote=self.pc).count(), 1)
 
     def test_pacote_finaliza_quando_todas_sessoes_usadas(self):
         for _i in range(3):
