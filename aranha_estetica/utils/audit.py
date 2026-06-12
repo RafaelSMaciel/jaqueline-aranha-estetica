@@ -21,8 +21,8 @@ def registrar_log(usuario, acao, tabela=None, id_registro=None, detalhes=None):
         LogAuditoria.objects.create(
             usuario=usuario if usuario and usuario.is_authenticated else None,
             acao=acao,
-            tabela_afetada=tabela,
-            id_registro_afetado=id_registro,
+            tabela=tabela,
+            registro_id=id_registro,
             detalhes=detalhes,
         )
     except Exception as e:

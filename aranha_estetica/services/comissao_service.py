@@ -1,6 +1,6 @@
 """Comissao Profissional — calcula comissao em AtendimentoRealizado.
 
-Suporta percentual ou valor_fixo. Resolve regra mais especifica:
+Suporta percentual ou valor. Resolve regra mais especifica:
   1. (profissional, procedimento) — mais especifica
   2. (profissional, qualquer procedimento)
   3. (qualquer profissional, procedimento)
@@ -57,7 +57,7 @@ class ComissaoService:
         """Calcula comissao para atendimento REALIZADO. Idempotente."""
         if atendimento.status != Atendimento.STATUS_REALIZADO:
             return None
-        if atendimento.is_retorno:
+        if atendimento.eh_retorno:
             return None  # retorno gratis nao gera comissao
         if not atendimento.valor_cobrado or atendimento.valor_cobrado <= 0:
             return None
@@ -71,7 +71,7 @@ class ComissaoService:
         if regra.percentual is not None:
             valor = (atendimento.valor_cobrado * regra.percentual / Decimal('100')).quantize(Decimal('0.01'))
         else:
-            valor = regra.valor_fixo or Decimal('0.00')
+            valor = regra.valor or Decimal('0.00')
 
         if valor <= 0:
             return None

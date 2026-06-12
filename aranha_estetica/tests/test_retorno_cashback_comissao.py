@@ -27,9 +27,9 @@ class RetornoServiceTests(TestCase):
     def setUp(self):
         self.prof = criar_profissional()
         self.proc = criar_procedimento(profissional=self.prof)
-        self.proc.requer_retorno = True
-        self.proc.prazo_retorno_min_dias = 15
-        self.proc.prazo_retorno_max_dias = 21
+        self.proc.exige_retorno = True
+        self.proc.retorno_minimo_dias = 15
+        self.proc.retorno_maximo_dias = 21
         self.proc.duracao_retorno_minutos = 30
         self.proc.save()
         self.cliente = criar_cliente()
@@ -38,7 +38,7 @@ class RetornoServiceTests(TestCase):
         atend = criar_atendimento(self.cliente, self.prof, self.proc, status='AGENDADO')
         atend.marcar_realizado()
         atend.refresh_from_db()
-        retorno = Atendimento.objects.filter(atendimento_origem=atend, is_retorno=True).first()
+        retorno = Atendimento.objects.filter(atendimento_origem=atend, eh_retorno=True).first()
         self.assertIsNotNone(retorno)
         self.assertEqual(retorno.valor_cobrado, Decimal('0'))
         self.assertEqual(retorno.status, Atendimento.STATUS_PENDENTE)
@@ -48,7 +48,7 @@ class RetornoServiceTests(TestCase):
         atend.marcar_realizado()
         # Tenta sugerir de novo direto
         RetornoService.sugerir_retorno(atend)
-        count = Atendimento.objects.filter(atendimento_origem=atend, is_retorno=True).count()
+        count = Atendimento.objects.filter(atendimento_origem=atend, eh_retorno=True).count()
         self.assertEqual(count, 1)
 
     def test_nao_cria_se_procedimento_nao_requer(self):
@@ -56,13 +56,13 @@ class RetornoServiceTests(TestCase):
         atend = criar_atendimento(self.cliente, self.prof, proc_simples, status='AGENDADO')
         atend.marcar_realizado()
         self.assertFalse(
-            Atendimento.objects.filter(atendimento_origem=atend, is_retorno=True).exists(),
+            Atendimento.objects.filter(atendimento_origem=atend, eh_retorno=True).exists(),
         )
 
     def test_retorno_data_dentro_da_janela(self):
         atend = criar_atendimento(self.cliente, self.prof, self.proc, status='AGENDADO')
         atend.marcar_realizado()
-        retorno = Atendimento.objects.get(atendimento_origem=atend, is_retorno=True)
+        retorno = Atendimento.objects.get(atendimento_origem=atend, eh_retorno=True)
         delta = (retorno.data_hora_inicio - atend.data_hora_fim).days
         self.assertGreaterEqual(delta, 15)
         self.assertLessEqual(delta, 21)

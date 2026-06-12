@@ -114,7 +114,7 @@ class ClinicaPasswordResetView(PasswordResetView):
             from ..models import LogAuditoria
             LogAuditoria.objects.create(
                 acao=f'Solicitacao de reset de senha (email: {email})',
-                tabela_afetada='usuario',
+                tabela='usuario',
                 ip_origem=ip,
             )
         except Exception:
@@ -145,8 +145,8 @@ class ClinicaPasswordResetConfirmView(PasswordResetConfirmView):
             LogAuditoria.objects.create(
                 usuario=user,
                 acao='Senha redefinida via reset de senha',
-                tabela_afetada='usuario',
-                id_registro_afetado=user.pk,
+                tabela='usuario',
+                registro_id=user.pk,
                 ip_origem=ip,
             )
         except Exception:

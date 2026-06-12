@@ -50,19 +50,19 @@ class Cliente(models.Model):
 
     # LGPD: consentimento legado (comunicacao transacional) e unsubscribe token
     aceita_comunicacao = models.BooleanField(default=True)
-    unsubscribe_token = models.CharField(max_length=64, blank=True, null=True, db_index=True)
+    token_descadastro = models.CharField(max_length=64, blank=True, null=True, db_index=True)
 
     # LGPD: consents granulares por canal/uso — opt-in explicito com audit trail
     consent_email_marketing = models.BooleanField(default=False)
-    consent_email_marketing_at = models.DateTimeField(blank=True, null=True)
+    consent_email_marketing_em = models.DateTimeField(blank=True, null=True)
     consent_email_marketing_ip = models.GenericIPAddressField(blank=True, null=True)
 
     consent_whatsapp_nps = models.BooleanField(default=False)
-    consent_whatsapp_nps_at = models.DateTimeField(blank=True, null=True)
+    consent_whatsapp_nps_em = models.DateTimeField(blank=True, null=True)
     consent_whatsapp_nps_ip = models.GenericIPAddressField(blank=True, null=True)
 
     consent_whatsapp_confirmacao = models.BooleanField(default=False)
-    consent_whatsapp_confirmacao_at = models.DateTimeField(blank=True, null=True)
+    consent_whatsapp_confirmacao_em = models.DateTimeField(blank=True, null=True)
     consent_whatsapp_confirmacao_ip = models.GenericIPAddressField(blank=True, null=True)
 
     criado_em = models.DateTimeField(auto_now_add=True)
@@ -98,8 +98,8 @@ class Cliente(models.Model):
         return self.nome_completo
 
     def save(self, *args, **kwargs):
-        if not self.unsubscribe_token:
-            self.unsubscribe_token = secrets.token_urlsafe(32)
+        if not self.token_descadastro:
+            self.token_descadastro = secrets.token_urlsafe(32)
         if not self.codigo_indicacao:
             self.codigo_indicacao = self._gerar_codigo_indicacao()
         super().save(*args, **kwargs)

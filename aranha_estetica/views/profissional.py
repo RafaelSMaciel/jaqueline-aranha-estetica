@@ -126,7 +126,7 @@ def anotar(request, pk):
 
     anotacoes = AnotacaoSessao.objects.filter(
         atendimento=atendimento
-    ).select_related('usuario').order_by('-criado_em')
+    ).select_related('autor').order_by('-criado_em')
 
     if request.method == 'POST':
         texto = request.POST.get('texto', '').strip()
@@ -136,7 +136,7 @@ def anotar(request, pk):
 
         AnotacaoSessao.objects.create(
             atendimento=atendimento,
-            usuario=request.user,
+            autor=request.user,
             texto=texto,
         )
         messages.success(request, 'Anotacao salva.')

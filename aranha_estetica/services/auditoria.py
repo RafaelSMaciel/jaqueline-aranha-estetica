@@ -18,7 +18,7 @@ class AuditoriaService:
         request=None,
         usuario=None,
         acao: str,
-        tabela_afetada: str = '',
+        tabela: str = '',
         id_registro: int | None = None,
         detalhes: dict[str, Any] | None = None,
     ) -> LogAuditoria:
@@ -34,8 +34,8 @@ class AuditoriaService:
         return LogAuditoria.objects.create(
             usuario=usuario,
             acao=acao,
-            tabela_afetada=tabela_afetada,
-            id_registro_afetado=id_registro,
+            tabela=tabela,
+            registro_id=id_registro,
             detalhes=detalhes_sanitizados,
             ip_origem=ip or None,
         )

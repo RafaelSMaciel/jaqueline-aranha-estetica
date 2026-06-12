@@ -36,9 +36,9 @@ class Procedimento(models.Model):
     profissionais = models.ManyToManyField(Profissional, through='ProfissionalProcedimento')
 
     # F-RET — configuracao de retorno obrigatorio
-    requer_retorno = models.BooleanField(default=False)
-    prazo_retorno_min_dias = models.PositiveSmallIntegerField(blank=True, null=True)
-    prazo_retorno_max_dias = models.PositiveSmallIntegerField(blank=True, null=True)
+    exige_retorno = models.BooleanField(default=False)
+    retorno_minimo_dias = models.PositiveSmallIntegerField(blank=True, null=True)
+    retorno_maximo_dias = models.PositiveSmallIntegerField(blank=True, null=True)
     duracao_retorno_minutos = models.PositiveSmallIntegerField(default=30)
 
     class Meta:
@@ -67,10 +67,10 @@ class Procedimento(models.Model):
             ),
             models.CheckConstraint(
                 check=(
-                    models.Q(requer_retorno=False) |
+                    models.Q(exige_retorno=False) |
                     models.Q(
-                        prazo_retorno_min_dias__isnull=False,
-                        prazo_retorno_max_dias__isnull=False,
+                        retorno_minimo_dias__isnull=False,
+                        retorno_maximo_dias__isnull=False,
                     )
                 ),
                 name='chk_procedimento_prazo_retorno_coerente',

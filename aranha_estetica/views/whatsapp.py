@@ -155,7 +155,7 @@ def whatsapp_webhook(request):
                 .filter(
                     tipo='NPS',
                     canal='WHATSAPP',
-                    status_envio='ENVIADO',
+                    status='ENVIADO',
                     criado_em__gte=timezone.now() - NPS_JANELA_RESPOSTA,
                     atendimento__cliente__telefone__in=candidatos,
                 )

@@ -89,8 +89,8 @@
         <div class="audit-meta">
             <span class="audit-user">{{ log.usuario.nome|default:"Sistema" }}</span>
             &bull; {{ log.criado_em|date:"d/m/Y H:i" }}
-            {% if log.tabela_afetada %}
-            &bull; <span class="audit-table-badge">{{ log.tabela_afetada }}</span>
+            {% if log.tabela %}
+            &bull; <span class="audit-table-badge">{{ log.tabela }}</span>
             {% endif %}
         </div>
     </div>

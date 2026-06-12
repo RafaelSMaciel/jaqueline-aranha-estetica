@@ -60,7 +60,7 @@ class AnotacaoSessao(models.Model):
     atendimento = models.ForeignKey(
         'Atendimento', on_delete=models.CASCADE, related_name='anotacoes'
     )
-    usuario = models.ForeignKey('Usuario', on_delete=models.SET_NULL, null=True, blank=True)
+    autor = models.ForeignKey('Usuario', on_delete=models.SET_NULL, null=True, blank=True)
     texto = models.TextField()
     criado_em = models.DateTimeField(auto_now_add=True)
 

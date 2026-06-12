@@ -116,8 +116,8 @@ def _gravar_resposta(request, resposta: RespostaAnamnese):
     LogAuditoria.objects.create(
         usuario=None,
         acao=f'Form {resposta.formulario.tipo} respondido (cliente {resposta.cliente_id})',
-        tabela_afetada='resposta_anamnese',
-        id_registro_afetado=resposta.pk,
+        tabela='resposta_anamnese',
+        registro_id=resposta.pk,
     )
 
     if resposta.formulario.tipo == 'PESQUISA':

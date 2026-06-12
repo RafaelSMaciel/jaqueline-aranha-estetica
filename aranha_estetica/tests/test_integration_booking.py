@@ -201,7 +201,7 @@ class IntegrationBookingFlowTests(TestCase):
         self.assertEqual(resp.status_code, 302)
         cli = Cliente.objects.get(telefone='17988883333')
         self.assertTrue(cli.consent_email_marketing)
-        self.assertIsNotNone(cli.consent_email_marketing_at)
+        self.assertIsNotNone(cli.consent_email_marketing_em)
 
     def test_consent_whatsapp_nps_opt_out_default(self, mock_email, mock_wpp):
         """POST sem consent_whatsapp_nps mantem False (opt-in required)."""

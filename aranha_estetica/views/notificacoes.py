@@ -26,7 +26,7 @@ def confirmar_presenca(request, token):
     acao = request.GET.get('acao', '')
 
     # Verifica se ja respondeu
-    ja_respondeu = notif.resposta_cliente is not None
+    ja_respondeu = notif.resposta is not None
 
     if request.method == 'POST' and not ja_respondeu:
         acao = request.POST.get('acao', '')
@@ -34,7 +34,7 @@ def confirmar_presenca(request, token):
         if acao == 'confirmar':
             atendimento.status = 'CONFIRMADO'
             atendimento.save()
-            notif.resposta_cliente = 'CONFIRMOU'
+            notif.resposta = 'CONFIRMOU'
             notif.respondido_em = timezone.now()
             notif.save()
             logger.info(f'Cliente {atendimento.cliente.nome_completo} CONFIRMOU agendamento #{atendimento.pk}')
@@ -42,7 +42,7 @@ def confirmar_presenca(request, token):
         elif acao == 'cancelar':
             atendimento.status = 'CANCELADO'
             atendimento.save()
-            notif.resposta_cliente = 'CANCELOU'
+            notif.resposta = 'CANCELOU'
             notif.respondido_em = timezone.now()
             notif.save()
             logger.info(f'Cliente {atendimento.cliente.nome_completo} CANCELOU agendamento #{atendimento.pk}')
@@ -52,7 +52,7 @@ def confirmar_presenca(request, token):
         'notif': notif,
         'acao': acao,
         'ja_respondeu': ja_respondeu or request.method == 'POST',
-        'resposta': notif.resposta_cliente,
+        'resposta': notif.resposta,
     }
     return render(request, 'agenda/confirmar_presenca.html', context)
 
@@ -71,15 +71,15 @@ def painel_notificacoes(request):
         notifs = notifs.filter(tipo=tipo_filter)
     if status_filter != 'all':
         if status_filter == 'respondido':
-            notifs = notifs.exclude(resposta_cliente__isnull=True).exclude(resposta_cliente='')
+            notifs = notifs.exclude(resposta__isnull=True).exclude(resposta='')
         elif status_filter == 'pendente':
-            notifs = notifs.filter(resposta_cliente__isnull=True)
+            notifs = notifs.filter(resposta__isnull=True)
 
     # Stats
     total = notifs.count()
-    confirmados = notifs.filter(resposta_cliente='CONFIRMOU').count()
-    cancelados = notifs.filter(resposta_cliente='CANCELOU').count()
-    sem_resposta = notifs.filter(resposta_cliente__isnull=True).count()
+    confirmados = notifs.filter(resposta='CONFIRMOU').count()
+    cancelados = notifs.filter(resposta='CANCELOU').count()
+    sem_resposta = notifs.filter(resposta__isnull=True).count()
 
     paginator = Paginator(notifs, 50)
     page = request.GET.get('page', 1)
@@ -127,7 +127,7 @@ def admin_cancelar_agendamento(request):
                 atendimento=atendimento,
                 tipo='CANCELAMENTO',
                 canal='EMAIL',
-                status_envio='ENVIADO',
+                status='ENVIADO',
                 token=__import__('secrets').token_urlsafe(32),
                 enviado_em=timezone.now(),
             )

@@ -71,10 +71,10 @@
 {% if notificacoes %}
     {% for notif in notificacoes %}
     <div class="admin-list-item">
-        <div class="admin-list-avatar" style="background:{% if notif.resposta_cliente == 'CONFIRMOU' %}rgba(76,175,80,0.1);color:#4CAF50{% elif notif.resposta_cliente == 'CANCELOU' %}rgba(244,67,54,0.1);color:#F44336{% elif notif.tipo == 'CANCELAMENTO' %}rgba(244,67,54,0.1);color:#F44336{% else %}rgba(33,150,243,0.1);color:#2196F3{% endif %};">
-            {% if notif.resposta_cliente == 'CONFIRMOU' %}
+        <div class="admin-list-avatar" style="background:{% if notif.resposta == 'CONFIRMOU' %}rgba(76,175,80,0.1);color:#4CAF50{% elif notif.resposta == 'CANCELOU' %}rgba(244,67,54,0.1);color:#F44336{% elif notif.tipo == 'CANCELAMENTO' %}rgba(244,67,54,0.1);color:#F44336{% else %}rgba(33,150,243,0.1);color:#2196F3{% endif %};">
+            {% if notif.resposta == 'CONFIRMOU' %}
                 <i class="fas fa-check"></i>
-            {% elif notif.resposta_cliente == 'CANCELOU' %}
+            {% elif notif.resposta == 'CANCELOU' %}
                 <i class="fas fa-times"></i>
             {% elif notif.tipo == 'CANCELAMENTO' %}
                 <i class="fas fa-ban"></i>
@@ -102,9 +102,9 @@
             <span class="admin-badge {% if notif.tipo == 'LEMBRETE' %}admin-badge-blue{% elif notif.tipo == 'CANCELAMENTO' %}admin-badge-red{% elif notif.tipo == 'NPS' %}admin-badge-yellow{% else %}admin-badge-blue{% endif %}">
                 {{ notif.tipo }}
             </span>
-            {% if notif.resposta_cliente == 'CONFIRMOU' %}
+            {% if notif.resposta == 'CONFIRMOU' %}
                 <span class="admin-badge admin-badge-green">Confirmou</span>
-            {% elif notif.resposta_cliente == 'CANCELOU' %}
+            {% elif notif.resposta == 'CANCELOU' %}
                 <span class="admin-badge admin-badge-red">Cancelou</span>
             {% elif notif.tipo == 'LEMBRETE' %}
                 <span class="admin-badge admin-badge-yellow">Aguardando</span>

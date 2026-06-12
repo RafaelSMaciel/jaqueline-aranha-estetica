@@ -36,20 +36,20 @@ class _BaseNotificacao:
             atendimento=atendimento,
             tipo=tipo,
             canal=canal,
-            status_envio='PENDENTE',
+            status='PENDENTE',
             mensagem=mensagem,
         )
 
     @staticmethod
     def _marcar_enviada(notificacao: Notificacao) -> None:
-        notificacao.status_envio = 'ENVIADO'
+        notificacao.status = 'ENVIADO'
         notificacao.enviado_em = timezone.now()
-        notificacao.save(update_fields=['status_envio', 'enviado_em'])
+        notificacao.save(update_fields=['status', 'enviado_em'])
 
     @staticmethod
     def _marcar_falhou(notificacao: Notificacao, erro: str = '') -> None:
-        notificacao.status_envio = 'FALHOU'
-        notificacao.save(update_fields=['status_envio'])
+        notificacao.status = 'FALHOU'
+        notificacao.save(update_fields=['status'])
         if erro:
             logger.warning('Notificacao %s falhou: %s', notificacao.pk, erro)
 
@@ -101,7 +101,7 @@ class EmailService(_BaseNotificacao):
             )
             return False
         from ..utils.email import enviar_promocao_email
-        return enviar_promocao_email(cliente.email, dados, unsub_token=cliente.unsubscribe_token)
+        return enviar_promocao_email(cliente.email, dados, unsub_token=cliente.token_descadastro)
 
     @staticmethod
     def enviar_pacote_expirando(cliente: Cliente, dados: dict) -> bool:
@@ -130,7 +130,7 @@ class EmailService(_BaseNotificacao):
         if not EmailService._tem_consent_marketing(cliente):
             return False
         from ..utils.email import enviar_aniversario_email
-        return enviar_aniversario_email(cliente.email, dados, unsub_token=cliente.unsubscribe_token)
+        return enviar_aniversario_email(cliente.email, dados, unsub_token=cliente.token_descadastro)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -155,7 +155,7 @@ class WhatsAppService(_BaseNotificacao):
             return None
         # evita duplicidade
         ja_enviou = Notificacao.objects.filter(
-            atendimento=atendimento, tipo='LEMBRETE', canal='WHATSAPP', status_envio='ENVIADO',
+            atendimento=atendimento, tipo='LEMBRETE', canal='WHATSAPP', status='ENVIADO',
         ).exists()
         if ja_enviou:
             return None
@@ -188,7 +188,7 @@ class WhatsAppService(_BaseNotificacao):
             logger.info('wa_nps_skipped_no_consent', extra={'cliente_id': cliente.pk})
             return None
         ja_enviou = Notificacao.objects.filter(
-            atendimento=atendimento, tipo='NPS', canal='WHATSAPP', status_envio='ENVIADO',
+            atendimento=atendimento, tipo='NPS', canal='WHATSAPP', status='ENVIADO',
         ).exists()
         if ja_enviou:
             return None
@@ -199,16 +199,16 @@ class WhatsAppService(_BaseNotificacao):
             token = secrets.token_urlsafe(32)
             notif = Notificacao.objects.create(
                 atendimento=atendimento, tipo='NPS', canal='WHATSAPP',
-                token=token, status_envio='PENDENTE',
+                token=token, status='PENDENTE',
             )
             nps_url = f'{SITE_URL.rstrip("/")}/nps/{token}/'
             if enviar_nps_whatsapp(atendimento, nps_url, token):
-                notif.status_envio = 'ENVIADO'
+                notif.status = 'ENVIADO'
                 notif.enviado_em = timezone.now()
-                notif.save(update_fields=['status_envio', 'enviado_em'])
+                notif.save(update_fields=['status', 'enviado_em'])
             else:
-                notif.status_envio = 'FALHOU'
-                notif.save(update_fields=['status_envio'])
+                notif.status = 'FALHOU'
+                notif.save(update_fields=['status'])
             return notif
         except (ConnectionError, TimeoutError) as exc:
             logger.warning(
@@ -239,7 +239,7 @@ class WhatsAppService(_BaseNotificacao):
             logger.info('wa_pesquisa_skipped_no_consent', extra={'cliente_id': cliente.pk})
             return None
         ja_enviou = Notificacao.objects.filter(
-            atendimento=atendimento, tipo='PESQUISA', canal='WHATSAPP', status_envio='ENVIADO',
+            atendimento=atendimento, tipo='PESQUISA', canal='WHATSAPP', status='ENVIADO',
         ).exists()
         if ja_enviou:
             return None
@@ -255,16 +255,16 @@ class WhatsAppService(_BaseNotificacao):
             from ..utils.whatsapp import enviar_pesquisa_whatsapp, SITE_URL
             notif = Notificacao.objects.create(
                 atendimento=atendimento, tipo='PESQUISA', canal='WHATSAPP',
-                token=resposta.token, status_envio='PENDENTE',
+                token=resposta.token, status='PENDENTE',
             )
             link = f'{SITE_URL.rstrip("/")}/pesquisa/{resposta.token}/'
             if enviar_pesquisa_whatsapp(atendimento, link):
-                notif.status_envio = 'ENVIADO'
+                notif.status = 'ENVIADO'
                 notif.enviado_em = timezone.now()
-                notif.save(update_fields=['status_envio', 'enviado_em'])
+                notif.save(update_fields=['status', 'enviado_em'])
             else:
-                notif.status_envio = 'FALHOU'
-                notif.save(update_fields=['status_envio'])
+                notif.status = 'FALHOU'
+                notif.save(update_fields=['status'])
             return notif
         except (ConnectionError, TimeoutError) as exc:
             logger.warning(

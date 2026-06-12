@@ -50,12 +50,12 @@ def job_enviar_lembrete_dia_seguinte(self):
             ja_enviou = Notificacao.objects.filter(
                 atendimento=agendamento,
                 tipo='LEMBRETE',
-                status_envio='ENVIADO'
+                status='ENVIADO'
             ).exists()
             if ja_enviou:
                 continue
             notif = enviar_confirmacao_d1(agendamento)
-            if notif and notif.status_envio == 'ENVIADO':
+            if notif and notif.status == 'ENVIADO':
                 enviados += 1
 
         logger.info(f"[JOB LEMBRETE] {enviados} lembretes enviados com sucesso.")
@@ -105,7 +105,7 @@ def job_pesquisa_satisfacao_24h(self):
                 tipo='NPS',
                 canal='WHATSAPP',
                 token=token,
-                status_envio='PENDENTE',
+                status='PENDENTE',
             )
             nps_url = f"{site_url}/nps/{token}/"
 
@@ -383,7 +383,7 @@ def job_promocao_mensal(self, assunto, corpo_html_partial, cupom=None, validade_
                     'corpo_html': corpo_html_partial,
                     'cupom': cupom,
                     'validade': validade,
-                    'unsubscribe_token': cliente.unsubscribe_token,
+                    'token_descadastro': cliente.token_descadastro,
                 },
             )
             if ok:

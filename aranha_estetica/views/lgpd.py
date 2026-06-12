@@ -58,7 +58,7 @@ def meus_dados(request):
     AuditoriaService.registrar(
         request=request,
         acao='DSAR: exportacao de dados',
-        tabela_afetada='cliente',
+        tabela='cliente',
         id_registro=cliente.pk,
     )
 
@@ -79,7 +79,7 @@ def unsubscribe(request, token: str):
     AuditoriaService.registrar(
         request=request,
         acao='LGPD: opt-out de comunicacao',
-        tabela_afetada='cliente',
+        tabela='cliente',
         id_registro=cliente.pk,
     )
     return render(request, 'publico/lgpd_unsubscribe.html', {'sucesso': True, 'cliente': cliente})

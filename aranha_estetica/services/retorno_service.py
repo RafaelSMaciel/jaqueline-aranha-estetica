@@ -1,7 +1,7 @@
 """F-RET — Retorno Obrigatorio.
 
-Reage a AtendimentoRealizado. Se procedimento.requer_retorno, cria
-Atendimento filho com is_retorno=True, valor_cobrado=0, status PENDENTE.
+Reage a AtendimentoRealizado. Se procedimento.exige_retorno, cria
+Atendimento filho com eh_retorno=True, valor_cobrado=0, status PENDENTE.
 Recepcao confirma data efetiva via painel.
 
 Idempotente: 1 retorno por atendimento_origem.
@@ -31,17 +31,17 @@ class RetornoService:
         """Cria atendimento PENDENTE de retorno.
 
         Pre-condicoes (qualquer falha -> None):
-          - procedimento.requer_retorno == True
-          - atendimento_origem.is_retorno == False
+          - procedimento.exige_retorno == True
+          - atendimento_origem.eh_retorno == False
           - nao existe retorno previo para este origem (idempotente)
         """
         proc = atendimento_origem.procedimento
-        if not proc.requer_retorno:
+        if not proc.exige_retorno:
             return None
-        if atendimento_origem.is_retorno:
+        if atendimento_origem.eh_retorno:
             return None
         if Atendimento.objects.filter(
-            atendimento_origem=atendimento_origem, is_retorno=True,
+            atendimento_origem=atendimento_origem, eh_retorno=True,
         ).exists():
             logger.info(
                 'retorno_ja_sugerido',
@@ -50,8 +50,8 @@ class RetornoService:
             return None
 
         base = atendimento_origem.data_hora_fim
-        min_dias = proc.prazo_retorno_min_dias or 0
-        max_dias = proc.prazo_retorno_max_dias or min_dias
+        min_dias = proc.retorno_minimo_dias or 0
+        max_dias = proc.retorno_maximo_dias or min_dias
         janela_inicio = base + timedelta(days=min_dias)
         janela_fim = base + timedelta(days=max_dias)
         sugerida = janela_inicio + (janela_fim - janela_inicio) / 2
@@ -67,7 +67,7 @@ class RetornoService:
             valor_original=0,
             descricao_preco='Retorno obrigatorio (sem cobranca)',
             status=Atendimento.STATUS_PENDENTE,
-            is_retorno=True,
+            eh_retorno=True,
             atendimento_origem=atendimento_origem,
         )
 

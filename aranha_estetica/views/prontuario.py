@@ -165,7 +165,7 @@ def anotacao_sessao_salvar(request, atendimento_id):
 
     anotacao = AnotacaoSessao.objects.create(
         atendimento=atendimento,
-        usuario=request.user,
+        autor=request.user,
         texto=texto,
     )
 

@@ -126,7 +126,7 @@
             <div class="hist-item">
                 <div class="hist-meta">
                     <i class="fas fa-user-circle me-1"></i>
-                    {{ nota.usuario.nome|default:"Sistema" }} &bull;
+                    {{ nota.autor.nome|default:"Sistema" }} &bull;
                     {{ nota.criado_em|date:"d/m/Y H:i" }}
                 </div>
                 <div class="hist-text">{{ nota.texto }}</div>

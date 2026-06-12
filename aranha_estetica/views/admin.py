@@ -81,7 +81,7 @@ def admin_auditoria(request):
     data_filter = request.GET.get('data', '')
 
     if tabela:
-        logs = logs.filter(tabela_afetada=tabela)
+        logs = logs.filter(tabela=tabela)
     if acao_filter:
         logs = logs.filter(acao__icontains=acao_filter)
     if data_filter:
@@ -97,7 +97,7 @@ def admin_auditoria(request):
     logs_page = paginator.get_page(page)
 
     # Tabelas únicas para filtro
-    tabelas = LogAuditoria.objects.values_list('tabela_afetada', flat=True).distinct().order_by('tabela_afetada')
+    tabelas = LogAuditoria.objects.values_list('tabela', flat=True).distinct().order_by('tabela')
 
     context = {
         'logs': logs_page,

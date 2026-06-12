@@ -27,5 +27,5 @@
 {% endblock %}
 {% block footer_extra %}
 <p class="text-muted" style="margin:8px 0 0;color:#8a7e6b;font-size:11px;line-height:1.6;">Você recebe esta comunicacao porque autorizou receber promocoes por e-mail.</p>
-{% if unsubscribe_token %}<p style="margin:6px 0 0;"><a href="{{ site_url }}/unsubscribe/{{ unsubscribe_token }}/" style="color:#8a7e6b;font-size:11px;text-decoration:underline;">Cancelar inscricao</a></p>{% endif %}
+{% if token_descadastro %}<p style="margin:6px 0 0;"><a href="{{ site_url }}/unsubscribe/{{ token_descadastro }}/" style="color:#8a7e6b;font-size:11px;text-decoration:underline;">Cancelar inscricao</a></p>{% endif %}
 {% endblock %}

@@ -38,7 +38,7 @@ class FidelidadeService:
 
         Pre-condicoes (qualquer falha -> None):
           - atendimento.status == REALIZADO
-          - is_retorno == False
+          - eh_retorno == False
           - cliente.indicado_por preenchido
           - 1o REALIZADO + pago da cliente (valor_cobrado > 0)
 
@@ -47,7 +47,7 @@ class FidelidadeService:
         cliente = atendimento.cliente
         if not cliente.indicado_por_id:
             return None
-        if atendimento.is_retorno:
+        if atendimento.eh_retorno:
             return None
         if atendimento.status != Atendimento.STATUS_REALIZADO:
             return None
@@ -58,7 +58,7 @@ class FidelidadeService:
         if Atendimento.objects.filter(
             cliente=cliente,
             status=Atendimento.STATUS_REALIZADO,
-            is_retorno=False,
+            eh_retorno=False,
             valor_cobrado__gt=0,
         ).exclude(pk=atendimento.pk).exists():
             return None
@@ -74,7 +74,7 @@ class FidelidadeService:
                 tipo='CREDITO',
                 origem='CASHBACK_INDICACAO',
                 valor=VALOR_CASHBACK_INDICACAO,
-                saldo_apos=novo_saldo,
+                saldo_resultante=novo_saldo,
                 atendimento=atendimento,
                 observacoes=f'Indicacao: {cliente.nome_completo} (cli #{cliente.pk})',
             )
@@ -130,7 +130,7 @@ class FidelidadeService:
                 tipo='DEBITO',
                 origem='CASHBACK_ESTORNO',
                 valor=valor,
-                saldo_apos=saldo_pos,
+                saldo_resultante=saldo_pos,
                 atendimento=atendimento,
                 observacoes=f'Estorno credito #{cred_mov.pk}: {motivo}',
             )

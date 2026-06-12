@@ -67,7 +67,7 @@ class LgpdService:
         aplicado por clique unico precisa cobrir todos os canais ativos.
         """
         try:
-            cliente = Cliente.objects.get(unsubscribe_token=token)
+            cliente = Cliente.objects.get(token_descadastro=token)
         except Cliente.DoesNotExist:
             return None
         cliente.aceita_comunicacao = False

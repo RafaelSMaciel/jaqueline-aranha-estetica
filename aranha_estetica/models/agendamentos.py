@@ -99,7 +99,7 @@ class Atendimento(models.Model):
         'self', on_delete=models.SET_NULL, blank=True, null=True,
         related_name='retornos',
     )
-    is_retorno = models.BooleanField(default=False, db_index=True)
+    eh_retorno = models.BooleanField(default=False, db_index=True)
     data_hora_inicio = models.DateTimeField()
     data_hora_fim = models.DateTimeField()
     valor_cobrado = models.DecimalField(
@@ -155,8 +155,8 @@ class Atendimento(models.Model):
                 usuario=by_user,
                 acao=f'Atendimento {self.pk}: {anterior} -> {novo_status}'
                      + (f' ({motivo})' if motivo else ''),
-                tabela_afetada='atendimento',
-                id_registro_afetado=self.pk,
+                tabela='atendimento',
+                registro_id=self.pk,
             )
         except (DatabaseError, IntegrityError) as exc:
             # Auditoria best-effort — falha de DB nao bloqueia transicao de status
@@ -238,13 +238,13 @@ class Atendimento(models.Model):
             ),
             models.CheckConstraint(
                 check=(
-                    models.Q(is_retorno=False) | models.Q(atendimento_origem__isnull=False)
+                    models.Q(eh_retorno=False) | models.Q(atendimento_origem__isnull=False)
                 ),
                 name='chk_retorno_tem_origem',
             ),
             models.CheckConstraint(
                 check=(
-                    models.Q(is_retorno=False) | models.Q(valor_cobrado=0) |
+                    models.Q(eh_retorno=False) | models.Q(valor_cobrado=0) |
                     models.Q(valor_cobrado__isnull=True)
                 ),
                 name='chk_retorno_valor_zero',
@@ -286,8 +286,8 @@ class Notificacao(models.Model):
     atendimento = models.ForeignKey(Atendimento, on_delete=models.CASCADE)
     tipo = models.CharField(max_length=30, default='LEMBRETE', choices=TIPO_CHOICES)
     canal = models.CharField(max_length=20, default='WHATSAPP', choices=CANAL_CHOICES)
-    status_envio = models.CharField(max_length=20, default='PENDENTE', choices=STATUS_CHOICES)
-    resposta_cliente = models.CharField(
+    status = models.CharField(max_length=20, default='PENDENTE', choices=STATUS_CHOICES)
+    resposta = models.CharField(
         max_length=20, blank=True, null=True, choices=RESPOSTA_CHOICES
     )
     token = models.CharField(max_length=64, unique=True, blank=True, null=True)
@@ -300,9 +300,9 @@ class Notificacao(models.Model):
         managed = True
         db_table = 'notificacao'
         indexes = [
-            models.Index(fields=['tipo', 'status_envio'], name='idx_notificacao_tipo_status'),
+            models.Index(fields=['tipo', 'status'], name='idx_notificacao_tipo_status'),
             models.Index(fields=['-criado_em'], name='idx_notificacao_criado'),
-            models.Index(fields=['tipo', 'canal', 'status_envio', '-criado_em'], name='idx_notif_nps_lookup'),
+            models.Index(fields=['tipo', 'canal', 'status', '-criado_em'], name='idx_notif_nps_lookup'),
             models.Index(fields=['atendimento', 'tipo'], name='idx_notif_atend_tipo'),
         ]
 

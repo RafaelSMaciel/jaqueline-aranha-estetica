@@ -237,7 +237,7 @@ def enviar_confirmacao_d1(atendimento):
         atendimento=atendimento,
         tipo='LEMBRETE',
         canal='WHATSAPP',
-        status_envio='ENVIADO' if sucesso else 'FALHOU',
+        status='ENVIADO' if sucesso else 'FALHOU',
         token=token,
         enviado_em=timezone.now(),
         mensagem=mensagem_preview,
@@ -269,10 +269,10 @@ def enviar_nps_whatsapp(atendimento, link_nps, token_notif):
 
     try:
         notif = Notificacao.objects.get(token=token_notif)
-        notif.status_envio = 'ENVIADO' if sucesso else 'FALHOU'
+        notif.status = 'ENVIADO' if sucesso else 'FALHOU'
         notif.enviado_em = timezone.now()
         notif.mensagem = f'[Template {TEMPLATE_NPS}] NPS {atendimento.procedimento.nome}'
-        notif.save(update_fields=['status_envio', 'enviado_em', 'mensagem'])
+        notif.save(update_fields=['status', 'enviado_em', 'mensagem'])
     except Notificacao.DoesNotExist:
         logger.warning('nps_wa_notificacao_nao_encontrada', extra={'token': token_notif})
     return sucesso

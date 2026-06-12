@@ -55,7 +55,7 @@ class MovimentoCredito(models.Model):
     tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
     origem = models.CharField(max_length=30, choices=ORIGEM_CHOICES, default='OUTRO')
     valor = models.DecimalField(max_digits=10, decimal_places=2)
-    saldo_apos = models.DecimalField(max_digits=10, decimal_places=2)
+    saldo_resultante = models.DecimalField(max_digits=10, decimal_places=2)
     atendimento = models.ForeignKey(
         'Atendimento', on_delete=models.SET_NULL, blank=True, null=True,
     )
@@ -106,9 +106,9 @@ class RegraComissao(TimestampedMixin):
     percentual = models.DecimalField(
         max_digits=5, decimal_places=2, blank=True, null=True,
         validators=[MinValueValidator(Decimal('0.00'))],
-        help_text='Ex: 30.00 para 30%. Se preenchido, valor_fixo deve ser nulo.',
+        help_text='Ex: 30.00 para 30%. Se preenchido, valor deve ser nulo.',
     )
-    valor_fixo = models.DecimalField(
+    valor = models.DecimalField(
         max_digits=10, decimal_places=2, blank=True, null=True,
         validators=[MinValueValidator(Decimal('0.00'))],
         help_text='Valor fixo R$. Se preenchido, percentual deve ser nulo.',
@@ -122,9 +122,9 @@ class RegraComissao(TimestampedMixin):
             models.CheckConstraint(
                 check=(
                     (
-                        models.Q(percentual__isnull=False) & models.Q(valor_fixo__isnull=True)
+                        models.Q(percentual__isnull=False) & models.Q(valor__isnull=True)
                     ) | (
-                        models.Q(percentual__isnull=True) & models.Q(valor_fixo__isnull=False)
+                        models.Q(percentual__isnull=True) & models.Q(valor__isnull=False)
                     )
                 ),
                 name='chk_regra_comissao_percentual_xor_fixo',
@@ -138,7 +138,7 @@ class RegraComissao(TimestampedMixin):
     def __str__(self):
         prof = self.profissional.nome if self.profissional_id else 'qualquer'
         proc = self.procedimento.nome if self.procedimento_id else 'qualquer'
-        valor = f'{self.percentual}%' if self.percentual else f'R$ {self.valor_fixo}'
+        valor = f'{self.percentual}%' if self.percentual else f'R$ {self.valor}'
         return f'{prof}/{proc}: {valor}'
 
 

@@ -25,7 +25,7 @@ def _enviar_email(destinatario, assunto, template, contexto,
                   marketing=False, preheader='', unsub_token=None):
     """Envia email HTML. Marketing inclui List-Unsubscribe (RFC 8058 one-click).
 
-    unsub_token: Cliente.unsubscribe_token. Obrigatorio para marketing=True.
+    unsub_token: Cliente.token_descadastro. Obrigatorio para marketing=True.
     """
     contexto.setdefault('clinic_name', CLINIC_NAME)
     contexto.setdefault('site_url', SITE_URL)

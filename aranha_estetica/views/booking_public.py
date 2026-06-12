@@ -194,19 +194,19 @@ def confirmar_agendamento(request):
             if consent_email_marketing:
                 defaults.update({
                     'consent_email_marketing': True,
-                    'consent_email_marketing_at': agora,
+                    'consent_email_marketing_em': agora,
                     'consent_email_marketing_ip': ip_origem,
                 })
             if consent_whatsapp_nps:
                 defaults.update({
                     'consent_whatsapp_nps': True,
-                    'consent_whatsapp_nps_at': agora,
+                    'consent_whatsapp_nps_em': agora,
                     'consent_whatsapp_nps_ip': ip_origem,
                 })
             if consent_whatsapp_confirmacao:
                 defaults.update({
                     'consent_whatsapp_confirmacao': True,
-                    'consent_whatsapp_confirmacao_at': agora,
+                    'consent_whatsapp_confirmacao_em': agora,
                     'consent_whatsapp_confirmacao_ip': ip_origem,
                 })
 
@@ -227,17 +227,17 @@ def confirmar_agendamento(request):
                     atualizar = True
                 if consent_email_marketing and not cliente.consent_email_marketing:
                     cliente.consent_email_marketing = True
-                    cliente.consent_email_marketing_at = agora
+                    cliente.consent_email_marketing_em = agora
                     cliente.consent_email_marketing_ip = ip_origem
                     atualizar = True
                 if consent_whatsapp_nps and not cliente.consent_whatsapp_nps:
                     cliente.consent_whatsapp_nps = True
-                    cliente.consent_whatsapp_nps_at = agora
+                    cliente.consent_whatsapp_nps_em = agora
                     cliente.consent_whatsapp_nps_ip = ip_origem
                     atualizar = True
                 if consent_whatsapp_confirmacao and not cliente.consent_whatsapp_confirmacao:
                     cliente.consent_whatsapp_confirmacao = True
-                    cliente.consent_whatsapp_confirmacao_at = agora
+                    cliente.consent_whatsapp_confirmacao_em = agora
                     cliente.consent_whatsapp_confirmacao_ip = ip_origem
                     atualizar = True
                 if atualizar:
@@ -307,7 +307,7 @@ def confirmar_agendamento(request):
                     atendimento=atendimento,
                     tipo='LEMBRETE',
                     canal='EMAIL',
-                    status_envio='PENDENTE',
+                    status='PENDENTE',
                     token=token_termo,
                 )
                 site_url = SITE_URL.rstrip('/')

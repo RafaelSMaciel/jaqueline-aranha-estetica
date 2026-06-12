@@ -54,8 +54,8 @@ class ListaEspera(models.Model):
 class LogAuditoria(models.Model):
     usuario = models.ForeignKey('Usuario', on_delete=models.SET_NULL, blank=True, null=True)
     acao = models.TextField()
-    tabela_afetada = models.CharField(max_length=100, blank=True, null=True)
-    id_registro_afetado = models.IntegerField(blank=True, null=True)
+    tabela = models.CharField(max_length=100, blank=True, null=True)
+    registro_id = models.IntegerField(blank=True, null=True)
     detalhes = models.JSONField(blank=True, null=True)
     ip_origem = models.GenericIPAddressField(blank=True, null=True)
     criado_em = models.DateTimeField(auto_now_add=True)
@@ -64,7 +64,7 @@ class LogAuditoria(models.Model):
         managed = True
         db_table = 'log_auditoria'
         indexes = [
-            models.Index(fields=['tabela_afetada'], name='idx_auditoria_tabela'),
+            models.Index(fields=['tabela'], name='idx_auditoria_tabela'),
             models.Index(fields=['-criado_em'], name='idx_auditoria_criado'),
             models.Index(fields=['usuario', '-criado_em'], name='idx_auditoria_user_data'),
         ]

@@ -48,7 +48,7 @@ def _calcular_metricas(agora, hoje) -> dict:
     # Faturamento por periodo (REALIZADO + valor_cobrado > 0, exclui retornos)
     base_pago = Atendimento.objects.filter(
         status=Atendimento.STATUS_REALIZADO,
-        is_retorno=False,
+        eh_retorno=False,
         valor_cobrado__gt=0,
     )
 

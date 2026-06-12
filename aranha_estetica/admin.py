@@ -130,7 +130,7 @@ class ClienteAdmin(admin.ModelAdmin):
     search_fields = ('nome_completo', 'telefone', 'email', 'cpf')
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
-    readonly_fields = ('criado_em', 'atualizado_em', 'deletado_em', 'unsubscribe_token')
+    readonly_fields = ('criado_em', 'atualizado_em', 'deletado_em', 'token_descadastro')
     list_per_page = 50
     fieldsets = (
         ('Identificacao', {
@@ -141,14 +141,14 @@ class ClienteAdmin(admin.ModelAdmin):
         }),
         ('Status e LGPD', {
             'fields': (
-                'ativo', 'aceita_comunicacao', 'unsubscribe_token',
+                'ativo', 'aceita_comunicacao', 'token_descadastro',
                 'faltas_consecutivas', 'bloqueado_online',
             ),
         }),
         ('Consents granulares (LGPD)', {
             'fields': (
-                'consent_email_marketing', 'consent_email_marketing_at', 'consent_email_marketing_ip',
-                'consent_whatsapp_nps', 'consent_whatsapp_nps_at', 'consent_whatsapp_nps_ip',
+                'consent_email_marketing', 'consent_email_marketing_em', 'consent_email_marketing_ip',
+                'consent_whatsapp_nps', 'consent_whatsapp_nps_em', 'consent_whatsapp_nps_ip',
             ),
         }),
         ('Metadados', {
@@ -211,12 +211,12 @@ class ProntuarioRespostaAdmin(admin.ModelAdmin):
 
 @admin.register(AnotacaoSessao)
 class AnotacaoSessaoAdmin(admin.ModelAdmin):
-    list_display = ('atendimento', 'usuario', 'criado_em')
+    list_display = ('atendimento', 'autor', 'criado_em')
     search_fields = ('atendimento__cliente__nome_completo', 'texto')
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
-    autocomplete_fields = ('atendimento', 'usuario')
-    list_select_related = ('atendimento', 'atendimento__cliente', 'usuario')
+    autocomplete_fields = ('atendimento', 'autor')
+    list_select_related = ('atendimento', 'atendimento__cliente', 'autor')
 
 
 # =====================================================================
@@ -260,7 +260,7 @@ class AssinaturaTermoProcedimentoAdmin(admin.ModelAdmin):
 class NotificacaoInline(admin.TabularInline):
     model = Notificacao
     extra = 0
-    readonly_fields = ('tipo', 'canal', 'status_envio', 'resposta_cliente', 'enviado_em', 'criado_em')
+    readonly_fields = ('tipo', 'canal', 'status', 'resposta', 'enviado_em', 'criado_em')
     can_delete = False
 
 
@@ -311,8 +311,8 @@ class AtendimentoAdmin(admin.ModelAdmin):
 
 @admin.register(Notificacao)
 class NotificacaoAdmin(admin.ModelAdmin):
-    list_display = ('atendimento', 'tipo', 'canal', 'status_envio', 'resposta_cliente', 'enviado_em', 'criado_em')
-    list_filter = ('tipo', 'canal', 'status_envio', 'resposta_cliente')
+    list_display = ('atendimento', 'tipo', 'canal', 'status', 'resposta', 'enviado_em', 'criado_em')
+    list_filter = ('tipo', 'canal', 'status', 'resposta')
     search_fields = ('atendimento__cliente__nome_completo', 'mensagem')
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
@@ -431,13 +431,13 @@ class UltimosDiasFilter(admin.SimpleListFilter):
 
 @admin.register(LogAuditoria)
 class LogAuditoriaAdmin(admin.ModelAdmin):
-    list_display = ('criado_em', 'usuario', 'acao', 'tabela_afetada', 'id_registro_afetado', 'ip_origem')
-    list_filter = ('tabela_afetada', UltimosDiasFilter)
-    search_fields = ('acao', 'usuario__email', 'tabela_afetada')
+    list_display = ('criado_em', 'usuario', 'acao', 'tabela', 'registro_id', 'ip_origem')
+    list_filter = ('tabela', UltimosDiasFilter)
+    search_fields = ('acao', 'usuario__email', 'tabela')
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
     readonly_fields = (
-        'usuario', 'acao', 'tabela_afetada', 'id_registro_afetado',
+        'usuario', 'acao', 'tabela', 'registro_id',
         'detalhes', 'ip_origem', 'criado_em',
     )
     list_select_related = ('usuario',)

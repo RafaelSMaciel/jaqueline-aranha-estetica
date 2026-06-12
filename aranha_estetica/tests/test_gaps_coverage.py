@@ -28,11 +28,11 @@ class LgpdUnsubscribeTests(TestCase):
         self.cliente = criar_cliente(telefone='17911112222')
         self.cliente.consent_email_marketing = True
         self.cliente.save()
-        # unsubscribe_token gerado no save() via signal/save override
+        # token_descadastro gerado no save() via signal/save override
         self.cliente.refresh_from_db()
 
     def test_unsubscribe_valido_marca_optout(self):
-        token = self.cliente.unsubscribe_token
+        token = self.cliente.token_descadastro
         self.assertTrue(token)
         resp = self.client.get(reverse('aranha:lgpd_unsubscribe', args=[token]))
         self.assertEqual(resp.status_code, 200)
@@ -57,7 +57,7 @@ class NpsExpiryTests(TestCase):
         self.atd = criar_atendimento(cli, prof, proc, status='REALIZADO')
         self.notif = Notificacao.objects.create(
             atendimento=self.atd, tipo='NPS', canal='WHATSAPP',
-            status_envio='ENVIADO', token='tok-nps-expiry',
+            status='ENVIADO', token='tok-nps-expiry',
         )
 
     def test_nps_dentro_prazo_ok(self):
