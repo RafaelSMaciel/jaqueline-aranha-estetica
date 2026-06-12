@@ -20,7 +20,7 @@ naming PT-BR singular consistente, zero tabela morta/solta.
 | Dinheiro | DecimalField(10,2) |
 | Status | CharField + choices + CHECK no banco + FSM na aplicacao |
 | IP | GenericIPAddressField sempre |
-| Telefone | E.164 canonico + CHECK regex + UNIQUE parcial |
+| Telefone | canonico digits-only nacional (10-11) + CHECK regex + UNIQUE parcial; DDI na borda de envio |
 | Questionario | JSONB unico (FormularioAnamnese); EAV morto |
 | OTP | sistema unico hasheado (`codigo_otp`); CodigoVerificacao morto |
 | RBAC | `usuario.papel` CharField choices; Perfil/Funcionalidade mortos |
@@ -113,7 +113,8 @@ naming PT-BR singular consistente, zero tabela morta/solta.
 | 2a | Renames de coluna (15 campos) | baixo | ✅ 0031 |
 | 2b | Renames de tabela/modelo (8 tabelas + 2 FKs) | medio | ✅ 0032 |
 | 2c | cliente.nome_completo -> nome | medio | ✅ 0033 |
-| 3 | Constraints novas + normalizacao telefone E.164 + dedup | medio | pendente |
-| 4 | periodo range + ExclusionConstraint + btree_gist | medio-alto | pendente |
-| 5 | EAV → JSONB prontuario | baixo | pendente |
-| 6 | Unificacoes (agenda 3→2, aceites 2→1) + triggers + collation + comments | medio | pendente |
+| 3 | Constraints novas + telefone canonico digits-only + dedup | medio | ✅ 0034 |
+| 4 | ExclusionConstraint via expressao tstzrange + btree_gist (decisao: sem campo range — zero query muda) | medio | ✅ 0035 |
+| 5 | EAV → JSONB prontuario | baixo | ✅ 0036 |
+| 6.2-6.5 | Aceites 2→1 + trigger ledger + collation + comments | medio | ✅ 0037/0038 |
+| 7 (ex-6.1) | Agenda 3→2 (AgendaHorario + AgendaExcecao) | medio-alto | pendente — PR dedicada (mexe no calculo de slots) |
