@@ -19,7 +19,6 @@ from .pacotes import Pacote, ItemPacote, PacoteCliente, SessaoPacote
 from .sistema import (
     ListaEspera, LogAuditoria, ConfiguracaoSistema, OtpCode, Feriado,
 )
-from .workflow import WorkflowRegra, WorkflowExecucao
 from .push import WebPushSubscription
 from .anamnese import FormularioAnamnese, RespostaAnamnese
 from .extras import (
@@ -39,7 +38,6 @@ __all__ = [
     'Pacote', 'ItemPacote', 'PacoteCliente', 'SessaoPacote',
     'ListaEspera', 'LogAuditoria', 'ConfiguracaoSistema', 'OtpCode',
     'Feriado',
-    'WorkflowRegra', 'WorkflowExecucao',
     'WebPushSubscription',
     'FormularioAnamnese', 'RespostaAnamnese',
     # extras (financeiro auxiliar)

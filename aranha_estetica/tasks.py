@@ -20,22 +20,8 @@ logger = logging.getLogger(__name__)
 CLINIC_NAME = os.environ.get('CLINIC_NAME', 'Jaqueline Aranha Estética')
 
 
-# ═══════════════════════════════════════
-#  WORKFLOW ENGINE — regras dinamicas BEFORE/AFTER_EVENT
-# ═══════════════════════════════════════
-
-@shared_task(bind=True, max_retries=2, default_retry_delay=120)
-def job_workflow_executar_pendentes(self):
-    """Executa regras BEFORE_EVENT / AFTER_EVENT elegiveis."""
-    try:
-        from .services.workflow_engine import executar_pendentes
-        resultado = executar_pendentes()
-        total = sum(resultado.values())
-        logger.info('workflow_pendentes_executado', extra={'total': total, 'por_regra': resultado})
-        return f'{total} acao(es) disparada(s)'
-    except Exception as e:
-        logger.exception('workflow_pendentes_erro')
-        raise self.retry(exc=e) from e
+# Workflow engine removido na remodelagem v2.1 fase 1d — regras configuraveis
+# por UI eram over-engineering p/ 1 clinica; reacoes vivem em services/handlers.
 
 
 # ═══════════════════════════════════════
@@ -499,21 +485,4 @@ def job_lgpd_purgar_inativos(self):
         raise self.retry(exc=exc) from exc
 
 
-# ═══════════════════════════════════════
-#  WEBHOOK DISPATCH (workflow_engine)
-# ═══════════════════════════════════════
-
-@shared_task(bind=True, max_retries=3, default_retry_delay=60)
-def dispatch_webhook(self, url: str, payload: dict):
-    """Dispara HTTP POST p/ webhook configurado em WorkflowRegra.
-
-    Async + retry com backoff p/ nao travar Celery Beat tick.
-    """
-    import requests
-    try:
-        resp = requests.post(url, json=payload, timeout=10)
-        resp.raise_for_status()
-        return f'http {resp.status_code}'
-    except requests.RequestException as exc:
-        logger.warning('webhook_falhou', extra={'url': url, 'error': str(exc)})
-        raise self.retry(exc=exc) from exc
+# dispatch_webhook removido junto com o workflow engine (unico caller).

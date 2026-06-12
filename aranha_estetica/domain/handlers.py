@@ -35,16 +35,6 @@ def notificar_admin_novo_agendamento(event: AtendimentoCriado) -> None:
     # via webpush + email — handler fica leve, async.
 
 
-@EventBus.subscribe(AtendimentoCriado)
-def avaliar_workflows_agendamento(event: AtendimentoCriado) -> None:
-    """Dispara workflow_engine.disparar_evento('ON_BOOK')."""
-    logger.info(
-        'handler_workflow_on_book',
-        extra={'atendimento_id': event.atendimento_id},
-    )
-    # Pluga futuro: from ..services.workflow_engine import disparar_evento
-
-
 # ─── Atendimento realizado ───────────────────────────────────────────
 @EventBus.subscribe(AtendimentoRealizado)
 def consumir_sessao_pacote(event: AtendimentoRealizado) -> None:

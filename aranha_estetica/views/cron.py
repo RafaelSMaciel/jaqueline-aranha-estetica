@@ -21,7 +21,6 @@ JOB_MAP = {
     'aniversario': tasks.job_aniversario_clientes,
     'limpeza_status': tasks.job_limpeza_status_atendimentos,
     'lgpd_purgar': tasks.job_lgpd_purgar_inativos,
-    'workflow_pendentes': tasks.job_workflow_executar_pendentes,
 }
 
 
