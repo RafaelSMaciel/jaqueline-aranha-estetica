@@ -115,3 +115,11 @@ class ConsumoSessao(models.Model):
         indexes = [
             models.Index(fields=['compra_pacote'], name='idx_sessao_pct_cli'),
         ]
+        constraints = [
+            # 1 atendimento consome no maximo 1 sessao de pacote
+            models.UniqueConstraint(
+                fields=['atendimento'],
+                condition=models.Q(atendimento__isnull=False),
+                name='uniq_consumo_por_atendimento',
+            ),
+        ]

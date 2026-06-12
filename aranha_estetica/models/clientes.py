@@ -3,8 +3,11 @@ import secrets
 from django.db import models
 from django.core.validators import MinValueValidator
 
+from django.db.models.functions import Lower
+
 from aranha_estetica.validators import (
     validate_cpf, validate_telefone_br, validate_data_nascimento,
+    normalizar_telefone, normalizar_cpf,
 )
 
 
@@ -20,8 +23,10 @@ class Cliente(models.Model):
     data_nascimento = models.DateField(
         blank=True, null=True, validators=[validate_data_nascimento],
     )
+    # unique global removido — uniq_cliente_cpf_ativo (parcial) permite
+    # re-cadastro pos soft-delete; max 11 (digits-only canonico)
     cpf = models.CharField(
-        max_length=14, unique=True, blank=True, null=True, validators=[validate_cpf],
+        max_length=11, blank=True, null=True, validators=[validate_cpf],
     )
     rg = models.CharField(max_length=20, blank=True, null=True)
     profissao = models.CharField(max_length=100, blank=True, null=True)
@@ -81,12 +86,24 @@ class Cliente(models.Model):
             # idx_cliente_email removido — uniq_cliente_email_ativo ja indexa
         ]
         constraints = [
-            # UNIQUE parcial: email duplicado proibido entre clientes ativos
-            # (permite re-cadastro apos soft-delete e null para clientes sem email)
+            # UNIQUE parcial case-insensitive: email duplicado proibido entre ativos
+            # (Lower() — maria@X.com == MARIA@x.com; null/'' permitidos)
             models.UniqueConstraint(
-                fields=['email'],
+                Lower('email'),
                 condition=models.Q(deletado_em__isnull=True) & ~models.Q(email__isnull=True) & ~models.Q(email=''),
                 name='uniq_cliente_email_ativo',
+            ),
+            # CHAVE NATURAL do booking publico: 1 cliente ativo por telefone
+            models.UniqueConstraint(
+                fields=['telefone'],
+                condition=models.Q(deletado_em__isnull=True) & ~models.Q(telefone__isnull=True) & ~models.Q(telefone=''),
+                name='uniq_cliente_telefone_ativo',
+            ),
+            # CPF unico entre ativos
+            models.UniqueConstraint(
+                fields=['cpf'],
+                condition=models.Q(deletado_em__isnull=True) & ~models.Q(cpf__isnull=True) & ~models.Q(cpf=''),
+                name='uniq_cliente_cpf_ativo',
             ),
             models.CheckConstraint(
                 check=~models.Q(indicado_por_id=models.F('id')),
@@ -98,6 +115,12 @@ class Cliente(models.Model):
         return self.nome
 
     def save(self, *args, **kwargs):
+        # Forma canonica de identidade (remodelagem v2.1 fase 3) — telefone e
+        # cpf sempre digits-only; lookups das views comparam normalizado.
+        if self.telefone:
+            self.telefone = normalizar_telefone(self.telefone)
+        if self.cpf:
+            self.cpf = normalizar_cpf(self.cpf)
         if not self.token_descadastro:
             self.token_descadastro = secrets.token_urlsafe(32)
         if not self.codigo_indicacao:

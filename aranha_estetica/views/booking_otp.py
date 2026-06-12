@@ -34,11 +34,12 @@ def solicitar_otp_agendamento(request):
     if not telefone:
         return JsonResponse({'ok': False, 'erro': 'telefone_ausente'}, status=400)
 
-    # Se telefone ja existe na base, recupera email cadastrado p/ identificar cliente
-    digitos = ''.join(c for c in telefone if c.isdigit())
+    # Lookup por forma canonica (digits-only) — telefone e normalizado no save()
+    from ..validators import normalizar_telefone
+    digitos = normalizar_telefone(telefone)
     cliente_existente = (
-        Cliente.objects.filter(telefone__contains=digitos[-9:], ativo=True).first()
-        if len(digitos) >= 9 else None
+        Cliente.objects.filter(telefone=digitos, ativo=True).first()
+        if len(digitos) >= 10 else None
     )
     if cliente_existente and not email:
         email = (cliente_existente.email or '').lower()

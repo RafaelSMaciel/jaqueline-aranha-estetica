@@ -22,7 +22,8 @@ def meus_dados(request):
     if request.method == 'GET':
         return render(request, 'publico/lgpd_meus_dados.html', {})
 
-    telefone = (request.POST.get('telefone') or '').strip()
+    from ..validators import normalizar_telefone
+    telefone = normalizar_telefone(request.POST.get('telefone') or '')
     codigo = (request.POST.get('codigo') or '').strip()
 
     if not telefone:

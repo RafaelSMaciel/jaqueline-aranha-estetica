@@ -125,7 +125,8 @@ def confirmar_agendamento(request):
             return redirect('aranha:agendamento_publico')
 
     nome = request.POST.get('nome', '').strip()
-    telefone = request.POST.get('telefone', '').strip()
+    from ..validators import normalizar_telefone
+    telefone = normalizar_telefone(request.POST.get('telefone', ''))
     data_nascimento_str = request.POST.get('data_nascimento', '').strip()
     email = request.POST.get('email', '').strip() or None
     procedimento_id = request.POST.get('procedimento')

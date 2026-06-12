@@ -37,7 +37,13 @@ class ListaEspera(models.Model):
                     models.Q(turno_desejado__in=['MANHA', 'TARDE', 'NOITE'])
                 ),
                 name='chk_lista_espera_turno'
-            )
+            ),
+            # cliente nao entra 2x na mesma fila enquanto nao notificado
+            models.UniqueConstraint(
+                fields=['cliente', 'procedimento', 'data_desejada'],
+                condition=models.Q(notificado=False),
+                name='uniq_espera_ativa',
+            ),
         ]
         indexes = [
             models.Index(fields=['cliente'], name='idx_espera_cliente'),
@@ -159,6 +165,12 @@ class CodigoOtp(models.Model):
     class Meta:
         managed = True
         db_table = 'codigo_otp'
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(tentativas__lte=10),
+                name='chk_otp_tentativas_teto',
+            ),
+        ]
         indexes = [
             models.Index(fields=['email', '-criado_em'], name='idx_otp_email_data'),
             models.Index(fields=['proposito', '-criado_em'], name='idx_otp_prop_data'),

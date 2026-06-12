@@ -48,7 +48,13 @@ def criar_procedimento(nome='Limpeza de Pele', duracao=30, categoria='FACIAL',
     return proc
 
 
-def criar_cliente(nome='Maria Silva', telefone='17999990000', **kwargs):
+_seq_telefone = iter(range(100000))
+
+
+def criar_cliente(nome='Maria Silva', telefone=None, **kwargs):
+    # telefone unico por chamada — uniq_cliente_telefone_ativo (fase 3)
+    if telefone is None:
+        telefone = f'179{90000 + next(_seq_telefone):08d}'
     return Cliente.objects.create(
         nome=nome,
         telefone=telefone,

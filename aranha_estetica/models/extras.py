@@ -21,7 +21,11 @@ from .profissionais import Profissional
 # ═══════════════════════════════════════
 
 class Carteira(TimestampedMixin):
-    """Saldo do cliente (vale presente, credito de cancelamento, refund)."""
+    """Saldo do cliente (vale presente, credito de cancelamento, refund).
+
+    REGRA: toda mutacao de saldo exige select_for_update() + transaction.atomic.
+    O CHECK abaixo pega qualquer lost-update que escapar do lock.
+    """
     cliente = models.OneToOneField(Cliente, on_delete=models.CASCADE, related_name='carteira')
     saldo = models.DecimalField(
         max_digits=10, decimal_places=2, default=Decimal('0'),
@@ -30,6 +34,12 @@ class Carteira(TimestampedMixin):
     class Meta:
         managed = True
         db_table = 'carteira'
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(saldo__gte=0),
+                name='chk_carteira_saldo_nao_negativo',
+            ),
+        ]
 
     def __str__(self):
         return f'Credito {self.cliente.nome}: R$ {self.saldo}'

@@ -123,6 +123,16 @@ class Preco(models.Model):
                 check=models.Q(valor__gte=0),
                 name='chk_preco_valor_positivo'
             ),
+            # 1 preco por vigencia: par com profissional e, separado, preco-base (NULL)
+            models.UniqueConstraint(
+                fields=['procedimento', 'profissional', 'vigente_desde'],
+                name='uniq_preco_vigencia',
+            ),
+            models.UniqueConstraint(
+                fields=['procedimento', 'vigente_desde'],
+                condition=models.Q(profissional__isnull=True),
+                name='uniq_preco_base_vigencia',
+            ),
         ]
 
 
@@ -149,6 +159,19 @@ class Promocao(models.Model):
             models.CheckConstraint(
                 check=models.Q(data_fim__gte=models.F('data_inicio')),
                 name='chk_promocao_data_fim_valida'
+            ),
+            models.CheckConstraint(
+                check=models.Q(desconto_percentual__gte=0) & models.Q(desconto_percentual__lte=100),
+                name='chk_promocao_desconto_0_100',
+            ),
+            models.CheckConstraint(
+                check=models.Q(preco_promocional__isnull=True) | models.Q(preco_promocional__gte=0),
+                name='chk_promocao_preco_positivo',
+            ),
+            # XOR: desconto OU preco fixo, nunca ambos (ambiguidade de qual vale)
+            models.CheckConstraint(
+                check=~(models.Q(desconto_percentual__gt=0) & models.Q(preco_promocional__isnull=False)),
+                name='chk_promocao_desconto_xor_preco',
             ),
         ]
 

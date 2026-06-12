@@ -67,3 +67,19 @@ def validate_valor_positivo(value) -> None:
         return
     if value < 0:
         raise ValidationError(_("Valor nao pode ser negativo."), code="negative_value")
+
+
+def normalizar_telefone(value: str) -> str:
+    """Forma canonica de telefone BR: somente digitos (10-11, DDD+numero).
+
+    Remodelagem v2.1 fase 3: telefone e chave natural do booking publico —
+    toda escrita passa por aqui (Cliente.save) e todo lookup compara o
+    valor normalizado. DDI (+55) e responsabilidade da borda de envio
+    (utils/sms, utils/whatsapp), nao do armazenamento.
+    """
+    return _clean_digits(value or '')
+
+
+def normalizar_cpf(value: str) -> str:
+    """Forma canonica de CPF: somente 11 digitos (sem mascara)."""
+    return _clean_digits(value or '')

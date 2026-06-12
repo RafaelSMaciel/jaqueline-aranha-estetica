@@ -210,7 +210,8 @@ def verificar_telefone(request):
 
         data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
         action = data.get('action', '')
-        telefone = data.get('telefone', '').strip()
+        from ..validators import normalizar_telefone
+        telefone = normalizar_telefone(data.get('telefone', ''))
 
         if not telefone:
             return JsonResponse({'error': 'Telefone obrigatório'}, status=400)

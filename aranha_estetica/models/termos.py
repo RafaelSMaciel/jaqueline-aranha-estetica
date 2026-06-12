@@ -29,7 +29,18 @@ class VersaoTermo(models.Model):
             models.CheckConstraint(
                 check=models.Q(tipo__in=['LGPD', 'PROCEDIMENTO']),
                 name='chk_versao_termo_tipo'
-            )
+            ),
+            # so 1 versao ativa por escopo (tipo+procedimento; LGPD = procedimento NULL)
+            models.UniqueConstraint(
+                fields=['tipo', 'procedimento'],
+                condition=models.Q(ativa=True),
+                name='uniq_termo_ativo_por_escopo',
+            ),
+            models.UniqueConstraint(
+                fields=['tipo'],
+                condition=models.Q(ativa=True) & models.Q(procedimento__isnull=True),
+                name='uniq_termo_ativo_global',
+            ),
         ]
 
 
