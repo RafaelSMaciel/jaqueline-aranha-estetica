@@ -110,7 +110,9 @@ naming PT-BR singular consistente, zero tabela morta/solta.
 | 1b | Migrar CodigoVerificacao → OtpCode, dropar legado | baixo | ✅ 10ee424 |
 | 1c | RBAC → usuario.papel; dropar perfil/funcionalidade | medio | ✅ be3f2f8 |
 | 1d | Remover workflow engine (defer) | medio | ✅ fc6ac04 |
-| 2 | Renames de tabelas e colunas | baixo-medio | pendente |
+| 2a | Renames de coluna (15 campos) | baixo | ✅ 0031 |
+| 2b | Renames de tabela/modelo (8 tabelas + 2 FKs) | medio | ✅ 0032 |
+| 2c | cliente.nome_completo -> nome | medio | ✅ 0033 |
 | 3 | Constraints novas + normalizacao telefone E.164 + dedup | medio | pendente |
 | 4 | periodo range + ExclusionConstraint + btree_gist | medio-alto | pendente |
 | 5 | EAV → JSONB prontuario | baixo | pendente |
