@@ -351,7 +351,25 @@ def confirmar_agendamento(request):
 
         return redirect('aranha:agendamento_sucesso')
 
-    except (DatabaseError, IntegrityError) as exc:
+    except IntegrityError as exc:
+        # excl_atendimento_sobreposicao (Postgres EXCLUDE) = corrida perdida:
+        # outro request reservou janela sobreposta entre o check e o INSERT.
+        if 'excl_atendimento_sobreposicao' in str(exc):
+            logger.info('booking_slot_corrida_perdida', extra={'telefone': mask_telefone(telefone)})
+            messages.error(request, 'Este horário acabou de ser reservado. Por favor, escolha outro.')
+            return redirect('aranha:agendamento_publico')
+        logger.error(
+            'booking_confirmar_falha',
+            extra={
+                'erro': str(exc),
+                'email': mask_email(email) if email else None,
+                'telefone': mask_telefone(telefone),
+            },
+            exc_info=True,
+        )
+        messages.error(request, 'Ocorreu um erro ao confirmar o agendamento. Tente novamente.')
+        return redirect('aranha:agendamento_publico')
+    except DatabaseError as exc:
         logger.error(
             'booking_confirmar_falha',
             extra={

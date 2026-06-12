@@ -57,19 +57,29 @@ class RetornoService:
         sugerida = janela_inicio + (janela_fim - janela_inicio) / 2
         duracao = proc.duracao_retorno_minutos or 30
 
-        retorno = Atendimento.objects.create(
-            cliente=atendimento_origem.cliente,
-            profissional=atendimento_origem.profissional,
-            procedimento=proc,
-            data_hora_inicio=sugerida,
-            data_hora_fim=sugerida + timedelta(minutes=duracao),
-            valor_cobrado=0,
-            valor_original=0,
-            descricao_preco='Retorno obrigatorio (sem cobranca)',
-            status=Atendimento.STATUS_PENDENTE,
-            eh_retorno=True,
-            atendimento_origem=atendimento_origem,
-        )
+        from django.db import IntegrityError
+        try:
+            retorno = Atendimento.objects.create(
+                cliente=atendimento_origem.cliente,
+                profissional=atendimento_origem.profissional,
+                procedimento=proc,
+                data_hora_inicio=sugerida,
+                data_hora_fim=sugerida + timedelta(minutes=duracao),
+                valor_cobrado=0,
+                valor_original=0,
+                descricao_preco='Retorno obrigatorio (sem cobranca)',
+                status=Atendimento.STATUS_PENDENTE,
+                eh_retorno=True,
+                atendimento_origem=atendimento_origem,
+            )
+        except IntegrityError:
+            # excl_atendimento_sobreposicao: slot sugerido ja ocupado.
+            # Best-effort — recepcao agenda o retorno manualmente.
+            logger.warning(
+                'retorno_slot_sugerido_ocupado',
+                extra={'atendimento_origem_id': atendimento_origem.pk},
+            )
+            return None
 
         transaction.on_commit(lambda: EventBus.publish(RetornoSugerido(
             occurred_at=timezone.now(),

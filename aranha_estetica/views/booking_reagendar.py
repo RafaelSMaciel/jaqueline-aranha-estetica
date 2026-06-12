@@ -149,6 +149,13 @@ def reagendar_agendamento(request, token):
                 messages.error(request, 'Este horario acabou de ser reservado. Escolha outro.')
                 return redirect('aranha:reagendar_agendamento', token=token)
 
+            # Antigo sai da agenda ANTES do novo entrar — senao a
+            # excl_atendimento_sobreposicao (Postgres) bloqueia mover o
+            # horario p/ janela que sobrepoe o proprio slot antigo.
+            # Rollback do atomic restaura tudo se o INSERT falhar.
+            antigo.status = 'REAGENDADO'
+            antigo.save()
+
             novo = Atendimento.objects.create(
                 cliente=antigo.cliente,
                 profissional=profissional,
@@ -163,9 +170,6 @@ def reagendar_agendamento(request, token):
                 status='AGENDADO',
             )
 
-            antigo.status = 'REAGENDADO'
-            antigo.save()
-
         data_fmt = nova_data.strftime('%d/%m/%Y as %H:%M')
         request.session['agendamento_sucesso'] = {
             'nome': antigo.cliente.nome,
@@ -178,7 +182,18 @@ def reagendar_agendamento(request, token):
         }
         return redirect('aranha:agendamento_sucesso')
 
-    except (DatabaseError, IntegrityError) as exc:
+    except IntegrityError as exc:
+        if 'excl_atendimento_sobreposicao' in str(exc):
+            messages.error(request, 'Este horario acabou de ser reservado. Escolha outro.')
+            return redirect('aranha:reagendar_agendamento', token=token)
+        logger.error(
+            'reagendamento_falha',
+            extra={'atendimento_id': atendimento.pk, 'erro': str(exc)},
+            exc_info=True,
+        )
+        messages.error(request, 'Ocorreu um erro ao reagendar. Tente novamente.')
+        return redirect('aranha:reagendar_agendamento', token=token)
+    except DatabaseError as exc:
         logger.error(
             'reagendamento_falha',
             extra={'atendimento_id': atendimento.pk, 'erro': str(exc)},
