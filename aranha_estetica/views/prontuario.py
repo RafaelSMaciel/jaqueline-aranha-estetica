@@ -15,11 +15,28 @@ from ..models import (
     Atendimento,
     Cliente,
     Prontuario,
-    ProntuarioPergunta,
-    ProntuarioResposta,
 )
 from ..utils.audit import registrar_log
 from ..utils.security import client_ip
+
+
+def _perguntas_configuradas():
+    """Schema do questionario do prontuario — lista [{chave, texto, tipo}].
+
+    Vive em Configuracao chave='prontuario_perguntas' (JSON). tipo:
+    'TEXTO' | 'BOOLEAN'. Substitui o EAV (remodelagem v2.1 fase 5).
+    """
+    import json as _json
+    from ..models import Configuracao
+    cfg = Configuracao.objects.filter(chave='prontuario_perguntas').first()
+    if not cfg or not cfg.valor:
+        return []
+    try:
+        perguntas = _json.loads(cfg.valor)
+        return perguntas if isinstance(perguntas, list) else []
+    except ValueError:
+        logger.warning('prontuario_perguntas_json_invalido')
+        return []
 
 logger = logging.getLogger(__name__)
 
@@ -68,13 +85,8 @@ def prontuario_detalhe(request, cliente_id):
     """Detalhe do prontuario de um cliente com formulario de anamnese."""
     cliente = get_object_or_404(Cliente, pk=cliente_id)
     prontuario, created = Prontuario.objects.get_or_create(cliente=cliente)
-    perguntas = ProntuarioPergunta.objects.filter(ativa=True)
-
-    # Respostas existentes
-    respostas = {
-        r.pergunta_id: r
-        for r in ProntuarioResposta.objects.filter(prontuario=prontuario)
-    }
+    perguntas = _perguntas_configuradas()
+    respostas = prontuario.respostas_extras or {}
 
     # Historico de atendimentos com anotacoes
     atendimentos = Atendimento.objects.filter(
@@ -121,17 +133,20 @@ def prontuario_salvar(request, cliente_id):
     prontuario.observacoes_gerais = request.POST.get('observacoes_gerais', '').strip()
     prontuario.save()
 
-    # Respostas do questionario
-    perguntas = ProntuarioPergunta.objects.filter(ativa=True)
-    for pergunta in perguntas:
-        resp, _ = ProntuarioResposta.objects.get_or_create(
-            prontuario=prontuario, pergunta=pergunta
-        )
-        if pergunta.tipo_resposta == 'BOOLEAN':
-            resp.resposta_boolean = request.POST.get(f'pergunta_{pergunta.pk}') == 'sim'
+    # Respostas do questionario configuravel -> JSONB
+    respostas = dict(prontuario.respostas_extras or {})
+    for pergunta in _perguntas_configuradas():
+        chave = pergunta.get('chave')
+        if not chave:
+            continue
+        valor = request.POST.get(f'pergunta_{chave}')
+        if pergunta.get('tipo') == 'BOOLEAN':
+            if valor in ('sim', 'nao'):
+                respostas[chave] = (valor == 'sim')
         else:
-            resp.resposta_texto = request.POST.get(f'pergunta_{pergunta.pk}', '').strip()
-        resp.save()
+            respostas[chave] = (valor or '').strip()
+    prontuario.respostas_extras = respostas
+    prontuario.save(update_fields=['respostas_extras'])
 
     registrar_log(request.user, f'Atualizou prontuario de {cliente.nome}', 'prontuario', prontuario.pk)
     messages.success(request, 'Prontuario atualizado com sucesso!')

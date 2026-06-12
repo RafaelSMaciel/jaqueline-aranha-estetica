@@ -14,7 +14,6 @@ from ..models import (
     Cliente,
     LogAuditoria,
     Prontuario,
-    ProntuarioPergunta,
 )
 from ..utils.audit import registrar_log
 
@@ -36,7 +35,6 @@ def prontuario_consentimento(request):
 
     clientes = clientes.annotate(
         tem_prontuario=Exists(Prontuario.objects.filter(cliente=OuterRef('pk'))),
-        total_respostas=Count('prontuario__prontuarioresposta', distinct=True),
         total_termos=Count('aceiteprivacidade', distinct=True),
     )
 
@@ -48,19 +46,19 @@ def prontuario_consentimento(request):
         {
             'cliente': c,
             'tem_prontuario': c.tem_prontuario,
-            'total_respostas': c.total_respostas,
             'total_termos': c.total_termos,
         }
         for c in clientes_page
     ]
 
-    perguntas = ProntuarioPergunta.objects.filter(ativa=True)
+    from .prontuario import _perguntas_configuradas
+    perguntas = _perguntas_configuradas()
 
     context = {
         'clientes_list': clientes_list,
         'clientes_page': clientes_page,
         'perguntas': perguntas,
-        'total_perguntas': perguntas.count(),
+        'total_perguntas': len(perguntas),
         'search': search,
     }
     return render(request, 'painel/prontuario.html', context)

@@ -10,9 +10,7 @@ from .procedimentos import (
     Procedimento, Habilitacao, Preco, Promocao,
 )
 from .agendamentos import Atendimento, Notificacao
-from .prontuario import (
-    Prontuario, ProntuarioPergunta, ProntuarioResposta, AnotacaoSessao,
-)
+from .prontuario import Prontuario, AnotacaoSessao
 from .termos import VersaoTermo, AceitePrivacidade, AssinaturaTermoProcedimento
 from .nps import AvaliacaoNPS
 from .pacotes import Pacote, ItemPacote, CompraPacote, ConsumoSessao
@@ -32,7 +30,7 @@ __all__ = [
     'Cliente',
     'Procedimento', 'Habilitacao', 'Preco', 'Promocao',
     'Atendimento', 'Notificacao',
-    'Prontuario', 'ProntuarioPergunta', 'ProntuarioResposta', 'AnotacaoSessao',
+    'Prontuario', 'AnotacaoSessao',
     'VersaoTermo', 'AceitePrivacidade', 'AssinaturaTermoProcedimento',
     'AvaliacaoNPS',
     'Pacote', 'ItemPacote', 'CompraPacote', 'ConsumoSessao',

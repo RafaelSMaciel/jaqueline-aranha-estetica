@@ -103,7 +103,7 @@
                     <tr>
                         <td>{{ forloop.counter }}</td>
                         <td>{{ p.texto }}</td>
-                        <td><span class="admin-badge admin-badge-blue">{{ p.tipo_resposta }}</span></td>
+                        <td><span class="admin-badge admin-badge-blue">{{ p.tipo }}</span></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -134,9 +134,6 @@
                 <span class="admin-badge admin-badge-green">Prontuario</span>
             {% else %}
                 <span class="admin-badge admin-badge-yellow">Sem prontuario</span>
-            {% endif %}
-            {% if item.total_respostas > 0 %}
-                <span class="admin-badge admin-badge-blue">{{ item.total_respostas }} respostas</span>
             {% endif %}
             {% if item.total_termos > 0 %}
                 <span class="admin-badge admin-badge-green">{{ item.total_termos }} termos</span>

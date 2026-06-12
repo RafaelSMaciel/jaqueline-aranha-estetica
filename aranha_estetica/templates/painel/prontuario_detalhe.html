@@ -1,4 +1,5 @@
 {% extends 'painel/base.html' %}
+{% load dict_extras %}
 
 {% block page_title %}Prontuario — {{ cliente.nome }}{% endblock %}
 {% block page_subtitle %}Ficha de anamnese, histórico e termos de consentimento{% endblock %}
@@ -72,29 +73,30 @@
                 <i class="fas fa-clipboard-list me-2" style="color:#2196F3;"></i>Questionario de Anamnese
             </h6>
             {% for pergunta in perguntas %}
+            {% with resposta=respostas|get_item:pergunta.chave %}
             <div class="mb-3">
                 <label class="form-label fw-bold small">{{ pergunta.texto }}</label>
-                {% if pergunta.tipo_resposta == 'BOOLEAN' %}
+                {% if pergunta.tipo == 'BOOLEAN' %}
                     <div class="d-flex gap-3">
                         <div class="form-check">
-                            <input type="radio" name="pergunta_{{ pergunta.pk }}" value="sim"
-                                class="form-check-input" id="p{{ pergunta.pk }}_sim"
-                                {% if pergunta.pk in respostas and respostas|dictsort:"0" %}
-                                {% with resp=respostas %}{% endwith %}
-                                {% endif %}>
-                            <label class="form-check-label" for="p{{ pergunta.pk }}_sim">Sim</label>
+                            <input type="radio" name="pergunta_{{ pergunta.chave }}" value="sim"
+                                class="form-check-input" id="p{{ pergunta.chave }}_sim"
+                                {% if resposta is True %}checked{% endif %}>
+                            <label class="form-check-label" for="p{{ pergunta.chave }}_sim">Sim</label>
                         </div>
                         <div class="form-check">
-                            <input type="radio" name="pergunta_{{ pergunta.pk }}" value="nao"
-                                class="form-check-input" id="p{{ pergunta.pk }}_nao">
-                            <label class="form-check-label" for="p{{ pergunta.pk }}_nao">Não</label>
+                            <input type="radio" name="pergunta_{{ pergunta.chave }}" value="nao"
+                                class="form-check-input" id="p{{ pergunta.chave }}_nao"
+                                {% if resposta is False %}checked{% endif %}>
+                            <label class="form-check-label" for="p{{ pergunta.chave }}_nao">Não</label>
                         </div>
                     </div>
                 {% else %}
-                    <textarea name="pergunta_{{ pergunta.pk }}" class="form-control bg-light border-0"
-                        rows="2" placeholder="Resposta..."></textarea>
+                    <textarea name="pergunta_{{ pergunta.chave }}" class="form-control bg-light border-0"
+                        rows="2" placeholder="Resposta...">{{ resposta|default:"" }}</textarea>
                 {% endif %}
             </div>
+            {% endwith %}
             {% endfor %}
             {% endif %}
 

@@ -6,7 +6,7 @@ from .models import (
     Profissional, DisponibilidadeProfissional, BloqueioAgenda, Habilitacao,
     Procedimento, Preco, Promocao,
     Cliente,
-    Prontuario, ProntuarioPergunta, ProntuarioResposta, AnotacaoSessao,
+    Prontuario, AnotacaoSessao,
     VersaoTermo, AceitePrivacidade, AssinaturaTermoProcedimento,
     Atendimento, Notificacao,
     AvaliacaoNPS,
@@ -192,21 +192,6 @@ class ProntuarioAdmin(admin.ModelAdmin):
     ordering = ('-atualizado_em',)
     autocomplete_fields = ('cliente',)
     list_select_related = ('cliente',)
-
-
-@admin.register(ProntuarioPergunta)
-class ProntuarioPerguntaAdmin(admin.ModelAdmin):
-    list_display = ('texto', 'tipo_resposta', 'ativa')
-    list_filter = ('tipo_resposta', 'ativa')
-    search_fields = ('texto',)
-
-
-@admin.register(ProntuarioResposta)
-class ProntuarioRespostaAdmin(admin.ModelAdmin):
-    list_display = ('prontuario', 'pergunta', 'atualizado_em')
-    search_fields = ('prontuario__cliente__nome', 'pergunta__texto')
-    autocomplete_fields = ('prontuario', 'pergunta')
-    list_select_related = ('prontuario', 'pergunta', 'prontuario__cliente')
 
 
 @admin.register(AnotacaoSessao)
