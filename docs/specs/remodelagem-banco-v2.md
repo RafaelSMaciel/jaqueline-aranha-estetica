@@ -106,10 +106,10 @@ naming PT-BR singular consistente, zero tabela morta/solta.
 
 | Fase | Conteudo | Risco | Status |
 |---|---|---|---|
-| 1a | Cortar 8 extras mortas + indices redundantes | zero | em execucao |
-| 1b | Migrar CodigoVerificacao → OtpCode, dropar legado | baixo | pendente |
-| 1c | RBAC → usuario.papel; dropar perfil/funcionalidade | medio | pendente |
-| 1d | Remover workflow engine (defer) | medio | pendente |
+| 1a | Cortar 8 extras mortas + indices redundantes | zero | ✅ be89b5c |
+| 1b | Migrar CodigoVerificacao → OtpCode, dropar legado | baixo | ✅ 10ee424 |
+| 1c | RBAC → usuario.papel; dropar perfil/funcionalidade | medio | ✅ be3f2f8 |
+| 1d | Remover workflow engine (defer) | medio | ✅ fc6ac04 |
 | 2 | Renames de tabelas e colunas | baixo-medio | pendente |
 | 3 | Constraints novas + normalizacao telefone E.164 + dedup | medio | pendente |
 | 4 | periodo range + ExclusionConstraint + btree_gist | medio-alto | pendente |
