@@ -30,7 +30,7 @@ def admin_pacotes(request):
     context = {
         'pacotes': pacotes,
         'procedimentos': Procedimento.objects.filter(ativo=True),
-        'clientes_ativos': Cliente.objects.filter(ativo=True).order_by('nome_completo'),
+        'clientes_ativos': Cliente.objects.filter(ativo=True).order_by('nome'),
     }
     return render(request, 'painel/pacotes.html', context)
 
@@ -142,10 +142,10 @@ def admin_vender_pacote(request):
 
         registrar_log(
             request.user,
-            f'Vendeu pacote "{pacote.nome}" para {cliente.nome_completo}',
+            f'Vendeu pacote "{pacote.nome}" para {cliente.nome}',
             'compra_pacote', pc.pk,
         )
-        messages.success(request, f'Pacote vendido para {cliente.nome_completo}!')
+        messages.success(request, f'Pacote vendido para {cliente.nome}!')
     except Exception as e:
         logger.error(f'Erro ao vender pacote: {e}', exc_info=True)
         messages.error(request, 'Erro ao vender pacote.')

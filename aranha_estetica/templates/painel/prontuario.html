@@ -120,10 +120,10 @@
     {% for item in clientes_list %}
     <a href="{% url 'aranha:prontuario_detalhe' cliente_id=item.cliente.pk %}" class="admin-list-item text-decoration-none" style="color:inherit;">
         <div class="admin-list-avatar" style="background:{% if item.tem_prontuario %}rgba(76,175,80,0.1);color:#4CAF50{% else %}rgba(201,168,76,0.1);color:#7a5f1f{% endif %};">
-            {{ item.cliente.nome_completo|truncatechars:2 }}
+            {{ item.cliente.nome|truncatechars:2 }}
         </div>
         <div class="admin-list-info">
-            <div class="admin-list-title">{{ item.cliente.nome_completo }}</div>
+            <div class="admin-list-title">{{ item.cliente.nome }}</div>
             <div class="admin-list-meta">
                 {{ item.cliente.telefone|default:"Sem telefone" }}
                 {% if item.cliente.cpf %} &middot; {{ item.cliente.cpf }}{% endif %}

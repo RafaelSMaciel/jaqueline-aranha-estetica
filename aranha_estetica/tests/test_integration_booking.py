@@ -82,7 +82,7 @@ class IntegrationBookingFlowTests(TestCase):
         clientes = Cliente.objects.filter(telefone='17988881111')
         self.assertEqual(clientes.count(), 1, 'Exactly one client should exist')
         cliente = clientes.first()
-        self.assertEqual(cliente.nome_completo, 'Ana Integracao')
+        self.assertEqual(cliente.nome, 'Ana Integracao')
 
         # Atendimento was created with AGENDADO status
         atendimentos = Atendimento.objects.filter(cliente=cliente)
@@ -153,7 +153,7 @@ class IntegrationBookingFlowTests(TestCase):
 
         # The name was updated on the existing client (view updates name when different)
         existing.refresh_from_db()
-        self.assertEqual(existing.nome_completo, 'Nome Atualizado')
+        self.assertEqual(existing.nome, 'Nome Atualizado')
 
     # ------------------------------------------------------------------
     # 3. Past datetime is rejected

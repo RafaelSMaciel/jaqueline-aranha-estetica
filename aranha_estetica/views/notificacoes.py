@@ -37,7 +37,7 @@ def confirmar_presenca(request, token):
             notif.resposta = 'CONFIRMOU'
             notif.respondido_em = timezone.now()
             notif.save()
-            logger.info(f'Cliente {atendimento.cliente.nome_completo} CONFIRMOU agendamento #{atendimento.pk}')
+            logger.info(f'Cliente {atendimento.cliente.nome} CONFIRMOU agendamento #{atendimento.pk}')
 
         elif acao == 'cancelar':
             atendimento.status = 'CANCELADO'
@@ -45,7 +45,7 @@ def confirmar_presenca(request, token):
             notif.resposta = 'CANCELOU'
             notif.respondido_em = timezone.now()
             notif.save()
-            logger.info(f'Cliente {atendimento.cliente.nome_completo} CANCELOU agendamento #{atendimento.pk}')
+            logger.info(f'Cliente {atendimento.cliente.nome} CANCELOU agendamento #{atendimento.pk}')
 
     context = {
         'atendimento': atendimento,
@@ -113,7 +113,7 @@ def admin_cancelar_agendamento(request):
         if cliente.email:
             from ..tasks import send_email_async
             dados_cancel = {
-                'nome': cliente.nome_completo,
+                'nome': cliente.nome,
                 'procedimento': atendimento.procedimento.nome,
                 'data_hora': atendimento.data_hora_inicio.strftime('%d/%m/%Y as %H:%M'),
                 'profissional': atendimento.profissional.nome,
@@ -143,11 +143,11 @@ def admin_cancelar_agendamento(request):
             'Cancelou agendamento e notificou cliente',
             'atendimento',
             atendimento_id,
-            {'status_anterior': status_anterior, 'cliente': cliente.nome_completo, 'canal': canal}
+            {'status_anterior': status_anterior, 'cliente': cliente.nome, 'canal': canal}
         )
         messages.success(
             request,
-            f'Agendamento cancelado. Cliente {cliente.nome_completo} notificado via {canal}.'
+            f'Agendamento cancelado. Cliente {cliente.nome} notificado via {canal}.'
         )
 
     return redirect('aranha:painel_agendamentos')

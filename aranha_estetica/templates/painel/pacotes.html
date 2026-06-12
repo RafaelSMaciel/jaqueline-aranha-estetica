@@ -77,7 +77,7 @@
                         <select name="cliente_id" class="form-select bg-light border-0" required>
                             <option value="">Selecione...</option>
                             {% for c in clientes_ativos %}
-                            <option value="{{ c.pk }}">{{ c.nome_completo }}{% if c.telefone %} — {{ c.telefone }}{% endif %}</option>
+                            <option value="{{ c.pk }}">{{ c.nome }}{% if c.telefone %} — {{ c.telefone }}{% endif %}</option>
                             {% endfor %}
                         </select>
                     </div>

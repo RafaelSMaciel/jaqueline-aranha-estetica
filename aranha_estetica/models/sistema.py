@@ -45,7 +45,7 @@ class ListaEspera(models.Model):
         ]
 
     def __str__(self):
-        cliente_nome = self.cliente.nome_completo if self.cliente_id else 's/ cliente'
+        cliente_nome = self.cliente.nome if self.cliente_id else 's/ cliente'
         proc_nome = self.procedimento.nome if self.procedimento_id else 's/ procedimento'
         data = self.data_desejada.strftime('%d/%m/%Y') if self.data_desejada else 's/ data'
         return f'{cliente_nome} — {proc_nome} ({data})'

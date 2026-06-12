@@ -73,7 +73,7 @@ def ics_feed_profissional(request, slug):
         'X-WR-TIMEZONE:America/Sao_Paulo',
     ]
     for at in atendimentos:
-        cliente_nome = at.cliente.nome_completo if at.cliente_id else 'Paciente'
+        cliente_nome = at.cliente.nome if at.cliente_id else 'Paciente'
         proc_nome = at.procedimento.nome if at.procedimento_id else 'Atendimento'
         summary = f'{cliente_nome} - {proc_nome}'
         descricao = (

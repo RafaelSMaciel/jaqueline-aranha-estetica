@@ -16,7 +16,7 @@ class ClienteAtivosManager(models.Manager):
 
 
 class Cliente(models.Model):
-    nome_completo = models.CharField(max_length=150)
+    nome = models.CharField(max_length=150)
     data_nascimento = models.DateField(
         blank=True, null=True, validators=[validate_data_nascimento],
     )
@@ -77,7 +77,7 @@ class Cliente(models.Model):
         db_table = 'cliente'
         indexes = [
             models.Index(fields=['telefone'], name='idx_cliente_telefone'),
-            models.Index(fields=['nome_completo'], name='idx_cliente_nome'),
+            models.Index(fields=['nome'], name='idx_cliente_nome'),
             # idx_cliente_email removido — uniq_cliente_email_ativo ja indexa
         ]
         constraints = [
@@ -95,7 +95,7 @@ class Cliente(models.Model):
         ]
 
     def __str__(self):
-        return self.nome_completo
+        return self.nome
 
     def save(self, *args, **kwargs):
         if not self.token_descadastro:

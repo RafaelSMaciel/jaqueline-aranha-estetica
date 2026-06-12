@@ -186,7 +186,7 @@ def confirmar_agendamento(request):
             agora = timezone.now()
             ip_origem = _client_ip(request)
             defaults = {
-                'nome_completo': nome,
+                'nome': nome,
                 'data_nascimento': data_nascimento,
                 'email': email,
                 'ativo': True,
@@ -216,8 +216,8 @@ def confirmar_agendamento(request):
             )
             if not created:
                 atualizar = False
-                if cliente.nome_completo != nome:
-                    cliente.nome_completo = nome
+                if cliente.nome != nome:
+                    cliente.nome = nome
                     atualizar = True
                 if not cliente.data_nascimento and data_nascimento:
                     cliente.data_nascimento = data_nascimento

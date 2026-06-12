@@ -96,7 +96,7 @@ def _enviar_wa_lista_espera(espera: ListaEspera, slot: Atendimento, token: str) 
         components = [{
             'type': 'body',
             'parameters': [
-                {'type': 'text', 'text': espera.cliente.nome_completo},
+                {'type': 'text', 'text': espera.cliente.nome},
                 {'type': 'text', 'text': slot.procedimento.nome},
                 {'type': 'text', 'text': slot.data_hora_inicio.strftime('%d/%m %H:%M')},
             ],

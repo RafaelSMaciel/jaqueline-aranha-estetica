@@ -1,6 +1,6 @@
 {% extends 'painel/base.html' %}
 
-{% block page_title %}{{ cliente.nome_completo }}{% endblock %}
+{% block page_title %}{{ cliente.nome }}{% endblock %}
 {% block page_subtitle %}Ficha do paciente{% endblock %}
 
 {% block admin_content %}
@@ -120,7 +120,7 @@
         {% csrf_token %}
         <div class="form-group">
             <label>Nome Completo</label>
-            <input type="text" name="nome_completo" value="{{ cliente.nome_completo }}" required>
+            <input type="text" name="nome" value="{{ cliente.nome }}" required>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
             <div class="form-group">

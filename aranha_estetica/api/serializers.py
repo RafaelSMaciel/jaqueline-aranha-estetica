@@ -32,7 +32,7 @@ class ClienteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Cliente
-        fields = ['id', 'nome_completo', 'cpf', 'email', 'telefone', 'criado_em']
+        fields = ['id', 'nome', 'cpf', 'email', 'telefone', 'criado_em']
 
     def get_cpf(self, obj: Cliente) -> Optional[str]:
         cpf = getattr(obj, 'cpf', None)

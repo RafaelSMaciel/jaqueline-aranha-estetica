@@ -40,7 +40,7 @@ def processar_mudanca_status(sender, instance, created, **kwargs):
             user = getattr(instance.profissional, 'usuario', None)
             if user:
                 from .services.push import send_push_to_user
-                cliente_nome = instance.cliente.nome_completo if instance.cliente_id else 'Paciente'
+                cliente_nome = instance.cliente.nome if instance.cliente_id else 'Paciente'
                 proc_nome = instance.procedimento.nome if instance.procedimento_id else 'Atendimento'
                 data_fmt = instance.data_hora_inicio.strftime('%d/%m %H:%M')
                 send_push_to_user(user, {

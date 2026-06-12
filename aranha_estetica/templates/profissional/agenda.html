@@ -220,7 +220,7 @@
             {% for p in pendentes %}
             <div class="pend-card">
                 <div class="pend-info">
-                    <div class="pend-cliente">{{ p.cliente.nome_completo }}</div>
+                    <div class="pend-cliente">{{ p.cliente.nome }}</div>
                     <div class="pend-meta">
                         {{ p.procedimento.nome }} &bull;
                         {{ p.data_hora_inicio|date:"d/m/Y" }} às {{ p.data_hora_inicio|time:"H:i" }}
@@ -277,7 +277,7 @@
                 <div class="atn-hora">{{ atd.data_hora_inicio|time:"H:i" }}</div>
                 <div class="atn-info">
                     <div class="atn-cliente">
-                        {{ atd.cliente.nome_completo }}
+                        {{ atd.cliente.nome }}
                         {% if atd.cliente.prontuario.alergias or atd.cliente.prontuario.contraindicacoes %}
                         <span class="atn-badge-alergia"
                               title="{% if atd.cliente.prontuario.alergias %}Alergias: {{ atd.cliente.prontuario.alergias }}{% endif %}{% if atd.cliente.prontuario.contraindicacoes %}{% if atd.cliente.prontuario.alergias %} | {% endif %}CI: {{ atd.cliente.prontuario.contraindicacoes }}{% endif %}">
@@ -327,7 +327,7 @@
                     {% for atd in atds %}
                     <div class="week-atn">
                         <span class="week-atn-time">{{ atd.data_hora_inicio|time:"H:i" }}</span>
-                        {{ atd.cliente.nome_completo|truncatechars:12 }}
+                        {{ atd.cliente.nome|truncatechars:12 }}
                     </div>
                     {% empty %}
                     <div style="font-size:0.65rem;color:#ccc;text-align:center;margin-top:0.5rem;">—</div>

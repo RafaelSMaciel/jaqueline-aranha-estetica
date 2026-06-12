@@ -28,7 +28,7 @@ class LgpdService:
 
         return {
             'pessoal': {
-                'nome_completo': cliente.nome_completo,
+                'nome': cliente.nome,
                 'data_nascimento': cliente.data_nascimento.isoformat() if cliente.data_nascimento else None,
                 'cpf': cliente.cpf,
                 'rg': cliente.rg,
@@ -84,7 +84,7 @@ class LgpdService:
     @transaction.atomic
     def esquecer_cliente(cls, cliente: Cliente) -> None:
         """Direito ao esquecimento: anonimiza dados e soft-delete."""
-        cliente.nome_completo = f'[ANONIMIZADO-{cliente.pk}]'
+        cliente.nome = f'[ANONIMIZADO-{cliente.pk}]'
         cliente.cpf = None
         cliente.rg = None
         cliente.email = None

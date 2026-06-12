@@ -57,7 +57,7 @@ def admin_calendar_events(request):
     for at in qs:
         eventos.append({
             'id': at.pk,
-            'title': f'{at.cliente.nome_completo} · {at.procedimento.nome}',
+            'title': f'{at.cliente.nome} · {at.procedimento.nome}',
             'start': at.data_hora_inicio.isoformat(),
             'end': at.data_hora_fim.isoformat(),
             'backgroundColor': STATUS_COLORS.get(at.status, '#999'),
@@ -65,7 +65,7 @@ def admin_calendar_events(request):
             'extendedProps': {
                 'profissional': at.profissional.nome,
                 'procedimento': at.procedimento.nome,
-                'cliente_nome': at.cliente.nome_completo,
+                'cliente_nome': at.cliente.nome,
                 'cliente_telefone': at.cliente.telefone or '',
                 'status': at.status,
                 'valor': float(at.valor_cobrado) if at.valor_cobrado else None,

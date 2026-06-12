@@ -26,10 +26,10 @@ def prontuario_consentimento(request):
     """Prontuario e consentimento — lista clientes com status do prontuario."""
     search = request.GET.get('search', '')
 
-    clientes = Cliente.objects.all().order_by('nome_completo')
+    clientes = Cliente.objects.all().order_by('nome')
     if search:
         clientes = clientes.filter(
-            Q(nome_completo__icontains=search) |
+            Q(nome__icontains=search) |
             Q(cpf__icontains=search) |
             Q(telefone__icontains=search)
         )
@@ -140,7 +140,7 @@ def admin_atualizar_status(request):
             'atendimento',
             atendimento_id,
             {'status_anterior': status_anterior, 'status_novo': novo_status,
-             'cliente': atendimento.cliente.nome_completo}
+             'cliente': atendimento.cliente.nome}
         )
 
         return JsonResponse({

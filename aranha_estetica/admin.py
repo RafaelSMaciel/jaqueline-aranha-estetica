@@ -123,18 +123,18 @@ class PromocaoAdmin(admin.ModelAdmin):
 @admin.register(Cliente)
 class ClienteAdmin(admin.ModelAdmin):
     list_display = (
-        'nome_completo', 'telefone', 'email', 'faltas_consecutivas',
+        'nome', 'telefone', 'email', 'faltas_consecutivas',
         'bloqueado_online', 'ativo', 'aceita_comunicacao', 'criado_em',
     )
     list_filter = ('ativo', 'bloqueado_online', 'aceita_comunicacao')
-    search_fields = ('nome_completo', 'telefone', 'email', 'cpf')
+    search_fields = ('nome', 'telefone', 'email', 'cpf')
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
     readonly_fields = ('criado_em', 'atualizado_em', 'deletado_em', 'token_descadastro')
     list_per_page = 50
     fieldsets = (
         ('Identificacao', {
-            'fields': ('nome_completo', 'data_nascimento', 'cpf', 'rg', 'profissao'),
+            'fields': ('nome', 'data_nascimento', 'cpf', 'rg', 'profissao'),
         }),
         ('Contato', {
             'fields': ('email', 'telefone', 'cep', 'endereco'),
@@ -188,7 +188,7 @@ class ClienteAdmin(admin.ModelAdmin):
 @admin.register(Prontuario)
 class ProntuarioAdmin(admin.ModelAdmin):
     list_display = ('cliente', 'atualizado_em')
-    search_fields = ('cliente__nome_completo',)
+    search_fields = ('cliente__nome',)
     ordering = ('-atualizado_em',)
     autocomplete_fields = ('cliente',)
     list_select_related = ('cliente',)
@@ -204,7 +204,7 @@ class ProntuarioPerguntaAdmin(admin.ModelAdmin):
 @admin.register(ProntuarioResposta)
 class ProntuarioRespostaAdmin(admin.ModelAdmin):
     list_display = ('prontuario', 'pergunta', 'atualizado_em')
-    search_fields = ('prontuario__cliente__nome_completo', 'pergunta__texto')
+    search_fields = ('prontuario__cliente__nome', 'pergunta__texto')
     autocomplete_fields = ('prontuario', 'pergunta')
     list_select_related = ('prontuario', 'pergunta', 'prontuario__cliente')
 
@@ -212,7 +212,7 @@ class ProntuarioRespostaAdmin(admin.ModelAdmin):
 @admin.register(AnotacaoSessao)
 class AnotacaoSessaoAdmin(admin.ModelAdmin):
     list_display = ('atendimento', 'autor', 'criado_em')
-    search_fields = ('atendimento__cliente__nome_completo', 'texto')
+    search_fields = ('atendimento__cliente__nome', 'texto')
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
     autocomplete_fields = ('atendimento', 'autor')
@@ -236,7 +236,7 @@ class VersaoTermoAdmin(admin.ModelAdmin):
 @admin.register(AceitePrivacidade)
 class AceitePrivacidadeAdmin(admin.ModelAdmin):
     list_display = ('cliente', 'versao_termo', 'ip', 'criado_em')
-    search_fields = ('cliente__nome_completo', 'versao_termo__titulo')
+    search_fields = ('cliente__nome', 'versao_termo__titulo')
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
     autocomplete_fields = ('cliente', 'versao_termo')
@@ -246,7 +246,7 @@ class AceitePrivacidadeAdmin(admin.ModelAdmin):
 @admin.register(AssinaturaTermoProcedimento)
 class AssinaturaTermoProcedimentoAdmin(admin.ModelAdmin):
     list_display = ('cliente', 'versao_termo', 'atendimento', 'ip', 'criado_em')
-    search_fields = ('cliente__nome_completo', 'versao_termo__titulo')
+    search_fields = ('cliente__nome', 'versao_termo__titulo')
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
     autocomplete_fields = ('cliente', 'versao_termo', 'atendimento')
@@ -271,7 +271,7 @@ class AtendimentoAdmin(admin.ModelAdmin):
         'status', 'valor_cobrado',
     )
     list_filter = ('status', 'profissional', 'procedimento')
-    search_fields = ('cliente__nome_completo', 'cliente__telefone', 'profissional__nome')
+    search_fields = ('cliente__nome', 'cliente__telefone', 'profissional__nome')
     ordering = ('-data_hora_inicio',)
     date_hierarchy = 'data_hora_inicio'
     readonly_fields = ('criado_em', 'atualizado_em', 'token_cancelamento')
@@ -313,7 +313,7 @@ class AtendimentoAdmin(admin.ModelAdmin):
 class NotificacaoAdmin(admin.ModelAdmin):
     list_display = ('atendimento', 'tipo', 'canal', 'status', 'resposta', 'enviado_em', 'criado_em')
     list_filter = ('tipo', 'canal', 'status', 'resposta')
-    search_fields = ('atendimento__cliente__nome_completo', 'mensagem')
+    search_fields = ('atendimento__cliente__nome', 'mensagem')
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
     readonly_fields = ('token', 'criado_em')
@@ -330,7 +330,7 @@ class NotificacaoAdmin(admin.ModelAdmin):
 class AvaliacaoNPSAdmin(admin.ModelAdmin):
     list_display = ('atendimento', 'nota', 'alerta_enviado', 'criado_em')
     list_filter = ('nota', 'alerta_enviado')
-    search_fields = ('atendimento__cliente__nome_completo', 'comentario')
+    search_fields = ('atendimento__cliente__nome', 'comentario')
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
     readonly_fields = ('criado_em',)
@@ -369,7 +369,7 @@ class ItemPacoteAdmin(admin.ModelAdmin):
 class PacoteClienteAdmin(admin.ModelAdmin):
     list_display = ('cliente', 'pacote', 'status', 'valor_pago', 'data_expiracao', 'criado_em')
     list_filter = ('status',)
-    search_fields = ('cliente__nome_completo', 'pacote__nome')
+    search_fields = ('cliente__nome', 'pacote__nome')
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
     readonly_fields = ('criado_em',)
@@ -381,7 +381,7 @@ class PacoteClienteAdmin(admin.ModelAdmin):
 class SessaoPacoteAdmin(admin.ModelAdmin):
     list_display = ('compra_pacote', 'atendimento', 'criado_em')
     search_fields = (
-        'compra_pacote__cliente__nome_completo',
+        'compra_pacote__cliente__nome',
         'compra_pacote__pacote__nome',
     )
     ordering = ('-criado_em',)
@@ -398,7 +398,7 @@ class SessaoPacoteAdmin(admin.ModelAdmin):
 class ListaEsperaAdmin(admin.ModelAdmin):
     list_display = ('cliente', 'procedimento', 'profissional_desejado', 'data_desejada', 'turno_desejado', 'notificado', 'criado_em')
     list_filter = ('notificado', 'turno_desejado')
-    search_fields = ('cliente__nome_completo', 'procedimento__nome')
+    search_fields = ('cliente__nome', 'procedimento__nome')
     ordering = ('-criado_em',)
     date_hierarchy = 'data_desejada'
     autocomplete_fields = ('cliente', 'procedimento', 'profissional_desejado')

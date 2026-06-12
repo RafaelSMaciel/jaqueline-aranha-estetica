@@ -63,7 +63,7 @@ def admin_termos_compliance(request):
             )
             pendentes_qs = Cliente.objects.filter(ativo=True).annotate(
                 assinou=Exists(assinatura_sub)
-            ).filter(assinou=False).order_by('nome_completo')
+            ).filter(assinou=False).order_by('nome')
         else:
             if versao_obj.procedimento_id:
                 atend_cli_ids = (
@@ -77,7 +77,7 @@ def admin_termos_compliance(request):
                     pk__in=atend_cli_ids, ativo=True
                 ).annotate(
                     assinou=Exists(assinatura_sub)
-                ).filter(assinou=False).order_by('nome_completo')
+                ).filter(assinou=False).order_by('nome')
             else:
                 pendentes_qs = Cliente.objects.none()
 

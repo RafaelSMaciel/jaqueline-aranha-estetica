@@ -44,7 +44,7 @@ class ListaEsperaPublicaTests(TestCase):
         self.assertEqual(ListaEspera.objects.count(), 1)
 
     def test_reaproveita_cliente_existente(self):
-        Cliente.objects.create(nome_completo='Ana Cliente', telefone='17988880000')
+        Cliente.objects.create(nome='Ana Cliente', telefone='17988880000')
         self._post()
         self.assertEqual(Cliente.objects.filter(telefone='17988880000').count(), 1)
 

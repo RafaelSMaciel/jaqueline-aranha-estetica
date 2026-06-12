@@ -76,7 +76,7 @@ class FidelidadeService:
                 valor=VALOR_CASHBACK_INDICACAO,
                 saldo_resultante=novo_saldo,
                 atendimento=atendimento,
-                observacoes=f'Indicacao: {cliente.nome_completo} (cli #{cliente.pk})',
+                observacoes=f'Indicacao: {cliente.nome} (cli #{cliente.pk})',
             )
         except IntegrityError:
             logger.info(

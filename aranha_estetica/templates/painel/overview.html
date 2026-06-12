@@ -155,7 +155,7 @@
     {% for p in pendentes_aprovacao %}
     <div class="pend-item">
         <div class="pend-item-info">
-            <div class="pend-item-name">{{ p.cliente.nome_completo }}</div>
+            <div class="pend-item-name">{{ p.cliente.nome }}</div>
             <div class="pend-item-meta">
                 {{ p.procedimento.nome }} &bull; {{ p.profissional.nome }} &bull;
                 {{ p.data_hora_inicio|date:"d/m H:i" }}
@@ -164,13 +164,13 @@
         <div class="pend-item-actions">
             <form method="post" action="{% url 'aranha:admin_aprovar_agendamento' pk=p.pk %}" style="margin:0;">
                 {% csrf_token %}
-                <button type="submit" class="btn-aprovar-mini" onclick="return confirm('Aprovar agendamento de {{ p.cliente.nome_completo|escapejs }}?')">
+                <button type="submit" class="btn-aprovar-mini" onclick="return confirm('Aprovar agendamento de {{ p.cliente.nome|escapejs }}?')">
                     <i class="fas fa-check"></i> Aprovar
                 </button>
             </form>
             <form method="post" action="{% url 'aranha:admin_rejeitar_agendamento' pk=p.pk %}" style="margin:0;">
                 {% csrf_token %}
-                <button type="submit" class="btn-rejeitar-mini" onclick="return confirm('Rejeitar agendamento de {{ p.cliente.nome_completo|escapejs }}?')">
+                <button type="submit" class="btn-rejeitar-mini" onclick="return confirm('Rejeitar agendamento de {{ p.cliente.nome|escapejs }}?')">
                     <i class="fas fa-times"></i> Rejeitar
                 </button>
             </form>
@@ -210,10 +210,10 @@
     {% for agend in proximos_agendamentos %}
     <div class="dash-appt-item" id="appt-{{ agend.pk }}">
         <div class="dash-appt-avatar">
-            {{ agend.cliente.nome_completo|make_list|first }}
+            {{ agend.cliente.nome|make_list|first }}
         </div>
         <div class="dash-appt-info">
-            <div class="dash-appt-name">{{ agend.cliente.nome_completo }}</div>
+            <div class="dash-appt-name">{{ agend.cliente.nome }}</div>
             <div class="dash-appt-meta">
                 {{ agend.procedimento.nome }} &bull; {{ agend.data_hora_inicio|date:"d/m H:i" }}
                 &bull; <span class="status-text-{{ agend.pk }}">{% include 'partials/_status_badge.html' with status=agend.status %}</span>
@@ -231,7 +231,7 @@
             </select>
             <!-- WhatsApp -->
             {% if agend.cliente.telefone %}
-            <a href="https://wa.me/55{{ agend.cliente.telefone|cut:'(' |cut:')' |cut:'-' |cut:' ' }}?text=Ol%C3%A1%20{{ agend.cliente.nome_completo|urlencode }}%2C%20confirmamos%20seu%20agendamento%20de%20{{ agend.procedimento.nome|urlencode }}%20para%20{{ agend.data_hora_inicio|date:'d/m/Y' }}%20%C3%A0s%20{{ agend.data_hora_inicio|time:'H:i' }}.%20{{ CLINIC_NAME|urlencode }}"
+            <a href="https://wa.me/55{{ agend.cliente.telefone|cut:'(' |cut:')' |cut:'-' |cut:' ' }}?text=Ol%C3%A1%20{{ agend.cliente.nome|urlencode }}%2C%20confirmamos%20seu%20agendamento%20de%20{{ agend.procedimento.nome|urlencode }}%20para%20{{ agend.data_hora_inicio|date:'d/m/Y' }}%20%C3%A0s%20{{ agend.data_hora_inicio|time:'H:i' }}.%20{{ CLINIC_NAME|urlencode }}"
                target="_blank" class="btn-wpp" title="Confirmar via WhatsApp">
                 <i class="fab fa-whatsapp"></i>
             </a>

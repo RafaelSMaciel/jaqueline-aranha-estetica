@@ -21,7 +21,7 @@ class AvaliacaoNPS(models.Model):
 
     def __str__(self):
         cliente_nome = (
-            self.atendimento.cliente.nome_completo
+            self.atendimento.cliente.nome
             if self.atendimento_id and self.atendimento.cliente_id
             else 's/ cliente'
         )

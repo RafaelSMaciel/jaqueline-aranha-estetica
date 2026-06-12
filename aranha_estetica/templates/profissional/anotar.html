@@ -94,7 +94,7 @@
             <div class="atn-summary">
                 <div class="atn-summary-label">Atendimento</div>
                 <div class="atn-summary-info">
-                    <i class="fas fa-user me-1"></i> {{ atendimento.cliente.nome_completo }}<br>
+                    <i class="fas fa-user me-1"></i> {{ atendimento.cliente.nome }}<br>
                     <i class="fas fa-stethoscope me-1"></i> {{ atendimento.procedimento.nome }}<br>
                     <i class="fas fa-calendar me-1"></i> {{ atendimento.data_hora_inicio|date:"d/m/Y" }}
                     às {{ atendimento.data_hora_inicio|time:"H:i" }}

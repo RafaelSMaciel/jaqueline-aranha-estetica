@@ -253,7 +253,7 @@ class Atendimento(models.Model):
 
     def __str__(self):
         data_fmt = self.data_hora_inicio.strftime('%d/%m/%Y %H:%M') if self.data_hora_inicio else 's/ data'
-        cliente_nome = self.cliente.nome_completo if self.cliente_id else 's/ cliente'
+        cliente_nome = self.cliente.nome if self.cliente_id else 's/ cliente'
         proc_nome = self.procedimento.nome if self.procedimento_id else 's/ procedimento'
         return f'{data_fmt} — {cliente_nome} ({proc_nome})'
 
@@ -309,7 +309,7 @@ class Notificacao(models.Model):
     def __str__(self):
         data_fmt = self.criado_em.strftime('%d/%m/%Y %H:%M') if self.criado_em else 's/ data'
         cliente_nome = (
-            self.atendimento.cliente.nome_completo
+            self.atendimento.cliente.nome
             if self.atendimento_id and self.atendimento.cliente_id
             else 's/ cliente'
         )

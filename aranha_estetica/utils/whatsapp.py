@@ -212,7 +212,7 @@ def enviar_confirmacao_d1(atendimento):
     components = [{
         'type': 'body',
         'parameters': [
-            {'type': 'text', 'text': atendimento.cliente.nome_completo},
+            {'type': 'text', 'text': atendimento.cliente.nome},
             {'type': 'text', 'text': data_formatada},
             {'type': 'text', 'text': hora_formatada},
             {'type': 'text', 'text': atendimento.procedimento.nome},
@@ -228,7 +228,7 @@ def enviar_confirmacao_d1(atendimento):
 
     mensagem_preview = (
         f'[Template {TEMPLATE_CONFIRMACAO_D1}] '
-        f'{atendimento.cliente.nome_completo} / '
+        f'{atendimento.cliente.nome} / '
         f'{data_formatada} {hora_formatada} / '
         f'{atendimento.procedimento.nome} c/ {atendimento.profissional.nome}'
     )
@@ -257,7 +257,7 @@ def enviar_nps_whatsapp(atendimento, link_nps, token_notif):
     components = [{
         'type': 'body',
         'parameters': [
-            {'type': 'text', 'text': atendimento.cliente.nome_completo},
+            {'type': 'text', 'text': atendimento.cliente.nome},
             {'type': 'text', 'text': atendimento.procedimento.nome},
             {'type': 'text', 'text': link_nps},
         ],
@@ -290,7 +290,7 @@ def enviar_pesquisa_whatsapp(atendimento, link_pesquisa):
     components = [{
         'type': 'body',
         'parameters': [
-            {'type': 'text', 'text': atendimento.cliente.nome_completo},
+            {'type': 'text', 'text': atendimento.cliente.nome},
             {'type': 'text', 'text': atendimento.procedimento.nome},
             {'type': 'text', 'text': link_pesquisa},
         ],

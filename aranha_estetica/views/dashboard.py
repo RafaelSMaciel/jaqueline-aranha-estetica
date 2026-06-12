@@ -191,7 +191,7 @@ def painel_clientes(request):
 
     if search:
         clientes = clientes.filter(
-            Q(nome_completo__icontains=search) |
+            Q(nome__icontains=search) |
             Q(cpf__icontains=search) |
             Q(email__icontains=search) |
             Q(telefone__icontains=search)
@@ -268,7 +268,7 @@ def exportar_relatorio_excel(request):
             at.pk,
             at.data_hora_inicio.strftime('%d/%m/%Y'),
             at.data_hora_inicio.strftime('%H:%M'),
-            at.cliente.nome_completo,
+            at.cliente.nome,
             at.profissional.nome,
             at.procedimento.nome,
             at.status,

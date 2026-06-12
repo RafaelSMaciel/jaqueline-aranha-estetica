@@ -243,11 +243,11 @@ def lista_espera_publica(request):
 
         cliente, _created = Cliente.objects.get_or_create(
             telefone=telefone,
-            defaults={'nome_completo': nome, 'ativo': True},
+            defaults={'nome': nome, 'ativo': True},
         )
-        if not _created and cliente.nome_completo != nome and nome:
-            cliente.nome_completo = nome
-            cliente.save(update_fields=['nome_completo'])
+        if not _created and cliente.nome != nome and nome:
+            cliente.nome = nome
+            cliente.save(update_fields=['nome'])
 
         ja_inscrito = ListaEspera.objects.filter(
             cliente=cliente,

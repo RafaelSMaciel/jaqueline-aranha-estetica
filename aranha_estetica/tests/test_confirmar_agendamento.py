@@ -51,16 +51,16 @@ class ConfirmarAgendamentoTests(TestCase):
 
         atd = Atendimento.objects.first()
         self.assertEqual(atd.status, 'PENDENTE')
-        self.assertEqual(atd.cliente.nome_completo, 'Maria Teste')
+        self.assertEqual(atd.cliente.nome, 'Maria Teste')
         self.assertEqual(atd.valor_cobrado, Decimal('120.00'))
 
     def test_reutiliza_cliente_existente_e_atualiza_nome(self, _):
-        Cliente.objects.create(nome_completo='Antigo Nome', telefone='17999991111')
+        Cliente.objects.create(nome='Antigo Nome', telefone='17999991111')
         self._post(nome='Nome Novo')
 
         clientes = Cliente.objects.filter(telefone='17999991111')
         self.assertEqual(clientes.count(), 1)
-        self.assertEqual(clientes.first().nome_completo, 'Nome Novo')
+        self.assertEqual(clientes.first().nome, 'Nome Novo')
 
     def test_rejeita_quando_campos_faltando(self, _):
         resp = self._post(telefone='')

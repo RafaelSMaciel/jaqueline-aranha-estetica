@@ -211,7 +211,7 @@ def admin_cliente_detalhe(request, pk):
     cliente = get_object_or_404(Cliente, pk=pk)
 
     if request.method == 'POST':
-        cliente.nome_completo = request.POST.get('nome_completo', cliente.nome_completo).strip()
+        cliente.nome = request.POST.get('nome', cliente.nome).strip()
         cliente.telefone = request.POST.get('telefone', cliente.telefone).strip()
         cliente.email = request.POST.get('email', '').strip() or None
         cliente.cpf = request.POST.get('cpf', '').strip() or None
@@ -228,7 +228,7 @@ def admin_cliente_detalhe(request, pk):
         cliente.ativo = request.POST.get('ativo') == '1'
         cliente.aceita_comunicacao = request.POST.get('aceita_comunicacao') == '1'
         cliente.save()
-        registrar_log(request.user, f'Editou cliente: {cliente.nome_completo}', 'cliente', cliente.pk)
+        registrar_log(request.user, f'Editou cliente: {cliente.nome}', 'cliente', cliente.pk)
         messages.success(request, 'Paciente atualizado!')
         return redirect('aranha:admin_cliente_detalhe', pk=pk)
 
@@ -294,7 +294,7 @@ def admin_notificar_espera(request, pk):
     item = get_object_or_404(ListaEspera, pk=pk)
     item.notificado = True
     item.save()
-    messages.success(request, f'{item.cliente.nome_completo} marcado como notificado.')
+    messages.success(request, f'{item.cliente.nome} marcado como notificado.')
     return redirect('aranha:admin_lista_espera')
 
 
@@ -540,7 +540,7 @@ def admin_aprovar_agendamento(request, pk):
     if not transitou:
         messages.warning(request, f'Atendimento já está como {atendimento.get_status_display().lower()}.')
     else:
-        messages.success(request, f'Agendamento de {atendimento.cliente.nome_completo} aprovado.')
+        messages.success(request, f'Agendamento de {atendimento.cliente.nome} aprovado.')
     return redirect(request.META.get('HTTP_REFERER', 'aranha:painel_agendamentos'))
 
 
@@ -561,7 +561,7 @@ def admin_rejeitar_agendamento(request, pk):
     if not transitou:
         messages.warning(request, f'Atendimento já está como {atendimento.get_status_display().lower()}.')
     else:
-        messages.success(request, f'Agendamento de {atendimento.cliente.nome_completo} rejeitado.')
+        messages.success(request, f'Agendamento de {atendimento.cliente.nome} rejeitado.')
     return redirect(request.META.get('HTTP_REFERER', 'aranha:painel_agendamentos'))
 
 
@@ -616,7 +616,7 @@ def admin_bulk_agendamentos(request):
         if at.cliente.email:
             data_fmt = at.data_hora_inicio.strftime('%d/%m/%Y as %H:%M')
             dados = {
-                'nome': at.cliente.nome_completo,
+                'nome': at.cliente.nome,
                 'procedimento': at.procedimento.nome,
                 'profissional': at.profissional.nome,
                 'data_hora': data_fmt,

@@ -84,7 +84,7 @@ def verificar_otp_agendamento(request):
     prefill = None
     if cliente:
         prefill = {
-            'nome': cliente.nome_completo,
+            'nome': cliente.nome,
             'telefone': cliente.telefone or '',
             'data_nascimento': cliente.data_nascimento.isoformat() if cliente.data_nascimento else '',
         }

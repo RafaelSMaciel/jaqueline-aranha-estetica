@@ -95,7 +95,7 @@ class CompraPacote(models.Model):
         self.save()
 
     def __str__(self):
-        cliente_nome = self.cliente.nome_completo if self.cliente_id else 's/ cliente'
+        cliente_nome = self.cliente.nome if self.cliente_id else 's/ cliente'
         pacote_nome = self.pacote.nome if self.pacote_id else 's/ pacote'
         return f'{cliente_nome} — {pacote_nome} ({self.get_status_display()})'
 

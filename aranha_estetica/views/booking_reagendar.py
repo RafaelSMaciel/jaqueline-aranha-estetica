@@ -168,7 +168,7 @@ def reagendar_agendamento(request, token):
 
         data_fmt = nova_data.strftime('%d/%m/%Y as %H:%M')
         request.session['agendamento_sucesso'] = {
-            'nome': antigo.cliente.nome_completo,
+            'nome': antigo.cliente.nome,
             'procedimento': antigo.procedimento.nome,
             'profissional': profissional.nome,
             'data_hora': data_fmt,

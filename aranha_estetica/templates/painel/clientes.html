@@ -67,12 +67,12 @@
 
 <div id="listaClientes" data-search-rows=".cliente-card">
 {% for cliente in clientes %}
-<div class="cliente-card" data-search-text="{{ cliente.nome_completo }} {{ cliente.cpf|default:'' }} {{ cliente.email|default:'' }} {{ cliente.telefone|default:'' }}">
+<div class="cliente-card" data-search-text="{{ cliente.nome }} {{ cliente.cpf|default:'' }} {{ cliente.email|default:'' }} {{ cliente.telefone|default:'' }}">
     <div class="cliente-avatar">
-        {{ cliente.nome_completo|make_list|first }}{{ cliente.nome_completo|make_list|last }}
+        {{ cliente.nome|make_list|first }}{{ cliente.nome|make_list|last }}
     </div>
     <div class="cliente-info">
-        <div class="cliente-nome"><a href="{% url 'aranha:admin_cliente_detalhe' cliente.pk %}" style="text-decoration:none; color:inherit;">{{ cliente.nome_completo }}</a></div>
+        <div class="cliente-nome"><a href="{% url 'aranha:admin_cliente_detalhe' cliente.pk %}" style="text-decoration:none; color:inherit;">{{ cliente.nome }}</a></div>
         <div class="cliente-meta">
             {% if cliente.telefone %}<i class="fas fa-phone me-1"></i>{{ cliente.telefone }} {% endif %}
             {% if cliente.email %}&bull; <i class="fas fa-envelope me-1"></i>{{ cliente.email }}{% endif %}

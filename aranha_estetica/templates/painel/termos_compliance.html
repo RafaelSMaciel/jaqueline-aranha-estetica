@@ -146,7 +146,7 @@
     <div style="flex:1;">
         <div class="pendente-nome">
             <a href="{% url 'aranha:admin_cliente_detalhe' c.pk %}" style="color:inherit; text-decoration:none;">
-                {{ c.nome_completo }}
+                {{ c.nome }}
             </a>
         </div>
         <div class="pendente-contato">
@@ -156,7 +156,7 @@
     </div>
     <div class="pendente-acoes">
         {% if c.telefone %}
-        <a href="https://wa.me/55{{ c.telefone|cut:'(' |cut:')' |cut:'-' |cut:' ' }}?text=Ol%C3%A1%20{{ c.nome_completo|urlencode }}%2C%20precisamos%20que%20voc%C3%AA%20assine%20o%20termo%20de%20consentimento."
+        <a href="https://wa.me/55{{ c.telefone|cut:'(' |cut:')' |cut:'-' |cut:' ' }}?text=Ol%C3%A1%20{{ c.nome|urlencode }}%2C%20precisamos%20que%20voc%C3%AA%20assine%20o%20termo%20de%20consentimento."
            target="_blank" class="act-wpp">
             <i class="fab fa-whatsapp"></i> WhatsApp
         </a>

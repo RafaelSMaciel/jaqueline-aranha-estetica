@@ -40,7 +40,7 @@ class ClienteViewSet(viewsets.ReadOnlyModelViewSet):
         qs = super().get_queryset()
         q = self.request.query_params.get('q')
         if q:
-            qs = qs.filter(nome_completo__icontains=q)
+            qs = qs.filter(nome__icontains=q)
         return qs
 
 

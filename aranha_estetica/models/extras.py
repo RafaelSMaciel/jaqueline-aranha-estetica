@@ -32,7 +32,7 @@ class Carteira(TimestampedMixin):
         db_table = 'carteira'
 
     def __str__(self):
-        return f'Credito {self.cliente.nome_completo}: R$ {self.saldo}'
+        return f'Credito {self.cliente.nome}: R$ {self.saldo}'
 
 
 class MovimentoCarteira(models.Model):

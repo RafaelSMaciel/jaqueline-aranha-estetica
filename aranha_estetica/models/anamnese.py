@@ -150,7 +150,7 @@ class RespostaAnamnese(models.Model):
         ]
 
     def __str__(self):
-        return f'Resposta {self.formulario.nome} - {self.cliente.nome_completo}'
+        return f'Resposta {self.formulario.nome} - {self.cliente.nome}'
 
     def get_link_publico(self):
         """Retorna path publico baseado no tipo do formulario."""

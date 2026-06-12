@@ -112,7 +112,7 @@ def marcar_realizado(request, pk):
     else:
         atendimento.status = 'REALIZADO'
         atendimento.save()
-        messages.success(request, f'Atendimento de {atendimento.cliente.nome_completo} marcado como realizado.')
+        messages.success(request, f'Atendimento de {atendimento.cliente.nome} marcado como realizado.')
 
     return redirect(request.POST.get('next') or 'aranha:profissional_agenda')
 
@@ -169,7 +169,7 @@ def aprovar_agendamento(request, pk):
     if atendimento.cliente.email:
         data_fmt = atendimento.data_hora_inicio.strftime('%d/%m/%Y as %H:%M')
         dados = {
-            'nome': atendimento.cliente.nome_completo,
+            'nome': atendimento.cliente.nome,
             'procedimento': atendimento.procedimento.nome,
             'profissional': atendimento.profissional.nome,
             'data_hora': data_fmt,
@@ -182,7 +182,7 @@ def aprovar_agendamento(request, pk):
         except Exception:
             enviar_confirmacao_agendamento_email(atendimento.cliente.email, dados)
 
-    messages.success(request, f'Agendamento de {atendimento.cliente.nome_completo} aprovado.')
+    messages.success(request, f'Agendamento de {atendimento.cliente.nome} aprovado.')
     return redirect('aranha:profissional_agenda')
 
 
@@ -206,7 +206,7 @@ def rejeitar_agendamento(request, pk):
     if atendimento.cliente.email:
         data_fmt = atendimento.data_hora_inicio.strftime('%d/%m/%Y as %H:%M')
         dados = {
-            'nome': atendimento.cliente.nome_completo,
+            'nome': atendimento.cliente.nome,
             'procedimento': atendimento.procedimento.nome,
             'data_hora': data_fmt,
             'profissional': atendimento.profissional.nome,
@@ -217,5 +217,5 @@ def rejeitar_agendamento(request, pk):
         except Exception:
             enviar_cancelamento_email(atendimento.cliente.email, dados)
 
-    messages.success(request, f'Agendamento de {atendimento.cliente.nome_completo} rejeitado.')
+    messages.success(request, f'Agendamento de {atendimento.cliente.nome} rejeitado.')
     return redirect('aranha:profissional_agenda')

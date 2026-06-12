@@ -143,7 +143,7 @@ def push_atendimento(atendimento: 'Atendimento') -> bool:
     if not svc:
         return False
     body = {
-        'summary': f'{atendimento.cliente.nome_completo} - {atendimento.procedimento.nome}',
+        'summary': f'{atendimento.cliente.nome} - {atendimento.procedimento.nome}',
         'description': f'Status: {atendimento.get_status_display()}',
         'start': {'dateTime': atendimento.data_hora_inicio.isoformat(), 'timeZone': 'America/Sao_Paulo'},
         'end': {'dateTime': atendimento.data_hora_fim.isoformat(), 'timeZone': 'America/Sao_Paulo'},

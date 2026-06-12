@@ -48,13 +48,13 @@ def prontuario_access_required(view_func):
         cliente = get_object_or_404(Cliente, pk=cliente_id)
         if not _usuario_pode_ver_prontuario(request.user, cliente):
             registrar_log(
-                request.user, f'Acesso NEGADO a prontuario de {cliente.nome_completo}',
+                request.user, f'Acesso NEGADO a prontuario de {cliente.nome}',
                 tabela='prontuario', id_registro=cliente.pk,
                 detalhes={'ip': _ip_request(request), 'motivo': 'sem vinculo de atendimento'},
             )
             raise PermissionDenied('Acesso ao prontuario restrito a admin ou profissional que ja atendeu o cliente.')
         registrar_log(
-            request.user, f'Acessou prontuario de {cliente.nome_completo}',
+            request.user, f'Acessou prontuario de {cliente.nome}',
             tabela='prontuario', id_registro=cliente.pk,
             detalhes={'ip': _ip_request(request), 'view': view_func.__name__},
         )
@@ -133,7 +133,7 @@ def prontuario_salvar(request, cliente_id):
             resp.resposta_texto = request.POST.get(f'pergunta_{pergunta.pk}', '').strip()
         resp.save()
 
-    registrar_log(request.user, f'Atualizou prontuario de {cliente.nome_completo}', 'prontuario', prontuario.pk)
+    registrar_log(request.user, f'Atualizou prontuario de {cliente.nome}', 'prontuario', prontuario.pk)
     messages.success(request, 'Prontuario atualizado com sucesso!')
     return redirect('aranha:prontuario_detalhe', cliente_id=cliente_id)
 

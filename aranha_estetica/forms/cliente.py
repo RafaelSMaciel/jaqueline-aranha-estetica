@@ -8,7 +8,7 @@ class ClienteForm(forms.ModelForm):
     class Meta:
         model = Cliente
         fields = [
-            'nome_completo', 'data_nascimento', 'cpf', 'rg', 'profissao',
+            'nome', 'data_nascimento', 'cpf', 'rg', 'profissao',
             'email', 'telefone', 'cep', 'endereco', 'aceita_comunicacao',
             'consent_email_marketing', 'consent_whatsapp_nps',
         ]

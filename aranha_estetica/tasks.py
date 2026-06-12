@@ -147,7 +147,7 @@ def job_alerta_detrator_nps(self):
                 logger.warning(
                     'nps_detrator_sem_email_admin_cliente',
                     extra={
-                        'cliente': avaliacao.atendimento.cliente.nome_completo,
+                        'cliente': avaliacao.atendimento.cliente.nome,
                         'nota': avaliacao.nota,
                     },
                 )
@@ -157,9 +157,9 @@ def job_alerta_detrator_nps(self):
 
         for avaliacao in detratores:
             at = avaliacao.atendimento
-            assunto = f'[{CLINIC_NAME}] ALERTA NPS — {at.cliente.nome_completo} nota {avaliacao.nota}'
+            assunto = f'[{CLINIC_NAME}] ALERTA NPS — {at.cliente.nome} nota {avaliacao.nota}'
             corpo = (
-                f'Cliente: {at.cliente.nome_completo}\n'
+                f'Cliente: {at.cliente.nome}\n'
                 f'Procedimento: {at.procedimento.nome}\n'
                 f'Profissional: {at.profissional.nome if at.profissional_id else "-"}\n'
                 f'Data atendimento: {at.data_hora_inicio.strftime("%d/%m/%Y %H:%M")}\n'
@@ -179,7 +179,7 @@ def job_alerta_detrator_nps(self):
                 logger.warning(
                     'nps_detrator_alerta_enviado',
                     extra={
-                        'cliente': at.cliente.nome_completo,
+                        'cliente': at.cliente.nome,
                         'nota': avaliacao.nota,
                     },
                 )
@@ -212,7 +212,7 @@ def job_notificar_fila_espera(self, procedimento_id, data_livre_str):
         for espera in interessados:
             if espera.cliente.email:
                 enviar_fila_espera_email(espera.cliente.email, {
-                    'nome': espera.cliente.nome_completo,
+                    'nome': espera.cliente.nome,
                     'procedimento': espera.procedimento.nome,
                     'data': data_livre.strftime('%d/%m/%Y'),
                 })
@@ -258,7 +258,7 @@ def job_verificar_pacotes_expirando(self):
 
                 if sessoes_restantes > 0 and pc.cliente.email:
                     enviar_pacote_expirando_email(pc.cliente.email, {
-                        'nome': pc.cliente.nome_completo,
+                        'nome': pc.cliente.nome,
                         'pacote': pc.pacote.nome,
                         'dias': dias,
                         'sessoes_restantes': sessoes_restantes,
@@ -300,7 +300,7 @@ def job_aniversario_clientes(self):
         whatsapps_enviados = 0
 
         for cliente in aniversariantes:
-            dados = {'nome': cliente.nome_completo, 'desconto': DESCONTO_ANIVERSARIO_PERCENTUAL}
+            dados = {'nome': cliente.nome, 'desconto': DESCONTO_ANIVERSARIO_PERCENTUAL}
 
             # Email (requer consent marketing)
             if cliente.email and cliente.consent_email_marketing:
@@ -333,7 +333,7 @@ def _enviar_aniversario_whatsapp(cliente, desconto_percentual: int) -> None:
         components = [{
             'type': 'body',
             'parameters': [
-                {'type': 'text', 'text': cliente.nome_completo},
+                {'type': 'text', 'text': cliente.nome},
                 {'type': 'text', 'text': str(desconto_percentual)},
             ],
         }]
@@ -379,7 +379,7 @@ def job_promocao_mensal(self, assunto, corpo_html_partial, cupom=None, validade_
                 assunto=assunto,
                 template='email/promocao.html',
                 contexto={
-                    'nome': cliente.nome_completo,
+                    'nome': cliente.nome,
                     'corpo_html': corpo_html_partial,
                     'cupom': cupom,
                     'validade': validade,

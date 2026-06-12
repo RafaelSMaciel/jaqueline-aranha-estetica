@@ -53,7 +53,7 @@ class CriarAgendamentoCommand:
     profissional_id: int
     procedimento_id: int
     data_hora_inicio: datetime
-    nome_completo: str
+    nome: str
     email: Optional[str] = None
     telefone: Optional[str] = None
     cpf: Optional[str] = None
@@ -80,7 +80,7 @@ class AgendamentoService:
         if not cmd.aceite_lgpd:
             raise ValidationError('Aceite LGPD obrigatorio.')
 
-        if not cmd.nome_completo or len(cmd.nome_completo.strip()) < 3:
+        if not cmd.nome or len(cmd.nome.strip()) < 3:
             raise ValidationError('Nome completo invalido.')
 
         # Resolve profissional + procedimento
@@ -99,7 +99,7 @@ class AgendamentoService:
 
         if cliente.bloqueado_online:
             raise ClienteBloqueadoError(
-                f'Cliente {cliente.nome_completo} bloqueado por excesso de no-shows.'
+                f'Cliente {cliente.nome} bloqueado por excesso de no-shows.'
             )
 
         # Verifica conflito de slot (regra simplificada — slot calculator
@@ -173,7 +173,7 @@ class AgendamentoService:
             data_fmt = atendimento.data_hora_inicio.strftime('%d/%m/%Y as %H:%M')
             valor = atendimento.valor_cobrado
             dados = {
-                'nome': atendimento.cliente.nome_completo,
+                'nome': atendimento.cliente.nome,
                 'procedimento': atendimento.procedimento.nome,
                 'profissional': atendimento.profissional.nome,
                 'data_hora': data_fmt,
@@ -203,7 +203,7 @@ class AgendamentoService:
         if atendimento.cliente.email:
             data_fmt = atendimento.data_hora_inicio.strftime('%d/%m/%Y as %H:%M')
             dados = {
-                'nome': atendimento.cliente.nome_completo,
+                'nome': atendimento.cliente.nome,
                 'procedimento': atendimento.procedimento.nome,
                 'profissional': atendimento.profissional.nome,
                 'data_hora': data_fmt,
@@ -242,7 +242,7 @@ class AgendamentoService:
             return cliente
 
         return Cliente.objects.create(
-            nome_completo=cmd.nome_completo.strip(),
+            nome=cmd.nome.strip(),
             email=cmd.email,
             telefone=cmd.telefone,
             cpf=cmd.cpf,

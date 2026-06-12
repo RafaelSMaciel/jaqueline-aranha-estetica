@@ -50,7 +50,7 @@ def criar_procedimento(nome='Limpeza de Pele', duracao=30, categoria='FACIAL',
 
 def criar_cliente(nome='Maria Silva', telefone='17999990000', **kwargs):
     return Cliente.objects.create(
-        nome_completo=nome,
+        nome=nome,
         telefone=telefone,
         ativo=kwargs.pop('ativo', True),
         **kwargs,

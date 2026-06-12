@@ -53,7 +53,7 @@ def mask_cpf(value: Optional[str]) -> str:
 
 _SENTRY_PII_KEYS = {
     'email', 'telefone', 'cpf', 'phone', 'celular',
-    'data_nascimento', 'nome_completo',
+    'data_nascimento', 'nome',
 }
 
 

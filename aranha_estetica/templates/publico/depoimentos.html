@@ -66,10 +66,10 @@
             <p>"{{ av.comentario|truncatechars:220 }}"</p>
             <div class="profile">
               <div class="d-flex align-items-center justify-content-center rounded-circle bg-light" style="width:60px;height:60px;">
-                <span style="font-size:1.5rem;font-weight:700;color:var(--accent-color);">{{ av.atendimento.cliente.nome_completo|slice:":1"|upper }}</span>
+                <span style="font-size:1.5rem;font-weight:700;color:var(--accent-color);">{{ av.atendimento.cliente.nome|slice:":1"|upper }}</span>
               </div>
               <div class="info">
-                <h4>{{ av.atendimento.cliente.nome_completo|truncatechars:24 }}</h4>
+                <h4>{{ av.atendimento.cliente.nome|truncatechars:24 }}</h4>
                 <span>{{ av.criado_em|date:"d/m/Y" }}</span>
               </div>
             </div>

@@ -36,7 +36,7 @@
         <div class="resp-cliente">
             {% if r.cliente_id %}
             <a href="{% url 'aranha:admin_cliente_detalhe' r.cliente.pk %}" style="color:inherit;text-decoration:none;">
-                {{ r.cliente.nome_completo }}
+                {{ r.cliente.nome }}
             </a>
             {% else %}—{% endif %}
         </div>

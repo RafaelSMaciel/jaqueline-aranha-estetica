@@ -22,7 +22,7 @@
 <div class="espera-card {% if item.notificado %}notificado{% endif %}">
     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
         <div>
-            <div class="espera-nome">{{ item.cliente.nome_completo }}</div>
+            <div class="espera-nome">{{ item.cliente.nome }}</div>
             <div class="espera-info">
                 <i class="fas fa-stethoscope"></i> {{ item.procedimento.nome }}
                 {% if item.profissional_desejado %} &middot; Prefere: {{ item.profissional_desejado.nome }}{% endif %}
