@@ -66,6 +66,8 @@ INSTALLED_APPS = [
     'axes',
     'rest_framework',
     'drf_spectacular',
+    'django_vite',
+    'django_cotton',
 ]
 
 # DRF
@@ -139,7 +141,7 @@ TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [],
-        'APP_DIRS': True,
+        # APP_DIRS removido: incompativel com loaders explicitos (django-cotton exige loader proprio)
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.request',
@@ -148,6 +150,14 @@ TEMPLATES = [
                 'aranha_estetica.context_processors.clinica_globals',
                 'aranha_estetica.context_processors.csp_nonce',
             ],
+            'loaders': [(
+                'django.template.loaders.cached.Loader', [
+                    'django_cotton.cotton_loader.Loader',
+                    'django.template.loaders.filesystem.Loader',
+                    'django.template.loaders.app_directories.Loader',
+                ],
+            )],
+            'builtins': ['django_cotton.templatetags.cotton'],
         },
     },
 ]
@@ -257,6 +267,16 @@ if _S3_BUCKET:
         pass
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# ─── DJANGO-VITE ─────────────────────────────────────────────────────
+# manifest.json fica em aranha_estetica/static/dist/ (confirmado empiricamente com Vite 6)
+DJANGO_VITE = {
+    'default': {
+        'dev_mode': DEBUG,
+        'manifest_path': BASE_DIR / 'aranha_estetica' / 'static' / 'dist' / 'manifest.json',
+    },
+}
 
 
 # ─── SECURITY BASE ───────────────────────────────────────────────────
