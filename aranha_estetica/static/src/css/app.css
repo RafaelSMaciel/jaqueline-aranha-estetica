@@ -1,0 +1,14 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+@theme {
+  --color-fundo: var(--cor-fundo);
+  --color-superficie: var(--cor-superficie);
+  --color-texto: var(--cor-texto);
+  --color-texto-suave: var(--cor-texto-suave);
+  --color-marca: var(--cor-marca);
+  --color-marca-forte: var(--cor-marca-forte);
+  --color-borda: var(--cor-borda);
+  --radius-md: 8px;
+  --radius-lg: 12px;
+}
