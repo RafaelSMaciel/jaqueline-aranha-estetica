@@ -14,6 +14,8 @@
   --cor-marca: var(--ouro-600);
   --cor-marca-forte: var(--ouro-500);
   --cor-borda: #E7E8E3;
+  --cor-erro: #A32D2D;
+  --cor-sucesso: #1D7A4F;
 }
 [data-theme="dark"] {
   --cor-fundo: #14171A;
@@ -23,4 +25,6 @@
   --cor-marca: #C9A84C;
   --cor-marca-forte: #C9A84C;
   --cor-borda: #2A3034;
+  --cor-erro: #E07A7A;
+  --cor-sucesso: #5DCAA5;
 }
