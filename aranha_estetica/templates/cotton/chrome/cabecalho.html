@@ -1,0 +1,11 @@
+<header class="border-b border-borda bg-superficie">
+  <div class="mx-auto max-w-6xl flex items-center justify-between px-6 py-4">
+    <a href="/" class="font-medium text-texto">{{ CLINIC_NAME }}</a>
+    <div class="flex items-center gap-4">
+      <button type="button" x-data="temaToggle" x-on:click="alternar"
+              aria-label="Alternar tema" class="text-texto-suave hover:text-texto">tema</button>
+      <a href="{% url 'aranha:agendamento_publico' %}"
+         class="rounded-md bg-marca-forte px-4 py-2 text-sm font-medium" style="color:#23200f">Agendar</a>
+    </div>
+  </div>
+</header>

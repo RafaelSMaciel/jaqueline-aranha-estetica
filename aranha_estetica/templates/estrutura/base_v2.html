@@ -1,0 +1,18 @@
+{% load static django_vite %}
+<!doctype html>
+<html lang="pt-br" data-theme="{{ tema }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}{{ CLINIC_NAME }}{% endblock %}</title>
+  {% vite_hmr_client %}
+  {% vite_asset 'aranha_estetica/static/src/js/app.js' %}
+  {% block css %}{% endblock %}
+</head>
+<body class="bg-fundo text-texto antialiased">
+  <a href="#conteudo" class="sr-only focus:not-sr-only">Pular para o conteúdo</a>
+  {% include 'cotton/chrome/cabecalho.html' %}
+  <main id="conteudo">{% block conteudo %}{% endblock %}</main>
+  {% include 'cotton/chrome/rodape.html' %}
+</body>
+</html>
