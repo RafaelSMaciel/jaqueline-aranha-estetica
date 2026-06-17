@@ -20,3 +20,11 @@ def clinica_globals(request):
 def csp_nonce(request):
     """Expoe o nonce CSP gerado pelo middleware para uso em templates."""
     return {'csp_nonce': getattr(request, 'csp_nonce', '')}
+
+
+def tema_atual(request):
+    """Retorna o tema visual (claro/escuro) lido do cookie do usuario."""
+    valor = request.COOKIES.get('tema', 'claro')
+    if valor not in ('claro', 'escuro'):
+        valor = 'claro'
+    return {'tema': valor}
