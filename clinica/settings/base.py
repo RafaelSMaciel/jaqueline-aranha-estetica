@@ -288,6 +288,11 @@ DJANGO_VITE = {
     },
 }
 
+# Em testes, forcar dev_mode p/ que vite_asset nao precise do manifest.json no disco.
+# Em dev_mode, as tags emitem URLs apontando p/ dev server (sem ler manifest.json).
+if 'test' in sys.argv or 'test_coverage' in sys.argv:
+    DJANGO_VITE['default']['dev_mode'] = True
+
 
 # ─── SECURITY BASE ───────────────────────────────────────────────────
 SECURE_BROWSER_XSS_FILTER = True

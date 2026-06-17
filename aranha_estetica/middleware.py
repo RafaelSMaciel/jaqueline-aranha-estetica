@@ -5,6 +5,7 @@ Inclui Content-Security-Policy com nonce por request e headers adicionais
 """
 import secrets
 
+from django.conf import settings
 from django.db import OperationalError, ProgrammingError
 from django.shortcuts import redirect
 from django.urls import resolve, reverse
@@ -141,6 +142,19 @@ class ContentSecurityPolicyMiddleware:
 
         script_src = self.ALLOWED_SCRIPT_SRCS + [f"'nonce-{nonce}'"]
         style_src = self.ALLOWED_STYLE_SRCS + [f"'nonce-{nonce}'"]
+        connect_src = list(self.ALLOWED_CONNECT_SRCS)
+
+        # Em DEBUG (desenvolvimento), o Vite HMR carrega scripts e CSS de
+        # http://localhost:5173 e abre um WebSocket ws://localhost:5173 para
+        # hot-reload. Sem essas origens na CSP, o navegador bloquearia os
+        # assets do dev server. NAO alterar CSP de producao.
+        if settings.DEBUG:
+            script_src = script_src + ["http://localhost:5173"]
+            style_src = style_src + ["http://localhost:5173"]
+            connect_src = connect_src + [
+                "http://localhost:5173",
+                "ws://localhost:5173",
+            ]
 
         csp = "; ".join([
             "default-src 'self'",
@@ -153,7 +167,7 @@ class ContentSecurityPolicyMiddleware:
             "style-src-attr 'unsafe-inline'",
             f"font-src {' '.join(self.ALLOWED_FONT_SRCS)}",
             f"img-src {' '.join(self.ALLOWED_IMG_SRCS)}",
-            f"connect-src {' '.join(self.ALLOWED_CONNECT_SRCS)}",
+            f"connect-src {' '.join(connect_src)}",
             "frame-src 'self' https://www.google.com https://challenges.cloudflare.com",
             "frame-ancestors 'none'",
             "form-action 'self'",
