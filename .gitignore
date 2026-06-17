@@ -26,6 +26,7 @@ media/
 
 # ── Node ──
 node_modules/
+aranha_estetica/static/dist/
 
 # ── IDE / Editor ──
 .vscode/
