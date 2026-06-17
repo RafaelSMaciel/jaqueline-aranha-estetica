@@ -61,3 +61,8 @@ screenshots/
 tmp_req/node_modules/
 db_dev.sqlite3.bak-*
 default_*.sqlite3
+
+# Mockups temporários de design (não versionar)
+aranha_estetica/static/_design_tmp/
+# Worktrees isolados
+.worktrees/
