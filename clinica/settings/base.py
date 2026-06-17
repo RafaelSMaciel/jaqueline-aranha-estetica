@@ -150,13 +150,22 @@ TEMPLATES = [
                 'aranha_estetica.context_processors.clinica_globals',
                 'aranha_estetica.context_processors.csp_nonce',
             ],
-            'loaders': [(
-                'django.template.loaders.cached.Loader', [
+            # cotton exige loaders explicitos. cached.Loader SO em prod —
+            # em DEBUG ele trava o hot-reload de template (edicao nao reflete sem restart).
+            'loaders': (
+                [(
+                    'django.template.loaders.cached.Loader', [
+                        'django_cotton.cotton_loader.Loader',
+                        'django.template.loaders.filesystem.Loader',
+                        'django.template.loaders.app_directories.Loader',
+                    ],
+                )]
+                if not DEBUG else [
                     'django_cotton.cotton_loader.Loader',
                     'django.template.loaders.filesystem.Loader',
                     'django.template.loaders.app_directories.Loader',
-                ],
-            )],
+                ]
+            ),
             'builtins': ['django_cotton.templatetags.cotton'],
         },
     },
