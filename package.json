@@ -1,0 +1,31 @@
+{
+  "name": "shivazen-app",
+  "version": "1.0.0",
+  "description": "Sistema de agendamento online e gestão para clínica de estética da biomédica Jaqueline Aranha. Django 5.2 + PostgreSQL + Redis + Celery, com painel administrativo, PWA, web push e integrações externas (WhatsApp Business, Google Calendar, Zenvia SMS, Sentry, Cloudflare Turnstile).",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RafaelSMaciel/jaqueline-aranha-estetica.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/RafaelSMaciel/jaqueline-aranha-estetica/issues"
+  },
+  "homepage": "https://github.com/RafaelSMaciel/jaqueline-aranha-estetica#readme",
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.1",
+    "tailwindcss": "^4.3.1",
+    "vite": "^6.4.3"
+  }
+}
