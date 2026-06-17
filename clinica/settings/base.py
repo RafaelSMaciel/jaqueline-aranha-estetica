@@ -149,6 +149,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'aranha_estetica.context_processors.clinica_globals',
                 'aranha_estetica.context_processors.csp_nonce',
+                'aranha_estetica.context_processors.tema_atual',
             ],
             # cotton exige loaders explicitos. cached.Loader SO em prod —
             # em DEBUG ele trava o hot-reload de template (edicao nao reflete sem restart).
