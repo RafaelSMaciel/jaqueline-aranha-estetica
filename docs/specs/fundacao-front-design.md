@@ -24,6 +24,7 @@ só o que Home/Wizard precisam primeiro; a lib cresce conforme as telas pedem.
 | F5 | Dark mode **opcional (toggle), padrão claro** nos dois | unifica os 2 dark modes atuais; marketing fica melhor claro |
 | F6 | Tema via tokens semânticos + `data-theme` + cookie | sem FOUC (servidor pinta certo no 1º render) |
 | F7 | Coexistência: 2 bundles que não dividem página | preflight Tailwind não briga com Bootstrap |
+| F8 | Alpine via **`@alpinejs/csp`** (build CSP-safe) | mantém CSP sem `unsafe-eval`; **regra:** lógica em `Alpine.data()`, usar `x-data`/`x-on:`/`x-bind:`, SEM expressão JS inline em atributo nem `onclick` |
 
 ## 3. Arquitetura de tokens
 
