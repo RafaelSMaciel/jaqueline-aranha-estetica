@@ -16,6 +16,7 @@
   --cor-borda: #E7E8E3;
   --cor-erro: #A32D2D;
   --cor-sucesso: #1D7A4F;
+  --cor-sobre-marca: #23200f;   /* texto sobre fundo marca-forte (dourado) — igual nos 2 temas */
 }
 [data-theme="dark"] {
   --cor-fundo: #14171A;
