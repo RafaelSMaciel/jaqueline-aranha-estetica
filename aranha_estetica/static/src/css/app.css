@@ -1,6 +1,11 @@
 @import "tailwindcss";
 @import "./tokens.css";
 
+/* Tailwind v4 nao auto-detecta os templates Django — declarar explicito,
+   senao nenhum utilitario das classes usadas em .html e gerado. */
+@source "../../../templates/**/*.html";
+@source "../../js/**/*.js";
+
 @theme {
   --color-fundo: var(--cor-fundo);
   --color-superficie: var(--cor-superficie);

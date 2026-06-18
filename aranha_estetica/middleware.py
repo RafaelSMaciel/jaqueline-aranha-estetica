@@ -150,7 +150,10 @@ class ContentSecurityPolicyMiddleware:
         # assets do dev server. NAO alterar CSP de producao.
         if settings.DEBUG:
             script_src = script_src + ["http://localhost:5173"]
-            style_src = style_src + ["http://localhost:5173"]
+            # Vite dev injeta <style> inline (sem nonce) para o HMR de CSS. Com
+            # nonce presente os browsers ignoram 'unsafe-inline', entao em DEBUG
+            # montamos style-src SEM nonce + 'unsafe-inline'. Producao fica estrita.
+            style_src = self.ALLOWED_STYLE_SRCS + ["http://localhost:5173", "'unsafe-inline'"]
             connect_src = connect_src + [
                 "http://localhost:5173",
                 "ws://localhost:5173",

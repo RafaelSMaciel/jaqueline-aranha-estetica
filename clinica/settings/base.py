@@ -284,6 +284,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 DJANGO_VITE = {
     'default': {
         'dev_mode': DEBUG,
+        # Vite usa base '/static/dist/' (vite.config.js); o prefixo 'dist' alinha
+        # as URLs de asset (dev e prod) ao subdir onde o bundle e servido/buildado.
+        'static_url_prefix': 'dist',
         'manifest_path': BASE_DIR / 'aranha_estetica' / 'static' / 'dist' / 'manifest.json',
     },
 }
