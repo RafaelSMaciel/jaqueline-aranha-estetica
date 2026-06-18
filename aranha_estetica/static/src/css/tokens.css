@@ -20,7 +20,7 @@
   --cor-sucesso: #1D7A4F;
   --cor-sobre-marca: #23200f;   /* texto sobre fundo marca-forte (dourado) — igual nos 2 temas */
 }
-[data-theme="dark"] {
+[data-theme="escuro"] {
   --cor-fundo: #14171A;
   --cor-superficie: #1B2024;
   --cor-texto: #EDEFEC;
