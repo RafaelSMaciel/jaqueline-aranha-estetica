@@ -9,6 +9,7 @@ urlpatterns = [
     # ─── Público ───
     path('', views.home, name='inicio'),
     path('quem-somos/', views.quem_somos, name='quem_somos'),
+    path('v2-prova/', views.prova_v2, name='prova_v2'),
     path('termos-de-uso/', views.termos_uso, name='termos_uso'),
     path('politica-de-privacidade/', views.politica_privacidade, name='politica_privacidade'),
     path('contato/', views.agenda_contato, name='agenda_contato'),

@@ -361,3 +361,7 @@ def servicos_corporais(request):
 
 def servicos_produtos(request):
     return render(request, 'servicos/produtos.html', {})
+
+
+def prova_v2(request):
+    return render(request, 'publico/prova_v2.html')
