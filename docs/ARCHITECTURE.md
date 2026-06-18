@@ -158,9 +158,10 @@ Decisões: Tailwind v4 + HTMX + @alpinejs/csp (F8) + cotton + Vite; dark opciona
 - [ ] Componentes do wizard (stepper, slot, calendário) — Onda 2
 - [ ] Quick wins auditoria: contato POST · toast textContent · jQuery fora · hero LCP · fontes · cookie-banner · hreflang · SRI
 
-### Front — Onda 2 (site público)
-- [ ] Home (hero D2 + seções)
-- [ ] Wizard booking (+ fix a11y teclado + estado sessionStorage)
+### Front — Onda 2 (site público) — plano wizard [`plans/onda2-wizard.md`](plans/onda2-wizard.md)
+Abordagem wizard: pragmática (re-skin Tailwind + externalizar JS + corrigir 2 bugs; sem reescrita Alpine).
+- [ ] Home (hero D2 + seções) — **gated nas cores/fotos reais**
+- [~] Wizard booking — **W1 ✅** (JS externalizado CSP-safe, verificado browser); pendente W2 re-skin · W3 a11y teclado (cards/dias→button) · W4 estado sessionStorage + fix reject backend · W5 verificação fluxo completo
 - [ ] Catálogo serviços (faciais/corporais/produtos/especialidades/detalhe)
 - [ ] Páginas de marca (quem somos/equipe/galeria/depoimentos)
 - [ ] Auto-serviço (meus agendamentos/reagendar/confirmar presença)
