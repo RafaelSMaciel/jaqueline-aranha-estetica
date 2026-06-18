@@ -19,5 +19,11 @@ Alpine.data('temaToggle', () => ({
   },
 }))
 
+Alpine.data('modal', () => ({
+  aberto: false,
+  abrir() { this.aberto = true },
+  fechar() { this.aberto = false },
+}))
+
 window.Alpine = Alpine
 Alpine.start()

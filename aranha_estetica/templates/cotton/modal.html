@@ -1,0 +1,11 @@
+<c-vars titulo="" />
+<div x-data="modal" x-on:keydown.escape.window="fechar">
+  <div x-show="aberto" x-cloak role="dialog" aria-modal="true" aria-label="{{ titulo }}"
+       class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,.45)">
+    <div x-on:click.outside="fechar"
+         class="rounded-lg bg-superficie p-6 text-texto w-full max-w-md">
+      {% if titulo %}<h2 class="text-lg font-medium mb-3">{{ titulo }}</h2>{% endif %}
+      {{ slot }}
+    </div>
+  </div>
+</div>

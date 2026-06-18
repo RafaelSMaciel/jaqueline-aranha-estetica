@@ -1,3 +1,5 @@
+[x-cloak] { display: none !important; }
+
 :root {
   --ouro-500: #C9A84C;            /* PLACEHOLDER marca — trocar 1x quando vier cor real */
   --ouro-600: #9A7B2E;
