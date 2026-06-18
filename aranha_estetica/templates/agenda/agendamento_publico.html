@@ -95,6 +95,8 @@
     .proc-card {
         border: 2px solid var(--cor-borda); border-radius: 16px; padding: 1.5rem;
         cursor: pointer; transition: all 0.25s ease; background: var(--cor-superficie);
+        appearance: none; -webkit-appearance: none;
+        font: inherit; color: inherit; text-align: left; width: 100%;
     }
     .proc-card:hover {
         border-color: var(--gold); transform: translateY(-3px);
@@ -147,8 +149,12 @@
     .cal-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
     .cal-day {
         aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
-        border-radius: 12px; font-weight: 600; font-size: 0.9rem;
-        cursor: default; color: var(--cor-borda); transition: all 0.2s;
+        border-radius: 12px; transition: all 0.2s;
+        cursor: default; color: var(--cor-borda);
+        appearance: none; -webkit-appearance: none;
+        font: inherit; font-weight: 600; font-size: 0.9rem;
+        text-align: center; width: 100%;
+        background: transparent; border: none; padding: 0;
     }
     .cal-day.available {
         color: var(--earth); cursor: pointer; background: var(--cor-fundo);
@@ -164,6 +170,14 @@
     }
     .cal-day.today { border: 2px solid var(--gold); }
     .cal-day.empty { border: none; }
+
+    /* ─── FOCO VISÍVEL (teclado — WCAG 2.1.1) ─── */
+    .proc-card:focus-visible,
+    .cal-day:focus-visible,
+    .slot-btn:focus-visible,
+    .prof-btn:focus-visible {
+        outline: 2px solid var(--cor-marca); outline-offset: 2px;
+    }
 
     /* ─── TIME SLOTS ─── */
     .slots-container { margin-top: 1.5rem; }
@@ -381,7 +395,7 @@
             {% endif %}
             <div class="proc-grid">
                 {% for proc in procedimentos %}
-                <div class="proc-card" data-proc-id="{{ proc.id }}" data-proc-nome="{{ proc.nome }}"
+                <button type="button" class="proc-card" data-proc-id="{{ proc.id }}" data-proc-nome="{{ proc.nome }}"
                      data-proc-preco="{{ proc.preco }}" data-proc-duracao="{{ proc.duracao_minutos }}"
                      data-categoria="{{ proc.categoria }}">
                     <div class="proc-icon"><i class="bi bi-stars"></i></div>
@@ -402,7 +416,7 @@
                             <i class="bi bi-clock"></i>{{ proc.duracao_minutos }} min
                         </span>
                     </div>
-                </div>
+                </button>
                 {% endfor %}
             </div>
             {% else %}

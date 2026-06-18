@@ -126,8 +126,11 @@
         today.setHours(0, 0, 0, 0);
 
         for (var i = 0; i < firstDay; i++) {
-            var empty = document.createElement('div');
+            var empty = document.createElement('button');
+            empty.type = 'button';
             empty.className = 'cal-day empty';
+            empty.setAttribute('aria-hidden', 'true');
+            empty.disabled = true;
             grid.appendChild(empty);
         }
 
@@ -137,7 +140,8 @@
             var isToday = dateObj.getTime() === today.getTime();
             var isAvailable = diasDisponiveis.indexOf(dateStr) !== -1;
 
-            var div = document.createElement('div');
+            var div = document.createElement('button');
+            div.type = 'button';
             div.textContent = d;
             div.className = 'cal-day';
             if (isToday) div.classList.add('today');
@@ -147,6 +151,8 @@
                 div.addEventListener('click', function() {
                     selectDate(this.getAttribute('data-date'));
                 });
+            } else {
+                div.disabled = true;
             }
             grid.appendChild(div);
         }
