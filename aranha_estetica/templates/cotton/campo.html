@@ -3,8 +3,9 @@
   <label for="{{ nome }}" class="text-sm font-medium text-texto">{{ label }}</label>
   <input id="{{ nome }}" name="{{ nome }}" type="{{ tipo }}"
          class="rounded-md border border-borda bg-superficie px-3 py-2 text-texto"
+         {% if erro %}aria-invalid="true" aria-describedby="{{ nome }}-erro"{% endif %}
          {{ attrs }}>
   {% if erro %}
-    <span class="text-erro text-sm">{{ erro }}</span>
+    <span id="{{ nome }}-erro" class="text-erro text-sm">{{ erro }}</span>
   {% endif %}
 </div>
