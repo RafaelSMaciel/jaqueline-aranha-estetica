@@ -1,18 +1,17 @@
-﻿{% extends 'estrutura/base.html' %}
+{% extends 'estrutura/base_v2.html' %}
 {% load static %}
 
-{% block body_class %}agendamento-page{% endblock %}
 {% block titulo %}Agendamento Online | {{ CLINIC_NAME }}{% endblock %}
 
-{% block conteudo %}
+{% block css %}
 <style nonce="{{ csp_nonce }}">
     :root {
-        --gold: #b48c4c;
-        --gold-light: #f5edd8;
-        --gold-mid: rgba(180, 140, 76, 0.15);
-        --earth: #3c4049;
-        --earth-mid: #5a5f6a;
-        --bg: #f8f7f4;
+        --gold: var(--cor-marca-forte);
+        --gold-light: color-mix(in srgb, var(--cor-marca-forte) 12%, var(--cor-superficie));
+        --gold-mid: color-mix(in srgb, var(--cor-marca-forte) 15%, transparent);
+        --earth: var(--cor-texto);
+        --earth-mid: var(--cor-texto-suave);
+        --bg: var(--cor-fundo);
     }
 
     .booking-page { background: var(--bg); min-height: 100vh; }
@@ -56,14 +55,14 @@
         position: relative; z-index: 10;
     }
     .booking-card {
-        background: white; border-radius: 24px;
+        background: var(--cor-superficie); border-radius: 24px;
         box-shadow: 0 16px 60px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.06);
         overflow: hidden; max-width: 1000px; margin: 0 auto;
     }
 
     /* ─── STEP INDICATOR ─── */
     .steps-bar {
-        display: flex; background: #FDFCFA; border-bottom: 1px solid #F0EDE8;
+        display: flex; background: var(--cor-superficie); border-bottom: 1px solid var(--cor-borda);
         padding: 0;
     }
     .step-item {
@@ -81,7 +80,7 @@
     .step-num {
         display: inline-flex; align-items: center; justify-content: center;
         width: 28px; height: 28px; border-radius: 50%;
-        background: #F0EDE8; color: #BBB; font-size: 0.72rem; font-weight: 800;
+        background: var(--cor-borda); color: #BBB; font-size: 0.72rem; font-weight: 800;
         margin-right: 0.5rem; vertical-align: middle; transition: all 0.3s;
     }
     .step-item.active .step-num { background: var(--gold); color: white; }
@@ -94,8 +93,8 @@
     /* ─── PROCEDURE CARDS ─── */
     .proc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
     .proc-card {
-        border: 2px solid #F0EDE8; border-radius: 16px; padding: 1.5rem;
-        cursor: pointer; transition: all 0.25s ease; background: white;
+        border: 2px solid var(--cor-borda); border-radius: 16px; padding: 1.5rem;
+        cursor: pointer; transition: all 0.25s ease; background: var(--cor-superficie);
     }
     .proc-card:hover {
         border-color: var(--gold); transform: translateY(-3px);
@@ -111,11 +110,11 @@
     }
     .proc-icon i { color: var(--gold); font-size: 1.2rem; }
     .proc-name { font-weight: 700; font-size: 1rem; color: var(--earth); margin-bottom: 0.3rem; }
-    .proc-desc { font-size: 0.82rem; color: #999; margin-bottom: 0.8rem; line-height: 1.45; }
+    .proc-desc { font-size: 0.82rem; color: var(--cor-texto-suave); margin-bottom: 0.8rem; line-height: 1.45; }
     .proc-meta { display: flex; align-items: center; gap: 1rem; }
     .proc-price { font-weight: 800; color: var(--gold); font-size: 1.1rem; }
     .proc-duration {
-        font-size: 0.75rem; color: #BBB; font-weight: 600;
+        font-size: 0.75rem; color: var(--cor-texto-suave); font-weight: 600;
         display: flex; align-items: center; gap: 0.3rem;
     }
 
@@ -131,7 +130,7 @@
     .cal-nav { display: flex; gap: 0.5rem; }
     .cal-nav-btn {
         width: 36px; height: 36px; border-radius: 50%;
-        border: 1.5px solid #E0DBD3; background: white;
+        border: 1.5px solid var(--cor-borda); background: var(--cor-superficie);
         display: flex; align-items: center; justify-content: center;
         cursor: pointer; transition: all 0.2s; color: var(--earth);
     }
@@ -143,16 +142,16 @@
     }
     .cal-weekday {
         text-align: center; font-size: 0.7rem; font-weight: 800;
-        text-transform: uppercase; letter-spacing: 1px; color: #BBB; padding: 0.5rem 0;
+        text-transform: uppercase; letter-spacing: 1px; color: var(--cor-texto-suave); padding: 0.5rem 0;
     }
     .cal-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
     .cal-day {
         aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
         border-radius: 12px; font-weight: 600; font-size: 0.9rem;
-        cursor: default; color: #DDD; transition: all 0.2s;
+        cursor: default; color: var(--cor-borda); transition: all 0.2s;
     }
     .cal-day.available {
-        color: var(--earth); cursor: pointer; background: #FAFAF8;
+        color: var(--earth); cursor: pointer; background: var(--cor-fundo);
         border: 1.5px solid transparent;
     }
     .cal-day.available:hover {
@@ -172,7 +171,7 @@
     .slots-grid { display: flex; flex-wrap: wrap; gap: 0.6rem; }
     .slot-btn {
         padding: 0.7rem 1.2rem; border-radius: 12px;
-        border: 1.5px solid #E8E4DD; background: white;
+        border: 1.5px solid var(--cor-borda); background: var(--cor-superficie);
         font-weight: 700; font-size: 0.85rem; color: var(--earth);
         cursor: pointer; transition: all 0.2s; min-width: 80px; text-align: center;
     }
@@ -181,13 +180,13 @@
         background: var(--gold); color: white; border-color: var(--gold);
         box-shadow: 0 4px 12px rgba(201,168,76,0.3);
     }
-    .slots-loading { text-align: center; padding: 2rem; color: #BBB; }
+    .slots-loading { text-align: center; padding: 2rem; color: var(--cor-texto-suave); }
 
     /* ─── PROFISSIONAL SELECT ─── */
     .prof-options { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1rem; }
     .prof-btn {
         padding: 0.6rem 1.2rem; border-radius: 12px;
-        border: 1.5px solid #E8E4DD; background: white;
+        border: 1.5px solid var(--cor-borda); background: var(--cor-superficie);
         font-weight: 600; font-size: 0.85rem; color: var(--earth);
         cursor: pointer; transition: all 0.2s;
     }
@@ -196,17 +195,17 @@
 
     /* ─── STEP 3 FORM ─── */
     .booking-recap {
-        background: #fbfaf7; border: 1px solid #ece6d8; border-radius: 16px;
+        background: var(--cor-fundo); border: 1px solid var(--cor-borda); border-radius: 16px;
         padding: 1.25rem 1.5rem; margin-bottom: 1.75rem;
     }
     .recap-row {
         display: flex; justify-content: space-between; align-items: baseline;
-        padding: 0.55rem 0; border-bottom: 1px solid #f0ebde;
+        padding: 0.55rem 0; border-bottom: 1px solid var(--cor-borda);
         font-size: 0.9rem; gap: 1rem;
     }
     .recap-row:last-child { border-bottom: none; }
     .recap-label {
-        color: #9a8f7c; font-size: 0.72rem; font-weight: 700;
+        color: var(--cor-texto-suave); font-size: 0.72rem; font-weight: 700;
         text-transform: uppercase; letter-spacing: 1.2px; flex-shrink: 0;
     }
     .recap-value { color: var(--earth); font-weight: 600; text-align: right; }
@@ -217,12 +216,12 @@
 
     .fields-divider {
         display: flex; align-items: center; gap: 0.85rem;
-        margin: 1.5rem 0 1rem; color: #b5a994;
+        margin: 1.5rem 0 1rem; color: var(--cor-texto-suave);
         font-size: 0.7rem; font-weight: 700;
         text-transform: uppercase; letter-spacing: 1.8px;
     }
     .fields-divider::before, .fields-divider::after {
-        content: ''; flex: 1; height: 1px; background: #e8e2d4;
+        content: ''; flex: 1; height: 1px; background: var(--cor-borda);
     }
     .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
     @media (max-width: 576px) { .field-row { grid-template-columns: 1fr; gap: 0; } }
@@ -259,25 +258,25 @@
 
     .confirm-subnote {
         display: block; text-align: center; margin-top: 0.75rem;
-        font-size: 0.76rem; color: #9a8f7c; line-height: 1.5;
+        font-size: 0.76rem; color: var(--cor-texto-suave); line-height: 1.5;
     }
     .confirm-subnote i { color: var(--gold); margin-right: 0.3rem; }
 
     .form-field { margin-bottom: 1.25rem; }
     .form-field label {
         font-size: 0.72rem; font-weight: 800; text-transform: uppercase;
-        letter-spacing: 1.5px; color: #999; display: flex;
+        letter-spacing: 1.5px; color: var(--cor-texto-suave); display: flex;
         align-items: center; gap: 0.4rem; margin-bottom: 0.5rem;
     }
     .form-field label i { color: var(--gold); }
     .form-input {
-        width: 100%; padding: 0.85rem 1rem; border: 2px solid #EBEBEB;
-        border-radius: 14px; font-size: 0.95rem; background: #FAFAFA;
+        width: 100%; padding: 0.85rem 1rem; border: 2px solid var(--cor-borda);
+        border-radius: 14px; font-size: 0.95rem; background: var(--cor-fundo);
         color: var(--earth); font-weight: 500; transition: border-color 0.2s;
     }
     .form-input:focus {
         outline: none; border-color: var(--gold);
-        box-shadow: 0 0 0 4px rgba(201,168,76,0.12); background: white;
+        box-shadow: 0 0 0 4px rgba(201,168,76,0.12); background: var(--cor-superficie);
     }
 
     .btn-confirm-booking {
@@ -288,17 +287,17 @@
         box-shadow: 0 6px 20px rgba(201,168,76,0.35);
     }
     .btn-confirm-booking:hover {
-        background: #8b5c00; transform: translateY(-2px);
+        background: var(--cor-marca); transform: translateY(-2px);
         box-shadow: 0 10px 28px rgba(201,168,76,0.45);
     }
     .btn-back-step {
         display: inline-flex; align-items: center; gap: 0.5rem;
-        padding: 0.7rem 1.4rem; background: white; border: 1.5px solid #E0DBD3;
+        padding: 0.7rem 1.4rem; background: var(--cor-superficie); border: 1.5px solid var(--cor-borda);
         border-radius: 50px; color: var(--earth); font-weight: 600;
         font-size: 0.85rem; cursor: pointer; transition: all 0.2s;
         margin-top: 0.75rem;
     }
-    .btn-back-step:hover { background: #F5F2EE; }
+    .btn-back-step:hover { background: var(--cor-fundo); }
 
     .wpp-note {
         display: flex; align-items: center; gap: 0.7rem;
@@ -309,9 +308,9 @@
     .wpp-note i { font-size: 1.2rem; color: #25D366; flex-shrink: 0; }
 
     .empty-procs {
-        text-align: center; padding: 3rem 1rem; color: #BBB;
+        text-align: center; padding: 3rem 1rem; color: var(--cor-texto-suave);
     }
-    .empty-procs i { font-size: 3rem; margin-bottom: 1rem; color: #E0DBD3; }
+    .empty-procs i { font-size: 3rem; margin-bottom: 1rem; color: var(--cor-borda); }
 
     @media (max-width: 768px) {
         .booking-banner { padding: 3rem 0 6rem; }
@@ -321,12 +320,14 @@
         .step-text { display: none; }
     }
 </style>
+{% endblock %}
 
+{% block conteudo %}
 <div class="booking-page">
 
 <!-- Hero -->
 <div class="booking-banner">
-    <div class="booking-banner-inner container" data-aos="fade-up" data-aos-delay="100">
+    <div class="booking-banner-inner mx-auto max-w-5xl px-6" data-aos="fade-up" data-aos-delay="100">
         <div class="booking-pill"><i class="bi bi-stars"></i>{{ CLINIC_NAME }} — Agendamento Online</div>
         <h1 data-aos="fade-up" data-aos-delay="200">Agende seu Espaço<br>de Bem-Estar</h1>
         <p data-aos="fade-up" data-aos-delay="300">Escolha seu tratamento, selecione a data e confirme — tudo sem precisar criar conta.</p>
@@ -358,7 +359,7 @@
             <h3 style="font-family:'Playfair Display',serif;font-weight:700;color:var(--earth);margin-bottom:0.3rem;">
                 Escolha seu Tratamento
             </h3>
-            <p style="color:#999;font-size:0.9rem;margin-bottom:1.5rem;">
+            <p style="color:var(--cor-texto-suave);font-size:0.9rem;margin-bottom:1.5rem;">
                 Selecione o procedimento desejado para ver as datas disponíveis.
             </p>
 
@@ -372,7 +373,7 @@
                 </button>
                 {% for cat_value, cat_label in categorias_disponiveis %}
                 <button type="button" class="cat-tab" data-cat="{{ cat_value }}"
-                        style="background:#fff; color:#7a5f1f; border:1px solid #C9A84C; border-radius:999px; padding:0.4rem 1rem; font-size:0.78rem; font-weight:700; cursor:pointer;">
+                        style="background:var(--cor-superficie); color:#7a5f1f; border:1px solid var(--cor-marca-forte); border-radius:999px; padding:0.4rem 1rem; font-size:0.78rem; font-weight:700; cursor:pointer;">
                     {{ cat_label }}
                 </button>
                 {% endfor %}
@@ -391,7 +392,7 @@
                     <div class="proc-meta">
                         <span class="proc-price">
                             {% if proc.preco > 0 %}
-                                <small style="font-size:0.65rem;font-weight:600;color:#999;letter-spacing:0.5px;">A partir de</small>
+                                <small style="font-size:0.65rem;font-weight:600;color:var(--cor-texto-suave);letter-spacing:0.5px;">A partir de</small>
                                 R$ {{ proc.preco|floatformat:2 }}
                             {% else %}
                                 <small style="font-size:0.78rem;font-weight:700;color:#7a5f1f;">A consultar</small>
@@ -410,7 +411,7 @@
                 <h4 style="font-weight:700;color:#4A3425;font-family:'Playfair Display',serif;font-size:1.4rem;">Em breve</h4>
                 <p style="color:#6B6256;max-width:360px;margin:0.5rem auto 1.5rem;">Nossos tratamentos estarao disponiveis para agendamento online em breve.</p>
                 <a href="https://wa.me/{{ whatsapp_numero }}?text=Ola! Gostaria de agendar um horario na {{ CLINIC_NAME }}." target="_blank" rel="noopener"
-                   class="btn rounded-pill px-4 py-2 fw-bold d-inline-flex align-items-center gap-2"
+                   class="inline-flex items-center gap-2 px-4 py-2 rounded-full font-bold"
                    style="background:#25D366;color:white;font-size:0.9rem;box-shadow:0 4px 16px rgba(37,211,102,0.3);">
                     <i class="bi bi-whatsapp" style="font-size:1.1rem;"></i>Agendar via WhatsApp
                 </a>
@@ -420,9 +421,9 @@
 
         <!-- ═══ STEP 2: Calendário + Horários ═══ -->
         <div class="step-panel" id="step-2">
-            <div class="row g-4">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <!-- Calendário -->
-                <div class="col-lg-6">
+                <div>
                     <div class="cal-header">
                         <span class="cal-title" id="cal-month-label">—</span>
                         <div class="cal-nav">
@@ -447,10 +448,10 @@
                 </div>
 
                 <!-- Horários -->
-                <div class="col-lg-6">
+                <div>
                     <div class="slots-container" id="slots-container">
                         <div class="slots-loading">
-                            <i class="far fa-calendar fa-2x" style="color:#DDD;display:block;margin-bottom:0.75rem;"></i>
+                            <i class="far fa-calendar fa-2x" style="color:var(--cor-borda);display:block;margin-bottom:0.75rem;"></i>
                             <span style="font-size:0.9rem;">Selecione uma data no calendário</span>
                         </div>
                     </div>
@@ -458,7 +459,7 @@
                     <!-- Profissional (aparece após selecionar horário) -->
                     <div id="prof-section" style="display:none !important;margin-top:1.5rem;">
                         <div class="slots-title">
-                            <i class="bi bi-person me-1" style="color:var(--gold);"></i> Escolha o Profissional
+                            <i class="bi bi-person" style="color:var(--gold);margin-right:0.25rem;"></i> Escolha o Profissional
                         </div>
                         <div class="prof-options" id="prof-options"></div>
                     </div>
@@ -468,8 +469,8 @@
 
         <!-- ═══ STEP 3: Dados + Confirmação ═══ -->
         <div class="step-panel" id="step-3">
-            <div class="row justify-content-center">
-                <div class="col-lg-7">
+            <div class="flex justify-center">
+                <div class="w-full max-w-lg">
                     <h3 style="font-family:'Playfair Display',serif;font-weight:700;color:var(--earth);margin-bottom:1.5rem;text-align:center;">
                         Confirme seu Agendamento
                     </h3>
@@ -511,11 +512,11 @@
                             <label><i class="bi bi-phone"></i>Celular</label>
                             <div class="otp-row">
                                 <input type="tel" name="telefone" class="form-input" placeholder="(00) 00000-0000" required id="form-telefone" aria-label="Telefone celular" inputmode="tel" autocomplete="tel">
-                                <button type="button" id="btn-enviar-otp" class="btn btn-outline-secondary otp-btn">
+                                <button type="button" id="btn-enviar-otp" class="otp-btn border border-borda rounded-lg px-3 py-2 text-sm font-semibold text-texto-suave bg-superficie hover:border-marca-forte cursor-pointer">
                                     <i class="bi bi-chat-square-text"></i><span class="otp-btn-text">Enviar SMS</span>
                                 </button>
                             </div>
-                            <small style="color:#9a8f7c;font-size:0.72rem;margin-top:0.35rem;display:block;">
+                            <small style="color:var(--cor-texto-suave);font-size:0.72rem;margin-top:0.35rem;display:block;">
                                 Enviaremos um SMS com codigo de 6 digitos para validar seu telefone. Se ja for paciente, seus dados serao preenchidos automaticamente.
                             </small>
                         </div>
@@ -524,7 +525,7 @@
                             <label><i class="bi bi-shield-lock"></i>Código de verificação</label>
                             <div class="otp-row">
                                 <input type="text" id="otp-codigo" class="form-input" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code" aria-label="Código de verificação de 6 dígitos" style="letter-spacing:6px;font-size:1.2rem;text-align:center;">
-                                <button type="button" id="btn-verificar-otp" class="btn btn-primary otp-btn">
+                                <button type="button" id="btn-verificar-otp" class="otp-btn bg-marca-forte text-sobre-marca border-0 rounded-lg px-3 py-2 text-sm font-semibold cursor-pointer">
                                     <i class="bi bi-check2"></i><span class="otp-btn-text">Verificar</span>
                                 </button>
                             </div>
@@ -596,7 +597,7 @@
                         {% endif %}
 
                         <button type="submit" class="btn-confirm-booking" id="btn-confirmar" disabled title="Verifique o código enviado por SMS ao seu telefone primeiro">
-                            <i class="bi bi-calendar-check me-2"></i>Confirmar Agendamento
+                            <i class="bi bi-calendar-check" style="margin-right:0.5rem;"></i>Confirmar Agendamento
                         </button>
                         <small class="confirm-subnote">
                             <i class="bi bi-whatsapp"></i>Apos a aprovacao do profissional, voce recebe a confirmacao por WhatsApp (e por e-mail se informado).
@@ -618,7 +619,7 @@
 </div><!-- /booking-page -->
 {% endblock %}
 
-{% block scripts %}
+{% block js %}
 {# JSON crus via json_script — Django escapa <,>,&,' p/ XSS-safe #}
 {{ formularios_anamnese_data|json_script:"formularios-anamnese-data" }}
 {# Config do wizard: resolve tags Django aqui no template, expõe para wizard.js #}
