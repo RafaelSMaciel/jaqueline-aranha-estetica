@@ -150,9 +150,10 @@ dashboard, calendário, auth/2FA.
 - [ ] Fotos reais (clínica/profissional/procedimentos)
 - [ ] Decisão final stack (A reskin / **B migração**)
 
-### Front — Onda 1 (fundação) — spec [`specs/fundacao-front-design.md`](specs/fundacao-front-design.md) ✅ aprovada
-Decisões: Tailwind v4 + HTMX + Alpine + cotton + Vite; dark opcional/padrão claro; lean incremental.
-- [ ] **Fatia 1:** tokens+tema (CSS vars + data-theme) · casca site (header/footer/head) · 6 componentes (botão/card/campo/toast/modal/badge) · Home piloto
+### Front — Onda 1 (fundação) — spec [`specs/fundacao-front-design.md`](specs/fundacao-front-design.md) ✅ · plano [`plans/fundacao-front-fatia1.md`](plans/fundacao-front-fatia1.md)
+Decisões: Tailwind v4 + HTMX + @alpinejs/csp (F8) + cotton + Vite; dark opcional/padrão claro; lean incremental.
+- [x] **Fatia 1 — branch `front-fundacao`** (NÃO mergeada; sem push): toolchain Vite+Tailwind · django-vite+cotton · tokens light/dark · tema via cookie sem FOUC + toggle Alpine CSP-safe · casca `base_v2` + header/footer · 6 componentes (botão/card/campo/badge/toast/modal) · `/v2-prova` (DEBUG-only). **Verificada ao vivo no browser** (light/dark, Alpine, assets). 182 testes + guardas de regressão. Verificação visual pegou 4 bugs de pipeline que os testes não viam (static_url_prefix, @source, CSP style dev, seletor `[data-theme=escuro]`).
+- [ ] **T9 — calibração de marca:** trocar paleta placeholder + fontes self-hosted — **gated nas cores reais** (pendência do dono)
 - [ ] App-shell PWA admin (nav, bottom-nav mobile, offline, install) — Onda 3
 - [ ] Componentes do wizard (stepper, slot, calendário) — Onda 2
 - [ ] Quick wins auditoria: contato POST · toast textContent · jQuery fora · hero LCP · fontes · cookie-banner · hreflang · SRI
