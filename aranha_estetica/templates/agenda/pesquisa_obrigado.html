@@ -1,19 +1,28 @@
-{% extends 'estrutura/base.html' %}
+{% extends 'estrutura/base_v2.html' %}
+
 {% block titulo %}Obrigado | {{ CLINIC_NAME }}{% endblock %}
+
 {% block conteudo %}
-<section class="hero section" style="background: linear-gradient(135deg, #2C2C2C 0%, #4a3728 50%, #6D4C41 100%); padding: 4rem 0 5rem;">
-    <div class="container text-center text-white" data-aos="fade-up">
-        <div class="d-inline-flex align-items-center gap-2 mb-3 px-4 py-2 rounded-pill" style="background:rgba(201,168,76,0.2);border:1px solid rgba(201,168,76,0.5);">
-            <i class="bi bi-check2-circle" style="color:#f0d98c;"></i>
-            <span style="color:#f0d98c;font-size:0.72rem;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;">Recebido</span>
-        </div>
-        <h1 style="font-family:'Playfair Display',serif;font-size:clamp(2rem,5vw,3rem);color:white !important;">Obrigado!</h1>
-        <p style="opacity:0.8;color:white !important;max-width:480px;margin:0 auto;">
-            Sua opinião foi registrada e nos ajudará a evoluir o atendimento. Cuide-se!
-        </p>
-        <a href="{% url 'aranha:inicio' %}" class="btn btn-outline-light rounded-pill px-4 mt-4">
-            <i class="bi bi-house-door me-2"></i>Voltar ao site
-        </a>
-    </div>
-</section>
+<div class="mx-auto max-w-xl px-6 py-16 text-center">
+
+  <div class="flex justify-center mb-6">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-marca" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  </div>
+
+  <p class="text-xs font-bold uppercase tracking-widest text-marca mb-3">Recebido</p>
+  <h1 class="text-2xl font-bold text-texto mb-4">Obrigado!</h1>
+  <p class="text-texto-suave leading-relaxed mb-8">
+    Sua opinião foi registrada e nos ajudará a evoluir o atendimento. Cuide-se!
+  </p>
+
+  <a href="{% url 'aranha:inicio' %}" class="inline-flex items-center gap-2 rounded-md bg-marca-forte px-6 py-2.5 text-sm font-semibold text-sobre-marca hover:opacity-90 transition-opacity">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+    </svg>
+    Voltar ao site
+  </a>
+
+</div>
 {% endblock %}

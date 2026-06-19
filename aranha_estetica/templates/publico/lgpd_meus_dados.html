@@ -1,49 +1,72 @@
-{% extends 'estrutura/base.html' %}
+{% extends 'estrutura/base_v2.html' %}
 {% load static %}
 
 {% block titulo %}Meus Dados (LGPD) — {{ CLINIC_NAME }}{% endblock %}
 
 {% block conteudo %}
-<section class="py-5">
-  <div class="container">
-    <h1 class="mb-4">Solicitar Meus Dados</h1>
-    <p class="lead mb-4">
-      Conforme a Lei Geral de Protecao de Dados (LGPD), você tem direito a acessar os dados
-      pessoais que mantemos sobre você. Informe seu telefone cadastrado para receber um
-      código de verificação.
-    </p>
+<div class="mx-auto max-w-xl px-6 py-12">
 
-    {% if messages %}
-      {% for m in messages %}
-        <div class="alert alert-{{ m.tags|default:'info' }}">{{ m }}</div>
-      {% endfor %}
+  <h1 class="text-2xl font-bold text-texto mb-4">Solicitar Meus Dados</h1>
+  <p class="text-texto-suave leading-relaxed mb-6">
+    Conforme a Lei Geral de Proteção de Dados (LGPD), você tem direito a acessar os dados
+    pessoais que mantemos sobre você. Informe seu telefone cadastrado para receber um
+    código de verificação.
+  </p>
+
+  {% if messages %}
+    {% for m in messages %}
+      <div class="mb-4 rounded-md border border-borda bg-superficie px-4 py-3 text-sm text-texto-suave">{{ m }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <form method="post" class="rounded-lg border border-borda bg-superficie p-6 space-y-5">
+    {% csrf_token %}
+
+    <div>
+      <label class="block text-sm font-medium text-texto mb-1" for="id_telefone">
+        Telefone cadastrado (com DDD)
+      </label>
+      <input
+        id="id_telefone"
+        type="tel"
+        name="telefone"
+        class="w-full rounded-md border border-borda bg-fundo px-3 py-2 text-texto text-sm focus:outline-none focus:ring-2 focus:ring-marca"
+        value="{{ telefone|default_if_none:'' }}"
+        {% if aguardando_codigo %}readonly{% endif %}
+        required
+      >
+    </div>
+
+    {% if aguardando_codigo %}
+      <div>
+        <label class="block text-sm font-medium text-texto mb-1" for="id_codigo">
+          Código de verificação (6 dígitos)
+        </label>
+        <input
+          id="id_codigo"
+          type="text"
+          name="codigo"
+          class="w-full rounded-md border border-borda bg-fundo px-3 py-2 text-texto text-sm focus:outline-none focus:ring-2 focus:ring-marca"
+          maxlength="6"
+          required
+          autofocus
+        >
+      </div>
     {% endif %}
 
-    <form method="post" class="card p-4 shadow-sm">
-      {% csrf_token %}
-      <div class="mb-3">
-        <label class="form-label">Telefone cadastrado (com DDD)</label>
-        <input type="tel" name="telefone" class="form-control"
-               value="{{ telefone|default_if_none:'' }}"
-               {% if aguardando_codigo %}readonly{% endif %} required>
-      </div>
+    <button
+      type="submit"
+      class="w-full rounded-md bg-marca-forte px-4 py-2 text-sm font-semibold text-sobre-marca hover:opacity-90 transition-opacity"
+    >
+      {% if aguardando_codigo %}Confirmar e Baixar Dados{% else %}Solicitar Código{% endif %}
+    </button>
+  </form>
 
-      {% if aguardando_codigo %}
-        <div class="mb-3">
-          <label class="form-label">Código de verificação (6 dígitos)</label>
-          <input type="text" name="codigo" class="form-control" maxlength="6" required autofocus>
-        </div>
-      {% endif %}
-
-      <button type="submit" class="btn btn-primary">
-        {% if aguardando_codigo %}Confirmar e Baixar Dados{% else %}Solicitar Código{% endif %}
-      </button>
-    </form>
-
-    <div class="mt-4">
-      <a href="{% url 'aranha:politica_privacidade' %}">Politica de Privacidade</a> ·
-      <a href="{% url 'aranha:termos_uso' %}">Termos de Uso</a>
-    </div>
+  <div class="mt-6 flex gap-4 text-sm text-texto-suave">
+    <a href="{% url 'aranha:politica_privacidade' %}" class="hover:text-texto transition-colors">Política de Privacidade</a>
+    <span>·</span>
+    <a href="{% url 'aranha:termos_uso' %}" class="hover:text-texto transition-colors">Termos de Uso</a>
   </div>
-</section>
+
+</div>
 {% endblock %}

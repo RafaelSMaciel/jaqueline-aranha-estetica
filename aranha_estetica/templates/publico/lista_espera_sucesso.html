@@ -1,28 +1,36 @@
-﻿{% extends 'estrutura/base.html' %}
+{% extends 'estrutura/base_v2.html' %}
 
 {% block titulo %}Inscrição confirmada | {{ CLINIC_NAME }}{% endblock %}
 
 {% block conteudo %}
-<section class="section" style="padding-top:90px;padding-bottom:90px;">
-  <div class="container text-center" data-aos="fade-up" style="max-width:640px;">
-    <div style="font-size:3rem;color:#4caf50;margin-bottom:1rem;">
-      <i class="bi bi-check-circle-fill"></i>
-    </div>
-    <h1 class="mb-3">Você esta na <span class="highlight">lista!</span></h1>
-    <p class="hero-description mb-4">
-      Assim que um horário compativel com suas preferencias for liberado,
-      entraremos em contato por e-mail com o convite para reservar.
-    </p>
-    <div class="d-flex gap-3 justify-content-center flex-wrap">
-      <a href="{% url 'aranha:inicio' %}" class="btn btn-outline-secondary"
-         style="border-radius:12px;">
-        <i class="bi bi-house me-2"></i>Voltar ao inicio
-      </a>
-      <a href="{% url 'aranha:agendamento_publico' %}" class="btn btn-primary"
-         style="border-radius:12px;">
-        <i class="bi bi-calendar-check me-2"></i>Tentar agendar de novo
-      </a>
-    </div>
+<div class="mx-auto max-w-xl px-6 py-16 text-center">
+
+  <div class="flex justify-center mb-6">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-marca" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
   </div>
-</section>
+
+  <h1 class="text-2xl font-bold text-texto mb-4">Você está na lista!</h1>
+  <p class="text-texto-suave leading-relaxed mb-8">
+    Assim que um horário compatível com suas preferências for liberado,
+    entraremos em contato por e-mail com o convite para reservar.
+  </p>
+
+  <div class="flex gap-3 justify-center flex-wrap">
+    <a href="{% url 'aranha:inicio' %}" class="inline-flex items-center gap-2 rounded-md border border-borda px-5 py-2.5 text-sm font-semibold text-texto hover:bg-superficie transition-colors">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+      </svg>
+      Voltar ao início
+    </a>
+    <a href="{% url 'aranha:agendamento_publico' %}" class="inline-flex items-center gap-2 rounded-md bg-marca-forte px-5 py-2.5 text-sm font-semibold text-sobre-marca hover:opacity-90 transition-opacity">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+      Tentar agendar de novo
+    </a>
+  </div>
+
+</div>
 {% endblock %}

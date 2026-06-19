@@ -1,156 +1,168 @@
-{% extends 'estrutura/base.html' %}
+{% extends 'estrutura/base_v2.html' %}
 {% load static %}
 
-{% block body_class %}terms-page{% endblock %}
 {% block titulo %}Termos de Serviço | {{ CLINIC_NAME }}{% endblock %}
 
 {% block conteudo %}
-<!-- Terms Of Service Section -->
-<section id="terms-of-service" class="terms-of-service section pt-5 mt-4">
+<div class="mx-auto max-w-3xl px-6 py-12">
 
-  <div class="container" data-aos="fade-up">
-    <!-- Page Header -->
-    <div class="tos-header text-center" data-aos="fade-up">
-      <span class="last-updated">Última Atualização: 26 de Março de 2026</span>
-      <h2>Termos de Serviço</h2>
-      <p>Por favor, leia atentamente estes termos de serviço antes de utilizar nossos serviços</p>
+  <!-- Header -->
+  <div class="mb-10 text-center">
+    <p class="text-xs font-semibold uppercase tracking-widest text-texto-suave mb-2">Última Atualização: 26 de Março de 2026</p>
+    <h1 class="text-3xl font-bold text-texto mb-4">Termos de Serviço</h1>
+    <p class="text-texto-suave leading-relaxed">Por favor, leia atentamente estes termos de serviço antes de utilizar nossos serviços.</p>
+  </div>
+
+  <!-- Content -->
+  <div class="space-y-10">
+
+    <!-- 1 -->
+    <div id="agreement">
+      <h2 class="text-xl font-semibold text-texto mb-3">1. Aceitação dos Termos</h2>
+      <p class="text-texto-suave leading-relaxed mb-4">Ao acessar nosso site e serviços, você concorda em cumprir estes Termos de Serviço e todas as leis e regulamentos aplicáveis. Se você não concordar com qualquer um destes termos, está proibido de usar ou acessar nossos serviços.</p>
+      <div class="flex items-start gap-3 rounded-lg border border-borda bg-superficie p-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mt-0.5 shrink-0 text-marca" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <p class="text-texto-suave text-sm leading-relaxed">Estes termos se aplicam a todos os usuários, visitantes e demais pessoas que acessam ou utilizam nossos serviços.</p>
+      </div>
     </div>
 
-    <!-- Content -->
-    <div class="tos-content" data-aos="fade-up" data-aos-delay="200">
-      <!-- Agreement Section -->
-      <div id="agreement" class="content-section">
-        <h3>1. Aceitação dos Termos</h3>
-        <p>Ao acessar nosso site e serviços, você concorda em cumprir estes Termos de Serviço e todas as leis e regulamentos aplicáveis. Se você não concordar com qualquer um destes termos, está proibido de usar ou acessar nossos serviços.</p>
-        <div class="info-box">
-          <i class="bi bi-info-circle"></i>
-          <p>Estes termos se aplicam a todos os usuários, visitantes e demais pessoas que acessam ou utilizam nossos serviços.</p>
+    <!-- 2 -->
+    <div id="intellectual-property">
+      <h2 class="text-xl font-semibold text-texto mb-3">2. Direitos de Propriedade Intelectual</h2>
+      <p class="text-texto-suave leading-relaxed mb-3">Nosso serviço e seu conteúdo original, características e funcionalidades são de nossa propriedade e são protegidos por leis internacionais de direitos autorais, marcas registradas, patentes, segredos comerciais e outras leis de propriedade intelectual.</p>
+      <ul class="list-disc list-inside space-y-1 text-texto-suave">
+        <li>Todo o conteúdo é propriedade exclusiva da {{ CLINIC_NAME }}</li>
+        <li>Você não pode copiar ou modificar o conteúdo</li>
+        <li>Nossas marcas não podem ser usadas sem permissão</li>
+        <li>O conteúdo é apenas para uso pessoal e não comercial</li>
+      </ul>
+    </div>
+
+    <!-- 3 -->
+    <div id="user-accounts">
+      <h2 class="text-xl font-semibold text-texto mb-3">3. Contas de Usuário</h2>
+      <p class="text-texto-suave leading-relaxed mb-4">Ao criar uma conta conosco, você deve fornecer informações precisas, completas e atualizadas. O não cumprimento desta obrigação constitui uma violação dos Termos, que pode resultar no encerramento imediato da sua conta.</p>
+      <div class="flex items-start gap-3 rounded-lg border border-borda bg-superficie p-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mt-0.5 shrink-0 text-erro" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <div>
+          <p class="font-semibold text-texto text-sm mb-1">Aviso Importante</p>
+          <p class="text-texto-suave text-sm leading-relaxed">Você é responsável por proteger sua senha e por todas as atividades que ocorrem em sua conta.</p>
         </div>
       </div>
+    </div>
 
-      <!-- Intellectual Property -->
-      <div id="intellectual-property" class="content-section">
-        <h3>2. Direitos de Propriedade Intelectual</h3>
-        <p>Nosso serviço e seu conteúdo original, características e funcionalidades são de nossa propriedade e são protegidos por leis internacionais de direitos autorais, marcas registradas, patentes, segredos comerciais e outras leis de propriedade intelectual.</p>
-        <ul class="list-items">
-          <li>Todo o conteúdo é propriedade exclusiva da {{ CLINIC_NAME }}</li>
-          <li>Você não pode copiar ou modificar o conteúdo</li>
-          <li>Nossas marcas não podem ser usadas sem permissão</li>
-          <li>O conteúdo é apenas para uso pessoal e não comercial</li>
+    <!-- 4 -->
+    <div id="prohibited">
+      <h2 class="text-xl font-semibold text-texto mb-3">4. Atividades Proibidas</h2>
+      <p class="text-texto-suave leading-relaxed mb-4">Você não pode acessar ou usar o Serviço para qualquer finalidade diferente daquela para a qual o disponibilizamos.</p>
+      <ul class="space-y-2">
+        <li class="flex items-center gap-3 text-texto-suave text-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-erro" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+          Coleta sistemática de dados ou conteúdo
+        </li>
+        <li class="flex items-center gap-3 text-texto-suave text-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-erro" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+          Publicação de conteúdo malicioso
+        </li>
+        <li class="flex items-center gap-3 text-texto-suave text-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-erro" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+          Engajar-se em enquadramento não autorizado
+        </li>
+        <li class="flex items-center gap-3 text-texto-suave text-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-erro" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+          Tentar obter acesso não autorizado
+        </li>
+      </ul>
+    </div>
+
+    <!-- 5 -->
+    <div id="disclaimer">
+      <h2 class="text-xl font-semibold text-texto mb-3">5. Isenção de Responsabilidade</h2>
+      <p class="text-texto-suave leading-relaxed mb-3">O uso do nosso serviço é por sua conta e risco. O serviço é fornecido "COMO ESTÁ" e "CONFORME DISPONÍVEL", sem garantias de qualquer tipo, expressas ou implícitas.</p>
+      <div class="rounded-lg border border-borda bg-superficie p-4">
+        <p class="text-texto-suave text-sm mb-2">Não garantimos que:</p>
+        <ul class="list-disc list-inside space-y-1 text-texto-suave text-sm">
+          <li>O serviço atenderá às suas necessidades</li>
+          <li>O serviço será ininterrupto ou livre de erros</li>
+          <li>Os resultados do uso do serviço serão precisos</li>
+          <li>Quaisquer erros serão corrigidos</li>
         </ul>
       </div>
+    </div>
 
-      <!-- User Accounts -->
-      <div id="user-accounts" class="content-section">
-        <h3>3. Contas de Usuário</h3>
-        <p>Ao criar uma conta conosco, você deve fornecer informações precisas, completas e atualizadas. O não cumprimento desta obrigação constitui uma violação dos Termos, que pode resultar no encerramento imediato da sua conta.</p>
-        <div class="alert-box">
-          <i class="bi bi-exclamation-triangle"></i>
-          <div class="alert-content">
-            <h5>Aviso Importante</h5>
-            <p>Você é responsável por proteger sua senha e por todas as atividades que ocorrem em sua conta.</p>
-          </div>
-        </div>
-      </div>
+    <!-- 6 -->
+    <div id="limitation">
+      <h2 class="text-xl font-semibold text-texto mb-3">6. Limitação de Responsabilidade</h2>
+      <p class="text-texto-suave leading-relaxed">Em nenhum caso seremos responsáveis por quaisquer danos indiretos, punitivos, incidentais, especiais, consequenciais ou exemplares decorrentes ou relacionados ao uso do serviço.</p>
+    </div>
 
-      <!-- Prohibited Activities -->
-      <div id="prohibited" class="content-section">
-        <h3>4. Atividades Proibidas</h3>
-        <p>Você não pode acessar ou usar o Serviço para qualquer finalidade diferente daquela para a qual o disponibilizamos.</p>
-        <div class="prohibited-list">
-          <div class="prohibited-item">
-            <i class="bi bi-x-circle"></i>
-            <span>Coleta sistemática de dados ou conteúdo</span>
-          </div>
-          <div class="prohibited-item">
-            <i class="bi bi-x-circle"></i>
-            <span>Publicação de conteúdo malicioso</span>
-          </div>
-          <div class="prohibited-item">
-            <i class="bi bi-x-circle"></i>
-            <span>Engajar-se em enquadramento não autorizado</span>
-          </div>
-          <div class="prohibited-item">
-            <i class="bi bi-x-circle"></i>
-            <span>Tentar obter acesso não autorizado</span>
-          </div>
-        </div>
-      </div>
+    <!-- 7 -->
+    <div id="indemnification">
+      <h2 class="text-xl font-semibold text-texto mb-3">7. Indenização</h2>
+      <p class="text-texto-suave leading-relaxed">Você concorda em defender, indenizar e isentar a {{ CLINIC_NAME }} de quaisquer reivindicações, responsabilidades, danos, perdas e despesas decorrentes do uso do serviço.</p>
+    </div>
 
-      <!-- Disclaimers -->
-      <div id="disclaimer" class="content-section">
-        <h3>5. Isenção de Responsabilidade</h3>
-        <p>O uso do nosso serviço é por sua conta e risco. O serviço é fornecido "COMO ESTÁ" e "CONFORME DISPONÍVEL", sem garantias de qualquer tipo, expressas ou implícitas.</p>
-        <div class="disclaimer-box">
-          <p>Não garantimos que:</p>
-          <ul>
-            <li>O serviço atenderá às suas necessidades</li>
-            <li>O serviço será ininterrupto ou livre de erros</li>
-            <li>Os resultados do uso do serviço serão precisos</li>
-            <li>Quaisquer erros serão corrigidos</li>
-          </ul>
-        </div>
-      </div>
+    <!-- 8 -->
+    <div id="termination">
+      <h2 class="text-xl font-semibold text-texto mb-3">8. Rescisão</h2>
+      <p class="text-texto-suave leading-relaxed">Podemos rescindir ou suspender sua conta imediatamente, sem aviso prévio ou responsabilidade, por qualquer motivo, incluindo, sem limitação, se você violar os Termos.</p>
+    </div>
 
-      <!-- Limitation of Liability -->
-      <div id="limitation" class="content-section">
-        <h3>6. Limitação de Responsabilidade</h3>
-        <p>Em nenhum caso seremos responsáveis por quaisquer danos indiretos, punitivos, incidentais, especiais, consequenciais ou exemplares decorrentes ou relacionados ao uso do serviço.</p>
-      </div>
+    <!-- 9 -->
+    <div id="governing-law">
+      <h2 class="text-xl font-semibold text-texto mb-3">9. Lei Aplicável</h2>
+      <p class="text-texto-suave leading-relaxed">Estes Termos serão regidos e interpretados de acordo com as leis da República Federativa do Brasil, sem considerar seus conflitos de disposições legais.</p>
+    </div>
 
-      <!-- Indemnification -->
-      <div id="indemnification" class="content-section">
-        <h3>7. Indenização</h3>
-        <p>Você concorda em defender, indenizar e isentar a {{ CLINIC_NAME }} de quaisquer reivindicações, responsabilidades, danos, perdas e despesas decorrentes do uso do serviço.</p>
-      </div>
-
-      <!-- Termination -->
-      <div id="termination" class="content-section">
-        <h3>8. Rescisão</h3>
-        <p>Podemos rescindir ou suspender sua conta imediatamente, sem aviso prévio ou responsabilidade, por qualquer motivo, incluindo, sem limitação, se você violar os Termos.</p>
-      </div>
-
-      <!-- Governing Law -->
-      <div id="governing-law" class="content-section">
-        <h3>9. Lei Aplicável</h3>
-        <p>Estes Termos serão regidos e interpretados de acordo com as leis da República Federativa do Brasil, sem considerar seus conflitos de disposições legais.</p>
-      </div>
-
-      <!-- Changes -->
-      <div id="changes" class="content-section">
-        <h3>10. Alterações nos Termos</h3>
-        <p>Reservamo-nos o direito de modificar ou substituir estes Termos a qualquer momento. Forneceremos aviso sobre quaisquer alterações publicando os novos Termos nesta página.</p>
-        <div class="notice-box">
-          <i class="bi bi-bell"></i>
-          <p>Ao continuar a acessar ou usar nosso serviço após a entrada em vigor dessas revisões, você concorda em ficar vinculado aos termos revisados.</p>
-        </div>
-      </div>
-
-      <!-- LGPD Section -->
-      <div id="lgpd" class="content-section">
-        <h3>11. Proteção de Dados (LGPD)</h3>
-        <p>Em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018), a {{ CLINIC_NAME }} se compromete a proteger a privacidade e os dados pessoais de seus pacientes. Coletamos e tratamos dados apenas para fins de prestação de serviços, agendamentos e comunicação, sempre com base no consentimento do titular.</p>
-        <div class="notice-box">
-          <i class="bi bi-shield-lock"></i>
-          <p>Você tem direito a solicitar acesso, correção, exclusão e portabilidade dos seus dados a qualquer momento através do nosso canal de atendimento.</p>
-        </div>
+    <!-- 10 -->
+    <div id="changes">
+      <h2 class="text-xl font-semibold text-texto mb-3">10. Alterações nos Termos</h2>
+      <p class="text-texto-suave leading-relaxed mb-4">Reservamo-nos o direito de modificar ou substituir estes Termos a qualquer momento. Forneceremos aviso sobre quaisquer alterações publicando os novos Termos nesta página.</p>
+      <div class="flex items-start gap-3 rounded-lg border border-borda bg-superficie p-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mt-0.5 shrink-0 text-marca" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+        <p class="text-texto-suave text-sm leading-relaxed">Ao continuar a acessar ou usar nosso serviço após a entrada em vigor dessas revisões, você concorda em ficar vinculado aos termos revisados.</p>
       </div>
     </div>
 
-    <!-- Contact Section -->
-    <div class="tos-contact" data-aos="fade-up" data-aos-delay="300">
-      <div class="contact-box">
-        <div class="contact-icon">
-          <i class="bi bi-envelope"></i>
-        </div>
-        <div class="contact-content">
-          <h4>Dúvidas sobre os Termos?</h4>
-          <p>Se você tiver alguma dúvida sobre estes Termos, entre em contato conosco.</p>
-          <a href="{% url 'aranha:agenda_contato' %}" class="contact-link">Fale Conosco</a>
-        </div>
+    <!-- 11 -->
+    <div id="lgpd">
+      <h2 class="text-xl font-semibold text-texto mb-3">11. Proteção de Dados (LGPD)</h2>
+      <p class="text-texto-suave leading-relaxed mb-4">Em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018), a {{ CLINIC_NAME }} se compromete a proteger a privacidade e os dados pessoais de seus pacientes. Coletamos e tratamos dados apenas para fins de prestação de serviços, agendamentos e comunicação, sempre com base no consentimento do titular.</p>
+      <div class="flex items-start gap-3 rounded-lg border border-borda bg-superficie p-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mt-0.5 shrink-0 text-marca" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+        <p class="text-texto-suave text-sm leading-relaxed">Você tem direito a solicitar acesso, correção, exclusão e portabilidade dos seus dados a qualquer momento através do nosso canal de atendimento.</p>
       </div>
+    </div>
+
+  </div><!-- /space-y-10 -->
+
+  <!-- Contact -->
+  <div class="mt-14 rounded-lg border border-borda bg-superficie p-6 flex items-start gap-4">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 text-marca mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+    </svg>
+    <div>
+      <h3 class="text-base font-semibold text-texto mb-1">Dúvidas sobre os Termos?</h3>
+      <p class="text-texto-suave text-sm mb-3">Se você tiver alguma dúvida sobre estes Termos, entre em contato conosco.</p>
+      <a href="{% url 'aranha:agenda_contato' %}" class="inline-block rounded-md bg-marca-forte px-4 py-2 text-sm font-semibold text-sobre-marca hover:opacity-90 transition-opacity">Fale Conosco</a>
     </div>
   </div>
 
-</section><!-- /Terms Of Service Section -->
+</div>
 {% endblock %}
