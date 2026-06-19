@@ -1,144 +1,106 @@
-﻿{% extends 'estrutura/base.html' %}
+{% extends 'estrutura/base_v2.html' %}
 {% load static %}
 
 {% block titulo %}Anotação de Sessão | {{ CLINIC_NAME }}{% endblock %}
 
 {% block conteudo %}
-<style nonce="{{ csp_nonce }}">
-    :root {
-        --gold: #C9A84C;
-        --gold-light: #f9f1d8;
-        --earth: #4A3425;
-        --bg: #F5F3EE;
-    }
-    .anotar-page { background: var(--bg); min-height: 100vh; padding: 2rem 0 5rem; }
-    .anotar-container { max-width: 720px; margin: 0 auto; padding: 0 1rem; }
-    .anotar-card {
-        background: white; border-radius: 16px;
-        box-shadow: 0 4px 24px rgba(0,0,0,0.08);
-        padding: 1.75rem; margin-bottom: 1.5rem;
-    }
-    .anotar-title {
-        font-family: 'Playfair Display', serif;
-        font-size: 1.5rem; color: var(--earth);
-        margin-bottom: 0.5rem;
-    }
-    .anotar-subtitle { color: #777; margin-bottom: 1.5rem; font-size: 0.9rem; }
-
-    /* Info do atendimento */
-    .atn-summary {
-        background: var(--gold-light);
-        border-left: 4px solid var(--gold);
-        padding: 1rem 1.25rem; border-radius: 8px;
-        margin-bottom: 1.5rem;
-    }
-    .atn-summary-label {
-        font-size: 0.7rem; color: #8b6f2b;
-        text-transform: uppercase; letter-spacing: 1px;
-        font-weight: 700; margin-bottom: 0.4rem;
-    }
-    .atn-summary-info { color: var(--earth); font-weight: 600; font-size: 0.95rem; }
-
-    /* Form */
-    .anotar-textarea {
-        width: 100%; padding: 1rem; border: 2px solid #e5e5e5;
-        border-radius: 12px; font-size: 0.95rem; font-family: inherit;
-        resize: vertical; min-height: 120px; transition: border-color 0.2s;
-    }
-    .anotar-textarea:focus { outline: none; border-color: var(--gold); }
-    .btn-salvar {
-        background: var(--gold); color: white; border: none;
-        padding: 0.9rem 2rem; border-radius: 50px;
-        font-weight: 700; font-size: 1rem; cursor: pointer;
-        width: 100%; margin-top: 1rem; transition: all 0.2s;
-    }
-    .btn-salvar:hover { background: #b59140; transform: translateY(-1px); }
-
-    /* Historico de anotacoes */
-    .hist-title {
-        font-weight: 700; font-size: 0.9rem; color: var(--earth);
-        margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;
-    }
-    .hist-item {
-        background: #f8f9fa; border-radius: 10px; padding: 0.85rem 1rem;
-        margin-bottom: 0.5rem; border-left: 3px solid #e0e0e0;
-    }
-    .hist-meta {
-        font-size: 0.7rem; color: #999; margin-bottom: 0.3rem;
-    }
-    .hist-text { font-size: 0.88rem; color: #444; line-height: 1.5; }
-    .hist-empty { font-size: 0.85rem; color: #bbb; font-style: italic; }
-</style>
-
-<div class="anotar-page">
-    <div class="anotar-container">
+<div class="min-h-screen bg-fundo py-8 pb-20">
+    <div class="max-w-2xl mx-auto px-4">
 
         {% if messages %}
             {% for m in messages %}
-                <div class="alert alert-{% if m.tags == 'error' %}danger{% else %}{{ m.tags|default:'info' }}{% endif %}"
-                     style="border-radius:14px;margin-bottom:1rem;">
-                    {{ m }}
-                </div>
+            <div class="mb-4 px-4 py-3 rounded-lg border
+                        {% if m.tags == 'error' %}bg-red-50 border-red-200 text-erro
+                        {% else %}bg-green-50 border-green-200 text-green-800{% endif %}
+                        text-sm">
+                {{ m }}
+            </div>
             {% endfor %}
         {% endif %}
 
-        <div class="anotar-card">
-            <h1 class="anotar-title">
-                <i class="fas fa-pen-fancy" style="color:var(--gold);margin-right:0.5rem;"></i>
+        <!-- Card principal -->
+        <div class="bg-superficie rounded-xl border border-borda shadow-sm p-7 mb-6">
+            <h1 class="font-serif text-2xl font-bold text-texto mb-1 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-[var(--cor-marca)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+                </svg>
                 Anotação de Sessão
             </h1>
-            <p class="anotar-subtitle">
-                Registre observações clínicas sobre este atendimento.
-            </p>
+            <p class="text-texto-suave text-sm mb-6">Registre observações clínicas sobre este atendimento.</p>
 
-            <div class="atn-summary">
-                <div class="atn-summary-label">Atendimento</div>
-                <div class="atn-summary-info">
-                    <i class="fas fa-user me-1"></i> {{ atendimento.cliente.nome }}<br>
-                    <i class="fas fa-stethoscope me-1"></i> {{ atendimento.procedimento.nome }}<br>
-                    <i class="fas fa-calendar me-1"></i> {{ atendimento.data_hora_inicio|date:"d/m/Y" }}
-                    às {{ atendimento.data_hora_inicio|time:"H:i" }}
+            <!-- Resumo do atendimento -->
+            <div class="bg-fundo border-l-4 border-[var(--cor-marca)] rounded-md px-5 py-4 mb-6">
+                <p class="text-xs font-bold uppercase tracking-widest text-texto-suave mb-2">Atendimento</p>
+                <div class="text-sm font-semibold text-texto space-y-1">
+                    <div class="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-texto-suave" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                        </svg>
+                        {{ atendimento.cliente.nome }}
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-texto-suave" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714a2.25 2.25 0 001.357 2.059l.537.268a2.25 2.25 0 01.537 3.374l-1.023.97a2.25 2.25 0 01-3.169-.136L9.642 18.5" />
+                        </svg>
+                        {{ atendimento.procedimento.nome }}
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-texto-suave" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                        </svg>
+                        {{ atendimento.data_hora_inicio|date:"d/m/Y" }} às {{ atendimento.data_hora_inicio|time:"H:i" }}
+                    </div>
                 </div>
             </div>
 
+            <!-- Formulário de nova anotação -->
             <form method="post">
                 {% csrf_token %}
-                <label style="font-weight:700;font-size:0.85rem;color:var(--earth);margin-bottom:0.5rem;display:block;">
-                    Nova anotação
-                </label>
-                <textarea name="texto" class="anotar-textarea"
+                <label class="block text-sm font-bold text-texto mb-2">Nova anotação</label>
+                <textarea name="texto" rows="5" required
                           placeholder="Descreva as observações da sessão, produtos utilizados, reações observadas..."
-                          required></textarea>
-                <button type="submit" class="btn-salvar">
-                    <i class="fas fa-check me-2"></i>Salvar Anotação
+                          class="w-full px-4 py-3 rounded-xl border-2 border-borda bg-fundo text-texto text-sm
+                                 resize-y focus:outline-none focus:border-[var(--cor-marca)] transition-colors
+                                 placeholder:text-texto-suave"></textarea>
+                <button type="submit"
+                        class="mt-4 w-full bg-marca-forte text-sobre-marca font-bold py-3 rounded-full
+                               hover:opacity-90 transition-opacity cursor-pointer text-base flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                    Salvar Anotação
                 </button>
             </form>
         </div>
 
-        <!-- Historico -->
-        <div class="anotar-card">
-            <div class="hist-title">
-                <i class="fas fa-history" style="color:var(--gold);"></i>
+        <!-- Histórico de anotações -->
+        <div class="bg-superficie rounded-xl border border-borda shadow-sm p-7">
+            <h2 class="text-sm font-bold text-texto mb-4 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-[var(--cor-marca)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
                 Histórico de Anotações ({{ anotacoes|length }})
-            </div>
+            </h2>
 
             {% for nota in anotacoes %}
-            <div class="hist-item">
-                <div class="hist-meta">
-                    <i class="fas fa-user-circle me-1"></i>
-                    {{ nota.autor.nome|default:"Sistema" }} &bull;
-                    {{ nota.criado_em|date:"d/m/Y H:i" }}
-                </div>
-                <div class="hist-text">{{ nota.texto }}</div>
+            <div class="bg-fundo rounded-lg px-4 py-3 mb-2 border-l-4 border-borda">
+                <p class="text-xs text-texto-suave mb-1">
+                    {{ nota.autor.nome|default:"Sistema" }} &bull; {{ nota.criado_em|date:"d/m/Y H:i" }}
+                </p>
+                <p class="text-sm text-texto leading-relaxed">{{ nota.texto }}</p>
             </div>
             {% empty %}
-            <div class="hist-empty">Nenhuma anotação registrada para este atendimento.</div>
+            <p class="text-sm text-texto-suave italic">Nenhuma anotação registrada para este atendimento.</p>
             {% endfor %}
         </div>
 
-        <div class="text-center">
-            <a href="{% url 'aranha:profissional_agenda' %}" style="color:#999;text-decoration:none;font-size:0.85rem;">
-                <i class="fas fa-arrow-left me-1"></i>Voltar para a agenda
+        <div class="text-center mt-6">
+            <a href="{% url 'aranha:profissional_agenda' %}"
+               class="text-texto-suave text-sm hover:text-texto transition-colors inline-flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                </svg>
+                Voltar para a agenda
             </a>
         </div>
 
