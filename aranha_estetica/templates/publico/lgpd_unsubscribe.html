@@ -1,27 +1,40 @@
-{% extends 'estrutura/base.html' %}
+{% extends 'estrutura/base_v2.html' %}
 
 {% block titulo %}Descadastro — {{ CLINIC_NAME }}{% endblock %}
 
 {% block conteudo %}
-<section class="py-5">
-  <div class="container text-center">
-    {% if sucesso %}
-      <h1 class="mb-3">Descadastro Confirmado</h1>
-      <p class="lead">
-        {{ cliente.nome }}, você foi removido da nossa lista de comunicacoes.
-        Não enviaremos mais lembretes, promocoes ou pesquisas por e-mail/WhatsApp.
-      </p>
-      <p>
-        Se desejar voltar a receber, fale conosco em
-        <a href="mailto:{{ CLINIC_EMAIL }}">{{ CLINIC_EMAIL }}</a>.
-      </p>
-    {% else %}
-      <h1 class="mb-3">Link Inválido ou Expirado</h1>
-      <p class="lead">
-        Não foi possivel localizar o cadastro. Entre em contato com a clinica.
-      </p>
-    {% endif %}
-    <a href="{% url 'aranha:inicio' %}" class="btn btn-primary mt-3">Voltar ao site</a>
-  </div>
-</section>
+<div class="mx-auto max-w-xl px-6 py-16 text-center">
+
+  {% if sucesso %}
+    <div class="flex justify-center mb-6">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-marca" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    </div>
+    <h1 class="text-2xl font-bold text-texto mb-4">Descadastro Confirmado</h1>
+    <p class="text-texto-suave leading-relaxed mb-3">
+      {{ cliente.nome }}, você foi removido da nossa lista de comunicações.
+      Não enviaremos mais lembretes, promoções ou pesquisas por e-mail/WhatsApp.
+    </p>
+    <p class="text-texto-suave text-sm mb-8">
+      Se desejar voltar a receber, fale conosco em
+      <a href="mailto:{{ CLINIC_EMAIL }}" class="text-marca hover:underline">{{ CLINIC_EMAIL }}</a>.
+    </p>
+  {% else %}
+    <div class="flex justify-center mb-6">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-erro" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+    </div>
+    <h1 class="text-2xl font-bold text-texto mb-4">Link Inválido ou Expirado</h1>
+    <p class="text-texto-suave leading-relaxed mb-8">
+      Não foi possível localizar o cadastro. Entre em contato com a clínica.
+    </p>
+  {% endif %}
+
+  <a href="{% url 'aranha:inicio' %}" class="inline-block rounded-md bg-marca-forte px-6 py-2.5 text-sm font-semibold text-sobre-marca hover:opacity-90 transition-opacity">
+    Voltar ao site
+  </a>
+
+</div>
 {% endblock %}
