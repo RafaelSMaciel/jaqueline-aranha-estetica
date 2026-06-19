@@ -1,18 +1,18 @@
-{% extends 'estrutura/base.html' %}
+{% extends 'estrutura/base_v2.html' %}
 {% load static %}
 
-{% block conteudo %}
+{% block css %}
 <style nonce="{{ csp_nonce }}">
     :root {
-        --gold: #C9A84C;
-        --gold-light: #f9f1d8;
-        --earth: #4A3425;
-        --bg: #F5F3EE;
+        --gold: var(--cor-marca-forte);
+        --gold-light: color-mix(in srgb, var(--cor-marca-forte) 12%, var(--cor-superficie));
+        --earth: var(--cor-texto);
+        --bg: var(--cor-fundo);
     }
     .reag-page { background: var(--bg); min-height: 100vh; padding: 3rem 0; }
     .reag-container { max-width: 720px; margin: 0 auto; padding: 0 1rem; }
     .reag-card {
-        background: white; border-radius: 16px;
+        background: var(--cor-superficie); border-radius: 16px;
         box-shadow: 0 4px 24px rgba(0,0,0,0.08);
         padding: 2rem; margin-bottom: 1.5rem;
     }
@@ -20,8 +20,9 @@
         font-family: 'Playfair Display', serif;
         font-size: 1.75rem; color: var(--earth);
         margin-bottom: 0.5rem;
+        display: flex; align-items: center; gap: 0.5rem;
     }
-    .reag-subtitle { color: #777; margin-bottom: 1.5rem; }
+    .reag-subtitle { color: var(--cor-texto-suave); margin-bottom: 1.5rem; }
     .reag-atual {
         background: var(--gold-light);
         border-left: 4px solid var(--gold);
@@ -29,7 +30,7 @@
         margin-bottom: 1.5rem;
     }
     .reag-atual-label {
-        font-size: 0.75rem; color: #8b6f2b;
+        font-size: 0.75rem; color: var(--cor-texto-suave);
         text-transform: uppercase; letter-spacing: 1px;
         font-weight: 700; margin-bottom: 0.4rem;
     }
@@ -41,8 +42,8 @@
     }
     .reag-input {
         width: 100%; padding: 0.75rem 1rem;
-        border: 2px solid #e5e5e5; border-radius: 10px;
-        font-size: 1rem;
+        border: 2px solid var(--cor-borda); border-radius: 10px;
+        font-size: 1rem; background: var(--cor-superficie); color: var(--cor-texto);
     }
     .reag-input:focus { outline: none; border-color: var(--gold); }
     .horarios-grid {
@@ -51,29 +52,36 @@
         gap: 0.5rem; margin-top: 0.75rem;
     }
     .horario-btn {
-        padding: 0.6rem 0.5rem; border: 2px solid #e5e5e5;
-        background: white; border-radius: 8px; cursor: pointer;
+        appearance: none; font: inherit; text-align: center; width: 100%;
+        padding: 0.6rem 0.5rem; border: 2px solid var(--cor-borda);
+        background: var(--cor-superficie); color: var(--cor-texto);
+        border-radius: 8px; cursor: pointer;
         font-weight: 600; transition: all 0.15s;
     }
     .horario-btn:hover { border-color: var(--gold); }
+    .horario-btn:focus-visible { outline: 2px solid var(--cor-marca); outline-offset: 2px; }
     .horario-btn.selected {
         background: var(--gold); border-color: var(--gold); color: white;
     }
     .btn-confirmar {
+        appearance: none; font: inherit; text-align: center; width: 100%;
         background: var(--gold); color: white; border: none;
         padding: 0.9rem 2rem; border-radius: 50px;
         font-weight: 700; font-size: 1rem; cursor: pointer;
-        width: 100%; transition: all 0.2s;
+        transition: all 0.2s;
     }
-    .btn-confirmar:hover { background: #b59140; transform: translateY(-1px); }
-    .btn-confirmar:disabled { background: #ccc; cursor: not-allowed; transform: none; }
+    .btn-confirmar:hover { background: var(--cor-marca); transform: translateY(-1px); }
+    .btn-confirmar:focus-visible { outline: 2px solid var(--cor-marca); outline-offset: 2px; }
+    .btn-confirmar:disabled { background: var(--cor-borda); color: var(--cor-texto-suave); cursor: not-allowed; transform: none; }
     .alerta {
         background: #fff3cd; border: 1px solid #ffc107;
         padding: 0.75rem 1rem; border-radius: 8px;
         color: #856404; font-size: 0.9rem; margin-bottom: 1rem;
     }
 </style>
+{% endblock %}
 
+{% block conteudo %}
 <div class="reag-page">
     <div class="reag-container">
 
@@ -84,7 +92,15 @@
         {% endif %}
 
         <div class="reag-card">
-            <h1 class="reag-title"><i class="fas fa-calendar-alt me-2" style="color:var(--gold);"></i>Reagendar Atendimento</h1>
+            <h1 class="reag-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--cor-marca-forte)">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+                Reagendar Atendimento
+            </h1>
             <p class="reag-subtitle">Escolha uma nova data e horário para seu atendimento.</p>
 
             <div class="reag-atual">
@@ -110,7 +126,7 @@
                 <div class="reag-field" id="box-horarios" style="display:none;">
                     <label class="reag-label">Horários disponíveis</label>
                     <div class="horarios-grid" id="grid-horarios"></div>
-                    <div id="no-horarios" class="text-muted mt-2" style="display:none;">
+                    <div id="no-horarios" class="text-texto-suave mt-2" style="display:none;">
                         Nenhum horário disponível neste dia. Escolha outro.
                     </div>
                 </div>
@@ -122,13 +138,19 @@
         </div>
 
         <div class="text-center">
-            <a href="{% url 'aranha:meus_agendamentos' %}" class="text-muted">
-                <i class="fas fa-arrow-left me-1"></i>Voltar para meus agendamentos
+            <a href="{% url 'aranha:meus_agendamentos' %}" class="text-texto-suave flex items-center justify-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+                Voltar para meus agendamentos
             </a>
         </div>
     </div>
 </div>
+{% endblock %}
 
+{% block js %}
 <script nonce="{{ csp_nonce }}">
 (function () {
     const PROC_ID = {{ atendimento.procedimento.pk }};
@@ -148,7 +170,7 @@
         const data = this.value;
         if (!data) return;
 
-        gridHorarios.innerHTML = '<div class="text-muted">Carregando...</div>';
+        gridHorarios.innerHTML = '<div class="text-texto-suave">Carregando...</div>';
         boxHorarios.style.display = 'block';
         noHorarios.style.display = 'none';
         hiddenDT.value = '';
@@ -182,7 +204,7 @@
                 gridHorarios.appendChild(b);
             });
         } catch (e) {
-            gridHorarios.innerHTML = '<div class="text-danger">Erro ao carregar horários.</div>';
+            gridHorarios.innerHTML = '<div style="color:var(--cor-erro)">Erro ao carregar horários.</div>';
         }
     });
 })();
