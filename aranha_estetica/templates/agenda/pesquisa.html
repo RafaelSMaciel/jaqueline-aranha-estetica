@@ -1,114 +1,169 @@
-{% extends 'estrutura/base.html' %}
+{% extends 'estrutura/base_v2.html' %}
 {% load static %}
 
 {% block titulo %}Pesquisa de satisfação | {{ CLINIC_NAME }}{% endblock %}
 
 {% block conteudo %}
-<section class="hero section" style="background: linear-gradient(135deg, #2C2C2C 0%, #4a3728 50%, #6D4C41 100%); padding: 3.5rem 0 4rem; position: relative; overflow: hidden;">
-    <div style="position:absolute;inset:0;background:radial-gradient(circle at 20% 80%,rgba(201,168,76,0.12) 0%,transparent 50%);"></div>
-    <div class="container text-center text-white position-relative" data-aos="fade-up">
-        <div class="d-inline-flex align-items-center gap-2 mb-3 px-4 py-2 rounded-pill" style="background:rgba(201,168,76,0.2);border:1px solid rgba(201,168,76,0.5);">
-            <i class="bi bi-chat-square-heart-fill" style="color:#f0d98c;"></i>
-            <span style="color:#f0d98c;font-size:0.72rem;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;">Sua opinião importa</span>
-        </div>
-        <h1 style="font-family:'Playfair Display',serif;font-size:clamp(1.8rem,4.5vw,2.6rem);font-weight:700;color:white !important;margin:0 0 0.5rem;">
-            {{ formulario.nome }}
-        </h1>
-        <p style="opacity:0.8;font-size:1rem;max-width:520px;margin:0 auto;color:white !important;">
-            {% if atendimento %}Atendimento de <strong>{{ atendimento.procedimento.nome }}</strong> em {{ atendimento.data_hora_inicio|date:"d/m/Y" }} com {{ atendimento.profissional.nome }}.{% endif %}
-            Leva 2 minutos.
-        </p>
-    </div>
-</section>
+<div class="mx-auto max-w-2xl px-6 py-12">
 
-<section class="section" style="background:#F5F3EE;padding:3rem 0 4rem;">
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-md-9 col-lg-7">
-                <div data-aos="fade-up" style="background:white;border-radius:24px;box-shadow:0 16px 60px rgba(0,0,0,0.08);padding:2rem 2rem 1.5rem;">
+  <!-- Cabeçalho -->
+  <div class="mb-8 text-center">
+    <span class="inline-flex items-center gap-2 rounded-full bg-superficie border border-borda px-4 py-1.5 text-sm font-semibold text-texto-suave mb-4">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+      </svg>
+      Sua opinião importa
+    </span>
+    <h1 class="text-3xl font-bold text-texto">{{ formulario.nome }}</h1>
+    {% if atendimento %}
+    <p class="mt-2 text-texto-suave">
+      Atendimento de <strong>{{ atendimento.procedimento.nome }}</strong>
+      em {{ atendimento.data_hora_inicio|date:"d/m/Y" }}
+      com {{ atendimento.profissional.nome }}.
+      Leva 2 minutos.
+    </p>
+    {% else %}
+    <p class="mt-2 text-texto-suave">Leva 2 minutos.</p>
+    {% endif %}
+  </div>
 
-                    {% if erros %}
-                    <div class="alert alert-danger border-0 shadow-sm rounded-3 mb-4">
-                        <strong><i class="bi bi-exclamation-triangle-fill me-2"></i>Verifique os campos:</strong>
-                        <ul class="mb-0 mt-2">
-                            {% for e in erros %}<li>{{ e }}</li>{% endfor %}
-                        </ul>
-                    </div>
-                    {% endif %}
+  <!-- Erros -->
+  {% if erros %}
+  <div class="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3">
+    <p class="text-sm font-semibold text-erro mb-1">Verifique os campos:</p>
+    <ul class="list-disc list-inside text-sm text-erro space-y-0.5">
+      {% for e in erros %}<li>{{ e }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
 
-                    <form method="post" novalidate>
-                        {% csrf_token %}
-                        {% for campo in schema %}
-                        <div class="mb-4">
-                            <label class="form-label fw-bold mb-2" style="color:#4A3425;font-size:0.95rem;">
-                                {{ forloop.counter }}. {{ campo.label }}
-                                {% if campo.obrigatorio %}<span style="color:#C62828;">*</span>{% endif %}
-                            </label>
+  <!-- Formulário -->
+  <div class="rounded-lg border border-borda bg-superficie p-6 shadow-sm">
+    <form method="post" novalidate>
+      {% csrf_token %}
 
-                            {% if campo.tipo == 'text' or campo.tipo == 'email' or campo.tipo == 'number' %}
-                                <input type="{% if campo.tipo == 'email' %}email{% elif campo.tipo == 'number' %}number{% else %}text{% endif %}"
-                                       name="{{ campo.key }}"
-                                       class="form-control rounded-3"
-                                       value="{{ respostas_anteriores|default_if_none:''|default:'' }}"
-                                       {% if campo.obrigatorio %}required{% endif %}>
+      {% for campo in schema %}
+      <div class="mb-6">
+        <label class="block text-sm font-semibold text-texto mb-2" for="f-{{ campo.key }}">
+          {{ forloop.counter }}. {{ campo.label }}
+          {% if campo.obrigatorio %}<span class="text-erro" aria-hidden="true">*</span>{% endif %}
+        </label>
 
-                            {% elif campo.tipo == 'longtext' %}
-                                <textarea name="{{ campo.key }}" rows="3" class="form-control rounded-3" {% if campo.obrigatorio %}required{% endif %}></textarea>
+        {% if campo.tipo == 'text' or campo.tipo == 'email' or campo.tipo == 'number' %}
+          <input
+            id="f-{{ campo.key }}"
+            type="{% if campo.tipo == 'email' %}email{% elif campo.tipo == 'number' %}number{% else %}text{% endif %}"
+            name="{{ campo.key }}"
+            class="w-full rounded-md border border-borda bg-fundo px-3 py-2 text-texto"
+            {% if campo.obrigatorio %}required{% endif %}>
 
-                            {% elif campo.tipo == 'date' %}
-                                <input type="date" name="{{ campo.key }}" class="form-control rounded-3" {% if campo.obrigatorio %}required{% endif %}>
+        {% elif campo.tipo == 'longtext' %}
+          <textarea
+            id="f-{{ campo.key }}"
+            name="{{ campo.key }}"
+            rows="3"
+            class="w-full rounded-md border border-borda bg-fundo px-3 py-2 text-texto resize-y"
+            {% if campo.obrigatorio %}required{% endif %}></textarea>
 
-                            {% elif campo.tipo == 'bool' %}
-                                <div class="form-check">
-                                    <input type="checkbox" name="{{ campo.key }}" id="f-{{ campo.key }}" class="form-check-input" value="on">
-                                    <label class="form-check-label" for="f-{{ campo.key }}">Sim</label>
-                                </div>
+        {% elif campo.tipo == 'date' %}
+          <input
+            id="f-{{ campo.key }}"
+            type="date"
+            name="{{ campo.key }}"
+            class="w-full rounded-md border border-borda bg-fundo px-3 py-2 text-texto"
+            {% if campo.obrigatorio %}required{% endif %}>
 
-                            {% elif campo.tipo == 'select' %}
-                                <select name="{{ campo.key }}" class="form-select rounded-3" {% if campo.obrigatorio %}required{% endif %}>
-                                    <option value="">— selecione —</option>
-                                    {% for opt in campo.opcoes %}
-                                    <option value="{{ opt }}">{{ opt }}</option>
-                                    {% endfor %}
-                                </select>
+        {% elif campo.tipo == 'bool' %}
+          <div class="flex items-center gap-2">
+            <input
+              type="checkbox"
+              name="{{ campo.key }}"
+              id="f-{{ campo.key }}"
+              value="on"
+              class="h-4 w-4 rounded border-borda text-marca-forte">
+            <label class="text-sm text-texto" for="f-{{ campo.key }}">Sim</label>
+          </div>
 
-                            {% elif campo.tipo == 'scale' %}
-                                <div class="d-flex flex-wrap gap-2 mt-2">
-                                    {% for opt in campo.opcoes %}
-                                    <label class="scale-pill flex-fill text-center" style="cursor:pointer;background:#FAF7F0;border:2px solid rgba(201,168,76,0.3);border-radius:12px;padding:0.6rem 0.4rem;transition:all .2s;font-size:0.85rem;color:#4A3425;">
-                                        <input type="radio" name="{{ campo.key }}" value="{{ opt }}" {% if campo.obrigatorio %}required{% endif %} style="display:none;" onchange="this.parentElement.parentElement.querySelectorAll('label').forEach(l=>l.style.borderColor='rgba(201,168,76,0.3)');this.parentElement.style.borderColor='#7a5f1f';this.parentElement.style.background='#FFF4D6';">
-                                        {{ opt }}
-                                    </label>
-                                    {% endfor %}
-                                </div>
+        {% elif campo.tipo == 'select' %}
+          <select
+            id="f-{{ campo.key }}"
+            name="{{ campo.key }}"
+            class="w-full rounded-md border border-borda bg-fundo px-3 py-2 text-texto"
+            {% if campo.obrigatorio %}required{% endif %}>
+            <option value="">— selecione —</option>
+            {% for opt in campo.opcoes %}
+            <option value="{{ opt }}">{{ opt }}</option>
+            {% endfor %}
+          </select>
 
-                            {% elif campo.tipo == 'checkboxes' %}
-                                <div class="mt-2">
-                                    {% for opt in campo.opcoes %}
-                                    <div class="form-check mb-2">
-                                        <input type="checkbox" name="{{ campo.key }}" value="{{ opt }}" id="cb-{{ campo.key }}-{{ forloop.counter }}" class="form-check-input">
-                                        <label class="form-check-label" for="cb-{{ campo.key }}-{{ forloop.counter }}">{{ opt }}</label>
-                                    </div>
-                                    {% endfor %}
-                                </div>
+        {% elif campo.tipo == 'scale' %}
+          <div class="flex flex-wrap gap-2 mt-2">
+            {% for opt in campo.opcoes %}
+            <label class="scale-option flex-1 min-w-[2.5rem] cursor-pointer rounded-md border-2 border-borda bg-fundo py-2 text-center text-sm font-medium text-texto transition hover:border-marca-forte">
+              <input
+                type="radio"
+                name="{{ campo.key }}"
+                value="{{ opt }}"
+                class="sr-only"
+                {% if campo.obrigatorio %}required{% endif %}>
+              {{ opt }}
+            </label>
+            {% endfor %}
+          </div>
 
-                            {% endif %}
-                        </div>
-                        {% endfor %}
-
-                        <button type="submit" class="btn w-100 rounded-pill py-3 fw-bold text-white"
-                                style="background:linear-gradient(135deg,#C9A84C 0%,#7a5f1f 100%);font-size:0.95rem;letter-spacing:0.5px;border:none;">
-                            <i class="bi bi-send-fill me-2"></i>Enviar respostas
-                        </button>
-
-                        <p class="text-center mt-3 mb-0 small" style="color:#9a8f7c;">
-                            <i class="bi bi-shield-check me-1"></i>
-                            Suas respostas são confidenciais e usadas apenas para melhorar o atendimento.
-                        </p>
-                    </form>
-                </div>
+        {% elif campo.tipo == 'checkboxes' %}
+          <div class="mt-2 space-y-2">
+            {% for opt in campo.opcoes %}
+            <div class="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="{{ campo.key }}"
+                value="{{ opt }}"
+                id="cb-{{ campo.key }}-{{ forloop.counter }}"
+                class="h-4 w-4 rounded border-borda text-marca-forte">
+              <label class="text-sm text-texto" for="cb-{{ campo.key }}-{{ forloop.counter }}">{{ opt }}</label>
             </div>
-        </div>
-    </div>
-</section>
+            {% endfor %}
+          </div>
+
+        {% endif %}
+      </div>
+      {% endfor %}
+
+      <!-- Botão enviar -->
+      <button type="submit"
+              class="inline-flex w-full items-center justify-center rounded-md bg-marca-forte px-4 py-3 text-sm font-bold text-sobre-marca transition hover:opacity-90">
+        <svg xmlns="http://www.w3.org/2000/svg" class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+        </svg>
+        Enviar respostas
+      </button>
+
+      <p class="mt-4 text-center text-xs text-texto-suave">
+        <svg xmlns="http://www.w3.org/2000/svg" class="inline mr-1 h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+        </svg>
+        Suas respostas são confidenciais e usadas apenas para melhorar o atendimento.
+      </p>
+    </form>
+  </div>
+</div>
+
+{% block js %}
+<script nonce="{{ csp_nonce }}">
+(function () {
+  document.querySelectorAll('.scale-option input[type="radio"]').forEach(function (radio) {
+    radio.addEventListener('change', function () {
+      var group = this.closest('.flex');
+      group.querySelectorAll('label.scale-option').forEach(function (lbl) {
+        lbl.classList.remove('border-marca-forte', 'bg-superficie', 'text-marca');
+        lbl.classList.add('border-borda', 'bg-fundo');
+      });
+      this.closest('label').classList.remove('border-borda', 'bg-fundo');
+      this.closest('label').classList.add('border-marca-forte', 'bg-superficie', 'text-marca');
+    });
+  });
+})();
+</script>
+{% endblock %}
 {% endblock %}
