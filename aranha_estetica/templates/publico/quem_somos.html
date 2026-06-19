@@ -1,140 +1,203 @@
-{% extends 'estrutura/base.html' %}
+{% extends 'estrutura/base_v2.html' %}
 {% load static %}
 
-{% block body_class %}about-page{% endblock %}
 {% block titulo %}Quem Somos | {{ CLINIC_NAME }}{% endblock %}
 
 {% block conteudo %}
-<!-- About Section -->
-<section id="about" class="about section">
-  <div class="container" data-aos="fade-up" data-aos-delay="100">
 
-    <div class="row align-items-stretch min-vh-50">
-      <div class="col-lg-6 d-flex align-items-center" data-aos="fade-right" data-aos-delay="100">
-        <div class="about-content py-5">
-          <h2 class="display-5 fw-light mb-4">Atendimento Exclusivo da Biomédica Jaqueline Aranha</h2>
+{# ═══════════════════════════════════════════════════════════ #}
+{# HERO                                                        #}
+{# ═══════════════════════════════════════════════════════════ #}
+<section id="about-hero" class="py-16 md:py-24 bg-fundo">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="grid md:grid-cols-2 gap-12 items-center">
 
-          <div class="about-text">
-            <p class="lead fw-normal mb-4">
-              A {{ CLINIC_NAME }} é uma clínica de estética conduzida pessoalmente pela biomédica
-              <strong>Jaqueline Aranha</strong> &mdash; atendimento individualizado, sem rodízio de
-              profissionais. Quem agenda é quem é atendida, do início ao fim.
-            </p>
+      {# — conteúdo textual — #}
+      <div class="space-y-6">
+        {# badge #}
+        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-superficie border border-borda text-marca text-sm font-medium">
+          <svg class="w-4 h-4 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          Sobre a Clínica
+        </div>
 
-            <p class="mb-4">
-              Com <strong>mais de 5 anos de experiência</strong> em estética facial e corporal,
-              Jaqueline atendeu <strong>mais de 500 pacientes</strong> ao longo de sua trajetória em
-              diversas clínicas, somando vivência clínica, técnica refinada e olhar personalizado para
-              cada caso.
-            </p>
+        <h1 class="text-4xl md:text-5xl font-bold text-texto leading-tight">
+          Atendimento Exclusivo da Biomédica <span class="text-marca">Jaqueline Aranha</span>
+        </h1>
 
-            <p class="mb-4">
-              Após anos contribuindo em consultórios e centros estéticos parceiros, abriu agora seu
-              <strong>próprio espaço</strong> &mdash; com a missão de oferecer protocolos
-              individualizados que combinam ciência biomédica e cuidado humanizado em ambiente seguro,
-              acolhedor e sem fila de espera.
-            </p>
+        <p class="text-texto-suave text-lg leading-relaxed">
+          A {{ CLINIC_NAME }} é uma clínica de estética conduzida pessoalmente pela biomédica
+          <strong class="text-texto">Jaqueline Aranha</strong> &mdash; atendimento individualizado, sem rodízio de
+          profissionais. Quem agenda é quem é atendida, do início ao fim.
+        </p>
 
-            <p class="mb-5">
-              O atendimento é único porque a biomédica é única: você conversa, é avaliada e tratada
-              sempre pela mesma profissional &mdash; com prontuário eletrônico, agendamento online e
-              acompanhamento contínuo.
-            </p>
+        <p class="text-texto-suave leading-relaxed">
+          Com <strong class="text-texto">mais de 5 anos de experiência</strong> em estética facial e corporal,
+          Jaqueline atendeu <strong class="text-texto">mais de 500 pacientes</strong> ao longo de sua trajetória em
+          diversas clínicas, somando vivência clínica, técnica refinada e olhar personalizado para cada caso.
+        </p>
+
+        {# stats — texto estático sem purecounter #}
+        <div class="flex gap-8 pt-2 border-t border-borda">
+          <div class="text-center">
+            <p class="text-3xl font-bold text-marca">500+</p>
+            <p class="text-texto-suave text-sm mt-1 uppercase tracking-wide">Pacientes Atendidos</p>
           </div>
-
-          <div class="stats-grid d-flex justify-content-between mt-4 pt-3 border-top">
-            <div class="stat-item text-center">
-              <span class="stat-number display-6 fw-light text-primary" data-purecounter-start="0" data-purecounter-end="500" data-purecounter-duration="2">500</span>
-              <span class="stat-label d-block text-muted small text-uppercase mt-2">+ Pacientes Atendidos</span>
-            </div>
-            <div class="stat-item text-center">
-              <span class="stat-number display-6 fw-light text-primary" data-purecounter-start="0" data-purecounter-end="5" data-purecounter-duration="2">5</span>
-              <span class="stat-label d-block text-muted small text-uppercase mt-2">+ Anos de Experiência</span>
-            </div>
-            <div class="stat-item text-center">
-              <span class="stat-number display-6 fw-light text-primary" data-purecounter-start="0" data-purecounter-end="1" data-purecounter-duration="2">1</span>
-              <span class="stat-label d-block text-muted small text-uppercase mt-2">Biomédica Exclusiva</span>
-            </div>
+          <div class="border-l border-borda pl-8 text-center">
+            <p class="text-3xl font-bold text-marca">5+</p>
+            <p class="text-texto-suave text-sm mt-1 uppercase tracking-wide">Anos de Experiência</p>
           </div>
+          <div class="border-l border-borda pl-8 text-center">
+            <p class="text-3xl font-bold text-marca">1</p>
+            <p class="text-texto-suave text-sm mt-1 uppercase tracking-wide">Biomédica Exclusiva</p>
+          </div>
+        </div>
+
+        {# CTAs #}
+        <div class="flex flex-wrap gap-4">
+          <a href="{% url 'aranha:agendamento_publico' %}"
+             class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
+            Agendar Avaliação
+          </a>
+          <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Ol%C3%A1%21+Gostaria+de+saber+mais+sobre+a+cl%C3%ADnica."
+             target="_blank" rel="noopener"
+             class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto hover:bg-superficie transition-colors">
+            <svg class="w-5 h-5 text-[#25D366]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+              <path d="M11.999 2C6.477 2 2 6.477 2 12c0 1.89.525 3.659 1.438 5.168L2 22l4.984-1.407A9.945 9.945 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.95 7.95 0 01-4.055-1.109l-.291-.173-3.007.849.85-2.932-.19-.301A7.94 7.94 0 014 12c0-4.418 3.582-8 8-8s8 3.582 8 8-3.582 8-8 8z"/>
+            </svg>
+            Falar no WhatsApp
+          </a>
         </div>
       </div>
 
-      <div class="col-lg-6" data-aos="fade-left" data-aos-delay="200">
-        <div class="image-wrapper h-100 position-relative">
-          <img src="{% static 'assets/clinica/espaco-1.webp' %}" class="img-fluid w-100 h-100 object-fit-cover" alt="Espaço {{ CLINIC_NAME }}" style="min-height: 600px;" loading="lazy">
-        </div>
+      {# — foto — #}
+      <div class="rounded-xl overflow-hidden aspect-[4/5]">
+        <img src="{% static 'assets/clinica/espaco-1.webp' %}"
+             alt="Espaço {{ CLINIC_NAME }}"
+             loading="lazy"
+             class="w-full h-full object-cover">
       </div>
+
+    </div>
+  </div>
+</section>
+
+{# ═══════════════════════════════════════════════════════════ #}
+{# HISTÓRIA — parágrafos da biomédica                          #}
+{# ═══════════════════════════════════════════════════════════ #}
+<section id="about-historia" class="py-16 md:py-24 bg-superficie">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="max-w-3xl mx-auto space-y-6">
+      <h2 class="text-3xl md:text-4xl font-bold text-texto text-center mb-8">Nossa História</h2>
+
+      <p class="text-texto-suave leading-relaxed text-lg">
+        Após anos contribuindo em consultórios e centros estéticos parceiros, Jaqueline abriu seu
+        <strong class="text-texto">próprio espaço</strong> &mdash; com a missão de oferecer protocolos
+        individualizados que combinam ciência biomédica e cuidado humanizado em ambiente seguro,
+        acolhedor e sem fila de espera.
+      </p>
+
+      <p class="text-texto-suave leading-relaxed text-lg">
+        O atendimento é único porque a biomédica é única: você conversa, é avaliada e tratada
+        sempre pela mesma profissional &mdash; com prontuário eletrônico, agendamento online e
+        acompanhamento contínuo.
+      </p>
+    </div>
+  </div>
+</section>
+
+{# ═══════════════════════════════════════════════════════════ #}
+{# VALORES                                                     #}
+{# ═══════════════════════════════════════════════════════════ #}
+<section id="about-valores" class="py-16 md:py-24 bg-fundo">
+  <div class="max-w-6xl mx-auto px-6">
+
+    <div class="text-center mb-14">
+      <h2 class="text-3xl md:text-4xl font-bold text-texto">Nossos Valores</h2>
+      <p class="text-texto-suave mt-3 text-lg">Estes princípios guiam tudo o que fazemos em nosso compromisso com a excelência em estética</p>
     </div>
 
-    <div class="values-section mt-5 pt-5" data-aos="fade-up" data-aos-delay="300">
-      <div class="row">
-        <div class="col-lg-12 text-center">
-          <h3 class="display-6 fw-light mb-3">Nossos Valores</h3>
-          <p class="section-description text-muted mb-5">Estes princípios guiam tudo o que fazemos em nosso compromisso com a excelência em estética</p>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+
+      {# Humanização #}
+      <div class="text-center p-6 rounded-xl border border-borda bg-superficie space-y-4">
+        <div class="mx-auto w-14 h-14 rounded-full bg-fundo border border-borda flex items-center justify-center">
+          <svg class="w-7 h-7 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+          </svg>
         </div>
+        <h3 class="text-texto font-bold text-lg">Humanização</h3>
+        <p class="text-texto-suave text-sm leading-relaxed">Oferecemos cuidado com empatia e compreensão, atendendo às necessidades únicas de cada paciente.</p>
       </div>
 
-      <div class="row g-4">
-        <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="100">
-          <div class="value-item text-center p-4 h-100 border rounded-3 hover-shadow transition">
-            <div class="value-icon mb-3">
-              <i class="bi bi-heart-pulse fs-1 text-primary"></i>
-            </div>
-            <h4 class="h5 fw-semibold mb-3">Humanização</h4>
-            <p class="small text-muted mb-0">Oferecemos cuidado com empatia e compreensão, atendendo às necessidades únicas de cada paciente.</p>
-          </div>
+      {# Excelência #}
+      <div class="text-center p-6 rounded-xl border border-borda bg-superficie space-y-4">
+        <div class="mx-auto w-14 h-14 rounded-full bg-fundo border border-borda flex items-center justify-center">
+          <svg class="w-7 h-7 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
         </div>
-
-        <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="200">
-          <div class="value-item text-center p-4 h-100 border rounded-3 hover-shadow transition">
-            <div class="value-icon mb-3">
-              <i class="bi bi-shield-check fs-1 text-primary"></i>
-            </div>
-            <h4 class="h5 fw-semibold mb-3">Excelência</h4>
-            <p class="small text-muted mb-0">Mantemos os mais altos padrões em procedimentos estéticos através de aprendizado contínuo e inovação.</p>
-          </div>
-        </div>
-
-        <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="300">
-          <div class="value-item text-center p-4 h-100 border rounded-3 hover-shadow transition">
-            <div class="value-icon mb-3">
-              <i class="bi bi-people fs-1 text-primary"></i>
-            </div>
-            <h4 class="h5 fw-semibold mb-3">Confiança</h4>
-            <p class="small text-muted mb-0">Construímos relacionamentos duradouros através de comunicação transparente e práticas éticas.</p>
-          </div>
-        </div>
-
-        <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="400">
-          <div class="value-item text-center p-4 h-100 border rounded-3 hover-shadow transition">
-            <div class="value-icon mb-3">
-              <i class="bi bi-lightbulb fs-1 text-primary"></i>
-            </div>
-            <h4 class="h5 fw-semibold mb-3">Tecnologia</h4>
-            <p class="small text-muted mb-0">Incorporamos tecnologias de ponta e tratamentos inovadores para melhores resultados.</p>
-          </div>
-        </div>
+        <h3 class="text-texto font-bold text-lg">Excelência</h3>
+        <p class="text-texto-suave text-sm leading-relaxed">Mantemos os mais altos padrões em procedimentos estéticos através de aprendizado contínuo e inovação.</p>
       </div>
+
+      {# Confiança #}
+      <div class="text-center p-6 rounded-xl border border-borda bg-superficie space-y-4">
+        <div class="mx-auto w-14 h-14 rounded-full bg-fundo border border-borda flex items-center justify-center">
+          <svg class="w-7 h-7 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+          </svg>
+        </div>
+        <h3 class="text-texto font-bold text-lg">Confiança</h3>
+        <p class="text-texto-suave text-sm leading-relaxed">Construímos relacionamentos duradouros através de comunicação transparente e práticas éticas.</p>
+      </div>
+
+      {# Tecnologia #}
+      <div class="text-center p-6 rounded-xl border border-borda bg-superficie space-y-4">
+        <div class="mx-auto w-14 h-14 rounded-full bg-fundo border border-borda flex items-center justify-center">
+          <svg class="w-7 h-7 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.07 4.93L17.66 6.34A8 8 0 016.34 17.66l-1.41 1.41A10 10 0 0019.07 4.93z"/>
+            <path d="M4.93 19.07L6.34 17.66A8 8 0 0117.66 6.34l1.41-1.41A10 10 0 004.93 19.07z"/>
+          </svg>
+        </div>
+        <h3 class="text-texto font-bold text-lg">Tecnologia</h3>
+        <p class="text-texto-suave text-sm leading-relaxed">Incorporamos tecnologias de ponta e tratamentos inovadores para melhores resultados.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+{# ═══════════════════════════════════════════════════════════ #}
+{# LGPD / Certificações                                        #}
+{# ═══════════════════════════════════════════════════════════ #}
+<section id="about-lgpd" class="py-16 md:py-24 bg-superficie">
+  <div class="max-w-6xl mx-auto px-6">
+
+    <div class="text-center mb-10">
+      <h2 class="text-3xl md:text-4xl font-bold text-texto">Certificações &amp; Conformidade</h2>
+      <p class="text-texto-suave mt-3 text-lg">Compromisso com a segurança de dados e qualidade no atendimento</p>
     </div>
 
-    <div class="certifications-section mt-5 pt-4" data-aos="fade-up" data-aos-delay="400">
-      <div class="row">
-        <div class="col-lg-12 text-center">
-          <h3 class="display-6 fw-light mb-3">Certificações & Conformidade</h3>
-          <p class="section-description text-muted mb-4">Compromisso com a segurança de dados e qualidade no atendimento</p>
-        </div>
+    <div class="max-w-2xl mx-auto rounded-xl border border-borda bg-fundo p-8 text-center space-y-4">
+      <div class="mx-auto w-16 h-16 rounded-full bg-superficie border border-borda flex items-center justify-center">
+        <svg class="w-8 h-8 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0110 0v4"/>
+        </svg>
       </div>
-      <div class="row justify-content-center">
-        <div class="col-lg-10">
-          <div class="alert alert-light border rounded-4 p-4 text-center bg-light">
-            <i class="bi bi-shield-lock fs-1 text-primary mb-3 d-block"></i>
-            <p class="mb-0 text-muted">Nosso sistema implementa autenticação de dois fatores, gestão digital de termos de consentimento e logs de auditoria detalhados, atendendo às exigências da Lei Geral de Proteção de Dados (LGPD).</p>
-          </div>
-        </div>
-      </div>
+      <p class="text-texto-suave leading-relaxed">
+        Nosso sistema implementa autenticação de dois fatores, gestão digital de termos de consentimento e logs de auditoria detalhados, atendendo às exigências da
+        <strong class="text-texto">Lei Geral de Proteção de Dados (LGPD)</strong>.
+      </p>
     </div>
 
   </div>
+</section>
 
-</section><!-- /About Section -->
 {% endblock %}

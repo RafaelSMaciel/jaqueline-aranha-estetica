@@ -1,197 +1,298 @@
-﻿{% extends 'estrutura/base.html' %}
+{% extends 'estrutura/base_v2.html' %}
 {% load static %}
 
-{% block body_class %}promocoes-page{% endblock %}
 {% block titulo %}Promoções | {{ CLINIC_NAME }}{% endblock %}
 
 {% block conteudo %}
-<!-- ═══ HERO ═══ -->
-<section id="service-hero" class="service-hero section">
-  <div class="container" data-aos="fade-up" data-aos-delay="100">
-    <div class="row align-items-center">
-      <div class="col-lg-6">
-        <div class="hero-content">
-          <div class="hero-badge" data-aos="fade-right" data-aos-delay="200">
-            <i class="bi bi-tag me-2"></i>Ofertas Especiais
+
+{# ═══════════════════════════════════════════════════════════ #}
+{# HERO                                                        #}
+{# ═══════════════════════════════════════════════════════════ #}
+<section id="promo-hero" class="py-16 md:py-24 bg-fundo">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="grid md:grid-cols-2 gap-12 items-center">
+
+      {# — conteúdo textual — #}
+      <div class="space-y-6">
+        {# badge #}
+        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-superficie border border-borda text-marca text-sm font-medium">
+          <svg class="w-4 h-4 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+            <line x1="7" y1="7" x2="7.01" y2="7"/>
+          </svg>
+          Ofertas Especiais
+        </div>
+
+        <h1 class="text-4xl md:text-5xl font-bold text-texto leading-tight">
+          <span class="text-marca">Promoções</span> Exclusivas Para Você
+        </h1>
+
+        <p class="text-texto-suave text-lg leading-relaxed">
+          Aproveite condições especiais nos nossos tratamentos de estética. Ofertas por tempo limitado com os mesmos padrões de qualidade e excelência que você merece.
+        </p>
+
+        <div class="flex flex-wrap gap-4">
+          <a href="#promo-grid"
+             class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
+            Ver Promoções
+          </a>
+          <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Ol%C3%A1%21+Gostaria+de+saber+sobre+promo%C3%A7%C3%B5es+exclusivas."
+             target="_blank" rel="noopener"
+             class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto hover:bg-superficie transition-colors">
+            <svg class="w-5 h-5 text-[#25D366]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+              <path d="M11.999 2C6.477 2 2 6.477 2 12c0 1.89.525 3.659 1.438 5.168L2 22l4.984-1.407A9.945 9.945 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.95 7.95 0 01-4.055-1.109l-.291-.173-3.007.849.85-2.932-.19-.301A7.94 7.94 0 014 12c0-4.418 3.582-8 8-8s8 3.582 8 8-3.582 8-8 8z"/>
+            </svg>
+            Desconto Exclusivo
+          </a>
+        </div>
+      </div>
+
+      {# — visual — #}
+      <div class="relative">
+        <div class="relative rounded-xl overflow-hidden aspect-[4/5]">
+          <img src="{% static 'assets/clinica/equipe-2.webp' %}"
+               alt="Promoções {{ CLINIC_NAME }}"
+               loading="lazy"
+               class="w-full h-full object-cover">
+
+          {# floating card — desconto #}
+          <div class="absolute bottom-6 left-6 bg-superficie border border-borda rounded-lg p-4 shadow-lg flex items-start gap-3 max-w-[200px]">
+            <div class="flex-shrink-0 w-9 h-9 rounded-md bg-marca-forte flex items-center justify-center">
+              <svg class="w-5 h-5 text-sobre-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="19" y1="5" x2="5" y2="19"/>
+                <circle cx="6.5" cy="6.5" r="2.5"/>
+                <circle cx="17.5" cy="17.5" r="2.5"/>
+              </svg>
+            </div>
+            <div>
+              <p class="text-texto font-semibold text-sm leading-tight">Descontos Especiais</p>
+              <p class="text-texto-suave text-xs mt-0.5">Por Tempo Limitado</p>
+              <p class="text-marca text-xs mt-0.5">Aproveite agora!</p>
+            </div>
           </div>
-          <h1 data-aos="fade-right" data-aos-delay="300">
-            <span class="highlight">Promoções</span> Exclusivas Para Você
-          </h1>
-          <p class="hero-description" data-aos="fade-right" data-aos-delay="400">
-            Aproveite condições especiais nos nossos tratamentos de estética. Ofertas por tempo limitado com os mesmos padrões de qualidade e excelência que você merece.
-          </p>
-          <div class="hero-actions" data-aos="fade-right" data-aos-delay="600">
-            <a href="#promo-grid" class="btn btn-primary">Ver Promoções</a>
-            <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Olá! Gostaria de saber sobre promoções exclusivas." target="_blank" rel="noopener" class="btn btn-outline">
-              <i class="bi bi-whatsapp me-2"></i>Desconto Exclusivo
-            </a>
+
+          {# floating card — exclusivo #}
+          <div class="absolute top-6 right-6 bg-superficie border border-borda rounded-lg p-4 shadow-lg text-center min-w-[120px]">
+            <svg class="w-6 h-6 text-marca mx-auto mb-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="20 12 20 22 4 22 4 12"/>
+              <rect x="2" y="7" width="20" height="5"/>
+              <line x1="12" y1="22" x2="12" y2="7"/>
+              <path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/>
+            </svg>
+            <p class="text-texto font-bold text-sm">Exclusivo</p>
+            <p class="text-texto-suave text-xs mt-0.5">Condições Imperdíveis</p>
           </div>
         </div>
       </div>
-      <div class="col-lg-6">
-        <div class="hero-visual" data-aos="fade-left" data-aos-delay="400">
-          <div class="main-image">
-            <img src="{% static 'assets/clinica/equipe-2.webp' %}" alt="Promoções {{ CLINIC_NAME }}" class="img-fluid" loading="lazy">
-            <div class="floating-card appointment-card">
-              <div class="card-icon">
-                <i class="bi bi-percent"></i>
-              </div>
-              <div class="card-content">
-                <h6>Descontos Especiais</h6>
-                <p>Por Tempo Limitado</p>
-                <small>Aproveite agora!</small>
-              </div>
-            </div>
-            <div class="floating-card rating-card">
-              <div class="card-content">
-                <div class="rating-stars">
-                  <i class="bi bi-gift-fill"></i>
-                </div>
-                <h6>Exclusivo</h6>
-                <small>Condições Imperdíveis</small>
-              </div>
-            </div>
-          </div>
-          <div class="background-elements">
-            <div class="element element-1"></div>
-            <div class="element element-2"></div>
-            <div class="element element-3"></div>
-          </div>
-        </div>
-      </div>
+
     </div>
   </div>
 </section>
 
-<!-- ═══ PROMOÇÕES GRID ═══ -->
-<section id="promo-grid" class="section light-background">
-  <div class="container section-title" data-aos="fade-up">
-    <h2>Promoções Ativas</h2>
-    <p>Aproveite nossas ofertas especiais por tempo limitado</p>
-  </div>
+{# ═══════════════════════════════════════════════════════════ #}
+{# GRID DE PROMOÇÕES                                           #}
+{# ═══════════════════════════════════════════════════════════ #}
+<section id="promo-grid" class="py-16 md:py-24 bg-superficie">
+  <div class="max-w-6xl mx-auto px-6">
 
-  <div class="container" data-aos="fade-up" data-aos-delay="100">
+    <div class="text-center mb-14">
+      <h2 class="text-3xl md:text-4xl font-bold text-texto">Promoções Ativas</h2>
+      <p class="text-texto-suave mt-3 text-lg">Aproveite nossas ofertas especiais por tempo limitado</p>
+    </div>
+
     {% if promocoes %}
-    <div class="row g-4">
+    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
       {% for promo in promocoes %}
-      <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="{{ forloop.counter0|add:1 }}00">
-        <div class="promo-card">
-          <div class="promo-header">
+      <article class="rounded-xl border border-borda bg-fundo flex flex-col overflow-hidden">
+
+        {# cabeçalho do card com badge de desconto #}
+        <div class="bg-superficie px-6 py-5 flex items-start justify-between gap-4 border-b border-borda">
+          <div class="space-y-1 flex-1 min-w-0">
+            {# badge de desconto #}
             {% if promo.desconto_percentual %}
-            <span class="promo-badge">-{{ promo.desconto_percentual|floatformat:0 }}%</span>
+            <span class="inline-block px-2.5 py-0.5 rounded-full bg-marca-forte text-sobre-marca text-xs font-bold mb-2">
+              -{{ promo.desconto_percentual|floatformat:0 }}%
+            </span>
             {% endif %}
-            <div class="promo-icon">
-              <i class="bi bi-tag-fill"></i>
-            </div>
-            <h4>{{ promo.nome }}</h4>
+            <h3 class="text-texto font-bold text-lg leading-tight">{{ promo.nome }}</h3>
             {% if promo.procedimento %}
-            <small>{{ promo.procedimento.nome }}</small>
+            <p class="text-marca text-sm font-medium">{{ promo.procedimento.nome }}</p>
             {% endif %}
           </div>
-          <div class="promo-body">
-            {% if promo.descricao %}
-            <p class="promo-description">{{ promo.descricao }}</p>
-            {% endif %}
-
-            <div class="promo-pricing">
-              {% if promo.desconto_percentual and promo.procedimento and promo.preco_original %}
-              <span class="promo-old-price">R$ {{ promo.preco_original|floatformat:2 }}</span>
-              {% endif %}
-              {% if promo.preco_promocional %}
-              <span class="promo-new-price">R$ {{ promo.preco_promocional|floatformat:2 }}</span>
-              {% endif %}
-            </div>
-
-            <div class="promo-validity">
-              <i class="bi bi-clock"></i>
-              <span>Válido de {{ promo.data_inicio|date:"d/m/Y" }} até {{ promo.data_fim|date:"d/m/Y" }}</span>
-            </div>
-
-            {% if promo.procedimento %}
-            <a href="{% url 'aranha:agendamento_publico' %}?procedimento={{ promo.procedimento.pk }}" class="promo-cta">
-              <i class="bi bi-calendar-check me-2"></i>Agendar com Desconto
-            </a>
-            {% else %}
-            <a href="{% url 'aranha:agendamento_publico' %}" class="promo-cta">
-              <i class="bi bi-calendar-check me-2"></i>Agendar Agora
-            </a>
-            {% endif %}
+          <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-fundo border border-borda flex items-center justify-center mt-1">
+            <svg class="w-5 h-5 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+              <line x1="7" y1="7" x2="7.01" y2="7"/>
+            </svg>
           </div>
         </div>
-      </div>
+
+        {# corpo #}
+        <div class="p-6 flex flex-col flex-1 space-y-4">
+
+          {% if promo.descricao %}
+          <p class="text-texto-suave text-sm leading-relaxed">{{ promo.descricao }}</p>
+          {% endif %}
+
+          {# preços #}
+          <div class="flex items-baseline gap-3">
+            {% if promo.desconto_percentual and promo.preco_original %}
+            <span class="text-texto-suave text-sm line-through">R$ {{ promo.preco_original|floatformat:2 }}</span>
+            {% endif %}
+            {% if promo.preco_promocional %}
+            <span class="text-marca font-bold text-2xl">R$ {{ promo.preco_promocional|floatformat:2 }}</span>
+            {% endif %}
+          </div>
+
+          {# validade #}
+          <div class="flex items-center gap-2 text-texto-suave text-sm">
+            <svg class="w-4 h-4 text-marca flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+            Válido de {{ promo.data_inicio|date:"d/m/Y" }} até {{ promo.data_fim|date:"d/m/Y" }}
+          </div>
+
+          {# CTA #}
+          {% if promo.procedimento %}
+          <a href="{% url 'aranha:agendamento_publico' %}?procedimento={{ promo.procedimento.pk }}"
+             class="mt-auto inline-flex items-center justify-center gap-2 w-full px-4 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold text-sm hover:opacity-90 transition-opacity">
+            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+              <path d="M9 16l2 2 4-4"/>
+            </svg>
+            Agendar com Desconto
+          </a>
+          {% else %}
+          <a href="{% url 'aranha:agendamento_publico' %}"
+             class="mt-auto inline-flex items-center justify-center gap-2 w-full px-4 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold text-sm hover:opacity-90 transition-opacity">
+            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+              <path d="M9 16l2 2 4-4"/>
+            </svg>
+            Agendar Agora
+          </a>
+          {% endif %}
+
+        </div>
+      </article>
       {% endfor %}
     </div>
 
     {% else %}
-    <!-- Sem promoções ativas -->
-    <div class="text-center py-5">
-      <div class="mb-4" style="width: 100px; height: 100px; background: rgba(180, 140, 76, 0.1); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;">
-        <i class="bi bi-tag fs-1" style="color: var(--accent-color);"></i>
+    {# — empty state — #}
+    <div class="text-center py-16 space-y-4">
+      <div class="mx-auto w-20 h-20 rounded-full bg-fundo border border-borda flex items-center justify-center">
+        <svg class="w-10 h-10 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+          <line x1="7" y1="7" x2="7.01" y2="7"/>
+        </svg>
       </div>
-      <h3 class="fw-bold mb-2" style="color: #999;">Nenhuma promoção ativa no momento</h3>
-      <p class="text-muted mb-4 mx-auto" style="max-width: 500px;">Fique de olho! Novas promoções serão publicadas em breve. Enquanto isso, conheça nossos tratamentos com preços acessíveis.</p>
-      <div class="d-flex gap-3 justify-content-center flex-wrap">
-        <a href="{% url 'aranha:agendamento_publico' %}" class="btn btn-primary px-4 py-3 rounded-pill fw-bold">
-          <i class="bi bi-calendar-check me-2"></i>Agendar Avaliação
+      <h3 class="text-texto text-xl font-bold">Nenhuma promoção ativa no momento</h3>
+      <p class="text-texto-suave max-w-md mx-auto">Fique de olho! Novas promoções serão publicadas em breve. Enquanto isso, conheça nossos tratamentos com preços acessíveis.</p>
+      <div class="flex gap-3 justify-center flex-wrap mt-2">
+        <a href="{% url 'aranha:agendamento_publico' %}"
+           class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
+          Agendar Avaliação
         </a>
-        <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Olá! Gostaria de saber sobre promoções." target="_blank" rel="noopener" class="btn btn-outline-primary px-4 py-3 rounded-pill fw-bold">
-          <i class="bi bi-whatsapp me-2"></i>Pedir Desconto
+        <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Ol%C3%A1%21+Gostaria+de+saber+sobre+promo%C3%A7%C3%B5es."
+           target="_blank" rel="noopener"
+           class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto hover:bg-superficie transition-colors">
+          <svg class="w-5 h-5 text-[#25D366]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+            <path d="M11.999 2C6.477 2 2 6.477 2 12c0 1.89.525 3.659 1.438 5.168L2 22l4.984-1.407A9.945 9.945 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.95 7.95 0 01-4.055-1.109l-.291-.173-3.007.849.85-2.932-.19-.301A7.94 7.94 0 014 12c0-4.418 3.582-8 8-8s8 3.582 8 8-3.582 8-8 8z"/>
+          </svg>
+          Pedir Desconto
         </a>
       </div>
     </div>
     {% endif %}
+
   </div>
 </section>
 
-<!-- ═══ CTA WHATSAPP ═══ -->
-<section id="call-to-action" class="call-to-action section">
-  <div class="container" data-aos="fade-up" data-aos-delay="100">
-    <div class="hero-content">
-      <div class="row align-items-center justify-content-center text-center">
-        <div class="col-lg-8">
-          <div class="content-wrapper" data-aos="fade-up" data-aos-delay="200">
-            <h1>Quer um Desconto Personalizado?</h1>
-            <p>Fale conosco pelo WhatsApp e negocie condições exclusivas para o seu tratamento. Pacotes especiais e combos com preços diferenciados.</p>
-            <div class="cta-wrapper justify-content-center">
-              <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Olá! Gostaria de saber sobre promoções exclusivas." target="_blank" rel="noopener" class="primary-cta">
-                <span>Falar no WhatsApp</span>
-                <i class="bi bi-whatsapp"></i>
-              </a>
-              <a href="{% url 'aranha:servicos_faciais' %}" class="secondary-cta">
-                <span>Ver Tratamentos</span>
-                <i class="bi bi-arrow-right"></i>
-              </a>
-            </div>
-          </div>
-        </div>
+{# ═══════════════════════════════════════════════════════════ #}
+{# CTA WHATSAPP + DIFERENCIAIS                                 #}
+{# ═══════════════════════════════════════════════════════════ #}
+<section id="promo-cta" class="py-16 md:py-24 bg-fundo">
+  <div class="max-w-6xl mx-auto px-6">
+
+    {# bloco CTA #}
+    <div class="text-center max-w-2xl mx-auto mb-16 space-y-6">
+      <h2 class="text-3xl md:text-4xl font-bold text-texto">Quer um Desconto Personalizado?</h2>
+      <p class="text-texto-suave text-lg leading-relaxed">
+        Fale conosco pelo WhatsApp e negocie condições exclusivas para o seu tratamento. Pacotes especiais e combos com preços diferenciados.
+      </p>
+      <div class="flex flex-wrap gap-4 justify-center">
+        <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Ol%C3%A1%21+Gostaria+de+saber+sobre+promo%C3%A7%C3%B5es+exclusivas."
+           target="_blank" rel="noopener"
+           class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
+          <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+            <path d="M11.999 2C6.477 2 2 6.477 2 12c0 1.89.525 3.659 1.438 5.168L2 22l4.984-1.407A9.945 9.945 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.95 7.95 0 01-4.055-1.109l-.291-.173-3.007.849.85-2.932-.19-.301A7.94 7.94 0 014 12c0-4.418 3.582-8 8-8s8 3.582 8 8-3.582 8-8 8z"/>
+          </svg>
+          Falar no WhatsApp
+        </a>
+        <a href="{% url 'aranha:servicos_faciais' %}"
+           class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto hover:bg-superficie transition-colors">
+          Ver Tratamentos
+          <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </a>
       </div>
     </div>
 
-    <div class="features-section">
-      <div class="row g-0">
-        <div class="col-lg-4">
-          <div class="feature-block" data-aos="fade-up" data-aos-delay="200">
-            <div class="feature-icon"><i class="bi bi-percent"></i></div>
-            <h3>Descontos Reais</h3>
-            <p>Promoções genuínas com economia real nos nossos tratamentos.</p>
-          </div>
+    {# 3 diferenciais #}
+    <div class="grid sm:grid-cols-3 gap-6 border-t border-borda pt-12">
+
+      <div class="text-center space-y-3">
+        <div class="mx-auto w-14 h-14 rounded-full bg-superficie border border-borda flex items-center justify-center">
+          <svg class="w-7 h-7 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="19" y1="5" x2="5" y2="19"/>
+            <circle cx="6.5" cy="6.5" r="2.5"/>
+            <circle cx="17.5" cy="17.5" r="2.5"/>
+          </svg>
         </div>
-        <div class="col-lg-4">
-          <div class="feature-block" data-aos="fade-up" data-aos-delay="300">
-            <div class="feature-icon"><i class="bi bi-box-seam"></i></div>
-            <h3>Combos e Pacotes</h3>
-            <p>Combine tratamentos com preços especiais e potencialize resultados.</p>
-          </div>
-        </div>
-        <div class="col-lg-4">
-          <div class="feature-block" data-aos="fade-up" data-aos-delay="400">
-            <div class="feature-icon"><i class="bi bi-gift"></i></div>
-            <h3>Primeira Consulta</h3>
-            <p>Condições especiais para novos pacientes na avaliação inicial.</p>
-          </div>
-        </div>
+        <h3 class="text-texto font-bold text-lg">Descontos Reais</h3>
+        <p class="text-texto-suave text-sm leading-relaxed">Promoções genuínas com economia real nos nossos tratamentos.</p>
       </div>
+
+      <div class="text-center space-y-3">
+        <div class="mx-auto w-14 h-14 rounded-full bg-superficie border border-borda flex items-center justify-center">
+          <svg class="w-7 h-7 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="1" y="3" width="15" height="13" rx="2"/>
+            <path d="M16 8h4a2 2 0 012 2v7a2 2 0 01-2 2H7a2 2 0 01-2-2v-2"/>
+            <circle cx="7.5" cy="18.5" r="2.5"/>
+            <circle cx="18.5" cy="18.5" r="2.5"/>
+          </svg>
+        </div>
+        <h3 class="text-texto font-bold text-lg">Combos e Pacotes</h3>
+        <p class="text-texto-suave text-sm leading-relaxed">Combine tratamentos com preços especiais e potencialize resultados.</p>
+      </div>
+
+      <div class="text-center space-y-3">
+        <div class="mx-auto w-14 h-14 rounded-full bg-superficie border border-borda flex items-center justify-center">
+          <svg class="w-7 h-7 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="20 12 20 22 4 22 4 12"/>
+            <rect x="2" y="7" width="20" height="5"/>
+            <line x1="12" y1="22" x2="12" y2="7"/>
+            <path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/>
+          </svg>
+        </div>
+        <h3 class="text-texto font-bold text-lg">Primeira Consulta</h3>
+        <p class="text-texto-suave text-sm leading-relaxed">Condições especiais para novos pacientes na avaliação inicial.</p>
+      </div>
+
     </div>
   </div>
 </section>
+
 {% endblock %}
