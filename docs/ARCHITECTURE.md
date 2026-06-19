@@ -162,7 +162,7 @@ Decisões: Tailwind v4 + HTMX + @alpinejs/csp (F8) + cotton + Vite; dark opciona
 Abordagem wizard: pragmática (re-skin Tailwind + externalizar JS + corrigir 2 bugs; sem reescrita Alpine).
 - [ ] Home (hero D2 + seções) — **gated nas cores/fotos reais**
 - [x] **Wizard booking ✅** (W1-W5, verificado ao vivo no browser): W1 JS externalizado CSP-safe · W2 re-skin base_v2+Tailwind/tokens (Bootstrap fora, dark ok) · W3 a11y teclado (proc-card/cal-day→`<button>` focável) · W4 estado em sessionStorage + re-hidrata no reject (bug B: usuário volta ao step 3 com tudo, vê o erro) · W5 guardas de regressão. 185 testes. Contrato de booking preservado.
-- [ ] Catálogo serviços (faciais/corporais/produtos/especialidades/detalhe)
+- [~] **Serviços ✅** (faciais/corporais/produtos rebuild base_v2/Tailwind, padrão compartilhado, verificado browser - placeholder cor); falta especialidades/detalhe
 - [ ] Páginas de marca (quem somos/equipe/galeria/depoimentos)
 - [x] **Auto-serviço ✅** (meus_agendamentos 894L: 3 steps OTP + lista + modal cancelar, 2 onclick→addEventListener, modal a11y, toast textContent · reagendar · confirmar_presença — base_v2, contrato preservado, verificado browser)
 - [x] **Formulários públicos ✅** (contato [bug alta: POST/email/PRG], lista_espera, nps_web [JS CSP-safe], pesquisa+anamnese, confirmar_presença — base_v2, contratos preservados)
