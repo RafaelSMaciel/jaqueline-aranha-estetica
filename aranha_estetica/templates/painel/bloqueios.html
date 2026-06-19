@@ -1,94 +1,130 @@
-{% extends 'painel/base.html' %}
+{% extends 'painel/base_v2.html' %}
 
+{% block titulo %}Bloqueios de Agenda — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Bloqueios de Agenda{% endblock %}
 {% block page_subtitle %}Gerencie bloqueios de horários dos profissionais{% endblock %}
 
 {% block admin_content %}
-<style nonce="{{ csp_nonce }}">
-    .bloqueio-card {
-        background: white; border-radius: 16px; padding: 1rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 0.75rem;
-        border-left: 4px solid #ef5350;
-    }
-    .bloqueio-prof { font-weight: 700; font-size: 1rem; }
-    .bloqueio-dates { font-size: 0.8rem; color: #999; margin-top: 0.3rem; }
-    .bloqueio-motivo { font-size: 0.85rem; color: #666; margin-top: 0.4rem; }
-    .btn-criar { background: linear-gradient(135deg, #C9A84C, #e8c94f); color: white; border: none; padding: 0.5rem 1.2rem; border-radius: 10px; font-weight: 700; font-size: 0.85rem; cursor: pointer; }
-    .btn-excluir { background: #fce4ec; color: #c62828; border: none; padding: 0.35rem 0.75rem; border-radius: 8px; font-size: 0.75rem; font-weight: 700; cursor: pointer; }
-    .form-section { background: #f8f9fa; border-radius: 16px; padding: 1.25rem; margin-bottom: 1.5rem; }
-    .form-section h3 { font-size: 0.9rem; font-weight: 700; margin-bottom: 1rem; }
-    .form-group { margin-bottom: 0.75rem; }
-    .form-group label { font-size: 0.75rem; font-weight: 700; color: #666; display: block; margin-bottom: 0.25rem; }
-    .form-group input, .form-group select, .form-group textarea {
-        width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 8px; font-size: 0.85rem;
-    }
-</style>
 
-<!-- Formulario de criacao -->
-<div class="form-section">
-    <h3><i class="fas fa-plus-circle" style="color: #7a5f1f;"></i> Novo Bloqueio</h3>
-    <form method="post" action="{% url 'aranha:admin_criar_bloqueio' %}">
-        {% csrf_token %}
-        <div class="form-group">
-            <label>Profissional</label>
-            <select name="profissional_id" required>
-                <option value="">Selecione...</option>
-                {% for p in profissionais %}
-                <option value="{{ p.pk }}">{{ p.nome }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-            <div class="form-group">
-                <label>Inicio</label>
-                <input type="datetime-local" name="data_hora_inicio" required>
-            </div>
-            <div class="form-group">
-                <label>Fim</label>
-                <input type="datetime-local" name="data_hora_fim" required>
-            </div>
-        </div>
-        <div class="form-group">
-            <label>Motivo</label>
-            <input type="text" name="motivo" placeholder="Ferias, consulta, etc.">
-        </div>
-        <button type="submit" class="btn-criar">Criar Bloqueio</button>
-    </form>
+{# ── Formulário de criação ── #}
+<div class="bg-white rounded-2xl shadow-sm p-5 mb-4">
+  <h3 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-4">
+    <svg class="w-4 h-4 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+    Novo Bloqueio
+  </h3>
+  <form method="post" action="{% url 'aranha:admin_criar_bloqueio' %}">
+    {% csrf_token %}
+    <div class="mb-3">
+      <label for="profissionalSelect" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Profissional</label>
+      <select id="profissionalSelect" name="profissional_id" required
+              class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+        <option value="">Selecione...</option>
+        {% for p in profissionais %}
+        <option value="{{ p.pk }}">{{ p.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+      <div>
+        <label for="dataInicio" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Início</label>
+        <input id="dataInicio" type="datetime-local" name="data_hora_inicio" required
+               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+      </div>
+      <div>
+        <label for="dataFim" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Fim</label>
+        <input id="dataFim" type="datetime-local" name="data_hora_fim" required
+               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+      </div>
+    </div>
+    <div class="mb-4">
+      <label for="motivoInput" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Motivo</label>
+      <input id="motivoInput" type="text" name="motivo" placeholder="Férias, consulta, etc."
+             class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo placeholder-texto-suave outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+    </div>
+    <button type="submit"
+            class="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      Criar Bloqueio
+    </button>
+  </form>
 </div>
 
-<!-- Lista de bloqueios -->
+{# ── Lista de bloqueios ── #}
 {% for b in bloqueios %}
-<div class="bloqueio-card">
-    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-        <div>
-            <div class="bloqueio-prof">{{ b.profissional.nome }}</div>
-            <div class="bloqueio-dates">
-                <i class="far fa-calendar"></i>
-                {{ b.data_hora_inicio|date:"d/m/Y H:i" }} — {{ b.data_hora_fim|date:"d/m/Y H:i" }}
-            </div>
-            {% if b.motivo %}
-            <div class="bloqueio-motivo">{{ b.motivo }}</div>
-            {% endif %}
-        </div>
-        <form method="post" action="{% url 'aranha:admin_excluir_bloqueio' b.pk %}" onsubmit="return confirm('Excluir este bloqueio?');">
-            {% csrf_token %}
-            <button type="submit" class="btn-excluir"><i class="fas fa-trash"></i></button>
-        </form>
+<div class="bg-white rounded-2xl shadow-sm px-4 py-4 mb-2 border-l-4 border-red-400 hover:shadow-md hover:-translate-y-px transition-all duration-200">
+  <div class="flex justify-between items-start gap-3">
+
+    {# Detalhes do bloqueio #}
+    <div class="flex-1 min-w-0">
+      <div class="font-bold text-[1rem] text-texto">{{ b.profissional.nome }}</div>
+      <div class="text-[0.8rem] text-texto-suave mt-1 flex items-center gap-1">
+        <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+        {{ b.data_hora_inicio|date:"d/m/Y H:i" }} — {{ b.data_hora_fim|date:"d/m/Y H:i" }}
+      </div>
+      {% if b.motivo %}
+      <div class="text-[0.85rem] text-texto-suave mt-1">{{ b.motivo }}</div>
+      {% endif %}
     </div>
+
+    {# Excluir #}
+    <form method="post" action="{% url 'aranha:admin_excluir_bloqueio' b.pk %}" class="flex-shrink-0">
+      {% csrf_token %}
+      <button type="submit"
+              class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-[0.75rem] font-bold border-none cursor-pointer hover:bg-red-100 transition-colors"
+              data-confirm="Excluir este bloqueio?">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+        </svg>
+        Excluir
+      </button>
+    </form>
+  </div>
 </div>
 {% empty %}
-{% include 'partials/_empty_state.html' with icon='bi-calendar-x' title='Nenhum bloqueio cadastrado' message='Use o formulario acima para bloquear datas ou horarios.' %}
+<div class="bg-white rounded-2xl p-12 text-center shadow-sm">
+  <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
+    <svg class="w-7 h-7 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="10" y1="14" x2="14" y2="18"/><line x1="14" y1="14" x2="10" y2="18"/>
+    </svg>
+  </div>
+  <h5 class="font-bold text-[#1a1a2e] mb-1">Nenhum bloqueio cadastrado</h5>
+  <p class="text-[0.85rem] text-texto-suave">Use o formulário acima para bloquear datas ou horários.</p>
+</div>
 {% endfor %}
 
+{# ── Paginação ── #}
 {% if bloqueios.has_other_pages %}
-<div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 1rem;">
-    {% if bloqueios.has_previous %}
-    <a href="?page={{ bloqueios.previous_page_number }}" style="padding: 0.4rem 0.8rem; background: #f0f0f0; border-radius: 8px; text-decoration: none; color: #333; font-size: 0.8rem;">Anterior</a>
-    {% endif %}
-    <span style="padding: 0.4rem 0.8rem; font-size: 0.8rem; color: #999;">{{ bloqueios.number }} / {{ bloqueios.paginator.num_pages }}</span>
-    {% if bloqueios.has_next %}
-    <a href="?page={{ bloqueios.next_page_number }}" style="padding: 0.4rem 0.8rem; background: #f0f0f0; border-radius: 8px; text-decoration: none; color: #333; font-size: 0.8rem;">Próximo</a>
-    {% endif %}
+<div class="flex justify-center gap-2 mt-4">
+  {% if bloqueios.has_previous %}
+  <a href="?page={{ bloqueios.previous_page_number }}"
+     class="px-3 py-1.5 rounded-lg bg-fundo border border-borda text-[0.8rem] text-texto no-underline hover:bg-superficie transition-colors">Anterior</a>
+  {% endif %}
+  <span class="px-3 py-1.5 text-[0.8rem] text-texto-suave">{{ bloqueios.number }} / {{ bloqueios.paginator.num_pages }}</span>
+  {% if bloqueios.has_next %}
+  <a href="?page={{ bloqueios.next_page_number }}"
+     class="px-3 py-1.5 rounded-lg bg-fundo border border-borda text-[0.8rem] text-texto no-underline hover:bg-superficie transition-colors">Próximo</a>
+  {% endif %}
 </div>
 {% endif %}
+
+{% endblock %}
+
+{% block js %}
+<script nonce="{{ csp_nonce }}">
+(function(){
+  document.querySelectorAll('button[data-confirm]').forEach(function(btn){
+    btn.addEventListener('click', function(e){
+      if (!window.confirm(btn.dataset.confirm)) {
+        e.preventDefault();
+      }
+    });
+  });
+})();
+</script>
 {% endblock %}
