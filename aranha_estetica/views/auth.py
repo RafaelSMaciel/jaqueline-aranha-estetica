@@ -132,8 +132,9 @@ class ClinicaPasswordResetConfirmView(PasswordResetConfirmView):
 
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
-        form.fields['new_password1'].widget.attrs.update({'class': 'form-input'})
-        form.fields['new_password2'].widget.attrs.update({'class': 'form-input'})
+        _input_cls = 'rounded-md border border-borda bg-superficie px-3 py-2 text-texto w-full'
+        form.fields['new_password1'].widget.attrs.update({'class': _input_cls})
+        form.fields['new_password2'].widget.attrs.update({'class': _input_cls})
         return form
 
     def form_valid(self, form):
