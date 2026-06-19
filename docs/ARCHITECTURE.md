@@ -164,8 +164,10 @@ Abordagem wizard: pragmática (re-skin Tailwind + externalizar JS + corrigir 2 b
 - [x] **Wizard booking ✅** (W1-W5, verificado ao vivo no browser): W1 JS externalizado CSP-safe · W2 re-skin base_v2+Tailwind/tokens (Bootstrap fora, dark ok) · W3 a11y teclado (proc-card/cal-day→`<button>` focável) · W4 estado em sessionStorage + re-hidrata no reject (bug B: usuário volta ao step 3 com tudo, vê o erro) · W5 guardas de regressão. 185 testes. Contrato de booking preservado.
 - [ ] Catálogo serviços (faciais/corporais/produtos/especialidades/detalhe)
 - [ ] Páginas de marca (quem somos/equipe/galeria/depoimentos)
-- [ ] Auto-serviço (meus agendamentos/reagendar/confirmar presença)
-- [~] Formulários públicos — **contato ✅** (base_v2 + form POST funcional/email/PRG/rate-limit + a11y labels/iframe title — **bug alta da auditoria resolvido**, verificado browser); pendente lista espera/anamnese/pesquisa/nps
+- [x] **Auto-serviço ✅** (meus_agendamentos 894L: 3 steps OTP + lista + modal cancelar, 2 onclick→addEventListener, modal a11y, toast textContent · reagendar · confirmar_presença — base_v2, contrato preservado, verificado browser)
+- [x] **Formulários públicos ✅** (contato [bug alta: POST/email/PRG], lista_espera, nps_web [JS CSP-safe], pesquisa+anamnese, confirmar_presença — base_v2, contratos preservados)
+
+**Milestone: TODAS as páginas funcionais públicas migradas** (wizard, contato, auth, legal/cauda, forms, auto-serviço). 200 testes, sem drift. Falta só **marketing/showcase** (gated nas cores) + 404. Nota p/ passe visual final: alguns input/select de form usam currentColor na borda em dark (não-`<c-campo>`) — corrigir junto da calibração.
 - [x] **Cauda/legal ✅** (politica_privacidade, termos_uso, lgpd_meus_dados+unsubscribe, agendamento_sucesso, nps/pesquisa_obrigado, lista_espera_sucesso → base_v2; DSAR form preservado) — falta 404
 - [x] **Auth ✅** (login + 4 telas reset → `base_auth` mínima Tailwind/tokens, sem chrome; contrato+erros preservados, verificado browser)
 
