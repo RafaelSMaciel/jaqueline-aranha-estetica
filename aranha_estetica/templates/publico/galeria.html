@@ -1,49 +1,77 @@
-{% extends 'estrutura/base.html' %}
+{% extends 'estrutura/base_v2.html' %}
 {% load static %}
 
-{% block body_class %}gallery-page{% endblock %}
 {% block titulo %}Galeria | {{ CLINIC_NAME }}{% endblock %}
 
 {% block conteudo %}
-<!-- Gallery Section -->
-<section id="gallery" class="gallery section pt-5 mt-4">
-  <div class="container-fluid" data-aos="fade-up" data-aos-delay="100">
 
-    <!-- Gallery Header -->
-    <div class="row justify-content-center mb-5">
-      <div class="col-lg-8 text-center">
-        <h2 class="display-6 fw-light mb-3">Nossa Estrutura</h2>
-        <p class="text-muted">Conheça o ambiente acolhedor e moderno da {{ CLINIC_NAME }}, preparado para oferecer o melhor em bem-estar e tratamentos estéticos.</p>
+{# ═══════════════════════════════════════════════════════════ #}
+{# CABEÇALHO                                                   #}
+{# ═══════════════════════════════════════════════════════════ #}
+<section id="galeria" class="py-16 md:py-24 bg-fundo">
+  <div class="max-w-6xl mx-auto px-6">
+
+    <div class="text-center max-w-2xl mx-auto mb-14 space-y-4">
+      {# badge #}
+      <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-superficie border border-borda text-marca text-sm font-medium">
+        <svg class="w-4 h-4 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <polyline points="21 15 16 10 5 21"/>
+        </svg>
+        Galeria
       </div>
+
+      <h1 class="text-4xl md:text-5xl font-bold text-texto">
+        Nossa <span class="text-marca">Estrutura</span>
+      </h1>
+
+      <p class="text-texto-suave text-lg leading-relaxed">
+        Conheça o ambiente acolhedor e moderno da {{ CLINIC_NAME }}, preparado para oferecer o melhor em bem-estar e tratamentos estéticos.
+      </p>
     </div>
 
-    <div class="row gy-4 justify-content-center">
+    {# ── Grid responsivo de fotos ── #}
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
       {% for foto in fotos %}
-      <div class="col-xl-3 col-lg-4 col-md-6">
-        <div class="gallery-item h-100">
-          <img src="{% static foto.src %}" class="img-fluid" alt="{{ foto.titulo }}" loading="lazy">
-          <div class="gallery-links d-flex align-items-center justify-content-center">
-            <a href="{% static foto.src %}" title="{{ foto.titulo }}" class="glightbox preview-link" data-gallery="aranha-galeria"><i class="bi bi-arrows-angle-expand"></i></a>
-          </div>
-          <div class="gallery-caption">
-            <p class="mt-2 small text-muted text-center">{{ foto.titulo }}</p>
-          </div>
-        </div>
+      <div class="rounded-lg overflow-hidden aspect-square bg-superficie border border-borda">
+        <img src="{% static foto.src %}"
+             alt="{{ foto.titulo }}"
+             loading="lazy"
+             class="w-full h-full object-cover hover:scale-105 transition-transform duration-300">
       </div>
       {% endfor %}
     </div>
 
-    <!-- Additional Info -->
-    <div class="row justify-content-center mt-5">
-      <div class="col-lg-8 text-center">
-        <div class="alert alert-light border rounded-4 p-4 bg-light">
-          <i class="bi bi-camera fs-1 text-primary mb-3 d-block"></i>
-          <p class="mb-0 text-muted">Venha conhecer nossas instalações pessoalmente. Agende uma visita e conheça o espaço preparado para o seu bem-estar.</p>
-          <a href="{% url 'aranha:agendamento_publico' %}" class="btn btn-primary mt-3">Agendar Visita</a>
-        </div>
-      </div>
-    </div>
-
   </div>
 </section>
+
+{# ═══════════════════════════════════════════════════════════ #}
+{# CTA — Agendar visita                                        #}
+{# ═══════════════════════════════════════════════════════════ #}
+<section id="galeria-cta" class="py-16 md:py-24 bg-superficie">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="max-w-2xl mx-auto rounded-xl border border-borda bg-fundo p-10 text-center space-y-5">
+
+      <div class="mx-auto w-14 h-14 rounded-full bg-superficie border border-borda flex items-center justify-center">
+        <svg class="w-7 h-7 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+      </div>
+
+      <h2 class="text-texto text-2xl font-bold">Conheça o Espaço Pessoalmente</h2>
+
+      <p class="text-texto-suave leading-relaxed">
+        Venha conhecer nossas instalações pessoalmente. Agende uma visita e conheça o espaço preparado para o seu bem-estar.
+      </p>
+
+      <a href="{% url 'aranha:agendamento_publico' %}"
+         class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
+        Agendar Visita
+      </a>
+    </div>
+  </div>
+</section>
+
 {% endblock %}

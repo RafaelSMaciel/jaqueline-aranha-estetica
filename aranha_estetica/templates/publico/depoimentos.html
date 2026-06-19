@@ -1,105 +1,120 @@
-{% extends 'estrutura/base.html' %}
+{% extends 'estrutura/base_v2.html' %}
 {% load static %}
 
-{% block body_class %}testimonials-page{% endblock %}
 {% block titulo %}Depoimentos | {{ CLINIC_NAME }}{% endblock %}
 
 {% block conteudo %}
-<!-- Featured Testimonials Section -->
-<section id="featured-testimonials" class="featured-testimonials section pt-5 mt-4">
-  <div class="container" data-aos="fade-up" data-aos-delay="100">
 
-    <!-- Section Header -->
-    <div class="row justify-content-center mb-5">
-      <div class="col-lg-8 text-center">
-        <h2 class="display-6 fw-light mb-3">O Que Nossos Pacientes Dizem</h2>
-        <p class="text-muted">A satisfação dos nossos pacientes é o nosso maior reconhecimento. Confira os depoimentos de quem já viveu a experiência {{ CLINIC_NAME }}.</p>
+{# ═══════════════════════════════════════════════════════════ #}
+{# CABEÇALHO                                                   #}
+{# ═══════════════════════════════════════════════════════════ #}
+<section id="depoimentos-hero" class="py-16 md:py-24 bg-fundo">
+  <div class="max-w-6xl mx-auto px-6">
+
+    <div class="text-center max-w-2xl mx-auto mb-14 space-y-4">
+      {# badge #}
+      <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-superficie border border-borda text-marca text-sm font-medium">
+        <svg class="w-4 h-4 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/>
+        </svg>
+        Depoimentos
       </div>
+
+      <h1 class="text-4xl md:text-5xl font-bold text-texto">
+        O Que Nossos <span class="text-marca">Pacientes Dizem</span>
+      </h1>
+
+      <p class="text-texto-suave text-lg leading-relaxed">
+        A satisfação dos nossos pacientes é o nosso maior reconhecimento. Confira os depoimentos de quem já viveu a experiência {{ CLINIC_NAME }}.
+      </p>
     </div>
 
+    {# ── Grid de depoimentos (sem swiper/JS) ── #}
     {% if avaliacoes %}
-    <div class="testimonials-14 swiper init-swiper">
-      <script type="application/json" class="swiper-config" nonce="{{ csp_nonce }}">
-        {
-          "loop": true,
-          "speed": 600,
-          "autoplay": {
-            "delay": 5000
-          },
-          "slidesPerView": 3,
-          "spaceBetween": 24,
-          "pagination": {
-            "el": ".swiper-pagination",
-            "type": "bullets",
-            "clickable": true
-          },
-          "breakpoints": {
-            "320": {
-              "slidesPerView": 1,
-              "spaceBetween": 16
-            },
-            "768": {
-              "slidesPerView": 2,
-              "spaceBetween": 24
-            },
-            "1200": {
-              "slidesPerView": 3,
-              "spaceBetween": 24
-            }
-          }
-        }
-      </script>
+    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {% for av in avaliacoes %}
+      <article class="rounded-xl border border-borda bg-superficie p-6 flex flex-col space-y-4">
 
-      <div class="swiper-wrapper">
-        {% for av in avaliacoes %}
-        <div class="swiper-slide">
-          <div class="testimonial-item">
-            <div class="stars">
-              {% for i in "12345"|make_list %}
-                {% if forloop.counter <= av.nota %}
-                <i class="bi bi-star-fill"></i>
-                {% else %}
-                <i class="bi bi-star"></i>
-                {% endif %}
-              {% endfor %}
-            </div>
-            <p>"{{ av.comentario|truncatechars:220 }}"</p>
-            <div class="profile">
-              <div class="d-flex align-items-center justify-content-center rounded-circle bg-light" style="width:60px;height:60px;">
-                <span style="font-size:1.5rem;font-weight:700;color:var(--accent-color);">{{ av.atendimento.cliente.nome|slice:":1"|upper }}</span>
-              </div>
-              <div class="info">
-                <h4>{{ av.atendimento.cliente.nome|truncatechars:24 }}</h4>
-                <span>{{ av.criado_em|date:"d/m/Y" }}</span>
-              </div>
-            </div>
+        {# estrelas #}
+        <div class="flex gap-0.5" aria-label="{{ av.nota }} estrelas">
+          {% for i in "12345"|make_list %}
+            {% if forloop.counter <= av.nota %}
+            <svg class="w-4 h-4 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/>
+            </svg>
+            {% else %}
+            <svg class="w-4 h-4 text-borda" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/>
+            </svg>
+            {% endif %}
+          {% endfor %}
+        </div>
+
+        {# comentário #}
+        <blockquote class="text-texto-suave text-sm leading-relaxed flex-1">
+          &ldquo;{{ av.comentario|truncatechars:220 }}&rdquo;
+        </blockquote>
+
+        {# perfil #}
+        <div class="flex items-center gap-3 pt-4 border-t border-borda">
+          <div class="flex-shrink-0 w-10 h-10 rounded-full bg-fundo border border-borda flex items-center justify-center">
+            <span class="text-marca font-bold text-sm">{{ av.atendimento.cliente.nome|slice:":1"|upper }}</span>
+          </div>
+          <div>
+            <p class="text-texto font-semibold text-sm">{{ av.atendimento.cliente.nome|truncatechars:24 }}</p>
+            <p class="text-texto-suave text-xs">{{ av.criado_em|date:"d/m/Y" }}</p>
           </div>
         </div>
-        {% endfor %}
-      </div>
 
-      <div class="swiper-pagination"></div>
+      </article>
+      {% endfor %}
     </div>
+
     {% else %}
-    <div class="text-center py-5">
-      <i class="bi bi-chat-dots fs-1 text-primary mb-3 d-block"></i>
-      <h3>Seja o primeiro a compartilhar</h3>
-      <p class="text-muted">Ainda não temos depoimentos publicados. Agende sua primeira experiência!</p>
-      <a href="{% url 'aranha:agendamento_publico' %}" class="btn btn-primary mt-3">Agende sua Avaliação</a>
+    {# — empty state — #}
+    <div class="text-center py-16 space-y-4">
+      <div class="mx-auto w-20 h-20 rounded-full bg-superficie border border-borda flex items-center justify-center">
+        <svg class="w-10 h-10 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+        </svg>
+      </div>
+      <h3 class="text-texto text-xl font-bold">Seja o primeiro a compartilhar</h3>
+      <p class="text-texto-suave">Ainda não temos depoimentos publicados. Agende sua primeira experiência!</p>
+      <a href="{% url 'aranha:agendamento_publico' %}"
+         class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity mt-2">
+        Agende sua Avaliação
+      </a>
     </div>
     {% endif %}
 
-    <!-- Call to Action -->
-    <div class="row justify-content-center mt-5">
-      <div class="col-lg-8 text-center">
-        <div class="alert alert-light border rounded-4 p-4 bg-light">
-          <i class="bi bi-chat-dots fs-1 text-primary mb-3 d-block"></i>
-          <p class="mb-0 text-muted">Compartilhe sua experiência também! Seu depoimento é muito importante para nós e ajuda outras pessoas a descobrirem o cuidado {{ CLINIC_NAME }}.</p>
-          <a href="{% url 'aranha:agendamento_publico' %}" class="btn btn-primary mt-3">Agende sua Avaliação</a>
-        </div>
-      </div>
-    </div>
-
   </div>
 </section>
+
+{# ═══════════════════════════════════════════════════════════ #}
+{# CTA — Compartilhe sua experiência                           #}
+{# ═══════════════════════════════════════════════════════════ #}
+<section id="depoimentos-cta" class="py-16 md:py-24 bg-superficie">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="max-w-2xl mx-auto rounded-xl border border-borda bg-fundo p-10 text-center space-y-5">
+
+      <div class="mx-auto w-14 h-14 rounded-full bg-superficie border border-borda flex items-center justify-center">
+        <svg class="w-7 h-7 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+        </svg>
+      </div>
+
+      <h2 class="text-texto text-2xl font-bold">Compartilhe Sua Experiência</h2>
+
+      <p class="text-texto-suave leading-relaxed">
+        Seu depoimento é muito importante para nós e ajuda outras pessoas a descobrirem o cuidado {{ CLINIC_NAME }}.
+      </p>
+
+      <a href="{% url 'aranha:agendamento_publico' %}"
+         class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
+        Agende sua Avaliação
+      </a>
+    </div>
+  </div>
+</section>
+
 {% endblock %}
