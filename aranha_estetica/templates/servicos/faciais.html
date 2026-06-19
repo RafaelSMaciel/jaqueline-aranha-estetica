@@ -1,366 +1,566 @@
-﻿{% extends 'estrutura/base.html' %}
+{% extends 'estrutura/base_v2.html' %}
 {% load static %}
 
-{% block body_class %}serviços-page{% endblock %}
 {% block titulo %}Tratamentos Faciais | {{ CLINIC_NAME }}{% endblock %}
 
 {% block conteudo %}
-<!-- ═══ HERO ═══ -->
-<section id="service-hero" class="service-hero section">
-  <div class="container" data-aos="fade-up" data-aos-delay="100">
-    <div class="row align-items-center">
-      <div class="col-lg-6">
-        <div class="hero-content">
-          <div class="hero-badge" data-aos="fade-right" data-aos-delay="200">
-            <i class="bi bi-stars me-2"></i>Tratamentos Faciais
+
+{# ═══════════════════════════════════════════════════════════ #}
+{# HERO                                                        #}
+{# ═══════════════════════════════════════════════════════════ #}
+<section id="service-hero" class="py-16 md:py-24 bg-fundo">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="grid md:grid-cols-2 gap-12 items-center">
+
+      {# — conteúdo textual — #}
+      <div class="space-y-6">
+        {# badge #}
+        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-superficie border border-borda text-marca text-sm font-medium">
+          <svg class="w-4 h-4 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/>
+          </svg>
+          Tratamentos Faciais
+        </div>
+
+        {# h1 #}
+        <h1 class="text-4xl md:text-5xl font-bold text-texto leading-tight">
+          Realce Sua <span class="text-marca">Beleza Natural</span> com Tecnologia Avançada
+        </h1>
+
+        {# descrição #}
+        <p class="text-texto-suave text-lg leading-relaxed">
+          Nossos tratamentos faciais combinam as mais modernas tecnologias com protocolos personalizados para cada tipo de pele, garantindo resultados visíveis e duradouros.
+        </p>
+
+        {# stats — texto estático #}
+        <div class="flex gap-8">
+          <div>
+            <p class="text-3xl font-bold text-marca">6+</p>
+            <p class="text-texto-suave text-sm mt-1">Procedimentos Faciais</p>
           </div>
-          <h1 data-aos="fade-right" data-aos-delay="300">
-            Realce Sua <span class="highlight">Beleza Natural</span> com Tecnologia Avançada
-          </h1>
-          <p class="hero-description" data-aos="fade-right" data-aos-delay="400">
-            Nossos tratamentos faciais combinam as mais modernas tecnologias com protocolos personalizados para cada tipo de pele, garantindo resultados visíveis e duradouros.
+          <div class="border-l border-borda pl-8">
+            <p class="text-3xl font-bold text-marca">98%</p>
+            <p class="text-texto-suave text-sm mt-1">Satisfação</p>
+          </div>
+        </div>
+
+        {# CTAs #}
+        <div class="flex flex-wrap gap-4">
+          <a href="{% url 'aranha:agendamento_publico' %}"
+             class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
+            Agendar Avaliação
+          </a>
+          <a href="#services-grid"
+             class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto hover:bg-superficie transition-colors">
+            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 5v14M5 12l7 7 7-7"/>
+            </svg>
+            Ver Tratamentos
+          </a>
+        </div>
+      </div>
+
+      {# — visual com floating cards — #}
+      <div class="relative">
+        <div class="relative rounded-xl overflow-hidden aspect-[4/5]">
+          <img src="{% static 'assets/clinica/facial-2.webp' %}"
+               alt="Tratamentos Faciais {{ CLINIC_NAME }}"
+               loading="lazy"
+               class="w-full h-full object-cover">
+
+          {# floating card — Procedimentos Seguros #}
+          <div class="absolute bottom-6 left-6 bg-superficie border border-borda rounded-lg p-4 shadow-lg flex items-start gap-3 max-w-[200px]">
+            <div class="flex-shrink-0 w-9 h-9 rounded-md bg-marca-forte flex items-center justify-center">
+              <svg class="w-5 h-5 text-sobre-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="text-texto font-semibold text-sm leading-tight">Procedimentos Seguros</p>
+              <p class="text-texto-suave text-xs mt-0.5">Protocolos Validados</p>
+              <p class="text-marca text-xs mt-0.5">Biomédica Especialista</p>
+            </div>
+          </div>
+
+          {# floating card — rating #}
+          <div class="absolute top-6 right-6 bg-superficie border border-borda rounded-lg p-4 shadow-lg text-center min-w-[120px]">
+            <div class="flex justify-center gap-0.5 mb-1" aria-label="5 estrelas">
+              <svg class="w-4 h-4 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/></svg>
+              <svg class="w-4 h-4 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/></svg>
+              <svg class="w-4 h-4 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/></svg>
+              <svg class="w-4 h-4 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/></svg>
+              <svg class="w-4 h-4 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/></svg>
+            </div>
+            <p class="text-texto font-bold text-sm">5.0/5</p>
+            <p class="text-texto-suave text-xs mt-0.5">Avaliação dos Pacientes</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+{# ═══════════════════════════════════════════════════════════ #}
+{# PROCESSO — Como Funciona                                    #}
+{# ═══════════════════════════════════════════════════════════ #}
+<section id="service-process" class="py-16 md:py-24 bg-superficie">
+  <div class="max-w-6xl mx-auto px-6">
+
+    {# título da seção #}
+    <div class="text-center mb-14">
+      <h2 class="text-3xl md:text-4xl font-bold text-texto">Como Funciona</h2>
+      <p class="text-texto-suave mt-3 text-lg">Nosso processo garante resultados seguros e personalizados</p>
+    </div>
+
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
+
+      {# Step 01 — Avaliação #}
+      <div class="relative text-center space-y-4 p-6 rounded-xl bg-fundo border border-borda">
+        <span class="absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-marca-forte text-sobre-marca text-xs font-bold flex items-center justify-center">01</span>
+        <div class="mx-auto w-12 h-12 rounded-full bg-superficie border border-borda flex items-center justify-center mt-2">
+          <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            <path d="M9 12h6M9 16h4"/>
+          </svg>
+        </div>
+        <h3 class="text-texto font-semibold text-lg">Avaliação</h3>
+        <p class="text-texto-suave text-sm leading-relaxed">Análise detalhada do seu tipo de pele e necessidades específicas.</p>
+      </div>
+
+      {# Step 02 — Protocolo #}
+      <div class="relative text-center space-y-4 p-6 rounded-xl bg-fundo border border-borda">
+        <span class="absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-marca-forte text-sobre-marca text-xs font-bold flex items-center justify-center">02</span>
+        <div class="mx-auto w-12 h-12 rounded-full bg-superficie border border-borda flex items-center justify-center mt-2">
+          <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+            <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
+          </svg>
+        </div>
+        <h3 class="text-texto font-semibold text-lg">Protocolo</h3>
+        <p class="text-texto-suave text-sm leading-relaxed">Elaboração do protocolo personalizado para o seu tratamento.</p>
+      </div>
+
+      {# Step 03 — Procedimento #}
+      <div class="relative text-center space-y-4 p-6 rounded-xl bg-fundo border border-borda">
+        <span class="absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-marca-forte text-sobre-marca text-xs font-bold flex items-center justify-center">03</span>
+        <div class="mx-auto w-12 h-12 rounded-full bg-superficie border border-borda flex items-center justify-center mt-2">
+          <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+          </svg>
+        </div>
+        <h3 class="text-texto font-semibold text-lg">Procedimento</h3>
+        <p class="text-texto-suave text-sm leading-relaxed">Execução do tratamento com equipamentos de última geração.</p>
+      </div>
+
+      {# Step 04 — Acompanhamento #}
+      <div class="relative text-center space-y-4 p-6 rounded-xl bg-fundo border border-borda">
+        <span class="absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-marca-forte text-sobre-marca text-xs font-bold flex items-center justify-center">04</span>
+        <div class="mx-auto w-12 h-12 rounded-full bg-superficie border border-borda flex items-center justify-center mt-2">
+          <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+            <path d="M9 16l2 2 4-4"/>
+          </svg>
+        </div>
+        <h3 class="text-texto font-semibold text-lg">Acompanhamento</h3>
+        <p class="text-texto-suave text-sm leading-relaxed">Monitoramento dos resultados e ajustes conforme necessário.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+{# ═══════════════════════════════════════════════════════════ #}
+{# SERVICES-GRID — Nossos Tratamentos Faciais                  #}
+{# ═══════════════════════════════════════════════════════════ #}
+<section id="services-grid" class="py-16 md:py-24 bg-fundo">
+  <div class="max-w-6xl mx-auto px-6">
+
+    {# título da seção #}
+    <div class="text-center mb-14">
+      <h2 class="text-3xl md:text-4xl font-bold text-texto">Nossos Tratamentos Faciais</h2>
+      <p class="text-texto-suave mt-3 text-lg">Procedimentos exclusivos para cada necessidade da sua pele</p>
+    </div>
+
+    {# Cards destaque — Botox e Preenchimentos #}
+    <div class="grid md:grid-cols-2 gap-8 mb-10">
+
+      {# Card destaque — Botox #}
+      <article class="rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
+        <div class="relative aspect-[16/9] overflow-hidden">
+          <img src="{% static 'assets/clinica/facial-1.webp' %}"
+               alt="Botox e Toxina Botulínica"
+               loading="lazy"
+               class="w-full h-full object-cover">
+          <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+          <span class="absolute top-4 left-4 bg-marca-forte text-sobre-marca text-xs font-semibold px-3 py-1 rounded-full">
+            Mais Procurado
+          </span>
+        </div>
+        <div class="p-6 flex flex-col flex-1 space-y-4">
+          <h3 class="text-texto text-xl font-bold">Botox &amp; Toxina Botulínica</h3>
+          <p class="text-texto-suave text-sm leading-relaxed">
+            Aplicação em uma, duas ou três regiões do rosto para suavizar linhas de expressão e devolver jovialidade com naturalidade.
           </p>
-          <div class="hero-stats mb-4" data-aos="fade-right" data-aos-delay="500">
-            <div class="stat-item">
-              <h3><span data-purecounter-start="0" data-purecounter-end="6" data-purecounter-duration="2" class="purecounter"></span>+</h3>
-              <p>Procedimentos Faciais</p>
-            </div>
-            <div class="stat-item">
-              <h3><span data-purecounter-start="0" data-purecounter-end="98" data-purecounter-duration="2" class="purecounter"></span>%</h3>
-              <p>Satisfação</p>
-            </div>
+          <ul class="space-y-2 flex-1">
+            <li class="flex items-center gap-2 text-texto-suave text-sm">
+              <svg class="w-4 h-4 text-marca flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+              Botox 1 região
+            </li>
+            <li class="flex items-center gap-2 text-texto-suave text-sm">
+              <svg class="w-4 h-4 text-marca flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+              Botox 2 regiões
+            </li>
+            <li class="flex items-center gap-2 text-texto-suave text-sm">
+              <svg class="w-4 h-4 text-marca flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+              Botox 3 regiões
+            </li>
+          </ul>
+          <a href="{% url 'aranha:agendamento_publico' %}"
+             class="inline-flex items-center gap-2 text-marca font-semibold text-sm hover:underline mt-auto">
+            Agendar
+            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+        </div>
+      </article>
+
+      {# Card destaque — Preenchimentos #}
+      <article class="rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
+        <div class="relative aspect-[16/9] overflow-hidden">
+          <img src="{% static 'assets/clinica/facial-3.webp' %}"
+               alt="Preenchimento Facial"
+               loading="lazy"
+               class="w-full h-full object-cover">
+          <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+          <span class="absolute top-4 left-4 bg-marca-forte text-sobre-marca text-xs font-semibold px-3 py-1 rounded-full">
+            Resultado Imediato
+          </span>
+        </div>
+        <div class="p-6 flex flex-col flex-1 space-y-4">
+          <h3 class="text-texto text-xl font-bold">Preenchimentos Faciais</h3>
+          <p class="text-texto-suave text-sm leading-relaxed">
+            Ácido hialurônico para restaurar volume, definir contornos e harmonizar a face com resultados imediatos e naturais.
+          </p>
+          <ul class="space-y-2 flex-1">
+            <li class="flex items-center gap-2 text-texto-suave text-sm">
+              <svg class="w-4 h-4 text-marca flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+              Preenchimento Labial
+            </li>
+            <li class="flex items-center gap-2 text-texto-suave text-sm">
+              <svg class="w-4 h-4 text-marca flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+              Bigode Chinês
+            </li>
+            <li class="flex items-center gap-2 text-texto-suave text-sm">
+              <svg class="w-4 h-4 text-marca flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+              Malar &amp; Rinomodelação
+            </li>
+          </ul>
+          <a href="{% url 'aranha:agendamento_publico' %}"
+             class="inline-flex items-center gap-2 text-marca font-semibold text-sm hover:underline mt-auto">
+            Agendar
+            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+        </div>
+      </article>
+
+    </div>
+
+    {# Cards menores — 3 colunas #}
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+
+      {# Limpeza de Pele #}
+      <article class="rounded-xl border border-borda bg-superficie p-6 flex flex-col space-y-4">
+        <div class="w-12 h-12 rounded-lg bg-fundo border border-borda flex items-center justify-center">
+          <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/>
+          </svg>
+        </div>
+        <h3 class="text-texto font-bold text-lg">Limpeza de Pele Profunda</h3>
+        <p class="text-texto-suave text-sm leading-relaxed">
+          Remoção completa de impurezas, cravos e células mortas com técnicas especializadas para todos os tipos de pele.
+        </p>
+        <ul class="space-y-1.5 flex-1">
+          <li class="text-texto-suave text-sm flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Extração de impurezas
+          </li>
+          <li class="text-texto-suave text-sm flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Hidratação profunda
+          </li>
+          <li class="text-texto-suave text-sm flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Máscaras revitalizantes
+          </li>
+        </ul>
+        <a href="{% url 'aranha:agendamento_publico' %}"
+           class="inline-flex items-center gap-2 text-marca font-semibold text-sm hover:underline mt-auto pt-2">
+          Agendar
+          <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+      </article>
+
+      {# Bioestimulador #}
+      <article class="rounded-xl border border-borda bg-superficie p-6 flex flex-col space-y-4">
+        <div class="w-12 h-12 rounded-lg bg-fundo border border-borda flex items-center justify-center">
+          <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+          </svg>
+        </div>
+        <h3 class="text-texto font-bold text-lg">Bioestimulador de Colágeno</h3>
+        <p class="text-texto-suave text-sm leading-relaxed">
+          Estímulo natural da produção de colágeno para uma pele mais firme, jovem e com sustentação natural.
+        </p>
+        <ul class="space-y-1.5 flex-1">
+          <li class="text-texto-suave text-sm flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Firmeza e sustentação
+          </li>
+          <li class="text-texto-suave text-sm flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Duração prolongada
+          </li>
+          <li class="text-texto-suave text-sm flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Efeito lifting natural
+          </li>
+        </ul>
+        <a href="{% url 'aranha:agendamento_publico' %}"
+           class="inline-flex items-center gap-2 text-marca font-semibold text-sm hover:underline mt-auto pt-2">
+          Agendar
+          <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+      </article>
+
+      {# PRP #}
+      <article class="rounded-xl border border-borda bg-superficie p-6 flex flex-col space-y-4">
+        <div class="w-12 h-12 rounded-lg bg-fundo border border-borda flex items-center justify-center">
+          <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1" x2="12" y2="3"/>
+            <line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/>
+            <line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+        </div>
+        <h3 class="text-texto font-bold text-lg">PRP (Fibrina) &amp; Preenchimento com PRP</h3>
+        <p class="text-texto-suave text-sm leading-relaxed">
+          Plasma rico em plaquetas para regeneração celular, estímulo de colágeno e rejuvenescimento natural.
+        </p>
+        <ul class="space-y-1.5 flex-1">
+          <li class="text-texto-suave text-sm flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>PRP (Fibrina) por sessão
+          </li>
+          <li class="text-texto-suave text-sm flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Preenchimento com PRP
+          </li>
+          <li class="text-texto-suave text-sm flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Resultado progressivo
+          </li>
+        </ul>
+        <a href="{% url 'aranha:agendamento_publico' %}"
+           class="inline-flex items-center gap-2 text-marca font-semibold text-sm hover:underline mt-auto pt-2">
+          Agendar
+          <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+{# ═══════════════════════════════════════════════════════════ #}
+{# FEATURED — Tecnologia a Seu Favor                           #}
+{# ═══════════════════════════════════════════════════════════ #}
+<section id="featured-services" class="py-16 md:py-24 bg-superficie">
+  <div class="max-w-6xl mx-auto px-6">
+
+    {# título da seção #}
+    <div class="text-center mb-14">
+      <h2 class="text-3xl md:text-4xl font-bold text-texto">Tecnologia a Seu Favor</h2>
+      <p class="text-texto-suave mt-3 text-lg">Tratamentos com equipamentos de última geração</p>
+    </div>
+
+    <div class="grid lg:grid-cols-[2fr_1fr] gap-0 rounded-xl overflow-hidden border border-borda">
+
+      {# Principal — Bioestimulador #}
+      <div class="relative">
+        <div class="aspect-[4/3] lg:aspect-auto lg:h-full overflow-hidden">
+          <img src="{% static 'assets/clinica/facial-2.webp' %}"
+               alt="Bioestimulador de Colágeno"
+               loading="lazy"
+               class="w-full h-full object-cover">
+          <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
+        </div>
+        <div class="absolute bottom-0 left-0 right-0 p-8">
+          <div class="inline-flex items-center gap-2 bg-marca-forte text-sobre-marca text-xs font-semibold px-3 py-1 rounded-full mb-3">
+            <svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/></svg>
+            Estímulo Natural
           </div>
-          <div class="hero-actions" data-aos="fade-right" data-aos-delay="600">
-            <a href="{% url 'aranha:agendamento_publico' %}" class="btn btn-primary">Agendar Avaliação</a>
-            <a href="#services-grid" class="btn btn-outline">
-              <i class="bi bi-arrow-down me-2"></i>Ver Tratamentos
+          <h2 class="text-white text-2xl font-bold mb-2">Bioestimulador de Colágeno</h2>
+          <p class="text-white/80 text-sm leading-relaxed mb-4">
+            Estímulo à produção natural de colágeno para firmeza, sustentação e rejuvenescimento progressivo. Resultado lifting natural com duração prolongada.
+          </p>
+          <a href="{% url 'aranha:agendamento_publico' %}"
+             class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-marca-forte text-sobre-marca font-semibold text-sm hover:opacity-90 transition-opacity">
+            Agendar Bioestimulador
+          </a>
+        </div>
+      </div>
+
+      {# Sidebar — 3 serviços #}
+      <div class="bg-fundo divide-y divide-borda">
+
+        {# Microagulhamento #}
+        <div class="p-6 flex gap-4 items-start">
+          <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-superficie border border-borda flex items-center justify-center mt-1">
+            <svg class="w-5 h-5 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.09 3 12.25c0 2.22 1.8 4.05 4 4.05z"/>
+              <path d="M12.56 6.6A10.97 10.97 0 0014 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 01-11.91 4.97"/>
+            </svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <h4 class="text-texto font-semibold text-base mb-1">Microagulhamento</h4>
+            <p class="text-texto-suave text-sm leading-relaxed mb-3">
+              Estímulo da produção de colágeno com microagulhas para rejuvenescimento e redução de cicatrizes.
+            </p>
+            <a href="{% url 'aranha:agendamento_publico' %}"
+               class="text-marca text-sm font-semibold hover:underline">
+              Agendar
             </a>
           </div>
         </div>
-      </div>
-      <div class="col-lg-6">
-        <div class="hero-visual" data-aos="fade-left" data-aos-delay="400">
-          <div class="main-image">
-            <img src="{% static 'assets/clinica/facial-2.webp' %}" alt="Tratamentos Faciais {{ CLINIC_NAME }}" class="img-fluid" loading="lazy">
-            <div class="floating-card appointment-card">
-              <div class="card-icon">
-                <i class="bi bi-shield-check"></i>
-              </div>
-              <div class="card-content">
-                <h6>Procedimentos Seguros</h6>
-                <p>Protocolos Validados</p>
-                <small>Biomédica Especialista</small>
-              </div>
-            </div>
-            <div class="floating-card rating-card">
-              <div class="card-content">
-                <div class="rating-stars">
-                  <i class="bi bi-star-fill"></i>
-                  <i class="bi bi-star-fill"></i>
-                  <i class="bi bi-star-fill"></i>
-                  <i class="bi bi-star-fill"></i>
-                  <i class="bi bi-star-fill"></i>
-                </div>
-                <h6>5.0/5</h6>
-                <small>Avaliação dos Pacientes</small>
-              </div>
-            </div>
+
+        {# Skinbooster #}
+        <div class="p-6 flex gap-4 items-start">
+          <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-superficie border border-borda flex items-center justify-center mt-1">
+            <svg class="w-5 h-5 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/>
+            </svg>
           </div>
-          <div class="background-elements">
-            <div class="element element-1"></div>
-            <div class="element element-2"></div>
-            <div class="element element-3"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══ PROCESSO ═══ -->
-<section id="service-process" class="service-process section light-background">
-  <div class="container section-title" data-aos="fade-up">
-    <h2>Como Funciona</h2>
-    <p>Nosso processo garante resultados seguros e personalizados</p>
-  </div>
-
-  <div class="container" data-aos="fade-up" data-aos-delay="100">
-    <div class="row g-4">
-      <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="100">
-        <div class="process-step">
-          <div class="step-number">01</div>
-          <div class="step-icon"><i class="bi bi-clipboard2-pulse"></i></div>
-          <h4>Avaliação</h4>
-          <p>Análise detalhada do seu tipo de pele e necessidades específicas.</p>
-        </div>
-      </div>
-      <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="200">
-        <div class="process-step">
-          <div class="step-number">02</div>
-          <div class="step-icon"><i class="bi bi-journal-medical"></i></div>
-          <h4>Protocolo</h4>
-          <p>Elaboração do protocolo personalizado para o seu tratamento.</p>
-        </div>
-      </div>
-      <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="300">
-        <div class="process-step">
-          <div class="step-number">03</div>
-          <div class="step-icon"><i class="bi bi-heart-pulse"></i></div>
-          <h4>Procedimento</h4>
-          <p>Execução do tratamento com equipamentos de última geração.</p>
-        </div>
-      </div>
-      <div class="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay="400">
-        <div class="process-step">
-          <div class="step-number">04</div>
-          <div class="step-icon"><i class="bi bi-calendar-check"></i></div>
-          <h4>Acompanhamento</h4>
-          <p>Monitoramento dos resultados e ajustes conforme necessário.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══ GRID DE SERVIÇOS ═══ -->
-<section id="services-grid" class="featured-departments section">
-  <div class="container section-title" data-aos="fade-up">
-    <h2>Nossos Tratamentos Faciais</h2>
-    <p>Procedimentos exclusivos para cada necessidade da sua pele</p>
-  </div>
-
-  <div class="container" data-aos="fade-up" data-aos-delay="100">
-    <div class="row g-5">
-
-      <!-- Botox - destaque -->
-      <div class="col-lg-6" data-aos="zoom-in" data-aos-delay="100">
-        <div class="specialty-card">
-          <div class="specialty-content">
-            <div class="specialty-meta">
-              <span class="specialty-label">Mais Procurado</span>
-            </div>
-            <h3>Botox &amp; Toxina Botulínica</h3>
-            <p>Aplicação em uma, duas ou três regiões do rosto para suavizar linhas de expressão e devolver jovialidade com naturalidade.</p>
-            <div class="specialty-features">
-              <span><i class="bi bi-check-circle-fill"></i>Botox 1 região</span>
-              <span><i class="bi bi-check-circle-fill"></i>Botox 2 regiões</span>
-              <span><i class="bi bi-check-circle-fill"></i>Botox 3 regiões</span>
-            </div>
-            <a href="{% url 'aranha:agendamento_publico' %}" class="specialty-link">
-              Agendar <i class="bi bi-arrow-right"></i>
+          <div class="flex-1 min-w-0">
+            <h4 class="text-texto font-semibold text-base mb-1">Skinbooster</h4>
+            <p class="text-texto-suave text-sm leading-relaxed mb-3">
+              Hidratação profunda com ácido hialurônico injetável para luminosidade e viço da pele.
+            </p>
+            <a href="{% url 'aranha:agendamento_publico' %}"
+               class="text-marca text-sm font-semibold hover:underline">
+              Agendar
             </a>
           </div>
-          <div class="specialty-visual">
-            <img src="{% static 'assets/clinica/facial-1.webp' %}" alt="Botox e Toxina Botulínica" class="img-fluid" loading="lazy">
-            <div class="visual-overlay">
-              <i class="bi bi-person-bounding-box"></i>
-            </div>
-          </div>
         </div>
-      </div>
 
-      <!-- Preenchimento Facial - destaque -->
-      <div class="col-lg-6" data-aos="zoom-in" data-aos-delay="200">
-        <div class="specialty-card">
-          <div class="specialty-content">
-            <div class="specialty-meta">
-              <span class="specialty-label">Resultado Imediato</span>
-            </div>
-            <h3>Preenchimentos Faciais</h3>
-            <p>Ácido hialurônico para restaurar volume, definir contornos e harmonizar a face com resultados imediatos e naturais.</p>
-            <div class="specialty-features">
-              <span><i class="bi bi-check-circle-fill"></i>Preenchimento Labial</span>
-              <span><i class="bi bi-check-circle-fill"></i>Bigode Chinês</span>
-              <span><i class="bi bi-check-circle-fill"></i>Malar &amp; Rinomodelação</span>
-            </div>
-            <a href="{% url 'aranha:agendamento_publico' %}" class="specialty-link">
-              Agendar <i class="bi bi-arrow-right"></i>
+        {# Drenagem Linfática Facial #}
+        <div class="p-6 flex gap-4 items-start">
+          <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-superficie border border-borda flex items-center justify-center mt-1">
+            <svg class="w-5 h-5 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/>
+              <line x1="12" y1="10" x2="12" y2="14"/>
+              <line x1="10" y1="12" x2="14" y2="12"/>
+            </svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <h4 class="text-texto font-semibold text-base mb-1">Drenagem Linfática Facial</h4>
+            <p class="text-texto-suave text-sm leading-relaxed mb-3">
+              Drenagem manual facial para reduzir inchaço, melhorar circulação e devolver viço à pele.
+            </p>
+            <a href="{% url 'aranha:agendamento_publico' %}"
+               class="text-marca text-sm font-semibold hover:underline">
+              Agendar
             </a>
           </div>
-          <div class="specialty-visual">
-            <img src="{% static 'assets/clinica/facial-3.webp' %}" alt="Preenchimento Facial" class="img-fluid" loading="lazy">
-            <div class="visual-overlay">
-              <i class="bi bi-magic"></i>
-            </div>
-          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+{# ═══════════════════════════════════════════════════════════ #}
+{# CTA FINAL — Desperte a Sua Melhor Versão                   #}
+{# ═══════════════════════════════════════════════════════════ #}
+<section id="call-to-action" class="py-16 md:py-24 bg-fundo">
+  <div class="max-w-6xl mx-auto px-6">
+
+    {# bloco principal — texto + foto #}
+    <div class="grid md:grid-cols-2 gap-12 items-center mb-16">
+      <div class="space-y-6">
+        <h2 class="text-3xl md:text-4xl font-bold text-texto leading-tight">
+          Desperte a Sua Melhor Versão
+        </h2>
+        <p class="text-texto-suave text-lg leading-relaxed">
+          Nossos tratamentos faciais são personalizados após uma avaliação detalhada. Agende sua consulta para recomendarmos o protocolo ideal para a sua pele.
+        </p>
+        <div class="flex flex-wrap gap-4">
+          <a href="{% url 'aranha:agendamento_publico' %}"
+             class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
+            Agendar Avaliação
+            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+          <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Ol%C3%A1%21+Gostaria+de+saber+mais+sobre+os+tratamentos+faciais."
+             target="_blank"
+             rel="noopener"
+             class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto font-semibold hover:bg-superficie transition-colors">
+            <svg class="w-5 h-5 text-[#25D366]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+              <path d="M11.999 2C6.477 2 2 6.477 2 12c0 1.89.525 3.659 1.438 5.168L2 22l4.984-1.407A9.945 9.945 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.95 7.95 0 01-4.055-1.109l-.291-.173-3.007.849.85-2.932-.19-.301A7.94 7.94 0 014 12c0-4.418 3.582-8 8-8s8 3.582 8 8-3.582 8-8 8z"/>
+            </svg>
+            Tirar Dúvidas
+          </a>
         </div>
       </div>
 
-      <!-- Cards menores -->
-      <div class="col-lg-4" data-aos="fade-up" data-aos-delay="100">
-        <div class="department-highlight">
-          <div class="highlight-icon">
-            <i class="bi bi-stars"></i>
-          </div>
-          <h4>Limpeza de Pele Profunda</h4>
-          <p>Remoção completa de impurezas, cravos e células mortas com técnicas especializadas para todos os tipos de pele.</p>
-          <ul class="highlight-list">
-            <li>Extração de impurezas</li>
-            <li>Hidratação profunda</li>
-            <li>Máscaras revitalizantes</li>
-          </ul>
-          <a href="{% url 'aranha:agendamento_publico' %}" class="highlight-cta">Agendar</a>
+      <div class="rounded-xl overflow-hidden aspect-[4/3]">
+        <img src="{% static 'assets/clinica/consulta-1.webp' %}"
+             alt="Consulta de Tratamentos Faciais {{ CLINIC_NAME }}"
+             loading="lazy"
+             class="w-full h-full object-cover">
+      </div>
+    </div>
+
+    {# 3 feature-blocks #}
+    <div class="grid sm:grid-cols-3 gap-6 border-t border-borda pt-12">
+
+      <div class="text-center space-y-3">
+        <div class="mx-auto w-14 h-14 rounded-full bg-superficie border border-borda flex items-center justify-center">
+          <svg class="w-7 h-7 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
         </div>
+        <h3 class="text-texto font-bold text-lg">Biomédica Especialista</h3>
+        <p class="text-texto-suave text-sm leading-relaxed">
+          Profissional habilitada com formação específica em estética avançada.
+        </p>
       </div>
 
-      <div class="col-lg-4" data-aos="fade-up" data-aos-delay="200">
-        <div class="department-highlight">
-          <div class="highlight-icon">
-            <i class="bi bi-activity"></i>
-          </div>
-          <h4>Bioestimulador de Colágeno</h4>
-          <p>Estímulo natural da produção de colágeno para uma pele mais firme, jovem e com sustentação natural.</p>
-          <ul class="highlight-list">
-            <li>Firmeza e sustentação</li>
-            <li>Duração prolongada</li>
-            <li>Efeito lifting natural</li>
-          </ul>
-          <a href="{% url 'aranha:agendamento_publico' %}" class="highlight-cta">Agendar</a>
+      <div class="text-center space-y-3">
+        <div class="mx-auto w-14 h-14 rounded-full bg-superficie border border-borda flex items-center justify-center">
+          <svg class="w-7 h-7 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="8" r="6"/>
+            <path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/>
+          </svg>
         </div>
+        <h3 class="text-texto font-bold text-lg">Produtos Premium</h3>
+        <p class="text-texto-suave text-sm leading-relaxed">
+          Utilizamos apenas produtos de marcas reconhecidas e certificadas pela ANVISA.
+        </p>
       </div>
 
-      <div class="col-lg-4" data-aos="fade-up" data-aos-delay="300">
-        <div class="department-highlight">
-          <div class="highlight-icon">
-            <i class="bi bi-brightness-high"></i>
-          </div>
-          <h4>PRP (Fibrina) &amp; Preenchimento com PRP</h4>
-          <p>Plasma rico em plaquetas para regeneração celular, estímulo de colágeno e rejuvenescimento natural.</p>
-          <ul class="highlight-list">
-            <li>PRP (Fibrina) por sessão</li>
-            <li>Preenchimento com PRP</li>
-            <li>Resultado progressivo</li>
-          </ul>
-          <a href="{% url 'aranha:agendamento_publico' %}" class="highlight-cta">Agendar</a>
+      <div class="text-center space-y-3">
+        <div class="mx-auto w-14 h-14 rounded-full bg-superficie border border-borda flex items-center justify-center">
+          <svg class="w-7 h-7 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+          </svg>
         </div>
+        <h3 class="text-texto font-bold text-lg">Resultados Naturais</h3>
+        <p class="text-texto-suave text-sm leading-relaxed">
+          Técnicas que respeitam a anatomia facial e proporcionam harmonia natural.
+        </p>
       </div>
 
     </div>
   </div>
 </section>
 
-<!-- ═══ SERVIÇO EM DESTAQUE ═══ -->
-<section id="featured-services" class="featured-services section">
-  <div class="container section-title" data-aos="fade-up">
-    <h2>Tecnologia a Seu Favor</h2>
-    <p>Tratamentos com equipamentos de última geração</p>
-  </div>
-
-  <div class="container" data-aos="fade-up" data-aos-delay="100">
-    <div class="row g-0">
-      <div class="col-lg-8" data-aos="fade-right" data-aos-delay="200">
-        <div class="featured-service-main">
-          <div class="service-image-wrapper">
-            <img src="{% static 'assets/clinica/facial-2.webp' %}" alt="Bioestimulador de Colágeno" class="img-fluid" loading="lazy">
-            <div class="service-overlay">
-              <div class="service-badge">
-                <i class="bi bi-stars"></i>
-                <span>Estímulo Natural</span>
-              </div>
-            </div>
-          </div>
-          <div class="service-details">
-            <h2>Bioestimulador de Colágeno</h2>
-            <p>Estímulo à produção natural de colágeno para firmeza, sustentação e rejuvenescimento progressivo. Resultado lifting natural com duração prolongada.</p>
-            <a href="{% url 'aranha:agendamento_publico' %}" class="main-cta">Agendar Bioestimulador</a>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-lg-4" data-aos="fade-left" data-aos-delay="300">
-        <div class="services-sidebar">
-          <div class="service-item" data-aos="fade-up" data-aos-delay="400">
-            <div class="service-icon-wrapper">
-              <i class="bi bi-droplet-half"></i>
-            </div>
-            <div class="service-info">
-              <h4>Microagulhamento</h4>
-              <p>Estímulo da produção de colágeno com microagulhas para rejuvenescimento e redução de cicatrizes.</p>
-              <a href="{% url 'aranha:agendamento_publico' %}" class="service-link">Agendar</a>
-            </div>
-          </div>
-
-          <div class="service-item" data-aos="fade-up" data-aos-delay="500">
-            <div class="service-icon-wrapper">
-              <i class="bi bi-moisture"></i>
-            </div>
-            <div class="service-info">
-              <h4>Skinbooster</h4>
-              <p>Hidratação profunda com ácido hialurônico injetável para luminosidade e viço da pele.</p>
-              <a href="{% url 'aranha:agendamento_publico' %}" class="service-link">Agendar</a>
-            </div>
-          </div>
-
-          <div class="service-item" data-aos="fade-up" data-aos-delay="600">
-            <div class="service-icon-wrapper">
-              <i class="bi bi-droplet"></i>
-            </div>
-            <div class="service-info">
-              <h4>Drenagem Linfática Facial</h4>
-              <p>Drenagem manual facial para reduzir inchaço, melhorar circulação e devolver viço à pele.</p>
-              <a href="{% url 'aranha:agendamento_publico' %}" class="service-link">Agendar</a>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══ CTA FINAL ═══ -->
-<section id="call-to-action" class="call-to-action section light-background">
-  <div class="container" data-aos="fade-up" data-aos-delay="100">
-    <div class="hero-content">
-      <div class="row align-items-center">
-        <div class="col-lg-6">
-          <div class="content-wrapper" data-aos="fade-up" data-aos-delay="200">
-            <h1>Desperte a Sua Melhor Versão</h1>
-            <p>Nossos tratamentos faciais são personalizados após uma avaliação detalhada. Agende sua consulta para recomendarmos o protocolo ideal para a sua pele.</p>
-            <div class="cta-wrapper">
-              <a href="{% url 'aranha:agendamento_publico' %}" class="primary-cta">
-                <span>Agendar Avaliação</span>
-                <i class="bi bi-arrow-right"></i>
-              </a>
-              <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Olá! Gostaria de saber mais sobre os tratamentos faciais." target="_blank" rel="noopener" class="secondary-cta">
-                <span>Tirar Dúvidas</span>
-                <i class="bi bi-whatsapp"></i>
-              </a>
-            </div>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="image-container" data-aos="fade-left" data-aos-delay="300">
-            <img src="{% static 'assets/clinica/consulta-1.webp' %}" alt="Tratamentos Faciais {{ CLINIC_NAME }}" class="img-fluid" loading="lazy">
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="features-section">
-      <div class="row g-0">
-        <div class="col-lg-4">
-          <div class="feature-block" data-aos="fade-up" data-aos-delay="200">
-            <div class="feature-icon"><i class="bi bi-shield-check"></i></div>
-            <h3>Biomédica Especialista</h3>
-            <p>Profissional habilitada com formação específica em estética avançada.</p>
-          </div>
-        </div>
-        <div class="col-lg-4">
-          <div class="feature-block" data-aos="fade-up" data-aos-delay="300">
-            <div class="feature-icon"><i class="bi bi-award"></i></div>
-            <h3>Produtos Premium</h3>
-            <p>Utilizamos apenas produtos de marcas reconhecidas e certificadas pela ANVISA.</p>
-          </div>
-        </div>
-        <div class="col-lg-4">
-          <div class="feature-block" data-aos="fade-up" data-aos-delay="400">
-            <div class="feature-icon"><i class="bi bi-heart-pulse"></i></div>
-            <h3>Resultados Naturais</h3>
-            <p>Técnicas que respeitam a anatomia facial e proporcionam harmonia natural.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
 {% endblock %}
