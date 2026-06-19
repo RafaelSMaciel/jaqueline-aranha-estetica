@@ -1,594 +1,749 @@
-{% extends 'estrutura/base.html' %}
+{% extends 'estrutura/base_v2.html' %}
 {% load static %}
 
 {% block titulo %}{{ CLINIC_NAME }} — Clínica de Estética{% endblock %}
 
 {% block conteudo %}
-<!-- Hero Section -->
-<section id="hero" class="hero section">
 
-  <div class="container" data-aos="fade-up">
+{# ═══════════════════════════════════════════════════════════ #}
+{# HERO — LCP: fetchpriority=high, sem lazy                    #}
+{# ═══════════════════════════════════════════════════════════ #}
+<section id="hero" class="py-16 md:py-24 bg-fundo">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="grid md:grid-cols-2 gap-12 items-center">
 
-    <div class="row align-items-center">
-      <div class="col-lg-6">
-        <div class="hero-content">
-          <h1 data-aos="fade-right">
-            Excelência em <span class="highlight">Estética</span> com Cuidado e Bem-Estar
-          </h1>
+      {# — conteúdo textual — #}
+      <div class="space-y-6">
 
-          <p class="hero-description" data-aos="fade-right">
-            Na {{ CLINIC_NAME }}, unimos tecnologia avançada e atendimento humanizado para proporcionar experiências únicas de cuidado e beleza. Nossa clínica oferece tratamentos faciais e corporais personalizados para realçar sua autoestima.
+        {# badge #}
+        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-superficie border border-borda text-marca text-sm font-medium">
+          <svg class="w-4 h-4 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/>
+          </svg>
+          Biomédica Especialista em Estética
+        </div>
+
+        {# h1 — ÚNICO na página #}
+        <h1 class="text-4xl md:text-5xl font-bold text-texto leading-tight">
+          Excelência em <span class="text-marca">Estética</span> com Cuidado e Bem-Estar
+        </h1>
+
+        {# descrição #}
+        <p class="text-texto-suave text-lg leading-relaxed">
+          Na {{ CLINIC_NAME }}, unimos tecnologia avançada e atendimento humanizado para proporcionar experiências únicas de cuidado e beleza. Tratamentos faciais e corporais personalizados para realçar sua autoestima.
+        </p>
+
+        {# stats — texto estático (sem purecounter) #}
+        <div class="flex flex-wrap gap-8">
+          <div>
+            <p class="text-3xl font-bold text-marca">5+</p>
+            <p class="text-texto-suave text-sm mt-1">Anos de Experiência</p>
+          </div>
+          <div class="border-l border-borda pl-8">
+            <p class="text-3xl font-bold text-marca">500+</p>
+            <p class="text-texto-suave text-sm mt-1">Pacientes Atendidos</p>
+          </div>
+          <div class="border-l border-borda pl-8">
+            <p class="text-3xl font-bold text-marca">20+</p>
+            <p class="text-texto-suave text-sm mt-1">Protocolos Estéticos</p>
+          </div>
+        </div>
+
+        {# CTAs #}
+        <div class="flex flex-wrap gap-4">
+          <a href="{% url 'aranha:agendamento_publico' %}"
+             class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
+            Agendar Avaliação
+          </a>
+          <a href="{% url 'aranha:quem_somos' %}"
+             class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto hover:bg-superficie transition-colors">
+            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 8v4M12 16h.01"/>
+            </svg>
+            Conheça Nossa História
+          </a>
+        </div>
+
+        {# contato rápido #}
+        <div class="flex items-center gap-3 text-sm text-texto-suave">
+          <svg class="w-4 h-4 text-marca flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.08 1.18 2 2 0 012.08 0h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L6.91 7.09a16 16 0 006 6l.36-.36a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/>
+          </svg>
+          <span>Atendimento Prioritário: <strong class="text-texto">{{ CLINIC_PHONE }}</strong></span>
+        </div>
+
+      </div>
+
+      {# — visual com floating cards — #}
+      <div class="relative">
+        <div class="relative rounded-xl overflow-hidden aspect-[4/5]">
+          {# LCP: fetchpriority=high, SEM loading=lazy #}
+          <img src="{% static 'assets/clinica/equipe-1.webp' %}"
+               alt="Equipe {{ CLINIC_NAME }}"
+               fetchpriority="high"
+               width="800"
+               height="1000"
+               class="w-full h-full object-cover">
+
+          {# floating card — Próximo Horário #}
+          <div class="absolute bottom-6 left-6 bg-superficie border border-borda rounded-lg p-4 shadow-lg flex items-start gap-3 max-w-[200px]">
+            <div class="flex-shrink-0 w-9 h-9 rounded-md bg-marca-forte flex items-center justify-center">
+              <svg class="w-5 h-5 text-sobre-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+                <path d="M9 16l2 2 4-4"/>
+              </svg>
+            </div>
+            <div>
+              <p class="text-texto font-semibold text-sm leading-tight">Próximo Horário</p>
+              <p class="text-texto-suave text-xs mt-0.5">Hoje às 14:30</p>
+              <p class="text-marca text-xs mt-0.5">Jaqueline Aranha</p>
+            </div>
+          </div>
+
+          {# floating card — rating #}
+          <div class="absolute top-6 right-6 bg-superficie border border-borda rounded-lg p-4 shadow-lg text-center min-w-[120px]">
+            <div class="flex justify-center gap-0.5 mb-1" aria-label="5 estrelas">
+              <svg class="w-4 h-4 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/></svg>
+              <svg class="w-4 h-4 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/></svg>
+              <svg class="w-4 h-4 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/></svg>
+              <svg class="w-4 h-4 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/></svg>
+              <svg class="w-4 h-4 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/></svg>
+            </div>
+            <p class="text-texto font-bold text-sm">5.0/5</p>
+            <p class="text-texto-suave text-xs mt-0.5">32 Avaliações</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+{# ═══════════════════════════════════════════════════════════ #}
+{# SOBRE — Cuidado Humanizado                                  #}
+{# ═══════════════════════════════════════════════════════════ #}
+<section id="sobre" class="py-16 md:py-24 bg-superficie">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="grid md:grid-cols-2 gap-12 items-center">
+
+      {# — foto com floating card — #}
+      <div class="relative order-2 md:order-1">
+        <div class="rounded-xl overflow-hidden aspect-[4/3]">
+          <img src="{% static 'assets/clinica/espaco-2.webp' %}"
+               alt="Espaço {{ CLINIC_NAME }}"
+               loading="lazy"
+               width="800"
+               height="600"
+               class="w-full h-full object-cover">
+        </div>
+        {# floating card #}
+        <div class="absolute bottom-6 right-6 bg-superficie border border-borda rounded-lg p-4 shadow-lg flex items-start gap-3 max-w-[210px]">
+          <div class="flex-shrink-0 w-9 h-9 rounded-md bg-marca-forte flex items-center justify-center">
+            <svg class="w-5 h-5 text-sobre-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+            </svg>
+          </div>
+          <div>
+            <p class="text-texto font-semibold text-sm leading-tight">Atendimento Personalizado</p>
+            <p class="text-texto-suave text-xs mt-0.5">Sempre prontos para cuidar de você</p>
+          </div>
+        </div>
+      </div>
+
+      {# — texto — #}
+      <div class="space-y-6 order-1 md:order-2">
+        <h2 class="text-3xl md:text-4xl font-bold text-texto leading-tight">
+          Cuidado Humanizado, <span class="text-marca">Tecnologia Avançada</span>
+        </h2>
+        <p class="text-texto-suave text-lg leading-relaxed">
+          Há alguns anos dedicamo-nos a proporcionar tratamentos estéticos excepcionais que combinam o que há de mais moderno em tecnologia com o toque pessoal que nossos pacientes merecem.
+        </p>
+        <p class="text-texto-suave leading-relaxed">
+          Nosso atendimento personalizado garante que cada paciente receba cuidado completo e adaptado às suas necessidades únicas. Dos serviços preventivos aos procedimentos mais avançados, mantemos os mais altos padrões de excelência em estética, promovendo um ambiente de confiança e bem-estar.
+        </p>
+
+        {# stats estáticos #}
+        <div class="grid grid-cols-3 gap-4 py-4 border-t border-borda">
+          <div class="text-center">
+            <p class="text-2xl font-bold text-marca">500+</p>
+            <p class="text-texto-suave text-xs mt-1">Pacientes Atendidos</p>
+          </div>
+          <div class="text-center border-l border-borda">
+            <p class="text-2xl font-bold text-marca">5+</p>
+            <p class="text-texto-suave text-xs mt-1">Anos de Experiência</p>
+          </div>
+          <div class="text-center border-l border-borda">
+            <p class="text-2xl font-bold text-marca">1</p>
+            <p class="text-texto-suave text-xs mt-1">Profissional Especialista</p>
+          </div>
+        </div>
+
+        <a href="{% url 'aranha:quem_somos' %}"
+           class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto font-semibold hover:bg-fundo transition-colors">
+          Conheça Nossa História
+          <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+{# ═══════════════════════════════════════════════════════════ #}
+{# ESPECIALIDADES                                              #}
+{# ═══════════════════════════════════════════════════════════ #}
+<section id="especialidades" class="py-16 md:py-24 bg-fundo">
+  <div class="max-w-6xl mx-auto px-6">
+
+    <div class="text-center mb-14">
+      <h2 class="text-3xl md:text-4xl font-bold text-texto">Nossas Especialidades</h2>
+      <p class="text-texto-suave mt-3 text-lg">Conheça as principais áreas de atuação da {{ CLINIC_NAME }}</p>
+    </div>
+
+    {# Cards destaque — Faciais e Corporais #}
+    <div class="grid md:grid-cols-2 gap-8 mb-10">
+
+      {# Faciais #}
+      <article class="rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
+        <div class="relative aspect-[16/9] overflow-hidden">
+          <img src="{% static 'assets/clinica/facial-1.webp' %}"
+               alt="Tratamentos Faciais Injetáveis"
+               loading="lazy"
+               width="800"
+               height="450"
+               class="w-full h-full object-cover">
+          <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+          <span class="absolute top-4 left-4 bg-marca-forte text-sobre-marca text-xs font-semibold px-3 py-1 rounded-full">
+            Tratamentos Faciais
+          </span>
+        </div>
+        <div class="p-6 flex flex-col flex-1 space-y-4">
+          <h3 class="text-texto text-xl font-bold">Tratamentos Faciais Injetáveis</h3>
+          <p class="text-texto-suave text-sm leading-relaxed">
+            Botox, preenchimentos, bioestimulador e PRP — procedimentos minimamente invasivos para realçar sua beleza com naturalidade.
           </p>
-
-          <div class="hero-stats mb-4" data-aos="fade-right">
-            <div class="stat-item">
-              <h3><span data-purecounter-start="0" data-purecounter-end="5" data-purecounter-duration="2" class="purecounter"></span>+</h3>
-              <p>Anos de Experiencia</p>
-            </div>
-            <div class="stat-item">
-              <h3><span data-purecounter-start="0" data-purecounter-end="500" data-purecounter-duration="2" class="purecounter"></span>+</h3>
-              <p>Pacientes Atendidos</p>
-            </div>
-            <div class="stat-item">
-              <h3><span data-purecounter-start="0" data-purecounter-end="20" data-purecounter-duration="2" class="purecounter"></span>+</h3>
-              <p>Protocolos Esteticos</p>
-            </div>
-          </div>
-
-          <div class="hero-actions" data-aos="fade-right">
-            <a href="{% url 'aranha:agendamento_publico' %}" class="btn btn-primary">Agendar Horário</a>
-            <a href="{% url 'aranha:quem_somos' %}" class="btn btn-outline">
-              <i class="bi bi-play-circle me-2"></i>
-              Conheça Nossa História
-            </a>
-          </div>
-
-          <div class="emergency-contact" data-aos="fade-right">
-            <div class="emergency-icon">
-              <i class="bi bi-telephone-fill"></i>
-            </div>
-            <div class="emergency-info">
-              <small>Atendimento Prioritário</small>
-              <strong>{{ CLINIC_PHONE }}</strong>
-            </div>
-          </div>
+          <ul class="space-y-2 flex-1">
+            <li class="flex items-center gap-2 text-texto-suave text-sm">
+              <svg class="w-4 h-4 text-marca flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+              Botox (1, 2 ou 3 regiões)
+            </li>
+            <li class="flex items-center gap-2 text-texto-suave text-sm">
+              <svg class="w-4 h-4 text-marca flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+              Preenchimento Labial &amp; Malar
+            </li>
+            <li class="flex items-center gap-2 text-texto-suave text-sm">
+              <svg class="w-4 h-4 text-marca flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+              Bioestimulador &amp; PRP
+            </li>
+          </ul>
+          <a href="{% url 'aranha:servicos_faciais' %}"
+             class="inline-flex items-center gap-2 text-marca font-semibold text-sm hover:underline mt-auto">
+            Saiba Mais
+            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
         </div>
-      </div>
+      </article>
 
-      <div class="col-lg-6">
-        <div class="hero-visual" data-aos="fade-left">
-          <div class="main-image">
-            <img src="{% static 'assets/clinica/equipe-1.webp' %}" alt="Clínica {{ CLINIC_NAME }}" class="img-fluid" loading="lazy">
-            <div class="floating-card appointment-card">
-              <div class="card-icon">
-                <i class="bi bi-calendar-check"></i>
-              </div>
-              <div class="card-content">
-                <h6>Próximo Horário</h6>
-                <p>Hoje às 14:30</p>
-                <small>Jaqueline Aranha</small>
-              </div>
-            </div>
-            <div class="floating-card rating-card">
-              <div class="card-content">
-                <div class="rating-stars">
-                  <i class="bi bi-star-fill"></i>
-                  <i class="bi bi-star-fill"></i>
-                  <i class="bi bi-star-fill"></i>
-                  <i class="bi bi-star-fill"></i>
-                  <i class="bi bi-star-fill"></i>
-                </div>
-                <h6>5.0/5</h6>
-                <small>32 Avaliacoes</small>
-              </div>
-            </div>
-          </div>
-          <div class="background-elements">
-            <div class="element element-1"></div>
-            <div class="element element-2"></div>
-            <div class="element element-3"></div>
-          </div>
+      {# Corporais #}
+      <article class="rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
+        <div class="relative aspect-[16/9] overflow-hidden">
+          <img src="{% static 'assets/clinica/corporal-1.webp' %}"
+               alt="Modelagem Corporal"
+               loading="lazy"
+               width="800"
+               height="450"
+               class="w-full h-full object-cover">
+          <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+          <span class="absolute top-4 left-4 bg-marca-forte text-sobre-marca text-xs font-semibold px-3 py-1 rounded-full">
+            Tratamentos Corporais
+          </span>
         </div>
-      </div>
+        <div class="p-6 flex flex-col flex-1 space-y-4">
+          <h3 class="text-texto text-xl font-bold">Modelagem Corporal</h3>
+          <p class="text-texto-suave text-sm leading-relaxed">
+            Protocolos personalizados para redução de gordura localizada, flacidez e estrias com aplicações enzimáticas e drenagem.
+          </p>
+          <ul class="space-y-2 flex-1">
+            <li class="flex items-center gap-2 text-texto-suave text-sm">
+              <svg class="w-4 h-4 text-marca flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+              Enzimas (gordura, flacidez, estrias)
+            </li>
+            <li class="flex items-center gap-2 text-texto-suave text-sm">
+              <svg class="w-4 h-4 text-marca flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+              Drenagem Linfática
+            </li>
+            <li class="flex items-center gap-2 text-texto-suave text-sm">
+              <svg class="w-4 h-4 text-marca flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+              Endermoterapia
+            </li>
+          </ul>
+          <a href="{% url 'aranha:servicos_corporais' %}"
+             class="inline-flex items-center gap-2 text-marca font-semibold text-sm hover:underline mt-auto">
+            Saiba Mais
+            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+        </div>
+      </article>
+
     </div>
 
-  </div>
+    {# 3 destaques menores #}
+    <div class="grid sm:grid-cols-3 gap-6 mb-12">
 
-</section><!-- /Hero Section -->
-
-<!-- Home About Section -->
-<section id="home-about" class="home-about section">
-
-  <div class="container" data-aos="fade-up">
-
-    <div class="row align-items-center">
-      <div class="col-lg-6 mb-5 mb-lg-0" data-aos="fade-right">
-        <div class="about-content">
-          <h2 class="section-heading">Cuidado Humanizado, Tecnologia Avancada</h2>
-          <p class="lead-text">Ha alguns anos dedicamo-nos a proporcionar tratamentos esteticos excepcionais que combinam o que ha de mais moderno em tecnologia com o toque pessoal que nossos pacientes merecem.</p>
-
-          <p>Nosso atendimento personalizado garante que cada paciente receba cuidado completo e adaptado as suas necessidades unicas. Dos servicos preventivos aos procedimentos mais avancados, mantemos os mais altos padroes de excelencia em estetica, promovendo um ambiente de confianca e bem-estar.</p>
-
-          <div class="stats-grid">
-            <div class="stat-item">
-              <div class="stat-number purecounter" data-purecounter-start="0" data-purecounter-end="500" data-purecounter-duration="1"></div>
-              <div class="stat-label">Pacientes Atendidos</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-number purecounter" data-purecounter-start="0" data-purecounter-end="5" data-purecounter-duration="1"></div>
-              <div class="stat-label">Anos de Experiencia</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-number purecounter" data-purecounter-start="0" data-purecounter-end="1" data-purecounter-duration="1"></div>
-              <div class="stat-label">Profissional Especialista</div>
-            </div>
-          </div>
-
-          <div class="cta-section">
-            <a href="{% url 'aranha:quem_somos' %}" class="btn-primary">Conheça Nossa História</a>
-          </div>
+      {# Limpeza de Pele #}
+      <div class="rounded-xl border border-borda bg-superficie p-6 flex flex-col space-y-3">
+        <div class="w-12 h-12 rounded-lg bg-fundo border border-borda flex items-center justify-center">
+          <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/>
+          </svg>
         </div>
+        <h3 class="text-texto font-bold text-lg">Limpeza de Pele</h3>
+        <p class="text-texto-suave text-sm leading-relaxed">
+          Tratamento profundo para remoção de impurezas e renovação celular, devolvendo vitalidade e luminosidade à sua pele.
+        </p>
+        <ul class="space-y-1 flex-1">
+          <li class="text-texto-suave text-sm flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Extração de cravos
+          </li>
+          <li class="text-texto-suave text-sm flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Hidratação profunda
+          </li>
+          <li class="text-texto-suave text-sm flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Máscaras específicas
+          </li>
+        </ul>
+        <a href="{% url 'aranha:servicos_faciais' %}" class="text-marca text-sm font-semibold hover:underline mt-2">Saiba Mais</a>
       </div>
 
-      <div class="col-lg-6" data-aos="fade-left">
-        <div class="about-visual">
-          <div class="main-image">
-            <img src="{% static 'assets/clinica/espaco-2.webp' %}" alt="Espaço {{ CLINIC_NAME }}" class="img-fluid" loading="lazy">
-          </div>
-          <div class="floating-card">
-            <div class="card-content">
-              <div class="icon">
-                <i class="bi bi-heart-pulse"></i>
-              </div>
-              <div class="card-text">
-                <h4>Atendimento Personalizado</h4>
-                <p>Sempre prontos para cuidar de você</p>
-              </div>
-            </div>
-          </div>
-          <div class="experience-badge">
-            <div class="badge-content">
-              <span class="years">12+</span>
-              <span class="text">Anos de Cuidado e Dedicação</span>
-            </div>
-          </div>
+      {# Massagens #}
+      <div class="rounded-xl border border-borda bg-superficie p-6 flex flex-col space-y-3">
+        <div class="w-12 h-12 rounded-lg bg-fundo border border-borda flex items-center justify-center">
+          <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+          </svg>
         </div>
-      </div>
-    </div>
-
-  </div>
-
-</section><!-- /Home About Section -->
-
-<!-- Featured Departments Section -->
-<section id="featured-departments" class="featured-departments section">
-
-  <div class="container section-title" data-aos="fade-up">
-    <h2>Nossas Especialidades</h2>
-    <p>Conheça as principais áreas de atuação da {{ CLINIC_NAME }}</p>
-  </div>
-
-  <div class="container" data-aos="fade-up">
-
-    <div class="row g-5">
-
-      <div class="col-lg-6" data-aos="zoom-in">
-        <div class="specialty-card">
-          <div class="specialty-content">
-            <div class="specialty-meta">
-              <span class="specialty-label">Tratamentos Faciais</span>
-            </div>
-            <h3>Tratamentos Faciais Injetáveis</h3>
-            <p>Botox, preenchimentos, bioestimulador e PRP — procedimentos minimamente invasivos para realçar sua beleza com naturalidade.</p>
-            <div class="specialty-features">
-              <span><i class="bi bi-check-circle-fill"></i>Botox (1, 2 ou 3 regiões)</span>
-              <span><i class="bi bi-check-circle-fill"></i>Preenchimento Labial &amp; Malar</span>
-              <span><i class="bi bi-check-circle-fill"></i>Bioestimulador &amp; PRP</span>
-            </div>
-            <a href="{% url 'aranha:servicos_faciais' %}" class="specialty-link">
-              Saiba Mais <i class="bi bi-arrow-right"></i>
-            </a>
-          </div>
-          <div class="specialty-visual">
-            <img src="{% static 'assets/clinica/facial-1.webp' %}" alt="Tratamentos Faciais Injetáveis" class="img-fluid" loading="lazy">
-            <div class="visual-overlay">
-              <i class="bi bi-heart-pulse"></i>
-            </div>
-          </div>
-        </div>
+        <h3 class="text-texto font-bold text-lg">Massagens Terapêuticas</h3>
+        <p class="text-texto-suave text-sm leading-relaxed">
+          Técnicas combinadas com abordagens modernas para alívio do estresse e bem-estar integral.
+        </p>
+        <ul class="space-y-1 flex-1">
+          <li class="text-texto-suave text-sm flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Massagem relaxante
+          </li>
+          <li class="text-texto-suave text-sm flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Drenagem linfática
+          </li>
+          <li class="text-texto-suave text-sm flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Ventosaterapia
+          </li>
+        </ul>
+        <a href="{% url 'aranha:servicos_corporais' %}" class="text-marca text-sm font-semibold hover:underline mt-2">Saiba Mais</a>
       </div>
 
-      <div class="col-lg-6" data-aos="zoom-in">
-        <div class="specialty-card">
-          <div class="specialty-content">
-            <div class="specialty-meta">
-              <span class="specialty-label">Tratamentos Corporais</span>
-            </div>
-            <h3>Modelagem Corporal</h3>
-            <p>Protocolos personalizados para redução de gordura localizada, flacidez e estrias com aplicações enzimáticas e drenagem.</p>
-            <div class="specialty-features">
-              <span><i class="bi bi-check-circle-fill"></i>Enzimas (gordura, flacidez, estrias)</span>
-              <span><i class="bi bi-check-circle-fill"></i>Drenagem Linfática</span>
-              <span><i class="bi bi-check-circle-fill"></i>Endermoterapia</span>
-            </div>
-            <a href="{% url 'aranha:servicos_corporais' %}" class="specialty-link">
-              Saiba Mais <i class="bi bi-arrow-right"></i>
-            </a>
-          </div>
-          <div class="specialty-visual">
-            <img src="{% static 'assets/clinica/corporal-1.webp' %}" alt="Modelagem Corporal" class="img-fluid" loading="lazy">
-            <div class="visual-overlay">
-              <i class="bi bi-cpu"></i>
-            </div>
-          </div>
+      {# Depilação a Laser #}
+      <div class="rounded-xl border border-borda bg-superficie p-6 flex flex-col space-y-3">
+        <div class="w-12 h-12 rounded-lg bg-fundo border border-borda flex items-center justify-center">
+          <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1" x2="12" y2="3"/>
+            <line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/>
+            <line x1="21" y1="12" x2="23" y2="12"/>
+          </svg>
         </div>
-      </div>
-
-      <div class="col-lg-4" data-aos="fade-up">
-        <div class="department-highlight">
-          <div class="highlight-icon">
-            <i class="bi bi-shield-plus"></i>
-          </div>
-          <h4>Limpeza de Pele</h4>
-          <p>Tratamento profundo para remoção de impurezas e renovação celular, devolvendo a vitalidade e luminosidade à sua pele.</p>
-          <ul class="highlight-list">
-            <li>Extração de cravos</li>
-            <li>Hidratação profunda</li>
-            <li>Máscaras específicas</li>
-          </ul>
-          <a href="{% url 'aranha:servicos_faciais' %}" class="highlight-cta">Saiba Mais</a>
-        </div>
-      </div>
-
-      <div class="col-lg-4" data-aos="fade-up">
-        <div class="department-highlight">
-          <div class="highlight-icon">
-            <i class="bi bi-people"></i>
-          </div>
-          <h4>Massagens Terapêuticas</h4>
-          <p>Técnicas milenares combinadas com abordagens modernas para alívio do estresse e bem-estar integral.</p>
-          <ul class="highlight-list">
-            <li>Massagem relaxante</li>
-            <li>Drenagem linfática (facial e corporal)</li>
-            <li>Ventosaterapia</li>
-          </ul>
-          <a href="{% url 'aranha:servicos_corporais' %}" class="highlight-cta">Saiba Mais</a>
-        </div>
-      </div>
-
-      <div class="col-lg-4" data-aos="fade-up">
-        <div class="department-highlight">
-          <div class="highlight-icon">
-            <i class="bi bi-activity"></i>
-          </div>
-          <h4>Depilação a Laser</h4>
-          <p>Tecnologia de última geração para remoção definitiva dos pelos com segurança e conforto.</p>
-          <ul class="highlight-list">
-            <li>Alta potência</li>
-            <li>Indolor e rápido</li>
-            <li>Todos os fototipos</li>
-          </ul>
-          <a href="{% url 'aranha:servicos_corporais' %}" class="highlight-cta">Saiba Mais</a>
-        </div>
+        <h3 class="text-texto font-bold text-lg">Depilação a Laser</h3>
+        <p class="text-texto-suave text-sm leading-relaxed">
+          Tecnologia de última geração para remoção definitiva dos pelos com segurança e conforto.
+        </p>
+        <ul class="space-y-1 flex-1">
+          <li class="text-texto-suave text-sm flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Alta potência
+          </li>
+          <li class="text-texto-suave text-sm flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Indolor e rápido
+          </li>
+          <li class="text-texto-suave text-sm flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Todos os fototipos
+          </li>
+        </ul>
+        <a href="{% url 'aranha:servicos_corporais' %}" class="text-marca text-sm font-semibold hover:underline mt-2">Saiba Mais</a>
       </div>
 
     </div>
 
-    <div class="emergency-banner" data-aos="fade-up">
-      <div class="row align-items-center">
-        <div class="col-lg-8">
-          <div class="emergency-content">
-            <h3>Atendimento Personalizado 24/7</h3>
-            <p>Nossa equipe está sempre disponível para esclarecer dúvidas e auxiliar no agendamento dos seus procedimentos.</p>
-          </div>
+    {# Banner WhatsApp #}
+    <div class="rounded-xl border border-borda bg-superficie p-6 md:p-8 flex flex-col md:flex-row md:items-center gap-4 md:gap-0">
+      <div class="flex-1">
+        <h3 class="text-texto font-bold text-xl mb-1">Atendimento Personalizado</h3>
+        <p class="text-texto-suave text-sm">Nossa equipe está sempre disponível para esclarecer dúvidas e auxiliar no agendamento dos seus procedimentos.</p>
+      </div>
+      <div class="md:ml-8 flex-shrink-0">
+        <a href="https://wa.me/{{ WHATSAPP_NUMERO }}" target="_blank" rel="noopener"
+           class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
+          <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.08 1.18 2 2 0 012.08 0h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L6.91 7.09a16 16 0 006 6l.36-.36a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/>
+          </svg>
+          Fale Conosco: {{ CLINIC_PHONE }}
+        </a>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+{# ═══════════════════════════════════════════════════════════ #}
+{# SERVIÇOS EM DESTAQUE                                        #}
+{# ═══════════════════════════════════════════════════════════ #}
+<section id="servicos-destaque" class="py-16 md:py-24 bg-superficie">
+  <div class="max-w-6xl mx-auto px-6">
+
+    <div class="text-center mb-14">
+      <h2 class="text-3xl md:text-4xl font-bold text-texto">Serviços em Destaque</h2>
+      <p class="text-texto-suave mt-3 text-lg">Conheça os procedimentos mais procurados da {{ CLINIC_NAME }}</p>
+    </div>
+
+    {# Layout principal — foto grande + sidebar #}
+    <div class="grid lg:grid-cols-[2fr_1fr] gap-0 rounded-xl overflow-hidden border border-borda mb-10">
+
+      {# principal #}
+      <div class="relative">
+        <div class="aspect-[4/3] lg:aspect-auto lg:h-full overflow-hidden">
+          <img src="{% static 'assets/clinica/consulta-1.webp' %}"
+               alt="Procedimentos Estéticos {{ CLINIC_NAME }}"
+               loading="lazy"
+               width="800"
+               height="600"
+               class="w-full h-full object-cover">
+          <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
         </div>
-        <div class="col-lg-4 text-lg-end">
-          <a href="https://wa.me/{{ WHATSAPP_NUMERO }}" target="_blank" rel="noopener" class="emergency-btn">
-            <i class="bi bi-telephone-fill"></i>
-            Fale Conosco: {{ CLINIC_PHONE }}
+        <div class="absolute bottom-0 left-0 right-0 p-8">
+          <div class="inline-flex items-center gap-2 bg-marca-forte text-sobre-marca text-xs font-semibold px-3 py-1 rounded-full mb-3">
+            <svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/></svg>
+            Alta Qualidade
+          </div>
+          <h2 class="text-white text-2xl font-bold mb-2">Excelência em Procedimentos Estéticos</h2>
+          <p class="text-white/80 text-sm leading-relaxed mb-4">
+            Na {{ CLINIC_NAME }}, cada procedimento é realizado com rigor técnico e atenção aos detalhes, garantindo resultados naturais e satisfatórios.
+          </p>
+          <a href="{% url 'aranha:servicos_faciais' %}"
+             class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-marca-forte text-sobre-marca font-semibold text-sm hover:opacity-90 transition-opacity">
+            Conheça Nossos Serviços
           </a>
         </div>
       </div>
-    </div>
 
-  </div>
+      {# sidebar de serviços #}
+      <div class="bg-fundo divide-y divide-borda">
 
-</section><!-- /Featured Departments Section -->
-
-<!-- Featured Services Section -->
-<section id="featured-services" class="featured-services section">
-
-  <div class="container section-title" data-aos="fade-up">
-    <h2>Serviços em Destaque</h2>
-    <p>Conheça os procedimentos mais procurados da {{ CLINIC_NAME }}</p>
-  </div>
-
-  <div class="container" data-aos="fade-up">
-
-    <div class="row g-0">
-
-      <div class="col-lg-8" data-aos="fade-right">
-        <div class="featured-service-main">
-          <div class="service-image-wrapper">
-            <img src="{% static 'assets/clinica/consulta-1.webp' %}" alt="Procedimentos Estéticos" class="img-fluid" loading="lazy">
-            <div class="service-overlay">
-              <div class="service-badge">
-                <i class="bi bi-heart-pulse"></i>
-                <span>Alta Qualidade</span>
-              </div>
-            </div>
+        {# Skin Care #}
+        <div class="p-6 flex gap-4 items-start">
+          <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-superficie border border-borda flex items-center justify-center mt-1">
+            <svg class="w-5 h-5 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/>
+            </svg>
           </div>
-          <div class="service-details">
-            <h2>Excelência em Procedimentos Estéticos</h2>
-            <p>Na {{ CLINIC_NAME }}, cada procedimento é realizado com rigor técnico e atenção aos detalhes, garantindo resultados naturais e satisfatórios. Nossa estrutura foi pensada para oferecer conforto e segurança em todas as etapas do seu tratamento.</p>
-            <a href="{% url 'aranha:servicos_faciais' %}" class="main-cta">Conheça Nossos Serviços</a>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-lg-4" data-aos="fade-left">
-        <div class="services-sidebar">
-
-          <div class="service-item" data-aos="fade-up">
-            <div class="service-icon-wrapper">
-              <i class="bi bi-capsule"></i>
-            </div>
-            <div class="service-info">
-              <h4>Skin Care</h4>
-              <p>Tratamentos personalizados para cada tipo de pele, com produtos de alta performance e tecnologias avançadas.</p>
-              <a href="{% url 'aranha:servicos_faciais' %}" class="service-link">Saiba Mais</a>
-            </div>
-          </div>
-
-          <div class="service-item" data-aos="fade-up">
-            <div class="service-icon-wrapper">
-              <i class="bi bi-bandaid"></i>
-            </div>
-            <div class="service-info">
-              <h4>Estética Íntima</h4>
-              <p>Procedimentos especializados para o bem-estar e saúde íntima, realizados com total discrição e profissionalismo.</p>
-              <a href="{% url 'aranha:servicos_corporais' %}" class="service-link">Saiba Mais</a>
-            </div>
-          </div>
-
-          <div class="service-item" data-aos="fade-up">
-            <div class="service-icon-wrapper">
-              <i class="bi bi-activity"></i>
-            </div>
-            <div class="service-info">
-              <h4>Pós-operatório</h4>
-              <p>Protocolos específicos para auxiliar na recuperação de cirurgias plásticas, minimizando desconfortos e otimizando resultados.</p>
-              <a href="{% url 'aranha:servicos_corporais' %}" class="service-link">Saiba Mais</a>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-    </div>
-
-    <div class="specialties-grid" data-aos="fade-up">
-      <div class="row align-items-center">
-
-        <div class="col-lg-3 col-md-6">
-          <div class="specialty-card">
-            <div class="specialty-image">
-              <img src="{% static 'assets/clinica/gestante-1.webp' %}" alt="Gestantes" class="img-fluid" loading="lazy">
-            </div>
-            <div class="specialty-content">
-              <h5>Gestantes</h5>
-              <span>Cuidados especiais para o pré e pós-parto</span>
-            </div>
+          <div class="flex-1 min-w-0">
+            <h3 class="text-texto font-semibold text-base mb-1">Skin Care</h3>
+            <p class="text-texto-suave text-sm leading-relaxed mb-3">Tratamentos personalizados para cada tipo de pele, com produtos de alta performance e tecnologias avançadas.</p>
+            <a href="{% url 'aranha:servicos_faciais' %}" class="text-marca text-sm font-semibold hover:underline">Saiba Mais</a>
           </div>
         </div>
 
-        <div class="col-lg-3 col-md-6">
-          <div class="specialty-card">
-            <div class="specialty-image">
-              <img src="{% static 'assets/clinica/pele-1.webp' %}" alt="Saúde da Pele" class="img-fluid" loading="lazy">
-            </div>
-            <div class="specialty-content">
-              <h5>Saúde da Pele</h5>
-              <span>Prevenção e tratamento de doenças dermatológicas</span>
-            </div>
+        {# Estética Íntima #}
+        <div class="p-6 flex gap-4 items-start">
+          <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-superficie border border-borda flex items-center justify-center mt-1">
+            <svg class="w-5 h-5 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+            </svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <h3 class="text-texto font-semibold text-base mb-1">Estética Íntima</h3>
+            <p class="text-texto-suave text-sm leading-relaxed mb-3">Procedimentos especializados para o bem-estar e saúde íntima, realizados com total discrição e profissionalismo.</p>
+            <a href="{% url 'aranha:servicos_corporais' %}" class="text-marca text-sm font-semibold hover:underline">Saiba Mais</a>
           </div>
         </div>
 
-        <div class="col-lg-3 col-md-6">
-          <div class="specialty-card">
-            <div class="specialty-image">
-              <img src="{% static 'assets/clinica/procedimento-1.webp' %}" alt="Emergências Estéticas" class="img-fluid" loading="lazy">
-            </div>
-            <div class="specialty-content">
-              <h5>Pronto Atendimento</h5>
-              <span>Atendimento rápido para intercorrências estéticas</span>
-            </div>
+        {# Pós-operatório #}
+        <div class="p-6 flex gap-4 items-start">
+          <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-superficie border border-borda flex items-center justify-center mt-1">
+            <svg class="w-5 h-5 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+            </svg>
           </div>
-        </div>
-
-        <div class="col-lg-3 col-md-6">
-          <div class="specialty-card">
-            <div class="specialty-image">
-              <img src="{% static 'assets/clinica/espaco-1.webp' %}" alt="Tecnologia Avançada" class="img-fluid" loading="lazy">
-            </div>
-            <div class="specialty-content">
-              <h5>Tecnologia de Ponta</h5>
-              <span>Equipamentos modernos para resultados superiores</span>
-            </div>
+          <div class="flex-1 min-w-0">
+            <h3 class="text-texto font-semibold text-base mb-1">Pós-operatório</h3>
+            <p class="text-texto-suave text-sm leading-relaxed mb-3">Protocolos específicos para auxiliar na recuperação de cirurgias plásticas, minimizando desconfortos e otimizando resultados.</p>
+            <a href="{% url 'aranha:servicos_corporais' %}" class="text-marca text-sm font-semibold hover:underline">Saiba Mais</a>
           </div>
         </div>
 
       </div>
     </div>
 
+    {# Grid de especialidades com foto — 4 cards #}
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+
+      <div class="rounded-xl overflow-hidden border border-borda bg-superficie group">
+        <div class="aspect-[3/2] overflow-hidden">
+          <img src="{% static 'assets/clinica/gestante-1.webp' %}"
+               alt="Gestantes"
+               loading="lazy"
+               width="400"
+               height="267"
+               class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+        </div>
+        <div class="p-4">
+          <h3 class="text-texto font-semibold text-sm">Gestantes</h3>
+          <p class="text-texto-suave text-xs mt-1">Cuidados especiais para o pré e pós-parto</p>
+        </div>
+      </div>
+
+      <div class="rounded-xl overflow-hidden border border-borda bg-superficie group">
+        <div class="aspect-[3/2] overflow-hidden">
+          <img src="{% static 'assets/clinica/pele-1.webp' %}"
+               alt="Saúde da Pele"
+               loading="lazy"
+               width="400"
+               height="267"
+               class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+        </div>
+        <div class="p-4">
+          <h3 class="text-texto font-semibold text-sm">Saúde da Pele</h3>
+          <p class="text-texto-suave text-xs mt-1">Prevenção e tratamento de doenças dermatológicas</p>
+        </div>
+      </div>
+
+      <div class="rounded-xl overflow-hidden border border-borda bg-superficie group">
+        <div class="aspect-[3/2] overflow-hidden">
+          <img src="{% static 'assets/clinica/procedimento-1.webp' %}"
+               alt="Pronto Atendimento"
+               loading="lazy"
+               width="400"
+               height="267"
+               class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+        </div>
+        <div class="p-4">
+          <h3 class="text-texto font-semibold text-sm">Pronto Atendimento</h3>
+          <p class="text-texto-suave text-xs mt-1">Atendimento rápido para intercorrências estéticas</p>
+        </div>
+      </div>
+
+      <div class="rounded-xl overflow-hidden border border-borda bg-superficie group">
+        <div class="aspect-[3/2] overflow-hidden">
+          <img src="{% static 'assets/clinica/espaco-1.webp' %}"
+               alt="Tecnologia Avançada"
+               loading="lazy"
+               width="400"
+               height="267"
+               class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+        </div>
+        <div class="p-4">
+          <h3 class="text-texto font-semibold text-sm">Tecnologia de Ponta</h3>
+          <p class="text-texto-suave text-xs mt-1">Equipamentos modernos para resultados superiores</p>
+        </div>
+      </div>
+
+    </div>
+
   </div>
+</section>
 
-</section><!-- /Featured Services Section -->
+{# ═══════════════════════════════════════════════════════════ #}
+{# EQUIPE                                                      #}
+{# ═══════════════════════════════════════════════════════════ #}
+<section id="equipe" class="py-16 md:py-24 bg-fundo">
+  <div class="max-w-6xl mx-auto px-6">
 
-<!-- Find A Doctor Section -->
-<section id="find-a-doctor" class="find-a-doctor section">
-
-  <div class="container section-title" data-aos="fade-up">
-    <h2>Nossa Equipe</h2>
-    <p>Profissionais especializados e dedicados ao seu bem-estar</p>
-  </div>
-
-  <div class="container" data-aos="fade-up">
+    <div class="text-center mb-14">
+      <h2 class="text-3xl md:text-4xl font-bold text-texto">Nossa Equipe</h2>
+      <p class="text-texto-suave mt-3 text-lg">Profissionais especializados e dedicados ao seu bem-estar</p>
+    </div>
 
     {% if profissionais %}
-    <div class="doctors-grid" data-aos="fade-up">
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
       {% for prof in profissionais %}
-      <div class="doctor-profile" data-aos="zoom-in">
-        <div class="profile-header">
-          <div class="doctor-avatar">
+      <div class="rounded-xl border border-borda bg-superficie p-6 flex flex-col gap-4">
+        <div class="flex items-center gap-4">
+          <div class="relative w-16 h-16 rounded-full overflow-hidden flex-shrink-0 bg-fundo border border-borda">
             {% if prof.foto %}
-            <img src="{{ prof.foto.url }}" alt="{{ prof.nome }}" class="img-fluid" loading="lazy">
+            <img src="{{ prof.foto.url }}"
+                 alt="{{ prof.nome }}"
+                 loading="lazy"
+                 class="w-full h-full object-cover">
             {% else %}
-            <div class="d-flex align-items-center justify-content-center" style="width:100%;height:100%;background:var(--gold-light, #f9f1d8);border-radius:50%;">
-              <span style="font-size:2rem;color:var(--accent-color);font-weight:700;">{{ prof.nome|slice:":1"|upper }}</span>
+            <div class="w-full h-full flex items-center justify-center">
+              <span class="text-2xl font-bold text-marca">{{ prof.nome|slice:":1"|upper }}</span>
             </div>
             {% endif %}
-            <div class="status-indicator available"></div>
+            <span class="absolute bottom-0.5 right-0.5 w-3 h-3 rounded-full bg-green-500 border-2 border-superficie" aria-label="Disponível"></span>
           </div>
-          <div class="doctor-details">
-            <h4>{{ prof.nome }}</h4>
-            <span class="specialty-tag">{{ prof.especialidade|default:"Profissional de Estética" }}</span>
+          <div class="min-w-0">
+            <h3 class="text-texto font-bold text-base truncate">{{ prof.nome }}</h3>
+            <span class="inline-block text-xs px-2 py-0.5 rounded-full bg-fundo border border-borda text-marca mt-1">
+              {{ prof.especialidade|default:"Profissional de Estética" }}
+            </span>
           </div>
         </div>
-        <div class="action-buttons">
-          <a href="{% url 'aranha:equipe' %}" class="btn-secondary">Ver Perfil</a>
-          <a href="{% url 'aranha:agendamento_publico' %}?profissional={{ prof.pk }}" class="btn-primary">Agendar</a>
+        <div class="flex gap-3 mt-auto pt-2">
+          <a href="{% url 'aranha:equipe' %}"
+             class="flex-1 text-center px-4 py-2 rounded-lg border border-borda text-texto text-sm font-medium hover:bg-fundo transition-colors">
+            Ver Perfil
+          </a>
+          <a href="{% url 'aranha:agendamento_publico' %}?profissional={{ prof.pk }}"
+             class="flex-1 text-center px-4 py-2 rounded-lg bg-marca-forte text-sobre-marca text-sm font-semibold hover:opacity-90 transition-opacity">
+            Agendar
+          </a>
         </div>
       </div>
       {% endfor %}
     </div>
     {% else %}
-    <div class="text-center py-5">
-      <i class="bi bi-people fs-1 mb-3 d-block" style="color:var(--accent-color);"></i>
-      <h3>Conheça nossa equipe</h3>
-      <p class="text-muted">Em breve apresentaremos nossos profissionais.</p>
+    <div class="text-center py-12">
+      <div class="mx-auto w-16 h-16 rounded-full bg-superficie border border-borda flex items-center justify-center mb-4">
+        <svg class="w-8 h-8 text-texto-suave" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+        </svg>
+      </div>
+      <h3 class="text-texto font-bold text-xl mb-2">Conheça nossa equipe</h3>
+      <p class="text-texto-suave">Em breve apresentaremos nossos profissionais.</p>
     </div>
     {% endif %}
 
-    <div class="text-center mt-5" data-aos="fade-up">
-      <a href="{% url 'aranha:equipe' %}" class="btn-view-all">
+    <div class="text-center">
+      <a href="{% url 'aranha:equipe' %}"
+         class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto font-semibold hover:bg-superficie transition-colors">
         Conheça Todos os Profissionais
-        <i class="bi bi-arrow-right"></i>
+        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
       </a>
     </div>
 
   </div>
+</section>
 
-</section><!-- /Find A Doctor Section -->
+{# ═══════════════════════════════════════════════════════════ #}
+{# CTA + FEATURES                                              #}
+{# ═══════════════════════════════════════════════════════════ #}
+<section id="cta-final" class="py-16 md:py-24 bg-superficie">
+  <div class="max-w-6xl mx-auto px-6">
 
-<!-- Call To Action Section -->
-<section id="call-to-action" class="call-to-action section light-background">
-
-  <div class="container" data-aos="fade-up">
-
-    <div class="hero-content">
-      <div class="row align-items-center">
-
-        <div class="col-lg-6">
-          <div class="content-wrapper" data-aos="fade-up">
-            <h1>Excelência em Estética, Todos os Dias</h1>
-            <p>Na {{ CLINIC_NAME }}, cada detalhe é pensado para proporcionar a melhor experiência em cuidados estéticos. Agende sua avaliação e descubra como podemos realçar sua beleza natural.</p>
-
-            <div class="cta-wrapper">
-              <a href="{% url 'aranha:agendamento_publico' %}" class="primary-cta">
-                <span>Agende sua Avaliação</span>
-                <i class="bi bi-arrow-right"></i>
-              </a>
-              <a href="{% url 'aranha:servicos_faciais' %}" class="secondary-cta">
-                <span>Conheça Nossos Serviços</span>
-                <i class="bi bi-arrow-right"></i>
-              </a>
-            </div>
-          </div>
+    {# Bloco principal — texto + foto #}
+    <div class="grid md:grid-cols-2 gap-12 items-center mb-16">
+      <div class="space-y-6">
+        <h2 class="text-3xl md:text-4xl font-bold text-texto leading-tight">
+          Excelência em Estética, <span class="text-marca">Todos os Dias</span>
+        </h2>
+        <p class="text-texto-suave text-lg leading-relaxed">
+          Na {{ CLINIC_NAME }}, cada detalhe é pensado para proporcionar a melhor experiência em cuidados estéticos. Agende sua avaliação e descubra como podemos realçar sua beleza natural.
+        </p>
+        <div class="flex flex-wrap gap-4">
+          <a href="{% url 'aranha:agendamento_publico' %}"
+             class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
+            Agende sua Avaliação
+            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+          <a href="{% url 'aranha:servicos_faciais' %}"
+             class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto font-semibold hover:bg-fundo transition-colors">
+            Conheça Nossos Serviços
+          </a>
         </div>
+      </div>
 
-        <div class="col-lg-6">
-          <div class="image-container" data-aos="fade-left">
-            <img src="{% static 'assets/clinica/espaco-2.webp' %}" alt="{{ CLINIC_NAME }}" class="img-fluid" loading="lazy">
-          </div>
-        </div>
-
+      <div class="rounded-xl overflow-hidden aspect-[4/3]">
+        <img src="{% static 'assets/clinica/espaco-2.webp' %}"
+             alt="{{ CLINIC_NAME }}"
+             loading="lazy"
+             width="800"
+             height="600"
+             class="w-full h-full object-cover">
       </div>
     </div>
 
-    <div class="features-section">
+    {# 3 feature blocks #}
+    <div class="grid sm:grid-cols-3 gap-6 border-t border-borda pt-12 mb-12">
 
-      <div class="row g-0">
-
-        <div class="col-lg-4">
-          <div class="feature-block" data-aos="fade-up">
-            <div class="feature-icon">
-              <i class="bi bi-shield-check"></i>
-            </div>
-            <h3>Tecnologia Avançada</h3>
-            <p>Equipamentos de última geração e técnicas inovadoras para resultados superiores e seguros.</p>
-          </div>
+      <div class="text-center space-y-3">
+        <div class="mx-auto w-14 h-14 rounded-full bg-fundo border border-borda flex items-center justify-center">
+          <svg class="w-7 h-7 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
         </div>
+        <h3 class="text-texto font-bold text-lg">Tecnologia Avançada</h3>
+        <p class="text-texto-suave text-sm leading-relaxed">Equipamentos de última geração e técnicas inovadoras para resultados superiores e seguros.</p>
+      </div>
 
-        <div class="col-lg-4">
-          <div class="feature-block" data-aos="fade-up">
-            <div class="feature-icon">
-              <i class="bi bi-clock"></i>
-            </div>
-            <h3>Horário Flexível</h3>
-            <p>Agendamento online 24 horas e horários especiais para atender à sua rotina.</p>
-          </div>
+      <div class="text-center space-y-3">
+        <div class="mx-auto w-14 h-14 rounded-full bg-fundo border border-borda flex items-center justify-center">
+          <svg class="w-7 h-7 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
         </div>
+        <h3 class="text-texto font-bold text-lg">Horário Flexível</h3>
+        <p class="text-texto-suave text-sm leading-relaxed">Agendamento online 24 horas e horários especiais para atender à sua rotina.</p>
+      </div>
 
-        <div class="col-lg-4">
-          <div class="feature-block" data-aos="fade-up">
-            <div class="feature-icon">
-              <i class="bi bi-people"></i>
-            </div>
-            <h3>Equipe Especializada</h3>
-            <p>Profissionais altamente capacitados e em constante atualização.</p>
-          </div>
+      <div class="text-center space-y-3">
+        <div class="mx-auto w-14 h-14 rounded-full bg-fundo border border-borda flex items-center justify-center">
+          <svg class="w-7 h-7 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+          </svg>
         </div>
-
+        <h3 class="text-texto font-bold text-lg">Equipe Especializada</h3>
+        <p class="text-texto-suave text-sm leading-relaxed">Profissionais altamente capacitados e em constante atualização.</p>
       </div>
 
     </div>
 
-    <div class="contact-block">
-      <div class="row">
-
-        <div class="col-lg-8">
-          <div class="contact-content" data-aos="fade-up">
-            <h2>Precisa de atendimento personalizado?</h2>
-            <p>Nossa equipe está pronta para esclarecer suas dúvidas e auxiliar no agendamento dos seus procedimentos.</p>
-          </div>
-        </div>
-
-        <div class="col-lg-4">
-          <div class="contact-actions" data-aos="fade-up">
-            <a href="https://wa.me/{{ WHATSAPP_NUMERO }}" target="_blank" rel="noopener" class="emergency-call">
-              <i class="bi bi-telephone"></i>
-              <span>{{ CLINIC_PHONE }}</span>
-            </a>
-            <a href="{% url 'aranha:agenda_contato' %}" class="contact-link">Nossa Localização</a>
-          </div>
-        </div>
-
+    {# Bloco de contato final #}
+    <div class="rounded-xl border border-borda bg-fundo p-6 md:p-8 flex flex-col md:flex-row md:items-center gap-4">
+      <div class="flex-1">
+        <h2 class="text-texto font-bold text-xl mb-1">Precisa de atendimento personalizado?</h2>
+        <p class="text-texto-suave text-sm">Nossa equipe está pronta para esclarecer suas dúvidas e auxiliar no agendamento dos seus procedimentos.</p>
+      </div>
+      <div class="flex flex-col sm:flex-row gap-3 flex-shrink-0">
+        <a href="https://wa.me/{{ WHATSAPP_NUMERO }}" target="_blank" rel="noopener"
+           class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-marca-forte text-sobre-marca font-semibold text-sm hover:opacity-90 transition-opacity">
+          <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.08 1.18 2 2 0 012.08 0h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L6.91 7.09a16 16 0 006 6l.36-.36a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/>
+          </svg>
+          {{ CLINIC_PHONE }}
+        </a>
+        <a href="{% url 'aranha:agenda_contato' %}"
+           class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border border-borda text-texto text-sm font-semibold hover:bg-superficie transition-colors">
+          Nossa Localização
+        </a>
       </div>
     </div>
 
   </div>
+</section>
 
-</section><!-- /Call To Action Section -->
+{# ═══════════════════════════════════════════════════════════ #}
+{# FAQ                                                         #}
+{# ═══════════════════════════════════════════════════════════ #}
+<section id="faq" class="py-16 md:py-24 bg-fundo">
+  <div class="max-w-6xl mx-auto px-6">
 
-<!-- FAQ Section -->
-<section id="faq" class="faq section light-background">
-  <div class="container section-title" data-aos="fade-up">
-    <h2>Perguntas Frequentes</h2>
-    <p>Tire suas principais dúvidas sobre nossos tratamentos e atendimento.</p>
-  </div>
-  <div class="container" data-aos="fade-up" data-aos-delay="100">
+    <div class="text-center mb-14">
+      <h2 class="text-3xl md:text-4xl font-bold text-texto">Perguntas Frequentes</h2>
+      <p class="text-texto-suave mt-3 text-lg">Tire suas principais dúvidas sobre nossos tratamentos e atendimento.</p>
+    </div>
+
     {% include 'partials/faq_accordion.html' with faqs=faqs faq_schema=True %}
+
   </div>
-</section><!-- /FAQ Section -->
+</section>
+
 {% endblock %}
