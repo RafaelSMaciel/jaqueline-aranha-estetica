@@ -1,89 +1,91 @@
-{% extends 'estrutura/base.html' %}
+{% extends 'estrutura/base_v2.html' %}
 {% load static %}
-
-{% block body_class %}page-404{% endblock %}
 
 {% block titulo %}Página não encontrada — {{ CLINIC_NAME }}{% endblock %}
 
 {% block conteudo %}
-<div class="page-title">
-  <div class="heading">
-    <div class="container">
-      <div class="row d-flex justify-content-center text-center">
-        <div class="col-lg-8">
-          <h1 class="heading-title">404</h1>
-          <p class="mb-0">A página que você procura não existe ou foi movida.</p>
-        </div>
+
+<section class="py-24 md:py-32 bg-fundo min-h-[60vh] flex items-center">
+  <div class="max-w-3xl mx-auto px-6 text-center">
+
+    {# Número 404 decorativo #}
+    <p class="text-8xl md:text-9xl font-bold text-marca leading-none mb-4" aria-hidden="true">404</p>
+
+    <h1 class="text-3xl md:text-4xl font-bold text-texto mb-4">Página Não Encontrada</h1>
+
+    <p class="text-texto-suave text-lg leading-relaxed mb-10 max-w-xl mx-auto">
+      A página que você procura pode ter sido removida, teve seu nome alterado ou está temporariamente indisponível.
+    </p>
+
+    {# CTAs principais #}
+    <div class="flex flex-wrap justify-center gap-4 mb-16">
+      <a href="{% url 'aranha:inicio' %}"
+         class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
+        <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        Voltar ao Início
+      </a>
+      <a href="{% url 'aranha:agendamento_publico' %}"
+         class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto font-semibold hover:bg-superficie transition-colors">
+        <svg class="w-5 h-5 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          <path d="M9 16l2 2 4-4"/>
+        </svg>
+        Agendar
+      </a>
+    </div>
+
+    {# Links úteis #}
+    <div class="rounded-xl border border-borda bg-superficie p-6">
+      <h2 class="text-texto font-semibold mb-5">Você pode estar procurando:</h2>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+
+        <a href="{% url 'aranha:quem_somos' %}"
+           class="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-fundo transition-colors text-texto-suave hover:text-marca">
+          <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <span class="text-xs font-medium text-center">Sobre Nós</span>
+        </a>
+
+        <a href="{% url 'aranha:agenda_contato' %}"
+           class="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-fundo transition-colors text-texto-suave hover:text-marca">
+          <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 014.69 14 19.79 19.79 0 011.62 5.4 2 2 0 013.6 3.23h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L7.91 10.5a16 16 0 006.29 6.29l.96-.96a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
+          </svg>
+          <span class="text-xs font-medium text-center">Contato</span>
+        </a>
+
+        <a href="{% url 'aranha:servicos_faciais' %}"
+           class="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-fundo transition-colors text-texto-suave hover:text-marca">
+          <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+          </svg>
+          <span class="text-xs font-medium text-center">Serviços</span>
+        </a>
+
+        <a href="{% url 'aranha:agendamento_publico' %}"
+           class="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-fundo transition-colors text-texto-suave hover:text-marca">
+          <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+            <path d="M9 16l2 2 4-4"/>
+          </svg>
+          <span class="text-xs font-medium text-center">Agendamento</span>
+        </a>
+
+        <a href="{% url 'aranha:politica_privacidade' %}"
+           class="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-fundo transition-colors text-texto-suave hover:text-marca">
+          <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <span class="text-xs font-medium text-center">Privacidade</span>
+        </a>
+
       </div>
     </div>
-  </div>
-  <nav class="breadcrumbs">
-    <div class="container">
-      <ol>
-        <li><a href="{% url 'aranha:inicio' %}">Home</a></li>
-        <li class="current">404</li>
-      </ol>
-    </div>
-  </nav>
-</div>
 
-<!-- Error 404 Section -->
-<section id="error-404" class="error-404 section">
-  <div class="container" data-aos="fade-up" data-aos-delay="100">
-    <div class="row justify-content-center">
-      <div class="col-lg-8 text-center">
-
-        <div class="error-number" data-aos="zoom-in" data-aos-delay="200">
-          404
-        </div>
-
-        <h1 class="error-title" data-aos="fade-up" data-aos-delay="300">
-          Página Não Encontrada
-        </h1>
-
-        <p class="error-description" data-aos="fade-up" data-aos-delay="400">
-          A página que você procura pode ter sido removida, teve seu nome alterado ou está temporariamente indisponível.
-        </p>
-
-        <div class="error-actions" data-aos="fade-up" data-aos-delay="500">
-          <a href="{% url 'aranha:inicio' %}" class="btn-primary">
-            <i class="bi bi-house"></i>
-            Voltar ao Início
-          </a>
-        </div>
-
-      </div>
-    </div>
-
-    <div class="row justify-content-center mt-5">
-      <div class="col-lg-10">
-        <div class="helpful-links" data-aos="fade-up" data-aos-delay="600">
-          <h3>Você pode estar procurando:</h3>
-          <div class="links-grid">
-            <a href="{% url 'aranha:quem_somos' %}" class="link-item">
-              <i class="bi bi-info-circle"></i>
-              <span>Sobre Nós</span>
-            </a>
-            <a href="{% url 'aranha:agenda_contato' %}" class="link-item">
-              <i class="bi bi-telephone"></i>
-              <span>Contato</span>
-            </a>
-            <a href="{% url 'aranha:servicos_faciais' %}" class="link-item">
-              <i class="bi bi-grid-3x3-gap"></i>
-              <span>Serviços</span>
-            </a>
-            <a href="{% url 'aranha:agendamento_publico' %}" class="link-item">
-              <i class="bi bi-calendar-check"></i>
-              <span>Agendamento</span>
-            </a>
-            <a href="{% url 'aranha:politica_privacidade' %}" class="link-item">
-              <i class="bi bi-shield-check"></i>
-              <span>Privacidade</span>
-            </a>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 </section>
+
 {% endblock %}
