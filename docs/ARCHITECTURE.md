@@ -172,13 +172,14 @@ Decisões: Tailwind v4 + HTMX + @alpinejs/csp (F8) + cotton + Vite; dark opciona
 
 **Achados da auditoria de front resolvidos na Onda 2:** contato quebrado · wizard a11y teclado + perda de estado · home 3h1→1 + hero LCP · jQuery/Bootstrap/AOS/purecounter/swiper fora do público · ~todos onclick inline→addEventListener (CSP). **Pendente p/ passe visual final (com as cores):** calibrar paleta (T9) · bordas de input/select não-`<c-campo>` usam currentColor em dark · remover `estrutura/base.html` morta + main.css/Bootstrap do público.
 
-### Front — Onda 3 (admin PWA)
-- [ ] Lista/tabela + filtros (15 telas: agendamentos, clientes, …)
-- [ ] Detalhe/registro (cliente_detalhe, prontuario_detalhe, …)
-- [ ] Formulário criar/editar (usuario_form, anamnese_form, …)
+### Front — Onda 3 (admin PWA) — EM ANDAMENTO (7/30 telas)
+- [x] **App-shell `painel/base_v2.html` ✅** (sidenav Alpine CSP drawer, Vite bundle, tokens, **sem jQuery/Bootstrap**, tema unificado c/ público — mata os 2 dark modes; 18 nav links preservados; verificado test-client)
+- [~] **Lista/tabela + filtros** — ✅ clientes (padrão) + profissionais, notificacoes, lista_espera, auditoria, anamneses, bloqueios (loops/forms/paginação preservados, CSP-safe); **pendente:** agendamentos (4 onclick/script) · procedimentos/promoções/pacotes (modais Bootstrap→`<c-modal>`) · usuarios · termos · excecoes · prontuario
+- [ ] Detalhe/registro (cliente_detalhe, prontuario_detalhe, anamnese_respostas, termos_compliance, editar_profissional)
+- [ ] Formulário criar/editar (usuario_form, anamnese_form, cadastro_profissional, configuracoes, branding)
 - [ ] Dashboard (overview, dashboard_financeiro)
-- [ ] Calendário (calendar)
-- [ ] Auth/2FA (2fa_challenge, 2fa_setup)
+- [ ] Calendário (calendar) · 2FA (2fa_challenge, 2fa_setup)
+- Nota: telas com modais Bootstrap (procedimentos/promoções/pacotes) e calendar (FullCalendar?) são as de maior esforço — modal→`<c-modal>` Alpine, lib de calendário a decidir.
 
 ### Front — Onda 4 (e-mails)
 - [ ] 10 templates de e-mail no novo visual
