@@ -25,5 +25,12 @@ Alpine.data('modal', () => ({
   fechar() { this.aberto = false },
 }))
 
+// App-shell do painel admin: sidenav drawer mobile + backdrop
+Alpine.data('adminShell', () => ({
+  menuAberto: false,
+  alternarMenu() { this.menuAberto = !this.menuAberto },
+  fecharMenu() { this.menuAberto = false },
+}))
+
 window.Alpine = Alpine
 Alpine.start()
