@@ -158,18 +158,19 @@ Decisões: Tailwind v4 + HTMX + @alpinejs/csp (F8) + cotton + Vite; dark opciona
 - [ ] Componentes do wizard (stepper, slot, calendário) — Onda 2
 - [ ] Quick wins auditoria: contato POST · toast textContent · jQuery fora · hero LCP · fontes · cookie-banner · hreflang · SRI
 
-### Front — Onda 2 (site público) — plano wizard [`plans/onda2-wizard.md`](plans/onda2-wizard.md)
-Abordagem wizard: pragmática (re-skin Tailwind + externalizar JS + corrigir 2 bugs; sem reescrita Alpine).
-- [ ] Home (hero D2 + seções) — **gated nas cores/fotos reais**
-- [x] **Wizard booking ✅** (W1-W5, verificado ao vivo no browser): W1 JS externalizado CSP-safe · W2 re-skin base_v2+Tailwind/tokens (Bootstrap fora, dark ok) · W3 a11y teclado (proc-card/cal-day→`<button>` focável) · W4 estado em sessionStorage + re-hidrata no reject (bug B: usuário volta ao step 3 com tudo, vê o erro) · W5 guardas de regressão. 185 testes. Contrato de booking preservado.
-- [~] **Serviços ✅** (faciais/corporais/produtos rebuild base_v2/Tailwind, padrão compartilhado, verificado browser - placeholder cor); falta especialidades/detalhe
-- [ ] Páginas de marca (quem somos/equipe/galeria/depoimentos)
-- [x] **Auto-serviço ✅** (meus_agendamentos 894L: 3 steps OTP + lista + modal cancelar, 2 onclick→addEventListener, modal a11y, toast textContent · reagendar · confirmar_presença — base_v2, contrato preservado, verificado browser)
-- [x] **Formulários públicos ✅** (contato [bug alta: POST/email/PRG], lista_espera, nps_web [JS CSP-safe], pesquisa+anamnese, confirmar_presença — base_v2, contratos preservados)
+### Front — Onda 2 (site público) — ✅ COMPLETA — plano wizard [`plans/onda2-wizard.md`](plans/onda2-wizard.md)
+**ZERO templates ainda em `estrutura/base.html` (Bootstrap morto).** Todo o site público + profissional migrado pra base_v2/Tailwind/tokens. 200 testes, sem drift, verificado no browser.
+- [x] **Home ✅** (rebuild D2: 1 h1 [era 3], hero `fetchpriority` sem lazy [LCP fix], 7 seções, FAQ/loops preservados)
+- [x] **Wizard booking ✅** (W1-W5): JS externalizado CSP-safe · re-skin base_v2 · a11y teclado (cards/dias→`<button>`) · estado sessionStorage + re-hidrata no reject (bug B) · guardas regressão. Contrato preservado.
+- [x] **Serviços ✅** (faciais/corporais/produtos rebuild padrão compartilhado · especialidades [tabs CSS-only CSP-safe] · servico_detalhe [JSON-LD preservado] — verificado browser)
+- [x] **Páginas de marca ✅** (quem_somos, equipe [loop prof], depoimentos [swiper→grid], galeria, promoções [loop] — rebuild base_v2)
+- [x] **Auto-serviço ✅** (meus_agendamentos 894L: 3 steps OTP + lista + modal · reagendar · confirmar_presença — 2 onclick→addEventListener, modal a11y, toast textContent)
+- [x] **Formulários públicos ✅** (contato [bug alta: POST/email/PRG], lista_espera, nps_web, pesquisa+anamnese — contratos preservados)
+- [x] **Cauda/legal ✅** (politica_privacidade, termos_uso, lgpd_*, *_sucesso/_obrigado, termo_assinatura/obrigado, 404 → base_v2; DSAR form preservado)
+- [x] **Auth ✅** (login + 4 reset → `base_auth` mínima, sem chrome) · **Profissional ✅** (agenda [5 onclick→0, 3 forms] · anotar)
+- [ ] embed.html (widget standalone — deixado minimal, sem chrome do site)
 
-**Milestone: TODAS as páginas funcionais públicas migradas** (wizard, contato, auth, legal/cauda, forms, auto-serviço). 200 testes, sem drift. Falta só **marketing/showcase** (gated nas cores) + 404. Nota p/ passe visual final: alguns input/select de form usam currentColor na borda em dark (não-`<c-campo>`) — corrigir junto da calibração.
-- [x] **Cauda/legal ✅** (politica_privacidade, termos_uso, lgpd_meus_dados+unsubscribe, agendamento_sucesso, nps/pesquisa_obrigado, lista_espera_sucesso → base_v2; DSAR form preservado) — falta 404
-- [x] **Auth ✅** (login + 4 telas reset → `base_auth` mínima Tailwind/tokens, sem chrome; contrato+erros preservados, verificado browser)
+**Achados da auditoria de front resolvidos na Onda 2:** contato quebrado · wizard a11y teclado + perda de estado · home 3h1→1 + hero LCP · jQuery/Bootstrap/AOS/purecounter/swiper fora do público · ~todos onclick inline→addEventListener (CSP). **Pendente p/ passe visual final (com as cores):** calibrar paleta (T9) · bordas de input/select não-`<c-campo>` usam currentColor em dark · remover `estrutura/base.html` morta + main.css/Bootstrap do público.
 
 ### Front — Onda 3 (admin PWA)
 - [ ] Lista/tabela + filtros (15 telas: agendamentos, clientes, …)
