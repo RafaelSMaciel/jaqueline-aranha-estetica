@@ -170,7 +170,9 @@ Decisões: Tailwind v4 + HTMX + @alpinejs/csp (F8) + cotton + Vite; dark opciona
 - [x] **Auth ✅** (login + 4 reset → `base_auth` mínima, sem chrome) · **Profissional ✅** (agenda [5 onclick→0, 3 forms] · anotar)
 - [ ] embed.html (widget standalone — deixado minimal, sem chrome do site)
 
-**Achados da auditoria de front resolvidos na Onda 2:** contato quebrado · wizard a11y teclado + perda de estado · home 3h1→1 + hero LCP · jQuery/Bootstrap/AOS/purecounter/swiper fora do público · ~todos onclick inline→addEventListener (CSP). **Pendente p/ passe visual final (com as cores):** calibrar paleta (T9) · bordas de input/select não-`<c-campo>` usam currentColor em dark · remover `estrutura/base.html` morta + main.css/Bootstrap do público.
+**Achados da auditoria de front resolvidos na Onda 2:** contato quebrado · wizard a11y teclado + perda de estado · home 3h1→1 + hero LCP · jQuery/Bootstrap/AOS/purecounter/swiper fora do público · ~todos onclick inline→addEventListener (CSP).
+
+**Limpeza do público ✅:** removidos 9 arquivos mortos (`estrutura/base.html`+`baserodape`, partials head/cabecalho/rodape/toasts/cookie_consent/mobile_nav, `static/css/main.css`) · bordas de form control no token (`@layer base` — corrige currentColor em dark, verificado). **Pendente:** calibrar paleta real (T9) · remover `static/vendor/`+`base.css` SÓ depois que o admin migrar (ainda usam).
 
 ### Front — Onda 3 (admin PWA) — EM ANDAMENTO (7/30 telas)
 - [x] **App-shell `painel/base_v2.html` ✅** (sidenav Alpine CSP drawer, Vite bundle, tokens, **sem jQuery/Bootstrap**, tema unificado c/ público — mata os 2 dark modes; 18 nav links preservados; verificado test-client)
