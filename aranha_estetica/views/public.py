@@ -59,7 +59,67 @@ def quem_somos(request):
     return render(request, 'publico/quem_somos.html')
 
 
+@ratelimit(key='ip', rate='5/m', method='POST', block=True)
 def agenda_contato(request):
+    """Pagina de contato publico com form POST funcional (PRG)."""
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        email = request.POST.get('email', '').strip()
+        phone = request.POST.get('phone', '').strip()
+        subject = request.POST.get('subject', '').strip()
+        message = request.POST.get('message', '').strip()
+        privacy = request.POST.get('privacy', '')
+
+        erros = []
+        if not name:
+            erros.append('nome')
+        if not email:
+            erros.append('e-mail')
+        if not subject:
+            erros.append('assunto')
+        if not message:
+            erros.append('mensagem')
+        if not privacy:
+            erros.append('aceite da política de privacidade')
+
+        if erros:
+            messages.error(request, 'Preencha todos os campos obrigatorios.')
+            return render(request, 'agenda/contato.html', {
+                'form_data': {
+                    'name': name, 'email': email,
+                    'phone': phone, 'subject': subject, 'message': message,
+                },
+            })
+
+        # Enviar e-mail para a clinica
+        from django.conf import settings
+        destino = getattr(settings, 'CLINIC_EMAIL', None) or \
+            getattr(settings, 'DEFAULT_FROM_EMAIL', 'contato@clinica.com.br')
+
+        corpo = (
+            f'Nome: {name}\n'
+            f'E-mail: {email}\n'
+            f'Telefone: {phone or "nao informado"}\n\n'
+            f'Mensagem:\n{message}'
+        )
+        try:
+            from django.core.mail import send_mail as _send_mail
+            _send_mail(
+                subject=f'Contato site: {subject}',
+                message=corpo,
+                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', None),
+                recipient_list=[destino],
+                fail_silently=False,
+            )
+        except Exception:
+            logger.exception(
+                'contato_email_falha',
+                extra={'from_email': email, 'subject': subject},
+            )
+
+        messages.success(request, 'Mensagem enviada! Entraremos em contato em breve.')
+        return redirect('aranha:agenda_contato')
+
     return render(request, 'agenda/contato.html')
 
 
