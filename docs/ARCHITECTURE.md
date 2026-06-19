@@ -161,7 +161,7 @@ Decisões: Tailwind v4 + HTMX + @alpinejs/csp (F8) + cotton + Vite; dark opciona
 ### Front — Onda 2 (site público) — plano wizard [`plans/onda2-wizard.md`](plans/onda2-wizard.md)
 Abordagem wizard: pragmática (re-skin Tailwind + externalizar JS + corrigir 2 bugs; sem reescrita Alpine).
 - [ ] Home (hero D2 + seções) — **gated nas cores/fotos reais**
-- [~] Wizard booking — **W1 ✅** (JS externalizado CSP-safe, verificado browser); pendente W2 re-skin · W3 a11y teclado (cards/dias→button) · W4 estado sessionStorage + fix reject backend · W5 verificação fluxo completo
+- [x] **Wizard booking ✅** (W1-W5, verificado ao vivo no browser): W1 JS externalizado CSP-safe · W2 re-skin base_v2+Tailwind/tokens (Bootstrap fora, dark ok) · W3 a11y teclado (proc-card/cal-day→`<button>` focável) · W4 estado em sessionStorage + re-hidrata no reject (bug B: usuário volta ao step 3 com tudo, vê o erro) · W5 guardas de regressão. 185 testes. Contrato de booking preservado.
 - [ ] Catálogo serviços (faciais/corporais/produtos/especialidades/detalhe)
 - [ ] Páginas de marca (quem somos/equipe/galeria/depoimentos)
 - [ ] Auto-serviço (meus agendamentos/reagendar/confirmar presença)
