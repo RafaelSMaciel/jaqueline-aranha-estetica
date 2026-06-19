@@ -1,63 +1,84 @@
-{% extends 'painel/base.html' %}
+{% extends 'painel/base_v2.html' %}
 
+{% block titulo %}Lista de Espera — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Lista de Espera{% endblock %}
 {% block page_subtitle %}Pacientes aguardando vagas{% endblock %}
 
 {% block admin_content %}
-<style nonce="{{ csp_nonce }}">
-    .espera-card {
-        background: white; border-radius: 16px; padding: 1rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 0.75rem;
-        border-left: 4px solid #ff9800;
-    }
-    .espera-card.notificado { border-left-color: #4caf50; opacity: 0.7; }
-    .espera-nome { font-weight: 700; font-size: 0.95rem; }
-    .espera-info { font-size: 0.8rem; color: #999; margin-top: 0.25rem; }
-    .espera-turno { font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 10px; background: #fff3e0; color: #e65100; font-weight: 700; }
-    .badge-notificado { font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 10px; background: #e8f5e9; color: #2e7d32; font-weight: 700; }
-    .btn-notificar { background: #e3f2fd; color: #1565c0; border: none; padding: 0.35rem 0.75rem; border-radius: 8px; font-size: 0.75rem; font-weight: 700; cursor: pointer; }
-</style>
 
 {% for item in lista_espera %}
-<div class="espera-card {% if item.notificado %}notificado{% endif %}">
-    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-        <div>
-            <div class="espera-nome">{{ item.cliente.nome }}</div>
-            <div class="espera-info">
-                <i class="fas fa-stethoscope"></i> {{ item.procedimento.nome }}
-                {% if item.profissional_desejado %} &middot; Prefere: {{ item.profissional_desejado.nome }}{% endif %}
-            </div>
-            <div class="espera-info">
-                <i class="far fa-calendar"></i> {{ item.data_desejada|date:"d/m/Y" }}
-                {% if item.turno_desejado %}<span class="espera-turno">{{ item.get_turno_desejado_display }}</span>{% endif %}
-            </div>
-            <div style="font-size: 0.7rem; color: #ccc; margin-top: 0.2rem;">Cadastro: {{ item.criado_em|date:"d/m/Y H:i" }}</div>
-        </div>
-        <div>
-            {% if item.notificado %}
-            <span class="badge-notificado"><i class="fas fa-check"></i> Notificado</span>
-            {% else %}
-            <form method="post" action="{% url 'aranha:admin_notificar_espera' item.pk %}">
-                {% csrf_token %}
-                <button type="submit" class="btn-notificar"><i class="fas fa-bell"></i> Notificar</button>
-            </form>
-            {% endif %}
-        </div>
+<div class="bg-white rounded-2xl shadow-sm px-4 py-4 mb-2 border-l-4 {% if item.notificado %}border-green-400 opacity-75{% else %}border-orange-400{% endif %} hover:shadow-md transition-all duration-200">
+  <div class="flex justify-between items-start gap-3">
+
+    {# Informações do paciente #}
+    <div class="flex-1 min-w-0">
+      <div class="font-bold text-[0.95rem] text-texto">{{ item.cliente.nome }}</div>
+      <div class="text-[0.8rem] text-texto-suave mt-1 flex items-center gap-1">
+        <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+        </svg>
+        {{ item.procedimento.nome }}
+        {% if item.profissional_desejado %} &middot; Prefere: {{ item.profissional_desejado.nome }}{% endif %}
+      </div>
+      <div class="text-[0.8rem] text-texto-suave mt-0.5 flex items-center gap-1">
+        <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+        {{ item.data_desejada|date:"d/m/Y" }}
+        {% if item.turno_desejado %}
+        <span class="ml-1 inline-block px-2 py-0.5 rounded-full text-[0.65rem] font-bold bg-orange-50 text-orange-700">{{ item.get_turno_desejado_display }}</span>
+        {% endif %}
+      </div>
+      <div class="text-[0.7rem] text-texto-suave mt-1">Cadastro: {{ item.criado_em|date:"d/m/Y H:i" }}</div>
     </div>
+
+    {# Ação de notificação #}
+    <div class="flex-shrink-0">
+      {% if item.notificado %}
+      <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[0.7rem] font-bold bg-green-50 text-green-700">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        Notificado
+      </span>
+      {% else %}
+      <form method="post" action="{% url 'aranha:admin_notificar_espera' item.pk %}">
+        {% csrf_token %}
+        <button type="submit"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-[0.75rem] font-bold border-none cursor-pointer hover:bg-blue-100 transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+          </svg>
+          Notificar
+        </button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
 </div>
 {% empty %}
-{% include 'partials/_empty_state.html' with icon='bi-hourglass-split' title='Lista de espera vazia' message='Nenhum cliente aguardando no momento.' %}
+<div class="bg-white rounded-2xl p-12 text-center shadow-sm">
+  <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
+    <svg class="w-7 h-7 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+    </svg>
+  </div>
+  <h5 class="font-bold text-[#1a1a2e] mb-1">Lista de espera vazia</h5>
+  <p class="text-[0.85rem] text-texto-suave">Nenhum cliente aguardando no momento.</p>
+</div>
 {% endfor %}
 
+{# ── Paginação ── #}
 {% if lista_espera.has_other_pages %}
-<div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 1rem;">
-    {% if lista_espera.has_previous %}
-    <a href="?page={{ lista_espera.previous_page_number }}" style="padding: 0.4rem 0.8rem; background: #f0f0f0; border-radius: 8px; text-decoration: none; color: #333; font-size: 0.8rem;">Anterior</a>
-    {% endif %}
-    <span style="padding: 0.4rem 0.8rem; font-size: 0.8rem; color: #999;">{{ lista_espera.number }} / {{ lista_espera.paginator.num_pages }}</span>
-    {% if lista_espera.has_next %}
-    <a href="?page={{ lista_espera.next_page_number }}" style="padding: 0.4rem 0.8rem; background: #f0f0f0; border-radius: 8px; text-decoration: none; color: #333; font-size: 0.8rem;">Próximo</a>
-    {% endif %}
+<div class="flex justify-center gap-2 mt-4">
+  {% if lista_espera.has_previous %}
+  <a href="?page={{ lista_espera.previous_page_number }}"
+     class="px-3 py-1.5 rounded-lg bg-fundo border border-borda text-[0.8rem] text-texto no-underline hover:bg-superficie transition-colors">Anterior</a>
+  {% endif %}
+  <span class="px-3 py-1.5 text-[0.8rem] text-texto-suave">{{ lista_espera.number }} / {{ lista_espera.paginator.num_pages }}</span>
+  {% if lista_espera.has_next %}
+  <a href="?page={{ lista_espera.next_page_number }}"
+     class="px-3 py-1.5 rounded-lg bg-fundo border border-borda text-[0.8rem] text-texto no-underline hover:bg-superficie transition-colors">Próximo</a>
+  {% endif %}
 </div>
 {% endif %}
+
 {% endblock %}

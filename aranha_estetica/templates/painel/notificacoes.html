@@ -1,123 +1,152 @@
-{% extends 'painel/base.html' %}
+{% extends 'painel/base_v2.html' %}
 
-{% block page_title %}Notificacoes{% endblock %}
-{% block page_subtitle %}Histórico de lembretes, confirmacoes e cancelamentos{% endblock %}
+{% block titulo %}Notificações — {{ CLINIC_NAME }}{% endblock %}
+{% block page_title %}Notificações{% endblock %}
+{% block page_subtitle %}Histórico de lembretes, confirmações e cancelamentos{% endblock %}
 
 {% block admin_content %}
 
-<!-- Stats -->
-<div class="row g-3 mb-4">
-    <div class="col-6 col-md-3">
-        <div class="stat-card">
-            <div class="stat-card-icon" style="background:rgba(33,150,243,0.1);">
-                <i class="fas fa-paper-plane" style="color:#2196F3;"></i>
-            </div>
-            <div class="stat-card-value" style="color:#2196F3;">{{ total }}</div>
-            <div class="stat-card-label">Enviadas</div>
-        </div>
+{# ── Cards de estatísticas ── #}
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+  <div class="bg-white rounded-2xl shadow-sm p-4 flex flex-col items-center gap-1">
+    <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-50 mb-1">
+      <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+      </svg>
     </div>
-    <div class="col-6 col-md-3">
-        <div class="stat-card">
-            <div class="stat-card-icon" style="background:rgba(76,175,80,0.1);">
-                <i class="fas fa-check-circle" style="color:#4CAF50;"></i>
-            </div>
-            <div class="stat-card-value" style="color:#4CAF50;">{{ confirmados }}</div>
-            <div class="stat-card-label">Confirmados</div>
-        </div>
+    <div class="font-extrabold text-[1.4rem] text-blue-600 leading-none">{{ total }}</div>
+    <div class="text-[0.72rem] font-bold text-texto-suave uppercase tracking-wide">Enviadas</div>
+  </div>
+  <div class="bg-white rounded-2xl shadow-sm p-4 flex flex-col items-center gap-1">
+    <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-green-50 mb-1">
+      <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
     </div>
-    <div class="col-6 col-md-3">
-        <div class="stat-card">
-            <div class="stat-card-icon" style="background:rgba(244,67,54,0.1);">
-                <i class="fas fa-times-circle" style="color:#F44336;"></i>
-            </div>
-            <div class="stat-card-value" style="color:#F44336;">{{ cancelados }}</div>
-            <div class="stat-card-label">Cancelados</div>
-        </div>
+    <div class="font-extrabold text-[1.4rem] text-green-600 leading-none">{{ confirmados }}</div>
+    <div class="text-[0.72rem] font-bold text-texto-suave uppercase tracking-wide">Confirmados</div>
+  </div>
+  <div class="bg-white rounded-2xl shadow-sm p-4 flex flex-col items-center gap-1">
+    <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-red-50 mb-1">
+      <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
     </div>
-    <div class="col-6 col-md-3">
-        <div class="stat-card">
-            <div class="stat-card-icon" style="background:rgba(255,152,0,0.1);">
-                <i class="fas fa-clock" style="color:#FF9800;"></i>
-            </div>
-            <div class="stat-card-value" style="color:#FF9800;">{{ sem_resposta }}</div>
-            <div class="stat-card-label">Sem Resposta</div>
-        </div>
+    <div class="font-extrabold text-[1.4rem] text-red-500 leading-none">{{ cancelados }}</div>
+    <div class="text-[0.72rem] font-bold text-texto-suave uppercase tracking-wide">Cancelados</div>
+  </div>
+  <div class="bg-white rounded-2xl shadow-sm p-4 flex flex-col items-center gap-1">
+    <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-orange-50 mb-1">
+      <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+      </svg>
     </div>
+    <div class="font-extrabold text-[1.4rem] text-orange-500 leading-none">{{ sem_resposta }}</div>
+    <div class="text-[0.72rem] font-bold text-texto-suave uppercase tracking-wide">Sem Resposta</div>
+  </div>
 </div>
 
-<!-- Filters -->
-<div class="card border-0 shadow-sm rounded-4 mb-4">
-    <div class="card-body p-3">
-        <form method="GET" class="d-flex gap-2 flex-wrap">
-            <select name="tipo" class="form-select form-select-sm bg-light border-0 rounded-pill" style="max-width:180px;">
-                <option value="all" {% if tipo_filter == 'all' %}selected{% endif %}>Todos os tipos</option>
-                <option value="LEMBRETE" {% if tipo_filter == 'LEMBRETE' %}selected{% endif %}>Lembretes</option>
-                <option value="CANCELAMENTO" {% if tipo_filter == 'CANCELAMENTO' %}selected{% endif %}>Cancelamentos</option>
-                <option value="NPS" {% if tipo_filter == 'NPS' %}selected{% endif %}>NPS</option>
-            </select>
-            <select name="status" class="form-select form-select-sm bg-light border-0 rounded-pill" style="max-width:180px;">
-                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Todos os status</option>
-                <option value="respondido" {% if status_filter == 'respondido' %}selected{% endif %}>Respondidos</option>
-                <option value="pendente" {% if status_filter == 'pendente' %}selected{% endif %}>Sem resposta</option>
-            </select>
-            <button type="submit" class="btn btn-sm rounded-pill px-3" style="background:#C9A84C;color:white;">
-                <i class="fas fa-filter me-1"></i>Filtrar
-            </button>
-        </form>
+{# ── Filtros ── #}
+<div class="bg-white rounded-2xl shadow-sm p-4 mb-4">
+  <form method="GET" class="flex gap-2 flex-wrap items-end">
+    <div class="flex-1 min-w-[140px]">
+      <label for="filtroTipo" class="sr-only">Tipo</label>
+      <select id="filtroTipo" name="tipo"
+              class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+        <option value="all" {% if tipo_filter == 'all' %}selected{% endif %}>Todos os tipos</option>
+        <option value="LEMBRETE" {% if tipo_filter == 'LEMBRETE' %}selected{% endif %}>Lembretes</option>
+        <option value="CANCELAMENTO" {% if tipo_filter == 'CANCELAMENTO' %}selected{% endif %}>Cancelamentos</option>
+        <option value="NPS" {% if tipo_filter == 'NPS' %}selected{% endif %}>NPS</option>
+      </select>
     </div>
+    <div class="flex-1 min-w-[140px]">
+      <label for="filtroStatus" class="sr-only">Status</label>
+      <select id="filtroStatus" name="status"
+              class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Todos os status</option>
+        <option value="respondido" {% if status_filter == 'respondido' %}selected{% endif %}>Respondidos</option>
+        <option value="pendente" {% if status_filter == 'pendente' %}selected{% endif %}>Sem resposta</option>
+      </select>
+    </div>
+    <button type="submit"
+            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#C9A84C] text-white text-[0.82rem] font-bold hover:bg-[#b48c4c] transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+      </svg>
+      Filtrar
+    </button>
+  </form>
 </div>
 
-<!-- Notifications List -->
+{# ── Lista de notificações ── #}
 {% if notificacoes %}
-    {% for notif in notificacoes %}
-    <div class="admin-list-item">
-        <div class="admin-list-avatar" style="background:{% if notif.resposta == 'CONFIRMOU' %}rgba(76,175,80,0.1);color:#4CAF50{% elif notif.resposta == 'CANCELOU' %}rgba(244,67,54,0.1);color:#F44336{% elif notif.tipo == 'CANCELAMENTO' %}rgba(244,67,54,0.1);color:#F44336{% else %}rgba(33,150,243,0.1);color:#2196F3{% endif %};">
-            {% if notif.resposta == 'CONFIRMOU' %}
-                <i class="fas fa-check"></i>
-            {% elif notif.resposta == 'CANCELOU' %}
-                <i class="fas fa-times"></i>
-            {% elif notif.tipo == 'CANCELAMENTO' %}
-                <i class="fas fa-ban"></i>
-            {% elif notif.tipo == 'NPS' %}
-                <i class="fas fa-star"></i>
-            {% else %}
-                <i class="fas fa-bell"></i>
-            {% endif %}
-        </div>
-        <div class="admin-list-info">
-            <div class="admin-list-title">{{ notif.atendimento.cliente.nome }}</div>
-            <div class="admin-list-meta">
-                {{ notif.atendimento.procedimento.nome }} &middot;
-                {{ notif.atendimento.data_hora_inicio|date:"d/m/Y H:i" }} &middot;
-                {{ notif.atendimento.profissional.nome }}
-            </div>
-            {% if notif.enviado_em %}
-            <div class="admin-list-meta">
-                Enviado: {{ notif.enviado_em|date:"d/m/Y H:i" }}
-                {% if notif.respondido_em %} &middot; Resposta: {{ notif.respondido_em|date:"d/m/Y H:i" }}{% endif %}
-            </div>
-            {% endif %}
-        </div>
-        <div class="admin-list-action d-flex flex-column align-items-end gap-1">
-            <span class="admin-badge {% if notif.tipo == 'LEMBRETE' %}admin-badge-blue{% elif notif.tipo == 'CANCELAMENTO' %}admin-badge-red{% elif notif.tipo == 'NPS' %}admin-badge-yellow{% else %}admin-badge-blue{% endif %}">
-                {{ notif.tipo }}
-            </span>
-            {% if notif.resposta == 'CONFIRMOU' %}
-                <span class="admin-badge admin-badge-green">Confirmou</span>
-            {% elif notif.resposta == 'CANCELOU' %}
-                <span class="admin-badge admin-badge-red">Cancelou</span>
-            {% elif notif.tipo == 'LEMBRETE' %}
-                <span class="admin-badge admin-badge-yellow">Aguardando</span>
-            {% endif %}
-        </div>
+  {% for notif in notificacoes %}
+  <div class="flex items-start gap-3 bg-white rounded-2xl shadow-sm px-4 py-3 mb-2 hover:shadow-md hover:-translate-y-px transition-all duration-200">
+
+    {# Ícone de status #}
+    <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0
+      {% if notif.resposta == 'CONFIRMOU' %}bg-green-50 text-green-600
+      {% elif notif.resposta == 'CANCELOU' or notif.tipo == 'CANCELAMENTO' %}bg-red-50 text-red-500
+      {% elif notif.tipo == 'NPS' %}bg-yellow-50 text-yellow-600
+      {% else %}bg-blue-50 text-blue-500{% endif %}" aria-hidden="true">
+      {% if notif.resposta == 'CONFIRMOU' %}
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      {% elif notif.resposta == 'CANCELOU' %}
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      {% elif notif.tipo == 'CANCELAMENTO' %}
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+      {% elif notif.tipo == 'NPS' %}
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      {% else %}
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+      {% endif %}
     </div>
-    {% endfor %}
+
+    {# Info #}
+    <div class="flex-1 min-w-0">
+      <div class="font-bold text-[0.9rem] text-texto truncate">{{ notif.atendimento.cliente.nome }}</div>
+      <div class="text-[0.72rem] text-texto-suave mt-0.5">
+        {{ notif.atendimento.procedimento.nome }} &middot;
+        {{ notif.atendimento.data_hora_inicio|date:"d/m/Y H:i" }} &middot;
+        {{ notif.atendimento.profissional.nome }}
+      </div>
+      {% if notif.enviado_em %}
+      <div class="text-[0.72rem] text-texto-suave mt-0.5">
+        Enviado: {{ notif.enviado_em|date:"d/m/Y H:i" }}
+        {% if notif.respondido_em %} &middot; Resposta: {{ notif.respondido_em|date:"d/m/Y H:i" }}{% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+    {# Badges #}
+    <div class="flex flex-col items-end gap-1 flex-shrink-0">
+      <span class="inline-block px-2 py-0.5 rounded-full text-[0.65rem] font-bold uppercase tracking-wide
+        {% if notif.tipo == 'LEMBRETE' %}bg-blue-50 text-blue-700
+        {% elif notif.tipo == 'CANCELAMENTO' %}bg-red-50 text-red-600
+        {% elif notif.tipo == 'NPS' %}bg-yellow-50 text-yellow-700
+        {% else %}bg-blue-50 text-blue-700{% endif %}">
+        {{ notif.tipo }}
+      </span>
+      {% if notif.resposta == 'CONFIRMOU' %}
+        <span class="inline-block px-2 py-0.5 rounded-full text-[0.65rem] font-bold bg-green-50 text-green-700">Confirmou</span>
+      {% elif notif.resposta == 'CANCELOU' %}
+        <span class="inline-block px-2 py-0.5 rounded-full text-[0.65rem] font-bold bg-red-50 text-red-600">Cancelou</span>
+      {% elif notif.tipo == 'LEMBRETE' %}
+        <span class="inline-block px-2 py-0.5 rounded-full text-[0.65rem] font-bold bg-yellow-50 text-yellow-700">Aguardando</span>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
 {% else %}
-    <div class="text-center py-5">
-        <i class="fas fa-bell-slash fa-2x mb-3" style="color:#DDD;"></i>
-        <h6 class="text-muted">Nenhuma notificacao encontrada</h6>
-        <p class="text-muted small">As notificacoes aparecerao aqui quando os lembretes forem enviados.</p>
+  <div class="bg-white rounded-2xl p-12 text-center shadow-sm">
+    <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
+      <svg class="w-7 h-7 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+      </svg>
     </div>
+    <h5 class="font-bold text-[#1a1a2e] mb-1">Nenhuma notificação encontrada</h5>
+    <p class="text-[0.85rem] text-texto-suave">As notificações aparecem aqui quando os lembretes são enviados.</p>
+  </div>
 {% endif %}
 
 {% endblock %}
