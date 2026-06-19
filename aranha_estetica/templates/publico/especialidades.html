@@ -1,211 +1,371 @@
-{% extends 'estrutura/base.html' %}
+{% extends 'estrutura/base_v2.html' %}
 {% load static %}
 
-{% block body_class %}especialidade-page{% endblock %}
 {% block titulo %}Especialidades | {{ CLINIC_NAME }}{% endblock %}
 
 {% block conteudo %}
-<!-- Departments Tabs Section -->
-<section id="departments-tabs" class="departments-tabs section">
-  <div class="container" data-aos="fade-up" data-aos-delay="100">
 
-    {% if grupos %}
-    <div class="medical-specialties">
-      <div class="row">
-        <div class="col-12">
-          <div class="specialty-navigation">
-            <div class="nav nav-pills d-flex" id="specialty-tabs" role="tablist" data-aos="fade-up" data-aos-delay="400">
-              {% for grupo in grupos %}
-              <a class="nav-link department-tab {% if forloop.first %}active{% endif %}"
-                 id="tab-{{ grupo.key|lower }}"
-                 data-bs-toggle="pill"
-                 href="#departments-tabs-{{ grupo.key|lower }}"
-                 role="tab"
-                 aria-controls="departments-tabs-{{ grupo.key|lower }}"
-                 aria-selected="{% if forloop.first %}true{% else %}false{% endif %}"
-                 data-aos="fade-up"
-                 data-aos-delay="{{ forloop.counter0|add:1 }}00">{{ grupo.label }}</a>
-              {% endfor %}
-            </div>
-          </div>
+{# ═══ HERO ═══ #}
+<section class="py-16 md:py-24 bg-fundo">
+  <div class="max-w-6xl mx-auto px-6 text-center">
+    <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-superficie border border-borda text-marca text-sm font-medium mb-6">
+      <svg class="w-4 h-4 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/>
+      </svg>
+      Nossas Especialidades
+    </div>
+    <h1 class="text-4xl md:text-5xl font-bold text-texto mb-4">
+      Cuidado Completo para <span class="text-marca">Sua Beleza</span>
+    </h1>
+    <p class="text-texto-suave text-lg max-w-2xl mx-auto">
+      Procedimentos estéticos avançados com profissionais qualificados e tecnologia de ponta.
+    </p>
+  </div>
+</section>
+
+{# ═══ TABS POR CATEGORIA (CSS-only: radio + :checked) ═══ #}
+{% if grupos %}
+<section class="py-16 bg-superficie">
+  <div class="max-w-6xl mx-auto px-6">
+
+    {# Para cada grupo geramos um radio oculto. O primeiro fica checked por padrão. #}
+    {# Todos os radios compartilham o mesmo name para funcionar como grupo exclusivo. #}
+    {% for grupo in grupos %}
+    <input
+      type="radio"
+      name="esp-tab"
+      id="esp-radio-{{ grupo.key|lower }}"
+      class="esp-radio sr-only"
+      {% if forloop.first %}checked{% endif %}>
+    {% endfor %}
+
+    {# — Barra de tabs — #}
+    <div class="flex flex-wrap gap-2 mb-10 border-b border-borda pb-2" role="tablist">
+      {% for grupo in grupos %}
+      <label
+        for="esp-radio-{{ grupo.key|lower }}"
+        class="esp-tab-label cursor-pointer px-5 py-2.5 rounded-t-lg text-sm font-semibold transition-colors border-b-2 border-transparent text-texto-suave hover:text-marca hover:border-marca"
+        role="tab">
+        {{ grupo.label }}
+      </label>
+      {% endfor %}
+    </div>
+
+    {# — Painéis de conteúdo — #}
+    {% for grupo in grupos %}
+    <div
+      id="esp-panel-{{ grupo.key|lower }}"
+      class="esp-panel hidden"
+      role="tabpanel">
+
+      <div class="grid lg:grid-cols-[1fr_2fr] gap-10 items-start">
+
+        {# Imagem da categoria #}
+        <div class="rounded-xl overflow-hidden aspect-[4/3]">
+          <img src="{% static 'assets/clinica/consulta-1.webp' %}"
+               alt="{{ grupo.label }}"
+               loading="lazy"
+               class="w-full h-full object-cover">
         </div>
 
-        <div class="col-12">
-          <div class="tab-content department-content" id="specialty-content" data-aos="fade-up" data-aos-delay="500">
-            {% for grupo in grupos %}
-            <div class="tab-pane fade {% if forloop.first %}show active{% endif %}"
-                 id="departments-tabs-{{ grupo.key|lower }}"
-                 role="tabpanel"
-                 aria-labelledby="tab-{{ grupo.key|lower }}">
-              <div class="row department-layout">
-                <div class="col-lg-4 order-lg-2">
-                  <div class="department-image">
-                    <img src="{% static 'assets/clinica/consulta-1.webp' %}" alt="{{ grupo.label }}" class="img-fluid" loading="lazy">
-                  </div>
-                </div>
-                <div class="col-lg-8 order-lg-1">
-                  <div class="department-info">
-                    <h2 class="department-title">{{ grupo.label }}</h2>
-                    <p class="department-description">{{ grupo.descricao|default:"Tratamentos especializados com profissionais qualificados e tecnologia avançada." }}</p>
+        {# Listagem de procedimentos #}
+        <div>
+          <h2 class="text-2xl md:text-3xl font-bold text-texto mb-2">{{ grupo.label }}</h2>
+          <p class="text-texto-suave mb-8">
+            {{ grupo.descricao|default:"Tratamentos especializados com profissionais qualificados e tecnologia avançada." }}
+          </p>
 
-                    <div class="row mt-4">
-                      {% for item in grupo.itens %}
-                      <div class="col-md-6">
-                        <div class="service-item">
-                          <div class="service-icon">
-                            <i class="fas fa-spa"></i>
-                          </div>
-                          <div class="service-content">
-                            <h4>{{ item.nome }}</h4>
-                            <p>{{ item.descricao|default:"Agende uma avaliação para saber mais."|truncatechars:100 }}
-                            {% if item.duracao_minutos %}<br><small class="text-muted"><i class="bi bi-clock me-1"></i>{{ item.duracao_minutos }}min</small>{% endif %}
-                            {% if item.preco > 0 %}<br><small class="text-muted">A partir de <strong>R$ {{ item.preco|floatformat:2 }}</strong></small>{% endif %}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      {% endfor %}
-                    </div>
-                  </div>
+          <div class="grid sm:grid-cols-2 gap-4">
+            {% for item in grupo.itens %}
+            <article class="rounded-xl border border-borda bg-fundo p-5 flex flex-col gap-3">
+              <div class="flex items-start gap-3">
+                <div class="flex-shrink-0 w-9 h-9 rounded-md bg-marca-forte flex items-center justify-center mt-0.5">
+                  <svg class="w-5 h-5 text-sobre-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/>
+                  </svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <h3 class="text-texto font-semibold text-base">{{ item.nome }}</h3>
+                  <p class="text-texto-suave text-sm mt-1 leading-relaxed">
+                    {{ item.descricao|default:"Agende uma avaliação para saber mais."|truncatechars:100 }}
+                  </p>
                 </div>
               </div>
-            </div>
+
+              <div class="flex items-center gap-4 text-xs text-texto-suave mt-auto">
+                {% if item.duracao_minutos %}
+                <span class="flex items-center gap-1">
+                  <svg class="w-3.5 h-3.5 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  {{ item.duracao_minutos }} min
+                </span>
+                {% endif %}
+                {% if item.preco > 0 %}
+                <span class="text-marca font-semibold">A partir de R$ {{ item.preco|floatformat:2 }}</span>
+                {% endif %}
+              </div>
+
+              <a href="{% url 'aranha:agendamento_publico' %}"
+                 class="inline-flex items-center gap-1 text-marca text-sm font-semibold hover:underline mt-1">
+                Agendar
+                <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </a>
+            </article>
             {% endfor %}
           </div>
         </div>
+
       </div>
     </div>
-    {% else %}
-    <div class="text-center py-5">
-      <i class="bi bi-hourglass-split fs-1 text-primary mb-3 d-block"></i>
-      <h3>Especialidades em atualização</h3>
-      <p class="text-muted">Em breve nosso catálogo completo estará disponível.</p>
-    </div>
-    {% endif %}
+    {% endfor %}
 
   </div>
 </section>
 
-<!-- Departments Section (Cards) -->
-<section id="departments" class="departments section">
-  <div class="container" data-aos="fade-up" data-aos-delay="100">
-    <div class="row g-5">
+{# CSS-only tab logic via adjacent-sibling combinators #}
+<style nonce="{{ csp_nonce }}">
+  /*
+   * Para cada radio #esp-radio-<key> checked,
+   * exibe o painel correspondente e ativa o label.
+   * Os painéis ficam hidden por padrão (classe Tailwind .hidden = display:none).
+   * Aqui sobrescrevemos com display:block quando o radio está checked.
+   *
+   * A estrutura HTML coloca TODOS os radios antes da barra de tabs e dos painéis,
+   * então usamos ~ (general sibling) para alcançar os painéis via ID.
+   */
 
-      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="100">
-        <div class="department-card">
-          <div class="department-icon">
-            <i class="fas fa-face-smile"></i>
-          </div>
-          <div class="department-image">
-            <img src="{% static 'assets/clinica/facial-4.webp' %}" alt="Tratamentos Faciais Injetáveis" class="img-fluid" loading="lazy">
-          </div>
-          <div class="department-content">
-            <h3>Tratamentos Faciais Injetáveis</h3>
-            <p>Botox (1, 2 ou 3 regiões), preenchimentos labiais, bigode chinês, malar, rinomodelação, bioestimulador e PRP.</p>
-            <a href="{% url 'aranha:servicos_faciais' %}" class="learn-more">
-              <span>Saiba Mais</span>
-              <i class="fas fa-arrow-right"></i>
-            </a>
-          </div>
-        </div>
-      </div>
+  /* Mostra o painel cujo ID corresponde ao radio checked */
+  {% for grupo in grupos %}
+  #esp-radio-{{ grupo.key|lower }}:checked ~ * #esp-panel-{{ grupo.key|lower }} {
+    display: block;
+  }
+  {% endfor %}
 
-      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="200">
-        <div class="department-card">
-          <div class="department-icon">
-            <i class="fas fa-person-walking"></i>
-          </div>
-          <div class="department-image">
-            <img src="{% static 'assets/clinica/corporal-2.webp' %}" alt="Modelagem Corporal" class="img-fluid" loading="lazy">
-          </div>
-          <div class="department-content">
-            <h3>Modelagem Corporal</h3>
-            <p>Aplicações enzimáticas para gordura localizada, flacidez e estrias, somadas a drenagem linfática e endermoterapia.</p>
-            <a href="{% url 'aranha:servicos_corporais' %}" class="learn-more">
-              <span>Saiba Mais</span>
-              <i class="fas fa-arrow-right"></i>
-            </a>
-          </div>
-        </div>
-      </div>
+  /* Destaca o label da tab ativa */
+  {% for grupo in grupos %}
+  #esp-radio-{{ grupo.key|lower }}:checked ~ * label[for="esp-radio-{{ grupo.key|lower }}"] {
+    color: var(--color-marca, #C9A84C);
+    border-bottom-color: var(--color-marca, #C9A84C);
+    background-color: var(--color-superficie, #fff);
+  }
+  {% endfor %}
+</style>
 
-      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="300">
-        <div class="department-card">
-          <div class="department-icon">
-            <i class="fas fa-hand"></i>
-          </div>
-          <div class="department-image">
-            <img src="{% static 'assets/clinica/facial-3.webp' %}" alt="Skin Care" class="img-fluid" loading="lazy">
-          </div>
-          <div class="department-content">
-            <h3>Skin Care</h3>
-            <p>Limpeza de pele, skinbooster e microagulhamento — protocolos personalizados para hidratação profunda e renovação.</p>
-            <a href="{% url 'aranha:servicos_faciais' %}" class="learn-more">
-              <span>Saiba Mais</span>
-              <i class="fas fa-arrow-right"></i>
-            </a>
-          </div>
-        </div>
-      </div>
+{% else %}
+{# Fallback quando não há grupos #}
+<section class="py-16 bg-superficie">
+  <div class="max-w-6xl mx-auto px-6 text-center">
+    <div class="mx-auto w-16 h-16 rounded-full bg-fundo border border-borda flex items-center justify-center mb-6">
+      <svg class="w-8 h-8 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+    </div>
+    <h2 class="text-2xl font-bold text-texto mb-2">Especialidades em atualização</h2>
+    <p class="text-texto-suave">Em breve nosso catálogo completo estará disponível.</p>
+  </div>
+</section>
+{% endif %}
 
-      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="100">
-        <div class="department-card">
-          <div class="department-icon">
-            <i class="fas fa-bolt"></i>
-          </div>
-          <div class="department-image">
-            <img src="{% static 'assets/clinica/depilacao-1.webp' %}" alt="Depilação a Laser" class="img-fluid" loading="lazy">
-          </div>
-          <div class="department-content">
-            <h3>Depilação a Laser</h3>
-            <p>Remoção definitiva dos pelos com tecnologia de ponta, segura para todos os fototipos de pele.</p>
-            <a href="{% url 'aranha:servicos_corporais' %}" class="learn-more">
-              <span>Saiba Mais</span>
-              <i class="fas fa-arrow-right"></i>
-            </a>
-          </div>
-        </div>
-      </div>
+{# ═══ CARDS DE CATEGORIAS ═══ #}
+<section class="py-16 md:py-24 bg-fundo">
+  <div class="max-w-6xl mx-auto px-6">
 
-      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="200">
-        <div class="department-card">
-          <div class="department-icon">
-            <i class="fas fa-spa"></i>
-          </div>
-          <div class="department-image">
-            <img src="{% static 'assets/clinica/massagem-1.webp' %}" alt="Massagens" class="img-fluid" loading="lazy">
-          </div>
-          <div class="department-content">
-            <h3>Massagens Terapêuticas</h3>
-            <p>Técnicas especializadas para alívio do estresse, relaxamento muscular e bem-estar integral.</p>
-            <a href="{% url 'aranha:servicos_corporais' %}" class="learn-more">
-              <span>Saiba Mais</span>
-              <i class="fas fa-arrow-right"></i>
-            </a>
-          </div>
-        </div>
-      </div>
+    <div class="text-center mb-14">
+      <h2 class="text-3xl md:text-4xl font-bold text-texto">Nossas Áreas de Atuação</h2>
+      <p class="text-texto-suave mt-3 text-lg">Especialidades que transformam seu bem-estar</p>
+    </div>
 
-      <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="300">
-        <div class="department-card">
-          <div class="department-icon">
-            <i class="fas fa-heart-pulse"></i>
-          </div>
-          <div class="department-image">
-            <img src="{% static 'assets/clinica/pos-operatorio-1.webp' %}" alt="Pós-operatório" class="img-fluid" loading="lazy">
-          </div>
-          <div class="department-content">
-            <h3>Pós-operatório</h3>
-            <p>Protocolos específicos para auxiliar na recuperação de cirurgias plásticas, minimizando desconfortos.</p>
-            <a href="{% url 'aranha:servicos_corporais' %}" class="learn-more">
-              <span>Saiba Mais</span>
-              <i class="fas fa-arrow-right"></i>
-            </a>
-          </div>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+
+      {# Tratamentos Faciais Injetáveis #}
+      <article class="rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
+        <div class="aspect-[16/9] overflow-hidden">
+          <img src="{% static 'assets/clinica/facial-4.webp' %}"
+               alt="Tratamentos Faciais Injetáveis"
+               loading="lazy"
+               class="w-full h-full object-cover">
         </div>
-      </div>
+        <div class="p-6 flex flex-col flex-1 gap-3">
+          <div class="w-10 h-10 rounded-lg bg-fundo border border-borda flex items-center justify-center">
+            <svg class="w-5 h-5 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 22C6.48 22 2 17.52 2 12S6.48 2 12 2s10 4.48 10 10-4.48 10-10 10z"/>
+              <path d="M12 8v4l3 3"/>
+            </svg>
+          </div>
+          <h3 class="text-texto font-bold text-lg">Tratamentos Faciais Injetáveis</h3>
+          <p class="text-texto-suave text-sm leading-relaxed flex-1">
+            Botox (1, 2 ou 3 regiões), preenchimentos labiais, bigode chinês, malar, rinomodelação, bioestimulador e PRP.
+          </p>
+          <a href="{% url 'aranha:servicos_faciais' %}"
+             class="inline-flex items-center gap-2 text-marca font-semibold text-sm hover:underline mt-auto">
+            Saiba Mais
+            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+        </div>
+      </article>
+
+      {# Modelagem Corporal #}
+      <article class="rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
+        <div class="aspect-[16/9] overflow-hidden">
+          <img src="{% static 'assets/clinica/corporal-2.webp' %}"
+               alt="Modelagem Corporal"
+               loading="lazy"
+               class="w-full h-full object-cover">
+        </div>
+        <div class="p-6 flex flex-col flex-1 gap-3">
+          <div class="w-10 h-10 rounded-lg bg-fundo border border-borda flex items-center justify-center">
+            <svg class="w-5 h-5 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+            </svg>
+          </div>
+          <h3 class="text-texto font-bold text-lg">Modelagem Corporal</h3>
+          <p class="text-texto-suave text-sm leading-relaxed flex-1">
+            Aplicações enzimáticas para gordura localizada, flacidez e estrias, somadas a drenagem linfática e endermoterapia.
+          </p>
+          <a href="{% url 'aranha:servicos_corporais' %}"
+             class="inline-flex items-center gap-2 text-marca font-semibold text-sm hover:underline mt-auto">
+            Saiba Mais
+            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+        </div>
+      </article>
+
+      {# Skin Care #}
+      <article class="rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
+        <div class="aspect-[16/9] overflow-hidden">
+          <img src="{% static 'assets/clinica/facial-3.webp' %}"
+               alt="Skin Care"
+               loading="lazy"
+               class="w-full h-full object-cover">
+        </div>
+        <div class="p-6 flex flex-col flex-1 gap-3">
+          <div class="w-10 h-10 rounded-lg bg-fundo border border-borda flex items-center justify-center">
+            <svg class="w-5 h-5 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.09 3 12.25c0 2.22 1.8 4.05 4 4.05z"/>
+              <path d="M12.56 6.6A10.97 10.97 0 0014 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 01-11.91 4.97"/>
+            </svg>
+          </div>
+          <h3 class="text-texto font-bold text-lg">Skin Care</h3>
+          <p class="text-texto-suave text-sm leading-relaxed flex-1">
+            Limpeza de pele, skinbooster e microagulhamento — protocolos personalizados para hidratação profunda e renovação.
+          </p>
+          <a href="{% url 'aranha:servicos_faciais' %}"
+             class="inline-flex items-center gap-2 text-marca font-semibold text-sm hover:underline mt-auto">
+            Saiba Mais
+            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+        </div>
+      </article>
+
+      {# Depilação a Laser #}
+      <article class="rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
+        <div class="aspect-[16/9] overflow-hidden">
+          <img src="{% static 'assets/clinica/depilacao-1.webp' %}"
+               alt="Depilação a Laser"
+               loading="lazy"
+               class="w-full h-full object-cover">
+        </div>
+        <div class="p-6 flex flex-col flex-1 gap-3">
+          <div class="w-10 h-10 rounded-lg bg-fundo border border-borda flex items-center justify-center">
+            <svg class="w-5 h-5 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+            </svg>
+          </div>
+          <h3 class="text-texto font-bold text-lg">Depilação a Laser</h3>
+          <p class="text-texto-suave text-sm leading-relaxed flex-1">
+            Remoção definitiva dos pelos com tecnologia de ponta, segura para todos os fototipos de pele.
+          </p>
+          <a href="{% url 'aranha:servicos_corporais' %}"
+             class="inline-flex items-center gap-2 text-marca font-semibold text-sm hover:underline mt-auto">
+            Saiba Mais
+            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+        </div>
+      </article>
+
+      {# Massagens Terapêuticas #}
+      <article class="rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
+        <div class="aspect-[16/9] overflow-hidden">
+          <img src="{% static 'assets/clinica/massagem-1.webp' %}"
+               alt="Massagens Terapêuticas"
+               loading="lazy"
+               class="w-full h-full object-cover">
+        </div>
+        <div class="p-6 flex flex-col flex-1 gap-3">
+          <div class="w-10 h-10 rounded-lg bg-fundo border border-borda flex items-center justify-center">
+            <svg class="w-5 h-5 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M18 8h1a4 4 0 010 8h-1"/>
+              <path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/>
+              <line x1="6" y1="1" x2="6" y2="4"/>
+              <line x1="10" y1="1" x2="10" y2="4"/>
+              <line x1="14" y1="1" x2="14" y2="4"/>
+            </svg>
+          </div>
+          <h3 class="text-texto font-bold text-lg">Massagens Terapêuticas</h3>
+          <p class="text-texto-suave text-sm leading-relaxed flex-1">
+            Técnicas especializadas para alívio do estresse, relaxamento muscular e bem-estar integral.
+          </p>
+          <a href="{% url 'aranha:servicos_corporais' %}"
+             class="inline-flex items-center gap-2 text-marca font-semibold text-sm hover:underline mt-auto">
+            Saiba Mais
+            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+        </div>
+      </article>
+
+      {# Pós-operatório #}
+      <article class="rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
+        <div class="aspect-[16/9] overflow-hidden">
+          <img src="{% static 'assets/clinica/pos-operatorio-1.webp' %}"
+               alt="Pós-operatório"
+               loading="lazy"
+               class="w-full h-full object-cover">
+        </div>
+        <div class="p-6 flex flex-col flex-1 gap-3">
+          <div class="w-10 h-10 rounded-lg bg-fundo border border-borda flex items-center justify-center">
+            <svg class="w-5 h-5 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+            </svg>
+          </div>
+          <h3 class="text-texto font-bold text-lg">Pós-operatório</h3>
+          <p class="text-texto-suave text-sm leading-relaxed flex-1">
+            Protocolos específicos para auxiliar na recuperação de cirurgias plásticas, minimizando desconfortos.
+          </p>
+          <a href="{% url 'aranha:servicos_corporais' %}"
+             class="inline-flex items-center gap-2 text-marca font-semibold text-sm hover:underline mt-auto">
+            Saiba Mais
+            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+        </div>
+      </article>
 
     </div>
   </div>
 </section>
+
+{# ═══ CTA FINAL ═══ #}
+<section class="py-16 bg-superficie">
+  <div class="max-w-3xl mx-auto px-6 text-center">
+    <h2 class="text-3xl font-bold text-texto mb-4">Pronto para Transformar Sua Beleza?</h2>
+    <p class="text-texto-suave text-lg mb-8">
+      Agende uma avaliação e descubra o protocolo ideal para você.
+    </p>
+    <div class="flex flex-wrap justify-center gap-4">
+      <a href="{% url 'aranha:agendamento_publico' %}"
+         class="inline-flex items-center gap-2 px-8 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
+        <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          <path d="M9 16l2 2 4-4"/>
+        </svg>
+        Agendar Agora
+      </a>
+      <a href="{% url 'aranha:agenda_contato' %}"
+         class="inline-flex items-center gap-2 px-8 py-3 rounded-lg border border-borda text-texto font-semibold hover:bg-fundo transition-colors">
+        Falar Conosco
+      </a>
+    </div>
+  </div>
+</section>
+
 {% endblock %}
