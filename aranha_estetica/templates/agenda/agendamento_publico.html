@@ -337,6 +337,13 @@
 {% endblock %}
 
 {% block conteudo %}
+{% if messages %}
+  {% for message in messages %}
+    {% if message.tags == 'error' %}
+      <div id="booking-error" role="alert" class="mx-auto max-w-3xl mb-4 rounded-md border px-4 py-3" style="border-color:var(--cor-erro,#b42318);color:var(--cor-erro,#b42318)">{{ message }}</div>
+    {% endif %}
+  {% endfor %}
+{% endif %}
 <div class="booking-page">
 
 <!-- Hero -->

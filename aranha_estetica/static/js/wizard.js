@@ -47,6 +47,55 @@
 
     var preselect = cfg.procPreselect || '';
 
+    // ═══ SESSION STORAGE — salvar/re-hidratar estado (W4) ═══
+    var SESSION_KEY = 'wizard_estado';
+
+    function salvarEstado() {
+        try {
+            sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+                proc: selectedProc,
+                date: selectedDate,
+                slot: selectedSlot,
+                prof: selectedProf,
+                form: {
+                    nome:       (document.getElementById('form-nome')       || {}).value || '',
+                    telefone:   (document.getElementById('form-telefone')   || {}).value || '',
+                    nascimento: (document.getElementById('form-nascimento') || {}).value || '',
+                    email:      (document.getElementById('form-email')      || {}).value || ''
+                }
+            }));
+        } catch(e) {}
+    }
+
+    function rehidratar() {
+        var el = document.getElementById('booking-error');
+        if (!el) return;
+        var raw = sessionStorage.getItem(SESSION_KEY);
+        if (!raw) return;
+        var st;
+        try { st = JSON.parse(raw); } catch(e) { return; }
+        if (!st || !st.proc) return;
+
+        selectedProc = st.proc;
+        selectedDate = st.date;
+        selectedSlot = st.slot;
+        selectedProf = st.prof;
+
+        // Repor campos do form
+        if (st.form) {
+            ['nome', 'telefone', 'nascimento', 'email'].forEach(function(k) {
+                var f = document.getElementById('form-' + k);
+                if (f && st.form[k] != null) f.value = st.form[k];
+            });
+        }
+
+        // Consome o estado salvo — não re-hidrata novamente numa visita futura limpa
+        sessionStorage.removeItem(SESSION_KEY);
+
+        // Popula hiddens + resumo + navega pro step 3 (reutiliza função existente)
+        goToStep3();
+    }
+
     // ═══ STEP NAVIGATION ═══
     window.goToStep = function(n) {
         // Hide all panels
@@ -93,6 +142,12 @@
             selectedSlot = null;
             selectedProf = null;
 
+            // Limpa estado salvo quando o usuário inicia novo fluxo sem erro ativo
+            if (!document.getElementById('booking-error')) {
+                try { sessionStorage.removeItem(SESSION_KEY); } catch(e) {}
+            }
+
+            salvarEstado();
             goToStep(2);
             currentMonth = new Date();
             loadMonth();
@@ -171,6 +226,7 @@
         selectedDate = dateStr;
         selectedSlot = null;
         selectedProf = null;
+        salvarEstado();
         document.getElementById('prof-section').style.display = 'none';
 
         var allDays = document.querySelectorAll('.cal-day');
@@ -224,6 +280,7 @@
             iso: slot.datetime_iso,
             profissionais: slot.profissionais
         };
+        salvarEstado();
 
         var profSection = document.getElementById('prof-section');
         var profOptions = document.getElementById('prof-options');
@@ -233,6 +290,7 @@
 
         if (selectedSlot.profissionais.length === 1) {
             selectedProf = selectedSlot.profissionais[0];
+            salvarEstado();
             var pbtn = document.createElement('button');
             pbtn.type = 'button';
             pbtn.className = 'prof-btn selected';
@@ -251,6 +309,7 @@
                         for (var k = 0; k < all.length; k++) all[k].classList.remove('selected');
                         this.classList.add('selected');
                         selectedProf = prof;
+                        salvarEstado();
                         setTimeout(function() { goToStep3(); }, 500);
                     });
                     profOptions.appendChild(pbtn);
@@ -382,8 +441,21 @@
             else if (v.length > 2) v = '(' + v.slice(0,2) + ') ' + v.slice(2);
             else if (v.length > 0) v = '(' + v;
             e.target.value = v;
+            salvarEstado();
         });
     }
+
+    // ═══ PERSISTÊNCIA DOS CAMPOS DO FORM (W4) ═══
+    ['form-nome', 'form-nascimento', 'form-email'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input',  salvarEstado);
+            el.addEventListener('change', salvarEstado);
+        }
+    });
+
+    // ═══ RE-HIDRATAR no load se houve erro do servidor (W4) ═══
+    rehidratar();
 
     // Pre-select
     if (preselect) {
