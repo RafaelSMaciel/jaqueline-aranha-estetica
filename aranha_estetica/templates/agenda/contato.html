@@ -1,159 +1,219 @@
-{% extends 'estrutura/base.html' %}
-{% load static %}
+{% extends 'estrutura/base_v2.html' %}
+{% load static cotton %}
 
-{% block body_class %}contact-page{% endblock %}
 {% block titulo %}Contato | {{ CLINIC_NAME }}{% endblock %}
 
 {% block conteudo %}
-<div class="page-title">
-  <div class="heading">
-    <div class="container">
-      <div class="row d-flex justify-content-center text-center">
-        <div class="col-lg-8">
-          <h1 class="heading-title">Contato</h1>
-          <p class="mb-0">
-            Estamos prontos para atender você! Entre em contato conosco para agendar sua avaliação,
-            tirar dúvidas sobre nossos procedimentos ou saber mais sobre a {{ CLINIC_NAME }}. Nossa equipe
-            está disponível para oferecer o melhor atendimento e cuidar do seu bem-estar.
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<section id="contact" class="contact section">
-  <div class="container" data-aos="fade-up" data-aos-delay="100">
-    <div class="row g-5">
-      <div class="col-lg-5">
-        <div class="contact-info-wrapper">
-          <div class="contact-info-item" data-aos="fade-up" data-aos-delay="100">
-            <div class="info-icon">
-              <i class="bi bi-geo-alt"></i>
-            </div>
-            <div class="info-content">
-              <h3>Nosso Endereço</h3>
-              <p>{{ CLINIC_ADDRESS }}</p>
-            </div>
-          </div>
-
-          <div class="contact-info-item" data-aos="fade-up" data-aos-delay="200">
-            <div class="info-icon">
-              <i class="bi bi-envelope"></i>
-            </div>
-            <div class="info-content">
-              <h3>E-mail</h3>
-              <p>{{ CLINIC_EMAIL }}</p>
-            </div>
-          </div>
-
-          <div class="contact-info-item" data-aos="fade-up" data-aos-delay="300">
-            <div class="info-icon">
-              <i class="bi bi-headset"></i>
-            </div>
-            <div class="info-content">
-              <h3>Horário de Funcionamento</h3>
-              <p>Segunda a Sexta: 9h às 20h</p>
-              <p>Sábado: 9h às 18h</p>
-              <p class="small text-muted mt-2">Atendimento mediante agendamento</p>
-            </div>
-          </div>
-
-          <div class="contact-info-item" data-aos="fade-up" data-aos-delay="400">
-            <div class="info-icon">
-              <i class="bi bi-telephone"></i>
-            </div>
-            <div class="info-content">
-              <h3>Telefone / WhatsApp</h3>
-              <p>{{ CLINIC_PHONE }}</p>
-              <p class="small text-muted mt-2">Atendimento via WhatsApp das 9h às 18h</p>
-            </div>
-          </div>
-
-          <div class="contact-info-item" data-aos="fade-up" data-aos-delay="500">
-            <div class="info-icon">
-              <i class="bi bi-shield-lock"></i>
-            </div>
-            <div class="info-content">
-              <h3>LGPD e Privacidade</h3>
-              <p>Seus dados estão protegidos conforme a Lei Geral de Proteção de Dados.</p>
-              <p class="small text-muted">Consulte nossa <a href="{% url 'aranha:politica_privacidade' %}">Política de Privacidade</a> para mais informações.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-lg-7">
-        <div class="contact-form-card" data-aos="fade-up" data-aos-delay="200">
-          <h2>Envie sua Mensagem</h2>
-          <p class="mb-4">Tem dúvidas ou quer saber mais sobre nossos serviços? Preencha o formulário abaixo e nossa equipe entrará em contato em breve.</p>
-
-          <form action="{% url 'aranha:agenda_contato' %}" method="post" class="php-email-form" data-loading-msg="Enviando mensagem...">
-            {% csrf_token %}
-            <div class="row g-4">
-              <div class="col-md-6">
-                <input type="text" class="form-control" name="name" id="name" placeholder="Seu Nome" required="">
-              </div>
-
-              <div class="col-md-6">
-                <input type="email" class="form-control" name="email" id="email" placeholder="Seu E-mail" required="">
-              </div>
-
-              <div class="col-md-6">
-                <input type="tel" class="form-control" name="phone" id="phone" placeholder="Seu Telefone (opcional)">
-              </div>
-
-              <div class="col-md-6">
-                <select class="form-select" name="subject" id="subject" required="">
-                  <option value="" selected disabled>Assunto</option>
-                  <option value="agendamento">Agendamento</option>
-                  <option value="duvida">Dúvidas sobre procedimentos</option>
-                  <option value="orcamento">Solicitar orçamento</option>
-                  <option value="parceria">Parcerias</option>
-                  <option value="outros">Outros</option>
-                </select>
-              </div>
-
-              <div class="col-12">
-                <textarea class="form-control" name="message" id="message" placeholder="Sua Mensagem" rows="6" required=""></textarea>
-              </div>
-
-              <div class="col-12">
-                <div class="form-check">
-                  <input class="form-check-input" type="checkbox" id="privacy" required>
-                  <label class="form-check-label small" for="privacy">
-                    Li e concordo com a <a href="{% url 'aranha:politica_privacidade' %}">Política de Privacidade</a> e aceito receber comunicações da {{ CLINIC_NAME }}.
-                  </label>
-                </div>
-              </div>
-
-              <div class="col-12">
-                <div class="loading">Enviando...</div>
-                <div class="error-message"></div>
-                <div class="sent-message">Sua mensagem foi enviada com sucesso! Entraremos em contato em breve.</div>
-              </div>
-
-              <div class="col-12">
-                <button type="submit" class="btn btn-submit">Enviar Mensagem</button>
-              </div>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="container-fluid map-container" data-aos="fade-up" data-aos-delay="200">
-    <div class="map-overlay"></div>
-    <iframe
-      src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3734.855!2d-49.3793!3d-20.8197!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94bdad6e5e2b7b1f%3A0x0!2sR.%20Humberto%20Delboni%2C%201107%20-%20Jardim%20Fuscaldo%2C%20S%C3%A3o%20Jos%C3%A9%20do%20Rio%20Preto%20-%20SP!5e0!3m2!1spt-BR!2sbr!4v1"
-      width="100%"
-      height="500"
-      style="border:0;"
-      allowfullscreen=""
-      loading="lazy"
-      referrerpolicy="no-referrer-when-downgrade">
-    </iframe>
+{# ── Hero ── #}
+<section class="bg-superficie border-b border-borda py-12 text-center">
+  <div class="mx-auto max-w-2xl px-4">
+    <h1 class="text-3xl font-bold text-texto">Contato</h1>
+    <p class="mt-3 text-texto-suave">
+      Estamos prontos para atender você! Entre em contato conosco para agendar sua avaliação,
+      tirar dúvidas sobre nossos procedimentos ou saber mais sobre a {{ CLINIC_NAME }}. Nossa equipe
+      está disponível para oferecer o melhor atendimento e cuidar do seu bem-estar.
+    </p>
   </div>
 </section>
+
+{# ── Mensagens Django ── #}
+{% if messages %}
+  <div class="mx-auto mt-6 max-w-5xl px-4">
+    {% for msg in messages %}
+      {% if msg.tags == 'error' or 'error' in msg.tags %}
+        <div role="alert" class="mb-3 rounded-md border border-erro px-4 py-3 text-sm text-erro bg-superficie">
+          {{ msg }}
+        </div>
+      {% else %}
+        <div role="alert" class="mb-3 rounded-md border border-green-500 px-4 py-3 text-sm text-green-700 bg-green-50 dark:bg-green-950 dark:text-green-300">
+          {{ msg }}
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+{% endif %}
+
+{# ── Conteúdo principal ── #}
+<section class="mx-auto max-w-5xl px-4 py-12">
+  <div class="grid gap-10 lg:grid-cols-5">
+
+    {# ── Info lateral ── #}
+    <aside class="lg:col-span-2 flex flex-col gap-6">
+
+      <div class="flex gap-4 items-start">
+        <span class="mt-1 text-marca shrink-0">
+          <i class="bi bi-geo-alt text-xl"></i>
+        </span>
+        <div>
+          <h3 class="font-semibold text-texto">Nosso Endereço</h3>
+          <p class="text-sm text-texto-suave mt-1">{{ CLINIC_ADDRESS }}</p>
+        </div>
+      </div>
+
+      <div class="flex gap-4 items-start">
+        <span class="mt-1 text-marca shrink-0">
+          <i class="bi bi-envelope text-xl"></i>
+        </span>
+        <div>
+          <h3 class="font-semibold text-texto">E-mail</h3>
+          <p class="text-sm text-texto-suave mt-1">{{ CLINIC_EMAIL }}</p>
+        </div>
+      </div>
+
+      <div class="flex gap-4 items-start">
+        <span class="mt-1 text-marca shrink-0">
+          <i class="bi bi-headset text-xl"></i>
+        </span>
+        <div>
+          <h3 class="font-semibold text-texto">Horário de Funcionamento</h3>
+          <p class="text-sm text-texto-suave mt-1">Segunda a Sexta: 9h às 20h</p>
+          <p class="text-sm text-texto-suave">Sábado: 9h às 18h</p>
+          <p class="text-xs text-texto-suave mt-1">Atendimento mediante agendamento</p>
+        </div>
+      </div>
+
+      <div class="flex gap-4 items-start">
+        <span class="mt-1 text-marca shrink-0">
+          <i class="bi bi-telephone text-xl"></i>
+        </span>
+        <div>
+          <h3 class="font-semibold text-texto">Telefone / WhatsApp</h3>
+          <p class="text-sm text-texto-suave mt-1">{{ CLINIC_PHONE }}</p>
+          <p class="text-xs text-texto-suave mt-1">Atendimento via WhatsApp das 9h às 18h</p>
+        </div>
+      </div>
+
+      <div class="flex gap-4 items-start">
+        <span class="mt-1 text-marca shrink-0">
+          <i class="bi bi-shield-lock text-xl"></i>
+        </span>
+        <div>
+          <h3 class="font-semibold text-texto">LGPD e Privacidade</h3>
+          <p class="text-sm text-texto-suave mt-1">Seus dados estão protegidos conforme a Lei Geral de Proteção de Dados.</p>
+          <p class="text-xs text-texto-suave mt-1">Consulte nossa <a href="{% url 'aranha:politica_privacidade' %}" class="underline text-marca">Política de Privacidade</a> para mais informações.</p>
+        </div>
+      </div>
+
+    </aside>
+
+    {# ── Formulário ── #}
+    <div class="lg:col-span-3">
+      <c-card>
+        <h2 class="text-xl font-bold text-texto mb-1">Envie sua Mensagem</h2>
+        <p class="text-sm text-texto-suave mb-6">Tem dúvidas ou quer saber mais sobre nossos serviços? Preencha o formulário abaixo e nossa equipe entrará em contato em breve.</p>
+
+        <form action="{% url 'aranha:agenda_contato' %}" method="post" novalidate>
+          {% csrf_token %}
+          <div class="grid gap-4 sm:grid-cols-2">
+
+            {# Nome #}
+            <div class="sm:col-span-1">
+              <c-campo
+                nome="name"
+                label="Seu Nome *"
+                tipo="text"
+                value="{{ form_data.name|default:'' }}"
+                placeholder="Seu nome completo"
+                required
+              />
+            </div>
+
+            {# E-mail #}
+            <div class="sm:col-span-1">
+              <c-campo
+                nome="email"
+                label="Seu E-mail *"
+                tipo="email"
+                value="{{ form_data.email|default:'' }}"
+                placeholder="seu@email.com.br"
+                required
+              />
+            </div>
+
+            {# Telefone #}
+            <div class="sm:col-span-1">
+              <c-campo
+                nome="phone"
+                label="Telefone (opcional)"
+                tipo="tel"
+                value="{{ form_data.phone|default:'' }}"
+                placeholder="(17) 99999-0000"
+              />
+            </div>
+
+            {# Assunto (select manual com label) #}
+            <div class="sm:col-span-1 flex flex-col gap-1">
+              <label for="subject" class="text-sm font-medium text-texto">Assunto *</label>
+              <select
+                id="subject"
+                name="subject"
+                required
+                class="rounded-md border border-borda bg-superficie px-3 py-2 text-texto"
+              >
+                <option value="" disabled {% if not form_data.subject %}selected{% endif %}>Selecione o assunto</option>
+                <option value="agendamento" {% if form_data.subject == 'agendamento' %}selected{% endif %}>Agendamento</option>
+                <option value="duvida" {% if form_data.subject == 'duvida' %}selected{% endif %}>Dúvidas sobre procedimentos</option>
+                <option value="orcamento" {% if form_data.subject == 'orcamento' %}selected{% endif %}>Solicitar orçamento</option>
+                <option value="parceria" {% if form_data.subject == 'parceria' %}selected{% endif %}>Parcerias</option>
+                <option value="outros" {% if form_data.subject == 'outros' %}selected{% endif %}>Outros</option>
+              </select>
+            </div>
+
+            {# Mensagem (textarea manual com label) #}
+            <div class="sm:col-span-2 flex flex-col gap-1">
+              <label for="message" class="text-sm font-medium text-texto">Mensagem *</label>
+              <textarea
+                id="message"
+                name="message"
+                rows="6"
+                required
+                placeholder="Descreva sua dúvida ou solicitação..."
+                class="rounded-md border border-borda bg-superficie px-3 py-2 text-texto"
+              >{{ form_data.message|default:'' }}</textarea>
+            </div>
+
+            {# Checkbox LGPD #}
+            <div class="sm:col-span-2 flex items-start gap-2">
+              <input
+                type="checkbox"
+                id="privacy"
+                name="privacy"
+                value="1"
+                required
+                class="mt-1 h-4 w-4 shrink-0 rounded border-borda accent-marca-forte"
+              >
+              <label for="privacy" class="text-sm text-texto-suave">
+                Li e concordo com a <a href="{% url 'aranha:politica_privacidade' %}" class="underline text-marca">Política de Privacidade</a> e aceito receber comunicações da {{ CLINIC_NAME }}.
+              </label>
+            </div>
+
+            {# Botão #}
+            <div class="sm:col-span-2">
+              <c-botao variante="solido" tipo="submit">
+                Enviar Mensagem
+              </c-botao>
+            </div>
+
+          </div>
+        </form>
+      </c-card>
+    </div>
+
+  </div>
+</section>
+
+{# ── Mapa ── #}
+<div class="mt-4">
+  <iframe
+    title="Localização da {{ CLINIC_NAME }} no mapa"
+    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3734.855!2d-49.3793!3d-20.8197!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94bdad6e5e2b7b1f%3A0x0!2sR.%20Humberto%20Delboni%2C%201107%20-%20Jardim%20Fuscaldo%2C%20S%C3%A3o%20Jos%C3%A9%20do%20Rio%20Preto%20-%20SP!5e0!3m2!1spt-BR!2sbr!4v1"
+    width="100%"
+    height="400"
+    style="border:0; display:block;"
+    allowfullscreen=""
+    loading="lazy"
+    referrerpolicy="no-referrer-when-downgrade">
+  </iframe>
+</div>
+
 {% endblock %}
