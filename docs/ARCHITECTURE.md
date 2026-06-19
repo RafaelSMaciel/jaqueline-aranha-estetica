@@ -167,7 +167,7 @@ Abordagem wizard: pragmática (re-skin Tailwind + externalizar JS + corrigir 2 b
 - [ ] Auto-serviço (meus agendamentos/reagendar/confirmar presença)
 - [~] Formulários públicos — **contato ✅** (base_v2 + form POST funcional/email/PRG/rate-limit + a11y labels/iframe title — **bug alta da auditoria resolvido**, verificado browser); pendente lista espera/anamnese/pesquisa/nps
 - [ ] Cauda (sucesso/obrigado/legal/LGPD/404)
-- [ ] Auth (login/reset senha)
+- [x] **Auth ✅** (login + 4 telas reset → `base_auth` mínima Tailwind/tokens, sem chrome; contrato+erros preservados, verificado browser)
 
 ### Front — Onda 3 (admin PWA)
 - [ ] Lista/tabela + filtros (15 telas: agendamentos, clientes, …)
