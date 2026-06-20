@@ -1,119 +1,132 @@
-{% extends 'painel/base.html' %}
+{% extends 'painel/base_v2.html' %}
 
+{% block titulo %}{% if modo == 'editar' %}Editar usuário{% else %}Novo usuário{% endif %} — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}{% if modo == 'editar' %}Editar usuário{% else %}Novo usuário{% endif %}{% endblock %}
 {% block page_subtitle %}{% if modo == 'editar' %}{{ usuario.nome }}{% else %}Cadastre recepcionista, gerente ou profissional{% endif %}{% endblock %}
 
-{% block admin_css %}
-.form-card {
-    background: white; border-radius: 16px; padding: 1.25rem;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 1rem;
-}
-.form-group { margin-bottom: 0.9rem; }
-.form-group label {
-    display: block; font-size: 0.75rem; font-weight: 700;
-    color: #666; margin-bottom: 0.3rem;
-}
-.form-group input, .form-group select {
-    width: 100%; padding: 0.55rem 0.7rem;
-    border: 1px solid #ddd; border-radius: 10px;
-    font-size: 0.9rem; background: #fafafa;
-}
-.form-group small { color: #999; font-size: 0.7rem; }
-.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
-.btn-primary-c {
-    background: linear-gradient(135deg, #8b6f47, #c9a58a);
-    color: white; border: none; padding: 0.6rem 1.4rem;
-    border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 0.9rem;
-}
-.btn-secondary-c {
-    background: white; color: #666; border: 1px solid #ddd;
-    padding: 0.6rem 1.2rem; border-radius: 10px; font-weight: 700;
-    cursor: pointer; font-size: 0.9rem; text-decoration: none;
-}
+{% block page_actions %}
+<a href="{% url 'aranha:admin_usuarios' %}"
+   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold border border-borda text-texto-suave hover:text-texto hover:border-texto-suave transition-colors no-underline">
+  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+    <polyline points="15 18 9 12 15 6"/>
+  </svg>
+  Voltar
+</a>
 {% endblock %}
 
-{% block admin_content %}
-<div class="form-card">
+{% block conteudo %}
+<div class="max-w-2xl mx-auto">
+
+  {# ── Form principal: criar/editar usuário ── #}
+  <div class="bg-superficie rounded-lg border border-borda p-6 mb-4">
     <form method="post">
-        {% csrf_token %}
+      {% csrf_token %}
 
-        <div class="form-group">
-            <label>Nome completo *</label>
-            <input type="text" name="nome" required
-                value="{{ usuario.nome|default:form_data.nome }}">
-        </div>
+      <div class="mb-4">
+        <c-campo nome="nome" label="Nome completo *" tipo="text"
+                 value="{{ usuario.nome|default:form_data.nome }}"
+                 required></c-campo>
+      </div>
 
-        <div class="form-grid">
-            <div class="form-group">
-                <label>E-mail *</label>
-                <input type="email" name="email" required
-                    value="{{ usuario.email|default:form_data.email }}">
-            </div>
-            <div class="form-group">
-                <label>Papel</label>
-                <select name="papel">
-                    {% for valor, rotulo in papeis %}
-                        <option value="{{ valor }}"
-                            {% if usuario.papel == valor %}selected{% endif %}
-                            {% if form_data.papel == valor %}selected{% endif %}>
-                            {{ rotulo }}
-                        </option>
-                    {% endfor %}
-                </select>
-                <small>Administrador · Profissional · Recepcao</small>
-            </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+        <div>
+          <c-campo nome="email" label="E-mail *" tipo="email"
+                   value="{{ usuario.email|default:form_data.email }}"
+                   required></c-campo>
         </div>
+        <div>
+          <label for="papel" class="block text-sm font-medium text-texto mb-1">Papel</label>
+          <select id="papel" name="papel"
+                  class="w-full rounded-md border border-borda bg-superficie px-3 py-2 text-texto text-sm">
+            {% for valor, rotulo in papeis %}
+              <option value="{{ valor }}"
+                {% if usuario.papel == valor %}selected{% endif %}
+                {% if form_data.papel == valor %}selected{% endif %}>
+                {{ rotulo }}
+              </option>
+            {% endfor %}
+          </select>
+          <p class="text-xs text-texto-suave mt-1">Administrador · Profissional · Recepcao</p>
+        </div>
+      </div>
 
-        <div class="form-group">
-            <label>Profissional vinculado (opcional)</label>
-            <select name="profissional_id">
-                <option value="">— nenhum —</option>
-                {% for pr in profissionais %}
-                    <option value="{{ pr.pk }}"
-                        {% if usuario.profissional_id == pr.pk %}selected{% endif %}
-                        {% if form_data.profissional_id == pr.pk|stringformat:"s" %}selected{% endif %}>
-                        {{ pr.nome }}
-                    </option>
-                {% endfor %}
-            </select>
-            <small>Só para usuários que atendem clientes (portal do profissional).</small>
-        </div>
+      <div class="mb-4">
+        <label for="profissional_id" class="block text-sm font-medium text-texto mb-1">Profissional vinculado (opcional)</label>
+        <select id="profissional_id" name="profissional_id"
+                class="w-full rounded-md border border-borda bg-superficie px-3 py-2 text-texto text-sm">
+          <option value="">— nenhum —</option>
+          {% for pr in profissionais %}
+            <option value="{{ pr.pk }}"
+              {% if usuario.profissional_id == pr.pk %}selected{% endif %}
+              {% if form_data.profissional_id == pr.pk|stringformat:"s" %}selected{% endif %}>
+              {{ pr.nome }}
+            </option>
+          {% endfor %}
+        </select>
+        <p class="text-xs text-texto-suave mt-1">Só para usuários que atendem clientes (portal do profissional).</p>
+      </div>
 
-        {% if modo == 'criar' %}
-        <div class="form-group">
-            <label>Senha inicial (opcional)</label>
-            <input type="text" name="senha" placeholder="Deixe vazio para gerar automaticamente">
-            <small>Se vazio, o sistema gera senha segura e envia por email.</small>
-        </div>
-        {% else %}
-        <div class="form-group">
-            <label>
-                <input type="checkbox" name="ativo" value="1" {% if usuario.ativo %}checked{% endif %}>
-                Ativo (pode acessar o painel)
-            </label>
-        </div>
-        {% endif %}
+      {% if modo == 'criar' %}
+      <div class="mb-4">
+        <c-campo nome="senha" label="Senha inicial (opcional)" tipo="text"
+                 placeholder="Deixe vazio para gerar automaticamente"></c-campo>
+        <p class="text-xs text-texto-suave mt-1">Se vazio, o sistema gera senha segura e envia por email.</p>
+      </div>
+      {% else %}
+      <div class="mb-4">
+        <label class="inline-flex items-center gap-2 text-sm text-texto cursor-pointer">
+          <input type="checkbox" name="ativo" value="1"
+                 {% if usuario.ativo %}checked{% endif %}
+                 class="rounded border-borda">
+          Ativo (pode acessar o painel)
+        </label>
+      </div>
+      {% endif %}
 
-        <div style="display:flex; gap:0.75rem; margin-top:1rem;">
-            <button type="submit" class="btn-primary-c">
-                <i class="fas fa-save me-1"></i>
-                {% if modo == 'editar' %}Salvar alterações{% else %}Criar usuário{% endif %}
-            </button>
-            <a href="{% url 'aranha:admin_usuarios' %}" class="btn-secondary-c">Cancelar</a>
-        </div>
+      <div class="flex gap-3 mt-6">
+        <c-botao variante="solido" tipo="submit">
+          {% if modo == 'editar' %}Salvar alterações{% else %}Criar usuário{% endif %}
+        </c-botao>
+        <a href="{% url 'aranha:admin_usuarios' %}"
+           class="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium border border-borda text-texto hover:bg-fundo transition no-underline">
+          Cancelar
+        </a>
+      </div>
 
-        {% if modo == 'editar' and usuario %}
-        <hr style="margin:1.5rem 0;">
-        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-            <form method="post" action="{% url 'aranha:admin_resetar_senha_usuario' usuario.pk %}" style="display:inline;">
-                {% csrf_token %}
-                <button type="submit" class="btn-secondary-c"
-                    onclick="return confirm('Enviar email de reset de senha para {{ usuario.email|escapejs }}?')">
-                    <i class="fas fa-key"></i> Enviar reset de senha
-                </button>
-            </form>
-        </div>
-        {% endif %}
+      {% if modo == 'editar' and usuario %}
+      <hr class="my-6 border-borda">
+      <div class="flex gap-2 flex-wrap">
+        {# Form de reset de senha: separado (sem onclick → data-confirm + addEventListener) #}
+        <form method="post" action="{% url 'aranha:admin_resetar_senha_usuario' usuario.pk %}" class="m-0">
+          {% csrf_token %}
+          <button type="submit"
+                  class="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium border border-borda text-texto hover:bg-fundo transition cursor-pointer"
+                  data-confirm="Enviar email de reset de senha para {{ usuario.email|escapejs }}?">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+            </svg>
+            Enviar reset de senha
+          </button>
+        </form>
+      </div>
+      {% endif %}
+
     </form>
+  </div>
+
 </div>
+{% endblock %}
+
+{% block js %}
+<script nonce="{{ csp_nonce }}">
+(function(){
+  document.querySelectorAll('button[data-confirm]').forEach(function(btn){
+    btn.addEventListener('click', function(e){
+      if (!window.confirm(btn.dataset.confirm)) {
+        e.preventDefault();
+      }
+    });
+  });
+})();
+</script>
 {% endblock %}

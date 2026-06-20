@@ -1,94 +1,105 @@
-{% extends 'painel/base.html' %}
+{% extends 'painel/base_v2.html' %}
 
+{% block titulo %}Editar Profissional — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Editar Profissional{% endblock %}
 {% block page_subtitle %}{{ profissional.nome }}{% endblock %}
+
 {% block page_actions %}
-<a href="{% url 'aranha:admin_excecoes' profissional.pk %}" class="btn btn-sm btn-outline-secondary">
-    <i class="fas fa-calendar-times"></i> Exceções (folgas/horários)
+<a href="{% url 'aranha:admin_excecoes' profissional.pk %}"
+   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold border border-borda text-texto-suave hover:text-texto hover:border-texto-suave transition-colors no-underline">
+  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+    <line x1="12" y1="14" x2="12" y2="18"/><line x1="10" y1="16" x2="14" y2="16"/>
+  </svg>
+  Exceções (folgas/horários)
 </a>
 {% endblock %}
 
-{% block admin_css %}
-.form-card {
-    background: white; border-radius: 16px; padding: 1.5rem;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 1rem;
-}
-.form-card-title {
-    font-weight: 800; font-size: 0.75rem; text-transform: uppercase;
-    letter-spacing: 1px; color: #7a5f1f; margin-bottom: 1rem;
-}
-.dia-check { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
-.dia-check label { font-weight: 700; font-size: 0.85rem; min-width: 110px; }
-{% endblock %}
+{% block conteudo %}
+<div class="max-w-2xl mx-auto">
 
-{% block admin_content %}
-<form method="post" action="{% url 'aranha:profissional_editar' profissional.pk %}">
+  <form method="post" action="{% url 'aranha:profissional_editar' profissional.pk %}">
     {% csrf_token %}
 
-    <div class="form-card">
-        <div class="form-card-title"><i class="fas fa-user-md me-2"></i>Dados do Profissional</div>
-        <div class="row g-3">
-            <div class="col-md-6">
-                <label class="form-label small fw-bold text-muted">Nome Completo *</label>
-                <input type="text" name="nome" class="form-control" value="{{ profissional.nome }}" required style="border-radius:10px;">
-            </div>
-            <div class="col-md-4">
-                <label class="form-label small fw-bold text-muted">Especialidade</label>
-                <input type="text" name="especialidade" class="form-control" value="{{ profissional.especialidade|default:'' }}" style="border-radius:10px;">
-            </div>
-            <div class="col-md-2">
-                <label class="form-label small fw-bold text-muted">Ativo</label>
-                <div class="form-check form-switch mt-1">
-                    <input type="checkbox" name="ativo" class="form-check-input" {% if profissional.ativo %}checked{% endif %}>
-                </div>
-            </div>
+    {# ── Dados do Profissional ── #}
+    <div class="bg-superficie rounded-lg border border-borda p-6 mb-4">
+      <p class="text-[0.7rem] font-bold uppercase tracking-widest text-marca mb-4">Dados do Profissional</p>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+        <div>
+          <c-campo nome="nome" label="Nome Completo *" tipo="text"
+                   value="{{ profissional.nome }}" required></c-campo>
         </div>
+        <div>
+          <c-campo nome="especialidade" label="Especialidade" tipo="text"
+                   value="{{ profissional.especialidade|default:'' }}"></c-campo>
+        </div>
+      </div>
+
+      <div>
+        <label class="inline-flex items-center gap-2 text-sm text-texto cursor-pointer">
+          <input type="checkbox" name="ativo" value="1"
+                 {% if profissional.ativo %}checked{% endif %}
+                 class="rounded border-borda">
+          Ativo
+        </label>
+      </div>
     </div>
 
-    <div class="form-card">
-        <div class="form-card-title"><i class="fas fa-clock me-2"></i>Disponibilidade Semanal</div>
-        {% for dia_key, dia_nome in dias_semana.items %}
-        <div class="dia-check">
-            <input type="checkbox" name="trabalha_{{ dia_key }}" id="dia_{{ dia_key }}" class="form-check-input"
-                   {% if dia_key in disponibilidades_map %}checked{% endif %}
-                   onchange="document.getElementById('horas_{{ dia_key }}').style.display = this.checked ? 'flex' : 'none';">
-            <label for="dia_{{ dia_key }}">{{ dia_nome }}</label>
-            <div id="horas_{{ dia_key }}" style="display:{% if dia_key in disponibilidades_map %}flex{% else %}none{% endif %};gap:0.5rem;align-items:center;">
-                <input type="time" name="hora_inicio_{{ dia_key }}" class="form-control form-control-sm"
-                       value="{% if dia_key in disponibilidades_map %}{{ disponibilidades_map|dictsort:dia_key }}{% endif %}"
-                       style="border-radius:8px;width:auto;">
-                <span class="small text-muted">até</span>
-                <input type="time" name="hora_fim_{{ dia_key }}" class="form-control form-control-sm"
-                       value="{% if dia_key in disponibilidades_map %}{{ disponibilidades_map|dictsort:dia_key }}{% endif %}"
-                       style="border-radius:8px;width:auto;">
-            </div>
+    {# ── Disponibilidade Semanal ── #}
+    <div class="bg-superficie rounded-lg border border-borda p-6 mb-4">
+      <p class="text-[0.7rem] font-bold uppercase tracking-widest text-marca mb-4">Disponibilidade Semanal</p>
+
+      {% for dia_key, dia_nome in dias_semana.items %}
+      {% with marcado=dia_key|lower in disponibilidades_map %}
+      <div class="flex items-center gap-3 mb-3"
+           x-data="{ aberto: {{ dia_key in disponibilidades_map|yesno:'true,false' }} }">
+        <input type="checkbox" name="trabalha_{{ dia_key }}" id="dia_{{ dia_key }}"
+               class="rounded border-borda"
+               {% if dia_key in disponibilidades_map %}checked{% endif %}
+               x-model="aberto">
+        <label for="dia_{{ dia_key }}" class="font-bold text-sm text-texto min-w-[110px] cursor-pointer">{{ dia_nome }}</label>
+        <div class="flex items-center gap-2" x-show="aberto" x-cloak>
+          <input type="time" name="hora_inicio_{{ dia_key }}"
+                 class="rounded-md border border-borda bg-superficie px-2 py-1 text-sm text-texto"
+                 value="{% if dia_key in disponibilidades_map %}{{ disponibilidades_map|dictsort:dia_key }}{% else %}09:00{% endif %}">
+          <span class="text-xs text-texto-suave">até</span>
+          <input type="time" name="hora_fim_{{ dia_key }}"
+                 class="rounded-md border border-borda bg-superficie px-2 py-1 text-sm text-texto"
+                 value="{% if dia_key in disponibilidades_map %}{{ disponibilidades_map|dictsort:dia_key }}{% else %}18:00{% endif %}">
         </div>
+      </div>
+      {% endwith %}
+      {% endfor %}
+    </div>
+
+    {# ── Procedimentos ── #}
+    <div class="bg-superficie rounded-lg border border-borda p-6 mb-4">
+      <p class="text-[0.7rem] font-bold uppercase tracking-widest text-marca mb-4">Procedimentos</p>
+
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {% for proc in procedimentos %}
+        <label class="inline-flex items-center gap-2 text-sm text-texto cursor-pointer">
+          <input type="checkbox" name="procedimentos" value="{{ proc.pk }}"
+                 id="proc_{{ proc.pk }}"
+                 {% if proc.pk in procedimentos_atuais %}checked{% endif %}
+                 class="rounded border-borda">
+          {{ proc.nome }}
+        </label>
         {% endfor %}
+      </div>
     </div>
 
-    <div class="form-card">
-        <div class="form-card-title"><i class="fas fa-spa me-2"></i>Procedimentos</div>
-        <div class="row g-2">
-            {% for proc in procedimentos %}
-            <div class="col-6 col-md-4">
-                <div class="form-check">
-                    <input type="checkbox" name="procedimentos" value="{{ proc.pk }}" class="form-check-input"
-                           id="proc_{{ proc.pk }}"
-                           {% if proc.pk in procedimentos_atuais %}checked{% endif %}>
-                    <label class="form-check-label small" for="proc_{{ proc.pk }}">{{ proc.nome }}</label>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
+    {# ── Ações ── #}
+    <div class="flex gap-3">
+      <c-botao variante="solido" tipo="submit">Salvar Alterações</c-botao>
+      <a href="{% url 'aranha:painel_profissionais' %}"
+         class="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium border border-borda text-texto hover:bg-fundo transition no-underline">
+        Cancelar
+      </a>
     </div>
 
-    <div class="d-flex gap-2">
-        <a href="{% url 'aranha:painel_profissionais' %}" class="btn btn-sm" style="background:#eee;color:#666;border-radius:10px;font-weight:700;">
-            <i class="fas fa-arrow-left me-1"></i>Cancelar
-        </a>
-        <button type="submit" class="btn btn-sm flex-grow-1" style="background:#C9A84C;color:white;border-radius:10px;font-weight:700;">
-            <i class="fas fa-save me-1"></i>Salvar Alterações
-        </button>
-    </div>
-</form>
+  </form>
+
+</div>
 {% endblock %}
