@@ -360,7 +360,7 @@ def job_promocao_mensal(self, assunto, corpo_html_partial, cupom=None, validade_
       validade_dias: dias ate expiracao do cupom (default 30)
     """
     try:
-        from .utils.email import _enviar_email
+        from .utils.email import enviar_promocao_email
         from .models import Cliente
 
         destinatarios = Cliente.objects.filter(
@@ -374,17 +374,18 @@ def job_promocao_mensal(self, assunto, corpo_html_partial, cupom=None, validade_
         validade = (timezone.now().date() + timedelta(days=validade_dias)).strftime('%d/%m/%Y')
         enviados = 0
         for cliente in destinatarios:
-            ok = _enviar_email(
-                destinatario=cliente.email,
-                assunto=assunto,
-                template='email/promocao.html',
-                contexto={
+            # Roteia pelo helper dedicado: aplica bleach em corpo_html (anti-XSS)
+            # e injeta header List-Unsubscribe (RFC 8058) por ser marketing.
+            ok = enviar_promocao_email(
+                cliente.email,
+                {
                     'nome': cliente.nome,
                     'corpo_html': corpo_html_partial,
                     'cupom': cupom,
                     'validade': validade,
-                    'token_descadastro': cliente.token_descadastro,
                 },
+                unsub_token=cliente.token_descadastro,
+                assunto=assunto,
             )
             if ok:
                 enviados += 1
