@@ -1,5 +1,5 @@
 // Service Worker — estrategia hibrida (cache-first estaticos, network-first HTML)
-const VERSION = 'v5';
+const VERSION = 'v6';
 const STATIC_CACHE = `aranha-static-${VERSION}`;
 const RUNTIME_CACHE = `aranha-runtime-${VERSION}`;
 const IMAGE_CACHE = `aranha-img-${VERSION}`;
@@ -10,7 +10,6 @@ const PRECACHE_URLS = [
   '/static/assets/logo-completa.png',
   '/static/assets/logo-sem-fundo.png',
   '/static/assets/favicon.png',
-  '/static/css/base.css',
   '/static/js/admin-search.js',
 ];
 
