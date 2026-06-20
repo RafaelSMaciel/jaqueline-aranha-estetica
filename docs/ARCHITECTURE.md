@@ -187,8 +187,15 @@ Decisões: Tailwind v4 + HTMX + @alpinejs/csp (F8) + cotton + Vite; dark opciona
 - **Padrões CSP novos em `app.js`:** `anotacaoModal` (fetch), `pacoteCriar` (clonar item), `data-confirm` global delegado, import `admin-search.js`. Toda FontAwesome/Bootstrap-icons → SVG inline; onchange/onclick inline → delegados.
 - **Bug pré-existente corrigido:** `views/pacotes.py` usava `Count('pacotecliente')` (rename do remodel 0032 quebrou a página) → `Count('comprapacote')`.
 
-### Front — Onda 4 (e-mails)
-- [ ] 10 templates de e-mail no novo visual
+### Front — Onda 4 (e-mails) — ✅ passe de consistência (visual, não-cor)
+**Constatação:** os 10 e-mails NÃO eram código velho — todos herdam `email/base_email.html` (shell email-safe: tabelas, inline, dark-mode media query, responsivo, MSO). Visual gold/serif já coeso. Auditoria paralela (10 agentes) → passe de consistência **não-cor** (cor final fica pro T9):
+- [x] **dark-mode:** aplicadas classes `.text-main/.text-soft/.text-muted/.card-inner` da base nos textos/cards que tinham só cor inline (antes: texto escuro-sobre-escuro ilegível no dark). Classes só existem no `@media dark` → light idêntico, **zero mudança de cor**.
+- [x] **acentos** PT-BR corrigidos; **header_sub** contextual (cancelamento/nps/termos/aprovacao); `<p>`→`<h1 hero-title>`; `<div>` card→`<table role=presentation>`; botão com fallback Outlook (`background-color` sólido + pill/shadow); `color:white`→`#ffffff`; otp media-query mobile corrigida. Commit `b8cc97e`. Verificado: hex/vars/hrefs idênticos, 10/10 renderizam, 216 testes.
+
+**⚠️ Achados de BACKEND de e-mail (correção/segurança — pendente decisão do dono, NÃO alterados):**
+1. **Unsubscribe quebrado:** `base_email.html` checa `{% if unsubscribe_url %}` mas `utils/email.py` seta `unsub_url` (nome diferente) → rodapé de descadastro da base **nunca renderiza**. Além disso há 2 paths divergentes: util usa `/lgpd/unsubscribe/<tok>/`, `promocao.html` (footer_extra) usa `/unsubscribe/<tok>/`.
+2. **Promo com 2 caminhos de envio inconsistentes:** `tasks.py:job_promocao_mensal` passa contexto **flat** (bate com o template ✓) **mas pula o bleach** (`corpo_html|safe` = risco XSS) e não manda header List-Unsubscribe (RFC 8058). Já `notificacao.py:EmailService.enviar_promocao` → `enviar_promocao_email` embrulha em `{'dados': dados}` → template usa `{{ nome }}` top-level → renderiza **em branco**.
+3. **Não-issue:** `{{ site_url }}/path/` é seguro (`SITE_URL.rstrip('/')`).
 
 ### Regras de negócio (registry — spec [`specs/regras-negocio-registry.md`](specs/regras-negocio-registry.md))
 - [x] Revisão das regras + referências de mercado + catálogo (2026-06-14)
@@ -199,4 +206,4 @@ Decisões: Tailwind v4 + HTMX + @alpinejs/csp (F8) + cotton + Vite; dark opciona
 
 ---
 
-_Última atualização: 2026-06-19 — Onda 3 admin COMPLETA (30/30 telas em base_v2/Tailwind/Alpine CSP); pré-req p/ limpeza de `base.html`/`base.css`/`vendor` desbloqueado._
+_Última atualização: 2026-06-19 — Onda 3 admin COMPLETA (30/30); limpeza de morto admin feita; Onda 4 e-mails = passe de consistência não-cor (10/10) + achados de backend de e-mail flagados p/ decisão. Resta só T9 (cores reais)._
