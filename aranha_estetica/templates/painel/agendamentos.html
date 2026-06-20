@@ -1,260 +1,230 @@
-{% extends 'painel/base.html' %}
+{% extends 'painel/base_v2.html' %}
 
+{% block titulo %}Agendamentos — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Agendamentos{% endblock %}
 {% block page_subtitle %}Gerencie todos os agendamentos da clínica{% endblock %}
 {% block page_actions %}
-<a href="{% url 'aranha:agendamento_publico' %}" class="btn-admin-primary btn-sm"><i class="bi bi-plus-lg"></i> Novo agendamento</a>
-<a href="{% url 'aranha:exportar_relatorio_excel' %}" class="btn btn-sm btn-outline-secondary" style="border-radius:10px;"><i class="bi bi-file-earmark-excel"></i> Excel</a>
-{% endblock %}
-
-{% block admin_css %}
-.agend-filters {
-    background: white; border-radius: 16px; padding: 1rem;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 1rem;
-}
-.agend-card {
-    background: white; border-radius: 14px; padding: 1rem;
-    margin-bottom: 0.6rem; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-    display: flex; align-items: center; gap: 0.75rem;
-}
-.agend-avatar {
-    width: 44px; height: 44px; border-radius: 12px;
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 800; font-size: 0.75rem; flex-shrink: 0;
-}
-.agend-info { flex: 1; min-width: 0; }
-.agend-name { font-weight: 700; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.agend-meta { font-size: 0.72rem; color: #999; }
-.agend-actions { display: flex; gap: 0.3rem; flex-shrink: 0; align-items: center; }
-.status-select {
-    padding: 0.2rem 0.4rem; border-radius: 8px; border: 2px solid #eee;
-    font-size: 0.7rem; font-weight: 700; cursor: pointer; background: white;
-}
-.btn-wpp-sm {
-    width: 30px; height: 30px; border-radius: 8px; border: none;
-    display: flex; align-items: center; justify-content: center;
-    background: #dcf5e7; color: #25D366; font-size: 0.8rem;
-    cursor: pointer; text-decoration: none;
-}
-.btn-wpp-sm:hover { background: #c8ebd8; }
-.agend-card.is-pendente {
-    border-left: 4px solid #f9a825;
-    background: linear-gradient(90deg, #fffbef 0%, white 80%);
-}
-.btn-aprovar-inline {
-    background: #2e7d32; color: white; border: none;
-    padding: 0.35rem 0.7rem; border-radius: 8px; cursor: pointer;
-    font-size: 0.7rem; font-weight: 700;
-    display: inline-flex; align-items: center; gap: 0.3rem;
-}
-.btn-aprovar-inline:hover { background: #1b5e20; }
-.btn-rejeitar-inline {
-    background: white; color: #c62828; border: 1.5px solid #c62828;
-    padding: 0.35rem 0.7rem; border-radius: 8px; cursor: pointer;
-    font-size: 0.7rem; font-weight: 700;
-    display: inline-flex; align-items: center; gap: 0.3rem;
-}
-.btn-rejeitar-inline:hover { background: #c62828; color: white; }
+<a href="{% url 'aranha:agendamento_publico' %}"
+   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white no-underline hover:opacity-90 transition-opacity">
+  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  Novo agendamento
+</a>
+<a href="{% url 'aranha:exportar_relatorio_excel' %}"
+   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold border border-borda text-texto-suave no-underline hover:text-texto hover:border-texto-suave transition-colors">
+  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+  Excel
+</a>
 {% endblock %}
 
 {% block admin_content %}
-<!-- Filters -->
-<div class="agend-filters">
-    <form method="GET" class="row g-2 align-items-end">
-        <div class="col-4 col-md-2">
-            <select name="status" class="form-select form-select-sm" style="border-radius:10px;">
-                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Todos</option>
-                <option value="pendente" {% if status_filter == 'pendente' %}selected{% endif %}>⏳ Pendente aprovação</option>
-                <option value="agendado" {% if status_filter == 'agendado' %}selected{% endif %}>Agendado</option>
-                <option value="confirmado" {% if status_filter == 'confirmado' %}selected{% endif %}>Confirmado</option>
-                <option value="realizado" {% if status_filter == 'realizado' %}selected{% endif %}>Realizado</option>
-                <option value="cancelado" {% if status_filter == 'cancelado' %}selected{% endif %}>Cancelado</option>
-                <option value="faltou" {% if status_filter == 'faltou' %}selected{% endif %}>Faltou</option>
-            </select>
-        </div>
-        <div class="col-4 col-md-2">
-            <input type="date" name="data" class="form-control form-control-sm" value="{{ request.GET.data }}" style="border-radius:10px;">
-        </div>
-        <div class="col-4 col-md-2">
-            <select name="profissional" class="form-select form-select-sm" style="border-radius:10px;">
-                <option value="">Todos profissionais</option>
-                {% for prof in profissionais %}
-                <option value="{{ prof.pk }}" {% if request.GET.profissional == prof.pk|stringformat:"d" %}selected{% endif %}>{{ prof.nome }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="col-6 col-md-2 d-flex gap-1">
-            <button type="submit" class="btn-admin-primary btn-sm flex-grow-1 justify-content-center">
-                <i class="fas fa-search"></i>Filtrar
-            </button>
-            {% if request.GET.status or request.GET.data or request.GET.profissional %}
-            <a href="{% url 'aranha:painel_agendamentos' %}" class="btn btn-sm btn-outline-secondary" style="border-radius:10px;" title="Limpar filtros" aria-label="Limpar filtros">
-                <i class="fas fa-times"></i>
-            </a>
-            {% endif %}
-        </div>
-        <div class="col-6 col-md-4 text-end">
-            <a href="{% url 'aranha:agendamento_publico' %}" class="btn-admin-dark btn-sm">
-                <i class="fas fa-plus"></i>Novo Agendamento
-            </a>
-            <a href="{% url 'aranha:exportar_relatorio_excel' %}" class="btn btn-sm" style="background:#217346;color:white;border-radius:10px;font-weight:700;">
-                <i class="fas fa-file-excel me-1"></i>Excel
-            </a>
-        </div>
-    </form>
+
+{# ── Filtros ── #}
+<div class="bg-white rounded-2xl shadow-sm p-4 mb-3">
+  <form method="get" class="grid grid-cols-2 md:grid-cols-12 gap-2 items-end">
+    <div class="col-span-1 md:col-span-2">
+      <select name="status" class="w-full px-2.5 py-1.5 rounded-lg border border-borda bg-fundo text-[0.8rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Todos</option>
+        <option value="pendente" {% if status_filter == 'pendente' %}selected{% endif %}>⏳ Pendente aprovação</option>
+        <option value="agendado" {% if status_filter == 'agendado' %}selected{% endif %}>Agendado</option>
+        <option value="confirmado" {% if status_filter == 'confirmado' %}selected{% endif %}>Confirmado</option>
+        <option value="realizado" {% if status_filter == 'realizado' %}selected{% endif %}>Realizado</option>
+        <option value="cancelado" {% if status_filter == 'cancelado' %}selected{% endif %}>Cancelado</option>
+        <option value="faltou" {% if status_filter == 'faltou' %}selected{% endif %}>Faltou</option>
+      </select>
+    </div>
+    <div class="col-span-1 md:col-span-2">
+      <input type="date" name="data" value="{{ request.GET.data }}" class="w-full px-2.5 py-1.5 rounded-lg border border-borda bg-fundo text-[0.8rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+    </div>
+    <div class="col-span-2 md:col-span-2">
+      <select name="profissional" class="w-full px-2.5 py-1.5 rounded-lg border border-borda bg-fundo text-[0.8rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+        <option value="">Todos profissionais</option>
+        {% for prof in profissionais %}
+        <option value="{{ prof.pk }}" {% if request.GET.profissional == prof.pk|stringformat:"d" %}selected{% endif %}>{{ prof.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-span-2 md:col-span-6 flex gap-1.5">
+      <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-[#1a1a2e] text-white text-[0.8rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Filtrar
+      </button>
+      {% if request.GET.status or request.GET.data or request.GET.profissional %}
+      <a href="{% url 'aranha:painel_agendamentos' %}" title="Limpar filtros" aria-label="Limpar filtros"
+         class="inline-flex items-center px-3 py-1.5 rounded-lg border border-borda text-texto-suave no-underline hover:bg-fundo transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </a>
+      {% endif %}
+    </div>
+  </form>
 </div>
 
-<!-- Bulk toolbar (aparece quando >=1 pendente selecionado) -->
 <form method="post" action="{% url 'aranha:admin_bulk_agendamentos' %}" id="bulkForm">
-    {% csrf_token %}
-    <div id="bulkToolbar" style="display:none; position:sticky; top:52px; z-index:40; background:#1a1a2e; color:white; padding:0.55rem 0.9rem; border-radius:12px; margin-bottom:0.75rem; box-shadow:0 4px 16px rgba(0,0,0,0.25); align-items:center; gap:0.5rem;">
-        <span id="bulkCount" style="font-weight:800; font-size:0.85rem;">0 selecionado(s)</span>
-        <div style="flex:1;"></div>
-        <button type="submit" name="acao" value="aprovar" class="btn btn-sm" style="background:#2e7d32; color:white; border:none; font-weight:700; border-radius:8px; padding:0.35rem 0.9rem;" onclick="return confirm('Aprovar todos selecionados?')">
-            <i class="fas fa-check"></i> Aprovar
-        </button>
-        <button type="submit" name="acao" value="rejeitar" class="btn btn-sm" style="background:#c62828; color:white; border:none; font-weight:700; border-radius:8px; padding:0.35rem 0.9rem;" onclick="return confirm('Rejeitar todos selecionados?')">
-            <i class="fas fa-times"></i> Rejeitar
-        </button>
-        <button type="button" id="bulkClear" class="btn btn-sm" style="background:transparent; color:rgba(255,255,255,0.7); border:1px solid rgba(255,255,255,0.3); border-radius:8px; padding:0.35rem 0.7rem;">Limpar</button>
-    </div>
+  {% csrf_token %}
+  <div id="bulkToolbar" style="display:none;" class="sticky top-[52px] z-40 items-center gap-2 bg-[#1a1a2e] text-white px-3.5 py-2 rounded-xl mb-3 shadow-lg">
+    <span id="bulkCount" class="font-extrabold text-[0.85rem]">0 selecionado(s)</span>
+    <div class="flex-1"></div>
+    <button type="submit" name="acao" value="aprovar" data-confirm="Aprovar todos selecionados?"
+            class="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-lg bg-green-700 text-white text-[0.8rem] font-bold border-none cursor-pointer hover:bg-green-800 transition-colors">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg> Aprovar
+    </button>
+    <button type="submit" name="acao" value="rejeitar" data-confirm="Rejeitar todos selecionados?"
+            class="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-lg bg-red-700 text-white text-[0.8rem] font-bold border-none cursor-pointer hover:bg-red-800 transition-colors">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Rejeitar
+    </button>
+    <button type="button" id="bulkClear"
+            class="px-3 py-1.5 rounded-lg bg-transparent text-white/70 border border-white/30 text-[0.8rem] cursor-pointer hover:text-white transition-colors">Limpar</button>
+  </div>
 
-<!-- Filtro instantaneo -->
-<div style="background:white; border-radius:12px; padding:0.5rem 0.75rem; margin-bottom:0.5rem; box-shadow:0 1px 4px rgba(0,0,0,0.04);">
-    <input type="text" id="filtroAgendInstant" class="form-control form-control-sm"
+  {# Filtro instantâneo (admin-search.js, bundled) #}
+  <div class="bg-white rounded-xl shadow-sm px-3 py-2 mb-2">
+    <input type="text" id="filtroAgendInstant"
            placeholder="Filtrar visíveis (paciente, procedimento, profissional)..."
-           style="border-radius:10px;"
            data-search-filter="#listaAgendamentos"
            data-search-counter="#cntAgendVisiveis"
-           data-search-empty="#emptyFiltroAgend">
-</div>
+           data-search-empty="#emptyFiltroAgend"
+           class="w-full px-3 py-1.5 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+  </div>
 
-<!-- Lista -->
-<div class="d-flex justify-content-between align-items-center mb-2">
-    <div class="small text-muted fw-bold"><i class="fas fa-list me-1"></i><span id="cntAgendVisiveis">{{ agendamentos|length }}</span> agendamento(s)</div>
+  <div class="flex justify-between items-center mb-2">
+    <div class="flex items-center gap-1.5 text-[0.8rem] text-texto-suave font-bold">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      <span id="cntAgendVisiveis">{{ agendamentos|length }}</span> agendamento(s)
+    </div>
     {% if agendamentos %}
-    <label class="small fw-bold" style="cursor:pointer; color:#666;">
-        <input type="checkbox" id="bulkSelectAll"> Selecionar todos pendentes
+    <label class="flex items-center gap-1.5 text-[0.8rem] font-bold text-texto-suave cursor-pointer">
+      <input type="checkbox" id="bulkSelectAll" class="rounded border-borda"> Selecionar todos pendentes
     </label>
     {% endif %}
-</div>
+  </div>
 
-<div id="listaAgendamentos" data-search-rows=".agend-card">
-{% for agend in agendamentos %}
-<div class="agend-card {% if agend.status == 'PENDENTE' %}is-pendente{% endif %}" id="appt-{{ agend.pk }}" data-search-text="{{ agend.cliente.nome }} {{ agend.procedimento.nome }} {{ agend.profissional.nome }} {{ agend.status }}">
+  <div id="listaAgendamentos" data-search-rows=".agend-card">
+  {% for agend in agendamentos %}
+  <div class="agend-card flex items-center gap-3 bg-white rounded-2xl shadow-sm p-4 mb-1.5 {% if agend.status == 'PENDENTE' %}border-l-4 border-amber-500{% endif %}"
+       id="appt-{{ agend.pk }}"
+       data-search-text="{{ agend.cliente.nome }} {{ agend.procedimento.nome }} {{ agend.profissional.nome }} {{ agend.status }}">
     {% if agend.status == 'PENDENTE' %}
-    <input type="checkbox" name="ids" value="{{ agend.pk }}" class="bulk-checkbox" style="width:18px; height:18px; flex-shrink:0; cursor:pointer; accent-color:#8b6f47;">
+    <input type="checkbox" name="ids" value="{{ agend.pk }}" class="bulk-checkbox w-[18px] h-[18px] shrink-0 cursor-pointer" style="accent-color:#8b6f47;">
     {% endif %}
-    <div class="agend-avatar" style="background:{% if agend.status == 'CONFIRMADO' %}#e8f5e9;color:#2e7d32{% elif agend.status == 'CANCELADO' %}#fce4ec;color:#c62828{% elif agend.status == 'REALIZADO' %}#e3f2fd;color:#1565c0{% elif agend.status == 'FALTOU' %}#f3e5f5;color:#7b1fa2{% else %}#fff8e1;color:#f57f17{% endif %}">
-        {{ agend.cliente.nome|make_list|first }}{{ agend.cliente.nome|make_list|last }}
+    <div class="w-11 h-11 rounded-xl flex items-center justify-center font-extrabold text-[0.75rem] shrink-0"
+         style="background:{% if agend.status == 'CONFIRMADO' %}#e8f5e9;color:#2e7d32{% elif agend.status == 'CANCELADO' %}#fce4ec;color:#c62828{% elif agend.status == 'REALIZADO' %}#e3f2fd;color:#1565c0{% elif agend.status == 'FALTOU' %}#f3e5f5;color:#7b1fa2{% else %}#fff8e1;color:#f57f17{% endif %}">
+      {{ agend.cliente.nome|make_list|first }}{{ agend.cliente.nome|make_list|last }}
     </div>
-    <div class="agend-info">
-        <div class="agend-name">
-            {{ agend.cliente.nome }}
-            {% if agend.cliente.prontuario.alergias or agend.cliente.prontuario.contraindicacoes %}
-            <span class="badge-alergia" title="{% if agend.cliente.prontuario.alergias %}Alergias: {{ agend.cliente.prontuario.alergias }}{% endif %}{% if agend.cliente.prontuario.contraindicacoes %}{% if agend.cliente.prontuario.alergias %} | {% endif %}Contraindicações: {{ agend.cliente.prontuario.contraindicacoes }}{% endif %}"
-                  style="display:inline-block;background:#ffebee;color:#c62828;border:1px solid #c62828;border-radius:12px;padding:1px 8px;font-size:0.7rem;font-weight:700;margin-left:6px;vertical-align:middle;">
-                <i class="fas fa-exclamation-triangle"></i> Alergia/Restrição
-            </span>
-            {% endif %}
-        </div>
-        <div class="agend-meta">
-            {{ agend.procedimento.nome }} &bull; {{ agend.profissional.nome }}
-            &bull; {{ agend.data_hora_inicio|date:"d/m/Y" }} {{ agend.data_hora_inicio|time:"H:i" }}-{{ agend.data_hora_fim|time:"H:i" }}
-            &bull; <span class="status-text-{{ agend.pk }}">{% include 'partials/_status_badge.html' with status=agend.status %}</span>
-        </div>
-        {% if agend.cliente.telefone %}
-        <div class="agend-meta"><i class="fas fa-phone me-1"></i>{{ agend.cliente.telefone }}</div>
+    <div class="flex-1 min-w-0">
+      <div class="font-bold text-[0.9rem] text-texto truncate">
+        {{ agend.cliente.nome }}
+        {% if agend.cliente.prontuario.alergias or agend.cliente.prontuario.contraindicacoes %}
+        <span title="{% if agend.cliente.prontuario.alergias %}Alergias: {{ agend.cliente.prontuario.alergias }}{% endif %}{% if agend.cliente.prontuario.contraindicacoes %}{% if agend.cliente.prontuario.alergias %} | {% endif %}Contraindicações: {{ agend.cliente.prontuario.contraindicacoes }}{% endif %}"
+              class="inline-flex items-center gap-1 align-middle ml-1.5 px-2 py-px rounded-full text-[0.65rem] font-bold bg-red-50 text-red-600 border border-red-600">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Alergia/Restrição
+        </span>
         {% endif %}
+      </div>
+      <div class="flex items-center gap-1.5 flex-wrap text-[0.72rem] text-texto-suave">
+        {{ agend.procedimento.nome }} &bull; {{ agend.profissional.nome }} &bull;
+        {{ agend.data_hora_inicio|date:"d/m/Y" }} {{ agend.data_hora_inicio|time:"H:i" }}-{{ agend.data_hora_fim|time:"H:i" }} &bull;
+        <span class="status-text-{{ agend.pk }}">{% include 'partials/_status_badge.html' with status=agend.status %}</span>
+      </div>
+      {% if agend.cliente.telefone %}
+      <div class="flex items-center gap-1 text-[0.72rem] text-texto-suave mt-0.5">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.13.81.36 1.6.7 2.34a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.74-1.74a2 2 0 012.11-.45c.74.34 1.53.57 2.34.7A2 2 0 0122 16.92z"/></svg>
+        {{ agend.cliente.telefone }}
+      </div>
+      {% endif %}
     </div>
-    <div class="agend-actions">
-        {% if agend.valor_cobrado %}
-        <span class="small fw-bold" style="color:#2e7d32;">R$ {{ agend.valor_cobrado|floatformat:2 }}</span>
-        {% endif %}
-        {% if agend.status == 'PENDENTE' %}
-        <form method="post" action="{% url 'aranha:admin_aprovar_agendamento' pk=agend.pk %}" style="margin:0;">
-            {% csrf_token %}
-            <button type="submit" class="btn-aprovar-inline" onclick="return confirm('Aprovar agendamento?')">
-                <i class="fas fa-check"></i> Aprovar
-            </button>
-        </form>
-        <form method="post" action="{% url 'aranha:admin_rejeitar_agendamento' pk=agend.pk %}" style="margin:0;">
-            {% csrf_token %}
-            <button type="submit" class="btn-rejeitar-inline" onclick="return confirm('Rejeitar agendamento?')">
-                <i class="fas fa-times"></i> Rejeitar
-            </button>
-        </form>
-        {% endif %}
-        <select class="status-select" onchange="atualizarStatus({{ agend.pk }}, this.value)" title="Alterar status">
-            <option value="">⚡</option>
-            <option value="CONFIRMADO" {% if agend.status == 'CONFIRMADO' %}disabled{% endif %}>✅ Confirmar</option>
-            <option value="REALIZADO" {% if agend.status == 'REALIZADO' %}disabled{% endif %}>✔️ Realizado</option>
-            <option value="CANCELADO" {% if agend.status == 'CANCELADO' %}disabled{% endif %}>❌ Cancelar</option>
-            <option value="FALTOU" {% if agend.status == 'FALTOU' %}disabled{% endif %}>⛔ Faltou</option>
-        </select>
-        {% if agend.cliente.telefone %}
-        <a href="https://wa.me/55{{ agend.cliente.telefone|cut:'(' |cut:')' |cut:'-' |cut:' ' }}?text=Ol%C3%A1%20{{ agend.cliente.nome|urlencode }}%2C%20confirmamos%20seu%20agendamento%20de%20{{ agend.procedimento.nome|urlencode }}%20para%20{{ agend.data_hora_inicio|date:'d/m/Y' }}%20%C3%A0s%20{{ agend.data_hora_inicio|time:'H:i' }}.%20{{ CLINIC_NAME|urlencode }}"
-           target="_blank" class="btn-wpp-sm" title="WhatsApp">
-            <i class="fab fa-whatsapp"></i>
-        </a>
-        {% endif %}
+    <div class="flex items-center gap-1.5 shrink-0">
+      {% if agend.valor_cobrado %}
+      <span class="text-[0.78rem] font-bold text-green-700">R$ {{ agend.valor_cobrado|floatformat:2 }}</span>
+      {% endif %}
+      {% if agend.status == 'PENDENTE' %}
+      <form method="post" action="{% url 'aranha:admin_aprovar_agendamento' pk=agend.pk %}" class="m-0">
+        {% csrf_token %}
+        <button type="submit" data-confirm="Aprovar agendamento?"
+                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-700 text-white text-[0.7rem] font-bold border-none cursor-pointer hover:bg-green-800 transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg> Aprovar
+        </button>
+      </form>
+      <form method="post" action="{% url 'aranha:admin_rejeitar_agendamento' pk=agend.pk %}" class="m-0">
+        {% csrf_token %}
+        <button type="submit" data-confirm="Rejeitar agendamento?"
+                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white text-red-600 border border-red-600 text-[0.7rem] font-bold cursor-pointer hover:bg-red-600 hover:text-white transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Rejeitar
+        </button>
+      </form>
+      {% endif %}
+      <select data-atend-id="{{ agend.pk }}" title="Alterar status"
+              class="px-1.5 py-1 rounded-lg border-2 border-borda bg-white text-[0.7rem] font-bold text-texto cursor-pointer outline-none">
+        <option value="">⚡</option>
+        <option value="CONFIRMADO" {% if agend.status == 'CONFIRMADO' %}disabled{% endif %}>✅ Confirmar</option>
+        <option value="REALIZADO" {% if agend.status == 'REALIZADO' %}disabled{% endif %}>✔️ Realizado</option>
+        <option value="CANCELADO" {% if agend.status == 'CANCELADO' %}disabled{% endif %}>❌ Cancelar</option>
+        <option value="FALTOU" {% if agend.status == 'FALTOU' %}disabled{% endif %}>⛔ Faltou</option>
+      </select>
+      {% if agend.cliente.telefone %}
+      <a href="https://wa.me/55{{ agend.cliente.telefone|cut:'(' |cut:')' |cut:'-' |cut:' ' }}?text=Ol%C3%A1%20{{ agend.cliente.nome|urlencode }}%2C%20confirmamos%20seu%20agendamento%20de%20{{ agend.procedimento.nome|urlencode }}%20para%20{{ agend.data_hora_inicio|date:'d/m/Y' }}%20%C3%A0s%20{{ agend.data_hora_inicio|time:'H:i' }}.%20{{ CLINIC_NAME|urlencode }}"
+         target="_blank" rel="noopener" title="WhatsApp"
+         class="inline-flex items-center justify-center w-[30px] h-[30px] rounded-lg bg-[#dcf5e7] text-[#25D366] no-underline hover:opacity-80 transition-opacity">
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.6 6.32A8 8 0 004.06 14.4L3 21l6.78-1.05A8 8 0 1017.6 6.32zM12 19.5a7.5 7.5 0 01-3.8-1l-.27-.16-2.83.44.45-2.75-.18-.28A7.5 7.5 0 1112 19.5zm4.13-5.6c-.23-.11-1.35-.66-1.56-.74s-.36-.11-.5.12-.58.73-.71.88-.26.17-.49.06a6.1 6.1 0 01-1.8-1.11 6.7 6.7 0 01-1.24-1.55c-.13-.22 0-.34.1-.45s.22-.26.34-.4a1.5 1.5 0 00.22-.37.4.4 0 000-.39c0-.11-.5-1.2-.68-1.65s-.36-.37-.5-.37h-.42a.81.81 0 00-.59.27 2.46 2.46 0 00-.77 1.83 4.27 4.27 0 00.9 2.27 9.8 9.8 0 003.74 3.3c.52.23.93.36 1.25.46a3 3 0 001.38.09 2.26 2.26 0 001.48-1.05 1.83 1.83 0 00.13-1.04c-.05-.1-.2-.16-.43-.27z"/></svg>
+      </a>
+      {% endif %}
     </div>
-</div>
-{% empty %}
-{% include 'partials/_empty_state.html' with icon='bi-calendar-check' title='Nenhum agendamento encontrado' message='Ajuste os filtros ou crie um novo agendamento.' action_url='/agendar/' action_label='Novo agendamento' action_icon='bi-plus-lg' %}
-</div>
-{% endfor %}
-</div>
+  </div>
+  {% empty %}
+  <div class="bg-white rounded-2xl p-12 text-center shadow-sm">
+    <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
+      <svg class="w-7 h-7 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l2 2 4-4"/></svg>
+    </div>
+    <h5 class="font-bold text-texto mb-1">Nenhum agendamento encontrado</h5>
+    <p class="text-[0.85rem] text-texto-suave mb-4">Ajuste os filtros ou crie um novo agendamento.</p>
+    <a href="{% url 'aranha:agendamento_publico' %}" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.85rem] font-bold no-underline hover:opacity-90 transition-opacity">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Novo agendamento
+    </a>
+  </div>
+  {% endfor %}
+  </div>
 
-<div id="emptyFiltroAgend" class="admin-empty-state" style="display:none;">
-    <div class="icon"><i class="fas fa-filter"></i></div>
-    <h5>Nenhum agendamento bate com o filtro</h5>
-    <p>Ajuste o termo ou limpe o campo.</p>
-</div>
+  <div id="emptyFiltroAgend" style="display:none;" class="bg-white rounded-2xl p-10 text-center shadow-sm mt-2">
+    <div class="w-14 h-14 rounded-full bg-fundo flex items-center justify-center mx-auto mb-3">
+      <svg class="w-6 h-6 text-texto-suave" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+    </div>
+    <h5 class="font-bold text-texto mb-1">Nenhum agendamento bate com o filtro</h5>
+    <p class="text-[0.85rem] text-texto-suave">Ajuste o termo ou limpe o campo.</p>
+  </div>
 </form>
 {% endblock %}
 
-{% block admin_scripts %}
+{% block js %}
 <script nonce="{{ csp_nonce }}">
-function atualizarStatus(id, status) {
-    if (!status) return;
-    if (!confirm('Alterar status para ' + status + '?')) return;
-
+// Atualizacao de status via AJAX (delegado, CSP-safe). Recarrega na sucesso.
+document.addEventListener('change', function (e) {
+    var sel = e.target.closest('select[data-atend-id]');
+    if (!sel || !sel.value) return;
+    var id = sel.getAttribute('data-atend-id');
+    var status = sel.value;
+    if (!confirm('Alterar status para ' + status + '?')) { sel.value = ''; return; }
     fetch('{% url "aranha:admin_atualizar_status" %}', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token }}'
-        },
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
         body: JSON.stringify({ atendimento_id: id, status: status })
     })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-        if (data.sucesso) {
-            var el = document.querySelector('.status-text-' + id);
-            if (el) {
-                var s = data.status_novo || '';
-                var icons = {CONFIRMADO:'bi-check-circle-fill',REALIZADO:'bi-check2-all',CANCELADO:'bi-x-circle-fill',FALTOU:'bi-exclamation-triangle-fill',AGENDADO:'bi-calendar-event',PENDENTE:'bi-hourglass-split'};
-                var labels = {CONFIRMADO:'Confirmado',REALIZADO:'Realizado',CANCELADO:'Cancelado',FALTOU:'Faltou',AGENDADO:'Agendado',PENDENTE:'Pendente'};
-                el.innerHTML = '<span class="status-badge status-' + s.toLowerCase() + ' status-size-sm"><i class="bi ' + (icons[s]||'bi-circle') + '"></i>' + (labels[s]||s) + '</span>';
-            }
-            alert('Status atualizado: ' + data.status_novo);
-        } else {
-            alert('Erro: ' + (data.erro || 'Erro desconhecido'));
-        }
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+        if (data.sucesso) { location.reload(); }
+        else { alert('Erro: ' + (data.erro || 'Erro desconhecido')); sel.value = ''; }
     })
-    .catch(function(err) { alert('Erro de rede'); });
-}
+    .catch(function () { alert('Erro de rede'); sel.value = ''; });
+});
 
-// Bulk actions: toggle toolbar when pendentes selected
-(function(){
+// Bulk actions: mostra toolbar quando >=1 pendente selecionado
+(function () {
     var toolbar = document.getElementById('bulkToolbar');
     var counter = document.getElementById('bulkCount');
     var selectAll = document.getElementById('bulkSelectAll');
     var clear = document.getElementById('bulkClear');
     if (!toolbar) return;
 
-    function atualizar(){
+    function atualizar() {
         var checks = document.querySelectorAll('.bulk-checkbox:checked');
         if (checks.length > 0) {
             toolbar.style.display = 'flex';
@@ -264,23 +234,20 @@ function atualizarStatus(id, status) {
         }
     }
 
-    document.addEventListener('change', function(e){
-        if (e.target.classList.contains('bulk-checkbox')) {
-            atualizar();
-        }
+    document.addEventListener('change', function (e) {
+        if (e.target.classList.contains('bulk-checkbox')) atualizar();
     });
 
     if (selectAll) {
-        selectAll.addEventListener('change', function(){
-            var checks = document.querySelectorAll('.bulk-checkbox');
-            checks.forEach(function(c){ c.checked = selectAll.checked; });
+        selectAll.addEventListener('change', function () {
+            document.querySelectorAll('.bulk-checkbox').forEach(function (c) { c.checked = selectAll.checked; });
             atualizar();
         });
     }
 
     if (clear) {
-        clear.addEventListener('click', function(){
-            document.querySelectorAll('.bulk-checkbox').forEach(function(c){ c.checked = false; });
+        clear.addEventListener('click', function () {
+            document.querySelectorAll('.bulk-checkbox').forEach(function (c) { c.checked = false; });
             if (selectAll) selectAll.checked = false;
             atualizar();
         });
