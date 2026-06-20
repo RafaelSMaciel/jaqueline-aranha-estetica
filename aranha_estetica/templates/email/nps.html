@@ -1,11 +1,14 @@
 {% extends "email/base_email.html" %}
+{% block header_sub %}<div style="color:rgba(255,255,255,0.88);font-size:13px;letter-spacing:2.4px;text-transform:uppercase;margin-top:6px;">Sua opinião importa</div>{% endblock %}
 {% block content %}
-<p style="color:#4A3425;font-size:16px;margin:0 0 8px;">Ola, {{ dados.nome }}!</p>
-<p style="color:#666;font-size:15px;margin:0 0 24px;">Como foi seu atendimento de <strong>{{ dados.procedimento }}</strong>? Sua opiniao e muito importante para nos!</p>
+<h1 class="hero-title text-main" style="color:#4A3425;margin:0 0 12px;font-size:26px;font-weight:700;line-height:1.25;">Olá, {{ dados.nome }}!</h1>
+<p class="text-soft" style="color:#666;font-size:15px;margin:0 0 24px;">Como foi seu atendimento de <strong>{{ dados.procedimento }}</strong>? Sua opinião é muito importante para nós!</p>
 
-<div style="text-align:center;margin:0 0 24px;">
-<a href="{{ dados.link_nps }}" style="display:inline-block;background:#C9A84C;color:white;padding:14px 40px;border-radius:50px;text-decoration:none;font-weight:700;font-size:15px;">Avaliar Atendimento</a>
-</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+<tr><td align="center">
+<a href="{{ dados.link_nps }}" style="display:inline-block;background-color:#C9A84C;color:#ffffff;padding:14px 40px;border-radius:999px;text-decoration:none;font-weight:700;font-size:15px;box-shadow:0 4px 12px rgba(0,0,0,0.18);">Avaliar Atendimento</a>
+</td></tr>
+</table>
 
-<p style="color:#999;font-size:13px;margin:0;">{{ clinic_name }}</p>
+<p class="text-muted" style="color:#999;font-size:13px;margin:0;">{{ clinic_name }}</p>
 {% endblock %}
