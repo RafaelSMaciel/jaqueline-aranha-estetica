@@ -172,16 +172,20 @@ Decisões: Tailwind v4 + HTMX + @alpinejs/csp (F8) + cotton + Vite; dark opciona
 
 **Achados da auditoria de front resolvidos na Onda 2:** contato quebrado · wizard a11y teclado + perda de estado · home 3h1→1 + hero LCP · jQuery/Bootstrap/AOS/purecounter/swiper fora do público · ~todos onclick inline→addEventListener (CSP).
 
-**Limpeza do público ✅:** removidos 9 arquivos mortos (`estrutura/base.html`+`baserodape`, partials head/cabecalho/rodape/toasts/cookie_consent/mobile_nav, `static/css/main.css`) · bordas de form control no token (`@layer base` — corrige currentColor em dark, verificado). **Pendente:** calibrar paleta real (T9) · remover `static/vendor/`+`base.css` SÓ depois que o admin migrar (ainda usam).
+**Limpeza do público ✅:** removidos 9 arquivos mortos (`estrutura/base.html`+`baserodape`, partials head/cabecalho/rodape/toasts/cookie_consent/mobile_nav, `static/css/main.css`) · bordas de form control no token (`@layer base` — corrige currentColor em dark, verificado). **Pendente:** calibrar paleta real (T9) · **agora desbloqueado** (admin 30/30): remover `painel/base.html` + `static/css/base.css` + `static/vendor/` + `partials/_empty_state.html` (verificar 0 refs antes).
 
-### Front — Onda 3 (admin PWA) — EM ANDAMENTO (7/30 telas)
-- [x] **App-shell `painel/base_v2.html` ✅** (sidenav Alpine CSP drawer, Vite bundle, tokens, **sem jQuery/Bootstrap**, tema unificado c/ público — mata os 2 dark modes; 18 nav links preservados; verificado test-client)
-- [~] **Lista/tabela + filtros** — ✅ clientes (padrão) + profissionais, notificacoes, lista_espera, auditoria, anamneses, bloqueios (loops/forms/paginação preservados, CSP-safe); **pendente:** agendamentos (4 onclick/script) · procedimentos/promoções/pacotes (modais Bootstrap→`<c-modal>`) · usuarios · termos · excecoes · prontuario
-- [ ] Detalhe/registro (cliente_detalhe, prontuario_detalhe, anamnese_respostas, termos_compliance, editar_profissional)
-- [ ] Formulário criar/editar (usuario_form, anamnese_form, cadastro_profissional, configuracoes, branding)
-- [ ] Dashboard (overview, dashboard_financeiro)
-- [ ] Calendário (calendar) · 2FA (2fa_challenge, 2fa_setup)
-- Nota: telas com modais Bootstrap (procedimentos/promoções/pacotes) e calendar (FullCalendar?) são as de maior esforço — modal→`<c-modal>` Alpine, lib de calendário a decidir.
+### Front — Onda 3 (admin PWA) — ✅ COMPLETA (30/30 telas)
+**ZERO templates admin em `painel/base.html`.** Todo o painel migrado pra base_v2/Tailwind/tokens/Alpine CSP. 216 testes, verificado no browser (drawer, modais, charts, FullCalendar, busca instantânea).
+- [x] **App-shell `painel/base_v2.html` ✅** (sidenav Alpine CSP drawer `classeDrawer()`, Vite bundle, tokens, **sem jQuery/Bootstrap**, tema unificado c/ público — mata os 2 dark modes; 18 nav links; drawer verificado ao vivo)
+- [x] **Lista/tabela + filtros ✅** (clientes, profissionais, notificacoes, lista_espera, auditoria, anamneses, bloqueios, usuarios, termos, excecoes, prontuario, agendamentos — loops/forms/paginação/bulk preservados; busca instantânea `admin-search.js` bundled em app.js)
+- [x] **Detalhe/registro ✅** (cliente_detalhe [timeline+status dinâmico via `<style nonce>` mínimo], prontuario_detalhe [modal anotação via fetch CSP-safe], anamnese_respostas, termos_compliance, editar_profissional)
+- [x] **Formulário criar/editar ✅** (usuario_form, anamnese_form, cadastro_profissional [day-toggle peer-checked], configuracoes [data-confirm global], branding [sync hex ao vivo])
+- [x] **CRUD c/ modais ✅** (procedimentos/promocoes/pacotes — modais Bootstrap→Alpine CSP `x-data=modal`/`pacoteCriar`; edit/create/venda por item + FAB; `data-confirm` global p/ excluir)
+- [x] **Dashboard ✅** (overview [Chart.js via CDN — host na CSP; status via change delegado + reload], dashboard_financeiro [cards+tabelas])
+- [x] **Calendário ✅** (calendar — FullCalendar 6.1 via CDN; JS já CSP-safe; estilos FC/modal em `<style nonce>`) · **2FA ✅** (2fa_challenge, 2fa_setup) · **branding/config ✅**
+- [x] **`_status_badge.html` rebuild ✅** (Tailwind + SVG inline, sem Bootstrap Icons — corrige badge quebrado em meus_agendamentos)
+- **Padrões CSP novos em `app.js`:** `anotacaoModal` (fetch), `pacoteCriar` (clonar item), `data-confirm` global delegado, import `admin-search.js`. Toda FontAwesome/Bootstrap-icons → SVG inline; onchange/onclick inline → delegados.
+- **Bug pré-existente corrigido:** `views/pacotes.py` usava `Count('pacotecliente')` (rename do remodel 0032 quebrou a página) → `Count('comprapacote')`.
 
 ### Front — Onda 4 (e-mails)
 - [ ] 10 templates de e-mail no novo visual
@@ -195,4 +199,4 @@ Decisões: Tailwind v4 + HTMX + @alpinejs/csp (F8) + cotton + Vite; dark opciona
 
 ---
 
-_Última atualização: 2026-06-14 — + spec de regras de negócio (registry)._
+_Última atualização: 2026-06-19 — Onda 3 admin COMPLETA (30/30 telas em base_v2/Tailwind/Alpine CSP); pré-req p/ limpeza de `base.html`/`base.css`/`vendor` desbloqueado._

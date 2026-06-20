@@ -1,7 +1,6 @@
 import Alpine from '@alpinejs/csp'
 import 'htmx.org'
 import '../css/app.css'
-import '../../js/admin-search.js' // filtro instantaneo client-side (data-search-filter)
 
 function aplicarTema(novo) {
   document.documentElement.dataset.theme = novo
