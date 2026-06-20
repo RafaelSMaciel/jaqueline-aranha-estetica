@@ -1,159 +1,210 @@
-{% extends 'painel/base.html' %}
+{% extends 'painel/base_v2.html' %}
 
+{% block titulo %}Usuários — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Usuários{% endblock %}
 {% block page_subtitle %}Gerencie equipe com acesso ao painel{% endblock %}
-
-{% block admin_css %}
-.user-card {
-    background: white; border-radius: 14px; padding: 0.9rem 1rem;
-    margin-bottom: 0.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-    display: flex; align-items: center; gap: 0.75rem;
-}
-.user-card.inativo { opacity: 0.55; }
-.user-avatar {
-    width: 42px; height: 42px; border-radius: 12px;
-    background: #eef0f8; color: #3f3d56;
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 800; font-size: 0.85rem; flex-shrink: 0;
-}
-.user-info { flex: 1; min-width: 0; }
-.user-nome {
-    font-weight: 700; font-size: 0.9rem;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.user-meta { font-size: 0.72rem; color: #888; margin-top: 0.1rem; }
-.user-badge {
-    display: inline-block; padding: 0.15rem 0.55rem;
-    border-radius: 999px; font-size: 0.6rem; font-weight: 800;
-    text-transform: uppercase; letter-spacing: 0.5px;
-    margin-left: 0.3rem;
-}
-.user-badge.adm { background: #e3f2fd; color: #1565c0; }
-.user-badge.rec { background: #f3e5f5; color: #7b1fa2; }
-.user-badge.prof { background: #e8f5e9; color: #2e7d32; }
-.user-badge.inativo { background: #fce4ec; color: #c62828; }
-.user-actions { display: flex; gap: 0.3rem; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
-.user-actions a, .user-actions button {
-    width: 32px; height: 32px; border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
-    border: none; cursor: pointer; font-size: 0.75rem;
-    text-decoration: none;
-}
-.btn-user-edit { background: #e3f2fd; color: #1565c0; }
-.btn-user-reset { background: #fff8e1; color: #f57f17; }
-.btn-user-toggle { background: #fce4ec; color: #c62828; }
-.btn-user-toggle.ativar { background: #e8f5e9; color: #2e7d32; }
-.filtros-user {
-    background: white; border-radius: 14px; padding: 0.75rem;
-    margin-bottom: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-}
-.filtros-user input, .filtros-user select {
-    border: 1px solid #e8e8e8; border-radius: 10px;
-    padding: 0.4rem 0.7rem; font-size: 0.8rem; background: #fafafa;
-}
-.filtros-user input[type=text] { flex: 1; min-width: 160px; }
-.filtros-user button {
-    background: #1a1a2e; color: white; border: none;
-    border-radius: 10px; padding: 0.4rem 1rem;
-    font-size: 0.8rem; font-weight: 700; cursor: pointer;
-}
-.admin-add-btn {
-    position: fixed; bottom: 75px; right: 1rem;
-    background: #8b6f47; color: white; width: 52px; height: 52px;
-    border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 4px 16px rgba(139,111,71,0.4); font-size: 1.2rem;
-    text-decoration: none; z-index: 50;
-}
+{% block page_actions %}
+<a href="{% url 'aranha:admin_criar_usuario' %}"
+   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold bg-[#C9A84C] text-white hover:bg-[#b48c4c] transition-colors no-underline">
+  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+  </svg>
+  Novo usuário
+</a>
 {% endblock %}
 
 {% block admin_content %}
-<form method="get" class="filtros-user">
-    <input type="text" name="q" value="{{ busca }}" placeholder="Buscar nome ou email...">
-    <select name="papel">
-        <option value="">Todos papeis</option>
+
+{# ── Busca servidor (GET) ── #}
+<div class="bg-white rounded-2xl shadow-sm p-4 mb-3">
+  <form method="get" class="flex gap-2 flex-wrap items-end">
+    <div class="flex-1 min-w-[160px]">
+      <label for="buscaInput" class="sr-only">Buscar usuário</label>
+      <input type="text" id="buscaInput" name="q" value="{{ busca }}"
+             placeholder="Buscar nome ou email..."
+             class="w-full px-3 py-2 rounded-xl border border-borda text-[0.875rem] text-texto bg-fundo placeholder-texto-suave outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+    </div>
+    <div class="min-w-[140px]">
+      <label for="papelSelect" class="sr-only">Papel</label>
+      <select id="papelSelect" name="papel"
+              class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+        <option value="">Todos papéis</option>
         {% for valor, rotulo in papeis %}
-            <option value="{{ valor }}" {% if papel_filter == valor %}selected{% endif %}>{{ rotulo }}</option>
+        <option value="{{ valor }}" {% if papel_filter == valor %}selected{% endif %}>{{ rotulo }}</option>
         {% endfor %}
-    </select>
-    <button type="submit">Filtrar</button>
-</form>
-
-<div class="filtros-user" style="margin-top:-0.25rem;">
-    <input type="text" id="filtroUsuariosInstant" placeholder="Filtrar visíveis..."
-           data-search-filter="#listaUsuarios"
-           data-search-counter="#cntUsuariosVisiveis"
-           data-search-empty="#emptyFiltroUsuarios">
+      </select>
+    </div>
+    <button type="submit"
+            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#C9A84C] text-white text-[0.82rem] font-bold hover:bg-[#b48c4c] transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+      </svg>
+      Filtrar
+    </button>
+    {% if busca or papel_filter %}
+    <a href="{% url 'aranha:admin_usuarios' %}"
+       class="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-borda text-[0.82rem] text-texto-suave no-underline hover:text-texto hover:border-texto-suave transition-colors"
+       title="Limpar filtros" aria-label="Limpar filtros">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </a>
+    {% endif %}
+  </form>
 </div>
 
-<div class="small text-muted mb-2 fw-bold">
-    <i class="fas fa-users-cog me-1"></i><span id="cntUsuariosVisiveis">{{ usuarios.paginator.count }}</span> usuário(s)
+{# ── Filtro instantâneo client-side ── #}
+<div class="bg-white rounded-2xl shadow-sm px-4 py-2 mb-3">
+  <input type="text" id="filtroUsuariosInstant"
+         class="w-full px-0 py-1.5 text-[0.85rem] text-texto bg-transparent border-none outline-none placeholder-texto-suave"
+         placeholder="Filtrar visíveis..."
+         data-search-filter="#listaUsuarios"
+         data-search-counter="#cntUsuariosVisiveis"
+         data-search-empty="#emptyFiltroUsuarios">
 </div>
 
+{# ── Contador ── #}
+<p class="text-[0.78rem] font-bold text-texto-suave mb-2 flex items-center gap-1">
+  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+    <path stroke-linecap="round" stroke-linejoin="round" d="M23 21v-2a4 4 0 00-3-3.87"/><path stroke-linecap="round" stroke-linejoin="round" d="M16 3.13a4 4 0 010 7.75"/>
+  </svg>
+  <span id="cntUsuariosVisiveis">{{ usuarios.paginator.count }}</span> usuário(s)
+</p>
+
+{# ── Lista de usuários ── #}
 <div id="listaUsuarios" data-search-rows=".user-card">
-{% for u in usuarios %}
-<div class="user-card {% if not u.ativo %}inativo{% endif %}" data-search-text="{{ u.nome }} {{ u.email }} {{ u.get_papel_display }}">
-    <div class="user-avatar">
-        {{ u.nome|make_list|first }}{{ u.nome|make_list|slice:"1:2"|join:"" }}
+  {% for u in usuarios %}
+  <div class="user-card flex items-center gap-3 bg-white rounded-2xl shadow-sm px-4 py-3 mb-2 {% if not u.ativo %}opacity-60{% endif %} hover:shadow-md hover:-translate-y-px transition-all duration-200"
+       data-search-text="{{ u.nome }} {{ u.email }} {{ u.get_papel_display }}">
+
+    {# Avatar com iniciais #}
+    <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 font-extrabold text-[0.75rem] bg-[#eef0f8] text-[#3f3d56]" aria-hidden="true">
+      {{ u.nome|make_list|first }}{{ u.nome|make_list|slice:"1:2"|join:"" }}
     </div>
-    <div class="user-info">
-        <div class="user-nome">
-            {{ u.nome }}
-            {% if u.papel == "ADMIN" %}<span class="user-badge adm">ADM</span>
-            {% elif u.papel == "RECEPCAO" %}<span class="user-badge rec">Recep</span>
-            {% elif u.papel == "PROFISSIONAL" %}<span class="user-badge prof">Prof</span>{% endif %}
-            {% if not u.ativo %}<span class="user-badge inativo">Inativo</span>{% endif %}
-        </div>
-        <div class="user-meta">
-            <i class="fas fa-envelope me-1"></i>{{ u.email }}
-            {% if u.profissional %} &bull; <i class="fas fa-user-md me-1"></i>{{ u.profissional.nome }}{% endif %}
-        </div>
-    </div>
-    <div class="user-actions">
-        <a href="{% url 'aranha:admin_editar_usuario' u.pk %}" class="btn-user-edit" title="Editar">
-            <i class="fas fa-pen"></i>
-        </a>
-        <form method="post" action="{% url 'aranha:admin_resetar_senha_usuario' u.pk %}" style="margin:0;">
-            {% csrf_token %}
-            <button type="submit" class="btn-user-reset" title="Enviar reset de senha"
-                    onclick="return confirm('Enviar email de reset de senha para {{ u.email|escapejs }}?')">
-                <i class="fas fa-key"></i>
-            </button>
-        </form>
-        {% if u.pk != request.user.pk %}
-        <form method="post" action="{% url 'aranha:admin_desativar_usuario' u.pk %}" style="margin:0;">
-            {% csrf_token %}
-            <button type="submit" class="btn-user-toggle {% if not u.ativo %}ativar{% endif %}"
-                    title="{% if u.ativo %}Desativar{% else %}Ativar{% endif %}"
-                    onclick="return confirm('{% if u.ativo %}Desativar{% else %}Ativar{% endif %} acesso de {{ u.nome|escapejs }}?')">
-                <i class="fas fa-{% if u.ativo %}ban{% else %}check{% endif %}"></i>
-            </button>
-        </form>
+
+    {# Info #}
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-1.5 flex-wrap">
+        <span class="font-bold text-[0.9rem] truncate text-texto">{{ u.nome }}</span>
+        {% if u.papel == "ADMIN" %}
+        <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-blue-50 text-blue-700 uppercase tracking-wide">ADM</span>
+        {% elif u.papel == "RECEPCAO" %}
+        <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-purple-50 text-purple-700 uppercase tracking-wide">Recep</span>
+        {% elif u.papel == "PROFISSIONAL" %}
+        <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-green-50 text-green-700 uppercase tracking-wide">Prof</span>
         {% endif %}
+        {% if not u.ativo %}
+        <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-red-50 text-red-600 uppercase tracking-wide">Inativo</span>
+        {% endif %}
+      </div>
+      <div class="text-[0.72rem] text-texto-suave mt-0.5 flex items-center gap-1 flex-wrap">
+        <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+        </svg>
+        {{ u.email }}
+        {% if u.profissional %}
+        &bull;
+        <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+        </svg>
+        {{ u.profissional.nome }}
+        {% endif %}
+      </div>
     </div>
-</div>
-{% empty %}
-<div style="text-align:center; padding:3rem 1rem; color:#999;">
-    <i class="fas fa-user-slash" style="font-size:2.5rem; color:#ddd; display:block; margin-bottom:1rem;"></i>
-    Nenhum usuário encontrado.
-</div>
-{% endfor %}
+
+    {# Ações #}
+    <div class="flex gap-1.5 flex-shrink-0 flex-wrap justify-end">
+      <a href="{% url 'aranha:admin_editar_usuario' u.pk %}"
+         class="w-8 h-8 rounded-lg flex items-center justify-center bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors no-underline"
+         title="Editar">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+        </svg>
+      </a>
+      <form method="post" action="{% url 'aranha:admin_resetar_senha_usuario' u.pk %}" class="m-0">
+        {% csrf_token %}
+        <button type="submit"
+                class="w-8 h-8 rounded-lg flex items-center justify-center bg-yellow-50 text-yellow-700 hover:bg-yellow-100 transition-colors border-none cursor-pointer"
+                title="Enviar reset de senha"
+                data-confirm="Enviar email de reset de senha para {{ u.email|escapejs }}?">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+          </svg>
+        </button>
+      </form>
+      {% if u.pk != request.user.pk %}
+      <form method="post" action="{% url 'aranha:admin_desativar_usuario' u.pk %}" class="m-0">
+        {% csrf_token %}
+        <button type="submit"
+                class="w-8 h-8 rounded-lg flex items-center justify-center {% if u.ativo %}bg-red-50 text-red-600 hover:bg-red-100{% else %}bg-green-50 text-green-700 hover:bg-green-100{% endif %} transition-colors border-none cursor-pointer"
+                title="{% if u.ativo %}Desativar{% else %}Ativar{% endif %}"
+                data-confirm="{% if u.ativo %}Desativar{% else %}Ativar{% endif %} acesso de {{ u.nome|escapejs }}?">
+          {% if u.ativo %}
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+          </svg>
+          {% else %}
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          {% endif %}
+        </button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% empty %}
+  <div class="bg-white rounded-2xl p-12 text-center shadow-sm">
+    <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
+      <svg class="w-7 h-7 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+      </svg>
+    </div>
+    <h5 class="font-bold text-[#1a1a2e] mb-1">Nenhum usuário encontrado</h5>
+    <p class="text-[0.85rem] text-texto-suave">Ajuste os filtros ou cadastre um novo usuário.</p>
+  </div>
+  {% endfor %}
 </div>
 
-<div id="emptyFiltroUsuarios" style="display:none; text-align:center; padding:2rem 1rem; color:#999;">
-    <i class="fas fa-filter" style="font-size:2rem; color:#ddd; display:block; margin-bottom:0.75rem;"></i>
-    Nenhum usuário bate com o filtro.
+{# ── Empty state do filtro instantâneo ── #}
+<div id="emptyFiltroUsuarios" class="bg-white rounded-2xl p-10 text-center shadow-sm" style="display:none;">
+  <div class="w-14 h-14 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-3">
+    <svg class="w-6 h-6 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+    </svg>
+  </div>
+  <h5 class="font-bold text-[#1a1a2e] mb-1">Nenhum usuário bate com o filtro</h5>
+  <p class="text-[0.85rem] text-texto-suave">Ajuste o termo ou limpe o campo.</p>
 </div>
 
+{# ── Paginação ── #}
 {% if usuarios.has_other_pages %}
-<nav class="mt-3 text-center">
-    {% if usuarios.has_previous %}<a href="?page={{ usuarios.previous_page_number }}&q={{ busca }}&papel={{ papel_filter }}" class="btn btn-sm btn-outline-secondary">‹</a>{% endif %}
-    <span class="small fw-bold mx-2">{{ usuarios.number }} / {{ usuarios.paginator.num_pages }}</span>
-    {% if usuarios.has_next %}<a href="?page={{ usuarios.next_page_number }}&q={{ busca }}&papel={{ papel_filter }}" class="btn btn-sm btn-outline-secondary">›</a>{% endif %}
-</nav>
+<div class="flex justify-center gap-1.5 mt-4">
+  {% if usuarios.has_previous %}
+  <a href="?page={{ usuarios.previous_page_number }}&q={{ busca }}&papel={{ papel_filter }}"
+     class="px-3 py-1.5 rounded-lg bg-fundo border border-borda text-[0.8rem] font-bold text-texto no-underline hover:bg-[#C9A84C] hover:text-white hover:border-[#C9A84C] transition-colors">&laquo;</a>
+  {% endif %}
+  <span class="px-3 py-1.5 text-[0.8rem] text-texto-suave font-bold">{{ usuarios.number }} / {{ usuarios.paginator.num_pages }}</span>
+  {% if usuarios.has_next %}
+  <a href="?page={{ usuarios.next_page_number }}&q={{ busca }}&papel={{ papel_filter }}"
+     class="px-3 py-1.5 rounded-lg bg-fundo border border-borda text-[0.8rem] font-bold text-texto no-underline hover:bg-[#C9A84C] hover:text-white hover:border-[#C9A84C] transition-colors">&raquo;</a>
+  {% endif %}
+</div>
 {% endif %}
 
-<a href="{% url 'aranha:admin_criar_usuario' %}" class="admin-add-btn" title="Novo usuário">
-    <i class="fas fa-plus"></i>
-</a>
+{% endblock %}
+
+{% block js %}
+<script nonce="{{ csp_nonce }}">
+(function(){
+  document.querySelectorAll('button[data-confirm]').forEach(function(btn){
+    btn.addEventListener('click', function(e){
+      if (!window.confirm(btn.dataset.confirm)) {
+        e.preventDefault();
+      }
+    });
+  });
+})();
+</script>
 {% endblock %}
