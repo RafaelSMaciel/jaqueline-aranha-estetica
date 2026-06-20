@@ -1,59 +1,54 @@
-{% extends 'painel/base.html' %}
+{% extends 'painel/base_v2.html' %}
 
+{% block titulo %}Respostas — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Respostas{% endblock %}
 {% block page_subtitle %}{{ form_obj.nome }}{% endblock %}
 {% block page_actions %}
-<a href="{% url 'aranha:admin_anamneses' %}" class="btn btn-sm btn-outline-secondary">
-    <i class="fas fa-arrow-left"></i> Voltar
+<a href="{% url 'aranha:admin_anamneses' %}"
+   class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-borda bg-white text-[0.85rem] font-bold text-texto hover:bg-superficie transition-colors">
+  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+  </svg>
+  Voltar
 </a>
 {% endblock %}
 
-{% block admin_css %}
-.resp-card {
-    background: white; border-radius: 12px; padding: 0.85rem;
-    margin-bottom: 0.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-}
-.resp-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
-.resp-cliente { font-weight: 800; font-size: 0.9rem; }
-.resp-data { font-size: 0.7rem; color: #999; }
-.resp-row {
-    display: flex; padding: 0.3rem 0; border-bottom: 1px solid #f0f0f0;
-    font-size: 0.82rem;
-}
-.resp-row:last-child { border: none; }
-.resp-key { color: #999; font-weight: 700; min-width: 130px; font-size: 0.75rem; }
-.resp-val { flex: 1; color: #333; word-break: break-word; }
-{% endblock %}
-
 {% block admin_content %}
-<div class="small text-muted mb-2 fw-bold">
-    <i class="fas fa-list me-1"></i>{{ respostas|length }} resposta(s)
+<div class="flex items-center gap-1.5 text-[0.8rem] font-bold text-texto-suave mb-3">
+  <svg class="w-4 h-4 text-marca" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+  </svg>
+  {{ respostas|length }} resposta(s)
 </div>
 
 {% for r in respostas %}
-<div class="resp-card">
-    <div class="resp-head">
-        <div class="resp-cliente">
-            {% if r.cliente_id %}
-            <a href="{% url 'aranha:admin_cliente_detalhe' r.cliente.pk %}" style="color:inherit;text-decoration:none;">
-                {{ r.cliente.nome }}
-            </a>
-            {% else %}—{% endif %}
-        </div>
-        <div class="resp-data">{{ r.criado_em|date:"d/m/Y H:i" }}</div>
+<div class="bg-white rounded-2xl shadow-sm p-4 mb-2">
+  <div class="flex items-center justify-between mb-2">
+    <div class="font-extrabold text-[0.9rem] text-texto">
+      {% if r.cliente_id %}
+      <a href="{% url 'aranha:admin_cliente_detalhe' r.cliente.pk %}" class="text-texto no-underline hover:text-marca transition-colors">
+        {{ r.cliente.nome }}
+      </a>
+      {% else %}—{% endif %}
     </div>
-    {% for k, v in r.respostas_json.items %}
-    <div class="resp-row">
-        <div class="resp-key">{{ k }}</div>
-        <div class="resp-val">{{ v }}</div>
-    </div>
-    {% endfor %}
+    <div class="text-[0.7rem] text-texto-suave">{{ r.criado_em|date:"d/m/Y H:i" }}</div>
+  </div>
+  {% for k, v in r.respostas_json.items %}
+  <div class="flex py-1.5 text-[0.82rem] border-b border-borda last:border-b-0">
+    <div class="text-texto-suave font-bold min-w-[130px] text-[0.75rem]">{{ k }}</div>
+    <div class="flex-1 text-texto break-words">{{ v }}</div>
+  </div>
+  {% endfor %}
 </div>
 {% empty %}
-<div class="admin-empty-state">
-    <div class="icon"><i class="fas fa-clipboard-list"></i></div>
-    <h5>Nenhuma resposta ainda</h5>
-    <p>Pacientes que preencherem este formulario aparecerao aqui.</p>
+<div class="bg-white rounded-2xl p-12 text-center shadow-sm">
+  <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
+    <svg class="w-7 h-7 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+    </svg>
+  </div>
+  <h5 class="font-bold text-[#1a1a2e] mb-1">Nenhuma resposta ainda</h5>
+  <p class="text-[0.85rem] text-texto-suave">Pacientes que preencherem este formulario aparecerao aqui.</p>
 </div>
 {% endfor %}
 {% endblock %}
