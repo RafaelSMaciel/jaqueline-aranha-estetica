@@ -1,129 +1,107 @@
-{% extends 'painel/base.html' %}
+{% extends 'painel/base_v2.html' %}
 
+{% block titulo %}Configurações — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Configurações{% endblock %}
 {% block page_subtitle %}Parâmetros do sistema (chave · valor){% endblock %}
 
-{% block admin_css %}
-.cfg-card {
-    background: white; border-radius: 14px; padding: 1rem;
-    margin-bottom: 0.6rem; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-}
-.cfg-chave {
-    font-family: 'Courier New', monospace; font-size: 0.8rem;
-    font-weight: 800; color: #8b6f47; margin-bottom: 0.2rem;
-}
-.cfg-descrição { font-size: 0.72rem; color: #888; margin-bottom: 0.5rem; }
-.cfg-form {
-    display: grid; grid-template-columns: 1fr auto auto;
-    gap: 0.4rem; align-items: center;
-}
-.cfg-form input {
-    padding: 0.45rem 0.7rem; border: 1px solid #e0e0e0;
-    border-radius: 8px; font-size: 0.85rem; background: #fafafa;
-}
-.cfg-form button {
-    border: none; padding: 0.45rem 0.9rem; border-radius: 8px;
-    font-size: 0.75rem; font-weight: 700; cursor: pointer;
-}
-.btn-salvar { background: #2e7d32; color: white; }
-.btn-excluir { background: #fce4ec; color: #c62828; }
-
-.sugestao-card {
-    background: #fff8e1; border: 1px dashed #f9a825;
-    border-radius: 12px; padding: 0.7rem 1rem;
-    margin-bottom: 0.4rem;
-}
-.sugestao-card .cfg-chave { color: #8b6f2b; }
-.sugestao-card button {
-    background: #f9a825; color: white; border: none;
-    padding: 0.3rem 0.8rem; border-radius: 8px;
-    font-size: 0.75rem; font-weight: 700; cursor: pointer;
-}
-
-.section-title {
-    font-size: 0.8rem; font-weight: 800; text-transform: uppercase;
-    letter-spacing: 1px; color: #999; margin: 1rem 0 0.6rem;
-}
-
-.nova-form {
-    background: white; border-radius: 14px; padding: 1rem;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 1rem;
-}
-.nova-form .form-grid {
-    display: grid; grid-template-columns: 1fr 1fr 2fr auto;
-    gap: 0.5rem;
-}
-.nova-form input {
-    padding: 0.5rem 0.7rem; border: 1px solid #ddd;
-    border-radius: 8px; font-size: 0.85rem;
-}
-.nova-form button {
-    background: #1a1a2e; color: white; border: none;
-    border-radius: 8px; padding: 0.5rem 1rem;
-    font-weight: 700; font-size: 0.85rem; cursor: pointer;
-}
-@media (max-width: 640px) {
-    .nova-form .form-grid { grid-template-columns: 1fr; }
-    .cfg-form { grid-template-columns: 1fr; }
-}
-{% endblock %}
-
 {% block admin_content %}
 
-<!-- Criar nova configuracao -->
-<div class="nova-form">
-    <div class="small fw-bold mb-2" style="color:#666;">
-        <i class="fas fa-plus-circle me-1"></i>Nova configuração
+{# ── Criar nova configuração ── #}
+<div class="bg-white rounded-2xl shadow-sm p-4 mb-4">
+  <div class="flex items-center gap-1.5 text-[0.8rem] font-bold text-texto-suave mb-3">
+    <svg class="w-4 h-4 text-marca" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+    </svg>
+    Nova configuração
+  </div>
+  <form method="post" action="{% url 'aranha:admin_criar_configuracao' %}">
+    {% csrf_token %}
+    <div class="grid grid-cols-1 sm:grid-cols-[1fr_1fr_2fr_auto] gap-2">
+      <input type="text" name="chave" placeholder="CHAVE_EXEMPLO" required
+             class="px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+      <input type="text" name="valor" placeholder="valor"
+             class="px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+      <input type="text" name="descricao" placeholder="Descrição (opcional)"
+             class="px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+      <button type="submit"
+              class="px-4 py-2 rounded-lg bg-[#1a1a2e] text-white text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">Criar</button>
     </div>
-    <form method="post" action="{% url 'aranha:admin_criar_configuracao' %}">
-        {% csrf_token %}
-        <div class="form-grid">
-            <input type="text" name="chave" placeholder="CHAVE_EXEMPLO" required>
-            <input type="text" name="valor" placeholder="valor">
-            <input type="text" name="descricao" placeholder="Descrição (opcional)">
-            <button type="submit">Criar</button>
-        </div>
-    </form>
+  </form>
 </div>
 
 {% if sugestoes %}
-<div class="section-title">
-    <i class="fas fa-lightbulb me-1"></i>Sugestões de configurações ({{ sugestoes|length }})
+<div class="flex items-center gap-1.5 text-[0.8rem] font-extrabold uppercase tracking-wider text-texto-suave mt-4 mb-2">
+  <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M9 21h6m-5-3h4m1-8a5 5 0 10-6 0c.5.5 1 1.5 1 2.5h4c0-1 .5-2 1-2.5z"/>
+  </svg>
+  Sugestões de configurações ({{ sugestoes|length }})
 </div>
 {% for s in sugestoes %}
-<div class="sugestao-card">
-    <div class="cfg-chave">{{ s.chave }}</div>
-    <div class="cfg-descricao">{{ s.descricao }}</div>
-    <form method="post" action="{% url 'aranha:admin_criar_configuracao' %}" style="display:flex; gap:0.4rem; align-items:center;">
-        {% csrf_token %}
-        <input type="hidden" name="chave" value="{{ s.chave }}">
-        <input type="hidden" name="descricao" value="{{ s.descricao }}">
-        <input type="text" name="valor" value="{{ s.valor }}" style="flex:1; padding:0.4rem 0.7rem; border:1px solid #f9a825; border-radius:8px; font-size:0.85rem; background:white;">
-        <button type="submit"><i class="fas fa-check"></i> Adicionar</button>
-    </form>
+<div class="bg-amber-50 border border-dashed border-amber-400 rounded-xl px-4 py-3 mb-1.5">
+  <div class="font-mono text-[0.8rem] font-extrabold text-amber-800 mb-0.5">{{ s.chave }}</div>
+  <div class="text-[0.72rem] text-texto-suave mb-2">{{ s.descricao }}</div>
+  <form method="post" action="{% url 'aranha:admin_criar_configuracao' %}" class="flex gap-2 items-center">
+    {% csrf_token %}
+    <input type="hidden" name="chave" value="{{ s.chave }}">
+    <input type="hidden" name="descricao" value="{{ s.descricao }}">
+    <input type="text" name="valor" value="{{ s.valor }}"
+           class="flex-1 px-3 py-1.5 rounded-lg border border-amber-400 bg-white text-[0.85rem] text-texto outline-none">
+    <button type="submit"
+            class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 text-white text-[0.75rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+      </svg>
+      Adicionar
+    </button>
+  </form>
 </div>
 {% endfor %}
 {% endif %}
 
-<div class="section-title">
-    <i class="fas fa-cogs me-1"></i>Configurações ativas ({{ configs|length }})
+<div class="flex items-center gap-1.5 text-[0.8rem] font-extrabold uppercase tracking-wider text-texto-suave mt-4 mb-2">
+  <svg class="w-4 h-4 text-texto-suave" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+    <circle cx="12" cy="12" r="3"/>
+  </svg>
+  Configurações ativas ({{ configs|length }})
 </div>
 
 {% for c in configs %}
-<div class="cfg-card">
-    <div class="cfg-chave">{{ c.chave }}</div>
-    {% if c.descricao %}<div class="cfg-descricao">{{ c.descricao }}</div>{% endif %}
-    <form method="post" action="{% url 'aranha:admin_editar_configuracao' c.pk %}" class="cfg-form">
-        {% csrf_token %}
-        <input type="text" name="valor" value="{{ c.valor|default:'' }}">
-        <button type="submit" class="btn-salvar" title="Salvar"><i class="fas fa-save"></i></button>
-        <button type="submit" class="btn-excluir" formaction="{% url 'aranha:admin_excluir_configuracao' c.pk %}" onclick="return confirm('Excluir {{ c.chave|escapejs }}?')" title="Excluir"><i class="fas fa-trash"></i></button>
-    </form>
+<div class="bg-white rounded-xl shadow-sm p-4 mb-1.5">
+  <div class="font-mono text-[0.8rem] font-extrabold text-marca mb-0.5">{{ c.chave }}</div>
+  {% if c.descricao %}<div class="text-[0.72rem] text-texto-suave mb-2">{{ c.descricao }}</div>{% endif %}
+  <form method="post" action="{% url 'aranha:admin_editar_configuracao' c.pk %}" class="grid grid-cols-[1fr_auto_auto] gap-1.5 items-center">
+    {% csrf_token %}
+    <input type="text" name="valor" value="{{ c.valor|default:'' }}"
+           class="px-3 py-1.5 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+    <button type="submit" title="Salvar"
+            class="inline-flex items-center px-3 py-1.5 rounded-lg bg-green-600 text-white border-none cursor-pointer hover:opacity-90 transition-opacity">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+      </svg>
+    </button>
+    <button type="submit" formaction="{% url 'aranha:admin_excluir_configuracao' c.pk %}"
+            data-confirm="Excluir {{ c.chave|escapejs }}?" title="Excluir"
+            class="inline-flex items-center px-3 py-1.5 rounded-lg bg-red-50 text-red-700 border-none cursor-pointer hover:bg-red-100 transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+      </svg>
+    </button>
+  </form>
 </div>
 {% empty %}
-<div style="text-align:center; padding:2rem 1rem; color:#999;">
-    Nenhuma configuração cadastrada. Use as sugestões acima ou crie uma nova.
+<div class="text-center py-8 text-texto-suave text-[0.85rem]">
+  Nenhuma configuração cadastrada. Use as sugestões acima ou crie uma nova.
 </div>
 {% endfor %}
 
+{% endblock %}
+
+{% block js %}
+<script nonce="{{ csp_nonce }}">
+document.addEventListener('click', function (e) {
+  var b = e.target.closest('[data-confirm]');
+  if (b && !confirm(b.getAttribute('data-confirm'))) e.preventDefault();
+});
+</script>
 {% endblock %}

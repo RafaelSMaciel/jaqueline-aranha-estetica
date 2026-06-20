@@ -1,138 +1,130 @@
-{% extends 'painel/base.html' %}
+{% extends 'painel/base_v2.html' %}
 
+{% block titulo %}Autenticação 2FA — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Autenticação 2FA{% endblock %}
 {% block page_subtitle %}Proteja sua conta com código de 6 dígitos{% endblock %}
 
-{% block admin_css %}
-.card-2fa {
-    background: white; border-radius: 16px; padding: 1.5rem;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 1rem;
-}
-.status-2fa {
-    padding: 0.8rem 1rem; border-radius: 12px;
-    font-weight: 700; font-size: 0.85rem; margin-bottom: 1rem;
-    display: flex; align-items: center; gap: 0.5rem;
-}
-.status-2fa.ativo { background: #e8f5e9; color: #2e7d32; }
-.status-2fa.inativo { background: #fff8e1; color: #e65100; }
-.qr-wrap {
-    text-align: center; padding: 1.5rem;
-    background: #f5efe8; border-radius: 14px; margin-bottom: 1rem;
-}
-.qr-wrap img {
-    max-width: 240px; border: 6px solid white;
-    border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.1);
-}
-.secret-box {
-    font-family: 'Courier New', monospace; font-size: 0.9rem;
-    background: #fafafa; padding: 0.6rem 0.9rem;
-    border-radius: 8px; border: 1px dashed #c9a58a;
-    word-break: break-all; margin-top: 0.75rem;
-    color: #8b6f47; font-weight: 700;
-}
-.btn-2fa {
-    border: none; padding: 0.6rem 1.3rem;
-    border-radius: 10px; font-weight: 700;
-    font-size: 0.9rem; cursor: pointer;
-}
-.btn-primary-2fa { background: linear-gradient(135deg, #8b6f47, #c9a58a); color: white; }
-.btn-danger-2fa { background: #fce4ec; color: #c62828; }
-.input-token {
-    width: 100%; padding: 0.8rem;
-    border: 2px solid #ddd; border-radius: 12px;
-    font-size: 1.5rem; text-align: center; letter-spacing: 6px;
-    font-weight: 700; font-family: 'Courier New', monospace;
-}
-.input-token:focus { border-color: #8b6f47; outline: none; }
-{% endblock %}
-
 {% block admin_content %}
+<div class="max-w-xl mx-auto">
 
 {% if device_confirmado %}
-<div class="status-2fa ativo">
-    <i class="fas fa-shield-check"></i>
+  <div class="flex items-center gap-2 px-4 py-3 rounded-xl bg-green-50 text-green-700 font-bold text-[0.85rem] mb-4">
+    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+    </svg>
     2FA ATIVO · dispositivo: {{ device_confirmado.name }}
-</div>
-<div class="card-2fa">
-    <p style="color:#666; font-size:0.88rem;">
-        Sua conta está protegida com autenticação de 2 fatores. A cada login você precisará digitar o código de 6 dígitos gerado pelo app.
+  </div>
+  <div class="bg-white rounded-2xl shadow-sm p-5">
+    <p class="text-[0.88rem] text-texto-suave mb-4">
+      Sua conta está protegida com autenticação de 2 fatores. A cada login você precisará digitar o código de 6 dígitos gerado pelo app.
     </p>
-    <form method="post">
-        {% csrf_token %}
-        <input type="hidden" name="acao" value="desativar">
-        <button type="submit" class="btn-2fa btn-danger-2fa"
-            onclick="return confirm('Desativar 2FA? Sua conta ficará menos segura.')">
-            <i class="fas fa-shield-slash"></i> Desativar 2FA
-        </button>
+    <form method="post" id="form-desativar-2fa">
+      {% csrf_token %}
+      <input type="hidden" name="acao" value="desativar">
+      <button type="submit"
+              class="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-red-50 text-red-700 text-[0.9rem] font-bold border-none cursor-pointer hover:bg-red-100 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+        </svg>
+        Desativar 2FA
+      </button>
     </form>
-</div>
+  </div>
 
 {% elif device_pendente and qr_b64 %}
-<div class="status-2fa inativo">
-    <i class="fas fa-exclamation-triangle"></i>
+  <div class="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 text-amber-700 font-bold text-[0.85rem] mb-4">
+    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+    </svg>
     2FA PENDENTE · confirme o código para ativar
-</div>
+  </div>
 
-<div class="card-2fa">
-    <h5 style="font-weight:800; margin-bottom:0.5rem;">Passo 1: escaneie o QR code</h5>
-    <p style="color:#666; font-size:0.85rem;">
-        Abra <strong>Google Authenticator</strong>, <strong>Authy</strong> ou <strong>Microsoft Authenticator</strong> e escaneie:
+  <div class="bg-white rounded-2xl shadow-sm p-5 mb-4">
+    <h5 class="font-extrabold text-texto mb-1">Passo 1: escaneie o QR code</h5>
+    <p class="text-[0.85rem] text-texto-suave mb-3">
+      Abra <strong>Google Authenticator</strong>, <strong>Authy</strong> ou <strong>Microsoft Authenticator</strong> e escaneie:
     </p>
-    <div class="qr-wrap">
-        <img src="data:image/png;base64,{{ qr_b64 }}" alt="QR code TOTP">
+    <div class="text-center p-6 bg-[#f5efe8] rounded-2xl mb-2">
+      <img src="data:image/png;base64,{{ qr_b64 }}" alt="QR code TOTP"
+           class="max-w-[240px] border-[6px] border-white rounded-xl shadow-md mx-auto">
     </div>
     <details>
-        <summary style="cursor:pointer; color:#8b6f47; font-weight:700; font-size:0.85rem;">
-            Não consegue escanear? Digite manualmente
-        </summary>
-        <div class="secret-box">{{ secret_b32 }}</div>
+      <summary class="cursor-pointer text-marca font-bold text-[0.85rem]">
+        Não consegue escanear? Digite manualmente
+      </summary>
+      <div class="font-mono text-[0.9rem] bg-fundo px-3 py-2 rounded-lg border border-dashed border-[#c9a58a] break-all mt-3 text-marca font-bold">{{ secret_b32 }}</div>
     </details>
-</div>
+  </div>
 
-<div class="card-2fa">
-    <h5 style="font-weight:800; margin-bottom:0.5rem;">Passo 2: confirme o código gerado</h5>
-    <p style="color:#666; font-size:0.85rem;">
-        Digite os 6 dígitos que apareceram no app:
+  <div class="bg-white rounded-2xl shadow-sm p-5">
+    <h5 class="font-extrabold text-texto mb-1">Passo 2: confirme o código gerado</h5>
+    <p class="text-[0.85rem] text-texto-suave mb-3">
+      Digite os 6 dígitos que apareceram no app:
     </p>
     <form method="post">
-        {% csrf_token %}
-        <input type="hidden" name="acao" value="confirmar">
-        <input type="text" name="token" class="input-token"
-            maxlength="6" pattern="\d{6}" autocomplete="one-time-code"
-            placeholder="000000" required autofocus>
-        <div style="margin-top:1rem; display:flex; gap:0.5rem;">
-            <button type="submit" class="btn-2fa btn-primary-2fa">
-                <i class="fas fa-check"></i> Confirmar e ativar
-            </button>
-            <button type="submit" name="acao" value="gerar" class="btn-2fa"
-                style="background:white; color:#666; border:1px solid #ddd;">
-                Gerar novo QR
-            </button>
-        </div>
+      {% csrf_token %}
+      <input type="hidden" name="acao" value="confirmar">
+      <input type="text" name="token"
+             maxlength="6" pattern="\d{6}" autocomplete="one-time-code"
+             placeholder="000000" required autofocus
+             class="w-full px-4 py-3 rounded-xl border-2 border-borda bg-fundo text-texto text-2xl text-center font-bold font-mono tracking-[0.4em] outline-none focus:border-[#C9A84C] transition-colors">
+      <div class="flex gap-2 mt-4">
+        <button type="submit"
+                class="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.9rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+          </svg>
+          Confirmar e ativar
+        </button>
+        <button type="submit" name="acao" value="gerar"
+                class="px-4 py-2 rounded-xl bg-white text-texto-suave text-[0.9rem] font-bold border border-borda cursor-pointer hover:bg-fundo transition-colors">
+          Gerar novo QR
+        </button>
+      </div>
     </form>
-</div>
+  </div>
 
 {% else %}
-<div class="status-2fa inativo">
-    <i class="fas fa-shield"></i>
+  <div class="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 text-amber-700 font-bold text-[0.85rem] mb-4">
+    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+    </svg>
     2FA DESATIVADO · sua conta só protegida por senha
-</div>
-<div class="card-2fa">
-    <p style="color:#666; font-size:0.9rem; margin-bottom:1rem;">
-        Autenticação de 2 fatores adiciona uma camada extra de segurança: além da senha,
-        você precisará digitar um código de 6 dígitos gerado a cada 30 segundos pelo app.
+  </div>
+  <div class="bg-white rounded-2xl shadow-sm p-5">
+    <p class="text-[0.9rem] text-texto-suave mb-4">
+      Autenticação de 2 fatores adiciona uma camada extra de segurança: além da senha,
+      você precisará digitar um código de 6 dígitos gerado a cada 30 segundos pelo app.
     </p>
-    <p style="color:#666; font-size:0.88rem;">
-        Apps compatíveis: <strong>Google Authenticator</strong>, <strong>Authy</strong>, <strong>Microsoft Authenticator</strong>, <strong>1Password</strong>.
+    <p class="text-[0.88rem] text-texto-suave mb-4">
+      Apps compatíveis: <strong>Google Authenticator</strong>, <strong>Authy</strong>, <strong>Microsoft Authenticator</strong>, <strong>1Password</strong>.
     </p>
     <form method="post">
-        {% csrf_token %}
-        <input type="hidden" name="acao" value="gerar">
-        <button type="submit" class="btn-2fa btn-primary-2fa">
-            <i class="fas fa-shield-check"></i> Ativar 2FA agora
-        </button>
+      {% csrf_token %}
+      <input type="hidden" name="acao" value="gerar">
+      <button type="submit"
+              class="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.9rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+        </svg>
+        Ativar 2FA agora
+      </button>
     </form>
-</div>
+  </div>
 {% endif %}
 
+</div>
+{% endblock %}
+
+{% block js %}
+<script nonce="{{ csp_nonce }}">
+(function () {
+  var f = document.getElementById('form-desativar-2fa');
+  if (f) {
+    f.addEventListener('submit', function (e) {
+      if (!confirm('Desativar 2FA? Sua conta ficará menos segura.')) e.preventDefault();
+    });
+  }
+})();
+</script>
 {% endblock %}
