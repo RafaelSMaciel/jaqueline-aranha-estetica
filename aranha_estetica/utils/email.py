@@ -115,7 +115,7 @@ def enviar_aniversario_email(email, dados, unsub_token=None):
     )
 
 
-def enviar_promocao_email(email, dados, unsub_token=None):
+def enviar_promocao_email(email, dados, unsub_token=None, assunto=None):
     """Envia promocao mensal (marketing).
 
     Sanitiza `dados['corpo_html']` via bleach se presente — mitiga XSS
@@ -144,11 +144,14 @@ def enviar_promocao_email(email, dados, unsub_token=None):
             from django.utils.html import escape
             dados = dict(dados)
             dados['corpo_html'] = escape(dados['corpo_html'])
+    # promocao.html usa variaveis top-level ({{ nome }}, {{ cupom }}, {{ corpo_html }}...),
+    # entao o contexto vai FLAT (nao embrulhado em {'dados': ...}).
+    contexto = dict(dados) if isinstance(dados, dict) else {'dados': dados}
     return _enviar_email(
         destinatario=email,
-        assunto=f'{CLINIC_NAME} — Ofertas especiais deste mes',
+        assunto=assunto or f'{CLINIC_NAME} — Ofertas especiais deste mes',
         template='email/promocao.html',
-        contexto={'dados': dados},
+        contexto=contexto,
         marketing=True,
         preheader=preheader,
         unsub_token=unsub_token,
