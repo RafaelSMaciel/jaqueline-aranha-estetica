@@ -35,7 +35,7 @@
            bg-[#1a1a2e] text-[#e6e6e6] border-r border-white/[0.08]
            transition-transform duration-[250ms] ease-in-out
            -translate-x-full lg:translate-x-0"
-    x-bind:class="menuAberto ? '!translate-x-0' : ''"
+    x-bind:class="classeDrawer()"
     aria-label="Menu de navegação do painel"
   >
     {# Cabeçalho do sidenav #}
@@ -289,7 +289,7 @@
            role="alert">
         <div class="flex-1 text-gray-800">{{ message }}</div>
         <button type="button" class="text-gray-400 hover:text-gray-600 text-lg leading-none" aria-label="Fechar"
-                x-data x-on:click="$el.closest('[role=alert]').remove()">&times;</button>
+                x-data="alertaDismiss" x-on:click="fechar">&times;</button>
       </div>
       {% endfor %}
     </div>

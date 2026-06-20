@@ -25,11 +25,18 @@ Alpine.data('modal', () => ({
   fechar() { this.aberto = false },
 }))
 
-// App-shell do painel admin: sidenav drawer mobile + backdrop
+// App-shell do painel admin: sidenav drawer mobile + backdrop.
+// classeDrawer() = metodo (CSP build nao aceita ternario inline em x-bind).
 Alpine.data('adminShell', () => ({
   menuAberto: false,
   alternarMenu() { this.menuAberto = !this.menuAberto },
   fecharMenu() { this.menuAberto = false },
+  classeDrawer() { return this.menuAberto ? '!translate-x-0' : '' },
+}))
+
+// Fecha o alerta pai (CSP-safe: logica no metodo, nao inline em x-on).
+Alpine.data('alertaDismiss', () => ({
+  fechar() { const a = this.$el.closest('[role=alert]'); if (a) a.remove() },
 }))
 
 window.Alpine = Alpine

@@ -48,12 +48,11 @@
       <p class="text-[0.7rem] font-bold uppercase tracking-widest text-marca mb-4">Disponibilidade Semanal</p>
 
       {% for dia_key, dia_nome in dias_semana.items %}
-      <div class="flex items-center gap-3 mb-3" x-data="{ aberto: false }">
+      <div class="flex items-center gap-3 mb-3">
         <input type="checkbox" name="trabalha_{{ dia_key }}" id="dia_{{ dia_key }}"
-               class="rounded border-borda"
-               x-model="aberto">
+               class="peer rounded border-borda">
         <label for="dia_{{ dia_key }}" class="font-bold text-sm text-texto min-w-[110px] cursor-pointer">{{ dia_nome }}</label>
-        <div class="flex items-center gap-2" x-show="aberto" x-cloak>
+        <div class="hidden peer-checked:flex items-center gap-2">
           <input type="time" name="hora_inicio_{{ dia_key }}"
                  class="rounded-md border border-borda bg-superficie px-2 py-1 text-sm text-texto"
                  value="09:00">
