@@ -1,108 +1,132 @@
-{% extends 'painel/base.html' %}
+{% extends 'painel/base_v2.html' %}
 
-{% block page_title %}{% if form_obj %}Editar{% else %}Novo{% endif %} formulario{% endblock %}
+{% block titulo %}{% if form_obj %}Editar{% else %}Novo{% endif %} formulário de anamnese — {{ CLINIC_NAME }}{% endblock %}
+{% block page_title %}{% if form_obj %}Editar{% else %}Novo{% endif %} formulário{% endblock %}
 {% block page_subtitle %}{% if form_obj %}{{ form_obj.nome }}{% else %}Anamnese{% endif %}{% endblock %}
 
-{% block admin_css %}
-.an-form-card {
-    background: white; border-radius: 16px; padding: 1.25rem;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 1rem;
-}
-.an-form-card label {
-    display: block; font-size: 0.75rem; font-weight: 700;
-    color: #666; margin-bottom: 0.3rem; text-transform: uppercase;
-    letter-spacing: 0.4px;
-}
-.an-form-card input, .an-form-card select, .an-form-card textarea {
-    width: 100%; padding: 0.55rem 0.75rem;
-    border: 1px solid #ddd; border-radius: 8px;
-    font-size: 0.9rem; margin-bottom: 0.85rem;
-    font-family: inherit;
-}
-.an-form-card textarea { min-height: 200px; }
-.an-form-card .help {
-    font-size: 0.72rem; color: #999; margin-top: -0.65rem;
-    margin-bottom: 0.85rem;
-}
-.an-form-card code {
-    background: #f5f5f5; padding: 0.1rem 0.35rem;
-    border-radius: 4px; font-size: 0.78rem;
-}
+{% block page_actions %}
+<a href="{% url 'aranha:admin_anamneses' %}"
+   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold border border-borda text-texto-suave hover:text-texto hover:border-texto-suave transition-colors no-underline">
+  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+    <polyline points="15 18 9 12 15 6"/>
+  </svg>
+  Voltar
+</a>
 {% endblock %}
 
-{% block admin_content %}
-<form method="post" class="an-form-card">
+{% block conteudo %}
+<div class="max-w-2xl mx-auto">
+
+  <form method="post" class="bg-superficie rounded-lg border border-borda p-6">
     {% csrf_token %}
 
-    <label>Nome</label>
-    <input type="text" name="nome" value="{{ form_obj.nome|default:'' }}" required maxlength="120">
+    {# ── Nome ── #}
+    <div class="mb-4">
+      <c-campo nome="nome" label="Nome" tipo="text"
+               value="{{ form_obj.nome|default:'' }}"
+               required maxlength="120"></c-campo>
+    </div>
 
-    <label>Escopo</label>
-    <select name="escopo" id="anEscopo">
+    {# ── Escopo ── #}
+    <div class="mb-4">
+      <label for="anEscopo" class="block text-sm font-medium text-texto mb-1">Escopo</label>
+      <select id="anEscopo" name="escopo"
+              class="w-full rounded-md border border-borda bg-superficie px-3 py-2 text-texto text-sm">
         {% for v, l in ESCOPO_CHOICES %}
         <option value="{{ v }}" {% if form_obj.escopo == v %}selected{% endif %}>{{ l }}</option>
         {% endfor %}
-    </select>
-
-    <div id="anCategoriaWrap" style="display:none;">
-        <label>Categoria</label>
-        <select name="categoria">
-            <option value="">—</option>
-            <option value="FACIAL" {% if form_obj.categoria == 'FACIAL' %}selected{% endif %}>Facial</option>
-            <option value="CORPORAL" {% if form_obj.categoria == 'CORPORAL' %}selected{% endif %}>Corporal</option>
-            <option value="CAPILAR" {% if form_obj.categoria == 'CAPILAR' %}selected{% endif %}>Capilar</option>
-            <option value="OUTRO" {% if form_obj.categoria == 'OUTRO' %}selected{% endif %}>Outro</option>
-        </select>
+      </select>
     </div>
 
-    <div id="anProcedimentoWrap" style="display:none;">
-        <label>Procedimento</label>
-        <select name="procedimento">
-            <option value="">—</option>
-            {% for p in procedimentos %}
-            <option value="{{ p.pk }}" {% if form_obj.procedimento_id == p.pk %}selected{% endif %}>{{ p.nome }}</option>
-            {% endfor %}
-        </select>
+    {# ── Categoria (condicional) ── #}
+    <div id="anCategoriaWrap" class="mb-4" style="display:none;">
+      <label for="anCategoria" class="block text-sm font-medium text-texto mb-1">Categoria</label>
+      <select id="anCategoria" name="categoria"
+              class="w-full rounded-md border border-borda bg-superficie px-3 py-2 text-texto text-sm">
+        <option value="">—</option>
+        <option value="FACIAL" {% if form_obj.categoria == 'FACIAL' %}selected{% endif %}>Facial</option>
+        <option value="CORPORAL" {% if form_obj.categoria == 'CORPORAL' %}selected{% endif %}>Corporal</option>
+        <option value="CAPILAR" {% if form_obj.categoria == 'CAPILAR' %}selected{% endif %}>Capilar</option>
+        <option value="OUTRO" {% if form_obj.categoria == 'OUTRO' %}selected{% endif %}>Outro</option>
+      </select>
     </div>
 
-    <label>schema_json</label>
-    <textarea name="schema_json" style="font-family:monospace;font-size:0.82rem;">{% if form_obj %}{{ form_obj.schema_json|safe }}{% else %}[
+    {# ── Procedimento (condicional) ── #}
+    <div id="anProcedimentoWrap" class="mb-4" style="display:none;">
+      <label for="anProcedimento" class="block text-sm font-medium text-texto mb-1">Procedimento</label>
+      <select id="anProcedimento" name="procedimento"
+              class="w-full rounded-md border border-borda bg-superficie px-3 py-2 text-texto text-sm">
+        <option value="">—</option>
+        {% for p in procedimentos %}
+        <option value="{{ p.pk }}" {% if form_obj.procedimento_id == p.pk %}selected{% endif %}>{{ p.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    {# ── Schema JSON ── sem |safe — escape normal do Django ── #}
+    <div class="mb-4">
+      <label for="schemaJson" class="block text-sm font-medium text-texto mb-1">schema_json</label>
+      <textarea id="schemaJson" name="schema_json"
+                class="w-full rounded-md border border-borda bg-superficie px-3 py-2 text-texto text-sm font-mono min-h-[200px]"
+                style="font-size:0.82rem;">{% if form_obj %}{{ form_obj.schema_json }}{% else %}[
   {"key": "gestante", "tipo": "bool", "label": "Esta gestante?", "obrigatório": true},
   {"key": "alergias", "tipo": "text", "label": "Possui alergias?", "obrigatório": false}
 ]{% endif %}</textarea>
-    <div class="help">
-        Lista de campos. Tipos: <code>bool</code>, <code>text</code>, <code>longtext</code>,
-        <code>select</code> (c/ <code>opcoes</code>), <code>number</code>, <code>date</code>.
+      <p class="text-xs text-texto-suave mt-1">
+        Lista de campos. Tipos:
+        <code class="bg-fundo px-1 rounded text-[0.78rem]">bool</code>,
+        <code class="bg-fundo px-1 rounded text-[0.78rem]">text</code>,
+        <code class="bg-fundo px-1 rounded text-[0.78rem]">longtext</code>,
+        <code class="bg-fundo px-1 rounded text-[0.78rem]">select</code> (c/ <code class="bg-fundo px-1 rounded text-[0.78rem]">opcoes</code>),
+        <code class="bg-fundo px-1 rounded text-[0.78rem]">number</code>,
+        <code class="bg-fundo px-1 rounded text-[0.78rem]">date</code>.
+      </p>
     </div>
 
-    <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;text-transform:none;letter-spacing:0;">
-        <input type="checkbox" name="ativo" value="1" {% if not form_obj or form_obj.ativo %}checked{% endif %} style="width:auto;margin:0;">
+    {# ── Checkboxes ── #}
+    <div class="flex flex-col gap-2 mb-6">
+      <label class="inline-flex items-center gap-2 text-sm text-texto cursor-pointer">
+        <input type="checkbox" name="ativo" value="1"
+               {% if not form_obj or form_obj.ativo %}checked{% endif %}
+               class="rounded border-borda">
         Ativo
-    </label>
-    <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;text-transform:none;letter-spacing:0;">
-        <input type="checkbox" name="obrigatorio" value="1" {% if form_obj.obrigatorio %}checked{% endif %} style="width:auto;margin:0;">
-        Obrigatorio (bloqueia agendamento se não preenchido)
-    </label>
-
-    <div style="display:flex; gap:0.5rem; margin-top:1rem;">
-        <button type="submit" class="btn-admin-primary">
-            <i class="fas fa-save"></i> {% if form_obj %}Salvar{% else %}Criar{% endif %}
-        </button>
-        <a href="{% url 'aranha:admin_anamneses' %}" class="btn btn-outline-secondary">Cancelar</a>
+      </label>
+      <label class="inline-flex items-center gap-2 text-sm text-texto cursor-pointer">
+        <input type="checkbox" name="obrigatorio" value="1"
+               {% if form_obj.obrigatorio %}checked{% endif %}
+               class="rounded border-borda">
+        Obrigatório (bloqueia agendamento se não preenchido)
+      </label>
     </div>
-</form>
 
+    {# ── Ações ── #}
+    <div class="flex gap-3">
+      <c-botao variante="solido" tipo="submit">
+        {% if form_obj %}Salvar{% else %}Criar{% endif %}
+      </c-botao>
+      <a href="{% url 'aranha:admin_anamneses' %}"
+         class="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium border border-borda text-texto hover:bg-fundo transition no-underline">
+        Cancelar
+      </a>
+    </div>
+
+  </form>
+
+</div>
+{% endblock %}
+
+{% block js %}
 <script nonce="{{ csp_nonce }}">
 (function(){
-    var sel = document.getElementById('anEscopo');
-    var cat = document.getElementById('anCategoriaWrap');
-    var proc = document.getElementById('anProcedimentoWrap');
-    function toggle(){
-        cat.style.display = sel.value === 'CATEGORIA' ? '' : 'none';
-        proc.style.display = sel.value === 'PROCEDIMENTO' ? '' : 'none';
-    }
-    sel.addEventListener('change', toggle);
-    toggle();
+  var sel = document.getElementById('anEscopo');
+  var cat = document.getElementById('anCategoriaWrap');
+  var proc = document.getElementById('anProcedimentoWrap');
+  function toggle(){
+    cat.style.display = sel.value === 'CATEGORIA' ? '' : 'none';
+    proc.style.display = sel.value === 'PROCEDIMENTO' ? '' : 'none';
+  }
+  sel.addEventListener('change', toggle);
+  toggle();
 })();
 </script>
 {% endblock %}
