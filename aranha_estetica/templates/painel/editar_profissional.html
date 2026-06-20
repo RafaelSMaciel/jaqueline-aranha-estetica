@@ -52,14 +52,12 @@
 
       {% for dia_key, dia_nome in dias_semana.items %}
       {% with marcado=dia_key|lower in disponibilidades_map %}
-      <div class="flex items-center gap-3 mb-3"
-           x-data="{ aberto: {{ dia_key in disponibilidades_map|yesno:'true,false' }} }">
+      <div class="flex items-center gap-3 mb-3">
         <input type="checkbox" name="trabalha_{{ dia_key }}" id="dia_{{ dia_key }}"
-               class="rounded border-borda"
-               {% if dia_key in disponibilidades_map %}checked{% endif %}
-               x-model="aberto">
+               class="peer rounded border-borda"
+               {% if dia_key in disponibilidades_map %}checked{% endif %}>
         <label for="dia_{{ dia_key }}" class="font-bold text-sm text-texto min-w-[110px] cursor-pointer">{{ dia_nome }}</label>
-        <div class="flex items-center gap-2" x-show="aberto" x-cloak>
+        <div class="hidden peer-checked:flex items-center gap-2">
           <input type="time" name="hora_inicio_{{ dia_key }}"
                  class="rounded-md border border-borda bg-superficie px-2 py-1 text-sm text-texto"
                  value="{% if dia_key in disponibilidades_map %}{{ disponibilidades_map|dictsort:dia_key }}{% else %}09:00{% endif %}">
