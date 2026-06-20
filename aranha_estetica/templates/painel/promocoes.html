@@ -1,214 +1,210 @@
-{% extends 'painel/base.html' %}
+{% extends 'painel/base_v2.html' %}
 
+{% block titulo %}Promoções — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Promoções{% endblock %}
 {% block page_subtitle %}Gerencie campanhas e descontos{% endblock %}
 
 {% block admin_content %}
-<style nonce="{{ csp_nonce }}">
-    .promo-card {
-        background: white; border-radius: 16px; padding: 1rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 0.75rem;
-        position: relative; overflow: hidden;
-    }
-    .promo-card-active { border-left: 4px solid #4caf50; }
-    .promo-card-inactive { border-left: 4px solid #ccc; opacity: 0.7; }
-    .promo-discount {
-        position: absolute; top: 0.75rem; right: 0.75rem;
-        background: linear-gradient(135deg, #C9A84C, #e8c94f);
-        color: white; font-weight: 800; font-size: 0.8rem;
-        padding: 0.3rem 0.75rem; border-radius: 20px;
-    }
-    .promo-name { font-weight: 700; font-size: 1rem; margin-bottom: 0.2rem; }
-    .promo-proc { font-size: 0.8rem; color: #999; }
-    .promo-dates { font-size: 0.75rem; color: #bbb; margin-top: 0.4rem; }
-    .promo-actions { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
-    .promo-actions a, .promo-actions button {
-        padding: 0.4rem 0.8rem; border-radius: 8px; font-size: 0.75rem;
-        font-weight: 700; text-decoration: none; border: none; cursor: pointer;
-    }
-    .btn-edit { background: #e3f2fd; color: #1565c0; }
-    .btn-delete { background: #fce4ec; color: #c62828; }
 
-    /* Modal */
-    .modal-promo .modal-content {
-        border: none; border-radius: 20px; overflow: hidden;
-    }
-    .modal-promo .modal-header {
-        background: linear-gradient(135deg, #2c2015, #4A3425);
-        color: white; border: none; padding: 1.25rem;
-    }
-    .modal-promo .modal-body { padding: 1.5rem; }
-    .modal-promo .form-label {
-        font-size: 0.72rem; font-weight: 800; text-transform: uppercase;
-        letter-spacing: 1px; color: #999;
-    }
-    .modal-promo .form-control {
-        border-radius: 12px; border: 2px solid #eee; padding: 0.75rem;
-    }
-    .modal-promo .form-control:focus {
-        border-color: #C9A84C; box-shadow: 0 0 0 3px rgba(201,168,76,0.1);
-    }
-</style>
-
-<!-- Empty state -->
 {% if not promocoes %}
-<div class="text-center py-5">
-    <i class="fas fa-tag fa-3x" style="color:#ddd;margin-bottom:1rem;"></i>
-    <h5 style="font-weight:700;color:#999;">Nenhuma promoção criada</h5>
-    <p class="text-muted small">Crie sua primeira campanha para atrair mais pacientes!</p>
+<div class="text-center py-12">
+  <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
+    <svg class="w-7 h-7 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>
+    </svg>
+  </div>
+  <h5 class="font-bold text-texto mb-1">Nenhuma promoção criada</h5>
+  <p class="text-[0.85rem] text-texto-suave">Crie sua primeira campanha para atrair mais pacientes!</p>
 </div>
 {% else %}
-<!-- Promoções List -->
-{% for promo in promocoes %}
-<div class="promo-card {% if promo.ativa %}promo-card-active{% else %}promo-card-inactive{% endif %}">
-    <div class="promo-discount">-{{ promo.desconto_percentual }}%</div>
-    <div class="promo-name">{{ promo.nome }}</div>
-    <div class="promo-proc"><i class="fas fa-spa me-1"></i>{{ promo.procedimento.nome }}</div>
-    {% if promo.descricao %}
-    <div class="text-muted small mt-1">{{ promo.descricao|truncatewords:15 }}</div>
-    {% endif %}
-    <div class="promo-dates">
-        <i class="far fa-calendar me-1"></i>
-        {{ promo.data_inicio|date:"d/m/Y" }} — {{ promo.data_fim|date:"d/m/Y" }}
-        {% if promo.esta_vigente %}
-        <span class="admin-badge admin-badge-green ms-1">ATIVA</span>
-        {% else %}
-        <span class="admin-badge admin-badge-red ms-1">EXPIRADA</span>
-        {% endif %}
-    </div>
-    <div class="promo-actions">
-        <a href="#" class="btn-edit" data-bs-toggle="modal" data-bs-target="#editModal{{ promo.pk }}">
-            <i class="fas fa-pen me-1"></i>Editar
-        </a>
-        <form method="POST" action="{% url 'aranha:admin_excluir_promocao' promo.pk %}"
-              onsubmit="return confirm('Excluir esta promoção?');" style="display:inline;">
-            {% csrf_token %}
-            <button type="submit" class="btn-delete"><i class="fas fa-trash me-1"></i>Excluir</button>
-        </form>
-    </div>
-</div>
 
-<!-- Edit Modal -->
-<div class="modal fade modal-promo" id="editModal{{ promo.pk }}" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title fw-bold">Editar Promoção</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form method="POST" action="{% url 'aranha:admin_editar_promocao' promo.pk %}">
-                    {% csrf_token %}
-                    <div class="mb-3">
-                        <label class="form-label">Nome da Campanha</label>
-                        <input type="text" name="nome" class="form-control" value="{{ promo.nome }}" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Descrição</label>
-                        <textarea name="descricao" class="form-control" rows="2">{{ promo.descricao }}</textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Procedimento</label>
-                        <select name="procedimento" class="form-control" required>
-                            {% for proc in procedimentos %}
-                            <option value="{{ proc.pk }}" {% if proc.pk == promo.procedimento_id %}selected{% endif %}>{{ proc.nome }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="row">
-                        <div class="col-6 mb-3">
-                            <label class="form-label">Desconto (%)</label>
-                            <input type="number" name="desconto" class="form-control" value="{{ promo.desconto_percentual }}" min="1" max="100" required>
-                        </div>
-                        <div class="col-6 mb-3">
-                            <label class="form-label">Ativa</label>
-                            <select name="ativa" class="form-control">
-                                <option value="1" {% if promo.ativa %}selected{% endif %}>Sim</option>
-                                <option value="0" {% if not promo.ativa %}selected{% endif %}>Não</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-6 mb-3">
-                            <label class="form-label">Data Início</label>
-                            <input type="date" name="data_inicio" class="form-control" value="{{ promo.data_inicio|date:'Y-m-d' }}" required>
-                        </div>
-                        <div class="col-6 mb-3">
-                            <label class="form-label">Data Fim</label>
-                            <input type="date" name="data_fim" class="form-control" value="{{ promo.data_fim|date:'Y-m-d' }}" required>
-                        </div>
-                    </div>
-                    <button type="submit" class="btn w-100 rounded-pill py-2 fw-bold text-white"
-                            style="background:#C9A84C;">Salvar Alterações</button>
-                </form>
-            </div>
+{% for promo in promocoes %}
+<div x-data="modal" x-on:keydown.escape.window="fechar"
+     class="relative overflow-hidden bg-white rounded-2xl shadow-sm p-4 mb-3 border-l-4 {% if promo.ativa %}border-green-500{% else %}border-gray-300 opacity-70{% endif %}">
+  <div class="absolute top-3 right-3 px-3 py-1 rounded-full bg-gradient-to-br from-[#C9A84C] to-[#e8c94f] text-white font-extrabold text-[0.8rem]">-{{ promo.desconto_percentual }}%</div>
+  <div class="font-bold text-[1rem] text-texto mb-0.5 pr-16">{{ promo.nome }}</div>
+  <div class="flex items-center gap-1.5 text-[0.8rem] text-texto-suave">
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 2a7 7 0 00-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 00-7-7z"/><circle cx="12" cy="9" r="2.5"/>
+    </svg>
+    {{ promo.procedimento.nome }}
+  </div>
+  {% if promo.descricao %}
+  <div class="text-[0.8rem] text-texto-suave mt-1">{{ promo.descricao|truncatewords:15 }}</div>
+  {% endif %}
+  <div class="flex items-center gap-1.5 text-[0.75rem] text-texto-suave mt-2">
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+    </svg>
+    {{ promo.data_inicio|date:"d/m/Y" }} — {{ promo.data_fim|date:"d/m/Y" }}
+    {% if promo.esta_vigente %}
+    <span class="px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-green-50 text-green-700 uppercase tracking-wide">ATIVA</span>
+    {% else %}
+    <span class="px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-red-50 text-red-600 uppercase tracking-wide">EXPIRADA</span>
+    {% endif %}
+  </div>
+  <div class="flex gap-2 mt-3">
+    <button type="button" x-on:click="abrir"
+            class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-[0.75rem] font-bold border-none cursor-pointer hover:bg-blue-100 transition-colors">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+      </svg>
+      Editar
+    </button>
+    <form method="post" action="{% url 'aranha:admin_excluir_promocao' promo.pk %}" class="inline">
+      {% csrf_token %}
+      <button type="submit" data-confirm="Excluir esta promoção?"
+              class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-50 text-red-700 text-[0.75rem] font-bold border-none cursor-pointer hover:bg-red-100 transition-colors">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+        </svg>
+        Excluir
+      </button>
+    </form>
+  </div>
+
+  {# Modal de edição #}
+  <div x-show="aberto" x-cloak role="dialog" aria-modal="true" aria-label="Editar promoção"
+       class="fixed inset-0 z-[10000] flex items-center justify-center p-4" style="background:rgba(0,0,0,.45)">
+    <div x-on:click.outside="fechar"
+         class="bg-superficie text-texto rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl">
+      <div class="flex items-center justify-between px-5 py-4 bg-gradient-to-br from-[#2c2015] to-[#4A3425] text-white rounded-t-2xl">
+        <h5 class="font-bold text-[0.95rem]">Editar Promoção</h5>
+        <button type="button" x-on:click="fechar" aria-label="Fechar"
+                class="text-white/80 hover:text-white text-2xl leading-none border-none bg-transparent cursor-pointer">&times;</button>
+      </div>
+      <form method="post" action="{% url 'aranha:admin_editar_promocao' promo.pk %}" class="p-6">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="block text-[0.72rem] font-extrabold uppercase tracking-wide text-texto-suave mb-1">Nome da Campanha</label>
+          <input type="text" name="nome" value="{{ promo.nome }}" required
+                 class="w-full px-3 py-2.5 rounded-xl border-2 border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:border-[#C9A84C] transition">
         </div>
+        <div class="mb-3">
+          <label class="block text-[0.72rem] font-extrabold uppercase tracking-wide text-texto-suave mb-1">Descrição</label>
+          <textarea name="descricao" rows="2"
+                    class="w-full px-3 py-2.5 rounded-xl border-2 border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:border-[#C9A84C] transition resize-y">{{ promo.descricao }}</textarea>
+        </div>
+        <div class="mb-3">
+          <label class="block text-[0.72rem] font-extrabold uppercase tracking-wide text-texto-suave mb-1">Procedimento</label>
+          <select name="procedimento" required
+                  class="w-full px-3 py-2.5 rounded-xl border-2 border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:border-[#C9A84C] transition">
+            {% for proc in procedimentos %}
+            <option value="{{ proc.pk }}" {% if proc.pk == promo.procedimento_id %}selected{% endif %}>{{ proc.nome }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="mb-3">
+            <label class="block text-[0.72rem] font-extrabold uppercase tracking-wide text-texto-suave mb-1">Desconto (%)</label>
+            <input type="number" name="desconto" value="{{ promo.desconto_percentual }}" min="1" max="100" required
+                   class="w-full px-3 py-2.5 rounded-xl border-2 border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:border-[#C9A84C] transition">
+          </div>
+          <div class="mb-3">
+            <label class="block text-[0.72rem] font-extrabold uppercase tracking-wide text-texto-suave mb-1">Ativa</label>
+            <select name="ativa"
+                    class="w-full px-3 py-2.5 rounded-xl border-2 border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:border-[#C9A84C] transition">
+              <option value="1" {% if promo.ativa %}selected{% endif %}>Sim</option>
+              <option value="0" {% if not promo.ativa %}selected{% endif %}>Não</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="mb-4">
+            <label class="block text-[0.72rem] font-extrabold uppercase tracking-wide text-texto-suave mb-1">Data Início</label>
+            <input type="date" name="data_inicio" value="{{ promo.data_inicio|date:'Y-m-d' }}" required
+                   class="w-full px-3 py-2.5 rounded-xl border-2 border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:border-[#C9A84C] transition">
+          </div>
+          <div class="mb-4">
+            <label class="block text-[0.72rem] font-extrabold uppercase tracking-wide text-texto-suave mb-1">Data Fim</label>
+            <input type="date" name="data_fim" value="{{ promo.data_fim|date:'Y-m-d' }}" required
+                   class="w-full px-3 py-2.5 rounded-xl border-2 border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:border-[#C9A84C] transition">
+          </div>
+        </div>
+        <button type="submit"
+                class="w-full py-2.5 rounded-full bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">Salvar Alterações</button>
+      </form>
     </div>
+  </div>
 </div>
 {% endfor %}
 {% endif %}
 
-<!-- FAB: Create Promo -->
-<a href="#" class="admin-fab" data-bs-toggle="modal" data-bs-target="#createModal">
-    <i class="fas fa-plus"></i>
-</a>
+{# ── FAB + Modal criar ── #}
+<div x-data="modal" x-on:keydown.escape.window="fechar">
+  <button type="button" x-on:click="abrir" aria-label="Nova promoção"
+          class="fixed bottom-6 right-6 z-[9000] w-14 h-14 rounded-full bg-gradient-to-br from-[#C9A84C] to-[#e8c94f] text-white shadow-lg flex items-center justify-center border-none cursor-pointer hover:opacity-90 transition-opacity">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+  </button>
 
-<!-- Create Modal -->
-<div class="modal fade modal-promo" id="createModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title fw-bold"><i class="fas fa-plus-circle me-2"></i>Nova Promoção</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form method="POST" action="{% url 'aranha:admin_criar_promocao' %}">
-                    {% csrf_token %}
-                    <div class="mb-3">
-                        <label class="form-label">Nome da Campanha</label>
-                        <input type="text" name="nome" class="form-control" placeholder="Ex: Black Friday" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Descrição</label>
-                        <textarea name="descricao" class="form-control" rows="2" placeholder="Detalhes da promoção..."></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Procedimento</label>
-                        <select name="procedimento" class="form-control" required>
-                            <option value="">Selecione...</option>
-                            {% for proc in procedimentos %}
-                            <option value="{{ proc.pk }}">{{ proc.nome }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="row">
-                        <div class="col-6 mb-3">
-                            <label class="form-label">Desconto (%)</label>
-                            <input type="number" name="desconto" class="form-control" placeholder="20" min="1" max="100" required>
-                        </div>
-                        <div class="col-6 mb-3">
-                            <label class="form-label">Ativa</label>
-                            <select name="ativa" class="form-control">
-                                <option value="1" selected>Sim</option>
-                                <option value="0">Não</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-6 mb-3">
-                            <label class="form-label">Data Início</label>
-                            <input type="date" name="data_inicio" class="form-control" required>
-                        </div>
-                        <div class="col-6 mb-3">
-                            <label class="form-label">Data Fim</label>
-                            <input type="date" name="data_fim" class="form-control" required>
-                        </div>
-                    </div>
-                    <button type="submit" class="btn w-100 rounded-pill py-2 fw-bold text-white"
-                            style="background:#C9A84C;"><i class="fas fa-plus me-2"></i>Criar Promoção</button>
-                </form>
-            </div>
+  <div x-show="aberto" x-cloak role="dialog" aria-modal="true" aria-label="Nova promoção"
+       class="fixed inset-0 z-[10000] flex items-center justify-center p-4" style="background:rgba(0,0,0,.45)">
+    <div x-on:click.outside="fechar"
+         class="bg-superficie text-texto rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl">
+      <div class="flex items-center justify-between px-5 py-4 bg-gradient-to-br from-[#2c2015] to-[#4A3425] text-white rounded-t-2xl">
+        <h5 class="flex items-center gap-2 font-bold text-[0.95rem]">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+          Nova Promoção
+        </h5>
+        <button type="button" x-on:click="fechar" aria-label="Fechar"
+                class="text-white/80 hover:text-white text-2xl leading-none border-none bg-transparent cursor-pointer">&times;</button>
+      </div>
+      <form method="post" action="{% url 'aranha:admin_criar_promocao' %}" class="p-6">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="block text-[0.72rem] font-extrabold uppercase tracking-wide text-texto-suave mb-1">Nome da Campanha</label>
+          <input type="text" name="nome" placeholder="Ex: Black Friday" required
+                 class="w-full px-3 py-2.5 rounded-xl border-2 border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:border-[#C9A84C] transition">
         </div>
+        <div class="mb-3">
+          <label class="block text-[0.72rem] font-extrabold uppercase tracking-wide text-texto-suave mb-1">Descrição</label>
+          <textarea name="descricao" rows="2" placeholder="Detalhes da promoção..."
+                    class="w-full px-3 py-2.5 rounded-xl border-2 border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:border-[#C9A84C] transition resize-y"></textarea>
+        </div>
+        <div class="mb-3">
+          <label class="block text-[0.72rem] font-extrabold uppercase tracking-wide text-texto-suave mb-1">Procedimento</label>
+          <select name="procedimento" required
+                  class="w-full px-3 py-2.5 rounded-xl border-2 border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:border-[#C9A84C] transition">
+            <option value="">Selecione...</option>
+            {% for proc in procedimentos %}
+            <option value="{{ proc.pk }}">{{ proc.nome }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="mb-3">
+            <label class="block text-[0.72rem] font-extrabold uppercase tracking-wide text-texto-suave mb-1">Desconto (%)</label>
+            <input type="number" name="desconto" placeholder="20" min="1" max="100" required
+                   class="w-full px-3 py-2.5 rounded-xl border-2 border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:border-[#C9A84C] transition">
+          </div>
+          <div class="mb-3">
+            <label class="block text-[0.72rem] font-extrabold uppercase tracking-wide text-texto-suave mb-1">Ativa</label>
+            <select name="ativa"
+                    class="w-full px-3 py-2.5 rounded-xl border-2 border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:border-[#C9A84C] transition">
+              <option value="1" selected>Sim</option>
+              <option value="0">Não</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="mb-4">
+            <label class="block text-[0.72rem] font-extrabold uppercase tracking-wide text-texto-suave mb-1">Data Início</label>
+            <input type="date" name="data_inicio" required
+                   class="w-full px-3 py-2.5 rounded-xl border-2 border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:border-[#C9A84C] transition">
+          </div>
+          <div class="mb-4">
+            <label class="block text-[0.72rem] font-extrabold uppercase tracking-wide text-texto-suave mb-1">Data Fim</label>
+            <input type="date" name="data_fim" required
+                   class="w-full px-3 py-2.5 rounded-xl border-2 border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:border-[#C9A84C] transition">
+          </div>
+        </div>
+        <button type="submit"
+                class="w-full py-2.5 rounded-full bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">Criar Promoção</button>
+      </form>
     </div>
+  </div>
 </div>
+
 {% endblock %}
