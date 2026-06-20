@@ -1,99 +1,81 @@
-{% extends 'painel/base.html' %}
+{% extends 'painel/base_v2.html' %}
 
+{% block titulo %}Calendário — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Calendário{% endblock %}
 {% block page_subtitle %}Visão semanal · arraste para reagendar{% endblock %}
 
-{% block admin_css %}
-.cal-filtros {
-    background: white; border-radius: 14px; padding: 0.75rem;
-    margin-bottom: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-}
-.cal-filtros select, .cal-filtros a {
-    border: 1px solid #e8e8e8; border-radius: 10px;
-    padding: 0.4rem 0.7rem; font-size: 0.8rem; background: #fafafa;
-    text-decoration: none; color: #333;
-}
-.cal-legenda { display: flex; gap: 0.75rem; flex-wrap: wrap; font-size: 0.7rem; }
-.cal-legenda-item { display: flex; align-items: center; gap: 0.3rem; }
-.cal-legenda-dot { width: 10px; height: 10px; border-radius: 50%; }
-
-#calendar {
-    background: white; border-radius: 14px; padding: 0.75rem;
+{% block css %}
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/main.min.css" rel="stylesheet">
+<style nonce="{{ csp_nonce }}">
+  #calendar {
+    background: #fff; border-radius: 14px; padding: 0.75rem;
     box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-}
-.fc .fc-toolbar-title { font-size: 1.1rem !important; font-weight: 800; }
-.fc-event { cursor: grab; font-size: 0.75rem; padding: 2px 4px; }
-.fc-event:active { cursor: grabbing; }
+  }
+  .fc .fc-toolbar-title { font-size: 1.1rem !important; font-weight: 800; }
+  .fc-event { cursor: grab; font-size: 0.75rem; padding: 2px 4px; }
+  .fc-event:active { cursor: grabbing; }
 
-#calModal {
-    display: none; position: fixed; inset: 0;
-    background: rgba(0,0,0,0.4); z-index: 200;
-    align-items: center; justify-content: center; padding: 1rem;
-}
-#calModal.show { display: flex; }
-#calModal .modal-box {
-    background: white; border-radius: 16px; padding: 1.25rem;
-    max-width: 420px; width: 100%;
-}
-#calModal h4 { font-weight: 800; margin-bottom: 0.75rem; }
-#calModal .row-info {
-    display: flex; padding: 0.35rem 0;
-    border-bottom: 1px solid #f0f0f0;
-    font-size: 0.85rem;
-}
-#calModal .row-info:last-child { border: none; }
-#calModal .lbl { color: #999; min-width: 110px; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; }
-#calModal .val { flex: 1; color: #333; }
-#calModal .status-pill {
-    display: inline-block; padding: 0.15rem 0.6rem; border-radius: 999px;
-    font-size: 0.7rem; font-weight: 800; color: white;
-}
+  #calModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 10000; align-items: center; justify-content: center; padding: 1rem; }
+  #calModal.show { display: flex; }
+  #calModal .modal-box { background: var(--cor-superficie, #fff); color: var(--cor-texto, #333); border-radius: 16px; padding: 1.25rem; max-width: 420px; width: 100%; }
+  #calModal h4 { font-weight: 800; margin-bottom: 0.75rem; }
+  #calModal .row-info { display: flex; padding: 0.35rem 0; border-bottom: 1px solid var(--cor-borda, #f0f0f0); font-size: 0.85rem; }
+  #calModal .row-info:last-child { border: none; }
+  #calModal .lbl { color: #999; min-width: 110px; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; }
+  #calModal .val { flex: 1; }
+  #calModal .status-pill { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.7rem; font-weight: 800; color: white; }
+</style>
 {% endblock %}
 
 {% block admin_content %}
-<div class="cal-filtros">
-    <label class="small fw-bold" style="color:#666;">Profissional:</label>
-    <select id="filtroProfissional">
-        <option value="">Todos</option>
-        {% for p in profissionais %}
-        <option value="{{ p.pk }}">{{ p.nome }}</option>
-        {% endfor %}
-    </select>
-    <div style="flex:1;"></div>
-    <a href="{% url 'aranha:painel_agendamentos' %}">
-        <i class="fas fa-list me-1"></i> Ver como lista
-    </a>
+<div class="flex items-center gap-2 flex-wrap bg-white rounded-2xl shadow-sm p-3 mb-3">
+  <label for="filtroProfissional" class="text-[0.8rem] font-bold text-texto-suave">Profissional:</label>
+  <select id="filtroProfissional"
+          class="px-3 py-1.5 rounded-lg border border-borda bg-fundo text-[0.8rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+    <option value="">Todos</option>
+    {% for p in profissionais %}
+    <option value="{{ p.pk }}">{{ p.nome }}</option>
+    {% endfor %}
+  </select>
+  <div class="flex-1"></div>
+  <a href="{% url 'aranha:painel_agendamentos' %}"
+     class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-borda text-texto text-[0.8rem] no-underline hover:bg-fundo transition-colors">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+      <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+    </svg>
+    Ver como lista
+  </a>
 </div>
 
-<div class="cal-legenda mb-2">
-    {% for status, color in status_colors.items %}
-    <div class="cal-legenda-item">
-        <span class="cal-legenda-dot" style="background:{{ color }}"></span>
-        <span>{{ status|title }}</span>
-    </div>
-    {% endfor %}
+<div class="flex gap-3 flex-wrap text-[0.7rem] text-texto-suave mb-2">
+  {% for status, color in status_colors.items %}
+  <div class="flex items-center gap-1.5">
+    <span class="w-2.5 h-2.5 rounded-full" style="background:{{ color }}"></span>
+    <span>{{ status|title }}</span>
+  </div>
+  {% endfor %}
 </div>
 
 <div id="calendar"></div>
 
-<!-- Modal evento -->
+{# Modal de evento (CSS custom + classList, CSP-safe) #}
 <div id="calModal">
-    <div class="modal-box">
-        <h4 id="cmClienteNome">–</h4>
-        <div class="row-info"><div class="lbl">Status</div><div class="val"><span id="cmStatus" class="status-pill">–</span></div></div>
-        <div class="row-info"><div class="lbl">Procedimento</div><div class="val" id="cmProcedimento">–</div></div>
-        <div class="row-info"><div class="lbl">Profissional</div><div class="val" id="cmProfissional">–</div></div>
-        <div class="row-info"><div class="lbl">Data</div><div class="val" id="cmData">–</div></div>
-        <div class="row-info"><div class="lbl">Telefone</div><div class="val" id="cmTelefone">–</div></div>
-        <div class="row-info"><div class="lbl">Valor</div><div class="val" id="cmValor">–</div></div>
-        <div style="display:flex; gap:0.5rem; margin-top:1rem;">
-            <button id="cmFechar" class="btn btn-sm" style="background:white; border:1px solid #ddd; border-radius:8px; flex:1;">Fechar</button>
-        </div>
+  <div class="modal-box">
+    <h4 id="cmClienteNome">–</h4>
+    <div class="row-info"><div class="lbl">Status</div><div class="val"><span id="cmStatus" class="status-pill">–</span></div></div>
+    <div class="row-info"><div class="lbl">Procedimento</div><div class="val" id="cmProcedimento">–</div></div>
+    <div class="row-info"><div class="lbl">Profissional</div><div class="val" id="cmProfissional">–</div></div>
+    <div class="row-info"><div class="lbl">Data</div><div class="val" id="cmData">–</div></div>
+    <div class="row-info"><div class="lbl">Telefone</div><div class="val" id="cmTelefone">–</div></div>
+    <div class="row-info"><div class="lbl">Valor</div><div class="val" id="cmValor">–</div></div>
+    <div class="flex gap-2 mt-4">
+      <button id="cmFechar" class="flex-1 px-4 py-2 rounded-lg border border-borda bg-white text-texto text-[0.85rem] font-bold cursor-pointer hover:bg-fundo transition-colors">Fechar</button>
     </div>
+  </div>
 </div>
+{% endblock %}
 
-<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/main.min.css" rel="stylesheet">
+{% block js %}
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.11/locales/pt-br.global.min.js"></script>
 

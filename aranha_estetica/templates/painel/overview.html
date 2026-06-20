@@ -1,254 +1,193 @@
-{% extends 'painel/base.html' %}
+{% extends 'painel/base_v2.html' %}
 
+{% block titulo %}Dashboard — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Dashboard{% endblock %}
 {% block page_subtitle %}Bem-vindo, {{ request.user.nome }}{% endblock %}
 
-{% block admin_css %}
-.dash-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6rem; margin-bottom: 1.5rem; }
-@media(min-width:769px) { .dash-stats { grid-template-columns: repeat(4, 1fr); } }
-.dash-chart-card {
-    background: white; border-radius: 16px; padding: 1.25rem;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 1rem;
-}
-.dash-chart-title { font-weight: 800; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: #999; margin-bottom: 1rem; }
-.dash-appt-item {
-    display: flex; align-items: center; gap: 0.75rem;
-    padding: 0.75rem; background: white; border-radius: 14px;
-    margin-bottom: 0.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-}
-.dash-appt-avatar {
-    width: 40px; height: 40px; border-radius: 12px;
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 800; font-size: 0.7rem; flex-shrink: 0;
-    background: #e8f5e9; color: #2e7d32;
-}
-.dash-appt-info { flex: 1; min-width: 0; }
-.dash-appt-name { font-weight: 700; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dash-appt-meta { font-size: 0.7rem; color: #999; }
-.dash-appt-actions { display: flex; gap: 0.3rem; flex-shrink: 0; }
-.dash-appt-actions button, .dash-appt-actions a {
-    width: 30px; height: 30px; border-radius: 8px; border: none;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 0.7rem; cursor: pointer; text-decoration: none;
-}
-.btn-confirm { background: #e8f5e9; color: #2e7d32; }
-.btn-confirm:hover { background: #c8e6c9; }
-.btn-cancel { background: #fce4ec; color: #c62828; }
-.btn-cancel:hover { background: #f8bbd0; }
-.btn-wpp { background: #dcf5e7; color: #25D366; }
-.btn-wpp:hover { background: #c8ebd8; }
-.status-select {
-    padding: 0.2rem 0.4rem; border-radius: 8px; border: 2px solid #eee;
-    font-size: 0.7rem; font-weight: 700; cursor: pointer; background: white;
-}
-.dash-toast {
-    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
-    background: #323232; color: white; padding: 0.6rem 1.2rem;
-    border-radius: 10px; font-size: 0.8rem; font-weight: 700;
-    z-index: 10000; opacity: 0; transition: opacity 0.3s;
-    pointer-events: none; white-space: nowrap;
-}
-.dash-toast.show { opacity: 1; }
-.dash-toast.error { background: #c62828; }
-
-/* Pendentes de aprovação */
-.pend-card-wrap {
-    background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);
-    border-left: 4px solid #f9a825;
-    border-radius: 16px; padding: 1.25rem; margin-bottom: 1rem;
-}
-.pend-head {
-    display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 0.75rem;
-}
-.pend-title {
-    font-weight: 800; color: #8b6f2b; font-size: 0.85rem;
-    text-transform: uppercase; letter-spacing: 1px;
-    display: flex; align-items: center; gap: 0.5rem;
-}
-.pend-count {
-    background: #f9a825; color: white; border-radius: 999px;
-    padding: 0.15rem 0.6rem; font-size: 0.7rem; font-weight: 800;
-}
-.pend-item {
-    background: white; border-radius: 10px; padding: 0.65rem 0.9rem;
-    margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.75rem;
-}
-.pend-item:last-child { margin-bottom: 0; }
-.pend-item-info { flex: 1; min-width: 0; }
-.pend-item-name { font-weight: 700; font-size: 0.85rem; color: #4A3425; }
-.pend-item-meta { font-size: 0.7rem; color: #888; margin-top: 0.1rem; }
-.pend-item-actions { display: flex; gap: 0.35rem; flex-shrink: 0; }
-.btn-aprovar-mini {
-    background: #2e7d32; color: white; border: none;
-    padding: 0.35rem 0.7rem; border-radius: 8px; cursor: pointer;
-    font-size: 0.7rem; font-weight: 700;
-}
-.btn-aprovar-mini:hover { background: #1b5e20; }
-.btn-rejeitar-mini {
-    background: white; color: #c62828; border: 1.5px solid #c62828;
-    padding: 0.35rem 0.7rem; border-radius: 8px; cursor: pointer;
-    font-size: 0.7rem; font-weight: 700;
-}
-.btn-rejeitar-mini:hover { background: #c62828; color: white; }
-{% endblock %}
-
 {% block admin_content %}
-<!-- Stats Grid -->
-<div class="dash-stats">
-    <div class="stat-card">
-        <div class="stat-card-icon" style="background:#e3f2fd;color:#1565c0;"><i class="fas fa-calendar-day"></i></div>
-        <div class="stat-card-value">{{ agendamentos_hoje|default:0 }}</div>
-        <div class="stat-card-label">Hoje</div>
+
+{# ── Stats Grid ── #}
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+  <div class="bg-white rounded-2xl shadow-sm p-4">
+    <div class="w-9 h-9 rounded-xl flex items-center justify-center mb-2" style="background:#e3f2fd;color:#1565c0;">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
     </div>
-    <div class="stat-card">
-        <div class="stat-card-icon" style="background:#e8f5e9;color:#2e7d32;"><i class="fas fa-calendar-week"></i></div>
-        <div class="stat-card-value">{{ agendamentos_semana|default:0 }}</div>
-        <div class="stat-card-label">Semana</div>
+    <div class="text-[1.4rem] font-extrabold text-texto leading-none">{{ agendamentos_hoje|default:0 }}</div>
+    <div class="text-[0.65rem] font-bold uppercase tracking-wide text-texto-suave mt-1">Hoje</div>
+  </div>
+  <div class="bg-white rounded-2xl shadow-sm p-4">
+    <div class="w-9 h-9 rounded-xl flex items-center justify-center mb-2" style="background:#e8f5e9;color:#2e7d32;">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="12" y1="14" x2="12" y2="18"/></svg>
     </div>
-    <div class="stat-card">
-        <div class="stat-card-icon" style="background:#f3e5f5;color:#7b1fa2;"><i class="fas fa-users"></i></div>
-        <div class="stat-card-value">{{ total_clientes|default:0 }}</div>
-        <div class="stat-card-label">Pacientes</div>
-        {% if novos_clientes %}<div class="small mt-1" style="color:#7b1fa2;font-size:0.65rem;font-weight:700;">+{{ novos_clientes }} este m&ecirc;s</div>{% endif %}
+    <div class="text-[1.4rem] font-extrabold text-texto leading-none">{{ agendamentos_semana|default:0 }}</div>
+    <div class="text-[0.65rem] font-bold uppercase tracking-wide text-texto-suave mt-1">Semana</div>
+  </div>
+  <div class="bg-white rounded-2xl shadow-sm p-4">
+    <div class="w-9 h-9 rounded-xl flex items-center justify-center mb-2" style="background:#f3e5f5;color:#7b1fa2;">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
     </div>
-    <div class="stat-card">
-        <div class="stat-card-icon" style="background:#fff8e1;color:#f57f17;"><i class="fas fa-dollar-sign"></i></div>
-        <div class="stat-card-value" style="font-size:1.1rem;">R$ {{ receita_mensal|default:"0,00" }}</div>
-        <div class="stat-card-label">Receita Mês</div>
+    <div class="text-[1.4rem] font-extrabold text-texto leading-none">{{ total_clientes|default:0 }}</div>
+    <div class="text-[0.65rem] font-bold uppercase tracking-wide text-texto-suave mt-1">Pacientes</div>
+    {% if novos_clientes %}<div class="text-[0.65rem] font-bold text-purple-700 mt-1">+{{ novos_clientes }} este mês</div>{% endif %}
+  </div>
+  <div class="bg-white rounded-2xl shadow-sm p-4">
+    <div class="w-9 h-9 rounded-xl flex items-center justify-center mb-2" style="background:#fff8e1;color:#f57f17;">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
     </div>
-    <div class="stat-card">
-        <div class="stat-card-icon" style="background:#fce4ec;color:#c2185b;"><i class="fas fa-receipt"></i></div>
-        <div class="stat-card-value" style="font-size:1.1rem;">R$ {{ ticket_medio|default:"0,00" }}</div>
-        <div class="stat-card-label">Ticket Médio</div>
+    <div class="text-[1.1rem] font-extrabold text-texto leading-none">R$ {{ receita_mensal|default:"0,00" }}</div>
+    <div class="text-[0.65rem] font-bold uppercase tracking-wide text-texto-suave mt-1">Receita Mês</div>
+  </div>
+  <div class="bg-white rounded-2xl shadow-sm p-4">
+    <div class="w-9 h-9 rounded-xl flex items-center justify-center mb-2" style="background:#fce4ec;color:#c2185b;">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="16" y2="11"/></svg>
     </div>
-    <div class="stat-card">
-        <div class="stat-card-icon" style="background:#e0f2f1;color:#00796b;"><i class="fas fa-percent"></i></div>
-        <div class="stat-card-value">{{ taxa_ocupacao|default:0 }}%</div>
-        <div class="stat-card-label">Ocupação Semana</div>
+    <div class="text-[1.1rem] font-extrabold text-texto leading-none">R$ {{ ticket_medio|default:"0,00" }}</div>
+    <div class="text-[0.65rem] font-bold uppercase tracking-wide text-texto-suave mt-1">Ticket Médio</div>
+  </div>
+  <div class="bg-white rounded-2xl shadow-sm p-4">
+    <div class="w-9 h-9 rounded-xl flex items-center justify-center mb-2" style="background:#e0f2f1;color:#00796b;">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
     </div>
-    <div class="stat-card">
-        <div class="stat-card-icon" style="background:#ede7f6;color:#5e35b1;"><i class="fas fa-user-check"></i></div>
-        <div class="stat-card-value">{{ clientes_ativos_90d|default:0 }}</div>
-        <div class="stat-card-label">Ativos 90d</div>
+    <div class="text-[1.4rem] font-extrabold text-texto leading-none">{{ taxa_ocupacao|default:0 }}%</div>
+    <div class="text-[0.65rem] font-bold uppercase tracking-wide text-texto-suave mt-1">Ocupação Semana</div>
+  </div>
+  <div class="bg-white rounded-2xl shadow-sm p-4">
+    <div class="w-9 h-9 rounded-xl flex items-center justify-center mb-2" style="background:#ede7f6;color:#5e35b1;">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
     </div>
-    <div class="stat-card">
-        <div class="stat-card-icon" style="background:#fff3e0;color:#ef6c00;"><i class="fas fa-star"></i></div>
-        <div class="stat-card-value">{% if nps_medio is not None %}{{ nps_medio }}{% else %}—{% endif %}</div>
-        <div class="stat-card-label">NPS 30d</div>
+    <div class="text-[1.4rem] font-extrabold text-texto leading-none">{{ clientes_ativos_90d|default:0 }}</div>
+    <div class="text-[0.65rem] font-bold uppercase tracking-wide text-texto-suave mt-1">Ativos 90d</div>
+  </div>
+  <div class="bg-white rounded-2xl shadow-sm p-4">
+    <div class="w-9 h-9 rounded-xl flex items-center justify-center mb-2" style="background:#fff3e0;color:#ef6c00;">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
     </div>
+    <div class="text-[1.4rem] font-extrabold text-texto leading-none">{% if nps_medio is not None %}{{ nps_medio }}{% else %}—{% endif %}</div>
+    <div class="text-[0.65rem] font-bold uppercase tracking-wide text-texto-suave mt-1">NPS 30d</div>
+  </div>
 </div>
 
-<!-- Pendentes de aprovação -->
+{# ── Pendentes de aprovação ── #}
 {% if pendentes_aprovacao %}
-<div class="pend-card-wrap">
-    <div class="pend-head">
-        <div class="pend-title">
-            <i class="fas fa-hourglass-half"></i>
-            Pendentes de aprovação
-            <span class="pend-count">{{ total_pendentes }}</span>
-        </div>
-        <a href="{% url 'aranha:painel_agendamentos' %}?status=pendente" class="small fw-bold" style="color:#8b6f2b;text-decoration:none;">
-            Ver todos &rarr;
-        </a>
+<div class="bg-gradient-to-br from-[#fff8e1] to-[#ffecb3] border-l-4 border-amber-500 rounded-2xl p-5 mb-4">
+  <div class="flex justify-between items-center mb-3">
+    <div class="flex items-center gap-2 font-extrabold text-amber-800 text-[0.85rem] uppercase tracking-wide">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v4M5 8a7 7 0 0114 0c0 7-7 4-7 10 0-6-7-3-7-10z"/></svg>
+      Pendentes de aprovação
+      <span class="bg-amber-500 text-white rounded-full px-2.5 py-0.5 text-[0.7rem] font-extrabold">{{ total_pendentes }}</span>
     </div>
-    {% for p in pendentes_aprovacao %}
-    <div class="pend-item">
-        <div class="pend-item-info">
-            <div class="pend-item-name">{{ p.cliente.nome }}</div>
-            <div class="pend-item-meta">
-                {{ p.procedimento.nome }} &bull; {{ p.profissional.nome }} &bull;
-                {{ p.data_hora_inicio|date:"d/m H:i" }}
-            </div>
-        </div>
-        <div class="pend-item-actions">
-            <form method="post" action="{% url 'aranha:admin_aprovar_agendamento' pk=p.pk %}" style="margin:0;">
-                {% csrf_token %}
-                <button type="submit" class="btn-aprovar-mini" onclick="return confirm('Aprovar agendamento de {{ p.cliente.nome|escapejs }}?')">
-                    <i class="fas fa-check"></i> Aprovar
-                </button>
-            </form>
-            <form method="post" action="{% url 'aranha:admin_rejeitar_agendamento' pk=p.pk %}" style="margin:0;">
-                {% csrf_token %}
-                <button type="submit" class="btn-rejeitar-mini" onclick="return confirm('Rejeitar agendamento de {{ p.cliente.nome|escapejs }}?')">
-                    <i class="fas fa-times"></i> Rejeitar
-                </button>
-            </form>
-        </div>
+    <a href="{% url 'aranha:painel_agendamentos' %}?status=pendente" class="text-[0.78rem] font-bold text-amber-800 no-underline">Ver todos &rarr;</a>
+  </div>
+  {% for p in pendentes_aprovacao %}
+  <div class="flex items-center gap-3 bg-white rounded-xl px-3.5 py-2.5 mb-1.5">
+    <div class="flex-1 min-w-0">
+      <div class="font-bold text-[0.85rem] text-[#4A3425]">{{ p.cliente.nome }}</div>
+      <div class="text-[0.7rem] text-texto-suave mt-0.5">{{ p.procedimento.nome }} &bull; {{ p.profissional.nome }} &bull; {{ p.data_hora_inicio|date:"d/m H:i" }}</div>
     </div>
-    {% endfor %}
+    <div class="flex gap-1.5 shrink-0">
+      <form method="post" action="{% url 'aranha:admin_aprovar_agendamento' pk=p.pk %}" class="m-0">
+        {% csrf_token %}
+        <button type="submit" data-confirm="Aprovar agendamento de {{ p.cliente.nome|escapejs }}?"
+                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-700 text-white text-[0.7rem] font-bold border-none cursor-pointer hover:bg-green-800 transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>
+          Aprovar
+        </button>
+      </form>
+      <form method="post" action="{% url 'aranha:admin_rejeitar_agendamento' pk=p.pk %}" class="m-0">
+        {% csrf_token %}
+        <button type="submit" data-confirm="Rejeitar agendamento de {{ p.cliente.nome|escapejs }}?"
+                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white text-red-600 border border-red-600 text-[0.7rem] font-bold cursor-pointer hover:bg-red-600 hover:text-white transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          Rejeitar
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
 </div>
 {% endif %}
 
-<!-- Charts Row -->
-<div class="row g-3 mb-3">
-    <div class="col-md-7">
-        <div class="dash-chart-card">
-            <div class="dash-chart-title"><i class="fas fa-chart-bar me-1"></i>Agendamentos por Dia da Semana</div>
-            <div style="position:relative;height:200px;"><canvas id="chartSemana"></canvas></div>
-        </div>
+{# ── Charts ── #}
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-3 mb-3">
+  <div class="lg:col-span-7">
+    <div class="bg-white rounded-2xl shadow-sm p-5">
+      <div class="flex items-center gap-1.5 text-[0.75rem] font-extrabold uppercase tracking-wider text-texto-suave mb-4">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
+        Agendamentos por Dia da Semana
+      </div>
+      <div class="relative h-[200px]"><canvas id="chartSemana"></canvas></div>
     </div>
-    <div class="col-md-5">
-        <div class="dash-chart-card">
-            <div class="dash-chart-title"><i class="fas fa-chart-pie me-1"></i>Status dos Agendamentos</div>
-            <div style="position:relative;height:200px;"><canvas id="chartStatus"></canvas></div>
-        </div>
+  </div>
+  <div class="lg:col-span-5">
+    <div class="bg-white rounded-2xl shadow-sm p-5">
+      <div class="flex items-center gap-1.5 text-[0.75rem] font-extrabold uppercase tracking-wider text-texto-suave mb-4">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M21.21 15.89A10 10 0 118 2.83"/><path d="M22 12A10 10 0 0012 2v10z"/></svg>
+        Status dos Agendamentos
+      </div>
+      <div class="relative h-[200px]"><canvas id="chartStatus"></canvas></div>
     </div>
+  </div>
 </div>
 
-<!-- Próximos Agendamentos -->
-<div class="dash-chart-card">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div class="dash-chart-title mb-0"><i class="fas fa-list-ul me-1"></i>Próximos Agendamentos</div>
-        <div>
-            <a href="{% url 'aranha:exportar_relatorio_excel' %}" class="btn btn-sm" style="background-color: #217346; color: white; border-radius: 8px; font-size: 0.75rem; font-weight:700;"><i class="fas fa-file-excel me-1"></i>Exportar (30 dias)</a>
-            <a href="{% url 'aranha:painel_agendamentos' %}" class="small fw-bold ms-2" style="color:#7a5f1f;text-decoration:none;">Ver Todos →</a>
-        </div>
+{# ── Próximos Agendamentos ── #}
+<div class="bg-white rounded-2xl shadow-sm p-5">
+  <div class="flex justify-between items-center mb-3 gap-2 flex-wrap">
+    <div class="flex items-center gap-1.5 text-[0.75rem] font-extrabold uppercase tracking-wider text-texto-suave">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      Próximos Agendamentos
     </div>
+    <div class="flex items-center gap-2">
+      <a href="{% url 'aranha:exportar_relatorio_excel' %}"
+         class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#217346] text-white text-[0.75rem] font-bold no-underline hover:opacity-90 transition-opacity">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+        Exportar (30 dias)
+      </a>
+      <a href="{% url 'aranha:painel_agendamentos' %}" class="text-[0.78rem] font-bold text-marca no-underline">Ver Todos →</a>
+    </div>
+  </div>
 
-    {% if proximos_agendamentos %}
-    {% for agend in proximos_agendamentos %}
-    <div class="dash-appt-item" id="appt-{{ agend.pk }}">
-        <div class="dash-appt-avatar">
-            {{ agend.cliente.nome|make_list|first }}
-        </div>
-        <div class="dash-appt-info">
-            <div class="dash-appt-name">{{ agend.cliente.nome }}</div>
-            <div class="dash-appt-meta">
-                {{ agend.procedimento.nome }} &bull; {{ agend.data_hora_inicio|date:"d/m H:i" }}
-                &bull; <span class="status-text-{{ agend.pk }}">{% include 'partials/_status_badge.html' with status=agend.status %}</span>
-            </div>
-        </div>
-        <div class="dash-appt-actions">
-            <!-- Status Change -->
-            <select class="status-select" onchange="atualizarStatus({{ agend.pk }}, this.value)"
-                    title="Alterar status">
-                <option value="">⚡</option>
-                <option value="CONFIRMADO" {% if agend.status == 'CONFIRMADO' %}disabled{% endif %}>✅ Confirmar</option>
-                <option value="REALIZADO" {% if agend.status == 'REALIZADO' %}disabled{% endif %}>✔️ Realizado</option>
-                <option value="CANCELADO" {% if agend.status == 'CANCELADO' %}disabled{% endif %}>❌ Cancelar</option>
-                <option value="FALTOU">⛔ Faltou</option>
-            </select>
-            <!-- WhatsApp -->
-            {% if agend.cliente.telefone %}
-            <a href="https://wa.me/55{{ agend.cliente.telefone|cut:'(' |cut:')' |cut:'-' |cut:' ' }}?text=Ol%C3%A1%20{{ agend.cliente.nome|urlencode }}%2C%20confirmamos%20seu%20agendamento%20de%20{{ agend.procedimento.nome|urlencode }}%20para%20{{ agend.data_hora_inicio|date:'d/m/Y' }}%20%C3%A0s%20{{ agend.data_hora_inicio|time:'H:i' }}.%20{{ CLINIC_NAME|urlencode }}"
-               target="_blank" class="btn-wpp" title="Confirmar via WhatsApp">
-                <i class="fab fa-whatsapp"></i>
-            </a>
-            {% endif %}
-        </div>
+  {% if proximos_agendamentos %}
+  {% for agend in proximos_agendamentos %}
+  <div class="flex items-center gap-3 py-2.5 {% if not forloop.last %}border-b border-borda{% endif %}" id="appt-{{ agend.pk }}">
+    <div class="w-10 h-10 rounded-xl bg-green-100 text-green-700 flex items-center justify-center font-extrabold text-[0.8rem] shrink-0">
+      {{ agend.cliente.nome|make_list|first }}
     </div>
-    {% endfor %}
-    {% else %}
-    <div class="text-center py-4">
-        <i class="fas fa-calendar-check fa-2x" style="color:#ddd;"></i>
-        <p class="text-muted small mt-2 mb-0">Nenhum agendamento próximo</p>
+    <div class="flex-1 min-w-0">
+      <div class="font-bold text-[0.85rem] text-texto truncate">{{ agend.cliente.nome }}</div>
+      <div class="flex items-center gap-1.5 flex-wrap text-[0.7rem] text-texto-suave">
+        {{ agend.procedimento.nome }} &bull; {{ agend.data_hora_inicio|date:"d/m H:i" }} &bull;
+        <span class="status-text-{{ agend.pk }}">{% include 'partials/_status_badge.html' with status=agend.status %}</span>
+      </div>
     </div>
-    {% endif %}
+    <div class="flex items-center gap-1.5 shrink-0">
+      <select data-atend-id="{{ agend.pk }}" title="Alterar status"
+              class="px-1.5 py-1 rounded-lg border-2 border-borda bg-white text-[0.7rem] font-bold text-texto cursor-pointer outline-none">
+        <option value="">⚡</option>
+        <option value="CONFIRMADO" {% if agend.status == 'CONFIRMADO' %}disabled{% endif %}>✅ Confirmar</option>
+        <option value="REALIZADO" {% if agend.status == 'REALIZADO' %}disabled{% endif %}>✔️ Realizado</option>
+        <option value="CANCELADO" {% if agend.status == 'CANCELADO' %}disabled{% endif %}>❌ Cancelar</option>
+        <option value="FALTOU">⛔ Faltou</option>
+      </select>
+      {% if agend.cliente.telefone %}
+      <a href="https://wa.me/55{{ agend.cliente.telefone|cut:'(' |cut:')' |cut:'-' |cut:' ' }}?text=Ol%C3%A1%20{{ agend.cliente.nome|urlencode }}%2C%20confirmamos%20seu%20agendamento%20de%20{{ agend.procedimento.nome|urlencode }}%20para%20{{ agend.data_hora_inicio|date:'d/m/Y' }}%20%C3%A0s%20{{ agend.data_hora_inicio|time:'H:i' }}.%20{{ CLINIC_NAME|urlencode }}"
+         target="_blank" rel="noopener" title="Confirmar via WhatsApp"
+         class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#dcf5e7] text-[#25D366] no-underline hover:opacity-80 transition-opacity">
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.6 6.32A8 8 0 004.06 14.4L3 21l6.78-1.05A8 8 0 1017.6 6.32zM12 19.5a7.5 7.5 0 01-3.8-1l-.27-.16-2.83.44.45-2.75-.18-.28A7.5 7.5 0 1112 19.5zm4.13-5.6c-.23-.11-1.35-.66-1.56-.74s-.36-.11-.5.12-.58.73-.71.88-.26.17-.49.06a6.1 6.1 0 01-1.8-1.11 6.7 6.7 0 01-1.24-1.55c-.13-.22 0-.34.1-.45s.22-.26.34-.4a1.5 1.5 0 00.22-.37.4.4 0 000-.39c0-.11-.5-1.2-.68-1.65s-.36-.37-.5-.37h-.42a.81.81 0 00-.59.27 2.46 2.46 0 00-.77 1.83 4.27 4.27 0 00.9 2.27 9.8 9.8 0 003.74 3.3c.52.23.93.36 1.25.46a3 3 0 001.38.09 2.26 2.26 0 001.48-1.05 1.83 1.83 0 00.13-1.04c-.05-.1-.2-.16-.43-.27z"/></svg>
+      </a>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+  {% else %}
+  <div class="text-center py-6">
+    <svg class="w-8 h-8 text-gray-300 mx-auto" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l2 2 4-4"/></svg>
+    <p class="text-texto-suave text-[0.85rem] mt-2 mb-0">Nenhum agendamento próximo</p>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}
 
-{% block admin_scripts %}
+{% block js %}
 {{ dias_semana|json_script:"id_dias_semana" }}
 {{ dados_grafico_semana|json_script:"id_dados_grafico_semana" }}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -304,50 +243,24 @@ new Chart(ctxStatus, {
     }
 });
 
-// Toast helper
-function showToast(msg, isError) {
-    var t = document.getElementById('dashToast');
-    if (!t) {
-        t = document.createElement('div');
-        t.id = 'dashToast';
-        t.className = 'dash-toast';
-        document.body.appendChild(t);
-    }
-    t.textContent = msg;
-    t.className = 'dash-toast' + (isError ? ' error' : '') + ' show';
-    clearTimeout(t._timer);
-    t._timer = setTimeout(function() { t.className = 'dash-toast'; }, 2500);
-}
-
-// Status update via AJAX
-function atualizarStatus(id, status) {
-    if (!status) return;
-    if (!confirm('Alterar status para ' + status + '?')) return;
-
+// Atualizacao de status via AJAX (delegado, CSP-safe). Recarrega na sucesso.
+document.addEventListener('change', function (e) {
+    var sel = e.target.closest('select[data-atend-id]');
+    if (!sel || !sel.value) return;
+    var id = sel.getAttribute('data-atend-id');
+    var status = sel.value;
+    if (!confirm('Alterar status para ' + status + '?')) { sel.value = ''; return; }
     fetch('{% url "aranha:admin_atualizar_status" %}', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token }}'
-        },
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
         body: JSON.stringify({ atendimento_id: id, status: status })
     })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-        if (data.sucesso) {
-            var el = document.querySelector('.status-text-' + id);
-            if (el) {
-                var s = data.status_novo || '';
-                var icons = {CONFIRMADO:'bi-check-circle-fill',REALIZADO:'bi-check2-all',CANCELADO:'bi-x-circle-fill',FALTOU:'bi-exclamation-triangle-fill',AGENDADO:'bi-calendar-event',PENDENTE:'bi-hourglass-split'};
-                var labels = {CONFIRMADO:'Confirmado',REALIZADO:'Realizado',CANCELADO:'Cancelado',FALTOU:'Faltou',AGENDADO:'Agendado',PENDENTE:'Pendente'};
-                el.innerHTML = '<span class="status-badge status-' + s.toLowerCase() + ' status-size-sm"><i class="bi ' + (icons[s]||'bi-circle') + '"></i>' + (labels[s]||s) + '</span>';
-            }
-            showToast('Status atualizado: ' + data.status_novo);
-        } else {
-            showToast('Erro: ' + data.erro, true);
-        }
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+        if (data.sucesso) { location.reload(); }
+        else { alert('Erro: ' + (data.erro || 'Falha ao atualizar')); sel.value = ''; }
     })
-    .catch(function(err) { showToast('Erro de rede', true); });
-}
+    .catch(function () { alert('Erro de rede'); sel.value = ''; });
+});
 </script>
 {% endblock %}

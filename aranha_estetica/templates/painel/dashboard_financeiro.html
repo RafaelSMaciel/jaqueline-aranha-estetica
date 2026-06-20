@@ -1,128 +1,116 @@
-{% extends 'painel/base.html' %}
-{% load static %}
+{% extends 'painel/base_v2.html' %}
 
-{% block content %}
-<div class="container-fluid py-4">
-  <h1 class="mb-4"><i class="fas fa-chart-line"></i> Dashboard Financeiro</h1>
-  <p class="text-muted">Atualizado em {{ periodo_referencia|date:"d/m/Y" }} — cache 60s</p>
+{% block titulo %}Dashboard Financeiro — {{ CLINIC_NAME }}{% endblock %}
+{% block page_title %}Dashboard Financeiro{% endblock %}
+{% block page_subtitle %}Atualizado em {{ periodo_referencia|date:"d/m/Y" }} — cache 60s{% endblock %}
 
-  <!-- Cards de faturamento -->
-  <div class="row g-3 mb-4">
-    <div class="col-md-4">
-      <div class="card border-success shadow-sm">
-        <div class="card-body">
-          <h6 class="text-muted">Faturamento HOJE</h6>
-          <h3 class="text-success">R$ {{ fat_hoje_total|floatformat:2 }}</h3>
-          <small>{{ fat_hoje_count }} atendimento(s)</small>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-4">
-      <div class="card border-primary shadow-sm">
-        <div class="card-body">
-          <h6 class="text-muted">Faturamento ÚLTIMOS 7 DIAS</h6>
-          <h3 class="text-primary">R$ {{ fat_semana_total|floatformat:2 }}</h3>
-          <small>{{ fat_semana_count }} atendimento(s)</small>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-4">
-      <div class="card border-warning shadow-sm">
-        <div class="card-body">
-          <h6 class="text-muted">Faturamento ÚLTIMOS 30 DIAS</h6>
-          <h3 class="text-warning">R$ {{ fat_mes_total|floatformat:2 }}</h3>
-          <small>{{ fat_mes_count }} atendimento(s)</small>
-        </div>
-      </div>
-    </div>
+{% block admin_content %}
+
+{# ── Cards de faturamento ── #}
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+  <div class="bg-white rounded-2xl shadow-sm p-4 border-l-4 border-green-500">
+    <h6 class="text-[0.72rem] font-bold uppercase tracking-wide text-texto-suave">Faturamento HOJE</h6>
+    <div class="text-2xl font-extrabold text-green-600 my-1">R$ {{ fat_hoje_total|floatformat:2 }}</div>
+    <span class="text-[0.75rem] text-texto-suave">{{ fat_hoje_count }} atendimento(s)</span>
   </div>
-
-  <!-- No-show -->
-  <div class="row g-3 mb-4">
-    <div class="col-md-6">
-      <div class="card border-danger shadow-sm">
-        <div class="card-body">
-          <h6 class="text-muted">No-show (30 dias)</h6>
-          <h3 class="text-danger">{{ no_show_count }} <small class="text-muted fs-6">({{ no_show_pct }}%)</small></h3>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-6">
-      <div class="card border-info shadow-sm">
-        <div class="card-body">
-          <h6 class="text-muted">Comissões pendentes</h6>
-          <h3 class="text-info">R$ {{ comissoes_pendentes_total|floatformat:2 }} <small class="text-muted fs-6">({{ comissoes_pendentes_count }})</small></h3>
-        </div>
-      </div>
-    </div>
+  <div class="bg-white rounded-2xl shadow-sm p-4 border-l-4 border-blue-500">
+    <h6 class="text-[0.72rem] font-bold uppercase tracking-wide text-texto-suave">Faturamento ÚLTIMOS 7 DIAS</h6>
+    <div class="text-2xl font-extrabold text-blue-600 my-1">R$ {{ fat_semana_total|floatformat:2 }}</div>
+    <span class="text-[0.75rem] text-texto-suave">{{ fat_semana_count }} atendimento(s)</span>
   </div>
-
-  <!-- Top procedimentos -->
-  <div class="row g-3 mb-4">
-    <div class="col-md-6">
-      <div class="card shadow-sm">
-        <div class="card-header"><strong>Top 5 Procedimentos (30 dias)</strong></div>
-        <table class="table table-hover mb-0">
-          <thead>
-            <tr><th>Procedimento</th><th class="text-end">Faturamento</th><th class="text-end">Qtd</th></tr>
-          </thead>
-          <tbody>
-          {% for p in top_procedimentos %}
-            <tr>
-              <td>{{ p.procedimento__nome }}</td>
-              <td class="text-end">R$ {{ p.total|floatformat:2 }}</td>
-              <td class="text-end">{{ p.count }}</td>
-            </tr>
-          {% empty %}
-            <tr><td colspan="3" class="text-muted text-center">Sem dados</td></tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="col-md-6">
-      <div class="card shadow-sm">
-        <div class="card-header"><strong>Top 5 Profissionais (30 dias)</strong></div>
-        <table class="table table-hover mb-0">
-          <thead>
-            <tr><th>Profissional</th><th class="text-end">Faturamento</th><th class="text-end">Qtd</th></tr>
-          </thead>
-          <tbody>
-          {% for p in top_profissionais %}
-            <tr>
-              <td>{{ p.profissional__nome }}</td>
-              <td class="text-end">R$ {{ p.total|floatformat:2 }}</td>
-              <td class="text-end">{{ p.count }}</td>
-            </tr>
-          {% empty %}
-            <tr><td colspan="3" class="text-muted text-center">Sem dados</td></tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
+  <div class="bg-white rounded-2xl shadow-sm p-4 border-l-4 border-amber-500">
+    <h6 class="text-[0.72rem] font-bold uppercase tracking-wide text-texto-suave">Faturamento ÚLTIMOS 30 DIAS</h6>
+    <div class="text-2xl font-extrabold text-amber-600 my-1">R$ {{ fat_mes_total|floatformat:2 }}</div>
+    <span class="text-[0.75rem] text-texto-suave">{{ fat_mes_count }} atendimento(s)</span>
   </div>
+</div>
 
-  <!-- Comissoes por profissional -->
-  <div class="card shadow-sm mb-4">
-    <div class="card-header"><strong>Comissões por Profissional (30 dias)</strong></div>
-    <table class="table table-hover mb-0">
+{# ── No-show / Comissões ── #}
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+  <div class="bg-white rounded-2xl shadow-sm p-4 border-l-4 border-red-500">
+    <h6 class="text-[0.72rem] font-bold uppercase tracking-wide text-texto-suave">No-show (30 dias)</h6>
+    <div class="text-2xl font-extrabold text-red-600 my-1">{{ no_show_count }} <span class="text-[0.9rem] text-texto-suave font-normal">({{ no_show_pct }}%)</span></div>
+  </div>
+  <div class="bg-white rounded-2xl shadow-sm p-4 border-l-4 border-cyan-500">
+    <h6 class="text-[0.72rem] font-bold uppercase tracking-wide text-texto-suave">Comissões pendentes</h6>
+    <div class="text-2xl font-extrabold text-cyan-600 my-1">R$ {{ comissoes_pendentes_total|floatformat:2 }} <span class="text-[0.9rem] text-texto-suave font-normal">({{ comissoes_pendentes_count }})</span></div>
+  </div>
+</div>
+
+{# ── Top procedimentos / profissionais ── #}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
+  <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+    <div class="px-4 py-3 border-b border-borda font-bold text-[0.9rem] text-texto">Top 5 Procedimentos (30 dias)</div>
+    <table class="w-full text-[0.85rem]">
       <thead>
-        <tr><th>Profissional</th><th class="text-end">Total</th><th class="text-end">Qtd</th></tr>
+        <tr class="text-texto-suave text-[0.75rem] uppercase tracking-wide">
+          <th class="text-left font-bold px-4 py-2">Procedimento</th>
+          <th class="text-right font-bold px-4 py-2">Faturamento</th>
+          <th class="text-right font-bold px-4 py-2">Qtd</th>
+        </tr>
       </thead>
       <tbody>
-      {% for c in comissoes_por_prof %}
-        <tr>
-          <td>{{ c.profissional__nome }}</td>
-          <td class="text-end">R$ {{ c.total|floatformat:2 }}</td>
-          <td class="text-end">{{ c.count }}</td>
+        {% for p in top_procedimentos %}
+        <tr class="border-t border-borda text-texto hover:bg-fundo transition-colors">
+          <td class="px-4 py-2">{{ p.procedimento__nome }}</td>
+          <td class="px-4 py-2 text-right">R$ {{ p.total|floatformat:2 }}</td>
+          <td class="px-4 py-2 text-right">{{ p.count }}</td>
         </tr>
-      {% empty %}
-        <tr><td colspan="3" class="text-muted text-center">Sem comissões registradas</td></tr>
-      {% endfor %}
+        {% empty %}
+        <tr><td colspan="3" class="text-texto-suave text-center px-4 py-3">Sem dados</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+    <div class="px-4 py-3 border-b border-borda font-bold text-[0.9rem] text-texto">Top 5 Profissionais (30 dias)</div>
+    <table class="w-full text-[0.85rem]">
+      <thead>
+        <tr class="text-texto-suave text-[0.75rem] uppercase tracking-wide">
+          <th class="text-left font-bold px-4 py-2">Profissional</th>
+          <th class="text-right font-bold px-4 py-2">Faturamento</th>
+          <th class="text-right font-bold px-4 py-2">Qtd</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in top_profissionais %}
+        <tr class="border-t border-borda text-texto hover:bg-fundo transition-colors">
+          <td class="px-4 py-2">{{ p.profissional__nome }}</td>
+          <td class="px-4 py-2 text-right">R$ {{ p.total|floatformat:2 }}</td>
+          <td class="px-4 py-2 text-right">{{ p.count }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" class="text-texto-suave text-center px-4 py-3">Sem dados</td></tr>
+        {% endfor %}
       </tbody>
     </table>
   </div>
 </div>
+
+{# ── Comissões por profissional ── #}
+<div class="bg-white rounded-2xl shadow-sm overflow-hidden mb-4">
+  <div class="px-4 py-3 border-b border-borda font-bold text-[0.9rem] text-texto">Comissões por Profissional (30 dias)</div>
+  <table class="w-full text-[0.85rem]">
+    <thead>
+      <tr class="text-texto-suave text-[0.75rem] uppercase tracking-wide">
+        <th class="text-left font-bold px-4 py-2">Profissional</th>
+        <th class="text-right font-bold px-4 py-2">Total</th>
+        <th class="text-right font-bold px-4 py-2">Qtd</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in comissoes_por_prof %}
+      <tr class="border-t border-borda text-texto hover:bg-fundo transition-colors">
+        <td class="px-4 py-2">{{ c.profissional__nome }}</td>
+        <td class="px-4 py-2 text-right">R$ {{ c.total|floatformat:2 }}</td>
+        <td class="px-4 py-2 text-right">{{ c.count }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="3" class="text-texto-suave text-center px-4 py-3">Sem comissões registradas</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
 {% endblock %}
