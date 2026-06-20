@@ -1,103 +1,117 @@
-{% extends 'painel/base.html' %}
+{% extends 'painel/base_v2.html' %}
 
+{% block titulo %}Termos de Consentimento — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Termos de Consentimento{% endblock %}
-{% block page_subtitle %}Gerencie versoes de termos LGPD e de procedimento{% endblock %}
+{% block page_subtitle %}Gerencie versões de termos LGPD e de procedimento{% endblock %}
 
 {% block admin_content %}
-<style nonce="{{ csp_nonce }}">
-    .termo-card {
-        background: white; border-radius: 16px; padding: 1rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 0.75rem;
-    }
-    .termo-card-active { border-left: 4px solid #4caf50; }
-    .termo-card-inactive { border-left: 4px solid #ccc; opacity: 0.7; }
-    .termo-titulo { font-weight: 700; font-size: 1rem; }
-    .termo-tipo { font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 10px; font-weight: 700; }
-    .tipo-LGPD { background: #e3f2fd; color: #1565c0; }
-    .tipo-PROCEDIMENTO { background: #f3e5f5; color: #7b1fa2; }
-    .termo-info { font-size: 0.8rem; color: #999; margin-top: 0.3rem; }
-    .btn-criar { background: linear-gradient(135deg, #C9A84C, #e8c94f); color: white; border: none; padding: 0.5rem 1.2rem; border-radius: 10px; font-weight: 700; font-size: 0.85rem; cursor: pointer; }
-    .form-section { background: #f8f9fa; border-radius: 16px; padding: 1.25rem; margin-bottom: 1.5rem; }
-    .form-section h3 { font-size: 0.9rem; font-weight: 700; margin-bottom: 1rem; }
-    .form-group { margin-bottom: 0.75rem; }
-    .form-group label { font-size: 0.75rem; font-weight: 700; color: #666; display: block; margin-bottom: 0.25rem; }
-    .form-group input, .form-group select, .form-group textarea {
-        width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 8px; font-size: 0.85rem;
-    }
-</style>
 
-<!-- Formulario -->
-<div class="form-section">
-    <h3><i class="fas fa-plus-circle" style="color: #7a5f1f;"></i> Novo Termo</h3>
-    <form method="post" action="{% url 'aranha:admin_criar_termo' %}">
-        {% csrf_token %}
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-            <div class="form-group">
-                <label>Tipo</label>
-                <select name="tipo" id="tipo_termo">
-                    <option value="LGPD">LGPD / Privacidade</option>
-                    <option value="PROCEDIMENTO">Procedimento</option>
-                </select>
-            </div>
-            <div class="form-group" id="proc_group" style="display:none;">
-                <label>Procedimento</label>
-                <select name="procedimento_id">
-                    <option value="">Geral (todos)</option>
-                    {% for p in procedimentos %}
-                    <option value="{{ p.pk }}">{{ p.nome }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-        </div>
-        <div class="form-group">
-            <label>Titulo</label>
-            <input type="text" name="titulo" required placeholder="Ex: Termo de Consentimento para Peeling">
-        </div>
-        <div class="form-group">
-            <label>Conteudo</label>
-            <textarea name="conteudo" rows="5" required placeholder="Texto completo do termo..."></textarea>
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-            <div class="form-group">
-                <label>Versao</label>
-                <input type="text" name="versao" value="1.0" required>
-            </div>
-            <div class="form-group">
-                <label>Vigente Desde</label>
-                <input type="date" name="vigente_desde" required>
-            </div>
-        </div>
-        <button type="submit" class="btn-criar">Criar Termo</button>
-    </form>
+{# ── Formulário de criação ── #}
+<div class="bg-white rounded-2xl shadow-sm p-5 mb-4">
+  <h3 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-4">
+    <svg class="w-4 h-4 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+    Novo Termo
+  </h3>
+  <form method="post" action="{% url 'aranha:admin_criar_termo' %}">
+    {% csrf_token %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+      <div>
+        <label for="tipo_termo" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Tipo</label>
+        <select name="tipo" id="tipo_termo"
+                class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+          <option value="LGPD">LGPD / Privacidade</option>
+          <option value="PROCEDIMENTO">Procedimento</option>
+        </select>
+      </div>
+      <div id="proc_group" style="display:none;">
+        <label for="procedimento_select" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Procedimento</label>
+        <select name="procedimento_id" id="procedimento_select"
+                class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+          <option value="">Geral (todos)</option>
+          {% for p in procedimentos %}
+          <option value="{{ p.pk }}">{{ p.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="mb-3">
+      <label for="titulo_input" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Título</label>
+      <input type="text" name="titulo" id="titulo_input" required
+             placeholder="Ex: Termo de Consentimento para Peeling"
+             class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo placeholder-texto-suave outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+    </div>
+    <div class="mb-3">
+      <label for="conteudo_input" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Conteúdo</label>
+      <textarea name="conteudo" id="conteudo_input" rows="5" required
+                placeholder="Texto completo do termo..."
+                class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo placeholder-texto-suave outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition resize-y"></textarea>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+      <div>
+        <label for="versao_input" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Versão</label>
+        <input type="text" name="versao" id="versao_input" value="1.0" required
+               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+      </div>
+      <div>
+        <label for="vigente_desde_input" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Vigente Desde</label>
+        <input type="date" name="vigente_desde" id="vigente_desde_input" required
+               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+      </div>
+    </div>
+    <button type="submit"
+            class="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+      </svg>
+      Criar Termo
+    </button>
+  </form>
 </div>
 
-<!-- Lista -->
+{# ── Lista de termos ── #}
 {% for t in termos %}
-<div class="termo-card {% if t.ativa %}termo-card-active{% else %}termo-card-inactive{% endif %}">
-    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-        <div>
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
-                <span class="termo-titulo">{{ t.titulo }}</span>
-                <span class="termo-tipo tipo-{{ t.tipo }}">{{ t.tipo }}</span>
-            </div>
-            <div class="termo-info">
-                v{{ t.versao }} &middot; Vigente desde {{ t.vigente_desde|date:"d/m/Y" }}
-                {% if t.procedimento %} &middot; {{ t.procedimento.nome }}{% endif %}
-                {% if not t.ativa %} &middot; <span style="color: #c62828;">Inativo</span>{% endif %}
-            </div>
-        </div>
+<div class="bg-white rounded-2xl shadow-sm px-4 py-4 mb-2 border-l-4 {% if t.ativa %}border-green-400{% else %}border-borda opacity-70{% endif %} hover:shadow-md transition-all duration-200">
+  <div class="flex items-start justify-between gap-2">
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-2 flex-wrap mb-1">
+        <span class="font-bold text-[0.95rem] text-texto truncate">{{ t.titulo }}</span>
+        {% if t.tipo == "LGPD" %}
+        <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-blue-50 text-blue-700 uppercase tracking-wide">LGPD</span>
+        {% else %}
+        <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-purple-50 text-purple-700 uppercase tracking-wide">Procedimento</span>
+        {% endif %}
+        {% if not t.ativa %}
+        <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-red-50 text-red-600 uppercase tracking-wide">Inativo</span>
+        {% endif %}
+      </div>
+      <div class="text-[0.75rem] text-texto-suave">
+        v{{ t.versao }}
+        &bull; Vigente desde {{ t.vigente_desde|date:"d/m/Y" }}
+        {% if t.procedimento %} &bull; {{ t.procedimento.nome }}{% endif %}
+      </div>
     </div>
+  </div>
 </div>
 {% empty %}
-<div style="text-align: center; padding: 3rem; color: #bbb;">
-    <i class="fas fa-file-contract" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
-    <p>Nenhum termo cadastrado.</p>
+<div class="bg-white rounded-2xl p-12 text-center shadow-sm">
+  <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
+    <svg class="w-7 h-7 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+    </svg>
+  </div>
+  <h5 class="font-bold text-[#1a1a2e] mb-1">Nenhum termo cadastrado</h5>
+  <p class="text-[0.85rem] text-texto-suave">Use o formulário acima para cadastrar o primeiro termo.</p>
 </div>
 {% endfor %}
 
+{% endblock %}
+
+{% block js %}
 <script nonce="{{ csp_nonce }}">
 document.getElementById('tipo_termo').addEventListener('change', function() {
-    document.getElementById('proc_group').style.display = this.value === 'PROCEDIMENTO' ? '' : 'none';
+  document.getElementById('proc_group').style.display = this.value === 'PROCEDIMENTO' ? '' : 'none';
 });
 </script>
 {% endblock %}
