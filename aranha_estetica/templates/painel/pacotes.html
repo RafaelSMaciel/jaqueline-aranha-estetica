@@ -1,190 +1,197 @@
-{% extends 'painel/base.html' %}
+{% extends 'painel/base_v2.html' %}
 
+{% block titulo %}Pacotes — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Pacotes{% endblock %}
 {% block page_subtitle %}Gerenciamento de pacotes de serviços{% endblock %}
 
 {% block admin_content %}
 
-<!-- Stats -->
-<div class="row g-3 mb-4">
-    <div class="col-6 col-md-3">
-        <div class="stat-card">
-            <div class="stat-card-icon" style="background:rgba(76,175,80,0.1);">
-                <i class="fas fa-box" style="color:#4CAF50;"></i>
-            </div>
-            <div class="stat-card-value" style="color:#4CAF50;">{{ pacotes|length }}</div>
-            <div class="stat-card-label">Pacotes</div>
-        </div>
+{# ── Stats ── #}
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+  <div class="bg-white rounded-2xl shadow-sm p-4">
+    <div class="w-9 h-9 rounded-xl bg-green-100 flex items-center justify-center mb-2">
+      <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
+      </svg>
     </div>
+    <div class="text-[1.5rem] font-extrabold text-green-600 leading-none">{{ pacotes|length }}</div>
+    <div class="text-[0.65rem] font-bold uppercase tracking-wide text-texto-suave mt-1">Pacotes</div>
+  </div>
 </div>
 
-<!-- Pacotes existentes -->
+{# ── Pacotes ── #}
 {% for pacote in pacotes %}
-<div class="card border-0 shadow-sm rounded-4 mb-3">
-    <div class="card-body p-3">
-        <div class="d-flex justify-content-between align-items-start">
-            <div>
-                <h6 class="fw-bold mb-1">{{ pacote.nome }}
-                    {% if pacote.ativo %}
-                    <span class="admin-badge admin-badge-green">Ativo</span>
-                    {% else %}
-                    <span class="admin-badge admin-badge-red">Inativo</span>
-                    {% endif %}
-                </h6>
-                <p class="text-muted small mb-1">{{ pacote.descricao|default:"Sem descricao" }}</p>
-                <div class="small">
-                    <strong>R$ {{ pacote.preco_total }}</strong> &middot;
-                    Validade: {{ pacote.validade_meses }} meses &middot;
-                    {{ pacote.total_vendas }} venda{{ pacote.total_vendas|pluralize:"s" }}
-                </div>
-            </div>
-            <div class="d-flex gap-2">
-                <button class="btn btn-sm btn-outline-secondary rounded-pill"
-                    data-bs-toggle="modal" data-bs-target="#modalVenda{{ pacote.pk }}">
-                    <i class="fas fa-shopping-cart"></i> Vender
-                </button>
-            </div>
-        </div>
-
-        <!-- Itens do pacote -->
-        {% if pacote.itens.all %}
-        <div class="mt-2 pt-2 border-top">
-            <small class="text-muted fw-bold">Itens:</small>
-            {% for item in pacote.itens.all %}
-            <span class="admin-badge admin-badge-blue ms-1">
-                {{ item.procedimento.nome }} ({{ item.quantidade_sessoes }}x)
-            </span>
-            {% endfor %}
-        </div>
+<div x-data="modal" x-on:keydown.escape.window="fechar" class="bg-white rounded-2xl shadow-sm p-4 mb-3">
+  <div class="flex items-start justify-between gap-2">
+    <div class="min-w-0">
+      <h6 class="flex items-center gap-2 flex-wrap font-bold text-texto mb-1">
+        {{ pacote.nome }}
+        {% if pacote.ativo %}
+        <span class="px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-green-50 text-green-700 uppercase tracking-wide">Ativo</span>
+        {% else %}
+        <span class="px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-red-50 text-red-600 uppercase tracking-wide">Inativo</span>
         {% endif %}
+      </h6>
+      <p class="text-[0.8rem] text-texto-suave mb-1">{{ pacote.descricao|default:"Sem descrição" }}</p>
+      <div class="text-[0.8rem] text-texto">
+        <strong>R$ {{ pacote.preco_total }}</strong> &middot;
+        Validade: {{ pacote.validade_meses }} meses &middot;
+        {{ pacote.total_vendas }} venda{{ pacote.total_vendas|pluralize:"s" }}
+      </div>
     </div>
-</div>
+    <button type="button" x-on:click="abrir"
+            class="inline-flex items-center gap-1 shrink-0 px-3 py-1.5 rounded-lg border border-borda text-texto text-[0.75rem] font-bold bg-white cursor-pointer hover:bg-fundo transition-colors">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/>
+      </svg>
+      Vender
+    </button>
+  </div>
 
-<!-- Modal Venda -->
-<div class="modal fade" id="modalVenda{{ pacote.pk }}" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content rounded-4">
-            <form method="POST" action="{% url 'aranha:admin_vender_pacote' %}">
-                {% csrf_token %}
-                <input type="hidden" name="pacote_id" value="{{ pacote.pk }}">
-                <div class="modal-header border-0">
-                    <h5 class="modal-title fw-bold">Vender "{{ pacote.nome }}"</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold small">Paciente</label>
-                        <select name="cliente_id" class="form-select bg-light border-0" required>
-                            <option value="">Selecione...</option>
-                            {% for c in clientes_ativos %}
-                            <option value="{{ c.pk }}">{{ c.nome }}{% if c.telefone %} — {{ c.telefone }}{% endif %}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-bold small">Valor Pago (R$)</label>
-                        <input type="number" step="0.01" name="valor_pago" class="form-control bg-light border-0"
-                            value="{{ pacote.preco_total }}" required>
-                    </div>
-                </div>
-                <div class="modal-footer border-0">
-                    <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn rounded-pill px-4" style="background:#C9A84C;color:white;">
-                        <i class="fas fa-check me-1"></i>Confirmar Venda
-                    </button>
-                </div>
-            </form>
+  {% if pacote.itens.all %}
+  <div class="mt-2 pt-2 border-t border-borda">
+    <span class="text-[0.75rem] text-texto-suave font-bold">Itens:</span>
+    {% for item in pacote.itens.all %}
+    <span class="inline-block ml-1 px-2 py-0.5 rounded-full text-[0.65rem] font-bold bg-blue-50 text-blue-700">
+      {{ item.procedimento.nome }} ({{ item.quantidade_sessoes }}x)
+    </span>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# Modal vender #}
+  <div x-show="aberto" x-cloak role="dialog" aria-modal="true" aria-label="Vender pacote"
+       class="fixed inset-0 z-[10000] flex items-center justify-center p-4" style="background:rgba(0,0,0,.45)">
+    <div x-on:click.outside="fechar"
+         class="bg-superficie text-texto rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-xl">
+      <form method="post" action="{% url 'aranha:admin_vender_pacote' %}">
+        {% csrf_token %}
+        <input type="hidden" name="pacote_id" value="{{ pacote.pk }}">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-borda">
+          <h5 class="font-bold text-[0.95rem]">Vender "{{ pacote.nome }}"</h5>
+          <button type="button" x-on:click="fechar" aria-label="Fechar"
+                  class="text-texto-suave hover:text-texto text-2xl leading-none border-none bg-transparent cursor-pointer">&times;</button>
         </div>
+        <div class="p-5">
+          <div class="mb-3">
+            <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Paciente</label>
+            <select name="cliente_id" required
+                    class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+              <option value="">Selecione...</option>
+              {% for c in clientes_ativos %}
+              <option value="{{ c.pk }}">{{ c.nome }}{% if c.telefone %} — {{ c.telefone }}{% endif %}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-1">
+            <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Valor Pago (R$)</label>
+            <input type="number" step="0.01" name="valor_pago" value="{{ pacote.preco_total }}" required
+                   class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 px-5 py-4 border-t border-borda">
+          <button type="button" x-on:click="fechar"
+                  class="px-4 py-2 rounded-xl border border-borda text-texto text-[0.85rem] font-bold bg-white cursor-pointer hover:bg-fundo transition-colors">Cancelar</button>
+          <button type="submit"
+                  class="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+            Confirmar Venda
+          </button>
+        </div>
+      </form>
     </div>
+  </div>
 </div>
 {% endfor %}
 
 {% if not pacotes %}
-<div class="text-center py-5">
-    <i class="fas fa-box-open fa-2x mb-3" style="color:#DDD;"></i>
-    <h6 class="text-muted">Nenhum pacote cadastrado</h6>
+<div class="text-center py-12">
+  <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
+    <svg class="w-7 h-7 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
+    </svg>
+  </div>
+  <h6 class="font-bold text-texto-suave">Nenhum pacote cadastrado</h6>
 </div>
 {% endif %}
 
-<!-- FAB: Novo Pacote -->
-<a href="#" class="admin-fab" data-bs-toggle="modal" data-bs-target="#modalNovoPacote">
-    <i class="fas fa-plus"></i>
-</a>
+{# ── FAB + Modal novo pacote ── #}
+<div x-data="pacoteCriar" x-on:keydown.escape.window="fechar">
+  <button type="button" x-on:click="abrir" aria-label="Novo pacote"
+          class="fixed bottom-6 right-6 z-[9000] w-14 h-14 rounded-full bg-gradient-to-br from-[#C9A84C] to-[#e8c94f] text-white shadow-lg flex items-center justify-center border-none cursor-pointer hover:opacity-90 transition-opacity">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+  </button>
 
-<!-- Modal Novo Pacote -->
-<div class="modal fade" id="modalNovoPacote" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content rounded-4">
-            <form method="POST" action="{% url 'aranha:admin_criar_pacote' %}">
-                {% csrf_token %}
-                <div class="modal-header border-0">
-                    <h5 class="modal-title fw-bold">Novo Pacote</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold small">Nome</label>
-                            <input type="text" name="nome" class="form-control bg-light border-0" required
-                                placeholder="Ex: Pacote Harmonizacao 5 sessoes">
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label fw-bold small">Preço Total (R$)</label>
-                            <input type="number" step="0.01" name="preco_total" class="form-control bg-light border-0" required>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label fw-bold small">Validade (meses)</label>
-                            <input type="number" name="validade_meses" class="form-control bg-light border-0" value="12">
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label fw-bold small">Descricao</label>
-                            <textarea name="descricao" class="form-control bg-light border-0" rows="2"></textarea>
-                        </div>
-                    </div>
-
-                    <h6 class="fw-bold mt-4 mb-2">Itens do Pacote</h6>
-                    <div id="itens-container">
-                        <div class="row g-2 mb-2 item-row">
-                            <div class="col-8">
-                                <select name="procedimento_ids" class="form-select bg-light border-0">
-                                    <option value="">Procedimento...</option>
-                                    {% for proc in procedimentos %}
-                                    <option value="{{ proc.pk }}">{{ proc.nome }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-4">
-                                <input type="number" name="quantidades" class="form-control bg-light border-0"
-                                    value="1" min="1" placeholder="Qtd sessoes">
-                            </div>
-                        </div>
-                    </div>
-                    <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill mt-1" id="btn-add-item">
-                        <i class="fas fa-plus me-1"></i>Adicionar Item
-                    </button>
-                </div>
-                <div class="modal-footer border-0">
-                    <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn rounded-pill px-4" style="background:#C9A84C;color:white;">
-                        <i class="fas fa-save me-1"></i>Criar Pacote
-                    </button>
-                </div>
-            </form>
+  <div x-show="aberto" x-cloak role="dialog" aria-modal="true" aria-label="Novo pacote"
+       class="fixed inset-0 z-[10000] flex items-center justify-center p-4" style="background:rgba(0,0,0,.45)">
+    <div x-on:click.outside="fechar"
+         class="bg-superficie text-texto rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
+      <form method="post" action="{% url 'aranha:admin_criar_pacote' %}">
+        {% csrf_token %}
+        <div class="flex items-center justify-between px-5 py-4 border-b border-borda">
+          <h5 class="font-bold text-[0.95rem]">Novo Pacote</h5>
+          <button type="button" x-on:click="fechar" aria-label="Fechar"
+                  class="text-texto-suave hover:text-texto text-2xl leading-none border-none bg-transparent cursor-pointer">&times;</button>
         </div>
+        <div class="p-5">
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-3">
+            <div class="sm:col-span-6">
+              <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Nome</label>
+              <input type="text" name="nome" required placeholder="Ex: Pacote Harmonização 5 sessões"
+                     class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+            </div>
+            <div class="sm:col-span-3">
+              <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Preço Total (R$)</label>
+              <input type="number" step="0.01" name="preco_total" required
+                     class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+            </div>
+            <div class="sm:col-span-3">
+              <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Validade (meses)</label>
+              <input type="number" name="validade_meses" value="12"
+                     class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+            </div>
+            <div class="sm:col-span-12">
+              <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Descrição</label>
+              <textarea name="descricao" rows="2"
+                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition resize-y"></textarea>
+            </div>
+          </div>
+
+          <h6 class="font-bold text-texto mt-4 mb-2">Itens do Pacote</h6>
+          <div x-ref="itens">
+            <div class="grid grid-cols-12 gap-2 mb-2 item-row">
+              <div class="col-span-8">
+                <select name="procedimento_ids"
+                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+                  <option value="">Procedimento...</option>
+                  {% for proc in procedimentos %}
+                  <option value="{{ proc.pk }}">{{ proc.nome }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-span-4">
+                <input type="number" name="quantidades" value="1" min="1" placeholder="Qtd sessões"
+                       class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+              </div>
+            </div>
+          </div>
+          <button type="button" x-on:click="addItem"
+                  class="inline-flex items-center gap-1 mt-1 px-3 py-1.5 rounded-lg border border-borda text-texto text-[0.75rem] font-bold bg-white cursor-pointer hover:bg-fundo transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Adicionar Item
+          </button>
+        </div>
+        <div class="flex justify-end gap-2 px-5 py-4 border-t border-borda">
+          <button type="button" x-on:click="fechar"
+                  class="px-4 py-2 rounded-xl border border-borda text-texto text-[0.85rem] font-bold bg-white cursor-pointer hover:bg-fundo transition-colors">Cancelar</button>
+          <button type="submit"
+                  class="px-5 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">Criar Pacote</button>
+        </div>
+      </form>
     </div>
+  </div>
 </div>
 
-{% endblock %}
-
-{% block admin_scripts %}
-<script nonce="{{ csp_nonce }}">
-document.getElementById('btn-add-item').addEventListener('click', function() {
-    const container = document.getElementById('itens-container');
-    const row = container.querySelector('.item-row').cloneNode(true);
-    row.querySelector('select').value = '';
-    row.querySelector('input').value = '1';
-    container.appendChild(row);
-});
-
-</script>
 {% endblock %}

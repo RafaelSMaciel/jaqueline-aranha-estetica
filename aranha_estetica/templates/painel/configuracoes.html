@@ -96,12 +96,3 @@
 {% endfor %}
 
 {% endblock %}
-
-{% block js %}
-<script nonce="{{ csp_nonce }}">
-document.addEventListener('click', function (e) {
-  var b = e.target.closest('[data-confirm]');
-  if (b && !confirm(b.getAttribute('data-confirm'))) e.preventDefault();
-});
-</script>
-{% endblock %}

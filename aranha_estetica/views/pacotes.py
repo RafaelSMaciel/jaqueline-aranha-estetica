@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 def admin_pacotes(request):
     """Lista todos os pacotes com itens e vendas."""
     pacotes = Pacote.objects.prefetch_related('itens__procedimento').annotate(
-        total_vendas=Count('pacotecliente'),
+        total_vendas=Count('comprapacote'),
     ).order_by('-ativo', 'nome')
 
     context = {
