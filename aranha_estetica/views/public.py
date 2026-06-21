@@ -421,12 +421,3 @@ def servicos_corporais(request):
 
 def servicos_produtos(request):
     return render(request, 'servicos/produtos.html', {})
-
-
-def prova_v2(request):
-    # Pagina de prova da fundacao (dev only) — nao expor em producao.
-    from django.conf import settings
-    from django.http import Http404
-    if not settings.DEBUG:
-        raise Http404()
-    return render(request, 'publico/prova_v2.html')

@@ -10,7 +10,6 @@ from .public import (
     equipe, especialidades, depoimentos, galeria, servico_detalhe,
     lista_espera_publica, lista_espera_sucesso,
     servicos_faciais, servicos_corporais, servicos_produtos,
-    prova_v2,
 )
 from .admin import (
     prontuario_consentimento,
