@@ -3,7 +3,7 @@ import logging
 from datetime import timedelta
 from typing import Optional
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from aranha_estetica.models import Atendimento, Cliente, Procedimento, Profissional
@@ -42,17 +42,22 @@ class AgendamentoService:
         if conflito:
             raise ValueError("Horario ja ocupado para este profissional.")
 
-        atendimento = Atendimento.objects.create(
-            cliente=cliente,
-            profissional=profissional,
-            procedimento=procedimento,
-            data_hora_inicio=data_hora_inicio,
-            data_hora_fim=fim,
-            valor_cobrado=valor_cobrado,
-            valor_original=valor_original,
-            descricao_preco=descricao_preco,
-            status=status,
-        )
+        try:
+            atendimento = Atendimento.objects.create(
+                cliente=cliente,
+                profissional=profissional,
+                procedimento=procedimento,
+                data_hora_inicio=data_hora_inicio,
+                data_hora_fim=fim,
+                valor_cobrado=valor_cobrado,
+                valor_original=valor_original,
+                descricao_preco=descricao_preco,
+                status=status,
+            )
+        except IntegrityError as exc:
+            # Corrida perdida: a constraint de exclusao (Postgres) pegou o conflito
+            # que o .exists() acima nao viu. Traduz p/ erro de dominio (nao 500).
+            raise ValueError("Horario ja ocupado para este profissional.") from exc
         logger.info("Atendimento %s criado (cliente=%s)", atendimento.pk, cliente.pk)
         return atendimento
 

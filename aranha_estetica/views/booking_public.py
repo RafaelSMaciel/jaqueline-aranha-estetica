@@ -146,8 +146,11 @@ def confirmar_agendamento(request):
         otp_ok = bool(otp_email) and otp_email == email.lower()
         if otp_ok and otp_exp:
             try:
-                otp_ok = datetime.fromisoformat(otp_exp) > timezone.now()
-            except ValueError:
+                exp = datetime.fromisoformat(otp_exp)
+                if timezone.is_naive(exp):
+                    exp = timezone.make_aware(exp)
+                otp_ok = exp > timezone.now()
+            except (ValueError, TypeError):
                 otp_ok = False
         if cliente_existente and not otp_ok:
             messages.error(request, 'Confirme com o codigo SMS enviado ao seu telefone antes de prosseguir.')
@@ -171,6 +174,8 @@ def confirmar_agendamento(request):
         procedimento = Procedimento.objects.get(pk=procedimento_id)
         profissional = Profissional.objects.get(pk=profissional_id)
         data_hora = datetime.fromisoformat(datetime_str)
+        if timezone.is_naive(data_hora):
+            data_hora = timezone.make_aware(data_hora)
         data_hora_fim = data_hora + timedelta(minutes=procedimento.duracao_minutos)
 
         if Feriado.objects.filter(data=data_hora.date(), bloqueia_agendamento=True).exists():
