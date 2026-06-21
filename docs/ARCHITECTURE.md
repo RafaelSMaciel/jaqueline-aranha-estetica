@@ -239,17 +239,15 @@ Auditoria multi-agente (10 módulos) → **149 achados: 31 alta, 71 média, 47 b
 ---
 
 ### Backend — progresso de correção
-- **✅ 20 alta** (Onda 1: 8 · Onda 2: 9 · Onda 3 seguras: domain stubs, Procfile beat, senha-por-link).
-- **✅ 71 média** (workflow particionado em 10 agentes, arquivos disjuntos; verificado: check + 213 testes + migrations; migração 0039 [validators/check]). Um teste fortalecido expôs bug real → +guard de data-passada no booking. ~6 médias puladas com motivo (refactor grande/decisão: `__str__` PII testado, métodos da Carteira, retry policy de e-mail).
-- **⏳ ~7 alta + 47 baixa pendentes** (Onda 3 — refactor grande/decisão):
-  1. `AgendamentoService` **duplicado** (legado+novo, ambos vivos) — escolher canônico + migrar callers (arriscado p/ booking).
-  2. `get_horarios_disponiveis` **fat-model** (110 linhas) → extrair `SlotService` (refactor do core de slot).
-  3. `Cliente.delete()` faz **hard-delete** → override soft (muda semântica de cascatas/admin).
-  4. **booking_public OTP-gate por telefone** (entrelaçado com fluxo OTP e-mail/SMS + front).
-  5. `job_limpeza` marca PENDENTE→FALTOU mas a **FSM não permite** — decidir a regra.
-  6. `settings/__init__` default `dev` por fallback (deploy: setar `DJANGO_ENV=prod`).
-  7. `decorators_2fa.staff_otp_required` dead (middleware é o gate canônico).
+- **✅ 25 de 31 alta** corrigidas e verificadas (213 testes em cada commit):
+  - Onda 1 (8): página-500, FSM, telefone, 2FA ratelimit+open-redirect, webhook Meta, closure cashback, pacotes atomic.
+  - Onda 2 (9): quota SMS atômica, débito pacote com lock, anti double-pay, datetime make_aware, corrida de slot, NPS sem órfã, cooldown OTP.
+  - Onda 3 (8): domain stubs, Procfile beat, senha-por-link, `Cliente.delete()` soft-default, `job_limpeza` via FSM (PENDENTE→CANCELADO / AGENDADO·CONFIRMADO→FALTOU), `DJANGO_ENV=prod` explícito (railway+Procfile), **OTP-gate por telefone** (anti-sequestro), **dedup `AgendamentoService`** (remove legada morta + fix import quebrado de `preco_base_map`).
+- **✅ 71 média** (workflow 10 agentes, arquivos disjuntos; verificado: check + 213 testes + migrations; migração 0039 [validators/check]). Teste fortalecido expôs bug real → +guard de data-passada no booking. ~6 puladas com motivo.
+- **⏳ 2 alta + 47 baixa restam (cada uma com bloqueio legítimo):**
+  1. `get_horarios_disponiveis` **fat-model** (110 linhas) → extrair `SlotService`. **Bloqueio:** ZERO teste cobre a lógica de slot/timezone → escrever testes de slot ANTES de extrair (senão regressão silenciosa de disponibilidade).
+  2. `decorators_2fa.staff_otp_required` — **decisão de arquitetura 2FA**: coexistem 3 mecanismos (Enforce2FAMiddleware custom + app `two_factor`/django-two-factor-auth + views `admin_2fa` custom). Consolidar exige escolher UM — decisão do dono.
 
 ---
 
-_Última atualização: 2026-06-21 — Backend: 20 alta + 71 média corrigidas e verificadas (213 testes, migração 0039). Restam ~7 alta de refactor-grande/decisão + 47 baixa._
+_Última atualização: 2026-06-21 — Backend: **25 de 31 alta + 71 média** corrigidas e verificadas (213 testes, migração 0039). Restam 2 alta (fat-model: precisa de testes de slot antes; 2FA: decisão de arquitetura) + 47 baixa._
