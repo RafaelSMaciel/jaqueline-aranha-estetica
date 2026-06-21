@@ -16,6 +16,7 @@ import secrets
 import time
 import requests
 from django.conf import settings
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -201,13 +202,42 @@ def enviar_confirmacao_d1(atendimento):
     """
     from ..models import Notificacao
 
-    token = gerar_token()
     site_url = SITE_URL.rstrip('/')
-    link_confirmar = f'{site_url}/confirmar/{token}/?acao=confirmar'
-    link_cancelar = f'{site_url}/confirmar/{token}/?acao=cancelar'
-
     data_formatada = atendimento.data_hora_inicio.strftime('%d/%m/%Y')
     hora_formatada = atendimento.data_hora_inicio.strftime('%H:%M')
+    mensagem_preview = (
+        f'[Template {TEMPLATE_CONFIRMACAO_D1}] '
+        f'{atendimento.cliente.nome} / '
+        f'{data_formatada} {hora_formatada} / '
+        f'{atendimento.procedimento.nome} c/ {atendimento.profissional.nome}'
+    )
+
+    # Persistir a Notificacao com token ANTES de enviar: o link so chega ao
+    # cliente apos o token estar gravado, e a colisao de unique (improvavel com
+    # token_urlsafe(32)) e tratada com retry atomico em vez de virar 500.
+    notif = None
+    for _ in range(MAX_RETRIES):
+        token = gerar_token()
+        try:
+            with transaction.atomic():
+                notif = Notificacao.objects.create(
+                    atendimento=atendimento,
+                    tipo='LEMBRETE',
+                    canal='WHATSAPP',
+                    status='PENDENTE',
+                    token=token,
+                    mensagem=mensagem_preview,
+                )
+            break
+        except IntegrityError:
+            logger.warning('whatsapp_d1_token_colisao', extra={'atendimento_id': atendimento.pk})
+            notif = None
+    if notif is None:
+        logger.error('whatsapp_d1_token_falha', extra={'atendimento_id': atendimento.pk})
+        return None
+
+    link_confirmar = f'{site_url}/confirmar/{notif.token}/?acao=confirmar'
+    link_cancelar = f'{site_url}/confirmar/{notif.token}/?acao=cancelar'
 
     components = [{
         'type': 'body',
@@ -226,22 +256,10 @@ def enviar_confirmacao_d1(atendimento):
         atendimento.cliente.telefone, TEMPLATE_CONFIRMACAO_D1, components
     )
 
-    mensagem_preview = (
-        f'[Template {TEMPLATE_CONFIRMACAO_D1}] '
-        f'{atendimento.cliente.nome} / '
-        f'{data_formatada} {hora_formatada} / '
-        f'{atendimento.procedimento.nome} c/ {atendimento.profissional.nome}'
-    )
-
-    return Notificacao.objects.create(
-        atendimento=atendimento,
-        tipo='LEMBRETE',
-        canal='WHATSAPP',
-        status='ENVIADO' if sucesso else 'FALHOU',
-        token=token,
-        enviado_em=timezone.now(),
-        mensagem=mensagem_preview,
-    )
+    notif.status = 'ENVIADO' if sucesso else 'FALHOU'
+    notif.enviado_em = timezone.now()
+    notif.save(update_fields=['status', 'enviado_em'])
+    return notif
 
 
 def enviar_nps_whatsapp(atendimento, link_nps, token_notif):

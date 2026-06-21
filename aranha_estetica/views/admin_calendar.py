@@ -1,14 +1,28 @@
 """Visao de calendario (FullCalendar) para agendamentos — alternativa a lista."""
 from datetime import datetime
 
+from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django_ratelimit.decorators import ratelimit
 
 from ..decorators import staff_required
 from ..models import Atendimento, BloqueioAgenda, ExcecaoDisponibilidade, Profissional
 from ..utils.audit import registrar_log
+
+
+def _parse_iso_aware(valor):
+    """Parseia ISO 8601 do FullCalendar e garante datetime tz-aware.
+
+    Com USE_TZ=True, um valor sem offset ficaria naive e deslocaria o
+    horario salvo/comparado. Normaliza para aware no fuso default.
+    """
+    dt = datetime.fromisoformat(valor.replace('Z', '+00:00'))
+    if timezone.is_naive(dt):
+        dt = timezone.make_aware(dt)
+    return dt
 
 
 STATUS_COLORS = {
@@ -41,8 +55,8 @@ def admin_calendar_events(request):
     prof_filter = request.GET.get('profissional', '')
 
     try:
-        dt_start = datetime.fromisoformat(start.replace('Z', '+00:00'))
-        dt_end = datetime.fromisoformat(end.replace('Z', '+00:00'))
+        dt_start = _parse_iso_aware(start)
+        dt_end = _parse_iso_aware(end)
     except (ValueError, AttributeError):
         return JsonResponse([], safe=False)
 
@@ -119,32 +133,72 @@ def admin_calendar_mover(request):
     try:
         payload = json.loads(request.body)
         pk = int(payload.get('id'))
-        novo_inicio = datetime.fromisoformat(payload.get('start').replace('Z', '+00:00'))
-        novo_fim = datetime.fromisoformat(payload.get('end').replace('Z', '+00:00'))
+        novo_inicio = _parse_iso_aware(payload.get('start'))
+        novo_fim = _parse_iso_aware(payload.get('end'))
     except (ValueError, TypeError, AttributeError, KeyError):
         return JsonResponse({'sucesso': False, 'erro': 'Payload invalido'}, status=400)
 
-    try:
-        at = Atendimento.objects.get(pk=pk)
-    except Atendimento.DoesNotExist:
-        return JsonResponse({'sucesso': False, 'erro': 'Atendimento nao encontrado'}, status=404)
+    with transaction.atomic():
+        try:
+            at = Atendimento.objects.select_for_update().get(pk=pk)
+        except Atendimento.DoesNotExist:
+            return JsonResponse({'sucesso': False, 'erro': 'Atendimento nao encontrado'}, status=404)
 
-    if at.status in ('REALIZADO', 'CANCELADO', 'FALTOU'):
-        return JsonResponse({
-            'sucesso': False,
-            'erro': f'Nao e possivel mover atendimento {at.get_status_display().lower()}.',
-        }, status=400)
+        if at.status in ('REALIZADO', 'CANCELADO', 'FALTOU'):
+            return JsonResponse({
+                'sucesso': False,
+                'erro': f'Nao e possivel mover atendimento {at.get_status_display().lower()}.',
+            }, status=400)
 
-    antigo = at.data_hora_inicio.isoformat()
-    at.data_hora_inicio = novo_inicio
-    at.data_hora_fim = novo_fim
-    at.save(update_fields=['data_hora_inicio', 'data_hora_fim', 'atualizado_em'])
+        # Bloqueia double-booking: nao mover para janela que sobrepoe outro
+        # atendimento ativo do mesmo profissional, um bloqueio ou uma folga.
+        conflito_atendimento = Atendimento.objects.filter(
+            profissional_id=at.profissional_id,
+            data_hora_inicio__lt=novo_fim,
+            data_hora_fim__gt=novo_inicio,
+            status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO', 'REALIZADO'],
+        ).exclude(pk=at.pk).exists()
+        if conflito_atendimento:
+            return JsonResponse({
+                'sucesso': False,
+                'erro': 'Conflito: ja existe um atendimento nesse horario para o profissional.',
+            }, status=409)
 
-    registrar_log(
-        request.user, 'Moveu agendamento via calendario',
-        'atendimento', at.pk,
-        detalhes={'de': antigo, 'para': novo_inicio.isoformat()},
-    )
+        # Inclui bloqueios globais (profissional nulo = vale p/ todos).
+        # Checagem de sobreposicao direta; nao expande recorrencia (debito menor).
+        from django.db.models import Q
+        conflito_bloqueio = BloqueioAgenda.objects.filter(
+            Q(profissional_id=at.profissional_id) | Q(profissional__isnull=True),
+            data_hora_inicio__lt=novo_fim,
+            data_hora_fim__gt=novo_inicio,
+        ).exists()
+        if conflito_bloqueio:
+            return JsonResponse({
+                'sucesso': False,
+                'erro': 'Conflito: o horario cai dentro de um bloqueio de agenda.',
+            }, status=409)
+
+        conflito_folga = ExcecaoDisponibilidade.objects.filter(
+            profissional_id=at.profissional_id,
+            tipo='FOLGA',
+            data=timezone.localtime(novo_inicio).date(),
+        ).exists()
+        if conflito_folga:
+            return JsonResponse({
+                'sucesso': False,
+                'erro': 'Conflito: o profissional esta de folga nesse dia.',
+            }, status=409)
+
+        antigo = at.data_hora_inicio.isoformat()
+        at.data_hora_inicio = novo_inicio
+        at.data_hora_fim = novo_fim
+        at.save(update_fields=['data_hora_inicio', 'data_hora_fim', 'atualizado_em'])
+
+        registrar_log(
+            request.user, 'Moveu agendamento via calendario',
+            'atendimento', at.pk,
+            detalhes={'de': antigo, 'para': novo_inicio.isoformat()},
+        )
 
     return JsonResponse({
         'sucesso': True,

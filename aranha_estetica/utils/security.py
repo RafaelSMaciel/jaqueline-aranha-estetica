@@ -2,6 +2,8 @@
 import hmac
 import re
 
+from django.conf import settings
+
 
 def mask_email(email: str) -> str:
     """Mascara email para logs: rafa***@gmail.com"""
@@ -43,8 +45,25 @@ def safe_str_compare(a: str, b: str) -> bool:
 
 
 def client_ip(request) -> str:
-    """Obtem IP real do cliente considerando proxy reverso."""
+    """Obtem IP real do cliente considerando proxy reverso.
+
+    O header X-Forwarded-For e totalmente controlado pelo cliente: tudo a
+    ESQUERDA do IP injetado pelo nosso proxy confiavel pode ser forjado. Por
+    isso, com `TRUSTED_PROXY_COUNT` (settings) configurado para a profundidade
+    real da topologia, pegamos o IP a partir do FIM da cadeia — imune a
+    spoofing de XFF usado para burlar rate-limit ou poluir auditoria.
+
+    Default (TRUSTED_PROXY_COUNT ausente/0): mantem o comportamento legado de
+    pegar o primeiro IP do XFF para nao quebrar contrato existente.
+    """
     xff = request.META.get("HTTP_X_FORWARDED_FOR", "")
     if xff:
-        return xff.split(",")[0].strip()
+        ips = [p.strip() for p in xff.split(",") if p.strip()]
+        if ips:
+            num_proxies = int(getattr(settings, "TRUSTED_PROXY_COUNT", 0) or 0)
+            if num_proxies > 0:
+                # IP confiavel = (num_proxies)-esimo a partir do fim.
+                idx = len(ips) - num_proxies
+                return ips[idx if idx >= 0 else 0]
+            return ips[0]
     return request.META.get("REMOTE_ADDR", "")

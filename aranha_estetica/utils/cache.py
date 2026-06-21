@@ -6,6 +6,9 @@ from functools import wraps
 
 from django.core.cache import cache
 
+# Sentinel para distinguir "ausente no cache" de "None legitimamente cacheado".
+_MISS = object()
+
 
 def cached(key_fn, ttl: int = 300):
     """Cacheia retorno de funcao usando chave gerada por `key_fn(*args, **kwargs)`.
@@ -24,8 +27,8 @@ def cached(key_fn, ttl: int = 300):
         @wraps(fn)
         def wrapper(*args, **kwargs):
             key = key_fn(*args, **kwargs) if callable(key_fn) else key_fn
-            cached_val = cache.get(key)
-            if cached_val is not None:
+            cached_val = cache.get(key, _MISS)
+            if cached_val is not _MISS:
                 return cached_val
             result = fn(*args, **kwargs)
             cache.set(key, result, ttl)
@@ -45,8 +48,8 @@ def cache_get_or_set(key: str, factory, ttl: int = 300):
 
     Util quando cache eh usado uma unica vez ou key depende de runtime.
     """
-    val = cache.get(key)
-    if val is not None:
+    val = cache.get(key, _MISS)
+    if val is not _MISS:
         return val
     val = factory()
     cache.set(key, val, ttl)

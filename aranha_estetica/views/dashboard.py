@@ -67,12 +67,15 @@ def painel_overview(request):
         data_hora_inicio__date__range=[inicio_semana, fim_semana],
         status='REALIZADO',
     ).count()
+    # Cada DisponibilidadeProfissional representa uma janela de UM dia da semana
+    # (campo dia_semana), entao a soma de todas as janelas ativas ja e a
+    # capacidade semanal de slots. Usa total_seconds() (nao .seconds, que zera
+    # o componente de dias) para janelas que possam cruzar/exceder 24h.
     slots_semana = 0
-    for d in DisponibilidadeProfissional.objects.select_related('profissional').filter(profissional__ativo=True):
-        minutos_dia = (
-            datetime.combine(hoje, d.hora_fim) - datetime.combine(hoje, d.hora_inicio)
-        ).seconds // 60
-        slots_semana += minutos_dia // 30
+    for d in DisponibilidadeProfissional.objects.filter(profissional__ativo=True):
+        duracao = datetime.combine(hoje, d.hora_fim) - datetime.combine(hoje, d.hora_inicio)
+        minutos_janela = int(duracao.total_seconds()) // 60
+        slots_semana += minutos_janela // 30
     taxa_ocupacao = round((realizados_semana / slots_semana) * 100, 1) if slots_semana else 0
 
     limite_90d = timezone.now() - timedelta(days=90)

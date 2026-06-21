@@ -7,6 +7,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from aranha_estetica.models import Cliente, Atendimento, AvaliacaoNPS
+from aranha_estetica.utils.audit import registrar_log
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 class LgpdService:
     RETENCAO_CLIENTE_INATIVO_DIAS = 365 * 2  # 2 anos
     RETENCAO_LOG_AUDITORIA_DIAS = 365
+    PURGA_LOG_PROGRESSO_LOTE = 100  # loga progresso a cada N anonimizacoes
 
     @staticmethod
     def exportar_dados_cliente(cliente: Cliente) -> dict[str, Any]:
@@ -84,6 +86,7 @@ class LgpdService:
     @transaction.atomic
     def esquecer_cliente(cls, cliente: Cliente) -> None:
         """Direito ao esquecimento: anonimiza dados e soft-delete."""
+        cliente_pk = cliente.pk
         cliente.nome = f'[ANONIMIZADO-{cliente.pk}]'
         cliente.cpf = None
         cliente.rg = None
@@ -95,11 +98,24 @@ class LgpdService:
         cliente.data_nascimento = None
         cliente.aceita_comunicacao = False
         cliente.soft_delete()
-        logger.info('Cliente %s anonimizado (direito ao esquecimento).', cliente.pk)
+        # Trilha de auditoria LGPD (alem do log de aplicacao) para rastreio do
+        # evento de retencao/esquecimento. Sem PII no registro.
+        registrar_log(
+            None,
+            'Cliente anonimizado (direito ao esquecimento / retencao LGPD)',
+            'cliente',
+            cliente_pk,
+        )
+        logger.info('Cliente %s anonimizado (direito ao esquecimento).', cliente_pk)
 
     @classmethod
     def purgar_inativos(cls) -> int:
-        """Anonimiza clientes sem atendimentos ha mais de N dias."""
+        """Anonimiza clientes sem atendimentos ha mais de N dias.
+
+        Processa em lotes com log de progresso. Cada esquecer_cliente roda em
+        sua propria transacao, entao um aborto no meio deixa os ja anonimizados
+        comitados (com auditoria) e os demais sao retomados na proxima execucao.
+        """
         limite = timezone.now() - timedelta(days=cls.RETENCAO_CLIENTE_INATIVO_DIAS)
         candidatos = Cliente.objects.filter(
             criado_em__lt=limite,
@@ -110,4 +126,7 @@ class LgpdService:
         for cliente in candidatos.iterator():
             cls.esquecer_cliente(cliente)
             count += 1
+            if count % cls.PURGA_LOG_PROGRESSO_LOTE == 0:
+                logger.info('purgar_inativos: %s clientes anonimizados ate agora.', count)
+        logger.info('purgar_inativos: concluido, %s clientes anonimizados.', count)
         return count

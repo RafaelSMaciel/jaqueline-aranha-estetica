@@ -231,26 +231,48 @@ class AgendamentoService:
 
     # ─── Helpers ──────────────────────────────────────────────────────
     def _upsert_cliente(self, cmd: CriarAgendamentoCommand) -> Cliente:
-        """Upsert cliente por email (se houver) ou cria novo."""
+        """Upsert cliente por email (se houver) ou cria novo.
+
+        Tolera corrida: o constraint UNIQUE parcial uniq_cliente_email_ativo
+        (Lower(email)) pode disparar IntegrityError se duas requisicoes com o
+        mesmo email passarem pelo .first()=None simultaneamente — nesse caso
+        refazemos a busca em vez de propagar 500.
+        """
         cliente = None
         if cmd.email:
             cliente = Cliente.objects.filter(email__iexact=cmd.email).first()
 
         if cliente:
-            # Atualiza campos opcionais se vazios
+            # Atualiza campos opcionais se vazios; grava so o que mudou para
+            # nao reescrever colunas potencialmente alteradas concorrentemente.
+            alterados = []
             if not cliente.telefone and cmd.telefone:
                 cliente.telefone = cmd.telefone
+                alterados.append('telefone')
             if not cliente.cpf and cmd.cpf:
                 cliente.cpf = cmd.cpf
-            cliente.save()
+                alterados.append('cpf')
+            if alterados:
+                cliente.save(update_fields=alterados)
             return cliente
 
-        return Cliente.objects.create(
-            nome=cmd.nome.strip(),
-            email=cmd.email,
-            telefone=cmd.telefone,
-            cpf=cmd.cpf,
-        )
+        try:
+            # Savepoint aninhado: sem ele, o IntegrityError invalidaria a
+            # transacao externa de criar() e o refetch abaixo falharia.
+            with transaction.atomic():
+                return Cliente.objects.create(
+                    nome=cmd.nome.strip(),
+                    email=cmd.email,
+                    telefone=cmd.telefone,
+                    cpf=cmd.cpf,
+                )
+        except IntegrityError:
+            # Outra requisicao criou o cliente entre o .first() e o create.
+            if cmd.email:
+                existente = Cliente.objects.filter(email__iexact=cmd.email).first()
+                if existente:
+                    return existente
+            raise
 
     def _slot_ocupado(self, profissional, data_inicio, duracao_min) -> bool:
         """Check basico de conflito (logica completa em utils/precos.py)."""

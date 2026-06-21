@@ -1,5 +1,6 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import redirect
 from functools import wraps
 
@@ -31,7 +32,13 @@ def profissional_required(view_func):
         user = request.user
         if user.is_staff:
             return view_func(request, *args, **kwargs)
-        prof = getattr(user, 'profissional', None)
+        # O acesso ao reverse OneToOne pode levantar RelatedObjectDoesNotExist
+        # (subclasse de ObjectDoesNotExist, NAO de AttributeError), entao o
+        # default do getattr nao captura — tratamos explicitamente.
+        try:
+            prof = user.profissional
+        except ObjectDoesNotExist:
+            prof = None
         if not prof or not prof.ativo:
             messages.error(request, 'Acesso restrito a profissionais cadastrados.')
             return redirect('aranha:inicio')

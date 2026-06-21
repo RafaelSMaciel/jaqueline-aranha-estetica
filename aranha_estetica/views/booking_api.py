@@ -3,6 +3,7 @@ import json
 import logging
 from datetime import datetime, timedelta
 
+from django.db import DatabaseError, transaction
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 from django.urls import reverse
@@ -62,15 +63,46 @@ def api_horarios_disponiveis(request):
     dia_semana = data_selecionada.isoweekday() % 7 + 1
 
     horarios = []
+    agora = timezone.now()
+    prof_pks = [p.pk for p in profissionais]
+
+    # Pre-carregar disponibilidade, atendimentos e bloqueios do dia para
+    # TODOS os profissionais de uma vez (evita N+1 dentro do loop de slots).
+    disp_por_prof = {
+        d.profissional_id: d
+        for d in DisponibilidadeProfissional.objects.filter(
+            profissional_id__in=prof_pks, dia_semana=dia_semana
+        )
+    }
+
+    dia_inicio = timezone.make_aware(datetime.combine(data_selecionada, datetime.min.time()))
+    dia_fim = dia_inicio + timedelta(days=1)
+
+    ocupados_por_prof = {}
+    for at in Atendimento.objects.filter(
+        profissional_id__in=prof_pks,
+        data_hora_inicio__lt=dia_fim,
+        data_hora_fim__gt=dia_inicio,
+        status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO'],
+    ).values_list('profissional_id', 'data_hora_inicio', 'data_hora_fim'):
+        ocupados_por_prof.setdefault(at[0], []).append((at[1], at[2]))
+
+    bloqueios_por_prof = {}
+    for bl in BloqueioAgenda.objects.filter(
+        profissional_id__in=prof_pks,
+        data_hora_inicio__lt=dia_fim,
+        data_hora_fim__gt=dia_inicio,
+    ).values_list('profissional_id', 'data_hora_inicio', 'data_hora_fim'):
+        bloqueios_por_prof.setdefault(bl[0], []).append((bl[1], bl[2]))
 
     for prof in profissionais:
         # Verificar disponibilidade do profissional nesse dia
-        try:
-            disp = DisponibilidadeProfissional.objects.get(
-                profissional=prof, dia_semana=dia_semana
-            )
-        except DisponibilidadeProfissional.DoesNotExist:
+        disp = disp_por_prof.get(prof.pk)
+        if disp is None:
             continue
+
+        ocupados = ocupados_por_prof.get(prof.pk, [])
+        bloqueios = bloqueios_por_prof.get(prof.pk, [])
 
         # Gerar slots de 30 em 30 minutos dentro do horário do profissional
         intervalo = timedelta(minutes=30)
@@ -83,23 +115,20 @@ def api_horarios_disponiveis(request):
             dt_aware = timezone.make_aware(hora_atual)
             fim_procedimento = dt_aware + timedelta(minutes=procedimento.duracao_minutos)
 
-            # Checar se o slot está ocupado
-            ocupado = Atendimento.objects.filter(
-                profissional=prof,
-                data_hora_inicio__lt=fim_procedimento,
-                data_hora_fim__gt=dt_aware,
-                status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO']
-            ).exists()
+            # Checar se o slot está ocupado (overlap em memoria)
+            ocupado = any(
+                ini < fim_procedimento and fim > dt_aware
+                for ini, fim in ocupados
+            )
 
-            # Checar bloqueios
-            bloqueado = BloqueioAgenda.objects.filter(
-                profissional=prof,
-                data_hora_inicio__lte=dt_aware,
-                data_hora_fim__gte=dt_aware
-            ).exists()
+            # Checar bloqueios (em memoria)
+            bloqueado = any(
+                ini <= dt_aware and fim >= dt_aware
+                for ini, fim in bloqueios
+            )
 
             # Não mostrar horários passados
-            passado = dt_aware < timezone.now()
+            passado = dt_aware < agora
 
             if not ocupado and not bloqueado and not passado:
                 horario_str = hora_atual.strftime('%H:%M')
@@ -178,11 +207,12 @@ def api_dias_disponiveis(request):
         profissionais = Profissional.objects.filter(ativo=True)
 
     # Pegar dias da semana em que os profissionais trabalham
-    dias_disponibilidade = set()
-    for prof in profissionais:
-        disps = DisponibilidadeProfissional.objects.filter(profissional=prof)
-        for d in disps:
-            dias_disponibilidade.add(d.dia_semana)
+    # (uma unica query para todos os profissionais — evita N+1)
+    dias_disponibilidade = set(
+        DisponibilidadeProfissional.objects.filter(
+            profissional_id__in=[p.pk for p in profissionais]
+        ).values_list('dia_semana', flat=True)
+    )
 
     hoje = timezone.now().date()
     dias_com_disponibilidade = []
@@ -272,32 +302,38 @@ def cancelar_agendamento(request):
 
         # Buscar atendimento pelo token (não por ID + telefone)
         try:
-            atendimento = Atendimento.objects.select_related('cliente', 'procedimento').get(
-                token_cancelamento=token
-            )
+            with transaction.atomic():
+                atendimento = (
+                    Atendimento.objects.select_for_update()
+                    .select_related('cliente', 'procedimento')
+                    .get(token_cancelamento=token)
+                )
+
+                # Verificar se é futuro
+                if atendimento.data_hora_inicio <= timezone.now():
+                    return JsonResponse(
+                        {'erro': 'Não é possível cancelar agendamentos passados'}, status=400
+                    )
+
+                # Verificar se já está cancelado
+                if atendimento.status == 'CANCELADO':
+                    return JsonResponse({'erro': 'Este agendamento já foi cancelado'}, status=400)
+
+                # Cancelar
+                atendimento.status = 'CANCELADO'
+                atendimento.save()
+                procedimento_nome = atendimento.procedimento.nome
         except Atendimento.DoesNotExist:
             return JsonResponse({'erro': 'Agendamento não encontrado'}, status=404)
 
-        # Verificar se é futuro
-        if atendimento.data_hora_inicio <= timezone.now():
-            return JsonResponse({'erro': 'Não é possível cancelar agendamentos passados'}, status=400)
-
-        # Verificar se já está cancelado
-        if atendimento.status == 'CANCELADO':
-            return JsonResponse({'erro': 'Este agendamento já foi cancelado'}, status=400)
-
-        # Cancelar
-        atendimento.status = 'CANCELADO'
-        atendimento.save()
-
         return JsonResponse({
             'sucesso': True,
-            'mensagem': f'Agendamento de {atendimento.procedimento.nome} cancelado com sucesso.',
+            'mensagem': f'Agendamento de {procedimento_nome} cancelado com sucesso.',
         })
 
     except json.JSONDecodeError:
         return JsonResponse({'erro': 'Dados inválidos'}, status=400)
-    except Exception as e:
+    except DatabaseError as e:
         logger.error(f'Erro ao cancelar agendamento: {e}', exc_info=True)
         return JsonResponse({'erro': 'Ocorreu um erro interno. Tente novamente.'}, status=500)
 

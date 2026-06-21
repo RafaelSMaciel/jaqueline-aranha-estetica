@@ -64,13 +64,13 @@ class IntegrationBookingFlowTests(TestCase):
     # ------------------------------------------------------------------
     def test_fluxo_completo_agendamento(self, mock_email, mock_wpp):
         """
-        POST valid data → client created, Atendimento at AGENDADO.
-        Then transition via ORM: AGENDADO → CONFIRMADO → REALIZADO.
-        REALIZADO triggers resetar_faltas (faltas_consecutivas resets to 0).
+        POST valid data → client created, Atendimento at PENDENTE.
+        Then drive the real FSM: PENDENTE → CONFIRMADO → REALIZADO via the
+        domain methods (confirmar / marcar_realizado), exercising the actual
+        transition table.
+        REALIZADO must reset faltas_consecutivas to 0 as a SIDE EFFECT of the
+        real transition (post_save signal), not via a manual resetar_faltas call.
         """
-        # Arrange: give the client some pre-existing faltas so we can see the reset
-        # We'll set them after booking to simulate the state.
-
         # Act: submit booking
         resp = self._post()
 
@@ -84,7 +84,7 @@ class IntegrationBookingFlowTests(TestCase):
         cliente = clientes.first()
         self.assertEqual(cliente.nome, 'Ana Integracao')
 
-        # Atendimento was created with AGENDADO status
+        # Atendimento was created with PENDENTE status
         atendimentos = Atendimento.objects.filter(cliente=cliente)
         self.assertEqual(atendimentos.count(), 1, 'Exactly one Atendimento should exist')
         atd = atendimentos.first()
@@ -92,26 +92,28 @@ class IntegrationBookingFlowTests(TestCase):
         self.assertEqual(atd.procedimento, self.proc)
         self.assertEqual(atd.profissional, self.prof)
 
-        # Simulate admin confirming the appointment → CONFIRMADO
-        atd.status = 'CONFIRMADO'
-        atd.save()
+        # Drive the real FSM: PENDENTE → CONFIRMADO
+        atd.confirmar()
         atd.refresh_from_db()
         self.assertEqual(atd.status, 'CONFIRMADO')
 
-        # Simulate service being rendered → REALIZADO
-        # Before marking REALIZADO, give the client some faltas
+        # Give the client some faltas BEFORE the realizado transition so we can
+        # observe the automatic reset triggered by the transition itself.
         cliente.faltas_consecutivas = 2
         cliente.save()
 
-        atd.status = 'REALIZADO'
-        atd.save()
+        # CONFIRMADO → REALIZADO via the domain method. This fires the post_save
+        # signal whose side effect resets the client's faltas — we must NOT call
+        # resetar_faltas() by hand, that is what we are verifying.
+        atd.marcar_realizado()
         atd.refresh_from_db()
         self.assertEqual(atd.status, 'REALIZADO')
 
-        # Call resetar_faltas (the business logic for when a client shows up)
-        cliente.resetar_faltas()
         cliente.refresh_from_db()
-        self.assertEqual(cliente.faltas_consecutivas, 0, 'Faltas should reset to 0 after REALIZADO')
+        self.assertEqual(
+            cliente.faltas_consecutivas, 0,
+            'REALIZADO transition must reset faltas to 0 (signal side effect)',
+        )
         self.assertFalse(cliente.bloqueado_online, 'Client should not be blocked after showing up')
 
     # ------------------------------------------------------------------
@@ -160,10 +162,11 @@ class IntegrationBookingFlowTests(TestCase):
     # ------------------------------------------------------------------
     def test_agendamento_data_futura_obrigatoria(self, mock_email, mock_wpp):
         """
-        A booking with a past datetime should be rejected.
-        The view either redirects back to agendamento_publico without creating
-        records, or the Atendimento is not created (the view wraps everything
-        in a try/except that redirects on any exception).
+        A booking with a past datetime must be rejected: the view must NOT
+        redirect to the success page and must NOT persist any Atendimento in
+        the past. These invariants are asserted unconditionally — if the view
+        has no past-date guard, this test should fail (red) and expose the bug,
+        not silently pass.
         """
         past_dt = (timezone.now() - timedelta(days=1)).replace(
             hour=10, minute=0, second=0, microsecond=0
@@ -171,25 +174,23 @@ class IntegrationBookingFlowTests(TestCase):
 
         resp = self._post(datetime=past_dt)
 
-        # Must redirect (not 200 — no success page should be served)
+        # Must redirect (not 200 — no success page should be served) and never 500
         self.assertEqual(resp.status_code, 302)
 
-        # No Atendimento should have been persisted for a past date
-        # (the view has no explicit past-date guard, but datetime parsing
-        # with a naive/aware mismatch or the conflict check may reject it;
-        # if the DB accepted it we still assert the redirect path is NOT sucesso)
-        if 'sucesso' not in resp.url:
-            # Rejected cleanly — verify no stale records
-            self.assertEqual(
-                Atendimento.objects.filter(
-                    data_hora_inicio__lt=timezone.now()
-                ).count(),
-                0,
-                'No Atendimento should be created for a past datetime',
-            )
-        # If the booking somehow succeeded (no past-date guard), the test notes it
-        # but the redirect itself confirms the view handled it without 500.
-        self.assertNotEqual(resp.status_code, 500)
+        # The redirect must NOT be to the success page — a past date is invalid.
+        self.assertNotIn(
+            'sucesso', resp.url,
+            'A past datetime must not lead to the booking success page',
+        )
+
+        # No Atendimento may be persisted with a past start datetime.
+        self.assertEqual(
+            Atendimento.objects.filter(
+                data_hora_inicio__lt=timezone.now()
+            ).count(),
+            0,
+            'No Atendimento should be created for a past datetime',
+        )
 
     def test_consent_email_marketing_captura(self, mock_email, mock_wpp):
         """POST com consent_email_marketing=on salva True + timestamp + IP."""

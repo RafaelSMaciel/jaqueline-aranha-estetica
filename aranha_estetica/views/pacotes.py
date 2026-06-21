@@ -1,9 +1,11 @@
 """Views para gestao de pacotes (CRUD admin + venda)."""
 import logging
-from datetime import timedelta
+from decimal import Decimal, InvalidOperation
 
+from dateutil.relativedelta import relativedelta
 from django.contrib import messages
-from django.db import transaction
+from django.core.exceptions import ValidationError
+from django.db import DatabaseError, transaction
 from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -74,7 +76,9 @@ def admin_criar_pacote(request):
 
         registrar_log(request.user, f'Criou pacote: {pacote.nome}', 'pacote', pacote.pk)
         messages.success(request, f'Pacote "{nome}" criado com sucesso!')
-    except Exception as e:
+    except (ValueError, TypeError):
+        messages.error(request, 'Dados invalidos: verifique validade e quantidades.')
+    except (DatabaseError, ValidationError) as e:
         logger.error(f'Erro ao criar pacote: {e}', exc_info=True)
         messages.error(request, 'Erro ao criar pacote.')
 
@@ -112,7 +116,9 @@ def admin_editar_pacote(request, pk):
 
         registrar_log(request.user, f'Editou pacote: {pacote.nome}', 'pacote', pacote.pk)
         messages.success(request, f'Pacote "{pacote.nome}" atualizado!')
-    except Exception as e:
+    except (ValueError, TypeError):
+        messages.error(request, 'Dados invalidos: verifique validade e quantidades.')
+    except (DatabaseError, ValidationError) as e:
         logger.error(f'Erro ao editar pacote: {e}', exc_info=True)
         messages.error(request, 'Erro ao editar pacote.')
 
@@ -127,14 +133,22 @@ def admin_vender_pacote(request):
 
     pacote_id = request.POST.get('pacote_id')
     cliente_id = request.POST.get('cliente_id')
-    valor_pago = request.POST.get('valor_pago', '0')
+
+    # 404 real (pacote/cliente inexistente) fica fora do try de escrita.
+    pacote = get_object_or_404(Pacote, pk=pacote_id)
+    cliente = get_object_or_404(Cliente, pk=cliente_id)
 
     try:
-        pacote = get_object_or_404(Pacote, pk=pacote_id)
-        cliente = get_object_or_404(Cliente, pk=cliente_id)
+        valor_pago = Decimal(request.POST.get('valor_pago', '0') or '0')
+    except (InvalidOperation, TypeError):
+        messages.error(request, 'Valor pago invalido.')
+        return redirect('aranha:admin_pacotes')
 
-        data_expiracao = (timezone.now() + timedelta(days=30 * pacote.validade_meses)).date()
+    # relativedelta soma meses civis corretamente (28-31 dias), alinhado
+    # com CompraPacote.save(); evita perder ~5 dias/ano da aproximacao 30*N.
+    data_expiracao = (timezone.now() + relativedelta(months=pacote.validade_meses)).date()
 
+    try:
         pc = CompraPacote.objects.create(
             cliente=cliente,
             pacote=pacote,
@@ -149,7 +163,7 @@ def admin_vender_pacote(request):
             'compra_pacote', pc.pk,
         )
         messages.success(request, f'Pacote vendido para {cliente.nome}!')
-    except Exception as e:
+    except (DatabaseError, ValidationError) as e:
         logger.error(f'Erro ao vender pacote: {e}', exc_info=True)
         messages.error(request, 'Erro ao vender pacote.')
 

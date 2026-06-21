@@ -1,4 +1,5 @@
 from django.core.cache import cache
+from django.db import transaction
 from django.db.models.signals import pre_save, post_save, post_delete
 from django.dispatch import receiver
 from .models import Atendimento, CompraPacote, ConsumoSessao, Configuracao
@@ -35,29 +36,35 @@ def processar_mudanca_status(sender, instance, created, **kwargs):
     status_anterior = getattr(instance, '_old_status', None)
 
     if created:
-        # Push direto p/ profissional
-        try:
-            user = getattr(instance.profissional, 'usuario', None)
-            if user:
-                from .services.push import send_push_to_user
-                cliente_nome = instance.cliente.nome if instance.cliente_id else 'Paciente'
-                proc_nome = instance.procedimento.nome if instance.procedimento_id else 'Atendimento'
-                data_fmt = instance.data_hora_inicio.strftime('%d/%m %H:%M')
-                send_push_to_user(user, {
-                    'head': 'Novo agendamento',
-                    'body': f'{cliente_nome} - {proc_nome} em {data_fmt}',
-                    'url': '/painel/calendario/',
-                })
-        except Exception as e:
-            logger.exception('push profissional falhou: %s', e)
+        # I/O externo (push + gcal) so apos o commit: nao bloqueia/atrasa a
+        # transacao do request e nao dispara para um atendimento que sofreu
+        # rollback. Mantem-se best-effort (except amplo nao quebra o fluxo).
+        def _push_profissional():
+            try:
+                user = getattr(instance.profissional, 'usuario', None)
+                if user:
+                    from .services.push import send_push_to_user
+                    cliente_nome = instance.cliente.nome if instance.cliente_id else 'Paciente'
+                    proc_nome = instance.procedimento.nome if instance.procedimento_id else 'Atendimento'
+                    data_fmt = instance.data_hora_inicio.strftime('%d/%m %H:%M')
+                    send_push_to_user(user, {
+                        'head': 'Novo agendamento',
+                        'body': f'{cliente_nome} - {proc_nome} em {data_fmt}',
+                        'url': '/painel/calendario/',
+                    })
+            except Exception as e:
+                logger.exception('push profissional falhou: %s', e)
 
-        # Sync outbound p/ Google Calendar (gracioso)
-        try:
-            from .services.gcal import push_atendimento, gcal_disponivel
-            if gcal_disponivel() and instance.profissional.gcal_refresh_token:
-                push_atendimento(instance)
-        except Exception as e:
-            logger.exception('gcal push falhou: %s', e)
+        def _sync_gcal():
+            try:
+                from .services.gcal import push_atendimento, gcal_disponivel
+                if gcal_disponivel() and instance.profissional.gcal_refresh_token:
+                    push_atendimento(instance)
+            except Exception as e:
+                logger.exception('gcal push falhou: %s', e)
+
+        transaction.on_commit(_push_profissional)
+        transaction.on_commit(_sync_gcal)
 
     if status_atual == status_anterior:
         return
@@ -83,7 +90,6 @@ def processar_mudanca_status(sender, instance, created, **kwargs):
         # debitos concorrentes do mesmo cliente (evita over-debit no TOCTOU
         # entre o .count() de sessoes feitas e o ConsumoSessao.create()).
         if not hasattr(instance, 'sessao_pacote_vinculada'):
-            from django.db import transaction
             from django.utils import timezone
             with transaction.atomic():
                 pacotes_ativos = CompraPacote.objects.select_for_update().filter(

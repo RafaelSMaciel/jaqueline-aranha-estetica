@@ -29,9 +29,3 @@ class LgpdConsentimentoForm(forms.Form):
         required=True,
         error_messages={'required': 'E necessario aceitar a politica de privacidade.'},
     )
-
-
-class DsarForm(forms.Form):
-    """Data Subject Access Request: cliente solicita seus dados."""
-    telefone = forms.CharField(max_length=20, required=True)
-    codigo_verificacao = forms.CharField(max_length=6, required=True)

@@ -2,6 +2,7 @@
 import logging
 
 from django.contrib import messages
+from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 
 from ..decorators import staff_required
@@ -27,43 +28,45 @@ def profissional_cadastro(request):
                 messages.error(request, 'O nome do profissional é obrigatório.')
                 return redirect('aranha:profissional_cadastro')
 
-            profissional = Profissional.objects.create(
-                nome=nome,
-                especialidade=especialidade,
-                ativo=ativo
-            )
-
-            # Processa disponibilidades
             dias_semana_list = ['segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado', 'domingo']
             dia_numero = {
                 'segunda': 2, 'terca': 3, 'quarta': 4, 'quinta': 5,
                 'sexta': 6, 'sabado': 7, 'domingo': 1
             }
+            procedimentos_ids = request.POST.getlist('procedimentos')
 
-            for dia in dias_semana_list:
-                hora_inicio = request.POST.get(f'hora_inicio_{dia}')
-                hora_fim = request.POST.get(f'hora_fim_{dia}')
-                trabalha = request.POST.get(f'trabalha_{dia}') == 'on'
+            # Atomico: cadastro + disponibilidades + habilitacoes sao tudo-ou-nada
+            with transaction.atomic():
+                profissional = Profissional.objects.create(
+                    nome=nome,
+                    especialidade=especialidade,
+                    ativo=ativo
+                )
 
-                if trabalha and hora_inicio and hora_fim:
-                    DisponibilidadeProfissional.objects.create(
+                # Processa disponibilidades
+                disponibilidades = [
+                    DisponibilidadeProfissional(
                         profissional=profissional,
                         dia_semana=dia_numero[dia],
-                        hora_inicio=hora_inicio,
-                        hora_fim=hora_fim
+                        hora_inicio=request.POST.get(f'hora_inicio_{dia}'),
+                        hora_fim=request.POST.get(f'hora_fim_{dia}'),
                     )
+                    for dia in dias_semana_list
+                    if request.POST.get(f'trabalha_{dia}') == 'on'
+                    and request.POST.get(f'hora_inicio_{dia}')
+                    and request.POST.get(f'hora_fim_{dia}')
+                ]
+                DisponibilidadeProfissional.objects.bulk_create(disponibilidades)
 
-            # Processa procedimentos
-            procedimentos_ids = request.POST.getlist('procedimentos')
-            for proc_id in procedimentos_ids:
-                try:
-                    procedimento = Procedimento.objects.get(pk=proc_id)
-                    Habilitacao.objects.get_or_create(
-                        profissional=profissional,
-                        procedimento=procedimento
-                    )
-                except Procedimento.DoesNotExist:
-                    pass
+                # Processa procedimentos
+                procedimentos = Procedimento.objects.filter(pk__in=procedimentos_ids)
+                Habilitacao.objects.bulk_create(
+                    [
+                        Habilitacao(profissional=profissional, procedimento=proc)
+                        for proc in procedimentos
+                    ],
+                    ignore_conflicts=True,
+                )
 
             messages.success(request, f'Profissional {nome} cadastrado com sucesso!')
             return redirect('aranha:painel_profissionais')
@@ -100,42 +103,47 @@ def profissional_editar(request, pk=None):
 
     if request.method == 'POST':
         try:
-            profissional.nome = request.POST.get('nome', profissional.nome).strip()
-            profissional.especialidade = request.POST.get('especialidade', profissional.especialidade).strip()
-            profissional.ativo = request.POST.get('ativo') == 'on'
-            profissional.save()
-
-            # Atualiza disponibilidades
-            DisponibilidadeProfissional.objects.filter(profissional=profissional).delete()
             dias_semana_list = ['segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado', 'domingo']
             dia_numero = {
                 'segunda': 2, 'terca': 3, 'quarta': 4, 'quinta': 5,
                 'sexta': 6, 'sabado': 7, 'domingo': 1
             }
-            for dia in dias_semana_list:
-                hora_inicio = request.POST.get(f'hora_inicio_{dia}')
-                hora_fim = request.POST.get(f'hora_fim_{dia}')
-                trabalha = request.POST.get(f'trabalha_{dia}') == 'on'
-                if trabalha and hora_inicio and hora_fim:
-                    DisponibilidadeProfissional.objects.create(
+            procedimentos_ids = request.POST.getlist('procedimentos')
+
+            # Atomico: o delete+recreate de disponibilidades/habilitacoes nao pode
+            # ficar parcialmente apagado se algo falhar no meio (corromperia a agenda)
+            with transaction.atomic():
+                profissional.nome = request.POST.get('nome', profissional.nome).strip()
+                profissional.especialidade = request.POST.get('especialidade', profissional.especialidade).strip()
+                profissional.ativo = request.POST.get('ativo') == 'on'
+                profissional.save()
+
+                # Atualiza disponibilidades
+                DisponibilidadeProfissional.objects.filter(profissional=profissional).delete()
+                disponibilidades = [
+                    DisponibilidadeProfissional(
                         profissional=profissional,
                         dia_semana=dia_numero[dia],
-                        hora_inicio=hora_inicio,
-                        hora_fim=hora_fim
+                        hora_inicio=request.POST.get(f'hora_inicio_{dia}'),
+                        hora_fim=request.POST.get(f'hora_fim_{dia}'),
                     )
+                    for dia in dias_semana_list
+                    if request.POST.get(f'trabalha_{dia}') == 'on'
+                    and request.POST.get(f'hora_inicio_{dia}')
+                    and request.POST.get(f'hora_fim_{dia}')
+                ]
+                DisponibilidadeProfissional.objects.bulk_create(disponibilidades)
 
-            # Atualiza procedimentos
-            Habilitacao.objects.filter(profissional=profissional).delete()
-            procedimentos_ids = request.POST.getlist('procedimentos')
-            for proc_id in procedimentos_ids:
-                try:
-                    procedimento = Procedimento.objects.get(pk=proc_id)
-                    Habilitacao.objects.get_or_create(
-                        profissional=profissional,
-                        procedimento=procedimento
-                    )
-                except Procedimento.DoesNotExist:
-                    pass
+                # Atualiza procedimentos
+                Habilitacao.objects.filter(profissional=profissional).delete()
+                procedimentos = Procedimento.objects.filter(pk__in=procedimentos_ids)
+                Habilitacao.objects.bulk_create(
+                    [
+                        Habilitacao(profissional=profissional, procedimento=proc)
+                        for proc in procedimentos
+                    ],
+                    ignore_conflicts=True,
+                )
 
             messages.success(request, f'Profissional {profissional.nome} atualizado com sucesso!')
             return redirect('aranha:painel_profissionais')

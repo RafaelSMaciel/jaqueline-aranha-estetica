@@ -1,10 +1,13 @@
 # aranha_estetica/models/nps.py — Avaliacao NPS
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
 class AvaliacaoNPS(models.Model):
     atendimento = models.OneToOneField('Atendimento', on_delete=models.CASCADE)
-    nota = models.SmallIntegerField()
+    nota = models.SmallIntegerField(
+        validators=[MinValueValidator(0), MaxValueValidator(10)],
+    )
     comentario = models.TextField(blank=True, null=True)
     alerta_enviado = models.BooleanField(default=False)
     criado_em = models.DateTimeField(auto_now_add=True)

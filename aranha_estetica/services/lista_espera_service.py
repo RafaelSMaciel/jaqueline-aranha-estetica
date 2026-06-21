@@ -66,6 +66,7 @@ class ListaEsperaService:
 
         # Notifica TODOS compativeis simultaneamente — primeiro a clicar reserva
         notificados = 0
+        a_notificar = []  # side-effects de rede so apos commit
         for espera in match:
             token = secrets.token_urlsafe(24)
             espera.token_reserva = token
@@ -73,11 +74,20 @@ class ListaEsperaService:
             espera.notificado = True
             espera.save(update_fields=['token_reserva', 'expira_em', 'notificado'])
 
-            # Notifica via WhatsApp se consent + telefone
+            # Coleta envio via WhatsApp se consent + telefone
             cliente = espera.cliente
             if cliente.telefone and cliente.consent_whatsapp_confirmacao:
-                _enviar_wa_lista_espera(espera, atendimento_cancelado, token)
+                a_notificar.append((espera, token))
             notificados += 1
+
+        # Dispara WhatsApp SOMENTE apos o commit dos tokens: evita avisar o
+        # cliente de uma reserva que sofreria rollback e nao segura a transacao
+        # aberta durante I/O de rede.
+        if a_notificar:
+            def _disparar_wa(envios=a_notificar, slot=atendimento_cancelado):
+                for espera, token in envios:
+                    _enviar_wa_lista_espera(espera, slot, token)
+            transaction.on_commit(_disparar_wa)
 
         logger.info(
             'lista_espera_notificados',

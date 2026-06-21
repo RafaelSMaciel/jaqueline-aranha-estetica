@@ -83,8 +83,17 @@ def registrar_envio(telefone: str, ip: str = None) -> None:
         try:
             cache.add(key, 0, timeout=3600)
             cache.incr(key)
-        except Exception:
+        except ValueError:
+            # cache.incr levanta ValueError se a chave expirou entre add e incr.
             pass
+        except Exception:
+            # Backend de cache indisponivel (ex.: Redis fora): logar para nao
+            # desativar a protecao anti-abuso de SMS silenciosamente.
+            logger.error(
+                'sms_rate_limit_cache_falha',
+                extra={'key': key, 'telefone_mask': _mask(tel_fmt)},
+                exc_info=True,
+            )
 
 
 def enviar_sms(telefone: str, mensagem: str, _tentativa: int = 1) -> bool:

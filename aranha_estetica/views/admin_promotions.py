@@ -2,7 +2,9 @@
 import logging
 
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
+from django.db import IntegrityError
 from django.shortcuts import get_object_or_404, redirect, render
 from django_ratelimit.decorators import ratelimit
 
@@ -35,8 +37,9 @@ def admin_promocoes(request):
 def admin_criar_promocao(request):
     """Cria nova promoção via POST"""
     if request.method == 'POST':
+        # 404 real (procedimento inexistente) nao deve ser mascarado como erro interno
+        procedimento = get_object_or_404(Procedimento, pk=request.POST.get('procedimento'))
         try:
-            procedimento = get_object_or_404(Procedimento, pk=request.POST.get('procedimento'))
             promo = Promocao.objects.create(
                 nome=request.POST.get('nome', '').strip(),
                 descricao=request.POST.get('descricao', '').strip(),
@@ -48,7 +51,7 @@ def admin_criar_promocao(request):
             )
             registrar_log(request.user, f'Criou promoção: {promo.nome}', 'promocao', promo.pk, {'desconto': str(promo.desconto_percentual)})
             messages.success(request, 'Promoção criada com sucesso!')
-        except Exception as e:
+        except (ValueError, ValidationError, IntegrityError) as e:
             logger.error(f'Erro ao criar promoção: {e}', exc_info=True)
             messages.error(request, 'Erro ao criar promoção. Verifique os dados e tente novamente.')
     return redirect('aranha:admin_promocoes')
@@ -60,18 +63,20 @@ def admin_editar_promocao(request, pk):
     """Edita promoção existente via POST"""
     promo = get_object_or_404(Promocao, pk=pk)
     if request.method == 'POST':
+        # 404 real (procedimento inexistente) nao deve ser mascarado como erro interno
+        procedimento = get_object_or_404(Procedimento, pk=request.POST.get('procedimento'))
         try:
             promo.nome = request.POST.get('nome', promo.nome).strip()
             promo.descricao = request.POST.get('descricao', promo.descricao).strip()
             promo.desconto_percentual = int(request.POST.get('desconto', promo.desconto_percentual))
-            promo.procedimento = get_object_or_404(Procedimento, pk=request.POST.get('procedimento'))
+            promo.procedimento = procedimento
             promo.data_inicio = request.POST.get('data_inicio')
             promo.data_fim = request.POST.get('data_fim')
             promo.ativa = request.POST.get('ativa') == '1'
             promo.save()
             registrar_log(request.user, f'Editou promoção: {promo.nome}', 'promocao', promo.pk)
             messages.success(request, 'Promoção atualizada!')
-        except Exception as e:
+        except (ValueError, ValidationError, IntegrityError) as e:
             logger.error(f'Erro ao atualizar promoção: {e}', exc_info=True)
             messages.error(request, 'Erro ao atualizar promoção. Verifique os dados e tente novamente.')
     return redirect('aranha:admin_promocoes')

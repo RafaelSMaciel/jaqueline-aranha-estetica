@@ -17,11 +17,15 @@ class PacoteService:
 
         Retorna ConsumoSessao criada ou None se nao havia pacote aplicavel.
         """
+        # select_for_update serializa o debito: dois atendimentos concorrentes
+        # do mesmo cliente/procedimento nao podem ambos ler a contagem antiga e
+        # criar consumo alem do limite do pacote (over-debit).
         pacotes_ativos = (
             CompraPacote.objects
+            .select_for_update()
             .filter(cliente=atendimento.cliente, status='ATIVO')
             .select_related('pacote')
-            .prefetch_related('pacote__itens', 'sessoes_realizadas')
+            .prefetch_related('pacote__itens', 'sessoes_realizadas__atendimento')
             .order_by('criado_em')
         )
 
@@ -32,13 +36,20 @@ class PacoteService:
                 pc.save(update_fields=['status'])
                 continue
 
-            item = pc.pacote.itens.filter(procedimento=atendimento.procedimento).first()
+            # Filtra em memoria sobre objetos prefetchados (evita N+1: usar
+            # .filter() em cima do related descartaria o prefetch).
+            item = next(
+                (i for i in pc.pacote.itens.all()
+                 if i.procedimento_id == atendimento.procedimento_id),
+                None,
+            )
             if not item:
                 continue
 
-            sessoes_ja_feitas = pc.sessoes_realizadas.filter(
-                atendimento__procedimento=atendimento.procedimento,
-            ).count()
+            sessoes_ja_feitas = sum(
+                1 for s in pc.sessoes_realizadas.all()
+                if s.atendimento.procedimento_id == atendimento.procedimento_id
+            )
             if sessoes_ja_feitas >= item.quantidade_sessoes:
                 continue
 
