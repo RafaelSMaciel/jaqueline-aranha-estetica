@@ -149,10 +149,10 @@ class FidelidadeService:
                     },
                 )
 
-            transaction.on_commit(lambda v=valor, c=carteira: EventBus.publish(
+            transaction.on_commit(lambda v=valor, c=carteira, mid=cred_mov.pk: EventBus.publish(
                 CashbackEstornado(
                     occurred_at=timezone.now(),
-                    movimento_estorno_id=cred_mov.pk,
+                    movimento_estorno_id=mid,
                     cliente_indicador_id=c.cliente_id,
                     valor=str(v),
                     motivo=motivo,
