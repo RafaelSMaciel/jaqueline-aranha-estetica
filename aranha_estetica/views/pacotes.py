@@ -3,6 +3,7 @@ import logging
 from datetime import timedelta
 
 from django.contrib import messages
+from django.db import transaction
 from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -51,24 +52,25 @@ def admin_criar_pacote(request):
         return redirect('aranha:admin_pacotes')
 
     try:
-        pacote = Pacote.objects.create(
-            nome=nome,
-            descricao=descricao,
-            preco_total=preco_total,
-            validade_meses=int(validade_meses),
-            ativo=True,
-        )
+        with transaction.atomic():
+            pacote = Pacote.objects.create(
+                nome=nome,
+                descricao=descricao,
+                preco_total=preco_total,
+                validade_meses=int(validade_meses),
+                ativo=True,
+            )
 
-        # Itens do pacote
-        proc_ids = request.POST.getlist('procedimento_ids')
-        qtds = request.POST.getlist('quantidades')
-        for proc_id, qtd in zip(proc_ids, qtds, strict=False):
-            if proc_id and qtd:
-                ItemPacote.objects.create(
-                    pacote=pacote,
-                    procedimento_id=int(proc_id),
-                    quantidade_sessoes=int(qtd),
-                )
+            # Itens do pacote
+            proc_ids = request.POST.getlist('procedimento_ids')
+            qtds = request.POST.getlist('quantidades')
+            for proc_id, qtd in zip(proc_ids, qtds, strict=False):
+                if proc_id and qtd:
+                    ItemPacote.objects.create(
+                        pacote=pacote,
+                        procedimento_id=int(proc_id),
+                        quantidade_sessoes=int(qtd),
+                    )
 
         registrar_log(request.user, f'Criou pacote: {pacote.nome}', 'pacote', pacote.pk)
         messages.success(request, f'Pacote "{nome}" criado com sucesso!')
@@ -88,24 +90,25 @@ def admin_editar_pacote(request, pk):
         return redirect('aranha:admin_pacotes')
 
     try:
-        pacote.nome = request.POST.get('nome', pacote.nome).strip()
-        pacote.descricao = request.POST.get('descricao', '').strip()
-        pacote.preco_total = request.POST.get('preco_total', pacote.preco_total)
-        pacote.validade_meses = int(request.POST.get('validade_meses', pacote.validade_meses))
-        pacote.ativo = request.POST.get('ativo') == '1'
-        pacote.save()
+        with transaction.atomic():
+            pacote.nome = request.POST.get('nome', pacote.nome).strip()
+            pacote.descricao = request.POST.get('descricao', '').strip()
+            pacote.preco_total = request.POST.get('preco_total', pacote.preco_total)
+            pacote.validade_meses = int(request.POST.get('validade_meses', pacote.validade_meses))
+            pacote.ativo = request.POST.get('ativo') == '1'
+            pacote.save()
 
-        # Atualiza itens
-        ItemPacote.objects.filter(pacote=pacote).delete()
-        proc_ids = request.POST.getlist('procedimento_ids')
-        qtds = request.POST.getlist('quantidades')
-        for proc_id, qtd in zip(proc_ids, qtds, strict=False):
-            if proc_id and qtd:
-                ItemPacote.objects.create(
-                    pacote=pacote,
-                    procedimento_id=int(proc_id),
-                    quantidade_sessoes=int(qtd),
-                )
+            # Atualiza itens
+            ItemPacote.objects.filter(pacote=pacote).delete()
+            proc_ids = request.POST.getlist('procedimento_ids')
+            qtds = request.POST.getlist('quantidades')
+            for proc_id, qtd in zip(proc_ids, qtds, strict=False):
+                if proc_id and qtd:
+                    ItemPacote.objects.create(
+                        pacote=pacote,
+                        procedimento_id=int(proc_id),
+                        quantidade_sessoes=int(qtd),
+                    )
 
         registrar_log(request.user, f'Editou pacote: {pacote.nome}', 'pacote', pacote.pk)
         messages.success(request, f'Pacote "{pacote.nome}" atualizado!')
