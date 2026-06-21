@@ -217,15 +217,25 @@ Auditoria multi-agente (10 módulos) → **149 achados: 31 alta, 71 média, 47 b
 - [x] `fidelidade.estornar_cashback`: closure late-binding (eventos com pk do último) → bindado
 - [x] `pacotes` criar/editar: +`transaction.atomic` (pacote órfão em falha parcial)
 
-**⏳ Onda 2 — mecânica (~15 alta, faço direto):** gate OTP por telefone + `pode_reenviar` (booking_api/public) · `datetime.fromisoformat`→`make_aware` (confirm/reagendar, TypeError 500) · débito de pacote no `signals.py` com `atomic`+`select_for_update` (over-debit) · `IntegrityError`→erro de domínio nos 2 services de agendamento (corrida vira 500) · double-pay de comissão pós-estorno · quota SMS atômica (`cache.incr`) + só consome em sucesso · `cron.run_job` síncrono `.apply()`→async · NPS Notificação órfã + `exclude` que multiplica · `job_limpeza` save() em loop (N+1) · `Cliente.delete()` faz hard-delete (override soft).
+**✅ Onda 2 — mecânica (9 alta, commits `f22a08f`→último, 213 testes):**
+- [x] quota SMS: `pode_enviar` só checa; novo `registrar_envio` (atomic `cache.add+incr`) só após sucesso
+- [x] débito de pacote no `signals.py`: `transaction.atomic` + `select_for_update` (over-debit/TOCTOU)
+- [x] comissão: guard de idempotência total por atendimento (anti double-pay pós-ESTORNADA)
+- [x] `datetime.fromisoformat`→`make_aware` se naive (booking_public ×2 + reagendar; TypeError 500)
+- [x] corrida de slot: `IntegrityError`→erro de domínio nos 2 services de agendamento
+- [x] NPS job: `distinct()` + status Notificação reflete envio (ENVIADO/FALHOU, sem órfã; FALHOU re-tentável)
+- [x] `verificar_telefone`: cooldown `pode_reenviar` antes do SMS (anti-abuso/custo)
 
-**🔵 Onda 3 — decisões de arquitetura (PENDENTE do dono):**
+**🔵 Onda 3 — decisões de arquitetura + itens entrelaçados (PENDENTE do dono):**
 1. `AgendamentoService` **duplicado** (legado `agendamento.py` exportado vs novo `agendamento_service.py` c/ Command/eventos) — qual é canônico?
 2. `domain/` event-bus = handlers stub (lógica real no signal) — remover camada OU migrar lógica pra ela?
 3. Senha por e-mail (texto plano) na criação de usuário → trocar por link de definição (como reset)?
-4. Deploy: `settings/__init__` cai em `dev` por fallback + `Procfile` usa `django_celery_beat` não instalado.
+4. Deploy: `settings/__init__` cai em `dev` por fallback + `Procfile` usa `django_celery_beat` não instalado · `cron.run_job` síncrono e `sms` `time.sleep` (dependem de ter worker Celery).
 5. `get_horarios_disponiveis` fat-model (110 linhas) → extrair p/ `SlotService` · `decorators_2fa.staff_otp_required` dead (2 mecanismos 2FA paralelos).
+6. **booking_public OTP-gate por telefone** — exigir OTP tb p/ cliente identificado por telefone (hoje só por e-mail). Entrelaçado com o fluxo OTP e-mail/SMS + front; precisa traçar com cuidado e testar o happy-path de booking.
+7. **`job_limpeza`** marca PENDENTE→FALTOU, mas a FSM não permite essa transição — decidir a regra (PENDENTE vencido deve virar FALTOU? CANCELADO?) antes de usar `marcar_falta()`.
+8. **`Cliente.delete()`** faz hard-delete (sem `SoftDeleteMixin`) — override p/ soft-delete muda semântica de cascatas/admin; avaliar impacto.
 
 ---
 
-_Última atualização: 2026-06-21 — Front revisado/limpo (paciente→cliente, hospital→estética, ícones quebrados→SVG, dead-files removidos). Backend: auditoria SWE (149) + Onda 1 corrigida (8 alta). Onda 2 mecânica e Onda 3 (arquitetura, decisões do dono) pendentes._
+_Última atualização: 2026-06-21 — Backend Ondas 1+2 corrigidas (17 alta: bugs/segurança/transações/corrida). Resta Onda 3 (5 decisões de arquitetura + 3 itens entrelaçados que viraram decisão) + 71 média + 47 baixa._
