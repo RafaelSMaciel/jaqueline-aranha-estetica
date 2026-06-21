@@ -67,3 +67,6 @@ default_*.sqlite3
 aranha_estetica/static/_design_tmp/
 # Worktrees isolados
 .worktrees/
+
+# ── Docs (build) ──
+docs/diagramas/puppeteer.json

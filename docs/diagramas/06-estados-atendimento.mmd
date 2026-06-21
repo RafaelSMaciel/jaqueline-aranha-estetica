@@ -1,0 +1,42 @@
+---
+title: Diagrama de Estados (UML) — Ciclo de vida do Atendimento
+---
+stateDiagram-v2
+    direction LR
+    [*] --> PENDENTE
+
+    PENDENTE --> AGENDADO: aprovar()
+    PENDENTE --> CONFIRMADO: confirmar()
+    PENDENTE --> CANCELADO: cancelar()
+    PENDENTE --> REAGENDADO: marcar_reagendado()
+
+    AGENDADO --> CONFIRMADO: confirmar()
+    AGENDADO --> REALIZADO: marcar_realizado()
+    AGENDADO --> CANCELADO: cancelar()
+    AGENDADO --> FALTOU: marcar_falta()
+    AGENDADO --> REAGENDADO: marcar_reagendado()
+
+    CONFIRMADO --> REALIZADO: marcar_realizado()
+    CONFIRMADO --> CANCELADO: cancelar()
+    CONFIRMADO --> FALTOU: marcar_falta()
+    CONFIRMADO --> REAGENDADO: marcar_reagendado()
+
+    REALIZADO --> [*]
+    CANCELADO --> [*]
+    FALTOU --> [*]
+    REAGENDADO --> [*]
+
+    note right of REALIZADO
+      Efeitos (signals + EventBus):
+      reseta faltas, calcula comissao,
+      libera cashback indicacao,
+      sugere retorno, debita sessao de pacote
+    end note
+    note right of CANCELADO
+      Estorna comissao e cashback,
+      notifica lista de espera
+    end note
+    note right of FALTOU
+      registrar_falta() (regra 3-strikes
+      bloqueia agendamento online)
+    end note

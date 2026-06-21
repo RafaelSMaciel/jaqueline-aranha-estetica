@@ -1,0 +1,77 @@
+---
+title: Diagrama de Classes (UML) — Pacotes, Carteira, Fidelidade e Comissao
+---
+classDiagram
+    direction LR
+
+    class Cliente {
+        «ref» nucleo de agendamento
+    }
+    class Atendimento {
+        «ref» nucleo de agendamento
+    }
+    class Procedimento {
+        «ref» nucleo de agendamento
+    }
+    class Profissional {
+        «ref» nucleo de agendamento
+    }
+
+    class Pacote {
+        +nome: CharField
+        +preco_total: Decimal
+        +validade_meses: Smallint
+        +ativo: Boolean
+    }
+    class ItemPacote {
+        +quantidade_sessoes: Smallint «>0»
+    }
+    class CompraPacote {
+        +valor_pago: Decimal
+        +status: ATIVO|FINALIZADO|CANCELADO|EXPIRADO
+        +data_expiracao: Date
+        +verificar_finalizacao()
+    }
+    class ConsumoSessao {
+        +criado_em: DateTime
+        «unique por atendimento»
+    }
+    class Carteira {
+        +saldo: Decimal «CHECK >= 0»
+    }
+    class MovimentoCarteira {
+        +tipo: CREDITO|DEBITO
+        +origem: choices
+        +valor: Decimal
+        +saldo_resultante: Decimal
+        «ledger append-only»
+    }
+    class RegraComissao {
+        +percentual: Decimal
+        +valor: Decimal
+        «percentual XOR valor»
+        +ativo: Boolean
+    }
+    class MovimentoComissao {
+        +valor: Decimal
+        +status: PENDENTE|PAGA|ESTORNADA
+        +pago_em: DateTime
+        «1 ativa por atendimento»
+    }
+
+    Pacote "1" --> "1..*" ItemPacote : itens
+    ItemPacote "0..*" --> "1" Procedimento
+    Cliente "1" --> "0..*" CompraPacote : pacotes_comprados
+    Pacote "1" --> "0..*" CompraPacote
+    CompraPacote "1" --> "0..*" ConsumoSessao : sessoes_realizadas
+    ConsumoSessao "0..1" --> "1" Atendimento : O2O
+
+    Cliente "1" --> "1" Carteira : O2O
+    Carteira "1" --> "0..*" MovimentoCarteira : movimentos
+    MovimentoCarteira "0..*" --> "0..1" Atendimento
+
+    RegraComissao "0..*" --> "0..1" Profissional
+    RegraComissao "0..*" --> "0..1" Procedimento
+    Profissional "1" --> "0..*" MovimentoComissao : comissoes
+    Atendimento "1" --> "0..*" MovimentoComissao
+    MovimentoComissao "0..*" --> "0..1" RegraComissao

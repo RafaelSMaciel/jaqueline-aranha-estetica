@@ -1,0 +1,50 @@
+---
+title: Diagrama de Componentes / Implantacao (UML) — Arquitetura Shiva Zen
+---
+flowchart TB
+    subgraph Clientes["Navegadores / Dispositivos"]
+        PUB["Site publico + Wizard<br/>(Vite, PWA, Service Worker)"]
+        ADM["Painel Admin / Portal Profissional<br/>(base_v2, Alpine CSP, push)"]
+    end
+
+    subgraph Plataforma["Railway (PaaS) — NIXPACKS"]
+        WEB["Django App (gunicorn)<br/>booking, API REST DRF, 2FA, healthz<br/>+ Middleware CSP/headers/axes"]
+        WORKER["Celery Worker<br/>emails, NPS, lembretes, fila espera"]
+        BEAT["Celery Beat<br/>scheduler (crontab)"]
+        WN["WhiteNoise<br/>(estaticos comprimidos)"]
+    end
+
+    subgraph Dados["Dados / Estado"]
+        PG[("PostgreSQL<br/>FSM, EXCLUDE anti-overbooking,<br/>CHECK/UNIQUE, auditoria")]
+        RD[("Redis<br/>broker Celery + cache +<br/>sessao (OTP) + rate-limit")]
+    end
+
+    subgraph Externos["Servicos Externos"]
+        ZEN["Zenvia SMS<br/>(OTP — canal primario)"]
+        WA["Meta WhatsApp Cloud API<br/>(lembrete D-1, NPS)"]
+        MAIL["SMTP / Email<br/>(transacional + marketing)"]
+        TS["Cloudflare Turnstile<br/>(CAPTCHA)"]
+        GC["Google Calendar<br/>(OAuth + ICS)"]
+        OBS["Sentry<br/>(observabilidade, PII-scrub)"]
+    end
+
+    PUB -->|HTTPS| WEB
+    ADM -->|HTTPS| WEB
+    WEB --- WN
+    WEB --> PG
+    WEB --> RD
+    WEB -->|enfileira| RD
+    RD -->|consome| WORKER
+    BEAT -->|agenda| RD
+    WORKER --> PG
+
+    WEB -->|OTP| ZEN
+    WORKER -->|push proativo| WA
+    WORKER -->|async| MAIL
+    WEB -->|verifica captcha| TS
+    WEB <-->|sync agenda| GC
+    WEB -.erros.-> OBS
+    WORKER -.erros.-> OBS
+
+    ZEN -.webhook status.-> WEB
+    WA -.webhook resposta NPS.-> WEB

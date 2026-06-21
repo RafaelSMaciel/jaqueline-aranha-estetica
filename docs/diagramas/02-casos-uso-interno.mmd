@@ -1,0 +1,55 @@
+---
+title: Diagrama de Casos de Uso (UML) — Area Interna (Staff, Profissional, Sistema)
+---
+flowchart LR
+    AD["👤 Administrador /<br/>Recepcao (staff)"]:::ator
+    PR["👤 Profissional /<br/>Biomedica"]:::ator
+    SY["⚙️ Sistema /<br/>Cron Externo"]:::sis
+    EX["🔌 Servicos Externos<br/>SMS · WhatsApp · Email · GCal"]:::ext
+
+    subgraph S["Sistema Shiva Zen — Painel Administrativo & Backoffice"]
+        direction TB
+        UC13(["UC13 Autenticar admin"])
+        UC14(["UC14 Configurar / validar 2FA"])
+        UC15(["UC15 Gerir agenda do profissional"])
+        UC16(["UC16 Gerir agendamentos (painel)"])
+        UC17(["UC17 Gerir clientes e prontuario"])
+        UC18(["UC18 Gerir profissionais e disponibilidade"])
+        UC19(["UC19 Gerir pacotes (CRUD + venda)"])
+        UC20(["UC20 Gerir promocoes e campanhas"])
+        UC21(["UC21 Dashboard financeiro e comissoes"])
+        UC22(["UC22 Gerir lista de espera"])
+        UC23(["UC23 Gerir formularios e termos"])
+        UC24(["UC24 Usuarios, config, branding e auditoria"])
+        UC25(["UC25 Executar jobs automaticos (cron)"])
+        UC26(["UC26 Receber callbacks de SMS"])
+    end
+
+    AD --- UC13
+    AD --- UC16
+    AD --- UC17
+    AD --- UC18
+    AD --- UC19
+    AD --- UC20
+    AD --- UC21
+    AD --- UC22
+    AD --- UC23
+    AD --- UC24
+    PR --- UC14
+    PR --- UC15
+    PR --- UC17
+    AD --- UC14
+
+    UC13 -.->|«include»| UC14
+
+    SY --- UC25
+    SY --- UC26
+    EX --- UC18
+    EX --- UC20
+    EX --- UC22
+    EX --- UC25
+    EX --- UC26
+
+    classDef ator fill:#ffffff,stroke:#7a5f1f,stroke-width:2px,color:#4A3425
+    classDef sis fill:#eef2f7,stroke:#3a5a7a,stroke-width:1px,color:#1a2e44
+    classDef ext fill:#f5efe0,stroke:#7a5f1f,stroke-width:1px,color:#4A3425
