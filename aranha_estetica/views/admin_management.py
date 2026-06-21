@@ -30,6 +30,19 @@ from ..utils.audit import registrar_log
 logger = logging.getLogger(__name__)
 
 NPS_TOKEN_EXPIRY = timedelta(days=7)
+TERMO_TOKEN_EXPIRY = timedelta(days=7)
+
+
+def _parse_datetime_aware(valor):
+    """Parseia um datetime ISO da entrada do usuario garantindo tz-aware.
+
+    Com USE_TZ=True, um datetime naive seria interpretado no fuso default e
+    deslocaria o horario salvo; tornamos aware no fuso atual.
+    """
+    dt = datetime.fromisoformat(valor)
+    if timezone.is_naive(dt):
+        dt = timezone.make_aware(dt)
+    return dt
 
 
 # ═══════════════════════════════════════
@@ -65,8 +78,8 @@ def admin_criar_bloqueio(request):
 
     try:
         profissional = get_object_or_404(Profissional, pk=request.POST.get('profissional_id'))
-        data_inicio = datetime.fromisoformat(request.POST.get('data_hora_inicio', ''))
-        data_fim = datetime.fromisoformat(request.POST.get('data_hora_fim', ''))
+        data_inicio = _parse_datetime_aware(request.POST.get('data_hora_inicio', ''))
+        data_fim = _parse_datetime_aware(request.POST.get('data_hora_fim', ''))
         motivo = request.POST.get('motivo', '').strip()
 
         if data_fim <= data_inicio:
@@ -393,6 +406,14 @@ def termo_assinatura(request, token):
     atendimento = notif.atendimento
     cliente = atendimento.cliente
 
+    # SEGURANCA: limitar a janela de uso do link (analogo ao NPS_TOKEN_EXPIRY).
+    # Sem isso, um token antigo abriria a assinatura de termos indefinidamente.
+    if timezone.now() - notif.criado_em > TERMO_TOKEN_EXPIRY:
+        return render(request, 'publico/termo_obrigado.html', {
+            'cliente': cliente,
+            'expirado': True,
+        }, status=410)
+
     # Buscar termos pendentes para o procedimento
     termos = VersaoTermo.objects.filter(
         Q(tipo='LGPD') | Q(procedimento=atendimento.procedimento),
@@ -400,11 +421,7 @@ def termo_assinatura(request, token):
     )
 
     # Filtrar os ja assinados
-    assinados_ids = set()
-    assinados_ids.update(
-        AceiteTermo.objects.filter(cliente=cliente).values_list('versao_termo_id', flat=True)
-    )
-    assinados_ids.update(
+    assinados_ids = set(
         AceiteTermo.objects.filter(cliente=cliente).values_list('versao_termo_id', flat=True)
     )
 
@@ -590,58 +607,63 @@ def admin_bulk_agendamentos(request):
         messages.warning(request, 'Nenhum agendamento selecionado.')
         return redirect(redirect_to)
 
+    from django.db import transaction
+
     from ..tasks import send_email_async
-    from ..utils.email import (
-        enviar_confirmacao_agendamento_email, enviar_cancelamento_email,
-    )
 
     novo_status = 'AGENDADO' if acao == 'aprovar' else 'CANCELADO'
-    atendimentos = list(
-        Atendimento.objects.select_related('cliente', 'procedimento', 'profissional')
-        .filter(pk__in=ids, status='PENDENTE')
+    task_email = (
+        'enviar_confirmacao_agendamento_email' if acao == 'aprovar'
+        else 'enviar_cancelamento_email'
+    )
+    log_acao = (
+        'Aprovou agendamento (bulk)' if acao == 'aprovar'
+        else 'Rejeitou agendamento (bulk)'
     )
 
-    processados = 0
-    for at in atendimentos:
-        at.status = novo_status
-        at.save(update_fields=['status', 'atualizado_em'])
-        registrar_log(
-            request.user,
-            ('Aprovou agendamento (bulk)' if acao == 'aprovar'
-             else 'Rejeitou agendamento (bulk)'),
-            'atendimento', at.pk,
+    def _enfileirar_email(email, dados):
+        """Enfileira o e-mail; nunca envia sincronamente (bloquearia o request)."""
+        try:
+            send_email_async.delay(task_email, email, dados)
+        except Exception:
+            logger.warning(
+                'bulk_email_enqueue_falhou', exc_info=True,
+                extra={'task': task_email},
+            )
+
+    # Lote tudo-ou-nada: status + auditoria de todos os itens na mesma transacao.
+    # E-mail so e enfileirado apos o commit (on_commit) e 100% via Celery.
+    with transaction.atomic():
+        atendimentos = list(
+            Atendimento.objects.select_related('cliente', 'procedimento', 'profissional')
+            .filter(pk__in=ids, status='PENDENTE')
         )
 
-        if at.cliente.email:
-            data_fmt = at.data_hora_inicio.strftime('%d/%m/%Y as %H:%M')
-            dados = {
-                'nome': at.cliente.nome,
-                'procedimento': at.procedimento.nome,
-                'profissional': at.profissional.nome,
-                'data_hora': data_fmt,
-            }
-            if acao == 'aprovar':
-                dados['valor'] = (
-                    f'R$ {float(at.valor_cobrado):.2f}'
-                    if at.valor_cobrado else 'A consultar'
-                )
-                try:
-                    send_email_async.delay(
-                        'enviar_confirmacao_agendamento_email',
-                        at.cliente.email, dados,
-                    )
-                except Exception:
-                    enviar_confirmacao_agendamento_email(at.cliente.email, dados)
-            else:
-                try:
-                    send_email_async.delay(
-                        'enviar_cancelamento_email',
-                        at.cliente.email, dados,
-                    )
-                except Exception:
-                    enviar_cancelamento_email(at.cliente.email, dados)
+        processados = 0
+        for at in atendimentos:
+            at.status = novo_status
+            at.save(update_fields=['status', 'atualizado_em'])
+            registrar_log(request.user, log_acao, 'atendimento', at.pk)
 
-        processados += 1
+            if at.cliente.email:
+                data_fmt = at.data_hora_inicio.strftime('%d/%m/%Y as %H:%M')
+                dados = {
+                    'nome': at.cliente.nome,
+                    'procedimento': at.procedimento.nome,
+                    'profissional': at.profissional.nome,
+                    'data_hora': data_fmt,
+                }
+                if acao == 'aprovar':
+                    dados['valor'] = (
+                        f'R$ {float(at.valor_cobrado):.2f}'
+                        if at.valor_cobrado else 'A consultar'
+                    )
+                email = at.cliente.email
+                transaction.on_commit(
+                    lambda email=email, dados=dados: _enfileirar_email(email, dados)
+                )
+
+            processados += 1
 
     ignorados = len(ids) - processados
     msg_acao = 'aprovado(s)' if acao == 'aprovar' else 'rejeitado(s)'

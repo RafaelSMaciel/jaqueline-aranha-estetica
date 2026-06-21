@@ -54,9 +54,17 @@ def job_enviar_lembrete_dia_seguinte(self):
             ).exists()
             if ja_enviou:
                 continue
-            notif = enviar_confirmacao_d1(agendamento)
-            if notif and notif.status == 'ENVIADO':
-                enviados += 1
+            # Falha pontual nao re-dispara o batch (retry reenviaria a quem ja
+            # recebeu); o guard ja_enviou acima ja garante idempotencia.
+            try:
+                notif = enviar_confirmacao_d1(agendamento)
+                if notif and notif.status == 'ENVIADO':
+                    enviados += 1
+            except Exception as e:
+                logger.error(
+                    '[JOB LEMBRETE] Falha ao enviar para atendimento %s: %s',
+                    agendamento.pk, e, exc_info=True,
+                )
 
         logger.info(f"[JOB LEMBRETE] {enviados} lembretes enviados com sucesso.")
         return f'{enviados} lembretes enviados'
@@ -194,7 +202,8 @@ def job_alerta_detrator_nps(self):
                     },
                 )
             except Exception as e:
-                logger.error('nps_detrator_falha_alerta', extra={'error': str(e)})
+                # Nao marca alerta_enviado -> re-tentado no proximo run (idempotente).
+                logger.error('nps_detrator_falha_alerta', extra={'error': str(e)}, exc_info=True)
     except Exception as exc:
         logger.exception('Erro em job_alerta_detrator_nps: %s', exc)
         raise self.retry(exc=exc) from exc
@@ -207,10 +216,22 @@ def job_alerta_detrator_nps(self):
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def job_notificar_fila_espera(self, procedimento_id, data_livre_str):
     """Notifica interessados da fila de espera por EMAIL."""
-    try:
-        from .utils.email import enviar_fila_espera_email
+    from .utils.email import enviar_fila_espera_email
 
-        data_livre = timezone.datetime.fromisoformat(data_livre_str).date()
+    try:
+        parsed = timezone.datetime.fromisoformat(data_livre_str)
+    except (ValueError, TypeError) as exc:
+        # Entrada malformada e erro permanente: re-tentar nao resolve.
+        logger.error('[JOB ESPERA] data_livre_str invalida (%r): %s', data_livre_str, exc)
+        return
+
+    # Toma a data no fuso local da clinica (um datetime aware as 23h local
+    # poderia cair no dia seguinte em UTC, gerando match de data errado).
+    if timezone.is_aware(parsed):
+        parsed = timezone.localtime(parsed)
+    data_livre = parsed.date()
+
+    try:
         logger.info(f"[JOB ESPERA] Vaga liberada para procedimento {procedimento_id} na data {data_livre}.")
 
         interessados = ListaEspera.objects.filter(
@@ -220,7 +241,15 @@ def job_notificar_fila_espera(self, procedimento_id, data_livre_str):
         ).select_related('cliente', 'procedimento').order_by('criado_em')
 
         for espera in interessados:
-            if espera.cliente.email:
+            if not espera.cliente.email:
+                logger.warning(
+                    '[JOB ESPERA] Cliente %s sem email — nao notificado',
+                    espera.cliente.pk,
+                )
+                continue
+            # Falha pontual de 1 destinatario nao deve re-disparar o batch
+            # inteiro (retry reenviaria aos ja processados). Loga e segue.
+            try:
                 enviar_fila_espera_email(espera.cliente.email, {
                     'nome': espera.cliente.nome,
                     'procedimento': espera.procedimento.nome,
@@ -228,10 +257,10 @@ def job_notificar_fila_espera(self, procedimento_id, data_livre_str):
                 })
                 espera.notificado = True
                 espera.save(update_fields=['notificado'])
-            else:
-                logger.warning(
-                    '[JOB ESPERA] Cliente %s sem email — nao notificado',
-                    espera.cliente.pk,
+            except Exception as e:
+                logger.error(
+                    '[JOB ESPERA] Falha ao notificar cliente %s: %s',
+                    espera.cliente.pk, e, exc_info=True,
                 )
     except Exception as exc:
         logger.exception('Erro em job_notificar_fila_espera: %s', exc)
@@ -246,6 +275,7 @@ def job_notificar_fila_espera(self, procedimento_id, data_livre_str):
 def job_verificar_pacotes_expirando(self):
     """Notifica clientes com pacotes expirando em 7 ou 1 dia — por EMAIL."""
     try:
+        from django.db.models import Count
         from .utils.email import enviar_pacote_expirando_email
         from .models import CompraPacote
 
@@ -256,17 +286,32 @@ def job_verificar_pacotes_expirando(self):
             pacotes = CompraPacote.objects.filter(
                 status='ATIVO',
                 data_expiracao=data_alvo
-            ).select_related('cliente', 'pacote')
+            ).select_related('cliente', 'pacote').prefetch_related('pacote__itens')
 
             for pc in pacotes:
-                sessoes_restantes = 0
-                for item in pc.pacote.itens.all():
-                    feitas = pc.sessoes_realizadas.filter(
-                        atendimento__procedimento=item.procedimento
-                    ).count()
-                    sessoes_restantes += max(0, item.quantidade_sessoes - feitas)
+                # Contagem de sessoes consumidas por procedimento numa unica
+                # query agregada (evita N+1 de .filter().count() por item).
+                feitas_por_proc = {
+                    row['atendimento__procedimento']: row['c']
+                    for row in pc.sessoes_realizadas
+                    .values('atendimento__procedimento')
+                    .annotate(c=Count('id'))
+                }
+                sessoes_restantes = sum(
+                    max(0, item.quantidade_sessoes - feitas_por_proc.get(item.procedimento_id, 0))
+                    for item in pc.pacote.itens.all()
+                )
 
-                if sessoes_restantes > 0 and pc.cliente.email:
+                if sessoes_restantes <= 0:
+                    continue
+                if not pc.cliente.email:
+                    logger.warning(
+                        '[PACOTE EXPIRANDO] Cliente %s sem email — nao notificado',
+                        pc.cliente.pk,
+                    )
+                    continue
+                # Falha de 1 destinatario nao re-dispara o batch inteiro.
+                try:
                     enviar_pacote_expirando_email(pc.cliente.email, {
                         'nome': pc.cliente.nome,
                         'pacote': pc.pacote.nome,
@@ -274,10 +319,10 @@ def job_verificar_pacotes_expirando(self):
                         'sessoes_restantes': sessoes_restantes,
                     })
                     logger.info(f"[PACOTE EXPIRANDO] Cliente {pc.cliente.pk} — {dias} dias restantes")
-                elif sessoes_restantes > 0:
-                    logger.warning(
-                        '[PACOTE EXPIRANDO] Cliente %s sem email — nao notificado',
-                        pc.cliente.pk,
+                except Exception as e:
+                    logger.error(
+                        '[PACOTE EXPIRANDO] Falha ao notificar cliente %s: %s',
+                        pc.cliente.pk, e, exc_info=True,
                     )
     except Exception as exc:
         logger.exception('Erro em job_verificar_pacotes_expirando: %s', exc)
@@ -312,13 +357,21 @@ def job_aniversario_clientes(self):
         for cliente in aniversariantes:
             dados = {'nome': cliente.nome, 'desconto': DESCONTO_ANIVERSARIO_PERCENTUAL}
 
-            # Email (requer consent marketing)
+            # Email (requer consent marketing). Falha pontual nao re-dispara o
+            # batch (retry reenviaria aos ja parabenizados) — loga e segue.
             if cliente.email and cliente.consent_email_marketing:
-                from .utils.email import enviar_aniversario_email
-                enviar_aniversario_email(cliente.email, dados)
-                emails_enviados += 1
+                try:
+                    from .utils.email import enviar_aniversario_email
+                    enviar_aniversario_email(cliente.email, dados)
+                    emails_enviados += 1
+                except Exception as e:
+                    logger.error(
+                        'aniversario_email_falha',
+                        extra={'cliente_id': cliente.pk, 'error': str(e)},
+                    )
 
-            # WhatsApp (requer consent confirmacao + telefone)
+            # WhatsApp (requer consent confirmacao + telefone).
+            # _enviar_aniversario_whatsapp ja e best-effort (try/except interno).
             if cliente.telefone and cliente.consent_whatsapp_confirmacao:
                 _enviar_aniversario_whatsapp(cliente, DESCONTO_ANIVERSARIO_PERCENTUAL)
                 whatsapps_enviados += 1
@@ -386,19 +439,26 @@ def job_promocao_mensal(self, assunto, corpo_html_partial, cupom=None, validade_
         for cliente in destinatarios:
             # Roteia pelo helper dedicado: aplica bleach em corpo_html (anti-XSS)
             # e injeta header List-Unsubscribe (RFC 8058) por ser marketing.
-            ok = enviar_promocao_email(
-                cliente.email,
-                {
-                    'nome': cliente.nome,
-                    'corpo_html': corpo_html_partial,
-                    'cupom': cupom,
-                    'validade': validade,
-                },
-                unsub_token=cliente.token_descadastro,
-                assunto=assunto,
-            )
-            if ok:
-                enviados += 1
+            # Falha pontual nao re-dispara o batch (retry reenviaria a todos).
+            try:
+                ok = enviar_promocao_email(
+                    cliente.email,
+                    {
+                        'nome': cliente.nome,
+                        'corpo_html': corpo_html_partial,
+                        'cupom': cupom,
+                        'validade': validade,
+                    },
+                    unsub_token=cliente.token_descadastro,
+                    assunto=assunto,
+                )
+                if ok:
+                    enviados += 1
+            except Exception as e:
+                logger.error(
+                    '[JOB PROMOCAO] Falha ao enviar para cliente %s: %s',
+                    cliente.pk, e, exc_info=True,
+                )
         logger.info(f"[JOB PROMOCAO] {enviados} emails enviados.")
         return f'{enviados} promocoes enviadas'
     except Exception as exc:

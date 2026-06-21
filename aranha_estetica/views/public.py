@@ -134,17 +134,13 @@ def promocoes(request):
             data_fim__gte=hoje
         ).select_related('procedimento').order_by('-data_inicio'))
 
-        # Enriquecer com preço original
+        # Enriquecer com preço original — preços resolvidos em lote (1 query)
+        from ..utils.precos import preco_base_map
+        proc_ids = [promo.procedimento_id for promo in promos if promo.procedimento_id]
+        precos = preco_base_map(proc_ids)
         for promo in promos:
-            if promo.procedimento:
-                preco_obj = Preco.objects.filter(
-                    procedimento=promo.procedimento, profissional__isnull=True
-                ).first()
-                if not preco_obj:
-                    preco_obj = Preco.objects.filter(procedimento=promo.procedimento).first()
-                promo.preco_original = float(preco_obj.valor) if preco_obj else None
-            else:
-                promo.preco_original = None
+            valor = precos.get(promo.procedimento_id) if promo.procedimento_id else None
+            promo.preco_original = float(valor) if valor is not None else None
     except (OperationalError, ProgrammingError):
         logger.warning('Tabela de promoções não encontrada — exibindo página sem promoções.')
 

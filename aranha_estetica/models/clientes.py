@@ -1,6 +1,6 @@
 # aranha_estetica/models/clientes.py — Clientes
 import secrets
-from django.db import models
+from django.db import models, transaction
 from django.core.validators import MinValueValidator
 
 from django.db.models.functions import Lower
@@ -138,18 +138,24 @@ class Cliente(models.Model):
         return secrets.token_hex(6).upper()
 
     def registrar_falta(self):
-        self.faltas_consecutivas += 1
-        if self.faltas_consecutivas >= 3:
-            self.bloqueado_online = True
-        self.save()
+        # Lock da row p/ evitar lost-update sob no-shows concorrentes; grava
+        # so os campos afetados (evita reprocessar normalizacao/tokens no save()).
+        with transaction.atomic():
+            travado = Cliente.all_objects.select_for_update().get(pk=self.pk)
+            travado.faltas_consecutivas += 1
+            if travado.faltas_consecutivas >= 3:
+                travado.bloqueado_online = True
+            travado.save(update_fields=['faltas_consecutivas', 'bloqueado_online', 'atualizado_em'])
+        self.faltas_consecutivas = travado.faltas_consecutivas
+        self.bloqueado_online = travado.bloqueado_online
 
     def resetar_faltas(self):
         self.faltas_consecutivas = 0
         self.bloqueado_online = False
-        self.save()
+        self.save(update_fields=['faltas_consecutivas', 'bloqueado_online', 'atualizado_em'])
 
     def soft_delete(self):
         from django.utils import timezone
         self.deletado_em = timezone.now()
         self.ativo = False
-        self.save()
+        self.save(update_fields=['deletado_em', 'ativo', 'atualizado_em'])

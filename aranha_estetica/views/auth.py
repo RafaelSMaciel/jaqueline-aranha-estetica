@@ -1,3 +1,4 @@
+import hashlib
 import logging
 
 from django.contrib import messages
@@ -18,18 +19,40 @@ from django_ratelimit.decorators import ratelimit
 logger = logging.getLogger(__name__)
 
 
-def _check_rate_limit(request, max_attempts=5, window=60):
-    """Rate limiting simples usando Django cache (funciona com qualquer backend)."""
+LOGIN_RL_MAX_ATTEMPTS = 5
+LOGIN_RL_WINDOW = 60
+
+
+def _login_rl_key(request):
+    ip = request.META.get('REMOTE_ADDR', '0.0.0.0')
+    return f'login_attempts_{ip}'
+
+
+def _check_rate_limit(request, max_attempts=LOGIN_RL_MAX_ATTEMPTS):
+    """Verifica (sem incrementar) se o IP excedeu as tentativas FALHAS de login.
+
+    O contador so e incrementado em falha de autenticacao (ver
+    _register_failed_login); logins bem-sucedidos nao contam, evitando
+    falso-positivo de bloqueio para uma recepcao que alterna varias contas.
+    """
     try:
-        ip = request.META.get('REMOTE_ADDR', '0.0.0.0')
-        cache_key = f'login_attempts_{ip}'
+        attempts = cache.get(_login_rl_key(request), 0)
+        return attempts >= max_attempts
+    except Exception:
+        # Cache indisponivel: nao bloquear (django-axes + @ratelimit ainda cobrem),
+        # mas registrar para nao desativar a protecao silenciosamente.
+        logger.warning('login_rate_limit_cache_indisponivel', exc_info=True)
+        return False
+
+
+def _register_failed_login(request, window=LOGIN_RL_WINDOW):
+    """Incrementa o contador de tentativas falhas para o IP."""
+    try:
+        cache_key = _login_rl_key(request)
         attempts = cache.get(cache_key, 0)
-        if attempts >= max_attempts:
-            return True  # bloqueado
         cache.set(cache_key, attempts + 1, window)
     except Exception:
-        pass  # Se o cache falhar, não bloquear o login
-    return False
+        logger.warning('login_rate_limit_cache_indisponivel', exc_info=True)
 
 
 @ratelimit(key='ip', rate='10/m', method='POST', block=True)
@@ -73,6 +96,8 @@ def usuario_login(request):
             messages.success(request, f'Bem-vindo(a), {usuario.nome}!')
             return redirect(next_url or 'aranha:painel_overview')
         else:
+            # SEGURANÇA: contar apenas tentativas FALHAS para o rate-limit por IP
+            _register_failed_login(request)
             # SEGURANÇA: Log sem PII (apenas últimos 4 chars do email para rastreabilidade)
             email_masked = f'***{email[-4:]}' if len(email) > 4 else '***'
             logger.warning(f'Login falho para: {email_masked} | IP: {request.META.get("REMOTE_ADDR")}')
@@ -109,16 +134,20 @@ class ClinicaPasswordResetView(PasswordResetView):
     def form_valid(self, form):
         email = form.cleaned_data.get('email', '').strip().lower()
         ip = self.request.META.get('REMOTE_ADDR', '0.0.0.0')
-        logger.info('password_reset_requested', extra={'email_hash': hash(email), 'ip': ip})
+        # Hash estavel entre processos (hash() builtin tem seed aleatorio por processo)
+        email_hash = hashlib.sha256(email.encode()).hexdigest()[:12]
+        email_masked = f'***{email[-4:]}' if len(email) > 4 else '***'
+        logger.info('password_reset_requested', extra={'email_hash': email_hash, 'ip': ip})
         try:
             from ..models import LogAuditoria
             LogAuditoria.objects.create(
-                acao=f'Solicitacao de reset de senha (email: {email})',
+                # PII mascarada: nao persistir email em claro na trilha de auditoria
+                acao=f'Solicitacao de reset de senha (email: {email_masked})',
                 tabela='usuario',
                 ip_origem=ip,
             )
         except Exception:
-            pass
+            logger.warning('falha ao registrar LogAuditoria de reset de senha', exc_info=True)
         return super().form_valid(form)
 
 
@@ -151,7 +180,7 @@ class ClinicaPasswordResetConfirmView(PasswordResetConfirmView):
                 ip_origem=ip,
             )
         except Exception:
-            pass
+            logger.warning('falha ao registrar LogAuditoria de redefinicao de senha', exc_info=True)
         return super().form_valid(form)
 
 

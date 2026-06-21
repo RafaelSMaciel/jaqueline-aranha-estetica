@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import EmailMultiAlternatives
 from django.core.paginator import Paginator
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.encoding import force_bytes
@@ -24,7 +25,7 @@ def admin_usuarios(request):
 
     qs = Usuario.objects.select_related('profissional').order_by('nome')
     if busca:
-        qs = qs.filter(nome__icontains=busca) | qs.filter(email__icontains=busca)
+        qs = qs.filter(Q(nome__icontains=busca) | Q(email__icontains=busca))
     if papel_filter:
         qs = qs.filter(papel=papel_filter)
 

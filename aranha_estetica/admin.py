@@ -1,5 +1,6 @@
 # aranha_estetica/admin.py
 from django.contrib import admin, messages
+from django.db import transaction
 from django.utils import timezone
 
 from .models import (
@@ -165,9 +166,10 @@ class ClienteAdmin(admin.ModelAdmin):
     def acao_anonimizar_lgpd(self, request, queryset):
         from .services import LgpdService
         count = 0
-        for cliente in queryset:
-            LgpdService.esquecer_cliente(cliente)
-            count += 1
+        with transaction.atomic():
+            for cliente in queryset:
+                LgpdService.esquecer_cliente(cliente)
+                count += 1
         self.message_user(request, f'{count} cliente(s) anonimizado(s).', messages.SUCCESS)
 
     @admin.action(description='Bloquear agendamento online')
@@ -261,28 +263,31 @@ class AtendimentoAdmin(admin.ModelAdmin):
     @admin.action(description='Marcar selecionados como REALIZADO')
     def acao_marcar_realizado(self, request, queryset):
         count = 0
-        for at in queryset.exclude(status__in=['REALIZADO', 'CANCELADO']):
-            at.status = 'REALIZADO'
-            at.save(update_fields=['status', 'atualizado_em'])
-            count += 1
+        with transaction.atomic():
+            for at in queryset.exclude(status__in=['REALIZADO', 'CANCELADO']):
+                at.status = 'REALIZADO'
+                at.save(update_fields=['status', 'atualizado_em'])
+                count += 1
         self.message_user(request, f'{count} atendimento(s) marcado(s) como realizado.')
 
     @admin.action(description='Cancelar selecionados')
     def acao_marcar_cancelado(self, request, queryset):
         count = 0
-        for at in queryset.exclude(status__in=['REALIZADO', 'CANCELADO']):
-            at.status = 'CANCELADO'
-            at.save(update_fields=['status', 'atualizado_em'])
-            count += 1
+        with transaction.atomic():
+            for at in queryset.exclude(status__in=['REALIZADO', 'CANCELADO']):
+                at.status = 'CANCELADO'
+                at.save(update_fields=['status', 'atualizado_em'])
+                count += 1
         self.message_user(request, f'{count} atendimento(s) cancelado(s).')
 
     @admin.action(description='Marcar como FALTOU')
     def acao_marcar_faltou(self, request, queryset):
         count = 0
-        for at in queryset.exclude(status__in=['REALIZADO', 'CANCELADO', 'FALTOU']):
-            at.status = 'FALTOU'
-            at.save(update_fields=['status', 'atualizado_em'])
-            count += 1
+        with transaction.atomic():
+            for at in queryset.exclude(status__in=['REALIZADO', 'CANCELADO', 'FALTOU']):
+                at.status = 'FALTOU'
+                at.save(update_fields=['status', 'atualizado_em'])
+                count += 1
         self.message_user(request, f'{count} atendimento(s) marcado(s) como faltou.')
 
 

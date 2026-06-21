@@ -1,5 +1,7 @@
 # aranha_estetica/models/pacotes.py — Pacotes de servicos
-from django.db import models
+from django.core.validators import MinValueValidator
+from django.db import models, transaction
+from django.db.models import Count
 
 from .clientes import Cliente
 from .procedimentos import Procedimento
@@ -58,7 +60,9 @@ class CompraPacote(models.Model):
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='pacotes_comprados')
     pacote = models.ForeignKey(Pacote, on_delete=models.RESTRICT)
     criado_em = models.DateTimeField(auto_now_add=True)
-    valor_pago = models.DecimalField(max_digits=10, decimal_places=2)
+    valor_pago = models.DecimalField(
+        max_digits=10, decimal_places=2, validators=[MinValueValidator(0)],
+    )
     status = models.CharField(max_length=20, default='ATIVO', choices=STATUS_CHOICES)
     data_expiracao = models.DateField(blank=True, null=True)
 
@@ -72,7 +76,11 @@ class CompraPacote(models.Model):
             models.CheckConstraint(
                 check=models.Q(status__in=['ATIVO', 'FINALIZADO', 'CANCELADO', 'EXPIRADO']),
                 name='chk_pacote_cliente_status'
-            )
+            ),
+            models.CheckConstraint(
+                check=models.Q(valor_pago__gte=0),
+                name='chk_compra_pacote_valor_pago',
+            ),
         ]
 
     def save(self, *args, **kwargs):
@@ -85,14 +93,21 @@ class CompraPacote(models.Model):
         super().save(*args, **kwargs)
 
     def verificar_finalizacao(self):
-        for item in self.pacote.itens.all():
-            sessoes_feitas = self.sessoes_realizadas.filter(
-                atendimento__procedimento=item.procedimento
-            ).count()
-            if sessoes_feitas < item.quantidade_sessoes:
-                return
-        self.status = 'FINALIZADO'
-        self.save()
+        # Contagem agregada numa unica query (evita N+1 por item do pacote);
+        # leitura + finalizacao sob lock para serializar consumos concorrentes.
+        with transaction.atomic():
+            travada = CompraPacote.objects.select_for_update().get(pk=self.pk)
+            contagens = dict(
+                travada.sessoes_realizadas.values('atendimento__procedimento')
+                .annotate(c=Count('id'))
+                .values_list('atendimento__procedimento', 'c')
+            )
+            for item in travada.pacote.itens.all():
+                if contagens.get(item.procedimento_id, 0) < item.quantidade_sessoes:
+                    return
+            travada.status = 'FINALIZADO'
+            travada.save()
+        self.status = travada.status
 
     def __str__(self):
         cliente_nome = self.cliente.nome if self.cliente_id else 's/ cliente'

@@ -246,8 +246,15 @@ class BloqueioAgenda(models.Model):
             return [(self.data_hora_inicio, self.data_hora_fim)]
 
         try:
+            # DTSTART com sufixo 'Z' = UTC. Converter o aware datetime (fuso local)
+            # para UTC antes de formatar; senao a recorrencia desloca ~3h (BRT).
+            from datetime import timezone as _dt_timezone
+            from django.utils import timezone as _tz
+            inicio = self.data_hora_inicio
+            if _tz.is_aware(inicio):
+                inicio = inicio.astimezone(_dt_timezone.utc)
             rule = rrulestr(
-                f'DTSTART:{self.data_hora_inicio.strftime("%Y%m%dT%H%M%SZ")}\n'
+                f'DTSTART:{inicio.strftime("%Y%m%dT%H%M%SZ")}\n'
                 f'RRULE:{self.regra_recorrencia}',
                 forceset=True,
             )

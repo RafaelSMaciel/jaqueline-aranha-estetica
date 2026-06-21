@@ -5,8 +5,11 @@ import logging
 
 from django.contrib import messages
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.http import require_http_methods
+from django_ratelimit.decorators import ratelimit
 
 from ..decorators import staff_required
 from ..models import Atendimento, Notificacao
@@ -16,36 +19,48 @@ from ..utils.email import enviar_cancelamento_email
 logger = logging.getLogger(__name__)
 
 
+@require_http_methods(['GET', 'POST'])
+@ratelimit(key='ip', rate='30/m', block=True)
 def confirmar_presenca(request, token):
     """
     Link publico (sem login) para cliente confirmar/cancelar agendamento.
     Recebe token unico enviado via WhatsApp.
+
+    Restringe metodos a GET/POST e aplica rate-limit por IP para mitigar
+    enumeracao/brute-force de tokens.
     """
     notif = get_object_or_404(Notificacao, token=token)
-    atendimento = notif.atendimento
     acao = request.GET.get('acao', '')
 
-    # Verifica se ja respondeu
+    # Verifica se ja respondeu (estado lido fora do POST para renderizar a tela).
     ja_respondeu = notif.resposta is not None
 
     if request.method == 'POST' and not ja_respondeu:
         acao = request.POST.get('acao', '')
+        if acao in ('confirmar', 'cancelar'):
+            novo_status = 'CONFIRMADO' if acao == 'confirmar' else 'CANCELADO'
+            resposta = 'CONFIRMOU' if acao == 'confirmar' else 'CANCELOU'
+            # Trava a notif e garante atomicidade entre atendimento+notif.
+            # O filtro resposta__isnull serializa duplo-clique/retry: so o
+            # primeiro POST efetiva a transicao.
+            with transaction.atomic():
+                notif = (
+                    Notificacao.objects.select_for_update()
+                    .select_related('atendimento__cliente')
+                    .get(pk=notif.pk)
+                )
+                if notif.resposta is None:
+                    atendimento = notif.atendimento
+                    atendimento.status = novo_status
+                    atendimento.save(update_fields=['status', 'atualizado_em'])
+                    notif.resposta = resposta
+                    notif.respondido_em = timezone.now()
+                    notif.save(update_fields=['resposta', 'respondido_em'])
+                    logger.info(
+                        '%s agendamento #%s', resposta, atendimento.pk,
+                    )
 
-        if acao == 'confirmar':
-            atendimento.status = 'CONFIRMADO'
-            atendimento.save()
-            notif.resposta = 'CONFIRMOU'
-            notif.respondido_em = timezone.now()
-            notif.save()
-            logger.info(f'Cliente {atendimento.cliente.nome} CONFIRMOU agendamento #{atendimento.pk}')
-
-        elif acao == 'cancelar':
-            atendimento.status = 'CANCELADO'
-            atendimento.save()
-            notif.resposta = 'CANCELOU'
-            notif.respondido_em = timezone.now()
-            notif.save()
-            logger.info(f'Cliente {atendimento.cliente.nome} CANCELOU agendamento #{atendimento.pk}')
+    atendimento = notif.atendimento
 
     context = {
         'atendimento': atendimento,

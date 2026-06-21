@@ -1,4 +1,11 @@
-"""Decoradores de 2FA — gating do painel custom.
+"""Decoradores de 2FA — gating por-view do painel custom.
+
+STATUS: NAO esta wired em nenhuma rota atualmente. O gating 2FA do painel
+hoje e feito centralmente pelo `Enforce2FAMiddleware` (ver middleware.py),
+que cobre todo o prefixo /painel/ e /profissional/. Este decorator existe
+como alternativa por-view (granular) caso se queira exigir 2FA apenas em
+rotas especificas no futuro; e mantido coberto por test_2fa.py. Antes de
+usar, conferir que nao conflita com o middleware (dupla checagem).
 
 Uso:
     from aranha_estetica.decorators_2fa import staff_otp_required

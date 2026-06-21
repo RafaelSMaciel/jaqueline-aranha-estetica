@@ -1,4 +1,5 @@
 """ViewSets DRF read-only para integracoes (apenas staff autenticado)."""
+from django.utils import timezone
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -58,11 +59,14 @@ class AtendimentoViewSet(viewsets.ReadOnlyModelViewSet):
             qs = qs.filter(status=status)
         return qs
 
+    def _serialize_page(self, qs):
+        """Pagina o queryset quando aplicavel, senao serializa tudo."""
+        page = self.paginate_queryset(qs)
+        ser = self.get_serializer(page if page is not None else qs, many=True)
+        return self.get_paginated_response(ser.data) if page is not None else Response(ser.data)
+
     @action(detail=False, methods=['get'])
     def hoje(self, request):
-        from django.utils import timezone
         hoje = timezone.localdate()
         qs = self.get_queryset().filter(data_hora_inicio__date=hoje)
-        page = self.paginate_queryset(qs)
-        ser = self.get_serializer(page or qs, many=True)
-        return self.get_paginated_response(ser.data) if page else Response(ser.data)
+        return self._serialize_page(qs)

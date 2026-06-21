@@ -1,6 +1,6 @@
 """Dashboard de compliance de termos — visao de quem assinou e pendencias."""
 from django.core.paginator import Paginator
-from django.db.models import Exists, OuterRef
+from django.db.models import Count, Exists, OuterRef
 from django.shortcuts import render
 
 from ..decorators import staff_required
@@ -18,23 +18,40 @@ def admin_termos_compliance(request):
     tipo_filter = request.GET.get('tipo', '')
     versao_filter = request.GET.get('versao', '')
 
-    versoes = VersaoTermo.objects.filter(ativa=True).select_related('procedimento').order_by('-vigente_desde')
+    versoes = list(
+        VersaoTermo.objects.filter(ativa=True).select_related('procedimento').order_by('-vigente_desde')
+    )
     if tipo_filter:
-        versoes = versoes.filter(tipo=tipo_filter)
+        versoes = [v for v in versoes if v.tipo == tipo_filter]
+
+    # Pre-agrega contagens fora do loop para evitar N+1.
+    versao_ids = [v.pk for v in versoes]
+    assinaturas_por_versao = dict(
+        AceiteTermo.objects.filter(versao_termo_id__in=versao_ids)
+        .values_list('versao_termo_id')
+        .annotate(c=Count('id'))
+        .values_list('versao_termo_id', 'c')
+    )
+    # Clientes ativos: usado por todas as versoes LGPD — uma unica query.
+    clientes_ativos_count = Cliente.objects.filter(ativo=True).count()
+    # Clientes distintos por procedimento (versoes nao-LGPD com procedimento).
+    proc_ids = [v.procedimento_id for v in versoes if v.tipo != 'LGPD' and v.procedimento_id]
+    clientes_por_proc = dict(
+        Atendimento.objects.filter(procedimento_id__in=proc_ids)
+        .values_list('procedimento_id')
+        .annotate(c=Count('cliente_id', distinct=True))
+        .values_list('procedimento_id', 'c')
+    ) if proc_ids else {}
 
     resumo_versoes = []
     for v in versoes:
+        assinaturas_count = assinaturas_por_versao.get(v.pk, 0)
         if v.tipo == 'LGPD':
-            assinaturas_count = AceiteTermo.objects.filter(versao_termo=v).count()
-            clientes_relevantes = Cliente.objects.filter(ativo=True).count()
+            clientes_relevantes = clientes_ativos_count
             pendentes = clientes_relevantes - assinaturas_count
         else:
-            assinaturas_count = AceiteTermo.objects.filter(versao_termo=v).count()
             if v.procedimento_id:
-                clientes_relevantes = (
-                    Atendimento.objects.filter(procedimento_id=v.procedimento_id)
-                    .values('cliente_id').distinct().count()
-                )
+                clientes_relevantes = clientes_por_proc.get(v.procedimento_id, 0)
             else:
                 clientes_relevantes = 0
             pendentes = max(0, clientes_relevantes - assinaturas_count)

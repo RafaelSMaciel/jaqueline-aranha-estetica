@@ -141,6 +141,11 @@ class Atendimento(models.Model):
         pass
 
     def _transicionar(self, novo_status, motivo=None, by_user=None):
+        # NOTA: mudanca de status + auditoria sao atomicas entre si. Ja os
+        # efeitos de _publish_event (chamados pelos metodos publicos APOS o
+        # _transicionar) sao explicitamente best-effort/assincronos — NAO ha
+        # garantia de atomicidade entre a transicao e seus efeitos colaterais.
+        from django.db import transaction
         permitido = self.TRANSICOES.get(self.status, set())
         if novo_status not in permitido:
             raise self.TransicaoInvalida(
@@ -148,23 +153,27 @@ class Atendimento(models.Model):
             )
         anterior = self.status
         self.status = novo_status
-        self.save(update_fields=['status', 'atualizado_em'])
-        try:
-            from .sistema import LogAuditoria
-            LogAuditoria.objects.create(
-                usuario=by_user,
-                acao=f'Atendimento {self.pk}: {anterior} -> {novo_status}'
-                     + (f' ({motivo})' if motivo else ''),
-                tabela='atendimento',
-                registro_id=self.pk,
-            )
-        except (DatabaseError, IntegrityError) as exc:
-            # Auditoria best-effort — falha de DB nao bloqueia transicao de status
-            import logging
-            logging.getLogger(__name__).warning(
-                'log_auditoria_falhou',
-                extra={'atendimento_id': self.pk, 'erro': str(exc)},
-            )
+        with transaction.atomic():
+            self.save(update_fields=['status', 'atualizado_em'])
+            try:
+                from .sistema import LogAuditoria
+                # atomic aninhado (savepoint): falha de auditoria nao "envenena"
+                # a transacao externa nem desfaz a mudanca de status.
+                with transaction.atomic():
+                    LogAuditoria.objects.create(
+                        usuario=by_user,
+                        acao=f'Atendimento {self.pk}: {anterior} -> {novo_status}'
+                             + (f' ({motivo})' if motivo else ''),
+                        tabela='atendimento',
+                        registro_id=self.pk,
+                    )
+            except (DatabaseError, IntegrityError) as exc:
+                # Auditoria best-effort — falha de DB nao bloqueia transicao de status
+                import logging
+                logging.getLogger(__name__).warning(
+                    'log_auditoria_falhou',
+                    extra={'atendimento_id': self.pk, 'erro': str(exc)},
+                )
 
     def confirmar(self, by_user=None):
         self._transicionar('CONFIRMADO', by_user=by_user)
@@ -209,8 +218,14 @@ class Atendimento(models.Model):
                 atendimento_id=self.pk,
                 **fields,
             ))
-        except Exception:  # pylint: disable=broad-except
-            pass  # bus best-effort
+        except Exception as exc:  # pylint: disable=broad-except
+            # Bus best-effort — mantem o fluxo, mas deixa rastro para diagnostico
+            # (caso contrario efeitos como comissao/cashback/notificacao somem em silencio).
+            import logging
+            logging.getLogger(__name__).warning(
+                'event_publish_falhou',
+                extra={'event': event_name, 'atendimento_id': self.pk, 'erro': str(exc)},
+            )
 
     objects = AtendimentoManager()
 

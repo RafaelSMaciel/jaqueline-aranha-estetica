@@ -104,10 +104,13 @@ def marcar_realizado(request, pk):
         request.user, pk, select_related=['cliente'],
     )
 
-    if atendimento.status in ['PENDENTE', 'REALIZADO', 'CANCELADO', 'FALTOU', 'REAGENDADO']:
+    # Allowlist explicita: so AGENDADO/CONFIRMADO podem virar REALIZADO.
+    # Lista negativa hardcoded era fragil (novo status nao bloqueado por engano
+    # ficaria marcavel) e a mensagem 'ja esta como X' nao condizia com PENDENTE.
+    if atendimento.status not in ('AGENDADO', 'CONFIRMADO'):
         messages.warning(
             request,
-            f'Atendimento ja esta como {atendimento.get_status_display().lower()}.'
+            f'Nao e possivel marcar realizado a partir de {atendimento.get_status_display().lower()}.'
         )
     else:
         atendimento.status = 'REALIZADO'

@@ -1,6 +1,7 @@
 """Servico de agendamento — orquestra criacao, cancelamento, reagendamento."""
 import logging
 from datetime import timedelta
+from decimal import Decimal
 from typing import Optional
 
 from django.db import IntegrityError, transaction
@@ -25,8 +26,8 @@ class AgendamentoService:
         profissional: Profissional,
         procedimento: Procedimento,
         data_hora_inicio,
-        valor_cobrado: Optional[float] = None,
-        valor_original: Optional[float] = None,
+        valor_cobrado: Optional[Decimal] = None,
+        valor_original: Optional[Decimal] = None,
         descricao_preco: str = "",
         status: str = 'PENDENTE',
     ) -> Atendimento:

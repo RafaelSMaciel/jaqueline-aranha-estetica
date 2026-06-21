@@ -1,6 +1,8 @@
 """Audit logging helper for Jaqueline Aranha Estetica admin actions."""
 import logging
 
+from django.db import DatabaseError
+
 from ..models import LogAuditoria
 
 logger = logging.getLogger(__name__)
@@ -25,6 +27,11 @@ def registrar_log(usuario, acao, tabela=None, id_registro=None, detalhes=None):
             registro_id=id_registro,
             detalhes=detalhes,
         )
-    except Exception as e:
-        # Nao propagar — audit log nunca deve quebrar a operacao principal
-        logger.warning('registrar_log falhou: %s | acao=%s tabela=%s id=%s', e, acao, tabela, id_registro)
+    except (DatabaseError, TypeError, ValueError) as e:
+        # Nao propagar — audit log nunca deve quebrar a operacao principal.
+        # Escopo restrito (DB indisponivel, payload nao-serializavel, campo
+        # invalido) com exc_info p/ nao mascarar bug de programacao silenciosamente.
+        logger.warning(
+            'registrar_log falhou: %s | acao=%s tabela=%s id=%s',
+            e, acao, tabela, id_registro, exc_info=True,
+        )

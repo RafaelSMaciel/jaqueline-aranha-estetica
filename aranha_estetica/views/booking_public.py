@@ -176,6 +176,9 @@ def confirmar_agendamento(request):
         data_hora = datetime.fromisoformat(datetime_str)
         if timezone.is_naive(data_hora):
             data_hora = timezone.make_aware(data_hora)
+        if data_hora <= timezone.now():
+            messages.error(request, 'Escolha uma data e horário futuros.')
+            return redirect('aranha:agendamento_publico')
         data_hora_fim = data_hora + timedelta(minutes=procedimento.duracao_minutos)
 
         if Feriado.objects.filter(data=data_hora.date(), bloqueia_agendamento=True).exists():
@@ -296,11 +299,7 @@ def confirmar_agendamento(request):
                 ativa=True,
             )
 
-            assinados_ids = set()
-            assinados_ids.update(
-                AceiteTermo.objects.filter(cliente=cliente).values_list('versao_termo_id', flat=True)
-            )
-            assinados_ids.update(
+            assinados_ids = set(
                 AceiteTermo.objects.filter(cliente=cliente).values_list('versao_termo_id', flat=True)
             )
 

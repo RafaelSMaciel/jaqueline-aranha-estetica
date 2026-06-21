@@ -43,7 +43,11 @@ if not _secret_key and (
     )
 SECRET_KEY = _secret_key or 'django-insecure-dev-only-key-do-not-use-in-production'
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
+ALLOWED_HOSTS = [
+    h.strip()
+    for h in os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
+    if h.strip()
+]
 RAILWAY_DOMAIN = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '')
 if RAILWAY_DOMAIN:
     ALLOWED_HOSTS.append(RAILWAY_DOMAIN)
@@ -181,8 +185,14 @@ import dj_database_url  # noqa: E402
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
 if DATABASE_URL:
+    # dj_database_url.config() ja le DATABASE_URL do ambiente; nao precisa repassa-lo.
+    # ssl_require fora de DEBUG: Postgres gerenciado (Railway) deve exigir SSL.
     DATABASES = {
-        'default': dj_database_url.config(default=DATABASE_URL, conn_max_age=600),
+        'default': dj_database_url.config(
+            conn_max_age=600,
+            conn_health_checks=True,
+            ssl_require=not DEBUG,
+        ),
     }
 else:
     _dev_engine = os.environ.get('DB_ENGINE', 'django.db.backends.sqlite3')
@@ -320,9 +330,13 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 200
 
-CSRF_TRUSTED_ORIGINS = os.environ.get(
-    'CSRF_TRUSTED_ORIGINS', 'http://127.0.0.1:8000,http://localhost:8000',
-).split(',')
+CSRF_TRUSTED_ORIGINS = [
+    o.strip()
+    for o in os.environ.get(
+        'CSRF_TRUSTED_ORIGINS', 'http://127.0.0.1:8000,http://localhost:8000',
+    ).split(',')
+    if o.strip()
+]
 if RAILWAY_DOMAIN:
     CSRF_TRUSTED_ORIGINS.append(f'https://{RAILWAY_DOMAIN}')
 
@@ -407,6 +421,18 @@ if REDIS_URL:
     SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
     SESSION_CACHE_ALIAS = 'default'
 else:
+    # LocMemCache e por-processo: nao e compartilhado entre workers gunicorn.
+    # Fora de DEBUG isso enfraquece rate-limit/axes (contadores nao compartilhados),
+    # entao avisa alto para que prod multi-worker rode com REDIS_URL definido.
+    if not DEBUG:
+        import warnings
+
+        warnings.warn(
+            'REDIS_URL nao definida fora de DEBUG: usando LocMemCache (por-processo). '
+            'Rate-limit/axes nao serao compartilhados entre workers — defina REDIS_URL em prod.',
+            RuntimeWarning,
+            stacklevel=2,
+        )
     CACHES = {
         'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'},
     }
