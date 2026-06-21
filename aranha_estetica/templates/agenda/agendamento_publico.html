@@ -110,7 +110,7 @@
         width: 48px; height: 48px; border-radius: 50%; background: var(--gold-light);
         display: flex; align-items: center; justify-content: center; margin-bottom: 1rem;
     }
-    .proc-icon i { color: var(--gold); font-size: 1.2rem; }
+    .proc-icon i, .proc-icon svg { color: var(--gold); font-size: 1.2rem; }
     .proc-name { font-weight: 700; font-size: 1rem; color: var(--earth); margin-bottom: 0.3rem; }
     .proc-desc { font-size: 0.82rem; color: var(--cor-texto-suave); margin-bottom: 0.8rem; line-height: 1.45; }
     .proc-meta { display: flex; align-items: center; gap: 1rem; }
@@ -274,7 +274,7 @@
         display: block; text-align: center; margin-top: 0.75rem;
         font-size: 0.76rem; color: var(--cor-texto-suave); line-height: 1.5;
     }
-    .confirm-subnote i { color: var(--gold); margin-right: 0.3rem; }
+    .confirm-subnote i, .confirm-subnote svg { color: var(--gold); margin-right: 0.3rem; vertical-align: -0.125em; }
 
     .form-field { margin-bottom: 1.25rem; }
     .form-field label {
@@ -282,7 +282,7 @@
         letter-spacing: 1.5px; color: var(--cor-texto-suave); display: flex;
         align-items: center; gap: 0.4rem; margin-bottom: 0.5rem;
     }
-    .form-field label i { color: var(--gold); }
+    .form-field label i, .form-field label svg { color: var(--gold); }
     .form-input {
         width: 100%; padding: 0.85rem 1rem; border: 2px solid var(--cor-borda);
         border-radius: 14px; font-size: 0.95rem; background: var(--cor-fundo);
@@ -319,12 +319,12 @@
         border-radius: 12px; padding: 1rem; margin: 1.25rem 0;
         font-size: 0.85rem; color: #1B5E20; line-height: 1.5;
     }
-    .wpp-note i { font-size: 1.2rem; color: #25D366; flex-shrink: 0; }
+    .wpp-note i, .wpp-note svg { font-size: 1.2rem; color: #25D366; flex-shrink: 0; }
 
     .empty-procs {
         text-align: center; padding: 3rem 1rem; color: var(--cor-texto-suave);
     }
-    .empty-procs i { font-size: 3rem; margin-bottom: 1rem; color: var(--cor-borda); }
+    .empty-procs i, .empty-procs svg { font-size: 3rem; margin-bottom: 1rem; color: var(--cor-borda); }
 
     @media (max-width: 768px) {
         .booking-banner { padding: 3rem 0 6rem; }
@@ -349,7 +349,7 @@
 <!-- Hero -->
 <div class="booking-banner">
     <div class="booking-banner-inner mx-auto max-w-5xl px-6" data-aos="fade-up" data-aos-delay="100">
-        <div class="booking-pill"><i class="bi bi-stars"></i>{{ CLINIC_NAME }} — Agendamento Online</div>
+        <div class="booking-pill"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18 16l.6 1.6L20 18l-1.4.6L18 20l-.6-1.4L16 18l1.4-.4z"/></svg>{{ CLINIC_NAME }} — Agendamento Online</div>
         <h1 data-aos="fade-up" data-aos-delay="200">Agende seu Espaço<br>de Bem-Estar</h1>
         <p data-aos="fade-up" data-aos-delay="300">Escolha seu tratamento, selecione a data e confirme — tudo sem precisar criar conta.</p>
     </div>
@@ -405,7 +405,7 @@
                 <button type="button" class="proc-card" data-proc-id="{{ proc.id }}" data-proc-nome="{{ proc.nome }}"
                      data-proc-preco="{{ proc.preco }}" data-proc-duracao="{{ proc.duracao_minutos }}"
                      data-categoria="{{ proc.categoria }}">
-                    <div class="proc-icon"><i class="bi bi-stars"></i></div>
+                    <div class="proc-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18 16l.6 1.6L20 18l-1.4.6L18 20l-.6-1.4L16 18l1.4-.4z"/></svg></div>
                     <div class="proc-name">{{ proc.nome }}</div>
                     {% if proc.descricao %}
                     <div class="proc-desc">{{ proc.descricao|truncatewords:15 }}</div>
@@ -420,7 +420,7 @@
                             {% endif %}
                         </span>
                         <span class="proc-duration">
-                            <i class="bi bi-clock"></i>{{ proc.duracao_minutos }} min
+                            <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>{{ proc.duracao_minutos }} min
                         </span>
                     </div>
                 </button>
@@ -428,13 +428,13 @@
             </div>
             {% else %}
             <div class="empty-procs" style="padding:4rem 2rem;">
-                <i class="bi bi-calendar-heart" style="font-size:3.5rem;color:#7a5f1f;display:block;margin-bottom:1.25rem;"></i>
+                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="font-size:3.5rem;color:#7a5f1f;display:block;margin:0 auto 1.25rem;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M12 18.5l-2.3-2.2a1.6 1.6 0 0 1 2.3-2.3 1.6 1.6 0 0 1 2.3 2.3z"/></svg>
                 <h4 style="font-weight:700;color:#4A3425;font-family:'Playfair Display',serif;font-size:1.4rem;">Em breve</h4>
                 <p style="color:#6B6256;max-width:360px;margin:0.5rem auto 1.5rem;">Nossos tratamentos estarão disponíveis para agendamento online em breve.</p>
                 <a href="https://wa.me/{{ whatsapp_numero }}?text=Ola! Gostaria de agendar um horario na {{ CLINIC_NAME }}." target="_blank" rel="noopener"
                    class="inline-flex items-center gap-2 px-4 py-2 rounded-full font-bold"
                    style="background:#25D366;color:white;font-size:0.9rem;box-shadow:0 4px 16px rgba(37,211,102,0.3);">
-                    <i class="bi bi-whatsapp" style="font-size:1.1rem;"></i>Agendar via WhatsApp
+                    <svg width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="font-size:1.1rem;"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M11.999 2C6.477 2 2 6.477 2 12c0 1.89.525 3.659 1.438 5.168L2 22l4.984-1.407A9.945 9.945 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.95 7.95 0 01-4.055-1.109l-.291-.173-3.007.849.85-2.932-.19-.301A7.94 7.94 0 014 12c0-4.418 3.582-8 8-8s8 3.582 8 8-3.582 8-8 8z"/></svg>Agendar via WhatsApp
                 </a>
             </div>
             {% endif %}
@@ -448,8 +448,8 @@
                     <div class="cal-header">
                         <span class="cal-title" id="cal-month-label">—</span>
                         <div class="cal-nav">
-                            <button class="cal-nav-btn" id="cal-prev" type="button"><i class="bi bi-chevron-left"></i></button>
-                            <button class="cal-nav-btn" id="cal-next" type="button"><i class="bi bi-chevron-right"></i></button>
+                            <button class="cal-nav-btn" id="cal-prev" type="button"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
+                            <button class="cal-nav-btn" id="cal-next" type="button"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></button>
                         </div>
                     </div>
                     <div class="cal-weekdays">
@@ -464,7 +464,7 @@
                     <div class="cal-days" id="cal-days-grid"></div>
 
                     <button class="btn-back-step" type="button" data-goto="1">
-                        <i class="bi bi-arrow-left"></i> Voltar aos Procedimentos
+                        <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Voltar aos Procedimentos
                     </button>
                 </div>
 
@@ -472,7 +472,7 @@
                 <div>
                     <div class="slots-container" id="slots-container">
                         <div class="slots-loading">
-                            <i class="far fa-calendar fa-2x" style="color:var(--cor-borda);display:block;margin-bottom:0.75rem;"></i>
+                            <svg width="32" height="32" fill="none" stroke="var(--cor-borda)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true" style="display:block;margin:0 auto 0.75rem;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                             <span style="font-size:0.9rem;">Selecione uma data no calendário</span>
                         </div>
                     </div>
@@ -480,7 +480,7 @@
                     <!-- Profissional (aparece após selecionar horário) -->
                     <div id="prof-section" style="display:none !important;margin-top:1.5rem;">
                         <div class="slots-title">
-                            <i class="bi bi-person" style="color:var(--gold);margin-right:0.25rem;"></i> Escolha o Profissional
+                            <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--gold);margin-right:0.25rem;vertical-align:-0.125em;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Escolha o Profissional
                         </div>
                         <div class="prof-options" id="prof-options"></div>
                     </div>
@@ -530,11 +530,11 @@
 
                         <!-- ─── Celular + OTP via SMS ─── -->
                         <div class="form-field">
-                            <label><i class="bi bi-phone"></i>Celular</label>
+                            <label><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>Celular</label>
                             <div class="otp-row">
                                 <input type="tel" name="telefone" class="form-input" placeholder="(00) 00000-0000" required id="form-telefone" aria-label="Telefone celular" inputmode="tel" autocomplete="tel">
                                 <button type="button" id="btn-enviar-otp" class="otp-btn border border-borda rounded-lg px-3 py-2 text-sm font-semibold text-texto-suave bg-superficie hover:border-marca-forte cursor-pointer">
-                                    <i class="bi bi-chat-square-text"></i><span class="otp-btn-text">Enviar SMS</span>
+                                    <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="7" y1="9" x2="15" y2="9"/><line x1="7" y1="13" x2="12" y2="13"/></svg><span class="otp-btn-text">Enviar SMS</span>
                                 </button>
                             </div>
                             <small style="color:var(--cor-texto-suave);font-size:0.72rem;margin-top:0.35rem;display:block;">
@@ -543,11 +543,11 @@
                         </div>
 
                         <div class="form-field" id="otp-field" style="display:none;">
-                            <label><i class="bi bi-shield-lock"></i>Código de verificação</label>
+                            <label><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Código de verificação</label>
                             <div class="otp-row">
                                 <input type="text" id="otp-codigo" class="form-input" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code" aria-label="Código de verificação de 6 dígitos" style="letter-spacing:6px;font-size:1.2rem;text-align:center;">
                                 <button type="button" id="btn-verificar-otp" class="otp-btn bg-marca-forte text-sobre-marca border-0 rounded-lg px-3 py-2 text-sm font-semibold cursor-pointer">
-                                    <i class="bi bi-check2"></i><span class="otp-btn-text">Verificar</span>
+                                    <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg><span class="otp-btn-text">Verificar</span>
                                 </button>
                             </div>
                             <small id="otp-msg" style="display:block;margin-top:0.4rem;font-size:0.78rem;"></small>
@@ -558,17 +558,17 @@
                             <div class="fields-divider">Seus dados</div>
 
                             <div class="form-field">
-                                <label><i class="bi bi-person"></i>Nome completo</label>
+                                <label><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Nome completo</label>
                                 <input type="text" name="nome" class="form-input" placeholder="Nome completo" id="form-nome" aria-label="Nome completo">
                             </div>
 
                             <div class="field-row">
                                 <div class="form-field">
-                                    <label><i class="bi bi-calendar-heart"></i>Nascimento</label>
+                                    <label><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M12 18.5l-2.3-2.2a1.6 1.6 0 0 1 2.3-2.3 1.6 1.6 0 0 1 2.3 2.3z"/></svg>Nascimento</label>
                                     <input type="date" name="data_nascimento" class="form-input" id="form-nascimento" aria-label="Data de nascimento" style="color-scheme: light;">
                                 </div>
                                 <div class="form-field">
-                                    <label><i class="bi bi-envelope"></i>E-mail</label>
+                                    <label><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/></svg>E-mail</label>
                                     <input type="email" name="email" class="form-input" placeholder="seu@email.com" id="form-email" aria-label="E-mail" autocomplete="email">
                                 </div>
                             </div>
@@ -605,7 +605,7 @@
                         <!-- Anamnese dinamica (preenchida via JS conforme procedimento) -->
                         <div id="anamneseContainer" style="display:none;">
                             <div style="font-weight:700;color:#7a5f1f;margin:1rem 0 0.5rem;font-size:0.9rem;">
-                                <i class="bi bi-clipboard-heart"></i> Questionario pre-atendimento
+                                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-0.125em;"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M12 17l-2.3-2.2a1.6 1.6 0 0 1 2.3-2.3 1.6 1.6 0 0 1 2.3 2.3z"/></svg> Questionario pre-atendimento
                             </div>
                             <div id="anamneseFields"></div>
                             <input type="hidden" name="anamnese_respostas" id="anamneseRespostasJson" value="">
@@ -618,16 +618,16 @@
                         {% endif %}
 
                         <button type="submit" class="btn-confirm-booking" id="btn-confirmar" disabled title="Verifique o código enviado por SMS ao seu telefone primeiro">
-                            <i class="bi bi-calendar-check" style="margin-right:0.5rem;"></i>Confirmar Agendamento
+                            <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right:0.5rem;vertical-align:-0.125em;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 16 11 18 15 14"/></svg>Confirmar Agendamento
                         </button>
                         <small class="confirm-subnote">
-                            <i class="bi bi-whatsapp"></i>Após a aprovação do profissional, você recebe a confirmação por WhatsApp (e por e-mail se informado).
+                            <svg width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M11.999 2C6.477 2 2 6.477 2 12c0 1.89.525 3.659 1.438 5.168L2 22l4.984-1.407A9.945 9.945 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.95 7.95 0 01-4.055-1.109l-.291-.173-3.007.849.85-2.932-.19-.301A7.94 7.94 0 014 12c0-4.418 3.582-8 8-8s8 3.582 8 8-3.582 8-8 8z"/></svg>Após a aprovação do profissional, você recebe a confirmação por WhatsApp (e por e-mail se informado).
                         </small>
                     </form>
 
                     <div class="text-center">
                         <button class="btn-back-step" type="button" data-goto="2">
-                            <i class="bi bi-arrow-left"></i> Voltar
+                            <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Voltar
                         </button>
                     </div>
                 </div>
