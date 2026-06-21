@@ -8,7 +8,7 @@
   "orientation": "portrait",
   "background_color": "#1a1a2e",
   "theme_color": "#C9A84C",
-  "description": "Painel administrativo {{ CLINIC_NAME }} — agenda, pacientes, prontuário.",
+  "description": "Painel administrativo {{ CLINIC_NAME }} — agenda, clientes, prontuário.",
   "categories": ["business", "medical", "productivity"],
   "icons": [
     {
@@ -38,10 +38,10 @@
       "description": "Lista de agendamentos"
     },
     {
-      "name": "Pacientes",
-      "short_name": "Pacientes",
+      "name": "Clientes",
+      "short_name": "Clientes",
       "url": "/painel/clientes/",
-      "description": "Gestão de pacientes"
+      "description": "Gestão de clientes"
     },
     {
       "name": "Dashboard",

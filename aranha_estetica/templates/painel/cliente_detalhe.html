@@ -2,7 +2,7 @@
 
 {% block titulo %}{{ cliente.nome }} — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}{{ cliente.nome }}{% endblock %}
-{% block page_subtitle %}Ficha do paciente{% endblock %}
+{% block page_subtitle %}Ficha do cliente{% endblock %}
 
 {% block css %}
 <style nonce="{{ csp_nonce }}">
@@ -34,7 +34,7 @@
 
 {% block admin_content %}
 
-{# ── KPIs do paciente ── #}
+{# ── KPIs do cliente ── #}
 <div class="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-2.5 mb-4">
   <div class="relative bg-white rounded-2xl shadow-sm p-3.5">
     <svg class="absolute top-2.5 right-2.5 w-4 h-4 text-[#f9a825] opacity-40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">

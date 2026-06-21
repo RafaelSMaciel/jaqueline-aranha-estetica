@@ -164,10 +164,10 @@ def equipe(request):
 def especialidades(request):
     """Pagina publica com procedimentos agrupados por categoria em tabs."""
     categorias = [
-        ('FACIAL', 'Tratamentos Faciais', 'bi-sparkles'),
-        ('CORPORAL', 'Tratamentos Corporais', 'bi-heart-pulse'),
-        ('CAPILAR', 'Tratamentos Capilares', 'bi-droplet-half'),
-        ('OUTRO', 'Outros Servicos', 'bi-stars'),
+        ('FACIAL', 'Tratamentos Faciais'),
+        ('CORPORAL', 'Tratamentos Corporais'),
+        ('CAPILAR', 'Tratamentos Capilares'),
+        ('OUTRO', 'Outros Serviços'),
     ]
 
     grupos = []
@@ -184,7 +184,7 @@ def especialidades(request):
                 if preco.procedimento_id not in preco_map:
                     preco_map[preco.procedimento_id] = float(preco.valor)
 
-        for cat_key, cat_label, cat_icon in categorias:
+        for cat_key, cat_label in categorias:
             itens = [
                 {
                     'id': p.pk,
@@ -200,7 +200,6 @@ def especialidades(request):
                 grupos.append({
                     'key': cat_key,
                     'label': cat_label,
-                    'icon': cat_icon,
                     'itens': itens,
                 })
     except (OperationalError, ProgrammingError):

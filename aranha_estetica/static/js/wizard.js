@@ -235,21 +235,21 @@
         if (sel) sel.classList.add('selected');
 
         var container = document.getElementById('slots-container');
-        container.innerHTML = '<div class="slots-loading"><i class="fas fa-spinner fa-spin fa-2x" style="color:var(--gold);display:block;margin-bottom:0.75rem;"></i>Carregando horários...</div>';
+        container.innerHTML = '<div class="slots-loading"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" style="display:block;margin:0 auto 0.75rem;" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite"/></path></svg>Carregando horários...</div>';
 
         fetch('/ajax/horarios-disponiveis/?data=' + dateStr + '&procedimento_id=' + selectedProc.id)
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 horariosData = data.horarios || [];
                 if (horariosData.length === 0) {
-                    container.innerHTML = '<div class="slots-loading"><i class="fas fa-exclamation-circle fa-2x" style="color:#DDD;display:block;margin-bottom:0.75rem;"></i>Nenhum horário disponível nesta data.</div>';
+                    container.innerHTML = '<div class="slots-loading"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#CBB994" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto 0.75rem;" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Nenhum horário disponível nesta data.</div>';
                     return;
                 }
 
                 var parts = dateStr.split('-');
                 var dateDisplay = parts[2] + '/' + parts[1] + '/' + parts[0];
 
-                var html = '<div class="slots-title"><i class="far fa-clock me-1" style="color:var(--gold);"></i> Horários para ' + dateDisplay + '</div>';
+                var html = '<div class="slots-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Horários para ' + dateDisplay + '</div>';
                 html += '<div class="slots-grid">';
                 for (var i = 0; i < horariosData.length; i++) {
                     var slot = horariosData[i];
@@ -494,10 +494,10 @@
         nasc.required = true;
         tel.required = true;
         if (clienteExistente) {
-            badge.innerHTML = '<i class="bi bi-check-circle-fill"></i>Bem-vindo de volta — seus dados foram carregados.';
+            badge.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px;" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Bem-vindo de volta — seus dados foram carregados.';
             badge.setAttribute('data-state', 'existing');
         } else {
-            badge.innerHTML = '<i class="bi bi-stars"></i>Novo por aqui — preencha seus dados abaixo.';
+            badge.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px;" aria-hidden="true"><path d="M12 3l1.9 5.5L19.5 10l-5.6 1.5L12 17l-1.9-5.5L4.5 10l5.6-1.5z"/></svg>Novo por aqui — preencha seus dados abaixo.';
             badge.setAttribute('data-state', 'new');
             checkWrap.style.display = '';
         }
@@ -533,7 +533,7 @@
                     if (res.data.ok) {
                         document.getElementById('otp-field').style.display = '';
                         setOtpMsg('Código enviado por SMS para seu telefone. Válido por 10min.', true);
-                        btnEnviar.innerHTML = '<i class="bi bi-arrow-clockwise"></i><span class="otp-btn-text">Reenviar</span>';
+                        btnEnviar.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg><span class="otp-btn-text">Reenviar</span>';
                     } else if (res.data.erro === 'aguarde') {
                         setOtpMsg('Aguarde alguns segundos antes de reenviar.', false);
                     } else {

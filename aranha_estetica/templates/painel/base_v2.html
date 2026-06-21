@@ -70,7 +70,7 @@
               {% if request.resolver_match.url_name == 'painel_clientes' %}!text-[#C9A84C] !bg-[rgba(201,168,76,0.12)] !border-l-[#C9A84C] font-bold{% endif %}"
        x-on:click="fecharMenu">
       <svg class="w-[18px] h-[18px] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path stroke-linecap="round" stroke-linejoin="round" d="M23 21v-2a4 4 0 00-3-3.87"/><path stroke-linecap="round" stroke-linejoin="round" d="M16 3.13a4 4 0 010 7.75"/></svg>
-      <span>Pacientes</span>
+      <span>Clientes</span>
     </a>
 
     <a href="{% url 'aranha:prontuario_consentimento' %}"
@@ -240,7 +240,7 @@
         <input
           type="search"
           id="adminGlobalSearch"
-          placeholder="Buscar paciente, agendamento..."
+          placeholder="Buscar cliente, agendamento..."
           class="w-full px-3 py-1.5 rounded-lg bg-white/10 text-white text-[0.85rem] placeholder-white/50 border-none outline-none focus:bg-white/15 transition-colors"
           aria-label="Busca rápida (Ctrl+K)"
         >
@@ -315,11 +315,11 @@
   </div>{# /wrapper #}
 
   {# webpush vanilla — sem jQuery — pode permanecer via static #}
-  <script>window.WEBPUSH_AUTO = true;</script>
+  <script nonce="{{ csp_nonce }}">window.WEBPUSH_AUTO = true;</script>
   <script src="{% static 'js/webpush.js' %}" defer></script>
   <script src="{% static 'js/admin-search.js' %}" defer></script>
 
-  <script>
+  <script nonce="{{ csp_nonce }}">
     // SW
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
