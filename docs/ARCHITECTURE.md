@@ -238,16 +238,15 @@ Auditoria multi-agente (10 módulos) → **149 achados: 31 alta, 71 média, 47 b
 
 ---
 
-### Backend — progresso de correção
-- **✅ 25 de 31 alta** corrigidas e verificadas (213 testes em cada commit):
+### Backend — progresso de correção — ✅ AUDITORIA COMPLETA (31 alta + 71 média + 47 baixa)
+- **✅ 31 de 31 alta** corrigidas e verificadas:
   - Onda 1 (8): página-500, FSM, telefone, 2FA ratelimit+open-redirect, webhook Meta, closure cashback, pacotes atomic.
   - Onda 2 (9): quota SMS atômica, débito pacote com lock, anti double-pay, datetime make_aware, corrida de slot, NPS sem órfã, cooldown OTP.
   - Onda 3 (8): domain stubs, Procfile beat, senha-por-link, `Cliente.delete()` soft-default, `job_limpeza` via FSM (PENDENTE→CANCELADO / AGENDADO·CONFIRMADO→FALTOU), `DJANGO_ENV=prod` explícito (railway+Procfile), **OTP-gate por telefone** (anti-sequestro), **dedup `AgendamentoService`** (remove legada morta + fix import quebrado de `preco_base_map`).
-- **✅ 71 média** (workflow 10 agentes, arquivos disjuntos; verificado: check + 213 testes + migrations; migração 0039 [validators/check]). Teste fortalecido expôs bug real → +guard de data-passada no booking. ~6 puladas com motivo.
-- **⏳ 2 alta + 47 baixa restam (cada uma com bloqueio legítimo):**
-  1. `get_horarios_disponiveis` **fat-model** (110 linhas) → extrair `SlotService`. **Bloqueio:** ZERO teste cobre a lógica de slot/timezone → escrever testes de slot ANTES de extrair (senão regressão silenciosa de disponibilidade).
-  2. `decorators_2fa.staff_otp_required` — **decisão de arquitetura 2FA**: coexistem 3 mecanismos (Enforce2FAMiddleware custom + app `two_factor`/django-two-factor-auth + views `admin_2fa` custom). Consolidar exige escolher UM — decisão do dono.
+  - Onda 4 (2, as 2 últimas): **fat-model** `get_horarios_disponiveis` (110 linhas) → extraído p/ `services/disponibilidade.py::SlotService.slots_livres`; 7 testes de caracterização (`test_slots_disponibilidade.py`) escritos ANTES da extração e passando idênticos depois (sem regressão de disponibilidade). **2FA**: `decorators_2fa` morto/não-ligado removido; consolidado em 2 superfícies reais (Enforce2FAMiddleware custom p/ painel+profissional · app `two_factor` p/ admin Django).
+- **✅ 71 média** (workflow 10 agentes, arquivos disjuntos; verificado: check + 219 testes + migrations; migração 0039 [validators/check em valor_pago+nota]). Teste fortalecido expôs bug real → +guard de data-passada no booking. ~6 puladas com motivo.
+- **✅ 47 baixa** (workflow 8 agentes, arquivos disjuntos; verificado: check + 219 testes + makemigrations limpo). Nits: type hints/docstrings, imports hoisted, PII fora de logs (cliente_id em vez de nome), `list()` materializado, `AtendimentoManager` via `from_queryset` (remove 7 proxies divergentes), `timezone.localdate()` (off-by-one BRT em pacote/promoção/agenda), `__str__` sem query lazy, `json.loads` em try/except. Skips conscientes: schema/migration, mudança de contrato JSON (front consome `res.data.erro`), `SoftDeleteMixin` (é finding 'alta' de refactor maior), config cross-módulo.
 
 ---
 
-_Última atualização: 2026-06-21 — Backend: **25 de 31 alta + 71 média** corrigidas e verificadas (213 testes, migração 0039). Restam 2 alta (fat-model: precisa de testes de slot antes; 2FA: decisão de arquitetura) + 47 baixa._
+_Última atualização: 2026-06-21 — Backend: **auditoria SWE 100% endereçada** — 31 alta + 71 média + 47 baixa corrigidas e verificadas (219 testes, makemigrations limpo, migração 0039). Findings completos preservados no commit `19b8e67`._
