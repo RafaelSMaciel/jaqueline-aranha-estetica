@@ -224,11 +224,15 @@ def verificar_telefone(request):
             # Anti-enumeracao: resposta identica exista o cliente ou nao.
             # OTP so e gerado/enviado se houver cadastro — atacante nao distingue.
             if Cliente.objects.filter(telefone=telefone).exists():
-                codigo, _obj = CodigoOtp.gerar_sms(
-                    telefone, ip=ip, proposito=CodigoOtp.PROPOSITO_LOGIN,
-                )
-                if not OTPService.enviar_codigo(telefone, codigo, ip=ip):
-                    logger.warning('otp_login_sms_falha', extra={'tel_suffix': telefone[-4:]})
+                ident = CodigoOtp.email_para_telefone(telefone)
+                # Cooldown anti-abuso/custo: nao reenvia SMS se um codigo foi gerado
+                # ha pouco (resposta segue identica p/ nao vazar enumeracao/timing).
+                if CodigoOtp.pode_reenviar(ident, proposito=CodigoOtp.PROPOSITO_LOGIN):
+                    codigo, _obj = CodigoOtp.gerar_sms(
+                        telefone, ip=ip, proposito=CodigoOtp.PROPOSITO_LOGIN,
+                    )
+                    if not OTPService.enviar_codigo(telefone, codigo, ip=ip):
+                        logger.warning('otp_login_sms_falha', extra={'tel_suffix': telefone[-4:]})
             return JsonResponse({
                 'success': True,
                 'message': 'Se houver cadastro com esse telefone, o codigo chegara por SMS.',
