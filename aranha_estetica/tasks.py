@@ -82,14 +82,17 @@ def job_pesquisa_satisfacao_24h(self):
         site_url = SITE_URL.rstrip('/')
 
         limite = timezone.now() - timedelta(days=1)
+        # exclui so quem ja tem NPS pendente/enviado (FALHOU pode re-tentar);
+        # distinct() evita multiplicacao de linhas pelo join da FK reversa.
         agendamentos = Atendimento.objects.filter(
             status='REALIZADO',
             data_hora_fim__lte=limite,
             avaliacaonps__isnull=True,
             cliente__consent_whatsapp_nps=True,
         ).exclude(
-            notificacao__tipo='NPS'
-        ).select_related('cliente', 'procedimento')
+            notificacao__tipo='NPS',
+            notificacao__status__in=['PENDENTE', 'ENVIADO'],
+        ).select_related('cliente', 'procedimento').distinct()
 
         logger.info(f"[JOB NPS] {agendamentos.count()} atendimentos sem avaliacao e com consent.")
 
@@ -100,7 +103,7 @@ def job_pesquisa_satisfacao_24h(self):
                 continue
 
             token = secrets.token_urlsafe(32)
-            Notificacao.objects.create(
+            notif = Notificacao.objects.create(
                 atendimento=agendamento,
                 tipo='NPS',
                 canal='WHATSAPP',
@@ -109,8 +112,15 @@ def job_pesquisa_satisfacao_24h(self):
             )
             nps_url = f"{site_url}/nps/{token}/"
 
+            # Status reflete o resultado real do envio (nao deixa orfa PENDENTE):
+            # ENVIADO em sucesso, FALHOU em falha (e ai e re-tentavel no proximo run).
             if enviar_nps_whatsapp(agendamento, nps_url, token):
+                notif.status = 'ENVIADO'
+                notif.save(update_fields=['status'])
                 enviados += 1
+            else:
+                notif.status = 'FALHOU'
+                notif.save(update_fields=['status'])
 
         logger.info(f"[JOB NPS] {enviados} NPS enviados via WhatsApp.")
         return f'{enviados} NPS enviados'
