@@ -79,35 +79,36 @@ def processar_mudanca_status(sender, instance, created, **kwargs):
         # Reset faltas consecutivas
         instance.cliente.resetar_faltas()
 
-        # Debitar sessao de pacote
+        # Debitar sessao de pacote — atomico + select_for_update serializa
+        # debitos concorrentes do mesmo cliente (evita over-debit no TOCTOU
+        # entre o .count() de sessoes feitas e o ConsumoSessao.create()).
         if not hasattr(instance, 'sessao_pacote_vinculada'):
-            pacotes_ativos = CompraPacote.objects.filter(
-                cliente=instance.cliente,
-                status='ATIVO'
-            ).order_by('criado_em')
+            from django.db import transaction
+            from django.utils import timezone
+            with transaction.atomic():
+                pacotes_ativos = CompraPacote.objects.select_for_update().filter(
+                    cliente=instance.cliente,
+                    status='ATIVO'
+                ).order_by('criado_em')
 
-            for pc in pacotes_ativos:
-                # Verificar validade
-                if pc.data_expiracao:
-                    from django.utils import timezone
-                    if pc.data_expiracao < timezone.now().date():
+                for pc in pacotes_ativos:
+                    # Verificar validade
+                    if pc.data_expiracao and pc.data_expiracao < timezone.now().date():
                         pc.status = 'EXPIRADO'
-                        pc.save()
+                        pc.save(update_fields=['status'])
                         continue
 
-                itens = pc.pacote.itens.filter(procedimento=instance.procedimento)
-                if itens.exists():
-                    item = itens.first()
-                    sessoes_ja_feitas = pc.sessoes_realizadas.filter(
-                        atendimento__procedimento=instance.procedimento
-                    ).count()
-                    if sessoes_ja_feitas < item.quantidade_sessoes:
-                        ConsumoSessao.objects.create(
-                            compra_pacote=pc,
-                            atendimento=instance
-                        )
-                        logger.info(f"[PACOTE] Sessao {sessoes_ja_feitas + 1}/{item.quantidade_sessoes} debitada do pacote {pc.pk}")
-
-                        # Verificar se pacote foi finalizado
-                        pc.verificar_finalizacao()
-                        break
+                    itens = pc.pacote.itens.filter(procedimento=instance.procedimento)
+                    if itens.exists():
+                        item = itens.first()
+                        sessoes_ja_feitas = pc.sessoes_realizadas.filter(
+                            atendimento__procedimento=instance.procedimento
+                        ).count()
+                        if sessoes_ja_feitas < item.quantidade_sessoes:
+                            ConsumoSessao.objects.create(
+                                compra_pacote=pc,
+                                atendimento=instance
+                            )
+                            logger.info(f"[PACOTE] Sessao {sessoes_ja_feitas + 1}/{item.quantidade_sessoes} debitada do pacote {pc.pk}")
+                            pc.verificar_finalizacao()
+                            break

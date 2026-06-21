@@ -54,31 +54,37 @@ def formatar_telefone(telefone: str) -> str:
 
 
 def pode_enviar(telefone: str, ip: str = None) -> bool:
-    """Rate limit defense-in-depth: telefone + IP + global."""
+    """Checa limites (telefone + IP + global) SEM consumir quota.
+    Apos um envio bem-sucedido, chame registrar_envio() para contabilizar.
+    """
     tel_fmt = formatar_telefone(telefone)
-    key_tel = f'sms_rl:tel:{tel_fmt}'
-    key_global = 'sms_rl:global'
-
-    if cache.get(key_tel, 0) >= SMS_MAX_POR_HORA:
+    if cache.get(f'sms_rl:tel:{tel_fmt}', 0) >= SMS_MAX_POR_HORA:
         logger.warning('sms_rate_limit_telefone', extra={'telefone_mask': _mask(tel_fmt)})
         return False
-    if cache.get(key_global, 0) >= SMS_MAX_GLOBAL_HORA:
+    if cache.get('sms_rl:global', 0) >= SMS_MAX_GLOBAL_HORA:
         logger.warning('sms_rate_limit_global')
         return False
-    if ip:
-        key_ip = f'sms_rl:ip:{ip}'
-        if cache.get(key_ip, 0) >= SMS_MAX_POR_IP_HORA:
-            logger.warning('sms_rate_limit_ip', extra={'ip': ip})
-            return False
-
-    try:
-        cache.set(key_tel, cache.get(key_tel, 0) + 1, timeout=3600)
-        cache.set(key_global, cache.get(key_global, 0) + 1, timeout=3600)
-        if ip:
-            cache.set(f'sms_rl:ip:{ip}', cache.get(f'sms_rl:ip:{ip}', 0) + 1, timeout=3600)
-    except Exception:
-        pass
+    if ip and cache.get(f'sms_rl:ip:{ip}', 0) >= SMS_MAX_POR_IP_HORA:
+        logger.warning('sms_rate_limit_ip', extra={'ip': ip})
+        return False
     return True
+
+
+def registrar_envio(telefone: str, ip: str = None) -> None:
+    """Incrementa os contadores de quota de forma ATOMICA (cache.add + incr).
+    Chamado somente apos enviar_sms() retornar True — assim a quota nao e
+    consumida quando o envio falha, e evita a corrida do read-modify-write.
+    """
+    tel_fmt = formatar_telefone(telefone)
+    chaves = [f'sms_rl:tel:{tel_fmt}', 'sms_rl:global']
+    if ip:
+        chaves.append(f'sms_rl:ip:{ip}')
+    for key in chaves:
+        try:
+            cache.add(key, 0, timeout=3600)
+            cache.incr(key)
+        except Exception:
+            pass
 
 
 def enviar_sms(telefone: str, mensagem: str, _tentativa: int = 1) -> bool:
@@ -157,4 +163,7 @@ def enviar_otp_sms(telefone: str, codigo: str, ip: str = None) -> bool:
         f'{CLINIC_NAME}: seu codigo de verificacao e {codigo}. '
         f'Valido por 10 min. Nao compartilhe.'
     )
-    return enviar_sms(telefone, mensagem)
+    enviado = enviar_sms(telefone, mensagem)
+    if enviado:
+        registrar_envio(telefone, ip=ip)
+    return enviado
