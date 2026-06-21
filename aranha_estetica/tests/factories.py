@@ -1,4 +1,5 @@
 """Helpers para montar objetos de teste sem repetir boilerplate."""
+import itertools
 from datetime import time, timedelta
 from decimal import Decimal
 
@@ -48,7 +49,8 @@ def criar_procedimento(nome='Limpeza de Pele', duracao=30, categoria='FACIAL',
     return proc
 
 
-_seq_telefone = iter(range(100000))
+# Contador ilimitado (itertools.count) — evita StopIteration de um iter(range(...)) finito.
+_seq_telefone = itertools.count()
 
 
 def criar_cliente(nome='Maria Silva', telefone=None, **kwargs):

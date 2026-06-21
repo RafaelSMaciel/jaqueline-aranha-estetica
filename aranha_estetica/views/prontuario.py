@@ -18,6 +18,8 @@ from ..models import (
 from ..utils.audit import registrar_log
 from ..utils.security import client_ip
 
+logger = logging.getLogger(__name__)
+
 
 def _perguntas_configuradas():
     """Schema do questionario do prontuario — lista [{chave, texto, tipo}].
@@ -36,8 +38,6 @@ def _perguntas_configuradas():
     except ValueError:
         logger.warning('prontuario_perguntas_json_invalido')
         return []
-
-logger = logging.getLogger(__name__)
 
 
 def _usuario_pode_ver_prontuario(user, cliente):

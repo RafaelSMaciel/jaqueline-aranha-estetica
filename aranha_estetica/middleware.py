@@ -28,6 +28,10 @@ class Enforce2FAMiddleware:
         'password_reset_confirm', 'password_reset_complete',
     }
 
+    # Prefixos de URL protegidos pelo desafio 2FA. Centralizado numa constante
+    # unica para evitar que uma rota administrativa nova fique sem 2FA por engano.
+    PROTECTED_PREFIXES = ('/painel/', '/profissional/')
+
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -36,7 +40,7 @@ class Enforce2FAMiddleware:
             return self.get_response(request)
 
         path = request.path or ''
-        if not path.startswith('/painel/') and not path.startswith('/profissional/'):
+        if not path.startswith(self.PROTECTED_PREFIXES):
             return self.get_response(request)
 
         try:

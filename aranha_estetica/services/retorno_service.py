@@ -21,6 +21,13 @@ from ..models import Atendimento
 
 logger = logging.getLogger(__name__)
 
+# Duracao padrao do atendimento de retorno quando o procedimento nao define.
+DURACAO_RETORNO_PADRAO_MINUTOS = 30
+# Minimo de dias ate o retorno sugerido quando retorno_minimo_dias nao
+# esta configurado — evita sugerir retorno no mesmo instante do fim do
+# atendimento de origem (janela colapsada).
+RETORNO_MINIMO_DIAS_PADRAO = 1
+
 
 class RetornoService:
     """Cria atendimentos de retorno automaticos."""
@@ -50,12 +57,14 @@ class RetornoService:
             return None
 
         base = atendimento_origem.data_hora_fim
-        min_dias = proc.retorno_minimo_dias or 0
+        # Sem minimo configurado, garante +1 dia para nao sugerir retorno no
+        # mesmo instante do fim do atendimento de origem (janela colapsada).
+        min_dias = proc.retorno_minimo_dias or RETORNO_MINIMO_DIAS_PADRAO
         max_dias = proc.retorno_maximo_dias or min_dias
         janela_inicio = base + timedelta(days=min_dias)
         janela_fim = base + timedelta(days=max_dias)
         sugerida = janela_inicio + (janela_fim - janela_inicio) / 2
-        duracao = proc.duracao_retorno_minutos or 30
+        duracao = proc.duracao_retorno_minutos or DURACAO_RETORNO_PADRAO_MINUTOS
 
         from django.db import IntegrityError
         try:

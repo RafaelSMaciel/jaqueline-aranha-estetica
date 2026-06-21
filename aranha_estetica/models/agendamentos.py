@@ -45,19 +45,10 @@ class AtendimentoQuerySet(models.QuerySet):
         )
 
 
-class AtendimentoManager(models.Manager):
-    def get_queryset(self):
-        return AtendimentoQuerySet(self.model, using=self._db)
-
-    # Proxy methods do queryset p/ chamadas curtas
-    def ativos(self): return self.get_queryset().ativos()
-    def futuros(self): return self.get_queryset().futuros()
-    def hoje(self): return self.get_queryset().hoje()
-    def pendentes_aprovacao(self): return self.get_queryset().pendentes_aprovacao()
-    def realizados(self): return self.get_queryset().realizados()
-    def do_profissional(self, prof): return self.get_queryset().do_profissional(prof)
-    def conflito_com(self, prof, data_inicio, data_fim):
-        return self.get_queryset().conflito_com(prof, data_inicio, data_fim)
+# from_queryset expoe automaticamente todos os metodos do QuerySet no manager
+# (ativos/futuros/passados/hoje/conflito_com/...), eliminando os proxies manuais
+# que precisavam ser mantidos em sincronia com o QuerySet.
+AtendimentoManager = models.Manager.from_queryset(AtendimentoQuerySet)
 
 
 class Atendimento(models.Model):

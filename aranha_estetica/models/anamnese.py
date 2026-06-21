@@ -150,7 +150,8 @@ class RespostaAnamnese(models.Model):
         ]
 
     def __str__(self):
-        return f'Resposta {self.formulario.nome} - {self.cliente.nome}'
+        # Usa *_id (sem queries lazy) p/ evitar N+1 em listagens de admin nao prefetched.
+        return f'Resposta form#{self.formulario_id} - cliente#{self.cliente_id}'
 
     def get_link_publico(self):
         """Retorna path publico baseado no tipo do formulario."""

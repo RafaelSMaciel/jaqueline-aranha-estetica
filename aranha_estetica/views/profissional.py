@@ -73,7 +73,11 @@ def agenda(request):
     dias_semana = [inicio_semana + timedelta(days=i) for i in range(7)]
     agenda_por_dia = {d: [] for d in dias_semana}
     for at in atendimentos_semana:
-        agenda_por_dia[at.data_hora_inicio.date()].append(at)
+        # Indexa pela data LOCAL (consistente com dias_semana, derivado de localdate)
+        # — evita KeyError perto da meia-noite quando o datetime aware esta em UTC.
+        dia_local = timezone.localtime(at.data_hora_inicio).date()
+        if dia_local in agenda_por_dia:
+            agenda_por_dia[dia_local].append(at)
 
     # Agendamentos pendentes de aprovação
     pendentes = Atendimento.objects.filter(

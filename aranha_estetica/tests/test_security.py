@@ -1,4 +1,6 @@
 """Testes de seguranca: autorizacao, rate limiting e controle de acesso."""
+import json
+
 from django.test import Client, TestCase
 from django.urls import reverse
 
@@ -114,7 +116,6 @@ class AdminAtualizarStatusTests(TestCase):
         self.atd = criar_atendimento(self.cli, self.prof, self.proc)
 
     def test_anonimo_bloqueado(self):
-        import json
         resp = self.client.post(
             self.url,
             data=json.dumps({'atendimento_id': self.atd.pk, 'status': 'CONFIRMADO'}),
@@ -123,7 +124,6 @@ class AdminAtualizarStatusTests(TestCase):
         self.assertEqual(resp.status_code, 302)
 
     def test_usuario_comum_bloqueado(self):
-        import json
         user = _criar_usuario_comum()
         self.client.force_login(user)
         resp = self.client.post(
@@ -134,7 +134,6 @@ class AdminAtualizarStatusTests(TestCase):
         self.assertIn(resp.status_code, [302, 403])
 
     def test_staff_atualiza_status(self):
-        import json
         staff = _criar_staff()
         self.client.force_login(staff)
         resp = self.client.post(
@@ -147,7 +146,6 @@ class AdminAtualizarStatusTests(TestCase):
         self.assertEqual(self.atd.status, 'CONFIRMADO')
 
     def test_status_invalido_rejeitado(self):
-        import json
         staff = _criar_staff()
         self.client.force_login(staff)
         resp = self.client.post(

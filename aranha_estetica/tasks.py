@@ -148,12 +148,12 @@ def job_alerta_detrator_nps(self):
         from django.core.mail import send_mail
         from .models import Configuracao
 
-        detratores = AvaliacaoNPS.objects.filter(
+        detratores = list(AvaliacaoNPS.objects.filter(
             nota__lte=6,
             alerta_enviado=False
-        ).select_related('atendimento__cliente', 'atendimento__procedimento')
+        ).select_related('atendimento__cliente', 'atendimento__procedimento'))
 
-        if not detratores.exists():
+        if not detratores:
             return
 
         config = Configuracao.objects.filter(chave='email_admin').first()
@@ -165,7 +165,7 @@ def job_alerta_detrator_nps(self):
                 logger.warning(
                     'nps_detrator_sem_email_admin_cliente',
                     extra={
-                        'cliente': avaliacao.atendimento.cliente.nome,
+                        'cliente_id': avaliacao.atendimento.cliente_id,
                         'nota': avaliacao.nota,
                     },
                 )
@@ -197,7 +197,7 @@ def job_alerta_detrator_nps(self):
                 logger.warning(
                     'nps_detrator_alerta_enviado',
                     extra={
-                        'cliente': at.cliente.nome,
+                        'cliente_id': at.cliente_id,
                         'nota': avaliacao.nota,
                     },
                 )
@@ -214,7 +214,7 @@ def job_alerta_detrator_nps(self):
 # ═══════════════════════════════════════
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
-def job_notificar_fila_espera(self, procedimento_id, data_livre_str):
+def job_notificar_fila_espera(self, procedimento_id: int, data_livre_str: str):
     """Notifica interessados da fila de espera por EMAIL."""
     from .utils.email import enviar_fila_espera_email
 
@@ -413,7 +413,7 @@ def _enviar_aniversario_whatsapp(cliente, desconto_percentual: int) -> None:
 # ═══════════════════════════════════════
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
-def job_promocao_mensal(self, assunto, corpo_html_partial, cupom=None, validade_dias=30):
+def job_promocao_mensal(self, assunto: str, corpo_html_partial: str, cupom: str = None, validade_dias: int = 30):
     """Envia email promocional para clientes com consent_email_marketing=True.
 
     Parametros:
@@ -532,7 +532,7 @@ def job_limpeza_status_atendimentos(self):
     bind=True, max_retries=3, default_retry_delay=30,
     autoretry_for=(Exception,), retry_backoff=True,
 )
-def send_email_async(self, funcao_nome, *args, **kwargs):
+def send_email_async(self, funcao_nome: str, *args, **kwargs):
     """Dispara email via funcao enviar_*_email em background.
 
     funcao_nome: string com nome da funcao em utils.email (ex: 'enviar_confirmacao_agendamento_email').

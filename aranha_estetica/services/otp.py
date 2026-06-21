@@ -6,6 +6,7 @@ utilizado como canal de OTP no fluxo principal.
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 from typing import Optional, Tuple, TYPE_CHECKING
 
@@ -18,6 +19,15 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 OtpResult = Tuple[bool, str, Optional[str]]
+
+
+def _email_hash(email: str) -> str:
+    """Hash estavel p/ correlacao em logs (nao e seguranca, so anonimizacao).
+
+    Usa SHA-256 truncado em vez de hash() builtin, que e randomizado por
+    processo (PYTHONHASHSEED) e nao correlaciona entre execucoes.
+    """
+    return hashlib.sha256(email.encode()).hexdigest()[:12]
 
 
 def _client_ip(request: Optional['HttpRequest']) -> Optional[str]:
@@ -63,7 +73,7 @@ def solicitar_otp(
     if not telefone:
         logger.warning(
             'otp_telefone_ausente',
-            extra={'email_hash': hash(email), 'proposito': proposito},
+            extra={'email_hash': _email_hash(email), 'proposito': proposito},
         )
         return False, 'telefone_ausente', None
 
@@ -79,7 +89,7 @@ def solicitar_otp(
         logger.info('otp_sms_enviado', extra={'proposito': proposito})
         return True, 'ok', CodigoOtp.CANAL_SMS
 
-    logger.error('otp_sms_falha', extra={'email_hash': hash(email), 'proposito': proposito})
+    logger.error('otp_sms_falha', extra={'email_hash': _email_hash(email), 'proposito': proposito})
     return False, 'sms_falha', None
 
 

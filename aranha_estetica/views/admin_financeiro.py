@@ -31,6 +31,9 @@ def dashboard_financeiro(request):
     agora = timezone.now()
     hoje = timezone.localdate()
 
+    # Cache compartilhado por instancia de CACHE_TTL_DASHBOARD (60s), nao por dia:
+    # a data na chave so evita colisao trivial entre dias diferentes; a janela
+    # real de reaproveitamento e o TTL de 60s.
     cache_key = f'dashboard_financeiro:{hoje.isoformat()}'
     ctx = cache.get(cache_key)
     if ctx is None:

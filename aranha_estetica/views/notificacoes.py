@@ -2,10 +2,12 @@
 Views de notificacao — confirmacao/cancelamento via link e painel admin.
 """
 import logging
+import secrets
 
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db import transaction
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
@@ -90,11 +92,17 @@ def painel_notificacoes(request):
         elif status_filter == 'pendente':
             notifs = notifs.filter(resposta__isnull=True)
 
-    # Stats
-    total = notifs.count()
-    confirmados = notifs.filter(resposta='CONFIRMOU').count()
-    cancelados = notifs.filter(resposta='CANCELOU').count()
-    sem_resposta = notifs.filter(resposta__isnull=True).count()
+    # Stats — agregacao condicional unica (1 query em vez de 4).
+    stats = notifs.aggregate(
+        total=Count('id'),
+        confirmados=Count('id', filter=Q(resposta='CONFIRMOU')),
+        cancelados=Count('id', filter=Q(resposta='CANCELOU')),
+        sem_resposta=Count('id', filter=Q(resposta__isnull=True)),
+    )
+    total = stats['total']
+    confirmados = stats['confirmados']
+    cancelados = stats['cancelados']
+    sem_resposta = stats['sem_resposta']
 
     paginator = Paginator(notifs, 50)
     page = request.GET.get('page', 1)
@@ -143,7 +151,7 @@ def admin_cancelar_agendamento(request):
                 tipo='CANCELAMENTO',
                 canal='EMAIL',
                 status='ENVIADO',
-                token=__import__('secrets').token_urlsafe(32),
+                token=secrets.token_urlsafe(32),
                 enviado_em=timezone.now(),
             )
             canal = 'email'

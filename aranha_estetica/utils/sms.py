@@ -13,6 +13,7 @@ Variaveis de ambiente:
 import logging
 import os
 import time
+from typing import Optional
 
 import requests
 from django.conf import settings
@@ -36,6 +37,8 @@ SMS_MAX_POR_HORA = int(os.environ.get('SMS_MAX_POR_HORA', '3'))
 SMS_MAX_POR_IP_HORA = int(os.environ.get('SMS_MAX_POR_IP_HORA', '10'))
 # Rate limit global (burst protection): 60 SMS por hora
 SMS_MAX_GLOBAL_HORA = int(os.environ.get('SMS_MAX_GLOBAL_HORA', '60'))
+# TTL (segundos) da janela de rate limit dos contadores de quota = 1 hora
+RATE_LIMIT_TTL = 3600
 
 
 def _mask(telefone: str) -> str:
@@ -53,7 +56,7 @@ def formatar_telefone(telefone: str) -> str:
     return digits
 
 
-def pode_enviar(telefone: str, ip: str = None) -> bool:
+def pode_enviar(telefone: str, ip: Optional[str] = None) -> bool:
     """Checa limites (telefone + IP + global) SEM consumir quota.
     Apos um envio bem-sucedido, chame registrar_envio() para contabilizar.
     """
@@ -70,7 +73,7 @@ def pode_enviar(telefone: str, ip: str = None) -> bool:
     return True
 
 
-def registrar_envio(telefone: str, ip: str = None) -> None:
+def registrar_envio(telefone: str, ip: Optional[str] = None) -> None:
     """Incrementa os contadores de quota de forma ATOMICA (cache.add + incr).
     Chamado somente apos enviar_sms() retornar True — assim a quota nao e
     consumida quando o envio falha, e evita a corrida do read-modify-write.
@@ -81,7 +84,7 @@ def registrar_envio(telefone: str, ip: str = None) -> None:
         chaves.append(f'sms_rl:ip:{ip}')
     for key in chaves:
         try:
-            cache.add(key, 0, timeout=3600)
+            cache.add(key, 0, timeout=RATE_LIMIT_TTL)
             cache.incr(key)
         except ValueError:
             # cache.incr levanta ValueError se a chave expirou entre add e incr.
@@ -164,7 +167,7 @@ def enviar_sms(telefone: str, mensagem: str, _tentativa: int = 1) -> bool:
         return False
 
 
-def enviar_otp_sms(telefone: str, codigo: str, ip: str = None) -> bool:
+def enviar_otp_sms(telefone: str, codigo: str, ip: Optional[str] = None) -> bool:
     """Envia codigo OTP curto via SMS."""
     if not pode_enviar(telefone, ip=ip):
         return False

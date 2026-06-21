@@ -87,9 +87,11 @@ class CompraPacote(models.Model):
         if not self.data_expiracao and self.pacote and self.pacote.validade_meses:
             from django.utils import timezone
             from dateutil.relativedelta import relativedelta
+            # localdate() como base evita off-by-one de fuso: timezone.now() e UTC,
+            # e somar meses + .date() perto da meia-noite local deslocaria 1 dia.
             self.data_expiracao = (
-                timezone.now() + relativedelta(months=self.pacote.validade_meses)
-            ).date()
+                timezone.localdate() + relativedelta(months=self.pacote.validade_meses)
+            )
         super().save(*args, **kwargs)
 
     def verificar_finalizacao(self):
