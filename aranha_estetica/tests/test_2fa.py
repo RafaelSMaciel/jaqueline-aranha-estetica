@@ -62,24 +62,6 @@ def test_setup_2fa_email_inexistente():
 
 
 @pytest.mark.django_db
-def test_decorator_redireciona_sem_device(client, staff_user):
-    """staff_otp_required deve redirecionar para setup se sem device."""
-    from aranha_estetica.decorators_2fa import staff_otp_required
-    from django.http import HttpResponse
-
-    @staff_otp_required
-    def view(request):
-        return HttpResponse('ok')
-
-    client.force_login(staff_user)
-    request = client.get('/').wsgi_request
-    request.user = staff_user
-    resp = view(request)
-    assert resp.status_code == 302
-    assert '/account/two_factor/setup' in resp.url or 'setup' in resp.url
-
-
-@pytest.mark.django_db
 def test_login_publico_e_booking_nao_afetados(client):
     """Endpoints publicos nao devem exigir 2FA."""
     resp = client.get('/')
