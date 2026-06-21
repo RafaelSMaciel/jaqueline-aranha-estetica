@@ -177,6 +177,52 @@ class IntegrationBookingFlowTests(TestCase):
         self.assertEqual(existing.nome, 'Nome Atualizado')
 
     # ------------------------------------------------------------------
+    # 2b. Existing client WITHOUT OTP is blocked (anti-sequestro gate)
+    # ------------------------------------------------------------------
+    def test_cliente_existente_sem_otp_e_bloqueado(self, mock_email, mock_wpp):
+        """Espelho NEGATIVO do gate anti-sequestro (booking_public.py:151-171).
+
+        Cliente recorrente (telefone ja cadastrado) que NAO verificou o OTP por
+        SMS deve ser BLOQUEADO: redirect de volta ao formulario (nao a sucesso),
+        sem criar Atendimento e sem sobrescrever o cadastro alheio. Sem este
+        teste o gate poderia quebrar silenciosamente (so o caminho feliz
+        with_otp=True era exercitado).
+        """
+        existing = criar_cliente(
+            nome='Dona Original',
+            telefone='17988885555',
+            data_nascimento=None,
+        )
+
+        # POST recorrente SEM OTP verificado na sessao.
+        resp = self._post(
+            telefone='17988885555',
+            nome='Tentativa Sequestro',
+            datetime=_future_datetime_iso(days=4, hour=9),
+            with_otp=False,
+        )
+
+        # Redireciona (nao 500) e NAO para a pagina de sucesso.
+        self.assertEqual(resp.status_code, 302)
+        self.assertNotIn(
+            'sucesso', resp.url,
+            'Cliente existente sem OTP nao pode chegar a pagina de sucesso',
+        )
+
+        # Nenhum Atendimento criado para o cliente existente.
+        self.assertEqual(
+            Atendimento.objects.filter(cliente=existing).count(), 0,
+            'Cliente existente sem OTP nao pode gerar agendamento',
+        )
+
+        # Cadastro intocado — o nome NAO foi sobrescrito pela tentativa.
+        existing.refresh_from_db()
+        self.assertEqual(
+            existing.nome, 'Dona Original',
+            'O gate deve barrar antes de qualquer escrita no cadastro alheio',
+        )
+
+    # ------------------------------------------------------------------
     # 3. Past datetime is rejected
     # ------------------------------------------------------------------
     def test_agendamento_data_futura_obrigatoria(self, mock_email, mock_wpp):

@@ -61,11 +61,16 @@ class SlotsDisponibilidadeTests(TestCase):
         self.assertEqual(slots, ['14:00', '14:30'])
 
     def test_sem_disponibilidade_no_dia(self):
+        # 'outro' cai em outro dia da semana (dia+1), sem DisponibilidadeProfissional.
         outro = self.dia + timedelta(days=1)
-        if not DisponibilidadeProfissional.objects.filter(
-            profissional=self.prof, dia_semana=_dia_semana(outro)
-        ).exists():
-            self.assertEqual(self.prof.get_horarios_disponiveis(outro, self.proc), [])
+        # Precondicao explicita: se a fixture mudar e passar a ter disponibilidade
+        # nesse dia, o teste FALHA aqui em vez de passar sem exercitar o assert.
+        self.assertFalse(
+            DisponibilidadeProfissional.objects.filter(
+                profissional=self.prof, dia_semana=_dia_semana(outro)
+            ).exists()
+        )
+        self.assertEqual(self.prof.get_horarios_disponiveis(outro, self.proc), [])
 
     def test_atendimento_existente_bloqueia_slot(self):
         cli = Cliente.objects.create(nome='Cli', telefone='17900000000')
