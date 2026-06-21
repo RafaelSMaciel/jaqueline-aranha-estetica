@@ -84,11 +84,11 @@ def admin_criar_usuario(request):
             detalhes={'papel': papel, 'profissional_id': profissional_id},
         )
 
-        _enviar_email_boas_vindas(request, usuario, senha)
+        _enviar_email_boas_vindas(request, usuario)
 
         messages.success(
             request,
-            f'Usuario {usuario.nome} criado. Senha inicial enviada por email.'
+            f'Usuario {usuario.nome} criado. Link para definir senha enviado por e-mail.'
         )
         return redirect('aranha:admin_usuarios')
 
@@ -172,17 +172,24 @@ def admin_desativar_usuario(request, pk):
     return redirect('aranha:admin_usuarios')
 
 
-def _enviar_email_boas_vindas(request, usuario, senha):
-    """Envia credenciais iniciais por email."""
-    login_url = request.build_absolute_uri(reverse('aranha:usuario_login'))
-    assunto = 'Bem-vindo(a) ao painel administrativo'
+def _enviar_email_boas_vindas(request, usuario):
+    """Envia LINK para o usuario definir a propria senha.
+
+    Nunca envia senha em texto plano (e-mail nao e canal seguro e a credencial
+    ficaria persistida na caixa do destinatario). Reusa o token de reset.
+    """
+    uid = urlsafe_base64_encode(force_bytes(usuario.pk))
+    token = default_token_generator.make_token(usuario)
+    url_definir = request.build_absolute_uri(
+        reverse('aranha:password_reset_confirm', kwargs={'uidb64': uid, 'token': token})
+    )
+    assunto = 'Bem-vindo(a) ao painel — defina sua senha'
     corpo = (
         f'Ola {usuario.nome},\n\n'
-        f'Sua conta de acesso foi criada.\n\n'
-        f'Email: {usuario.email}\n'
-        f'Senha inicial: {senha}\n\n'
-        f'Acesse: {login_url}\n\n'
-        f'Recomendamos trocar a senha no primeiro acesso.'
+        f'Sua conta de acesso ao painel foi criada (e-mail: {usuario.email}).\n\n'
+        f'Defina sua senha pelo link abaixo (validade 1 hora):\n'
+        f'{url_definir}\n\n'
+        f'Se voce nao esperava este e-mail, ignore-o.'
     )
     try:
         EmailMultiAlternatives(assunto, corpo, to=[usuario.email]).send(fail_silently=True)
