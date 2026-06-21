@@ -724,7 +724,7 @@ var CSRF_TOKEN = '{{ csrf_token }}';
             .catch(function() {
                 btnEnviar.disabled = false;
                 btnEnviar.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Enviar Codigo';
-                showError('Erro de conexao. Tente novamente.');
+                showError('Erro de conexão. Tente novamente.');
             });
         });
     }
@@ -805,7 +805,7 @@ var CSRF_TOKEN = '{{ csrf_token }}';
         btnVerificar.addEventListener('click', function() {
             var codigo = '';
             document.querySelectorAll('.code-input').forEach(function(i) { codigo += i.value; });
-            if (codigo.length !== 6) { showError('Digite o codigo completo de 6 digitos.'); return; }
+            if (codigo.length !== 6) { showError('Digite o código completo de 6 dígitos.'); return; }
 
             btnVerificar.disabled = true;
             btnVerificar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Verificando...';
@@ -823,13 +823,13 @@ var CSRF_TOKEN = '{{ csrf_token }}';
             .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
             .then(function(res) {
                 btnVerificar.disabled = false;
-                btnVerificar.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> Verificar Codigo';
+                btnVerificar.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> Verificar Código';
                 if (!res.ok) {
-                    var msg = 'Codigo invalido.';
+                    var msg = 'Código inválido.';
                     if (res.data.erro && res.data.erro.indexOf('incorreto') === 0) {
-                        msg = 'Codigo incorreto. Restam: ' + (res.data.erro.split(':')[1] || '');
-                    } else if (res.data.erro === 'bloqueado') msg = 'Muitas tentativas. Solicite outro codigo.';
-                    else if (res.data.erro === 'expirado') msg = 'Codigo expirado.';
+                        msg = 'Código incorreto. Restam: ' + (res.data.erro.split(':')[1] || '');
+                    } else if (res.data.erro === 'bloqueado') msg = 'Muitas tentativas. Solicite outro código.';
+                    else if (res.data.erro === 'expirado') msg = 'Código expirado.';
                     showError(msg);
                     // Shake the code inputs
                     document.querySelectorAll('.code-input').forEach(function(ci) {
@@ -844,8 +844,8 @@ var CSRF_TOKEN = '{{ csrf_token }}';
             })
             .catch(function() {
                 btnVerificar.disabled = false;
-                btnVerificar.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> Verificar Codigo';
-                showError('Erro de conexao. Tente novamente.');
+                btnVerificar.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> Verificar Código';
+                showError('Erro de conexão. Tente novamente.');
             });
         });
     }
@@ -941,7 +941,7 @@ var CSRF_TOKEN = '{{ csrf_token }}';
                 btn.disabled = false;
                 btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Sim, Cancelar';
                 closeCancelModal();
-                showToast('Erro de conexao. Tente novamente.', true);
+                showToast('Erro de conexão. Tente novamente.', true);
             });
         });
     }
