@@ -139,11 +139,25 @@ def confirmar_agendamento(request):
         messages.error(request, 'Todos os campos obrigatórios devem ser preenchidos.')
         return redirect('aranha:agendamento_publico')
 
+    # Identidade real do booking e o TELEFONE; exige OTP se o telefone OU o email
+    # ja pertencem a um cliente ativo — evita poluir/sequestrar cadastro alheio
+    # (antes o gate so valia quando havia email, deixando o caminho telefone-only aberto).
+    cliente_existente = Cliente.objects.filter(telefone=telefone, ativo=True).exists()
     if email:
-        cliente_existente = Cliente.objects.filter(email__iexact=email, ativo=True).exists()
+        cliente_existente = cliente_existente or Cliente.objects.filter(
+            email__iexact=email, ativo=True
+        ).exists()
+
+    if cliente_existente:
+        from ..models import CodigoOtp
         otp_email = request.session.get('otp_agendamento_email')
         otp_exp = request.session.get('otp_agendamento_expira')
-        otp_ok = bool(otp_email) and otp_email == email.lower()
+        # O OTP da sessao pode estar atrelado ao email do form OU ao pseudo-email
+        # do telefone (sms+<digitos>@...), conforme o cliente verificou.
+        identidades = {CodigoOtp.email_para_telefone(telefone)}
+        if email:
+            identidades.add(email.lower())
+        otp_ok = bool(otp_email) and otp_email in identidades
         if otp_ok and otp_exp:
             try:
                 exp = datetime.fromisoformat(otp_exp)
@@ -152,7 +166,7 @@ def confirmar_agendamento(request):
                 otp_ok = exp > timezone.now()
             except (ValueError, TypeError):
                 otp_ok = False
-        if cliente_existente and not otp_ok:
+        if not otp_ok:
             messages.error(request, 'Confirme com o codigo SMS enviado ao seu telefone antes de prosseguir.')
             return redirect('aranha:agendamento_publico')
 
