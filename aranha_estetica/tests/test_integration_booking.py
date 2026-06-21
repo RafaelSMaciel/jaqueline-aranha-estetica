@@ -46,8 +46,13 @@ class IntegrationBookingFlowTests(TestCase):
         self.proc = criar_procedimento(profissional=self.prof, preco=Decimal('150.00'))
         self.url = reverse(CONFIRMAR_URL)
 
-    def _post(self, mock_email=None, mock_wpp=None, **overrides):
-        """POST to confirmar_agendamento with sensible defaults."""
+    def _post(self, mock_email=None, mock_wpp=None, with_otp=False, **overrides):
+        """POST to confirmar_agendamento with sensible defaults.
+
+        with_otp=True simula o cliente recorrente ja tendo verificado o OTP por
+        SMS no wizard (sessao com pseudo-email do telefone), necessario para o
+        gate anti-sequestro de cadastro de cliente existente.
+        """
         data = {
             'nome': 'Ana Integracao',
             'telefone': '17988881111',
@@ -57,6 +62,18 @@ class IntegrationBookingFlowTests(TestCase):
             'datetime': _future_datetime_iso(),
         }
         data.update(overrides)
+        if with_otp:
+            from datetime import timedelta
+
+            from django.utils import timezone
+
+            from aranha_estetica.models import CodigoOtp
+            session = self.client.session
+            session['otp_agendamento_email'] = CodigoOtp.email_para_telefone(data['telefone'])
+            session['otp_agendamento_expira'] = (
+                timezone.now() + timedelta(minutes=10)
+            ).isoformat()
+            session.save()
         return self.client.post(self.url, data)
 
     # ------------------------------------------------------------------
@@ -133,11 +150,13 @@ class IntegrationBookingFlowTests(TestCase):
         pre_count = Cliente.objects.filter(telefone='17988882222').count()
         self.assertEqual(pre_count, 1)
 
-        # Book with the same phone (different slot to avoid conflicts)
+        # Book with the same phone (different slot to avoid conflicts).
+        # Cliente recorrente -> precisa do OTP verificado (gate anti-sequestro).
         resp = self._post(
             telefone='17988882222',
             nome='Nome Atualizado',
             datetime=_future_datetime_iso(days=3, hour=11),
+            with_otp=True,
         )
         self.assertEqual(resp.status_code, 302)
 

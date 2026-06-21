@@ -31,7 +31,7 @@ class ConfirmarAgendamentoTests(TestCase):
         self.datetime_str = base.isoformat()
         self.url = reverse('aranha:confirmar_agendamento')
 
-    def _post(self, **overrides):
+    def _post(self, with_otp=False, **overrides):
         data = {
             'nome': 'Maria Teste',
             'telefone': '17999991111',
@@ -41,6 +41,18 @@ class ConfirmarAgendamentoTests(TestCase):
             'datetime': self.datetime_str,
         }
         data.update(overrides)
+        if with_otp:
+            from datetime import timedelta
+
+            from django.utils import timezone
+
+            from aranha_estetica.models import CodigoOtp
+            session = self.client.session
+            session['otp_agendamento_email'] = CodigoOtp.email_para_telefone(data['telefone'])
+            session['otp_agendamento_expira'] = (
+                timezone.now() + timedelta(minutes=10)
+            ).isoformat()
+            session.save()
         return self.client.post(self.url, data)
 
     def test_cria_cliente_novo_e_atendimento(self, _):
@@ -56,7 +68,8 @@ class ConfirmarAgendamentoTests(TestCase):
 
     def test_reutiliza_cliente_existente_e_atualiza_nome(self, _):
         Cliente.objects.create(nome='Antigo Nome', telefone='17999991111')
-        self._post(nome='Nome Novo')
+        # Cliente recorrente -> OTP verificado (gate anti-sequestro de cadastro)
+        self._post(nome='Nome Novo', with_otp=True)
 
         clientes = Cliente.objects.filter(telefone='17999991111')
         self.assertEqual(clientes.count(), 1)
