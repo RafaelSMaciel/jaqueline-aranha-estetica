@@ -712,7 +712,7 @@ var CSRF_TOKEN = '{{ csrf_token }}';
                 if (!res.ok) {
                     if (res.data.erro === 'captcha') showError('Validacao de seguranca falhou. Recarregue.');
                     else if (res.data.erro === 'aguarde') showError('Aguarde alguns segundos antes de reenviar.');
-                    else showError('Erro ao enviar codigo.');
+                    else showError('Erro ao enviar código.');
                 } else {
                     hideError();
                     document.getElementById('code-section').style.display = 'block';
