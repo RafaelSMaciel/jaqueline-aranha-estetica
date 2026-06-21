@@ -238,4 +238,18 @@ Auditoria multi-agente (10 módulos) → **149 achados: 31 alta, 71 média, 47 b
 
 ---
 
-_Última atualização: 2026-06-21 — Backend Ondas 1+2 corrigidas (17 alta: bugs/segurança/transações/corrida). Resta Onda 3 (5 decisões de arquitetura + 3 itens entrelaçados que viraram decisão) + 71 média + 47 baixa._
+### Backend — progresso de correção
+- **✅ 20 alta** (Onda 1: 8 · Onda 2: 9 · Onda 3 seguras: domain stubs, Procfile beat, senha-por-link).
+- **✅ 71 média** (workflow particionado em 10 agentes, arquivos disjuntos; verificado: check + 213 testes + migrations; migração 0039 [validators/check]). Um teste fortalecido expôs bug real → +guard de data-passada no booking. ~6 médias puladas com motivo (refactor grande/decisão: `__str__` PII testado, métodos da Carteira, retry policy de e-mail).
+- **⏳ ~7 alta + 47 baixa pendentes** (Onda 3 — refactor grande/decisão):
+  1. `AgendamentoService` **duplicado** (legado+novo, ambos vivos) — escolher canônico + migrar callers (arriscado p/ booking).
+  2. `get_horarios_disponiveis` **fat-model** (110 linhas) → extrair `SlotService` (refactor do core de slot).
+  3. `Cliente.delete()` faz **hard-delete** → override soft (muda semântica de cascatas/admin).
+  4. **booking_public OTP-gate por telefone** (entrelaçado com fluxo OTP e-mail/SMS + front).
+  5. `job_limpeza` marca PENDENTE→FALTOU mas a **FSM não permite** — decidir a regra.
+  6. `settings/__init__` default `dev` por fallback (deploy: setar `DJANGO_ENV=prod`).
+  7. `decorators_2fa.staff_otp_required` dead (middleware é o gate canônico).
+
+---
+
+_Última atualização: 2026-06-21 — Backend: 20 alta + 71 média corrigidas e verificadas (213 testes, migração 0039). Restam ~7 alta de refactor-grande/decisão + 47 baixa._
