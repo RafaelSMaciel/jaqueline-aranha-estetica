@@ -107,6 +107,8 @@ def reagendar_agendamento(request, token):
 
     try:
         nova_data = datetime.fromisoformat(datetime_str)
+        if timezone.is_naive(nova_data):
+            nova_data = timezone.make_aware(nova_data)
     except ValueError:
         messages.error(request, 'Data/horario invalidos.')
         return redirect('aranha:reagendar_agendamento', token=token)

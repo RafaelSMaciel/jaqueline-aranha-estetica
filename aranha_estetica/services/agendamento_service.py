@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from ..domain.event_bus import EventBus
@@ -115,14 +115,18 @@ class AgendamentoService:
         # Cria atendimento
         from datetime import timedelta
         data_fim = cmd.data_hora_inicio + timedelta(minutes=procedimento.duracao_minutos)
-        atendimento = Atendimento.objects.create(
-            cliente=cliente,
-            profissional=profissional,
-            procedimento=procedimento,
-            data_hora_inicio=cmd.data_hora_inicio,
-            data_hora_fim=data_fim,
-            status='PENDENTE',
-        )
+        try:
+            atendimento = Atendimento.objects.create(
+                cliente=cliente,
+                profissional=profissional,
+                procedimento=procedimento,
+                data_hora_inicio=cmd.data_hora_inicio,
+                data_hora_fim=data_fim,
+                status='PENDENTE',
+            )
+        except IntegrityError as exc:
+            # Corrida perdida na constraint de exclusao -> erro de dominio (nao 500)
+            raise BusinessRuleViolation('Horario indisponivel.') from exc
 
         # Audit + LGPD
         registrar_log(
