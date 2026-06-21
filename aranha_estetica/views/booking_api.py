@@ -238,7 +238,13 @@ def verificar_telefone(request):
         if getattr(request, 'limited', False):
             return JsonResponse({'error': 'Muitas tentativas. Aguarde um momento.'}, status=429)
 
-        data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
+        if request.content_type == 'application/json':
+            try:
+                data = json.loads(request.body)
+            except json.JSONDecodeError:
+                return JsonResponse({'error': 'Dados inválidos'}, status=400)
+        else:
+            data = request.POST
         action = data.get('action', '')
         from ..validators import normalizar_telefone
         telefone = normalizar_telefone(data.get('telefone', ''))
@@ -333,8 +339,8 @@ def cancelar_agendamento(request):
 
     except json.JSONDecodeError:
         return JsonResponse({'erro': 'Dados inválidos'}, status=400)
-    except DatabaseError as e:
-        logger.error(f'Erro ao cancelar agendamento: {e}', exc_info=True)
+    except DatabaseError:
+        logger.error('cancelar_agendamento_falha', exc_info=True)
         return JsonResponse({'erro': 'Ocorreu um erro interno. Tente novamente.'}, status=500)
 
 

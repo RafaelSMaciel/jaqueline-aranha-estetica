@@ -19,6 +19,8 @@ from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
+from .precos import mask_telefone
+
 logger = logging.getLogger(__name__)
 
 # Configuracoes via variaveis de ambiente
@@ -63,7 +65,6 @@ def enviar_whatsapp(telefone, mensagem, _tentativa=1):
     telefone_formatado = formatar_telefone(telefone)
 
     if not WHATSAPP_TOKEN or settings.DEBUG:
-        from .precos import mask_telefone
         logger.info(
             '[WHATSAPP DEV] Para: %s | Mensagem: %s...',
             mask_telefone(telefone_formatado), mensagem[:200],
@@ -88,7 +89,6 @@ def enviar_whatsapp(telefone, mensagem, _tentativa=1):
             timeout=10
         )
         if response.status_code in (200, 201):
-            from .precos import mask_telefone
             logger.info('whatsapp_enviado', extra={'telefone_mask': mask_telefone(telefone_formatado)})
             return True
         elif response.status_code >= 500 and _tentativa < MAX_RETRIES:
@@ -135,7 +135,6 @@ def enviar_template_whatsapp(telefone, template_name, components=None):
     telefone_formatado = formatar_telefone(telefone)
 
     if not WHATSAPP_TOKEN or settings.DEBUG:
-        from .precos import mask_telefone
         logger.info(
             'whatsapp_dev_template',
             extra={
@@ -165,7 +164,6 @@ def enviar_template_whatsapp(telefone, template_name, components=None):
 
         response = requests.post(WHATSAPP_API_URL, json=payload, headers=headers, timeout=10)
         if response.status_code in (200, 201):
-            from .precos import mask_telefone
             logger.info(
                 'whatsapp_template_enviado',
                 extra={

@@ -1,6 +1,8 @@
 """Forms relacionados a agendamento publico / cancelamento."""
 import re
-from datetime import datetime
+# Importado como modulo (nao `from datetime import datetime`) porque o form
+# tem um campo chamado `datetime`, que sombrearia o nome importado.
+import datetime as _datetime
 
 from django import forms
 from django.core.exceptions import ValidationError
@@ -44,7 +46,7 @@ class AgendamentoPublicoForm(forms.Form):
         raw = self.cleaned_data.get('datetime', '')
         for fmt in ('%Y-%m-%dT%H:%M', '%Y-%m-%d %H:%M', '%Y-%m-%dT%H:%M:%S'):
             try:
-                return datetime.strptime(raw, fmt)
+                return _datetime.datetime.strptime(raw, fmt)
             except ValueError:
                 continue
         raise ValidationError('Data/hora invalida.')

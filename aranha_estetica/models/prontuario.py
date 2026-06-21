@@ -26,6 +26,9 @@ class Prontuario(models.Model):
         managed = True
         db_table = 'prontuario'
 
+    def __str__(self):
+        return f'Prontuario {self.cliente_id}'
+
 
 # ProntuarioPergunta/ProntuarioResposta removidos na remodelagem v2.1
 # fase 5 — EAV substituido por Prontuario.respostas_extras (JSONB).

@@ -38,7 +38,10 @@ CACHE_TTL_CONFIG = 600         # 10min
 
 
 # ─── Financeiro ─────────────────────────────────────────────────────────
-TAXA_NO_SHOW_PERCENTUAL = Decimal('0.50')
+# Convencao de unidade: `_PERCENTUAL` como Decimal e uma FRACAO (0.50 = 50%),
+# usada em aritmetica monetaria. Ja `DESCONTO_ANIVERSARIO_PERCENTUAL` abaixo e
+# um inteiro de exibicao (15 = "15%"), usado apenas em copy de email/WhatsApp.
+TAXA_NO_SHOW_PERCENTUAL = Decimal('0.50')  # fracao (50% do valor do servico)
 
 
 # ─── Fidelidade / Cashback (F-CSB) ─────────────────────────────────────
@@ -47,6 +50,8 @@ SALDO_MINIMO_USO_CASHBACK = Decimal('10.00')
 
 
 # ─── Aniversario ───────────────────────────────────────────────────────
+# Percentual inteiro de EXIBICAO (15 = "15%"), interpolado em copy de
+# email/WhatsApp — nao usar em aritmetica monetaria (ver convencao em Financeiro).
 DESCONTO_ANIVERSARIO_PERCENTUAL = 15
 VALIDADE_CUPOM_ANIVERSARIO_DIAS = 7
 

@@ -12,7 +12,7 @@ from django.views.decorators.http import require_http_methods
 from django_ratelimit.decorators import ratelimit
 
 from ..models import AvaliacaoNPS, Notificacao
-from ..utils.precos import mask_telefone
+from ..utils.pii import mask_telefone
 
 logger = logging.getLogger(__name__)
 

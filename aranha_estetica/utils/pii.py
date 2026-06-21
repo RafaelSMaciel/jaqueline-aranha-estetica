@@ -60,8 +60,8 @@ _SENTRY_PII_KEYS = {
 def sentry_before_send(event: dict, hint: dict) -> dict:
     """Filtra PII de eventos Sentry antes do envio.
 
-    Mascara campos `extra`/`contexts.custom` cujas keys batam com lista PII.
-    Removido completamente do `request.data` (POST body).
+    Mascara campos de `extra` cujas keys batam com a lista PII e remove
+    completamente o `request.data` (POST body), substituindo por `[scrubbed]`.
     """
     extra = event.get('extra') or {}
     for key in list(extra.keys()):

@@ -75,6 +75,9 @@ class Cliente(models.Model):
     deletado_em = models.DateTimeField(blank=True, null=True, db_index=True)
 
     objects = ClienteAtivosManager()
+    # all_objects: Manager nu de proposito — retorna TODOS (inclui soft-deleted),
+    # usado por _gerar_codigo_indicacao/registrar_falta. Difere da semantica do
+    # SoftDeleteMixin; unificar e tarefa de refactor maior (ver finding 'alta').
     all_objects = models.Manager()
 
     class Meta:

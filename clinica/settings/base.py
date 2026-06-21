@@ -371,12 +371,11 @@ LOGGING = {
             'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
             'style': '{',
         },
+        # So referenciado quando not DEBUG (_LOG_FORMATTER vira 'json'); em DEBUG
+        # o handler usa 'verbose', entao este formatter nunca e instanciado.
         'json': {
             '()': 'pythonjsonlogger.jsonlogger.JsonFormatter',
             'format': '%(asctime)s %(name)s %(levelname)s %(message)s',
-        } if not DEBUG else {
-            'format': '{levelname} {asctime} {module} {message}',
-            'style': '{',
         },
     },
     'handlers': {

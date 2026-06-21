@@ -2,10 +2,12 @@
 import hashlib
 import hmac
 import json
+from unittest.mock import patch
 
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
+import aranha_estetica.views.whatsapp as whatsapp_mod
 from aranha_estetica.models import AvaliacaoNPS, Notificacao
 
 from .factories import (
@@ -41,9 +43,7 @@ class WhatsAppWebhookAssinaturaTests(TestCase):
         self.url = reverse('aranha:whatsapp_webhook')
 
     def test_webhook_rejeita_sem_assinatura(self):
-        with self.settings():
-            import aranha_estetica.views.whatsapp as whatsapp_mod
-            whatsapp_mod.WHATSAPP_APP_SECRET = APP_SECRET
+        with patch.object(whatsapp_mod, 'WHATSAPP_APP_SECRET', APP_SECRET):
             resp = self.client.post(
                 self.url,
                 data=json.dumps({'body': 'hello'}),
@@ -52,41 +52,35 @@ class WhatsAppWebhookAssinaturaTests(TestCase):
         self.assertEqual(resp.status_code, 403)
 
     def test_webhook_rejeita_assinatura_invalida(self):
-        import aranha_estetica.views.whatsapp as whatsapp_mod
-        whatsapp_mod.WHATSAPP_APP_SECRET = APP_SECRET
-
         body = json.dumps({'body': 'hello'}).encode()
-        resp = self.client.post(
-            self.url,
-            data=body,
-            content_type='application/json',
-            HTTP_X_HUB_SIGNATURE_256='sha256=deadbeef',
-        )
+        with patch.object(whatsapp_mod, 'WHATSAPP_APP_SECRET', APP_SECRET):
+            resp = self.client.post(
+                self.url,
+                data=body,
+                content_type='application/json',
+                HTTP_X_HUB_SIGNATURE_256='sha256=deadbeef',
+            )
         self.assertEqual(resp.status_code, 403)
 
     def test_webhook_aceita_assinatura_valida(self):
-        import aranha_estetica.views.whatsapp as whatsapp_mod
-        whatsapp_mod.WHATSAPP_APP_SECRET = APP_SECRET
-
         body = json.dumps({'body': '8'}).encode()
-        resp = self.client.post(
-            self.url,
-            data=body,
-            content_type='application/json',
-            HTTP_X_HUB_SIGNATURE_256=_assinar(body),
-        )
+        with patch.object(whatsapp_mod, 'WHATSAPP_APP_SECRET', APP_SECRET):
+            resp = self.client.post(
+                self.url,
+                data=body,
+                content_type='application/json',
+                HTTP_X_HUB_SIGNATURE_256=_assinar(body),
+            )
         self.assertEqual(resp.status_code, 200)
 
     def test_webhook_fail_closed_sem_secret_em_producao(self):
         """Se DEBUG=False e sem APP_SECRET, deve rejeitar por seguranca."""
-        import aranha_estetica.views.whatsapp as whatsapp_mod
-        whatsapp_mod.WHATSAPP_APP_SECRET = ''
-
-        resp = self.client.post(
-            self.url,
-            data=json.dumps({'body': 'hi'}),
-            content_type='application/json',
-        )
+        with patch.object(whatsapp_mod, 'WHATSAPP_APP_SECRET', ''):
+            resp = self.client.post(
+                self.url,
+                data=json.dumps({'body': 'hi'}),
+                content_type='application/json',
+            )
         self.assertEqual(resp.status_code, 403)
 
 
@@ -96,8 +90,10 @@ class WhatsAppWebhookNPSTests(TestCase):
         self.client = Client()
         self.url = reverse('aranha:whatsapp_webhook')
         # Secret obrigatorio (fail-closed) — mesmo em DEBUG.
-        import aranha_estetica.views.whatsapp as whatsapp_mod
-        whatsapp_mod.WHATSAPP_APP_SECRET = APP_SECRET
+        # patch.object com addCleanup restaura o valor original ao fim do teste.
+        secret_patch = patch.object(whatsapp_mod, 'WHATSAPP_APP_SECRET', APP_SECRET)
+        secret_patch.start()
+        self.addCleanup(secret_patch.stop)
 
         self.cliente = criar_cliente(telefone='17988887777')
         self.prof = criar_profissional()

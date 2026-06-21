@@ -55,11 +55,32 @@ class _BaseNotificacao:
 
 
 class NotificacaoService(_BaseNotificacao):
-    """API legada. Delega para classes por canal."""
+    """API legada. Delega para classes por canal.
 
-    registrar = _BaseNotificacao._registrar
-    marcar_enviada = _BaseNotificacao._marcar_enviada
-    marcar_falhou = _BaseNotificacao._marcar_falhou
+    Mantida por compatibilidade: expoe os helpers da base como metodos
+    publicos (registrar/marcar_enviada/marcar_falhou) via wrappers explicitos,
+    em vez de alias de atributo de classe.
+    """
+
+    @staticmethod
+    def registrar(
+        atendimento: Optional[Atendimento],
+        *,
+        tipo: str,
+        canal: str,
+        mensagem: str = '',
+    ) -> Notificacao:
+        return _BaseNotificacao._registrar(
+            atendimento, tipo=tipo, canal=canal, mensagem=mensagem,
+        )
+
+    @staticmethod
+    def marcar_enviada(notificacao: Notificacao) -> None:
+        _BaseNotificacao._marcar_enviada(notificacao)
+
+    @staticmethod
+    def marcar_falhou(notificacao: Notificacao, erro: str = '') -> None:
+        _BaseNotificacao._marcar_falhou(notificacao, erro)
 
 
 # ═══════════════════════════════════════════════════════════════

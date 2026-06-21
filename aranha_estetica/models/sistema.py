@@ -1,5 +1,11 @@
 # aranha_estetica/models/sistema.py — Auditoria, configuracao, lista de espera, verificacao
-from django.db import models
+import hashlib
+import os
+import secrets
+from datetime import timedelta
+
+from django.db import connection, models, transaction
+from django.utils import timezone
 
 from .clientes import Cliente
 from .procedimentos import Procedimento
@@ -146,10 +152,9 @@ class CodigoOtp(models.Model):
     CANAL_SMS = 'SMS'
     CANAL_CHOICES = [(CANAL_EMAIL, 'Email'), (CANAL_SMS, 'SMS')]
 
-    import os as _os
-    TTL_SEGUNDOS = int(_os.environ.get('OTP_TTL_SEGUNDOS', '600'))  # 10 min default
-    MAX_TENTATIVAS = int(_os.environ.get('OTP_MAX_TENTATIVAS', '5'))
-    REENVIO_MINIMO_SEG = int(_os.environ.get('OTP_REENVIO_MINIMO_SEG', '60'))
+    TTL_SEGUNDOS = int(os.environ.get('OTP_TTL_SEGUNDOS', '600'))  # 10 min default
+    MAX_TENTATIVAS = int(os.environ.get('OTP_MAX_TENTATIVAS', '5'))
+    REENVIO_MINIMO_SEG = int(os.environ.get('OTP_REENVIO_MINIMO_SEG', '60'))
 
     email = models.EmailField()
     telefone = models.CharField(max_length=20, blank=True, null=True)
@@ -166,6 +171,9 @@ class CodigoOtp(models.Model):
         managed = True
         db_table = 'codigo_otp'
         constraints = [
+            # Teto de banco (10) > MAX_TENTATIVAS logico (default 5) de proposito:
+            # o lockout aplicativo bloqueia antes; o CHECK e apenas guarda-corpo
+            # contra valores absurdos vindos de escrita direta.
             models.CheckConstraint(
                 check=models.Q(tentativas__lte=10),
                 name='chk_otp_tentativas_teto',
@@ -181,7 +189,6 @@ class CodigoOtp(models.Model):
 
     @property
     def esta_valido(self):
-        from django.utils import timezone
         return (
             self.usado_em is None
             and self.expira_em > timezone.now()
@@ -214,8 +221,6 @@ class CodigoOtp(models.Model):
     @classmethod
     def pode_reenviar(cls, email, proposito=PROPOSITO_AGENDAMENTO):
         """True se passou REENVIO_MINIMO_SEG desde ultimo codigo."""
-        from datetime import timedelta
-        from django.utils import timezone
         limite = timezone.now() - timedelta(seconds=cls.REENVIO_MINIMO_SEG)
         return not cls.objects.filter(
             email=email, proposito=proposito, criado_em__gt=limite
@@ -224,11 +229,6 @@ class CodigoOtp(models.Model):
     @classmethod
     def gerar(cls, email, ip=None, proposito=PROPOSITO_AGENDAMENTO, canal=CANAL_SMS, telefone=None):
         """Invalida anteriores, cria novo. Retorna (codigo_plano, obj)."""
-        import hashlib
-        import secrets
-        from datetime import timedelta
-        from django.utils import timezone
-
         codigo = f'{secrets.randbelow(1_000_000):06d}'
         codigo_hash = hashlib.sha256(codigo.encode()).hexdigest()
         agora = timezone.now()
@@ -251,10 +251,6 @@ class CodigoOtp(models.Model):
     @classmethod
     def verificar(cls, email, codigo, proposito=PROPOSITO_AGENDAMENTO):
         """Consome atomicamente. Retorna (ok, motivo)."""
-        import hashlib
-        from django.db import connection, transaction
-        from django.utils import timezone
-
         codigo_hash = hashlib.sha256((codigo or '').encode()).hexdigest()
 
         with transaction.atomic():

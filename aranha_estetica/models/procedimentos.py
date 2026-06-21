@@ -2,6 +2,7 @@
 from datetime import date
 
 from django.db import models
+from django.utils import timezone
 
 from .profissionais import Profissional
 
@@ -177,8 +178,9 @@ class Promocao(models.Model):
 
     @property
     def esta_vigente(self):
-        from django.utils import timezone
-        hoje = timezone.now().date()
+        # Vigencia = janela de datas + flag ativa (nao avalia o XOR desconto/preco,
+        # que ja e garantido por chk_promocao_desconto_xor_preco no banco).
+        hoje = timezone.localdate()
         return self.ativa and self.data_inicio <= hoje <= self.data_fim
 
     def __str__(self):
