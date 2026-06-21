@@ -1,80 +1,25 @@
-"""Handlers do dominio — subscribers do EventBus.
+"""Handlers do dominio — subscribers do EventBus (apenas logging/auditoria).
 
-Importado em apps.py:ready() para ativar registry.
-Cada handler eh idempotente (eventos podem ser republicados em testes).
+IMPORTANTE: a logica de negocio reativa NAO mora aqui. Ela vive em:
+- `signals.py` (post_save de Atendimento): debito de sessao de pacote, reset/registro
+  de faltas (3-strike).
+- `services/comissao_service.py` e `services/fidelidade_service.py`: assinam o EventBus
+  diretamente (calculo/estorno de comissao e cashback).
 
-Pattern:
-    @EventBus.subscribe(EventType)
-    def handler_name(event: EventType):
-        # logica reativa (notificar, atualizar agregado relacionado, etc.)
+Estes handlers cobrem somente o logging estruturado para auditoria. (Antes havia
+stubs que apenas logavam e davam falsa impressao de arquitetura orientada a eventos —
+removidos para nao confundir com a logica real acima.)
+
+Importado em apps.py:ready() para ativar o registry.
 """
 import logging
 
 from .event_bus import EventBus
-from .events import (
-    AtendimentoCancelado,
-    AtendimentoConfirmado,
-    AtendimentoCriado,
-    AtendimentoFaltou,
-    AtendimentoRealizado,
-    ConsentRegistrado,
-)
+from .events import AtendimentoConfirmado, ConsentRegistrado
 
 logger = logging.getLogger(__name__)
 
 
-# ─── Atendimento criado ──────────────────────────────────────────────
-@EventBus.subscribe(AtendimentoCriado)
-def notificar_admin_novo_agendamento(event: AtendimentoCriado) -> None:
-    """Push notification + email admin sobre novo agendamento PENDENTE."""
-    logger.info(
-        'handler_notificar_admin',
-        extra={'event': 'AtendimentoCriado', 'atendimento_id': event.atendimento_id},
-    )
-    # Implementacao real: enqueue Celery task que monta payload + envia
-    # via webpush + email — handler fica leve, async.
-
-
-# ─── Atendimento realizado ───────────────────────────────────────────
-@EventBus.subscribe(AtendimentoRealizado)
-def consumir_sessao_pacote(event: AtendimentoRealizado) -> None:
-    """Se atendimento estava vinculado a CompraPacote, decrementa sessao."""
-    logger.info(
-        'handler_consumir_sessao',
-        extra={'atendimento_id': event.atendimento_id},
-    )
-
-
-@EventBus.subscribe(AtendimentoRealizado)
-def disparar_workflow_nps(event: AtendimentoRealizado) -> None:
-    """Workflow AFTER_EVENT NPS (offset +24h) — enfileira via Celery."""
-    logger.info(
-        'handler_workflow_nps',
-        extra={'atendimento_id': event.atendimento_id},
-    )
-
-
-# ─── Atendimento faltou ──────────────────────────────────────────────
-@EventBus.subscribe(AtendimentoFaltou)
-def incrementar_contador_no_show(event: AtendimentoFaltou) -> None:
-    """Incrementa Cliente.faltas_consecutivas. Bloqueia se >= 3."""
-    logger.info(
-        'handler_no_show',
-        extra={'atendimento_id': event.atendimento_id, 'cliente_id': event.cliente_id},
-    )
-
-
-# ─── Atendimento cancelado ───────────────────────────────────────────
-@EventBus.subscribe(AtendimentoCancelado)
-def notificar_lista_espera(event: AtendimentoCancelado) -> None:
-    """Slot liberou — notifica primeiro da ListaEspera p/ aquele profissional."""
-    logger.info(
-        'handler_lista_espera',
-        extra={'atendimento_id': event.atendimento_id},
-    )
-
-
-# ─── Atendimento confirmado ──────────────────────────────────────────
 @EventBus.subscribe(AtendimentoConfirmado)
 def log_confirmacao(event: AtendimentoConfirmado) -> None:
     logger.info(
@@ -86,7 +31,6 @@ def log_confirmacao(event: AtendimentoConfirmado) -> None:
     )
 
 
-# ─── Consent registrado ──────────────────────────────────────────────
 @EventBus.subscribe(ConsentRegistrado)
 def log_consent_audit(event: ConsentRegistrado) -> None:
     """Log estruturado p/ auditoria LGPD (Art. 37)."""
