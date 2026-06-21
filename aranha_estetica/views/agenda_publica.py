@@ -109,7 +109,7 @@ def embed_agendar(request):
     """
     procedimentos = []
     try:
-        from ..services.agendamento import preco_base_map
+        from ..utils.precos import preco_base_map
         procs_qs = list(Procedimento.objects.filter(ativo=True))
         precos = preco_base_map(procs_qs)
         for p in procs_qs:
