@@ -56,116 +56,12 @@ class Profissional(models.Model):
         super().save(*args, **kwargs)
 
     def get_horarios_disponiveis(self, data_selecionada, procedimento=None):
-        """Slots livres no dia, considerando:
-          - Feriado bloqueador
-          - ExcecaoDisponibilidade (folga ou horario diferente da regra semanal)
-          - DisponibilidadeProfissional (regra semanal)
-          - Atendimentos confirmados/pendentes (com buffer do procedimento)
-          - BloqueioAgenda
-          - min_notice_horas / max_advance_dias do profissional
-
-        procedimento opcional: aplica buffer_minutos ao avaliar conflitos.
-        """
-        from django.utils import timezone
-
-        Feriado = self._get_model('Feriado')
-        if Feriado.objects.filter(data=data_selecionada, bloqueia_agendamento=True).exists():
-            return []
-
-        agora = timezone.localtime()
-        limite_min_notice = agora + timedelta(hours=self.min_notice_horas)
-        limite_max_advance = (agora + timedelta(days=self.max_advance_dias)).date()
-        if data_selecionada > limite_max_advance:
-            return []
-
-        excecoes = ExcecaoDisponibilidade.objects.filter(
-            profissional=self, data=data_selecionada
-        )
-        excecao_horario = None
-        for ex in excecoes:
-            if ex.tipo == 'FOLGA':
-                return []
-            if ex.tipo == 'HORARIO_DIFERENTE' and ex.hora_inicio and ex.hora_fim:
-                excecao_horario = ex
-                break
-
-        if excecao_horario:
-            janelas = [(excecao_horario.hora_inicio, excecao_horario.hora_fim)]
-        else:
-            dia_semana = data_selecionada.isoweekday() % 7 + 1
-            disponibilidades = DisponibilidadeProfissional.objects.filter(
-                profissional=self,
-                dia_semana=dia_semana
-            )
-            if not disponibilidades.exists():
-                return []
-            janelas = [(d.hora_inicio, d.hora_fim) for d in disponibilidades]
-
-        agendamentos = list(self._get_model('Atendimento').objects.filter(
-            profissional=self,
-            data_hora_inicio__date=data_selecionada,
-            status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO']
-        ).select_related('procedimento'))
-
-        from datetime import datetime as _dt
-        dia_inicio = _dt.combine(data_selecionada, _dt.min.time())
-        dia_fim = _dt.combine(data_selecionada, _dt.max.time())
-        if timezone.is_naive(dia_inicio):
-            tz = timezone.get_current_timezone()
-            dia_inicio = timezone.make_aware(dia_inicio, tz)
-            dia_fim = timezone.make_aware(dia_fim, tz)
-
-        # Bloqueios pontuais (sem recorrencia) intersectando o dia
-        bloqueios_raw = list(BloqueioAgenda.objects.filter(
-            profissional=self,
-        ).filter(
-            models.Q(regra_recorrencia='') &
-            models.Q(data_hora_inicio__date__lte=data_selecionada) &
-            models.Q(data_hora_fim__date__gte=data_selecionada)
-        ))
-        # Bloqueios recorrentes (qualquer profissional self) — expande p/ janela do dia
-        recorrentes = BloqueioAgenda.objects.filter(profissional=self).exclude(regra_recorrencia='')
-        bloqueios_intervalos = [(b.data_hora_inicio, b.data_hora_fim) for b in bloqueios_raw]
-        for b in recorrentes:
-            bloqueios_intervalos.extend(b.expandir_ocorrencias(dia_inicio, dia_fim))
-
-        buffer_proc = timedelta(minutes=procedimento.buffer_minutos) if procedimento else timedelta(0)
-
-        horarios_disponiveis = []
-        intervalo = timedelta(minutes=30)
-
-        for hora_ini, hora_fim in janelas:
-            hora_atual = datetime.combine(data_selecionada, hora_ini)
-            hora_fim_expediente = datetime.combine(data_selecionada, hora_fim)
-            if timezone.is_naive(hora_atual):
-                tz = timezone.get_current_timezone()
-                hora_atual = timezone.make_aware(hora_atual, tz)
-                hora_fim_expediente = timezone.make_aware(hora_fim_expediente, tz)
-
-            while hora_atual < hora_fim_expediente:
-                if hora_atual < limite_min_notice:
-                    hora_atual += intervalo
-                    continue
-
-                horario_ocupado = False
-                for ag in agendamentos:
-                    buf_ag = timedelta(minutes=ag.procedimento.buffer_minutos) if ag.procedimento_id else timedelta(0)
-                    bloqueio_fim = ag.data_hora_fim + max(buf_ag, buffer_proc)
-                    if ag.data_hora_inicio <= hora_atual < bloqueio_fim:
-                        horario_ocupado = True
-                        break
-                if not horario_ocupado:
-                    for bl_ini, bl_fim in bloqueios_intervalos:
-                        if bl_ini <= hora_atual < bl_fim:
-                            horario_ocupado = True
-                            break
-                if not horario_ocupado:
-                    horario_str = hora_atual.strftime('%H:%M')
-                    if horario_str not in horarios_disponiveis:
-                        horarios_disponiveis.append(horario_str)
-                hora_atual += intervalo
-
-        return sorted(horarios_disponiveis)
+        """Slots livres no dia (feriado, excecao, regra semanal, atendimentos com
+        buffer, bloqueios, min_notice/max_advance). Logica em
+        services.disponibilidade.SlotService — extraida do model para uma camada
+        testavel; comportamento preservado (tests/test_slots_disponibilidade.py)."""
+        from ..services.disponibilidade import SlotService
+        return SlotService.slots_livres(self, data_selecionada, procedimento)
 
     @staticmethod
     def _get_model(name):
