@@ -264,8 +264,10 @@ def lista_espera_publica(request):
         logger.warning('Tabelas de procedimento/profissional nao encontradas.')
 
     if request.method == 'POST':
+        from ..validators import normalizar_telefone
         nome = request.POST.get('nome', '').strip()
-        telefone = request.POST.get('telefone', '').strip()
+        # Normaliza igual ao booking, senao get_or_create cria duplicado / 500 por unique
+        telefone = normalizar_telefone(request.POST.get('telefone', ''))
         procedimento_id = request.POST.get('procedimento', '')
         profissional_id = request.POST.get('profissional', '')
         data_desejada = request.POST.get('data_desejada', '')

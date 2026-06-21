@@ -35,7 +35,7 @@ def prontuario_consentimento(request):
 
     clientes = clientes.annotate(
         tem_prontuario=Exists(Prontuario.objects.filter(cliente=OuterRef('pk'))),
-        total_termos=Count('aceiteprivacidade', distinct=True),
+        total_termos=Count('aceites', distinct=True),
     )
 
     paginator = Paginator(clientes, 50)
@@ -123,14 +123,27 @@ def admin_atualizar_status(request):
         atendimento_id = data.get('atendimento_id')
         novo_status = data.get('status', '').upper()
 
-        status_validos = ['PENDENTE', 'AGENDADO', 'CONFIRMADO', 'REALIZADO', 'CANCELADO', 'FALTOU']
-        if novo_status not in status_validos:
-            return JsonResponse({'erro': f'Status inválido. Use: {", ".join(status_validos)}'}, status=400)
-
         atendimento = get_object_or_404(Atendimento, pk=atendimento_id)
         status_anterior = atendimento.status
-        atendimento.status = novo_status
-        atendimento.save()
+
+        # Usa a FSM do model: valida a transicao e publica os eventos colaterais
+        # (no-show, etc.). Evita transicoes invalidas como REALIZADO -> PENDENTE.
+        metodos = {
+            'CONFIRMADO': atendimento.confirmar,
+            'REALIZADO': atendimento.marcar_realizado,
+            'CANCELADO': atendimento.cancelar,
+            'FALTOU': atendimento.marcar_falta,
+            'AGENDADO': atendimento.aprovar,
+        }
+        acao = metodos.get(novo_status)
+        if acao is None:
+            return JsonResponse(
+                {'erro': f'Transição para "{novo_status}" não suportada.'}, status=400
+            )
+        try:
+            acao(by_user=request.user)
+        except Atendimento.TransicaoInvalida as exc:
+            return JsonResponse({'erro': str(exc)}, status=400)
 
         registrar_log(
             request.user,
