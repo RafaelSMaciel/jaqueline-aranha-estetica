@@ -1,7 +1,7 @@
 {% extends 'painel/base_v2.html' %}
 
-{% block page_title %}Pacientes{% endblock %}
-{% block page_subtitle %}Gerencie todos os pacientes da clínica{% endblock %}
+{% block page_title %}Clientes{% endblock %}
+{% block page_subtitle %}Gerencie todos os clientes da clínica{% endblock %}
 {% block page_actions %}
 <a href="{% url 'aranha:admin_lista_espera' %}"
    class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold border-2 border-[#C9A84C] text-[#C9A84C] bg-white hover:bg-[#C9A84C] hover:text-white transition-colors no-underline">
@@ -18,7 +18,7 @@
 <div class="bg-white rounded-2xl shadow-sm p-4 mb-3">
   <form method="GET" class="flex gap-2 items-end">
     <div class="flex-1">
-      <label for="searchInput" class="sr-only">Buscar paciente</label>
+      <label for="searchInput" class="sr-only">Buscar cliente</label>
       <input
         type="text"
         id="searchInput"
@@ -68,7 +68,7 @@
     <path stroke-linecap="round" stroke-linejoin="round" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
     <path stroke-linecap="round" stroke-linejoin="round" d="M23 21v-2a4 4 0 00-3-3.87"/><path stroke-linecap="round" stroke-linejoin="round" d="M16 3.13a4 4 0 010 7.75"/>
   </svg>
-  <span id="cntClientesVisiveis">{{ clientes|length }}</span> paciente(s)
+  <span id="cntClientesVisiveis">{{ clientes|length }}</span> cliente(s)
 </p>
 
 {# ── Lista de clientes ── #}
@@ -146,13 +146,13 @@
       </svg>
     </div>
     <h5 class="font-bold text-[#1a1a2e] mb-1">
-      {% if search %}Nada encontrado{% else %}Nenhum paciente cadastrado{% endif %}
+      {% if search %}Nada encontrado{% else %}Nenhum cliente cadastrado{% endif %}
     </h5>
     <p class="text-[0.85rem] text-texto-suave mb-4">
       {% if search %}
-        Nenhum paciente para "{{ search }}". Tente outro termo.
+        Nenhum cliente para "{{ search }}". Tente outro termo.
       {% else %}
-        Cadastre o primeiro paciente para começar a registrar agendamentos.
+        Cadastre o primeiro cliente para começar a registrar agendamentos.
       {% endif %}
     </p>
     {% if search %}
@@ -175,7 +175,7 @@
       <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
     </svg>
   </div>
-  <h5 class="font-bold text-[#1a1a2e] mb-1">Nenhum paciente bate com o filtro</h5>
+  <h5 class="font-bold text-[#1a1a2e] mb-1">Nenhum cliente bate com o filtro</h5>
   <p class="text-[0.85rem] text-texto-suave">Ajuste o termo ou limpe o campo.</p>
 </div>
 
