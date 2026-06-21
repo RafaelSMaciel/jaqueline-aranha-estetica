@@ -5,7 +5,7 @@ import logging
 import os
 from datetime import timedelta
 
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 NPS_JANELA_RESPOSTA = timedelta(days=7)
 
 WHATSAPP_APP_SECRET = os.environ.get('WHATSAPP_APP_SECRET', '')
+# Token do handshake de verificacao do webhook (GET hub.challenge da Meta)
+WHATSAPP_VERIFY_TOKEN = os.environ.get('WHATSAPP_VERIFY_TOKEN', '')
 
 
 def _verify_signature(request):
@@ -119,13 +121,21 @@ def zenvia_sms_webhook(request):
 
 
 @csrf_exempt
-@require_http_methods(["POST"])
+@require_http_methods(["GET", "POST"])
 @ratelimit(key='ip', rate='60/m', method='POST', block=True)
 def whatsapp_webhook(request):
     """
-    Webhook para receber respostas de notificacoes do WhatsApp.
-    Processa confirmacoes, cancelamentos e notas NPS.
+    Webhook do WhatsApp (Meta Cloud API).
+    GET = handshake de verificacao (hub.challenge); POST = eventos (respostas/NPS).
     """
+    # Handshake da Meta: ecoa hub.challenge quando o verify_token confere.
+    if request.method == 'GET':
+        if (request.GET.get('hub.mode') == 'subscribe'
+                and WHATSAPP_VERIFY_TOKEN
+                and request.GET.get('hub.verify_token') == WHATSAPP_VERIFY_TOKEN):
+            return HttpResponse(request.GET.get('hub.challenge', ''), content_type='text/plain')
+        return HttpResponse('Forbidden', status=403)
+
     if not _verify_signature(request):
         logger.warning('WhatsApp webhook: assinatura invalida')
         return JsonResponse({'error': 'Assinatura invalida'}, status=403)

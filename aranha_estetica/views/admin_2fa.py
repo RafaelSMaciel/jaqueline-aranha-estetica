@@ -8,8 +8,19 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 from django_otp.plugins.otp_totp.models import TOTPDevice
+from django.utils.http import url_has_allowed_host_and_scheme
+from django_ratelimit.decorators import ratelimit
 
 from ..utils.audit import registrar_log
+
+
+def _safe_next(request, raw, fallback='aranha:painel_overview'):
+    """Valida ?next= contra open redirect; cai no fallback se externo/invalido."""
+    if raw and url_has_allowed_host_and_scheme(
+        raw, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return raw
+    return fallback
 
 
 @login_required
@@ -76,10 +87,11 @@ def admin_2fa_setup(request):
 
 @login_required
 @require_POST
+@ratelimit(key='user', rate='5/m', method='POST', block=True)
 def admin_2fa_verify(request):
     """Verifica token 2FA pos-login (se usuario tiver 2FA ativo)."""
     token = request.POST.get('token', '').strip().replace(' ', '')
-    next_url = request.POST.get('next') or 'aranha:painel_overview'
+    next_url = _safe_next(request, request.POST.get('next'))
 
     device = TOTPDevice.objects.filter(user=request.user, confirmed=True).first()
     if not device:
@@ -97,7 +109,7 @@ def admin_2fa_verify(request):
 @login_required
 def admin_2fa_challenge(request):
     """Formulario de input do codigo 2FA pos-login."""
-    next_url = request.GET.get('next', '')
+    next_url = _safe_next(request, request.GET.get('next'), fallback='')
     device = TOTPDevice.objects.filter(user=request.user, confirmed=True).first()
     if not device:
         return redirect(next_url or 'aranha:painel_overview')
