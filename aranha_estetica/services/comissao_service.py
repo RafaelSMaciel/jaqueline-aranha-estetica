@@ -76,6 +76,13 @@ class ComissaoService:
         if valor <= 0:
             return None
 
+        # Idempotencia total por atendimento: nunca cria 2a comissao (mesmo apos
+        # ESTORNADA) — previne double-pay quando um atendimento volta a Realizado.
+        # A UNIQUE constraint so cobre PENDENTE/PAGA; este guard cobre o resto.
+        if MovimentoComissao.objects.filter(atendimento=atendimento).exists():
+            logger.info('comissao_ja_existe_ignorada', extra={'atendimento_id': atendimento.pk})
+            return None
+
         try:
             movimento = MovimentoComissao.objects.create(
                 profissional=atendimento.profissional,
