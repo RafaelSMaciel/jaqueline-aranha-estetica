@@ -159,3 +159,13 @@ class Cliente(models.Model):
         self.deletado_em = timezone.now()
         self.ativo = False
         self.save(update_fields=['deletado_em', 'ativo', 'atualizado_em'])
+
+    def delete(self, using=None, keep_parents=False, hard=False):
+        """Soft-delete por padrao (consistencia com soft_delete + manager de ativos).
+
+        Evita hard-delete acidental de Cliente (que cascatearia / esbarraria em
+        FKs PROTECT). Para apagar de verdade (ex.: erasure LGPD), use hard=True.
+        """
+        if hard:
+            return super().delete(using=using, keep_parents=keep_parents)
+        self.soft_delete()

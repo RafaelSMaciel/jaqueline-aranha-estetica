@@ -495,7 +495,10 @@ def job_expirar_pacotes(self):
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def job_limpeza_status_atendimentos(self):
-    """Marca como FALTOU atendimentos passados ha 24h ainda em PENDENTE/AGENDADO/CONFIRMADO."""
+    """Atendimentos vencidos ha 24h: PENDENTE -> CANCELADO (nunca aprovado pela
+    clinica, nao e no-show do cliente); AGENDADO/CONFIRMADO -> FALTOU (cliente
+    nao compareceu). Usa a FSM do model (valida transicao + publica eventos:
+    fila de espera no cancelamento, contador de faltas no FALTOU)."""
     try:
         limite = timezone.now() - timedelta(hours=24)
 
@@ -505,9 +508,17 @@ def job_limpeza_status_atendimentos(self):
         )
 
         for atendimento in pendentes:
-            atendimento.status = 'FALTOU'
-            atendimento.save()
-            logger.info(f"[LIMPEZA] Atendimento {atendimento.pk} marcado como FALTOU automaticamente")
+            try:
+                if atendimento.status == 'PENDENTE':
+                    atendimento.cancelar(motivo='expirado sem aprovacao')
+                    acao = 'CANCELADO (expirado)'
+                else:
+                    atendimento.marcar_falta()
+                    acao = 'FALTOU'
+                logger.info(f"[LIMPEZA] Atendimento {atendimento.pk} -> {acao} automaticamente")
+            except Atendimento.TransicaoInvalida as exc:
+                logger.warning(f"[LIMPEZA] Atendimento {atendimento.pk}: transicao invalida ({exc})")
+                continue
     except Exception as exc:
         logger.exception('Erro em job_limpeza_status_atendimentos: %s', exc)
         raise self.retry(exc=exc) from exc
