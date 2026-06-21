@@ -23,7 +23,7 @@
   "@type": "Service",
   "name": "{{ procedimento.nome|escapejs }}",
   "description": "{{ procedimento.descricao|default:procedimento.nome|escapejs }}",
-  "provider": {"@type": "MedicalBusiness", "name": "{{ CLINIC_NAME }}", "url": "{{ SITE_URL }}"},
+  "provider": {"@type": "HealthAndBeautyBusiness", "name": "{{ CLINIC_NAME }}", "url": "{{ SITE_URL }}"},
   "areaServed": "BR",
   "category": "{{ procedimento.get_categoria_display|escapejs }}"{% if preco %},
   "offers": {"@type": "Offer", "price": "{{ preco|stringformat:'.2f' }}", "priceCurrency": "BRL"}{% endif %}
