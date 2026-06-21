@@ -204,6 +204,28 @@ Decisões: Tailwind v4 + HTMX + @alpinejs/csp (F8) + cotton + Vite; dark opciona
 - [ ] Implementação 5.2 — Estados + auto-aprovação (itens 1+2)
 - [ ] Implementação 5.3 — Identidade/sessão do cliente (item 3)
 
+## Backend — Auditoria SWE (3 ondas)
+Auditoria multi-agente (10 módulos) → **149 achados: 31 alta, 71 média, 47 baixa**. Detalhe completo no histórico git (commit `19b8e67`, doc removido). Testes andam junto com cada fix.
+
+**✅ Onda 1 — 8 alta (commits `18eac8f`→`be20c98`, 213 testes):**
+- [x] `prontuario_consentimento`: `Count('aceiteprivacidade')` (model deletado 0037) → `'aceites'` (página 500)
+- [x] `admin_atualizar_status`: burlava FSM → métodos do model (valida transição + publica eventos)
+- [x] `lista_espera_publica`: telefone cru no get_or_create → `normalizar_telefone`
+- [x] `admin_2fa_verify`: +`@ratelimit 5/m` (brute-force TOTP, fora do axes)
+- [x] `admin_2fa`: open-redirect `?next=` → `url_has_allowed_host_and_scheme`
+- [x] `whatsapp_webhook` (Meta): +handshake GET `hub.challenge` (Meta nunca verificava)
+- [x] `fidelidade.estornar_cashback`: closure late-binding (eventos com pk do último) → bindado
+- [x] `pacotes` criar/editar: +`transaction.atomic` (pacote órfão em falha parcial)
+
+**⏳ Onda 2 — mecânica (~15 alta, faço direto):** gate OTP por telefone + `pode_reenviar` (booking_api/public) · `datetime.fromisoformat`→`make_aware` (confirm/reagendar, TypeError 500) · débito de pacote no `signals.py` com `atomic`+`select_for_update` (over-debit) · `IntegrityError`→erro de domínio nos 2 services de agendamento (corrida vira 500) · double-pay de comissão pós-estorno · quota SMS atômica (`cache.incr`) + só consome em sucesso · `cron.run_job` síncrono `.apply()`→async · NPS Notificação órfã + `exclude` que multiplica · `job_limpeza` save() em loop (N+1) · `Cliente.delete()` faz hard-delete (override soft).
+
+**🔵 Onda 3 — decisões de arquitetura (PENDENTE do dono):**
+1. `AgendamentoService` **duplicado** (legado `agendamento.py` exportado vs novo `agendamento_service.py` c/ Command/eventos) — qual é canônico?
+2. `domain/` event-bus = handlers stub (lógica real no signal) — remover camada OU migrar lógica pra ela?
+3. Senha por e-mail (texto plano) na criação de usuário → trocar por link de definição (como reset)?
+4. Deploy: `settings/__init__` cai em `dev` por fallback + `Procfile` usa `django_celery_beat` não instalado.
+5. `get_horarios_disponiveis` fat-model (110 linhas) → extrair p/ `SlotService` · `decorators_2fa.staff_otp_required` dead (2 mecanismos 2FA paralelos).
+
 ---
 
-_Última atualização: 2026-06-19 — Onda 3 admin COMPLETA (30/30); limpeza de morto admin feita; Onda 4 e-mails = passe de consistência não-cor (10/10) + achados de backend de e-mail flagados p/ decisão. Resta só T9 (cores reais)._
+_Última atualização: 2026-06-21 — Front revisado/limpo (paciente→cliente, hospital→estética, ícones quebrados→SVG, dead-files removidos). Backend: auditoria SWE (149) + Onda 1 corrigida (8 alta). Onda 2 mecânica e Onda 3 (arquitetura, decisões do dono) pendentes._
