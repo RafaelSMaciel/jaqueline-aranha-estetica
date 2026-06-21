@@ -1,0 +1,50 @@
+---
+title: Diagrama de Sequencia (UML) — Agendamento publico com OTP anti-sequestro
+---
+sequenceDiagram
+    autonumber
+    actor C as Cliente
+    participant W as Wizard JS
+    participant D as Django App
+    participant DB as PostgreSQL
+    participant R as Redis
+    participant Z as Zenvia SMS
+
+    C->>W: abre /agendamento
+    W->>D: GET agendamento_publico
+    D-->>W: wizard 3 steps + Turnstile
+
+    C->>W: escolhe procedimento e data
+    W->>D: GET api_dias / api_horarios_disponiveis
+    D->>DB: slots livres [disponibilidade - ocupados - bloqueios]
+    DB-->>D: horarios
+    D-->>W: slots por profissional
+
+    C->>W: preenche nome, telefone, nascimento, consents
+    W->>D: POST confirmar_agendamento
+    D->>D: valida honeypot, Turnstile e campos
+    D->>DB: telefone/email ja e Cliente ativo?
+    DB-->>D: existe?
+
+    alt Cliente JA EXISTE [gate anti-sequestro]
+        W->>D: POST solicitar_otp_agendamento
+        D->>R: cooldown / pode_reenviar
+        D->>Z: enviar_otp_sms [codigo 6 digitos, 10 min]
+        Z-->>C: SMS com codigo
+        C->>W: digita codigo
+        W->>D: POST verificar_otp_agendamento
+        D->>R: grava sessao otp_agendamento_email + expira [30 min]
+        D-->>W: pre-fill do cliente
+    else Cliente NOVO
+        Note over D: pula o gate OTP
+    end
+
+    D->>R: revalida OTP da sessao [identidade e nao expirado]
+    D->>R: slot-lock [cache.add booking_slot, 30s]
+    D->>DB: transaction.atomic + SELECT FOR UPDATE
+    D->>DB: get_or_create Cliente [consents + IP]
+    D->>DB: checa conflito e cria Atendimento status PENDENTE
+    D->>DB: grava anamnese + Notificacao de termos
+    D->>D: Celery - email termos e aviso ao profissional
+    D->>R: limpa chaves OTP e grava agendamento_sucesso
+    D-->>C: redireciona /sucesso [aguardando aprovacao]

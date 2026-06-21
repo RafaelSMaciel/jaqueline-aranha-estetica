@@ -1,0 +1,48 @@
+---
+title: Diagrama de Casos de Uso (UML) — Area Publica (Cliente)
+---
+flowchart LR
+    A1["👤 Visitante /<br/>Cliente"]:::ator
+    A2["👤 Cliente<br/>Recorrente"]:::ator
+    A3["🔌 Servicos Externos<br/>SMS · WhatsApp · Email · Turnstile"]:::ext
+
+    subgraph S["Sistema Shiva Zen — Area Publica"]
+        direction TB
+        UC01(["UC01 Agendar online"])
+        UC02(["UC02 Verificar OTP por SMS"])
+        UC03(["UC03 Consultar disponibilidade"])
+        UC04(["UC04 Reagendar atendimento"])
+        UC05(["UC05 Cancelar atendimento"])
+        UC06(["UC06 Login + Meus Agendamentos"])
+        UC07(["UC07 Confirmar presenca"])
+        UC08(["UC08 Entrar na lista de espera"])
+        UC09(["UC09 Responder anamnese / pesquisa"])
+        UC10(["UC10 Responder NPS"])
+        UC11(["UC11 Assinar termo (LGPD)"])
+        UC12(["UC12 Exercer direitos LGPD (DSAR)"])
+    end
+
+    A1 --- UC01
+    A1 --- UC03
+    A1 --- UC07
+    A1 --- UC08
+    A1 --- UC09
+    A1 --- UC10
+    A1 --- UC11
+    A2 --- UC01
+    A2 --- UC04
+    A2 --- UC05
+    A2 --- UC06
+    A2 --- UC12
+
+    UC01 -.->|«include»| UC02
+    UC01 -.->|«include»| UC03
+    UC04 -.->|«include»| UC03
+    UC06 -.->|«include»| UC02
+
+    UC02 --- A3
+    UC10 --- A3
+    UC01 --- A3
+
+    classDef ator fill:#ffffff,stroke:#7a5f1f,stroke-width:2px,color:#4A3425
+    classDef ext fill:#f5efe0,stroke:#7a5f1f,stroke-width:1px,color:#4A3425

@@ -1,0 +1,98 @@
+---
+title: Diagrama de Classes (UML) — Nucleo de Agendamento
+---
+classDiagram
+    direction LR
+
+    class Cliente {
+        +nome: CharField
+        +telefone: CharField «unique ativo»
+        +cpf: CharField
+        +email: EmailField
+        +faltas_consecutivas: Smallint
+        +bloqueado_online: Boolean
+        +deletado_em: DateTime «soft-delete»
+        +registrar_falta()
+        +soft_delete()
+    }
+    class Profissional {
+        +nome: CharField
+        +slug: SlugField «unique»
+        +ativo: Boolean
+        +min_notice_horas: Smallint
+        +max_advance_dias: Smallint
+        +get_horarios_disponiveis()
+    }
+    class Procedimento {
+        +nome: CharField
+        +duracao_minutos: Smallint
+        +buffer_minutos: Smallint
+        +categoria: choices
+        +exige_retorno: Boolean
+    }
+    class Habilitacao {
+        «through» prof × proc
+    }
+    class Preco {
+        +valor: Decimal
+        +vigente_desde: Date
+    }
+    class Promocao {
+        +desconto_percentual: Decimal
+        +preco_promocional: Decimal
+        +data_inicio: Date
+        +data_fim: Date
+        +esta_vigente: bool
+    }
+    class DisponibilidadeProfissional {
+        +dia_semana: 1..7
+        +hora_inicio: Time
+        +hora_fim: Time
+    }
+    class ExcecaoDisponibilidade {
+        +data: Date
+        +tipo: FOLGA | HORARIO_DIFERENTE
+        +hora_inicio: Time
+        +hora_fim: Time
+    }
+    class BloqueioAgenda {
+        +data_hora_inicio: DateTime
+        +data_hora_fim: DateTime
+        +regra_recorrencia: RRULE
+    }
+    class Feriado {
+        +data: Date
+        +nome: CharField
+        +bloqueia_agendamento: Boolean
+    }
+    class Atendimento {
+        +data_hora_inicio: DateTime
+        +data_hora_fim: DateTime
+        +valor_cobrado: Decimal
+        +status: FSM choices
+        +eh_retorno: Boolean
+        +confirmar() cancelar()
+        +marcar_realizado() marcar_falta()
+        +aprovar()
+    }
+    class Notificacao {
+        +tipo: choices
+        +canal: WhatsApp|Email|SMS|Push
+        +status: PENDENTE|ENVIADO|FALHOU
+        +token: CharField
+    }
+
+    Cliente "1" --> "0..*" Atendimento : realiza
+    Cliente ..> Cliente : indicado_por 0..1
+    Profissional "1" --> "0..*" Atendimento : executa
+    Procedimento "1" --> "0..*" Atendimento
+    Promocao "0..1" --> "0..*" Atendimento : aplica
+    Atendimento ..> Atendimento : reagendado_de / retorno_de
+    Atendimento "1" --> "0..*" Notificacao
+    Profissional "1" --> "0..*" DisponibilidadeProfissional
+    Profissional "1" --> "0..*" ExcecaoDisponibilidade
+    Profissional "0..1" --> "0..*" BloqueioAgenda
+    Procedimento "1" --> "0..*" Preco
+    Profissional "0..1" --> "0..*" Preco
+    Promocao "0..*" --> "0..1" Procedimento
+    Profissional "0..*" -- "0..*" Procedimento : Habilitacao
