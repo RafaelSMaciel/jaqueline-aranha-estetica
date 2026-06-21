@@ -4,6 +4,18 @@ Gerado por auditoria multi-agente (10 módulos). Total: **149** — 🔴 alta 31
 
 Status: marque [x] ao corrigir. Sobrescrever este arquivo conforme progride (nao versionar por data).
 
+## ✅ Corrigido — Onda 1 (8 alta)
+- [x] prontuario_consentimento: Count('aceiteprivacidade') deletado → 'aceites' (página 500)
+- [x] admin_atualizar_status: burlava FSM → métodos do model (valida + publica eventos)
+- [x] lista_espera_publica: telefone cru → normalizar_telefone
+- [x] admin_2fa_verify: +@ratelimit 5/m (brute-force TOTP)
+- [x] admin_2fa: open redirect ?next= → url_has_allowed_host_and_scheme
+- [x] whatsapp_webhook (Meta): +handshake GET hub.challenge
+- [x] fidelidade.estornar_cashback: closure late-binding → bindado
+- [x] pacotes criar/editar: +transaction.atomic (pacote órfão)
+
+**Pendente:** ~23 alta + 71 média + 47 baixa (listas abaixo).
+
 ## 🔴 ALTA — corrigir primeiro (31)
 
 - [ ] **[ARQUITETURA]** `aranha_estetica/models/profissionais.py` · Profissional.get_horarios_disponiveis (linhas 58-168)
