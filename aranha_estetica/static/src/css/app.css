@@ -29,5 +29,8 @@
   html { scroll-behavior: smooth; }
 }
 
+/* Alpine: esconde elementos x-show ate o componente inicializar (anti-FOUC) */
+[x-cloak] { display: none !important; }
+
 /* FAQ accordion (<details> nativo): gira o chevron quando aberto */
 details.faq-item[open] .faq-chevron { transform: rotate(180deg); }
