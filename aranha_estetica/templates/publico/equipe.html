@@ -35,23 +35,24 @@
     {% if profissionais %}
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
       {% for prof in profissionais %}
-      <article class="rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
+      <article class="group rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
 
         {# foto ou avatar inicial #}
         <div class="relative aspect-[3/4] overflow-hidden bg-fundo">
           {% if prof.foto_url %}
           <img src="{{ prof.foto_url }}"
                alt="Foto de {{ prof.nome }}"
-               loading="lazy"
-               class="w-full h-full object-cover">
+               width="600" height="800"
+               loading="lazy" decoding="async"
+               class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
           {% else %}
           <div class="w-full h-full flex items-center justify-center">
             <span class="text-6xl font-bold text-marca">{{ prof.nome|slice:":1"|upper }}</span>
           </div>
           {% endif %}
 
-          {# overlay com links de ação #}
-          <div class="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
+          {# overlay com links de ação — sempre visível no mobile (touch); hover/foco no desktop #}
+          <div class="absolute inset-0 bg-black/40 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity flex items-center justify-center gap-4">
             <a href="{% url 'aranha:agendamento_publico' %}?profissional={{ prof.pk }}"
                aria-label="Agendar com {{ prof.nome }}"
                class="w-10 h-10 rounded-full bg-marca-forte text-sobre-marca flex items-center justify-center hover:opacity-90 transition-opacity">
@@ -78,7 +79,7 @@
         {# info #}
         <div class="p-5 flex flex-col flex-1 space-y-3">
           <div>
-            <h2 class="text-texto font-bold text-lg leading-tight">{{ prof.nome }}</h2>
+            <h3 class="text-texto font-bold text-lg leading-tight">{{ prof.nome }}</h3>
             <p class="text-marca text-sm font-medium mt-0.5">{{ prof.especialidade|default:"Profissional de Estética" }}</p>
           </div>
 

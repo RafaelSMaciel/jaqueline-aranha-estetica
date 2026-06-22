@@ -5,10 +5,10 @@
 
 {% block conteudo %}
 {# ── Hero ── #}
-<section class="bg-superficie border-b border-borda py-12 text-center">
-  <div class="mx-auto max-w-2xl px-4">
+<section class="bg-superficie border-b border-borda py-16 md:py-24 text-center">
+  <div class="max-w-6xl mx-auto px-6">
     <h1 class="text-3xl font-bold text-texto">Contato</h1>
-    <p class="mt-3 text-texto-suave">
+    <p class="mt-3 text-texto-suave max-w-2xl mx-auto">
       Estamos prontos para atender você! Entre em contato conosco para agendar sua avaliação,
       tirar dúvidas sobre nossos procedimentos ou saber mais sobre a {{ CLINIC_NAME }}. Nossa equipe
       está disponível para oferecer o melhor atendimento e cuidar do seu bem-estar.
@@ -18,14 +18,14 @@
 
 {# ── Mensagens Django ── #}
 {% if messages %}
-  <div class="mx-auto mt-6 max-w-5xl px-4">
+  <div class="max-w-6xl mx-auto mt-6 px-6">
     {% for msg in messages %}
       {% if msg.tags == 'error' or 'error' in msg.tags %}
         <div role="alert" class="mb-3 rounded-md border border-erro px-4 py-3 text-sm text-erro bg-superficie">
           {{ msg }}
         </div>
       {% else %}
-        <div role="alert" class="mb-3 rounded-md border border-green-500 px-4 py-3 text-sm text-green-700 bg-green-50 dark:bg-green-950 dark:text-green-300">
+        <div role="alert" class="mb-3 rounded-md border border-sucesso px-4 py-3 text-sm text-sucesso bg-superficie">
           {{ msg }}
         </div>
       {% endif %}
@@ -34,7 +34,7 @@
 {% endif %}
 
 {# ── Conteúdo principal ── #}
-<section class="mx-auto max-w-5xl px-4 py-12">
+<section class="max-w-6xl mx-auto px-6 py-12">
   <div class="grid gap-10 lg:grid-cols-5">
 
     {# ── Info lateral ── #}
@@ -66,8 +66,7 @@
         </span>
         <div>
           <h3 class="font-semibold text-texto">Horário de Funcionamento</h3>
-          <p class="text-sm text-texto-suave mt-1">Segunda a Sexta: 9h às 20h</p>
-          <p class="text-sm text-texto-suave">Sábado: 9h às 18h</p>
+          <p class="text-sm text-texto-suave mt-1">{{ CLINIC_HOURS }}</p>
           <p class="text-xs text-texto-suave mt-1">Atendimento mediante agendamento</p>
         </div>
       </div>
@@ -203,7 +202,7 @@
 </section>
 
 {# ── Mapa ── #}
-<div class="mt-4">
+<div class="mt-4 mb-16 md:mb-24">
   <iframe
     title="Localização da {{ CLINIC_NAME }} no mapa"
     src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3734.855!2d-49.3793!3d-20.8197!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94bdad6e5e2b7b1f%3A0x0!2sR.%20Humberto%20Delboni%2C%201107%20-%20Jardim%20Fuscaldo%2C%20S%C3%A3o%20Jos%C3%A9%20do%20Rio%20Preto%20-%20SP!5e0!3m2!1spt-BR!2sbr!4v1"
