@@ -7,6 +7,8 @@
 @source "../../js/**/*.js";
 
 @theme {
+  --font-sans: var(--body-font);
+  --font-serif: var(--heading-font);
   --color-fundo: var(--cor-fundo);
   --color-superficie: var(--cor-superficie);
   --color-texto: var(--cor-texto);
@@ -27,7 +29,20 @@
   input, select, textarea { border-color: var(--cor-borda); }
   /* rolagem suave ao navegar pelas ancoras (ex.: nav do FAQ) */
   html { scroll-behavior: smooth; }
+  /* corpo na fonte da marca (Lato); titulos usam font-serif (Playfair) */
+  body { font-family: var(--body-font); }
+  /* titulos do site publico em Playfair Display (admin nao carrega a fonte) */
+  .site-publico :is(h1, h2, h3) { font-family: var(--heading-font); }
 }
+
+/* Botao flutuante WhatsApp: anel pulsante sutil */
+@keyframes zap-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.45); }
+  70%  { box-shadow: 0 0 0 14px rgba(37, 211, 102, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); }
+}
+.zap-float { animation: zap-pulse 2.6s ease-out infinite; }
+@media (prefers-reduced-motion: reduce) { .zap-float { animation: none; } }
 
 /* Alpine: esconde elementos x-show ate o componente inicializar (anti-FOUC) */
 [x-cloak] { display: none !important; }

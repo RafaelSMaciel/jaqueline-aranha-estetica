@@ -1,3 +1,85 @@
-<footer class="border-t border-borda bg-superficie mt-16">
-  <div class="mx-auto max-w-6xl px-6 py-8 text-sm text-texto-suave">© {{ CLINIC_NAME }}</div>
+<footer class="relative mt-20 bg-[#16181c] text-[#cfcabf] overflow-hidden">
+  {# fio dourado no topo + brilho sutil p/ profundidade #}
+  <div class="h-px w-full bg-gradient-to-r from-transparent via-[#C9A84C] to-transparent opacity-70"></div>
+  <div class="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 h-48 w-[60%] rounded-full bg-[#C9A84C]/10 blur-3xl"></div>
+
+  <div class="relative mx-auto max-w-6xl px-6 py-14">
+    <div class="grid gap-10 md:grid-cols-2 lg:grid-cols-12">
+
+      {# ── Marca ── #}
+      <div class="lg:col-span-4">
+        <p class="font-serif text-2xl font-bold tracking-tight text-[#C9A84C]">{{ CLINIC_NAME }}</p>
+        <p class="mt-3 text-sm leading-relaxed text-[#9a958a] max-w-xs">{{ CLINIC_SUBTITLE }}</p>
+        <div class="mt-5 flex items-center gap-3">
+          <a href="https://wa.me/{{ WHATSAPP_NUMERO }}" target="_blank" rel="noopener"
+             class="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-[#cfcabf] hover:border-[#C9A84C] hover:text-[#C9A84C] transition" aria-label="WhatsApp">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.05 2.05a9.94 9.94 0 00-8.5 15.03L2 22l5.06-1.33a9.94 9.94 0 004.99 1.28h.01c5.5 0 9.97-4.47 9.97-9.97a9.9 9.9 0 00-2.92-7.05 9.9 9.9 0 00-7.06-2.88zm5.42 12.33c-.23.64-1.34 1.25-1.85 1.3-.47.05-1.07.07-1.73-.11-.4-.13-.91-.3-1.57-.58-2.76-1.19-4.56-3.97-4.7-4.16-.14-.18-1.13-1.5-1.13-2.86 0-1.36.71-2.03.97-2.31.25-.28.55-.35.73-.35h.53c.17 0 .4-.06.62.48.23.55.78 1.9.85 2.04.07.14.11.3.02.49-.09.18-.14.3-.28.46-.14.17-.29.37-.41.5-.14.13-.28.28-.12.55.16.28.71 1.17 1.53 1.9 1.05.93 1.94 1.22 2.22 1.36.28.14.44.12.6-.07.18-.2.69-.8.87-1.08.18-.28.36-.23.6-.14.25.09 1.6.76 1.87.9.28.14.46.21.53.32.07.12.07.66-.16 1.3z"/></svg>
+          </a>
+          {% if INSTAGRAM_URL %}
+          <a href="{{ INSTAGRAM_URL }}" target="_blank" rel="noopener"
+             class="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-[#cfcabf] hover:border-[#C9A84C] hover:text-[#C9A84C] transition" aria-label="Instagram">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+          </a>
+          {% endif %}
+        </div>
+      </div>
+
+      {# ── Navegar ── #}
+      <nav class="lg:col-span-3" aria-label="Navegação do rodapé">
+        <h3 class="font-serif text-base font-semibold text-[#ece8df]">Navegar</h3>
+        <ul class="mt-4 space-y-2.5 text-sm">
+          {% with lc="text-[#9a958a] no-underline hover:text-[#C9A84C] transition" %}
+          <li><a href="{% url 'aranha:inicio' %}" class="{{ lc }}">Início</a></li>
+          <li><a href="/#sobre" class="{{ lc }}">Sobre nós</a></li>
+          <li><a href="{% url 'aranha:especialidades' %}" class="{{ lc }}">Serviços</a></li>
+          <li><a href="{% url 'aranha:equipe' %}" class="{{ lc }}">Equipe</a></li>
+          <li><a href="{% url 'aranha:promocoes' %}" class="{{ lc }}">Promoções</a></li>
+          <li><a href="/#faq" class="{{ lc }}">Dúvidas</a></li>
+          {% endwith %}
+        </ul>
+      </nav>
+
+      {# ── Atendimento ── #}
+      <div class="lg:col-span-3">
+        <h3 class="font-serif text-base font-semibold text-[#ece8df]">Atendimento</h3>
+        <ul class="mt-4 space-y-3 text-sm text-[#9a958a]">
+          <li class="flex gap-2.5">
+            <svg class="h-4 w-4 mt-0.5 shrink-0 text-[#C9A84C]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <a href="https://www.google.com/maps/search/?api=1&query={{ CLINIC_ADDRESS|urlencode }}" target="_blank" rel="noopener" class="no-underline hover:text-[#C9A84C] transition">{{ CLINIC_ADDRESS }}</a>
+          </li>
+          <li class="flex gap-2.5">
+            <svg class="h-4 w-4 mt-0.5 shrink-0 text-[#C9A84C]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.13.96.36 1.9.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0122 16.92z"/></svg>
+            <a href="tel:+{{ WHATSAPP_NUMERO }}" class="no-underline hover:text-[#C9A84C] transition">{{ CLINIC_PHONE }}</a>
+          </li>
+          <li class="flex gap-2.5">
+            <svg class="h-4 w-4 mt-0.5 shrink-0 text-[#C9A84C]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/></svg>
+            <a href="mailto:{{ CLINIC_EMAIL }}" class="no-underline hover:text-[#C9A84C] transition break-all">{{ CLINIC_EMAIL }}</a>
+          </li>
+          <li class="flex gap-2.5">
+            <svg class="h-4 w-4 mt-0.5 shrink-0 text-[#C9A84C]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            <span>{{ CLINIC_HOURS }}</span>
+          </li>
+        </ul>
+      </div>
+
+      {# ── CTA ── #}
+      <div class="lg:col-span-2">
+        <h3 class="font-serif text-base font-semibold text-[#ece8df]">Cuide-se</h3>
+        <p class="mt-4 text-sm text-[#9a958a]">Reserve seu horário em poucos cliques.</p>
+        <a href="{% url 'aranha:agendamento_publico' %}"
+           class="mt-4 inline-flex items-center justify-center rounded-full bg-[#C9A84C] px-5 py-2.5 text-sm font-semibold text-[#23200f] no-underline hover:opacity-90 transition">Agendar</a>
+      </div>
+    </div>
+  </div>
+
+  {# ── Barra inferior ── #}
+  <div class="relative border-t border-white/10">
+    <div class="mx-auto max-w-6xl px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#7e7a70]">
+      <p>© {% now "Y" %} {{ CLINIC_NAME }}. Todos os direitos reservados.</p>
+      <div class="flex items-center gap-5">
+        <a href="{% url 'aranha:politica_privacidade' %}" class="no-underline hover:text-[#C9A84C] transition">Política de Privacidade</a>
+        <a href="{% url 'aranha:termos_uso' %}" class="no-underline hover:text-[#C9A84C] transition">Termos de Uso</a>
+      </div>
+    </div>
+  </div>
 </footer>

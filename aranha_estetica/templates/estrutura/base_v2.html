@@ -5,15 +5,31 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block titulo %}{{ CLINIC_NAME }}{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Lato:wght@400;500;700&display=swap" rel="stylesheet">
   {% vite_hmr_client %}
   {% vite_asset 'aranha_estetica/static/src/js/app.js' %}
   {% block css %}{% endblock %}
 </head>
-<body class="bg-fundo text-texto antialiased">
+<body class="site-publico bg-fundo text-texto antialiased">
   <a href="#conteudo" class="sr-only focus:not-sr-only">Pular para o conteúdo</a>
   {% include 'cotton/chrome/cabecalho.html' %}
   <main id="conteudo">{% block conteudo %}{% endblock %}</main>
   {% include 'cotton/chrome/rodape.html' %}
+
+  {# Botao flutuante WhatsApp — atalho de contato em todas as paginas publicas #}
+  <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Ol%C3%A1!%20Gostaria%20de%20mais%20informa%C3%A7%C3%B5es."
+     target="_blank" rel="noopener"
+     class="zap-float fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full
+            bg-[#25D366] text-white shadow-lg shadow-black/20 transition-transform duration-200 hover:scale-110"
+     aria-label="Falar no WhatsApp">
+    <svg class="h-7 w-7" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+      <path d="M12.05 2.05c-5.523 0-10 4.477-10 10 0 1.764.464 3.49 1.345 5.01L2 22l5.06-1.327a9.96 9.96 0 004.99 1.337h.004c5.522 0 10-4.477 10-10s-4.478-10-10.004-9.96zm0 18.27h-.003a8.3 8.3 0 01-4.23-1.158l-.303-.18-3.003.788.8-2.928-.197-.302a8.27 8.27 0 01-1.27-4.42c0-4.583 3.73-8.313 8.314-8.313 2.22 0 4.307.866 5.877 2.437a8.26 8.26 0 012.436 5.88c0 4.583-3.73 8.313-8.314 8.313z"/>
+    </svg>
+  </a>
+
   {% block js %}{% endblock %}
 </body>
 </html>

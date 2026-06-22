@@ -1,6 +1,10 @@
 [x-cloak] { display: none !important; }
 
 :root {
+  /* Tipografia da marca (carregada via Google Fonts no <head> do base_v2) */
+  --heading-font: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --body-font: 'Lato', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
   --ouro-500: #C9A84C;            /* marca (gold) — confirmado pelo dono como cor final */
   --ouro-600: #9A7B2E;
   --neutro-0: #ffffff;
