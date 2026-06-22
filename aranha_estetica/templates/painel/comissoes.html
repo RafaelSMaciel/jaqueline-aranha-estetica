@@ -1,0 +1,149 @@
+{% extends 'painel/base_v2.html' %}
+
+{% block titulo %}Comissões — {{ CLINIC_NAME }}{% endblock %}
+{% block page_title %}Comissões{% endblock %}
+{% block page_subtitle %}Comissões dos profissionais por atendimento{% endblock %}
+
+{% block admin_content %}
+
+{# ── Cards de totais ── #}
+<div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+  <div class="bg-white rounded-2xl shadow-sm p-4">
+    <p class="text-[0.72rem] font-bold text-texto-suave uppercase tracking-wide">A pagar (pendente)</p>
+    <p class="text-2xl font-extrabold text-marca-forte mt-1 leading-none">R$ {{ pendente_total|floatformat:2 }}</p>
+    <p class="text-[0.72rem] text-texto-suave mt-1">{{ pendente_count }} comissã{{ pendente_count|pluralize:"o,ões" }}</p>
+  </div>
+  <div class="bg-white rounded-2xl shadow-sm p-4">
+    <p class="text-[0.72rem] font-bold text-texto-suave uppercase tracking-wide">Pagas</p>
+    <p class="text-2xl font-extrabold text-sucesso mt-1 leading-none">R$ {{ paga_total|floatformat:2 }}</p>
+    <p class="text-[0.72rem] text-texto-suave mt-1">{{ paga_count }} comissã{{ paga_count|pluralize:"o,ões" }}</p>
+  </div>
+  <div class="bg-white rounded-2xl shadow-sm p-4">
+    <p class="text-[0.72rem] font-bold text-texto-suave uppercase tracking-wide">Estornadas</p>
+    <p class="text-2xl font-extrabold text-texto-suave mt-1 leading-none">{{ estornada_count }}</p>
+    <p class="text-[0.72rem] text-texto-suave mt-1">no período</p>
+  </div>
+</div>
+
+{# ── Filtros ── #}
+<div class="bg-white rounded-2xl shadow-sm p-4 mb-4">
+  <form method="GET" class="flex gap-2 flex-wrap items-end">
+    <div class="flex-1 min-w-[140px]">
+      <label for="fStatus" class="sr-only">Status</label>
+      <select id="fStatus" name="status" class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-marca-forte/40 transition">
+        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Todos os status</option>
+        <option value="PENDENTE" {% if status_filter == 'PENDENTE' %}selected{% endif %}>Pendentes</option>
+        <option value="PAGA" {% if status_filter == 'PAGA' %}selected{% endif %}>Pagas</option>
+        <option value="ESTORNADA" {% if status_filter == 'ESTORNADA' %}selected{% endif %}>Estornadas</option>
+      </select>
+    </div>
+    <div class="flex-1 min-w-[140px]">
+      <label for="fProf" class="sr-only">Profissional</label>
+      <select id="fProf" name="profissional" class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-marca-forte/40 transition">
+        <option value="all" {% if prof_filter == 'all' %}selected{% endif %}>Todos os profissionais</option>
+        {% for p in profissionais %}
+        <option value="{{ p.pk }}" {% if prof_filter == p.pk|stringformat:'s' %}selected{% endif %}>{{ p.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="flex-1 min-w-[120px]">
+      <label for="fPeriodo" class="sr-only">Período</label>
+      <select id="fPeriodo" name="periodo" class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-marca-forte/40 transition">
+        <option value="30" {% if periodo == '30' %}selected{% endif %}>30 dias</option>
+        <option value="90" {% if periodo == '90' %}selected{% endif %}>90 dias</option>
+        <option value="tudo" {% if periodo == 'tudo' %}selected{% endif %}>Tudo</option>
+      </select>
+    </div>
+    <button type="submit" class="px-4 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.85rem] font-semibold hover:opacity-90 transition">Filtrar</button>
+    <a href="{% url 'aranha:painel_comissoes' %}" class="px-4 py-2 rounded-xl border border-borda text-texto-suave text-[0.85rem] font-medium hover:bg-fundo transition no-underline">Limpar</a>
+  </form>
+</div>
+
+{# ── Resumo por profissional ── #}
+{% if por_profissional %}
+<div class="bg-white rounded-2xl shadow-sm p-5 mb-4">
+  <h2 class="text-base font-bold text-texto mb-3">Por profissional</h2>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-[0.72rem] uppercase tracking-wide text-texto-suave text-left border-b border-borda">
+          <th class="py-2 font-bold">Profissional</th>
+          <th class="py-2 font-bold text-right">Pendente</th>
+          <th class="py-2 font-bold text-right">Paga</th>
+          <th class="py-2 font-bold text-right">Qtd</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in por_profissional %}
+        <tr class="border-b border-borda/60 last:border-0">
+          <td class="py-2 text-texto">{{ r.profissional__nome }}</td>
+          <td class="py-2 text-right text-marca-forte font-semibold tabular-nums">R$ {{ r.pendente|default:0|floatformat:2 }}</td>
+          <td class="py-2 text-right text-sucesso tabular-nums">R$ {{ r.paga|default:0|floatformat:2 }}</td>
+          <td class="py-2 text-right text-texto-suave tabular-nums">{{ r.qtd }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{# ── Lista de comissões ── #}
+{% if comissoes %}
+<div class="space-y-2">
+  {% for c in comissoes %}
+  <div class="bg-white rounded-2xl shadow-sm p-4 flex flex-wrap items-center gap-4">
+    <div class="min-w-0 flex-1">
+      <p class="text-texto font-bold text-sm truncate">{{ c.profissional.nome }}</p>
+      <p class="text-[0.78rem] text-texto-suave truncate">
+        {{ c.atendimento.cliente.nome|default:"—" }} · {{ c.atendimento.procedimento.nome|default:"—" }}
+      </p>
+      <p class="text-[0.72rem] text-texto-suave mt-0.5">
+        Gerada {{ c.criado_em|date:"d/m/Y" }}{% if c.pago_em %} · paga {{ c.pago_em|date:"d/m/Y" }}{% endif %}
+      </p>
+    </div>
+    <div class="text-right">
+      <p class="text-lg font-extrabold text-texto tabular-nums leading-none">R$ {{ c.valor|floatformat:2 }}</p>
+      <span class="inline-block mt-1 text-[0.68rem] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full
+        {% if c.status == 'PENDENTE' %}bg-marca-forte/[0.12] text-marca-forte
+        {% elif c.status == 'PAGA' %}bg-sucesso/[0.12] text-sucesso
+        {% else %}bg-fundo text-texto-suave{% endif %}">{{ c.get_status_display }}</span>
+    </div>
+    {% if c.status == 'PENDENTE' %}
+    <form method="POST" action="{% url 'aranha:admin_comissao_pagar' c.pk %}" class="flex-shrink-0">
+      {% csrf_token %}
+      <button type="submit" data-confirm="Marcar esta comissão de R$ {{ c.valor|floatformat:2 }} como paga?"
+              class="px-4 py-2 rounded-xl bg-sucesso text-white text-[0.8rem] font-semibold hover:opacity-90 transition">
+        Marcar paga
+      </button>
+    </form>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+{# ── Paginação ── #}
+{% if comissoes.has_other_pages %}
+<div class="flex items-center justify-center gap-2 mt-5">
+  {% if comissoes.has_previous %}
+  <a href="?status={{ status_filter }}&profissional={{ prof_filter }}&periodo={{ periodo }}&page={{ comissoes.previous_page_number }}" class="px-3 py-1.5 rounded-lg border border-borda text-sm text-texto hover:bg-fundo transition no-underline">Anterior</a>
+  {% endif %}
+  <span class="text-sm text-texto-suave">Página {{ comissoes.number }} de {{ comissoes.paginator.num_pages }}</span>
+  {% if comissoes.has_next %}
+  <a href="?status={{ status_filter }}&profissional={{ prof_filter }}&periodo={{ periodo }}&page={{ comissoes.next_page_number }}" class="px-3 py-1.5 rounded-lg border border-borda text-sm text-texto hover:bg-fundo transition no-underline">Próximo</a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+{# ── Empty state ── #}
+<div class="bg-white rounded-2xl shadow-sm text-center py-16">
+  <div class="mx-auto w-16 h-16 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mb-4">
+    <svg class="w-8 h-8 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+  </div>
+  <h3 class="font-bold text-texto mb-1">Nenhuma comissão no filtro</h3>
+  <p class="text-sm text-texto-suave">As comissões são geradas automaticamente quando um atendimento pago é marcado como realizado.</p>
+</div>
+{% endif %}
+
+{% endblock %}

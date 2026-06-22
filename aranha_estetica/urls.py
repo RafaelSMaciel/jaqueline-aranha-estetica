@@ -103,8 +103,11 @@ urlpatterns = [
     path('painel/promocoes/<int:pk>/excluir/', views.admin_excluir_promocao, name='admin_excluir_promocao'),
     path('painel/promocoes/<int:pk>/disparar/', views.admin_disparar_promocao, name='admin_disparar_promocao'),
 
-    # ─── Dashboard Financeiro ───
+    # ─── Relatórios (Financeiro / NPS / Comissões) ───
     path('painel/financeiro/', views.dashboard_financeiro, name='dashboard_financeiro'),
+    path('painel/nps/', views.painel_nps, name='painel_nps'),
+    path('painel/comissoes/', views.painel_comissoes, name='painel_comissoes'),
+    path('painel/comissoes/<int:pk>/pagar/', views.admin_comissao_pagar, name='admin_comissao_pagar'),
 
 
     # ─── Notificações ───
