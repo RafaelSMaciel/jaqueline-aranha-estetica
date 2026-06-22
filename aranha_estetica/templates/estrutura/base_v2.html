@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Lato:wght@400;500;700&display=swap" rel="stylesheet">
+  <noscript><style>.reveal{opacity:1 !important;transform:none !important;}</style></noscript>
   {% vite_hmr_client %}
   {% vite_asset 'aranha_estetica/static/src/js/app.js' %}
   {% block css %}{% endblock %}
@@ -29,6 +30,17 @@
       <path d="M12.05 2.05c-5.523 0-10 4.477-10 10 0 1.764.464 3.49 1.345 5.01L2 22l5.06-1.327a9.96 9.96 0 004.99 1.337h.004c5.522 0 10-4.477 10-10s-4.478-10-10.004-9.96zm0 18.27h-.003a8.3 8.3 0 01-4.23-1.158l-.303-.18-3.003.788.8-2.928-.197-.302a8.27 8.27 0 01-1.27-4.42c0-4.583 3.73-8.313 8.314-8.313 2.22 0 4.307.866 5.877 2.437a8.26 8.26 0 012.436 5.88c0 4.583-3.73 8.313-8.314 8.313z"/>
     </svg>
   </a>
+
+  {# Voltar ao topo — aparece apos rolar (par do WhatsApp, logo acima dele) #}
+  <button id="btnTopo" type="button" aria-label="Voltar ao topo"
+          class="to-top fixed bottom-24 right-5 z-40 flex h-11 w-11 items-center justify-center rounded-full
+                 border border-borda bg-superficie text-texto shadow-lg shadow-black/10 hover:text-marca-forte hover:border-marca transition">
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polyline points="18 15 12 9 6 15"></polyline>
+    </svg>
+  </button>
+
+  {% include 'cotton/chrome/cookie_consent.html' %}
 
   {% block js %}{% endblock %}
 </body>
