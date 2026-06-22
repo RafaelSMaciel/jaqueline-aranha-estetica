@@ -5,6 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block titulo %}{{ CLINIC_NAME }}{% endblock %}</title>
+  <meta name="description" content="{% block meta_description %}{{ CLINIC_SUBTITLE }}{% endblock %}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Lato:wght@400;500;700&display=swap" rel="stylesheet">
@@ -12,6 +13,7 @@
   {% vite_hmr_client %}
   {% vite_asset 'aranha_estetica/static/src/js/app.js' %}
   {% block css %}{% endblock %}
+  {% block schema_extra %}{% endblock %}
 </head>
 <body class="site-publico bg-fundo text-texto antialiased">
   <a href="#conteudo" class="sr-only focus:not-sr-only">Pular para o conteúdo</a>

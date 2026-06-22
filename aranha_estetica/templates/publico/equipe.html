@@ -39,9 +39,9 @@
 
         {# foto ou avatar inicial #}
         <div class="relative aspect-[3/4] overflow-hidden bg-fundo">
-          {% if prof.foto %}
-          <img src="{{ prof.foto.url }}"
-               alt="{{ prof.nome }}"
+          {% if prof.foto_url %}
+          <img src="{{ prof.foto_url }}"
+               alt="Foto de {{ prof.nome }}"
                loading="lazy"
                class="w-full h-full object-cover">
           {% else %}
