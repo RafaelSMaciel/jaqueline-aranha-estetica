@@ -129,6 +129,33 @@
       <span>Profissionais</span>
     </a>
 
+    {# Seção: Relatórios #}
+    <div class="px-5 pt-3 pb-1 text-[0.65rem] uppercase tracking-widest text-white/45 font-bold">Relatórios</div>
+
+    <a href="{% url 'aranha:dashboard_financeiro' %}"
+       class="flex items-center gap-3 px-5 py-[0.65rem] text-[0.85rem] font-medium no-underline text-white/80 border-l-[3px] border-transparent hover:text-white hover:bg-white/[0.04] transition-all duration-[180ms]
+              {% if request.resolver_match.url_name == 'dashboard_financeiro' %}!text-marca-forte !bg-marca-forte/[0.12] !border-l-marca-forte font-bold{% endif %}"
+       x-on:click="fecharMenu">
+      <svg class="w-[18px] h-[18px] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+      <span>Financeiro</span>
+    </a>
+
+    <a href="{% url 'aranha:painel_comissoes' %}"
+       class="flex items-center gap-3 px-5 py-[0.65rem] text-[0.85rem] font-medium no-underline text-white/80 border-l-[3px] border-transparent hover:text-white hover:bg-white/[0.04] transition-all duration-[180ms]
+              {% if 'comiss' in request.resolver_match.url_name %}!text-marca-forte !bg-marca-forte/[0.12] !border-l-marca-forte font-bold{% endif %}"
+       x-on:click="fecharMenu">
+      <svg class="w-[18px] h-[18px] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+      <span>Comissões</span>
+    </a>
+
+    <a href="{% url 'aranha:painel_nps' %}"
+       class="flex items-center gap-3 px-5 py-[0.65rem] text-[0.85rem] font-medium no-underline text-white/80 border-l-[3px] border-transparent hover:text-white hover:bg-white/[0.04] transition-all duration-[180ms]
+              {% if request.resolver_match.url_name == 'painel_nps' %}!text-marca-forte !bg-marca-forte/[0.12] !border-l-marca-forte font-bold{% endif %}"
+       x-on:click="fecharMenu">
+      <svg class="w-[18px] h-[18px] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/></svg>
+      <span>NPS</span>
+    </a>
+
     {# Seção: Sistema #}
     <div class="px-5 pt-3 pb-1 text-[0.65rem] uppercase tracking-widest text-white/45 font-bold">Sistema</div>
 

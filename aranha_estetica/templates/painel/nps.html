@@ -1,0 +1,106 @@
+{% extends 'painel/base_v2.html' %}
+
+{% block titulo %}NPS — {{ CLINIC_NAME }}{% endblock %}
+{% block page_title %}NPS — Satisfação{% endblock %}
+{% block page_subtitle %}Net Promoter Score, distribuição de notas e comentários{% endblock %}
+
+{% block admin_content %}
+
+{# ── Filtro de período ── #}
+<div class="flex items-center gap-1.5 mb-4">
+  {% with seg="px-3.5 py-1.5 rounded-full text-sm font-semibold no-underline border transition" %}
+  <a href="?periodo=30" class="{{ seg }} {% if periodo == '30' %}border-marca-forte text-marca-forte bg-marca-forte/[0.1]{% else %}border-borda text-texto-suave hover:border-marca{% endif %}">30 dias</a>
+  <a href="?periodo=90" class="{{ seg }} {% if periodo == '90' %}border-marca-forte text-marca-forte bg-marca-forte/[0.1]{% else %}border-borda text-texto-suave hover:border-marca{% endif %}">90 dias</a>
+  <a href="?periodo=tudo" class="{{ seg }} {% if periodo == 'tudo' %}border-marca-forte text-marca-forte bg-marca-forte/[0.1]{% else %}border-borda text-texto-suave hover:border-marca{% endif %}">Tudo</a>
+  {% endwith %}
+</div>
+
+{% if total %}
+
+{# ── NPS score + resumo ── #}
+<div class="grid lg:grid-cols-[280px_1fr] gap-4 mb-4">
+
+  {# Score grande #}
+  <div class="bg-white rounded-2xl shadow-sm p-6 flex flex-col items-center justify-center text-center">
+    <p class="text-[0.72rem] font-bold text-texto-suave uppercase tracking-wide mb-2">NPS</p>
+    <p class="font-serif font-bold leading-none {% if nps_score >= 50 %}text-sucesso{% elif nps_score >= 0 %}text-marca-forte{% else %}text-erro{% endif %}" style="font-size:4rem">{{ nps_score }}</p>
+    <p class="mt-2 text-sm font-semibold
+      {% if nps_score >= 75 %}text-sucesso{% elif nps_score >= 50 %}text-sucesso{% elif nps_score >= 0 %}text-marca-forte{% else %}text-erro{% endif %}">
+      {% if nps_score >= 75 %}Excelente{% elif nps_score >= 50 %}Muito bom{% elif nps_score >= 0 %}Razoável{% else %}Crítico{% endif %}
+    </p>
+    <p class="text-[0.72rem] text-texto-suave mt-1">{{ total }} avaliação{{ total|pluralize:"ões" }} · média {{ media }}</p>
+  </div>
+
+  {# Promotores / Neutros / Detratores #}
+  <div class="grid grid-cols-3 gap-3">
+    <div class="bg-white rounded-2xl shadow-sm p-4 flex flex-col justify-center">
+      <p class="text-2xl font-extrabold text-sucesso leading-none">{{ promotores_pct }}%</p>
+      <p class="text-sm font-bold text-texto mt-1">Promotores</p>
+      <p class="text-[0.72rem] text-texto-suave">{{ promotores }} · notas 9–10</p>
+    </div>
+    <div class="bg-white rounded-2xl shadow-sm p-4 flex flex-col justify-center">
+      <p class="text-2xl font-extrabold text-marca-forte leading-none">{{ neutros_pct }}%</p>
+      <p class="text-sm font-bold text-texto mt-1">Neutros</p>
+      <p class="text-[0.72rem] text-texto-suave">{{ neutros }} · notas 7–8</p>
+    </div>
+    <div class="bg-white rounded-2xl shadow-sm p-4 flex flex-col justify-center">
+      <p class="text-2xl font-extrabold text-erro leading-none">{{ detratores_pct }}%</p>
+      <p class="text-sm font-bold text-texto mt-1">Detratores</p>
+      <p class="text-[0.72rem] text-texto-suave">{{ detratores }} · notas 0–6</p>
+    </div>
+  </div>
+</div>
+
+{# ── Distribuição por nota ── #}
+<div class="bg-white rounded-2xl shadow-sm p-5 mb-4">
+  <h2 class="text-base font-bold text-texto mb-4">Distribuição de notas</h2>
+  <div class="space-y-1.5">
+    {% for d in distribuicao %}
+    <div class="flex items-center gap-3">
+      <span class="w-6 text-right text-sm font-bold {% if d.classe == 'promotor' %}text-sucesso{% elif d.classe == 'neutro' %}text-marca-forte{% else %}text-erro{% endif %}">{{ d.nota }}</span>
+      <div class="flex-1 h-5 rounded-full bg-fundo overflow-hidden">
+        <div class="h-full rounded-full {% if d.classe == 'promotor' %}bg-sucesso{% elif d.classe == 'neutro' %}bg-marca-forte{% else %}bg-erro{% endif %}" style="width:{{ d.altura }}%"></div>
+      </div>
+      <span class="w-8 text-right text-sm text-texto-suave tabular-nums">{{ d.count }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{# ── Comentários ── #}
+<div class="bg-white rounded-2xl shadow-sm p-5">
+  <h2 class="text-base font-bold text-texto mb-4">Comentários recentes</h2>
+  {% if comentarios %}
+  <div class="space-y-3">
+    {% for a in comentarios %}
+    <div class="flex gap-3 p-3 rounded-xl bg-fundo">
+      <span class="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm text-white
+        {% if a.nota >= 9 %}bg-sucesso{% elif a.nota >= 7 %}bg-marca-forte{% else %}bg-erro{% endif %}">{{ a.nota }}</span>
+      <div class="min-w-0 flex-1">
+        <p class="text-sm text-texto leading-relaxed">{{ a.comentario }}</p>
+        <p class="text-[0.72rem] text-texto-suave mt-1">
+          {{ a.atendimento.cliente.nome|default:"Cliente" }}
+          {% if a.atendimento.profissional %} · {{ a.atendimento.profissional.nome }}{% endif %}
+          · {{ a.criado_em|date:"d/m/Y" }}
+        </p>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-sm text-texto-suave text-center py-6">Nenhum comentário no período.</p>
+  {% endif %}
+</div>
+
+{% else %}
+{# ── Empty state ── #}
+<div class="bg-white rounded-2xl shadow-sm text-center py-16">
+  <div class="mx-auto w-16 h-16 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mb-4">
+    <svg class="w-8 h-8 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/></svg>
+  </div>
+  <h3 class="font-bold text-texto mb-1">Sem avaliações no período</h3>
+  <p class="text-sm text-texto-suave">As avaliações NPS aparecem aqui após o envio das pesquisas pós-atendimento.</p>
+</div>
+{% endif %}
+
+{% endblock %}

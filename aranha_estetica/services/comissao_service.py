@@ -117,6 +117,30 @@ class ComissaoService:
 
     @staticmethod
     @transaction.atomic
+    def marcar_paga(movimento_id: int) -> bool:
+        """Marca uma comissao PENDENTE como PAGA (idempotente, sob lock).
+
+        Retorna True se efetuou a baixa; False se nao existe ou ja nao estava
+        pendente (ex.: ja paga ou estornada).
+        """
+        mov = (
+            MovimentoComissao.objects.select_for_update()
+            .filter(pk=movimento_id)
+            .first()
+        )
+        if not mov or mov.status != MovimentoComissao.STATUS_PENDENTE:
+            return False
+        mov.status = MovimentoComissao.STATUS_PAGA
+        mov.pago_em = timezone.now()
+        mov.save(update_fields=['status', 'pago_em'])
+        logger.info(
+            'comissao_paga',
+            extra={'movimento_id': mov.pk, 'valor': str(mov.valor)},
+        )
+        return True
+
+    @staticmethod
+    @transaction.atomic
     def estornar_comissao(atendimento: Atendimento) -> int:
         """Marca comissoes ativas do atendimento como ESTORNADA."""
         ativas = MovimentoComissao.objects.select_for_update().filter(
