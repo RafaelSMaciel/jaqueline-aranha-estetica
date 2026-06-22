@@ -25,6 +25,13 @@ Alpine.data('modal', () => ({
   fechar() { this.aberto = false },
 }))
 
+// Nav do site publico: toggle do menu mobile (CSP-safe).
+Alpine.data('navMenu', () => ({
+  aberto: false,
+  alternar() { this.aberto = !this.aberto },
+  fechar() { this.aberto = false },
+}))
+
 // App-shell do painel admin: sidenav drawer mobile + backdrop.
 // classeDrawer() = metodo (CSP build nao aceita ternario inline em x-bind).
 Alpine.data('adminShell', () => ({

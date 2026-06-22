@@ -1,11 +1,53 @@
-<header class="border-b border-borda bg-superficie">
-  <div class="mx-auto max-w-6xl flex items-center justify-between px-6 py-4">
-    <a href="/" class="font-medium text-texto">{{ CLINIC_NAME }}</a>
-    <div class="flex items-center gap-4">
-      <button type="button" x-data="temaToggle" x-on:click="alternar"
-              aria-label="Alternar tema" class="text-texto-suave hover:text-texto">tema</button>
+{% with cur=request.resolver_match.url_name nl="px-3 py-2 rounded-full text-sm font-medium no-underline transition hover:bg-fundo hover:text-marca-forte" %}
+<header x-data="navMenu" class="sticky top-0 z-50 border-b border-borda bg-superficie/95 backdrop-blur supports-[backdrop-filter]:bg-superficie/80">
+  <div class="mx-auto max-w-6xl flex items-center justify-between gap-3 px-6 py-3.5">
+
+    <a href="{% url 'aranha:inicio' %}" class="font-serif text-lg font-bold text-texto no-underline shrink-0">{{ CLINIC_NAME }}</a>
+
+    {# ── Nav desktop ── #}
+    <nav class="hidden md:flex items-center gap-0.5" aria-label="Navegação principal">
+      <a href="{% url 'aranha:inicio' %}" class="{{ nl }} {% if cur == 'inicio' %}text-marca-forte bg-fundo{% else %}text-texto-suave{% endif %}">Início</a>
+      <a href="/#sobre" class="{{ nl }} text-texto-suave">Sobre</a>
+      <a href="{% url 'aranha:especialidades' %}" class="{{ nl }} {% if cur == 'especialidades' %}text-marca-forte bg-fundo{% else %}text-texto-suave{% endif %}">Serviços</a>
+      <a href="{% url 'aranha:equipe' %}" class="{{ nl }} {% if cur == 'equipe' %}text-marca-forte bg-fundo{% else %}text-texto-suave{% endif %}">Equipe</a>
+      <a href="{% url 'aranha:promocoes' %}" class="{{ nl }} {% if cur == 'promocoes' %}text-marca-forte bg-fundo{% else %}text-texto-suave{% endif %}">Promoções</a>
+      <a href="/#faq" class="{{ nl }} text-texto-suave">Dúvidas</a>
+      <a href="{% url 'aranha:agenda_contato' %}" class="{{ nl }} {% if cur == 'agenda_contato' %}text-marca-forte bg-fundo{% else %}text-texto-suave{% endif %}">Contato</a>
+    </nav>
+
+    {# ── Ações ── #}
+    <div class="flex items-center gap-1.5 shrink-0">
+      <button type="button" x-data="temaToggle" x-on:click="alternar" aria-label="Alternar tema claro/escuro"
+              class="p-2 rounded-full text-texto-suave hover:bg-fundo hover:text-texto transition">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+        </svg>
+      </button>
+
       <a href="{% url 'aranha:agendamento_publico' %}"
-         class="rounded-md bg-marca-forte px-4 py-2 text-sm font-medium text-sobre-marca">Agendar</a>
+         class="hidden sm:inline-flex items-center rounded-full bg-marca-forte px-4 py-2 text-sm font-semibold text-sobre-marca no-underline hover:opacity-90 transition">Agendar</a>
+
+      {# Hambúrguer mobile #}
+      <button type="button" x-on:click="alternar" x-bind:aria-expanded="aberto" aria-controls="nav-mobile"
+              aria-label="Abrir menu de navegação"
+              class="md:hidden p-2 rounded-full text-texto hover:bg-fundo transition">
+        <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
     </div>
   </div>
+
+  {# ── Painel mobile ── #}
+  <nav id="nav-mobile" x-show="aberto" x-cloak class="md:hidden border-t border-borda bg-superficie px-4 py-3 space-y-1" aria-label="Navegação principal">
+    <a href="{% url 'aranha:inicio' %}" x-on:click="fechar" class="block px-4 py-2.5 rounded-lg text-sm font-medium text-texto no-underline hover:bg-fundo transition">Início</a>
+    <a href="/#sobre" x-on:click="fechar" class="block px-4 py-2.5 rounded-lg text-sm font-medium text-texto no-underline hover:bg-fundo transition">Sobre</a>
+    <a href="{% url 'aranha:especialidades' %}" x-on:click="fechar" class="block px-4 py-2.5 rounded-lg text-sm font-medium text-texto no-underline hover:bg-fundo transition">Serviços</a>
+    <a href="{% url 'aranha:equipe' %}" x-on:click="fechar" class="block px-4 py-2.5 rounded-lg text-sm font-medium text-texto no-underline hover:bg-fundo transition">Equipe</a>
+    <a href="{% url 'aranha:promocoes' %}" x-on:click="fechar" class="block px-4 py-2.5 rounded-lg text-sm font-medium text-texto no-underline hover:bg-fundo transition">Promoções</a>
+    <a href="/#faq" x-on:click="fechar" class="block px-4 py-2.5 rounded-lg text-sm font-medium text-texto no-underline hover:bg-fundo transition">Dúvidas</a>
+    <a href="{% url 'aranha:agenda_contato' %}" x-on:click="fechar" class="block px-4 py-2.5 rounded-lg text-sm font-medium text-texto no-underline hover:bg-fundo transition">Contato</a>
+    <a href="{% url 'aranha:agendamento_publico' %}" x-on:click="fechar" class="block px-4 py-2.5 rounded-lg text-sm font-semibold text-center text-sobre-marca bg-marca-forte no-underline hover:opacity-90 transition mt-2">Agendar</a>
+  </nav>
 </header>
+{% endwith %}
