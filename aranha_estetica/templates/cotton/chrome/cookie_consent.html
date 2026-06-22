@@ -1,0 +1,21 @@
+{% if not request.session.cookie_consent %}
+<div x-data="cookieConsent"
+     data-url="{% url 'aranha:lgpd_aceitar_cookies' %}"
+     data-csrf="{{ csrf_token }}"
+     class="fixed inset-x-0 bottom-0 z-50 px-4 pb-4"
+     role="dialog" aria-live="polite" aria-label="Aviso de cookies">
+  <div class="mx-auto max-w-3xl rounded-2xl border border-borda bg-superficie p-5 shadow-xl shadow-black/10
+              flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <p class="text-sm leading-relaxed text-texto-suave">
+      Usamos cookies para melhorar sua experiência e entender como você usa o site.
+      Consulte a <a href="{% url 'aranha:politica_privacidade' %}" class="font-medium text-marca-forte underline">Política de Privacidade</a>.
+    </p>
+    <div class="flex shrink-0 gap-2">
+      <button type="button" x-on:click="soEssenciais"
+              class="rounded-full border border-borda px-4 py-2 text-sm font-medium text-texto-suave hover:bg-fundo transition">Só essenciais</button>
+      <button type="button" x-on:click="aceitarTodos"
+              class="rounded-full bg-marca-forte px-5 py-2 text-sm font-semibold text-sobre-marca hover:opacity-90 transition">Aceitar todos</button>
+    </div>
+  </div>
+</div>
+{% endif %}

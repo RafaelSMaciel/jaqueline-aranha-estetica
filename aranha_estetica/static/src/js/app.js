@@ -32,6 +32,22 @@ Alpine.data('navMenu', () => ({
   fechar() { this.aberto = false },
 }))
 
+// Banner de consentimento de cookies (LGPD). Posta preferencias e some.
+// CSP-safe: URL/CSRF vem de data-attrs do $root; sem expressao inline.
+Alpine.data('cookieConsent', () => ({
+  enviar(analytics, marketing) {
+    const fd = new FormData()
+    fd.append('analytics', analytics ? '1' : '0')
+    fd.append('marketing', marketing ? '1' : '0')
+    fd.append('csrfmiddlewaretoken', this.$root.dataset.csrf)
+    fetch(this.$root.dataset.url, {
+      method: 'POST', body: fd, headers: { 'X-CSRFToken': this.$root.dataset.csrf },
+    }).catch(() => {}).finally(() => { this.$root.remove() })
+  },
+  aceitarTodos() { this.enviar(true, true) },
+  soEssenciais() { this.enviar(false, false) },
+}))
+
 // App-shell do painel admin: sidenav drawer mobile + backdrop.
 // classeDrawer() = metodo (CSP build nao aceita ternario inline em x-bind).
 Alpine.data('adminShell', () => ({
@@ -99,6 +115,43 @@ document.addEventListener('click', function (e) {
     e.stopPropagation()
   }
 })
+
+// ── Scroll-reveal (vanilla, CSP-safe) ──
+// Elementos .reveal sobem/fade ao entrar na viewport, com stagger entre irmaos.
+function initRevelar() {
+  const els = document.querySelectorAll('.reveal')
+  if (!els.length) return
+  const semMovimento = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (semMovimento || !('IntersectionObserver' in window)) {
+    els.forEach((el) => el.classList.add('is-visible'))
+    return
+  }
+  const io = new IntersectionObserver((entries, obs) => {
+    entries.forEach((e) => {
+      if (!e.isIntersecting) return
+      const el = e.target
+      const irmaos = Array.from(el.parentElement.children).filter((c) => c.classList.contains('reveal'))
+      const i = irmaos.indexOf(el)
+      if (i > 0) el.style.transitionDelay = Math.min(i, 6) * 70 + 'ms'
+      el.classList.add('is-visible')
+      obs.unobserve(el)
+    })
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' })
+  els.forEach((el) => io.observe(el))
+}
+
+// ── Botao voltar ao topo (vanilla) ──
+function initVoltarTopo() {
+  const btn = document.getElementById('btnTopo')
+  if (!btn) return
+  const aoRolar = () => { btn.classList.toggle('show', window.scrollY > 500) }
+  window.addEventListener('scroll', aoRolar, { passive: true })
+  aoRolar()
+  btn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }))
+}
+
+initRevelar()
+initVoltarTopo()
 
 window.Alpine = Alpine
 Alpine.start()

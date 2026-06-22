@@ -35,6 +35,17 @@
   .site-publico :is(h1, h2, h3) { font-family: var(--heading-font); }
 }
 
+/* Scroll-reveal: elementos sobem/fade ao entrar na viewport (JS adiciona .is-visible) */
+.reveal { opacity: 0; transform: translateY(22px); transition: opacity .7s ease, transform .7s cubic-bezier(.22,.61,.36,1); will-change: opacity, transform; }
+.reveal.is-visible { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1 !important; transform: none !important; transition: none; }
+}
+
+/* Botao voltar ao topo: some/aparece via .show (toggle no scroll) */
+.to-top { opacity: 0; transform: translateY(8px); pointer-events: none; transition: opacity .3s ease, transform .3s ease; }
+.to-top.show { opacity: 1; transform: none; pointer-events: auto; }
+
 /* Botao flutuante WhatsApp: anel pulsante sutil */
 @keyframes zap-pulse {
   0%   { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.45); }
