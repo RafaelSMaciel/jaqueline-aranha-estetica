@@ -61,11 +61,12 @@
       <div class="grid lg:grid-cols-[1fr_2fr] gap-10 items-start">
 
         {# Imagem da categoria #}
-        <div class="rounded-xl overflow-hidden aspect-[4/3]">
+        <div class="group rounded-xl overflow-hidden aspect-[4/3]">
           <img src="{% static 'assets/clinica/consulta-1.webp' %}"
                alt="{{ grupo.label }}"
-               loading="lazy"
-               class="w-full h-full object-cover">
+               width="800" height="600"
+               loading="lazy" decoding="async"
+               class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
         </div>
 
         {# Listagem de procedimentos #}
@@ -179,12 +180,13 @@
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
 
       {# Tratamentos Faciais Injetáveis #}
-      <article class="rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
+      <article class="group rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
         <div class="aspect-[16/9] overflow-hidden">
           <img src="{% static 'assets/clinica/facial-4.webp' %}"
                alt="Tratamentos Faciais Injetáveis"
-               loading="lazy"
-               class="w-full h-full object-cover">
+               width="800" height="450"
+               loading="lazy" decoding="async"
+               class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
         </div>
         <div class="p-6 flex flex-col flex-1 gap-3">
           <div class="w-10 h-10 rounded-lg bg-fundo border border-borda flex items-center justify-center">
@@ -206,12 +208,13 @@
       </article>
 
       {# Modelagem Corporal #}
-      <article class="rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
+      <article class="group rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
         <div class="aspect-[16/9] overflow-hidden">
           <img src="{% static 'assets/clinica/corporal-2.webp' %}"
                alt="Modelagem Corporal"
-               loading="lazy"
-               class="w-full h-full object-cover">
+               width="800" height="450"
+               loading="lazy" decoding="async"
+               class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
         </div>
         <div class="p-6 flex flex-col flex-1 gap-3">
           <div class="w-10 h-10 rounded-lg bg-fundo border border-borda flex items-center justify-center">
@@ -232,12 +235,13 @@
       </article>
 
       {# Skin Care #}
-      <article class="rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
+      <article class="group rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
         <div class="aspect-[16/9] overflow-hidden">
           <img src="{% static 'assets/clinica/facial-3.webp' %}"
                alt="Skin Care"
-               loading="lazy"
-               class="w-full h-full object-cover">
+               width="800" height="450"
+               loading="lazy" decoding="async"
+               class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
         </div>
         <div class="p-6 flex flex-col flex-1 gap-3">
           <div class="w-10 h-10 rounded-lg bg-fundo border border-borda flex items-center justify-center">
@@ -259,12 +263,13 @@
       </article>
 
       {# Depilação a Laser #}
-      <article class="rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
+      <article class="group rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
         <div class="aspect-[16/9] overflow-hidden">
           <img src="{% static 'assets/clinica/depilacao-1.webp' %}"
                alt="Depilação a Laser"
-               loading="lazy"
-               class="w-full h-full object-cover">
+               width="800" height="450"
+               loading="lazy" decoding="async"
+               class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
         </div>
         <div class="p-6 flex flex-col flex-1 gap-3">
           <div class="w-10 h-10 rounded-lg bg-fundo border border-borda flex items-center justify-center">
@@ -285,12 +290,13 @@
       </article>
 
       {# Massagens Terapêuticas #}
-      <article class="rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
+      <article class="group rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
         <div class="aspect-[16/9] overflow-hidden">
           <img src="{% static 'assets/clinica/massagem-1.webp' %}"
                alt="Massagens Terapêuticas"
-               loading="lazy"
-               class="w-full h-full object-cover">
+               width="800" height="450"
+               loading="lazy" decoding="async"
+               class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
         </div>
         <div class="p-6 flex flex-col flex-1 gap-3">
           <div class="w-10 h-10 rounded-lg bg-fundo border border-borda flex items-center justify-center">
@@ -315,12 +321,13 @@
       </article>
 
       {# Pós-operatório #}
-      <article class="rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
+      <article class="group rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
         <div class="aspect-[16/9] overflow-hidden">
           <img src="{% static 'assets/clinica/pos-operatorio-1.webp' %}"
                alt="Pós-operatório"
-               loading="lazy"
-               class="w-full h-full object-cover">
+               width="800" height="450"
+               loading="lazy" decoding="async"
+               class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
         </div>
         <div class="p-6 flex flex-col flex-1 gap-3">
           <div class="w-10 h-10 rounded-lg bg-fundo border border-borda flex items-center justify-center">

@@ -9,7 +9,7 @@
 {% if not promocoes %}
 <div class="text-center py-12">
   <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
-    <svg class="w-7 h-7 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+    <svg class="w-7 h-7 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
       <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>
     </svg>
   </div>
@@ -68,10 +68,10 @@
        class="fixed inset-0 z-[10000] flex items-center justify-center p-4" style="background:rgba(0,0,0,.45)">
     <div x-on:click.outside="fechar"
          class="bg-superficie text-texto rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl">
-      <div class="flex items-center justify-between px-5 py-4 bg-gradient-to-br from-[#2c2015] to-[#4A3425] text-white rounded-t-2xl">
-        <h5 class="font-bold text-[0.95rem]">Editar Promoção</h5>
+      <div class="flex items-center justify-between px-5 py-4 border-b border-borda rounded-t-2xl">
+        <h5 class="font-bold text-[0.95rem] text-texto">Editar Promoção</h5>
         <button type="button" x-on:click="fechar" aria-label="Fechar"
-                class="text-white/80 hover:text-white text-2xl leading-none border-none bg-transparent cursor-pointer">&times;</button>
+                class="text-texto-suave hover:text-texto text-2xl leading-none border-none bg-transparent cursor-pointer">&times;</button>
       </div>
       <form method="post" action="{% url 'aranha:admin_editar_promocao' promo.pk %}" class="p-6">
         {% csrf_token %}
@@ -143,13 +143,13 @@
        class="fixed inset-0 z-[10000] flex items-center justify-center p-4" style="background:rgba(0,0,0,.45)">
     <div x-on:click.outside="fechar"
          class="bg-superficie text-texto rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl">
-      <div class="flex items-center justify-between px-5 py-4 bg-gradient-to-br from-[#2c2015] to-[#4A3425] text-white rounded-t-2xl">
-        <h5 class="flex items-center gap-2 font-bold text-[0.95rem]">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-borda rounded-t-2xl">
+        <h5 class="flex items-center gap-2 font-bold text-[0.95rem] text-texto">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
           Nova Promoção
         </h5>
         <button type="button" x-on:click="fechar" aria-label="Fechar"
-                class="text-white/80 hover:text-white text-2xl leading-none border-none bg-transparent cursor-pointer">&times;</button>
+                class="text-texto-suave hover:text-texto text-2xl leading-none border-none bg-transparent cursor-pointer">&times;</button>
       </div>
       <form method="post" action="{% url 'aranha:admin_criar_promocao' %}" class="p-6">
         {% csrf_token %}

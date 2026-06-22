@@ -81,7 +81,7 @@
   {% for p in pendentes_aprovacao %}
   <div class="flex items-center gap-3 bg-white rounded-xl px-3.5 py-2.5 mb-1.5">
     <div class="flex-1 min-w-0">
-      <div class="font-bold text-[0.85rem] text-[#4A3425]">{{ p.cliente.nome }}</div>
+      <div class="font-bold text-[0.85rem] text-texto">{{ p.cliente.nome }}</div>
       <div class="text-[0.7rem] text-texto-suave mt-0.5">{{ p.procedimento.nome }} &bull; {{ p.profissional.nome }} &bull; {{ p.data_hora_inicio|date:"d/m H:i" }}</div>
     </div>
     <div class="flex gap-1.5 shrink-0">

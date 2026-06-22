@@ -62,11 +62,12 @@
 
       {# — visual com floating cards — #}
       <div class="relative">
-        <div class="relative rounded-xl overflow-hidden aspect-[4/5]">
+        <div class="group relative rounded-xl overflow-hidden aspect-[4/5]">
           <img src="{% static 'assets/clinica/corporal-1.webp' %}"
                alt="Tratamentos Corporais {{ CLINIC_NAME }}"
-               loading="lazy"
-               class="w-full h-full object-cover">
+               width="600" height="750"
+               loading="lazy" decoding="async"
+               class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
 
           {# floating card — Tecnologia Avançada #}
           <div class="absolute bottom-6 left-6 bg-superficie border border-borda rounded-lg p-4 shadow-lg flex items-start gap-3 max-w-[200px]">
@@ -193,12 +194,13 @@
     <div class="grid md:grid-cols-2 gap-8 mb-10">
 
       {# Card destaque — Aplicações Enzimáticas #}
-      <article class="rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
+      <article class="group rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
         <div class="relative aspect-[16/9] overflow-hidden">
           <img src="{% static 'assets/clinica/corporal-2.webp' %}"
                alt="Aplicações Enzimáticas"
-               loading="lazy"
-               class="w-full h-full object-cover">
+               width="800" height="450"
+               loading="lazy" decoding="async"
+               class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
           <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
           <span class="absolute top-4 left-4 bg-marca-forte text-sobre-marca text-xs font-semibold px-3 py-1 rounded-full">
             Mais Procurado
@@ -232,12 +234,13 @@
       </article>
 
       {# Card destaque — Preenchimento de Glúteos #}
-      <article class="rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
+      <article class="group rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
         <div class="relative aspect-[16/9] overflow-hidden">
           <img src="{% static 'assets/clinica/corporal-3.webp' %}"
                alt="Preenchimento de Glúteos"
-               loading="lazy"
-               class="w-full h-full object-cover">
+               width="800" height="450"
+               loading="lazy" decoding="async"
+               class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
           <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
           <span class="absolute top-4 left-4 bg-marca-forte text-sobre-marca text-xs font-semibold px-3 py-1 rounded-full">
             Resultado Imediato
@@ -404,12 +407,13 @@
     <div class="grid lg:grid-cols-[2fr_1fr] gap-0 rounded-xl overflow-hidden border border-borda">
 
       {# Principal — Depilação a Laser #}
-      <div class="relative">
+      <div class="group relative">
         <div class="aspect-[4/3] lg:aspect-auto lg:h-full overflow-hidden">
           <img src="{% static 'assets/clinica/depilacao-1.webp' %}"
                alt="Depilação a Laser"
-               loading="lazy"
-               class="w-full h-full object-cover">
+               width="800" height="600"
+               loading="lazy" decoding="async"
+               class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
           <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
         </div>
         <div class="absolute bottom-0 left-0 right-0 p-8">
@@ -419,7 +423,7 @@
             </svg>
             Tecnologia Laser
           </div>
-          <h2 class="text-white text-2xl font-bold mb-2">Depilação a Laser</h2>
+          <h3 class="text-white text-2xl font-bold mb-2">Depilação a Laser</h3>
           <p class="text-white/80 text-sm leading-relaxed mb-4">
             Remoção definitiva dos pelos com tecnologia de ponta, segura para todos os fototipos de pele. Sessões rápidas e indolores. Consulte região e número de sessões.
           </p>
@@ -441,7 +445,7 @@
             </svg>
           </div>
           <div class="flex-1 min-w-0">
-            <h4 class="text-texto font-semibold text-base mb-1">Drenagem Linfática Corporal</h4>
+            <h3 class="text-texto font-semibold text-base mb-1">Drenagem Linfática Corporal</h3>
             <p class="text-texto-suave text-sm leading-relaxed mb-3">
               Drenagem manual corporal para reduzir inchaço, eliminar toxinas e melhorar o bem-estar.
             </p>
@@ -461,7 +465,7 @@
             </svg>
           </div>
           <div class="flex-1 min-w-0">
-            <h4 class="text-texto font-semibold text-base mb-1">Ventosaterapia</h4>
+            <h3 class="text-texto font-semibold text-base mb-1">Ventosaterapia</h3>
             <p class="text-texto-suave text-sm leading-relaxed mb-3">
               Terapia com ventosas para relaxamento, melhora da circulação e alívio de tensões musculares.
             </p>
@@ -481,7 +485,7 @@
             </svg>
           </div>
           <div class="flex-1 min-w-0">
-            <h4 class="text-texto font-semibold text-base mb-1">Massagem Relaxante</h4>
+            <h3 class="text-texto font-semibold text-base mb-1">Massagem Relaxante</h3>
             <p class="text-texto-suave text-sm leading-relaxed mb-3">
               Massagem corporal relaxante para alívio do estresse, tensão muscular e bem-estar integral.
             </p>
@@ -526,11 +530,12 @@
         </div>
       </div>
 
-      <div class="rounded-xl overflow-hidden aspect-[4/3]">
+      <div class="group rounded-xl overflow-hidden aspect-[4/3]">
         <img src="{% static 'assets/clinica/espaco-2.webp' %}"
              alt="Tratamentos Corporais {{ CLINIC_NAME }}"
-             loading="lazy"
-             class="w-full h-full object-cover">
+             width="800" height="600"
+             loading="lazy" decoding="async"
+             class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
       </div>
     </div>
 
