@@ -25,4 +25,9 @@
    que fica claro/errado em dark). Utilitario explicito (ex.: border-marca) sobrescreve. */
 @layer base {
   input, select, textarea { border-color: var(--cor-borda); }
+  /* rolagem suave ao navegar pelas ancoras (ex.: nav do FAQ) */
+  html { scroll-behavior: smooth; }
 }
+
+/* FAQ accordion (<details> nativo): gira o chevron quando aberto */
+details.faq-item[open] .faq-chevron { transform: rotate(180deg); }

@@ -29,21 +29,63 @@ def home(request):
         )
     except (OperationalError, ProgrammingError):
         pass
-    faqs = [
-        {'q': 'Como faço para agendar um atendimento?',
-         'a': 'Você pode agendar online pelo nosso sistema, por WhatsApp ou por telefone. O agendamento online está disponível 24h.'},
-        {'q': 'Quais são as formas de pagamento aceitas?',
-         'a': 'Aceitamos PIX, cartão de débito, crédito (com parcelamento) e dinheiro. Pacotes têm condições especiais.'},
-        {'q': 'Posso cancelar ou remarcar meu horário?',
-         'a': 'Sim. Cancelamentos e remarcações podem ser feitos com até 24h de antecedência sem custo, via painel "Meus Agendamentos".'},
-        {'q': 'Os tratamentos são indicados para todos os tipos de pele?',
-         'a': 'Nossos profissionais realizam avaliação individualizada antes de qualquer procedimento para indicar o protocolo mais adequado.'},
-        {'q': 'Como é feito o armazenamento dos meus dados?',
-         'a': 'Seguimos a LGPD. Seus dados são armazenados de forma segura e você pode solicitar exclusão ou acesso pela área "Meus Dados".'},
+    faq_categorias = [
+        {
+            'slug': 'agendamento',
+            'nome': 'Agendamento',
+            'itens': [
+                {'q': 'Como faço para agendar um atendimento?',
+                 'a': 'Você pode agendar online pelo nosso site (disponível 24h), pelo WhatsApp ou por telefone. No site, é só escolher o procedimento, o dia e o horário.'},
+                {'q': 'Preciso criar uma conta para agendar?',
+                 'a': 'Não. O agendamento é sem cadastro: você se identifica pelo telefone e confirma com um código enviado por SMS. Rápido e sem senha.'},
+                {'q': 'Posso cancelar ou remarcar meu horário?',
+                 'a': 'Sim. Cancelamentos e remarcações podem ser feitos com até 24h de antecedência, sem custo, pela área "Meus Agendamentos".'},
+                {'q': 'Como funciona a avaliação inicial?',
+                 'a': 'Antes de qualquer procedimento, fazemos uma avaliação individualizada para entender seu objetivo e indicar o cuidado mais adequado para você.'},
+            ],
+        },
+        {
+            'slug': 'pagamentos',
+            'nome': 'Pagamentos e Pacotes',
+            'itens': [
+                {'q': 'Quais são as formas de pagamento?',
+                 'a': 'Aceitamos PIX, cartão de débito, cartão de crédito (com parcelamento) e dinheiro.'},
+                {'q': 'Como funcionam os pacotes de sessões?',
+                 'a': 'Os pacotes reúnem um número de sessões por um valor fechado, com validade definida e condições especiais em relação às sessões avulsas.'},
+                {'q': 'Existe benefício por indicação?',
+                 'a': 'Sim. Ao indicar uma amiga, você ganha um crédito na sua carteira quando ela realiza o primeiro atendimento — para usar nos seus próximos cuidados.'},
+            ],
+        },
+        {
+            'slug': 'tratamentos',
+            'nome': 'Tratamentos',
+            'itens': [
+                {'q': 'Os tratamentos servem para todos os tipos de pele?',
+                 'a': 'Cada pessoa é única. Por isso fazemos uma avaliação individualizada antes do procedimento para indicar o cuidado mais adequado ao seu tipo de pele.'},
+                {'q': 'Quanto tempo dura cada sessão?',
+                 'a': 'Depende do procedimento escolhido — a duração estimada aparece na hora de agendar, junto com os horários disponíveis.'},
+                {'q': 'Alguns procedimentos têm retorno?',
+                 'a': 'Sim. Quando o cuidado prevê acompanhamento, o retorno é sinalizado e agendado para você, sem custo adicional.'},
+                {'q': 'Existem contraindicações?',
+                 'a': 'Algumas. Por isso preenchemos uma ficha de anamnese antes do atendimento — assim garantimos sua segurança e o melhor resultado.'},
+            ],
+        },
+        {
+            'slug': 'privacidade',
+            'nome': 'Privacidade e Dados',
+            'itens': [
+                {'q': 'Como meus dados são armazenados?',
+                 'a': 'Seguimos a LGPD. Seus dados ficam armazenados de forma segura e são usados apenas para o seu atendimento e a comunicação com você.'},
+                {'q': 'Posso acessar ou excluir meus dados?',
+                 'a': 'Sim. Pela área "Meus Dados" você consulta, baixa ou solicita a exclusão das suas informações quando quiser.'},
+                {'q': 'Vou receber mensagens de divulgação?',
+                 'a': 'Apenas se você autorizar. Você escolhe o que deseja receber e pode cancelar o recebimento a qualquer momento, com um clique.'},
+            ],
+        },
     ]
     return render(request, 'publico/home.html', {
         'profissionais': profissionais,
-        'faqs': faqs,
+        'faq_categorias': faq_categorias,
     })
 
 
