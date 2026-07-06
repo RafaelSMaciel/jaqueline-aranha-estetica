@@ -131,11 +131,9 @@
                loading="lazy" decoding="async"
                class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
         {% elif procedimento.categoria == 'CORPORAL' %}
-          <img src="{% static 'assets/clinica/gestante-1.webp' %}"
-               alt="{{ procedimento.nome }}"
-               width="600" height="750"
-               loading="lazy" decoding="async"
-               class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
+          <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-fundo via-marca/[0.06] to-marca/[0.18]">
+            <svg class="w-14 h-14 text-marca-forte/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="2.5"/><path d="M12 7.5v6m0 0l-3.5 5m3.5-5l3.5 5M7.5 11h9"/></svg>
+          </div>
         {% else %}
           <img src="{% static 'assets/clinica/consulta-1.webp' %}"
                alt="{{ procedimento.nome }}"

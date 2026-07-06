@@ -271,16 +271,12 @@ def depoimentos(request):
 def galeria(request):
     """Pagina publica com galeria estatica da clinica (GLightbox)."""
     # Imagens usam o template_img ja presente em static/assets/
+    # Apenas fotos genuinamente esteticas/spa (curadoria de marca).
     fotos = [
-        {'src': 'assets/clinica/espaco-1.webp', 'titulo': 'Recepcao'},
-        {'src': 'assets/clinica/espaco-2.webp', 'titulo': 'Sala de Espera'},
-        {'src': 'assets/clinica/facial-2.webp', 'titulo': 'Sala de Tratamento Facial'},
-        {'src': 'assets/clinica/facial-3.webp', 'titulo': 'Procedimento Facial'},
-        {'src': 'assets/clinica/gestante-1.webp', 'titulo': 'Ambiente Relaxante'},
+        {'src': 'assets/clinica/espaco-2.webp', 'titulo': 'Recepcao'},
         {'src': 'assets/clinica/consulta-1.webp', 'titulo': 'Sala de Avaliacao'},
-        {'src': 'assets/clinica/laboratorio-1.webp', 'titulo': 'Equipamentos'},
-        {'src': 'assets/clinica/pele-1.webp', 'titulo': 'Atendimento Personalizado'},
-        {'src': 'assets/clinica/facial-1.webp', 'titulo': 'Tecnologia Avancada'},
+        {'src': 'assets/clinica/facial-2.webp', 'titulo': 'Tratamento Facial com LED'},
+        {'src': 'assets/clinica/facial-3.webp', 'titulo': 'Mascara Facial'},
     ]
     return render(request, 'publico/galeria.html', {'fotos': fotos})
 

@@ -70,11 +70,9 @@
       {# — visual com floating cards — #}
       <div class="relative">
         <div class="group relative rounded-xl overflow-hidden aspect-[4/5]">
-          <img src="{% static 'assets/clinica/laboratorio-1.webp' %}"
-               alt="Produtos Naturais {{ CLINIC_NAME }}"
-               width="600" height="750"
-               loading="lazy" decoding="async"
-               class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
+          <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-fundo via-marca/[0.06] to-marca/[0.18]">
+            <svg class="w-14 h-14 text-marca-forte/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/></svg>
+          </div>
 
           {# floating card — 100% Natural #}
           <div class="absolute bottom-6 left-6 bg-superficie border border-borda rounded-lg p-4 shadow-lg flex items-start gap-3 max-w-[200px]">
@@ -198,12 +196,9 @@
       {# Card destaque — Sérum Vitamina C #}
       <article class="group rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
         <div class="relative aspect-[16/9] overflow-hidden">
-          <img src="{% static 'assets/clinica/massagem-1.webp' %}"
-               alt="Sérum Vitamina C"
-               width="800" height="450"
-               loading="lazy" decoding="async"
-               class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
-          <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+          <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-fundo via-marca/[0.06] to-marca/[0.18]">
+            <svg class="w-14 h-14 text-marca-forte/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/></svg>
+          </div>
           <span class="absolute top-4 left-4 bg-marca-forte text-sobre-marca text-xs font-semibold px-3 py-1 rounded-full">
             Mais Vendido
           </span>
@@ -243,12 +238,9 @@
       {# Card destaque — Protetor Solar FPS 50 #}
       <article class="group rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
         <div class="relative aspect-[16/9] overflow-hidden">
-          <img src="{% static 'assets/clinica/pele-1.webp' %}"
-               alt="Protetor Solar FPS 50"
-               width="800" height="450"
-               loading="lazy" decoding="async"
-               class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
-          <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+          <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-fundo via-marca/[0.06] to-marca/[0.18]">
+            <svg class="w-14 h-14 text-marca-forte/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/></svg>
+          </div>
           <span class="absolute top-4 left-4 bg-marca-forte text-sobre-marca text-xs font-semibold px-3 py-1 rounded-full">
             Essencial
           </span>
@@ -404,12 +396,9 @@
       {# Principal — Máscara de Argila Verde #}
       <div class="group relative">
         <div class="aspect-[4/3] lg:aspect-auto lg:h-full overflow-hidden">
-          <img src="{% static 'assets/clinica/procedimento-2.webp' %}"
-               alt="Máscara de Argila Verde"
-               width="800" height="600"
-               loading="lazy" decoding="async"
-               class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
-          <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
+          <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-fundo via-marca/[0.06] to-marca/[0.18]">
+            <svg class="w-14 h-14 text-marca-forte/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/></svg>
+          </div>
         </div>
         <div class="absolute bottom-0 left-0 right-0 p-8">
           <div class="inline-flex items-center gap-2 bg-marca-forte text-sobre-marca text-xs font-semibold px-3 py-1 rounded-full mb-3">
@@ -418,8 +407,8 @@
             </svg>
             Detox Natural
           </div>
-          <h3 class="text-white text-2xl font-bold mb-2">Máscara de Argila Verde</h3>
-          <p class="text-white/80 text-sm leading-relaxed mb-4">
+          <h3 class="text-texto text-2xl font-bold mb-2">Máscara de Argila Verde</h3>
+          <p class="text-texto-suave text-sm leading-relaxed mb-4">
             Máscaras purificantes de argila verde para desobstruir poros, controlar oleosidade e revitalizar a pele. Ideal para peles mistas e oleosas, com ação detox e anti-inflamatória natural.
           </p>
           <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Ol%C3%A1%21+Gostaria+de+saber+sobre+a+M%C3%A1scara+de+Argila."
