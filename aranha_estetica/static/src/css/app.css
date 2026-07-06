@@ -33,8 +33,10 @@
   body { font-family: var(--body-font); }
   /* titulos do site publico em Playfair Display (admin nao carrega a fonte) */
   .site-publico :is(h1, h2, h3) { font-family: var(--heading-font); }
-  /* admin unificado com o site: titulos do painel tambem em Playfair Display */
-  .painel-admin :is(h1, h2, h3) { font-family: var(--heading-font); }
+  /* admin unificado com o site: titulos do painel tambem em Playfair Display.
+     Inclui h4/h5 (subtitulos de secao/card); h6 (captions minusculos uppercase)
+     ficam de fora de proposito. */
+  .painel-admin :is(h1, h2, h3, h4, h5) { font-family: var(--heading-font); }
 }
 
 /* Scroll-reveal: elementos sobem/fade ao entrar na viewport (JS adiciona .is-visible) */
