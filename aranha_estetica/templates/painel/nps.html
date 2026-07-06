@@ -23,7 +23,7 @@
   {# Score grande #}
   <div class="bg-white rounded-2xl shadow-sm p-6 flex flex-col items-center justify-center text-center">
     <p class="text-[0.72rem] font-bold text-texto-suave uppercase tracking-wide mb-2">NPS</p>
-    <p class="font-serif font-bold leading-none {% if nps_score >= 50 %}text-sucesso{% elif nps_score >= 0 %}text-marca-forte{% else %}text-erro{% endif %}" style="font-size:4rem">{{ nps_score }}</p>
+    <p class="font-serif font-bold leading-none text-[4rem] {% if nps_score >= 50 %}text-sucesso{% elif nps_score >= 0 %}text-marca-forte{% else %}text-erro{% endif %}">{{ nps_score }}</p>
     <p class="mt-2 text-sm font-semibold
       {% if nps_score >= 75 %}text-sucesso{% elif nps_score >= 50 %}text-sucesso{% elif nps_score >= 0 %}text-marca-forte{% else %}text-erro{% endif %}">
       {% if nps_score >= 75 %}Excelente{% elif nps_score >= 50 %}Muito bom{% elif nps_score >= 0 %}Razoável{% else %}Crítico{% endif %}
