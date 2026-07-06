@@ -33,7 +33,7 @@
 
     {# ── Grid responsivo de fotos ── #}
     {% if fotos %}
-    <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
       {% for foto in fotos %}
       <div class="group rounded-xl overflow-hidden aspect-square bg-superficie border border-borda">
         <img src="{% static foto.src %}"
