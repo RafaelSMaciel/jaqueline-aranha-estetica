@@ -8,17 +8,17 @@
 
 {# ── Cards de totais ── #}
 <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-  <div class="bg-white rounded-2xl shadow-sm p-4">
+  <div class="bg-superficie rounded-2xl shadow-sm p-4">
     <p class="text-[0.72rem] font-bold text-texto-suave uppercase tracking-wide">A pagar (pendente)</p>
     <p class="text-2xl font-extrabold text-marca-forte mt-1 leading-none">R$ {{ pendente_total|floatformat:2 }}</p>
     <p class="text-[0.72rem] text-texto-suave mt-1">{{ pendente_count }} comissã{{ pendente_count|pluralize:"o,ões" }}</p>
   </div>
-  <div class="bg-white rounded-2xl shadow-sm p-4">
+  <div class="bg-superficie rounded-2xl shadow-sm p-4">
     <p class="text-[0.72rem] font-bold text-texto-suave uppercase tracking-wide">Pagas</p>
     <p class="text-2xl font-extrabold text-sucesso mt-1 leading-none">R$ {{ paga_total|floatformat:2 }}</p>
     <p class="text-[0.72rem] text-texto-suave mt-1">{{ paga_count }} comissã{{ paga_count|pluralize:"o,ões" }}</p>
   </div>
-  <div class="bg-white rounded-2xl shadow-sm p-4">
+  <div class="bg-superficie rounded-2xl shadow-sm p-4">
     <p class="text-[0.72rem] font-bold text-texto-suave uppercase tracking-wide">Estornadas</p>
     <p class="text-2xl font-extrabold text-texto-suave mt-1 leading-none">{{ estornada_count }}</p>
     <p class="text-[0.72rem] text-texto-suave mt-1">no período</p>
@@ -26,7 +26,7 @@
 </div>
 
 {# ── Filtros ── #}
-<div class="bg-white rounded-2xl shadow-sm p-4 mb-4">
+<div class="bg-superficie rounded-2xl shadow-sm p-4 mb-4">
   <form method="GET" class="flex gap-2 flex-wrap items-end">
     <div class="flex-1 min-w-[140px]">
       <label for="fStatus" class="sr-only">Status</label>
@@ -61,7 +61,7 @@
 
 {# ── Resumo por profissional ── #}
 {% if por_profissional %}
-<div class="bg-white rounded-2xl shadow-sm p-5 mb-4">
+<div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
   <h2 class="text-base font-bold text-texto mb-3">Por profissional</h2>
   <div class="overflow-x-auto">
     <table class="w-full text-sm">
@@ -92,7 +92,7 @@
 {% if comissoes %}
 <div class="space-y-2">
   {% for c in comissoes %}
-  <div class="bg-white rounded-2xl shadow-sm p-4 flex flex-wrap items-center gap-4">
+  <div class="bg-superficie rounded-2xl shadow-sm p-4 flex flex-wrap items-center gap-4">
     <div class="min-w-0 flex-1">
       <p class="text-texto font-bold text-sm truncate">{{ c.profissional.nome }}</p>
       <p class="text-[0.78rem] text-texto-suave truncate">
@@ -137,7 +137,7 @@
 
 {% else %}
 {# ── Empty state ── #}
-<div class="bg-white rounded-2xl shadow-sm text-center py-16">
+<div class="bg-superficie rounded-2xl shadow-sm text-center py-16">
   <div class="mx-auto w-16 h-16 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mb-4">
     <svg class="w-8 h-8 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
   </div>

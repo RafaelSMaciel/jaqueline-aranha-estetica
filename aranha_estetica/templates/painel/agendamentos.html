@@ -19,7 +19,7 @@
 {% block admin_content %}
 
 {# ── Filtros ── #}
-<div class="bg-white rounded-2xl shadow-sm p-4 mb-3">
+<div class="bg-superficie rounded-2xl shadow-sm p-4 mb-3">
   <form method="get" class="grid grid-cols-2 md:grid-cols-12 gap-2 items-end">
     <div class="col-span-1 md:col-span-2">
       <select name="status" class="w-full px-2.5 py-1.5 rounded-lg border border-borda bg-fundo text-[0.8rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
@@ -76,7 +76,7 @@
   </div>
 
   {# Filtro instantâneo (admin-search.js, bundled) #}
-  <div class="bg-white rounded-xl shadow-sm px-3 py-2 mb-2">
+  <div class="bg-superficie rounded-xl shadow-sm px-3 py-2 mb-2">
     <input type="text" id="filtroAgendInstant"
            placeholder="Filtrar visíveis (cliente, procedimento, profissional)..."
            data-search-filter="#listaAgendamentos"
@@ -99,7 +99,7 @@
 
   <div id="listaAgendamentos" data-search-rows=".agend-card">
   {% for agend in agendamentos %}
-  <div class="agend-card flex items-center gap-3 bg-white rounded-2xl shadow-sm p-4 mb-1.5 {% if agend.status == 'PENDENTE' %}border-l-4 border-amber-500{% endif %}"
+  <div class="agend-card flex items-center gap-3 bg-superficie rounded-2xl shadow-sm p-4 mb-1.5 {% if agend.status == 'PENDENTE' %}border-l-4 border-amber-500{% endif %}"
        id="appt-{{ agend.pk }}"
        data-search-text="{{ agend.cliente.nome }} {{ agend.procedimento.nome }} {{ agend.profissional.nome }} {{ agend.status }}">
     {% if agend.status == 'PENDENTE' %}
@@ -147,13 +147,13 @@
       <form method="post" action="{% url 'aranha:admin_rejeitar_agendamento' pk=agend.pk %}" class="m-0">
         {% csrf_token %}
         <button type="submit" data-confirm="Rejeitar agendamento?"
-                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white text-red-600 border border-red-600 text-[0.7rem] font-bold cursor-pointer hover:bg-red-600 hover:text-white transition-colors">
+                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-superficie text-red-600 border border-red-600 text-[0.7rem] font-bold cursor-pointer hover:bg-red-600 hover:text-white transition-colors">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Rejeitar
         </button>
       </form>
       {% endif %}
       <select data-atend-id="{{ agend.pk }}" title="Alterar status"
-              class="px-1.5 py-1 rounded-lg border-2 border-borda bg-white text-[0.7rem] font-bold text-texto cursor-pointer outline-none">
+              class="px-1.5 py-1 rounded-lg border-2 border-borda bg-superficie text-[0.7rem] font-bold text-texto cursor-pointer outline-none">
         <option value="">⚡</option>
         <option value="CONFIRMADO" {% if agend.status == 'CONFIRMADO' %}disabled{% endif %}>✅ Confirmar</option>
         <option value="REALIZADO" {% if agend.status == 'REALIZADO' %}disabled{% endif %}>✔️ Realizado</option>
@@ -170,7 +170,7 @@
     </div>
   </div>
   {% empty %}
-  <div class="bg-white rounded-2xl p-12 text-center shadow-sm">
+  <div class="bg-superficie rounded-2xl p-12 text-center shadow-sm">
     <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
       <svg class="w-7 h-7 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l2 2 4-4"/></svg>
     </div>
@@ -184,7 +184,7 @@
   {% endfor %}
   </div>
 
-  <div id="emptyFiltroAgend" style="display:none;" class="bg-white rounded-2xl p-10 text-center shadow-sm mt-2">
+  <div id="emptyFiltroAgend" style="display:none;" class="bg-superficie rounded-2xl p-10 text-center shadow-sm mt-2">
     <div class="w-14 h-14 rounded-full bg-fundo flex items-center justify-center mx-auto mb-3">
       <svg class="w-6 h-6 text-texto-suave" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
     </div>

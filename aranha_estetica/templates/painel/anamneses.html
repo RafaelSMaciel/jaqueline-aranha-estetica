@@ -24,7 +24,7 @@
 </p>
 
 {% for f in formularios %}
-<div class="bg-white rounded-2xl shadow-sm px-4 py-4 mb-2 {% if not f.ativo %}opacity-60{% endif %} hover:shadow-md transition-all duration-200">
+<div class="bg-superficie rounded-2xl shadow-sm px-4 py-4 mb-2 {% if not f.ativo %}opacity-60{% endif %} hover:shadow-md transition-all duration-200">
 
   {# Cabeçalho #}
   <div class="flex items-center gap-2 mb-2">
@@ -76,13 +76,13 @@
   </div>
 </div>
 {% empty %}
-<div class="bg-white rounded-2xl p-12 text-center shadow-sm">
+<div class="bg-superficie rounded-2xl p-12 text-center shadow-sm">
   <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
     <svg class="w-7 h-7 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
     </svg>
   </div>
-  <h5 class="font-bold text-[#1a1a2e] mb-1">Nenhum formulário cadastrado</h5>
+  <h5 class="font-bold text-texto mb-1">Nenhum formulário cadastrado</h5>
   <p class="text-[0.85rem] text-texto-suave mb-4">Crie formulários de anamnese para exibir antes do agendamento.</p>
   <a href="{% url 'aranha:admin_anamnese_criar' %}"
      class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#C9A84C] text-white text-[0.82rem] font-bold hover:bg-[#b48c4c] transition-colors no-underline">

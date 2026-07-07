@@ -36,52 +36,52 @@
 
 {# ── KPIs do cliente ── #}
 <div class="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-2.5 mb-4">
-  <div class="relative bg-white rounded-2xl shadow-sm p-3.5">
+  <div class="relative bg-superficie rounded-2xl shadow-sm p-3.5">
     <svg class="absolute top-2.5 right-2.5 w-4 h-4 text-[#f9a825] opacity-40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
     </svg>
     <div class="text-[0.65rem] text-texto-suave font-bold uppercase tracking-wide">LTV</div>
-    <div class="text-[1.15rem] font-extrabold text-[#1a1a2e] mt-0.5 break-words">R$ {{ cliente_stats.ltv|floatformat:2 }}</div>
+    <div class="text-[1.15rem] font-extrabold text-texto mt-0.5 break-words">R$ {{ cliente_stats.ltv|floatformat:2 }}</div>
   </div>
-  <div class="relative bg-white rounded-2xl shadow-sm p-3.5">
+  <div class="relative bg-superficie rounded-2xl shadow-sm p-3.5">
     <svg class="absolute top-2.5 right-2.5 w-4 h-4 text-[#7b1fa2] opacity-40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
     </svg>
     <div class="text-[0.65rem] text-texto-suave font-bold uppercase tracking-wide">Atendimentos</div>
-    <div class="text-[1.15rem] font-extrabold text-[#1a1a2e] mt-0.5 break-words">{{ cliente_stats.qtd_realizados }}</div>
+    <div class="text-[1.15rem] font-extrabold text-texto mt-0.5 break-words">{{ cliente_stats.qtd_realizados }}</div>
   </div>
-  <div class="relative bg-white rounded-2xl shadow-sm p-3.5">
+  <div class="relative bg-superficie rounded-2xl shadow-sm p-3.5">
     <svg class="absolute top-2.5 right-2.5 w-4 h-4 text-[#c2185b] opacity-40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/>
     </svg>
     <div class="text-[0.65rem] text-texto-suave font-bold uppercase tracking-wide">Ticket Medio</div>
-    <div class="text-[1.15rem] font-extrabold text-[#1a1a2e] mt-0.5 break-words">R$ {{ cliente_stats.ticket_medio|floatformat:2 }}</div>
+    <div class="text-[1.15rem] font-extrabold text-texto mt-0.5 break-words">R$ {{ cliente_stats.ticket_medio|floatformat:2 }}</div>
   </div>
-  <div class="relative bg-white rounded-2xl shadow-sm p-3.5">
+  <div class="relative bg-superficie rounded-2xl shadow-sm p-3.5">
     <svg class="absolute top-2.5 right-2.5 w-4 h-4 text-[#1565c0] opacity-40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m-6.5-5.5h.01M5 8h14M5 8a2 2 0 00-2 2v8a2 2 0 002 2h14a2 2 0 002-2v-8a2 2 0 00-2-2M7 3v2m10-2v2"/>
     </svg>
     <div class="text-[0.65rem] text-texto-suave font-bold uppercase tracking-wide">Última Visita</div>
-    <div class="text-[0.85rem] font-extrabold text-[#1a1a2e] mt-0.5 break-words">
+    <div class="text-[0.85rem] font-extrabold text-texto mt-0.5 break-words">
       {% if cliente_stats.ultima_visita %}{{ cliente_stats.ultima_visita|date:"d/m/Y" }}{% else %}—{% endif %}
     </div>
   </div>
   {% if cliente_stats.procedimento_mais_frequente %}
-  <div class="relative bg-white rounded-2xl shadow-sm p-3.5">
+  <div class="relative bg-superficie rounded-2xl shadow-sm p-3.5">
     <svg class="absolute top-2.5 right-2.5 w-4 h-4 text-[#ef6c00] opacity-40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
     </svg>
     <div class="text-[0.65rem] text-texto-suave font-bold uppercase tracking-wide">Top Procedimento</div>
-    <div class="text-[0.8rem] font-extrabold text-[#1a1a2e] mt-0.5 break-words">{{ cliente_stats.procedimento_mais_frequente }}</div>
+    <div class="text-[0.8rem] font-extrabold text-texto mt-0.5 break-words">{{ cliente_stats.procedimento_mais_frequente }}</div>
   </div>
   {% endif %}
   {% if cliente_stats.no_show_count or cliente_stats.cancelados_count %}
-  <div class="relative bg-white rounded-2xl shadow-sm p-3.5">
+  <div class="relative bg-superficie rounded-2xl shadow-sm p-3.5">
     <svg class="absolute top-2.5 right-2.5 w-4 h-4 text-[#c62828] opacity-40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
     </svg>
     <div class="text-[0.65rem] text-texto-suave font-bold uppercase tracking-wide">No-show / Cancel</div>
-    <div class="text-[0.95rem] font-extrabold text-[#1a1a2e] mt-0.5 break-words">
+    <div class="text-[0.95rem] font-extrabold text-texto mt-0.5 break-words">
       {{ cliente_stats.no_show_count }} / {{ cliente_stats.cancelados_count }}
     </div>
   </div>
@@ -89,7 +89,7 @@
 </div>
 
 {# ── Dados do cliente ── #}
-<div class="bg-white rounded-2xl shadow-sm p-5 mb-4">
+<div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
   <h3 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-4">
     <svg class="w-4 h-4 text-marca" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
@@ -191,7 +191,7 @@
 </div>
 
 {# ── Timeline de atendimentos ── #}
-<div class="bg-white rounded-2xl shadow-sm p-5 mb-4">
+<div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
   <h3 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-4">
     <svg class="w-4 h-4 text-marca" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>

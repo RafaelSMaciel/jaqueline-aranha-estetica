@@ -16,7 +16,7 @@
 {% block admin_content %}
 
 {# ── Busca servidor (GET) ── #}
-<div class="bg-white rounded-2xl shadow-sm p-4 mb-3">
+<div class="bg-superficie rounded-2xl shadow-sm p-4 mb-3">
   <form method="get" class="flex gap-2 flex-wrap items-end">
     <div class="flex-1 min-w-[160px]">
       <label for="buscaInput" class="sr-only">Buscar usuário</label>
@@ -54,7 +54,7 @@
 </div>
 
 {# ── Filtro instantâneo client-side ── #}
-<div class="bg-white rounded-2xl shadow-sm px-4 py-2 mb-3">
+<div class="bg-superficie rounded-2xl shadow-sm px-4 py-2 mb-3">
   <input type="text" id="filtroUsuariosInstant"
          class="w-full px-0 py-1.5 text-[0.85rem] text-texto bg-transparent border-none outline-none placeholder-texto-suave"
          placeholder="Filtrar visíveis..."
@@ -75,7 +75,7 @@
 {# ── Lista de usuários ── #}
 <div id="listaUsuarios" data-search-rows=".user-card">
   {% for u in usuarios %}
-  <div class="user-card flex items-center gap-3 bg-white rounded-2xl shadow-sm px-4 py-3 mb-2 {% if not u.ativo %}opacity-60{% endif %} hover:shadow-md hover:-translate-y-px transition-all duration-200"
+  <div class="user-card flex items-center gap-3 bg-superficie rounded-2xl shadow-sm px-4 py-3 mb-2 {% if not u.ativo %}opacity-60{% endif %} hover:shadow-md hover:-translate-y-px transition-all duration-200"
        data-search-text="{{ u.nome }} {{ u.email }} {{ u.get_papel_display }}">
 
     {# Avatar com iniciais #}
@@ -155,26 +155,26 @@
     </div>
   </div>
   {% empty %}
-  <div class="bg-white rounded-2xl p-12 text-center shadow-sm">
+  <div class="bg-superficie rounded-2xl p-12 text-center shadow-sm">
     <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
       <svg class="w-7 h-7 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
       </svg>
     </div>
-    <h5 class="font-bold text-[#1a1a2e] mb-1">Nenhum usuário encontrado</h5>
+    <h5 class="font-bold text-texto mb-1">Nenhum usuário encontrado</h5>
     <p class="text-[0.85rem] text-texto-suave">Ajuste os filtros ou cadastre um novo usuário.</p>
   </div>
   {% endfor %}
 </div>
 
 {# ── Empty state do filtro instantâneo ── #}
-<div id="emptyFiltroUsuarios" class="bg-white rounded-2xl p-10 text-center shadow-sm" style="display:none;">
+<div id="emptyFiltroUsuarios" class="bg-superficie rounded-2xl p-10 text-center shadow-sm" style="display:none;">
   <div class="w-14 h-14 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-3">
     <svg class="w-6 h-6 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
       <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
     </svg>
   </div>
-  <h5 class="font-bold text-[#1a1a2e] mb-1">Nenhum usuário bate com o filtro</h5>
+  <h5 class="font-bold text-texto mb-1">Nenhum usuário bate com o filtro</h5>
   <p class="text-[0.85rem] text-texto-suave">Ajuste o termo ou limpe o campo.</p>
 </div>
 

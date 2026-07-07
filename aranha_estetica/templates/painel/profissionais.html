@@ -26,7 +26,7 @@
 {# ── Grid de profissionais ── #}
 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
   {% for prof in profissionais %}
-  <div class="relative bg-white rounded-2xl shadow-sm p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+  <div class="relative bg-superficie rounded-2xl shadow-sm p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
 
     {# Indicador de status #}
     <span class="absolute top-4 right-4 w-2.5 h-2.5 rounded-full {% if prof.ativo %}bg-green-500{% else %}bg-gray-300{% endif %}" aria-hidden="true"></span>
@@ -77,7 +77,7 @@
           <svg class="w-3.5 h-3.5 text-orange-600 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 5c7.18 0 13 5.82 13 13M6 11a7 7 0 017 7M6 17a1 1 0 011 1"/></svg>
           <span class="font-bold text-texto-suave">ICS feed</span>
           <code id="ics-{{ prof.pk }}" class="flex-1 text-[0.65rem] px-1.5 py-0.5 bg-fundo rounded overflow-hidden text-ellipsis whitespace-nowrap block min-w-0">{{ request.scheme }}://{{ request.get_host }}/agenda/{{ prof.slug }}/feed.ics?token={{ prof.ics_token }}</code>
-          <button type="button" class="btn-copy-ics flex-shrink-0 border border-borda rounded-md px-2 py-0.5 text-[0.7rem] bg-white hover:bg-fundo cursor-pointer transition-colors" data-prof-id="{{ prof.pk }}" title="Copiar URL" aria-label="Copiar URL do ICS">
+          <button type="button" class="btn-copy-ics flex-shrink-0 border border-borda rounded-md px-2 py-0.5 text-[0.7rem] bg-superficie hover:bg-fundo cursor-pointer transition-colors" data-prof-id="{{ prof.pk }}" title="Copiar URL" aria-label="Copiar URL do ICS">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
           </button>
         </div>
@@ -90,20 +90,20 @@
           <span class="text-green-700 font-bold text-[0.7rem]">Conectado</span>
           <a href="{% url 'aranha:gcal_pull' prof.pk %}" class="ml-auto bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md text-[0.7rem] font-bold no-underline hover:bg-blue-100 transition-colors">Sync</a>
           {% else %}
-          <a href="{% url 'aranha:gcal_connect' prof.pk %}" class="ml-auto bg-white border border-blue-400 text-blue-600 px-2 py-0.5 rounded-md text-[0.7rem] font-bold no-underline hover:bg-blue-50 transition-colors">Conectar</a>
+          <a href="{% url 'aranha:gcal_connect' prof.pk %}" class="ml-auto bg-superficie border border-blue-400 text-blue-600 px-2 py-0.5 rounded-md text-[0.7rem] font-bold no-underline hover:bg-blue-50 transition-colors">Conectar</a>
           {% endif %}
         </div>
       </div>
     </div>
   </div>
   {% empty %}
-  <div class="col-span-full bg-white rounded-2xl p-12 text-center shadow-sm">
+  <div class="col-span-full bg-superficie rounded-2xl p-12 text-center shadow-sm">
     <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
       <svg class="w-7 h-7 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
       </svg>
     </div>
-    <h5 class="font-bold text-[#1a1a2e] mb-1">Nenhum profissional cadastrado</h5>
+    <h5 class="font-bold text-texto mb-1">Nenhum profissional cadastrado</h5>
     <p class="text-[0.85rem] text-texto-suave mb-4">Cadastre o primeiro profissional da equipe.</p>
     <a href="{% url 'aranha:profissional_cadastro' %}"
        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#C9A84C] text-white text-[0.82rem] font-bold hover:bg-[#b48c4c] transition-colors no-underline">

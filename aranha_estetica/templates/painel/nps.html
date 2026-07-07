@@ -21,7 +21,7 @@
 <div class="grid lg:grid-cols-[280px_1fr] gap-4 mb-4">
 
   {# Score grande #}
-  <div class="bg-white rounded-2xl shadow-sm p-6 flex flex-col items-center justify-center text-center">
+  <div class="bg-superficie rounded-2xl shadow-sm p-6 flex flex-col items-center justify-center text-center">
     <p class="text-[0.72rem] font-bold text-texto-suave uppercase tracking-wide mb-2">NPS</p>
     <p class="font-serif font-bold leading-none text-[4rem] {% if nps_score >= 50 %}text-sucesso{% elif nps_score >= 0 %}text-marca-forte{% else %}text-erro{% endif %}">{{ nps_score }}</p>
     <p class="mt-2 text-sm font-semibold
@@ -33,17 +33,17 @@
 
   {# Promotores / Neutros / Detratores #}
   <div class="grid grid-cols-3 gap-3">
-    <div class="bg-white rounded-2xl shadow-sm p-4 flex flex-col justify-center">
+    <div class="bg-superficie rounded-2xl shadow-sm p-4 flex flex-col justify-center">
       <p class="text-2xl font-extrabold text-sucesso leading-none">{{ promotores_pct }}%</p>
       <p class="text-sm font-bold text-texto mt-1">Promotores</p>
       <p class="text-[0.72rem] text-texto-suave">{{ promotores }} · notas 9–10</p>
     </div>
-    <div class="bg-white rounded-2xl shadow-sm p-4 flex flex-col justify-center">
+    <div class="bg-superficie rounded-2xl shadow-sm p-4 flex flex-col justify-center">
       <p class="text-2xl font-extrabold text-marca-forte leading-none">{{ neutros_pct }}%</p>
       <p class="text-sm font-bold text-texto mt-1">Neutros</p>
       <p class="text-[0.72rem] text-texto-suave">{{ neutros }} · notas 7–8</p>
     </div>
-    <div class="bg-white rounded-2xl shadow-sm p-4 flex flex-col justify-center">
+    <div class="bg-superficie rounded-2xl shadow-sm p-4 flex flex-col justify-center">
       <p class="text-2xl font-extrabold text-erro leading-none">{{ detratores_pct }}%</p>
       <p class="text-sm font-bold text-texto mt-1">Detratores</p>
       <p class="text-[0.72rem] text-texto-suave">{{ detratores }} · notas 0–6</p>
@@ -52,7 +52,7 @@
 </div>
 
 {# ── Distribuição por nota ── #}
-<div class="bg-white rounded-2xl shadow-sm p-5 mb-4">
+<div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
   <h2 class="text-base font-bold text-texto mb-4">Distribuição de notas</h2>
   <div class="space-y-1.5">
     {% for d in distribuicao %}
@@ -68,7 +68,7 @@
 </div>
 
 {# ── Comentários ── #}
-<div class="bg-white rounded-2xl shadow-sm p-5">
+<div class="bg-superficie rounded-2xl shadow-sm p-5">
   <h2 class="text-base font-bold text-texto mb-4">Comentários recentes</h2>
   {% if comentarios %}
   <div class="space-y-3">
@@ -94,7 +94,7 @@
 
 {% else %}
 {# ── Empty state ── #}
-<div class="bg-white rounded-2xl shadow-sm text-center py-16">
+<div class="bg-superficie rounded-2xl shadow-sm text-center py-16">
   <div class="mx-auto w-16 h-16 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mb-4">
     <svg class="w-8 h-8 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/></svg>
   </div>
