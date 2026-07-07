@@ -8,7 +8,7 @@
 
 {# ── Cards de estatísticas ── #}
 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-  <div class="bg-white rounded-2xl shadow-sm p-4 flex flex-col items-center gap-1">
+  <div class="bg-superficie rounded-2xl shadow-sm p-4 flex flex-col items-center gap-1">
     <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-50 mb-1">
       <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
@@ -17,7 +17,7 @@
     <div class="font-extrabold text-[1.4rem] text-blue-600 leading-none">{{ total }}</div>
     <div class="text-[0.72rem] font-bold text-texto-suave uppercase tracking-wide">Enviadas</div>
   </div>
-  <div class="bg-white rounded-2xl shadow-sm p-4 flex flex-col items-center gap-1">
+  <div class="bg-superficie rounded-2xl shadow-sm p-4 flex flex-col items-center gap-1">
     <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-green-50 mb-1">
       <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -26,7 +26,7 @@
     <div class="font-extrabold text-[1.4rem] text-green-600 leading-none">{{ confirmados }}</div>
     <div class="text-[0.72rem] font-bold text-texto-suave uppercase tracking-wide">Confirmados</div>
   </div>
-  <div class="bg-white rounded-2xl shadow-sm p-4 flex flex-col items-center gap-1">
+  <div class="bg-superficie rounded-2xl shadow-sm p-4 flex flex-col items-center gap-1">
     <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-red-50 mb-1">
       <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -35,7 +35,7 @@
     <div class="font-extrabold text-[1.4rem] text-red-500 leading-none">{{ cancelados }}</div>
     <div class="text-[0.72rem] font-bold text-texto-suave uppercase tracking-wide">Cancelados</div>
   </div>
-  <div class="bg-white rounded-2xl shadow-sm p-4 flex flex-col items-center gap-1">
+  <div class="bg-superficie rounded-2xl shadow-sm p-4 flex flex-col items-center gap-1">
     <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-orange-50 mb-1">
       <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
         <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
@@ -47,7 +47,7 @@
 </div>
 
 {# ── Filtros ── #}
-<div class="bg-white rounded-2xl shadow-sm p-4 mb-4">
+<div class="bg-superficie rounded-2xl shadow-sm p-4 mb-4">
   <form method="GET" class="flex gap-2 flex-wrap items-end">
     <div class="flex-1 min-w-[140px]">
       <label for="filtroTipo" class="sr-only">Tipo</label>
@@ -81,7 +81,7 @@
 {# ── Lista de notificações ── #}
 {% if notificacoes %}
   {% for notif in notificacoes %}
-  <div class="flex items-start gap-3 bg-white rounded-2xl shadow-sm px-4 py-3 mb-2 hover:shadow-md hover:-translate-y-px transition-all duration-200">
+  <div class="flex items-start gap-3 bg-superficie rounded-2xl shadow-sm px-4 py-3 mb-2 hover:shadow-md hover:-translate-y-px transition-all duration-200">
 
     {# Ícone de status #}
     <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0
@@ -138,13 +138,13 @@
   </div>
   {% endfor %}
 {% else %}
-  <div class="bg-white rounded-2xl p-12 text-center shadow-sm">
+  <div class="bg-superficie rounded-2xl p-12 text-center shadow-sm">
     <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
       <svg class="w-7 h-7 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
       </svg>
     </div>
-    <h5 class="font-bold text-[#1a1a2e] mb-1">Nenhuma notificação encontrada</h5>
+    <h5 class="font-bold text-texto mb-1">Nenhuma notificação encontrada</h5>
     <p class="text-[0.85rem] text-texto-suave">As notificações aparecem aqui quando os lembretes são enviados.</p>
   </div>
 {% endif %}

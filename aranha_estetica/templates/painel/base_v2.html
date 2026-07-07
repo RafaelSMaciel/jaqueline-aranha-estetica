@@ -316,7 +316,7 @@
     {% if messages %}
     <div id="adminToasts" class="fixed top-[70px] right-5 z-[10060] flex flex-col gap-2 max-w-[360px]" aria-live="polite" aria-atomic="true">
       {% for message in messages %}
-      <div class="flex items-start gap-3 bg-white rounded-xl shadow-lg px-4 py-3 text-[0.85rem] border-l-4
+      <div class="flex items-start gap-3 bg-superficie rounded-xl shadow-lg px-4 py-3 text-[0.85rem] border-l-4
                   {% if message.tags == 'success' %}border-l-green-700{% elif message.tags == 'error' %}border-l-red-700{% elif message.tags == 'warning' %}border-l-yellow-600{% else %}border-l-marca-forte{% endif %}"
            role="alert">
         <div class="flex-1 text-gray-800">{{ message }}</div>
@@ -328,10 +328,10 @@
     {% endif %}
 
     {# ── Page header ── #}
-    <div class="relative flex items-start justify-between gap-4 flex-wrap px-4 py-5 bg-white border-b border-gray-100">
+    <div class="relative flex items-start justify-between gap-4 flex-wrap px-4 py-5 bg-superficie border-b border-borda">
       <div class="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-marca-forte to-marca" aria-hidden="true"></div>
       <div class="flex-1 min-w-0 pl-2">
-        <h1 class="text-[1.4rem] font-bold text-[#1a1a2e] leading-tight tracking-tight m-0">
+        <h1 class="text-[1.4rem] font-bold text-texto leading-tight tracking-tight m-0">
           {% block titulo_pagina %}{% block page_title %}Painel{% endblock %}{% endblock %}
         </h1>
         <p class="text-[0.78rem] text-gray-500 mt-1 mb-0">{% block page_subtitle %}{% endblock %}</p>

@@ -4,7 +4,7 @@
 {% block page_subtitle %}Gerencie todos os clientes da clínica{% endblock %}
 {% block page_actions %}
 <a href="{% url 'aranha:admin_lista_espera' %}"
-   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold border-2 border-[#C9A84C] text-[#C9A84C] bg-white hover:bg-[#C9A84C] hover:text-white transition-colors no-underline">
+   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold border-2 border-[#C9A84C] text-[#C9A84C] bg-superficie hover:bg-[#C9A84C] hover:text-white transition-colors no-underline">
   <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
     <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
   </svg>
@@ -15,7 +15,7 @@
 {% block admin_content %}
 
 {# ── Busca servidor (GET) ── #}
-<div class="bg-white rounded-2xl shadow-sm p-4 mb-3">
+<div class="bg-superficie rounded-2xl shadow-sm p-4 mb-3">
   <form method="GET" class="flex gap-2 items-end">
     <div class="flex-1">
       <label for="searchInput" class="sr-only">Buscar cliente</label>
@@ -50,7 +50,7 @@
 </div>
 
 {# ── Filtro instantâneo (client-side via admin-search.js) ── #}
-<div class="bg-white rounded-2xl shadow-sm px-4 py-2 mb-3">
+<div class="bg-superficie rounded-2xl shadow-sm px-4 py-2 mb-3">
   <input
     type="text"
     id="filtroClientesInstant"
@@ -74,7 +74,7 @@
 {# ── Lista de clientes ── #}
 <div id="listaClientes" data-search-rows=".cliente-card">
   {% for cliente in clientes %}
-  <div class="cliente-card flex items-center gap-3 bg-white rounded-2xl shadow-sm px-4 py-3 mb-2 hover:shadow-md hover:-translate-y-px transition-all duration-200"
+  <div class="cliente-card flex items-center gap-3 bg-superficie rounded-2xl shadow-sm px-4 py-3 mb-2 hover:shadow-md hover:-translate-y-px transition-all duration-200"
        data-search-text="{{ cliente.nome }} {{ cliente.cpf|default:'' }} {{ cliente.email|default:'' }} {{ cliente.telefone|default:'' }}">
 
     {# Avatar com iniciais #}
@@ -138,14 +138,14 @@
     </div>
   </div>
   {% empty %}
-  <div class="bg-white rounded-2xl p-12 text-center shadow-sm">
+  <div class="bg-superficie rounded-2xl p-12 text-center shadow-sm">
     <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
       <svg class="w-7 h-7 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
         <path stroke-linecap="round" stroke-linejoin="round" d="M23 21v-2a4 4 0 00-3-3.87"/><path stroke-linecap="round" stroke-linejoin="round" d="M16 3.13a4 4 0 010 7.75"/>
       </svg>
     </div>
-    <h5 class="font-bold text-[#1a1a2e] mb-1">
+    <h5 class="font-bold text-texto mb-1">
       {% if search %}Nada encontrado{% else %}Nenhum cliente cadastrado{% endif %}
     </h5>
     <p class="text-[0.85rem] text-texto-suave mb-4">
@@ -169,13 +169,13 @@
 </div>
 
 {# ── Empty state do filtro instantâneo ── #}
-<div id="emptyFiltroClientes" class="bg-white rounded-2xl p-10 text-center shadow-sm" style="display:none;">
+<div id="emptyFiltroClientes" class="bg-superficie rounded-2xl p-10 text-center shadow-sm" style="display:none;">
   <div class="w-14 h-14 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-3">
     <svg class="w-6 h-6 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
       <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
     </svg>
   </div>
-  <h5 class="font-bold text-[#1a1a2e] mb-1">Nenhum cliente bate com o filtro</h5>
+  <h5 class="font-bold text-texto mb-1">Nenhum cliente bate com o filtro</h5>
   <p class="text-[0.85rem] text-texto-suave">Ajuste o termo ou limpe o campo.</p>
 </div>
 

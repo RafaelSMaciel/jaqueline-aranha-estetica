@@ -7,7 +7,7 @@
 {% block admin_content %}
 
 {% for item in lista_espera %}
-<div class="bg-white rounded-2xl shadow-sm px-4 py-4 mb-2 border-l-4 {% if item.notificado %}border-green-400 opacity-75{% else %}border-orange-400{% endif %} hover:shadow-md transition-all duration-200">
+<div class="bg-superficie rounded-2xl shadow-sm px-4 py-4 mb-2 border-l-4 {% if item.notificado %}border-green-400 opacity-75{% else %}border-orange-400{% endif %} hover:shadow-md transition-all duration-200">
   <div class="flex justify-between items-start gap-3">
 
     {# Informações do cliente #}
@@ -55,13 +55,13 @@
   </div>
 </div>
 {% empty %}
-<div class="bg-white rounded-2xl p-12 text-center shadow-sm">
+<div class="bg-superficie rounded-2xl p-12 text-center shadow-sm">
   <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
     <svg class="w-7 h-7 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
       <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
     </svg>
   </div>
-  <h5 class="font-bold text-[#1a1a2e] mb-1">Lista de espera vazia</h5>
+  <h5 class="font-bold text-texto mb-1">Lista de espera vazia</h5>
   <p class="text-[0.85rem] text-texto-suave">Nenhum cliente aguardando no momento.</p>
 </div>
 {% endfor %}

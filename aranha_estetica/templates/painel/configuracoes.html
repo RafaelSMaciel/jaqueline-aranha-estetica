@@ -7,7 +7,7 @@
 {% block admin_content %}
 
 {# ── Criar nova configuração ── #}
-<div class="bg-white rounded-2xl shadow-sm p-4 mb-4">
+<div class="bg-superficie rounded-2xl shadow-sm p-4 mb-4">
   <div class="flex items-center gap-1.5 text-[0.8rem] font-bold text-texto-suave mb-3">
     <svg class="w-4 h-4 text-marca" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
@@ -45,7 +45,7 @@
     <input type="hidden" name="chave" value="{{ s.chave }}">
     <input type="hidden" name="descricao" value="{{ s.descricao }}">
     <input type="text" name="valor" value="{{ s.valor }}"
-           class="flex-1 px-3 py-1.5 rounded-lg border border-amber-400 bg-white text-[0.85rem] text-texto outline-none">
+           class="flex-1 px-3 py-1.5 rounded-lg border border-amber-400 bg-superficie text-[0.85rem] text-texto outline-none">
     <button type="submit"
             class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 text-white text-[0.75rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
@@ -67,7 +67,7 @@
 </div>
 
 {% for c in configs %}
-<div class="bg-white rounded-xl shadow-sm p-4 mb-1.5">
+<div class="bg-superficie rounded-xl shadow-sm p-4 mb-1.5">
   <div class="font-mono text-[0.8rem] font-extrabold text-marca mb-0.5">{{ c.chave }}</div>
   {% if c.descricao %}<div class="text-[0.72rem] text-texto-suave mb-2">{{ c.descricao }}</div>{% endif %}
   <form method="post" action="{% url 'aranha:admin_editar_configuracao' c.pk %}" class="grid grid-cols-[1fr_auto_auto] gap-1.5 items-center">

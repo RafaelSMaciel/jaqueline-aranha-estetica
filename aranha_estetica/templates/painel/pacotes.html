@@ -8,7 +8,7 @@
 
 {# ── Stats ── #}
 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-  <div class="bg-white rounded-2xl shadow-sm p-4">
+  <div class="bg-superficie rounded-2xl shadow-sm p-4">
     <div class="w-9 h-9 rounded-xl bg-green-100 flex items-center justify-center mb-2">
       <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
@@ -21,7 +21,7 @@
 
 {# ── Pacotes ── #}
 {% for pacote in pacotes %}
-<div x-data="modal" x-on:keydown.escape.window="fechar" class="bg-white rounded-2xl shadow-sm p-4 mb-3">
+<div x-data="modal" x-on:keydown.escape.window="fechar" class="bg-superficie rounded-2xl shadow-sm p-4 mb-3">
   <div class="flex items-start justify-between gap-2">
     <div class="min-w-0">
       <h6 class="flex items-center gap-2 flex-wrap font-bold text-texto mb-1">
@@ -40,7 +40,7 @@
       </div>
     </div>
     <button type="button" x-on:click="abrir"
-            class="inline-flex items-center gap-1 shrink-0 px-3 py-1.5 rounded-lg border border-borda text-texto text-[0.75rem] font-bold bg-white cursor-pointer hover:bg-fundo transition-colors">
+            class="inline-flex items-center gap-1 shrink-0 px-3 py-1.5 rounded-lg border border-borda text-texto text-[0.75rem] font-bold bg-superficie cursor-pointer hover:bg-fundo transition-colors">
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
         <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/>
       </svg>
@@ -91,7 +91,7 @@
         </div>
         <div class="flex justify-end gap-2 px-5 py-4 border-t border-borda">
           <button type="button" x-on:click="fechar"
-                  class="px-4 py-2 rounded-xl border border-borda text-texto text-[0.85rem] font-bold bg-white cursor-pointer hover:bg-fundo transition-colors">Cancelar</button>
+                  class="px-4 py-2 rounded-xl border border-borda text-texto text-[0.85rem] font-bold bg-superficie cursor-pointer hover:bg-fundo transition-colors">Cancelar</button>
           <button type="submit"
                   class="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
@@ -178,14 +178,14 @@
             </div>
           </div>
           <button type="button" x-on:click="addItem"
-                  class="inline-flex items-center gap-1 mt-1 px-3 py-1.5 rounded-lg border border-borda text-texto text-[0.75rem] font-bold bg-white cursor-pointer hover:bg-fundo transition-colors">
+                  class="inline-flex items-center gap-1 mt-1 px-3 py-1.5 rounded-lg border border-borda text-texto text-[0.75rem] font-bold bg-superficie cursor-pointer hover:bg-fundo transition-colors">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Adicionar Item
           </button>
         </div>
         <div class="flex justify-end gap-2 px-5 py-4 border-t border-borda">
           <button type="button" x-on:click="fechar"
-                  class="px-4 py-2 rounded-xl border border-borda text-texto text-[0.85rem] font-bold bg-white cursor-pointer hover:bg-fundo transition-colors">Cancelar</button>
+                  class="px-4 py-2 rounded-xl border border-borda text-texto text-[0.85rem] font-bold bg-superficie cursor-pointer hover:bg-fundo transition-colors">Cancelar</button>
           <button type="submit"
                   class="px-5 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">Criar Pacote</button>
         </div>
