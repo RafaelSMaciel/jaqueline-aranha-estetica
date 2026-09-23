@@ -423,14 +423,14 @@ class AnamneseBoolTests(TestCase):
         self.assertNotIn('type="checkbox" name="gestante"', html)
 
     def test_nao_em_bool_obrigatorio_grava_false(self):
-        resp = self.client.post(self.url, {'gestante': 'nao'})
+        resp = self.client.post(self.url, {'gestante': 'nao', 'consent_dados_saude': 'on'})
         self.assertRedirects(resp, reverse('aranha:anamnese_obrigado'), fetch_redirect_response=False)
         self.resposta.refresh_from_db()
         self.assertIs(self.resposta.respostas_json['gestante'], False)
         self.assertNotIn('fuma', self.resposta.respostas_json)  # sem resposta != 'Não'
 
     def test_sim_grava_true(self):
-        self.client.post(self.url, {'gestante': 'sim', 'fuma': 'nao'})
+        self.client.post(self.url, {'gestante': 'sim', 'fuma': 'nao', 'consent_dados_saude': 'on'})
         self.resposta.refresh_from_db()
         self.assertIs(self.resposta.respostas_json['gestante'], True)
         self.assertIs(self.resposta.respostas_json['fuma'], False)
@@ -443,6 +443,24 @@ class AnamneseBoolTests(TestCase):
         self.assertRegex(html, r'name="fuma" value="sim"\s+checked')
         self.resposta.refresh_from_db()
         self.assertIsNone(self.resposta.respondida_em)
+
+    def test_ficha_sem_consentimento_art11_nao_grava(self):
+        resp = self.client.post(self.url, {'gestante': 'nao'})
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
+        self.assertIn('autorização de uso das suas informações de saúde', html)
+        self.assertIn('name="consent_dados_saude"', html)
+        self.resposta.refresh_from_db()
+        self.assertIsNone(self.resposta.respondida_em)
+
+    def test_ficha_com_consentimento_registra_trilha(self):
+        from aranha_estetica.models import LogAuditoria
+        self.client.post(self.url, {'gestante': 'nao', 'consent_dados_saude': 'on'})
+        log = LogAuditoria.objects.filter(
+            tabela='resposta_anamnese', registro_id=self.resposta.pk, acao__icontains='art. 11',
+        ).first()
+        self.assertIsNotNone(log)
+        self.assertIn('LGPD, art. 11', log.detalhes['texto'])
 
     def test_valor_desconhecido_e_recusado(self):
         resp = self.client.post(self.url, {'gestante': 'talvez'})
