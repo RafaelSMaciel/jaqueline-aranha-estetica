@@ -6,6 +6,12 @@ from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.contrib.auth.forms import BaseUserCreationForm, UserChangeForm
 from django.db import transaction
 from django.utils import timezone
+# Importados antes do autodiscover p/ o unregister abaixo valer (o admin do
+# django_otp registra os devices ao ser importado).
+from django_otp.plugins.otp_static import admin as _otp_static_admin  # noqa: F401
+from django_otp.plugins.otp_static.models import StaticDevice
+from django_otp.plugins.otp_totp import admin as _otp_totp_admin  # noqa: F401
+from django_otp.plugins.otp_totp.models import TOTPDevice
 
 from .models import (
     Profissional, DisponibilidadeProfissional, BloqueioAgenda, Habilitacao,
@@ -28,6 +34,16 @@ from .utils.busca import q_busca_cliente
 # =====================================================================
 # CONTROLE DE ACESSO
 # =====================================================================
+
+# Devices de 2FA fora do Django admin: a tela do django_otp mostra semente/QR
+# de qualquer usuario e o "add" planta um device com chave escolhida p/ outra
+# pessoa (match_token aceita qualquer device confirmado) — um ADMIN assumiria
+# a conta de outro. Cadastro/troca = tela do painel (do proprio usuario);
+# reset = `manage.py setup_2fa <email> --force`.
+for _modelo_otp in (TOTPDevice, StaticDevice):
+    if admin.site.is_registered(_modelo_otp):
+        admin.site.unregister(_modelo_otp)
+
 
 class UsuarioCreationForm(BaseUserCreationForm):
     """Cadastro com senha + confirmacao; grava o HASH (set_password)."""
@@ -76,6 +92,11 @@ class UsuarioAdmin(DjangoUserAdmin):
             'fields': ('email', 'nome', 'papel', 'profissional', 'password1', 'password2'),
         }),
     )
+
+    def has_delete_permission(self, request, obj=None):
+        # Excluir apagaria a autoria da trilha (LogAuditoria SET_NULL; o
+        # django_admin_log e CASCADE). Offboarding = desmarcar "ativo".
+        return False
 
 
 # =====================================================================
@@ -460,11 +481,12 @@ class AtendimentoAdmin(admin.ModelAdmin):
     actions = ['acao_marcar_realizado', 'acao_marcar_cancelado', 'acao_marcar_faltou']
 
     def get_readonly_fields(self, request, obj=None):
-        # Status so muda pela FSM (actions abaixo / painel), nunca editando o campo
-        campos = tuple(super().get_readonly_fields(request, obj))
-        return (*campos, 'status') if obj is not None else campos
+        # Status so muda pela FSM (actions abaixo / painel), nunca editando o
+        # campo — nem no "add": nasceria REALIZADO sem comissao/cashback/
+        # retorno/NPS. O novo usa o default do model (PENDENTE).
+        return (*super().get_readonly_fields(request, obj), 'status')
 
-    def _transicionar(self, request, queryset, metodo, rotulo, **kwargs):
+    def _transicionar(self, request, queryset, metodo, rotulo, sem_termo=0, **kwargs):
         ok = ignorados = 0
         for at in queryset:
             try:
@@ -475,11 +497,26 @@ class AtendimentoAdmin(admin.ModelAdmin):
         msg = f'{ok} atendimento(s) {rotulo}.'
         if ignorados:
             msg += f' {ignorados} ignorado(s): transição de status não permitida.'
-        self.message_user(request, msg, messages.WARNING if ignorados else messages.SUCCESS)
+        if sem_termo:
+            msg += (
+                f' {sem_termo} ignorado(s): a cliente ainda não aceitou o termo do '
+                'procedimento (marque pelo painel, que pede confirmação e registra na auditoria).'
+            )
+        aviso = ignorados or sem_termo
+        self.message_user(request, msg, messages.WARNING if aviso else messages.SUCCESS)
 
     @admin.action(description='Marcar selecionados como REALIZADO')
     def acao_marcar_realizado(self, request, queryset):
-        self._transicionar(request, queryset, 'marcar_realizado', 'marcado(s) como realizado')
+        # Termo de PROCEDIMENTO pendente: painel e portal exigem confirmacao
+        # explicita e gravam 'Realizado sem termo aceito'; a action nao tem como
+        # confirmar, entao pula esses (nunca realiza em silencio).
+        from .services.termos import ids_com_termo_procedimento_pendente
+        atendimentos = list(queryset)
+        pendentes = ids_com_termo_procedimento_pendente(atendimentos)
+        self._transicionar(
+            request, [at for at in atendimentos if at.pk not in pendentes],
+            'marcar_realizado', 'marcado(s) como realizado', sem_termo=len(pendentes),
+        )
 
     @admin.action(description='Cancelar selecionados')
     def acao_marcar_cancelado(self, request, queryset):
@@ -519,19 +556,48 @@ class AvaliacaoNPSAdmin(admin.ModelAdmin):
     search_fields = ('atendimento__cliente__nome', 'comentario')
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
-    readonly_fields = ('criado_em',)
-    autocomplete_fields = ('atendimento',)
+    # Nota, comentario e opt-in de publicacao sao da cliente (LGPD): a equipe
+    # so modera (aprovado_publicacao). A pagina publica exige os dois flags.
+    readonly_fields = (
+        'atendimento', 'nota', 'comentario', 'autoriza_publicacao', 'alerta_enviado', 'criado_em',
+    )
     list_select_related = ('atendimento', 'atendimento__cliente')
+
+    def has_add_permission(self, request):
+        # Avaliacao so nasce da propria cliente (link de NPS)
+        return False
 
 
 # =====================================================================
 # PACOTES
 # =====================================================================
 
+def _pacote_vendido(pacote) -> bool:
+    """Pacote com CompraPacote: nome e itens congelados (mesma regra do painel).
+
+    CompraPacote nao guarda copia dos itens; saldo, debito e comissao leem
+    pacote.itens na hora — mudar os itens alteraria o que a cliente comprou.
+    """
+    return bool(
+        pacote is not None and pacote.pk
+        and CompraPacote.objects.filter(pacote=pacote).exists()
+    )
+
+
 class ItemPacoteInline(admin.TabularInline):
     model = ItemPacote
     extra = 1
     autocomplete_fields = ('procedimento',)
+
+    # obj = Pacote (pai)
+    def has_add_permission(self, request, obj=None):
+        return not _pacote_vendido(obj) and super().has_add_permission(request, obj)
+
+    def has_change_permission(self, request, obj=None):
+        return not _pacote_vendido(obj) and super().has_change_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        return not _pacote_vendido(obj) and super().has_delete_permission(request, obj)
 
 
 @admin.register(Pacote)
@@ -542,13 +608,42 @@ class PacoteAdmin(admin.ModelAdmin):
     ordering = ('-ativo', 'nome')
     inlines = [ItemPacoteInline]
 
+    def get_readonly_fields(self, request, obj=None):
+        campos = tuple(super().get_readonly_fields(request, obj))
+        return (*campos, 'nome') if _pacote_vendido(obj) else campos
+
+
+class ItemPacoteAdminForm(forms.ModelForm):
+    class Meta:
+        model = ItemPacote
+        fields = '__all__'
+
+    def clean_pacote(self):
+        pacote = self.cleaned_data.get('pacote')
+        if _pacote_vendido(pacote):
+            raise forms.ValidationError(
+                'Pacote já vendido: os itens não podem mudar. Crie um pacote novo.'
+            )
+        return pacote
+
 
 @admin.register(ItemPacote)
 class ItemPacoteAdmin(admin.ModelAdmin):
+    form = ItemPacoteAdminForm
     list_display = ('pacote', 'procedimento', 'quantidade_sessoes')
     search_fields = ('pacote__nome', 'procedimento__nome')
     autocomplete_fields = ('pacote', 'procedimento')
     list_select_related = ('pacote', 'procedimento')
+
+    def has_change_permission(self, request, obj=None):
+        if obj is not None and _pacote_vendido(obj.pacote):
+            return False
+        return super().has_change_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        if obj is not None and _pacote_vendido(obj.pacote):
+            return False
+        return super().has_delete_permission(request, obj)
 
 
 @admin.register(CompraPacote)
@@ -619,11 +714,11 @@ class UltimosDiasFilter(admin.SimpleListFilter):
 class LogAuditoriaAdmin(admin.ModelAdmin):
     list_display = ('criado_em', 'usuario', 'acao', 'tabela', 'registro_id', 'ip_origem')
     list_filter = ('tabela', UltimosDiasFilter)
-    search_fields = ('acao', 'usuario__email', 'tabela')
+    search_fields = ('acao', 'usuario__email', 'usuario_nome', 'tabela')
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
     readonly_fields = (
-        'usuario', 'acao', 'tabela', 'registro_id',
+        'usuario', 'usuario_nome', 'acao', 'tabela', 'registro_id',
         'detalhes', 'ip_origem', 'criado_em',
     )
     list_select_related = ('usuario',)

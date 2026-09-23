@@ -134,12 +134,14 @@ def usuario_login(request):
             auth_login(request, usuario)
             # SEGURANÇA: Regenerar sessão para prevenir Session Fixation
             request.session.cycle_key()
-            request.session['usuario_id'] = usuario.pk
+            # Marca da sessao da equipe: o Enforce2FAMiddleware confere o 2FA
+            # obrigatorio a cada request (promocao a ADMIN, valvula religada)
+            request.session[dois_fatores.SESSION_LOGIN_EQUIPE] = usuario.pk
             request.session['usuario_nome'] = usuario.nome
 
             messages.success(request, f'Bem-vindo(a), {usuario.nome}!')
 
-            # 2FA obrigatório p/ ADMIN sem TOTP: prende a sessão no cadastro
+            # 2FA obrigatório (ADMIN; PROFISSIONAL se ligado) sem TOTP: prende a sessão no cadastro
             if dois_fatores.obrigatorio_para(usuario) and not dois_fatores.tem_2fa(usuario):
                 request.session[dois_fatores.SESSION_CADASTRO_PENDENTE] = True
                 messages.warning(
@@ -172,7 +174,11 @@ def usuario_logout(request):
     if request.method == 'POST':
         auth_logout(request)
         messages.info(request, 'Você saiu da sua conta.')
-        return redirect('aranha:inicio')
+        resposta = redirect('aranha:inicio')
+        # Computador compartilhado (recepcao): tira do cache/bfcache do navegador
+        # as telas com dado de saude antes que o "voltar" as reexiba.
+        resposta['Clear-Site-Data'] = '"cache"'
+        return resposta
     voltar = destino_padrao(request.user) if pode_acessar(request.user) else 'aranha:inicio'
     return render(request, 'usuario/logout.html', {'voltar_url': reverse(voltar)})
 

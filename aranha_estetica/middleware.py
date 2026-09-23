@@ -12,6 +12,7 @@ from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.urls import resolve, reverse
 from django.urls.exceptions import Resolver404
+from django.utils.cache import add_never_cache_headers
 
 from .utils import dois_fatores
 
@@ -22,11 +23,14 @@ class Enforce2FAMiddleware:
     Fluxo:
       1. Usuario loga (sessao criada);
       2. Com TOTPDevice confirmado e sessao nao verificada -> challenge;
-      3. ADMIN sem TOTP com 2FA obrigatorio (flag gravada no login) -> cadastro;
+      3. Sem TOTP com 2FA obrigatorio (ADMIN; PROFISSIONAL se ligado) -> cadastro.
+         Conferido a cada request, nao so pela flag do login: sessao promovida
+         a ADMIN depois do login, anterior ao deploy ou aberta com a valvula
+         ADMIN_2FA_OBRIGATORIO desligada tambem cai no cadastro;
       4. Token correto -> sessao verificada (flag + django_otp.login) libera tudo,
          inclusive o /django-admin-sv/ (AdminSiteOTPRequired exige is_verified()).
 
-    Em /api/ a resposta e 403 JSON em vez de redirect HTML.
+    Em /api/ e /webpush/ a resposta e 403 JSON em vez de redirect HTML.
     """
 
     EXEMPT_NAMES = {
@@ -41,7 +45,10 @@ class Enforce2FAMiddleware:
     # ADMIN_PREFIX deve bater com clinica/urls.py.
     ADMIN_PREFIX = '/django-admin-sv/'
     API_PREFIX = '/api/'
-    PROTECTED_PREFIXES = ('/painel/', '/profissional/', API_PREFIX, ADMIN_PREFIX)
+    # Assinar push = passar a receber nome de cliente/procedimento/horario
+    WEBPUSH_PREFIXES = ('/webpush/subscribe/', '/webpush/unsubscribe/')
+    PROTECTED_PREFIXES = ('/painel/', '/profissional/', API_PREFIX, ADMIN_PREFIX, *WEBPUSH_PREFIXES)
+    JSON_PREFIXES = (API_PREFIX, *WEBPUSH_PREFIXES)
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -71,6 +78,12 @@ class Enforce2FAMiddleware:
         try:
             if dois_fatores.tem_2fa(request.user):
                 return self._barrar(request, 'aranha:admin_2fa_challenge')
+            # 2FA obrigatorio conferido a CADA request (nao so pela flag do
+            # login): sessao promovida a ADMIN depois do login, anterior ao
+            # deploy ou aberta com a valvula desligada tambem cai no cadastro.
+            if (dois_fatores.obrigatorio_para(request.user)
+                    and dois_fatores.sessao_do_login_equipe(request)):
+                return self._barrar(request, 'aranha:admin_2fa_setup')
             # Django admin exige OTP verificado: staff sem TOTP cadastra antes
             # (senao o AdminSiteOTPRequired devolve p/ o login em loop).
             if path.startswith(self.ADMIN_PREFIX) and request.user.is_staff:
@@ -83,19 +96,31 @@ class Enforce2FAMiddleware:
         return self.get_response(request)
 
     def _barrar(self, request, url_name):
-        if request.path.startswith(self.API_PREFIX):
+        if request.path.startswith(self.JSON_PREFIXES):
             return JsonResponse({'detail': '2fa_required'}, status=403)
         destino = reverse(url_name)
         return redirect(f'{destino}?{urlencode({"next": request.get_full_path()})}')
 
 
 class SecurityHeadersMiddleware:
-    """Headers de seguranca adicionais nao cobertos pelo Django core."""
+    """Headers de seguranca adicionais nao cobertos pelo Django core.
+
+    Areas privadas (equipe, portal da cliente, LGPD, API) saem sem cache no
+    navegador (no-store): no computador compartilhado da recepcao, "voltar"
+    depois do logout nao reexibe dado de saude/pessoal do bfcache ou do cache
+    de disco (LGPD art. 11/46). Defesa em profundidade p/ view nova que
+    esquecer o @never_cache; Cache-Control definido pela view e respeitado.
+    """
 
     PERMISSIONS_POLICY = (
         "geolocation=(self), camera=(), microphone=(), payment=(), "
         "usb=(), magnetometer=(), gyroscope=(), accelerometer=(), "
         "autoplay=(self), fullscreen=(self)"
+    )
+    # Bater com aranha_estetica/urls.py e clinica/urls.py
+    PREFIXOS_PRIVADOS = (
+        '/painel/', '/profissional/', '/meus-agendamentos/', '/lgpd/',
+        Enforce2FAMiddleware.ADMIN_PREFIX, Enforce2FAMiddleware.API_PREFIX,
     )
 
     def __init__(self, get_response):
@@ -103,6 +128,9 @@ class SecurityHeadersMiddleware:
 
     def __call__(self, request):
         response = self.get_response(request)
+        privada = (request.path or '').startswith(self.PREFIXOS_PRIVADOS)
+        if privada and not response.has_header('Cache-Control'):
+            add_never_cache_headers(response)
         response.setdefault("X-Content-Type-Options", "nosniff")
         response.setdefault("Permissions-Policy", self.PERMISSIONS_POLICY)
         response.setdefault("Cross-Origin-Opener-Policy", "same-origin")

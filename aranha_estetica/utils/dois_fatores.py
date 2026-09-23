@@ -13,13 +13,32 @@ SESSION_VERIFICADO = 'otp_verified'
 # Marcado no login de ADMIN sem TOTP quando o 2FA e obrigatorio: o middleware
 # prende a sessao na tela de cadastro ate o primeiro codigo ser confirmado.
 SESSION_CADASTRO_PENDENTE = '2fa_cadastro_pendente'
+# Gravada por usuario_login em TODA sessao da equipe (inclusive nas abertas
+# antes do 2FA obrigatorio existir). E a unica porta de entrada publicada: o
+# login do /django-admin-sv/ redireciona p/ ele e as rotas do two_factor/DRF
+# nao estao expostas. O middleware confere a obrigatoriedade a cada request
+# nessas sessoes; sessao sem a marca so nasce de force_login/client.login.
+SESSION_LOGIN_EQUIPE = 'usuario_id'
 
 
 def obrigatorio_para(user) -> bool:
-    """2FA obrigatorio p/ ADMIN (setting ADMIN_2FA_OBRIGATORIO; default: fora de DEBUG)."""
-    if not getattr(user, 'is_staff', False):
-        return False
-    return bool(getattr(settings, 'ADMIN_2FA_OBRIGATORIO', not settings.DEBUG))
+    """2FA obrigatorio?
+
+    ADMIN: setting ADMIN_2FA_OBRIGATORIO (default: fora de DEBUG).
+    PROFISSIONAL vinculado (le prontuario e alertas de saude, LGPD art. 11):
+    setting PROFISSIONAL_2FA_OBRIGATORIO (opt-in; default desligado).
+    """
+    if getattr(user, 'is_staff', False):
+        return bool(getattr(settings, 'ADMIN_2FA_OBRIGATORIO', not settings.DEBUG))
+    if getattr(user, 'profissional_id', None):
+        return bool(getattr(settings, 'PROFISSIONAL_2FA_OBRIGATORIO', False))
+    return False
+
+
+def sessao_do_login_equipe(request) -> bool:
+    """Sessao aberta pelo login da equipe (usuario_login) deste mesmo usuario."""
+    pk = getattr(request.user, 'pk', None)
+    return pk is not None and request.session.get(SESSION_LOGIN_EQUIPE) == pk
 
 
 def tem_2fa(user) -> bool:

@@ -1,0 +1,19 @@
+{% extends "drf_spectacular/swagger_ui.html" %}
+{% comment %}
+  Swagger UI (/api/schema/swagger/) com CSP estrita: o head do upstream traz um
+  <style> sem nonce, que o navegador descartava (style-src sem 'unsafe-inline').
+  Mesmo conteudo do drf-spectacular 0.29, so com nonce no <style>. O body
+  (scripts externos + ?script same-origin) segue o do upstream.
+{% endcomment %}
+{% block head %}
+    <title>{{ title|default:"Swagger" }}</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    {% if favicon_href %}<link rel="icon" href="{{ favicon_href }}">{% endif %}
+    <link rel="stylesheet" href="{{ swagger_ui_css }}">
+    <style nonce="{{ csp_nonce }}">
+      html { box-sizing: border-box; overflow-y: scroll; }
+      *, *:after, *:before { box-sizing: inherit; }
+      body { background: #fafafa; margin: 0; }
+    </style>
+{% endblock head %}

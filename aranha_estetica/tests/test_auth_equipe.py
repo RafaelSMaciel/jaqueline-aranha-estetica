@@ -6,8 +6,12 @@ login de PROFISSIONAL, reset de senha (500 + e-mail), logout so via POST,
 telas de usuario (500 form_data, form aninhado, auto-rebaixamento) e o
 Django admin (senha em texto puro, hard-delete, auditoria apagavel, prova de
 consentimento e dado clinico so-leitura) e QR do 2FA sem Pillow.
+Wave 3: 2FA obrigatorio a cada request (promocao, valvula, PROFISSIONAL),
+push sem 2FA, areas privadas sem cache, Django admin (exclusao de usuario,
+devices de 2FA, FSM, NPS, pacote vendido) e raiz da API so p/ staff.
 """
 import base64
+import json
 import re
 import sys
 import tempfile
@@ -22,7 +26,7 @@ from django.core import mail
 from django.core.cache import cache
 from django.template.loader import render_to_string
 from django.test import Client, RequestFactory, TestCase as _TestCase, override_settings
-from django.urls import reverse
+from django.urls import NoReverseMatch, reverse
 from django_otp.oath import TOTP
 from django_otp.plugins.otp_static.models import StaticDevice, StaticToken
 from django_otp.plugins.otp_totp.models import TOTPDevice
@@ -439,6 +443,17 @@ class UsuarioFormTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'E-mail já em uso')
 
+    def test_trocar_email_de_outro_usuario_guarda_o_anterior_na_trilha(self):
+        # e-mail trocado + "enviar reset" = assumir a conta: a trilha reconstroi
+        self.c.post(reverse('aranha:admin_editar_usuario', args=[self.outro.pk]), {
+            'nome': 'Dra. Portal', 'email': 'novo-email@test.com', 'papel': 'PROFISSIONAL',
+            'profissional_id': self.prof.pk, 'ativo': '1',
+        })
+        self.outro.refresh_from_db()
+        self.assertEqual(self.outro.email, 'novo-email@test.com')
+        log = LogAuditoria.objects.filter(tabela='usuario', registro_id=self.outro.pk).latest('pk')
+        self.assertEqual(log.detalhes.get('email_anterior'), 'prof@test.com')
+
     def test_admin_nao_rebaixa_nem_desativa_a_si_mesmo(self):
         url = reverse('aranha:admin_editar_usuario', args=[self.admin.pk])
         self.c.post(url, {'nome': 'Admin', 'email': 'adm@test.com', 'papel': 'PROFISSIONAL',
@@ -776,3 +791,344 @@ class DjangoAdminEvidenciasTests(TestCase):
         qs = cliente_admin.get_queryset(rf)
         achados, _ = cliente_admin.get_search_results(rf, qs, '(17) 99999-0001')
         self.assertIn(self.cliente, achados)
+
+
+# ─── wave 3 / rev_security-04 e -14: 2FA obrigatorio conferido a cada request ───
+
+@override_settings(ADMIN_2FA_OBRIGATORIO=True)
+class Obrigatoriedade2FAPorRequestTests(TestCase):
+    def _login(self, c, email):
+        return c.post(reverse('aranha:usuario_login'), {'username': email, 'password': SENHA})
+
+    def _cadastrar_2fa(self, c, email, next_url=''):
+        setup = reverse('aranha:admin_2fa_setup')
+        c.post(setup, {'acao': 'gerar'})
+        pendente = TOTPDevice.objects.get(user__email=email, confirmed=False)
+        c.post(setup, {'acao': 'confirmar', 'token': _token(pendente), 'next': next_url})
+
+    def test_login_grava_a_marca_da_sessao_da_equipe(self):
+        from aranha_estetica.utils import dois_fatores
+        with override_settings(ADMIN_2FA_OBRIGATORIO=False):
+            admin_user = _admin()
+            c = Client()
+            self._login(c, 'adm@test.com')
+        self.assertEqual(c.session[dois_fatores.SESSION_LOGIN_EQUIPE], admin_user.pk)
+
+    def test_profissional_promovido_a_admin_cai_no_cadastro(self):
+        user, _ = _profissional_user()
+        c = Client()
+        resp = self._login(c, 'prof@test.com')
+        self.assertEqual(resp['Location'], reverse('aranha:profissional_agenda'))
+        self.assertEqual(c.get(reverse('aranha:profissional_agenda')).status_code, 200)
+
+        # promovido sem novo login (painel, Django admin ou bootstrap_admin)
+        Usuario.objects.filter(pk=user.pk).update(papel=Usuario.PAPEL_ADMIN)
+        setup = reverse('aranha:admin_2fa_setup')
+        for nome in ('aranha:painel_overview', 'aranha:admin_usuarios'):
+            with self.subTest(tela=nome):
+                resp = c.get(reverse(nome))
+                self.assertEqual(resp.status_code, 302)
+                self.assertTrue(resp['Location'].startswith(setup), resp['Location'])
+        resp = c.get('/api/v1/clientes/')
+        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(resp.json(), {'detail': '2fa_required'})
+        # a tela de cadastro abre e explica o bloqueio
+        resp = c.get(setup)
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'obrigatório para a sua conta')
+
+    def test_sessao_aberta_com_valvula_desligada_cai_no_cadastro_ao_religar(self):
+        _admin()
+        c = Client()
+        with override_settings(ADMIN_2FA_OBRIGATORIO=False):
+            self._login(c, 'adm@test.com')
+            self.assertEqual(c.get(reverse('aranha:painel_overview')).status_code, 200)
+        resp = c.get(reverse('aranha:painel_overview'))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(reverse('aranha:admin_2fa_setup'), resp['Location'])
+
+    def test_sessao_anterior_ao_deploy_cai_no_cadastro_e_libera_apos_cadastrar(self):
+        # login antigo: gravava usuario_id, mas nao a flag de cadastro pendente
+        admin_user = _admin()
+        c = Client()
+        c.force_login(admin_user)
+        sessao = c.session
+        sessao['usuario_id'] = admin_user.pk
+        sessao.save()
+        resp = c.get(reverse('aranha:painel_overview'))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(reverse('aranha:admin_2fa_setup'), resp['Location'])
+        self._cadastrar_2fa(c, 'adm@test.com')
+        self.assertEqual(c.get(reverse('aranha:painel_overview')).status_code, 200)
+
+    @override_settings(PROFISSIONAL_2FA_OBRIGATORIO=True)
+    def test_profissional_com_2fa_obrigatorio_cadastra_antes_do_portal(self):
+        _profissional_user()
+        c = Client()
+        setup = reverse('aranha:admin_2fa_setup')
+        resp = self._login(c, 'prof@test.com')
+        self.assertIn(setup, resp['Location'])
+        resp = c.get(reverse('aranha:profissional_agenda'))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(setup, resp['Location'])
+        self._cadastrar_2fa(c, 'prof@test.com', next_url='/profissional/')
+        self.assertEqual(c.get(reverse('aranha:profissional_agenda')).status_code, 200)
+
+    def test_obrigatorio_para_por_papel(self):
+        from aranha_estetica.utils import dois_fatores
+        admin_user = _admin()
+        prof_user, _ = _profissional_user()
+        self.assertTrue(dois_fatores.obrigatorio_para(admin_user))
+        with override_settings(PROFISSIONAL_2FA_OBRIGATORIO=False):
+            self.assertFalse(dois_fatores.obrigatorio_para(prof_user))
+        with override_settings(PROFISSIONAL_2FA_OBRIGATORIO=True):
+            self.assertTrue(dois_fatores.obrigatorio_para(prof_user))
+        recepcao = Usuario.objects.create_user(
+            email='rec@test.com', password=SENHA, nome='Rec', papel=Usuario.PAPEL_RECEPCAO,
+        )
+        with override_settings(PROFISSIONAL_2FA_OBRIGATORIO=True):
+            self.assertFalse(dois_fatores.obrigatorio_para(recepcao))
+
+
+# ─── wave 3 / rev_security-08: assinatura de push exige o 2FA da sessao ───
+
+class WebpushExige2FATests(TestCase):
+    def test_sessao_so_com_senha_nao_assina_nem_remove_push(self):
+        from aranha_estetica.models import AssinaturaPush
+        user, _ = _profissional_user()
+        _com_totp(user)
+        c = Client()
+        c.force_login(user)
+        payload = json.dumps({
+            'endpoint': 'https://atacante.example/push/1',
+            'keys': {'p256dh': 'chave', 'auth': 'segredo'},
+        })
+        for rota in ('/webpush/subscribe/', '/webpush/unsubscribe/'):
+            with self.subTest(rota=rota):
+                resp = c.post(rota, data=payload, content_type='application/json')
+                self.assertEqual(resp.status_code, 403)
+                self.assertEqual(resp.json(), {'detail': '2fa_required'})
+        self.assertFalse(AssinaturaPush.objects.exists())
+
+
+# ─── wave 3 / FU #34/#37: areas privadas sem cache do navegador ───
+
+@override_settings(ADMIN_2FA_OBRIGATORIO=False)
+class CacheAreasPrivadasTests(TestCase):
+    def test_telas_da_equipe_e_api_sem_cache(self):
+        admin_user = _admin()
+        cli = Cliente.objects.create(nome='Cliente Cache', telefone='17999990077')
+        c = Client()
+        c.force_login(admin_user)
+        urls = (
+            reverse('aranha:painel_overview'),
+            reverse('aranha:admin_usuarios'),
+            reverse('aranha:admin_cliente_detalhe', args=[cli.pk]),
+            '/api/v1/clientes/',
+        )
+        for url in urls:
+            with self.subTest(url=url):
+                resp = c.get(url)
+                self.assertEqual(resp.status_code, 200)
+                self.assertIn('no-store', resp['Cache-Control'])
+
+    def test_portal_do_profissional_sem_cache(self):
+        from .factories import criar_atendimento, criar_cliente, criar_procedimento
+        user, prof = _profissional_user()
+        atd = criar_atendimento(criar_cliente(), prof, criar_procedimento(profissional=prof))
+        c = Client()
+        c.force_login(user)
+        for url in (
+            reverse('aranha:profissional_agenda'),
+            reverse('aranha:profissional_anotar', args=[atd.pk]),
+        ):
+            with self.subTest(url=url):
+                resp = c.get(url)
+                self.assertEqual(resp.status_code, 200)
+                self.assertIn('no-store', resp['Cache-Control'])
+
+    def test_redirect_de_anonimo_e_portal_da_cliente_sem_cache(self):
+        c = Client()
+        for url in (reverse('aranha:painel_overview'), reverse('aranha:meus_agendamentos')):
+            with self.subTest(url=url):
+                self.assertIn('no-store', c.get(url)['Cache-Control'])
+
+    def test_site_publico_segue_cacheavel(self):
+        resp = Client().get(reverse('aranha:inicio'))
+        self.assertNotIn('no-store', resp.get('Cache-Control', ''))
+
+    def test_cache_control_definido_pela_view_e_respeitado(self):
+        from django.http import HttpResponse
+
+        from aranha_estetica.middleware import SecurityHeadersMiddleware
+
+        def view(_request):
+            resp = HttpResponse('ok')
+            resp['Cache-Control'] = 'private, max-age=60'
+            return resp
+        resp = SecurityHeadersMiddleware(view)(RequestFactory().get('/painel/x/'))
+        self.assertEqual(resp['Cache-Control'], 'private, max-age=60')
+
+    def test_logout_limpa_o_cache_do_navegador(self):
+        c = Client()
+        c.force_login(_admin())
+        resp = c.post(reverse('aranha:usuario_logout'))
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp['Clear-Site-Data'], '"cache"')
+
+
+# ─── wave 3: Django admin (autoria, 2FA de terceiros, FSM, NPS, pacotes) ───
+
+class DjangoAdminWave3Tests(TestCase):
+    def setUp(self):
+        super().setUp()
+        from .factories import criar_cliente, criar_procedimento, criar_profissional
+        self.admin = _admin()
+        device = _com_totp(self.admin)
+        self.c = Client()
+        self.c.force_login(self.admin)
+        self.c.post(reverse('aranha:admin_2fa_verify'), {'token': _token(device)})
+        self.rf = RequestFactory().get('/')
+        self.rf.user = self.admin
+        self.prof = criar_profissional()
+        self.proc = criar_procedimento(profissional=self.prof)
+        self.cliente = criar_cliente()
+
+    def test_usuario_nao_pode_ser_excluido_no_admin(self):
+        outro = _admin(email='outro@test.com')
+        ma = django_admin.site._registry[Usuario]
+        self.assertFalse(ma.has_delete_permission(self.rf, outro))
+        self.assertNotIn('delete_selected', ma.get_actions(self.rf))
+        resp = self.c.post(f'/django-admin-sv/aranha_estetica/usuario/{outro.pk}/delete/', {'post': 'yes'})
+        self.assertEqual(resp.status_code, 403)
+        self.assertTrue(Usuario.objects.filter(pk=outro.pk).exists())
+
+    def test_devices_de_2fa_fora_do_django_admin(self):
+        for modelo in (TOTPDevice, StaticDevice):
+            with self.subTest(modelo=modelo.__name__):
+                self.assertFalse(django_admin.site.is_registered(modelo))
+        with self.assertRaises(NoReverseMatch):
+            reverse('admin:otp_totp_totpdevice_add')
+        self.assertEqual(self.c.get('/django-admin-sv/otp_totp/totpdevice/').status_code, 404)
+
+    def test_log_de_auditoria_mostra_o_autor_gravado(self):
+        ma = django_admin.site._registry[LogAuditoria]
+        self.assertIn('usuario_nome', ma.get_readonly_fields(self.rf))
+
+    def test_status_do_atendimento_so_leitura_tambem_no_add(self):
+        from aranha_estetica.models import Atendimento
+        ma = django_admin.site._registry[Atendimento]
+        self.assertIn('status', ma.get_readonly_fields(self.rf, None))
+        resp = self.c.get('/django-admin-sv/aranha_estetica/atendimento/add/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotContains(resp, 'name="status"')
+
+    def test_realizado_em_massa_pula_termo_de_procedimento_pendente(self):
+        from aranha_estetica.models import Atendimento
+        from .factories import criar_atendimento, criar_procedimento
+        proc_sem_termo = criar_procedimento(nome='Drenagem', profissional=self.prof)
+        versao = VersaoTermo.objects.create(
+            tipo='PROCEDIMENTO', procedimento=self.proc, titulo='Termo Limpeza',
+            conteudo='Riscos do procedimento.', versao='1.0', vigente_desde=date(2026, 1, 1),
+        )
+        pendente = criar_atendimento(self.cliente, self.prof, self.proc)
+        livre = criar_atendimento(
+            self.cliente, self.prof, proc_sem_termo,
+            data_hora=pendente.data_hora_inicio + timedelta(hours=2),
+        )
+        resp = self.c.post('/django-admin-sv/aranha_estetica/atendimento/', {
+            'action': 'acao_marcar_realizado', '_selected_action': [pendente.pk, livre.pk],
+        }, follow=True)
+        pendente.refresh_from_db()
+        livre.refresh_from_db()
+        self.assertEqual(pendente.status, 'AGENDADO')
+        self.assertEqual(livre.status, Atendimento.STATUS_REALIZADO)
+        self.assertContains(resp, 'ainda não aceitou o termo')
+
+        # aceito o termo, a action realiza
+        AceiteTermo.objects.create(cliente=self.cliente, versao_termo=versao)
+        self.c.post('/django-admin-sv/aranha_estetica/atendimento/', {
+            'action': 'acao_marcar_realizado', '_selected_action': [pendente.pk],
+        })
+        pendente.refresh_from_db()
+        self.assertEqual(pendente.status, Atendimento.STATUS_REALIZADO)
+
+    def test_nps_sem_inclusao_e_opt_in_da_cliente_so_leitura(self):
+        from aranha_estetica.models import AvaliacaoNPS
+        from .factories import criar_atendimento
+        atd = criar_atendimento(self.cliente, self.prof, self.proc, status='REALIZADO')
+        nps = AvaliacaoNPS.objects.create(atendimento=atd, nota=10, comentario='Amei o cuidado.')
+        ma = django_admin.site._registry[AvaliacaoNPS]
+        self.assertFalse(ma.has_add_permission(self.rf))
+        readonly = ma.get_readonly_fields(self.rf, nps)
+        for campo in ('atendimento', 'nota', 'comentario', 'autoriza_publicacao', 'alerta_enviado'):
+            with self.subTest(campo=campo):
+                self.assertIn(campo, readonly)
+        self.assertEqual(self.c.get('/django-admin-sv/aranha_estetica/avaliacaonps/add/').status_code, 403)
+        resp = self.c.post(f'/django-admin-sv/aranha_estetica/avaliacaonps/{nps.pk}/change/', {
+            'nota': '0', 'comentario': 'forjado', 'autoriza_publicacao': 'on', 'aprovado_publicacao': 'on',
+        })
+        self.assertEqual(resp.status_code, 302)
+        nps.refresh_from_db()
+        self.assertEqual((nps.nota, nps.comentario, nps.autoriza_publicacao), (10, 'Amei o cuidado.', False))
+        self.assertTrue(nps.aprovado_publicacao)  # moderacao segue com a equipe
+
+    def test_pacote_vendido_congela_nome_e_itens(self):
+        from aranha_estetica.admin import ItemPacoteAdminForm, ItemPacoteInline
+        from aranha_estetica.models import ItemPacote, Pacote
+        from .factories import criar_compra_pacote, criar_pacote, criar_procedimento
+        vendido = criar_pacote(procedimento=self.proc, sessoes=4)
+        livre = criar_pacote(nome='Pacote Livre', procedimento=self.proc, sessoes=2)
+        criar_compra_pacote(self.cliente, vendido)
+        inline = ItemPacoteInline(Pacote, django_admin.site)
+        pacote_admin = django_admin.site._registry[Pacote]
+        item_admin = django_admin.site._registry[ItemPacote]
+        item_vendido = vendido.itens.get()
+
+        for perm in ('has_add_permission', 'has_change_permission', 'has_delete_permission'):
+            with self.subTest(perm=perm):
+                self.assertFalse(getattr(inline, perm)(self.rf, vendido))
+                self.assertTrue(getattr(inline, perm)(self.rf, livre))
+        self.assertIn('nome', pacote_admin.get_readonly_fields(self.rf, vendido))
+        self.assertNotIn('nome', pacote_admin.get_readonly_fields(self.rf, livre))
+        self.assertFalse(item_admin.has_change_permission(self.rf, item_vendido))
+        self.assertFalse(item_admin.has_delete_permission(self.rf, item_vendido))
+        self.assertTrue(item_admin.has_change_permission(self.rf, livre.itens.get()))
+        outro = criar_procedimento(nome='Peeling', profissional=self.prof)
+        form = ItemPacoteAdminForm(data={
+            'pacote': vendido.pk, 'procedimento': outro.pk, 'quantidade_sessoes': 1,
+        })
+        self.assertFalse(form.is_valid())
+        self.assertIn('pacote', form.errors)
+
+        # POST do form do pacote vendido nao altera os itens
+        resp = self.c.post(f'/django-admin-sv/aranha_estetica/pacote/{vendido.pk}/change/', {
+            'descricao': '', 'preco_total': '600.00', 'validade_meses': '12', 'ativo': 'on',
+            'itens-TOTAL_FORMS': '1', 'itens-INITIAL_FORMS': '1',
+            'itens-MIN_NUM_FORMS': '0', 'itens-MAX_NUM_FORMS': '1000',
+            'itens-0-id': str(item_vendido.pk), 'itens-0-pacote': str(vendido.pk),
+            'itens-0-procedimento': str(self.proc.pk), 'itens-0-quantidade_sessoes': '99',
+        })
+        self.assertEqual(resp.status_code, 302)
+        item_vendido.refresh_from_db()
+        self.assertEqual(item_vendido.quantidade_sessoes, 4)
+
+
+# ─── wave 3 / crawl-7: raiz da API so p/ staff ───
+
+@override_settings(ADMIN_2FA_OBRIGATORIO=False)
+class ApiRaizSoStaffTests(TestCase):
+    def test_profissional_nao_lista_os_endpoints(self):
+        user, _ = _profissional_user()
+        c = Client()
+        c.force_login(user)
+        for url in ('/api/v1/', '/api/v1/.json'):
+            with self.subTest(url=url):
+                self.assertEqual(c.get(url).status_code, 403)
+
+    def test_staff_lista_os_endpoints(self):
+        c = Client()
+        c.force_login(_admin())
+        resp = c.get('/api/v1/.json')
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('clientes', resp.json())
