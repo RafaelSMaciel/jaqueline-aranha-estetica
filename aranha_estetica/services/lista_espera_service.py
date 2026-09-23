@@ -98,7 +98,7 @@ def _disparar_avisos(espera_ids, atendimento_id) -> int:
 
 def _enviar_email_lista_espera(espera: ListaEspera, slot: Atendimento, link: str) -> bool:
     """E-mail de vaga (o cliente pediu o aviso ao entrar na lista)."""
-    destino = getattr(espera, 'email_contato', None) or espera.cliente.email
+    destino = espera.email_contato or espera.cliente.email
     if not destino:
         return False
     try:

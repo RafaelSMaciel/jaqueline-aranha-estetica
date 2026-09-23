@@ -1,6 +1,7 @@
 """Canais de notificacao (e-mail/WhatsApp/push) e jobs: falha fechada, hora
 local, SITE_URL em tempo de chamada, consentimento e janelas do NPS."""
 import json
+import re
 from datetime import datetime, timedelta, timezone as dt_timezone
 from unittest.mock import patch
 
@@ -8,6 +9,7 @@ from django.core import mail
 from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.html import strip_tags
 
 from aranha_estetica.models import (
     Atendimento, AvaliacaoNPS, CompraPacote, Configuracao, LogAuditoria, Notificacao,
@@ -44,13 +46,13 @@ class EmailFalhaFechadaTests(TestCase):
         self.assertFalse(email_utils.email_configurado())
 
     def test_marketing_sem_token_de_descadastro_nao_sai(self):
-        ok = email_utils.enviar_aniversario_email('ana@example.com', {'nome': 'Ana', 'desconto': 15})
+        ok = email_utils.enviar_aniversario_email('ana@example.com', {'nome': 'Ana'})
         self.assertFalse(ok)
         self.assertEqual(len(mail.outbox), 0)
 
     def test_marketing_leva_list_unsubscribe_com_site_url_atual(self):
         ok = email_utils.enviar_aniversario_email(
-            'ana@example.com', {'nome': 'Ana', 'desconto': 15}, unsub_token='tok123',
+            'ana@example.com', {'nome': 'Ana'}, unsub_token='tok123',
         )
         self.assertTrue(ok)
         msg = mail.outbox[0]
@@ -83,6 +85,89 @@ class EmailFalhaFechadaTests(TestCase):
         job_aniversario_clientes.apply()
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn(cli.token_descadastro, mail.outbox[0].extra_headers['List-Unsubscribe'])
+
+    def test_aniversario_nao_promete_desconto_sem_mecanismo(self):
+        """gap3-03: nenhum fluxo aplica o '15%' — o e-mail so felicita."""
+        from aranha_estetica.tasks import job_aniversario_clientes
+        hoje = timezone.localdate()
+        criar_cliente(
+            nome='Aniversariante', email='niver@example.com',
+            data_nascimento=hoje.replace(year=1990), consent_email_marketing=True,
+        )
+        job_aniversario_clientes.apply()
+        msg = mail.outbox[0]
+        html = msg.alternatives[0][0]
+        texto = strip_tags(re.sub(r'<style.*?</style>', '', html, flags=re.S))
+        self.assertIsNone(re.search(r'\d\s*%', texto))
+        for promessa in ('desconto', 'Desconto', 'cupom', 'Válido por 7 dias', 'presente'):
+            self.assertNotIn(promessa, texto)
+            self.assertNotIn(promessa, msg.subject)
+        self.assertIn('/agendamento/', html)
+
+    @override_settings(DEBUG=False, EMAIL_BACKEND='django.core.mail.backends.filebased.EmailBackend')
+    def test_filebased_fora_de_debug_nao_conta_como_configurado(self):
+        """gap4-06: arquivo no disco efemero do container nao entrega nada."""
+        self.assertFalse(email_utils.email_configurado())
+        self.assertFalse(email_utils.enviar_cancelamento_email('ana@example.com', {'nome': 'Ana'}))
+
+    @override_settings(DEBUG=False)
+    def test_locmem_do_test_runner_segue_configurado(self):
+        self.assertTrue(email_utils.email_configurado())
+
+    def test_promocao_sem_cupom_e_validade_limitada_ao_fim_da_promo(self):
+        """gap3-02: validade anunciada nunca passa de promo.data_fim; cupom nao sai."""
+        from aranha_estetica.tasks import job_promocao_mensal, validade_promocao
+        fim = timezone.localdate() + timedelta(days=10)
+        self.assertEqual(validade_promocao(30, fim.isoformat()), fim.strftime('%d/%m/%Y'))
+        self.assertEqual(
+            validade_promocao(5, fim), (timezone.localdate() + timedelta(days=5)).strftime('%d/%m/%Y'),
+        )
+        criar_cliente(nome='Promo', email='promo@example.com', consent_email_marketing=True)
+        job_promocao_mensal.apply(
+            args=('Setembro Glow', '<p>Oferta</p>'),
+            kwargs={'cupom': 'VIP15', 'validade_dias': 60, 'data_fim': fim.isoformat()},
+        )
+        corpo = mail.outbox[0].alternatives[0][0]
+        self.assertNotIn('VIP15', corpo)
+        self.assertIn(f'Oferta válida até {fim.strftime("%d/%m/%Y")}', corpo)
+
+    def test_email_de_termo_informa_procedimento_data_e_validade(self):
+        ok = email_utils.enviar_termos_pendentes_email('ana@example.com', {
+            'nome': 'Ana', 'link_termo': 'https://clinica.example.com/termo/tok/',
+            'procedimento': 'Limpeza de Pele', 'data_hora': '20/10/2026 14:00',
+            'valido_ate': '20/10/2026 14:00',
+        })
+        self.assertTrue(ok)
+        corpo = mail.outbox[0].alternatives[0][0]
+        for trecho in ('Limpeza de Pele', '20/10/2026 14:00', 'Este link vale até', '/termo/tok/'):
+            self.assertIn(trecho, corpo)
+
+    def test_job_pacote_expirando_usa_o_saldo_da_compra(self):
+        from aranha_estetica.tasks import job_verificar_pacotes_expirando
+        prof = criar_profissional()
+        proc = criar_procedimento(profissional=prof)
+        cli = criar_cliente(nome='Pacoteira', email='pacote@example.com')
+        compra = criar_compra_pacote(cli, criar_pacote(procedimento=proc, sessoes=4))
+        validade = timezone.localdate() + timedelta(days=7)
+        CompraPacote.objects.filter(pk=compra.pk).update(data_expiracao=validade)
+        atd = criar_atendimento(cli, prof, proc)
+        atd.status = 'REALIZADO'
+        atd.save()
+
+        job_verificar_pacotes_expirando.apply()
+
+        self.assertEqual(len(mail.outbox), 1)
+        corpo = mail.outbox[0].alternatives[0][0]
+        self.assertIn('>3<', corpo)
+        self.assertIn(f'Sessões realizadas até {validade.strftime("%d/%m/%Y")} contam', corpo)
+
+    def test_pacote_expirando_explica_que_sessao_ate_a_validade_conta(self):
+        ok = email_utils.enviar_pacote_expirando_email('ana@example.com', {
+            'nome': 'Ana', 'pacote': 'Glow', 'dias': 1, 'sessoes_restantes': 2,
+            'valido_ate': '30/09/2026',
+        })
+        self.assertTrue(ok)
+        self.assertIn('Sessões realizadas até 30/09/2026 contam', mail.outbox[0].alternatives[0][0])
 
 
 # ─── WhatsApp ─────────────────────────────────────────────────────────
@@ -118,6 +203,20 @@ class WhatsAppTests(TestCase):
         self.assertTrue(params[5].startswith('https://clinica.example.com/confirmar/'))
         self.assertEqual(notif.status, 'ENVIADO')
         self.assertNotIn('Bia', notif.mensagem)
+
+    @patch.dict('os.environ', {'WHATSAPP_TOKEN': 'tok', 'WHATSAPP_PHONE_ID': '123'})
+    def test_job_d1_envia_mesmo_com_termo_ja_enviado_por_email(self):
+        """gap1-05: notificacao do termo (e-mail) nao conta como D-1 enviado."""
+        from aranha_estetica.tasks import job_enviar_lembrete_dia_seguinte
+        atd = criar_atendimento(self.cli, self.prof, self.proc, data_hora=_as_14h_local())
+        Notificacao.objects.create(atendimento=atd, tipo='TERMO', canal='EMAIL', status='ENVIADO', token='t1')
+        Notificacao.objects.create(atendimento=atd, tipo='LEMBRETE', canal='EMAIL', status='ENVIADO', token='t2')
+        with patch.object(wa_utils, 'enviar_template_whatsapp', return_value=True) as fake:
+            job_enviar_lembrete_dia_seguinte.apply()
+        fake.assert_called_once()
+        self.assertTrue(Notificacao.objects.filter(
+            atendimento=atd, tipo='LEMBRETE', canal='WHATSAPP', status='ENVIADO',
+        ).exists())
 
     @patch.dict('os.environ', {'WHATSAPP_TOKEN': 'tok', 'WHATSAPP_PHONE_ID': '123'})
     def test_job_d1_respeita_consentimento(self):

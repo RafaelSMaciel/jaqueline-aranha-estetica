@@ -1,13 +1,14 @@
 """Testes do job_expirar_pacotes (Celery task)."""
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
 from django.test import TestCase
 from django.utils import timezone
 
-from aranha_estetica.models import CompraPacote
+from aranha_estetica.models import CompraPacote, ConsumoSessao
 from aranha_estetica.tasks import job_expirar_pacotes
 
 from .factories import (
+    criar_atendimento,
     criar_cliente,
     criar_pacote,
     criar_compra_pacote,
@@ -89,3 +90,49 @@ class JobExpirarPacotesTests(TestCase):
         pc2.refresh_from_db()
         self.assertEqual(pc1.status, 'EXPIRADO')
         self.assertEqual(pc2.status, 'EXPIRADO')
+
+
+class ValidadePelaDataDaSessaoTests(TestCase):
+    """Regressao gap3-07: a validade vale para a DATA DA SESSAO, nao para o
+    dia em que a equipe marca REALIZADO (nem para quando o job rodou)."""
+
+    def setUp(self):
+        self.cliente = criar_cliente()
+        self.prof = criar_profissional()
+        self.proc = criar_procedimento(profissional=self.prof)
+        self.pacote = criar_pacote(procedimento=self.proc, sessoes=4)
+        self.pc = criar_compra_pacote(self.cliente, self.pacote)
+        self.ontem = timezone.localdate() - timedelta(days=1)
+
+    def _sessao_em(self, dia):
+        inicio = timezone.make_aware(datetime.combine(dia, time(15, 0)))
+        return criar_atendimento(self.cliente, self.prof, self.proc, data_hora=inicio)
+
+    def _realizar(self, atd):
+        atd.status = 'REALIZADO'
+        atd.save()
+
+    def test_sessao_no_ultimo_dia_marcada_no_dia_seguinte_debita(self):
+        CompraPacote.objects.filter(pk=self.pc.pk).update(data_expiracao=self.ontem)
+        atd = self._sessao_em(self.ontem)
+        self._realizar(atd)
+        self.assertTrue(ConsumoSessao.objects.filter(compra_pacote=self.pc, atendimento=atd).exists())
+
+    def test_job_antes_da_marcacao_nao_impede_o_debito(self):
+        CompraPacote.objects.filter(pk=self.pc.pk).update(data_expiracao=self.ontem)
+        atd = self._sessao_em(self.ontem)
+        job_expirar_pacotes()
+        self.pc.refresh_from_db()
+        self.assertEqual(self.pc.status, 'EXPIRADO')
+        self._realizar(atd)
+        self.assertEqual(ConsumoSessao.objects.filter(compra_pacote=self.pc).count(), 1)
+
+    def test_sessao_depois_da_validade_nao_debita(self):
+        anteontem = self.ontem - timedelta(days=1)
+        CompraPacote.objects.filter(pk=self.pc.pk).update(data_expiracao=anteontem)
+        atd = self._sessao_em(self.ontem)
+        self._realizar(atd)
+        self.assertFalse(ConsumoSessao.objects.filter(atendimento=atd).exists())
+        self.pc.refresh_from_db()
+        # o signal nao grava mais EXPIRADO (isso e do job)
+        self.assertEqual(self.pc.status, 'ATIVO')

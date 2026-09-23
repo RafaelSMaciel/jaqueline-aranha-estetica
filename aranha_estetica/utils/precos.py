@@ -59,12 +59,25 @@ def preco_base_map(procedimentos=None):
     return mapa
 
 
-def preco_para(procedimento, profissional=None):
-    """Retorna o Preco vigente aplicavel para (procedimento, profissional).
+def _dia(data=None):
+    """date local p/ comparar vigencias (aceita date, datetime aware ou None=hoje)."""
+    from datetime import datetime
+
+    if data is None:
+        return hoje_local()
+    if isinstance(data, datetime):
+        from .datas import data_local
+        return data_local(data)
+    return data
+
+
+def preco_para(procedimento, profissional=None, data=None):
+    """Retorna o Preco vigente aplicavel para (procedimento, profissional) na data.
 
     Prioridade: preco especifico do profissional > preco base (sem profissional).
+    data: dia do atendimento (default hoje local).
     """
-    hoje = hoje_local()
+    hoje = _dia(data)
     qs = Preco.objects.filter(procedimento=procedimento)
     if profissional is not None:
         especifico = _vigente_qs(qs.filter(profissional=profissional), hoje)
@@ -73,31 +86,42 @@ def preco_para(procedimento, profissional=None):
     return _vigente_qs(qs.filter(profissional__isnull=True), hoje)
 
 
-def promocao_vigente(procedimento, data=None):
-    """Promocao ativa aplicavel ao procedimento na data (fuso local), ou None.
+def _promocao_aplicavel(promocao) -> bool:
+    """Promocao geral (sem procedimento) so vale por percentual: preco fixo
+    geral viraria teto para todo o catalogo."""
+    if promocao.procedimento_id:
+        return promocao.preco_promocional is not None or bool(promocao.desconto_percentual)
+    return promocao.preco_promocional is None and bool(promocao.desconto_percentual)
 
-    Considera promocoes do proprio procedimento e gerais (procedimento nulo).
-    Havendo varias, vence a de menor preco final (calculado sobre o preco base).
+
+def promocao_vigente(procedimento, data=None):
+    """Promocao ativa que reduz o preco do procedimento na data (fuso local), ou None.
+
+    Considera promocoes do proprio procedimento (preco fixo ou percentual) e
+    gerais (procedimento nulo, so percentual). Havendo varias, vence a de
+    menor preco final (calculado sobre o preco base da data).
     """
     from django.db.models import Q
 
     from ..models import Promocao
 
-    dia = data or hoje_local()
-    candidatas = list(
-        Promocao.objects.filter(ativa=True, data_inicio__lte=dia, data_fim__gte=dia)
+    dia = _dia(data)
+    candidatas = [
+        p for p in Promocao.objects.filter(ativa=True, data_inicio__lte=dia, data_fim__gte=dia)
         .filter(Q(procedimento=procedimento) | Q(procedimento__isnull=True))
         .order_by('pk')
-    )
+        if _promocao_aplicavel(p)
+    ]
     if not candidatas:
         return None
-    preco = preco_para(procedimento)
+    preco = preco_para(procedimento, data=dia)
     base = preco.valor if preco is not None else None
     if base is None:
         # sem preco base: so promocao de preco fixo do proprio procedimento faz sentido
         fixas = [p for p in candidatas if p.preco_promocional is not None and p.procedimento_id]
         return fixas[0] if fixas else None
-    return min(candidatas, key=lambda p: (aplicar_promocao(base, p), p.pk))
+    melhor = min(candidatas, key=lambda p: (aplicar_promocao(base, p), p.pk))
+    return melhor if aplicar_promocao(base, melhor) < base else None
 
 
 def aplicar_promocao(valor, promocao):
@@ -107,7 +131,9 @@ def aplicar_promocao(valor, promocao):
     if valor is None or promocao is None:
         return valor
     valor = Decimal(valor)
-    if promocao.preco_promocional is not None:
+    if not _promocao_aplicavel(promocao):
+        final = valor
+    elif promocao.preco_promocional is not None:
         final = min(Decimal(promocao.preco_promocional), valor)
     elif promocao.desconto_percentual:
         final = valor * (Decimal('100') - Decimal(promocao.desconto_percentual)) / Decimal('100')
@@ -119,12 +145,16 @@ def aplicar_promocao(valor, promocao):
 def preco_com_promocao(procedimento, profissional=None, data=None):
     """(valor_final, promocao|None, valor_cheio) p/ exibir e gravar no agendamento.
 
-    valor_cheio = preco vigente (profissional > base). valor_final aplica a
-    promocao vigente na data do atendimento. Sem preco -> (None, None, None).
+    valor_cheio = preco vigente na data (profissional > base). valor_final
+    aplica a promocao vigente na data do atendimento; promocao so volta
+    quando de fato reduz o valor. Sem preco -> (None, None, None).
     """
-    preco = preco_para(procedimento, profissional)
+    preco = preco_para(procedimento, profissional, data)
     if preco is None:
         return None, None, None
     cheio = preco.valor
     promo = promocao_vigente(procedimento, data)
-    return aplicar_promocao(cheio, promo), promo, cheio
+    final = aplicar_promocao(cheio, promo)
+    if promo is not None and final >= cheio:
+        return cheio, None, cheio
+    return final, promo, cheio

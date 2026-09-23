@@ -95,6 +95,23 @@ class RetornoServiceTests(TestCase):
         self.assertGreaterEqual(delta, 15)
         self.assertLessEqual(delta, 21)
 
+    def test_retorno_gratuito_nao_consome_sessao_do_pacote(self):
+        """Regressao gap3-05: o retorno (R$0) debitava uma sessao paga."""
+        from aranha_estetica.models import ConsumoSessao
+        from .factories import criar_compra_pacote, criar_pacote
+
+        compra = criar_compra_pacote(self.cliente, criar_pacote(procedimento=self.proc, sessoes=3))
+        atend = criar_atendimento(self.cliente, self.prof, self.proc, status='AGENDADO')
+        atend.marcar_realizado()
+        retorno = Atendimento.objects.get(atendimento_origem=atend, eh_retorno=True)
+        retorno.aprovar()
+        retorno.marcar_realizado()
+
+        self.assertEqual(compra.sessoes_realizadas.count(), 1)
+        self.assertFalse(ConsumoSessao.objects.filter(atendimento=retorno).exists())
+        compra.refresh_from_db()
+        self.assertEqual(compra.status, 'ATIVO')
+
 
 # ─── F-CSB ────────────────────────────────────────────────────────────
 class FidelidadeServiceTests(TestCase):
@@ -238,6 +255,17 @@ class ListaEsperaHandlerTests(TestCase):
         mock_email.assert_called_once()
         self.assertIn(f'procedimento={self.proc.pk}', mock_email.call_args[0][1]['link'])
         mock_wa.assert_called_once()
+
+    @patch(ENVIAR_WA, return_value=False)
+    @patch(ENVIAR_EMAIL, return_value=True)
+    def test_aviso_vai_para_o_email_informado_na_inscricao(self, mock_email, _mock_wa):
+        atend = self._agendar(timezone.now() + timedelta(days=2))
+        espera = self._entrar_na_fila(atend)
+        espera.email_contato = 'novo.contato@example.com'
+        espera.save()
+        with self.captureOnCommitCallbacks(execute=True):
+            atend.cancelar(motivo='teste')
+        self.assertEqual(mock_email.call_args[0][0], 'novo.contato@example.com')
 
     @patch(ENVIAR_WA, return_value=True)
     @patch(ENVIAR_EMAIL, return_value=True)

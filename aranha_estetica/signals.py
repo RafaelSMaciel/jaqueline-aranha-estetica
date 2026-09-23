@@ -1,7 +1,8 @@
 """Signals de model — efeitos que valem para QUALQUER caminho de gravacao.
 
 Divisao de responsabilidades (cada efeito tem UM mecanismo, sem duplicar):
-  - aqui (post_save de Atendimento): contador de faltas, debito de pacote,
+  - aqui (post_save de Atendimento): contador de faltas, debito de pacote
+    (nunca de retorno gratuito; validade pela data da sessao),
     lista de espera (vaga liberada) e push/gcal de novo agendamento;
   - EventBus (services/*): comissao, cashback e retorno obrigatorio.
 """
@@ -102,21 +103,23 @@ def processar_mudanca_status(sender, instance, created, **kwargs):
         # Debitar sessao de pacote — atomico + select_for_update serializa
         # debitos concorrentes do mesmo cliente (evita over-debit no TOCTOU
         # entre o .count() de sessoes feitas e o ConsumoSessao.create()).
-        if not hasattr(instance, 'sessao_pacote_vinculada'):
-            from .utils.datas import hoje
+        # - Retorno gratuito NAO consome sessao paga (REGRAS §7).
+        # - Validade conferida na DATA DA SESSAO (local), nao no dia em que se
+        #   marca REALIZADO: sessao feita ate o ultimo dia debita mesmo se o
+        #   job ja marcou o pacote EXPIRADO; sessao apos a validade nao debita.
+        if not instance.eh_retorno and not hasattr(instance, 'sessao_pacote_vinculada'):
+            from django.db.models import F, Q
+            from .utils.datas import data_local
+            data_sessao = data_local(instance.data_hora_inicio)
             with transaction.atomic():
-                pacotes_ativos = CompraPacote.objects.select_for_update().filter(
+                pacotes_validos = CompraPacote.objects.select_for_update().filter(
                     cliente=instance.cliente,
-                    status='ATIVO'
-                ).order_by('criado_em')
+                    status__in=('ATIVO', 'EXPIRADO'),
+                ).filter(
+                    Q(data_expiracao__isnull=True) | Q(data_expiracao__gte=data_sessao)
+                ).order_by(F('data_expiracao').asc(nulls_last=True), 'criado_em')
 
-                for pc in pacotes_ativos:
-                    # Verificar validade (data local: ultimo dia ainda vale)
-                    if pc.data_expiracao and pc.data_expiracao < hoje():
-                        pc.status = 'EXPIRADO'
-                        pc.save(update_fields=['status'])
-                        continue
-
+                for pc in pacotes_validos:
                     itens = pc.pacote.itens.filter(procedimento=instance.procedimento)
                     if itens.exists():
                         item = itens.first()

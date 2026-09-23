@@ -286,7 +286,6 @@ def job_alerta_detrator_nps(self):
 def job_verificar_pacotes_expirando(self):
     """Notifica clientes com pacotes expirando em 7 ou 1 dia — por EMAIL."""
     try:
-        from django.db.models import Count
         from .utils.email import enviar_pacote_expirando_email
         from .models import CompraPacote
 
@@ -298,21 +297,11 @@ def job_verificar_pacotes_expirando(self):
             pacotes = CompraPacote.objects.filter(
                 status='ATIVO',
                 data_expiracao=data_alvo
-            ).select_related('cliente', 'pacote').prefetch_related('pacote__itens')
+            ).select_related('cliente', 'pacote').prefetch_related('pacote__itens__procedimento')
 
             for pc in pacotes:
-                # Contagem de sessoes consumidas por procedimento numa unica
-                # query agregada (evita N+1 de .filter().count() por item).
-                feitas_por_proc = {
-                    row['atendimento__procedimento']: row['c']
-                    for row in pc.sessoes_realizadas
-                    .values('atendimento__procedimento')
-                    .annotate(c=Count('id'))
-                }
-                sessoes_restantes = sum(
-                    max(0, item.quantidade_sessoes - feitas_por_proc.get(item.procedimento_id, 0))
-                    for item in pc.pacote.itens.all()
-                )
+                # Mesma fonte de saldo da ficha do cliente (1 query agregada).
+                sessoes_restantes = pc.sessoes_restantes()
 
                 if sessoes_restantes <= 0:
                     continue
@@ -329,6 +318,8 @@ def job_verificar_pacotes_expirando(self):
                         'pacote': pc.pacote.nome,
                         'dias': dias,
                         'sessoes_restantes': sessoes_restantes,
+                        # Sessao conta pela data em que acontece (signals).
+                        'valido_ate': pc.data_expiracao.strftime('%d/%m/%Y'),
                     })
                     if ok:
                         enviados += 1
@@ -366,7 +357,8 @@ def aniversariantes_do_dia(data=None):
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def job_aniversario_clientes(self):
-    """Envia e-mail de aniversario com desconto (marketing).
+    """Envia e-mail de felicitacao de aniversario (marketing, sem desconto:
+    nao ha mecanismo que aplique cupom/percentual no agendamento).
 
     Requer consent_email_marketing=True e sem opt-out geral (aceita_comunicacao).
     Sai com link + header List-Unsubscribe (LGPD / RFC 8058).
@@ -374,7 +366,6 @@ def job_aniversario_clientes(self):
     coletado e o de lembrete do agendamento, que nao cobre marketing.
     """
     try:
-        from .constants import DESCONTO_ANIVERSARIO_PERCENTUAL
         from .utils.email import enviar_aniversario_email
 
         aniversariantes = aniversariantes_do_dia()
@@ -383,7 +374,7 @@ def job_aniversario_clientes(self):
         for cliente in aniversariantes:
             if not (cliente.email and cliente.consent_email_marketing and cliente.aceita_comunicacao):
                 continue
-            dados = {'nome': cliente.nome, 'desconto': DESCONTO_ANIVERSARIO_PERCENTUAL}
+            dados = {'nome': cliente.nome}
             # Falha pontual nao re-dispara o batch (retry reenviaria aos ja
             # parabenizados) — loga e segue.
             try:
@@ -409,15 +400,31 @@ def job_aniversario_clientes(self):
 #  EMAIL — Promocao mensal (opt-in)
 # ═══════════════════════════════════════
 
+def validade_promocao(validade_dias: int = 30, data_fim=None) -> str:
+    """'dd/mm/aaaa' anunciado no e-mail: hoje (local) + validade_dias, mas
+    nunca depois do fim da promocao (data_fim: date ou ISO 'aaaa-mm-dd')."""
+    from datetime import date
+
+    limite = hoje() + timedelta(days=validade_dias)
+    if data_fim:
+        if not isinstance(data_fim, date):
+            data_fim = date.fromisoformat(str(data_fim)[:10])
+        limite = min(limite, data_fim)
+    return limite.strftime('%d/%m/%Y')
+
+
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
-def job_promocao_mensal(self, assunto: str, corpo_html_partial: str, cupom: str = None, validade_dias: int = 30):
+def job_promocao_mensal(self, assunto: str, corpo_html_partial: str, cupom: str = None,
+                        validade_dias: int = 30, data_fim=None):
     """Envia email promocional para clientes com consent_email_marketing=True.
 
     Parametros:
       assunto: subject do email
       corpo_html_partial: snippet HTML inserido no template base de promocao
-      cupom: codigo de cupom (opcional)
-      validade_dias: dias ate expiracao do cupom (default 30)
+      cupom: IGNORADO — nenhum fluxo aceita cupom (promessa sem mecanismo nao
+        vai no e-mail); aceito so p/ nao quebrar chamadas antigas
+      validade_dias: dias de validade anunciada (default 30)
+      data_fim: fim da promocao (date ou ISO) — teto da validade anunciada
     """
     try:
         from .utils.email import email_configurado, enviar_promocao_email
@@ -436,7 +443,7 @@ def job_promocao_mensal(self, assunto: str, corpo_html_partial: str, cupom: str 
 
         logger.info(f"[JOB PROMOCAO] {destinatarios.count()} destinatario(s) com consent.")
 
-        validade = (hoje() + timedelta(days=validade_dias)).strftime('%d/%m/%Y')
+        validade = validade_promocao(validade_dias, data_fim)
         enviados = 0
         for cliente in destinatarios:
             # Roteia pelo helper dedicado: aplica bleach em corpo_html (anti-XSS)
@@ -448,7 +455,6 @@ def job_promocao_mensal(self, assunto: str, corpo_html_partial: str, cupom: str 
                     {
                         'nome': cliente.nome,
                         'corpo_html': corpo_html_partial,
-                        'cupom': cupom,
                         'validade': validade,
                     },
                     unsub_token=cliente.token_descadastro,
@@ -571,15 +577,19 @@ def send_email_async(self, funcao_nome: str, *args, **kwargs):
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=300)
 def job_lgpd_purgar_inativos(self):
-    """Anonimiza clientes fora da retencao: sem atendimento ha 5 anos
-    (LgpdService.RETENCAO_CLIENTE_INATIVO_DIAS) ou soft-deletados ha 30 dias.
-    Nunca toca quem tem prontuario, aceite, pacote ou atendimento de saude
-    dentro de 20 anos (ver LgpdService.candidatos_purga)."""
+    """Retencao LGPD:
+    - anonimiza clientes sem atendimento ha 5 anos
+      (LgpdService.RETENCAO_CLIENTE_INATIVO_DIAS) ou soft-deletados ha 30 dias;
+      nunca quem tem prontuario, aceite, pacote ou atendimento de saude
+      dentro de 20 anos (ver LgpdService.candidatos_purga);
+    - apaga fichas de anamnese de pedidos nao realizados ha 90 dias
+      (LgpdService.fichas_sem_atendimento_para_purga)."""
     from .services.lgpd import LgpdService
     try:
         count = LgpdService.purgar_inativos()
         logger.info('lgpd_clientes_anonimizados', extra={'count': count})
-        return count
+        fichas = LgpdService.purgar_fichas_sem_atendimento()
+        return f'{count} clientes anonimizados; {fichas} fichas apagadas'
     except Exception as exc:
         logger.exception('Erro em job_lgpd_purgar_inativos: %s', exc)
         _retry_ou_propaga(self, exc)
