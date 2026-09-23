@@ -52,6 +52,14 @@ RAILWAY_DOMAIN = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '')
 if RAILWAY_DOMAIN:
     ALLOWED_HOSTS.append(RAILWAY_DOMAIN)
 
+# URL publica absoluta (links de e-mail/WhatsApp/JSON-LD). Fonte unica: sempre
+# ler settings.SITE_URL (nunca os.environ direto). Ordem: env SITE_URL ->
+# dominio publico do Railway -> localhost (dev).
+SITE_URL = (
+    os.environ.get('SITE_URL')
+    or (f'https://{RAILWAY_DOMAIN}' if RAILWAY_DOMAIN else 'http://127.0.0.1:8000')
+).rstrip('/')
+
 
 # ─── APPS ────────────────────────────────────────────────────────────
 INSTALLED_APPS = [
