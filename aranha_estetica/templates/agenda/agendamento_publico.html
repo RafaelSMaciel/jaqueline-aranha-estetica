@@ -422,6 +422,14 @@
                 Selecione o procedimento desejado para ver as datas disponíveis.
             </p>
 
+            {% if not sms_disponivel %}
+            {# Sem SMS o passo 3 (codigo no celular) e impossivel: avisa ANTES de escolher tratamento/horario #}
+            <div id="aviso-sms-indisponivel" role="alert" style="border:1px solid var(--cor-erro,#b42318);color:var(--cor-erro,#b42318);border-radius:12px;padding:0.75rem 1rem;font-size:0.85rem;margin-bottom:1.25rem;">
+                No momento o agendamento online está indisponível: não conseguimos enviar o código de confirmação por SMS.
+                {% if WHATSAPP_NUMERO %}<a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text={{ 'Olá! Gostaria de agendar um horário.'|urlencode }}" target="_blank" rel="noopener" style="font-weight:700;text-decoration:underline;">Agende pelo WhatsApp</a>.{% else %}Tente novamente mais tarde.{% endif %}
+            </div>
+            {% endif %}
+
             {% if procedimentos %}
             {% if categorias_disponiveis|length > 1 %}
             <div class="cat-tabs" role="tablist" aria-label="Filtrar por categoria"
@@ -662,6 +670,8 @@
                                 <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-0.125em;"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M12 17l-2.3-2.2a1.6 1.6 0 0 1 2.3-2.3 1.6 1.6 0 0 1 2.3 2.3z"/></svg> Questionário pré-atendimento
                             </div>
                             <div id="anamneseFields"></div>
+                            {# Erro de pergunta de multipla escolha obrigatoria: aparece junto da ficha #}
+                            <p id="anamnese-msg" role="alert" style="color:var(--cor-erro,#b42318);font-size:0.8rem;font-weight:600;margin:0.25rem 0 0.5rem;"></p>
                             <input type="hidden" name="anamnese_respostas" id="anamneseRespostasJson" value="">
                             {# Consentimento especifico e destacado p/ dado de saude (LGPD art. 11) #}
                             <div class="aceite-box destaque" id="consent-saude-box">

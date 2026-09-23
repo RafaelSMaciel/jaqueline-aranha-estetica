@@ -1,11 +1,11 @@
 """Reagendamento publico via token + listagem 'Meus Agendamentos'."""
-import json
 import logging
 from datetime import datetime, timedelta
 
 from django.contrib import messages
 from django.db import DatabaseError, IntegrityError, transaction
 from django.db.models import Q
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django_ratelimit.decorators import ratelimit
@@ -13,12 +13,16 @@ from django_ratelimit.decorators import ratelimit
 from ..constants import JANELA_MINIMA_REAGENDAMENTO
 from ..models import Atendimento, Cliente, Feriado, Profissional, RespostaAnamnese
 from ..services.agendamento_service import formatar_brl, formatar_data_hora
-from ..services.disponibilidade import profissional_habilitado, slot_disponivel
+from ..services.disponibilidade import profissionais_para, profissional_habilitado, slot_disponivel
 from ..services.retorno_service import DURACAO_RETORNO_PADRAO_MINUTOS
 from ..utils.audit import registrar_log
 from ..utils.captcha import turnstile_enabled, turnstile_site_key
 from ..utils.datas import hoje
+from ..utils.email import email_configurado
+from ..utils.parse import id_int
 from ..utils.pii import mask_telefone
+from ..utils.sms import sms_disponivel
+from .booking_api import agrupar_horarios
 from .booking_otp import SESSAO_MEUS_AGENDAMENTOS
 from .booking_public import (
     MSG_BLOQUEADO_ONLINE,
@@ -40,6 +44,8 @@ def meus_agendamentos(request):
             'step': '1',
             'turnstile_site_key': turnstile_site_key(),
             'turnstile_enabled': turnstile_enabled(),
+            # Sem SMS o login do portal e impossivel: avisa antes do envio
+            'sms_disponivel': sms_disponivel(),
         })
 
     agora = timezone.now()
@@ -67,6 +73,54 @@ def meus_agendamentos(request):
     })
 
 
+def _motivo_sem_reagendamento(atendimento, agora):
+    """Por que o atendimento nao pode ser reagendado online ('' = pode)."""
+    if atendimento.data_hora_inicio <= agora:
+        return 'Não é possível reagendar atendimentos passados.'
+    if atendimento.status in STATUS_FINALIZADOS:
+        return f'Este atendimento está {atendimento.get_status_display().lower()} e não pode ser reagendado.'
+    if (atendimento.data_hora_inicio - agora) < JANELA_MINIMA_REAGENDAMENTO:
+        return (
+            'O reagendamento online requer no mínimo 24h de antecedência. '
+            'Fale conosco pelo WhatsApp para ajustes de última hora.'
+        )
+    if atendimento.cliente.bloqueado_online or not atendimento.cliente.ativo:
+        return MSG_BLOQUEADO_ONLINE
+    return ''
+
+
+@ratelimit(key='ip', rate='30/m', method='GET', block=True)
+def reagendar_horarios(request, token):
+    """AJAX da tela de reagendamento: horarios livres do dia (GET ?data=).
+
+    Mesmo token e mesmas regras do POST de reagendar_agendamento; o proprio
+    horario atual NAO conta como ocupado (ignorar_atendimento_id), senao a
+    tela esconderia horarios que o servidor aceita (ex.: empurrar 30 min).
+    """
+    try:
+        atendimento = Atendimento.objects.select_related('cliente', 'procedimento').get(
+            token_cancelamento=token,
+        )
+    except Atendimento.DoesNotExist:
+        return JsonResponse({'error': 'Agendamento não encontrado'}, status=404)
+    motivo = _motivo_sem_reagendamento(atendimento, timezone.now())
+    if motivo:
+        return JsonResponse({'error': motivo}, status=400)
+    try:
+        dia = datetime.strptime(request.GET.get('data', ''), '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({'error': 'Data inválida'}, status=400)
+
+    procedimento = atendimento.procedimento
+    return JsonResponse({
+        'data': dia.isoformat(),
+        'horarios': agrupar_horarios(
+            procedimento, profissionais_para(procedimento), dia,
+            ignorar_atendimento_id=atendimento.pk, com_preco=False,
+        ),
+    })
+
+
 @ratelimit(key='ip', rate='10/m', method='POST', block=True)
 def reagendar_agendamento(request, token):
     """Fluxo publico de reagendamento via token seguro."""
@@ -79,45 +133,21 @@ def reagendar_agendamento(request, token):
         return redirect('aranha:agendamento_publico')
 
     agora = timezone.now()
-    if atendimento.data_hora_inicio <= agora:
-        messages.error(request, 'Não é possível reagendar atendimentos passados.')
-        return redirect('aranha:meus_agendamentos')
-
-    if atendimento.status in STATUS_FINALIZADOS:
-        messages.error(
-            request,
-            f'Este atendimento está {atendimento.get_status_display().lower()} e não pode ser reagendado.'
-        )
-        return redirect('aranha:meus_agendamentos')
-
-    if (atendimento.data_hora_inicio - agora) < JANELA_MINIMA_REAGENDAMENTO:
-        messages.error(
-            request,
-            'O reagendamento online requer no mínimo 24h de antecedência. '
-            'Fale conosco pelo WhatsApp para ajustes de última hora.'
-        )
-        return redirect('aranha:meus_agendamentos')
-
-    if atendimento.cliente.bloqueado_online or not atendimento.cliente.ativo:
-        messages.error(request, MSG_BLOQUEADO_ONLINE)
+    motivo = _motivo_sem_reagendamento(atendimento, agora)
+    if motivo:
+        messages.error(request, motivo)
         return redirect('aranha:meus_agendamentos')
 
     if request.method == 'GET':
-        procedimentos_json = json.dumps([{
-            'id': atendimento.procedimento.pk,
-            'nome': atendimento.procedimento.nome,
-            'duracao_minutos': atendimento.procedimento.duracao_minutos,
-        }])
         context = {
             'atendimento': atendimento,
-            'procedimentos_json': procedimentos_json,
             # Data local (nao UTC): apos as 21h o "amanha" em UTC pularia um dia.
             'data_min': (hoje() + timedelta(days=1)).isoformat(),
         }
         return render(request, 'agenda/reagendar.html', context)
 
     datetime_str = (request.POST.get('datetime') or '').strip()
-    profissional_id = str(request.POST.get('profissional') or atendimento.profissional_id).strip()
+    profissional_id = id_int(request.POST.get('profissional') or atendimento.profissional_id)
 
     if not datetime_str:
         messages.error(request, 'Selecione uma nova data e horário.')
@@ -136,11 +166,11 @@ def reagendar_agendamento(request, token):
         messages.error(request, 'Escolha uma data futura.')
         return redirect('aranha:reagendar_agendamento', token=token)
 
-    if not profissional_id.isdigit():
+    if profissional_id is None:
         messages.error(request, 'Profissional indisponível.')
         return redirect('aranha:reagendar_agendamento', token=token)
     try:
-        profissional = Profissional.objects.get(pk=int(profissional_id), ativo=True)
+        profissional = Profissional.objects.get(pk=profissional_id, ativo=True)
     except Profissional.DoesNotExist:
         messages.error(request, 'Profissional indisponível.')
         return redirect('aranha:reagendar_agendamento', token=token)
@@ -284,6 +314,7 @@ def reagendar_agendamento(request, token):
         'promocao': novo.promocao.nome if em_promocao else '',
         'pendente': pendente,
         'reagendamento': True,
-        'email': bool(antigo.cliente.email),
+        # So promete acompanhamento por e-mail se o backend entrega de fato
+        'email': bool(antigo.cliente.email) and email_configurado(),
     }
     return redirect('aranha:agendamento_sucesso')

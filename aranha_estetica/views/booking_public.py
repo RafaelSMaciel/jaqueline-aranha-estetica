@@ -47,6 +47,8 @@ from ..utils.audit import registrar_log
 from ..utils.captcha import turnstile_enabled, turnstile_site_key
 from ..utils.datas import data_local
 from ..utils.datas import hoje as hoje_local
+from ..utils.email import email_configurado
+from ..utils.parse import id_int
 from ..utils.pii import mask_email, mask_telefone
 from ..utils.precos import aplicar_promocao, preco_base_map, preco_com_promocao, promocao_vigente
 from ..utils.security import client_ip as _client_ip
@@ -176,8 +178,9 @@ def _termos_procedimento(procedimento):
 def _precos_card(procedimentos):
     """{pk: (valor_final_hoje, promocao|None, valor_cheio)} p/ o 'A partir de' do card.
 
-    Mesma conta do agendamento (utils.precos): promocao vigente HOJE sobre o
-    preco base. O valor gravado usa a data do atendimento e o profissional.
+    Mesma conta do agendamento (utils.precos): promocao vigente HOJE aplicada
+    sobre o valor mostrado (preco base ou, sem ele, o menor do profissional —
+    valor_base). O valor gravado usa a data do atendimento e o profissional.
     """
     cheios = preco_base_map(procedimentos)
     hoje = hoje_local()
@@ -191,7 +194,10 @@ def _precos_card(procedimentos):
         cheio = cheios.get(proc.pk)
         if cheio is None:
             continue
-        promo = promocao_vigente(proc, hoje) if (ha_geral or proc.pk in com_promo) else None
+        promo = (
+            promocao_vigente(proc, hoje, valor_base=cheio)
+            if (ha_geral or proc.pk in com_promo) else None
+        )
         final = aplicar_promocao(cheio, promo)
         if promo is not None and final >= cheio:
             promo, final = None, cheio
@@ -230,10 +236,10 @@ def agendamento_publico(request):
     if proc_preselect not in ids_validos:
         proc_preselect = ''
 
-    prof_preselect = request.GET.get('profissional', '')
-    if not (prof_preselect.isdigit()
-            and Profissional.objects.filter(pk=prof_preselect, ativo=True).exists()):
-        prof_preselect = ''
+    prof_id = id_int(request.GET.get('profissional'))
+    prof_preselect = ''
+    if prof_id is not None and Profissional.objects.filter(pk=prof_id, ativo=True).exists():
+        prof_preselect = str(prof_id)
 
     categorias_disponiveis = sorted({
         (p['categoria'], p['categoria_label']) for p in procedimentos_com_preco
@@ -288,7 +294,8 @@ def agendamento_publico(request):
         # Telefone ja verificado nesta sessao (reidratar sem exigir novo SMS)
         'otp_telefone': otp_service.telefone_verificado_agendamento(request),
         'rehidratar': bool(request.session.pop(SESSAO_REHIDRATAR, False)),
-        # Sem canal de SMS (prod sem provedor) o OTP e impossivel: avisa ja no passo 3
+        # Sem canal de SMS (prod sem provedor) o OTP e impossivel: avisa ja no
+        # passo 1 (antes de escolher tratamento/horario) e de novo no passo 3
         'sms_disponivel': sms_disponivel(),
         'turnstile_site_key': turnstile_site_key(),
         'turnstile_enabled': turnstile_enabled(),
@@ -359,11 +366,12 @@ def confirmar_agendamento(request):
     if idade < 18:
         return _voltar_com_erro(request, 'É necessário ter pelo menos 18 anos para agendar.')
 
-    if not (procedimento_id.isdigit() and profissional_id.isdigit()):
+    proc_pk, prof_pk = id_int(procedimento_id), id_int(profissional_id)
+    if proc_pk is None or prof_pk is None:
         return _voltar_com_erro(request, 'Dados do agendamento inválidos. Refaça a seleção.')
     try:
-        procedimento = Procedimento.objects.get(pk=int(procedimento_id), ativo=True)
-        profissional = Profissional.objects.get(pk=int(profissional_id), ativo=True)
+        procedimento = Procedimento.objects.get(pk=proc_pk, ativo=True)
+        profissional = Profissional.objects.get(pk=prof_pk, ativo=True)
         data_hora = datetime.fromisoformat(datetime_str)
         if timezone.is_naive(data_hora):
             data_hora = timezone.make_aware(data_hora)
@@ -464,7 +472,10 @@ def confirmar_agendamento(request):
                 if not cliente.data_nascimento and data_nascimento:
                     cliente.data_nascimento = data_nascimento
                     atualizar = True
-                if not cliente.email and email:
+                if email and cliente.email != email:
+                    # Telefone acabou de ser provado por SMS: o e-mail informado
+                    # pela dona do celular substitui o do cadastro (inclusive um
+                    # plantado por terceiro sem verificacao). Em branco = mantem.
                     cliente.email = email
                     atualizar = True
                 for campo, marcado in consents.items():
@@ -586,7 +597,8 @@ def confirmar_agendamento(request):
         'valor_cheio': formatar_brl(valor_cheio) if promocao else '',
         'promocao': promocao.nome if promocao else '',
         'pendente': True,
-        'email': bool(email_cliente),
+        # So promete acompanhamento por e-mail se o backend entrega de fato
+        'email': bool(email_cliente) and email_configurado(),
     }
     otp_service.limpar_verificacao_agendamento(request)
     request.session.pop(SESSAO_REHIDRATAR, None)

@@ -451,3 +451,129 @@ class PainelNotificacoesTests(TestCase):
         ctx = render.call_args.args[2]
         self.assertEqual(ctx['sem_resposta'], 1)
         self.assertEqual(len(list(ctx['notificacoes'])), 1)
+
+
+@override_settings(RATELIMIT_ENABLE=False)
+class ReagendarHorariosTests(TestCase):
+    """rev_booking-09: a tela de reagendamento lista os mesmos horarios que o POST aceita."""
+
+    def setUp(self):
+        cache.clear()
+        Feriado.objects.all().delete()
+        self.prof = criar_profissional()
+        self.proc60 = criar_procedimento(nome='Protocolo 60', duracao=60, profissional=self.prof)
+        self.cli = criar_cliente()
+        self.at = _atendimento(self.cli, self.prof, self.proc60, _local(3, 10))
+        self.dia = timezone.localtime(self.at.data_hora_inicio).date().isoformat()
+
+    def _horarios(self, token, **params):
+        return self.client.get(reverse('aranha:reagendar_horarios', args=[token]), {'data': self.dia, **params})
+
+    def test_proprio_horario_nao_conta_como_ocupado(self):
+        resp = self._horarios(self.at.token_cancelamento)
+        self.assertEqual(resp.status_code, 200)
+        horarios = {h['horario']: [p['id'] for p in h['profissionais']] for h in resp.json()['horarios']}
+        for hhmm in ('09:30', '10:00', '10:30'):
+            with self.subTest(hhmm=hhmm):
+                self.assertIn(self.prof.pk, horarios.get(hhmm, []))
+        # O endpoint generico (sem o atendimento) continua vendo o horario ocupado
+        geral = self.client.get(reverse('aranha:api_horarios_disponiveis'), {
+            'data': self.dia, 'procedimento_id': self.proc60.pk,
+        }).json()['horarios']
+        self.assertNotIn('10:00', [h['horario'] for h in geral])
+        # E o POST aceita o horario mostrado (paridade com a tela)
+        resp = self.client.post(reverse('aranha:reagendar_agendamento', args=[self.at.token_cancelamento]), {
+            'datetime': _local(3, 10, 30).isoformat(), 'profissional': self.prof.pk,
+        })
+        self.assertIn('sucesso', resp.url)
+
+    def test_token_invalido_404_e_regras_do_reagendamento(self):
+        self.assertEqual(self._horarios('token-que-nao-existe').status_code, 404)
+        self.assertEqual(self._horarios(self.at.token_cancelamento, data='lixo').status_code, 400)
+        self.cli.bloqueado_online = True
+        self.cli.save()
+        self.assertEqual(self._horarios(self.at.token_cancelamento).status_code, 400)
+
+    def test_tela_usa_o_endpoint_do_proprio_link(self):
+        html = self.client.get(
+            reverse('aranha:reagendar_agendamento', args=[self.at.token_cancelamento])
+        ).content.decode()
+        self.assertIn(reverse('aranha:reagendar_horarios', args=[self.at.token_cancelamento]), html)
+        self.assertNotIn(reverse('aranha:api_horarios_disponiveis'), html)
+
+
+@override_settings(RATELIMIT_ENABLE=False)
+class DigitosUnicodeTests(TestCase):
+    """rev_booking-04: '²' passa em isdigit() mas int() explode -> nada de 500."""
+
+    def setUp(self):
+        cache.clear()
+        self.prof = criar_profissional()
+        self.proc = criar_procedimento(profissional=self.prof)
+        self.dia = (timezone.localdate() + timedelta(days=3)).isoformat()
+
+    def test_endpoints_publicos_nao_quebram(self):
+        casos = [
+            (reverse('aranha:api_horarios_disponiveis'), {'data': self.dia, 'procedimento_id': '²'}, 400),
+            (reverse('aranha:api_dias_disponiveis'), {'mes': self.dia[:7], 'procedimento_id': '²'}, 400),
+            (reverse('aranha:api_horarios_disponiveis'),
+             {'data': self.dia, 'procedimento_id': self.proc.pk, 'profissional_id': '²'}, 200),
+            (reverse('aranha:api_dias_disponiveis'),
+             {'mes': self.dia[:7], 'procedimento_id': self.proc.pk, 'profissional_id': '①'}, 200),
+        ]
+        for url, params, status in casos:
+            with self.subTest(params=params):
+                self.assertEqual(self.client.get(url, params).status_code, status)
+        pagina = self.client.get(reverse('aranha:agendamento_publico'), {'profissional': '²'})
+        self.assertEqual(pagina.status_code, 200)
+        self.assertEqual(pagina.context['prof_preselect'], '')
+
+    def test_reagendar_com_profissional_unicode_volta_com_mensagem(self):
+        at = _atendimento(criar_cliente(), self.prof, self.proc, _local(3, 10))
+        resp = self.client.post(reverse('aranha:reagendar_agendamento', args=[at.token_cancelamento]), {
+            'datetime': _local(4, 11).isoformat(), 'profissional': '²',
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertNotIn('sucesso', resp.url)
+
+
+class IcsDescricaoTests(TestCase):
+    """crawl-4: quebra de linha da DESCRIPTION escapada uma unica vez (RFC 5545)."""
+
+    def test_description_sem_barra_duplicada(self):
+        prof = criar_profissional(nome='Dra Ics Desc')
+        proc = criar_procedimento(profissional=prof, nome='Peeling')
+        _atendimento(criar_cliente(), prof, proc, _local(1, 10))
+        resp = self.client.get(reverse('aranha:ics_feed_profissional', args=[prof.slug]), {'token': prof.ics_token})
+        linha = next(ln for ln in resp.content.decode().split('\r\n') if ln.startswith('DESCRIPTION:'))
+        # r'': barra+n LITERAL no .ics (escape RFC 5545), nunca barra dupla
+        self.assertIn(r'Status: Agendado\nProcedimento: Peeling\nProfissional: Dra Ics Desc', linha)
+        self.assertNotIn('\\\\', linha)
+
+
+@override_settings(RATELIMIT_ENABLE=False)
+class MeusAgendamentosMensagensTests(TestCase):
+    """rev_booking-10 / rev_booking-02: sem codigo cru no toast; aviso de SMS fora."""
+
+    def setUp(self):
+        cache.clear()
+
+    def test_toast_de_cancelamento_traduz_codigos_internos(self):
+        cli = criar_cliente(telefone='17988880002')
+        session = self.client.session
+        session['meus_agendamentos_telefone'] = '17988880002'
+        session.save()
+        prof = criar_profissional()
+        _atendimento(cli, prof, criar_procedimento(profissional=prof), _local(5, 10))
+        html = self.client.get(reverse('aranha:meus_agendamentos')).content.decode()
+        self.assertIn('MSGS_ERRO[res.data.erro]', html)
+        self.assertNotIn('showToast(res.data.erro ||', html)
+
+    def test_aviso_sem_sms_no_login_do_portal(self):
+        url = reverse('aranha:meus_agendamentos')
+        with patch('aranha_estetica.views.booking_reagendar.sms_disponivel', return_value=False):
+            html = self.client.get(url).content.decode()
+        self.assertIn('id="aviso-sms-indisponivel"', html)
+        self.assertLess(html.index('id="aviso-sms-indisponivel"'), html.index('id="btn-enviar-codigo"'))
+        with patch('aranha_estetica.views.booking_reagendar.sms_disponivel', return_value=True):
+            self.assertNotIn('id="aviso-sms-indisponivel"', self.client.get(url).content.decode())

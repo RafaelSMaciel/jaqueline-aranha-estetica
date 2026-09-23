@@ -373,3 +373,94 @@ class EmailAprovacaoRetornoTests(TestCase):
                 self.captureOnCommitCallbacks(execute=True):
             AgendamentoService().aprovar(retorno)
         self.assertEqual(enviar.call_args.args[1]['valor'], 'Sem custo (retorno)')
+
+
+class EmailVerificadoPorSmsTests(_BaseBooking):
+    """rev_security-01 (parte booking): e-mail plantado sem OTP nao sobrevive a dona verificada."""
+
+    def test_email_informado_pela_dona_do_celular_substitui_o_plantado(self):
+        Cliente.objects.create(nome='Dona', telefone='17988887777', email='atacante@evil.test')
+        resp = self._post(email='dona@real.test')
+        self.assertIn('sucesso', resp.url)
+        self.assertEqual(Cliente.objects.get(telefone='17988887777').email, 'dona@real.test')
+
+    def test_email_em_branco_mantem_o_do_cadastro(self):
+        Cliente.objects.create(nome='Dona', telefone='17988887777', email='dona@real.test')
+        self._post()
+        self.assertEqual(Cliente.objects.get(telefone='17988887777').email, 'dona@real.test')
+
+    def test_email_de_outro_cadastro_continua_recusado(self):
+        Cliente.objects.create(nome='Outra', telefone='17911112222', email='outra@real.test')
+        Cliente.objects.create(nome='Dona', telefone='17988887777', email='dona@real.test')
+        resp = self._post(email='outra@real.test')
+        self.assertNotIn('sucesso', resp.url)
+        self.assertEqual(Cliente.objects.get(telefone='17988887777').email, 'dona@real.test')
+
+
+class SucessoSemPromessaDeEmailTests(_BaseBooking):
+    """rev_booking-13: 'e por e-mail' so aparece se o backend entrega de fato."""
+
+    @override_settings(DEBUG=False, EMAIL_BACKEND='django.core.mail.backends.dummy.EmailBackend')
+    def test_backend_dummy_nao_promete_email(self):
+        self._post(email='dora@example.com')
+        self.assertFalse(self.client.session['agendamento_sucesso']['email'])
+        pagina = self.client.get(reverse('aranha:agendamento_sucesso')).content.decode()
+        self.assertNotIn('e por e-mail', pagina)
+
+    @override_settings(DEBUG=False, EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_backend_que_entrega_promete_email(self):
+        self._post(email='dora@example.com')
+        pagina = self.client.get(reverse('aranha:agendamento_sucesso')).content.decode()
+        self.assertIn('e por e-mail', pagina)
+
+
+class CardComPrecoDoProfissionalTests(_BaseBooking):
+    """followups-promocoes (parte booking): '%' do card sobre o preco que sera cobrado."""
+
+    preco = None  # sem preco base: so o preco do profissional
+
+    def test_card_aplica_percentual_sobre_o_preco_do_profissional(self):
+        from aranha_estetica.models import Preco
+        from aranha_estetica.utils.precos import preco_com_promocao
+        from aranha_estetica.views.booking_public import _precos_card
+
+        Preco.objects.create(procedimento=self.proc, profissional=self.prof, valor=Decimal('1000.00'))
+        hoje = timezone.localdate()
+        promo = Promocao.objects.create(
+            procedimento=self.proc, nome='Vinte', desconto_percentual=Decimal('20'),
+            data_inicio=hoje, data_fim=hoje + timedelta(days=30), ativa=True,
+        )
+        final, promo_card, cheio = _precos_card([self.proc])[self.proc.pk]
+        self.assertEqual((final, promo_card, cheio), (Decimal('800.00'), promo, Decimal('1000.00')))
+        # O mesmo valor que o agendamento grava para a profissional
+        self.assertEqual(preco_com_promocao(self.proc, self.prof, hoje)[0], final)
+
+
+class AvisoSemSmsNoPasso1Tests(_BaseBooking):
+    """rev_booking-02: sem SMS, o aviso aparece antes de escolher tratamento/horario."""
+
+    def test_aviso_antes_do_passo_2(self):
+        with patch('aranha_estetica.views.booking_public.sms_disponivel', return_value=False):
+            html = self.client.get(reverse('aranha:agendamento_publico')).content.decode()
+        self.assertIn('id="aviso-sms-indisponivel"', html)
+        self.assertLess(html.index('id="step-1"'), html.index('id="aviso-sms-indisponivel"'))
+        self.assertLess(html.index('id="aviso-sms-indisponivel"'), html.index('id="step-2"'))
+
+    def test_sem_aviso_com_sms(self):
+        with patch('aranha_estetica.views.booking_public.sms_disponivel', return_value=True):
+            html = self.client.get(reverse('aranha:agendamento_publico')).content.decode()
+        self.assertNotIn('id="aviso-sms-indisponivel"', html)
+
+
+class FichaGlobalOpcionalServidorTests(_BaseBooking):
+    """rev_booking-01 (contrato do servidor): ficha GLOBAL opcional do seed nao e exigida."""
+
+    def test_sem_ficha_e_sem_consentimento_agenda(self):
+        FormularioAnamnese.objects.create(
+            nome='Anamnese padrão', tipo='ANAMNESE', escopo='GLOBAL', obrigatorio=False,
+            schema_json=[{'key': 'gestante_ou_amamentando', 'tipo': 'bool',
+                          'label': 'Está gestante ou amamentando?', 'obrigatorio': True}],
+        )
+        resp = self._post()
+        self.assertIn('sucesso', resp.url)
+        self.assertEqual(RespostaAnamnese.objects.count(), 0)
