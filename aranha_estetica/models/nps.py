@@ -9,6 +9,9 @@ class AvaliacaoNPS(models.Model):
         validators=[MinValueValidator(0), MaxValueValidator(10)],
     )
     comentario = models.TextField(blank=True, null=True)
+    # Depoimento publico (LGPD): exige opt-in do cliente E aprovacao da equipe.
+    autoriza_publicacao = models.BooleanField(default=False)
+    aprovado_publicacao = models.BooleanField(default=False)
     alerta_enviado = models.BooleanField(default=False)
     criado_em = models.DateTimeField(auto_now_add=True)
 
