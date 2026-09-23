@@ -129,12 +129,49 @@ class HealthcheckTests(TestCase):
         self.assertEqual(r.status_code, 503)
         self.assertFalse(r.json()['front'])
 
+    # rev_infra-03: ?celery=1 publico pingava um broker inexistente (prod sem
+    # worker) e prendia uma das 4 threads ~6 s por chamada anonima
+    def test_celery_ping_ignorado_sem_worker(self):
+        with mock.patch('celery.app.control.Control.ping') as ping:
+            normal = self.client.get('/health/')
+            r = self.client.get('/health/?celery=1')
+        ping.assert_not_called()
+        self.assertEqual(r.status_code, normal.status_code)
+        self.assertNotIn('celery', r.json())
+
+    @override_settings(CELERY_WORKER_ENABLED=True)
+    @mock.patch.dict(os.environ, {'CRON_TOKEN': 'segredo-cron'})
+    def test_celery_ping_com_worker_exige_token(self):
+        from aranha_estetica.views import health
+
+        with mock.patch.object(health, '_ping_celery', return_value=True) as ping:
+            anonimo = self.client.get('/health/?celery=1')
+            errado = self.client.get('/health/?celery=1', HTTP_X_CRON_TOKEN='x')
+            ping.assert_not_called()
+            ok = self.client.get('/health/?celery=1', HTTP_X_CRON_TOKEN='segredo-cron')
+        ping.assert_called_once()
+        self.assertNotIn('celery', anonimo.json())
+        self.assertNotIn('celery', errado.json())
+        self.assertTrue(ok.json()['celery'])
+
+    def test_ping_celery_limita_a_conexao_ao_broker(self):
+        from aranha_estetica.views import health
+
+        with mock.patch('celery.current_app') as app:
+            conn = app.connection_for_write.return_value.__enter__.return_value
+            app.control.ping.return_value = [{'w1': {'ok': 'pong'}}]
+            self.assertTrue(health._ping_celery())
+        conn.ensure_connection.assert_called_once_with(
+            max_retries=1, interval_start=0, interval_step=0, timeout=1)
+        app.control.ping.assert_called_once_with(timeout=1, connection=conn)
+
 
 # ─── System checks de producao ───────────────────────────────────────
 _ENV_PROD_OK = {
     'ZENVIA_API_TOKEN': 'tok', 'ZENVIA_FROM': 'clinica',
     'WHATSAPP_NUMERO': '5517991234567', 'CRON_TOKEN': 'c', 'SMS_DEV_LOG_ONLY': '',
     'CLINIC_EMAIL': 'contato@clinica.com.br',
+    'TURNSTILE_SECRET_KEY': 'ts-secret', 'TURNSTILE_SITE_KEY': 'ts-site',
 }
 _PROD_OK = dict(
     DEBUG=False, SITE_URL='https://jaquelinearanha.com.br', SMS_DEV_LOG_ONLY=False,
@@ -205,6 +242,31 @@ class ChecksProducaoTests(SimpleTestCase):
         from django.core.checks import registry
         self.assertIn(aranha_checks.check_config_producao, registry.registry.get_checks())
 
+    @override_settings(**_PROD_OK)
+    def test_whatsapp_que_o_site_descarta_avisa(self):
+        # followups-check-w004 / rev_infra-07: '123' ou numero sem DDD tem digito,
+        # mas normalizar_whatsapp devolve '' e o site esconde todos os botoes
+        for numero in ('123', '991234567', '(17) 3'):
+            with self.subTest(numero=numero):
+                self.assertEqual(self._ids(**{**_ENV_PROD_OK, 'WHATSAPP_NUMERO': numero}),
+                                 ['aranha.W004'])
+        # DDD + numero (sem 55) o runtime completa: nao avisa
+        self.assertEqual(self._ids(**{**_ENV_PROD_OK, 'WHATSAPP_NUMERO': '(17) 99123-4567'}), [])
+
+    @override_settings(**_PROD_OK)
+    def test_sms_real_sem_turnstile_avisa(self):
+        # rev_security-05: OTP obrigatorio em todo booking + cota global de SMS
+        # -> sem captcha poucos IPs travam o agendamento online
+        sem = {**_ENV_PROD_OK, 'TURNSTILE_SECRET_KEY': '', 'TURNSTILE_SITE_KEY': ''}
+        self.assertEqual(self._ids(**sem), ['aranha.W009'])
+        self.assertEqual(self._ids(**{**sem, 'TURNSTILE_SECRET_KEY': 'ts'}), ['aranha.W009'])
+        self.assertEqual(self._ids(**_ENV_PROD_OK), [])
+        # sem provedor de SMS o aviso e o W002 (nao duplica)
+        self.assertEqual(self._ids(**{**sem, 'ZENVIA_API_TOKEN': ''}), ['aranha.W002'])
+
+    def test_w009_silenciado_no_runner(self):
+        self.assertIn('aranha.W009', settings.SILENCED_SYSTEM_CHECKS)
+
 
 @override_settings(**_PROD_OK)
 class ChecksComBancoTests(TestCase):
@@ -228,6 +290,24 @@ class ChecksComBancoTests(TestCase):
         com_banco = self._ids(WHATSAPP_NUMERO='')
         self.assertEqual(sem_banco, ['aranha.W004'])
         self.assertEqual(com_banco, [])
+
+    def test_tela_branding_vence_a_env_como_no_runtime(self):
+        # get_branding: `db.get(chave) or env` — com numero valido na env e '123'
+        # no Branding o site esconde os botoes; o check tem de avisar tambem
+        from aranha_estetica.models import Configuracao
+        from aranha_estetica.utils.branding import get_branding, invalidar_cache
+
+        self._admin()
+        self.assertEqual(self._ids(), [])
+        Configuracao.objects.create(chave='WHATSAPP_NUMERO', valor='123')
+        Configuracao.objects.create(chave='CLINIC_EMAIL', valor='sem-arroba')
+        invalidar_cache()
+        with mock.patch.dict(os.environ, _ENV_PROD_OK):
+            self.assertEqual(get_branding()['WHATSAPP_NUMERO'], '')
+        invalidar_cache()
+        self.assertEqual(self._ids(), ['aranha.W004', 'aranha.W007'])
+        # sem o banco liberado (build/`check` puro) so a env conta
+        self.assertEqual(self._ids(databases=None), [])
 
     def test_clinic_email_da_tela_branding_conta_quando_banco_liberado(self):
         from aranha_estetica.models import Configuracao
@@ -349,6 +429,123 @@ class BootstrapAdminTests(TestCase):
         self.assertIn('recusada', err)
         self.assertFalse(U.objects.filter(email='dona@clinica.com.br').exists())
 
+    # rev_infra-04: desativacao/rebaixamento feito no painel nao e desfeito no deploy
+    def _outro_admin(self):
+        U = get_user_model()
+        return U.objects.create_user('socia@clinica.com.br', SENHA_FORTE, nome='Socia',
+                                     papel=U.PAPEL_ADMIN)
+
+    def test_conta_desativada_no_painel_com_outro_admin_fica_desativada(self):
+        U = get_user_model()
+        self._outro_admin()
+        u = U.objects.create_user('dona@clinica.com.br', 'Senha-do-Painel#1', nome='Dona',
+                                  papel=U.PAPEL_ADMIN)
+        u.ativo = False
+        u.save()
+        _, err = self._run(ADMIN_EMAIL='dona@clinica.com.br', ADMIN_PASSWORD=SENHA_FORTE)
+        u.refresh_from_db()
+        self.assertFalse(u.ativo)
+        self.assertTrue(u.check_password('Senha-do-Painel#1'))
+        self.assertIn('mantido', err)
+        self.assertNotIn('sem administrador', err)
+
+    def test_conta_rebaixada_no_painel_so_volta_a_admin_com_reset(self):
+        U = get_user_model()
+        self._outro_admin()
+        u = U.objects.create_user('dona@clinica.com.br', SENHA_FORTE, nome='Dona',
+                                  papel=U.PAPEL_RECEPCAO)
+        _, err = self._run(ADMIN_EMAIL='dona@clinica.com.br', ADMIN_PASSWORD=SENHA_FORTE)
+        u.refresh_from_db()
+        self.assertEqual(u.papel, U.PAPEL_RECEPCAO)
+        self.assertIn('mantido', err)
+        self._run(ADMIN_EMAIL='dona@clinica.com.br', ADMIN_PASSWORD=SENHA_FORTE,
+                  ADMIN_PASSWORD_RESET='true')
+        u.refresh_from_db()
+        self.assertEqual(u.papel, U.PAPEL_ADMIN)
+
+    # pgupgrade-04: login compara o e-mail exato; o painel grava em minusculas
+    def test_email_criado_em_minusculas(self):
+        U = get_user_model()
+        self._run(ADMIN_EMAIL=' Dona@Clinica.COM ', ADMIN_PASSWORD=SENHA_FORTE)
+        u = U.objects.get(email__iexact='dona@clinica.com')
+        self.assertEqual(u.email, 'dona@clinica.com')
+        self.assertEqual(U.objects.get_by_natural_key('dona@clinica.com'), u)
+
+    # pgupgrade-03: 2FA cadastrado com a senha publica da conta demo nao sobrevive
+    def _devices_2fa(self, user):
+        from django_otp.plugins.otp_static.models import StaticDevice, StaticToken
+        from django_otp.plugins.otp_totp.models import TOTPDevice
+
+        TOTPDevice.objects.create(user=user, name='atacante', confirmed=True)
+        static = StaticDevice.objects.create(user=user, name='backup-atk', confirmed=True)
+        StaticToken.objects.create(device=static, token='atk00001')
+
+    def test_reativacao_remove_2fa_antigo(self):
+        from aranha_estetica.models import LogAuditoria
+        from aranha_estetica.utils import dois_fatores
+
+        U = get_user_model()
+        demo = U.objects.create_user('admin@shivazen.com', 'admin123', nome='Admin demo',
+                                     papel=U.PAPEL_ADMIN)
+        self._devices_2fa(demo)
+        demo.ativo = False  # estado deixado pela 0042
+        demo.set_unusable_password()
+        demo.save()
+        out, _ = self._run(ADMIN_EMAIL='admin@shivazen.com', ADMIN_PASSWORD=SENHA_FORTE)
+        demo.refresh_from_db()
+        self.assertTrue(demo.ativo)
+        self.assertFalse(dois_fatores.tem_2fa(demo))
+        self.assertIsNone(dois_fatores.verificar_token(demo, 'atk00001'))
+        self.assertIn('2FA antigo', out)
+        self.assertTrue(LogAuditoria.objects.filter(
+            acao__icontains='2FA removido', registro_id=demo.pk).exists())
+
+    def test_reset_com_conta_ativa_mantem_2fa(self):
+        from aranha_estetica.utils import dois_fatores
+
+        U = get_user_model()
+        u = U.objects.create_user('dona@clinica.com.br', 'Outra-Senha#2026', nome='Dona',
+                                  papel=U.PAPEL_ADMIN)
+        self._devices_2fa(u)  # aqui: 2FA legitimo da dona
+        self._run(ADMIN_EMAIL='dona@clinica.com.br', ADMIN_PASSWORD=SENHA_FORTE,
+                  ADMIN_PASSWORD_RESET='true')
+        u.refresh_from_db()
+        self.assertTrue(u.check_password(SENHA_FORTE))
+        self.assertTrue(dois_fatores.tem_2fa(u))
+
+
+# ─── setup_2fa --force (recuperacao) ─────────────────────────────────
+class Setup2FAResetTests(TestCase):
+    def test_force_remove_todos_os_devices_do_usuario(self):
+        # pgupgrade-03: --force so apagava o device de mesmo nome; o TOTP/backup
+        # plantado com outro nome seguia valendo apos a "recuperacao"
+        from django_otp.plugins.otp_static.models import StaticDevice, StaticToken
+        from django_otp.plugins.otp_totp.models import TOTPDevice
+
+        from aranha_estetica.models import LogAuditoria
+        from aranha_estetica.utils import dois_fatores
+
+        U = get_user_model()
+        u = U.objects.create_user('dona@clinica.com.br', SENHA_FORTE, nome='Dona',
+                                  papel=U.PAPEL_ADMIN)
+        TOTPDevice.objects.create(user=u, name='atacante', confirmed=True)
+        static = StaticDevice.objects.create(user=u, name='backup-atk', confirmed=True)
+        StaticToken.objects.create(device=static, token='atk00001')
+        outro = U.objects.create_user('socia@clinica.com.br', SENHA_FORTE, nome='Socia',
+                                      papel=U.PAPEL_ADMIN)
+        TOTPDevice.objects.create(user=outro, name='default', confirmed=True)
+
+        call_command('setup_2fa', 'dona@clinica.com.br', '--force', stdout=StringIO())
+
+        self.assertEqual(list(TOTPDevice.objects.filter(user=u).values_list('name', flat=True)),
+                         ['default'])
+        self.assertEqual(list(StaticDevice.objects.filter(user=u).values_list('name', flat=True)),
+                         ['backup'])
+        self.assertIsNone(dois_fatores.verificar_token(u, 'atk00001'))
+        self.assertTrue(TOTPDevice.objects.filter(user=outro).exists())  # so o alvo
+        self.assertTrue(LogAuditoria.objects.filter(
+            acao__icontains='setup_2fa', registro_id=u.pk).exists())
+
 
 # ─── migrate_atomico ─────────────────────────────────────────────────
 class MigrateAtomicoTests(TestCase):
@@ -363,6 +560,10 @@ class MigrateAtomicoTests(TestCase):
         out = StringIO()
         call_command('migrate_atomico', '--noinput', verbosity=1, stdout=out)
         self.assertNotIn('migrate normal', out.getvalue())
+        # SET LOCAL vale ate o fim da transacao (aqui: a do proprio teste)
+        with connection.cursor() as cursor:
+            cursor.execute('SHOW lock_timeout')
+            self.assertEqual(cursor.fetchone()[0], '5s')
 
     def test_postgres_checa_constraints_apos_cada_migration(self):
         from aranha_estetica.management.commands import migrate_atomico as mod
@@ -379,13 +580,17 @@ class MigrateAtomicoTests(TestCase):
     def test_postgres_roda_migrate_numa_transacao(self):
         from aranha_estetica.management.commands import migrate_atomico as mod
 
-        fake_conn = mock.Mock(vendor='postgresql')
+        fake_conn = mock.MagicMock(vendor='postgresql')
         with mock.patch.object(mod, 'connections', {'default': fake_conn}), \
                 mock.patch.object(mod.transaction, 'atomic') as atomic, \
                 mock.patch.object(mod.MigrateCommand, 'handle', return_value=None) as handle:
             mod.Command(stdout=StringIO()).handle(database='default', verbosity=0)
         atomic.assert_called_once_with(using='default')
         handle.assert_called_once()
+        # rev_infra-06: lock do deploy antigo nao pode deixar o upgrade esperando
+        # sem fim com as tabelas ja alteradas travadas
+        cursor = fake_conn.cursor.return_value.__enter__.return_value
+        cursor.execute.assert_any_call("SET LOCAL lock_timeout = '5s'")
 
 
 # ─── Retencao / housekeeping ─────────────────────────────────────────
@@ -550,6 +755,63 @@ class SettingsProdTests(SimpleTestCase):
         self.assertTrue(self._importar_prod(ADMIN_2FA_OBRIGATORIO='True')['obrig'])
 
 
+class DjangoEnvInvalidoTests(SimpleTestCase):
+    """rev_infra-01: DJANGO_ENV fora de dev|prod caia no dev.py (DEBUG=True,
+    e-mail no console, SMS/WhatsApp "fingindo" envio) mesmo no Railway."""
+
+    def _importar(self, valor):
+        env = {k: v for k, v in os.environ.items() if k != 'DEBUG'}
+        env.update({'DJANGO_ENV': valor, 'DJANGO_SECRET_KEY': 'x' * 50,
+                    'RAILWAY_ENVIRONMENT_NAME': 'production'})
+        return subprocess.run(
+            [sys.executable, '-W', 'ignore', '-c', 'import clinica.settings as s; print(s.DEBUG)'],
+            cwd=BASE_DIR, env=env, capture_output=True, text=True, timeout=120,
+        )
+
+    def test_valor_desconhecido_derruba_o_boot(self):
+        for valor in ('production', 'staging'):
+            with self.subTest(valor=valor):
+                proc = self._importar(valor)
+                self.assertNotEqual(proc.returncode, 0)
+                self.assertIn('ImproperlyConfigured', proc.stderr)
+                self.assertIn(valor, proc.stderr)
+
+    def test_dev_e_prod_continuam_valendo(self):
+        for valor, debug in (('prod', 'False'), (' PROD ', 'False'), ('dev', 'True')):
+            with self.subTest(valor=valor):
+                proc = self._importar(valor)
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                self.assertEqual(proc.stdout.strip().splitlines()[-1], debug)
+
+
+class Settings2FAEApiTests(TestCase):
+    def test_admin_do_django_otp_esconde_semente_e_qr(self):
+        # rev_security-09: config/qrcode do TOTPDeviceAdmin davam 200 p/ qualquer ADMIN
+        from django_otp.conf import settings as otp_settings
+        self.assertIs(settings.OTP_ADMIN_HIDE_SENSITIVE_DATA, True)
+        self.assertIs(otp_settings.OTP_ADMIN_HIDE_SENSITIVE_DATA, True)
+
+    def test_2fa_de_profissional_opt_in_por_env(self):
+        # rev_security-14: setting lido por utils/dois_fatores (default desligado)
+        self.assertIs(settings.PROFISSIONAL_2FA_OBRIGATORIO, False)
+
+    def test_api_fechada_por_padrao_e_raiz_do_router_so_p_staff(self):
+        # crawl-7: /api/v1/ (DefaultRouter) herdava IsAuthenticated e listava os
+        # endpoints p/ PROFISSIONAL
+        from aranha_estetica.models import Profissional
+
+        self.assertEqual(settings.REST_FRAMEWORK['DEFAULT_PERMISSION_CLASSES'],
+                         ['rest_framework.permissions.IsAdminUser'])
+        U = get_user_model()
+        prof = Profissional.objects.create(nome='Dra. Portal')
+        user = U.objects.create_user('prof@clinica.com.br', SENHA_FORTE, nome='Dra. Portal',
+                                     papel=U.PAPEL_PROFISSIONAL, profissional=prof)
+        self.client.force_login(user)
+        for url in ('/api/v1/', '/api/v1/.json'):
+            with self.subTest(url=url):
+                self.assertEqual(self.client.get(url).status_code, 403)
+
+
 class SettingsSwaggerTests(SimpleTestCase):
     def test_swagger_ui_em_versao_fixa(self):
         # @latest mudaria a UI (e o JS carregado com a CSP) sem deploy
@@ -574,3 +836,89 @@ class AxesBloqueioTests(TestCase):
             r = self.client.post('/admin-login/', dados)
         self.assertContains(r, 'Acesso bloqueado', status_code=429)
         self.assertNotContains(r, 'Account locked', status_code=429)
+
+
+# ─── Access log do gunicorn sem tokens ───────────────────────────────
+class GunicornLoggerTests(SimpleTestCase):
+    """rev_security-13 / rev_infra-02: o access log padrao gravava /reagendar/<token>/,
+    reset de senha, ?token= do feed ICS e o Referer em claro nos logs do Railway."""
+
+    def test_start_do_docker_e_do_railway_usam_o_logger(self):
+        classe = '--logger-class clinica.gunicorn_logger.LoggerSemTokens'
+        dockerfile = (BASE_DIR / 'Dockerfile').read_text(encoding='utf-8')
+        cmd = [linha for linha in dockerfile.splitlines() if linha.startswith('CMD ')]
+        self.assertEqual(len(cmd), 1)
+        self.assertIn(classe, cmd[0])
+        railway = json.loads((BASE_DIR / 'railway.json').read_text(encoding='utf-8'))
+        self.assertIn(classe, railway['deploy']['startCommand'])  # sobrescreve o CMD
+
+    @skipIf(sys.platform == 'win32', 'gunicorn importa fcntl/pwd (so Linux/macOS)')
+    def test_access_log_redige_tokens(self):
+        import datetime
+
+        from gunicorn.config import Config
+
+        from clinica.gunicorn_logger import LoggerSemTokens
+
+        cfg = Config()
+        cfg.set('accesslog', '-')
+        logger = LoggerSemTokens(cfg)
+        saida = StringIO()
+        for handler in logger.access_log.handlers:
+            handler.stream = saida
+        resp = mock.Mock(status='200 OK', sent=10, headers=[])
+        req = mock.Mock(headers=[('REFERER', 'https://x.com/termo/zzz999/')])
+
+        def environ(path, qs=''):
+            return {
+                'REQUEST_METHOD': 'GET', 'RAW_URI': path + (f'?{qs}' if qs else ''),
+                'SERVER_PROTOCOL': 'HTTP/1.1', 'PATH_INFO': path, 'QUERY_STRING': qs,
+                'HTTP_REFERER': 'https://x.com/termo/zzz999/', 'REMOTE_ADDR': '1.2.3.4',
+            }
+
+        dt = datetime.timedelta(milliseconds=1)
+        logger.access(resp, req, environ('/reagendar/abc123/'), dt)
+        logger.access(resp, req, environ('/agenda/dra-x/feed.ics', 'token=FEED777&x=1'), dt)
+        logger.access(resp, req, environ('/admin-login/recuperar/MQ/cabc12-deadbeef/'), dt)
+        logger.access(resp, req, environ('/anamnese/obrigado/'), dt)
+        log = saida.getvalue()
+        for segredo in ('abc123', 'zzz999', 'FEED777', 'deadbeef'):
+            self.assertNotIn(segredo, log)
+        self.assertIn('/reagendar/[token]/', log)
+        self.assertIn('token=[token]&x=1', log)
+        self.assertIn('/anamnese/obrigado/', log)
+
+
+# ─── Lock das dependencias ───────────────────────────────────────────
+class LockDependenciasTests(SimpleTestCase):
+    """rev_infra-05: transitivas sem pin -> imagem de prod nao reprodutivel."""
+
+    @staticmethod
+    def _pins(arquivo):
+        import re
+
+        pins = {}
+        for linha in (BASE_DIR / arquivo).read_text(encoding='utf-8').splitlines():
+            linha = linha.split('#', 1)[0].strip()
+            m = re.match(r'^([A-Za-z0-9_.\-]+)(\[[^\]]*\])?==([^\s;]+)$', linha)
+            if m:
+                pins[re.sub(r'[-_.]+', '-', m.group(1)).lower()] = m.group(3)
+        return pins
+
+    def test_lock_espelha_as_versoes_diretas(self):
+        diretas = self._pins('requirements.txt')
+        lock = self._pins('requirements.lock')
+        self.assertGreater(len(lock), len(diretas))  # transitivas inclusas
+        for nome, versao in diretas.items():
+            with self.subTest(pacote=nome):
+                self.assertEqual(lock.get(nome), versao,
+                                 f'{nome}: requirements.txt e requirements.lock divergem')
+        for transitiva in ('kombu', 'cryptography', 'django-otp', 'qrcode', 'phonenumbers'):
+            self.assertIn(transitiva, lock)
+
+    def test_build_e_ci_instalam_pelo_lock(self):
+        dockerfile = (BASE_DIR / 'Dockerfile').read_text(encoding='utf-8')
+        self.assertIn('-r requirements.txt -c requirements.lock', dockerfile)
+        self.assertIn('pip install --no-index', dockerfile)  # runtime so usa os wheels
+        ci = (BASE_DIR / '.github' / 'workflows' / 'ci.yml').read_text(encoding='utf-8')
+        self.assertEqual(ci.count('pip install -r requirements-dev.txt -c requirements.lock'), 2)

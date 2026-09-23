@@ -12,6 +12,14 @@ Detalhes:
   que fariam o ALTER TABLE da proxima falhar) e volta p/ DEFERRED (padrao das
   FKs do Django).
 - Lock ACCESS EXCLUSIVE nas tabelas alteradas dura o upgrade inteiro (segundos).
+- `SET LOCAL lock_timeout = '5s'`: o deploy antigo continua no ar durante o
+  pre-deploy; uma query longa/"idle in transaction" dele deixava o ALTER
+  esperando sem fim, com as tabelas ja alteradas travadas (requests enfileiram
+  atras). Com o timeout o migrate falha (LockNotAvailable), tudo volta e o
+  deploy e refeito depois.
+- Depois do COMMIT o codigo antigo roda contra o schema novo ate o container
+  novo passar no healthcheck: upgrades com rename/delete (ex.: 0026 -> atual)
+  em horario sem movimento.
 - Nao use com migrations `atomic = False`/CONCURRENTLY (nao ha nenhuma hoje).
 - Fora do Postgres (SQLite em dev) cai no `migrate` normal: o SQLite desliga
   checagem de FK por migration e isso nao funciona dentro de transacao.
@@ -23,6 +31,9 @@ from django.db import DEFAULT_DB_ALIAS, connections, transaction
 
 class Command(MigrateCommand):
     help = 'Aplica as migrations numa transacao unica no Postgres (tudo ou nada).'
+
+    # SET LOCAL: vale so ate o fim da transacao do upgrade
+    LOCK_TIMEOUT_SQL = "SET LOCAL lock_timeout = '5s'"
 
     _alias = DEFAULT_DB_ALIAS
     _atomico = False
@@ -38,6 +49,8 @@ class Command(MigrateCommand):
         self._atomico = True
         try:
             with transaction.atomic(using=self._alias):
+                with connection.cursor() as cursor:
+                    cursor.execute(self.LOCK_TIMEOUT_SQL)
                 return super().handle(*args, **options)
         finally:
             self._atomico = False

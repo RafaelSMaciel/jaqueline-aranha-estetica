@@ -1,0 +1,89 @@
+# Lock de versoes (constraints) de TODAS as dependencias de runtime, inclusive
+# transitivas — imagem de prod e CI instalam exatamente estas versoes:
+#   Dockerfile: pip wheel -r requirements.txt -c requirements.lock
+#   CI:         pip install -r requirements-dev.txt -c requirements.lock
+# Sem ele, kombu/cryptography/django-otp/qrcode... eram resolvidos na hora do
+# build e a imagem mudava entre o CI e o deploy do mesmo commit.
+#
+# Alvo: Linux x86_64, CPython 3.12 (python:3.12-slim). Sem hashes: o wheel
+# escolhido varia com a glibc da imagem; a versao e o que fica fixo.
+# Mudou requirements.txt? Regenere (qualquer SO) e rode o teste
+# test_deploy_config.LockDependenciasTests, que confere as versoes diretas:
+#   pip install --dry-run --ignore-installed --report r.json \
+#     --platform manylinux_2_28_x86_64 --platform manylinux_2_17_x86_64 \
+#     --python-version 3.12 --implementation cp --abi cp312 --abi abi3 \
+#     --abi none --only-binary=:all: -r requirements.txt
+#   -> um `nome==versao` por pacote de r.json ("install"), sem colorama
+#   (so Windows). So-sdist (pywebpush 2.0.0 e http-ece) nao resolvem com
+#   --only-binary: troque-os pelas dependencias deles e acrescente as versoes.
+aiohappyeyeballs==2.7.1
+aiohttp==3.14.3
+aiosignal==1.4.0
+amqp==5.4.0
+asgiref==3.8.1
+attrs==26.1.0
+billiard==4.3.0
+bleach==6.4.0
+celery==5.4.0
+certifi==2026.2.25
+cffi==2.1.1
+charset-normalizer==3.5.1
+click==8.5.0
+click-didyoumean==0.3.1
+click-plugins==1.1.1.2
+click-repl==0.4.0
+cryptography==50.0.1
+dj-database-url==3.1.0
+Django==5.2.17
+django-axes==8.3.1
+django-cotton==2.7.2
+django-formtools==2.7
+django-otp==1.7.3
+django-phonenumber-field==8.5.0
+django-ratelimit==4.1.0
+django-redis==6.0.0
+django-two-factor-auth==1.17.0
+django-vite==3.1.0
+djangorestframework==3.17.2
+drf-spectacular==0.29.0
+et_xmlfile==2.0.0
+frozenlist==1.8.0
+gunicorn==23.0.0
+http-ece==1.2.1
+idna==3.20
+inflection==0.5.1
+jsonschema==4.26.0
+jsonschema-specifications==2025.9.1
+kombu==5.6.2
+multidict==6.9.1
+openpyxl==3.1.5
+packaging==26.0
+phonenumbers==8.13.55
+prompt_toolkit==3.0.53
+propcache==0.5.4
+psycopg2-binary==2.9.11
+py-vapid==1.9.4
+pycparser==3.0
+pypng==0.20220715.0
+python-dateutil==2.9.0.post0
+python-dotenv==1.2.2
+python-json-logger==3.2.1
+pywebpush==2.0.0
+PyYAML==6.0.3
+qrcode==7.4.2
+redis==7.3.0
+referencing==0.37.0
+requests==2.33.0
+rpds-py==2026.6.3
+sentry-sdk==2.54.0
+six==1.17.0
+sqlparse==0.6.0
+typing_extensions==4.16.0
+tzdata==2025.2
+uritemplate==4.2.0
+urllib3==2.7.0
+vine==5.1.0
+wcwidth==0.9.1
+webencodings==0.6.1
+whitenoise==6.6.0
+yarl==1.25.1
