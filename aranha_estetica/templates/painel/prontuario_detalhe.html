@@ -132,6 +132,31 @@
     </button>
     {% endif %}
   </form>
+
+  {# Histórico clínico: cada edição guarda o valor anterior (ProntuarioVersao) #}
+  {% if historico_prontuario %}
+  <details class="mt-4 rounded-xl border border-borda bg-fundo p-3">
+    <summary class="cursor-pointer text-[0.8rem] font-bold text-texto">Histórico de alterações ({{ historico_prontuario|length }})</summary>
+    <p class="text-[0.72rem] text-texto-suave mt-2 mb-0">Registro permanente: cada edição guarda o que estava escrito antes. Valor anterior riscado.</p>
+    <ol class="list-none p-0 m-0">
+      {% for h in historico_prontuario %}
+      <li class="border-t border-borda mt-2 pt-2 text-[0.8rem]">
+        <div class="text-[0.72rem] text-texto-suave mb-1">
+          <strong class="text-texto">{{ h.versao.criado_em|date:"d/m/Y H:i" }}</strong> &middot; {% if h.autor %}{{ h.autor }}{% else %}autor removido{% endif %}
+        </div>
+        {% for m in h.mudancas %}
+        <div class="min-w-0 break-words mb-1">
+          <span class="block text-[0.72rem] font-bold text-texto-suave">{{ m.campo }}</span>
+          <del class="text-texto-suave">{{ m.antes|default:"(vazio)"|linebreaksbr }}</del> &rarr; <span class="text-texto">{{ m.depois|default:"(vazio)"|linebreaksbr }}</span>
+        </div>
+        {% empty %}
+        <p class="m-0 text-texto-suave">Sem diferença nos campos do prontuário.</p>
+        {% endfor %}
+      </li>
+      {% endfor %}
+    </ol>
+  </details>
+  {% endif %}
 </div>
 
 {# ── Fichas de avaliação respondidas pela cliente (booking / link) ── #}
@@ -191,7 +216,7 @@
       {% for anot in atend.anotacoes.all %}
       <div class="flex items-start gap-1.5 mt-1 p-2 rounded-lg bg-fundo text-[0.78rem] text-texto">
         <svg class="w-3.5 h-3.5 text-marca shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-        <span class="min-w-0 break-words">{{ anot.texto|linebreaksbr }} <span class="text-texto-suave">— {% if anot.autor %}{{ anot.autor.nome|default:anot.autor.email }}{% else %}autor removido{% endif %}, {{ anot.criado_em|date:"d/m/Y H:i" }}</span></span>
+        <span class="min-w-0 break-words">{{ anot.texto|linebreaksbr }} <span class="text-texto-suave">— {% if anot.autor_nome %}{{ anot.autor_nome }}{% elif anot.autor %}{{ anot.autor.nome|default:anot.autor.email }}{% else %}autor removido{% endif %}, {{ anot.criado_em|date:"d/m/Y H:i" }}</span></span>
       </div>
       {% endfor %}
     </div>

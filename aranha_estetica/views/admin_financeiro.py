@@ -86,7 +86,13 @@ def _calcular_metricas(agora, hoje) -> dict:
         data_hora_inicio__gte=inicio_mes,
     ).count()
 
-    realizados_mes = fat_mes['count'] or 0
+    # Denominador = TODOS os realizados (sessao de pacote, retorno e sem valor
+    # tambem compareceram). fat_mes['count'] e so faturamento: usa-lo aqui
+    # inflava o % de faltas em clinica que vende pacote.
+    realizados_mes = Atendimento.objects.filter(
+        status=Atendimento.STATUS_REALIZADO,
+        data_hora_inicio__gte=inicio_mes,
+    ).count()
     total_finalizados_mes = realizados_mes + no_show_mes
     no_show_pct = (
         (no_show_mes * 100 / total_finalizados_mes) if total_finalizados_mes else 0

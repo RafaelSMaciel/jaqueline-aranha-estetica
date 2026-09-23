@@ -3,10 +3,10 @@ import logging
 from datetime import datetime
 
 from django.core.paginator import Paginator
-from django.db import transaction
-from django.db.models import Count, Exists, OuterRef, Q
+from django.db import DatabaseError, transaction
+from django.db.models import Count, Exists, OuterRef
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import render
 from django.views.decorators.cache import never_cache
 from django_ratelimit.decorators import ratelimit
 
@@ -18,20 +18,13 @@ from ..models import (
     Prontuario,
     RespostaAnamnese,
 )
+from ..services.termos import termos_pendentes
 from ..utils.audit import registrar_log
 from ..utils.busca import q_busca_cliente
 from ..utils.datas import fmt_local
 from ..utils.saude import alertas_saude
 
 logger = logging.getLogger(__name__)
-
-
-# Prontuario "de verdade": algum campo preenchido. prontuario_salvar grava ''
-# (nao None) e um GET antigo criava registro vazio — Exists(Prontuario) mentia.
-PRONTUARIO_COM_CONTEUDO = (
-    Q(alergias__gt='') | Q(contraindicacoes__gt='') | Q(historico_saude__gt='')
-    | Q(medicamentos_uso__gt='') | Q(observacoes_gerais__gt='') | ~Q(respostas_extras={})
-)
 
 
 @never_cache  # lista mostra alertas de saude
@@ -46,7 +39,8 @@ def prontuario_consentimento(request):
 
     clientes = clientes.annotate(
         tem_prontuario=Exists(
-            Prontuario.objects.filter(cliente=OuterRef('pk')).filter(PRONTUARIO_COM_CONTEUDO)
+            # registro vazio (GET legado) nao conta como prontuario
+            Prontuario.objects.filter(Prontuario.Q_COM_CONTEUDO, cliente=OuterRef('pk'))
         ),
         # ficha de anamnese respondida pela cliente (booking/link)
         tem_ficha=Exists(
@@ -160,60 +154,98 @@ def _avisar_cancelamento(atendimento):
 @staff_required
 @ratelimit(key='user', rate='60/m', method='POST', block=True)
 def admin_atualizar_status(request):
-    """Atualiza status de um agendamento via AJAX"""
+    """Atualiza status de um agendamento via AJAX.
+
+    Entrada invalida -> 400/404 (antes virava 500 + traceback no Sentry).
+    REALIZADO com termo de PROCEDIMENTO nao aceito: nao bloqueia duro (a
+    cliente pode ter assinado em papel), mas exige o override explicito
+    'sem_termo': true e deixa 'Realizado sem termo aceito' na trilha — mesma
+    regra do portal do profissional.
+    """
     if request.method != 'POST':
         return JsonResponse({'erro': 'Método não permitido'}, status=405)
 
     try:
         data = json.loads(request.body)
-        atendimento_id = data.get('atendimento_id')
-        novo_status = data.get('status', '').upper()
+    except ValueError:  # JSONDecodeError e corpo que nao e UTF-8
+        return JsonResponse({'erro': 'Dados inválidos'}, status=400)
+    if not isinstance(data, dict):
+        return JsonResponse({'erro': 'Dados inválidos'}, status=400)
 
-        atendimento = get_object_or_404(Atendimento, pk=atendimento_id)
-        status_anterior = atendimento.status
+    bruto_id = data.get('atendimento_id')
+    if isinstance(bruto_id, bool) or not isinstance(bruto_id, (int, str))             or not str(bruto_id).strip().isdigit():
+        return JsonResponse({'erro': 'Agendamento inválido'}, status=400)
+    novo_status = data.get('status')
+    if not isinstance(novo_status, str) or not novo_status.strip():
+        return JsonResponse({'erro': 'Status inválido'}, status=400)
+    novo_status = novo_status.strip().upper()
 
-        # Usa a FSM do model: valida a transicao e publica os eventos colaterais
-        # (no-show, etc.). Evita transicoes invalidas como REALIZADO -> PENDENTE.
-        metodos = {
-            'CONFIRMADO': atendimento.confirmar,
-            'REALIZADO': atendimento.marcar_realizado,
-            'CANCELADO': atendimento.cancelar,
-            'FALTOU': atendimento.marcar_falta,
-            'AGENDADO': atendimento.aprovar,
-        }
-        acao = metodos.get(novo_status)
-        if acao is None:
-            return JsonResponse(
-                {'erro': f'Transição para "{novo_status}" não suportada.'}, status=400
-            )
-        try:
-            acao(by_user=request.user)
-        except Atendimento.TransicaoInvalida as exc:
-            return JsonResponse({'erro': str(exc)}, status=400)
+    atendimento = (
+        Atendimento.objects.select_related('cliente', 'procedimento')
+        .filter(pk=int(str(bruto_id).strip())).first()
+    )
+    if atendimento is None:
+        return JsonResponse({'erro': 'Agendamento não encontrado'}, status=404)
+    status_anterior = atendimento.status
 
-        registrar_log(
-            request.user,
-            f'Status alterado: {status_anterior} → {novo_status}',
-            'atendimento',
-            atendimento.pk,
-            {'status_anterior': status_anterior, 'status_novo': novo_status,
-             'cliente': atendimento.cliente_id},
-            request=request,
+    # Usa a FSM do model: valida a transicao e publica os eventos colaterais
+    # (no-show, etc.). Evita transicoes invalidas como REALIZADO -> PENDENTE.
+    metodos = {
+        'CONFIRMADO': atendimento.confirmar,
+        'REALIZADO': atendimento.marcar_realizado,
+        'CANCELADO': atendimento.cancelar,
+        'FALTOU': atendimento.marcar_falta,
+        'AGENDADO': atendimento.aprovar,
+    }
+    acao = metodos.get(novo_status)
+    if acao is None:
+        return JsonResponse(
+            {'erro': f'Transição para "{novo_status}" não suportada.'}, status=400
         )
 
-        if novo_status == 'CANCELADO':
-            _avisar_cancelamento(atendimento)
-
+    sem_termo = []
+    if novo_status == 'REALIZADO' and status_anterior in ('AGENDADO', 'CONFIRMADO'):
+        sem_termo = termos_pendentes(
+            atendimento.cliente, atendimento.procedimento, so_procedimento=True,
+        )
+    if sem_termo and data.get('sem_termo') is not True:
         return JsonResponse({
-            'sucesso': True,
-            'status_anterior': status_anterior,
-            'status_novo': novo_status,
-        })
-    except json.JSONDecodeError:
-        return JsonResponse({'erro': 'Dados inválidos'}, status=400)
-    except Exception as e:
-        logger.error(f'Erro ao atualizar status: {e}', exc_info=True)
+            'erro': 'A cliente ainda não aceitou o termo do procedimento.',
+            'termo_pendente': True,
+            'codigo': 'termo_pendente',
+        }, status=409)
+
+    try:
+        acao(by_user=request.user)
+    except Atendimento.TransicaoInvalida as exc:
+        return JsonResponse({'erro': str(exc)}, status=400)
+    except DatabaseError:
+        logger.exception('atualizar_status_falhou', extra={'atendimento_id': atendimento.pk})
         return JsonResponse({'erro': 'Ocorreu um erro interno. Tente novamente.'}, status=500)
+
+    registrar_log(
+        request.user,
+        f'Status alterado: {status_anterior} → {novo_status}',
+        'atendimento',
+        atendimento.pk,
+        {'status_anterior': status_anterior, 'status_novo': novo_status,
+         'cliente': atendimento.cliente_id},
+        request=request,
+    )
+    if sem_termo:
+        registrar_log(
+            request.user, 'Realizado sem termo aceito', 'atendimento', atendimento.pk,
+            {'termos': [t.pk for t in sem_termo]}, request=request,
+        )
+
+    if novo_status == 'CANCELADO':
+        _avisar_cancelamento(atendimento)
+
+    return JsonResponse({
+        'sucesso': True,
+        'status_anterior': status_anterior,
+        'status_novo': novo_status,
+    })
 
 
 # Nota: a antiga view setup_seed(request) foi substituida pelo management

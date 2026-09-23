@@ -26,11 +26,13 @@ from aranha_estetica.models import (
     LogAuditoria,
     MovimentoComissao,
     Prontuario,
+    ProntuarioVersao,
     RespostaAnamnese,
     Usuario,
     VersaoTermo,
 )
 from aranha_estetica.utils.branding import get_branding
+from aranha_estetica.utils.saude import alertas_saude
 
 from .factories import (
     criar_atendimento,
@@ -647,3 +649,266 @@ class PainelDiversosTests(_AdminBase):
         c.force_login(user)
         resp = c.get(reverse('aranha:painel'))
         self.assertRedirects(resp, reverse('aranha:profissional_agenda'), fetch_redirect_response=False)
+
+
+# ════════════════════════════════════════════════════════════════════
+# Wave 3 — atualizar-status: termo pendente e entrada invalida
+# ════════════════════════════════════════════════════════════════════
+class AtualizarStatusTermoTests(_AdminBase):
+    """REALIZADO com termo do procedimento pendente exige override auditado (rev_painel-01/crawl-2)."""
+
+    def setUp(self):
+        super().setUp()
+        self.cli = criar_cliente(nome='Rita')
+        self.at = criar_atendimento(self.cli, self.prof, self.proc, status='AGENDADO')
+        self.termo = VersaoTermo.objects.create(
+            tipo='PROCEDIMENTO', procedimento=self.proc, titulo='Termo do procedimento',
+            conteudo='Riscos e cuidados.', versao='1.0', vigente_desde=timezone.localdate(),
+        )
+        self.url = reverse('aranha:admin_atualizar_status')
+
+    def _post(self, **extra):
+        payload = {'atendimento_id': self.at.pk, 'status': 'REALIZADO', **extra}
+        return self.client.post(self.url, data=json.dumps(payload), content_type='application/json')
+
+    def test_sem_override_recusa_e_nao_muda_status(self):
+        resp = self._post()
+        self.assertEqual(resp.status_code, 409)
+        self.assertTrue(resp.json()['termo_pendente'])
+        self.at.refresh_from_db()
+        self.assertEqual(self.at.status, 'AGENDADO')
+        self.assertFalse(LogAuditoria.objects.filter(acao='Realizado sem termo aceito').exists())
+
+    def test_override_so_com_booleano_true(self):
+        self.assertEqual(self._post(sem_termo='true').status_code, 409)
+        self.assertEqual(self._post(sem_termo=1).status_code, 409)
+
+    def test_override_explicito_marca_e_audita(self):
+        resp = self._post(sem_termo=True)
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.at.refresh_from_db()
+        self.assertEqual(self.at.status, 'REALIZADO')
+        log = LogAuditoria.objects.get(acao='Realizado sem termo aceito')
+        self.assertEqual((log.tabela, log.registro_id), ('atendimento', self.at.pk))
+        self.assertEqual(log.detalhes['termos'], [self.termo.pk])
+        self.assertEqual(log.usuario_id, self.admin.pk)
+        self.assertIsNotNone(log.ip_origem)
+
+    def test_termo_aceito_nao_pede_override(self):
+        AceiteTermo.objects.create(cliente=self.cli, versao_termo=self.termo, atendimento=self.at)
+        resp = self._post()
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertFalse(LogAuditoria.objects.filter(acao='Realizado sem termo aceito').exists())
+
+    def test_outros_status_nao_dependem_do_termo(self):
+        resp = self.client.post(self.url, data=json.dumps(
+            {'atendimento_id': self.at.pk, 'status': 'CONFIRMADO'}), content_type='application/json')
+        self.assertEqual(resp.status_code, 200)
+
+    def test_overview_trata_termo_pendente(self):
+        html = self.client.get(reverse('aranha:painel_overview')).content.decode()
+        self.assertIn('data.termo_pendente', html)
+        self.assertIn('payload.sem_termo = true', html)
+
+
+class AtualizarStatusEntradaInvalidaTests(_AdminBase):
+    """Entrada invalida -> 400/404 sem ERROR/traceback (crawl-3)."""
+
+    def test_payloads_invalidos_nao_viram_500(self):
+        at = criar_atendimento(criar_cliente(), self.prof, self.proc, status='AGENDADO')
+        url = reverse('aranha:admin_atualizar_status')
+        casos = [
+            (json.dumps({'atendimento_id': None, 'status': 'CONFIRMADO'}), 400),
+            (json.dumps({'atendimento_id': 999999, 'status': 'CONFIRMADO'}), 404),
+            (json.dumps({'atendimento_id': 'abc', 'status': 'CONFIRMADO'}), 400),
+            (json.dumps({'atendimento_id': True, 'status': 'CONFIRMADO'}), 400),
+            (json.dumps(['x']), 400),
+            (json.dumps({'atendimento_id': at.pk, 'status': None}), 400),
+            (json.dumps({'atendimento_id': at.pk, 'status': 5}), 400),
+            (json.dumps({'atendimento_id': at.pk}), 400),
+            ('{nao e json', 400),
+            (b'\xff\xfe', 400),
+        ]
+        with self.assertNoLogs('aranha_estetica.views.admin', level='ERROR'):
+            for corpo, esperado in casos:
+                with self.subTest(corpo=corpo):
+                    resp = self.client.post(url, data=corpo, content_type='application/json')
+                    self.assertEqual(resp.status_code, esperado, resp.content)
+                    self.assertIn('erro', resp.json())
+        at.refresh_from_db()
+        self.assertEqual(at.status, 'AGENDADO')
+
+    def test_id_como_texto_numerico_continua_valendo(self):
+        at = criar_atendimento(criar_cliente(), self.prof, self.proc, status='AGENDADO')
+        resp = self.client.post(
+            reverse('aranha:admin_atualizar_status'),
+            data=json.dumps({'atendimento_id': str(at.pk), 'status': ' confirmado '}),
+            content_type='application/json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        at.refresh_from_db()
+        self.assertEqual(at.status, 'CONFIRMADO')
+
+
+# ════════════════════════════════════════════════════════════════════
+# Wave 3 — no-show do financeiro conta todos os realizados (rev_painel-04)
+# ════════════════════════════════════════════════════════════════════
+class FinanceiroNoShowTests(_AdminBase):
+    def _realizado(self, cli, dias, compra=None, **campos):
+        # AGENDADO + update (sem signals): o sinal de REALIZADO consumiria o pacote sozinho
+        quando = timezone.now() - timedelta(days=dias)
+        at = criar_atendimento(cli, self.prof, self.proc, data_hora=quando, status='AGENDADO')
+        if compra is not None:
+            ConsumoSessao.objects.create(compra_pacote=compra, atendimento=at)
+        Atendimento.objects.filter(pk=at.pk).update(status='REALIZADO', **campos)
+        return at
+
+    def test_sessoes_de_pacote_entram_no_denominador(self):
+        cli = criar_cliente()
+        compra = criar_compra_pacote(cli, criar_pacote(procedimento=self.proc, sessoes=10))
+        for dia in range(1, 9):
+            self._realizado(cli, dia, compra=compra, valor_cobrado=Decimal('200.00'))
+        self._realizado(cli, 10, valor_cobrado=Decimal('200.00'))  # avulso
+        criar_atendimento(cli, self.prof, self.proc,
+                          data_hora=timezone.now() - timedelta(days=11), status='FALTOU')
+        ctx = self.client.get(reverse('aranha:dashboard_financeiro')).context
+        self.assertEqual(ctx['fat_mes_count'], 1)  # faturamento continua so o avulso
+        self.assertEqual(ctx['no_show_count'], 1)
+        self.assertEqual(ctx['no_show_pct'], 10.0)
+
+    def test_retorno_e_sem_valor_entram_no_denominador(self):
+        cli = criar_cliente()
+        origem = self._realizado(cli, 20, valor_cobrado=Decimal('150.00'))
+        self._realizado(cli, 1, eh_retorno=True, atendimento_origem=origem, valor_cobrado=Decimal('0'))
+        self._realizado(cli, 2, valor_cobrado=None)
+        self._realizado(cli, 3, valor_cobrado=Decimal('150.00'))
+        criar_atendimento(cli, self.prof, self.proc,
+                          data_hora=timezone.now() - timedelta(days=4), status='FALTOU')
+        ctx = self.client.get(reverse('aranha:dashboard_financeiro')).context
+        self.assertEqual(ctx['no_show_pct'], 20.0)  # 1 falta / (4 realizados + 1)
+
+
+# ════════════════════════════════════════════════════════════════════
+# Wave 3 — alertas de saude leem respostas_extras (pgupgrade-02)
+# ════════════════════════════════════════════════════════════════════
+class AlertasRespostasExtrasTests(_AdminBase):
+    def test_respostas_extras_migradas_viram_alerta(self):
+        Configuracao.objects.create(chave='prontuario_perguntas', valor=json.dumps([
+            {'chave': 'esta_gravida_ou_amamentando', 'texto': 'Está grávida ou amamentando?', 'tipo': 'BOOLEAN'},
+        ]))
+        cli = criar_cliente(nome='Zélia')
+        Prontuario.objects.create(cliente=cli, respostas_extras={
+            'esta_gravida_ou_amamentando': True,
+            'usa_acido_retinoico': True,
+            'fumante': True,
+            'doenca_x': False,
+            'observacoes_de_pele': 'Sensível',
+        })
+        alertas = alertas_saude(cli)
+        self.assertEqual({a['label'] for a in alertas},
+                         {'Está grávida ou amamentando?', 'Usa acido retinoico'})
+        self.assertTrue(all(a['origem'] == 'prontuario' and a['valor'] == 'Sim' for a in alertas))
+        resp = self.client.get(reverse('aranha:prontuario_detalhe', args=[cli.pk]))
+        self.assertContains(resp, 'Alerta de saúde')
+        self.assertContains(resp, 'Usa acido retinoico')
+
+    def test_schema_invalido_nao_quebra_alerta(self):
+        Configuracao.objects.create(chave='prontuario_perguntas', valor='{nao e json')
+        cli = criar_cliente()
+        Prontuario.objects.create(cliente=cli, respostas_extras={'esta_gravida_x': True})
+        self.assertEqual([a['label'] for a in alertas_saude(cli)], ['Esta gravida x'])
+
+
+# ════════════════════════════════════════════════════════════════════
+# Wave 3 — prontuario: autor snapshot, historico e registro vazio
+# ════════════════════════════════════════════════════════════════════
+class ProntuarioAutorNotaTests(_AdminBase):
+    """Nota com autor excluido nao derruba a tela e mostra o snapshot (followups-anotar-autor-500)."""
+
+    def test_detalhe_usa_autor_nome_e_nao_quebra_sem_autor(self):
+        cli = criar_cliente()
+        at = criar_atendimento(cli, self.prof, self.proc,
+                               data_hora=timezone.now() - timedelta(days=2), status='REALIZADO')
+        AnotacaoSessao.objects.create(atendimento=at, autor=None, autor_nome='Dra. Antiga', texto='nota 1')
+        AnotacaoSessao.objects.create(atendimento=at, autor=None, autor_nome='', texto='nota 2')
+        resp = self.client.get(reverse('aranha:prontuario_detalhe', args=[cli.pk]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'Dra. Antiga')
+        self.assertContains(resp, 'autor removido', count=1)
+
+
+class ProntuarioVazioTests(_AdminBase):
+    """POST sem alteracao nao deixa Prontuario vazio (tirava a cliente da purga LGPD)."""
+
+    def setUp(self):
+        super().setUp()
+        self.cli = criar_cliente()
+        self.url = reverse('aranha:prontuario_salvar', args=[self.cli.pk])
+
+    def test_post_sem_alteracao_nao_cria_registro(self):
+        resp = self.client.post(self.url, {'versao': '', 'alergias': '', 'observacoes_gerais': '  '})
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(Prontuario.objects.filter(cliente=self.cli).exists())
+
+    def test_versao_recusada_nao_cria_registro(self):
+        resp = self.client.post(self.url, {'versao': '2020-01-01T00:00:00', 'alergias': 'Dipirona'})
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(Prontuario.objects.filter(cliente=self.cli).exists())
+
+
+class ProntuarioHistoricoTests(_AdminBase):
+    """Edicao guarda o valor anterior em ProntuarioVersao e o detalhe mostra (followups-prontuario-sem-historico)."""
+
+    def setUp(self):
+        super().setUp()
+        self.cli = criar_cliente()
+        self.detalhe = reverse('aranha:prontuario_detalhe', args=[self.cli.pk])
+        self.url = reverse('aranha:prontuario_salvar', args=[self.cli.pk])
+
+    def _salvar(self, **campos):
+        versao = self.client.get(self.detalhe).context['versao_prontuario']
+        return self.client.post(self.url, {'versao': versao, **campos})
+
+    def test_segunda_edicao_guarda_alergia_anterior(self):
+        self._salvar(alergias='Dipirona')
+        self.assertEqual(ProntuarioVersao.objects.count(), 0)  # 1o preenchimento: nada a guardar
+        self._salvar(alergias='Latex')
+        versao = ProntuarioVersao.objects.get()
+        self.assertEqual(versao.dados['alergias'], 'Dipirona')
+        self.assertEqual(versao.autor_id, self.admin.pk)
+        self.assertEqual(Prontuario.objects.get(cliente=self.cli).alergias, 'Latex')
+
+    def test_post_sem_alteracao_nao_gera_versao(self):
+        self._salvar(alergias='Dipirona')
+        self._salvar(alergias='Dipirona')
+        self.assertEqual(ProntuarioVersao.objects.count(), 0)
+
+    def test_detalhe_mostra_antes_e_depois_com_autor(self):
+        self.admin.nome = 'Jaqueline'
+        self.admin.save(update_fields=['nome'])
+        self._salvar(alergias='Dipirona')
+        self._salvar(alergias='', medicamentos_uso='Roacutan')
+        resp = self.client.get(self.detalhe)
+        hist = resp.context['historico_prontuario']
+        self.assertEqual(len(hist), 1)
+        self.assertEqual(hist[0]['autor'], 'Jaqueline')
+        mudancas = {m['campo']: (m['antes'], m['depois']) for m in hist[0]['mudancas']}
+        self.assertEqual(mudancas, {
+            'Alergias': ('Dipirona', ''),
+            'Medicamentos em uso': ('', 'Roacutan'),
+        })
+        self.assertContains(resp, 'Histórico de alterações (1)')
+        self.assertContains(resp, '<del class="text-texto-suave">Dipirona</del>')
+
+
+class AuditoriaAutorSnapshotTests(_AdminBase):
+    """Trilha mostra o snapshot usuario_nome: autor excluido nao vira 'Sistema'."""
+
+    def test_autor_excluido_mostra_snapshot(self):
+        LogAuditoria.objects.create(usuario=None, usuario_nome='Dra. Ex <ex@x.com>', acao='Acao antiga')
+        LogAuditoria.objects.create(usuario=None, acao='Job noturno')
+        resp = self.client.get(reverse('aranha:admin_auditoria'))
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
+        self.assertIn('Dra. Ex &lt;ex@x.com&gt;', html)
+        self.assertRegex(html, r'>Sistema</span>')

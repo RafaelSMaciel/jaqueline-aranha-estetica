@@ -14,7 +14,7 @@ from ..utils.audit import registrar_log
 
 # Somente chaves que o codigo de fato le (grep antes de acrescentar outra):
 #   email_admin          -> tasks.py (alerta de NPS detrator)
-#   prontuario_perguntas -> views/prontuario._perguntas_configuradas
+#   prontuario_perguntas -> utils/saude.perguntas_prontuario
 # Marca/contatos ficam na tela Branding (utils/branding.BRANDING_FIELDS).
 CONFIG_SUGERIDAS = [
     ('email_admin', '', 'E-mail que recebe o alerta de avaliação NPS negativa (detrator)'),
