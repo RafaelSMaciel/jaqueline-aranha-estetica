@@ -2,7 +2,8 @@
 // Requer:
 //  - service worker registrado em '/sw.js' (django route)
 //  - endpoints: /webpush/public-key/, /webpush/subscribe/, /webpush/unsubscribe/
-//  - meta name="csrf-token" content="{{ csrf_token }}"
+//  - token CSRF na pagina: meta name="csrf-token" ou qualquer {% csrf_token %}
+//    (o cookie csrftoken e HttpOnly: document.cookie nao o enxerga)
 
 (function () {
   'use strict';
@@ -18,9 +19,35 @@
 
   function getCsrf() {
     const m = document.querySelector('meta[name="csrf-token"]');
-    if (m) return m.content;
+    if (m && m.content) return m.content;
+    const input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    if (input && input.value) return input.value;
     const c = document.cookie.match(/csrftoken=([^;]+)/);
     return c ? c[1] : '';
+  }
+
+  const CHAVE_REGISTRO = 'webpush_registrado';
+
+  function lerRegistro() {
+    try { return window.sessionStorage.getItem(CHAVE_REGISTRO); } catch (e) { return null; }
+  }
+
+  function gravarRegistro(endpoint) {
+    try { window.sessionStorage.setItem(CHAVE_REGISTRO, endpoint); } catch (e) { /* storage bloqueado */ }
+  }
+
+  // Grava a assinatura no servidor. Falha (403 CSRF, 400, 5xx) PROPAGA: sem isso
+  // o botao sumia e o navegador ficava inscrito sem registro no servidor.
+  async function registrar(sub) {
+    const resp = await fetch('/webpush/subscribe/', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+      body: JSON.stringify(sub.toJSON()),
+    });
+    if (!resp.ok) throw new Error('webpush subscribe ' + resp.status);
+    gravarRegistro(sub.endpoint);
+    return true;
   }
 
   function suportado() {
@@ -33,7 +60,12 @@
 
     const reg = await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();
-    if (sub) return true; // ja inscrito
+    if (sub) {
+      // Ja inscrito no navegador: re-registra 1x por sessao (idempotente no
+      // servidor, update_or_create por endpoint) p/ curar registro que falhou.
+      if (lerRegistro() === sub.endpoint) return true;
+      return registrar(sub);
+    }
 
     const keyResp = await fetch('/webpush/public-key/', { credentials: 'same-origin' });
     const { public_key: publicKey } = await keyResp.json();
@@ -52,13 +84,7 @@
       applicationServerKey: urlBase64ToUint8Array(publicKey),
     });
 
-    await fetch('/webpush/subscribe/', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
-      body: JSON.stringify(sub.toJSON()),
-    });
-    return true;
+    return registrar(sub);
   }
 
   document.addEventListener('DOMContentLoaded', function () {

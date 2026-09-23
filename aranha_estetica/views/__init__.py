@@ -42,7 +42,7 @@ from .booking_otp import (
     meus_agendamentos_logout,
 )
 from .booking_reagendar import (
-    meus_agendamentos, reagendar_agendamento,
+    meus_agendamentos, reagendar_agendamento, reagendar_horarios,
 )
 from .booking_api import (
     api_dias_disponiveis,

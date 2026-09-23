@@ -4,10 +4,15 @@ Os testes de render so checam string HTML e nao pegam config de build/tema
 quebrada (4 bugs achados so na verificacao visual). Estas guardas travam os 3
 que afetam producao, a custo zero (leitura de arquivo / settings).
 """
+import json
+import os
+import re
 from pathlib import Path
+from unittest.mock import patch
 
 from django.conf import settings
-from django.test import TestCase
+from django.test import Client, TestCase, override_settings
+from django.urls import reverse
 
 _SRC = Path(settings.BASE_DIR) / 'aranha_estetica' / 'static' / 'src' / 'css'
 
@@ -57,3 +62,46 @@ class FrontPipelineGuards(TestCase):
         self.assertIn('PUBLIC_PAGES', sw)
         self.assertNotIn("'/api/dias-disponiveis'", sw)
         self.assertNotIn('logo-sem-fundo', sw)
+
+
+_WEBPUSH_JS = Path(settings.BASE_DIR) / 'aranha_estetica' / 'static' / 'js' / 'webpush.js'
+
+
+class WebpushCsrfTests(TestCase):
+    """Regressao crawl-1: no portal do profissional o botao 'Ativar avisos' mandava
+    X-CSRFToken vazio (sem meta e cookie HttpOnly) -> 403, e o JS dava sucesso."""
+
+    def test_js_le_token_do_form_e_confere_resposta(self):
+        js = _WEBPUSH_JS.read_text(encoding='utf-8')
+        self.assertIn('input[name="csrfmiddlewaretoken"]', js)
+        self.assertIn('if (!resp.ok) throw', js)
+        # ja inscrito no navegador nao encerra sem re-registrar no servidor
+        self.assertNotIn('if (sub) return true', js)
+        self.assertIn('return registrar(sub)', js)
+
+    @override_settings(ADMIN_2FA_OBRIGATORIO=False)
+    @patch.dict(os.environ, {'WEBPUSH_VAPID_PUBLIC_KEY': 'chave-publica-teste'})
+    def test_token_da_pagina_do_portal_passa_no_csrf_do_subscribe(self):
+        from aranha_estetica.models import AssinaturaPush, Profissional, Usuario
+        prof = Profissional.objects.create(nome='Dra. Push', ativo=True)
+        user = Usuario.objects.create_user(
+            email='push@test.com', password='SenhaForte#2026', nome='Dra. Push',
+            papel=Usuario.PAPEL_PROFISSIONAL, profissional=prof,
+        )
+        c = Client(enforce_csrf_checks=True)
+        c.force_login(user)
+        html = c.get(reverse('aranha:profissional_agenda')).content.decode()
+        self.assertIn('id="webpushEnable"', html)
+        self.assertIn('js/webpush.js', html)
+        m = re.search(r'name="csrf-token" content="([^"]+)"', html) or             re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', html)
+        self.assertIsNotNone(m, 'pagina sem token CSRF legivel pelo webpush.js')
+
+        corpo = json.dumps({'endpoint': 'https://push.example.com/abc',
+                            'keys': {'p256dh': 'p' * 20, 'auth': 'a' * 10}})
+        sem_token = c.post(reverse('aranha:webpush_subscribe'), corpo,
+                           content_type='application/json', HTTP_X_CSRFTOKEN='')
+        self.assertEqual(sem_token.status_code, 403)
+        resp = c.post(reverse('aranha:webpush_subscribe'), corpo,
+                      content_type='application/json', HTTP_X_CSRFTOKEN=m.group(1))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(AssinaturaPush.objects.filter(user=user).count(), 1)

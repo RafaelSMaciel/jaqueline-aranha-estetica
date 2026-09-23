@@ -13,6 +13,7 @@ from django.contrib import messages
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
 from ..models import RespostaAnamnese
@@ -102,6 +103,7 @@ def _gravar_resposta(request, resposta: RespostaAnamnese):
     return redirect('aranha:anamnese_obrigado')
 
 
+@never_cache  # ficha de saude (art. 11): nada em cache/bfcache (tablet da recepcao)
 @require_http_methods(['GET', 'POST'])
 def anamnese_publica(request, token: str):
     """Form anamnese pre-atendimento (link via email/WhatsApp)."""
@@ -116,6 +118,7 @@ def anamnese_publica(request, token: str):
     return _renderizar(request, resposta)
 
 
+@never_cache
 @require_http_methods(['GET', 'POST'])
 def pesquisa_publica(request, token: str):
     """Form pesquisa pos-atendimento (link via WhatsApp 2h apos REALIZADO)."""

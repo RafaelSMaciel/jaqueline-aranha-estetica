@@ -20,11 +20,12 @@ from ..models import (
     Profissional,
     Promocao,
 )
+from ..services import otp as otp_service
 from ..utils import datas
 from ..utils.branding import get_branding
 from ..utils.email import email_configurado
 from ..utils.pii import mask_email
-from ..utils.precos import aplicar_promocao, preco_base_map, promocao_vigente
+from ..utils.precos import _promocao_aplicavel, aplicar_promocao, preco_base_map, promocao_vigente
 from ..validators import normalizar_telefone, validate_telefone_br
 
 logger = logging.getLogger(__name__)
@@ -264,14 +265,29 @@ def agenda_contato(request):
 
 # ─── Promocoes / precos de vitrine ───
 
-def _preco_final(promo, valor_cheio):
-    """Valor a pagar com a promo — mesma conta do agendamento (utils.precos.aplicar_promocao)."""
-    if valor_cheio is not None:
-        final = aplicar_promocao(valor_cheio, promo)
-        return float(final) if final is not None else None
-    if promo.preco_promocional is not None:
-        return float(promo.preco_promocional)
-    return None
+def _promocao_do_agendamento(procedimento, dia, valor_cheio):
+    """Promocao que o agendamento aplicaria no dia sobre esse valor.
+
+    Mesma chamada de utils.precos.preco_com_promocao (valor_base = preco cobrado):
+    o % incide sobre o preco do profissional quando o procedimento nao tem base.
+    """
+    return promocao_vigente(procedimento, dia, valor_base=valor_cheio)
+
+
+def _preco_final(promo, valor_cheio, dia):
+    """Valor a pagar com a promo — so quando e a promo que o agendamento aplica.
+
+    Promo geral nao tem preco unico (vale p/ o catalogo): sem 'por R$'. Promo de
+    procedimento so mostra preco se promocao_vigente (a mesma do booking) a
+    escolhe sobre esse valor — senao a vitrine anunciaria um valor que o
+    Atendimento nao grava (CDC art. 30/35).
+    """
+    if promo.procedimento_id is None or valor_cheio is None:
+        return None
+    if _promocao_do_agendamento(promo.procedimento, dia, valor_cheio) != promo:
+        return None
+    final = aplicar_promocao(valor_cheio, promo)
+    return float(final) if final is not None else None
 
 
 def _precos_vitrine(procedimentos) -> dict:
@@ -296,7 +312,7 @@ def _precos_vitrine(procedimentos) -> dict:
         cheio = cheios.get(proc.pk)
         if cheio is None:
             continue
-        promo = promocao_vigente(proc, hoje) if (ha_geral or proc.pk in com_promo) else None
+        promo = _promocao_do_agendamento(proc, hoje, cheio) if (ha_geral or proc.pk in com_promo) else None
         out[proc.pk] = (aplicar_promocao(cheio, promo), promo, cheio)
     return out
 
@@ -311,14 +327,21 @@ def promocoes(request):
             data_inicio__lte=hoje,
             data_fim__gte=hoje
         ).select_related('procedimento').order_by('-data_inicio'))
+        # So o que o agendamento honra: promo geral de preco fixo e ignorada no booking.
+        promos = [p for p in promos if _promocao_aplicavel(p)]
 
         # Enriquecer com preço original/final — preços resolvidos em lote (1 query)
         proc_ids = [promo.procedimento_id for promo in promos if promo.procedimento_id]
         precos = preco_base_map(proc_ids)
+        visiveis = []
         for promo in promos:
             valor = precos.get(promo.procedimento_id) if promo.procedimento_id else None
+            if promo.procedimento_id and _promocao_do_agendamento(promo.procedimento, hoje, valor) is None:
+                continue  # o agendamento nao aplicaria desconto nenhum: nao anunciar
             promo.preco_original = float(valor) if valor is not None else None
-            promo.preco_final = _preco_final(promo, valor)
+            promo.preco_final = _preco_final(promo, valor, hoje)
+            visiveis.append(promo)
+        promos = visiveis
     except (OperationalError, ProgrammingError):
         logger.warning('Tabela de promoções não encontrada — exibindo página sem promoções.')
 
@@ -384,7 +407,7 @@ def especialidades(request):
 def _nome_publico(nome: str) -> str:
     """'Maria da Silva' -> 'Maria S.' (depoimento publico: primeiro nome + inicial)."""
     partes = (nome or '').split()
-    if not partes:
+    if not partes or partes[0].startswith('['):  # pseudonimo '[ANONIMIZADO-n]'
         return 'Cliente'
     if len(partes) == 1:
         return partes[0]
@@ -400,6 +423,9 @@ def depoimentos(request):
             .filter(nota__gte=9, autoriza_publicacao=True, aprovado_publicacao=True)
             .filter(~Q(comentario__isnull=True))
             .exclude(comentario__exact='')
+            # Titular excluido/anonimizado (LGPD art. 18): depoimento sai do ar
+            .filter(atendimento__cliente__deletado_em__isnull=True)
+            .exclude(atendimento__cliente__nome__startswith='[ANONIMIZADO-')
             .select_related('atendimento__cliente')
             .order_by('-criado_em')[:30]
         )
@@ -443,9 +469,10 @@ def lista_espera_publica(request):
     """Formulario publico para cliente se inscrever na lista de espera.
 
     Form anonimo (sem OTP): NUNCA altera dados de um Cliente que ja existe —
-    so cria o cadastro quando o telefone e novo. O e-mail digitado vai na propria
-    inscricao (ListaEspera.email_contato) p/ o aviso de vaga chegar mesmo a quem
-    ja e cliente sem e-mail no cadastro.
+    so cria o cadastro (sem e-mail) quando o telefone e novo. O e-mail digitado
+    fica so na inscricao (ListaEspera.email_contato), e p/ telefone ja cadastrado
+    apenas se o celular foi confirmado por SMS nesta sessao — senao qualquer um
+    prenderia o proprio e-mail ao telefone de terceiros.
     """
     procedimentos = []
     profissionais = []
@@ -528,16 +555,22 @@ def lista_espera_publica(request):
     if turno and turno not in {k for k, _ in TURNOS}:
         turno = None
 
+    # Celular confirmado por SMS nesta sessao (wizard) = posse provada do telefone.
+    telefone_verificado = otp_service.telefone_verificado_agendamento(request) == telefone
+
     try:
         with transaction.atomic():
             cliente = Cliente.objects.filter(telefone=telefone).first()
-            if cliente is None:
-                # E-mail ja usado por outro cadastro: cria sem e-mail (UNIQUE parcial)
-                email_livre = not Cliente.objects.filter(email__iexact=email).exists()
-                cliente = Cliente.objects.create(
-                    nome=nome, telefone=telefone, ativo=True,
-                    email=email if email_livre else None,
-                )
+            cadastro_novo = cliente is None
+            if cadastro_novo:
+                # Form anonimo nao prova posse do e-mail: ele NUNCA entra no
+                # cadastro (confirmacoes/termos iriam p/ quem digitou). Fica so
+                # na inscricao, p/ o aviso desta vaga.
+                cliente = Cliente.objects.create(nome=nome, telefone=telefone, ativo=True)
+            # Telefone ja cadastrado e nao verificado: o e-mail digitado pode ser de
+            # terceiro (receberia nome da cliente + vaga). Aviso vai pelo contato
+            # do proprio cadastro (e-mail/WhatsApp) ou pela recepcao.
+            email_contato = email if (cadastro_novo or telefone_verificado) else None
 
             ja_inscrito = ListaEspera.objects.filter(
                 cliente=cliente,
@@ -553,7 +586,7 @@ def lista_espera_publica(request):
                     profissional_desejado=profissional,
                     data_desejada=data_obj,
                     turno_desejado=turno,
-                    email_contato=email,
+                    email_contato=email_contato,
                 )
     except IntegrityError:
         logger.warning('lista_espera_integridade', exc_info=True)
