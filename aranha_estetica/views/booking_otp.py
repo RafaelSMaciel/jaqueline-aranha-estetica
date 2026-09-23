@@ -91,6 +91,13 @@ def verificar_otp_agendamento(request):
             'telefone': cliente.telefone or '',
             'email': cliente.email or '',
             'data_nascimento': cliente.data_nascimento.isoformat() if cliente.data_nascimento else '',
+            # Estado atual dos opt-ins: o wizard mostra os checkboxes como estao
+            # (desmarcar = revogar), nunca "pre-marcados" nem zerados as cegas.
+            'consents': {
+                'consent_email_marketing': bool(cliente.consent_email_marketing),
+                'consent_whatsapp_confirmacao': bool(cliente.consent_whatsapp_confirmacao),
+                'consent_whatsapp_nps': bool(cliente.consent_whatsapp_nps),
+            },
         }
     return JsonResponse({'ok': True, 'prefill': prefill, 'aviso': aviso})
 

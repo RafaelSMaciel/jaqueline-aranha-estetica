@@ -56,6 +56,7 @@ class IntegrationBookingFlowTests(TestCase):
             'procedimento': self.proc.pk,
             'profissional': self.prof.pk,
             'datetime': _future_datetime_iso(),
+            'aceite_politica': 'on',
         }
         data.update(overrides)
         if with_otp:

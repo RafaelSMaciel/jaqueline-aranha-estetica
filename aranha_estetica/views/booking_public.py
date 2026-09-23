@@ -5,6 +5,11 @@ de TODO agendamento (cliente novo ou recorrente). O servidor revalida o slot
 (SlotService), procedimento/profissional ativos + habilitacao, regra de
 bloqueio online e anamnese obrigatoria. Slot lock via cache + SELECT FOR
 UPDATE + exclusion constraint (Postgres). E-mails best-effort (Celery).
+
+LGPD: aceite da Politica de Privacidade obrigatorio (grava AceiteTermo da
+versao LGPD vigente); ficha de anamnese (dado de saude, art. 11) so com
+consentimento especifico; termo(s) de procedimento aceitos no proprio wizard.
+Preco gravado = preco com promocao NA DATA DO ATENDIMENTO (utils.precos).
 """
 import json
 import logging
@@ -28,22 +33,24 @@ from ..models import (
     Cliente,
     Feriado,
     FormularioAnamnese,
-    Notificacao,
     Procedimento,
     Profissional,
+    Promocao,
     RespostaAnamnese,
     VersaoTermo,
 )
 from ..services import otp as otp_service
 from ..services.agendamento_service import formatar_brl, formatar_data_hora
+from ..services.anamnese import validar_respostas
 from ..services.disponibilidade import profissional_habilitado, slot_disponivel
+from ..utils.audit import registrar_log
 from ..utils.captcha import turnstile_enabled, turnstile_site_key
+from ..utils.datas import data_local
 from ..utils.datas import hoje as hoje_local
 from ..utils.pii import mask_email, mask_telefone
-from ..utils.precos import preco_base_map, preco_para
+from ..utils.precos import aplicar_promocao, preco_base_map, preco_com_promocao, promocao_vigente
 from ..utils.security import client_ip as _client_ip
 from ..utils.sms import sms_disponivel
-from ..utils.whatsapp import gerar_token
 from ..validators import validate_data_nascimento
 
 logger = logging.getLogger(__name__)
@@ -52,6 +59,22 @@ SESSAO_REHIDRATAR = 'booking_rehidratar'
 MSG_BLOQUEADO_ONLINE = (
     'Seu cadastro está com agendamento online suspenso. '
     'Fale conosco pelo WhatsApp para marcar seu horário.'
+)
+# Teto do JSON da anamnese (todos os formularios somados) — acima disso e abuso.
+MAX_ANAMNESE_BYTES = 20_000
+# Consentimento especifico p/ dado de saude (LGPD art. 11, I): o mesmo texto
+# aparece no wizard e vai p/ a auditoria junto com data e IP.
+TEXTO_CONSENTIMENTO_SAUDE = (
+    'Autorizo a clínica a usar as informações de saúde que informei neste '
+    'questionário (como alergias, gestação e medicamentos) somente para avaliar '
+    'a segurança do procedimento e cuidar do meu atendimento, conforme a '
+    'Política de Privacidade (LGPD, art. 11).'
+)
+# Consents de comunicacao (checkbox do wizard -> campos do Cliente).
+CONSENTS_COMUNICACAO = (
+    'consent_email_marketing',
+    'consent_whatsapp_confirmacao',
+    'consent_whatsapp_nps',
 )
 
 
@@ -64,6 +87,14 @@ def _voltar_com_erro(request, mensagem):
     messages.error(request, mensagem)
     request.session[SESSAO_REHIDRATAR] = True
     return redirect('aranha:agendamento_publico')
+
+
+def link_revisar_agenda(data_hora):
+    """Link (GET) p/ a agenda do portal no dia LOCAL do atendimento."""
+    return (
+        f"{settings.SITE_URL}{reverse('aranha:profissional_agenda')}"
+        f"?data={data_local(data_hora):%Y-%m-%d}"
+    )
 
 
 def _enfileirar_email(funcao, destinatario, dados):
@@ -100,9 +131,12 @@ def _resposta_preenchida(valor) -> bool:
 def _validar_anamnese(raw, procedimento):
     """Parse + validacao das respostas. Retorna (lista[(form, respostas)], erro|None).
 
-    Ignora formularios fora do conjunto aplicavel; exige os obrigatorios e os
-    campos obrigatorios deles.
+    Ignora formularios fora do conjunto aplicavel; valida o conteudo contra o
+    schema (services.anamnese.validar_respostas: so chaves do schema, tipo,
+    opcoes, tamanho, bool normalizado) e exige os obrigatorios.
     """
+    if len(raw) > MAX_ANAMNESE_BYTES:
+        return [], 'As respostas do questionário ficaram longas demais. Resuma e tente novamente.'
     try:
         dados = json.loads(raw) if raw else {}
     except (TypeError, ValueError):
@@ -113,25 +147,56 @@ def _validar_anamnese(raw, procedimento):
 
     salvar = []
     for form in _formularios_aplicaveis(procedimento):
-        respostas = dados.get(str(form.pk))
-        if not isinstance(respostas, dict):
-            respostas = {}
+        brutas = dados.get(str(form.pk))
+        if not isinstance(brutas, dict):
+            brutas = {}
         schema = form.schema_json if isinstance(form.schema_json, list) else []
         chaves = {c.get('key') for c in schema if isinstance(c, dict)}
-        respostas = {k: v for k, v in respostas.items() if k in chaves}
-        preenchido = any(_resposta_preenchida(v) for v in respostas.values())
-        if form.obrigatorio or preenchido:
-            faltando = [
-                c.get('label') or c.get('key')
-                for c in schema
-                if isinstance(c, dict) and c.get('obrigatorio')
-                and not _resposta_preenchida(respostas.get(c.get('key')))
-            ]
-            if faltando:
-                return [], f'Responda o questionário "{form.nome}": {", ".join(faltando)}.'
-        if preenchido:
+        preenchido = any(_resposta_preenchida(v) for k, v in brutas.items() if k in chaves)
+        if not (form.obrigatorio or preenchido):
+            continue
+        respostas, erros = validar_respostas(schema, brutas)
+        if erros:
+            return [], f'Questionário "{form.nome}": {" ".join(erros[:3])}'
+        if respostas:
             salvar.append((form, respostas))
     return salvar, None
+
+
+def _termos_procedimento(procedimento):
+    """Termos de procedimento ativos que valem p/ o procedimento (proprio + geral)."""
+    return list(
+        VersaoTermo.objects.filter(
+            Q(procedimento=procedimento) | Q(procedimento__isnull=True),
+            tipo='PROCEDIMENTO', ativa=True,
+        ).order_by('pk')
+    )
+
+
+def _precos_card(procedimentos):
+    """{pk: (valor_final_hoje, promocao|None, valor_cheio)} p/ o 'A partir de' do card.
+
+    Mesma conta do agendamento (utils.precos): promocao vigente HOJE sobre o
+    preco base. O valor gravado usa a data do atendimento e o profissional.
+    """
+    cheios = preco_base_map(procedimentos)
+    hoje = hoje_local()
+    vigentes = Promocao.objects.filter(ativa=True, data_inicio__lte=hoje, data_fim__gte=hoje)
+    ha_geral = vigentes.filter(procedimento__isnull=True).exists()
+    com_promo = set(
+        vigentes.filter(procedimento__in=procedimentos).values_list('procedimento_id', flat=True)
+    )
+    out = {}
+    for proc in procedimentos:
+        cheio = cheios.get(proc.pk)
+        if cheio is None:
+            continue
+        promo = promocao_vigente(proc, hoje) if (ha_geral or proc.pk in com_promo) else None
+        final = aplicar_promocao(cheio, promo)
+        if promo is not None and final >= cheio:
+            promo, final = None, cheio
+        out[proc.pk] = (final, promo, cheio)
+    return out
 
 
 @ratelimit(key='ip', rate='300/h', method='GET', block=True)
@@ -140,15 +205,20 @@ def agendamento_publico(request):
     procedimentos_com_preco = []
     try:
         procedimentos = list(Procedimento.objects.filter(ativo=True))
-        precos = preco_base_map(procedimentos)
+        precos = _precos_card(procedimentos)
         for proc in procedimentos:
-            valor = precos.get(proc.pk)
+            final, promo, cheio = precos.get(proc.pk, (None, None, None))
             procedimentos_com_preco.append({
                 'id': proc.pk,
                 'nome': proc.nome,
                 'descricao': proc.descricao or '',
                 'duracao_minutos': proc.duracao_minutos,
-                'preco': float(valor) if valor is not None else 0,
+                'preco': float(final) if final is not None else 0,
+                # cheio sem promo: fallback do resumo (o valor real vem por data/profissional)
+                'preco_base': float(cheio) if cheio is not None else 0,
+                'preco_cheio': float(cheio) if promo is not None else None,
+                'promocao': promo.nome if promo is not None else '',
+                'promocao_ate': promo.data_fim if promo is not None else None,
                 'categoria': proc.categoria,
                 'categoria_label': proc.get_categoria_display(),
             })
@@ -189,10 +259,30 @@ def agendamento_publico(request):
     except (OperationalError, ProgrammingError):
         pass
 
+    termo_lgpd = None
+    termos_procedimento = []
+    try:
+        termo_lgpd = VersaoTermo.lgpd_vigente()
+        termos_procedimento = [
+            {
+                'id': t.pk,
+                'titulo': t.titulo,
+                'versao': t.versao,
+                'conteudo': t.conteudo,
+                'procedimento_id': t.procedimento_id,
+            }
+            for t in VersaoTermo.objects.filter(tipo='PROCEDIMENTO', ativa=True).order_by('pk')
+        ]
+    except (OperationalError, ProgrammingError):
+        pass
+
     context = {
         'procedimentos': procedimentos_com_preco,
         'categorias_disponiveis': categorias_disponiveis,
         'formularios_anamnese_data': formularios_anamnese,
+        'termo_lgpd': termo_lgpd,
+        'termos_procedimento_data': termos_procedimento,
+        'texto_consentimento_saude': TEXTO_CONSENTIMENTO_SAUDE,
         'proc_preselect': proc_preselect,
         'prof_preselect': prof_preselect,
         # Telefone ja verificado nesta sessao (reidratar sem exigir novo SMS)
@@ -224,12 +314,20 @@ def confirmar_agendamento(request):
     procedimento_id = str(request.POST.get('procedimento') or '').strip()
     profissional_id = str(request.POST.get('profissional') or '').strip()
     datetime_str = (request.POST.get('datetime') or '').strip()
-    consent_email_marketing = request.POST.get('consent_email_marketing') == 'on'
-    consent_whatsapp_nps = request.POST.get('consent_whatsapp_nps') == 'on'
-    consent_whatsapp_confirmacao = request.POST.get('consent_whatsapp_confirmacao') == 'on'
+    consents = {campo: request.POST.get(campo) == 'on' for campo in CONSENTS_COMUNICACAO}
+    # '1' = os checkboxes mostravam o estado atual do cadastro (prefill do OTP):
+    # so entao desmarcar revoga. Sem isso o POST so concede (nunca revoga as cegas).
+    consents_sincronizados = request.POST.get('consents_sincronizados') == '1'
+    aceite_politica = request.POST.get('aceite_politica') == 'on'
+    consent_dados_saude = request.POST.get('consent_dados_saude') == 'on'
 
     if not all([nome, telefone_raw, data_nascimento_str, procedimento_id, profissional_id, datetime_str]):
         return _voltar_com_erro(request, 'Preencha todos os campos obrigatórios.')
+
+    if not aceite_politica:
+        return _voltar_com_erro(
+            request, 'Para agendar, confirme que leu e aceita a Política de Privacidade.'
+        )
 
     telefone = otp_service.normalizar_telefone_br(telefone_raw)
     if not telefone:
@@ -292,6 +390,32 @@ def confirmar_agendamento(request):
     )
     if erro_anamnese:
         return _voltar_com_erro(request, erro_anamnese)
+    if anamneses and not consent_dados_saude:
+        # Dado de saude (LGPD art. 11): nada e gravado sem o consentimento destacado.
+        return _voltar_com_erro(
+            request,
+            'Para enviar o questionário pré-atendimento, marque a autorização de uso '
+            'das suas informações de saúde.',
+        )
+
+    # Termo(s) de procedimento: aceite no proprio wizard (o link por e-mail nao
+    # chegava a quem nao informa e-mail). Versao ja aceita antes nao e exigida.
+    termos_proc = _termos_procedimento(procedimento)
+    ja_aceitos = set(
+        AceiteTermo.objects.filter(
+            cliente__telefone=telefone, versao_termo__in=termos_proc,
+        ).values_list('versao_termo_id', flat=True)
+    ) if termos_proc else set()
+    termo_faltando = next(
+        (t for t in termos_proc
+         if t.pk not in ja_aceitos and request.POST.get(f'aceite_termo_{t.pk}') != 'on'),
+        None,
+    )
+    if termo_faltando is not None:
+        return _voltar_com_erro(
+            request,
+            f'Leia e aceite o termo "{termo_faltando.titulo}" para concluir o agendamento.',
+        )
 
     # E-mail de outro cadastro nao e reaproveitado (evita sequestro + IntegrityError)
     if email and Cliente.objects.filter(email__iexact=email).exclude(telefone=telefone).exists():
@@ -317,24 +441,13 @@ def confirmar_agendamento(request):
                 'email': email,
                 'ativo': True,
             }
-            if consent_email_marketing:
-                defaults.update({
-                    'consent_email_marketing': True,
-                    'consent_email_marketing_em': agora,
-                    'consent_email_marketing_ip': ip_origem,
-                })
-            if consent_whatsapp_nps:
-                defaults.update({
-                    'consent_whatsapp_nps': True,
-                    'consent_whatsapp_nps_em': agora,
-                    'consent_whatsapp_nps_ip': ip_origem,
-                })
-            if consent_whatsapp_confirmacao:
-                defaults.update({
-                    'consent_whatsapp_confirmacao': True,
-                    'consent_whatsapp_confirmacao_em': agora,
-                    'consent_whatsapp_confirmacao_ip': ip_origem,
-                })
+            for campo, marcado in consents.items():
+                if marcado:
+                    defaults.update({
+                        campo: True,
+                        f'{campo}_em': agora,
+                        f'{campo}_ip': ip_origem,
+                    })
 
             cliente, created = Cliente.objects.select_for_update().get_or_create(
                 telefone=telefone,
@@ -354,21 +467,14 @@ def confirmar_agendamento(request):
                 if not cliente.email and email:
                     cliente.email = email
                     atualizar = True
-                if consent_email_marketing and not cliente.consent_email_marketing:
-                    cliente.consent_email_marketing = True
-                    cliente.consent_email_marketing_em = agora
-                    cliente.consent_email_marketing_ip = ip_origem
-                    atualizar = True
-                if consent_whatsapp_nps and not cliente.consent_whatsapp_nps:
-                    cliente.consent_whatsapp_nps = True
-                    cliente.consent_whatsapp_nps_em = agora
-                    cliente.consent_whatsapp_nps_ip = ip_origem
-                    atualizar = True
-                if consent_whatsapp_confirmacao and not cliente.consent_whatsapp_confirmacao:
-                    cliente.consent_whatsapp_confirmacao = True
-                    cliente.consent_whatsapp_confirmacao_em = agora
-                    cliente.consent_whatsapp_confirmacao_ip = ip_origem
-                    atualizar = True
+                for campo, marcado in consents.items():
+                    # Concede ao marcar; revoga ao desmarcar SO se o checkbox
+                    # mostrava o estado do cadastro (data/IP = os da revogacao).
+                    if marcado != getattr(cliente, campo) and (marcado or consents_sincronizados):
+                        setattr(cliente, campo, marcado)
+                        setattr(cliente, f'{campo}_em', agora)
+                        setattr(cliente, f'{campo}_ip', ip_origem)
+                        atualizar = True
                 if atualizar:
                     cliente.save()
 
@@ -381,8 +487,9 @@ def confirmar_agendamento(request):
             if conflito:
                 raise _Recusa('Este horário já foi reservado. Por favor, escolha outro.')
 
-            preco_obj = preco_para(procedimento, profissional)
-            valor = preco_obj.valor if preco_obj else None
+            # Preco da DATA DO ATENDIMENTO (profissional > base) com a promocao
+            # vigente nesse dia — o mesmo valor do resumo do wizard.
+            valor, promocao, valor_cheio = preco_com_promocao(procedimento, profissional, data_hora)
 
             atendimento = Atendimento.objects.create(
                 cliente=cliente,
@@ -391,39 +498,37 @@ def confirmar_agendamento(request):
                 data_hora_inicio=data_hora,
                 data_hora_fim=data_hora_fim,
                 valor_cobrado=valor,
+                valor_original=valor_cheio if promocao else None,
+                promocao=promocao,
+                descricao_preco=f'Promoção {promocao.nome}' if promocao else None,
                 status=Atendimento.STATUS_PENDENTE,
             )
+
+            # Aceites com prova (IP, user-agent, SHA-256 do texto): Politica de
+            # Privacidade (versao LGPD vigente) + termo(s) do procedimento.
+            AceiteTermo.registrar(cliente, VersaoTermo.lgpd_vigente(), request, atendimento)
+            for termo in termos_proc:
+                if request.POST.get(f'aceite_termo_{termo.pk}') == 'on':
+                    AceiteTermo.registrar(cliente, termo, request, atendimento)
 
             for form, respostas in anamneses:
                 RespostaAnamnese.objects.create(
                     formulario=form, cliente=cliente,
                     atendimento=atendimento, respostas_json=respostas,
+                    respondida_em=agora,
                 )
-
-            termos_pendentes = VersaoTermo.objects.filter(
-                Q(tipo='LGPD') | Q(procedimento=procedimento),
-                ativa=True,
-            )
-            assinados_ids = set(
-                AceiteTermo.objects.filter(cliente=cliente).values_list('versao_termo_id', flat=True)
-            )
-            tem_pendente = any(t.pk not in assinados_ids for t in termos_pendentes)
-            dados_termo = None
+            if anamneses:
+                registrar_log(
+                    None, 'Consentimento de dados de saude (LGPD art. 11) no agendamento',
+                    'atendimento', atendimento.pk,
+                    detalhes={
+                        'cliente_id': cliente.pk,
+                        'formularios': [form.pk for form, _respostas in anamneses],
+                        'texto': TEXTO_CONSENTIMENTO_SAUDE,
+                    },
+                    request=request,
+                )
             email_cliente = cliente.email
-            if tem_pendente and email_cliente:
-                # Token de termo: canal EMAIL — nao vale em /confirmar/<token>/.
-                token_termo = gerar_token()
-                Notificacao.objects.create(
-                    atendimento=atendimento,
-                    tipo='LEMBRETE',
-                    canal='EMAIL',
-                    status='PENDENTE',
-                    token=token_termo,
-                )
-                dados_termo = {
-                    'nome': nome,
-                    'link_termo': f"{settings.SITE_URL}{reverse('aranha:termo_assinatura', args=[token_termo])}",
-                }
     except _Recusa as recusa:
         return _voltar_com_erro(request, str(recusa))
     except IntegrityError as exc:
@@ -458,26 +563,17 @@ def confirmar_agendamento(request):
 
     data_formatada = formatar_data_hora(data_hora)
 
-    if dados_termo:
-        _enfileirar_email('enviar_termos_pendentes_email', email_cliente, dados_termo)
-
     usuario_prof = getattr(profissional, 'usuario', None)
     prof_email = getattr(usuario_prof, 'email', None)
     if prof_email:
         # Aprovar/rejeitar e POST dentro do portal: o e-mail so leva ate a agenda
-        # do dia (GET). link_aprovar/link_rejeitar = mesmo destino (compat template).
-        link_revisar = (
-            f"{settings.SITE_URL}{reverse('aranha:profissional_agenda')}"
-            f"?data={data_hora.strftime('%Y-%m-%d')}"
-        )
+        # do dia (GET).
         _enfileirar_email('enviar_aprovacao_profissional_email', prof_email, {
             'profissional': profissional.nome,
             'cliente': nome,
             'procedimento': procedimento.nome,
             'data_hora': data_formatada,
-            'link_revisar': link_revisar,
-            'link_aprovar': link_revisar,
-            'link_rejeitar': link_revisar,
+            'link_revisar': link_revisar_agenda(data_hora),
         })
 
     request.session['agendamento_sucesso'] = {
@@ -485,7 +581,10 @@ def confirmar_agendamento(request):
         'procedimento': procedimento.nome,
         'profissional': profissional.nome,
         'data_hora': data_formatada,
-        'valor': formatar_brl(valor) if valor else 'A consultar',
+        'valor': formatar_brl(valor) if valor is not None else 'A consultar',
+        # cheio riscado + nome da promo quando a promocao reduziu o valor
+        'valor_cheio': formatar_brl(valor_cheio) if promocao else '',
+        'promocao': promocao.nome if promocao else '',
         'pendente': True,
         'email': bool(email_cliente),
     }

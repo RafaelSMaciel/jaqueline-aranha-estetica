@@ -67,10 +67,17 @@ class ConfirmarPresencaLinkTests(TestCase):
         at.refresh_from_db()
         self.assertEqual(at.status, 'CANCELADO')
 
+    def test_resposta_pelo_link_audita_ip(self):
+        from aranha_estetica.models import LogAuditoria
+        at = _atendimento(self.cli, self.prof, self.proc, _local(2, 13))
+        self._post(_notif(at), 'confirmar')
+        log = LogAuditoria.objects.get(tabela='atendimento', registro_id=at.pk, acao__contains='link')
+        self.assertEqual(log.ip_origem, '127.0.0.1')
+
     def test_token_de_nps_e_de_termo_nao_valem(self):
         at = _atendimento(self.cli, self.prof, self.proc, _local(2, 12))
         nps = _notif(at, tipo='NPS')
-        termo = _notif(at, tipo='LEMBRETE', canal='EMAIL')
+        termo = _notif(at, tipo='TERMO', canal='EMAIL')
         self.assertEqual(self._post(nps, 'cancelar').status_code, 404)
         self.assertEqual(self._post(termo, 'confirmar').status_code, 404)
         at.refresh_from_db()
@@ -207,6 +214,68 @@ class ReagendarTests(TestCase):
         at = _atendimento(self.cli, self.prof, self.proc, _local(3, 10))
         resp = self.client.get(reverse('aranha:reagendar_agendamento', args=[at.token_cancelamento]))
         self.assertEqual(resp.context['data_min'], (timezone.localdate() + timedelta(days=1)).isoformat())
+
+    def _retorno_agendado(self):
+        self.proc.exige_retorno = True
+        self.proc.retorno_minimo_dias = 1
+        self.proc.retorno_maximo_dias = 5
+        self.proc.duracao_retorno_minutos = 15
+        self.proc.save()
+        origem = _atendimento(self.cli, self.prof, self.proc, _local(-10, 10), status='REALIZADO')
+        inicio = _local(3, 10)
+        return Atendimento.objects.create(
+            cliente=self.cli, profissional=self.prof, procedimento=self.proc,
+            data_hora_inicio=inicio, data_hora_fim=inicio + timedelta(minutes=15),
+            status='AGENDADO', valor_cobrado=Decimal('0'), valor_original=Decimal('0'),
+            descricao_preco='Retorno obrigatorio (sem cobranca)',
+            eh_retorno=True, atendimento_origem=origem,
+        )
+
+    def test_reagendar_retorno_mantem_vinculo_e_nao_gera_retorno_em_cadeia(self):
+        retorno = self._retorno_agendado()
+        resp = self._post(retorno, datetime=_local(4, 11).isoformat())
+        self.assertIn('sucesso', resp.url)
+        novo = Atendimento.objects.get(reagendado_de=retorno)
+        self.assertTrue(novo.eh_retorno)
+        self.assertEqual(novo.atendimento_origem, retorno.atendimento_origem)
+        self.assertEqual(novo.valor_cobrado, Decimal('0'))
+        # retorno ocupa a duracao de retorno, nao a do procedimento
+        self.assertEqual(novo.data_hora_fim - novo.data_hora_inicio, timedelta(minutes=15))
+        self.assertEqual(self.client.session['agendamento_sucesso']['valor'], 'Sem custo (retorno)')
+
+        novo.marcar_realizado()
+        self.assertFalse(Atendimento.objects.filter(atendimento_origem=novo).exists())
+
+    def test_reagendar_leva_a_ficha_de_anamnese(self):
+        from aranha_estetica.models import FormularioAnamnese, RespostaAnamnese
+        at = _atendimento(self.cli, self.prof, self.proc, _local(3, 10))
+        form = FormularioAnamnese.objects.create(
+            nome='Ficha', tipo='ANAMNESE', schema_json=[{'key': 'alergias', 'tipo': 'text', 'label': 'Alergias'}],
+        )
+        ficha = RespostaAnamnese.objects.create(
+            formulario=form, cliente=self.cli, atendimento=at,
+            respostas_json={'alergias': 'Lidocaina'}, respondida_em=timezone.now(),
+        )
+        self._post(at, datetime=_local(4, 11).isoformat())
+        novo = Atendimento.objects.get(reagendado_de=at)
+        ficha.refresh_from_db()
+        self.assertEqual(ficha.atendimento, novo)
+
+    def test_reagendar_com_promocao_mostra_cheio_e_nome(self):
+        from aranha_estetica.models import Promocao
+        promo = Promocao.objects.create(
+            procedimento=self.proc, nome='Glow', desconto_percentual=Decimal('20'),
+            data_inicio=timezone.localdate(), data_fim=timezone.localdate() + timedelta(days=30),
+        )
+        at = _atendimento(self.cli, self.prof, self.proc, _local(3, 10))
+        Atendimento.objects.filter(pk=at.pk).update(
+            promocao=promo, valor_original=Decimal('150.00'), valor_cobrado=Decimal('120.00'),
+        )
+        self._post(at, datetime=_local(4, 11).isoformat())
+        dados = self.client.session['agendamento_sucesso']
+        self.assertEqual(dados['valor'], 'R$ 120,00')
+        self.assertEqual(dados['valor_cheio'], 'R$ 150,00')
+        self.assertEqual(dados['promocao'], 'Glow')
 
 
 @override_settings(RATELIMIT_ENABLE=False)
@@ -361,3 +430,24 @@ class PainelNotificacoesTests(TestCase):
         self.assertEqual(ctx['tipos'], Notificacao.TIPO_CHOICES)
         # nunca enviada (enviado_em NULL) no fim da lista
         self.assertIsNone(list(ctx['notificacoes'])[-1].enviado_em)
+
+    def test_sem_resposta_conta_so_link_de_confirmacao_enviado(self):
+        from django.http import HttpResponse
+        from django.test import RequestFactory
+
+        from aranha_estetica.views import notificacoes
+
+        prof = criar_profissional()
+        proc = criar_procedimento(profissional=prof)
+        at = _atendimento(criar_cliente(), prof, proc, _local(2, 10))
+        _notif(at)  # lembrete WhatsApp enviado, sem resposta -> conta
+        _notif(at, tipo='TERMO', canal='EMAIL')
+        _notif(at, tipo='NPS')
+        Notificacao.objects.create(atendimento=at, tipo='LEMBRETE', canal='WHATSAPP', status='FALHOU')
+
+        request = RequestFactory().get('/painel/notificacoes/', {'status': 'pendente'})
+        with patch('aranha_estetica.views.notificacoes.render', return_value=HttpResponse('ok')) as render:
+            notificacoes.painel_notificacoes.__wrapped__(request)
+        ctx = render.call_args.args[2]
+        self.assertEqual(ctx['sem_resposta'], 1)
+        self.assertEqual(len(list(ctx['notificacoes'])), 1)

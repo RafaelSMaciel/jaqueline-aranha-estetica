@@ -11,7 +11,6 @@ from datetime import date, datetime, time, timedelta
 from django.db import DatabaseError, transaction
 from django.http import JsonResponse
 from django.utils import timezone
-from django.views.decorators.http import require_GET
 from django_ratelimit.decorators import ratelimit
 
 from ..models import (
@@ -20,9 +19,9 @@ from ..models import (
     ExcecaoDisponibilidade,
     Feriado,
     Procedimento,
-    Profissional,
 )
 from ..services.disponibilidade import SlotService, profissionais_para
+from ..utils.precos import preco_com_promocao
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +37,16 @@ def _procedimento_ativo(procedimento_id):
         return Procedimento.objects.get(pk=int(procedimento_id), ativo=True), None
     except Procedimento.DoesNotExist:
         return None, JsonResponse({'error': 'Procedimento não encontrado'}, status=404)
+
+
+def _preco_json(procedimento, profissional, dia):
+    """{'valor', 'valor_cheio', 'promocao'} (strings decimais; None = a consultar)."""
+    valor, promocao, cheio = preco_com_promocao(procedimento, profissional, dia)
+    return {
+        'valor': str(valor) if valor is not None else None,
+        'valor_cheio': str(cheio) if promocao is not None else None,
+        'promocao': promocao.nome if promocao is not None else '',
+    }
 
 
 def _profissionais(request, procedimento):
@@ -76,7 +85,13 @@ def api_horarios_disponiveis(request):
 
     agrupados = {}
     for prof in _profissionais(request, procedimento):
-        for hhmm in SlotService.slots_livres(prof, data_selecionada, procedimento):
+        slots = SlotService.slots_livres(prof, data_selecionada, procedimento)
+        if not slots:
+            continue
+        # Preco NA DATA do atendimento p/ este profissional (promocao inclusa):
+        # o resumo do wizard mostra exatamente o valor que o booking grava.
+        info = {'id': prof.pk, 'nome': prof.nome, **_preco_json(procedimento, prof, data_selecionada)}
+        for hhmm in slots:
             if hhmm not in agrupados:
                 inicio = timezone.make_aware(
                     datetime.combine(data_selecionada, time.fromisoformat(hhmm))
@@ -86,7 +101,7 @@ def api_horarios_disponiveis(request):
                     'datetime_iso': inicio.isoformat(),
                     'profissionais': [],
                 }
-            agrupados[hhmm]['profissionais'].append({'id': prof.pk, 'nome': prof.nome})
+            agrupados[hhmm]['profissionais'].append(info)
 
     return JsonResponse({
         'data': data_str,
@@ -206,27 +221,3 @@ def cancelar_agendamento(request):
         'mensagem': f'Agendamento de {procedimento_nome} cancelado com sucesso.',
     })
 
-
-@require_GET
-@ratelimit(key='ip', rate='30/m', method='GET', block=True)
-def buscar_horarios(request):
-    """Retorna horarios disponiveis para um profissional em uma data (SlotService)."""
-    prof_id = str(request.GET.get('profissional_id') or '').strip()
-    data_str = request.GET.get('data')
-    if not prof_id or not data_str:
-        return JsonResponse({'error': 'Parâmetros obrigatórios: profissional_id, data'}, status=400)
-    if not prof_id.isdigit():
-        return JsonResponse({'error': 'Parâmetro inválido'}, status=400)
-
-    try:
-        data = datetime.strptime(data_str, '%Y-%m-%d').date()
-    except ValueError:
-        return JsonResponse({'error': 'Data inválida. Use YYYY-MM-DD.'}, status=400)
-
-    try:
-        profissional = Profissional.objects.get(pk=int(prof_id), ativo=True)
-    except Profissional.DoesNotExist:
-        return JsonResponse({'error': 'Profissional não encontrado'}, status=404)
-
-    horarios = profissional.get_horarios_disponiveis(data)
-    return JsonResponse({'horarios': horarios})

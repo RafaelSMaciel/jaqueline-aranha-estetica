@@ -36,12 +36,23 @@ def formatar_data_hora(dt) -> str:
     return fmt_local(dt, FORMATO_DATA_HORA)
 
 
+def formatar_valor_atendimento(atendimento) -> str:
+    """Valor p/ o cliente: retorno gratuito nao vira 'A consultar' (R$ 0)."""
+    if atendimento.eh_retorno:
+        return 'Sem custo (retorno)'
+    if atendimento.valor_cobrado is None:
+        return 'A consultar'
+    return formatar_brl(atendimento.valor_cobrado)
+
+
 class AgendamentoService:
     """Transicoes de agendamento feitas pela recepcao (painel)."""
 
     @transaction.atomic
-    def aprovar(self, atendimento: Atendimento, by_user=None) -> bool:
+    def aprovar(self, atendimento: Atendimento, by_user=None, request=None) -> bool:
         """Aprova atendimento PENDENTE -> AGENDADO + dispara email confirmacao.
+
+        request (opcional) vai p/ a auditoria (IP de origem).
 
         Returns:
             True se transitou. False se ja estava em outro estado (no-op).
@@ -50,16 +61,15 @@ class AgendamentoService:
             return False
 
         atendimento.aprovar(by_user=by_user)
-        registrar_log(by_user, 'Aprovou agendamento', 'atendimento', atendimento.pk)
+        registrar_log(by_user, 'Aprovou agendamento', 'atendimento', atendimento.pk, request=request)
 
         if atendimento.cliente.email:
-            valor = atendimento.valor_cobrado
             dados = {
                 'nome': atendimento.cliente.nome,
                 'procedimento': atendimento.procedimento.nome,
                 'profissional': atendimento.profissional.nome,
                 'data_hora': formatar_data_hora(atendimento.data_hora_inicio),
-                'valor': formatar_brl(valor) if valor else 'A consultar',
+                'valor': formatar_valor_atendimento(atendimento),
             }
             email = atendimento.cliente.email
             transaction.on_commit(
@@ -68,8 +78,10 @@ class AgendamentoService:
         return True
 
     @transaction.atomic
-    def rejeitar(self, atendimento: Atendimento, motivo: str = '', by_user=None) -> bool:
+    def rejeitar(self, atendimento: Atendimento, motivo: str = '', by_user=None, request=None) -> bool:
         """Rejeita atendimento PENDENTE -> CANCELADO.
+
+        request (opcional) vai p/ a auditoria (IP de origem).
 
         Returns:
             True se transitou. False se ja estava em outro estado.
@@ -77,7 +89,7 @@ class AgendamentoService:
         if atendimento.status != Atendimento.STATUS_PENDENTE:
             return False
         atendimento.cancelar(motivo=motivo or 'rejeitado pela recepcao', by_user=by_user)
-        registrar_log(by_user, 'Rejeitou agendamento', 'atendimento', atendimento.pk)
+        registrar_log(by_user, 'Rejeitou agendamento', 'atendimento', atendimento.pk, request=request)
 
         if atendimento.cliente.email:
             dados = {
