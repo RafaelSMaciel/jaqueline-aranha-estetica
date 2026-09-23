@@ -4,7 +4,6 @@ Os bugs principais (estado em sessionStorage, re-hidratacao) sao client-side e
 foram verificados no browser. Estes testes travam o que e' testavel no server:
 a11y de teclado (cards = <button>) e a remocao do Bootstrap (re-skin base_v2).
 """
-import re
 
 from django.test import TestCase
 from django.urls import reverse

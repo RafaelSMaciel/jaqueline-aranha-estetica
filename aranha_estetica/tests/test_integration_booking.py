@@ -15,16 +15,14 @@ from .factories import (
     criar_procedimento,
     criar_profissional,
 )
+from .test_confirmar_agendamento import slot_local, verificar_sessao
 
 CONFIRMAR_URL = 'aranha:confirmar_agendamento'
 
 
 def _future_datetime_iso(days=2, hour=10):
-    """Return ISO string for a future datetime (days from now, at given hour)."""
-    dt = (timezone.now() + timedelta(days=days)).replace(
-        hour=hour, minute=0, second=0, microsecond=0
-    )
-    return dt.isoformat()
+    """ISO de um horario LOCAL futuro dentro do expediente da factory (09-18h)."""
+    return slot_local(dias=days, hora=hour)
 
 
 @override_settings(
@@ -32,7 +30,6 @@ def _future_datetime_iso(days=2, hour=10):
     CELERY_TASK_ALWAYS_EAGER=True,
     CELERY_TASK_EAGER_PROPAGATES=False,
 )
-@patch('aranha_estetica.utils.whatsapp.enviar_whatsapp', return_value=True)
 @patch('aranha_estetica.utils.email.enviar_confirmacao_agendamento_email', return_value=True)
 class IntegrationBookingFlowTests(TestCase):
     """End-to-end tests exercising the booking view via Django test client."""
@@ -46,12 +43,11 @@ class IntegrationBookingFlowTests(TestCase):
         self.proc = criar_procedimento(profissional=self.prof, preco=Decimal('150.00'))
         self.url = reverse(CONFIRMAR_URL)
 
-    def _post(self, mock_email=None, mock_wpp=None, with_otp=False, **overrides):
+    def _post(self, mock_email=None, with_otp=True, **overrides):
         """POST to confirmar_agendamento with sensible defaults.
 
-        with_otp=True simula o cliente recorrente ja tendo verificado o OTP por
-        SMS no wizard (sessao com pseudo-email do telefone), necessario para o
-        gate anti-sequestro de cadastro de cliente existente.
+        with_otp=True simula o celular ja verificado por SMS no wizard (sessao
+        presa ao telefone) — exigido de TODO agendamento (novo ou recorrente).
         """
         data = {
             'nome': 'Ana Integracao',
@@ -63,23 +59,13 @@ class IntegrationBookingFlowTests(TestCase):
         }
         data.update(overrides)
         if with_otp:
-            from datetime import timedelta
-
-            from django.utils import timezone
-
-            from aranha_estetica.models import CodigoOtp
-            session = self.client.session
-            session['otp_agendamento_email'] = CodigoOtp.email_para_telefone(data['telefone'])
-            session['otp_agendamento_expira'] = (
-                timezone.now() + timedelta(minutes=10)
-            ).isoformat()
-            session.save()
+            verificar_sessao(self.client, data['telefone'])
         return self.client.post(self.url, data)
 
     # ------------------------------------------------------------------
     # 1. Full happy-path booking flow
     # ------------------------------------------------------------------
-    def test_fluxo_completo_agendamento(self, mock_email, mock_wpp):
+    def test_fluxo_completo_agendamento(self, mock_email):
         """
         POST valid data → client created, Atendimento at PENDENTE.
         Then drive the real FSM: PENDENTE → CONFIRMADO → REALIZADO via the
@@ -136,7 +122,7 @@ class IntegrationBookingFlowTests(TestCase):
     # ------------------------------------------------------------------
     # 2. Reuse existing client (same phone, no duplicate)
     # ------------------------------------------------------------------
-    def test_agendamento_reusa_cliente_existente(self, mock_email, mock_wpp):
+    def test_agendamento_reusa_cliente_existente(self, mock_email):
         """
         If a client with the same phone already exists, the view must
         reuse it (get_or_create) — not create a duplicate.
@@ -179,8 +165,8 @@ class IntegrationBookingFlowTests(TestCase):
     # ------------------------------------------------------------------
     # 2b. Existing client WITHOUT OTP is blocked (anti-sequestro gate)
     # ------------------------------------------------------------------
-    def test_cliente_existente_sem_otp_e_bloqueado(self, mock_email, mock_wpp):
-        """Espelho NEGATIVO do gate anti-sequestro (booking_public.py:151-171).
+    def test_cliente_existente_sem_otp_e_bloqueado(self, mock_email):
+        """Espelho NEGATIVO do gate anti-sequestro (telefone verificado na sessao).
 
         Cliente recorrente (telefone ja cadastrado) que NAO verificou o OTP por
         SMS deve ser BLOQUEADO: redirect de volta ao formulario (nao a sucesso),
@@ -222,10 +208,23 @@ class IntegrationBookingFlowTests(TestCase):
             'O gate deve barrar antes de qualquer escrita no cadastro alheio',
         )
 
+    def test_telefone_novo_sem_otp_e_bloqueado(self, mock_email):
+        """Front exige OTP de todo mundo — o servidor tambem (antes so recorrente)."""
+        resp = self._post(telefone='17988887777', with_otp=False)
+        self.assertNotIn('sucesso', resp.url)
+        self.assertFalse(Cliente.objects.filter(telefone='17988887777').exists())
+        self.assertEqual(Atendimento.objects.count(), 0)
+
+    def test_telefone_alterado_apos_verificacao_e_bloqueado(self, mock_email):
+        verificar_sessao(self.client, '17988881111')
+        resp = self._post(telefone='17988886666', with_otp=False)
+        self.assertNotIn('sucesso', resp.url)
+        self.assertEqual(Atendimento.objects.count(), 0)
+
     # ------------------------------------------------------------------
     # 3. Past datetime is rejected
     # ------------------------------------------------------------------
-    def test_agendamento_data_futura_obrigatoria(self, mock_email, mock_wpp):
+    def test_agendamento_data_futura_obrigatoria(self, mock_email):
         """
         A booking with a past datetime must be rejected: the view must NOT
         redirect to the success page and must NOT persist any Atendimento in
@@ -257,7 +256,7 @@ class IntegrationBookingFlowTests(TestCase):
             'No Atendimento should be created for a past datetime',
         )
 
-    def test_consent_email_marketing_captura(self, mock_email, mock_wpp):
+    def test_consent_email_marketing_captura(self, mock_email):
         """POST com consent_email_marketing=on salva True + timestamp + IP."""
         resp = self._post(
             telefone='17988883333',
@@ -269,7 +268,7 @@ class IntegrationBookingFlowTests(TestCase):
         self.assertTrue(cli.consent_email_marketing)
         self.assertIsNotNone(cli.consent_email_marketing_em)
 
-    def test_consent_whatsapp_nps_opt_out_default(self, mock_email, mock_wpp):
+    def test_consent_whatsapp_nps_opt_out_default(self, mock_email):
         """POST sem consent_whatsapp_nps mantem False (opt-in required)."""
         resp = self._post(telefone='17988884444')
         self.assertEqual(resp.status_code, 302)

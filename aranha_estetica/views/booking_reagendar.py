@@ -1,56 +1,64 @@
 """Reagendamento publico via token + listagem 'Meus Agendamentos'."""
 import json
 import logging
-import os
 from datetime import datetime, timedelta
 
+from django.conf import settings
 from django.contrib import messages
 from django.db import DatabaseError, IntegrityError, transaction
 from django.db.models import Q
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django_ratelimit.decorators import ratelimit
 
+from ..constants import JANELA_MINIMA_REAGENDAMENTO
 from ..models import Atendimento, Cliente, Feriado, Profissional
+from ..services.agendamento_service import formatar_brl, formatar_data_hora
+from ..services.disponibilidade import profissional_habilitado, slot_disponivel
 from ..utils.captcha import turnstile_enabled, turnstile_site_key
+from ..utils.datas import hoje
+from ..utils.pii import mask_telefone
+from .booking_otp import SESSAO_MEUS_AGENDAMENTOS
+from .booking_public import MSG_BLOQUEADO_ONLINE, _eh_sobreposicao, _enfileirar_email
 
 logger = logging.getLogger(__name__)
 
-WHATSAPP_NUMERO = os.environ.get('WHATSAPP_NUMERO', '5517999990000')
-
-JANELA_MINIMA_REAGENDAMENTO = timedelta(hours=24)
+STATUS_FINALIZADOS = ('CANCELADO', 'REALIZADO', 'FALTOU', 'REAGENDADO')
 
 
 def meus_agendamentos(request):
-    """Listagem autenticada via OTP por email."""
-    email = request.session.get('meus_agendamentos_email')
-    if not email:
+    """Listagem autenticada via OTP (sessao presa ao telefone do cadastro)."""
+    telefone = request.session.get(SESSAO_MEUS_AGENDAMENTOS)
+    if not telefone:
         return render(request, 'agenda/meus_agendamentos.html', {
             'step': '1',
             'turnstile_site_key': turnstile_site_key(),
             'turnstile_enabled': turnstile_enabled(),
         })
 
-    clientes = Cliente.objects.filter(email__iexact=email, ativo=True)
+    agora = timezone.now()
+    clientes = Cliente.objects.filter(telefone=telefone, ativo=True)
     agendamentos = Atendimento.objects.filter(
         cliente__in=clientes
     ).select_related('profissional', 'procedimento').order_by('-data_hora_inicio')
 
     agendamentos_futuros = agendamentos.filter(
-        data_hora_inicio__gte=timezone.now(),
-        status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO']
-    )
+        data_hora_inicio__gte=agora,
+        status__in=Atendimento.STATUS_ATIVOS,
+    ).order_by('data_hora_inicio')
     agendamentos_passados = agendamentos.filter(
-        Q(data_hora_inicio__lt=timezone.now())
-        | Q(status__in=['REALIZADO', 'CANCELADO', 'FALTOU', 'REAGENDADO'])
+        Q(data_hora_inicio__lt=agora)
+        | Q(status__in=STATUS_FINALIZADOS)
     )
 
     return render(request, 'agenda/meus_agendamentos.html', {
         'step': '3',
-        'email': email,
+        'telefone_mascarado': mask_telefone(telefone),
         'agendamentos_futuros': agendamentos_futuros[:20],
         'agendamentos_passados': agendamentos_passados.distinct()[:20],
-        'whatsapp_numero': WHATSAPP_NUMERO,
+        'status_editaveis': Atendimento.STATUS_ATIVOS,
+        'limite_reagendar': agora + JANELA_MINIMA_REAGENDAMENTO,
     })
 
 
@@ -62,27 +70,31 @@ def reagendar_agendamento(request, token):
             'cliente', 'profissional', 'procedimento'
         ).get(token_cancelamento=token)
     except Atendimento.DoesNotExist:
-        messages.error(request, 'Agendamento nao encontrado.')
+        messages.error(request, 'Agendamento não encontrado.')
         return redirect('aranha:agendamento_publico')
 
     agora = timezone.now()
     if atendimento.data_hora_inicio <= agora:
-        messages.error(request, 'Nao e possivel reagendar atendimentos passados.')
+        messages.error(request, 'Não é possível reagendar atendimentos passados.')
         return redirect('aranha:meus_agendamentos')
 
-    if atendimento.status in ['CANCELADO', 'REALIZADO', 'FALTOU', 'REAGENDADO']:
+    if atendimento.status in STATUS_FINALIZADOS:
         messages.error(
             request,
-            f'Este atendimento esta {atendimento.get_status_display().lower()} e nao pode ser reagendado.'
+            f'Este atendimento está {atendimento.get_status_display().lower()} e não pode ser reagendado.'
         )
         return redirect('aranha:meus_agendamentos')
 
     if (atendimento.data_hora_inicio - agora) < JANELA_MINIMA_REAGENDAMENTO:
         messages.error(
             request,
-            'Reagendamento requer no minimo 24h de antecedencia. '
-            'Entre em contato pelo WhatsApp para ajustes de ultima hora.'
+            'O reagendamento online requer no mínimo 24h de antecedência. '
+            'Fale conosco pelo WhatsApp para ajustes de última hora.'
         )
+        return redirect('aranha:meus_agendamentos')
+
+    if atendimento.cliente.bloqueado_online or not atendimento.cliente.ativo:
+        messages.error(request, MSG_BLOQUEADO_ONLINE)
         return redirect('aranha:meus_agendamentos')
 
     if request.method == 'GET':
@@ -94,74 +106,96 @@ def reagendar_agendamento(request, token):
         context = {
             'atendimento': atendimento,
             'procedimentos_json': procedimentos_json,
-            'whatsapp_numero': WHATSAPP_NUMERO,
+            # Data local (nao UTC): apos as 21h o "amanha" em UTC pularia um dia.
+            'data_min': (hoje() + timedelta(days=1)).isoformat(),
         }
         return render(request, 'agenda/reagendar.html', context)
 
-    datetime_str = request.POST.get('datetime', '').strip()
-    profissional_id = request.POST.get('profissional') or atendimento.profissional_id
+    datetime_str = (request.POST.get('datetime') or '').strip()
+    profissional_id = str(request.POST.get('profissional') or atendimento.profissional_id).strip()
 
     if not datetime_str:
-        messages.error(request, 'Selecione uma nova data e horario.')
+        messages.error(request, 'Selecione uma nova data e horário.')
         return redirect('aranha:reagendar_agendamento', token=token)
 
     try:
         nova_data = datetime.fromisoformat(datetime_str)
         if timezone.is_naive(nova_data):
             nova_data = timezone.make_aware(nova_data)
-    except ValueError:
-        messages.error(request, 'Data/horario invalidos.')
+        nova_data = timezone.localtime(nova_data)
+    except (ValueError, TypeError, OverflowError):
+        messages.error(request, 'Data/horário inválidos.')
         return redirect('aranha:reagendar_agendamento', token=token)
 
     if nova_data <= agora:
         messages.error(request, 'Escolha uma data futura.')
         return redirect('aranha:reagendar_agendamento', token=token)
 
+    if not profissional_id.isdigit():
+        messages.error(request, 'Profissional indisponível.')
+        return redirect('aranha:reagendar_agendamento', token=token)
     try:
-        profissional = Profissional.objects.get(pk=profissional_id, ativo=True)
+        profissional = Profissional.objects.get(pk=int(profissional_id), ativo=True)
     except Profissional.DoesNotExist:
-        messages.error(request, 'Profissional indisponivel.')
+        messages.error(request, 'Profissional indisponível.')
         return redirect('aranha:reagendar_agendamento', token=token)
 
-    nova_data_fim = nova_data + timedelta(minutes=atendimento.procedimento.duracao_minutos)
+    procedimento = atendimento.procedimento
+    if not profissional_habilitado(profissional, procedimento):
+        messages.error(request, 'Este profissional não realiza este procedimento.')
+        return redirect('aranha:reagendar_agendamento', token=token)
 
     if Feriado.objects.filter(data=nova_data.date(), bloqueia_agendamento=True).exists():
-        messages.error(request, 'A data escolhida e um feriado/recesso. Escolha outro dia.')
+        messages.error(request, 'A data escolhida é feriado/recesso. Escolha outro dia.')
         return redirect('aranha:reagendar_agendamento', token=token)
+
+    # O proprio horario antigo nao bloqueia o novo (ignorar_atendimento_id).
+    if not slot_disponivel(profissional, procedimento, nova_data,
+                           ignorar_atendimento_id=atendimento.pk):
+        messages.error(request, 'Este horário não está disponível. Escolha outro.')
+        return redirect('aranha:reagendar_agendamento', token=token)
+
+    nova_data_fim = nova_data + timedelta(minutes=procedimento.duracao_minutos)
 
     try:
         with transaction.atomic():
-            antigo = Atendimento.objects.select_for_update().get(pk=atendimento.pk)
+            antigo = Atendimento.objects.select_for_update().select_related('cliente').get(pk=atendimento.pk)
 
-            if antigo.status in ['CANCELADO', 'REALIZADO', 'FALTOU', 'REAGENDADO']:
-                messages.error(
-                    request,
-                    'Este atendimento ja foi processado em outra operacao.'
-                )
+            if antigo.status in STATUS_FINALIZADOS:
+                messages.error(request, 'Este atendimento já foi processado em outra operação.')
                 return redirect('aranha:meus_agendamentos')
 
             conflito = Atendimento.objects.select_for_update().filter(
                 profissional=profissional,
                 data_hora_inicio__lt=nova_data_fim,
                 data_hora_fim__gt=nova_data,
-                status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO']
-            ).exclude(pk=antigo.pk).first() is not None
+                status__in=Atendimento.STATUS_ATIVOS,
+            ).exclude(pk=antigo.pk).exists()
 
             if conflito:
-                messages.error(request, 'Este horario acabou de ser reservado. Escolha outro.')
+                messages.error(request, 'Este horário acabou de ser reservado. Escolha outro.')
                 return redirect('aranha:reagendar_agendamento', token=token)
 
-            # Antigo sai da agenda ANTES do novo entrar — senao a
-            # excl_atendimento_sobreposicao (Postgres) bloqueia mover o
-            # horario p/ janela que sobrepoe o proprio slot antigo.
-            # Rollback do atomic restaura tudo se o INSERT falhar.
-            antigo.status = 'REAGENDADO'
-            antigo.save()
+            # Aprovacao continua valendo so se o original ja estava aprovado e
+            # a profissional e a mesma; senao volta p/ a fila (PENDENTE).
+            mesmo_profissional = profissional.pk == antigo.profissional_id
+            novo_status = (
+                Atendimento.STATUS_AGENDADO
+                if antigo.status in (Atendimento.STATUS_AGENDADO, Atendimento.STATUS_CONFIRMADO)
+                and mesmo_profissional
+                else Atendimento.STATUS_PENDENTE
+            )
+
+            # Antigo sai da agenda ANTES do novo entrar (FSM + auditoria) — senao
+            # a excl_atendimento_sobreposicao (Postgres) bloqueia mover o horario
+            # p/ janela que sobrepoe o proprio slot antigo. Rollback do atomic
+            # restaura tudo se o INSERT falhar.
+            antigo.marcar_reagendado()
 
             novo = Atendimento.objects.create(
                 cliente=antigo.cliente,
                 profissional=profissional,
-                procedimento=antigo.procedimento,
+                procedimento=procedimento,
                 promocao=antigo.promocao,
                 reagendado_de=antigo,
                 data_hora_inicio=nova_data,
@@ -169,24 +203,14 @@ def reagendar_agendamento(request, token):
                 valor_cobrado=antigo.valor_cobrado,
                 valor_original=antigo.valor_original,
                 descricao_preco=antigo.descricao_preco,
-                status='AGENDADO',
+                status=novo_status,
             )
-
-        data_fmt = nova_data.strftime('%d/%m/%Y as %H:%M')
-        request.session['agendamento_sucesso'] = {
-            'nome': antigo.cliente.nome,
-            'procedimento': antigo.procedimento.nome,
-            'profissional': profissional.nome,
-            'data_hora': data_fmt,
-            'valor': f'R$ {float(novo.valor_cobrado):.2f}' if novo.valor_cobrado else 'A consultar',
-            'pendente': True,
-            'reagendamento': True,
-        }
-        return redirect('aranha:agendamento_sucesso')
-
+    except Atendimento.TransicaoInvalida:
+        messages.error(request, 'Este atendimento não pode mais ser reagendado.')
+        return redirect('aranha:meus_agendamentos')
     except IntegrityError as exc:
-        if 'excl_atendimento_sobreposicao' in str(exc):
-            messages.error(request, 'Este horario acabou de ser reservado. Escolha outro.')
+        if _eh_sobreposicao(exc):
+            messages.error(request, 'Este horário acabou de ser reservado. Escolha outro.')
             return redirect('aranha:reagendar_agendamento', token=token)
         logger.error(
             'reagendamento_falha',
@@ -203,3 +227,36 @@ def reagendar_agendamento(request, token):
         )
         messages.error(request, 'Ocorreu um erro ao reagendar. Tente novamente.')
         return redirect('aranha:reagendar_agendamento', token=token)
+
+    data_fmt = formatar_data_hora(nova_data)
+    pendente = novo.status == Atendimento.STATUS_PENDENTE
+
+    if pendente:
+        usuario_prof = getattr(profissional, 'usuario', None)
+        prof_email = getattr(usuario_prof, 'email', None)
+        if prof_email:
+            link_revisar = (
+                f"{settings.SITE_URL}{reverse('aranha:profissional_agenda')}"
+                f"?data={nova_data.strftime('%Y-%m-%d')}"
+            )
+            _enfileirar_email('enviar_aprovacao_profissional_email', prof_email, {
+                'profissional': profissional.nome,
+                'cliente': antigo.cliente.nome,
+                'procedimento': procedimento.nome,
+                'data_hora': data_fmt,
+                'link_revisar': link_revisar,
+                'link_aprovar': link_revisar,
+                'link_rejeitar': link_revisar,
+            })
+
+    request.session['agendamento_sucesso'] = {
+        'nome': antigo.cliente.nome,
+        'procedimento': procedimento.nome,
+        'profissional': profissional.nome,
+        'data_hora': data_fmt,
+        'valor': formatar_brl(novo.valor_cobrado) if novo.valor_cobrado else 'A consultar',
+        'pendente': pendente,
+        'reagendamento': True,
+        'email': bool(antigo.cliente.email),
+    }
+    return redirect('aranha:agendamento_sucesso')

@@ -1,8 +1,15 @@
 /* wizard.js — Booking wizard (CSP-safe, sem tags Django)
  * Configuração injetada pelo template em window.WIZARD_CFG:
- *   urlOtpSolicitar  — {% url 'aranha:solicitar_otp_agendamento' %}
- *   urlOtpVerificar  — {% url 'aranha:verificar_otp_agendamento' %}
- *   procPreselect    — {{ proc_preselect }} (string ou vazio)
+ *   urlOtpSolicitar / urlOtpVerificar — endpoints do OTP (SMS)
+ *   urlDias / urlHorarios             — disponibilidade (SlotService)
+ *   procPreselect   — id do procedimento pré-selecionado (ou vazio)
+ *   profPreselect   — id do profissional pré-selecionado (link "Agendar com X")
+ *   otpTelefone     — celular já verificado nesta sessão (dígitos) ou vazio
+ *   rehidratar      — true quando o servidor devolveu erro do "Confirmar"
+ *   whatsappNumero  — dígitos p/ CTA de WhatsApp (vazio = sem CTA)
+ *
+ * Identidade do agendamento = CELULAR verificado por SMS. O e-mail é só um
+ * dado de contato — nunca é enviado no OTP.
  */
 
 /* ─── bloco 1: filtro de categorias ─── */
@@ -32,6 +39,9 @@
 (function() {
     // ═══ CONFIG (injetada pelo template) ═══
     var cfg = window.WIZARD_CFG || {};
+    var URL_DIAS = cfg.urlDias || '/ajax/dias-disponiveis/';
+    var URL_HORARIOS = cfg.urlHorarios || '/ajax/horarios-disponiveis/';
+    var TZ = 'America/Sao_Paulo';
 
     // ═══ STATE ═══
     var selectedProc = null;
@@ -46,6 +56,46 @@
                  'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
     var preselect = cfg.procPreselect || '';
+    var profPreselect = cfg.profPreselect || '';
+
+    // ═══ HELPERS ═══
+    function soDigitos(v) {
+        var d = String(v || '').replace(/\D/g, '');
+        // Autofill "+55 17 9..." -> remove DDI
+        if (d.length > 11 && d.indexOf('55') === 0) d = d.slice(2);
+        return d;
+    }
+
+    function formatarTelefone(d) {
+        d = soDigitos(d).slice(0, 11);
+        if (d.length === 10) return '(' + d.slice(0,2) + ') ' + d.slice(2,6) + '-' + d.slice(6);
+        if (d.length > 6) return '(' + d.slice(0,2) + ') ' + d.slice(2,7) + '-' + d.slice(7);
+        if (d.length > 2) return '(' + d.slice(0,2) + ') ' + d.slice(2);
+        if (d.length > 0) return '(' + d;
+        return '';
+    }
+
+    function formatarPreco(p) {
+        if (!(p > 0)) return 'A consultar';
+        try {
+            return p.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+        } catch (e) {
+            return 'R$ ' + p.toFixed(2).replace('.', ',');
+        }
+    }
+
+    function parseData(str) {
+        // 'YYYY-MM-DD' -> Date local (new Date(str) seria UTC e voltaria 1 dia no Brasil)
+        var p = String(str || '').split('-');
+        if (p.length !== 3) return null;
+        return new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
+    }
+
+    function query(params) {
+        return Object.keys(params).filter(function(k){ return params[k] !== '' && params[k] != null; })
+            .map(function(k){ return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]); })
+            .join('&');
+    }
 
     // ═══ SESSION STORAGE — salvar/re-hidratar estado (W4) ═══
     var SESSION_KEY = 'wizard_estado';
@@ -68,13 +118,14 @@
     }
 
     function rehidratar() {
-        var el = document.getElementById('booking-error');
-        if (!el) return;
-        var raw = sessionStorage.getItem(SESSION_KEY);
-        if (!raw) return;
+        // Só reidrata quando o servidor recusou o "Confirmar" (flag da sessão)
+        if (!cfg.rehidratar) return false;
+        var raw = null;
+        try { raw = sessionStorage.getItem(SESSION_KEY); } catch(e) { return false; }
+        if (!raw) return false;
         var st;
-        try { st = JSON.parse(raw); } catch(e) { return; }
-        if (!st || !st.proc) return;
+        try { st = JSON.parse(raw); } catch(e) { return false; }
+        if (!st || !st.proc) return false;
 
         selectedProc = st.proc;
         selectedDate = st.date;
@@ -89,30 +140,30 @@
             });
         }
 
-        // Consome o estado salvo — não re-hidrata novamente numa visita futura limpa
-        sessionStorage.removeItem(SESSION_KEY);
+        // Calendário e horários do step 2 prontos p/ o "Voltar"
+        var base = parseData(selectedDate);
+        currentMonth = base || new Date();
+        if (selectedProc) loadMonth();
+        if (selectedDate && selectedProc) carregarHorarios(selectedDate);
 
         // Popula hiddens + resumo + navega pro step 3 (reutiliza função existente)
         goToStep3();
+        return true;
     }
 
     // ═══ STEP NAVIGATION ═══
     window.goToStep = function(n) {
-        // Hide all panels
         var panels = document.querySelectorAll('.step-panel');
         for (var i = 0; i < panels.length; i++) {
             panels[i].classList.remove('active');
         }
-        // Show target panel
         document.getElementById('step-' + n).classList.add('active');
 
-        // Update step indicators
         var items = document.querySelectorAll('.step-item');
-        for (var i = 0; i < items.length; i++) {
-            items[i].classList.remove('active', 'done');
-            // Remove ::after pseudo-element by clearing class
-            if (i + 1 < n) items[i].classList.add('done');
-            if (i + 1 === n) items[i].classList.add('active');
+        for (var k = 0; k < items.length; k++) {
+            items[k].classList.remove('active', 'done');
+            if (k + 1 < n) items[k].classList.add('done');
+            if (k + 1 === n) items[k].classList.add('active');
         }
     };
 
@@ -132,20 +183,16 @@
             this.classList.add('selected');
 
             selectedProc = {
-                id: this.dataset.procId,
+                id: String(this.dataset.procId),
                 nome: this.dataset.procNome,
-                preco: parseFloat(this.dataset.procPreco),
-                duracao: parseInt(this.dataset.procDuracao)
+                preco: parseFloat(this.dataset.procPreco) || 0,
+                duracao: parseInt(this.dataset.procDuracao, 10),
+                categoria: this.dataset.procCategoria || this.dataset.categoria || ''
             };
 
             selectedDate = null;
             selectedSlot = null;
             selectedProf = null;
-
-            // Limpa estado salvo quando o usuário inicia novo fluxo sem erro ativo
-            if (!document.getElementById('booking-error')) {
-                try { sessionStorage.removeItem(SESSION_KEY); } catch(e) {}
-            }
 
             salvarEstado();
             goToStep(2);
@@ -161,19 +208,20 @@
         document.getElementById('cal-month-label').textContent = meses[month] + ' ' + year;
 
         var mesStr = year + '-' + String(month + 1).padStart(2, '0');
+        var qs = query({mes: mesStr, procedimento_id: selectedProc.id, profissional_id: profPreselect});
 
-        fetch('/ajax/dias-disponiveis/?mes=' + mesStr + '&procedimento_id=' + selectedProc.id)
+        fetch(URL_DIAS + '?' + qs)
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 diasDisponiveis = data.dias_disponiveis || [];
                 renderCalendar(year, month);
             })
-            .catch(function() { renderCalendar(year, month); });
+            .catch(function() { diasDisponiveis = []; renderCalendar(year, month); });
     }
 
     function renderCalendar(year, month) {
         var grid = document.getElementById('cal-days-grid');
-        grid.innerHTML = '';
+        grid.textContent = '';
 
         var firstDay = new Date(year, month, 1).getDay();
         var daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -203,6 +251,7 @@
             if (isAvailable) {
                 div.classList.add('available');
                 div.setAttribute('data-date', dateStr);
+                if (dateStr === selectedDate) div.classList.add('selected');
                 div.addEventListener('click', function() {
                     selectDate(this.getAttribute('data-date'));
                 });
@@ -222,49 +271,69 @@
         loadMonth();
     });
 
+    var SVG_LOADING = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" style="display:block;margin:0 auto 0.75rem;" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite"/></path></svg>';
+    var SVG_INFO = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#CBB994" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto 0.75rem;" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+
+    function mensagemSlots(container, svg, texto) {
+        var box = document.createElement('div');
+        box.className = 'slots-loading';
+        box.innerHTML = svg; // SVG estático (sem dados do usuário)
+        box.appendChild(document.createTextNode(texto));
+        container.textContent = '';
+        container.appendChild(box);
+    }
+
     function selectDate(dateStr) {
         selectedDate = dateStr;
         selectedSlot = null;
         selectedProf = null;
         salvarEstado();
-        document.getElementById('prof-section').style.display = 'none';
 
         var allDays = document.querySelectorAll('.cal-day');
         for (var i = 0; i < allDays.length; i++) allDays[i].classList.remove('selected');
         var sel = document.querySelector('.cal-day[data-date="' + dateStr + '"]');
         if (sel) sel.classList.add('selected');
 
-        var container = document.getElementById('slots-container');
-        container.innerHTML = '<div class="slots-loading"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" style="display:block;margin:0 auto 0.75rem;" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite"/></path></svg>Carregando horários...</div>';
+        carregarHorarios(dateStr);
+    }
 
-        fetch('/ajax/horarios-disponiveis/?data=' + dateStr + '&procedimento_id=' + selectedProc.id)
+    function carregarHorarios(dateStr) {
+        document.getElementById('prof-section').style.setProperty('display', 'none', 'important');
+        var container = document.getElementById('slots-container');
+        mensagemSlots(container, SVG_LOADING, 'Carregando horários...');
+
+        var qs = query({data: dateStr, procedimento_id: selectedProc.id, profissional_id: profPreselect});
+        fetch(URL_HORARIOS + '?' + qs)
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 horariosData = data.horarios || [];
                 if (horariosData.length === 0) {
-                    container.innerHTML = '<div class="slots-loading"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#CBB994" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto 0.75rem;" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Nenhum horário disponível nesta data.</div>';
+                    mensagemSlots(container, SVG_INFO, 'Nenhum horário disponível nesta data.');
                     return;
                 }
 
                 var parts = dateStr.split('-');
-                var dateDisplay = parts[2] + '/' + parts[1] + '/' + parts[0];
-
-                var html = '<div class="slots-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Horários para ' + dateDisplay + '</div>';
-                html += '<div class="slots-grid">';
-                for (var i = 0; i < horariosData.length; i++) {
-                    var slot = horariosData[i];
-                    html += '<button type="button" class="slot-btn" data-idx="' + i + '">' + slot.horario + '</button>';
-                }
-                html += '</div>';
-                container.innerHTML = html;
-
-                var btns = container.querySelectorAll('.slot-btn');
-                for (var j = 0; j < btns.length; j++) {
-                    btns[j].addEventListener('click', function() { selectSlot(this); });
-                }
+                var title = document.createElement('div');
+                title.className = 'slots-title';
+                title.textContent = 'Horários para ' + parts[2] + '/' + parts[1] + '/' + parts[0];
+                var grid = document.createElement('div');
+                grid.className = 'slots-grid';
+                horariosData.forEach(function(slot, i) {
+                    var b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'slot-btn';
+                    b.setAttribute('data-idx', String(i));
+                    b.textContent = slot.horario;
+                    if (selectedSlot && selectedSlot.iso === slot.datetime_iso) b.classList.add('selected');
+                    b.addEventListener('click', function() { selectSlot(this); });
+                    grid.appendChild(b);
+                });
+                container.textContent = '';
+                container.appendChild(title);
+                container.appendChild(grid);
             })
             .catch(function() {
-                container.innerHTML = '<div class="slots-loading">Erro ao carregar horários.</div>';
+                mensagemSlots(container, SVG_INFO, 'Erro ao carregar horários.');
             });
     }
 
@@ -273,7 +342,7 @@
         for (var i = 0; i < allBtns.length; i++) allBtns[i].classList.remove('selected');
         btn.classList.add('selected');
 
-        var idx = parseInt(btn.getAttribute('data-idx'));
+        var idx = parseInt(btn.getAttribute('data-idx'), 10);
         var slot = horariosData[idx];
         selectedSlot = {
             horario: slot.horario,
@@ -284,9 +353,8 @@
 
         var profSection = document.getElementById('prof-section');
         var profOptions = document.getElementById('prof-options');
-        profSection.style.display = 'block';
         profSection.style.setProperty('display', 'block', 'important');
-        profOptions.innerHTML = '';
+        profOptions.textContent = '';
 
         if (selectedSlot.profissionais.length === 1) {
             selectedProf = selectedSlot.profissionais[0];
@@ -298,23 +366,21 @@
             profOptions.appendChild(pbtn);
             setTimeout(function() { goToStep3(); }, 500);
         } else {
-            for (var p = 0; p < selectedSlot.profissionais.length; p++) {
-                (function(prof) {
-                    var pbtn = document.createElement('button');
-                    pbtn.type = 'button';
-                    pbtn.className = 'prof-btn';
-                    pbtn.textContent = prof.nome;
-                    pbtn.addEventListener('click', function() {
-                        var all = document.querySelectorAll('.prof-btn');
-                        for (var k = 0; k < all.length; k++) all[k].classList.remove('selected');
-                        this.classList.add('selected');
-                        selectedProf = prof;
-                        salvarEstado();
-                        setTimeout(function() { goToStep3(); }, 500);
-                    });
-                    profOptions.appendChild(pbtn);
-                })(selectedSlot.profissionais[p]);
-            }
+            selectedSlot.profissionais.forEach(function(prof) {
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'prof-btn';
+                b.textContent = prof.nome;
+                b.addEventListener('click', function() {
+                    var all = document.querySelectorAll('.prof-btn');
+                    for (var k = 0; k < all.length; k++) all[k].classList.remove('selected');
+                    this.classList.add('selected');
+                    selectedProf = prof;
+                    salvarEstado();
+                    setTimeout(function() { goToStep3(); }, 500);
+                });
+                profOptions.appendChild(b);
+            });
         }
     }
 
@@ -324,10 +390,13 @@
         document.getElementById('sum-proc').textContent = selectedProc.nome;
 
         var d = new Date(selectedSlot.iso);
-        var opts = {weekday:'long', day:'numeric', month:'long', hour:'2-digit', minute:'2-digit'};
-        document.getElementById('sum-datetime').textContent = d.toLocaleDateString('pt-BR', opts);
+        var opts = {weekday:'long', day:'numeric', month:'long', hour:'2-digit', minute:'2-digit', timeZone: TZ};
+        var textoData;
+        try { textoData = d.toLocaleString('pt-BR', opts); }
+        catch (e) { textoData = d.toLocaleString('pt-BR'); }
+        document.getElementById('sum-datetime').textContent = textoData;
         document.getElementById('sum-prof').textContent = selectedProf.nome;
-        document.getElementById('sum-price').textContent = 'R$ ' + selectedProc.preco.toFixed(2).replace('.', ',');
+        document.getElementById('sum-price').textContent = formatarPreco(selectedProc.preco);
 
         document.getElementById('form-procedimento').value = selectedProc.id;
         document.getElementById('form-profissional').value = selectedProf.id;
@@ -339,22 +408,38 @@
     }
 
     // ═══ ANAMNESE DINAMICA (JSON via json_script p/ XSS-safe) ═══
-    var FORMULARIOS_ANAMNESE = JSON.parse(
-      document.getElementById('formularios-anamnese-data').textContent
-    );
+    var FORMULARIOS_ANAMNESE = [];
+    try {
+        FORMULARIOS_ANAMNESE = JSON.parse(
+            document.getElementById('formularios-anamnese-data').textContent
+        ) || [];
+    } catch (e) { FORMULARIOS_ANAMNESE = []; }
 
     function formularioAplicaAoProc(form, proc) {
         if (form.escopo === 'GLOBAL') return true;
-        if (form.escopo === 'CATEGORIA') return form.categoria === proc.categoria;
-        if (form.escopo === 'PROCEDIMENTO') return form.procedimento_id === proc.id;
+        if (form.escopo === 'CATEGORIA') return !!proc.categoria && form.categoria === proc.categoria;
+        if (form.escopo === 'PROCEDIMENTO') return String(form.procedimento_id) === String(proc.id);
         return false;
+    }
+
+    function criarSelect(opcoes) {
+        var sel = document.createElement('select');
+        var vazio = document.createElement('option');
+        vazio.value = ''; vazio.textContent = '—';
+        sel.appendChild(vazio);
+        opcoes.forEach(function(o){
+            var opt = document.createElement('option');
+            opt.value = o.valor; opt.textContent = o.rotulo;
+            sel.appendChild(opt);
+        });
+        return sel;
     }
 
     function renderAnamnese() {
         var container = document.getElementById('anamneseContainer');
         var fields = document.getElementById('anamneseFields');
         if (!container || !fields || !selectedProc) return;
-        fields.innerHTML = '';
+        fields.textContent = '';
 
         var aplicaveis = FORMULARIOS_ANAMNESE.filter(function(f){
             return formularioAplicaAoProc(f, selectedProc);
@@ -381,18 +466,37 @@
                 lbl.textContent = field.label + (field.obrigatorio ? ' *' : '');
                 fwrap.appendChild(lbl);
 
+                var opcoes = (field.opcoes || []).map(function(o){ return {valor: String(o), rotulo: String(o)}; });
+
+                if (field.tipo === 'checkboxes') {
+                    var grupo = document.createElement('div');
+                    grupo.setAttribute('role', 'group');
+                    grupo.dataset.grupoFormId = form.id;
+                    grupo.dataset.grupoFieldKey = field.key;
+                    grupo.dataset.obrigatorio = field.obrigatorio ? '1' : '';
+                    grupo.dataset.label = field.label;
+                    opcoes.forEach(function(o){
+                        var l = document.createElement('label');
+                        l.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:0.82rem;color:#4A3425;';
+                        var cb = document.createElement('input');
+                        cb.type = 'checkbox';
+                        cb.value = o.valor;
+                        cb.dataset.formId = form.id;
+                        cb.dataset.fieldKey = field.key;
+                        l.appendChild(cb);
+                        l.appendChild(document.createTextNode(o.rotulo));
+                        grupo.appendChild(l);
+                    });
+                    fwrap.appendChild(grupo);
+                    formWrap.appendChild(fwrap);
+                    return;
+                }
+
                 var input;
                 if (field.tipo === 'bool') {
-                    input = document.createElement('select');
-                    input.innerHTML = '<option value="">—</option><option value="sim">Sim</option><option value="nao">Nao</option>';
-                } else if (field.tipo === 'select') {
-                    input = document.createElement('select');
-                    input.innerHTML = '<option value="">—</option>';
-                    (field.opcoes || []).forEach(function(o){
-                        var opt = document.createElement('option');
-                        opt.value = o; opt.textContent = o;
-                        input.appendChild(opt);
-                    });
+                    input = criarSelect([{valor: 'sim', rotulo: 'Sim'}, {valor: 'nao', rotulo: 'Não'}]);
+                } else if (field.tipo === 'select' || field.tipo === 'scale') {
+                    input = criarSelect(opcoes);
                 } else if (field.tipo === 'longtext') {
                     input = document.createElement('textarea');
                     input.rows = 2;
@@ -400,13 +504,15 @@
                     input = document.createElement('input'); input.type = 'number';
                 } else if (field.tipo === 'date') {
                     input = document.createElement('input'); input.type = 'date';
+                } else if (field.tipo === 'email') {
+                    input = document.createElement('input'); input.type = 'email';
                 } else {
                     input = document.createElement('input'); input.type = 'text';
                 }
                 input.style.cssText = 'width:100%;padding:0.45rem;border:1px solid #ddd;border-radius:6px;font-size:0.85rem;';
                 input.dataset.formId = form.id;
                 input.dataset.fieldKey = field.key;
-                input.dataset.obrigatorio = field.obrigatorio ? '1' : '';
+                input.setAttribute('aria-label', field.label);
                 if (field.obrigatorio) input.required = true;
                 fwrap.appendChild(input);
                 formWrap.appendChild(fwrap);
@@ -421,26 +527,63 @@
             var fid = el.dataset.formId;
             var key = el.dataset.fieldKey;
             if (!dados[fid]) dados[fid] = {};
-            dados[fid][key] = el.value;
+            if (el.type === 'checkbox') {
+                if (!Array.isArray(dados[fid][key])) dados[fid][key] = [];
+                if (el.checked) dados[fid][key].push(el.value);
+            } else {
+                dados[fid][key] = el.value;
+            }
         });
         document.getElementById('anamneseRespostasJson').value = JSON.stringify(dados);
     }
 
+    function checkboxObrigatorioVazio() {
+        var grupos = document.querySelectorAll('#anamneseFields [data-grupo-form-id]');
+        for (var i = 0; i < grupos.length; i++) {
+            var g = grupos[i];
+            if (g.dataset.obrigatorio && !g.querySelector('input[type="checkbox"]:checked')) {
+                return g.dataset.label || 'questionário';
+            }
+        }
+        return '';
+    }
+
+    // ═══ SUBMIT (guarda contra duplo clique) ═══
     var bookingForm = document.getElementById('booking-form');
+    var btnConfirmar = document.getElementById('btn-confirmar');
+    var textoConfirmar = btnConfirmar ? btnConfirmar.innerHTML : '';
     if (bookingForm) {
-        bookingForm.addEventListener('submit', coletarAnamnese);
+        bookingForm.addEventListener('submit', function(e) {
+            if (bookingForm.dataset.enviando === '1') { e.preventDefault(); return; }
+            var faltando = checkboxObrigatorioVazio();
+            if (faltando) {
+                e.preventDefault();
+                setOtpMsg('Responda o questionário: ' + faltando + '.', false);
+                return;
+            }
+            coletarAnamnese();
+            salvarEstado();
+            bookingForm.dataset.enviando = '1';
+            if (btnConfirmar) {
+                btnConfirmar.disabled = true;
+                btnConfirmar.textContent = 'Confirmando...';
+            }
+        });
+        // Volta pelo histórico (bfcache): reabilita o botão
+        window.addEventListener('pageshow', function(ev) {
+            if (ev.persisted && bookingForm.dataset.enviando === '1') {
+                bookingForm.dataset.enviando = '';
+                if (btnConfirmar) { btnConfirmar.disabled = !otpVerificado; btnConfirmar.innerHTML = textoConfirmar; }
+            }
+        });
     }
 
     // ═══ PHONE MASK ═══
     var telInput = document.getElementById('form-telefone');
     if (telInput) {
         telInput.addEventListener('input', function(e) {
-            var v = e.target.value.replace(/\D/g, '');
-            if (v.length > 11) v = v.slice(0, 11);
-            if (v.length > 6) v = '(' + v.slice(0,2) + ') ' + v.slice(2,7) + '-' + v.slice(7);
-            else if (v.length > 2) v = '(' + v.slice(0,2) + ') ' + v.slice(2);
-            else if (v.length > 0) v = '(' + v;
-            e.target.value = v;
+            if (e.target.readOnly) return;
+            e.target.value = formatarTelefone(e.target.value);
             salvarEstado();
         });
     }
@@ -454,95 +597,147 @@
         }
     });
 
-    // ═══ RE-HIDRATAR no load se houve erro do servidor (W4) ═══
-    rehidratar();
-
-    // Pre-select
-    if (preselect) {
-        var card = document.querySelector('.proc-card[data-proc-id="' + preselect + '"]');
-        if (card) card.click();
-    }
-
     // ═══ OTP FLOW ═══
-    var OTP_CSRF = document.querySelector('#booking-form input[name="csrfmiddlewaretoken"]').value;
+    var csrfEl = document.querySelector('#booking-form input[name="csrfmiddlewaretoken"]');
+    var OTP_CSRF = csrfEl ? csrfEl.value : '';
     var otpVerificado = false;
 
-    function setOtpMsg(texto, ok) {
-        var el = document.getElementById('otp-msg');
+    function linkWhatsApp() {
+        if (!cfg.whatsappNumero) return null;
+        var a = document.createElement('a');
+        a.href = 'https://wa.me/' + encodeURIComponent(cfg.whatsappNumero) + '?text=' +
+            encodeURIComponent('Olá! Gostaria de agendar um horário.');
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.textContent = 'Agende pelo WhatsApp';
+        a.style.cssText = 'font-weight:700;text-decoration:underline;margin-left:4px;color:#1a7f37;';
+        return a;
+    }
+
+    function escreverMsg(elId, texto, ok, comWhatsApp) {
+        var el = document.getElementById(elId);
         if (!el) return;
         el.textContent = texto;
         el.style.color = ok ? '#1a7f37' : '#b42318';
+        if (comWhatsApp) {
+            var a = linkWhatsApp();
+            if (a) { el.appendChild(document.createTextNode(' ')); el.appendChild(a); }
+        }
+    }
+
+    // Mensagens do envio (campo celular) e da verificação (campo código)
+    function setStatusMsg(texto, ok, comWhatsApp) { escreverMsg('otp-status', texto, ok, comWhatsApp); }
+    function setOtpMsg(texto, ok, comWhatsApp) {
+        var field = document.getElementById('otp-field');
+        if (field && field.style.display === 'none') { setStatusMsg(texto, ok, comWhatsApp); return; }
+        escreverMsg('otp-msg', texto, ok, comWhatsApp);
+    }
+
+    function lerJson(r) {
+        return r.text().then(function(t) {
+            var data;
+            try { data = JSON.parse(t); }
+            catch (e) { data = {ok: false, erro: (r.status === 403 || r.status === 429) ? 'limite' : 'rede'}; }
+            return {status: r.status, data: data};
+        });
+    }
+
+    function resetCaptcha() {
+        if (window.turnstile && typeof window.turnstile.reset === 'function') {
+            try { window.turnstile.reset(); } catch (e) {}
+        }
     }
 
     function mostrarDados(prefill, clienteExistente) {
         var dados = document.getElementById('dados-fields');
-        var captcha = document.getElementById('captcha-field');
-        var checkWrap = document.getElementById('cadastro-check-wrap');
         var badge = document.getElementById('cliente-badge');
         dados.style.display = '';
-        if (captcha) captcha.style.display = '';
         var nome = document.getElementById('form-nome');
         var nasc = document.getElementById('form-nascimento');
-        var tel = document.getElementById('form-telefone');
+        var email = document.getElementById('form-email');
         if (prefill) {
             nome.value = prefill.nome || '';
             nasc.value = prefill.data_nascimento || '';
-            tel.value = prefill.telefone || '';
-            tel.dispatchEvent(new Event('input'));
+            if (email && prefill.email && !email.value) email.value = prefill.email;
+            salvarEstado();
         }
         nome.required = true;
         nasc.required = true;
-        tel.required = true;
         if (clienteExistente) {
-            badge.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px;" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Bem-vindo de volta — seus dados foram carregados.';
+            badge.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px;" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+            badge.appendChild(document.createTextNode('Bem-vindo(a) de volta — seus dados foram carregados.'));
             badge.setAttribute('data-state', 'existing');
         } else {
-            badge.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px;" aria-hidden="true"><path d="M12 3l1.9 5.5L19.5 10l-5.6 1.5L12 17l-1.9-5.5L4.5 10l5.6-1.5z"/></svg>Novo por aqui — preencha seus dados abaixo.';
+            badge.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px;" aria-hidden="true"><path d="M12 3l1.9 5.5L19.5 10l-5.6 1.5L12 17l-1.9-5.5L4.5 10l5.6-1.5z"/></svg>';
+            badge.appendChild(document.createTextNode('Novo por aqui — preencha seus dados abaixo.'));
             badge.setAttribute('data-state', 'new');
-            checkWrap.style.display = '';
         }
         badge.style.display = '';
-        document.getElementById('btn-confirmar').disabled = false;
-        document.getElementById('btn-confirmar').title = '';
+        if (btnConfirmar) {
+            btnConfirmar.disabled = false;
+            btnConfirmar.title = '';
+        }
+    }
+
+    function marcarVerificado() {
+        otpVerificado = true;
+        var tel = document.getElementById('form-telefone');
+        tel.readOnly = true;  // o agendamento vale só p/ o celular verificado
+        tel.setAttribute('aria-readonly', 'true');
+        var bEnv = document.getElementById('btn-enviar-otp');
+        var bVer = document.getElementById('btn-verificar-otp');
+        if (bEnv) bEnv.style.display = 'none';
+        if (bVer) bVer.style.display = 'none';
+        var otpField = document.getElementById('otp-field');
+        if (otpField) otpField.style.display = 'none';
+        var cap = document.getElementById('captcha-field');
+        if (cap) cap.style.display = 'none';
+        setStatusMsg('Celular verificado.', true);
     }
 
     var btnEnviar = document.getElementById('btn-enviar-otp');
     if (btnEnviar) {
         btnEnviar.addEventListener('click', function() {
-            var telefone = (document.getElementById('form-telefone').value || '').trim();
-            var emailEl = document.getElementById('form-email');
-            var email = emailEl ? (emailEl.value || '').trim() : '';
-            var soDigitos = telefone.replace(/\D/g, '');
-            if (soDigitos.length < 10) {
-                setOtpMsg('Informe um celular valido (DDD + numero).', false);
+            var digitos = soDigitos(document.getElementById('form-telefone').value);
+            if (digitos.length < 10 || digitos.length > 11) {
+                setStatusMsg('Informe um celular válido (DDD + número).', false);
                 return;
             }
             btnEnviar.disabled = true;
-            setOtpMsg('Enviando SMS...', true);
+            setStatusMsg('Enviando SMS...', true);
             var fd = new FormData();
-            fd.append('telefone', telefone);
-            // email opcional aqui — backend deriva pseudo-email se vazio
-            if (email) fd.append('email', email);
+            fd.append('telefone', digitos);
             fd.append('csrfmiddlewaretoken', OTP_CSRF);
-            var cap = document.querySelector('#captcha-field .cf-turnstile input[name="cf-turnstile-response"]');
+            var cap = document.querySelector('#captcha-field input[name="cf-turnstile-response"]');
             if (cap) fd.append('cf-turnstile-response', cap.value);
             fetch(cfg.urlOtpSolicitar, {method:'POST', body: fd, headers:{'X-CSRFToken': OTP_CSRF}})
-                .then(function(r) { return r.json().then(function(d){ return {status:r.status, data:d}; }); })
+                .then(lerJson)
                 .then(function(res) {
                     btnEnviar.disabled = false;
+                    resetCaptcha();  // token Turnstile é de uso único
+                    var erro = res.data.erro;
                     if (res.data.ok) {
                         document.getElementById('otp-field').style.display = '';
-                        setOtpMsg('Código enviado por SMS para seu telefone. Válido por 10min.', true);
-                        btnEnviar.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg><span class="otp-btn-text">Reenviar</span>';
-                    } else if (res.data.erro === 'aguarde') {
-                        setOtpMsg('Aguarde alguns segundos antes de reenviar.', false);
+                        setStatusMsg('Código enviado por SMS para seu celular. Válido por 10 minutos.', true);
+                        var txt = btnEnviar.querySelector('.otp-btn-text');
+                        if (txt) txt.textContent = 'Reenviar';
+                        var campoCodigo = document.getElementById('otp-codigo');
+                        if (campoCodigo) campoCodigo.focus();
+                    } else if (erro === 'aguarde' || erro === 'limite') {
+                        setStatusMsg('Aguarde um minuto antes de pedir outro código.', false);
+                    } else if (erro === 'captcha') {
+                        setStatusMsg('Confirme a verificação de segurança e tente novamente.', false);
+                    } else if (erro === 'telefone_invalido') {
+                        setStatusMsg('Informe um celular válido (DDD + número).', false);
+                    } else if (erro === 'sms_falha') {
+                        setStatusMsg('Não conseguimos enviar o código agora.', false, true);
                     } else {
-                        setOtpMsg('Falha ao enviar. Tente novamente.', false);
+                        setStatusMsg('Não foi possível enviar o código. Tente novamente.', false, true);
                     }
                 })
                 .catch(function() {
                     btnEnviar.disabled = false;
-                    setOtpMsg('Erro de conexao.', false);
+                    setStatusMsg('Erro de conexão. Tente novamente.', false);
                 });
         });
     }
@@ -550,50 +745,69 @@
     var btnVerif = document.getElementById('btn-verificar-otp');
     if (btnVerif) {
         btnVerif.addEventListener('click', function() {
-            var emailEl = document.getElementById('form-email');
-            var email = emailEl ? (emailEl.value || '').trim() : '';
-            var telefone = (document.getElementById('form-telefone').value || '').trim();
-            var soDigitosV = telefone.replace(/\D/g, '');
-            // Se nao informou email, deriva pseudo-email do telefone (mesmo padrao backend)
-            if (!email) email = 'sms+' + soDigitosV + '@shivazen.local';
+            var digitos = soDigitos(document.getElementById('form-telefone').value);
             var codigo = (document.getElementById('otp-codigo').value || '').trim();
             if (!/^\d{6}$/.test(codigo)) {
-                setOtpMsg('Codigo deve ter 6 digitos.', false);
+                setOtpMsg('O código deve ter 6 dígitos.', false);
                 return;
             }
             btnVerif.disabled = true;
             var fd = new FormData();
-            fd.append('email', email);
-            fd.append('telefone', telefone);
+            fd.append('telefone', digitos);
             fd.append('codigo', codigo);
             fd.append('csrfmiddlewaretoken', OTP_CSRF);
             fetch(cfg.urlOtpVerificar, {method:'POST', body: fd, headers:{'X-CSRFToken': OTP_CSRF}})
-                .then(function(r) { return r.json().then(function(d){ return {status:r.status, data:d}; }); })
+                .then(lerJson)
                 .then(function(res) {
                     btnVerif.disabled = false;
+                    var erro = res.data.erro || '';
                     if (res.data.ok) {
-                        otpVerificado = true;
-                        setOtpMsg('Telefone verificado!', true);
-                        var existe = !!res.data.prefill;
-                        mostrarDados(res.data.prefill, existe);
-                        // esconde botoes OTP apos sucesso
-                        btnEnviar.style.display = 'none';
-                        btnVerif.style.display = 'none';
-                        document.getElementById('otp-codigo').disabled = true;
-                    } else if (res.data.erro && res.data.erro.indexOf('incorreto') === 0) {
-                        var restante = res.data.erro.split(':')[1] || '';
-                        setOtpMsg('Codigo incorreto. Tentativas restantes: ' + restante, false);
-                    } else if (res.data.erro === 'bloqueado') {
-                        setOtpMsg('Muitas tentativas. Solicite um novo codigo.', false);
+                        marcarVerificado();
+                        if (res.data.aviso === 'bloqueado_online') {
+                            setStatusMsg('Seu cadastro está com agendamento online suspenso. Fale conosco para marcar seu horário.', false, true);
+                            return;
+                        }
+                        mostrarDados(res.data.prefill, !!res.data.prefill);
+                    } else if (erro.indexOf('incorreto') === 0) {
+                        var restante = erro.split(':')[1] || '';
+                        setOtpMsg('Código incorreto. Tentativas restantes: ' + restante, false);
+                    } else if (erro === 'bloqueado') {
+                        setOtpMsg('Muitas tentativas. Solicite um novo código.', false);
+                    } else if (erro === 'limite') {
+                        setOtpMsg('Muitas tentativas. Aguarde um minuto.', false);
                     } else {
-                        setOtpMsg('Codigo expirado. Solicite um novo.', false);
+                        setOtpMsg('Código expirado. Solicite um novo.', false);
                     }
                 })
                 .catch(function() {
                     btnVerif.disabled = false;
-                    setOtpMsg('Erro de conexao.', false);
+                    setOtpMsg('Erro de conexão. Tente novamente.', false);
                 });
         });
+    }
+
+    // ═══ RE-HIDRATAR no load se houve erro do servidor (W4) ═══
+    var rehidratado = rehidratar();
+
+    // Celular já verificado nesta sessão (ex.: erro no "Confirmar"): não exige novo SMS
+    if (cfg.otpTelefone && telInput) {
+        var atual = soDigitos(telInput.value);
+        if (!atual) {
+            telInput.value = formatarTelefone(cfg.otpTelefone);
+            atual = cfg.otpTelefone;
+        }
+        if (atual === cfg.otpTelefone) {
+            marcarVerificado();
+            mostrarDados(null, false);
+            var badge = document.getElementById('cliente-badge');
+            if (badge) badge.style.display = 'none';
+        }
+    }
+
+    // Pre-select
+    if (!rehidratado && preselect) {
+        var card = document.querySelector('.proc-card[data-proc-id="' + preselect + '"]');
+        if (card) card.click();
     }
 
 })();

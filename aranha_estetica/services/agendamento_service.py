@@ -1,160 +1,43 @@
-"""Application Service de agendamento.
+"""Application Service de agendamento — aprovacao/rejeicao pelo painel.
 
-Encapsula transacao + regras de negocio + emissao de eventos para criar
-um Atendimento. Substitui logica que estava espalhada em views/booking.py.
-
-View deve apenas:
-1. Receber HTTP
-2. Construir CriarAgendamentoCommand
-3. Chamar AgendamentoService().criar(cmd)
-4. Tratar excecoes do dominio (DomainError) → status apropriado
-5. Renderizar resposta
-
-Migracao incremental: novos fluxos usam este service. Views legadas
-continuam ate refactor completo.
+A criacao do agendamento publico vive em views/booking_public.py (OTP por
+telefone, validacao de slot via services.disponibilidade e lock de slot).
+Aqui ficam as transicoes PENDENTE -> AGENDADO/CANCELADO disparadas pela
+recepcao, com auditoria e e-mail ao cliente.
 """
 import logging
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Optional
+from decimal import Decimal, InvalidOperation
 
-from django.db import IntegrityError, transaction
-from django.utils import timezone
+from django.db import transaction
 
-from ..domain.event_bus import EventBus
-from ..domain.events import AtendimentoCriado, ConsentRegistrado
-from ..exceptions import (
-    BusinessRuleViolation,
-    ClienteBloqueadoError,
-    ResourceNotFound,
-    ValidationError,
-)
-from ..models import (
-    AceiteTermo,
-    Atendimento,
-    Cliente,
-    Procedimento,
-    Profissional,
-    VersaoTermo,
-)
+from ..models import Atendimento
 from ..utils.audit import registrar_log
+from ..utils.datas import fmt_local
 
 logger = logging.getLogger(__name__)
 
-
-# ─── DTO / Command ────────────────────────────────────────────────────
-@dataclass
-class CriarAgendamentoCommand:
-    """Input imutavel p/ criacao de agendamento.
-
-    Validacao de tipos basica via dataclass. Validacao semantica
-    acontece em AgendamentoService.criar().
-    """
-    profissional_id: int
-    procedimento_id: int
-    data_hora_inicio: datetime
-    nome: str
-    email: Optional[str] = None
-    telefone: Optional[str] = None
-    cpf: Optional[str] = None
-    consents: dict = field(default_factory=dict)
-    ip: Optional[str] = None
-    user_agent: Optional[str] = None
-    aceite_lgpd: bool = False
+FORMATO_DATA_HORA = '%d/%m/%Y às %H:%M'
 
 
-# ─── Service ──────────────────────────────────────────────────────────
+def formatar_brl(valor) -> str:
+    """Valor monetario em pt-BR ('R$ 1.234,50'); '' se vazio/invalido."""
+    if valor in (None, ''):
+        return ''
+    try:
+        numero = Decimal(str(valor))
+    except (InvalidOperation, ValueError, TypeError):
+        return ''
+    texto = f'{numero:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
+    return f'R$ {texto}'
+
+
+def formatar_data_hora(dt) -> str:
+    """Data/hora no fuso da clinica p/ textos ao cliente/equipe."""
+    return fmt_local(dt, FORMATO_DATA_HORA)
+
+
 class AgendamentoService:
-    """Application Service para criar e cancelar agendamentos."""
-
-    @transaction.atomic
-    def criar(self, cmd: CriarAgendamentoCommand) -> Atendimento:
-        """Cria atendimento, registra consents + audit, publica evento.
-
-        Raises:
-            ValidationError: input invalido (LGPD nao aceito, dados faltantes)
-            ResourceNotFound: profissional/procedimento inexistente
-            ClienteBloqueadoError: cliente com 3+ no-shows
-            BusinessRuleViolation: slot ocupado, data invalida
-        """
-        if not cmd.aceite_lgpd:
-            raise ValidationError('Aceite LGPD obrigatorio.')
-
-        if not cmd.nome or len(cmd.nome.strip()) < 3:
-            raise ValidationError('Nome completo invalido.')
-
-        # Resolve profissional + procedimento
-        try:
-            profissional = Profissional.objects.get(pk=cmd.profissional_id, ativo=True)
-        except Profissional.DoesNotExist as exc:
-            raise ResourceNotFound('Profissional nao encontrado ou inativo.') from exc
-
-        try:
-            procedimento = Procedimento.objects.get(pk=cmd.procedimento_id, ativo=True)
-        except Procedimento.DoesNotExist as exc:
-            raise ResourceNotFound('Procedimento nao encontrado ou inativo.') from exc
-
-        # Upsert cliente (por email se houver, senao cria novo)
-        cliente = self._upsert_cliente(cmd)
-
-        if cliente.bloqueado_online:
-            raise ClienteBloqueadoError(
-                f'Cliente {cliente.nome} bloqueado por excesso de no-shows.'
-            )
-
-        # Verifica conflito de slot (regra simplificada — slot calculator
-        # completo continua em utils/precos.py; aqui apenas check basico)
-        if self._slot_ocupado(profissional, cmd.data_hora_inicio, procedimento.duracao_minutos):
-            raise BusinessRuleViolation('Horario indisponivel.')
-
-        # Registra consents ANTES de persistir Atendimento — LGPD: audit
-        # trail de consent precisa preceder processamento de dado pessoal.
-        # Transaction.atomic garante rollback se Atendimento falhar depois.
-        self._registrar_consents(cliente, cmd)
-
-        # Cria atendimento
-        from datetime import timedelta
-        data_fim = cmd.data_hora_inicio + timedelta(minutes=procedimento.duracao_minutos)
-        try:
-            atendimento = Atendimento.objects.create(
-                cliente=cliente,
-                profissional=profissional,
-                procedimento=procedimento,
-                data_hora_inicio=cmd.data_hora_inicio,
-                data_hora_fim=data_fim,
-                status='PENDENTE',
-            )
-        except IntegrityError as exc:
-            # Corrida perdida na constraint de exclusao -> erro de dominio (nao 500)
-            raise BusinessRuleViolation('Horario indisponivel.') from exc
-
-        # Audit + LGPD
-        registrar_log(
-            None,
-            f'Atendimento criado via booking publico (cliente={cliente.pk})',
-            'atendimento',
-            atendimento.pk,
-            ip=cmd.ip,
-        )
-
-        # Publica evento (handlers reagem fora da transacao via on_commit)
-        transaction.on_commit(lambda: EventBus.publish(AtendimentoCriado(
-            atendimento_id=atendimento.pk,
-            cliente_id=cliente.pk,
-            profissional_id=profissional.pk,
-            procedimento_id=procedimento.pk,
-            occurred_at=timezone.now(),
-        )))
-
-        logger.info(
-            'agendamento_criado',
-            extra={
-                'atendimento_id': atendimento.pk,
-                'cliente_id': cliente.pk,
-                'profissional_id': profissional.pk,
-            },
-        )
-        return atendimento
+    """Transicoes de agendamento feitas pela recepcao (painel)."""
 
     @transaction.atomic
     def aprovar(self, atendimento: Atendimento, by_user=None) -> bool:
@@ -162,10 +45,6 @@ class AgendamentoService:
 
         Returns:
             True se transitou. False se ja estava em outro estado (no-op).
-
-        Side effects:
-            - Audit log via registrar_log
-            - Email assincrono de confirmacao (Celery, fallback sync)
         """
         if atendimento.status != Atendimento.STATUS_PENDENTE:
             return False
@@ -174,17 +53,17 @@ class AgendamentoService:
         registrar_log(by_user, 'Aprovou agendamento', 'atendimento', atendimento.pk)
 
         if atendimento.cliente.email:
-            data_fmt = atendimento.data_hora_inicio.strftime('%d/%m/%Y as %H:%M')
             valor = atendimento.valor_cobrado
             dados = {
                 'nome': atendimento.cliente.nome,
                 'procedimento': atendimento.procedimento.nome,
                 'profissional': atendimento.profissional.nome,
-                'data_hora': data_fmt,
-                'valor': f'R$ {float(valor):.2f}' if valor else 'A consultar',
+                'data_hora': formatar_data_hora(atendimento.data_hora_inicio),
+                'valor': formatar_brl(valor) if valor else 'A consultar',
             }
+            email = atendimento.cliente.email
             transaction.on_commit(
-                lambda: self._enviar_email_confirmacao(atendimento.cliente.email, dados)
+                lambda: self._enviar_email_confirmacao(email, dados), robust=True,
             )
         return True
 
@@ -194,10 +73,6 @@ class AgendamentoService:
 
         Returns:
             True se transitou. False se ja estava em outro estado.
-
-        Side effects:
-            - Audit log
-            - Email assincrono de cancelamento (Celery, fallback sync)
         """
         if atendimento.status != Atendimento.STATUS_PENDENTE:
             return False
@@ -205,15 +80,15 @@ class AgendamentoService:
         registrar_log(by_user, 'Rejeitou agendamento', 'atendimento', atendimento.pk)
 
         if atendimento.cliente.email:
-            data_fmt = atendimento.data_hora_inicio.strftime('%d/%m/%Y as %H:%M')
             dados = {
                 'nome': atendimento.cliente.nome,
                 'procedimento': atendimento.procedimento.nome,
                 'profissional': atendimento.profissional.nome,
-                'data_hora': data_fmt,
+                'data_hora': formatar_data_hora(atendimento.data_hora_inicio),
             }
+            email = atendimento.cliente.email
             transaction.on_commit(
-                lambda: self._enviar_email_cancelamento(atendimento.cliente.email, dados)
+                lambda: self._enviar_email_cancelamento(email, dados), robust=True,
             )
         return True
 
@@ -228,97 +103,3 @@ class AgendamentoService:
         """Enfileira email de confirmacao via Celery."""
         from ..tasks import send_email_async
         send_email_async.delay('enviar_confirmacao_agendamento_email', email, dados)
-
-    # ─── Helpers ──────────────────────────────────────────────────────
-    def _upsert_cliente(self, cmd: CriarAgendamentoCommand) -> Cliente:
-        """Upsert cliente por email (se houver) ou cria novo.
-
-        Tolera corrida: o constraint UNIQUE parcial uniq_cliente_email_ativo
-        (Lower(email)) pode disparar IntegrityError se duas requisicoes com o
-        mesmo email passarem pelo .first()=None simultaneamente — nesse caso
-        refazemos a busca em vez de propagar 500.
-        """
-        cliente = None
-        if cmd.email:
-            cliente = Cliente.objects.filter(email__iexact=cmd.email).first()
-
-        if cliente:
-            # Atualiza campos opcionais se vazios; grava so o que mudou para
-            # nao reescrever colunas potencialmente alteradas concorrentemente.
-            alterados = []
-            if not cliente.telefone and cmd.telefone:
-                cliente.telefone = cmd.telefone
-                alterados.append('telefone')
-            if not cliente.cpf and cmd.cpf:
-                cliente.cpf = cmd.cpf
-                alterados.append('cpf')
-            if alterados:
-                cliente.save(update_fields=alterados)
-            return cliente
-
-        try:
-            # Savepoint aninhado: sem ele, o IntegrityError invalidaria a
-            # transacao externa de criar() e o refetch abaixo falharia.
-            with transaction.atomic():
-                return Cliente.objects.create(
-                    nome=cmd.nome.strip(),
-                    email=cmd.email,
-                    telefone=cmd.telefone,
-                    cpf=cmd.cpf,
-                )
-        except IntegrityError:
-            # Outra requisicao criou o cliente entre o .first() e o create.
-            if cmd.email:
-                existente = Cliente.objects.filter(email__iexact=cmd.email).first()
-                if existente:
-                    return existente
-            raise
-
-    def _slot_ocupado(self, profissional, data_inicio, duracao_min) -> bool:
-        """Check basico de conflito (logica completa em utils/precos.py)."""
-        from datetime import timedelta
-        data_fim = data_inicio + timedelta(minutes=duracao_min)
-        return Atendimento.objects.filter(
-            profissional=profissional,
-            data_hora_inicio__lt=data_fim,
-            data_hora_fim__gt=data_inicio,
-            status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO'],
-        ).exists()
-
-    def _registrar_consents(self, cliente: Cliente, cmd: CriarAgendamentoCommand) -> None:
-        """Registra AceiteTermo + atualiza flags granulares de consent."""
-        # Aceite LGPD versionado (fix: campos reais sao tipo='LGPD', ativa,
-        # FK versao_termo — versao anterior usava nomes inexistentes e
-        # quebraria em runtime; bug apontado na auditoria)
-        versao = VersaoTermo.objects.filter(tipo='LGPD', ativa=True).first()
-        if versao:
-            AceiteTermo.objects.get_or_create(
-                cliente=cliente,
-                versao_termo=versao,
-                defaults={
-                    'ip': cmd.ip,
-                    'user_agent': (cmd.user_agent or '')[:500],
-                },
-            )
-
-        # Consents granulares
-        agora = timezone.now()
-        canais = {
-            'email_marketing': cmd.consents.get('email_marketing', False),
-            'whatsapp_nps': cmd.consents.get('whatsapp_nps', False),
-            'whatsapp_confirmacao': cmd.consents.get('whatsapp_confirmacao', True),
-        }
-        for canal, aceito in canais.items():
-            if not aceito:
-                continue
-            setattr(cliente, f'consent_{canal}', True)
-            setattr(cliente, f'consent_{canal}_at', agora)
-            setattr(cliente, f'consent_{canal}_ip', cmd.ip)
-            EventBus.publish(ConsentRegistrado(
-                cliente_id=cliente.pk,
-                canal=canal,
-                aceito=True,
-                ip=cmd.ip,
-                occurred_at=agora,
-            ))
-        cliente.save()

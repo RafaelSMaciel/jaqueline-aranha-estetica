@@ -338,7 +338,7 @@
         </div>
         {% if step == '1' %}
         <h1>Acesse seus<br>agendamentos</h1>
-        <p>Informe seu e-mail cadastrado e receba um código por SMS no telefone do seu cadastro.</p>
+        <p>Informe seu celular ou e-mail cadastrado e receba um código por SMS no celular do seu cadastro.</p>
         {% else %}
         <h1>Seus<br>agendamentos</h1>
         <p>Gerencie seus atendimentos, reagende ou cancele quando precisar.</p>
@@ -352,21 +352,21 @@
 
         {% if step == '1' %}
         <!-- ═══════════════════════════════════════════ -->
-        <!-- ═══ STEP 1: Informar Email + Codigo ═══ -->
+        <!-- ═══ STEP 1: Informar celular/e-mail + Codigo ═══ -->
         <!-- ═══════════════════════════════════════════ -->
         <div class="verify-card" style="box-shadow:none;max-width:540px;">
             <div class="verify-body" style="padding:0.5rem 1rem 1rem;">
-                <!-- Email input -->
+                <!-- Celular ou e-mail -->
                 <div style="margin-bottom:0.75rem;">
-                    <label class="block font-bold uppercase mb-2 text-texto-suave" style="letter-spacing:1px;font-size:0.72rem;" for="email-input">
-                        E-mail Cadastrado
+                    <label class="block font-bold uppercase mb-2 text-texto-suave" style="letter-spacing:1px;font-size:0.72rem;" for="ident-input">
+                        Celular ou e-mail cadastrado
                     </label>
                     <div class="phone-input-wrap">
                         <span class="phone-icon" aria-hidden="true">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/></svg>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="2" width="12" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
                         </span>
-                        <input type="email" id="email-input" class="field-input"
-                               placeholder="seu@email.com" autocomplete="email" autofocus>
+                        <input type="text" id="ident-input" class="field-input"
+                               placeholder="(17) 99999-9999 ou seu@email.com" autocomplete="username" autofocus>
                     </div>
                 </div>
 
@@ -384,6 +384,7 @@
                 <div id="error-msg" class="rounded-md border border-erro text-erro mt-3 px-4 py-3 text-sm flex items-center gap-2" style="display:none !important;" role="alert">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                     <span id="error-msg-text"></span>
+                    <a id="error-msg-wpp" href="#" target="_blank" rel="noopener" style="display:none;font-weight:700;text-decoration:underline;">Fale pelo WhatsApp</a>
                 </div>
 
                 <!-- Step 2: Codigo (aparece apos enviar) -->
@@ -393,13 +394,10 @@
                             <div style="width:48px;height:48px;background:color-mix(in srgb,var(--cor-marca-forte) 10%,transparent);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:0.5rem;">
                                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--cor-marca-forte);" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                             </div>
-                            <p class="font-bold mb-0" style="color:var(--cor-texto);font-size:0.92rem;">Código enviado!</p>
+                            <p class="font-bold mb-0" style="color:var(--cor-texto);font-size:0.92rem;">Confira seu celular</p>
                             <p class="text-texto-suave" style="font-size:0.85rem;margin:0;">
-                                Digite o código de 6 dígitos que enviamos por SMS para o telefone do seu cadastro.
+                                Se houver cadastro, enviamos um código de 6 dígitos por SMS para o celular cadastrado.
                             </p>
-                        </div>
-                        <div id="debug-code" class="text-center" style="display:none;margin-bottom:0.5rem;">
-                            <span style="background:color-mix(in srgb,var(--cor-marca-forte) 10%,transparent);color:var(--cor-marca-forte);padding:0.25rem 0.75rem;border-radius:9999px;font-size:1rem;letter-spacing:3px;display:inline-block;"></span>
                         </div>
                         <div class="code-inputs">
                             <input type="text" class="code-input" maxlength="1" data-idx="0" inputmode="numeric" autocomplete="one-time-code" aria-label="Dígito 1 do código">
@@ -438,8 +436,8 @@
                     </h3>
                     <div style="display:flex;align-items:center;gap:0.5rem;">
                         <small class="text-texto-suave" style="display:inline-flex;align-items:center;gap:0.25rem;">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--cor-marca-forte);" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/></svg>
-                            {{ email }}
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--cor-marca-forte);" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+                            Celular {{ telefone_mascarado }}
                         </small>
                         <span style="color:var(--cor-borda);" aria-hidden="true">|</span>
                         <a href="{% url 'aranha:meus_agendamentos_logout' %}" class="text-texto-suave" style="font-size:0.78rem;text-decoration:none;display:inline-flex;align-items:center;gap:0.2rem;">
@@ -536,14 +534,20 @@
                     </div>
                 </div>
                 <div class="agend-card-footer">
-                    {% if ag.status in 'AGENDADO CONFIRMADO' and ag.token_cancelamento %}
+                    {% if ag.status in status_editaveis and ag.token_cancelamento %}
+                    {% if ag.data_hora_inicio > limite_reagendar %}
                     <a href="{% url 'aranha:reagendar_agendamento' token=ag.token_cancelamento %}"
                        style="font-size:0.75rem;border:1.5px solid color-mix(in srgb,var(--cor-sucesso) 45%,transparent);color:var(--cor-sucesso);background:color-mix(in srgb,var(--cor-sucesso) 8%,transparent);border-radius:9999px;padding:0.3rem 0.85rem;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:0.3rem;">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                         Reagendar
                     </a>
+                    {% else %}
+                    <span class="text-texto-suave" style="font-size:0.75rem;">
+                        Faltam menos de 24h para reagendar online{% if WHATSAPP_NUMERO %} — <a href="https://wa.me/{{ WHATSAPP_NUMERO }}" target="_blank" rel="noopener" style="text-decoration:underline;">fale conosco pelo WhatsApp</a>{% endif %}.
+                    </span>
                     {% endif %}
-                    {% if ag.status == 'AGENDADO' and ag.token_cancelamento %}
+                    {% endif %}
+                    {% if ag.status in status_editaveis and ag.token_cancelamento %}
                     <button class="btn-cancel-agend"
                             data-cancel
                             data-id="{{ ag.pk }}"
@@ -612,7 +616,7 @@
                     Nenhum agendamento encontrado
                 </h4>
                 <p class="text-texto-suave mb-1" style="max-width:320px;margin:0 auto;">
-                    Você ainda não possui agendamentos registrados neste número.
+                    Você ainda não possui agendamentos neste cadastro.
                 </p>
                 <p class="text-texto-suave mb-4" style="max-width:320px;margin:0 auto;font-size:0.9rem;">
                     Que tal agendar seu primeiro atendimento?
@@ -636,7 +640,7 @@
                 <p class="text-texto-suave" style="font-size:0.85rem;margin-bottom:0.75rem;" id="cancelModalDate"></p>
                 <p style="font-size:0.85rem;margin-bottom:1.5rem;color:var(--cor-erro);background:color-mix(in srgb,var(--cor-erro) 8%,transparent);padding:0.5rem 1rem;border-radius:12px;display:inline-block;">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:0.2rem;" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                    Esta acao não pode ser desfeita.
+                    Esta ação não pode ser desfeita.
                 </p>
                 <div style="display:flex;gap:0.5rem;justify-content:center;">
                     <button id="btnCloseCancelModal" style="border:1.5px solid var(--cor-borda);color:var(--cor-texto-suave);font-size:0.85rem;font-weight:700;padding:0.5rem 1rem;border-radius:9999px;background:transparent;cursor:pointer;display:inline-flex;align-items:center;gap:0.3rem;">
@@ -664,28 +668,34 @@
 <script nonce="{{ csp_nonce }}">
 var CSRF_TOKEN = '{{ csrf_token }}';
 (function() {
+    var WHATSAPP = '{{ WHATSAPP_NUMERO|escapejs }}';
+    var SPIN = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true" style="margin-right:0.4rem;"><path d="M21 12a9 9 0 1 1-6.219-8.56"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite"/></path></svg>';
     /* ═══ REFRESH BUTTON ═══ */
     var btnRefresh = document.getElementById('btn-refresh');
     if (btnRefresh) {
         btnRefresh.addEventListener('click', function() { window.location.reload(); });
     }
 
-    var emailForVerify = '';
+    var identForVerify = '';
     var resendTimer = null;
 
     /* ═══ SEND CODE ═══ */
     var btnEnviar = document.getElementById('btn-enviar-codigo');
     if (btnEnviar) {
         btnEnviar.addEventListener('click', function() {
-            var emailEl = document.getElementById('email-input');
-            var email = (emailEl.value || '').trim().toLowerCase();
-            if (!email || email.indexOf('@') < 0) { showError('Informe um e-mail valido.'); return; }
-            emailForVerify = email;
+            var identEl = document.getElementById('ident-input');
+            var ident = (identEl.value || '').trim();
+            var digitos = ident.replace(/\D/g, '');
+            if (ident.indexOf('@') < 0 && (digitos.length < 10 || digitos.length > 13)) {
+                showError('Informe seu celular com DDD ou o e-mail cadastrado.');
+                return;
+            }
+            identForVerify = ident.indexOf('@') >= 0 ? ident.toLowerCase() : digitos;
             btnEnviar.disabled = true;
-            btnEnviar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Enviando...';
+            btnEnviar.innerHTML = SPIN + 'Enviando...';
 
             var fd = new FormData();
-            fd.append('email', email);
+            fd.append('identificador', identForVerify);
             fd.append('csrfmiddlewaretoken', CSRF_TOKEN);
             var cap = document.querySelector('input[name="cf-turnstile-response"]');
             if (cap) fd.append('cf-turnstile-response', cap.value);
@@ -695,14 +705,20 @@ var CSRF_TOKEN = '{{ csrf_token }}';
                 headers: {'X-CSRFToken': CSRF_TOKEN},
                 body: fd,
             })
-            .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
+            .then(lerJson)
             .then(function(res) {
                 btnEnviar.disabled = false;
+                if (window.turnstile && typeof window.turnstile.reset === 'function') {
+                    try { window.turnstile.reset(); } catch (e) {}
+                }
                 btnEnviar.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Enviar Código';
                 if (!res.ok) {
-                    if (res.data.erro === 'captcha') showError('Validação de segurança falhou. Recarregue.');
-                    else if (res.data.erro === 'aguarde') showError('Aguarde alguns segundos antes de reenviar.');
-                    else showError('Erro ao enviar código.');
+                    var erro = res.data.erro;
+                    if (erro === 'captcha') showError('Confirme a verificação de segurança e tente novamente.');
+                    else if (erro === 'aguarde' || erro === 'limite') showError('Aguarde um minuto antes de pedir outro código.');
+                    else if (erro === 'identificador_invalido') showError('Informe seu celular com DDD ou o e-mail cadastrado.');
+                    else if (erro === 'sms_falha') showError('Não conseguimos enviar o código agora.', true);
+                    else showError('Não foi possível enviar o código. Tente novamente.', true);
                 } else {
                     hideError();
                     document.getElementById('code-section').style.display = 'block';
@@ -798,10 +814,10 @@ var CSRF_TOKEN = '{{ csrf_token }}';
             if (codigo.length !== 6) { showError('Digite o código completo de 6 dígitos.'); return; }
 
             btnVerificar.disabled = true;
-            btnVerificar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Verificando...';
+            btnVerificar.innerHTML = SPIN + 'Verificando...';
 
             var fd = new FormData();
-            fd.append('email', emailForVerify);
+            fd.append('identificador', identForVerify);
             fd.append('codigo', codigo);
             fd.append('csrfmiddlewaretoken', CSRF_TOKEN);
 
@@ -810,7 +826,7 @@ var CSRF_TOKEN = '{{ csrf_token }}';
                 headers: {'X-CSRFToken': CSRF_TOKEN},
                 body: fd,
             })
-            .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
+            .then(lerJson)
             .then(function(res) {
                 btnVerificar.disabled = false;
                 btnVerificar.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> Verificar Código';
@@ -819,7 +835,8 @@ var CSRF_TOKEN = '{{ csrf_token }}';
                     if (res.data.erro && res.data.erro.indexOf('incorreto') === 0) {
                         msg = 'Código incorreto. Restam: ' + (res.data.erro.split(':')[1] || '');
                     } else if (res.data.erro === 'bloqueado') msg = 'Muitas tentativas. Solicite outro código.';
-                    else if (res.data.erro === 'expirado') msg = 'Código expirado.';
+                    else if (res.data.erro === 'expirado') msg = 'Código inválido ou expirado. Solicite um novo.';
+                    else if (res.data.erro === 'limite') msg = 'Muitas tentativas. Aguarde um minuto.';
                     showError(msg);
                     // Shake the code inputs
                     document.querySelectorAll('.code-input').forEach(function(ci) {
@@ -847,7 +864,11 @@ var CSRF_TOKEN = '{{ csrf_token }}';
     function openCancelModal(id, token, nome, data) {
         cancelAtendimentoId = id;
         cancelToken = token;
-        document.getElementById('cancelModalProcedure').innerHTML = '<strong>' + nome + '</strong>';
+        // textContent: nome vem do dataset (texto cru) — nunca innerHTML
+        var alvo = document.getElementById('cancelModalProcedure');
+        var forte = document.createElement('strong');
+        forte.textContent = nome || '';
+        alvo.replaceChildren(forte);
         document.getElementById('cancelModalDate').textContent = 'Data: ' + data;
         var modal = document.getElementById('cancelModal');
         modal.classList.add('active');
@@ -898,14 +919,14 @@ var CSRF_TOKEN = '{{ csrf_token }}';
             if (!cancelToken) return;
             var btn = btnConfirmCancel;
             btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Cancelando...';
+            btn.innerHTML = SPIN + 'Cancelando...';
 
             fetch('{% url "aranha:cancelar_agendamento" %}', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
                 body: JSON.stringify({token: cancelToken})
             })
-            .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
+            .then(lerJson)
             .then(function(res) {
                 btn.disabled = false;
                 btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Sim, Cancelar';
@@ -952,11 +973,28 @@ var CSRF_TOKEN = '{{ csrf_token }}';
     }
 
     /* ═══ HELPERS ═══ */
-    function showError(msg) {
+    function lerJson(r) {
+        return r.text().then(function(t) {
+            var d;
+            try { d = JSON.parse(t); }
+            catch (e) { d = {erro: (r.status === 403 || r.status === 429) ? 'limite' : 'rede'}; }
+            return {ok: r.ok, data: d};
+        });
+    }
+    function showError(msg, comWhatsApp) {
         var el = document.getElementById('error-msg');
         var textEl = document.getElementById('error-msg-text');
+        var wpp = document.getElementById('error-msg-wpp');
         if (el && textEl) {
             textEl.textContent = msg;
+            if (wpp) {
+                if (comWhatsApp && WHATSAPP) {
+                    wpp.href = 'https://wa.me/' + encodeURIComponent(WHATSAPP);
+                    wpp.style.display = '';
+                } else {
+                    wpp.style.display = 'none';
+                }
+            }
             el.style.display = 'flex';
             el.style.setProperty('display', 'flex', 'important');
         }
@@ -976,4 +1014,8 @@ var CSRF_TOKEN = '{{ csrf_token }}';
     to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 </style>
+{% if turnstile_enabled and step == '1' %}
+{# Sem o script o widget nao renderiza e todo envio falharia no captcha #}
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer nonce="{{ csp_nonce }}"></script>
+{% endif %}
 {% endblock %}

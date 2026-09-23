@@ -48,6 +48,16 @@
     </div>
     {% endif %}
 
+    {% elif nao_editavel %}
+    <!-- Estado: link nao altera mais este agendamento (passado, cancelado, reagendado ou aguardando aprovacao) -->
+    <div class="flex flex-col items-center bg-superficie px-6 py-8 text-center">
+      <h2 class="text-xl font-bold text-texto">Este agendamento não pode mais ser alterado por este link</h2>
+      <p class="mt-2 text-sm text-texto-suave">
+        Situação atual: <strong class="text-texto">{{ atendimento.get_status_display }}</strong>.
+        Para ajustes, acesse Meus Agendamentos{% if WHATSAPP_NUMERO %} ou fale conosco pelo WhatsApp{% endif %}.
+      </p>
+    </div>
+
     {% else %}
     <!-- Estado: pendente — mostrar botões -->
     <div class="flex flex-col items-center bg-[#4a3728] px-6 py-8 text-center text-white">
@@ -107,7 +117,7 @@
 
     <!-- Ações ou links pós-resposta -->
     <div class="px-6 pb-6 pt-2">
-      {% if not ja_respondeu %}
+      {% if not ja_respondeu and not nao_editavel %}
       <!-- Botões de ação — form POST, csrf preservado -->
       <form method="POST">
         {% csrf_token %}
@@ -143,7 +153,13 @@
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
           </svg>
-          Reagendar
+          Agendar novo horário
+        </a>
+        {% endif %}
+        {% if nao_editavel and WHATSAPP_NUMERO %}
+        <a href="https://wa.me/{{ WHATSAPP_NUMERO }}" target="_blank" rel="noopener"
+           class="inline-flex items-center gap-1 rounded-full border border-borda px-4 py-2 text-sm font-bold text-texto transition hover:bg-fundo">
+          Falar no WhatsApp
         </a>
         {% endif %}
       </div>

@@ -1,16 +1,15 @@
-<!doctype html>
+{% load l10n %}<!doctype html>
 <html lang="pt-br">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Agendar - {{ CLINIC_NAME }}</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <meta name="robots" content="noindex">
+    <title>Agendar | {{ CLINIC_NAME }}</title>
     <style nonce="{{ csp_nonce }}">
         :root { --gold: #C9A84C; --earth: #4A3425; }
         * { box-sizing: border-box; }
         body {
-            font-family: 'Lato', system-ui, sans-serif;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
             margin: 0; padding: 0; background: #fff; color: #333;
         }
         .embed-wrap { padding: 1rem; max-width: 720px; margin: 0 auto; }
@@ -20,9 +19,10 @@
         }
         .embed-head h1 {
             font-size: 1.1rem; font-weight: 800; color: var(--earth);
-            margin: 0 0 0.2rem;
+            margin: 0 0 0.2rem; display: inline-flex; align-items: center; gap: 0.4rem;
         }
-        .embed-head p { font-size: 0.8rem; color: #777; margin: 0; }
+        .embed-head p { font-size: 0.8rem; color: #6b6256; margin: 0; }
+        .icone { width: 1.1em; height: 1.1em; flex-shrink: 0; }
         .proc-list {
             display: grid; gap: 0.5rem;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -33,17 +33,18 @@
             padding: 0.75rem; cursor: pointer; transition: all 0.2s;
             text-decoration: none; color: inherit; display: block;
         }
-        .proc-mini:hover { border-color: var(--gold); transform: translateY(-2px); }
+        .proc-mini:hover, .proc-mini:focus-visible { border-color: var(--gold); transform: translateY(-2px); }
         .proc-mini-name { font-weight: 700; font-size: 0.9rem; color: var(--earth); }
-        .proc-mini-meta { font-size: 0.75rem; color: #999; margin-top: 0.25rem; }
-        .proc-mini-price { color: var(--gold); font-weight: 800; font-size: 0.85rem; }
+        .proc-mini-meta { font-size: 0.75rem; color: #6b6256; margin-top: 0.25rem; }
+        .proc-mini-price { color: #7a5f1f; font-weight: 800; font-size: 0.85rem; }
         .embed-cta {
-            display: block; background: var(--gold); color: white;
+            display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+            background: var(--gold); color: white;
             text-align: center; padding: 0.7rem; border-radius: 10px;
             text-decoration: none; font-weight: 700; font-size: 0.9rem;
         }
         .embed-foot {
-            text-align: center; font-size: 0.7rem; color: #aaa;
+            text-align: center; font-size: 0.7rem; color: #8a8178;
             margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid #f0f0f0;
         }
     </style>
@@ -51,17 +52,20 @@
 <body>
     <div class="embed-wrap">
         <div class="embed-head">
-            <h1><i class="fas fa-calendar-check" style="color:var(--gold);"></i> {{ CLINIC_NAME }}</h1>
-            <p>Selecione o procedimento desejado</p>
+            <h1>
+                <svg class="icone" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 16 11 18 15 14"/></svg>
+                {{ CLINIC_NAME }}
+            </h1>
+            <p>Selecione o tratamento desejado</p>
         </div>
         {% if procedimentos %}
         <div class="proc-list">
             {% for p in procedimentos %}
-            <a class="proc-mini" href="{{ booking_url }}?procedimento={{ p.id }}" target="_top" rel="noopener">
+            <a class="proc-mini" href="{{ booking_url }}?procedimento={{ p.id|unlocalize }}" target="_top" rel="noopener">
                 <div class="proc-mini-name">{{ p.nome }}</div>
                 <div class="proc-mini-meta">
                     {% if p.preco > 0 %}
-                    <span class="proc-mini-price">A partir de R$ {{ p.preco|floatformat:2 }}</span>
+                    <span class="proc-mini-price">A partir de R$ {{ p.preco|floatformat:"2g" }}</span>
                     {% else %}
                     <span class="proc-mini-price">A consultar</span>
                     {% endif %}
@@ -71,12 +75,13 @@
             {% endfor %}
         </div>
         {% else %}
-        <p style="text-align:center;color:#999;padding:1rem;">Nenhum procedimento ativo no momento.</p>
+        <p style="text-align:center;color:#6b6256;padding:1rem;">Nenhum tratamento disponível para agendamento online no momento.</p>
         {% endif %}
         <a href="{{ booking_url }}" target="_top" rel="noopener" class="embed-cta">
-            <i class="fas fa-calendar-plus"></i> Agendar agora
+            <svg class="icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="12" y1="14" x2="12" y2="18"/><line x1="10" y1="16" x2="14" y2="16"/></svg>
+            Agendar agora
         </a>
-        <div class="embed-foot">Powered by Jaqueline Aranha Estética</div>
+        <div class="embed-foot">Powered by {{ CLINIC_NAME }}</div>
     </div>
 </body>
 </html>

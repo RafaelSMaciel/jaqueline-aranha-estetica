@@ -1,84 +1,268 @@
-"""Testes para OTP (model + service + fluxo booking/meus-agendamentos)."""
-import re
-from datetime import timedelta
+"""Testes de OTP: model + service + SMS (falha fechada) + endpoints do wizard e do portal.
 
-import pytest
+Django TestCase (roda no `manage.py test`, antes era pytest-only e ficava fora
+da suite).
+"""
+import logging
+import os
+from datetime import timedelta
+from unittest.mock import patch
+
 from django.core import mail
+from django.core.cache import cache
+from django.test import TestCase, override_settings
+from django.urls import reverse
 from django.utils import timezone
 
-from aranha_estetica.models import CodigoOtp
-from aranha_estetica.services import otp_service
+from aranha_estetica.models import Cliente, CodigoOtp
+from aranha_estetica.services import otp as otp_service
+from aranha_estetica.utils import sms
 
 
-@pytest.mark.django_db
-class TestOtpCodeModel:
+class OtpCodeModelTests(TestCase):
     def test_gerar_e_verificar_ok(self):
         codigo, obj = CodigoOtp.gerar('joao@example.com')
-        assert re.fullmatch(r'\d{6}', codigo)
-        assert obj.codigo_hash != codigo  # guardado hashed
+        self.assertRegex(codigo, r'^\d{6}$')
+        self.assertNotEqual(obj.codigo_hash, codigo)  # guardado hashed
         ok, motivo = CodigoOtp.verificar('joao@example.com', codigo)
-        assert ok and motivo == 'ok'
+        self.assertTrue(ok)
+        self.assertEqual(motivo, 'ok')
 
     def test_codigo_errado_incrementa_tentativas(self):
         codigo, _ = CodigoOtp.gerar('a@x.com')
         ok, motivo = CodigoOtp.verificar('a@x.com', '000000' if codigo != '000000' else '111111')
-        assert not ok
-        assert motivo.startswith('incorreto')
+        self.assertFalse(ok)
+        self.assertTrue(motivo.startswith('incorreto'))
 
     def test_bloqueio_apos_max_tentativas(self):
         CodigoOtp.gerar('z@x.com')
         for _ in range(CodigoOtp.MAX_TENTATIVAS):
             CodigoOtp.verificar('z@x.com', '000000')
         ok, motivo = CodigoOtp.verificar('z@x.com', '000000')
-        assert not ok
-        # apos consumir com max, codigo fica usado — retorna expirado
-        assert motivo in ('bloqueado', 'expirado')
+        self.assertFalse(ok)
+        self.assertIn(motivo, ('bloqueado', 'expirado'))
 
     def test_expirado(self):
         codigo, obj = CodigoOtp.gerar('exp@x.com')
         obj.expira_em = timezone.now() - timedelta(seconds=1)
         obj.save()
         ok, motivo = CodigoOtp.verificar('exp@x.com', codigo)
-        assert not ok and motivo == 'expirado'
+        self.assertFalse(ok)
+        self.assertEqual(motivo, 'expirado')
 
     def test_reenvio_invalida_anteriores(self):
         codigo1, _ = CodigoOtp.gerar('re@x.com')
-        # burla rate limit via save direto
         CodigoOtp.objects.filter(email='re@x.com').update(
             criado_em=timezone.now() - timedelta(seconds=120)
         )
         codigo2, _ = CodigoOtp.gerar('re@x.com')
         ok1, _ = CodigoOtp.verificar('re@x.com', codigo1)
-        assert not ok1
+        self.assertFalse(ok1)
         ok2, _ = CodigoOtp.verificar('re@x.com', codigo2)
-        assert ok2
+        self.assertTrue(ok2)
 
 
-@pytest.mark.django_db
-class TestOtpService:
+@override_settings(SMS_DEV_LOG_ONLY=True)
+class OtpServiceTests(TestCase):
+    def setUp(self):
+        cache.clear()
+
     def test_solicitar_sem_telefone_falha(self):
         """OTP exige telefone — sem ele, retorna falha sem enviar nada."""
         mail.outbox.clear()
         ok, motivo, canal = otp_service.solicitar_otp('foo@example.com')
-        assert not ok
-        assert motivo == 'telefone_ausente'
-        assert canal is None
-        assert len(mail.outbox) == 0
+        self.assertFalse(ok)
+        self.assertEqual(motivo, 'telefone_ausente')
+        self.assertIsNone(canal)
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_solicitar_sms_com_telefone(self):
-        """Com telefone, canal resultante e SMS (dev log-only em DEBUG/sem token)."""
-        ok, motivo, canal = otp_service.solicitar_otp(
-            'sms@example.com',
-            telefone='11999999999',
-        )
-        assert ok and motivo == 'ok'
-        assert canal == CodigoOtp.CANAL_SMS
+        """Com telefone, canal resultante e SMS (modo dev log-only)."""
+        ok, motivo, canal = otp_service.solicitar_otp('sms@example.com', telefone='11999999999')
+        self.assertTrue(ok)
+        self.assertEqual(motivo, 'ok')
+        self.assertEqual(canal, CodigoOtp.CANAL_SMS)
 
     def test_rate_limit_reenvio(self):
         otp_service.solicitar_otp('rl@example.com', telefone='11999999999')
         ok, motivo, _ = otp_service.solicitar_otp('rl@example.com', telefone='11999999999')
-        assert not ok and motivo == 'aguarde'
+        self.assertFalse(ok)
+        self.assertEqual(motivo, 'aguarde')
 
     def test_verificar_email_vazio(self):
         ok, motivo = otp_service.verificar_otp('', '123456')
-        assert not ok and motivo == 'dados_ausentes'
+        self.assertFalse(ok)
+        self.assertEqual(motivo, 'dados_ausentes')
+
+    def test_normalizar_telefone_br(self):
+        self.assertEqual(otp_service.normalizar_telefone_br('+55 (17) 99999-0001'), '17999990001')
+        self.assertEqual(otp_service.normalizar_telefone_br('(17) 3333-4444'), '1733334444')
+        self.assertEqual(otp_service.normalizar_telefone_br('99999-0001'), '')
+        self.assertEqual(otp_service.normalizar_telefone_br('+1 415 555 0100 99'), '')
+        self.assertEqual(otp_service.normalizar_telefone_br(None), '')
+
+
+class SmsFalhaFechadaTests(TestCase):
+    """booking-01 / security-07: sem provedor fora de DEBUG, nada de 'sucesso' so logando."""
+
+    def setUp(self):
+        cache.clear()
+
+    @override_settings(DEBUG=False, SMS_DEV_LOG_ONLY=False)
+    @patch.dict(os.environ, {'SMS_DEV_LOG_ONLY': '', 'ZENVIA_API_TOKEN': '', 'ZENVIA_FROM': ''})
+    def test_sem_provedor_em_prod_retorna_false(self):
+        self.assertFalse(sms.sms_disponivel())
+        self.assertFalse(sms.enviar_sms('17999990000', 'teste'))
+        ok, motivo, _ = otp_service.solicitar_otp_telefone('17999990000')
+        self.assertFalse(ok)
+        self.assertEqual(motivo, 'sms_falha')
+        # Canal fora: nao gera codigo nem consome o cooldown
+        self.assertFalse(CodigoOtp.objects.exists())
+
+    @override_settings(DEBUG=False, SMS_DEV_LOG_ONLY=True)
+    def test_modo_dev_nunca_loga_o_codigo_fora_de_debug(self):
+        with self.assertLogs('aranha_estetica.utils.sms', level=logging.INFO) as cm:
+            self.assertTrue(sms.enviar_otp_sms('17999990000', '483920'))
+        for rec in cm.records:
+            self.assertNotIn('483920', str(getattr(rec, 'preview', '')))
+            self.assertFalse(hasattr(rec, 'preview'))
+
+    @override_settings(DEBUG=False, SMS_DEV_LOG_ONLY=False)
+    @patch.dict(os.environ, {'SMS_DEV_LOG_ONLY': '', 'ZENVIA_API_TOKEN': 'tok', 'ZENVIA_FROM': 'clinica'})
+    @patch('aranha_estetica.utils.sms.requests.post')
+    def test_erro_5xx_nao_faz_retry_nem_sleep(self, post):
+        post.return_value.status_code = 503
+        post.return_value.text = 'indisponivel'
+        with patch('time.sleep') as dormir:
+            self.assertFalse(sms.enviar_sms('17999990000', 'oi'))
+        self.assertEqual(post.call_count, 1)
+        dormir.assert_not_called()
+        self.assertEqual(post.call_args.kwargs['timeout'], sms.TIMEOUT)
+
+    def test_formatar_telefone_so_brasil(self):
+        self.assertEqual(sms.formatar_telefone('17999990000'), '5517999990000')
+        self.assertEqual(sms.formatar_telefone('5517999990000'), '5517999990000')
+        self.assertEqual(sms.formatar_telefone('14155550100123'), '')
+        self.assertEqual(sms.formatar_telefone('12345'), '')
+        self.assertFalse(sms.enviar_otp_sms('12345', '000000'))
+
+
+@override_settings(RATELIMIT_ENABLE=False, SMS_DEV_LOG_ONLY=True)
+class OtpAgendamentoEndpointTests(TestCase):
+    """booking-02/03 + security-03: desafio preso ao telefone, sem PII por e-mail."""
+
+    def setUp(self):
+        cache.clear()
+        self.url_sol = reverse('aranha:solicitar_otp_agendamento')
+        self.url_ver = reverse('aranha:verificar_otp_agendamento')
+        self.codigos = {}
+        patcher = patch(
+            'aranha_estetica.services.otp.enviar_otp_sms',
+            side_effect=lambda tel, codigo, ip=None: self.codigos.__setitem__(tel, codigo) or True,
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_email_da_vitima_nao_vira_chave_nem_prefill(self):
+        Cliente.objects.create(
+            nome='Vitima Silva', telefone='17912345678', email='vitima@example.com',
+        )
+        resp = self.client.post(self.url_sol, {'telefone': '17900000001', 'email': 'vitima@example.com'})
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotIn('cliente_existente', resp.json())
+        self.assertIn('17900000001', self.codigos)
+        codigo = self.codigos['17900000001']
+        # Chave do desafio e o telefone do atacante (nunca o e-mail da vitima)
+        self.assertFalse(CodigoOtp.objects.filter(email='vitima@example.com').exists())
+
+        resp = self.client.post(self.url_ver, {
+            'telefone': '17900000001', 'email': 'vitima@example.com', 'codigo': codigo,
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertIsNone(resp.json()['prefill'])
+        self.assertEqual(self.client.session['otp_agendamento_telefone'], '17900000001')
+
+    def test_cliente_recorrente_com_email_verifica_pelo_telefone(self):
+        Cliente.objects.create(
+            nome='Joana', telefone='17999990000', email='joana@example.com',
+        )
+        self.client.post(self.url_sol, {'telefone': '(17) 99999-0000'})
+        codigo = self.codigos['17999990000']
+        resp = self.client.post(self.url_ver, {'telefone': '17999990000', 'codigo': codigo})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['prefill']['nome'], 'Joana')
+        self.assertEqual(resp.json()['prefill']['email'], 'joana@example.com')
+
+    def test_codigo_de_um_telefone_nao_vale_para_outro(self):
+        self.client.post(self.url_sol, {'telefone': '17900000001'})
+        codigo = self.codigos['17900000001']
+        resp = self.client.post(self.url_ver, {'telefone': '17912345678', 'codigo': codigo})
+        self.assertEqual(resp.status_code, 400)
+        self.assertNotIn('otp_agendamento_telefone', self.client.session)
+
+    def test_telefone_invalido_nao_envia_sms(self):
+        for tel in ('999', '+1 415 555 0100 99', '(00) 99999-0000'):
+            with self.subTest(tel=tel):
+                resp = self.client.post(self.url_sol, {'telefone': tel})
+                self.assertEqual(resp.status_code, 400)
+                self.assertEqual(resp.json()['erro'], 'telefone_invalido')
+        self.assertEqual(self.codigos, {})
+
+    @override_settings(SMS_DEV_LOG_ONLY=False, DEBUG=False)
+    @patch.dict(os.environ, {'SMS_DEV_LOG_ONLY': '', 'ZENVIA_API_TOKEN': '', 'ZENVIA_FROM': ''})
+    def test_sms_indisponivel_responde_sms_falha(self):
+        resp = self.client.post(self.url_sol, {'telefone': '17900000001'})
+        self.assertEqual(resp.status_code, 503)
+        self.assertEqual(resp.json()['erro'], 'sms_falha')
+
+
+@override_settings(RATELIMIT_ENABLE=False, SMS_DEV_LOG_ONLY=True)
+class MeusAgendamentosOtpTests(TestCase):
+    """booking-13/14: login por celular OU e-mail, sem enumeracao de clientes."""
+
+    def setUp(self):
+        cache.clear()
+        self.url_env = reverse('aranha:meus_agendamentos_enviar_otp')
+        self.url_ver = reverse('aranha:meus_agendamentos_verificar_otp')
+        self.codigos = {}
+        patcher = patch(
+            'aranha_estetica.services.otp.enviar_otp_sms',
+            side_effect=lambda tel, codigo, ip=None: self.codigos.__setitem__(tel, codigo) or True,
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.cliente = Cliente.objects.create(
+            nome='Cliente Portal', telefone='17988880000', email='portal@example.com',
+        )
+
+    def test_resposta_identica_com_e_sem_cadastro(self):
+        r1 = self.client.post(self.url_env, {'identificador': 'portal@example.com'})
+        cache.clear()
+        r2 = self.client.post(self.url_env, {'identificador': 'naoexiste@example.com'})
+        r3 = self.client.post(self.url_env, {'identificador': '17900001111'})
+        self.assertEqual(r1.status_code, 200)
+        self.assertEqual(r1.json(), r2.json())
+        self.assertEqual(r1.json(), r3.json())
+        # So o telefone do cadastro recebeu codigo
+        self.assertEqual(list(self.codigos), ['17988880000'])
+
+    def test_login_por_telefone_lista_agendamentos(self):
+        self.client.post(self.url_env, {'identificador': '(17) 98888-0000'})
+        codigo = self.codigos['17988880000']
+        resp = self.client.post(self.url_ver, {'identificador': '17988880000', 'codigo': codigo})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(self.client.session['meus_agendamentos_telefone'], '17988880000')
+        pagina = self.client.get(reverse('aranha:meus_agendamentos'))
+        self.assertEqual(pagina.context['step'], '3')
+
+    def test_login_por_email_usa_telefone_do_cadastro(self):
+        self.client.post(self.url_env, {'identificador': 'PORTAL@example.com'})
+        codigo = self.codigos['17988880000']
+        resp = self.client.post(self.url_ver, {'identificador': 'portal@example.com', 'codigo': codigo})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(self.client.session['meus_agendamentos_telefone'], '17988880000')
+
+    def test_identificador_desconhecido_nao_loga(self):
+        resp = self.client.post(self.url_ver, {'identificador': 'x@example.com', 'codigo': '123456'})
+        self.assertEqual(resp.status_code, 400)
+        self.assertNotIn('meus_agendamentos_telefone', self.client.session)
