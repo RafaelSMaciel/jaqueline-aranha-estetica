@@ -1,23 +1,44 @@
-// Service Worker — estrategia hibrida (cache-first estaticos, network-first HTML)
-const VERSION = 'v6';
+// Service Worker — cache so de assets estaticos e de paginas PUBLICAS.
+// Registrado pelo painel com escopo '/': HTML privado (painel, portal do
+// profissional, django-admin, meus agendamentos, links com token) NUNCA vai
+// para o Cache Storage — ele sobrevive ao logout em computador compartilhado.
+// Subir VERSION a cada mudanca: o activate apaga os caches antigos.
+const VERSION = 'v7';
 const STATIC_CACHE = `aranha-static-${VERSION}`;
 const RUNTIME_CACHE = `aranha-runtime-${VERSION}`;
 const IMAGE_CACHE = `aranha-img-${VERSION}`;
-const API_CACHE = `aranha-api-${VERSION}`;
+const PAGES_CACHE = `aranha-pages-${VERSION}`;
 
 const PRECACHE_URLS = [
-  '/',
   '/static/assets/logo-completa.png',
-  '/static/assets/logo-sem-fundo.png',
   '/static/assets/favicon.png',
-  '/static/js/admin-search.js',
 ];
 
-const MAX_API_ENTRIES = 30;
-const MAX_RUNTIME_ENTRIES = 80;
+// Allowlist de HTML publico que pode ficar offline (sem dado pessoal).
+const PUBLIC_PAGES = new Set([
+  '/',
+  '/quem-somos/',
+  '/servicos/faciais/',
+  '/servicos/corporais/',
+  '/equipe/',
+  '/especialidades/',
+  '/depoimentos/',
+  '/galeria/',
+  '/contato/',
+  '/promocoes/',
+  '/termos-de-uso/',
+  '/politica-de-privacidade/',
+]);
+const PUBLIC_PREFIXES = ['/servicos/detalhe/'];
 
+const MAX_RUNTIME_ENTRIES = 80;
+const MAX_PAGES_ENTRIES = 30;
 const MAX_IMAGE_ENTRIES = 60;
-const IMAGE_TTL_DAYS = 30;
+
+const OFFLINE_HTML =
+  '<!doctype html><html lang="pt-br"><meta charset="utf-8"><title>Sem conexão</title>' +
+  '<body style="font-family:sans-serif;padding:2rem;text-align:center">' +
+  '<h1>Sem conexão</h1><p>Verifique sua internet e recarregue a página.</p></body></html>';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -27,7 +48,8 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  const allowed = new Set([STATIC_CACHE, RUNTIME_CACHE, IMAGE_CACHE, API_CACHE]);
+  // Apaga caches de versoes antigas (inclui HTML privado gravado pela v6)
+  const allowed = new Set([STATIC_CACHE, RUNTIME_CACHE, IMAGE_CACHE, PAGES_CACHE]);
   event.waitUntil(
     caches.keys().then((names) =>
       Promise.all(names.filter((n) => !allowed.has(n)).map((n) => caches.delete(n)))
@@ -44,44 +66,57 @@ async function trimCache(cacheName, maxItems) {
   }
 }
 
+function isPublicPage(url) {
+  if (url.search) return false; // querystring pode carregar token/estado
+  return PUBLIC_PAGES.has(url.pathname) || PUBLIC_PREFIXES.some((p) => url.pathname.startsWith(p));
+}
+
+function podeGuardar(resp) {
+  if (!resp || !resp.ok || resp.type !== 'basic' || resp.redirected) return false;
+  const cc = (resp.headers.get('Cache-Control') || '').toLowerCase();
+  return !cc.includes('no-store') && !cc.includes('private');
+}
+
+function offline() {
+  return new Response(OFFLINE_HTML, {
+    status: 503,
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+  });
+}
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
-  if (req.method !== 'GET') return;
+  if (req.method !== 'GET') return; // POST e afins: sempre rede, nunca cache
 
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  // Bypass total: admin/painel/lgpd/health (privado, dinamico)
-  if (url.pathname.startsWith('/ajax/') ||
-      url.pathname.startsWith('/admin/') ||
-      url.pathname.startsWith('/painel/') ||
-      url.pathname.startsWith('/lgpd/aceitar-cookies') ||
-      url.pathname.startsWith('/health')) {
-    return;
-  }
+  const ehHtml = req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html');
 
-  // Stale-while-revalidate p/ leitura de API publica (procedimentos, dias, horarios)
-  if (url.pathname.startsWith('/api/dias-disponiveis') ||
-      url.pathname.startsWith('/api/horarios-disponiveis') ||
-      url.pathname.startsWith('/api/buscar-procedimentos')) {
+  // HTML: network-first so p/ paginas publicas; o resto e so rede (fallback offline generico)
+  if (ehHtml) {
+    if (!isPublicPage(url)) {
+      event.respondWith(fetch(req).catch(() => offline()));
+      return;
+    }
     event.respondWith(
-      caches.open(API_CACHE).then(async (cache) => {
-        const cached = await cache.match(req);
-        const network = fetch(req).then((resp) => {
-          if (resp.ok) {
-            cache.put(req, resp.clone());
-            trimCache(API_CACHE, MAX_API_ENTRIES);
+      fetch(req)
+        .then((resp) => {
+          if (podeGuardar(resp)) {
+            const clone = resp.clone();
+            caches.open(PAGES_CACHE).then((c) => c.put(req, clone)).then(() => trimCache(PAGES_CACHE, MAX_PAGES_ENTRIES));
           }
           return resp;
-        }).catch(() => cached);
-        return cached || network;
-      })
+        })
+        .catch(() => caches.match(req, { cacheName: PAGES_CACHE }).then((cached) => cached || offline()))
     );
     return;
   }
-  if (url.pathname.startsWith('/api/')) return;
 
-  // Estrategia: imagens - cache-first com TTL e limite
+  // Tudo que nao e /static/ (ajax, api, sw.js, manifest, uploads...) vai direto p/ rede
+  if (!url.pathname.startsWith('/static/')) return;
+
+  // Imagens estaticas: cache-first com limite
   if (req.destination === 'image' || /\.(png|jpg|jpeg|webp|gif|svg|ico)$/i.test(url.pathname)) {
     event.respondWith(
       caches.open(IMAGE_CACHE).then(async (cache) => {
@@ -89,58 +124,32 @@ self.addEventListener('fetch', (event) => {
         if (cached) return cached;
         try {
           const resp = await fetch(req);
-          if (resp.ok) {
+          if (podeGuardar(resp)) {
             cache.put(req, resp.clone());
             trimCache(IMAGE_CACHE, MAX_IMAGE_ENTRIES);
           }
           return resp;
         } catch {
-          return cached || new Response('', { status: 504 });
+          return new Response('', { status: 504 });
         }
       })
     );
     return;
   }
 
-  // Estrategia: estaticos (css/js/font) - stale-while-revalidate
-  if (/\.(css|js|woff2?|ttf|eot)$/i.test(url.pathname) || url.pathname.startsWith('/static/')) {
-    event.respondWith(
-      caches.open(RUNTIME_CACHE).then(async (cache) => {
-        const cached = await cache.match(req);
-        const network = fetch(req).then((resp) => {
-          if (resp.ok) {
-            cache.put(req, resp.clone());
-            trimCache(RUNTIME_CACHE, MAX_RUNTIME_ENTRIES);
-          }
-          return resp;
-        }).catch(() => cached);
-        return cached || network;
-      })
-    );
-    return;
-  }
-
-  // Estrategia: HTML - network-first com fallback offline
+  // Demais estaticos (css/js/fontes): stale-while-revalidate
   event.respondWith(
-    fetch(req)
-      .then((resp) => {
-        if (resp.ok && req.headers.get('accept')?.includes('text/html')) {
-          const clone = resp.clone();
-          caches.open(RUNTIME_CACHE).then((c) => c.put(req, clone));
+    caches.open(RUNTIME_CACHE).then(async (cache) => {
+      const cached = await cache.match(req);
+      const network = fetch(req).then((resp) => {
+        if (podeGuardar(resp)) {
+          cache.put(req, resp.clone());
+          trimCache(RUNTIME_CACHE, MAX_RUNTIME_ENTRIES);
         }
         return resp;
-      })
-      .catch(() =>
-        caches.match(req).then((cached) =>
-          cached ||
-          new Response(
-            '<!doctype html><meta charset="utf-8"><title>Offline</title>' +
-            '<style>body{font-family:sans-serif;padding:2rem;text-align:center}</style>' +
-            '<h1>Sem conexao</h1><p>Verifique sua internet e recarregue a pagina.</p>',
-            { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
-          )
-        )
-      )
+      }).catch(() => cached);
+      return cached || network;
+    })
   );
 });
 
@@ -155,7 +164,7 @@ self.addEventListener('push', (event) => {
   try {
     data = event.data ? event.data.json() : {};
   } catch (e) {
-    data = { head: 'Notificacao', body: event.data ? event.data.text() : '' };
+    data = { head: 'Notificação', body: event.data ? event.data.text() : '' };
   }
   const title = data.head || 'Jaqueline Aranha Estética';
   const options = {

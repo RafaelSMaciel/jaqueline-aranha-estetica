@@ -1,4 +1,4 @@
-{% with cur=request.resolver_match.url_name nl="px-3 py-2 rounded-full text-sm font-medium no-underline transition hover:bg-fundo hover:text-marca-forte" %}
+{% with cur=request.resolver_match.url_name nl="px-3 py-2 rounded-full text-sm font-medium no-underline transition hover:bg-fundo hover:text-marca" %}
 <header x-data="navMenu" class="sticky top-0 z-50 border-b border-borda bg-superficie/95 backdrop-blur supports-[backdrop-filter]:bg-superficie/80">
   <div class="mx-auto max-w-6xl flex items-center justify-between gap-3 px-6 py-3.5">
 
@@ -6,13 +6,13 @@
 
     {# ── Nav desktop ── #}
     <nav class="hidden md:flex items-center gap-0.5" aria-label="Navegação principal">
-      <a href="{% url 'aranha:inicio' %}" class="{{ nl }} {% if cur == 'inicio' %}text-marca-forte bg-fundo{% else %}text-texto-suave{% endif %}">Início</a>
-      <a href="/#sobre" class="{{ nl }} text-texto-suave">Sobre</a>
-      <a href="{% url 'aranha:especialidades' %}" class="{{ nl }} {% if cur == 'especialidades' %}text-marca-forte bg-fundo{% else %}text-texto-suave{% endif %}">Serviços</a>
-      <a href="{% url 'aranha:equipe' %}" class="{{ nl }} {% if cur == 'equipe' %}text-marca-forte bg-fundo{% else %}text-texto-suave{% endif %}">Equipe</a>
-      <a href="{% url 'aranha:promocoes' %}" class="{{ nl }} {% if cur == 'promocoes' %}text-marca-forte bg-fundo{% else %}text-texto-suave{% endif %}">Promoções</a>
+      <a href="{% url 'aranha:inicio' %}" class="{{ nl }} {% if cur == 'inicio' %}text-marca bg-fundo{% else %}text-texto-suave{% endif %}">Início</a>
+      <a href="{% url 'aranha:quem_somos' %}" class="{{ nl }} {% if cur == 'quem_somos' %}text-marca bg-fundo{% else %}text-texto-suave{% endif %}">Sobre</a>
+      <a href="{% url 'aranha:especialidades' %}" class="{{ nl }} {% if cur == 'especialidades' %}text-marca bg-fundo{% else %}text-texto-suave{% endif %}">Serviços</a>
+      <a href="{% url 'aranha:equipe' %}" class="{{ nl }} {% if cur == 'equipe' %}text-marca bg-fundo{% else %}text-texto-suave{% endif %}">Equipe</a>
+      <a href="{% url 'aranha:promocoes' %}" class="{{ nl }} {% if cur == 'promocoes' %}text-marca bg-fundo{% else %}text-texto-suave{% endif %}">Promoções</a>
       <a href="/#faq" class="{{ nl }} text-texto-suave">Dúvidas</a>
-      <a href="{% url 'aranha:agenda_contato' %}" class="{{ nl }} {% if cur == 'agenda_contato' %}text-marca-forte bg-fundo{% else %}text-texto-suave{% endif %}">Contato</a>
+      <a href="{% url 'aranha:agenda_contato' %}" class="{{ nl }} {% if cur == 'agenda_contato' %}text-marca bg-fundo{% else %}text-texto-suave{% endif %}">Contato</a>
     </nav>
 
     {# ── Ações ── #}
@@ -41,7 +41,7 @@
   {# ── Painel mobile ── #}
   <nav id="nav-mobile" x-show="aberto" x-cloak class="md:hidden border-t border-borda bg-superficie px-4 py-3 space-y-1" aria-label="Navegação principal">
     <a href="{% url 'aranha:inicio' %}" x-on:click="fechar" class="block px-4 py-2.5 rounded-lg text-sm font-medium text-texto no-underline hover:bg-fundo transition">Início</a>
-    <a href="/#sobre" x-on:click="fechar" class="block px-4 py-2.5 rounded-lg text-sm font-medium text-texto no-underline hover:bg-fundo transition">Sobre</a>
+    <a href="{% url 'aranha:quem_somos' %}" x-on:click="fechar" class="block px-4 py-2.5 rounded-lg text-sm font-medium text-texto no-underline hover:bg-fundo transition">Sobre</a>
     <a href="{% url 'aranha:especialidades' %}" x-on:click="fechar" class="block px-4 py-2.5 rounded-lg text-sm font-medium text-texto no-underline hover:bg-fundo transition">Serviços</a>
     <a href="{% url 'aranha:equipe' %}" x-on:click="fechar" class="block px-4 py-2.5 rounded-lg text-sm font-medium text-texto no-underline hover:bg-fundo transition">Equipe</a>
     <a href="{% url 'aranha:promocoes' %}" x-on:click="fechar" class="block px-4 py-2.5 rounded-lg text-sm font-medium text-texto no-underline hover:bg-fundo transition">Promoções</a>

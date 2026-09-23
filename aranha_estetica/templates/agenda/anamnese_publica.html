@@ -1,3 +1,7 @@
 {% extends 'agenda/pesquisa.html' %}
-{# Reusa template pesquisa — mesma renderizacao schema. Diferenca apenas no titulo/copy. #}
-{% block titulo %}Anamnese | {{ CLINIC_NAME }}{% endblock %}
+{# Reusa o form de pesquisa (mesma renderizacao do schema). Ficha de avaliacao = dado de saude: #}
+{# copy e finalidade proprias (seguranca do procedimento), nao "sua opiniao". #}
+{% block titulo %}Ficha de avaliação | {{ CLINIC_NAME }}{% endblock %}
+{% block selo %}Ficha de avaliação{% endblock %}
+{% block subtitulo_extra %}Algumas perguntas rápidas para cuidarmos de você com segurança.{% endblock %}
+{% block aviso_privacidade %}Suas respostas ficam no seu histórico de cuidados, com acesso restrito à equipe, e são usadas para garantir a segurança do seu procedimento.{% endblock %}

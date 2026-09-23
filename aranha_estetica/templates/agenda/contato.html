@@ -2,6 +2,7 @@
 {% load static cotton %}
 
 {% block titulo %}Contato | {{ CLINIC_NAME }}{% endblock %}
+{% block meta_description %}Fale com a {{ CLINIC_NAME }}: endereço, horário de funcionamento e formulário de contato.{% endblock %}
 
 {% block conteudo %}
 {# ── Hero ── #}
@@ -16,21 +17,24 @@
   </div>
 </section>
 
-{# ── Mensagens Django ── #}
-{% if messages %}
-  <div class="max-w-6xl mx-auto mt-6 px-6">
-    {% for msg in messages %}
-      {% if msg.tags == 'error' or 'error' in msg.tags %}
-        <div role="alert" class="mb-3 rounded-md border border-erro px-4 py-3 text-sm text-erro bg-superficie">
-          {{ msg }}
-        </div>
-      {% else %}
-        <div role="alert" class="mb-3 rounded-md border border-sucesso px-4 py-3 text-sm text-sucesso bg-superficie">
-          {{ msg }}
-        </div>
+{# Mensagens: renderizadas pelo base_v2 (cotton/chrome/mensagens.html) #}
+
+{% if envio_falhou %}
+{# E-mail indisponivel: a mensagem NAO foi entregue — oferece canal alternativo #}
+<div class="max-w-6xl mx-auto mt-6 px-6">
+  <div class="rounded-md border border-borda bg-superficie px-4 py-4 text-sm text-texto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <p>Sua mensagem ainda não chegou até nós.{% if WHATSAPP_NUMERO or CLINIC_PHONE_TEL %} Para falar agora, use outro canal:{% else %} Tente de novo em alguns minutos.{% endif %}</p>
+    <div class="flex flex-wrap gap-2">
+      {% if WHATSAPP_NUMERO %}
+      <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text={{ form_data.message|urlencode }}" target="_blank" rel="noopener"
+         class="inline-flex items-center rounded-md bg-marca-forte px-4 py-2 text-sm font-semibold text-sobre-marca hover:opacity-90">Enviar pelo WhatsApp</a>
       {% endif %}
-    {% endfor %}
+      {% if CLINIC_PHONE_TEL %}
+      <a href="tel:{{ CLINIC_PHONE_TEL }}" class="inline-flex items-center rounded-md border border-borda px-4 py-2 text-sm font-medium text-texto hover:bg-fundo">Ligar {{ CLINIC_PHONE }}</a>
+      {% endif %}
+    </div>
   </div>
+</div>
 {% endif %}
 
 {# ── Conteúdo principal ── #}
@@ -50,15 +54,17 @@
         </div>
       </div>
 
+      {% if CLINIC_EMAIL %}
       <div class="flex gap-4 items-start">
         <span class="mt-1 text-marca shrink-0">
           <svg class="text-xl" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/></svg>
         </span>
         <div>
           <h3 class="font-semibold text-texto">E-mail</h3>
-          <p class="text-sm text-texto-suave mt-1">{{ CLINIC_EMAIL }}</p>
+          <p class="text-sm text-texto-suave mt-1"><a href="mailto:{{ CLINIC_EMAIL }}" class="text-marca underline break-all">{{ CLINIC_EMAIL }}</a></p>
         </div>
       </div>
+      {% endif %}
 
       <div class="flex gap-4 items-start">
         <span class="mt-1 text-marca shrink-0">
@@ -71,16 +77,19 @@
         </div>
       </div>
 
+      {% if CLINIC_PHONE or WHATSAPP_NUMERO %}
       <div class="flex gap-4 items-start">
         <span class="mt-1 text-marca shrink-0">
           <svg class="text-xl" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
         </span>
         <div>
           <h3 class="font-semibold text-texto">Telefone / WhatsApp</h3>
-          <p class="text-sm text-texto-suave mt-1">{{ CLINIC_PHONE }}</p>
-          <p class="text-xs text-texto-suave mt-1">Atendimento via WhatsApp das 9h às 18h</p>
+          {% if CLINIC_PHONE %}<p class="text-sm text-texto-suave mt-1">{% if CLINIC_PHONE_TEL %}<a href="tel:{{ CLINIC_PHONE_TEL }}" class="text-marca underline">{{ CLINIC_PHONE }}</a>{% else %}{{ CLINIC_PHONE }}{% endif %}</p>{% endif %}
+          {% if WHATSAPP_NUMERO %}<p class="text-sm mt-1"><a href="https://wa.me/{{ WHATSAPP_NUMERO }}" target="_blank" rel="noopener" class="text-marca underline">Conversar no WhatsApp</a></p>{% endif %}
+          {% if CLINIC_HOURS %}<p class="text-xs text-texto-suave mt-1">Atendimento: {{ CLINIC_HOURS }}</p>{% endif %}
         </div>
       </div>
+      {% endif %}
 
       <div class="flex gap-4 items-start">
         <span class="mt-1 text-marca shrink-0">
@@ -136,7 +145,7 @@
                 label="Telefone (opcional)"
                 tipo="tel"
                 value="{{ form_data.phone|default:'' }}"
-                placeholder="(17) 99999-0000"
+                placeholder="(17) 91234-5678"
               />
             </div>
 
@@ -171,7 +180,7 @@
               >{{ form_data.message|default:'' }}</textarea>
             </div>
 
-            {# Checkbox LGPD #}
+            {# Checkbox LGPD — aceite da politica (obrigatorio) separado do marketing (opcional) #}
             <div class="sm:col-span-2 flex items-start gap-2">
               <input
                 type="checkbox"
@@ -182,7 +191,20 @@
                 class="mt-1 h-4 w-4 shrink-0 rounded border-borda accent-marca-forte"
               >
               <label for="privacy" class="text-sm text-texto-suave">
-                Li e concordo com a <a href="{% url 'aranha:politica_privacidade' %}" class="underline text-marca">Política de Privacidade</a> e aceito receber comunicações da {{ CLINIC_NAME }}.
+                Li e concordo com a <a href="{% url 'aranha:politica_privacidade' %}" class="underline text-marca">Política de Privacidade</a>. *
+              </label>
+            </div>
+            <div class="sm:col-span-2 flex items-start gap-2">
+              <input
+                type="checkbox"
+                id="marketing"
+                name="marketing"
+                value="1"
+                {% if form_data.marketing %}checked{% endif %}
+                class="mt-1 h-4 w-4 shrink-0 rounded border-borda accent-marca-forte"
+              >
+              <label for="marketing" class="text-sm text-texto-suave">
+                Quero receber novidades e promoções da {{ CLINIC_NAME }} (opcional).
               </label>
             </div>
 

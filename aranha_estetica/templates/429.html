@@ -1,0 +1,24 @@
+{% extends 'estrutura/base_v2.html' %}
+
+{% block titulo %}Muitas tentativas — {{ CLINIC_NAME }}{% endblock %}
+{% block head_seo %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+
+{% block conteudo %}
+{# Rate-limit (views.public.limite_excedido via settings.RATELIMIT_VIEW) #}
+<section class="py-24 md:py-32 bg-fundo min-h-[60vh] flex items-center">
+  <div class="max-w-2xl mx-auto px-6 text-center">
+    <h1 class="text-3xl md:text-4xl font-bold text-texto mb-4">Vamos com calma</h1>
+    <p class="text-texto-suave text-lg leading-relaxed mb-10">
+      Recebemos muitas tentativas seguidas deste aparelho. Aguarde um minuto e tente de novo.
+    </p>
+    <div class="flex flex-wrap justify-center gap-4">
+      <a href="{% url 'aranha:inicio' %}"
+         class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">Voltar ao início</a>
+      {% if WHATSAPP_NUMERO %}
+      <a href="https://wa.me/{{ WHATSAPP_NUMERO }}" target="_blank" rel="noopener"
+         class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto font-semibold hover:bg-superficie transition-colors">Falar no WhatsApp</a>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}

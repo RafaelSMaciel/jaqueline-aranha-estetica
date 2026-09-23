@@ -40,3 +40,49 @@ class ClinicaGlobalsTests(TestCase):
         # Should have defaults, not None
         self.assertIsNotNone(ctx['CLINIC_NAME'])
         self.assertIsNotNone(ctx['SITE_URL'])
+
+
+class BrandingSemPlaceholderTests(TestCase):
+    """Regressao public_front-02/deploy-06: nunca contato ficticio; Branding > env; SITE_URL de settings."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.factory = RequestFactory()
+
+    @patch.dict('os.environ', {'WHATSAPP_NUMERO': '', 'CLINIC_PHONE': '', 'CLINIC_EMAIL': ''})
+    def test_contatos_ausentes_ficam_vazios(self):
+        ctx = clinica_globals(self.factory.get('/'))
+        self.assertEqual(ctx['WHATSAPP_NUMERO'], '')
+        self.assertEqual(ctx['CLINIC_PHONE'], '')
+        self.assertEqual(ctx['CLINIC_EMAIL'], '')
+        self.assertEqual(ctx['CLINIC_PHONE_TEL'], '')
+
+    def test_site_url_vem_de_settings(self):
+        from django.test import override_settings
+        with override_settings(SITE_URL='https://clinica.exemplo'):
+            ctx = clinica_globals(self.factory.get('/'))
+        self.assertEqual(ctx['SITE_URL'], 'https://clinica.exemplo')
+
+    @patch.dict('os.environ', {'CLINIC_PHONE': '(17) 3222-1111'})
+    def test_telefone_vira_href_tel(self):
+        ctx = clinica_globals(self.factory.get('/'))
+        self.assertEqual(ctx['CLINIC_PHONE_TEL'], '+551732221111')
+
+    @patch.dict('os.environ', {'CLINIC_PHONE': ''})
+    def test_tela_branding_tem_precedencia_sobre_env(self):
+        from aranha_estetica.models import Configuracao
+        Configuracao.objects.create(chave='CLINIC_PHONE', valor='(17) 98888-7777')
+        ctx = clinica_globals(self.factory.get('/'))
+        self.assertEqual(ctx['CLINIC_PHONE'], '(17) 98888-7777')
+
+    @patch.dict('os.environ', {'INSTAGRAM_URL': 'javascript:alert(1)', 'THEME_COLOR': 'red;x'})
+    def test_valores_inseguros_sao_descartados(self):
+        ctx = clinica_globals(self.factory.get('/'))
+        self.assertEqual(ctx['INSTAGRAM_URL'], '')
+        self.assertEqual(ctx['THEME_COLOR'], '#C9A84C')
+
+    def test_nome_curto_do_pwa(self):
+        from aranha_estetica.context_processors import _nome_curto
+        self.assertEqual(_nome_curto('Jaqueline Aranha Estética'), 'J. Aranha')
+        self.assertEqual(_nome_curto('Spa Zen'), 'Spa Zen')

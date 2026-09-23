@@ -1,5 +1,5 @@
 import Alpine from '@alpinejs/csp'
-import 'htmx.org'
+// HTMX removido: sem nenhum hx-* no projeto e injetava <style> sem nonce (CSP).
 import '../css/app.css'
 
 function aplicarTema(novo) {
@@ -32,10 +32,14 @@ Alpine.data('navMenu', () => ({
   fechar() { this.aberto = false },
 }))
 
-// Banner de consentimento de cookies (LGPD). Posta preferencias e some.
+// Banner de consentimento de cookies (LGPD). Grava a escolha em cookie de 1 ano
+// (a sessao expira em 30 min e o banner voltava), registra no servidor e some.
 // CSP-safe: URL/CSRF vem de data-attrs do $root; sem expressao inline.
 Alpine.data('cookieConsent', () => ({
   enviar(analytics, marketing) {
+    let cookie = `cookie_consent=${analytics || marketing ? 'todos' : 'essenciais'}; path=/; max-age=31536000; samesite=lax`
+    if (location.protocol === 'https:') cookie += '; secure'
+    document.cookie = cookie
     const fd = new FormData()
     fd.append('analytics', analytics ? '1' : '0')
     fd.append('marketing', marketing ? '1' : '0')

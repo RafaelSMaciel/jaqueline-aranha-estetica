@@ -2,6 +2,7 @@
 {% load static %}
 
 {% block titulo %}Tratamentos Faciais | {{ CLINIC_NAME }}{% endblock %}
+{% block meta_description %}Tratamentos faciais na {{ CLINIC_NAME }}: botox, preenchimentos, bioestimulador, skinbooster, limpeza de pele e peeling, com avaliação personalizada.{% endblock %}
 
 {% block conteudo %}
 
@@ -37,10 +38,6 @@
           <div>
             <p class="text-3xl font-bold text-marca">6+</p>
             <p class="text-texto-suave text-sm mt-1">Procedimentos Faciais</p>
-          </div>
-          <div class="border-l border-borda pl-8">
-            <p class="text-3xl font-bold text-marca">98%</p>
-            <p class="text-texto-suave text-sm mt-1">Satisfação</p>
           </div>
         </div>
 
@@ -147,7 +144,7 @@
         <span class="absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-marca-forte text-sobre-marca text-xs font-bold flex items-center justify-center">03</span>
         <div class="mx-auto w-12 h-12 rounded-full bg-superficie border border-borda flex items-center justify-center mt-2">
           <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
           </svg>
         </div>
         <h3 class="text-texto font-semibold text-lg">Procedimento</h3>
@@ -304,7 +301,7 @@
       <article class="rounded-xl border border-borda bg-superficie p-6 flex flex-col space-y-4">
         <div class="w-12 h-12 rounded-lg bg-fundo border border-borda flex items-center justify-center">
           <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
           </svg>
         </div>
         <h3 class="text-texto font-bold text-lg">Bioestimulador de Colágeno</h3>
@@ -491,7 +488,7 @@
           Desperte a Sua Melhor Versão
         </h2>
         <p class="text-texto-suave text-lg leading-relaxed">
-          Nossos tratamentos faciais são personalizados após uma avaliação detalhada. Agende sua consulta para recomendarmos o protocolo ideal para a sua pele.
+          Nossos tratamentos faciais são personalizados após uma avaliação detalhada. Agende sua avaliação para recomendarmos o cuidado ideal para a sua pele.
         </p>
         <div class="flex flex-wrap gap-4">
           <a href="{% url 'aranha:agendamento_publico' %}"
@@ -499,6 +496,7 @@
             Agendar Avaliação
             <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </a>
+          {% if WHATSAPP_NUMERO %}
           <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Ol%C3%A1%21+Gostaria+de+saber+mais+sobre+os+tratamentos+faciais."
              target="_blank"
              rel="noopener"
@@ -509,12 +507,13 @@
             </svg>
             Tirar Dúvidas
           </a>
+          {% endif %}
         </div>
       </div>
 
       <div class="group rounded-xl overflow-hidden aspect-[4/3]">
         <img src="{% static 'assets/clinica/consulta-1.webp' %}"
-             alt="Consulta de Tratamentos Faciais {{ CLINIC_NAME }}"
+             alt="Avaliação de tratamentos faciais — {{ CLINIC_NAME }}"
              width="800" height="600"
              loading="lazy" decoding="async"
              class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
@@ -552,7 +551,7 @@
       <div class="text-center space-y-3">
         <div class="mx-auto w-14 h-14 rounded-full bg-superficie border border-borda flex items-center justify-center">
           <svg class="w-7 h-7 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
           </svg>
         </div>
         <h3 class="text-texto font-bold text-lg">Resultados Naturais</h3>

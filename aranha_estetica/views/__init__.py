@@ -9,7 +9,8 @@ from .public import (
     home, termos_uso, politica_privacidade, quem_somos, agenda_contato, promocoes,
     equipe, especialidades, depoimentos, galeria, servico_detalhe,
     lista_espera_publica, lista_espera_sucesso,
-    servicos_faciais, servicos_corporais, servicos_produtos,
+    servicos_faciais, servicos_corporais,
+    favicon, limite_excedido,
 )
 from .admin import (
     prontuario_consentimento,
@@ -27,7 +28,7 @@ from .admin_promotions import (
     admin_disparar_promocao,
 )
 from .admin_financeiro import dashboard_financeiro
-from .relatorios import painel_nps, painel_comissoes, admin_comissao_pagar
+from .relatorios import painel_nps, painel_comissoes, admin_comissao_pagar, admin_nps_publicacao
 from .dashboard import (
     painel, painel_overview, painel_agendamentos, painel_clientes,
     painel_profissionais, exportar_relatorio_excel,
@@ -47,12 +48,10 @@ from .booking_api import (
     api_dias_disponiveis,
     api_horarios_disponiveis,
     cancelar_agendamento,
-    verificar_telefone,
-    buscar_procedimentos,
     buscar_horarios,
 )
 from .whatsapp import whatsapp_webhook, zenvia_sms_webhook
-from .notificacoes import confirmar_presenca, painel_notificacoes, admin_cancelar_agendamento
+from .notificacoes import confirmar_presenca, painel_notificacoes
 from .prontuario import prontuario_detalhe, prontuario_salvar, anotacao_sessao_salvar
 from .pacotes import admin_pacotes, admin_criar_pacote, admin_editar_pacote, admin_vender_pacote
 from .admin_management import (

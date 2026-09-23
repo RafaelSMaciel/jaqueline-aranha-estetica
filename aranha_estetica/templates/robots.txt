@@ -5,8 +5,19 @@ Disallow: /painel/
 Disallow: /admin-login/
 Disallow: /admin-logout/
 Disallow: /django-admin-sv/
+Disallow: /account/
 Disallow: /ajax/
 Disallow: /api/
 Disallow: /profissional/
+Disallow: /meus-agendamentos/
+Disallow: /reagendar/
+Disallow: /confirmar/
+Disallow: /nps/
+Disallow: /termo/
+Disallow: /anamnese/
+Disallow: /pesquisa/
+Disallow: /lgpd/
+Disallow: /cron/
+Disallow: /agenda/
 
-Sitemap: {{ request.scheme }}://{{ request.get_host }}/sitemap.xml
+Sitemap: {{ SITE_URL }}/sitemap.xml

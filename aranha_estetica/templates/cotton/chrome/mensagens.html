@@ -1,0 +1,16 @@
+{% comment %}
+Mensagens do messages framework (incluido pelo estrutura/base_v2.html).
+Iterar consome o storage: paginas-filhas NAO devem renderizar messages de novo
+(ou sobrescrevem {% block mensagens %} com bloco vazio).
+{% endcomment %}
+{% if messages %}
+<div class="mx-auto max-w-6xl px-6 pt-4 space-y-2">
+  {% for m in messages %}
+  <div role="{% if m.level >= 40 %}alert{% else %}status{% endif %}"
+       class="rounded-md border px-4 py-3 text-sm font-medium bg-superficie
+              {% if m.level >= 40 %}border-erro text-erro{% elif m.level == 25 %}border-sucesso text-sucesso{% else %}border-borda text-texto{% endif %}">
+    {{ m }}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}

@@ -33,3 +33,27 @@ class FrontPipelineGuards(TestCase):
         self.assertEqual(
             settings.DJANGO_VITE['default'].get('static_url_prefix'), 'dist',
         )
+
+
+    def test_htmx_fora_do_bundle(self):
+        # HTMX sem uso injetava <style> sem nonce (violacao de CSP em toda pagina)
+        app_js = (_SRC.parent / 'js' / 'app.js').read_text(encoding='utf-8')
+        self.assertNotIn("import 'htmx.org'", app_js)
+
+    def test_cookie_consent_persistido_em_cookie(self):
+        app_js = (_SRC.parent / 'js' / 'app.js').read_text(encoding='utf-8')
+        self.assertIn('cookie_consent=', app_js)
+        self.assertIn('max-age=31536000', app_js)
+
+    def test_dourado_de_texto_passa_aa_no_tema_claro(self):
+        # text-marca no claro: #7A5F1F (5,8:1). #C9A84C como texto dava 2,2:1.
+        tokens = (_SRC / 'tokens.css').read_text(encoding='utf-8')
+        claro = tokens.split('[data-theme="escuro"]')[0]
+        self.assertIn('--cor-marca: var(--ouro-700);', claro)
+        self.assertIn('--ouro-700: #7A5F1F;', claro)
+
+    def test_sw_nao_cacheia_html_privado(self):
+        sw = (Path(settings.BASE_DIR) / 'aranha_estetica' / 'templates' / 'pwa' / 'sw.js').read_text(encoding='utf-8')
+        self.assertIn('PUBLIC_PAGES', sw)
+        self.assertNotIn("'/api/dias-disponiveis'", sw)
+        self.assertNotIn('logo-sem-fundo', sw)

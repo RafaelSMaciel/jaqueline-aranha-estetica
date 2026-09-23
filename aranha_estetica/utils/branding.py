@@ -5,8 +5,11 @@ Precedencia: valor salvo na tela Branding do painel (tabela Configuracao)
 escondem o item) — nunca exibir telefone/e-mail ficticio.
 """
 import os
+import re
 
 from django.core.cache import cache
+
+_HEX_RX = re.compile(r'^#[0-9a-fA-F]{3,8}$')
 
 CONFIG_CACHE_KEY = 'branding_config_dict'  # invalidado em signals.invalidar_cache_branding
 CONFIG_CACHE_TTL = 600  # 10 min
@@ -21,7 +24,7 @@ BRANDING_FIELDS = [
     ('CLINIC_HOURS', 'Horário de funcionamento', 'text'),
     ('WHATSAPP_NUMERO', 'WhatsApp (só dígitos com DDI, ex: 5517991234567)', 'text'),
     ('INSTAGRAM_URL', 'URL do Instagram', 'url'),
-    ('THEME_COLOR', 'Cor da marca (hex, ex: #C9A84C)', 'color'),
+    ('THEME_COLOR', 'Cor da barra do navegador/app no celular (hex, ex: #C9A84C)', 'color'),
 ]
 
 DEFAULTS = {
@@ -63,4 +66,9 @@ def get_branding() -> dict:
         valor = (db.get(chave) or os.environ.get(chave) or default or '').strip()
         out[chave] = valor
     out['WHATSAPP_NUMERO'] = ''.join(ch for ch in out['WHATSAPP_NUMERO'] if ch.isdigit())
+    # Valores vao p/ href/meta: so aceita formatos seguros (senao cai no default)
+    if not out['INSTAGRAM_URL'].lower().startswith(('https://', 'http://')):
+        out['INSTAGRAM_URL'] = ''
+    if not _HEX_RX.match(out['THEME_COLOR']):
+        out['THEME_COLOR'] = DEFAULTS['THEME_COLOR']
     return out

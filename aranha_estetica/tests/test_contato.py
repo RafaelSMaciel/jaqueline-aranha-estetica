@@ -6,11 +6,20 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 
-@override_settings(RATELIMIT_ENABLE=False)
+@override_settings(
+    RATELIMIT_ENABLE=False,
+    EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+    CLINIC_EMAIL='clinica@test.com',
+    DEFAULT_FROM_EMAIL='noreply@test.com',
+)
 class ContatoViewTests(TestCase):
     def setUp(self):
         self.client = Client()
         self.url = reverse('aranha:agenda_contato')
+        # Destino vem de settings.CLINIC_EMAIL (Branding/env isolados do ambiente local)
+        p = patch('aranha_estetica.views.public.get_branding', return_value={'CLINIC_EMAIL': ''})
+        p.start()
+        self.addCleanup(p.stop)
 
     # ── helpers ──────────────────────────────────────────────────────────────
 
@@ -46,7 +55,7 @@ class ContatoViewTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         messages_list = list(resp.context['messages'])
         self.assertTrue(
-            any('obrigatorio' in str(m).lower() for m in messages_list),
+            any('obrigat' in str(m).lower() for m in messages_list),
             'Esperava mensagem de erro de validacao',
         )
         self.assertEqual(len(mail.outbox), 0)
@@ -55,7 +64,7 @@ class ContatoViewTests(TestCase):
         resp = self._post(email='')
         self.assertEqual(resp.status_code, 200)
         messages_list = list(resp.context['messages'])
-        self.assertTrue(any('obrigatorio' in str(m).lower() for m in messages_list))
+        self.assertTrue(any('obrigat' in str(m).lower() for m in messages_list))
         self.assertEqual(len(mail.outbox), 0)
 
     def test_post_sem_subject_mostra_erro(self):
@@ -89,27 +98,64 @@ class ContatoViewTests(TestCase):
             'Esperava mensagem de sucesso apos envio',
         )
 
-    @override_settings(
-        EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
-        CLINIC_EMAIL='clinica@test.com',
-        DEFAULT_FROM_EMAIL='noreply@test.com',
-    )
     def test_post_valido_envia_email_para_clinica(self):
         self._post(subject='orcamento', name='Carlos', message='Quero um orcamento.')
         self.assertEqual(len(mail.outbox), 1)
         enviado = mail.outbox[0]
-        self.assertIn('orcamento', enviado.subject.lower())
+        self.assertIn('orçamento', enviado.subject.lower())
         self.assertIn('Carlos', enviado.body)
         self.assertIn('clinica@test.com', enviado.recipients())
+        # Resposta vai direto p/ quem escreveu (o from e o noreply)
+        self.assertEqual(enviado.reply_to, ['ana@exemplo.com.br'])
 
-    # ── Falha de email nao derruba a request ─────────────────────────────────
+    # ── Falha de email: nao derruba a request e NAO finge sucesso ───────────
 
-    def test_falha_de_email_ainda_redireciona_com_sucesso(self):
-        """Se o envio de email falhar, a view NAO deve levantar 500."""
-        with patch('django.core.mail.send_mail', side_effect=Exception('SMTP down')):
-            resp = self._post()
-        # PRG mesmo com erro de email
+    def test_falha_de_email_nao_finge_sucesso_e_preserva_mensagem(self):
+        """Regressao: SMTP falhava, a mensagem se perdia e a tela dizia 'enviada'."""
+        with patch('django.core.mail.EmailMessage.send', side_effect=Exception('SMTP down')):
+            resp = self._post(message='Minha duvida importante.')
+        self.assertEqual(resp.status_code, 200)
+        msgs = [str(m).lower() for m in resp.context['messages']]
+        self.assertFalse(any('enviada' in m for m in msgs))
+        self.assertTrue(any('não conseguimos enviar' in m for m in msgs))
+        self.assertEqual(resp.context['form_data']['message'], 'Minha duvida importante.')
+        self.assertContains(resp, 'Minha duvida importante.')
+
+    @override_settings(DEBUG=False, EMAIL_BACKEND='django.core.mail.backends.console.EmailBackend')
+    def test_backend_console_em_prod_nao_finge_sucesso(self):
+        """Regressao: em prod sem SMTP o console 'enviava' (retorna 1) e a mensagem sumia no log."""
+        resp = self._post()
+        self.assertEqual(resp.status_code, 200)
+        msgs = [str(m).lower() for m in resp.context['messages']]
+        self.assertFalse(any('enviada' in m for m in msgs))
+        self.assertTrue(resp.context['envio_falhou'])
+
+    @override_settings(CLINIC_EMAIL='', DEFAULT_FROM_EMAIL='noreply@clinica.com.br')
+    def test_sem_caixa_de_destino_nao_envia_para_noreply(self):
+        resp = self._post()
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertTrue(resp.context['envio_falhou'])
+
+    def test_email_invalido_mostra_erro(self):
+        resp = self._post(email='nao-e-email')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertTrue(any('e-mail válido' in str(m) for m in resp.context['messages']))
+
+    # ── LGPD: aceite da politica separado do marketing ─────────────────────
+
+    def test_marketing_e_opcional_e_separado_da_politica(self):
+        resp = self._post()  # so privacy
         self.assertRedirects(resp, self.url)
+        self.assertIn('novidades e promoções: não', mail.outbox[0].body)
+        self._post(marketing='1')
+        self.assertIn('novidades e promoções: sim', mail.outbox[1].body)
+
+    def test_template_tem_checkbox_de_marketing_separado(self):
+        resp = self.client.get(self.url)
+        self.assertContains(resp, 'name="marketing"')
+        self.assertNotContains(resp, 'aceito receber comunicações')
 
     # ── Preserva valores no re-render apos erro ───────────────────────────────
 

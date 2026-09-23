@@ -2,175 +2,160 @@
 {% load static %}
 
 {% block titulo %}Política de Privacidade | {{ CLINIC_NAME }}{% endblock %}
+{% block meta_description %}Como a {{ CLINIC_NAME }} coleta, usa e protege seus dados pessoais, conforme a LGPD.{% endblock %}
+
+{% comment %}
+Texto alinhado ao que o sistema realmente faz (agendamento sem conta, OTP por SMS,
+ficha de avaliacao, NPS, depoimentos com opt-in, lista de espera). Revisao juridica
+final e do dono. Contatos vem da tela Branding: vazios somem (sem placeholder falso).
+{% endcomment %}
 
 {% block conteudo %}
 <div class="mx-auto max-w-3xl px-6 py-12">
 
   <!-- Header -->
   <div class="mb-10">
-    <p class="text-xs font-semibold uppercase tracking-widest text-texto-suave mb-2">Data de Vigência: 26 de Março de 2026</p>
+    <p class="text-xs font-semibold uppercase tracking-widest text-texto-suave mb-2">Vigente desde 23 de setembro de 2026</p>
     <h1 class="text-3xl font-bold text-texto mb-4">Política de Privacidade</h1>
     <p class="text-texto-suave leading-relaxed">
-      Esta Política de Privacidade descreve como a {{ CLINIC_NAME }} coleta, usa, processa e divulga suas informações,
-      incluindo dados pessoais, em conjunto com seu acesso e uso de nossos serviços.
+      Esta política explica quais dados pessoais a {{ CLINIC_NAME }} coleta quando você usa o site,
+      agenda um atendimento ou é atendida no nosso espaço, para que usamos esses dados, com quem
+      eles são compartilhados e como você exerce seus direitos pela Lei Geral de Proteção de Dados (LGPD — Lei 13.709/2018).
     </p>
   </div>
 
-  <!-- Content -->
   <div class="space-y-10">
 
     <!-- 1 -->
     <div>
-      <h2 class="text-xl font-semibold text-texto mb-3">1. Introdução</h2>
-      <p class="text-texto-suave leading-relaxed mb-3">Ao utilizar nossos serviços, você confia suas informações a nós. Entendemos que esta é uma grande responsabilidade e trabalhamos arduamente para proteger suas informações e dar a você o controle sobre elas.</p>
-      <p class="text-texto-suave leading-relaxed">Esta Política de Privacidade foi elaborada para ajudá-lo a entender quais informações coletamos, por que as coletamos e como você pode atualizar, gerenciar, exportar e excluir suas informações.</p>
+      <h2 class="text-xl font-semibold text-texto mb-3">1. Quem cuida dos seus dados</h2>
+      <p class="text-texto-suave leading-relaxed">
+        A {{ CLINIC_NAME }}{% if CLINIC_ADDRESS %}, com endereço em {{ CLINIC_ADDRESS }},{% endif %} é a controladora dos
+        dados pessoais tratados neste site e nos atendimentos. Os canais de contato para assuntos de privacidade
+        estão no fim desta página.
+      </p>
     </div>
 
     <!-- 2 -->
     <div>
-      <h2 class="text-xl font-semibold text-texto mb-3">2. Informações que Coletamos</h2>
-      <p class="text-texto-suave leading-relaxed mb-4">Coletamos informações para fornecer melhores serviços aos nossos usuários. Os tipos de informações que coletamos incluem:</p>
-
-      <h3 class="text-base font-semibold text-texto mb-2">2.1 Informações Fornecidas por Você</h3>
-      <p class="text-texto-suave leading-relaxed mb-2">Ao criar uma conta ou utilizar nossos serviços, você nos fornece informações pessoais que incluem:</p>
+      <h2 class="text-xl font-semibold text-texto mb-3">2. Dados que coletamos</h2>
+      <p class="text-texto-suave leading-relaxed mb-3">Coletamos apenas o necessário para agendar e realizar o seu atendimento:</p>
       <ul class="list-disc list-inside space-y-1 text-texto-suave mb-4">
-        <li>Nome completo e dados de contato</li>
-        <li>Credenciais de acesso à conta</li>
-        <li>Informações de pagamento quando necessário</li>
-        <li>Preferências de comunicação e agendamento</li>
-        <li>Histórico de tratamentos e procedimentos realizados</li>
+        <li><strong class="text-texto">Identificação e contato:</strong> nome, celular e, quando você informa, e-mail e data de nascimento.</li>
+        <li><strong class="text-texto">Agendamentos:</strong> procedimento, profissional, data e horário, histórico de atendimentos, faltas e cancelamentos.</li>
+        <li><strong class="text-texto">Ficha de avaliação (anamnese):</strong> informações sobre sua saúde e cuidados, preenchidas antes do procedimento. É um dado pessoal sensível e recebe proteção reforçada.</li>
+        <li><strong class="text-texto">Termos e consentimentos:</strong> registro de aceite dos termos do procedimento e das suas preferências de comunicação.</li>
+        <li><strong class="text-texto">Avaliações:</strong> nota e comentário que você envia na pesquisa de satisfação.</li>
+        <li><strong class="text-texto">Mensagens:</strong> o que você escreve no formulário de contato ou na inscrição da lista de espera.</li>
+        <li><strong class="text-texto">Dados técnicos:</strong> endereço IP, data e hora de acesso e registros de segurança, usados para proteger o site contra abusos.</li>
       </ul>
-
-      <h3 class="text-base font-semibold text-texto mb-2">2.2 Informações Automáticas</h3>
-      <p class="text-texto-suave leading-relaxed mb-2">Coletamos e armazenamos automaticamente certas informações quando você utiliza nossos serviços:</p>
-      <ul class="list-disc list-inside space-y-1 text-texto-suave">
-        <li>Informações do dispositivo e identificadores</li>
-        <li>Dados de log e estatísticas de uso</li>
-        <li>Informações de localização quando permitido</li>
-        <li>Tipo de navegador e configurações</li>
-        <li>Endereço de IP e dados de conexão</li>
-      </ul>
+      <p class="text-texto-suave leading-relaxed">
+        Não pedimos senha nem dados de cartão no site: o agendamento é feito sem conta, com confirmação por código enviado por SMS.
+        Pagamentos são feitos presencialmente.
+      </p>
     </div>
 
     <!-- 3 -->
     <div>
-      <h2 class="text-xl font-semibold text-texto mb-3">3. Como Utilizamos Suas Informações</h2>
-      <p class="text-texto-suave leading-relaxed mb-3">Utilizamos as informações coletadas para fornecer, manter e melhorar nossos serviços. Especificamente, utilizamos suas informações para:</p>
-      <ul class="list-disc list-inside space-y-1 text-texto-suave">
-        <li>Fornecer e personalizar nossos serviços estéticos</li>
-        <li>Processar agendamentos e enviar confirmações</li>
-        <li>Enviar notificações e atualizações sobre nossos serviços</li>
-        <li>Manter a segurança e verificar identidade</li>
-        <li>Analisar e melhorar nossos serviços</li>
-        <li>Manter fichas e histórico de atendimentos com seu consentimento</li>
+      <h2 class="text-xl font-semibold text-texto mb-3">3. Para que usamos e com qual base legal</h2>
+      <ul class="list-disc list-inside space-y-2 text-texto-suave">
+        <li><strong class="text-texto">Agendar, confirmar, lembrar e realizar o atendimento</strong> — execução do serviço que você contratou (art. 7º, V).</li>
+        <li><strong class="text-texto">Ficha de avaliação e histórico de cuidados</strong> — para garantir a segurança do procedimento, com o seu consentimento e para a tutela da sua saúde (art. 11, I e II, "f").</li>
+        <li><strong class="text-texto">Guardar registros de atendimento e de aceite de termos</strong> — cumprimento de obrigação legal e exercício regular de direitos (art. 7º, II e VI).</li>
+        <li><strong class="text-texto">Pesquisa de satisfação</strong> — legítimo interesse em melhorar o atendimento (art. 7º, IX). Você pode não responder.</li>
+        <li><strong class="text-texto">Publicar seu depoimento no site</strong> — só se você marcar a autorização na pesquisa, e somente com seu primeiro nome e a inicial do sobrenome (art. 7º, I). A clínica revisa antes de publicar e você pode pedir a retirada a qualquer momento.</li>
+        <li><strong class="text-texto">Novidades e promoções</strong> — apenas com o seu consentimento (art. 7º, I). Todo e-mail de divulgação tem link para cancelar o recebimento.</li>
+        <li><strong class="text-texto">Segurança do site</strong> — legítimo interesse em prevenir fraudes e abusos (art. 7º, IX).</li>
       </ul>
     </div>
 
     <!-- 4 -->
     <div>
-      <h2 class="text-xl font-semibold text-texto mb-3">4. Base Legal para o Tratamento de Dados (LGPD)</h2>
-      <p class="text-texto-suave leading-relaxed mb-3">Em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018), tratamos seus dados pessoais com base nas seguintes hipóteses legais:</p>
-      <ul class="list-disc list-inside space-y-1 text-texto-suave mb-4">
-        <li><strong class="text-texto">Consentimento:</strong> Para finalidades específicas, como comunicação e marketing, solicitamos seu consentimento explícito.</li>
-        <li><strong class="text-texto">Cumprimento de obrigação legal:</strong> Para atender exigências legais e regulatórias.</li>
-        <li><strong class="text-texto">Execução de contrato:</strong> Para a prestação dos serviços contratados e agendamentos.</li>
-        <li><strong class="text-texto">Proteção da vida:</strong> Em situações de emergência que envolvam sua saúde e bem-estar.</li>
+      <h2 class="text-xl font-semibold text-texto mb-3">4. Com quem compartilhamos</h2>
+      <p class="text-texto-suave leading-relaxed mb-3">
+        Não vendemos seus dados. Eles são compartilhados apenas com fornecedores que nos ajudam a prestar o serviço
+        (operadores), que só podem usá-los para essa finalidade:
+      </p>
+      <ul class="list-disc list-inside space-y-1 text-texto-suave mb-3">
+        <li>Hospedagem do site e do banco de dados em nuvem (Railway), com servidores que podem ficar fora do Brasil;</li>
+        <li>Envio de SMS com o código de confirmação (Zenvia);</li>
+        <li>Envio de mensagens de WhatsApp de confirmação e lembrete (Meta — WhatsApp Business);</li>
+        <li>Provedor de envio de e-mails transacionais;</li>
+        <li>Google, ao carregar as fontes do site e o mapa da página de contato.</li>
       </ul>
-      <div class="flex items-start gap-3 rounded-lg border border-borda bg-superficie p-4">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mt-0.5 shrink-0 text-marca" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-        </svg>
-        <p class="text-texto-suave text-sm leading-relaxed">Você tem o direito de revogar seu consentimento a qualquer momento através do nosso canal de atendimento.</p>
-      </div>
+      <p class="text-texto-suave leading-relaxed">
+        Também podemos compartilhar dados quando exigido por lei ou por ordem de autoridade competente.
+      </p>
     </div>
 
     <!-- 5 -->
     <div>
-      <h2 class="text-xl font-semibold text-texto mb-3">5. Compartilhamento e Divulgação de Informações</h2>
-      <p class="text-texto-suave leading-relaxed mb-4">Não compartilhamos informações pessoais com empresas, organizações ou indivíduos fora da {{ CLINIC_NAME }}, exceto nos seguintes casos:</p>
-
-      <h3 class="text-base font-semibold text-texto mb-2">5.1 Com Seu Consentimento</h3>
-      <p class="text-texto-suave leading-relaxed mb-4">Compartilharemos informações pessoais com empresas, organizações ou indivíduos fora da {{ CLINIC_NAME }} quando tivermos seu consentimento para fazê-lo.</p>
-
-      <h3 class="text-base font-semibold text-texto mb-2">5.2 Por Razões Legais</h3>
-      <p class="text-texto-suave leading-relaxed mb-2">Compartilharemos informações pessoais se acreditarmos de boa-fé que o acesso, uso, preservação ou divulgação das informações é razoavelmente necessário para:</p>
-      <ul class="list-disc list-inside space-y-1 text-texto-suave mb-4">
-        <li>Cumprir qualquer lei, regulamento, processo legal ou solicitação governamental aplicável</li>
-        <li>Fiscalizar o cumprimento dos Termos de Serviço aplicáveis</li>
-        <li>Detectar, prevenir ou abordar questões de fraude, segurança ou técnicas</li>
-        <li>Proteger contra danos aos direitos, propriedade ou segurança de nossos usuários</li>
-      </ul>
-
-      <h3 class="text-base font-semibold text-texto mb-2">5.3 Prestadores de Serviços</h3>
-      <p class="text-texto-suave leading-relaxed">Compartilhamos informações com prestadores de serviços que realizam funções em nosso nome, como processamento de pagamentos, envio de e-mails e hospedagem de dados, sempre sob contratos que garantem a proteção dos seus dados.</p>
+      <h2 class="text-xl font-semibold text-texto mb-3">5. Cookies</h2>
+      <p class="text-texto-suave leading-relaxed">
+        Usamos apenas cookies essenciais: sessão, proteção contra envios falsos (CSRF), preferência de tema claro/escuro e
+        o registro de que você viu o aviso de cookies. Não usamos cookies de publicidade nem de análise de navegação.
+      </p>
     </div>
 
     <!-- 6 -->
     <div>
-      <h2 class="text-xl font-semibold text-texto mb-3">6. Segurança de Dados</h2>
-      <p class="text-texto-suave leading-relaxed mb-3">Trabalhamos arduamente para proteger nossos usuários contra acesso não autorizado ou alteração, divulgação ou destruição não autorizada das informações que possuímos. Em particular:</p>
-      <ul class="list-disc list-inside space-y-1 text-texto-suave">
-        <li>Utilizamos criptografia SSL em nossos serviços</li>
-        <li>Revisamos regularmente nossas práticas de coleta, armazenamento e processamento</li>
-        <li>Restringimos o acesso a informações pessoais a funcionários que necessitam dessas informações para realizar seu trabalho</li>
-        <li>Implementamos controles de acesso e autenticação de dois fatores</li>
-        <li>Realizamos backups regulares e testes de segurança</li>
-      </ul>
+      <h2 class="text-xl font-semibold text-texto mb-3">6. Segurança</h2>
+      <p class="text-texto-suave leading-relaxed">
+        Os dados trafegam com criptografia (HTTPS), o acesso ao painel da clínica exige login individual e fica
+        registrado, e a ficha de avaliação só é vista pela equipe que cuida do seu atendimento.
+      </p>
     </div>
 
     <!-- 7 -->
     <div>
-      <h2 class="text-xl font-semibold text-texto mb-3">7. Seus Direitos como Titular de Dados (LGPD)</h2>
-      <p class="text-texto-suave leading-relaxed mb-3">Como titular de dados pessoais, você possui os seguintes direitos, que podem ser exercidos a qualquer momento:</p>
-      <ul class="list-disc list-inside space-y-1 text-texto-suave mb-4">
-        <li><strong class="text-texto">Confirmação da existência de tratamento:</strong> Saber se seus dados são tratados por nós</li>
-        <li><strong class="text-texto">Acesso aos dados:</strong> Solicitar acesso às suas informações pessoais</li>
-        <li><strong class="text-texto">Correção de dados incompletos:</strong> Corrigir informações imprecisas ou desatualizadas</li>
-        <li><strong class="text-texto">Anonimização, bloqueio ou eliminação:</strong> Solicitar a eliminação de dados desnecessários ou tratados em desacordo com a lei</li>
-        <li><strong class="text-texto">Portabilidade dos dados:</strong> Solicitar a transferência de seus dados para outro fornecedor</li>
-        <li><strong class="text-texto">Eliminação dos dados:</strong> Solicitar a exclusão de seus dados pessoais tratados com consentimento</li>
-        <li><strong class="text-texto">Revogação do consentimento:</strong> Retirar seu consentimento a qualquer momento</li>
-      </ul>
-      <div class="flex items-start gap-3 rounded-lg border border-borda bg-superficie p-4">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mt-0.5 shrink-0 text-marca" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-        </svg>
-        <div>
-          <p class="font-semibold text-texto text-sm mb-1">Como Exercer Seus Direitos</p>
-          <p class="text-texto-suave text-sm leading-relaxed">Para exercer qualquer um dos seus direitos, entre em contato conosco através do e-mail <strong>{{ CLINIC_EMAIL }}</strong> ou pelo telefone {{ CLINIC_PHONE }}.</p>
-        </div>
+      <h2 class="text-xl font-semibold text-texto mb-3">7. Seus direitos</h2>
+      <p class="text-texto-suave leading-relaxed mb-3">
+        Você pode, a qualquer momento: confirmar se tratamos seus dados, acessá-los, corrigi-los, pedir a portabilidade,
+        a anonimização ou a exclusão do que não for obrigatório guardar, saber com quem compartilhamos, e revogar
+        consentimentos (como o de receber promoções ou o de publicar seu depoimento).
+      </p>
+      <div class="rounded-lg border border-borda bg-superficie p-4">
+        <p class="font-semibold text-texto text-sm mb-1">Como exercer seus direitos</p>
+        <p class="text-texto-suave text-sm leading-relaxed">
+          Consulte e baixe seus dados pela área <a href="{% url 'aranha:lgpd_meus_dados' %}" class="underline text-marca">Meus dados</a>
+          (com confirmação por código no celular). Para correção, exclusão ou qualquer outro pedido, fale com a gente
+          pelos canais abaixo{% if not CLINIC_EMAIL and not WHATSAPP_NUMERO and not CLINIC_PHONE %} ou presencialmente na clínica{% endif %}.
+          Respondemos em até 15 dias.
+        </p>
       </div>
     </div>
 
     <!-- 8 -->
     <div>
-      <h2 class="text-xl font-semibold text-texto mb-3">8. Retenção de Dados</h2>
-      <p class="text-texto-suave leading-relaxed">Mantemos seus dados pessoais pelo período necessário para cumprir as finalidades para as quais foram coletados, incluindo o cumprimento de obrigações legais, contratuais e regulatórias. Em geral, os dados são mantidos por até 5 anos após o último contato, conforme exigido pelo Código de Defesa do Consumidor e outras legislações aplicáveis.</p>
+      <h2 class="text-xl font-semibold text-texto mb-3">8. Por quanto tempo guardamos</h2>
+      <p class="text-texto-suave leading-relaxed">
+        Mantemos o cadastro, o histórico de atendimentos, a ficha de avaliação e os termos aceitos enquanto você for
+        cliente e, depois, pelo prazo necessário para cumprir obrigações legais e para a defesa de direitos (em geral,
+        até 5 anos após o último atendimento). Mensagens de contato e inscrições na lista de espera são descartadas
+        quando deixam de ser necessárias. Registros técnicos de acesso são mantidos por até 6 meses.
+      </p>
     </div>
 
     <!-- 9 -->
     <div>
-      <h2 class="text-xl font-semibold text-texto mb-3">9. Alterações nesta Política</h2>
-      <p class="text-texto-suave leading-relaxed mb-3">Podemos atualizar esta Política de Privacidade periodicamente. Notificaremos você sobre quaisquer alterações publicando a nova Política de Privacidade nesta página e atualizando a data de vigência no topo.</p>
-      <p class="text-texto-suave leading-relaxed mb-4">O uso continuado de nossos serviços após quaisquer alterações nesta Política de Privacidade constitui sua aceitação de tais alterações.</p>
-      <div class="flex items-start gap-3 rounded-lg border border-borda bg-superficie p-4">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mt-0.5 shrink-0 text-marca" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-        </svg>
-        <p class="text-texto-suave text-sm leading-relaxed">Recomendamos que você revise esta política periodicamente para se manter informado sobre como protegemos suas informações.</p>
-      </div>
+      <h2 class="text-xl font-semibold text-texto mb-3">9. Alterações nesta política</h2>
+      <p class="text-texto-suave leading-relaxed">
+        Se esta política mudar, publicaremos a nova versão nesta página com a data de vigência atualizada. Mudanças
+        que dependam do seu consentimento serão pedidas novamente.
+      </p>
     </div>
 
   </div><!-- /space-y-10 -->
 
   <!-- Contact -->
   <div class="mt-14 rounded-lg border border-borda bg-superficie p-6">
-    <h2 class="text-lg font-semibold text-texto mb-3">Fale Conosco</h2>
-    <p class="text-texto-suave mb-4">Se você tiver alguma dúvida sobre esta Política de Privacidade ou sobre nossas práticas de proteção de dados, entre em contato conosco:</p>
+    <h2 class="text-lg font-semibold text-texto mb-3">Fale com a gente sobre privacidade</h2>
     <div class="space-y-1 text-texto-suave text-sm">
-      <p><strong class="text-texto">E-mail:</strong> {{ CLINIC_EMAIL }}</p>
-      <p><strong class="text-texto">Telefone:</strong> {{ CLINIC_PHONE }}</p>
-      <p><strong class="text-texto">Endereço:</strong> {{ CLINIC_ADDRESS }}</p>
+      {% if CLINIC_EMAIL %}<p><strong class="text-texto">E-mail:</strong> <a href="mailto:{{ CLINIC_EMAIL }}" class="underline text-marca">{{ CLINIC_EMAIL }}</a></p>{% endif %}
+      {% if WHATSAPP_NUMERO %}<p><strong class="text-texto">WhatsApp:</strong> <a href="https://wa.me/{{ WHATSAPP_NUMERO }}" target="_blank" rel="noopener" class="underline text-marca">conversar agora</a></p>{% endif %}
+      {% if CLINIC_PHONE %}<p><strong class="text-texto">Telefone:</strong> {{ CLINIC_PHONE }}</p>{% endif %}
+      {% if CLINIC_ADDRESS %}<p><strong class="text-texto">Endereço:</strong> {{ CLINIC_ADDRESS }}</p>{% endif %}
+      <p><strong class="text-texto">Formulário:</strong> <a href="{% url 'aranha:agenda_contato' %}" class="underline text-marca">página de contato</a></p>
     </div>
   </div>
 
