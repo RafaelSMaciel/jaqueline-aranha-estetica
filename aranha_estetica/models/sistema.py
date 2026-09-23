@@ -1,9 +1,11 @@
 # aranha_estetica/models/sistema.py — Auditoria, configuracao, lista de espera, verificacao
 import hashlib
+import hmac
 import os
 import secrets
 from datetime import timedelta
 
+from django.conf import settings
 from django.db import connection, models, transaction
 from django.utils import timezone
 
@@ -114,7 +116,7 @@ class Feriado(models.Model):
         ordering = ['data']
 
     def __str__(self):
-        return f'{self.data.strftime("%d/%m/%Y")} — {self.nome}'
+        return f'{self.data:%d/%m/%Y} — {self.nome}'
 
 
 class Configuracao(models.Model):
@@ -131,13 +133,17 @@ class Configuracao(models.Model):
 
 
 # CodigoVerificacao removido na remodelagem v2.1 fase 1b — guardava OTP em
-# TEXTO PLANO e sem contador de tentativas. Substituido por CodigoOtp (hash
-# sha256 + lockout). Fluxos migrados: booking_api.verificar_telefone e
+# TEXTO PLANO e sem contador de tentativas. Substituido por CodigoOtp
+# (HMAC-SHA256 + lockout). Usado pelo booking (agendamento/login) e por
 # lgpd.meus_dados (proposito DSAR).
 
 
 class CodigoOtp(models.Model):
-    """OTP por email ou SMS: codigo hashed, TTL, rate limit por tentativas, IP."""
+    """OTP por email ou SMS: codigo hashed, TTL, rate limit por tentativas, IP.
+
+    Retencao: linhas guardam email/telefone/IP — purga apos
+    settings.RETENCAO_OTP_HORAS (job de manutencao, spec remodelagem §7).
+    """
 
     PROPOSITO_AGENDAMENTO = 'AGENDAMENTO'
     PROPOSITO_LOGIN = 'LOGIN_CLIENTE'
@@ -159,7 +165,7 @@ class CodigoOtp(models.Model):
     email = models.EmailField()
     telefone = models.CharField(max_length=20, blank=True, null=True)
     canal = models.CharField(max_length=10, choices=CANAL_CHOICES, default=CANAL_SMS)
-    codigo_hash = models.CharField(max_length=64)  # sha256 hex
+    codigo_hash = models.CharField(max_length=64)  # HMAC-SHA256 hex (chave = SECRET_KEY)
     proposito = models.CharField(max_length=20, choices=PROPOSITO_CHOICES, default=PROPOSITO_AGENDAMENTO)
     criado_em = models.DateTimeField(auto_now_add=True)
     expira_em = models.DateTimeField()
@@ -187,23 +193,23 @@ class CodigoOtp(models.Model):
     def __str__(self):
         return f'OTP {self.email} ({self.proposito})'
 
-    @property
-    def esta_valido(self):
-        return (
-            self.usado_em is None
-            and self.expira_em > timezone.now()
-            and self.tentativas < self.MAX_TENTATIVAS
-        )
+    @staticmethod
+    def _hash_codigo(email: str, codigo: str) -> str:
+        """HMAC-SHA256(SECRET_KEY, email:codigo). Sem a chave, um dump do
+        banco nao permite testar os 10^6 codigos offline (sha256 puro permitia)."""
+        msg = f'{email}:{codigo or ""}'.encode()
+        return hmac.new(settings.SECRET_KEY.encode(), msg, hashlib.sha256).hexdigest()
 
     @staticmethod
     def email_para_telefone(telefone: str) -> str:
         """Pseudo-email canonico p/ fluxos telefone-only (chave do challenge).
 
         Mesmo padrao usado no booking publico: 'sms+<digitos>@shivazen.local'.
-        Centralizado aqui p/ os fluxos DSAR / meus-agendamentos nao divergirem.
+        Centralizado aqui p/ os fluxos DSAR / meus-agendamentos nao divergirem;
+        normaliza como Cliente.telefone (+55/zero de tronco nao geram outra chave).
         """
-        digitos = ''.join(c for c in (telefone or '') if c.isdigit())
-        return f'sms+{digitos}@shivazen.local'
+        from ..validators import normalizar_telefone
+        return f'sms+{normalizar_telefone(telefone)}@shivazen.local'
 
     @classmethod
     def gerar_sms(cls, telefone, ip=None, proposito=PROPOSITO_AGENDAMENTO):
@@ -230,7 +236,7 @@ class CodigoOtp(models.Model):
     def gerar(cls, email, ip=None, proposito=PROPOSITO_AGENDAMENTO, canal=CANAL_SMS, telefone=None):
         """Invalida anteriores, cria novo. Retorna (codigo_plano, obj)."""
         codigo = f'{secrets.randbelow(1_000_000):06d}'
-        codigo_hash = hashlib.sha256(codigo.encode()).hexdigest()
+        codigo_hash = cls._hash_codigo(email, codigo)
         agora = timezone.now()
 
         cls.objects.filter(
@@ -251,7 +257,7 @@ class CodigoOtp(models.Model):
     @classmethod
     def verificar(cls, email, codigo, proposito=PROPOSITO_AGENDAMENTO):
         """Consome atomicamente. Retorna (ok, motivo)."""
-        codigo_hash = hashlib.sha256((codigo or '').encode()).hexdigest()
+        codigo_hash = cls._hash_codigo(email, (codigo or '').strip())
 
         with transaction.atomic():
             qs = cls.objects.filter(
@@ -270,7 +276,7 @@ class CodigoOtp(models.Model):
                 obj.usado_em = timezone.now()
                 obj.save(update_fields=['usado_em'])
                 return False, 'bloqueado'
-            if obj.codigo_hash != codigo_hash:
+            if not hmac.compare_digest(obj.codigo_hash, codigo_hash):
                 obj.tentativas += 1
                 obj.save(update_fields=['tentativas'])
                 restante = cls.MAX_TENTATIVAS - obj.tentativas

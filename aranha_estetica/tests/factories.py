@@ -66,15 +66,24 @@ def criar_cliente(nome='Maria Silva', telefone=None, **kwargs):
 
 
 def criar_atendimento(cliente, profissional, procedimento, data_hora=None, status='AGENDADO'):
+    duracao = timedelta(minutes=procedimento.duracao_minutos)
     if data_hora is None:
         base = timezone.now() + timedelta(days=1)
         data_hora = base.replace(hour=10, minute=0, second=0, microsecond=0)
+        # Sem horario explicito, um 2o atendimento ATIVO do mesmo profissional
+        # vai p/ o proximo horario livre: no Postgres o EXCLUDE
+        # excl_atendimento_sobreposicao recusaria o mesmo slot (SQLite nao pega).
+        if status in Atendimento.STATUS_ATIVOS:
+            while Atendimento.objects.conflito_com(
+                profissional, data_hora, data_hora + duracao,
+            ).exists():
+                data_hora += duracao
     return Atendimento.objects.create(
         cliente=cliente,
         profissional=profissional,
         procedimento=procedimento,
         data_hora_inicio=data_hora,
-        data_hora_fim=data_hora + timedelta(minutes=procedimento.duracao_minutos),
+        data_hora_fim=data_hora + duracao,
         status=status,
     )
 

@@ -25,8 +25,9 @@ class Carteira(TimestampedMixin):
 
     REGRA: toda mutacao de saldo exige select_for_update() + transaction.atomic.
     O CHECK abaixo pega qualquer lost-update que escapar do lock.
+    PROTECT: historico financeiro nao cascateia com o cliente (anonimizar, nao apagar).
     """
-    cliente = models.OneToOneField(Cliente, on_delete=models.CASCADE, related_name='carteira')
+    cliente = models.OneToOneField(Cliente, on_delete=models.PROTECT, related_name='carteira')
     saldo = models.DecimalField(
         max_digits=10, decimal_places=2, default=Decimal('0'),
     )
@@ -46,7 +47,13 @@ class Carteira(TimestampedMixin):
 
 
 class MovimentoCarteira(models.Model):
-    """Entrada/saida do credito do cliente."""
+    """Entrada/saida do credito do cliente.
+
+    Ledger append-only: no PG o trigger trg_movimento_carteira_imutavel (0038)
+    bloqueia UPDATE/DELETE. Por isso todas as FKs sao PROTECT — SET_NULL/CASCADE
+    virariam UPDATE/DELETE e estourariam InternalError (500) no admin; com
+    PROTECT o Django mostra a tela de "objetos protegidos".
+    """
     TIPO_CHOICES = [
         ('CREDITO', 'Credito (vale, refund, ajuste+)'),
         ('DEBITO', 'Debito (uso, ajuste-)'),
@@ -61,17 +68,17 @@ class MovimentoCarteira(models.Model):
         ('OUTRO', 'Outro'),
     ]
 
-    carteira = models.ForeignKey(Carteira, on_delete=models.CASCADE, related_name='movimentos')
+    carteira = models.ForeignKey(Carteira, on_delete=models.PROTECT, related_name='movimentos')
     tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
     origem = models.CharField(max_length=30, choices=ORIGEM_CHOICES, default='OUTRO')
     valor = models.DecimalField(max_digits=10, decimal_places=2)
     saldo_resultante = models.DecimalField(max_digits=10, decimal_places=2)
     atendimento = models.ForeignKey(
-        'Atendimento', on_delete=models.SET_NULL, blank=True, null=True,
+        'Atendimento', on_delete=models.PROTECT, blank=True, null=True,
     )
     observacoes = models.TextField(blank=True, default='')
     usuario = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True,
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, blank=True, null=True,
     )
     criado_em = models.DateTimeField(auto_now_add=True)
 

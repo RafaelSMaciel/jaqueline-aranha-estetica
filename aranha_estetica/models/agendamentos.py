@@ -1,9 +1,13 @@
 # aranha_estetica/models/agendamentos.py — Atendimentos e notificacoes
+import logging
 import secrets
+
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
-from django.db import DatabaseError, IntegrityError, models
+from django.db import DatabaseError, IntegrityError, models, transaction
 from django.utils import timezone
 
+from ..utils.datas import fmt_local
 from .clientes import Cliente
 from .procedimentos import Procedimento, Promocao
 from .profissionais import Profissional
@@ -31,9 +35,6 @@ class AtendimentoQuerySet(models.QuerySet):
 
     def realizados(self):
         return self.filter(status='REALIZADO')
-
-    def do_profissional(self, profissional):
-        return self.filter(profissional=profissional)
 
     def conflito_com(self, profissional, data_inicio, data_fim):
         """Atendimentos que conflitam com janela [data_inicio, data_fim)."""
@@ -114,9 +115,12 @@ class Atendimento(models.Model):
             self.token_cancelamento = secrets.token_urlsafe(32)
         super().save(*args, **kwargs)
 
-    # ───────── FSM transitions (hybrid: campo continua CharField) ─────────
-    # Garante transicoes validas. Codigo legado que faz `status = X; save()`
-    # continua funcionando — uso desses metodos eh recomendado em codigo novo.
+    # ───────── FSM transitions (campo continua CharField) ─────────
+    # TODA mudanca de status em views/services/admin passa por estes metodos
+    # (aprovar/confirmar/cancelar/marcar_realizado/marcar_falta/
+    # marcar_reagendado) dentro de try/except Atendimento.TransicaoInvalida.
+    # `status = X; save()` pula validacao, auditoria e os eventos de dominio
+    # (comissao, cashback, retorno, lista de espera).
 
     TRANSICOES = {
         'PENDENTE': {'AGENDADO', 'CONFIRMADO', 'CANCELADO', 'REAGENDADO'},
@@ -132,19 +136,29 @@ class Atendimento(models.Model):
         pass
 
     def _transicionar(self, novo_status, motivo=None, by_user=None):
-        # NOTA: mudanca de status + auditoria sao atomicas entre si. Ja os
+        # Valida contra o status ATUAL do banco com a linha travada
+        # (select_for_update): duplo clique / link da cliente + recepcao ao
+        # mesmo tempo nao passam os dois pela checagem nem publicam o mesmo
+        # evento 2x. Mudanca de status + auditoria sao atomicas entre si; os
         # efeitos de _publish_event (chamados pelos metodos publicos APOS o
-        # _transicionar) sao explicitamente best-effort/assincronos — NAO ha
-        # garantia de atomicidade entre a transicao e seus efeitos colaterais.
-        from django.db import transaction
-        permitido = self.TRANSICOES.get(self.status, set())
-        if novo_status not in permitido:
-            raise self.TransicaoInvalida(
-                f'Transicao {self.status} -> {novo_status} nao permitida'
-            )
-        anterior = self.status
-        self.status = novo_status
+        # _transicionar) sao best-effort.
         with transaction.atomic():
+            if self.pk is not None:
+                atual = (
+                    type(self).objects.select_for_update()
+                    .values_list('status', flat=True).get(pk=self.pk)
+                )
+                # memoria reflete o banco (um save() posterior nao grava status velho)
+                self.status = atual
+            else:
+                atual = self.status
+            permitido = self.TRANSICOES.get(atual, set())
+            if novo_status not in permitido:
+                raise self.TransicaoInvalida(
+                    f'Transição {atual} → {novo_status} não permitida'
+                )
+            anterior = atual
+            self.status = novo_status
             self.save(update_fields=['status', 'atualizado_em'])
             try:
                 from .sistema import LogAuditoria
@@ -160,7 +174,6 @@ class Atendimento(models.Model):
                     )
             except (DatabaseError, IntegrityError) as exc:
                 # Auditoria best-effort — falha de DB nao bloqueia transicao de status
-                import logging
                 logging.getLogger(__name__).warning(
                     'log_auditoria_falhou',
                     extra={'atendimento_id': self.pk, 'erro': str(exc)},
@@ -199,7 +212,6 @@ class Atendimento(models.Model):
     def _publish_event(self, event_name: str, **fields) -> None:
         """Publica DomainEvent via bus. Best-effort — falha nao quebra transicao."""
         try:
-            from django.utils import timezone
             from ..domain import event_bus, events as domain_events
             event_cls = getattr(domain_events, event_name, None)
             if not event_cls:
@@ -212,7 +224,6 @@ class Atendimento(models.Model):
         except Exception as exc:  # pylint: disable=broad-except
             # Bus best-effort — mantem o fluxo, mas deixa rastro para diagnostico
             # (caso contrario efeitos como comissao/cashback/notificacao somem em silencio).
-            import logging
             logging.getLogger(__name__).warning(
                 'event_publish_falhou',
                 extra={'event': event_name, 'atendimento_id': self.pk, 'erro': str(exc)},
@@ -255,10 +266,42 @@ class Atendimento(models.Model):
                 ),
                 name='chk_retorno_valor_zero',
             ),
+            # F-RET: no maximo 1 retorno vivo (ou ja realizado) por atendimento de
+            # origem — garante no banco a idempotencia do RetornoService.
+            models.UniqueConstraint(
+                fields=['atendimento_origem'],
+                condition=models.Q(
+                    eh_retorno=True,
+                    status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO', 'REALIZADO'],
+                ),
+                name='uniq_retorno_por_origem',
+            ),
+            # PG: excl_atendimento_sobreposicao (EXCLUDE gist, migration 0035)
+            # impede 2 atendimentos ativos sobrepostos do mesmo profissional.
         ]
 
+    def clean(self):
+        # Espelha o EXCLUDE do PG p/ ModelForm/admin: erro de formulario em vez
+        # de IntegrityError (500). So roda em full_clean (booking/services nao).
+        super().clean()
+        if not (self.data_hora_inicio and self.data_hora_fim):
+            return
+        if self.data_hora_fim <= self.data_hora_inicio:
+            raise ValidationError({'data_hora_fim': 'O fim deve ser depois do início.'})
+        if self.profissional_id and self.status in self.STATUS_ATIVOS:
+            conflito = (
+                Atendimento.objects
+                .conflito_com(self.profissional_id, self.data_hora_inicio, self.data_hora_fim)
+                .exclude(pk=self.pk)
+                .exists()
+            )
+            if conflito:
+                raise ValidationError(
+                    'Conflito com outro atendimento ativo deste profissional nesse horário.'
+                )
+
     def __str__(self):
-        data_fmt = self.data_hora_inicio.strftime('%d/%m/%Y %H:%M') if self.data_hora_inicio else 's/ data'
+        data_fmt = fmt_local(self.data_hora_inicio) or 's/ data'
         cliente_nome = self.cliente.nome if self.cliente_id else 's/ cliente'
         proc_nome = self.procedimento.nome if self.procedimento_id else 's/ procedimento'
         return f'{data_fmt} — {cliente_nome} ({proc_nome})'
@@ -313,7 +356,7 @@ class Notificacao(models.Model):
         ]
 
     def __str__(self):
-        data_fmt = self.criado_em.strftime('%d/%m/%Y %H:%M') if self.criado_em else 's/ data'
+        data_fmt = fmt_local(self.criado_em) or 's/ data'
         cliente_nome = (
             self.atendimento.cliente.nome
             if self.atendimento_id and self.atendimento.cliente_id

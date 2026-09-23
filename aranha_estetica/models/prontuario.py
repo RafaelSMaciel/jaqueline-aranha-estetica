@@ -1,4 +1,5 @@
 # aranha_estetica/models/prontuario.py — Prontuario e anotacoes clinicas
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from .clientes import Cliente
@@ -12,8 +13,10 @@ class Prontuario(models.Model):
     fase 5). Schema das perguntas vive em Configuracao
     chave='prontuario_perguntas' (lista de {chave, texto, tipo}).
     Busca Postgres: Prontuario.objects.filter(respostas_extras__diabetes=True).
+    PG: CHECK chk_prontuario_extras_objeto (jsonb_typeof = 'object', 0043).
+    PROTECT: dado clinico com retencao de 20 anos — nunca cascateia.
     """
-    cliente = models.OneToOneField(Cliente, on_delete=models.CASCADE)
+    cliente = models.OneToOneField(Cliente, on_delete=models.PROTECT)
     alergias = models.TextField(blank=True, null=True)
     contraindicacoes = models.TextField(blank=True, null=True)
     historico_saude = models.TextField(blank=True, null=True)
@@ -29,6 +32,11 @@ class Prontuario(models.Model):
     def __str__(self):
         return f'Prontuario {self.cliente_id}'
 
+    def clean(self):
+        super().clean()
+        if self.respostas_extras is not None and not isinstance(self.respostas_extras, dict):
+            raise ValidationError({'respostas_extras': 'Deve ser um objeto JSON ({"chave": valor}).'})
+
 
 # ProntuarioPergunta/ProntuarioResposta removidos na remodelagem v2.1
 # fase 5 — EAV substituido por Prontuario.respostas_extras (JSONB).
@@ -37,7 +45,7 @@ class Prontuario(models.Model):
 class AnotacaoSessao(models.Model):
     """Observacoes clinicas especificas de cada atendimento."""
     atendimento = models.ForeignKey(
-        'Atendimento', on_delete=models.CASCADE, related_name='anotacoes'
+        'Atendimento', on_delete=models.PROTECT, related_name='anotacoes'
     )
     autor = models.ForeignKey('Usuario', on_delete=models.SET_NULL, null=True, blank=True)
     texto = models.TextField()

@@ -57,7 +57,8 @@ class CompraPacote(models.Model):
         ('EXPIRADO', 'Expirado'),
     ]
 
-    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='pacotes_comprados')
+    # PROTECT: compra e registro fiscal — nao cascateia com o cliente
+    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='pacotes_comprados')
     pacote = models.ForeignKey(Pacote, on_delete=models.RESTRICT)
     criado_em = models.DateTimeField(auto_now_add=True)
     valor_pago = models.DecimalField(
@@ -121,6 +122,7 @@ class ConsumoSessao(models.Model):
     compra_pacote = models.ForeignKey(
         CompraPacote, on_delete=models.CASCADE, related_name='sessoes_realizadas'
     )
+    # OneToOne (NOT NULL) = UNIQUE: 1 atendimento consome no maximo 1 sessao
     atendimento = models.OneToOneField(
         'Atendimento', on_delete=models.RESTRICT, related_name='sessao_pacote_vinculada'
     )
@@ -131,12 +133,4 @@ class ConsumoSessao(models.Model):
         db_table = 'consumo_sessao'
         indexes = [
             models.Index(fields=['compra_pacote'], name='idx_sessao_pct_cli'),
-        ]
-        constraints = [
-            # 1 atendimento consome no maximo 1 sessao de pacote
-            models.UniqueConstraint(
-                fields=['atendimento'],
-                condition=models.Q(atendimento__isnull=False),
-                name='uniq_consumo_por_atendimento',
-            ),
         ]

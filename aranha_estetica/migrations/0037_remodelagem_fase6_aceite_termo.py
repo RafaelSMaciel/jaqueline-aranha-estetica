@@ -3,8 +3,28 @@
 # A distincao (LGPD vs procedimento) vive em versao_termo.tipo; atendimento
 # so e preenchido em termos de procedimento. -1 tabela.
 
+#
+# Auditoria pre-producao (editada in-place: prod nunca aplicou a 0037):
+#  - criado_em e auto_now_add: o pre_save sobrescrevia a data no INSERT e
+#    todo aceite migrado ficava com a data do deploy (perda da prova legal do
+#    consentimento). A data original e restaurada com .update() (sem pre_save);
+#  - ip antigo era CharField(45) cru (1o item do X-Forwarded-For): valor que
+#    nao e IP ('unknown', 'ip:porta') abortava no inet -> vira NULL.
+
+import ipaddress
+
 import django.db.models.deletion
 from django.db import migrations, models
+
+
+def _ip_ok(valor):
+    valor = (valor or '').strip()
+    if not valor:
+        return None
+    try:
+        return str(ipaddress.ip_address(valor))
+    except ValueError:
+        return None
 
 
 def copiar_aceites(apps, schema_editor):
@@ -12,22 +32,21 @@ def copiar_aceites(apps, schema_editor):
     Assinatura = apps.get_model('aranha_estetica', 'AssinaturaTermoProcedimento')
     AceiteTermo = apps.get_model('aranha_estetica', 'AceiteTermo')
 
-    for a in AceitePrivacidade.objects.all():
-        AceiteTermo.objects.get_or_create(
-            cliente_id=a.cliente_id,
-            versao_termo_id=a.versao_termo_id,
-            defaults={'ip': a.ip or None, 'criado_em': a.criado_em},
-        )
-    for a in Assinatura.objects.all():
-        AceiteTermo.objects.get_or_create(
+    origens = list(AceitePrivacidade.objects.order_by('pk')) + list(Assinatura.objects.order_by('pk'))
+    for a in origens:
+        obj, criado = AceiteTermo.objects.get_or_create(
             cliente_id=a.cliente_id,
             versao_termo_id=a.versao_termo_id,
             defaults={
-                'atendimento_id': a.atendimento_id,
-                'ip': a.ip or None,
-                'criado_em': a.criado_em,
+                'atendimento_id': getattr(a, 'atendimento_id', None),
+                'ip': _ip_ok(a.ip),
             },
         )
+        if criado and a.criado_em:
+            # .update() nao passa pelo pre_save: preserva a data real do aceite
+            AceiteTermo.objects.filter(pk=obj.pk).update(criado_em=a.criado_em)
+    if schema_editor.connection.vendor == 'postgresql':
+        schema_editor.execute('SET CONSTRAINTS ALL IMMEDIATE', None)
 
 
 class Migration(migrations.Migration):
