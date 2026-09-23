@@ -17,12 +17,12 @@
 </td></tr>
 </table>
 
+{# Link unico (GET) p/ o portal: aprovar/rejeitar sao POST com CSRF dentro da agenda #}
 <div style="text-align:center;margin:0 0 24px;">
-<a href="{{ dados.link_aprovar }}" style="display:inline-block;background-color:#C9A84C;color:#ffffff;padding:12px 32px;border-radius:999px;text-decoration:none;font-weight:700;font-size:14px;margin-right:8px;box-shadow:0 4px 12px rgba(0,0,0,0.18);">Aprovar</a>
-<a href="{{ dados.link_rejeitar }}" style="display:inline-block;background:#dc3545;color:#ffffff;padding:12px 32px;border-radius:999px;text-decoration:none;font-weight:700;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.18);">Rejeitar</a>
+<a href="{% if dados.link_revisar %}{{ dados.link_revisar }}{% else %}{{ site_url }}/profissional/{% endif %}" style="display:inline-block;background-color:#C9A84C;color:#ffffff;padding:12px 32px;border-radius:999px;text-decoration:none;font-weight:700;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.18);">Revisar e aprovar</a>
 </div>
 
 <p class="text-muted" style="color:#999;font-size:13px;margin:0;">
-Ou acesse sua agenda: <a href="{{ site_url }}/profissional/" style="color:#7a5f1f;">Portal do Profissional</a>
+Entre com seu e-mail e senha para aprovar ou recusar o horário na sua agenda.
 </p>
 {% endblock %}

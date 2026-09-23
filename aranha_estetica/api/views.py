@@ -1,5 +1,4 @@
 """ViewSets DRF read-only para integracoes (apenas staff autenticado)."""
-from django.utils import timezone
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -7,6 +6,7 @@ from rest_framework.response import Response
 from aranha_estetica.models import (
     Atendimento, Cliente, Procedimento, Profissional,
 )
+from aranha_estetica.utils.datas import hoje as hoje_local
 
 from .serializers import (
     AtendimentoSerializer, ClienteSerializer,
@@ -67,6 +67,5 @@ class AtendimentoViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=False, methods=['get'])
     def hoje(self, request):
-        hoje = timezone.localdate()
-        qs = self.get_queryset().filter(data_hora_inicio__date=hoje)
+        qs = self.get_queryset().filter(data_hora_inicio__date=hoje_local())
         return self._serialize_page(qs)

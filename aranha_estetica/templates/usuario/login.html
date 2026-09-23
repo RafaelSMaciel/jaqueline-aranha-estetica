@@ -8,12 +8,12 @@
 
   {# Logo / título #}
   <div class="mb-6 text-center">
-    <p class="text-xs uppercase tracking-widest text-texto-suave mb-1">Painel Administrativo</p>
+    <p class="text-xs uppercase tracking-widest text-texto-suave mb-1">Acesso da equipe</p>
     <h1 class="text-2xl font-semibold text-texto">{{ CLINIC_NAME }}</h1>
   </div>
 
   <h2 class="text-lg font-medium text-texto mb-1">Bem-vindo de volta</h2>
-  <p class="text-sm text-texto-suave mb-6">Acesse o painel administrativo com suas credenciais</p>
+  <p class="text-sm text-texto-suave mb-6">Entre com seu e-mail e senha para acessar sua área</p>
 
   {# Mensagens (erros de credencial via messages framework) #}
   {% if messages %}
@@ -29,6 +29,7 @@
 
   <form method="post" action="{% url 'aranha:usuario_login' %}" novalidate>
     {% csrf_token %}
+    {% if request.GET.next %}<input type="hidden" name="next" value="{{ request.GET.next }}">{% endif %}
 
     <div class="flex flex-col gap-4 mb-5">
       <c-campo nome="username" label="E-mail" tipo="email"

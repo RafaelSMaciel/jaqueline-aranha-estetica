@@ -2,7 +2,7 @@
 
 {% block titulo %}{% if modo == 'editar' %}Editar usuário{% else %}Novo usuário{% endif %} — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}{% if modo == 'editar' %}Editar usuário{% else %}Novo usuário{% endif %}{% endblock %}
-{% block page_subtitle %}{% if modo == 'editar' %}{{ usuario.nome }}{% else %}Cadastre recepcionista, gerente ou profissional{% endif %}{% endblock %}
+{% block page_subtitle %}{% if modo == 'editar' %}{{ usuario.nome }}{% else %}Cadastre administradores e profissionais da equipe{% endif %}{% endblock %}
 
 {% block page_actions %}
 <a href="{% url 'aranha:admin_usuarios' %}"
@@ -24,14 +24,14 @@
 
       <div class="mb-4">
         <c-campo nome="nome" label="Nome completo *" tipo="text"
-                 value="{{ usuario.nome|default:form_data.nome }}"
+                 value="{% firstof form_data.nome usuario.nome %}"
                  required></c-campo>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
         <div>
           <c-campo nome="email" label="E-mail *" tipo="email"
-                   value="{{ usuario.email|default:form_data.email }}"
+                   value="{% firstof form_data.email usuario.email %}"
                    required></c-campo>
         </div>
         <div>
@@ -40,37 +40,42 @@
                   class="w-full rounded-md border border-borda bg-superficie px-3 py-2 text-texto text-sm">
             {% for valor, rotulo in papeis %}
               <option value="{{ valor }}"
-                {% if usuario.papel == valor %}selected{% endif %}
-                {% if form_data.papel == valor %}selected{% endif %}>
+                {% if form_data.papel %}{% if form_data.papel == valor %}selected{% endif %}{% elif usuario.papel == valor %}selected{% elif not usuario and valor == 'PROFISSIONAL' %}selected{% endif %}>
                 {{ rotulo }}
               </option>
             {% endfor %}
           </select>
-          <p class="text-xs text-texto-suave mt-1">Administrador · Profissional · Recepcao</p>
+          <p class="text-xs text-texto-suave mt-1">Administrador: painel completo · Profissional: portal com a própria agenda</p>
         </div>
       </div>
 
       <div class="mb-4">
-        <label for="profissional_id" class="block text-sm font-medium text-texto mb-1">Profissional vinculado (opcional)</label>
+        <label for="profissional_id" class="block text-sm font-medium text-texto mb-1">Profissional vinculado</label>
         <select id="profissional_id" name="profissional_id"
                 class="w-full rounded-md border border-borda bg-superficie px-3 py-2 text-texto text-sm">
           <option value="">— nenhum —</option>
           {% for pr in profissionais %}
             <option value="{{ pr.pk }}"
-              {% if usuario.profissional_id == pr.pk %}selected{% endif %}
-              {% if form_data.profissional_id == pr.pk|stringformat:"s" %}selected{% endif %}>
-              {{ pr.nome }}
+              {% if form_data %}{% if form_data.profissional_id == pr.pk|stringformat:"s" %}selected{% endif %}{% elif usuario.profissional_id == pr.pk %}selected{% endif %}>
+              {{ pr.nome }}{% if not pr.ativo %} (inativo){% endif %}
             </option>
           {% endfor %}
         </select>
-        <p class="text-xs text-texto-suave mt-1">Só para usuários que atendem clientes (portal do profissional).</p>
+        <p class="text-xs text-texto-suave mt-1">Obrigatório para o papel Profissional: é a agenda que a pessoa verá no portal.</p>
       </div>
 
       {% if modo == 'criar' %}
       <div class="mb-4">
-        <c-campo nome="senha" label="Senha inicial (opcional)" tipo="text"
-                 placeholder="Deixe vazio para gerar automaticamente"></c-campo>
-        <p class="text-xs text-texto-suave mt-1">Se vazio, o sistema gera senha segura e envia por email.</p>
+        {% if email_configurado %}
+        <c-campo nome="senha" label="Senha inicial (opcional)" tipo="password"
+                 autocomplete="new-password"
+                 placeholder="Deixe vazio para enviar um link por e-mail"></c-campo>
+        <p class="text-xs text-texto-suave mt-1">Se vazio, enviamos por e-mail um link para a pessoa definir a própria senha.</p>
+        {% else %}
+        <c-campo nome="senha" label="Senha inicial *" tipo="password"
+                 autocomplete="new-password" required></c-campo>
+        <p class="text-xs text-texto-suave mt-1">O envio de e-mail não está configurado: defina a senha e informe-a à pessoa.</p>
+        {% endif %}
       </div>
       {% else %}
       <div class="mb-4">
@@ -78,7 +83,7 @@
           <input type="checkbox" name="ativo" value="1"
                  {% if usuario.ativo %}checked{% endif %}
                  class="rounded border-borda">
-          Ativo (pode acessar o painel)
+          Ativo (pode entrar no sistema)
         </label>
       </div>
       {% endif %}
@@ -93,40 +98,26 @@
         </a>
       </div>
 
-      {% if modo == 'editar' and usuario %}
-      <hr class="my-6 border-borda">
-      <div class="flex gap-2 flex-wrap">
-        {# Form de reset de senha: separado (sem onclick → data-confirm + addEventListener) #}
-        <form method="post" action="{% url 'aranha:admin_resetar_senha_usuario' usuario.pk %}" class="m-0">
-          {% csrf_token %}
-          <button type="submit"
-                  class="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium border border-borda text-texto hover:bg-fundo transition cursor-pointer"
-                  data-confirm="Enviar email de reset de senha para {{ usuario.email|escapejs }}?">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
-            </svg>
-            Enviar reset de senha
-          </button>
-        </form>
-      </div>
-      {% endif %}
-
     </form>
+
+    {% if modo == 'editar' and usuario %}
+    <hr class="my-6 border-borda">
+    <div class="flex gap-2 flex-wrap">
+      {# Form proprio, FORA do form de edicao (form aninhado era descartado pelo parser) #}
+      <form method="post" action="{% url 'aranha:admin_resetar_senha_usuario' usuario.pk %}" class="m-0">
+        {% csrf_token %}
+        <button type="submit"
+                class="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium border border-borda text-texto hover:bg-fundo transition cursor-pointer"
+                data-confirm="Enviar e-mail de redefinição de senha para {{ usuario.email }}?">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+          </svg>
+          Enviar reset de senha
+        </button>
+      </form>
+    </div>
+    {% endif %}
   </div>
 
 </div>
-{% endblock %}
-
-{% block js %}
-<script nonce="{{ csp_nonce }}">
-(function(){
-  document.querySelectorAll('button[data-confirm]').forEach(function(btn){
-    btn.addEventListener('click', function(e){
-      if (!window.confirm(btn.dataset.confirm)) {
-        e.preventDefault();
-      }
-    });
-  });
-})();
-</script>
 {% endblock %}
