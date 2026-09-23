@@ -1,100 +1,125 @@
 ---
-title: Diagrama de Classes (UML) — Prontuario, Anamnese, NPS, Termos, Acesso e Auditoria
+title: Diagrama de Classes (UML) — Prontuário, Anamnese, NPS, Termos, Acesso e Auditoria
 ---
 classDiagram
     direction LR
 
     class Cliente {
-        «ref» nucleo de agendamento
+        «ref» núcleo de agendamento
     }
     class Atendimento {
-        «ref» nucleo de agendamento
+        «ref» núcleo de agendamento
+    }
+    class Procedimento {
+        «ref» núcleo de agendamento
     }
 
     class Prontuario {
         +alergias: Text
         +contraindicacoes: Text
+        +historico_saude: Text
         +medicamentos_uso: Text
-        +respostas_extras: JSONB
+        +observacoes_gerais: Text
+        +respostas_extras: JSONB «objeto»
+    }
+    class ProntuarioVersao {
+        +dados: JSON «foto anterior»
+        +autor_nome: CharField
+        +criado_em: DateTime
+        «append-only, imutável por trigger»
+        +registrar(prontuario, usuario)
     }
     class AnotacaoSessao {
         +texto: Text
+        +autor_nome: CharField
         +criado_em: DateTime
     }
     class FormularioAnamnese {
         +nome: CharField
         +tipo: ANAMNESE|PESQUISA
-        +escopo: choices
-        +schema_json: JSON
+        +escopo: GLOBAL|CATEGORIA|PROCEDIMENTO|MODALIDADE
+        +schema_json: JSON «lista»
         +obrigatorio: Boolean
     }
     class RespostaAnamnese {
-        +token: CharField «unique»
-        +respostas_json: JSON
+        +token: CharField «único, 60 dias»
+        +respostas_json: JSON «objeto»
         +respondida_em: DateTime
     }
     class AvaliacaoNPS {
         +nota: 0..10 «CHECK»
         +comentario: Text
+        +autoriza_publicacao: Boolean «opt-in»
+        +aprovado_publicacao: Boolean «moderação»
         +alerta_enviado: Boolean
     }
     class ListaEspera {
         +data_desejada: Date
-        +turno_desejado: choices
-        +token_reserva: CharField
-        +expira_em: DateTime
+        +turno_desejado: MANHA|TARDE|NOITE
+        +email_contato: EmailField
+        +notificado: Boolean
     }
     class Usuario {
         +papel: ADMIN|PROFISSIONAL|RECEPCAO
         +email: «USERNAME_FIELD»
         +ativo: Boolean
-        +is_staff: bool
+        +is_staff: papel == ADMIN
     }
     class CodigoOtp {
-        +canal: EMAIL|SMS
-        +codigo_hash: sha256
-        +proposito: AGENDAMENTO|LOGIN|DSAR
-        +expira_em: DateTime
-        +tentativas: Smallint
-        +verificar() gerar()
+        +telefone: CharField
+        +codigo_hash: HMAC-SHA256
+        +proposito: AGENDAMENTO|LOGIN_CLIENTE|DSAR
+        +expira_em: DateTime «10 min»
+        +tentativas: 0..5
+        +gerar() verificar()
     }
     class VersaoTermo {
         +tipo: LGPD|PROCEDIMENTO
-        +versao: CharField
+        +titulo / conteudo / versao
         +vigente_desde: Date
-        +ativa: Boolean
+        +ativa: Boolean «1 ativa por escopo»
+        «imutável após o 1º aceite»
+        +lgpd_vigente()
     }
     class AceiteTermo {
         +ip: GenericIP
         +user_agent: CharField
-        +criado_em: DateTime «evidencia legal»
+        +conteudo_sha256: CharField
+        +criado_em: DateTime
+        «prova legal, imutável por trigger»
+        +registrar(cliente, versao, request, atendimento)
     }
     class LogAuditoria {
+        +usuario_nome: CharField «snapshot»
         +acao: Text
-        +tabela: CharField
-        +registro_id: Integer
+        +tabela / registro_id
+        +detalhes: JSON «PII mascarada»
         +ip_origem: GenericIP
     }
     class AssinaturaPush {
-        +endpoint: URL «unique»
+        +endpoint: URL «único»
         +p256dh / auth: VAPID
         +ativo: Boolean
     }
 
-    Cliente "1" --> "1" Prontuario : O2O
+    Cliente "1" --> "0..1" Prontuario : O2O (PROTECT)
+    Prontuario "1" --> "0..*" ProntuarioVersao : versoes
+    Usuario "0..1" --> "0..*" ProntuarioVersao : autor
     Cliente "1" --> "0..*" RespostaAnamnese
     FormularioAnamnese "1" --> "0..*" RespostaAnamnese
     Atendimento "0..1" --> "0..*" RespostaAnamnese
     Atendimento "1" --> "0..*" AnotacaoSessao : anotacoes
-    Usuario "0..1" --> "0..*" AnotacaoSessao : autor
-    Atendimento "1" --> "1" AvaliacaoNPS : O2O
+    Usuario "0..1" --> "0..*" AnotacaoSessao : autor (PROTECT)
+    Atendimento "1" --> "0..1" AvaliacaoNPS : O2O
     Cliente "1" --> "0..*" ListaEspera
-    Usuario "0..1" --> "1" Profissional : O2O
-    Cliente "1" --> "0..*" AceiteTermo : aceites
+    Usuario "0..1" --> "0..1" Profissional : O2O
+    Cliente "1" --> "0..*" AceiteTermo : aceites (PROTECT)
     VersaoTermo "1" --> "0..*" AceiteTermo
+    Atendimento "0..1" --> "0..*" AceiteTermo
+    Procedimento "0..1" --> "0..*" VersaoTermo
     Usuario "0..1" --> "0..*" LogAuditoria
     Usuario "1" --> "0..*" AssinaturaPush
 
     class Profissional {
-        «ref» nucleo de agendamento
+        «ref» núcleo de agendamento
     }

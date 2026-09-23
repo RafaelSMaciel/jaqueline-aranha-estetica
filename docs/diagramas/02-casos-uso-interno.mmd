@@ -1,44 +1,47 @@
 ---
-title: Diagrama de Casos de Uso (UML) — Area Interna (Staff, Profissional, Sistema)
+title: Diagrama de Casos de Uso (UML) — Área Interna (ADMIN, Profissional, Sistema)
 ---
 flowchart LR
-    AD["👤 Administrador /<br/>Recepcao (staff)"]:::ator
-    PR["👤 Profissional /<br/>Biomedica"]:::ator
-    SY["⚙️ Sistema /<br/>Cron Externo"]:::sis
-    EX["🔌 Servicos Externos<br/>SMS · WhatsApp · Email · GCal"]:::ext
+    AD["👤 Administrador (ADMIN)<br/>também faz a recepção"]:::ator
+    PR["👤 Profissional"]:::ator
+    SY["⚙️ Sistema /<br/>Cron externo"]:::sis
+    EX["🔌 Serviços Externos<br/>SMS · WhatsApp · E-mail · GCal"]:::ext
 
-    subgraph S["Sistema Shiva Zen — Painel Administrativo & Backoffice"]
+    subgraph S["Sistema Shiva Zen — Painel e Portal"]
         direction TB
-        UC13(["UC13 Autenticar admin"])
-        UC14(["UC14 Configurar / validar 2FA"])
-        UC15(["UC15 Gerir agenda do profissional"])
+        UC13(["UC13 Autenticar equipe"])
+        UC14(["UC14 Cadastrar / validar 2FA"])
+        UC15(["UC15 Operar portal do profissional"])
         UC16(["UC16 Gerir agendamentos (painel)"])
-        UC17(["UC17 Gerir clientes e prontuario"])
+        UC27(["UC27 Agendar pela recepção"])
+        UC17(["UC17 Gerir clientes e prontuário"])
         UC18(["UC18 Gerir profissionais e disponibilidade"])
-        UC19(["UC19 Gerir pacotes (CRUD + venda)"])
-        UC20(["UC20 Gerir promocoes e campanhas"])
-        UC21(["UC21 Dashboard financeiro e comissoes"])
+        UC19(["UC19 Gerir pacotes"])
+        UC20(["UC20 Gerir promoções e campanhas"])
+        UC21(["UC21 Financeiro e comissões"])
+        UC28(["UC28 Moderar depoimentos"])
         UC22(["UC22 Gerir lista de espera"])
-        UC23(["UC23 Gerir formularios e termos"])
-        UC24(["UC24 Usuarios, config, branding e auditoria"])
-        UC25(["UC25 Executar jobs automaticos (cron)"])
-        UC26(["UC26 Receber callbacks de SMS"])
+        UC23(["UC23 Gerir formulários e termos"])
+        UC24(["UC24 Administrar o sistema"])
+        UC25(["UC25 Executar jobs periódicos"])
+        UC26(["UC26 Receber webhooks"])
     end
 
     AD --- UC13
     AD --- UC16
+    AD --- UC27
     AD --- UC17
     AD --- UC18
     AD --- UC19
     AD --- UC20
     AD --- UC21
+    AD --- UC28
     AD --- UC22
     AD --- UC23
     AD --- UC24
-    PR --- UC14
+    PR --- UC13
     PR --- UC15
     PR --- UC17
-    AD --- UC14
 
     UC13 -.->|«include»| UC14
 

@@ -1,50 +1,48 @@
 ---
-title: Diagrama de Sequencia (UML) — Agendamento publico com OTP anti-sequestro
+title: Diagrama de Sequência (UML) — Agendamento público com OTP por celular
 ---
 sequenceDiagram
     autonumber
     actor C as Cliente
     participant W as Wizard JS
     participant D as Django App
+    participant K as Cache local
     participant DB as PostgreSQL
-    participant R as Redis
     participant Z as Zenvia SMS
 
-    C->>W: abre /agendamento
+    C->>W: abre /agendamento/
     W->>D: GET agendamento_publico
-    D-->>W: wizard 3 steps + Turnstile
+    D-->>W: wizard + preço com promoção da data + termos + fichas
 
     C->>W: escolhe procedimento e data
-    W->>D: GET api_dias / api_horarios_disponiveis
-    D->>DB: slots livres [disponibilidade - ocupados - bloqueios]
-    DB-->>D: horarios
-    D-->>W: slots por profissional
+    W->>D: GET dias-disponiveis / horarios-disponiveis
+    D->>DB: SlotService [expediente, exceções, feriados, bloqueios, ocupados]
+    DB-->>D: dados da agenda
+    D-->>W: horários livres por profissional
 
-    C->>W: preenche nome, telefone, nascimento, consents
+    C->>W: dados, consentimentos (desmarcados), aceites e ficha
+    W->>D: POST solicitar_otp_agendamento [celular + Turnstile]
+    D->>K: intervalo 60 s e cotas de SMS [telefone, IP, global]
+    D->>DB: CodigoOtp.gerar [HMAC-SHA256]
+    D->>Z: SMS com o código [válido 10 min]
+    Z-->>C: código
+    C->>W: digita o código
+    W->>D: POST verificar_otp_agendamento
+    D->>DB: CodigoOtp.verificar [5 tentativas]
+    D-->>W: telefone verificado na sessão [30 min] + pré-preenchimento
+
     W->>D: POST confirmar_agendamento
-    D->>D: valida honeypot, Turnstile e campos
-    D->>DB: telefone/email ja e Cliente ativo?
-    DB-->>D: existe?
-
-    alt Cliente JA EXISTE [gate anti-sequestro]
-        W->>D: POST solicitar_otp_agendamento
-        D->>R: cooldown / pode_reenviar
-        D->>Z: enviar_otp_sms [codigo 6 digitos, 10 min]
-        Z-->>C: SMS com codigo
-        C->>W: digita codigo
-        W->>D: POST verificar_otp_agendamento
-        D->>R: grava sessao otp_agendamento_email + expira [30 min]
-        D-->>W: pre-fill do cliente
-    else Cliente NOVO
-        Note over D: pula o gate OTP
-    end
-
-    D->>R: revalida OTP da sessao [identidade e nao expirado]
-    D->>R: slot-lock [cache.add booking_slot, 30s]
+    D->>D: telefone do formulário = verificado? aceite da política?
+    D->>DB: valida slot, habilitação, feriado, idade 18+, ficha, termos
+    D->>K: trava do horário [30 s]
     D->>DB: transaction.atomic + SELECT FOR UPDATE
-    D->>DB: get_or_create Cliente [consents + IP]
-    D->>DB: checa conflito e cria Atendimento status PENDENTE
-    D->>DB: grava anamnese + Notificacao de termos
-    D->>D: Celery - email termos e aviso ao profissional
-    D->>R: limpa chaves OTP e grava agendamento_sucesso
-    D-->>C: redireciona /sucesso [aguardando aprovacao]
+    D->>DB: cliente pelo telefone [consentimentos com data e IP]
+    D->>DB: cria Atendimento PENDENTE [preço + promoção da data]
+    D->>DB: AceiteTermo [IP, navegador, SHA-256] + ficha + auditoria art. 11
+    alt outro pedido ganhou a corrida
+        DB-->>D: EXCLUDE 23P01
+        D-->>W: horário acabou de ser reservado [wizard reidratado]
+    else gravado
+        D->>D: on_commit - e-mail e push ao profissional
+        D-->>C: página de sucesso [aguardando aprovação da clínica]
+    end

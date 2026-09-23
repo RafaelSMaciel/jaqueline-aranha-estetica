@@ -22,8 +22,17 @@ BASE = os.path.dirname(os.path.abspath(__file__))
 DIAG = os.path.join(BASE, 'diagramas')
 DADOS = os.path.join(BASE, '_dados_requisitos.json')
 
-VERSAO = '2.1'
-DATA = date(2026, 6, 21).strftime('%d/%m/%Y')
+VERSAO = '2.2'
+DATA = date(2026, 9, 23).strftime('%d/%m/%Y')
+# (versao, data, descricao) — acrescente uma linha a cada regeneracao relevante
+HISTORICO = [
+    ('2.1', '21/06/2026', 'Documento de requisitos + modelagem UML gerado a partir do código '
+                          '(pós-auditoria SWE de backend e migração do front-end para base_v2).'),
+    ('2.2', '23/09/2026', 'Atualização pós-auditoria pré-produção: OTP obrigatório em todo agendamento, '
+                          'consentimentos LGPD/art. 11 com prova de aceite imutável, 2FA obrigatório '
+                          'para ADMIN, histórico do prontuário, agendamento interno, deploy por Docker '
+                          '+ migração atômica (migrations 0040–0046).'),
+]
 GOLD = RGBColor(0xC4, 0xA3, 0x5A)
 DARK = RGBColor(0x4A, 0x34, 0x25)
 
@@ -129,70 +138,76 @@ r.font.size = Pt(34)
 r.font.color.rgb = GOLD
 sub = doc.add_paragraph()
 sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
-r = sub.add_run('Sistema de Gestao para Clinica de Estetica')
+r = sub.add_run('Sistema de Gestão para Clínica de Estética')
 r.font.size = Pt(15)
 r.font.color.rgb = DARK
 sub2 = doc.add_paragraph()
 sub2.alignment = WD_ALIGN_PARAGRAPH.CENTER
-r = sub2.add_run('Jaqueline Aranha Estetica')
+r = sub2.add_run('Jaqueline Aranha Estética')
 r.font.size = Pt(12)
 r.italic = True
 for _ in range(2):
     doc.add_paragraph()
 tit = doc.add_paragraph()
 tit.alignment = WD_ALIGN_PARAGRAPH.CENTER
-r = tit.add_run('Documento de Especificacao de Requisitos\ne Modelagem UML')
+r = tit.add_run('Documento de Especificação de Requisitos\ne Modelagem UML')
 r.bold = True
 r.font.size = Pt(16)
 for _ in range(6):
     doc.add_paragraph()
 meta = doc.add_paragraph()
 meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
-meta.add_run(f'Versao {VERSAO}  |  {DATA}').font.size = Pt(11)
+meta.add_run(f'Versão {VERSAO}  |  {DATA}').font.size = Pt(11)
 
 # ===================== SUMARIO =====================
 doc.add_page_break()
-h1('Sumario')
+h1('Sumário')
 toc_p = doc.add_paragraph()
 run = toc_p.add_run()
 fldChar = OxmlElement('w:fldChar'); fldChar.set(qn('w:fldCharType'), 'begin')
 instr = OxmlElement('w:instrText'); instr.set(qn('xml:space'), 'preserve')
 instr.text = 'TOC \\o "1-2" \\h \\z \\u'
 fldChar2 = OxmlElement('w:fldChar'); fldChar2.set(qn('w:fldCharType'), 'separate')
-t_run = OxmlElement('w:t'); t_run.text = 'Atualize este campo no Word (Ctrl+A, F9) para gerar o sumario.'
+t_run = OxmlElement('w:t'); t_run.text = 'Atualize este campo no Word (Ctrl+A, F9) para gerar o sumário.'
 fldChar3 = OxmlElement('w:fldChar'); fldChar3.set(qn('w:fldCharType'), 'end')
 for el in (fldChar, instr, fldChar2, t_run, fldChar3):
     run._r.append(el)
 
 # ===================== 1. INTRODUCAO =====================
 doc.add_page_break()
-h1('1. Introducao')
+h1('1. Introdução')
 h2('1.1 Objetivo')
-par('Este documento especifica os requisitos funcionais e nao-funcionais, as regras '
-    'de negocio e a modelagem UML do sistema Shiva Zen — plataforma web de gestao para '
-    'a clinica de estetica Jaqueline Aranha. O conteudo foi derivado diretamente do '
-    'codigo-fonte da aplicacao (Django 5.2), garantindo aderencia ao comportamento real '
-    'implementado.')
+par('Este documento especifica os requisitos funcionais e não funcionais, as regras '
+    'de negócio e a modelagem UML do sistema Shiva Zen — plataforma web de gestão da '
+    'clínica de estética Jaqueline Aranha. O conteúdo foi derivado diretamente do '
+    'código-fonte da aplicação (Django 5.2, migrations até 0046), garantindo aderência ao '
+    'comportamento realmente implementado.')
 h2('1.2 Escopo')
-par('O sistema cobre o agendamento online publico (sem cadastro, identificado por '
-    'telefone com verificacao OTP por SMS), o portal do profissional, o painel '
-    'administrativo (agenda, clientes, prontuario, pacotes, promocoes, comissoes, NPS, '
-    'notificacoes), alem de rotinas automaticas (lembretes, NPS, expiracao de pacotes, '
-    'expurgo LGPD) e integracoes externas (SMS Zenvia, WhatsApp Meta, e-mail, Google '
-    'Calendar, Cloudflare Turnstile).')
-h2('1.3 Visao geral da arquitetura')
-par('Aplicacao Django monolitica servida por gunicorn, com processamento assincrono via '
-    'Celery (worker + beat), PostgreSQL como banco primario, Redis (broker, cache e '
-    'sessao) e frontend em Vite/Tailwind com PWA. A regra de negocio reside em uma camada '
-    'de servicos e eventos de dominio (EventBus); o estado do atendimento e governado por '
-    'uma maquina de estados (FSM). Detalhes na secao 8.')
+par('O sistema cobre o agendamento online público (sem senha: a cliente é identificada '
+    'pelo celular, confirmado por código OTP via SMS em todo agendamento), com aceite da '
+    'Política de Privacidade, consentimento para dado de saúde e termos do procedimento; a '
+    'área "Meus agendamentos"; o portal do profissional; o painel administrativo (agenda, '
+    'agendamento interno, clientes, prontuário com histórico, pacotes, promoções, comissões, '
+    'NPS e depoimentos, termos, auditoria); rotinas automáticas (lembrete D-1, NPS, pacotes, '
+    'aniversário, limpeza de status, retenção LGPD) e integrações externas (SMS Zenvia, '
+    'WhatsApp Meta, e-mail, Google Calendar, Cloudflare Turnstile, Sentry).')
+h2('1.3 Visão geral da arquitetura')
+par('Aplicação Django monolítica renderizada no servidor e servida por gunicorn '
+    '(1 worker × 4 threads) em contêiner Docker no Railway, com PostgreSQL 18 como banco '
+    'principal (invariantes garantidas por EXCLUDE, CHECK, UNIQUE parciais e triggers). As '
+    'tarefas Celery rodam em modo síncrono (eager) e os jobs periódicos são disparados por '
+    'um cron externo via HTTP autenticado; cache e sessão são locais, com Redis opcional. O '
+    'front-end usa Vite, Tailwind CSS v4, Alpine.js (build CSP) e componentes django-cotton, '
+    'com PWA. A regra de negócio reside em serviços, sinais de modelo e eventos de domínio '
+    '(EventBus); o estado do atendimento é governado por uma máquina de estados (FSM). '
+    'Detalhes nas seções 8 e 10.')
 
 # ===================== 2. ATORES =====================
 doc.add_page_break()
 h1('2. Atores do Sistema')
-par('Atores identificados a partir dos papeis de acesso e dos fluxos publicos/internos.')
+par('Atores identificados a partir dos papéis de acesso e dos fluxos públicos e internos.')
 add_table(
-    ['Ator', 'Descricao'],
+    ['Ator', 'Descrição'],
     [[a['nome'], a['descricao']] for a in D['casos-uso']['atores']],
     widths=[1.7, 5.0],
 )
@@ -201,25 +216,25 @@ add_table(
 doc.add_page_break()
 h1('3. Requisitos Funcionais')
 add_table(
-    ['ID', 'Ator', 'Descricao'],
+    ['ID', 'Ator', 'Descrição'],
     [[rf['id'], rf['ator'], rf['descricao']] for rf in D['regras-requisitos']['requisitos_funcionais']],
     widths=[0.6, 1.4, 4.7],
 )
 
 # ===================== 4. REQUISITOS NAO-FUNCIONAIS =====================
 doc.add_page_break()
-h1('4. Requisitos Nao-Funcionais')
+h1('4. Requisitos Não Funcionais')
 add_table(
-    ['ID', 'Categoria', 'Descricao'],
+    ['ID', 'Categoria', 'Descrição'],
     [[r['id'], r['categoria'], r['descricao']] for r in D['regras-requisitos']['requisitos_nao_funcionais']],
     widths=[0.6, 1.2, 4.9],
 )
 
 # ===================== 5. REGRAS DE NEGOCIO =====================
 doc.add_page_break()
-h1('5. Regras de Negocio')
+h1('5. Regras de Negócio')
 add_table(
-    ['ID', 'Titulo', 'Descricao'],
+    ['ID', 'Título', 'Descrição'],
     [[r['id'], r['titulo'], r['descricao']] for r in D['regras-requisitos']['regras']],
     widths=[0.6, 1.6, 4.5],
 )
@@ -227,9 +242,9 @@ add_table(
 # ===================== 6. CASOS DE USO =====================
 doc.add_page_break()
 h1('6. Casos de Uso')
-add_image('01-casos-uso-publico.png', 'Figura 1 — Diagrama de Casos de Uso (UML): Area Publica (Cliente).')
-add_image('02-casos-uso-interno.png', 'Figura 2 — Diagrama de Casos de Uso (UML): Area Interna (Staff, Profissional, Sistema).')
-h2('6.1 Especificacao dos casos de uso')
+add_image('01-casos-uso-publico.png', 'Figura 1 — Diagrama de Casos de Uso (UML): Área Pública (Cliente).')
+add_image('02-casos-uso-interno.png', 'Figura 2 — Diagrama de Casos de Uso (UML): Área Interna (ADMIN, Profissional, Sistema).')
+h2('6.1 Especificação dos casos de uso')
 add_table(
     ['ID', 'Caso de Uso', 'Atores', 'Fluxo principal'],
     [[uc['id'], uc['nome'], ', '.join(uc['atores']), uc['fluxo']] for uc in D['casos-uso']['casos_de_uso']],
@@ -238,39 +253,39 @@ add_table(
 
 # ===================== 7. MODELO DE DOMINIO =====================
 doc.add_page_break()
-h1('7. Modelo de Dominio (Diagrama de Classes)')
-add_image('03-classe-agendamento.png', 'Figura 3 — Diagrama de Classes (UML): Nucleo de Agendamento.', paisagem=True)
+h1('7. Modelo de Domínio (Diagrama de Classes)')
+add_image('03-classe-agendamento.png', 'Figura 3 — Diagrama de Classes (UML): Núcleo de Agendamento.', paisagem=True)
 add_image('04-classe-financeiro.png', 'Figura 4 — Diagrama de Classes (UML): Pacotes, Carteira, Fidelidade e Comissao.', paisagem=True)
-add_image('05-classe-prontuario-lgpd.png', 'Figura 5 — Diagrama de Classes (UML): Prontuario, Anamnese, NPS, Termos, Acesso e Auditoria.', paisagem=True)
-h2('7.1 Dicionario de entidades')
+add_image('05-classe-prontuario-lgpd.png', 'Figura 5 — Diagrama de Classes (UML): Prontuário, Anamnese, NPS, Termos, Acesso e Auditoria.', paisagem=True)
+h2('7.1 Dicionário de entidades')
 linhas = []
 for grupo in ('models-core', 'models-aux'):
     for m in D[grupo]['models']:
         linhas.append([m['nome'], m.get('tabela', ''), m['descricao']])
-add_table(['Entidade', 'Tabela', 'Descricao'], linhas, widths=[1.5, 1.4, 3.8])
+add_table(['Entidade', 'Tabela', 'Descrição'], linhas, widths=[1.5, 1.4, 3.8])
 
 # ===================== 8. DIAGRAMA DE ESTADOS =====================
 doc.add_page_break()
 h1('8. Diagrama de Estados — Atendimento (FSM)')
-par('O status do atendimento e governado por uma maquina de estados finitos; transicoes '
-    'invalidas levantam excecao tipada (Atendimento.TransicaoInvalida). Estado inicial: '
+par('O status do atendimento é governado por uma máquina de estados finitos; transições '
+    'inválidas levantam exceção tipada (Atendimento.TransicaoInvalida). Estado inicial: '
     f"{D['fsm']['estado_inicial']}.")
 add_image('06-estados-atendimento.png', 'Figura 6 — Diagrama de Estados (UML): ciclo de vida do Atendimento.', paisagem=True)
-h2('8.1 Tabela de transicoes')
+h2('8.1 Tabela de transições')
 trans = [[t['de'], t['para'], t['acao']] for t in D['fsm']['transicoes'] if t['para'] != '(nenhum)']
-add_table(['Estado origem', 'Estado destino', 'Acao / gatilho'], trans, widths=[1.6, 1.6, 3.5])
-h2('8.2 Efeitos colaterais reativos (signals / EventBus)')
+add_table(['Estado origem', 'Estado destino', 'Ação / gatilho'], trans, widths=[1.6, 1.6, 3.5])
+h2('8.2 Efeitos automáticos (signals / EventBus / jobs)')
 for ef in D['fsm']['efeitos']:
     p = doc.add_paragraph(style='List Bullet')
     p.add_run(ef).font.size = Pt(9)
 
 # ===================== 9. DIAGRAMA DE SEQUENCIA =====================
 doc.add_page_break()
-h1('9. Diagrama de Sequencia — Agendamento com OTP')
-par('Fluxo do agendamento publico com o gate de verificacao OTP por SMS (anti-sequestro '
-    'de cadastro), incluindo controle de concorrencia de slot e criacao transacional do '
-    'atendimento.')
-add_image('07-sequencia-agendamento-otp.png', 'Figura 7 — Diagrama de Sequencia (UML): agendamento publico com OTP.', paisagem=True)
+h1('9. Diagrama de Sequência — Agendamento com OTP')
+par('Fluxo do agendamento público: verificação do celular por OTP via SMS (exigida em todo '
+    'agendamento), aceites e consentimentos com prova, controle de concorrência do horário e '
+    'criação transacional do atendimento PENDENTE.')
+add_image('07-sequencia-agendamento-otp.png', 'Figura 7 — Diagrama de Sequência (UML): agendamento público com OTP.', paisagem=True)
 h2('9.1 Passo a passo')
 for passo in D['arquitetura']['fluxo_agendamento_otp']:
     p = doc.add_paragraph(style='List Number')
@@ -278,31 +293,34 @@ for passo in D['arquitetura']['fluxo_agendamento_otp']:
 
 # ===================== 10. ARQUITETURA =====================
 doc.add_page_break()
-h1('10. Arquitetura e Integracoes')
-add_image('08-componentes-arquitetura.png', 'Figura 8 — Diagrama de Componentes / Implantacao (UML).', paisagem=True)
+h1('10. Arquitetura e Integrações')
+add_image('08-componentes-arquitetura.png', 'Figura 8 — Diagrama de Componentes / Implantação (UML).', paisagem=True)
 h2('10.1 Componentes')
 add_table(['Componente', 'Papel'],
           [[c['nome'], c['papel']] for c in D['arquitetura']['componentes']],
           widths=[1.8, 4.9])
-h2('10.2 Integracoes externas')
+h2('10.2 Integrações externas')
 add_table(['Servico', 'Uso'],
           [[i['nome'], i['uso']] for i in D['arquitetura']['integracoes_externas']],
           widths=[1.8, 4.9])
 
 # ===================== HISTORICO =====================
 doc.add_page_break()
-h1('Historico de Versoes')
-add_table(['Versao', 'Data', 'Descricao'],
-          [[VERSAO, DATA, 'Documento de requisitos + modelagem UML gerado a partir do codigo '
-            '(pos-auditoria SWE de backend e migracao de frontend base_v2).']],
+h1('Histórico de Versões')
+add_table(['Versão', 'Data', 'Descrição'],
+          [list(linha) for linha in HISTORICO],
           widths=[0.9, 1.2, 4.6])
 
 # ---- rodape com numero de pagina ----
-for section in doc.sections:
+# As secoes criadas p/ as paginas em paisagem herdam (linked) o rodape da 1a:
+# escrever em todas repetia o texto uma vez por secao no mesmo rodape.
+for i, section in enumerate(doc.sections):
     footer = section.footer
+    if i > 0 and footer.is_linked_to_previous:
+        continue
     fp = footer.paragraphs[0]
     fp.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = fp.add_run('Shiva Zen — Requisitos v' + VERSAO + '   |   Pag. ')
+    run = fp.add_run('Shiva Zen — Requisitos v' + VERSAO + '   |   Pág. ')
     run.font.size = Pt(8)
     fld1 = OxmlElement('w:fldChar'); fld1.set(qn('w:fldCharType'), 'begin')
     instr = OxmlElement('w:instrText'); instr.set(qn('xml:space'), 'preserve'); instr.text = 'PAGE'

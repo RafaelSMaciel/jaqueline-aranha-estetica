@@ -4,7 +4,7 @@
    {
     "nome": "Cliente",
     "tabela": "cliente",
-    "descricao": "Cadastro de clientes da estetica com CRM, indicacao/fidelidade, consentimentos LGPD e soft-delete.",
+    "descricao": "Cliente da clínica: identidade pelo celular (só dígitos, único entre ativos), e-mail/CPF opcionais, consentimentos granulares com data e IP, contador de faltas e bloqueio online, indicação (cashback) e soft delete.",
     "campos": [
      {
       "nome": "nome",
@@ -28,7 +28,7 @@
      },
      {
       "nome": "email",
-      "tipo": "EmailField(254) (null)"
+      "tipo": "CharField(254) (null)"
      },
      {
       "nome": "telefone",
@@ -56,11 +56,11 @@
      },
      {
       "nome": "foto_url",
-      "tipo": "URLField(600) (default='')"
+      "tipo": "CharField(600) (default=)"
      },
      {
       "nome": "codigo_indicacao",
-      "tipo": "CharField(12) unique (null)"
+      "tipo": "CharField(12) (unique, null)"
      },
      {
       "nome": "aceita_comunicacao",
@@ -68,7 +68,7 @@
      },
      {
       "nome": "token_descadastro",
-      "tipo": "CharField(64) db_index (null)"
+      "tipo": "CharField(64) (null, db_index)"
      },
      {
       "nome": "consent_email_marketing",
@@ -112,15 +112,16 @@
      },
      {
       "nome": "atualizado_em",
-      "tipo": "DateTimeField (auto_now) (null)"
+      "tipo": "DateTimeField (null, auto_now)"
      },
      {
       "nome": "deletado_em",
-      "tipo": "DateTimeField db_index (null)"
+      "tipo": "DateTimeField (null, db_index)"
      }
     ],
     "relacoes": [
      {
+      "campo": "indicado_por",
       "tipo": "FK",
       "alvo": "Cliente (self)",
       "multiplicidade": "0..1",
@@ -129,19 +130,24 @@
      }
     ],
     "metodos": [
-     "save: normaliza telefone/cpf para digits-only e gera token_descadastro + codigo_indicacao se ausentes",
-     "_gerar_codigo_indicacao (staticmethod): gera codigo hex unico de 8 chars (fallback 12) checando colisao",
-     "registrar_falta: incrementa faltas_consecutivas sob lock e bloqueia online a partir de 3 faltas",
-     "resetar_faltas: zera faltas_consecutivas e desbloqueia online",
-     "soft_delete: marca deletado_em e ativo=False sem apagar a row",
-     "delete: soft-delete por padrao; hard=True faz delete real (erasure LGPD)",
-     "Manager objects (ClienteAtivosManager): filtra soft-deleted (deletado_em is null); all_objects retorna todos"
+     "save: normaliza telefone/CPF para dígitos e gera token_descadastro e codigo_indicacao",
+     "limite_faltas_bloqueio (static): Configuracao MAX_FALTAS_BLOQUEIO ou padrão 3",
+     "registrar_falta: soma falta sob lock e bloqueia o agendamento online ao atingir o limite",
+     "resetar_faltas: zera faltas e desbloqueia (chamado ao REALIZADO)",
+     "soft_delete / delete: exclusão lógica (hard=True só explícito)",
+     "managers: objects (só ativos, sem soft delete) e all_objects"
+    ],
+    "constraints": [
+     "uniq_cliente_email_ativo",
+     "uniq_cliente_telefone_ativo",
+     "uniq_cliente_cpf_ativo",
+     "chk_cliente_nao_indica_si_mesmo"
     ]
    },
    {
     "nome": "Profissional",
     "tabela": "profissional",
-    "descricao": "Profissional que executa procedimentos, com regras de agendamento e integracao Google Calendar/ICS.",
+    "descricao": "Profissional que atende: antecedência mínima (min_notice_horas) e máxima (max_advance_dias) do agendamento, token do feed iCal (rotacionável) e integração com o Google Calendar.",
     "campos": [
      {
       "nome": "nome",
@@ -149,7 +155,7 @@
      },
      {
       "nome": "slug",
-      "tipo": "SlugField(140) unique (null)"
+      "tipo": "SlugField(140) (unique, null)"
      },
      {
       "nome": "especialidade",
@@ -157,11 +163,11 @@
      },
      {
       "nome": "foto_url",
-      "tipo": "URLField(600) (default='')"
+      "tipo": "CharField(600) (default=)"
      },
      {
       "nome": "bio",
-      "tipo": "TextField (default='')"
+      "tipo": "TextField (default=)"
      },
      {
       "nome": "ativo",
@@ -177,48 +183,43 @@
      },
      {
       "nome": "ics_token",
-      "tipo": "CharField(64) unique (null)"
+      "tipo": "CharField(64) (unique, null)"
      },
      {
       "nome": "gcal_refresh_token",
-      "tipo": "TextField (default='')"
+      "tipo": "TextField (default=)"
      },
      {
       "nome": "gcal_calendar_id",
-      "tipo": "CharField(200) (default='primary')"
+      "tipo": "CharField(200) (default=primary)"
      },
      {
       "nome": "gcal_sync_token",
-      "tipo": "TextField (default='')"
+      "tipo": "TextField (default=)"
      },
      {
       "nome": "gcal_ultimo_sync_em",
       "tipo": "DateTimeField (null)"
      }
     ],
-    "relacoes": [
-     {
-      "tipo": "M2M",
-      "alvo": "Procedimento",
-      "multiplicidade": "0..*",
-      "on_delete": "",
-      "related_name": "(reverse de Procedimento.profissionais, through=Habilitacao)"
-     }
-    ],
+    "relacoes": [],
     "metodos": [
-     "save: gera slug unico a partir do nome e gera ics_token se ausente",
-     "get_horarios_disponiveis: delega ao SlotService.slots_livres para calcular slots livres no dia (feriado, excecao, regra semanal, buffers, bloqueios, notice/advance)",
-     "_get_model (staticmethod): helper para resolver model por apps.get_model"
+     "save: gera slug único e ics_token",
+     "get_horarios_disponiveis: delega ao SlotService.slots_livres"
+    ],
+    "constraints": [
+     "chk_profissional_min_notice_range",
+     "chk_profissional_max_advance_range"
     ]
    },
    {
     "nome": "DisponibilidadeProfissional",
     "tabela": "disponibilidade_profissional",
-    "descricao": "Regra de janela de atendimento semanal recorrente por dia da semana do profissional.",
+    "descricao": "Expediente semanal recorrente do profissional (1=Dom … 7=Sáb, vários turnos por dia).",
     "campos": [
      {
       "nome": "dia_semana",
-      "tipo": "SmallIntegerField (1=Dom..7=Sab)"
+      "tipo": "SmallIntegerField"
      },
      {
       "nome": "hora_inicio",
@@ -231,19 +232,27 @@
     ],
     "relacoes": [
      {
+      "campo": "profissional",
       "tipo": "FK",
       "alvo": "Profissional",
-      "multiplicidade": "1..*",
+      "multiplicidade": "1",
       "on_delete": "CASCADE",
-      "related_name": "(default disponibilidadeprofissional_set)"
+      "related_name": "(default)"
      }
     ],
-    "metodos": []
+    "metodos": [
+     "CHECK dia_semana 1..7 e fim após início; UNIQUE (profissional, dia, hora_inicio)"
+    ],
+    "constraints": [
+     "chk_disponibilidade_dia_semana",
+     "chk_disponibilidade_hora_fim_apos_inicio",
+     "uniq_disponibilidade_prof_dia_hora"
+    ]
    },
    {
     "nome": "BloqueioAgenda",
     "tabela": "bloqueio_agenda",
-    "descricao": "Bloqueio de agenda (unico ou recorrente via RRULE) de um profissional ou global (todos).",
+    "descricao": "Bloqueio de agenda pontual ou recorrente (RRULE) de um profissional ou global (profissional nulo = todos).",
     "campos": [
      {
       "nome": "data_hora_inicio",
@@ -259,7 +268,7 @@
      },
      {
       "nome": "regra_recorrencia",
-      "tipo": "CharField(255) RRULE (default='')"
+      "tipo": "CharField(255) (default=)"
      },
      {
       "nome": "recorrencia_ate",
@@ -268,21 +277,25 @@
     ],
     "relacoes": [
      {
+      "campo": "profissional",
       "tipo": "FK",
       "alvo": "Profissional",
       "multiplicidade": "0..1",
       "on_delete": "CASCADE",
-      "related_name": "(default bloqueioagenda_set)"
+      "related_name": "(default)"
      }
     ],
     "metodos": [
-     "expandir_ocorrencias: expande a regra RRULE (dateutil) em pares (inicio,fim) que intersectam a janela dada"
+     "expandir_ocorrencias: expande a RRULE em intervalos dentro de uma janela"
+    ],
+    "constraints": [
+     "chk_bloqueio_fim_maior_inicio"
     ]
    },
    {
     "nome": "ExcecaoDisponibilidade",
     "tabela": "excecao_disponibilidade",
-    "descricao": "Override pontual da disponibilidade semanal numa data: FOLGA (bloqueia dia) ou HORARIO_DIFERENTE.",
+    "descricao": "Exceção pontual ao expediente numa data: FOLGA (dia bloqueado) ou HORARIO_DIFERENTE.",
     "campos": [
      {
       "nome": "data",
@@ -290,7 +303,7 @@
      },
      {
       "nome": "tipo",
-      "tipo": "CharField(20) choices(FOLGA/HORARIO_DIFERENTE)"
+      "tipo": "CharField(20) (choices FOLGA/HORARIO_DIFERENTE)"
      },
      {
       "nome": "hora_inicio",
@@ -307,19 +320,26 @@
     ],
     "relacoes": [
      {
+      "campo": "profissional",
       "tipo": "FK",
       "alvo": "Profissional",
-      "multiplicidade": "1..*",
+      "multiplicidade": "1",
       "on_delete": "CASCADE",
-      "related_name": "(default excecaodisponibilidade_set)"
+      "related_name": "(default)"
      }
     ],
-    "metodos": []
+    "metodos": [
+     "CHECK horário completo para HORARIO_DIFERENTE; UNIQUE (profissional, data, tipo)"
+    ],
+    "constraints": [
+     "uniq_excecao_prof_data_tipo",
+     "chk_excecao_horario_completo"
+    ]
    },
    {
     "nome": "Procedimento",
     "tabela": "procedimento",
-    "descricao": "Servico/procedimento estetico com duracao, categoria, modalidade e regras de retorno obrigatorio.",
+    "descricao": "Serviço do catálogo: duração, buffer (0–120 min), categoria, modalidade e regra de retorno obrigatório (janela em dias e duração do retorno).",
     "campos": [
      {
       "nome": "nome",
@@ -327,7 +347,7 @@
      },
      {
       "nome": "slug",
-      "tipo": "SlugField(140) unique (null)"
+      "tipo": "SlugField(140) (unique, null)"
      },
      {
       "nome": "descricao",
@@ -347,19 +367,19 @@
      },
      {
       "nome": "categoria",
-      "tipo": "CharField(20) choices (default='OUTRO')"
+      "tipo": "CharField(20) (choices FACIAL/CORPORAL/CAPILAR/OUTRO, default=OUTRO)"
      },
      {
       "nome": "modalidade",
-      "tipo": "CharField(12) choices db_index (default='PRESENCIAL')"
+      "tipo": "CharField(12) (choices PRESENCIAL/ONLINE/HIBRIDO, default=PRESENCIAL, db_index)"
      },
      {
       "nome": "link_videoconferencia",
-      "tipo": "URLField(500) (default='')"
+      "tipo": "CharField(500) (default=)"
      },
      {
       "nome": "imagem_destaque",
-      "tipo": "URLField(500) (null)"
+      "tipo": "CharField(500) (null)"
      },
      {
       "nome": "ativo",
@@ -388,42 +408,54 @@
       "alvo": "Profissional",
       "multiplicidade": "0..*",
       "on_delete": "",
-      "related_name": "(through=Habilitacao)"
+      "related_name": "",
+      "through": "Habilitacao"
      }
     ],
     "metodos": [
-     "save: gera slug unico a partir do nome se ausente"
+     "save: gera slug único",
+     "CHECKs de duração, buffer, categoria, modalidade e janela de retorno coerente"
+    ],
+    "constraints": [
+     "chk_procedimento_duracao_positiva",
+     "chk_procedimento_buffer_range",
+     "chk_procedimento_categoria",
+     "chk_procedimento_modalidade",
+     "chk_procedimento_prazo_retorno_coerente"
     ]
    },
    {
     "nome": "Habilitacao",
     "tabela": "habilitacao",
-    "descricao": "Tabela de ligacao (through) que habilita um profissional a executar um procedimento.",
+    "descricao": "Liga profissional e procedimento (M2M through): só profissional habilitado atende o procedimento.",
     "campos": [],
     "relacoes": [
      {
+      "campo": "profissional",
       "tipo": "FK",
       "alvo": "Profissional",
-      "multiplicidade": "1..*",
+      "multiplicidade": "1",
       "on_delete": "CASCADE",
-      "related_name": "(default habilitacao_set)"
+      "related_name": "(default)"
      },
      {
+      "campo": "procedimento",
       "tipo": "FK",
       "alvo": "Procedimento",
-      "multiplicidade": "1..*",
+      "multiplicidade": "1",
       "on_delete": "CASCADE",
-      "related_name": "(default habilitacao_set)"
+      "related_name": "(default)"
      }
     ],
     "metodos": [
-     "Meta.unique_together (profissional, procedimento): impede habilitacao duplicada"
-    ]
+     "unique_together (profissional, procedimento)"
+    ],
+    "constraints": []
    },
    {
     "nome": "Preco",
     "tabela": "preco",
-    "descricao": "Tabela de precos versionada por vigencia para um procedimento (preco-base ou especifico por profissional).",
+    "descricao": "Preço versionado por vigência (vigente_desde, data local), base (sem profissional) ou por profissional.",
     "campos": [
      {
       "nome": "valor",
@@ -435,31 +467,40 @@
      },
      {
       "nome": "vigente_desde",
-      "tipo": "DateField (default=date.today)"
+      "tipo": "DateField (default=localdate)"
      }
     ],
     "relacoes": [
      {
+      "campo": "procedimento",
       "tipo": "FK",
       "alvo": "Procedimento",
-      "multiplicidade": "1..*",
+      "multiplicidade": "1",
       "on_delete": "CASCADE",
-      "related_name": "(default preco_set)"
+      "related_name": "(default)"
      },
      {
+      "campo": "profissional",
       "tipo": "FK",
       "alvo": "Profissional",
       "multiplicidade": "0..1",
       "on_delete": "CASCADE",
-      "related_name": "(default preco_set)"
+      "related_name": "(default)"
      }
     ],
-    "metodos": []
+    "metodos": [
+     "UNIQUE por procedimento/profissional/vigência e por procedimento/vigência do preço base; CHECK valor >= 0"
+    ],
+    "constraints": [
+     "chk_preco_valor_positivo",
+     "uniq_preco_vigencia",
+     "uniq_preco_base_vigencia"
+    ]
    },
    {
     "nome": "Promocao",
     "tabela": "promocao",
-    "descricao": "Promocao com vigencia por datas aplicando desconto percentual OU preco fixo (XOR) a um procedimento.",
+    "descricao": "Promoção por período: desconto percentual (0–100) XOR preço fixo; procedimento nulo = promoção geral (só percentual vale).",
     "campos": [
      {
       "nome": "nome",
@@ -496,25 +537,33 @@
     ],
     "relacoes": [
      {
+      "campo": "procedimento",
       "tipo": "FK",
       "alvo": "Procedimento",
       "multiplicidade": "0..1",
       "on_delete": "CASCADE",
-      "related_name": "(default promocao_set)"
+      "related_name": "(default)"
      }
     ],
     "metodos": [
-     "esta_vigente (property): True se ativa e hoje dentro de [data_inicio, data_fim]"
+     "esta_vigente (property): ativa e hoje dentro do período",
+     "CHECKs: desconto 0..100, preço >= 0, desconto XOR preço, fim >= início"
+    ],
+    "constraints": [
+     "chk_promocao_data_fim_valida",
+     "chk_promocao_desconto_0_100",
+     "chk_promocao_preco_positivo",
+     "chk_promocao_desconto_xor_preco"
     ]
    },
    {
     "nome": "Atendimento",
     "tabela": "atendimento",
-    "descricao": "Agendamento/atendimento ligando cliente, profissional e procedimento, com maquina de estados (FSM) de status.",
+    "descricao": "Agendamento/sessão: cliente, profissional, procedimento, período, preço gravado (valor_cobrado, valor_original, promoção, descrição), retorno (eh_retorno + origem), reagendado_de e FSM de 7 estados.",
     "campos": [
      {
       "nome": "eh_retorno",
-      "tipo": "BooleanField db_index (default=False)"
+      "tipo": "BooleanField (default=False, db_index)"
      },
      {
       "nome": "data_hora_inicio",
@@ -538,11 +587,11 @@
      },
      {
       "nome": "status",
-      "tipo": "CharField(20) choices (default='PENDENTE')"
+      "tipo": "CharField(20) (choices PENDENTE/AGENDADO/CONFIRMADO/REALIZADO/CANCELADO/FALTOU/REAGENDADO, default=PENDENTE)"
      },
      {
       "nome": "token_cancelamento",
-      "tipo": "CharField(64) unique db_index (null)"
+      "tipo": "CharField(64) (unique, null)"
      },
      {
       "nome": "criado_em",
@@ -550,39 +599,44 @@
      },
      {
       "nome": "atualizado_em",
-      "tipo": "DateTimeField (auto_now) (null)"
+      "tipo": "DateTimeField (null, auto_now)"
      }
     ],
     "relacoes": [
      {
+      "campo": "cliente",
       "tipo": "FK",
       "alvo": "Cliente",
-      "multiplicidade": "1..*",
+      "multiplicidade": "1",
       "on_delete": "RESTRICT",
-      "related_name": "(default atendimento_set)"
+      "related_name": "(default)"
      },
      {
+      "campo": "profissional",
       "tipo": "FK",
       "alvo": "Profissional",
-      "multiplicidade": "1..*",
+      "multiplicidade": "1",
       "on_delete": "RESTRICT",
-      "related_name": "(default atendimento_set)"
+      "related_name": "(default)"
      },
      {
+      "campo": "procedimento",
       "tipo": "FK",
       "alvo": "Procedimento",
-      "multiplicidade": "1..*",
+      "multiplicidade": "1",
       "on_delete": "RESTRICT",
-      "related_name": "(default atendimento_set)"
+      "related_name": "(default)"
      },
      {
+      "campo": "promocao",
       "tipo": "FK",
       "alvo": "Promocao",
       "multiplicidade": "0..1",
       "on_delete": "SET_NULL",
-      "related_name": "(default atendimento_set)"
+      "related_name": "(default)"
      },
      {
+      "campo": "reagendado_de",
       "tipo": "FK",
       "alvo": "Atendimento (self)",
       "multiplicidade": "0..1",
@@ -590,6 +644,7 @@
       "related_name": "reagendamentos"
      },
      {
+      "campo": "atendimento_origem",
       "tipo": "FK",
       "alvo": "Atendimento (self)",
       "multiplicidade": "0..1",
@@ -598,42 +653,45 @@
      }
     ],
     "metodos": [
-     "save: gera token_cancelamento se ausente",
-     "_transicionar: valida transicao FSM (dict TRANSICOES), grava status e registra LogAuditoria atomicamente (auditoria best-effort)",
-     "confirmar: transiciona para CONFIRMADO e publica AtendimentoConfirmado",
-     "cancelar: transiciona para CANCELADO e publica AtendimentoCancelado",
-     "marcar_realizado: transiciona para REALIZADO e publica AtendimentoRealizado",
-     "marcar_falta: transiciona para FALTOU e publica AtendimentoFaltou",
-     "marcar_reagendado: transiciona para REAGENDADO",
-     "aprovar: transiciona PENDENTE->AGENDADO",
-     "_publish_event: publica DomainEvent no EventBus (best-effort)",
-     "Manager objects (AtendimentoManager from AtendimentoQuerySet): ativos/futuros/passados/hoje/pendentes_aprovacao/realizados/do_profissional/conflito_com"
+     "save: gera token_cancelamento",
+     "_transicionar: trava a linha, valida TRANSICOES, grava status e LogAuditoria",
+     "aprovar / confirmar / cancelar / marcar_realizado / marcar_falta / marcar_reagendado: transições da FSM + evento de domínio",
+     "clean: fim após início e sem conflito com outro atendimento ativo do profissional",
+     "manager: ativos, futuros, passados, hoje, pendentes_aprovacao, realizados, conflito_com",
+     "constraints: EXCLUDE excl_atendimento_sobreposicao (PG), uniq_retorno_por_origem, CHECKs de status/retorno"
+    ],
+    "constraints": [
+     "chk_atendimento_status_v2",
+     "chk_atendimento_fim_apos_inicio",
+     "chk_retorno_tem_origem",
+     "chk_retorno_valor_zero",
+     "uniq_retorno_por_origem"
     ]
    },
    {
     "nome": "Notificacao",
     "tabela": "notificacao",
-    "descricao": "Mensagem/notificacao (lembrete, confirmacao, NPS etc.) enviada por canal para um atendimento, com resposta.",
+    "descricao": "Mensagem ligada a um atendimento (LEMBRETE D-1, NPS, TERMO, CONFIRMACAO, CANCELAMENTO, APROVACAO...), por canal, com status PENDENTE/ENVIADO/FALHOU e token do link público.",
     "campos": [
      {
       "nome": "tipo",
-      "tipo": "CharField(30) choices (default='LEMBRETE')"
+      "tipo": "CharField(30) (choices LEMBRETE/LEMBRETE_2H/CONFIRMACAO/CANCELAMENTO/NPS/PESQUISA/APROVACAO/TERMO, default=LEMBRETE)"
      },
      {
       "nome": "canal",
-      "tipo": "CharField(20) choices (default='WHATSAPP')"
+      "tipo": "CharField(20) (choices WHATSAPP/SMS/EMAIL, default=WHATSAPP)"
      },
      {
       "nome": "status",
-      "tipo": "CharField(20) choices (default='PENDENTE')"
+      "tipo": "CharField(20) (choices PENDENTE/ENVIADO/FALHOU, default=PENDENTE)"
      },
      {
       "nome": "resposta",
-      "tipo": "CharField(20) choices (null)"
+      "tipo": "CharField(20) (choices CONFIRMOU/CANCELOU, null)"
      },
      {
       "nome": "token",
-      "tipo": "CharField(64) unique (null)"
+      "tipo": "CharField(64) (unique, null)"
      },
      {
       "nome": "mensagem",
@@ -654,14 +712,18 @@
     ],
     "relacoes": [
      {
+      "campo": "atendimento",
       "tipo": "FK",
       "alvo": "Atendimento",
-      "multiplicidade": "1..*",
+      "multiplicidade": "1",
       "on_delete": "CASCADE",
-      "related_name": "(default notificacao_set)"
+      "related_name": "(default)"
      }
     ],
-    "metodos": []
+    "metodos": [
+     "token único: /confirmar/ só aceita LEMBRETE de WhatsApp; /termo/ só TERMO; /nps/ só NPS"
+    ],
+    "constraints": []
    }
   ]
  },
@@ -670,7 +732,7 @@
    {
     "nome": "Pacote",
     "tabela": "pacote",
-    "descricao": "Pacote de servicos com preco fechado e validade em meses",
+    "descricao": "Pacote de sessões com preço total e validade em meses; nome e itens congelados após a 1ª venda.",
     "campos": [
      {
       "nome": "nome",
@@ -686,52 +748,59 @@
      },
      {
       "nome": "ativo",
-      "tipo": "BooleanField"
+      "tipo": "BooleanField (default=True)"
      },
      {
       "nome": "validade_meses",
-      "tipo": "SmallIntegerField"
+      "tipo": "SmallIntegerField (default=12)"
      }
     ],
     "relacoes": [],
-    "metodos": [
-     "__str__: retorna o nome"
+    "metodos": [],
+    "constraints": [
+     "chk_pacote_preco_positivo",
+     "chk_pacote_validade_positiva"
     ]
    },
    {
     "nome": "ItemPacote",
     "tabela": "item_pacote",
-    "descricao": "Linha de composicao do pacote: procedimento + qtd de sessoes incluidas",
+    "descricao": "Item do pacote: procedimento e quantidade de sessões.",
     "campos": [
      {
       "nome": "quantidade_sessoes",
-      "tipo": "SmallIntegerField"
+      "tipo": "SmallIntegerField (default=1)"
      }
     ],
     "relacoes": [
      {
+      "campo": "pacote",
       "tipo": "FK",
       "alvo": "Pacote",
-      "related_name": "itens",
+      "multiplicidade": "1",
       "on_delete": "CASCADE",
-      "multiplicidade": "1..*"
+      "related_name": "itens"
      },
      {
+      "campo": "procedimento",
       "tipo": "FK",
       "alvo": "Procedimento",
-      "related_name": "(default)",
+      "multiplicidade": "1",
       "on_delete": "CASCADE",
-      "multiplicidade": "1..*"
+      "related_name": "(default)"
      }
     ],
     "metodos": [
-     "unique_together (pacote, procedimento); CHECK quantidade_sessoes > 0"
+     "unique_together (pacote, procedimento); CHECK quantidade > 0"
+    ],
+    "constraints": [
+     "chk_item_pacote_qtd_positiva"
     ]
    },
    {
     "nome": "CompraPacote",
     "tabela": "compra_pacote",
-    "descricao": "Compra de um pacote por um cliente, com status de consumo e data de expiracao",
+    "descricao": "Venda de pacote a uma cliente: valor pago, status ATIVO/FINALIZADO/CANCELADO/EXPIRADO e data de expiração.",
     "campos": [
      {
       "nome": "criado_em",
@@ -743,7 +812,7 @@
      },
      {
       "nome": "status",
-      "tipo": "CharField(20) choices ATIVO/FINALIZADO/CANCELADO/EXPIRADO"
+      "tipo": "CharField(20) (choices ATIVO/FINALIZADO/CANCELADO/EXPIRADO, default=ATIVO)"
      },
      {
       "nome": "data_expiracao",
@@ -752,30 +821,37 @@
     ],
     "relacoes": [
      {
+      "campo": "cliente",
       "tipo": "FK",
       "alvo": "Cliente",
-      "related_name": "pacotes_comprados",
-      "on_delete": "CASCADE",
-      "multiplicidade": "1..*"
+      "multiplicidade": "1",
+      "on_delete": "PROTECT",
+      "related_name": "pacotes_comprados"
      },
      {
+      "campo": "pacote",
       "tipo": "FK",
       "alvo": "Pacote",
-      "related_name": "(default)",
+      "multiplicidade": "1",
       "on_delete": "RESTRICT",
-      "multiplicidade": "1..*"
+      "related_name": "(default)"
      }
     ],
     "metodos": [
-     "save: calcula data_expiracao = localdate + validade_meses se ausente (evita off-by-one de fuso)",
-     "verificar_finalizacao: sob select_for_update conta sessoes por procedimento e marca FINALIZADO quando todos os itens completos",
-     "__str__: 'cliente — pacote (status)'"
+     "save: expiração = data local da venda + validade_meses",
+     "saldo_por_procedimento / sessoes_restantes: sessões usadas e restantes por item",
+     "verificar_finalizacao: marca FINALIZADO quando todos os itens foram consumidos",
+     "CHECK valor_pago >= 0; cliente PROTECT"
+    ],
+    "constraints": [
+     "chk_pacote_cliente_status",
+     "chk_compra_pacote_valor_pago"
     ]
    },
    {
     "nome": "ConsumoSessao",
     "tabela": "consumo_sessao",
-    "descricao": "Vincula um atendimento ao consumo de 1 sessao de uma compra de pacote",
+    "descricao": "Consumo de 1 sessão de uma compra de pacote por um atendimento REALIZADO (OneToOne com o atendimento).",
     "campos": [
      {
       "nome": "criado_em",
@@ -784,28 +860,29 @@
     ],
     "relacoes": [
      {
+      "campo": "compra_pacote",
       "tipo": "FK",
       "alvo": "CompraPacote",
-      "related_name": "sessoes_realizadas",
+      "multiplicidade": "1",
       "on_delete": "CASCADE",
-      "multiplicidade": "1..*"
+      "related_name": "sessoes_realizadas"
      },
      {
+      "campo": "atendimento",
       "tipo": "O2O",
       "alvo": "Atendimento",
-      "related_name": "sessao_pacote_vinculada",
+      "multiplicidade": "1",
       "on_delete": "RESTRICT",
-      "multiplicidade": "0..1"
+      "related_name": "sessao_pacote_vinculada"
      }
     ],
-    "metodos": [
-     "UniqueConstraint em atendimento: 1 atendimento consome no maximo 1 sessao"
-    ]
+    "metodos": [],
+    "constraints": []
    },
    {
     "nome": "Prontuario",
     "tabela": "prontuario",
-    "descricao": "Anamnese base permanente do cliente (1:1), com respostas extras em JSONB",
+    "descricao": "Ficha base 1:1 da cliente: alergias, contraindicações, histórico, medicamentos, observações e perguntas configuráveis (respostas_extras JSONB).",
     "campos": [
      {
       "nome": "alergias",
@@ -838,22 +915,72 @@
     ],
     "relacoes": [
      {
+      "campo": "cliente",
       "tipo": "O2O",
       "alvo": "Cliente",
-      "related_name": "(default)",
-      "on_delete": "CASCADE",
-      "multiplicidade": "1"
+      "multiplicidade": "1",
+      "on_delete": "PROTECT",
+      "related_name": "(default)"
      }
     ],
     "metodos": [
-     "__str__: 'Prontuario <cliente_id>' (EAV antigo substituido por respostas_extras JSONB v2.1 fase 5)"
-    ]
+     "clean: respostas_extras precisa ser objeto JSON (espelha o CHECK NOT VALID do PG)",
+     "Q_COM_CONTEUDO: critério de prontuário com conteúdo clínico (retenção)",
+     "cliente PROTECT"
+    ],
+    "constraints": []
+   },
+   {
+    "nome": "ProntuarioVersao",
+    "tabela": "prontuario_versao",
+    "descricao": "Histórico append-only do prontuário: foto do estado anterior a cada edição, com autor e data (imutável no model e por trigger no PG).",
+    "campos": [
+     {
+      "nome": "autor_nome",
+      "tipo": "CharField(100) (default=)"
+     },
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (auto_now_add)"
+     },
+     {
+      "nome": "dados",
+      "tipo": "JSONField (default=dict)"
+     }
+    ],
+    "relacoes": [
+     {
+      "campo": "prontuario",
+      "tipo": "FK",
+      "alvo": "Prontuario",
+      "multiplicidade": "1",
+      "on_delete": "PROTECT",
+      "related_name": "versoes"
+     },
+     {
+      "campo": "autor",
+      "tipo": "FK",
+      "alvo": "Usuario",
+      "multiplicidade": "0..1",
+      "on_delete": "SET_NULL",
+      "related_name": "(default)"
+     }
+    ],
+    "metodos": [
+     "registrar (classmethod): grava a foto persistida antes da edição",
+     "save/delete: recusam alteração e exclusão (ValidationError)"
+    ],
+    "constraints": []
    },
    {
     "nome": "AnotacaoSessao",
     "tabela": "anotacao_sessao",
-    "descricao": "Observacoes clinicas especificas de cada atendimento, com autor",
+    "descricao": "Anotação clínica de um atendimento, com autor preservado (PROTECT + snapshot autor_nome).",
     "campos": [
+     {
+      "nome": "autor_nome",
+      "tipo": "CharField(100) (default=)"
+     },
      {
       "nome": "texto",
       "tipo": "TextField"
@@ -865,26 +992,31 @@
     ],
     "relacoes": [
      {
+      "campo": "atendimento",
       "tipo": "FK",
       "alvo": "Atendimento",
-      "related_name": "anotacoes",
-      "on_delete": "CASCADE",
-      "multiplicidade": "1..*"
+      "multiplicidade": "1",
+      "on_delete": "PROTECT",
+      "related_name": "anotacoes"
      },
      {
+      "campo": "autor",
       "tipo": "FK",
       "alvo": "Usuario",
-      "related_name": "(default)",
-      "on_delete": "SET_NULL",
-      "multiplicidade": "0..1"
+      "multiplicidade": "0..1",
+      "on_delete": "PROTECT",
+      "related_name": "(default)"
      }
     ],
-    "metodos": []
+    "metodos": [
+     "save: grava autor_nome a partir do autor"
+    ],
+    "constraints": []
    },
    {
     "nome": "FormularioAnamnese",
     "tabela": "formulario_anamnese",
-    "descricao": "Template configuravel de questionario (ANAMNESE pre ou PESQUISA pos), campos em schema_json com escopo",
+    "descricao": "Modelo de questionário (ANAMNESE pré-atendimento ou PESQUISA) em schema JSON, com escopo (global, categoria, procedimento, modalidade) e flag obrigatório.",
     "campos": [
      {
       "nome": "nome",
@@ -892,19 +1024,19 @@
      },
      {
       "nome": "tipo",
-      "tipo": "CharField(12) choices ANAMNESE/PESQUISA (db_index)"
+      "tipo": "CharField(12) (choices ANAMNESE/PESQUISA, default=ANAMNESE, db_index)"
      },
      {
       "nome": "escopo",
-      "tipo": "CharField(20) choices GLOBAL/CATEGORIA/PROCEDIMENTO/MODALIDADE"
+      "tipo": "CharField(20) (choices GLOBAL/CATEGORIA/PROCEDIMENTO/MODALIDADE, default=GLOBAL)"
      },
      {
       "nome": "categoria",
-      "tipo": "CharField(20) blank"
+      "tipo": "CharField(20) (default=)"
      },
      {
       "nome": "modalidade",
-      "tipo": "CharField(12) blank"
+      "tipo": "CharField(12) (default=)"
      },
      {
       "nome": "schema_json",
@@ -912,11 +1044,11 @@
      },
      {
       "nome": "ativo",
-      "tipo": "BooleanField"
+      "tipo": "BooleanField (default=True)"
      },
      {
       "nome": "obrigatorio",
-      "tipo": "BooleanField"
+      "tipo": "BooleanField (default=False)"
      },
      {
       "nome": "criado_em",
@@ -924,31 +1056,32 @@
      },
      {
       "nome": "atualizado_em",
-      "tipo": "DateTimeField (auto_now, null)"
+      "tipo": "DateTimeField (null, auto_now)"
      }
     ],
     "relacoes": [
      {
+      "campo": "procedimento",
       "tipo": "FK",
       "alvo": "Procedimento",
-      "related_name": "(default)",
+      "multiplicidade": "0..1",
       "on_delete": "CASCADE",
-      "multiplicidade": "0..1"
+      "related_name": "(default)"
      }
     ],
     "metodos": [
-     "clean: valida schema_json (lista de dicts com key/tipo/label, keys unicas, tipos permitidos, opcoes em select/scale/checkboxes)",
-     "__str__: 'nome (tipo | escopo)'"
-    ]
+     "clean: valida o schema (lista de campos com chave, tipo, label; chaves únicas; opções)"
+    ],
+    "constraints": []
    },
    {
     "nome": "RespostaAnamnese",
     "tabela": "resposta_anamnese",
-    "descricao": "Resposta de cliente a um formulario via link publico tokenizado, vinculada a atendimento",
+    "descricao": "Ficha respondida pela cliente (JSON), ligada ao atendimento; token do link público (60 dias).",
     "campos": [
      {
       "nome": "token",
-      "tipo": "CharField(64) unique (default token_urlsafe)"
+      "tipo": "CharField(64) (unique, default=_gen_resposta_token)"
      },
      {
       "nome": "respostas_json",
@@ -965,49 +1098,61 @@
     ],
     "relacoes": [
      {
+      "campo": "formulario",
       "tipo": "FK",
       "alvo": "FormularioAnamnese",
-      "related_name": "(default)",
+      "multiplicidade": "1",
       "on_delete": "RESTRICT",
-      "multiplicidade": "1..*"
+      "related_name": "(default)"
      },
      {
+      "campo": "cliente",
       "tipo": "FK",
       "alvo": "Cliente",
-      "related_name": "(default)",
-      "on_delete": "CASCADE",
-      "multiplicidade": "1..*"
+      "multiplicidade": "1",
+      "on_delete": "PROTECT",
+      "related_name": "(default)"
      },
      {
+      "campo": "atendimento",
       "tipo": "FK",
       "alvo": "Atendimento",
-      "related_name": "(default)",
-      "on_delete": "CASCADE",
-      "multiplicidade": "0..1"
+      "multiplicidade": "0..1",
+      "on_delete": "PROTECT",
+      "related_name": "(default)"
      }
     ],
     "metodos": [
-     "get_link_publico: reverse para pesquisa_publica ou anamnese_publica conforme tipo do formulario",
-     "respondida (property): True se respondida_em preenchido",
-     "__str__: 'Resposta form#<id> - cliente#<id>'"
-    ]
+     "clean: respostas_json precisa ser objeto JSON",
+     "get_link_publico: /anamnese/<token>/ ou /pesquisa/<token>/",
+     "respondida (property)"
+    ],
+    "constraints": []
    },
    {
     "nome": "AvaliacaoNPS",
     "tabela": "avaliacao_nps",
-    "descricao": "Avaliacao NPS (nota 0-10) vinculada 1:1 a um atendimento, com flag de alerta para nota baixa",
+    "descricao": "Avaliação NPS 0–10 de um atendimento, comentário, opt-in de publicação da cliente e aprovação da clínica (depoimento).",
     "campos": [
      {
       "nome": "nota",
-      "tipo": "SmallIntegerField (0..10)"
+      "tipo": "SmallIntegerField"
      },
      {
       "nome": "comentario",
       "tipo": "TextField (null)"
      },
      {
+      "nome": "autoriza_publicacao",
+      "tipo": "BooleanField (default=False)"
+     },
+     {
+      "nome": "aprovado_publicacao",
+      "tipo": "BooleanField (default=False)"
+     },
+     {
       "nome": "alerta_enviado",
-      "tipo": "BooleanField"
+      "tipo": "BooleanField (default=False)"
      },
      {
       "nome": "criado_em",
@@ -1016,22 +1161,25 @@
     ],
     "relacoes": [
      {
+      "campo": "atendimento",
       "tipo": "O2O",
       "alvo": "Atendimento",
-      "related_name": "(default)",
+      "multiplicidade": "1",
       "on_delete": "CASCADE",
-      "multiplicidade": "1"
+      "related_name": "(default)"
      }
     ],
     "metodos": [
-     "CHECK nota entre 0 e 10",
-     "__str__: 'NPS <nota>/10 — cliente'"
+     "CHECK nota 0..10; 1 por atendimento"
+    ],
+    "constraints": [
+     "chk_avaliacao_nps_nota"
     ]
    },
    {
     "nome": "ListaEspera",
     "tabela": "lista_espera",
-    "descricao": "Fila de espera de cliente por procedimento/data/turno, com token de reserva e notificacao",
+    "descricao": "Pedido de aviso de vaga: procedimento, data, turno, profissional opcional e e-mail de contato da inscrição.",
     "campos": [
      {
       "nome": "data_desejada",
@@ -1039,11 +1187,15 @@
      },
      {
       "nome": "turno_desejado",
-      "tipo": "CharField(20) choices MANHA/TARDE/NOITE (null)"
+      "tipo": "CharField(20) (choices MANHA/TARDE/NOITE, null)"
      },
      {
       "nome": "notificado",
-      "tipo": "BooleanField"
+      "tipo": "BooleanField (default=False)"
+     },
+     {
+      "nome": "email_contato",
+      "tipo": "CharField(254) (null)"
      },
      {
       "nome": "criado_em",
@@ -1060,37 +1212,48 @@
     ],
     "relacoes": [
      {
+      "campo": "cliente",
       "tipo": "FK",
       "alvo": "Cliente",
-      "related_name": "(default)",
+      "multiplicidade": "1",
       "on_delete": "CASCADE",
-      "multiplicidade": "1..*"
+      "related_name": "(default)"
      },
      {
+      "campo": "procedimento",
       "tipo": "FK",
       "alvo": "Procedimento",
-      "related_name": "(default)",
+      "multiplicidade": "1",
       "on_delete": "CASCADE",
-      "multiplicidade": "1..*"
+      "related_name": "(default)"
      },
      {
+      "campo": "profissional_desejado",
       "tipo": "FK",
       "alvo": "Profissional",
-      "related_name": "(default)",
+      "multiplicidade": "0..1",
       "on_delete": "SET_NULL",
-      "multiplicidade": "0..1"
+      "related_name": "(default)"
      }
     ],
     "metodos": [
-     "UniqueConstraint (cliente, procedimento, data_desejada) enquanto notificado=False",
-     "__str__: 'cliente — procedimento (data)'"
+     "UNIQUE (cliente, procedimento, data) enquanto não notificado",
+     "token_reserva/expira_em: legado sem uso"
+    ],
+    "constraints": [
+     "chk_lista_espera_turno",
+     "uniq_espera_ativa"
     ]
    },
    {
     "nome": "LogAuditoria",
     "tabela": "log_auditoria",
-    "descricao": "Trilha de auditoria de acoes de usuario sobre tabela/registro, com IP e detalhes JSON",
+    "descricao": "Trilha de auditoria (LGPD art. 37): autor + snapshot do nome, ação, tabela, registro, detalhes JSON com PII mascarada e IP.",
     "campos": [
+     {
+      "nome": "usuario_nome",
+      "tipo": "CharField(255) (default=)"
+     },
      {
       "nome": "acao",
       "tipo": "TextField"
@@ -1118,19 +1281,23 @@
     ],
     "relacoes": [
      {
+      "campo": "usuario",
       "tipo": "FK",
       "alvo": "Usuario",
-      "related_name": "(default)",
+      "multiplicidade": "0..1",
       "on_delete": "SET_NULL",
-      "multiplicidade": "0..1"
+      "related_name": "(default)"
      }
     ],
-    "metodos": []
+    "metodos": [
+     "save: grava usuario_nome (\"Nome <email>\") a partir do usuário"
+    ],
+    "constraints": []
    },
    {
     "nome": "Feriado",
     "tabela": "feriado",
-    "descricao": "Datas bloqueadas para agendamento (feriado nacional/local ou recesso da clinica)",
+    "descricao": "Feriado ou recesso (nacional, local ou da clínica) que pode bloquear o agendamento.",
     "campos": [
      {
       "nome": "data",
@@ -1142,11 +1309,11 @@
      },
      {
       "nome": "escopo",
-      "tipo": "CharField(20) choices NACIONAL/LOCAL/CLINICA"
+      "tipo": "CharField(20) (choices NACIONAL/LOCAL/CLINICA, default=NACIONAL)"
      },
      {
       "nome": "bloqueia_agendamento",
-      "tipo": "BooleanField"
+      "tipo": "BooleanField (default=True)"
      },
      {
       "nome": "observacao",
@@ -1159,18 +1326,20 @@
     ],
     "relacoes": [],
     "metodos": [
-     "UniqueConstraint (data, escopo); ordering por data",
-     "__str__: 'dd/mm/aaaa — nome'"
+     "UNIQUE (data, escopo)"
+    ],
+    "constraints": [
+     "uq_feriado_data_escopo"
     ]
    },
    {
     "nome": "Configuracao",
     "tabela": "configuracao",
-    "descricao": "Chave-valor de configuracao do sistema (ex.: schema das perguntas do prontuario)",
+    "descricao": "Chave-valor editável no painel: campos do Branding, email_admin, prontuario_perguntas e MAX_FALTAS_BLOQUEIO.",
     "campos": [
      {
       "nome": "chave",
-      "tipo": "CharField(100) unique"
+      "tipo": "CharField(100) (unique)"
      },
      {
       "nome": "valor",
@@ -1183,17 +1352,18 @@
     ],
     "relacoes": [],
     "metodos": [
-     "__str__: 'chave: valor'"
-    ]
+     "alterações invalidam o cache do Branding (signal)"
+    ],
+    "constraints": []
    },
    {
     "nome": "CodigoOtp",
     "tabela": "codigo_otp",
-    "descricao": "OTP por email/SMS com codigo hashed (sha256), TTL, rate-limit por tentativas e lockout",
+    "descricao": "Desafio OTP de 6 dígitos (HMAC-SHA256 com a SECRET_KEY), preso ao telefone, com propósito (AGENDAMENTO, LOGIN_CLIENTE, DSAR), validade e tentativas.",
     "campos": [
      {
       "nome": "email",
-      "tipo": "EmailField"
+      "tipo": "CharField(254)"
      },
      {
       "nome": "telefone",
@@ -1201,15 +1371,15 @@
      },
      {
       "nome": "canal",
-      "tipo": "CharField(10) choices EMAIL/SMS"
+      "tipo": "CharField(10) (choices EMAIL/SMS, default=SMS)"
      },
      {
       "nome": "codigo_hash",
-      "tipo": "CharField(64) sha256 hex"
+      "tipo": "CharField(64)"
      },
      {
       "nome": "proposito",
-      "tipo": "CharField(20) choices AGENDAMENTO/LOGIN_CLIENTE/DSAR"
+      "tipo": "CharField(20) (choices AGENDAMENTO/LOGIN_CLIENTE/DSAR, default=AGENDAMENTO)"
      },
      {
       "nome": "criado_em",
@@ -1225,7 +1395,7 @@
      },
      {
       "nome": "tentativas",
-      "tipo": "PositiveSmallIntegerField"
+      "tipo": "PositiveSmallIntegerField (default=0)"
      },
      {
       "nome": "ip_origem",
@@ -1234,23 +1404,23 @@
     ],
     "relacoes": [],
     "metodos": [
-     "esta_valido (property): nao usado, nao expirado e tentativas < MAX",
-     "email_para_telefone (static): pseudo-email canonico sms+<digitos>@shivazen.local",
-     "gerar_sms (classmethod): gera OTP para fluxo telefone-only",
-     "verificar_sms (classmethod): consome OTP de fluxo telefone-only",
-     "pode_reenviar (classmethod): respeita REENVIO_MINIMO_SEG de cooldown",
-     "gerar (classmethod): invalida anteriores e cria novo, retorna (codigo_plano, obj)",
-     "verificar (classmethod): consome atomicamente sob lock, incrementa tentativas, retorna (ok, motivo)"
+     "gerar / gerar_sms: invalida os anteriores e cria novo",
+     "verificar / verificar_sms: consome sob lock; 5 tentativas; compare_digest",
+     "pode_reenviar: intervalo mínimo de 60 s",
+     "email_para_telefone: chave canônica sms+<dígitos>@shivazen.local"
+    ],
+    "constraints": [
+     "chk_otp_tentativas_teto"
     ]
    },
    {
     "nome": "Usuario",
     "tabela": "usuario",
-    "descricao": "Usuario interno autenticavel (AbstractBaseUser) com papel ADMIN/PROFISSIONAL/RECEPCAO",
+    "descricao": "Usuário da equipe (login por e-mail): papel ADMIN, PROFISSIONAL ou RECEPCAO (sem login); is_staff = ADMIN.",
     "campos": [
      {
       "nome": "papel",
-      "tipo": "CharField(20) choices ADMIN/PROFISSIONAL/RECEPCAO"
+      "tipo": "CharField(20) (choices ADMIN/PROFISSIONAL/RECEPCAO, default=PROFISSIONAL)"
      },
      {
       "nome": "nome",
@@ -1258,77 +1428,81 @@
      },
      {
       "nome": "email",
-      "tipo": "EmailField(100) unique (USERNAME_FIELD)"
+      "tipo": "CharField(100) (unique)"
      },
      {
       "nome": "password",
-      "tipo": "CharField(255) db_column=senha_hash"
+      "tipo": "CharField(255)"
      },
      {
       "nome": "ativo",
-      "tipo": "BooleanField"
+      "tipo": "BooleanField (default=True)"
      }
     ],
     "relacoes": [
      {
+      "campo": "profissional",
       "tipo": "O2O",
       "alvo": "Profissional",
-      "related_name": "(default)",
+      "multiplicidade": "0..1",
       "on_delete": "SET_NULL",
-      "multiplicidade": "0..1"
+      "related_name": "(default)"
      }
     ],
     "metodos": [
-     "is_active (property): retorna ativo",
-     "is_staff (property): True se papel ADMIN",
-     "first_name (property): retorna nome",
-     "has_perm / has_module_perms: True somente para staff (ADMIN)",
-     "manager UsuarioManager com create_user/create_superuser; CHECK papel valido; last_login desabilitado"
+     "is_staff (property): papel == ADMIN",
+     "has_perm / has_module_perms: só ADMIN",
+     "CHECK papel válido; padrão PROFISSIONAL"
+    ],
+    "constraints": [
+     "chk_usuario_papel"
     ]
    },
    {
     "nome": "Carteira",
     "tabela": "carteira",
-    "descricao": "Saldo de credito do cliente (vale presente, refund, cashback); herda TimestampedMixin",
+    "descricao": "Saldo de crédito da cliente (hoje só cashback de indicação e estorno); CHECK saldo >= 0.",
     "campos": [
      {
-      "nome": "saldo",
-      "tipo": "DecimalField(10,2) default 0"
-     },
-     {
       "nome": "criado_em",
-      "tipo": "DateTimeField (auto_now_add, via mixin)"
+      "tipo": "DateTimeField (auto_now_add)"
      },
      {
       "nome": "atualizado_em",
-      "tipo": "DateTimeField (auto_now, via mixin)"
+      "tipo": "DateTimeField (auto_now)"
+     },
+     {
+      "nome": "saldo",
+      "tipo": "DecimalField(10,2) (default=0)"
      }
     ],
     "relacoes": [
      {
+      "campo": "cliente",
       "tipo": "O2O",
       "alvo": "Cliente",
-      "related_name": "carteira",
-      "on_delete": "CASCADE",
-      "multiplicidade": "1"
+      "multiplicidade": "1",
+      "on_delete": "PROTECT",
+      "related_name": "carteira"
      }
     ],
-    "metodos": [
-     "CHECK saldo >= 0 (guarda contra lost-update); __str__: 'Credito <cliente>: R$ <saldo>'"
+    "metodos": [],
+    "constraints": [
+     "chk_carteira_saldo_nao_negativo"
     ]
    },
    {
     "nome": "MovimentoCarteira",
     "tabela": "movimento_carteira",
-    "descricao": "Lancamento de entrada/saida do credito do cliente, com origem e saldo resultante",
+    "descricao": "Lançamento do ledger da carteira (crédito/débito, origem, saldo resultante); imutável por trigger.",
     "campos": [
      {
       "nome": "tipo",
-      "tipo": "CharField(10) choices CREDITO/DEBITO"
+      "tipo": "CharField(10) (choices CREDITO/DEBITO)"
      },
      {
       "nome": "origem",
-      "tipo": "CharField(30) choices (VALE_PRESENTE, CANCELAMENTO, AJUSTE_MANUAL, USO_AGENDAMENTO, CASHBACK_INDICACAO, CASHBACK_ESTORNO, OUTRO)"
+      "tipo": "CharField(30) (choices VALE_PRESENTE/CANCELAMENTO/AJUSTE_MANUAL/USO_AGENDAMENTO/CASHBACK_INDICACAO/CASHBACK_ESTORNO/OUTRO, default=OUTRO)"
      },
      {
       "nome": "valor",
@@ -1340,7 +1514,7 @@
      },
      {
       "nome": "observacoes",
-      "tipo": "TextField blank"
+      "tipo": "TextField (default=)"
      },
      {
       "nome": "criado_em",
@@ -1349,36 +1523,50 @@
     ],
     "relacoes": [
      {
+      "campo": "carteira",
       "tipo": "FK",
       "alvo": "Carteira",
-      "related_name": "movimentos",
-      "on_delete": "CASCADE",
-      "multiplicidade": "1..*"
+      "multiplicidade": "1",
+      "on_delete": "PROTECT",
+      "related_name": "movimentos"
      },
      {
+      "campo": "atendimento",
       "tipo": "FK",
       "alvo": "Atendimento",
-      "related_name": "(default)",
-      "on_delete": "SET_NULL",
-      "multiplicidade": "0..1"
+      "multiplicidade": "0..1",
+      "on_delete": "PROTECT",
+      "related_name": "(default)"
      },
      {
+      "campo": "usuario",
       "tipo": "FK",
-      "alvo": "Usuario (AUTH_USER_MODEL)",
-      "related_name": "(default)",
-      "on_delete": "SET_NULL",
-      "multiplicidade": "0..1"
+      "alvo": "Usuario",
+      "multiplicidade": "0..1",
+      "on_delete": "PROTECT",
+      "related_name": "(default)"
      }
     ],
     "metodos": [
-     "UniqueConstraint (carteira, atendimento) p/ CASHBACK_INDICACAO (idempotencia); __str__: 'tipo R$ valor (origem)'"
+     "UNIQUE (carteira, atendimento) para CASHBACK_INDICACAO"
+    ],
+    "constraints": [
+     "uniq_cashback_indicacao_por_atendimento"
     ]
    },
    {
     "nome": "RegraComissao",
     "tabela": "regra_comissao",
-    "descricao": "Regra de comissao por (procedimento, profissional), percentual XOR fixo; herda TimestampedMixin",
+    "descricao": "Regra de comissão por profissional e/ou procedimento: percentual (0–100) XOR valor fixo.",
     "campos": [
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (auto_now_add)"
+     },
+     {
+      "nome": "atualizado_em",
+      "tipo": "DateTimeField (auto_now)"
+     },
      {
       "nome": "percentual",
       "tipo": "DecimalField(5,2) (null)"
@@ -1389,41 +1577,39 @@
      },
      {
       "nome": "ativo",
-      "tipo": "BooleanField"
-     },
-     {
-      "nome": "criado_em",
-      "tipo": "DateTimeField (auto_now_add, via mixin)"
-     },
-     {
-      "nome": "atualizado_em",
-      "tipo": "DateTimeField (auto_now, via mixin)"
+      "tipo": "BooleanField (default=True)"
      }
     ],
     "relacoes": [
      {
+      "campo": "profissional",
       "tipo": "FK",
       "alvo": "Profissional",
-      "related_name": "regras_comissao",
+      "multiplicidade": "0..1",
       "on_delete": "CASCADE",
-      "multiplicidade": "0..1"
+      "related_name": "regras_comissao"
      },
      {
+      "campo": "procedimento",
       "tipo": "FK",
       "alvo": "Procedimento",
-      "related_name": "regras_comissao",
+      "multiplicidade": "0..1",
       "on_delete": "CASCADE",
-      "multiplicidade": "0..1"
+      "related_name": "regras_comissao"
      }
     ],
     "metodos": [
-     "CHECK percentual XOR valor (exatamente um preenchido); __str__: 'prof/proc: <valor>'"
+     "CHECKs percentual XOR valor e percentual 0..100"
+    ],
+    "constraints": [
+     "chk_regra_comissao_percentual_xor_fixo",
+     "chk_regra_comissao_percentual_0_100"
     ]
    },
    {
     "nome": "MovimentoComissao",
     "tabela": "movimento_comissao",
-    "descricao": "Comissao gerada/paga a um profissional por atendimento concluido",
+    "descricao": "Comissão de um atendimento realizado: valor, status PENDENTE/PAGA/ESTORNADA.",
     "campos": [
      {
       "nome": "valor",
@@ -1431,7 +1617,7 @@
      },
      {
       "nome": "status",
-      "tipo": "CharField(15) choices PENDENTE/PAGA/ESTORNADA"
+      "tipo": "CharField(15) (choices PENDENTE/PAGA/ESTORNADA, default=PENDENTE)"
      },
      {
       "nome": "pago_em",
@@ -1439,7 +1625,7 @@
      },
      {
       "nome": "observacoes",
-      "tipo": "TextField blank"
+      "tipo": "TextField (default=)"
      },
      {
       "nome": "criado_em",
@@ -1448,39 +1634,45 @@
     ],
     "relacoes": [
      {
+      "campo": "profissional",
       "tipo": "FK",
       "alvo": "Profissional",
-      "related_name": "comissoes",
+      "multiplicidade": "1",
       "on_delete": "PROTECT",
-      "multiplicidade": "1..*"
+      "related_name": "comissoes"
      },
      {
+      "campo": "atendimento",
       "tipo": "FK",
       "alvo": "Atendimento",
-      "related_name": "comissoes",
+      "multiplicidade": "1",
       "on_delete": "PROTECT",
-      "multiplicidade": "1..*"
+      "related_name": "comissoes"
      },
      {
+      "campo": "regra",
       "tipo": "FK",
       "alvo": "RegraComissao",
-      "related_name": "(default)",
+      "multiplicidade": "0..1",
       "on_delete": "SET_NULL",
-      "multiplicidade": "0..1"
+      "related_name": "(default)"
      }
     ],
     "metodos": [
-     "UniqueConstraint atendimento p/ status PENDENTE ou PAGA (1 comissao ativa por atendimento); __str__: 'Comissao <prof> R$ <valor> (status)'"
+     "UNIQUE 1 comissão PENDENTE/PAGA por atendimento"
+    ],
+    "constraints": [
+     "uniq_comissao_ativa_por_atendimento"
     ]
    },
    {
     "nome": "VersaoTermo",
     "tabela": "versao_termo",
-    "descricao": "Template versionado de termo (LGPD ou por procedimento) com flag de vigencia",
+    "descricao": "Termo versionado (LGPD global ou PROCEDIMENTO); 1 versão ativa por escopo; imutável depois do 1º aceite.",
     "campos": [
      {
       "nome": "tipo",
-      "tipo": "CharField(20) choices LGPD/PROCEDIMENTO"
+      "tipo": "CharField(20) (choices LGPD/PROCEDIMENTO)"
      },
      {
       "nome": "titulo",
@@ -1500,26 +1692,34 @@
      },
      {
       "nome": "ativa",
-      "tipo": "BooleanField"
+      "tipo": "BooleanField (default=True)"
      }
     ],
     "relacoes": [
      {
+      "campo": "procedimento",
       "tipo": "FK",
       "alvo": "Procedimento",
-      "related_name": "(default)",
+      "multiplicidade": "0..1",
       "on_delete": "CASCADE",
-      "multiplicidade": "0..1"
+      "related_name": "(default)"
      }
     ],
     "metodos": [
-     "CHECK tipo valido; UniqueConstraint 1 versao ativa por (tipo, procedimento) e 1 LGPD ativo global"
+     "lgpd_vigente (classmethod): versão LGPD ativa",
+     "sha256_conteudo (property): hash do texto gravado no aceite",
+     "save/clean: recusam alterar título/conteúdo/versão/tipo/procedimento de versão já aceita"
+    ],
+    "constraints": [
+     "chk_versao_termo_tipo",
+     "uniq_termo_ativo_por_escopo",
+     "uniq_termo_ativo_global"
     ]
    },
    {
     "nome": "AceiteTermo",
     "tabela": "aceite_termo",
-    "descricao": "Aceite/assinatura de termo por cliente (LGPD ou procedimento) com evidencia legal (IP, user agent)",
+    "descricao": "Prova de aceite de termo: cliente, versão, atendimento, IP, navegador, SHA-256 do texto e data; imutável (trigger no PG).",
     "campos": [
      {
       "nome": "ip",
@@ -1527,7 +1727,11 @@
      },
      {
       "nome": "user_agent",
-      "tipo": "CharField(500) blank"
+      "tipo": "CharField(500) (default=)"
+     },
+     {
+      "nome": "conteudo_sha256",
+      "tipo": "CharField(64) (default=)"
      },
      {
       "nome": "criado_em",
@@ -1536,39 +1740,46 @@
     ],
     "relacoes": [
      {
+      "campo": "cliente",
       "tipo": "FK",
       "alvo": "Cliente",
-      "related_name": "aceites",
+      "multiplicidade": "1",
       "on_delete": "PROTECT",
-      "multiplicidade": "1..*"
+      "related_name": "aceites"
      },
      {
+      "campo": "versao_termo",
       "tipo": "FK",
       "alvo": "VersaoTermo",
-      "related_name": "(default)",
+      "multiplicidade": "1",
       "on_delete": "RESTRICT",
-      "multiplicidade": "1..*"
+      "related_name": "(default)"
      },
      {
+      "campo": "atendimento",
       "tipo": "FK",
       "alvo": "Atendimento",
-      "related_name": "(default)",
+      "multiplicidade": "0..1",
       "on_delete": "SET_NULL",
-      "multiplicidade": "0..1"
+      "related_name": "(default)"
      }
     ],
     "metodos": [
-     "UniqueConstraint (cliente, versao_termo); __str__: 'Aceite <versao> por cliente <id>'"
+     "registrar (classmethod): grava a prova; idempotente por cliente+versão",
+     "UNIQUE (cliente, versao_termo); cliente PROTECT"
+    ],
+    "constraints": [
+     "uniq_aceite_cliente_versao"
     ]
    },
    {
     "nome": "AssinaturaPush",
     "tabela": "assinatura_push",
-    "descricao": "Subscription Web Push (VAPID) por usuario admin/profissional",
+    "descricao": "Inscrição Web Push (VAPID) de um usuário da equipe.",
     "campos": [
      {
       "nome": "endpoint",
-      "tipo": "URLField(600) unique"
+      "tipo": "CharField(600) (unique)"
      },
      {
       "nome": "p256dh",
@@ -1580,11 +1791,11 @@
      },
      {
       "nome": "user_agent",
-      "tipo": "CharField(300) blank"
+      "tipo": "CharField(300) (default=)"
      },
      {
       "nome": "ativo",
-      "tipo": "BooleanField"
+      "tipo": "BooleanField (default=True)"
      },
      {
       "nome": "criado_em",
@@ -1597,40 +1808,21 @@
     ],
     "relacoes": [
      {
+      "campo": "user",
       "tipo": "FK",
-      "alvo": "Usuario (AUTH_USER_MODEL)",
-      "related_name": "push_subscriptions",
+      "alvo": "Usuario",
+      "multiplicidade": "1",
       "on_delete": "CASCADE",
-      "multiplicidade": "1..*"
+      "related_name": "push_subscriptions"
      }
     ],
-    "metodos": [
-     "__str__: 'PushSub user=<id> endpoint=<...>'"
-    ]
-   },
-   {
-    "nome": "SoftDeleteMixin [ABSTRATO]",
-    "tabela": "(abstract — sem tabela)",
-    "descricao": "ABSTRATO: adiciona soft-delete (deletado_em) + managers objects/all_objects",
-    "campos": [
-     {
-      "nome": "deletado_em",
-      "tipo": "DateTimeField (null, db_index)"
-     }
-    ],
-    "relacoes": [],
-    "metodos": [
-     "abstract=True; managers SoftDeleteManager (objects, filtra ativos) e AllObjectsManager (all_objects)",
-     "delete: soft-delete preenchendo deletado_em",
-     "hard_delete: delete fisico real (super().delete)",
-     "restore: zera deletado_em",
-     "QuerySet helpers: alive(), dead(), delete() em massa"
-    ]
+    "metodos": [],
+    "constraints": []
    },
    {
     "nome": "TimestampedMixin [ABSTRATO]",
     "tabela": "(abstract — sem tabela)",
-    "descricao": "ABSTRATO: adiciona timestamps criado_em + atualizado_em (usado por Carteira e RegraComissao)",
+    "descricao": "ABSTRATO: adiciona criado_em + atualizado_em (usado por Carteira e RegraComissao).",
     "campos": [
      {
       "nome": "criado_em",
@@ -1663,570 +1855,625 @@
    {
     "de": "PENDENTE",
     "para": "AGENDADO",
-    "acao": "aprovar(by_user=None)",
-    "guarda": "TRANSICOES['PENDENTE'] permite AGENDADO; senao TransicaoInvalida"
+    "acao": "aprovar() — clínica aprova o pedido (painel ou portal)",
+    "guarda": "TRANSICOES['PENDENTE']"
    },
    {
     "de": "PENDENTE",
     "para": "CONFIRMADO",
-    "acao": "confirmar(by_user=None)",
-    "guarda": "novo_status in TRANSICOES['PENDENTE']"
+    "acao": "confirmar()",
+    "guarda": "TRANSICOES['PENDENTE']"
    },
    {
     "de": "PENDENTE",
     "para": "CANCELADO",
-    "acao": "cancelar(motivo='', by_user=None)",
-    "guarda": "novo_status in TRANSICOES['PENDENTE']"
+    "acao": "cancelar() — rejeitar pedido, cliente cancela ou job limpeza_status (vencido há 24 h)",
+    "guarda": "TRANSICOES['PENDENTE']"
    },
    {
     "de": "PENDENTE",
     "para": "REAGENDADO",
-    "acao": "marcar_reagendado(by_user=None)",
-    "guarda": "novo_status in TRANSICOES['PENDENTE']"
+    "acao": "marcar_reagendado() — reagendamento",
+    "guarda": "TRANSICOES['PENDENTE']"
    },
    {
     "de": "AGENDADO",
     "para": "CONFIRMADO",
-    "acao": "confirmar(by_user=None)",
-    "guarda": "novo_status in TRANSICOES['AGENDADO']"
+    "acao": "confirmar() — cliente confirma pelo link do lembrete D-1 ou equipe",
+    "guarda": "TRANSICOES['AGENDADO']"
    },
    {
     "de": "AGENDADO",
     "para": "REALIZADO",
-    "acao": "marcar_realizado(by_user=None)",
-    "guarda": "novo_status in TRANSICOES['AGENDADO']"
+    "acao": "marcar_realizado() — exige termo aceito ou override auditado",
+    "guarda": "TRANSICOES['AGENDADO']"
    },
    {
     "de": "AGENDADO",
     "para": "CANCELADO",
-    "acao": "cancelar(motivo='', by_user=None)",
-    "guarda": "novo_status in TRANSICOES['AGENDADO']"
+    "acao": "cancelar()",
+    "guarda": "TRANSICOES['AGENDADO']"
    },
    {
     "de": "AGENDADO",
     "para": "FALTOU",
-    "acao": "marcar_falta(by_user=None)",
-    "guarda": "novo_status in TRANSICOES['AGENDADO']"
+    "acao": "marcar_falta() — só a equipe",
+    "guarda": "TRANSICOES['AGENDADO']"
    },
    {
     "de": "AGENDADO",
     "para": "REAGENDADO",
-    "acao": "marcar_reagendado(by_user=None)",
-    "guarda": "novo_status in TRANSICOES['AGENDADO']"
+    "acao": "marcar_reagendado()",
+    "guarda": "TRANSICOES['AGENDADO']"
    },
    {
     "de": "CONFIRMADO",
     "para": "REALIZADO",
-    "acao": "marcar_realizado(by_user=None)",
-    "guarda": "novo_status in TRANSICOES['CONFIRMADO']"
+    "acao": "marcar_realizado() — exige termo aceito ou override auditado",
+    "guarda": "TRANSICOES['CONFIRMADO']"
    },
    {
     "de": "CONFIRMADO",
     "para": "CANCELADO",
-    "acao": "cancelar(motivo='', by_user=None)",
-    "guarda": "novo_status in TRANSICOES['CONFIRMADO']"
+    "acao": "cancelar()",
+    "guarda": "TRANSICOES['CONFIRMADO']"
    },
    {
     "de": "CONFIRMADO",
     "para": "FALTOU",
-    "acao": "marcar_falta(by_user=None)",
-    "guarda": "novo_status in TRANSICOES['CONFIRMADO']"
+    "acao": "marcar_falta() — só a equipe",
+    "guarda": "TRANSICOES['CONFIRMADO']"
    },
    {
     "de": "CONFIRMADO",
     "para": "REAGENDADO",
-    "acao": "marcar_reagendado(by_user=None)",
-    "guarda": "novo_status in TRANSICOES['CONFIRMADO']"
+    "acao": "marcar_reagendado()",
+    "guarda": "TRANSICOES['CONFIRMADO']"
    },
    {
     "de": "REALIZADO",
     "para": "(nenhum)",
     "acao": "estado terminal",
-    "guarda": "TRANSICOES['REALIZADO'] == set() (vazio) -> qualquer transicao gera TransicaoInvalida"
+    "guarda": "conjunto vazio"
    },
    {
     "de": "CANCELADO",
     "para": "(nenhum)",
     "acao": "estado terminal",
-    "guarda": "TRANSICOES['CANCELADO'] == set() (vazio)"
+    "guarda": "conjunto vazio"
    },
    {
     "de": "FALTOU",
     "para": "(nenhum)",
     "acao": "estado terminal",
-    "guarda": "TRANSICOES['FALTOU'] == set() (vazio)"
+    "guarda": "conjunto vazio"
    },
    {
     "de": "REAGENDADO",
     "para": "(nenhum)",
     "acao": "estado terminal",
-    "guarda": "TRANSICOES['REAGENDADO'] == set() (vazio)"
+    "guarda": "conjunto vazio"
    }
   ],
   "efeitos": [
-   "TRANSICAO (todas): _transicionar valida em TRANSICOES e grava status via save(update_fields=['status','atualizado_em']) dentro de transaction.atomic(); cria LogAuditoria 'Atendimento <pk>: <de> -> <para>' (savepoint best-effort, falha de DB nao desfaz a transicao).",
-   "CRIACAO (post_save created=True, signals.py): on_commit dispara push ao profissional ('Novo agendamento') e sync Google Calendar (push_atendimento) se gcal_disponivel() e profissional.gcal_refresh_token. Best-effort.",
-   "confirmar() -> CONFIRMADO: publica AtendimentoConfirmado(confirmado_por_id); handler domain/handlers.py log_confirmacao apenas faz logging estruturado.",
-   "cancelar() -> CANCELADO: publica AtendimentoCancelado(motivo, cancelado_por_cliente=(by_user is None)). Handlers EventBus: (1) comissao_service._on_cancelado_estorna_comissao -> ComissaoService.estornar_comissao (MovimentoComissao PENDENTE/PAGA -> ESTORNADA); (2) fidelidade_service._on_cancelado_estorna_cashback -> estornar_cashback_de_atendimento (motivo 'atendimento cancelado'); (3) lista_espera_service._on_cancelado_notifica_espera -> ListaEsperaService.notificar_compativeis.",
-   "marcar_realizado() -> REALIZADO: publica AtendimentoRealizado(cliente_id, profissional_id). Handlers EventBus: (1) comissao_service._on_realizado_calcula_comissao -> ComissaoService.calcular_comissao; (2) fidelidade_service._on_realizado_libera_cashback -> liberar_cashback_indicacao (credita indicador); (3) retorno_service._on_realizado_sugere_retorno -> RetornoService.sugerir_retorno (F-RET).",
-   "marcar_realizado() -> REALIZADO (signals.py post_save, status_atual=='REALIZADO'): cliente.resetar_faltas() (zera faltas consecutivas) + debita sessao de pacote ativo (CompraPacote select_for_update, ConsumoSessao.create, pc.verificar_finalizacao) salvo se ja houver sessao_pacote_vinculada; pacotes expirados -> status EXPIRADO.",
-   "marcar_falta() -> FALTOU: publica AtendimentoFaltou(cliente_id) (sem handler EventBus registrado). signals.py: status_atual=='FALTOU' vindo de PENDENTE/AGENDADO/CONFIRMADO -> cliente.registrar_falta() (3-strike).",
-   "marcar_reagendado() -> REAGENDADO: NAO publica DomainEvent (so transiciona+audita).",
-   "LIBERA VAGA (signals.py): transicao para CANCELADO/FALTOU/REAGENDADO vindo de PENDENTE/AGENDADO/CONFIRMADO -> job_notificar_fila_espera.delay(procedimento_id, data_livre) (Celery, notifica fila de espera).",
-   "NPS: NAO disparado por handler de transicao. Celery job_pesquisa_satisfacao_24h varre Atendimento status='REALIZADO', data_hora_fim<=now-1d, sem AvaliacaoNPS, cliente.consent_whatsapp_nps=True, sem Notificacao NPS PENDENTE/ENVIADO -> envia NPS por WhatsApp. job_alerta_detrator_nps alerta admin por email quando nota NPS<=6.",
-   "EventBus (domain/event_bus.py): sincrono in-process, best-effort — falha de um handler e logada mas nao quebra publish nem os outros handlers; _publish_event no model tambem e best-effort (except amplo + log 'event_publish_falhou')."
+   "Toda transição: _transicionar trava a linha (select_for_update), valida TRANSICOES contra o status atual do banco, grava status + LogAuditoria na mesma transação (auditoria em savepoint). Transição inválida levanta Atendimento.TransicaoInvalida (a tela mostra a mensagem).",
+   "Criação (post_save): push \"Novo agendamento\" ao profissional e sync com o Google Calendar, ambos no on_commit e best-effort.",
+   "→ REALIZADO (signals): zera faltas e desbloqueia a cliente; debita 1 sessão do pacote que vence primeiro (nunca em retorno; validade conferida na data da sessão). EventBus AtendimentoRealizado: comissão (base = valor cobrado, ou valor pago do pacote ÷ sessões), cashback da indicadora no 1º atendimento pago, retorno obrigatório (PENDENTE, valor 0) se o procedimento exige.",
+   "→ FALTOU (signals): registrar_falta — soma falta e bloqueia o agendamento online ao atingir o limite (padrão 3). Evento AtendimentoFaltou sem handler.",
+   "→ CANCELADO: EventBus AtendimentoCancelado estorna comissão e cashback; signals avisa a lista de espera (se o horário é futuro).",
+   "→ REAGENDADO: signals avisa a lista de espera (se o horário é futuro); sem evento de domínio.",
+   "→ CONFIRMADO: evento AtendimentoConfirmado só registra log.",
+   "Lista de espera (mecanismo único): a seleção dos pedidos compatíveis roda na transação de quem liberou a vaga; e-mail e WhatsApp saem no on_commit; notificado só com entrega.",
+   "NPS e lembrete D-1 não são disparados por transição: vêm dos jobs nps_24h e lembrete_diario (cron HTTP).",
+   "PENDENTE vencido há 24 h → CANCELADO pelo job limpeza_status; AGENDADO/CONFIRMADO sem desfecho só vão para o log (a equipe decide).",
+   "EventBus síncrono, in-process e best-effort: falha de handler é logada e não desfaz a transição."
   ]
  },
  "regras-requisitos": {
   "regras": [
    {
     "id": "RN01",
-    "titulo": "Atores e papeis do staff",
-    "descricao": "Usuario possui papel (ADMIN, PROFISSIONAL ou RECEPCAO) com CHECK no banco. ADMIN tem acesso total e equivale a is_staff; PROFISSIONAL gerencia agenda propria, prontuario e anotacoes; RECEPCAO gerencia agenda, clientes, confirmacoes e aprovacao de agendamentos. Cliente nunca e Usuario."
+    "titulo": "Papéis da equipe",
+    "descricao": "Usuario.papel = ADMIN, PROFISSIONAL ou RECEPCAO (CHECK). ADMIN (is_staff) tem o painel completo; PROFISSIONAL vinculado a um profissional ativo usa o portal /profissional/; RECEPCAO não tem login até existirem telas próprias. A cliente nunca é usuária."
    },
    {
     "id": "RN02",
-    "titulo": "Identidade do cliente por telefone (passwordless)",
-    "descricao": "Cliente nao tem conta nem senha; identifica-se pelo telefone canonico (apenas digitos, 10-11). CPF e email sao opcionais. Sem email, usa pseudo-email sms+<telefone>@shivazen.local. Unicidade garantida no banco via UNIQUE parcial entre clientes ativos (uniq_cliente_telefone_ativo). Cliente e criado por upsert (get_or_create) durante o agendamento."
+    "titulo": "Identidade da cliente pelo celular",
+    "descricao": "A cliente não tem conta nem senha: a identidade é o telefone (só dígitos, 10–11, sem DDI), único entre clientes ativos (UNIQUE parcial). E-mail e CPF são opcionais e também únicos entre ativos. O e-mail digitado nunca é identidade."
    },
    {
     "id": "RN03",
-    "titulo": "Indicacao e base de cashback",
-    "descricao": "O campo indicado_por aponta para o cliente que indicou, servindo de base para o cashback por indicacao."
+    "titulo": "Idade mínima",
+    "descricao": "O agendamento online exige data de nascimento e idade mínima de 18 anos."
    },
    {
     "id": "RN04",
     "titulo": "Bloqueio online por faltas",
-    "descricao": "Apos 3 faltas consecutivas (MAX_FALTAS_ANTES_BLOQUEIO) o cliente recebe bloqueado_online=True e nao consegue agendar online (recepcao ainda agenda manualmente). Comparecer zera o contador de faltas_consecutivas."
+    "descricao": "Cada falta soma em faltas_consecutivas; ao atingir o limite (Configuracao MAX_FALTAS_BLOQUEIO, padrão 3) a cliente fica bloqueada para agendar online. Comparecer (REALIZADO) zera o contador e desbloqueia. A clínica ainda pode agendar pelo painel."
    },
    {
     "id": "RN05",
-    "titulo": "Soft-delete do cliente (LGPD)",
-    "descricao": "Cliente nunca e apagado fisicamente em fluxo normal; usa-se deletado_em (soft-delete). Job semanal anonimiza apos 30 dias de soft-delete."
+    "titulo": "Exclusão lógica da cliente",
+    "descricao": "Excluir cliente é soft delete (deletado_em); exclusão física só explícita. A anonimização segue a RN40/RN41."
    },
    {
     "id": "RN06",
-    "titulo": "Fluxo do agendamento publico",
-    "descricao": "O booking publico segue os passos: escolher procedimento -> profissional -> data/horario -> dados + OTP -> confirmar. Existe acesso direto por profissional (/agendar/<slug>/) e versao iframe (/embed/agendar/)."
+    "titulo": "Fluxo do agendamento público",
+    "descricao": "Procedimento → data/horário → dados + código SMS → confirmar. O servidor revalida tudo no confirmar: procedimento/profissional ativos, habilitação, data futura, feriado, slot livre para a duração inteira, ficha e aceites. Sem provedor de SMS o agendamento online fica indisponível e o botão Agendar leva ao WhatsApp."
    },
    {
     "id": "RN07",
-    "titulo": "Antecedencia minima de agendamento",
-    "descricao": "Antecedencia minima de 2h (ANTECEDENCIA_MINIMA_AGENDAMENTO; chave de registry agenda.antecedencia_min_horas). Configuravel por profissional via min_notice_horas (default 2, faixa 0-720h)."
+    "titulo": "Antecedência mínima",
+    "descricao": "Por profissional: min_notice_horas (padrão 2 h, faixa 0–720)."
    },
    {
     "id": "RN08",
-    "titulo": "Antecedencia maxima de agendamento",
-    "descricao": "Teto global de 90 dias (JANELA_MAXIMA_AGENDAMENTO; agenda.antecedencia_max_dias). Profissional pode definir valor menor (max_advance_dias); a janela efetiva e min(profissional, global). Resolve a divergencia historica 90d vs 60d."
+    "titulo": "Antecedência máxima",
+    "descricao": "Por profissional: max_advance_dias (padrão 60 dias, faixa 1–365). Não há teto global."
    },
    {
     "id": "RN09",
-    "titulo": "Calculo de disponibilidade",
-    "descricao": "Disponibilidade = horarios do profissional menos bloqueios, excecoes, feriados e slots ja ocupados, respeitando a duracao do procedimento e o buffer."
+    "titulo": "Cálculo de disponibilidade",
+    "descricao": "SlotService (fonte única): slots de 30 min considerando feriado, exceção (folga/horário diferente), expediente semanal, atendimentos ativos sobrepostos na duração inteira + buffer do procedimento, bloqueios pontuais/recorrentes do profissional ou globais, antecedência mínima e máxima."
    },
    {
     "id": "RN10",
-    "titulo": "Anti double-booking no banco",
-    "descricao": "Dois atendimentos do mesmo profissional nao podem se sobrepor; garantido por constraint EXCLUDE gist no banco (agenda.double_booking). Corrida na borda gera a mensagem 'horario acabou de ser reservado'."
+    "titulo": "Anti double-booking",
+    "descricao": "Um profissional não pode ter dois atendimentos ativos sobrepostos: trava de 30 s no cache, SELECT FOR UPDATE e constraint EXCLUDE no Postgres. Corrida perdida gera a mensagem \"Este horário acabou de ser reservado\"."
    },
    {
     "id": "RN11",
-    "titulo": "Aceite LGPD obrigatorio antes de persistir",
-    "descricao": "O aceite dos termos LGPD e obrigatorio antes de persistir o agendamento; registra AceiteTermo e os consents (registro de consents ocorre antes do create do Atendimento)."
+    "titulo": "Pedido público nasce PENDENTE",
+    "descricao": "O agendamento público entra como PENDENTE; a clínica aprova (AGENDADO + e-mail de confirmação) ou rejeita (CANCELADO + e-mail), no painel (individual ou em lote) ou no portal do profissional. PENDENTE vencido há 24 h é cancelado pelo job de limpeza."
    },
    {
     "id": "RN12",
-    "titulo": "Maquina de estados do atendimento (FSM)",
-    "descricao": "Estados: PENDENTE -> AGENDADO -> CONFIRMADO -> REALIZADO | CANCELADO | FALTOU | REAGENDADO. Semantica fixada: AGENDADO = horario marcado; CONFIRMADO = cliente respondeu que vai (link/WhatsApp). Transicoes invalidas levantam TransicaoStatusInvalida."
+    "titulo": "Agendamento interno",
+    "descricao": "A recepção agenda pelo painel (cliente existente ou nova com telefone validado) usando o mesmo SlotService; não há OTP; o atendimento nasce AGENDADO e o valor pode ser ajustado (fica registrado)."
    },
    {
     "id": "RN13",
-    "titulo": "Aprovacao / auto-aprovacao do agendamento",
-    "descricao": "Decisao aprovada: auto-aprovar cliente OTP-validado e sem bloqueio, entrando direto como AGENDADO. PENDENTE fica reservado a excecoes (sem OTP, conflito ou cliente bloqueado); recepcao aprova (-> AGENDADO, dispara e-mail) ou rejeita (-> CANCELADO)."
+    "titulo": "Preço gravado com promoção da data",
+    "descricao": "O atendimento grava o preço vigente na data do atendimento (profissional > base) com a promoção que vale nesse dia: valor_cobrado, valor_original, promoção e descrição. Vitrine e resumo mostram exatamente esse valor."
    },
    {
     "id": "RN14",
-    "titulo": "OTP hasheado e com validade",
-    "descricao": "Codigo OTP de 6 digitos gerado com secrets.randbelow (cripto-seguro), armazenado como hash SHA-256 (codigo_hash), nunca em texto plano nem logado. Validade de 10 minutos (TTL_OTP_MINUTOS / otp.validade_min). Gerar novo OTP invalida o anterior."
+    "titulo": "Aceite da Política de Privacidade",
+    "descricao": "Obrigatório no agendamento; grava AceiteTermo da versão LGPD vigente com IP, navegador e SHA-256 do texto aceito."
    },
    {
     "id": "RN15",
-    "titulo": "Tentativas e lockout do OTP",
-    "descricao": "Maximo de tentativas por codigo leva a lockout (marca usado_em). Valor canonico fixado em 5 (otp.max_tentativas), resolvendo a divergencia 3 vs 5 entre constants.py e o model."
+    "titulo": "Consentimento para dado de saúde (art. 11)",
+    "descricao": "A ficha de anamnese (no wizard ou pelo link público) só é gravada com a caixa de consentimento específica marcada; o texto do consentimento, a data e o IP vão para a auditoria."
    },
    {
     "id": "RN16",
-    "titulo": "Rate limit do OTP em camadas",
-    "descricao": "Reenvio com cooldown de 60s; SMS limitado a 3/h por telefone (MAX_OTP_POR_HORA_TELEFONE), 10/h por IP e 60/h global; HTTP 5-10/min por IP."
+    "titulo": "Termos de procedimento",
+    "descricao": "Termos do procedimento (próprio e gerais) são aceitos no wizard; versão já aceita não é pedida de novo. Faltando aceite, o atendimento mostra \"Termo pendente\" e a clínica gera o link do termo, válido até o fim do atendimento. Marcar REALIZADO com termo pendente exige o override explícito \"Realizado sem termo aceito\", auditado."
    },
    {
     "id": "RN17",
-    "titulo": "Propositos de OTP isolados",
-    "descricao": "OTP tem proposito isolado: AGENDAMENTO, LOGIN (cliente) e DSAR. Um codigo de um proposito nao vale para outro fluxo."
+    "titulo": "Consentimentos de comunicação",
+    "descricao": "E-mail marketing, lembrete por WhatsApp e pesquisa por WhatsApp nunca vêm pré-marcados; conceder e revogar gravam data e IP. O descadastro por link desliga marketing e pesquisas e mantém o lembrete D-1 (aviso do serviço)."
    },
    {
     "id": "RN18",
-    "titulo": "Reagendamento e cancelamento self-service",
-    "descricao": "Permitido ate 24h antes (JANELA_MINIMA_REAGENDAMENTO / JANELA_MINIMA_CANCELAMENTO). Link self-service valido por 48h (TTL_LINK_REAGENDAMENTO_HORAS). No reagendar, o atendimento antigo vira REAGENDADO antes de inserir o novo, evitando falso conflito na constraint."
+    "titulo": "Código OTP",
+    "descricao": "Código de 6 dígitos (secrets), armazenado como HMAC-SHA256 com a SECRET_KEY, nunca em texto; validade 10 min; 5 tentativas; reenvio mínimo de 60 s; gerar um novo invalida o anterior; comparação em tempo constante."
    },
    {
     "id": "RN19",
-    "titulo": "No-show (falta) e taxa",
-    "descricao": "Recepcao marca FALTOU, incrementando faltas_consecutivas; 3 faltas consecutivas geram bloqueio online. Taxa de no-show declarada em 50% (TAXA_NO_SHOW_PERCENTUAL) como politica de cobranca."
+    "titulo": "OTP preso ao telefone",
+    "descricao": "Todo agendamento público exige o código enviado ao celular informado (só celular recebe SMS). Cotas de SMS: 3/h por telefone, 10/h por IP, 60/h global, checadas antes de gerar o código. Propósitos isolados (AGENDAMENTO, LOGIN_CLIENTE, DSAR). Respostas não revelam se o telefone é cadastrado."
    },
    {
     "id": "RN20",
-    "titulo": "Retorno obrigatorio (F-RET)",
-    "descricao": "Se procedimento.exige_retorno, ao marcar REALIZADO o sistema cria automaticamente um atendimento de retorno: eh_retorno=True, valor_cobrado=0 (gratuito), status PENDENTE, data sugerida no meio da janela [retorno_minimo_dias, retorno_maximo_dias] e duracao retorno (default 30min). E idempotente (no maximo 1 retorno por origem). Se o slot estiver ocupado, nao cria. Retorno nao gera comissao nem cashback."
+    "titulo": "Máquina de estados do atendimento",
+    "descricao": "PENDENTE → AGENDADO/CONFIRMADO/CANCELADO/REAGENDADO; AGENDADO → CONFIRMADO/REALIZADO/CANCELADO/FALTOU/REAGENDADO; CONFIRMADO → REALIZADO/CANCELADO/FALTOU/REAGENDADO; REALIZADO, CANCELADO, FALTOU e REAGENDADO são terminais. AGENDADO = horário aprovado; CONFIRMADO = a cliente confirmou."
    },
    {
     "id": "RN21",
-    "titulo": "Cashback por indicacao (F-CSB)",
-    "descricao": "Quando a indicada tem seu 1o atendimento REALIZADO e pago (valor_cobrado>0, nao-retorno), o indicador recebe R$50,00 (VALOR_CASHBACK_INDICACAO) na carteira. Credito apenas no primeiro pago da indicada. Idempotente via UNIQUE(carteira, atendimento, origem CASHBACK_INDICACAO). Cancelamento gera estorno (CASHBACK_ESTORNO), saldo nunca negativo. Saldo minimo para uso: R$10,00 (SALDO_MINIMO_USO_CASHBACK)."
+    "titulo": "Reagendamento pela cliente",
+    "descricao": "Permitido até 24 h antes. O atendimento antigo vira REAGENDADO antes de o novo entrar; o novo herda preço, promoção, vínculo de retorno e a ficha de anamnese. Fica AGENDADO se o original estava aprovado e a profissional é a mesma; senão volta a PENDENTE."
    },
    {
     "id": "RN22",
-    "titulo": "Comissao do profissional",
-    "descricao": "Calculada ao marcar REALIZADO (nao-retorno, pago). Resolucao de RegraComissao do mais especifico ao mais generico: (profissional+procedimento) -> (profissional, qualquer) -> (qualquer, procedimento) -> global. Valor por percentual sobre valor_cobrado ou valor fixo. Idempotente via UNIQUE(atendimento) enquanto status em {PENDENTE, PAGA}. Cancelamento muda status para ESTORNADA."
+    "titulo": "Cancelamento pela cliente",
+    "descricao": "Pelo token do atendimento (portal ou link), a qualquer momento antes do início, pela FSM."
    },
    {
     "id": "RN23",
-    "titulo": "Pacotes e consumo de sessao",
-    "descricao": "Cliente compra pacote (compra_pacote) com numero de sessoes, valor e expiracao. Cada atendimento consome 1 sessao (consumo_sessao), com UNIQUE de 1 consumo por atendimento. Status: ATIVO/FINALIZADO/CANCELADO/EXPIRADO. Job avisa pacote expirando e expira automaticamente no vencimento."
+    "titulo": "Lembrete D-1 e confirmação de presença",
+    "descricao": "Às 08:00 o sistema envia WhatsApp (template aprovado) aos atendimentos AGENDADO do dia seguinte com consentimento de lembrete; o link permite confirmar (→ CONFIRMADO) ou cancelar, uma única vez."
    },
    {
     "id": "RN24",
-    "titulo": "Lista de espera",
-    "descricao": "Cliente entra na fila para um procedimento/profissional. Em cancelamento, o sistema notifica clientes compativeis e reserva o slot por 30 min (TTL_RESERVA_LISTA_ESPERA_MINUTOS) para o primeiro da fila. Apenas uma espera ativa por cliente/escopo (UNIQUE parcial)."
+    "titulo": "Faltas",
+    "descricao": "Só a equipe marca FALTOU. O job diário não marca falta: atendimentos sem desfecho vão para o log. Não há cobrança de taxa de no-show."
    },
    {
     "id": "RN25",
-    "titulo": "NPS e pesquisa pos-atendimento",
-    "descricao": "Disparada 24h apos o atendimento (JANELA_NPS_POS_ATENDIMENTO). Nota de 0 a 10 (CHECK no banco), coletada via WhatsApp ou pagina web. Token de NPS valido por 7 dias; a pesquisa online tem janela de 2h por token."
+    "titulo": "Retorno obrigatório (F-RET)",
+    "descricao": "Procedimento com exige_retorno gera, ao REALIZADO, um atendimento de retorno PENDENTE com valor 0 no primeiro horário livre da janela [mínimo, máximo] a partir do meio. Sem horário livre, não cria. No máximo 1 retorno vivo por origem (UNIQUE). Retorno não gera comissão, cashback nem débito de pacote."
    },
    {
     "id": "RN26",
-    "titulo": "Cupom de aniversario",
-    "descricao": "Cupom de 15% de desconto (DESCONTO_ANIVERSARIO_PERCENTUAL) valido por 7 dias (VALIDADE_CUPOM_ANIVERSARIO_DIAS), enviado por e-mail automatico."
+    "titulo": "Pacotes — consumo",
+    "descricao": "Sessão REALIZADA de procedimento do pacote debita 1 sessão do pacote que vence primeiro (1 consumo por atendimento). A validade é conferida na data da sessão. Pacote vendido tem nome e itens congelados."
    },
    {
     "id": "RN27",
-    "titulo": "Promocoes e precos",
-    "descricao": "Promocao aplica desconto 0-100% OU preco promocional fixo (XOR, garantido por CHECK no banco; nunca ambos). Preco por vigencia e UNIQUE por procedimento/periodo, sem sobreposicao. Profissional so executa procedimento em que esta habilitado (habilitacao)."
+    "titulo": "Pacotes — ciclo de vida",
+    "descricao": "ATIVO → FINALIZADO (todas as sessões usadas), EXPIRADO (job diário, vencimento < hoje) ou CANCELADO (exige valor devolvido entre 0 e o valor pago e motivo, auditados). Aviso por e-mail 7 e 1 dia antes do vencimento com saldo."
    },
    {
     "id": "RN28",
-    "titulo": "Carteira de credito e ledger imutavel",
-    "descricao": "Carteira guarda saldo de cashback/vale/refund, com saldo nunca negativo (CHECK >= 0). O ledger movimento_carteira e append-only (trigger bloqueia UPDATE/DELETE); estorno e sempre novo movimento. Mutacao de saldo usa select_for_update para evitar corrida."
+    "titulo": "Promoções e preços",
+    "descricao": "Preço versionado por vigência (data local). Promoção = desconto 0–100% XOR preço fixo (CHECK), por período; promoção geral só vale como percentual; aplica-se só quando reduz o valor e nunca deixa negativo."
    },
    {
     "id": "RN29",
-    "titulo": "Prontuario, anamnese e anotacoes",
-    "descricao": "Prontuario reune anamnese base permanente do cliente mais respostas_extras (JSONB) de questionario configuravel (schema em configuracao.prontuario_perguntas). Anamnese publica e enviada ao cliente por link, com respostas em JSONB. Anotacoes de sessao sao registro clinico por atendimento, com autor identificado."
+    "titulo": "Valor cobrado e faturamento",
+    "descricao": "A clínica pode registrar o valor combinado (não em cancelado/faltou/reagendado, retorno ou realizado com comissão lançada). Faturamento = avulsos realizados com valor > 0 + vendas de pacote na data da compra; sessão de pacote e retorno não somam."
    },
    {
     "id": "RN30",
-    "titulo": "Termos versionados e aceite",
-    "descricao": "Termos sao versionados (versao_termo, tipo LGPD ou procedimento) com apenas 1 versao ativa por escopo (UNIQUE). O aceite_termo guarda cliente, versao, IP, user-agent e data como evidencia legal (cliente PROTECT, retencao ~20 anos / CFM)."
+    "titulo": "Comissão",
+    "descricao": "Calculada ao REALIZADO (não em retorno) pela regra mais específica (profissional+procedimento > profissional > procedimento > global; empate = mais recente): percentual 0–100 ou valor fixo sobre o valor cobrado, ou, em sessão de pacote, valor pago ÷ total de sessões. 1 comissão ativa por atendimento; cancelamento estorna."
    },
    {
     "id": "RN31",
-    "titulo": "Consentimentos granulares e descadastro",
-    "descricao": "Cliente possui consentimentos granulares (email_marketing, whatsapp_nps, whatsapp_confirmacao), cada um com data e IP. Descadastro via link token_descadastro (unsubscribe one-click) e banner de cookies granular."
+    "titulo": "Cashback por indicação",
+    "descricao": "No 1º atendimento REALIZADO e pago da indicada, a indicadora recebe R$ 50,00 na carteira (idempotente); cancelamento estorna; saldo nunca negativo; ledger imutável."
    },
    {
     "id": "RN32",
-    "titulo": "Politica de retencao de dados",
-    "descricao": "Retencao: OTP 24h, notificacao 12 meses, auditoria/financeiro 5 anos, prontuario/aceite ~20 anos (CFM 1.821/2007), cliente inativo 5 anos com anonimizacao automatica. Sessao web 8h. Jobs periodicos fazem o expurgo/anonimizacao."
+    "titulo": "Lista de espera",
+    "descricao": "Um pedido ativo por cliente/procedimento/data. Quando um atendimento ativo futuro vira CANCELADO ou REAGENDADO, todos os pedidos compatíveis recebem e-mail e WhatsApp (com consentimento) com link para agendar, sem reserva do horário; notificado só com entrega. O e-mail digitado no formulário anônimo fica só na inscrição."
    },
    {
     "id": "RN33",
-    "titulo": "Auditoria de acoes sensiveis",
-    "descricao": "Toda acao sensivel e registrada em log_auditoria com autor, tabela, registro e IP (art. 37 LGPD), com sanitizacao automatica de PII (AuditoriaService)."
+    "titulo": "NPS",
+    "descricao": "WhatsApp de NPS entre 24 h e 7 dias após o REALIZADO, com consentimento e sem opt-out geral (até 3 tentativas); link válido por 7 dias; 1 avaliação por atendimento; nota 0–10. Nota ≤ 6 gera alerta por e-mail à clínica."
    },
    {
     "id": "RN34",
-    "titulo": "Notificacoes multicanal",
-    "descricao": "Canais: WhatsApp, Email, SMS e Push (PWA). Tipos: lembrete, confirmacao, NPS, pesquisa, cancelamento, aprovacao. Lembrete D-1 enviado 1 dia antes do atendimento. Status da notificacao: PENDENTE/ENVIADO/FALHOU."
+    "titulo": "Depoimentos",
+    "descricao": "Só aparecem no site com opt-in da cliente, aprovação da clínica, nota ≥ 9 e comentário; nome exibido abreviado; cliente excluída ou anonimizada nunca aparece."
    },
    {
     "id": "RN35",
-    "titulo": "Bases legais de tratamento (LGPD)",
-    "descricao": "Cada tratamento tem base legal definida: agendamento por execucao de contrato (art. 7-V); prontuario por tutela da saude (art. 11-II-f); lembrete D-1 por legitimo interesse (art. 7-IX); marketing por consentimento expresso (art. 7-I); auditoria por cumprimento de obrigacao legal (art. 7-II)."
+    "titulo": "Aniversário e promoções por e-mail",
+    "descricao": "Aniversário = e-mail de felicitação sem desconto, com consentimento de marketing. Disparo de promoção: sem cupom, validade anunciada até o fim da promoção, só para quem consentiu, com link de descadastro, em lotes de 25."
    },
    {
     "id": "RN36",
-    "titulo": "Login de staff e 2FA",
-    "descricao": "Staff faz login por email + senha (hash PBKDF2), com 2FA TOTP. Politica de senha minima de 10 chars, anti-similaridade e anti-wordlist. is_staff equivale a papel==ADMIN. Decorators staff_required, profissional_required e staff_otp_required controlam acesso."
+    "titulo": "Prontuário e histórico",
+    "descricao": "Ficha 1:1 com campos clínicos e perguntas configuráveis. Cada edição grava antes a versão anterior (histórico append-only, imutável); edição concorrente é recusada; POST parcial não apaga campos."
    },
    {
     "id": "RN37",
-    "titulo": "Lockout de login de staff",
-    "descricao": "django-axes aplica lockout apos 5 tentativas falhas com cooloff de 1h por IP+email, resetando no sucesso, somado a rate-limit (10/min por IP, 5/min por email). Reset de senha com token de TTL 1h e rate-limit 3/15min."
+    "titulo": "Acesso do profissional à ficha",
+    "descricao": "O profissional só lê a ficha de quem tem atendimento REALIZADO nos últimos 180 dias ou ativo entre ontem e +60 dias (escrita sem PENDENTE); ADMIN lê todas. Toda leitura, gravação e negativa é auditada."
    },
    {
     "id": "RN38",
-    "titulo": "DSAR (direitos do titular)",
-    "descricao": "Cliente consulta/exporta seus proprios dados em /lgpd/meus-dados (export JSON) mediante challenge por OTP DSAR (single-use, 10 min). Cobre confirmacao, acesso, portabilidade; correcao pelo admin; anonimizacao via LgpdService.esquecer_cliente; revogacao de consent por unsubscribe."
+    "titulo": "Alertas de saúde",
+    "descricao": "Alergias, contraindicações, medicamentos e respostas de risco declaradas nas fichas aparecem como texto visível no portal, na agenda do painel e na ficha da cliente; marcador \"ficha pendente\" quando a ficha obrigatória não foi respondida."
+   },
+   {
+    "id": "RN39",
+    "titulo": "Termos versionados e imutáveis",
+    "descricao": "1 versão ativa por escopo (LGPD global; PROCEDIMENTO geral ou por procedimento). Versão com aceite não pode ser editada (model + trigger): mudar = publicar nova versão. O aceite é imutável e nunca apagado."
+   },
+   {
+    "id": "RN40",
+    "titulo": "Retenção de dados",
+    "descricao": "OTP 24 h; texto de notificação 12 meses; auditoria 5 anos; logs de login 90 dias; cliente sem atendimento há 5 anos ou excluída há 30 dias é anonimizada, exceto com prontuário com conteúdo, pacote comprado ou atendimento realizado nos últimos 20 anos; ficha de pedido não realizado apagada após 90 dias; lista de espera vencida apagada."
+   },
+   {
+    "id": "RN41",
+    "titulo": "Direito ao esquecimento",
+    "descricao": "Anonimiza nome ([ANONIMIZADO-pk]), contatos, documentos e consentimentos; soft delete; apaga OTPs, lista de espera, texto de notificações e fichas que não são de atendimento realizado; retira o depoimento e o comentário do NPS; pseudonimiza o nome nos textos da auditoria. Atendimentos, aceites, prontuário e pacotes ficam ligados a titular não identificável."
+   },
+   {
+    "id": "RN42",
+    "titulo": "Acesso aos dados (DSAR)",
+    "descricao": "A cliente baixa os próprios dados em JSON em /lgpd/meus-dados/ com código SMS (propósito DSAR); resposta idêntica exista ou não o cadastro; ação auditada."
+   },
+   {
+    "id": "RN43",
+    "titulo": "Auditoria",
+    "descricao": "Toda ação sensível grava autor (+ nome), tabela, registro, detalhes com PII mascarada e IP (LGPD art. 37)."
+   },
+   {
+    "id": "RN44",
+    "titulo": "Login da equipe e 2FA",
+    "descricao": "E-mail + senha (mínimo 10, validadores do Django). 2FA TOTP obrigatório para ADMIN (cadastro forçado após o login, conferido a cada request); opcional para PROFISSIONAL. Trocar de aparelho exige o código atual; recuperação por comando setup_2fa --force. Sessão da equipe de 8 h deslizantes; logout só via POST."
+   },
+   {
+    "id": "RN45",
+    "titulo": "Bloqueio de login e reset de senha",
+    "descricao": "django-axes bloqueia por 1 h após 5 falhas (IP + usuário); rate-limit no login. Reset de senha com token de 1 h, 3 pedidos/15 min por IP, resposta genérica; sem backend de e-mail real nada é enviado."
    }
   ],
   "requisitos_funcionais": [
    {
     "id": "RF01",
-    "ator": "Cliente (publico)",
-    "descricao": "Agendar online escolhendo procedimento, profissional, data e horario disponiveis, fornecendo dados e aceitando os termos LGPD, com confirmacao do agendamento."
+    "ator": "Cliente (público)",
+    "descricao": "Consultar serviços, equipe, promoções (com o mesmo preço do agendamento), galeria e depoimentos autorizados."
    },
    {
     "id": "RF02",
-    "ator": "Cliente (publico)",
-    "descricao": "Validar identidade por OTP via SMS (codigo de 6 digitos) quando for cliente existente no agendamento ou ao acessar dados, dentro da validade de 10 min e limite de tentativas/rate."
+    "ator": "Cliente (público)",
+    "descricao": "Agendar online escolhendo procedimento, data/horário e profissional, confirmando o celular com código SMS."
    },
    {
     "id": "RF03",
-    "ator": "Sistema",
-    "descricao": "Auto-aprovar agendamentos de cliente OTP-validado e sem bloqueio (entram como AGENDADO), encaminhando para PENDENTE apenas em excecao (sem OTP, conflito ou cliente bloqueado)."
+    "ator": "Cliente (público)",
+    "descricao": "No agendamento, aceitar a Política de Privacidade e os termos do procedimento, consentir o uso do dado de saúde e responder a ficha de anamnese."
    },
    {
     "id": "RF04",
-    "ator": "Cliente (publico)",
-    "descricao": "Reagendar um atendimento ate 24h antes por link self-service valido por 48h, escolhendo novo horario disponivel."
+    "ator": "Cliente (público)",
+    "descricao": "Acessar \"Meus agendamentos\" com celular ou e-mail cadastrado (código sempre ao celular) e ver agendamentos futuros e passados."
    },
    {
     "id": "RF05",
-    "ator": "Cliente (publico)",
-    "descricao": "Cancelar um atendimento ate 24h antes via link magico de cancelamento."
+    "ator": "Cliente (público)",
+    "descricao": "Reagendar um atendimento até 24 h antes, escolhendo novo horário disponível."
    },
    {
     "id": "RF06",
-    "ator": "Cliente (publico)",
-    "descricao": "Confirmar presenca pelo link magico (ou WhatsApp), movendo o atendimento para CONFIRMADO."
+    "ator": "Cliente (público)",
+    "descricao": "Cancelar um atendimento futuro."
    },
    {
     "id": "RF07",
-    "ator": "Cliente (publico)",
-    "descricao": "Acessar 'Meus agendamentos' (auto-servico) via login por email/telefone + OTP SMS, consultando e gerenciando seus proprios agendamentos sem senha."
+    "ator": "Cliente (público)",
+    "descricao": "Confirmar presença ou cancelar pelo link do lembrete D-1 do WhatsApp."
    },
    {
     "id": "RF08",
-    "ator": "Cliente (publico)",
-    "descricao": "Entrar na lista de espera de um procedimento/profissional e, em caso de cancelamento, ser notificado e ter o slot reservado por 30 min."
+    "ator": "Cliente (público)",
+    "descricao": "Aceitar termos pendentes pelo link do atendimento."
    },
    {
     "id": "RF09",
-    "ator": "Cliente (publico)",
-    "descricao": "Preencher formulario de anamnese publica enviado por link (token) antes do atendimento."
+    "ator": "Cliente (público)",
+    "descricao": "Entrar na lista de espera e receber aviso de vaga por e-mail/WhatsApp."
    },
    {
     "id": "RF10",
-    "ator": "Cliente (publico)",
-    "descricao": "Responder pesquisa NPS (nota 0-10) e pesquisa pos-atendimento online via link com token."
+    "ator": "Cliente (público)",
+    "descricao": "Responder o NPS (0–10) e autorizar a publicação do depoimento."
    },
    {
     "id": "RF11",
-    "ator": "Cliente (publico)",
-    "descricao": "Solicitar export/consulta dos proprios dados (DSAR) em /lgpd/meus-dados mediante OTP DSAR, e descadastrar-se das comunicacoes via link de unsubscribe."
+    "ator": "Cliente (público)",
+    "descricao": "Responder ficha de anamnese por link, com consentimento para dado de saúde."
    },
    {
     "id": "RF12",
-    "ator": "Recepcao",
-    "descricao": "Aprovar ou rejeitar agendamentos PENDENTES (aprovar -> AGENDADO com e-mail; rejeitar -> CANCELADO) e agendar manualmente, inclusive para clientes bloqueados online."
+    "ator": "Cliente (público)",
+    "descricao": "Baixar os próprios dados (DSAR) com código SMS e descadastrar-se de marketing e pesquisas."
    },
    {
     "id": "RF13",
-    "ator": "Recepcao/Admin",
-    "descricao": "Marcar atendimentos como REALIZADO, FALTOU, CANCELADO, disparando comissao, retorno obrigatorio, cashback e demais regras conforme a FSM."
+    "ator": "Sistema",
+    "descricao": "Oferecer o WhatsApp da clínica como caminho de agendamento quando o SMS não estiver disponível."
    },
    {
     "id": "RF14",
-    "ator": "Admin/Recepcao",
-    "descricao": "Gerenciar clientes no painel: cadastro, edicao, busca (PII mascarada na API), soft-delete, consentimentos e contador de faltas/bloqueio."
+    "ator": "Equipe",
+    "descricao": "Entrar com e-mail e senha, cadastrar e validar 2FA (obrigatório para ADMIN) e redefinir a senha por link."
    },
    {
     "id": "RF15",
-    "ator": "Admin/Recepcao/Profissional",
-    "descricao": "Visualizar e operar a agenda (FullCalendar), com horarios, bloqueios, excecoes, feriados e disponibilidade calculada por profissional."
+    "ator": "ADMIN",
+    "descricao": "Aprovar ou rejeitar pedidos PENDENTES (individual ou em lote), com e-mail à cliente."
    },
    {
     "id": "RF16",
-    "ator": "Profissional",
-    "descricao": "Acessar o portal/painel do profissional com sua agenda propria, prontuario e anotacoes de sessao, restrito aos seus proprios atendimentos (ownership anti-BOLA)."
+    "ator": "ADMIN (recepção)",
+    "descricao": "Agendar pelo painel para cliente existente ou nova, com os horários do mesmo cálculo do site."
    },
    {
     "id": "RF17",
-    "ator": "Admin/Profissional",
-    "descricao": "Registrar e consultar prontuario, anamnese base e anotacoes clinicas de sessao por atendimento, com autor."
+    "ator": "ADMIN",
+    "descricao": "Operar a agenda: lista com filtros, calendário com arrastar-e-soltar, mudança de status pela FSM, valor cobrado, link do termo e override \"Realizado sem termo aceito\"."
    },
    {
     "id": "RF18",
-    "ator": "Admin/Recepcao",
-    "descricao": "Gerenciar pacotes: vender pacote (sessoes/valor/expiracao), consumir 1 sessao por atendimento e acompanhar status (ATIVO/FINALIZADO/CANCELADO/EXPIRADO)."
+    "ator": "Profissional",
+    "descricao": "Usar o portal: agenda do dia/semana, pedidos pendentes (aprovar/rejeitar), marcar realizado, anotar a sessão, ver alertas de saúde e a ficha das clientes com vínculo, ativar push."
    },
    {
     "id": "RF19",
-    "ator": "Admin",
-    "descricao": "Criar e gerenciar promocoes (desconto 0-100% XOR preco fixo) e precos por vigencia sem sobreposicao, alem da habilitacao profissional-procedimento."
+    "ator": "ADMIN / Profissional",
+    "descricao": "Registrar e consultar o prontuário com histórico de versões e as anotações de sessão."
    },
    {
     "id": "RF20",
-    "ator": "Admin",
-    "descricao": "Configurar regras de comissao (RegraComissao por profissional/procedimento, percentual ou fixo) e acompanhar comissoes geradas e estornadas por atendimento."
+    "ator": "ADMIN",
+    "descricao": "Gerir clientes: busca, ficha com alertas, pacotes, histórico e edição validada (telefone/CPF/e-mail únicos)."
    },
    {
     "id": "RF21",
-    "ator": "Admin",
-    "descricao": "Acompanhar e responder NPS coletado, visualizando notas e pesquisas pos-atendimento."
+    "ator": "ADMIN",
+    "descricao": "Gerir profissionais (expediente, exceções, antecedências, novo link do feed iCal), procedimentos, preços, habilitações e bloqueios de agenda (inclusive para todos os profissionais)."
    },
    {
     "id": "RF22",
-    "ator": "Admin/Sistema",
-    "descricao": "Gerenciar notificacoes multicanal (WhatsApp, Email, SMS, Push PWA) com tipos lembrete/confirmacao/NPS/pesquisa/cancelamento/aprovacao e status PENDENTE/ENVIADO/FALHOU, incluindo lembrete D-1."
+    "ator": "ADMIN",
+    "descricao": "Gerir pacotes: criar/editar, vender, acompanhar saldo e validade, cancelar com valor devolvido."
    },
    {
     "id": "RF23",
-    "ator": "Staff (Admin/Profissional/Recepcao)",
-    "descricao": "Autenticar-se por email + senha com 2FA TOTP (QR + app autenticador + backup codes) e lockout por django-axes; reset de senha com token curto."
+    "ator": "ADMIN",
+    "descricao": "Gerir promoções e disparar e-mail de promoção para clientes com consentimento."
    },
    {
     "id": "RF24",
-    "ator": "Cliente (publico)",
-    "descricao": "Receber cashback por indicacao (R$50 no 1o atendimento pago da indicada) e usar saldo da carteira a partir de R$10, com estorno em cancelamento."
+    "ator": "ADMIN",
+    "descricao": "Acompanhar dashboard e financeiro (faturamento, faltas, rankings), pagar comissões e exportar relatório em Excel."
    },
    {
     "id": "RF25",
-    "ator": "Sistema",
-    "descricao": "Gerar automaticamente o atendimento de retorno gratuito (PENDENTE, valor 0) quando o procedimento exige retorno e o atendimento e marcado REALIZADO, de forma idempotente."
+    "ator": "ADMIN",
+    "descricao": "Acompanhar o NPS e aprovar ou retirar depoimentos do site."
    },
    {
     "id": "RF26",
-    "ator": "Cliente (publico)",
-    "descricao": "Receber cupom de aniversario de 15% valido por 7 dias por e-mail automatico."
+    "ator": "ADMIN",
+    "descricao": "Ver a lista de espera e avisar manualmente a cliente de uma vaga."
    },
    {
     "id": "RF27",
-    "ator": "Profissional",
-    "descricao": "Assinar feed iCal (.ics) da propria agenda via token e sincronizar agenda com Google Calendar (OAuth bidirecional)."
+    "ator": "ADMIN",
+    "descricao": "Gerir formulários de anamnese e termos versionados, e acompanhar a conformidade dos aceites."
    },
    {
     "id": "RF28",
-    "ator": "Staff (consumidor API)",
-    "descricao": "Consultar a REST API v1 (DRF read-only, requer staff) de profissionais, procedimentos, clientes (PII mascarada) e atendimentos, com documentacao OpenAPI/Swagger."
+    "ator": "ADMIN",
+    "descricao": "Gerir usuários da equipe, configurações, Branding (contatos e marca), notificações e consultar a auditoria."
    },
    {
     "id": "RF29",
-    "ator": "Sistema externo",
-    "descricao": "Receber webhooks de WhatsApp (Meta) e Zenvia (SMS) e executar jobs de cron protegidos por token (CRON_TOKEN) para tarefas periodicas (expurgo, NPS, expiracao de pacotes, backups)."
+    "ator": "Sistema",
+    "descricao": "Executar jobs periódicos por cron HTTP autenticado: lembrete D-1, NPS, alerta de detrator, pacotes, aniversário, limpeza de status, retenção LGPD, housekeeping e feriados."
    },
    {
     "id": "RF30",
-    "ator": "Admin/Recepcao",
-    "descricao": "Gerenciar termos versionados (LGPD/procedimento) mantendo apenas 1 versao ativa por escopo e registrando aceites como evidencia legal."
+    "ator": "Sistema",
+    "descricao": "Criar automaticamente o retorno gratuito quando o procedimento exige."
+   },
+   {
+    "id": "RF31",
+    "ator": "Sistema",
+    "descricao": "Calcular comissão, liberar/estornar cashback e debitar sessão de pacote automaticamente conforme as transições."
+   },
+   {
+    "id": "RF32",
+    "ator": "Sistema externo",
+    "descricao": "Receber webhooks do WhatsApp (resposta de NPS) e da Zenvia (status de SMS), autenticados."
+   },
+   {
+    "id": "RF33",
+    "ator": "ADMIN",
+    "descricao": "Consultar a API REST somente leitura (profissionais, procedimentos, clientes com PII mascarada, atendimentos) e a documentação Swagger."
+   },
+   {
+    "id": "RF34",
+    "ator": "Profissional",
+    "descricao": "Assinar o feed iCal da própria agenda e conectar o Google Calendar."
    }
   ],
   "requisitos_nao_funcionais": [
    {
     "id": "RNF01",
-    "categoria": "Seguranca",
-    "descricao": "Content-Security-Policy com nonce por request, sem unsafe-inline em script-src/style-src (tests de regressao garantem). Permanece unsafe-inline apenas em script-src-attr/style-src-attr ate migrar handlers inline (Lote 3.5)."
+    "categoria": "Segurança",
+    "descricao": "Content-Security-Policy com nonce por request, sem unsafe-inline em script-src/style-src e sem handlers inline; libs de CDN só por caminho versionado e com SRI; frame-ancestors none (exceto o widget)."
    },
    {
     "id": "RNF02",
-    "categoria": "Seguranca",
-    "descricao": "Headers de seguranca: HSTS 1 ano com includeSubDomains e preload, X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy strict-origin-when-cross-origin, COOP/CORP e Permissions-Policy. SSL redirect e HTTPS forcado em producao."
-   },
-   {
-    "id": "RNF02b",
-    "categoria": "Seguranca",
-    "descricao": "2FA TOTP para staff (django-two-factor-auth) com QR, app autenticador e 10 backup codes; meta de tornar obrigatorio para ADMIN/staff que ve PII clinico."
+    "categoria": "Segurança",
+    "descricao": "HTTPS obrigatório com HSTS de 1 ano (preload), X-Frame-Options DENY, nosniff, COOP/CORP, Permissions-Policy e cookies HttpOnly/SameSite/Secure."
    },
    {
     "id": "RNF03",
-    "categoria": "Seguranca",
-    "descricao": "OTP cripto-seguro (secrets.randbelow), armazenado como hash SHA-256, nunca em texto plano nem logado; propositos isolados (AGENDAMENTO/LOGIN/DSAR); meta de endurecer com salt/pepper e hmac.compare_digest (constant-time)."
+    "categoria": "Segurança",
+    "descricao": "2FA TOTP obrigatório para ADMIN, conferido a cada request em painel, API, Django admin e push; sem tela de login paralela; recuperação só por comando no servidor."
    },
    {
     "id": "RNF04",
-    "categoria": "Seguranca",
-    "descricao": "OTP anti-sequestro: cliente existente exige validacao OTP antes de agendar em seu nome; fluxos LOGIN e DSAR sao anti-enumeracao (resposta uniforme); meta de remover vazamento cliente_existente do fluxo de agendamento."
+    "categoria": "Segurança",
+    "descricao": "OTP com HMAC-SHA256 e a SECRET_KEY, comparação em tempo constante, 5 tentativas, propósitos isolados e desafio preso ao telefone."
    },
    {
     "id": "RNF05",
-    "categoria": "Seguranca",
-    "descricao": "Rate limiting em camadas: OTP reenvio >=60s, 3/h por telefone, 10/h por IP, 60/h global; HTTP 5-10/min por IP em endpoints sensiveis; django-axes 5 tentativas/cooloff 1h no login staff; DRF throttling 60/h anonimo e 1000/h user; Cloudflare Turnstile em forms publicos."
+    "categoria": "Segurança",
+    "descricao": "Rate-limit em camadas: cotas de SMS (telefone, IP, global), limites por IP nos endpoints públicos, django-axes no login, throttling da API; captcha Turnstile no pedido de código."
    },
    {
     "id": "RNF06",
-    "categoria": "Seguranca",
-    "descricao": "Webhooks e cron jobs protegidos por token (CRON_TOKEN); CSRF token em forms e X-CSRFToken nos fetch com CSRF_TRUSTED_ORIGINS. (Meta de evolucao: assinatura HMAC nos tokens de contexto via TimestampSigner e nos webhooks recebidos.)"
+    "categoria": "Privacidade",
+    "descricao": "Áreas privadas sem cache no navegador (no-store), Referrer-Policy no-referrer nas rotas com token, Clear-Site-Data no logout, tokens redigidos no access log e no Sentry."
    },
    {
     "id": "RNF07",
-    "categoria": "Seguranca",
-    "descricao": "Tokens gerados com secrets.token_urlsafe (cripto-seguros); cookies HTTPONLY + SameSite=Lax + Secure em prod; cycle_key apos login; sessao 8h e expira ao fechar o browser. Meta de TTL/revogacao nos tokens hoje infinitos (cancelamento, descadastro, ics)."
+    "categoria": "Segurança",
+    "descricao": "Segredos só em variáveis de ambiente; SECRET_KEY obrigatória fora de DEBUG; DJANGO_ENV inválido derruba o boot; system checks (aranha.W001–W009) apontam configuração de produção faltando."
    },
    {
     "id": "RNF08",
-    "categoria": "Seguranca",
-    "descricao": "Gestao de secrets sem hardcode (env vars Railway), SECRET_KEY obrigatoria em prod, .gitignore/.dockerignore cobrindo segredos; limites de upload (5MB, 200 campos) e bleach/json_script contra XSS em conteudo controlado pelo usuario."
+    "categoria": "Confiabilidade",
+    "descricao": "Canais de mensagem falham fechado: sem credencial nada é enviado nem marcado como enviado; I/O externo só após o commit."
    },
    {
     "id": "RNF09",
     "categoria": "LGPD",
-    "descricao": "Consentimentos granulares (email_marketing, whatsapp_nps, whatsapp_confirmacao) com data e IP; aceite de termos versionados como evidencia legal; banner de cookies granular."
+    "descricao": "Consentimentos granulares com data e IP; aceite da política e dos termos com prova (IP, navegador, SHA-256); consentimento específico para dado de saúde (art. 11)."
    },
    {
     "id": "RNF10",
     "categoria": "LGPD",
-    "descricao": "Soft-delete de entidades com PII (deletado_em) e job semanal de anonimizacao apos 30 dias; cliente inativo anonimizado em 5 anos; descadastro one-click por token de unsubscribe."
+    "descricao": "Retenção automatizada (OTP, notificações, auditoria, logs de login, clientes inativas/excluídas, fichas de pedidos não realizados, lista de espera) e direito ao esquecimento com pseudonimização."
    },
    {
     "id": "RNF11",
     "categoria": "LGPD",
-    "descricao": "Direitos do titular implementados: DSAR/export JSON em /lgpd/meus-dados com challenge OTP, confirmacao/acesso, correcao pelo admin, portabilidade, revogacao de consent e eliminacao via soft-delete + purge job."
+    "descricao": "Direitos do titular: acesso/portabilidade (DSAR em JSON), correção pela clínica, revogação de consentimento, anonimização."
    },
    {
     "id": "RNF12",
     "categoria": "LGPD",
-    "descricao": "Politica de retencao por tipo de dado (OTP 24h, notificacao 12m, auditoria/financeiro 5 anos, prontuario/aceite ~20 anos CFM, inativo 5 anos) com jobs de expurgo; bases legais documentadas por tratamento; PII mascarada em logs, na API e filtrada no Sentry (send_default_pii=False)."
+    "descricao": "Trilha de auditoria com autor, IP e detalhes mascarados; PII mascarada em logs, API e Sentry (send_default_pii=False)."
    },
    {
     "id": "RNF13",
-    "categoria": "LGPD",
-    "descricao": "Auditoria de acoes sensiveis em log_auditoria com autor, tabela, registro e IP (art. 37) e sanitizacao automatica de PII; procedimento de resposta a incidente com comunicacao a ANPD em ate 72h."
+    "categoria": "Integridade",
+    "descricao": "Invariantes no banco: EXCLUDE anti double-booking, UNIQUE parciais, CHECKs, triggers de imutabilidade (ledger, prova de aceite, termo aceito, histórico do prontuário) e FKs PROTECT no histórico clínico/financeiro."
    },
    {
     "id": "RNF14",
-    "categoria": "Desempenho",
-    "descricao": "Operacoes assincronas via Celery + Beat (notificacoes, workflows, jobs periodicos sempre async); cache via Redis com decorator utils.cache.cached; 87+ indices no banco (compostos para queries de dashboard). Deploy push-to-deploy em 2-3 min."
+    "categoria": "Confiabilidade",
+    "descricao": "Migrações aplicadas numa transação única com lock_timeout no pre-deploy (tudo ou nada); rollback de produção por restauração do backup."
    },
    {
     "id": "RNF15",
     "categoria": "Confiabilidade",
-    "descricao": "Maquina de estados (FSM) do atendimento com transicoes validas e excecoes tipadas; anti double-booking por constraint EXCLUDE gist no banco; CHECK e UNIQUE constraints em campos enumerados e naturais; transaction.atomic em operacoes multi-tabela; EventBus dispara handlers apos transaction.on_commit."
+    "descricao": "FSM com transições validadas sob lock e auditadas; efeitos idempotentes (1 retorno por origem, 1 consumo e 1 comissão por atendimento, cashback único)."
    },
    {
     "id": "RNF16",
-    "categoria": "Confiabilidade",
-    "descricao": "Idempotencia garantida: 1 retorno por origem, 1 consumo de sessao por atendimento, cashback unico por (carteira, atendimento, origem), comissao unica por atendimento, dedup de workflow por UNIQUE; ledger de carteira imutavel (append-only via trigger) com saldo nunca negativo e select_for_update."
+    "categoria": "Desempenho",
+    "descricao": "gunicorn 1 worker × 4 threads com cache local (Redis opcional para escalar); estáticos comprimidos e com hash (WhiteNoise); cache do Branding; índices compostos para agenda e relatórios."
    },
    {
     "id": "RNF17",
-    "categoria": "Confiabilidade",
-    "descricao": "Monitoramento com Sentry, healthchecks /health (readiness: DB+Redis+Celery) e /healthz (liveness); ambientes dev e prod isolados com Postgres/Redis dedicados; backups diarios do banco; 135+ testes automatizados (models, services e views criticas)."
+    "categoria": "Observabilidade",
+    "descricao": "Healthchecks /healthz/ (liveness + build do front) e /health/ (banco, cache, front); Sentry opcional; logs JSON em produção."
    },
    {
     "id": "RNF18",
-    "categoria": "Usabilidade",
-    "descricao": "PWA com push (pywebpush/VAPID) e icones; frontend responsivo Bootstrap 5.3 + FullCalendar 6 + AOS + Swiper; copy e estetica de bem-estar/spa (nao medico-hospitalar); booking publico em fluxo de poucos passos com baixa friccao (passwordless)."
+    "categoria": "Qualidade",
+    "descricao": "Cerca de 1.060 testes automatizados; CI com SQLite, Postgres 18 (bloqueante), build do front, build da imagem Docker e auditoria de dependências."
    },
    {
     "id": "RNF19",
     "categoria": "Usabilidade",
-    "descricao": "Login do cliente passwordless (telefone + OTP) de baixa friccao, com sessao unificada de cliente verificado servindo agendar e meus-agendamentos; evolucao prevista para hibrido (magic-link por e-mail + lembrar dispositivo 30 dias + step-up no DSAR)."
+    "descricao": "Interface pt-BR em tom de estética e bem-estar; contraste AA nos tokens; wizard operável por teclado; tema claro/escuro; PWA instalável para o site e para a equipe."
    },
    {
     "id": "RNF20",
     "categoria": "Manutenibilidade",
-    "descricao": "Arquitetura em camadas (templates -> views -> forms -> services -> domain events -> models -> DB) com regras de negocio em services, models com Manager/QuerySet, exceptions tipadas e logs estruturados; registry de regras como fonte unica (chave/tipo/default/categoria) com docs gerados do registry para evitar drift."
+    "descricao": "Camadas views → services/utils → models; fontes únicas (SlotService, preços, Branding, termos); componentes cotton e Alpine CSP; documentação viva e requisitos gerados a partir de dados versionados."
+   },
+   {
+    "id": "RNF21",
+    "categoria": "Implantação",
+    "descricao": "Imagem Docker multi-stage (Node para o front, Python para a app) com dependências fixadas (requirements.lock), usuário não-root e healthcheck; deploy no Railway com pre-deploy de migração e criação do ADMIN."
    }
   ]
  },
@@ -2234,103 +2481,103 @@
   "atores": [
    {
     "nome": "Visitante / Cliente (público, sem login)",
-    "descricao": "Pessoa que navega no site público e agenda online sem autenticação. Identidade real do booking é o TELEFONE. Acessa páginas públicas (home, serviços, equipe, promoções, depoimentos), agenda procedimento (3 steps), entra na lista de espera, e responde formulários públicos (anamnese pré-atendimento, pesquisa, NPS, assinatura de termo, confirmação de presença) via link mágico com token urlsafe. Deve ter ≥18 anos. Consentimentos LGPD (email marketing, WhatsApp NPS/confirmação) capturados com IP/timestamp."
+    "descricao": "Navega no site e agenda sem conta: a identidade é o celular, confirmado por código SMS em todo agendamento. Aceita a Política de Privacidade e os termos, consente o uso do dado de saúde, entra na lista de espera, responde NPS e fichas por link. Precisa ter 18 anos ou mais."
    },
    {
-    "nome": "Cliente Recorrente (cadastro existente)",
-    "descricao": "Cliente já cadastrado (telefone OU email pertencem a um Cliente ativo). Para agendar/reagendar precisa passar pelo gate de OTP via SMS (Zenvia) — anti-sequestro de cadastro. Faz login sem senha em 'Meus Agendamentos' via OTP por email (código enviado por SMS ao telefone cadastrado), consulta agendamentos futuros/passados, reagenda (mín. 24h antecedência) e cancela via token seguro. Pode exercer direitos LGPD (ver/baixar dados, descadastrar marketing)."
+    "nome": "Cliente cadastrada",
+    "descricao": "Cliente com cadastro ativo (mesmo celular). Entra em \"Meus agendamentos\" por celular ou e-mail (o código vai ao celular do cadastro), reagenda (até 24 h antes), cancela, confirma presença pelo lembrete D-1 e exerce os direitos LGPD (exportar dados, descadastrar)."
    },
    {
-    "nome": "Profissional / Biomédica",
-    "descricao": "Usuário vinculado a um Profissional ativo (decorator profissional_required). Acessa o Portal do Profissional: vê sua própria agenda do dia/semana, aprova ou rejeita agendamentos PENDENTES dele, marca atendimento como REALIZADO, adiciona anotações de sessão e consulta prontuário de clientes que já atendeu (ownership/anti-BOLA: 404 em atendimento de outro profissional). Pode ter Google Calendar conectado (feed ICS / pull)."
+    "nome": "Profissional",
+    "descricao": "Usuário PROFISSIONAL vinculado a um profissional ativo. Usa o portal /profissional/: agenda própria, aprova/rejeita os próprios pedidos, marca realizado (com termo aceito ou override auditado), anota a sessão e lê a ficha só das clientes com vínculo. Feed iCal, Google Calendar e push. 2FA opcional (obrigatório se configurado)."
    },
    {
-    "nome": "Administrador / Gerente / Recepção (staff)",
-    "descricao": "Usuário is_staff (decorator staff_required). Acesso total ao painel: dashboards (overview e financeiro com comissões), gestão de agendamentos (aprovar/rejeitar/cancelar/bulk/status AJAX), calendário drag-drop, clientes e prontuário, profissionais, procedimentos, preços, disponibilidade/exceções/bloqueios de agenda, pacotes (CRUD + venda), promoções (CRUD + disparo de email), lista de espera (notificar), termos de consentimento e compliance, anamneses (formulários), configurações do sistema, branding, usuários admin (CRUD + reset senha + ativar/desativar), auditoria (LogAuditoria), exportar relatório Excel. Login por email/senha em URL oculta com rate-limit; pode/deve ativar 2FA TOTP."
+    "nome": "Administrador (ADMIN)",
+    "descricao": "Usuário ADMIN (is_staff), com 2FA obrigatório. Painel completo, incluindo as tarefas de recepção: agenda, agendamento interno, aprovação, clientes e prontuário, profissionais, catálogo, pacotes, promoções, financeiro, comissões, NPS e depoimentos, lista de espera, formulários e termos, usuários, configurações, Branding e auditoria."
    },
    {
-    "nome": "Sistema / Cron Externo (cron-job.org)",
-    "descricao": "Ator automático. Endpoint POST /cron/run/<job>/ protegido por header X-Cron-Token (HMAC compare) dispara jobs Celery síncronos: lembrete D-1 (WhatsApp), NPS 24h pós-atendimento, alerta de detrator NPS por email, verificação/expiração de pacotes, aniversário de clientes, promoção mensal, limpeza de status (PENDENTE→CANCELADO e AGENDADO/CONFIRMADO→FALTOU após 24h vencido) e purga LGPD de inativos. Também serve healthcheck/liveness."
+    "nome": "Sistema / Cron externo",
+    "descricao": "Agendador externo (cron-job.org ou Railway Cron) que chama POST /cron/run/<job>/ com o header X-Cron-Token: lembrete D-1, NPS, alerta de detrator, pacotes, aniversário, limpeza de status, retenção LGPD, housekeeping e feriados."
    },
    {
-    "nome": "Serviços Externos (SMS Zenvia / WhatsApp Meta / Email / Google Calendar / Cloudflare Turnstile)",
-    "descricao": "Sistemas de terceiros integrados. Zenvia entrega OTP/lembretes por SMS e posta status de entrega em webhook (IP allowlist + HMAC). WhatsApp (Meta Cloud API) recebe respostas via webhook (handshake hub.challenge + X-Hub-Signature-256) e captura nota NPS 0-10. Email (SMTP via Celery async) envia confirmações/cancelamentos/termos/promoções. Google Calendar (OAuth) conecta agenda do profissional (connect/callback/pull + feed ICS). Cloudflare Turnstile valida captcha anti-bot no booking/OTP."
+    "nome": "Serviços externos",
+    "descricao": "Zenvia (SMS/OTP e status de entrega), WhatsApp Cloud API (lembrete, NPS, aviso de vaga e respostas via webhook assinado), provedor de e-mail, Cloudflare Turnstile, Google Calendar e Sentry."
    }
   ],
   "casos_de_uso": [
    {
     "id": "UC01",
-    "nome": "Agendar online (sem login)",
+    "nome": "Agendar online",
     "atores": [
      "Visitante / Cliente (público, sem login)",
-     "Cliente Recorrente (cadastro existente)",
-     "Serviços Externos (SMS Zenvia / WhatsApp Meta / Email / Google Calendar / Cloudflare Turnstile)"
+     "Cliente cadastrada",
+     "Serviços externos"
     ],
-    "fluxo": "Cliente escolhe procedimento, data/horário (3 steps) e preenche dados. confirmar_agendamento valida honeypot+Turnstile, idade ≥18, feriado, faz slot lock (cache.add 30s) + SELECT FOR UPDATE para evitar overbooking, get_or_create do Cliente por telefone com consentimentos LGPD, cria Atendimento status PENDENTE, grava respostas de anamnese inline e dispara emails async (termos pendentes ao cliente, aprovação ao profissional). Se cliente já existe (telefone OU email), exige OTP por SMS antes de prosseguir.",
+    "fluxo": "Cliente escolhe procedimento, data/horário e profissional, informa dados, aceita a política e os termos, consente o dado de saúde e responde a ficha; confirma o celular com código SMS (UC02). O servidor revalida slot, habilitação, feriado, idade ≥ 18 e aceites; trava o slot (cache + SELECT FOR UPDATE + EXCLUDE), cria/atualiza a cliente pelo telefone, grava o atendimento PENDENTE com o preço da data, os aceites com prova, a ficha e o consentimento na auditoria; avisa o profissional.",
     "inclui": [
-     "Verificar OTP (SMS)",
-     "Verificar disponibilidade (horários/dias)",
-     "Validar Captcha (Turnstile)"
+     "UC02",
+     "UC03"
     ]
    },
    {
     "id": "UC02",
-    "nome": "Verificar OTP por SMS",
+    "nome": "Verificar celular por OTP",
     "atores": [
-     "Cliente Recorrente (cadastro existente)",
-     "Serviços Externos (SMS Zenvia / WhatsApp Meta / Email / Google Calendar / Cloudflare Turnstile)"
+     "Visitante / Cliente (público, sem login)",
+     "Cliente cadastrada",
+     "Serviços externos"
     ],
-    "fluxo": "solicitar_otp_agendamento gera código e envia por SMS (Zenvia) ao telefone (email opcional vira pseudo-email sms+digitos@ quando cadastro SMS-only); rate-limit 5/m e cooldown anti-abuso. verificar_otp_agendamento valida o código pelo otp_service e grava na sessão otp_agendamento_email + expiração 30min, devolvendo pré-fill do cliente. Anti-enumeração: resposta idêntica exista ou não o cadastro.",
+    "fluxo": "Cliente informa o celular; o sistema valida o captcha (se configurado), recusa telefone fixo, checa intervalo e cotas de SMS, gera o código (HMAC) e envia pela Zenvia. A cliente digita o código; o sistema confere (5 tentativas) e marca o telefone como verificado na sessão por 30 min, devolvendo o pré-preenchimento do cadastro daquele telefone.",
     "inclui": []
    },
    {
     "id": "UC03",
-    "nome": "Consultar disponibilidade (horários e dias)",
+    "nome": "Consultar disponibilidade",
     "atores": [
      "Visitante / Cliente (público, sem login)"
     ],
-    "fluxo": "Endpoints AJAX api_horarios_disponiveis (slots de 30min por data+procedimento, cruzando DisponibilidadeProfissional, Atendimentos ocupados e BloqueioAgenda, agrupados por horário/profissional) e api_dias_disponiveis (dias do mês com disponibilidade). buscar_procedimentos e buscar_horarios complementam. Rate-limit 30/m por IP.",
+    "fluxo": "O wizard consulta dias do mês e horários livres; o SlotService calcula os slots de 30 min por profissional considerando expediente, exceções, feriados, bloqueios, atendimentos, buffer e antecedências.",
     "inclui": []
    },
    {
     "id": "UC04",
-    "nome": "Reagendar atendimento (público via token)",
+    "nome": "Reagendar atendimento",
     "atores": [
-     "Cliente Recorrente (cadastro existente)"
+     "Cliente cadastrada"
     ],
-    "fluxo": "reagendar_agendamento resolve Atendimento por token_cancelamento, exige ≥24h de antecedência e status reagendável; em transação marca o antigo como REAGENDADO (sai da agenda antes para não colidir com a exclusion constraint), checa conflito com SELECT FOR UPDATE e cria novo Atendimento AGENDADO vinculado (reagendado_de) preservando valores. Redireciona para sucesso.",
+    "fluxo": "Pelo token do atendimento: exige ≥ 24 h de antecedência; escolhe novo horário (UC03); o antigo vira REAGENDADO e o novo herda preço, retorno e ficha; fica AGENDADO se já aprovado e com a mesma profissional, senão PENDENTE.",
     "inclui": [
-     "Verificar disponibilidade (horários/dias)"
+     "UC03"
     ]
    },
    {
     "id": "UC05",
-    "nome": "Cancelar agendamento (público via token)",
+    "nome": "Cancelar atendimento",
     "atores": [
-     "Cliente Recorrente (cadastro existente)"
+     "Cliente cadastrada"
     ],
-    "fluxo": "cancelar_agendamento (POST JSON) busca Atendimento por token_cancelamento (anti-IDOR), bloqueia cancelamento de passados ou já cancelados, e em transação com SELECT FOR UPDATE seta status CANCELADO. Rate-limit 10/m por IP.",
+    "fluxo": "Pelo token (portal): atendimento ativo e futuro vai para CANCELADO pela FSM; a vaga é oferecida à lista de espera.",
     "inclui": []
    },
    {
     "id": "UC06",
-    "nome": "Login e consultar Meus Agendamentos",
+    "nome": "Entrar em Meus agendamentos",
     "atores": [
-     "Cliente Recorrente (cadastro existente)",
-     "Serviços Externos (SMS Zenvia / WhatsApp Meta / Email / Google Calendar / Cloudflare Turnstile)"
+     "Cliente cadastrada",
+     "Serviços externos"
     ],
-    "fluxo": "meus_agendamentos_enviar_otp valida email/Turnstile, busca telefone do cliente e envia OTP de login por SMS; meus_agendamentos_verificar_otp valida e cria sessão (1h). meus_agendamentos lista futuros (PENDENTE/AGENDADO/CONFIRMADO) e passados/finalizados do email logado. Alternativa: verificar_telefone (action enviar/verificar) loga via SMS por telefone. Logout limpa sessão.",
+    "fluxo": "Cliente informa celular ou e-mail; se houver cadastro, o código vai ao celular do cadastro (resposta sempre igual); após o código, sessão de 1 h presa ao telefone com agendamentos futuros e passados, reagendar e cancelar.",
     "inclui": [
-     "Verificar OTP (SMS)"
+     "UC02"
     ]
    },
    {
     "id": "UC07",
-    "nome": "Confirmar presença (link público)",
+    "nome": "Confirmar presença",
     "atores": [
-     "Visitante / Cliente (público, sem login)"
+     "Cliente cadastrada"
     ],
-    "fluxo": "confirmar_presenca resolve Notificacao por token (enviado via WhatsApp), permite confirmar (Atendimento→CONFIRMADO) ou cancelar (→CANCELADO) uma única vez; usa SELECT FOR UPDATE + filtro resposta__isnull para serializar duplo-clique. Rate-limit 30/m por IP.",
+    "fluxo": "Pelo link do lembrete D-1 (WhatsApp): confirmar (AGENDADO → CONFIRMADO) ou cancelar, uma única vez.",
     "inclui": []
    },
    {
@@ -2339,179 +2586,203 @@
     "atores": [
      "Visitante / Cliente (público, sem login)"
     ],
-    "fluxo": "lista_espera_publica (POST) valida nome/telefone/procedimento/data futura, normaliza telefone, get_or_create do Cliente, evita inscrição duplicada e cria ListaEspera com profissional/turno desejados. Rate-limit 10/m por IP.",
+    "fluxo": "Informa nome, celular, procedimento, data, turno/profissional e e-mail opcional; sistema normaliza o telefone e registra o pedido (e-mail só na inscrição). Quando uma vaga compatível abre, recebe aviso por e-mail/WhatsApp.",
     "inclui": []
    },
    {
     "id": "UC09",
-    "nome": "Responder formulário público (anamnese / pesquisa)",
+    "nome": "Responder ficha de anamnese por link",
     "atores": [
      "Visitante / Cliente (público, sem login)"
     ],
-    "fluxo": "anamnese_publica e pesquisa_publica resolvem RespostaAnamnese por token (expira em 60 dias), validam respostas contra schema_json (obrigatórios/tipos), gravam respostas_json + respondida_em e registram LogAuditoria. Bloqueia respostas duplicadas. Branch por formulario.tipo (ANAMNESE pré-atendimento / PESQUISA pós-atendimento).",
+    "fluxo": "Pelo token (60 dias): responde a ficha; para ficha de saúde marca o consentimento do art. 11 (auditado); respostas validadas contra o schema; uma resposta por link.",
     "inclui": []
    },
    {
     "id": "UC10",
     "nome": "Responder NPS",
     "atores": [
-     "Visitante / Cliente (público, sem login)",
-     "Serviços Externos (SMS Zenvia / WhatsApp Meta / Email / Google Calendar / Cloudflare Turnstile)"
+     "Cliente cadastrada",
+     "Serviços externos"
     ],
-    "fluxo": "Dois canais: (a) nps_web — página por token NPS (expira), grava AvaliacaoNPS nota 0-10 + comentário, bloqueia duplicidade; (b) whatsapp_webhook — recebe resposta numérica 0-10 via Meta (assinatura HMAC validada), correlaciona com Notificacao NPS enviada (≤7 dias, match por telefone com/sem DDI 55, anti-IDOR) e cria AvaliacaoNPS. Promotores (nota≥9) com comentário viram depoimentos públicos.",
+    "fluxo": "Pelo link (7 dias) ou respondendo o WhatsApp: nota 0–10, comentário e autorização do depoimento; uma avaliação por atendimento.",
     "inclui": []
    },
    {
     "id": "UC11",
-    "nome": "Assinar termo de consentimento (público)",
+    "nome": "Aceitar termo por link",
     "atores": [
-     "Visitante / Cliente (público, sem login)"
+     "Cliente cadastrada"
     ],
-    "fluxo": "termo_assinatura resolve Notificacao por token, exibe termo do atendimento/cliente e registra AceiteTermo da VersaoTermo (LGPD ou específico do procedimento). Termos pendentes são detectados no booking e o link é enviado por email.",
+    "fluxo": "Pelo link do atendimento (válido até o fim dele): lê e aceita os termos pendentes; o aceite grava IP, navegador e SHA-256 do texto.",
     "inclui": []
    },
    {
     "id": "UC12",
     "nome": "Exercer direitos LGPD",
     "atores": [
-     "Cliente Recorrente (cadastro existente)"
+     "Cliente cadastrada",
+     "Serviços externos"
     ],
-    "fluxo": "lgpd_meus_dados permite ao titular ver/baixar seus dados; lgpd_unsubscribe (por token) descadastra de marketing; lgpd_aceitar_cookies registra consentimento de cookies. Complementado pelo job automático de purga/anonimização de inativos.",
-    "inclui": []
+    "fluxo": "Baixar os dados em JSON após código SMS (DSAR), descadastrar-se por link e registrar o aviso de cookies.",
+    "inclui": [
+     "UC02"
+    ]
    },
    {
     "id": "UC13",
-    "nome": "Autenticar admin (login + recuperação de senha)",
+    "nome": "Autenticar equipe",
     "atores": [
-     "Administrador / Gerente / Recepção (staff)"
+     "Administrador (ADMIN)",
+     "Profissional"
     ],
-    "fluxo": "usuario_login (URL oculta) autentica email/senha exigindo is_staff, com rate-limit por IP (5 falhas/min) e por username (5/m), regeneração de sessão (anti-fixation) e validação de next (anti open-redirect). ClinicaPasswordReset* faz fluxo de reset por email com rate-limit 3/15m e LogAuditoria (PII mascarada). Após login, se houver 2FA ativo, segue para o challenge.",
+    "fluxo": "Login por e-mail/senha com rate-limit e django-axes; ADMIN sem 2FA vai ao cadastro obrigatório; com 2FA passa pelo desafio (UC14); reset de senha por link (1 h). Logout só via POST.",
     "inclui": [
-     "Validar 2FA TOTP"
+     "UC14"
     ]
    },
    {
     "id": "UC14",
-    "nome": "Configurar e validar 2FA TOTP",
+    "nome": "Cadastrar / validar 2FA",
     "atores": [
-     "Administrador / Gerente / Recepção (staff)",
-     "Profissional / Biomédica"
+     "Administrador (ADMIN)",
+     "Profissional"
     ],
-    "fluxo": "admin_2fa_setup gera TOTPDevice pendente + QR code, confirma com primeiro token e permite desativar (com LogAuditoria). admin_2fa_challenge exibe input pós-login e admin_2fa_verify valida o token (rate-limit 5/m), marcando otp_verified na sessão.",
+    "fluxo": "Cadastro por QR (SVG) e confirmação do primeiro código; desafio a cada sessão (TOTP ou código de backup); trocar de aparelho exige o código atual.",
     "inclui": []
    },
    {
     "id": "UC15",
-    "nome": "Gerir agenda do profissional (portal)",
+    "nome": "Operar o portal do profissional",
     "atores": [
-     "Profissional / Biomédica"
+     "Profissional"
     ],
-    "fluxo": "agenda mostra atendimentos do dia/semana e pendentes de aprovação do profissional logado. aprovar_agendamento (PENDENTE→AGENDADO + email confirmação), rejeitar_agendamento (PENDENTE→CANCELADO + email), marcar_realizado (AGENDADO/CONFIRMADO→REALIZADO via allowlist) e anotar/anotacao_sessao_salvar registram anotações clínicas. Ownership: profissional só acessa atendimentos próprios (anti-BOLA).",
+    "fluxo": "Agenda do dia/semana e pedidos pendentes com alertas de saúde; aprovar/rejeitar; marcar realizado (termo aceito ou override auditado); anotar a sessão; abrir a ficha quando há vínculo.",
     "inclui": []
    },
    {
     "id": "UC16",
-    "nome": "Gerir agendamentos no painel (aprovar/rejeitar/cancelar/status/calendário)",
+    "nome": "Gerir agendamentos no painel",
     "atores": [
-     "Administrador / Gerente / Recepção (staff)"
+     "Administrador (ADMIN)"
     ],
-    "fluxo": "painel_agendamentos lista/filtra; admin_aprovar_agendamento e admin_rejeitar_agendamento delegam ao AgendamentoService (regras+email+audit); admin_bulk_agendamentos faz aprovação/rejeição em massa; admin_atualizar_status muda status via AJAX; admin_cancelar_agendamento cancela e notifica cliente por email + cria Notificacao; admin_calendar/_events/_mover oferece calendário FullCalendar com reagendamento drag-drop.",
+    "fluxo": "Lista com filtros e marcadores (termo pendente, ficha pendente, alertas); aprovar/rejeitar individual ou em lote; mudar status pela FSM (409 sem termo, salvo override); calendário com arrastar-e-soltar; valor cobrado; link do termo.",
     "inclui": []
    },
    {
     "id": "UC17",
     "nome": "Gerir clientes e prontuário",
     "atores": [
-     "Administrador / Gerente / Recepção (staff)",
-     "Profissional / Biomédica"
+     "Administrador (ADMIN)",
+     "Profissional"
     ],
-    "fluxo": "painel_clientes / admin_cliente_detalhe / prontuario_consentimento listam e detalham clientes. prontuario_detalhe e prontuario_salvar editam anamnese/questionário configurável e histórico; acesso restrito a staff OU profissional que já atendeu o cliente, com LogAuditoria de cada leitura/edição/negação (LGPD).",
+    "fluxo": "Ficha da cliente (dados validados, alertas, pacotes, histórico); prontuário com histórico de versões, trava de edição concorrente e trilha de leitura; anotações de sessão.",
     "inclui": []
    },
    {
     "id": "UC18",
-    "nome": "Gerir profissionais, disponibilidade e bloqueios",
+    "nome": "Gerir profissionais e disponibilidade",
     "atores": [
-     "Administrador / Gerente / Recepção (staff)",
-     "Serviços Externos (SMS Zenvia / WhatsApp Meta / Email / Google Calendar / Cloudflare Turnstile)"
+     "Administrador (ADMIN)",
+     "Serviços externos"
     ],
-    "fluxo": "painel_profissionais, profissional_cadastro/profissional_editar gerenciam profissionais e habilitações/preços. admin_excecoes (folga/horário diferente por data), admin_bloqueios (CRUD) e admin_procedimentos controlam disponibilidade. gcal_connect/gcal_callback/gcal_pull e o feed ICS integram a agenda do profissional ao Google Calendar.",
+    "fluxo": "Profissionais (expediente, antecedências, habilitações, preços), exceções, bloqueios (inclusive globais), procedimentos, novo link do feed iCal e conexão com o Google Calendar.",
     "inclui": []
    },
    {
     "id": "UC19",
-    "nome": "Gerir pacotes (CRUD e venda)",
+    "nome": "Gerir pacotes",
     "atores": [
-     "Administrador / Gerente / Recepção (staff)"
+     "Administrador (ADMIN)"
     ],
-    "fluxo": "admin_pacotes lista pacotes com itens/vendas; admin_criar_pacote e admin_editar_pacote definem nome/preço/validade e ItemPacote (procedimento+sessões) em transação; admin_vender_pacote cria CompraPacote ATIVO com data de expiração (relativedelta) e LogAuditoria. Jobs automáticos avisam expiração e expiram pacotes vencidos.",
+    "fluxo": "Criar/editar pacotes (congelados após a venda), vender a uma cliente, acompanhar saldo/validade e cancelar com valor devolvido.",
     "inclui": []
    },
    {
     "id": "UC20",
-    "nome": "Gerir promoções e disparar campanha",
+    "nome": "Gerir promoções e campanhas",
     "atores": [
-     "Administrador / Gerente / Recepção (staff)",
-     "Serviços Externos (SMS Zenvia / WhatsApp Meta / Email / Google Calendar / Cloudflare Turnstile)"
+     "Administrador (ADMIN)",
+     "Serviços externos"
     ],
-    "fluxo": "admin_promocoes/criar/editar/excluir fazem o CRUD vinculando procedimento+desconto+vigência. admin_disparar_promocao agenda job_promocao_mensal (Celery) que envia email a clientes com consent_email_marketing=True (com cupom/validade). Página pública /promocoes mostra promoções vigentes.",
+    "fluxo": "CRUD de promoções (percentual XOR preço fixo, período) e disparo de e-mail em lotes para clientes com consentimento, sem cupom.",
     "inclui": []
    },
    {
     "id": "UC21",
-    "nome": "Ver dashboard financeiro e comissões",
+    "nome": "Financeiro e comissões",
     "atores": [
-     "Administrador / Gerente / Recepção (staff)"
+     "Administrador (ADMIN)"
     ],
-    "fluxo": "dashboard_financeiro (cache 60s) agrega faturamento (hoje/semana/mês de REALIZADO com valor_cobrado>0), taxa de no-show (FALTOU), top procedimentos e profissionais, e comissões: MovimentoComissao pendentes (total/qtd) e por profissional no mês. exportar_relatorio_excel gera relatório.",
+    "fluxo": "Dashboard e financeiro (faturamento de avulsos + vendas de pacote, faltas, rankings), comissões pendentes/pagas (pagar) e exportação em Excel.",
     "inclui": []
    },
    {
     "id": "UC22",
-    "nome": "Gerir lista de espera (painel)",
+    "nome": "Gerir lista de espera",
     "atores": [
-     "Administrador / Gerente / Recepção (staff)",
-     "Serviços Externos (SMS Zenvia / WhatsApp Meta / Email / Google Calendar / Cloudflare Turnstile)"
+     "Administrador (ADMIN)",
+     "Serviços externos"
     ],
-    "fluxo": "admin_lista_espera lista interessados; admin_notificar_espera marca item como notificado. job_notificar_fila_espera envia email aos interessados quando surge horário livre.",
+    "fluxo": "Ver pedidos com contatos e avisar manualmente uma vaga por e-mail.",
     "inclui": []
    },
    {
     "id": "UC23",
-    "nome": "Gerir formulários, termos e compliance",
+    "nome": "Gerir formulários e termos",
     "atores": [
-     "Administrador / Gerente / Recepção (staff)"
+     "Administrador (ADMIN)"
     ],
-    "fluxo": "admin_anamneses/admin_anamnese_form/respostas gerenciam FormularioAnamnese (schema_json) e veem respostas. admin_termos/admin_criar_termo criam VersaoTermo (LGPD/por procedimento); admin_termos_compliance acompanha aceites pendentes.",
+    "fluxo": "Formulários de anamnese (schema JSON; mudar schema com respostas cria nova versão) e termos versionados (1 ativo por escopo; imutáveis após aceite); painel de conformidade dos aceites.",
     "inclui": []
    },
    {
     "id": "UC24",
-    "nome": "Administrar usuários, configurações, branding e auditoria",
+    "nome": "Administrar o sistema",
     "atores": [
-     "Administrador / Gerente / Recepção (staff)"
+     "Administrador (ADMIN)"
     ],
-    "fluxo": "admin_usuarios/criar/editar/resetar-senha (envia link)/toggle-ativo gerenciam contas admin. admin_configuracoes (chave-valor) e admin_branding (logo/cores/textos) parametrizam o sistema via UI. admin_auditoria consulta a trilha LogAuditoria. Toda ação sensível registra log.",
+    "fluxo": "Usuários da equipe (link para definir senha, ativar/desativar), configurações, Branding, notificações, pré-visualização de e-mails e auditoria.",
     "inclui": []
    },
    {
     "id": "UC25",
-    "nome": "Executar jobs automáticos (cron)",
+    "nome": "Executar jobs periódicos",
     "atores": [
-     "Sistema / Cron Externo (cron-job.org)",
-     "Serviços Externos (SMS Zenvia / WhatsApp Meta / Email / Google Calendar / Cloudflare Turnstile)"
+     "Sistema / Cron externo",
+     "Serviços externos"
     ],
-    "fluxo": "cron_run_job (POST com X-Cron-Token) executa por JOB_MAP: lembrete_diario (WhatsApp D-1), nps_24h (envia NPS pós-REALIZADO com consent), detrator_alerta (email NPS≤6), pacote_expirando/pacote_expirar, aniversario (email+WhatsApp), limpeza_status (PENDENTE→CANCELADO e AGENDADO/CONFIRMADO→FALTOU após 24h via FSM) e lgpd_purgar (anonimiza inativos).",
+    "fluxo": "POST /cron/run/<job>/ com X-Cron-Token executa o job (lembrete D-1, NPS, alerta de detrator, pacotes, aniversário, limpeza de status, retenção LGPD, housekeeping, feriados); 500 quando o job falha.",
     "inclui": []
    },
    {
     "id": "UC26",
-    "nome": "Receber callbacks de entrega SMS (Zenvia)",
+    "nome": "Receber webhooks",
     "atores": [
-     "Serviços Externos (SMS Zenvia / WhatsApp Meta / Email / Google Calendar / Cloudflare Turnstile)",
-     "Sistema / Cron Externo (cron-job.org)"
+     "Serviços externos",
+     "Sistema / Cron externo"
     ],
-    "fluxo": "zenvia_sms_webhook recebe status de entrega; defense-in-depth com IP allowlist, HMAC X-Zenvia-Signature e rejeição em prod se não configurado. Loga messageId/status/telefone mascarado.",
+    "fluxo": "WhatsApp: handshake e eventos assinados (captura nota de NPS). Zenvia: status de entrega com IP permitido e/ou HMAC.",
+    "inclui": []
+   },
+   {
+    "id": "UC27",
+    "nome": "Agendar pela recepção",
+    "atores": [
+     "Administrador (ADMIN)"
+    ],
+    "fluxo": "Buscar cliente ou cadastrar nova (telefone validado), escolher procedimento, profissional habilitado e horário do SlotService; valor com promoção ou combinado; atendimento nasce AGENDADO, auditado; aviso de ficha pendente.",
+    "inclui": [
+     "UC03"
+    ]
+   },
+   {
+    "id": "UC28",
+    "nome": "Moderar depoimentos",
+    "atores": [
+     "Administrador (ADMIN)"
+    ],
+    "fluxo": "No painel de NPS, aprovar (só com opt-in da cliente e comentário) ou retirar depoimentos do site; auditado.",
     "inclui": []
    }
   ]
@@ -2519,86 +2790,87 @@
  "arquitetura": {
   "componentes": [
    {
-    "nome": "Django App (web / gunicorn)",
-    "papel": "Aplicacao monolitica Django (app unico 'aranha_estetica' + apps de auth/otp/2fa/axes/DRF/spectacular). Servida por gunicorn (Procfile: 4 workers x 2 threads; railway.json: 1 worker x 4 threads, timeout 120). Roteia o booking publico (views/booking_public.py, booking_api.py, booking_otp.py), API REST (DRF SessionAuth + throttling anon 60/h, user 1000/h), admin com 2FA, healthcheck /healthz/. WSGI = clinica.wsgi."
+    "nome": "Django App (gunicorn)",
+    "papel": "Aplicação monolítica Django 5.2 (app aranha_estetica + projeto clinica), server-render, servida por gunicorn com 1 worker × 4 threads (timeout 120 s, access log com tokens redigidos). Site público, portal do profissional, painel, API REST somente leitura, cron HTTP, webhooks e healthchecks."
    },
    {
-    "nome": "Celery Worker",
-    "papel": "Processa tasks assincronas de aranha_estetica/tasks.py: envio de email transacional/marketing fire-and-forget (send_email_async), lembrete D-1 WhatsApp, NPS 24h, alerta detrator NPS, fila de espera, pacotes expirando/expirar, aniversario, limpeza de status de atendimentos, purga LGPD. Procfile: celery -A clinica worker --concurrency=2. Todos os jobs com max_retries=3 e retry com backoff."
+    "nome": "Middlewares de segurança",
+    "papel": "ContentSecurityPolicyMiddleware (CSP com nonce), SecurityHeadersMiddleware (no-store nas áreas privadas, no-referrer nas rotas com token, COOP/CORP/Permissions-Policy), Enforce2FAMiddleware (2FA da equipe a cada request), django-axes e django-ratelimit."
    },
    {
-    "nome": "Celery Beat (scheduler)",
-    "papel": "Agendador de jobs periodicos via CELERY_BEAT_SCHEDULE (crontab): lembretes 08h, NPS 10h, alerta detrator 10h30, verificar pacotes 07h, expirar pacotes 00h30, limpeza status 23h, aniversario 09h, purga LGPD domingo 03h. Procfile: celery -A clinica beat."
+    "nome": "Serviços, FSM, signals e EventBus",
+    "papel": "Regras em services/ e utils/ (SlotService, OTP, preços, termos, LGPD, alertas, comissão, cashback, retorno, lista de espera). FSM do atendimento no model; signals para faltas, pacote, lista de espera e push; EventBus síncrono para comissão, cashback e retorno."
    },
    {
-    "nome": "Redis (broker + cache + sessao)",
-    "papel": "Triplo papel. (1) Broker e result backend do Celery (CELERY_BROKER_URL / CELERY_RESULT_BACKEND, default redis://localhost:6379/0). (2) Cache default via django_redis quando REDIS_URL definido, sustentando rate-limit/django-axes/slot-lock de booking e os contadores de quota de SMS (sms_rl:*). (3) Backend de sessao (SESSION_ENGINE=cache) — onde vivem as chaves otp_agendamento_email/expira. Sem REDIS_URL cai para LocMemCache + sessao em DB (com warning em prod)."
+    "nome": "Celery (eager) + cron HTTP",
+    "papel": "Tasks Celery rodam em modo eager em produção (sem worker e sem retry síncrono); jobs periódicos chamados por cron externo em /cron/run/<job>/. Worker real opcional (CELERY_WORKER_ENABLED)."
    },
    {
-    "nome": "PostgreSQL",
-    "papel": "Banco de dados primario em prod via DATABASE_URL (dj_database_url, conn_max_age=600, health checks, ssl_require fora de DEBUG; Railway gerenciado). Guarda Cliente, Atendimento (com constraint EXCLUDE excl_atendimento_sobreposicao anti-overbooking e FSM de status), Procedimento, Profissional, Notificacao, CodigoOtp, termos/anamnese etc. Em dev usa SQLite (db_dev.sqlite3); testes sempre SQLite."
+    "nome": "PostgreSQL 18",
+    "papel": "Banco principal (34 tabelas de domínio) com EXCLUDE anti double-booking, UNIQUE parciais, CHECKs, triggers de imutabilidade e collation pt_br. SQLite em desenvolvimento e testes rápidos."
    },
    {
-    "nome": "Vite / Frontend (django-vite)",
-    "papel": "Bundler do frontend (Vite 6) integrado via django_vite. Em DEBUG roda dev server (dev_mode, hot reload); em prod le manifest.json em aranha_estetica/static/dist/ com static_url_prefix 'dist'. Templates renderizados com django-cotton (componentes) + django-staticfiles. JS do wizard de agendamento (static/js/wizard.js) consome os endpoints AJAX de horarios/dias/OTP."
+    "nome": "Cache e sessão",
+    "papel": "LocMemCache + sessão no banco (1 worker): rate-limit, axes, trava de slot e cotas de SMS. REDIS_URL opcional troca para Redis (necessário com mais de um worker)."
    },
    {
-    "nome": "WhiteNoise (static serving)",
-    "papel": "Middleware que serve assets estaticos comprimidos em prod (CompressedManifestStaticFilesStorage) sem servidor de arquivos dedicado; collectstatic roda no startCommand do railway.json e GZip middleware acompanha."
+    "nome": "Front-end (Vite + Tailwind + Alpine + cotton)",
+    "papel": "Bundle Vite com Tailwind v4 e Alpine CSP servido pelo django-vite; componentes django-cotton; JS estático do wizard; estáticos com hash e compressão pelo WhiteNoise."
    },
    {
-    "nome": "PWA / Service Worker (web push)",
-    "papel": "Camada PWA com service worker e web push (static/js/webpush.js, base_v2.html do painel). Registra SW e gerencia push notifications para o painel administrativo; CSP do middleware precisa liberar os recursos do worker."
+    "nome": "PWA e Web Push",
+    "papel": "Manifest do site e da equipe, service worker v7 (só páginas públicas em cache), push VAPID ao profissional."
    },
    {
-    "nome": "Middleware de seguranca (CSP + headers + 2FA + axes)",
-    "papel": "aranha_estetica.middleware: ContentSecurityPolicyMiddleware (injeta CSP com nonce, exposto via context_processor csp_nonce), SecurityHeadersMiddleware (headers extras), Enforce2FAMiddleware (forca 2FA no admin/painel) e AxesMiddleware (lockout por IP+username, 5 falhas, cooloff 1h). Atras de Cloudflare/Railway respeita X-Forwarded-For/Proto."
+    "nome": "Railway (Docker)",
+    "papel": "Imagem multi-stage (Node 22 → Python 3.12), pre-deploy com migrate_atomico + bootstrap_admin, healthcheck /healthz/, 1 réplica."
    }
   ],
   "integracoes_externas": [
    {
-    "nome": "Zenvia SMS (REST API v2)",
-    "uso": "Canal PRIMARIO e exclusivo de OTP (verificacao anti-sequestro do agendamento e login 'Meus Agendamentos'). utils/sms.py: POST em https://api.zenvia.com/v2/channels/sms/messages com header X-API-TOKEN (ZENVIA_API_TOKEN) e remetente ZENVIA_FROM; telefone normalizado para E.164 (55...). Tem rate-limit anti-abuso por telefone (3/h), por IP (10/h) e global (60/h) via cache, retry exponencial em 5xx/timeout, e modo dev (DEBUG ou SMS_DEV_LOG_ONLY) que so loga. enviar_otp_sms manda 'codigo valido por 10 min'."
+    "nome": "Zenvia SMS",
+    "uso": "Único canal de OTP (agendamento, Meus agendamentos, DSAR), só para celular, com cotas por telefone/IP/global. Sem provedor: falha fechada e o site orienta o WhatsApp. Webhook de status com IP permitido e/ou HMAC."
    },
    {
-    "nome": "Meta WhatsApp Cloud API",
-    "uso": "Mensagens proativas via templates pre-aprovados (Graph API graph.facebook.com/v18.0/<PHONE_ID>/messages, Bearer WHATSAPP_TOKEN). Uso restrito a 2 fluxos: confirmacao/lembrete D-1 (template confirmacao_d1 com links confirmar/cancelar) e pesquisa NPS 24h pos-atendimento (template nps_pos_atendimento), alem de aniversario. Exige consent do cliente; retry em 5xx/timeout; modo dev so loga. NAO usado para OTP."
+    "nome": "WhatsApp Cloud API (Meta)",
+    "uso": "Templates aprovados: lembrete D-1 com links de confirmar/cancelar, NPS pós-atendimento e aviso de vaga da lista de espera; sempre com consentimento. Webhook com handshake e assinatura X-Hub-Signature-256 captura a nota de NPS."
    },
    {
-    "nome": "SMTP / Email (Django EmailMultiAlternatives)",
-    "uso": "Canal de mensagens transacionais e marketing (NAO OTP). utils/email.py com EMAIL_HOST/PORT/USER/PASSWORD (default smtp.gmail.com:587 TLS). Envia confirmacao de agendamento, cancelamento, pacotes expirando, fila de espera, aprovacao do profissional, termos pendentes, aniversario e promocoes. Marketing inclui headers List-Unsubscribe (RFC 8058 one-click) e sanitizacao bleach anti-XSS. Disparado async via Celery (send_email_async). Em dev usa console backend."
+    "nome": "Provedor de e-mail",
+    "uso": "Backend Django configurável (SMTP ou HTTP): aprovação/rejeição, cancelamento, termos, lista de espera, pacote expirando, aviso ao profissional, reset/convite de senha, contato, aniversário e promoções (com List-Unsubscribe e HTML sanitizado). Sem backend real nada é enviado."
    },
    {
-    "nome": "Cloudflare Turnstile (CAPTCHA)",
-    "uso": "Validacao anti-bot (utils/captcha.py) no agendamento publico (confirmar_agendamento) e na solicitacao de OTP (solicitar_otp_agendamento / meus_agendamentos_enviar_otp). Token cf-turnstile-response verificado server-side via verificar_turnstile com o IP do cliente; site key exposta ao template. Ativavel via turnstile_enabled()."
+    "nome": "Cloudflare Turnstile",
+    "uso": "Captcha no pedido de código SMS (wizard e Meus agendamentos), verificado no servidor com o IP da cliente."
    },
    {
-    "nome": "Object Storage S3/R2/GCS (django-storages, opcional)",
-    "uso": "Storage de media opcional ativado por AWS_STORAGE_BUCKET_NAME (S3Boto3Storage). Suporta S3/Cloudflare R2/MinIO via AWS_S3_ENDPOINT_URL e dominio customizado; sem ele a media fica em disco local (MEDIA_ROOT). Estaticos sempre via WhiteNoise."
+    "nome": "Google Calendar (opcional)",
+    "uso": "OAuth por profissional: envio do atendimento novo e leitura de eventos; feed iCal próprio com token rotacionável."
    },
    {
-    "nome": "Sentry (observabilidade, opcional)",
-    "uso": "Monitoramento de erros/performance via SENTRY_DSN (DjangoIntegration, traces_sample_rate). send_default_pii=False e before_send custom (sentry_before_send) para escrubar PII antes do envio."
+    "nome": "Sentry (opcional)",
+    "uso": "Monitoramento de erros com PII e tokens removidos antes do envio."
    },
    {
-    "nome": "Railway (PaaS de deploy)",
-    "uso": "Plataforma de hospedagem (build NIXPACKS). startCommand roda migrate + collectstatic + gunicorn; healthcheck em /healthz/; respeita RAILWAY_PUBLIC_DOMAIN em ALLOWED_HOSTS/CSRF_TRUSTED_ORIGINS. Procfile define os processos web/worker/beat/release."
+    "nome": "Railway",
+    "uso": "Hospedagem (Docker), Postgres gerenciado, variáveis de ambiente e agendamento (Railway Cron, opcional)."
    }
   ],
   "fluxo_agendamento_otp": [
-   "1. Cliente -> abre /agendamento (GET agendamento_publico, rate-limit 60/h por IP) -> Django App renderiza o wizard de 3 steps (procedimento, data/horario, dados) com procedimentos+precos, formularios de anamnese e site key do Turnstile.",
-   "2. Cliente -> escolhe procedimento e data -> wizard.js consulta api_dias_disponiveis e api_horarios_disponiveis (booking_api.py, 30/m por IP) -> Django App/PostgreSQL retorna slots livres por profissional (sem overbooking).",
-   "3. Cliente -> preenche nome, telefone, data de nascimento, email (opcional) e consents no step de confirmacao.",
-   "4. Cliente (JS) -> ao submeter, POST em confirmar_agendamento (booking_public.py, rate-limit 10/m por IP) -> Django App valida honeypot 'website' (bot -> redireciona) e, se turnstile_enabled, valida o token Turnstile via Cloudflare; normaliza o telefone e checa campos obrigatorios (booking_public.py:116-141).",
-   "5. Django App -> GATE ANTI-SEQUESTRO: verifica se o TELEFONE (ou, se informado, o EMAIL) ja pertence a um Cliente ativo (Cliente.objects.filter(telefone=...).exists() / email__iexact) — identidade real do booking e o telefone (booking_public.py:142-149).",
-   "6. Se o cliente JA EXISTE -> antes de qualquer escrita o JS precisa ter obtido um OTP: POST em solicitar_otp_agendamento (booking_otp.py, 5/m por IP) -> valida Turnstile, exige telefone, resolve a identidade (email real ou pseudo-email sms+<digitos> via CodigoOtp.email_para_telefone) e chama otp_service.solicitar_otp(proposito=AGENDAMENTO, canal=SMS).",
-   "7. otp_service.solicitar_otp -> gera CodigoOtp (com cooldown/pode_reenviar anti-abuso) -> OTPService.enviar_codigo -> utils/sms.enviar_otp_sms -> Zenvia SMS entrega o codigo (valido 10 min) ao telefone do cliente; resposta e identica exista ou nao o cadastro (anti-enumeracao).",
-   "8. Cliente -> digita o codigo -> POST em verificar_otp_agendamento (booking_otp.py, 10/m por IP) -> otp_service.verificar_otp valida o codigo; em sucesso grava na SESSAO request.session['otp_agendamento_email'] e request.session['otp_agendamento_expira'] (TTL 30 min) e devolve pre-fill do cliente (booking_otp.py:81-92).",
-   "9. Django App (no POST de confirmar_agendamento) -> REVALIDA o OTP da sessao: o otp_agendamento_email deve estar entre as identidades aceitas (pseudo-email do telefone e/ou email do form) e otp_agendamento_expira deve ser futuro; se invalido/expirado -> erro 'Confirme com o codigo SMS...' e redirect (booking_public.py:151-171). Cliente novo (sem cadastro) pula o gate OTP.",
-   "10. Django App -> valida idade >= 18 (data_nascimento), valida data/hora futura, bloqueio de feriado, e adquire slot-lock no cache (cache.add booking_slot:<prof>:<datetime>, 30s) para evitar corrida (booking_public.py:173-205).",
-   "11. Django App -> em transaction.atomic + SELECT FOR UPDATE: get_or_create do Cliente por telefone (atualiza nome/email/consents com data+IP), checa conflito de horario do profissional e, se livre, cria o Atendimento com status PENDENTE (valor_cobrado calculado por preco_para); persiste respostas de anamnese e, se houver termos LGPD/procedimento nao assinados, cria Notificacao com token de termo (booking_public.py:207-336).",
-   "12. Django App -> dispara emails assincronos via Celery (send_email_async): termos pendentes ao cliente (se email) e aviso de novo agendamento PENDENTE ao profissional (com links aprovar/rejeitar). Worker/SMTP entregam fora do request.",
-   "13. Django App -> grava request.session['agendamento_sucesso'], limpa as chaves de OTP da sessao (otp_agendamento_email/expira) e redireciona para agendamento_sucesso, que exibe a confirmacao (atendimento aguardando aprovacao da clinica) com botao WhatsApp (booking_public.py:358-408)."
+   "1. Cliente abre /agendamento/ (GET agendamento_publico) e recebe o wizard com procedimentos (preço com a promoção da data), fichas de anamnese aplicáveis, termos e a chave do Turnstile.",
+   "2. Ao escolher procedimento e data, o wizard.js consulta /ajax/dias-disponiveis/ e /ajax/horarios-disponiveis/; o SlotService devolve os horários livres por profissional.",
+   "3. Cliente preenche nome, celular, nascimento, e-mail (opcional), escolhe os consentimentos de comunicação (desmarcados), aceita a Política de Privacidade e os termos do procedimento e responde a ficha (com o consentimento do art. 11).",
+   "4. Pede o código: POST solicitar_otp_agendamento (5/min por IP) valida o Turnstile, recusa telefone fixo, checa intervalo de 60 s e cotas de SMS antes de gerar o código (HMAC) e envia pela Zenvia (válido 10 min). A resposta não revela se o telefone é cadastrado.",
+   "5. Digita o código: POST verificar_otp_agendamento confere (5 tentativas), troca o id da sessão e grava o telefone verificado (30 min); devolve o pré-preenchimento do cadastro daquele telefone.",
+   "6. Confirma: POST confirmar_agendamento (10/min por IP) checa honeypot, campos obrigatórios, aceite da política e se o telefone do formulário é o verificado na sessão.",
+   "7. O servidor valida e-mail, idade ≥ 18, procedimento/profissional ativos e habilitação, data futura, feriado, slot livre (SlotService), ficha contra o schema + consentimento art. 11, termos de procedimento aceitos e e-mail que não pertença a outro cadastro.",
+   "8. Trava o slot no cache (30 s) para serializar confirmações simultâneas.",
+   "9. Em transaction.atomic: get_or_create da cliente pelo telefone com SELECT FOR UPDATE (bloqueada online é recusada), atualiza nome, e-mail e consentimentos (data + IP), confere conflito com SELECT FOR UPDATE, calcula preço + promoção da data e cria o atendimento PENDENTE.",
+   "10. Na mesma transação grava os aceites (AceiteTermo.registrar: LGPD vigente + termos, com IP, navegador e SHA-256), as fichas respondidas e a auditoria do consentimento de saúde.",
+   "11. Se outro pedido ganhou a corrida, a constraint EXCLUDE (23P01) vira a mensagem \"horário acabou de ser reservado\" e o wizard é reidratado.",
+   "12. Após o commit: e-mail ao profissional com link para a agenda do dia, push ao profissional e sync do Google Calendar (on_commit).",
+   "13. A sessão de OTP é limpa e a página de sucesso mostra o resumo (valor com promoção) e que o pedido aguarda a aprovação da clínica.",
+   "14. Depois, a clínica aprova (AGENDADO + e-mail de confirmação) ou rejeita (CANCELADO + e-mail) pelo painel ou pelo portal do profissional."
   ]
  }
 }

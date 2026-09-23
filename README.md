@@ -1,61 +1,50 @@
-# Jaqueline Aranha Estética
+# Jaqueline Aranha Estética — Shiva Zen
 
-Sistema de agendamento online e gestão para clínica de estética da biomédica Jaqueline Aranha. Django 5.2 + PostgreSQL + Redis + Celery, com painel administrativo, PWA, web push e integrações externas (WhatsApp Business, Google Calendar, Zenvia SMS, Sentry, Cloudflare Turnstile).
+Site e sistema de gestão da clínica de estética da biomédica Jaqueline Aranha
+(São José do Rio Preto/SP). Um único app Django serve o **site público** (vitrine,
+agendamento online, área "Meus agendamentos", LGPD) e o **painel da equipe**
+(agenda, clientes, ficha/prontuário, pacotes, promoções, comissões, NPS, termos).
 
-> **Nota técnica:** módulos Python: `aranha_estetica` (app Django) e `clinica` (project Django). Marca de produto: **Jaqueline Aranha Estética**, configurável via env var `CLINIC_NAME`. Plataforma single-tenant white-label — o mesmo código atende outras clínicas via configuração.
+> Nomes técnicos: o app Django é `aranha_estetica` e o projeto é `clinica`. "Shiva Zen"
+> é o nome do repositório/TCC; a marca exibida vem da tela **Branding** do painel
+> (ou da env `CLINIC_NAME`).
+
+Documentação completa: **[docs/PROJECT.md](docs/PROJECT.md)** (fonte viva: arquitetura,
+modelos, rotas, env vars, jobs, deploy e runbook de go-live).
 
 ---
 
-## Visão Geral
+## O que o sistema faz
 
-Plataforma single-tenant white-label para clínica de estética. Pacientes agendam pelo site público (sem cadastro tradicional, OTP via SMS); o painel administrativo cobre toda a operação — agenda, prontuário, anamnese dinâmica, pacotes, promoções, NPS, workflow engine, LGPD.
+**Site público (sem login)**
+- Agendamento online em 3 passos (procedimento → data/horário → dados). **Todo**
+  agendamento exige o código OTP enviado por SMS ao celular informado; o telefone é a
+  identidade da cliente (sem senha). Sem provedor de SMS, os botões "Agendar" levam ao
+  WhatsApp da clínica.
+- Aceite obrigatório da Política de Privacidade (prova gravada: IP, navegador e SHA-256
+  do texto), consentimento específico para a ficha de saúde (LGPD art. 11) e aceite dos
+  termos do procedimento no próprio wizard.
+- Preço gravado = preço com a promoção vigente **na data do atendimento**.
+- "Meus agendamentos" com login por celular ou e-mail (o código vai sempre ao celular do
+  cadastro): consultar, reagendar (até 24h antes) e cancelar.
+- Links por token: confirmar presença (lembrete D-1 do WhatsApp), reagendar, NPS, termo,
+  ficha de anamnese, descadastro.
+- Lista de espera, promoções, depoimentos (só com autorização da cliente e aprovação da
+  clínica), páginas institucionais, PWA e widget `/embed/agendar/`.
+- LGPD: "Meus dados" (exportação com OTP), descadastro de marketing em um clique.
 
-### Funcionalidades
-
-**Site público / paciente**
-- Agendamento online em 3 etapas (procedimento → data/horário → confirmação)
-- Filtro por categoria (Facial, Corporal, Capilar, Outro)
-- Verificação por OTP via SMS Zenvia + Cloudflare Turnstile (anti-bot)
-- "Meus Agendamentos" via OTP — sem login tradicional
-- Reagendamento self-service por link mágico (24h de antecedência mínima)
-- Anamnese pré-agendamento dinâmica (schema JSON, 8 tipos de campo)
-- Pesquisa pós-atendimento online via WhatsApp (formulário token-based)
-- Lista de espera + página de promoções
-- PWA instalável (manifest + service worker com offline fallback)
-- Embed widget `<iframe>` para Linktree/Instagram bio (`/embed/agendar/`)
-
-**Painel administrativo**
-- Dashboard com 8 KPIs (agendamentos, ticket médio, ocupação, ativos 90d, NPS, etc.)
-- Calendário visual (FullCalendar) com drag-drop reagendamento
-- Gestão de agendamentos, pacientes, profissionais, procedimentos, pacotes, promoções, lista de espera
-- Ficha do paciente com timeline visual + LTV + procedimentos preferidos
-- Workflow engine configurável (regra → trigger → ação) — substitui tasks hardcoded
-- Bloqueios de agenda + recorrência (RRULE iCal)
-- Exceções por data (folga ou horário diferente)
-- Buffer entre atendimentos + min-notice/max-advance por profissional
-- Web Push notifications (VAPID) para profissional ao novo agendamento
-- ICS feed assinado por profissional (sincroniza com Google Cal/Outlook)
-- Integração Google Calendar OAuth (push outbound + pull eventos externos)
-- Auditoria detalhada (LogAuditoria) — atende Art. 37 LGPD
-- 2FA TOTP (django-two-factor-auth)
-- LGPD: consentimentos granulares por canal, unsubscribe one-click, soft delete, anonimização após 30d, exportação JSON
-- REST API v1 (DRF read-only) + OpenAPI/Swagger/ReDoc
-
-**Notificações multi-canal**
-- WhatsApp Business API (confirmação, lembrete D-1, NPS pós-atendimento, pesquisa pós-online) — 3 templates aprovados Meta + 1 em submissão
-- E-mail (OTP, confirmação, cancelamento, fila, pacotes, aniversário, promoções, alertas)
-- SMS (OTP via Zenvia)
-- Web push (VAPID/pywebpush) para staff
-- Cron HTTP autenticado (`X-Cron-Token`) substitui Celery Beat em free tier
-
-**Regras de negócio destacadas**
-- 3-strike: 3 faltas consecutivas bloqueiam agendamento online
-- FSM com 7 estados em `Atendimento` (PENDENTE → AGENDADO → CONFIRMADO → REALIZADO/CANCELADO/FALTOU/REAGENDADO) e 14 transições válidas
-- Workflow engine c/ deduplicação (UNIQUE regra+atendimento)
-- Slot generator: 7 fontes (feriado → max-advance → exceção → semanal → min-notice → buffer → bloqueios)
-- Reset automático de faltas ao marcar REALIZADO
-- Notificação de fila de espera ao liberar vaga
-- 3 modalidades de procedimento: presencial, online, híbrido
+**Painel da equipe** (`/admin-login/`)
+- ADMIN: painel completo com **2FA obrigatório** (TOTP). PROFISSIONAL: portal
+  `/profissional/` com a própria agenda, aprovação dos pedidos, "Realizado", anotações e
+  acesso à ficha só de quem ela atende.
+- Agenda (lista + calendário arrastar-e-soltar), agendamento interno pela recepção,
+  aprovação de pedidos, valor cobrado, link do termo por atendimento.
+- Clientes com alertas de saúde visíveis, ficha/prontuário com **histórico de versões**,
+  pacotes (venda, saldo, validade, cancelamento com reembolso), promoções e disparo por
+  e-mail, comissões, NPS e moderação de depoimentos, termos versionados (imutáveis após o
+  1º aceite), auditoria (LGPD art. 37), Branding, usuários.
+- Jobs periódicos por cron HTTP (lembrete D-1, NPS, pacotes, aniversário, limpeza,
+  retenção LGPD, feriados).
 
 ---
 
@@ -63,227 +52,122 @@ Plataforma single-tenant white-label para clínica de estética. Pacientes agend
 
 | Camada | Tecnologia |
 |---|---|
-| Backend | Django 5.2, Python 3.12+ |
-| Banco | PostgreSQL 14+ (47 tabelas, 22 migrations) |
-| Cache / Tasks | Redis + Celery 5.4 |
-| Servidor | Gunicorn + WhiteNoise |
-| Frontend | Bootstrap 5.3, Vanilla JS, FullCalendar 6, AOS, Swiper |
-| Auth | django-axes, django-two-factor-auth, OTP TOTP |
-| Push | pywebpush (VAPID) |
-| API | Django REST Framework + drf-spectacular (OpenAPI) |
-| Notificações | WhatsApp Business API, Zenvia (SMS), SMTP |
-| Captcha | Cloudflare Turnstile |
-| Hospedagem | Railway (Nixpacks build) |
-| Monitoramento | Sentry |
-| CI/CD | GitHub → Railway via webhook (push-to-deploy 2-3min) |
+| Backend | Python 3.12, Django 5.2 (server-render, sem SPA) |
+| Banco | PostgreSQL 18 em produção/CI (EXCLUDE, CHECK, triggers, collation ICU); SQLite em dev/testes rápidos |
+| Front-end | Vite 6 + Tailwind CSS v4 + Alpine.js (build **CSP**, `@alpinejs/csp`) + componentes django-cotton. **Sem HTMX, sem Bootstrap, sem jQuery** |
+| Assíncrono | Celery 5.4 em modo *eager* (sem worker por padrão); jobs periódicos via cron HTTP `/cron/run/<job>/` |
+| Cache/sessão | LocMem + sessão no banco (1 worker gunicorn); Redis opcional via `REDIS_URL` |
+| Segurança | CSP com nonce, django-axes, django-ratelimit, django-otp (TOTP), Cloudflare Turnstile |
+| API | Django REST Framework (somente leitura, só ADMIN) + drf-spectacular (Swagger) |
+| Integrações | Zenvia (SMS/OTP), WhatsApp Business (Meta), e-mail (backend Django), Web Push (VAPID), Google Calendar (opcional), Sentry |
+| Deploy | Railway: Dockerfile multi-stage (Node 22 → Python 3.12), gunicorn 1 worker × 4 threads, WhiteNoise |
+| CI | GitHub Actions (`.github/workflows/ci.yml`): SQLite, Postgres 18, build do front, build da imagem, pip-audit |
 
 ---
 
-## CI/CD — Push-to-Deploy
+## Rodando localmente
 
-Pipeline contínuo com tempo médio **2 a 3 minutos** do commit ao serviço atualizado em produção.
+Pré-requisitos: Python 3.12, Node ≥ 20 (o repositório usa 22 — `.nvmrc`). Postgres é
+opcional em dev.
 
+```bash
+# 1. Python
+python -m venv .venv
+source .venv/bin/activate            # Windows: .venv\Scripts\activate
+pip install -r requirements-dev.txt -c requirements.lock
+
+# 2. Ambiente
+cp .env.example .env                 # DEBUG=True basta p/ dev; o resto tem default
+
+# 3. Banco (sem DATABASE_URL = SQLite em db_dev.sqlite3)
+python manage.py migrate
+python manage.py seed --demo         # catálogo real, profissional, agenda, termo LGPD,
+                                     # anamnese padrão, feriados + clientes/atendimentos fictícios
+
+# 4. Usuário ADMIN (o seed não cria usuários)
+ADMIN_EMAIL=voce@exemplo.com ADMIN_PASSWORD='uma-senha-forte-10+' python manage.py bootstrap_admin
+#   (ou: python manage.py createsuperuser)
+
+# 5. Front-end (terminal 1) — em DEBUG o django-vite aponta p/ o dev server
+npm ci
+npm run dev                          # Vite em http://localhost:5173 (HMR)
+
+# 6. Django (terminal 2)
+python manage.py runserver           # http://127.0.0.1:8000
 ```
-git push origin <branch>
-       ↓
-GitHub webhook
-       ↓
-Railway detecta + dispara build
-       ↓
-Nixpacks: detecta Python + requirements.txt → gera imagem OCI
-       ↓
-Release phase: collectstatic + migrate
-       ↓
-Substituição atômica: gunicorn + worker Celery + beat reiniciam
-       ↓
-Sentry captura exceptions + métricas
-       ↓
-Healthchecks /health/ (readiness) + /healthz/ (liveness)
+
+- `npm run build` gera `aranha_estetica/static/dist/` + `manifest.json` (usado quando
+  `DEBUG=False`, no CI e na imagem Docker).
+- Em dev (`DEBUG=True`) o 2FA só é obrigatório se `ADMIN_2FA_OBRIGATORIO=true`, e o SMS
+  entra sozinho em modo log (`utils/sms.sms_modo_dev`): nada é enviado, o envio vira o
+  evento `sms_dev_log` no logger (a prévia da mensagem vai nos campos *extra*). Fora de
+  DEBUG, SMS só com `ZENVIA_API_TOKEN` + `ZENVIA_FROM`.
+- Postgres local: defina `DATABASE_URL=postgres://...` (ou `DB_ENGINE`/`DB_NAME`/...).
+- `python manage.py seed` sem `--demo` cria só os dados reais; em produção o comando exige
+  `--force` e recusa `--demo`.
+
+### Testes
+
+```bash
+python manage.py check
+python manage.py makemigrations --check --dry-run
+python manage.py test aranha_estetica                 # SQLite (db_test.sqlite3), rápido
+pytest aranha_estetica/tests/test_2fa.py              # único arquivo só-pytest (o CI roda à parte)
+
+# Mesma suíte no Postgres (como a CI): EXCLUDE, CHECK, triggers e collation só existem lá
+TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/ci PG_EXIGE_ICU=1 \
+  python manage.py test aranha_estetica
 ```
 
-**Branches:**
-- `main` → ambiente production (`web-production-465af.up.railway.app`)
-- `dev` → ambiente development (`web-dev-1a30.up.railway.app`)
-
-Ambos os ambientes têm Postgres + Redis dedicados isolados.
-
-**Tests:**
-- `python manage.py check` — pré-commit local
-- Management commands de smoke test (`seed_jaqueline`, `seed_pesquisa_online_v1`)
-- Django TestCase em models e services principais
-
-**Secrets management:**
-- Zero secrets no Git
-- Todas as credenciais via env vars Railway
-- `.env.example` documenta o conjunto sem expor valores
+São ~1.060 testes em 52 arquivos (`aranha_estetica/tests/`). A CI também roda
+`migrate_atomico` do zero no Postgres, `check --deploy` com settings de produção, o build
+do Vite e o `docker build`.
 
 ---
 
 ## Estrutura
 
 ```
-jaqueline-aranha-estetica/
-├── aranha_estetica/             # App Django principal
-│   ├── models/                  # 14 arquivos por agregado de domínio
-│   │   ├── acesso.py            # Usuario, Perfil, RBAC
-│   │   ├── clientes.py          # Cliente + soft-delete LGPD
-│   │   ├── profissionais.py     # Profissional, disponibilidade, exceções, bloqueios
-│   │   ├── procedimentos.py     # Procedimento, Preço, Promoção (com modalidade)
-│   │   ├── agendamentos.py      # Atendimento (FSM), Notificacao
-│   │   ├── prontuario.py        # Prontuário + AnotacaoSessao
-│   │   ├── anamnese.py          # FormularioAnamnese (schema JSON dinâmico)
-│   │   ├── pacotes.py           # Pacote + sessões consumíveis
-│   │   ├── workflow.py          # WorkflowRegra + WorkflowExecucao
-│   │   ├── push.py              # WebPushSubscription
-│   │   ├── termos.py            # VersaoTermo + AceitePrivacidade
-│   │   ├── nps.py               # AvaliacaoNPS
-│   │   ├── sistema.py           # Config, OtpCode, LogAuditoria, Feriado
-│   │   └── extras.py            # PatchTest, FotoAntesDepois, Produto, Tag, Plano, Crédito
-│   ├── views/                   # 30+ módulos por domínio
-│   ├── services/                # Lógica de negócio (workflow_engine, otp, notificacao, gcal)
-│   ├── api/                     # REST API v1 (DRF + OpenAPI)
-│   ├── templates/
-│   │   ├── publico/             # Home, sobre, serviços, equipe, depoimentos, galeria
-│   │   ├── servicos/            # Faciais, corporais, produtos
-│   │   ├── agenda/              # Booking público, embed, meus_agendamentos, pesquisa
-│   │   ├── painel/              # Admin: overview, calendar, agendamentos, anamneses, workflows...
-│   │   ├── profissional/        # Agenda + anotações
-│   │   ├── email/               # Templates HTML de e-mail
-│   │   └── pwa/                 # manifest.json + sw.js (público + admin)
-│   ├── static/                  # CSS, JS, fotos, ícones PWA
-│   ├── tasks.py                 # Jobs Celery
-│   ├── signals.py               # Reativo (faltas, pacotes, fila, workflow)
-│   ├── decorators.py            # staff_required, etc.
-│   ├── middleware.py            # CSP nonce, axes, etc.
-│   ├── urls.py                  # Rotas (namespace: aranha)
-│   ├── management/commands/     # Seed + jobs cron
-│   └── migrations/              # 22 migrations versionadas
-├── clinica/                     # Projeto Django (settings, celery, urls, wsgi)
-├── docs/                        # Documentação técnica (API, MER, DPIA, etc.)
-├── scripts/                     # Utilitários
-├── requirements.txt
-├── Procfile
-├── railway.json
-└── manage.py
-```
-
----
-
-## ENV vars (produção)
-
-```bash
-# Brand white-label
-CLINIC_NAME="Jaqueline Aranha Estética"
-CLINIC_SUBTITLE="Estética facial e corporal · Atendimento exclusivo"
-CLINIC_EMAIL="contato@jaquelineearanha.com.br"
-CLINIC_PHONE="(11) XXXX-XXXX"
-CLINIC_ADDRESS="..."
-WHATSAPP_NUMERO="55119XXXXXXXX"
-INSTAGRAM_URL="https://www.instagram.com/<perfil>/"
-DEFAULT_FROM_EMAIL="noreply@jaquelineearanha.com.br"
-
-# Segurança
-SECRET_KEY=
-DEBUG=False
-ALLOWED_HOSTS=
-PASSWORD_RESET_TIMEOUT_SECONDS=3600
-CRON_TOKEN=
-
-# Banco / Cache
-DATABASE_URL=
-REDIS_URL=
-
-# Web Push (VAPID)
-WEBPUSH_VAPID_PUBLIC_KEY=
-WEBPUSH_VAPID_PRIVATE_KEY=
-WEBPUSH_VAPID_CLAIMS_EMAIL=
-
-# WhatsApp Business API
-WHATSAPP_TOKEN=
-WHATSAPP_PHONE_ID=
-WHATSAPP_TEMPLATE_D1=confirmacao_d1
-WHATSAPP_TEMPLATE_NPS=nps_pos_atendimento
-WHATSAPP_TEMPLATE_PESQUISA=pesquisa_online
-
-# Zenvia SMS (OTP)
-ZENVIA_API_KEY=
-
-# Email SMTP
-EMAIL_HOST_USER=
-EMAIL_HOST_PASSWORD=
-EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-
-# Google Calendar OAuth (opcional)
-GOOGLE_OAUTH_CLIENT_ID=
-GOOGLE_OAUTH_CLIENT_SECRET=
-GOOGLE_OAUTH_REDIRECT_URI=
-
-# Cloudflare Turnstile
-TURNSTILE_SITE_KEY=
-TURNSTILE_SECRET_KEY=
-
-# Sentry
-SENTRY_DSN=
-```
-
-Lista completa em [docs/SETUP_PROD.md](docs/SETUP_PROD.md).
-
----
-
-## Setup local
-
-Ver [docs/SETUP.md](docs/SETUP.md). Resumo:
-
-```bash
-python -m venv .venv
-source .venv/bin/activate  # ou .venv\Scripts\activate no Windows
-pip install -r requirements.txt
-cp .env.example .env  # ajustar valores
-python manage.py migrate
-python manage.py seed_jaqueline
-python manage.py createsuperuser
-python manage.py runserver
+aranha_estetica/                 app Django
+├── models/                      15 módulos, 34 tabelas de domínio (ver docs/PROJECT.md §5)
+├── views/                       site público, booking, portal do profissional, painel, cron, health
+├── services/                    regras de negócio (agendamento, disponibilidade, OTP, LGPD, termos,
+│                                comissão, cashback, retorno, lista de espera, alertas, gcal, push)
+├── domain/                      EventBus + eventos (comissão, cashback, retorno reagem a eles)
+├── utils/                       branding, e-mail, SMS, WhatsApp, preços, saúde, segurança, PII...
+├── api/                         DRF v1 (somente leitura, ADMIN) + Swagger
+├── management/commands/         seed, bootstrap_admin, migrate_atomico, setup_2fa, carregar_feriados
+├── migrations/                  0001–0046
+├── templates/                   estrutura/ (site), painel/ (equipe), profissional/, agenda/, publico/,
+│                                cotton/ (componentes), email/, pwa/, usuario/, erros 400/403/404/429/500
+├── static/src/                  fonte do Vite (tokens.css, app.css, app.js — Alpine CSP)
+├── static/js/                   wizard.js, admin-search.js, webpush.js (servidos direto)
+├── signals.py · tasks.py · tasks_manutencao.py · middleware.py · checks.py
+└── tests/
+clinica/                         settings (base/dev/prod), urls, celery, wsgi, gunicorn_logger
+docs/                            documentação (abaixo)
+Dockerfile · railway.json · .github/workflows/ci.yml · package.json · vite.config.js
+requirements.txt · requirements-dev.txt · requirements.lock · .env.example
 ```
 
 ---
 
 ## Documentação
 
-- **[docs/PROJECT.md](docs/PROJECT.md)** — documentação consolidada (setup, arquitetura, segurança, LGPD, API, WhatsApp, contributing). **Single source of truth.**
-
----
-
-## Segurança
-
-- Autenticação customizada (`AbstractBaseUser`, e-mail como identificador)
-- Senhas: PBKDF2 (Django default)
-- 2FA TOTP obrigatório para staff (django-two-factor-auth)
-- Reset de senha: token 1h + rate limit 3/15min por IP + audit log
-- CSRF em todos os formulários
-- ORM (anti-SQLi) + template escaping (anti-XSS)
-- CSP com nonce por request
-- django-axes (lockout brute-force após 5 tentativas/h)
-- Cloudflare Turnstile no booking público
-- Rate limit por IP em endpoints sensíveis (Redis)
-- HSTS 1 ano + SECURE_SSL_REDIRECT em produção
-- Set-Cookie: Secure + HttpOnly + SameSite=Lax
-- X-Frame-Options DENY (anti-clickjacking)
-- LGPD: consentimentos granulares por canal, unsubscribe one-click, soft delete, anonimização após 30d, endpoint de exportação JSON
-
----
-
-## Roadmap próximo (TCC 8º semestre)
-
-1. Aplicativo móvel nativo dedicado (Flutter ou React Native) — câmera integrada para fotos antes/depois, sync offline
-2. Evolução PWA → TWA (Trusted Web Activity) para publicação na Play Store
-3. Multi-tenant SaaS — Row-Level Security PostgreSQL + onboarding self-service para outras clínicas
+| Documento | Conteúdo |
+|---|---|
+| [docs/PROJECT.md](docs/PROJECT.md) | Fonte viva: stack, arquitetura, modelos/tabelas, rotas, env vars, comandos, jobs, testes, deploy e **runbook de go-live** |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Decisões (ADR-lite) e checkpoint de progresso/pendências |
+| [docs/AUTENTICACAO-E-ACESSO.md](docs/AUTENTICACAO-E-ACESSO.md) | Login da equipe, 2FA, OTP da cliente, links por token, sessões |
+| [docs/REGRAS-DE-NEGOCIO.md](docs/REGRAS-DE-NEGOCIO.md) | Regras funcionais com os valores reais do código |
+| [docs/specs/](docs/specs/) | Specs por assunto: banco (migrations 0027–0046), front, registry de regras |
+| [docs/diagramas/](docs/diagramas/) + [docs/gerar_requisitos.py](docs/gerar_requisitos.py) | UML (Mermaid) e documento de requisitos do TCC (`Requisitos-ShivaZen.docx/.pdf`) |
 
 ---
 
 ## Licença
 
-[MIT](LICENSE).
-
----
+Sem arquivo de licença no repositório (`package.json`: `UNLICENSED`). Código de uso da
+clínica e do TCC do autor.
 
 Desenvolvido por Rafael Maciel.

@@ -1,162 +1,165 @@
 # Regras de Negócio — Revisão & Fonte Única (Registry)
 
-> Spec única (sobrescrever a cada revisão). Status: **APROVADA em brainstorm 2026-06-14**.
-> Origem: revisão das regras de negócio + referências de mercado (Booksy/Fresha/Vagaro/Mangomint).
-> Objetivo escolhido pelo dono: **simplificar a operação** (clareza + fonte única), não monetizar.
-> Cross-ref: [`../REGRAS-DE-NEGOCIO.md`](../REGRAS-DE-NEGOCIO.md) (estado atual), [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
+> Spec única (sobrescrever a cada revisão). Status: **APROVADA em 2026-06-14; implementação
+> PARCIAL** (estado conferido no código em 2026-09-23, seção 5). Origem: revisão das regras +
+> referências de mercado (Booksy/Fresha/Vagaro/Mangomint). Objetivo do dono: **simplificar a
+> operação** (clareza + fonte única), não monetizar.
+> Estado atual das regras (valores reais): [`../REGRAS-DE-NEGOCIO.md`](../REGRAS-DE-NEGOCIO.md).
 
 ## 1. Objetivo & escopo
 
-Acabar com **regras espalhadas e divergentes** (mesma regra em `constants.py`, env var, default de model,
-tabela `Configuracao` e doc, com valores diferentes — ex.: OTP "3 vs 5"). Alvo: **uma fonte da verdade**
-com **edição híbrida** (dono edita valores operacionais; dev trava estruturais/segurança).
+Acabar com regras espalhadas e divergentes (a mesma regra em `constants.py`, env, default de
+model, `Configuracao` e doc, com valores diferentes). Alvo: **uma fonte da verdade** com edição
+híbrida (dono edita valores operacionais; dev trava estruturais/segurança).
 
-**No escopo:** as 5 simplificações da seção 3 + o registry.
-**Fora de escopo (parqueado, seção 6):** hardening de segurança, lembretes extras, monetização.
+## 2. Arquitetura proposta — Registry (Abordagem A)
 
-## 2. Decisão de arquitetura — Registry (Abordagem A)
+Fonte canônica em código (`aranha_estetica/regras.py`): cada regra declarada uma vez com
+`chave · tipo · default · categoria · ajuda`; leitura por `get_regra('dominio.chave')`.
+**ESTRUTURAL** (só código) × **OPERACIONAL** (override validado em `Configuracao`, tela
+"Configurações > Regras"); docs gerados do registry (`gerar_docs_regras`).
 
-Fonte canônica no código (`aranha_estetica/regras.py`): cada regra declarada **uma vez** com
-`chave · tipo · default · categoria · ajuda`. Todo código lê por `get_regra('dominio.chave')`.
+**Não implementado.** Hoje a fonte de cada valor é: model (antecedência por profissional,
+buffer, retorno), env (OTP, SMS, retenções), `constants.py` (janela de reagendamento, faltas,
+cashback, termo LGPD v1.0), `Configuracao` (`MAX_FALTAS_BLOQUEIO`, `email_admin`,
+`prontuario_perguntas`, Branding). A auditoria de 2026-09 removeu as constantes mortas/divergentes
+e alinhou os valores duplicados, então o drift que motivou o registry diminuiu muito.
 
-- **ESTRUTURAL** — segurança/estados/constraints. Só código, sem override.
-- **OPERACIONAL** — prazos/taxas/cashback/textos. Override editável pelo dono.
-- **Resolução única:** override-válido (se operacional) → senão default do código.
-- **Override** apoiado em `Configuracao`, tipado/validado/cacheado, editado num painel "Configurações > Regras".
-- **Docs gerados** do registry (comando `gerar_docs_regras`) → `REGRAS-DE-NEGOCIO.md` deixa de driftar.
+## 3. As 5 simplificações
 
-## 3. As 5 simplificações (aprovadas)
-
-| # | Regra | Hoje | Alvo (decisão travada) |
+| # | Regra | Alvo aprovado | Estado (2026-09-23) |
 |---|---|---|---|
-| 1 | **Aprovação de agendamento** | tudo entra `PENDENTE`; recepção aprova | **Auto-aprovar** cliente OTP-validado + sem bloqueio → entra `AGENDADO`. `PENDENTE` só em exceção (sem OTP, conflito, cliente bloqueado). Remove gargalo manual. |
-| 2 | **Estados do atendimento** | 7 status; `AGENDADO`/`CONFIRMADO` ambíguos | Semântica fixa: `AGENDADO` = horário marcado; `CONFIRMADO` = cliente respondeu "vou" (link/WhatsApp). Documentar gatilho de cada transição. Sem novo estado. |
-| 3 | **Sessão + OTP do cliente** | 2 sessões (`otp_agendamento_email`, `meus_agendamentos_email`); OTP só p/ cliente existente | **Uma** "sessão de cliente verificado" (telefone) que serve agendar + meus-agendamentos. Regra de OTP **única**: exigir OTP ao identificar cliente existente ou acessar dados. |
-| 4 | **Antecedência máxima** | 90d global **e** 60d por profissional (diverge) | **Uma regra** `agenda.antecedencia_max_dias` (global = **teto 90d**); profissional pode ter valor **menor**. Resolução = `min(prof, global)`. |
-| 5 | **Fonte dos valores** | `constants`/env/default/doc divergem | **Registry** (seção 2). Trava o `otp.max_tentativas` em **5** (1 valor). |
+| 1 | Aprovação de agendamento | Auto-aprovar cliente OTP-validada e sem bloqueio | ❌ **Não implementado**: o agendamento público segue nascendo **PENDENTE** (ARCHITECTURE D8). O agendamento interno nasce AGENDADO; PENDENTE vencido há 24 h é cancelado pelo job |
+| 2 | Estados do atendimento | Semântica fixa: AGENDADO = marcado; CONFIRMADO = cliente respondeu | ✅ Documentado e aplicado (confirmação pelo link do D-1). A FSM não mudou (PENDENTE → CONFIRMADO ainda é permitido) |
+| 3 | Sessão + OTP da cliente | Uma sessão de "cliente verificada"; regra única de OTP | ◐ **Regra única de OTP feita**: todo agendamento exige OTP, preso ao **telefone** (e-mail nunca é identidade); portal e DSAR também pelo telefone. **Sessão única não**: wizard (30 min) e portal (1 h) têm chaves próprias, ambas presas ao telefone |
+| 4 | Antecedência máxima | `min(profissional, teto global 90)` | ◐ Uma regra só: `profissional.max_advance_dias` (padrão 60, faixa 1–365); a constante global de 90 dias foi removida — **não há teto global** |
+| 5 | Fonte dos valores | Registry; `otp.max_tentativas` = 5 | ◐ Valor único 5 (`OTP_MAX_TENTATIVAS`); constantes divergentes removidas; registry não criado |
 
-## 4. Catálogo de regras (registry)
+## 4. Catálogo de regras (valores atuais)
 
-Legenda: **E** estrutural (trava) · **O** operacional (editável) · ✏️ muda na revisão · ⚠️ gap conhecido (fora de escopo).
+Legenda: **E** estrutural · **O** operacional · fonte atual entre parênteses.
 
 ### Identidade / login
 | chave | valor | cat |
 |---|---|---|
-| `cliente.identidade` | telefone digits-only (chave natural) | E |
-| `cliente.login` | passwordless telefone+OTP, sem senha | E |
-| `cliente.sessao` | ✏️ unificar 2→1 sessão de cliente verificado | E |
+| `cliente.identidade` | celular só dígitos (chave natural) | E |
+| `cliente.login` | passwordless: celular + OTP por SMS (só celular) | E |
+| `cliente.sessao` | wizard 30 min / portal 1 h (código) | E |
+| `equipe.2fa` | obrigatório p/ ADMIN; opt-in p/ PROFISSIONAL (env) | E |
 
 ### Agendamento
 | chave | valor | cat |
 |---|---|---|
-| `agenda.antecedencia_min_horas` | 2 | O |
-| `agenda.antecedencia_max_dias` | ✏️ 90 (teto global); prof sobrescreve menor; efetivo = min(prof, global) | O |
-| `agenda.aprovacao` | ✏️ auto-aprovar confiável; PENDENTE só exceção | E |
-| `agenda.estados` | ✏️ AGENDADO=marcado · CONFIRMADO=cliente respondeu | E |
+| `agenda.antecedencia_min_horas` | 2 (0–720) — `Profissional.min_notice_horas` | O |
+| `agenda.antecedencia_max_dias` | 60 (1–365) — `Profissional.max_advance_dias` | O |
+| `agenda.intervalo_slot_min` | 30 — `SlotService.INTERVALO` | E |
+| `agenda.aprovacao` | público → PENDENTE; interno → AGENDADO | E |
 | `agenda.double_booking` | EXCLUDE no banco | E |
-| `procedimento.duracao_minutos` | por procedimento | O |
-| `procedimento.buffer_minutos` | por procedimento | O |
+| `agenda.idade_minima` | 18 anos (wizard) | E |
+| `procedimento.duracao_minutos` / `buffer_minutos` | por procedimento (buffer 0–120) | O |
 
-### OTP
+### OTP / SMS
 | chave | valor | cat |
 |---|---|---|
-| `otp.max_tentativas` | ✏️ **5** (resolve 3≠5) | E |
-| `otp.validade_min` | 10 | O |
-| `otp.reenvio_min_seg` | 60 | O |
-| `otp.sms_por_hora_telefone` | 3 | O |
-| `otp.sms_por_hora_ip` | 10 | O |
-| `otp.sms_global_hora` | 60 | O |
-| `otp.proposito_isolado` | AGENDAMENTO/LOGIN/DSAR | E |
-| `otp.exige` | ✏️ regra única (parte do item 3) | E |
+| `otp.max_tentativas` | 5 (env) | E |
+| `otp.validade_min` | 10 (env `OTP_TTL_SEGUNDOS`) | O |
+| `otp.reenvio_min_seg` | 60 (env) | O |
+| `otp.sms_por_hora_telefone` / `_ip` / `_global` | 3 / 10 / 60 (env `SMS_MAX_*`) | O |
+| `otp.proposito_isolado` | AGENDAMENTO / LOGIN_CLIENTE / DSAR | E |
+| `otp.exige` | todo agendamento público + portal + DSAR | E |
 
-### No-show / reagendamento
+### Faltas / reagendamento / cancelamento
 | chave | valor | cat |
 |---|---|---|
-| `no_show.faltas_bloqueio` | 3 | O |
-| `no_show.taxa_percentual` | 50% (declarado; cobrança = fase 💰) | O |
-| `reagendamento.antecedencia_min_horas` | 24 | O |
-| `cancelamento.antecedencia_min_horas` | 24 | O |
-| `reagendamento.link_ttl_horas` | 48 | O |
-| `link_magico.ttl_dias` | 60 | O |
+| `no_show.faltas_bloqueio` | 3 (`Configuracao MAX_FALTAS_BLOQUEIO` > constants) | O |
+| `no_show.marcacao` | só a equipe (job não marca FALTOU) | E |
+| `reagendamento.antecedencia_min_horas` | 24 (constants) | O |
+| `cancelamento.cliente` | até o início do atendimento | E |
+| `link_magico.anamnese_ttl_dias` | 60 | O |
+| `link_termo.validade` | até o fim do atendimento | E |
 
 ### Retorno (F-RET)
 | chave | valor | cat |
 |---|---|---|
-| `retorno.exige` | por procedimento | O |
-| `retorno.janela_min_dias` / `max_dias` | por procedimento | O |
-| `retorno.duracao_min` | 30 | O |
-| `retorno.gratuito` | valor 0 | E |
-| `retorno.um_por_origem` | lógica no service | E · ⚠️ falta UNIQUE no banco |
+| `retorno.exige` / `janela_min_dias` / `janela_max_dias` | por procedimento | O |
+| `retorno.duracao_min` | 30 (padrão) | O |
+| `retorno.gratuito` | valor 0; sem comissão, cashback ou débito de pacote | E |
+| `retorno.um_por_origem` | UNIQUE no banco (0043) | E |
 
-### Fidelidade / comissão
+### Fidelidade / comissão / faturamento
 | chave | valor | cat |
 |---|---|---|
-| `cashback.valor_indicacao` | R$50 | O |
-| `cashback.saldo_minimo_uso` | R$10 | O |
-| `cashback.gatilho` | 1º pago do indicado | E |
-| `comissao.resolucao` | regra mais específica (4 níveis) | E |
-| `comissao.valor` | % ou fixo (por regra) | O |
-| `comissao.retorno_nao_gera` | retorno grátis não comissiona | E |
+| `cashback.valor_indicacao` | R$ 50 (constants) — inerte sem tela de indicação | O |
+| `cashback.gatilho` | 1º atendimento pago da indicada | E |
+| `comissao.resolucao` | mais específica (4 níveis); empate = mais recente | E |
+| `comissao.valor` | % (0–100) ou fixo; pacote = valor_pago ÷ sessões | O |
+| `faturamento.pacote` | receita na venda; sessão de pacote não soma | E |
 
 ### Pacotes / lista de espera
 | chave | valor | cat |
 |---|---|---|
 | `pacote.status` | ATIVO/FINALIZADO/CANCELADO/EXPIRADO | E |
-| `pacote.um_consumo_por_atendimento` | UNIQUE | E |
-| `lista_espera.reserva_min` | 30 | O |
-| `lista_espera.notifica_cancelamento` | sim | E · ⚠️ verificar view de consumo |
-| `lista_espera.uma_ativa_por_cliente` | UNIQUE parcial | E |
+| `pacote.validade_na_data_da_sessao` | sim | E |
+| `pacote.cancelamento` | exige valor devolvido (0..valor_pago) + motivo | E |
+| `lista_espera.aviso` | todos os compatíveis, FIFO, sem reserva de horário | E |
+| `lista_espera.uma_ativa` | UNIQUE parcial | E |
 
 ### NPS / aniversário / preços
 | chave | valor | cat |
 |---|---|---|
-| `nps.janela_pos_horas` | 24 | O |
-| `nps.escala` | 0–10 | E |
+| `nps.janela` | 24 h a 7 dias após o atendimento | O |
 | `nps.token_ttl_dias` | 7 | O |
-| `pesquisa.janela_horas` | 2 | O |
-| `aniversario.desconto_percentual` | 15 | O |
-| `aniversario.cupom_validade_dias` | 7 | O |
-| `promocao.desconto_xor_preco` | 0–100 XOR preço | E |
-| `preco.vigencia_sem_sobreposicao` | UNIQUE | E |
+| `nps.escala` / `nps.detrator` | 0–10 / ≤ 6 | E |
+| `depoimento.publicacao` | nota ≥ 9 + opt-in da cliente + aprovação | E |
+| `aniversario.email` | felicitação sem desconto | E |
+| `promocao.desconto_xor_preco` | 0–100 XOR preço; geral só percentual | E |
+| `promocao.email` | sem cupom; validade ≤ `data_fim` | E |
+| `preco.vigencia` | UNIQUE por procedimento/profissional/data | E |
 
-### Carteira / LGPD / notificação
+### Carteira / LGPD
 | chave | valor | cat |
 |---|---|---|
-| `carteira.saldo_nao_negativo` | CHECK ≥0 | E |
-| `carteira.ledger_imutavel` | trigger | E |
-| `termo.uma_versao_ativa_escopo` | UNIQUE | E |
-| `dsar.fatores` | 1 (SMS) — 🔒 fase futura: 2º fator | E |
-| `retencao.*` | otp 24h · notif 12m · auditoria/financ 5a · prontuário/aceite 20a · inativo 5a | O |
-| `notif.lembrete` | D-1 — 📣 fase futura: + imediato + nudge 1 sem. | O |
+| `carteira.saldo_nao_negativo` / `ledger_imutavel` | CHECK ≥ 0 / trigger | E |
+| `termo.uma_versao_ativa_escopo` / `imutavel_apos_aceite` | UNIQUE / model + trigger | E |
+| `aceite.prova` | IP + user-agent + SHA-256 do texto; imutável | E |
+| `dsar.fatores` | 1 (SMS) | E |
+| `retencao.*` | OTP 24h · notificação 12m · auditoria 5a · axes 90d · inativa 5a · soft delete 30d · ficha sem atendimento 90d · saúde 20a | O |
+| `notif.lembrete` | D-1 por WhatsApp (AGENDADO + consentimento) | O |
 
-## 5. Decomposição para implementação (3 specs → planos)
+Removidos do catálogo (não existem mais no código): reserva de 30 min da lista de espera, link de
+reagendamento de 48 h, antecedência de cancelamento de 24 h, taxa de no-show de 50%, janela de 2 h
+da pesquisa online, desconto/cupom de aniversário, saldo mínimo de uso do cashback.
 
-| Spec de implementação | Cobre | Risco | Ordem |
-|---|---|---|---|
-| **5.1 Registry (fonte única)** | itens 4 + 5; migra `constants`/env/defaults p/ o registry; gera docs | baixo | 1º |
-| **5.2 Estados + auto-aprovação** | itens 1 + 2 (FSM do atendimento) | médio | 2º |
-| **5.3 Identidade/sessão do cliente** | item 3 (unificar OTP + sessão) | médio | 3º |
+## 5. Decomposição para implementação
 
-Cada uma vira plano (`writing-plans`) + implementação própria, na ordem acima.
+| Spec | Cobre | Estado |
+|---|---|---|
+| 5.1 Registry (fonte única) | itens 4 + 5 | ❌ não iniciado (valores já alinhados à mão) |
+| 5.2 Estados + auto-aprovação | itens 1 + 2 | ◐ semântica feita; auto-aprovação não implementada (D8) |
+| 5.3 Identidade/sessão da cliente | item 3 | ◐ OTP único por telefone feito; sessão única pendente |
 
-## 6. Fora de escopo (parqueado — fases futuras)
+## 6. Fora de escopo — situação
 
-- 🔒 **Segurança:** salt+pepper no OTP, `hmac.compare_digest`, DSAR com 2º fator, TTL/revogação nos tokens mágicos.
-- 📣 **Lembretes:** confirmação imediata no booking + nudge 1 semana antes (ref: corta no-show 40–50%).
-- 💰 **Monetização:** sinal/depósito p/ no-show ter o que cobrar; pontos/tier de fidelidade.
-- ⚠️ **Gaps do banco** (em `remodelagem-banco-v2.md`): UNIQUE 1-retorno-por-origem; verificar view de consumo da lista de espera.
+- 🔒 **Segurança:** HMAC com a `SECRET_KEY` no OTP ✅, `compare_digest` ✅, rotação do token do
+  ICS ✅, anti-enumeração no agendamento ✅; DSAR com 2º fator ❌; TTL dos tokens de
+  cancelamento/descadastro ❌.
+- 📣 **Lembretes:** D-1 ✅; confirmação imediata no booking por WhatsApp e lembrete 1 semana antes ❌.
+- 💰 **Monetização:** sinal/depósito, cobrança de no-show, pontos/tier ❌.
+- ⚠️ **Gaps do banco** desta spec: UNIQUE 1-retorno-por-origem ✅ (0043); "view de consumo da
+  lista de espera" resolvido por decisão — não há reserva, o aviso leva ao agendamento;
+  `token_reserva`/`expira_em` ficam como legado a remover.
 
 ## 7. Decisões fixadas
 
-| # | Decisão | Razão |
+| # | Decisão | Estado |
 |---|---|---|
-| R1 | Registry (Abordagem A) como fonte única | mata divergência sem botar segurança no banco |
-| R2 | Edição híbrida (E trava / O editável) | autonomia do dono sem risco em regra crítica |
-| R3 | `otp.max_tentativas` = 5 | 1 valor; mantém comportamento real atual |
-| R4 | `agenda.antecedencia_max_dias` = min(prof, global 90) | 1 regra, sem divergência |
-| R5 | Auto-aprovar agendamento confiável | remove gargalo manual da recepção |
-| R6 | Docs de regras gerados do registry | nunca mais driftam |
+| R1 | Registry como fonte única | pendente |
+| R2 | Edição híbrida (E trava / O editável) | pendente (junto com R1) |
+| R3 | `otp.max_tentativas` = 5 | ✅ |
+| R4 | Antecedência máxima numa regra só | ✅ como valor do profissional (sem teto global) |
+| R5 | Auto-aprovar agendamento confiável | ❌ não implementada — público continua PENDENTE (confirmar com o dono se mantém a decisão) |
+| R6 | Docs de regras gerados do registry | pendente (hoje `REGRAS-DE-NEGOCIO.md` é mantido à mão, conferido no código) |
 
 ---
 
-_Última atualização: 2026-06-14 — criação (brainstorm aprovado)._
+_Última atualização: 2026-09-23 — estado da implementação conferido no código._

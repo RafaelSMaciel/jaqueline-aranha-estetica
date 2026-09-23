@@ -1,47 +1,61 @@
 ---
-title: Diagrama de Classes (UML) — Nucleo de Agendamento
+title: Diagrama de Classes (UML) — Núcleo de Agendamento
 ---
 classDiagram
     direction LR
 
     class Cliente {
         +nome: CharField
-        +telefone: CharField «unique ativo»
-        +cpf: CharField
-        +email: EmailField
+        +telefone: CharField «único entre ativos»
+        +email: EmailField «opcional, único»
+        +cpf: CharField «opcional, único»
+        +data_nascimento: Date
         +faltas_consecutivas: Smallint
         +bloqueado_online: Boolean
-        +deletado_em: DateTime «soft-delete»
+        +consent_email_marketing/_em/_ip
+        +consent_whatsapp_confirmacao/_em/_ip
+        +consent_whatsapp_nps/_em/_ip
+        +token_descadastro: CharField
+        +deletado_em: DateTime «soft delete»
         +registrar_falta()
+        +resetar_faltas()
         +soft_delete()
     }
     class Profissional {
         +nome: CharField
-        +slug: SlugField «unique»
+        +slug: SlugField «único»
         +ativo: Boolean
-        +min_notice_horas: Smallint
-        +max_advance_dias: Smallint
-        +get_horarios_disponiveis()
+        +min_notice_horas: 0..720 «padrão 2»
+        +max_advance_dias: 1..365 «padrão 60»
+        +ics_token: CharField «rotacionável»
+    }
+    class SlotService {
+        «service»
+        +INTERVALO = 30 min
+        +slots_livres(profissional, dia, procedimento)
+        +slot_disponivel(profissional, procedimento, inicio)
     }
     class Procedimento {
         +nome: CharField
         +duracao_minutos: Smallint
-        +buffer_minutos: Smallint
-        +categoria: choices
+        +buffer_minutos: 0..120
+        +categoria / modalidade: choices
         +exige_retorno: Boolean
+        +retorno_minimo_dias / retorno_maximo_dias
+        +duracao_retorno_minutos «padrão 30»
     }
     class Habilitacao {
-        «through» prof × proc
+        «through» profissional × procedimento
     }
     class Preco {
         +valor: Decimal
-        +vigente_desde: Date
+        +vigente_desde: Date «data local»
     }
     class Promocao {
-        +desconto_percentual: Decimal
-        +preco_promocional: Decimal
-        +data_inicio: Date
-        +data_fim: Date
+        +desconto_percentual: 0..100
+        +preco_promocional: Decimal «XOR desconto»
+        +data_inicio / data_fim: Date
+        +ativa: Boolean
         +esta_vigente: bool
     }
     class DisponibilidadeProfissional {
@@ -52,42 +66,46 @@ classDiagram
     class ExcecaoDisponibilidade {
         +data: Date
         +tipo: FOLGA | HORARIO_DIFERENTE
-        +hora_inicio: Time
-        +hora_fim: Time
+        +hora_inicio / hora_fim: Time
     }
     class BloqueioAgenda {
-        +data_hora_inicio: DateTime
-        +data_hora_fim: DateTime
+        +data_hora_inicio / data_hora_fim
         +regra_recorrencia: RRULE
+        +recorrencia_ate: Date
+        «profissional nulo = todos»
     }
     class Feriado {
         +data: Date
-        +nome: CharField
+        +escopo: NACIONAL | LOCAL | CLINICA
         +bloqueia_agendamento: Boolean
     }
     class Atendimento {
-        +data_hora_inicio: DateTime
-        +data_hora_fim: DateTime
+        +data_hora_inicio / data_hora_fim
+        +status: FSM de 7 estados
         +valor_cobrado: Decimal
-        +status: FSM choices
+        +valor_original: Decimal
+        +descricao_preco: Text
         +eh_retorno: Boolean
-        +confirmar() cancelar()
+        +token_cancelamento: CharField «único»
+        «EXCLUDE sem sobreposição por profissional»
+        +aprovar() confirmar() cancelar()
         +marcar_realizado() marcar_falta()
-        +aprovar()
+        +marcar_reagendado()
     }
     class Notificacao {
-        +tipo: choices
-        +canal: WhatsApp|Email|SMS|Push
+        +tipo: LEMBRETE|NPS|TERMO|CONFIRMACAO|...
+        +canal: WHATSAPP|EMAIL|SMS
         +status: PENDENTE|ENVIADO|FALHOU
-        +token: CharField
+        +token: CharField «único»
+        +resposta: CONFIRMOU|CANCELOU
     }
 
-    Cliente "1" --> "0..*" Atendimento : realiza
+    Cliente "1" --> "0..*" Atendimento : agenda
     Cliente ..> Cliente : indicado_por 0..1
-    Profissional "1" --> "0..*" Atendimento : executa
+    Profissional "1" --> "0..*" Atendimento : atende
     Procedimento "1" --> "0..*" Atendimento
-    Promocao "0..1" --> "0..*" Atendimento : aplica
-    Atendimento ..> Atendimento : reagendado_de / retorno_de
+    Promocao "0..1" --> "0..*" Atendimento : preço da data
+    Atendimento ..> Atendimento : reagendado_de / atendimento_origem (retorno)
     Atendimento "1" --> "0..*" Notificacao
     Profissional "1" --> "0..*" DisponibilidadeProfissional
     Profissional "1" --> "0..*" ExcecaoDisponibilidade
@@ -96,3 +114,8 @@ classDiagram
     Profissional "0..1" --> "0..*" Preco
     Promocao "0..*" --> "0..1" Procedimento
     Profissional "0..*" -- "0..*" Procedimento : Habilitacao
+    SlotService ..> DisponibilidadeProfissional : lê
+    SlotService ..> ExcecaoDisponibilidade : lê
+    SlotService ..> BloqueioAgenda : lê
+    SlotService ..> Feriado : lê
+    SlotService ..> Atendimento : ocupados
