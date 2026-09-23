@@ -3,7 +3,8 @@ import logging
 from typing import Any
 
 from aranha_estetica.models import LogAuditoria
-from aranha_estetica.utils.security import client_ip, mask_email, mask_cpf, mask_telefone
+from aranha_estetica.utils.pii import mask_cpf, mask_email, mask_telefone
+from aranha_estetica.utils.security import client_ip
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,8 @@ class AuditoriaService:
         id_registro: int | None = None,
         detalhes: dict[str, Any] | None = None,
     ) -> LogAuditoria:
-        ip = client_ip(request) if request is not None else None
+        from aranha_estetica.utils.audit import _ip_valido
+        ip = _ip_valido(client_ip(request)) if request is not None else None
         detalhes_sanitizados = cls._sanitize(detalhes) if detalhes else {}
 
         # Resolve usuario: param explicito > request.user autenticado > None (anonimo).
@@ -37,7 +39,7 @@ class AuditoriaService:
             tabela=tabela,
             registro_id=id_registro,
             detalhes=detalhes_sanitizados,
-            ip_origem=ip or None,
+            ip_origem=ip,
         )
 
     @classmethod

@@ -25,7 +25,7 @@ class JobExpirarPacotesTests(TestCase):
 
     def test_expira_pacote_com_data_passada(self):
         pc = criar_compra_pacote(self.cliente, self.pacote)
-        ontem = timezone.now().date() - timedelta(days=1)
+        ontem = timezone.localdate() - timedelta(days=1)
         CompraPacote.objects.filter(pk=pc.pk).update(data_expiracao=ontem)
 
         job_expirar_pacotes()
@@ -35,7 +35,7 @@ class JobExpirarPacotesTests(TestCase):
 
     def test_nao_expira_pacote_com_data_futura(self):
         pc = criar_compra_pacote(self.cliente, self.pacote)
-        amanha = timezone.now().date() + timedelta(days=1)
+        amanha = timezone.localdate() + timedelta(days=1)
         CompraPacote.objects.filter(pk=pc.pk).update(data_expiracao=amanha)
 
         job_expirar_pacotes()
@@ -45,7 +45,7 @@ class JobExpirarPacotesTests(TestCase):
 
     def test_nao_expira_pacote_com_data_hoje(self):
         pc = criar_compra_pacote(self.cliente, self.pacote)
-        hoje = timezone.now().date()
+        hoje = timezone.localdate()
         CompraPacote.objects.filter(pk=pc.pk).update(data_expiracao=hoje)
 
         job_expirar_pacotes()
@@ -55,7 +55,7 @@ class JobExpirarPacotesTests(TestCase):
 
     def test_nao_altera_pacote_ja_finalizado(self):
         pc = criar_compra_pacote(self.cliente, self.pacote, status='FINALIZADO')
-        ontem = timezone.now().date() - timedelta(days=1)
+        ontem = timezone.localdate() - timedelta(days=1)
         CompraPacote.objects.filter(pk=pc.pk).update(data_expiracao=ontem)
 
         job_expirar_pacotes()
@@ -65,7 +65,7 @@ class JobExpirarPacotesTests(TestCase):
 
     def test_nao_altera_pacote_ja_cancelado(self):
         pc = criar_compra_pacote(self.cliente, self.pacote, status='CANCELADO')
-        ontem = timezone.now().date() - timedelta(days=1)
+        ontem = timezone.localdate() - timedelta(days=1)
         CompraPacote.objects.filter(pk=pc.pk).update(data_expiracao=ontem)
 
         job_expirar_pacotes()
@@ -80,7 +80,7 @@ class JobExpirarPacotesTests(TestCase):
         pc2 = criar_compra_pacote(
             criar_cliente(telefone='17900000002'), self.pacote,
         )
-        ontem = timezone.now().date() - timedelta(days=1)
+        ontem = timezone.localdate() - timedelta(days=1)
         CompraPacote.objects.filter(pk__in=[pc1.pk, pc2.pk]).update(data_expiracao=ontem)
 
         job_expirar_pacotes()

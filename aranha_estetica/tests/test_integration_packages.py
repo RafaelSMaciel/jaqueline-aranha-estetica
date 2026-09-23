@@ -1,6 +1,4 @@
 """Integration tests for package purchase -> session consumption -> finalization."""
-from unittest.mock import patch
-
 from django.test import TestCase
 
 from aranha_estetica.models import ConsumoSessao
@@ -44,9 +42,8 @@ class PackageLifecycleTests(TestCase):
         self.assertEqual(pc.status, 'FINALIZADO')
         self.assertEqual(ConsumoSessao.objects.filter(compra_pacote=pc).count(), 2)
 
-    @patch('aranha_estetica.signals.job_notificar_fila_espera.delay')
-    def test_tres_strikes_e_reset(self, mock_delay):
-        # 3 faltas consecutivas — mock needed because FALTOU triggers waitlist notification
+    def test_tres_strikes_e_reset(self):
+        # 3 faltas consecutivas
         for _ in range(3):
             atd = criar_atendimento(self.cli, self.prof, self.proc, status='CONFIRMADO')
             atd.status = 'FALTOU'

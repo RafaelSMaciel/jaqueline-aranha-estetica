@@ -1,43 +1,62 @@
 """
 WhatsApp Notification Service — Plataforma de Clinicas
 
-Canal WhatsApp usado APENAS para (conforme estrategia aprovada 2026-04-18):
+Canal WhatsApp (Meta Cloud API, templates pre-aprovados) usado para:
   - Confirmacao D-1 (lembrete com link de confirmacao/cancelamento)
   - Pesquisa NPS (24h apos atendimento REALIZADO)
+  - Aviso de vaga da lista de espera
 
-Todas as demais mensagens usam EMAIL:
-  OTP, confirmacao pos-agendamento, cancelamento, pacotes, fila,
-  aniversario, aprovacao profissional, termos pendentes.
-Notificacoes para admin usam EMAIL ou painel interno (nao WhatsApp).
+Todas as demais mensagens usam EMAIL.
+
+Falha fechada: fora de DEBUG, sem WHATSAPP_TOKEN + WHATSAPP_PHONE_ID o envio
+retorna False (nada de marcar ENVIADO sem ter enviado) e nada com token/nome
+do cliente vai para o log.
 """
-import os
 import logging
+import os
 import secrets
-import time
+
 import requests
 from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from .precos import mask_telefone
+from .datas import fmt_local
+from .pii import mask_telefone
 
 logger = logging.getLogger(__name__)
 
-# Configuracoes via variaveis de ambiente
-WHATSAPP_TOKEN = os.environ.get('WHATSAPP_TOKEN', '')
-WHATSAPP_PHONE_ID = os.environ.get('WHATSAPP_PHONE_ID', '')
-WHATSAPP_API_URL = os.environ.get(
-    'WHATSAPP_API_URL',
-    f'https://graph.facebook.com/v18.0/{WHATSAPP_PHONE_ID}/messages'
-)
-SITE_URL = os.environ.get('SITE_URL', 'http://127.0.0.1:8000')
-CLINIC_NAME = os.environ.get('CLINIC_NAME', 'Jaqueline Aranha Estética')
 MAX_RETRIES = 3
+# Versao da Graph API (versoes antigas sao desligadas pela Meta ~2 anos apos o lancamento).
+WHATSAPP_API_VERSION_PADRAO = 'v23.0'
 
 # Nomes dos templates aprovados no Meta Business API
 TEMPLATE_CONFIRMACAO_D1 = os.environ.get('WHATSAPP_TEMPLATE_D1', 'confirmacao_d1')
 TEMPLATE_NPS = os.environ.get('WHATSAPP_TEMPLATE_NPS', 'nps_pos_atendimento')
-TEMPLATE_PESQUISA = os.environ.get('WHATSAPP_TEMPLATE_PESQUISA', 'pesquisa_online')
+TEMPLATE_LISTA_ESPERA = os.environ.get('WHATSAPP_TEMPLATE_LISTA_ESPERA', 'lista_espera_vaga')
+
+
+def _credenciais():
+    """(token, url da API) lidos do ambiente em tempo de chamada."""
+    token = os.environ.get('WHATSAPP_TOKEN', '')
+    # WHATSAPP_PHONE_NUMBER_ID aceito como alias (nome usado no .env.example antigo).
+    phone_id = os.environ.get('WHATSAPP_PHONE_ID') or os.environ.get('WHATSAPP_PHONE_NUMBER_ID', '')
+    api_url = os.environ.get('WHATSAPP_API_URL', '')
+    if not api_url and phone_id:
+        versao = os.environ.get('WHATSAPP_API_VERSION', WHATSAPP_API_VERSION_PADRAO)
+        api_url = f'https://graph.facebook.com/{versao}/{phone_id}/messages'
+    return token, api_url
+
+
+def whatsapp_configurado() -> bool:
+    """True se ha token + phone id (ou URL) da Meta configurados."""
+    token, api_url = _credenciais()
+    return bool(token and api_url)
+
+
+def pode_enviar_whatsapp() -> bool:
+    """Envio 'conta' como feito: DEBUG (so loga) ou provedor configurado."""
+    return bool(settings.DEBUG) or whatsapp_configurado()
 
 
 def gerar_token():
@@ -48,82 +67,9 @@ def gerar_token():
 def formatar_telefone(telefone):
     """Formata telefone para padrao internacional (55...)."""
     digits = ''.join(filter(str.isdigit, telefone or ''))
-    if len(digits) == 11:
-        digits = '55' + digits
-    elif len(digits) == 10:
+    if len(digits) in (10, 11):
         digits = '55' + digits
     return digits
-
-
-def enviar_whatsapp(telefone, mensagem, _tentativa=1):
-    """
-    Envia mensagem free-form via WhatsApp Cloud API.
-    Uso restrito a janela de 24h apos interacao do cliente.
-    Para mensagens iniciadas pela clinica, usar enviar_template_whatsapp.
-    Em dev (sem token), apenas loga.
-    """
-    telefone_formatado = formatar_telefone(telefone)
-
-    if not WHATSAPP_TOKEN or settings.DEBUG:
-        logger.info(
-            '[WHATSAPP DEV] Para: %s | Mensagem: %s...',
-            mask_telefone(telefone_formatado), mensagem[:200],
-        )
-        return True
-
-    try:
-        headers = {
-            'Authorization': f'Bearer {WHATSAPP_TOKEN}',
-            'Content-Type': 'application/json',
-        }
-        payload = {
-            'messaging_product': 'whatsapp',
-            'to': telefone_formatado,
-            'type': 'text',
-            'text': {'body': mensagem}
-        }
-        response = requests.post(
-            WHATSAPP_API_URL,
-            json=payload,
-            headers=headers,
-            timeout=10
-        )
-        if response.status_code in (200, 201):
-            logger.info('whatsapp_enviado', extra={'telefone_mask': mask_telefone(telefone_formatado)})
-            return True
-        elif response.status_code >= 500 and _tentativa < MAX_RETRIES:
-            wait = 2 ** _tentativa
-            logger.warning(
-                'whatsapp_retry',
-                extra={
-                    'status': response.status_code,
-                    'tentativa': _tentativa,
-                    'max': MAX_RETRIES,
-                    'wait': wait,
-                },
-            )
-            time.sleep(wait)
-            return enviar_whatsapp(telefone, mensagem, _tentativa=_tentativa + 1)
-        else:
-            logger.error(
-                'whatsapp_erro_http',
-                extra={'status': response.status_code, 'body': response.text[:200]},
-            )
-            return False
-    except requests.exceptions.Timeout:
-        if _tentativa < MAX_RETRIES:
-            wait = 2 ** _tentativa
-            logger.warning(
-                'whatsapp_timeout_retry',
-                extra={'tentativa': _tentativa, 'max': MAX_RETRIES, 'wait': wait},
-            )
-            time.sleep(wait)
-            return enviar_whatsapp(telefone, mensagem, _tentativa=_tentativa + 1)
-        logger.error('whatsapp_timeout_max_retries', extra={'max': MAX_RETRIES})
-        return False
-    except requests.exceptions.RequestException as e:
-        logger.error('whatsapp_request_exception', extra={'error': str(e)})
-        return False
 
 
 def enviar_template_whatsapp(telefone, template_name, components=None):
@@ -131,59 +77,62 @@ def enviar_template_whatsapp(telefone, template_name, components=None):
 
     components: lista no formato WhatsApp Cloud API, ex:
       [{'type': 'body', 'parameters': [{'type': 'text', 'text': 'Joao'}]}]
+    Retorna True so se a Meta aceitou a mensagem (ou em DEBUG, que so loga).
     """
     telefone_formatado = formatar_telefone(telefone)
+    if not telefone_formatado:
+        return False
 
-    if not WHATSAPP_TOKEN or settings.DEBUG:
+    if settings.DEBUG:
+        # Dev: so loga metadados (nunca components: nome do cliente e links com token).
         logger.info(
             'whatsapp_dev_template',
-            extra={
-                'template': template_name,
-                'telefone_mask': mask_telefone(telefone_formatado),
-                'components': components,
-            },
+            extra={'template': template_name, 'telefone_mask': mask_telefone(telefone_formatado)},
         )
         return True
 
-    try:
-        headers = {
-            'Authorization': f'Bearer {WHATSAPP_TOKEN}',
-            'Content-Type': 'application/json',
-        }
-        payload = {
-            'messaging_product': 'whatsapp',
-            'to': telefone_formatado,
-            'type': 'template',
-            'template': {
-                'name': template_name,
-                'language': {'code': 'pt_BR'},
-            }
-        }
-        if components:
-            payload['template']['components'] = components
-
-        response = requests.post(WHATSAPP_API_URL, json=payload, headers=headers, timeout=10)
-        if response.status_code in (200, 201):
-            logger.info(
-                'whatsapp_template_enviado',
-                extra={
-                    'template': template_name,
-                    'telefone_mask': mask_telefone(telefone_formatado),
-                },
-            )
-            return True
-        else:
-            logger.error(
-                'whatsapp_template_erro_http',
-                extra={'status': response.status_code, 'body': response.text[:200]},
-            )
-            return False
-    except requests.exceptions.RequestException as e:
-        logger.error('whatsapp_template_request_exception', extra={'error': str(e)})
+    token, api_url = _credenciais()
+    if not (token and api_url):
+        logger.warning('whatsapp_nao_configurado', extra={'template': template_name})
         return False
 
+    payload = {
+        'messaging_product': 'whatsapp',
+        'to': telefone_formatado,
+        'type': 'template',
+        'template': {
+            'name': template_name,
+            'language': {'code': 'pt_BR'},
+        },
+    }
+    if components:
+        payload['template']['components'] = components
 
-# ─── MENSAGENS PERMITIDAS (WhatsApp apenas D-1 e NPS) ───
+    try:
+        response = requests.post(
+            api_url,
+            json=payload,
+            headers={'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'},
+            timeout=10,
+        )
+    except requests.exceptions.RequestException as e:
+        logger.error('whatsapp_template_request_exception', extra={'template': template_name, 'erro': type(e).__name__})
+        return False
+
+    if response.status_code in (200, 201):
+        logger.info(
+            'whatsapp_template_enviado',
+            extra={'template': template_name, 'telefone_mask': mask_telefone(telefone_formatado)},
+        )
+        return True
+    logger.error(
+        'whatsapp_template_erro_http',
+        extra={'template': template_name, 'status': response.status_code, 'body': response.text[:200]},
+    )
+    return False
+
+
+# ─── MENSAGENS ───
 
 def enviar_confirmacao_d1(atendimento):
     """
@@ -191,8 +140,8 @@ def enviar_confirmacao_d1(atendimento):
     Usa template aprovado TEMPLATE_CONFIRMACAO_D1 (categoria UTILITY).
     Parametros do template (ordem):
       {{1}} nome do cliente
-      {{2}} data formatada (dd/mm/aaaa)
-      {{3}} hora formatada (HH:MM)
+      {{2}} data formatada (dd/mm/aaaa, hora local)
+      {{3}} hora formatada (HH:MM, hora local)
       {{4}} procedimento
       {{5}} profissional
       {{6}} link confirmar
@@ -200,12 +149,12 @@ def enviar_confirmacao_d1(atendimento):
     """
     from ..models import Notificacao
 
-    site_url = SITE_URL.rstrip('/')
-    data_formatada = atendimento.data_hora_inicio.strftime('%d/%m/%Y')
-    hora_formatada = atendimento.data_hora_inicio.strftime('%H:%M')
+    site_url = settings.SITE_URL.rstrip('/')
+    # Banco devolve UTC: formata SEMPRE no fuso da clinica.
+    data_formatada = fmt_local(atendimento.data_hora_inicio, '%d/%m/%Y')
+    hora_formatada = fmt_local(atendimento.data_hora_inicio, '%H:%M')
     mensagem_preview = (
         f'[Template {TEMPLATE_CONFIRMACAO_D1}] '
-        f'{atendimento.cliente.nome} / '
         f'{data_formatada} {hora_formatada} / '
         f'{atendimento.procedimento.nome} c/ {atendimento.profissional.nome}'
     )
@@ -255,7 +204,7 @@ def enviar_confirmacao_d1(atendimento):
     )
 
     notif.status = 'ENVIADO' if sucesso else 'FALHOU'
-    notif.enviado_em = timezone.now()
+    notif.enviado_em = timezone.now() if sucesso else None
     notif.save(update_fields=['status', 'enviado_em'])
     return notif
 
@@ -283,35 +232,12 @@ def enviar_nps_whatsapp(atendimento, link_nps, token_notif):
         atendimento.cliente.telefone, TEMPLATE_NPS, components
     )
 
-    try:
-        notif = Notificacao.objects.get(token=token_notif)
-        notif.status = 'ENVIADO' if sucesso else 'FALHOU'
-        notif.enviado_em = timezone.now()
-        notif.mensagem = f'[Template {TEMPLATE_NPS}] NPS {atendimento.procedimento.nome}'
-        notif.save(update_fields=['status', 'enviado_em', 'mensagem'])
-    except Notificacao.DoesNotExist:
-        logger.warning('nps_wa_notificacao_nao_encontrada', extra={'token': token_notif})
+    notif = Notificacao.objects.filter(token=token_notif).first()
+    if notif is None:
+        logger.warning('nps_wa_notificacao_nao_encontrada', extra={'atendimento_id': atendimento.pk})
+        return sucesso
+    notif.status = 'ENVIADO' if sucesso else 'FALHOU'
+    notif.enviado_em = timezone.now() if sucesso else None
+    notif.mensagem = f'[Template {TEMPLATE_NPS}] NPS {atendimento.procedimento.nome}'
+    notif.save(update_fields=['status', 'enviado_em', 'mensagem'])
     return sucesso
-
-
-def enviar_pesquisa_whatsapp(atendimento, link_pesquisa):
-    """Envia pesquisa pos-atendimento detalhada via WhatsApp template `pesquisa_online`.
-
-    Parametros do template (ordem):
-      {{1}} nome do cliente
-      {{2}} procedimento (ex: "consulta online")
-      {{3}} link da pesquisa
-    Notificacao ja foi criada externamente — funcao apenas envia.
-    """
-    components = [{
-        'type': 'body',
-        'parameters': [
-            {'type': 'text', 'text': atendimento.cliente.nome},
-            {'type': 'text', 'text': atendimento.procedimento.nome},
-            {'type': 'text', 'text': link_pesquisa},
-        ],
-    }]
-
-    return enviar_template_whatsapp(
-        atendimento.cliente.telefone, TEMPLATE_PESQUISA, components
-    )

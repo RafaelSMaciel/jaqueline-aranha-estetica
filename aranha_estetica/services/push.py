@@ -29,9 +29,17 @@ def get_vapid_public_key() -> str:
 
 
 def _claims() -> dict[str, str]:
-    return {
-        'sub': os.environ.get('WEBPUSH_VAPID_CLAIMS_EMAIL', 'mailto:rafelsebas@gmail.com'),
-    }
+    # py_vapid exige 'sub' comecando com mailto: ou https:// (senao VapidException
+    # em TODO envio) — aceita tambem o e-mail puro na env.
+    sub = (os.environ.get('WEBPUSH_VAPID_CLAIMS_EMAIL') or 'mailto:rafelsebas@gmail.com').strip()
+    if not sub.startswith(('mailto:', 'https://')):
+        sub = f'mailto:{sub}'
+    return {'sub': sub}
+
+
+# Roda no thread do request (on_commit do agendamento): push service lento nao
+# pode segurar o worker ate o timeout do gunicorn.
+WEBPUSH_TIMEOUT_SEGUNDOS = 5
 
 
 def send_push(subscription: 'AssinaturaPush', payload: Mapping[str, Any]) -> bool:
@@ -69,6 +77,7 @@ def send_push(subscription: 'AssinaturaPush', payload: Mapping[str, Any]) -> boo
             data=json.dumps(payload),
             vapid_private_key=private_key,
             vapid_claims=_claims(),
+            timeout=WEBPUSH_TIMEOUT_SEGUNDOS,
         )
         return True
     except WebPushException as exc:
@@ -87,10 +96,10 @@ def send_push(subscription: 'AssinaturaPush', payload: Mapping[str, Any]) -> boo
                 extra={'sub_id': subscription.pk, 'status': status, 'error': str(exc)},
             )
         return False
-    except (ConnectionError, TimeoutError) as exc:
+    except Exception as exc:  # noqa: BLE001 — requests.RequestException, VapidException etc.
         logger.warning(
             'webpush_network_error',
-            extra={'sub_id': subscription.pk, 'error': str(exc)},
+            extra={'sub_id': subscription.pk, 'error': type(exc).__name__},
         )
         return False
 

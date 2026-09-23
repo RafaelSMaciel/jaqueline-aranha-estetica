@@ -1,7 +1,8 @@
 """Testes de CompraPacote.verificar_finalizacao e debito via signal."""
-from unittest.mock import patch
+from datetime import timedelta
 
 from django.test import TestCase
+from django.utils import timezone
 
 from aranha_estetica.models import ConsumoSessao
 
@@ -15,7 +16,6 @@ from .factories import (
 )
 
 
-@patch('aranha_estetica.signals.job_notificar_fila_espera.delay')
 class PacoteFinalizacaoTests(TestCase):
     def setUp(self):
         self.cliente = criar_cliente()
@@ -24,12 +24,12 @@ class PacoteFinalizacaoTests(TestCase):
         self.pacote = criar_pacote(procedimento=self.proc, sessoes=3)
         self.pc = criar_compra_pacote(self.cliente, self.pacote)
 
-    def test_verificar_finalizacao_mantem_ativo_com_sessoes_faltando(self, _mock):
+    def test_verificar_finalizacao_mantem_ativo_com_sessoes_faltando(self):
         self.pc.verificar_finalizacao()
         self.pc.refresh_from_db()
         self.assertEqual(self.pc.status, 'ATIVO')
 
-    def test_realizado_debita_sessao_do_pacote(self, _mock):
+    def test_realizado_debita_sessao_do_pacote(self):
         atd = criar_atendimento(self.cliente, self.prof, self.proc)
         atd.status = 'REALIZADO'
         atd.save()
@@ -38,7 +38,7 @@ class PacoteFinalizacaoTests(TestCase):
         self.pc.refresh_from_db()
         self.assertEqual(self.pc.status, 'ATIVO')  # Ainda 1 de 3
 
-    def test_ultima_sessao_finaliza_pacote(self, _mock):
+    def test_ultima_sessao_finaliza_pacote(self):
         for _ in range(3):
             atd = criar_atendimento(self.cliente, self.prof, self.proc)
             atd.status = 'REALIZADO'
@@ -51,10 +51,14 @@ class PacoteFinalizacaoTests(TestCase):
             3
         )
 
-    def test_verificar_finalizacao_com_todas_sessoes_via_direto(self, _mock):
-        # Cria sessoes diretamente (bypass signal)
-        for _ in range(3):
-            atd = criar_atendimento(self.cliente, self.prof, self.proc)
+    def test_verificar_finalizacao_com_todas_sessoes_via_direto(self):
+        # Cria sessoes diretamente (bypass signal). Horarios distintos: no
+        # Postgres o EXCLUDE excl_atendimento_sobreposicao barra 3 no mesmo slot.
+        base = (timezone.now() + timedelta(days=1)).replace(hour=10, minute=0, second=0, microsecond=0)
+        for i in range(3):
+            atd = criar_atendimento(
+                self.cliente, self.prof, self.proc, data_hora=base + timedelta(hours=i),
+            )
             ConsumoSessao.objects.create(compra_pacote=self.pc, atendimento=atd)
 
         self.pc.verificar_finalizacao()

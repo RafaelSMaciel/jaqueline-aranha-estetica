@@ -1,22 +1,30 @@
-from django.core.cache import cache
+"""Signals de model — efeitos que valem para QUALQUER caminho de gravacao.
+
+Divisao de responsabilidades (cada efeito tem UM mecanismo, sem duplicar):
+  - aqui (post_save de Atendimento): contador de faltas, debito de pacote,
+    lista de espera (vaga liberada) e push/gcal de novo agendamento;
+  - EventBus (services/*): comissao, cashback e retorno obrigatorio.
+"""
 from django.db import transaction
 from django.db.models.signals import pre_save, post_save, post_delete
 from django.dispatch import receiver
 from .models import Atendimento, CompraPacote, ConsumoSessao, Configuracao
-from .tasks import job_notificar_fila_espera
 import logging
 
 logger = logging.getLogger(__name__)
 
+# Status que ocupam horario na agenda (liberam vaga ao sair deles).
+_STATUS_ATIVOS = ('PENDENTE', 'AGENDADO', 'CONFIRMADO')
+# Saidas que devolvem o horario para a lista de espera.
+_STATUS_LIBERAM_VAGA = ('CANCELADO', 'REAGENDADO')
+
 
 @receiver([post_save, post_delete], sender=Configuracao)
 def invalidar_cache_branding(sender, instance, **kwargs):
-    """Zera cache de branding quando Configuracao muda.
+    """Zera o cache de marca/contatos (utils/branding) quando Configuracao muda."""
+    from .utils.branding import invalidar_cache
+    invalidar_cache()
 
-    Chaves cacheadas (manter sincronizadas com utils/cache.py + admin_branding.py):
-    """
-    cache.delete('branding_config_v1')   # legado
-    cache.delete('branding_config_dict')  # novo (admin_branding._get_config_dict)
 
 @receiver(pre_save, sender=Atendimento)
 def capturar_status_anterior(sender, instance, **kwargs):
@@ -29,6 +37,7 @@ def capturar_status_anterior(sender, instance, **kwargs):
             instance._old_status = None
     else:
         instance._old_status = None
+
 
 @receiver(post_save, sender=Atendimento)
 def processar_mudanca_status(sender, instance, created, **kwargs):
@@ -44,13 +53,14 @@ def processar_mudanca_status(sender, instance, created, **kwargs):
                 user = getattr(instance.profissional, 'usuario', None)
                 if user:
                     from .services.push import send_push_to_user
-                    cliente_nome = instance.cliente.nome if instance.cliente_id else 'Paciente'
+                    from .utils.datas import fmt_local
+                    cliente_nome = instance.cliente.nome if instance.cliente_id else 'Cliente'
                     proc_nome = instance.procedimento.nome if instance.procedimento_id else 'Atendimento'
-                    data_fmt = instance.data_hora_inicio.strftime('%d/%m %H:%M')
+                    data_fmt = fmt_local(instance.data_hora_inicio, '%d/%m %H:%M')
                     send_push_to_user(user, {
                         'head': 'Novo agendamento',
                         'body': f'{cliente_nome} - {proc_nome} em {data_fmt}',
-                        'url': '/painel/calendario/',
+                        'url': '/profissional/',
                     })
             except Exception as e:
                 logger.exception('push profissional falhou: %s', e)
@@ -69,15 +79,18 @@ def processar_mudanca_status(sender, instance, created, **kwargs):
     if status_atual == status_anterior:
         return
 
-    # REGRA: FILA DE ESPERA — cancelamento, falta ou reagendamento libera vaga
-    if status_atual in ['CANCELADO', 'FALTOU', 'REAGENDADO'] and status_anterior in ['PENDENTE', 'AGENDADO', 'CONFIRMADO']:
-        job_notificar_fila_espera.delay(
-            procedimento_id=instance.procedimento.pk,
-            data_livre_str=instance.data_hora_inicio.isoformat()
-        )
+    # REGRA: LISTA DE ESPERA — cancelamento/reagendamento libera o horario.
+    # A selecao roda nesta transacao; e-mail/WhatsApp saem no on_commit do service.
+    if status_atual in _STATUS_LIBERAM_VAGA and status_anterior in _STATUS_ATIVOS:
+        try:
+            from .services.lista_espera_service import ListaEsperaService
+            with transaction.atomic():  # savepoint: erro aqui nao aborta a transacao de quem cancelou
+                ListaEsperaService.notificar_compativeis(instance)
+        except Exception as e:  # noqa: BLE001 — aviso de vaga nunca quebra o cancelamento
+            logger.exception('lista_espera_falhou: %s', e)
 
     # REGRA: REGISTRO DE FALTA — 3-strike system
-    if status_atual == 'FALTOU' and status_anterior in ['PENDENTE', 'AGENDADO', 'CONFIRMADO']:
+    if status_atual == 'FALTOU' and status_anterior in _STATUS_ATIVOS:
         instance.cliente.registrar_falta()
         logger.info(f"[FALTA] Cliente {instance.cliente.pk} — faltas: {instance.cliente.faltas_consecutivas}")
 
@@ -90,7 +103,7 @@ def processar_mudanca_status(sender, instance, created, **kwargs):
         # debitos concorrentes do mesmo cliente (evita over-debit no TOCTOU
         # entre o .count() de sessoes feitas e o ConsumoSessao.create()).
         if not hasattr(instance, 'sessao_pacote_vinculada'):
-            from django.utils import timezone
+            from .utils.datas import hoje
             with transaction.atomic():
                 pacotes_ativos = CompraPacote.objects.select_for_update().filter(
                     cliente=instance.cliente,
@@ -98,8 +111,8 @@ def processar_mudanca_status(sender, instance, created, **kwargs):
                 ).order_by('criado_em')
 
                 for pc in pacotes_ativos:
-                    # Verificar validade
-                    if pc.data_expiracao and pc.data_expiracao < timezone.now().date():
+                    # Verificar validade (data local: ultimo dia ainda vale)
+                    if pc.data_expiracao and pc.data_expiracao < hoje():
                         pc.status = 'EXPIRADO'
                         pc.save(update_fields=['status'])
                         continue

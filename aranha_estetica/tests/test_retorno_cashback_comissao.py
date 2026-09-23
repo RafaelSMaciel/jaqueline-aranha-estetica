@@ -1,6 +1,7 @@
 """Tests Sprint 1-2 + 3-4: F-RET, F-CSB, Comissao, Lista Espera."""
 from datetime import timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.test import TestCase
 from django.utils import timezone
@@ -54,6 +55,33 @@ class RetornoServiceTests(TestCase):
     def test_nao_cria_se_procedimento_nao_requer(self):
         proc_simples = criar_procedimento(nome='Drenagem', profissional=self.prof)
         atend = criar_atendimento(self.cliente, self.prof, proc_simples, status='AGENDADO')
+        atend.marcar_realizado()
+        self.assertFalse(
+            Atendimento.objects.filter(atendimento_origem=atend, eh_retorno=True).exists(),
+        )
+
+    def test_retorno_em_horario_de_expediente(self):
+        """Janela impar (7..14) nao gera horario de madrugada: slot livre do profissional."""
+        self.proc.retorno_minimo_dias = 7
+        self.proc.retorno_maximo_dias = 14
+        self.proc.save()
+        atend = criar_atendimento(self.cliente, self.prof, self.proc, status='AGENDADO')
+        atend.marcar_realizado()
+        retorno = Atendimento.objects.get(atendimento_origem=atend, eh_retorno=True)
+        inicio_local = timezone.localtime(retorno.data_hora_inicio)
+        # criar_profissional: expediente 09h-18h todos os dias
+        self.assertGreaterEqual(inicio_local.hour, 9)
+        self.assertLess(inicio_local.hour, 18)
+        self.assertGreaterEqual(retorno.data_hora_inicio - atend.data_hora_fim, timedelta(days=7))
+        self.assertLessEqual(
+            timezone.localdate(retorno.data_hora_inicio) - timezone.localdate(atend.data_hora_fim),
+            timedelta(days=14),
+        )
+
+    def test_retorno_sem_horario_livre_nao_cria(self):
+        from aranha_estetica.models import DisponibilidadeProfissional
+        DisponibilidadeProfissional.objects.filter(profissional=self.prof).delete()
+        atend = criar_atendimento(self.cliente, self.prof, self.proc, status='AGENDADO')
         atend.marcar_realizado()
         self.assertFalse(
             Atendimento.objects.filter(atendimento_origem=atend, eh_retorno=True).exists(),
@@ -167,31 +195,90 @@ class ComissaoServiceTests(TestCase):
 
 
 # ─── Lista de Espera ──────────────────────────────────────────────────
+ENVIAR_EMAIL = 'aranha_estetica.utils.email.enviar_fila_espera_email'
+ENVIAR_WA = 'aranha_estetica.utils.whatsapp.enviar_template_whatsapp'
+
+
 class ListaEsperaHandlerTests(TestCase):
-    def test_notifica_compativeis_em_cancelamento(self):
-        prof = criar_profissional()
-        proc = criar_procedimento(profissional=prof)
-        cliente_agendado = criar_cliente(nome='Agendado')
-        cliente_espera = criar_cliente(
-            nome='Espera', telefone='17999991111',
+    def setUp(self):
+        self.prof = criar_profissional()
+        self.proc = criar_procedimento(profissional=self.prof)
+        self.cliente_agendado = criar_cliente(nome='Agendado')
+        self.cliente_espera = criar_cliente(
+            nome='Espera', telefone='17999991111', email='espera@example.com',
             consent_whatsapp_confirmacao=True,
         )
 
-        atend = criar_atendimento(
-            cliente_agendado, prof, proc, status='AGENDADO',
-            data_hora=timezone.now() + timedelta(days=2),
+    def _agendar(self, quando):
+        return criar_atendimento(
+            self.cliente_agendado, self.prof, self.proc, status='AGENDADO', data_hora=quando,
         )
 
-        ListaEspera.objects.create(
-            cliente=cliente_espera,
-            procedimento=proc,
-            data_desejada=atend.data_hora_inicio.date(),
+    def _entrar_na_fila(self, atend):
+        return ListaEspera.objects.create(
+            cliente=self.cliente_espera,
+            procedimento=self.proc,
+            data_desejada=timezone.localdate(atend.data_hora_inicio),
             notificado=False,
         )
 
-        atend.cancelar(motivo='teste')
+    @patch(ENVIAR_WA, return_value=True)
+    @patch(ENVIAR_EMAIL, return_value=True)
+    def test_notifica_compativeis_em_cancelamento(self, mock_email, mock_wa):
+        atend = self._agendar(timezone.now() + timedelta(days=2))
+        self._entrar_na_fila(atend)
 
-        espera = ListaEspera.objects.get(cliente=cliente_espera)
+        with self.captureOnCommitCallbacks(execute=True):
+            atend.cancelar(motivo='teste')
+
+        espera = ListaEspera.objects.get(cliente=self.cliente_espera)
         self.assertTrue(espera.notificado)
-        self.assertIsNotNone(espera.token_reserva)
-        self.assertIsNotNone(espera.expira_em)
+        # Reserva por token nao existe (nenhuma view consome): nao grava mais.
+        self.assertIsNone(espera.token_reserva)
+        mock_email.assert_called_once()
+        self.assertIn(f'procedimento={self.proc.pk}', mock_email.call_args[0][1]['link'])
+        mock_wa.assert_called_once()
+
+    @patch(ENVIAR_WA, return_value=True)
+    @patch(ENVIAR_EMAIL, return_value=True)
+    def test_envio_so_apos_commit(self, mock_email, mock_wa):
+        """E-mail/WhatsApp nunca saem dentro da transacao do cancelamento."""
+        atend = self._agendar(timezone.now() + timedelta(days=2))
+        self._entrar_na_fila(atend)
+        with self.captureOnCommitCallbacks(execute=False) as callbacks:
+            atend.cancelar(motivo='teste')
+        mock_email.assert_not_called()
+        mock_wa.assert_not_called()
+        self.assertTrue(callbacks)
+
+    @patch(ENVIAR_WA, return_value=True)
+    @patch(ENVIAR_EMAIL, return_value=True)
+    def test_vaga_no_passado_nao_avisa(self, mock_email, mock_wa):
+        atend = self._agendar(timezone.now() - timedelta(days=2))
+        self._entrar_na_fila(atend)
+        with self.captureOnCommitCallbacks(execute=True):
+            atend.cancelar(motivo='expirado')
+        mock_email.assert_not_called()
+        self.assertFalse(ListaEspera.objects.get(cliente=self.cliente_espera).notificado)
+
+    @patch(ENVIAR_WA, return_value=False)
+    @patch(ENVIAR_EMAIL, return_value=False)
+    def test_sem_entrega_continua_na_fila(self, _mock_email, _mock_wa):
+        """Canal nao configurado/falhou: nao marca notificado (equipe avisa manualmente)."""
+        atend = self._agendar(timezone.now() + timedelta(days=2))
+        self._entrar_na_fila(atend)
+        with self.captureOnCommitCallbacks(execute=True):
+            atend.cancelar(motivo='teste')
+        self.assertFalse(ListaEspera.objects.get(cliente=self.cliente_espera).notificado)
+
+    @patch(ENVIAR_WA, return_value=True)
+    @patch(ENVIAR_EMAIL, return_value=True)
+    def test_respeita_profissional_desejado(self, mock_email, _mock_wa):
+        outro_prof = criar_profissional(nome='Outra')
+        atend = self._agendar(timezone.now() + timedelta(days=2))
+        espera = self._entrar_na_fila(atend)
+        espera.profissional_desejado = outro_prof
+        espera.save()
+        with self.captureOnCommitCallbacks(execute=True):
+            atend.cancelar(motivo='teste')
+        mock_email.assert_not_called()

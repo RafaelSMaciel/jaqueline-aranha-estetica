@@ -54,29 +54,57 @@ def mask_cpf(value: Optional[str]) -> str:
 _SENTRY_PII_KEYS = {
     'email', 'telefone', 'cpf', 'phone', 'celular',
     'data_nascimento', 'nome',
+    'destinatario', 'from_email', 'to',
 }
+
+# Segmentos de URL que carregam token de acesso (link magico): /confirmar/<tok>/,
+# /reagendar/<tok>/, /nps/<tok>/, /termo/<tok>/, /pesquisa/<tok>/,
+# /anamnese/<tok>/, /lgpd/unsubscribe/<tok>/ e ?token=... (ICS).
+_TOKEN_PATH_RX = re.compile(
+    r'(/(?:confirmar|reagendar|nps|termo|pesquisa|anamnese|lgpd/unsubscribe|admin-login/recuperar/[^/]+)/)'
+    r'(?!obrigado/)[^/?#]+'
+)
+_TOKEN_QUERY_RX = re.compile(r'((?:^|[?&])token=)[^&#]*', re.IGNORECASE)
+
+
+def redigir_tokens_url(valor: Optional[str]) -> str:
+    """Troca tokens de links magicos por [token] (URL ou query string)."""
+    if not valor or not isinstance(valor, str):
+        return valor or ''
+    valor = _TOKEN_PATH_RX.sub(lambda m: m.group(1) + '[token]', valor)
+    return _TOKEN_QUERY_RX.sub(lambda m: m.group(1) + '[token]', valor)
+
+
+def _mascarar_valor(chave: str, valor: str) -> str:
+    chave = chave.lower()
+    if 'email' in chave or '@' in valor:
+        return mask_email(valor)
+    if 'cpf' in chave:
+        return mask_cpf(valor)
+    if chave == 'nome':
+        return f'{valor[:1]}***' if valor else ''
+    return mask_telefone(valor)
 
 
 def sentry_before_send(event: dict, hint: dict) -> dict:
     """Filtra PII de eventos Sentry antes do envio.
 
-    Mascara campos de `extra` cujas keys batam com a lista PII e remove
-    completamente o `request.data` (POST body), substituindo por `[scrubbed]`.
+    Mascara campos de `extra` cujas keys batam com a lista PII, remove
+    completamente o `request.data` (POST body) e redige tokens de links
+    magicos na URL / query string do request.
     """
     extra = event.get('extra') or {}
     for key in list(extra.keys()):
         if key.lower() in _SENTRY_PII_KEYS:
             value = extra[key]
             if isinstance(value, str):
-                if 'email' in key.lower():
-                    extra[key] = mask_email(value)
-                elif 'cpf' in key.lower():
-                    extra[key] = mask_cpf(value)
-                else:
-                    extra[key] = mask_telefone(value)
+                extra[key] = _mascarar_valor(key, value)
 
     request = event.get('request') or {}
     if 'data' in request:
         request['data'] = '[scrubbed]'
+    for campo in ('url', 'query_string'):
+        if isinstance(request.get(campo), str):
+            request[campo] = redigir_tokens_url(request[campo])
 
     return event

@@ -142,55 +142,94 @@ def whatsapp_webhook(request):
 
     try:
         data = json.loads(request.body)
-        telefone = data.get('from', data.get('From', '')).strip()
-        mensagem = data.get('body', data.get('Body', '')).strip()
-
-        if not mensagem:
-            return JsonResponse({'error': 'Mensagem vazia'}, status=400)
-
-        telefone_limpo = ''.join(filter(str.isdigit, telefone))
-
-        # Processar resposta NPS (escala 0-10)
-        if mensagem.strip().isdigit() and 0 <= int(mensagem.strip()) <= 10:
-            nota = int(mensagem.strip())
-            # SEGURANCA: match exato por telefone (com e sem codigo do pais BR 55)
-            # para evitar colisao entre clientes diferentes (anti-IDOR).
-            candidatos = [telefone_limpo]
-            if telefone_limpo.startswith('55') and len(telefone_limpo) > 11:
-                candidatos.append(telefone_limpo[2:])  # sem codigo do pais
-            elif len(telefone_limpo) <= 11:
-                candidatos.append('55' + telefone_limpo)  # com codigo do pais
-            notif = (
-                Notificacao.objects
-                .filter(
-                    tipo='NPS',
-                    canal='WHATSAPP',
-                    status='ENVIADO',
-                    criado_em__gte=timezone.now() - NPS_JANELA_RESPOSTA,
-                    atendimento__cliente__telefone__in=candidatos,
-                )
-                .select_related('atendimento')
-                .order_by('-criado_em')
-                .first()
-            )
-            if notif:
-                avaliacao, criada = AvaliacaoNPS.objects.get_or_create(
-                    atendimento=notif.atendimento,
-                    defaults={'nota': nota},
-                )
-                if criada:
-                    logger.info(
-                        'NPS registrado via WhatsApp: atendimento=%s nota=%s',
-                        notif.atendimento_id, nota,
-                    )
-
-        logger.info('WhatsApp webhook: mensagem de %s', mask_telefone(telefone_limpo))
-
-        return JsonResponse({'status': 'ok'})
-
-    except json.JSONDecodeError:
+    except ValueError:
         return JsonResponse({'error': 'JSON invalido'}, status=400)
-    except Exception as e:
-        logger.error(f'Erro no webhook WhatsApp: {e}', exc_info=True)
-        return JsonResponse({'error': 'Erro interno'}, status=500)
+
+    # Evento assinado sempre recebe 200: status (sent/delivered/read) e
+    # mensagens nao-NPS sao ignorados. Responder 4xx/5xx faz a Meta reenviar
+    # e, persistindo, desativar o webhook.
+    try:
+        for telefone, texto in _mensagens_recebidas(data):
+            _processar_resposta_nps(telefone, texto)
+    except Exception as e:  # noqa: BLE001
+        logger.error('whatsapp_webhook_erro: %s', type(e).__name__, exc_info=True)
+    return JsonResponse({'status': 'ok'})
+
+
+def _texto_mensagem(msg: dict) -> str:
+    """Texto de uma mensagem da Cloud API (texto livre ou resposta de botao)."""
+    tipo = msg.get('type')
+    if tipo == 'text':
+        return ((msg.get('text') or {}).get('body') or '').strip()
+    if tipo == 'button':
+        return ((msg.get('button') or {}).get('text') or '').strip()
+    if tipo == 'interactive':
+        inter = msg.get('interactive') or {}
+        resposta = inter.get('button_reply') or inter.get('list_reply') or {}
+        return (resposta.get('title') or resposta.get('id') or '').strip()
+    return ''
+
+
+def _mensagens_recebidas(data):
+    """Gera (telefone, texto) do payload da Meta Cloud API.
+
+    Formato: {'object': 'whatsapp_business_account', 'entry': [{'changes':
+    [{'value': {'messages': [{'from': '55...', 'type': 'text',
+    'text': {'body': '9'}}], 'statuses': [...]}}]}]}
+    """
+    if not isinstance(data, dict):
+        return
+    for entry in data.get('entry') or []:
+        if not isinstance(entry, dict):
+            continue
+        for change in entry.get('changes') or []:
+            valor = (change or {}).get('value') if isinstance(change, dict) else None
+            if not isinstance(valor, dict):
+                continue
+            for msg in valor.get('messages') or []:
+                if not isinstance(msg, dict):
+                    continue
+                telefone = ''.join(filter(str.isdigit, str(msg.get('from') or '')))
+                texto = _texto_mensagem(msg)
+                if telefone and texto:
+                    yield telefone, texto
+
+
+def _processar_resposta_nps(telefone_limpo: str, mensagem: str) -> None:
+    """Resposta 0-10 vira AvaliacaoNPS do ultimo NPS enviado a este telefone."""
+    logger.info('WhatsApp webhook: mensagem de %s', mask_telefone(telefone_limpo))
+    if not (mensagem.isdigit() and 0 <= int(mensagem) <= 10):
+        return
+    nota = int(mensagem)
+    # SEGURANCA: match exato por telefone (com e sem codigo do pais BR 55)
+    # para evitar colisao entre clientes diferentes (anti-IDOR).
+    candidatos = [telefone_limpo]
+    if telefone_limpo.startswith('55') and len(telefone_limpo) > 11:
+        candidatos.append(telefone_limpo[2:])  # sem codigo do pais
+    elif len(telefone_limpo) <= 11:
+        candidatos.append('55' + telefone_limpo)  # com codigo do pais
+    notif = (
+        Notificacao.objects
+        .filter(
+            tipo='NPS',
+            canal='WHATSAPP',
+            status='ENVIADO',
+            criado_em__gte=timezone.now() - NPS_JANELA_RESPOSTA,
+            atendimento__cliente__telefone__in=candidatos,
+        )
+        .select_related('atendimento')
+        .order_by('-criado_em')
+        .first()
+    )
+    if not notif:
+        return
+    _avaliacao, criada = AvaliacaoNPS.objects.get_or_create(
+        atendimento=notif.atendimento,
+        defaults={'nota': nota},
+    )
+    if criada:
+        logger.info(
+            'NPS registrado via WhatsApp: atendimento=%s nota=%s',
+            notif.atendimento_id, nota,
+        )
 

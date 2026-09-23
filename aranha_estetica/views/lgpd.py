@@ -5,6 +5,7 @@ import logging
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django_ratelimit.decorators import ratelimit
 
@@ -14,13 +15,28 @@ from ..services.auditoria import AuditoriaService
 
 logger = logging.getLogger(__name__)
 
+TEMPLATE_DSAR = 'publico/lgpd_meus_dados.html'
+TEMPLATE_DESCADASTRO = 'publico/lgpd_unsubscribe.html'
+
+
+def _sms_disponivel() -> bool:
+    """Canal SMS utilizavel (checagem global: nao revela se o cadastro existe)."""
+    from ..utils import sms
+    checar = getattr(sms, 'sms_disponivel', None)
+    if checar is None:
+        return True
+    try:
+        return bool(checar())
+    except Exception:  # noqa: BLE001 — na duvida segue o fluxo normal
+        return True
+
 
 @ratelimit(key='ip', rate='10/h', method='POST', block=True)
 @ratelimit(key='post:telefone', rate='5/h', method='POST', block=True)
 def meus_dados(request):
     """Pagina DSAR: cliente solicita seus dados (via telefone + OTP)."""
     if request.method == 'GET':
-        return render(request, 'publico/lgpd_meus_dados.html', {})
+        return render(request, TEMPLATE_DSAR, {})
 
     from ..validators import normalizar_telefone
     telefone = normalizar_telefone(request.POST.get('telefone') or '')
@@ -28,9 +44,16 @@ def meus_dados(request):
 
     if not telefone:
         messages.error(request, 'Informe o telefone cadastrado.')
-        return render(request, 'publico/lgpd_meus_dados.html', {})
+        return render(request, TEMPLATE_DSAR, {})
 
     if not codigo:
+        if not _sms_disponivel():
+            messages.error(
+                request,
+                'A verificação por SMS está indisponível no momento. '
+                'Fale com a clínica para solicitar seus dados.',
+            )
+            return render(request, TEMPLATE_DSAR, {'sms_indisponivel': True})
         # OTP hashed + envio SMS real. Anti-enumeracao: mensagem identica
         # exista o cliente ou nao; codigo NUNCA vai para log.
         from ..services.notificacao import OTPService
@@ -42,20 +65,35 @@ def meus_dados(request):
             if not OTPService.enviar_codigo(telefone, codigo_plano, ip=client_ip(request)):
                 logger.warning('lgpd_dsar_sms_falha', extra={'tel_suffix': telefone[-4:]})
         logger.info('lgpd_dsar_otp_solicitado', extra={'tel_suffix': telefone[-4:]})
-        messages.info(request, 'Se houver cadastro, o codigo chegara por SMS.')
-        return render(request, 'publico/lgpd_meus_dados.html', {'aguardando_codigo': True, 'telefone': telefone})
+        messages.info(
+            request,
+            'Se houver cadastro com este telefone, o código chegará por SMS em instantes. '
+            'Se não chegar, fale com a clínica.',
+        )
+        return render(request, TEMPLATE_DSAR, {'aguardando_codigo': True, 'telefone': telefone})
 
     ok, _motivo = CodigoOtp.verificar_sms(telefone, codigo, proposito=CodigoOtp.PROPOSITO_DSAR)
     if not ok:
-        messages.error(request, 'Codigo invalido ou expirado.')
-        return render(request, 'publico/lgpd_meus_dados.html', {'aguardando_codigo': True, 'telefone': telefone})
+        messages.error(request, 'Código inválido ou expirado.')
+        return render(request, TEMPLATE_DSAR, {'aguardando_codigo': True, 'telefone': telefone})
 
     cliente = Cliente.objects.filter(telefone=telefone).first()
     if not cliente:
-        messages.error(request, 'Paciente nao encontrado.')
-        return render(request, 'publico/lgpd_meus_dados.html', {})
+        messages.error(request, 'Cadastro não encontrado.')
+        return render(request, TEMPLATE_DSAR, {})
 
-    dados = LgpdService.exportar_dados_cliente(cliente)
+    try:
+        dados = LgpdService.exportar_dados_cliente(cliente)
+        conteudo = json.dumps(dados, ensure_ascii=False, indent=2, default=str)
+    except Exception:  # noqa: BLE001 — OTP ja consumido: resposta amigavel, nunca 500
+        logger.exception('lgpd_dsar_export_falhou', extra={'cliente_id': cliente.pk})
+        messages.error(
+            request,
+            'Não conseguimos gerar seus dados agora. Solicite um novo código em instantes '
+            'ou fale com a clínica.',
+        )
+        return render(request, TEMPLATE_DSAR, {})
+
     AuditoriaService.registrar(
         request=request,
         acao='DSAR: exportacao de dados',
@@ -63,27 +101,37 @@ def meus_dados(request):
         id_registro=cliente.pk,
     )
 
-    response = HttpResponse(
-        json.dumps(dados, ensure_ascii=False, indent=2, default=str),
-        content_type='application/json; charset=utf-8',
-    )
+    response = HttpResponse(conteudo, content_type='application/json; charset=utf-8')
     response['Content-Disposition'] = f'attachment; filename="meus_dados_{cliente.pk}.json"'
     return response
 
 
-@ratelimit(key='ip', rate='5/m', method=['GET', 'POST'], block=True)
+@csrf_exempt  # token de descadastro na URL e a credencial; one-click (RFC 8058) nao traz CSRF
+@require_http_methods(['GET', 'POST'])
+@ratelimit(key='ip', rate='20/m', method=['GET', 'POST'], block=True)
 def unsubscribe(request, token: str):
-    """Opt-out de comunicacao via link em emails/WhatsApp."""
+    """Opt-out de marketing/pesquisas via link do e-mail.
+
+    GET so mostra a confirmacao (scanners de link — SafeLinks, antivirus —
+    fazem GET e nao podem descadastrar ninguem). POST executa: e o que o
+    formulario da pagina e o one-click do provedor (List-Unsubscribe-Post) enviam.
+    """
+    if request.method == 'GET':
+        cliente = LgpdService.cliente_por_token_descadastro(token)
+        if cliente is None:
+            return render(request, TEMPLATE_DESCADASTRO, {'estado': 'invalido'}, status=404)
+        return render(request, TEMPLATE_DESCADASTRO, {'estado': 'confirmar', 'cliente': cliente})
+
     cliente = LgpdService.unsubscribe_por_token(token)
     if not cliente:
-        return render(request, 'publico/lgpd_unsubscribe.html', {'sucesso': False}, status=404)
+        return render(request, TEMPLATE_DESCADASTRO, {'estado': 'invalido'}, status=404)
     AuditoriaService.registrar(
         request=request,
         acao='LGPD: opt-out de comunicacao',
         tabela='cliente',
         id_registro=cliente.pk,
     )
-    return render(request, 'publico/lgpd_unsubscribe.html', {'sucesso': True, 'cliente': cliente})
+    return render(request, TEMPLATE_DESCADASTRO, {'estado': 'sucesso', 'cliente': cliente})
 
 
 @ratelimit(key='ip', rate='30/m', method='POST', block=True)

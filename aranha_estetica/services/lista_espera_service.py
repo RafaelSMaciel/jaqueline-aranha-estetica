@@ -1,23 +1,25 @@
-"""Lista de Espera — notifica cliente compativel quando slot abre.
+"""Lista de Espera — avisa clientes compativeis quando um horario vaga.
 
-Handler em AtendimentoCancelado: busca registros ListaEspera com
-match (procedimento + data_desejada proxima) e dispara WhatsApp template
-'lista_espera_vaga' com link de reserva temporaria (TTL 30min).
+Mecanismo UNICO: signals.processar_mudanca_status chama
+`ListaEsperaService.notificar_compativeis` quando um atendimento ativo vira
+CANCELADO/REAGENDADO (qualquer caminho: FSM, painel, Django admin). A selecao
+roda na transacao de quem liberou a vaga; e-mail/WhatsApp so saem no
+on_commit (nunca I/O de rede dentro da transacao, nunca aviso de vaga que
+sofreu rollback). O cliente so e marcado `notificado` quando algum canal
+realmente entregou — senao continua na lista para contato manual da equipe.
 """
 from __future__ import annotations
 
 import logging
-import secrets
-from datetime import timedelta
 from typing import List
 
+from django.conf import settings
 from django.db import transaction
+from django.urls import reverse
 from django.utils import timezone
 
-from ..constants import TTL_RESERVA_LISTA_ESPERA_MINUTOS
-from ..domain.event_bus import EventBus
-from ..domain.events import AtendimentoCancelado
 from ..models import Atendimento, ListaEspera
+from ..utils.datas import data_local, fmt_local
 
 logger = logging.getLogger(__name__)
 
@@ -26,109 +28,110 @@ class ListaEsperaService:
     """Match-and-notify de espera quando slot vaga."""
 
     @staticmethod
-    @transaction.atomic
-    def notificar_compativeis(atendimento_cancelado: Atendimento) -> int:
-        """Busca ListaEspera compativel com slot recem-vago. Marca notificado=True.
+    def candidatos(atendimento_liberado: Atendimento) -> List[ListaEspera]:
+        """Registros compativeis com o horario liberado (FIFO).
 
-        Match heuristico:
-          - mesmo procedimento
-          - data_desejada == data do slot vago (mesmo dia)
-          - profissional_desejado == profissional do slot OU NULL
-          - notificado == False
-          - registro mais antigo primeiro (FIFO)
-
-        Returns: numero de notificacoes disparadas.
+        Match: mesmo procedimento, data_desejada == dia (local) do horario,
+        profissional_desejado vazio ou igual ao do horario, ainda nao notificado.
         """
-        slot_data = atendimento_cancelado.data_hora_inicio.date()
-        candidatos: List[ListaEspera] = list(
-            ListaEspera.objects.select_related('cliente', 'procedimento', 'profissional_desejado')
-            .filter(
-                procedimento=atendimento_cancelado.procedimento,
-                data_desejada=slot_data,
-                notificado=False,
+        slot_data = data_local(atendimento_liberado.data_hora_inicio)
+        return [
+            espera for espera in (
+                ListaEspera.objects.select_related('cliente', 'procedimento', 'profissional_desejado')
+                .filter(
+                    procedimento_id=atendimento_liberado.procedimento_id,
+                    data_desejada=slot_data,
+                    notificado=False,
+                )
+                .order_by('criado_em')
             )
-            .order_by('criado_em')
-        )
+            if not espera.profissional_desejado_id
+            or espera.profissional_desejado_id == atendimento_liberado.profissional_id
+        ]
 
-        if not candidatos:
+    @staticmethod
+    def notificar_compativeis(atendimento_liberado: Atendimento) -> int:
+        """Agenda (on_commit) o aviso aos compativeis. Retorna quantos foram agendados.
+
+        Vaga no passado (ex.: limpeza automatica de pendentes vencidos) nao
+        gera aviso.
+        """
+        if atendimento_liberado.data_hora_inicio <= timezone.now():
             return 0
 
-        # Filtro por profissional preferido (cliente que pediu prof especifico
-        # so e notificado se prof do slot bate)
-        match = []
-        for c in candidatos:
-            if c.profissional_desejado_id and c.profissional_desejado_id != atendimento_cancelado.profissional_id:
-                continue
-            match.append(c)
-
-        if not match:
+        esperas = ListaEsperaService.candidatos(atendimento_liberado)
+        if not esperas:
             return 0
 
-        # Notifica TODOS compativeis simultaneamente — primeiro a clicar reserva
-        notificados = 0
-        a_notificar = []  # side-effects de rede so apos commit
-        for espera in match:
-            token = secrets.token_urlsafe(24)
-            espera.token_reserva = token
-            espera.expira_em = timezone.now() + timedelta(minutes=TTL_RESERVA_LISTA_ESPERA_MINUTOS)
-            espera.notificado = True
-            espera.save(update_fields=['token_reserva', 'expira_em', 'notificado'])
-
-            # Coleta envio via WhatsApp se consent + telefone
-            cliente = espera.cliente
-            if cliente.telefone and cliente.consent_whatsapp_confirmacao:
-                a_notificar.append((espera, token))
-            notificados += 1
-
-        # Dispara WhatsApp SOMENTE apos o commit dos tokens: evita avisar o
-        # cliente de uma reserva que sofreria rollback e nao segura a transacao
-        # aberta durante I/O de rede.
-        if a_notificar:
-            def _disparar_wa(envios=a_notificar, slot=atendimento_cancelado):
-                for espera, token in envios:
-                    _enviar_wa_lista_espera(espera, slot, token)
-            transaction.on_commit(_disparar_wa)
-
+        ids = [e.pk for e in esperas]
+        atendimento_id = atendimento_liberado.pk
+        transaction.on_commit(lambda: _disparar_avisos(ids, atendimento_id))
         logger.info(
-            'lista_espera_notificados',
-            extra={
-                'atendimento_cancelado_id': atendimento_cancelado.pk,
-                'count': notificados,
-            },
+            'lista_espera_avisos_agendados',
+            extra={'atendimento_id': atendimento_id, 'count': len(ids)},
         )
-        return notificados
+        return len(ids)
 
 
-def _enviar_wa_lista_espera(espera: ListaEspera, slot: Atendimento, token: str) -> None:
-    """Best-effort WhatsApp template. Falha silenciosa = log."""
+def _link_agendamento(procedimento_id: int) -> str:
+    return f"{settings.SITE_URL.rstrip('/')}{reverse('aranha:agendamento_publico')}?procedimento={procedimento_id}"
+
+
+def _disparar_avisos(espera_ids, atendimento_id) -> int:
+    """Pos-commit: envia e-mail e WhatsApp; marca notificado so com entrega."""
     try:
-        from ..utils.whatsapp import enviar_template_whatsapp
+        slot = Atendimento.objects.select_related('procedimento').get(pk=atendimento_id)
+    except Atendimento.DoesNotExist:
+        return 0
+    link = _link_agendamento(slot.procedimento_id)
+    entregues = 0
+    for espera in (ListaEspera.objects.select_related('cliente', 'procedimento')
+                   .filter(pk__in=espera_ids, notificado=False).order_by('criado_em')):
+        ok_email = _enviar_email_lista_espera(espera, slot, link)
+        ok_wa = _enviar_wa_lista_espera(espera, slot, link)
+        if ok_email or ok_wa:
+            # UPDATE condicional: dois avisos concorrentes nao duplicam a marcacao.
+            entregues += ListaEspera.objects.filter(pk=espera.pk, notificado=False).update(notificado=True)
+    logger.info('lista_espera_notificados', extra={'atendimento_id': atendimento_id, 'count': entregues})
+    return entregues
+
+
+def _enviar_email_lista_espera(espera: ListaEspera, slot: Atendimento, link: str) -> bool:
+    """E-mail de vaga (o cliente pediu o aviso ao entrar na lista)."""
+    destino = getattr(espera, 'email_contato', None) or espera.cliente.email
+    if not destino:
+        return False
+    try:
+        from ..utils.email import enviar_fila_espera_email
+        return bool(enviar_fila_espera_email(destino, {
+            'nome': espera.cliente.nome,
+            'procedimento': slot.procedimento.nome,
+            'data': fmt_local(slot.data_hora_inicio, '%d/%m/%Y'),
+            'hora': fmt_local(slot.data_hora_inicio, '%H:%M'),
+            'link': link,
+        }))
+    except Exception as exc:  # noqa: BLE001 — best-effort por destinatario
+        logger.warning('lista_espera_email_falha', extra={'espera_id': espera.pk, 'erro': type(exc).__name__})
+        return False
+
+
+def _enviar_wa_lista_espera(espera: ListaEspera, slot: Atendimento, link: str) -> bool:
+    """WhatsApp template de vaga (requer telefone + consentimento de WhatsApp)."""
+    cliente = espera.cliente
+    if not (cliente.telefone and cliente.consent_whatsapp_confirmacao):
+        return False
+    try:
+        from ..utils.whatsapp import TEMPLATE_LISTA_ESPERA, enviar_template_whatsapp
         components = [{
             'type': 'body',
             'parameters': [
-                {'type': 'text', 'text': espera.cliente.nome},
+                {'type': 'text', 'text': cliente.nome},
                 {'type': 'text', 'text': slot.procedimento.nome},
-                {'type': 'text', 'text': slot.data_hora_inicio.strftime('%d/%m %H:%M')},
+                {'type': 'text', 'text': fmt_local(slot.data_hora_inicio, '%d/%m %H:%M')},
+                {'type': 'text', 'text': link},
             ],
         }]
-        enviar_template_whatsapp(
-            espera.cliente.telefone,
-            'lista_espera_vaga',
-            components=components,
-        )
-    except Exception as exc:  # pylint: disable=broad-except
-        logger.warning(
-            'lista_espera_wa_falha',
-            extra={'espera_id': espera.pk, 'error': str(exc)},
-        )
-
-
-@EventBus.subscribe(AtendimentoCancelado)
-def _on_cancelado_notifica_espera(event: AtendimentoCancelado) -> None:
-    try:
-        atendimento = Atendimento.objects.select_related('procedimento', 'profissional').get(
-            pk=event.atendimento_id,
-        )
-    except Atendimento.DoesNotExist:
-        return
-    ListaEsperaService.notificar_compativeis(atendimento)
+        return bool(enviar_template_whatsapp(cliente.telefone, TEMPLATE_LISTA_ESPERA, components=components))
+    except Exception as exc:  # noqa: BLE001 — best-effort
+        logger.warning('lista_espera_wa_falha', extra={'espera_id': espera.pk, 'erro': type(exc).__name__})
+        return False

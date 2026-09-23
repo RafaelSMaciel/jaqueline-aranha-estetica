@@ -5,37 +5,75 @@ Envia emails transacionais: confirmacao, cancelamento, pacotes, aniversario,
 fila de espera, aprovacao profissional, promocao, termos pendentes.
 (OTP nao usa email — canal exclusivo SMS via utils.sms.)
 Usa Django EmailMultiAlternatives com headers RFC 8058 para marketing.
+
+Falha fechada (contrato 7): fora de DEBUG, backend console/dummy = e-mail nao
+configurado -> as funcoes retornam False (nada de "sucesso" so no log).
 """
 import logging
-import os
-import smtplib
 
+from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
+from django.urls import reverse
 from django.utils.html import strip_tags
+
+from .pii import mask_email
 
 logger = logging.getLogger(__name__)
 
-CLINIC_NAME = os.environ.get('CLINIC_NAME', 'Jaqueline Aranha Estética')
-DEFAULT_FROM = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@jaquelineearanha.com.br')
-SITE_URL = os.environ.get('SITE_URL', 'http://127.0.0.1:8000').rstrip('/')
+# Backends que nao entregam nada (so imprimem/descartam).
+_BACKENDS_SEM_ENTREGA = ('console.EmailBackend', 'dummy.EmailBackend')
+
+
+def email_configurado() -> bool:
+    """True se o backend entrega de fato (em DEBUG o console basta)."""
+    if settings.DEBUG:
+        return True
+    backend = getattr(settings, 'EMAIL_BACKEND', '') or ''
+    return not backend.endswith(_BACKENDS_SEM_ENTREGA)
+
+
+def _nome_clinica() -> str:
+    from .branding import get_branding
+    return get_branding()['CLINIC_NAME']
+
+
+def _remetente() -> str:
+    return getattr(settings, 'DEFAULT_FROM_EMAIL', '') or 'noreply@localhost'
+
+
+def url_descadastro(unsub_token: str) -> str:
+    """URL absoluta do descadastro (link do rodape + List-Unsubscribe)."""
+    return settings.SITE_URL.rstrip('/') + reverse('aranha:lgpd_unsubscribe', args=[unsub_token])
 
 
 def _enviar_email(destinatario, assunto, template, contexto,
                   marketing=False, preheader='', unsub_token=None):
     """Envia email HTML. Marketing inclui List-Unsubscribe (RFC 8058 one-click).
 
-    unsub_token: Cliente.token_descadastro. Obrigatorio para marketing=True.
+    unsub_token: Cliente.token_descadastro. Obrigatorio para marketing=True
+    (sem ele o e-mail NAO sai — LGPD exige o opt-out em toda mensagem).
+    Retorna True so se o backend aceitou a mensagem.
     """
-    contexto.setdefault('clinic_name', CLINIC_NAME)
-    contexto.setdefault('site_url', SITE_URL)
+    if not destinatario:
+        return False
+    if not email_configurado():
+        logger.warning('email_nao_configurado', extra={'template': template})
+        return False
+    if marketing and not unsub_token:
+        logger.error('email_marketing_sem_descadastro', extra={'template': template})
+        return False
+
+    contexto.setdefault('clinic_name', _nome_clinica())
+    contexto.setdefault('site_url', settings.SITE_URL.rstrip('/'))
     contexto.setdefault('preheader', preheader)
 
+    remetente = _remetente()
     headers = {}
-    if marketing and unsub_token:
-        unsub_url = f'{SITE_URL}/lgpd/unsubscribe/{unsub_token}/'
+    if marketing:
+        unsub_url = url_descadastro(unsub_token)
         headers['List-Unsubscribe'] = (
-            f'<{unsub_url}>, <mailto:{DEFAULT_FROM}?subject=unsubscribe>'
+            f'<{unsub_url}>, <mailto:{remetente}?subject=unsubscribe>'
         )
         headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click'
         contexto.setdefault('unsub_url', unsub_url)
@@ -46,27 +84,31 @@ def _enviar_email(destinatario, assunto, template, contexto,
         msg = EmailMultiAlternatives(
             subject=assunto,
             body=texto,
-            from_email=DEFAULT_FROM,
+            from_email=remetente,
             to=[destinatario],
             headers=headers or None,
         )
         msg.attach_alternative(html, 'text/html')
-        msg.send(fail_silently=False)
-        logger.info('email_enviado', extra={'destinatario': destinatario, 'assunto': assunto})
-        return True
-    except (smtplib.SMTPException, OSError) as e:
+        enviados = msg.send(fail_silently=False)
+    except Exception as e:  # noqa: BLE001 — SMTP/API do provedor: nunca quebra o fluxo
         logger.error(
             'email_falha_envio',
-            extra={'destinatario': destinatario, 'error': str(e)},
+            extra={'destinatario': mask_email(destinatario), 'template': template,
+                   'erro': type(e).__name__},
         )
         return False
+    if not enviados:
+        logger.error('email_nao_aceito', extra={'destinatario': mask_email(destinatario), 'template': template})
+        return False
+    logger.info('email_enviado', extra={'destinatario': mask_email(destinatario), 'template': template})
+    return True
 
 
 def enviar_confirmacao_agendamento_email(email, dados):
     """Envia confirmacao de agendamento por email (recibo)."""
     return _enviar_email(
         destinatario=email,
-        assunto=f'{CLINIC_NAME} — Agendamento Confirmado',
+        assunto=f'{_nome_clinica()} — Agendamento confirmado',
         template='email/confirmacao.html',
         contexto={'dados': dados},
     )
@@ -76,7 +118,7 @@ def enviar_cancelamento_email(email, dados):
     """Notifica cancelamento de agendamento por email."""
     return _enviar_email(
         destinatario=email,
-        assunto=f'{CLINIC_NAME} — Agendamento Cancelado',
+        assunto=f'{_nome_clinica()} — Agendamento cancelado',
         template='email/cancelamento.html',
         contexto={'dados': dados},
     )
@@ -86,7 +128,7 @@ def enviar_pacote_expirando_email(email, dados):
     """Avisa que pacote esta expirando."""
     return _enviar_email(
         destinatario=email,
-        assunto=f'{CLINIC_NAME} — Seu pacote esta expirando',
+        assunto=f'{_nome_clinica()} — Seu pacote está expirando',
         template='email/pacote_expirando.html',
         contexto={'dados': dados},
     )
@@ -96,7 +138,7 @@ def enviar_fila_espera_email(email, dados):
     """Notifica que uma vaga abriu na fila de espera."""
     return _enviar_email(
         destinatario=email,
-        assunto=f'{CLINIC_NAME} — Vaga disponivel!',
+        assunto=f'{_nome_clinica()} — Vaga disponível!',
         template='email/fila_espera.html',
         contexto={'dados': dados},
     )
@@ -106,11 +148,11 @@ def enviar_aniversario_email(email, dados, unsub_token=None):
     """Envia email de aniversario com desconto (marketing)."""
     return _enviar_email(
         destinatario=email,
-        assunto=f'Feliz Aniversario! {CLINIC_NAME} tem um presente para voce',
+        assunto=f'Feliz aniversário! {_nome_clinica()} tem um presente para você',
         template='email/aniversario.html',
         contexto={'dados': dados},
         marketing=True,
-        preheader='Presente de aniversario dentro — descontos exclusivos',
+        preheader='Presente de aniversário dentro — descontos exclusivos',
         unsub_token=unsub_token,
     )
 
@@ -149,7 +191,7 @@ def enviar_promocao_email(email, dados, unsub_token=None, assunto=None):
     contexto = dict(dados) if isinstance(dados, dict) else {'dados': dados}
     return _enviar_email(
         destinatario=email,
-        assunto=assunto or f'{CLINIC_NAME} — Ofertas especiais deste mes',
+        assunto=assunto or f'{_nome_clinica()} — Ofertas especiais deste mês',
         template='email/promocao.html',
         contexto=contexto,
         marketing=True,
@@ -162,7 +204,7 @@ def enviar_aprovacao_profissional_email(email, dados):
     """Notifica profissional que há novo agendamento pendente de aprovação."""
     return _enviar_email(
         destinatario=email,
-        assunto=f'{CLINIC_NAME} — Novo Agendamento Pendente',
+        assunto=f'{_nome_clinica()} — Novo agendamento pendente',
         template='email/aprovacao_profissional.html',
         contexto={'dados': dados},
     )
@@ -172,7 +214,7 @@ def enviar_termos_pendentes_email(email, dados):
     """Notifica cliente sobre termos pendentes por email."""
     return _enviar_email(
         destinatario=email,
-        assunto=f'{CLINIC_NAME} — Termos de Consentimento Pendentes',
+        assunto=f'{_nome_clinica()} — Termos de consentimento pendentes',
         template='email/termos_pendentes.html',
         contexto={'dados': dados},
     )

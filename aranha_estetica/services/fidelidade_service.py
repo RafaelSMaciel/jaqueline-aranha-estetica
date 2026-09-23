@@ -113,11 +113,17 @@ class FidelidadeService:
         Cria movimento DEBITO origem CASHBACK_ESTORNO. Saldo nunca negativo.
         Returns: numero de movimentos estornados.
         """
-        creditos = MovimentoCarteira.objects.select_for_update().filter(
+        creditos = list(MovimentoCarteira.objects.select_for_update().filter(
             atendimento=atendimento,
             origem='CASHBACK_INDICACAO',
             tipo='CREDITO',
-        )
+        ))
+        # Idempotente: cancelamento publicado 2x (corrida/duplo clique) nao
+        # debita de novo — o lock acima serializa e a 2a chamada ve o estorno.
+        if not creditos or MovimentoCarteira.objects.filter(
+            atendimento=atendimento, origem='CASHBACK_ESTORNO', tipo='DEBITO',
+        ).exists():
+            return 0
         estornados = 0
         for cred_mov in creditos:
             carteira = cred_mov.carteira
