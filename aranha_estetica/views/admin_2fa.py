@@ -107,14 +107,17 @@ def admin_2fa_setup(request):
         qr_b64 = base64.b64encode(buf.getvalue()).decode()
         secret_b32 = base64.b32encode(bytes.fromhex(device_pendente.key)).decode()
 
+    obrigatorio = dois_fatores.obrigatorio_para(request.user)
     context = {
         'device_confirmado': device_confirmado,
         'device_pendente': device_pendente,
         'qr_b64': qr_b64,
         'secret_b32': secret_b32,
         'next': next_url,
-        'cadastro_obrigatorio': bool(request.session.get(dois_fatores.SESSION_CADASTRO_PENDENTE)),
-        'obrigatorio': dois_fatores.obrigatorio_para(request.user),
+        # Flag do login ou barrado pelo middleware (promovido/sessao antiga)
+        'cadastro_obrigatorio': bool(request.session.get(dois_fatores.SESSION_CADASTRO_PENDENTE))
+        or (obrigatorio and not device_confirmado),
+        'obrigatorio': obrigatorio,
     }
     return render(request, 'painel/2fa_setup.html', context)
 

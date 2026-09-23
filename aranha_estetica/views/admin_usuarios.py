@@ -223,16 +223,24 @@ def admin_editar_usuario(request, pk):
             messages.error(request, erro)
             return _render_form(request, 'editar', usuario, form_data=request.POST)
 
+        email_anterior = usuario.email
+        papel_anterior = usuario.papel
         usuario.nome = nome
         usuario.email = novo_email
         usuario.papel = novo_papel
         usuario.profissional_id = profissional_id
         usuario.ativo = novo_ativo
         usuario.save()
+        detalhes = {'papel': novo_papel, 'ativo': novo_ativo, 'profissional_id': profissional_id}
+        # Trocar o e-mail de outra pessoa + "enviar reset" = assumir a conta:
+        # a trilha guarda o de antes (e a mudanca de papel) p/ reconstruir.
+        if email_anterior != novo_email:
+            detalhes['email_anterior'] = email_anterior
+        if papel_anterior != novo_papel:
+            detalhes['papel_anterior'] = papel_anterior
         registrar_log(
             request.user, f'Editou usuario: {usuario.email}', 'usuario', usuario.pk,
-            detalhes={'papel': novo_papel, 'ativo': novo_ativo, 'profissional_id': profissional_id},
-            request=request,
+            detalhes=detalhes, request=request,
         )
         messages.success(request, 'Usuário atualizado.')
         return redirect('aranha:admin_usuarios')

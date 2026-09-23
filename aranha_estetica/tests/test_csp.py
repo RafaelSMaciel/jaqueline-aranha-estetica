@@ -139,3 +139,41 @@ class SemHandlersInlineTests(TestCase):
                 if padrao.search(linha):
                     achados.append(f'{arq.relative_to(TEMPLATES_DIR)}:{n}')
         self.assertEqual(achados, [], 'handlers inline encontrados (use data-* + listener)')
+
+
+class CdnComSriTests(TestCase):
+    """Lib de CDN sem integrity = arquivo trocado no jsDelivr roda com o nonce da pagina."""
+
+    def test_scripts_e_css_de_cdn_com_sri(self):
+        padrao = re.compile(r'<(?:script|link)\b[^>]*?(?:src|href)="(https://cdn\.jsdelivr\.net/[^"]+)"[^>]*>')
+        urls = []
+        for arq in TEMPLATES_DIR.rglob('*.html'):
+            for m in padrao.finditer(arq.read_text(encoding='utf-8')):
+                tag, url = m.group(0), m.group(1)
+                urls.append(url)
+                with self.subTest(template=str(arq.relative_to(TEMPLATES_DIR)), url=url):
+                    self.assertRegex(tag, r'\bintegrity="sha384-[A-Za-z0-9+/]{64}"')
+                    self.assertIn('crossorigin="anonymous"', tag)
+                    # .min.js que o pacote nao publica e gerado pelo jsDelivr na
+                    # hora (o proprio arquivo avisa: nao usar SRI) — hash quebraria
+                    self.assertFalse(url.endswith('chart.umd.min.js'), url)
+        self.assertTrue(urls, 'nenhuma lib de CDN encontrada: revise o teste')
+
+
+@override_settings(ADMIN_2FA_OBRIGATORIO=False)
+class SwaggerStyleComNonceTests(TestCase):
+    def test_style_do_swagger_usa_o_nonce_da_csp(self):
+        from aranha_estetica.models import Usuario
+        admin_user = Usuario.objects.create_user(
+            email='swagger@test.com', password='Senha-Forte-2026!', nome='Swagger',
+            papel=Usuario.PAPEL_ADMIN,
+        )
+        c = Client()
+        c.force_login(admin_user)
+        resp = c.get(reverse('aranha:swagger-ui'))
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
+        m = re.search(r'<style nonce="([^"]+)"', html)
+        self.assertIsNotNone(m, 'swagger sem <style nonce=...>')
+        self.assertIn(f"'nonce-{m.group(1)}'", resp['Content-Security-Policy'])
+        self.assertEqual(re.findall(r'<style(?![^>]*nonce=)', html), [])
