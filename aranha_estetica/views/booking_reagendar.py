@@ -3,24 +3,29 @@ import json
 import logging
 from datetime import datetime, timedelta
 
-from django.conf import settings
 from django.contrib import messages
 from django.db import DatabaseError, IntegrityError, transaction
 from django.db.models import Q
 from django.shortcuts import redirect, render
-from django.urls import reverse
 from django.utils import timezone
 from django_ratelimit.decorators import ratelimit
 
 from ..constants import JANELA_MINIMA_REAGENDAMENTO
-from ..models import Atendimento, Cliente, Feriado, Profissional
+from ..models import Atendimento, Cliente, Feriado, Profissional, RespostaAnamnese
 from ..services.agendamento_service import formatar_brl, formatar_data_hora
 from ..services.disponibilidade import profissional_habilitado, slot_disponivel
+from ..services.retorno_service import DURACAO_RETORNO_PADRAO_MINUTOS
+from ..utils.audit import registrar_log
 from ..utils.captcha import turnstile_enabled, turnstile_site_key
 from ..utils.datas import hoje
 from ..utils.pii import mask_telefone
 from .booking_otp import SESSAO_MEUS_AGENDAMENTOS
-from .booking_public import MSG_BLOQUEADO_ONLINE, _eh_sobreposicao, _enfileirar_email
+from .booking_public import (
+    MSG_BLOQUEADO_ONLINE,
+    _eh_sobreposicao,
+    _enfileirar_email,
+    link_revisar_agenda,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +160,12 @@ def reagendar_agendamento(request, token):
         messages.error(request, 'Este horário não está disponível. Escolha outro.')
         return redirect('aranha:reagendar_agendamento', token=token)
 
-    nova_data_fim = nova_data + timedelta(minutes=procedimento.duracao_minutos)
+    # Retorno gratuito ocupa so a duracao de retorno (igual ao RetornoService).
+    duracao = (
+        procedimento.duracao_retorno_minutos or DURACAO_RETORNO_PADRAO_MINUTOS
+        if atendimento.eh_retorno else procedimento.duracao_minutos
+    )
+    nova_data_fim = nova_data + timedelta(minutes=duracao)
 
     try:
         with transaction.atomic():
@@ -192,18 +202,29 @@ def reagendar_agendamento(request, token):
             # restaura tudo se o INSERT falhar.
             antigo.marcar_reagendado()
 
+            # Preco/promocao combinados e o vinculo de retorno seguem no novo
+            # (sem eh_retorno o retorno reagendado viraria sessao normal e
+            # geraria outro retorno gratuito ao ser realizado).
             novo = Atendimento.objects.create(
                 cliente=antigo.cliente,
                 profissional=profissional,
                 procedimento=procedimento,
                 promocao=antigo.promocao,
                 reagendado_de=antigo,
+                eh_retorno=antigo.eh_retorno,
+                atendimento_origem=antigo.atendimento_origem,
                 data_hora_inicio=nova_data,
                 data_hora_fim=nova_data_fim,
                 valor_cobrado=antigo.valor_cobrado,
                 valor_original=antigo.valor_original,
                 descricao_preco=antigo.descricao_preco,
                 status=novo_status,
+            )
+            # Ficha de anamnese (alergias etc.) acompanha o atendimento vivo.
+            RespostaAnamnese.objects.filter(atendimento=antigo).update(atendimento=novo)
+            registrar_log(
+                None, 'Cliente reagendou pelo link', 'atendimento', novo.pk,
+                detalhes={'reagendado_de': antigo.pk}, request=request,
             )
     except Atendimento.TransicaoInvalida:
         messages.error(request, 'Este atendimento não pode mais ser reagendado.')
@@ -235,26 +256,32 @@ def reagendar_agendamento(request, token):
         usuario_prof = getattr(profissional, 'usuario', None)
         prof_email = getattr(usuario_prof, 'email', None)
         if prof_email:
-            link_revisar = (
-                f"{settings.SITE_URL}{reverse('aranha:profissional_agenda')}"
-                f"?data={nova_data.strftime('%Y-%m-%d')}"
-            )
             _enfileirar_email('enviar_aprovacao_profissional_email', prof_email, {
                 'profissional': profissional.nome,
                 'cliente': antigo.cliente.nome,
                 'procedimento': procedimento.nome,
                 'data_hora': data_fmt,
-                'link_revisar': link_revisar,
-                'link_aprovar': link_revisar,
-                'link_rejeitar': link_revisar,
+                'link_revisar': link_revisar_agenda(nova_data),
             })
 
+    if novo.eh_retorno:
+        valor_txt = 'Sem custo (retorno)'
+    elif novo.valor_cobrado is not None:
+        valor_txt = formatar_brl(novo.valor_cobrado)
+    else:
+        valor_txt = 'A consultar'
+    em_promocao = bool(
+        novo.promocao_id and novo.valor_original is not None
+        and novo.valor_cobrado is not None and novo.valor_original > novo.valor_cobrado
+    )
     request.session['agendamento_sucesso'] = {
         'nome': antigo.cliente.nome,
         'procedimento': procedimento.nome,
         'profissional': profissional.nome,
         'data_hora': data_fmt,
-        'valor': formatar_brl(novo.valor_cobrado) if novo.valor_cobrado else 'A consultar',
+        'valor': valor_txt,
+        'valor_cheio': formatar_brl(novo.valor_original) if em_promocao else '',
+        'promocao': novo.promocao.nome if em_promocao else '',
         'pendente': pendente,
         'reagendamento': True,
         'email': bool(antigo.cliente.email),

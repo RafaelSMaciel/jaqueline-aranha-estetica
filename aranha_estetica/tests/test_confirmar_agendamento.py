@@ -49,7 +49,7 @@ class ConfirmarAgendamentoTests(TestCase):
         self.datetime_str = slot_local()
         self.url = reverse('aranha:confirmar_agendamento')
 
-    def _post(self, with_otp=True, **overrides):
+    def _post(self, with_otp=True, headers=None, **overrides):
         data = {
             'nome': 'Maria Teste',
             'telefone': '17999991111',
@@ -57,11 +57,12 @@ class ConfirmarAgendamentoTests(TestCase):
             'procedimento': self.proc.pk,
             'profissional': self.prof.pk,
             'datetime': self.datetime_str,
+            'aceite_politica': 'on',
         }
         data.update(overrides)
         if with_otp:
             verificar_sessao(self.client, str(data['telefone']))
-        return self.client.post(self.url, data)
+        return self.client.post(self.url, data, **(headers or {}))
 
     def test_cria_cliente_novo_e_atendimento(self):
         resp = self._post()
@@ -271,10 +272,14 @@ class ConfirmarAgendamentoTests(TestCase):
             str(form.pk): {'gestante': 'nao', 'areas': ['Testa']},
             str(alheio.pk): {'x': 'valor'},
         }
-        resp = self._post(anamnese_respostas=json.dumps(respostas))
+        resp = self._post(anamnese_respostas=json.dumps(respostas), consent_dados_saude='on')
         self.assertIn('sucesso', resp.url)
         self.assertEqual(RespostaAnamnese.objects.count(), 1)
-        self.assertEqual(RespostaAnamnese.objects.get().formulario, form)
+        ficha = RespostaAnamnese.objects.get()
+        self.assertEqual(ficha.formulario, form)
+        # bool normalizado ('nao' -> False) e ficha marcada como respondida
+        self.assertEqual(ficha.respostas_json, {'gestante': False, 'areas': ['Testa']})
+        self.assertIsNotNone(ficha.respondida_em)
 
     def test_wizard_nao_lista_pesquisa_pos_atendimento(self):
         FormularioAnamnese.objects.create(

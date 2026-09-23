@@ -75,13 +75,49 @@
         return '';
     }
 
-    function formatarPreco(p) {
-        if (!(p > 0)) return 'A consultar';
+    function brl(p) {
         try {
             return p.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
         } catch (e) {
             return 'R$ ' + p.toFixed(2).replace('.', ',');
         }
+    }
+
+    function formatarPreco(p) {
+        if (!(p > 0)) return 'A consultar';
+        return brl(p);
+    }
+
+    // ═══ CONSENTS DE COMUNICAÇÃO (espelham o cadastro após o OTP) ═══
+    var CAMPOS_CONSENT = {
+        consent_email_marketing: 'form-consent-email',
+        consent_whatsapp_confirmacao: 'form-consent-wa-d1',
+        consent_whatsapp_nps: 'form-consent-nps'
+    };
+
+    function lerConsents() {
+        var out = {};
+        Object.keys(CAMPOS_CONSENT).forEach(function(k) {
+            var el = document.getElementById(CAMPOS_CONSENT[k]);
+            if (el) out[k] = !!el.checked;
+        });
+        return out;
+    }
+
+    function aplicarConsents(consents) {
+        if (!consents) return;
+        Object.keys(CAMPOS_CONSENT).forEach(function(k) {
+            var el = document.getElementById(CAMPOS_CONSENT[k]);
+            if (el && typeof consents[k] === 'boolean') el.checked = consents[k];
+        });
+    }
+
+    // '1' = checkboxes mostram o estado do cadastro: desmarcar revoga no servidor
+    function consentsSincronizados(valor) {
+        var el = document.getElementById('form-consents-sincronizados');
+        if (!el) return '';
+        if (valor !== undefined) el.value = valor ? '1' : '';
+        return el.value;
     }
 
     function parseData(str) {
@@ -112,7 +148,9 @@
                     telefone:   (document.getElementById('form-telefone')   || {}).value || '',
                     nascimento: (document.getElementById('form-nascimento') || {}).value || '',
                     email:      (document.getElementById('form-email')      || {}).value || ''
-                }
+                },
+                consents: lerConsents(),
+                consentsSincronizados: consentsSincronizados()
             }));
         } catch(e) {}
     }
@@ -139,6 +177,9 @@
                 if (f && st.form[k] != null) f.value = st.form[k];
             });
         }
+        // Opt-ins como a pessoa deixou (sem isso, reenviar revogaria/zeraria)
+        aplicarConsents(st.consents);
+        consentsSincronizados(st.consentsSincronizados === '1');
 
         // Calendário e horários do step 2 prontos p/ o "Voltar"
         var base = parseData(selectedDate);
@@ -396,15 +437,95 @@
         catch (e) { textoData = d.toLocaleString('pt-BR'); }
         document.getElementById('sum-datetime').textContent = textoData;
         document.getElementById('sum-prof').textContent = selectedProf.nome;
-        document.getElementById('sum-price').textContent = formatarPreco(selectedProc.preco);
+        renderPreco();
 
         document.getElementById('form-procedimento').value = selectedProc.id;
         document.getElementById('form-profissional').value = selectedProf.id;
         document.getElementById('form-datetime').value = selectedSlot.iso;
 
         renderAnamnese();
+        renderTermos();
 
         goToStep(3);
+    }
+
+    // Valor da DATA escolhida p/ o profissional (API de horários, promoção
+    // inclusa) — o mesmo que o servidor grava. Cheio riscado + nome da promo.
+    function renderPreco() {
+        var el = document.getElementById('sum-price');
+        el.textContent = '';
+        var prof = selectedProf || {};
+        if (!('valor' in prof)) {  // estado antigo salvo na aba: preço base do card
+            el.textContent = formatarPreco(selectedProc.preco);
+            return;
+        }
+        var valor = prof.valor === null ? NaN : parseFloat(prof.valor);
+        if (isNaN(valor)) {
+            el.textContent = 'A consultar';
+            return;
+        }
+        if (prof.promocao && prof.valor_cheio) {
+            var cheio = document.createElement('span');
+            cheio.className = 'recap-cheio';
+            cheio.textContent = brl(parseFloat(prof.valor_cheio));
+            el.appendChild(cheio);
+        }
+        el.appendChild(document.createTextNode(brl(valor)));
+        if (prof.promocao) {
+            var promo = document.createElement('span');
+            promo.className = 'recap-promo';
+            promo.textContent = prof.promocao;
+            el.appendChild(promo);
+        }
+    }
+
+    // ═══ TERMO(S) DO PROCEDIMENTO (JSON via json_script p/ XSS-safe) ═══
+    var TERMOS_PROCEDIMENTO = [];
+    try {
+        TERMOS_PROCEDIMENTO = JSON.parse(
+            document.getElementById('termos-procedimento-data').textContent
+        ) || [];
+    } catch (e) { TERMOS_PROCEDIMENTO = []; }
+
+    function renderTermos() {
+        var container = document.getElementById('termosContainer');
+        var fields = document.getElementById('termosFields');
+        if (!container || !fields || !selectedProc) return;
+        fields.textContent = '';
+        var aplicaveis = TERMOS_PROCEDIMENTO.filter(function(t) {
+            return t.procedimento_id == null || String(t.procedimento_id) === String(selectedProc.id);
+        });
+        container.style.display = aplicaveis.length ? '' : 'none';
+        aplicaveis.forEach(function(t) {
+            var box = document.createElement('div');
+            box.className = 'aceite-box';
+            var ttl = document.createElement('p');
+            ttl.className = 'aceite-titulo';
+            ttl.textContent = t.titulo + ' ';
+            var ver = document.createElement('small');
+            ver.textContent = '(versão ' + t.versao + ')';
+            ttl.appendChild(ver);
+            var txt = document.createElement('div');
+            txt.className = 'aceite-texto';
+            txt.tabIndex = 0;  // rolável por teclado
+            txt.setAttribute('role', 'region');
+            txt.setAttribute('aria-label', 'Texto do termo ' + t.titulo);
+            txt.textContent = t.conteudo;
+            var lbl = document.createElement('label');
+            lbl.className = 'aceite-check';
+            var cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.name = 'aceite_termo_' + t.id;
+            cb.required = true;
+            var sp = document.createElement('span');
+            sp.textContent = 'Li e aceito este termo.';
+            lbl.appendChild(cb);
+            lbl.appendChild(sp);
+            box.appendChild(ttl);
+            box.appendChild(txt);
+            box.appendChild(lbl);
+            fields.appendChild(box);
+        });
     }
 
     // ═══ ANAMNESE DINAMICA (JSON via json_script p/ XSS-safe) ═══
@@ -444,6 +565,8 @@
         var aplicaveis = FORMULARIOS_ANAMNESE.filter(function(f){
             return formularioAplicaAoProc(f, selectedProc);
         });
+        anamneseObrigatoria = aplicaveis.some(function(f){ return !!f.obrigatorio; });
+        atualizarConsentSaude();
         if (aplicaveis.length === 0) {
             container.style.display = 'none';
             return;
@@ -521,6 +644,30 @@
         });
     }
 
+    // Consentimento de dado de saúde (LGPD art. 11): obrigatório quando a
+    // ficha é obrigatória ou quando a pessoa respondeu alguma pergunta.
+    var anamneseObrigatoria = false;
+
+    function anamneseTemResposta() {
+        var campos = document.querySelectorAll('#anamneseFields [data-form-id]');
+        for (var i = 0; i < campos.length; i++) {
+            var el = campos[i];
+            if (el.type === 'checkbox' ? el.checked : String(el.value || '').trim()) return true;
+        }
+        return false;
+    }
+
+    function atualizarConsentSaude() {
+        var cb = document.getElementById('form-consent-saude');
+        if (cb) cb.required = anamneseObrigatoria || anamneseTemResposta();
+    }
+
+    var anamneseFieldsEl = document.getElementById('anamneseFields');
+    if (anamneseFieldsEl) {
+        anamneseFieldsEl.addEventListener('input', atualizarConsentSaude);
+        anamneseFieldsEl.addEventListener('change', atualizarConsentSaude);
+    }
+
     function coletarAnamnese() {
         var dados = {};
         document.querySelectorAll('#anamneseFields [data-form-id]').forEach(function(el){
@@ -589,7 +736,8 @@
     }
 
     // ═══ PERSISTÊNCIA DOS CAMPOS DO FORM (W4) ═══
-    ['form-nome', 'form-nascimento', 'form-email'].forEach(function(id) {
+    ['form-nome', 'form-nascimento', 'form-email',
+     'form-consent-email', 'form-consent-wa-d1', 'form-consent-nps'].forEach(function(id) {
         var el = document.getElementById(id);
         if (el) {
             el.addEventListener('input',  salvarEstado);
@@ -659,6 +807,7 @@
             nome.value = prefill.nome || '';
             nasc.value = prefill.data_nascimento || '';
             if (email && prefill.email && !email.value) email.value = prefill.email;
+            aplicarConsents(prefill.consents);
             salvarEstado();
         }
         nome.required = true;
@@ -767,6 +916,8 @@
                             setStatusMsg('Seu cadastro está com agendamento online suspenso. Fale conosco para marcar seu horário.', false, true);
                             return;
                         }
+                        // checkboxes agora refletem o cadastro (ou cliente novo)
+                        consentsSincronizados(true);
                         mostrarDados(res.data.prefill, !!res.data.prefill);
                     } else if (erro.indexOf('incorreto') === 0) {
                         var restante = erro.split(':')[1] || '';

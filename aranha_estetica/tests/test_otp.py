@@ -193,6 +193,20 @@ class OtpAgendamentoEndpointTests(TestCase):
         self.assertEqual(resp.json()['prefill']['nome'], 'Joana')
         self.assertEqual(resp.json()['prefill']['email'], 'joana@example.com')
 
+    def test_prefill_traz_estado_dos_opt_ins(self):
+        # gap1-03: o wizard mostra os checkboxes como estao no cadastro
+        Cliente.objects.create(
+            nome='Rita', telefone='17999990001', consent_whatsapp_confirmacao=True,
+        )
+        self.client.post(self.url_sol, {'telefone': '17999990001'})
+        codigo = self.codigos['17999990001']
+        resp = self.client.post(self.url_ver, {'telefone': '17999990001', 'codigo': codigo})
+        self.assertEqual(resp.json()['prefill']['consents'], {
+            'consent_email_marketing': False,
+            'consent_whatsapp_confirmacao': True,
+            'consent_whatsapp_nps': False,
+        })
+
     def test_codigo_de_um_telefone_nao_vale_para_outro(self):
         self.client.post(self.url_sol, {'telefone': '17900000001'})
         codigo = self.codigos['17900000001']

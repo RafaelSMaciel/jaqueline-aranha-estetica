@@ -14,6 +14,7 @@ from django_ratelimit.decorators import ratelimit
 
 from ..decorators import staff_required
 from ..models import Atendimento, Notificacao
+from ..utils.audit import registrar_log
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,11 @@ logger = logging.getLogger(__name__)
 # termo (canal EMAIL), NPS e cancelamento NAO valem aqui.
 TIPOS_LINK_CONFIRMACAO = ('LEMBRETE', 'LEMBRETE_2H', 'CONFIRMACAO')
 STATUS_ALTERAVEIS_PELO_LINK = ('AGENDADO', 'CONFIRMADO')
+# "Sem resposta" so faz sentido p/ o que pede resposta (link de confirmacao
+# enviado): termo, NPS, cancelamento e falhas de envio nao contam.
+AGUARDA_RESPOSTA = Q(
+    tipo__in=TIPOS_LINK_CONFIRMACAO, canal='WHATSAPP', status='ENVIADO', resposta__isnull=True,
+)
 
 
 def _alteravel_pelo_link(atendimento) -> bool:
@@ -81,6 +87,12 @@ def confirmar_presenca(request, token):
                         notif.save(update_fields=['resposta', 'respondido_em'])
                         logger.info('confirmar_presenca_%s', resposta.lower(),
                                     extra={'atendimento_id': atendimento.pk})
+                        # IP de origem da resposta (a FSM audita so a transicao)
+                        registrar_log(
+                            None, f'Cliente respondeu pelo link: {resposta}',
+                            'atendimento', atendimento.pk,
+                            detalhes={'notificacao_id': notif.pk}, request=request,
+                        )
 
     ja_respondeu = notif.resposta is not None
     context = {
@@ -111,7 +123,7 @@ def painel_notificacoes(request):
         if status_filter == 'respondido':
             notifs = notifs.exclude(resposta__isnull=True).exclude(resposta='')
         elif status_filter == 'pendente':
-            notifs = notifs.filter(resposta__isnull=True)
+            notifs = notifs.filter(AGUARDA_RESPOSTA)
 
     # Stats — agregacao condicional unica.
     stats = notifs.aggregate(
@@ -120,7 +132,7 @@ def painel_notificacoes(request):
         falhas=Count('id', filter=Q(status='FALHOU')),
         confirmados=Count('id', filter=Q(resposta='CONFIRMOU')),
         cancelados=Count('id', filter=Q(resposta='CANCELOU')),
-        sem_resposta=Count('id', filter=Q(resposta__isnull=True)),
+        sem_resposta=Count('id', filter=AGUARDA_RESPOSTA),
     )
 
     paginator = Paginator(notifs, 50)

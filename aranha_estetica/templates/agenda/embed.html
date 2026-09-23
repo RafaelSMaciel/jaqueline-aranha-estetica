@@ -70,6 +70,7 @@
                     <span class="proc-mini-price">A consultar</span>
                     {% endif %}
                     &middot; {{ p.duracao_minutos }} min
+                    {% if p.promocao %}&middot; {{ p.promocao }}{% endif %}
                 </div>
             </a>
             {% endfor %}

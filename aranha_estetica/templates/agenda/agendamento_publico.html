@@ -116,6 +116,15 @@
     .proc-desc { font-size: 0.82rem; color: var(--cor-texto-suave); margin-bottom: 0.8rem; line-height: 1.45; }
     .proc-meta { display: flex; align-items: center; gap: 1rem; }
     .proc-price { font-weight: 800; color: var(--gold); font-size: 1.1rem; }
+    .proc-price-cheio {
+        font-size: 0.78rem; font-weight: 600; color: var(--cor-texto-suave);
+        text-decoration: line-through; margin-right: 0.2rem;
+    }
+    .proc-promo {
+        display: inline-block; margin-top: 0.65rem; padding: 0.2rem 0.7rem;
+        border-radius: 999px; background: var(--gold-light); color: var(--cor-marca);
+        font-size: 0.72rem; font-weight: 700;
+    }
     .proc-duration {
         font-size: 0.75rem; color: var(--cor-texto-suave); font-weight: 600;
         display: flex; align-items: center; gap: 0.3rem;
@@ -227,6 +236,40 @@
     .recap-price .recap-value {
         font-family: 'Playfair Display', serif; font-size: 1.35rem;
         font-weight: 700; color: var(--gold);
+    }
+    .recap-price .recap-cheio {
+        display: block; font-family: inherit; font-size: 0.8rem; font-weight: 600;
+        color: var(--cor-texto-suave); text-decoration: line-through;
+    }
+    .recap-price .recap-promo {
+        display: block; font-family: inherit; font-size: 0.72rem; font-weight: 700;
+        color: var(--cor-marca);
+    }
+
+    /* ─── POLITICA / TERMOS / CONSENTIMENTO DE SAUDE ─── */
+    .aceite-box {
+        border: 1px solid var(--cor-borda); border-radius: 14px; background: var(--cor-fundo);
+        padding: 0.9rem 1rem; margin: 1rem 0;
+    }
+    .aceite-box.destaque { border: 2px solid var(--gold); background: var(--gold-light); }
+    .aceite-titulo { font-weight: 700; color: var(--earth); font-size: 0.88rem; margin: 0 0 0.45rem; }
+    .aceite-titulo small { font-weight: 600; color: var(--cor-texto-suave); }
+    .aceite-texto {
+        max-height: 11rem; overflow-y: auto; white-space: pre-line;
+        font-size: 0.8rem; line-height: 1.5; color: var(--cor-texto-suave);
+        background: var(--cor-superficie); border: 1px solid var(--cor-borda); border-radius: 10px;
+        padding: 0.65rem 0.8rem; margin: 0.5rem 0 0.6rem;
+    }
+    .aceite-texto:focus-visible { outline: 2px solid var(--cor-marca); outline-offset: 2px; }
+    .aceite-check {
+        display: flex; align-items: flex-start; gap: 8px; cursor: pointer;
+        font-size: 0.84rem; color: var(--earth); font-weight: 600; line-height: 1.45;
+    }
+    .aceite-check input { width: auto; margin-top: 3px; flex-shrink: 0; }
+    .aceite-check a { color: var(--cor-marca); text-decoration: underline; }
+    .aceite-resumo summary {
+        cursor: pointer; font-size: 0.78rem; font-weight: 700; color: var(--cor-marca);
+        margin-top: 0.5rem;
     }
 
     .fields-divider {
@@ -398,7 +441,7 @@
             <div class="proc-grid">
                 {% for proc in procedimentos %}
                 <button type="button" class="proc-card" data-proc-id="{{ proc.id|unlocalize }}" data-proc-nome="{{ proc.nome }}"
-                     data-proc-preco="{{ proc.preco|unlocalize }}" data-proc-duracao="{{ proc.duracao_minutos|unlocalize }}"
+                     data-proc-preco="{{ proc.preco_base|unlocalize }}" data-proc-duracao="{{ proc.duracao_minutos|unlocalize }}"
                      data-categoria="{{ proc.categoria }}" data-proc-categoria="{{ proc.categoria }}">
                     <div class="proc-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18 16l.6 1.6L20 18l-1.4.6L18 20l-.6-1.4L16 18l1.4-.4z"/></svg></div>
                     <div class="proc-name">{{ proc.nome }}</div>
@@ -407,8 +450,9 @@
                     {% endif %}
                     <div class="proc-meta">
                         <span class="proc-price">
-                            {% if proc.preco > 0 %}
+                            {% if proc.preco_base > 0 %}
                                 <small style="font-size:0.65rem;font-weight:600;color:var(--cor-texto-suave);letter-spacing:0.5px;">A partir de</small>
+                                {% if proc.preco_cheio %}<s class="proc-price-cheio">R$ {{ proc.preco_cheio|floatformat:"2g" }}</s>{% endif %}
                                 R$ {{ proc.preco|floatformat:"2g" }}
                             {% else %}
                                 <small style="font-size:0.78rem;font-weight:700;color:#7a5f1f;">A consultar</small>
@@ -418,6 +462,9 @@
                             <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>{{ proc.duracao_minutos }} min
                         </span>
                     </div>
+                    {% if proc.promocao %}
+                    <span class="proc-promo">{{ proc.promocao }} · até {{ proc.promocao_ate|date:"d/m" }}</span>
+                    {% endif %}
                 </button>
                 {% endfor %}
             </div>
@@ -518,6 +565,8 @@
                         <input type="hidden" name="procedimento" id="form-procedimento">
                         <input type="hidden" name="profissional" id="form-profissional">
                         <input type="hidden" name="datetime" id="form-datetime">
+                        {# '1' = checkboxes de comunicacao mostram o estado do cadastro (desmarcar revoga) #}
+                        <input type="hidden" name="consents_sincronizados" id="form-consents-sincronizados" value="">
                         {# honeypot — humano não ve, bot preenche #}
                         <input type="text" name="website" tabindex="-1" autocomplete="off"
                                style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
@@ -594,7 +643,7 @@
 
                             <div class="form-field" style="margin-bottom:0.5rem;">
                                 <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:0.82rem;color:#6b6256;text-transform:none;letter-spacing:0;font-weight:500;">
-                                    <input type="checkbox" name="consent_whatsapp_confirmacao" id="form-consent-wa-d1" checked style="width:auto;margin-top:3px;">
+                                    <input type="checkbox" name="consent_whatsapp_confirmacao" id="form-consent-wa-d1" style="width:auto;margin-top:3px;">
                                     <span>Aceito receber lembrete do meu agendamento por WhatsApp 24h antes.</span>
                                 </label>
                             </div>
@@ -614,6 +663,34 @@
                             </div>
                             <div id="anamneseFields"></div>
                             <input type="hidden" name="anamnese_respostas" id="anamneseRespostasJson" value="">
+                            {# Consentimento especifico e destacado p/ dado de saude (LGPD art. 11) #}
+                            <div class="aceite-box destaque" id="consent-saude-box">
+                                <p class="aceite-titulo">Autorização para uso das suas informações de saúde</p>
+                                <label class="aceite-check" for="form-consent-saude">
+                                    <input type="checkbox" name="consent_dados_saude" id="form-consent-saude">
+                                    <span>{{ texto_consentimento_saude }}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Termo(s) do procedimento (preenchido via JS conforme procedimento) -->
+                        <div id="termosContainer" style="display:none;">
+                            <div class="fields-divider">Termo de consentimento</div>
+                            <div id="termosFields"></div>
+                        </div>
+
+                        <!-- Politica de Privacidade (aceite obrigatorio) -->
+                        <div class="aceite-box" id="aceite-politica-box">
+                            <label class="aceite-check" for="form-aceite-politica">
+                                <input type="checkbox" name="aceite_politica" id="form-aceite-politica" required>
+                                <span>Li e aceito a <a href="{% url 'aranha:politica_privacidade' %}" target="_blank" rel="noopener">Política de Privacidade</a>{% if termo_lgpd %} (versão {{ termo_lgpd.versao }}){% endif %}: meus dados são usados para organizar e cuidar do meu atendimento.</span>
+                            </label>
+                            {% if termo_lgpd %}
+                            <details class="aceite-resumo">
+                                <summary>Ler o resumo</summary>
+                                <div class="aceite-texto" tabindex="0" role="region" aria-label="Texto: {{ termo_lgpd.titulo }}">{{ termo_lgpd.conteudo }}</div>
+                            </details>
+                            {% endif %}
                         </div>
 
                         <button type="submit" class="btn-confirm-booking" id="btn-confirmar" disabled title="Verifique o código enviado por SMS ao seu telefone primeiro">
@@ -642,6 +719,7 @@
 {% block js %}
 {# JSON crus via json_script — Django escapa <,>,&,' p/ XSS-safe #}
 {{ formularios_anamnese_data|json_script:"formularios-anamnese-data" }}
+{{ termos_procedimento_data|json_script:"termos-procedimento-data" }}
 {# Config do wizard: resolve tags Django aqui no template, expõe para wizard.js #}
 <script nonce="{{ csp_nonce }}">
   window.WIZARD_CFG = {

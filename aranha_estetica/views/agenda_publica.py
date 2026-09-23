@@ -114,16 +114,18 @@ def embed_agendar(request):
     """
     procedimentos = []
     try:
-        from ..utils.precos import preco_base_map
+        # "A partir de" = mesma conta do wizard (promocao vigente hoje inclusa)
+        from .booking_public import _precos_card
         procs_qs = list(Procedimento.objects.filter(ativo=True))
-        precos = preco_base_map(procs_qs)
+        precos = _precos_card(procs_qs)
         for p in procs_qs:
-            valor = precos.get(p.pk)
+            valor, promo, _cheio = precos.get(p.pk, (None, None, None))
             procedimentos.append({
                 'id': p.pk,
                 'nome': p.nome,
                 'duracao_minutos': p.duracao_minutos,
                 'preco': float(valor) if valor is not None else 0,
+                'promocao': promo.nome if promo is not None else '',
             })
     except (OperationalError, ProgrammingError, ImportError):
         pass
