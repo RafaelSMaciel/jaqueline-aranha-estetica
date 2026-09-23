@@ -1,5 +1,8 @@
 # aranha_estetica/admin.py
+from django import forms
 from django.contrib import admin, messages
+from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from django.contrib.auth.forms import BaseUserCreationForm, UserChangeForm
 from django.db import transaction
 from django.utils import timezone
 
@@ -13,7 +16,8 @@ from .models import (
     AvaliacaoNPS,
     Pacote, ItemPacote, CompraPacote, ConsumoSessao,
     ListaEspera,
-    LogAuditoria, Configuracao, CodigoOtp,
+    LogAuditoria, Configuracao, CodigoOtp, Feriado,
+    RegraComissao, MovimentoComissao,
     Usuario,
 )
 
@@ -22,15 +26,53 @@ from .models import (
 # CONTROLE DE ACESSO
 # =====================================================================
 
+class UsuarioCreationForm(BaseUserCreationForm):
+    """Cadastro com senha + confirmacao; grava o HASH (set_password)."""
+
+    class Meta:
+        model = Usuario
+        fields = ('email', 'nome', 'papel', 'profissional')
+
+    def clean_email(self):
+        email = (self.cleaned_data.get('email') or '').strip().lower()
+        if Usuario.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError('Já existe usuário com esse e-mail.')
+        return email
+
+
+class UsuarioChangeForm(UserChangeForm):
+    """Senha so-leitura (hash); troca pelo form de senha proprio do admin."""
+
+    class Meta:
+        model = Usuario
+        fields = ('email', 'nome', 'papel', 'profissional', 'ativo', 'password')
+
+
 @admin.register(Usuario)
-class UsuarioAdmin(admin.ModelAdmin):
+class UsuarioAdmin(DjangoUserAdmin):
+    # O ModelForm padrao expunha `password` como texto comum e gravava a senha
+    # em claro no banco. UserAdmin usa set_password + form de troca de senha.
+    form = UsuarioChangeForm
+    add_form = UsuarioCreationForm
+    add_form_template = None
     list_display = ('email', 'nome', 'papel', 'profissional', 'ativo')
     list_filter = ('papel', 'ativo')
     search_fields = ('nome', 'email')
     ordering = ('email',)
+    filter_horizontal = ()
     autocomplete_fields = ('profissional',)
     list_select_related = ('profissional',)
     list_per_page = 50
+    fieldsets = (
+        (None, {'fields': ('email', 'password')}),
+        ('Dados', {'fields': ('nome', 'papel', 'profissional', 'ativo')}),
+    )
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('email', 'nome', 'papel', 'profissional', 'password1', 'password2'),
+        }),
+    )
 
 
 # =====================================================================
@@ -157,10 +199,27 @@ class ClienteAdmin(admin.ModelAdmin):
             'fields': ('criado_em', 'atualizado_em', 'deletado_em'),
         }),
     )
-    actions = ['acao_anonimizar_lgpd', 'acao_bloquear_online', 'acao_resetar_faltas']
+    actions = [
+        'acao_excluir_soft', 'acao_anonimizar_lgpd', 'acao_bloquear_online', 'acao_resetar_faltas',
+    ]
 
     def get_queryset(self, request):
         return Cliente.all_objects.get_queryset()
+
+    def get_actions(self, request):
+        # delete_selected faz QuerySet.delete() (hard-delete em cascata),
+        # contornando o soft-delete de Cliente.delete(). Fica so a versao soft.
+        actions = super().get_actions(request)
+        actions.pop('delete_selected', None)
+        return actions
+
+    @admin.action(description='Excluir selecionados (desativa — soft delete)')
+    def acao_excluir_soft(self, request, queryset):
+        count = 0
+        for cliente in queryset:
+            cliente.delete()  # soft-delete (Cliente.delete)
+            count += 1
+        self.message_user(request, f'{count} cliente(s) desativado(s).', messages.SUCCESS)
 
     @admin.action(description='Anonimizar (direito ao esquecimento LGPD)')
     def acao_anonimizar_lgpd(self, request, queryset):
@@ -260,35 +319,37 @@ class AtendimentoAdmin(admin.ModelAdmin):
     inlines = [NotificacaoInline]
     actions = ['acao_marcar_realizado', 'acao_marcar_cancelado', 'acao_marcar_faltou']
 
+    def get_readonly_fields(self, request, obj=None):
+        # Status so muda pela FSM (actions abaixo / painel), nunca editando o campo
+        campos = tuple(super().get_readonly_fields(request, obj))
+        return (*campos, 'status') if obj is not None else campos
+
+    def _transicionar(self, request, queryset, metodo, rotulo, **kwargs):
+        ok = ignorados = 0
+        for at in queryset:
+            try:
+                getattr(at, metodo)(by_user=request.user, **kwargs)
+                ok += 1
+            except Atendimento.TransicaoInvalida:
+                ignorados += 1
+        msg = f'{ok} atendimento(s) {rotulo}.'
+        if ignorados:
+            msg += f' {ignorados} ignorado(s): transição de status não permitida.'
+        self.message_user(request, msg, messages.WARNING if ignorados else messages.SUCCESS)
+
     @admin.action(description='Marcar selecionados como REALIZADO')
     def acao_marcar_realizado(self, request, queryset):
-        count = 0
-        with transaction.atomic():
-            for at in queryset.exclude(status__in=['REALIZADO', 'CANCELADO']):
-                at.status = 'REALIZADO'
-                at.save(update_fields=['status', 'atualizado_em'])
-                count += 1
-        self.message_user(request, f'{count} atendimento(s) marcado(s) como realizado.')
+        self._transicionar(request, queryset, 'marcar_realizado', 'marcado(s) como realizado')
 
     @admin.action(description='Cancelar selecionados')
     def acao_marcar_cancelado(self, request, queryset):
-        count = 0
-        with transaction.atomic():
-            for at in queryset.exclude(status__in=['REALIZADO', 'CANCELADO']):
-                at.status = 'CANCELADO'
-                at.save(update_fields=['status', 'atualizado_em'])
-                count += 1
-        self.message_user(request, f'{count} atendimento(s) cancelado(s).')
+        self._transicionar(
+            request, queryset, 'cancelar', 'cancelado(s)', motivo='Cancelado via Django admin',
+        )
 
     @admin.action(description='Marcar como FALTOU')
     def acao_marcar_faltou(self, request, queryset):
-        count = 0
-        with transaction.atomic():
-            for at in queryset.exclude(status__in=['REALIZADO', 'CANCELADO', 'FALTOU']):
-                at.status = 'FALTOU'
-                at.save(update_fields=['status', 'atualizado_em'])
-                count += 1
-        self.message_user(request, f'{count} atendimento(s) marcado(s) como faltou.')
+        self._transicionar(request, queryset, 'marcar_falta', 'marcado(s) como falta')
 
 
 @admin.register(Notificacao)
@@ -310,8 +371,11 @@ class NotificacaoAdmin(admin.ModelAdmin):
 
 @admin.register(AvaliacaoNPS)
 class AvaliacaoNPSAdmin(admin.ModelAdmin):
-    list_display = ('atendimento', 'nota', 'alerta_enviado', 'criado_em')
-    list_filter = ('nota', 'alerta_enviado')
+    list_display = (
+        'atendimento', 'nota', 'alerta_enviado',
+        'autoriza_publicacao', 'aprovado_publicacao', 'criado_em',
+    )
+    list_filter = ('nota', 'alerta_enviado', 'autoriza_publicacao', 'aprovado_publicacao')
     search_fields = ('atendimento__cliente__nome', 'comentario')
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
@@ -431,6 +495,10 @@ class LogAuditoriaAdmin(admin.ModelAdmin):
     def has_change_permission(self, request, obj=None):
         return False
 
+    def has_delete_permission(self, request, obj=None):
+        # Trilha de auditoria e imutavel (nem o admin apaga)
+        return False
+
 
 @admin.register(Configuracao)
 class ConfiguracaoSistemaAdmin(admin.ModelAdmin):
@@ -453,3 +521,51 @@ class OtpCodeAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
+
+
+# =====================================================================
+# COMISSOES E CALENDARIO
+# =====================================================================
+
+@admin.register(RegraComissao)
+class RegraComissaoAdmin(admin.ModelAdmin):
+    """Sem regra ativa nenhuma comissao e gerada (ComissaoService.calcular_comissao).
+
+    Percentual OU valor fixo (CHECK no banco). Profissional/procedimento vazios
+    = vale para todos; a regra mais especifica vence.
+    """
+    list_display = ('__str__', 'profissional', 'procedimento', 'percentual', 'valor', 'ativo')
+    list_filter = ('ativo', 'profissional')
+    search_fields = ('profissional__nome', 'procedimento__nome')
+    autocomplete_fields = ('profissional', 'procedimento')
+    list_select_related = ('profissional', 'procedimento')
+
+
+@admin.register(MovimentoComissao)
+class MovimentoComissaoAdmin(admin.ModelAdmin):
+    """Somente leitura: gerado pelo servico e pago pela tela Comissoes do painel."""
+    list_display = ('criado_em', 'profissional', 'atendimento', 'valor', 'status', 'pago_em')
+    list_filter = ('status', 'profissional')
+    search_fields = ('profissional__nome', 'atendimento__cliente__nome')
+    ordering = ('-criado_em',)
+    date_hierarchy = 'criado_em'
+    list_select_related = ('profissional', 'atendimento', 'atendimento__cliente')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(Feriado)
+class FeriadoAdmin(admin.ModelAdmin):
+    """Feriados e recessos da clinica (bloqueiam a agenda se bloqueia_agendamento)."""
+    list_display = ('data', 'nome', 'escopo', 'bloqueia_agendamento')
+    list_filter = ('escopo', 'bloqueia_agendamento')
+    search_fields = ('nome',)
+    ordering = ('-data',)
+    date_hierarchy = 'data'

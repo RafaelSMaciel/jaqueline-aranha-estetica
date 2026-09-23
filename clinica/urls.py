@@ -5,11 +5,13 @@ from django.contrib.sitemaps.views import sitemap
 from django.urls import path, include
 from django.views.generic import TemplateView
 
-from two_factor.urls import urlpatterns as tf_urlpatterns
-
 from aranha_estetica.sitemaps import StaticViewSitemap, ProcedimentoSitemap
 
-# admin.site.__class__ -> AdminSiteOTPRequired aplicado em aranha_estetica.apps.ready()
+# admin.site.__class__ -> AdminSiteOTPRequired aplicado em aranha_estetica.apps.ready().
+# As rotas do django-two-factor (/account/...) NAO sao publicadas: eram uma 2a
+# tela de login e deixavam uma sessao so com senha cadastrar TOTP proprio e
+# entrar no admin. O 2FA da equipe e o do painel (/painel/seguranca/2fa/), que
+# chama django_otp.login() e satisfaz o AdminSiteOTPRequired.
 
 sitemaps = {
     'static': StaticViewSitemap,
@@ -18,8 +20,6 @@ sitemaps = {
 
 urlpatterns = [
     path('django-admin-sv/', admin.site.urls),
-    # 2FA: setup TOTP, login com OTP, backup tokens
-    path('', include(tf_urlpatterns)),
     path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
     path('robots.txt', TemplateView.as_view(template_name='robots.txt', content_type='text/plain')),
     path('', include('aranha_estetica.urls')),

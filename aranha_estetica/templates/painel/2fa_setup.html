@@ -7,6 +7,12 @@
 {% block admin_content %}
 <div class="max-w-xl mx-auto">
 
+{% if cadastro_obrigatorio %}
+  <div class="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 text-amber-700 font-bold text-[0.85rem] mb-4" role="alert">
+    O 2FA é obrigatório para administradores. Ative-o para continuar usando o painel.
+  </div>
+{% endif %}
+
 {% if device_confirmado %}
   <div class="flex items-center gap-2 px-4 py-3 rounded-xl bg-green-50 text-green-700 font-bold text-[0.85rem] mb-4">
     <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
@@ -21,12 +27,18 @@
     <form method="post" id="form-desativar-2fa">
       {% csrf_token %}
       <input type="hidden" name="acao" value="desativar">
+      <label for="token-desativar" class="block text-[0.85rem] font-bold text-texto mb-1">Código atual do app</label>
+      <input type="text" id="token-desativar" name="token"
+             maxlength="8" autocomplete="one-time-code" autocapitalize="off" spellcheck="false"
+             placeholder="000000" required
+             class="w-full px-4 py-3 mb-3 rounded-xl border-2 border-borda bg-fundo text-texto text-2xl text-center font-bold font-mono tracking-[0.4em] outline-none focus:border-[#C9A84C] transition-colors">
       <button type="submit"
+              data-confirm="{% if obrigatorio %}Remover o aparelho atual? Você cadastrará o novo em seguida.{% else %}Desativar o 2FA? Sua conta ficará menos segura.{% endif %}"
               class="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-red-50 text-red-700 text-[0.9rem] font-bold border-none cursor-pointer hover:bg-red-100 transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
         </svg>
-        Desativar 2FA
+        {% if obrigatorio %}Trocar de aparelho{% else %}Desativar 2FA{% endif %}
       </button>
     </form>
   </div>
@@ -63,6 +75,7 @@
     </p>
     <form method="post">
       {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next }}">
       <input type="hidden" name="acao" value="confirmar">
       <input type="text" name="token"
              maxlength="6" pattern="\d{6}" autocomplete="one-time-code"
@@ -76,7 +89,7 @@
           </svg>
           Confirmar e ativar
         </button>
-        <button type="submit" name="acao" value="gerar"
+        <button type="submit" name="acao" value="gerar" formnovalidate
                 class="px-4 py-2 rounded-xl bg-superficie text-texto-suave text-[0.9rem] font-bold border border-borda cursor-pointer hover:bg-fundo transition-colors">
           Gerar novo QR
         </button>
@@ -89,7 +102,7 @@
     <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
     </svg>
-    2FA DESATIVADO · sua conta só protegida por senha
+    2FA DESATIVADO · sua conta está protegida só pela senha
   </div>
   <div class="bg-superficie rounded-2xl shadow-sm p-5">
     <p class="text-[0.9rem] text-texto-suave mb-4">
@@ -101,6 +114,7 @@
     </p>
     <form method="post">
       {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next }}">
       <input type="hidden" name="acao" value="gerar">
       <button type="submit"
               class="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.9rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
@@ -114,17 +128,4 @@
 {% endif %}
 
 </div>
-{% endblock %}
-
-{% block js %}
-<script nonce="{{ csp_nonce }}">
-(function () {
-  var f = document.getElementById('form-desativar-2fa');
-  if (f) {
-    f.addEventListener('submit', function (e) {
-      if (!confirm('Desativar 2FA? Sua conta ficará menos segura.')) e.preventDefault();
-    });
-  }
-})();
-</script>
 {% endblock %}

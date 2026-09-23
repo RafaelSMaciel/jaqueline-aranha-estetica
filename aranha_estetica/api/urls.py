@@ -1,8 +1,6 @@
 """URLs da API REST."""
 from django.urls import include, path
-from drf_spectacular.views import (
-    SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView,
-)
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerSplitView
 from rest_framework.permissions import IsAdminUser
 from rest_framework.routers import DefaultRouter
 
@@ -19,11 +17,17 @@ router.register('atendimentos', AtendimentoViewSet, basename='atendimento')
 
 urlpatterns = [
     path('v1/', include(router.urls)),
-    # Schema e UIs (swagger/redoc) restritos a staff/admin: a estrutura completa
+    # Schema e UI (swagger) restritos a staff/admin: a estrutura completa
     # da API (rotas, params, modelos Cliente/Atendimento) nao deve ser exposta a
-    # anonimos. SpectacularSwaggerView/RedocView servem HTML publico por padrao,
+    # anonimos. As views do spectacular servem HTML publico por padrao,
     # entao a permissao precisa ser explicita aqui.
     path('schema/', SpectacularAPIView.as_view(permission_classes=[IsAdminUser]), name='schema'),
-    path('schema/swagger/', SpectacularSwaggerView.as_view(url_name='aranha:schema', permission_classes=[IsAdminUser]), name='swagger-ui'),
-    path('schema/redoc/', SpectacularRedocView.as_view(url_name='aranha:schema', permission_classes=[IsAdminUser]), name='redoc'),
+    # SplitView: o init do Swagger vem como script externo same-origin (?script),
+    # aceito pela CSP com nonce (a SwaggerView padrao usa <script> inline e fica
+    # em branco). Redoc removido: depende de <style> inline e worker blob:.
+    path(
+        'schema/swagger/',
+        SpectacularSwaggerSplitView.as_view(url_name='aranha:schema', permission_classes=[IsAdminUser]),
+        name='swagger-ui',
+    ),
 ]

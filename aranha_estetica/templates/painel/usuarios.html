@@ -2,7 +2,7 @@
 
 {% block titulo %}Usuários — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Usuários{% endblock %}
-{% block page_subtitle %}Gerencie equipe com acesso ao painel{% endblock %}
+{% block page_subtitle %}Gerencie a equipe com acesso ao sistema{% endblock %}
 {% block page_actions %}
 <a href="{% url 'aranha:admin_criar_usuario' %}"
    class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold bg-[#C9A84C] text-white hover:bg-[#b48c4c] transition-colors no-underline">
@@ -21,7 +21,7 @@
     <div class="flex-1 min-w-[160px]">
       <label for="buscaInput" class="sr-only">Buscar usuário</label>
       <input type="text" id="buscaInput" name="q" value="{{ busca }}"
-             placeholder="Buscar nome ou email..."
+             placeholder="Buscar nome ou e-mail..."
              class="w-full px-3 py-2 rounded-xl border border-borda text-[0.875rem] text-texto bg-fundo placeholder-texto-suave outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
     </div>
     <div class="min-w-[140px]">
@@ -127,7 +127,7 @@
         <button type="submit"
                 class="w-8 h-8 rounded-lg flex items-center justify-center bg-yellow-50 text-yellow-700 hover:bg-yellow-100 transition-colors border-none cursor-pointer"
                 title="Enviar reset de senha"
-                data-confirm="Enviar email de reset de senha para {{ u.email|escapejs }}?">
+                data-confirm="Enviar e-mail de redefinição de senha para {{ u.email }}?">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
           </svg>
@@ -139,7 +139,7 @@
         <button type="submit"
                 class="w-8 h-8 rounded-lg flex items-center justify-center {% if u.ativo %}bg-red-50 text-red-600 hover:bg-red-100{% else %}bg-green-50 text-green-700 hover:bg-green-100{% endif %} transition-colors border-none cursor-pointer"
                 title="{% if u.ativo %}Desativar{% else %}Ativar{% endif %}"
-                data-confirm="{% if u.ativo %}Desativar{% else %}Ativar{% endif %} acesso de {{ u.nome|escapejs }}?">
+                data-confirm="{% if u.ativo %}Desativar{% else %}Ativar{% endif %} acesso de {{ u.nome }}?">
           {% if u.ativo %}
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
@@ -193,18 +193,4 @@
 </div>
 {% endif %}
 
-{% endblock %}
-
-{% block js %}
-<script nonce="{{ csp_nonce }}">
-(function(){
-  document.querySelectorAll('button[data-confirm]').forEach(function(btn){
-    btn.addEventListener('click', function(e){
-      if (!window.confirm(btn.dataset.confirm)) {
-        e.preventDefault();
-      }
-    });
-  });
-})();
-</script>
 {% endblock %}

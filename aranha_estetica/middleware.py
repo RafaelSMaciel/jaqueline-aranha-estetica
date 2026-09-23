@@ -4,21 +4,29 @@ Inclui Content-Security-Policy com nonce por request e headers adicionais
 (Permissions-Policy, X-Content-Type-Options, Cross-Origin-*).
 """
 import secrets
+from urllib.parse import urlencode
 
 from django.conf import settings
 from django.db import OperationalError, ProgrammingError
+from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.urls import resolve, reverse
 from django.urls.exceptions import Resolver404
 
+from .utils import dois_fatores
+
 
 class Enforce2FAMiddleware:
-    """Exige verificacao 2FA pos-login para acessar /painel/ quando usuario tem TOTP ativo.
+    """Exige o desafio 2FA (TOTP) nas areas autenticadas da equipe.
 
     Fluxo:
-      1. Usuario loga (session cria);
-      2. Se tiver TOTPDevice.confirmed=True e sessao sem 'otp_verified', redireciona p/ challenge;
-      3. Apos verificar token correto, session['otp_verified']=True libera /painel/.
+      1. Usuario loga (sessao criada);
+      2. Com TOTPDevice confirmado e sessao nao verificada -> challenge;
+      3. ADMIN sem TOTP com 2FA obrigatorio (flag gravada no login) -> cadastro;
+      4. Token correto -> sessao verificada (flag + django_otp.login) libera tudo,
+         inclusive o /django-admin-sv/ (AdminSiteOTPRequired exige is_verified()).
+
+    Em /api/ a resposta e 403 JSON em vez de redirect HTML.
     """
 
     EXEMPT_NAMES = {
@@ -30,7 +38,10 @@ class Enforce2FAMiddleware:
 
     # Prefixos de URL protegidos pelo desafio 2FA. Centralizado numa constante
     # unica para evitar que uma rota administrativa nova fique sem 2FA por engano.
-    PROTECTED_PREFIXES = ('/painel/', '/profissional/')
+    # ADMIN_PREFIX deve bater com clinica/urls.py.
+    ADMIN_PREFIX = '/django-admin-sv/'
+    API_PREFIX = '/api/'
+    PROTECTED_PREFIXES = ('/painel/', '/profissional/', API_PREFIX, ADMIN_PREFIX)
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -50,20 +61,32 @@ class Enforce2FAMiddleware:
         except Resolver404:
             pass
 
-        if request.session.get('otp_verified'):
+        # Cadastro obrigatorio pendente (ADMIN sem TOTP): so a tela de 2FA
+        if request.session.get(dois_fatores.SESSION_CADASTRO_PENDENTE):
+            return self._barrar(request, 'aranha:admin_2fa_setup')
+
+        if dois_fatores.sessao_verificada(request):
             return self.get_response(request)
 
         try:
-            from django_otp.plugins.otp_totp.models import TOTPDevice
-            if TOTPDevice.objects.filter(user=request.user, confirmed=True).exists():
-                challenge_url = reverse('aranha:admin_2fa_challenge')
-                return redirect(f'{challenge_url}?next={path}')
+            if dois_fatores.tem_2fa(request.user):
+                return self._barrar(request, 'aranha:admin_2fa_challenge')
+            # Django admin exige OTP verificado: staff sem TOTP cadastra antes
+            # (senao o AdminSiteOTPRequired devolve p/ o login em loop).
+            if path.startswith(self.ADMIN_PREFIX) and request.user.is_staff:
+                return self._barrar(request, 'aranha:admin_2fa_setup')
         except (ImportError, OperationalError, ProgrammingError):
             # TOTPDevice nao disponivel (app desinstalado) ou tabela inexistente
             # (migrations pendentes). Nao bloqueia request — segue sem 2FA challenge.
             pass
 
         return self.get_response(request)
+
+    def _barrar(self, request, url_name):
+        if request.path.startswith(self.API_PREFIX):
+            return JsonResponse({'detail': '2fa_required'}, status=403)
+        destino = reverse(url_name)
+        return redirect(f'{destino}?{urlencode({"next": request.get_full_path()})}')
 
 
 class SecurityHeadersMiddleware:
@@ -96,19 +119,23 @@ class ContentSecurityPolicyMiddleware:
     use `<script nonce="{{ csp_nonce }}">` / `<style nonce="{{ csp_nonce }}">`.
 
     `script-src` e `style-src`: SEM `'unsafe-inline'`. Todos os blocks
-    `<script>`/`<style>` devem ter nonce (verificado via audit Lote 3).
+    `<script>`/`<style>` devem ter nonce. Handlers inline (onclick=...) NAO
+    sao permitidos (sem `script-src-attr`, vale o script-src com nonce):
+    use data-* + listener em static/src/js. So `style-src-attr` segue com
+    `'unsafe-inline'` (atributos style="...").
 
-    `script-src-attr` e `style-src-attr`: AINDA com `'unsafe-inline'`.
-    Cobrem handlers inline (onclick=...) e style=... attributes.
-    Refactor desses (34 handlers + 645 style attrs) fica para Lote 3.5.
+    `frame-ancestors 'none'` em tudo, exceto respostas marcadas com
+    @xframe_options_exempt (widget /embed/agendar/), que usam
+    settings.EMBED_FRAME_ANCESTORS (default: qualquer origem https).
+
+    Hosts externos: so os realmente usados (jsdelivr: FullCalendar, Chart.js,
+    swagger-ui; cdnjs: embed; Google Fonts; Turnstile).
     """
 
     ALLOWED_SCRIPT_SRCS = [
         "'self'",
         "https://cdn.jsdelivr.net",
         "https://cdnjs.cloudflare.com",
-        "https://code.jquery.com",
-        "https://unpkg.com",
         "https://challenges.cloudflare.com",
     ]
     ALLOWED_STYLE_SRCS = [
@@ -116,7 +143,6 @@ class ContentSecurityPolicyMiddleware:
         "https://cdn.jsdelivr.net",
         "https://cdnjs.cloudflare.com",
         "https://fonts.googleapis.com",
-        "https://unpkg.com",
     ]
     ALLOWED_FONT_SRCS = [
         "'self'",
@@ -132,7 +158,6 @@ class ContentSecurityPolicyMiddleware:
     ]
     ALLOWED_CONNECT_SRCS = [
         "'self'",
-        "https://www.google-analytics.com",
     ]
 
     def __init__(self, get_response):
@@ -163,20 +188,22 @@ class ContentSecurityPolicyMiddleware:
                 "ws://localhost:5173",
             ]
 
+        # Widget embutivel (@xframe_options_exempt): libera o iframe externo.
+        if getattr(response, 'xframe_options_exempt', False):
+            frame_ancestors = getattr(settings, 'EMBED_FRAME_ANCESTORS', '') or 'https:'
+        else:
+            frame_ancestors = "'none'"
+
         csp = "; ".join([
             "default-src 'self'",
             f"script-src {' '.join(script_src)}",
-            # CSP3: inline event handlers (onclick=...) e style="..." sao
-            # governados por -attr. Permitimos inline attrs enquanto nao
-            # migramos tudo pro CSS/listener externo.
-            "script-src-attr 'unsafe-inline'",
             f"style-src {' '.join(style_src)}",
             "style-src-attr 'unsafe-inline'",
             f"font-src {' '.join(self.ALLOWED_FONT_SRCS)}",
             f"img-src {' '.join(self.ALLOWED_IMG_SRCS)}",
             f"connect-src {' '.join(connect_src)}",
             "frame-src 'self' https://www.google.com https://challenges.cloudflare.com",
-            "frame-ancestors 'none'",
+            f"frame-ancestors {frame_ancestors}",
             "form-action 'self'",
             "base-uri 'self'",
             "object-src 'none'",
