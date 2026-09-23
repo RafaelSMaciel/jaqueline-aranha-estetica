@@ -73,23 +73,12 @@
     .btn-confirmar:hover { background: var(--cor-marca); transform: translateY(-1px); }
     .btn-confirmar:focus-visible { outline: 2px solid var(--cor-marca); outline-offset: 2px; }
     .btn-confirmar:disabled { background: var(--cor-borda); color: var(--cor-texto-suave); cursor: not-allowed; transform: none; }
-    .alerta {
-        background: #fff3cd; border: 1px solid #ffc107;
-        padding: 0.75rem 1rem; border-radius: 8px;
-        color: #856404; font-size: 0.9rem; margin-bottom: 1rem;
-    }
 </style>
 {% endblock %}
 
 {% block conteudo %}
 <div class="reag-page">
     <div class="reag-container">
-
-        {% if messages %}
-            {% for m in messages %}
-                <div class="alerta">{{ m }}</div>
-            {% endfor %}
-        {% endif %}
 
         <div class="reag-card">
             <h1 class="reag-title">
@@ -112,7 +101,7 @@
                 </div>
             </div>
 
-            <form method="post" id="form-reagendar" data-loading-msg="Enviando confirmação por e-mail...">
+            <form method="post" id="form-reagendar">
                 {% csrf_token %}
                 <input type="hidden" name="datetime" id="hidden-datetime" value="">
                 <input type="hidden" name="profissional" id="hidden-profissional" value="{{ atendimento.profissional.pk }}">
@@ -125,6 +114,7 @@
 
                 <div class="reag-field" id="box-horarios" style="display:none;">
                     <label class="reag-label">Horários disponíveis</label>
+                    <p class="text-texto-suave" style="font-size:0.8rem;margin:0;">Horários com {{ atendimento.profissional.nome }}. Se um horário for com outra profissional, o nome dela aparece no botão e o novo horário passa por aprovação.</p>
                     <div class="horarios-grid" id="grid-horarios"></div>
                     <div id="no-horarios" class="text-texto-suave mt-2" style="display:none;">
                         Nenhum horário disponível neste dia. Escolha outro.
@@ -154,6 +144,8 @@
 <script nonce="{{ csp_nonce }}">
 (function () {
     const PROC_ID = {{ atendimento.procedimento.pk }};
+    const PROF_ORIG = {{ atendimento.profissional.pk }};
+    const form = document.getElementById('form-reagendar');
     const dataInput = document.getElementById('nova-data');
     const gridHorarios = document.getElementById('grid-horarios');
     const boxHorarios = document.getElementById('box-horarios');
@@ -162,38 +154,38 @@
     const hiddenProf = document.getElementById('hidden-profissional');
     const btn = document.getElementById('btn-confirmar');
 
-    const amanha = new Date();
-    amanha.setDate(amanha.getDate() + 1);
-    dataInput.min = amanha.toISOString().slice(0, 10);
-
     dataInput.addEventListener('change', async function () {
         const data = this.value;
         if (!data) return;
 
-        gridHorarios.innerHTML = '<div class="text-texto-suave">Carregando...</div>';
+        gridHorarios.textContent = 'Carregando...';
         boxHorarios.style.display = 'block';
         noHorarios.style.display = 'none';
         hiddenDT.value = '';
         btn.disabled = true;
 
         try {
-            const resp = await fetch(`{% url 'aranha:api_horarios_disponiveis' %}?data=${data}&procedimento_id=${PROC_ID}`);
+            const qs = new URLSearchParams({data: data, procedimento_id: PROC_ID});
+            const resp = await fetch(`{% url 'aranha:api_horarios_disponiveis' %}?${qs.toString()}`);
             const json = await resp.json();
 
             if (!json.horarios || json.horarios.length === 0) {
-                gridHorarios.innerHTML = '';
+                gridHorarios.textContent = '';
                 noHorarios.style.display = 'block';
                 return;
             }
 
-            gridHorarios.innerHTML = '';
+            gridHorarios.textContent = '';
             json.horarios.forEach(h => {
+                // Mantém a profissional original sempre que ela atende no horário;
+                // senão mostra explicitamente quem vai atender (nada de troca silenciosa).
+                const p = h.profissionais.find(x => x.id === PROF_ORIG) || h.profissionais[0];
                 const b = document.createElement('button');
                 b.type = 'button';
                 b.className = 'horario-btn';
-                b.textContent = h.horario;
+                b.textContent = p.id === PROF_ORIG ? h.horario : (h.horario + ' · ' + p.nome);
                 b.dataset.iso = h.datetime_iso;
-                b.dataset.prof = h.profissionais[0].id;
+                b.dataset.prof = p.id;
                 b.addEventListener('click', function () {
                     document.querySelectorAll('.horario-btn').forEach(x => x.classList.remove('selected'));
                     b.classList.add('selected');
@@ -204,7 +196,22 @@
                 gridHorarios.appendChild(b);
             });
         } catch (e) {
-            gridHorarios.innerHTML = '<div style="color:var(--cor-erro)">Erro ao carregar horários.</div>';
+            gridHorarios.textContent = 'Erro ao carregar horários.';
+        }
+    });
+
+    // Duplo clique não gera dois POSTs
+    form.addEventListener('submit', function (e) {
+        if (form.dataset.enviando === '1' || !hiddenDT.value) { e.preventDefault(); return; }
+        form.dataset.enviando = '1';
+        btn.disabled = true;
+        btn.textContent = 'Reagendando...';
+    });
+    window.addEventListener('pageshow', function (ev) {
+        if (ev.persisted) {
+            form.dataset.enviando = '';
+            btn.disabled = !hiddenDT.value;
+            btn.textContent = 'Confirmar reagendamento';
         }
     });
 })();

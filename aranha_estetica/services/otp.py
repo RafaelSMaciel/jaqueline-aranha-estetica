@@ -1,17 +1,23 @@
 """Servico OTP: SMS Zenvia exclusivo (sem fallback email).
 
-Regra: OTP de validacao de agendamento e acesso ao portal sempre via SMS.
-Se o cliente nao tem telefone valido, a solicitacao falha — e-mail nao e
-utilizado como canal de OTP no fluxo principal.
+Regra: OTP de validacao de agendamento e acesso ao portal sempre via SMS e
+SEMPRE preso ao TELEFONE que recebe o codigo (chave do desafio =
+CodigoOtp.email_para_telefone(digitos)). E-mail digitado pelo usuario nunca
+e identidade: quem prova posse do celular so ve/edita o cadastro daquele
+celular.
 """
 from __future__ import annotations
 
 import hashlib
 import logging
+from datetime import datetime, timedelta
 from typing import Optional, Tuple, TYPE_CHECKING
 
+from django.core.exceptions import ValidationError
+from django.utils import timezone
+
 from ..models import CodigoOtp
-from .notificacao import OTPService
+from ..utils.sms import enviar_otp_sms, sms_disponivel
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
@@ -19,6 +25,11 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 OtpResult = Tuple[bool, str, Optional[str]]
+
+# Sessao: telefone (digitos) verificado por OTP no wizard de agendamento.
+SESSAO_AGENDAMENTO = 'otp_agendamento_telefone'
+SESSAO_AGENDAMENTO_EXPIRA = 'otp_agendamento_expira'
+VALIDADE_VERIFICACAO = timedelta(minutes=30)
 
 
 def _email_hash(email: str) -> str:
@@ -35,7 +46,25 @@ def _client_ip(request: Optional['HttpRequest']) -> Optional[str]:
     if request is None:
         return None
     from ..utils.security import client_ip
-    return client_ip(request)
+    return client_ip(request) or None
+
+
+def normalizar_telefone_br(valor) -> str:
+    """Celular/fixo BR canonico (10-11 digitos, DDD valido) ou '' se invalido.
+
+    Remove mascara, DDI 55 (autofill '+55 ...') e zero de discagem a frente.
+    """
+    from ..validators import normalizar_telefone, validate_telefone_br
+    digitos = normalizar_telefone(str(valor or ''))
+    if len(digitos) in (12, 13) and digitos.startswith('55'):
+        digitos = digitos[2:]
+    if len(digitos) in (11, 12) and digitos.startswith('0'):
+        digitos = digitos[1:]
+    try:
+        validate_telefone_br(digitos)
+    except ValidationError:
+        return ''
+    return digitos if len(digitos) in (10, 11) else ''
 
 
 def solicitar_otp(
@@ -61,7 +90,7 @@ def solicitar_otp(
             (False, 'email_invalido', None)  — email mal-formatado
             (False, 'telefone_ausente', None)— sem telefone
             (False, 'aguarde', None)         — rate limit (TTL ainda ativo)
-            (False, 'sms_falha', None)       — Zenvia retornou erro
+            (False, 'sms_falha', None)       — canal indisponivel/erro no envio
 
     Raises:
         Nao propaga — todos erros traduzidos em (False, motivo).
@@ -77,6 +106,11 @@ def solicitar_otp(
         )
         return False, 'telefone_ausente', None
 
+    # Canal fora do ar (sem provedor em prod): nao gera codigo nem consome cooldown.
+    if not sms_disponivel():
+        logger.error('otp_sms_indisponivel', extra={'proposito': proposito})
+        return False, 'sms_falha', None
+
     if not CodigoOtp.pode_reenviar(email, proposito=proposito):
         return False, 'aguarde', None
 
@@ -85,7 +119,7 @@ def solicitar_otp(
         email, ip=ip, proposito=proposito,
         canal=CodigoOtp.CANAL_SMS, telefone=telefone,
     )
-    if OTPService.enviar_codigo(telefone, codigo, ip=ip):
+    if enviar_otp_sms(telefone, codigo, ip=ip):
         logger.info('otp_sms_enviado', extra={'proposito': proposito})
         return True, 'ok', CodigoOtp.CANAL_SMS
 
@@ -101,17 +135,65 @@ def verificar_otp(
 ) -> Tuple[bool, str]:
     """Valida codigo OTP previamente enviado, atomicamente.
 
-    Args:
-        email: identificador do challenge usado em solicitar_otp().
-        codigo: 6 digitos digitados pelo usuario.
-        proposito: PROPOSITO_AGENDAMENTO | PROPOSITO_LOGIN.
-
     Returns:
         (True, 'ok') ou (False, motivo) onde motivo:
-            'dados_ausentes' | 'invalido' | 'expirado' | 'esgotado'
+            'dados_ausentes' | 'incorreto:N' | 'expirado' | 'bloqueado'
     """
     email = (email or '').strip().lower()
     codigo = (codigo or '').strip()
     if not email or not codigo:
         return False, 'dados_ausentes'
     return CodigoOtp.verificar(email, codigo, proposito=proposito)
+
+
+# ─── Desafio preso ao telefone ──────────────────────────────────────────
+
+def solicitar_otp_telefone(
+    digitos: str, *, request: Optional['HttpRequest'] = None,
+    proposito: str = CodigoOtp.PROPOSITO_AGENDAMENTO,
+) -> OtpResult:
+    """Envia OTP ao telefone; a chave do desafio e o proprio telefone."""
+    if not digitos:
+        return False, 'telefone_invalido', None
+    return solicitar_otp(
+        CodigoOtp.email_para_telefone(digitos),
+        request=request, proposito=proposito, telefone=digitos,
+    )
+
+
+def verificar_otp_telefone(
+    digitos: str, codigo: str, *, proposito: str = CodigoOtp.PROPOSITO_AGENDAMENTO,
+) -> Tuple[bool, str]:
+    """Consome o OTP do telefone (mesma chave de solicitar_otp_telefone)."""
+    if not digitos:
+        return False, 'dados_ausentes'
+    return verificar_otp(CodigoOtp.email_para_telefone(digitos), codigo, proposito=proposito)
+
+
+# ─── Sessao do wizard de agendamento ────────────────────────────────────
+
+def registrar_verificacao_agendamento(request, digitos: str) -> None:
+    """Marca o telefone como verificado na sessao (30 min). Anti session-fixation."""
+    request.session.cycle_key()
+    request.session[SESSAO_AGENDAMENTO] = digitos
+    request.session[SESSAO_AGENDAMENTO_EXPIRA] = (timezone.now() + VALIDADE_VERIFICACAO).isoformat()
+
+
+def telefone_verificado_agendamento(request) -> str:
+    """Telefone (digitos) verificado e ainda valido na sessao, ou ''."""
+    digitos = request.session.get(SESSAO_AGENDAMENTO) or ''
+    expira = request.session.get(SESSAO_AGENDAMENTO_EXPIRA)
+    if not digitos or not expira:
+        return ''
+    try:
+        exp = datetime.fromisoformat(expira)
+    except (TypeError, ValueError):
+        return ''
+    if timezone.is_naive(exp):
+        exp = timezone.make_aware(exp)
+    return digitos if exp > timezone.now() else ''
+
+
+def limpar_verificacao_agendamento(request) -> None:
+    request.session.pop(SESSAO_AGENDAMENTO, None)
+    request.session.pop(SESSAO_AGENDAMENTO_EXPIRA, None)

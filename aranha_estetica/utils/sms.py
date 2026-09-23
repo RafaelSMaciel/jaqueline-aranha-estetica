@@ -4,15 +4,18 @@ SMS Notification Service — Plataforma de Clinicas (Provider: Zenvia REST API v
 Uso atual: apenas OTP de autenticacao/agendamento (canal primario).
 Todas as demais mensagens transacionais seguem por email.
 
-Variaveis de ambiente:
+Variaveis de ambiente (lidas em tempo de chamada):
   ZENVIA_API_TOKEN     Token X-API-TOKEN da Zenvia
   ZENVIA_FROM          Identificador do remetente (integracao SMS Zenvia)
   ZENVIA_API_URL       URL base (default https://api.zenvia.com/v2/channels/sms/messages)
-  SMS_DEV_LOG_ONLY     Se true OU DEBUG, apenas loga sem chamar API
+  SMS_DEV_LOG_ONLY     true = apenas loga sem chamar API (dev/testes)
+
+Falha FECHADA: fora de DEBUG/SMS_DEV_LOG_ONLY e sem provedor configurado,
+enviar_sms retorna False (nunca "sucesso" so logando). O conteudo da
+mensagem (que carrega o codigo OTP) so vai para o log com DEBUG=True.
 """
 import logging
 import os
-import time
 from typing import Optional
 
 import requests
@@ -21,15 +24,10 @@ from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
-ZENVIA_API_TOKEN = os.environ.get('ZENVIA_API_TOKEN', '')
-ZENVIA_FROM = os.environ.get('ZENVIA_FROM', '')
-ZENVIA_API_URL = os.environ.get(
-    'ZENVIA_API_URL',
-    'https://api.zenvia.com/v2/channels/sms/messages',
-)
-MAX_RETRIES = 3
-
-CLINIC_NAME = os.environ.get('CLINIC_NAME', 'Jaqueline Aranha Estética')
+ZENVIA_API_URL_DEFAULT = 'https://api.zenvia.com/v2/channels/sms/messages'
+# Timeout curto (connect, read): o envio roda dentro do request do OTP e o
+# prod tem 1 worker/4 threads — sem retry nem sleep aqui (cliente reenvia).
+TIMEOUT = (3, 5)
 
 # Rate limit por telefone (anti-abuse): 3 SMS por hora
 SMS_MAX_POR_HORA = int(os.environ.get('SMS_MAX_POR_HORA', '3'))
@@ -41,6 +39,29 @@ SMS_MAX_GLOBAL_HORA = int(os.environ.get('SMS_MAX_GLOBAL_HORA', '60'))
 RATE_LIMIT_TTL = 3600
 
 
+def _env(nome: str, default: str = '') -> str:
+    return (os.environ.get(nome) or default).strip()
+
+
+def sms_configurado() -> bool:
+    """True se as credenciais da Zenvia existem (token + remetente)."""
+    return bool(_env('ZENVIA_API_TOKEN') and _env('ZENVIA_FROM'))
+
+
+def sms_modo_dev() -> bool:
+    """Modo log-only: DEBUG ou flag explicita (settings/env SMS_DEV_LOG_ONLY)."""
+    if getattr(settings, 'DEBUG', False):
+        return True
+    if getattr(settings, 'SMS_DEV_LOG_ONLY', False):
+        return True
+    return _env('SMS_DEV_LOG_ONLY').lower() == 'true'
+
+
+def sms_disponivel() -> bool:
+    """Canal utilizavel agora (provedor configurado ou modo dev)."""
+    return sms_modo_dev() or sms_configurado()
+
+
 def _mask(telefone: str) -> str:
     digits = ''.join(ch for ch in (telefone or '') if ch.isdigit())
     if len(digits) <= 4:
@@ -49,11 +70,17 @@ def _mask(telefone: str) -> str:
 
 
 def formatar_telefone(telefone: str) -> str:
-    """Normaliza telefone para E.164 sem '+' (Zenvia aceita com e sem)."""
+    """Normaliza p/ E.164 BR sem '+' (55 + DDD + numero). '' se nao for BR valido.
+
+    Aceita 10/11 digitos (DDD+numero) ou 12/13 ja com DDI 55. Qualquer outro
+    formato (internacional, curto, lixo) e recusado — evita SMS pumping.
+    """
     digits = ''.join(ch for ch in (telefone or '') if ch.isdigit())
+    if len(digits) in (12, 13) and digits.startswith('55'):
+        return digits
     if len(digits) in (10, 11):
-        digits = '55' + digits
-    return digits
+        return '55' + digits
+    return ''
 
 
 def pode_enviar(telefone: str, ip: Optional[str] = None) -> bool:
@@ -61,12 +88,18 @@ def pode_enviar(telefone: str, ip: Optional[str] = None) -> bool:
     Apos um envio bem-sucedido, chame registrar_envio() para contabilizar.
     """
     tel_fmt = formatar_telefone(telefone)
+    if not tel_fmt:
+        return False
     if cache.get(f'sms_rl:tel:{tel_fmt}', 0) >= SMS_MAX_POR_HORA:
         logger.warning('sms_rate_limit_telefone', extra={'telefone_mask': _mask(tel_fmt)})
         return False
-    if cache.get('sms_rl:global', 0) >= SMS_MAX_GLOBAL_HORA:
+    global_atual = cache.get('sms_rl:global', 0)
+    if global_atual >= SMS_MAX_GLOBAL_HORA:
         logger.warning('sms_rate_limit_global')
         return False
+    if global_atual >= SMS_MAX_GLOBAL_HORA * 0.8 and cache.add('sms_rl:alerta80', 1, RATE_LIMIT_TTL):
+        # Alerta 1x/hora: possivel SMS pumping antes de esgotar a quota global.
+        logger.error('sms_quota_global_80', extra={'atual': global_atual, 'max': SMS_MAX_GLOBAL_HORA})
     if ip and cache.get(f'sms_rl:ip:{ip}', 0) >= SMS_MAX_POR_IP_HORA:
         logger.warning('sms_rate_limit_ip', extra={'ip': ip})
         return False
@@ -99,80 +132,75 @@ def registrar_envio(telefone: str, ip: Optional[str] = None) -> None:
             )
 
 
-def enviar_sms(telefone: str, mensagem: str, _tentativa: int = 1) -> bool:
-    """Envia SMS via Zenvia. Em dev (sem token ou DEBUG), apenas loga.
+def enviar_sms(telefone: str, mensagem: str) -> bool:
+    """Envia SMS via Zenvia (1 tentativa, timeout curto). True = aceito pelo provedor.
 
-    Retorna True em sucesso, False em falha. Com retry exponencial em 5xx.
+    Modo dev (DEBUG/SMS_DEV_LOG_ONLY): apenas loga e retorna True.
+    Sem provedor configurado fora do modo dev: retorna False (falha fechada).
     """
     telefone_fmt = formatar_telefone(telefone)
     if not telefone_fmt:
         logger.warning('sms_telefone_invalido')
         return False
 
-    dev_only = bool(getattr(settings, 'DEBUG', False)) or not ZENVIA_API_TOKEN \
-        or os.environ.get('SMS_DEV_LOG_ONLY', '').lower() == 'true'
-    if dev_only:
-        logger.info(
-            'sms_dev_log',
-            extra={'telefone_mask': _mask(telefone_fmt), 'preview': mensagem[:200]},
-        )
+    if sms_modo_dev():
+        extra = {'telefone_mask': _mask(telefone_fmt), 'tamanho': len(mensagem)}
+        if getattr(settings, 'DEBUG', False):
+            # Preview (com o codigo) so no dev local interativo — nunca em prod/testes.
+            extra['preview'] = mensagem[:200]
+        logger.info('sms_dev_log', extra=extra)
         return True
 
-    if not ZENVIA_FROM:
-        logger.error('sms_zenvia_from_nao_configurado')
+    token = _env('ZENVIA_API_TOKEN')
+    remetente = _env('ZENVIA_FROM')
+    if not token or not remetente:
+        logger.error('sms_zenvia_nao_configurado')
         return False
 
     payload = {
-        'from': ZENVIA_FROM,
+        'from': remetente,
         'to': telefone_fmt,
         'contents': [{'type': 'text', 'text': mensagem}],
     }
     headers = {
-        'X-API-TOKEN': ZENVIA_API_TOKEN,
+        'X-API-TOKEN': token,
         'Content-Type': 'application/json',
     }
 
     try:
-        response = requests.post(ZENVIA_API_URL, json=payload, headers=headers, timeout=10)
-        if response.status_code in (200, 201, 202):
-            logger.info('sms_enviado', extra={'telefone_mask': _mask(telefone_fmt)})
-            return True
-        if response.status_code >= 500 and _tentativa < MAX_RETRIES:
-            wait = 2 ** _tentativa
-            logger.warning(
-                'sms_retry',
-                extra={
-                    'status': response.status_code,
-                    'tentativa': _tentativa,
-                    'max': MAX_RETRIES,
-                    'wait': wait,
-                },
-            )
-            time.sleep(wait)
-            return enviar_sms(telefone, mensagem, _tentativa=_tentativa + 1)
-        logger.error(
-            'sms_erro_http',
-            extra={'status': response.status_code, 'body': response.text[:200]},
+        response = requests.post(
+            _env('ZENVIA_API_URL', ZENVIA_API_URL_DEFAULT),
+            json=payload, headers=headers, timeout=TIMEOUT,
         )
-        return False
     except requests.exceptions.Timeout:
-        if _tentativa < MAX_RETRIES:
-            wait = 2 ** _tentativa
-            time.sleep(wait)
-            return enviar_sms(telefone, mensagem, _tentativa=_tentativa + 1)
-        logger.error('sms_timeout_max_retries', extra={'max': MAX_RETRIES})
+        logger.error('sms_timeout', extra={'telefone_mask': _mask(telefone_fmt)})
         return False
     except requests.exceptions.RequestException as e:
         logger.error('sms_request_exception', extra={'error': str(e)})
         return False
 
+    if response.status_code in (200, 201, 202):
+        logger.info('sms_enviado', extra={'telefone_mask': _mask(telefone_fmt)})
+        return True
+    logger.error(
+        'sms_erro_http',
+        extra={'status': response.status_code, 'body': response.text[:200]},
+    )
+    return False
+
 
 def enviar_otp_sms(telefone: str, codigo: str, ip: Optional[str] = None) -> bool:
-    """Envia codigo OTP curto via SMS."""
+    """Envia codigo OTP curto via SMS (respeita quotas; so contabiliza se enviado)."""
+    if not formatar_telefone(telefone):
+        logger.warning('sms_telefone_invalido')
+        return False
     if not pode_enviar(telefone, ip=ip):
         return False
+    from .branding import get_branding
+    clinica = get_branding().get('CLINIC_NAME') or 'Clinica'
+    # Sem acentos no corpo: SMS GSM-7 (acento vira UCS-2 e dobra o custo).
     mensagem = (
-        f'{CLINIC_NAME}: seu codigo de verificacao e {codigo}. '
+        f'{clinica}: seu codigo de verificacao e {codigo}. '
         f'Valido por 10 min. Nao compartilhe.'
     )
     enviado = enviar_sms(telefone, mensagem)

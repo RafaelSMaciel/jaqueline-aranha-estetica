@@ -1,5 +1,5 @@
 {% extends 'estrutura/base_v2.html' %}
-{% load static %}
+{% load static l10n %}
 
 {% block titulo %}Agendamento Online | {{ CLINIC_NAME }}{% endblock %}
 
@@ -338,13 +338,7 @@
 {% endblock %}
 
 {% block conteudo %}
-{% if messages %}
-  {% for message in messages %}
-    {% if message.tags == 'error' %}
-      <div id="booking-error" role="alert" class="mx-auto max-w-3xl mb-4 rounded-md border px-4 py-3" style="border-color:var(--cor-erro,#b42318);color:var(--cor-erro,#b42318)">{{ message }}</div>
-    {% endif %}
-  {% endfor %}
-{% endif %}
+{# Mensagens (erro do "Confirmar") vem do bloco global de base_v2 #}
 <div class="booking-page">
 
 <!-- Hero -->
@@ -403,9 +397,9 @@
             {% endif %}
             <div class="proc-grid">
                 {% for proc in procedimentos %}
-                <button type="button" class="proc-card" data-proc-id="{{ proc.id }}" data-proc-nome="{{ proc.nome }}"
-                     data-proc-preco="{{ proc.preco }}" data-proc-duracao="{{ proc.duracao_minutos }}"
-                     data-categoria="{{ proc.categoria }}">
+                <button type="button" class="proc-card" data-proc-id="{{ proc.id|unlocalize }}" data-proc-nome="{{ proc.nome }}"
+                     data-proc-preco="{{ proc.preco|unlocalize }}" data-proc-duracao="{{ proc.duracao_minutos|unlocalize }}"
+                     data-categoria="{{ proc.categoria }}" data-proc-categoria="{{ proc.categoria }}">
                     <div class="proc-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18 16l.6 1.6L20 18l-1.4.6L18 20l-.6-1.4L16 18l1.4-.4z"/></svg></div>
                     <div class="proc-name">{{ proc.nome }}</div>
                     {% if proc.descricao %}
@@ -415,7 +409,7 @@
                         <span class="proc-price">
                             {% if proc.preco > 0 %}
                                 <small style="font-size:0.65rem;font-weight:600;color:var(--cor-texto-suave);letter-spacing:0.5px;">A partir de</small>
-                                R$ {{ proc.preco|floatformat:2 }}
+                                R$ {{ proc.preco|floatformat:"2g" }}
                             {% else %}
                                 <small style="font-size:0.78rem;font-weight:700;color:#7a5f1f;">A consultar</small>
                             {% endif %}
@@ -432,11 +426,13 @@
                 <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="font-size:3.5rem;color:#7a5f1f;display:block;margin:0 auto 1.25rem;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M12 18.5l-2.3-2.2a1.6 1.6 0 0 1 2.3-2.3 1.6 1.6 0 0 1 2.3 2.3z"/></svg>
                 <h4 style="font-weight:700;color:#4A3425;font-family:'Playfair Display',serif;font-size:1.4rem;">Em breve</h4>
                 <p style="color:#6B6256;max-width:360px;margin:0.5rem auto 1.5rem;">Nossos tratamentos estarão disponíveis para agendamento online em breve.</p>
-                <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Olá! Gostaria de agendar um horário na {{ CLINIC_NAME }}." target="_blank" rel="noopener"
+                {% if WHATSAPP_NUMERO %}
+                <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text={{ 'Olá! Gostaria de agendar um horário.'|urlencode }}" target="_blank" rel="noopener"
                    class="inline-flex items-center gap-2 px-4 py-2 rounded-full font-bold"
                    style="background:#25D366;color:white;font-size:0.9rem;box-shadow:0 4px 16px rgba(37,211,102,0.3);">
                     <svg width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="font-size:1.1rem;"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M11.999 2C6.477 2 2 6.477 2 12c0 1.89.525 3.659 1.438 5.168L2 22l4.984-1.407A9.945 9.945 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.95 7.95 0 01-4.055-1.109l-.291-.173-3.007.849.85-2.932-.19-.301A7.94 7.94 0 014 12c0-4.418 3.582-8 8-8s8 3.582 8 8-3.582 8-8 8z"/></svg>Agendar via WhatsApp
                 </a>
+                {% endif %}
             </div>
             {% endif %}
         </div>
@@ -517,7 +513,7 @@
                         </div>
                     </div>
 
-                    <form id="booking-form" action="{% url 'aranha:confirmar_agendamento' %}" method="POST" data-loading-msg="Enviando código de verificação por SMS...">
+                    <form id="booking-form" action="{% url 'aranha:confirmar_agendamento' %}" method="POST">
                         {% csrf_token %}
                         <input type="hidden" name="procedimento" id="form-procedimento">
                         <input type="hidden" name="profissional" id="form-profissional">
@@ -529,18 +525,33 @@
                         <!-- Badge status cliente (aparece apos OTP) -->
                         <div id="cliente-badge" class="cliente-badge" style="display:none;"></div>
 
+                        {% if turnstile_enabled %}
+                        {# Verificacao anti-robo exigida ao pedir o SMS (visivel antes do botao) #}
+                        <div class="form-field" id="captcha-field">
+                            <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" data-theme="light"></div>
+                        </div>
+                        {% endif %}
+
+                        {% if not sms_disponivel %}
+                        <div role="alert" class="form-field" style="border:1px solid var(--cor-erro,#b42318);color:var(--cor-erro,#b42318);border-radius:12px;padding:0.75rem 1rem;font-size:0.85rem;">
+                            No momento não conseguimos enviar o código de confirmação por SMS.
+                            {% if WHATSAPP_NUMERO %}<a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text={{ 'Olá! Gostaria de agendar um horário.'|urlencode }}" target="_blank" rel="noopener" style="font-weight:700;text-decoration:underline;">Agende pelo WhatsApp</a>.{% else %}Tente novamente mais tarde.{% endif %}
+                        </div>
+                        {% endif %}
+
                         <!-- ─── Celular + OTP via SMS ─── -->
                         <div class="form-field">
                             <label><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>Celular</label>
                             <div class="otp-row">
                                 <input type="tel" name="telefone" class="form-input" placeholder="(00) 00000-0000" required id="form-telefone" aria-label="Telefone celular" inputmode="tel" autocomplete="tel">
-                                <button type="button" id="btn-enviar-otp" class="otp-btn border border-borda rounded-lg px-3 py-2 text-sm font-semibold text-texto-suave bg-superficie hover:border-marca-forte cursor-pointer">
+                                <button type="button" id="btn-enviar-otp"{% if not sms_disponivel %} disabled{% endif %} class="otp-btn border border-borda rounded-lg px-3 py-2 text-sm font-semibold text-texto-suave bg-superficie hover:border-marca-forte cursor-pointer">
                                     <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="7" y1="9" x2="15" y2="9"/><line x1="7" y1="13" x2="12" y2="13"/></svg><span class="otp-btn-text">Enviar SMS</span>
                                 </button>
                             </div>
                             <small style="color:var(--cor-texto-suave);font-size:0.72rem;margin-top:0.35rem;display:block;">
-                                Enviaremos um SMS com código de 6 dígitos para validar seu telefone. Se já for cliente, seus dados serão preenchidos automaticamente.
+                                Enviaremos um SMS com código de 6 dígitos para validar seu celular. Se já for cliente, seus dados serão preenchidos automaticamente.
                             </small>
+                            <small id="otp-status" role="status" aria-live="polite" style="display:block;margin-top:0.4rem;font-size:0.78rem;"></small>
                         </div>
 
                         <div class="form-field" id="otp-field" style="display:none;">
@@ -551,7 +562,7 @@
                                     <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg><span class="otp-btn-text">Verificar</span>
                                 </button>
                             </div>
-                            <small id="otp-msg" style="display:block;margin-top:0.4rem;font-size:0.78rem;"></small>
+                            <small id="otp-msg" role="status" aria-live="polite" style="display:block;margin-top:0.4rem;font-size:0.78rem;"></small>
                         </div>
 
                         <!-- ─── Dados pessoais (mostra apos OTP ou se novo) ─── -->
@@ -574,17 +585,10 @@
                                 </div>
                             </div>
 
-                            <div class="form-field" id="cadastro-check-wrap" style="display:none;margin-bottom:0;">
-                                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.82rem;color:#6b6256;text-transform:none;letter-spacing:0;font-weight:500;">
-                                    <input type="checkbox" name="aceita_cadastro" id="form-aceita-cadastro" checked style="width:auto;">
-                                    <span>Salvar meus dados para agendar mais rápido da próxima vez</span>
-                                </label>
-                            </div>
-
                             <div class="form-field" style="margin-bottom:0.5rem;">
                                 <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:0.82rem;color:#6b6256;text-transform:none;letter-spacing:0;font-weight:500;">
                                     <input type="checkbox" name="consent_email_marketing" id="form-consent-email" style="width:auto;margin-top:3px;">
-                                    <span>Aceito receber promocoes e novidades por e-mail. Posso cancelar a qualquer momento.</span>
+                                    <span>Aceito receber promoções e novidades por e-mail. Posso cancelar a qualquer momento.</span>
                                 </label>
                             </div>
 
@@ -606,23 +610,17 @@
                         <!-- Anamnese dinamica (preenchida via JS conforme procedimento) -->
                         <div id="anamneseContainer" style="display:none;">
                             <div style="font-weight:700;color:#7a5f1f;margin:1rem 0 0.5rem;font-size:0.9rem;">
-                                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-0.125em;"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M12 17l-2.3-2.2a1.6 1.6 0 0 1 2.3-2.3 1.6 1.6 0 0 1 2.3 2.3z"/></svg> Questionario pre-atendimento
+                                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-0.125em;"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M12 17l-2.3-2.2a1.6 1.6 0 0 1 2.3-2.3 1.6 1.6 0 0 1 2.3 2.3z"/></svg> Questionário pré-atendimento
                             </div>
                             <div id="anamneseFields"></div>
                             <input type="hidden" name="anamnese_respostas" id="anamneseRespostasJson" value="">
                         </div>
 
-                        {% if turnstile_enabled %}
-                        <div class="form-field" id="captcha-field" style="display:none;">
-                            <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" data-theme="light"></div>
-                        </div>
-                        {% endif %}
-
                         <button type="submit" class="btn-confirm-booking" id="btn-confirmar" disabled title="Verifique o código enviado por SMS ao seu telefone primeiro">
                             <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right:0.5rem;vertical-align:-0.125em;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 16 11 18 15 14"/></svg>Confirmar Agendamento
                         </button>
                         <small class="confirm-subnote">
-                            <svg width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M11.999 2C6.477 2 2 6.477 2 12c0 1.89.525 3.659 1.438 5.168L2 22l4.984-1.407A9.945 9.945 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.95 7.95 0 01-4.055-1.109l-.291-.173-3.007.849.85-2.932-.19-.301A7.94 7.94 0 014 12c0-4.418 3.582-8 8-8s8 3.582 8 8-3.582 8-8 8z"/></svg>Após a aprovação do profissional, você recebe a confirmação por WhatsApp (e por e-mail se informado).
+                            <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>Seu pedido fica reservado até a aprovação da profissional. Depois disso, o status aparece em Meus Agendamentos.
                         </small>
                     </form>
 
@@ -649,7 +647,13 @@
   window.WIZARD_CFG = {
     urlOtpSolicitar: "{% url 'aranha:solicitar_otp_agendamento' %}",
     urlOtpVerificar: "{% url 'aranha:verificar_otp_agendamento' %}",
-    procPreselect:   "{{ proc_preselect }}"
+    urlDias:         "{% url 'aranha:api_dias_disponiveis' %}",
+    urlHorarios:     "{% url 'aranha:api_horarios_disponiveis' %}",
+    procPreselect:   "{{ proc_preselect|escapejs }}",
+    profPreselect:   "{{ prof_preselect|escapejs }}",
+    otpTelefone:     "{{ otp_telefone|escapejs }}",
+    rehidratar:      {% if rehidratar %}true{% else %}false{% endif %},
+    whatsappNumero:  "{{ WHATSAPP_NUMERO|escapejs }}"
   };
 </script>
 <script src="{% static 'js/wizard.js' %}" defer nonce="{{ csp_nonce }}"></script>
