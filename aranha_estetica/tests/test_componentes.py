@@ -37,7 +37,20 @@ class ComponentesTests(TestCase):
         self.assertIn('invalido', html)
         self.assertIn('text-erro', html)
 
-    def test_badge_status(self):
-        html = render("<c-badge status='REALIZADO'>Realizado</c-badge>")
-        self.assertIn('Realizado', html)
-        self.assertIn('data-status="REALIZADO"', html)
+    def test_botao_mescla_class_do_chamador(self):
+        # Regressao: class do chamador ia p/ um 2o atributo class (ignorado pelo browser)
+        html = render("<c-botao tipo='submit' class='w-full justify-center'>Entrar</c-botao>")
+        self.assertEqual(html.count('class="inline-flex'), 1)
+        self.assertEqual(html.count(' class='), 1)
+        self.assertIn('w-full justify-center', html)
+        self.assertIn('bg-marca-forte', html)
+
+    def test_card_mescla_class_do_chamador(self):
+        html = render("<c-card class='mt-4'>x</c-card>")
+        self.assertEqual(html.count('class='), 1)
+        self.assertIn('border-borda', html)
+        self.assertIn('mt-4', html)
+
+    def test_campo_mescla_class_do_chamador(self):
+        html = render("<c-campo nome='email' label='E-mail' class='w-full' />")
+        self.assertIn('px-3 py-2 text-texto w-full', html)

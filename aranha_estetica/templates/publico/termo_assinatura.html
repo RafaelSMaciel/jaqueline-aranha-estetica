@@ -1,6 +1,8 @@
 {% extends 'estrutura/base_v2.html' %}
 
 {% block titulo %}Termos de Consentimento | {{ CLINIC_NAME }}{% endblock %}
+{# link com token / pagina de sistema: fora do indice #}
+{% block head_seo %}<meta name="robots" content="noindex, nofollow">{% endblock %}
 
 {% block css %}
 <style nonce="{{ csp_nonce }}">

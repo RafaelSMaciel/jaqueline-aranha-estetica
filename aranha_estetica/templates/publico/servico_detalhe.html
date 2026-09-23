@@ -104,6 +104,7 @@
             </svg>
             Agendar Este Tratamento
           </a>
+          {% if WHATSAPP_NUMERO %}
           <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Olá!%20Gostaria%20de%20saber%20mais%20sobre%20{{ procedimento.nome|urlencode }}"
              target="_blank" rel="noopener"
              class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto font-semibold hover:bg-superficie transition-colors">
@@ -113,6 +114,7 @@
             </svg>
             Tirar Dúvidas
           </a>
+          {% endif %}
         </div>
       </div>
 

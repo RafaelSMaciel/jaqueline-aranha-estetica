@@ -1,13 +1,27 @@
 {
-  "name": "{{ CLINIC_NAME }}",
-  "short_name": "{{ CLINIC_NAME }}",
+  "name": "{{ CLINIC_NAME|escapejs }}",
+  "short_name": "{{ CLINIC_SHORT_NAME|escapejs }}",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
+  "lang": "pt-BR",
   "display": "standalone",
-  "background_color": "#F5F3EE",
-  "theme_color": "#C9A84C",
-  "description": "{{ CLINIC_NAME }} — Agende seu atendimento com bem-estar e beleza.",
+  "background_color": "#FAFAF8",
+  "theme_color": "{{ THEME_COLOR|default:'#C9A84C' }}",
+  "description": "{{ CLINIC_NAME|escapejs }} — Agende seu atendimento com bem-estar e beleza.",
   "icons": [
+    {
+      "src": "/static/assets/favicon.png",
+      "sizes": "64x64",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/assets/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "/static/assets/logo-completa.png",
       "sizes": "512x512",

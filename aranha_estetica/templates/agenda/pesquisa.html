@@ -2,6 +2,14 @@
 {% load static %}
 
 {% block titulo %}Pesquisa de satisfação | {{ CLINIC_NAME }}{% endblock %}
+{# link com token / pagina de sistema: fora do indice #}
+{% block head_seo %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+
+{% comment %}
+Base dos formularios publicos por link (pesquisa e ficha de avaliacao/anamnese).
+anamnese_publica.html estende e troca os blocos selo/subtitulo_extra/aviso_privacidade.
+Cada campo do schema traz `valor` (o que foi digitado) p/ nao apagar a ficha no erro.
+{% endcomment %}
 
 {% block conteudo %}
 <div class="mx-auto max-w-2xl px-6 py-12">
@@ -12,25 +20,23 @@
       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
       </svg>
-      Sua opinião importa
+      {% block selo %}Sua opinião importa{% endblock %}
     </span>
     <h1 class="text-3xl font-bold text-texto">{{ formulario.nome }}</h1>
-    {% if atendimento %}
     <p class="mt-2 text-texto-suave">
+      {% if atendimento %}
       Atendimento de <strong>{{ atendimento.procedimento.nome }}</strong>
       em {{ atendimento.data_hora_inicio|date:"d/m/Y" }}
       com {{ atendimento.profissional.nome }}.
-      Leva 2 minutos.
+      {% endif %}
+      {% block subtitulo_extra %}Leva 2 minutos.{% endblock %}
     </p>
-    {% else %}
-    <p class="mt-2 text-texto-suave">Leva 2 minutos.</p>
-    {% endif %}
   </div>
 
   <!-- Erros -->
   {% if erros %}
-  <div class="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3">
-    <p class="text-sm font-semibold text-erro mb-1">Verifique os campos:</p>
+  <div class="mb-6 rounded-md border border-erro bg-superficie px-4 py-3" role="alert">
+    <p class="text-sm font-semibold text-erro mb-1">Verifique os campos (suas respostas foram mantidas):</p>
     <ul class="list-disc list-inside text-sm text-erro space-y-0.5">
       {% for e in erros %}<li>{{ e }}</li>{% endfor %}
     </ul>
@@ -54,6 +60,7 @@
             id="f-{{ campo.key }}"
             type="{% if campo.tipo == 'email' %}email{% elif campo.tipo == 'number' %}number{% else %}text{% endif %}"
             name="{{ campo.key }}"
+            value="{{ campo.valor|default_if_none:'' }}"
             class="w-full rounded-md border border-borda bg-fundo px-3 py-2 text-texto"
             {% if campo.obrigatorio %}required{% endif %}>
 
@@ -63,13 +70,14 @@
             name="{{ campo.key }}"
             rows="3"
             class="w-full rounded-md border border-borda bg-fundo px-3 py-2 text-texto resize-y"
-            {% if campo.obrigatorio %}required{% endif %}></textarea>
+            {% if campo.obrigatorio %}required{% endif %}>{{ campo.valor|default_if_none:'' }}</textarea>
 
         {% elif campo.tipo == 'date' %}
           <input
             id="f-{{ campo.key }}"
             type="date"
             name="{{ campo.key }}"
+            value="{{ campo.valor|default_if_none:'' }}"
             class="w-full rounded-md border border-borda bg-fundo px-3 py-2 text-texto"
             {% if campo.obrigatorio %}required{% endif %}>
 
@@ -80,6 +88,7 @@
               name="{{ campo.key }}"
               id="f-{{ campo.key }}"
               value="on"
+              {% if campo.valor %}checked{% endif %}
               class="h-4 w-4 rounded border-borda text-marca-forte">
             <label class="text-sm text-texto" for="f-{{ campo.key }}">Sim</label>
           </div>
@@ -92,22 +101,26 @@
             {% if campo.obrigatorio %}required{% endif %}>
             <option value="">— selecione —</option>
             {% for opt in campo.opcoes %}
-            <option value="{{ opt }}">{{ opt }}</option>
+            <option value="{{ opt }}" {% if opt|stringformat:"s" == campo.valor %}selected{% endif %}>{{ opt }}</option>
             {% endfor %}
           </select>
 
         {% elif campo.tipo == 'scale' %}
           <div class="flex flex-wrap gap-2 mt-2">
             {% for opt in campo.opcoes %}
-            <label class="scale-option flex-1 min-w-[2.5rem] cursor-pointer rounded-md border-2 border-borda bg-fundo py-2 text-center text-sm font-medium text-texto transition hover:border-marca-forte">
-              <input
-                type="radio"
-                name="{{ campo.key }}"
-                value="{{ opt }}"
-                class="sr-only"
-                {% if campo.obrigatorio %}required{% endif %}>
+            {% if opt|stringformat:"s" == campo.valor %}
+            <label class="scale-option flex-1 min-w-[2.5rem] cursor-pointer rounded-md border-2 border-marca-forte bg-superficie py-2 text-center text-sm font-medium text-marca transition hover:border-marca-forte">
+              <input type="radio" name="{{ campo.key }}" value="{{ opt }}" class="sr-only" checked
+                     {% if campo.obrigatorio %}required{% endif %}>
               {{ opt }}
             </label>
+            {% else %}
+            <label class="scale-option flex-1 min-w-[2.5rem] cursor-pointer rounded-md border-2 border-borda bg-fundo py-2 text-center text-sm font-medium text-texto transition hover:border-marca-forte">
+              <input type="radio" name="{{ campo.key }}" value="{{ opt }}" class="sr-only"
+                     {% if campo.obrigatorio %}required{% endif %}>
+              {{ opt }}
+            </label>
+            {% endif %}
             {% endfor %}
           </div>
 
@@ -120,6 +133,7 @@
                 name="{{ campo.key }}"
                 value="{{ opt }}"
                 id="cb-{{ campo.key }}-{{ forloop.counter }}"
+                {% if opt|stringformat:"s" in campo.valor %}checked{% endif %}
                 class="h-4 w-4 rounded border-borda text-marca-forte">
               <label class="text-sm text-texto" for="cb-{{ campo.key }}-{{ forloop.counter }}">{{ opt }}</label>
             </div>
@@ -140,14 +154,12 @@
       </button>
 
       <p class="mt-4 text-center text-xs text-texto-suave">
-        <svg xmlns="http://www.w3.org/2000/svg" class="inline mr-1 h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-        </svg>
-        Suas respostas são confidenciais e usadas apenas para melhorar o atendimento.
+        {% block aviso_privacidade %}Suas respostas são confidenciais e usadas apenas para melhorar o atendimento.{% endblock %}
       </p>
     </form>
   </div>
 </div>
+{% endblock %}
 
 {% block js %}
 <script nonce="{{ csp_nonce }}">
@@ -157,13 +169,12 @@
       var group = this.closest('.flex');
       group.querySelectorAll('label.scale-option').forEach(function (lbl) {
         lbl.classList.remove('border-marca-forte', 'bg-superficie', 'text-marca');
-        lbl.classList.add('border-borda', 'bg-fundo');
+        lbl.classList.add('border-borda', 'bg-fundo', 'text-texto');
       });
-      this.closest('label').classList.remove('border-borda', 'bg-fundo');
+      this.closest('label').classList.remove('border-borda', 'bg-fundo', 'text-texto');
       this.closest('label').classList.add('border-marca-forte', 'bg-superficie', 'text-marca');
     });
   });
 })();
 </script>
-{% endblock %}
 {% endblock %}

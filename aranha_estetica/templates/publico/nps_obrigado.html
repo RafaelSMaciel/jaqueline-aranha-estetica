@@ -1,10 +1,20 @@
 {% extends 'estrutura/base_v2.html' %}
 
 {% block titulo %}Obrigado | {{ CLINIC_NAME }}{% endblock %}
+{# link com token / pagina de sistema: fora do indice #}
+{% block head_seo %}<meta name="robots" content="noindex, nofollow">{% endblock %}
 
 {% block conteudo %}
 <div class="mx-auto max-w-sm px-6 py-16 text-center">
 
+  {% if expirado %}
+  {# Link vencido (status 410): quem chega aqui NAO avaliou — sem "obrigado pela avaliacao" #}
+  <h1 class="text-xl font-bold text-texto mb-3">Link expirado</h1>
+  <p class="text-texto-suave text-sm leading-relaxed">
+    Este link de avaliação não está mais disponível. Obrigado pelo carinho!
+  </p>
+  <a href="{% url 'aranha:inicio' %}" class="mt-6 inline-flex items-center rounded-md bg-marca-forte px-5 py-2.5 text-sm font-semibold text-sobre-marca hover:opacity-90 transition-opacity">Voltar ao site</a>
+  {% else %}
   <div class="text-5xl mb-6" aria-hidden="true">
     {% if nota >= 9 %}&#128525;
     {% elif nota >= 7 %}&#128522;
@@ -12,11 +22,12 @@
     {% endif %}
   </div>
 
-  <h1 class="text-xl font-bold text-texto mb-3">Obrigado, {{ cliente.nome|truncatewords:2 }}!</h1>
+  <h1 class="text-xl font-bold text-texto mb-3">Obrigado, {{ cliente.nome|truncatewords:1 }}!</h1>
   <p class="text-texto-suave text-sm leading-relaxed">
     Sua avaliação é muito importante para a {{ CLINIC_NAME }}.<br>
     Usamos seu feedback para melhorar continuamente nossos serviços.
   </p>
+  {% endif %}
 
 </div>
 {% endblock %}

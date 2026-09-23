@@ -1,168 +1,128 @@
 {% extends 'estrutura/base_v2.html' %}
 {% load static %}
 
-{% block titulo %}Termos de Serviço | {{ CLINIC_NAME }}{% endblock %}
+{% block titulo %}Termos de Uso | {{ CLINIC_NAME }}{% endblock %}
+{% block meta_description %}Termos de uso do site e do agendamento online da {{ CLINIC_NAME }}.{% endblock %}
+
+{% comment %}
+Coerente com o FAQ (cancelamento/remarcacao ate 24h, sem custo) e com o sistema
+(agendamento sem conta, OTP por SMS, bloqueio do online apos faltas seguidas).
+Sem clausula de isencao total de responsabilidade (nula pelo CDC, art. 51, I).
+Revisao juridica final e do dono.
+{% endcomment %}
 
 {% block conteudo %}
 <div class="mx-auto max-w-3xl px-6 py-12">
 
   <!-- Header -->
   <div class="mb-10 text-center">
-    <p class="text-xs font-semibold uppercase tracking-widest text-texto-suave mb-2">Última Atualização: 26 de Março de 2026</p>
-    <h1 class="text-3xl font-bold text-texto mb-4">Termos de Serviço</h1>
-    <p class="text-texto-suave leading-relaxed">Por favor, leia atentamente estes termos de serviço antes de utilizar nossos serviços.</p>
+    <p class="text-xs font-semibold uppercase tracking-widest text-texto-suave mb-2">Vigente desde 23 de setembro de 2026</p>
+    <h1 class="text-3xl font-bold text-texto mb-4">Termos de Uso</h1>
+    <p class="text-texto-suave leading-relaxed">Regras simples para usar o site e agendar seus cuidados na {{ CLINIC_NAME }}.</p>
   </div>
 
-  <!-- Content -->
   <div class="space-y-10">
 
     <!-- 1 -->
-    <div id="agreement">
-      <h2 class="text-xl font-semibold text-texto mb-3">1. Aceitação dos Termos</h2>
-      <p class="text-texto-suave leading-relaxed mb-4">Ao acessar nosso site e serviços, você concorda em cumprir estes Termos de Serviço e todas as leis e regulamentos aplicáveis. Se você não concordar com qualquer um destes termos, está proibido de usar ou acessar nossos serviços.</p>
-      <div class="flex items-start gap-3 rounded-lg border border-borda bg-superficie p-4">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mt-0.5 shrink-0 text-marca" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <p class="text-texto-suave text-sm leading-relaxed">Estes termos se aplicam a todos os usuários, visitantes e demais pessoas que acessam ou utilizam nossos serviços.</p>
-      </div>
+    <div>
+      <h2 class="text-xl font-semibold text-texto mb-3">1. Sobre estes termos</h2>
+      <p class="text-texto-suave leading-relaxed">
+        Estes termos valem para o uso do site e do agendamento online. O tratamento dos seus dados pessoais é
+        explicado na <a href="{% url 'aranha:politica_privacidade' %}" class="underline text-marca">Política de Privacidade</a>.
+        Os cuidados de cada procedimento são detalhados no termo específico que você lê e aceita antes do atendimento.
+      </p>
     </div>
 
     <!-- 2 -->
-    <div id="intellectual-property">
-      <h2 class="text-xl font-semibold text-texto mb-3">2. Direitos de Propriedade Intelectual</h2>
-      <p class="text-texto-suave leading-relaxed mb-3">Nosso serviço e seu conteúdo original, características e funcionalidades são de nossa propriedade e são protegidos por leis internacionais de direitos autorais, marcas registradas, patentes, segredos comerciais e outras leis de propriedade intelectual.</p>
+    <div>
+      <h2 class="text-xl font-semibold text-texto mb-3">2. Agendamento online</h2>
       <ul class="list-disc list-inside space-y-1 text-texto-suave">
-        <li>Todo o conteúdo é propriedade exclusiva da {{ CLINIC_NAME }}</li>
-        <li>Você não pode copiar ou modificar o conteúdo</li>
-        <li>Nossas marcas não podem ser usadas sem permissão</li>
-        <li>O conteúdo é apenas para uso pessoal e não comercial</li>
+        <li>O agendamento não exige cadastro com senha: você se identifica pelo celular e confirma com um código enviado por SMS.</li>
+        <li>Informe dados verdadeiros e um celular que seja seu — é por ele que enviamos confirmações e lembretes.</li>
+        <li>Alguns horários dependem de aprovação da profissional; nesse caso, avisamos quando o horário for confirmado.</li>
+        <li>Os valores exibidos no site são informativos e podem ser ajustados após a avaliação, conforme a área e a quantidade de produto indicadas para você.</li>
       </ul>
     </div>
 
     <!-- 3 -->
-    <div id="user-accounts">
-      <h2 class="text-xl font-semibold text-texto mb-3">3. Contas de Usuário</h2>
-      <p class="text-texto-suave leading-relaxed mb-4">Ao criar uma conta conosco, você deve fornecer informações precisas, completas e atualizadas. O não cumprimento desta obrigação constitui uma violação dos Termos, que pode resultar no encerramento imediato da sua conta.</p>
-      <div class="flex items-start gap-3 rounded-lg border border-borda bg-superficie p-4">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mt-0.5 shrink-0 text-erro" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-        </svg>
-        <div>
-          <p class="font-semibold text-texto text-sm mb-1">Aviso Importante</p>
-          <p class="text-texto-suave text-sm leading-relaxed">Você é responsável por proteger sua senha e por todas as atividades que ocorrem em sua conta.</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- 4 -->
-    <div id="prohibited">
-      <h2 class="text-xl font-semibold text-texto mb-3">4. Atividades Proibidas</h2>
-      <p class="text-texto-suave leading-relaxed mb-4">Você não pode acessar ou usar o Serviço para qualquer finalidade diferente daquela para a qual o disponibilizamos.</p>
-      <ul class="space-y-2">
-        <li class="flex items-center gap-3 text-texto-suave text-sm">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-erro" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-          Coleta sistemática de dados ou conteúdo
-        </li>
-        <li class="flex items-center gap-3 text-texto-suave text-sm">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-erro" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-          Publicação de conteúdo malicioso
-        </li>
-        <li class="flex items-center gap-3 text-texto-suave text-sm">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-erro" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-          Engajar-se em enquadramento não autorizado
-        </li>
-        <li class="flex items-center gap-3 text-texto-suave text-sm">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-erro" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-          Tentar obter acesso não autorizado
-        </li>
+    <div>
+      <h2 class="text-xl font-semibold text-texto mb-3">3. Cancelamento e remarcação</h2>
+      <ul class="list-disc list-inside space-y-1 text-texto-suave">
+        <li>Você pode cancelar ou remarcar sem custo até 24 horas antes do horário, pela área
+          <a href="{% url 'aranha:meus_agendamentos' %}" class="underline text-marca">Meus agendamentos</a>
+          ou falando com a gente.</li>
+        <li>Com menos de 24 horas, fale diretamente com a clínica para ver a possibilidade de remarcar.</li>
+        <li>Se precisarmos remarcar por imprevisto da nossa parte, avisamos o quanto antes e oferecemos novos horários.</li>
       </ul>
     </div>
 
+    <!-- 4 -->
+    <div>
+      <h2 class="text-xl font-semibold text-texto mb-3">4. Faltas</h2>
+      <p class="text-texto-suave leading-relaxed">
+        Faltar sem avisar impede que outra cliente use o horário. Depois de faltas seguidas sem aviso, o agendamento
+        online pode ficar temporariamente indisponível para você — nesse caso, é só agendar falando com a clínica.
+      </p>
+    </div>
+
     <!-- 5 -->
-    <div id="disclaimer">
-      <h2 class="text-xl font-semibold text-texto mb-3">5. Isenção de Responsabilidade</h2>
-      <p class="text-texto-suave leading-relaxed mb-3">O uso do nosso serviço é por sua conta e risco. O serviço é fornecido "COMO ESTÁ" e "CONFORME DISPONÍVEL", sem garantias de qualquer tipo, expressas ou implícitas.</p>
-      <div class="rounded-lg border border-borda bg-superficie p-4">
-        <p class="text-texto-suave text-sm mb-2">Não garantimos que:</p>
-        <ul class="list-disc list-inside space-y-1 text-texto-suave text-sm">
-          <li>O serviço atenderá às suas necessidades</li>
-          <li>O serviço será ininterrupto ou livre de erros</li>
-          <li>Os resultados do uso do serviço serão precisos</li>
-          <li>Quaisquer erros serão corrigidos</li>
-        </ul>
-      </div>
+    <div>
+      <h2 class="text-xl font-semibold text-texto mb-3">5. Avaliação prévia e ficha de avaliação</h2>
+      <p class="text-texto-suave leading-relaxed">
+        Antes dos procedimentos fazemos uma avaliação individual e pedimos o preenchimento da ficha de avaliação
+        (anamnese). Responder com sinceridade é essencial para a sua segurança: algumas condições de saúde podem
+        contraindicar um procedimento, e a profissional pode recomendar adiar ou adaptar o cuidado.
+      </p>
     </div>
 
     <!-- 6 -->
-    <div id="limitation">
-      <h2 class="text-xl font-semibold text-texto mb-3">6. Limitação de Responsabilidade</h2>
-      <p class="text-texto-suave leading-relaxed">Em nenhum caso seremos responsáveis por quaisquer danos indiretos, punitivos, incidentais, especiais, consequenciais ou exemplares decorrentes ou relacionados ao uso do serviço.</p>
+    <div>
+      <h2 class="text-xl font-semibold text-texto mb-3">6. Resultados</h2>
+      <p class="text-texto-suave leading-relaxed">
+        Cada organismo responde de um jeito. As imagens e descrições do site são ilustrativas e não representam
+        garantia de resultado. Seguir as orientações de cuidados antes e depois do procedimento faz diferença.
+      </p>
     </div>
 
     <!-- 7 -->
-    <div id="indemnification">
-      <h2 class="text-xl font-semibold text-texto mb-3">7. Indenização</h2>
-      <p class="text-texto-suave leading-relaxed">Você concorda em defender, indenizar e isentar a {{ CLINIC_NAME }} de quaisquer reivindicações, responsabilidades, danos, perdas e despesas decorrentes do uso do serviço.</p>
+    <div>
+      <h2 class="text-xl font-semibold text-texto mb-3">7. Uso adequado do site</h2>
+      <p class="text-texto-suave leading-relaxed mb-3">Ao usar o site, você se compromete a não:</p>
+      <ul class="list-disc list-inside space-y-1 text-texto-suave">
+        <li>Agendar em nome de outra pessoa sem autorização dela;</li>
+        <li>Enviar informações falsas ou de terceiros nos formulários;</li>
+        <li>Tentar acessar áreas restritas, contornar limites de segurança ou sobrecarregar o site com envios automáticos.</li>
+      </ul>
     </div>
 
     <!-- 8 -->
-    <div id="termination">
-      <h2 class="text-xl font-semibold text-texto mb-3">8. Rescisão</h2>
-      <p class="text-texto-suave leading-relaxed">Podemos rescindir ou suspender sua conta imediatamente, sem aviso prévio ou responsabilidade, por qualquer motivo, incluindo, sem limitação, se você violar os Termos.</p>
+    <div>
+      <h2 class="text-xl font-semibold text-texto mb-3">8. Conteúdo do site</h2>
+      <p class="text-texto-suave leading-relaxed">
+        Textos, fotos e a marca {{ CLINIC_NAME }} pertencem à clínica e não podem ser copiados para fins comerciais sem autorização.
+      </p>
     </div>
 
     <!-- 9 -->
-    <div id="governing-law">
-      <h2 class="text-xl font-semibold text-texto mb-3">9. Lei Aplicável</h2>
-      <p class="text-texto-suave leading-relaxed">Estes Termos serão regidos e interpretados de acordo com as leis da República Federativa do Brasil, sem considerar seus conflitos de disposições legais.</p>
+    <div>
+      <h2 class="text-xl font-semibold text-texto mb-3">9. Responsabilidade</h2>
+      <p class="text-texto-suave leading-relaxed">
+        Trabalhamos para manter o site e o agendamento disponíveis e corretos, mas podem ocorrer instabilidades
+        momentâneas. Nada nestes termos limita os seus direitos como consumidora previstos no Código de Defesa do Consumidor.
+      </p>
     </div>
 
     <!-- 10 -->
-    <div id="changes">
-      <h2 class="text-xl font-semibold text-texto mb-3">10. Alterações nos Termos</h2>
-      <p class="text-texto-suave leading-relaxed mb-4">Reservamo-nos o direito de modificar ou substituir estes Termos a qualquer momento. Forneceremos aviso sobre quaisquer alterações publicando os novos Termos nesta página.</p>
-      <div class="flex items-start gap-3 rounded-lg border border-borda bg-superficie p-4">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mt-0.5 shrink-0 text-marca" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-        </svg>
-        <p class="text-texto-suave text-sm leading-relaxed">Ao continuar a acessar ou usar nosso serviço após a entrada em vigor dessas revisões, você concorda em ficar vinculado aos termos revisados.</p>
-      </div>
-    </div>
-
-    <!-- 11 -->
-    <div id="lgpd">
-      <h2 class="text-xl font-semibold text-texto mb-3">11. Proteção de Dados (LGPD)</h2>
-      <p class="text-texto-suave leading-relaxed mb-4">Em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018), a {{ CLINIC_NAME }} se compromete a proteger a privacidade e os dados pessoais de seus clientes. Coletamos e tratamos dados apenas para fins de prestação de serviços, agendamentos e comunicação, sempre com base no consentimento do titular.</p>
-      <div class="flex items-start gap-3 rounded-lg border border-borda bg-superficie p-4">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mt-0.5 shrink-0 text-marca" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-        </svg>
-        <p class="text-texto-suave text-sm leading-relaxed">Você tem direito a solicitar acesso, correção, exclusão e portabilidade dos seus dados a qualquer momento através do nosso canal de atendimento.</p>
-      </div>
-    </div>
-
-  </div><!-- /space-y-10 -->
-
-  <!-- Contact -->
-  <div class="mt-14 rounded-lg border border-borda bg-superficie p-6 flex items-start gap-4">
-    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 text-marca mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-    </svg>
     <div>
-      <h3 class="text-base font-semibold text-texto mb-1">Dúvidas sobre os Termos?</h3>
-      <p class="text-texto-suave text-sm mb-3">Se você tiver alguma dúvida sobre estes Termos, entre em contato conosco.</p>
-      <a href="{% url 'aranha:agenda_contato' %}" class="inline-block rounded-md bg-marca-forte px-4 py-2 text-sm font-semibold text-sobre-marca hover:opacity-90 transition-opacity">Fale Conosco</a>
+      <h2 class="text-xl font-semibold text-texto mb-3">10. Alterações e contato</h2>
+      <p class="text-texto-suave leading-relaxed">
+        Estes termos podem ser atualizados; a versão vigente fica sempre nesta página, com a data no topo. Dúvidas?
+        Fale com a gente pela <a href="{% url 'aranha:agenda_contato' %}" class="underline text-marca">página de contato</a>{% if WHATSAPP_NUMERO %}
+        ou pelo <a href="https://wa.me/{{ WHATSAPP_NUMERO }}" target="_blank" rel="noopener" class="underline text-marca">WhatsApp</a>{% endif %}.
+        Fica eleito o foro do domicílio da cliente, conforme o Código de Defesa do Consumidor.
+      </p>
     </div>
-  </div>
 
+  </div>
 </div>
 {% endblock %}

@@ -6,10 +6,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block titulo %}{{ CLINIC_NAME }}{% endblock %}</title>
   <meta name="description" content="{% block meta_description %}{{ CLINIC_SUBTITLE }}{% endblock %}">
+  {% block head_seo %}
+  {# SEO/compartilhamento: og:title/description caem no <title>/description acima #}
+  <link rel="canonical" href="{{ SITE_URL }}{{ request.path }}">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:site_name" content="{{ CLINIC_NAME }}">
+  <meta property="og:url" content="{{ SITE_URL }}{{ request.path }}">
+  <meta property="og:image" content="{{ SITE_URL }}{% static 'assets/logo-completa.png' %}">
+  <meta name="twitter:card" content="summary">
+  {% endblock %}
+  <link rel="icon" type="image/png" href="{% static 'assets/favicon.png' %}">
+  <link rel="apple-touch-icon" href="{% static 'assets/apple-touch-icon.png' %}">
+  <link rel="manifest" href="{% url 'aranha:manifest' %}">
+  <meta name="theme-color" content="{{ THEME_COLOR|default:'#C9A84C' }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Lato:wght@400;500;700&display=swap" rel="stylesheet">
-  <noscript><style>.reveal{opacity:1 !important;transform:none !important;}</style></noscript>
+  {# nonce obrigatorio: a CSP de prod bloqueia <style> sem nonce mesmo com JS desligado #}
+  <noscript><style nonce="{{ csp_nonce }}">.reveal{opacity:1 !important;transform:none !important;}</style></noscript>
   {% vite_hmr_client %}
   {% vite_asset 'aranha_estetica/static/src/js/app.js' %}
   {% block css %}{% endblock %}
@@ -18,9 +33,15 @@
 <body class="site-publico bg-fundo text-texto antialiased">
   <a href="#conteudo" class="sr-only focus:not-sr-only">Pular para o conteúdo</a>
   {% include 'cotton/chrome/cabecalho.html' %}
-  <main id="conteudo">{% block conteudo %}{% endblock %}</main>
+  <main id="conteudo">
+    {# Mensagens (messages framework) de todas as paginas publicas. Pagina que #}
+    {# exibe as proprias mensagens em outro lugar sobrescreve com bloco vazio. #}
+    {% block mensagens %}{% include 'cotton/chrome/mensagens.html' %}{% endblock %}
+    {% block conteudo %}{% endblock %}
+  </main>
   {% include 'cotton/chrome/rodape.html' %}
 
+  {% if WHATSAPP_NUMERO %}
   {# Botao flutuante WhatsApp — atalho de contato em todas as paginas publicas #}
   <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Ol%C3%A1!%20Gostaria%20de%20mais%20informa%C3%A7%C3%B5es."
      target="_blank" rel="noopener"
@@ -32,11 +53,12 @@
       <path d="M12.05 2.05c-5.523 0-10 4.477-10 10 0 1.764.464 3.49 1.345 5.01L2 22l5.06-1.327a9.96 9.96 0 004.99 1.337h.004c5.522 0 10-4.477 10-10s-4.478-10-10.004-9.96zm0 18.27h-.003a8.3 8.3 0 01-4.23-1.158l-.303-.18-3.003.788.8-2.928-.197-.302a8.27 8.27 0 01-1.27-4.42c0-4.583 3.73-8.313 8.314-8.313 2.22 0 4.307.866 5.877 2.437a8.26 8.26 0 012.436 5.88c0 4.583-3.73 8.313-8.314 8.313z"/>
     </svg>
   </a>
+  {% endif %}
 
   {# Voltar ao topo — aparece apos rolar (par do WhatsApp, logo acima dele) #}
   <button id="btnTopo" type="button" aria-label="Voltar ao topo"
-          class="to-top fixed bottom-24 right-5 z-40 flex h-11 w-11 items-center justify-center rounded-full
-                 border border-borda bg-superficie text-texto shadow-lg shadow-black/10 hover:text-marca-forte hover:border-marca transition">
+          class="to-top fixed {% if WHATSAPP_NUMERO %}bottom-24{% else %}bottom-5{% endif %} right-5 z-40 flex h-11 w-11 items-center justify-center rounded-full
+                 border border-borda bg-superficie text-texto shadow-lg shadow-black/10 hover:text-marca hover:border-marca transition">
     <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <polyline points="18 15 12 9 6 15"></polyline>
     </svg>

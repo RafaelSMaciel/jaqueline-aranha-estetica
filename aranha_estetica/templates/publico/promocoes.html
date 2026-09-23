@@ -2,6 +2,7 @@
 {% load static %}
 
 {% block titulo %}Promoções | {{ CLINIC_NAME }}{% endblock %}
+{% block meta_description %}Promoções vigentes da {{ CLINIC_NAME }} em tratamentos faciais e corporais. Agende online.{% endblock %}
 
 {% block conteudo %}
 
@@ -36,6 +37,7 @@
              class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
             Ver Promoções
           </a>
+          {% if WHATSAPP_NUMERO %}
           <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Ol%C3%A1%21+Gostaria+de+saber+sobre+promo%C3%A7%C3%B5es+exclusivas."
              target="_blank" rel="noopener"
              class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto hover:bg-superficie transition-colors">
@@ -45,6 +47,7 @@
             </svg>
             Desconto Exclusivo
           </a>
+          {% endif %}
         </div>
       </div>
 
@@ -135,14 +138,15 @@
           {% endif %}
 
           {# preços #}
+          {# preco_final = preco fixo da promo ou base com desconto % (calculado na view) #}
+          {% if promo.preco_final is not None %}
           <div class="flex items-baseline gap-3">
-            {% if promo.desconto_percentual and promo.preco_original %}
-            <span class="text-texto-suave text-sm line-through">R$ {{ promo.preco_original|floatformat:2 }}</span>
+            {% if promo.preco_original and promo.preco_final < promo.preco_original %}
+            <span class="text-texto-suave text-sm line-through">De R$ {{ promo.preco_original|floatformat:2 }}</span>
             {% endif %}
-            {% if promo.preco_promocional %}
-            <span class="text-marca font-bold text-2xl">R$ {{ promo.preco_promocional|floatformat:2 }}</span>
-            {% endif %}
+            <span class="text-marca font-bold text-2xl">R$ {{ promo.preco_final|floatformat:2 }}</span>
           </div>
+          {% endif %}
 
           {# validade #}
           <div class="flex items-center gap-2 text-texto-suave text-sm">
@@ -201,6 +205,7 @@
            class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
           Agendar Avaliação
         </a>
+        {% if WHATSAPP_NUMERO %}
         <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Ol%C3%A1%21+Gostaria+de+saber+sobre+promo%C3%A7%C3%B5es."
            target="_blank" rel="noopener"
            class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto hover:bg-superficie transition-colors">
@@ -210,6 +215,7 @@
           </svg>
           Pedir Desconto
         </a>
+        {% endif %}
       </div>
     </div>
     {% endif %}
@@ -230,6 +236,7 @@
         Fale conosco pelo WhatsApp e negocie condições exclusivas para o seu tratamento. Pacotes especiais e combos com preços diferenciados.
       </p>
       <div class="flex flex-wrap gap-4 justify-center">
+        {% if WHATSAPP_NUMERO %}
         <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Ol%C3%A1%21+Gostaria+de+saber+sobre+promo%C3%A7%C3%B5es+exclusivas."
            target="_blank" rel="noopener"
            class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
@@ -239,6 +246,7 @@
           </svg>
           Falar no WhatsApp
         </a>
+        {% endif %}
         <a href="{% url 'aranha:servicos_faciais' %}"
            class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto hover:bg-superficie transition-colors">
           Ver Tratamentos

@@ -1,6 +1,8 @@
 {% extends 'estrutura/base_v2.html' %}
 
 {% block titulo %}Termos Assinados | {{ CLINIC_NAME }}{% endblock %}
+{# link com token / pagina de sistema: fora do indice #}
+{% block head_seo %}<meta name="robots" content="noindex, nofollow">{% endblock %}
 
 {% block conteudo %}
 <div class="max-w-md mx-auto mt-20 px-4 text-center">

@@ -5,8 +5,9 @@
   --heading-font: 'Playfair Display', Georgia, 'Times New Roman', serif;
   --body-font: 'Lato', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 
-  --ouro-500: #C9A84C;            /* marca (gold) — confirmado pelo dono como cor final */
+  --ouro-500: #C9A84C;            /* marca (gold) — confirmado pelo dono como cor final (fundos/botoes) */
   --ouro-600: #9A7B2E;
+  --ouro-700: #7A5F1F;            /* dourado p/ TEXTO no tema claro: 5,8:1 no fundo (WCAG AA) */
   --neutro-0: #ffffff;
   --neutro-50: #FAFAF8;
   --neutro-100: #F1EFE8;
@@ -17,7 +18,8 @@
   --cor-superficie: var(--neutro-0);
   --cor-texto: var(--neutro-900);
   --cor-texto-suave: var(--neutro-500);
-  --cor-marca: var(--ouro-600);
+  /* text-marca = texto (AA); marca-forte = preenchimento. #C9A84C como texto no claro da 2,2:1 */
+  --cor-marca: var(--ouro-700);
   --cor-marca-forte: var(--ouro-500);
   --cor-borda: #E7E8E3;
   --cor-erro: #A32D2D;

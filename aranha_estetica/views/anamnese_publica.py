@@ -55,28 +55,28 @@ def _validar_respostas(schema: list, post_data) -> tuple[dict, list[str]]:
             valor = (post_data.get(key) or '').strip()
 
         if obrigatorio and not valor:
-            erros.append(f'"{label}" e obrigatorio.')
+            erros.append(f'"{label}" é obrigatório.')
             continue
 
         # validacoes especificas por tipo
         if tipo == 'email' and valor and '@' not in valor:
-            erros.append(f'"{label}" deve ser email valido.')
+            erros.append(f'"{label}" deve ser um e-mail válido.')
             continue
         if tipo == 'number' and valor:
             try:
                 float(valor)
             except (TypeError, ValueError):
-                erros.append(f'"{label}" deve ser numero.')
+                erros.append(f'"{label}" deve ser um número.')
                 continue
         if tipo in ('select', 'scale') and valor:
-            opcoes = campo.get('opcoes') or []
+            opcoes = [str(o) for o in (campo.get('opcoes') or [])]
             if opcoes and valor not in opcoes:
-                erros.append(f'"{label}": opcao invalida.')
+                erros.append(f'"{label}": opção inválida.')
                 continue
         if tipo == 'checkboxes' and valor:
-            opcoes = set(campo.get('opcoes') or [])
+            opcoes = {str(o) for o in (campo.get('opcoes') or [])}
             if opcoes and not all(v in opcoes for v in valor):
-                erros.append(f'"{label}": opcao(es) invalida(s).')
+                erros.append(f'"{label}": opção(ões) inválida(s).')
                 continue
         if tipo == 'bool':
             valor = valor in ('on', 'true', '1', 'sim')
@@ -86,20 +86,37 @@ def _validar_respostas(schema: list, post_data) -> tuple[dict, list[str]]:
     return respostas, erros
 
 
-def _renderizar(request, resposta: RespostaAnamnese, erros=None):
+def _valores_postados(schema: list, post_data) -> dict:
+    """O que a pessoa digitou (p/ re-exibir no erro de validacao sem apagar a ficha)."""
+    valores = {}
+    for campo in schema:
+        key = campo.get('key')
+        if campo.get('tipo') == 'checkboxes':
+            valores[key] = post_data.getlist(key)
+        else:
+            valores[key] = post_data.get(key, '')
+    return valores
+
+
+def _renderizar(request, resposta: RespostaAnamnese, erros=None, valores=None):
     template = (
         'agenda/pesquisa.html'
         if resposta.formulario.tipo == 'PESQUISA'
         else 'agenda/anamnese_publica.html'
     )
+    valores = valores or {}
+    # template nao indexa dict por variavel: valor vai junto de cada campo
+    schema = [
+        dict(c, valor=valores.get(c.get('key'), [] if c.get('tipo') == 'checkboxes' else ''))
+        for c in (resposta.formulario.schema_json or [])
+    ]
     return render(request, template, {
         'resposta': resposta,
         'formulario': resposta.formulario,
-        'schema': resposta.formulario.schema_json or [],
+        'schema': schema,
         'cliente': resposta.cliente,
         'atendimento': resposta.atendimento,
         'erros': erros or [],
-        'respostas_anteriores': resposta.respostas_json or {},
     })
 
 
@@ -107,7 +124,10 @@ def _gravar_resposta(request, resposta: RespostaAnamnese):
     schema = resposta.formulario.schema_json or []
     respostas, erros = _validar_respostas(schema, request.POST)
     if erros:
-        return _renderizar(request, resposta, erros=erros)
+        return _renderizar(
+            request, resposta, erros=erros,
+            valores=_valores_postados(schema, request.POST),
+        )
 
     resposta.respostas_json = respostas
     resposta.respondida_em = timezone.now()
@@ -131,7 +151,7 @@ def anamnese_publica(request, token: str):
     resposta = _get_resposta_or_404(token, tipo_esperado='ANAMNESE')
 
     if resposta.respondida:
-        messages.info(request, 'Voce ja respondeu este formulario. Obrigado!')
+        messages.info(request, 'Você já respondeu este formulário. Obrigado!')
         return redirect('aranha:anamnese_obrigado')
 
     if request.method == 'POST':
@@ -145,7 +165,7 @@ def pesquisa_publica(request, token: str):
     resposta = _get_resposta_or_404(token, tipo_esperado='PESQUISA')
 
     if resposta.respondida:
-        messages.info(request, 'Voce ja respondeu esta pesquisa. Obrigado!')
+        messages.info(request, 'Você já respondeu esta pesquisa. Obrigado!')
         return redirect('aranha:pesquisa_obrigado')
 
     if request.method == 'POST':

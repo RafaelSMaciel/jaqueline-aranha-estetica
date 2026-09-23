@@ -2,6 +2,8 @@
 {% load static %}
 
 {% block titulo %}Página não encontrada — {{ CLINIC_NAME }}{% endblock %}
+{# link com token / pagina de sistema: fora do indice #}
+{% block head_seo %}<meta name="robots" content="noindex, nofollow">{% endblock %}
 
 {% block conteudo %}
 

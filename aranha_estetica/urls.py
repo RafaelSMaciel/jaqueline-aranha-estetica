@@ -13,11 +13,11 @@ urlpatterns = [
     path('politica-de-privacidade/', views.politica_privacidade, name='politica_privacidade'),
     path('contato/', views.agenda_contato, name='agenda_contato'),
     path('promocoes/', views.promocoes, name='promocoes'),
+    path('favicon.ico', views.favicon, name='favicon'),
 
     # ─── Serviços ───
     path('servicos/faciais/', views.servicos_faciais, name='servicos_faciais'),
     path('servicos/corporais/', views.servicos_corporais, name='servicos_corporais'),
-    path('servicos/produtos/', views.servicos_produtos, name='servicos_produtos'),
 
     # ─── Páginas Públicas (Equipe, Especialidades, Depoimentos, Galeria) ───
     path('equipe/', views.equipe, name='equipe'),
@@ -106,13 +106,13 @@ urlpatterns = [
     # ─── Relatórios (Financeiro / NPS / Comissões) ───
     path('painel/financeiro/', views.dashboard_financeiro, name='dashboard_financeiro'),
     path('painel/nps/', views.painel_nps, name='painel_nps'),
+    path('painel/nps/<int:pk>/publicacao/', views.admin_nps_publicacao, name='admin_nps_publicacao'),
     path('painel/comissoes/', views.painel_comissoes, name='painel_comissoes'),
     path('painel/comissoes/<int:pk>/pagar/', views.admin_comissao_pagar, name='admin_comissao_pagar'),
 
 
     # ─── Notificações ───
     path('painel/notificacoes/', views.painel_notificacoes, name='painel_notificacoes'),
-    path('painel/cancelar-agendamento/', views.admin_cancelar_agendamento, name='admin_cancelar_agendamento'),
 
     # ─── Prontuario ───
     path('painel/prontuario/<int:cliente_id>/', views.prontuario_detalhe, name='prontuario_detalhe'),
@@ -202,11 +202,9 @@ urlpatterns = [
     path('painel/email-preview/<str:nome>/', views.admin_email_preview, name='admin_email_preview_nome'),
 
     # ─── AJAX ───
-    path('ajax/buscar-procedimentos/', views.buscar_procedimentos, name='buscar_procedimentos'),
     path('ajax/buscar-horarios/', views.buscar_horarios, name='buscar_horarios'),
     path('ajax/horarios-disponiveis/', views.api_horarios_disponiveis, name='api_horarios_disponiveis'),
     path('ajax/dias-disponiveis/', views.api_dias_disponiveis, name='api_dias_disponiveis'),
-    path('ajax/verificar-telefone/', views.verificar_telefone, name='verificar_telefone'),
     path('ajax/cancelar-agendamento/', views.cancelar_agendamento, name='cancelar_agendamento'),
 
 

@@ -2,6 +2,7 @@
 {% load static %}
 
 {% block titulo %}Nossa Equipe | {{ CLINIC_NAME }}{% endblock %}
+{% block meta_description %}Conheça a equipe da {{ CLINIC_NAME }} e agende seu atendimento com a profissional de sua preferência.{% endblock %}
 
 {% block conteudo %}
 
@@ -64,6 +65,7 @@
                 <path d="M9 16l2 2 4-4"/>
               </svg>
             </a>
+            {% if WHATSAPP_NUMERO %}
             <a href="https://wa.me/{{ WHATSAPP_NUMERO }}"
                target="_blank" rel="noopener"
                aria-label="WhatsApp"
@@ -73,6 +75,7 @@
                 <path d="M11.999 2C6.477 2 2 6.477 2 12c0 1.89.525 3.659 1.438 5.168L2 22l4.984-1.407A9.945 9.945 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.95 7.95 0 01-4.055-1.109l-.291-.173-3.007.849.85-2.932-.19-.301A7.94 7.94 0 014 12c0-4.418 3.582-8 8-8s8 3.582 8 8-3.582 8-8 8z"/>
               </svg>
             </a>
+            {% endif %}
           </div>
         </div>
 
@@ -112,6 +115,7 @@
       </div>
       <h3 class="text-texto text-xl font-bold">Equipe em formação</h3>
       <p class="text-texto-suave">Em breve apresentaremos nossos profissionais aqui.</p>
+      {% if WHATSAPP_NUMERO %}
       <a href="https://wa.me/{{ WHATSAPP_NUMERO }}"
          target="_blank" rel="noopener"
          class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity mt-2">
@@ -121,6 +125,7 @@
         </svg>
         Falar no WhatsApp
       </a>
+      {% endif %}
     </div>
     {% endif %}
 

@@ -2,6 +2,7 @@
 {% load static %}
 
 {% block titulo %}Quem Somos | {{ CLINIC_NAME }}{% endblock %}
+{% block meta_description %}Conheça a história e o jeito de cuidar da {{ CLINIC_NAME }}, estética facial e corporal com atendimento acolhedor.{% endblock %}
 
 {% block conteudo %}
 
@@ -60,6 +61,7 @@
              class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
             Agendar Avaliação
           </a>
+          {% if WHATSAPP_NUMERO %}
           <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Ol%C3%A1%21+Gostaria+de+saber+mais+sobre+a+cl%C3%ADnica."
              target="_blank" rel="noopener"
              class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto hover:bg-superficie transition-colors">
@@ -69,6 +71,7 @@
             </svg>
             Falar no WhatsApp
           </a>
+          {% endif %}
         </div>
       </div>
 

@@ -1,0 +1,23 @@
+<!doctype html>
+{% comment %}
+400 autossuficiente: o handler400 do Django renderiza SEM request/context
+processors. Mesmo padrao do 500.html (so style="", sem static/vite).
+{% endcomment %}
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Não foi possível processar o pedido</title>
+</head>
+<body style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#FAFAF8;color:#1B1F23;font-family:Georgia,'Times New Roman',serif;padding:24px;box-sizing:border-box">
+  <main style="max-width:480px;text-align:center">
+    <p style="font-size:64px;line-height:1;margin:0 0 16px;color:#7A5F1F" aria-hidden="true">400</p>
+    <h1 style="font-size:28px;margin:0 0 12px">Não conseguimos entender o pedido</h1>
+    <p style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:16px;line-height:1.6;color:#6B6258;margin:0 0 28px">
+      O endereço ou os dados enviados parecem incompletos. Volte e tente de novo.
+    </p>
+    <a href="/" style="display:inline-block;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:#C9A84C;color:#23200f;text-decoration:none;font-weight:600;padding:12px 24px;border-radius:8px">Voltar ao início</a>
+  </main>
+</body>
+</html>

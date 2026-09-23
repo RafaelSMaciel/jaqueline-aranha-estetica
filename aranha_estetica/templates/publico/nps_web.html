@@ -2,6 +2,8 @@
 {% load static %}
 
 {% block titulo %}Avaliação | {{ CLINIC_NAME }}{% endblock %}
+{# link com token / pagina de sistema: fora do indice #}
+{% block head_seo %}<meta name="robots" content="noindex, nofollow">{% endblock %}
 
 {% block conteudo %}
 <div class="mx-auto max-w-2xl px-6 py-12">
@@ -33,9 +35,13 @@
       {% csrf_token %}
       <input type="hidden" name="nota" id="nota_input" value="">
 
+      {% if erro %}
+      <p class="mb-4 rounded-md border border-erro px-4 py-3 text-sm text-erro" role="alert">{{ erro }}</p>
+      {% endif %}
+
       <!-- Escala NPS 0-10 -->
       <fieldset class="mb-2">
-        <legend class="mb-3 text-sm font-semibold text-texto">Nota (0 a 10)</legend>
+        <legend class="mb-3 text-sm font-semibold text-texto">De 0 a 10, qual a chance de você indicar a {{ CLINIC_NAME }} para uma amiga?</legend>
         <div class="flex flex-wrap justify-center gap-2">
           {% for nota in notas_range %}
           <button
@@ -65,6 +71,16 @@
           rows="3"
           placeholder="Conte-nos mais sobre sua experiência (opcional)..."
           class="rounded-md border border-borda bg-fundo px-3 py-2 text-texto resize-y"></textarea>
+      </div>
+
+      <!-- Opt-in de publicacao (LGPD): desmarcado por padrao; a clinica ainda modera antes de publicar -->
+      <div class="mb-6 flex items-start gap-2">
+        <input type="checkbox" id="id_autoriza_publicacao" name="autoriza_publicacao" value="1"
+               class="mt-1 h-4 w-4 shrink-0 rounded border-borda accent-marca-forte">
+        <label for="id_autoriza_publicacao" class="text-sm text-texto-suave">
+          Autorizo publicar meu comentário no site da {{ CLINIC_NAME }}, apenas com meu primeiro nome e a inicial do sobrenome.
+          <span class="block text-xs">Opcional. Você pode pedir a retirada a qualquer momento.</span>
+        </label>
       </div>
 
       <!-- Botão -->

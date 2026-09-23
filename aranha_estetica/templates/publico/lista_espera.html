@@ -2,6 +2,7 @@
 {% load static %}
 
 {% block titulo %}Lista de Espera | {{ CLINIC_NAME }}{% endblock %}
+{% block meta_description %}Entre na lista de espera da {{ CLINIC_NAME }} e seja avisada quando abrir um horário na data que você prefere.{% endblock %}
 
 {% block conteudo %}
 <div class="mx-auto max-w-2xl px-6 py-12">
@@ -17,21 +18,11 @@
     <h1 class="text-3xl font-bold text-texto">Não encontrou um horário?</h1>
     <p class="mt-2 text-texto-suave max-w-lg mx-auto">
       Cadastre-se na lista de espera. Assim que um horário liberar para a
-      data e turno que você prefere, entraremos em contato por e-mail.
+      data e turno que você prefere, avisamos você por e-mail (ou pelo celular informado).
     </p>
   </div>
 
-  <!-- Mensagens de retorno -->
-  {% if messages %}
-    {% for m in messages %}
-      <div class="mb-4 rounded-md px-4 py-3 text-sm font-medium
-                  {% if m.tags == 'error' %}bg-red-50 text-erro border border-red-200
-                  {% elif m.tags == 'success' %}bg-green-50 text-sucesso border border-green-200
-                  {% else %}bg-superficie border border-borda text-texto{% endif %}">
-        {{ m }}
-      </div>
-    {% endfor %}
-  {% endif %}
+  {# Mensagens: renderizadas pelo base_v2 (cotton/chrome/mensagens.html) #}
 
   <!-- Formulário -->
   <div class="rounded-lg border border-borda bg-superficie p-6 shadow-sm">
@@ -42,7 +33,7 @@
       <div class="mb-5 flex flex-col gap-1">
         <label for="id_nome" class="text-sm font-medium text-texto">Nome completo</label>
         <input id="id_nome" type="text" name="nome" required maxlength="150"
-               placeholder="Seu nome"
+               placeholder="Seu nome" autocomplete="name" value="{{ form_data.nome|default:'' }}"
                class="rounded-md border border-borda bg-fundo px-3 py-2 text-texto">
       </div>
 
@@ -50,9 +41,20 @@
       <div class="mb-5 flex flex-col gap-1">
         <label for="id_telefone" class="text-sm font-medium text-texto">Celular</label>
         <input id="id_telefone" type="tel" name="telefone" required maxlength="20"
-               placeholder="(17) 99999-9999"
+               placeholder="(17) 99999-9999" autocomplete="tel" inputmode="tel"
+               value="{{ form_data.telefone|default:'' }}"
                class="rounded-md border border-borda bg-fundo px-3 py-2 text-texto">
-        <span class="text-xs text-texto-suave">Vamos usar este número para notificar.</span>
+        <span class="text-xs text-texto-suave">Com DDD. Usamos para identificar seu cadastro e, se preciso, falar com você.</span>
+      </div>
+
+      <!-- E-mail -->
+      <div class="mb-5 flex flex-col gap-1">
+        <label for="id_email" class="text-sm font-medium text-texto">E-mail</label>
+        <input id="id_email" type="email" name="email" required maxlength="254"
+               placeholder="seu@email.com" autocomplete="email"
+               value="{{ form_data.email|default:'' }}"
+               class="rounded-md border border-borda bg-fundo px-3 py-2 text-texto">
+        <span class="text-xs text-texto-suave">O aviso de vaga chega por aqui.</span>
       </div>
 
       <!-- Procedimento -->
@@ -62,7 +64,7 @@
                 class="rounded-md border border-borda bg-fundo px-3 py-2 text-texto">
           <option value="">Selecione...</option>
           {% for p in procedimentos %}
-            <option value="{{ p.pk }}">{{ p.nome }}</option>
+            <option value="{{ p.pk }}" {% if form_data.procedimento == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.nome }}</option>
           {% endfor %}
         </select>
       </div>
@@ -77,7 +79,7 @@
                 class="rounded-md border border-borda bg-fundo px-3 py-2 text-texto">
           <option value="">Qualquer profissional</option>
           {% for prof in profissionais %}
-            <option value="{{ prof.pk }}">{{ prof.nome }}</option>
+            <option value="{{ prof.pk }}" {% if form_data.profissional == prof.pk|stringformat:"s" %}selected{% endif %}>{{ prof.nome }}</option>
           {% endfor %}
         </select>
       </div>
@@ -87,7 +89,7 @@
         <div class="flex flex-col gap-1">
           <label for="id_data_desejada" class="text-sm font-medium text-texto">Data desejada</label>
           <input id="id_data_desejada" type="date" name="data_desejada" required
-                 min="{{ data_minima }}"
+                 min="{{ data_minima }}" value="{{ form_data.data_desejada|default:'' }}"
                  class="rounded-md border border-borda bg-fundo px-3 py-2 text-texto">
         </div>
         <div class="flex flex-col gap-1">
@@ -96,7 +98,7 @@
                   class="rounded-md border border-borda bg-fundo px-3 py-2 text-texto">
             <option value="">Qualquer turno</option>
             {% for val, label in turnos %}
-              <option value="{{ val }}">{{ label }}</option>
+              <option value="{{ val }}" {% if form_data.turno == val %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
           </select>
         </div>
@@ -110,6 +112,10 @@
         </svg>
         Entrar na Lista de Espera
       </button>
+      <p class="mt-3 text-center text-xs text-texto-suave">
+        Ao enviar, você concorda com a <a href="{% url 'aranha:politica_privacidade' %}" class="underline text-marca">Política de Privacidade</a>.
+        Seus dados são usados só para avisar sobre a vaga.
+      </p>
     </form>
   </div>
 

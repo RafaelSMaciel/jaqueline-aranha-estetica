@@ -18,13 +18,13 @@ class StaticViewSitemap(Sitemap):
             'aranha:promocoes',
             'aranha:equipe',
             'aranha:especialidades',
+            # depoimentos: so exibe NPS com opt-in do cliente + aprovacao da clinica
             'aranha:depoimentos',
             'aranha:galeria',
             'aranha:agendamento_publico',
             'aranha:lista_espera_publica',
             'aranha:servicos_faciais',
             'aranha:servicos_corporais',
-            'aranha:servicos_produtos',
             'aranha:termos_uso',
             'aranha:politica_privacidade',
         ]
@@ -39,7 +39,12 @@ class ProcedimentoSitemap(Sitemap):
     changefreq = 'monthly'
 
     def items(self):
-        return Procedimento.objects.filter(ativo=True, slug__isnull=False)
+        # order_by explicito: paginacao do sitemap exige ordem estavel
+        return (
+            Procedimento.objects.filter(ativo=True, slug__isnull=False)
+            .exclude(slug='')
+            .order_by('nome', 'pk')
+        )
 
     def location(self, obj):
         return reverse('aranha:servico_detalhe', kwargs={'slug': obj.slug})

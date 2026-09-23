@@ -4,7 +4,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
   <title>{% block titulo %}{{ CLINIC_NAME }}{% endblock %}</title>
+  <link rel="icon" type="image/png" href="{% static 'assets/favicon.png' %}">
+  <link rel="apple-touch-icon" href="{% static 'assets/apple-touch-icon.png' %}">
+  <meta name="theme-color" content="{{ THEME_COLOR|default:'#C9A84C' }}">
   {% vite_hmr_client %}
   {% vite_asset 'aranha_estetica/static/src/js/app.js' %}
   {% block css %}{% endblock %}

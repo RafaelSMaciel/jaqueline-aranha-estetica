@@ -23,24 +23,28 @@
     return c ? c[1] : '';
   }
 
+  function suportado() {
+    return ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window);
+  }
+
   async function ensureSubscribed() {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-    if (Notification.permission === 'denied') return;
+    if (!suportado()) return false;
+    if (Notification.permission === 'denied') return false;
 
     const reg = await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();
-    if (sub) return; // ja inscrito
+    if (sub) return true; // ja inscrito
 
     const keyResp = await fetch('/webpush/public-key/', { credentials: 'same-origin' });
     const { public_key: publicKey } = await keyResp.json();
     if (!publicKey) {
       console.warn('Webpush: VAPID public key vazia (env var nao configurada)');
-      return;
+      return false;
     }
 
     if (Notification.permission === 'default') {
       const perm = await Notification.requestPermission();
-      if (perm !== 'granted') return;
+      if (perm !== 'granted') return false;
     }
 
     sub = await reg.pushManager.subscribe({
@@ -54,19 +58,28 @@
       headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
       body: JSON.stringify(sub.toJSON()),
     });
+    return true;
   }
 
   document.addEventListener('DOMContentLoaded', function () {
+    // Gatilho: botao #webpushEnable (painel). Pedir permissao exige gesto do usuario.
     const trigger = document.getElementById('webpushEnable');
     if (trigger) {
-      trigger.addEventListener('click', function (e) {
-        e.preventDefault();
-        ensureSubscribed().catch(console.warn);
-      });
-      return;
+      // Sem suporte ou permissao ja decidida: o botao nao tem o que fazer
+      if (!suportado() || Notification.permission !== 'default') {
+        trigger.remove();
+      } else {
+        trigger.addEventListener('click', function (e) {
+          e.preventDefault();
+          ensureSubscribed()
+            .then(function () { if (Notification.permission !== 'default') trigger.remove(); })
+            .catch(console.warn);
+        });
+        return;
+      }
     }
     // Auto-tenta se ja autorizado e usuario eh staff (template inclui flag)
-    if (window.WEBPUSH_AUTO === true && Notification.permission === 'granted') {
+    if (window.WEBPUSH_AUTO === true && suportado() && Notification.permission === 'granted') {
       ensureSubscribed().catch(console.warn);
     }
   });

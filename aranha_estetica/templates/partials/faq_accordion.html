@@ -13,7 +13,7 @@ Zero JS (CSP-safe). Context:
     <a href="#faq-{{ cat.slug }}"
        class="inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold no-underline
               border border-borda bg-superficie text-texto-suave
-              hover:border-marca hover:text-marca-forte hover:shadow-sm transition">
+              hover:border-marca hover:text-marca hover:shadow-sm transition">
       {{ cat.nome }}
     </a>
     {% endfor %}
@@ -23,7 +23,7 @@ Zero JS (CSP-safe). Context:
   <div class="max-w-3xl mx-auto space-y-12">
     {% for cat in faq_categorias %}
     <section id="faq-{{ cat.slug }}" class="scroll-mt-28">
-      <h3 class="flex items-center gap-2.5 text-lg font-bold text-marca-forte mb-4">
+      <h3 class="flex items-center gap-2.5 text-lg font-bold text-marca mb-4">
         <span class="inline-block w-1.5 h-5 rounded-full bg-marca" aria-hidden="true"></span>
         {{ cat.nome }}
       </h3>
@@ -35,7 +35,7 @@ Zero JS (CSP-safe). Context:
                           list-none [&::-webkit-details-marker]:hidden
                           px-5 py-4 font-medium text-texto hover:bg-fundo transition">
             <span>{{ faq.q }}</span>
-            <svg class="faq-chevron w-5 h-5 shrink-0 text-marca-forte transition-transform duration-200"
+            <svg class="faq-chevron w-5 h-5 shrink-0 text-marca transition-transform duration-200"
                  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <polyline points="6 9 12 15 18 9"></polyline>
