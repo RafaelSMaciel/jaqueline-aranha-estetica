@@ -74,3 +74,61 @@ class PrecoComPromocaoTests(TestCase):
         self._promo(self.proc, desconto_percentual=Decimal('10'))
         final, _promo, cheio = preco_com_promocao(self.proc, prof)
         self.assertEqual((final, cheio), (Decimal('180.00'), Decimal('200.00')))
+
+
+class VigenciaPrecoProfissionalTests(TestCase):
+    """rev_booking-06: tabela futura do profissional nao vale antes da vigencia."""
+
+    def setUp(self):
+        self.hoje = timezone.localdate()
+        self.prof = criar_profissional()
+        self.proc = criar_procedimento(nome='Peeling', preco=None)
+        Preco.objects.create(
+            procedimento=self.proc, valor=Decimal('150.00'),
+            vigente_desde=self.hoje - timedelta(days=30),
+        )
+        Preco.objects.create(
+            procedimento=self.proc, profissional=self.prof, valor=Decimal('400.00'),
+            vigente_desde=self.hoje + timedelta(days=30),
+        )
+
+    def test_base_vigente_ate_a_tabela_do_profissional_valer(self):
+        self.assertEqual(preco_com_promocao(self.proc, self.prof, self.hoje + timedelta(days=2))[0],
+                         Decimal('150.00'))
+        self.assertEqual(preco_com_promocao(self.proc, self.prof, self.hoje + timedelta(days=31))[0],
+                         Decimal('400.00'))
+
+    def test_sem_preco_base_usa_a_vigencia_futura_do_profissional(self):
+        Preco.objects.filter(procedimento=self.proc, profissional__isnull=True).delete()
+        self.assertEqual(preco_para(self.proc, self.prof).valor, Decimal('400.00'))
+
+    def test_a_partir_de_prefere_profissional_ja_vigente(self):
+        from aranha_estetica.utils.precos import preco_base_map
+        Preco.objects.filter(procedimento=self.proc, profissional__isnull=True).delete()
+        outra = criar_profissional(nome='Dra. Vigente')
+        Preco.objects.create(procedimento=self.proc, profissional=outra, valor=Decimal('500.00'),
+                             vigente_desde=self.hoje - timedelta(days=1))
+        # 400 so vale daqui a 30 dias: hoje o menor preco que o booking cobra e 500
+        self.assertEqual(preco_base_map([self.proc])[self.proc.pk], Decimal('500.00'))
+
+
+class PromocaoSobrePrecoDoProfissionalTests(TestCase):
+    """followups-promocoes-vitrine-diverge-agendamento: % sobre o preco cobrado."""
+
+    def setUp(self):
+        self.hoje = timezone.localdate()
+        self.prof = criar_profissional()
+        self.proc = criar_procedimento(nome='Botox', preco=None)
+        Preco.objects.create(procedimento=self.proc, profissional=self.prof, valor=Decimal('1000.00'))
+        self.promo = Promocao.objects.create(
+            nome='Setembro', procedimento=self.proc, desconto_percentual=Decimal('20'),
+            data_inicio=self.hoje, data_fim=self.hoje + timedelta(days=5),
+        )
+
+    def test_percentual_sem_preco_base_vale_sobre_o_preco_do_profissional(self):
+        self.assertEqual(preco_com_promocao(self.proc, self.prof),
+                         (Decimal('800.00'), self.promo, Decimal('1000.00')))
+
+    def test_valor_base_explicito(self):
+        self.assertIsNone(promocao_vigente(self.proc))  # sem base e sem valor: so preco fixo
+        self.assertEqual(promocao_vigente(self.proc, self.hoje, valor_base=Decimal('1000.00')), self.promo)

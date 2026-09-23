@@ -2,7 +2,9 @@
 
 Preco e versionado por `vigente_desde`: vale a vigencia mais recente com
 vigente_desde <= hoje (fuso local). Se so houver vigencia futura, usa a mais
-proxima (evita procedimento "sem preco" por diferenca de fuso no default).
+proxima (evita procedimento "sem preco" por diferenca de fuso no default) —
+mas so quando nao ha preco vigente em outro escopo: tabela futura do
+profissional nunca passa na frente do preco-base que ja vale.
 """
 from __future__ import annotations
 
@@ -50,12 +52,17 @@ def preco_base_map(procedimentos=None):
 
     # Preco base (profissional nulo) tem prioridade.
     mapa = {pid: _escolher_vigente(lista, hoje).valor for pid, lista in base.items()}
+    # Sem base: menor preco JA vigente entre os profissionais; vigencia futura
+    # so entra se nenhum profissional tiver preco valendo hoje.
+    vigentes, futuros = defaultdict(list), defaultdict(list)
     for (pid, _prof_id), lista in por_prof.items():
         if pid in base:
             continue
-        valor = _escolher_vigente(lista, hoje).valor
-        if pid not in mapa or valor < mapa[pid]:
-            mapa[pid] = valor
+        escolhido = _escolher_vigente(lista, hoje)
+        destino = vigentes if escolhido.vigente_desde <= hoje else futuros
+        destino[pid].append(escolhido.valor)
+    for pid in set(vigentes) | set(futuros):
+        mapa[pid] = min(vigentes.get(pid) or futuros[pid])
     return mapa
 
 
@@ -74,16 +81,25 @@ def _dia(data=None):
 def preco_para(procedimento, profissional=None, data=None):
     """Retorna o Preco vigente aplicavel para (procedimento, profissional) na data.
 
-    Prioridade: preco especifico do profissional > preco base (sem profissional).
+    Prioridade: preco do profissional ja vigente na data > preco base
+    (vigente, ou o futuro mais proximo) > preco futuro do profissional (so
+    quando nao existe preco base). Tabela nova do profissional so vale a
+    partir do proprio vigente_desde.
     data: dia do atendimento (default hoje local).
     """
     hoje = _dia(data)
     qs = Preco.objects.filter(procedimento=procedimento)
     if profissional is not None:
-        especifico = _vigente_qs(qs.filter(profissional=profissional), hoje)
+        especifico = (
+            qs.filter(profissional=profissional, vigente_desde__lte=hoje)
+            .order_by('-vigente_desde', '-pk').first()
+        )
         if especifico is not None:
             return especifico
-    return _vigente_qs(qs.filter(profissional__isnull=True), hoje)
+    base = _vigente_qs(qs.filter(profissional__isnull=True), hoje)
+    if base is None and profissional is not None:
+        return _vigente_qs(qs.filter(profissional=profissional), hoje)
+    return base
 
 
 def _promocao_aplicavel(promocao) -> bool:
@@ -94,12 +110,13 @@ def _promocao_aplicavel(promocao) -> bool:
     return promocao.preco_promocional is None and bool(promocao.desconto_percentual)
 
 
-def promocao_vigente(procedimento, data=None):
+def promocao_vigente(procedimento, data=None, valor_base=None):
     """Promocao ativa que reduz o preco do procedimento na data (fuso local), ou None.
 
     Considera promocoes do proprio procedimento (preco fixo ou percentual) e
     gerais (procedimento nulo, so percentual). Havendo varias, vence a de
-    menor preco final (calculado sobre o preco base da data).
+    menor preco final, calculado sobre `valor_base` quando informado (ex.: o
+    preco do profissional escolhido) ou sobre o preco base da data.
     """
     from django.db.models import Q
 
@@ -114,8 +131,11 @@ def promocao_vigente(procedimento, data=None):
     ]
     if not candidatas:
         return None
-    preco = preco_para(procedimento, data=dia)
-    base = preco.valor if preco is not None else None
+    if valor_base is not None:
+        base = valor_base
+    else:
+        preco = preco_para(procedimento, data=dia)
+        base = preco.valor if preco is not None else None
     if base is None:
         # sem preco base: so promocao de preco fixo do proprio procedimento faz sentido
         fixas = [p for p in candidatas if p.preco_promocional is not None and p.procedimento_id]
@@ -153,7 +173,8 @@ def preco_com_promocao(procedimento, profissional=None, data=None):
     if preco is None:
         return None, None, None
     cheio = preco.valor
-    promo = promocao_vigente(procedimento, data)
+    # % aplicado sobre o preco que sera cobrado (o do profissional, se houver).
+    promo = promocao_vigente(procedimento, data, valor_base=cheio)
     final = aplicar_promocao(cheio, promo)
     if promo is not None and final >= cheio:
         return cheio, None, cheio

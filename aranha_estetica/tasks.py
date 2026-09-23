@@ -580,16 +580,21 @@ def job_lgpd_purgar_inativos(self):
     """Retencao LGPD:
     - anonimiza clientes sem atendimento ha 5 anos
       (LgpdService.RETENCAO_CLIENTE_INATIVO_DIAS) ou soft-deletados ha 30 dias;
-      nunca quem tem prontuario, aceite, pacote ou atendimento de saude
+      nunca quem tem prontuario com conteudo, pacote ou atendimento de saude
       dentro de 20 anos (ver LgpdService.candidatos_purga);
     - apaga fichas de anamnese de pedidos nao realizados ha 90 dias
-      (LgpdService.fichas_sem_atendimento_para_purga)."""
+      (LgpdService.fichas_sem_atendimento_para_purga);
+    - apaga inscricoes da lista de espera com data ja passada."""
     from .services.lgpd import LgpdService
     try:
         count = LgpdService.purgar_inativos()
         logger.info('lgpd_clientes_anonimizados', extra={'count': count})
         fichas = LgpdService.purgar_fichas_sem_atendimento()
-        return f'{count} clientes anonimizados; {fichas} fichas apagadas'
+        esperas = LgpdService.purgar_lista_espera_vencida()
+        return (
+            f'{count} clientes anonimizados; {fichas} fichas apagadas; '
+            f'{esperas} inscricoes de espera apagadas'
+        )
     except Exception as exc:
         logger.exception('Erro em job_lgpd_purgar_inativos: %s', exc)
         _retry_ou_propaga(self, exc)

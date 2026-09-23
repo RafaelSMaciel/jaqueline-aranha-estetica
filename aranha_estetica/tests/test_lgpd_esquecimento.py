@@ -2,11 +2,12 @@
 from datetime import timedelta
 
 from django.test import TestCase
+from django.urls import reverse
 from django.utils import timezone
 
 from aranha_estetica.models import (
-    Cliente, CodigoOtp, FormularioAnamnese, ListaEspera, LogAuditoria, Notificacao,
-    Prontuario, RespostaAnamnese,
+    AceiteTermo, AvaliacaoNPS, Cliente, CodigoOtp, FormularioAnamnese, ListaEspera,
+    LogAuditoria, Notificacao, Prontuario, RespostaAnamnese, VersaoTermo,
 )
 from aranha_estetica.services.lgpd import LgpdService
 
@@ -104,6 +105,49 @@ class PurgaRetencaoTests(TestCase):
         # Ja anonimizado nao volta a ser processado
         self.assertEqual(LgpdService.purgar_inativos(), 0)
 
+    def _aceite_lgpd(self, cliente):
+        termo = VersaoTermo.lgpd_vigente() or VersaoTermo.objects.create(
+            tipo='LGPD', titulo='Politica de privacidade', versao='teste', conteudo='Texto', ativa=True,
+            vigente_desde=timezone.localdate(),
+        )
+        return AceiteTermo.registrar(cliente, termo)
+
+    def test_aceite_lgpd_nao_retem_cliente_inativo(self):
+        """rev_security-03: todo booking grava aceite — a purga nao pode virar no-op."""
+        cliente = criar_cliente(nome='Velha Com Aceite')
+        aceite = self._aceite_lgpd(cliente)
+        self._envelhecer(cliente, 365 * 6)
+        self.assertEqual(LgpdService.purgar_inativos(), 1)
+        self.assertTrue(Cliente.all_objects.get(pk=cliente.pk).nome.startswith('[ANONIMIZADO-'))
+        # prova do consentimento continua ligada ao mesmo id
+        self.assertEqual(AceiteTermo.objects.get(pk=aceite.pk).cliente_id, cliente.pk)
+
+    def test_soft_deletado_com_aceite_e_anonimizado(self):
+        cliente = criar_cliente(nome='Pediu Exclusao')
+        self._aceite_lgpd(cliente)
+        cliente.soft_delete()
+        Cliente.all_objects.filter(pk=cliente.pk).update(
+            deletado_em=timezone.now() - timedelta(days=31),
+        )
+        self.assertIn(cliente.pk, set(LgpdService.candidatos_purga().values_list('pk', flat=True)))
+
+    def test_prontuario_vazio_nao_retem(self):
+        """followups-purga-prontuario-vazio: registro vazio (GET legado) nao conta."""
+        vazio = criar_cliente(nome='Prontuario Vazio')
+        Prontuario.objects.create(cliente=vazio)
+        branco = criar_cliente(nome='Prontuario Branco')
+        Prontuario.objects.create(cliente=branco, alergias='', respostas_extras={})
+        for cliente in (vazio, branco):
+            self._envelhecer(cliente, 365 * 6)
+        candidatos = set(LgpdService.candidatos_purga().values_list('pk', flat=True))
+        self.assertEqual(candidatos, {vazio.pk, branco.pk})
+
+    def test_prontuario_so_com_respostas_extras_retem(self):
+        cliente = criar_cliente(nome='Com Extras')
+        Prontuario.objects.create(cliente=cliente, respostas_extras={'diabetes': True})
+        self._envelhecer(cliente, 365 * 6)
+        self.assertEqual(LgpdService.purgar_inativos(), 0)
+
 
 def _ficha(cliente, atendimento=None, respondida=True, dias_atras=0):
     form, _ = FormularioAnamnese.objects.get_or_create(nome='Ficha de bem-estar')
@@ -154,6 +198,22 @@ class FichasSemAtendimentoTests(TestCase):
         _ficha(self.cliente, None, respondida=False, dias_atras=91)
         self.assertEqual(LgpdService.purgar_fichas_sem_atendimento(), 2)
 
+    def test_convite_vazio_de_horario_passado_sai_e_ficha_legada_fica(self):
+        """rev_painel-11: link da recepcao ignorado nao fica para sempre; ficha do
+        booking antigo (respostas + respondida_em nulo) nunca entra na purga."""
+        realizado = self._atd('REALIZADO')
+        convite = _ficha(self.cliente, realizado, respondida=False, dias_atras=91)
+        RespostaAnamnese.objects.filter(pk=convite.pk).update(respostas_json={})
+        legada = _ficha(self.cliente, self._atd('REALIZADO', dias=-120), respondida=False, dias_atras=120)
+        futuro = _ficha(self.cliente, self._atd('AGENDADO', dias=5), respondida=False, dias_atras=91)
+        RespostaAnamnese.objects.filter(pk=futuro.pk).update(respostas_json={})
+
+        self.assertEqual(LgpdService.purgar_fichas_sem_atendimento(), 1)
+
+        self.assertFalse(RespostaAnamnese.objects.filter(pk=convite.pk).exists())
+        self.assertTrue(RespostaAnamnese.objects.filter(pk=legada.pk).exists())
+        self.assertTrue(RespostaAnamnese.objects.filter(pk=futuro.pk).exists())
+
     def test_ficha_recente_de_cancelado_ainda_fica(self):
         _ficha(self.cliente, self._atd('CANCELADO', dias=-10), dias_atras=10)
         self.assertEqual(LgpdService.purgar_fichas_sem_atendimento(), 0)
@@ -198,3 +258,142 @@ class TrilhaAuditoriaAnonimizadaTests(TestCase):
         # trilha preservada (tabela/id) e log de terceiros intacto
         self.assertTrue(LogAuditoria.objects.filter(tabela='prontuario', registro_id=pront.pk).exists())
         self.assertTrue(LogAuditoria.objects.filter(acao='Editou cliente: Carla Lima').exists())
+
+    def test_log_de_pacote_e_nome_antigo_saem(self):
+        """rev_security-07: 'Vendeu pacote ... para <nome>' e nome anterior a edicao."""
+        from aranha_estetica.utils.audit import registrar_log
+
+        from .factories import criar_compra_pacote, criar_pacote
+        cliente = criar_cliente(nome='Fernanda Rastreavel')
+        compra = criar_compra_pacote(cliente, criar_pacote())
+        registrar_log(None, 'Vendeu pacote "Pacote Glow" para Fernanda Rastreavel', 'compra_pacote', compra.pk)
+        registrar_log(None, 'Cancelou pacote "Pacote Glow" de Fernanda Rastreavel', 'compra_pacote', compra.pk)
+        registrar_log(None, 'Editou cliente: Fernanda Antigo Sobrenome', 'cliente', cliente.pk)
+
+        LgpdService.esquecer_cliente(cliente)
+
+        self.assertFalse(LogAuditoria.objects.filter(acao__contains='Fernanda').exists())
+        self.assertEqual(
+            LogAuditoria.objects.filter(tabela='compra_pacote', registro_id=compra.pk).count(), 2,
+        )
+
+    def test_django_admin_log_perde_o_nome(self):
+        from django.contrib.admin.models import CHANGE, LogEntry
+        from django.contrib.contenttypes.models import ContentType
+
+        from aranha_estetica.models import Usuario
+        admin = Usuario.objects.create_user(email='adm-log@test.com', password='x-senha-123', nome='Adm')
+        cliente = criar_cliente(nome='Nome Antigo Admin')
+        prof = criar_profissional()
+        atd = criar_atendimento(cliente, prof, criar_procedimento(profissional=prof))
+        for obj in (cliente, atd):
+            LogEntry.objects.create(
+                user=admin, content_type=ContentType.objects.get_for_model(obj),
+                object_id=str(obj.pk), object_repr=str(obj), action_flag=CHANGE,
+                change_message='[{"changed": {"fields": ["Nome"]}}]',
+            )
+        outra = criar_cliente(nome='Terceira Pessoa')
+        LogEntry.objects.create(
+            user=admin, content_type=ContentType.objects.get_for_model(outra),
+            object_id=str(outra.pk), object_repr=str(outra), action_flag=CHANGE,
+        )
+
+        LgpdService.esquecer_cliente(cliente)
+
+        self.assertFalse(LogEntry.objects.filter(object_repr__contains='Nome Antigo').exists())
+        self.assertEqual(LogEntry.objects.filter(object_repr=f'[ANONIMIZADO-{cliente.pk}]').count(), 2)
+        self.assertTrue(LogEntry.objects.filter(object_repr='Terceira Pessoa').exists())
+
+    def test_detalhes_da_migration_0034_sao_limpos(self):
+        """pgupgrade-07: telefone original guardado pela 0034 nao sobrevive ao esquecimento."""
+        cliente = criar_cliente(nome='Dona Lurdes')
+        LogAuditoria.objects.create(
+            acao='migration 0034: telefone invalido removido', tabela='cliente', registro_id=cliente.pk,
+            detalhes={'telefone': '99****9999', 'telefone_original': '999999999'},
+        )
+        outro = LogAuditoria.objects.create(
+            acao='migration 0034: telefone invalido removido', tabela='cliente', registro_id=cliente.pk + 999,
+            detalhes={'telefone': '11****1111'},
+        )
+
+        LgpdService.esquecer_cliente(cliente)
+
+        self.assertIsNone(LogAuditoria.objects.get(
+            tabela='cliente', registro_id=cliente.pk, acao__startswith='migration 0034',
+        ).detalhes)
+        outro.refresh_from_db()
+        self.assertEqual(outro.detalhes, {'telefone': '11****1111'})
+
+
+class DepoimentoAposEsquecimentoTests(TestCase):
+    """rev_security-02: esquecimento tira o depoimento do site e apaga o texto."""
+
+    def test_nps_perde_autorizacao_e_comentario(self):
+        cliente = criar_cliente(nome='Rita Depoimento')
+        prof = criar_profissional()
+        atd = criar_atendimento(cliente, prof, criar_procedimento(profissional=prof), status='REALIZADO')
+        nps = AvaliacaoNPS.objects.create(
+            atendimento=atd, nota=10, comentario='Amei o atendimento da Rita',
+            autoriza_publicacao=True, aprovado_publicacao=True,
+        )
+
+        LgpdService.esquecer_cliente(cliente)
+
+        nps.refresh_from_db()
+        self.assertEqual(nps.nota, 10)
+        self.assertEqual(nps.comentario, '')
+        self.assertFalse(nps.autoriza_publicacao)
+        self.assertFalse(nps.aprovado_publicacao)
+        resp = self.client.get(reverse('aranha:depoimentos'))
+        self.assertNotContains(resp, 'Amei o atendimento')
+        self.assertNotContains(resp, '[ANONIMIZADO-')
+
+
+class ExportDsarTests(TestCase):
+    def test_lista_espera_exporta_email_de_contato_e_profissional(self):
+        """followups-dsar-email-contato."""
+        cliente = criar_cliente(nome='Titular Espera')
+        prof = criar_profissional(nome='Dra. Desejada')
+        proc = criar_procedimento(profissional=prof)
+        ListaEspera.objects.create(
+            cliente=cliente, procedimento=proc, profissional_desejado=prof,
+            data_desejada=timezone.localdate(), email_contato='contato@x.com',
+        )
+        item = LgpdService.exportar_dados_cliente(cliente)['lista_espera'][0]
+        self.assertEqual(item['email_contato'], 'contato@x.com')
+        self.assertEqual(item['profissional_desejado'], 'Dra. Desejada')
+
+    def test_exporta_versoes_do_prontuario(self):
+        """followups-prontuario-sem-historico: DSAR inclui o historico clinico."""
+        from aranha_estetica.models import ProntuarioVersao
+        cliente = criar_cliente(nome='Titular Prontuario')
+        pront = Prontuario.objects.create(cliente=cliente, alergias='dipirona')
+        ProntuarioVersao.registrar(pront, None)
+        Prontuario.objects.filter(pk=pront.pk).update(alergias='nenhuma')
+
+        dados = LgpdService.exportar_dados_cliente(cliente)
+
+        self.assertEqual(len(dados['prontuario_versoes']), 1)
+        self.assertEqual(dados['prontuario_versoes'][0]['dados']['alergias'], 'dipirona')
+        self.assertEqual(dados['prontuario']['alergias'], 'nenhuma')
+
+
+class ListaEsperaVencidaTests(TestCase):
+    """rev_security-01 (5): inscricao com data passada e apagada pela retencao."""
+
+    def test_purga_so_data_passada_e_job_chama(self):
+        from aranha_estetica.tasks import job_lgpd_purgar_inativos
+        cliente = criar_cliente(nome='Espera Antiga')
+        proc = criar_procedimento()
+        hoje = timezone.localdate()
+        vencida = ListaEspera.objects.create(
+            cliente=cliente, procedimento=proc, data_desejada=hoje - timedelta(days=1),
+            email_contato='x@example.com',
+        )
+        de_hoje = ListaEspera.objects.create(cliente=cliente, procedimento=proc, data_desejada=hoje)
+
+        resultado = job_lgpd_purgar_inativos.apply().result
+
+        self.assertIn('1 inscricoes de espera apagadas', resultado)
+        self.assertFalse(ListaEspera.objects.filter(pk=vencida.pk).exists())
+        self.assertTrue(ListaEspera.objects.filter(pk=de_hoje.pk).exists())
