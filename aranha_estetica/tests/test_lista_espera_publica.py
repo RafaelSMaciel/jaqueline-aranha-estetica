@@ -70,6 +70,14 @@ class ListaEsperaPublicaTests(TestCase):
         novo = Cliente.objects.get(telefone='17988880000')
         self.assertIn(novo.email, (None, ''))
 
+    def test_email_digitado_fica_na_inscricao_de_cliente_existente(self):
+        """Regressao public_front-08: cliente antiga sem e-mail nunca recebia o aviso de vaga."""
+        Cliente.objects.create(nome='Ana Verdadeira', telefone='17988880000')
+        self._post(email='ana.nova@exemplo.com')
+        espera = ListaEspera.objects.get(cliente__telefone='17988880000')
+        self.assertEqual(espera.email_contato, 'ana.nova@exemplo.com')
+        self.assertIn(espera.cliente.email, (None, ''))  # cadastro continua intocado
+
     def test_telefone_com_ddi_55_e_normalizado(self):
         """Regressao (pgmig-08): '+55 ...' virava 13 digitos e estourava o CHECK do Postgres (500)."""
         resp = self._post(telefone='+55 (17) 98888-0000')

@@ -109,6 +109,41 @@ class ContatosVaziosTests(TestCase):
         self.assertIn('href="tel:+5517991234567"', html)
 
 
+class FaqHonestoTests(TestCase):
+    """Regressao gap3-01/gap4-03: FAQ (tambem vai p/ o JSON-LD) so promete o que existe."""
+
+    def setUp(self):
+        cache.clear()
+
+    def _respostas(self):
+        resp = self.client.get(reverse('aranha:inicio'))
+        return ' '.join(i['a'] for c in resp.context['faq_categorias'] for i in c['itens']), resp
+
+    def test_sem_credito_por_indicacao(self):
+        respostas, resp = self._respostas()
+        html = resp.content.decode()
+        self.assertNotIn('crédito na sua carteira', html)
+        self.assertNotIn('benefício por indicação', html)
+        self.assertNotIn('indicar uma amiga', respostas)
+
+    @patch.dict(os.environ, {'WHATSAPP_NUMERO': '', 'CLINIC_PHONE': '', 'CLINIC_EMAIL': ''})
+    def test_sem_canais_faq_nao_cita_whatsapp_telefone_nem_email(self):
+        respostas, _ = self._respostas()
+        self.assertNotIn('WhatsApp', respostas)
+        self.assertNotIn('por telefone', respostas)
+        self.assertNotIn('e-mail', respostas)
+        self.assertIn('presencialmente na clínica', respostas)
+        self.assertIn('agendar online pelo nosso site', respostas)
+
+    @patch.dict(os.environ, {'WHATSAPP_NUMERO': '5517991234567', 'CLINIC_PHONE': '',
+                             'CLINIC_EMAIL': 'oi@clinica.com.br'})
+    def test_com_canais_faq_cita_so_os_existentes(self):
+        respostas, _ = self._respostas()
+        self.assertIn('ou pelo WhatsApp.', respostas)
+        self.assertIn('pelo WhatsApp, por e-mail', respostas)
+        self.assertNotIn('por telefone', respostas)
+
+
 class SeoBaseTests(TestCase):
     def setUp(self):
         cache.clear()
@@ -174,6 +209,42 @@ class EspecialidadesTests(TestCase):
         self.assertIn('A partir de R$ 300', html)
 
 
+class PrecoVitrineComPromocaoTests(TestCase):
+    """Contrato 2: 'A partir de' = valor que o agendamento gravaria hoje (preco_com_promocao)."""
+
+    def setUp(self):
+        cache.clear()
+        self.proc = criar_procedimento(nome='Drenagem', categoria='CORPORAL', preco=Decimal('100.00'))
+        hoje = datas.hoje()
+        Promocao.objects.create(nome='Semana do corpo', procedimento=self.proc,
+                                desconto_percentual=Decimal('15'),
+                                data_inicio=hoje, data_fim=hoje + timedelta(days=2))
+
+    def test_especialidades_mostra_valor_com_promo_e_cheio_riscado(self):
+        from aranha_estetica.utils.precos import preco_com_promocao
+        final, _promo, _cheio = preco_com_promocao(self.proc)
+        html = self.client.get(reverse('aranha:especialidades')).content.decode()
+        self.assertEqual(final, Decimal('85.00'))
+        self.assertIn('A partir de R$ 85', html)
+        self.assertRegex(html, r'<s><span class="sr-only">Preço sem promoção: </span>R\$ 100')
+        self.assertIn('Promoção: Semana do corpo', html)
+
+    def test_servico_detalhe_usa_mesmo_valor(self):
+        self.proc.refresh_from_db()
+        html = self.client.get(
+            reverse('aranha:servico_detalhe', args=[self.proc.slug])
+        ).content.decode()
+        self.assertIn('A partir de R$ 85', html)
+        self.assertIn('"price": "85.00"', html)
+        self.assertIn('Semana do corpo', html)
+
+    def test_sem_promocao_nao_risca_preco(self):
+        Promocao.objects.all().delete()
+        html = self.client.get(reverse('aranha:especialidades')).content.decode()
+        self.assertIn('A partir de R$ 100', html)
+        self.assertNotIn('Preço sem promoção', html)
+
+
 class PromocoesTests(TestCase):
     def setUp(self):
         cache.clear()
@@ -196,6 +267,15 @@ class PromocoesTests(TestCase):
         html = self.client.get(reverse('aranha:promocoes')).content.decode()
         self.assertIn('R$ 70,00', html)
         self.assertIn('De R$ 100,00', html)
+
+    def test_validade_se_refere_a_data_do_atendimento(self):
+        hoje = datas.hoje()
+        Promocao.objects.create(nome='Datas', procedimento=self.proc,
+                                desconto_percentual=Decimal('10'),
+                                data_inicio=hoje, data_fim=hoje)
+        html = self.client.get(reverse('aranha:promocoes')).content.decode()
+        self.assertIn('Válido para atendimentos de', html)
+        self.assertIn('R$ 90,00', html)
 
     def test_vigencia_usa_data_local(self):
         """Regressao public_front-14: promo que termina 'hoje' (BRT) sumia apos 21h."""
@@ -317,6 +397,101 @@ class AnamnesePublicaTests(TestCase):
         self.assertRegex(html, r'value="2" class="sr-only" checked')
         self.resposta.refresh_from_db()
         self.assertIsNone(self.resposta.respondida_em)
+
+
+class AnamneseBoolTests(TestCase):
+    """Regressao gap2-09: bool obrigatorio ('Está gestante?') so aceitava 'Sim'."""
+
+    def setUp(self):
+        from aranha_estetica.models import FormularioAnamnese, RespostaAnamnese
+        cache.clear()
+        form = FormularioAnamnese.objects.create(
+            nome='Ficha corporal', tipo='ANAMNESE',
+            schema_json=[
+                {'key': 'gestante', 'tipo': 'bool', 'label': 'Está gestante?', 'obrigatorio': True},
+                {'key': 'fuma', 'tipo': 'bool', 'label': 'Fuma?', 'obrigatorio': False},
+            ],
+        )
+        self.resposta = RespostaAnamnese.objects.create(formulario=form, cliente=criar_cliente())
+        self.url = reverse('aranha:anamnese_publica', args=[self.resposta.token])
+
+    def test_renderiza_radios_sim_e_nao(self):
+        html = self.client.get(self.url).content.decode()
+        self.assertIn('<legend', html)
+        self.assertIn('name="gestante" value="sim"', html)
+        self.assertIn('name="gestante" value="nao"', html)
+        self.assertNotIn('type="checkbox" name="gestante"', html)
+
+    def test_nao_em_bool_obrigatorio_grava_false(self):
+        resp = self.client.post(self.url, {'gestante': 'nao'})
+        self.assertRedirects(resp, reverse('aranha:anamnese_obrigado'), fetch_redirect_response=False)
+        self.resposta.refresh_from_db()
+        self.assertIs(self.resposta.respostas_json['gestante'], False)
+        self.assertNotIn('fuma', self.resposta.respostas_json)  # sem resposta != 'Não'
+
+    def test_sim_grava_true(self):
+        self.client.post(self.url, {'gestante': 'sim', 'fuma': 'nao'})
+        self.resposta.refresh_from_db()
+        self.assertIs(self.resposta.respostas_json['gestante'], True)
+        self.assertIs(self.resposta.respostas_json['fuma'], False)
+
+    def test_sem_valor_em_obrigatorio_devolve_erro_e_mantem_escolha(self):
+        resp = self.client.post(self.url, {'fuma': 'sim'})
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
+        self.assertIn('é obrigatório', html)
+        self.assertRegex(html, r'name="fuma" value="sim"\s+checked')
+        self.resposta.refresh_from_db()
+        self.assertIsNone(self.resposta.respondida_em)
+
+    def test_valor_desconhecido_e_recusado(self):
+        resp = self.client.post(self.url, {'gestante': 'talvez'})
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('responda sim ou não', resp.content.decode().lower())
+        self.resposta.refresh_from_db()
+        self.assertIsNone(self.resposta.respondida_em)
+
+
+class TermoTemplatesTests(TestCase):
+    """Regressao gap1-10: codigo cru do tipo, texto sem foco por teclado, 'assinado' sem gravar."""
+
+    def setUp(self):
+        from aranha_estetica.models import VersaoTermo
+        cache.clear()
+        self.cli = criar_cliente(nome='Ana Paula Souza')
+        proc = criar_procedimento(nome='Peeling')
+        self.at = criar_atendimento(self.cli, criar_profissional(), proc)
+        self.termo = VersaoTermo(pk=987, tipo='PROCEDIMENTO', procedimento=proc,
+                                 titulo='Termo do peeling', conteudo='Texto do termo.',
+                                 versao='2.0', vigente_desde=datas.hoje())
+
+    def test_assinatura_mostra_tipo_legivel_data_e_regiao_focavel(self):
+        html = render_to_string('publico/termo_assinatura.html', {
+            'cliente': self.cli, 'atendimento': self.at, 'termos_pendentes': [self.termo],
+        })
+        self.assertIn('Termo de Procedimento', html)
+        self.assertNotIn('>PROCEDIMENTO<', html)
+        self.assertIn('tabindex="0" role="region" aria-label="Texto do termo Termo do peeling"', html)
+        self.assertIn('Confirmar aceite', html)
+        self.assertIn('versão 2.0', html)
+        self.assertIn(datas.fmt_local(self.at.data_hora_inicio, '%d/%m/%Y'), html)
+        self.assertIn(datas.fmt_local(self.at.data_hora_inicio, '%H:%M'), html)
+        self.assertNotIn('#dbeafe', html)
+
+    def test_obrigado_indisponivel_nao_diz_que_registrou(self):
+        html = render_to_string('publico/termo_obrigado.html', {'cliente': self.cli, 'indisponivel': True})
+        self.assertNotIn('registrado', html)
+        self.assertIn('não está mais ativo', html)
+
+    def test_obrigado_expirado(self):
+        html = render_to_string('publico/termo_obrigado.html', {'cliente': self.cli, 'expirado': True})
+        self.assertIn('Link expirado', html)
+        self.assertNotIn('registrado', html)
+
+    def test_obrigado_sucesso(self):
+        html = render_to_string('publico/termo_obrigado.html', {'cliente': self.cli})
+        self.assertIn('Aceite registrado', html)
+        self.assertIn('Obrigado, Ana.', html)
 
 
 class IcsFeedTests(TestCase):

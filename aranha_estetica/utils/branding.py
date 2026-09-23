@@ -4,10 +4,13 @@ Precedencia: valor salvo na tela Branding do painel (tabela Configuracao)
 -> variavel de ambiente -> default. Contatos sem valor ficam '' (os templates
 escondem o item) — nunca exibir telefone/e-mail ficticio.
 """
+import logging
 import os
 import re
 
 from django.core.cache import cache
+
+logger = logging.getLogger(__name__)
 
 _HEX_RX = re.compile(r'^#[0-9a-fA-F]{3,8}$')
 
@@ -58,6 +61,23 @@ def invalidar_cache() -> None:
     cache.delete(CONFIG_CACHE_KEY)
 
 
+def normalizar_whatsapp(valor) -> str:
+    """Numero p/ wa.me: so digitos, com DDI. '' se invalido.
+
+    '(17) 99123-4567' -> '5517991234567' (10-11 digitos = numero BR sem DDI: prefixa 55).
+    Sem isso, wa.me/17991234567 abre +1 (EUA/Canada). Final precisa ter 12-13 digitos.
+    """
+    digitos = ''.join(ch for ch in str(valor or '') if ch.isdigit())
+    if not digitos:
+        return ''
+    if len(digitos) in (10, 11):
+        digitos = f'55{digitos}'
+    if len(digitos) not in (12, 13):
+        logger.warning('whatsapp_numero_invalido', extra={'digitos': len(digitos)})
+        return ''
+    return digitos
+
+
 def get_branding() -> dict:
     """Marca efetiva: Configuracao > env > DEFAULTS. Valores sempre str."""
     db = config_dict()
@@ -65,7 +85,7 @@ def get_branding() -> dict:
     for chave, default in DEFAULTS.items():
         valor = (db.get(chave) or os.environ.get(chave) or default or '').strip()
         out[chave] = valor
-    out['WHATSAPP_NUMERO'] = ''.join(ch for ch in out['WHATSAPP_NUMERO'] if ch.isdigit())
+    out['WHATSAPP_NUMERO'] = normalizar_whatsapp(out['WHATSAPP_NUMERO'])
     # Valores vao p/ href/meta: so aceita formatos seguros (senao cai no default)
     if not out['INSTAGRAM_URL'].lower().startswith(('https://', 'http://')):
         out['INSTAGRAM_URL'] = ''

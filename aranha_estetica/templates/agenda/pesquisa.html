@@ -50,10 +50,35 @@ Cada campo do schema traz `valor` (o que foi digitado) p/ nao apagar a ficha no 
 
       {% for campo in schema %}
       <div class="mb-6">
+        {% if campo.tipo == 'bool' %}
+        {# Sim/Nao em radios: 'Nao' precisa ser resposta possivel (ex.: "Está gestante?" obrigatorio) #}
+        <fieldset>
+          <legend class="block text-sm font-semibold text-texto mb-2">
+            {{ forloop.counter }}. {{ campo.label }}
+            {% if campo.obrigatorio %}<span class="text-erro" aria-hidden="true">*</span>{% endif %}
+          </legend>
+          <div class="flex items-center gap-6">
+            <label class="inline-flex items-center gap-2 text-sm text-texto cursor-pointer">
+              <input type="radio" name="{{ campo.key }}" value="sim"
+                     {% if campo.valor is True or campo.valor == 'sim' %}checked{% endif %}
+                     {% if campo.obrigatorio %}required{% endif %}
+                     class="h-4 w-4 border-borda text-marca-forte">
+              Sim
+            </label>
+            <label class="inline-flex items-center gap-2 text-sm text-texto cursor-pointer">
+              <input type="radio" name="{{ campo.key }}" value="nao"
+                     {% if campo.valor is False or campo.valor == 'nao' %}checked{% endif %}
+                     class="h-4 w-4 border-borda text-marca-forte">
+              Não
+            </label>
+          </div>
+        </fieldset>
+        {% else %}
         <label class="block text-sm font-semibold text-texto mb-2" for="f-{{ campo.key }}">
           {{ forloop.counter }}. {{ campo.label }}
           {% if campo.obrigatorio %}<span class="text-erro" aria-hidden="true">*</span>{% endif %}
         </label>
+        {% endif %}
 
         {% if campo.tipo == 'text' or campo.tipo == 'email' or campo.tipo == 'number' %}
           <input
@@ -80,18 +105,6 @@ Cada campo do schema traz `valor` (o que foi digitado) p/ nao apagar a ficha no 
             value="{{ campo.valor|default_if_none:'' }}"
             class="w-full rounded-md border border-borda bg-fundo px-3 py-2 text-texto"
             {% if campo.obrigatorio %}required{% endif %}>
-
-        {% elif campo.tipo == 'bool' %}
-          <div class="flex items-center gap-2">
-            <input
-              type="checkbox"
-              name="{{ campo.key }}"
-              id="f-{{ campo.key }}"
-              value="on"
-              {% if campo.valor %}checked{% endif %}
-              class="h-4 w-4 rounded border-borda text-marca-forte">
-            <label class="text-sm text-texto" for="f-{{ campo.key }}">Sim</label>
-          </div>
 
         {% elif campo.tipo == 'select' %}
           <select

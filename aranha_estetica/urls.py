@@ -124,6 +124,7 @@ urlpatterns = [
     path('painel/pacotes/criar/', views.admin_criar_pacote, name='admin_criar_pacote'),
     path('painel/pacotes/<int:pk>/editar/', views.admin_editar_pacote, name='admin_editar_pacote'),
     path('painel/pacotes/vender/', views.admin_vender_pacote, name='admin_vender_pacote'),
+    path('painel/pacotes/compras/<int:pk>/cancelar/', views.admin_cancelar_compra_pacote, name='admin_cancelar_compra_pacote'),
 
     # ─── Bloqueios de Agenda ───
     path('painel/bloqueios/', views.admin_bloqueios, name='admin_bloqueios'),
@@ -170,6 +171,10 @@ urlpatterns = [
     path('painel/agendamentos/<int:pk>/aprovar/', views.admin_aprovar_agendamento, name='admin_aprovar_agendamento'),
     path('painel/agendamentos/<int:pk>/rejeitar/', views.admin_rejeitar_agendamento, name='admin_rejeitar_agendamento'),
     path('painel/agendamentos/bulk/', views.admin_bulk_agendamentos, name='admin_bulk_agendamentos'),
+    # Agendamento interno pela recepcao (sem OTP) + link do termo do atendimento
+    path('painel/agendamentos/novo/', views.admin_agendamento_novo, name='admin_agendamento_novo'),
+    path('painel/agendamentos/<int:pk>/termo-link/', views.admin_gerar_link_termo, name='admin_gerar_link_termo'),
+    path('painel/agendamentos/<int:pk>/valor/', views.admin_atendimento_valor, name='admin_atendimento_valor'),
 
     # ─── Usuarios Admin (CRUD + reset senha + ativar/desativar) ───
     path('painel/usuarios/', views.admin_usuarios, name='admin_usuarios'),
@@ -202,7 +207,6 @@ urlpatterns = [
     path('painel/email-preview/<str:nome>/', views.admin_email_preview, name='admin_email_preview_nome'),
 
     # ─── AJAX ───
-    path('ajax/buscar-horarios/', views.buscar_horarios, name='buscar_horarios'),
     path('ajax/horarios-disponiveis/', views.api_horarios_disponiveis, name='api_horarios_disponiveis'),
     path('ajax/dias-disponiveis/', views.api_dias_disponiveis, name='api_dias_disponiveis'),
     path('ajax/cancelar-agendamento/', views.cancelar_agendamento, name='cancelar_agendamento'),
