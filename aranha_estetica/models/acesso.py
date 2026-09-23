@@ -15,6 +15,20 @@ user_logged_in.disconnect(update_last_login, dispatch_uid='update_last_login')
 
 
 class UsuarioManager(BaseUserManager):
+    def get_by_natural_key(self, username):
+        """Login insensivel a caixa (reset de senha e bootstrap_admin ja usam
+        iexact). Exato primeiro: o legado pode ter 2 e-mails que so diferem na
+        caixa (UNIQUE do banco diferencia) — ambiguo falha limpo (DoesNotExist)."""
+        try:
+            return self.get(**{self.model.USERNAME_FIELD: username})
+        except self.model.DoesNotExist:
+            if not username:
+                raise
+            candidatos = list(self.filter(**{f'{self.model.USERNAME_FIELD}__iexact': username})[:2])
+            if len(candidatos) == 1:
+                return candidatos[0]
+            raise
+
     def create_user(self, email, password=None, **extra_fields):
         if not email:
             raise ValueError('O email deve ser definido')
