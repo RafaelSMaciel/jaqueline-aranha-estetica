@@ -89,6 +89,11 @@
           <button type="button" class="btn-copy-ics flex-shrink-0 border border-borda rounded-md px-2 py-0.5 text-[0.7rem] bg-superficie hover:bg-fundo cursor-pointer transition-colors" data-prof-id="{{ prof.pk }}" title="Copiar URL" aria-label="Copiar URL do ICS">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
           </button>
+          <form method="post" action="{% url 'aranha:profissional_rotacionar_ics' prof.pk %}" class="flex-shrink-0 m-0"
+                data-confirm="Gerar um novo link do calendário? O link atual deixará de funcionar.">
+            {% csrf_token %}
+            <button type="submit" class="border border-borda rounded-md px-2 py-0.5 text-[0.7rem] bg-superficie hover:bg-fundo cursor-pointer transition-colors" title="Gerar novo link (invalida o atual)" aria-label="Gerar novo link do ICS">Novo link</button>
+          </form>
         </div>
         {% endif %}
 

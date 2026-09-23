@@ -305,3 +305,29 @@ def profissional_editar(request, pk=None):
         'form_ativo': profissional.ativo,
     }
     return render(request, 'painel/editar_profissional.html', context)
+
+
+@staff_required
+def profissional_rotacionar_ics(request, pk):
+    """Gera novo token do feed ICS (o link antigo para de funcionar).
+
+    Usar quando o link vazar (ex.: compartilhado por engano) — o token vai na
+    URL do feed e fica em historico/logs de quem o recebeu.
+    """
+    if request.method != 'POST':
+        return redirect('aranha:painel_profissionais')
+    import secrets
+
+    profissional = get_object_or_404(Profissional, pk=pk)
+    profissional.ics_token = secrets.token_urlsafe(32)
+    profissional.save(update_fields=['ics_token'])
+    registrar_log(
+        request.user, 'Gerou novo link do feed ICS', 'profissional', profissional.pk,
+        request=request,
+    )
+    messages.success(
+        request,
+        f'Novo link do calendário (ICS) gerado para {profissional.nome}. '
+        'O link anterior deixou de funcionar — atualize a assinatura no aplicativo de agenda.',
+    )
+    return redirect('aranha:painel_profissionais')
