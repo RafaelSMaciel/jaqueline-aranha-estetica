@@ -1,5 +1,13 @@
 # Fundação Front — Fatia 1 — Plano de Implementação
 
+> **STATUS (2026-09-23):** Tasks 1–8 **concluídas** (branch `front-fundacao`). Mudanças posteriores
+> ao plano: HTMX foi **removido** do bundle; `<c-badge>`, `<c-toast>` e `<c-modal>` saíram (ficaram
+> `<c-botao>`, `<c-card>`, `<c-campo>` + chrome); o tema usa `data-theme="claro|escuro"`.
+> **Task 9 (calibração de marca) parcial:** cor #C9A84C confirmada e fontes definidas (Playfair
+> Display + Lato, via Google Fonts); falta só o self-host opcional das fontes. Estado atual em
+> [`../specs/fundacao-front-design.md`](../specs/fundacao-front-design.md) e
+> [`../ARCHITECTURE.md`](../ARCHITECTURE.md). Este plano fica como registro histórico até a Task 9 fechar.
+
 > **Para workers agênticos:** SUB-SKILL OBRIGATÓRIA: usar superpowers:subagent-driven-development (recomendado) ou superpowers:executing-plans para executar tarefa-a-tarefa. Passos usam checkbox (`- [ ]`).
 
 **Goal:** Stand up o design system (Tailwind v4 + Vite + django-cotton + Alpine/HTMX) com tokens temáveis (light/dark), casca de site nova e 6 componentes base, provados por uma página de prova — coexistindo com o Bootstrap atual.

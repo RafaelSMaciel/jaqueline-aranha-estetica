@@ -1,50 +1,49 @@
 ---
-title: Diagrama de Componentes / Implantacao (UML) — Arquitetura Shiva Zen
+title: Diagrama de Componentes / Implantação (UML) — Arquitetura Shiva Zen
 ---
 flowchart TB
     subgraph Clientes["Navegadores / Dispositivos"]
-        PUB["Site publico + Wizard<br/>(Vite, PWA, Service Worker)"]
-        ADM["Painel Admin / Portal Profissional<br/>(base_v2, Alpine CSP, push)"]
+        PUB["Site público + wizard<br/>(Vite, Tailwind, Alpine CSP, PWA)"]
+        ADM["Painel ADMIN + portal do profissional<br/>(app-shell PWA, 2FA, Web Push)"]
     end
 
-    subgraph Plataforma["Railway (PaaS) — NIXPACKS"]
-        WEB["Django App (gunicorn)<br/>booking, API REST DRF, 2FA, healthz<br/>+ Middleware CSP/headers/axes"]
-        WORKER["Celery Worker<br/>emails, NPS, lembretes, fila espera"]
-        BEAT["Celery Beat<br/>scheduler (crontab)"]
-        WN["WhiteNoise<br/>(estaticos comprimidos)"]
+    subgraph Plataforma["Railway — contêiner Docker (1 réplica)"]
+        WEB["Django App — gunicorn 1 worker × 4 threads<br/>booking, painel, API DRF, cron HTTP, webhooks,<br/>healthz + middlewares CSP / headers / 2FA / axes"]
+        CEL["Celery eager<br/>(tasks no próprio request)"]
+        CACHE["Cache local + sessão no banco<br/>(Redis opcional)"]
+        WN["WhiteNoise<br/>(estáticos com hash)"]
+        PRE["Pre-deploy<br/>migrate_atomico + bootstrap_admin"]
     end
 
-    subgraph Dados["Dados / Estado"]
-        PG[("PostgreSQL<br/>FSM, EXCLUDE anti-overbooking,<br/>CHECK/UNIQUE, auditoria")]
-        RD[("Redis<br/>broker Celery + cache +<br/>sessao (OTP) + rate-limit")]
+    subgraph Dados["Dados"]
+        PG[("PostgreSQL 18<br/>FSM, EXCLUDE, CHECK/UNIQUE,<br/>triggers de imutabilidade, auditoria")]
     end
 
-    subgraph Externos["Servicos Externos"]
-        ZEN["Zenvia SMS<br/>(OTP — canal primario)"]
-        WA["Meta WhatsApp Cloud API<br/>(lembrete D-1, NPS)"]
-        MAIL["SMTP / Email<br/>(transacional + marketing)"]
-        TS["Cloudflare Turnstile<br/>(CAPTCHA)"]
-        GC["Google Calendar<br/>(OAuth + ICS)"]
-        OBS["Sentry<br/>(observabilidade, PII-scrub)"]
+    subgraph Externos["Serviços Externos"]
+        CRON["Cron externo<br/>(cron-job.org / Railway Cron)"]
+        ZEN["Zenvia SMS<br/>(OTP)"]
+        WA["WhatsApp Cloud API<br/>(D-1, NPS, aviso de vaga)"]
+        MAIL["Provedor de e-mail"]
+        TS["Cloudflare Turnstile"]
+        GC["Google Calendar<br/>(opcional)"]
+        OBS["Sentry<br/>(opcional, sem PII)"]
     end
 
     PUB -->|HTTPS| WEB
     ADM -->|HTTPS| WEB
     WEB --- WN
+    WEB --- CACHE
+    WEB --> CEL
     WEB --> PG
-    WEB --> RD
-    WEB -->|enfileira| RD
-    RD -->|consome| WORKER
-    BEAT -->|agenda| RD
-    WORKER --> PG
+    PRE --> PG
+    CRON -->|POST /cron/run/job + X-Cron-Token| WEB
 
     WEB -->|OTP| ZEN
-    WORKER -->|push proativo| WA
-    WORKER -->|async| MAIL
+    CEL -->|templates| WA
+    CEL -->|transacional + marketing| MAIL
     WEB -->|verifica captcha| TS
     WEB <-->|sync agenda| GC
     WEB -.erros.-> OBS
-    WORKER -.erros.-> OBS
 
     ZEN -.webhook status.-> WEB
     WA -.webhook resposta NPS.-> WEB

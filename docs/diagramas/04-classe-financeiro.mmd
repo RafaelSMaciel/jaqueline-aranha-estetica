@@ -1,53 +1,56 @@
 ---
-title: Diagrama de Classes (UML) — Pacotes, Carteira, Fidelidade e Comissao
+title: Diagrama de Classes (UML) — Pacotes, Carteira, Fidelidade e Comissão
 ---
 classDiagram
     direction LR
 
     class Cliente {
-        «ref» nucleo de agendamento
+        «ref» núcleo de agendamento
     }
     class Atendimento {
-        «ref» nucleo de agendamento
+        «ref» núcleo de agendamento
     }
     class Procedimento {
-        «ref» nucleo de agendamento
+        «ref» núcleo de agendamento
     }
     class Profissional {
-        «ref» nucleo de agendamento
+        «ref» núcleo de agendamento
     }
 
     class Pacote {
-        +nome: CharField
+        +nome: CharField «congelado após a venda»
         +preco_total: Decimal
         +validade_meses: Smallint
         +ativo: Boolean
     }
     class ItemPacote {
         +quantidade_sessoes: Smallint «>0»
+        «congelado após a venda»
     }
     class CompraPacote {
-        +valor_pago: Decimal
+        +valor_pago: Decimal «>= 0»
         +status: ATIVO|FINALIZADO|CANCELADO|EXPIRADO
         +data_expiracao: Date
+        +saldo_por_procedimento()
+        +sessoes_restantes()
         +verificar_finalizacao()
     }
     class ConsumoSessao {
         +criado_em: DateTime
-        «unique por atendimento»
+        «1 por atendimento, O2O»
     }
     class Carteira {
         +saldo: Decimal «CHECK >= 0»
     }
     class MovimentoCarteira {
         +tipo: CREDITO|DEBITO
-        +origem: choices
+        +origem: CASHBACK_INDICACAO|CASHBACK_ESTORNO|...
         +valor: Decimal
         +saldo_resultante: Decimal
-        «ledger append-only»
+        «ledger imutável por trigger»
     }
     class RegraComissao {
-        +percentual: Decimal
+        +percentual: 0..100
         +valor: Decimal
         «percentual XOR valor»
         +ativo: Boolean
@@ -61,12 +64,12 @@ classDiagram
 
     Pacote "1" --> "1..*" ItemPacote : itens
     ItemPacote "0..*" --> "1" Procedimento
-    Cliente "1" --> "0..*" CompraPacote : pacotes_comprados
+    Cliente "1" --> "0..*" CompraPacote : pacotes_comprados (PROTECT)
     Pacote "1" --> "0..*" CompraPacote
     CompraPacote "1" --> "0..*" ConsumoSessao : sessoes_realizadas
     ConsumoSessao "0..1" --> "1" Atendimento : O2O
 
-    Cliente "1" --> "1" Carteira : O2O
+    Cliente "1" --> "0..1" Carteira : O2O (PROTECT)
     Carteira "1" --> "0..*" MovimentoCarteira : movimentos
     MovimentoCarteira "0..*" --> "0..1" Atendimento
 

@@ -1,124 +1,102 @@
 # Arquitetura & Checkpoint — Shiva Zen
 
-> **Documento vivo / check-point.** Sempre que concluir qualquer item, marque `[x]` na
-> seção **6. Progresso** com commit/data. Objetivo: não nos perdermos entre banco,
-> front-end público e app admin PWA.
->
-> Specs detalhadas: banco em [`docs/specs/remodelagem-banco-v2.md`](specs/remodelagem-banco-v2.md);
-> regras de negócio em [`docs/REGRAS-DE-NEGOCIO.md`](REGRAS-DE-NEGOCIO.md).
+> **Documento vivo / check-point.** Decisões (ADR-lite), estado de cada frente e as
+> pendências **reais** (conferidas no código). Ao concluir algo, marque `[x]` na seção 6 com
+> commit/data. Referência técnica completa em [`PROJECT.md`](PROJECT.md); banco em
+> [`specs/remodelagem-banco-v2.md`](specs/remodelagem-banco-v2.md); front em
+> [`specs/fundacao-front-design.md`](specs/fundacao-front-design.md); regras em
+> [`REGRAS-DE-NEGOCIO.md`](REGRAS-DE-NEGOCIO.md).
 
 ---
 
 ## 1. Visão geral do produto
 
-Sistema de gestão para clínica de estética (Jaqueline Aranha, biomédica esteta).
-Backend **Django 5.2 + PostgreSQL** (prod Railway) servindo **duas superfícies**:
+Sistema de gestão da clínica de estética Jaqueline Aranha (biomédica esteta). Backend
+**Django 5.2 + PostgreSQL 18** (Railway), server-render, servindo:
 
 ```
             ┌──────────────── Django (backend + templates) ────────────────┐
             │                                                               │
-   SUPERFÍCIE A — SITE PÚBLICO                 SUPERFÍCIE B — ADMIN PWA
-   marketing + agendamento online             app instalado da Jaqueline/recepção
-   (a cliente vê)                             (operação: agenda, clientes, financeiro)
+   SUPERFÍCIE A — SITE PÚBLICO                 SUPERFÍCIE B — EQUIPE (PWA)
+   vitrine + agendamento online               painel ADMIN (app-shell) +
+   + "Meus agendamentos" + LGPD                portal do PROFISSIONAL
+   (a cliente vê; identidade = celular)       (login + 2FA)
 ```
 
-Decisão central do redesign: **um único design system (tokens) → duas skins** —
-site (editorial) e admin PWA (denso/app-shell) compartilham marca, divergem em componentes.
+Um único design system (tokens Tailwind v4) → duas "peles": site editorial e painel denso.
 
 ---
 
-## 2. Banco de dados — CONCLUÍDO (remodelagem v2.1)
+## 2. Banco de dados — CONCLUÍDO (remodelagem v2.1 + auditoria pré-produção)
 
-Branch `remodelagem-v2`. Migrations `0027`–`0038`. Validação: 163 testes Django + 16 pytest
-verdes em cada fase; `makemigrations --check` sem drift.
+Migrations `0027`–`0046` (produção ainda na `0026`; o go-live aplica todas de uma vez —
+runbook em [`PROJECT.md` §14](PROJECT.md#14-go-live--operação-runbook)).
 
-### Entregue
-- **50 → 33 tabelas de domínio** (−34%). Alvo final 32 após Fase 7 (agenda 3→2, adiada).
-- **Naming PT-BR** singular consistente; renomeações de 8 tabelas + ~15 colunas.
-- **Cortes:** 8 tabelas mortas, RBAC-teatro (perfil/funcionalidade → `usuario.papel`),
-  workflow engine (deferido), EAV do prontuário → JSONB, OTP unificado hasheado.
-- **Invariantes movidas para o banco:**
-  - Anti double-booking: `EXCLUDE USING gist` em `atendimento` (constraint `excl_atendimento_sobreposicao`).
-  - UNIQUE parciais: telefone/email/cpf ativos, termo vigente, preço por vigência, espera ativa, consumo por atendimento.
-  - CHECK: nps 0–10, promoção desconto 0–100 XOR preço, carteira saldo ≥ 0, telefone/cpf regex, OTP tentativas ≤ teto.
-  - Trigger ledger imutável em `movimento_carteira` (append-only).
-  - Collation ICU pt-BR em colunas `nome`; `COMMENT ON TABLE` nas tabelas centrais.
+- **50 → 34 tabelas de domínio** (33 na v2.1 + `prontuario_versao` na 0046). Alvo 33 após a
+  Fase 7 (agenda 3→2).
+- Naming PT-BR singular; RBAC → `usuario.papel`; workflow engine removido; EAV do prontuário →
+  JSONB; OTP único hasheado.
+- Invariantes no banco: EXCLUDE anti double-booking, UNIQUE parciais (telefone/e-mail/CPF
+  ativos, termo vigente, preço por vigência, espera ativa, **1 retorno por origem**), CHECKs
+  (NPS 0–10, promoção, carteira ≥ 0, formato de telefone/CPF, comissão 0–100%, JSON `NOT VALID`),
+  triggers de imutabilidade (ledger da carteira, **prova de aceite, termo aceito, histórico do
+  prontuário**), collation ICU `pt_br`, `COMMENT ON TABLE`.
+- Upgrade de produção seguro: `migrate_atomico` (transação única + `lock_timeout`), migrations
+  0034–0038 reescritas in-place antes de qualquer PG aplicá-las (dedup sem perda, datas de aceite
+  preservadas, `%` no plpgsql), abortos explícitos com a lista de ids (0035, 0043).
 
-### Fases (status no spec do banco)
 | Fase | Conteúdo | Status |
 |---|---|---|
-| 1a–1d | Cortes (mortas, OTP, RBAC, workflow) | ✅ |
-| 2a–2c | Renames coluna/tabela + `cliente.nome` | ✅ |
-| 3 | Constraints integridade + telefone canônico | ✅ `0034` |
-| 4 | ExclusionConstraint booking | ✅ `0035` |
-| 5 | EAV → JSONB prontuário | ✅ `0036` |
-| 6 | Aceite unificado + trigger + collation + comments | ✅ `0037`/`0038` |
-| 7 | Agenda 3→2 (`agenda_horario` + `agenda_excecao`) | ⏳ PENDENTE — PR dedicada (mexe no cálculo de slots) |
-
-### Gaps achados na auditoria (a fechar — não bloqueiam merge)
-- **Média (3):** falta UNIQUE "1 retorno por origem"; falta CHECK `jsonb_typeof(respostas_extras)='object'`; falta trigger `atualizado_em`. → 1 migration corretiva (`0039`).
-- **Baixa (4):** `db_comment` só 13/33 tabelas; collation só 3/8 colunas `nome`; docs README/PROJECT desatualizados; doc-drift menor (spec:75 rename fantasma, label `configuracao_sistema` em 4 views).
-- **Operacional:** migrations sem `lock_timeout`/`NOT VALID` — adotar na Fase 7 + futuras.
+| 1a–1d | Cortes (mortas, OTP, RBAC, workflow) | ✅ 0027–0030 |
+| 2a–2c | Renames coluna/tabela + `cliente.nome` | ✅ 0031–0033 |
+| 3 | Constraints + telefone canônico + dedup | ✅ 0034 |
+| 4 | ExclusionConstraint booking | ✅ 0035 |
+| 5 | EAV → JSONB prontuário | ✅ 0036 |
+| 6 | Aceite unificado + trigger + collation + comments | ✅ 0037/0038 |
+| — | Auditoria SWE (validators/CHECK) | ✅ 0039 |
+| — | Auditoria pré-produção (depoimentos, PROTECT, contas demo, retorno único, prova de aceite, termo LGPD, histórico do prontuário) | ✅ 0040–0046 |
+| 7 | Agenda 3→2 (`agenda_horario` + `agenda_excecao`) | ⏳ pendente — PR dedicada (mexe no SlotService) |
 
 ---
 
-## 3. Front-end — A FAZER (redesign + padronização)
+## 3. Front-end — CONCLUÍDO (Ondas 1–4)
 
-### Direção visual escolhida
-**Direção 2 — "Clínico-premium confiança"**: serif clássica (display) + sans limpa,
-luz/off-white, dourado da marca como sistema, barra de credencial, trust tokens,
-hierarquia que afunila para o agendamento. (Concepts em `static/_design_tmp/` — temporário, apagar após decisão.)
+Stack em uso: **Vite 6 + Tailwind v4 + Alpine.js (`@alpinejs/csp`) + django-cotton**. HTMX foi
+avaliado e **removido** (nenhum `hx-*` no projeto e injetava `<style>` sem nonce). Bootstrap,
+jQuery, AOS, Swiper, FontAwesome/Bootstrap Icons: fora. Ícones SVG inline.
 
-### Stack alvo (substitui o template comprado)
-| Camada | Hoje | Alvo |
-|---|---|---|
-| Interatividade servidor | jQuery (morto) + reload | **HTMX 2.x** |
-| Estado UI local | DOM na mão | **Alpine.js 3** |
-| CSS | Bootstrap 232KB + main.css 6996 linhas + 26 `<style>` inline | **Tailwind CSS v4** (1 token config) |
-| Componentes | monolitos + duplicação | **django-cotton** |
-| Ícones | bootstrap-icons + fontawesome (2 libs) | **1 set SVG inline** |
-| Build | assets soltos | **Vite + django-vite** (ou Tailwind CLI) |
-| Mantém | Whitenoise, CSP+nonce, CSRF, server-render, PWA | idem |
-
-**Por quê:** um `tailwind.config` alimenta site **e** admin — trocar cor da marca = 1 linha.
-Remove a causa de ~30 dos 46 achados da auditoria de front (sem build→não poda; sem
-estado→wizard quebra; sem componentes→monolito; `innerHTML`→XSS; inline→CSP fraca).
-
-### Escopo — 67 telas, mas ~16 arquétipos
-| Superfície | Telas | Arquétipos únicos |
-|---|---|---|
-| Site público (`estrutura/base`) | 37 | ~10 |
-| Admin PWA (`painel/base`) | 30 | ~6 |
-| E-mails (`email/base_email`) | 10 (+1 base) | 1 |
-| **Total** | **67 telas + 10 e-mails** | **~16 padrões + 2 cascas** |
-
-Arquétipos públicos: home, wizard booking, catálogo de serviço, página de marca,
-auto-serviço cliente, formulário público, artigo/legal, sucesso/obrigado, auth, erro.
-Arquétipos admin: **app-shell PWA**, lista/tabela+filtros, detalhe/registro, formulário,
-dashboard, calendário, auth/2FA.
-
-### Achados da auditoria de front a corrigir junto (resumo)
-- **Alta:** form de contato quebrado (view ignora POST); stored-XSS no toast (`innerHTML`);
-  wizard cards = `<div>` sem teclado (WCAG); wizard perde estado em rejeição; hero LCP lazy+AOS.
-- **Média/baixa:** jQuery morto; swiper/glightbox em 31/32 págs sem usar; 2 libs de ícone;
-  5 fontes (2 mortas); contraste do dourado falha AA; 3 h1 na home; cookie-banner órfão;
-  hreflang /en /es 404; CDN sem SRI; `window.confirm()` 21×; 2 dark modes desconectados.
+- Site público 100% em `estrutura/base_v2.html`; painel 100% em `painel/base_v2.html`
+  (app-shell com drawer Alpine, manifest próprio, busca instantânea).
+- Componentes cotton atuais: `<c-botao>`, `<c-card>`, `<c-campo>` (atributo `class` mesclado via
+  `c-vars`) + chrome (`cabecalho`, `rodape`, `mensagens`, `cookie_consent`). `<c-badge>`,
+  `<c-toast>` e `<c-modal>` saíram — status usa `partials/_status_badge.html`, modais usam
+  `x-data="modal"`, mensagens usam `cotton/chrome/mensagens.html`.
+- CSP estrita: sem `unsafe-inline` em `script-src`/`style-src` e sem handlers inline (sem
+  `script-src-attr`). Resta `style-src-attr 'unsafe-inline'` (~160 atributos `style=""` fora dos
+  e-mails, onde a CSP não se aplica).
+- Páginas de erro próprias (400/403/403_csrf/404/429/500), página pt-BR do bloqueio do axes.
+- Service worker v7: cacheia só páginas públicas e estáticos. Rodapé com coluna "Para você".
+- E-mails: 10 templates sobre `email/base_email.html` (email-safe, dark mode), sem cupom/desconto
+  prometido sem mecanismo.
 
 ---
 
-## 4. Ordem de execução (ondas)
+## 4. Ondas (histórico)
 
-**Onda 0 — Pré-requisitos** (destrava o resto): cores reais da marca, referências, fotos reais, decisão final de stack (A reskin / B migração — recomendado **B**).
+| Onda | Entrega | Status |
+|---|---|---|
+| 0 | Pré-requisitos (cores, fotos, stack) | ✅ cor da marca confirmada (#C9A84C); fotos reais em `static/assets/clinica/` |
+| 1 | Fundação (tokens, casca, componentes, tema sem FOUC) | ✅ (T9 parcial — seção 6) |
+| 2 | Site público (home, wizard, serviços, marca, auto-serviço, formulários, legal, auth) | ✅ |
+| 3 | Painel/PWA (30 telas, 6 arquétipos) | ✅ |
+| 4 | E-mails (consistência + dark mode) | ✅ |
 
-**Onda 1 — Fundação** 🔴: token system (Tailwind) + casca do site (header/footer) + app-shell do PWA (bottom-nav, header, offline) + biblioteca de componentes (botões, cards, forms, tabela, badges, toasts). *Destrava as 67 telas.*
-
-**Onda 2 — Site público** 🔴: home + wizard booking (corrigindo a11y/estado) → serviços/marca → cauda (sucesso/legal/auth).
-
-**Onda 3 — Admin PWA** 🔴: 6 arquétipos (tabela, detalhe, form, dashboard, calendar, auth) → 30 telas cascateiam.
-
-**Onda 4 — E-mails** 🟡: 10 templates no novo visual.
-
-**Transversal — Quick wins da auditoria** (cabe na Onda 1): contato POST, toast `textContent`, jQuery fora, hero LCP, fontes, cookie-banner, hreflang, SRI.
+O plano do wizard (`plans/onda2-wizard.md`) foi concluído e removido: o contrato preservado
+(nomes de campos, ids `#step-1..3`, endpoints `api_dias_disponiveis`,
+`api_horarios_disponiveis`, `solicitar_otp_agendamento`, `verificar_otp_agendamento`,
+`confirmar_agendamento`) segue válido; `static/js/wizard.js` é JS estático (fora do Vite),
+cards e dias são `<button>` (teclado) e o estado sobrevive a recusa do servidor
+(`sessionStorage` + reidratação).
 
 ---
 
@@ -126,127 +104,141 @@ dashboard, calendário, auth/2FA.
 
 | # | Decisão | Razão |
 |---|---|---|
-| D1 | Backend Django server-render **mantido** | Já remodelado e sólido; SEO grátis; 1 mantenedora |
-| D2 | **Não vira SPA** (HTMX+Alpine) | Evita 2ª stack/API duplicada; conversão+SEO sem Node-SSR |
-| D3 | **Tailwind** (não Bootstrap) | 1 token config p/ site+admin; mata 2 dark modes/tokens duplicados |
-| D4 | Direção visual **"2 — Clínico-premium"** | Confiança/segurança = o que estética vende; converte p/ booking |
-| D5 | Admin redesenhado como **PWA app-shell** | É app instalado; precisa UX de app, não tabela desktop |
-| D6 | Fase 7 do banco (agenda) = **PR dedicada** | Mexe no cálculo de slots (área crítica) |
+| D1 | Backend Django server-render mantido | Sólido, SEO grátis, 1 mantenedor |
+| D2 | Não vira SPA; **Alpine CSP, sem HTMX** | Nenhuma tela precisava de parcial por HTMX; CSP estrita |
+| D3 | Tailwind v4 (não Bootstrap) | 1 config de tokens para site + painel |
+| D4 | Direção visual "Clínico-premium" (dourado #C9A84C, serif + sans) | Confiança; afunila para o agendamento |
+| D5 | Painel como PWA app-shell | Uso como app instalado |
+| D6 | Fase 7 do banco em PR dedicada | Mexe no cálculo de slots |
+| D7 | **Todo agendamento público exige OTP do celular**; a identidade é o telefone, e-mail nunca é identidade | Anti-sequestro de cadastro; sem enumeração |
+| D8 | Agendamento público nasce **PENDENTE** (clínica aprova); interno nasce AGENDADO | Estado atual do código; a auto-aprovação aprovada no registry (R5) não foi implementada — reabrir com o dono se quiser tirar o gargalo |
+| D9 | **2FA obrigatório para ADMIN** (válvula `ADMIN_2FA_OBRIGATORIO=false`); PROFISSIONAL opt-in | Painel lê dado de saúde (LGPD art. 11/46) |
+| D10 | Rotas do django-two-factor (`/account/*`) e ReDoc não publicadas | 2ª tela de login burlava o 2FA; ReDoc exige `unsafe-inline` |
+| D11 | RECEPCAO sem login até existirem telas próprias | Papel sem superfície própria = acesso indevido ao painel |
+| D12 | Prova de aceite imutável (SHA-256 do texto + trigger) e termo aceito imutável | Evidência legal (LGPD art. 8) |
+| D13 | Histórico append-only do prontuário (`prontuario_versao`) | CFM 1.638/2002 — edição não apaga o anterior |
+| D14 | `limpeza_status` não marca FALTOU sozinho | Falta é terminal e bloqueia online; só a equipe decide |
+| D15 | Aniversário = felicitação sem desconto; promoção sem cupom; validade anunciada ≤ fim da promoção | Nada é prometido sem mecanismo que aplique |
+| D16 | Deploy por Dockerfile + `migrate_atomico` no pre-deploy; **rollback = restaurar dump** | Upgrade 0026→0046 tudo-ou-nada; reverses não recuperam dados |
+| D17 | Produção sem worker Celery (eager) + cron HTTP com `X-Cron-Token` | Custo; 1 serviço |
+| D18 | `/anamnese/<token>/` e `/pesquisa/<token>/` mantidas, hoje sem produtor de link | Aguardando decisão do dono (remover × gerar o link); a ficha pública já exige consentimento art. 11 |
+| D19 | Site só pt-BR (sem LocaleMiddleware); sessão da equipe 8h deslizantes | Sem traduções; 30 min fixos deslogavam no meio do atendimento |
+| D20 | Faturamento = avulsos + venda de pacote; sessão de pacote não soma; comissão da sessão de pacote = `valor_pago / total de sessões` | Evita contar a receita duas vezes e inflar comissão |
 
 ---
 
-## 6. Progresso (marcar ao concluir)
+## 6. Progresso (checkpoint)
 
-### Banco
-- [x] Fases 1–6 (migrations `0027`–`0038`) — branch `remodelagem-v2`
-- [ ] Migration corretiva `0039` (UNIQUE retorno + CHECK jsonb + trigger atualizado_em)
-- [ ] Doc-drift: README/PROJECT, spec:75, label `configuracao_sistema` (4 views)
-- [ ] Fase 7 — agenda 3→2 (`agenda_horario` + `agenda_excecao`)
-- [ ] Merge `remodelagem-v2` → `main` (deploy roda as migrations)
+### 6.1 Concluído na auditoria pré-produção (2026-09-23, `b5fd681..182e2e9`, ~30 commits)
 
-### Front — Onda 0 (pré-requisitos)
-- [ ] Cores reais da marca recebidas
-- [ ] Referências visuais recebidas
-- [ ] Fotos reais (clínica/profissional/procedimentos)
-- [ ] Decisão final stack (A reskin / **B migração**)
+Três rodadas de auditoria multi-agente (achados em `audit_r1/r2/final`) → ~450 correções em
+três ondas, com testes junto (≈1.060 testes; suíte verde em SQLite e Postgres 18).
 
-### Front — Onda 1 (fundação) — spec [`specs/fundacao-front-design.md`](specs/fundacao-front-design.md) ✅ · plano [`plans/fundacao-front-fatia1.md`](plans/fundacao-front-fatia1.md)
-Decisões: Tailwind v4 + HTMX + @alpinejs/csp (F8) + cotton + Vite; dark opcional/padrão claro; lean incremental.
-- [x] **Fatia 1 — branch `front-fundacao`** (NÃO mergeada; sem push): toolchain Vite+Tailwind · django-vite+cotton · tokens light/dark · tema via cookie sem FOUC + toggle Alpine CSP-safe · casca `base_v2` + header/footer · 6 componentes (botão/card/campo/badge/toast/modal) · `/v2-prova` (DEBUG-only). **Verificada ao vivo no browser** (light/dark, Alpine, assets). 182 testes + guardas de regressão. Verificação visual pegou 4 bugs de pipeline que os testes não viam (static_url_prefix, @source, CSP style dev, seletor `[data-theme=escuro]`).
-- [ ] **T9 — calibração de marca:** trocar paleta placeholder + fontes self-hosted — **gated nas cores reais** (pendência do dono)
-- [ ] App-shell PWA admin (nav, bottom-nav mobile, offline, install) — Onda 3
-- [ ] Componentes do wizard (stepper, slot, calendário) — Onda 2
-- [ ] Quick wins auditoria: contato POST · toast textContent · jQuery fora · hero LCP · fontes · cookie-banner · hreflang · SRI
+- **Deploy/infra:** Dockerfile multi-stage com Vite, `requirements.lock`, `migrate_atomico`,
+  `bootstrap_admin`, healthcheck `/healthz/` que reprova sem o manifest, settings de prod
+  coerentes (DEBUG forçado, e-mail dummy sem backend, SMS fail-closed, Celery eager sem retry
+  síncrono, IP do cliente por `X-Real-IP`), system checks `aranha.W001–W009`, log do gunicorn
+  sem tokens, CI com Postgres 18 bloqueante + build do front + `docker build`. Procfile removido.
+- **Banco:** 0034–0038 corrigidas in-place; 0040–0046 (depoimentos com opt-in, PROTECT no
+  histórico, contas demo desativadas, retorno único + CHECK jsonb, prova de aceite, termo LGPD
+  v1.0, autoria na auditoria, `prontuario_versao`, triggers de imutabilidade).
+- **Auth:** 2FA obrigatório do ADMIN avaliado a cada request, `/account/*` fora, QR em SVG,
+  "trocar de aparelho" exige código, códigos de backup aceitos no desafio, login do PROFISSIONAL
+  em `/admin-login/` → `/profissional/`, logout só via POST + `Clear-Site-Data`, `no-store` nas
+  áreas privadas, `no-referrer` nas rotas com token, rotação do link ICS.
+- **Booking:** OTP preso ao telefone e exigido de todo agendamento (só celular), cota de SMS
+  checada antes de gerar código, slots revalidados no servidor, preço com promoção da data,
+  aceite LGPD + consentimento art. 11 + termos do procedimento no wizard, opt-ins nunca
+  pré-marcados (desmarcar revoga), reagendamento preserva retorno e move a ficha, e-mail do
+  cadastro substituído só com telefone provado.
+- **Painel:** agendamento interno pela recepção, valor cobrado, link do termo por atendimento,
+  "Termo pendente" + override auditado "Realizado sem termo aceito", pacotes na ficha do cliente
+  (saldo, validade, cancelamento com reembolso auditado), pacote vendido com nome/itens
+  congelados, bloqueio global "Todos os profissionais", alertas de saúde visíveis (portal,
+  agendamentos, ficha), prontuário com acesso restrito por vínculo + trilha de leitura +
+  histórico de versões, moderação de depoimentos, Branding sem upload de logo (Configuracao >
+  env > padrão), Configurações só com `email_admin` e `prontuario_perguntas` sugeridas.
+- **Serviços/LGPD:** canais falham fechado (nada marcado como enviado sem entrega), lista de
+  espera em mecanismo único (signal → service, envio no `on_commit`, `notificado` só com
+  entrega), retenção efetiva (fichas de pedido não realizado 90 dias, lista de espera vencida,
+  exceções de saúde/pacote), esquecimento completo (fichas, NPS, pseudônimo na auditoria),
+  descadastro mantém o D-1, sem WhatsApp de aniversário, webhooks robustos.
+- **Site:** conteúdo honesto (sem promessas), FAQ revisado, depoimentos só com consentimento,
+  vitrine = preço do agendamento, CTA "Agendar" vira WhatsApp sem SMS, SEO/PWA, aviso LGPD na
+  lista de espera (e-mail digitado só na inscrição; cliente existente só com OTP).
+- **Removidos:** HTMX, `/servicos/produtos/`, `<c-badge>/<c-toast>`, `NotificacaoService`,
+  `EmailService`, `WhatsAppService`, `utils/cache`, `utils/structured_logging`, `exceptions.py`
+  (hierarquia `DomainError`), `PacoteService`, eventos órfãos, `job_notificar_fila_espera`,
+  `/ajax/verificar-telefone/`, `/ajax/buscar-procedimentos/`, `/ajax/buscar-horarios/`,
+  `/painel/cancelar-agendamento/`, `/api/schema/redoc/`, `seed_jaqueline` (→ `seed`), constantes
+  sem uso (`DESCONTO_ANIVERSARIO_PERCENTUAL`, `TTL_RESERVA_LISTA_ESPERA_MINUTOS`...).
 
-### Front — Onda 2 (site público) — ✅ COMPLETA — plano wizard [`plans/onda2-wizard.md`](plans/onda2-wizard.md)
-**ZERO templates ainda em `estrutura/base.html` (Bootstrap morto).** Todo o site público + profissional migrado pra base_v2/Tailwind/tokens. 200 testes, sem drift, verificado no browser.
-- [x] **Home ✅** (rebuild D2: 1 h1 [era 3], hero `fetchpriority` sem lazy [LCP fix], 7 seções, FAQ/loops preservados)
-- [x] **Wizard booking ✅** (W1-W5): JS externalizado CSP-safe · re-skin base_v2 · a11y teclado (cards/dias→`<button>`) · estado sessionStorage + re-hidrata no reject (bug B) · guardas regressão. Contrato preservado.
-- [x] **Serviços ✅** (faciais/corporais/produtos rebuild padrão compartilhado · especialidades [tabs CSS-only CSP-safe] · servico_detalhe [JSON-LD preservado] — verificado browser)
-- [x] **Páginas de marca ✅** (quem_somos, equipe [loop prof], depoimentos [swiper→grid], galeria, promoções [loop] — rebuild base_v2)
-- [x] **Auto-serviço ✅** (meus_agendamentos 894L: 3 steps OTP + lista + modal · reagendar · confirmar_presença — 2 onclick→addEventListener, modal a11y, toast textContent)
-- [x] **Formulários públicos ✅** (contato [bug alta: POST/email/PRG], lista_espera, nps_web, pesquisa+anamnese — contratos preservados)
-- [x] **Cauda/legal ✅** (politica_privacidade, termos_uso, lgpd_*, *_sucesso/_obrigado, termo_assinatura/obrigado, 404 → base_v2; DSAR form preservado)
-- [x] **Auth ✅** (login + 4 reset → `base_auth` mínima, sem chrome) · **Profissional ✅** (agenda [5 onclick→0, 3 forms] · anotar)
-- [ ] embed.html (widget standalone — deixado minimal, sem chrome do site)
+### 6.2 Pendências reais (verificadas no código em 2026-09-23)
 
-**Achados da auditoria de front resolvidos na Onda 2:** contato quebrado · wizard a11y teclado + perda de estado · home 3h1→1 + hero LCP · jQuery/Bootstrap/AOS/purecounter/swiper fora do público · ~todos onclick inline→addEventListener (CSP).
+**Operação / go-live (fora do código)**
+- [ ] Backup `pg_dump` + ensaio do upgrade 0026→0046 num Postgres 18 (runbook §14.a)
+- [ ] Env no Railway (ADMIN_*, CRON_TOKEN, SITE_URL, ZENVIA_*, EMAIL_BACKEND + provedor,
+      WHATSAPP_*, TURNSTILE_*, SENTRY_DSN, CLINIC_EMAIL) e remover `STATIC_ROOT`
+- [ ] Provedor de e-mail: SMTP só no plano Pro do Railway; no Hobby é preciso **adicionar** um
+      backend HTTP (ex.: `django-anymail`) — hoje não há nenhum instalado
+- [ ] Merge `front-fundacao` → `main` (149 commits à frente) e cron externo dos 10 jobs
+- [ ] Pós-deploy: 2FA do ADMIN, apagar `ADMIN_PASSWORD`, `axes_reset`, Branding real, revisar
+      termo LGPD v1.0, mesclar duplicatas logadas pela 0034, `VALIDATE CONSTRAINT` dos CHECKs
+      `NOT VALID` da 0043
 
-**Limpeza do público ✅:** removidos 9 arquivos mortos (`estrutura/base.html`+`baserodape`, partials head/cabecalho/rodape/toasts/cookie_consent/mobile_nav, `static/css/main.css`) · bordas de form control no token (`@layer base` — corrige currentColor em dark, verificado). **Pendente:** calibrar paleta real (T9) · **agora desbloqueado** (admin 30/30): remover `painel/base.html` + `static/css/base.css` + `static/vendor/` + `partials/_empty_state.html` (verificar 0 refs antes).
+**Produto / código**
+- [ ] **Fase 7** — agenda 3→2 (`disponibilidade_profissional` + `excecao_disponibilidade` +
+      `bloqueio_agenda` → `agenda_horario` + `agenda_excecao`)
+- [ ] **T9 — calibração de marca (parcial):** cor #C9A84C confirmada pelo dono e fontes
+      definidas (Playfair Display + Lato); falta só o self-host das fontes (hoje Google Fonts,
+      já declarado na política de privacidade) — opcional
+- [ ] **Pacote cancelado some do faturamento:** dashboards excluem a venda CANCELADA inteira;
+      o reembolso fica só na `LogAuditoria`. Falta `CompraPacote.valor_reembolsado`/`cancelado_em`
+      (+ CHECK ≤ `valor_pago`) e receita líquida no financeiro/overview (rev_painel-05)
+- [ ] **Janela do vínculo profissional ↔ prontuário** fixa em 60 dias no futuro
+      (`views/prontuario.JANELA_FUTURO_DIAS`), mas o agendamento aceita até
+      `max_advance_dias` (até 365): pedido distante não mostra alerta/ficha ao profissional
+      (rev_painel-09)
+- [ ] **Link da ficha de anamnese** no agendamento interno: o marcador "ficha pendente" existe,
+      mas nada gera convite para `/anamnese/<token>/` (rev_painel-11; depende da decisão D18)
+- [ ] **Purga LGPD × histórico do prontuário:** `LgpdService.candidatos_purga` não considera
+      `prontuario_versao` — prontuário esvaziado com versões deixa a cliente purgável
+- [ ] **Cashback de indicação inerte:** nenhuma tela (painel nem Django admin) preenche
+      `Cliente.indicado_por` e não há fluxo de uso do saldo da carteira — o F-CSB só credita se o
+      campo for gravado por fora
+- [ ] `Promocao.clean()` não recusa promoção **geral** de preço fixo (o Django admin permite;
+      `utils/precos` a ignora e `/promocoes/` a esconde — dado inconsistente)
+- [ ] `migrate_atomico` não escreve "FALHOU – transação desfeita" quando aborta (o log mostra os
+      "OK" anteriores antes do erro)
+- [ ] `tests/test_pg_ddl.py`: incluir os triggers da 0046 em `TRIGGERS_SO_PG`
+- [ ] Django admin: registrar `ProntuarioVersao` somente leitura
+- [ ] Hardening opcional do 2FA: settings de teste com `ADMIN_2FA_OBRIGATORIO=False` e tirar a
+      dependência do marcador `usuario_id` no `Enforce2FAMiddleware`
+- [ ] Baixa: `isdigit()` aceita "²" → 500 em `nps_web` (POST da nota) e no webhook do WhatsApp;
+      filtros `isdigit()+int()` em `dashboard.py`, `relatorios.py`, `admin_calendar.py`,
+      `admin_usuarios.py` (trocar por `utils/parse.id_int`)
+- [ ] Baixa: remover `ListaEspera.token_reserva`/`expira_em` (legado sem uso); fallback
+      `LEMBRETE/EMAIL` em `services/termos.Q_NOTIF_TERMO` pode sair depois da 0045 em prod;
+      docstring de `utils/dois_fatores.verificar_token` ainda descreve o `--force` antigo
+- [ ] Baixa: `painel/termo_link.html` oferece `mailto:` para o e-mail do cadastro (não verificado)
+- [ ] `style-src-attr 'unsafe-inline'`: migrar ~160 atributos `style=""` (fora dos e-mails) para classes
+- [ ] Registry de regras (spec 5.1) e sessão única de cliente verificado (5.3) — ver
+      [`specs/regras-negocio-registry.md`](specs/regras-negocio-registry.md)
+- [ ] RECEPCAO: telas próprias (hoje sem login)
+- [ ] Decidido não fazer (por ora): trigger de `atualizado_em`; UNIQUE de regra de comissão ativa
+      (quebraria o desempate por "mais recente"); consentimento de WhatsApp para marketing
 
-### Front — Onda 3 (admin PWA) — ✅ COMPLETA (30/30 telas)
-**ZERO templates admin em `painel/base.html`.** Todo o painel migrado pra base_v2/Tailwind/tokens/Alpine CSP. 216 testes, verificado no browser (drawer, modais, charts, FullCalendar, busca instantânea).
-- [x] **App-shell `painel/base_v2.html` ✅** (sidenav Alpine CSP drawer `classeDrawer()`, Vite bundle, tokens, **sem jQuery/Bootstrap**, tema unificado c/ público — mata os 2 dark modes; 18 nav links; drawer verificado ao vivo)
-- [x] **Lista/tabela + filtros ✅** (clientes, profissionais, notificacoes, lista_espera, auditoria, anamneses, bloqueios, usuarios, termos, excecoes, prontuario, agendamentos — loops/forms/paginação/bulk preservados; busca instantânea `admin-search.js` bundled em app.js)
-- [x] **Detalhe/registro ✅** (cliente_detalhe [timeline+status dinâmico via `<style nonce>` mínimo], prontuario_detalhe [modal anotação via fetch CSP-safe], anamnese_respostas, termos_compliance, editar_profissional)
-- [x] **Formulário criar/editar ✅** (usuario_form, anamnese_form, cadastro_profissional [day-toggle peer-checked], configuracoes [data-confirm global], branding [sync hex ao vivo])
-- [x] **CRUD c/ modais ✅** (procedimentos/promocoes/pacotes — modais Bootstrap→Alpine CSP `x-data=modal`/`pacoteCriar`; edit/create/venda por item + FAB; `data-confirm` global p/ excluir)
-- [x] **Dashboard ✅** (overview [Chart.js via CDN — host na CSP; status via change delegado + reload], dashboard_financeiro [cards+tabelas])
-- [x] **Calendário ✅** (calendar — FullCalendar 6.1 via CDN; JS já CSP-safe; estilos FC/modal em `<style nonce>`) · **2FA ✅** (2fa_challenge, 2fa_setup) · **branding/config ✅**
-- [x] **`_status_badge.html` rebuild ✅** (Tailwind + SVG inline, sem Bootstrap Icons — corrige badge quebrado em meus_agendamentos)
-- **Padrões CSP novos em `app.js`:** `anotacaoModal` (fetch), `pacoteCriar` (clonar item), `data-confirm` global delegado, import `admin-search.js`. Toda FontAwesome/Bootstrap-icons → SVG inline; onchange/onclick inline → delegados.
-- **Bug pré-existente corrigido:** `views/pacotes.py` usava `Count('pacotecliente')` (rename do remodel 0032 quebrou a página) → `Count('comprapacote')`.
+### 6.3 Histórico anterior (resumo)
 
-### Front — Onda 4 (e-mails) — ✅ passe de consistência (visual, não-cor)
-**Constatação:** os 10 e-mails NÃO eram código velho — todos herdam `email/base_email.html` (shell email-safe: tabelas, inline, dark-mode media query, responsivo, MSO). Visual gold/serif já coeso. Auditoria paralela (10 agentes) → passe de consistência **não-cor** (cor final fica pro T9):
-- [x] **dark-mode:** aplicadas classes `.text-main/.text-soft/.text-muted/.card-inner` da base nos textos/cards que tinham só cor inline (antes: texto escuro-sobre-escuro ilegível no dark). Classes só existem no `@media dark` → light idêntico, **zero mudança de cor**.
-- [x] **acentos** PT-BR corrigidos; **header_sub** contextual (cancelamento/nps/termos/aprovacao); `<p>`→`<h1 hero-title>`; `<div>` card→`<table role=presentation>`; botão com fallback Outlook (`background-color` sólido + pill/shadow); `color:white`→`#ffffff`; otp media-query mobile corrigida. Commit `b8cc97e`. Verificado: hex/vars/hrefs idênticos, 10/10 renderizam, 216 testes.
-
-**✅ Achados de BACKEND de e-mail (correção/segurança — CORRIGIDOS, commit `379420e`):**
-1. **Unsubscribe** — `base_email.html` checava `unsubscribe_url` (nunca setado) → agora usa `unsub_url` (o que `utils/email.py` injeta); `promocao.html` tinha link duplicado/quebrado p/ `/unsubscribe/` (404) → removido (base renderiza o canônico `/lgpd/unsubscribe/`).
-2. **Promo XSS + e-mail-em-branco** — `tasks.py:job_promocao_mensal` agora roteia por `enviar_promocao_email` (ganha bleach anti-XSS + header List-Unsubscribe RFC 8058); `enviar_promocao_email` passa contexto **flat** (template usa `{{ nome }}` top-level; antes embrulhava em `{'dados':...}` → branco) + novo param `assunto`. Verificado via locmem: `<script>` removido, vars resolvem, header+link canônicos, subject custom preservado.
-3. **Não-issue:** `{{ site_url }}/path/` é seguro (`SITE_URL.rstrip('/')`).
-
-### Regras de negócio (registry — spec [`specs/regras-negocio-registry.md`](specs/regras-negocio-registry.md))
-- [x] Revisão das regras + referências de mercado + catálogo (2026-06-14)
-- [x] Spec aprovada (fonte única + 5 simplificações; escopo = simplificar)
-- [ ] Implementação 5.1 — Registry (fonte única; itens 4+5)
-- [ ] Implementação 5.2 — Estados + auto-aprovação (itens 1+2)
-- [ ] Implementação 5.3 — Identidade/sessão do cliente (item 3)
-
-## Backend — Auditoria SWE (3 ondas)
-Auditoria multi-agente (10 módulos) → **149 achados: 31 alta, 71 média, 47 baixa**. Detalhe completo no histórico git (commit `19b8e67`, doc removido). Testes andam junto com cada fix.
-
-**✅ Onda 1 — 8 alta (commits `18eac8f`→`be20c98`, 213 testes):**
-- [x] `prontuario_consentimento`: `Count('aceiteprivacidade')` (model deletado 0037) → `'aceites'` (página 500)
-- [x] `admin_atualizar_status`: burlava FSM → métodos do model (valida transição + publica eventos)
-- [x] `lista_espera_publica`: telefone cru no get_or_create → `normalizar_telefone`
-- [x] `admin_2fa_verify`: +`@ratelimit 5/m` (brute-force TOTP, fora do axes)
-- [x] `admin_2fa`: open-redirect `?next=` → `url_has_allowed_host_and_scheme`
-- [x] `whatsapp_webhook` (Meta): +handshake GET `hub.challenge` (Meta nunca verificava)
-- [x] `fidelidade.estornar_cashback`: closure late-binding (eventos com pk do último) → bindado
-- [x] `pacotes` criar/editar: +`transaction.atomic` (pacote órfão em falha parcial)
-
-**✅ Onda 2 — mecânica (9 alta, commits `f22a08f`→último, 213 testes):**
-- [x] quota SMS: `pode_enviar` só checa; novo `registrar_envio` (atomic `cache.add+incr`) só após sucesso
-- [x] débito de pacote no `signals.py`: `transaction.atomic` + `select_for_update` (over-debit/TOCTOU)
-- [x] comissão: guard de idempotência total por atendimento (anti double-pay pós-ESTORNADA)
-- [x] `datetime.fromisoformat`→`make_aware` se naive (booking_public ×2 + reagendar; TypeError 500)
-- [x] corrida de slot: `IntegrityError`→erro de domínio nos 2 services de agendamento
-- [x] NPS job: `distinct()` + status Notificação reflete envio (ENVIADO/FALHOU, sem órfã; FALHOU re-tentável)
-- [x] `verificar_telefone`: cooldown `pode_reenviar` antes do SMS (anti-abuso/custo)
-
-**🔵 Onda 3 — decisões de arquitetura + itens entrelaçados (PENDENTE do dono):**
-1. `AgendamentoService` **duplicado** (legado `agendamento.py` exportado vs novo `agendamento_service.py` c/ Command/eventos) — qual é canônico?
-2. `domain/` event-bus = handlers stub (lógica real no signal) — remover camada OU migrar lógica pra ela?
-3. Senha por e-mail (texto plano) na criação de usuário → trocar por link de definição (como reset)?
-4. Deploy: `settings/__init__` cai em `dev` por fallback + `Procfile` usa `django_celery_beat` não instalado · `cron.run_job` síncrono e `sms` `time.sleep` (dependem de ter worker Celery).
-5. `get_horarios_disponiveis` fat-model (110 linhas) → extrair p/ `SlotService` · `decorators_2fa.staff_otp_required` dead (2 mecanismos 2FA paralelos).
-6. **booking_public OTP-gate por telefone** — exigir OTP tb p/ cliente identificado por telefone (hoje só por e-mail). Entrelaçado com o fluxo OTP e-mail/SMS + front; precisa traçar com cuidado e testar o happy-path de booking.
-7. **`job_limpeza`** marca PENDENTE→FALTOU, mas a FSM não permite essa transição — decidir a regra (PENDENTE vencido deve virar FALTOU? CANCELADO?) antes de usar `marcar_falta()`.
-8. **`Cliente.delete()`** faz hard-delete (sem `SoftDeleteMixin`) — override p/ soft-delete muda semântica de cascatas/admin; avaliar impacto.
+- **2026-06-11 → 06-14:** remodelagem v2.1 (0027–0038), revisão de regras, spec do front.
+- **2026-06-14 → 06-21:** Ondas 1–4 do front; auditoria SWE de backend (149 achados: 31 alta,
+  71 média, 47 baixa — todos endereçados; 0039). Decisões pendentes daquela auditoria foram
+  resolvidas nesta rodada: `AgendamentoService` único, `domain/` só com os handlers reais,
+  senha por link (nunca por e-mail), `DJANGO_ENV` explícito, SlotService extraído, 2FA num
+  mecanismo só, OTP por telefone para todos, `Cliente.delete()` = soft delete, `limpeza_status`
+  sem FALTOU automático.
 
 ---
 
-### Backend — progresso de correção — ✅ AUDITORIA COMPLETA (31 alta + 71 média + 47 baixa)
-- **✅ 31 de 31 alta** corrigidas e verificadas:
-  - Onda 1 (8): página-500, FSM, telefone, 2FA ratelimit+open-redirect, webhook Meta, closure cashback, pacotes atomic.
-  - Onda 2 (9): quota SMS atômica, débito pacote com lock, anti double-pay, datetime make_aware, corrida de slot, NPS sem órfã, cooldown OTP.
-  - Onda 3 (8): domain stubs, Procfile beat, senha-por-link, `Cliente.delete()` soft-default, `job_limpeza` via FSM (PENDENTE→CANCELADO / AGENDADO·CONFIRMADO→FALTOU), `DJANGO_ENV=prod` explícito (railway+Procfile), **OTP-gate por telefone** (anti-sequestro), **dedup `AgendamentoService`** (remove legada morta + fix import quebrado de `preco_base_map`).
-  - Onda 4 (2, as 2 últimas): **fat-model** `get_horarios_disponiveis` (110 linhas) → extraído p/ `services/disponibilidade.py::SlotService.slots_livres`; 7 testes de caracterização (`test_slots_disponibilidade.py`) escritos ANTES da extração e passando idênticos depois (sem regressão de disponibilidade). **2FA**: `decorators_2fa` morto/não-ligado removido; consolidado em 2 superfícies reais (Enforce2FAMiddleware custom p/ painel+profissional · app `two_factor` p/ admin Django).
-- **✅ 71 média** (workflow 10 agentes, arquivos disjuntos; verificado: check + 219 testes + migrations; migração 0039 [validators/check em valor_pago+nota]). Teste fortalecido expôs bug real → +guard de data-passada no booking. ~6 puladas com motivo.
-- **✅ 47 baixa** (workflow 8 agentes, arquivos disjuntos; verificado: check + 219 testes + makemigrations limpo). Nits: type hints/docstrings, imports hoisted, PII fora de logs (cliente_id em vez de nome), `list()` materializado, `AtendimentoManager` via `from_queryset` (remove 7 proxies divergentes), `timezone.localdate()` (off-by-one BRT em pacote/promoção/agenda), `__str__` sem query lazy, `json.loads` em try/except. Skips conscientes: schema/migration, mudança de contrato JSON (front consome `res.data.erro`), `SoftDeleteMixin` (é finding 'alta' de refactor maior), config cross-módulo.
-
----
-
-_Última atualização: 2026-06-21 — Backend: **auditoria SWE 100% endereçada** — 31 alta + 71 média + 47 baixa corrigidas e verificadas (219 testes, makemigrations limpo, migração 0039). Findings completos preservados no commit `19b8e67`._
+_Última atualização: 2026-09-23 — auditoria pré-produção concluída; pendências da seção 6.2
+conferidas no código._
