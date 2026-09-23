@@ -10,12 +10,14 @@ from django.test import TestCase
 from django.utils import timezone
 
 from aranha_estetica.models import (
-    Atendimento, BloqueioAgenda, Carteira, Cliente, CodigoOtp, Configuracao,
-    LogAuditoria, MovimentoCarteira, Prontuario,
+    AnotacaoSessao, Atendimento, BloqueioAgenda, Carteira, Cliente, CodigoOtp,
+    Configuracao, ConsumoSessao, ListaEspera, LogAuditoria, MovimentoCarteira,
+    Notificacao, Preco, Prontuario, RegraComissao, Usuario,
 )
 
 from .factories import (
-    criar_atendimento, criar_cliente, criar_procedimento, criar_profissional,
+    criar_atendimento, criar_cliente, criar_compra_pacote, criar_pacote,
+    criar_procedimento, criar_profissional,
 )
 
 
@@ -180,3 +182,73 @@ class CodigoOtpHashTests(TestCase):
             CodigoOtp.email_para_telefone('+55 (17) 99999-0001'),
             CodigoOtp.email_para_telefone('17999990001'),
         )
+
+
+class AnotacaoAutoriaTests(TestCase):
+    """Registro clinico com autor: excluir o usuario nao apaga a autoria."""
+
+    def setUp(self):
+        prof = criar_profissional()
+        self.at = criar_atendimento(criar_cliente(), prof, criar_procedimento(profissional=prof))
+        self.autor = Usuario.objects.create_user('dra@x.com', 'SenhaForte!2026', nome='Dra. Clara')
+
+    def test_autor_nome_gravado_na_escrita(self):
+        nota = AnotacaoSessao.objects.create(atendimento=self.at, autor=self.autor, texto='Sem intercorrencias')
+        self.autor.nome = 'Clara Renomeada'
+        self.autor.save()
+        nota.refresh_from_db()
+        self.assertEqual(nota.autor_nome, 'Dra. Clara')
+
+    def test_excluir_autor_com_anotacao_e_barrado(self):
+        AnotacaoSessao.objects.create(atendimento=self.at, autor=self.autor, texto='Nota')
+        with self.assertRaises(ProtectedError):
+            self.autor.delete()
+        self.assertEqual(AnotacaoSessao.objects.get().autor_id, self.autor.pk)
+
+
+class RegraComissaoPercentualTests(TestCase):
+    def test_percentual_acima_de_100_recusado(self):
+        with self.assertRaises(ValidationError):
+            RegraComissao(percentual=Decimal('150')).full_clean()
+        RegraComissao(percentual=Decimal('100')).full_clean()
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            RegraComissao.objects.create(percentual=Decimal('150'))
+
+
+class DefaultsRodada2Tests(TestCase):
+    def test_papel_default_e_profissional(self):
+        # RECEPCAO nao tem login; ADMIN nunca e implicito
+        self.assertEqual(Usuario(email='x@x.com', nome='X').papel, Usuario.PAPEL_PROFISSIONAL)
+
+    def test_vigencia_do_preco_usa_data_local(self):
+        self.assertIs(Preco._meta.get_field('vigente_desde').default, timezone.localdate)
+
+    def test_lista_espera_guarda_email_de_contato(self):
+        esp = ListaEspera.objects.create(
+            cliente=criar_cliente(), procedimento=criar_procedimento(),
+            data_desejada=timezone.localdate(), email_contato='contato@x.com',
+        )
+        esp.refresh_from_db()
+        self.assertEqual(esp.email_contato, 'contato@x.com')
+
+    def test_notificacao_tipo_termo(self):
+        prof = criar_profissional()
+        at = criar_atendimento(criar_cliente(), prof, criar_procedimento(profissional=prof))
+        notif = Notificacao.objects.create(atendimento=at, tipo='TERMO', canal='EMAIL', token='t' * 20)
+        self.assertEqual(notif.get_tipo_display(), 'Termo de consentimento')
+
+
+class SaldoPacoteTests(TestCase):
+    def test_saldo_por_procedimento_conta_consumos(self):
+        prof = criar_profissional()
+        proc = criar_procedimento(profissional=prof)
+        cliente = criar_cliente()
+        compra = criar_compra_pacote(cliente, criar_pacote(procedimento=proc, sessoes=5))
+        at = criar_atendimento(cliente, prof, proc)
+        ConsumoSessao.objects.create(compra_pacote=compra, atendimento=at)
+
+        saldo = compra.saldo_por_procedimento()
+        self.assertEqual(len(saldo), 1)
+        self.assertEqual(saldo[0]['procedimento'], proc)
+        self.assertEqual((saldo[0]['total'], saldo[0]['usadas'], saldo[0]['restantes']), (5, 1, 4))
+        self.assertEqual(compra.sessoes_restantes(), 4)

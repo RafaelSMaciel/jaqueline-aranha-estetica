@@ -40,8 +40,10 @@ class Usuario(AbstractBaseUser):
         (PAPEL_RECEPCAO, 'Recepcao'),
     ]
 
+    # Default PROFISSIONAL: RECEPCAO ainda nao tem telas (nao loga) e ADMIN
+    # nunca e implicito — create_superuser/bootstrap_admin setam ADMIN.
     papel = models.CharField(
-        max_length=20, choices=PAPEL_CHOICES, default=PAPEL_RECEPCAO,
+        max_length=20, choices=PAPEL_CHOICES, default=PAPEL_PROFISSIONAL,
     )
     profissional = models.OneToOneField(
         'Profissional', on_delete=models.SET_NULL, null=True, blank=True

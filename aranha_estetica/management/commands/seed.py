@@ -10,7 +10,7 @@ nem senhas — o admin real vem de `manage.py bootstrap_admin`.
     python manage.py seed --force   # permite rodar em producao (sem --demo)
 """
 import os
-from datetime import date, datetime, time, timedelta
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 from io import StringIO
 
@@ -19,6 +19,9 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
+from aranha_estetica.constants import (
+    TERMO_LGPD_CONTEUDO, TERMO_LGPD_TITULO, TERMO_LGPD_VERSAO,
+)
 from aranha_estetica.models import (
     Atendimento, Cliente, DisponibilidadeProfissional, FormularioAnamnese,
     Habilitacao, Preco, Procedimento, Profissional, VersaoTermo,
@@ -160,17 +163,15 @@ class Command(BaseCommand):
         self.stdout.write('Agenda semanal: seg-sex 9h-18h, sáb 9h-15h.')
 
     def _termo_lgpd(self):
-        if VersaoTermo.objects.filter(tipo='LGPD', procedimento__isnull=True, ativa=True).exists():
+        if VersaoTermo.lgpd_vigente() is not None:
             return
+        # Mesmo texto da migration 0045: resumo da /politica-de-privacidade/.
         VersaoTermo.objects.create(
-            tipo='LGPD', procedimento=None, versao='1.0', vigente_desde=date.today(), ativa=True,
-            titulo='Termo de consentimento para tratamento de dados pessoais (LGPD)',
-            conteudo=(
-                'Texto de exemplo gerado pelo seed. Substitua pelo termo oficial da '
-                'clínica em Painel > Termos antes de usar com clientes reais.'
-            ),
+            tipo='LGPD', procedimento=None, versao=TERMO_LGPD_VERSAO,
+            vigente_desde=timezone.localdate(), ativa=True,
+            titulo=TERMO_LGPD_TITULO, conteudo=TERMO_LGPD_CONTEUDO,
         )
-        self.stdout.write('Termo LGPD 1.0 criado (texto de exemplo).')
+        self.stdout.write(f'Termo LGPD {TERMO_LGPD_VERSAO} criado (resumo da Política de Privacidade).')
 
     def _anamnese(self):
         _form, novo = FormularioAnamnese.objects.get_or_create(

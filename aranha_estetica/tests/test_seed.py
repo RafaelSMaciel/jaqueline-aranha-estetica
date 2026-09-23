@@ -10,6 +10,7 @@ from aranha_estetica.models import (
     Atendimento, Cliente, DisponibilidadeProfissional, FormularioAnamnese,
     Habilitacao, Preco, Procedimento, Profissional, VersaoTermo,
 )
+from aranha_estetica.constants import TERMO_LGPD_CONTEUDO
 from aranha_estetica.management.commands.seed import CATALOGO
 
 
@@ -29,7 +30,10 @@ class SeedTests(TestCase):
         self.assertFalse(Preco.objects.filter(procedimento__nome='Depilação a Laser').exists())
         self.assertEqual(Preco.objects.count(), len(CATALOGO) - 1)
         self.assertEqual(DisponibilidadeProfissional.objects.filter(profissional=prof).count(), 6)
-        self.assertTrue(VersaoTermo.objects.filter(tipo='LGPD', ativa=True).exists())
+        termo = VersaoTermo.lgpd_vigente()
+        # texto real (resumo da politica), nao placeholder de exemplo
+        self.assertEqual(termo.conteudo, TERMO_LGPD_CONTEUDO)
+        self.assertIn('/politica-de-privacidade/', termo.conteudo)
         form = FormularioAnamnese.objects.get(nome='Anamnese padrão')
         form.full_clean()  # schema valido
         self.assertFalse(Cliente.objects.exists())

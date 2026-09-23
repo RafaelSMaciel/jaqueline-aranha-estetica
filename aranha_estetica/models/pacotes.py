@@ -95,6 +95,35 @@ class CompraPacote(models.Model):
             )
         super().save(*args, **kwargs)
 
+    def saldo_por_procedimento(self):
+        """Sessoes por item do pacote: [{procedimento, total, usadas, restantes}].
+
+        Fonte unica do saldo (ficha do cliente, e-mail de expiracao). Conta
+        os ConsumoSessao da compra por procedimento numa unica query agregada
+        — mesma regra de verificar_finalizacao (so ConsumoSessao conta; o
+        retorno gratuito nao gera consumo). Em listas, prefetch
+        'pacote__itens__procedimento' evita N+1.
+        """
+        usadas_por_proc = dict(
+            self.sessoes_realizadas.values('atendimento__procedimento')
+            .annotate(c=Count('id'))
+            .values_list('atendimento__procedimento', 'c')
+        )
+        saldo = []
+        for item in self.pacote.itens.all():
+            usadas = usadas_por_proc.get(item.procedimento_id, 0)
+            saldo.append({
+                'procedimento': item.procedimento,
+                'total': item.quantidade_sessoes,
+                'usadas': usadas,
+                'restantes': max(0, item.quantidade_sessoes - usadas),
+            })
+        return saldo
+
+    def sessoes_restantes(self):
+        """Total de sessoes ainda nao usadas (soma de saldo_por_procedimento)."""
+        return sum(linha['restantes'] for linha in self.saldo_por_procedimento())
+
     def verificar_finalizacao(self):
         # Contagem agregada numa unica query (evita N+1 por item do pacote);
         # leitura + finalizacao sob lock para serializar consumos concorrentes.

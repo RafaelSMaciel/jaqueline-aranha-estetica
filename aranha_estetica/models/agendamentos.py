@@ -316,6 +316,8 @@ class Notificacao(models.Model):
         ('NPS', 'Pesquisa NPS'),
         ('PESQUISA', 'Pesquisa de satisfação detalhada'),
         ('APROVACAO', 'Aprovação Profissional'),
+        # Link de assinatura do termo (/termo/<token>/) — nunca vale em /confirmar/
+        ('TERMO', 'Termo de consentimento'),
     ]
     CANAL_CHOICES = [
         ('WHATSAPP', 'WhatsApp'),

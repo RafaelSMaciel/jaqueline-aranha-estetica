@@ -43,11 +43,18 @@ class Prontuario(models.Model):
 
 
 class AnotacaoSessao(models.Model):
-    """Observacoes clinicas especificas de cada atendimento."""
+    """Observacoes clinicas especificas de cada atendimento.
+
+    Registro clinico com autor: append-only (correcao = nova anotacao).
+    autor PROTECT — excluir o usuario apagaria a autoria (desative-o);
+    autor_nome guarda o nome no momento da escrita (renomear o usuario
+    nao reescreve o historico).
+    """
     atendimento = models.ForeignKey(
         'Atendimento', on_delete=models.PROTECT, related_name='anotacoes'
     )
-    autor = models.ForeignKey('Usuario', on_delete=models.SET_NULL, null=True, blank=True)
+    autor = models.ForeignKey('Usuario', on_delete=models.PROTECT, null=True, blank=True)
+    autor_nome = models.CharField(max_length=100, blank=True, default='')
     texto = models.TextField()
     criado_em = models.DateTimeField(auto_now_add=True)
 
@@ -57,3 +64,8 @@ class AnotacaoSessao(models.Model):
         indexes = [
             models.Index(fields=['atendimento', '-criado_em'], name='idx_anot_atn_criado'),
         ]
+
+    def save(self, *args, **kwargs):
+        if self.autor_id and not self.autor_nome:
+            self.autor_nome = (self.autor.nome or '')[:100]
+        super().save(*args, **kwargs)
