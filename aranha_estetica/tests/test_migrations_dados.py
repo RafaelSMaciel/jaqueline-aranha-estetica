@@ -1,4 +1,4 @@
-"""Regressao das data migrations da remodelagem (0034-0037, 0042-0045).
+"""Regressao das data migrations da remodelagem (0034-0037, 0042-0046).
 
 Roda a migration real sobre dados "sujos" plausiveis do banco legado (SQLite:
 as partes PG-only — CHECK regex, EXCLUDE, trigger, collation — sao validadas
@@ -10,10 +10,12 @@ from datetime import date, timedelta
 from decimal import Decimal
 from unittest import mock
 
+from types import SimpleNamespace
+
 from django.contrib.auth.hashers import make_password
-from django.db import connection
+from django.db import connection, transaction
 from django.db.migrations.executor import MigrationExecutor
-from django.test import TransactionTestCase
+from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
 
 APP = 'aranha_estetica'
@@ -108,7 +110,11 @@ class Remodelagem0034a0037Tests(_MigracaoBase):
                                                  preco_promocional=Decimal('99'), data_inicio=hoje,
                                                  data_fim=hoje + timedelta(days=5))
         self.promo_150 = Promocao.objects.create(procedimento=proc, nome='Erro', desconto_percentual=Decimal('150'),
-                                                 data_inicio=hoje, data_fim=hoje + timedelta(days=5))
+                                                 data_inicio=hoje, data_fim=hoje + timedelta(days=5), ativa=True)
+        self.promo_neg = Promocao.objects.create(procedimento=proc, nome='Neg', desconto_percentual=Decimal('-10'),
+                                                 data_inicio=hoje, data_fim=hoje + timedelta(days=5), ativa=True)
+        self.promo_100 = Promocao.objects.create(procedimento=proc, nome='Cortesia', desconto_percentual=Decimal('100'),
+                                                 data_inicio=hoje, data_fim=hoje + timedelta(days=5), ativa=True)
         for _ in range(2):
             ListaEspera.objects.create(cliente=novo, procedimento=proc, data_desejada=hoje + timedelta(days=3))
 
@@ -141,6 +147,9 @@ class Remodelagem0034a0037Tests(_MigracaoBase):
         self.assertEqual(c['zero'].telefone, '1733330000')
         self.assertIsNone(c['curto'].telefone)
         self.assertIsNone(c['curto'].cpf)
+        # telefone sem DDD: o original (digitos) fica no log p/ a equipe corrigir
+        log_curto = LogAuditoria.objects.get(registro_id=self.ids['curto'], acao__contains='telefone invalido')
+        self.assertEqual(log_curto.detalhes['telefone_original'], '999999999')
         # dedup: quem tem historico mantem telefone/cpf/email; ninguem soft-deletado
         self.assertEqual(c['hist'].telefone, '11999999999')
         self.assertEqual(c['hist'].cpf, '52998224725')
@@ -164,7 +173,20 @@ class Remodelagem0034a0037Tests(_MigracaoBase):
         xor = Promocao.objects.get(pk=self.promo_xor.pk)
         self.assertEqual(xor.desconto_percentual, Decimal('10'))
         self.assertIsNone(xor.preco_promocional)
-        self.assertEqual(Promocao.objects.get(pk=self.promo_150.pk).desconto_percentual, Decimal('100'))
+        # fora da faixa: travada no CHECK e DESATIVADA (150% = servico de graca)
+        p150 = Promocao.objects.get(pk=self.promo_150.pk)
+        self.assertEqual(p150.desconto_percentual, Decimal('100'))
+        self.assertFalse(p150.ativa)
+        self.assertFalse(Promocao.objects.get(pk=self.promo_neg.pk).ativa)
+        self.assertTrue(Promocao.objects.get(pk=self.promo_100.pk).ativa)  # 100% digitado e legitimo
+        self.assertTrue(xor.ativa)
+        log150 = LogAuditoria.objects.get(tabela='promocao', registro_id=self.promo_150.pk)
+        self.assertEqual(log150.detalhes['desconto_de'], '150.00')
+        self.assertTrue(log150.detalhes['desativada'])
+        logxor = LogAuditoria.objects.get(tabela='promocao', registro_id=self.promo_xor.pk)
+        self.assertEqual(logxor.detalhes['preco_de'], '99.00')
+        self.assertFalse(logxor.detalhes['desativada'])
+        self.assertFalse(LogAuditoria.objects.filter(tabela='promocao', registro_id=self.promo_100.pk).exists())
         ListaEspera = self.apps.get_model(APP, 'ListaEspera')
         self.assertEqual(ListaEspera.objects.filter(notificado=False).count(), 1)
 
@@ -213,6 +235,13 @@ class ContasDemoERetornoDuplicadoTests(_MigracaoBase):
         self.trocada = Usuario.objects.create(email='ana@shivazen.com', nome='Ana',
                                               password=make_password('senha-trocada-forte'),
                                               papel='PROFISSIONAL')
+        # 2FA cadastrado por quem usou a senha publica (main aceitava) x 2FA legitimo
+        from django_otp.plugins.otp_static.models import StaticDevice, StaticToken
+        from django_otp.plugins.otp_totp.models import TOTPDevice
+        TOTPDevice.objects.create(user_id=self.demo.pk, name='atacante', confirmed=True)
+        sd = StaticDevice.objects.create(user_id=self.demo.pk, name='atk', confirmed=True)
+        StaticToken.objects.create(device=sd, token='atk00001')
+        self.totp_legitimo = TOTPDevice.objects.create(user_id=self.trocada.pk, name='ana', confirmed=True)
 
         Cliente = apps.get_model(APP, 'Cliente')
         Profissional = apps.get_model(APP, 'Profissional')
@@ -241,9 +270,52 @@ class ContasDemoERetornoDuplicadoTests(_MigracaoBase):
         self.assertIn('painel ficou sem ADMIN ativo', self.stderr.getvalue())
         self.assertIn('ADMIN_EMAIL/ADMIN_PASSWORD', self.stderr.getvalue())
 
+        # 2FA da conta demo nao sobrevive (reativar exige cadastrar de novo)
+        from django_otp.plugins.otp_static.models import StaticDevice, StaticToken
+        from django_otp.plugins.otp_totp.models import TOTPDevice
+        self.assertFalse(TOTPDevice.objects.filter(user_id=self.demo.pk).exists())
+        self.assertFalse(StaticDevice.objects.filter(user_id=self.demo.pk).exists())
+        self.assertFalse(StaticToken.objects.filter(token='atk00001').exists())
+        self.assertTrue(TOTPDevice.objects.filter(pk=self.totp_legitimo.pk).exists())
+        LogAuditoria = self.apps.get_model(APP, 'LogAuditoria')
+        log = LogAuditoria.objects.get(tabela='usuario', registro_id=self.demo.pk)
+        self.assertEqual(log.detalhes, {'dispositivos_2fa_removidos': 2})
+
         Atendimento = self.apps.get_model(APP, 'Atendimento')
         self.assertEqual(Atendimento.objects.get(pk=self.ret_dup.pk).status, 'CANCELADO')
         self.assertEqual(Atendimento.objects.get(pk=self.ret_ok.pk).status, 'AGENDADO')
+
+
+class AvisoContaDemoSoNoCommitTests(TestCase):
+    """0042: com rollback (migrate_atomico falhou depois) o aviso nao sai."""
+
+    def _rodar(self, falhar):
+        import importlib
+
+        from django.apps import apps as global_apps
+
+        mod = importlib.import_module('aranha_estetica.migrations.0042_desativar_contas_demo')
+        schema_editor = SimpleNamespace(connection=connection)
+        err = io.StringIO()
+        with mock.patch.dict('os.environ', {'ADMIN_EMAIL': '', 'ADMIN_PASSWORD': ''}), redirect_stderr(err):
+            with self.captureOnCommitCallbacks(execute=True):
+                try:
+                    with transaction.atomic():
+                        mod.desativar_contas_demo(global_apps, schema_editor)
+                        if falhar:
+                            raise RuntimeError('migration posterior falhou')
+                except RuntimeError:
+                    pass
+        return err.getvalue()
+
+    def test_rollback_nao_avisa_e_commit_avisa(self):
+        from aranha_estetica.models import Usuario
+        demo = Usuario.objects.create(email='admin@shivazen.com', nome='A',
+                                      password=make_password('admin123'), papel='ADMIN')
+        self.assertEqual(self._rodar(falhar=True), '')
+        demo.refresh_from_db()
+        self.assertTrue(demo.ativo)  # desfeito: a conta segue como estava
+        self.assertIn('conta demo desativada', self._rodar(falhar=False))
 
 
 class ProvaAceiteEAutoria0044e0045Tests(_MigracaoBase):
@@ -309,3 +381,56 @@ class TermoLgpdBancoNovo0045Tests(_MigracaoBase):
         # dev/testes/instalacao limpa: termo vem do seed ou do painel
         VersaoTermo = self.apps.get_model(APP, 'VersaoTermo')
         self.assertFalse(VersaoTermo.objects.exists())
+
+
+class HistoricoAutoriaEFichasLegado0046Tests(_MigracaoBase):
+    migrate_from = '0045_dados_termo_lgpd_autoria'
+    migrate_to = '0046_prontuario_versao_autoria_log_prova_aceite'
+
+    def preparar(self, apps):
+        Usuario = apps.get_model(APP, 'Usuario')
+        LogAuditoria = apps.get_model(APP, 'LogAuditoria')
+        Cliente = apps.get_model(APP, 'Cliente')
+        Profissional = apps.get_model(APP, 'Profissional')
+        Procedimento = apps.get_model(APP, 'Procedimento')
+        Atendimento = apps.get_model(APP, 'Atendimento')
+        Formulario = apps.get_model(APP, 'FormularioAnamnese')
+        Resposta = apps.get_model(APP, 'RespostaAnamnese')
+
+        dona = Usuario.objects.create(email='dona@clinica.com', nome='Dona Jaqueline', password='!', papel='ADMIN')
+        self.log_dona = LogAuditoria.objects.create(usuario=dona, acao='Acessou prontuario', tabela='prontuario')
+        self.log_sistema = LogAuditoria.objects.create(acao='Purga automatica')
+
+        cli = Cliente.objects.create(nome='Cliente', telefone='11911112222')
+        self.cliente_pk = cli.pk
+        prof = Profissional.objects.create(nome='Prof')
+        proc = Procedimento.objects.create(nome='Peeling', duracao_minutos=30)
+        ini = timezone.now() + timedelta(days=5)
+        at = Atendimento.objects.create(cliente=cli, profissional=prof, procedimento=proc, status='AGENDADO',
+                                        data_hora_inicio=ini, data_hora_fim=ini + timedelta(minutes=30))
+        anamnese = Formulario.objects.create(nome='Anamnese', tipo='ANAMNESE', schema_json=[])
+        pesquisa = Formulario.objects.create(nome='Pesquisa', tipo='PESQUISA', schema_json=[])
+        # booking legado: ficha respondida no wizard, gravada sem respondida_em
+        self.legado = Resposta.objects.create(formulario=anamnese, cliente=cli, atendimento=at,
+                                              respostas_json={'alergias': 'Dipirona'})
+        # convite pendente (pesquisa vazia) e ficha avulsa sem atendimento: ficam como estao
+        self.pendente = Resposta.objects.create(formulario=pesquisa, cliente=cli, atendimento=at, respostas_json={})
+        self.avulsa = Resposta.objects.create(formulario=anamnese, cliente=cli, respostas_json={'x': 'y'})
+
+    def test_autor_do_log_e_fichas_do_booking_legado(self):
+        LogAuditoria = self.apps.get_model(APP, 'LogAuditoria')
+        self.assertEqual(LogAuditoria.objects.get(pk=self.log_dona.pk).usuario_nome,
+                         'Dona Jaqueline <dona@clinica.com>')
+        self.assertEqual(LogAuditoria.objects.get(pk=self.log_sistema.pk).usuario_nome, '')
+
+        Resposta = self.apps.get_model(APP, 'RespostaAnamnese')
+        legado = Resposta.objects.get(pk=self.legado.pk)
+        self.assertEqual(legado.respondida_em, legado.criado_em)
+        self.assertIsNone(Resposta.objects.get(pk=self.pendente.pk).respondida_em)
+        self.assertIsNone(Resposta.objects.get(pk=self.avulsa.pk).respondida_em)
+
+        # a ficha legada passa a gerar alerta de saude (utils/saude)
+        from aranha_estetica.models import Cliente
+        from aranha_estetica.utils.saude import alertas_saude
+        alertas = alertas_saude(Cliente.objects.get(pk=self.cliente_pk))
+        self.assertIn('Dipirona', [a['valor'] for a in alertas])

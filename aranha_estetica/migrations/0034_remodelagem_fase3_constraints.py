@@ -11,7 +11,12 @@
 #    atendimentos (empate: o mais recente) mantem o valor; os outros ficam
 #    ATIVOS com o campo NULL (sem soft-delete: historico continua visivel) e
 #    LogAuditoria aponta a duplicata p/ mesclagem manual (valor mascarado);
+#  - telefone invalido (ex.: sem DDD) vira NULL e o log guarda tambem os
+#    digitos originais (telefone_original) — o valor nao se perde; a
+#    anonimizacao LGPD limpa os detalhes desses logs;
 #  - termo/preco/lista de espera/promocao: dedup/clamp p/ os UNIQUE/CHECK novos;
+#    promocao com valor fora do CHECK (desconto <0/>100, preco <0) e DESATIVADA
+#    (150% virava 100% ativa = servico de graca) e o log guarda o original;
 #  - 1 UPDATE por linha + SET CONSTRAINTS ALL IMMEDIATE (PG): sem 'pending
 #    trigger events' nos ALTER TABLE seguintes.
 
@@ -80,8 +85,11 @@ def normalizar_e_deduplicar(apps, schema_editor):
         if (c['telefone'] or '').strip():
             tel = _tel_canonico(c['telefone'])
             if tel is None:
+                # original em digitos: sem DDD nao ha como completar sem palpite
+                # (OTP/WhatsApp iriam p/ um estranho) — a equipe corrige a mao
                 log('cliente', pk, 'telefone invalido removido',
-                    telefone=_mascara('telefone', c['telefone']))
+                    telefone=_mascara('telefone', c['telefone']),
+                    telefone_original=_digits(c['telefone']))
         cpf = _digits(c['cpf']) or None
         if cpf and len(cpf) != 11:
             log('cliente', pk, 'cpf invalido removido', cpf=_mascara('cpf', c['cpf']))
@@ -142,14 +150,27 @@ def normalizar_e_deduplicar(apps, schema_editor):
         vistos.add(chave)
     # promocao: desconto 0..100, preco >= 0, desconto XOR preco (o painel e o
     # site usam desconto_percentual — ele prevalece)
+    # Valor fora da faixa e erro de digitacao: trava no CHECK e DESATIVA (150%
+    # virava 100% ativa = servico de graca no site/agendamento); 100% digitado
+    # e legitimo e segue ativa. O log guarda o original.
     for p in Promocao.objects.all():
-        desconto = min(max(p.desconto_percentual or 0, 0), 100)
-        preco = p.preco_promocional
+        orig_desc, orig_preco = p.desconto_percentual, p.preco_promocional
+        invalida = (orig_desc is not None and not (0 <= orig_desc <= 100)) or (
+            orig_preco is not None and orig_preco < 0)
+        desconto = min(max(orig_desc or 0, 0), 100)
+        preco = orig_preco
         if preco is not None and (preco < 0 or desconto > 0):
             preco = None
-        if desconto != p.desconto_percentual or preco != p.preco_promocional:
-            Promocao.objects.filter(pk=p.pk).update(desconto_percentual=desconto, preco_promocional=preco)
-            log('promocao', p.pk, 'desconto/preco promocional ajustado ao CHECK')
+        ativa = p.ativa and not invalida
+        if desconto != orig_desc or preco != orig_preco or ativa != p.ativa:
+            Promocao.objects.filter(pk=p.pk).update(
+                desconto_percentual=desconto, preco_promocional=preco, ativa=ativa)
+            log('promocao', p.pk,
+                'desconto/preco promocional ajustado ao CHECK'
+                + (' (valor invalido: promocao desativada)' if invalida and p.ativa else ''),
+                desconto_de=None if orig_desc is None else str(orig_desc),
+                preco_de=None if orig_preco is None else str(orig_preco),
+                desativada=bool(invalida and p.ativa))
 
     LogAuditoria.objects.bulk_create(logs)
 

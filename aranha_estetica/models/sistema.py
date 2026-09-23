@@ -68,8 +68,25 @@ class ListaEspera(models.Model):
         return f'{cliente_nome} — {proc_nome} ({data})'
 
 
+def rotulo_usuario(usuario) -> str:
+    """'Nome <email>' do autor — snapshot gravado em LogAuditoria.usuario_nome."""
+    nome = (getattr(usuario, 'nome', '') or '').strip()
+    email = (getattr(usuario, 'email', '') or '').strip()
+    if nome and email:
+        return f'{nome} <{email}>'[:255]
+    return (nome or email)[:255]
+
+
 class LogAuditoria(models.Model):
+    """Trilha de auditoria (LGPD art. 37).
+
+    usuario SET_NULL + usuario_nome: o snapshot 'Nome <email>' do autor e
+    gravado no save (registrar_log incluso) — excluir ou renomear o Usuario
+    nao transforma a acao dele em "acao do sistema". O Django admin nao exclui
+    Usuario (desativar = ativo=False).
+    """
     usuario = models.ForeignKey('Usuario', on_delete=models.SET_NULL, blank=True, null=True)
+    usuario_nome = models.CharField(max_length=255, blank=True, default='')
     acao = models.TextField()
     tabela = models.CharField(max_length=100, blank=True, null=True)
     registro_id = models.IntegerField(blank=True, null=True)
@@ -85,6 +102,14 @@ class LogAuditoria(models.Model):
             models.Index(fields=['-criado_em'], name='idx_auditoria_criado'),
             models.Index(fields=['usuario', '-criado_em'], name='idx_auditoria_user_data'),
         ]
+
+    def save(self, *args, **kwargs):
+        if self.usuario_id and not self.usuario_nome:
+            self.usuario_nome = rotulo_usuario(self.usuario)
+            update_fields = kwargs.get('update_fields')
+            if update_fields is not None and 'usuario_nome' not in update_fields:
+                kwargs['update_fields'] = [*update_fields, 'usuario_nome']
+        super().save(*args, **kwargs)
 
 
 class Feriado(models.Model):

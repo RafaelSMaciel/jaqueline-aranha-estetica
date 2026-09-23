@@ -1,8 +1,11 @@
 """Contrato de termos (rodada 2): AceiteTermo.registrar, VersaoTermo.lgpd_vigente
-e imutabilidade da versao ja aceita (prova do texto — LGPD art. 8)."""
+e imutabilidade da versao ja aceita (prova do texto — LGPD art. 8).
+Postgres: triggers de imutabilidade da 0046 (QuerySet.update/SQL cru)."""
 import hashlib
+import unittest
 
 from django.core.exceptions import ValidationError
+from django.db import DatabaseError, connection, transaction
 from django.test import RequestFactory, TestCase, override_settings
 from django.utils import timezone
 
@@ -108,3 +111,48 @@ class VersaoTermoImutavelTests(TestCase):
         self.termo.ativa = True
         self.termo.save(update_fields=['ativa'])
         self.assertTrue(VersaoTermo.objects.get(pk=self.termo.pk).ativa)
+
+
+@unittest.skipUnless(connection.vendor == 'postgresql', 'trigger so no Postgres (0046)')
+class ProvaAceiteTriggerPgTests(TestCase):
+    """O guard de save() nao pega QuerySet.update()/SQL: o banco segura."""
+
+    def setUp(self):
+        prof = criar_profissional()
+        self.cliente = criar_cliente()
+        self.atendimento = criar_atendimento(self.cliente, prof, criar_procedimento(profissional=prof))
+        self.termo = _termo(conteudo='Texto aceito')
+        req = RequestFactory().post('/x/', REMOTE_ADDR='200.10.20.30', HTTP_USER_AGENT='A')
+        self.aceite = AceiteTermo.registrar(self.cliente, self.termo, req, atendimento=self.atendimento)
+
+    def _bloqueado(self, fn):
+        with self.assertRaises(DatabaseError), transaction.atomic():
+            fn()
+
+    def test_aceite_nao_muda_nem_some(self):
+        qs = AceiteTermo.objects.filter(pk=self.aceite.pk)
+        self._bloqueado(lambda: qs.update(ip='1.1.1.1'))
+        self._bloqueado(lambda: qs.update(conteudo_sha256='0' * 64))
+        self._bloqueado(lambda: qs.update(user_agent='forjado'))
+        outro = criar_atendimento(self.cliente, self.atendimento.profissional, self.atendimento.procedimento)
+        self._bloqueado(lambda: qs.update(atendimento=outro))
+        self._bloqueado(lambda: qs.delete())
+        self.aceite.refresh_from_db()
+        self.assertEqual((self.aceite.ip, self.aceite.user_agent), ('200.10.20.30', 'A'))
+
+    def test_save_sem_mudanca_e_set_null_do_atendimento_passam(self):
+        self.aceite.save()  # mesma linha: nada distinto
+        AceiteTermo.objects.filter(pk=self.aceite.pk).update(atendimento=None)  # SET_NULL da FK
+        self.aceite.refresh_from_db()
+        self.assertIsNone(self.aceite.atendimento_id)
+
+    def test_versao_aceita_congelada_no_banco_mas_desativavel(self):
+        qs = VersaoTermo.objects.filter(pk=self.termo.pk)
+        self._bloqueado(lambda: qs.update(conteudo='Texto trocado'))
+        self._bloqueado(lambda: qs.update(versao='9.9'))
+        qs.update(ativa=False, vigente_desde=timezone.localdate())
+        self.assertFalse(VersaoTermo.objects.get(pk=self.termo.pk).ativa)
+        # versao sem aceite continua editavel
+        rascunho = _termo(tipo='PROCEDIMENTO', procedimento=criar_procedimento(nome='Peeling'), conteudo='x')
+        VersaoTermo.objects.filter(pk=rascunho.pk).update(conteudo='y')
+        self.assertEqual(VersaoTermo.objects.get(pk=rascunho.pk).conteudo, 'y')
