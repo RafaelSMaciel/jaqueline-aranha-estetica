@@ -29,8 +29,11 @@ def agendar_por_profissional(request, slug):
 
 
 def _ics_escape(s):
+    """Escapa TEXT (RFC 5545 3.3.11): cada quebra de linha REAL vira barra+n (uma vez)."""
     return (
         (s or '')
+        .replace('\r\n', '\n')
+        .replace('\r', '\n')
         .replace('\\', '\\\\')
         .replace(';', '\\;')
         .replace(',', '\\,')
@@ -81,11 +84,13 @@ def ics_feed_profissional(request, slug):
         cliente_nome = at.cliente.nome if at.cliente_id else 'Cliente'
         proc_nome = at.procedimento.nome if at.procedimento_id else 'Atendimento'
         summary = f'{cliente_nome} - {proc_nome}'
-        descricao = (
-            f'Status: {at.get_status_display()}\\n'
-            f'Procedimento: {proc_nome}\\n'
-            f'Profissional: {prof.nome}'
-        )
+        # Quebras REAIS: _ics_escape gera o escape do ICS uma unica vez (barra+n
+        # literal aqui era escapada de novo e o calendario exibia a barra).
+        descricao = '\n'.join([
+            f'Status: {at.get_status_display()}',
+            f'Procedimento: {proc_nome}',
+            f'Profissional: {prof.nome}',
+        ])
         lines.extend([
             'BEGIN:VEVENT',
             f'UID:atend-{at.pk}@aranha-estetica',

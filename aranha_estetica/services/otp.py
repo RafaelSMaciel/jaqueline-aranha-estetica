@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 from datetime import datetime, timedelta
 from typing import Optional, Tuple, TYPE_CHECKING
 
@@ -17,7 +18,7 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from ..models import CodigoOtp
-from ..utils.sms import enviar_otp_sms, sms_disponivel
+from ..utils.sms import enviar_otp_sms, pode_enviar, sms_disponivel
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
@@ -67,6 +68,15 @@ def normalizar_telefone_br(valor) -> str:
     return digitos if len(digitos) in (10, 11) else ''
 
 
+def eh_celular_br(digitos) -> bool:
+    """Celular BR (DDD + 9 + 8 digitos). SMS p/ fixo nunca chega e so gasta quota.
+
+    So o ENVIO de OTP exige celular: normalizar_telefone_br continua aceitando
+    fixo (cadastro feito na recepcao, confirmacao do agendamento).
+    """
+    return bool(re.fullmatch(r'[1-9]{2}9\d{8}', digitos or ''))
+
+
 def solicitar_otp(
     email: str,
     *,
@@ -90,6 +100,9 @@ def solicitar_otp(
             (False, 'email_invalido', None)  — email mal-formatado
             (False, 'telefone_ausente', None)— sem telefone
             (False, 'aguarde', None)         — rate limit (TTL ainda ativo)
+            (False, 'limite_sms', None)      — quota de SMS (telefone/IP/global)
+                                               esgotada: NENHUM codigo novo e gerado
+                                               (o ultimo recebido continua valendo)
             (False, 'sms_falha', None)       — canal indisponivel/erro no envio
 
     Raises:
@@ -115,6 +128,12 @@ def solicitar_otp(
         return False, 'aguarde', None
 
     ip = _client_ip(request)
+    # Quota checada ANTES de gerar: gerar() invalida o codigo anterior, que a
+    # pessoa ainda tem no celular — sem envio, ela ficaria sem codigo valido.
+    if not pode_enviar(telefone, ip=ip):
+        logger.warning('otp_sms_limite', extra={'email_hash': _email_hash(email), 'proposito': proposito})
+        return False, 'limite_sms', None
+
     codigo, _obj = CodigoOtp.gerar(
         email, ip=ip, proposito=proposito,
         canal=CodigoOtp.CANAL_SMS, telefone=telefone,
@@ -152,8 +171,11 @@ def solicitar_otp_telefone(
     digitos: str, *, request: Optional['HttpRequest'] = None,
     proposito: str = CodigoOtp.PROPOSITO_AGENDAMENTO,
 ) -> OtpResult:
-    """Envia OTP ao telefone; a chave do desafio e o proprio telefone."""
-    if not digitos:
+    """Envia OTP ao CELULAR; a chave do desafio e o proprio telefone.
+
+    Fixo (10 digitos) -> (False, 'telefone_invalido', None) sem gastar quota.
+    """
+    if not eh_celular_br(digitos):
         return False, 'telefone_invalido', None
     return solicitar_otp(
         CodigoOtp.email_para_telefone(digitos),

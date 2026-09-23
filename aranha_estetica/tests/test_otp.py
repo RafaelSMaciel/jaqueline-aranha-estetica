@@ -280,3 +280,107 @@ class MeusAgendamentosOtpTests(TestCase):
         resp = self.client.post(self.url_ver, {'identificador': 'x@example.com', 'codigo': '123456'})
         self.assertEqual(resp.status_code, 400)
         self.assertNotIn('meus_agendamentos_telefone', self.client.session)
+
+
+@override_settings(RATELIMIT_ENABLE=False, SMS_DEV_LOG_ONLY=True)
+class OtpQuotaNaoQueimaCodigoTests(TestCase):
+    """rev_security-05 / rev_booking-05: quota esgotada nao gera (nem invalida) codigo."""
+
+    TEL = '17991234567'
+
+    def setUp(self):
+        cache.clear()
+        self.codigos = []
+        patcher = patch(
+            'aranha_estetica.services.otp.enviar_otp_sms',
+            side_effect=lambda tel, codigo, ip=None: self.codigos.append(codigo) or True,
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _pular_cooldown(self):
+        CodigoOtp.objects.update(criado_em=timezone.now() - timedelta(minutes=5))
+
+    def _esgotar_quota_do_telefone(self):
+        cache.set(f'sms_rl:tel:55{self.TEL}', sms.SMS_MAX_POR_HORA, 3600)
+
+    def test_quota_esgotada_mantem_o_codigo_da_vitima(self):
+        ok, _motivo, _canal = otp_service.solicitar_otp_telefone(self.TEL)
+        self.assertTrue(ok)
+        codigo_vitima = self.codigos[-1]
+        self._pular_cooldown()
+        self._esgotar_quota_do_telefone()
+
+        ok, motivo, canal = otp_service.solicitar_otp_telefone(self.TEL)
+        self.assertEqual((ok, motivo, canal), (False, 'limite_sms', None))
+        self.assertEqual(len(self.codigos), 1)  # nada enviado
+        self.assertEqual(CodigoOtp.objects.count(), 1)  # nada gerado
+
+        self.assertEqual(otp_service.verificar_otp_telefone(self.TEL, codigo_vitima), (True, 'ok'))
+
+    def test_endpoint_do_wizard_responde_429_limite_sms(self):
+        self._esgotar_quota_do_telefone()
+        resp = self.client.post(reverse('aranha:solicitar_otp_agendamento'), {'telefone': self.TEL})
+        self.assertEqual(resp.status_code, 429)
+        self.assertEqual(resp.json()['erro'], 'limite_sms')
+        self.assertFalse(CodigoOtp.objects.exists())
+
+    def test_portal_continua_neutro_com_quota_esgotada(self):
+        # Anti-enumeracao: quota so esgota em telefone cadastrado -> resposta neutra
+        Cliente.objects.create(nome='Portal', telefone=self.TEL)
+        self._esgotar_quota_do_telefone()
+        resp = self.client.post(reverse('aranha:meus_agendamentos_enviar_otp'), {'identificador': self.TEL})
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()['ok'])
+        self.assertFalse(CodigoOtp.objects.exists())
+
+    def test_quota_por_ip_agrupa_ipv6_por_prefixo_64(self):
+        # Trocar o sufixo do IPv6 (mesmo /64) nao renova a quota por IP
+        for i in range(sms.SMS_MAX_POR_IP_HORA):
+            sms.registrar_envio(f'1799000{i:04d}', ip=f'2001:db8:1:2::{i + 1:x}')
+        self.assertFalse(sms.pode_enviar('17991112222', ip='2001:db8:1:2:aaaa:bbbb:cccc:dddd'))
+        self.assertTrue(sms.pode_enviar('17991112222', ip='2001:db8:1:3::1'))
+        self.assertTrue(sms.pode_enviar('17991112222', ip='203.0.113.9'))
+
+
+@override_settings(RATELIMIT_ENABLE=False, SMS_DEV_LOG_ONLY=True)
+class OtpSoParaCelularTests(TestCase):
+    """rev_booking-12: SMS de OTP so vai p/ celular (fixo nunca recebe e gasta quota)."""
+
+    def setUp(self):
+        cache.clear()
+        self.codigos = {}
+        patcher = patch(
+            'aranha_estetica.services.otp.enviar_otp_sms',
+            side_effect=lambda tel, codigo, ip=None: self.codigos.__setitem__(tel, codigo) or True,
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_servico_recusa_fixo_e_aceita_celular(self):
+        self.assertFalse(otp_service.eh_celular_br('1733221100'))
+        self.assertTrue(otp_service.eh_celular_br('17991234567'))
+        self.assertEqual(otp_service.solicitar_otp_telefone('1733221100'), (False, 'telefone_invalido', None))
+        self.assertEqual(self.codigos, {})
+        ok, motivo, _ = otp_service.solicitar_otp_telefone('17991234567')
+        self.assertEqual((ok, motivo), (True, 'ok'))
+
+    def test_wizard_recusa_fixo(self):
+        resp = self.client.post(reverse('aranha:solicitar_otp_agendamento'), {'telefone': '(17) 3322-1100'})
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.json()['erro'], 'telefone_invalido')
+        self.assertEqual(self.codigos, {})
+        self.assertFalse(CodigoOtp.objects.exists())
+
+    def test_portal_fixo_digitado_e_erro_de_formato(self):
+        resp = self.client.post(reverse('aranha:meus_agendamentos_enviar_otp'), {'identificador': '1733221100'})
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.json()['erro'], 'identificador_invalido')
+
+    def test_portal_cadastro_com_fixo_responde_neutro_sem_sms(self):
+        # Cadastro da recepcao com fixo: login por e-mail nao manda SMS p/ o fixo
+        Cliente.objects.create(nome='Fixo', telefone='1733221100', email='fixo@example.com')
+        resp = self.client.post(reverse('aranha:meus_agendamentos_enviar_otp'), {'identificador': 'fixo@example.com'})
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()['ok'])
+        self.assertEqual(self.codigos, {})

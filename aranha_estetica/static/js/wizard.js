@@ -48,9 +48,12 @@
     var selectedDate = null;
     var selectedSlot = null;
     var selectedProf = null;
-    var currentMonth = new Date();
+    var currentMonth = primeiroDoMes();
     var diasDisponiveis = [];
     var horariosData = [];
+    // Respostas AJAX fora de ordem: so a do pedido mais recente pinta a tela
+    var seqMes = 0;
+    var seqHorarios = 0;
 
     var meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
                  'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -120,6 +123,12 @@
         return el.value;
     }
 
+    // Mês do calendário sempre no dia 1: setMonth(+1) em 31/10 pularia novembro
+    function primeiroDoMes(d) {
+        d = d || new Date();
+        return new Date(d.getFullYear(), d.getMonth(), 1);
+    }
+
     function parseData(str) {
         // 'YYYY-MM-DD' -> Date local (new Date(str) seria UTC e voltaria 1 dia no Brasil)
         var p = String(str || '').split('-');
@@ -183,7 +192,7 @@
 
         // Calendário e horários do step 2 prontos p/ o "Voltar"
         var base = parseData(selectedDate);
-        currentMonth = base || new Date();
+        currentMonth = primeiroDoMes(base);
         if (selectedProc) loadMonth();
         if (selectedDate && selectedProc) carregarHorarios(selectedDate);
 
@@ -237,7 +246,7 @@
 
             salvarEstado();
             goToStep(2);
-            currentMonth = new Date();
+            currentMonth = primeiroDoMes();
             loadMonth();
         });
     }
@@ -250,14 +259,20 @@
 
         var mesStr = year + '-' + String(month + 1).padStart(2, '0');
         var qs = query({mes: mesStr, procedimento_id: selectedProc.id, profissional_id: profPreselect});
+        var meu = ++seqMes;
 
         fetch(URL_DIAS + '?' + qs)
             .then(function(r) { return r.json(); })
             .then(function(data) {
+                if (meu !== seqMes) return;  // outro mês já foi pedido
                 diasDisponiveis = data.dias_disponiveis || [];
                 renderCalendar(year, month);
             })
-            .catch(function() { diasDisponiveis = []; renderCalendar(year, month); });
+            .catch(function() {
+                if (meu !== seqMes) return;
+                diasDisponiveis = [];
+                renderCalendar(year, month);
+            });
     }
 
     function renderCalendar(year, month) {
@@ -304,11 +319,11 @@
     }
 
     document.getElementById('cal-prev').addEventListener('click', function() {
-        currentMonth.setMonth(currentMonth.getMonth() - 1);
+        currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
         loadMonth();
     });
     document.getElementById('cal-next').addEventListener('click', function() {
-        currentMonth.setMonth(currentMonth.getMonth() + 1);
+        currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
         loadMonth();
     });
 
@@ -344,9 +359,13 @@
         mensagemSlots(container, SVG_LOADING, 'Carregando horários...');
 
         var qs = query({data: dateStr, procedimento_id: selectedProc.id, profissional_id: profPreselect});
+        var meu = ++seqHorarios;
+        // Resposta antiga (outro dia clicado depois) não troca os horários
+        function obsoleta() { return meu !== seqHorarios || dateStr !== selectedDate; }
         fetch(URL_HORARIOS + '?' + qs)
             .then(function(r) { return r.json(); })
             .then(function(data) {
+                if (obsoleta()) return;
                 horariosData = data.horarios || [];
                 if (horariosData.length === 0) {
                     mensagemSlots(container, SVG_INFO, 'Nenhum horário disponível nesta data.');
@@ -374,6 +393,7 @@
                 container.appendChild(grid);
             })
             .catch(function() {
+                if (obsoleta()) return;
                 mensagemSlots(container, SVG_INFO, 'Erro ao carregar horários.');
             });
     }
@@ -565,7 +585,7 @@
         var aplicaveis = FORMULARIOS_ANAMNESE.filter(function(f){
             return formularioAplicaAoProc(f, selectedProc);
         });
-        anamneseObrigatoria = aplicaveis.some(function(f){ return !!f.obrigatorio; });
+        setAnamneseMsg('');
         atualizarConsentSaude();
         if (aplicaveis.length === 0) {
             container.style.display = 'none';
@@ -575,6 +595,10 @@
 
         aplicaveis.forEach(function(form){
             var formWrap = document.createElement('div');
+            // Ficha opcional: perguntas "obrigatórias" só valem se a pessoa
+            // começar a responder (mesma regra do servidor, _validar_anamnese).
+            formWrap.dataset.fichaId = form.id;
+            formWrap.dataset.fichaObrigatoria = form.obrigatorio ? '1' : '';
             formWrap.style.cssText = 'border:1px solid #eee;border-radius:10px;padding:0.75rem;margin-bottom:0.6rem;background:#fafafa;';
             var ttl = document.createElement('div');
             ttl.style.cssText = 'font-weight:700;color:#4A3425;font-size:0.85rem;margin-bottom:0.5rem;';
@@ -594,6 +618,9 @@
                 if (field.tipo === 'checkboxes') {
                     var grupo = document.createElement('div');
                     grupo.setAttribute('role', 'group');
+                    // Nome acessível do grupo = a pergunta visível
+                    lbl.id = 'lbl-' + form.id + '-' + String(field.key).replace(/[^\w-]/g, '_');
+                    grupo.setAttribute('aria-labelledby', lbl.id);
                     grupo.dataset.grupoFormId = form.id;
                     grupo.dataset.grupoFieldKey = field.key;
                     grupo.dataset.obrigatorio = field.obrigatorio ? '1' : '';
@@ -636,7 +663,8 @@
                 input.dataset.formId = form.id;
                 input.dataset.fieldKey = field.key;
                 input.setAttribute('aria-label', field.label);
-                if (field.obrigatorio) input.required = true;
+                input.dataset.obrigatorio = field.obrigatorio ? '1' : '';
+                input.required = !!(field.obrigatorio && form.obrigatorio);
                 fwrap.appendChild(input);
                 formWrap.appendChild(fwrap);
             });
@@ -644,12 +672,7 @@
         });
     }
 
-    // Consentimento de dado de saúde (LGPD art. 11): obrigatório quando a
-    // ficha é obrigatória ou quando a pessoa respondeu alguma pergunta.
-    var anamneseObrigatoria = false;
-
-    function anamneseTemResposta() {
-        var campos = document.querySelectorAll('#anamneseFields [data-form-id]');
+    function temResposta(campos) {
         for (var i = 0; i < campos.length; i++) {
             var el = campos[i];
             if (el.type === 'checkbox' ? el.checked : String(el.value || '').trim()) return true;
@@ -657,15 +680,58 @@
         return false;
     }
 
+    function anamneseTemResposta() {
+        return temResposta(document.querySelectorAll('#anamneseFields [data-form-id]'));
+    }
+
+    // Alguma pergunta DESTA ficha respondida (a ficha opcional passa a valer)
+    function fichaPreenchida(formId) {
+        return temResposta(document.querySelectorAll(
+            '#anamneseFields [data-form-id="' + String(formId) + '"]'
+        ));
+    }
+
+    function fichaExigida(formId) {
+        var wrap = document.querySelector('#anamneseFields [data-ficha-id="' + String(formId) + '"]');
+        return !!(wrap && wrap.dataset.fichaObrigatoria) || fichaPreenchida(formId);
+    }
+
+    // Ficha opcional em branco não trava o agendamento; ao começar a responder,
+    // as perguntas obrigatórias dela passam a ser exigidas.
+    function sincronizarObrigatorios() {
+        var wraps = document.querySelectorAll('#anamneseFields [data-ficha-id]');
+        for (var i = 0; i < wraps.length; i++) {
+            if (wraps[i].dataset.fichaObrigatoria) continue;
+            var exigir = fichaPreenchida(wraps[i].dataset.fichaId);
+            var campos = wraps[i].querySelectorAll('[data-form-id][data-obrigatorio="1"]');
+            for (var k = 0; k < campos.length; k++) campos[k].required = exigir;
+        }
+    }
+
+    // Consentimento de dado de saúde (LGPD art. 11): só é exigido quando a
+    // pessoa respondeu alguma pergunta — igual ao servidor, que só pede o
+    // consentimento quando há resposta para gravar. Sem resposta, nada de
+    // saúde é enviado e o agendamento segue sem esse consentimento.
     function atualizarConsentSaude() {
         var cb = document.getElementById('form-consent-saude');
-        if (cb) cb.required = anamneseObrigatoria || anamneseTemResposta();
+        if (cb) cb.required = anamneseTemResposta();
+    }
+
+    function setAnamneseMsg(texto) {
+        var el = document.getElementById('anamnese-msg');
+        if (el) el.textContent = texto;
+    }
+
+    function aoResponderAnamnese() {
+        sincronizarObrigatorios();
+        atualizarConsentSaude();
+        setAnamneseMsg('');
     }
 
     var anamneseFieldsEl = document.getElementById('anamneseFields');
     if (anamneseFieldsEl) {
-        anamneseFieldsEl.addEventListener('input', atualizarConsentSaude);
-        anamneseFieldsEl.addEventListener('change', atualizarConsentSaude);
+        anamneseFieldsEl.addEventListener('input', aoResponderAnamnese);
+        anamneseFieldsEl.addEventListener('change', aoResponderAnamnese);
     }
 
     function coletarAnamnese() {
@@ -684,15 +750,18 @@
         document.getElementById('anamneseRespostasJson').value = JSON.stringify(dados);
     }
 
+    // Grupo de múltipla escolha obrigatório sem nenhuma opção marcada (só conta
+    // em ficha obrigatória ou que a pessoa começou a responder). null = ok.
     function checkboxObrigatorioVazio() {
         var grupos = document.querySelectorAll('#anamneseFields [data-grupo-form-id]');
         for (var i = 0; i < grupos.length; i++) {
             var g = grupos[i];
-            if (g.dataset.obrigatorio && !g.querySelector('input[type="checkbox"]:checked')) {
-                return g.dataset.label || 'questionário';
+            if (g.dataset.obrigatorio && fichaExigida(g.dataset.grupoFormId)
+                    && !g.querySelector('input[type="checkbox"]:checked')) {
+                return g;
             }
         }
-        return '';
+        return null;
     }
 
     // ═══ SUBMIT (guarda contra duplo clique) ═══
@@ -705,7 +774,11 @@
             var faltando = checkboxObrigatorioVazio();
             if (faltando) {
                 e.preventDefault();
-                setOtpMsg('Responda o questionário: ' + faltando + '.', false);
+                // Erro junto da ficha (não no status do celular, lá no topo) + foco
+                setAnamneseMsg('Responda: ' + (faltando.dataset.label || 'questionário') + '.');
+                if (faltando.scrollIntoView) faltando.scrollIntoView({block: 'center'});
+                var primeiro = faltando.querySelector('input');
+                if (primeiro) primeiro.focus();
                 return;
             }
             coletarAnamnese();
@@ -844,12 +917,16 @@
         setStatusMsg('Celular verificado.', true);
     }
 
+    // SMS só chega em celular: DDD + 9 + 8 dígitos (mesma regra do servidor)
+    var CELULAR_RE = /^[1-9]{2}9\d{8}$/;
+    var MSG_CELULAR = 'Informe um celular com DDD (9 dígitos, começando com 9).';
+
     var btnEnviar = document.getElementById('btn-enviar-otp');
     if (btnEnviar) {
         btnEnviar.addEventListener('click', function() {
             var digitos = soDigitos(document.getElementById('form-telefone').value);
-            if (digitos.length < 10 || digitos.length > 11) {
-                setStatusMsg('Informe um celular válido (DDD + número).', false);
+            if (!CELULAR_RE.test(digitos)) {  // fixo não recebe SMS
+                setStatusMsg(MSG_CELULAR, false);
                 return;
             }
             btnEnviar.disabled = true;
@@ -874,10 +951,14 @@
                         if (campoCodigo) campoCodigo.focus();
                     } else if (erro === 'aguarde' || erro === 'limite') {
                         setStatusMsg('Aguarde um minuto antes de pedir outro código.', false);
+                    } else if (erro === 'limite_sms') {
+                        // Nenhum código novo foi gerado: o último recebido ainda vale
+                        document.getElementById('otp-field').style.display = '';
+                        setStatusMsg('Você atingiu o limite de códigos nesta hora. Use o último código recebido.', false, true);
                     } else if (erro === 'captcha') {
                         setStatusMsg('Confirme a verificação de segurança e tente novamente.', false);
                     } else if (erro === 'telefone_invalido') {
-                        setStatusMsg('Informe um celular válido (DDD + número).', false);
+                        setStatusMsg(MSG_CELULAR, false);
                     } else if (erro === 'sms_falha') {
                         setStatusMsg('Não conseguimos enviar o código agora.', false, true);
                     } else {

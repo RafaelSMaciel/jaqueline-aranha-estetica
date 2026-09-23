@@ -143,7 +143,6 @@
 {% block js %}
 <script nonce="{{ csp_nonce }}">
 (function () {
-    const PROC_ID = {{ atendimento.procedimento.pk }};
     const PROF_ORIG = {{ atendimento.profissional.pk }};
     const form = document.getElementById('form-reagendar');
     const dataInput = document.getElementById('nova-data');
@@ -165,8 +164,10 @@
         btn.disabled = true;
 
         try {
-            const qs = new URLSearchParams({data: data, procedimento_id: PROC_ID});
-            const resp = await fetch(`{% url 'aranha:api_horarios_disponiveis' %}?${qs.toString()}`);
+            // Endpoint do proprio link: o horario atual nao conta como ocupado
+            // (mesma regra do POST), entao da p/ empurrar o horario alguns minutos.
+            const qs = new URLSearchParams({data: data});
+            const resp = await fetch(`{% url 'aranha:reagendar_horarios' atendimento.token_cancelamento %}?${qs.toString()}`);
             const json = await resp.json();
 
             if (!json.horarios || json.horarios.length === 0) {

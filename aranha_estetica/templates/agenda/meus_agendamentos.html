@@ -356,6 +356,13 @@
         <!-- ═══════════════════════════════════════════ -->
         <div class="verify-card" style="box-shadow:none;max-width:540px;">
             <div class="verify-body" style="padding:0.5rem 1rem 1rem;">
+                {% if not sms_disponivel %}
+                {# Sem provedor de SMS o codigo de acesso nao sai: avisa antes de a pessoa tentar #}
+                <div id="aviso-sms-indisponivel" role="alert" style="border:1px solid var(--cor-erro,#b42318);color:var(--cor-erro,#b42318);border-radius:12px;padding:0.75rem 1rem;font-size:0.85rem;margin-bottom:0.75rem;">
+                    No momento não conseguimos enviar o código de acesso por SMS.
+                    {% if WHATSAPP_NUMERO %}<a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text={{ 'Olá! Gostaria de ver meus agendamentos.'|urlencode }}" target="_blank" rel="noopener" style="font-weight:700;text-decoration:underline;">Fale com a gente pelo WhatsApp</a>.{% else %}Tente novamente mais tarde.{% endif %}
+                </div>
+                {% endif %}
                 <!-- Celular ou e-mail -->
                 <div style="margin-bottom:0.75rem;">
                     <label class="block font-bold uppercase mb-2 text-texto-suave" style="letter-spacing:1px;font-size:0.72rem;" for="ident-input">
@@ -945,7 +952,8 @@ var CSRF_TOKEN = '{{ csrf_token }}';
                     showToast(res.data.mensagem || 'Agendamento cancelado com sucesso.');
                 } else {
                     closeCancelModal();
-                    showToast(res.data.erro || 'Erro ao cancelar. Tente novamente.', true);
+                    // Codigos internos do lerJson ('limite', 'rede') viram texto legivel
+                    showToast(MSGS_ERRO[res.data.erro] || res.data.erro || 'Erro ao cancelar. Tente novamente.', true);
                 }
             })
             .catch(function() {
@@ -973,6 +981,12 @@ var CSRF_TOKEN = '{{ csrf_token }}';
     }
 
     /* ═══ HELPERS ═══ */
+    // Resposta nao-JSON (pagina 403/429 de CSRF/ratelimit, 500 HTML) -> lerJson
+    // devolve um codigo interno; nunca mostrar o codigo cru ao usuario.
+    var MSGS_ERRO = {
+        limite: 'Muitas tentativas ou sessão expirada. Aguarde um minuto e recarregue a página.',
+        rede: 'Erro de conexão. Tente novamente.'
+    };
     function lerJson(r) {
         return r.text().then(function(t) {
             var d;

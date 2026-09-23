@@ -21,6 +21,7 @@ from ..models import (
     Procedimento,
 )
 from ..services.disponibilidade import SlotService, profissionais_para
+from ..utils.parse import id_int
 from ..utils.precos import preco_com_promocao
 
 logger = logging.getLogger(__name__)
@@ -31,10 +32,11 @@ def _procedimento_ativo(procedimento_id):
     procedimento_id = str(procedimento_id or '').strip()
     if not procedimento_id:
         return None, JsonResponse({'error': 'Parâmetros obrigatórios: data, procedimento_id'}, status=400)
-    if not procedimento_id.isdigit():
+    pk = id_int(procedimento_id)
+    if pk is None:
         return None, JsonResponse({'error': 'Parâmetro inválido'}, status=400)
     try:
-        return Procedimento.objects.get(pk=int(procedimento_id), ativo=True), None
+        return Procedimento.objects.get(pk=pk, ativo=True), None
     except Procedimento.DoesNotExist:
         return None, JsonResponse({'error': 'Procedimento não encontrado'}, status=404)
 
@@ -56,12 +58,43 @@ def _profissionais(request, procedimento):
     (mostra todos) em vez de deixar o calendario vazio.
     """
     profissionais = list(profissionais_para(procedimento))
-    prof_id = str(request.GET.get('profissional_id') or '').strip()
-    if prof_id.isdigit():
-        filtrados = [p for p in profissionais if p.pk == int(prof_id)]
+    prof_id = id_int(request.GET.get('profissional_id'))
+    if prof_id is not None:
+        filtrados = [p for p in profissionais if p.pk == prof_id]
         if filtrados:
             return filtrados
     return profissionais
+
+
+def agrupar_horarios(procedimento, profissionais, dia, ignorar_atendimento_id=None, com_preco=True):
+    """[{'horario', 'datetime_iso', 'profissionais': [...]}] ordenado por horario.
+
+    ignorar_atendimento_id: o atendimento sendo reagendado nao ocupa o proprio
+    horario (mesma regra do POST do reagendamento). com_preco=False omite o
+    preco (o reagendamento mantem o valor ja combinado).
+    """
+    agrupados = {}
+    for prof in profissionais:
+        slots = SlotService.slots_livres(
+            prof, dia, procedimento, ignorar_atendimento_id=ignorar_atendimento_id,
+        )
+        if not slots:
+            continue
+        info = {'id': prof.pk, 'nome': prof.nome}
+        if com_preco:
+            # Preco NA DATA do atendimento p/ este profissional (promocao inclusa):
+            # o resumo do wizard mostra exatamente o valor que o booking grava.
+            info.update(_preco_json(procedimento, prof, dia))
+        for hhmm in slots:
+            if hhmm not in agrupados:
+                inicio = timezone.make_aware(datetime.combine(dia, time.fromisoformat(hhmm)))
+                agrupados[hhmm] = {
+                    'horario': hhmm,
+                    'datetime_iso': inicio.isoformat(),
+                    'profissionais': [],
+                }
+            agrupados[hhmm]['profissionais'].append(info)
+    return [agrupados[k] for k in sorted(agrupados)]
 
 
 @ratelimit(key='ip', rate='30/m', method='GET', block=True)
@@ -83,31 +116,13 @@ def api_horarios_disponiveis(request):
     if erro:
         return erro
 
-    agrupados = {}
-    for prof in _profissionais(request, procedimento):
-        slots = SlotService.slots_livres(prof, data_selecionada, procedimento)
-        if not slots:
-            continue
-        # Preco NA DATA do atendimento p/ este profissional (promocao inclusa):
-        # o resumo do wizard mostra exatamente o valor que o booking grava.
-        info = {'id': prof.pk, 'nome': prof.nome, **_preco_json(procedimento, prof, data_selecionada)}
-        for hhmm in slots:
-            if hhmm not in agrupados:
-                inicio = timezone.make_aware(
-                    datetime.combine(data_selecionada, time.fromisoformat(hhmm))
-                )
-                agrupados[hhmm] = {
-                    'horario': hhmm,
-                    'datetime_iso': inicio.isoformat(),
-                    'profissionais': [],
-                }
-            agrupados[hhmm]['profissionais'].append(info)
-
     return JsonResponse({
         'data': data_str,
         'procedimento': procedimento.nome,
         'duracao': procedimento.duracao_minutos,
-        'horarios': [agrupados[k] for k in sorted(agrupados)],
+        'horarios': agrupar_horarios(
+            procedimento, _profissionais(request, procedimento), data_selecionada,
+        ),
     })
 
 

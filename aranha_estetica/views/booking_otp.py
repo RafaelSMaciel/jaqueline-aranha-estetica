@@ -32,6 +32,10 @@ def _captcha_invalido(request):
 def _resposta_falha_envio(motivo):
     if motivo == 'aguarde':
         return JsonResponse({'ok': False, 'erro': 'aguarde'}, status=429)
+    if motivo == 'limite_sms':
+        # Quota de SMS da hora esgotada: nenhum codigo novo foi gerado, o ultimo
+        # recebido continua valendo (o front sugere usa-lo ou o WhatsApp).
+        return JsonResponse({'ok': False, 'erro': 'limite_sms'}, status=429)
     if motivo == 'sms_falha':
         return JsonResponse({'ok': False, 'erro': 'sms_falha'}, status=503)
     return JsonResponse({'ok': False, 'erro': motivo}, status=400)
@@ -48,7 +52,8 @@ def solicitar_otp_agendamento(request):
         return JsonResponse({'ok': False, 'erro': 'captcha'}, status=400)
 
     digitos = otp_service.normalizar_telefone_br(request.POST.get('telefone'))
-    if not digitos:
+    if not otp_service.eh_celular_br(digitos):
+        # Fixo nao recebe SMS: recusa antes de gastar quota.
         return JsonResponse({'ok': False, 'erro': 'telefone_invalido'}, status=400)
 
     ok, motivo, canal_usado = otp_service.solicitar_otp_telefone(
@@ -139,8 +144,8 @@ def meus_agendamentos_enviar_otp(request):
         return JsonResponse({'ok': False, 'erro': 'captcha'}, status=400)
 
     ident = _identificador(request)
-    if '@' not in ident and not otp_service.normalizar_telefone_br(ident):
-        # Erro de formato (nao depende de existir cadastro).
+    if '@' not in ident and not otp_service.eh_celular_br(otp_service.normalizar_telefone_br(ident)):
+        # Erro de formato (nao depende de existir cadastro); fixo nao recebe SMS.
         return JsonResponse({'ok': False, 'erro': 'identificador_invalido'}, status=400)
 
     # Checagem global do canal — nao vaza se o cadastro existe.

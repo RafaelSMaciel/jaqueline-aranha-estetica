@@ -14,6 +14,7 @@ Falha FECHADA: fora de DEBUG/SMS_DEV_LOG_ONLY e sem provedor configurado,
 enviar_sms retorna False (nunca "sucesso" so logando). O conteudo da
 mensagem (que carrega o codigo OTP) so vai para o log com DEBUG=True.
 """
+import ipaddress
 import logging
 import os
 from typing import Optional
@@ -83,6 +84,20 @@ def formatar_telefone(telefone: str) -> str:
     return ''
 
 
+def _chave_ip(ip: str) -> str:
+    """Chave da quota por IP. IPv6 agrupa pelo /64 (um unico cliente costuma
+    receber o /64 inteiro: por endereco, trocar de IP burlaria a quota)."""
+    try:
+        addr = ipaddress.ip_address(str(ip).strip())
+    except ValueError:
+        return str(ip)
+    if addr.version == 6:
+        if addr.ipv4_mapped:
+            return str(addr.ipv4_mapped)
+        return f'{ipaddress.ip_network(f"{addr}/64", strict=False).network_address}/64'
+    return str(addr)
+
+
 def pode_enviar(telefone: str, ip: Optional[str] = None) -> bool:
     """Checa limites (telefone + IP + global) SEM consumir quota.
     Apos um envio bem-sucedido, chame registrar_envio() para contabilizar.
@@ -100,7 +115,7 @@ def pode_enviar(telefone: str, ip: Optional[str] = None) -> bool:
     if global_atual >= SMS_MAX_GLOBAL_HORA * 0.8 and cache.add('sms_rl:alerta80', 1, RATE_LIMIT_TTL):
         # Alerta 1x/hora: possivel SMS pumping antes de esgotar a quota global.
         logger.error('sms_quota_global_80', extra={'atual': global_atual, 'max': SMS_MAX_GLOBAL_HORA})
-    if ip and cache.get(f'sms_rl:ip:{ip}', 0) >= SMS_MAX_POR_IP_HORA:
+    if ip and cache.get(f'sms_rl:ip:{_chave_ip(ip)}', 0) >= SMS_MAX_POR_IP_HORA:
         logger.warning('sms_rate_limit_ip', extra={'ip': ip})
         return False
     return True
@@ -114,7 +129,7 @@ def registrar_envio(telefone: str, ip: Optional[str] = None) -> None:
     tel_fmt = formatar_telefone(telefone)
     chaves = [f'sms_rl:tel:{tel_fmt}', 'sms_rl:global']
     if ip:
-        chaves.append(f'sms_rl:ip:{ip}')
+        chaves.append(f'sms_rl:ip:{_chave_ip(ip)}')
     for key in chaves:
         try:
             cache.add(key, 0, timeout=RATE_LIMIT_TTL)
