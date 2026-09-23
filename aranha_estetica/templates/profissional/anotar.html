@@ -42,6 +42,9 @@
                         {{ atendimento.data_hora_inicio|date:"d/m/Y" }} às {{ atendimento.data_hora_inicio|time:"H:i" }}
                     </div>
                 </div>
+                <a href="{% url 'aranha:prontuario_detalhe' atendimento.cliente_id %}"
+                   class="inline-block mt-2 text-xs font-bold text-blue-800 hover:underline">Ver ficha da cliente</a>
+                {% include 'partials/_alerta_saude.html' with alertas=alertas %}
             </div>
 
             <!-- Formulário de nova anotação -->
@@ -76,9 +79,9 @@
             {% for nota in anotacoes %}
             <div class="bg-fundo rounded-lg px-4 py-3 mb-2 border-l-4 border-borda">
                 <p class="text-xs text-texto-suave mb-1">
-                    {{ nota.autor.nome|default:"Sistema" }} &bull; {{ nota.criado_em|date:"d/m/Y H:i" }}
+                    {{ nota.autor_nome|default:nota.autor.nome|default:"Autor não identificado" }} &bull; {{ nota.criado_em|date:"d/m/Y H:i" }}
                 </p>
-                <p class="text-sm text-texto leading-relaxed">{{ nota.texto }}</p>
+                <p class="text-sm text-texto leading-relaxed">{{ nota.texto|linebreaksbr }}</p>
             </div>
             {% empty %}
             <p class="text-sm text-texto-suave italic">Nenhuma anotação registrada para este atendimento.</p>

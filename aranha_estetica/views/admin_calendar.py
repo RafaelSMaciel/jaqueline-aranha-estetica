@@ -212,7 +212,7 @@ def admin_calendar_mover(request):
         registrar_log(
             request.user, 'Moveu agendamento via calendario',
             'atendimento', at.pk,
-            detalhes={'de': antigo, 'para': novo_inicio.isoformat()},
+            detalhes={'de': antigo, 'para': novo_inicio.isoformat()}, request=request,
         )
 
     return JsonResponse({

@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 from django.db import DatabaseError, transaction
 from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
 from ..decorators import staff_required
 from ..models import (
@@ -123,7 +124,7 @@ def admin_criar_pacote(request):
                 for pid, qtd in itens
             ])
 
-        registrar_log(request.user, f'Criou pacote: {pacote.nome}', 'pacote', pacote.pk)
+        registrar_log(request.user, f'Criou pacote: {pacote.nome}', 'pacote', pacote.pk, request=request)
         messages.success(request, f'Pacote "{nome}" criado com sucesso!')
     except (DatabaseError, ValidationError) as e:
         logger.error(f'Erro ao criar pacote: {e}', exc_info=True)
@@ -134,7 +135,14 @@ def admin_criar_pacote(request):
 
 @staff_required
 def admin_editar_pacote(request, pk):
-    """Edita pacote existente (dados, itens e ativo/inativo)."""
+    """Edita pacote existente (dados, itens e ativo/inativo).
+
+    Pacote ja vendido: nome e itens ficam congelados — CompraPacote nao guarda
+    copia dos itens e o saldo/debito/comissao leem pacote.itens na hora, entao
+    mudar os itens alteraria o que a cliente ja comprou. Preco, validade,
+    descricao e ativo seguem editaveis (valem p/ vendas futuras; a validade
+    de quem ja comprou esta gravada em data_expiracao).
+    """
     pacote = get_object_or_404(Pacote, pk=pk)
 
     if request.method != 'POST':
@@ -153,6 +161,19 @@ def admin_editar_pacote(request, pk):
         messages.error(request, 'Dados inválidos: verifique preço, validade e itens (sem procedimento repetido).')
         return redirect('aranha:admin_pacotes')
 
+    vendido = CompraPacote.objects.filter(pacote=pacote).exists()
+    if vendido:
+        atuais = sorted(pacote.itens.values_list('procedimento_id', 'quantidade_sessoes'))
+        # Form de pacote vendido nao envia itens (campos so leitura) = mantem os atuais
+        mudou_itens = 'procedimento_ids' in request.POST and sorted(itens) != atuais
+        if nome != pacote.nome or mudou_itens:
+            messages.error(
+                request,
+                f'O pacote "{pacote.nome}" já foi vendido: nome e itens não podem mudar '
+                '(alteraria o que as clientes compraram). Crie um novo pacote e desative este.',
+            )
+            return redirect('aranha:admin_pacotes')
+
     try:
         with transaction.atomic():
             pacote.nome = nome
@@ -162,15 +183,15 @@ def admin_editar_pacote(request, pk):
             pacote.ativo = request.POST.get('ativo') in ('1', 'on')
             pacote.save()
 
-            # Itens: substitui o conjunto (ItemPacote nao e referenciado por
-            # consumos — ConsumoSessao aponta p/ a compra e o atendimento).
-            ItemPacote.objects.filter(pacote=pacote).delete()
-            ItemPacote.objects.bulk_create([
-                ItemPacote(pacote=pacote, procedimento_id=pid, quantidade_sessoes=qtd)
-                for pid, qtd in itens
-            ])
+            if not vendido:
+                # Itens: substitui o conjunto — so enquanto ninguem comprou.
+                ItemPacote.objects.filter(pacote=pacote).delete()
+                ItemPacote.objects.bulk_create([
+                    ItemPacote(pacote=pacote, procedimento_id=pid, quantidade_sessoes=qtd)
+                    for pid, qtd in itens
+                ])
 
-        registrar_log(request.user, f'Editou pacote: {pacote.nome}', 'pacote', pacote.pk)
+        registrar_log(request.user, f'Editou pacote: {pacote.nome}', 'pacote', pacote.pk, request=request)
         messages.success(request, f'Pacote "{pacote.nome}" atualizado!')
     except (DatabaseError, ValidationError) as e:
         logger.error(f'Erro ao editar pacote: {e}', exc_info=True)
@@ -218,7 +239,7 @@ def admin_vender_pacote(request):
         registrar_log(
             request.user,
             f'Vendeu pacote "{pacote.nome}" para {cliente.nome}',
-            'compra_pacote', pc.pk,
+            'compra_pacote', pc.pk, request=request,
         )
         messages.success(request, f'Pacote vendido para {cliente.nome}!')
     except (DatabaseError, ValidationError) as e:
@@ -226,3 +247,37 @@ def admin_vender_pacote(request):
         messages.error(request, 'Erro ao vender pacote.')
 
     return redirect('aranha:admin_pacotes')
+
+
+@staff_required
+@require_POST
+def admin_cancelar_compra_pacote(request, pk):
+    """Cancela uma compra de pacote ATIVA (ex.: desistencia com reembolso).
+
+    Exige a observacao do reembolso/acordo, que vai para a auditoria. Sessoes
+    ja usadas continuam registradas; so compra ATIVA pode ser cancelada.
+    """
+    compra = get_object_or_404(CompraPacote.objects.select_related('cliente', 'pacote'), pk=pk)
+    destino = redirect('aranha:admin_cliente_detalhe', pk=compra.cliente_id)
+    observacao = (request.POST.get('observacao') or '').strip()[:500]
+    if not observacao:
+        messages.error(request, 'Descreva o motivo e o reembolso/acordo para cancelar o pacote.')
+        return destino
+
+    with transaction.atomic():
+        atualizadas = CompraPacote.objects.filter(pk=compra.pk, status='ATIVO').update(status='CANCELADO')
+    if not atualizadas:
+        messages.warning(
+            request, f'O pacote "{compra.pacote.nome}" não está ativo ({compra.get_status_display().lower()}).',
+        )
+        return destino
+
+    registrar_log(
+        request.user,
+        f'Cancelou pacote "{compra.pacote.nome}" de {compra.cliente.nome}',
+        'compra_pacote', compra.pk,
+        {'observacao': observacao, 'sessoes_restantes': compra.sessoes_restantes()},
+        request=request,
+    )
+    messages.success(request, f'Pacote "{compra.pacote.nome}" cancelado.')
+    return destino

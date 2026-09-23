@@ -93,8 +93,8 @@
           <div class="grid grid-cols-1 sm:grid-cols-12 gap-3">
             <div class="sm:col-span-6">
               <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Nome</label>
-              <input type="text" name="nome" value="{{ pacote.nome }}" required maxlength="150"
-                     class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+              <input type="text" name="nome" value="{{ pacote.nome }}" required maxlength="150"{% if pacote.total_vendas %} readonly aria-describedby="vendido-{{ pacote.pk }}"{% endif %}
+                     class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition{% if pacote.total_vendas %} opacity-70{% endif %}">
             </div>
             <div class="sm:col-span-3">
               <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Preço Total (R$)</label>
@@ -120,7 +120,19 @@
           </div>
 
           <h6 class="font-bold text-texto mt-4 mb-1">Itens do Pacote</h6>
-          <p class="text-[0.75rem] text-texto-suave mb-2">Para remover um item, deixe o procedimento em branco. Alterar os itens também vale para os pacotes já vendidos.</p>
+          {% if pacote.total_vendas %}
+          {# Vendido: itens e nome congelados (o saldo das compras le estes itens) #}
+          <p id="vendido-{{ pacote.pk }}" class="text-[0.75rem] font-bold text-amber-800 bg-amber-50 rounded-lg px-3 py-2 mb-2">
+            Este pacote já foi vendido: nome e itens não podem mudar. Para outra composição, crie um novo pacote e desative este.
+          </p>
+          <ul class="mb-1 pl-5 list-disc text-[0.82rem] text-texto">
+            {% for item in pacote.itens.all %}
+            <li>{{ item.procedimento.nome }} — {{ item.quantidade_sessoes }} sess{{ item.quantidade_sessoes|pluralize:"ão,ões" }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+          {% else %}
+          <p class="text-[0.75rem] text-texto-suave mb-2">Para remover um item, deixe o procedimento em branco.</p>
           <div x-ref="itens">
             {% for item in pacote.itens.all %}
             <div class="grid grid-cols-12 gap-2 mb-2 item-row">
@@ -162,6 +174,7 @@
             Adicionar Item
           </button>
         </div>
+          {% endif %}
         <div class="flex justify-end gap-2 px-5 py-4 border-t border-borda">
           <button type="button" x-on:click="fechar"
                   class="px-4 py-2 rounded-xl border border-borda text-texto text-[0.85rem] font-bold bg-superficie cursor-pointer hover:bg-fundo transition-colors">Cancelar</button>

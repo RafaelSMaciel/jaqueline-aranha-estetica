@@ -685,3 +685,465 @@ class NpsOptInTests(TestCase):
         notif = self._notif()
         self.client.post(reverse('aranha:nps_web', args=[notif.token]), {'nota': '9'})
         self.assertFalse(AvaliacaoNPS.objects.get(atendimento=notif.atendimento).autoriza_publicacao)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#   Rodada 2 (P5): alerta de saude visivel, termos, agendamento interno,
+#   pacotes vendidos, promocao
+# ═══════════════════════════════════════════════════════════════════════
+
+def _local(dias=1, hora=10):
+    """Datetime aware no fuso local, `dias` a frente, na hora cheia."""
+    return timezone.localtime(timezone.now() + timedelta(days=dias)).replace(
+        hour=hora, minute=0, second=0, microsecond=0)
+
+
+def _lgpd():
+    return VersaoTermo.lgpd_vigente() or VersaoTermo.objects.create(
+        tipo='LGPD', titulo='Privacidade', conteudo='Texto LGPD', versao='1.0',
+        vigente_desde=timezone.localdate(), ativa=True)
+
+
+def _termo_proc(proc=None, **kwargs):
+    dados = {'titulo': 'Termo do procedimento', 'conteudo': 'Riscos e cuidados', 'versao': '1.0'}
+    dados.update(kwargs)
+    return VersaoTermo.objects.create(
+        tipo='PROCEDIMENTO', procedimento=proc, vigente_desde=timezone.localdate(), ativa=True, **dados)
+
+
+class AlertaSaudeVisivelTests(TestCase):
+    """Alergia aparece como TEXTO (nao title) no portal, painel, anotar e ficha."""
+
+    ALERTA = '<strong>Alergias:</strong> Lidocaina'
+
+    def setUp(self):
+        from aranha_estetica.models import Prontuario
+        self.prof = criar_profissional('Dra. Alerta')
+        self.proc = criar_procedimento(profissional=self.prof)
+        self.cli = criar_cliente('Dora Alergica')
+        Prontuario.objects.create(cliente=self.cli, alergias='Lidocaina')
+        self.user = Usuario.objects.create_user(
+            email='prof-alerta@test.com', password='senha-forte-123', nome='Dra. Alerta',
+            papel=Usuario.PAPEL_PROFISSIONAL, profissional=self.prof,
+        )
+        self.agendado = criar_atendimento(self.cli, self.prof, self.proc, data_hora=_local(1, 10))
+        self.pendente = criar_atendimento(self.cli, self.prof, self.proc, data_hora=_local(1, 14),
+                                          status='PENDENTE')
+
+    def test_portal_dia_e_pendentes_mostram_texto(self):
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse('aranha:profissional_agenda'),
+                               {'data': _local(1).date().isoformat()})
+        html = resp.content.decode()
+        # 2 cards do dia + 1 na lista "Aguardando sua aprovacao"
+        self.assertEqual(html.count(self.ALERTA), 3)
+        self.assertNotIn('title="Alergias', html)
+        self.assertIn('Alerta de saúde: Alergias: Lidocaina', html)  # visao semana (sr-only)
+        self.assertIn(reverse('aranha:prontuario_detalhe', args=[self.cli.pk]), html)
+
+    def test_anotar_mostra_alerta(self):
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse('aranha:profissional_anotar', args=[self.agendado.pk]))
+        self.assertContains(resp, self.ALERTA)
+
+    def test_painel_agendamentos_e_ficha(self):
+        admin = Usuario.objects.create_superuser(email='adm-alerta@test.com', password='x-senha-123', nome='Adm')
+        self.client.force_login(admin)
+        resp = self.client.get(reverse('aranha:painel_agendamentos'))
+        self.assertContains(resp, self.ALERTA)
+        self.assertNotContains(resp, 'title="Alergias')
+        resp = self.client.get(reverse('aranha:admin_cliente_detalhe', args=[self.cli.pk]))
+        self.assertContains(resp, self.ALERTA)
+
+    def test_ficha_de_anamnese_respondida_entra_no_alerta(self):
+        from aranha_estetica.models import FormularioAnamnese, RespostaAnamnese
+        from aranha_estetica.services.alertas import alertas_por_cliente
+        outra = criar_cliente('Gestante')
+        form = FormularioAnamnese.objects.create(
+            nome='Ficha', tipo='ANAMNESE',
+            schema_json=[{'key': 'gestante', 'label': 'Está gestante?', 'type': 'text'}],
+        )
+        RespostaAnamnese.objects.create(formulario=form, cliente=outra, respostas_json={'gestante': 'Sim'},
+                                        respondida_em=timezone.now())
+        mapa = alertas_por_cliente([outra, self.cli, criar_cliente('Sem nada')])
+        self.assertEqual(set(mapa), {outra.pk, self.cli.pk})
+        self.assertEqual(mapa[outra.pk][0]['origem'], 'anamnese')
+
+
+class TermoAssinaturaTests(TestCase):
+    def setUp(self):
+        from aranha_estetica.models import Notificacao
+        self.Notificacao = Notificacao
+        self.prof = criar_profissional()
+        self.proc = criar_procedimento(profissional=self.prof)
+        self.cli = criar_cliente('Tina Termo')
+        self.at = criar_atendimento(self.cli, self.prof, self.proc, data_hora=_local(30, 10))
+        self.lgpd = _lgpd()
+        self.termo = _termo_proc(self.proc)
+        self.notif = Notificacao.objects.create(atendimento=self.at, tipo='TERMO', canal='EMAIL',
+                                                token='tok-termo-p5')
+        self.url = reverse('aranha:termo_assinatura', args=[self.notif.token])
+
+    def _aceites(self):
+        from aranha_estetica.models import AceiteTermo
+        return AceiteTermo.objects.filter(cliente=self.cli)
+
+    def test_token_de_nps_nao_abre_termo(self):
+        nps = self.Notificacao.objects.create(atendimento=self.at, tipo='NPS', canal='EMAIL', token='tok-nps-x')
+        self.assertEqual(self.client.get(reverse('aranha:termo_assinatura', args=[nps.token])).status_code, 404)
+
+    def test_post_parcial_400_sem_gravar(self):
+        resp = self.client.post(self.url, {f'aceite_{self.lgpd.pk}': '1'})
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('erro', resp.context)
+        self.assertFalse(self._aceites().exists())
+
+    def test_post_completo_grava_prova_e_auditoria(self):
+        resp = self.client.post(
+            self.url, {f'aceite_{self.lgpd.pk}': '1', f'aceite_{self.termo.pk}': '1'},
+            HTTP_USER_AGENT='Mozilla/5.0 (P5)',
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(self._aceites().count(), 2)
+        aceite = self._aceites().get(versao_termo=self.termo)
+        self.assertEqual(aceite.user_agent, 'Mozilla/5.0 (P5)')
+        self.assertEqual(aceite.atendimento_id, self.at.pk)
+        self.assertEqual(aceite.conteudo_sha256, self.termo.sha256_conteudo)
+        self.assertTrue(LogAuditoria.objects.filter(acao='Cliente aceitou termos', registro_id=self.cli.pk).exists())
+
+    def test_link_antigo_vale_ate_o_atendimento(self):
+        self.Notificacao.objects.filter(pk=self.notif.pk).update(criado_em=timezone.now() - timedelta(days=8))
+        self.assertEqual(self.client.get(self.url).status_code, 200)
+
+    def test_cancelado_realizado_ou_encerrado_410(self):
+        for status in ('CANCELADO', 'REALIZADO'):
+            Atendimento.objects.filter(pk=self.at.pk).update(status=status)
+            resp = self.client.post(self.url, {f'aceite_{self.lgpd.pk}': '1', f'aceite_{self.termo.pk}': '1'})
+            self.assertEqual(resp.status_code, 410)
+        passado = timezone.now() - timedelta(days=1)
+        Atendimento.objects.filter(pk=self.at.pk).update(
+            status='AGENDADO', data_hora_inicio=passado - timedelta(minutes=30), data_hora_fim=passado)
+        self.assertEqual(self.client.get(self.url).status_code, 410)
+        self.assertFalse(self._aceites().exists())
+
+    def test_termo_procedimento_geral_aparece(self):
+        geral = _termo_proc(None, titulo='Termo geral de estética')
+        resp = self.client.get(self.url)
+        self.assertContains(resp, 'Termo geral de estética')
+        self.assertIn(geral, resp.context['termos_pendentes'])
+
+
+class TermoLinkEPendenciaTests(_AdminTestCase):
+    def setUp(self):
+        super().setUp()
+        self.prof = criar_profissional()
+        self.proc = criar_procedimento(profissional=self.prof)
+        self.cli = criar_cliente('Rita Balcão')
+        self.at = criar_atendimento(self.cli, self.prof, self.proc, data_hora=_local(5, 11))
+        self.termo = _termo_proc(self.proc)
+
+    def test_gerar_link_cria_notificacao_termo_e_reusa(self):
+        from aranha_estetica.models import Notificacao
+        url = reverse('aranha:admin_gerar_link_termo', args=[self.at.pk])
+        resp = self.client.post(url)
+        self.assertEqual(resp.status_code, 200)
+        notif = Notificacao.objects.get(atendimento=self.at)
+        self.assertEqual(notif.tipo, 'TERMO')
+        self.assertContains(resp, reverse('aranha:termo_assinatura', args=[notif.token]))
+        self.client.post(url)
+        self.assertEqual(Notificacao.objects.filter(atendimento=self.at).count(), 1)
+        # e o link gerado abre a pagina publica do termo
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse('aranha:termo_assinatura', args=[notif.token])).status_code, 200)
+
+    def test_gerar_link_de_cancelado_recusa(self):
+        from aranha_estetica.models import Notificacao
+        Atendimento.objects.filter(pk=self.at.pk).update(status='CANCELADO')
+        resp = self.client.post(reverse('aranha:admin_gerar_link_termo', args=[self.at.pk]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(Notificacao.objects.exists())
+
+    def test_painel_e_ficha_mostram_termo_pendente(self):
+        resp = self.client.get(reverse('aranha:painel_agendamentos'))
+        self.assertContains(resp, 'Termo pendente')
+        self.assertContains(resp, reverse('aranha:admin_gerar_link_termo', args=[self.at.pk]))
+        resp = self.client.get(reverse('aranha:admin_cliente_detalhe', args=[self.cli.pk]))
+        self.assertContains(resp, 'Termo pendente')
+
+    def test_compliance_oferece_link_do_proximo_atendimento(self):
+        resp = self.client.get(reverse('aranha:admin_termos_compliance'), {'versao': self.termo.pk})
+        self.assertContains(resp, reverse('aranha:admin_gerar_link_termo', args=[self.at.pk]))
+
+    def test_portal_realizado_sem_termo_exige_confirmacao_e_audita(self):
+        user = Usuario.objects.create_user(
+            email='prof-termo@test.com', password='senha-forte-123', nome='Prof',
+            papel=Usuario.PAPEL_PROFISSIONAL, profissional=self.prof,
+        )
+        self.client.force_login(user)
+        url = reverse('aranha:profissional_marcar_realizado', args=[self.at.pk])
+        self.client.post(url)
+        self.at.refresh_from_db()
+        self.assertEqual(self.at.status, 'AGENDADO')
+        self.client.post(url, {'sem_termo': '1'})
+        self.at.refresh_from_db()
+        self.assertEqual(self.at.status, 'REALIZADO')
+        self.assertTrue(LogAuditoria.objects.filter(acao='Realizado sem termo aceito', registro_id=self.at.pk).exists())
+
+
+class TermosCriacaoComplianceTests(_AdminTestCase):
+    def test_lgpd_com_procedimento_vira_global_e_arquiva_legado(self):
+        proc = criar_procedimento()
+        legado = VersaoTermo.objects.create(tipo='LGPD', procedimento=proc, titulo='LGPD presa', conteudo='x',
+                                            versao='0.9', vigente_desde=timezone.localdate(), ativa=True)
+        self.client.post(reverse('aranha:admin_criar_termo'), {
+            'tipo': 'LGPD', 'titulo': 'Política v2', 'conteudo': 'Texto', 'versao': '2.0',
+            'procedimento_id': str(proc.pk),
+        })
+        ativas = VersaoTermo.objects.filter(tipo='LGPD', ativa=True)
+        self.assertEqual(ativas.count(), 1)
+        self.assertIsNone(ativas.get().procedimento)
+        legado.refresh_from_db()
+        self.assertFalse(legado.ativa)
+
+    def test_compliance_ignora_aceite_de_inativo(self):
+        from aranha_estetica.models import AceiteTermo
+        lgpd = _lgpd()
+        for i in range(3):
+            inativo = criar_cliente(f'Inativo {i}')
+            AceiteTermo.objects.create(cliente=inativo, versao_termo=lgpd)
+            Cliente.objects.filter(pk=inativo.pk).update(ativo=False)
+        criar_cliente('Ativa sem aceite')
+        resp = self.client.get(reverse('aranha:admin_termos_compliance'))
+        linha = next(r for r in resp.context['resumo_versoes'] if r['versao'].pk == lgpd.pk)
+        self.assertEqual((linha['relevantes'], linha['assinados'], linha['pendentes']), (1, 0, 1))
+        self.assertEqual(linha['pct'], 0)
+
+    def test_compliance_termo_geral_conta_quem_tem_atendimento(self):
+        prof = criar_profissional()
+        proc = criar_procedimento(profissional=prof)
+        geral = _termo_proc(None)
+        criar_atendimento(criar_cliente('Com agenda'), prof, proc)
+        criar_atendimento(criar_cliente('Cancelou'), prof, proc, data_hora=_local(3, 15), status='CANCELADO')
+        resp = self.client.get(reverse('aranha:admin_termos_compliance'))
+        linha = next(r for r in resp.context['resumo_versoes'] if r['versao'].pk == geral.pk)
+        self.assertEqual(linha['relevantes'], 1)
+
+
+class AgendamentoInternoTests(_AdminTestCase):
+    def setUp(self):
+        super().setUp()
+        self.prof = criar_profissional('Dra. Recepção')
+        self.proc = criar_procedimento(profissional=self.prof, preco=Decimal('150.00'))
+        self.cli = criar_cliente('Cliente Balcão')
+        self.dia = _local(3).date()
+        self.url = reverse('aranha:admin_agendamento_novo')
+
+    def _post(self, **extra):
+        data = {'acao': 'agendar', 'cliente_id': str(self.cli.pk), 'procedimento_id': str(self.proc.pk),
+                'profissional_id': str(self.prof.pk), 'data': self.dia.isoformat(), 'hora': '10:00'}
+        data.update(extra)
+        return self.client.post(self.url, data)
+
+    def test_link_novo_agendamento_do_painel(self):
+        resp = self.client.get(reverse('aranha:painel_agendamentos'))
+        self.assertContains(resp, self.url)
+        self.assertEqual(self.client.get(self.url).status_code, 200)
+
+    def test_cria_agendado_sem_otp_com_promocao_e_auditoria(self):
+        Promocao.objects.create(nome='Primavera', desconto_percentual=Decimal('20.00'), procedimento=self.proc,
+                                data_inicio=self.dia, data_fim=self.dia)
+        resp = self._post()
+        self.assertEqual(resp.status_code, 302)
+        at = Atendimento.objects.get(cliente=self.cli)
+        self.assertEqual(at.status, 'AGENDADO')
+        self.assertEqual(timezone.localtime(at.data_hora_inicio).strftime('%H:%M'), '10:00')
+        self.assertEqual(at.valor_cobrado, Decimal('120.00'))
+        self.assertEqual(at.valor_original, Decimal('150.00'))
+        self.assertIsNotNone(at.promocao_id)
+        log = LogAuditoria.objects.get(tabela='atendimento', registro_id=at.pk, acao__startswith='Agendou pelo painel')
+        self.assertIsNotNone(log.ip_origem)
+
+    def test_cliente_nova_com_telefone_validado(self):
+        resp = self._post(cliente_id='', novo_nome='Nova Cliente', novo_telefone='(17) 98877-6655')
+        self.assertEqual(resp.status_code, 302)
+        nova = Cliente.objects.get(telefone='17988776655')
+        self.assertEqual(Atendimento.objects.get(cliente=nova).status, 'AGENDADO')
+
+    def test_telefone_invalido_ou_ja_cadastrado_recusa(self):
+        self._post(cliente_id='', novo_nome='X', novo_telefone='1234')
+        self._post(cliente_id='', novo_nome='Y', novo_telefone=self.cli.telefone)
+        self.assertFalse(Atendimento.objects.exists())
+
+    def test_slot_ocupado_recusado(self):
+        from datetime import datetime as _dt
+        criar_atendimento(criar_cliente('Ocupa'), self.prof, self.proc,
+                          data_hora=timezone.make_aware(_dt.combine(self.dia, time(10, 0))))
+        resp = self._post()
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(Atendimento.objects.filter(cliente=self.cli).exists())
+        self.assertTrue(any('não está livre' in m for m in _mensagens(resp)))
+
+    def test_valor_combinado_fica_registrado(self):
+        self._post(valor='99,90')
+        at = Atendimento.objects.get(cliente=self.cli)
+        self.assertEqual(at.valor_cobrado, Decimal('99.90'))
+        self.assertEqual(at.valor_original, Decimal('150.00'))
+        self.assertIn('recepção', at.descricao_preco)
+
+    def test_ver_horarios_lista_slots_livres(self):
+        resp = self.client.post(self.url, {'acao': 'horarios', 'procedimento_id': self.proc.pk,
+                                           'profissional_id': self.prof.pk, 'data': self.dia.isoformat()})
+        self.assertContains(resp, 'value="10:00"')
+        self.assertFalse(Atendimento.objects.exists())
+
+
+class PacoteVendidoTests(_AdminTestCase):
+    def setUp(self):
+        super().setUp()
+        from .factories import criar_compra_pacote
+        self.prof = criar_profissional()
+        self.proc = criar_procedimento(profissional=self.prof)
+        self.pacote = criar_pacote('Drenagem 10x', preco=Decimal('1500.00'), procedimento=self.proc, sessoes=10)
+        self.cli = criar_cliente('Paula Pacote')
+        self.compra = criar_compra_pacote(self.cli, self.pacote)
+
+    def test_editar_itens_de_pacote_vendido_bloqueado(self):
+        resp = self.client.post(reverse('aranha:admin_editar_pacote', args=[self.pacote.pk]), {
+            'nome': 'Drenagem 10x', 'preco_total': '1500', 'validade_meses': '12', 'ativo': '1',
+            'procedimento_ids': [str(self.proc.pk)], 'quantidades': ['2'],
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(self.pacote.itens.get().quantidade_sessoes, 10)
+        self.assertTrue(any('já foi vendido' in m for m in _mensagens(resp)))
+        self.assertEqual(self.compra.saldo_por_procedimento()[0]['restantes'], 10)
+
+    def test_pacote_vendido_aceita_preco_sem_itens_no_form(self):
+        self.client.post(reverse('aranha:admin_editar_pacote', args=[self.pacote.pk]), {
+            'nome': 'Drenagem 10x', 'preco_total': '1600', 'validade_meses': '12', 'ativo': '1',
+        })
+        self.pacote.refresh_from_db()
+        self.assertEqual(self.pacote.preco_total, Decimal('1600.00'))
+        self.assertEqual(self.pacote.itens.get().quantidade_sessoes, 10)
+
+    def test_ficha_mostra_saldo_validade_e_sessao_de_pacote(self):
+        from aranha_estetica.models import ConsumoSessao
+        at = criar_atendimento(self.cli, self.prof, self.proc, status='REALIZADO')
+        Atendimento.objects.filter(pk=at.pk).update(valor_cobrado=Decimal('150.00'))
+        ConsumoSessao.objects.get_or_create(compra_pacote=self.compra, atendimento=at)
+        resp = self.client.get(reverse('aranha:admin_cliente_detalhe', args=[self.cli.pk]))
+        self.assertContains(resp, '1/10 usadas')
+        self.assertContains(resp, self.compra.data_expiracao.strftime('%d/%m/%Y'))
+        self.assertContains(resp, 'Sessão de pacote')
+        resp = self.client.get(reverse('aranha:painel_agendamentos'))
+        self.assertContains(resp, '>Pacote</span>')
+        self.assertNotContains(resp, 'R$ 150,00')
+
+    def test_cancelar_compra_exige_observacao_e_audita(self):
+        url = reverse('aranha:admin_cancelar_compra_pacote', args=[self.compra.pk])
+        self.client.post(url, {'observacao': ''})
+        self.compra.refresh_from_db()
+        self.assertEqual(self.compra.status, 'ATIVO')
+        self.client.post(url, {'observacao': 'Reembolso integral via PIX'})
+        self.compra.refresh_from_db()
+        self.assertEqual(self.compra.status, 'CANCELADO')
+        self.assertTrue(LogAuditoria.objects.filter(tabela='compra_pacote', registro_id=self.compra.pk,
+                                                    acao__startswith='Cancelou pacote').exists())
+
+
+class PromocaoDisparoRodada2Tests(_AdminTestCase):
+    def setUp(self):
+        super().setUp()
+        self.proc = criar_procedimento()
+        hoje = timezone.localdate()
+        self.promo = Promocao.objects.create(
+            nome='Setembro Glow', preco_promocional=Decimal('99.00'), procedimento=self.proc,
+            data_inicio=hoje, data_fim=hoje + timedelta(days=10),
+        )
+        self.url = reverse('aranha:admin_disparar_promocao', args=[self.promo.pk])
+
+    @patch('aranha_estetica.tasks.job_promocao_mensal.delay')
+    def test_preco_fixo_sem_zero_off_e_validade_ate_fim_da_promocao(self, mock_delay):
+        self.client.post(self.url, {'validade_dias': '60'})
+        mock_delay.assert_called_once()
+        assunto = mock_delay.call_args[0][0]
+        self.assertNotIn('0% OFF', assunto)
+        self.assertIn('99,00', assunto)
+        self.assertEqual(mock_delay.call_args[1]['validade_dias'], 10)
+        self.assertNotIn('cupom', mock_delay.call_args[1])
+
+    @patch('aranha_estetica.tasks.job_promocao_mensal.delay')
+    def test_promocao_expirada_nao_dispara(self, mock_delay):
+        Promocao.objects.filter(pk=self.promo.pk).update(
+            data_inicio=timezone.localdate() - timedelta(days=20),
+            data_fim=timezone.localdate() - timedelta(days=1))
+        self.client.post(self.url, {'validade_dias': '30'})
+        mock_delay.assert_not_called()
+
+    def test_lista_sem_campo_cupom_e_mostra_preco_fixo(self):
+        resp = self.client.get(reverse('aranha:admin_promocoes'))
+        self.assertNotContains(resp, 'name="cupom"')
+        self.assertContains(resp, 'R$ 99,00')
+
+
+class NpsNotaInvalidaTests(TestCase):
+    def test_nota_fora_da_escala_mostra_erro(self):
+        from aranha_estetica.models import AvaliacaoNPS, Notificacao
+        prof = criar_profissional()
+        proc = criar_procedimento(profissional=prof)
+        at = criar_atendimento(criar_cliente(), prof, proc, status='REALIZADO')
+        notif = Notificacao.objects.create(atendimento=at, tipo='NPS', canal='EMAIL', token='tok-nps-erro')
+        resp = self.client.post(reverse('aranha:nps_web', args=[notif.token]), {'nota': '11'})
+        self.assertContains(resp, 'Escolha uma nota de 0 a 10.')
+        self.assertFalse(AvaliacaoNPS.objects.exists())
+
+
+class ValorAtendimentoTests(_AdminTestCase):
+    def setUp(self):
+        super().setUp()
+        self.prof = criar_profissional()
+        self.proc = criar_procedimento(profissional=self.prof, preco=None)  # "a consultar"
+        self.cli = criar_cliente('Valor Depois')
+
+    def test_realizado_sem_valor_gera_comissao_ao_registrar(self):
+        RegraComissao.objects.create(profissional=self.prof, procedimento=self.proc,
+                                     valor=Decimal('80.00'), ativo=True)
+        at = criar_atendimento(self.cli, self.prof, self.proc, status='REALIZADO')
+        self.assertFalse(MovimentoComissao.objects.filter(atendimento=at).exists())
+        self.client.post(reverse('aranha:admin_atendimento_valor', args=[at.pk]), {'valor': '150,00'})
+        at.refresh_from_db()
+        self.assertEqual(at.valor_cobrado, Decimal('150.00'))
+        self.assertEqual(MovimentoComissao.objects.get(atendimento=at).valor, Decimal('80.00'))
+        self.assertTrue(LogAuditoria.objects.filter(acao='Registrou valor cobrado', registro_id=at.pk).exists())
+
+    def test_com_comissao_lancada_ou_cancelado_recusa(self):
+        at = criar_atendimento(self.cli, self.prof, self.proc, status='REALIZADO')
+        MovimentoComissao.objects.create(profissional=self.prof, atendimento=at, valor=Decimal('10.00'))
+        self.client.post(reverse('aranha:admin_atendimento_valor', args=[at.pk]), {'valor': '150'})
+        at.refresh_from_db()
+        self.assertIsNone(at.valor_cobrado)
+        cancelado = criar_atendimento(self.cli, self.prof, self.proc, data_hora=_local(4, 9), status='CANCELADO')
+        self.client.post(reverse('aranha:admin_atendimento_valor', args=[cancelado.pk]), {'valor': '150'})
+        cancelado.refresh_from_db()
+        self.assertIsNone(cancelado.valor_cobrado)
+
+    def test_agendado_registra_desconto_guardando_original(self):
+        at = criar_atendimento(self.cli, self.prof, self.proc)
+        Atendimento.objects.filter(pk=at.pk).update(valor_cobrado=Decimal('200.00'))
+        self.client.post(reverse('aranha:admin_atendimento_valor', args=[at.pk]), {'valor': '180'})
+        at.refresh_from_db()
+        self.assertEqual((at.valor_cobrado, at.valor_original), (Decimal('180.00'), Decimal('200.00')))
+
+
+class BloqueioGlobalPainelTests(_AdminTestCase):
+    def test_todos_os_profissionais_cria_bloqueio_global(self):
+        inicio = _local(6, 9)
+        resp = self.client.post(reverse('aranha:admin_criar_bloqueio'), {
+            'profissional_id': 'todos', 'motivo': 'Recesso',
+            'data_hora_inicio': inicio.strftime('%Y-%m-%dT%H:%M'),
+            'data_hora_fim': (inicio + timedelta(hours=9)).strftime('%Y-%m-%dT%H:%M'),
+        })
+        self.assertEqual(resp.status_code, 302)
+        bloqueio = BloqueioAgenda.objects.get()
+        self.assertIsNone(bloqueio.profissional_id)
+        self.assertContains(self.client.get(reverse('aranha:admin_bloqueios')), 'Todos os profissionais')
+

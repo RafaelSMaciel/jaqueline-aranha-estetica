@@ -113,7 +113,22 @@
       {% endif %}
     </div>
   </div>
-  <div class="flex gap-1.5 flex-shrink-0">
+  <div class="flex gap-1.5 flex-shrink-0 flex-wrap justify-end">
+    {% if c.proximo_atendimento_id %}
+    {# Link do termo vale ate o fim do proximo atendimento ativo da cliente #}
+    <form method="post" action="{% url 'aranha:admin_gerar_link_termo' c.proximo_atendimento_id %}" class="m-0">
+      {% csrf_token %}
+      <button type="submit"
+              class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[0.72rem] font-bold border-none cursor-pointer bg-amber-50 text-amber-800 hover:bg-amber-100 transition-colors">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+        </svg>
+        Gerar link do termo
+      </button>
+    </form>
+    {% else %}
+    <span class="self-center text-[0.68rem] text-texto-suave">Sem agendamento ativo: o termo é aceito no próximo agendamento.</span>
+    {% endif %}
     {% if c.telefone %}
     <a href="https://wa.me/55{{ c.telefone|cut:'(' |cut:')' |cut:'-' |cut:' ' }}?text=Ol%C3%A1%20{{ c.nome|urlencode }}%2C%20precisamos%20que%20voc%C3%AA%20assine%20o%20termo%20de%20consentimento."
        target="_blank"

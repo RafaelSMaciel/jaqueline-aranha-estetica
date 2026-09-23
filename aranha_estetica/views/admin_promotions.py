@@ -40,6 +40,14 @@ def _fmt_desconto(valor):
     return texto.replace('.', ',')
 
 
+def _assunto_promocao(promo):
+    """Assunto do e-mail: preco fixo mostra o preco (nunca '0% OFF')."""
+    if promo.preco_promocional is not None:
+        from ..services.agendamento_service import formatar_brl
+        return f'{promo.nome} — por {formatar_brl(promo.preco_promocional)}'
+    return f'{promo.nome} — {_fmt_desconto(promo.desconto_percentual)}% OFF'
+
+
 @staff_required
 def admin_promocoes(request):
     """Lista todas as promoções"""
@@ -74,7 +82,7 @@ def admin_criar_promocao(request):
                 data_fim=request.POST.get('data_fim'),
                 ativa=request.POST.get('ativa') == '1',
             )
-            registrar_log(request.user, f'Criou promoção: {promo.nome}', 'promocao', promo.pk, {'desconto': str(promo.desconto_percentual)})
+            registrar_log(request.user, f'Criou promoção: {promo.nome}', 'promocao', promo.pk, {'desconto': str(promo.desconto_percentual)}, request=request)
             messages.success(request, 'Promoção criada com sucesso!')
         except (ValueError, ValidationError, IntegrityError) as e:
             logger.error(f'Erro ao criar promoção: {e}', exc_info=True)
@@ -101,7 +109,7 @@ def admin_editar_promocao(request, pk):
             promo.data_fim = request.POST.get('data_fim')
             promo.ativa = request.POST.get('ativa') == '1'
             promo.save()
-            registrar_log(request.user, f'Editou promoção: {promo.nome}', 'promocao', promo.pk)
+            registrar_log(request.user, f'Editou promoção: {promo.nome}', 'promocao', promo.pk, request=request)
             messages.success(request, 'Promoção atualizada!')
         except (ValueError, ValidationError, IntegrityError) as e:
             logger.error(f'Erro ao atualizar promoção: {e}', exc_info=True)
@@ -119,7 +127,7 @@ def _destinatarios_promocao():
     ).exclude(email='').order_by('pk')
 
 
-def _enviar_lote_promocao(promo, assunto, corpo, cupom, validade_dias):
+def _enviar_lote_promocao(promo, assunto, corpo, validade_dias):
     """Envia o proximo lote (LOTE_PROMOCAO) a partir do cursor persistido.
 
     O cursor (ultimo pk processado) fica em Configuracao para sobreviver a
@@ -141,7 +149,7 @@ def _enviar_lote_promocao(promo, assunto, corpo, cupom, validade_dias):
         try:
             ok = enviar_promocao_email(
                 cliente.email,
-                {'nome': cliente.nome, 'corpo_html': corpo, 'cupom': cupom, 'validade': validade},
+                {'nome': cliente.nome, 'corpo_html': corpo, 'validade': validade},
                 unsub_token=cliente.token_descadastro,
                 assunto=assunto,
             )
@@ -171,18 +179,25 @@ def admin_disparar_promocao(request, pk):
     - Com worker Celery: enfileira o job (assincrono).
     - Sem worker (eager, prod atual): lista pequena vai inteira; lista grande
       vai em lotes de LOTE_PROMOCAO por clique, com cursor (sem reenvio).
+
+    Sem cupom: nada no agendamento aceita codigo — a promocao vale sozinha
+    no preco (utils.precos). O "valido ate" nunca passa do fim da promocao.
     """
     if request.method != 'POST':
         return redirect('aranha:admin_promocoes')
 
     promo = get_object_or_404(Promocao, pk=pk)
+    if not promo.esta_vigente:
+        messages.error(request, f'A promoção "{promo.nome}" não está vigente hoje: nada foi enviado.')
+        return redirect('aranha:admin_promocoes')
     try:
         validade_dias = int(request.POST.get('validade_dias') or 30)
     except (TypeError, ValueError):
-        messages.error(request, 'Validade do cupom inválida.')
+        messages.error(request, 'Validade inválida.')
         return redirect('aranha:admin_promocoes')
-    validade_dias = max(1, min(365, validade_dias))
-    cupom = (request.POST.get('cupom') or '').strip()[:30] or None
+    # "Valido ate" = min(hoje + N dias, fim da promocao): o e-mail nao promete
+    # preco depois que a promocao acaba (e o job calcula hoje + N).
+    validade_dias = max(0, min(365, validade_dias, (promo.data_fim - hoje()).days))
 
     from ..utils.email import email_configurado
     if not email_configurado():
@@ -192,21 +207,21 @@ def admin_disparar_promocao(request, pk):
         )
         return redirect('aranha:admin_promocoes')
 
-    assunto = f'{promo.nome} — {_fmt_desconto(promo.desconto_percentual)}% OFF'
+    assunto = _assunto_promocao(promo)
     corpo = promo.descricao or ''
     total = _destinatarios_promocao().count()
     eager = getattr(settings, 'CELERY_TASK_ALWAYS_EAGER', False)
-    detalhes = {'cupom': cupom, 'validade_dias': validade_dias, 'destinatarios': total}
+    detalhes = {'validade_dias': validade_dias, 'destinatarios': total}
 
     if not eager or total <= LOTE_PROMOCAO:
         from ..tasks import job_promocao_mensal
         try:
-            job_promocao_mensal.delay(assunto, corpo, cupom=cupom, validade_dias=validade_dias)
+            job_promocao_mensal.delay(assunto, corpo, validade_dias=validade_dias)
         except Exception as e:  # pylint: disable=broad-except
             logger.error('Erro ao disparar promocao: %s', e, exc_info=True)
             messages.error(request, 'Não foi possível iniciar o envio. Tente novamente.')
             return redirect('aranha:admin_promocoes')
-        registrar_log(request.user, f'Disparou promoção: {promo.nome}', 'promocao', promo.pk, detalhes)
+        registrar_log(request.user, f'Disparou promoção: {promo.nome}', 'promocao', promo.pk, detalhes, request=request)
         if total == 0:
             messages.info(request, 'Nenhum cliente autorizou receber ofertas por e-mail.')
         elif eager:
@@ -215,10 +230,11 @@ def admin_disparar_promocao(request, pk):
             messages.success(request, f'Envio de "{promo.nome}" agendado para {total} cliente(s).')
         return redirect('aranha:admin_promocoes')
 
-    enviados, falhas, restantes = _enviar_lote_promocao(promo, assunto, corpo, cupom, validade_dias)
+    enviados, falhas, restantes = _enviar_lote_promocao(promo, assunto, corpo, validade_dias)
     registrar_log(
         request.user, f'Disparou promoção (lote): {promo.nome}', 'promocao', promo.pk,
         {**detalhes, 'enviados': enviados, 'falhas': falhas, 'restantes': restantes},
+        request=request,
     )
     msg = f'Lote enviado: {enviados} e-mail(s)'
     if falhas:
@@ -239,7 +255,7 @@ def admin_excluir_promocao(request, pk):
             promo = get_object_or_404(Promocao, pk=pk)
             nome = promo.nome
             promo.delete()
-            registrar_log(request.user, f'Excluiu promoção: {nome}', 'promocao', pk)
+            registrar_log(request.user, f'Excluiu promoção: {nome}', 'promocao', pk, request=request)
             messages.success(request, 'Promoção excluída!')
         except Exception as e:
             logger.error(f'Erro ao excluir promoção: {e}', exc_info=True)

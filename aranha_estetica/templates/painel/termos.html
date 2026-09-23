@@ -39,7 +39,7 @@
         <label for="procedimento_select" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Procedimento</label>
         <select name="procedimento_id" id="procedimento_select"
                 class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
-          <option value="">Geral (todos)</option>
+          <option value="">Geral (vale para todos os procedimentos)</option>
           {% for p in procedimentos %}
           <option value="{{ p.pk }}">{{ p.nome }}</option>
           {% endfor %}

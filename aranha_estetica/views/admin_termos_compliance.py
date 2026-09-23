@@ -1,7 +1,8 @@
 """Dashboard de compliance de termos — visao de quem assinou e pendencias."""
 from django.core.paginator import Paginator
-from django.db.models import Count, Exists, OuterRef
+from django.db.models import Exists, OuterRef, Subquery
 from django.shortcuts import render
+from django.utils import timezone
 
 from ..decorators import staff_required
 from ..models import (
@@ -10,6 +11,32 @@ from ..models import (
     Cliente,
     VersaoTermo,
 )
+from ..services.termos import STATUS_ACEITA_TERMO
+
+# Atendimento que torna o termo de procedimento exigivel da cliente
+# (cancelado/faltou/reagendado nao conta).
+STATUS_ALVO_PROCEDIMENTO = ('PENDENTE', 'AGENDADO', 'CONFIRMADO', 'REALIZADO')
+
+
+def _clientes_alvo(versao):
+    """Clientes ATIVOS de quem a versao e exigida.
+
+    LGPD: todos os ativos. PROCEDIMENTO: ativos com atendimento (nao
+    cancelado) do procedimento — ou de qualquer procedimento, no termo geral.
+    Assinados e pendentes saem do MESMO conjunto: aceite de cliente inativo
+    nao 'compensa' pendencia de cliente ativo (nada de -3 ou 160%).
+    """
+    ativos = Cliente.objects.filter(ativo=True)
+    if versao.tipo == 'LGPD':
+        return ativos
+    atendimentos = Atendimento.objects.filter(status__in=STATUS_ALVO_PROCEDIMENTO)
+    if versao.procedimento_id:
+        atendimentos = atendimentos.filter(procedimento_id=versao.procedimento_id)
+    return ativos.filter(pk__in=atendimentos.values('cliente_id'))
+
+
+def _assinou(versao):
+    return Exists(AceiteTermo.objects.filter(cliente=OuterRef('pk'), versao_termo=versao))
 
 
 @staff_required
@@ -29,45 +56,18 @@ def admin_termos_compliance(request):
     if tipo_filter:
         versoes = [v for v in versoes if v.tipo == tipo_filter]
 
-    # Pre-agrega contagens fora do loop para evitar N+1.
-    versao_ids = [v.pk for v in versoes]
-    assinaturas_por_versao = dict(
-        AceiteTermo.objects.filter(versao_termo_id__in=versao_ids)
-        .values_list('versao_termo_id')
-        .annotate(c=Count('id'))
-        .values_list('versao_termo_id', 'c')
-    )
-    # Clientes ativos: usado por todas as versoes LGPD — uma unica query.
-    clientes_ativos_count = Cliente.objects.filter(ativo=True).count()
-    # Clientes distintos por procedimento (versoes nao-LGPD com procedimento).
-    proc_ids = [v.procedimento_id for v in versoes if v.tipo != 'LGPD' and v.procedimento_id]
-    clientes_por_proc = dict(
-        Atendimento.objects.filter(procedimento_id__in=proc_ids)
-        .values_list('procedimento_id')
-        .annotate(c=Count('cliente_id', distinct=True))
-        .values_list('procedimento_id', 'c')
-    ) if proc_ids else {}
-
+    # 2 queries por versao ativa (poucas: 1 LGPD + termos de procedimento)
     resumo_versoes = []
     for v in versoes:
-        assinaturas_count = assinaturas_por_versao.get(v.pk, 0)
-        if v.tipo == 'LGPD':
-            clientes_relevantes = clientes_ativos_count
-            # aceites de clientes hoje inativos nao podem gerar pendencia negativa
-            pendentes = max(0, clientes_relevantes - assinaturas_count)
-        else:
-            if v.procedimento_id:
-                clientes_relevantes = clientes_por_proc.get(v.procedimento_id, 0)
-            else:
-                clientes_relevantes = 0
-            pendentes = max(0, clientes_relevantes - assinaturas_count)
-
+        alvo = _clientes_alvo(v)
+        relevantes = alvo.count()
+        assinados = alvo.filter(_assinou(v)).count() if relevantes else 0
         resumo_versoes.append({
             'versao': v,
-            'assinados': assinaturas_count,
-            'relevantes': clientes_relevantes,
-            'pendentes': pendentes,
-            'pct': min(100.0, round((assinaturas_count / clientes_relevantes * 100), 1)) if clientes_relevantes else 0,
+            'assinados': assinados,
+            'relevantes': relevantes,
+            'pendentes': relevantes - assinados,
+            'pct': round(assinados / relevantes * 100, 1) if relevantes else 0,
         })
 
     pendentes_lista = []
@@ -79,30 +79,23 @@ def admin_termos_compliance(request):
             versao_obj = None
 
     if versao_obj:
-        if versao_obj.tipo == 'LGPD':
-            assinatura_sub = AceiteTermo.objects.filter(
-                cliente=OuterRef('pk'), versao_termo=versao_obj
-            )
-            pendentes_qs = Cliente.objects.filter(ativo=True).annotate(
-                assinou=Exists(assinatura_sub)
-            ).filter(assinou=False).order_by('nome')
-        else:
-            if versao_obj.procedimento_id:
-                atend_cli_ids = (
-                    Atendimento.objects.filter(procedimento_id=versao_obj.procedimento_id)
-                    .values_list('cliente_id', flat=True).distinct()
-                )
-                assinatura_sub = AceiteTermo.objects.filter(
-                    cliente=OuterRef('pk'), versao_termo=versao_obj
-                )
-                pendentes_qs = Cliente.objects.filter(
-                    pk__in=atend_cli_ids, ativo=True
-                ).annotate(
-                    assinou=Exists(assinatura_sub)
-                ).filter(assinou=False).order_by('nome')
-            else:
-                pendentes_qs = Cliente.objects.none()
-
+        # Proximo atendimento ainda ativo da cliente: e nele que o link do termo vale
+        proximos = Atendimento.objects.filter(
+            cliente=OuterRef('pk'),
+            status__in=STATUS_ACEITA_TERMO,
+            data_hora_fim__gt=timezone.now(),
+        )
+        if versao_obj.tipo == 'PROCEDIMENTO' and versao_obj.procedimento_id:
+            proximos = proximos.filter(procedimento_id=versao_obj.procedimento_id)
+        pendentes_qs = (
+            _clientes_alvo(versao_obj)
+            .annotate(assinou=_assinou(versao_obj))
+            .filter(assinou=False)
+            .annotate(proximo_atendimento_id=Subquery(
+                proximos.order_by('data_hora_inicio').values('pk')[:1]
+            ))
+            .order_by('nome')
+        )
         paginator = Paginator(pendentes_qs, 30)
         page = request.GET.get('page', 1)
         pendentes_lista = paginator.get_page(page)
