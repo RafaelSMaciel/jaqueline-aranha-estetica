@@ -3,7 +3,8 @@ import logging
 from datetime import datetime
 
 from django.core.paginator import Paginator
-from django.db.models import Count, Exists, OuterRef, Q
+from django.db import transaction
+from django.db.models import Count, Exists, OuterRef
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django_ratelimit.decorators import ratelimit
@@ -16,6 +17,8 @@ from ..models import (
     Prontuario,
 )
 from ..utils.audit import registrar_log
+from ..utils.busca import q_busca_cliente
+from ..utils.datas import fmt_local
 
 logger = logging.getLogger(__name__)
 
@@ -23,15 +26,11 @@ logger = logging.getLogger(__name__)
 @staff_required
 def prontuario_consentimento(request):
     """Prontuario e consentimento — lista clientes com status do prontuario."""
-    search = request.GET.get('search', '')
+    search = request.GET.get('search', '').strip()
 
     clientes = Cliente.objects.all().order_by('nome')
     if search:
-        clientes = clientes.filter(
-            Q(nome__icontains=search) |
-            Q(cpf__icontains=search) |
-            Q(telefone__icontains=search)
-        )
+        clientes = clientes.filter(q_busca_cliente(search, incluir_email=False))
 
     clientes = clientes.annotate(
         tem_prontuario=Exists(Prontuario.objects.filter(cliente=OuterRef('pk'))),
@@ -111,6 +110,31 @@ def admin_auditoria(request):
 #   STATUS DE AGENDAMENTO
 # ═══════════════════════════════════════
 
+def _avisar_cancelamento(atendimento):
+    """E-mail ao cliente quando a equipe cancela pelo painel (best-effort).
+
+    Enfileirado apos o commit; falha de envio nunca desfaz o cancelamento.
+    """
+    email = atendimento.cliente.email
+    if not email:
+        return
+    dados = {
+        'nome': atendimento.cliente.nome,
+        'procedimento': atendimento.procedimento.nome,
+        'profissional': atendimento.profissional.nome,
+        'data_hora': fmt_local(atendimento.data_hora_inicio, '%d/%m/%Y às %H:%M'),
+    }
+
+    def _enfileirar():
+        try:
+            from ..tasks import send_email_async
+            send_email_async.delay('enviar_cancelamento_email', email, dados)
+        except Exception:  # noqa: BLE001 — aviso e best-effort
+            logger.exception('aviso_cancelamento_falhou', extra={'atendimento_id': atendimento.pk})
+
+    transaction.on_commit(_enfileirar)
+
+
 @staff_required
 @ratelimit(key='user', rate='60/m', method='POST', block=True)
 def admin_atualizar_status(request):
@@ -153,6 +177,9 @@ def admin_atualizar_status(request):
             {'status_anterior': status_anterior, 'status_novo': novo_status,
              'cliente': atendimento.cliente.nome}
         )
+
+        if novo_status == 'CANCELADO':
+            _avisar_cancelamento(atendimento)
 
         return JsonResponse({
             'sucesso': True,

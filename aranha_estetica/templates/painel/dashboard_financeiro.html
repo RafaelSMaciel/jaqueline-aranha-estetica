@@ -11,19 +11,21 @@
   <div class="bg-superficie rounded-2xl shadow-sm p-4 border-l-4 border-green-500">
     <h6 class="text-[0.72rem] font-bold uppercase tracking-wide text-texto-suave">Faturamento HOJE</h6>
     <div class="text-2xl font-extrabold text-green-600 my-1">R$ {{ fat_hoje_total|floatformat:2 }}</div>
-    <span class="text-[0.75rem] text-texto-suave">{{ fat_hoje_count }} atendimento(s)</span>
+    <span class="text-[0.75rem] text-texto-suave">{{ fat_hoje_count }} atendimento{{ fat_hoje_count|pluralize }}{% if fat_hoje_pacotes %} · {{ fat_hoje_pacotes }} pacote{{ fat_hoje_pacotes|pluralize }} vendido{{ fat_hoje_pacotes|pluralize }}{% endif %}</span>
   </div>
   <div class="bg-superficie rounded-2xl shadow-sm p-4 border-l-4 border-blue-500">
     <h6 class="text-[0.72rem] font-bold uppercase tracking-wide text-texto-suave">Faturamento ÚLTIMOS 7 DIAS</h6>
     <div class="text-2xl font-extrabold text-blue-600 my-1">R$ {{ fat_semana_total|floatformat:2 }}</div>
-    <span class="text-[0.75rem] text-texto-suave">{{ fat_semana_count }} atendimento(s)</span>
+    <span class="text-[0.75rem] text-texto-suave">{{ fat_semana_count }} atendimento{{ fat_semana_count|pluralize }}{% if fat_semana_pacotes %} · {{ fat_semana_pacotes }} pacote{{ fat_semana_pacotes|pluralize }} vendido{{ fat_semana_pacotes|pluralize }}{% endif %}</span>
   </div>
   <div class="bg-superficie rounded-2xl shadow-sm p-4 border-l-4 border-amber-500">
     <h6 class="text-[0.72rem] font-bold uppercase tracking-wide text-texto-suave">Faturamento ÚLTIMOS 30 DIAS</h6>
     <div class="text-2xl font-extrabold text-amber-600 my-1">R$ {{ fat_mes_total|floatformat:2 }}</div>
-    <span class="text-[0.75rem] text-texto-suave">{{ fat_mes_count }} atendimento(s)</span>
+    <span class="text-[0.75rem] text-texto-suave">{{ fat_mes_count }} atendimento{{ fat_mes_count|pluralize }}{% if fat_mes_pacotes %} · {{ fat_mes_pacotes }} pacote{{ fat_mes_pacotes|pluralize }} vendido{{ fat_mes_pacotes|pluralize }} (R$ {{ fat_mes_pacotes_total|floatformat:2 }}){% endif %}</span>
   </div>
 </div>
+
+<p class="text-[0.72rem] text-texto-suave -mt-2 mb-4">Faturamento = atendimentos avulsos realizados + pacotes vendidos. Sessões de pacote não somam de novo; retornos gratuitos ficam fora.</p>
 
 {# ── No-show / Comissões ── #}
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">

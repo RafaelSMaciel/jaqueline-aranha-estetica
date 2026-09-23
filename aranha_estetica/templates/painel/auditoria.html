@@ -95,19 +95,19 @@
   {% if logs.has_other_pages %}
   <div class="flex justify-center gap-1.5 mt-4">
     {% if logs.has_previous %}
-    <a href="?page={{ logs.previous_page_number }}&tabela={{ tabela_filter }}&acao={{ acao_filter }}&data={{ data_filter }}"
+    <a href="{% querystring page=logs.previous_page_number %}"
        class="px-3 py-1.5 rounded-lg bg-fundo border border-borda text-[0.8rem] font-bold text-texto no-underline hover:bg-[#C9A84C] hover:text-white hover:border-[#C9A84C] transition-colors">&laquo;</a>
     {% endif %}
     {% for num in logs.paginator.page_range %}
     {% if logs.number == num %}
     <span class="px-3 py-1.5 rounded-lg bg-[#C9A84C] text-white text-[0.8rem] font-bold">{{ num }}</span>
     {% elif num > logs.number|add:'-3' and num < logs.number|add:'3' %}
-    <a href="?page={{ num }}&tabela={{ tabela_filter }}&acao={{ acao_filter }}&data={{ data_filter }}"
+    <a href="{% querystring page=num %}"
        class="px-3 py-1.5 rounded-lg bg-fundo border border-borda text-[0.8rem] font-bold text-texto no-underline hover:bg-[#C9A84C] hover:text-white hover:border-[#C9A84C] transition-colors">{{ num }}</a>
     {% endif %}
     {% endfor %}
     {% if logs.has_next %}
-    <a href="?page={{ logs.next_page_number }}&tabela={{ tabela_filter }}&acao={{ acao_filter }}&data={{ data_filter }}"
+    <a href="{% querystring page=logs.next_page_number %}"
        class="px-3 py-1.5 rounded-lg bg-fundo border border-borda text-[0.8rem] font-bold text-texto no-underline hover:bg-[#C9A84C] hover:text-white hover:border-[#C9A84C] transition-colors">&raquo;</a>
     {% endif %}
   </div>

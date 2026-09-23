@@ -1,28 +1,42 @@
-import json
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Avg, Count, Q, Sum
+from django.db.models import Count, Q, Sum
 from django.db.models.functions import TruncDate
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 
 from ..models import (
-    AvaliacaoNPS, Cliente, Atendimento, DisponibilidadeProfissional,
+    AvaliacaoNPS, Cliente, CompraPacote, Atendimento, DisponibilidadeProfissional,
     Profissional,
 )
 from ..decorators import staff_required
+from ..utils.busca import q_busca_cliente
+from ..utils.datas import fmt_local, hoje as hoje_local
+
+
+def _inicio_do_dia(d):
+    """Meia-noite local (aware) de uma data — limite para lookups em DateTimeField."""
+    return timezone.make_aware(datetime.combine(d, time.min))
+
+
+def _brl(valor) -> str:
+    return f"{valor:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
 
 
 @login_required
 def painel(request):
-    """Redireciona para o painel admin (staff only)."""
-    if request.user.is_staff:
+    """Porta de entrada pos-login: cada papel cai na sua tela."""
+    user = request.user
+    if user.is_staff:
         return redirect('aranha:painel_overview')
-    # Se não for staff, desloga e manda para home
+    prof = getattr(user, 'profissional', None)
+    if user.papel == user.PAPEL_PROFISSIONAL and prof is not None and prof.ativo:
+        return redirect('aranha:profissional_agenda')
+    # Papel sem tela propria (ex.: recepcao ainda sem permissoes): encerra a sessao.
     auth_logout(request)
     return redirect('aranha:inicio')
 
@@ -30,10 +44,11 @@ def painel(request):
 @staff_required
 def painel_overview(request):
     """Dashboard principal — Overview com estatísticas"""
-    hoje = timezone.now().date()
+    hoje = hoje_local()  # data local — timezone.now().date() vira o dia seguinte apos 21h BRT
     inicio_semana = hoje - timedelta(days=hoje.weekday())
     fim_semana = inicio_semana + timedelta(days=6)
     inicio_mes = hoje.replace(day=1)
+    inicio_mes_dt = _inicio_do_dia(inicio_mes)
 
     agendamentos_hoje = Atendimento.objects.filter(
         data_hora_inicio__date=hoje,
@@ -46,22 +61,26 @@ def painel_overview(request):
     ).count()
 
     total_clientes = Cliente.objects.filter(ativo=True).count()
-    novos_clientes = Cliente.objects.filter(criado_em__gte=inicio_mes).count()
+    novos_clientes = Cliente.objects.filter(criado_em__gte=inicio_mes_dt).count()
 
-    receita_total = Atendimento.objects.filter(
-        data_hora_inicio__gte=inicio_mes,
-        status='REALIZADO'
-    ).aggregate(total=Sum('valor_cobrado'))['total'] or 0
-
-    receita_mensal = f"{receita_total:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
-
+    # Receita: atendimentos avulsos (sem retorno gratis e sem sessao de pacote,
+    # que ja entrou como receita na venda do pacote) + pacotes vendidos no mes.
     realizados_mes = Atendimento.objects.filter(
-        data_hora_inicio__gte=inicio_mes,
+        data_hora_inicio__gte=inicio_mes_dt,
         status='REALIZADO',
+        eh_retorno=False,
+        sessao_pacote_vinculada__isnull=True,
     )
-    realizados_count = realizados_mes.count()
-    ticket_medio_val = (receita_total / realizados_count) if realizados_count else 0
-    ticket_medio = f"{ticket_medio_val:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+    agg_atend = realizados_mes.aggregate(total=Sum('valor_cobrado'), qtd=Count('pk'))
+    receita_atendimentos = agg_atend['total'] or 0
+    realizados_count = agg_atend['qtd'] or 0
+    receita_pacotes = CompraPacote.objects.filter(
+        criado_em__gte=inicio_mes_dt,
+    ).exclude(status='CANCELADO').aggregate(total=Sum('valor_pago'))['total'] or 0
+
+    receita_mensal = _brl(receita_atendimentos + receita_pacotes)
+    ticket_medio_val = (receita_atendimentos / realizados_count) if realizados_count else 0
+    ticket_medio = _brl(ticket_medio_val)
 
     realizados_semana = Atendimento.objects.filter(
         data_hora_inicio__date__range=[inicio_semana, fim_semana],
@@ -84,11 +103,17 @@ def painel_overview(request):
         atendimento__status__in=['REALIZADO', 'CONFIRMADO'],
     ).distinct().count()
 
+    # NPS de verdade (%promotores - %detratores), mesma formula de relatorios.painel_nps
     limite_30d = timezone.now() - timedelta(days=30)
-    nps_avg = AvaliacaoNPS.objects.filter(
-        criado_em__gte=limite_30d
-    ).aggregate(media=Avg('nota'))['media']
-    nps_medio = round(nps_avg, 1) if nps_avg is not None else None
+    agg_nps = AvaliacaoNPS.objects.filter(criado_em__gte=limite_30d).aggregate(
+        total=Count('id'),
+        prom=Count('id', filter=Q(nota__gte=9)),
+        detr=Count('id', filter=Q(nota__lte=6)),
+    )
+    nps_30d = (
+        round((agg_nps['prom'] - agg_nps['detr']) * 100 / agg_nps['total'])
+        if agg_nps['total'] else None
+    )
 
     proximos_agendamentos = Atendimento.objects.filter(
         data_hora_inicio__gte=timezone.now(),
@@ -119,12 +144,10 @@ def painel_overview(request):
         agendamentos_por_dia.get((inicio_semana + timedelta(days=i)), 0) for i in range(7)
     ]
 
-    dias_semana = json.dumps(dias_semana_list)
-    dados_grafico_semana = json.dumps(dados_grafico_list)
-
+    rotulos_status = dict(Atendimento.STATUS_CHOICES)
     agendamentos_por_status = list(Atendimento.objects.filter(
-        data_hora_inicio__gte=inicio_mes
-    ).values('status').annotate(total=Count('pk')))
+        data_hora_inicio__gte=inicio_mes_dt
+    ).values('status').annotate(total=Count('pk')).order_by('status'))
 
     context = {
         'agendamentos_hoje': agendamentos_hoje,
@@ -135,11 +158,14 @@ def painel_overview(request):
         'ticket_medio': ticket_medio,
         'taxa_ocupacao': taxa_ocupacao,
         'clientes_ativos_90d': clientes_ativos_90d,
-        'nps_medio': nps_medio,
+        'nps_30d': nps_30d,
         'proximos_agendamentos': proximos_agendamentos,
-        'dias_semana': dias_semana,
-        'dados_grafico_semana': dados_grafico_semana,
-        'agendamentos_por_status': agendamentos_por_status,
+        # Listas cruas: o template serializa via |json_script (json.dumps aqui
+        # codificava duas vezes e o Chart.js recebia uma string).
+        'dias_semana': dias_semana_list,
+        'dados_grafico_semana': dados_grafico_list,
+        'status_labels': [rotulos_status.get(s['status'], s['status']) for s in agendamentos_por_status],
+        'status_totais': [s['total'] for s in agendamentos_por_status],
         'pendentes_aprovacao': pendentes_aprovacao,
         'total_pendentes': total_pendentes,
     }
@@ -152,7 +178,7 @@ def painel_agendamentos(request):
     """Gerenciamento de agendamentos"""
     status_filter = request.GET.get('status', 'all')
     data_filter = request.GET.get('data')
-    profissional_filter = request.GET.get('profissional')
+    profissional_filter = request.GET.get('profissional', '')
 
     agendamentos = Atendimento.objects.all().select_related(
         'cliente', 'cliente__prontuario', 'profissional', 'procedimento'
@@ -168,8 +194,9 @@ def painel_agendamentos(request):
         except ValueError:
             pass
 
-    if profissional_filter:
-        agendamentos = agendamentos.filter(profissional_id=profissional_filter)
+    # ?profissional=abc (URL manipulada) nao pode virar 500
+    if profissional_filter.isdigit():
+        agendamentos = agendamentos.filter(profissional_id=int(profissional_filter))
 
     paginator = Paginator(agendamentos, 50)
     page = request.GET.get('page', 1)
@@ -188,37 +215,20 @@ def painel_agendamentos(request):
 
 @staff_required
 def painel_clientes(request):
-    """Gerenciamento de clientes + relatorio de consent por canal."""
-    search = request.GET.get('search', '')
+    """Gerenciamento de clientes"""
+    search = request.GET.get('search', '').strip()
     clientes = Cliente.objects.all().order_by('-criado_em')
 
     if search:
-        clientes = clientes.filter(
-            Q(nome__icontains=search) |
-            Q(cpf__icontains=search) |
-            Q(email__icontains=search) |
-            Q(telefone__icontains=search)
-        )
+        clientes = clientes.filter(q_busca_cliente(search))
 
     paginator = Paginator(clientes, 50)
     page = request.GET.get('page', 1)
     clientes_page = paginator.get_page(page)
 
-    # Relatorio de consent por canal (base ativa)
-    base = Cliente.objects.filter(ativo=True)
-    total_ativos = base.count()
-    consent_stats = {
-        'total': total_ativos,
-        'email_marketing': base.filter(consent_email_marketing=True).count(),
-        'whatsapp_nps': base.filter(consent_whatsapp_nps=True).count(),
-        'com_email': base.exclude(email='').exclude(email__isnull=True).count(),
-        'com_telefone': base.exclude(telefone='').exclude(telefone__isnull=True).count(),
-    }
-
     context = {
         'clientes': clientes_page,
         'search': search,
-        'consent_stats': consent_stats,
     }
 
     return render(request, 'painel/clientes.html', context)
@@ -227,14 +237,16 @@ def painel_clientes(request):
 @staff_required
 def painel_profissionais(request):
     """Gerenciamento de profissionais"""
-    agora = timezone.now()
+    # Mes corrente no fuso local (agora.month em UTC erra no fim do mes a noite)
+    inicio_mes = hoje_local().replace(day=1)
+    proximo_mes = (inicio_mes + timedelta(days=32)).replace(day=1)
     profissionais = Profissional.objects.all().annotate(
         total_agendamentos=Count('atendimento'),
         agendamentos_mes=Count(
             'atendimento',
             filter=Q(
-                atendimento__data_hora_inicio__month=agora.month,
-                atendimento__data_hora_inicio__year=agora.year
+                atendimento__data_hora_inicio__gte=_inicio_do_dia(inicio_mes),
+                atendimento__data_hora_inicio__lt=_inicio_do_dia(proximo_mes),
             )
         )
     ).order_by('nome')
@@ -246,13 +258,30 @@ def painel_profissionais(request):
     context = {'profissionais': profissionais_page}
     return render(request, 'painel/profissionais.html', context)
 
+
+def _celula_texto_seguro(ws) -> None:
+    """Impede formula injection na ultima linha escrita.
+
+    O openpyxl grava como formula qualquer str iniciada por '='. Nome de
+    cliente vem do booking publico (texto livre) — '=HYPERLINK(...)' viraria
+    formula executada no Excel do admin. Forcar data_type 's' grava texto puro.
+    """
+    for cell in ws[ws.max_row]:
+        if isinstance(cell.value, str) and cell.value.startswith('='):
+            cell.data_type = 's'
+
+
 @staff_required
 def exportar_relatorio_excel(request):
     """Gera um relatório Excel dos últimos 30 dias de atendimentos"""
     import openpyxl
 
     data_limite = timezone.now() - timedelta(days=30)
-    atendimentos = Atendimento.objects.filter(data_hora_inicio__gte=data_limite).select_related('cliente', 'profissional', 'procedimento')
+    atendimentos = (
+        Atendimento.objects.filter(data_hora_inicio__gte=data_limite)
+        .select_related('cliente', 'profissional', 'procedimento')
+        .order_by('data_hora_inicio')
+    )
 
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = 'attachment; filename="relatorio_atendimentos.xlsx"'
@@ -269,14 +298,15 @@ def exportar_relatorio_excel(request):
         valor = at.valor_cobrado or 0
         ws.append([
             at.pk,
-            at.data_hora_inicio.strftime('%d/%m/%Y'),
-            at.data_hora_inicio.strftime('%H:%M'),
+            fmt_local(at.data_hora_inicio, '%d/%m/%Y'),  # hora local, nao UTC
+            fmt_local(at.data_hora_inicio, '%H:%M'),
             at.cliente.nome,
             at.profissional.nome,
             at.procedimento.nome,
-            at.status,
+            at.get_status_display(),
             float(valor)
         ])
+        _celula_texto_seguro(ws)
 
     wb.save(response)
     return response

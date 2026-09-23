@@ -16,7 +16,7 @@ from decimal import Decimal
 from typing import Optional
 
 from django.db import IntegrityError, transaction
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.utils import timezone
 
 from ..domain.event_bus import EventBus
@@ -25,7 +25,7 @@ from ..domain.events import (
     AtendimentoRealizado,
     ComissaoCalculada,
 )
-from ..models import Atendimento, MovimentoComissao, RegraComissao
+from ..models import Atendimento, ConsumoSessao, MovimentoComissao, RegraComissao
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,13 @@ class ComissaoService:
             | Q(profissional_id__isnull=True, procedimento_id=procedimento_id)
             | Q(profissional_id__isnull=True, procedimento_id__isnull=True)
         )
-        candidatos = list(RegraComissao.objects.filter(ativo=True).filter(match_filter))
+        # order_by explicito: com 2 regras de mesma especificidade vence a
+        # editada por ultimo (desempate por pk). Sem isso o sort estavel
+        # herdava a ordem do banco, que nao e garantida.
+        candidatos = list(
+            RegraComissao.objects.filter(ativo=True).filter(match_filter)
+            .order_by('-atualizado_em', '-pk')
+        )
 
         # Score por especificidade: 3=ambos, 2=so prof, 1=so proc, 0=fallback
         def score(r: RegraComissao) -> int:
@@ -52,6 +58,26 @@ class ComissaoService:
         return candidatos[0] if candidatos else None
 
     @staticmethod
+    def base_calculo(atendimento: Atendimento) -> Decimal:
+        """Valor sobre o qual incide a comissao.
+
+        Sessao debitada de pacote: valor pago no pacote / total de sessoes do
+        pacote (valor_cobrado da sessao e o preco cheio do procedimento e
+        inflaria a comissao). Avulso: valor_cobrado.
+        """
+        consumo = (
+            ConsumoSessao.objects.select_related('compra_pacote__pacote')
+            .filter(atendimento_id=atendimento.pk).first()
+        )
+        if consumo is None:
+            return atendimento.valor_cobrado or Decimal('0.00')
+        compra = consumo.compra_pacote
+        total_sessoes = compra.pacote.itens.aggregate(t=Sum('quantidade_sessoes'))['t'] or 0
+        if total_sessoes <= 0:
+            return Decimal('0.00')
+        return (compra.valor_pago / Decimal(total_sessoes)).quantize(Decimal('0.01'))
+
+    @staticmethod
     @transaction.atomic
     def calcular_comissao(atendimento: Atendimento) -> Optional[MovimentoComissao]:
         """Calcula comissao para atendimento REALIZADO. Idempotente."""
@@ -59,7 +85,8 @@ class ComissaoService:
             return None
         if atendimento.eh_retorno:
             return None  # retorno gratis nao gera comissao
-        if not atendimento.valor_cobrado or atendimento.valor_cobrado <= 0:
+        base = ComissaoService.base_calculo(atendimento)
+        if base <= 0:
             return None
 
         regra = ComissaoService.resolver_regra(
@@ -69,7 +96,7 @@ class ComissaoService:
             return None
 
         if regra.percentual is not None:
-            valor = (atendimento.valor_cobrado * regra.percentual / Decimal('100')).quantize(Decimal('0.01'))
+            valor = (base * regra.percentual / Decimal('100')).quantize(Decimal('0.01'))
         else:
             valor = regra.valor or Decimal('0.00')
 

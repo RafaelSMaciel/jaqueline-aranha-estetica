@@ -1,8 +1,8 @@
 {% extends 'painel/base_v2.html' %}
 
-{% block titulo %}{% if form_obj %}Editar{% else %}Novo{% endif %} formulário de anamnese — {{ CLINIC_NAME }}{% endblock %}
-{% block page_title %}{% if form_obj %}Editar{% else %}Novo{% endif %} formulário{% endblock %}
-{% block page_subtitle %}{% if form_obj %}{{ form_obj.nome }}{% else %}Anamnese{% endif %}{% endblock %}
+{% block titulo %}{% if form_obj.pk %}Editar{% else %}Novo{% endif %} formulário de anamnese — {{ CLINIC_NAME }}{% endblock %}
+{% block page_title %}{% if form_obj.pk %}Editar{% else %}Novo{% endif %} formulário{% endblock %}
+{% block page_subtitle %}{% if form_obj.pk %}{{ form_obj.nome }}{% else %}Anamnese ou pesquisa{% endif %}{% endblock %}
 
 {% block page_actions %}
 <a href="{% url 'aranha:admin_anamneses' %}"
@@ -27,6 +27,17 @@
                required maxlength="120"></c-campo>
     </div>
 
+    {# ── Tipo ── #}
+    <div class="mb-4">
+      <label for="anTipo" class="block text-sm font-medium text-texto mb-1">Tipo</label>
+      <select id="anTipo" name="tipo"
+              class="w-full rounded-md border border-borda bg-superficie px-3 py-2 text-texto text-sm">
+        {% for v, l in TIPO_CHOICES %}
+        <option value="{{ v }}" {% if form_obj.tipo == v %}selected{% endif %}>{{ l }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
     {# ── Escopo ── #}
     <div class="mb-4">
       <label for="anEscopo" class="block text-sm font-medium text-texto mb-1">Escopo</label>
@@ -44,10 +55,21 @@
       <select id="anCategoria" name="categoria"
               class="w-full rounded-md border border-borda bg-superficie px-3 py-2 text-texto text-sm">
         <option value="">—</option>
-        <option value="FACIAL" {% if form_obj.categoria == 'FACIAL' %}selected{% endif %}>Facial</option>
-        <option value="CORPORAL" {% if form_obj.categoria == 'CORPORAL' %}selected{% endif %}>Corporal</option>
-        <option value="CAPILAR" {% if form_obj.categoria == 'CAPILAR' %}selected{% endif %}>Capilar</option>
-        <option value="OUTRO" {% if form_obj.categoria == 'OUTRO' %}selected{% endif %}>Outro</option>
+        {% for v, l in CATEGORIA_CHOICES %}
+        <option value="{{ v }}" {% if form_obj.categoria == v %}selected{% endif %}>{{ l }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    {# ── Modalidade (condicional) ── #}
+    <div id="anModalidadeWrap" class="mb-4" style="display:none;">
+      <label for="anModalidade" class="block text-sm font-medium text-texto mb-1">Modalidade</label>
+      <select id="anModalidade" name="modalidade"
+              class="w-full rounded-md border border-borda bg-superficie px-3 py-2 text-texto text-sm">
+        <option value="">—</option>
+        {% for v, l in MODALIDADE_CHOICES %}
+        <option value="{{ v }}" {% if form_obj.modalidade == v %}selected{% endif %}>{{ l }}</option>
+        {% endfor %}
       </select>
     </div>
 
@@ -63,23 +85,27 @@
       </select>
     </div>
 
-    {# ── Schema JSON ── sem |safe — escape normal do Django ── #}
+    {# ── Campos (JSON) ── texto vindo da view via json.dumps; autoescape normal ── #}
     <div class="mb-4">
-      <label for="schemaJson" class="block text-sm font-medium text-texto mb-1">schema_json</label>
-      <textarea id="schemaJson" name="schema_json"
+      <label for="schemaJson" class="block text-sm font-medium text-texto mb-1">Campos do formulário (JSON)</label>
+      <textarea id="schemaJson" name="schema_json" spellcheck="false"
                 class="w-full rounded-md border border-borda bg-superficie px-3 py-2 text-texto text-sm font-mono min-h-[200px]"
-                style="font-size:0.82rem;">{% if form_obj %}{{ form_obj.schema_json }}{% else %}[
-  {"key": "gestante", "tipo": "bool", "label": "Esta gestante?", "obrigatório": true},
-  {"key": "alergias", "tipo": "text", "label": "Possui alergias?", "obrigatório": false}
-]{% endif %}</textarea>
+                style="font-size:0.82rem;">{{ schema_texto }}</textarea>
       <p class="text-xs text-texto-suave mt-1">
         Lista de campos. Tipos:
         <code class="bg-fundo px-1 rounded text-[0.78rem]">bool</code>,
         <code class="bg-fundo px-1 rounded text-[0.78rem]">text</code>,
         <code class="bg-fundo px-1 rounded text-[0.78rem]">longtext</code>,
         <code class="bg-fundo px-1 rounded text-[0.78rem]">select</code> (c/ <code class="bg-fundo px-1 rounded text-[0.78rem]">opcoes</code>),
+        <code class="bg-fundo px-1 rounded text-[0.78rem]">scale</code> e
+        <code class="bg-fundo px-1 rounded text-[0.78rem]">checkboxes</code> (c/ <code class="bg-fundo px-1 rounded text-[0.78rem]">opcoes</code>),
         <code class="bg-fundo px-1 rounded text-[0.78rem]">number</code>,
-        <code class="bg-fundo px-1 rounded text-[0.78rem]">date</code>.
+        <code class="bg-fundo px-1 rounded text-[0.78rem]">date</code>,
+        <code class="bg-fundo px-1 rounded text-[0.78rem]">email</code>.
+        Cada campo precisa de <code class="bg-fundo px-1 rounded text-[0.78rem]">key</code>,
+        <code class="bg-fundo px-1 rounded text-[0.78rem]">tipo</code> e
+        <code class="bg-fundo px-1 rounded text-[0.78rem]">label</code>; use
+        <code class="bg-fundo px-1 rounded text-[0.78rem]">"obrigatorio": true</code> (sem acento) para exigir resposta.
       </p>
     </div>
 
@@ -87,7 +113,7 @@
     <div class="flex flex-col gap-2 mb-6">
       <label class="inline-flex items-center gap-2 text-sm text-texto cursor-pointer">
         <input type="checkbox" name="ativo" value="1"
-               {% if not form_obj or form_obj.ativo %}checked{% endif %}
+               {% if form_obj %}{% if form_obj.ativo %}checked{% endif %}{% else %}checked{% endif %}
                class="rounded border-borda">
         Ativo
       </label>
@@ -102,7 +128,7 @@
     {# ── Ações ── #}
     <div class="flex gap-3">
       <c-botao variante="solido" tipo="submit">
-        {% if form_obj %}Salvar{% else %}Criar{% endif %}
+        {% if form_obj.pk %}Salvar{% else %}Criar{% endif %}
       </c-botao>
       <a href="{% url 'aranha:admin_anamneses' %}"
          class="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium border border-borda text-texto hover:bg-fundo transition no-underline">
@@ -120,9 +146,11 @@
 (function(){
   var sel = document.getElementById('anEscopo');
   var cat = document.getElementById('anCategoriaWrap');
+  var mod = document.getElementById('anModalidadeWrap');
   var proc = document.getElementById('anProcedimentoWrap');
   function toggle(){
     cat.style.display = sel.value === 'CATEGORIA' ? '' : 'none';
+    mod.style.display = sel.value === 'MODALIDADE' ? '' : 'none';
     proc.style.display = sel.value === 'PROCEDIMENTO' ? '' : 'none';
   }
   sel.addEventListener('change', toggle);

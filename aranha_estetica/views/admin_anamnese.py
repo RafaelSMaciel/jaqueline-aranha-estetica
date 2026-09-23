@@ -2,11 +2,50 @@
 import json
 
 from django.contrib import messages
+from django.core.exceptions import ValidationError
+from django.db.models import ProtectedError, RestrictedError
 from django.shortcuts import get_object_or_404, redirect, render
 
 from ..decorators import staff_required
 from ..models import FormularioAnamnese, Procedimento, RespostaAnamnese
 from ..utils.audit import registrar_log
+
+# Exemplo exibido em formulario novo. Chave 'obrigatorio' SEM acento: e o que
+# anamnese_publica.py e agenda/pesquisa.html leem.
+SCHEMA_EXEMPLO = [
+    {'key': 'gestante', 'tipo': 'bool', 'label': 'Está gestante?', 'obrigatorio': True},
+    {'key': 'alergias', 'tipo': 'text', 'label': 'Possui alergias?', 'obrigatorio': False},
+]
+
+
+def _schema_texto(schema) -> str:
+    """JSON legivel p/ o textarea (o repr Python nao era reenviavel)."""
+    return json.dumps(schema, ensure_ascii=False, indent=2)
+
+
+def _ctx(form_obj, posted=None):
+    """Contexto comum dos renders (GET e re-render de erro)."""
+    if posted is not None:
+        schema_texto = posted.get('schema_json', '')
+    elif form_obj is not None:
+        schema_texto = _schema_texto(form_obj.schema_json)
+    else:
+        schema_texto = _schema_texto(SCHEMA_EXEMPLO)
+    return {
+        'form_obj': form_obj,
+        'procedimentos': Procedimento.objects.filter(ativo=True).order_by('nome'),
+        'ESCOPO_CHOICES': FormularioAnamnese.ESCOPO_CHOICES,
+        'TIPO_CHOICES': FormularioAnamnese.TIPO_CHOICES,
+        'CATEGORIA_CHOICES': Procedimento.CATEGORIA_CHOICES,
+        'MODALIDADE_CHOICES': Procedimento.MODALIDADE_CHOICES,
+        'schema_texto': schema_texto,
+    }
+
+
+def _mensagens_validacao(exc: ValidationError) -> list[str]:
+    if hasattr(exc, 'message_dict'):
+        return [m for msgs in exc.message_dict.values() for m in msgs]
+    return list(exc.messages)
 
 
 @staff_required
@@ -18,69 +57,74 @@ def admin_anamneses(request):
 @staff_required
 def admin_anamnese_form(request, pk=None):
     form = get_object_or_404(FormularioAnamnese, pk=pk) if pk else None
-    procedimentos = Procedimento.objects.filter(ativo=True).order_by('nome')
 
     if request.method == 'POST':
-        nome = request.POST.get('nome', '').strip()
-        tipo = request.POST.get('tipo', 'ANAMNESE').strip()
-        escopo = request.POST.get('escopo', 'GLOBAL').strip()
-        categoria = request.POST.get('categoria', '').strip()
-        modalidade = request.POST.get('modalidade', '').strip()
-        proc_id = request.POST.get('procedimento') or None
-        schema_raw = request.POST.get('schema_json', '[]').strip() or '[]'
-        ativo = request.POST.get('ativo') == '1'
-        obrigatorio = request.POST.get('obrigatorio') == '1'
+        post = request.POST
+        nome = post.get('nome', '').strip()
+        # Sem tipo no POST (form antigo) mantem o tipo atual — nunca rebaixa PESQUISA.
+        tipo = post.get('tipo', '').strip() or (form.tipo if form else 'ANAMNESE')
+        escopo = post.get('escopo', 'GLOBAL').strip()
+        categoria = post.get('categoria', '').strip()
+        modalidade = post.get('modalidade', '').strip()
+        proc_id = post.get('procedimento', '').strip()
+        schema_raw = post.get('schema_json', '[]').strip() or '[]'
+        ativo = post.get('ativo') == '1'
+        obrigatorio = post.get('obrigatorio') == '1'
+
+        obj = form if form is not None else FormularioAnamnese()
+        # Atribui antes de validar: o re-render de erro mostra o que foi enviado
+        obj.nome = nome
+        obj.tipo = tipo
+        obj.escopo = escopo
+        obj.categoria = categoria if escopo == 'CATEGORIA' else ''
+        obj.modalidade = modalidade if escopo == 'MODALIDADE' else ''
+        obj.procedimento_id = int(proc_id) if escopo == 'PROCEDIMENTO' and proc_id.isdigit() else None
+        obj.ativo = ativo
+        obj.obrigatorio = obrigatorio
+
+        def _erro(msgs):
+            for m in msgs:
+                messages.error(request, m)
+            return render(request, 'painel/anamnese_form.html', _ctx(obj, posted=post))
 
         try:
-            schema = json.loads(schema_raw)
-            if not isinstance(schema, list):
-                raise ValueError
+            obj.schema_json = json.loads(schema_raw)
         except (ValueError, TypeError):
-            messages.error(request, 'schema_json invalido (use JSON array de objetos).')
-            return render(request, 'painel/anamnese_form.html', {
-                'form_obj': form,
-                'procedimentos': procedimentos,
-                'ESCOPO_CHOICES': FormularioAnamnese.ESCOPO_CHOICES,
-            })
+            return _erro(['Campos do formulário: JSON inválido (use uma lista de objetos).'])
 
+        erros = []
         if not nome:
-            messages.error(request, 'Nome obrigatorio.')
-            return render(request, 'painel/anamnese_form.html', {
-                'form_obj': form,
-                'procedimentos': procedimentos,
-                'ESCOPO_CHOICES': FormularioAnamnese.ESCOPO_CHOICES,
-            })
+            erros.append('Nome obrigatório.')
+        if tipo not in dict(FormularioAnamnese.TIPO_CHOICES):
+            erros.append('Tipo de formulário inválido.')
+        if escopo not in dict(FormularioAnamnese.ESCOPO_CHOICES):
+            erros.append('Escopo inválido.')
+        if escopo == 'CATEGORIA' and categoria not in dict(Procedimento.CATEGORIA_CHOICES):
+            erros.append('Escolha a categoria do escopo.')
+        if escopo == 'MODALIDADE' and modalidade not in dict(Procedimento.MODALIDADE_CHOICES):
+            erros.append('Escolha a modalidade do escopo.')
+        if escopo == 'PROCEDIMENTO' and obj.procedimento_id is None:
+            erros.append('Escolha o procedimento do escopo.')
+        if erros:
+            return _erro(erros)
 
-        defaults = dict(
-            nome=nome, tipo=tipo, escopo=escopo,
-            categoria=categoria if escopo == 'CATEGORIA' else '',
-            modalidade=modalidade if escopo == 'MODALIDADE' else '',
-            procedimento_id=proc_id if escopo == 'PROCEDIMENTO' else None,
-            schema_json=schema, ativo=ativo, obrigatorio=obrigatorio,
-        )
-        if form:
-            for k, v in defaults.items():
-                setattr(form, k, v)
-            form.save()
-            registrar_log(request.user, f'Editou anamnese {form.nome}', 'formulario_anamnese', form.pk)
-            messages.success(request, 'Formulario atualizado.')
+        try:
+            # clean() do model valida o schema (lista de objetos com key/tipo/label)
+            # — antes nunca era chamado e item string quebrava a anamnese publica.
+            obj.full_clean()
+        except ValidationError as exc:
+            return _erro(_mensagens_validacao(exc))
+        obj.save()
+
+        if form is not None:
+            registrar_log(request.user, f'Editou anamnese {obj.nome}', 'formulario_anamnese', obj.pk)
+            messages.success(request, 'Formulário atualizado.')
         else:
-            form = FormularioAnamnese.objects.create(**defaults)
-            registrar_log(request.user, f'Criou anamnese {form.nome}', 'formulario_anamnese', form.pk)
-            messages.success(request, 'Formulario criado.')
+            registrar_log(request.user, f'Criou anamnese {obj.nome}', 'formulario_anamnese', obj.pk)
+            messages.success(request, 'Formulário criado.')
         return redirect('aranha:admin_anamneses')
 
-    return render(request, 'painel/anamnese_form.html', {
-        'form_obj': form,
-        'procedimentos': procedimentos,
-        'ESCOPO_CHOICES': FormularioAnamnese.ESCOPO_CHOICES,
-        'TIPO_CHOICES': FormularioAnamnese.TIPO_CHOICES,
-        'MODALIDADE_CHOICES': [
-            ('PRESENCIAL', 'Presencial'),
-            ('ONLINE', 'Online'),
-            ('HIBRIDO', 'Hibrido'),
-        ],
-    })
+    return render(request, 'painel/anamnese_form.html', _ctx(form))
 
 
 @staff_required
@@ -88,9 +132,24 @@ def admin_anamnese_excluir(request, pk):
     form = get_object_or_404(FormularioAnamnese, pk=pk)
     if request.method == 'POST':
         nome = form.nome
-        form.delete()
+        try:
+            form.delete()
+        except (RestrictedError, ProtectedError):
+            # Respostas de clientes referenciam o formulario (RESTRICT): desativa
+            # em vez de apagar, preservando o historico preenchido.
+            form.ativo = False
+            form.save(update_fields=['ativo', 'atualizado_em'])
+            registrar_log(
+                request.user, f'Desativou anamnese {nome} (possui respostas)',
+                'formulario_anamnese', pk,
+            )
+            messages.warning(
+                request,
+                f'O formulário "{nome}" já tem respostas de clientes: foi desativado em vez de excluído.',
+            )
+            return redirect('aranha:admin_anamneses')
         registrar_log(request.user, f'Excluiu anamnese {nome}', 'formulario_anamnese', pk)
-        messages.success(request, f'Formulario "{nome}" excluido.')
+        messages.success(request, f'Formulário "{nome}" excluído.')
     return redirect('aranha:admin_anamneses')
 
 

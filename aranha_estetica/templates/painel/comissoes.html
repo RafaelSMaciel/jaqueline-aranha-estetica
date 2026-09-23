@@ -126,11 +126,11 @@
 {% if comissoes.has_other_pages %}
 <div class="flex items-center justify-center gap-2 mt-5">
   {% if comissoes.has_previous %}
-  <a href="?status={{ status_filter }}&profissional={{ prof_filter }}&periodo={{ periodo }}&page={{ comissoes.previous_page_number }}" class="px-3 py-1.5 rounded-lg border border-borda text-sm text-texto hover:bg-fundo transition no-underline">Anterior</a>
+  <a href="{% querystring page=comissoes.previous_page_number %}" class="px-3 py-1.5 rounded-lg border border-borda text-sm text-texto hover:bg-fundo transition no-underline">Anterior</a>
   {% endif %}
   <span class="text-sm text-texto-suave">Página {{ comissoes.number }} de {{ comissoes.paginator.num_pages }}</span>
   {% if comissoes.has_next %}
-  <a href="?status={{ status_filter }}&profissional={{ prof_filter }}&periodo={{ periodo }}&page={{ comissoes.next_page_number }}" class="px-3 py-1.5 rounded-lg border border-borda text-sm text-texto hover:bg-fundo transition no-underline">Próximo</a>
+  <a href="{% querystring page=comissoes.next_page_number %}" class="px-3 py-1.5 rounded-lg border border-borda text-sm text-texto hover:bg-fundo transition no-underline">Próximo</a>
   {% endif %}
 </div>
 {% endif %}

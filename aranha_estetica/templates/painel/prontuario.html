@@ -15,7 +15,7 @@
       </svg>
     </div>
     <div>
-      <div class="font-extrabold text-[1.4rem] text-green-600 leading-none">{{ clientes_list|length }}</div>
+      <div class="font-extrabold text-[1.4rem] text-green-600 leading-none">{{ clientes_page.paginator.count }}</div>
       <div class="text-[0.72rem] text-texto-suave mt-0.5">Clientes</div>
     </div>
   </div>
@@ -50,7 +50,7 @@
       Buscar
     </button>
     {% if search %}
-    <a href="{% url 'aranha:admin_prontuario' %}"
+    <a href="{% url 'aranha:prontuario_consentimento' %}"
        class="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-borda text-[0.82rem] text-texto-suave hover:text-texto hover:border-texto-suave transition-colors no-underline"
        title="Limpar busca" aria-label="Limpar busca">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
@@ -167,11 +167,12 @@
       <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-yellow-50 text-yellow-700 uppercase tracking-wide">Sem prontuário</span>
       {% endif %}
       {% if item.total_termos > 0 %}
-      <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-green-50 text-green-700 uppercase tracking-wide">{{ item.total_termos }} termos</span>
+      <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-green-50 text-green-700 uppercase tracking-wide">{{ item.total_termos }} termo{{ item.total_termos|pluralize }}</span>
       {% endif %}
     </div>
   </a>
   {% endfor %}
+  {% include 'partials/_paginacao.html' with page=clientes_page %}
 {% else %}
 <div class="bg-superficie rounded-2xl p-12 text-center shadow-sm">
   <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
@@ -184,7 +185,7 @@
     {% if search %}Nenhum resultado para "{{ search }}". Tente outro termo.{% else %}Nenhum cliente cadastrado ainda.{% endif %}
   </p>
   {% if search %}
-  <a href="{% url 'aranha:admin_prontuario' %}"
+  <a href="{% url 'aranha:prontuario_consentimento' %}"
      class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#C9A84C] text-white text-[0.82rem] font-bold hover:bg-[#b48c4c] transition-colors no-underline mt-4">
     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>

@@ -16,6 +16,7 @@ from ..models import (
     Prontuario,
 )
 from ..utils.audit import registrar_log
+from ..utils.datas import fmt_local
 from ..utils.security import client_ip
 
 logger = logging.getLogger(__name__)
@@ -29,7 +30,8 @@ def _perguntas_configuradas():
     """
     import json as _json
     from ..models import Configuracao
-    cfg = Configuracao.objects.filter(chave='prontuario_perguntas').first()
+    # iexact: a tela Configuracoes forcava upper() em chaves antigas
+    cfg = Configuracao.objects.filter(chave__iexact='prontuario_perguntas').order_by('pk').first()
     if not cfg or not cfg.valor:
         return []
     try:
@@ -94,14 +96,13 @@ def prontuario_detalhe(request, cliente_id):
         'anotacoes'
     ).order_by('-data_hora_inicio')[:30]
 
-    # Termos assinados
-    aceites = AceiteTermo.objects.filter(
-        cliente=cliente
-    ).select_related('versao_termo').order_by('-criado_em')
-
-    assinaturas = AceiteTermo.objects.filter(
+    # Termos assinados — AceiteTermo unifica LGPD e procedimento (fase 6);
+    # separa pelo tipo da versao p/ nao listar cada aceite 2x com rotulo errado.
+    termos = AceiteTermo.objects.filter(
         cliente=cliente
     ).select_related('versao_termo', 'atendimento').order_by('-criado_em')
+    aceites = termos.filter(versao_termo__tipo='LGPD')
+    assinaturas = termos.filter(versao_termo__tipo='PROCEDIMENTO')
 
     context = {
         'cliente': cliente,
@@ -145,10 +146,10 @@ def prontuario_salvar(request, cliente_id):
         else:
             respostas[chave] = (valor or '').strip()
     prontuario.respostas_extras = respostas
-    prontuario.save(update_fields=['respostas_extras'])
+    prontuario.save(update_fields=['respostas_extras', 'atualizado_em'])
 
     registrar_log(request.user, f'Atualizou prontuario de {cliente.nome}', 'prontuario', prontuario.pk)
-    messages.success(request, 'Prontuario atualizado com sucesso!')
+    messages.success(request, 'Prontuário atualizado com sucesso!')
     return redirect('aranha:prontuario_detalhe', cliente_id=cliente_id)
 
 
@@ -156,7 +157,7 @@ def prontuario_salvar(request, cliente_id):
 def anotacao_sessao_salvar(request, atendimento_id):
     """Adiciona anotacao clinica a um atendimento — admin ou profissional do atendimento."""
     if request.method != 'POST':
-        return JsonResponse({'erro': 'Metodo nao permitido'}, status=405)
+        return JsonResponse({'erro': 'Método não permitido'}, status=405)
 
     atendimento = get_object_or_404(Atendimento, pk=atendimento_id)
     user = request.user
@@ -170,12 +171,12 @@ def anotacao_sessao_salvar(request, atendimento_id):
             tabela='anotacao_sessao', id_registro=atendimento_id,
             detalhes={'ip': _ip_request(request)},
         )
-        return JsonResponse({'erro': 'Sem permissao'}, status=403)
+        return JsonResponse({'erro': 'Sem permissão'}, status=403)
 
     texto = request.POST.get('texto', '').strip()
 
     if not texto:
-        return JsonResponse({'erro': 'Texto obrigatorio'}, status=400)
+        return JsonResponse({'erro': 'Texto obrigatório'}, status=400)
 
     anotacao = AnotacaoSessao.objects.create(
         atendimento=atendimento,
@@ -187,5 +188,5 @@ def anotacao_sessao_salvar(request, atendimento_id):
         'sucesso': True,
         'anotacao_id': anotacao.pk,
         'texto': anotacao.texto,
-        'data': anotacao.criado_em.strftime('%d/%m/%Y %H:%M'),
+        'data': fmt_local(anotacao.criado_em),  # hora local, nao UTC
     })
