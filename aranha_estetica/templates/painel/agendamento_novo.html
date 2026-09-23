@@ -45,8 +45,22 @@ SlotService; "Agendar" valida tudo de novo no servidor.
         <span><strong>{{ c.nome }}</strong>{% if c.telefone %} · {{ c.telefone }}{% endif %}{% if c.email %} · {{ c.email }}{% endif %}</span>
       </label>
       {% endif %}{% empty %}
-      {% if buscou and q %}<p class="text-[0.8rem] text-texto-suave mb-2">Nenhuma cliente encontrada para "{{ q }}". Cadastre abaixo.</p>{% endif %}
+      {% if buscou and q and not inativas %}<p class="text-[0.8rem] text-texto-suave mb-2">Nenhuma cliente encontrada para "{{ q }}". Cadastre abaixo.</p>{% endif %}
       {% endfor %}
+      {# Cadastro inativo: nao agenda nem recadastra (telefone unico) — reativa na ficha #}
+      {% for c in inativas %}{% if not cliente_inativa or c.pk != cliente_inativa.pk %}
+      <p class="flex items-center gap-2 flex-wrap px-3 py-2 mb-1 rounded-xl border border-dashed border-borda text-[0.85rem] text-texto-suave">
+        <span><strong>{{ c.nome }}</strong>{% if c.telefone %} · {{ c.telefone }}{% endif %}</span>
+        <span class="px-2 py-0.5 rounded-full text-[0.65rem] font-bold uppercase bg-fundo text-texto-suave">Inativa</span>
+        <a href="{% url 'aranha:admin_cliente_detalhe' c.pk %}" class="font-bold text-blue-800 hover:underline">Reativar na ficha</a>
+      </p>
+      {% endif %}{% endfor %}
+      {% if cliente_inativa %}
+      <p class="flex items-center gap-2 flex-wrap px-3 py-2 mb-1 rounded-xl border border-amber-300 bg-amber-50 text-[0.85rem] text-amber-800" role="note">
+        <span><strong>{{ cliente_inativa.nome }}</strong> está com o cadastro inativo.</span>
+        <a href="{% url 'aranha:admin_cliente_detalhe' cliente_inativa.pk %}" class="font-bold underline">Abrir a ficha para reativar</a>
+      </p>
+      {% endif %}
       <label class="flex items-center gap-2 px-3 py-2 mt-2 rounded-xl border border-dashed border-borda cursor-pointer text-[0.85rem] text-texto hover:bg-fundo">
         <input type="radio" name="cliente_id" value="" {% if not cliente %}checked{% endif %}>
         <span><strong>Cliente nova</strong> — preencha abaixo</span>

@@ -1,6 +1,5 @@
 """Views para gestao de pacotes (CRUD admin + venda)."""
 import logging
-from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
@@ -18,19 +17,22 @@ from ..models import (
     Procedimento,
 )
 from ..utils.audit import registrar_log
+from ..utils.parse import id_int
+from .admin_management import _parse_preco
 
 logger = logging.getLogger(__name__)
 
 
 def _parse_valor(valor):
-    """'1350,50' / '1350.50' -> Decimal >= 0. ValueError se vazio/invalido."""
-    try:
-        numero = Decimal((valor or '').strip().replace(',', '.'))
-    except InvalidOperation as exc:
-        raise ValueError('valor invalido') from exc
-    if not numero.is_finite() or numero < 0:
+    """'1350,50' / '1350.50' -> Decimal em [0, VALOR_MAX]. ValueError se vazio/invalido.
+
+    Mesmo parser dos precos do painel (admin_management._parse_preco): teto
+    dos campos conferido antes do quantize ('1e30' dava 500).
+    """
+    numero = _parse_preco(valor)
+    if numero is None:
         raise ValueError('valor invalido')
-    return numero.quantize(Decimal('0.01'))
+    return numero
 
 
 def _parse_validade(valor):
@@ -206,15 +208,16 @@ def admin_vender_pacote(request):
     if request.method != 'POST':
         return redirect('aranha:admin_pacotes')
 
-    pacote_id = request.POST.get('pacote_id', '')
-    cliente_id = request.POST.get('cliente_id', '')
-    if not (pacote_id.isdigit() and cliente_id.isdigit()):
+    # id_int: isdigit() aceitava '²' e o int() dava 500
+    pacote_id = id_int(request.POST.get('pacote_id'))
+    cliente_id = id_int(request.POST.get('cliente_id'))
+    if pacote_id is None or cliente_id is None:
         messages.error(request, 'Selecione o pacote e o cliente.')
         return redirect('aranha:admin_pacotes')
 
     # 404 real (pacote/cliente inexistente) fica fora do try de escrita.
-    pacote = get_object_or_404(Pacote, pk=int(pacote_id))
-    cliente = get_object_or_404(Cliente, pk=int(cliente_id))
+    pacote = get_object_or_404(Pacote, pk=pacote_id)
+    cliente = get_object_or_404(Cliente, pk=cliente_id)
 
     if not pacote.ativo:
         messages.error(request, f'O pacote "{pacote.nome}" está inativo e não pode ser vendido.')
@@ -236,10 +239,11 @@ def admin_vender_pacote(request):
             status='ATIVO',
         )
 
+        # sem o nome da cliente no texto (o log sobrevive ao esquecimento LGPD)
         registrar_log(
             request.user,
-            f'Vendeu pacote "{pacote.nome}" para {cliente.nome}',
-            'compra_pacote', pc.pk, request=request,
+            f'Vendeu pacote "{pacote.nome}"',
+            'compra_pacote', pc.pk, {'cliente': cliente.pk}, request=request,
         )
         messages.success(request, f'Pacote vendido para {cliente.nome}!')
     except (DatabaseError, ValidationError) as e:
@@ -254,14 +258,27 @@ def admin_vender_pacote(request):
 def admin_cancelar_compra_pacote(request, pk):
     """Cancela uma compra de pacote ATIVA (ex.: desistencia com reembolso).
 
-    Exige a observacao do reembolso/acordo, que vai para a auditoria. Sessoes
-    ja usadas continuam registradas; so compra ATIVA pode ser cancelada.
+    Exige o valor devolvido (0 a valor_pago) e a observacao do acordo, que vao
+    para a auditoria. Sessoes ja usadas continuam registradas; so compra ATIVA
+    pode ser cancelada.
     """
     compra = get_object_or_404(CompraPacote.objects.select_related('cliente', 'pacote'), pk=pk)
     destino = redirect('aranha:admin_cliente_detalhe', pk=compra.cliente_id)
     observacao = (request.POST.get('observacao') or '').strip()[:500]
     if not observacao:
         messages.error(request, 'Descreva o motivo e o reembolso/acordo para cancelar o pacote.')
+        return destino
+    try:
+        reembolso = _parse_valor(request.POST.get('valor_reembolsado'))
+    except ValueError:
+        reembolso = None
+    if reembolso is None or reembolso > compra.valor_pago:
+        from ..services.agendamento_service import formatar_brl
+        messages.error(
+            request,
+            'Informe o valor devolvido à cliente (0 se nada foi devolvido), '
+            f'até o valor pago de {formatar_brl(compra.valor_pago)}.',
+        )
         return destino
 
     with transaction.atomic():
@@ -272,11 +289,15 @@ def admin_cancelar_compra_pacote(request, pk):
         )
         return destino
 
+    # valor_reembolsado estruturado (nao so no texto livre): a receita retida
+    # = valor_pago - valor_reembolsado. Sem o nome da cliente no texto (LGPD).
     registrar_log(
         request.user,
-        f'Cancelou pacote "{compra.pacote.nome}" de {compra.cliente.nome}',
+        f'Cancelou pacote "{compra.pacote.nome}"',
         'compra_pacote', compra.pk,
-        {'observacao': observacao, 'sessoes_restantes': compra.sessoes_restantes()},
+        {'cliente': compra.cliente_id, 'observacao': observacao,
+         'valor_pago': str(compra.valor_pago), 'valor_reembolsado': str(reembolso),
+         'sessoes_restantes': compra.sessoes_restantes()},
         request=request,
     )
     messages.success(request, f'Pacote "{compra.pacote.nome}" cancelado.')

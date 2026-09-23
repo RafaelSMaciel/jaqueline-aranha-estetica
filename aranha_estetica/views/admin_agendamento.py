@@ -26,6 +26,7 @@ from ..services.disponibilidade import SlotService, profissionais_para, slot_dis
 from ..utils.audit import registrar_log
 from ..utils.busca import q_busca_cliente
 from ..utils.datas import hoje
+from ..utils.parse import id_int
 from ..utils.precos import preco_com_promocao
 from ..utils.security import safe_next
 from ..validators import validate_telefone_br
@@ -43,8 +44,8 @@ def _eh_sobreposicao(exc) -> bool:
 
 
 def _int(valor):
-    valor = str(valor or '').strip()
-    return int(valor) if valor.isdigit() else None
+    # id_int: isdigit() aceitava '²' e o int() dava 500
+    return id_int(valor)
 
 
 def _data(valor):
@@ -62,8 +63,13 @@ def _hora(valor):
 
 
 def _validar_cliente_novo(nome, telefone_raw, email):
-    """(dados_limpos, erros) do cadastro rapido — mesmas regras da ficha do cliente."""
+    """(dados_limpos, erros, inativa) do cadastro rapido — mesmas regras da ficha do cliente.
+
+    inativa: Cliente com cadastro INATIVO dono do telefone/e-mail — a busca so
+    lista ativas, entao a recepcao precisa do caminho p/ reativar na ficha.
+    """
     erros = []
+    inativa = None
     nome = (nome or '').strip()
     if not nome:
         erros.append('Informe o nome da cliente nova.')
@@ -77,7 +83,13 @@ def _validar_cliente_novo(nome, telefone_raw, email):
         erros.append('Telefone inválido: informe DDD + número (10 ou 11 dígitos).')
     else:
         existente = Cliente.objects.filter(telefone=telefone).first()
-        if existente is not None:
+        if existente is not None and not existente.ativo:
+            inativa = existente
+            erros.append(
+                f'Este telefone é de {existente.nome}, com cadastro inativo: '
+                'reative a cliente na ficha (link abaixo) para agendar.'
+            )
+        elif existente is not None:
             erros.append(
                 f'Este telefone já é de {existente.nome}: busque e selecione a cliente cadastrada.'
             )
@@ -89,9 +101,16 @@ def _validar_cliente_novo(nome, telefone_raw, email):
         except ValidationError:
             erros.append('E-mail inválido.')
         else:
-            if Cliente.objects.filter(email__iexact=email).exists():
+            dono = Cliente.objects.filter(email__iexact=email).first()
+            if dono is not None and not dono.ativo:
+                inativa = inativa or dono
+                erros.append(
+                    f'Este e-mail é de {dono.nome}, com cadastro inativo: '
+                    'reative a cliente na ficha (link abaixo) para agendar.'
+                )
+            elif dono is not None:
                 erros.append('Este e-mail já pertence a outra cliente: busque a cliente cadastrada.')
-    return {'nome': nome, 'telefone': telefone, 'email': email}, erros
+    return {'nome': nome, 'telefone': telefone, 'email': email}, erros, inativa
 
 
 @staff_required
@@ -111,9 +130,17 @@ def admin_agendamento_novo(request):
 
     q = (dados.get('q') or '').strip()[:100]
     cliente = None
+    cliente_inativa = None
     cliente_id = _int(dados.get('cliente_id') or dados.get('cliente'))
     if cliente_id:
-        cliente = Cliente.objects.filter(pk=cliente_id, ativo=True).first()
+        cliente = Cliente.objects.filter(pk=cliente_id).first()
+        if cliente is not None and not cliente.ativo:
+            # atalho da ficha / selecao de inativa: explica em vez de ignorar
+            cliente_inativa, cliente = cliente, None
+            messages.warning(
+                request,
+                f'{cliente_inativa.nome} está com o cadastro inativo: reative na ficha para agendar.',
+            )
     novo = {
         'nome': (request.POST.get('novo_nome') or '').strip() if post else '',
         'telefone': (request.POST.get('novo_telefone') or '').strip() if post else '',
@@ -132,10 +159,14 @@ def admin_agendamento_novo(request):
     hora_str = (dados.get('hora') or '').strip()
     valor_str = (dados.get('valor') or '').strip()
 
-    resultados = []
+    resultados, inativas = [], []
     if q:
         resultados = list(
             Cliente.objects.filter(ativo=True).filter(q_busca_cliente(q)).order_by('nome')[:20]
+        )
+        # inativas aparecem (nao selecionaveis) com o link p/ reativar na ficha
+        inativas = list(
+            Cliente.objects.filter(ativo=False).filter(q_busca_cliente(q)).order_by('nome')[:5]
         )
 
     slots, preco = [], None
@@ -147,6 +178,8 @@ def admin_agendamento_novo(request):
     context = {
         'q': q,
         'resultados': resultados,
+        'inativas': inativas,
+        'cliente_inativa': cliente_inativa,
         'cliente': cliente,
         'novo': novo,
         'procedimentos': procedimentos,
@@ -171,8 +204,15 @@ def admin_agendamento_novo(request):
     dados_novo = None
     if cliente is None:
         if novo['nome'] or novo['telefone']:
-            dados_novo, erros_novo = _validar_cliente_novo(novo['nome'], novo['telefone'], novo['email'])
+            dados_novo, erros_novo, inativa = _validar_cliente_novo(
+                novo['nome'], novo['telefone'], novo['email'],
+            )
             erros.extend(erros_novo)
+            if inativa is not None:
+                context['cliente_inativa'] = inativa
+        elif cliente_inativa is not None:
+            # o aviso de cadastro inativo ja foi dado acima; nada e gravado
+            erros.append('Reative a cliente na ficha antes de agendar.')
         else:
             erros.append('Selecione a cliente na busca ou preencha o cadastro da cliente nova.')
     if procedimento is None:
@@ -249,7 +289,7 @@ def admin_agendamento_novo(request):
 
     registrar_log(
         request.user,
-        f'Agendou pelo painel: {cliente.nome} — {procedimento.nome}',
+        f'Agendou pelo painel: {procedimento.nome}',
         'atendimento', atendimento.pk,
         {
             'cliente': cliente.pk, 'cliente_novo': cliente_novo,
@@ -264,6 +304,14 @@ def admin_agendamento_novo(request):
         f'Agendado: {cliente.nome} — {procedimento.nome} com {profissional.nome} em '
         f'{timezone.localtime(inicio).strftime("%d/%m/%Y às %H:%M")}.',
     )
+    # O agendamento pela recepcao nao coleta a ficha de anamnese do site
+    from ..services.alertas import ids_com_ficha_pendente
+    if ids_com_ficha_pendente([atendimento]):
+        messages.warning(
+            request,
+            'Ficha de anamnese obrigatória pendente: confirme alergias e contraindicações '
+            'com a cliente antes do procedimento e registre no prontuário.',
+        )
     return redirect(f"{reverse('aranha:painel_agendamentos')}?data={data.isoformat()}")
 
 
@@ -280,6 +328,7 @@ def admin_atendimento_valor(request, pk):
     """
     from ..models import MovimentoComissao
     from ..services.comissao_service import ComissaoService
+    from ..services.fidelidade_service import FidelidadeService
 
     at = get_object_or_404(Atendimento.objects.select_related('cliente', 'procedimento'), pk=pk)
     voltar = redirect(safe_next(request, request.META.get('HTTP_REFERER'), 'aranha:painel_agendamentos'))
@@ -305,20 +354,30 @@ def admin_atendimento_valor(request, pk):
         return voltar
 
     antigo = at.valor_cobrado
-    with transaction.atomic():
-        if at.valor_original is None and antigo is not None and antigo != valor:
-            at.valor_original = antigo
-        at.valor_cobrado = valor
-        at.descricao_preco = 'Valor combinado pela recepção'
-        at.save(update_fields=['valor_cobrado', 'valor_original', 'descricao_preco', 'atualizado_em'])
-        comissao = None
-        if at.status == Atendimento.STATUS_REALIZADO:
-            comissao = ComissaoService.calcular_comissao(at)
+    comissao = cashback = None
+    try:
+        with transaction.atomic():
+            if at.valor_original is None and antigo is not None and antigo != valor:
+                at.valor_original = antigo
+            at.valor_cobrado = valor
+            at.descricao_preco = 'Valor combinado pela recepção'
+            at.save(update_fields=['valor_cobrado', 'valor_original', 'descricao_preco', 'atualizado_em'])
+            if at.status == Atendimento.STATUS_REALIZADO:
+                comissao = ComissaoService.calcular_comissao(at)
+                # Mesmo gatilho do REALIZADO: sem valor o cashback da indicadora
+                # tinha sido pulado e o evento nao roda de novo. Idempotente
+                # (UNIQUE carteira+atendimento+origem; 1o pago exclui o proprio pk).
+                cashback = FidelidadeService.liberar_cashback_indicacao(at)
+    except DatabaseError:
+        logger.error('atendimento_valor_falha', exc_info=True, extra={'atendimento_id': at.pk})
+        messages.error(request, 'Não foi possível registrar o valor. Confira o número e tente novamente.')
+        return voltar
 
     registrar_log(
         request.user, 'Registrou valor cobrado', 'atendimento', at.pk,
         {'de': str(antigo) if antigo is not None else None, 'para': str(valor),
-         'comissao': comissao.pk if comissao else None},
+         'comissao': comissao.pk if comissao else None,
+         'cashback': cashback.pk if cashback else None},
         request=request,
     )
     from ..services.agendamento_service import formatar_brl

@@ -4,15 +4,17 @@ from datetime import datetime, timedelta
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
 from ..decorators import profissional_required
 from ..models import AnotacaoSessao, Atendimento
-from ..services.alertas import alertas_por_cliente
+from ..services.alertas import alertas_por_cliente, ids_com_ficha_pendente
 from ..services.termos import ids_com_termo_procedimento_pendente, termos_pendentes
 from ..utils.audit import registrar_log
 from ..utils.saude import alertas_saude
 from ..utils.security import safe_next
+from .prontuario import _vinculo
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +47,19 @@ def _atendimento_do_profissional(user, pk, *, select_related=None):
     return get_object_or_404(qs, pk=pk, profissional=prof)
 
 
+def _clientes_com_vinculo(user, prof, clientes):
+    """ids (de {cliente_id: Cliente}) cujo dado de saude o usuario pode ver.
+
+    Mesma regra do prontuario (views.prontuario._vinculo): staff ve tudo; o
+    profissional so com atendimento REALIZADO recente ou marcado na janela.
+    Atendimento cancelado/antigo na agenda nao abre alergia nem a ficha.
+    """
+    if user.is_staff:
+        return set(clientes)
+    return {cid for cid, cliente in clientes.items() if _vinculo(prof, cliente) is not None}
+
+
+@never_cache  # alertas de saude das clientes: fora do cache/bfcache do navegador
 @profissional_required
 def agenda(request):
     """Agenda do profissional logado — dia e semana."""
@@ -97,12 +112,19 @@ def agenda(request):
     # Alerta de saude (prontuario + fichas de anamnese) e termo de procedimento
     # pendente em TODAS as visoes: dia, semana e aguardando aprovacao — e
     # antes de aprovar um PENDENTE que a profissional precisa ver a alergia.
+    # Alerta e link da ficha so p/ cliente com vinculo (regra do prontuario):
+    # ?data= de um dia antigo nao expoe dado de saude fora da janela.
     todos = atendimentos_dia + atendimentos_semana + pendentes
-    alertas = alertas_por_cliente(at.cliente for at in todos)
+    clientes = {at.cliente_id: at.cliente for at in todos}
+    com_vinculo = _clientes_com_vinculo(request.user, prof, clientes)
+    alertas = alertas_por_cliente(cli for cid, cli in clientes.items() if cid in com_vinculo)
     sem_termo = ids_com_termo_procedimento_pendente(todos)
+    sem_ficha = ids_com_ficha_pendente(todos)
     for at in todos:
+        at.tem_vinculo = at.cliente_id in com_vinculo
         at.alertas = alertas.get(at.cliente_id, [])
         at.termo_pendente = at.pk in sem_termo
+        at.ficha_pendente = at.pk in sem_ficha
 
     context = {
         'profissional': prof,
@@ -162,16 +184,23 @@ def marcar_realizado(request, pk):
     return _redirect_seguro(request, request.POST.get('next'))
 
 
+@never_cache  # notas clinicas + alerta de saude: fora do cache do navegador
 @profissional_required
 def anotar(request, pk):
-    """Formulario para adicionar anotacao de sessao ao atendimento."""
+    """Formulario para adicionar anotacao de sessao ao atendimento.
+
+    Historico de notas e alertas de saude seguem a regra do prontuario
+    (_vinculo): sem atendimento recente/marcado com a cliente a tela so aceita
+    a nova anotacao. Leitura e escrita entram na trilha (LGPD art. 37), com a
+    mesma convencao do prontuario (tabela='prontuario', registro = cliente).
+    """
     atendimento = _atendimento_do_profissional(
         request.user, pk, select_related=['cliente', 'procedimento'],
     )
-
-    anotacoes = AnotacaoSessao.objects.filter(
-        atendimento=atendimento
-    ).select_related('autor').order_by('-criado_em')
+    vinculo = None
+    if not request.user.is_staff:
+        vinculo = _vinculo(_profissional_do_usuario(request.user), atendimento.cliente)
+    pode_ver = request.user.is_staff or vinculo is not None
 
     if request.method == 'POST':
         texto = request.POST.get('texto', '').strip()
@@ -179,19 +208,41 @@ def anotar(request, pk):
             messages.error(request, 'Digite o conteúdo da anotação.')
             return redirect('aranha:profissional_anotar', pk=pk)
 
-        AnotacaoSessao.objects.create(
+        anotacao = AnotacaoSessao.objects.create(
             atendimento=atendimento,
             autor=request.user,
             texto=texto,
         )
+        registrar_log(
+            request.user, 'Criou anotacao', 'anotacao_sessao', anotacao.pk,
+            {'atendimento': atendimento.pk, 'cliente': atendimento.cliente_id},
+            request=request,
+        )
         messages.success(request, 'Anotação salva.')
         return redirect('aranha:profissional_agenda')
+
+    anotacoes, alertas = [], []
+    if pode_ver:
+        anotacoes = list(
+            AnotacaoSessao.objects.filter(atendimento=atendimento)
+            .select_related('autor').order_by('-criado_em')
+        )
+        # tela aberta na hora da sessao: alergia/contraindicacao visivel no topo
+        alertas = alertas_saude(atendimento.cliente)
+        detalhes = {'view': 'profissional.anotar', 'atendimento': atendimento.pk}
+        if vinculo is not None:
+            detalhes['atendimento_vinculo'] = vinculo.pk
+        registrar_log(
+            request.user, 'Acessou prontuario',
+            tabela='prontuario', id_registro=atendimento.cliente_id,
+            detalhes=detalhes, request=request,
+        )
 
     context = {
         'atendimento': atendimento,
         'anotacoes': anotacoes,
-        # tela aberta na hora da sessao: alergia/contraindicacao visivel no topo
-        'alertas': alertas_saude(atendimento.cliente),
+        'alertas': alertas,
+        'pode_ver_clinico': pode_ver,
     }
     return render(request, 'profissional/anotar.html', context)
 
@@ -211,7 +262,7 @@ def aprovar_agendamento(request, pk):
         select_related=['cliente', 'procedimento', 'profissional'],
     )
     try:
-        transitou = AgendamentoService().aprovar(atendimento, by_user=request.user)
+        transitou = AgendamentoService().aprovar(atendimento, by_user=request.user, request=request)
     except Atendimento.TransicaoInvalida:
         transitou = False
     if not transitou:
@@ -234,6 +285,7 @@ def rejeitar_agendamento(request, pk):
     try:
         transitou = AgendamentoService().rejeitar(
             atendimento, motivo='Rejeitado pelo profissional', by_user=request.user,
+            request=request,
         )
     except Atendimento.TransicaoInvalida:
         transitou = False

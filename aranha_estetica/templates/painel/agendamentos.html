@@ -134,6 +134,7 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
         Termo pendente: o termo do procedimento ainda não foi aceito
       </p>
       {% endif %}
+      {% if agend.pk in marc.ficha_pendente %}{% include 'partials/_ficha_pendente.html' %}{% endif %}
       {% if agend.cliente.telefone %}
       <div class="flex items-center gap-1 text-[0.72rem] text-texto-suave mt-0.5">
         <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.13.81.36 1.6.7 2.34a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.74-1.74a2 2 0 012.11-.45c.74.34 1.53.57 2.34.7A2 2 0 0122 16.92z"/></svg>
@@ -150,12 +151,13 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
       {% endif %}
       {% if agend.pk not in marc.pacote and not agend.eh_retorno and agend.status != 'CANCELADO' and agend.status != 'FALTOU' and agend.status != 'REAGENDADO' %}
       {# Valor combinado / "a consultar": registrado aqui (realizado sem comissao lancada gera a comissao) #}
-      <details class="relative">
-        <summary class="list-none cursor-pointer px-2 py-1 rounded-lg border border-borda text-[0.7rem] font-bold text-texto-suave hover:text-texto">
+      {# No celular o popover entra no fluxo (largura da linha): absolute right-0 saia da tela pela esquerda #}
+      <details class="relative w-full sm:w-auto">
+        <summary class="list-none w-fit ml-auto cursor-pointer px-2 py-1 rounded-lg border border-borda text-[0.7rem] font-bold text-texto-suave hover:text-texto">
           {% if agend.valor_cobrado is None %}Registrar valor{% else %}Valor{% endif %}
         </summary>
         <form method="post" action="{% url 'aranha:admin_atendimento_valor' agend.pk %}"
-              class="absolute right-0 z-30 mt-1 flex items-center gap-1.5 p-2 rounded-xl border border-borda bg-superficie shadow-lg">
+              class="static sm:absolute sm:right-0 z-30 mt-1 flex items-center gap-1.5 p-2 max-w-full rounded-xl border border-borda bg-superficie shadow-lg">
           {% csrf_token %}
           <label class="sr-only" for="valor-{{ agend.pk }}">Valor cobrado de {{ agend.cliente.nome }}</label>
           <input id="valor-{{ agend.pk }}" type="text" name="valor" inputmode="decimal" required placeholder="150,00"
@@ -235,6 +237,29 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
 {% block js %}
 <script nonce="{{ csp_nonce }}">
 // Atualizacao de status via AJAX (delegado, CSP-safe). Recarrega na sucesso.
+var MSG_SEM_TERMO = 'A cliente ainda não aceitou o termo do procedimento. Marcar como realizado mesmo assim?';
+function enviarStatus(sel, payload) {
+    fetch('{% url "aranha:admin_atualizar_status" %}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+        body: JSON.stringify(payload)
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+        if (data.sucesso) { location.reload(); return; }
+        // Servidor recusou por termo pendente (ex.: publicado depois de abrir a
+        // pagina): pede a confirmacao explicita e reenvia com o override auditado
+        if (data.termo_pendente && !payload.sem_termo) {
+            if (confirm(MSG_SEM_TERMO)) {
+                payload.sem_termo = true;
+                enviarStatus(sel, payload);
+            } else { sel.value = ''; }
+            return;
+        }
+        alert('Erro: ' + (data.erro || 'Erro desconhecido')); sel.value = '';
+    })
+    .catch(function () { alert('Erro de rede'); sel.value = ''; });
+}
 document.addEventListener('change', function (e) {
     var sel = e.target.closest('select[data-atend-id]');
     if (!sel || !sel.value) return;
@@ -243,20 +268,10 @@ document.addEventListener('change', function (e) {
     var payload = { atendimento_id: id, status: status };
     if (status === 'REALIZADO' && sel.getAttribute('data-termo-pendente') === '1') {
         // Override explicito (auditado no servidor): termo do procedimento nao aceito
-        if (!confirm('A cliente ainda não aceitou o termo do procedimento. Marcar como realizado mesmo assim?')) { sel.value = ''; return; }
+        if (!confirm(MSG_SEM_TERMO)) { sel.value = ''; return; }
         payload.sem_termo = true;
     } else if (!confirm('Alterar status para ' + status + '?')) { sel.value = ''; return; }
-    fetch('{% url "aranha:admin_atualizar_status" %}', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
-        body: JSON.stringify(payload)
-    })
-    .then(function (r) { return r.json(); })
-    .then(function (data) {
-        if (data.sucesso) { location.reload(); }
-        else { alert('Erro: ' + (data.erro || 'Erro desconhecido')); sel.value = ''; }
-    })
-    .catch(function () { alert('Erro de rede'); sel.value = ''; });
+    enviarStatus(sel, payload);
 });
 
 // Bulk actions: mostra toolbar quando >=1 pendente selecionado

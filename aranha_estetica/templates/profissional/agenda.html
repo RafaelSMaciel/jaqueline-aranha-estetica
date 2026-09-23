@@ -4,6 +4,8 @@
 {% block titulo %}Minha Agenda | {{ CLINIC_NAME }}{% endblock %}
 
 {% block css %}
+{# webpush.js le o token daqui: o cookie csrftoken e HttpOnly (sem ele o POST de inscricao da 403) #}
+<meta name="csrf-token" content="{{ csrf_token }}">
 <style nonce="{{ csp_nonce }}">
     /* Status border colors */
     .atn-card-CONFIRMADO { border-left-color: #4caf50; }
@@ -90,10 +92,11 @@
                 <div class="text-xs text-texto-suave mt-0.5">
                     {{ p.procedimento.nome }} &bull;
                     {{ p.data_hora_inicio|date:"d/m/Y" }} às {{ p.data_hora_inicio|time:"H:i" }}
-                    &bull; <a href="{% url 'aranha:prontuario_detalhe' p.cliente_id %}" class="font-bold text-blue-800 hover:underline">Ficha</a>
+                    {% if p.tem_vinculo %}&bull; <a href="{% url 'aranha:prontuario_detalhe' p.cliente_id %}" class="font-bold text-blue-800 hover:underline">Ficha</a>{% endif %}
                 </div>
                 {% include 'partials/_alerta_saude.html' with alertas=p.alertas %}
                 {% if p.termo_pendente %}{% include 'profissional/_termo_pendente.html' %}{% endif %}
+                {% if p.ficha_pendente %}{% include 'partials/_ficha_pendente.html' %}{% endif %}
             </div>
             <div class="flex gap-2 flex-shrink-0">
                 <form method="post" action="{% url 'aranha:profissional_aprovar' pk=p.pk %}" class="m-0">
@@ -192,6 +195,7 @@
                 </div>
                 {% include 'partials/_alerta_saude.html' with alertas=atd.alertas %}
                 {% if atd.termo_pendente %}{% include 'profissional/_termo_pendente.html' %}{% endif %}
+                {% if atd.ficha_pendente %}{% include 'partials/_ficha_pendente.html' %}{% endif %}
                 <span class="inline-block text-xs font-black uppercase px-2 py-0.5 rounded mt-1 badge-{{ atd.status }}">
                     {{ atd.get_status_display }}
                 </span>
@@ -220,7 +224,8 @@
                     </button>
                 </form>
                 {% endif %}
-                {% if atd.status != 'CANCELADO' and atd.status != 'REAGENDADO' and atd.status != 'FALTOU' %}
+                {% if atd.tem_vinculo %}
+                {# mesma regra do prontuario (_vinculo): sem vinculo o link so daria 403 #}
                 <a href="{% url 'aranha:prontuario_detalhe' atd.cliente_id %}"
                    class="bg-fundo hover:bg-borda text-texto text-xs font-bold
                           px-3 py-2 rounded-lg inline-flex items-center gap-1 transition-colors">
@@ -271,6 +276,7 @@
                     </svg><span class="sr-only">Alerta de saúde: {% for a in atd.alertas %}{{ a.label }}: {{ a.valor }}{% if not forloop.last %}; {% endif %}{% endfor %}</span>
                     {% endif %}
                     {% if atd.termo_pendente %}<span class="font-bold text-amber-800">· termo pendente</span>{% endif %}
+                    {% if atd.ficha_pendente %}<span class="font-bold text-amber-800">· ficha pendente</span>{% endif %}
                 </div>
                 {% empty %}
                 <div class="text-xs text-texto-suave text-center mt-2">—</div>

@@ -33,11 +33,18 @@
 {% endblock %}
 
 {% block page_actions %}
+{% if cliente.ativo %}
 <a href="{% url 'aranha:admin_agendamento_novo' %}?cliente={{ cliente.pk }}"
    class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white no-underline hover:opacity-90 transition-opacity">
   <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
   Agendar
 </a>
+{% else %}
+{# Cadastro inativo nao agenda: reative marcando "Ativo" abaixo e salvando #}
+<span class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold bg-fundo text-texto-suave">
+  Cadastro inativo: marque "Ativo" e salve para agendar
+</span>
+{% endif %}
 {% endblock %}
 
 {% block admin_content %}
@@ -238,6 +245,9 @@
       <summary class="cursor-pointer text-[0.75rem] font-bold text-red-700">Cancelar pacote</summary>
       <form method="post" action="{% url 'aranha:admin_cancelar_compra_pacote' compra.pk %}" class="mt-2">
         {% csrf_token %}
+        <label for="reembCancel{{ compra.pk }}" class="block text-[0.72rem] font-bold text-texto-suave mb-1">Valor devolvido à cliente (R$; 0 se nada foi devolvido)</label>
+        <input id="reembCancel{{ compra.pk }}" type="text" name="valor_reembolsado" inputmode="decimal" required placeholder="0,00"
+               class="w-32 px-3 py-2 mb-2 rounded-xl border border-borda bg-fundo text-[0.8rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40">
         <label for="obsCancel{{ compra.pk }}" class="block text-[0.72rem] font-bold text-texto-suave mb-1">Motivo e reembolso/acordo (vai para a auditoria)</label>
         <textarea id="obsCancel{{ compra.pk }}" name="observacao" rows="2" required maxlength="500"
                   class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.8rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 resize-y"></textarea>
