@@ -1,10 +1,15 @@
 # aranha_estetica/models/profissionais.py — Profissionais, disponibilidade, bloqueios
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 
 from django.db import models
+from django.utils import timezone
+
+from ..utils.datas import fmt_local
 
 
 class Profissional(models.Model):
+    # PG: COLLATE pt_br aplicada pela 0038 fora do estado do Django — um
+    # AlterField futuro em `nome` reseta a collation (reaplicar via RunSQL).
     nome = models.CharField(max_length=100)
     slug = models.SlugField(max_length=140, unique=True, blank=True, null=True)
     especialidade = models.TextField(blank=True, null=True)
@@ -63,11 +68,6 @@ class Profissional(models.Model):
         from ..services.disponibilidade import SlotService
         return SlotService.slots_livres(self, data_selecionada, procedimento)
 
-    @staticmethod
-    def _get_model(name):
-        from django.apps import apps
-        return apps.get_model('aranha_estetica', name)
-
 
 class DisponibilidadeProfissional(models.Model):
     profissional = models.ForeignKey(Profissional, on_delete=models.CASCADE)
@@ -119,7 +119,7 @@ class BloqueioAgenda(models.Model):
 
     def __str__(self):
         prof = self.profissional.nome if self.profissional_id else 'Todos'
-        ini = self.data_hora_inicio.strftime('%d/%m/%Y %H:%M') if self.data_hora_inicio else '?'
+        ini = fmt_local(self.data_hora_inicio) or '?'
         sfx = f' (recorrente: {self.regra_recorrencia})' if self.regra_recorrencia else ''
         return f'Bloqueio {prof} @ {ini}{sfx}'
 
@@ -141,18 +141,14 @@ class BloqueioAgenda(models.Model):
         except ImportError:
             return [(self.data_hora_inicio, self.data_hora_fim)]
 
+        # DTSTART no fuso LOCAL: BYDAY/BYMONTHDAY sao avaliados no dia local
+        # (em UTC, um bloqueio de quarta 21h BRT cairia na quinta).
+        inicio_local = self.data_hora_inicio
+        if timezone.is_aware(inicio_local):
+            inicio_local = timezone.localtime(inicio_local)
         try:
-            # DTSTART com sufixo 'Z' = UTC. Converter o aware datetime (fuso local)
-            # para UTC antes de formatar; senao a recorrencia desloca ~3h (BRT).
-            from datetime import timezone as _dt_timezone
-            from django.utils import timezone as _tz
-            inicio = self.data_hora_inicio
-            if _tz.is_aware(inicio):
-                inicio = inicio.astimezone(_dt_timezone.utc)
             rule = rrulestr(
-                f'DTSTART:{inicio.strftime("%Y%m%dT%H%M%SZ")}\n'
-                f'RRULE:{self.regra_recorrencia}',
-                forceset=True,
+                f'RRULE:{self.regra_recorrencia}', dtstart=inicio_local, forceset=True,
             )
         except (ValueError, TypeError):
             return [(self.data_hora_inicio, self.data_hora_fim)]
@@ -160,16 +156,22 @@ class BloqueioAgenda(models.Model):
         ate = self.recorrencia_ate
         fim_busca = range_fim
         if ate:
-            from datetime import datetime as _dt
-            limite = _dt.combine(ate, _dt.min.time())
-            from django.utils import timezone as _tz
-            if _tz.is_naive(limite):
-                limite = _tz.make_aware(limite, _tz.get_current_timezone())
+            # recorrencia_ate e INCLUSIVO: ocorrencias do proprio dia valem
+            limite = datetime.combine(ate + timedelta(days=1), time.min)
+            if timezone.is_naive(limite):
+                limite = timezone.make_aware(limite, timezone.get_current_timezone())
             if limite < fim_busca:
                 fim_busca = limite
 
         ocorrencias = []
-        for inicio in rule.between(range_inicio - duracao, fim_busca, inc=True):
+        try:
+            candidatos = rule.between(range_inicio - duracao, fim_busca, inc=True)
+        except (ValueError, TypeError):
+            # ex.: UNTIL naive na regra com dtstart aware
+            return [(self.data_hora_inicio, self.data_hora_fim)]
+        for inicio in candidatos:
+            if fim_busca <= inicio:
+                continue
             fim = inicio + duracao
             if fim > range_inicio and inicio < range_fim:
                 ocorrencias.append((inicio, fim))

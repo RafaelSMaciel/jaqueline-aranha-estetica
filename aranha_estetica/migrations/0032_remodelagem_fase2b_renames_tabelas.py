@@ -11,6 +11,10 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('aranha_estetica', '0031_remodelagem_fase2a_renames_colunas'),
+        # RenameModel injeta rename de ContentType: sem esta dependencia o
+        # rollback (migrate ... 0026) usa o ContentType historico com a coluna
+        # `name` (removida na 0002) e quebra. Rollback real = restaurar o dump.
+        ('contenttypes', '0002_remove_content_type_name'),
     ]
 
     operations = [

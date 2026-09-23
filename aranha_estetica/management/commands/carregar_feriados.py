@@ -1,26 +1,29 @@
 """Carrega feriados nacionais brasileiros para o ano informado.
 
+Idempotente (get_or_create por data+escopo): pode rodar todo mes via cron
+(a migration 0012 so carregou 2026-2027).
+
 Uso:
-  python manage.py carregar_feriados          # ano atual + proximo
+  python manage.py carregar_feriados          # ano atual + proximo (fuso local)
   python manage.py carregar_feriados --ano 2027
 """
 from datetime import date, timedelta
 
 from django.core.management.base import BaseCommand
-from django.utils import timezone
 
 from aranha_estetica.models import Feriado
+from aranha_estetica.utils.datas import hoje
 
 
 FERIADOS_FIXOS = [
-    ((1, 1), 'Confraternizacao Universal'),
+    ((1, 1), 'Confraternização Universal'),
     ((4, 21), 'Tiradentes'),
     ((5, 1), 'Dia do Trabalho'),
-    ((9, 7), 'Independencia do Brasil'),
+    ((9, 7), 'Independência do Brasil'),
     ((10, 12), 'Nossa Senhora Aparecida'),
     ((11, 2), 'Finados'),
-    ((11, 15), 'Proclamacao da Republica'),
-    ((11, 20), 'Consciencia Negra'),
+    ((11, 15), 'Proclamação da República'),
+    ((11, 20), 'Consciência Negra'),
     ((12, 25), 'Natal'),
 ]
 
@@ -48,7 +51,7 @@ def feriados_moveis(ano: int):
     p = pascoa(ano)
     return [
         (p - timedelta(days=48), 'Carnaval (segunda)'),
-        (p - timedelta(days=47), 'Carnaval (terca)'),
+        (p - timedelta(days=47), 'Carnaval (terça)'),
         (p - timedelta(days=2), 'Sexta-feira Santa'),
         (p + timedelta(days=60), 'Corpus Christi'),
     ]
@@ -62,7 +65,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         ano_alvo = options.get('ano')
-        anos = [ano_alvo] if ano_alvo else [timezone.now().year, timezone.now().year + 1]
+        ano_atual = hoje().year
+        anos = [ano_alvo] if ano_alvo else [ano_atual, ano_atual + 1]
 
         criados, existentes = 0, 0
         for ano in anos:

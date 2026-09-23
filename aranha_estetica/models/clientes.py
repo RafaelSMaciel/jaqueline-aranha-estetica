@@ -3,8 +3,9 @@ import secrets
 from django.db import models, transaction
 from django.core.validators import MinValueValidator
 
-from django.db.models.functions import Lower
+from django.db.models.functions import Lower, Upper
 
+from aranha_estetica.constants import MAX_FALTAS_ANTES_BLOQUEIO
 from aranha_estetica.validators import (
     validate_cpf, validate_telefone_br, validate_data_nascimento,
     normalizar_telefone, normalizar_cpf,
@@ -19,6 +20,9 @@ class ClienteAtivosManager(models.Manager):
 
 
 class Cliente(models.Model):
+    # PG: coluna com COLLATE pt_br aplicada pela 0038 FORA do estado do Django.
+    # Qualquer AlterField futuro em `nome` reseta a collation — reaplicar via
+    # RunSQL (ALTER TABLE cliente ALTER COLUMN nome TYPE varchar(150) COLLATE pt_br).
     nome = models.CharField(max_length=150)
     data_nascimento = models.DateField(
         blank=True, null=True, validators=[validate_data_nascimento],
@@ -30,7 +34,8 @@ class Cliente(models.Model):
     )
     rg = models.CharField(max_length=20, blank=True, null=True)
     profissao = models.CharField(max_length=100, blank=True, null=True)
-    # email indexado pelo UNIQUE parcial uniq_cliente_email_ativo — sem db_index redundante
+    # lookups usam email__iexact (UPPER) -> idx_cliente_email_upper; o UNIQUE
+    # parcial uniq_cliente_email_ativo (LOWER) so garante unicidade
     email = models.EmailField(max_length=254, blank=True, null=True)
     telefone = models.CharField(
         max_length=20, blank=True, null=True, validators=[validate_telefone_br],
@@ -76,8 +81,8 @@ class Cliente(models.Model):
 
     objects = ClienteAtivosManager()
     # all_objects: Manager nu de proposito — retorna TODOS (inclui soft-deleted),
-    # usado por _gerar_codigo_indicacao/registrar_falta. Difere da semantica do
-    # SoftDeleteMixin; unificar e tarefa de refactor maior (ver finding 'alta').
+    # usado por _gerar_codigo_indicacao/registrar_falta. ATENCAO:
+    # all_objects.filter(...).delete() e hard delete (ignora Cliente.delete()).
     all_objects = models.Manager()
 
     class Meta:
@@ -86,7 +91,8 @@ class Cliente(models.Model):
         indexes = [
             models.Index(fields=['telefone'], name='idx_cliente_telefone'),
             models.Index(fields=['nome'], name='idx_cliente_nome'),
-            # idx_cliente_email removido — uniq_cliente_email_ativo ja indexa
+            # email__iexact gera UPPER(email) = UPPER(%s): indice de expressao casado
+            models.Index(Upper('email'), name='idx_cliente_email_upper'),
         ]
         constraints = [
             # UNIQUE parcial case-insensitive: email duplicado proibido entre ativos
@@ -120,10 +126,12 @@ class Cliente(models.Model):
     def save(self, *args, **kwargs):
         # Forma canonica de identidade (remodelagem v2.1 fase 3) — telefone e
         # cpf sempre digits-only; lookups das views comparam normalizado.
+        # Tamanho NAO e validado aqui (ValidationError no save vira 500): a
+        # borda valida com validators.validar_telefone/validar_cpf.
         if self.telefone:
-            self.telefone = normalizar_telefone(self.telefone)
+            self.telefone = normalizar_telefone(self.telefone) or None
         if self.cpf:
-            self.cpf = normalizar_cpf(self.cpf)
+            self.cpf = normalizar_cpf(self.cpf) or None
         if not self.token_descadastro:
             self.token_descadastro = secrets.token_urlsafe(32)
         if not self.codigo_indicacao:
@@ -140,13 +148,31 @@ class Cliente(models.Model):
         # fallback: 12 chars caso 8 colisoes (loteria)
         return secrets.token_hex(6).upper()
 
+    @staticmethod
+    def limite_faltas_bloqueio() -> int:
+        """Faltas consecutivas p/ bloquear o agendamento online.
+
+        Configuracao 'MAX_FALTAS_BLOQUEIO' (painel) > MAX_FALTAS_ANTES_BLOQUEIO.
+        """
+        from .sistema import Configuracao
+        valor = (
+            Configuracao.objects.filter(chave='MAX_FALTAS_BLOQUEIO')
+            .values_list('valor', flat=True).first()
+        )
+        try:
+            limite = int(str(valor).strip())
+        except (TypeError, ValueError):
+            return MAX_FALTAS_ANTES_BLOQUEIO
+        return limite if limite >= 1 else MAX_FALTAS_ANTES_BLOQUEIO
+
     def registrar_falta(self):
         # Lock da row p/ evitar lost-update sob no-shows concorrentes; grava
         # so os campos afetados (evita reprocessar normalizacao/tokens no save()).
+        limite = self.limite_faltas_bloqueio()
         with transaction.atomic():
             travado = Cliente.all_objects.select_for_update().get(pk=self.pk)
             travado.faltas_consecutivas += 1
-            if travado.faltas_consecutivas >= 3:
+            if travado.faltas_consecutivas >= limite:
                 travado.bloqueado_online = True
             travado.save(update_fields=['faltas_consecutivas', 'bloqueado_online', 'atualizado_em'])
         self.faltas_consecutivas = travado.faltas_consecutivas

@@ -131,8 +131,9 @@ class RespostaAnamnese(models.Model):
     """
 
     formulario = models.ForeignKey(FormularioAnamnese, on_delete=models.RESTRICT)
-    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE)
-    atendimento = models.ForeignKey('Atendimento', on_delete=models.CASCADE, blank=True, null=True)
+    # PROTECT: resposta de anamnese e dado de saude (retencao legal)
+    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT)
+    atendimento = models.ForeignKey('Atendimento', on_delete=models.PROTECT, blank=True, null=True)
     token = models.CharField(
         max_length=64, unique=True, db_index=True, default=_gen_resposta_token,
     )
@@ -152,6 +153,12 @@ class RespostaAnamnese(models.Model):
     def __str__(self):
         # Usa *_id (sem queries lazy) p/ evitar N+1 em listagens de admin nao prefetched.
         return f'Resposta form#{self.formulario_id} - cliente#{self.cliente_id}'
+
+    def clean(self):
+        # espelha o CHECK chk_resposta_anamnese_objeto (PG, migration 0043)
+        super().clean()
+        if self.respostas_json is not None and not isinstance(self.respostas_json, dict):
+            raise ValidationError({'respostas_json': 'Deve ser um objeto JSON ({"chave": valor}).'})
 
     def get_link_publico(self):
         """Retorna path publico baseado no tipo do formulario."""

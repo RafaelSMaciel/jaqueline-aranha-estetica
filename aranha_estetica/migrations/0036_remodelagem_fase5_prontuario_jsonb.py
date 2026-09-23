@@ -2,6 +2,14 @@
 # EAV (ProntuarioPergunta/ProntuarioResposta) -> Prontuario.respostas_extras
 # JSONB. Schema das perguntas migra p/ Configuracao 'prontuario_perguntas'.
 # Ordem: add campo -> copia dados -> delete models. GIN index pg-only.
+#
+# Auditoria pre-producao (editada in-place: prod nunca aplicou a 0036):
+#  - respostas agregadas em memoria e gravadas com 1 UPDATE por prontuario
+#    (antes: 1 instancia por resposta via select_related -> cada save
+#    sobrescrevia o anterior e so a ultima resposta sobrevivia; e o 2o UPDATE
+#    na mesma linha deixava 'pending trigger events' p/ o CREATE INDEX);
+#  - respostas de perguntas DESATIVADAS sao preservadas em respostas_extras
+#    (so nao entram no schema do formulario) — dado clinico, retencao 20 anos.
 
 import json
 import re
@@ -27,8 +35,12 @@ def migrar_eav_para_jsonb(apps, schema_editor):
     Resposta = apps.get_model('aranha_estetica', 'ProntuarioResposta')
     Configuracao = apps.get_model('aranha_estetica', 'Configuracao')
 
-    # 1. perguntas -> Configuracao (schema do questionario)
-    perguntas = list(Pergunta.objects.filter(ativa=True).order_by('pk'))
+    Prontuario = apps.get_model('aranha_estetica', 'Prontuario')
+
+    # 1. perguntas -> Configuracao (schema do questionario). TODAS ganham
+    #    chave (as respostas historicas sao preservadas); so as ativas vao
+    #    p/ o schema exibido no formulario.
+    perguntas = list(Pergunta.objects.order_by('pk'))
     chave_por_pk = {}
     schema = []
     usadas = set()
@@ -38,6 +50,8 @@ def migrar_eav_para_jsonb(apps, schema_editor):
             chave += '_x'
         usadas.add(chave)
         chave_por_pk[p.pk] = (chave, p.tipo_resposta)
+        if not p.ativa:
+            continue
         schema.append({
             'chave': chave,
             'texto': p.texto,
@@ -52,27 +66,32 @@ def migrar_eav_para_jsonb(apps, schema_editor):
             },
         )
 
-    # 2. respostas -> respostas_extras
-    for r in Resposta.objects.select_related('prontuario').all():
+    # 2. respostas -> respostas_extras (agrega em memoria, 1 UPDATE por prontuario)
+    por_prontuario = {}
+    for r in Resposta.objects.order_by('pk'):
         info = chave_por_pk.get(r.pergunta_id)
         if not info:
             continue
         chave, tipo = info
-        pront = r.prontuario
-        extras = dict(pront.respostas_extras or {})
+        extras = por_prontuario.setdefault(r.prontuario_id, {})
         if tipo == 'BOOLEAN':
             if r.resposta_boolean is not None:
                 extras[chave] = bool(r.resposta_boolean)
-        else:
-            if r.resposta_texto:
-                extras[chave] = r.resposta_texto
-        pront.respostas_extras = extras
-        pront.save(update_fields=['respostas_extras'])
+        elif r.resposta_texto:
+            extras[chave] = r.resposta_texto
+    for prontuario_id, extras in por_prontuario.items():
+        if extras:
+            Prontuario.objects.filter(pk=prontuario_id).update(respostas_extras=extras)
+    if schema_editor.connection.vendor == 'postgresql':
+        schema_editor.execute('SET CONSTRAINTS ALL IMMEDIATE', None)
 
 
 def criar_gin_index_pg(apps, schema_editor):
     if schema_editor.connection.vendor != 'postgresql':
         return
+    # UPDATEs da copia deixam RI triggers DEFERRED pendentes; CREATE INDEX
+    # recusa tabela com trigger events pendentes.
+    schema_editor.execute('SET CONSTRAINTS ALL IMMEDIATE', None)
     schema_editor.execute(
         'CREATE INDEX IF NOT EXISTS gin_prontuario_extras '
         'ON prontuario USING gin (respostas_extras)'

@@ -1,5 +1,5 @@
 """Testes que garantem que os __str__ dos models nao quebram e carregam contexto util."""
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 from decimal import Decimal
 
 from django.test import TestCase
@@ -34,6 +34,21 @@ class ModelStrTests(TestCase):
         texto = str(atd)
         self.assertIn('Joao Silva', texto)
         self.assertIn('Peeling', texto)
+
+    def test_atendimento_str_em_horario_local(self):
+        # banco devolve UTC: 13:00 UTC = 10:00 em Sao Paulo (labels do admin)
+        inicio = datetime(2026, 9, 25, 13, 0, tzinfo=dt_timezone.utc)
+        atd = criar_atendimento(self.cliente, self.prof, self.proc, data_hora=inicio)
+        atd.refresh_from_db()
+        self.assertIn('25/09/2026 10:00', str(atd))
+
+    def test_bloqueio_str_em_horario_local(self):
+        inicio = datetime(2026, 9, 25, 23, 30, tzinfo=dt_timezone.utc)
+        bloqueio = BloqueioAgenda.objects.create(
+            profissional=self.prof, data_hora_inicio=inicio,
+            data_hora_fim=inicio + timedelta(hours=1),
+        )
+        self.assertIn('25/09/2026 20:30', str(bloqueio))
 
     def test_notificacao_str_contem_cliente_e_tipo(self):
         atd = criar_atendimento(self.cliente, self.prof, self.proc)
