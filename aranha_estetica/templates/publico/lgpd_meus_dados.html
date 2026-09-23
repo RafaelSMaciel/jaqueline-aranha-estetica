@@ -3,6 +3,9 @@
 
 {% block titulo %}Meus Dados (LGPD) — {{ CLINIC_NAME }}{% endblock %}
 
+{# Mensagens ficam junto do formulario (abaixo); a base nao repete. #}
+{% block mensagens %}{% endblock %}
+
 {% block conteudo %}
 <div class="mx-auto max-w-xl px-6 py-12">
 
@@ -15,8 +18,14 @@
 
   {% if messages %}
     {% for m in messages %}
-      <div class="mb-4 rounded-md border border-borda bg-superficie px-4 py-3 text-sm text-texto-suave">{{ m }}</div>
+      <div role="{% if m.level >= 40 %}alert{% else %}status{% endif %}" class="mb-4 rounded-md border border-borda bg-superficie px-4 py-3 text-sm text-texto-suave">{{ m }}</div>
     {% endfor %}
+  {% endif %}
+
+  {% if sms_indisponivel and WHATSAPP_NUMERO %}
+    <p class="mb-4 text-sm text-texto-suave">
+      <a href="https://wa.me/{{ WHATSAPP_NUMERO }}" class="text-marca hover:underline" target="_blank" rel="noopener">Falar com a clínica pelo WhatsApp</a>
+    </p>
   {% endif %}
 
   <form method="post" class="rounded-lg border border-borda bg-superficie p-6 space-y-5">

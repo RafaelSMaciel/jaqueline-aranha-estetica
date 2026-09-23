@@ -7,16 +7,12 @@ reutilizaveis. Views chamam services; services orquestram models, tasks
 e notificacoes.
 """
 from .agendamento_service import AgendamentoService
-from .pacote import PacoteService
-from .notificacao import NotificacaoService
 from .lgpd import LgpdService
 from .auditoria import AuditoriaService
 from . import otp as otp_service
 
 __all__ = [
     'AgendamentoService',
-    'PacoteService',
-    'NotificacaoService',
     'LgpdService',
     'AuditoriaService',
     'otp_service',

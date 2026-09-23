@@ -19,21 +19,36 @@ def webpush_public_key(request):
     return JsonResponse({'public_key': get_vapid_public_key()})
 
 
+def _payload_json(request):
+    """Corpo JSON como dict (None se invalido ou nao-objeto: '[]', 'null', 'x')."""
+    try:
+        payload = json.loads(request.body)
+    except ValueError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _texto(valor) -> str:
+    return valor.strip() if isinstance(valor, str) else ''
+
+
 @require_POST
 @csrf_protect
 @login_required
 def webpush_subscribe(request):
-    try:
-        payload = json.loads(request.body)
-        endpoint = payload.get('endpoint', '').strip()
-        keys = payload.get('keys') or {}
-        p256dh = keys.get('p256dh', '').strip()
-        auth = keys.get('auth', '').strip()
-    except (ValueError, KeyError, AttributeError):
+    payload = _payload_json(request)
+    if payload is None:
         return JsonResponse({'ok': False, 'erro': 'payload invalido'}, status=400)
+    keys = payload.get('keys') if isinstance(payload.get('keys'), dict) else {}
+    endpoint = _texto(payload.get('endpoint'))
+    p256dh = _texto(keys.get('p256dh'))
+    auth = _texto(keys.get('auth'))
 
     if not endpoint or not p256dh or not auth:
         return JsonResponse({'ok': False, 'erro': 'campos obrigatorios ausentes'}, status=400)
+    # Push services reais sao sempre https; evita o servidor fazer request p/ URL arbitraria.
+    if not endpoint.startswith('https://') or len(endpoint) > 600:
+        return JsonResponse({'ok': False, 'erro': 'endpoint invalido'}, status=400)
 
     user_agent = request.META.get('HTTP_USER_AGENT', '')[:300]
 
@@ -55,11 +70,10 @@ def webpush_subscribe(request):
 @csrf_protect
 @login_required
 def webpush_unsubscribe(request):
-    try:
-        payload = json.loads(request.body)
-        endpoint = payload.get('endpoint', '').strip()
-    except (ValueError, KeyError):
+    payload = _payload_json(request)
+    if payload is None:
         return JsonResponse({'ok': False, 'erro': 'payload invalido'}, status=400)
+    endpoint = _texto(payload.get('endpoint'))
     if not endpoint:
         return JsonResponse({'ok': False, 'erro': 'endpoint ausente'}, status=400)
 

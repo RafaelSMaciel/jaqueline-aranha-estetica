@@ -1,7 +1,8 @@
 """Domain events — fatos imutaveis que ocorreram no sistema.
 
-Eventos sao publicados por services apos commit de transacao bem-sucedida.
-Handlers reagem assincrona ou sincronamente (via EventBus).
+Publicados pela FSM de Atendimento (models/agendamentos._publish_event, por
+nome) e pelos services apos o commit. Handlers reagem via EventBus.
+So existem eventos com publicador real (os orfaos foram removidos).
 
 Padrao naming: <Agregado><Acao no passado> (ex: AtendimentoConfirmado).
 """
@@ -18,14 +19,6 @@ class DomainEvent:
 
 
 # ─── Atendimento ─────────────────────────────────────────────────────
-@dataclass(frozen=True)
-class AtendimentoCriado(DomainEvent):
-    atendimento_id: int = 0
-    cliente_id: int = 0
-    profissional_id: int = 0
-    procedimento_id: int = 0
-
-
 @dataclass(frozen=True)
 class AtendimentoConfirmado(DomainEvent):
     atendimento_id: int = 0
@@ -50,40 +43,6 @@ class AtendimentoCancelado(DomainEvent):
 class AtendimentoFaltou(DomainEvent):
     atendimento_id: int = 0
     cliente_id: int = 0
-
-
-@dataclass(frozen=True)
-class AtendimentoReagendado(DomainEvent):
-    atendimento_anterior_id: int = 0
-    atendimento_novo_id: int = 0
-
-
-# ─── Cliente ─────────────────────────────────────────────────────────
-@dataclass(frozen=True)
-class ClienteCadastrado(DomainEvent):
-    cliente_id: int = 0
-    via: str = 'admin'  # 'admin' | 'booking_publico' | 'import'
-
-
-@dataclass(frozen=True)
-class ConsentRegistrado(DomainEvent):
-    cliente_id: int = 0
-    canal: str = ''  # 'email_marketing' | 'whatsapp_nps' | 'whatsapp_confirmacao'
-    aceito: bool = True
-    ip: Optional[str] = None
-
-
-# ─── Pacote ──────────────────────────────────────────────────────────
-@dataclass(frozen=True)
-class PacoteVendido(DomainEvent):
-    compra_pacote_id: int = 0
-    cliente_id: int = 0
-
-
-@dataclass(frozen=True)
-class SessaoConsumida(DomainEvent):
-    compra_pacote_id: int = 0
-    atendimento_id: int = 0
 
 
 # ─── Retorno (F-RET) ─────────────────────────────────────────────────
