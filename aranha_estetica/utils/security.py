@@ -1,8 +1,10 @@
-"""Utilitarios de seguranca: masking de PII e comparacoes time-constant."""
+"""Utilitarios de seguranca: masking de PII, comparacoes time-constant, IP do cliente."""
 import hmac
+import ipaddress
 import re
 
 from django.conf import settings
+from django.utils.http import url_has_allowed_host_and_scheme
 
 
 def mask_email(email: str) -> str:
@@ -44,26 +46,56 @@ def safe_str_compare(a: str, b: str) -> bool:
     return hmac.compare_digest(str(a).encode("utf-8"), str(b).encode("utf-8"))
 
 
+IP_FALLBACK = "0.0.0.0"
+
+
+def _ip_valido(valor) -> str:
+    """Normaliza e valida um IP (v4/v6); '' se vazio/invalido."""
+    valor = (valor or "").split(",")[0].strip()
+    if not valor:
+        return ""
+    try:
+        return str(ipaddress.ip_address(valor))
+    except ValueError:
+        return ""
+
+
+def _meta_key(header: str) -> str:
+    """Aceita 'X-Real-IP' ou 'HTTP_X_REAL_IP' e devolve a chave do request.META."""
+    header = (header or "").strip()
+    if not header or header == "REMOTE_ADDR" or header.startswith("HTTP_"):
+        return header
+    return "HTTP_" + header.upper().replace("-", "_")
+
+
 def client_ip(request) -> str:
-    """Obtem IP real do cliente considerando proxy reverso.
+    """IP real do cliente — fonte unica p/ rate-limit, axes, OTP e auditoria.
 
-    O header X-Forwarded-For e totalmente controlado pelo cliente: tudo a
-    ESQUERDA do IP injetado pelo nosso proxy confiavel pode ser forjado. Por
-    isso, com `TRUSTED_PROXY_COUNT` (settings) configurado para a profundidade
-    real da topologia, pegamos o IP a partir do FIM da cadeia — imune a
-    spoofing de XFF usado para burlar rate-limit ou poluir auditoria.
-
-    Default (TRUSTED_PROXY_COUNT ausente/0): mantem o comportamento legado de
-    pegar o primeiro IP do XFF para nao quebrar contrato existente.
+    Atras do edge do Railway, REMOTE_ADDR e o IP do PROXY (igual p/ todos os
+    visitantes) e o IP do cliente chega no header X-Real-IP, escrito pelo
+    proprio edge. Por isso:
+      1. `settings.CLIENT_IP_HEADER` (prod: 'HTTP_X_REAL_IP'), se presente e valido;
+      2. senao REMOTE_ADDR (dev/testes: CLIENT_IP_HEADER vazio, nao forjavel);
+      3. senao '0.0.0.0'.
+    X-Forwarded-For NAO e usado: o cliente controla o valor (forjavel).
+    Nunca devolve string vazia/invalida: o django-ratelimit faz
+    ip_network(f'{ip}/32') e o Postgres (inet) rejeitaria lixo com 500.
     """
-    xff = request.META.get("HTTP_X_FORWARDED_FOR", "")
-    if xff:
-        ips = [p.strip() for p in xff.split(",") if p.strip()]
-        if ips:
-            num_proxies = int(getattr(settings, "TRUSTED_PROXY_COUNT", 0) or 0)
-            if num_proxies > 0:
-                # IP confiavel = (num_proxies)-esimo a partir do fim.
-                idx = len(ips) - num_proxies
-                return ips[idx if idx >= 0 else 0]
-            return ips[0]
-    return request.META.get("REMOTE_ADDR", "")
+    if request is None:
+        return IP_FALLBACK
+    meta = getattr(request, "META", None) or {}
+    header = _meta_key(getattr(settings, "CLIENT_IP_HEADER", ""))
+    if header:
+        ip = _ip_valido(meta.get(header))
+        if ip:
+            return ip
+    return _ip_valido(meta.get("REMOTE_ADDR")) or IP_FALLBACK
+
+
+def safe_next(request, raw, fallback="aranha:painel_overview"):
+    """Valida ?next=/POST next contra open redirect; cai no fallback se externo/invalido."""
+    if raw and url_has_allowed_host_and_scheme(
+        raw, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return raw
+    return fallback

@@ -69,7 +69,8 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'django.contrib.staticfiles',
+    # staticfiles com ignore de static/src (fonte do Vite) no collectstatic
+    'clinica.apps.StaticFilesSemFonteConfig',
     'django.contrib.sitemaps',
     'django_otp',
     'django_otp.plugins.otp_totp',
@@ -116,7 +117,8 @@ MIDDLEWARE = [
     'django.middleware.gzip.GZipMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.locale.LocaleMiddleware',
+    # Sem LocaleMiddleware: site so pt-BR (sem traducoes en/es; Accept-Language
+    # 'en' trocava formato de numero/data e mensagens do Django).
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -127,11 +129,20 @@ MIDDLEWARE = [
     'aranha_estetica.middleware.SecurityHeadersMiddleware',
     'aranha_estetica.middleware.Enforce2FAMiddleware',
     'axes.middleware.AxesMiddleware',
+    # @ratelimit(block=True) -> pagina 429 amigavel (RATELIMIT_VIEW) em vez de 403 cru
+    'django_ratelimit.middleware.RatelimitMiddleware',
 ]
 
 # Trusted proxies: atras de Cloudflare/Railway, respeitar X-Forwarded-For
 USE_X_FORWARDED_HOST = os.environ.get('USE_X_FORWARDED_HOST', 'True') == 'True'
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# IP do cliente (utils/security.client_ip): header escrito pelo proxy de borda.
+# Vazio em dev/testes (REMOTE_ADDR; header seria forjavel sem proxy na frente).
+# prod.py liga 'HTTP_X_REAL_IP' (Railway). Rate-limit e axes usam a mesma funcao.
+CLIENT_IP_HEADER = os.environ.get('CLIENT_IP_HEADER', '')
+RATELIMIT_IP_META_KEY = 'aranha_estetica.utils.security.client_ip'
+AXES_CLIENT_IP_CALLABLE = 'aranha_estetica.utils.security.client_ip'
 
 AUTHENTICATION_BACKENDS = [
     'axes.backends.AxesStandaloneBackend',
@@ -145,7 +156,7 @@ AXES_LOCKOUT_PARAMETERS = ['ip_address', 'username']
 AXES_RESET_ON_SUCCESS = True
 AXES_LOCKOUT_TEMPLATE = None
 # Verbose so em dev (em prod gera logs excessivos via Sentry)
-AXES_VERBOSE = os.environ.get('DEBUG', 'False') == 'True'
+AXES_VERBOSE = DEBUG
 
 ROOT_URLCONF = 'clinica.urls'
 
@@ -223,12 +234,17 @@ else:
             }
         }
 
-# Test DB — SQLite sempre
+# Test DB — SQLite (rapido) por padrao. TEST_DATABASE_URL=postgres://... roda a
+# suite no Postgres (CI): DDL/CHECK/EXCLUDE/trigger das migrations so existem la.
 if 'test' in sys.argv or 'test_coverage' in sys.argv:
-    DATABASES['default'] = {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db_test.sqlite3',
-    }
+    _test_db_url = os.environ.get('TEST_DATABASE_URL', '').strip()
+    if _test_db_url:
+        DATABASES['default'] = dj_database_url.parse(_test_db_url)
+    else:
+        DATABASES['default'] = {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db_test.sqlite3',
+        }
 
 
 # ─── AUTH ────────────────────────────────────────────────────────────
@@ -254,34 +270,41 @@ LOGOUT_REDIRECT_URL = '/'
 
 
 # ─── I18N ────────────────────────────────────────────────────────────
+# Site so em pt-BR (sem LocaleMiddleware; USE_I18N mantem as traducoes pt-BR
+# do proprio Django — mensagens de validacao, datas, numeros).
 LANGUAGE_CODE = 'pt-br'
 TIME_ZONE = 'America/Sao_Paulo'
 USE_I18N = True
-USE_L10N = True
 USE_TZ = True
 
 LANGUAGES = [
-    ('pt-br', 'Portugues'),
-    ('en', 'English'),
-    ('es', 'Espanol'),
+    ('pt-br', 'Português'),
 ]
-LOCALE_PATHS = [BASE_DIR / 'locale']
 
 
 # ─── STATIC / MEDIA ──────────────────────────────────────────────────
 STATIC_URL = '/static/'
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'aranha_estetica/static')]
+# Sem STATICFILES_DIRS: aranha_estetica/static ja e achado pelo AppDirectoriesFinder
+# (duplicava tudo no collectstatic). static/src (fonte do Vite) fica fora da
+# coleta via clinica.apps.StaticFilesSemFonteConfig.
 STATIC_ROOT = os.environ.get('STATIC_ROOT') or os.path.join(BASE_DIR, 'staticfiles')
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# Django 5.1+ ignora STATICFILES_STORAGE/DEFAULT_FILE_STORAGE: so STORAGES vale.
+# Aqui (dev/testes) storage simples, sem manifest; prod.py liga o whitenoise
+# CompressedManifest (hash + gzip/brotli + cache longo), preenchido no build.
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+}
 
 # django-storages opcional (S3 / R2 / GCS) - ativa via AWS_STORAGE_BUCKET_NAME
 _S3_BUCKET = os.environ.get('AWS_STORAGE_BUCKET_NAME')
 if _S3_BUCKET:
     try:
         import storages  # noqa: F401
-        DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+        STORAGES['default'] = {'BACKEND': 'storages.backends.s3boto3.S3Boto3Storage'}
         AWS_STORAGE_BUCKET_NAME = _S3_BUCKET
         AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
         AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
@@ -316,7 +339,6 @@ if 'test' in sys.argv or 'test_coverage' in sys.argv:
 
 
 # ─── SECURITY BASE ───────────────────────────────────────────────────
-SECURE_BROWSER_XSS_FILTER = True
 X_FRAME_OPTIONS = 'DENY'
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SESSION_COOKIE_HTTPONLY = True
@@ -333,6 +355,7 @@ SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
 
 RATELIMIT_USE_CACHE = 'default'
 RATELIMIT_FAIL_OPEN = False
+RATELIMIT_VIEW = 'aranha_estetica.views.public.limite_excedido'
 
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
@@ -350,13 +373,19 @@ if RAILWAY_DOMAIN:
 
 
 # ─── EMAIL ───────────────────────────────────────────────────────────
-EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND') or 'django.core.mail.backends.console.EmailBackend'
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@clinica.com.br')
+# Sem timeout o socket SMTP pendura a thread do gunicorn (Celery eager = no request)
+EMAIL_TIMEOUT = int(os.environ.get('EMAIL_TIMEOUT') or 10)
+
+# SMS (utils/sms): SMS_DEV_LOG_ONLY=true so loga (dev/testes; nunca o codigo).
+# Fora disso, sem ZENVIA_API_TOKEN/ZENVIA_FROM o envio falha fechado (False).
+SMS_DEV_LOG_ONLY = os.environ.get('SMS_DEV_LOG_ONLY', '').strip().lower() == 'true'
 
 # Password reset: token TTL 1h (default Django = 3 dias). Reduz janela de ataque.
 PASSWORD_RESET_TIMEOUT = int(os.environ.get('PASSWORD_RESET_TIMEOUT_SECONDS', 3600))
@@ -409,14 +438,19 @@ LOGGING = {
 
 
 # ─── CELERY + CACHE ──────────────────────────────────────────────────
-CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+# REDIS_URL serve cache/sessao; broker/result do Celery usam CELERY_* ou caem nele.
+# Worker Celery so e usado com CELERY_WORKER_ENABLED=true (prod.py); sem isso
+# as tasks rodam eager e os jobs periodicos vem do cron HTTP (views/cron.py).
+REDIS_URL = os.environ.get('REDIS_URL', '')
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL') or REDIS_URL or 'redis://localhost:6379/0'
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND') or REDIS_URL or 'redis://localhost:6379/0'
 CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+# Jobs de manutencao ficam fora de tasks.py (autodiscover so acha tasks.py)
+CELERY_IMPORTS = ('aranha_estetica.tasks_manutencao',)
 
-REDIS_URL = os.environ.get('REDIS_URL', '')
 if REDIS_URL:
     CACHES = {
         'default': {
@@ -428,15 +462,20 @@ if REDIS_URL:
     SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
     SESSION_CACHE_ALIAS = 'default'
 else:
-    # LocMemCache e por-processo: nao e compartilhado entre workers gunicorn.
-    # Fora de DEBUG isso enfraquece rate-limit/axes (contadores nao compartilhados),
-    # entao avisa alto para que prod multi-worker rode com REDIS_URL definido.
-    if not DEBUG:
+    # LocMemCache e por-processo: ok com 1 worker gunicorn (threads compartilham).
+    # Com mais workers, rate-limit/axes/lock de slot/quota de SMS deixam de ser
+    # compartilhados — ai sim precisa de REDIS_URL (so cache; worker Celery e
+    # outra coisa: CELERY_WORKER_ENABLED=true).
+    try:
+        _web_workers = int(os.environ.get('WEB_CONCURRENCY', '1') or 1)
+    except ValueError:
+        _web_workers = 1
+    if not DEBUG and _web_workers > 1:
         import warnings
 
         warnings.warn(
-            'REDIS_URL nao definida fora de DEBUG: usando LocMemCache (por-processo). '
-            'Rate-limit/axes nao serao compartilhados entre workers — defina REDIS_URL em prod.',
+            f'WEB_CONCURRENCY={_web_workers} sem REDIS_URL: LocMemCache e por processo — '
+            'rate-limit/axes/lock de slot nao sao compartilhados. Use 1 worker ou defina REDIS_URL.',
             RuntimeWarning,
             stacklevel=2,
         )
@@ -482,4 +521,20 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'aranha_estetica.tasks.job_lgpd_purgar_inativos',
         'schedule': crontab(hour=3, minute=0, day_of_week=0),  # Domingo 3h
     },
+    'housekeeping-diario': {
+        'task': 'aranha_estetica.tasks_manutencao.job_housekeeping',
+        'schedule': crontab(hour=4, minute=0),
+    },
+    'carregar-feriados-mensal': {
+        'task': 'aranha_estetica.tasks_manutencao.job_carregar_feriados',
+        'schedule': crontab(hour=4, minute=30, day_of_month=1),
+    },
 }
+
+
+# ─── RETENCAO (job_housekeeping) ─────────────────────────────────────
+# docs/specs/regras-negocio-registry.md: otp 24h · notif 12m · auditoria 5a
+RETENCAO_OTP_HORAS = int(os.environ.get('RETENCAO_OTP_HORAS', '24'))
+RETENCAO_NOTIFICACAO_DIAS = int(os.environ.get('RETENCAO_NOTIFICACAO_DIAS', '365'))
+RETENCAO_LOG_AUDITORIA_DIAS = int(os.environ.get('RETENCAO_LOG_AUDITORIA_DIAS', str(365 * 5)))
+RETENCAO_AXES_LOG_DIAS = int(os.environ.get('RETENCAO_AXES_LOG_DIAS', '90'))

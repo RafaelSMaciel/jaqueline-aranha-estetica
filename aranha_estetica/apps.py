@@ -22,3 +22,6 @@ class AranhaEsteticaConfig(AppConfig):
         from .services import fidelidade_service  # noqa: F401
         from .services import comissao_service  # noqa: F401
         from .services import lista_espera_service  # noqa: F401
+
+        # System checks de config de producao (SITE_URL, SMS, e-mail, WhatsApp, cron)
+        from . import checks  # noqa: F401

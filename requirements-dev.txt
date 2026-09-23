@@ -1,0 +1,5 @@
+# Ferramentas de dev/CI (nao vao p/ a imagem de producao)
+-r requirements.txt
+pytest==9.0.3
+pytest-django==4.12.0
+pip-audit==2.10.1
