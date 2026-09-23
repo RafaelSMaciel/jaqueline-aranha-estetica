@@ -28,6 +28,14 @@ if _is_testing:
     CELERY_TASK_EAGER_PROPAGATES = True
     CELERY_BROKER_URL = 'memory://'
     CELERY_RESULT_BACKEND = 'cache+memory://'
+    # SMS so logado nos testes (o runner roda com DEBUG=False e sem ZENVIA_*;
+    # fora disso utils/sms falha fechado). Env + setting: vale p/ leitura no import.
+    _os.environ.setdefault('SMS_DEV_LOG_ONLY', 'true')
+    SMS_DEV_LOG_ONLY = True
+    # O runner roda os checks com DEBUG=False: os avisos de config de producao
+    # (aranha/checks.py) viram ruido em toda execucao. Testados direto em
+    # tests/test_deploy_config.py.
+    SILENCED_SYSTEM_CHECKS = [f'aranha.W00{i}' for i in range(1, 6)]
 
 if not _is_testing:
     try:

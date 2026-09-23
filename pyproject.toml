@@ -1,0 +1,10 @@
+# Config de ferramentas (nao e pacote instalavel). Deps: requirements*.txt.
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "clinica.settings"
+python_files = ["test_*.py"]
+testpaths = ["aranha_estetica/tests"]
+
+[tool.ruff]
+target-version = "py312"
+extend-exclude = ["aranha_estetica/migrations", "node_modules"]

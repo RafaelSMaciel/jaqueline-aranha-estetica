@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  push:
+    branches: [main, front-fundacao]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: '3.12'
+  NODE_VERSION: '22'
+  DEBUG: 'True'
+  DJANGO_SECRET_KEY: ci-only-nao-secreto
+  PIP_DISABLE_PIP_VERSION_CHECK: '1'
+
+jobs:
+  testes:
+    name: Django (SQLite) — check, migrations, testes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - name: manage.py check
+        run: python manage.py check
+      - name: Migrations em dia com os models
+        run: python manage.py makemigrations --check --dry-run
+      - name: Suite Django
+        run: python manage.py test aranha_estetica
+      - name: Testes estilo pytest (fixtures/funcoes que o runner do Django nao coleta)
+        run: |
+          files=$(grep -lE '^(import pytest|from pytest)|@pytest' aranha_estetica/tests/test_*.py || true)
+          if [ -n "$files" ]; then pytest $files; else echo "nenhum teste pytest-only"; fi
+      - name: check --deploy com settings de producao
+        env:
+          DJANGO_ENV: prod
+          DEBUG: 'False'
+          DJANGO_SECRET_KEY: ci-check-deploy-0123456789-abcdefghijklmnopqrstuvwxyz-ABCDEFGHIJ
+        run: python manage.py check --deploy --fail-level ERROR
+
+  postgres:
+    name: Postgres 18 — cadeia de migrations + suite
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/ci
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      # Ramos so-Postgres das migrations (CHECK regex, EXCLUDE/btree_gist, GIN,
+      # trigger, collation ICU) nunca rodam no SQLite. Mesmo comando do pre-deploy.
+      - name: migrate_atomico do zero (transacao unica)
+        run: python manage.py migrate_atomico --noinput
+      - name: bootstrap_admin (no-op sem env)
+        run: python manage.py bootstrap_admin
+      # Informativo ate a triagem inicial: alguns testes presumem SQLite.
+      - name: Suite Django no Postgres
+        continue-on-error: true
+        run: python manage.py test aranha_estetica
+
+  front:
+    name: Front (Vite + Tailwind)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      - name: Manifest do Vite gerado
+        run: test -f aranha_estetica/static/dist/manifest.json
+
+  docker:
+    name: Imagem de producao (Dockerfile)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Build completo: stage Node, collectstatic com manifest e check de staticfiles
+      - run: docker build -t shivazen:ci .
+
+  auditoria-deps:
+    name: pip-audit (informativo)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install pip-audit==2.10.1
+      - run: pip-audit -r requirements.txt --progress-spinner off
