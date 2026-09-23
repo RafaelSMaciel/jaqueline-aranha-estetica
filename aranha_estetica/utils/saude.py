@@ -6,13 +6,17 @@ declarada no agendamento nunca chegava ao prontuario/portal/agenda.
 """
 from __future__ import annotations
 
+import json
+import logging
 import re
+
+logger = logging.getLogger(__name__)
 
 # chave/label de campo de anamnese que indica risco (sem acento, minusculo)
 _RISCO_RX = re.compile(
     r'alerg|contraindic|medicament|remedio|gestan|gravid|amament|lactan|'
     r'doenca|cirurg|anticoag|diabet|hipertens|cardi|marca.?passo|queloide|'
-    r'isotretinoina|roacutan|herpes|epileps|autoimun|cancer|oncolog',
+    r'retino|roacutan|herpes|epileps|autoimun|cancer|oncolog',
 )
 _NEGATIVOS = {'', 'nao', 'não', 'n', 'no', 'false', '0', 'nenhum', 'nenhuma', 'nada', 'sem', '-', 'nao possuo', 'não possuo'}
 
@@ -35,6 +39,25 @@ def _valor_positivo(valor) -> str | None:
     if _sem_acento(txt) in _NEGATIVOS:
         return None
     return txt[:300]
+
+
+def perguntas_prontuario() -> list:
+    """Schema do questionario do prontuario — lista [{chave, texto, tipo}].
+
+    Vive em Configuracao chave='prontuario_perguntas' (JSON). tipo:
+    'TEXTO' | 'BOOLEAN'. Substitui o EAV (remodelagem v2.1 fase 5).
+    """
+    from ..models import Configuracao
+    # iexact: a tela Configuracoes forcava upper() em chaves antigas
+    cfg = Configuracao.objects.filter(chave__iexact='prontuario_perguntas').order_by('pk').first()
+    if not cfg or not cfg.valor:
+        return []
+    try:
+        perguntas = json.loads(cfg.valor)
+    except ValueError:
+        logger.warning('prontuario_perguntas_json_invalido')
+        return []
+    return perguntas if isinstance(perguntas, list) else []
 
 
 def alertas_saude(cliente, limite_fichas: int = 5) -> list[dict]:
@@ -67,6 +90,22 @@ def alertas_saude(cliente, limite_fichas: int = 5) -> list[dict]:
             valor = _valor_positivo(getattr(pront, campo, None))
             if valor:
                 add(label, valor, 'prontuario')
+        # Questionario configuravel (JSONB): respostas do EAV migrado na 0036 e
+        # as gravadas pelo prontuario_salvar. Chave sem pergunta ativa (inativa,
+        # sufixo '_x' da migracao) ainda alerta, com label derivado da chave.
+        extras = pront.respostas_extras if isinstance(pront.respostas_extras, dict) else {}
+        if extras:
+            textos = {
+                p.get('chave'): p.get('texto')
+                for p in perguntas_prontuario() if isinstance(p, dict)
+            }
+            for chave, valor in extras.items():
+                label = str(textos.get(chave) or str(chave).replace('_', ' ').strip().capitalize())
+                if not _RISCO_RX.search(_sem_acento(f'{chave} {label}')):
+                    continue
+                texto = _valor_positivo(valor)
+                if texto:
+                    add(label, texto, 'prontuario')
 
     fichas = (
         RespostaAnamnese.objects.filter(

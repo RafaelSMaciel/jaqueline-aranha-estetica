@@ -81,7 +81,8 @@
     <div class="flex-1 min-w-0">
       <div class="font-bold text-[0.85rem] text-texto truncate">{{ log.acao }}</div>
       <div class="text-[0.72rem] text-texto-suave mt-0.5">
-        <span class="font-bold">{{ log.usuario.nome|default:"Sistema" }}</span>
+        {# snapshot usuario_nome: usuario excluido nao vira "Sistema" #}
+        <span class="font-bold">{% firstof log.usuario_nome log.usuario.nome log.usuario.email "Sistema" %}</span>
         &bull; {{ log.criado_em|date:"d/m/Y H:i" }}
         {% if log.tabela %}
         &bull; <span class="inline-block px-1.5 py-0.5 rounded-full bg-fundo text-[0.6rem] font-bold uppercase tracking-wide">{{ log.tabela }}</span>

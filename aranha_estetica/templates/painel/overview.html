@@ -194,7 +194,8 @@
 {{ dados_grafico_semana|json_script:"id_dados_grafico_semana" }}
 {{ status_labels|json_script:"id_status_labels" }}
 {{ status_totais|json_script:"id_status_totais" }}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{# Arquivo estatico do pacote (o .min.js do jsDelivr e gerado na hora e nao aceita SRI) #}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js" integrity="sha384-FcQlsUOd0TJjROrBxhJdUhXTUgNJQxTMcxZe6nHbaEfFL1zjQ+bq/uRoBQxb0KMo" crossorigin="anonymous"></script>
 <script nonce="{{ csp_nonce }}">
 // Chart: Agendamentos por dia da semana
 var ctxSemana = document.getElementById('chartSemana').getContext('2d');
@@ -248,23 +249,34 @@ new Chart(ctxStatus, {
 });
 
 // Atualizacao de status via AJAX (delegado, CSP-safe). Recarrega na sucesso.
-document.addEventListener('change', function (e) {
-    var sel = e.target.closest('select[data-atend-id]');
-    if (!sel || !sel.value) return;
-    var id = sel.getAttribute('data-atend-id');
-    var status = sel.value;
-    if (!confirm('Alterar status para ' + status + '?')) { sel.value = ''; return; }
+// REALIZADO com termo do procedimento pendente: o servidor responde
+// termo_pendente e so aceita o override explicito (sem_termo), que ele audita.
+function enviarStatus(sel, payload) {
     fetch('{% url "aranha:admin_atualizar_status" %}', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
-        body: JSON.stringify({ atendimento_id: id, status: status })
+        body: JSON.stringify(payload)
     })
     .then(function (r) { return r.json(); })
     .then(function (data) {
-        if (data.sucesso) { location.reload(); }
-        else { alert('Erro: ' + (data.erro || 'Falha ao atualizar')); sel.value = ''; }
+        if (data.sucesso) { location.reload(); return; }
+        if (data.termo_pendente && !payload.sem_termo) {
+            if (confirm('A cliente ainda não aceitou o termo do procedimento. Marcar como realizado mesmo assim?')) {
+                payload.sem_termo = true;
+                enviarStatus(sel, payload);
+            } else { sel.value = ''; }
+            return;
+        }
+        alert('Erro: ' + (data.erro || 'Falha ao atualizar')); sel.value = '';
     })
     .catch(function () { alert('Erro de rede'); sel.value = ''; });
+}
+document.addEventListener('change', function (e) {
+    var sel = e.target.closest('select[data-atend-id]');
+    if (!sel || !sel.value) return;
+    var status = sel.value;
+    if (!confirm('Alterar status para ' + status + '?')) { sel.value = ''; return; }
+    enviarStatus(sel, { atendimento_id: sel.getAttribute('data-atend-id'), status: status });
 });
 </script>
 {% endblock %}

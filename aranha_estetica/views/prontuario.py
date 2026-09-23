@@ -20,11 +20,12 @@ from ..models import (
     Atendimento,
     Cliente,
     Prontuario,
+    ProntuarioVersao,
 )
 from ..utils.audit import registrar_log
 from ..utils.datas import fmt_local
 from ..utils.fichas import fichas_do_cliente
-from ..utils.saude import alertas_saude
+from ..utils.saude import alertas_saude, perguntas_prontuario
 
 logger = logging.getLogger(__name__)
 
@@ -39,23 +40,12 @@ CAMPOS_PRONTUARIO = (
 
 
 def _perguntas_configuradas():
-    """Schema do questionario do prontuario — lista [{chave, texto, tipo}].
+    """Schema do questionario do prontuario (utils.saude.perguntas_prontuario).
 
-    Vive em Configuracao chave='prontuario_perguntas' (JSON). tipo:
-    'TEXTO' | 'BOOLEAN'. Substitui o EAV (remodelagem v2.1 fase 5).
+    A regra mora em utils/saude: os alertas de saude tambem leem o texto das
+    perguntas p/ rotular as respostas_extras.
     """
-    import json as _json
-    from ..models import Configuracao
-    # iexact: a tela Configuracoes forcava upper() em chaves antigas
-    cfg = Configuracao.objects.filter(chave__iexact='prontuario_perguntas').order_by('pk').first()
-    if not cfg or not cfg.valor:
-        return []
-    try:
-        perguntas = _json.loads(cfg.valor)
-        return perguntas if isinstance(perguntas, list) else []
-    except ValueError:
-        logger.warning('prontuario_perguntas_json_invalido')
-        return []
+    return perguntas_prontuario()
 
 
 def _vinculo(prof, cliente, escrita=False):
@@ -137,6 +127,74 @@ def prontuario_access_required(escrita=False):
     return decorator
 
 
+ROTULOS_CAMPOS = {
+    'alergias': 'Alergias',
+    'contraindicacoes': 'Contraindicações',
+    'historico_saude': 'Histórico de saúde',
+    'medicamentos_uso': 'Medicamentos em uso',
+    'observacoes_gerais': 'Observações gerais',
+}
+LIMITE_HISTORICO = 50
+
+
+def _valor_legivel(valor) -> str:
+    if valor is True:
+        return 'Sim'
+    if valor is False:
+        return 'Não'
+    return '' if valor is None else str(valor)
+
+
+def _historico_prontuario(prontuario, perguntas):
+    """Edicoes do prontuario (mais recente primeiro) com o que cada uma mudou.
+
+    ProntuarioVersao.dados = estado ANTES da edicao feita por `autor`; o estado
+    DEPOIS e a versao seguinte (ou o prontuario atual, p/ a mais recente).
+    """
+    if prontuario.pk is None:
+        return []
+    versoes = list(
+        ProntuarioVersao.objects.filter(prontuario=prontuario)
+        .select_related('autor').order_by('-criado_em', '-pk')[:LIMITE_HISTORICO]
+    )
+    if not versoes:
+        return []
+    textos = {p.get('chave'): p.get('texto') for p in perguntas if isinstance(p, dict)}
+
+    def foto(dados):
+        dados = dados if isinstance(dados, dict) else {}
+        out = {c: _valor_legivel(dados.get(c)) for c in CAMPOS_PRONTUARIO}
+        extras = dados.get('respostas_extras')
+        for chave, valor in (extras if isinstance(extras, dict) else {}).items():
+            out[f'extra:{chave}'] = _valor_legivel(valor)
+        return out
+
+    def rotulo(k):
+        if k.startswith('extra:'):
+            chave = k[len('extra:'):]
+            return str(textos.get(chave) or chave.replace('_', ' ').capitalize())
+        return ROTULOS_CAMPOS.get(k, k)
+
+    depois = foto({
+        **{c: getattr(prontuario, c) for c in CAMPOS_PRONTUARIO},
+        'respostas_extras': prontuario.respostas_extras,
+    })
+    historico = []
+    for versao in versoes:
+        antes = foto(versao.dados)
+        ordem = list(dict.fromkeys([*antes, *depois]))
+        mudancas = [
+            {'campo': rotulo(k), 'antes': antes.get(k, ''), 'depois': depois.get(k, '')}
+            for k in ordem if antes.get(k, '') != depois.get(k, '')
+        ]
+        autor = versao.autor_nome or (
+            (versao.autor.nome or versao.autor.email) if versao.autor_id else ''
+        )
+        historico.append({'versao': versao, 'autor': autor, 'mudancas': mudancas})
+        depois = antes
+    return historico
+
+
 def _versao(prontuario) -> str:
     """Marca de versao p/ trava otimista (atualizado_em); '' se ainda nao existe."""
     if prontuario.pk is None or prontuario.atualizado_em is None:
@@ -194,6 +252,7 @@ def prontuario_detalhe(request, cliente_id):
         'aceites': aceites,
         'assinaturas': assinaturas,
         'pode_editar': pode_editar,
+        'historico_prontuario': _historico_prontuario(prontuario, perguntas),
         # Profissional nao ve o menu do painel (links so de staff): usa o shell do portal
         'base_template': 'painel/base_v2.html' if user.is_staff else 'painel/prontuario_portal_base.html',
     }
@@ -206,8 +265,11 @@ def prontuario_salvar(request, cliente_id):
     """Salva dados de anamnese do prontuario.
 
     So altera os campos presentes no POST (POST parcial nao apaga alergias),
-    recusa gravacao sobre versao desatualizada (duas pessoas editando) e
-    registra na trilha apenas os NOMES dos campos alterados.
+    recusa gravacao sobre versao desatualizada (duas pessoas editando),
+    guarda o estado ANTERIOR em ProntuarioVersao (historico clinico) e
+    registra na trilha apenas os NOMES dos campos alterados. Sem alteracao
+    (ou versao recusada) nao persiste registro vazio: ele tirava a cliente
+    da purga LGPD.
     """
     if request.method != 'POST':
         return redirect('aranha:prontuario_detalhe', cliente_id=cliente_id)
@@ -226,6 +288,8 @@ def prontuario_salvar(request, cliente_id):
                 'O prontuário foi alterado por outra pessoa enquanto você editava. '
                 'Nada foi salvo: revise os dados atuais e salve de novo.',
             )
+            if criado:
+                transaction.set_rollback(True)
             return redirect('aranha:prontuario_detalhe', cliente_id=cliente_id)
 
         alterados = []
@@ -259,9 +323,14 @@ def prontuario_salvar(request, cliente_id):
             alterados.append(nome)
 
         if not alterados:
+            if criado:
+                transaction.set_rollback(True)
             messages.info(request, 'Nenhuma alteração no prontuário.')
             return redirect('aranha:prontuario_detalhe', cliente_id=cliente_id)
 
+        if not criado:
+            # Foto do estado persistido (anterior a edicao), na mesma transacao
+            ProntuarioVersao.registrar(prontuario, request.user)
         prontuario.respostas_extras = respostas
         prontuario.save()  # um unico save: atualizado_em = nova versao
 
