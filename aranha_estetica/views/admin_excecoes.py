@@ -6,12 +6,23 @@ da regra semanal sem precisar mexer DisponibilidadeProfissional.
 from datetime import datetime
 
 from django.contrib import messages
+from django.db import IntegrityError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from ..decorators import staff_required
 from ..models import ExcecaoDisponibilidade, Profissional
 from ..utils.audit import registrar_log
+
+
+def _parse_hora(valor):
+    """'HH:MM' ou 'HH:MM:SS' (input type=time) -> time. ValueError se invalido."""
+    for fmt in ('%H:%M', '%H:%M:%S'):
+        try:
+            return datetime.strptime(valor, fmt).time()
+        except ValueError:
+            continue
+    raise ValueError(f'hora invalida: {valor!r}')
 
 
 @staff_required
@@ -56,18 +67,32 @@ def admin_excecao_criar(request, prof_id):
         messages.error(request, 'Data inválida.')
         return redirect('aranha:admin_excecoes', prof_id=prof.pk)
 
-    if tipo == 'HORARIO_DIFERENTE' and (not hora_inicio or not hora_fim):
-        messages.error(request, 'Para HORARIO_DIFERENTE informe hora início e fim.')
-        return redirect('aranha:admin_excecoes', prof_id=prof.pk)
-
-    if tipo == 'FOLGA':
+    if tipo == 'HORARIO_DIFERENTE':
+        if not hora_inicio or not hora_fim:
+            messages.error(request, 'Para horário diferente, informe a hora de início e a de fim.')
+            return redirect('aranha:admin_excecoes', prof_id=prof.pk)
+        try:
+            hora_inicio = _parse_hora(hora_inicio)
+            hora_fim = _parse_hora(hora_fim)
+        except ValueError:
+            messages.error(request, 'Hora inválida.')
+            return redirect('aranha:admin_excecoes', prof_id=prof.pk)
+        # Sem isso uma janela 14:00-09:00 zerava a agenda do dia sem aviso
+        if hora_fim <= hora_inicio:
+            messages.error(request, 'A hora de fim deve ser depois da hora de início.')
+            return redirect('aranha:admin_excecoes', prof_id=prof.pk)
+    else:
         hora_inicio = None
         hora_fim = None
 
-    excecao, created = ExcecaoDisponibilidade.objects.update_or_create(
-        profissional=prof, data=data, tipo=tipo,
-        defaults={'hora_inicio': hora_inicio, 'hora_fim': hora_fim, 'motivo': motivo},
-    )
+    try:
+        excecao, created = ExcecaoDisponibilidade.objects.update_or_create(
+            profissional=prof, data=data, tipo=tipo,
+            defaults={'hora_inicio': hora_inicio, 'hora_fim': hora_fim, 'motivo': motivo},
+        )
+    except IntegrityError:
+        messages.error(request, 'Não foi possível salvar a exceção. Verifique os dados.')
+        return redirect('aranha:admin_excecoes', prof_id=prof.pk)
     registrar_log(
         request.user,
         f'{"Criou" if created else "Atualizou"} exceção {tipo} {data} prof={prof.nome}',

@@ -74,8 +74,14 @@
     <button type="button" id="bulkClear"
             class="px-3 py-1.5 rounded-lg bg-transparent text-white/70 border border-white/30 text-[0.8rem] cursor-pointer hover:text-white transition-colors">Limpar</button>
   </div>
+</form>
+{% comment %}
+bulkForm contém só a toolbar: os checkboxes entram nele via form="bulkForm"
+e os forms de Aprovar/Rejeitar por linha ficam fora (form aninhado é ignorado
+pelo parser HTML e quebrava o 1º Aprovar e o lote).
+{% endcomment %}
 
-  {# Filtro instantâneo (admin-search.js, bundled) #}
+  {# Filtro instantâneo (admin-search.js, carregado pelo painel/base_v2) #}
   <div class="bg-superficie rounded-xl shadow-sm px-3 py-2 mb-2">
     <input type="text" id="filtroAgendInstant"
            placeholder="Filtrar visíveis (cliente, procedimento, profissional)..."
@@ -89,6 +95,7 @@
     <div class="flex items-center gap-1.5 text-[0.8rem] text-texto-suave font-bold">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
       <span id="cntAgendVisiveis">{{ agendamentos|length }}</span> agendamento(s)
+      {% if agendamentos.has_other_pages %}<span class="font-normal">nesta página · {{ agendamentos.paginator.count }} no total</span>{% endif %}
     </div>
     {% if agendamentos %}
     <label class="flex items-center gap-1.5 text-[0.8rem] font-bold text-texto-suave cursor-pointer">
@@ -99,17 +106,17 @@
 
   <div id="listaAgendamentos" data-search-rows=".agend-card">
   {% for agend in agendamentos %}
-  <div class="agend-card flex items-center gap-3 bg-superficie rounded-2xl shadow-sm p-4 mb-1.5 {% if agend.status == 'PENDENTE' %}border-l-4 border-amber-500{% endif %}"
+  <div class="agend-card flex flex-wrap sm:flex-nowrap items-center gap-3 bg-superficie rounded-2xl shadow-sm p-4 mb-1.5 {% if agend.status == 'PENDENTE' %}border-l-4 border-amber-500{% endif %}"
        id="appt-{{ agend.pk }}"
        data-search-text="{{ agend.cliente.nome }} {{ agend.procedimento.nome }} {{ agend.profissional.nome }} {{ agend.status }}">
     {% if agend.status == 'PENDENTE' %}
-    <input type="checkbox" name="ids" value="{{ agend.pk }}" class="bulk-checkbox w-[18px] h-[18px] shrink-0 cursor-pointer" style="accent-color:#8b6f47;">
+    <input type="checkbox" name="ids" value="{{ agend.pk }}" form="bulkForm" aria-label="Selecionar agendamento de {{ agend.cliente.nome }}" class="bulk-checkbox w-[18px] h-[18px] shrink-0 cursor-pointer" style="accent-color:#8b6f47;">
     {% endif %}
     <div class="w-11 h-11 rounded-xl flex items-center justify-center font-extrabold text-[0.75rem] shrink-0"
          style="background:{% if agend.status == 'CONFIRMADO' %}#e8f5e9;color:#2e7d32{% elif agend.status == 'CANCELADO' %}#fce4ec;color:#c62828{% elif agend.status == 'REALIZADO' %}#e3f2fd;color:#1565c0{% elif agend.status == 'FALTOU' %}#f3e5f5;color:#7b1fa2{% else %}#fff8e1;color:#f57f17{% endif %}">
       {{ agend.cliente.nome|make_list|first }}{{ agend.cliente.nome|make_list|last }}
     </div>
-    <div class="flex-1 min-w-0">
+    <div class="flex-1 min-w-[8rem]">
       <div class="font-bold text-[0.9rem] text-texto truncate">
         {{ agend.cliente.nome }}
         {% if agend.cliente.prontuario.alergias or agend.cliente.prontuario.contraindicacoes %}
@@ -132,7 +139,7 @@
       </div>
       {% endif %}
     </div>
-    <div class="flex items-center gap-1.5 shrink-0">
+    <div class="flex flex-wrap items-center justify-end gap-1.5 w-full sm:w-auto sm:shrink-0">
       {% if agend.valor_cobrado %}
       <span class="text-[0.78rem] font-bold text-green-700">R$ {{ agend.valor_cobrado|floatformat:2 }}</span>
       {% endif %}
@@ -152,7 +159,7 @@
         </button>
       </form>
       {% endif %}
-      <select data-atend-id="{{ agend.pk }}" title="Alterar status"
+      <select data-atend-id="{{ agend.pk }}" title="Alterar status" aria-label="Alterar status"
               class="px-1.5 py-1 rounded-lg border-2 border-borda bg-superficie text-[0.7rem] font-bold text-texto cursor-pointer outline-none">
         <option value="">⚡</option>
         <option value="CONFIRMADO" {% if agend.status == 'CONFIRMADO' %}disabled{% endif %}>✅ Confirmar</option>
@@ -162,7 +169,7 @@
       </select>
       {% if agend.cliente.telefone %}
       <a href="https://wa.me/55{{ agend.cliente.telefone|cut:'(' |cut:')' |cut:'-' |cut:' ' }}?text=Ol%C3%A1%20{{ agend.cliente.nome|urlencode }}%2C%20confirmamos%20seu%20agendamento%20de%20{{ agend.procedimento.nome|urlencode }}%20para%20{{ agend.data_hora_inicio|date:'d/m/Y' }}%20%C3%A0s%20{{ agend.data_hora_inicio|time:'H:i' }}.%20{{ CLINIC_NAME|urlencode }}"
-         target="_blank" rel="noopener" title="WhatsApp"
+         target="_blank" rel="noopener" title="WhatsApp" aria-label="WhatsApp"
          class="inline-flex items-center justify-center w-[30px] h-[30px] rounded-lg bg-[#dcf5e7] text-[#25D366] no-underline hover:opacity-80 transition-opacity">
         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.6 6.32A8 8 0 004.06 14.4L3 21l6.78-1.05A8 8 0 1017.6 6.32zM12 19.5a7.5 7.5 0 01-3.8-1l-.27-.16-2.83.44.45-2.75-.18-.28A7.5 7.5 0 1112 19.5zm4.13-5.6c-.23-.11-1.35-.66-1.56-.74s-.36-.11-.5.12-.58.73-.71.88-.26.17-.49.06a6.1 6.1 0 01-1.8-1.11 6.7 6.7 0 01-1.24-1.55c-.13-.22 0-.34.1-.45s.22-.26.34-.4a1.5 1.5 0 00.22-.37.4.4 0 000-.39c0-.11-.5-1.2-.68-1.65s-.36-.37-.5-.37h-.42a.81.81 0 00-.59.27 2.46 2.46 0 00-.77 1.83 4.27 4.27 0 00.9 2.27 9.8 9.8 0 003.74 3.3c.52.23.93.36 1.25.46a3 3 0 001.38.09 2.26 2.26 0 001.48-1.05 1.83 1.83 0 00.13-1.04c-.05-.1-.2-.16-.43-.27z"/></svg>
       </a>
@@ -191,7 +198,8 @@
     <h5 class="font-bold text-texto mb-1">Nenhum agendamento bate com o filtro</h5>
     <p class="text-[0.85rem] text-texto-suave">Ajuste o termo ou limpe o campo.</p>
   </div>
-</form>
+
+{% include 'partials/_paginacao.html' with page=agendamentos %}
 {% endblock %}
 
 {% block js %}

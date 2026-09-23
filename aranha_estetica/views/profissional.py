@@ -8,10 +8,14 @@ from django.views.decorators.http import require_POST
 
 from ..decorators import profissional_required
 from ..models import AnotacaoSessao, Atendimento
-from ..utils.audit import registrar_log
-from ..utils.email import enviar_confirmacao_agendamento_email, enviar_cancelamento_email
+from ..utils.security import safe_next
 
 logger = logging.getLogger(__name__)
+
+
+def _redirect_seguro(request, destino, fallback='aranha:profissional_agenda'):
+    """Redirect so p/ URL local (anti open-redirect no campo 'next')."""
+    return redirect(safe_next(request, destino, fallback))
 
 
 def _profissional_do_usuario(user):
@@ -103,25 +107,26 @@ def agenda(request):
 @profissional_required
 @require_POST
 def marcar_realizado(request, pk):
-    """Profissional marca atendimento como realizado."""
+    """Profissional marca atendimento como realizado (via FSM).
+
+    marcar_realizado() publica AtendimentoRealizado: comissao, cashback,
+    retorno e NPS dependem do evento (status direto os pulava).
+    """
     atendimento = _atendimento_do_profissional(
         request.user, pk, select_related=['cliente'],
     )
-
-    # Allowlist explicita: so AGENDADO/CONFIRMADO podem virar REALIZADO.
-    # Lista negativa hardcoded era fragil (novo status nao bloqueado por engano
-    # ficaria marcavel) e a mensagem 'ja esta como X' nao condizia com PENDENTE.
-    if atendimento.status not in ('AGENDADO', 'CONFIRMADO'):
+    try:
+        atendimento.marcar_realizado(by_user=request.user)
+    except Atendimento.TransicaoInvalida:
         messages.warning(
             request,
-            f'Nao e possivel marcar realizado a partir de {atendimento.get_status_display().lower()}.'
+            f'Não é possível marcar como realizado um atendimento '
+            f'{atendimento.get_status_display().lower()}.'
         )
     else:
-        atendimento.status = 'REALIZADO'
-        atendimento.save()
         messages.success(request, f'Atendimento de {atendimento.cliente.nome} marcado como realizado.')
 
-    return redirect(request.POST.get('next') or 'aranha:profissional_agenda')
+    return _redirect_seguro(request, request.POST.get('next'))
 
 
 @profissional_required
@@ -138,7 +143,7 @@ def anotar(request, pk):
     if request.method == 'POST':
         texto = request.POST.get('texto', '').strip()
         if not texto:
-            messages.error(request, 'Digite o conteudo da anotacao.')
+            messages.error(request, 'Digite o conteúdo da anotação.')
             return redirect('aranha:profissional_anotar', pk=pk)
 
         AnotacaoSessao.objects.create(
@@ -146,7 +151,7 @@ def anotar(request, pk):
             autor=request.user,
             texto=texto,
         )
-        messages.success(request, 'Anotacao salva.')
+        messages.success(request, 'Anotação salva.')
         return redirect('aranha:profissional_agenda')
 
     context = {
@@ -159,70 +164,46 @@ def anotar(request, pk):
 @profissional_required
 @require_POST
 def aprovar_agendamento(request, pk):
-    """Profissional aprova agendamento pendente → status AGENDADO."""
+    """Profissional aprova agendamento pendente -> AGENDADO.
+
+    Delega ao AgendamentoService (FSM + auditoria + e-mail com hora local),
+    o mesmo caminho da aprovacao pelo painel.
+    """
+    from ..services.agendamento_service import AgendamentoService
+
     atendimento = _atendimento_do_profissional(
         request.user, pk,
         select_related=['cliente', 'procedimento', 'profissional'],
     )
-
-    if atendimento.status != 'PENDENTE':
-        messages.warning(request, f'Atendimento ja esta como {atendimento.get_status_display().lower()}.')
-        return redirect('aranha:profissional_agenda')
-
-    atendimento.status = 'AGENDADO'
-    atendimento.save()
-    registrar_log(request.user, 'Aprovou agendamento (profissional)', 'atendimento', atendimento.pk)
-
-    if atendimento.cliente.email:
-        data_fmt = atendimento.data_hora_inicio.strftime('%d/%m/%Y as %H:%M')
-        dados = {
-            'nome': atendimento.cliente.nome,
-            'procedimento': atendimento.procedimento.nome,
-            'profissional': atendimento.profissional.nome,
-            'data_hora': data_fmt,
-            'valor': f'R$ {float(atendimento.valor_cobrado):.2f}' if atendimento.valor_cobrado else 'A consultar',
-        }
-        from ..tasks import send_email_async
-        try:
-            send_email_async.delay('enviar_confirmacao_agendamento_email',
-                                    atendimento.cliente.email, dados)
-        except Exception:
-            enviar_confirmacao_agendamento_email(atendimento.cliente.email, dados)
-
-    messages.success(request, f'Agendamento de {atendimento.cliente.nome} aprovado.')
-    return redirect('aranha:profissional_agenda')
+    try:
+        transitou = AgendamentoService().aprovar(atendimento, by_user=request.user)
+    except Atendimento.TransicaoInvalida:
+        transitou = False
+    if not transitou:
+        messages.warning(request, f'Atendimento já está como {atendimento.get_status_display().lower()}.')
+    else:
+        messages.success(request, f'Agendamento de {atendimento.cliente.nome} aprovado.')
+    return _redirect_seguro(request, request.POST.get('next'))
 
 
 @profissional_required
 @require_POST
 def rejeitar_agendamento(request, pk):
-    """Profissional rejeita agendamento pendente → status CANCELADO."""
+    """Profissional rejeita agendamento pendente -> CANCELADO (via service/FSM)."""
+    from ..services.agendamento_service import AgendamentoService
+
     atendimento = _atendimento_do_profissional(
         request.user, pk,
         select_related=['cliente', 'procedimento', 'profissional'],
     )
-
-    if atendimento.status != 'PENDENTE':
-        messages.warning(request, f'Atendimento ja esta como {atendimento.get_status_display().lower()}.')
-        return redirect('aranha:profissional_agenda')
-
-    atendimento.status = 'CANCELADO'
-    atendimento.save()
-    registrar_log(request.user, 'Rejeitou agendamento (profissional)', 'atendimento', atendimento.pk)
-
-    if atendimento.cliente.email:
-        data_fmt = atendimento.data_hora_inicio.strftime('%d/%m/%Y as %H:%M')
-        dados = {
-            'nome': atendimento.cliente.nome,
-            'procedimento': atendimento.procedimento.nome,
-            'data_hora': data_fmt,
-            'profissional': atendimento.profissional.nome,
-        }
-        from ..tasks import send_email_async
-        try:
-            send_email_async.delay('enviar_cancelamento_email', atendimento.cliente.email, dados)
-        except Exception:
-            enviar_cancelamento_email(atendimento.cliente.email, dados)
-
-    messages.success(request, f'Agendamento de {atendimento.cliente.nome} rejeitado.')
-    return redirect('aranha:profissional_agenda')
+    try:
+        transitou = AgendamentoService().rejeitar(
+            atendimento, motivo='Rejeitado pelo profissional', by_user=request.user,
+        )
+    except Atendimento.TransicaoInvalida:
+        transitou = False
+    if not transitou:
+        messages.warning(request, f'Atendimento já está como {atendimento.get_status_display().lower()}.')
+    else:
+        messages.success(request, f'Agendamento de {atendimento.cliente.nome} rejeitado.')
+    return _redirect_seguro(request, request.POST.get('next'))

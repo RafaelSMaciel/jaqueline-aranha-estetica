@@ -1,8 +1,15 @@
 {% extends 'painel/base_v2.html' %}
+{% load l10n %}
 
 {% block titulo %}Pacotes — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Pacotes{% endblock %}
 {% block page_subtitle %}Gerenciamento de pacotes de serviços{% endblock %}
+
+{% block css %}
+<style nonce="{{ csp_nonce }}">
+  #dlgVender::backdrop { background: rgba(0, 0, 0, .45); }
+</style>
+{% endblock %}
 
 {% block admin_content %}
 
@@ -21,8 +28,8 @@
 
 {# ── Pacotes ── #}
 {% for pacote in pacotes %}
-<div x-data="modal" x-on:keydown.escape.window="fechar" class="bg-superficie rounded-2xl shadow-sm p-4 mb-3">
-  <div class="flex items-start justify-between gap-2">
+<div x-data="pacoteCriar" x-on:keydown.escape.window="fechar" class="bg-superficie rounded-2xl shadow-sm p-4 mb-3 {% if not pacote.ativo %}opacity-75{% endif %}">
+  <div class="flex items-start justify-between gap-2 flex-wrap">
     <div class="min-w-0">
       <h6 class="flex items-center gap-2 flex-wrap font-bold text-texto mb-1">
         {{ pacote.nome }}
@@ -34,18 +41,29 @@
       </h6>
       <p class="text-[0.8rem] text-texto-suave mb-1">{{ pacote.descricao|default:"Sem descrição" }}</p>
       <div class="text-[0.8rem] text-texto">
-        <strong>R$ {{ pacote.preco_total }}</strong> &middot;
-        Validade: {{ pacote.validade_meses }} meses &middot;
+        <strong>R$ {{ pacote.preco_total|floatformat:2 }}</strong> &middot;
+        Validade: {{ pacote.validade_meses }} {{ pacote.validade_meses|pluralize:"mês,meses" }} &middot;
         {{ pacote.total_vendas }} venda{{ pacote.total_vendas|pluralize:"s" }}
       </div>
     </div>
-    <button type="button" x-on:click="abrir"
-            class="inline-flex items-center gap-1 shrink-0 px-3 py-1.5 rounded-lg border border-borda text-texto text-[0.75rem] font-bold bg-superficie cursor-pointer hover:bg-fundo transition-colors">
-      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/>
-      </svg>
-      Vender
-    </button>
+    <div class="flex gap-2 shrink-0">
+      <button type="button" x-on:click="abrir"
+              class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-[0.75rem] font-bold border-none cursor-pointer hover:bg-blue-100 transition-colors">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+        </svg>
+        Editar
+      </button>
+      {% if pacote.ativo %}
+      <button type="button" data-vender-pacote="{{ pacote.pk }}" data-valor="{{ pacote.preco_total|unlocalize }}"
+              class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-borda text-texto text-[0.75rem] font-bold bg-superficie cursor-pointer hover:bg-fundo transition-colors">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/>
+        </svg>
+        Vender
+      </button>
+      {% endif %}
+    </div>
   </div>
 
   {% if pacote.itens.all %}
@@ -59,50 +77,152 @@
   </div>
   {% endif %}
 
-  {# Modal vender #}
-  <div x-show="aberto" x-cloak role="dialog" aria-modal="true" aria-label="Vender pacote"
+  {# Modal editar (pacoteCriar = abrir/fechar + addItem) #}
+  <div x-show="aberto" x-cloak role="dialog" aria-modal="true" aria-label="Editar pacote"
        class="fixed inset-0 z-[10000] flex items-center justify-center p-4" style="background:rgba(0,0,0,.45)">
     <div x-on:click.outside="fechar"
-         class="bg-superficie text-texto rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-xl">
-      <form method="post" action="{% url 'aranha:admin_vender_pacote' %}">
+         class="bg-superficie text-texto rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
+      <form method="post" action="{% url 'aranha:admin_editar_pacote' pacote.pk %}">
         {% csrf_token %}
-        <input type="hidden" name="pacote_id" value="{{ pacote.pk }}">
         <div class="flex items-center justify-between px-5 py-4 border-b border-borda">
-          <h5 class="font-bold text-[0.95rem]">Vender "{{ pacote.nome }}"</h5>
+          <h5 class="font-bold text-[0.95rem]">Editar "{{ pacote.nome }}"</h5>
           <button type="button" x-on:click="fechar" aria-label="Fechar"
                   class="text-texto-suave hover:text-texto text-2xl leading-none border-none bg-transparent cursor-pointer">&times;</button>
         </div>
         <div class="p-5">
-          <div class="mb-3">
-            <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Cliente</label>
-            <select name="cliente_id" required
-                    class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
-              <option value="">Selecione...</option>
-              {% for c in clientes_ativos %}
-              <option value="{{ c.pk }}">{{ c.nome }}{% if c.telefone %} — {{ c.telefone }}{% endif %}</option>
-              {% endfor %}
-            </select>
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-3">
+            <div class="sm:col-span-6">
+              <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Nome</label>
+              <input type="text" name="nome" value="{{ pacote.nome }}" required maxlength="150"
+                     class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+            </div>
+            <div class="sm:col-span-3">
+              <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Preço Total (R$)</label>
+              <input type="number" step="0.01" min="0" name="preco_total" value="{{ pacote.preco_total|unlocalize }}" required
+                     class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+            </div>
+            <div class="sm:col-span-3">
+              <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Validade (meses)</label>
+              <input type="number" min="1" max="120" name="validade_meses" value="{{ pacote.validade_meses|unlocalize }}" required
+                     class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+            </div>
+            <div class="sm:col-span-12">
+              <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Descrição</label>
+              <textarea name="descricao" rows="2"
+                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition resize-y">{{ pacote.descricao|default_if_none:'' }}</textarea>
+            </div>
+            <div class="sm:col-span-12">
+              <label class="inline-flex items-center gap-2 text-[0.85rem] text-texto cursor-pointer">
+                <input type="checkbox" name="ativo" value="1" {% if pacote.ativo %}checked{% endif %} class="rounded border-borda">
+                Ativo (disponível para venda)
+              </label>
+            </div>
           </div>
-          <div class="mb-1">
-            <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Valor Pago (R$)</label>
-            <input type="number" step="0.01" name="valor_pago" value="{{ pacote.preco_total }}" required
-                   class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+
+          <h6 class="font-bold text-texto mt-4 mb-1">Itens do Pacote</h6>
+          <p class="text-[0.75rem] text-texto-suave mb-2">Para remover um item, deixe o procedimento em branco. Alterar os itens também vale para os pacotes já vendidos.</p>
+          <div x-ref="itens">
+            {% for item in pacote.itens.all %}
+            <div class="grid grid-cols-12 gap-2 mb-2 item-row">
+              <div class="col-span-8">
+                <select name="procedimento_ids" aria-label="Procedimento"
+                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+                  <option value="">Procedimento...</option>
+                  {% for proc in procedimentos_todos %}
+                  <option value="{{ proc.pk }}" {% if proc.pk == item.procedimento_id %}selected{% endif %}>{{ proc.nome }}{% if not proc.ativo %} (inativo){% endif %}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-span-4">
+                <input type="number" name="quantidades" value="{{ item.quantidade_sessoes|unlocalize }}" min="1" aria-label="Quantidade de sessões"
+                       class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+              </div>
+            </div>
+            {% empty %}
+            <div class="grid grid-cols-12 gap-2 mb-2 item-row">
+              <div class="col-span-8">
+                <select name="procedimento_ids" aria-label="Procedimento"
+                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+                  <option value="">Procedimento...</option>
+                  {% for proc in procedimentos %}
+                  <option value="{{ proc.pk }}">{{ proc.nome }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-span-4">
+                <input type="number" name="quantidades" value="1" min="1" aria-label="Quantidade de sessões"
+                       class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+              </div>
+            </div>
+            {% endfor %}
           </div>
+          <button type="button" x-on:click="addItem"
+                  class="inline-flex items-center gap-1 mt-1 px-3 py-1.5 rounded-lg border border-borda text-texto text-[0.75rem] font-bold bg-superficie cursor-pointer hover:bg-fundo transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Adicionar Item
+          </button>
         </div>
         <div class="flex justify-end gap-2 px-5 py-4 border-t border-borda">
           <button type="button" x-on:click="fechar"
                   class="px-4 py-2 rounded-xl border border-borda text-texto text-[0.85rem] font-bold bg-superficie cursor-pointer hover:bg-fundo transition-colors">Cancelar</button>
           <button type="submit"
-                  class="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-            Confirmar Venda
-          </button>
+                  class="px-5 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">Salvar</button>
         </div>
       </form>
     </div>
   </div>
 </div>
 {% endfor %}
+
+{# ── Modal ÚNICO de venda (a lista de clientes é renderizada uma só vez) ── #}
+{% if pacotes_ativos %}
+<dialog id="dlgVender" aria-label="Vender pacote"
+        class="bg-superficie text-texto rounded-2xl w-[calc(100%-2rem)] max-w-md max-h-[90vh] p-0 m-auto shadow-xl">
+  <form method="post" action="{% url 'aranha:admin_vender_pacote' %}">
+    {% csrf_token %}
+    <div class="flex items-center justify-between px-5 py-4 border-b border-borda">
+      <h5 class="font-bold text-[0.95rem]">Vender pacote</h5>
+      <button type="button" data-fechar-dialog aria-label="Fechar"
+              class="text-texto-suave hover:text-texto text-2xl leading-none border-none bg-transparent cursor-pointer">&times;</button>
+    </div>
+    <div class="p-5">
+      <div class="mb-3">
+        <label for="venderPacote" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Pacote</label>
+        <select id="venderPacote" name="pacote_id" required
+                class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+          {% for p in pacotes_ativos %}
+          <option value="{{ p.pk }}" data-valor="{{ p.preco_total|unlocalize }}">{{ p.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="mb-3">
+        <label for="venderCliente" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Cliente</label>
+        <select id="venderCliente" name="cliente_id" required
+                class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+          <option value="">Selecione...</option>
+          {% for c in clientes_ativos %}
+          <option value="{{ c.pk }}">{{ c.nome }}{% if c.telefone %} — {{ c.telefone }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="mb-1">
+        <label for="venderValor" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Valor Pago (R$)</label>
+        <input id="venderValor" type="number" step="0.01" min="0" name="valor_pago" value="{{ pacotes_ativos.0.preco_total|unlocalize }}" required
+               class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+      </div>
+    </div>
+    <div class="flex justify-end gap-2 px-5 py-4 border-t border-borda">
+      <button type="button" data-fechar-dialog
+              class="px-4 py-2 rounded-xl border border-borda text-texto text-[0.85rem] font-bold bg-superficie cursor-pointer hover:bg-fundo transition-colors">Cancelar</button>
+      <button type="submit"
+              class="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+        Confirmar Venda
+      </button>
+    </div>
+  </form>
+</dialog>
+{% endif %}
 
 {% if not pacotes %}
 <div class="text-center py-12">
@@ -194,4 +314,33 @@
   </div>
 </div>
 
+{% endblock %}
+
+{% block js %}
+<script nonce="{{ csp_nonce }}">
+// Modal unico de venda: o botao "Vender" do card pre-seleciona o pacote.
+(function () {
+  var dlg = document.getElementById('dlgVender');
+  if (!dlg) return;
+  var selPacote = document.getElementById('venderPacote');
+  var valor = document.getElementById('venderValor');
+  function abrir() { if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', ''); }
+  function fechar() { if (dlg.close) dlg.close(); else dlg.removeAttribute('open'); }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-vender-pacote]');
+    if (b) {
+      selPacote.value = b.getAttribute('data-vender-pacote');
+      valor.value = b.getAttribute('data-valor') || '';
+      abrir();
+      return;
+    }
+    if (e.target.closest('[data-fechar-dialog]')) fechar();
+  });
+  selPacote.addEventListener('change', function () {
+    var o = selPacote.options[selPacote.selectedIndex];
+    if (o && o.getAttribute('data-valor')) valor.value = o.getAttribute('data-valor');
+  });
+  dlg.addEventListener('click', function (e) { if (e.target === dlg) fechar(); });
+})();
+</script>
 {% endblock %}

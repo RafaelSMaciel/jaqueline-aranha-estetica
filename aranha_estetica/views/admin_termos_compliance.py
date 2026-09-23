@@ -16,7 +16,12 @@ from ..models import (
 def admin_termos_compliance(request):
     """Lista versoes de termos ativas + contagem de assinaturas + pendentes."""
     tipo_filter = request.GET.get('tipo', '')
+    if tipo_filter not in dict(VersaoTermo.TIPO_CHOICES):
+        tipo_filter = ''
+    # ?versao= nao numerico (URL manipulada) e ignorado em vez de 500
     versao_filter = request.GET.get('versao', '')
+    if not versao_filter.isdigit():
+        versao_filter = ''
 
     versoes = list(
         VersaoTermo.objects.filter(ativa=True).select_related('procedimento').order_by('-vigente_desde')
@@ -48,7 +53,8 @@ def admin_termos_compliance(request):
         assinaturas_count = assinaturas_por_versao.get(v.pk, 0)
         if v.tipo == 'LGPD':
             clientes_relevantes = clientes_ativos_count
-            pendentes = clientes_relevantes - assinaturas_count
+            # aceites de clientes hoje inativos nao podem gerar pendencia negativa
+            pendentes = max(0, clientes_relevantes - assinaturas_count)
         else:
             if v.procedimento_id:
                 clientes_relevantes = clientes_por_proc.get(v.procedimento_id, 0)
@@ -61,14 +67,14 @@ def admin_termos_compliance(request):
             'assinados': assinaturas_count,
             'relevantes': clientes_relevantes,
             'pendentes': pendentes,
-            'pct': round((assinaturas_count / clientes_relevantes * 100), 1) if clientes_relevantes else 0,
+            'pct': min(100.0, round((assinaturas_count / clientes_relevantes * 100), 1)) if clientes_relevantes else 0,
         })
 
     pendentes_lista = []
     versao_obj = None
     if versao_filter:
         try:
-            versao_obj = VersaoTermo.objects.select_related('procedimento').get(pk=versao_filter, ativa=True)
+            versao_obj = VersaoTermo.objects.select_related('procedimento').get(pk=int(versao_filter), ativa=True)
         except VersaoTermo.DoesNotExist:
             versao_obj = None
 

@@ -11,7 +11,7 @@
     .atn-card-CANCELADO  { border-left-color: #c62828; opacity: 0.6; }
     .atn-card-FALTOU     { border-left-color: #7b1fa2; opacity: 0.6; }
     .atn-card-REAGENDADO { border-left-color: #ff8f00; opacity: 0.6; }
-    .atn-card-PENDENTE   { border-left-color: #f9a825; background: #fffdf4; }
+    .atn-card-PENDENTE   { border-left-color: #f9a825; background: rgba(249, 168, 37, 0.08); }
 
     /* Status badge colors */
     .badge-AGENDADO   { background: #fff8e1; color: #f57f17; }
@@ -41,11 +41,24 @@
             </svg>
             Minha Agenda
         </h1>
-        {% if profissional %}
-        <span class="bg-fundo border border-borda text-texto-suave px-4 py-1.5 rounded-full font-bold text-sm">
-            {{ profissional.nome }}
-        </span>
-        {% endif %}
+        <div class="flex items-center gap-2 flex-wrap">
+            {% if profissional %}
+            <span class="bg-fundo border border-borda text-texto-suave px-4 py-1.5 rounded-full font-bold text-sm">
+                {{ profissional.nome }}
+            </span>
+            {% endif %}
+            <form method="post" action="{% url 'aranha:usuario_logout' %}" class="m-0">
+                {% csrf_token %}
+                <button type="submit"
+                        class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-borda bg-superficie
+                               text-texto-suave hover:text-texto font-bold text-sm cursor-pointer transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+                    </svg>
+                    Sair
+                </button>
+            </form>
+        </div>
     </div>
 
     <!-- Pendentes de aprovação -->
@@ -70,10 +83,11 @@
             <div class="flex gap-2 flex-shrink-0">
                 <form method="post" action="{% url 'aranha:profissional_aprovar' pk=p.pk %}" class="m-0">
                     {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
                     <button type="submit"
-                            class="btn-confirm-submit bg-green-700 hover:bg-green-900 text-white text-xs font-bold
+                            class="bg-green-700 hover:bg-green-900 text-white text-xs font-bold
                                    px-3 py-2 rounded-lg inline-flex items-center gap-1 cursor-pointer transition-colors"
-                            data-msg="Aprovar agendamento?">
+                            data-confirm="Aprovar agendamento?">
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                         </svg>
@@ -82,11 +96,12 @@
                 </form>
                 <form method="post" action="{% url 'aranha:profissional_rejeitar' pk=p.pk %}" class="m-0">
                     {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
                     <button type="submit"
-                            class="btn-confirm-submit bg-superficie border border-red-600 text-red-700
+                            class="bg-superficie border border-red-600 text-red-700
                                    hover:bg-red-600 hover:text-white text-xs font-bold
                                    px-3 py-2 rounded-lg inline-flex items-center gap-1 cursor-pointer transition-colors"
-                            data-msg="Rejeitar agendamento?">
+                            data-confirm="Rejeitar agendamento?">
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                         </svg>
@@ -179,10 +194,10 @@
                     {% csrf_token %}
                     <input type="hidden" name="next" value="{% url 'aranha:profissional_agenda' %}?data={{ dia|date:'Y-m-d' }}">
                     <button type="submit"
-                            class="btn-confirm-submit bg-green-50 hover:bg-green-100 text-green-800
+                            class="bg-green-50 hover:bg-green-100 text-green-800
                                    text-xs font-bold px-3 py-2 rounded-lg inline-flex items-center gap-1
                                    cursor-pointer transition-colors border-0"
-                            data-msg="Marcar como realizado?">
+                            data-confirm="Marcar como realizado?">
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
@@ -278,16 +293,7 @@
 
     tabDia.addEventListener('click',    function () { showView('dia'); });
     tabSemana.addEventListener('click', function () { showView('semana'); });
-
-    /* ── 2. Confirm antes de submit em todos os forms de acao ── */
-    document.querySelectorAll('button.btn-confirm-submit').forEach(function (btn) {
-        btn.addEventListener('click', function (e) {
-            var msg = btn.getAttribute('data-msg') || 'Confirmar?';
-            if (!window.confirm(msg)) {
-                e.preventDefault();
-            }
-        });
-    });
+    /* Confirmacao dos botoes: handler global [data-confirm] do app.js */
 }());
 </script>
 {% endblock %}

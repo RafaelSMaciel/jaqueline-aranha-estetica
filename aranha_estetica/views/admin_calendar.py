@@ -1,7 +1,7 @@
 """Visao de calendario (FullCalendar) para agendamentos — alternativa a lista."""
 from datetime import datetime
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
@@ -11,6 +11,7 @@ from django_ratelimit.decorators import ratelimit
 from ..decorators import staff_required
 from ..models import Atendimento, BloqueioAgenda, ExcecaoDisponibilidade, Profissional
 from ..utils.audit import registrar_log
+from ..utils.datas import data_local, fmt_local
 
 
 def _parse_iso_aware(valor):
@@ -52,7 +53,9 @@ def admin_calendar_events(request):
     """Endpoint JSON compativel com FullCalendar — retorna agendamentos no range."""
     start = request.GET.get('start', '')
     end = request.GET.get('end', '')
+    # filtro nao numerico (URL manipulada) e ignorado em vez de 500
     prof_filter = request.GET.get('profissional', '')
+    prof_filter = int(prof_filter) if prof_filter.isdigit() else None
 
     try:
         dt_start = _parse_iso_aware(start)
@@ -105,8 +108,8 @@ def admin_calendar_events(request):
 
     folgas_qs = ExcecaoDisponibilidade.objects.filter(
         tipo='FOLGA',
-        data__gte=dt_start.date(),
-        data__lt=dt_end.date(),
+        data__gte=data_local(dt_start),
+        data__lt=data_local(dt_end),
     )
     if prof_filter:
         folgas_qs = folgas_qs.filter(profissional_id=prof_filter)
@@ -136,18 +139,21 @@ def admin_calendar_mover(request):
         novo_inicio = _parse_iso_aware(payload.get('start'))
         novo_fim = _parse_iso_aware(payload.get('end'))
     except (ValueError, TypeError, AttributeError, KeyError):
-        return JsonResponse({'sucesso': False, 'erro': 'Payload invalido'}, status=400)
+        return JsonResponse({'sucesso': False, 'erro': 'Dados inválidos.'}, status=400)
+
+    if novo_fim <= novo_inicio:
+        return JsonResponse({'sucesso': False, 'erro': 'O fim deve ser depois do início.'}, status=400)
 
     with transaction.atomic():
         try:
             at = Atendimento.objects.select_for_update().get(pk=pk)
         except Atendimento.DoesNotExist:
-            return JsonResponse({'sucesso': False, 'erro': 'Atendimento nao encontrado'}, status=404)
+            return JsonResponse({'sucesso': False, 'erro': 'Atendimento não encontrado.'}, status=404)
 
         if at.status in ('REALIZADO', 'CANCELADO', 'FALTOU'):
             return JsonResponse({
                 'sucesso': False,
-                'erro': f'Nao e possivel mover atendimento {at.get_status_display().lower()}.',
+                'erro': f'Não é possível mover um atendimento {at.get_status_display().lower()}.',
             }, status=400)
 
         # Bloqueia double-booking: nao mover para janela que sobrepoe outro
@@ -161,7 +167,7 @@ def admin_calendar_mover(request):
         if conflito_atendimento:
             return JsonResponse({
                 'sucesso': False,
-                'erro': 'Conflito: ja existe um atendimento nesse horario para o profissional.',
+                'erro': 'Conflito: já existe um atendimento nesse horário para o profissional.',
             }, status=409)
 
         # Inclui bloqueios globais (profissional nulo = vale p/ todos).
@@ -175,7 +181,7 @@ def admin_calendar_mover(request):
         if conflito_bloqueio:
             return JsonResponse({
                 'sucesso': False,
-                'erro': 'Conflito: o horario cai dentro de um bloqueio de agenda.',
+                'erro': 'Conflito: o horário cai dentro de um bloqueio de agenda.',
             }, status=409)
 
         conflito_folga = ExcecaoDisponibilidade.objects.filter(
@@ -186,13 +192,22 @@ def admin_calendar_mover(request):
         if conflito_folga:
             return JsonResponse({
                 'sucesso': False,
-                'erro': 'Conflito: o profissional esta de folga nesse dia.',
+                'erro': 'Conflito: o profissional está de folga nesse dia.',
             }, status=409)
 
         antigo = at.data_hora_inicio.isoformat()
         at.data_hora_inicio = novo_inicio
         at.data_hora_fim = novo_fim
-        at.save(update_fields=['data_hora_inicio', 'data_hora_fim', 'atualizado_em'])
+        try:
+            # savepoint: a EXCLUDE excl_atendimento_sobreposicao (PG) pode
+            # disparar numa corrida com o booking entre a checagem e o save
+            with transaction.atomic():
+                at.save(update_fields=['data_hora_inicio', 'data_hora_fim', 'atualizado_em'])
+        except IntegrityError:
+            return JsonResponse({
+                'sucesso': False,
+                'erro': 'Conflito: o horário acabou de ser ocupado. Atualize o calendário.',
+            }, status=409)
 
         registrar_log(
             request.user, 'Moveu agendamento via calendario',
@@ -202,5 +217,6 @@ def admin_calendar_mover(request):
 
     return JsonResponse({
         'sucesso': True,
-        'nova_data': novo_inicio.strftime('%d/%m/%Y %H:%M'),
+        # FullCalendar envia ISO em UTC ('Z'): formata no fuso da clinica
+        'nova_data': fmt_local(novo_inicio),
     })

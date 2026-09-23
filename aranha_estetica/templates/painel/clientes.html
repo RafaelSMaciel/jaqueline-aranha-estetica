@@ -69,6 +69,7 @@
     <path stroke-linecap="round" stroke-linejoin="round" d="M23 21v-2a4 4 0 00-3-3.87"/><path stroke-linecap="round" stroke-linejoin="round" d="M16 3.13a4 4 0 010 7.75"/>
   </svg>
   <span id="cntClientesVisiveis">{{ clientes|length }}</span> cliente(s)
+  {% if clientes.has_other_pages %}<span class="font-normal">nesta página · {{ clientes.paginator.count }} no total</span>{% endif %}
 </p>
 
 {# ── Lista de clientes ── #}
@@ -178,5 +179,7 @@
   <h5 class="font-bold text-texto mb-1">Nenhum cliente bate com o filtro</h5>
   <p class="text-[0.85rem] text-texto-suave">Ajuste o termo ou limpe o campo.</p>
 </div>
+
+{% include 'partials/_paginacao.html' with page=clientes %}
 
 {% endblock %}
