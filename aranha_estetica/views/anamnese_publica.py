@@ -19,6 +19,12 @@ from django.views.decorators.http import require_http_methods
 from ..models import RespostaAnamnese
 from ..models.sistema import LogAuditoria
 from ..services.anamnese import validar_respostas
+from ..utils.audit import registrar_log
+from .booking_public import TEXTO_CONSENTIMENTO_SAUDE
+
+MSG_SEM_CONSENTIMENTO = (
+    'Para enviar a ficha, marque a autorização de uso das suas informações de saúde.'
+)
 
 
 def _get_resposta_or_404(token: str, tipo_esperado: str) -> RespostaAnamnese:
@@ -76,6 +82,7 @@ def _renderizar(request, resposta: RespostaAnamnese, erros=None, valores=None):
         'cliente': resposta.cliente,
         'atendimento': resposta.atendimento,
         'erros': erros or [],
+        'texto_consentimento_saude': TEXTO_CONSENTIMENTO_SAUDE,
     })
 
 
@@ -84,6 +91,9 @@ def _gravar_resposta(request, resposta: RespostaAnamnese):
     valores = _valores_postados(schema, request.POST)
     # Mesmo validador do booking: bool 'sim'/'nao' -> True/False, opcoes e tamanhos conferidos
     respostas, erros = validar_respostas(schema, valores)
+    eh_ficha_saude = resposta.formulario.tipo != 'PESQUISA'
+    if eh_ficha_saude and request.POST.get('consent_dados_saude') != 'on':
+        erros = [*erros, MSG_SEM_CONSENTIMENTO]
     if erros:
         return _renderizar(request, resposta, erros=erros, valores=valores)
 
@@ -97,6 +107,14 @@ def _gravar_resposta(request, resposta: RespostaAnamnese):
         tabela='resposta_anamnese',
         registro_id=resposta.pk,
     )
+
+    if eh_ficha_saude:
+        registrar_log(
+            None, 'Consentimento de dados de saude (LGPD art. 11) na ficha publica',
+            'resposta_anamnese', resposta.pk,
+            detalhes={'cliente_id': resposta.cliente_id, 'texto': TEXTO_CONSENTIMENTO_SAUDE},
+            request=request,
+        )
 
     if resposta.formulario.tipo == 'PESQUISA':
         return redirect('aranha:pesquisa_obrigado')

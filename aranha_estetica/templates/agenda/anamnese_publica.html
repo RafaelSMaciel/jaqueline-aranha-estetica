@@ -5,3 +5,14 @@
 {% block selo %}Ficha de avaliação{% endblock %}
 {% block subtitulo_extra %}Algumas perguntas rápidas para cuidarmos de você com segurança.{% endblock %}
 {% block aviso_privacidade %}Suas respostas ficam no seu histórico de cuidados, com acesso restrito à equipe, e são usadas para garantir a segurança do seu procedimento.{% endblock %}
+{% block consentimento %}
+      {# LGPD art. 11, I: consentimento especifico e destacado p/ dado de saude (mesmo texto do agendamento) #}
+      <div class="mb-6 rounded-lg border border-marca/40 bg-marca/5 p-4">
+        <p class="mb-2 text-sm font-semibold text-texto">Autorização para uso das suas informações de saúde</p>
+        <label class="flex items-start gap-3 text-sm text-texto" for="consent-dados-saude">
+          <input type="checkbox" name="consent_dados_saude" id="consent-dados-saude" required
+                 class="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-borda text-marca-forte">
+          <span>{{ texto_consentimento_saude }}</span>
+        </label>
+      </div>
+{% endblock %}
