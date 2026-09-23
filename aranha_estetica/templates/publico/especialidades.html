@@ -104,9 +104,9 @@
                 </span>
                 {% endif %}
                 {% if item.preco > 0 %}
-                <span class="text-marca font-semibold">A partir de R$ {{ item.preco|floatformat:2 }}</span>
+                <span class="text-marca font-semibold">A partir de R$ {{ item.preco|floatformat:"2g" }}</span>
                 {% if item.preco_cheio %}
-                <s><span class="sr-only">Preço sem promoção: </span>R$ {{ item.preco_cheio|floatformat:2 }}</s>
+                <s><span class="sr-only">Preço sem promoção: </span>R$ {{ item.preco_cheio|floatformat:"2g" }}</s>
                 {% endif %}
                 {% endif %}
               </div>
@@ -283,7 +283,7 @@
           </div>
           <h3 class="text-texto font-bold text-lg">Depilação a Laser</h3>
           <p class="text-texto-suave text-sm leading-relaxed flex-1">
-            Remoção definitiva dos pelos com tecnologia de ponta, segura para todos os fototipos de pele.
+            Redução progressiva dos pelos, com indicação após avaliação do fototipo. Sessões rápidas; a sensação varia de pessoa para pessoa.
           </p>
           <a href="{% url 'aranha:servicos_corporais' %}"
              class="inline-flex items-center gap-2 text-marca font-semibold text-sm hover:underline mt-auto">

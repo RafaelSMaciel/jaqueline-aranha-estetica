@@ -86,9 +86,15 @@
       {# ── CTA ── #}
       <div class="lg:col-span-2">
         <h3 class="font-serif text-base font-semibold text-[#ece8df]">Cuide-se</h3>
+        {% if AGENDAR_WHATSAPP %}
+        <p class="mt-4 text-sm text-[#9a958a]">Reserve seu horário pelo WhatsApp.</p>
+        <a href="{{ AGENDAR_WHATSAPP }}" target="_blank" rel="noopener" aria-label="Agendar pelo WhatsApp"
+           class="mt-4 inline-flex items-center justify-center rounded-full bg-[#C9A84C] px-5 py-2.5 text-sm font-semibold text-[#23200f] no-underline hover:opacity-90 transition">Agendar</a>
+        {% else %}
         <p class="mt-4 text-sm text-[#9a958a]">Reserve seu horário em poucos cliques.</p>
         <a href="{% url 'aranha:agendamento_publico' %}"
            class="mt-4 inline-flex items-center justify-center rounded-full bg-[#C9A84C] px-5 py-2.5 text-sm font-semibold text-[#23200f] no-underline hover:opacity-90 transition">Agendar</a>
+        {% endif %}
       </div>
     </div>
   </div>

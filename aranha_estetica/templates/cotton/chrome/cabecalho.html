@@ -24,8 +24,14 @@
         </svg>
       </button>
 
+      {# Sem SMS o wizard nao conclui (OTP): AGENDAR_WHATSAPP leva direto ao WhatsApp #}
+      {% if AGENDAR_WHATSAPP %}
+      <a href="{{ AGENDAR_WHATSAPP }}" target="_blank" rel="noopener" aria-label="Agendar pelo WhatsApp"
+         class="hidden sm:inline-flex items-center rounded-full bg-marca-forte px-4 py-2 text-sm font-semibold text-sobre-marca no-underline hover:opacity-90 transition">Agendar</a>
+      {% else %}
       <a href="{% url 'aranha:agendamento_publico' %}"
          class="hidden sm:inline-flex items-center rounded-full bg-marca-forte px-4 py-2 text-sm font-semibold text-sobre-marca no-underline hover:opacity-90 transition">Agendar</a>
+      {% endif %}
 
       {# Hambúrguer mobile #}
       <button type="button" x-on:click="alternar" x-bind:aria-expanded="aberto" aria-controls="nav-mobile"
@@ -47,7 +53,11 @@
     <a href="{% url 'aranha:promocoes' %}" x-on:click="fechar" class="block px-4 py-2.5 rounded-lg text-sm font-medium text-texto no-underline hover:bg-fundo transition">Promoções</a>
     <a href="/#faq" x-on:click="fechar" class="block px-4 py-2.5 rounded-lg text-sm font-medium text-texto no-underline hover:bg-fundo transition">Dúvidas</a>
     <a href="{% url 'aranha:agenda_contato' %}" x-on:click="fechar" class="block px-4 py-2.5 rounded-lg text-sm font-medium text-texto no-underline hover:bg-fundo transition">Contato</a>
+    {% if AGENDAR_WHATSAPP %}
+    <a href="{{ AGENDAR_WHATSAPP }}" target="_blank" rel="noopener" x-on:click="fechar" class="block px-4 py-2.5 rounded-lg text-sm font-semibold text-center text-sobre-marca bg-marca-forte no-underline hover:opacity-90 transition mt-2">Agendar pelo WhatsApp</a>
+    {% else %}
     <a href="{% url 'aranha:agendamento_publico' %}" x-on:click="fechar" class="block px-4 py-2.5 rounded-lg text-sm font-semibold text-center text-sobre-marca bg-marca-forte no-underline hover:opacity-90 transition mt-2">Agendar</a>
+    {% endif %}
   </nav>
 </header>
 {% endwith %}

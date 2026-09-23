@@ -508,3 +508,191 @@ class IcsFeedTests(TestCase):
         self.assertIn('text/calendar', r['Content-Type'])
         self.assertIn('BEGIN:VEVENT', r.content.decode())
         self.assertEqual(self.client.get(url).status_code, 404)
+
+
+class PromocoesCoerentesComAgendamentoTests(TestCase):
+    """Regressao followups-promocoes-vitrine-diverge-agendamento (FU #2/#18):
+    /promocoes/ so anuncia o preco que utils.precos.preco_com_promocao grava."""
+
+    def setUp(self):
+        cache.clear()
+        self.hoje = datas.hoje()
+
+    def _promo(self, **kw):
+        base = dict(data_inicio=self.hoje, data_fim=self.hoje + timedelta(days=3))
+        base.update(kw)
+        return Promocao.objects.create(**base)
+
+    def test_percentual_sobre_preco_so_do_profissional_bate_com_agendamento(self):
+        from aranha_estetica.utils.precos import preco_com_promocao
+        prof = criar_profissional()
+        proc = criar_procedimento(nome='Bioestimulador', preco=None, profissional=prof)
+        Preco.objects.create(procedimento=proc, profissional=prof, valor=Decimal('1000.00'))
+        self._promo(nome='Mes do colageno', procedimento=proc, desconto_percentual=Decimal('20'))
+
+        final, promo, cheio = preco_com_promocao(proc, prof)
+        html = self.client.get(reverse('aranha:promocoes')).content.decode()
+        self.assertEqual((final, cheio), (Decimal('800.00'), Decimal('1000.00')))
+        self.assertIsNotNone(promo)
+        self.assertIn('R$ 800,00', html)
+        self.assertIn('De R$ 1.000,00', html)
+        vitrine = self.client.get(reverse('aranha:especialidades')).content.decode()
+        self.assertIn('A partir de R$ 800,00', vitrine)
+
+    def test_promo_geral_de_preco_fixo_nao_e_anunciada(self):
+        """O booking ignora promo geral de preco fixo: a vitrine nao pode oferecer 'R$ 49'."""
+        criar_procedimento(nome='Limpeza', preco=Decimal('200.00'))
+        self._promo(nome='Tudo por 49', preco_promocional=Decimal('49.00'))
+        html = self.client.get(reverse('aranha:promocoes')).content.decode()
+        self.assertNotIn('Tudo por 49', html)
+        self.assertNotIn('R$ 49', html)
+
+    def test_promo_geral_percentual_aparece_sem_preco_unico(self):
+        criar_procedimento(nome='Limpeza', preco=Decimal('200.00'))
+        self._promo(nome='Semana da cliente', desconto_percentual=Decimal('10'))
+        html = self.client.get(reverse('aranha:promocoes')).content.decode()
+        self.assertIn('Semana da cliente', html)
+        self.assertIn('-10%', html)
+        self.assertNotIn('R$ 180', html)
+
+    def test_promo_superada_por_outra_nao_mostra_preco_que_nao_sera_gravado(self):
+        from aranha_estetica.utils.precos import preco_com_promocao
+        proc = criar_procedimento(nome='Peeling', preco=Decimal('100.00'))
+        self._promo(nome='Dez off', procedimento=proc, desconto_percentual=Decimal('10'))
+        self._promo(nome='Trinta off', procedimento=proc, desconto_percentual=Decimal('30'))
+        html = self.client.get(reverse('aranha:promocoes')).content.decode()
+        self.assertEqual(preco_com_promocao(proc)[0], Decimal('70.00'))
+        self.assertIn('R$ 70,00', html)
+        self.assertNotIn('R$ 90,00', html)
+
+    def test_percentual_sem_preco_nenhum_nao_e_anunciado(self):
+        proc = criar_procedimento(nome='Sem preco', preco=None)
+        self._promo(nome='Promo fantasma', procedimento=proc, desconto_percentual=Decimal('20'))
+        html = self.client.get(reverse('aranha:promocoes')).content.decode()
+        self.assertNotIn('Promo fantasma', html)
+
+
+class PrecoFormatoBrlTests(TestCase):
+    """Regressao rev_booking-11: vitrine mostrava 'R$ 1200,00' e o wizard 'R$ 1.200,00'."""
+
+    def setUp(self):
+        cache.clear()
+        self.proc = criar_procedimento(nome='Bioestimulador', preco=Decimal('1200.00'))
+
+    def test_especialidades_usa_separador_de_milhar(self):
+        html = self.client.get(reverse('aranha:especialidades')).content.decode()
+        self.assertIn('R$ 1.200,00', html)
+        self.assertNotIn('R$ 1200,00', html)
+
+    def test_servico_detalhe_usa_separador_de_milhar(self):
+        self.proc.refresh_from_db()
+        html = self.client.get(reverse('aranha:servico_detalhe', args=[self.proc.slug])).content.decode()
+        self.assertIn('R$ 1.200,00', html)
+        self.assertNotIn('R$ 1200,00', html)
+        self.assertIn('"price": "1200.00"', html)  # JSON-LD continua com ponto decimal
+
+    def test_promocoes_usa_separador_de_milhar(self):
+        hoje = datas.hoje()
+        Promocao.objects.create(nome='Colageno', procedimento=self.proc, desconto_percentual=Decimal('10'),
+                                data_inicio=hoje, data_fim=hoje)
+        html = self.client.get(reverse('aranha:promocoes')).content.decode()
+        self.assertIn('De R$ 1.200,00', html)
+        self.assertIn('R$ 1.080,00', html)
+
+
+class CopySemPromessaTests(TestCase):
+    """Regressao rev_booking-03: copy de servicos prometia resultado/seguranca absoluta
+    (CDC art. 37), contra os Termos de Uso ('nao ha garantia de resultado')."""
+
+    PROMESSAS = re.compile(r'garant|comprovad|definitiv|toxinas|indolor|todos os fototipos', re.IGNORECASE)
+
+    def test_paginas_de_servico_sem_promessa_de_resultado(self):
+        cache.clear()
+        for nome in ('aranha:servicos_faciais', 'aranha:servicos_corporais', 'aranha:especialidades'):
+            html = self.client.get(reverse(nome)).content.decode()
+            self.assertEqual(self.PROMESSAS.findall(html), [], nome)
+
+
+class DepoimentoAposEsquecimentoTests(TestCase):
+    """Regressao rev_security-02 (defesa em profundidade): titular anonimizado ou
+    excluido nao continua com depoimento no ar nem aparece como '[ANONIMIZADO-n]'."""
+
+    def setUp(self):
+        cache.clear()
+        self.prof = criar_profissional()
+        self.proc = criar_procedimento()
+
+    def _avaliacao(self, nome, comentario):
+        cli = criar_cliente(nome=nome)
+        at = criar_atendimento(cli, self.prof, self.proc, status='REALIZADO',
+                               data_hora=datas.agora_local() - timedelta(days=AvaliacaoNPS.objects.count() + 1))
+        AvaliacaoNPS.objects.create(atendimento=at, nota=10, comentario=comentario,
+                                    autoriza_publicacao=True, aprovado_publicacao=True)
+        return cli
+
+    def test_depoimento_de_titular_anonimizado_sai_do_ar(self):
+        from aranha_estetica.models import Cliente
+        cli = self._avaliacao('Paula Andrade', 'Comentario da titular')
+        self._avaliacao('Rita Lopes', 'Comentario que fica')
+        Cliente.all_objects.filter(pk=cli.pk).update(nome=f'[ANONIMIZADO-{cli.pk}]')
+        html = self.client.get(reverse('aranha:depoimentos')).content.decode()
+        self.assertNotIn('Comentario da titular', html)
+        self.assertNotIn('[ANONIMIZADO-', html)
+        self.assertIn('Comentario que fica', html)
+
+    def test_depoimento_de_cliente_excluido_sai_do_ar(self):
+        cli = self._avaliacao('Paula Andrade', 'Comentario apagado')
+        cli.soft_delete()
+        html = self.client.get(reverse('aranha:depoimentos')).content.decode()
+        self.assertNotIn('Comentario apagado', html)
+
+
+class AnamnesePublicaSemCacheTests(TestCase):
+    """Ficha de saude (LGPD art. 11) aberta num tablet/PC compartilhado nao pode
+    voltar pelo cache/bfcache (followups-never-cache-paginas-privadas)."""
+
+    def test_anamnese_e_pesquisa_respondem_no_store(self):
+        from aranha_estetica.models import FormularioAnamnese, RespostaAnamnese
+        cli = criar_cliente()
+        for tipo, rota in (('ANAMNESE', 'aranha:anamnese_publica'), ('PESQUISA', 'aranha:pesquisa_publica')):
+            form = FormularioAnamnese.objects.create(
+                nome=f'Ficha {tipo}', tipo=tipo,
+                schema_json=[{'key': 'alergias', 'tipo': 'text', 'label': 'Alergias?', 'obrigatorio': True}],
+            )
+            resposta = RespostaAnamnese.objects.create(formulario=form, cliente=cli)
+            url = reverse(rota, args=[resposta.token])
+            for resp in (self.client.get(url), self.client.post(url, {'alergias': ''})):
+                self.assertEqual(resp.status_code, 200, rota)
+                self.assertIn('no-store', resp['Cache-Control'], rota)
+
+
+class CtaAgendarSemSmsTests(TestCase):
+    """Regressao rev_booking-02 (parte do site): sem provedor de SMS o wizard nao
+    conclui (OTP obrigatorio) — CTAs globais 'Agendar' levam direto ao WhatsApp."""
+
+    def _html(self):
+        cache.clear()
+        return self.client.get(reverse('aranha:quem_somos')).content.decode()
+
+    @patch.dict(os.environ, {'WHATSAPP_NUMERO': '5517991234567'})
+    def test_sem_sms_cta_do_cabecalho_e_rodape_vai_ao_whatsapp(self):
+        with patch('aranha_estetica.utils.sms.sms_disponivel', return_value=False):
+            html = self._html()
+        self.assertIn('aria-label="Agendar pelo WhatsApp"', html)
+        self.assertIn('Agendar pelo WhatsApp</a>', html)  # menu mobile
+        self.assertIn('https://wa.me/5517991234567?text=Ol%C3%A1%21%20Gostaria%20de%20agendar', html)
+        self.assertIn('Reserve seu horário pelo WhatsApp.', html)
+
+    @patch.dict(os.environ, {'WHATSAPP_NUMERO': '5517991234567'})
+    def test_com_sms_cta_segue_para_o_wizard(self):
+        with patch('aranha_estetica.utils.sms.sms_disponivel', return_value=True):
+            html = self._html()
+        self.assertNotIn('Agendar pelo WhatsApp', html)
+        self.assertIn('href="%s"' % reverse('aranha:agendamento_publico'), html)
+
+    @patch.dict(os.environ, {'WHATSAPP_NUMERO': ''})
+    def test_sem_sms_e_sem_whatsapp_mantem_o_wizard(self):
+        with patch('aranha_estetica.utils.sms.sms_disponivel', return_value=False):
+            html = self._html()
+        self.assertNotIn('wa.me/', html)
+        self.assertIn('href="%s"' % reverse('aranha:agendamento_publico'), html)

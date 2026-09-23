@@ -5,11 +5,13 @@ from unittest.mock import patch
 from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from aranha_estetica.models import Cliente, ListaEspera
+from aranha_estetica.services import otp as otp_service
 from aranha_estetica.utils import datas
 
-from .factories import criar_procedimento, criar_profissional
+from .factories import criar_atendimento, criar_cliente, criar_procedimento, criar_profissional
 
 
 @override_settings(RATELIMIT_ENABLE=False)
@@ -41,12 +43,21 @@ class ListaEsperaPublicaTests(TestCase):
         self.assertContains(resp, 'name="email"')
         self.assertContains(resp, 'Manhã')
 
+    def _verificar_telefone_na_sessao(self, digitos='17988880000'):
+        """Simula o celular confirmado por SMS no wizard (otp.registrar_verificacao_agendamento)."""
+        session = self.client.session
+        session[otp_service.SESSAO_AGENDAMENTO] = digitos
+        session[otp_service.SESSAO_AGENDAMENTO_EXPIRA] = (timezone.now() + timedelta(minutes=30)).isoformat()
+        session.save()
+
     def test_post_valido_cria_cliente_e_inscricao(self):
         resp = self._post()
         self.assertRedirects(resp, reverse('aranha:lista_espera_sucesso'))
         cliente = Cliente.objects.get(telefone='17988880000')
-        self.assertEqual(cliente.email, 'ana@exemplo.com')  # aviso de vaga sai por e-mail
-        self.assertEqual(ListaEspera.objects.count(), 1)
+        # Form anonimo nao prova posse do e-mail: nao entra no cadastro (rev_security-01)
+        self.assertIn(cliente.email, (None, ''))
+        espera = ListaEspera.objects.get()
+        self.assertEqual(espera.email_contato, 'ana@exemplo.com')  # aviso desta vaga
 
     def test_reaproveita_cliente_existente(self):
         Cliente.objects.create(nome='Ana Cliente', telefone='17988880000')
@@ -70,13 +81,57 @@ class ListaEsperaPublicaTests(TestCase):
         novo = Cliente.objects.get(telefone='17988880000')
         self.assertIn(novo.email, (None, ''))
 
-    def test_email_digitado_fica_na_inscricao_de_cliente_existente(self):
-        """Regressao public_front-08: cliente antiga sem e-mail nunca recebia o aviso de vaga."""
+    def test_email_de_anonimo_nao_fica_na_inscricao_de_cliente_existente(self):
+        """Regressao rev_security-01: sem OTP, qualquer um prendia o proprio e-mail
+        ao telefone de terceiros e recebia o aviso de vaga com o nome da cliente."""
         Cliente.objects.create(nome='Ana Verdadeira', telefone='17988880000')
+        resp = self._post(email='atacante@evil.test')
+        self.assertRedirects(resp, reverse('aranha:lista_espera_sucesso'))  # nao revela cadastro
+        espera = ListaEspera.objects.get(cliente__telefone='17988880000')
+        self.assertIsNone(espera.email_contato)
+        self.assertIn(espera.cliente.email, (None, ''))  # cadastro continua intocado
+
+    def test_email_digitado_fica_na_inscricao_com_celular_verificado(self):
+        """Regressao public_front-08: cliente antiga sem e-mail recebe o aviso
+        quando provou a posse do celular (SMS do wizard nesta sessao)."""
+        Cliente.objects.create(nome='Ana Verdadeira', telefone='17988880000')
+        self._verificar_telefone_na_sessao('17988880000')
         self._post(email='ana.nova@exemplo.com')
         espera = ListaEspera.objects.get(cliente__telefone='17988880000')
         self.assertEqual(espera.email_contato, 'ana.nova@exemplo.com')
         self.assertIn(espera.cliente.email, (None, ''))  # cadastro continua intocado
+
+    def test_verificacao_de_outro_telefone_nao_libera_email(self):
+        Cliente.objects.create(nome='Ana Verdadeira', telefone='17988880000')
+        self._verificar_telefone_na_sessao('17911112222')
+        self._post(email='atacante@evil.test')
+        self.assertIsNone(ListaEspera.objects.get().email_contato)
+
+    @patch('aranha_estetica.utils.whatsapp.enviar_template_whatsapp', return_value=False)
+    @patch('aranha_estetica.utils.email.enviar_fila_espera_email', return_value=True)
+    def test_aviso_de_vaga_nao_vai_para_email_plantado(self, mock_email, _mock_wa):
+        """Regressao rev_security-01 (ponta a ponta): vaga cancelada nao manda
+        nome da cliente + horario p/ o e-mail digitado por terceiro."""
+        prof = criar_profissional(nome='Dra. Vaga')
+        dona = criar_cliente(nome='Beatriz Confidencial', telefone='17988880000')
+        quando = timezone.now() + timedelta(days=3)
+        outra = criar_cliente(nome='Outra Pessoa')
+        atend = criar_atendimento(outra, prof, self.proc, status='AGENDADO', data_hora=quando)
+        self._post(email='atacante@evil.test', data_desejada=datas.data_local(quando).isoformat())
+        self.assertTrue(ListaEspera.objects.filter(cliente=dona).exists())
+
+        with self.captureOnCommitCallbacks(execute=True):
+            atend.cancelar(motivo='teste')
+
+        destinos = [c.args[0] for c in mock_email.call_args_list]
+        self.assertNotIn('atacante@evil.test', destinos)
+
+    def test_cadastro_novo_nao_recebe_email_do_form_anonimo(self):
+        """Regressao rev_security-01 (b): e-mail plantado num telefone ainda sem
+        cadastro travava o e-mail do cadastro (a dona, com OTP, nao conseguia trocar)."""
+        self._post(email='atacante@evil.test')
+        cliente = Cliente.objects.get(telefone='17988880000')
+        self.assertIn(cliente.email, (None, ''))
 
     def test_telefone_com_ddi_55_e_normalizado(self):
         """Regressao (pgmig-08): '+55 ...' virava 13 digitos e estourava o CHECK do Postgres (500)."""

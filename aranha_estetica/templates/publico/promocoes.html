@@ -143,9 +143,9 @@
           {% if promo.preco_final is not None %}
           <div class="flex items-baseline gap-3">
             {% if promo.preco_original and promo.preco_final < promo.preco_original %}
-            <span class="text-texto-suave text-sm line-through">De R$ {{ promo.preco_original|floatformat:2 }}</span>
+            <span class="text-texto-suave text-sm line-through">De R$ {{ promo.preco_original|floatformat:"2g" }}</span>
             {% endif %}
-            <span class="text-marca font-bold text-2xl">R$ {{ promo.preco_final|floatformat:2 }}</span>
+            <span class="text-marca font-bold text-2xl">R$ {{ promo.preco_final|floatformat:"2g" }}</span>
           </div>
           {% endif %}
 

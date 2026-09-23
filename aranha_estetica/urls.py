@@ -64,6 +64,7 @@ urlpatterns = [
 
     # ─── Reagendamento Público (link via WhatsApp / meus-agendamentos) ───
     path('reagendar/<str:token>/', views.reagendar_agendamento, name='reagendar_agendamento'),
+    path('reagendar/<str:token>/horarios/', views.reagendar_horarios, name='reagendar_horarios'),
 
     # ─── Meus Agendamentos (login via OTP email) ───
     path('meus-agendamentos/', views.meus_agendamentos, name='meus_agendamentos'),
