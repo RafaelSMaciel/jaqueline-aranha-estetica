@@ -352,3 +352,185 @@ class WebPushPayloadTests(TestCase):
             reverse('aranha:webpush_subscribe'), data=corpo, content_type='application/json',
         )
         self.assertEqual(resp.status_code, 400)
+
+
+def _token_totp(device):
+    import time
+    from django_otp.oath import TOTP
+    totp = TOTP(device.bin_key, device.step, device.t0, device.digits, device.drift)
+    totp.time = time.time()
+    return f'{totp.token():0{device.digits}d}'
+
+
+@override_settings(ADMIN_2FA_OBRIGATORIO=False)
+class WebPush2FATests(TestCase):
+    """rev_security-08: sessao so com senha (TOTP pendente) nao assina push."""
+
+    CORPO = json.dumps({
+        'endpoint': 'https://push.example.com/atacante',
+        'keys': {'p256dh': 'chave', 'auth': 'segredo'},
+    })
+
+    def setUp(self):
+        from django_otp.plugins.otp_totp.models import TOTPDevice
+        prof = criar_profissional()
+        self.user = Usuario.objects.create_user(
+            email='prof2fa@test.com', password='x-senha-123', nome='Dra. 2FA',
+            papel=Usuario.PAPEL_PROFISSIONAL, profissional=prof,
+        )
+        self.device = TOTPDevice.objects.create(user=self.user, name='totp', confirmed=True)
+
+    def _subscribe(self):
+        return self.client.post(
+            reverse('aranha:webpush_subscribe'), data=self.CORPO, content_type='application/json',
+        )
+
+    def test_sessao_sem_desafio_recebe_403_e_nao_cria_assinatura(self):
+        from aranha_estetica.models import AssinaturaPush
+        self.client.force_login(self.user)
+        resp = self._subscribe()
+        self.assertEqual(resp.status_code, 403)
+        self.assertFalse(AssinaturaPush.objects.exists())
+
+    def test_sessao_verificada_assina(self):
+        from aranha_estetica.models import AssinaturaPush
+        self.client.force_login(self.user)
+        self.client.post(reverse('aranha:admin_2fa_verify'), {'token': _token_totp(self.device)})
+        resp = self._subscribe()
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(AssinaturaPush.objects.filter(user=self.user).exists())
+
+    def test_usuario_sem_totp_continua_assinando(self):
+        outro = Usuario.objects.create_user(email='semtotp@test.com', password='x-senha-123', nome='S')
+        self.client.force_login(outro)
+        self.assertEqual(self._subscribe().status_code, 200)
+
+
+# ─── Lista de espera: aviso de vaga sem vazar o nome ─────────────────
+@override_settings(EMAIL_BACKEND=LOCMEM, SITE_URL='https://clinica.example.com')
+class ListaEsperaAvisoPrivacidadeTests(TestCase):
+    """followups-lista-espera-vaza-nome / rev_security-01: e-mail digitado no
+    form anonimo nao recebe o nome cadastrado do dono do telefone."""
+
+    def setUp(self):
+        from aranha_estetica.utils.datas import data_local
+        self.prof = criar_profissional()
+        self.proc = criar_procedimento(profissional=self.prof)
+        self.vitima = criar_cliente(
+            nome='Valeria Vitima Sobrenome', telefone='17911112222', email='vitima@example.com',
+        )
+        self.slot = criar_atendimento(criar_cliente(nome='Outra Pessoa'), self.prof, self.proc)
+        self.dia = data_local(self.slot.data_hora_inicio)
+
+    def _inscrever(self, email_contato):
+        from aranha_estetica.models import ListaEspera
+        return ListaEspera.objects.create(
+            cliente=self.vitima, procedimento=self.proc, data_desejada=self.dia,
+            email_contato=email_contato,
+        )
+
+    def _cancelar_slot(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            self.slot.cancelar(motivo='teste')
+
+    @staticmethod
+    def _corpos(msg):
+        return [msg.body, *[conteudo for conteudo, _tipo in msg.alternatives]]
+
+    def test_email_digitado_por_terceiro_nao_recebe_nome_do_cadastro(self):
+        self._inscrever('atacante@example.com')
+        self._cancelar_slot()
+        self.assertEqual(len(mail.outbox), 1)
+        msg = mail.outbox[0]
+        self.assertEqual(msg.to, ['atacante@example.com'])
+        for corpo in self._corpos(msg):
+            self.assertNotIn('Valeria', corpo)
+        self.assertIn('Boa notícia!', msg.alternatives[0][0])
+
+    def test_email_do_proprio_cadastro_recebe_o_nome(self):
+        self._inscrever('VITIMA@example.com')
+        self._cancelar_slot()
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('Valeria Vitima Sobrenome', mail.outbox[0].alternatives[0][0])
+
+    def test_sem_email_de_contato_usa_o_do_cadastro_com_nome(self):
+        self._inscrever(None)
+        self._cancelar_slot()
+        self.assertEqual(mail.outbox[0].to, ['vitima@example.com'])
+        self.assertIn('Valeria Vitima Sobrenome', mail.outbox[0].alternatives[0][0])
+
+    def test_nome_para_helper(self):
+        from aranha_estetica.services.lista_espera_service import _nome_para
+        espera = self._inscrever('atacante@example.com')
+        self.assertEqual(_nome_para(espera, 'atacante@example.com'), '')
+        self.assertEqual(_nome_para(espera, ' Vitima@Example.com '), 'Valeria Vitima Sobrenome')
+        espera.cliente.email = None
+        self.assertEqual(_nome_para(espera, 'atacante@example.com'), '')
+
+
+class FilaEsperaTemplateTests(TestCase):
+    """crawl-6: template renderiza sem site_url/link no contexto (preview do painel)."""
+
+    def test_renderiza_so_com_dados(self):
+        from django.template.loader import render_to_string
+        html = render_to_string('email/fila_espera.html', {
+            'dados': {'procedimento': 'Limpeza de Pele', 'data': '10/10/2026'},
+        })
+        self.assertIn('Boa notícia!', html)
+        self.assertIn('/agendamento/', html)
+        self.assertNotIn('href=""', html)
+
+    def test_link_explicito_tem_prioridade(self):
+        from django.template.loader import render_to_string
+        link = 'https://clinica.example.com/agendamento/?procedimento=3'
+        html = render_to_string('email/fila_espera.html', {
+            'site_url': 'https://clinica.example.com',
+            'dados': {'nome': 'Ana', 'procedimento': 'X', 'link': link},
+        })
+        self.assertIn(f'href="{link}"', html)
+        self.assertIn('Boa notícia, Ana!', html)
+
+
+# ─── DSAR: cooldown e quota antes de gerar o codigo ──────────────────
+@override_settings(RATELIMIT_ENABLE=False)
+class DsarOtpQuotaTests(TestCase):
+    """rev_security-05 (parte DSAR): pedido sem SMS saindo nao invalida o codigo vigente."""
+
+    TEL = '17933335555'
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        criar_cliente(nome='Titular DSAR', telefone=self.TEL)
+        self.url = reverse('aranha:lgpd_meus_dados')
+
+    def _post(self):
+        with patch('aranha_estetica.views.lgpd.sms_disponivel', return_value=True):
+            return self.client.post(self.url, {'telefone': self.TEL})
+
+    def test_quota_do_telefone_esgotada_nao_invalida_codigo_vigente(self):
+        from django.core.cache import cache
+        from aranha_estetica.models import CodigoOtp
+        from aranha_estetica.utils import sms
+        codigo, obj = CodigoOtp.gerar_sms(self.TEL, proposito=CodigoOtp.PROPOSITO_DSAR)
+        # fora da janela de reenvio (60s): so a quota decide
+        CodigoOtp.objects.filter(pk=obj.pk).update(criado_em=timezone.now() - timedelta(minutes=5))
+        cache.set(f'sms_rl:tel:{sms.formatar_telefone(self.TEL)}', sms.SMS_MAX_POR_HORA, 3600)
+        self.assertEqual(self._post().status_code, 200)
+        self.assertEqual(CodigoOtp.objects.filter(proposito=CodigoOtp.PROPOSITO_DSAR).count(), 1)
+        ok, _motivo = CodigoOtp.verificar_sms(self.TEL, codigo, proposito=CodigoOtp.PROPOSITO_DSAR)
+        self.assertTrue(ok)
+
+    def test_pedido_repetido_dentro_do_cooldown_nao_gera_outro_codigo(self):
+        from aranha_estetica.models import CodigoOtp
+        codigo, _obj = CodigoOtp.gerar_sms(self.TEL, proposito=CodigoOtp.PROPOSITO_DSAR)
+        self._post()
+        self.assertEqual(CodigoOtp.objects.filter(proposito=CodigoOtp.PROPOSITO_DSAR).count(), 1)
+        ok, _motivo = CodigoOtp.verificar_sms(self.TEL, codigo, proposito=CodigoOtp.PROPOSITO_DSAR)
+        self.assertTrue(ok)
+
+    def test_fora_do_cooldown_e_com_quota_gera_codigo(self):
+        from aranha_estetica.models import CodigoOtp
+        self._post()
+        self.assertEqual(CodigoOtp.objects.filter(proposito=CodigoOtp.PROPOSITO_DSAR).count(), 1)

@@ -6,7 +6,7 @@ from datetime import timedelta
 from typing import Any
 
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Exists, OuterRef, Q
 from django.utils import timezone
 
 from aranha_estetica.models import Cliente, Atendimento, AvaliacaoNPS
@@ -57,7 +57,7 @@ class LgpdService:
         """DSAR (art. 18 II/V) — exporta todos os dados do titular em dict JSON-friendly."""
         from aranha_estetica.models import (
             AceiteTermo, AnotacaoSessao, Carteira, ListaEspera, Notificacao,
-            Prontuario, RespostaAnamnese,
+            Prontuario, ProntuarioVersao, RespostaAnamnese,
         )
 
         atendimentos = (
@@ -80,6 +80,11 @@ class LgpdService:
                 'respostas_extras': prontuario.respostas_extras,
                 'atualizado_em': _iso(prontuario.atualizado_em),
             }
+        # Historico do prontuario: estado ANTERIOR a cada edicao da equipe.
+        prontuario_versoes = [
+            {'registrado_em': _iso(v.criado_em), 'dados': v.dados}
+            for v in ProntuarioVersao.objects.filter(prontuario__cliente=cliente).order_by('-criado_em', '-pk')
+        ]
 
         pacotes = []
         for compra in (cliente.pacotes_comprados.select_related('pacote')
@@ -154,6 +159,7 @@ class LgpdService:
                 for a in avaliacoes
             ],
             'prontuario': prontuario_dict,
+            'prontuario_versoes': prontuario_versoes,
             'anotacoes_sessao': [
                 {'atendimento_data': _iso(n.atendimento.data_hora_inicio), 'texto': n.texto,
                  'criado_em': _iso(n.criado_em)}
@@ -178,9 +184,13 @@ class LgpdService:
             'lista_espera': [
                 {'procedimento': e.procedimento.nome, 'data_desejada': _iso(e.data_desejada),
                  'turno': e.turno_desejado, 'notificado': e.notificado,
+                 'profissional_desejado': (
+                     e.profissional_desejado.nome if e.profissional_desejado_id else None
+                 ),
+                 'email_contato': e.email_contato,
                  'criado_em': _iso(e.criado_em)}
                 for e in (ListaEspera.objects.filter(cliente=cliente)
-                          .select_related('procedimento').order_by('-criado_em'))
+                          .select_related('procedimento', 'profissional_desejado').order_by('-criado_em'))
             ],
             'notificacoes': [
                 {'tipo': n.tipo, 'canal': n.canal, 'status': n.status,
@@ -226,11 +236,14 @@ class LgpdService:
         Mantem atendimentos/aceites/prontuario e as fichas de anamnese de
         atendimentos REALIZADOS (retencao clinica) ligados a um titular nao
         identificavel. Fichas de pedidos nao realizados sao apagadas.
-        LogAuditoria continua (trilha legal — autor, tabela, registro, IP),
-        mas o nome do titular no texto da acao vira o pseudonimo.
+        Depoimento (NPS) sai do site e perde o texto livre (a nota fica p/
+        estatistica). LogAuditoria continua (trilha legal — autor, tabela,
+        registro, IP), mas o nome do titular no texto da acao vira o
+        pseudonimo; o mesmo no historico do Django admin (django_admin_log).
         """
         from aranha_estetica.models import (
-            CodigoOtp, ListaEspera, LogAuditoria, Notificacao, Prontuario, RespostaAnamnese,
+            Carteira, CodigoOtp, CompraPacote, ListaEspera, LogAuditoria, Notificacao,
+            Prontuario, RespostaAnamnese,
         )
 
         cliente_pk = cliente.pk
@@ -271,33 +284,65 @@ class LgpdService:
             otp_q |= Q(email__iexact=email_original)
         if otp_q:
             CodigoOtp.objects.filter(otp_q).delete()
-        ListaEspera.objects.filter(cliente_id=cliente_pk).delete()
+        espera_ids = list(
+            ListaEspera.objects.filter(cliente_id=cliente_pk).values_list('pk', flat=True)
+        )
+        ListaEspera.objects.filter(pk__in=espera_ids).delete()
         Notificacao.objects.filter(atendimento__cliente_id=cliente_pk).update(mensagem='')
         # Dado de saude sem atendimento realizado: fim da finalidade -> apaga.
         RespostaAnamnese.objects.filter(cliente_id=cliente_pk).exclude(
             atendimento__status=Atendimento.STATUS_REALIZADO,
         ).delete()
+        # Depoimento: sai do site (autorizacao revogada) e o texto livre some;
+        # a nota fica (estatistica de NPS sem titular identificavel).
+        AvaliacaoNPS.objects.filter(atendimento__cliente_id=cliente_pk).update(
+            autoriza_publicacao=False, aprovado_publicacao=False, comentario='',
+        )
 
         # Trilha de auditoria: registros do titular (cliente/prontuario/
-        # atendimento) guardam autor, data, tabela e id; so o nome sai do texto.
+        # atendimento/pacote) guardam autor, data, tabela e id; so o nome sai do texto.
+        prontuario_ids = list(
+            Prontuario.objects.filter(cliente_id=cliente_pk).values_list('pk', flat=True)
+        )
+        atendimento_ids = list(
+            Atendimento.objects.filter(cliente_id=cliente_pk).values_list('pk', flat=True)
+        )
+        compra_ids = list(
+            CompraPacote.objects.filter(cliente_id=cliente_pk).values_list('pk', flat=True)
+        )
         if len(nome_original.strip()) >= 3 and not nome_original.startswith('[ANONIMIZADO-'):
             from django.db.models import Value
             from django.db.models.functions import Replace
 
-            prontuario_ids = list(
-                Prontuario.objects.filter(cliente_id=cliente_pk).values_list('pk', flat=True)
-            )
-            atendimento_ids = list(
-                Atendimento.objects.filter(cliente_id=cliente_pk).values_list('pk', flat=True)
-            )
             do_titular = (
                 Q(tabela='cliente', registro_id=cliente_pk)
                 | Q(tabela='prontuario', registro_id__in=[cliente_pk, *prontuario_ids])
                 | Q(tabela='atendimento', registro_id__in=atendimento_ids)
+                | Q(tabela='compra_pacote', registro_id__in=compra_ids)
             )
             LogAuditoria.objects.filter(do_titular, acao__contains=nome_original).update(
                 acao=Replace('acao', Value(nome_original), Value(pseudonimo)),
             )
+        # Nome ANTERIOR a uma edicao do cadastro ('Editou cliente: <nome antigo>').
+        LogAuditoria.objects.filter(
+            tabela='cliente', registro_id=cliente_pk, acao__startswith='Editou cliente:',
+        ).update(acao=f'Editou cliente: {pseudonimo}')
+        # Telefone/CPF/e-mail (mascarados) que a migration 0034 guardou em detalhes.
+        LogAuditoria.objects.filter(
+            tabela='cliente', registro_id=cliente_pk, acao__startswith='migration 0034',
+        ).update(detalhes=None)
+        # Django admin: object_repr = str(obj), que traz o nome do cliente.
+        cls._pseudonimizar_admin_log(pseudonimo, [
+            (Cliente, [cliente_pk]),
+            (Atendimento, atendimento_ids),
+            (CompraPacote, compra_ids),
+            (ListaEspera, espera_ids),
+            (AvaliacaoNPS, AvaliacaoNPS.objects.filter(
+                atendimento__cliente_id=cliente_pk).values_list('pk', flat=True)),
+            (Notificacao, Notificacao.objects.filter(
+                atendimento__cliente_id=cliente_pk).values_list('pk', flat=True)),
+            (Carteira, Carteira.objects.filter(cliente_id=cliente_pk).values_list('pk', flat=True)),
+        ])
 
         # Trilha de auditoria LGPD (sem PII no registro).
         registrar_log(
@@ -309,6 +354,27 @@ class LgpdService:
         )
         logger.info('Cliente %s anonimizado (direito ao esquecimento).', cliente_pk)
 
+    @staticmethod
+    def _pseudonimizar_admin_log(pseudonimo: str, objetos) -> int:
+        """django_admin_log: object_repr (str(obj) = nome do cliente) vira o pseudonimo.
+
+        objetos: [(Model, ids)]. change_message guarda so nomes de campos
+        (sem valores) e fica. Retorna quantas entradas foram reescritas.
+        """
+        from django.contrib.admin.models import LogEntry
+        from django.contrib.contenttypes.models import ContentType
+
+        total = 0
+        for model, ids in objetos:
+            ids = [str(pk) for pk in ids]
+            if not ids:
+                continue
+            total += LogEntry.objects.filter(
+                content_type=ContentType.objects.get_for_model(model, for_concrete_model=False),
+                object_id__in=ids,
+            ).update(object_repr=pseudonimo)
+        return total
+
     @classmethod
     def candidatos_purga(cls):
         """Clientes elegiveis a anonimizacao automatica.
@@ -316,10 +382,15 @@ class LgpdService:
         - ativo criado ha mais de N anos sem atendimento nesse periodo, OU
           soft-deletado ha mais de 30 dias;
         - nunca quem ja foi anonimizado;
-        - nunca quem tem registro com retencao legal: prontuario, aceite de
-          termo (evidencia LGPD), pacote comprado (fiscal) ou atendimento
-          REALIZADO nos ultimos 20 anos (registro de saude).
+        - nunca quem tem registro com retencao legal: prontuario com conteudo
+          clinico, pacote comprado (fiscal) ou atendimento REALIZADO nos
+          ultimos 20 anos (registro de saude).
+        Aceite de termo NAO retem a identidade: anonimizar e UPDATE, a linha de
+        AceiteTermo (prova do consentimento) continua ligada ao mesmo id. Todo
+        booking online grava o aceite LGPD — reter por ele desligaria a purga.
         """
+        from aranha_estetica.models import Prontuario
+
         agora = timezone.now()
         limite = agora - timedelta(days=cls.RETENCAO_CLIENTE_INATIVO_DIAS)
         limite_soft = agora - timedelta(days=cls.CARENCIA_SOFT_DELETE_DIAS)
@@ -337,13 +408,16 @@ class LgpdService:
             status=Atendimento.STATUS_REALIZADO,
             data_hora_inicio__gte=limite_saude,
         ).values('cliente_id')
+        # Prontuario vazio (GET antigo do painel fazia get_or_create) nao retem.
+        com_prontuario = Prontuario.objects.filter(
+            Prontuario.Q_COM_CONTEUDO, cliente_id=OuterRef('pk'),
+        )
 
         return (
             base
             .exclude(pk__in=com_atendimento_recente)
             .exclude(pk__in=com_saude_retida)
-            .exclude(prontuario__isnull=False)
-            .exclude(aceites__isnull=False)
+            .exclude(Exists(com_prontuario))
             .exclude(pacotes_comprados__isnull=False)
             .distinct()
         )
@@ -354,8 +428,10 @@ class LgpdService:
 
         Criterio e o status do atendimento DA PROPRIA ficha (nunca "cliente
         tem algum REALIZADO", que protegeria para sempre as fichas de quem e
-        recorrente): CANCELADO; PENDENTE com horario ja passado; ou ficha sem
-        atendimento nunca respondida. FALTOU/REAGENDADO ficam (decisao da clinica).
+        recorrente): CANCELADO; PENDENTE com horario ja passado; ficha sem
+        atendimento nunca respondida; ou convite vazio (sem respostas) cujo
+        horario ja passou (link enviado pela recepcao e ignorado).
+        Ficha RESPONDIDA de FALTOU/REAGENDADO fica (decisao da clinica).
         """
         from aranha_estetica.models import RespostaAnamnese
 
@@ -367,6 +443,9 @@ class LgpdService:
             Q(atendimento__status=Atendimento.STATUS_CANCELADO)
             | Q(atendimento__status=Atendimento.STATUS_PENDENTE, atendimento__data_hora_inicio__lt=agora)
             | Q(atendimento__isnull=True, respondida_em__isnull=True)
+            # convite vazio: ficha legada (booking antigo) tem respostas e
+            # respondida_em nulo — essa NUNCA entra aqui
+            | Q(respondida_em__isnull=True, respostas_json={}, atendimento__data_hora_inicio__lt=agora)
         )
 
     @classmethod
@@ -380,6 +459,26 @@ class LgpdService:
                     detalhes={'qtd': qtd},
                 )
         logger.info('purgar_fichas_sem_atendimento: %s ficha(s) apagada(s).', qtd)
+        return qtd
+
+    @staticmethod
+    def purgar_lista_espera_vencida() -> int:
+        """Apaga inscricoes da lista de espera cuja data desejada ja passou.
+
+        Fim da finalidade (LGPD art. 15/16): o aviso de vaga nao pode mais
+        acontecer e a inscricao guarda contato (email_contato) de quem pediu.
+        """
+        from aranha_estetica.models import ListaEspera
+        from aranha_estetica.utils.datas import hoje
+
+        with transaction.atomic():
+            qtd, _por_modelo = ListaEspera.objects.filter(data_desejada__lt=hoje()).delete()
+            if qtd:
+                registrar_log(
+                    None, 'Purga da lista de espera vencida', 'lista_espera', None,
+                    detalhes={'qtd': qtd},
+                )
+        logger.info('purgar_lista_espera_vencida: %s inscricao(oes) apagada(s).', qtd)
         return qtd
 
     @classmethod

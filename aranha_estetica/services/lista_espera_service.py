@@ -96,6 +96,19 @@ def _disparar_avisos(espera_ids, atendimento_id) -> int:
     return entregues
 
 
+def _nome_para(espera: ListaEspera, destino: str) -> str:
+    """Nome do cadastro so quando o aviso vai p/ o e-mail DO cadastro.
+
+    email_contato vem do formulario publico anonimo (sem OTP): quem digitou o
+    telefone de outra pessoa nao pode receber o nome cadastrado do titular.
+    (O aviso manual do painel, admin_notificar_espera, segue a mesma regra.)
+    """
+    cadastrado = (espera.cliente.email or '').strip().lower()
+    if cadastrado and (destino or '').strip().lower() == cadastrado:
+        return espera.cliente.nome or ''
+    return ''
+
+
 def _enviar_email_lista_espera(espera: ListaEspera, slot: Atendimento, link: str) -> bool:
     """E-mail de vaga (o cliente pediu o aviso ao entrar na lista)."""
     destino = espera.email_contato or espera.cliente.email
@@ -104,7 +117,7 @@ def _enviar_email_lista_espera(espera: ListaEspera, slot: Atendimento, link: str
     try:
         from ..utils.email import enviar_fila_espera_email
         return bool(enviar_fila_espera_email(destino, {
-            'nome': espera.cliente.nome,
+            'nome': _nome_para(espera, destino),
             'procedimento': slot.procedimento.nome,
             'data': fmt_local(slot.data_hora_inicio, '%d/%m/%Y'),
             'hora': fmt_local(slot.data_hora_inicio, '%H:%M'),

@@ -32,10 +32,32 @@ def _texto(valor) -> str:
     return valor.strip() if isinstance(valor, str) else ''
 
 
+def _falta_2fa(request) -> bool:
+    """Sessao que ainda deve o desafio 2FA (mesma regra do Enforce2FAMiddleware).
+
+    O push leva nome de cliente/procedimento/horario: sessao so com senha de
+    quem tem TOTP (ou ADMIN com cadastro de 2FA pendente) nao assina.
+    """
+    from django.db import OperationalError, ProgrammingError
+
+    from ..utils import dois_fatores
+
+    if request.session.get(dois_fatores.SESSION_CADASTRO_PENDENTE):
+        return True
+    if dois_fatores.sessao_verificada(request):
+        return False
+    try:
+        return dois_fatores.tem_2fa(request.user)
+    except (ImportError, OperationalError, ProgrammingError):
+        return False
+
+
 @require_POST
 @csrf_protect
 @login_required
 def webpush_subscribe(request):
+    if _falta_2fa(request):
+        return JsonResponse({'ok': False, 'detail': '2fa_required'}, status=403)
     payload = _payload_json(request)
     if payload is None:
         return JsonResponse({'ok': False, 'erro': 'payload invalido'}, status=400)

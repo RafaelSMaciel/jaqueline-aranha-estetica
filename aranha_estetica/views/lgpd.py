@@ -13,6 +13,7 @@ from ..models import Cliente, CodigoOtp
 from ..services import LgpdService
 from ..services.auditoria import AuditoriaService
 from ..utils.sms import enviar_otp_sms, sms_disponivel
+from ..utils.sms import pode_enviar as sms_pode_enviar
 
 logger = logging.getLogger(__name__)
 
@@ -47,12 +48,22 @@ def meus_dados(request):
         # OTP hashed + envio SMS real. Anti-enumeracao: mensagem identica
         # exista o cliente ou nao; codigo NUNCA vai para log.
         from ..utils.security import client_ip
+        ip = client_ip(request)
         if Cliente.objects.filter(telefone=telefone).exists():
-            codigo_plano, _obj = CodigoOtp.gerar_sms(
-                telefone, ip=client_ip(request), proposito=CodigoOtp.PROPOSITO_DSAR,
-            )
-            if not enviar_otp_sms(telefone, codigo_plano, ip=client_ip(request)):
-                logger.warning('lgpd_dsar_sms_falha', extra={'tel_suffix': telefone[-4:]})
+            # Cooldown e quota ANTES de gerar: gerar() invalida o codigo
+            # anterior — sem SMS saindo, o titular ficaria sem codigo valido.
+            if not CodigoOtp.pode_reenviar(
+                CodigoOtp.email_para_telefone(telefone), proposito=CodigoOtp.PROPOSITO_DSAR,
+            ):
+                logger.info('lgpd_dsar_otp_cooldown', extra={'tel_suffix': telefone[-4:]})
+            elif not sms_pode_enviar(telefone, ip=ip):
+                logger.warning('lgpd_dsar_sms_quota', extra={'tel_suffix': telefone[-4:]})
+            else:
+                codigo_plano, _obj = CodigoOtp.gerar_sms(
+                    telefone, ip=ip, proposito=CodigoOtp.PROPOSITO_DSAR,
+                )
+                if not enviar_otp_sms(telefone, codigo_plano, ip=ip):
+                    logger.warning('lgpd_dsar_sms_falha', extra={'tel_suffix': telefone[-4:]})
         logger.info('lgpd_dsar_otp_solicitado', extra={'tel_suffix': telefone[-4:]})
         messages.info(
             request,
