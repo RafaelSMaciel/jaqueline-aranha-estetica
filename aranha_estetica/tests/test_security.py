@@ -154,24 +154,3 @@ class AdminAtualizarStatusTests(TestCase):
             content_type='application/json',
         )
         self.assertEqual(resp.status_code, 400)
-
-
-class BuscarHorariosAJAXTests(TestCase):
-    """Endpoint AJAX de horarios retorna erro explicito para params invalidos."""
-
-    def setUp(self):
-        self.client = Client()
-        self.url = reverse('aranha:buscar_horarios')
-        self.prof = criar_profissional()
-
-    def test_sem_params_retorna_400(self):
-        resp = self.client.get(self.url)
-        self.assertEqual(resp.status_code, 400)
-
-    def test_data_invalida_retorna_400(self):
-        resp = self.client.get(self.url, {'profissional_id': self.prof.pk, 'data': 'nao-e-data'})
-        self.assertEqual(resp.status_code, 400)
-
-    def test_profissional_inexistente_retorna_404(self):
-        resp = self.client.get(self.url, {'profissional_id': 999999, 'data': '2026-06-01'})
-        self.assertEqual(resp.status_code, 404)

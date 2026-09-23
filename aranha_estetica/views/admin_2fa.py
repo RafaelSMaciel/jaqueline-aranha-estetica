@@ -4,6 +4,7 @@ import io
 from urllib.parse import urlencode
 
 import qrcode
+from qrcode.image.svg import SvgPathFillImage
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
@@ -15,15 +16,11 @@ from django_ratelimit.decorators import ratelimit
 
 from ..utils import dois_fatores
 from ..utils.audit import registrar_log
+from ..utils.security import safe_next
 
 
 def _destino_padrao(user):
     return 'aranha:painel_overview' if user.is_staff else 'aranha:profissional_agenda'
-
-
-def _safe_next(request, raw, fallback='aranha:painel_overview'):
-    """Valida ?next= contra open redirect; cai no fallback se externo/invalido."""
-    return dois_fatores.safe_next(request, raw, fallback)
 
 
 def _url_setup(next_url):
@@ -37,7 +34,7 @@ def admin_2fa_setup(request):
     """Tela de configuracao de 2FA TOTP — gera QR code e valida primeiro token."""
     device_confirmado = TOTPDevice.objects.filter(user=request.user, confirmed=True).first()
     device_pendente = TOTPDevice.objects.filter(user=request.user, confirmed=False).first()
-    next_url = _safe_next(request, request.POST.get('next') or request.GET.get('next'), '')
+    next_url = safe_next(request, request.POST.get('next') or request.GET.get('next'), '')
 
     # SEGURANCA: com 2FA ativo, gerenciar (trocar/desativar) exige a sessao ja
     # verificada — senao so a senha bastaria para remover o segundo fator.
@@ -68,7 +65,9 @@ def admin_2fa_setup(request):
                 TOTPDevice.objects.filter(
                     user=request.user, confirmed=True
                 ).exclude(pk=device_pendente.pk).delete()
-                registrar_log(request.user, 'Ativou 2FA TOTP', 'totpdevice', device_pendente.pk)
+                registrar_log(
+                    request.user, 'Ativou 2FA TOTP', 'totpdevice', device_pendente.pk, request=request,
+                )
                 # Acabou de provar a posse do novo dispositivo: sessao verificada
                 dois_fatores.marcar_verificado(request, device_pendente)
                 messages.success(request, '2FA ativado com sucesso!')
@@ -87,7 +86,7 @@ def admin_2fa_setup(request):
                     return redirect('aranha:admin_2fa_setup')
                 TOTPDevice.objects.filter(user=request.user).delete()
                 StaticDevice.objects.filter(user=request.user).delete()
-                registrar_log(request.user, 'Desativou 2FA TOTP', 'totpdevice', None)
+                registrar_log(request.user, 'Desativou 2FA TOTP', 'totpdevice', None, request=request)
                 if dois_fatores.obrigatorio_para(request.user):
                     # ADMIN nao fica sem 2FA: cadastra o novo aparelho em seguida
                     request.session.pop(dois_fatores.SESSION_VERIFICADO, None)
@@ -100,10 +99,11 @@ def admin_2fa_setup(request):
     qr_b64 = None
     secret_b32 = None
     if device_pendente and not device_confirmado:
-        uri = device_pendente.config_url
-        img = qrcode.make(uri)
+        # SVG puro (xml.etree): a imagem de producao NAO tem Pillow — o PNG
+        # padrao do qrcode dependia dele (ou quebrava no PyPNGImage) e dava 500.
+        img = qrcode.make(device_pendente.config_url, image_factory=SvgPathFillImage)
         buf = io.BytesIO()
-        img.save(buf, format='PNG')
+        img.save(buf)
         qr_b64 = base64.b64encode(buf.getvalue()).decode()
         secret_b32 = base64.b32encode(bytes.fromhex(device_pendente.key)).decode()
 
@@ -124,7 +124,7 @@ def admin_2fa_setup(request):
 @ratelimit(key='user', rate='5/m', method='POST', block=True)
 def admin_2fa_verify(request):
     """Verifica token 2FA pos-login (se usuario tiver 2FA ativo)."""
-    next_url = _safe_next(request, request.POST.get('next'), _destino_padrao(request.user))
+    next_url = safe_next(request, request.POST.get('next'), _destino_padrao(request.user))
 
     if not dois_fatores.tem_2fa(request.user):
         return redirect(next_url)
@@ -134,7 +134,7 @@ def admin_2fa_verify(request):
     if device is not None:
         # Flag propria + django_otp.login (libera o /django-admin-sv/) + nova chave
         dois_fatores.marcar_verificado(request, device)
-        registrar_log(request.user, 'Validou 2FA', 'totpdevice', device.pk)
+        registrar_log(request.user, 'Validou 2FA', 'totpdevice', device.pk, request=request)
         return redirect(next_url)
 
     messages.error(request, 'Código 2FA inválido.')
@@ -146,7 +146,7 @@ def admin_2fa_verify(request):
 @login_required
 def admin_2fa_challenge(request):
     """Formulario de input do codigo 2FA pos-login."""
-    next_url = _safe_next(request, request.GET.get('next'), fallback='')
+    next_url = safe_next(request, request.GET.get('next'), fallback='')
     if not dois_fatores.tem_2fa(request.user):
         return redirect(next_url or _destino_padrao(request.user))
     if dois_fatores.sessao_verificada(request):

@@ -22,6 +22,16 @@ def _diretiva(csp, nome):
     )
 
 
+def permitido_pela_csp(url, diretiva):
+    """URL casa com alguma fonte da diretiva (fonte com '/' final = prefixo)."""
+    for fonte in diretiva.split()[1:]:
+        if fonte.count('/') == 2:  # so o host ('https://x.com'): qualquer caminho
+            fonte += '/'
+        if url == fonte or (fonte.endswith('/') and url.startswith(fonte)):
+            return True
+    return False
+
+
 class CspHeaderTests(TestCase):
     def setUp(self):
         self.client = Client()
@@ -55,9 +65,33 @@ class CspHeaderTests(TestCase):
 
     def test_sem_hosts_externos_sem_uso(self):
         csp = self._get_csp()
-        for host in ('unpkg.com', 'code.jquery.com', 'google-analytics.com'):
+        for host in ('unpkg.com', 'code.jquery.com', 'google-analytics.com', 'cdnjs.cloudflare.com'):
             with self.subTest(host=host):
                 self.assertNotIn(host, csp)
+
+    def test_jsdelivr_so_por_caminho_da_lib(self):
+        # Host inteiro liberado = qualquer pacote npm/GitHub roda apesar do nonce
+        csp = self._get_csp()
+        for nome in ('script-src', 'style-src', 'font-src'):
+            with self.subTest(diretiva=nome):
+                self.assertNotIn('https://cdn.jsdelivr.net ', _diretiva(csp, nome) + ' ')
+        script_src = _diretiva(csp, 'script-src')
+        self.assertFalse(permitido_pela_csp('https://cdn.jsdelivr.net/gh/evil/x.js', script_src))
+        self.assertFalse(permitido_pela_csp('https://cdn.jsdelivr.net/npm/angular@1.8.3/angular.js', script_src))
+
+    def test_libs_de_cdn_dos_templates_liberadas_na_csp(self):
+        # Trocou a versao no template sem atualizar JSDELIVR_PATHS -> quebra em prod
+        csp = self._get_csp()
+        script_src, style_src = _diretiva(csp, 'script-src'), _diretiva(csp, 'style-src')
+        padrao = re.compile(r'<(script|link)\b[^>]*?(?:src|href)="(https://cdn\.jsdelivr\.net/[^"]+)"')
+        urls = []
+        for arq in TEMPLATES_DIR.rglob('*.html'):
+            for tag, url in padrao.findall(arq.read_text(encoding='utf-8')):
+                urls.append(url)
+                diretiva = script_src if tag == 'script' else style_src
+                with self.subTest(template=str(arq.relative_to(TEMPLATES_DIR)), url=url):
+                    self.assertTrue(permitido_pela_csp(url, diretiva), f'{url} bloqueada pela CSP')
+        self.assertTrue(urls, 'nenhuma lib de CDN encontrada: revise o teste')
 
     def test_embed_pode_ser_embutido(self):
         try:
