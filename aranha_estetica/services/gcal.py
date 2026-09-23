@@ -1,6 +1,8 @@
-"""Google Calendar sync (scaffolding).
+"""Google Calendar sync (scaffolding, OPCIONAL).
 
 Bidirectional sync entre Atendimento e Google Calendar do profissional.
+As libs google NAO estao em requirements.txt: sem elas (ou sem as env vars)
+gcal_disponivel() e False, as rotas respondem 404 e o painel esconde a UI.
 
 ENV vars necessarias:
   GOOGLE_OAUTH_CLIENT_ID
@@ -70,10 +72,15 @@ def gcal_disponivel() -> bool:
         return False
 
 
-def build_authorization_url(state: str) -> Optional[str]:
-    """Gera URL de consentimento OAuth para o profissional autorizar GCal."""
+def build_authorization_url(state: str) -> Tuple[Optional[str], Optional[str]]:
+    """Gera URL de consentimento OAuth para o profissional autorizar GCal.
+
+    Returns:
+        (url, code_verifier). O code_verifier (PKCE) deve ser guardado na
+        sessao e reaplicado no callback, que cria um Flow novo.
+    """
     if not gcal_disponivel():
-        return None
+        return None, None
     flow = _flow()
     auth_url, _ = flow.authorization_url(
         access_type='offline',
@@ -81,10 +88,12 @@ def build_authorization_url(state: str) -> Optional[str]:
         prompt='consent',
         state=state,
     )
-    return auth_url
+    return auth_url, getattr(flow, 'code_verifier', None)
 
 
-def handle_oauth_callback(profissional: 'Profissional', code: str) -> Tuple[bool, str]:
+def handle_oauth_callback(
+    profissional: 'Profissional', code: str, code_verifier: Optional[str] = None,
+) -> Tuple[bool, str]:
     """Troca code por tokens, persiste refresh_token no profissional.
 
     Returns:
@@ -93,6 +102,8 @@ def handle_oauth_callback(profissional: 'Profissional', code: str) -> Tuple[bool
     if not gcal_disponivel():
         return False, 'libs nao disponiveis'
     flow = _flow()
+    if code_verifier:
+        flow.code_verifier = code_verifier
     try:
         flow.fetch_token(code=code)
     except (ConnectionError, TimeoutError) as exc:
@@ -212,8 +223,8 @@ def pull_eventos_externos(profissional: 'Profissional') -> int:
             continue
         from django.utils.dateparse import parse_datetime
         s, e = parse_datetime(start), parse_datetime(end)
-        if not s or not e:
-            continue
+        if not s or not e or e <= s:
+            continue  # CHECK chk_bloqueio_fim_maior_inicio
         BloqueioAgenda.objects.get_or_create(
             profissional=profissional,
             data_hora_inicio=s,

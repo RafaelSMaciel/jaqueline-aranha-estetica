@@ -26,20 +26,23 @@
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
         <div>
-          <c-campo nome="nome" label="Nome Completo *" tipo="text" required></c-campo>
+          <c-campo nome="nome" label="Nome Completo *" tipo="text"
+                   value="{{ form_nome|default:'' }}" required></c-campo>
         </div>
         <div>
           <c-campo nome="especialidade" label="Especialidade" tipo="text"
+                   value="{{ form_especialidade|default:'' }}"
                    placeholder="Ex: Estética Avançada"></c-campo>
         </div>
       </div>
 
       <div>
         <label class="inline-flex items-center gap-2 text-sm text-texto cursor-pointer">
-          <input type="checkbox" name="ativo" value="1" checked
+          <input type="checkbox" name="ativo" value="1" {% if form_ativo %}checked{% endif %}
                  class="rounded border-borda">
           Ativo
         </label>
+        <p class="text-xs text-texto-suave mt-1">Profissional inativo não aparece no agendamento online.</p>
       </div>
     </div>
 
@@ -47,19 +50,19 @@
     <div class="bg-superficie rounded-lg border border-borda p-6 mb-4">
       <p class="text-[0.7rem] font-bold uppercase tracking-widest text-marca mb-4">Disponibilidade Semanal</p>
 
-      {% for dia_key, dia_nome in dias_semana.items %}
+      {% for d in dias %}
       <div class="flex items-center gap-3 mb-3">
-        <input type="checkbox" name="trabalha_{{ dia_key }}" id="dia_{{ dia_key }}"
-               class="peer rounded border-borda">
-        <label for="dia_{{ dia_key }}" class="font-bold text-sm text-texto min-w-[110px] cursor-pointer">{{ dia_nome }}</label>
+        <input type="checkbox" name="trabalha_{{ d.key }}" id="dia_{{ d.key }}"
+               class="peer rounded border-borda" {% if d.marcado %}checked{% endif %}>
+        <label for="dia_{{ d.key }}" class="font-bold text-sm text-texto min-w-[110px] cursor-pointer">{{ d.nome }}</label>
         <div class="hidden peer-checked:flex items-center gap-2">
-          <input type="time" name="hora_inicio_{{ dia_key }}"
+          <input type="time" name="hora_inicio_{{ d.key }}" aria-label="{{ d.nome }}: início"
                  class="rounded-md border border-borda bg-superficie px-2 py-1 text-sm text-texto"
-                 value="09:00">
+                 value="{{ d.hora_inicio }}">
           <span class="text-xs text-texto-suave">até</span>
-          <input type="time" name="hora_fim_{{ dia_key }}"
+          <input type="time" name="hora_fim_{{ d.key }}" aria-label="{{ d.nome }}: fim"
                  class="rounded-md border border-borda bg-superficie px-2 py-1 text-sm text-texto"
-                 value="18:00">
+                 value="{{ d.hora_fim }}">
         </div>
       </div>
       {% endfor %}
@@ -73,7 +76,8 @@
         {% for proc in procedimentos %}
         <label class="inline-flex items-center gap-2 text-sm text-texto cursor-pointer">
           <input type="checkbox" name="procedimentos" value="{{ proc.pk }}"
-                 id="proc_{{ proc.pk }}" class="rounded border-borda">
+                 id="proc_{{ proc.pk }}" class="rounded border-borda"
+                 {% if proc.pk in procedimentos_marcados %}checked{% endif %}>
           {{ proc.nome }}
         </label>
         {% endfor %}

@@ -60,7 +60,7 @@
 
     {# Detalhes do bloqueio #}
     <div class="flex-1 min-w-0">
-      <div class="font-bold text-[1rem] text-texto">{{ b.profissional.nome }}</div>
+      <div class="font-bold text-[1rem] text-texto">{{ b.profissional.nome|default:'Todos os profissionais' }}</div>
       <div class="text-[0.8rem] text-texto-suave mt-1 flex items-center gap-1">
         <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
           <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
@@ -99,32 +99,8 @@
 {% endfor %}
 
 {# ── Paginação ── #}
-{% if bloqueios.has_other_pages %}
-<div class="flex justify-center gap-2 mt-4">
-  {% if bloqueios.has_previous %}
-  <a href="?page={{ bloqueios.previous_page_number }}"
-     class="px-3 py-1.5 rounded-lg bg-fundo border border-borda text-[0.8rem] text-texto no-underline hover:bg-superficie transition-colors">Anterior</a>
-  {% endif %}
-  <span class="px-3 py-1.5 text-[0.8rem] text-texto-suave">{{ bloqueios.number }} / {{ bloqueios.paginator.num_pages }}</span>
-  {% if bloqueios.has_next %}
-  <a href="?page={{ bloqueios.next_page_number }}"
-     class="px-3 py-1.5 rounded-lg bg-fundo border border-borda text-[0.8rem] text-texto no-underline hover:bg-superficie transition-colors">Próximo</a>
-  {% endif %}
-</div>
-{% endif %}
+{% include 'partials/_paginacao.html' with page=bloqueios %}
 
 {% endblock %}
 
-{% block js %}
-<script nonce="{{ csp_nonce }}">
-(function(){
-  document.querySelectorAll('button[data-confirm]').forEach(function(btn){
-    btn.addEventListener('click', function(e){
-      if (!window.confirm(btn.dataset.confirm)) {
-        e.preventDefault();
-      }
-    });
-  });
-})();
-</script>
-{% endblock %}
+{# data-confirm: tratado pelo handler global do app.js (listener local duplicava o confirm) #}

@@ -2,13 +2,11 @@
 import logging
 from decimal import Decimal, InvalidOperation
 
-from dateutil.relativedelta import relativedelta
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import DatabaseError, transaction
 from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect, render
-from django.utils import timezone
 
 from ..decorators import staff_required
 from ..models import (
@@ -23,17 +21,69 @@ from ..utils.audit import registrar_log
 logger = logging.getLogger(__name__)
 
 
+def _parse_valor(valor):
+    """'1350,50' / '1350.50' -> Decimal >= 0. ValueError se vazio/invalido."""
+    try:
+        numero = Decimal((valor or '').strip().replace(',', '.'))
+    except InvalidOperation as exc:
+        raise ValueError('valor invalido') from exc
+    if not numero.is_finite() or numero < 0:
+        raise ValueError('valor invalido')
+    return numero.quantize(Decimal('0.01'))
+
+
+def _parse_validade(valor):
+    meses = int(valor)
+    if meses < 1 or meses > 120:
+        raise ValueError('validade invalida')
+    return meses
+
+
+def _ler_itens(post):
+    """[(procedimento_id, quantidade)] do POST; linha com procedimento vazio e ignorada.
+
+    ValueError se quantidade invalida ou procedimento repetido
+    (ItemPacote e unico por pacote+procedimento).
+    """
+    itens, vistos = [], set()
+    proc_ids = post.getlist('procedimento_ids')
+    qtds = post.getlist('quantidades')
+    for proc_id, qtd in zip(proc_ids, qtds, strict=False):
+        if not proc_id:
+            continue
+        pid, quantidade = int(proc_id), int(qtd)
+        if quantidade < 1:
+            raise ValueError('quantidade invalida')
+        if pid in vistos:
+            raise ValueError('procedimento repetido')
+        vistos.add(pid)
+        itens.append((pid, quantidade))
+    if itens:
+        existentes = set(
+            Procedimento.objects.filter(pk__in=vistos).values_list('pk', flat=True)
+        )
+        if existentes != vistos:
+            raise ValueError('procedimento inexistente')
+    return itens
+
+
 @staff_required
 def admin_pacotes(request):
     """Lista todos os pacotes com itens e vendas."""
-    pacotes = Pacote.objects.prefetch_related('itens__procedimento').annotate(
-        total_vendas=Count('comprapacote'),
-    ).order_by('-ativo', 'nome')
+    pacotes = list(
+        Pacote.objects.prefetch_related('itens__procedimento').annotate(
+            total_vendas=Count('comprapacote'),
+        ).order_by('-ativo', 'nome')
+    )
 
     context = {
         'pacotes': pacotes,
-        'procedimentos': Procedimento.objects.filter(ativo=True),
-        'clientes_ativos': Cliente.objects.filter(ativo=True).order_by('nome'),
+        'pacotes_ativos': [p for p in pacotes if p.ativo],
+        'procedimentos': Procedimento.objects.filter(ativo=True).order_by('nome'),
+        # Edicao lista tambem inativos: item existente nao pode sumir do select
+        'procedimentos_todos': Procedimento.objects.order_by('-ativo', 'nome'),
+        # Renderizado UMA vez (modal unico de venda), nao por pacote.
+        'clientes_ativos': Cliente.objects.filter(ativo=True).only('pk', 'nome', 'telefone').order_by('nome'),
     }
     return render(request, 'painel/pacotes.html', context)
 
@@ -46,11 +96,17 @@ def admin_criar_pacote(request):
 
     nome = request.POST.get('nome', '').strip()
     descricao = request.POST.get('descricao', '').strip()
-    preco_total = request.POST.get('preco_total', '0')
-    validade_meses = request.POST.get('validade_meses', '12')
 
     if not nome:
-        messages.error(request, 'Nome do pacote e obrigatorio.')
+        messages.error(request, 'Nome do pacote é obrigatório.')
+        return redirect('aranha:admin_pacotes')
+
+    try:
+        preco_total = _parse_valor(request.POST.get('preco_total', ''))
+        validade_meses = _parse_validade(request.POST.get('validade_meses', '12'))
+        itens = _ler_itens(request.POST)
+    except (ValueError, TypeError):
+        messages.error(request, 'Dados inválidos: verifique preço, validade e itens (sem procedimento repetido).')
         return redirect('aranha:admin_pacotes')
 
     try:
@@ -59,25 +115,16 @@ def admin_criar_pacote(request):
                 nome=nome,
                 descricao=descricao,
                 preco_total=preco_total,
-                validade_meses=int(validade_meses),
+                validade_meses=validade_meses,
                 ativo=True,
             )
-
-            # Itens do pacote
-            proc_ids = request.POST.getlist('procedimento_ids')
-            qtds = request.POST.getlist('quantidades')
-            for proc_id, qtd in zip(proc_ids, qtds, strict=False):
-                if proc_id and qtd:
-                    ItemPacote.objects.create(
-                        pacote=pacote,
-                        procedimento_id=int(proc_id),
-                        quantidade_sessoes=int(qtd),
-                    )
+            ItemPacote.objects.bulk_create([
+                ItemPacote(pacote=pacote, procedimento_id=pid, quantidade_sessoes=qtd)
+                for pid, qtd in itens
+            ])
 
         registrar_log(request.user, f'Criou pacote: {pacote.nome}', 'pacote', pacote.pk)
         messages.success(request, f'Pacote "{nome}" criado com sucesso!')
-    except (ValueError, TypeError):
-        messages.error(request, 'Dados invalidos: verifique validade e quantidades.')
     except (DatabaseError, ValidationError) as e:
         logger.error(f'Erro ao criar pacote: {e}', exc_info=True)
         messages.error(request, 'Erro ao criar pacote.')
@@ -87,37 +134,44 @@ def admin_criar_pacote(request):
 
 @staff_required
 def admin_editar_pacote(request, pk):
-    """Edita pacote existente."""
+    """Edita pacote existente (dados, itens e ativo/inativo)."""
     pacote = get_object_or_404(Pacote, pk=pk)
 
     if request.method != 'POST':
         return redirect('aranha:admin_pacotes')
 
+    nome = request.POST.get('nome', pacote.nome).strip()
+    if not nome:
+        messages.error(request, 'Nome do pacote é obrigatório.')
+        return redirect('aranha:admin_pacotes')
+
+    try:
+        preco_total = _parse_valor(request.POST.get('preco_total', str(pacote.preco_total)))
+        validade_meses = _parse_validade(request.POST.get('validade_meses', pacote.validade_meses))
+        itens = _ler_itens(request.POST)
+    except (ValueError, TypeError):
+        messages.error(request, 'Dados inválidos: verifique preço, validade e itens (sem procedimento repetido).')
+        return redirect('aranha:admin_pacotes')
+
     try:
         with transaction.atomic():
-            pacote.nome = request.POST.get('nome', pacote.nome).strip()
+            pacote.nome = nome
             pacote.descricao = request.POST.get('descricao', '').strip()
-            pacote.preco_total = request.POST.get('preco_total', pacote.preco_total)
-            pacote.validade_meses = int(request.POST.get('validade_meses', pacote.validade_meses))
-            pacote.ativo = request.POST.get('ativo') == '1'
+            pacote.preco_total = preco_total
+            pacote.validade_meses = validade_meses
+            pacote.ativo = request.POST.get('ativo') in ('1', 'on')
             pacote.save()
 
-            # Atualiza itens
+            # Itens: substitui o conjunto (ItemPacote nao e referenciado por
+            # consumos — ConsumoSessao aponta p/ a compra e o atendimento).
             ItemPacote.objects.filter(pacote=pacote).delete()
-            proc_ids = request.POST.getlist('procedimento_ids')
-            qtds = request.POST.getlist('quantidades')
-            for proc_id, qtd in zip(proc_ids, qtds, strict=False):
-                if proc_id and qtd:
-                    ItemPacote.objects.create(
-                        pacote=pacote,
-                        procedimento_id=int(proc_id),
-                        quantidade_sessoes=int(qtd),
-                    )
+            ItemPacote.objects.bulk_create([
+                ItemPacote(pacote=pacote, procedimento_id=pid, quantidade_sessoes=qtd)
+                for pid, qtd in itens
+            ])
 
         registrar_log(request.user, f'Editou pacote: {pacote.nome}', 'pacote', pacote.pk)
         messages.success(request, f'Pacote "{pacote.nome}" atualizado!')
-    except (ValueError, TypeError):
-        messages.error(request, 'Dados invalidos: verifique validade e quantidades.')
     except (DatabaseError, ValidationError) as e:
         logger.error(f'Erro ao editar pacote: {e}', exc_info=True)
         messages.error(request, 'Erro ao editar pacote.')
@@ -131,30 +185,34 @@ def admin_vender_pacote(request):
     if request.method != 'POST':
         return redirect('aranha:admin_pacotes')
 
-    pacote_id = request.POST.get('pacote_id')
-    cliente_id = request.POST.get('cliente_id')
-
-    # 404 real (pacote/cliente inexistente) fica fora do try de escrita.
-    pacote = get_object_or_404(Pacote, pk=pacote_id)
-    cliente = get_object_or_404(Cliente, pk=cliente_id)
-
-    try:
-        valor_pago = Decimal(request.POST.get('valor_pago', '0') or '0')
-    except (InvalidOperation, TypeError):
-        messages.error(request, 'Valor pago invalido.')
+    pacote_id = request.POST.get('pacote_id', '')
+    cliente_id = request.POST.get('cliente_id', '')
+    if not (pacote_id.isdigit() and cliente_id.isdigit()):
+        messages.error(request, 'Selecione o pacote e o cliente.')
         return redirect('aranha:admin_pacotes')
 
-    # relativedelta soma meses civis corretamente (28-31 dias), alinhado
-    # com CompraPacote.save(); evita perder ~5 dias/ano da aproximacao 30*N.
-    data_expiracao = (timezone.now() + relativedelta(months=pacote.validade_meses)).date()
+    # 404 real (pacote/cliente inexistente) fica fora do try de escrita.
+    pacote = get_object_or_404(Pacote, pk=int(pacote_id))
+    cliente = get_object_or_404(Cliente, pk=int(cliente_id))
+
+    if not pacote.ativo:
+        messages.error(request, f'O pacote "{pacote.nome}" está inativo e não pode ser vendido.')
+        return redirect('aranha:admin_pacotes')
 
     try:
+        valor_pago = _parse_valor(request.POST.get('valor_pago', ''))
+    except ValueError:
+        messages.error(request, 'Valor pago inválido.')
+        return redirect('aranha:admin_pacotes')
+
+    try:
+        # data_expiracao fica a cargo de CompraPacote.save() (localdate +
+        # validade em meses civis) — calcular aqui em UTC errava o dia a noite.
         pc = CompraPacote.objects.create(
             cliente=cliente,
             pacote=pacote,
             valor_pago=valor_pago,
             status='ATIVO',
-            data_expiracao=data_expiracao,
         )
 
         registrar_log(

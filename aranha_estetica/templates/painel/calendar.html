@@ -5,11 +5,16 @@
 {% block page_subtitle %}Visão semanal · arraste para reagendar{% endblock %}
 
 {% block css %}
-<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/main.min.css" rel="stylesheet">
+{# FullCalendar 6 injeta o proprio CSS via JS (nao existe main.min.css na v6) #}
 <style nonce="{{ csp_nonce }}">
   #calendar {
-    background: #fff; border-radius: 14px; padding: 0.75rem;
+    background: var(--cor-superficie, #fff); color: var(--cor-texto, #333);
+    border-radius: 14px; padding: 0.75rem;
     box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    --fc-border-color: var(--cor-borda, #ddd);
+    --fc-page-bg-color: var(--cor-superficie, #fff);
+    --fc-neutral-bg-color: var(--cor-fundo, #f5f5f5);
+    --fc-today-bg-color: rgba(201, 168, 76, 0.12);
   }
   .fc .fc-toolbar-title { font-size: 1.1rem !important; font-weight: 800; }
   .fc-event { cursor: grab; font-size: 0.75rem; padding: 2px 4px; }
@@ -21,7 +26,7 @@
   #calModal h4 { font-weight: 800; margin-bottom: 0.75rem; }
   #calModal .row-info { display: flex; padding: 0.35rem 0; border-bottom: 1px solid var(--cor-borda, #f0f0f0); font-size: 0.85rem; }
   #calModal .row-info:last-child { border: none; }
-  #calModal .lbl { color: #999; min-width: 110px; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; }
+  #calModal .lbl { color: var(--cor-texto-suave, #999); min-width: 110px; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; }
   #calModal .val { flex: 1; }
   #calModal .status-pill { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.7rem; font-weight: 800; color: white; }
 </style>
@@ -69,7 +74,7 @@
     <div class="row-info"><div class="lbl">Telefone</div><div class="val" id="cmTelefone">–</div></div>
     <div class="row-info"><div class="lbl">Valor</div><div class="val" id="cmValor">–</div></div>
     <div class="flex gap-2 mt-4">
-      <button id="cmFechar" class="flex-1 px-4 py-2 rounded-lg border border-borda bg-superficie text-texto text-[0.85rem] font-bold cursor-pointer hover:bg-fundo transition-colors">Fechar</button>
+      <button type="button" id="cmFechar" class="flex-1 px-4 py-2 rounded-lg border border-borda bg-superficie text-texto text-[0.85rem] font-bold cursor-pointer hover:bg-fundo transition-colors">Fechar</button>
     </div>
   </div>
 </div>
@@ -92,7 +97,7 @@
         var url = '{% url "aranha:admin_calendar_events" %}?start=' + encodeURIComponent(info.startStr) +
                   '&end=' + encodeURIComponent(info.endStr);
         if (filtroProfissional.value) {
-            url += '&profissional=' + filtroProfissional.value;
+            url += '&profissional=' + encodeURIComponent(filtroProfissional.value);
         }
         fetch(url, { credentials: 'same-origin' })
             .then(function(r){ return r.json(); })

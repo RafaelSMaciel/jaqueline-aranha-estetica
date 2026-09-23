@@ -28,21 +28,22 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
         <div>
           <c-campo nome="nome" label="Nome Completo *" tipo="text"
-                   value="{{ profissional.nome }}" required></c-campo>
+                   value="{{ form_nome }}" required></c-campo>
         </div>
         <div>
           <c-campo nome="especialidade" label="Especialidade" tipo="text"
-                   value="{{ profissional.especialidade|default:'' }}"></c-campo>
+                   value="{{ form_especialidade|default:'' }}"></c-campo>
         </div>
       </div>
 
       <div>
         <label class="inline-flex items-center gap-2 text-sm text-texto cursor-pointer">
           <input type="checkbox" name="ativo" value="1"
-                 {% if profissional.ativo %}checked{% endif %}
+                 {% if form_ativo %}checked{% endif %}
                  class="rounded border-borda">
           Ativo
         </label>
+        <p class="text-xs text-texto-suave mt-1">Profissional inativo não aparece no agendamento online.</p>
       </div>
     </div>
 
@@ -50,24 +51,27 @@
     <div class="bg-superficie rounded-lg border border-borda p-6 mb-4">
       <p class="text-[0.7rem] font-bold uppercase tracking-widest text-marca mb-4">Disponibilidade Semanal</p>
 
-      {% for dia_key, dia_nome in dias_semana.items %}
-      {% with marcado=dia_key|lower in disponibilidades_map %}
-      <div class="flex items-center gap-3 mb-3">
-        <input type="checkbox" name="trabalha_{{ dia_key }}" id="dia_{{ dia_key }}"
+      {% for d in dias %}
+      <div class="flex items-center gap-3 mb-3 flex-wrap">
+        <input type="checkbox" name="trabalha_{{ d.key }}" id="dia_{{ d.key }}"
                class="peer rounded border-borda"
-               {% if dia_key in disponibilidades_map %}checked{% endif %}>
-        <label for="dia_{{ dia_key }}" class="font-bold text-sm text-texto min-w-[110px] cursor-pointer">{{ dia_nome }}</label>
+               {% if d.marcado %}checked{% endif %}>
+        <label for="dia_{{ d.key }}" class="font-bold text-sm text-texto min-w-[110px] cursor-pointer">{{ d.nome }}</label>
         <div class="hidden peer-checked:flex items-center gap-2">
-          <input type="time" name="hora_inicio_{{ dia_key }}"
+          <input type="time" name="hora_inicio_{{ d.key }}" aria-label="{{ d.nome }}: início"
                  class="rounded-md border border-borda bg-superficie px-2 py-1 text-sm text-texto"
-                 value="{% if dia_key in disponibilidades_map %}{{ disponibilidades_map|dictsort:dia_key }}{% else %}09:00{% endif %}">
+                 value="{{ d.hora_inicio }}">
           <span class="text-xs text-texto-suave">até</span>
-          <input type="time" name="hora_fim_{{ dia_key }}"
+          <input type="time" name="hora_fim_{{ d.key }}" aria-label="{{ d.nome }}: fim"
                  class="rounded-md border border-borda bg-superficie px-2 py-1 text-sm text-texto"
-                 value="{% if dia_key in disponibilidades_map %}{{ disponibilidades_map|dictsort:dia_key }}{% else %}18:00{% endif %}">
+                 value="{{ d.hora_fim }}">
         </div>
+        {% if d.janelas_extras %}
+        <p class="w-full text-xs text-texto-suave pl-7">
+          Este dia tem mais {{ d.janelas_extras }} janela{{ d.janelas_extras|pluralize }} de horário, mantida{{ d.janelas_extras|pluralize }} se você não alterar o horário acima.
+        </p>
+        {% endif %}
       </div>
-      {% endwith %}
       {% endfor %}
     </div>
 

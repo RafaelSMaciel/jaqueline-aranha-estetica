@@ -2,9 +2,13 @@
 lista de espera, NPS web, termos de consentimento."""
 import logging
 from datetime import datetime, timedelta
+from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
+from django.core.validators import validate_email
+from django.db import DatabaseError, IntegrityError, transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -26,6 +30,15 @@ from ..models import (
     VersaoTermo,
 )
 from ..utils.audit import registrar_log
+from ..utils.datas import hoje
+from ..utils.security import safe_next
+from ..validators import (
+    normalizar_cpf,
+    normalizar_telefone,
+    validate_cpf,
+    validate_data_nascimento,
+    validate_telefone_br,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -108,15 +121,61 @@ def admin_excluir_bloqueio(request, bloqueio_id):
         return redirect('aranha:admin_bloqueios')
 
     bloqueio = get_object_or_404(BloqueioAgenda, pk=bloqueio_id)
-    registrar_log(request.user, f'Excluiu bloqueio de {bloqueio.profissional.nome}', 'bloqueio_agenda', bloqueio_id)
+    # profissional nulo = bloqueio global (criavel so pelo Django admin)
+    alvo = bloqueio.profissional.nome if bloqueio.profissional_id else 'todos os profissionais'
+    registrar_log(request.user, f'Excluiu bloqueio de {alvo}', 'bloqueio_agenda', bloqueio_id)
     bloqueio.delete()
-    messages.success(request, 'Bloqueio excluido!')
+    messages.success(request, 'Bloqueio excluído!')
     return redirect('aranha:admin_bloqueios')
 
 
 # ═══════════════════════════════════════
 #   CRUD DE PROCEDIMENTOS
 # ═══════════════════════════════════════
+
+def _preco_base_vigente_map(procedimento_ids):
+    """{procedimento_id: Decimal} do preco base VIGENTE (vigente_desde <= hoje).
+
+    Preco e versionado por vigente_desde: pega a vigencia mais recente ja em
+    vigor (ignora reajustes futuros agendados)."""
+    mapa = {}
+    for p in Preco.objects.filter(
+        procedimento_id__in=procedimento_ids,
+        profissional__isnull=True,
+        vigente_desde__lte=hoje(),
+    ).order_by('procedimento_id', '-vigente_desde', '-pk'):
+        mapa.setdefault(p.procedimento_id, p.valor)
+    return mapa
+
+
+def _parse_preco(valor):
+    """'1350,50' / '1350.50' -> Decimal >= 0; None se vazio. ValueError se invalido."""
+    valor = (valor or '').strip()
+    if not valor:
+        return None
+    try:
+        preco = Decimal(valor.replace(',', '.'))
+    except InvalidOperation as exc:
+        raise ValueError('preco invalido') from exc
+    if not preco.is_finite() or preco < 0:
+        raise ValueError('preco invalido')
+    return preco.quantize(Decimal('0.01'))
+
+
+def _parse_duracao(valor, padrao=30):
+    try:
+        duracao = int(valor if valor not in (None, '') else padrao)
+    except (TypeError, ValueError) as exc:
+        raise ValueError('duracao invalida') from exc
+    if duracao < 5 or duracao > 600:
+        raise ValueError('duracao invalida')
+    return duracao
+
+
+def _categoria_valida(valor, padrao='OUTRO'):
+    validas = dict(Procedimento.CATEGORIA_CHOICES)
+    return valor if valor in validas else padrao
+
 
 @staff_required
 def admin_procedimentos(request):
@@ -125,14 +184,8 @@ def admin_procedimentos(request):
         Procedimento.objects.all().order_by('-ativo', 'categoria', 'nome')
     )
 
-    # Precos base (profissional=NULL) por procedimento — um único query
-    preco_map = {
-        p.procedimento_id: p.valor
-        for p in Preco.objects.filter(
-            procedimento_id__in=[pr.pk for pr in procedimentos],
-            profissional__isnull=True,
-        )
-    }
+    # Preco base vigente (profissional=NULL) por procedimento — um único query
+    preco_map = _preco_base_vigente_map([pr.pk for pr in procedimentos])
     for proc in procedimentos:
         proc.preco_base = preco_map.get(proc.pk)
 
@@ -154,23 +207,33 @@ def admin_criar_procedimento(request):
     if request.method != 'POST':
         return redirect('aranha:admin_procedimentos')
 
+    nome = request.POST.get('nome', '').strip()
+    if not nome:
+        messages.error(request, 'Informe o nome do procedimento.')
+        return redirect('aranha:admin_procedimentos')
     try:
-        proc = Procedimento.objects.create(
-            nome=request.POST.get('nome', '').strip(),
-            descricao=request.POST.get('descricao', '').strip(),
-            duracao_minutos=int(request.POST.get('duracao_minutos', 30)),
-            categoria=request.POST.get('categoria', 'OUTRO'),
-            ativo=True,
-        )
+        duracao = _parse_duracao(request.POST.get('duracao_minutos'))
+        preco = _parse_preco(request.POST.get('preco'))
+    except ValueError:
+        messages.error(request, 'Duração ou preço inválido.')
+        return redirect('aranha:admin_procedimentos')
 
-        # Preco base (sem profissional)
-        preco = request.POST.get('preco', '')
-        if preco:
-            Preco.objects.create(procedimento=proc, valor=preco)
+    try:
+        with transaction.atomic():
+            proc = Procedimento.objects.create(
+                nome=nome,
+                descricao=request.POST.get('descricao', '').strip(),
+                duracao_minutos=duracao,
+                categoria=_categoria_valida(request.POST.get('categoria')),
+                ativo=True,
+            )
+            # Preco base (sem profissional), vigente a partir de hoje
+            if preco is not None:
+                Preco.objects.create(procedimento=proc, valor=preco, vigente_desde=hoje())
 
         registrar_log(request.user, f'Criou procedimento: {proc.nome}', 'procedimento', proc.pk)
         messages.success(request, f'Procedimento "{proc.nome}" criado!')
-    except Exception as e:
+    except (DatabaseError, ValidationError) as e:
         logger.error(f'Erro ao criar procedimento: {e}', exc_info=True)
         messages.error(request, 'Erro ao criar procedimento.')
 
@@ -180,33 +243,47 @@ def admin_criar_procedimento(request):
 @staff_required
 @ratelimit(key='user', rate='30/m', method='POST', block=True)
 def admin_editar_procedimento(request, pk):
-    """Edita procedimento via POST."""
+    """Edita procedimento via POST.
+
+    Preco e versionado (Preco.vigente_desde): mudar o valor cria uma nova
+    vigencia a partir de hoje em vez de sobrescrever o historico (se ja
+    houver vigencia de hoje, ela e ajustada).
+    """
     proc = get_object_or_404(Procedimento, pk=pk)
     if request.method != 'POST':
         return redirect('aranha:admin_procedimentos')
 
+    nome = request.POST.get('nome', proc.nome).strip()
+    if not nome:
+        messages.error(request, 'Informe o nome do procedimento.')
+        return redirect('aranha:admin_procedimentos')
     try:
-        proc.nome = request.POST.get('nome', proc.nome).strip()
-        proc.descricao = request.POST.get('descricao', '').strip()
-        proc.duracao_minutos = int(request.POST.get('duracao_minutos', proc.duracao_minutos))
-        proc.categoria = request.POST.get('categoria', proc.categoria)
-        proc.ativo = request.POST.get('ativo') == '1'
-        proc.save()
+        duracao = _parse_duracao(request.POST.get('duracao_minutos'), proc.duracao_minutos)
+        preco = _parse_preco(request.POST.get('preco'))
+    except ValueError:
+        messages.error(request, 'Duração ou preço inválido.')
+        return redirect('aranha:admin_procedimentos')
 
-        # Atualiza preco base
-        preco_val = request.POST.get('preco', '')
-        if preco_val:
-            preco_obj, _ = Preco.objects.get_or_create(
-                procedimento=proc, profissional=None,
-                defaults={'valor': preco_val}
-            )
-            if not _:
-                preco_obj.valor = preco_val
-                preco_obj.save()
+    try:
+        with transaction.atomic():
+            proc.nome = nome
+            proc.descricao = request.POST.get('descricao', '').strip()
+            proc.duracao_minutos = duracao
+            proc.categoria = _categoria_valida(request.POST.get('categoria'), proc.categoria)
+            proc.ativo = request.POST.get('ativo') == '1'
+            proc.save()
+
+            if preco is not None:
+                vigente = _preco_base_vigente_map([proc.pk]).get(proc.pk)
+                if vigente is None or vigente != preco:
+                    Preco.objects.update_or_create(
+                        procedimento=proc, profissional=None, vigente_desde=hoje(),
+                        defaults={'valor': preco},
+                    )
 
         registrar_log(request.user, f'Editou procedimento: {proc.nome}', 'procedimento', proc.pk)
         messages.success(request, f'Procedimento "{proc.nome}" atualizado!')
-    except Exception as e:
+    except (DatabaseError, ValidationError) as e:
         logger.error(f'Erro ao editar procedimento: {e}', exc_info=True)
         messages.error(request, 'Erro ao editar procedimento.')
 
@@ -217,39 +294,100 @@ def admin_editar_procedimento(request, pk):
 #   DETALHE / EDICAO DE CLIENTE
 # ═══════════════════════════════════════
 
-@staff_required
-def admin_cliente_detalhe(request, pk):
-    """Detalhe e edicao de cliente."""
-    cliente = get_object_or_404(Cliente, pk=pk)
+# Limites dos CharFields de Cliente (evita DataError/500 no Postgres)
+_CLIENTE_MAX = {'nome': 150, 'rg': 20, 'profissao': 100, 'cep': 10, 'endereco': 255}
 
-    if request.method == 'POST':
-        cliente.nome = request.POST.get('nome', cliente.nome).strip()
-        cliente.telefone = request.POST.get('telefone', cliente.telefone).strip()
-        cliente.email = request.POST.get('email', '').strip() or None
-        cliente.cpf = request.POST.get('cpf', '').strip() or None
-        cliente.rg = request.POST.get('rg', '').strip() or None
-        cliente.profissao = request.POST.get('profissao', '').strip() or None
-        cliente.cep = request.POST.get('cep', '').strip() or None
-        cliente.endereco = request.POST.get('endereco', '').strip() or None
-        data_nasc = request.POST.get('data_nascimento', '')
-        if data_nasc:
-            try:
-                cliente.data_nascimento = datetime.strptime(data_nasc, '%Y-%m-%d').date()
-            except ValueError:
-                pass
-        cliente.ativo = request.POST.get('ativo') == '1'
-        cliente.aceita_comunicacao = request.POST.get('aceita_comunicacao') == '1'
-        cliente.save()
-        registrar_log(request.user, f'Editou cliente: {cliente.nome}', 'cliente', cliente.pk)
-        messages.success(request, 'Paciente atualizado!')
-        return redirect('aranha:admin_cliente_detalhe', pk=pk)
+
+def _normalizar_telefone_br(valor):
+    """Somente digitos; remove DDI 55 colado (autofill '+55 17 9...')."""
+    digitos = normalizar_telefone(valor)
+    if len(digitos) in (12, 13) and digitos.startswith('55'):
+        digitos = digitos[2:]
+    return digitos
+
+
+def _aplicar_post_cliente(request, cliente):
+    """Aplica o POST no cliente EM MEMORIA e devolve a lista de erros.
+
+    Valida telefone/CPF/e-mail/data e a unicidade entre clientes ativos
+    (mesma condicao das UniqueConstraint parciais) antes do save, para
+    responder com mensagem em vez de IntegrityError/500.
+    """
+    post = request.POST
+    erros = []
+
+    def _texto(campo):
+        return (post.get(campo) or '').strip()
+
+    nome = _texto('nome')
+    if not nome:
+        erros.append('Informe o nome do cliente.')
+    for campo, maximo in _CLIENTE_MAX.items():
+        if len(_texto(campo)) > maximo:
+            erros.append(f'O campo {campo} aceita no máximo {maximo} caracteres.')
+
+    telefone = _normalizar_telefone_br(_texto('telefone')) or None
+    if telefone:
+        try:
+            validate_telefone_br(telefone)
+        except ValidationError:
+            erros.append('Telefone inválido: informe DDD + número (10 ou 11 dígitos).')
+        else:
+            if Cliente.objects.filter(telefone=telefone).exclude(pk=cliente.pk).exists():
+                erros.append('Este telefone já pertence a outro cliente.')
+
+    cpf = normalizar_cpf(_texto('cpf')) or None
+    if cpf:
+        try:
+            validate_cpf(cpf)
+        except ValidationError:
+            erros.append('CPF inválido.')
+        else:
+            if Cliente.objects.filter(cpf=cpf).exclude(pk=cliente.pk).exists():
+                erros.append('Este CPF já pertence a outro cliente.')
+
+    email = _texto('email') or None
+    if email:
+        try:
+            validate_email(email)
+        except ValidationError:
+            erros.append('E-mail inválido.')
+        else:
+            if Cliente.objects.filter(email__iexact=email).exclude(pk=cliente.pk).exists():
+                erros.append('Este e-mail já pertence a outro cliente.')
+
+    data_nascimento = None
+    data_nasc_raw = _texto('data_nascimento')
+    if data_nasc_raw:
+        try:
+            data_nascimento = datetime.strptime(data_nasc_raw, '%Y-%m-%d').date()
+            validate_data_nascimento(data_nascimento)
+        except (ValueError, ValidationError):
+            erros.append('Data de nascimento inválida.')
+            data_nascimento = cliente.data_nascimento
+
+    cliente.nome = nome or cliente.nome
+    cliente.telefone = telefone
+    cliente.email = email
+    cliente.cpf = cpf
+    cliente.rg = _texto('rg') or None
+    cliente.profissao = _texto('profissao') or None
+    cliente.cep = _texto('cep') or None
+    cliente.endereco = _texto('endereco') or None
+    cliente.data_nascimento = data_nascimento
+    cliente.ativo = post.get('ativo') == '1'
+    cliente.aceita_comunicacao = post.get('aceita_comunicacao') == '1'
+    return erros
+
+
+def _contexto_cliente(cliente):
+    from django.db.models import Avg, Count, Max, Sum
 
     atendimentos = Atendimento.objects.filter(
         cliente=cliente
     ).select_related('profissional', 'procedimento').order_by('-data_hora_inicio')[:20]
 
     realizados_qs = Atendimento.objects.filter(cliente=cliente, status='REALIZADO')
-    from django.db.models import Sum, Count, Avg, Max
     agg = realizados_qs.aggregate(
         total=Sum('valor_cobrado'),
         qtd=Count('pk'),
@@ -269,13 +407,37 @@ def admin_cliente_detalhe(request, pk):
         'no_show_count': Atendimento.objects.filter(cliente=cliente, status='FALTOU').count(),
         'cancelados_count': Atendimento.objects.filter(cliente=cliente, status='CANCELADO').count(),
     }
-
-    context = {
+    return {
         'cliente': cliente,
         'atendimentos': atendimentos,
         'cliente_stats': cliente_stats,
     }
-    return render(request, 'painel/cliente_detalhe.html', context)
+
+
+@staff_required
+def admin_cliente_detalhe(request, pk):
+    """Detalhe e edicao de cliente."""
+    cliente = get_object_or_404(Cliente, pk=pk)
+
+    if request.method == 'POST':
+        erros = _aplicar_post_cliente(request, cliente)
+        if not erros:
+            try:
+                with transaction.atomic():
+                    cliente.save()
+            except IntegrityError:
+                # corrida com outro cadastro entre a checagem e o save
+                erros = ['Telefone, e-mail ou CPF já cadastrado para outro cliente.']
+        if erros:
+            # Nada gravado: re-renderiza com o que foi digitado + erros
+            for erro in erros:
+                messages.error(request, erro)
+            return render(request, 'painel/cliente_detalhe.html', _contexto_cliente(cliente))
+        registrar_log(request.user, f'Editou cliente: {cliente.nome}', 'cliente', cliente.pk)
+        messages.success(request, 'Cliente atualizado!')
+        return redirect('aranha:admin_cliente_detalhe', pk=pk)
+
+    return render(request, 'painel/cliente_detalhe.html', _contexto_cliente(cliente))
 
 
 # ═══════════════════════════════════════
@@ -299,14 +461,47 @@ def admin_lista_espera(request):
 
 @staff_required
 def admin_notificar_espera(request, pk):
-    """Marca item da lista de espera como notificado."""
+    """Avisa o cliente da lista de espera e marca o item como avisado.
+
+    Se o cliente tem e-mail, envia o aviso de vaga (utils.email); o canal
+    pode estar sem provedor em prod (retorna False) — a mensagem diz o que
+    de fato aconteceu para a recepcao completar o contato pelo WhatsApp.
+    """
     if request.method != 'POST':
         return redirect('aranha:admin_lista_espera')
 
-    item = get_object_or_404(ListaEspera, pk=pk)
+    item = get_object_or_404(
+        ListaEspera.objects.select_related('cliente', 'procedimento'), pk=pk,
+    )
+    enviado = False
+    # e-mail do pedido da lista (quando o form publico coleta) > e-mail do cadastro
+    destino = getattr(item, 'email_contato', None) or item.cliente.email
+    if destino:
+        from ..utils.email import enviar_fila_espera_email
+        try:
+            enviado = bool(enviar_fila_espera_email(destino, {
+                'nome': item.cliente.nome,
+                'procedimento': item.procedimento.nome,
+                'data': item.data_desejada.strftime('%d/%m/%Y'),
+            }))
+        except Exception:  # pylint: disable=broad-except
+            logger.warning('lista_espera_email_falhou', exc_info=True, extra={'espera_id': item.pk})
+
     item.notificado = True
-    item.save()
-    messages.success(request, f'{item.cliente.nome} marcado como notificado.')
+    item.save(update_fields=['notificado'])
+    registrar_log(
+        request.user,
+        f'Avisou lista de espera ({"e-mail enviado" if enviado else "contato manual"})',
+        'lista_espera', item.pk,
+    )
+    if enviado:
+        messages.success(request, f'Aviso de vaga enviado por e-mail para {item.cliente.nome}.')
+    else:
+        messages.info(
+            request,
+            f'{item.cliente.nome} marcado como avisado. Nenhum e-mail foi enviado — '
+            'faça o contato pelo WhatsApp ou telefone.',
+        )
     return redirect('aranha:admin_lista_espera')
 
 
@@ -340,6 +535,8 @@ def nps_web(request, token):
                 atendimento=atendimento,
                 nota=nota,
                 comentario=comentario,
+                # opt-in explicito p/ virar depoimento publico (moderado no painel)
+                autoriza_publicacao=request.POST.get('autoriza_publicacao') in ('1', 'on', 'true'),
             )
             return render(request, 'publico/nps_obrigado.html', {
                 'nota': nota,
@@ -372,30 +569,76 @@ def admin_termos(request):
 
 @staff_required
 def admin_criar_termo(request):
-    """Cria nova versao de termo."""
+    """Publica nova versao de termo.
+
+    So 1 versao ativa por escopo (uniq_termo_ativo_*): a vigente do mesmo
+    tipo/procedimento e arquivada na mesma transacao. Clientes que aceitaram
+    a versao anterior passam a ter o termo novo pendente (versionamento).
+    """
     if request.method != 'POST':
         return redirect('aranha:admin_termos')
 
+    tipo = request.POST.get('tipo', 'LGPD')
+    if tipo not in dict(VersaoTermo.TIPO_CHOICES):
+        messages.error(request, 'Tipo de termo inválido.')
+        return redirect('aranha:admin_termos')
+
+    titulo = request.POST.get('titulo', '').strip()
+    conteudo = request.POST.get('conteudo', '').strip()
+    versao = request.POST.get('versao', '').strip() or '1.0'
+    if not titulo or not conteudo:
+        messages.error(request, 'Informe título e conteúdo do termo.')
+        return redirect('aranha:admin_termos')
+    if len(versao) > 20:
+        messages.error(request, 'Versão deve ter no máximo 20 caracteres.')
+        return redirect('aranha:admin_termos')
+
+    procedimento = None
+    proc_id = request.POST.get('procedimento_id', '')
+    if tipo == 'PROCEDIMENTO' and proc_id:
+        if not proc_id.isdigit():
+            messages.error(request, 'Procedimento inválido.')
+            return redirect('aranha:admin_termos')
+        procedimento = Procedimento.objects.filter(pk=int(proc_id)).first()
+        if procedimento is None:
+            messages.error(request, 'Procedimento não encontrado.')
+            return redirect('aranha:admin_termos')
+
+    vigente_raw = request.POST.get('vigente_desde', '').strip()
     try:
-        proc_id = request.POST.get('procedimento_id')
-        procedimento = None
-        if proc_id:
-            procedimento = Procedimento.objects.get(pk=proc_id)
+        vigente_desde = datetime.strptime(vigente_raw, '%Y-%m-%d').date() if vigente_raw else hoje()
+    except ValueError:
+        messages.error(request, 'Data de vigência inválida.')
+        return redirect('aranha:admin_termos')
 
-        VersaoTermo.objects.create(
-            tipo=request.POST.get('tipo', 'LGPD'),
-            procedimento=procedimento,
-            titulo=request.POST.get('titulo', '').strip(),
-            conteudo=request.POST.get('conteudo', '').strip(),
-            versao=request.POST.get('versao', '1.0'),
-            vigente_desde=request.POST.get('vigente_desde', timezone.now().date()),
-            ativa=True,
-        )
-        messages.success(request, 'Termo criado com sucesso!')
-    except Exception as e:
-        logger.error(f'Erro ao criar termo: {e}', exc_info=True)
-        messages.error(request, 'Erro ao criar termo.')
+    try:
+        with transaction.atomic():
+            # filter(procedimento=None) vira IS NULL — escopo global do tipo
+            arquivadas = VersaoTermo.objects.filter(
+                tipo=tipo, procedimento=procedimento, ativa=True,
+            ).update(ativa=False)
+            novo = VersaoTermo.objects.create(
+                tipo=tipo,
+                procedimento=procedimento,
+                titulo=titulo,
+                conteudo=conteudo,
+                versao=versao,
+                vigente_desde=vigente_desde,
+                ativa=True,
+            )
+    except (IntegrityError, DatabaseError, ValidationError) as e:
+        logger.error(f'Erro ao publicar termo: {e}', exc_info=True)
+        messages.error(request, 'Não foi possível publicar o termo. Tente novamente.')
+        return redirect('aranha:admin_termos')
 
+    registrar_log(
+        request.user, f'Publicou termo {tipo} v{versao}', 'versao_termo', novo.pk,
+        {'arquivadas': arquivadas},
+    )
+    if arquivadas:
+        messages.success(request, 'Nova versão publicada; a versão anterior foi arquivada.')
+    else:
+        messages.success(request, 'Termo publicado!')
     return redirect('aranha:admin_termos')
 
 
@@ -416,7 +659,9 @@ def termo_assinatura(request, token):
 
     # Buscar termos pendentes para o procedimento
     termos = VersaoTermo.objects.filter(
-        Q(tipo='LGPD') | Q(procedimento=atendimento.procedimento),
+        Q(tipo='LGPD')
+        | Q(tipo='PROCEDIMENTO', procedimento=atendimento.procedimento)
+        | Q(tipo='PROCEDIMENTO', procedimento__isnull=True),
         ativa=True,
     )
 
@@ -539,6 +784,11 @@ def admin_email_preview(request, nome=None):
 # ═══════════════════════════════════════
 
 
+def _voltar(request):
+    """Volta p/ a pagina de origem (Referer local) ou p/ a lista de agendamentos."""
+    return redirect(safe_next(request, request.META.get('HTTP_REFERER'), 'aranha:painel_agendamentos'))
+
+
 @staff_required
 @require_POST
 @ratelimit(key='user', rate='60/m', method='POST', block=True)
@@ -552,12 +802,15 @@ def admin_aprovar_agendamento(request, pk):
         pk=pk,
     )
     from ..services.agendamento_service import AgendamentoService
-    transitou = AgendamentoService().aprovar(atendimento, by_user=request.user)
+    try:
+        transitou = AgendamentoService().aprovar(atendimento, by_user=request.user)
+    except Atendimento.TransicaoInvalida:
+        transitou = False
     if not transitou:
         messages.warning(request, f'Atendimento já está como {atendimento.get_status_display().lower()}.')
     else:
         messages.success(request, f'Agendamento de {atendimento.cliente.nome} aprovado.')
-    return redirect(request.META.get('HTTP_REFERER', 'aranha:painel_agendamentos'))
+    return _voltar(request)
 
 
 @staff_required
@@ -573,12 +826,15 @@ def admin_rejeitar_agendamento(request, pk):
         pk=pk,
     )
     from ..services.agendamento_service import AgendamentoService
-    transitou = AgendamentoService().rejeitar(atendimento, by_user=request.user)
+    try:
+        transitou = AgendamentoService().rejeitar(atendimento, by_user=request.user)
+    except Atendimento.TransicaoInvalida:
+        transitou = False
     if not transitou:
         messages.warning(request, f'Atendimento já está como {atendimento.get_status_display().lower()}.')
     else:
         messages.success(request, f'Agendamento de {atendimento.cliente.nome} rejeitado.')
-    return redirect(request.META.get('HTTP_REFERER', 'aranha:painel_agendamentos'))
+    return _voltar(request)
 
 
 @staff_required
@@ -587,88 +843,51 @@ def admin_rejeitar_agendamento(request, pk):
 def admin_bulk_agendamentos(request):
     """Aprovacao/rejeicao em massa de agendamentos PENDENTES.
 
-    POST: ids=[...] + acao=aprovar|rejeitar
+    POST: ids=[...] + acao=aprovar|rejeitar. Cada item passa pelo
+    AgendamentoService (FSM + auditoria + e-mail pos-commit com hora local);
+    item que mudou de estado no meio do caminho e ignorado sem abortar o lote.
     """
     ids_raw = request.POST.getlist('ids') or []
     acao = request.POST.get('acao', '').strip().lower()
-    redirect_to = request.META.get('HTTP_REFERER') or 'aranha:painel_agendamentos'
 
     if acao not in ('aprovar', 'rejeitar'):
-        messages.error(request, 'Acao invalida.')
-        return redirect(redirect_to)
+        messages.error(request, 'Ação inválida.')
+        return _voltar(request)
 
     try:
         ids = [int(x) for x in ids_raw]
     except (TypeError, ValueError):
-        messages.error(request, 'IDs invalidos.')
-        return redirect(redirect_to)
+        messages.error(request, 'Seleção inválida.')
+        return _voltar(request)
 
     if not ids:
         messages.warning(request, 'Nenhum agendamento selecionado.')
-        return redirect(redirect_to)
+        return _voltar(request)
 
-    from django.db import transaction
+    from ..services.agendamento_service import AgendamentoService
+    service = AgendamentoService()
 
-    from ..tasks import send_email_async
-
-    novo_status = 'AGENDADO' if acao == 'aprovar' else 'CANCELADO'
-    task_email = (
-        'enviar_confirmacao_agendamento_email' if acao == 'aprovar'
-        else 'enviar_cancelamento_email'
-    )
-    log_acao = (
-        'Aprovou agendamento (bulk)' if acao == 'aprovar'
-        else 'Rejeitou agendamento (bulk)'
-    )
-
-    def _enfileirar_email(email, dados):
-        """Enfileira o e-mail; nunca envia sincronamente (bloquearia o request)."""
-        try:
-            send_email_async.delay(task_email, email, dados)
-        except Exception:
-            logger.warning(
-                'bulk_email_enqueue_falhou', exc_info=True,
-                extra={'task': task_email},
-            )
-
-    # Lote tudo-ou-nada: status + auditoria de todos os itens na mesma transacao.
-    # E-mail so e enfileirado apos o commit (on_commit) e 100% via Celery.
+    processados = 0
     with transaction.atomic():
         atendimentos = list(
             Atendimento.objects.select_related('cliente', 'procedimento', 'profissional')
             .filter(pk__in=ids, status='PENDENTE')
         )
-
-        processados = 0
         for at in atendimentos:
-            at.status = novo_status
-            at.save(update_fields=['status', 'atualizado_em'])
-            registrar_log(request.user, log_acao, 'atendimento', at.pk)
-
-            if at.cliente.email:
-                data_fmt = at.data_hora_inicio.strftime('%d/%m/%Y as %H:%M')
-                dados = {
-                    'nome': at.cliente.nome,
-                    'procedimento': at.procedimento.nome,
-                    'profissional': at.profissional.nome,
-                    'data_hora': data_fmt,
-                }
+            try:
                 if acao == 'aprovar':
-                    dados['valor'] = (
-                        f'R$ {float(at.valor_cobrado):.2f}'
-                        if at.valor_cobrado else 'A consultar'
-                    )
-                email = at.cliente.email
-                transaction.on_commit(
-                    lambda email=email, dados=dados: _enfileirar_email(email, dados)
-                )
-
-            processados += 1
+                    ok = service.aprovar(at, by_user=request.user)
+                else:
+                    ok = service.rejeitar(at, motivo='Rejeitado em lote', by_user=request.user)
+            except Atendimento.TransicaoInvalida:
+                ok = False
+            if ok:
+                processados += 1
 
     ignorados = len(ids) - processados
     msg_acao = 'aprovado(s)' if acao == 'aprovar' else 'rejeitado(s)'
     msg = f'{processados} agendamento(s) {msg_acao}.'
     if ignorados:
-        msg += f' {ignorados} ignorado(s) (nao estavam PENDENTE).'
+        msg += f' {ignorados} ignorado(s) (não estavam pendentes).'
     messages.success(request, msg)
-    return redirect(redirect_to)
+    return _voltar(request)

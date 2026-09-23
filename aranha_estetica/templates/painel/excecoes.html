@@ -158,14 +158,7 @@
   }
   sel.addEventListener('change', toggle);
   toggle();
-
-  document.querySelectorAll('button[data-confirm]').forEach(function(btn){
-    btn.addEventListener('click', function(e){
-      if (!window.confirm(btn.dataset.confirm)) {
-        e.preventDefault();
-      }
-    });
-  });
+  /* data-confirm: handler global do app.js (listener local duplicava o confirm) */
 })();
 </script>
 {% endblock %}

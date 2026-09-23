@@ -1,4 +1,5 @@
 {% extends 'painel/base_v2.html' %}
+{% load l10n %}
 
 {% block titulo %}Promoções — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Promoções{% endblock %}
@@ -21,7 +22,7 @@
 {% for promo in promocoes %}
 <div x-data="modal" x-on:keydown.escape.window="fechar"
      class="relative overflow-hidden bg-superficie rounded-2xl shadow-sm p-4 mb-3 border-l-4 {% if promo.ativa %}border-green-500{% else %}border-gray-300 opacity-70{% endif %}">
-  <div class="absolute top-3 right-3 px-3 py-1 rounded-full bg-gradient-to-br from-[#C9A84C] to-[#e8c94f] text-white font-extrabold text-[0.8rem]">-{{ promo.desconto_percentual }}%</div>
+  <div class="absolute top-3 right-3 px-3 py-1 rounded-full bg-gradient-to-br from-[#C9A84C] to-[#e8c94f] text-white font-extrabold text-[0.8rem]">-{{ promo.desconto_percentual|floatformat:"-2" }}%</div>
   <div class="font-bold text-[1rem] text-texto mb-0.5 pr-16">{{ promo.nome }}</div>
   <div class="flex items-center gap-1.5 text-[0.8rem] text-texto-suave">
     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
@@ -43,7 +44,7 @@
     <span class="px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-red-50 text-red-600 uppercase tracking-wide">EXPIRADA</span>
     {% endif %}
   </div>
-  <div class="flex gap-2 mt-3">
+  <div class="flex flex-wrap items-start gap-2 mt-3">
     <button type="button" x-on:click="abrir"
             class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-[0.75rem] font-bold border-none cursor-pointer hover:bg-blue-100 transition-colors">
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
@@ -51,6 +52,31 @@
       </svg>
       Editar
     </button>
+    {% if promo.esta_vigente %}
+    <details class="inline-block">
+      <summary class="list-none inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-50 text-green-700 text-[0.75rem] font-bold cursor-pointer hover:bg-green-100 transition-colors">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+        </svg>
+        Enviar por e-mail
+      </summary>
+      <form method="post" action="{% url 'aranha:admin_disparar_promocao' promo.pk %}"
+            class="mt-2 p-3 rounded-xl border border-borda bg-fundo flex flex-wrap items-end gap-2">
+        {% csrf_token %}
+        <label class="text-[0.72rem] font-bold text-texto-suave">Cupom (opcional)
+          <input type="text" name="cupom" maxlength="30"
+                 class="block mt-1 w-32 px-2 py-1.5 rounded-lg border border-borda bg-superficie text-[0.8rem] text-texto">
+        </label>
+        <label class="text-[0.72rem] font-bold text-texto-suave">Validade (dias)
+          <input type="number" name="validade_dias" value="30" min="1" max="365"
+                 class="block mt-1 w-20 px-2 py-1.5 rounded-lg border border-borda bg-superficie text-[0.8rem] text-texto">
+        </label>
+        <button type="submit" data-confirm="Enviar esta promoção por e-mail para os clientes que autorizaram receber ofertas?"
+                class="px-3 py-1.5 rounded-lg bg-green-700 text-white text-[0.75rem] font-bold border-none cursor-pointer hover:bg-green-800 transition-colors">Enviar</button>
+        <p class="w-full text-[0.7rem] text-texto-suave m-0">Só recebe quem aceitou e-mails de ofertas. Listas grandes são enviadas em lotes: clique de novo para continuar.</p>
+      </form>
+    </details>
+    {% endif %}
     <form method="post" action="{% url 'aranha:admin_excluir_promocao' promo.pk %}" class="inline">
       {% csrf_token %}
       <button type="submit" data-confirm="Excluir esta promoção?"
@@ -97,7 +123,7 @@
         <div class="grid grid-cols-2 gap-3">
           <div class="mb-3">
             <label class="block text-[0.72rem] font-extrabold uppercase tracking-wide text-texto-suave mb-1">Desconto (%)</label>
-            <input type="number" name="desconto" value="{{ promo.desconto_percentual }}" min="1" max="100" required
+            <input type="number" name="desconto" value="{{ promo.desconto_percentual|unlocalize }}" min="0.01" max="100" step="0.01" required
                    class="w-full px-3 py-2.5 rounded-xl border-2 border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:border-[#C9A84C] transition">
           </div>
           <div class="mb-3">
@@ -128,6 +154,7 @@
   </div>
 </div>
 {% endfor %}
+{% include 'partials/_paginacao.html' with page=promocoes %}
 {% endif %}
 
 {# ── FAB + Modal criar ── #}
@@ -176,7 +203,7 @@
         <div class="grid grid-cols-2 gap-3">
           <div class="mb-3">
             <label class="block text-[0.72rem] font-extrabold uppercase tracking-wide text-texto-suave mb-1">Desconto (%)</label>
-            <input type="number" name="desconto" placeholder="20" min="1" max="100" required
+            <input type="number" name="desconto" placeholder="20" min="0.01" max="100" step="0.01" required
                    class="w-full px-3 py-2.5 rounded-xl border-2 border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:border-[#C9A84C] transition">
           </div>
           <div class="mb-3">

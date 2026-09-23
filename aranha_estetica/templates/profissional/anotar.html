@@ -7,16 +7,7 @@
 <div class="min-h-screen bg-fundo py-8 pb-20">
     <div class="max-w-2xl mx-auto px-4">
 
-        {% if messages %}
-            {% for m in messages %}
-            <div class="mb-4 px-4 py-3 rounded-lg border
-                        {% if m.tags == 'error' %}bg-red-50 border-red-200 text-erro
-                        {% else %}bg-green-50 border-green-200 text-green-800{% endif %}
-                        text-sm">
-                {{ m }}
-            </div>
-            {% endfor %}
-        {% endif %}
+        {# Mensagens: renderizadas pela base (estrutura/base_v2, block mensagens) #}
 
         <!-- Card principal -->
         <div class="bg-superficie rounded-xl border border-borda shadow-sm p-7 mb-6">

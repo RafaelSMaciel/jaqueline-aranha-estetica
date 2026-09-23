@@ -1,4 +1,5 @@
 {% extends 'painel/base_v2.html' %}
+{% load l10n %}
 
 {% block titulo %}Compliance — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Compliance de Termos{% endblock %}
@@ -53,10 +54,10 @@
       <div class="text-[0.6rem] font-bold text-texto-suave uppercase tracking-wide mt-1">Clientes alvo</div>
     </div>
     <div class="flex-1"></div>
-    <div class="text-[1.3rem] font-extrabold text-marca">{{ r.pct }}%</div>
+    <div class="text-[1.3rem] font-extrabold text-marca">{{ r.pct|floatformat:1 }}%</div>
   </div>
   <div class="bg-superficie rounded-[10px] h-2 overflow-hidden mt-2">
-    <div class="progress-bar-fill h-full rounded-[10px] bg-gradient-to-r from-[#8b6f47] to-[#c9a58a] transition-[width] duration-300" data-pct="{{ r.pct }}"></div>
+    <div class="progress-bar-fill h-full rounded-[10px] bg-gradient-to-r from-[#8b6f47] to-[#c9a58a] transition-[width] duration-300" data-pct="{{ r.pct|unlocalize }}"></div>
   </div>
   {% if r.pendentes > 0 %}
   <a href="?versao={{ r.versao.pk }}" class="inline-flex items-center gap-1.5 mt-2 text-marca font-bold text-[0.78rem] no-underline hover:opacity-90 transition-opacity">
