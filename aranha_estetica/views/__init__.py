@@ -19,6 +19,7 @@ from .admin import (
 from .admin_professional import (
     profissional_cadastro,
     profissional_editar,
+    profissional_rotacionar_ics,
 )
 from .admin_promotions import (
     admin_criar_promocao,

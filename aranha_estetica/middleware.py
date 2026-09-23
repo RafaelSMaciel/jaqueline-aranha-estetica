@@ -123,19 +123,30 @@ class SecurityHeadersMiddleware:
         Enforce2FAMiddleware.ADMIN_PREFIX, Enforce2FAMiddleware.API_PREFIX,
     )
 
+    # Rotas cujo path carrega token de link magico: sem Referer, senao o token
+    # vaza p/ CDN/links externos abertos a partir da pagina.
+    PREFIXOS_TOKEN = (
+        '/confirmar/', '/reagendar/', '/nps/', '/anamnese/', '/pesquisa/',
+        '/termo/', '/lgpd/unsubscribe/', '/admin-login/recuperar/', '/agenda/',
+    )
+
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
         response = self.get_response(request)
-        privada = (request.path or '').startswith(self.PREFIXOS_PRIVADOS)
+        path = request.path or ''
+        privada = path.startswith(self.PREFIXOS_PRIVADOS)
         if privada and not response.has_header('Cache-Control'):
             add_never_cache_headers(response)
         response.setdefault("X-Content-Type-Options", "nosniff")
         response.setdefault("Permissions-Policy", self.PERMISSIONS_POLICY)
         response.setdefault("Cross-Origin-Opener-Policy", "same-origin")
         response.setdefault("Cross-Origin-Resource-Policy", "same-origin")
-        response.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        if path.startswith(self.PREFIXOS_TOKEN):
+            response["Referrer-Policy"] = "no-referrer"
+        else:
+            response.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         return response
 
 
