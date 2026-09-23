@@ -1,11 +1,14 @@
-"""Regressao das data migrations da remodelagem (0034-0037, 0042, 0043).
+"""Regressao das data migrations da remodelagem (0034-0037, 0042-0045).
 
 Roda a migration real sobre dados "sujos" plausiveis do banco legado (SQLite:
 as partes PG-only — CHECK regex, EXCLUDE, trigger, collation — sao validadas
 no ensaio em Postgres; aqui fica a logica de dados, que e portavel).
 """
+import io
+from contextlib import redirect_stderr
 from datetime import date, timedelta
 from decimal import Decimal
+from unittest import mock
 
 from django.contrib.auth.hashers import make_password
 from django.db import connection
@@ -196,6 +199,13 @@ class ContasDemoERetornoDuplicadoTests(_MigracaoBase):
     migrate_from = '0041_on_delete_protect_indice_email_upper'
     migrate_to = '0043_retorno_unico_checks_jsonb'
 
+    def setUp(self):
+        # 0042 avisa em stderr quando o painel fica sem ADMIN (lockout silencioso)
+        self.stderr = io.StringIO()
+        env_sem_admin = {'ADMIN_EMAIL': '', 'ADMIN_PASSWORD': ''}
+        with mock.patch.dict('os.environ', env_sem_admin), redirect_stderr(self.stderr):
+            super().setUp()
+
     def preparar(self, apps):
         Usuario = apps.get_model(APP, 'Usuario')
         self.demo = Usuario.objects.create(email='admin@shivazen.com', nome='Admin',
@@ -228,7 +238,74 @@ class ContasDemoERetornoDuplicadoTests(_MigracaoBase):
         self.assertFalse(demo.ativo)
         self.assertTrue(demo.password.startswith('!'))  # senha inutilizavel
         self.assertTrue(Usuario.objects.get(pk=self.trocada.pk).ativo)
+        self.assertIn('painel ficou sem ADMIN ativo', self.stderr.getvalue())
+        self.assertIn('ADMIN_EMAIL/ADMIN_PASSWORD', self.stderr.getvalue())
 
         Atendimento = self.apps.get_model(APP, 'Atendimento')
         self.assertEqual(Atendimento.objects.get(pk=self.ret_dup.pk).status, 'CANCELADO')
         self.assertEqual(Atendimento.objects.get(pk=self.ret_ok.pk).status, 'AGENDADO')
+
+
+class ProvaAceiteEAutoria0044e0045Tests(_MigracaoBase):
+    migrate_from = '0043_retorno_unico_checks_jsonb'
+    migrate_to = '0045_dados_termo_lgpd_autoria'
+
+    def preparar(self, apps):
+        Usuario = apps.get_model(APP, 'Usuario')
+        Cliente = apps.get_model(APP, 'Cliente')
+        Profissional = apps.get_model(APP, 'Profissional')
+        Procedimento = apps.get_model(APP, 'Procedimento')
+        Atendimento = apps.get_model(APP, 'Atendimento')
+        AnotacaoSessao = apps.get_model(APP, 'AnotacaoSessao')
+        Notificacao = apps.get_model(APP, 'Notificacao')
+        RegraComissao = apps.get_model(APP, 'RegraComissao')
+
+        autora = Usuario.objects.create(email='dra@x.com', nome='Dra. Clara', password='!', papel='PROFISSIONAL')
+        cli = Cliente.objects.create(nome='Cliente', telefone='11911112222')
+        prof = Profissional.objects.create(nome='Prof')
+        proc = Procedimento.objects.create(nome='Peeling', duracao_minutos=30)
+        ini = timezone.now() + timedelta(days=5)
+        at = Atendimento.objects.create(cliente=cli, profissional=prof, procedimento=proc, status='AGENDADO',
+                                        data_hora_inicio=ini, data_hora_fim=ini + timedelta(minutes=30))
+        self.nota = AnotacaoSessao.objects.create(atendimento=at, autor=autora, texto='Nota')
+        self.nota_sistema = AnotacaoSessao.objects.create(atendimento=at, autor=None, texto='Automatica')
+        self.n_termo = Notificacao.objects.create(atendimento=at, tipo='LEMBRETE', canal='EMAIL', token='tk-termo')
+        self.n_whats = Notificacao.objects.create(atendimento=at, tipo='LEMBRETE', canal='WHATSAPP', token='tk-d1')
+        # antes da 0044 nao havia CHECK de 0..100
+        self.regra = RegraComissao.objects.create(percentual=Decimal('150'), ativo=True)
+
+    def test_autoria_tokens_de_termo_percentual_e_termo_lgpd(self):
+        from aranha_estetica.constants import TERMO_LGPD_CONTEUDO, TERMO_LGPD_VERSAO
+
+        AnotacaoSessao = self.apps.get_model(APP, 'AnotacaoSessao')
+        self.assertEqual(AnotacaoSessao.objects.get(pk=self.nota.pk).autor_nome, 'Dra. Clara')
+        self.assertEqual(AnotacaoSessao.objects.get(pk=self.nota_sistema.pk).autor_nome, '')
+
+        Notificacao = self.apps.get_model(APP, 'Notificacao')
+        self.assertEqual(Notificacao.objects.get(pk=self.n_termo.pk).tipo, 'TERMO')
+        self.assertEqual(Notificacao.objects.get(pk=self.n_whats.pk).tipo, 'LEMBRETE')
+
+        RegraComissao = self.apps.get_model(APP, 'RegraComissao')
+        self.assertEqual(RegraComissao.objects.get(pk=self.regra.pk).percentual, Decimal('100'))
+        LogAuditoria = self.apps.get_model(APP, 'LogAuditoria')
+        self.assertTrue(LogAuditoria.objects.filter(tabela='regra_comissao', registro_id=self.regra.pk).exists())
+
+        # banco em operacao sem termo LGPD ganha a v1.0 (resumo da politica)
+        VersaoTermo = self.apps.get_model(APP, 'VersaoTermo')
+        termo = VersaoTermo.objects.get(tipo='LGPD', procedimento__isnull=True, ativa=True)
+        self.assertEqual(termo.versao, TERMO_LGPD_VERSAO)
+        self.assertEqual(termo.conteudo, TERMO_LGPD_CONTEUDO)
+        self.assertIn('/politica-de-privacidade/', termo.conteudo)
+
+
+class TermoLgpdBancoNovo0045Tests(_MigracaoBase):
+    migrate_from = '0044_prova_aceite_autoria_anotacao_ajustes'
+    migrate_to = '0045_dados_termo_lgpd_autoria'
+
+    def preparar(self, apps):
+        pass
+
+    def test_banco_sem_clientes_nao_recebe_termo(self):
+        # dev/testes/instalacao limpa: termo vem do seed ou do painel
+        VersaoTermo = self.apps.get_model(APP, 'VersaoTermo')
+        self.assertFalse(VersaoTermo.objects.exists())

@@ -1,6 +1,4 @@
 # aranha_estetica/models/procedimentos.py — Procedimentos, precos, promocoes
-from datetime import date
-
 from django.db import models
 from django.utils import timezone
 
@@ -111,7 +109,9 @@ class Preco(models.Model):
     )
     valor = models.DecimalField(max_digits=10, decimal_places=2)
     descricao = models.TextField(blank=True, null=True)
-    vigente_desde = models.DateField(default=date.today)
+    # localdate: date.today usa o relogio do container (UTC) — apos 21h BRT
+    # gravaria a vigencia de amanha
+    vigente_desde = models.DateField(default=timezone.localdate)
 
     class Meta:
         managed = True

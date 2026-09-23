@@ -7,7 +7,7 @@ em views/services/admin. Historico no git se precisar ressuscitar.
 from decimal import Decimal
 
 from django.conf import settings
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from .mixins import TimestampedMixin
@@ -122,8 +122,8 @@ class RegraComissao(TimestampedMixin):
     )
     percentual = models.DecimalField(
         max_digits=5, decimal_places=2, blank=True, null=True,
-        validators=[MinValueValidator(Decimal('0.00'))],
-        help_text='Ex: 30.00 para 30%. Se preenchido, valor deve ser nulo.',
+        validators=[MinValueValidator(Decimal('0.00')), MaxValueValidator(Decimal('100.00'))],
+        help_text='Ex: 30.00 para 30% (0 a 100). Se preenchido, valor deve ser nulo.',
     )
     valor = models.DecimalField(
         max_digits=10, decimal_places=2, blank=True, null=True,
@@ -145,6 +145,14 @@ class RegraComissao(TimestampedMixin):
                     )
                 ),
                 name='chk_regra_comissao_percentual_xor_fixo',
+            ),
+            # comissao nao passa do valor do atendimento (espelha chk_promocao_desconto_0_100)
+            models.CheckConstraint(
+                check=(
+                    models.Q(percentual__isnull=True) |
+                    (models.Q(percentual__gte=0) & models.Q(percentual__lte=100))
+                ),
+                name='chk_regra_comissao_percentual_0_100',
             ),
         ]
         indexes = [

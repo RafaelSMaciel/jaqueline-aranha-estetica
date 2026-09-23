@@ -6,11 +6,13 @@ from django.test import TestCase
 from django.utils import timezone
 
 from aranha_estetica.models import (
+    AceiteTermo,
     AvaliacaoNPS,
     BloqueioAgenda,
     ListaEspera,
     Notificacao,
     Promocao,
+    VersaoTermo,
 )
 
 from .factories import (
@@ -102,3 +104,12 @@ class ModelStrTests(TestCase):
             data_fim=timezone.now().date() + timedelta(days=7),
         )
         self.assertEqual(str(promo), 'Black Friday')
+
+    def test_versao_termo_e_aceite_str_legiveis(self):
+        termo = VersaoTermo.objects.create(
+            tipo='LGPD', titulo='Privacidade', conteudo='x', versao='2.1',
+            vigente_desde=timezone.localdate(),
+        )
+        self.assertEqual(str(termo), 'LGPD / Privacidade v2.1')
+        aceite = AceiteTermo.registrar(self.cliente, termo)
+        self.assertIn('LGPD / Privacidade v2.1', str(aceite))
