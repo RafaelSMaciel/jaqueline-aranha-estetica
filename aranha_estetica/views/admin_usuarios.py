@@ -20,7 +20,7 @@ from ..decorators import staff_required
 from ..models import Profissional, Usuario
 from ..utils.audit import registrar_log
 from ..utils.branding import get_branding
-from .auth import email_configurado
+from ..utils.email import email_configurado
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +161,7 @@ def admin_criar_usuario(request):
         registrar_log(
             request.user, f'Criou usuario: {usuario.email}',
             'usuario', usuario.pk,
-            detalhes={'papel': papel, 'profissional_id': profissional_id},
+            detalhes={'papel': papel, 'profissional_id': profissional_id}, request=request,
         )
 
         if senha:
@@ -232,6 +232,7 @@ def admin_editar_usuario(request, pk):
         registrar_log(
             request.user, f'Editou usuario: {usuario.email}', 'usuario', usuario.pk,
             detalhes={'papel': novo_papel, 'ativo': novo_ativo, 'profissional_id': profissional_id},
+            request=request,
         )
         messages.success(request, 'Usuário atualizado.')
         return redirect('aranha:admin_usuarios')
@@ -264,7 +265,9 @@ def admin_resetar_senha_usuario(request, pk):
     try:
         msg = EmailMultiAlternatives(assunto, corpo_txt, to=[usuario.email])
         msg.send(fail_silently=False)
-        registrar_log(request.user, f'Enviou reset senha: {usuario.email}', 'usuario', usuario.pk)
+        registrar_log(
+            request.user, f'Enviou reset senha: {usuario.email}', 'usuario', usuario.pk, request=request,
+        )
         messages.success(request, f'E-mail de redefinição enviado para {usuario.email}.')
     except Exception:
         logger.warning('admin_reset_senha_envio_falhou', extra={'usuario_id': usuario.pk}, exc_info=True)
@@ -284,7 +287,7 @@ def admin_desativar_usuario(request, pk):
     usuario.ativo = not usuario.ativo
     usuario.save(update_fields=['ativo'])
     acao = 'Ativou' if usuario.ativo else 'Desativou'
-    registrar_log(request.user, f'{acao} usuario: {usuario.email}', 'usuario', usuario.pk)
+    registrar_log(request.user, f'{acao} usuario: {usuario.email}', 'usuario', usuario.pk, request=request)
     messages.success(request, f'{acao} {usuario.nome}.')
     return redirect('aranha:admin_usuarios')
 

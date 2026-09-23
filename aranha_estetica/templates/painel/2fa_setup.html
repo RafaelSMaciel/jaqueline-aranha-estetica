@@ -57,8 +57,9 @@
       Abra <strong>Google Authenticator</strong>, <strong>Authy</strong> ou <strong>Microsoft Authenticator</strong> e escaneie:
     </p>
     <div class="text-center p-6 bg-[#f5efe8] rounded-2xl mb-2">
-      <img src="data:image/png;base64,{{ qr_b64 }}" alt="QR code TOTP"
-           class="max-w-[240px] border-[6px] border-white rounded-xl shadow-md mx-auto">
+      {# SVG (sem Pillow na imagem de producao); w-full escala o viewBox ate 240px #}
+      <img src="data:image/svg+xml;base64,{{ qr_b64 }}" alt="QR code TOTP" width="240" height="240"
+           class="w-full max-w-[240px] border-[6px] border-white rounded-xl shadow-md mx-auto">
     </div>
     <details>
       <summary class="cursor-pointer text-marca font-bold text-[0.85rem]">

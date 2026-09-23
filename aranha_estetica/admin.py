@@ -1,6 +1,7 @@
 # aranha_estetica/admin.py
 from django import forms
 from django.contrib import admin, messages
+from django.contrib.admin.utils import unquote
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.contrib.auth.forms import BaseUserCreationForm, UserChangeForm
 from django.db import transaction
@@ -20,6 +21,8 @@ from .models import (
     RegraComissao, MovimentoComissao,
     Usuario,
 )
+from .utils.audit import registrar_log
+from .utils.busca import q_busca_cliente
 
 
 # =====================================================================
@@ -163,8 +166,31 @@ class PromocaoAdmin(admin.ModelAdmin):
 # CLIENTES
 # =====================================================================
 
+_CONSENTS = ('consent_email_marketing', 'consent_whatsapp_nps', 'consent_whatsapp_confirmacao')
+
+
+class ClienteAdminForm(forms.ModelForm):
+    """Consentimento e prova do titular (LGPD art. 8): aqui so se revoga."""
+
+    class Meta:
+        model = Cliente
+        fields = '__all__'
+
+    def clean(self):
+        dados = super().clean()
+        for campo in _CONSENTS:
+            if dados.get(campo) and not getattr(self.instance, campo, False):
+                self.add_error(
+                    campo,
+                    'Consentimento só pode ser dado pela própria cliente (agendamento ou link). '
+                    'Aqui é possível apenas revogar.',
+                )
+        return dados
+
+
 @admin.register(Cliente)
 class ClienteAdmin(admin.ModelAdmin):
+    form = ClienteAdminForm
     list_display = (
         'nome', 'telefone', 'email', 'faltas_consecutivas',
         'bloqueado_online', 'ativo', 'aceita_comunicacao', 'criado_em',
@@ -173,7 +199,13 @@ class ClienteAdmin(admin.ModelAdmin):
     search_fields = ('nome', 'telefone', 'email', 'cpf')
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
-    readonly_fields = ('criado_em', 'atualizado_em', 'deletado_em', 'token_descadastro')
+    # Data/IP do consentimento sao evidencia gravada no aceite: nunca editaveis.
+    readonly_fields = (
+        'criado_em', 'atualizado_em', 'deletado_em', 'token_descadastro',
+        'consent_email_marketing_em', 'consent_email_marketing_ip',
+        'consent_whatsapp_nps_em', 'consent_whatsapp_nps_ip',
+        'consent_whatsapp_confirmacao_em', 'consent_whatsapp_confirmacao_ip',
+    )
     list_per_page = 50
     fieldsets = (
         ('Identificacao', {
@@ -192,6 +224,8 @@ class ClienteAdmin(admin.ModelAdmin):
             'fields': (
                 'consent_email_marketing', 'consent_email_marketing_em', 'consent_email_marketing_ip',
                 'consent_whatsapp_nps', 'consent_whatsapp_nps_em', 'consent_whatsapp_nps_ip',
+                'consent_whatsapp_confirmacao', 'consent_whatsapp_confirmacao_em',
+                'consent_whatsapp_confirmacao_ip',
             ),
         }),
         ('Metadados', {
@@ -205,6 +239,13 @@ class ClienteAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return Cliente.all_objects.get_queryset()
+
+    def get_search_results(self, request, queryset, search_term):
+        # Telefone/CPF sao gravados so com digitos: '(17) 99999-0001' e
+        # '529.982.247-25' precisam da mesma busca do painel.
+        if not search_term.strip():
+            return super().get_search_results(request, queryset, search_term)
+        return queryset.filter(q_busca_cliente(search_term)), False
 
     def get_actions(self, request):
         # delete_selected faz QuerySet.delete() (hard-delete em cascata),
@@ -227,7 +268,7 @@ class ClienteAdmin(admin.ModelAdmin):
         count = 0
         with transaction.atomic():
             for cliente in queryset:
-                LgpdService.esquecer_cliente(cliente)
+                LgpdService.esquecer_cliente(cliente, usuario=request.user, request=request)
                 count += 1
         self.message_user(request, f'{count} cliente(s) anonimizado(s).', messages.SUCCESS)
 
@@ -246,17 +287,55 @@ class ClienteAdmin(admin.ModelAdmin):
 # PRONTUARIO
 # =====================================================================
 
+class _SomenteLeituraMixin:
+    """Registro que o Django admin so exibe: sem incluir, editar ou apagar."""
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+class _LeituraClinicaAuditadaMixin(_SomenteLeituraMixin):
+    """Dado de saude (LGPD art. 11): so leitura e cada abertura vai p/ a auditoria.
+
+    Edicao so pelo painel (prontuario/anotar), que registra o autor; correcao
+    de anotacao vira nova anotacao (append-only).
+    """
+
+    def _log_leitura(self, request, obj):
+        raise NotImplementedError
+
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        resposta = super().change_view(request, object_id, form_url, extra_context)
+        if request.method == 'GET' and resposta.status_code == 200:
+            obj = self.get_object(request, unquote(object_id))
+            if obj is not None:
+                self._log_leitura(request, obj)
+        return resposta
+
+
 @admin.register(Prontuario)
-class ProntuarioAdmin(admin.ModelAdmin):
+class ProntuarioAdmin(_LeituraClinicaAuditadaMixin, admin.ModelAdmin):
     list_display = ('cliente', 'atualizado_em')
     search_fields = ('cliente__nome',)
     ordering = ('-atualizado_em',)
     autocomplete_fields = ('cliente',)
     list_select_related = ('cliente',)
 
+    def _log_leitura(self, request, obj):
+        registrar_log(
+            request.user, 'Visualizou prontuario (django-admin)', 'prontuario', obj.cliente_id,
+            request=request,
+        )
+
 
 @admin.register(AnotacaoSessao)
-class AnotacaoSessaoAdmin(admin.ModelAdmin):
+class AnotacaoSessaoAdmin(_LeituraClinicaAuditadaMixin, admin.ModelAdmin):
     list_display = ('atendimento', 'autor', 'criado_em')
     search_fields = ('atendimento__cliente__nome', 'texto')
     ordering = ('-criado_em',)
@@ -264,13 +343,55 @@ class AnotacaoSessaoAdmin(admin.ModelAdmin):
     autocomplete_fields = ('atendimento', 'autor')
     list_select_related = ('atendimento', 'atendimento__cliente', 'autor')
 
+    def _log_leitura(self, request, obj):
+        registrar_log(
+            request.user, 'Visualizou anotacao de sessao (django-admin)', 'anotacao_sessao', obj.pk,
+            detalhes={'atendimento_id': obj.atendimento_id}, request=request,
+        )
+
 
 # =====================================================================
 # TERMOS DE CONSENTIMENTO
 # =====================================================================
 
+def _versao_tem_aceites(obj) -> bool:
+    return (
+        obj is not None and obj.pk is not None
+        and AceiteTermo.objects.filter(versao_termo=obj).exists()
+    )
+
+
+class VersaoTermoAdminForm(forms.ModelForm):
+    class Meta:
+        model = VersaoTermo
+        fields = '__all__'
+
+    def clean(self):
+        dados = super().clean()
+        # Com tipo/procedimento so-leitura (versao ja aceita) o Django pula a
+        # UniqueConstraint (1 ativa por escopo) e reativar daria IntegrityError/500.
+        if 'tipo' in self.fields:
+            return dados  # campos editaveis: o validate_constraints do Django cobre
+        inst = self.instance
+        if dados.get('ativa') and inst.tipo:
+            outras = VersaoTermo.objects.filter(
+                tipo=inst.tipo, procedimento=inst.procedimento, ativa=True,
+            ).exclude(pk=inst.pk)
+            if outras.exists():
+                raise forms.ValidationError(
+                    'Já existe uma versão ativa deste termo. Desative-a antes de ativar esta.'
+                )
+        return dados
+
+
 @admin.register(VersaoTermo)
 class VersaoTermoAdmin(admin.ModelAdmin):
+    """Versao ja aceita e prova do que a cliente aceitou (LGPD art. 8 §2).
+
+    Com aceites o texto fica congelado (so da para desativar); corrigir o
+    texto = publicar uma versao nova.
+    """
+    form = VersaoTermoAdminForm
     list_display = ('titulo', 'tipo', 'versao', 'procedimento', 'vigente_desde', 'ativa')
     list_filter = ('tipo', 'ativa')
     search_fields = ('titulo', 'procedimento__nome', 'versao')
@@ -278,10 +399,29 @@ class VersaoTermoAdmin(admin.ModelAdmin):
     autocomplete_fields = ('procedimento',)
     list_select_related = ('procedimento',)
 
+    def get_readonly_fields(self, request, obj=None):
+        campos = tuple(super().get_readonly_fields(request, obj))
+        if not _versao_tem_aceites(obj):
+            return campos
+        congelados = tuple(
+            f.name for f in self.model._meta.fields
+            if f.editable and not f.primary_key and f.name != 'ativa' and f.name not in campos
+        )
+        return campos + congelados
+
+    def has_delete_permission(self, request, obj=None):
+        if _versao_tem_aceites(obj):
+            return False
+        return super().has_delete_permission(request, obj)
+
 
 @admin.register(AceiteTermo)
-class AceiteTermoAdmin(admin.ModelAdmin):
-    """Unificado (fase 6): LGPD e procedimento — tipo via versao_termo."""
+class AceiteTermoAdmin(_SomenteLeituraMixin, admin.ModelAdmin):
+    """Unificado (fase 6): LGPD e procedimento — tipo via versao_termo.
+
+    Evidencia legal (retencao longa): so o fluxo de aceite grava; o admin
+    apenas consulta (nada de fabricar/alterar aceite, IP ou user-agent).
+    """
     list_display = ('cliente', 'versao_termo', 'atendimento', 'ip', 'criado_em')
     list_filter = ('versao_termo__tipo',)
     search_fields = ('cliente__nome', 'versao_termo__titulo')

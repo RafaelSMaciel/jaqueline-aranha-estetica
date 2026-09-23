@@ -4,12 +4,18 @@ Cobre: bypass do 2FA na tela de seguranca, rotas publicas do two_factor,
 Django admin via fluxo 2FA do painel, 2FA obrigatorio p/ ADMIN + /api/,
 login de PROFISSIONAL, reset de senha (500 + e-mail), logout so via POST,
 telas de usuario (500 form_data, form aninhado, auto-rebaixamento) e o
-Django admin (senha em texto puro, hard-delete, auditoria apagavel).
+Django admin (senha em texto puro, hard-delete, auditoria apagavel, prova de
+consentimento e dado clinico so-leitura) e QR do 2FA sem Pillow.
 """
+import base64
 import re
+import sys
+import tempfile
 import time
-from datetime import timedelta
+from contextlib import contextmanager
+from datetime import date, timedelta
 from html.parser import HTMLParser
+from pathlib import Path
 
 from django.contrib import admin as django_admin
 from django.core import mail
@@ -21,9 +27,41 @@ from django_otp.oath import TOTP
 from django_otp.plugins.otp_static.models import StaticDevice, StaticToken
 from django_otp.plugins.otp_totp.models import TOTPDevice
 
-from aranha_estetica.models import Cliente, LogAuditoria, Profissional, Usuario
+from aranha_estetica.models import (
+    AceiteTermo, AnotacaoSessao, Cliente, LogAuditoria, Profissional, Prontuario, Usuario,
+    VersaoTermo,
+)
 
 SENHA = 'Senha-Forte-2026!'
+
+_AUSENTE = object()
+
+
+@contextmanager
+def _sem_pillow():
+    """Simula a imagem de producao (python:3.12-slim SEM Pillow).
+
+    None em sys.modules faz `import PIL`/`from qrcode.image.pil import ...`
+    levantar ImportError — o caminho PNG padrao do qrcode quebraria (500).
+    """
+    bloqueados = ('PIL', 'PIL.Image', 'PIL.ImageDraw', 'qrcode.image.pil')
+    salvos = {nome: sys.modules.get(nome, _AUSENTE) for nome in bloqueados}
+    try:
+        for nome in bloqueados:
+            sys.modules[nome] = None
+        yield
+    finally:
+        for nome, mod in salvos.items():
+            if mod is _AUSENTE:
+                sys.modules.pop(nome, None)
+            else:
+                sys.modules[nome] = mod
+
+
+def _qr_svg(html):
+    """Decodifica o QR (data URI SVG) da tela de cadastro do 2FA."""
+    m = re.search(r'data:image/svg\+xml;base64,([A-Za-z0-9+/=]+)', html)
+    return base64.b64decode(m.group(1)).decode() if m else ''
 
 
 class TestCase(_TestCase):
@@ -325,6 +363,25 @@ class ResetSenhaTests(TestCase):
         self.assertRedirects(resp, reverse('aranha:password_reset_done'))
         self.assertEqual(len(mail.outbox), 0)
 
+    def test_filebased_nao_conta_como_entrega(self):
+        # gap4-06: o link de senha iria p/ o disco efemero do container
+        with tempfile.TemporaryDirectory() as pasta, override_settings(
+            DEBUG=False, EMAIL_BACKEND='django.core.mail.backends.filebased.EmailBackend',
+            EMAIL_FILE_PATH=pasta,
+        ):
+            resp = Client().post(self.url, {'email': 'adm@test.com'})
+            self.assertRedirects(resp, reverse('aranha:password_reset_done'))
+            self.assertEqual(list(Path(pasta).iterdir()), [])
+
+    def test_um_so_contrato_de_email_configurado(self):
+        from importlib import import_module
+        from aranha_estetica.utils import email as email_utils
+        # views/__init__ reexporta as funcoes com o mesmo nome dos modulos
+        for modulo in ('auth', 'admin_usuarios'):
+            with self.subTest(modulo=modulo):
+                mod = import_module(f'aranha_estetica.views.{modulo}')
+                self.assertIs(mod.email_configurado, email_utils.email_configurado)
+
 
 # ─── logout so via POST ───
 
@@ -509,6 +566,15 @@ class SwaggerTests(TestCase):
         html = resp.content.decode()
         self.assertIsNone(re.search(r'<script>(?!\s*</script>)', html), 'script inline sem nonce')
         self.assertIn('?script', html)
+        # swagger-ui vem do CDN: a CSP (restrita por caminho) precisa liberar
+        from .test_csp import _diretiva, permitido_pela_csp
+        csp = resp.headers['Content-Security-Policy']
+        for tag, url in re.findall(r'<(script|link)\b[^>]*?(?:src|href)="(https://[^"]+)"', html):
+            if tag == 'link' and url.endswith('.png'):
+                continue  # favicon: img-src https:
+            diretiva = _diretiva(csp, 'script-src' if tag == 'script' else 'style-src')
+            with self.subTest(url=url):
+                self.assertTrue(permitido_pela_csp(url, diretiva), f'{url} bloqueada pela CSP')
 
 
 # ─── Telas de auth/2FA renderizam (CSP-safe, sem 500) ───
@@ -537,7 +603,9 @@ class TelasAuthRenderTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'Ativar 2FA agora')
         resp = c.post(url, {'acao': 'gerar'}, follow=True)
-        self.assertContains(resp, 'data:image/png;base64,')
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'data:image/svg+xml;base64,')
+        self.assertEqual(c.get(url).status_code, 200)
         # "Gerar novo QR" nao pode exigir o codigo (validacao HTML5 do input required)
         self.assertRegex(resp.content.decode(), r'value="gerar"\s+formnovalidate')
         pendente = TOTPDevice.objects.get(user=admin_user, confirmed=False)
@@ -561,3 +629,150 @@ class TelasAuthRenderTests(TestCase):
         c = Client()
         c.force_login(user)
         self.assertEqual(c.get(reverse('aranha:admin_2fa_setup')).status_code, 200)
+
+
+# ─── gap4-01: QR do cadastro de 2FA sem Pillow (imagem de producao) ───
+
+@override_settings(ADMIN_2FA_OBRIGATORIO=True)
+class Setup2FASemPillowTests(TestCase):
+    def test_admin_obrigatorio_cadastra_2fa_sem_pillow(self):
+        _admin()
+        c = Client()
+        url = reverse('aranha:admin_2fa_setup')
+        with _sem_pillow():
+            resp = c.post(reverse('aranha:usuario_login'), {'username': 'adm@test.com', 'password': SENHA})
+            self.assertIn(url, resp['Location'])
+            c.post(url, {'acao': 'gerar'})
+            resp = c.get(url)
+            self.assertEqual(resp.status_code, 200)
+            svg = _qr_svg(resp.content.decode())
+            self.assertIn('<svg', svg)
+            self.assertIn('fill="white"', svg)  # fundo claro p/ o leitor do app
+            pendente = TOTPDevice.objects.get(user__email='adm@test.com', confirmed=False)
+            c.post(url, {'acao': 'confirmar', 'token': _token(pendente)})
+            self.assertEqual(c.get(reverse('aranha:painel_overview')).status_code, 200)
+
+
+# ─── gap1-02 / gap2-07: prova de consentimento e dado clinico no Django admin ───
+
+class DjangoAdminEvidenciasTests(TestCase):
+    def setUp(self):
+        super().setUp()
+        from .factories import criar_atendimento, criar_cliente, criar_procedimento, criar_profissional
+        self.admin = _admin()
+        device = _com_totp(self.admin)
+        self.c = Client()
+        self.c.force_login(self.admin)
+        self.c.post(reverse('aranha:admin_2fa_verify'), {'token': _token(device)})
+        prof = criar_profissional()
+        self.proc = criar_procedimento(profissional=prof)
+        self.cliente = criar_cliente(telefone='17999990001')
+        self.atd = criar_atendimento(self.cliente, prof, self.proc)
+        self.versao = VersaoTermo.objects.create(
+            tipo='PROCEDIMENTO', procedimento=self.proc, titulo='Termo Limpeza',
+            conteudo='Texto aceito pela cliente.', versao='1.0', vigente_desde=date(2026, 1, 1),
+        )
+
+    def _url(self, modelo, acao, pk=None):
+        base = f'/django-admin-sv/aranha_estetica/{modelo}/'
+        return f'{base}{pk}/{acao}/' if pk else f'{base}{acao}/'
+
+    def test_anotacao_de_sessao_so_leitura_e_leitura_auditada(self):
+        anot = AnotacaoSessao.objects.create(atendimento=self.atd, autor=self.admin, texto='Pele sensível.')
+        self.assertEqual(self.c.get(self._url('anotacaosessao', 'add')).status_code, 403)
+        resp = self.c.post(self._url('anotacaosessao', 'change', anot.pk), {
+            'atendimento': self.atd.pk, 'autor': self.admin.pk, 'texto': 'reescrito',
+        })
+        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(self.c.post(self._url('anotacaosessao', 'delete', anot.pk), {'post': 'yes'}).status_code, 403)
+        anot.refresh_from_db()
+        self.assertEqual(anot.texto, 'Pele sensível.')
+        resp = self.c.get(self._url('anotacaosessao', 'change', anot.pk))
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotContains(resp, 'name="texto"')
+        self.assertTrue(LogAuditoria.objects.filter(
+            tabela='anotacao_sessao', registro_id=anot.pk, acao__icontains='django-admin',
+        ).exists())
+
+    def test_prontuario_so_leitura_e_leitura_auditada(self):
+        pront = Prontuario.objects.create(cliente=self.cliente, alergias='Dipirona')
+        resp = self.c.post(self._url('prontuario', 'change', pront.pk), {
+            'cliente': self.cliente.pk, 'alergias': 'nenhuma', 'respostas_extras': '{}',
+        })
+        self.assertEqual(resp.status_code, 403)
+        pront.refresh_from_db()
+        self.assertEqual(pront.alergias, 'Dipirona')
+        self.assertEqual(self.c.get(self._url('prontuario', 'change', pront.pk)).status_code, 200)
+        self.assertTrue(LogAuditoria.objects.filter(
+            tabela='prontuario', registro_id=self.cliente.pk,
+            acao='Visualizou prontuario (django-admin)',
+        ).exists())
+
+    def test_aceite_de_termo_nao_e_criado_alterado_nem_apagado(self):
+        aceite = AceiteTermo.objects.create(cliente=self.cliente, versao_termo=self.versao, ip='10.0.0.1')
+        self.assertEqual(self.c.get(self._url('aceitetermo', 'add')).status_code, 403)
+        resp = self.c.post(self._url('aceitetermo', 'change', aceite.pk), {
+            'cliente': self.cliente.pk, 'versao_termo': self.versao.pk, 'ip': '1.2.3.4',
+        })
+        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(self.c.post(self._url('aceitetermo', 'delete', aceite.pk), {'post': 'yes'}).status_code, 403)
+        aceite.refresh_from_db()
+        self.assertEqual(aceite.ip, '10.0.0.1')
+        self.assertEqual(self.c.get(self._url('aceitetermo', 'change', aceite.pk)).status_code, 200)
+
+    def test_versao_com_aceite_congela_texto_mas_pode_desativar(self):
+        AceiteTermo.objects.create(cliente=self.cliente, versao_termo=self.versao)
+        url = self._url('versaotermo', 'change', self.versao.pk)
+        resp = self.c.get(url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotContains(resp, 'name="conteudo"')
+        self.assertContains(resp, 'name="ativa"')
+        # tentativa de adulterar o texto: campos so-leitura sao ignorados; so desativa
+        resp = self.c.post(url, {'titulo': 'X', 'conteudo': 'TEXTO ADULTERADO', 'versao': '9'})
+        self.assertEqual(resp.status_code, 302)
+        self.versao.refresh_from_db()
+        self.assertEqual(self.versao.conteudo, 'Texto aceito pela cliente.')
+        self.assertEqual(self.versao.versao, '1.0')
+        self.assertFalse(self.versao.ativa)
+        self.assertEqual(self.c.post(self._url('versaotermo', 'delete', self.versao.pk), {'post': 'yes'}).status_code, 403)
+
+    def test_versao_sem_aceite_segue_editavel(self):
+        resp = self.c.get(self._url('versaotermo', 'change', self.versao.pk))
+        self.assertContains(resp, 'name="conteudo"')
+
+    def test_reativar_versao_com_outra_ativa_mostra_erro_sem_500(self):
+        AceiteTermo.objects.create(cliente=self.cliente, versao_termo=self.versao)
+        VersaoTermo.objects.filter(pk=self.versao.pk).update(ativa=False)
+        VersaoTermo.objects.create(
+            tipo='PROCEDIMENTO', procedimento=self.proc, titulo='Termo Limpeza', conteudo='v2',
+            versao='2.0', vigente_desde=date(2026, 6, 1),
+        )
+        resp = self.c.post(self._url('versaotermo', 'change', self.versao.pk), {'ativa': 'on'})
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'Já existe uma versão ativa')
+
+    def test_cliente_consentimento_evidencia_so_leitura_e_nao_concedido_pelo_admin(self):
+        from django.forms.models import model_to_dict
+        cliente_admin = django_admin.site._registry[Cliente]
+        rf = RequestFactory().get('/')
+        rf.user = self.admin
+        readonly = cliente_admin.get_readonly_fields(rf, self.cliente)
+        for campo in ('email_marketing', 'whatsapp_nps', 'whatsapp_confirmacao'):
+            with self.subTest(campo=campo):
+                self.assertIn(f'consent_{campo}_em', readonly)
+                self.assertIn(f'consent_{campo}_ip', readonly)
+        form_cls = cliente_admin.get_form(rf, self.cliente)
+        self.assertIn('consent_whatsapp_confirmacao', form_cls.base_fields)
+        dados = {k: v for k, v in model_to_dict(self.cliente, fields=form_cls.base_fields).items() if v is not None}
+        dados['consent_email_marketing'] = True
+        form = form_cls(data=dados, instance=self.cliente)
+        self.assertFalse(form.is_valid())
+        self.assertIn('consent_email_marketing', form.errors)
+
+    def test_busca_do_admin_acha_telefone_e_cpf_com_mascara(self):
+        cliente_admin = django_admin.site._registry[Cliente]
+        rf = RequestFactory().get('/')
+        rf.user = self.admin
+        qs = cliente_admin.get_queryset(rf)
+        achados, _ = cliente_admin.get_search_results(rf, qs, '(17) 99999-0001')
+        self.assertIn(self.cliente, achados)

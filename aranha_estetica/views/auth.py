@@ -21,7 +21,11 @@ from django_ratelimit.decorators import ratelimit
 
 from ..models import Usuario
 from ..utils import dois_fatores
+from ..utils.audit import registrar_log
 from ..utils.branding import get_branding
+# Contrato unico de "e-mail sai de verdade" (sem provedor, links de senha NAO
+# podem ir para o log — falha fechada).
+from ..utils.email import email_configurado
 from ..utils.security import client_ip
 
 logger = logging.getLogger(__name__)
@@ -98,19 +102,6 @@ def _next_permitido(request, usuario):
     if not usuario.is_staff and not nxt.startswith('/profissional/'):
         return None
     return nxt
-
-
-def email_configurado() -> bool:
-    """E-mail sai de verdade? Fora de DEBUG, console/dummy/file nao contam.
-
-    Sem provedor, links de senha NAO podem ir para o log (falha fechada).
-    """
-    if settings.DEBUG:
-        return True
-    backend = getattr(settings, 'EMAIL_BACKEND', '') or ''
-    return not backend.endswith((
-        'console.EmailBackend', 'dummy.EmailBackend', 'filebased.EmailBackend',
-    ))
 
 
 @ratelimit(key='ip', rate='10/m', method='POST', block=True)
@@ -218,16 +209,12 @@ class ClinicaPasswordResetView(PasswordResetView):
         email_hash = hashlib.sha256(email.encode()).hexdigest()[:12]
         email_masked = f'***{email[-4:]}' if len(email) > 4 else '***'
         logger.info('password_reset_requested', extra={'email_hash': email_hash, 'ip': ip})
-        try:
-            from ..models import LogAuditoria
-            LogAuditoria.objects.create(
-                # PII mascarada: nao persistir email em claro na trilha de auditoria
-                acao=f'Solicitacao de reset de senha (email: {email_masked})',
-                tabela='usuario',
-                ip_origem=ip,
-            )
-        except Exception:
-            logger.warning('falha ao registrar LogAuditoria de reset de senha', exc_info=True)
+        # PII mascarada: nao persistir email em claro na trilha de auditoria.
+        # registrar_log grava o IP (client_ip) e nunca derruba a requisicao.
+        registrar_log(
+            None, f'Solicitacao de reset de senha (email: {email_masked})', 'usuario',
+            request=self.request,
+        )
 
         if not email_configurado():
             # Falha fechada: sem provedor o link iria parar no log do servidor.
@@ -262,17 +249,9 @@ class ClinicaPasswordResetConfirmView(PasswordResetConfirmView):
         user = form.user
         ip = client_ip(self.request) or None
         logger.info('password_reset_effective', extra={'user_id': user.pk, 'ip': ip})
-        try:
-            from ..models import LogAuditoria
-            LogAuditoria.objects.create(
-                usuario=user,
-                acao='Senha redefinida via reset de senha',
-                tabela='usuario',
-                registro_id=user.pk,
-                ip_origem=ip,
-            )
-        except Exception:
-            logger.warning('falha ao registrar LogAuditoria de redefinicao de senha', exc_info=True)
+        registrar_log(
+            user, 'Senha redefinida via reset de senha', 'usuario', user.pk, request=self.request,
+        )
         return super().form_valid(form)
 
 
