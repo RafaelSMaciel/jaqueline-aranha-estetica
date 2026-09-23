@@ -35,26 +35,32 @@ def _banco_liberado(databases):
 
 
 def _config_efetiva(chave, databases):
-    """Valor da env ou, com o banco liberado, da tela Branding (Configuracao).
+    """Valor efetivo: tela Branding (Configuracao, com o banco liberado) > env.
 
-    Mesma regra de utils/branding.get_branding (valor vazio no banco cai na env),
-    mas com consulta direta: nao envenena o cache do branding.
+    Mesma precedencia de utils/branding.get_branding (`db.get(chave) or env`:
+    valor salvo no banco vence a env; vazio no banco cai na env), mas com
+    consulta direta: nao envenena o cache do branding. Sem o banco liberado
+    (build/`check` puro) so a env conta.
     """
-    valor = _env(chave)
-    if valor or not _banco_liberado(databases):
-        return valor
-    try:
-        from .models import Configuracao
-        return (
-            Configuracao.objects.filter(chave=chave)
-            .values_list('valor', flat=True).first() or ''
-        ).strip()
-    except Exception:  # noqa: BLE001 — tabela ausente/banco fora: trata como vazio
-        return ''
+    if _banco_liberado(databases):
+        try:
+            from .models import Configuracao
+            valor_db = (
+                Configuracao.objects.filter(chave=chave)
+                .values_list('valor', flat=True).first()
+            )
+        except Exception:  # noqa: BLE001 — tabela ausente/banco fora: trata como vazio
+            valor_db = None
+        if valor_db:
+            return valor_db.strip()
+    return _env(chave)
 
 
 def _whatsapp_configurado(databases):
-    return any(ch.isdigit() for ch in _config_efetiva('WHATSAPP_NUMERO', databases))
+    """Mesma regra do runtime: numero que normalizar_whatsapp descarta ('123',
+    sem DDD) esconde os botoes no site — aqui conta como nao configurado."""
+    from .utils.branding import normalizar_whatsapp
+    return bool(normalizar_whatsapp(_config_efetiva('WHATSAPP_NUMERO', databases)))
 
 
 def ha_admin_utilizavel():
@@ -103,6 +109,16 @@ def check_config_producao(app_configs=None, databases=None, **kwargs):
             hint='Defina ZENVIA_API_TOKEN e ZENVIA_FROM ou oriente o cliente pelo WhatsApp.',
             id='aranha.W002',
         ))
+    elif not (_env('TURNSTILE_SECRET_KEY') and _env('TURNSTILE_SITE_KEY')):
+        # SMS real sem captcha: o OTP e obrigatorio em todo agendamento e a cota
+        # de SMS e global (utils/sms) — poucos IPs travam o booking de todos.
+        avisos.append(checks.Warning(
+            'SMS configurado sem Turnstile (TURNSTILE_SECRET_KEY + TURNSTILE_SITE_KEY): '
+            'o pedido de codigo OTP fica sem captcha e poucos IPs esgotam a cota global '
+            'de SMS (SMS_MAX_GLOBAL_HORA), travando o agendamento online de todos.',
+            hint='Crie um widget no Cloudflare Turnstile e defina as duas chaves no Railway.',
+            id='aranha.W009',
+        ))
 
     backend = getattr(settings, 'EMAIL_BACKEND', '') or ''
     if backend.endswith(_EMAIL_SEM_ENTREGA):
@@ -117,9 +133,10 @@ def check_config_producao(app_configs=None, databases=None, **kwargs):
 
     if not _whatsapp_configurado(databases):
         avisos.append(checks.Warning(
-            'WHATSAPP_NUMERO vazio: botoes/links de WhatsApp ficam ocultos, inclusive o '
-            'fallback do agendamento quando o SMS falha.',
-            hint='Defina na tela Branding do painel ou na env WHATSAPP_NUMERO (so digitos, com DDI).',
+            'WHATSAPP_NUMERO vazio ou invalido: botoes/links de WhatsApp ficam ocultos, '
+            'inclusive o fallback do agendamento quando o SMS falha.',
+            hint='Defina na tela Branding do painel ou na env WHATSAPP_NUMERO: ex.: 5517991234567, '
+                 'ou DDD+numero (10-11 digitos ganham 55 sozinho). A tela Branding vence a env.',
             id='aranha.W004',
         ))
 

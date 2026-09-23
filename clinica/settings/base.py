@@ -88,8 +88,11 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
     ],
+    # Fechado por padrao: a API e so p/ staff. Cobre a raiz do router
+    # (/api/v1/ listava os endpoints p/ PROFISSIONAL) e viewsets futuros que
+    # esquecam permission_classes; os atuais declaram IsStaff.
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
+        'rest_framework.permissions.IsAdminUser',
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
@@ -279,6 +282,14 @@ LOGOUT_REDIRECT_URL = '/'
 _2fa_obrigatorio = os.environ.get('ADMIN_2FA_OBRIGATORIO', '').strip().lower()
 if _2fa_obrigatorio:
     ADMIN_2FA_OBRIGATORIO = _2fa_obrigatorio in ('true', '1', 'yes', 'on')
+# 2FA obrigatorio tambem p/ PROFISSIONAL (le prontuario/alertas de saude, art. 11).
+# Opt-in por env (default desligado); utils/dois_fatores decide em runtime.
+PROFISSIONAL_2FA_OBRIGATORIO = (
+    os.environ.get('PROFISSIONAL_2FA_OBRIGATORIO', '').strip().lower() in ('true', '1', 'yes', 'on')
+)
+# Django admin do django_otp: nunca mostrar semente TOTP/QR/codigos de backup
+# de outro usuario (config/qrcode da 403). Reset de 2FA = `manage.py setup_2fa --force`.
+OTP_ADMIN_HIDE_SENSITIVE_DATA = True
 
 # frame-ancestors das paginas embutiveis (middleware CSP). Vazio = 'https:'.
 # Ex.: 'https://linktr.ee https://www.instagram.com'

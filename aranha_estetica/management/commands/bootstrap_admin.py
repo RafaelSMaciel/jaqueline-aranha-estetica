@@ -4,11 +4,22 @@ Roda no pre-deploy logo apos o migrate:
     ADMIN_EMAIL=... ADMIN_PASSWORD=... [ADMIN_NOME=...] python manage.py bootstrap_admin
 
 - Sem ADMIN_EMAIL/ADMIN_PASSWORD: nao faz nada.
-- Usuario inexistente: cria com papel ADMIN.
+- Usuario inexistente: cria com papel ADMIN e e-mail em minusculas (o login
+  compara o e-mail exato; o painel tambem grava em minusculas).
 - Usuario existente: garante papel ADMIN. A senha so e trocada se a conta
   estava desativada (reativacao — ex.: conta demo desligada pela migration),
   se nao tiver senha utilizavel, ou com ADMIN_PASSWORD_RESET=true / --reset-senha.
   Assim uma troca de senha feita no painel nao e desfeita a cada deploy.
+- Conta desativada ou rebaixada no painel com OUTRO admin ativo: mantida como
+  esta (decisao da equipe — saida da pessoa, suspeita de invasao). So volta a
+  ADMIN ativo em lockout (nenhum admin utilizavel) ou com reset explicito.
+- Reativacao (conta desativada ou sem senha utilizavel): remove os devices de
+  2FA da conta — o TOTP/codigos de backup cadastrados por quem usou a senha
+  antiga (ex.: senha publica da conta demo) nao podem valer p/ o dono. O
+  proximo login cai no cadastro obrigatorio de 2FA. Reset com a conta ativa
+  mantem o 2FA.
+- ADMIN_PASSWORD fica em texto puro na env: tire-a do Railway depois do 1o
+  deploy (sem ela o comando nao faz nada).
 - Senha fraca (validadores do Django) ou erro: avisa em stderr e sai com 0 —
   nunca derruba o pre-deploy (as migrations ja foram aplicadas).
 - Ao final, se nao sobrou nenhum ADMIN ativo com senha utilizavel (ex.: a
@@ -24,6 +35,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from aranha_estetica.checks import ha_admin_utilizavel
+from aranha_estetica.utils.audit import registrar_log
 from aranha_estetica.utils.security import mask_email
 
 
@@ -73,9 +85,19 @@ class Command(BaseCommand):
             user = Usuario.objects.select_for_update().filter(email__iexact=email).first()
             criar = user is None
             if criar:
-                user = Usuario(email=Usuario.objects.normalize_email(email), nome=nome)
+                # normalize_email so baixava o dominio: 'Dona@Clinica.com' virava
+                # 'Dona@clinica.com' e o login com 'dona@clinica.com' falhava.
+                user = Usuario(email=email.lower(), nome=nome)
+            elif (not reset and (not user.ativo or user.papel != Usuario.PAPEL_ADMIN)
+                    and ha_admin_utilizavel()):
+                self.stderr.write(
+                    f'bootstrap_admin: {alvo} esta desativado ou sem papel ADMIN no painel e ha '
+                    'outro admin ativo: mantido. Use ADMIN_PASSWORD_RESET=true p/ restaurar.'
+                )
+                return
 
-            trocar_senha = criar or reset or not user.ativo or not user.has_usable_password()
+            reativando = not criar and (not user.ativo or not user.has_usable_password())
+            trocar_senha = criar or reset or reativando
             if trocar_senha:
                 try:
                     validate_password(senha, user)
@@ -96,6 +118,11 @@ class Command(BaseCommand):
                 mudou = True
             if mudou:
                 user.save()
+            if reativando and self._remover_2fa(user):
+                registrar_log(None, 'bootstrap_admin: 2FA removido na reativacao', 'usuario', user.pk)
+                self.stdout.write(
+                    f'bootstrap_admin: 2FA antigo de {alvo} removido (cadastre de novo no 1o login).'
+                )
 
         if criar:
             msg = f'bootstrap_admin: admin {alvo} criado.'
@@ -104,3 +131,13 @@ class Command(BaseCommand):
         else:
             msg = f'bootstrap_admin: admin {alvo} ja existe e esta ok (senha mantida).'
         self.stdout.write(self.style.SUCCESS(msg))
+
+    @staticmethod
+    def _remover_2fa(user) -> bool:
+        """Apaga todos os devices OTP da conta (TOTP, backup...). True se havia algum."""
+        from django_otp import devices_for_user
+
+        devices = list(devices_for_user(user, confirmed=None))
+        for device in devices:
+            device.delete()
+        return bool(devices)

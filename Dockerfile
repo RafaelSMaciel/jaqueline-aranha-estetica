@@ -26,8 +26,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
-COPY requirements.txt .
-RUN pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt
+# requirements.lock fixa as transitivas (kombu, cryptography, django-otp...):
+# a imagem sai igual ao que o CI testou, build apos build do mesmo commit.
+COPY requirements.txt requirements.lock ./
+RUN pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt -c requirements.lock
 
 
 # ─── Stage 2: runtime (imagem final, leve) ──────────────────────────────
@@ -50,7 +52,7 @@ WORKDIR /app
 
 # Instala wheels pré-compilados do builder (sem build-essential)
 COPY --from=builder /wheels /wheels
-RUN pip install --no-cache /wheels/* \
+RUN pip install --no-index --no-cache /wheels/* \
     && rm -rf /wheels
 
 # Smoke do QR do cadastro de 2FA (obrigatorio p/ ADMIN): a imagem NAO tem
@@ -81,4 +83,6 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 # 1 worker x 4 threads: cache LocMem (rate-limit, lock de slot, quota de SMS) e
 # por processo; mais workers so com REDIS_URL. Migrations rodam no pre-deploy
 # (railway.json: migrate_atomico + bootstrap_admin), nao no start.
-CMD ["sh", "-c", "exec gunicorn clinica.wsgi --bind 0.0.0.0:${PORT:-8080} --workers ${WEB_CONCURRENCY:-1} --threads ${WEB_THREADS:-4} --timeout ${WEB_TIMEOUT:-120} --access-logfile - --error-logfile -"]
+# LoggerSemTokens: access log com tokens de link magico/reset redigidos
+# ([token]). O startCommand do railway.json sobrescreve este CMD: mudar os dois.
+CMD ["sh", "-c", "exec gunicorn clinica.wsgi --bind 0.0.0.0:${PORT:-8080} --workers ${WEB_CONCURRENCY:-1} --threads ${WEB_THREADS:-4} --timeout ${WEB_TIMEOUT:-120} --access-logfile - --error-logfile - --logger-class clinica.gunicorn_logger.LoggerSemTokens"]

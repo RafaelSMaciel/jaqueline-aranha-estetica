@@ -26,8 +26,11 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-          cache-dependency-path: requirements*.txt
-      - run: pip install -r requirements-dev.txt
+          cache-dependency-path: |
+            requirements*.txt
+            requirements.lock
+      # -c requirements.lock: mesmas versoes (inclusive transitivas) da imagem de prod
+      - run: pip install -r requirements-dev.txt -c requirements.lock
       - name: manage.py check
         run: python manage.py check
       - name: Migrations em dia com os models
@@ -62,14 +65,20 @@ jobs:
     env:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/ci
       TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/ci
+      # A imagem postgres:18 tem ICU: a collation pt_br (0038) e obrigatoria aqui
+      # (tests/test_pg_ddl.py reprova se ela sumir, em vez de pular).
+      PG_EXIGE_ICU: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-          cache-dependency-path: requirements*.txt
-      - run: pip install -r requirements-dev.txt
+          cache-dependency-path: |
+            requirements*.txt
+            requirements.lock
+      # -c requirements.lock: mesmas versoes (inclusive transitivas) da imagem de prod
+      - run: pip install -r requirements-dev.txt -c requirements.lock
       # Ramos so-Postgres das migrations (CHECK regex, EXCLUDE/btree_gist, GIN,
       # trigger, collation ICU) nunca rodam no SQLite. Mesmo comando do pre-deploy.
       - name: migrate_atomico do zero (transacao unica)
@@ -77,7 +86,8 @@ jobs:
       - name: bootstrap_admin (sem env so avisa em stderr; sai com 0)
         run: python manage.py bootstrap_admin
       # Bloqueante: regressao que so aparece no Postgres (EXCLUDE, CHECK, trigger,
-      # migrate atomico) nao pode entrar verde.
+      # collation, migrate atomico) nao pode entrar verde — tests/test_pg_ddl.py
+      # confere cada objeto so-Postgres das migrations (no SQLite ele e pulado).
       - name: Suite Django no Postgres
         run: python manage.py test aranha_estetica
 
@@ -113,4 +123,5 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: pip install pip-audit==2.10.1
-      - run: pip-audit -r requirements.txt --progress-spinner off
+      # Lock completo (transitivas inclusas), versoes ja fixas: sem resolver de novo
+      - run: pip-audit -r requirements.lock --no-deps --progress-spinner off

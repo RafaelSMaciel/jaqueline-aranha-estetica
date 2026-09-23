@@ -8,6 +8,9 @@ Uso:
   Authy, 1Password, etc.)
 - Gera 10 backup tokens (static device) — guarde em local seguro
 - Idempotente: se device ja existe, nao recria. Para resetar use --force.
+- --force = reset completo: apaga TODOS os devices OTP do usuario (TOTP de
+  qualquer nome, backup) antes de criar o novo — um device plantado por quem
+  teve acesso a conta nao sobrevive a recuperacao. Registrado na auditoria.
 """
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
@@ -20,7 +23,10 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('email', type=str)
-        parser.add_argument('--force', action='store_true', help='Recria device mesmo se ja existe.')
+        parser.add_argument(
+            '--force', action='store_true',
+            help='Reset completo: apaga todos os devices 2FA do usuario e cria um novo.',
+        )
         parser.add_argument('--name', type=str, default='default', help='Nome do device.')
 
     def handle(self, *args, **options):
@@ -36,8 +42,17 @@ class Command(BaseCommand):
             raise CommandError(
                 f'TOTP ja existe para {email}. Use --force para recriar.'
             )
-        if existing:
-            existing.delete()
+        if options['force']:
+            from django_otp import devices_for_user
+
+            from aranha_estetica.utils.audit import registrar_log
+
+            removidos = list(devices_for_user(user, confirmed=None))
+            for device in removidos:
+                device.delete()
+            if removidos:
+                registrar_log(None, 'setup_2fa --force: 2FA redefinido', 'usuario', user.pk,
+                              {'devices_removidos': len(removidos)})
 
         device = TOTPDevice.objects.create(
             user=user, name=options['name'], confirmed=True
