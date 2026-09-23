@@ -11,6 +11,9 @@ Roda no pre-deploy logo apos o migrate:
   Assim uma troca de senha feita no painel nao e desfeita a cada deploy.
 - Senha fraca (validadores do Django) ou erro: avisa em stderr e sai com 0 —
   nunca derruba o pre-deploy (as migrations ja foram aplicadas).
+- Ao final, se nao sobrou nenhum ADMIN ativo com senha utilizavel (ex.: a
+  migration 0042 desligou a conta demo e a env nao foi definida), escreve ERRO
+  em stderr: o painel ficaria inacessivel sem nenhum aviso no log do deploy.
 """
 import os
 
@@ -20,6 +23,7 @@ from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
+from aranha_estetica.checks import ha_admin_utilizavel
 from aranha_estetica.utils.security import mask_email
 
 
@@ -37,6 +41,19 @@ class Command(BaseCommand):
             self._bootstrap(options)
         except Exception as exc:  # noqa: BLE001 — pre-deploy nao pode falhar por isso
             self.stderr.write(f'bootstrap_admin: falhou ({exc.__class__.__name__}: {exc}).')
+        self._conferir_admin()
+
+    def _conferir_admin(self):
+        try:
+            ok = ha_admin_utilizavel()
+        except Exception as exc:  # noqa: BLE001 — idem: so avisa
+            self.stderr.write(f'bootstrap_admin: nao conferiu os admins ({exc.__class__.__name__}: {exc}).')
+            return
+        if not ok:
+            self.stderr.write(
+                'bootstrap_admin: ERRO — painel sem administrador ativo (nenhum ADMIN ativo com '
+                'senha utilizavel); defina ADMIN_EMAIL/ADMIN_PASSWORD no Railway e faca redeploy.'
+            )
 
     def _bootstrap(self, options):
         email = (os.environ.get('ADMIN_EMAIL') or '').strip()

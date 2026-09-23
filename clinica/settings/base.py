@@ -110,6 +110,10 @@ SPECTACULAR_SETTINGS = {
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
+    # Versao fixa (o default e @latest: um release novo do CDN mudaria a UI em
+    # prod sem deploy). Atualizar junto: DIST e FAVICON.
+    'SWAGGER_UI_DIST': 'https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.32.15',
+    'SWAGGER_UI_FAVICON_HREF': 'https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.32.15/favicon-32x32.png',
 }
 
 MIDDLEWARE = [
@@ -154,7 +158,8 @@ AXES_FAILURE_LIMIT = int(os.environ.get('AXES_FAILURE_LIMIT', 5))
 AXES_COOLOFF_TIME = float(os.environ.get('AXES_COOLOFF_TIME_HOURS', '1'))
 AXES_LOCKOUT_PARAMETERS = ['ip_address', 'username']
 AXES_RESET_ON_SUCCESS = True
-AXES_LOCKOUT_TEMPLATE = None
+# Pagina pt-BR (status 429) em vez do texto cru em ingles do axes
+AXES_LOCKOUT_TEMPLATE = 'axes_bloqueio.html'
 # Verbose so em dev (em prod gera logs excessivos via Sentry)
 AXES_VERBOSE = DEBUG
 
@@ -267,6 +272,17 @@ TWO_FACTOR_REMEMBER_COOKIE_SECURE = not DEBUG
 TWO_FACTOR_REMEMBER_COOKIE_HTTPONLY = True
 TWO_FACTOR_REMEMBER_COOKIE_SAMESITE = 'Lax'
 LOGOUT_REDIRECT_URL = '/'
+
+# 2FA obrigatorio p/ ADMIN (utils/dois_fatores). Sem a env o codigo decide em
+# runtime: ligado fora de DEBUG. ADMIN_2FA_OBRIGATORIO=false e valvula de
+# emergencia (system check aranha.W008 avisa enquanto estiver desligado).
+_2fa_obrigatorio = os.environ.get('ADMIN_2FA_OBRIGATORIO', '').strip().lower()
+if _2fa_obrigatorio:
+    ADMIN_2FA_OBRIGATORIO = _2fa_obrigatorio in ('true', '1', 'yes', 'on')
+
+# frame-ancestors das paginas embutiveis (middleware CSP). Vazio = 'https:'.
+# Ex.: 'https://linktr.ee https://www.instagram.com'
+EMBED_FRAME_ANCESTORS = os.environ.get('EMBED_FRAME_ANCESTORS', '').strip()
 
 
 # ─── I18N ────────────────────────────────────────────────────────────
