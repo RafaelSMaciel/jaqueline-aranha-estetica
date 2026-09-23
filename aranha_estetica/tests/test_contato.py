@@ -131,6 +131,22 @@ class ContatoViewTests(TestCase):
         self.assertTrue(resp.context['envio_falhou'])
 
     @override_settings(CLINIC_EMAIL='', DEFAULT_FROM_EMAIL='noreply@clinica.com.br')
+    def test_falha_sem_nenhum_canal_nao_manda_usar_outro_canal(self):
+        """Regressao gap4-03: sem WhatsApp/telefone/e-mail a flash apontava p/ canal inexistente."""
+        resp = self._post()
+        msgs = [str(m) for m in resp.context['messages']]
+        self.assertTrue(any('tente de novo mais tarde.' in m for m in msgs))
+        self.assertFalse(any('outro canal' in m for m in msgs))
+
+    @override_settings(CLINIC_EMAIL='', DEFAULT_FROM_EMAIL='noreply@clinica.com.br')
+    def test_falha_com_whatsapp_sugere_outro_canal(self):
+        with patch('aranha_estetica.views.public.get_branding',
+                   return_value={'CLINIC_EMAIL': '', 'WHATSAPP_NUMERO': '5517991234567'}):
+            resp = self._post()
+        msgs = [str(m) for m in resp.context['messages']]
+        self.assertTrue(any('outro canal de contato desta página' in m for m in msgs))
+
+    @override_settings(CLINIC_EMAIL='', DEFAULT_FROM_EMAIL='noreply@clinica.com.br')
     def test_sem_caixa_de_destino_nao_envia_para_noreply(self):
         resp = self._post()
         self.assertEqual(resp.status_code, 200)

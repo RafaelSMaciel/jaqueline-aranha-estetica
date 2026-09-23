@@ -17,6 +17,7 @@ from django.views.decorators.http import require_http_methods
 
 from ..models import RespostaAnamnese
 from ..models.sistema import LogAuditoria
+from ..services.anamnese import validar_respostas
 
 
 def _get_resposta_or_404(token: str, tipo_esperado: str) -> RespostaAnamnese:
@@ -38,59 +39,16 @@ def _get_resposta_or_404(token: str, tipo_esperado: str) -> RespostaAnamnese:
     return resposta
 
 
-def _validar_respostas(schema: list, post_data) -> tuple[dict, list[str]]:
-    """Valida respostas contra schema_json. Retorna (dict_respostas, erros)."""
-    respostas = {}
-    erros = []
-
-    for campo in schema:
-        key = campo.get('key')
-        tipo = campo.get('tipo', 'text')
-        label = campo.get('label', key)
-        obrigatorio = campo.get('obrigatorio', False)
-
-        if tipo == 'checkboxes':
-            valor = post_data.getlist(key)
-        else:
-            valor = (post_data.get(key) or '').strip()
-
-        if obrigatorio and not valor:
-            erros.append(f'"{label}" é obrigatório.')
-            continue
-
-        # validacoes especificas por tipo
-        if tipo == 'email' and valor and '@' not in valor:
-            erros.append(f'"{label}" deve ser um e-mail válido.')
-            continue
-        if tipo == 'number' and valor:
-            try:
-                float(valor)
-            except (TypeError, ValueError):
-                erros.append(f'"{label}" deve ser um número.')
-                continue
-        if tipo in ('select', 'scale') and valor:
-            opcoes = [str(o) for o in (campo.get('opcoes') or [])]
-            if opcoes and valor not in opcoes:
-                erros.append(f'"{label}": opção inválida.')
-                continue
-        if tipo == 'checkboxes' and valor:
-            opcoes = {str(o) for o in (campo.get('opcoes') or [])}
-            if opcoes and not all(v in opcoes for v in valor):
-                erros.append(f'"{label}": opção(ões) inválida(s).')
-                continue
-        if tipo == 'bool':
-            valor = valor in ('on', 'true', '1', 'sim')
-
-        respostas[key] = valor
-
-    return respostas, erros
-
-
 def _valores_postados(schema: list, post_data) -> dict:
-    """O que a pessoa digitou (p/ re-exibir no erro de validacao sem apagar a ficha)."""
+    """POST -> {key: valor} do schema (checkboxes como lista: QueryDict.get daria so o ultimo).
+
+    Entrada do validador compartilhado e o que re-exibimos no erro (nao apaga a ficha).
+    """
     valores = {}
     for campo in schema:
-        key = campo.get('key')
+        if not isinstance(campo, dict) or not campo.get('key'):
+            continue
+        key = campo['key']
         if campo.get('tipo') == 'checkboxes':
             valores[key] = post_data.getlist(key)
         else:
@@ -122,12 +80,11 @@ def _renderizar(request, resposta: RespostaAnamnese, erros=None, valores=None):
 
 def _gravar_resposta(request, resposta: RespostaAnamnese):
     schema = resposta.formulario.schema_json or []
-    respostas, erros = _validar_respostas(schema, request.POST)
+    valores = _valores_postados(schema, request.POST)
+    # Mesmo validador do booking: bool 'sim'/'nao' -> True/False, opcoes e tamanhos conferidos
+    respostas, erros = validar_respostas(schema, valores)
     if erros:
-        return _renderizar(
-            request, resposta, erros=erros,
-            valores=_valores_postados(schema, request.POST),
-        )
+        return _renderizar(request, resposta, erros=erros, valores=valores)
 
     resposta.respostas_json = respostas
     resposta.respondida_em = timezone.now()

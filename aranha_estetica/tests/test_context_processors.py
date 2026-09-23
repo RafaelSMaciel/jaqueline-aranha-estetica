@@ -86,3 +86,31 @@ class BrandingSemPlaceholderTests(TestCase):
         from aranha_estetica.context_processors import _nome_curto
         self.assertEqual(_nome_curto('Jaqueline Aranha Estética'), 'J. Aranha')
         self.assertEqual(_nome_curto('Spa Zen'), 'Spa Zen')
+
+
+class NormalizarWhatsappTests(TestCase):
+    """Regressao gap4-05: numero da env sem DDI virava wa.me de outro pais (+1)."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+
+    def test_normaliza_ddi_e_invalidos(self):
+        from aranha_estetica.utils.branding import normalizar_whatsapp
+        self.assertEqual(normalizar_whatsapp('17991234567'), '5517991234567')
+        self.assertEqual(normalizar_whatsapp('(17) 3232-4567'), '551732324567')
+        self.assertEqual(normalizar_whatsapp('+55 (17) 99123-4567'), '5517991234567')
+        self.assertEqual(normalizar_whatsapp('5517991234567'), '5517991234567')
+        self.assertEqual(normalizar_whatsapp('123'), '')
+        self.assertEqual(normalizar_whatsapp(''), '')
+        self.assertEqual(normalizar_whatsapp(None), '')
+
+    @patch.dict('os.environ', {'WHATSAPP_NUMERO': '(17) 99123-4567'})
+    def test_env_sem_ddi_ganha_55_no_branding(self):
+        ctx = clinica_globals(RequestFactory().get('/'))
+        self.assertEqual(ctx['WHATSAPP_NUMERO'], '5517991234567')
+
+    @patch.dict('os.environ', {'WHATSAPP_NUMERO': '123'})
+    def test_env_invalida_esconde_whatsapp(self):
+        ctx = clinica_globals(RequestFactory().get('/'))
+        self.assertEqual(ctx['WHATSAPP_NUMERO'], '')

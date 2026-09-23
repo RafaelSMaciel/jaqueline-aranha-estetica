@@ -26,7 +26,7 @@
   "provider": {"@type": "HealthAndBeautyBusiness", "name": "{{ CLINIC_NAME }}", "url": "{{ SITE_URL }}"},
   "areaServed": "BR",
   "category": "{{ procedimento.get_categoria_display|escapejs }}"{% if preco %},
-  "offers": {"@type": "Offer", "price": "{{ preco|stringformat:'.2f' }}", "priceCurrency": "BRL"}{% endif %}
+  "offers": {"@type": "Offer", "price": "{{ preco|stringformat:'.2f' }}", "priceCurrency": "BRL"{% if promocao %}, "priceValidUntil": "{{ promocao.data_fim|date:'Y-m-d' }}"{% endif %}}{% endif %}
 }
 </script>
 {% endblock %}
@@ -87,6 +87,10 @@
             <strong class="text-texto">
               {% if preco %}A partir de R$ {{ preco|floatformat:2 }}{% else %}Valor a consultar{% endif %}
             </strong>
+            {% if preco and preco_cheio %}
+            <s class="text-texto-suave"><span class="sr-only">Preço sem promoção: </span>R$ {{ preco_cheio|floatformat:2 }}</s>
+            <span class="text-marca font-medium">{{ promocao.nome }}</span>
+            {% endif %}
           </div>
         </div>
 

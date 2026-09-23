@@ -48,17 +48,20 @@ from .booking_api import (
     api_dias_disponiveis,
     api_horarios_disponiveis,
     cancelar_agendamento,
-    buscar_horarios,
 )
 from .whatsapp import whatsapp_webhook, zenvia_sms_webhook
 from .notificacoes import confirmar_presenca, painel_notificacoes
 from .prontuario import prontuario_detalhe, prontuario_salvar, anotacao_sessao_salvar
-from .pacotes import admin_pacotes, admin_criar_pacote, admin_editar_pacote, admin_vender_pacote
+from .pacotes import (
+    admin_pacotes, admin_criar_pacote, admin_editar_pacote, admin_vender_pacote,
+    admin_cancelar_compra_pacote,
+)
 from .admin_management import (
     admin_bloqueios, admin_criar_bloqueio, admin_excluir_bloqueio,
     admin_procedimentos, admin_criar_procedimento, admin_editar_procedimento,
     admin_cliente_detalhe, admin_lista_espera, admin_notificar_espera,
     nps_web, admin_termos, admin_criar_termo, termo_assinatura,
+    admin_gerar_link_termo,
     admin_email_preview,
     admin_aprovar_agendamento, admin_rejeitar_agendamento,
     admin_bulk_agendamentos,
@@ -82,6 +85,7 @@ from .admin_config import (
     admin_editar_configuracao, admin_excluir_configuracao,
 )
 from .admin_termos_compliance import admin_termos_compliance
+from .admin_agendamento import admin_agendamento_novo, admin_atendimento_valor
 from .admin_2fa import admin_2fa_setup, admin_2fa_verify, admin_2fa_challenge
 from .admin_calendar import admin_calendar, admin_calendar_events, admin_calendar_mover
 from .admin_branding import admin_branding

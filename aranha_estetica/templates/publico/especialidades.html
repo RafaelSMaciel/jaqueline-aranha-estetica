@@ -94,7 +94,7 @@
                 </div>
               </div>
 
-              <div class="flex items-center gap-4 text-xs text-texto-suave mt-auto">
+              <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-texto-suave mt-auto">
                 {% if item.duracao_minutos %}
                 <span class="flex items-center gap-1">
                   <svg class="w-3.5 h-3.5 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -105,8 +105,14 @@
                 {% endif %}
                 {% if item.preco > 0 %}
                 <span class="text-marca font-semibold">A partir de R$ {{ item.preco|floatformat:2 }}</span>
+                {% if item.preco_cheio %}
+                <s><span class="sr-only">Preço sem promoção: </span>R$ {{ item.preco_cheio|floatformat:2 }}</s>
+                {% endif %}
                 {% endif %}
               </div>
+              {% if item.promocao and item.preco > 0 %}
+              <p class="text-xs font-medium text-marca">Promoção: {{ item.promocao }}</p>
+              {% endif %}
 
               <a href="{% url 'aranha:agendamento_publico' %}"
                  class="inline-flex items-center gap-1 text-marca text-sm font-semibold hover:underline mt-1">

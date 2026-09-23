@@ -24,10 +24,46 @@ from ..utils import datas
 from ..utils.branding import get_branding
 from ..utils.email import email_configurado
 from ..utils.pii import mask_email
-from ..utils.precos import preco_base_map
+from ..utils.precos import aplicar_promocao, preco_base_map, promocao_vigente
 from ..validators import normalizar_telefone, validate_telefone_br
 
 logger = logging.getLogger(__name__)
+
+
+def _juntar_ou(itens: list[str]) -> str:
+    """['a'] -> 'a'; ['a', 'b', 'c'] -> 'a, b ou c'."""
+    if len(itens) <= 1:
+        return ''.join(itens)
+    return f"{', '.join(itens[:-1])} ou {itens[-1]}"
+
+
+def _faq_canais(branding: dict) -> tuple[str, str]:
+    """Respostas do FAQ que citam canais: so os que existem de verdade (FAQ vai p/ o JSON-LD).
+
+    Retorna (como_agendar, como_pedir_exclusao).
+    """
+    agendar = [txt for txt, valor in (
+        ('pelo WhatsApp', branding.get('WHATSAPP_NUMERO')),
+        ('por telefone', branding.get('CLINIC_PHONE')),
+    ) if valor]
+    como_agendar = 'Você pode agendar online pelo nosso site (disponível 24h)'
+    if agendar:
+        como_agendar += f', {_juntar_ou(agendar)}' if len(agendar) > 1 else f' ou {agendar[0]}'
+    como_agendar += '. No site, é só escolher o procedimento, o dia e o horário.'
+
+    exclusao = [txt for txt, valor in (
+        ('pelo WhatsApp', branding.get('WHATSAPP_NUMERO')),
+        ('por telefone', branding.get('CLINIC_PHONE')),
+        ('por e-mail', branding.get('CLINIC_EMAIL')),
+    ) if valor]
+    if _destino_contato() and email_configurado():
+        exclusao.append('pelo formulário de contato')
+    exclusao.append('presencialmente na clínica')
+    como_excluir = (
+        'Sim. Pela área "Meus dados" (link no rodapé) você consulta e baixa suas '
+        f'informações. Para pedir a exclusão, fale com a gente {_juntar_ou(exclusao)}.'
+    )
+    return como_agendar, como_excluir
 
 
 def home(request):
@@ -38,13 +74,13 @@ def home(request):
         )
     except (OperationalError, ProgrammingError):
         pass
+    como_agendar, como_excluir = _faq_canais(get_branding())
     faq_categorias = [
         {
             'slug': 'agendamento',
             'nome': 'Agendamento',
             'itens': [
-                {'q': 'Como faço para agendar um atendimento?',
-                 'a': 'Você pode agendar online pelo nosso site (disponível 24h), pelo WhatsApp ou por telefone. No site, é só escolher o procedimento, o dia e o horário.'},
+                {'q': 'Como faço para agendar um atendimento?', 'a': como_agendar},
                 {'q': 'Preciso criar uma conta para agendar?',
                  'a': 'Não. O agendamento é sem cadastro: você se identifica pelo telefone e confirma com um código enviado por SMS. Rápido e sem senha.'},
                 {'q': 'Posso cancelar ou remarcar meu horário?',
@@ -61,8 +97,7 @@ def home(request):
                  'a': 'Aceitamos PIX, cartão de débito, cartão de crédito (com parcelamento) e dinheiro.'},
                 {'q': 'Como funcionam os pacotes de sessões?',
                  'a': 'Os pacotes reúnem um número de sessões por um valor fechado, com validade definida e condições especiais em relação às sessões avulsas.'},
-                {'q': 'Existe benefício por indicação?',
-                 'a': 'Sim. Ao indicar uma amiga, você ganha um crédito na sua carteira quando ela realiza o primeiro atendimento — para usar nos seus próximos cuidados.'},
+                # Sem 'credito por indicacao': nao ha tela p/ registrar quem indicou nem usar o saldo.
             ],
         },
         {
@@ -85,8 +120,7 @@ def home(request):
             'itens': [
                 {'q': 'Como meus dados são armazenados?',
                  'a': 'Seguimos a LGPD. Seus dados ficam armazenados de forma segura e são usados apenas para o seu atendimento e a comunicação com você.'},
-                {'q': 'Posso acessar ou excluir meus dados?',
-                 'a': 'Sim. Pela área "Meus dados" (link no rodapé) você consulta e baixa suas informações. Para pedir a exclusão, fale com a gente pelo WhatsApp ou e-mail.'},
+                {'q': 'Posso acessar ou excluir meus dados?', 'a': como_excluir},
                 {'q': 'Vou receber mensagens de divulgação?',
                  'a': 'Apenas se você autorizar. Você escolhe o que deseja receber e pode cancelar o recebimento a qualquer momento, com um clique.'},
             ],
@@ -209,10 +243,13 @@ def agenda_contato(request):
             )
 
         if not enviado:
+            b = get_branding()
+            outro_canal = any(b.get(k) for k in ('WHATSAPP_NUMERO', 'CLINIC_PHONE', 'CLINIC_EMAIL'))
             messages.error(
                 request,
                 'Não conseguimos enviar sua mensagem agora. Seus dados continuam no '
-                'formulário: tente de novo mais tarde ou use outro canal de contato desta página.',
+                'formulário: tente de novo mais tarde'
+                + (' ou use outro canal de contato desta página.' if outro_canal else '.'),
             )
             return render(request, 'agenda/contato.html', {
                 'form_data': form_data,
@@ -225,15 +262,43 @@ def agenda_contato(request):
     return render(request, 'agenda/contato.html')
 
 
-# ─── Promocoes ───
+# ─── Promocoes / precos de vitrine ───
 
-def _preco_final(promo):
-    """Valor a pagar: preco fixo da promo OU preco base com o desconto %."""
+def _preco_final(promo, valor_cheio):
+    """Valor a pagar com a promo — mesma conta do agendamento (utils.precos.aplicar_promocao)."""
+    if valor_cheio is not None:
+        final = aplicar_promocao(valor_cheio, promo)
+        return float(final) if final is not None else None
     if promo.preco_promocional is not None:
         return float(promo.preco_promocional)
-    if promo.desconto_percentual and promo.preco_original is not None:
-        return round(promo.preco_original * (1 - float(promo.desconto_percentual) / 100), 2)
     return None
+
+
+def _precos_vitrine(procedimentos) -> dict:
+    """{pk: (valor_final, promocao|None, valor_cheio)} de HOJE p/ o 'A partir de'.
+
+    valor_cheio = preco_base_map (base; sem base, o menor por profissional). A
+    promocao e a que o agendamento aplicaria (utils.precos.promocao_vigente), p/ o
+    valor da vitrine bater com o gravado no Atendimento.
+    """
+    procedimentos = list(procedimentos)
+    if not procedimentos:
+        return {}
+    ids = [p.pk for p in procedimentos]
+    cheios = preco_base_map(ids)
+    hoje = datas.hoje()
+    vigentes = Promocao.objects.filter(ativa=True, data_inicio__lte=hoje, data_fim__gte=hoje)
+    ha_geral = vigentes.filter(procedimento__isnull=True).exists()
+    com_promo = set(vigentes.filter(procedimento_id__in=ids).values_list('procedimento_id', flat=True))
+
+    out = {}
+    for proc in procedimentos:
+        cheio = cheios.get(proc.pk)
+        if cheio is None:
+            continue
+        promo = promocao_vigente(proc, hoje) if (ha_geral or proc.pk in com_promo) else None
+        out[proc.pk] = (aplicar_promocao(cheio, promo), promo, cheio)
+    return out
 
 
 def promocoes(request):
@@ -253,7 +318,7 @@ def promocoes(request):
         for promo in promos:
             valor = precos.get(promo.procedimento_id) if promo.procedimento_id else None
             promo.preco_original = float(valor) if valor is not None else None
-            promo.preco_final = _preco_final(promo)
+            promo.preco_final = _preco_final(promo, valor)
     except (OperationalError, ProgrammingError):
         logger.warning('Tabela de promoções não encontrada — exibindo página sem promoções.')
 
@@ -287,24 +352,23 @@ def especialidades(request):
     try:
         procedimentos = list(Procedimento.objects.filter(ativo=True).order_by('nome'))
 
-        # Mesmo resolvedor do booking/promocoes: preco base (sem profissional) primeiro.
-        proc_ids = [p.pk for p in procedimentos]
-        preco_map = (
-            {k: float(v) for k, v in preco_base_map(proc_ids).items()} if proc_ids else {}
-        )
+        # Mesmo resolvedor do booking: preco base primeiro + promocao vigente hoje.
+        vitrine = _precos_vitrine(procedimentos)
+
+        def _item(p):
+            final, promo, cheio = vitrine.get(p.pk, (None, None, None))
+            return {
+                'id': p.pk,
+                'nome': p.nome,
+                'descricao': p.descricao or '',
+                'duracao_minutos': p.duracao_minutos,
+                'preco': float(final) if final is not None else 0,
+                'preco_cheio': float(cheio) if promo is not None and cheio != final else None,
+                'promocao': promo.nome if promo is not None and cheio != final else '',
+            }
 
         for cat_key, cat_label in categorias:
-            itens = [
-                {
-                    'id': p.pk,
-                    'nome': p.nome,
-                    'descricao': p.descricao or '',
-                    'duracao_minutos': p.duracao_minutos,
-                    'preco': preco_map.get(p.pk, 0),
-                }
-                for p in procedimentos
-                if p.categoria == cat_key
-            ]
+            itens = [_item(p) for p in procedimentos if p.categoria == cat_key]
             if itens:
                 grupos.append({
                     'key': cat_key,
@@ -379,7 +443,9 @@ def lista_espera_publica(request):
     """Formulario publico para cliente se inscrever na lista de espera.
 
     Form anonimo (sem OTP): NUNCA altera dados de um Cliente que ja existe —
-    so cria o cadastro quando o telefone e novo.
+    so cria o cadastro quando o telefone e novo. O e-mail digitado vai na propria
+    inscricao (ListaEspera.email_contato) p/ o aviso de vaga chegar mesmo a quem
+    ja e cliente sem e-mail no cadastro.
     """
     procedimentos = []
     profissionais = []
@@ -487,6 +553,7 @@ def lista_espera_publica(request):
                     profissional_desejado=profissional,
                     data_desejada=data_obj,
                     turno_desejado=turno,
+                    email_contato=email,
                 )
     except IntegrityError:
         logger.warning('lista_espera_integridade', exc_info=True)
@@ -505,9 +572,10 @@ def servico_detalhe(request, slug):
     """Pagina de detalhe individual de um procedimento pelo slug."""
     procedimento = get_object_or_404(Procedimento, slug=slug, ativo=True)
 
-    # Mesmo resolvedor de /especialidades/ e do booking (base primeiro).
-    valor = preco_base_map([procedimento.pk]).get(procedimento.pk)
-    preco = float(valor) if valor is not None else None
+    # Mesmo resolvedor de /especialidades/ e do booking (base primeiro + promocao de hoje).
+    final, promo, cheio = _precos_vitrine([procedimento]).get(procedimento.pk, (None, None, None))
+    preco = float(final) if final is not None else None
+    em_promocao = promo is not None and cheio != final
 
     # Profissionais que executam esse procedimento
     profissionais = list(
@@ -525,6 +593,8 @@ def servico_detalhe(request, slug):
     context = {
         'procedimento': procedimento,
         'preco': preco,
+        'preco_cheio': float(cheio) if em_promocao else None,
+        'promocao': promo if em_promocao else None,
         'profissionais': profissionais,
         'relacionados': relacionados,
     }
