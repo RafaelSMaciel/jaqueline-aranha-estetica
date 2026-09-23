@@ -69,5 +69,6 @@ class Command(BaseCommand):
         for t in tokens:
             self.stdout.write(f'  {t}')
         self.stdout.write(
-            '\nAcesse /account/login/ para validar o primeiro codigo.\n'
+            '\nEntre em /admin-login/ e valide o codigo em /painel/seguranca/2fa/challenge/ '
+            '(codigos de backup tambem valem).\n'
         )

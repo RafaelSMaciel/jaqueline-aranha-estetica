@@ -1,0 +1,26 @@
+{% extends 'estrutura/base_auth.html' %}
+
+{% block titulo %}Acesso bloqueado — {{ CLINIC_NAME }}{% endblock %}
+
+{% block conteudo %}
+{# django-axes (settings.AXES_LOCKOUT_TEMPLATE): muitas senhas erradas seguidas; status 429 #}
+<div class="bg-superficie border border-borda rounded-lg p-8">
+  <div class="mb-6 text-center">
+    <p class="text-xs uppercase tracking-widest text-texto-suave mb-1">Acesso da equipe</p>
+    <h1 class="text-2xl font-semibold text-texto">{{ CLINIC_NAME }}</h1>
+  </div>
+
+  <h2 class="text-lg font-medium text-texto mb-1">Acesso bloqueado por um tempo</h2>
+  <p class="text-sm text-texto-suave mb-6">
+    Por segurança, depois de {{ failure_limit }} tentativas com senha incorreta as novas
+    tentativas de entrada ficam bloqueadas por um período. Aguarde e tente de novo mais tarde.
+    Se esqueceu a senha, fale com a administração da clínica.
+  </p>
+
+  <div class="mt-6 text-center flex flex-col gap-2">
+    <a href="{% url 'aranha:inicio' %}" class="text-sm text-texto-suave hover:text-texto">
+      ← Voltar ao site
+    </a>
+  </div>
+</div>
+{% endblock %}

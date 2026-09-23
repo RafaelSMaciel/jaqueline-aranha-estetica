@@ -74,11 +74,11 @@ jobs:
       # trigger, collation ICU) nunca rodam no SQLite. Mesmo comando do pre-deploy.
       - name: migrate_atomico do zero (transacao unica)
         run: python manage.py migrate_atomico --noinput
-      - name: bootstrap_admin (no-op sem env)
+      - name: bootstrap_admin (sem env so avisa em stderr; sai com 0)
         run: python manage.py bootstrap_admin
-      # Informativo ate a triagem inicial: alguns testes presumem SQLite.
+      # Bloqueante: regressao que so aparece no Postgres (EXCLUDE, CHECK, trigger,
+      # migrate atomico) nao pode entrar verde.
       - name: Suite Django no Postgres
-        continue-on-error: true
         run: python manage.py test aranha_estetica
 
   front:

@@ -7,12 +7,13 @@ import sys
 from datetime import timedelta
 from io import StringIO
 from pathlib import Path
-from unittest import mock
+from unittest import mock, skipIf, skipUnless
 
 from celery import shared_task
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
+from django.db import connection
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
@@ -133,7 +134,12 @@ class HealthcheckTests(TestCase):
 _ENV_PROD_OK = {
     'ZENVIA_API_TOKEN': 'tok', 'ZENVIA_FROM': 'clinica',
     'WHATSAPP_NUMERO': '5517991234567', 'CRON_TOKEN': 'c', 'SMS_DEV_LOG_ONLY': '',
+    'CLINIC_EMAIL': 'contato@clinica.com.br',
 }
+_PROD_OK = dict(
+    DEBUG=False, SITE_URL='https://jaquelinearanha.com.br', SMS_DEV_LOG_ONLY=False,
+    EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',
+)
 
 
 class ChecksProducaoTests(SimpleTestCase):
@@ -151,8 +157,35 @@ class ChecksProducaoTests(SimpleTestCase):
     )
     def test_config_ausente_gera_warnings(self):
         ids = self._ids(ZENVIA_API_TOKEN='', ZENVIA_FROM='', WHATSAPP_NUMERO='',
-                        CRON_TOKEN='', SMS_DEV_LOG_ONLY='')
-        self.assertEqual(ids, ['aranha.W001', 'aranha.W002', 'aranha.W003', 'aranha.W004', 'aranha.W005'])
+                        CRON_TOKEN='', SMS_DEV_LOG_ONLY='', CLINIC_EMAIL='')
+        self.assertEqual(ids, ['aranha.W001', 'aranha.W002', 'aranha.W003', 'aranha.W004',
+                               'aranha.W005', 'aranha.W007'])
+
+    @override_settings(**_PROD_OK)
+    def test_email_filebased_ou_locmem_nao_entrega(self):
+        # filebased grava no disco efemero do Railway: nada chega (mesma regra
+        # do runtime, utils/email). locmem so existe no runner: so aviso de config.
+        from aranha_estetica.utils import email as email_utils
+
+        for backend in ('filebased', 'locmem', 'console', 'dummy'):
+            with self.subTest(backend=backend), \
+                    override_settings(EMAIL_BACKEND=f'django.core.mail.backends.{backend}.EmailBackend'):
+                self.assertEqual(self._ids(**_ENV_PROD_OK), ['aranha.W003'])
+        with override_settings(EMAIL_BACKEND='django.core.mail.backends.filebased.EmailBackend'):
+            self.assertFalse(email_utils.email_configurado())
+
+    @override_settings(**_PROD_OK, ADMIN_2FA_OBRIGATORIO=False)
+    def test_2fa_de_admin_desligado_em_prod_avisa(self):
+        self.assertEqual(self._ids(**_ENV_PROD_OK), ['aranha.W008'])
+
+    @override_settings(**_PROD_OK, ADMIN_2FA_OBRIGATORIO=True)
+    def test_2fa_de_admin_ligado_nao_avisa(self):
+        self.assertEqual(self._ids(**_ENV_PROD_OK), [])
+
+    @override_settings(**_PROD_OK)
+    def test_sem_banco_liberado_nao_confere_admin(self):
+        # `check` puro (build do Docker) nao toca no banco: W006 so com databases
+        self.assertNotIn('aranha.W006', self._ids(**_ENV_PROD_OK))
 
     @override_settings(
         DEBUG=False, SITE_URL='https://jaquelinearanha.com.br', SMS_DEV_LOG_ONLY=False,
@@ -173,21 +206,54 @@ class ChecksProducaoTests(SimpleTestCase):
         self.assertIn(aranha_checks.check_config_producao, registry.registry.get_checks())
 
 
-class ChecksWhatsappBrandingTests(TestCase):
-    @override_settings(
-        DEBUG=False, SITE_URL='https://jaquelinearanha.com.br', SMS_DEV_LOG_ONLY=False,
-        EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',
-    )
+@override_settings(**_PROD_OK)
+class ChecksComBancoTests(TestCase):
+    def _ids(self, databases=('default',), **env):
+        with mock.patch.dict(os.environ, {**_ENV_PROD_OK, **env}):
+            return sorted(e.id for e in aranha_checks.check_config_producao(
+                databases=list(databases) if databases else None))
+
+    def _admin(self, email='dona@clinica.com.br', **kw):
+        U = get_user_model()
+        dados = {'nome': 'Dona', 'papel': U.PAPEL_ADMIN, 'ativo': True}
+        dados.update(kw)
+        return U.objects.create_user(email, SENHA_FORTE, **dados)
+
     def test_whatsapp_da_tela_branding_conta_quando_banco_liberado(self):
         from aranha_estetica.models import Configuracao
 
-        env = {**_ENV_PROD_OK, 'WHATSAPP_NUMERO': ''}
-        with mock.patch.dict(os.environ, env):
-            sem_banco = [e.id for e in aranha_checks.check_config_producao()]
-            Configuracao.objects.create(chave='WHATSAPP_NUMERO', valor='5517991234567')
-            com_banco = [e.id for e in aranha_checks.check_config_producao(databases=['default'])]
+        self._admin()
+        sem_banco = self._ids(databases=None, WHATSAPP_NUMERO='')
+        Configuracao.objects.create(chave='WHATSAPP_NUMERO', valor='5517991234567')
+        com_banco = self._ids(WHATSAPP_NUMERO='')
         self.assertEqual(sem_banco, ['aranha.W004'])
         self.assertEqual(com_banco, [])
+
+    def test_clinic_email_da_tela_branding_conta_quando_banco_liberado(self):
+        from aranha_estetica.models import Configuracao
+
+        self._admin()
+        self.assertEqual(self._ids(CLINIC_EMAIL=''), ['aranha.W007'])
+        Configuracao.objects.create(chave='CLINIC_EMAIL', valor='contato@clinica.com.br')
+        self.assertEqual(self._ids(CLINIC_EMAIL=''), [])
+
+    def test_painel_sem_admin_utilizavel_avisa(self):
+        # conta demo desligada pela 0042: inativa e com senha inutilizavel
+        U = get_user_model()
+        demo = self._admin('admin@shivazen.com', ativo=False)
+        demo.set_unusable_password()
+        demo.save()
+        U.objects.create_user('ana@clinica.com.br', SENHA_FORTE, nome='Ana',
+                              papel=U.PAPEL_PROFISSIONAL)
+        self.assertEqual(self._ids(), ['aranha.W006'])
+
+        sem_senha = self._admin('outra@clinica.com.br')
+        sem_senha.set_unusable_password()
+        sem_senha.save()
+        self.assertEqual(self._ids(), ['aranha.W006'])
+
+        self._admin('dona@clinica.com.br')
+        self.assertEqual(self._ids(), [])
 
 
 # ─── bootstrap_admin ─────────────────────────────────────────────────
@@ -210,6 +276,34 @@ class BootstrapAdminTests(TestCase):
         out, _ = self._run()
         self.assertIn('nada a fazer', out)
         self.assertEqual(U.objects.count(), antes)
+
+    def test_sem_env_e_sem_admin_utilizavel_avisa_no_stderr(self):
+        # prod em 0026 -> a 0042 desliga admin@shivazen.com/admin123 -> sem env o
+        # painel ficava sem ninguem e o log do deploy nao dizia nada
+        U = get_user_model()
+        demo = U.objects.create_user('admin@shivazen.com', 'admin123', nome='Admin demo',
+                                     papel=U.PAPEL_ADMIN)
+        demo.ativo = False
+        demo.set_unusable_password()
+        demo.save()
+        out, err = self._run()
+        self.assertIn('nada a fazer', out)
+        self.assertIn('sem administrador', err)
+
+    def test_sem_env_com_admin_ok_nao_avisa(self):
+        U = get_user_model()
+        U.objects.create_user('dona@clinica.com.br', SENHA_FORTE, nome='Dona', papel=U.PAPEL_ADMIN)
+        _, err = self._run()
+        self.assertEqual(err, '')
+
+    def test_senha_recusada_sem_outro_admin_tambem_avisa(self):
+        _, err = self._run(ADMIN_EMAIL='dona@clinica.com.br', ADMIN_PASSWORD='123')
+        self.assertIn('recusada', err)
+        self.assertIn('sem administrador', err)
+
+    def test_admin_criado_nao_gera_erro(self):
+        _, err = self._run(ADMIN_EMAIL='dona@clinica.com.br', ADMIN_PASSWORD=SENHA_FORTE)
+        self.assertEqual(err, '')
 
     def test_cria_admin_e_e_idempotente(self):
         U = get_user_model()
@@ -258,10 +352,17 @@ class BootstrapAdminTests(TestCase):
 
 # ─── migrate_atomico ─────────────────────────────────────────────────
 class MigrateAtomicoTests(TestCase):
+    @skipIf(connection.vendor == 'postgresql', 'no Postgres o migrate_atomico entra no ramo atomico')
     def test_fora_do_postgres_cai_no_migrate_normal(self):
         out = StringIO()
         call_command('migrate_atomico', '--noinput', verbosity=1, stdout=out)
         self.assertIn('migrate normal', out.getvalue())
+
+    @skipUnless(connection.vendor == 'postgresql', 'ramo atomico so existe no Postgres')
+    def test_no_postgres_nao_cai_no_migrate_normal(self):
+        out = StringIO()
+        call_command('migrate_atomico', '--noinput', verbosity=1, stdout=out)
+        self.assertNotIn('migrate normal', out.getvalue())
 
     def test_postgres_checa_constraints_apos_cada_migration(self):
         from aranha_estetica.management.commands import migrate_atomico as mod
@@ -421,3 +522,55 @@ class SettingsProdTests(SimpleTestCase):
         self.assertEqual(s['sess_age'], 8 * 3600)
         self.assertTrue(s['sms_exigir'])
         self.assertEqual(s['langs'], ['pt-br'])
+
+    def _importar_prod(self, **env_extra):
+        env = {k: v for k, v in os.environ.items()
+               if k not in ('ADMIN_2FA_OBRIGATORIO', 'EMBED_FRAME_ANCESTORS')}
+        env.update({'DJANGO_ENV': 'prod', 'DJANGO_SECRET_KEY': 'x' * 50, **env_extra})
+        codigo = (
+            'import json\n'
+            'import clinica.settings.prod as s\n'
+            'print(json.dumps({"tem_2fa": hasattr(s, "ADMIN_2FA_OBRIGATORIO"),'
+            '"obrig": getattr(s, "ADMIN_2FA_OBRIGATORIO", None),'
+            '"frames": s.EMBED_FRAME_ANCESTORS}))\n'
+        )
+        proc = subprocess.run(
+            [sys.executable, '-W', 'ignore', '-c', codigo], cwd=BASE_DIR, env=env,
+            capture_output=True, text=True, timeout=120,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        return json.loads(proc.stdout.strip().splitlines()[-1])
+
+    def test_2fa_e_frame_ancestors_por_env(self):
+        # sem env: o codigo decide em runtime (2FA ligado fora de DEBUG)
+        self.assertEqual(self._importar_prod(), {'tem_2fa': False, 'obrig': None, 'frames': ''})
+        s = self._importar_prod(ADMIN_2FA_OBRIGATORIO='false',
+                                EMBED_FRAME_ANCESTORS=' https://linktr.ee ')
+        self.assertEqual(s, {'tem_2fa': True, 'obrig': False, 'frames': 'https://linktr.ee'})
+        self.assertTrue(self._importar_prod(ADMIN_2FA_OBRIGATORIO='True')['obrig'])
+
+
+class SettingsSwaggerTests(SimpleTestCase):
+    def test_swagger_ui_em_versao_fixa(self):
+        # @latest mudaria a UI (e o JS carregado com a CSP) sem deploy
+        for chave in ('SWAGGER_UI_DIST', 'SWAGGER_UI_FAVICON_HREF'):
+            url = settings.SPECTACULAR_SETTINGS[chave]
+            self.assertRegex(url, r'^https://cdn\.jsdelivr\.net/npm/swagger-ui-dist@\d+\.\d+\.\d+(/|$)')
+
+
+# ─── Bloqueio do django-axes ─────────────────────────────────────────
+@override_settings(RATELIMIT_ENABLE=False, AXES_FAILURE_LIMIT=2)
+class AxesBloqueioTests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+
+    def test_bloqueio_mostra_pagina_pt_br_com_429(self):
+        U = get_user_model()
+        U.objects.create_user('dona@clinica.com.br', SENHA_FORTE, nome='Dona', papel=U.PAPEL_ADMIN)
+        dados = {'username': 'dona@clinica.com.br', 'password': 'senha-errada-123'}
+        r = None
+        for _ in range(2):
+            r = self.client.post('/admin-login/', dados)
+        self.assertContains(r, 'Acesso bloqueado', status_code=429)
+        self.assertNotContains(r, 'Account locked', status_code=429)

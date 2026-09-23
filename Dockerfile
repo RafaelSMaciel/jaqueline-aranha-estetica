@@ -53,6 +53,11 @@ COPY --from=builder /wheels /wheels
 RUN pip install --no-cache /wheels/* \
     && rm -rf /wheels
 
+# Smoke do QR do cadastro de 2FA (obrigatorio p/ ADMIN): a imagem NAO tem
+# Pillow, entao o QR e SVG (views/admin_2fa). Falha o build se esse caminho
+# passar a exigir PIL — antes o setup dava 500 e trancava o painel.
+RUN python -c "import io, qrcode, qrcode.image.svg; qrcode.make('otpauth://totp/smoke', image_factory=qrcode.image.svg.SvgPathFillImage).save(io.BytesIO())"
+
 COPY --chown=app:app . .
 COPY --from=front --chown=app:app /src/aranha_estetica/static/dist ./aranha_estetica/static/dist
 
