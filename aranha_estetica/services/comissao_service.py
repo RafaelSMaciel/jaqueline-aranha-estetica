@@ -12,7 +12,7 @@ Estornado em AtendimentoCancelado.
 from __future__ import annotations
 
 import logging
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Optional
 
 from django.db import IntegrityError, transaction
@@ -28,6 +28,14 @@ from ..domain.events import (
 from ..models import Atendimento, ConsumoSessao, MovimentoComissao, RegraComissao
 
 logger = logging.getLogger(__name__)
+
+CENTAVO = Decimal('0.01')
+CEM = Decimal('100')
+
+
+def _centavos(valor: Decimal) -> Decimal:
+    """Arredonda em centavos meio-para-cima — mesmo criterio de utils/precos."""
+    return valor.quantize(CENTAVO, rounding=ROUND_HALF_UP)
 
 
 class ComissaoService:
@@ -75,7 +83,7 @@ class ComissaoService:
         total_sessoes = compra.pacote.itens.aggregate(t=Sum('quantidade_sessoes'))['t'] or 0
         if total_sessoes <= 0:
             return Decimal('0.00')
-        return (compra.valor_pago / Decimal(total_sessoes)).quantize(Decimal('0.01'))
+        return _centavos(compra.valor_pago / Decimal(total_sessoes))
 
     @staticmethod
     @transaction.atomic
@@ -96,7 +104,13 @@ class ComissaoService:
             return None
 
         if regra.percentual is not None:
-            valor = (base * regra.percentual / Decimal('100')).quantize(Decimal('0.01'))
+            percentual = regra.percentual
+            if percentual > CEM:
+                # Regra antiga/invalida (>100%) nunca paga mais que o atendimento
+                # rendeu; o CHECK/validator do model barra novas.
+                logger.warning('regra_comissao_percentual_acima_de_100', extra={'regra_id': regra.pk})
+                percentual = CEM
+            valor = _centavos(base * percentual / CEM)
         else:
             valor = regra.valor or Decimal('0.00')
 

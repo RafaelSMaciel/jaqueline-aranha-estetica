@@ -16,7 +16,9 @@ from django.shortcuts import redirect, render
 from ..decorators import staff_required
 from ..models import Configuracao
 from ..utils.audit import registrar_log
-from ..utils.branding import BRANDING_FIELDS, config_dict, get_branding, invalidar_cache
+from ..utils.branding import (
+    BRANDING_FIELDS, config_dict, get_branding, invalidar_cache, normalizar_whatsapp,
+)
 
 _HEX_COR = re.compile(r'^#[0-9a-fA-F]{6}$')
 
@@ -26,9 +28,9 @@ def _validar(chave: str, valor: str):
     if not valor:
         return '', None
     if chave == 'WHATSAPP_NUMERO':
-        digitos = re.sub(r'\D', '', valor)
-        if not 12 <= len(digitos) <= 13:
-            return valor, 'WhatsApp: use DDI + DDD + número, só dígitos (ex: 5517991234567).'
+        digitos = normalizar_whatsapp(valor)  # 10-11 digitos ganham o DDI 55
+        if not digitos:
+            return valor, 'WhatsApp: informe DDD + número (ex: 17 99123-4567) ou com DDI (5517991234567).'
         return digitos, None
     if chave == 'CLINIC_EMAIL':
         try:
@@ -55,7 +57,12 @@ def admin_branding(request):
         for chave, _label, _tipo in BRANDING_FIELDS:
             if chave not in request.POST:
                 continue
-            valor, erro = _validar(chave, request.POST.get(chave, '').strip())
+            bruto = request.POST.get(chave, '').strip()
+            # Campo que voltou igual ao valor em uso (ex.: WHATSAPP_NUMERO invalido
+            # vindo do env) nao e alteracao: nao pode travar o save dos outros campos.
+            if bruto == efetivos.get(chave, ''):
+                continue
+            valor, erro = _validar(chave, bruto)
             if erro:
                 erros.append(erro)
                 continue
@@ -74,8 +81,8 @@ def admin_branding(request):
             invalidar_cache()  # o signal tambem invalida; explicito por clareza
             registrar_log(
                 request.user, 'Atualizou branding',
-                'configuracao_sistema', None,
-                detalhes={'chaves': alterados},
+                'configuracao', None,
+                detalhes={'chaves': alterados}, request=request,
             )
             n = len(alterados)
             messages.success(

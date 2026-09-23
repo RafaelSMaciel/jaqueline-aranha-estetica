@@ -96,8 +96,8 @@ def admin_criar_configuracao(request):
         )
         registrar_log(
             request.user, f'Criou configuracao: {chave}',
-            'configuracao_sistema', config.pk,
-            detalhes={'valor': valor},
+            'configuracao', config.pk,
+            detalhes={'valor': valor}, request=request,
         )
         messages.success(request, f'Configuração "{chave}" criada.')
 
@@ -125,8 +125,9 @@ def admin_editar_configuracao(request, pk):
 
     registrar_log(
         request.user, f'Editou configuracao: {config.chave}',
-        'configuracao_sistema', config.pk,
+        'configuracao', config.pk,
         detalhes={'valor_antigo': valor_antigo, 'valor_novo': config.valor},
+        request=request,
     )
     messages.success(request, f'"{config.chave}" atualizada.')
     return redirect('aranha:admin_configuracoes')
@@ -141,7 +142,7 @@ def admin_excluir_configuracao(request, pk):
     config.delete()
     registrar_log(
         request.user, f'Excluiu configuracao: {chave}',
-        'configuracao_sistema', pk,
+        'configuracao', pk, request=request,
     )
     messages.success(request, f'"{chave}" removida.')
     return redirect('aranha:admin_configuracoes')

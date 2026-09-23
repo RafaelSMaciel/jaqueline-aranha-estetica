@@ -72,11 +72,12 @@
       </div>
       <div>
         <div class="font-bold text-[0.9rem] text-texto">Prontuário Digital</div>
-        <div class="text-[0.72rem] text-texto-suave">Registro completo do cliente</div>
+        <div class="text-[0.72rem] text-texto-suave">Registro da equipe + fichas da cliente</div>
       </div>
     </div>
     <p class="text-[0.8rem] text-texto-suave">
-      Contém histórico de procedimentos, respostas ao questionário de anamnese e observações dos profissionais.
+      Reúne o que a equipe registrou (alergias, contraindicações, anotações de cada sessão) e as fichas de avaliação
+      que a própria cliente respondeu no agendamento. Alergias e contraindicações aparecem em destaque na lista.
     </p>
   </div>
   <div class="bg-superficie rounded-2xl shadow-sm px-4 py-4">
@@ -146,7 +147,7 @@
      class="flex items-center gap-3 bg-superficie rounded-2xl shadow-sm px-4 py-3 mb-2 hover:shadow-md hover:-translate-y-px transition-all duration-200 no-underline">
 
     {# Avatar ── iniciais truncadas em 2 chars #}
-    <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 font-extrabold text-[0.75rem] {% if item.tem_prontuario %}bg-green-50 text-green-700{% else %}bg-[rgba(201,168,76,0.12)] text-[#7a5f1f]{% endif %}" aria-hidden="true">
+    <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 font-extrabold text-[0.75rem] {% if item.tem_prontuario or item.tem_ficha %}bg-green-50 text-green-700{% else %}bg-[rgba(201,168,76,0.12)] text-[#7a5f1f]{% endif %}" aria-hidden="true">
       {{ item.cliente.nome|truncatechars:2 }}
     </div>
 
@@ -157,14 +158,19 @@
         {{ item.cliente.telefone|default:"Sem telefone" }}
         {% if item.cliente.cpf %} &middot; {{ item.cliente.cpf }}{% endif %}
       </div>
+      {% include 'partials/_alerta_saude.html' with alertas=item.alertas %}
     </div>
 
     {# Badges de status ── prontuário + termos #}
     <div class="flex flex-col items-end gap-1 flex-shrink-0">
       {% if item.tem_prontuario %}
       <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-green-50 text-green-700 uppercase tracking-wide">Prontuário</span>
-      {% else %}
-      <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-yellow-50 text-yellow-700 uppercase tracking-wide">Sem prontuário</span>
+      {% endif %}
+      {% if item.tem_ficha %}
+      <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-blue-50 text-blue-700 uppercase tracking-wide">Ficha online</span>
+      {% endif %}
+      {% if not item.tem_prontuario and not item.tem_ficha %}
+      <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-yellow-50 text-yellow-700 uppercase tracking-wide">Sem dados de saúde</span>
       {% endif %}
       {% if item.total_termos > 0 %}
       <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-green-50 text-green-700 uppercase tracking-wide">{{ item.total_termos }} termo{{ item.total_termos|pluralize }}</span>

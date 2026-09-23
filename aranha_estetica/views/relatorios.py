@@ -125,12 +125,12 @@ def admin_nps_publicacao(request, pk):
         else:
             avaliacao.aprovado_publicacao = True
             avaliacao.save(update_fields=['aprovado_publicacao'])
-            registrar_log(request.user, 'Aprovou depoimento p/ o site', 'avaliacao_nps', avaliacao.pk)
+            registrar_log(request.user, 'Aprovou depoimento p/ o site', 'avaliacao_nps', avaliacao.pk, request=request)
             messages.success(request, 'Depoimento aprovado: já aparece no site.')
     elif acao == 'reprovar':
         avaliacao.aprovado_publicacao = False
         avaliacao.save(update_fields=['aprovado_publicacao'])
-        registrar_log(request.user, 'Retirou depoimento do site', 'avaliacao_nps', avaliacao.pk)
+        registrar_log(request.user, 'Retirou depoimento do site', 'avaliacao_nps', avaliacao.pk, request=request)
         messages.success(request, 'Depoimento retirado do site.')
     else:
         messages.error(request, 'Ação inválida.')
@@ -213,6 +213,7 @@ def admin_comissao_pagar(request, pk):
     """Marca uma comissao PENDENTE como PAGA."""
     ok = ComissaoService.marcar_paga(pk)
     if ok:
+        registrar_log(request.user, 'Marcou comissão como paga', 'movimento_comissao', pk, request=request)
         messages.success(request, 'Comissão marcada como paga.')
     else:
         messages.error(request, 'Comissão não encontrada ou já não estava pendente.')
