@@ -22,13 +22,13 @@
 {% for promo in promocoes %}
 <div x-data="modal" x-on:keydown.escape.window="fechar"
      class="relative overflow-hidden bg-superficie rounded-2xl shadow-sm p-4 mb-3 border-l-4 {% if promo.ativa %}border-green-500{% else %}border-gray-300 opacity-70{% endif %}">
-  <div class="absolute top-3 right-3 px-3 py-1 rounded-full bg-gradient-to-br from-[#C9A84C] to-[#e8c94f] text-white font-extrabold text-[0.8rem]">-{{ promo.desconto_percentual|floatformat:"-2" }}%</div>
+  <div class="absolute top-3 right-3 px-3 py-1 rounded-full bg-gradient-to-br from-[#C9A84C] to-[#e8c94f] text-white font-extrabold text-[0.8rem]">{% if promo.preco_promocional is not None %}R$ {{ promo.preco_promocional|floatformat:2 }}{% else %}-{{ promo.desconto_percentual|floatformat:"-2" }}%{% endif %}</div>
   <div class="font-bold text-[1rem] text-texto mb-0.5 pr-16">{{ promo.nome }}</div>
   <div class="flex items-center gap-1.5 text-[0.8rem] text-texto-suave">
     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <path d="M12 2a7 7 0 00-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 00-7-7z"/><circle cx="12" cy="9" r="2.5"/>
     </svg>
-    {{ promo.procedimento.nome }}
+    {{ promo.procedimento.nome|default:"Todos os procedimentos" }}
   </div>
   {% if promo.descricao %}
   <div class="text-[0.8rem] text-texto-suave mt-1">{{ promo.descricao|truncatewords:15 }}</div>
@@ -63,17 +63,13 @@
       <form method="post" action="{% url 'aranha:admin_disparar_promocao' promo.pk %}"
             class="mt-2 p-3 rounded-xl border border-borda bg-fundo flex flex-wrap items-end gap-2">
         {% csrf_token %}
-        <label class="text-[0.72rem] font-bold text-texto-suave">Cupom (opcional)
-          <input type="text" name="cupom" maxlength="30"
-                 class="block mt-1 w-32 px-2 py-1.5 rounded-lg border border-borda bg-superficie text-[0.8rem] text-texto">
-        </label>
-        <label class="text-[0.72rem] font-bold text-texto-suave">Validade (dias)
+        <label class="text-[0.72rem] font-bold text-texto-suave">Validade no e-mail (dias)
           <input type="number" name="validade_dias" value="30" min="1" max="365"
                  class="block mt-1 w-20 px-2 py-1.5 rounded-lg border border-borda bg-superficie text-[0.8rem] text-texto">
         </label>
         <button type="submit" data-confirm="Enviar esta promoção por e-mail para os clientes que autorizaram receber ofertas?"
                 class="px-3 py-1.5 rounded-lg bg-green-700 text-white text-[0.75rem] font-bold border-none cursor-pointer hover:bg-green-800 transition-colors">Enviar</button>
-        <p class="w-full text-[0.7rem] text-texto-suave m-0">Só recebe quem aceitou e-mails de ofertas. Listas grandes são enviadas em lotes: clique de novo para continuar.</p>
+        <p class="w-full text-[0.7rem] text-texto-suave m-0">Só recebe quem aceitou e-mails de ofertas. A validade informada nunca passa do fim da promoção ({{ promo.data_fim|date:"d/m/Y" }}). Listas grandes são enviadas em lotes: clique de novo para continuar.</p>
       </form>
     </details>
     {% endif %}

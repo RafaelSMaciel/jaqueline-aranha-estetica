@@ -21,6 +21,8 @@
       <select id="profissionalSelect" name="profissional_id" required
               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
         <option value="">Selecione...</option>
+        {# Global: fecha a agenda de todos (recesso, reforma) — o SlotService respeita #}
+        <option value="todos">Todos os profissionais (clínica fechada)</option>
         {% for p in profissionais %}
         <option value="{{ p.pk }}">{{ p.nome }}</option>
         {% endfor %}

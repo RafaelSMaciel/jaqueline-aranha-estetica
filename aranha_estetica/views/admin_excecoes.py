@@ -96,7 +96,7 @@ def admin_excecao_criar(request, prof_id):
     registrar_log(
         request.user,
         f'{"Criou" if created else "Atualizou"} exceção {tipo} {data} prof={prof.nome}',
-        'excecao_disponibilidade', excecao.pk,
+        'excecao_disponibilidade', excecao.pk, request=request,
     )
     messages.success(request, f'Exceção {"criada" if created else "atualizada"}.')
     return redirect('aranha:admin_excecoes', prof_id=prof.pk)
@@ -109,6 +109,6 @@ def admin_excecao_excluir(request, pk):
     if request.method == 'POST':
         info = f'{excecao.tipo} {excecao.data} prof={excecao.profissional.nome}'
         excecao.delete()
-        registrar_log(request.user, f'Excluiu exceção: {info}', 'excecao_disponibilidade', pk)
+        registrar_log(request.user, f'Excluiu exceção: {info}', 'excecao_disponibilidade', pk, request=request)
         messages.success(request, 'Exceção removida.')
     return redirect('aranha:admin_excecoes', prof_id=prof_id)

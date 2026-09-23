@@ -1,10 +1,11 @@
 {% extends 'painel/base_v2.html' %}
+{% load atendimento_tags dict_extras %}
 
 {% block titulo %}Agendamentos — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Agendamentos{% endblock %}
 {% block page_subtitle %}Gerencie todos os agendamentos da clínica{% endblock %}
 {% block page_actions %}
-<a href="{% url 'aranha:agendamento_publico' %}"
+<a href="{% url 'aranha:admin_agendamento_novo' %}"
    class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white no-underline hover:opacity-90 transition-opacity">
   <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
   Novo agendamento
@@ -17,6 +18,8 @@
 {% endblock %}
 
 {% block admin_content %}
+{# Alerta de saude, termo pendente e sessao de pacote: calculados em lote p/ a pagina #}
+{% marcadores_atendimentos agendamentos as marc %}
 
 {# ── Filtros ── #}
 <div class="bg-superficie rounded-2xl shadow-sm p-4 mb-3">
@@ -118,20 +121,19 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
     </div>
     <div class="flex-1 min-w-[8rem]">
       <div class="font-bold text-[0.9rem] text-texto truncate">
-        {{ agend.cliente.nome }}
-        {% if agend.cliente.prontuario.alergias or agend.cliente.prontuario.contraindicacoes %}
-        <span title="{% if agend.cliente.prontuario.alergias %}Alergias: {{ agend.cliente.prontuario.alergias }}{% endif %}{% if agend.cliente.prontuario.contraindicacoes %}{% if agend.cliente.prontuario.alergias %} | {% endif %}Contraindicações: {{ agend.cliente.prontuario.contraindicacoes }}{% endif %}"
-              class="inline-flex items-center gap-1 align-middle ml-1.5 px-2 py-px rounded-full text-[0.65rem] font-bold bg-red-50 text-red-600 border border-red-600">
-          <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          Alergia/Restrição
-        </span>
-        {% endif %}
+        <a href="{% url 'aranha:admin_cliente_detalhe' agend.cliente_id %}" class="text-texto no-underline hover:text-marca">{{ agend.cliente.nome }}</a>
       </div>
       <div class="flex items-center gap-1.5 flex-wrap text-[0.72rem] text-texto-suave">
         {{ agend.procedimento.nome }} &bull; {{ agend.profissional.nome }} &bull;
         {{ agend.data_hora_inicio|date:"d/m/Y" }} {{ agend.data_hora_inicio|time:"H:i" }}-{{ agend.data_hora_fim|time:"H:i" }} &bull;
         <span class="status-text-{{ agend.pk }}">{% include 'partials/_status_badge.html' with status=agend.status %}</span>
       </div>
+      {% include 'partials/_alerta_saude.html' with alertas=marc.alertas|get_item:agend.cliente_id %}
+      {% if agend.pk in marc.termo_pendente %}
+      <p class="m-0 mt-1 inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2 py-0.5 text-[0.7rem] font-bold text-amber-800" role="note">
+        Termo pendente: o termo do procedimento ainda não foi aceito
+      </p>
+      {% endif %}
       {% if agend.cliente.telefone %}
       <div class="flex items-center gap-1 text-[0.72rem] text-texto-suave mt-0.5">
         <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.13.81.36 1.6.7 2.34a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.74-1.74a2 2 0 012.11-.45c.74.34 1.53.57 2.34.7A2 2 0 0122 16.92z"/></svg>
@@ -140,8 +142,36 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
       {% endif %}
     </div>
     <div class="flex flex-wrap items-center justify-end gap-1.5 w-full sm:w-auto sm:shrink-0">
-      {% if agend.valor_cobrado %}
+      {% if agend.pk in marc.pacote %}
+      {# Sessao debitada de pacote ja pago: nao cobrar de novo #}
+      <span class="px-2 py-0.5 rounded-full text-[0.7rem] font-bold bg-blue-50 text-blue-700">Pacote</span>
+      {% elif agend.valor_cobrado is not None %}
       <span class="text-[0.78rem] font-bold text-green-700">R$ {{ agend.valor_cobrado|floatformat:2 }}</span>
+      {% endif %}
+      {% if agend.pk not in marc.pacote and not agend.eh_retorno and agend.status != 'CANCELADO' and agend.status != 'FALTOU' and agend.status != 'REAGENDADO' %}
+      {# Valor combinado / "a consultar": registrado aqui (realizado sem comissao lancada gera a comissao) #}
+      <details class="relative">
+        <summary class="list-none cursor-pointer px-2 py-1 rounded-lg border border-borda text-[0.7rem] font-bold text-texto-suave hover:text-texto">
+          {% if agend.valor_cobrado is None %}Registrar valor{% else %}Valor{% endif %}
+        </summary>
+        <form method="post" action="{% url 'aranha:admin_atendimento_valor' agend.pk %}"
+              class="absolute right-0 z-30 mt-1 flex items-center gap-1.5 p-2 rounded-xl border border-borda bg-superficie shadow-lg">
+          {% csrf_token %}
+          <label class="sr-only" for="valor-{{ agend.pk }}">Valor cobrado de {{ agend.cliente.nome }}</label>
+          <input id="valor-{{ agend.pk }}" type="text" name="valor" inputmode="decimal" required placeholder="150,00"
+                 class="w-24 px-2 py-1 rounded-lg border border-borda bg-fundo text-[0.8rem] text-texto">
+          <button type="submit" class="px-2.5 py-1 rounded-lg bg-green-700 text-white text-[0.72rem] font-bold border-none cursor-pointer hover:bg-green-800">Salvar</button>
+        </form>
+      </details>
+      {% endif %}
+      {% if agend.pk in marc.termo_link %}
+      <form method="post" action="{% url 'aranha:admin_gerar_link_termo' agend.pk %}" class="m-0">
+        {% csrf_token %}
+        <button type="submit"
+                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-50 text-amber-800 text-[0.7rem] font-bold border-none cursor-pointer hover:bg-amber-100 transition-colors">
+          Link do termo
+        </button>
+      </form>
       {% endif %}
       {% if agend.status == 'PENDENTE' %}
       <form method="post" action="{% url 'aranha:admin_aprovar_agendamento' pk=agend.pk %}" class="m-0">
@@ -159,7 +189,7 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
         </button>
       </form>
       {% endif %}
-      <select data-atend-id="{{ agend.pk }}" title="Alterar status" aria-label="Alterar status"
+      <select data-atend-id="{{ agend.pk }}"{% if agend.pk in marc.termo_pendente %} data-termo-pendente="1"{% endif %} title="Alterar status" aria-label="Alterar status"
               class="px-1.5 py-1 rounded-lg border-2 border-borda bg-superficie text-[0.7rem] font-bold text-texto cursor-pointer outline-none">
         <option value="">⚡</option>
         <option value="CONFIRMADO" {% if agend.status == 'CONFIRMADO' %}disabled{% endif %}>✅ Confirmar</option>
@@ -183,7 +213,7 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
     </div>
     <h5 class="font-bold text-texto mb-1">Nenhum agendamento encontrado</h5>
     <p class="text-[0.85rem] text-texto-suave mb-4">Ajuste os filtros ou crie um novo agendamento.</p>
-    <a href="{% url 'aranha:agendamento_publico' %}" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.85rem] font-bold no-underline hover:opacity-90 transition-opacity">
+    <a href="{% url 'aranha:admin_agendamento_novo' %}" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.85rem] font-bold no-underline hover:opacity-90 transition-opacity">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Novo agendamento
     </a>
@@ -210,11 +240,16 @@ document.addEventListener('change', function (e) {
     if (!sel || !sel.value) return;
     var id = sel.getAttribute('data-atend-id');
     var status = sel.value;
-    if (!confirm('Alterar status para ' + status + '?')) { sel.value = ''; return; }
+    var payload = { atendimento_id: id, status: status };
+    if (status === 'REALIZADO' && sel.getAttribute('data-termo-pendente') === '1') {
+        // Override explicito (auditado no servidor): termo do procedimento nao aceito
+        if (!confirm('A cliente ainda não aceitou o termo do procedimento. Marcar como realizado mesmo assim?')) { sel.value = ''; return; }
+        payload.sem_termo = true;
+    } else if (!confirm('Alterar status para ' + status + '?')) { sel.value = ''; return; }
     fetch('{% url "aranha:admin_atualizar_status" %}', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
-        body: JSON.stringify({ atendimento_id: id, status: status })
+        body: JSON.stringify(payload)
     })
     .then(function (r) { return r.json(); })
     .then(function (data) {

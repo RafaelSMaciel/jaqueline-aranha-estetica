@@ -170,7 +170,7 @@ def profissional_cadastro(request):
                     ],
                     ignore_conflicts=True,
                 )
-            registrar_log(request.user, f'Cadastrou profissional: {nome}', 'profissional', profissional.pk)
+            registrar_log(request.user, f'Cadastrou profissional: {nome}', 'profissional', profissional.pk, request=request)
             messages.success(request, f'Profissional {nome} cadastrado com sucesso!')
             return redirect('aranha:painel_profissionais')
         except (DatabaseError, ValidationError) as e:
@@ -283,7 +283,7 @@ def profissional_editar(request, pk=None):
                 profissional.save()
                 _salvar_janelas(profissional, janelas)
                 _salvar_habilitacoes(profissional, _ids_procedimentos(request.POST))
-            registrar_log(request.user, f'Editou profissional: {profissional.nome}', 'profissional', profissional.pk)
+            registrar_log(request.user, f'Editou profissional: {profissional.nome}', 'profissional', profissional.pk, request=request)
             messages.success(request, f'Profissional {profissional.nome} atualizado com sucesso!')
             return redirect('aranha:painel_profissionais')
         except (DatabaseError, ValidationError) as e:

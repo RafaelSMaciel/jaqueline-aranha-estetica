@@ -1,5 +1,5 @@
 {% extends 'estrutura/base_v2.html' %}
-{% load static %}
+{% load static painel_tags %}
 
 {% block titulo %}Minha Agenda | {{ CLINIC_NAME }}{% endblock %}
 
@@ -47,6 +47,18 @@
                 {{ profissional.nome }}
             </span>
             {% endif %}
+            {% webpush_configurado as push_ok %}
+            {% if push_ok %}
+            {# Avisos de novo agendamento neste aparelho (webpush.js remove se nao suportado/ja decidido) #}
+            <button type="button" id="webpushEnable"
+                    class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-borda bg-superficie
+                           text-texto-suave hover:text-texto font-bold text-sm cursor-pointer transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                Ativar avisos
+            </button>
+            {% endif %}
             <form method="post" action="{% url 'aranha:usuario_logout' %}" class="m-0">
                 {% csrf_token %}
                 <button type="submit"
@@ -72,13 +84,16 @@
             <span class="bg-yellow-400 text-white rounded-full w-5 h-5 inline-flex items-center justify-center text-xs font-bold">{{ pendentes|length }}</span>
         </div>
         {% for p in pendentes %}
-        <div class="bg-superficie rounded-lg px-4 py-3 mb-2 flex items-center gap-3 shadow-sm last:mb-0">
+        <div class="bg-superficie rounded-lg px-4 py-3 mb-2 flex flex-wrap items-center gap-3 shadow-sm last:mb-0">
             <div class="flex-1 min-w-0">
                 <div class="font-bold text-texto text-sm">{{ p.cliente.nome }}</div>
                 <div class="text-xs text-texto-suave mt-0.5">
                     {{ p.procedimento.nome }} &bull;
                     {{ p.data_hora_inicio|date:"d/m/Y" }} às {{ p.data_hora_inicio|time:"H:i" }}
+                    &bull; <a href="{% url 'aranha:prontuario_detalhe' p.cliente_id %}" class="font-bold text-blue-800 hover:underline">Ficha</a>
                 </div>
+                {% include 'partials/_alerta_saude.html' with alertas=p.alertas %}
+                {% if p.termo_pendente %}{% include 'profissional/_termo_pendente.html' %}{% endif %}
             </div>
             <div class="flex gap-2 flex-shrink-0">
                 <form method="post" action="{% url 'aranha:profissional_aprovar' pk=p.pk %}" class="m-0">
@@ -171,28 +186,28 @@
             <div class="flex-1 min-w-0">
                 <div class="font-bold text-sm text-texto flex items-center gap-1 flex-wrap">
                     {{ atd.cliente.nome }}
-                    {% if atd.cliente.prontuario.alergias or atd.cliente.prontuario.contraindicacoes %}
-                    <span class="inline-block bg-red-50 border border-red-200 text-red-700 rounded px-1.5 py-0.5
-                                 text-xs font-bold align-middle"
-                          title="{% if atd.cliente.prontuario.alergias %}Alergias: {{ atd.cliente.prontuario.alergias }}{% endif %}{% if atd.cliente.prontuario.contraindicacoes %}{% if atd.cliente.prontuario.alergias %} | {% endif %}CI: {{ atd.cliente.prontuario.contraindicacoes }}{% endif %}">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="inline w-3 h-3 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                        </svg> Alerta
-                    </span>
-                    {% endif %}
                 </div>
                 <div class="text-xs text-texto-suave mt-0.5">
                     {{ atd.procedimento.nome }} &bull; {{ atd.data_hora_inicio|time:"H:i" }}–{{ atd.data_hora_fim|time:"H:i" }}
                 </div>
+                {% include 'partials/_alerta_saude.html' with alertas=atd.alertas %}
+                {% if atd.termo_pendente %}{% include 'profissional/_termo_pendente.html' %}{% endif %}
                 <span class="inline-block text-xs font-black uppercase px-2 py-0.5 rounded mt-1 badge-{{ atd.status }}">
                     {{ atd.get_status_display }}
                 </span>
             </div>
             <div class="atn-actions flex gap-2 flex-shrink-0">
                 {% if atd.status == 'AGENDADO' or atd.status == 'CONFIRMADO' %}
-                <form method="post" action="{% url 'aranha:profissional_marcar_realizado' pk=atd.pk %}" class="m-0">
+                <form method="post" action="{% url 'aranha:profissional_marcar_realizado' pk=atd.pk %}" class="m-0 flex flex-col items-end gap-1">
                     {% csrf_token %}
                     <input type="hidden" name="next" value="{% url 'aranha:profissional_agenda' %}?data={{ dia|date:'Y-m-d' }}">
+                    {% if atd.termo_pendente %}
+                    {# Override explicito: sem o aceite do termo o servidor recusa sem esta marcacao #}
+                    <label class="inline-flex items-center gap-1 text-xs font-bold text-amber-800 cursor-pointer">
+                        <input type="checkbox" name="sem_termo" value="1" required class="w-3.5 h-3.5">
+                        Realizado sem termo aceito
+                    </label>
+                    {% endif %}
                     <button type="submit"
                             class="bg-green-50 hover:bg-green-100 text-green-800
                                    text-xs font-bold px-3 py-2 rounded-lg inline-flex items-center gap-1
@@ -204,6 +219,16 @@
                         Realizado
                     </button>
                 </form>
+                {% endif %}
+                {% if atd.status != 'CANCELADO' and atd.status != 'REAGENDADO' and atd.status != 'FALTOU' %}
+                <a href="{% url 'aranha:prontuario_detalhe' atd.cliente_id %}"
+                   class="bg-fundo hover:bg-borda text-texto text-xs font-bold
+                          px-3 py-2 rounded-lg inline-flex items-center gap-1 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Ficha
+                </a>
                 {% endif %}
                 <a href="{% url 'aranha:profissional_anotar' pk=atd.pk %}"
                    class="bg-blue-50 hover:bg-blue-100 text-blue-800 text-xs font-bold
@@ -240,6 +265,12 @@
                 <div class="text-xs px-1.5 py-1 mt-1 rounded bg-fundo text-texto truncate">
                     <span class="font-black">{{ atd.data_hora_inicio|time:"H:i" }}</span>
                     {{ atd.cliente.nome|truncatechars:12 }}
+                    {% if atd.alertas %}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="inline w-3 h-3 -mt-0.5 text-red-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                    </svg><span class="sr-only">Alerta de saúde: {% for a in atd.alertas %}{{ a.label }}: {{ a.valor }}{% if not forloop.last %}; {% endif %}{% endfor %}</span>
+                    {% endif %}
+                    {% if atd.termo_pendente %}<span class="font-bold text-amber-800">· termo pendente</span>{% endif %}
                 </div>
                 {% empty %}
                 <div class="text-xs text-texto-suave text-center mt-2">—</div>
@@ -265,6 +296,16 @@
 {% endblock %}
 
 {% block js %}
+{% webpush_configurado as push_ok %}
+{% if push_ok %}
+<script nonce="{{ csp_nonce }}">
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register("{% url 'aranha:sw' %}").catch(function (e) { console.warn('SW:', e); });
+    }
+    window.WEBPUSH_AUTO = true;
+</script>
+<script src="{% static 'js/webpush.js' %}" defer></script>
+{% endif %}
 <script nonce="{{ csp_nonce }}">
 (function () {
     /* ── 1. View tabs (substitui os 2 onclick nas tabs Dia/Semana) ── */

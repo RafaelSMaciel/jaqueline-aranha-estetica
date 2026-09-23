@@ -1,0 +1,75 @@
+{% extends 'painel/base_v2.html' %}
+
+{% block titulo %}Link do termo — {{ CLINIC_NAME }}{% endblock %}
+{% block page_title %}Link do termo{% endblock %}
+{% block page_subtitle %}{{ cliente.nome }} · {{ atendimento.procedimento.nome }} · {{ atendimento.data_hora_inicio|date:"d/m/Y H:i" }}{% endblock %}
+
+{% block admin_content %}
+<div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4 max-w-2xl">
+  <p class="text-[0.85rem] text-texto mb-3">
+    Envie este link para {{ cliente.nome }} ler e aceitar
+    {% if pendentes|length == 1 %}o termo pendente{% else %}os {{ pendentes|length }} termos pendentes{% endif %}.
+    Ele vale até o fim do atendimento ({{ atendimento.data_hora_fim|date:"d/m/Y H:i" }}).
+  </p>
+  <ul class="mb-4 list-disc pl-5 text-[0.82rem] text-texto-suave">
+    {% for t in pendentes %}
+    <li>{{ t.titulo }} <span class="text-[0.72rem]">({{ t.get_tipo_display }} · v{{ t.versao }})</span></li>
+    {% endfor %}
+  </ul>
+
+  <label for="linkTermo" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Link</label>
+  <div class="flex gap-2 flex-wrap">
+    <input id="linkTermo" type="text" readonly value="{{ link }}"
+           class="flex-1 min-w-[16rem] px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.8rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40">
+    <button type="button" id="copiarLinkTermo"
+            class="px-4 py-2 rounded-xl border border-borda bg-superficie text-texto text-[0.8rem] font-bold cursor-pointer hover:bg-fundo transition-colors">
+      Copiar
+    </button>
+  </div>
+  <p id="copiadoLinkTermo" class="hidden text-[0.75rem] text-green-700 font-bold mt-1" role="status">Link copiado.</p>
+
+  <div class="flex gap-2 flex-wrap mt-4">
+    {% if telefone_wa %}
+    <a href="https://wa.me/55{{ telefone_wa }}?text={{ 'Olá '|urlencode }}{{ cliente.nome|urlencode }}{{ ', antes do seu atendimento de '|urlencode }}{{ atendimento.procedimento.nome|urlencode }}{{ ', leia e aceite o termo neste link: '|urlencode }}{{ link|urlencode }}"
+       target="_blank" rel="noopener"
+       class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#dcf5e7] text-[#1e8e4e] text-[0.82rem] font-bold no-underline hover:opacity-80 transition-opacity">
+      Enviar pelo WhatsApp
+    </a>
+    {% endif %}
+    {% if cliente.email %}
+    <a href="mailto:{{ cliente.email }}?subject={{ 'Termo de consentimento'|urlencode }}&body={{ 'Olá, leia e aceite o termo do seu atendimento neste link: '|urlencode }}{{ link|urlencode }}"
+       class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#e3f2fd] text-[#1565c0] text-[0.82rem] font-bold no-underline hover:opacity-80 transition-opacity">
+      Enviar por e-mail
+    </a>
+    {% endif %}
+    <a href="{{ link }}" target="_blank" rel="noopener"
+       class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-borda text-texto text-[0.82rem] font-bold no-underline hover:bg-fundo transition-colors">
+      Abrir aqui (aceite no balcão)
+    </a>
+  </div>
+
+  <div class="mt-5">
+    <a href="{% url 'aranha:admin_cliente_detalhe' cliente.pk %}" class="text-[0.8rem] font-bold text-marca no-underline hover:opacity-90">← Ficha de {{ cliente.nome }}</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script nonce="{{ csp_nonce }}">
+(function () {
+  var btn = document.getElementById('copiarLinkTermo');
+  var campo = document.getElementById('linkTermo');
+  var ok = document.getElementById('copiadoLinkTermo');
+  if (!btn || !campo) return;
+  btn.addEventListener('click', function () {
+    campo.select();
+    var feito = function () { ok.classList.remove('hidden'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(campo.value).then(feito).catch(function () {});
+    } else {
+      try { document.execCommand('copy'); feito(); } catch (e) { /* segue selecionado p/ Ctrl+C */ }
+    }
+  });
+})();
+</script>
+{% endblock %}

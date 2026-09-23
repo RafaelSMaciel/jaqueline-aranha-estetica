@@ -1,0 +1,159 @@
+{% extends 'painel/base_v2.html' %}
+{% load l10n %}
+
+{% block titulo %}Novo agendamento — {{ CLINIC_NAME }}{% endblock %}
+{% block page_title %}Novo agendamento{% endblock %}
+{% block page_subtitle %}Agendamento pela recepção (telefone, WhatsApp ou balcão){% endblock %}
+{% block page_actions %}
+<a href="{% url 'aranha:painel_agendamentos' %}"
+   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold border border-borda text-texto-suave no-underline hover:text-texto hover:border-texto-suave transition-colors">
+  ← Agendamentos
+</a>
+{% endblock %}
+
+{% block admin_content %}
+{% comment %}
+Um unico form POST (sem JS): o 1o botao de envio e "Buscar", entao Enter na
+busca busca. "Ver horarios" re-renderiza com os horarios livres do
+SlotService; "Agendar" valida tudo de novo no servidor.
+{% endcomment %}
+<form method="post" action="{% url 'aranha:admin_agendamento_novo' %}" class="max-w-3xl">
+  {% csrf_token %}
+
+  {# ── 1. Cliente ── #}
+  <section class="bg-superficie rounded-2xl shadow-sm p-5 mb-3" aria-labelledby="secCliente">
+    <h2 id="secCliente" class="text-[0.9rem] font-bold text-texto mb-3">1. Cliente</h2>
+    <label for="buscaCliente" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Buscar por nome, telefone, e-mail ou CPF</label>
+    <div class="flex gap-2 flex-wrap mb-3">
+      <input id="buscaCliente" type="search" name="q" value="{{ q }}" maxlength="100" autocomplete="off"
+             class="flex-1 min-w-[12rem] px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40">
+      <button type="submit" name="acao" value="buscar" formnovalidate
+              class="px-4 py-2 rounded-xl bg-[#1a1a2e] text-white text-[0.82rem] font-bold border-none cursor-pointer hover:opacity-90">Buscar</button>
+    </div>
+
+    <fieldset class="border-0 p-0 m-0">
+      <legend class="sr-only">Escolha a cliente</legend>
+      {% if cliente %}
+      <label class="flex items-center gap-2 px-3 py-2 mb-1 rounded-xl border-2 border-[#C9A84C] bg-fundo cursor-pointer text-[0.85rem] text-texto">
+        <input type="radio" name="cliente_id" value="{{ cliente.pk }}" checked>
+        <span><strong>{{ cliente.nome }}</strong>{% if cliente.telefone %} · {{ cliente.telefone }}{% endif %}{% if cliente.email %} · {{ cliente.email }}{% endif %}</span>
+      </label>
+      {% endif %}
+      {% for c in resultados %}{% if not cliente or c.pk != cliente.pk %}
+      <label class="flex items-center gap-2 px-3 py-2 mb-1 rounded-xl border border-borda cursor-pointer text-[0.85rem] text-texto hover:bg-fundo">
+        <input type="radio" name="cliente_id" value="{{ c.pk }}">
+        <span><strong>{{ c.nome }}</strong>{% if c.telefone %} · {{ c.telefone }}{% endif %}{% if c.email %} · {{ c.email }}{% endif %}</span>
+      </label>
+      {% endif %}{% empty %}
+      {% if buscou and q %}<p class="text-[0.8rem] text-texto-suave mb-2">Nenhuma cliente encontrada para "{{ q }}". Cadastre abaixo.</p>{% endif %}
+      {% endfor %}
+      <label class="flex items-center gap-2 px-3 py-2 mt-2 rounded-xl border border-dashed border-borda cursor-pointer text-[0.85rem] text-texto hover:bg-fundo">
+        <input type="radio" name="cliente_id" value="" {% if not cliente %}checked{% endif %}>
+        <span><strong>Cliente nova</strong> — preencha abaixo</span>
+      </label>
+    </fieldset>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+      <div>
+        <label for="novoNome" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Nome completo</label>
+        <input id="novoNome" type="text" name="novo_nome" value="{{ novo.nome }}" maxlength="150" autocomplete="off"
+               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40">
+      </div>
+      <div>
+        <label for="novoTelefone" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Telefone (com DDD)</label>
+        <input id="novoTelefone" type="tel" name="novo_telefone" value="{{ novo.telefone }}" inputmode="tel" autocomplete="off" placeholder="(17) 99999-9999"
+               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40">
+      </div>
+      <div>
+        <label for="novoEmail" class="block text-[0.75rem] font-bold text-texto-suave mb-1">E-mail (opcional)</label>
+        <input id="novoEmail" type="email" name="novo_email" value="{{ novo.email }}" autocomplete="off"
+               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40">
+      </div>
+    </div>
+  </section>
+
+  {# ── 2. Procedimento, profissional e dia ── #}
+  <section class="bg-superficie rounded-2xl shadow-sm p-5 mb-3" aria-labelledby="secAtendimento">
+    <h2 id="secAtendimento" class="text-[0.9rem] font-bold text-texto mb-3">2. Procedimento, profissional e dia</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div>
+        <label for="selProcedimento" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Procedimento</label>
+        <select id="selProcedimento" name="procedimento_id"
+                class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40">
+          <option value="">Selecione...</option>
+          {% for p in procedimentos %}
+          <option value="{{ p.pk }}" {% if procedimento and p.pk == procedimento.pk %}selected{% endif %}>{{ p.nome }} ({{ p.duracao_minutos }} min)</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="selProfissional" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Profissional</label>
+        <select id="selProfissional" name="profissional_id"
+                class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40">
+          <option value="">Selecione...</option>
+          {% for prof in profissionais %}
+          <option value="{{ prof.pk }}" {% if profissional and prof.pk == profissional.pk %}selected{% endif %}>{{ prof.nome }}</option>
+          {% endfor %}
+        </select>
+        {% if procedimento %}<p class="text-[0.7rem] text-texto-suave mt-1">Só quem realiza {{ procedimento.nome }}.</p>{% endif %}
+      </div>
+      <div>
+        <label for="inpData" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Dia</label>
+        <input id="inpData" type="date" name="data" value="{{ data|date:'Y-m-d' }}" min="{{ data_min|date:'Y-m-d' }}"
+               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40">
+      </div>
+    </div>
+    <button type="submit" name="acao" value="horarios" formnovalidate
+            class="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-borda bg-superficie text-texto text-[0.82rem] font-bold cursor-pointer hover:bg-fundo transition-colors">
+      Ver horários livres
+    </button>
+  </section>
+
+  {# ── 3. Horário e valor ── #}
+  {% if viu_horarios %}
+  <section class="bg-superficie rounded-2xl shadow-sm p-5 mb-3" aria-labelledby="secHorario">
+    <h2 id="secHorario" class="text-[0.9rem] font-bold text-texto mb-1">3. Horário e valor</h2>
+    <p class="text-[0.75rem] text-texto-suave mb-3">{{ procedimento.nome }} com {{ profissional.nome }} em {{ data|date:"d/m/Y" }}. Horários livres pela mesma regra do site (expediente, folgas, bloqueios e antecedência).</p>
+    {% if slots %}
+    <fieldset class="border-0 p-0 m-0">
+      <legend class="sr-only">Horários livres</legend>
+      <div class="flex flex-wrap gap-2">
+        {% for s in slots %}
+        <label class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-borda bg-fundo cursor-pointer text-[0.85rem] font-bold text-texto">
+          <input type="radio" name="hora" value="{{ s }}" {% if s == hora %}checked{% endif %} required>
+          {{ s }}
+        </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    {% else %}
+    <p class="text-[0.85rem] font-bold text-amber-800 bg-amber-50 rounded-lg px-3 py-2">Nenhum horário livre neste dia para este profissional. Escolha outro dia ou profissional.</p>
+    {% endif %}
+
+    <div class="mt-4 text-[0.85rem] text-texto">
+      {% if preco and preco.final is not None %}
+      Valor:
+      {% if preco.promocao %}<s class="text-texto-suave">R$ {{ preco.cheio|floatformat:2 }}</s>{% endif %}
+      <strong>R$ {{ preco.final|floatformat:2 }}</strong>
+      {% if preco.promocao %}<span class="ml-1 px-2 py-0.5 rounded-full text-[0.7rem] font-bold bg-green-50 text-green-700">Promoção {{ preco.promocao.nome }}</span>{% endif %}
+      {% else %}
+      Procedimento sem preço cadastrado (valor a consultar).
+      {% endif %}
+    </div>
+    <div class="mt-2 max-w-xs">
+      <label for="inpValor" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Valor combinado (opcional)</label>
+      <input id="inpValor" type="text" name="valor" value="{{ valor }}" inputmode="decimal" placeholder="{% if preco and preco.final is not None %}{{ preco.final|unlocalize }}{% else %}0,00{% endif %}"
+             class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40">
+      <p class="text-[0.7rem] text-texto-suave mt-1">Deixe vazio para usar o valor acima. Um valor diferente fica registrado como combinado pela recepção.</p>
+    </div>
+
+    {% if slots %}
+    <button type="submit" name="acao" value="agendar"
+            class="mt-4 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
+      Agendar
+    </button>
+    {% endif %}
+  </section>
+  {% endif %}
+</form>
+{% endblock %}
