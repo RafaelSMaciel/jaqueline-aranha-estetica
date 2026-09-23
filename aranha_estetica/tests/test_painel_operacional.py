@@ -1043,7 +1043,7 @@ class PacoteVendidoTests(_AdminTestCase):
         self.client.post(url, {'observacao': ''})
         self.compra.refresh_from_db()
         self.assertEqual(self.compra.status, 'ATIVO')
-        self.client.post(url, {'observacao': 'Reembolso integral via PIX'})
+        self.client.post(url, {'observacao': 'Reembolso integral via PIX', 'valor_reembolsado': '1500,00'})
         self.compra.refresh_from_db()
         self.assertEqual(self.compra.status, 'CANCELADO')
         self.assertTrue(LogAuditoria.objects.filter(tabela='compra_pacote', registro_id=self.compra.pk,

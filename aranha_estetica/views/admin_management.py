@@ -4,12 +4,14 @@ import logging
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
+from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import DatabaseError, IntegrityError, transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 from django_ratelimit.decorators import ratelimit
 
@@ -149,16 +151,25 @@ def _preco_base_vigente_map(procedimento_ids):
     return mapa
 
 
+# Teto dos campos de valor (DecimalField max_digits=10, decimal_places=2)
+VALOR_MAX = Decimal('99999999.99')
+
+
 def _parse_preco(valor):
-    """'1350,50' / '1350.50' -> Decimal >= 0; None se vazio. ValueError se invalido."""
+    """'1350,50' / '1350.50' -> Decimal em [0, VALOR_MAX]; None se vazio. ValueError se invalido.
+
+    O teto e conferido ANTES do quantize: '1e30' estourava o contexto decimal
+    (InvalidOperation, que nao e ValueError -> 500) e '123456789' passava e
+    so falhava no banco (numeric field overflow no Postgres).
+    """
     valor = (valor or '').strip()
     if not valor:
         return None
     try:
         preco = Decimal(valor.replace(',', '.'))
-    except InvalidOperation as exc:
+    except (InvalidOperation, ValueError, TypeError) as exc:
         raise ValueError('preco invalido') from exc
-    if not preco.is_finite() or preco < 0:
+    if not preco.is_finite() or preco < 0 or preco > VALOR_MAX:
         raise ValueError('preco invalido')
     return preco.quantize(Decimal('0.01'))
 
@@ -367,6 +378,7 @@ def _contexto_cliente(cliente):
     }
 
 
+@never_cache  # alertas de saude + CPF/RG/endereco: fora do cache do navegador
 @staff_required
 def admin_cliente_detalhe(request, pk):
     """Detalhe e edicao de cliente."""
@@ -397,7 +409,8 @@ def admin_cliente_detalhe(request, pk):
             for erro in erros:
                 messages.error(request, erro)
             return render(request, 'painel/cliente_detalhe.html', _contexto_cliente(cliente))
-        registrar_log(request.user, f'Editou cliente: {cliente.nome}', 'cliente', cliente.pk, request=request)
+        # sem o nome no texto: o log sobrevive ao esquecimento (LGPD); o pk basta
+        registrar_log(request.user, 'Editou cliente', 'cliente', cliente.pk, request=request)
         messages.success(request, 'Cliente atualizado!')
         return redirect('aranha:admin_cliente_detalhe', pk=pk)
 
@@ -442,9 +455,13 @@ def admin_notificar_espera(request, pk):
     destino = getattr(item, 'email_contato', None) or item.cliente.email
     if destino:
         from ..utils.email import enviar_fila_espera_email
+        # O form publico da lista e anonimo: o e-mail digitado pode nao ser da
+        # dona do telefone. Nome do cadastro so vai p/ o e-mail do proprio cadastro.
+        cadastro = (item.cliente.email or '').strip().lower()
+        nome = item.cliente.nome if cadastro and destino.strip().lower() == cadastro else ''
         try:
             enviado = bool(enviar_fila_espera_email(destino, {
-                'nome': item.cliente.nome,
+                'nome': nome,
                 'procedimento': item.procedimento.nome,
                 'data': item.data_desejada.strftime('%d/%m/%Y'),
             }))
@@ -731,18 +748,22 @@ EMAIL_PREVIEW_FIXTURES = {
             'valor': '180,00',
         }, 'clinic_name': 'Jaqueline Aranha Estética'},
     },
+    # Mesmo contexto do envio real (utils.email): aniversario so felicita (sem
+    # desconto) e a promocao usa variaveis de primeiro nivel (sem cupom).
     'aniversario': {
         'template': 'email/aniversario.html',
-        'contexto': {'dados': {'nome': 'Maria Silva', 'desconto': 15},
+        'contexto': {'dados': {'nome': 'Maria Silva'},
                      'clinic_name': 'Jaqueline Aranha Estética',
-                     'unsub_url': '#preview', 'preheader': 'Presente de aniversario'},
+                     'unsub_url': '#preview',
+                     'preheader': 'Um carinho da nossa equipe para o seu dia'},
     },
     'promocao': {
         'template': 'email/promocao.html',
-        'contexto': {'dados': {
-            'nome': 'Maria Silva', 'corpo_html': '<p>Desconto especial!</p>',
-            'cupom': 'VIP15', 'validade': '30/05/2026',
-        }, 'clinic_name': 'Jaqueline Aranha Estética', 'unsub_url': '#preview'},
+        'contexto': {
+            'nome': 'Maria Silva', 'corpo_html': '<p>Oferta especial do mês.</p>',
+            'validade': '30/05/2026',
+            'clinic_name': 'Jaqueline Aranha Estética', 'unsub_url': '#preview',
+        },
     },
     'cancelamento': {
         'template': 'email/cancelamento.html',
@@ -755,7 +776,7 @@ EMAIL_PREVIEW_FIXTURES = {
         'template': 'email/nps.html',
         'contexto': {'dados': {
             'nome': 'Maria Silva', 'procedimento': 'Limpeza de Pele',
-            'link': '#preview',
+            'link_nps': '#preview',
         }, 'clinic_name': 'Jaqueline Aranha Estética'},
     },
     'fila_espera': {
@@ -788,7 +809,15 @@ def admin_email_preview(request, nome=None):
         return HttpResponse(f'<h1>Email Previews</h1>{lista}')
 
     fx = EMAIL_PREVIEW_FIXTURES[nome]
-    html = render_to_string(fx['template'], fx['contexto'])
+    # site_url como no envio real (utils.email faz setdefault): CTAs absolutos
+    # e sem VariableDoesNotExist em `{{ x|default:site_url }}`
+    contexto = {'site_url': settings.SITE_URL.rstrip('/'), **fx['contexto']}
+    html = render_to_string(fx['template'], contexto)
+    # A previa e servida sob a CSP do painel (style-src com nonce): sem o
+    # nonce o navegador descarta o <style> do e-mail (media queries, dark mode).
+    nonce = getattr(request, 'csp_nonce', '')
+    if nonce:
+        html = html.replace('<style', f'<style nonce="{nonce}"')
     return HttpResponse(html)
 
 
@@ -816,7 +845,7 @@ def admin_aprovar_agendamento(request, pk):
     )
     from ..services.agendamento_service import AgendamentoService
     try:
-        transitou = AgendamentoService().aprovar(atendimento, by_user=request.user)
+        transitou = AgendamentoService().aprovar(atendimento, by_user=request.user, request=request)
     except Atendimento.TransicaoInvalida:
         transitou = False
     if not transitou:
@@ -840,7 +869,7 @@ def admin_rejeitar_agendamento(request, pk):
     )
     from ..services.agendamento_service import AgendamentoService
     try:
-        transitou = AgendamentoService().rejeitar(atendimento, by_user=request.user)
+        transitou = AgendamentoService().rejeitar(atendimento, by_user=request.user, request=request)
     except Atendimento.TransicaoInvalida:
         transitou = False
     if not transitou:
@@ -889,9 +918,9 @@ def admin_bulk_agendamentos(request):
         for at in atendimentos:
             try:
                 if acao == 'aprovar':
-                    ok = service.aprovar(at, by_user=request.user)
+                    ok = service.aprovar(at, by_user=request.user, request=request)
                 else:
-                    ok = service.rejeitar(at, motivo='Rejeitado em lote', by_user=request.user)
+                    ok = service.rejeitar(at, motivo='Rejeitado em lote', by_user=request.user, request=request)
             except Atendimento.TransicaoInvalida:
                 ok = False
             if ok:

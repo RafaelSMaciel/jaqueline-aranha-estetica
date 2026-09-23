@@ -81,8 +81,9 @@
 {% endblock %}
 
 {% block js %}
-<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.11/locales/pt-br.global.min.js"></script>
+{# SRI: versao fixa do jsDelivr (arquivo estatico do pacote npm, nao o .min gerado) #}
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js" integrity="sha384-5JIwZN3kuxX2zKsavvNmbZ3zhZZMUtu/eQiK3BbXukpSXp0Cd2ZP4OAYKx7mrPgI" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.11/locales/pt-br.global.min.js" integrity="sha384-EnDmL1vzWaulolGLeEzjsg5pqgwFtAE2qxU/9nupVnkomz65CqX5cfxyvJP5O3vP" crossorigin="anonymous"></script>
 
 {{ status_colors|json_script:"status-colors-data" }}
 <script nonce="{{ csp_nonce }}">

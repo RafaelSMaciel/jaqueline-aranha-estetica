@@ -15,6 +15,8 @@ from ..decorators import staff_required
 from ..models import Cliente, Configuracao, Procedimento, Promocao
 from ..utils.audit import registrar_log
 from ..utils.datas import hoje
+from ..utils.parse import id_int
+from .admin_management import _parse_preco
 
 logger = logging.getLogger(__name__)
 
@@ -93,17 +95,32 @@ def admin_criar_promocao(request):
 @staff_required
 @ratelimit(key='user', rate='30/m', method='POST', block=True)
 def admin_editar_promocao(request, pk):
-    """Edita promoção existente via POST"""
+    """Edita promoção existente via POST.
+
+    Procedimento vazio = promocao global (todos os procedimentos). Promocao de
+    preco fixo (preco_promocional) mantem desconto 0 (XOR no banco): o
+    desconto nao e lido e o preco so muda se vier no POST.
+    """
     promo = get_object_or_404(Promocao, pk=pk)
     if request.method == 'POST':
+        pid = (request.POST.get('procedimento') or '').strip()
+        proc_id = id_int(pid)
+        if pid and proc_id is None:
+            messages.error(request, 'Procedimento inválido.')
+            return redirect('aranha:admin_promocoes')
         # 404 real (procedimento inexistente) nao deve ser mascarado como erro interno
-        procedimento = get_object_or_404(Procedimento, pk=request.POST.get('procedimento'))
+        procedimento = get_object_or_404(Procedimento, pk=proc_id) if pid else None
         try:
             promo.nome = request.POST.get('nome', promo.nome).strip()
             promo.descricao = request.POST.get('descricao', promo.descricao or '').strip()
-            promo.desconto_percentual = _parse_desconto(
-                request.POST.get('desconto', str(promo.desconto_percentual))
-            )
+            if promo.preco_promocional is not None:
+                preco_raw = request.POST.get('preco_promocional')
+                if preco_raw not in (None, ''):
+                    promo.preco_promocional = _parse_preco(preco_raw)
+            else:
+                promo.desconto_percentual = _parse_desconto(
+                    request.POST.get('desconto', str(promo.desconto_percentual))
+                )
             promo.procedimento = procedimento
             promo.data_inicio = request.POST.get('data_inicio')
             promo.data_fim = request.POST.get('data_fim')
