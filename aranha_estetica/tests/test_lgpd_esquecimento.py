@@ -5,7 +5,8 @@ from django.test import TestCase
 from django.utils import timezone
 
 from aranha_estetica.models import (
-    Cliente, CodigoOtp, ListaEspera, LogAuditoria, Notificacao, Prontuario,
+    Cliente, CodigoOtp, FormularioAnamnese, ListaEspera, LogAuditoria, Notificacao,
+    Prontuario, RespostaAnamnese,
 )
 from aranha_estetica.services.lgpd import LgpdService
 
@@ -102,3 +103,98 @@ class PurgaRetencaoTests(TestCase):
         self.assertIsNone(salvo.email)
         # Ja anonimizado nao volta a ser processado
         self.assertEqual(LgpdService.purgar_inativos(), 0)
+
+
+def _ficha(cliente, atendimento=None, respondida=True, dias_atras=0):
+    form, _ = FormularioAnamnese.objects.get_or_create(nome='Ficha de bem-estar')
+    ficha = RespostaAnamnese.objects.create(
+        formulario=form, cliente=cliente, atendimento=atendimento,
+        respostas_json={'gestante': 'talvez'},
+        respondida_em=timezone.now() if respondida else None,
+    )
+    if dias_atras:
+        RespostaAnamnese.objects.filter(pk=ficha.pk).update(
+            criado_em=timezone.now() - timedelta(days=dias_atras),
+        )
+    return ficha
+
+
+class FichasSemAtendimentoTests(TestCase):
+    """gap2-08: ficha de saude de pedido que nunca aconteceu nao fica para sempre."""
+
+    def setUp(self):
+        self.cliente = criar_cliente(nome='Dora Teste')
+        self.prof = criar_profissional()
+        self.proc = criar_procedimento(profissional=self.prof)
+
+    def _atd(self, status, dias=-100):
+        quando = timezone.now() + timedelta(days=dias)
+        return criar_atendimento(self.cliente, self.prof, self.proc, data_hora=quando, status=status)
+
+    def test_ficha_de_cancelado_antiga_e_apagada(self):
+        ficha = _ficha(self.cliente, self._atd('CANCELADO'), dias_atras=91)
+        self.assertEqual(LgpdService.purgar_fichas_sem_atendimento(), 1)
+        self.assertFalse(RespostaAnamnese.objects.filter(pk=ficha.pk).exists())
+        self.assertTrue(LogAuditoria.objects.filter(tabela='resposta_anamnese').exists())
+
+    def test_ficha_de_realizado_permanece(self):
+        ficha = _ficha(self.cliente, self._atd('REALIZADO'), dias_atras=400)
+        self.assertEqual(LgpdService.purgar_fichas_sem_atendimento(), 0)
+        self.assertTrue(RespostaAnamnese.objects.filter(pk=ficha.pk).exists())
+
+    def test_cliente_recorrente_nao_protege_ficha_de_pedido_cancelado(self):
+        _ficha(self.cliente, self._atd('REALIZADO', dias=-200), dias_atras=200)
+        cancelada = _ficha(self.cliente, self._atd('CANCELADO'), dias_atras=91)
+        LgpdService.purgar_fichas_sem_atendimento()
+        self.assertFalse(RespostaAnamnese.objects.filter(pk=cancelada.pk).exists())
+        self.assertEqual(RespostaAnamnese.objects.filter(cliente=self.cliente).count(), 1)
+
+    def test_pendente_vencido_e_convite_nunca_respondido_saem(self):
+        _ficha(self.cliente, self._atd('PENDENTE'), dias_atras=91)
+        _ficha(self.cliente, None, respondida=False, dias_atras=91)
+        self.assertEqual(LgpdService.purgar_fichas_sem_atendimento(), 2)
+
+    def test_ficha_recente_de_cancelado_ainda_fica(self):
+        _ficha(self.cliente, self._atd('CANCELADO', dias=-10), dias_atras=10)
+        self.assertEqual(LgpdService.purgar_fichas_sem_atendimento(), 0)
+
+    def test_job_de_retencao_chama_a_purga_de_fichas(self):
+        from aranha_estetica.tasks import job_lgpd_purgar_inativos
+        _ficha(self.cliente, self._atd('CANCELADO'), dias_atras=91)
+        resultado = job_lgpd_purgar_inativos.apply().result
+        self.assertIn('1 fichas apagadas', resultado)
+        self.assertFalse(RespostaAnamnese.objects.exists())
+
+    def test_esquecer_apaga_ficha_de_cancelado_e_mantem_a_de_realizado(self):
+        realizada = _ficha(self.cliente, self._atd('REALIZADO'))
+        _ficha(self.cliente, self._atd('CANCELADO', dias=-50))
+        _ficha(self.cliente, None)
+        LgpdService.esquecer_cliente(self.cliente)
+        self.assertEqual(
+            list(RespostaAnamnese.objects.filter(cliente_id=self.cliente.pk).values_list('pk', flat=True)),
+            [realizada.pk],
+        )
+
+
+class TrilhaAuditoriaAnonimizadaTests(TestCase):
+    """gap2-06: depois do esquecimento o log nao liga mais nome, prontuario e id."""
+
+    def test_nome_do_titular_sai_do_texto_do_log(self):
+        from aranha_estetica.utils.audit import registrar_log
+        cliente = criar_cliente(nome='Fabi Reis')
+        outra = criar_cliente(nome='Carla Lima')
+        pront = Prontuario.objects.create(cliente=cliente, alergias='nenhuma')
+        registrar_log(None, 'Acessou prontuario de Fabi Reis', 'prontuario', cliente.pk)
+        registrar_log(None, 'Atualizou prontuario de Fabi Reis', 'prontuario', pront.pk)
+        registrar_log(None, 'Editou cliente: Fabi Reis', 'cliente', cliente.pk)
+        registrar_log(None, 'Editou cliente: Carla Lima', 'cliente', outra.pk)
+
+        LgpdService.esquecer_cliente(cliente)
+
+        self.assertFalse(LogAuditoria.objects.filter(acao__contains='Fabi Reis').exists())
+        self.assertEqual(
+            LogAuditoria.objects.filter(acao__contains=f'[ANONIMIZADO-{cliente.pk}]').count(), 3,
+        )
+        # trilha preservada (tabela/id) e log de terceiros intacto
+        self.assertTrue(LogAuditoria.objects.filter(tabela='prontuario', registro_id=pront.pk).exists())
+        self.assertTrue(LogAuditoria.objects.filter(acao='Editou cliente: Carla Lima').exists())

@@ -6,8 +6,9 @@ fila de espera, aprovacao profissional, promocao, termos pendentes.
 (OTP nao usa email — canal exclusivo SMS via utils.sms.)
 Usa Django EmailMultiAlternatives com headers RFC 8058 para marketing.
 
-Falha fechada (contrato 7): fora de DEBUG, backend console/dummy = e-mail nao
-configurado -> as funcoes retornam False (nada de "sucesso" so no log).
+Falha fechada (contrato 7): fora de DEBUG, backend console/dummy/filebased =
+e-mail nao configurado -> as funcoes retornam False (nada de "sucesso" so no
+log). Fonte unica do contrato: outros modulos importam email_configurado daqui.
 """
 import logging
 
@@ -21,8 +22,10 @@ from .pii import mask_email
 
 logger = logging.getLogger(__name__)
 
-# Backends que nao entregam nada (so imprimem/descartam).
-_BACKENDS_SEM_ENTREGA = ('console.EmailBackend', 'dummy.EmailBackend')
+# Backends que nao entregam nada (imprimem/descartam/gravam no disco efemero
+# do container). locmem NAO entra: e o backend do test runner (so o check de
+# deploy o trata como aviso).
+_BACKENDS_SEM_ENTREGA = ('console.EmailBackend', 'dummy.EmailBackend', 'filebased.EmailBackend')
 
 
 def email_configurado() -> bool:
@@ -145,14 +148,14 @@ def enviar_fila_espera_email(email, dados):
 
 
 def enviar_aniversario_email(email, dados, unsub_token=None):
-    """Envia email de aniversario com desconto (marketing)."""
+    """Envia felicitacao de aniversario (marketing; sem desconto/cupom)."""
     return _enviar_email(
         destinatario=email,
-        assunto=f'Feliz aniversário! {_nome_clinica()} tem um presente para você',
+        assunto=f'Feliz aniversário! Um abraço da {_nome_clinica()}',
         template='email/aniversario.html',
         contexto={'dados': dados},
         marketing=True,
-        preheader='Presente de aniversário dentro — descontos exclusivos',
+        preheader='Um carinho da nossa equipe para o seu dia',
         unsub_token=unsub_token,
     )
 
@@ -186,7 +189,7 @@ def enviar_promocao_email(email, dados, unsub_token=None, assunto=None):
             from django.utils.html import escape
             dados = dict(dados)
             dados['corpo_html'] = escape(dados['corpo_html'])
-    # promocao.html usa variaveis top-level ({{ nome }}, {{ cupom }}, {{ corpo_html }}...),
+    # promocao.html usa variaveis top-level ({{ nome }}, {{ validade }}, {{ corpo_html }}...),
     # entao o contexto vai FLAT (nao embrulhado em {'dados': ...}).
     contexto = dict(dados) if isinstance(dados, dict) else {'dados': dados}
     return _enviar_email(

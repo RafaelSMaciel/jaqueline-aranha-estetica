@@ -33,6 +33,10 @@ class LgpdService:
     CARENCIA_SOFT_DELETE_DIAS = 30
     # Atendimento REALIZADO (registro de saude) e retido por 20 anos.
     RETENCAO_ATENDIMENTO_SAUDE_DIAS = 365 * 20
+    # Ficha de anamnese de pedido que nao virou atendimento (rejeitado,
+    # cancelado, pendente vencido, convite nunca respondido): fim da
+    # finalidade (LGPD art. 15/16) -> exclusao apos N dias.
+    RETENCAO_FICHA_SEM_ATENDIMENTO_DIAS = 90
     PURGA_LOG_PROGRESSO_LOTE = 100  # loga progresso a cada N anonimizacoes
 
     # Campos gravados pela anonimizacao (lista explicita: soft_delete() grava
@@ -164,7 +168,8 @@ class LgpdService:
             ],
             'aceites_termos': [
                 {'termo': a.versao_termo.titulo, 'tipo': a.versao_termo.tipo,
-                 'versao': a.versao_termo.versao, 'ip': a.ip, 'aceito_em': _iso(a.criado_em)}
+                 'versao': a.versao_termo.versao, 'ip': a.ip, 'aceito_em': _iso(a.criado_em),
+                 'conteudo_sha256': a.conteudo_sha256}
                 for a in (AceiteTermo.objects.filter(cliente=cliente)
                           .select_related('versao_termo').order_by('-criado_em'))
             ],
@@ -218,17 +223,23 @@ class LgpdService:
     def esquecer_cliente(cls, cliente: Cliente, usuario=None, request=None) -> None:
         """Direito ao esquecimento: anonimiza PII do titular e faz soft-delete.
 
-        Mantem atendimentos/aceites/prontuario (obrigacao legal) ligados a um
-        titular nao identificavel. LogAuditoria.detalhes nao e alterado
-        (trilha legal — decisao consciente).
+        Mantem atendimentos/aceites/prontuario e as fichas de anamnese de
+        atendimentos REALIZADOS (retencao clinica) ligados a um titular nao
+        identificavel. Fichas de pedidos nao realizados sao apagadas.
+        LogAuditoria continua (trilha legal — autor, tabela, registro, IP),
+        mas o nome do titular no texto da acao vira o pseudonimo.
         """
-        from aranha_estetica.models import CodigoOtp, ListaEspera, Notificacao
+        from aranha_estetica.models import (
+            CodigoOtp, ListaEspera, LogAuditoria, Notificacao, Prontuario, RespostaAnamnese,
+        )
 
         cliente_pk = cliente.pk
         telefone_original = cliente.telefone
         email_original = cliente.email
+        nome_original = cliente.nome or ''
+        pseudonimo = f'[ANONIMIZADO-{cliente_pk}]'
 
-        cliente.nome = f'[ANONIMIZADO-{cliente_pk}]'
+        cliente.nome = pseudonimo
         cliente.cpf = None
         cliente.rg = None
         cliente.email = None
@@ -262,6 +273,31 @@ class LgpdService:
             CodigoOtp.objects.filter(otp_q).delete()
         ListaEspera.objects.filter(cliente_id=cliente_pk).delete()
         Notificacao.objects.filter(atendimento__cliente_id=cliente_pk).update(mensagem='')
+        # Dado de saude sem atendimento realizado: fim da finalidade -> apaga.
+        RespostaAnamnese.objects.filter(cliente_id=cliente_pk).exclude(
+            atendimento__status=Atendimento.STATUS_REALIZADO,
+        ).delete()
+
+        # Trilha de auditoria: registros do titular (cliente/prontuario/
+        # atendimento) guardam autor, data, tabela e id; so o nome sai do texto.
+        if len(nome_original.strip()) >= 3 and not nome_original.startswith('[ANONIMIZADO-'):
+            from django.db.models import Value
+            from django.db.models.functions import Replace
+
+            prontuario_ids = list(
+                Prontuario.objects.filter(cliente_id=cliente_pk).values_list('pk', flat=True)
+            )
+            atendimento_ids = list(
+                Atendimento.objects.filter(cliente_id=cliente_pk).values_list('pk', flat=True)
+            )
+            do_titular = (
+                Q(tabela='cliente', registro_id=cliente_pk)
+                | Q(tabela='prontuario', registro_id__in=[cliente_pk, *prontuario_ids])
+                | Q(tabela='atendimento', registro_id__in=atendimento_ids)
+            )
+            LogAuditoria.objects.filter(do_titular, acao__contains=nome_original).update(
+                acao=Replace('acao', Value(nome_original), Value(pseudonimo)),
+            )
 
         # Trilha de auditoria LGPD (sem PII no registro).
         registrar_log(
@@ -311,6 +347,40 @@ class LgpdService:
             .exclude(pacotes_comprados__isnull=False)
             .distinct()
         )
+
+    @classmethod
+    def fichas_sem_atendimento_para_purga(cls, dias: int | None = None):
+        """Fichas de anamnese de pedido nao realizado, criadas ha mais de N dias.
+
+        Criterio e o status do atendimento DA PROPRIA ficha (nunca "cliente
+        tem algum REALIZADO", que protegeria para sempre as fichas de quem e
+        recorrente): CANCELADO; PENDENTE com horario ja passado; ou ficha sem
+        atendimento nunca respondida. FALTOU/REAGENDADO ficam (decisao da clinica).
+        """
+        from aranha_estetica.models import RespostaAnamnese
+
+        agora = timezone.now()
+        dias = cls.RETENCAO_FICHA_SEM_ATENDIMENTO_DIAS if dias is None else dias
+        return RespostaAnamnese.objects.filter(
+            criado_em__lt=agora - timedelta(days=dias),
+        ).filter(
+            Q(atendimento__status=Atendimento.STATUS_CANCELADO)
+            | Q(atendimento__status=Atendimento.STATUS_PENDENTE, atendimento__data_hora_inicio__lt=agora)
+            | Q(atendimento__isnull=True, respondida_em__isnull=True)
+        )
+
+    @classmethod
+    def purgar_fichas_sem_atendimento(cls, dias: int | None = None) -> int:
+        """Apaga as fichas de fichas_sem_atendimento_para_purga (retencao LGPD)."""
+        with transaction.atomic():
+            qtd, _por_modelo = cls.fichas_sem_atendimento_para_purga(dias).delete()
+            if qtd:
+                registrar_log(
+                    None, 'Purga de fichas de pedido nao realizado', 'resposta_anamnese', None,
+                    detalhes={'qtd': qtd},
+                )
+        logger.info('purgar_fichas_sem_atendimento: %s ficha(s) apagada(s).', qtd)
+        return qtd
 
     @classmethod
     def purgar_inativos(cls) -> int:

@@ -1,10 +1,22 @@
 {% extends "email/base_email.html" %}
-{% block header_sub %}<div style="color:rgba(255,255,255,0.88);font-size:13px;letter-spacing:2.4px;text-transform:uppercase;margin-top:6px;">Ação necessária</div>{% endblock %}
+{% block header_sub %}<div style="color:rgba(255,255,255,0.88);font-size:13px;letter-spacing:2.4px;text-transform:uppercase;margin-top:6px;">Antes do seu horário</div>{% endblock %}
 {% block content %}
 <h1 class="hero-title text-main" style="color:#4A3425;margin:0 0 12px;font-size:26px;font-weight:700;line-height:1.25;">Olá, {{ dados.nome }}!</h1>
-<p class="text-soft" style="color:#666;font-size:15px;margin:0 0 24px;">Para seu agendamento na {{ clinic_name }}, precisamos que você assine os termos de consentimento.</p>
+<p class="text-soft" style="color:#666;font-size:15px;margin:0 0 20px;">Para seu agendamento na {{ clinic_name }}, pedimos que você leia e aceite os termos de consentimento.</p>
 
-<div style="text-align:center;margin:0 0 24px;">
-<a href="{{ dados.link_termo }}" style="display:inline-block;background:#C9A84C;color:#ffffff;padding:14px 40px;border-radius:999px;text-decoration:none;font-weight:700;font-size:15px;box-shadow:0 4px 12px rgba(0,0,0,0.18);">Assinar Termos</a>
+{% if dados.procedimento or dados.data_hora %}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="card-inner" style="background:#FFFBF2;border:1px solid #EADFC8;border-radius:14px;margin:0 0 24px;">
+<tr><td style="padding:16px 20px;font-size:14px;line-height:1.7;color:#4A3425;">
+  {% if dados.procedimento %}<div><strong>Procedimento:</strong> {{ dados.procedimento }}</div>{% endif %}
+  {% if dados.data_hora %}<div><strong>Data e horário:</strong> {{ dados.data_hora }}</div>{% endif %}
+</td></tr>
+</table>
+{% endif %}
+
+<div style="text-align:center;margin:0 0 16px;">
+<a href="{{ dados.link_termo }}" style="display:inline-block;background:#C9A84C;color:#ffffff;padding:14px 40px;border-radius:999px;text-decoration:none;font-weight:700;font-size:15px;box-shadow:0 4px 12px rgba(0,0,0,0.18);">Ler e aceitar os termos</a>
 </div>
+{% if dados.valido_ate %}
+<p class="text-muted" style="color:#8a7e6b;font-size:12px;margin:0;text-align:center;">Este link vale até {{ dados.valido_ate }}.</p>
+{% endif %}
 {% endblock %}

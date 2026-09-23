@@ -12,23 +12,12 @@ from django_ratelimit.decorators import ratelimit
 from ..models import Cliente, CodigoOtp
 from ..services import LgpdService
 from ..services.auditoria import AuditoriaService
+from ..utils.sms import enviar_otp_sms, sms_disponivel
 
 logger = logging.getLogger(__name__)
 
 TEMPLATE_DSAR = 'publico/lgpd_meus_dados.html'
 TEMPLATE_DESCADASTRO = 'publico/lgpd_unsubscribe.html'
-
-
-def _sms_disponivel() -> bool:
-    """Canal SMS utilizavel (checagem global: nao revela se o cadastro existe)."""
-    from ..utils import sms
-    checar = getattr(sms, 'sms_disponivel', None)
-    if checar is None:
-        return True
-    try:
-        return bool(checar())
-    except Exception:  # noqa: BLE001 — na duvida segue o fluxo normal
-        return True
 
 
 @ratelimit(key='ip', rate='10/h', method='POST', block=True)
@@ -47,7 +36,8 @@ def meus_dados(request):
         return render(request, TEMPLATE_DSAR, {})
 
     if not codigo:
-        if not _sms_disponivel():
+        # Checagem global do canal (nao revela se o cadastro existe).
+        if not sms_disponivel():
             messages.error(
                 request,
                 'A verificação por SMS está indisponível no momento. '
@@ -56,13 +46,12 @@ def meus_dados(request):
             return render(request, TEMPLATE_DSAR, {'sms_indisponivel': True})
         # OTP hashed + envio SMS real. Anti-enumeracao: mensagem identica
         # exista o cliente ou nao; codigo NUNCA vai para log.
-        from ..services.notificacao import OTPService
         from ..utils.security import client_ip
         if Cliente.objects.filter(telefone=telefone).exists():
             codigo_plano, _obj = CodigoOtp.gerar_sms(
                 telefone, ip=client_ip(request), proposito=CodigoOtp.PROPOSITO_DSAR,
             )
-            if not OTPService.enviar_codigo(telefone, codigo_plano, ip=client_ip(request)):
+            if not enviar_otp_sms(telefone, codigo_plano, ip=client_ip(request)):
                 logger.warning('lgpd_dsar_sms_falha', extra={'tel_suffix': telefone[-4:]})
         logger.info('lgpd_dsar_otp_solicitado', extra={'tel_suffix': telefone[-4:]})
         messages.info(

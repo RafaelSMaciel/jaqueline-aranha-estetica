@@ -17,7 +17,7 @@
 </td></tr></table>
 
 <p class="text-soft" style="margin:0 0 20px;color:#6b6256;font-size:14px;line-height:1.6;text-align:center;">
-  Agende sua próxima sessão agora para não perder o que já foi contratado.
+  {% if dados.valido_ate %}Sessões realizadas até {{ dados.valido_ate }} contam no seu pacote. {% endif %}Agende a próxima para aproveitar o que já foi contratado.
 </p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
   <a href="{{ site_url }}/agendamento/" style="display:inline-block;background-color:#C4A35A;background-image:linear-gradient(135deg,#C4A35A,#B8915F);color:#ffffff;padding:14px 36px;border-radius:999px;text-decoration:none;font-weight:700;font-size:14px;letter-spacing:0.5px;box-shadow:0 4px 12px rgba(196,163,90,0.35);">Agendar sessão</a>
