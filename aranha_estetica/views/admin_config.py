@@ -1,5 +1,9 @@
 """CRUD de Configuracao (chave-valor editavel via painel)."""
+import json
+
 from django.contrib import messages
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -8,29 +12,55 @@ from ..models import Configuracao
 from ..utils.audit import registrar_log
 
 
+# Somente chaves que o codigo de fato le (grep antes de acrescentar outra):
+#   email_admin          -> tasks.py (alerta de NPS detrator)
+#   prontuario_perguntas -> views/prontuario._perguntas_configuradas
+# Marca/contatos ficam na tela Branding (utils/branding.BRANDING_FIELDS).
 CONFIG_SUGERIDAS = [
-    ('HORARIO_FUNCIONAMENTO_INICIO', '08:00', 'Horario de abertura da clinica (HH:MM)'),
-    ('HORARIO_FUNCIONAMENTO_FIM', '19:00', 'Horario de fechamento da clinica (HH:MM)'),
-    ('POLITICA_CANCELAMENTO_HORAS', '24', 'Horas de antecedencia minima para cancelamento sem penalidade'),
-    ('INTERVALO_ENTRE_PROCEDIMENTOS_MIN', '15', 'Minutos de intervalo entre atendimentos'),
-    ('MAX_FALTAS_BLOQUEIO', '3', 'Numero de faltas consecutivas para bloquear agendamento online'),
-    ('DIAS_ANTECEDENCIA_LEMBRETE', '1', 'Dias de antecedencia para enviar lembrete WhatsApp'),
-    ('HORAS_ENVIO_NPS', '24', 'Horas apos atendimento REALIZADO para enviar pesquisa NPS'),
-    ('DIAS_ALERTA_PACOTE_EXPIRAR', '7', 'Dias antes da expiracao para alertar cliente do pacote'),
-    ('MENSAGEM_BOAS_VINDAS', 'Seja bem-vindo(a)!', 'Texto exibido no site publico'),
+    ('email_admin', '', 'E-mail que recebe o alerta de avaliação NPS negativa (detrator)'),
+    (
+        'prontuario_perguntas',
+        '[{"chave": "fuma", "texto": "Fuma?", "tipo": "BOOLEAN"}]',
+        'Perguntas extras do prontuário (JSON: lista de {chave, texto, tipo TEXTO|BOOLEAN})',
+    ),
 ]
+
+
+def _normalizar_chave(chave: str) -> str:
+    # Sem upper(): as chaves lidas pelo codigo sao minusculas (email_admin...)
+    return chave.strip().replace(' ', '_')
+
+
+def _validar_valor(chave: str, valor: str) -> str | None:
+    """Mensagem de erro se o valor nao serve p/ a chave; None se ok."""
+    chave_l = chave.lower()
+    if chave_l == 'email_admin' and valor:
+        try:
+            validate_email(valor)
+        except ValidationError:
+            return 'email_admin: informe um e-mail válido.'
+    if chave_l == 'prontuario_perguntas' and valor:
+        try:
+            perguntas = json.loads(valor)
+        except ValueError:
+            return 'prontuario_perguntas: JSON inválido.'
+        if not isinstance(perguntas, list) or not all(
+            isinstance(p, dict) and p.get('chave') and p.get('texto') for p in perguntas
+        ):
+            return 'prontuario_perguntas: use uma lista de objetos com "chave", "texto" e "tipo".'
+    return None
 
 
 @staff_required
 def admin_configuracoes(request):
     """Lista todas configuracoes + sugestoes de chaves nao cadastradas."""
     configs = Configuracao.objects.order_by('chave')
-    chaves_existentes = set(configs.values_list('chave', flat=True))
+    chaves_existentes = {c.lower() for c in configs.values_list('chave', flat=True)}
 
     sugestoes = [
         {'chave': c, 'valor': v, 'descricao': d}
         for c, v, d in CONFIG_SUGERIDAS
-        if c not in chaves_existentes
+        if c.lower() not in chaves_existentes
     ]
 
     context = {
@@ -44,16 +74,21 @@ def admin_configuracoes(request):
 def admin_criar_configuracao(request):
     """Cria nova chave de configuracao."""
     if request.method == 'POST':
-        chave = request.POST.get('chave', '').strip().upper().replace(' ', '_')
+        chave = _normalizar_chave(request.POST.get('chave', ''))
         valor = request.POST.get('valor', '').strip()
         descricao = request.POST.get('descricao', '').strip() or None
 
         if not chave:
-            messages.error(request, 'Chave e obrigatoria.')
+            messages.error(request, 'Chave é obrigatória.')
             return redirect('aranha:admin_configuracoes')
 
-        if Configuracao.objects.filter(chave=chave).exists():
-            messages.warning(request, f'Chave "{chave}" ja existe. Edite em vez de duplicar.')
+        if Configuracao.objects.filter(chave__iexact=chave).exists():
+            messages.warning(request, f'Chave "{chave}" já existe. Edite em vez de duplicar.')
+            return redirect('aranha:admin_configuracoes')
+
+        erro = _validar_valor(chave, valor)
+        if erro:
+            messages.error(request, erro)
             return redirect('aranha:admin_configuracoes')
 
         config = Configuracao.objects.create(
@@ -64,7 +99,7 @@ def admin_criar_configuracao(request):
             'configuracao_sistema', config.pk,
             detalhes={'valor': valor},
         )
-        messages.success(request, f'Configuracao "{chave}" criada.')
+        messages.success(request, f'Configuração "{chave}" criada.')
 
     return redirect('aranha:admin_configuracoes')
 
@@ -76,7 +111,13 @@ def admin_editar_configuracao(request, pk):
     config = get_object_or_404(Configuracao, pk=pk)
     valor_antigo = config.valor
 
-    config.valor = request.POST.get('valor', '').strip()
+    novo_valor = request.POST.get('valor', '').strip()
+    erro = _validar_valor(config.chave, novo_valor)
+    if erro:
+        messages.error(request, erro)
+        return redirect('aranha:admin_configuracoes')
+
+    config.valor = novo_valor
     descricao = request.POST.get('descricao', '').strip()
     if descricao:
         config.descricao = descricao

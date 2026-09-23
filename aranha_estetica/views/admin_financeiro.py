@@ -14,7 +14,7 @@ from django.shortcuts import render
 from django.utils import timezone
 
 from ..decorators import staff_required
-from ..models import Atendimento, MovimentoComissao
+from ..models import Atendimento, CompraPacote, MovimentoComissao
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,8 @@ def dashboard_financeiro(request):
     """Renderiza dashboard com agregados.
 
     Periodos: hoje, semana (7d), mes (30d).
-    Metricas: faturamento, no-show, top procedimento, comissoes pendentes.
+    Metricas: faturamento (avulsos + venda de pacotes), no-show, top
+    procedimento, comissoes pendentes.
     """
     agora = timezone.now()
     hoje = timezone.localdate()
@@ -48,12 +49,17 @@ def _calcular_metricas(agora, hoje) -> dict:
     inicio_semana = agora - timedelta(days=7)
     inicio_mes = agora - timedelta(days=30)
 
-    # Faturamento por periodo (REALIZADO + valor_cobrado > 0, exclui retornos)
+    # Faturamento por periodo (REALIZADO + valor_cobrado > 0, exclui retornos).
+    # Sessao de pacote NAO entra: valor_cobrado dela e o preco cheio do
+    # procedimento, e a receita real ja entrou na venda do pacote (abaixo).
     base_pago = Atendimento.objects.filter(
         status=Atendimento.STATUS_REALIZADO,
         eh_retorno=False,
         valor_cobrado__gt=0,
+        sessao_pacote_vinculada__isnull=True,
     )
+    # Venda de pacote = receita no dia da compra (cancelados fora)
+    vendas_pacote = CompraPacote.objects.exclude(status='CANCELADO').filter(valor_pago__gt=0)
 
     fat_hoje = base_pago.filter(data_hora_inicio__date=hoje).aggregate(
         total=Sum('valor_cobrado'), count=Count('id'),
@@ -63,6 +69,15 @@ def _calcular_metricas(agora, hoje) -> dict:
     )
     fat_mes = base_pago.filter(data_hora_inicio__gte=inicio_mes).aggregate(
         total=Sum('valor_cobrado'), count=Count('id'),
+    )
+    pac_hoje = vendas_pacote.filter(criado_em__date=hoje).aggregate(
+        total=Sum('valor_pago'), count=Count('id'),
+    )
+    pac_semana = vendas_pacote.filter(criado_em__gte=inicio_semana).aggregate(
+        total=Sum('valor_pago'), count=Count('id'),
+    )
+    pac_mes = vendas_pacote.filter(criado_em__gte=inicio_mes).aggregate(
+        total=Sum('valor_pago'), count=Count('id'),
     )
 
     # No-show no mes
@@ -107,14 +122,20 @@ def _calcular_metricas(agora, hoje) -> dict:
         .order_by('-total')
     )
 
+    zero = Decimal('0.00')
     return {
         'periodo_referencia': hoje,
-        'fat_hoje_total': fat_hoje['total'] or Decimal('0.00'),
+        # fat_*_total = atendimentos avulsos + pacotes vendidos no periodo
+        'fat_hoje_total': (fat_hoje['total'] or zero) + (pac_hoje['total'] or zero),
         'fat_hoje_count': fat_hoje['count'] or 0,
-        'fat_semana_total': fat_semana['total'] or Decimal('0.00'),
+        'fat_hoje_pacotes': pac_hoje['count'] or 0,
+        'fat_semana_total': (fat_semana['total'] or zero) + (pac_semana['total'] or zero),
         'fat_semana_count': fat_semana['count'] or 0,
-        'fat_mes_total': fat_mes['total'] or Decimal('0.00'),
+        'fat_semana_pacotes': pac_semana['count'] or 0,
+        'fat_mes_total': (fat_mes['total'] or zero) + (pac_mes['total'] or zero),
         'fat_mes_count': fat_mes['count'] or 0,
+        'fat_mes_pacotes': pac_mes['count'] or 0,
+        'fat_mes_pacotes_total': pac_mes['total'] or zero,
         'no_show_count': no_show_mes,
         'no_show_pct': round(no_show_pct, 1),
         'top_procedimentos': list(top_procs),

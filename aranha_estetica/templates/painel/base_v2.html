@@ -1,4 +1,4 @@
-{% load static django_vite %}
+{% load static django_vite painel_tags %}
 <!doctype html>
 <html lang="pt-br" data-theme="{{ tema }}">
 <head>
@@ -23,12 +23,14 @@
   {% vite_asset 'aranha_estetica/static/src/js/app.js' %}
   {% block css %}{% endblock %}
 </head>
-<body class="painel-admin bg-superficie text-texto antialiased" x-data="adminShell" x-cloak>
+{# Sem x-cloak no <body>: se o bundle JS falhar o painel (forms) continua visivel #}
+<body class="painel-admin bg-superficie text-texto antialiased" x-data="adminShell">
 
   {# ── Backdrop do sidenav mobile ── #}
   <div
     class="fixed inset-0 z-[9998] bg-black/45 transition-opacity duration-200 lg:hidden"
     x-show="menuAberto"
+    x-cloak
     x-on:click="fecharMenu"
     aria-hidden="true"
   ></div>
@@ -111,6 +113,14 @@
        x-on:click="fecharMenu">
       <svg class="w-[18px] h-[18px] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
       <span>Promoções</span>
+    </a>
+
+    <a href="{% url 'aranha:admin_anamneses' %}"
+       class="flex items-center gap-3 px-5 py-[0.65rem] text-[0.85rem] font-medium no-underline text-white/80 border-l-[3px] border-transparent hover:text-white hover:bg-white/[0.04] transition-all duration-[180ms]
+              {% if 'anamnese' in request.resolver_match.url_name %}!text-marca-forte !bg-marca-forte/[0.12] !border-l-marca-forte font-bold{% endif %}"
+       x-on:click="fecharMenu">
+      <svg class="w-[18px] h-[18px] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+      <span>Anamneses</span>
     </a>
 
     <a href="{% url 'aranha:admin_pacotes' %}"
@@ -231,10 +241,14 @@
     </a>
 
     <div class="mt-auto px-5 py-4 border-t border-white/[0.08]">
-      <a href="{% url 'aranha:usuario_logout' %}" class="flex items-center gap-2 text-[0.8rem] text-white/55 hover:text-white no-underline transition-colors duration-150">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-        Sair
-      </a>
+      {# Logout por POST (CSRF) — GET so mostra a confirmacao #}
+      <form method="post" action="{% url 'aranha:usuario_logout' %}" class="m-0">
+        {% csrf_token %}
+        <button type="submit" class="flex items-center gap-2 text-[0.8rem] text-white/55 hover:text-white bg-transparent border-none p-0 cursor-pointer transition-colors duration-150">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+          Sair
+        </button>
+      </form>
     </div>
   </nav>
 
@@ -267,16 +281,17 @@
         {{ CLINIC_NAME }} Admin
       </div>
 
-      {# Busca rápida (md+) #}
-      <div class="hidden md:flex flex-1 max-w-[380px] mx-4">
+      {# Busca rápida de clientes (md+) — Ctrl+K foca; Enter abre a lista filtrada #}
+      <form method="get" action="{% url 'aranha:painel_clientes' %}" role="search" class="hidden md:flex flex-1 max-w-[380px] mx-4">
         <input
           type="search"
           id="adminGlobalSearch"
-          placeholder="Buscar cliente, agendamento..."
+          name="search"
+          placeholder="Buscar cliente por nome, telefone ou CPF (Ctrl+K)"
           class="w-full px-3 py-1.5 rounded-lg bg-white/10 text-white text-[0.85rem] placeholder-white/50 border-none outline-none focus:bg-white/15 transition-colors"
-          aria-label="Busca rápida (Ctrl+K)"
+          aria-label="Buscar cliente (Ctrl+K)"
         >
-      </div>
+      </form>
 
       {# Ações do header #}
       <div class="flex items-center gap-3">
@@ -302,13 +317,36 @@
           </svg>
         </a>
 
-        {# Sair #}
-        <a href="{% url 'aranha:usuario_logout' %}"
-           class="text-white/60 hover:text-white transition-colors" title="Sair">
+        {# Notificações push — só com chave VAPID; o script abaixo esconde se o navegador não suporta ou já decidiu #}
+        {% webpush_configurado as push_ok %}
+        {% if push_ok %}
+        <button type="button" id="webpushEnable"
+                class="text-white/60 hover:text-white transition-colors"
+                title="Ativar notificações neste navegador" aria-label="Ativar notificações neste navegador">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
           </svg>
-        </a>
+        </button>
+        <script nonce="{{ csp_nonce }}">
+          (function () {
+            // Roda antes do webpush.js (defer): sem o botao, ele cai no auto-subscribe
+            // quando a permissao ja foi concedida.
+            var b = document.getElementById('webpushEnable');
+            var ok = ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window);
+            if (b && (!ok || Notification.permission !== 'default')) b.remove();
+          })();
+        </script>
+        {% endif %}
+
+        {# Sair — POST com CSRF #}
+        <form method="post" action="{% url 'aranha:usuario_logout' %}" class="m-0 flex">
+          {% csrf_token %}
+          <button type="submit" class="text-white/60 hover:text-white bg-transparent border-none p-0 cursor-pointer transition-colors" title="Sair" aria-label="Sair">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            </svg>
+          </button>
+        </form>
       </div>
     </header>
 
@@ -319,8 +357,8 @@
       <div class="flex items-start gap-3 bg-superficie rounded-xl shadow-lg px-4 py-3 text-[0.85rem] border-l-4
                   {% if message.tags == 'success' %}border-l-green-700{% elif message.tags == 'error' %}border-l-red-700{% elif message.tags == 'warning' %}border-l-yellow-600{% else %}border-l-marca-forte{% endif %}"
            role="alert">
-        <div class="flex-1 text-gray-800">{{ message }}</div>
-        <button type="button" class="text-gray-400 hover:text-gray-600 text-lg leading-none" aria-label="Fechar"
+        <div class="flex-1 text-texto">{{ message }}</div>
+        <button type="button" class="text-texto-suave hover:text-texto text-lg leading-none" aria-label="Fechar"
                 x-data="alertaDismiss" x-on:click="fechar">&times;</button>
       </div>
       {% endfor %}
@@ -334,7 +372,7 @@
         <h1 class="text-[1.4rem] font-bold text-texto leading-tight tracking-tight m-0">
           {% block titulo_pagina %}{% block page_title %}Painel{% endblock %}{% endblock %}
         </h1>
-        <p class="text-[0.78rem] text-gray-500 mt-1 mb-0">{% block page_subtitle %}{% endblock %}</p>
+        <p class="text-[0.78rem] text-texto-suave mt-1 mb-0">{% block page_subtitle %}{% endblock %}</p>
       </div>
       <div class="flex gap-2 flex-wrap items-center">{% block page_actions %}{% endblock %}</div>
     </div>

@@ -11,14 +11,15 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db.models import Avg, Count, Q, Sum
-from django.shortcuts import redirect, render
+from django.db.models import Avg, Count, F, Q, Sum
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from ..decorators import staff_required
 from ..models import AvaliacaoNPS, MovimentoComissao, Profissional
 from ..services.comissao_service import ComissaoService
+from ..utils.audit import registrar_log
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +84,15 @@ def painel_nps(request):
         .order_by('-criado_em')[:20]
     ]
 
+    # Depoimentos que o cliente autorizou publicar e ainda aguardam a equipe
+    # (independe do periodo: nao pode sumir da fila por ser antigo).
+    aguardando_moderacao = list(
+        AvaliacaoNPS.objects.select_related('atendimento__cliente', 'atendimento__profissional')
+        .filter(autoriza_publicacao=True, aprovado_publicacao=False)
+        .exclude(comentario__isnull=True).exclude(comentario='')
+        .order_by('-criado_em')[:20]
+    )
+
     ctx = {
         'periodo': periodo,
         'total': total,
@@ -93,8 +103,42 @@ def painel_nps(request):
         'nps_score': nps_score,
         'distribuicao': distribuicao,
         'comentarios': comentarios,
+        'aguardando_moderacao': aguardando_moderacao,
     }
     return render(request, 'painel/nps.html', ctx)
+
+
+@staff_required
+@require_POST
+def admin_nps_publicacao(request, pk):
+    """Aprova/retira um depoimento do site (/depoimentos/).
+
+    So publica com opt-in do cliente (autoriza_publicacao) — LGPD.
+    """
+    avaliacao = get_object_or_404(AvaliacaoNPS, pk=pk)
+    acao = request.POST.get('acao')
+    if acao == 'aprovar':
+        if not avaliacao.autoriza_publicacao:
+            messages.error(request, 'O cliente não autorizou publicar este depoimento.')
+        elif not (avaliacao.comentario or '').strip():
+            messages.error(request, 'Avaliação sem comentário não vira depoimento.')
+        else:
+            avaliacao.aprovado_publicacao = True
+            avaliacao.save(update_fields=['aprovado_publicacao'])
+            registrar_log(request.user, 'Aprovou depoimento p/ o site', 'avaliacao_nps', avaliacao.pk)
+            messages.success(request, 'Depoimento aprovado: já aparece no site.')
+    elif acao == 'reprovar':
+        avaliacao.aprovado_publicacao = False
+        avaliacao.save(update_fields=['aprovado_publicacao'])
+        registrar_log(request.user, 'Retirou depoimento do site', 'avaliacao_nps', avaliacao.pk)
+        messages.success(request, 'Depoimento retirado do site.')
+    else:
+        messages.error(request, 'Ação inválida.')
+    periodo = request.POST.get('periodo', '')
+    destino = redirect('aranha:painel_nps')
+    if periodo in PERIODOS:
+        destino['Location'] += f'?periodo={periodo}'
+    return destino
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -136,7 +180,8 @@ def painel_comissoes(request):
             paga=Sum('valor', filter=Q(status=MovimentoComissao.STATUS_PAGA)),
             qtd=Count('id'),
         )
-        .order_by('-pendente')
+        # nulls_last: no Postgres DESC poe NULL (sem pendencia) no topo
+        .order_by(F('pendente').desc(nulls_last=True), 'profissional__nome')
     )
 
     lista = base.order_by('-criado_em')
@@ -171,7 +216,8 @@ def admin_comissao_pagar(request, pk):
         messages.success(request, 'Comissão marcada como paga.')
     else:
         messages.error(request, 'Comissão não encontrada ou já não estava pendente.')
-    destino = request.POST.get('next') or 'aranha:painel_comissoes'
-    if destino.startswith('aranha:'):
+    # Allowlist: nome de rota arbitrario vindo do POST daria NoReverseMatch (500)
+    destino = request.POST.get('next')
+    if destino in ('aranha:painel_comissoes', 'aranha:dashboard_financeiro'):
         return redirect(destino)
     return redirect('aranha:painel_comissoes')

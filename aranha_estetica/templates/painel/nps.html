@@ -15,6 +15,36 @@
   {% endwith %}
 </div>
 
+{# ── Moderação de depoimentos (opt-in do cliente + aprovação da equipe) ── #}
+{% if aguardando_moderacao %}
+<div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4 border-l-4 border-marca-forte">
+  <h2 class="text-base font-bold text-texto mb-1">Depoimentos aguardando aprovação</h2>
+  <p class="text-[0.78rem] text-texto-suave mb-4">O cliente autorizou a publicação. Aprovados aparecem em Depoimentos no site com o primeiro nome e a inicial do sobrenome.</p>
+  <div class="space-y-3">
+    {% for a in aguardando_moderacao %}
+    <div class="flex flex-wrap items-start gap-3 p-3 rounded-xl bg-fundo">
+      <span class="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm text-white
+        {% if a.nota >= 9 %}bg-sucesso{% elif a.nota >= 7 %}bg-marca-forte{% else %}bg-erro{% endif %}">{{ a.nota }}</span>
+      <div class="min-w-0 flex-1">
+        <p class="text-sm text-texto leading-relaxed">{{ a.comentario }}</p>
+        <p class="text-[0.72rem] text-texto-suave mt-1">
+          {{ a.atendimento.cliente.nome|default:"Cliente" }}{% if a.atendimento.profissional %} · {{ a.atendimento.profissional.nome }}{% endif %} · {{ a.criado_em|date:"d/m/Y" }}
+        </p>
+      </div>
+      <form method="post" action="{% url 'aranha:admin_nps_publicacao' a.pk %}" class="m-0 flex-shrink-0">
+        {% csrf_token %}
+        <input type="hidden" name="periodo" value="{{ periodo }}">
+        <button type="submit" name="acao" value="aprovar"
+                class="px-3 py-1.5 rounded-lg bg-sucesso text-white text-[0.78rem] font-semibold hover:opacity-90 transition">
+          Publicar no site
+        </button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 {% if total %}
 
 {# ── NPS score + resumo ── #}
@@ -28,7 +58,7 @@
       {% if nps_score >= 75 %}text-sucesso{% elif nps_score >= 50 %}text-sucesso{% elif nps_score >= 0 %}text-marca-forte{% else %}text-erro{% endif %}">
       {% if nps_score >= 75 %}Excelente{% elif nps_score >= 50 %}Muito bom{% elif nps_score >= 0 %}Razoável{% else %}Crítico{% endif %}
     </p>
-    <p class="text-[0.72rem] text-texto-suave mt-1">{{ total }} avaliação{{ total|pluralize:"ões" }} · média {{ media }}</p>
+    <p class="text-[0.72rem] text-texto-suave mt-1">{{ total }} avaliaç{{ total|pluralize:"ão,ões" }} · média {{ media }}</p>
   </div>
 
   {# Promotores / Neutros / Detratores #}
@@ -83,6 +113,26 @@
           {% if a.atendimento.profissional %} · {{ a.atendimento.profissional.nome }}{% endif %}
           · {{ a.criado_em|date:"d/m/Y" }}
         </p>
+        {% if a.autoriza_publicacao %}
+        <div class="flex flex-wrap items-center gap-2 mt-2">
+          {% if a.aprovado_publicacao %}
+          <span class="inline-block px-2 py-0.5 rounded-full text-[0.65rem] font-bold bg-sucesso/[0.12] text-sucesso">Publicado no site</span>
+          {% else %}
+          <span class="inline-block px-2 py-0.5 rounded-full text-[0.65rem] font-bold bg-marca-forte/[0.12] text-marca-forte">Autorizou publicar</span>
+          {% endif %}
+          <form method="post" action="{% url 'aranha:admin_nps_publicacao' a.pk %}" class="m-0">
+            {% csrf_token %}
+            <input type="hidden" name="periodo" value="{{ periodo }}">
+            {% if a.aprovado_publicacao %}
+            <button type="submit" name="acao" value="reprovar"
+                    class="px-2.5 py-1 rounded-lg border border-borda text-texto-suave text-[0.72rem] font-semibold hover:text-texto transition">Retirar do site</button>
+            {% else %}
+            <button type="submit" name="acao" value="aprovar"
+                    class="px-2.5 py-1 rounded-lg bg-sucesso text-white text-[0.72rem] font-semibold hover:opacity-90 transition">Publicar no site</button>
+            {% endif %}
+          </form>
+        </div>
+        {% endif %}
       </div>
     </div>
     {% endfor %}
