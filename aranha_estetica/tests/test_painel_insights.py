@@ -17,11 +17,15 @@ from django.utils import timezone
 
 from aranha_estetica.models import (
     AceiteTermo,
+    AnotacaoSessao,
     Atendimento,
     AvaliacaoNPS,
     Configuracao,
     ConsumoSessao,
     FormularioAnamnese,
+    LogAuditoria,
+    MovimentoComissao,
+    Prontuario,
     RespostaAnamnese,
     Usuario,
     VersaoTermo,
@@ -318,8 +322,11 @@ class FinanceiroPacoteTests(_AdminBase):
     def test_receita_de_pacote_na_venda_e_nao_na_sessao(self):
         cli = criar_cliente()
         agora = timezone.now()
+        # 2o profissional: no Postgres o EXCLUDE excl_atendimento_sobreposicao
+        # recusa 2 AGENDADO do mesmo profissional no mesmo horario.
+        outra = criar_profissional(nome='Dra. Bia')
         avulso = criar_atendimento(cli, self.prof, self.proc, data_hora=agora, status='AGENDADO')
-        sessao = criar_atendimento(cli, self.prof, self.proc, data_hora=agora, status='AGENDADO')
+        sessao = criar_atendimento(cli, outra, self.proc, data_hora=agora, status='AGENDADO')
         pacote = criar_pacote(preco=Decimal('700.00'), procedimento=self.proc, sessoes=5)
         compra = criar_compra_pacote(cli, pacote)
         ConsumoSessao.objects.create(compra_pacote=compra, atendimento=sessao)
@@ -391,3 +398,252 @@ class PainelShellTests(_AdminBase):
             self.assertNotIn('id="webpushEnable"', self._html())
         with mock.patch.dict('os.environ', {'WEBPUSH_VAPID_PUBLIC_KEY': 'BPk-teste'}):
             self.assertIn('id="webpushEnable"', self._html())
+
+
+
+# ════════════════════════════════════════════════════════════════════
+# Dado de saude: ficha da cliente chega a quem atende (gap2-01/-10)
+# ════════════════════════════════════════════════════════════════════
+def _ficha_alergia(cliente, atendimento=None, texto='Lidocaina e latex'):
+    form = FormularioAnamnese.objects.create(
+        nome='Ficha facial', tipo='ANAMNESE', escopo='GLOBAL',
+        schema_json=[
+            {'key': 'alergias', 'tipo': 'text', 'label': 'Possui alergias?', 'obrigatorio': False},
+            {'key': 'gestante', 'tipo': 'bool', 'label': 'Está gestante?', 'obrigatorio': True},
+        ],
+    )
+    return RespostaAnamnese.objects.create(
+        formulario=form, cliente=cliente, atendimento=atendimento,
+        respostas_json={'alergias': texto, 'gestante': True},
+        respondida_em=timezone.now(),
+    )
+
+
+class SaudeVisivelTests(_AdminBase):
+    def setUp(self):
+        super().setUp()
+        self.cli = criar_cliente(nome='Carla Lima')
+        self.at = criar_atendimento(self.cli, self.prof, self.proc, status='PENDENTE')
+        self.resposta = _ficha_alergia(self.cli, self.at)
+
+    def test_prontuario_mostra_alerta_e_ficha_com_label(self):
+        resp = self.client.get(reverse('aranha:prontuario_detalhe', args=[self.cli.pk]))
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
+        self.assertIn('Alerta de saúde', html)
+        self.assertRegex(html, r'>\s*Lidocaina e latex')  # texto visivel, nao title=
+        self.assertIn('Possui alergias?', html)
+        self.assertIn('Fichas de avaliação respondidas', html)
+
+    def test_get_nao_cria_prontuario_vazio(self):
+        self.client.get(reverse('aranha:prontuario_detalhe', args=[self.cli.pk]))
+        self.assertFalse(Prontuario.objects.filter(cliente=self.cli).exists())
+
+    def test_lista_mostra_ficha_online_e_alerta(self):
+        vazio = criar_cliente(nome='Beatriz Sem Dados')
+        Prontuario.objects.create(cliente=vazio)  # registro vazio nao e prontuario
+        resp = self.client.get(reverse('aranha:prontuario_consentimento'))
+        html = resp.content.decode()
+        itens = {i['cliente'].pk: i for i in resp.context['clientes_list']}
+        self.assertTrue(itens[self.cli.pk]['tem_ficha'])
+        self.assertFalse(itens[vazio.pk]['tem_prontuario'])
+        self.assertIn('Ficha online', html)
+        self.assertIn('Sem dados de saúde', html)
+        self.assertRegex(html, r'Possui alergias\?:</strong>\s*Lidocaina e latex')
+
+    def test_prontuario_preenchido_ganha_selo(self):
+        Prontuario.objects.create(cliente=self.cli, alergias='Dipirona')
+        resp = self.client.get(reverse('aranha:prontuario_consentimento'))
+        item = next(i for i in resp.context['clientes_list'] if i['cliente'].pk == self.cli.pk)
+        self.assertTrue(item['tem_prontuario'])
+
+    def test_agendamentos_e_overview_trazem_alerta(self):
+        resp = self.client.get(reverse('aranha:painel_agendamentos'))
+        self.assertContains(resp, 'Lidocaina e latex')
+        self.assertIn('no-store', resp['Cache-Control'])
+        resp = self.client.get(reverse('aranha:painel_overview'))
+        self.assertContains(resp, 'Lidocaina e latex')  # pendente de aprovacao
+
+    def test_respostas_com_label_sim_nao_e_trilha(self):
+        url = reverse('aranha:admin_anamnese_respostas', args=[self.resposta.formulario_id])
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'Possui alergias?')
+        self.assertContains(resp, 'Está gestante?')
+        self.assertNotContains(resp, '>True<')
+        self.assertIn('no-store', resp['Cache-Control'])
+        log = LogAuditoria.objects.get(tabela='resposta_anamnese')
+        self.assertEqual(log.detalhes['clientes'], [self.cli.pk])
+
+    def test_editar_schema_com_respostas_cria_nova_versao(self):
+        form = self.resposta.formulario
+        novo_schema = [{'key': 'alergia_medicamento', 'tipo': 'text', 'label': 'Alergia a remédio?'}]
+        resp = self.client.post(reverse('aranha:admin_anamnese_editar', args=[form.pk]), {
+            'nome': form.nome, 'tipo': 'ANAMNESE', 'escopo': 'GLOBAL',
+            'schema_json': json.dumps(novo_schema), 'ativo': '1',
+        })
+        self.assertEqual(resp.status_code, 302)
+        form.refresh_from_db()
+        self.assertFalse(form.ativo)
+        self.assertEqual(form.schema_json[0]['key'], 'alergias')  # antigo intacto
+        novo = FormularioAnamnese.objects.exclude(pk=form.pk).get(nome=form.nome)
+        self.assertTrue(novo.ativo)
+        self.assertEqual(novo.schema_json, novo_schema)
+
+
+# ════════════════════════════════════════════════════════════════════
+# prontuario_salvar: POST parcial nao apaga, trava otimista, trilha (gap2-04/-06/-11)
+# ════════════════════════════════════════════════════════════════════
+class ProntuarioSalvarTests(_AdminBase):
+    def setUp(self):
+        super().setUp()
+        self.cli = criar_cliente(nome='Carla Lima')
+        self.url = reverse('aranha:prontuario_salvar', args=[self.cli.pk])
+
+    def _versao(self):
+        return self.client.get(
+            reverse('aranha:prontuario_detalhe', args=[self.cli.pk])
+        ).context['versao_prontuario']
+
+    def test_post_parcial_nao_apaga_alergias(self):
+        Prontuario.objects.create(cliente=self.cli, alergias='Lidocaina', contraindicacoes='Gestante')
+        resp = self.client.post(self.url, {'observacoes_gerais': 'Pele sensível', 'versao': self._versao()})
+        self.assertEqual(resp.status_code, 302)
+        p = Prontuario.objects.get(cliente=self.cli)
+        self.assertEqual((p.alergias, p.contraindicacoes, p.observacoes_gerais),
+                         ('Lidocaina', 'Gestante', 'Pele sensível'))
+
+    def test_versao_desatualizada_e_recusada(self):
+        Prontuario.objects.create(cliente=self.cli, alergias='Lidocaina')
+        versao = self._versao()
+        self.client.post(self.url, {'alergias': 'Lidocaina, latex', 'versao': versao})
+        # 2a pessoa com a pagina antiga aberta
+        self.client.post(self.url, {'alergias': '', 'versao': versao})
+        self.assertEqual(Prontuario.objects.get(cliente=self.cli).alergias, 'Lidocaina, latex')
+
+    def test_trilha_usa_cliente_pk_sem_nome_e_so_campos(self):
+        self.client.get(reverse('aranha:prontuario_detalhe', args=[self.cli.pk]))
+        self.client.post(self.url, {'alergias': 'Dipirona', 'versao': ''})
+        logs = LogAuditoria.objects.filter(tabela='prontuario')
+        self.assertEqual({lg.registro_id for lg in logs}, {self.cli.pk})
+        self.assertFalse(any('Carla' in lg.acao for lg in logs))
+        upd = logs.get(acao='Atualizou prontuario')
+        self.assertEqual(upd.detalhes['campos_alterados'], ['alergias'])
+        self.assertNotIn('Dipirona', json.dumps(upd.detalhes))
+
+    def test_anotacao_com_autor_quebra_de_linha_e_paginacao(self):
+        base = timezone.now() - timedelta(days=400)
+        for i in range(31):
+            criar_atendimento(self.cli, self.prof, self.proc,
+                              data_hora=base + timedelta(days=i), status='REALIZADO')
+        antigo = Atendimento.objects.filter(cliente=self.cli).order_by('data_hora_inicio').first()
+        AnotacaoSessao.objects.create(atendimento=antigo, autor=self.admin,
+                                      texto='Aplicado 20U glabela.\nSem intercorrencias.')
+        detalhe = reverse('aranha:prontuario_detalhe', args=[self.cli.pk])
+        self.assertNotContains(self.client.get(detalhe), 'glabela')
+        resp = self.client.get(detalhe + '?page=2')
+        self.assertContains(resp, 'Aplicado 20U glabela.<br>Sem intercorrencias.')
+        self.assertContains(resp, self.admin.email)  # autor (nome vazio -> e-mail)
+
+    def test_anotacao_criada_fica_na_trilha(self):
+        at = criar_atendimento(self.cli, self.prof, self.proc, status='AGENDADO')
+        resp = self.client.post(reverse('aranha:anotacao_sessao_salvar', args=[at.pk]), {'texto': 'ok'})
+        self.assertEqual(resp.status_code, 200)
+        anot = AnotacaoSessao.objects.get(atendimento=at)
+        self.assertTrue(LogAuditoria.objects.filter(
+            tabela='anotacao_sessao', registro_id=anot.pk, acao='Criou anotacao').exists())
+
+
+# ════════════════════════════════════════════════════════════════════
+# Acesso do profissional ao prontuario (gap2-05)
+# ════════════════════════════════════════════════════════════════════
+class ProntuarioProfissionalTests(_AdminBase):
+    def setUp(self):
+        super().setUp()
+        self.cli = criar_cliente(nome='Dora')
+        self.beto = criar_profissional(nome='Beto')
+        self.user_beto = Usuario.objects.create_user(
+            email='beto@insights.com', password='x', nome='Beto',
+            papel=Usuario.PAPEL_PROFISSIONAL, profissional=self.beto,
+        )
+        self.prof_client = Client()
+        self.prof_client.force_login(self.user_beto)
+        self.detalhe = reverse('aranha:prontuario_detalhe', args=[self.cli.pk])
+        self.salvar = reverse('aranha:prontuario_salvar', args=[self.cli.pk])
+        Prontuario.objects.create(cliente=self.cli, alergias='Lidocaina')
+
+    def _at(self, status, dias, prof=None):
+        quando = (timezone.now() + timedelta(days=dias)).replace(hour=10, minute=0, second=0, microsecond=0)
+        return criar_atendimento(self.cli, prof or self.beto, self.proc, data_hora=quando, status=status)
+
+    def test_so_cancelado_nao_da_acesso(self):
+        self._at('CANCELADO', 2)
+        self.assertEqual(self.prof_client.get(self.detalhe).status_code, 403)
+        self.assertEqual(self.prof_client.post(self.salvar, {'alergias': ''}).status_code, 403)
+        self.assertEqual(Prontuario.objects.get(cliente=self.cli).alergias, 'Lidocaina')
+        self.assertTrue(LogAuditoria.objects.filter(acao='Acesso NEGADO a prontuario').exists())
+
+    def test_sem_vinculo_nao_da_acesso(self):
+        self.assertEqual(self.prof_client.get(self.detalhe).status_code, 403)
+
+    def test_pendente_futuro_le_mas_nao_grava(self):
+        self._at('PENDENTE', 2)
+        resp = self.prof_client.get(self.detalhe)
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'Lidocaina')
+        self.assertFalse(resp.context['pode_editar'])
+        self.assertEqual(self.prof_client.post(self.salvar, {'alergias': ''}).status_code, 403)
+        self.assertEqual(Prontuario.objects.get(cliente=self.cli).alergias, 'Lidocaina')
+
+    def test_realizado_recente_le_e_grava(self):
+        self._at('REALIZADO', -3)
+        self.assertEqual(self.prof_client.get(self.detalhe).status_code, 200)
+        resp = self.prof_client.post(self.salvar, {'observacoes_gerais': 'ok'})
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(Prontuario.objects.get(cliente=self.cli).observacoes_gerais, 'ok')
+
+    def test_realizado_antigo_nao_da_acesso(self):
+        self._at('REALIZADO', -400)
+        self.assertEqual(self.prof_client.get(self.detalhe).status_code, 403)
+
+    def test_portal_sem_menu_do_painel_e_nota_so_no_proprio(self):
+        meu = self._at('AGENDADO', 1)
+        de_outra = self._at('REALIZADO', -5, prof=self.prof)
+        resp = self.prof_client.get(self.detalhe)
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
+        self.assertNotIn(reverse('aranha:painel_agendamentos'), html)
+        self.assertIn(reverse('aranha:profissional_agenda'), html)
+        self.assertIn(f'data-atendimento-id="{meu.pk}"', html)
+        self.assertNotIn(f'data-atendimento-id="{de_outra.pk}"', html)
+        self.assertIn('no-store', resp['Cache-Control'])
+
+
+# ════════════════════════════════════════════════════════════════════
+# Diversos do pacote: baixa de comissao na trilha, WhatsApp com DDI, porta do painel
+# ════════════════════════════════════════════════════════════════════
+class PainelDiversosTests(_AdminBase):
+    def test_baixa_de_comissao_registra_auditoria(self):
+        at = criar_atendimento(criar_cliente(), self.prof, self.proc, status='AGENDADO')
+        mov = MovimentoComissao.objects.create(
+            profissional=self.prof, atendimento=at, valor=Decimal('10.00'),
+            status=MovimentoComissao.STATUS_PENDENTE,
+        )
+        self.client.post(reverse('aranha:admin_comissao_pagar', args=[mov.pk]))
+        self.assertTrue(LogAuditoria.objects.filter(
+            tabela='movimento_comissao', registro_id=mov.pk).exists())
+
+    def test_whatsapp_sem_ddi_ganha_55(self):
+        self.client.post(reverse('aranha:admin_branding'), {'WHATSAPP_NUMERO': '(17) 99123-4567'})
+        self.assertEqual(Configuracao.objects.get(chave='WHATSAPP_NUMERO').valor, '5517991234567')
+        self.assertTrue(LogAuditoria.objects.filter(tabela='configuracao').exists())
+
+    def test_nao_staff_com_profissional_ativo_vai_ao_portal(self):
+        user = Usuario.objects.create_user(
+            email='recep@insights.com', password='x', nome='R',
+            papel=Usuario.PAPEL_RECEPCAO, profissional=self.prof,
+        )
+        c = Client()
+        c.force_login(user)
+        resp = c.get(reverse('aranha:painel'))
+        self.assertRedirects(resp, reverse('aranha:profissional_agenda'), fetch_redirect_response=False)

@@ -368,8 +368,9 @@
     {# ── Page header ── #}
     <div class="relative flex items-start justify-between gap-4 flex-wrap px-4 py-5 bg-superficie border-b border-borda">
       <div class="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-marca-forte to-marca" aria-hidden="true"></div>
-      <div class="flex-1 min-w-0 pl-2">
-        <h1 class="text-[1.4rem] font-bold text-texto leading-tight tracking-tight m-0">
+      {# Mobile: titulo ocupa a linha e as acoes quebram abaixo (a 375px o flex-1 esmagava o titulo) #}
+      <div class="w-full sm:w-auto sm:flex-1 min-w-0 pl-2">
+        <h1 class="text-[1.4rem] font-bold text-texto leading-tight tracking-tight m-0 break-words">
           {% block titulo_pagina %}{% block page_title %}Painel{% endblock %}{% endblock %}
         </h1>
         <p class="text-[0.78rem] text-texto-suave mt-1 mb-0">{% block page_subtitle %}{% endblock %}</p>

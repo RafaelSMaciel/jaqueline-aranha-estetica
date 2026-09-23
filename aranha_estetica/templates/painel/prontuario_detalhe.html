@@ -1,4 +1,4 @@
-{% extends 'painel/base_v2.html' %}
+{% extends base_template %}
 {% load dict_extras %}
 
 {% block titulo %}Prontuário — {{ cliente.nome }} — {{ CLINIC_NAME }}{% endblock %}
@@ -7,6 +7,24 @@
 
 {% block admin_content %}
 <div x-data="anotacaoModal" data-csrf="{{ csrf_token }}">
+
+{# ── Alerta de saúde (prontuário + fichas respondidas pela cliente) ── #}
+{% if alertas %}
+<div class="flex items-start gap-3 rounded-2xl border-2 border-erro bg-superficie p-4 mb-4" role="alert">
+  <svg class="w-6 h-6 text-erro shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+  <div class="flex-1 min-w-0">
+    <p class="font-bold text-erro text-[0.9rem] mb-1.5">Alerta de saúde — confira antes do procedimento</p>
+    <ul class="space-y-1 text-[0.85rem] text-texto">
+      {% for a in alertas %}
+      <li class="break-words">
+        <strong>{{ a.label }}:</strong> {{ a.valor }}
+        <span class="text-[0.72rem] text-texto-suave">({% if a.origem == 'anamnese' %}declarado pela cliente na ficha{% else %}registrado no prontuário{% endif %})</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}
 
 {# ── Info do Cliente ── #}
 <div class="bg-superficie rounded-2xl shadow-sm p-4 mb-4">
@@ -34,8 +52,14 @@
     </svg>
     Ficha de Anamnese
   </h6>
+  {% if not pode_editar %}
+  <p class="text-[0.8rem] text-texto-suave mb-3">Somente leitura: a edição fica disponível para quem tem atendimento aprovado ou realizado recentemente com a cliente.</p>
+  {% endif %}
   <form method="post" action="{% url 'aranha:prontuario_salvar' cliente_id=cliente.pk %}">
     {% csrf_token %}
+    {# Trava otimista: se outra pessoa salvar antes, o POST e recusado sem sobrescrever #}
+    <input type="hidden" name="versao" value="{{ versao_prontuario }}">
+    <fieldset class="border-0 p-0 m-0 min-w-0" {% if not pode_editar %}disabled{% endif %}>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
       <div>
         <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Alergias</label>
@@ -96,7 +120,9 @@
     {% endwith %}
     {% endfor %}
     {% endif %}
+    </fieldset>
 
+    {% if pode_editar %}
     <button type="submit"
             class="inline-flex items-center gap-1.5 px-5 py-2 rounded-full bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
@@ -104,7 +130,36 @@
       </svg>
       Salvar Prontuário
     </button>
+    {% endif %}
   </form>
+</div>
+
+{# ── Fichas de avaliação respondidas pela cliente (booking / link) ── #}
+<div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
+  <h6 class="flex items-center gap-2 font-bold text-texto mb-1">
+    <svg class="w-4 h-4 text-marca" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14l2 2 4-4"/>
+    </svg>
+    Fichas de avaliação respondidas
+  </h6>
+  <p class="text-[0.75rem] text-texto-suave mb-3">Declarações da própria cliente. Para virar registro do prontuário, copie o que for relevante nos campos acima.</p>
+  {% for ficha in fichas %}
+  <div class="py-2.5 {% if not forloop.last %}border-b border-borda{% endif %}">
+    <div class="text-[0.78rem] text-texto-suave mb-1.5">
+      <strong class="text-texto">{{ ficha.formulario }}</strong> &middot; {{ ficha.data|date:"d/m/Y H:i" }}{% if ficha.procedimento %} &middot; {{ ficha.procedimento }}{% endif %}
+    </div>
+    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-[0.82rem]">
+      {% for label, valor in ficha.itens %}
+      <div class="min-w-0">
+        <dt class="text-[0.72rem] font-bold text-texto-suave">{{ label }}</dt>
+        <dd class="text-texto break-words m-0">{{ valor|linebreaksbr }}</dd>
+      </div>
+      {% endfor %}
+    </dl>
+  </div>
+  {% empty %}
+  <p class="text-texto-suave text-center py-3 text-[0.85rem]">Nenhuma ficha respondida pela cliente.</p>
+  {% endfor %}
 </div>
 
 {# ── Histórico de Atendimentos ── #}
@@ -115,7 +170,8 @@
     </svg>
     Histórico de Atendimentos
   </h6>
-  {% if atendimentos %}
+  {% if atendimentos.object_list %}
+  {% if atendimentos.has_other_pages %}<p class="text-[0.75rem] text-texto-suave mb-2">{{ atendimentos.paginator.count }} atendimentos &middot; mais recentes primeiro</p>{% endif %}
   {% for atend in atendimentos %}
   <div class="flex items-start gap-3 py-2.5 {% if not forloop.last %}border-b border-borda{% endif %}">
     <div class="w-9 h-9 rounded-xl bg-green-100 text-green-600 flex items-center justify-center shrink-0">
@@ -129,23 +185,26 @@
         {{ atend.data_hora_inicio|date:"d/m/Y H:i" }} &middot; {{ atend.profissional.nome }} &middot;
         <span class="px-2 py-0.5 rounded-full text-[0.6rem] font-bold uppercase tracking-wide
           {% if atend.status == 'REALIZADO' %}bg-green-50 text-green-700{% elif atend.status == 'CANCELADO' %}bg-red-50 text-red-600{% elif atend.status == 'CONFIRMADO' %}bg-blue-50 text-blue-700{% else %}bg-amber-50 text-amber-700{% endif %}">
-          {{ atend.status }}
+          {{ atend.get_status_display }}
         </span>
       </div>
       {% for anot in atend.anotacoes.all %}
       <div class="flex items-start gap-1.5 mt-1 p-2 rounded-lg bg-fundo text-[0.78rem] text-texto">
         <svg class="w-3.5 h-3.5 text-marca shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-        <span>{{ anot.texto }} <span class="text-texto-suave">— {{ anot.criado_em|date:"d/m/Y H:i" }}</span></span>
+        <span class="min-w-0 break-words">{{ anot.texto|linebreaksbr }} <span class="text-texto-suave">— {% if anot.autor %}{{ anot.autor.nome|default:anot.autor.email }}{% else %}autor removido{% endif %}, {{ anot.criado_em|date:"d/m/Y H:i" }}</span></span>
       </div>
       {% endfor %}
     </div>
+    {% if atend.pode_anotar %}
     <button type="button" x-on:click="abrir" data-atendimento-id="{{ atend.pk }}"
             class="inline-flex items-center gap-1 shrink-0 px-3 py-1.5 rounded-full border border-borda text-texto text-[0.72rem] font-bold bg-superficie cursor-pointer hover:bg-fundo transition-colors">
       <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Nota
     </button>
+    {% endif %}
   </div>
   {% endfor %}
+  {% include 'partials/_paginacao.html' with page=atendimentos %}
   {% else %}
   <p class="text-texto-suave text-center py-3 text-[0.85rem]">Nenhum atendimento registrado.</p>
   {% endif %}
@@ -188,7 +247,7 @@
 {% endif %}
 
 {# ── Voltar ── #}
-<a href="{% url 'aranha:prontuario_consentimento' %}"
+<a href="{% if request.user.is_staff %}{% url 'aranha:prontuario_consentimento' %}{% else %}{% url 'aranha:profissional_agenda' %}{% endif %}"
    class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-borda text-texto text-[0.85rem] font-bold no-underline hover:bg-fundo transition-colors">
   <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
   Voltar

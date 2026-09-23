@@ -83,6 +83,7 @@
     <div class="flex-1 min-w-0">
       <div class="font-bold text-[0.85rem] text-texto">{{ p.cliente.nome }}</div>
       <div class="text-[0.7rem] text-texto-suave mt-0.5">{{ p.procedimento.nome }} &bull; {{ p.profissional.nome }} &bull; {{ p.data_hora_inicio|date:"d/m H:i" }}</div>
+      {% include 'partials/_alerta_saude.html' with alertas=p.alertas_saude %}
     </div>
     <div class="flex gap-1.5 shrink-0">
       <form method="post" action="{% url 'aranha:admin_aprovar_agendamento' pk=p.pk %}" class="m-0">
@@ -158,6 +159,7 @@
         {{ agend.procedimento.nome }} &bull; {{ agend.data_hora_inicio|date:"d/m H:i" }} &bull;
         <span class="status-text-{{ agend.pk }}">{% include 'partials/_status_badge.html' with status=agend.status %}</span>
       </div>
+      {% include 'partials/_alerta_saude.html' with alertas=agend.alertas_saude %}
     </div>
     <div class="flex items-center gap-1.5 shrink-0">
       <select data-atend-id="{{ agend.pk }}" title="Alterar status"

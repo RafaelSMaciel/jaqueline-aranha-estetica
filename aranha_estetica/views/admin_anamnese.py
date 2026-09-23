@@ -3,12 +3,16 @@ import json
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
+from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import ProtectedError, RestrictedError
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.cache import never_cache
 
 from ..decorators import staff_required
 from ..models import FormularioAnamnese, Procedimento, RespostaAnamnese
 from ..utils.audit import registrar_log
+from ..utils.fichas import itens_ficha
 
 # Exemplo exibido em formulario novo. Chave 'obrigatorio' SEM acento: e o que
 # anamnese_publica.py e agenda/pesquisa.html leem.
@@ -71,6 +75,14 @@ def admin_anamnese_form(request, pk=None):
         ativo = post.get('ativo') == '1'
         obrigatorio = post.get('obrigatorio') == '1'
 
+        # Formulario que ja tem respostas nao muda de perguntas no lugar: as
+        # respostas antigas guardam so {key: valor} e perderiam label/sentido.
+        # Nesse caso nasce uma nova versao e a anterior e desativada.
+        versionar = (
+            form is not None
+            and RespostaAnamnese.objects.filter(formulario=form).exclude(respostas_json={}).exists()
+        )
+        schema_anterior = form.schema_json if form is not None else None
         obj = form if form is not None else FormularioAnamnese()
         # Atribui antes de validar: o re-render de erro mostra o que foi enviado
         obj.nome = nome
@@ -114,13 +126,32 @@ def admin_anamnese_form(request, pk=None):
             obj.full_clean()
         except ValidationError as exc:
             return _erro(_mensagens_validacao(exc))
+
+        if versionar and obj.schema_json != schema_anterior:
+            with transaction.atomic():
+                antigo_pk = obj.pk
+                obj.pk = None  # clone: nova linha com os dados enviados
+                obj._state.adding = True
+                obj.save()
+                FormularioAnamnese.objects.filter(pk=antigo_pk).update(ativo=False)
+            registrar_log(
+                request.user, f'Criou nova versao da anamnese {obj.nome}', 'formulario_anamnese', obj.pk,
+                detalhes={'versao_anterior': antigo_pk}, request=request,
+            )
+            messages.success(
+                request,
+                'Este formulário já tinha respostas: as perguntas novas viraram uma nova versão e a '
+                'anterior foi desativada (as respostas antigas continuam com as perguntas originais).',
+            )
+            return redirect('aranha:admin_anamneses')
+
         obj.save()
 
         if form is not None:
-            registrar_log(request.user, f'Editou anamnese {obj.nome}', 'formulario_anamnese', obj.pk)
+            registrar_log(request.user, f'Editou anamnese {obj.nome}', 'formulario_anamnese', obj.pk, request=request)
             messages.success(request, 'Formulário atualizado.')
         else:
-            registrar_log(request.user, f'Criou anamnese {obj.nome}', 'formulario_anamnese', obj.pk)
+            registrar_log(request.user, f'Criou anamnese {obj.nome}', 'formulario_anamnese', obj.pk, request=request)
             messages.success(request, 'Formulário criado.')
         return redirect('aranha:admin_anamneses')
 
@@ -141,24 +172,34 @@ def admin_anamnese_excluir(request, pk):
             form.save(update_fields=['ativo', 'atualizado_em'])
             registrar_log(
                 request.user, f'Desativou anamnese {nome} (possui respostas)',
-                'formulario_anamnese', pk,
+                'formulario_anamnese', pk, request=request,
             )
             messages.warning(
                 request,
                 f'O formulário "{nome}" já tem respostas de clientes: foi desativado em vez de excluído.',
             )
             return redirect('aranha:admin_anamneses')
-        registrar_log(request.user, f'Excluiu anamnese {nome}', 'formulario_anamnese', pk)
+        registrar_log(request.user, f'Excluiu anamnese {nome}', 'formulario_anamnese', pk, request=request)
         messages.success(request, f'Formulário "{nome}" excluído.')
     return redirect('aranha:admin_anamneses')
 
 
+@never_cache  # dado de saude: sem bfcache/cache de disco apos o logout
 @staff_required
 def admin_anamnese_respostas(request, pk):
     form = get_object_or_404(FormularioAnamnese, pk=pk)
-    respostas = RespostaAnamnese.objects.filter(formulario=form).select_related(
-        'cliente', 'atendimento'
-    ).order_by('-criado_em')[:100]
+    qs = RespostaAnamnese.objects.filter(formulario=form).select_related(
+        'cliente', 'atendimento__procedimento', 'formulario',
+    ).order_by('-criado_em')
+    respostas = Paginator(qs, 30).get_page(request.GET.get('page'))
+    for r in respostas:
+        r.itens = itens_ficha(r)  # label da pergunta + Sim/Não, nao a chave crua
+    # Leitura de dado de saude de varias clientes: fica na trilha (LGPD art. 37)
+    registrar_log(
+        request.user, 'Leu respostas de anamnese', 'resposta_anamnese', form.pk,
+        detalhes={'clientes': sorted({r.cliente_id for r in respostas}), 'pagina': respostas.number},
+        request=request,
+    )
     return render(request, 'painel/anamnese_respostas.html', {
         'form_obj': form,
         'respostas': respostas,

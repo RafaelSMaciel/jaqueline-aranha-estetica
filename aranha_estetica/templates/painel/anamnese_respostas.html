@@ -18,7 +18,8 @@
   <svg class="w-4 h-4 text-marca" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
     <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
   </svg>
-  {{ respostas|length }} resposta{{ respostas|length|pluralize }}
+  {{ respostas.paginator.count }} resposta{{ respostas.paginator.count|pluralize }}
+  {% if respostas.has_other_pages %}<span class="font-normal">&middot; página {{ respostas.number }} de {{ respostas.paginator.num_pages }}</span>{% endif %}
 </div>
 
 {% for r in respostas %}
@@ -31,13 +32,18 @@
       </a>
       {% else %}—{% endif %}
     </div>
-    <div class="text-[0.7rem] text-texto-suave">{{ r.criado_em|date:"d/m/Y H:i" }}</div>
+    <div class="text-[0.7rem] text-texto-suave text-right">
+      {% if r.respondida_em %}{{ r.respondida_em|date:"d/m/Y H:i" }}{% else %}{{ r.criado_em|date:"d/m/Y H:i" }}{% endif %}
+      {% if r.atendimento_id %}<br>{{ r.atendimento.procedimento.nome }}{% endif %}
+    </div>
   </div>
-  {% for k, v in r.respostas_json.items %}
-  <div class="flex py-1.5 text-[0.82rem] border-b border-borda last:border-b-0">
-    <div class="text-texto-suave font-bold min-w-[130px] text-[0.75rem]">{{ k }}</div>
-    <div class="flex-1 text-texto break-words">{{ v }}</div>
+  {% for label, valor in r.itens %}
+  <div class="flex flex-col sm:flex-row gap-0.5 sm:gap-3 py-1.5 text-[0.82rem] border-b border-borda last:border-b-0">
+    <div class="text-texto-suave font-bold sm:min-w-[180px] sm:max-w-[40%] text-[0.75rem]">{{ label }}</div>
+    <div class="flex-1 text-texto break-words">{{ valor|linebreaksbr }}</div>
   </div>
+  {% empty %}
+  <p class="text-[0.8rem] text-texto-suave">Convite enviado, ainda sem respostas.</p>
   {% endfor %}
 </div>
 {% empty %}
@@ -51,4 +57,5 @@
   <p class="text-[0.85rem] text-texto-suave">Clientes que preencherem este formulário aparecerão aqui.</p>
 </div>
 {% endfor %}
+{% include 'partials/_paginacao.html' with page=respostas %}
 {% endblock %}

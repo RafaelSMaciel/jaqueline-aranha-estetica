@@ -8,6 +8,7 @@ from django.db.models.functions import TruncDate
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
+from django.views.decorators.cache import never_cache
 
 from ..models import (
     AvaliacaoNPS, Cliente, CompraPacote, Atendimento, DisponibilidadeProfissional,
@@ -16,6 +17,7 @@ from ..models import (
 from ..decorators import staff_required
 from ..utils.busca import q_busca_cliente
 from ..utils.datas import fmt_local, hoje as hoje_local
+from ..utils.saude import alertas_saude
 
 
 def _inicio_do_dia(d):
@@ -27,20 +29,37 @@ def _brl(valor) -> str:
     return f"{valor:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
 
 
+def _anexar_alertas_saude(atendimentos):
+    """Seta `atend.alertas_saude` (utils.saude.alertas_saude) em cada item.
+
+    Alerta visivel de alergia/contraindicacao — do prontuario E das fichas que a
+    cliente respondeu no booking. Uma consulta por cliente distinto da pagina.
+    """
+    cache_cliente = {}
+    for atend in atendimentos:
+        if atend.cliente_id not in cache_cliente:
+            cache_cliente[atend.cliente_id] = alertas_saude(atend.cliente)
+        atend.alertas_saude = cache_cliente[atend.cliente_id]
+    return atendimentos
+
+
 @login_required
 def painel(request):
     """Porta de entrada pos-login: cada papel cai na sua tela."""
     user = request.user
     if user.is_staff:
         return redirect('aranha:painel_overview')
+    # Qualquer nao-staff com profissional ativo vai ao portal (mesma regra do
+    # staff_required); nao depende do papel gravado.
     prof = getattr(user, 'profissional', None)
-    if user.papel == user.PAPEL_PROFISSIONAL and prof is not None and prof.ativo:
+    if prof is not None and prof.ativo:
         return redirect('aranha:profissional_agenda')
     # Papel sem tela propria (ex.: recepcao ainda sem permissoes): encerra a sessao.
     auth_logout(request)
     return redirect('aranha:inicio')
 
 
+@never_cache  # pendentes/proximos trazem alerta de saude
 @staff_required
 def painel_overview(request):
     """Dashboard principal — Overview com estatísticas"""
@@ -115,16 +134,16 @@ def painel_overview(request):
         if agg_nps['total'] else None
     )
 
-    proximos_agendamentos = Atendimento.objects.filter(
+    proximos_agendamentos = _anexar_alertas_saude(list(Atendimento.objects.filter(
         data_hora_inicio__gte=timezone.now(),
         status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO']
-    ).select_related('cliente', 'profissional', 'procedimento').order_by('data_hora_inicio')[:10]
+    ).select_related('cliente', 'profissional', 'procedimento').order_by('data_hora_inicio')[:10]))
 
-    # Pendentes de aprovação (todos)
-    pendentes_aprovacao = Atendimento.objects.filter(
+    # Pendentes de aprovação (todos) — com alerta de saude visivel p/ quem aprova
+    pendentes_aprovacao = _anexar_alertas_saude(list(Atendimento.objects.filter(
         status='PENDENTE',
         data_hora_inicio__gte=timezone.now(),
-    ).select_related('cliente', 'profissional', 'procedimento').order_by('data_hora_inicio')[:15]
+    ).select_related('cliente', 'profissional', 'procedimento').order_by('data_hora_inicio')[:15]))
     total_pendentes = Atendimento.objects.filter(
         status='PENDENTE',
         data_hora_inicio__gte=timezone.now(),
@@ -173,6 +192,7 @@ def painel_overview(request):
     return render(request, 'painel/overview.html', context)
 
 
+@never_cache  # lista traz alertas de saude das clientes (template: marcadores_atendimentos)
 @staff_required
 def painel_agendamentos(request):
     """Gerenciamento de agendamentos"""

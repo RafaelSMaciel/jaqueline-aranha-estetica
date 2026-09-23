@@ -1,0 +1,27 @@
+{% extends 'estrutura/base_v2.html' %}
+{% comment %}
+Shell do prontuario p/ o PROFISSIONAL (nao staff): mesmo visual do portal
+(profissional/agenda.html), sem o sidenav do painel — que so tem links de staff.
+Expoe os mesmos blocos do painel/base_v2 usados por prontuario_detalhe.html.
+{% endcomment %}
+
+{% block head_seo %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+
+{% block conteudo %}
+<div class="min-h-screen bg-fundo py-8 pb-20">
+  <div class="max-w-4xl mx-auto px-4">
+    <div class="flex justify-between items-start mb-5 flex-wrap gap-3">
+      <div class="min-w-0">
+        <h1 class="font-serif text-2xl font-bold text-texto">{% block page_title %}Prontuário{% endblock %}</h1>
+        <p class="text-sm text-texto-suave mt-1">{% block page_subtitle %}{% endblock %}</p>
+      </div>
+      <a href="{% url 'aranha:profissional_agenda' %}"
+         class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-borda bg-superficie text-texto-suave hover:text-texto font-bold text-sm no-underline transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        Minha agenda
+      </a>
+    </div>
+    {% block admin_content %}{% endblock %}
+  </div>
+</div>
+{% endblock %}

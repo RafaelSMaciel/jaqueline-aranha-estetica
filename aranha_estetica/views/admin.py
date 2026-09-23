@@ -4,9 +4,10 @@ from datetime import datetime
 
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, Exists, OuterRef
+from django.db.models import Count, Exists, OuterRef, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
+from django.views.decorators.cache import never_cache
 from django_ratelimit.decorators import ratelimit
 
 from ..decorators import staff_required
@@ -15,14 +16,25 @@ from ..models import (
     Cliente,
     LogAuditoria,
     Prontuario,
+    RespostaAnamnese,
 )
 from ..utils.audit import registrar_log
 from ..utils.busca import q_busca_cliente
 from ..utils.datas import fmt_local
+from ..utils.saude import alertas_saude
 
 logger = logging.getLogger(__name__)
 
 
+# Prontuario "de verdade": algum campo preenchido. prontuario_salvar grava ''
+# (nao None) e um GET antigo criava registro vazio — Exists(Prontuario) mentia.
+PRONTUARIO_COM_CONTEUDO = (
+    Q(alergias__gt='') | Q(contraindicacoes__gt='') | Q(historico_saude__gt='')
+    | Q(medicamentos_uso__gt='') | Q(observacoes_gerais__gt='') | ~Q(respostas_extras={})
+)
+
+
+@never_cache  # lista mostra alertas de saude
 @staff_required
 def prontuario_consentimento(request):
     """Prontuario e consentimento — lista clientes com status do prontuario."""
@@ -33,7 +45,14 @@ def prontuario_consentimento(request):
         clientes = clientes.filter(q_busca_cliente(search, incluir_email=False))
 
     clientes = clientes.annotate(
-        tem_prontuario=Exists(Prontuario.objects.filter(cliente=OuterRef('pk'))),
+        tem_prontuario=Exists(
+            Prontuario.objects.filter(cliente=OuterRef('pk')).filter(PRONTUARIO_COM_CONTEUDO)
+        ),
+        # ficha de anamnese respondida pela cliente (booking/link)
+        tem_ficha=Exists(
+            RespostaAnamnese.objects.filter(cliente=OuterRef('pk'), formulario__tipo='ANAMNESE')
+            .exclude(respostas_json={})
+        ),
         total_termos=Count('aceites', distinct=True),
     )
 
@@ -45,7 +64,10 @@ def prontuario_consentimento(request):
         {
             'cliente': c,
             'tem_prontuario': c.tem_prontuario,
+            'tem_ficha': c.tem_ficha,
             'total_termos': c.total_termos,
+            # Alerta visivel na lista; so consulta quem tem algum dado de saude
+            'alertas': alertas_saude(c) if (c.tem_prontuario or c.tem_ficha) else [],
         }
         for c in clientes_page
     ]
@@ -173,9 +195,10 @@ def admin_atualizar_status(request):
             request.user,
             f'Status alterado: {status_anterior} → {novo_status}',
             'atendimento',
-            atendimento_id,
+            atendimento.pk,
             {'status_anterior': status_anterior, 'status_novo': novo_status,
-             'cliente': atendimento.cliente.nome}
+             'cliente': atendimento.cliente_id},
+            request=request,
         )
 
         if novo_status == 'CANCELADO':

@@ -146,3 +146,34 @@ class ComissaoSessaoPacoteTests(TestCase):
         Atendimento.objects.filter(pk=at.pk).update(status='REALIZADO', valor_cobrado=Decimal('180.00'))
         at.refresh_from_db()
         self.assertEqual(ComissaoService.calcular_comissao(at).valor, Decimal('18.00'))
+
+
+class ComissaoArredondamentoTests(TestCase):
+    """Centavos meio-para-cima (mesmo criterio de utils/precos) e teto de 100%."""
+
+    def _realizado(self, valor):
+        from aranha_estetica.models import Atendimento
+        from .factories import criar_atendimento, criar_cliente
+
+        prof = criar_profissional()
+        proc = criar_procedimento(profissional=prof)
+        at = criar_atendimento(criar_cliente(), prof, proc, status='AGENDADO')
+        Atendimento.objects.filter(pk=at.pk).update(status='REALIZADO', valor_cobrado=Decimal(valor))
+        at.refresh_from_db()
+        return at
+
+    def test_meio_centavo_arredonda_para_cima(self):
+        RegraComissao.objects.create(percentual=Decimal('5'), ativo=True)
+        at = self._realizado('10.50')
+        # 5% de 10,50 = 0,525 -> 0,53 (ROUND_HALF_EVEN dava 0,52)
+        self.assertEqual(ComissaoService.calcular_comissao(at).valor, Decimal('0.53'))
+
+    def test_percentual_acima_de_100_nunca_paga_mais_que_o_atendimento(self):
+        from unittest import mock
+
+        regra = RegraComissao.objects.create(percentual=Decimal('30'), ativo=True)
+        regra.percentual = Decimal('150')  # regra legada (antes do CHECK 0-100)
+        at = self._realizado('200.00')
+        with mock.patch.object(ComissaoService, 'resolver_regra', return_value=regra):
+            mov = ComissaoService.calcular_comissao(at)
+        self.assertEqual(mov.valor, Decimal('200.00'))
