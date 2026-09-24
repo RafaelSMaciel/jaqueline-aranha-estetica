@@ -106,6 +106,8 @@ class ModelStrTests(TestCase):
         self.assertEqual(str(promo), 'Black Friday')
 
     def test_versao_termo_e_aceite_str_legiveis(self):
+        # 0045 cria o LGPD v1.0 ativo em todo banco; so 1 LGPD ativo por vez
+        VersaoTermo.objects.filter(tipo='LGPD').update(ativa=False)
         termo = VersaoTermo.objects.create(
             tipo='LGPD', titulo='Privacidade', conteudo='x', versao='2.1',
             vigente_desde=timezone.localdate(),

@@ -1,4 +1,4 @@
-"""Regressao das data migrations da remodelagem (0034-0037, 0042-0046).
+"""Regressao das data migrations da remodelagem (0029, 0034-0037, 0042-0047).
 
 Roda a migration real sobre dados "sujos" plausiveis do banco legado (SQLite:
 as partes PG-only — CHECK regex, EXCLUDE, trigger, collation — sao validadas
@@ -45,6 +45,57 @@ class _MigracaoBase(TransactionTestCase):
 
     def preparar(self, apps):
         raise NotImplementedError
+
+
+class PapelUsuario0029Tests(_MigracaoBase):
+    """0029: usuario ligado a Profissional nunca cai em RECEPCAO (sem telas)."""
+    migrate_from = '0028_remodelagem_fase1b_otp_unico'
+    migrate_to = '0029_remodelagem_fase1c_papel_usuario'
+
+    def preparar(self, apps):
+        Usuario = apps.get_model(APP, 'Usuario')
+        Perfil = apps.get_model(APP, 'Perfil')
+        Profissional = apps.get_model(APP, 'Profissional')
+        perfis = {nome: Perfil.objects.create(nome=nome)
+                  for nome in ('Administrador', 'Profissional', 'Recepcionista', 'Gerente')}
+        profs = iter([Profissional.objects.create(nome=f'Prof {i}') for i in range(5)])
+
+        def usuario(email, perfil=None, vinculado=False):
+            return Usuario.objects.create(
+                email=email, nome=email.split('@')[0], password='!',
+                perfil=perfis.get(perfil), profissional=next(profs) if vinculado else None,
+            ).pk
+
+        self.ids = {
+            'admin_vinculado': usuario('admin@x.com', 'Administrador', vinculado=True),
+            'vinculado_sem_perfil': usuario('semperfil@x.com', vinculado=True),
+            'vinculado_desconhecido': usuario('gerente@x.com', 'Gerente', vinculado=True),
+            'vinculado_recepcao': usuario('recprof@x.com', 'Recepcionista', vinculado=True),
+            'profissional': usuario('prof@x.com', 'Profissional', vinculado=True),
+            'recepcao': usuario('recepcao@x.com', 'Recepcionista'),
+            'sem_perfil': usuario('orfao@x.com'),
+        }
+
+    def test_vinculado_vira_profissional_e_recepcao_fica_no_log(self):
+        Usuario = self.apps.get_model(APP, 'Usuario')
+        papel = {k: Usuario.objects.get(pk=pk).papel for k, pk in self.ids.items()}
+        self.assertEqual(papel, {
+            'admin_vinculado': 'ADMIN',
+            'vinculado_sem_perfil': 'PROFISSIONAL',
+            'vinculado_desconhecido': 'PROFISSIONAL',
+            'vinculado_recepcao': 'PROFISSIONAL',
+            'profissional': 'PROFISSIONAL',
+            'recepcao': 'RECEPCAO',
+            'sem_perfil': 'RECEPCAO',
+        })
+        LogAuditoria = self.apps.get_model(APP, 'LogAuditoria')
+        logs = LogAuditoria.objects.filter(acao__startswith='migration 0029')
+        self.assertEqual(
+            {log.id_registro_afetado: log.detalhes for log in logs},
+            {self.ids['recepcao']: {'perfil': 'Recepcionista', 'mapeado': True},
+             self.ids['sem_perfil']: {'perfil': None, 'mapeado': False}},
+        )
+        self.assertTrue(all(log.tabela_afetada == 'usuario' for log in logs))
 
 
 class Remodelagem0034a0037Tests(_MigracaoBase):
@@ -323,6 +374,8 @@ class ProvaAceiteEAutoria0044e0045Tests(_MigracaoBase):
     migrate_to = '0045_dados_termo_lgpd_autoria'
 
     def preparar(self, apps):
+        # o banco de teste ja passou pela 0045: sem termo LGPD, como o de prod
+        apps.get_model(APP, 'VersaoTermo').objects.filter(tipo='LGPD').delete()
         Usuario = apps.get_model(APP, 'Usuario')
         Cliente = apps.get_model(APP, 'Cliente')
         Profissional = apps.get_model(APP, 'Profissional')
@@ -368,6 +421,8 @@ class ProvaAceiteEAutoria0044e0045Tests(_MigracaoBase):
         self.assertEqual(termo.versao, TERMO_LGPD_VERSAO)
         self.assertEqual(termo.conteudo, TERMO_LGPD_CONTEUDO)
         self.assertIn('/politica-de-privacidade/', termo.conteudo)
+        # banco que ja opera: a publicacao pela migration fica na trilha
+        self.assertTrue(LogAuditoria.objects.filter(tabela='versao_termo', registro_id=termo.pk).exists())
 
 
 class TermoLgpdBancoNovo0045Tests(_MigracaoBase):
@@ -375,12 +430,22 @@ class TermoLgpdBancoNovo0045Tests(_MigracaoBase):
     migrate_to = '0045_dados_termo_lgpd_autoria'
 
     def preparar(self, apps):
-        pass
+        # instalacao limpa: sem cliente e sem termo LGPD (o banco de teste ja
+        # passou pela 0045 uma vez; a reversa dela nao apaga o termo)
+        apps.get_model(APP, 'VersaoTermo').objects.filter(tipo='LGPD').delete()
+        self.assertFalse(apps.get_model(APP, 'Cliente').objects.exists())
 
-    def test_banco_sem_clientes_nao_recebe_termo(self):
-        # dev/testes/instalacao limpa: termo vem do seed ou do painel
+    def test_banco_sem_clientes_recebe_termo_lgpd_v1(self):
+        """Contrato 3: sem termo o booking recusa — banco novo ja nasce com a v1.0."""
+        from aranha_estetica.constants import TERMO_LGPD_CONTEUDO, TERMO_LGPD_VERSAO
+
+        self.assertFalse(self.apps.get_model(APP, 'Cliente').objects.exists())
         VersaoTermo = self.apps.get_model(APP, 'VersaoTermo')
-        self.assertFalse(VersaoTermo.objects.exists())
+        termo = VersaoTermo.objects.get(tipo='LGPD', procedimento__isnull=True, ativa=True)
+        self.assertEqual((termo.versao, termo.conteudo), (TERMO_LGPD_VERSAO, TERMO_LGPD_CONTEUDO))
+        # instalacao limpa: nada operando p/ a trilha explicar
+        LogAuditoria = self.apps.get_model(APP, 'LogAuditoria')
+        self.assertFalse(LogAuditoria.objects.filter(tabela='versao_termo', registro_id=termo.pk).exists())
 
 
 class HistoricoAutoriaEFichasLegado0046Tests(_MigracaoBase):
@@ -434,3 +499,87 @@ class HistoricoAutoriaEFichasLegado0046Tests(_MigracaoBase):
         from aranha_estetica.utils.saude import alertas_saude
         alertas = alertas_saude(Cliente.objects.get(pk=self.cliente_pk))
         self.assertIn('Dipirona', [a['valor'] for a in alertas])
+
+
+class TermoSaudeReembolsoPromocao0047Tests(_MigracaoBase):
+    migrate_from = '0046_prontuario_versao_autoria_log_prova_aceite'
+    migrate_to = '0047_termo_saude_reembolso_promocao_geral'
+
+    def preparar(self, apps):
+        Promocao = apps.get_model(APP, 'Promocao')
+        Procedimento = apps.get_model(APP, 'Procedimento')
+        Cliente = apps.get_model(APP, 'Cliente')
+        Pacote = apps.get_model(APP, 'Pacote')
+        CompraPacote = apps.get_model(APP, 'CompraPacote')
+        # a reversa da 0047 apagou o SAUDE do banco de teste (sem aceite)
+        self.assertFalse(apps.get_model(APP, 'VersaoTermo').objects.filter(tipo='SAUDE').exists())
+
+        hoje = date.today()
+        datas = {'data_inicio': hoje, 'data_fim': hoje + timedelta(days=10)}
+        proc = Procedimento.objects.create(nome='Peeling', duracao_minutos=30)
+        # geral de preco fixo: ignorada no preco (utils.precos), mas ativa no site
+        self.geral_fixa = Promocao.objects.create(nome='Tudo por 49', preco_promocional=Decimal('49.00'),
+                                                  ativa=True, **datas)
+        self.geral_pct = Promocao.objects.create(nome='Semana', desconto_percentual=Decimal('10'), **datas)
+        self.proc_fixa = Promocao.objects.create(nome='Peeling por 99', procedimento=proc,
+                                                 preco_promocional=Decimal('99.00'), **datas)
+        cli = Cliente.objects.create(nome='Cliente', telefone='11911112222')
+        pacote = Pacote.objects.create(nome='Glow', preco_total=Decimal('600'))
+        self.compra = CompraPacote.objects.create(cliente=cli, pacote=pacote, valor_pago=Decimal('600'),
+                                                  status='CANCELADO')
+
+    def test_saude_v1_reembolso_zero_e_promo_geral_saneada(self):
+        from aranha_estetica.models.termos import TEXTO_CONSENTIMENTO_SAUDE
+
+        VersaoTermo = self.apps.get_model(APP, 'VersaoTermo')
+        saude = VersaoTermo.objects.get(tipo='SAUDE', ativa=True)
+        self.assertEqual((saude.versao, saude.conteudo), ('1.0', TEXTO_CONSENTIMENTO_SAUDE))
+        self.assertIsNone(saude.procedimento_id)
+        LogAuditoria = self.apps.get_model(APP, 'LogAuditoria')
+        self.assertTrue(LogAuditoria.objects.filter(tabela='versao_termo', registro_id=saude.pk).exists())
+
+        CompraPacote = self.apps.get_model(APP, 'CompraPacote')
+        self.assertEqual(CompraPacote.objects.get(pk=self.compra.pk).valor_reembolsado, Decimal('0'))
+
+        Promocao = self.apps.get_model(APP, 'Promocao')
+        fixa = Promocao.objects.get(pk=self.geral_fixa.pk)
+        self.assertIsNone(fixa.preco_promocional)
+        self.assertFalse(fixa.ativa)
+        log = LogAuditoria.objects.get(tabela='promocao', registro_id=self.geral_fixa.pk)
+        self.assertEqual(log.detalhes, {'preco_de': '49.00', 'desativada': True})
+        self.assertTrue(Promocao.objects.get(pk=self.geral_pct.pk).ativa)
+        self.assertEqual(Promocao.objects.get(pk=self.proc_fixa.pk).preco_promocional, Decimal('99.00'))
+        self.assertEqual(LogAuditoria.objects.filter(tabela='promocao').count(), 1)
+
+
+class ReversaTermoSaude0047Tests(TestCase):
+    """Reversa (dev) da 0047: apaga o termo SAUDE sem aceite; com aceite (prova) recusa."""
+
+    def _reverter(self):
+        import importlib
+
+        from django.apps import apps as global_apps
+
+        mod = importlib.import_module('aranha_estetica.migrations.0047_termo_saude_reembolso_promocao_geral')
+
+        def executar(sql, params=()):
+            with connection.cursor() as cursor:
+                cursor.execute(sql, params)
+
+        mod.remover_termo_saude(global_apps, SimpleNamespace(connection=connection, execute=executar))
+
+    def test_com_aceite_de_saude_recusa(self):
+        from aranha_estetica.models import AceiteTermo, Cliente, VersaoTermo
+
+        AceiteTermo.registrar(Cliente.objects.create(nome='C', telefone='11911112222'),
+                              VersaoTermo.saude_vigente())
+        with self.assertRaises(RuntimeError):
+            self._reverter()
+        self.assertIsNotNone(VersaoTermo.saude_vigente())
+
+    def test_sem_aceite_apaga_o_termo_saude(self):
+        from aranha_estetica.models import VersaoTermo
+
+        self._reverter()
+        self.assertFalse(VersaoTermo.objects.filter(tipo='SAUDE').exists())
+        self.assertIsNotNone(VersaoTermo.lgpd_vigente())

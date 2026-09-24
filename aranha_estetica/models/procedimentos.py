@@ -1,4 +1,5 @@
 # aranha_estetica/models/procedimentos.py — Procedimentos, precos, promocoes
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
@@ -174,7 +175,21 @@ class Promocao(models.Model):
                 check=~(models.Q(desconto_percentual__gt=0) & models.Q(preco_promocional__isnull=False)),
                 name='chk_promocao_desconto_xor_preco',
             ),
+            # Promocao geral (sem procedimento) so por percentual: preco fixo
+            # geral viraria teto p/ todo o catalogo (utils.precos a ignora)
+            models.CheckConstraint(
+                check=models.Q(procedimento__isnull=False) | models.Q(preco_promocional__isnull=True),
+                name='chk_promocao_geral_so_percentual',
+            ),
         ]
+
+    def clean(self):
+        super().clean()
+        if self.procedimento_id is None and self.preco_promocional is not None:
+            raise ValidationError({
+                'preco_promocional': 'Promoção geral (todos os procedimentos) só pode ter '
+                                     'desconto percentual. Para preço fixo, escolha o procedimento.',
+            })
 
     @property
     def esta_vigente(self):

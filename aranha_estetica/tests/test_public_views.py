@@ -462,6 +462,31 @@ class AnamneseBoolTests(TestCase):
         self.assertIsNotNone(log)
         self.assertIn('LGPD, art. 11', log.detalhes['texto'])
 
+    @override_settings(CLIENT_IP_HEADER='')
+    def test_ficha_com_consentimento_grava_aceite_saude_com_prova(self):
+        """Contrato 1: o consentimento da ficha publica e AceiteTermo da versao SAUDE."""
+        from aranha_estetica.models import AceiteTermo, LogAuditoria, VersaoTermo
+        prof = criar_profissional()
+        atd = criar_atendimento(self.resposta.cliente, prof, criar_procedimento(profissional=prof))
+        self.resposta.atendimento = atd
+        self.resposta.save(update_fields=['atendimento'])
+        saude = VersaoTermo.saude_vigente()
+        self.assertIn(saude.conteudo, self.client.get(self.url).content.decode())
+
+        self.client.post(self.url, {'gestante': 'nao', 'consent_dados_saude': 'on'},
+                         REMOTE_ADDR='200.10.20.30', HTTP_USER_AGENT='Tablet Recepcao/1.0')
+        aceite = AceiteTermo.objects.get(cliente=self.resposta.cliente, versao_termo=saude)
+        self.assertEqual(aceite.atendimento, atd)
+        self.assertEqual((aceite.ip, aceite.user_agent), ('200.10.20.30', 'Tablet Recepcao/1.0'))
+        self.assertEqual(aceite.conteudo_sha256, saude.sha256_conteudo)
+        log = LogAuditoria.objects.get(tabela='resposta_anamnese', acao__icontains='art. 11')
+        self.assertEqual(log.detalhes['aceite_id'], aceite.pk)
+
+    def test_ficha_sem_consentimento_nao_grava_aceite(self):
+        from aranha_estetica.models import AceiteTermo
+        self.client.post(self.url, {'gestante': 'nao'})
+        self.assertFalse(AceiteTermo.objects.exists())
+
     def test_valor_desconhecido_e_recusado(self):
         resp = self.client.post(self.url, {'gestante': 'talvez'})
         self.assertEqual(resp.status_code, 200)
@@ -557,10 +582,13 @@ class PromocoesCoerentesComAgendamentoTests(TestCase):
         vitrine = self.client.get(reverse('aranha:especialidades')).content.decode()
         self.assertIn('A partir de R$ 800,00', vitrine)
 
-    def test_promo_geral_de_preco_fixo_nao_e_anunciada(self):
-        """O booking ignora promo geral de preco fixo: a vitrine nao pode oferecer 'R$ 49'."""
+    def test_promo_geral_de_preco_fixo_nem_entra_no_banco(self):
+        """O booking ignora promo geral de preco fixo: o banco a recusa (CHECK 0047),
+        entao a vitrine nunca oferece 'R$ 49' p/ o catalogo inteiro."""
+        from django.db import IntegrityError, transaction
         criar_procedimento(nome='Limpeza', preco=Decimal('200.00'))
-        self._promo(nome='Tudo por 49', preco_promocional=Decimal('49.00'))
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            self._promo(nome='Tudo por 49', preco_promocional=Decimal('49.00'))
         html = self.client.get(reverse('aranha:promocoes')).content.decode()
         self.assertNotIn('Tudo por 49', html)
         self.assertNotIn('R$ 49', html)

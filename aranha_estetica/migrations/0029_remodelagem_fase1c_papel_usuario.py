@@ -2,21 +2,38 @@
 # RBAC granular nunca consultado (Perfil/Funcionalidade/PerfilFuncionalidade)
 # vira Usuario.papel CharField + CHECK. Data migration preserva o papel real
 # de cada usuario existente a partir de perfil.nome.
+# Usuario vinculado a Profissional (profissional_id) sem perfil, com perfil
+# desconhecido ou 'Recepcionista' vira PROFISSIONAL: RECEPCAO nao tem telas
+# (nao loga) e trancaria a profissional fora do portal. ADMIN continua ADMIN.
+# Quem fica RECEPCAO ganha LogAuditoria (conta sem acesso p/ a equipe revisar).
 
 from django.db import migrations, models
 
 
 def copiar_perfil_para_papel(apps, schema_editor):
     Usuario = apps.get_model('aranha_estetica', 'Usuario')
+    LogAuditoria = apps.get_model('aranha_estetica', 'LogAuditoria')
     mapa = {
         'Administrador': 'ADMIN',
         'Profissional': 'PROFISSIONAL',
         'Recepcionista': 'RECEPCAO',
     }
+    logs = []
     for usuario in Usuario.objects.select_related('perfil').all():
         nome_perfil = usuario.perfil.nome if usuario.perfil_id else ''
-        usuario.papel = mapa.get(nome_perfil, 'RECEPCAO')
+        papel = mapa.get(nome_perfil, 'RECEPCAO')
+        if usuario.profissional_id and papel != 'ADMIN':
+            papel = 'PROFISSIONAL'
+        usuario.papel = papel
         usuario.save(update_fields=['papel'])
+        if papel == 'RECEPCAO':
+            logs.append(LogAuditoria(
+                acao='migration 0029: usuario com papel RECEPCAO (sem telas: nao acessa o painel)',
+                tabela_afetada='usuario',
+                id_registro_afetado=usuario.pk,
+                detalhes={'perfil': nome_perfil or None, 'mapeado': nome_perfil in mapa},
+            ))
+    LogAuditoria.objects.bulk_create(logs)
 
 
 def reverter_papel_para_perfil(apps, schema_editor):
