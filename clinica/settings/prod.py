@@ -56,6 +56,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # E-mail: sem EMAIL_BACKEND explicito nao ha provedor -> dummy (nada sai, nada
 # vai p/ o stdout; o console imprimia links de reset/token nos logs). O system
 # check aranha.W003 avisa, e utils/email trata como "nao configurado".
+# No Railway Hobby (sem SMTP) use o anymail: ANYMAIL e montado em base.py.
 EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND') or 'django.core.mail.backends.dummy.EmailBackend'
 
 # SMS: sem ZENVIA_API_TOKEN/ZENVIA_FROM o envio falha fechado (nunca "finge" sucesso)

@@ -406,9 +406,29 @@ EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+# Remetente: endereco de um DOMINIO VERIFICADO no provedor (SPF/DKIM), ex.:
+# 'Jaqueline Aranha Estetica <contato@seudominio.com.br>'. O default e so
+# placeholder: provedor HTTP recusa remetente de dominio nao verificado.
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@clinica.com.br')
 # Sem timeout o socket SMTP pendura a thread do gunicorn (Celery eager = no request)
 EMAIL_TIMEOUT = int(os.environ.get('EMAIL_TIMEOUT') or 10)
+
+# Provedor HTTP (django-anymail): o plano Hobby do Railway bloqueia SMTP de saida.
+# EMAIL_BACKEND=anymail.backends.<esp>.EmailBackend + a chave do ESP na env; so as
+# chaves presentes entram em ANYMAIL (check aranha.W011 avisa se faltar a do
+# backend escolhido). Ex.: anymail.backends.resend.EmailBackend + RESEND_API_KEY.
+ANYMAIL_CHAVES_ENV = (
+    'RESEND_API_KEY', 'BREVO_API_KEY', 'SENDGRID_API_KEY',
+    'MAILGUN_API_KEY', 'MAILGUN_SENDER_DOMAIN', 'POSTMARK_SERVER_TOKEN',
+)
+if EMAIL_BACKEND.startswith('anymail.'):
+    INSTALLED_APPS.append('anymail')
+    ANYMAIL = {
+        chave: valor for chave in ANYMAIL_CHAVES_ENV
+        if (valor := (os.environ.get(chave) or '').strip())
+    }
+    # Default do anymail e 30 s: mesmo teto do SMTP (request/Celery eager)
+    ANYMAIL['REQUESTS_TIMEOUT'] = EMAIL_TIMEOUT
 
 # SMS (utils/sms): SMS_DEV_LOG_ONLY=true so loga (dev/testes; nunca o codigo).
 # Fora disso, sem ZENVIA_API_TOKEN/ZENVIA_FROM o envio falha fechado (False).

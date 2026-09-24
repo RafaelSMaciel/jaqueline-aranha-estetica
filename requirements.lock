@@ -13,6 +13,8 @@
 #     --platform manylinux_2_28_x86_64 --platform manylinux_2_17_x86_64 \
 #     --python-version 3.12 --implementation cp --abi cp312 --abi abi3 \
 #     --abi none --only-binary=:all: -r requirements.txt
+#   (pacote novo: junte `-c <este lock sem pywebpush/http-ece>` p/ manter os
+#   pins atuais e so acrescentar o que falta)
 #   -> um `nome==versao` por pacote de r.json ("install"), sem colorama
 #   (so Windows). So-sdist (pywebpush 2.0.0 e http-ece) nao resolvem com
 #   --only-binary: troque-os pelas dependencias deles e acrescente as versoes.
@@ -35,6 +37,7 @@ click-repl==0.4.0
 cryptography==50.0.1
 dj-database-url==3.1.0
 Django==5.2.17
+django-anymail==15.2
 django-axes==8.3.1
 django-cotton==2.7.2
 django-formtools==2.7

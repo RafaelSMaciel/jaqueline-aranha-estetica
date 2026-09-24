@@ -265,11 +265,95 @@ class ChecksProducaoTests(SimpleTestCase):
         self.assertEqual(self._ids(**{**sem, 'ZENVIA_API_TOKEN': ''}), ['aranha.W002'])
 
     def test_w009_silenciado_no_runner(self):
-        self.assertIn('aranha.W009', settings.SILENCED_SYSTEM_CHECKS)
+        for check_id in ('aranha.W009', 'aranha.W010', 'aranha.W011'):
+            self.assertIn(check_id, settings.SILENCED_SYSTEM_CHECKS)
+
+    # ─── e-mail por provedor HTTP (django-anymail; Railway Hobby sem SMTP) ───
+    _RESEND = 'anymail.backends.resend.EmailBackend'
+    _REMETENTE = 'Jaqueline Aranha <contato@jaquelinearanha.com.br>'
+
+    def _email(self, backend, anymail=None, remetente=_REMETENTE):
+        from aranha_estetica.utils import email as email_utils
+
+        with override_settings(EMAIL_BACKEND=backend, ANYMAIL=anymail or {},
+                               DEFAULT_FROM_EMAIL=remetente), \
+                mock.patch.dict(os.environ, _ENV_PROD_OK):
+            avisos = [e for e in aranha_checks.check_config_producao()
+                      if e.id in ('aranha.W003', 'aranha.W011')]
+            return avisos, email_utils.email_configurado()
+
+    @override_settings(**_PROD_OK)
+    def test_anymail_com_chave_do_esp_entrega_e_nao_avisa(self):
+        from aranha_estetica.utils.email import ANYMAIL_CHAVE_POR_ESP
+
+        for esp, chave in ANYMAIL_CHAVE_POR_ESP.items():
+            with self.subTest(esp=esp):
+                avisos, configurado = self._email(f'anymail.backends.{esp}.EmailBackend',
+                                                  {chave: 'chave-do-esp'})
+                self.assertEqual(avisos, [])
+                self.assertTrue(configurado)
+
+    @override_settings(**_PROD_OK)
+    def test_anymail_sem_a_chave_do_esp_avisa_w011_e_falha_fechado(self):
+        from aranha_estetica.utils.email import ANYMAIL_CHAVE_POR_ESP
+
+        for esp, chave in ANYMAIL_CHAVE_POR_ESP.items():
+            # chave de OUTRO provedor nao serve
+            outra = {'SENDGRID_API_KEY': 'x'} if esp != 'sendgrid' else {'RESEND_API_KEY': 'x'}
+            for anymail in ({}, outra, {chave: '  '}):
+                with self.subTest(esp=esp, anymail=anymail):
+                    avisos, configurado = self._email(f'anymail.backends.{esp}.EmailBackend', anymail)
+                    self.assertEqual([a.id for a in avisos], ['aranha.W011'])
+                    self.assertIn(chave, avisos[0].msg)
+                    self.assertFalse(configurado)
+
+    @override_settings(**_PROD_OK)
+    def test_anymail_de_esp_que_os_settings_nao_suportam_avisa(self):
+        # os settings so repassam da env as chaves de resend/brevo/sendgrid/mailgun/postmark
+        avisos, configurado = self._email('anymail.backends.mailjet.EmailBackend',
+                                          {'RESEND_API_KEY': 'x'})
+        self.assertEqual([a.id for a in avisos], ['aranha.W011'])
+        self.assertIn('nao repassam', avisos[0].msg)
+        self.assertFalse(configurado)
+
+    @override_settings(**_PROD_OK)
+    def test_anymail_com_remetente_de_exemplo_avisa(self):
+        # ESP recusa remetente de dominio nao verificado: nada seria entregue
+        for remetente in ('noreply@clinica.com.br', 'Clinica <noreply@clinica.com.br>',
+                          'webmaster@localhost', ''):
+            with self.subTest(remetente=remetente):
+                avisos, _ = self._email(self._RESEND, {'RESEND_API_KEY': 're_x'}, remetente)
+                self.assertEqual([a.id for a in avisos], ['aranha.W011'])
+                self.assertIn('DEFAULT_FROM_EMAIL', avisos[0].msg)
+
+    @override_settings(**_PROD_OK)
+    def test_anymail_console_e_test_nao_entregam(self):
+        for backend in ('anymail.backends.console.EmailBackend', 'anymail.backends.test.EmailBackend'):
+            with self.subTest(backend=backend):
+                avisos, _ = self._email(backend)
+                self.assertEqual([a.id for a in avisos], ['aranha.W003'])
+
+    @override_settings(**_PROD_OK)
+    def test_w003_sugere_o_anymail(self):
+        avisos, configurado = self._email('django.core.mail.backends.dummy.EmailBackend')
+        self.assertFalse(configurado)
+        self.assertEqual([a.id for a in avisos], ['aranha.W003'])
+        self.assertIn('anymail.backends.resend.EmailBackend', avisos[0].hint)
+        self.assertIn('RESEND_API_KEY', avisos[0].hint)
 
 
 @override_settings(**_PROD_OK)
 class ChecksComBancoTests(TestCase):
+    def setUp(self):
+        # W010 fora dos outros casos: LGPD e SAUDE ativos (0045/0047) mesmo se
+        # um TransactionTestCase anterior limpou o banco
+        from aranha_estetica.models import VersaoTermo
+
+        for tipo in ('LGPD', 'SAUDE'):
+            if not VersaoTermo.objects.filter(tipo=tipo, procedimento__isnull=True, ativa=True).exists():
+                VersaoTermo.objects.create(tipo=tipo, titulo=tipo, conteudo=f'Texto {tipo}',
+                                           versao='1.0', vigente_desde=timezone.localdate())
+
     def _ids(self, databases=('default',), **env):
         with mock.patch.dict(os.environ, {**_ENV_PROD_OK, **env}):
             return sorted(e.id for e in aranha_checks.check_config_producao(
@@ -334,6 +418,47 @@ class ChecksComBancoTests(TestCase):
 
         self._admin('dona@clinica.com.br')
         self.assertEqual(self._ids(), [])
+
+    # contrato 3: sem termo LGPD ativo o booking recusa; sem SAUDE o aceite do
+    # dado de saude (art. 11) fica sem prova
+    def _w010(self):
+        with mock.patch.dict(os.environ, _ENV_PROD_OK):
+            return [e for e in aranha_checks.check_config_producao(databases=['default'])
+                    if e.id == 'aranha.W010']
+
+    def test_sem_termo_lgpd_ou_saude_ativo_avisa_w010(self):
+        from aranha_estetica.models import VersaoTermo
+        from aranha_estetica.tests.factories import criar_procedimento
+
+        self._admin()
+        self.assertEqual(self._ids(), [])
+        VersaoTermo.objects.filter(tipo='SAUDE').update(ativa=False)
+        self.assertEqual(self._ids(), ['aranha.W010'])
+        self.assertIn('termo SAUDE:', self._w010()[0].msg)
+        VersaoTermo.objects.filter(tipo='LGPD').update(ativa=False)
+        self.assertIn('termo LGPD e SAUDE:', self._w010()[0].msg)
+        # termo ativo de PROCEDIMENTO nao substitui o global
+        VersaoTermo.objects.create(tipo='LGPD', procedimento=criar_procedimento(), titulo='x',
+                                   conteudo='y', versao='1', vigente_desde=timezone.localdate())
+        self.assertEqual(self._ids(), ['aranha.W010'])
+        # `check` puro (build do Docker) nao toca no banco
+        self.assertEqual(self._ids(databases=None), [])
+
+    def test_so_lgpd_inativo_avisa_so_lgpd(self):
+        from aranha_estetica.models import VersaoTermo
+
+        self._admin()
+        VersaoTermo.objects.filter(tipo='LGPD').update(ativa=False)
+        self.assertIn('termo LGPD:', self._w010()[0].msg)
+
+    def test_w010_mudo_com_tabela_de_termos_ausente(self):
+        # pre-deploy de banco antigo/novo: os checks rodam antes do migrate
+        from django.db import ProgrammingError
+
+        self._admin()
+        with mock.patch.object(aranha_checks, 'termos_sem_versao_ativa',
+                               side_effect=ProgrammingError('relation "versao_termo" does not exist')):
+            self.assertEqual(self._ids(), [])
 
 
 # ─── bootstrap_admin ─────────────────────────────────────────────────
@@ -592,6 +717,79 @@ class MigrateAtomicoTests(TestCase):
         cursor = fake_conn.cursor.return_value.__enter__.return_value
         cursor.execute.assert_any_call("SET LOCAL lock_timeout = '5s'")
 
+    # log do pre-deploy tem de dizer que nada ficou pela metade e onde o banco parou
+    def test_falha_escreve_estado_no_stderr_e_relevanta(self):
+        from aranha_estetica.management.commands import migrate_atomico as mod
+
+        fake_conn = mock.MagicMock(vendor='postgresql')
+        err = StringIO()
+        with mock.patch.object(mod, 'connections', {'default': fake_conn}), \
+                mock.patch.object(mod.transaction, 'atomic'), \
+                mock.patch.object(mod.MigrateCommand, 'handle', side_effect=RuntimeError('0047 quebrou')), \
+                mock.patch.object(mod.Command, '_ultima_migration_aplicada',
+                                  return_value='aranha_estetica.0026_otpcode_canal_default_sms') as ultima, \
+                self.assertRaisesMessage(RuntimeError, '0047 quebrou'):
+            mod.Command(stdout=StringIO(), stderr=err).handle(database='default', verbosity=0)
+        ultima.assert_called_once_with(None)
+        self.assertIn(
+            'migrate_atomico: FALHOU - transacao desfeita; banco continua em '
+            'aranha_estetica.0026_otpcode_canal_default_sms', err.getvalue())
+
+    def test_sucesso_nao_escreve_falha(self):
+        from aranha_estetica.management.commands import migrate_atomico as mod
+
+        err = StringIO()
+        with mock.patch.object(mod, 'connections', {'default': mock.MagicMock(vendor='postgresql')}), \
+                mock.patch.object(mod.transaction, 'atomic'), \
+                mock.patch.object(mod.MigrateCommand, 'handle', return_value=None):
+            mod.Command(stdout=StringIO(), stderr=err).handle(database='default', verbosity=0)
+        self.assertNotIn('FALHOU', err.getvalue())
+
+    def test_ultima_migration_aplicada_le_django_migrations(self):
+        from django.db.migrations.loader import MigrationLoader
+
+        from aranha_estetica.management.commands import migrate_atomico as mod
+
+        folha = MigrationLoader(connection).graph.leaf_nodes('aranha_estetica')[0][1]
+        cmd = mod.Command(stdout=StringIO(), stderr=StringIO())
+        self.assertEqual(cmd._ultima_migration_aplicada(), f'aranha_estetica.{folha}')
+        self.assertEqual(cmd._ultima_migration_aplicada('sessions'), 'sessions.0001_initial')
+        self.assertEqual(cmd._ultima_migration_aplicada('nao_existe'),
+                         'nao_existe sem nenhuma migration aplicada')
+
+    def test_ultima_migration_com_banco_fora_nao_mascara_o_erro(self):
+        from django.db import OperationalError
+
+        from aranha_estetica.management.commands import migrate_atomico as mod
+
+        cmd = mod.Command(stdout=StringIO(), stderr=StringIO())
+        with mock.patch.object(mod.MigrationRecorder, 'applied_migrations',
+                               side_effect=OperationalError('server closed the connection')):
+            self.assertEqual(cmd._ultima_migration_aplicada(),
+                             '<desconhecida: OperationalError ao ler django_migrations>')
+
+    @skipUnless(connection.vendor == 'postgresql', 'ramo atomico so existe no Postgres')
+    def test_no_postgres_falha_desfaz_tudo_e_informa_a_migration_atual(self):
+        from django.db.migrations.loader import MigrationLoader
+
+        from aranha_estetica.management.commands import migrate_atomico as mod
+
+        def _migra_e_quebra(cmd, *args, **options):
+            with connection.cursor() as cursor:
+                cursor.execute('CREATE TABLE probe_migrate_atomico (id int)')
+            raise RuntimeError('migration quebrou no meio')
+
+        folha = MigrationLoader(connection).graph.leaf_nodes('aranha_estetica')[0][1]
+        err = StringIO()
+        with mock.patch.object(mod.MigrateCommand, 'handle', _migra_e_quebra), \
+                self.assertRaisesMessage(RuntimeError, 'migration quebrou no meio'):
+            call_command('migrate_atomico', '--noinput', verbosity=0, stdout=StringIO(), stderr=err)
+        self.assertIn('migrate_atomico: FALHOU - transacao desfeita; banco continua em '
+                      f'aranha_estetica.{folha}', err.getvalue())
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT to_regclass('probe_migrate_atomico')")
+            self.assertIsNone(cursor.fetchone()[0])
+
 
 # ─── Retencao / housekeeping ─────────────────────────────────────────
 class HousekeepingTests(TestCase):
@@ -745,6 +943,52 @@ class SettingsProdTests(SimpleTestCase):
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
         return json.loads(proc.stdout.strip().splitlines()[-1])
+
+    _CHAVES_ESP = ('RESEND_API_KEY', 'BREVO_API_KEY', 'SENDGRID_API_KEY', 'MAILGUN_API_KEY',
+                   'MAILGUN_SENDER_DOMAIN', 'POSTMARK_SERVER_TOKEN')
+
+    def _importar_prod_email(self, **env_extra):
+        env = dict(os.environ)
+        env.update({'DJANGO_ENV': 'prod', 'DJANGO_SECRET_KEY': 'x' * 50, 'EMAIL_TIMEOUT': '',
+                    **{chave: '' for chave in self._CHAVES_ESP}, **env_extra})
+        codigo = (
+            'import json\n'
+            'import clinica.settings.prod as s\n'
+            'print(json.dumps({"backend": s.EMAIL_BACKEND, "app": "anymail" in s.INSTALLED_APPS,'
+            '"anymail": getattr(s, "ANYMAIL", None), "chaves": list(s.ANYMAIL_CHAVES_ENV)}))\n'
+        )
+        proc = subprocess.run(
+            [sys.executable, '-W', 'ignore', '-c', codigo], cwd=BASE_DIR, env=env,
+            capture_output=True, text=True, timeout=120,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        return json.loads(proc.stdout.strip().splitlines()[-1])
+
+    def test_anymail_montado_da_env_so_com_backend_anymail(self):
+        # Railway Hobby bloqueia SMTP: backend HTTP + chave do ESP vinda da env
+        s = self._importar_prod_email(
+            EMAIL_BACKEND='anymail.backends.resend.EmailBackend', RESEND_API_KEY=' re_123 ',
+            MAILGUN_SENDER_DOMAIN='mg.clinica.com.br', EMAIL_TIMEOUT='7',
+        )
+        self.assertEqual(s['backend'], 'anymail.backends.resend.EmailBackend')
+        self.assertTrue(s['app'])
+        # so as chaves presentes (vazia fica de fora) + timeout do SMTP
+        self.assertEqual(s['anymail'], {'RESEND_API_KEY': 're_123',
+                                        'MAILGUN_SENDER_DOMAIN': 'mg.clinica.com.br',
+                                        'REQUESTS_TIMEOUT': 7})
+        # sem backend anymail: nem app nem ANYMAIL (dummy continua o default de prod)
+        s = self._importar_prod_email(EMAIL_BACKEND='', RESEND_API_KEY='re_123')
+        self.assertEqual(s['backend'], 'django.core.mail.backends.dummy.EmailBackend')
+        self.assertFalse(s['app'])
+        self.assertIsNone(s['anymail'])
+
+    def test_settings_leem_a_chave_de_todo_esp_suportado(self):
+        from aranha_estetica.utils.email import ANYMAIL_CHAVE_POR_ESP
+
+        self.assertTrue(set(ANYMAIL_CHAVE_POR_ESP.values()) <= set(settings.ANYMAIL_CHAVES_ENV))
+        for esp in ANYMAIL_CHAVE_POR_ESP:  # backend existe na versao instalada
+            with self.subTest(esp=esp):
+                __import__(f'anymail.backends.{esp}')
 
     def test_2fa_e_frame_ancestors_por_env(self):
         # sem env: o codigo decide em runtime (2FA ligado fora de DEBUG)
@@ -904,6 +1148,10 @@ class LockDependenciasTests(SimpleTestCase):
             if m:
                 pins[re.sub(r'[-_.]+', '-', m.group(1)).lower()] = m.group(3)
         return pins
+
+    def test_backend_http_de_email_instalado(self):
+        # sem ele nenhum e-mail sai no Railway Hobby (SMTP bloqueado)
+        self.assertIn('django-anymail', self._pins('requirements.txt'))
 
     def test_lock_espelha_as_versoes_diretas(self):
         diretas = self._pins('requirements.txt')

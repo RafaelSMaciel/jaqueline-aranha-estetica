@@ -3,7 +3,7 @@ local, SITE_URL em tempo de chamada, consentimento e janelas do NPS."""
 import json
 import re
 from datetime import datetime, timedelta, timezone as dt_timezone
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from django.core import mail
 from django.test import RequestFactory, TestCase, override_settings
@@ -25,6 +25,7 @@ from .factories import (
 
 LOCMEM = 'django.core.mail.backends.locmem.EmailBackend'
 CONSOLE = 'django.core.mail.backends.console.EmailBackend'
+RESEND = 'anymail.backends.resend.EmailBackend'
 
 
 def _as_14h_local(dias=1):
@@ -113,6 +114,44 @@ class EmailFalhaFechadaTests(TestCase):
     @override_settings(DEBUG=False)
     def test_locmem_do_test_runner_segue_configurado(self):
         self.assertTrue(email_utils.email_configurado())
+
+    # Railway Hobby bloqueia SMTP: o provedor HTTP (anymail) e a entrega real
+    @override_settings(DEBUG=False, EMAIL_BACKEND=RESEND,
+                       ANYMAIL={'RESEND_API_KEY': 're_teste', 'REQUESTS_TIMEOUT': 7},
+                       DEFAULT_FROM_EMAIL='Clinica <contato@clinica.example.com>')
+    def test_anymail_com_chave_entrega_pela_api_http(self):
+        resposta = Mock(status_code=200, text='{"id": "re-msg-1"}')
+        resposta.json.return_value = {'id': 're-msg-1'}
+        self.assertTrue(email_utils.email_configurado())
+        with patch('requests.Session.request', return_value=resposta) as http:
+            ok = email_utils.enviar_cancelamento_email('ana@example.com', {'nome': 'Ana'})
+        self.assertTrue(ok)
+        http.assert_called_once()
+        req = http.call_args.kwargs
+        self.assertEqual((req['method'], req['url']), ('POST', 'https://api.resend.com/emails'))
+        self.assertEqual(req['headers']['Authorization'], 'Bearer re_teste')
+        corpo = json.loads(req['data'])
+        self.assertEqual(corpo['to'], ['ana@example.com'])
+        self.assertEqual(corpo['from'], 'Clinica <contato@clinica.example.com>')
+        self.assertEqual(req['timeout'], 7)  # settings: REQUESTS_TIMEOUT = EMAIL_TIMEOUT (nao 30 s)
+
+    @override_settings(DEBUG=False, EMAIL_BACKEND=RESEND, ANYMAIL={})
+    def test_anymail_sem_chave_falha_fechado_sem_chamar_a_api(self):
+        with patch('requests.Session.request') as http:
+            ok = email_utils.enviar_cancelamento_email('ana@example.com', {'nome': 'Ana'})
+        self.assertFalse(ok)
+        self.assertFalse(email_utils.email_configurado())
+        http.assert_not_called()
+
+    @override_settings(DEBUG=False, EMAIL_BACKEND=RESEND, ANYMAIL={'RESEND_API_KEY': 're_teste'})
+    def test_anymail_erro_da_api_nao_quebra_o_fluxo(self):
+        resposta = Mock(status_code=403, text='{"message": "domain is not verified"}')
+        resposta.json.return_value = {'message': 'domain is not verified'}
+        with patch('requests.Session.request', return_value=resposta), \
+                self.assertLogs('aranha_estetica.utils.email', level='ERROR') as logs:
+            ok = email_utils.enviar_cancelamento_email('ana@example.com', {'nome': 'Ana'})
+        self.assertFalse(ok)
+        self.assertEqual(logs.records[0].getMessage(), 'email_falha_envio')
 
     def test_promocao_sem_cupom_e_validade_limitada_ao_fim_da_promo(self):
         """gap3-02: validade anunciada nunca passa de promo.data_fim; cupom nao sai."""

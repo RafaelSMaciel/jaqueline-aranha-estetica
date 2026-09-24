@@ -46,6 +46,9 @@ jobs:
           DJANGO_ENV: prod
           DEBUG: 'False'
           DJANGO_SECRET_KEY: ci-check-deploy-0123456789-abcdefghijklmnopqrstuvwxyz-ABCDEFGHIJ
+          # E-mail como no Railway Hobby (sem SMTP): sobe o app 'anymail' com os settings de prod
+          EMAIL_BACKEND: anymail.backends.resend.EmailBackend
+          RESEND_API_KEY: ci-nao-secreto
         run: python manage.py check --deploy --fail-level ERROR
 
   postgres:

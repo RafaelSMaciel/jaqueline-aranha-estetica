@@ -15,7 +15,10 @@ from unittest import skipUnless
 from django.db import DatabaseError, IntegrityError, connection, transaction
 from django.test import TestCase
 
-from aranha_estetica.models import Atendimento, FormularioAnamnese, Prontuario, RespostaAnamnese
+from aranha_estetica.models import (
+    AceiteTermo, Atendimento, FormularioAnamnese, Prontuario, ProntuarioVersao, RespostaAnamnese,
+    VersaoTermo,
+)
 from aranha_estetica.models.extras import Carteira, MovimentoCarteira
 from aranha_estetica.tests.factories import (
     criar_atendimento, criar_cliente, criar_procedimento, criar_profissional,
@@ -32,7 +35,15 @@ CONSTRAINTS_SO_PG = {
     'chk_resposta_anamnese_objeto': '0043',
     'chk_formulario_schema_lista': '0043',
 }
-TRIGGERS_SO_PG = {'trg_movimento_carteira_imutavel': '0038'}
+# tgname -> (migration que cria, tabela). A 0047 (termo SAUDE, reembolso,
+# promocao geral) so cria CHECKs de model (existem no SQLite tambem) e nao
+# recria versao_termo: os triggers da 0046 tem de continuar la.
+TRIGGERS_SO_PG = {
+    'trg_movimento_carteira_imutavel': ('0038', 'movimento_carteira'),
+    'trg_aceite_termo_imutavel': ('0046', 'aceite_termo'),
+    'trg_versao_termo_imutavel': ('0046', 'versao_termo'),
+    'trg_prontuario_versao_imutavel': ('0046', 'prontuario_versao'),
+}
 
 
 @skipUnless(PG, 'DDL so-Postgres (EXCLUDE, CHECK regex/jsonb, trigger, collation)')
@@ -55,12 +66,13 @@ class DDLSoPostgresTests(TestCase):
             )
             constraints = {row[0] for row in cursor.fetchall()}
             cursor.execute(
-                'SELECT tgname FROM pg_trigger WHERE tgname = ANY(%s) AND NOT tgisinternal',
+                'SELECT tgname, tgrelid::regclass::text FROM pg_trigger '
+                'WHERE tgname = ANY(%s) AND NOT tgisinternal',
                 [list(TRIGGERS_SO_PG)],
             )
-            triggers = {row[0] for row in cursor.fetchall()}
+            triggers = dict(cursor.fetchall())
         self.assertEqual(constraints, set(CONSTRAINTS_SO_PG))
-        self.assertEqual(triggers, set(TRIGGERS_SO_PG))
+        self.assertEqual(triggers, {nome: tabela for nome, (_, tabela) in TRIGGERS_SO_PG.items()})
 
     def _outro(self, prof=None, status='PENDENTE', delta=10):
         return Atendimento.objects.create(
@@ -92,6 +104,33 @@ class DDLSoPostgresTests(TestCase):
             self._sql('DELETE FROM movimento_carteira WHERE id = %s', [mov.pk])
         mov.refresh_from_db()
         self.assertEqual(mov.valor, Decimal('10'))
+
+    def test_prova_de_aceite_e_historico_clinico_imutaveis(self):
+        # 0046: SQL cru passa por fora dos guards de save()/QuerySet do Django
+        termo = VersaoTermo.objects.create(
+            tipo='PROCEDIMENTO', procedimento=self.proc, titulo='Termo', conteudo='Texto aceito',
+            versao='1.0', vigente_desde=self.at.data_hora_inicio.date(),
+        )
+        aceite = AceiteTermo.registrar(self.cli, termo, atendimento=self.at)
+        versao = ProntuarioVersao.objects.create(
+            prontuario=Prontuario.objects.create(cliente=self.cli), dados={'alergias': 'Dipirona'},
+        )
+        bloqueados = (
+            ("UPDATE aceite_termo SET ip = '1.1.1.1' WHERE id = %s", aceite.pk),
+            ('DELETE FROM aceite_termo WHERE id = %s', aceite.pk),
+            ("UPDATE versao_termo SET conteudo = 'Outro texto' WHERE id = %s", termo.pk),
+            ("UPDATE prontuario_versao SET dados = '{}'::jsonb WHERE id = %s", versao.pk),
+            ('DELETE FROM prontuario_versao WHERE id = %s', versao.pk),
+        )
+        for sql, pk in bloqueados:
+            # RAISE do plpgsql (P0001) -> InternalError, subclasse de DatabaseError
+            with self.subTest(sql=sql), self.assertRaises(DatabaseError), transaction.atomic():
+                self._sql(sql, [pk])
+        # permitido: desativar o termo e o SET_NULL das FKs
+        self._sql('UPDATE versao_termo SET ativa = false WHERE id = %s', [termo.pk])
+        self._sql('UPDATE aceite_termo SET atendimento_id = NULL WHERE id = %s', [aceite.pk])
+        aceite.refresh_from_db()
+        self.assertEqual((aceite.ip, aceite.atendimento_id), (None, None))
 
     def test_checks_regex_cliente(self):
         for coluna, valor in (('telefone', 'abc'), ('telefone', '123'),
