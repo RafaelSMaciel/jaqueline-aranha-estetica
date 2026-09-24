@@ -15,6 +15,7 @@ from ..models import (
     Habilitacao,
 )
 from ..utils.audit import registrar_log
+from ..utils.parse import id_int
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +78,8 @@ def _ler_janelas(post):
 
 
 def _ids_procedimentos(post):
-    return {int(x) for x in post.getlist('procedimentos') if str(x).isdigit()}
+    # id_int: isdigit() aceitava '²' e o int() dava 500
+    return {pk for pk in map(id_int, post.getlist('procedimentos')) if pk is not None}
 
 
 def _dias_do_post(post):

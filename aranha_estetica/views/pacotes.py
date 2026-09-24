@@ -54,7 +54,9 @@ def _ler_itens(post):
     for proc_id, qtd in zip(proc_ids, qtds, strict=False):
         if not proc_id:
             continue
-        pid, quantidade = int(proc_id), int(qtd)
+        pid, quantidade = id_int(proc_id), int(qtd)
+        if pid is None:
+            raise ValueError('procedimento invalido')
         if quantidade < 1:
             raise ValueError('quantidade invalida')
         if pid in vistos:
@@ -281,16 +283,20 @@ def admin_cancelar_compra_pacote(request, pk):
         )
         return destino
 
+    # valor_reembolsado gravado na compra (CHECK 0 <= reembolso <= valor_pago):
+    # a receita dos dashboards e valor_pago - valor_reembolsado.
     with transaction.atomic():
-        atualizadas = CompraPacote.objects.filter(pk=compra.pk, status='ATIVO').update(status='CANCELADO')
+        atualizadas = CompraPacote.objects.filter(pk=compra.pk, status='ATIVO').update(
+            status='CANCELADO', valor_reembolsado=reembolso,
+        )
     if not atualizadas:
         messages.warning(
             request, f'O pacote "{compra.pacote.nome}" não está ativo ({compra.get_status_display().lower()}).',
         )
         return destino
 
-    # valor_reembolsado estruturado (nao so no texto livre): a receita retida
-    # = valor_pago - valor_reembolsado. Sem o nome da cliente no texto (LGPD).
+    # Reembolso tambem na auditoria (quem cancelou e o acordo). Sem o nome da
+    # cliente no texto (LGPD).
     registrar_log(
         request.user,
         f'Cancelou pacote "{compra.pacote.nome}"',

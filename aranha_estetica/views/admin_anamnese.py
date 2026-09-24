@@ -13,6 +13,7 @@ from ..decorators import staff_required
 from ..models import FormularioAnamnese, Procedimento, RespostaAnamnese
 from ..utils.audit import registrar_log
 from ..utils.fichas import itens_ficha
+from ..utils.parse import id_int
 
 # Exemplo exibido em formulario novo. Chave 'obrigatorio' SEM acento: e o que
 # anamnese_publica.py e agenda/pesquisa.html leem.
@@ -90,7 +91,8 @@ def admin_anamnese_form(request, pk=None):
         obj.escopo = escopo
         obj.categoria = categoria if escopo == 'CATEGORIA' else ''
         obj.modalidade = modalidade if escopo == 'MODALIDADE' else ''
-        obj.procedimento_id = int(proc_id) if escopo == 'PROCEDIMENTO' and proc_id.isdigit() else None
+        # id_int: isdigit() aceitava '²' e o int() dava 500
+        obj.procedimento_id = id_int(proc_id) if escopo == 'PROCEDIMENTO' else None
         obj.ativo = ativo
         obj.obrigatorio = obrigatorio
 

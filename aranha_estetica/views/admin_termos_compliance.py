@@ -9,9 +9,11 @@ from ..models import (
     AceiteTermo,
     Atendimento,
     Cliente,
+    RespostaAnamnese,
     VersaoTermo,
 )
 from ..services.termos import STATUS_ACEITA_TERMO
+from ..utils.parse import id_int
 
 # Atendimento que torna o termo de procedimento exigivel da cliente
 # (cancelado/faltou/reagendado nao conta).
@@ -21,14 +23,19 @@ STATUS_ALVO_PROCEDIMENTO = ('PENDENTE', 'AGENDADO', 'CONFIRMADO', 'REALIZADO')
 def _clientes_alvo(versao):
     """Clientes ATIVOS de quem a versao e exigida.
 
-    LGPD: todos os ativos. PROCEDIMENTO: ativos com atendimento (nao
-    cancelado) do procedimento — ou de qualquer procedimento, no termo geral.
+    LGPD: todos os ativos. SAUDE (art. 11): ativos que responderam ficha de
+    saude (anamnese; convite nao respondido nao tem dado de saude).
+    PROCEDIMENTO: ativos com atendimento (nao cancelado)
+    do procedimento — ou de qualquer procedimento, no termo geral.
     Assinados e pendentes saem do MESMO conjunto: aceite de cliente inativo
     nao 'compensa' pendencia de cliente ativo (nada de -3 ou 160%).
     """
     ativos = Cliente.objects.filter(ativo=True)
     if versao.tipo == 'LGPD':
         return ativos
+    if versao.tipo == 'SAUDE':
+        fichas = RespostaAnamnese.objects.filter(formulario__tipo='ANAMNESE', respondida_em__isnull=False)
+        return ativos.filter(pk__in=fichas.values('cliente_id'))
     atendimentos = Atendimento.objects.filter(status__in=STATUS_ALVO_PROCEDIMENTO)
     if versao.procedimento_id:
         atendimentos = atendimentos.filter(procedimento_id=versao.procedimento_id)
@@ -45,10 +52,9 @@ def admin_termos_compliance(request):
     tipo_filter = request.GET.get('tipo', '')
     if tipo_filter not in dict(VersaoTermo.TIPO_CHOICES):
         tipo_filter = ''
-    # ?versao= nao numerico (URL manipulada) e ignorado em vez de 500
-    versao_filter = request.GET.get('versao', '')
-    if not versao_filter.isdigit():
-        versao_filter = ''
+    # ?versao= nao numerico/'²' (URL manipulada) e ignorado em vez de 500
+    versao_id = id_int(request.GET.get('versao'))
+    versao_filter = str(versao_id) if versao_id is not None else ''
 
     versoes = list(
         VersaoTermo.objects.filter(ativa=True).select_related('procedimento').order_by('-vigente_desde')
@@ -72,11 +78,10 @@ def admin_termos_compliance(request):
 
     pendentes_lista = []
     versao_obj = None
-    if versao_filter:
-        try:
-            versao_obj = VersaoTermo.objects.select_related('procedimento').get(pk=int(versao_filter), ativa=True)
-        except VersaoTermo.DoesNotExist:
-            versao_obj = None
+    if versao_id is not None:
+        versao_obj = (
+            VersaoTermo.objects.select_related('procedimento').filter(pk=versao_id, ativa=True).first()
+        )
 
     if versao_obj:
         # Proximo atendimento ainda ativo da cliente: e nele que o link do termo vale

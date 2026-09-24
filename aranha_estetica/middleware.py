@@ -110,6 +110,8 @@ class SecurityHeadersMiddleware:
     depois do logout nao reexibe dado de saude/pessoal do bfcache ou do cache
     de disco (LGPD art. 11/46). Defesa em profundidade p/ view nova que
     esquecer o @never_cache; Cache-Control definido pela view e respeitado.
+    Rotas de link magico (PREFIXOS_TOKEN) idem: a pagina do token mostra
+    nome, horario e ficha de saude da cliente.
     """
 
     PERMISSIONS_POLICY = (
@@ -124,7 +126,8 @@ class SecurityHeadersMiddleware:
     )
 
     # Rotas cujo path carrega token de link magico: sem Referer, senao o token
-    # vaza p/ CDN/links externos abertos a partir da pagina.
+    # vaza p/ CDN/links externos abertos a partir da pagina; e sem cache
+    # (no-store), como as areas privadas.
     PREFIXOS_TOKEN = (
         '/confirmar/', '/reagendar/', '/nps/', '/anamnese/', '/pesquisa/',
         '/termo/', '/lgpd/unsubscribe/', '/admin-login/recuperar/', '/agenda/',
@@ -136,14 +139,15 @@ class SecurityHeadersMiddleware:
     def __call__(self, request):
         response = self.get_response(request)
         path = request.path or ''
-        privada = path.startswith(self.PREFIXOS_PRIVADOS)
+        com_token = path.startswith(self.PREFIXOS_TOKEN)
+        privada = com_token or path.startswith(self.PREFIXOS_PRIVADOS)
         if privada and not response.has_header('Cache-Control'):
             add_never_cache_headers(response)
         response.setdefault("X-Content-Type-Options", "nosniff")
         response.setdefault("Permissions-Policy", self.PERMISSIONS_POLICY)
         response.setdefault("Cross-Origin-Opener-Policy", "same-origin")
         response.setdefault("Cross-Origin-Resource-Policy", "same-origin")
-        if path.startswith(self.PREFIXOS_TOKEN):
+        if com_token:
             response["Referrer-Policy"] = "no-referrer"
         else:
             response.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")

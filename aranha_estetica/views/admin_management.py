@@ -1,6 +1,7 @@
 """Views para features pendentes: bloqueios, procedimentos, clientes detalhe,
 lista de espera, NPS web, termos de consentimento."""
 import logging
+import re
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
@@ -37,6 +38,7 @@ from ..services.termos import (
 )
 from ..utils.audit import registrar_log
 from ..utils.datas import hoje
+from ..utils.parse import id_int
 from ..utils.security import safe_next
 from ..validators import normalizar_telefone
 
@@ -375,7 +377,83 @@ def _contexto_cliente(cliente):
         'cliente_stats': cliente_stats,
         'alertas': alertas_saude(cliente),
         'pacotes': pacotes,
+        'indicacao_travada': _indicacao_gerou_cashback(cliente),
     }
+
+
+def _indicacao_gerou_cashback(cliente):
+    """Indicacao que ja creditou cashback nao muda mais (o credito ficaria
+    com a indicadora errada)."""
+    from ..models import MovimentoCarteira
+    return bool(cliente.indicado_por_id) and MovimentoCarteira.objects.filter(
+        origem='CASHBACK_INDICACAO', tipo='CREDITO', atendimento__cliente=cliente,
+    ).exists()
+
+
+def _buscar_indicadora(termo, cliente):
+    """(indicadora|None, erro|None) pelo codigo de indicacao ou pelo nome."""
+    termo = (termo or '').strip()[:150]
+    if not termo:
+        return None, 'Informe o código de indicação ou o nome de quem indicou.'
+    # Codigo (gerado em maiusculas) tem prioridade; senao busca pelo nome.
+    candidatas = list(Cliente.objects.filter(codigo_indicacao=termo.upper())[:1])
+    if not candidatas:
+        por_nome = Cliente.objects.filter(nome__icontains=termo)
+        candidatas = list(por_nome.filter(nome__iexact=termo)[:2]) or list(por_nome[:2])
+    if not candidatas:
+        return None, 'Nenhuma cliente encontrada com esse código ou nome.'
+    if len(candidatas) > 1:
+        return None, 'Mais de uma cliente com esse nome: use o código de indicação de quem indicou.'
+    if candidatas[0].pk == cliente.pk:
+        return None, 'Uma cliente não pode indicar a si mesma.'
+    return candidatas[0], None
+
+
+def _salvar_indicacao(request, cliente):
+    """Grava/remove Cliente.indicado_por (cashback de indicacao) + auditoria."""
+    destino = redirect('aranha:admin_cliente_detalhe', pk=cliente.pk)
+    if _indicacao_gerou_cashback(cliente):
+        messages.error(request, 'Essa indicação já gerou cashback para quem indicou e não pode ser alterada.')
+        return destino
+    anterior = cliente.indicado_por_id
+    if request.POST.get('remover') == '1':
+        indicadora = None
+    else:
+        indicadora, erro = _buscar_indicadora(request.POST.get('indicado_por_busca'), cliente)
+        if erro:
+            messages.error(request, erro)
+            return destino
+    novo = indicadora.pk if indicadora is not None else None
+    if novo == anterior:
+        messages.info(request, 'Indicação sem alteração.')
+        return destino
+    try:
+        with transaction.atomic():
+            # update(): nao passa pelo save() do cadastro nem por concorrencia do form
+            Cliente.objects.filter(pk=cliente.pk).update(indicado_por=indicadora, atualizado_em=timezone.now())
+    except IntegrityError:  # chk_cliente_nao_indica_si_mesmo
+        messages.error(request, 'Indicação inválida.')
+        return destino
+    # sem nomes no texto: o log sobrevive ao esquecimento (LGPD); os pks bastam
+    registrar_log(
+        request.user, 'Removeu indicacao' if indicadora is None else 'Registrou indicacao',
+        'cliente', cliente.pk, detalhes={'indicado_por': novo, 'indicado_por_anterior': anterior},
+        request=request,
+    )
+    if indicadora is None:
+        messages.success(request, 'Indicação removida.')
+        return destino
+    messages.success(request, f'Indicação registrada: {indicadora.nome}.')
+    ja_pagou = Atendimento.objects.filter(
+        cliente=cliente, status=Atendimento.STATUS_REALIZADO, eh_retorno=False, valor_cobrado__gt=0,
+    ).exists()
+    if ja_pagou:
+        messages.warning(
+            request,
+            'Esta cliente já tem atendimento pago: o cashback de indicação só é gerado no '
+            '1º atendimento pago, então não haverá crédito para quem indicou.',
+        )
+    return destino
 
 
 @never_cache  # alertas de saude + CPF/RG/endereco: fora do cache do navegador
@@ -383,6 +461,9 @@ def _contexto_cliente(cliente):
 def admin_cliente_detalhe(request, pk):
     """Detalhe e edicao de cliente."""
     cliente = get_object_or_404(Cliente, pk=pk)
+
+    if request.method == 'POST' and request.POST.get('acao') == 'indicacao':
+        return _salvar_indicacao(request, cliente)
 
     if request.method == 'POST':
         # ClientePainelForm: normaliza telefone (+55)/CPF com mascara, valida e
@@ -510,7 +591,8 @@ def nps_web(request, token):
         nota_str = request.POST.get('nota', '').strip()
         comentario = request.POST.get('comentario', '').strip()
 
-        if nota_str.isdigit() and 0 <= int(nota_str) <= 10:
+        # fullmatch: isdigit() aceitava '²' (int() -> 500) e '07'
+        if re.fullmatch(r'10|[0-9]', nota_str):
             nota = int(nota_str)
 
             AvaliacaoNPS.objects.create(
@@ -580,10 +662,12 @@ def admin_criar_termo(request):
     procedimento = None
     proc_id = request.POST.get('procedimento_id', '')
     if tipo == 'PROCEDIMENTO' and proc_id:
-        if not proc_id.isdigit():
+        # id_int: isdigit() aceitava '²' e o int() dava 500
+        proc_pk = id_int(proc_id)
+        if proc_pk is None:
             messages.error(request, 'Procedimento inválido.')
             return redirect('aranha:admin_termos')
-        procedimento = Procedimento.objects.filter(pk=int(proc_id)).first()
+        procedimento = Procedimento.objects.filter(pk=proc_pk).first()
         if procedimento is None:
             messages.error(request, 'Procedimento não encontrado.')
             return redirect('aranha:admin_termos')

@@ -181,18 +181,24 @@ class ProntuarioTermosTests(_AdminBase):
     def test_termos_separados_por_tipo(self):
         cli = criar_cliente()
         hoje = timezone.localdate()
-        lgpd = VersaoTermo.objects.create(
+        # LGPD v1.0 (0045) e SAUDE v1.0 (0047) ja nascem ativas em banco novo
+        lgpd = VersaoTermo.objects.filter(tipo='LGPD', ativa=True).first() or VersaoTermo.objects.create(
             tipo='LGPD', titulo='Privacidade', conteudo='x', versao='1', vigente_desde=hoje,
+        )
+        saude = VersaoTermo.objects.filter(tipo='SAUDE', ativa=True).first() or VersaoTermo.objects.create(
+            tipo='SAUDE', titulo='Dados de saúde', conteudo='s', versao='1', vigente_desde=hoje,
         )
         termo_proc = VersaoTermo.objects.create(
             tipo='PROCEDIMENTO', procedimento=self.proc, titulo='Termo Limpeza',
             conteudo='y', versao='2', vigente_desde=hoje,
         )
         AceiteTermo.objects.create(cliente=cli, versao_termo=lgpd)
+        AceiteTermo.objects.create(cliente=cli, versao_termo=saude)
         AceiteTermo.objects.create(cliente=cli, versao_termo=termo_proc)
         resp = self.client.get(reverse('aranha:prontuario_detalhe', args=[cli.pk]))
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual([a.versao_termo_id for a in resp.context['aceites']], [lgpd.pk])
+        # consentimento de dado de saude (art. 11) aparece junto do LGPD
+        self.assertEqual({a.versao_termo_id for a in resp.context['aceites']}, {lgpd.pk, saude.pk})
         self.assertEqual([a.versao_termo_id for a in resp.context['assinaturas']], [termo_proc.pk])
 
 

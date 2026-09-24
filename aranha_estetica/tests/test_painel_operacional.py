@@ -322,6 +322,13 @@ class PortalProfissionalTests(TestCase):
 
 
 # ─── Termos ───────────────────────────────────────────────────────────
+def _lgpd_vigente():
+    """LGPD v1.0 publicada pela 0045 tambem em banco novo (contrato 3)."""
+    return VersaoTermo.objects.filter(tipo='LGPD', ativa=True).first() or VersaoTermo.objects.create(
+        tipo='LGPD', titulo='v1', conteudo='x', versao='1.0', vigente_desde=timezone.localdate(), ativa=True,
+    )
+
+
 class TermosTests(_AdminTestCase):
     def _publicar(self, **extra):
         data = {'tipo': 'LGPD', 'titulo': 'Política', 'conteudo': 'Texto', 'versao': '2.0'}
@@ -329,8 +336,7 @@ class TermosTests(_AdminTestCase):
         return self.client.post(reverse('aranha:admin_criar_termo'), data)
 
     def test_publicar_nova_versao_arquiva_anterior(self):
-        v1 = VersaoTermo.objects.create(tipo='LGPD', titulo='v1', conteudo='x', versao='1.0',
-                                        vigente_desde=timezone.localdate(), ativa=True)
+        v1 = _lgpd_vigente()
         resp = self._publicar()
         self.assertEqual(resp.status_code, 302)
         v1.refresh_from_db()
@@ -345,13 +351,14 @@ class TermosTests(_AdminTestCase):
         self.assertIsNone(VersaoTermo.objects.get(versao='2.0').procedimento)
 
     def test_tipo_invalido(self):
+        antes = VersaoTermo.objects.count()
         self._publicar(tipo='XPTO')
-        self.assertFalse(VersaoTermo.objects.exists())
+        self.assertEqual(VersaoTermo.objects.count(), antes)
+        self.assertFalse(VersaoTermo.objects.filter(tipo='XPTO').exists())
 
     def test_termo_por_procedimento_nao_arquiva_lgpd(self):
         proc = criar_procedimento()
-        lgpd = VersaoTermo.objects.create(tipo='LGPD', titulo='v1', conteudo='x', versao='1.0',
-                                          vigente_desde=timezone.localdate(), ativa=True)
+        lgpd = _lgpd_vigente()
         self._publicar(tipo='PROCEDIMENTO', procedimento_id=str(proc.pk))
         lgpd.refresh_from_db()
         self.assertTrue(lgpd.ativa)
