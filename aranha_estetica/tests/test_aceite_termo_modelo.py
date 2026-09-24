@@ -1,15 +1,17 @@
 """Contrato de termos (rodada 2): AceiteTermo.registrar, VersaoTermo.lgpd_vigente
-e imutabilidade da versao ja aceita (prova do texto — LGPD art. 8).
+/saude_vigente e imutabilidade da versao ja aceita (prova do texto — LGPD art. 8).
 Postgres: triggers de imutabilidade da 0046 (QuerySet.update/SQL cru)."""
 import hashlib
 import unittest
 
 from django.core.exceptions import ValidationError
-from django.db import DatabaseError, connection, transaction
+from django.db import DatabaseError, IntegrityError, connection, transaction
 from django.test import RequestFactory, TestCase, override_settings
 from django.utils import timezone
 
+from aranha_estetica.constants import TERMO_LGPD_CONTEUDO
 from aranha_estetica.models import AceiteTermo, VersaoTermo
+from aranha_estetica.models.termos import TEXTO_CONSENTIMENTO_SAUDE
 
 from .factories import (
     criar_atendimento, criar_cliente, criar_procedimento, criar_profissional,
@@ -17,6 +19,8 @@ from .factories import (
 
 
 def _termo(tipo='LGPD', procedimento=None, versao='1.0', conteudo='Texto do termo', ativa=True):
+    if ativa:  # 1 ativa por escopo: arquiva a vigente (ex.: LGPD/SAUDE v1.0 das migrations)
+        VersaoTermo.objects.filter(tipo=tipo, procedimento=procedimento, ativa=True).update(ativa=False)
     return VersaoTermo.objects.create(
         tipo=tipo, procedimento=procedimento, titulo=f'Termo {versao}', conteudo=conteudo,
         versao=versao, vigente_desde=timezone.localdate(), ativa=ativa,
@@ -71,13 +75,60 @@ class RegistrarAceiteTests(TestCase):
 
 
 class LgpdVigenteTests(TestCase):
+    def test_migration_publica_lgpd_v1_mesmo_em_banco_novo(self):
+        """0045: banco sem clientes (instalacao limpa) ja nasce com o termo LGPD."""
+        termo = VersaoTermo.lgpd_vigente()
+        self.assertIsNotNone(termo)
+        self.assertEqual(termo.conteudo, TERMO_LGPD_CONTEUDO)
+
     def test_devolve_so_a_lgpd_global_ativa(self):
+        VersaoTermo.objects.filter(tipo='LGPD').update(ativa=False)
         self.assertIsNone(VersaoTermo.lgpd_vigente())
         _termo(versao='0.9', ativa=False)
         _termo(tipo='PROCEDIMENTO', procedimento=criar_procedimento(), versao='1.0')
         self.assertIsNone(VersaoTermo.lgpd_vigente())
         vigente = _termo(versao='1.0')
         self.assertEqual(VersaoTermo.lgpd_vigente(), vigente)
+
+
+class SaudeVigenteTests(TestCase):
+    """Contrato 1: consentimento art. 11 como VersaoTermo SAUDE (0047)."""
+
+    def test_migration_publica_saude_v1_com_o_texto_do_wizard(self):
+        termo = VersaoTermo.saude_vigente()
+        self.assertIsNotNone(termo)
+        self.assertEqual((termo.tipo, termo.versao), ('SAUDE', '1.0'))
+        self.assertIsNone(termo.procedimento_id)
+        self.assertEqual(termo.conteudo, TEXTO_CONSENTIMENTO_SAUDE)
+        self.assertEqual(VersaoTermo.texto_saude_vigente(), (termo, TEXTO_CONSENTIMENTO_SAUDE))
+
+    def test_devolve_so_a_saude_ativa_e_nao_mistura_com_lgpd(self):
+        VersaoTermo.objects.filter(tipo='SAUDE').update(ativa=False)
+        self.assertIsNone(VersaoTermo.saude_vigente())
+        # sem versao ativa: texto padrao p/ exibir, nada p/ registrar
+        self.assertEqual(VersaoTermo.texto_saude_vigente(), (None, TEXTO_CONSENTIMENTO_SAUDE))
+        self.assertEqual(VersaoTermo.lgpd_vigente().tipo, 'LGPD')
+        nova = _termo(tipo='SAUDE', versao='2.0', conteudo='Texto novo art. 11')
+        self.assertEqual(VersaoTermo.saude_vigente(), nova)
+        self.assertEqual(VersaoTermo.texto_saude_vigente(), (nova, 'Texto novo art. 11'))
+
+    def test_uma_saude_ativa_e_tipo_fora_do_check_recusado(self):
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            VersaoTermo.objects.create(tipo='SAUDE', titulo='Dup', conteudo='x', versao='9',
+                                       vigente_desde=timezone.localdate(), ativa=True)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            VersaoTermo.objects.create(tipo='OUTRO', titulo='X', conteudo='x', versao='1',
+                                       vigente_desde=timezone.localdate(), ativa=False)
+
+    def test_aceite_de_saude_com_prova_e_idempotente(self):
+        cliente = criar_cliente()
+        termo = VersaoTermo.saude_vigente()
+        req = RequestFactory().post('/x/', REMOTE_ADDR='200.10.20.30', HTTP_USER_AGENT='Tablet/1.0')
+        with override_settings(CLIENT_IP_HEADER=''):
+            aceite = AceiteTermo.registrar(cliente, termo, req)
+        self.assertEqual((aceite.ip, aceite.user_agent), ('200.10.20.30', 'Tablet/1.0'))
+        self.assertEqual(aceite.conteudo_sha256, hashlib.sha256(TEXTO_CONSENTIMENTO_SAUDE.encode()).hexdigest())
+        self.assertEqual(AceiteTermo.registrar(cliente, termo).pk, aceite.pk)
 
 
 class VersaoTermoImutavelTests(TestCase):
@@ -145,6 +196,20 @@ class ProvaAceiteTriggerPgTests(TestCase):
         AceiteTermo.objects.filter(pk=self.aceite.pk).update(atendimento=None)  # SET_NULL da FK
         self.aceite.refresh_from_db()
         self.assertIsNone(self.aceite.atendimento_id)
+
+    def test_aceite_de_saude_tambem_imutavel_no_banco(self):
+        """0047 nao recria as tabelas: os triggers da 0046 seguem valendo p/ SAUDE."""
+        saude = VersaoTermo.saude_vigente()
+        aceite = AceiteTermo.registrar(self.cliente, saude, atendimento=self.atendimento)
+        self._bloqueado(lambda: AceiteTermo.objects.filter(pk=aceite.pk).update(ip='1.1.1.1'))
+        self._bloqueado(lambda: AceiteTermo.objects.filter(pk=aceite.pk).delete())
+        self._bloqueado(lambda: VersaoTermo.objects.filter(pk=saude.pk).update(conteudo='Outro texto'))
+        with connection.cursor() as cur:
+            cur.execute(
+                "SELECT tgname FROM pg_trigger WHERE tgname IN "
+                "('trg_aceite_termo_imutavel', 'trg_versao_termo_imutavel') AND NOT tgisinternal"
+            )
+            self.assertEqual(len(cur.fetchall()), 2)
 
     def test_versao_aceita_congelada_no_banco_mas_desativavel(self):
         qs = VersaoTermo.objects.filter(pk=self.termo.pk)

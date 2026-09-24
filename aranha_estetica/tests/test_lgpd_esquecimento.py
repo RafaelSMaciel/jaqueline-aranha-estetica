@@ -148,6 +148,22 @@ class PurgaRetencaoTests(TestCase):
         self._envelhecer(cliente, 365 * 6)
         self.assertEqual(LgpdService.purgar_inativos(), 0)
 
+    def test_historico_do_prontuario_retem_mesmo_com_prontuario_zerado(self):
+        """Prontuario hoje vazio, mas com ProntuarioVersao: historico clinico (retencao legal)."""
+        from aranha_estetica.models import ProntuarioVersao
+        cliente = criar_cliente(nome='Historico Clinico')
+        pront = Prontuario.objects.create(cliente=cliente, alergias='dipirona')
+        ProntuarioVersao.registrar(pront, None)  # foto do estado com alergia
+        Prontuario.objects.filter(pk=pront.pk).update(alergias='')
+        sem_historico = criar_cliente(nome='Prontuario Vazio Sem Historico')
+        Prontuario.objects.create(cliente=sem_historico)
+        for c in (cliente, sem_historico):
+            self._envelhecer(c, 365 * 6)
+        candidatos = set(LgpdService.candidatos_purga().values_list('pk', flat=True))
+        self.assertEqual(candidatos, {sem_historico.pk})
+        LgpdService.purgar_inativos()
+        self.assertEqual(Cliente.all_objects.get(pk=cliente.pk).nome, 'Historico Clinico')
+
 
 def _ficha(cliente, atendimento=None, respondida=True, dias_atras=0):
     form, _ = FormularioAnamnese.objects.get_or_create(nome='Ficha de bem-estar')
@@ -376,6 +392,21 @@ class ExportDsarTests(TestCase):
         self.assertEqual(len(dados['prontuario_versoes']), 1)
         self.assertEqual(dados['prontuario_versoes'][0]['dados']['alergias'], 'dipirona')
         self.assertEqual(dados['prontuario']['alergias'], 'nenhuma')
+
+    def test_exporta_reembolso_do_pacote_e_aceite_de_saude(self):
+        from decimal import Decimal
+
+        from .factories import criar_compra_pacote, criar_pacote
+        cliente = criar_cliente(nome='Titular Pacote')
+        compra = criar_compra_pacote(cliente, criar_pacote(), valor_pago=Decimal('600.00'), status='CANCELADO')
+        compra.valor_reembolsado = Decimal('250.00')
+        compra.save(update_fields=['valor_reembolsado'])
+        AceiteTermo.registrar(cliente, VersaoTermo.saude_vigente())
+
+        dados = LgpdService.exportar_dados_cliente(cliente)
+
+        self.assertEqual(dados['pacotes'][0]['valor_reembolsado'], '250.00')
+        self.assertIn('SAUDE', [a['tipo'] for a in dados['aceites_termos']])
 
 
 class ListaEsperaVencidaTests(TestCase):

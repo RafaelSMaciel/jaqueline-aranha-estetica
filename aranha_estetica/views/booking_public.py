@@ -7,8 +7,10 @@ bloqueio online e anamnese obrigatoria. Slot lock via cache + SELECT FOR
 UPDATE + exclusion constraint (Postgres). E-mails best-effort (Celery).
 
 LGPD: aceite da Politica de Privacidade obrigatorio (grava AceiteTermo da
-versao LGPD vigente); ficha de anamnese (dado de saude, art. 11) so com
-consentimento especifico; termo(s) de procedimento aceitos no proprio wizard.
+versao LGPD vigente; sem versao vigente o booking recusa — nada sem prova);
+ficha de anamnese (dado de saude, art. 11) so com consentimento especifico,
+gravado como AceiteTermo da versao SAUDE vigente; termo(s) de procedimento
+aceitos no proprio wizard.
 Preco gravado = preco com promocao NA DATA DO ATENDIMENTO (utils.precos).
 """
 import json
@@ -39,6 +41,7 @@ from ..models import (
     RespostaAnamnese,
     VersaoTermo,
 )
+from ..models.termos import TEXTO_CONSENTIMENTO_SAUDE
 from ..services import otp as otp_service
 from ..services.agendamento_service import formatar_brl, formatar_data_hora
 from ..services.anamnese import validar_respostas
@@ -62,16 +65,12 @@ MSG_BLOQUEADO_ONLINE = (
     'Seu cadastro está com agendamento online suspenso. '
     'Fale conosco pelo WhatsApp para marcar seu horário.'
 )
+MSG_SEM_TERMO_LGPD = (
+    'Não foi possível concluir o agendamento online agora. '
+    'Fale conosco pelo WhatsApp para marcar seu horário.'
+)
 # Teto do JSON da anamnese (todos os formularios somados) — acima disso e abuso.
 MAX_ANAMNESE_BYTES = 20_000
-# Consentimento especifico p/ dado de saude (LGPD art. 11, I): o mesmo texto
-# aparece no wizard e vai p/ a auditoria junto com data e IP.
-TEXTO_CONSENTIMENTO_SAUDE = (
-    'Autorizo a clínica a usar as informações de saúde que informei neste '
-    'questionário (como alergias, gestação e medicamentos) somente para avaliar '
-    'a segurança do procedimento e cuidar do meu atendimento, conforme a '
-    'Política de Privacidade (LGPD, art. 11).'
-)
 # Consents de comunicacao (checkbox do wizard -> campos do Cliente).
 CONSENTS_COMUNICACAO = (
     'consent_email_marketing',
@@ -267,8 +266,11 @@ def agendamento_publico(request):
 
     termo_lgpd = None
     termos_procedimento = []
+    # Consentimento art. 11: o texto exibido e o da versao SAUDE que o POST grava
+    texto_consentimento_saude = TEXTO_CONSENTIMENTO_SAUDE
     try:
         termo_lgpd = VersaoTermo.lgpd_vigente()
+        _termo_saude, texto_consentimento_saude = VersaoTermo.texto_saude_vigente()
         termos_procedimento = [
             {
                 'id': t.pk,
@@ -288,7 +290,7 @@ def agendamento_publico(request):
         'formularios_anamnese_data': formularios_anamnese,
         'termo_lgpd': termo_lgpd,
         'termos_procedimento_data': termos_procedimento,
-        'texto_consentimento_saude': TEXTO_CONSENTIMENTO_SAUDE,
+        'texto_consentimento_saude': texto_consentimento_saude,
         'proc_preselect': proc_preselect,
         'prof_preselect': prof_preselect,
         # Telefone ja verificado nesta sessao (reidratar sem exigir novo SMS)
@@ -335,6 +337,13 @@ def confirmar_agendamento(request):
         return _voltar_com_erro(
             request, 'Para agendar, confirme que leu e aceita a Política de Privacidade.'
         )
+
+    # Sem versao LGPD vigente nao ha o que registrar em AceiteTermo: recusa em
+    # vez de gravar o agendamento sem a prova do aceite (Painel > Termos).
+    termo_lgpd = VersaoTermo.lgpd_vigente()
+    if termo_lgpd is None:
+        logger.error('booking_sem_termo_lgpd_vigente')
+        return _voltar_com_erro(request, MSG_SEM_TERMO_LGPD)
 
     telefone = otp_service.normalizar_telefone_br(telefone_raw)
     if not telefone:
@@ -517,7 +526,7 @@ def confirmar_agendamento(request):
 
             # Aceites com prova (IP, user-agent, SHA-256 do texto): Politica de
             # Privacidade (versao LGPD vigente) + termo(s) do procedimento.
-            AceiteTermo.registrar(cliente, VersaoTermo.lgpd_vigente(), request, atendimento)
+            AceiteTermo.registrar(cliente, termo_lgpd, request, atendimento)
             for termo in termos_proc:
                 if request.POST.get(f'aceite_termo_{termo.pk}') == 'on':
                     AceiteTermo.registrar(cliente, termo, request, atendimento)
@@ -529,13 +538,20 @@ def confirmar_agendamento(request):
                     respondida_em=agora,
                 )
             if anamneses:
+                # Consentimento art. 11 = aceite da versao SAUDE vigente (prova
+                # no banco) + trilha de auditoria com o texto consentido.
+                termo_saude, texto_saude = VersaoTermo.texto_saude_vigente()
+                aceite_saude = AceiteTermo.registrar(cliente, termo_saude, request, atendimento)
+                if aceite_saude is None:
+                    logger.warning('booking_sem_termo_saude_vigente', extra={'atendimento_id': atendimento.pk})
                 registrar_log(
                     None, 'Consentimento de dados de saude (LGPD art. 11) no agendamento',
                     'atendimento', atendimento.pk,
                     detalhes={
                         'cliente_id': cliente.pk,
                         'formularios': [form.pk for form, _respostas in anamneses],
-                        'texto': TEXTO_CONSENTIMENTO_SAUDE,
+                        'texto': texto_saude,
+                        'aceite_id': getattr(aceite_saude, 'pk', None),
                     },
                     request=request,
                 )

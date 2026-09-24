@@ -3,10 +3,11 @@
 #  - Notificacao LEMBRETE/EMAIL -> TERMO: o unico criador de LEMBRETE por e-mail
 #    era o link do termo do booking (os lembretes reais sao WHATSAPP); com tipo
 #    proprio, /termo/ aceita so token de termo e /confirmar/ nunca aceita.
-#  - VersaoTermo LGPD v1.0 (resumo fiel de /politica-de-privacidade/) quando o
-#    banco ja opera (tem clientes) e nao ha termo LGPD ativo: sem versao vigente
-#    o booking nao tem o que registrar em AceiteTermo. Banco novo (dev, testes,
-#    instalacao limpa) recebe o termo pelo `seed` ou por Painel > Termos.
+#  - VersaoTermo LGPD v1.0 (resumo fiel de /politica-de-privacidade/) sempre
+#    que nao ha termo LGPD ativo — tambem em banco novo (instalacao limpa,
+#    dev, testes): sem versao vigente o booking nao tem o que registrar em
+#    AceiteTermo e recusa confirmar (nada de agendamento sem prova do aceite).
+#    LogAuditoria da publicacao so em banco que ja opera (tem clientes).
 # Aceites antigos ficam com conteudo_sha256 vazio: o texto aceito na epoca nao
 # e comprovavel (a versao podia ser editada), e inventar o hash seria pior.
 
@@ -46,13 +47,13 @@ def criar_termo_lgpd_v1(apps, schema_editor):
     LogAuditoria = apps.get_model('aranha_estetica', 'LogAuditoria')
     if VersaoTermo.objects.filter(tipo='LGPD', procedimento__isnull=True, ativa=True).exists():
         return
-    if not Cliente.objects.exists():
-        return  # banco novo: seed / Painel > Termos
     termo = VersaoTermo.objects.create(
         tipo='LGPD', procedimento=None, versao=TERMO_LGPD_VERSAO,
         titulo=TERMO_LGPD_TITULO, conteudo=TERMO_LGPD_CONTEUDO,
         vigente_desde=timezone.localdate(), ativa=True,
     )
+    if not Cliente.objects.exists():
+        return  # instalacao limpa: nada operando p/ a trilha explicar
     LogAuditoria.objects.create(
         acao=f'migration 0045: termo LGPD v{TERMO_LGPD_VERSAO} publicado (resumo da politica de privacidade)',
         tabela='versao_termo',

@@ -64,6 +64,10 @@ class CompraPacote(models.Model):
     valor_pago = models.DecimalField(
         max_digits=10, decimal_places=2, validators=[MinValueValidator(0)],
     )
+    # Devolvido ao cliente no cancelamento (receita liquida = pago - reembolsado)
+    valor_reembolsado = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)],
+    )
     status = models.CharField(max_length=20, default='ATIVO', choices=STATUS_CHOICES)
     data_expiracao = models.DateField(blank=True, null=True)
 
@@ -81,6 +85,12 @@ class CompraPacote(models.Model):
             models.CheckConstraint(
                 check=models.Q(valor_pago__gte=0),
                 name='chk_compra_pacote_valor_pago',
+            ),
+            # reembolso nunca negativo nem maior que o pago
+            models.CheckConstraint(
+                check=models.Q(valor_reembolsado__gte=0)
+                & models.Q(valor_reembolsado__lte=models.F('valor_pago')),
+                name='chk_compra_pacote_valor_reembolsado',
             ),
         ]
 

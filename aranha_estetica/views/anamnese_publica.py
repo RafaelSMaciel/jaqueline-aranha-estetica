@@ -10,17 +10,17 @@ Sem autenticacao — token urlsafe(32) faz controle de acesso.
 from datetime import timedelta
 
 from django.contrib import messages
+from django.db import transaction
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
-from ..models import RespostaAnamnese
+from ..models import AceiteTermo, RespostaAnamnese, VersaoTermo
 from ..models.sistema import LogAuditoria
 from ..services.anamnese import validar_respostas
 from ..utils.audit import registrar_log
-from .booking_public import TEXTO_CONSENTIMENTO_SAUDE
 
 MSG_SEM_CONSENTIMENTO = (
     'Para enviar a ficha, marque a autorização de uso das suas informações de saúde.'
@@ -70,6 +70,10 @@ def _renderizar(request, resposta: RespostaAnamnese, erros=None, valores=None):
         else 'agenda/anamnese_publica.html'
     )
     valores = valores or {}
+    # texto exibido = o da versao SAUDE que o POST grava no aceite (art. 11)
+    texto_saude = ''
+    if resposta.formulario.tipo != 'PESQUISA':
+        _termo_saude, texto_saude = VersaoTermo.texto_saude_vigente()
     # template nao indexa dict por variavel: valor vai junto de cada campo
     schema = [
         dict(c, valor=valores.get(c.get('key'), [] if c.get('tipo') == 'checkboxes' else ''))
@@ -82,7 +86,7 @@ def _renderizar(request, resposta: RespostaAnamnese, erros=None, valores=None):
         'cliente': resposta.cliente,
         'atendimento': resposta.atendimento,
         'erros': erros or [],
-        'texto_consentimento_saude': TEXTO_CONSENTIMENTO_SAUDE,
+        'texto_consentimento_saude': texto_saude,
     })
 
 
@@ -97,24 +101,34 @@ def _gravar_resposta(request, resposta: RespostaAnamnese):
     if erros:
         return _renderizar(request, resposta, erros=erros, valores=valores)
 
-    resposta.respostas_json = respostas
-    resposta.respondida_em = timezone.now()
-    resposta.save(update_fields=['respostas_json', 'respondida_em'])
+    with transaction.atomic():
+        resposta.respostas_json = respostas
+        resposta.respondida_em = timezone.now()
+        resposta.save(update_fields=['respostas_json', 'respondida_em'])
 
-    LogAuditoria.objects.create(
-        usuario=None,
-        acao=f'Form {resposta.formulario.tipo} respondido (cliente {resposta.cliente_id})',
-        tabela='resposta_anamnese',
-        registro_id=resposta.pk,
-    )
-
-    if eh_ficha_saude:
-        registrar_log(
-            None, 'Consentimento de dados de saude (LGPD art. 11) na ficha publica',
-            'resposta_anamnese', resposta.pk,
-            detalhes={'cliente_id': resposta.cliente_id, 'texto': TEXTO_CONSENTIMENTO_SAUDE},
-            request=request,
+        LogAuditoria.objects.create(
+            usuario=None,
+            acao=f'Form {resposta.formulario.tipo} respondido (cliente {resposta.cliente_id})',
+            tabela='resposta_anamnese',
+            registro_id=resposta.pk,
         )
+
+        if eh_ficha_saude:
+            # Consentimento art. 11 = aceite da versao SAUDE vigente (prova no
+            # banco: IP, user-agent, SHA-256) + trilha com o texto consentido.
+            termo_saude, texto_saude = VersaoTermo.texto_saude_vigente()
+            aceite = AceiteTermo.registrar(
+                resposta.cliente, termo_saude, request, resposta.atendimento,
+            )
+            registrar_log(
+                None, 'Consentimento de dados de saude (LGPD art. 11) na ficha publica',
+                'resposta_anamnese', resposta.pk,
+                detalhes={
+                    'cliente_id': resposta.cliente_id, 'texto': texto_saude,
+                    'aceite_id': getattr(aceite, 'pk', None),
+                },
+                request=request,
+            )
 
     if resposta.formulario.tipo == 'PESQUISA':
         return redirect('aranha:pesquisa_obrigado')

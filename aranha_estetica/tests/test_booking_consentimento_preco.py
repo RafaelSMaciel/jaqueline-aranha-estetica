@@ -8,7 +8,10 @@ from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
+from django.contrib.messages import get_messages
 from django.core.cache import cache
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -136,6 +139,56 @@ class FichaSaudeBookingTests(_BaseBooking):
         textos = [a['valor'] for a in alertas_saude(atd.cliente)]
         self.assertIn('Lidocaina', textos)
 
+    def test_consentimento_de_saude_vira_aceite_com_prova(self):
+        """Contrato 1: art. 11 gravado como AceiteTermo da versao SAUDE vigente."""
+        form = self._ficha()
+        respostas = json.dumps({str(form.pk): {'gestante': 'nao'}})
+        resp = self._post(headers={'HTTP_USER_AGENT': 'Navegador Teste/1.0'},
+                          anamnese_respostas=respostas, consent_dados_saude='on')
+        self.assertIn('sucesso', resp.url)
+        atd = Atendimento.objects.get()
+        saude = VersaoTermo.saude_vigente()
+        aceite = AceiteTermo.objects.get(cliente=atd.cliente, versao_termo=saude)
+        self.assertEqual(aceite.atendimento, atd)
+        self.assertEqual((aceite.ip, aceite.user_agent), ('127.0.0.1', 'Navegador Teste/1.0'))
+        self.assertEqual(aceite.conteudo_sha256, saude.sha256_conteudo)
+        # trilha de auditoria continua, agora apontando p/ a prova
+        log = LogAuditoria.objects.get(tabela='atendimento', registro_id=atd.pk, acao__contains='art. 11')
+        self.assertEqual(log.detalhes['aceite_id'], aceite.pk)
+        self.assertEqual(log.detalhes['texto'], saude.conteudo)
+
+    def test_sem_ficha_nao_grava_aceite_de_saude(self):
+        self.assertIn('sucesso', self._post(consent_dados_saude='on').url)
+        self.assertFalse(AceiteTermo.objects.filter(versao_termo__tipo='SAUDE').exists())
+        self.assertTrue(AceiteTermo.objects.filter(versao_termo__tipo='LGPD').exists())
+
+    def test_wizard_mostra_e_grava_a_versao_saude_vigente(self):
+        VersaoTermo.objects.filter(tipo='SAUDE').update(ativa=False)
+        nova = VersaoTermo.objects.create(
+            tipo='SAUDE', titulo='Saúde v2', conteudo='Autorizo o uso revisado (v2) dos meus dados de saúde.',
+            versao='2.0', vigente_desde=timezone.localdate(),
+        )
+        html = self.client.get(reverse('aranha:agendamento_publico')).content.decode()
+        self.assertIn('Autorizo o uso revisado (v2)', html)
+        form = self._ficha()
+        self._post(anamnese_respostas=json.dumps({str(form.pk): {'gestante': 'nao'}}), consent_dados_saude='on')
+        aceite = AceiteTermo.objects.get(versao_termo__tipo='SAUDE')
+        self.assertEqual(aceite.versao_termo, nova)
+        self.assertEqual(aceite.conteudo_sha256, nova.sha256_conteudo)
+
+    def test_sem_versao_saude_ativa_agenda_e_mantem_a_trilha(self):
+        """Termo SAUDE arquivado (aviso aranha.W010): o log com o texto segue como registro."""
+        VersaoTermo.objects.filter(tipo='SAUDE').update(ativa=False)
+        form = self._ficha()
+        with self.assertLogs('aranha_estetica.views.booking_public', 'WARNING'):
+            resp = self._post(anamnese_respostas=json.dumps({str(form.pk): {'gestante': 'nao'}}),
+                              consent_dados_saude='on')
+        self.assertIn('sucesso', resp.url)
+        self.assertFalse(AceiteTermo.objects.filter(versao_termo__tipo='SAUDE').exists())
+        log = LogAuditoria.objects.get(acao__contains='art. 11')
+        self.assertIsNone(log.detalhes['aceite_id'])
+        self.assertIn('LGPD, art. 11', log.detalhes['texto'])
+
     def test_conteudo_invalido_ou_grande_e_recusado(self):
         form = self._ficha()
         for respostas in (
@@ -173,6 +226,22 @@ class PoliticaETermosBookingTests(_BaseBooking):
         self.assertNotIn('sucesso', resp.url)
         self.assertFalse(Cliente.objects.filter(telefone='17988887777').exists())
         self.assertEqual(Atendimento.objects.count(), 0)
+
+    def test_sem_termo_lgpd_vigente_recusa_sem_gravar(self):
+        """Contrato 3: sem versao LGPD nao ha prova do aceite -> nada e gravado."""
+        VersaoTermo.objects.filter(tipo='LGPD').update(ativa=False)
+        with self.assertLogs('aranha_estetica.views.booking_public', 'ERROR') as logs:
+            resp = self._post()
+        self.assertNotIn('sucesso', resp.url)
+        self.assertIn('booking_sem_termo_lgpd_vigente', logs.output[0])
+        self.assertEqual(Atendimento.objects.count(), 0)
+        self.assertFalse(Cliente.objects.filter(telefone='17988887777').exists())
+        self.assertFalse(AceiteTermo.objects.exists())
+        msgs = [str(m) for m in get_messages(resp.wsgi_request)]
+        self.assertIn('Fale conosco pelo WhatsApp', msgs[0])
+
+        VersaoTermo.objects.filter(tipo='LGPD').update(ativa=True)
+        self.assertIn('sucesso', self._post().url)
 
     def test_aceite_lgpd_gravado_com_prova(self):
         lgpd = _lgpd_vigente()
@@ -330,8 +399,16 @@ class PromocaoNoBookingTests(_BaseBooking):
         self.assertIsNone(atd.promocao)
         self.assertIsNone(atd.valor_original)
 
-    def test_promo_geral_de_preco_fixo_e_ignorada(self):
-        self._promo(procedimento=None, desconto_percentual=Decimal('0'), preco_promocional=Decimal('10'))
+    def test_promo_geral_de_preco_fixo_e_recusada(self):
+        """Promo geral so por percentual: clean() e CHECK chk_promocao_geral_so_percentual (0047)."""
+        hoje = timezone.localdate()
+        promo = Promocao(procedimento=None, nome='Tudo por 10', desconto_percentual=Decimal('0'),
+                         preco_promocional=Decimal('10'), data_inicio=hoje, data_fim=hoje + timedelta(days=30))
+        with self.assertRaises(ValidationError) as ctx:
+            promo.full_clean()
+        self.assertIn('preco_promocional', ctx.exception.message_dict)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            promo.save()
         self._post()
         self.assertEqual(Atendimento.objects.get().valor_cobrado, Decimal('150.00'))
 

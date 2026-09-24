@@ -92,6 +92,7 @@ class LgpdService:
             pacotes.append({
                 'pacote': compra.pacote.nome,
                 'valor_pago': _dec(compra.valor_pago),
+                'valor_reembolsado': _dec(compra.valor_reembolsado),
                 'status': compra.status,
                 'comprado_em': _iso(compra.criado_em),
                 'data_expiracao': _iso(compra.data_expiracao),
@@ -383,13 +384,14 @@ class LgpdService:
           soft-deletado ha mais de 30 dias;
         - nunca quem ja foi anonimizado;
         - nunca quem tem registro com retencao legal: prontuario com conteudo
-          clinico, pacote comprado (fiscal) ou atendimento REALIZADO nos
-          ultimos 20 anos (registro de saude).
+          clinico ou com historico (ProntuarioVersao — prontuario hoje vazio
+          ja teve dado clinico), pacote comprado (fiscal) ou atendimento
+          REALIZADO nos ultimos 20 anos (registro de saude).
         Aceite de termo NAO retem a identidade: anonimizar e UPDATE, a linha de
         AceiteTermo (prova do consentimento) continua ligada ao mesmo id. Todo
         booking online grava o aceite LGPD — reter por ele desligaria a purga.
         """
-        from aranha_estetica.models import Prontuario
+        from aranha_estetica.models import Prontuario, ProntuarioVersao
 
         agora = timezone.now()
         limite = agora - timedelta(days=cls.RETENCAO_CLIENTE_INATIVO_DIAS)
@@ -412,12 +414,17 @@ class LgpdService:
         com_prontuario = Prontuario.objects.filter(
             Prontuario.Q_COM_CONTEUDO, cliente_id=OuterRef('pk'),
         )
+        # Historico clinico (CFM 1.638/2002) retem mesmo com o prontuario zerado.
+        com_historico_clinico = ProntuarioVersao.objects.filter(
+            prontuario__cliente_id=OuterRef('pk'),
+        )
 
         return (
             base
             .exclude(pk__in=com_atendimento_recente)
             .exclude(pk__in=com_saude_retida)
             .exclude(Exists(com_prontuario))
+            .exclude(Exists(com_historico_clinico))
             .exclude(pacotes_comprados__isnull=False)
             .distinct()
         )

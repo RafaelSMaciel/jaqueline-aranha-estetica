@@ -7,9 +7,21 @@ from django.db import models
 from .clientes import Cliente
 from .procedimentos import Procedimento
 
+# Consentimento especifico p/ dado de saude (LGPD art. 11, I): texto da
+# VersaoTermo SAUDE v1.0 (migration 0047) — wizard do booking e ficha publica
+# mostram o texto da versao vigente e gravam o aceite dela (AceiteTermo).
+TERMO_SAUDE_VERSAO = '1.0'
+TERMO_SAUDE_TITULO = 'Consentimento para uso de dados de saúde (LGPD, art. 11)'
+TEXTO_CONSENTIMENTO_SAUDE = (
+    'Autorizo a clínica a usar as informações de saúde que informei neste '
+    'questionário (como alergias, gestação e medicamentos) somente para avaliar '
+    'a segurança do procedimento e cuidar do meu atendimento, conforme a '
+    'Política de Privacidade (LGPD, art. 11).'
+)
+
 
 class VersaoTermo(models.Model):
-    """Template versionado de um termo (LGPD ou por tipo de procedimento).
+    """Template versionado de um termo (LGPD, dados de saude ou procedimento).
 
     Imutavel apos o 1o aceite: o texto aceito e a prova (LGPD art. 8 §1).
     Mudou o texto -> publicar nova versao (a anterior e arquivada). Desativar
@@ -17,6 +29,7 @@ class VersaoTermo(models.Model):
     """
     TIPO_CHOICES = [
         ('LGPD', 'LGPD / Privacidade'),
+        ('SAUDE', 'Dados de saúde (LGPD art. 11)'),
         ('PROCEDIMENTO', 'Termo de Procedimento'),
     ]
     # Campos que compoem a prova do aceite — congelados quando ha aceites
@@ -37,10 +50,10 @@ class VersaoTermo(models.Model):
         db_table = 'versao_termo'
         constraints = [
             models.CheckConstraint(
-                check=models.Q(tipo__in=['LGPD', 'PROCEDIMENTO']),
+                check=models.Q(tipo__in=['LGPD', 'SAUDE', 'PROCEDIMENTO']),
                 name='chk_versao_termo_tipo'
             ),
-            # so 1 versao ativa por escopo (tipo+procedimento; LGPD = procedimento NULL)
+            # so 1 versao ativa por escopo (tipo+procedimento; LGPD/SAUDE = procedimento NULL)
             models.UniqueConstraint(
                 fields=['tipo', 'procedimento'],
                 condition=models.Q(ativa=True),
@@ -64,6 +77,25 @@ class VersaoTermo(models.Model):
             .order_by('-vigente_desde', '-pk')
             .first()
         )
+
+    @classmethod
+    def saude_vigente(cls):
+        """Versao do consentimento de dados de saude (art. 11) ativa ou None."""
+        return (
+            cls.objects.filter(tipo='SAUDE', procedimento__isnull=True, ativa=True)
+            .order_by('-vigente_desde', '-pk')
+            .first()
+        )
+
+    @classmethod
+    def texto_saude_vigente(cls):
+        """(versao SAUDE vigente|None, texto exibido ao cliente).
+
+        O texto mostrado e o da versao que sera gravada no aceite (o SHA-256
+        prova o que foi lido); sem versao ativa, o texto padrao.
+        """
+        termo = cls.saude_vigente()
+        return termo, (termo.conteudo if termo is not None else TEXTO_CONSENTIMENTO_SAUDE)
 
     @property
     def sha256_conteudo(self):
@@ -96,7 +128,7 @@ class VersaoTermo(models.Model):
 
 
 class AceiteTermo(models.Model):
-    """Aceite/assinatura de termo pelo cliente — LGPD ou procedimento.
+    """Aceite/assinatura de termo pelo cliente — LGPD, dados de saude ou procedimento.
 
     Unifica AceitePrivacidade + AssinaturaTermoProcedimento (remodelagem
     v2.1 fase 6): a distincao vive em versao_termo.tipo. atendimento = o

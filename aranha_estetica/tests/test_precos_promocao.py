@@ -40,7 +40,11 @@ class PrecoComPromocaoTests(TestCase):
         self.assertEqual(preco_com_promocao(self.proc), (Decimal('150.00'), None, Decimal('150.00')))
 
     def test_promo_geral_de_preco_fixo_nao_vira_teto_do_catalogo(self):
-        promo = self._promo(None, preco_promocional=Decimal('10.00'))
+        # O banco ja recusa (CHECK chk_promocao_geral_so_percentual, 0047); o
+        # calculo continua ignorando uma instancia assim (defesa em profundidade).
+        hoje = timezone.localdate()
+        promo = Promocao(procedimento=None, nome='Geral fixa', preco_promocional=Decimal('10.00'),
+                         data_inicio=hoje, data_fim=hoje, ativa=True)
         self.assertIsNone(promocao_vigente(self.proc))
         self.assertEqual(aplicar_promocao(Decimal('150.00'), promo), Decimal('150.00'))
         self.assertEqual(preco_com_promocao(self.proc)[0], Decimal('150.00'))
