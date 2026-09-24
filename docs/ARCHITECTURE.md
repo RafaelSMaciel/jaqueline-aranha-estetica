@@ -129,19 +129,21 @@ cards e dias são `<button>` (teclado) e o estado sobrevive a recusa do servidor
 
 ## 6. Progresso (checkpoint)
 
-### 6.1 Concluído na auditoria pré-produção (2026-09-23, `b5fd681..182e2e9`, ~30 commits)
+### 6.1 Concluído na auditoria pré-produção (2026-09-23, `b5fd681..HEAD`, ~33 commits)
 
-Três rodadas de auditoria multi-agente (achados em `audit_r1/r2/final`) → ~450 correções em
-três ondas, com testes junto (≈1.060 testes; suíte verde em SQLite e Postgres 18).
+Três rodadas de auditoria multi-agente (achados em `audit_r1/r2/final`) + verificação de
+fidelidade dos commits → ~460 correções em quatro ondas, com testes junto (1.144 testes; suíte
+verde em SQLite e Postgres).
 
 - **Deploy/infra:** Dockerfile multi-stage com Vite, `requirements.lock`, `migrate_atomico`,
   `bootstrap_admin`, healthcheck `/healthz/` que reprova sem o manifest, settings de prod
   coerentes (DEBUG forçado, e-mail dummy sem backend, SMS fail-closed, Celery eager sem retry
   síncrono, IP do cliente por `X-Real-IP`), system checks `aranha.W001–W009`, log do gunicorn
   sem tokens, CI com Postgres 18 bloqueante + build do front + `docker build`. Procfile removido.
-- **Banco:** 0034–0038 corrigidas in-place; 0040–0046 (depoimentos com opt-in, PROTECT no
-  histórico, contas demo desativadas, retorno único + CHECK jsonb, prova de aceite, termo LGPD
-  v1.0, autoria na auditoria, `prontuario_versao`, triggers de imutabilidade).
+- **Banco:** 0029 e 0034–0038/0045 corrigidas in-place; 0040–0047 (depoimentos com opt-in,
+  PROTECT no histórico, contas demo desativadas, retorno único + CHECK jsonb, prova de aceite,
+  termos LGPD v1.0 e SAUDE v1.0 sempre presentes, autoria na auditoria, `prontuario_versao`,
+  triggers de imutabilidade, `valor_reembolsado` do pacote, promoção geral só percentual).
 - **Auth:** 2FA obrigatório do ADMIN avaliado a cada request, `/account/*` fora, QR em SVG,
   "trocar de aparelho" exige código, códigos de backup aceitos no desafio, login do PROFISSIONAL
   em `/admin-login/` → `/profissional/`, logout só via POST + `Clear-Site-Data`, `no-store` nas
@@ -176,12 +178,13 @@ três ondas, com testes junto (≈1.060 testes; suíte verde em SQLite e Postgre
 ### 6.2 Pendências reais (verificadas no código em 2026-09-23)
 
 **Operação / go-live (fora do código)**
-- [ ] Backup `pg_dump` + ensaio do upgrade 0026→0046 num Postgres 18 (runbook §14.a)
+- [ ] Backup `pg_dump` + ensaio do upgrade 0026→0047 num Postgres 18 (runbook §14.a)
 - [ ] Env no Railway (ADMIN_*, CRON_TOKEN, SITE_URL, ZENVIA_*, EMAIL_BACKEND + provedor,
       WHATSAPP_*, TURNSTILE_*, SENTRY_DSN, CLINIC_EMAIL) e remover `STATIC_ROOT`
-- [ ] Provedor de e-mail: SMTP só no plano Pro do Railway; no Hobby é preciso **adicionar** um
-      backend HTTP (ex.: `django-anymail`) — hoje não há nenhum instalado
-- [ ] Merge `front-fundacao` → `main` (149 commits à frente) e cron externo dos 10 jobs
+- [ ] Provedor de e-mail: `django-anymail` já instalado — escolher o provedor (ex.: Resend) e
+      definir `EMAIL_BACKEND` + chave + `DEFAULT_FROM_EMAIL` de domínio verificado (check W011)
+- [x] Merge `front-fundacao` → `main` (fast-forward) — 2026-09-23
+- [ ] Cron externo dos jobs (`/cron/run/<job>/` + `X-Cron-Token`, runbook)
 - [ ] Pós-deploy: 2FA do ADMIN, apagar `ADMIN_PASSWORD`, `axes_reset`, Branding real, revisar
       termo LGPD v1.0, mesclar duplicatas logadas pela 0034, `VALIDATE CONSTRAINT` dos CHECKs
       `NOT VALID` da 0043
@@ -192,31 +195,21 @@ três ondas, com testes junto (≈1.060 testes; suíte verde em SQLite e Postgre
 - [ ] **T9 — calibração de marca (parcial):** cor #C9A84C confirmada pelo dono e fontes
       definidas (Playfair Display + Lato); falta só o self-host das fontes (hoje Google Fonts,
       já declarado na política de privacidade) — opcional
-- [ ] **Pacote cancelado some do faturamento:** dashboards excluem a venda CANCELADA inteira;
-      o reembolso fica só na `LogAuditoria`. Falta `CompraPacote.valor_reembolsado`/`cancelado_em`
-      (+ CHECK ≤ `valor_pago`) e receita líquida no financeiro/overview (rev_painel-05)
-- [ ] **Janela do vínculo profissional ↔ prontuário** fixa em 60 dias no futuro
-      (`views/prontuario.JANELA_FUTURO_DIAS`), mas o agendamento aceita até
-      `max_advance_dias` (até 365): pedido distante não mostra alerta/ficha ao profissional
-      (rev_painel-09)
+- [x] ~~**Pacote cancelado some do faturamento:**~~ resolvido (0047 `valor_reembolsado`; receita = pago − reembolsado).
+- [x] ~~**Janela do vínculo profissional ↔ prontuário**~~ resolvido (janela = max(60, `max_advance_dias`)).
 - [ ] **Link da ficha de anamnese** no agendamento interno: o marcador "ficha pendente" existe,
       mas nada gera convite para `/anamnese/<token>/` (rev_painel-11; depende da decisão D18)
-- [ ] **Purga LGPD × histórico do prontuário:** `LgpdService.candidatos_purga` não considera
-      `prontuario_versao` — prontuário esvaziado com versões deixa a cliente purgável
-- [ ] **Cashback de indicação inerte:** nenhuma tela (painel nem Django admin) preenche
-      `Cliente.indicado_por` e não há fluxo de uso do saldo da carteira — o F-CSB só credita se o
-      campo for gravado por fora
-- [ ] `Promocao.clean()` não recusa promoção **geral** de preço fixo (o Django admin permite;
-      `utils/precos` a ignora e `/promocoes/` a esconde — dado inconsistente)
-- [ ] `migrate_atomico` não escreve "FALHOU – transação desfeita" quando aborta (o log mostra os
-      "OK" anteriores antes do erro)
-- [ ] `tests/test_pg_ddl.py`: incluir os triggers da 0046 em `TRIGGERS_SO_PG`
-- [ ] Django admin: registrar `ProntuarioVersao` somente leitura
+- [x] ~~**Purga LGPD × histórico do prontuário:**~~ resolvido (`candidatos_purga` retém quem tem `prontuario_versao`).
+- [ ] **Cashback de indicação (parcial):** a ficha do cliente já registra "Indicada por"
+      (crédito automático no 1º atendimento pago); falta fluxo de **uso** do saldo da carteira
+- [x] ~~`Promocao.clean()` e promoção geral de preço fixo~~ resolvido (clean + CHECK na 0047).
+- [x] ~~`migrate_atomico` sem aviso de falha~~ resolvido (escreve FALHOU + migration corrente).
+- [x] ~~`tests/test_pg_ddl.py` sem os triggers da 0046~~ resolvido.
+- [x] ~~Django admin: `ProntuarioVersao` somente leitura~~ resolvido (com trilha de leitura).
+- [x] ~~Consentimento de saúde só em log~~ resolvido (termo SAUDE v1.0 + `AceiteTermo` com prova).
 - [ ] Hardening opcional do 2FA: settings de teste com `ADMIN_2FA_OBRIGATORIO=False` e tirar a
       dependência do marcador `usuario_id` no `Enforce2FAMiddleware`
-- [ ] Baixa: `isdigit()` aceita "²" → 500 em `nps_web` (POST da nota) e no webhook do WhatsApp;
-      filtros `isdigit()+int()` em `dashboard.py`, `relatorios.py`, `admin_calendar.py`,
-      `admin_usuarios.py` (trocar por `utils/parse.id_int`)
+- [x] ~~Baixa: `isdigit()` aceita "²"~~ resolvido (`utils/parse.id_int` e nota NPS por regex).
 - [ ] Baixa: remover `ListaEspera.token_reserva`/`expira_em` (legado sem uso); fallback
       `LEMBRETE/EMAIL` em `services/termos.Q_NOTIF_TERMO` pode sair depois da 0045 em prod;
       docstring de `utils/dois_fatores.verificar_token` ainda descreve o `--force` antigo
