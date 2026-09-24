@@ -52,13 +52,16 @@ def _vinculo(prof, cliente, escrita=False):
     """Atendimento que da ao profissional acesso ao prontuario, ou None.
 
     Leitura: REALIZADO nos ultimos JANELA_REALIZADO_DIAS, ou PENDENTE/AGENDADO/
-    CONFIRMADO entre ontem e +JANELA_FUTURO_DIAS (a profissional precisa ver os
-    alertas de saude antes de aprovar um pedido). Escrita: o mesmo, sem PENDENTE.
+    CONFIRMADO entre ontem e +max(JANELA_FUTURO_DIAS, prof.max_advance_dias)
+    (a profissional precisa ver os alertas de saude antes de aprovar um pedido;
+    quem aceita reserva com 90 dias de antecedencia ve a ficha desde o pedido).
+    Escrita: o mesmo, sem PENDENTE.
     CANCELADO/REAGENDADO/FALTOU nunca dao vinculo.
     """
     if prof is None or not prof.ativo:
         return None
     agora = timezone.now()
+    janela_futuro = max(JANELA_FUTURO_DIAS, prof.max_advance_dias or 0)
     ativos = [Atendimento.STATUS_AGENDADO, Atendimento.STATUS_CONFIRMADO]
     if not escrita:
         ativos.append(Atendimento.STATUS_PENDENTE)
@@ -69,7 +72,7 @@ def _vinculo(prof, cliente, escrita=False):
               data_hora_inicio__gte=agora - timedelta(days=JANELA_REALIZADO_DIAS))
             | Q(status__in=ativos,
                 data_hora_inicio__gte=agora - timedelta(days=1),
-                data_hora_inicio__lte=agora + timedelta(days=JANELA_FUTURO_DIAS))
+                data_hora_inicio__lte=agora + timedelta(days=janela_futuro))
         )
         .order_by('-data_hora_inicio')
         .first()
@@ -230,12 +233,13 @@ def prontuario_detalhe(request, cliente_id):
         # Nota so no proprio atendimento (anotacao_sessao_salvar recusa os demais)
         atend.pode_anotar = user.is_staff or (prof is not None and atend.profissional_id == prof.pk)
 
-    # Termos assinados — AceiteTermo unifica LGPD e procedimento (fase 6);
-    # separa pelo tipo da versao p/ nao listar cada aceite 2x com rotulo errado.
+    # Termos assinados — AceiteTermo unifica LGPD, dado de saude (art. 11) e
+    # procedimento; separa pelo tipo da versao p/ nao listar cada aceite 2x
+    # com rotulo errado. Consentimentos (LGPD + SAUDE) x termos de procedimento.
     termos = AceiteTermo.objects.filter(
         cliente=cliente
     ).select_related('versao_termo', 'atendimento').order_by('-criado_em')
-    aceites = termos.filter(versao_termo__tipo='LGPD')
+    aceites = termos.filter(versao_termo__tipo__in=('LGPD', 'SAUDE'))
     assinaturas = termos.filter(versao_termo__tipo='PROCEDIMENTO')
 
     pode_editar = user.is_staff or _vinculo(prof, cliente, escrita=True) is not None

@@ -9,7 +9,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.core.cache import cache
-from django.db.models import Count, Sum
+from django.db.models import Count, F, Sum
 from django.shortcuts import render
 from django.utils import timezone
 
@@ -58,8 +58,11 @@ def _calcular_metricas(agora, hoje) -> dict:
         valor_cobrado__gt=0,
         sessao_pacote_vinculada__isnull=True,
     )
-    # Venda de pacote = receita no dia da compra (cancelados fora)
-    vendas_pacote = CompraPacote.objects.exclude(status='CANCELADO').filter(valor_pago__gt=0)
+    # Venda de pacote = receita no dia da compra, liquida do reembolso: o
+    # cancelado entra com o que a clinica reteve (sessoes usadas/multa);
+    # devolvido integral (liquido 0) nao conta como venda.
+    vendas_pacote = CompraPacote.objects.filter(valor_pago__gt=F('valor_reembolsado'))
+    receita_pacote = Sum(F('valor_pago') - F('valor_reembolsado'))
 
     fat_hoje = base_pago.filter(data_hora_inicio__date=hoje).aggregate(
         total=Sum('valor_cobrado'), count=Count('id'),
@@ -71,13 +74,13 @@ def _calcular_metricas(agora, hoje) -> dict:
         total=Sum('valor_cobrado'), count=Count('id'),
     )
     pac_hoje = vendas_pacote.filter(criado_em__date=hoje).aggregate(
-        total=Sum('valor_pago'), count=Count('id'),
+        total=receita_pacote, count=Count('id'),
     )
     pac_semana = vendas_pacote.filter(criado_em__gte=inicio_semana).aggregate(
-        total=Sum('valor_pago'), count=Count('id'),
+        total=receita_pacote, count=Count('id'),
     )
     pac_mes = vendas_pacote.filter(criado_em__gte=inicio_mes).aggregate(
-        total=Sum('valor_pago'), count=Count('id'),
+        total=receita_pacote, count=Count('id'),
     )
 
     # No-show no mes

@@ -21,6 +21,7 @@ from ..models import Profissional, Usuario
 from ..utils.audit import registrar_log
 from ..utils.branding import get_branding
 from ..utils.email import email_configurado
+from ..utils.parse import id_int
 
 logger = logging.getLogger(__name__)
 
@@ -63,9 +64,11 @@ def _ler_profissional_id(raw):
     raw = (raw or '').strip()
     if not raw:
         return None, None
-    if not raw.isdigit() or not Profissional.objects.filter(pk=int(raw)).exists():
+    # id_int: isdigit() aceitava '²' e o int() dava 500
+    pk = id_int(raw)
+    if pk is None or not Profissional.objects.filter(pk=pk).exists():
         return None, 'Profissional inválido.'
-    return int(raw), None
+    return pk, None
 
 
 def _erro_vinculo(papel, profissional_id, usuario=None):

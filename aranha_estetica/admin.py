@@ -17,7 +17,7 @@ from .models import (
     Profissional, DisponibilidadeProfissional, BloqueioAgenda, Habilitacao,
     Procedimento, Preco, Promocao,
     Cliente,
-    Prontuario, AnotacaoSessao,
+    Prontuario, AnotacaoSessao, ProntuarioVersao,
     VersaoTermo, AceiteTermo,
     Atendimento, Notificacao,
     AvaliacaoNPS,
@@ -355,6 +355,23 @@ class ProntuarioAdmin(_LeituraClinicaAuditadaMixin, admin.ModelAdmin):
         )
 
 
+@admin.register(ProntuarioVersao)
+class ProntuarioVersaoAdmin(_LeituraClinicaAuditadaMixin, admin.ModelAdmin):
+    """Historico append-only do prontuario (foto de dado de saude anterior a
+    cada edicao): so leitura, com a mesma trilha de leitura do Prontuario."""
+    list_display = ('prontuario', 'autor_nome', 'criado_em')
+    search_fields = ('prontuario__cliente__nome',)
+    ordering = ('-criado_em',)
+    date_hierarchy = 'criado_em'
+    list_select_related = ('prontuario', 'prontuario__cliente')
+
+    def _log_leitura(self, request, obj):
+        registrar_log(
+            request.user, 'Visualizou versao do prontuario (django-admin)', 'prontuario',
+            obj.prontuario.cliente_id, detalhes={'prontuario_versao_id': obj.pk}, request=request,
+        )
+
+
 @admin.register(AnotacaoSessao)
 class AnotacaoSessaoAdmin(_LeituraClinicaAuditadaMixin, admin.ModelAdmin):
     list_display = ('atendimento', 'autor', 'criado_em')
@@ -648,7 +665,7 @@ class ItemPacoteAdmin(admin.ModelAdmin):
 
 @admin.register(CompraPacote)
 class PacoteClienteAdmin(admin.ModelAdmin):
-    list_display = ('cliente', 'pacote', 'status', 'valor_pago', 'data_expiracao', 'criado_em')
+    list_display = ('cliente', 'pacote', 'status', 'valor_pago', 'valor_reembolsado', 'data_expiracao', 'criado_em')
     list_filter = ('status',)
     search_fields = ('cliente__nome', 'pacote__nome')
     ordering = ('-criado_em',)

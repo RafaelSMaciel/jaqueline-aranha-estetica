@@ -22,6 +22,7 @@ from ..services.termos import termos_pendentes
 from ..utils.audit import registrar_log
 from ..utils.busca import q_busca_cliente
 from ..utils.datas import fmt_local
+from ..utils.parse import id_int
 from ..utils.saude import alertas_saude
 
 logger = logging.getLogger(__name__)
@@ -172,8 +173,12 @@ def admin_atualizar_status(request):
     if not isinstance(data, dict):
         return JsonResponse({'erro': 'Dados inválidos'}, status=400)
 
+    # id_int: isdigit() aceitava '²' e o int() dava 500; bool/float/lista -> 400
     bruto_id = data.get('atendimento_id')
-    if isinstance(bruto_id, bool) or not isinstance(bruto_id, (int, str))             or not str(bruto_id).strip().isdigit():
+    atendimento_id = (
+        id_int(bruto_id) if isinstance(bruto_id, (int, str)) and not isinstance(bruto_id, bool) else None
+    )
+    if atendimento_id is None:
         return JsonResponse({'erro': 'Agendamento inválido'}, status=400)
     novo_status = data.get('status')
     if not isinstance(novo_status, str) or not novo_status.strip():
@@ -182,7 +187,7 @@ def admin_atualizar_status(request):
 
     atendimento = (
         Atendimento.objects.select_related('cliente', 'procedimento')
-        .filter(pk=int(str(bruto_id).strip())).first()
+        .filter(pk=atendimento_id).first()
     )
     if atendimento is None:
         return JsonResponse({'erro': 'Agendamento não encontrado'}, status=404)

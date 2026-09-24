@@ -212,6 +212,52 @@
   </form>
 </div>
 
+{# ── Indicacao: quem indicou esta cliente (cashback no 1o atendimento pago) ── #}
+<div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
+  <h3 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-3">
+    <svg class="w-4 h-4 text-marca" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+    </svg>
+    Indicação
+  </h3>
+  <p class="text-[0.8rem] text-texto m-0 mb-2">
+    Código de indicação desta cliente: <strong>{{ cliente.codigo_indicacao|default:"—" }}</strong>
+  </p>
+  <p class="text-[0.8rem] text-texto m-0 mb-3">
+    Indicada por:
+    {% if cliente.indicado_por %}
+    <a href="{% url 'aranha:admin_cliente_detalhe' cliente.indicado_por.pk %}" class="font-bold text-marca">{{ cliente.indicado_por.nome }}</a>
+    ({{ cliente.indicado_por.codigo_indicacao }})
+    {% else %}
+    <span class="text-texto-suave">ninguém registrado</span>
+    {% endif %}
+  </p>
+  {% if indicacao_travada %}
+  <p class="text-[0.75rem] text-texto-suave m-0">Essa indicação já gerou cashback para quem indicou e não pode mais ser alterada.</p>
+  {% else %}
+  <form method="post" class="flex items-end gap-2 flex-wrap">
+    {% csrf_token %}
+    <input type="hidden" name="acao" value="indicacao">
+    <div>
+      <label for="indicadoPorBusca" class="block text-[0.72rem] font-bold text-texto-suave mb-1">Código de indicação ou nome de quem indicou</label>
+      <input id="indicadoPorBusca" type="text" name="indicado_por_busca" maxlength="150" placeholder="Ex.: A1B2C3D4"
+             class="w-64 max-w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.82rem] text-texto placeholder-texto-suave outline-none focus:ring-2 focus:ring-[#C9A84C]/40">
+    </div>
+    <button type="submit"
+            class="px-4 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.8rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
+      Salvar indicação
+    </button>
+    {% if cliente.indicado_por_id %}
+    <button type="submit" name="remover" value="1" formnovalidate
+            class="px-3 py-2 rounded-xl bg-fundo text-texto-suave text-[0.8rem] font-bold border border-borda cursor-pointer hover:opacity-90">
+      Remover indicação
+    </button>
+    {% endif %}
+  </form>
+  <p class="text-[0.72rem] text-texto-suave mt-2 mb-0">Quem indicou recebe o cashback de indicação no 1º atendimento pago desta cliente.</p>
+  {% endif %}
+</div>
+
 {# ── Pacotes comprados: saldo por procedimento e validade ── #}
 <div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
   <h3 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-4">
@@ -228,6 +274,7 @@
         <div class="text-[0.72rem] text-texto-suave">
           Comprado em {{ compra.criado_em|date:"d/m/Y" }} · R$ {{ compra.valor_pago|floatformat:2 }}
           {% if compra.data_expiracao %} · Válido até {{ compra.data_expiracao|date:"d/m/Y" }}{% endif %}
+          {% if compra.status == 'CANCELADO' and compra.valor_reembolsado %} · Devolvido R$ {{ compra.valor_reembolsado|floatformat:2 }}{% endif %}
         </div>
       </div>
       <span class="px-2 py-0.5 rounded-full text-[0.65rem] font-bold uppercase tracking-wide

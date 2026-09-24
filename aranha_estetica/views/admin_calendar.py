@@ -12,6 +12,7 @@ from ..decorators import staff_required
 from ..models import Atendimento, BloqueioAgenda, ExcecaoDisponibilidade, Profissional
 from ..utils.audit import registrar_log
 from ..utils.datas import data_local, fmt_local
+from ..utils.parse import id_int
 
 
 def _parse_iso_aware(valor):
@@ -53,9 +54,8 @@ def admin_calendar_events(request):
     """Endpoint JSON compativel com FullCalendar — retorna agendamentos no range."""
     start = request.GET.get('start', '')
     end = request.GET.get('end', '')
-    # filtro nao numerico (URL manipulada) e ignorado em vez de 500
-    prof_filter = request.GET.get('profissional', '')
-    prof_filter = int(prof_filter) if prof_filter.isdigit() else None
+    # filtro nao numerico/'²' (URL manipulada) e ignorado em vez de 500
+    prof_filter = id_int(request.GET.get('profissional'))
 
     try:
         dt_start = _parse_iso_aware(start)

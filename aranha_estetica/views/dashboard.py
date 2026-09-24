@@ -3,7 +3,7 @@ from datetime import datetime, time, timedelta
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, F, Q, Sum
 from django.db.models.functions import TruncDate
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
@@ -17,6 +17,7 @@ from ..models import (
 from ..decorators import staff_required
 from ..utils.busca import q_busca_cliente
 from ..utils.datas import fmt_local, hoje as hoje_local
+from ..utils.parse import id_int
 from ..utils.saude import alertas_saude
 
 
@@ -83,7 +84,8 @@ def painel_overview(request):
     novos_clientes = Cliente.objects.filter(criado_em__gte=inicio_mes_dt).count()
 
     # Receita: atendimentos avulsos (sem retorno gratis e sem sessao de pacote,
-    # que ja entrou como receita na venda do pacote) + pacotes vendidos no mes.
+    # que ja entrou como receita na venda do pacote) + pacotes vendidos no mes,
+    # liquidos do reembolso (cancelado entra com o valor retido).
     realizados_mes = Atendimento.objects.filter(
         data_hora_inicio__gte=inicio_mes_dt,
         status='REALIZADO',
@@ -95,7 +97,7 @@ def painel_overview(request):
     realizados_count = agg_atend['qtd'] or 0
     receita_pacotes = CompraPacote.objects.filter(
         criado_em__gte=inicio_mes_dt,
-    ).exclude(status='CANCELADO').aggregate(total=Sum('valor_pago'))['total'] or 0
+    ).aggregate(total=Sum(F('valor_pago') - F('valor_reembolsado')))['total'] or 0
 
     receita_mensal = _brl(receita_atendimentos + receita_pacotes)
     ticket_medio_val = (receita_atendimentos / realizados_count) if realizados_count else 0
@@ -214,9 +216,10 @@ def painel_agendamentos(request):
         except ValueError:
             pass
 
-    # ?profissional=abc (URL manipulada) nao pode virar 500
-    if profissional_filter.isdigit():
-        agendamentos = agendamentos.filter(profissional_id=int(profissional_filter))
+    # ?profissional=abc / '²' (URL manipulada) nao pode virar 500
+    profissional_id = id_int(profissional_filter)
+    if profissional_id is not None:
+        agendamentos = agendamentos.filter(profissional_id=profissional_id)
 
     paginator = Paginator(agendamentos, 50)
     page = request.GET.get('page', 1)

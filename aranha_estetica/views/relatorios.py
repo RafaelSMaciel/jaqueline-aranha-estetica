@@ -20,6 +20,7 @@ from ..decorators import staff_required
 from ..models import AvaliacaoNPS, MovimentoComissao, Profissional
 from ..services.comissao_service import ComissaoService
 from ..utils.audit import registrar_log
+from ..utils.parse import id_int
 
 logger = logging.getLogger(__name__)
 
@@ -159,8 +160,10 @@ def painel_comissoes(request):
     )
     if inicio is not None:
         base = base.filter(criado_em__gte=inicio)
-    if prof_filter != 'all' and prof_filter.isdigit():
-        base = base.filter(profissional_id=int(prof_filter))
+    # id_int: isdigit() aceitava '²' e o int() dava 500
+    prof_id = id_int(prof_filter)
+    if prof_id is not None:
+        base = base.filter(profissional_id=prof_id)
 
     # Totais por status (respeitando periodo+profissional, ignorando o filtro de status).
     totais = base.aggregate(

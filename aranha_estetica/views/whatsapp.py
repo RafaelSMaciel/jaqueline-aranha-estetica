@@ -3,6 +3,7 @@ import hmac
 import json
 import logging
 import os
+import re
 from datetime import timedelta
 
 from django.http import HttpResponse, JsonResponse
@@ -189,7 +190,8 @@ def _mensagens_recebidas(data):
             for msg in valor.get('messages') or []:
                 if not isinstance(msg, dict):
                     continue
-                telefone = ''.join(filter(str.isdigit, str(msg.get('from') or '')))
+                # so digitos ASCII (str.isdigit deixaria passar '²' e afins)
+                telefone = re.sub(r'[^0-9]', '', str(msg.get('from') or ''))
                 texto = _texto_mensagem(msg)
                 if telefone and texto:
                     yield telefone, texto
@@ -198,7 +200,8 @@ def _mensagens_recebidas(data):
 def _processar_resposta_nps(telefone_limpo: str, mensagem: str) -> None:
     """Resposta 0-10 vira AvaliacaoNPS do ultimo NPS enviado a este telefone."""
     logger.info('WhatsApp webhook: mensagem de %s', mask_telefone(telefone_limpo))
-    if not (mensagem.isdigit() and 0 <= int(mensagem) <= 10):
+    # fullmatch: isdigit() aceitava '²' (int() -> ValueError) e '07'
+    if not re.fullmatch(r'10|[0-9]', mensagem):
         return
     nota = int(mensagem)
     # SEGURANCA: match exato por telefone (com e sem codigo do pais BR 55)
