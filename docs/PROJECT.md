@@ -484,7 +484,7 @@ Lista completa e comentada em [`.env.example`](../.env.example). Em produção:
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NOME` | **Pré-requisito do 1º deploy**: a `0042` desativa as contas demo; o `bootstrap_admin` cria o ADMIN real. Apagar `ADMIN_PASSWORD` depois |
 | `CRON_TOKEN` | Autentica o cron HTTP (W005) |
 | `ZENVIA_API_TOKEN`, `ZENVIA_FROM` | SMS/OTP. **Sem SMS não há agendamento online** (CTA vira WhatsApp) (W002) |
-| `EMAIL_BACKEND` (+ `EMAIL_HOST*`/credenciais do provedor, `DEFAULT_FROM_EMAIL`) | Sem ele nada é entregue (W003). **SMTP de saída só no plano Pro do Railway**; no Hobby use provedor HTTP — o projeto não traz backend HTTP instalado (ex.: adicionar `django-anymail` ao requirements) |
+| `EMAIL_BACKEND` + chave do provedor + `DEFAULT_FROM_EMAIL` | Sem ele nada é entregue (W003). **O Railway Hobby bloqueia SMTP**: use o `django-anymail` (já no requirements), ex.: `EMAIL_BACKEND=anymail.backends.resend.EmailBackend` + `RESEND_API_KEY` (ou Brevo/SendGrid/Mailgun/Postmark — §14 i). `DEFAULT_FROM_EMAIL` = remetente de um **domínio verificado** no provedor; sem a chave ou com o remetente de exemplo, W011 e nada sai. SMTP (`EMAIL_HOST*`) só no plano Pro |
 | `WHATSAPP_NUMERO` (ou tela Branding) | Botões de WhatsApp e fallback do agendamento (W004) |
 | `CLINIC_EMAIL` (ou tela Branding) | Canal do titular LGPD e fallback do alerta de detrator (W007) |
 
@@ -516,7 +516,8 @@ Lista completa e comentada em [`.env.example`](../.env.example). Em produção:
 `AXES_FAILURE_LIMIT` (5), `AXES_COOLOFF_TIME_HOURS` (1), `PASSWORD_RESET_TIMEOUT_SECONDS`
 (3600), `TWO_FACTOR_REMEMBER_COOKIE_AGE` · `RETENCAO_OTP_HORAS`, `RETENCAO_NOTIFICACAO_DIAS`,
 `RETENCAO_LOG_AUDITORIA_DIAS`, `RETENCAO_AXES_LOG_DIAS` · `DJANGO_LOG_LEVEL` ·
-`EMAIL_TIMEOUT` (10).
+`EMAIL_TIMEOUT` (10; vale também para as chamadas HTTP do anymail) · `MAILGUN_SENDER_DOMAIN`
+(Mailgun; padrão = domínio do remetente).
 
 Só dev/testes: `DEBUG`, `SMS_DEV_LOG_ONLY` (em prod gera W002), `DB_ENGINE`/`DB_*`,
 `TEST_DATABASE_URL`, `PG_EXIGE_ICU`.
@@ -626,7 +627,8 @@ demo). Faça em horário sem movimento.
      na `LogAuditoria` (`migration 0034: ...`, com `telefone_original`) para mesclagem manual;
      promoção fora do CHECK é **desativada**.
 3. **Variáveis no Railway** (§11): defina `ADMIN_EMAIL`/`ADMIN_PASSWORD`/`ADMIN_NOME` (senha ≥ 10,
-   não comum), `CRON_TOKEN`, `SITE_URL`, `ZENVIA_*`, `EMAIL_BACKEND` + provedor, `WHATSAPP_*`,
+   não comum), `CRON_TOKEN`, `SITE_URL`, `ZENVIA_*`, `EMAIL_BACKEND` + chave do provedor +
+   `DEFAULT_FROM_EMAIL` (domínio verificado — §14 i), `WHATSAPP_*`,
    `TURNSTILE_*`, `SENTRY_DSN`, `CLINIC_EMAIL`, `WHATSAPP_NUMERO`; **remova `STATIC_ROOT`**.
    Confira no painel do Railway que não há *start command* manual antigo (`gunicorn
    shivazen.wsgi`) competindo com o `railway.json` (config-as-code: builder DOCKERFILE,
@@ -638,8 +640,12 @@ demo). Faça em horário sem movimento.
 1. Build da imagem (§13) — falha de front, collectstatic ou check derruba o build, nada muda.
 2. Pre-deploy: `migrate_atomico` (0027→0046 numa transação; `lock_timeout` 5 s — se o deploy
    antigo segurar lock, falha e é só refazer) e `bootstrap_admin` (cria/reativa o ADMIN).
-   Leia o log do pre-deploy: avisos `aranha.W00x`, `0042: ATENCAO ...` e
-   `bootstrap_admin: ERRO — painel sem administrador ativo` indicam env faltando.
+   Leia o log do pre-deploy: avisos `aranha.W0xx`, `0042: ATENCAO ...` e
+   `bootstrap_admin: ERRO — painel sem administrador ativo` indicam env faltando (os checks
+   rodam **antes** das migrations: W006/W010 ali podem ser o banco antigo — confira no passo c).
+   Se uma migration falhar, o log termina com `migrate_atomico: FALHOU - transacao desfeita;
+   banco continua em aranha_estetica.<ultima aplicada>` (ex.: `0026_otpcode_canal_default_sms`):
+   nada foi alterado e o deploy antigo segue no ar — corrija (ensaio do passo a.2) e refaça.
 3. Container novo sobe; só recebe tráfego depois de `/healthz/` responder 200.
 4. Até a troca, o código antigo roda contra o schema novo por alguns segundos (erros pontuais
    esperados — por isso o horário sem movimento).
@@ -650,7 +656,8 @@ demo). Faça em horário sem movimento.
 curl -fsS https://<dominio>/healthz/                  # {"status": "alive"}
 curl -fsS https://<dominio>/health/                   # db/cache/front = true
 railway ssh   # shell no container:
-python manage.py check --database default             # lista W001–W009 pendentes
+python manage.py check --database default             # lista W001–W011 pendentes
+python manage.py sendtestemail voce@exemplo.com       # e-mail real pelo provedor (§14 i)
 python manage.py showmigrations aranha_estetica | tail -3   # [X] 0046
 ```
 
@@ -691,19 +698,22 @@ Sem acesso ao painel (2FA perdido, lockout): `railway ssh` → `python manage.py
 ### f) System checks (`aranha.W00x`)
 
 Aparecem no log de todo `manage.py` fora de DEBUG (inclusive no pre-deploy). Os que consultam o
-banco (W004/W007 via Branding, W006) só rodam com `check --database default` ou no `migrate`.
+banco (W004/W007 via Branding, W006, W010) só rodam com `check --database default` ou no `migrate`
+(antes das migrations).
 
 | Check | Significa | Como resolver |
 |---|---|---|
 | `W001` | `SITE_URL` não é https público | `SITE_URL=https://<dominio>` |
 | `W002` | SMS sem provedor (ou `SMS_DEV_LOG_ONLY=true` em prod) — OTP falha | `ZENVIA_API_TOKEN` + `ZENVIA_FROM`; remover `SMS_DEV_LOG_ONLY` |
-| `W003` | Backend de e-mail que não entrega (dummy/console/arquivo) | `EMAIL_BACKEND` real + credenciais |
+| `W003` | Backend de e-mail que não entrega (dummy/console/arquivo/locmem, `anymail.backends.test`) | `EMAIL_BACKEND` do anymail + chave do provedor (§14 i); SMTP só no plano Pro |
 | `W004` | WhatsApp vazio/inválido — botões e fallback ocultos | Branding ou `WHATSAPP_NUMERO` |
 | `W005` | `CRON_TOKEN` ausente — nenhum job roda | Definir e configurar o cron |
 | `W006` | Nenhum ADMIN ativo com senha — ninguém entra no painel | `ADMIN_EMAIL`/`ADMIN_PASSWORD` + redeploy |
 | `W007` | `CLINIC_EMAIL` vazio — sem canal do titular LGPD | Branding ou env |
 | `W008` | `ADMIN_2FA_OBRIGATORIO=false` em prod | Remover a env |
 | `W009` | SMS real sem Turnstile — cota global de SMS vulnerável | `TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY` |
+| `W010` | Sem versão ativa do termo LGPD e/ou SAÚDE — sem LGPD o agendamento online recusa confirmar; sem SAÚDE o consentimento art. 11 fica sem prova | Painel > Termos: publicar/reativar a versão (a `0045`/`0047` criam as v1.0 se não houver ativa) |
+| `W011` | Backend anymail sem a chave do provedor (ou de provedor não suportado pelos settings), ou `DEFAULT_FROM_EMAIL` de exemplo — nada é entregue | Chave do provedor no Railway; `DEFAULT_FROM_EMAIL` do domínio verificado (§14 i) |
 
 Build: `django_vite.W001` (manifest ausente) reprova o `check --tag staticfiles` do Dockerfile.
 
@@ -734,6 +744,31 @@ termo criado, triggers). Não use `migrate aranha_estetica <anterior>`.
 - **Escalar**: mais de 1 worker gunicorn exige `REDIS_URL` (rate-limit, axes, lock de slot e quota
   de SMS são por processo no LocMem).
 - **Backups**: mantenha backup automático do Postgres (plano do Railway) ou `pg_dump` periódico.
+
+### i) E-mail em produção (provedor HTTP)
+
+O plano Hobby do Railway bloqueia SMTP de saída: sem um provedor HTTP **nenhum** e-mail sai
+(reset de senha, convites, confirmações, termos, contato, marketing). O `django-anymail` já vem
+no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_BACKEND` é
+`anymail.backends.*`, lendo da env só as chaves presentes:
+
+| Provedor | `EMAIL_BACKEND` | Chave |
+|---|---|---|
+| Resend (sugerido) | `anymail.backends.resend.EmailBackend` | `RESEND_API_KEY` |
+| Brevo | `anymail.backends.brevo.EmailBackend` | `BREVO_API_KEY` |
+| SendGrid | `anymail.backends.sendgrid.EmailBackend` | `SENDGRID_API_KEY` |
+| Mailgun | `anymail.backends.mailgun.EmailBackend` | `MAILGUN_API_KEY` (+ `MAILGUN_SENDER_DOMAIN`) |
+| Postmark | `anymail.backends.postmark.EmailBackend` | `POSTMARK_SERVER_TOKEN` |
+
+1. Crie a conta no provedor e **verifique o domínio** da clínica (registros SPF/DKIM — e de
+   preferência DMARC — no DNS do domínio). Sem domínio verificado o provedor recusa o envio.
+2. Gere a chave de API (permissão só de envio).
+3. No Railway: `EMAIL_BACKEND=anymail.backends.resend.EmailBackend`, `RESEND_API_KEY=re_...` e
+   `DEFAULT_FROM_EMAIL=Jaqueline Aranha Estética <contato@<dominio verificado>>`. Redeploy.
+4. Confira: `python manage.py check --database default` sem W003/W011 e
+   `python manage.py sendtestemail voce@exemplo.com` (erro do provedor aparece no traceback).
+5. Em operação, falhas ficam no log como `email_falha_envio` (erro do provedor: o envio conta
+   como não feito e o fluxo segue) ou `email_nao_configurado`. Timeout da API = `EMAIL_TIMEOUT`.
 
 ---
 

@@ -4,26 +4,33 @@ Rodam em todo comando de manage.py (inclusive o `migrate` do pre-deploy, entao
 aparecem no log do deploy) e ficam mudos com DEBUG=True (dev/testes).
 Levantar ImproperlyConfigured no import quebraria CI e `check --deploy` sem env.
 
-Os que consultam o banco (W004 via Branding, W006, W007 via Branding) so rodam
-quando o comando libera o banco (`migrate`, `check --database default`). No
-`migrate` eles rodam ANTES das migrations: no 1o deploy quem avisa de painel
-sem administrador e o bootstrap_admin (roda depois do migrate).
+Os que consultam o banco (W004 via Branding, W006, W007 via Branding, W010) so
+rodam quando o comando libera o banco (`migrate`, `check --database default`). No
+`migrate` eles rodam ANTES das migrations (fora da transacao do migrate_atomico):
+no 1o deploy quem avisa de painel sem administrador e o bootstrap_admin (roda
+depois do migrate), e o W010 pode aparecer antes da migration que cria os termos.
 """
 import os
+from email.utils import parseaddr
 from urllib.parse import urlparse
 
 from django.conf import settings
 from django.core import checks
+from django.db import DatabaseError
 
-from .utils.email import _BACKENDS_SEM_ENTREGA
+from .utils.email import _BACKENDS_SEM_ENTREGA, anymail_chave_faltando, esp_anymail
 from .utils.sms import sms_configurado
 
 TAG = 'config_prod'
 
 _HOSTS_LOCAIS = {'localhost', '127.0.0.1', '0.0.0.0', '::1'}
-# Runtime (utils/email) + locmem: locmem so existe no runner de testes; em prod
-# e aviso de config, nunca regra de runtime (os testes contam com ele entregando).
-_EMAIL_SEM_ENTREGA = (*_BACKENDS_SEM_ENTREGA, 'locmem.EmailBackend')
+# Runtime (utils/email) + locmem/test do anymail: so existem em testes; em prod
+# e aviso de config, nunca regra de runtime (os testes contam com eles entregando).
+_EMAIL_SEM_ENTREGA = (*_BACKENDS_SEM_ENTREGA, 'locmem.EmailBackend',
+                      'anymail.backends.test.EmailBackend')
+# DEFAULT_FROM_EMAIL de exemplo (settings/base.py): nenhum ESP aceita remetente
+# de dominio que a clinica nao verificou
+_DOMINIOS_REMETENTE_PLACEHOLDER = {'', 'clinica.com.br', 'localhost', 'example.com'}
 
 
 def _env(nome):
@@ -79,6 +86,50 @@ def ha_admin_utilizavel():
     return any(senha and is_password_usable(senha) for senha in senhas)
 
 
+def termos_sem_versao_ativa():
+    """Tipos de termo global sem versao ativa: ['LGPD', 'SAUDE'] ou parte.
+
+    Sem LGPD vigente o booking recusa confirmar; sem SAUDE o consentimento de
+    dado de saude (art. 11) fica sem prova em AceiteTermo. Levanta DatabaseError
+    se a tabela/coluna nao existir (banco antes do migrate).
+    """
+    from .models import VersaoTermo
+
+    vigentes = (('LGPD', VersaoTermo.lgpd_vigente), ('SAUDE', VersaoTermo.saude_vigente))
+    return [tipo for tipo, vigente in vigentes if vigente() is None]
+
+
+def _aviso_anymail(backend):
+    """W011: backend anymail que nao vai entregar — chave do ESP ausente (o
+    runtime ja trata como nao configurado) ou remetente de exemplo (o ESP recusa)."""
+    falta = anymail_chave_faltando(backend)
+    remetente = getattr(settings, 'DEFAULT_FROM_EMAIL', '') or ''
+    if falta:
+        if falta.endswith('_*'):
+            msg = (f'EMAIL_BACKEND={backend!r}: os settings nao repassam a chave deste '
+                   'provedor ao anymail — todo envio falha.')
+        else:
+            msg = f'EMAIL_BACKEND={backend!r} sem {falta}: todo envio falha.'
+        return checks.Warning(
+            msg + ' O site trata o e-mail como nao configurado (reset de senha, '
+                  'confirmacoes, termos, contato).',
+            hint='Defina a chave do provedor no Railway. Suportados (settings/base.py): '
+                 'resend + RESEND_API_KEY, brevo + BREVO_API_KEY, sendgrid + SENDGRID_API_KEY, '
+                 'mailgun + MAILGUN_API_KEY (+ MAILGUN_SENDER_DOMAIN), '
+                 'postmark + POSTMARK_SERVER_TOKEN.',
+            id='aranha.W011',
+        )
+    if parseaddr(remetente)[1].rpartition('@')[2].lower() in _DOMINIOS_REMETENTE_PLACEHOLDER:
+        return checks.Warning(
+            f'DEFAULT_FROM_EMAIL={remetente!r} e remetente de exemplo: o provedor HTTP '
+            'recusa remetente de dominio nao verificado (nada e entregue).',
+            hint='Verifique o dominio da clinica no provedor (SPF/DKIM) e defina '
+                 'DEFAULT_FROM_EMAIL="Nome <contato@seudominio.com.br>".',
+            id='aranha.W011',
+        )
+    return None
+
+
 @checks.register(TAG)
 def check_config_producao(app_configs=None, databases=None, **kwargs):
     if settings.DEBUG:
@@ -125,11 +176,16 @@ def check_config_producao(app_configs=None, databases=None, **kwargs):
         avisos.append(checks.Warning(
             f'EMAIL_BACKEND={backend!r}: nenhum e-mail e entregue (reset de senha, '
             'confirmacoes, termos, contato).',
-            hint='Configure um provedor: SMTP (EMAIL_BACKEND=django.core.mail.backends.smtp.'
-                 'EmailBackend + EMAIL_HOST*; o Railway so libera SMTP no plano Pro) ou um '
-                 'backend HTTP. Ajuste DEFAULT_FROM_EMAIL ao dominio verificado.',
+            hint='Configure um provedor. Railway Hobby (sem SMTP): backend HTTP do anymail, '
+                 'ex.: EMAIL_BACKEND=anymail.backends.resend.EmailBackend + RESEND_API_KEY. '
+                 'Plano Pro: SMTP (django.core.mail.backends.smtp.EmailBackend + EMAIL_HOST*). '
+                 'DEFAULT_FROM_EMAIL = remetente do dominio verificado no provedor.',
             id='aranha.W003',
         ))
+    elif esp_anymail(backend):
+        aviso = _aviso_anymail(backend)
+        if aviso:
+            avisos.append(aviso)
 
     if not _whatsapp_configurado(databases):
         avisos.append(checks.Warning(
@@ -159,6 +215,20 @@ def check_config_producao(app_configs=None, databases=None, **kwargs):
                 hint='Defina ADMIN_EMAIL/ADMIN_PASSWORD (e ADMIN_NOME) no Railway e faca '
                      'redeploy (o bootstrap_admin do pre-deploy cria/reativa a conta).',
                 id='aranha.W006',
+            ))
+        try:
+            sem_termo = termos_sem_versao_ativa()
+        except DatabaseError:  # banco novo/antigo (antes do migrate): nada a dizer
+            sem_termo = []
+        if sem_termo:
+            avisos.append(checks.Warning(
+                f'Sem versao ativa do termo {" e ".join(sem_termo)}: sem LGPD o agendamento '
+                'online recusa confirmar; sem SAUDE o consentimento de dado de saude '
+                '(art. 11) fica sem prova (AceiteTermo).',
+                hint='Painel > Termos: publique (ou reative) a versao do tipo que falta. As '
+                     'migrations 0045/0047 criam as v1.0 quando nao ha ativa — no pre-deploy '
+                     'este aviso roda antes delas; confira com `check --database default`.',
+                id='aranha.W010',
             ))
 
     if '@' not in _config_efetiva('CLINIC_EMAIL', databases):

@@ -9,6 +9,10 @@ Usa Django EmailMultiAlternatives com headers RFC 8058 para marketing.
 Falha fechada (contrato 7): fora de DEBUG, backend console/dummy/filebased =
 e-mail nao configurado -> as funcoes retornam False (nada de "sucesso" so no
 log). Fonte unica do contrato: outros modulos importam email_configurado daqui.
+
+Provedor HTTP (django-anymail; o Railway Hobby bloqueia SMTP) conta como
+entrega real quando a chave do ESP esta em settings.ANYMAIL (montado da env em
+settings/base.py); sem ela todo envio falharia -> tambem "nao configurado".
 """
 import logging
 
@@ -23,9 +27,47 @@ from .pii import mask_email
 logger = logging.getLogger(__name__)
 
 # Backends que nao entregam nada (imprimem/descartam/gravam no disco efemero
-# do container). locmem NAO entra: e o backend do test runner (so o check de
-# deploy o trata como aviso).
+# do container; inclui anymail.backends.console). locmem NAO entra: e o backend
+# do test runner (so o check de deploy o trata como aviso, idem o test do anymail).
 _BACKENDS_SEM_ENTREGA = ('console.EmailBackend', 'dummy.EmailBackend', 'filebased.EmailBackend')
+
+# django-anymail: ESP (modulo em anymail.backends) -> chave exigida em
+# settings.ANYMAIL. settings/base.py so repassa da env as chaves destes ESPs.
+ANYMAIL_CHAVE_POR_ESP = {
+    'resend': 'RESEND_API_KEY',
+    'brevo': 'BREVO_API_KEY',
+    'sendgrid': 'SENDGRID_API_KEY',
+    'mailgun': 'MAILGUN_API_KEY',
+    'postmark': 'POSTMARK_SERVER_TOKEN',
+}
+# Backends do anymail que nao falam com ESP (sem chave): console/test
+_ANYMAIL_SEM_ESP = ('console', 'test')
+
+
+def esp_anymail(backend: str) -> str:
+    """'resend' p/ 'anymail.backends.resend.EmailBackend'; '' se nao e anymail."""
+    partes = (backend or '').split('.')
+    if len(partes) >= 3 and partes[:2] == ['anymail', 'backends']:
+        return partes[2]
+    return ''
+
+
+def anymail_chave_faltando(backend=None) -> str:
+    """Chave do ESP ausente em settings.ANYMAIL ('' = nada falta ou nao e anymail).
+
+    ESP fora de ANYMAIL_CHAVE_POR_ESP (os settings nao leem a chave dele da env)
+    devolve '<ESP>_*'.
+    """
+    if backend is None:
+        backend = getattr(settings, 'EMAIL_BACKEND', '') or ''
+    esp = esp_anymail(backend)
+    if not esp or esp in _ANYMAIL_SEM_ESP:
+        return ''
+    chave = ANYMAIL_CHAVE_POR_ESP.get(esp)
+    if chave is None:
+        return f'{esp.upper()}_*'
+    valor = (getattr(settings, 'ANYMAIL', None) or {}).get(chave)
+    return '' if str(valor or '').strip() else chave
 
 
 def email_configurado() -> bool:
@@ -33,7 +75,10 @@ def email_configurado() -> bool:
     if settings.DEBUG:
         return True
     backend = getattr(settings, 'EMAIL_BACKEND', '') or ''
-    return not backend.endswith(_BACKENDS_SEM_ENTREGA)
+    if backend.endswith(_BACKENDS_SEM_ENTREGA):
+        return False
+    # anymail sem a chave do ESP: todo envio levantaria AnymailConfigurationError
+    return not anymail_chave_faltando(backend)
 
 
 def _nome_clinica() -> str:

@@ -17,6 +17,9 @@ Detalhes:
   esperando sem fim, com as tabelas ja alteradas travadas (requests enfileiram
   atras). Com o timeout o migrate falha (LockNotAvailable), tudo volta e o
   deploy e refeito depois.
+- Falhou: escreve em stderr 'migrate_atomico: FALHOU - transacao desfeita;
+  banco continua em <app.ultima_migration>' (lida de django_migrations apos o
+  rollback) e re-levanta a excecao (pre-deploy sai != 0, deploy antigo no ar).
 - Depois do COMMIT o codigo antigo roda contra o schema novo ate o container
   novo passar no healthcheck: upgrades com rename/delete (ex.: 0026 -> atual)
   em horario sem movimento.
@@ -27,6 +30,7 @@ Detalhes:
 """
 from django.core.management.commands.migrate import Command as MigrateCommand
 from django.db import DEFAULT_DB_ALIAS, connections, transaction
+from django.db.migrations.recorder import MigrationRecorder
 
 
 class Command(MigrateCommand):
@@ -34,6 +38,9 @@ class Command(MigrateCommand):
 
     # SET LOCAL: vale so ate o fim da transacao do upgrade
     LOCK_TIMEOUT_SQL = "SET LOCAL lock_timeout = '5s'"
+
+    # App cujo estado o log de falha informa (a unica com migrations proprias)
+    APP_PRINCIPAL = 'aranha_estetica'
 
     _alias = DEFAULT_DB_ALIAS
     _atomico = False
@@ -52,8 +59,25 @@ class Command(MigrateCommand):
                 with connection.cursor() as cursor:
                     cursor.execute(self.LOCK_TIMEOUT_SQL)
                 return super().handle(*args, **options)
+        except Exception:
+            # Log do pre-deploy: deixa explicito que nada ficou pela metade
+            self.stderr.write(
+                'migrate_atomico: FALHOU - transacao desfeita; banco continua em '
+                f'{self._ultima_migration_aplicada(options.get("app_label"))}'
+            )
+            raise
         finally:
             self._atomico = False
+
+    def _ultima_migration_aplicada(self, app_label=None):
+        """'<app>.<migration>' mais recente em django_migrations (apos o rollback)."""
+        app = app_label or self.APP_PRINCIPAL
+        try:
+            aplicadas = MigrationRecorder(connections[self._alias]).applied_migrations()
+        except Exception as exc:  # noqa: BLE001 — conexao caiu: nao mascara o erro original
+            return f'<desconhecida: {type(exc).__name__} ao ler django_migrations>'
+        nomes = sorted(nome for (label, nome) in aplicadas if label == app)
+        return f'{app}.{nomes[-1]}' if nomes else f'{app} sem nenhuma migration aplicada'
 
     def migration_progress_callback(self, action, migration=None, fake=False):
         # Antes do " OK": violacao de FK aparece atribuida a migration certa
