@@ -173,7 +173,7 @@ def api_dias_disponiveis(request):
             if dia not in feriados:
                 dia_semana = dia.isoweekday() % 7 + 1
                 for prof in profissionais:
-                    if dia > hoje + timedelta(days=prof.max_advance_dias):
+                    if dia > hoje + timedelta(days=prof.antecedencia_maxima_dias):
                         continue
                     if (prof.pk, dia) in folgas:
                         continue

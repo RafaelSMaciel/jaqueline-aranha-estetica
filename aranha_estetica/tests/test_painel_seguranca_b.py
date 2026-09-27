@@ -7,7 +7,7 @@ F3: cancelar pacote grava CompraPacote.valor_reembolsado; receita = pago -
     reembolsado (cancelado entra com o valor retido).
 F7: ProntuarioVersao no Django admin so leitura, com trilha de leitura.
 F8: rotas de link magico (PREFIXOS_TOKEN) saem com no-store.
-Vinculo do prontuario acompanha o max_advance_dias do profissional; ficha do
+Vinculo do prontuario acompanha o antecedencia_maxima_dias do profissional; ficha do
 cliente registra "Indicada por" (cashback de indicacao) com auditoria.
 """
 import json
@@ -389,7 +389,7 @@ class NoStoreRotasTokenTests(TestCase):
 
 
 # ════════════════════════════════════════════════════════════════════
-# Vinculo do prontuario: janela futura = max(60, max_advance_dias)
+# Vinculo do prontuario: janela futura = max(60, antecedencia_maxima_dias)
 # ════════════════════════════════════════════════════════════════════
 class VinculoJanelaFuturaTests(TestCase):
     def setUp(self):
@@ -401,13 +401,13 @@ class VinculoJanelaFuturaTests(TestCase):
         return criar_atendimento(self.cli, prof, proc, data_hora=quando, status='AGENDADO')
 
     def test_antecedencia_maior_que_60_amplia_a_janela(self):
-        prof = criar_profissional(nome='Dra. Longe', max_advance_dias=120)
+        prof = criar_profissional(nome='Dra. Longe', antecedencia_maxima_dias=120)
         at = self._marcado_em(prof, 100)
         self.assertEqual(_vinculo(prof, self.cli), at)
         self.assertEqual(_vinculo(prof, self.cli, escrita=True), at)
 
     def test_antecedencia_menor_mantem_60_dias(self):
-        prof = criar_profissional(nome='Dra. Perto', max_advance_dias=30)
+        prof = criar_profissional(nome='Dra. Perto', antecedencia_maxima_dias=30)
         at = self._marcado_em(prof, 50)
         self.assertEqual(_vinculo(prof, self.cli), at)
         Atendimento.objects.filter(pk=at.pk).update(

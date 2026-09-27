@@ -637,7 +637,7 @@ def admin_termos(request):
 def admin_criar_termo(request):
     """Publica nova versao de termo.
 
-    So 1 versao ativa por escopo (uniq_termo_ativo_*): a vigente do mesmo
+    So 1 versao ativa por escopo (uniq_versao_termo_ativo_*): a vigente do mesmo
     tipo/procedimento e arquivada na mesma transacao. Clientes que aceitaram
     a versao anterior passam a ter o termo novo pendente (versionamento).
     """

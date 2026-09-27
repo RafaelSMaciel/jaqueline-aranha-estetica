@@ -33,7 +33,7 @@ class SlotService:
     (folga / horario diferente), regra semanal (todos os turnos do dia),
     atendimentos ativos (sobreposicao no intervalo inteiro + buffers),
     BloqueioAgenda (pontual + recorrente, do profissional ou global),
-    min_notice_horas e max_advance_dias do profissional."""
+    antecedencia_minima_horas e antecedencia_maxima_dias do profissional."""
 
     INTERVALO = timedelta(minutes=30)
 
@@ -51,8 +51,8 @@ class SlotService:
         agora = timezone.localtime()
         if data_selecionada < agora.date():
             return []
-        limite_min_notice = agora + timedelta(hours=profissional.min_notice_horas)
-        limite_max_advance = (agora + timedelta(days=profissional.max_advance_dias)).date()
+        limite_min_notice = agora + timedelta(hours=profissional.antecedencia_minima_horas)
+        limite_max_advance = (agora + timedelta(days=profissional.antecedencia_maxima_dias)).date()
         if data_selecionada > limite_max_advance:
             return []
 

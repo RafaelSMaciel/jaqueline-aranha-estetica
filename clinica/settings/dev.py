@@ -35,7 +35,7 @@ if _is_testing:
     # O runner roda os checks com DEBUG=False: os avisos de config de producao
     # (aranha/checks.py) viram ruido em toda execucao. Testados direto em
     # tests/test_deploy_config.py.
-    SILENCED_SYSTEM_CHECKS = [f'aranha.W{i:03d}' for i in range(1, 12)]
+    SILENCED_SYSTEM_CHECKS = [*SILENCED_SYSTEM_CHECKS, *(f'aranha.W{i:03d}' for i in range(1, 12))]
 
 if not _is_testing:
     try:

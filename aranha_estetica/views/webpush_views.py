@@ -77,7 +77,7 @@ def webpush_subscribe(request):
     sub, created = AssinaturaPush.objects.update_or_create(
         endpoint=endpoint,
         defaults={
-            'user': request.user,
+            'usuario': request.user,
             'p256dh': p256dh,
             'auth': auth,
             'user_agent': user_agent,
@@ -100,6 +100,6 @@ def webpush_unsubscribe(request):
         return JsonResponse({'ok': False, 'erro': 'endpoint ausente'}, status=400)
 
     deleted, _ = AssinaturaPush.objects.filter(
-        user=request.user, endpoint=endpoint
+        usuario=request.user, endpoint=endpoint
     ).delete()
     return JsonResponse({'ok': True, 'deleted': deleted})

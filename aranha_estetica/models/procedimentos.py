@@ -44,29 +44,30 @@ class Procedimento(models.Model):
     class Meta:
         managed = True
         db_table = 'procedimento'
+        db_table_comment = 'Catalogo de servicos. exige_retorno dispara o retorno gratuito automatico (F-RET).'
         indexes = [
             models.Index(fields=['ativo'], name='idx_procedimento_ativo'),
             models.Index(fields=['categoria'], name='idx_procedimento_categoria'),
         ]
         constraints = [
             models.CheckConstraint(
-                check=models.Q(duracao_minutos__gt=0),
+                condition=models.Q(duracao_minutos__gt=0),
                 name='chk_procedimento_duracao_positiva'
             ),
             models.CheckConstraint(
-                check=models.Q(buffer_minutos__gte=0) & models.Q(buffer_minutos__lte=120),
+                condition=models.Q(buffer_minutos__gte=0) & models.Q(buffer_minutos__lte=120),
                 name='chk_procedimento_buffer_range'
             ),
             models.CheckConstraint(
-                check=models.Q(categoria__in=['FACIAL', 'CORPORAL', 'CAPILAR', 'OUTRO']),
+                condition=models.Q(categoria__in=['FACIAL', 'CORPORAL', 'CAPILAR', 'OUTRO']),
                 name='chk_procedimento_categoria'
             ),
             models.CheckConstraint(
-                check=models.Q(modalidade__in=['PRESENCIAL', 'ONLINE', 'HIBRIDO']),
+                condition=models.Q(modalidade__in=['PRESENCIAL', 'ONLINE', 'HIBRIDO']),
                 name='chk_procedimento_modalidade'
             ),
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(exige_retorno=False) |
                     models.Q(
                         retorno_minimo_dias__isnull=False,
@@ -94,17 +95,24 @@ class Procedimento(models.Model):
 
 
 class Habilitacao(models.Model):
-    profissional = models.ForeignKey(Profissional, on_delete=models.CASCADE)
+    profissional = models.ForeignKey(Profissional, on_delete=models.CASCADE, db_index=False)
     procedimento = models.ForeignKey(Procedimento, on_delete=models.CASCADE)
 
     class Meta:
         managed = True
         db_table = 'habilitacao'
-        unique_together = (('profissional', 'procedimento'),)
+        db_table_comment = 'Procedimentos que cada profissional esta habilitado a realizar.'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['profissional', 'procedimento'],
+                name='uniq_habilitacao_profissional_procedimento',
+            ),
+        ]
 
 
 class Preco(models.Model):
-    procedimento = models.ForeignKey(Procedimento, on_delete=models.CASCADE)
+    # db_index=False: prefixo de uniq_preco_vigencia
+    procedimento = models.ForeignKey(Procedimento, on_delete=models.CASCADE, db_index=False)
     profissional = models.ForeignKey(
         Profissional, on_delete=models.CASCADE, blank=True, null=True
     )
@@ -117,12 +125,12 @@ class Preco(models.Model):
     class Meta:
         managed = True
         db_table = 'preco'
-        indexes = [
-            models.Index(fields=['procedimento', 'profissional', '-vigente_desde'], name='idx_preco_lookup'),
-        ]
+        db_table_comment = 'Preco por procedimento com vigencia; profissional nulo = preco-base.'
+        # idx_preco_lookup removido: uniq_preco_vigencia (mesmas colunas) serve
+        # o ORDER BY -vigente_desde por varredura reversa do indice
         constraints = [
             models.CheckConstraint(
-                check=models.Q(valor__gte=0),
+                condition=models.Q(valor__gte=0),
                 name='chk_preco_valor_positivo'
             ),
             # 1 preco por vigencia: par com profissional e, separado, preco-base (NULL)
@@ -154,31 +162,32 @@ class Promocao(models.Model):
     class Meta:
         managed = True
         db_table = 'promocao'
+        db_table_comment = 'Promocao por percentual ou preco fixo, com periodo de vigencia; procedimento nulo = geral.'
         indexes = [
             models.Index(fields=['ativa', 'data_inicio', 'data_fim'], name='idx_promocao_vigente'),
         ]
         constraints = [
             models.CheckConstraint(
-                check=models.Q(data_fim__gte=models.F('data_inicio')),
+                condition=models.Q(data_fim__gte=models.F('data_inicio')),
                 name='chk_promocao_data_fim_valida'
             ),
             models.CheckConstraint(
-                check=models.Q(desconto_percentual__gte=0) & models.Q(desconto_percentual__lte=100),
+                condition=models.Q(desconto_percentual__gte=0) & models.Q(desconto_percentual__lte=100),
                 name='chk_promocao_desconto_0_100',
             ),
             models.CheckConstraint(
-                check=models.Q(preco_promocional__isnull=True) | models.Q(preco_promocional__gte=0),
+                condition=models.Q(preco_promocional__isnull=True) | models.Q(preco_promocional__gte=0),
                 name='chk_promocao_preco_positivo',
             ),
             # XOR: desconto OU preco fixo, nunca ambos (ambiguidade de qual vale)
             models.CheckConstraint(
-                check=~(models.Q(desconto_percentual__gt=0) & models.Q(preco_promocional__isnull=False)),
+                condition=~(models.Q(desconto_percentual__gt=0) & models.Q(preco_promocional__isnull=False)),
                 name='chk_promocao_desconto_xor_preco',
             ),
             # Promocao geral (sem procedimento) so por percentual: preco fixo
             # geral viraria teto p/ todo o catalogo (utils.precos a ignora)
             models.CheckConstraint(
-                check=models.Q(procedimento__isnull=False) | models.Q(preco_promocional__isnull=True),
+                condition=models.Q(procedimento__isnull=False) | models.Q(preco_promocional__isnull=True),
                 name='chk_promocao_geral_so_percentual',
             ),
         ]

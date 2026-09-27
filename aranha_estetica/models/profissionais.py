@@ -16,8 +16,8 @@ class Profissional(models.Model):
     foto_url = models.URLField(max_length=600, blank=True, default='')
     bio = models.TextField(blank=True, default='', help_text='Biografia publica do profissional')
     ativo = models.BooleanField(default=True)
-    min_notice_horas = models.SmallIntegerField(default=2)
-    max_advance_dias = models.SmallIntegerField(default=60)
+    antecedencia_minima_horas = models.SmallIntegerField(default=2)
+    antecedencia_maxima_dias = models.SmallIntegerField(default=60)
     ics_token = models.CharField(max_length=64, unique=True, blank=True, null=True)
     # Google Calendar sync — preenchido apos OAuth dance
     gcal_refresh_token = models.TextField(blank=True, default='')
@@ -28,17 +28,18 @@ class Profissional(models.Model):
     class Meta:
         managed = True
         db_table = 'profissional'
+        db_table_comment = 'Profissional de estetica. 1:1 opcional com usuario; antecedencia minima/maxima do agendamento online.'
         indexes = [
             models.Index(fields=['ativo'], name='idx_profissional_ativo'),
         ]
         constraints = [
             models.CheckConstraint(
-                check=models.Q(min_notice_horas__gte=0) & models.Q(min_notice_horas__lte=720),
-                name='chk_profissional_min_notice_range',
+                condition=models.Q(antecedencia_minima_horas__gte=0) & models.Q(antecedencia_minima_horas__lte=720),
+                name='chk_profissional_antecedencia_minima',
             ),
             models.CheckConstraint(
-                check=models.Q(max_advance_dias__gte=1) & models.Q(max_advance_dias__lte=365),
-                name='chk_profissional_max_advance_range',
+                condition=models.Q(antecedencia_maxima_dias__gte=1) & models.Q(antecedencia_maxima_dias__lte=365),
+                name='chk_profissional_antecedencia_maxima',
             ),
         ]
 
@@ -78,13 +79,14 @@ class DisponibilidadeProfissional(models.Model):
     class Meta:
         managed = True
         db_table = 'disponibilidade_profissional'
+        db_table_comment = 'Grade semanal de atendimento do profissional (dia_semana 1=Dom..7=Sab).'
         constraints = [
             models.CheckConstraint(
-                check=models.Q(dia_semana__gte=1) & models.Q(dia_semana__lte=7),
+                condition=models.Q(dia_semana__gte=1) & models.Q(dia_semana__lte=7),
                 name='chk_disponibilidade_dia_semana'
             ),
             models.CheckConstraint(
-                check=models.Q(hora_fim__gt=models.F('hora_inicio')),
+                condition=models.Q(hora_fim__gt=models.F('hora_inicio')),
                 name='chk_disponibilidade_hora_fim_apos_inicio',
             ),
             models.UniqueConstraint(
@@ -110,9 +112,10 @@ class BloqueioAgenda(models.Model):
     class Meta:
         managed = True
         db_table = 'bloqueio_agenda'
+        db_table_comment = 'Bloqueio de agenda (unico ou recorrente por RRULE); profissional nulo = clinica inteira.'
         constraints = [
             models.CheckConstraint(
-                check=models.Q(data_hora_fim__gt=models.F('data_hora_inicio')),
+                condition=models.Q(data_hora_fim__gt=models.F('data_hora_inicio')),
                 name='chk_bloqueio_fim_maior_inicio'
             ),
         ]
@@ -198,6 +201,7 @@ class ExcecaoDisponibilidade(models.Model):
     class Meta:
         managed = True
         db_table = 'excecao_disponibilidade'
+        db_table_comment = 'Excecao da grade semanal numa data: FOLGA ou HORARIO_DIFERENTE.'
         indexes = [
             models.Index(fields=['profissional', 'data'], name='idx_excecao_prof_data'),
         ]
@@ -207,7 +211,7 @@ class ExcecaoDisponibilidade(models.Model):
                 name='uniq_excecao_prof_data_tipo',
             ),
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(tipo='FOLGA') |
                     (
                         models.Q(tipo='HORARIO_DIFERENTE')

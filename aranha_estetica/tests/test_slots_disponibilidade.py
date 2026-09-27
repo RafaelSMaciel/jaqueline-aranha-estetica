@@ -32,7 +32,7 @@ def _dia_semana(d):
 class SlotsDisponibilidadeTests(TestCase):
     def setUp(self):
         self.prof = Profissional.objects.create(
-            nome='Dra Teste', ativo=True, min_notice_horas=0, max_advance_dias=60,
+            nome='Dra Teste', ativo=True, antecedencia_minima_horas=0, antecedencia_maxima_dias=60,
         )
         self.proc = Procedimento.objects.create(
             nome='Limpeza', duracao_minutos=30, buffer_minutos=0, ativo=True,
@@ -99,7 +99,7 @@ class SlotServiceCorrecoesTests(TestCase):
 
     def setUp(self):
         self.prof = Profissional.objects.create(
-            nome='Dra Slots', ativo=True, min_notice_horas=0, max_advance_dias=60,
+            nome='Dra Slots', ativo=True, antecedencia_minima_horas=0, antecedencia_maxima_dias=60,
         )
         self.proc60 = Procedimento.objects.create(
             nome='Botox', duracao_minutos=60, buffer_minutos=0, ativo=True,
@@ -175,7 +175,7 @@ class SlotServiceCorrecoesTests(TestCase):
         ))
 
     def test_min_notice_bloqueia_horario_proximo(self):
-        self.prof.min_notice_horas = 24 * 30
+        self.prof.antecedencia_minima_horas = 24 * 30
         self.prof.save()
         self.assertEqual(SlotService.slots_livres(self.prof, self.dia, self.proc60), [])
 
@@ -196,7 +196,7 @@ class ApiDisponibilidadeTests(TestCase):
         cache.clear()
         Feriado.objects.all().delete()
         self.prof = Profissional.objects.create(
-            nome='Dra Api', ativo=True, min_notice_horas=0, max_advance_dias=60,
+            nome='Dra Api', ativo=True, antecedencia_minima_horas=0, antecedencia_maxima_dias=60,
         )
         self.proc = Procedimento.objects.create(
             nome='Limpeza', duracao_minutos=30, buffer_minutos=0, ativo=True,
@@ -265,7 +265,7 @@ class ApiDisponibilidadeTests(TestCase):
         self.assertEqual(resp.status_code, 400)
 
     def test_filtro_por_profissional_preselecionado(self):
-        outra = Profissional.objects.create(nome='Dra Outra', ativo=True, min_notice_horas=0)
+        outra = Profissional.objects.create(nome='Dra Outra', ativo=True, antecedencia_minima_horas=0)
         Habilitacao.objects.create(profissional=outra, procedimento=self.proc)
         DisponibilidadeProfissional.objects.create(
             profissional=outra, dia_semana=_dia_semana(self.dia),

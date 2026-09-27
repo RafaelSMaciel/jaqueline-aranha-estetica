@@ -254,6 +254,13 @@ if 'test' in sys.argv or 'test_coverage' in sys.argv:
             'NAME': BASE_DIR / 'db_test.sqlite3',
         }
 
+# SQLite (dev e testes) nao tem COMMENT ON TABLE: o db_table_comment dos models
+# (docs/specs/padrao-sql.md) so vale no Postgres. Sem isto o check lista um
+# aviso por tabela.
+SILENCED_SYSTEM_CHECKS = (
+    ['models.W046'] if DATABASES['default']['ENGINE'].endswith('sqlite3') else []
+)
+
 
 # ─── AUTH ────────────────────────────────────────────────────────────
 AUTH_PASSWORD_VALIDATORS = [

@@ -88,6 +88,7 @@ class Cliente(models.Model):
     class Meta:
         managed = True
         db_table = 'cliente'
+        db_table_comment = 'Cliente da clinica. Soft delete (deletado_em); telefone so digitos e chave natural do booking (uniq_cliente_telefone_ativo).'
         indexes = [
             models.Index(fields=['telefone'], name='idx_cliente_telefone'),
             models.Index(fields=['nome'], name='idx_cliente_nome'),
@@ -115,7 +116,7 @@ class Cliente(models.Model):
                 name='uniq_cliente_cpf_ativo',
             ),
             models.CheckConstraint(
-                check=~models.Q(indicado_por_id=models.F('id')),
+                condition=~models.Q(indicado_por_id=models.F('id')),
                 name='chk_cliente_nao_indica_si_mesmo',
             ),
         ]

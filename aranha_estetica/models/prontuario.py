@@ -45,6 +45,7 @@ class Prontuario(models.Model):
     class Meta:
         managed = True
         db_table = 'prontuario'
+        db_table_comment = 'Ficha de saude permanente do cliente. respostas_extras (JSONB) = questionario configuravel.'
 
     def __str__(self):
         return f'Prontuario {self.cliente_id}'
@@ -77,7 +78,9 @@ class ProntuarioVersao(models.Model):
     excluida (no PG, trigger trg_prontuario_versao_imutavel — 0046); autor
     SET_NULL + autor_nome: excluir o usuario nao apaga a autoria.
     """
-    prontuario = models.ForeignKey(Prontuario, on_delete=models.PROTECT, related_name='versoes')
+    prontuario = models.ForeignKey(
+        Prontuario, on_delete=models.PROTECT, related_name='versoes', db_index=False,
+    )
     autor = models.ForeignKey('Usuario', on_delete=models.SET_NULL, null=True, blank=True)
     autor_nome = models.CharField(max_length=100, blank=True, default='')
     criado_em = models.DateTimeField(auto_now_add=True)
@@ -88,8 +91,9 @@ class ProntuarioVersao(models.Model):
     class Meta:
         managed = True
         db_table = 'prontuario_versao'
+        db_table_comment = 'Historico append-only da ficha de saude (foto anterior a cada edicao). Imutavel por trigger.'
         indexes = [
-            models.Index(fields=['prontuario', '-criado_em'], name='idx_pront_versao'),
+            models.Index(fields=['prontuario', '-criado_em'], name='idx_prontuario_versao_criado'),
         ]
 
     def __str__(self):
@@ -148,7 +152,7 @@ class AnotacaoSessao(models.Model):
     nao reescreve o historico).
     """
     atendimento = models.ForeignKey(
-        'Atendimento', on_delete=models.PROTECT, related_name='anotacoes'
+        'Atendimento', on_delete=models.PROTECT, related_name='anotacoes', db_index=False,
     )
     autor = models.ForeignKey('Usuario', on_delete=models.PROTECT, null=True, blank=True)
     autor_nome = models.CharField(max_length=100, blank=True, default='')
@@ -158,8 +162,9 @@ class AnotacaoSessao(models.Model):
     class Meta:
         managed = True
         db_table = 'anotacao_sessao'
+        db_table_comment = 'Anotacao clinica de um atendimento, com autor e snapshot do nome.'
         indexes = [
-            models.Index(fields=['atendimento', '-criado_em'], name='idx_anot_atn_criado'),
+            models.Index(fields=['atendimento', '-criado_em'], name='idx_anotacao_sessao_atend_data'),
         ]
 
     def save(self, *args, **kwargs):

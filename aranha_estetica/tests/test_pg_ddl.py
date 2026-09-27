@@ -33,11 +33,18 @@ CONSTRAINTS_SO_PG = {
     'chk_cliente_cpf_digits': '0034',
     'chk_prontuario_extras_objeto': '0043',
     'chk_resposta_anamnese_objeto': '0043',
-    'chk_formulario_schema_lista': '0043',
+    'chk_formulario_anamnese_schema_lista': '0043 (nome da 0049)',
 }
 # tgname -> (migration que cria, tabela). A 0047 (termo SAUDE, reembolso,
 # promocao geral) so cria CHECKs de model (existem no SQLite tambem) e nao
 # recria versao_termo: os triggers da 0046 tem de continuar la.
+# Funcoes de trigger (prefixo fn_ desde a 0049) -> migration que cria
+FUNCOES_SO_PG = {
+    'fn_movimento_carteira_imutavel': '0038',
+    'fn_aceite_termo_imutavel': '0046',
+    'fn_versao_termo_imutavel': '0046',
+    'fn_prontuario_versao_imutavel': '0046',
+}
 TRIGGERS_SO_PG = {
     'trg_movimento_carteira_imutavel': ('0038', 'movimento_carteira'),
     'trg_aceite_termo_imutavel': ('0046', 'aceite_termo'),
@@ -71,8 +78,13 @@ class DDLSoPostgresTests(TestCase):
                 [list(TRIGGERS_SO_PG)],
             )
             triggers = dict(cursor.fetchall())
+            cursor.execute(
+                'SELECT proname FROM pg_proc WHERE proname = ANY(%s)', [list(FUNCOES_SO_PG)],
+            )
+            funcoes = {row[0] for row in cursor.fetchall()}
         self.assertEqual(constraints, set(CONSTRAINTS_SO_PG))
         self.assertEqual(triggers, {nome: tabela for nome, (_, tabela) in TRIGGERS_SO_PG.items()})
+        self.assertEqual(funcoes, set(FUNCOES_SO_PG))
 
     def _outro(self, prof=None, status='PENDENTE', delta=10):
         return Atendimento.objects.create(
