@@ -147,7 +147,7 @@
    {
     "nome": "Profissional",
     "tabela": "profissional",
-    "descricao": "Profissional que atende: antecedência mínima (min_notice_horas) e máxima (max_advance_dias) do agendamento, token do feed iCal (rotacionável) e integração com o Google Calendar.",
+    "descricao": "Profissional que atende: antecedência mínima (antecedencia_minima_horas) e máxima (antecedencia_maxima_dias) do agendamento, token do feed iCal (rotacionável) e integração com o Google Calendar.",
     "campos": [
      {
       "nome": "nome",
@@ -174,11 +174,11 @@
       "tipo": "BooleanField (default=True)"
      },
      {
-      "nome": "min_notice_horas",
+      "nome": "antecedencia_minima_horas",
       "tipo": "SmallIntegerField (default=2)"
      },
      {
-      "nome": "max_advance_dias",
+      "nome": "antecedencia_maxima_dias",
       "tipo": "SmallIntegerField (default=60)"
      },
      {
@@ -208,8 +208,8 @@
      "get_horarios_disponiveis: delega ao SlotService.slots_livres"
     ],
     "constraints": [
-     "chk_profissional_min_notice_range",
-     "chk_profissional_max_advance_range"
+     "chk_profissional_antecedencia_minima",
+     "chk_profissional_antecedencia_maxima"
     ]
    },
    {
@@ -448,7 +448,7 @@
      }
     ],
     "metodos": [
-     "unique_together (profissional, procedimento)"
+     "uniq_habilitacao_profissional_procedimento"
     ],
     "constraints": []
    },
@@ -658,14 +658,14 @@
      "aprovar / confirmar / cancelar / marcar_realizado / marcar_falta / marcar_reagendado: transições da FSM + evento de domínio",
      "clean: fim após início e sem conflito com outro atendimento ativo do profissional",
      "manager: ativos, futuros, passados, hoje, pendentes_aprovacao, realizados, conflito_com",
-     "constraints: EXCLUDE excl_atendimento_sobreposicao (PG), uniq_retorno_por_origem, CHECKs de status/retorno"
+     "constraints: EXCLUDE excl_atendimento_sobreposicao (PG), uniq_atendimento_retorno_por_origem, CHECKs de status/retorno"
     ],
     "constraints": [
-     "chk_atendimento_status_v2",
+     "chk_atendimento_status",
      "chk_atendimento_fim_apos_inicio",
-     "chk_retorno_tem_origem",
-     "chk_retorno_valor_zero",
-     "uniq_retorno_por_origem"
+     "chk_atendimento_retorno_tem_origem",
+     "chk_atendimento_retorno_valor_zero",
+     "uniq_atendimento_retorno_por_origem"
     ]
    },
    {
@@ -791,7 +791,7 @@
      }
     ],
     "metodos": [
-     "unique_together (pacote, procedimento); CHECK quantidade > 0"
+     "uniq_item_pacote_pacote_procedimento; CHECK quantidade > 0"
     ],
     "constraints": [
      "chk_item_pacote_qtd_positiva"
@@ -844,7 +844,7 @@
      "CHECK valor_pago >= 0; cliente PROTECT"
     ],
     "constraints": [
-     "chk_pacote_cliente_status",
+     "chk_compra_pacote_status",
      "chk_compra_pacote_valor_pago"
     ]
    },
@@ -1242,7 +1242,7 @@
     ],
     "constraints": [
      "chk_lista_espera_turno",
-     "uniq_espera_ativa"
+     "uniq_lista_espera_ativa"
     ]
    },
    {
@@ -1410,7 +1410,7 @@
      "email_para_telefone: chave canônica sms+<dígitos>@shivazen.local"
     ],
     "constraints": [
-     "chk_otp_tentativas_teto"
+     "chk_codigo_otp_tentativas_teto"
     ]
    },
    {
@@ -1551,7 +1551,7 @@
      "UNIQUE (carteira, atendimento) para CASHBACK_INDICACAO"
     ],
     "constraints": [
-     "uniq_cashback_indicacao_por_atendimento"
+     "uniq_movimento_carteira_indicacao_por_atendimento"
     ]
    },
    {
@@ -1602,7 +1602,7 @@
      "CHECKs percentual XOR valor e percentual 0..100"
     ],
     "constraints": [
-     "chk_regra_comissao_percentual_xor_fixo",
+     "chk_regra_comissao_percentual_xor_valor",
      "chk_regra_comissao_percentual_0_100"
     ]
    },
@@ -1662,7 +1662,7 @@
      "UNIQUE 1 comissão PENDENTE/PAGA por atendimento"
     ],
     "constraints": [
-     "uniq_comissao_ativa_por_atendimento"
+     "uniq_movimento_comissao_ativa_por_atendimento"
     ]
    },
    {
@@ -1712,8 +1712,8 @@
     ],
     "constraints": [
      "chk_versao_termo_tipo",
-     "uniq_termo_ativo_por_escopo",
-     "uniq_termo_ativo_global"
+     "uniq_versao_termo_ativo_por_escopo",
+     "uniq_versao_termo_ativo_global"
     ]
    },
    {
@@ -1769,7 +1769,7 @@
      "UNIQUE (cliente, versao_termo); cliente PROTECT"
     ],
     "constraints": [
-     "uniq_aceite_cliente_versao"
+     "uniq_aceite_termo_cliente_versao"
     ]
    },
    {
@@ -1808,7 +1808,7 @@
     ],
     "relacoes": [
      {
-      "campo": "user",
+      "campo": "usuario",
       "tipo": "FK",
       "alvo": "Usuario",
       "multiplicidade": "1",
@@ -2004,12 +2004,12 @@
    {
     "id": "RN07",
     "titulo": "Antecedência mínima",
-    "descricao": "Por profissional: min_notice_horas (padrão 2 h, faixa 0–720)."
+    "descricao": "Por profissional: antecedencia_minima_horas (padrão 2 h, faixa 0–720)."
    },
    {
     "id": "RN08",
     "titulo": "Antecedência máxima",
-    "descricao": "Por profissional: max_advance_dias (padrão 60 dias, faixa 1–365). Não há teto global."
+    "descricao": "Por profissional: antecedencia_maxima_dias (padrão 60 dias, faixa 1–365). Não há teto global."
    },
    {
     "id": "RN09",

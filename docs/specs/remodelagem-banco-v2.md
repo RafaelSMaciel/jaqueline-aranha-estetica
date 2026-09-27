@@ -4,6 +4,8 @@
 > pendente só a Fase 7 (agenda 3→2). Produção ainda está na `0026` — o upgrade e o rollback
 > estão no runbook ([`../PROJECT.md` §14](../PROJECT.md#14-go-live--operação-runbook)).
 > Origem: auditoria multi-dimensional de 2026-06 + auditoria pré-produção de 2026-09.
+> Nomes, índices e CHECKs a partir da `0048`: [padrão SQL](padrao-sql.md) (varredura de
+> 2026-09-27, aplicada em `0048`/`0049`; alguns nomes citados abaixo foram renomeados lá).
 
 ## 1. Objetivo
 
@@ -116,6 +118,8 @@ nunca existiu no código: o 2FA obrigatório é regra de settings, não coluna.)
 | 0044 | prova_aceite_autoria_anotacao_ajustes | `aceite_termo.conteudo_sha256` (vazio = aceite antigo); `anotacao_sessao.autor` PROTECT + `autor_nome`; `lista_espera.email_contato`; `notificacao.tipo` += TERMO; `preco.vigente_desde` default data local; `usuario.papel` default PROFISSIONAL; comissão 0–100 (valor fora é travado em 0/100 com log) + CHECK | Não |
 | 0045 | dados_termo_lgpd_autoria | Backfill de `autor_nome`; notificações LEMBRETE/EMAIL (links de termo antigos) → TERMO; cria o **termo LGPD v1.0** (texto de `constants.TERMO_LGPD_*`) se o banco já tem clientes e nenhum termo LGPD ativo (banco novo: `seed` ou Painel > Termos) | Não |
 | 0046 | prontuario_versao_autoria_log_prova_aceite | Model `ProntuarioVersao` (append-only; `ProntuarioVersao.registrar()` grava a foto anterior a cada edição); `log_auditoria.usuario_nome` + backfill; `respondida_em` das fichas legadas do booking; triggers PG `trg_aceite_termo_imutavel`, `trg_versao_termo_imutavel` (só se já houver aceite), `trg_prontuario_versao_imutavel` | Não |
+| 0048 | padrao_sql_nomes | Padrão de nomes ([padrao-sql.md](padrao-sql.md) §8): 21 índices e 14 constraints renomeados só no catálogo; `profissional.antecedencia_minima_horas/maxima_dias`; `assinatura_push.usuario_id` | Não |
+| 0049 | padrao_sql_integridade | `COMMENT ON TABLE` em todas; 12 CHECKs de domínio (NOT VALID + VALIDATE em savepoint: dado fora só avisa); 20 índices redundantes fora; `unique_together` → UNIQUE nomeada; PROTECT em item/consumo de pacote; `registro_id` bigint; funções `fn_*` | Não |
 
 **Reverse:** as operações de schema têm reverse, mas as de dados são `noop` ou parciais
 (dedup da 0034 — cujo reverse não recria o UNIQUE global de CPF com dados sujos —, contas demo,
