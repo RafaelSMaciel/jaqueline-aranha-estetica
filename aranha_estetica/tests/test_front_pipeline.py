@@ -104,4 +104,4 @@ class WebpushCsrfTests(TestCase):
         resp = c.post(reverse('aranha:webpush_subscribe'), corpo,
                       content_type='application/json', HTTP_X_CSRFTOKEN=m.group(1))
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(AssinaturaPush.objects.filter(user=user).count(), 1)
+        self.assertEqual(AssinaturaPush.objects.filter(usuario=user).count(), 1)

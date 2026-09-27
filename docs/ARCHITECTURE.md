@@ -178,7 +178,7 @@ verde em SQLite e Postgres).
 ### 6.2 Pendências reais (verificadas no código em 2026-09-23)
 
 **Operação / go-live (fora do código)**
-- [ ] Backup `pg_dump` + ensaio do upgrade 0026→0047 num Postgres 18 (runbook §14.a)
+- [ ] Backup `pg_dump` + ensaio do upgrade 0026→0049 num Postgres 18 (runbook §14.a)
 - [ ] Env no Railway (ADMIN_*, CRON_TOKEN, SITE_URL, ZENVIA_*, EMAIL_BACKEND + provedor,
       WHATSAPP_*, TURNSTILE_*, SENTRY_DSN, CLINIC_EMAIL) e remover `STATIC_ROOT`
 - [ ] Provedor de e-mail: `django-anymail` já instalado — escolher o provedor (ex.: Resend) e
@@ -196,7 +196,7 @@ verde em SQLite e Postgres).
       definidas (Playfair Display + Lato); falta só o self-host das fontes (hoje Google Fonts,
       já declarado na política de privacidade) — opcional
 - [x] ~~**Pacote cancelado some do faturamento:**~~ resolvido (0047 `valor_reembolsado`; receita = pago − reembolsado).
-- [x] ~~**Janela do vínculo profissional ↔ prontuário**~~ resolvido (janela = max(60, `max_advance_dias`)).
+- [x] ~~**Janela do vínculo profissional ↔ prontuário**~~ resolvido (janela = max(60, `antecedencia_maxima_dias`)).
 - [ ] **Link da ficha de anamnese** no agendamento interno: o marcador "ficha pendente" existe,
       mas nada gera convite para `/anamnese/<token>/` (rev_painel-11; depende da decisão D18)
 - [x] ~~**Purga LGPD × histórico do prontuário:**~~ resolvido (`candidatos_purga` retém quem tem `prontuario_versao`).

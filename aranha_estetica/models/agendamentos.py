@@ -76,8 +76,9 @@ class Atendimento(models.Model):
         (STATUS_REAGENDADO, 'Reagendado'),
     ]
 
-    cliente = models.ForeignKey(Cliente, on_delete=models.RESTRICT)
-    profissional = models.ForeignKey(Profissional, on_delete=models.RESTRICT)
+    # db_index=False: o indice composto que comeca pela FK ja a cobre (padrao-sql §4)
+    cliente = models.ForeignKey(Cliente, on_delete=models.RESTRICT, db_index=False)
+    profissional = models.ForeignKey(Profissional, on_delete=models.RESTRICT, db_index=False)
     procedimento = models.ForeignKey(Procedimento, on_delete=models.RESTRICT)
     promocao = models.ForeignKey(
         Promocao, on_delete=models.SET_NULL, blank=True, null=True
@@ -234,37 +235,38 @@ class Atendimento(models.Model):
     class Meta:
         managed = True
         db_table = 'atendimento'
+        db_table_comment = 'Agendamento/sessao. FSM PENDENTE->AGENDADO->CONFIRMADO->REALIZADO|CANCELADO|FALTOU|REAGENDADO. Sobreposicao bloqueada por excl_atendimento_sobreposicao.'
         indexes = [
             models.Index(fields=['status'], name='idx_atendimento_status'),
             models.Index(fields=['data_hora_inicio'], name='idx_atendimento_data'),
             models.Index(fields=['cliente', 'status'], name='idx_atendimento_cli_status'),
             # idx_atendimento_cliente removido — prefixo de idx_atendimento_cli_status cobre
-            models.Index(fields=['profissional', 'data_hora_inicio'], name='idx_atend_prof_data'),
+            models.Index(fields=['profissional', 'data_hora_inicio'], name='idx_atendimento_prof_data'),
         ]
         constraints = [
             models.CheckConstraint(
-                check=models.Q(status__in=[
+                condition=models.Q(status__in=[
                     'PENDENTE', 'AGENDADO', 'CONFIRMADO', 'REALIZADO',
                     'CANCELADO', 'FALTOU', 'REAGENDADO',
                 ]),
-                name='chk_atendimento_status_v2'
+                name='chk_atendimento_status'
             ),
             models.CheckConstraint(
-                check=models.Q(data_hora_fim__gt=models.F('data_hora_inicio')),
+                condition=models.Q(data_hora_fim__gt=models.F('data_hora_inicio')),
                 name='chk_atendimento_fim_apos_inicio',
             ),
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(eh_retorno=False) | models.Q(atendimento_origem__isnull=False)
                 ),
-                name='chk_retorno_tem_origem',
+                name='chk_atendimento_retorno_tem_origem',
             ),
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(eh_retorno=False) | models.Q(valor_cobrado=0) |
                     models.Q(valor_cobrado__isnull=True)
                 ),
-                name='chk_retorno_valor_zero',
+                name='chk_atendimento_retorno_valor_zero',
             ),
             # F-RET: no maximo 1 retorno vivo (ou ja realizado) por atendimento de
             # origem — garante no banco a idempotencia do RetornoService.
@@ -274,7 +276,7 @@ class Atendimento(models.Model):
                     eh_retorno=True,
                     status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO', 'REALIZADO'],
                 ),
-                name='uniq_retorno_por_origem',
+                name='uniq_atendimento_retorno_por_origem',
             ),
             # PG: excl_atendimento_sobreposicao (EXCLUDE gist, migration 0035)
             # impede 2 atendimentos ativos sobrepostos do mesmo profissional.
@@ -334,7 +336,8 @@ class Notificacao(models.Model):
         ('CANCELOU', 'Cancelou'),
     ]
 
-    atendimento = models.ForeignKey(Atendimento, on_delete=models.CASCADE)
+    # db_index=False: coberto por idx_notificacao_atend_tipo
+    atendimento = models.ForeignKey(Atendimento, on_delete=models.CASCADE, db_index=False)
     tipo = models.CharField(max_length=30, default='LEMBRETE', choices=TIPO_CHOICES)
     canal = models.CharField(max_length=20, default='WHATSAPP', choices=CANAL_CHOICES)
     status = models.CharField(max_length=20, default='PENDENTE', choices=STATUS_CHOICES)
@@ -350,11 +353,31 @@ class Notificacao(models.Model):
     class Meta:
         managed = True
         db_table = 'notificacao'
+        db_table_comment = 'Mensagem ao cliente (lembrete, confirmacao, NPS, termo) por canal, com token de resposta. Texto purgado apos 12 meses.'
+        constraints = [
+            # Dominio dos choices no banco (padrao-sql §3; NOT VALID no PG pela 0049)
+            models.CheckConstraint(
+                condition=models.Q(tipo__in=['LEMBRETE', 'LEMBRETE_2H', 'CONFIRMACAO', 'CANCELAMENTO', 'NPS', 'PESQUISA', 'APROVACAO', 'TERMO']),
+                name='chk_notificacao_tipo',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(canal__in=['WHATSAPP', 'SMS', 'EMAIL']),
+                name='chk_notificacao_canal',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(status__in=['PENDENTE', 'ENVIADO', 'FALHOU']),
+                name='chk_notificacao_status',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(resposta__isnull=True) | models.Q(resposta__in=['CONFIRMOU', 'CANCELOU']),
+                name='chk_notificacao_resposta',
+            ),
+        ]
         indexes = [
             models.Index(fields=['tipo', 'status'], name='idx_notificacao_tipo_status'),
             models.Index(fields=['-criado_em'], name='idx_notificacao_criado'),
-            models.Index(fields=['tipo', 'canal', 'status', '-criado_em'], name='idx_notif_nps_lookup'),
-            models.Index(fields=['atendimento', 'tipo'], name='idx_notif_atend_tipo'),
+            models.Index(fields=['tipo', 'canal', 'status', '-criado_em'], name='idx_notificacao_nps_lookup'),
+            models.Index(fields=['atendimento', 'tipo'], name='idx_notificacao_atend_tipo'),
         ]
 
     def __str__(self):

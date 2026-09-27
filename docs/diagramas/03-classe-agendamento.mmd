@@ -25,8 +25,8 @@ classDiagram
         +nome: CharField
         +slug: SlugField «único»
         +ativo: Boolean
-        +min_notice_horas: 0..720 «padrão 2»
-        +max_advance_dias: 1..365 «padrão 60»
+        +antecedencia_minima_horas: 0..720 «padrão 2»
+        +antecedencia_maxima_dias: 1..365 «padrão 60»
         +ics_token: CharField «rotacionável»
     }
     class SlotService {

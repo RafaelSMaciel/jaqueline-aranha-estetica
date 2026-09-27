@@ -118,7 +118,7 @@ def send_push_to_user(user: 'Usuario', payload: Mapping[str, Any]) -> int:
     enviadas = 0
     subscriptions = (
         AssinaturaPush.objects
-        .filter(user=user, ativo=True)
+        .filter(usuario=user, ativo=True)
         .only('id', 'endpoint', 'p256dh', 'auth', 'ativo', 'ultima_falha_em')
     )
     for sub in subscriptions:

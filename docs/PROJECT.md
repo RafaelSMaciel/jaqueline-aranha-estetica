@@ -133,7 +133,7 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   best-effort (falha de handler é logada, não desfaz a transição).
 - **Disponibilidade**: fonte única `services/disponibilidade.py::SlotService` (slots de 30
   min; expediente semanal, exceções, feriados, bloqueios pontuais/recorrentes do profissional
-  ou globais, buffers, `min_notice_horas`, `max_advance_dias`). Usada pelo wizard, pelo
+  ou globais, buffers, `antecedencia_minima_horas`, `antecedencia_maxima_dias`). Usada pelo wizard, pelo
   reagendamento, pelo agendamento interno e pela validação do servidor.
 - **Preço**: `utils/precos.py` — preço vigente por data (profissional > base) e promoção
   vigente na data; `preco_com_promocao()` é o valor gravado no atendimento e o mesmo que a
@@ -200,7 +200,7 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 | | `assinatura_push` (AssinaturaPush) | Inscrições Web Push (VAPID) por usuário |
 | | `log_auditoria` (LogAuditoria) | Trilha LGPD art. 37: autor + snapshot `usuario_nome` ("Nome <email>"), ação, tabela, registro, detalhes JSON (PII mascarada), IP |
 | Pessoas | `cliente` (Cliente) | Cliente da clínica. Telefone só dígitos (10–11) é a chave natural; e-mail/CPF opcionais; consentimentos granulares com data e IP; faltas/bloqueio online; soft delete (`deletado_em`); `indicado_por` (cashback) |
-| | `profissional` (Profissional) | Quem atende. `min_notice_horas` (0–720, padrão 2), `max_advance_dias` (1–365, padrão 60), `ics_token` do feed, campos do Google Calendar |
+| | `profissional` (Profissional) | Quem atende. `antecedencia_minima_horas` (0–720, padrão 2), `antecedencia_maxima_dias` (1–365, padrão 60), `ics_token` do feed, campos do Google Calendar |
 | Catálogo | `procedimento` (Procedimento) | Serviço: duração, buffer (0–120 min), categoria, modalidade, retorno obrigatório (`exige_retorno` + janela em dias + duração do retorno) |
 | | `habilitacao` (Habilitacao) | Profissional × procedimento (M2M through) |
 | | `preco` (Preco) | Preço versionado por `vigente_desde`, base (sem profissional) ou por profissional |
@@ -235,15 +235,15 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 | Profissional não atende 2 clientes ao mesmo tempo (status PENDENTE/AGENDADO/CONFIRMADO) | `excl_atendimento_sobreposicao` — EXCLUDE gist com `btree_gist`, DEFERRABLE (**só Postgres**) | 0035 |
 | Telefone/e-mail/CPF únicos entre clientes ativos | `uniq_cliente_telefone_ativo`, `uniq_cliente_email_ativo` (LOWER), `uniq_cliente_cpf_ativo` | 0034 |
 | Formato de telefone (10–11 dígitos) e CPF (11) | `chk_cliente_telefone_digits`, `chk_cliente_cpf_digits` (**só Postgres**) | 0034 |
-| 1 termo ativo por escopo; 1 preço por vigência; 1 espera ativa por cliente/procedimento/data | `uniq_termo_ativo_*`, `uniq_preco_*vigencia`, `uniq_espera_ativa` | 0034 |
+| 1 termo ativo por escopo; 1 preço por vigência; 1 espera ativa por cliente/procedimento/data | `uniq_versao_termo_ativo_*`, `uniq_preco_*vigencia`, `uniq_lista_espera_ativa` | 0034 |
 | Promoção: desconto 0–100, preço ≥ 0, desconto XOR preço | `chk_promocao_*` | 0034 |
 | Carteira nunca negativa; ledger imutável | `chk_carteira_saldo_nao_negativo`; trigger `trg_movimento_carteira_imutavel` (**só PG**) | 0034 / 0038 |
 | Valor pago de pacote ≥ 0; nota NPS 0–10; comissão 0–100% | `chk_compra_pacote_valor_pago`, `chk_avaliacao_nps_nota`, `chk_regra_comissao_percentual_0_100` | 0039 / 0044 |
-| No máximo 1 retorno vivo por atendimento de origem | `uniq_retorno_por_origem` | 0043 |
-| JSON no formato certo (objeto/lista) | `chk_prontuario_extras_objeto`, `chk_resposta_anamnese_objeto`, `chk_formulario_schema_lista` — **NOT VALID** (só PG; validar depois, §14.h) | 0043 |
+| No máximo 1 retorno vivo por atendimento de origem | `uniq_atendimento_retorno_por_origem` | 0043 |
+| JSON no formato certo (objeto/lista) | `chk_prontuario_extras_objeto`, `chk_resposta_anamnese_objeto`, `chk_formulario_anamnese_schema_lista` — **NOT VALID** (só PG; validar depois, §14.h) | 0043 |
 | Prova de aceite imutável; termo aceito imutável; histórico da ficha imutável | triggers `trg_aceite_termo_imutavel`, `trg_versao_termo_imutavel`, `trg_prontuario_versao_imutavel` (**só PG**) | 0046 |
 | Ordenação pt-BR de nomes | collation ICU `pt_br` em `cliente/profissional/procedimento.nome` (**fora do estado do Django**) | 0038 |
-| Uma cobrança de comissão ativa e um cashback por atendimento | `uniq_comissao_ativa_por_atendimento`, `uniq_cashback_indicacao_por_atendimento` | 0025/0032 |
+| Uma cobrança de comissão ativa e um cashback por atendimento | `uniq_movimento_comissao_ativa_por_atendimento`, `uniq_movimento_carteira_indicacao_por_atendimento` | 0025/0032 |
 
 Além disso: FKs `PROTECT` em tudo que é histórico clínico/financeiro (prontuário, anotação,
 ficha, compra de pacote, carteira, aceite), índice GIN em `prontuario.respostas_extras`,
@@ -687,7 +687,7 @@ Teste cada um manualmente uma vez (resposta `{"ok": true, ...}`).
    privacidade). Depois do primeiro aceite ele fica imutável — correções viram nova versão. Crie
    os termos de PROCEDIMENTO necessários.
 6. Confira Configurações (`email_admin` do alerta de detrator), profissionais (expediente,
-   `max_advance_dias`), procedimentos/preços e a `LogAuditoria` com `migration 0034:` (duplicatas
+   `antecedencia_maxima_dias`), procedimentos/preços e a `LogAuditoria` com `migration 0034:` (duplicatas
    a mesclar e telefones inválidos a corrigir).
 7. Faça um agendamento real de ponta a ponta (SMS chega, e-mail sai, aprovação no painel).
 
@@ -735,7 +735,7 @@ termo criado, triggers). Não use `migrate aranha_estetica <anterior>`.
 
 - **CHECKs `NOT VALID` da 0043**: depois de inspecionar os dados, valide no Postgres:
   `ALTER TABLE prontuario VALIDATE CONSTRAINT chk_prontuario_extras_objeto;` (idem
-  `resposta_anamnese.chk_resposta_anamnese_objeto` e `formulario_anamnese.chk_formulario_schema_lista`).
+  `resposta_anamnese.chk_resposta_anamnese_objeto` e `formulario_anamnese.chk_formulario_anamnese_schema_lista`).
 - **Collation `pt_br`** fica fora do estado do Django: um `AlterField` futuro em
   `cliente/profissional/procedimento.nome` volta para a collation padrão — reaplique com `RunSQL`
   (`ALTER TABLE <t> ALTER COLUMN nome TYPE varchar(N) COLLATE pt_br`; N = 150 cliente, 100 os outros).

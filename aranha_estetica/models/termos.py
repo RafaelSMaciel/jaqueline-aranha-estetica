@@ -48,21 +48,22 @@ class VersaoTermo(models.Model):
     class Meta:
         managed = True
         db_table = 'versao_termo'
+        db_table_comment = 'Versao de termo (LGPD, SAUDE ou de procedimento). Uma ativa por escopo; imutavel depois de aceita.'
         constraints = [
             models.CheckConstraint(
-                check=models.Q(tipo__in=['LGPD', 'SAUDE', 'PROCEDIMENTO']),
+                condition=models.Q(tipo__in=['LGPD', 'SAUDE', 'PROCEDIMENTO']),
                 name='chk_versao_termo_tipo'
             ),
             # so 1 versao ativa por escopo (tipo+procedimento; LGPD/SAUDE = procedimento NULL)
             models.UniqueConstraint(
                 fields=['tipo', 'procedimento'],
                 condition=models.Q(ativa=True),
-                name='uniq_termo_ativo_por_escopo',
+                name='uniq_versao_termo_ativo_por_escopo',
             ),
             models.UniqueConstraint(
                 fields=['tipo'],
                 condition=models.Q(ativa=True) & models.Q(procedimento__isnull=True),
-                name='uniq_termo_ativo_global',
+                name='uniq_versao_termo_ativo_global',
             ),
         ]
 
@@ -136,7 +137,9 @@ class AceiteTermo(models.Model):
     on_delete=PROTECT no cliente: aceite e evidencia legal (LGPD art. 8) —
     anonimizar, nunca cascatear. Gravar sempre por AceiteTermo.registrar().
     """
-    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='aceites')
+    cliente = models.ForeignKey(
+        Cliente, on_delete=models.PROTECT, related_name='aceites', db_index=False,
+    )
     versao_termo = models.ForeignKey(VersaoTermo, on_delete=models.RESTRICT)
     atendimento = models.ForeignKey(
         'Atendimento', on_delete=models.SET_NULL, blank=True, null=True,
@@ -150,14 +153,15 @@ class AceiteTermo(models.Model):
     class Meta:
         managed = True
         db_table = 'aceite_termo'
+        db_table_comment = 'Prova de aceite de termo (hash do conteudo, IP, user agent). Imutavel por trigger; retencao ~20 anos.'
         constraints = [
             models.UniqueConstraint(
                 fields=['cliente', 'versao_termo'],
-                name='uniq_aceite_cliente_versao',
+                name='uniq_aceite_termo_cliente_versao',
             ),
         ]
         indexes = [
-            models.Index(fields=['cliente', '-criado_em'], name='idx_aceite_cli_data'),
+            models.Index(fields=['cliente', '-criado_em'], name='idx_aceite_termo_cli_data'),
         ]
 
     def __str__(self):

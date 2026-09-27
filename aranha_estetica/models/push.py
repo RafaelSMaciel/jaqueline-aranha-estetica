@@ -9,9 +9,9 @@ class AssinaturaPush(models.Model):
     endpoint, p256dh, auth: dados retornados pelo PushManager.subscribe().
     """
 
-    user = models.ForeignKey(
+    usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
-        related_name='push_subscriptions',
+        related_name='push_subscriptions', db_index=False,
     )
     endpoint = models.URLField(max_length=600, unique=True)
     p256dh = models.CharField(max_length=140)
@@ -24,8 +24,9 @@ class AssinaturaPush(models.Model):
     class Meta:
         managed = True
         db_table = 'assinatura_push'
+        db_table_comment = 'Assinatura Web Push (VAPID) de um usuario da equipe.'
         indexes = [
-            models.Index(fields=['user', 'ativo'], name='idx_pushsub_user_ativo'),
+            models.Index(fields=['usuario', 'ativo'], name='idx_assinatura_push_usu_ativo'),
         ]
 
     def __str__(self):

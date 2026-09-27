@@ -437,7 +437,7 @@ class WebPush2FATests(TestCase):
         self.client.post(reverse('aranha:admin_2fa_verify'), {'token': _token_totp(self.device)})
         resp = self._subscribe()
         self.assertEqual(resp.status_code, 200)
-        self.assertTrue(AssinaturaPush.objects.filter(user=self.user).exists())
+        self.assertTrue(AssinaturaPush.objects.filter(usuario=self.user).exists())
 
     def test_usuario_sem_totp_continua_assinando(self):
         outro = Usuario.objects.create_user(email='semtotp@test.com', password='x-senha-123', nome='S')

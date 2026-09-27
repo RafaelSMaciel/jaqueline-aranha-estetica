@@ -42,8 +42,8 @@ Fluxo: **procedimento → data/horário (e profissional) → dados + código SMS
 - **Horários** vêm do `SlotService` (§5) e o servidor **revalida** no confirmar: procedimento e
   profissional ativos, profissional habilitado, horário futuro, não é feriado bloqueador, slot
   ainda livre para a duração inteira.
-- **Antecedência mínima:** `profissional.min_notice_horas` (padrão **2 h**, 0–720).
-- **Antecedência máxima:** `profissional.max_advance_dias` (padrão **60 dias**, 1–365). Não há
+- **Antecedência mínima:** `profissional.antecedencia_minima_horas` (padrão **2 h**, 0–720).
+- **Antecedência máxima:** `profissional.antecedencia_maxima_dias` (padrão **60 dias**, 1–365). Não há
   teto global.
 - **Anti double-booking:** trava de 30 s no cache + `SELECT FOR UPDATE` + EXCLUDE no Postgres;
   perdeu a corrida → "Este horário acabou de ser reservado".
@@ -85,7 +85,7 @@ Slots de **30 min** no dia, considerando: feriado que bloqueia agendamento; exce
 profissional (FOLGA ou HORÁRIO_DIFERENTE); expediente semanal (todos os turnos do dia);
 atendimentos ativos (PENDENTE/AGENDADO/CONFIRMADO) sobrepostos na duração inteira + **buffer**
 do procedimento (0–120 min); bloqueios pontuais e recorrentes (RRULE) do profissional **ou
-globais** ("Todos os profissionais"); `min_notice_horas`; `max_advance_dias`.
+globais** ("Todos os profissionais"); `antecedencia_minima_horas`; `antecedencia_maxima_dias`.
 
 ---
 
@@ -163,7 +163,7 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 - Procedimento com `exige_retorno` (janela `retorno_minimo_dias`–`retorno_maximo_dias`,
   `duracao_retorno_minutos`, padrão 30): ao marcar o atendimento **REALIZADO** o sistema cria o
   retorno: `eh_retorno=True`, **valor 0**, status **PENDENTE**, no primeiro horário livre do
-  profissional dentro da janela, a partir do **meio** da janela (ignora `max_advance_dias`/aviso
+  profissional dentro da janela, a partir do **meio** da janela (ignora `antecedencia_maxima_dias`/aviso
   mínimo, respeita expediente, folgas, feriados e bloqueios).
 - Sem horário livre na janela → não cria (recepção agenda). Idempotente: no máximo **1 retorno
   vivo por origem** (UNIQUE no banco).
@@ -378,8 +378,8 @@ consentimento; **push** para a equipe. Sem credencial do canal nada é marcado c
 
 | Regra | Valor | Onde |
 |---|---|---|
-| Antecedência mínima | 2 h (0–720) | `Profissional.min_notice_horas` |
-| Antecedência máxima | 60 dias (1–365) | `Profissional.max_advance_dias` |
+| Antecedência mínima | 2 h (0–720) | `Profissional.antecedencia_minima_horas` |
+| Antecedência máxima | 60 dias (1–365) | `Profissional.antecedencia_maxima_dias` |
 | Intervalo dos slots | 30 min | `SlotService.INTERVALO` |
 | Buffer do procedimento | 0–120 min | `Procedimento.buffer_minutos` |
 | Idade mínima (online) | 18 anos | `views/booking_public` |

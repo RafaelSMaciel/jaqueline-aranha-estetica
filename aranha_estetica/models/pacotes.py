@@ -17,13 +17,14 @@ class Pacote(models.Model):
     class Meta:
         managed = True
         db_table = 'pacote'
+        db_table_comment = 'Pacote de sessoes a venda (preco total e validade).'
         constraints = [
             models.CheckConstraint(
-                check=models.Q(preco_total__gte=0),
+                condition=models.Q(preco_total__gte=0),
                 name='chk_pacote_preco_positivo'
             ),
             models.CheckConstraint(
-                check=models.Q(validade_meses__gt=0),
+                condition=models.Q(validade_meses__gt=0),
                 name='chk_pacote_validade_positiva'
             ),
         ]
@@ -33,17 +34,23 @@ class Pacote(models.Model):
 
 
 class ItemPacote(models.Model):
-    pacote = models.ForeignKey(Pacote, on_delete=models.CASCADE, related_name='itens')
-    procedimento = models.ForeignKey(Procedimento, on_delete=models.CASCADE)
+    pacote = models.ForeignKey(
+        Pacote, on_delete=models.CASCADE, related_name='itens', db_index=False,
+    )
+    # PROTECT: procedimento vendido em pacote nao some do pacote em silencio
+    procedimento = models.ForeignKey(Procedimento, on_delete=models.PROTECT)
     quantidade_sessoes = models.SmallIntegerField(default=1)
 
     class Meta:
         managed = True
         db_table = 'item_pacote'
-        unique_together = (('pacote', 'procedimento'),)
+        db_table_comment = 'Procedimento e quantidade de sessoes que compoem um pacote.'
         constraints = [
+            models.UniqueConstraint(
+                fields=['pacote', 'procedimento'], name='uniq_item_pacote_pacote_procedimento',
+            ),
             models.CheckConstraint(
-                check=models.Q(quantidade_sessoes__gt=0),
+                condition=models.Q(quantidade_sessoes__gt=0),
                 name='chk_item_pacote_qtd_positiva'
             ),
         ]
@@ -58,7 +65,9 @@ class CompraPacote(models.Model):
     ]
 
     # PROTECT: compra e registro fiscal — nao cascateia com o cliente
-    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='pacotes_comprados')
+    cliente = models.ForeignKey(
+        Cliente, on_delete=models.PROTECT, related_name='pacotes_comprados', db_index=False,
+    )
     pacote = models.ForeignKey(Pacote, on_delete=models.RESTRICT)
     criado_em = models.DateTimeField(auto_now_add=True)
     valor_pago = models.DecimalField(
@@ -74,21 +83,22 @@ class CompraPacote(models.Model):
     class Meta:
         managed = True
         db_table = 'compra_pacote'
+        db_table_comment = 'Compra de pacote pelo cliente (valor pago, reembolso, expiracao).'
         indexes = [
-            models.Index(fields=['cliente', 'status'], name='idx_pacote_cli_status'),
+            models.Index(fields=['cliente', 'status'], name='idx_compra_pacote_cli_status'),
         ]
         constraints = [
             models.CheckConstraint(
-                check=models.Q(status__in=['ATIVO', 'FINALIZADO', 'CANCELADO', 'EXPIRADO']),
-                name='chk_pacote_cliente_status'
+                condition=models.Q(status__in=['ATIVO', 'FINALIZADO', 'CANCELADO', 'EXPIRADO']),
+                name='chk_compra_pacote_status'
             ),
             models.CheckConstraint(
-                check=models.Q(valor_pago__gte=0),
+                condition=models.Q(valor_pago__gte=0),
                 name='chk_compra_pacote_valor_pago',
             ),
             # reembolso nunca negativo nem maior que o pago
             models.CheckConstraint(
-                check=models.Q(valor_reembolsado__gte=0)
+                condition=models.Q(valor_reembolsado__gte=0)
                 & models.Q(valor_reembolsado__lte=models.F('valor_pago')),
                 name='chk_compra_pacote_valor_reembolsado',
             ),
@@ -158,8 +168,9 @@ class CompraPacote(models.Model):
 
 
 class ConsumoSessao(models.Model):
+    # PROTECT: consumo e historico financeiro do pacote (padrao-sql §5)
     compra_pacote = models.ForeignKey(
-        CompraPacote, on_delete=models.CASCADE, related_name='sessoes_realizadas'
+        CompraPacote, on_delete=models.PROTECT, related_name='sessoes_realizadas'
     )
     # OneToOne (NOT NULL) = UNIQUE: 1 atendimento consome no maximo 1 sessao
     atendimento = models.OneToOneField(
@@ -170,6 +181,5 @@ class ConsumoSessao(models.Model):
     class Meta:
         managed = True
         db_table = 'consumo_sessao'
-        indexes = [
-            models.Index(fields=['compra_pacote'], name='idx_sessao_pct_cli'),
-        ]
+        db_table_comment = 'Consumo de uma sessao do pacote por um atendimento (1 por atendimento).'
+        # idx_sessao_pct_cli removido: duplicava o indice da FK compra_pacote

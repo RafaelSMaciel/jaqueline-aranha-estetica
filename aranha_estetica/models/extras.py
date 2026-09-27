@@ -35,9 +35,10 @@ class Carteira(TimestampedMixin):
     class Meta:
         managed = True
         db_table = 'carteira'
+        db_table_comment = 'Saldo de credito do cliente (cashback, vale, reembolso). CHECK saldo >= 0; mutacao com select_for_update.'
         constraints = [
             models.CheckConstraint(
-                check=models.Q(saldo__gte=0),
+                condition=models.Q(saldo__gte=0),
                 name='chk_carteira_saldo_nao_negativo',
             ),
         ]
@@ -68,7 +69,9 @@ class MovimentoCarteira(models.Model):
         ('OUTRO', 'Outro'),
     ]
 
-    carteira = models.ForeignKey(Carteira, on_delete=models.PROTECT, related_name='movimentos')
+    carteira = models.ForeignKey(
+        Carteira, on_delete=models.PROTECT, related_name='movimentos', db_index=False,
+    )
     tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
     origem = models.CharField(max_length=30, choices=ORIGEM_CHOICES, default='OUTRO')
     valor = models.DecimalField(max_digits=10, decimal_places=2)
@@ -85,16 +88,26 @@ class MovimentoCarteira(models.Model):
     class Meta:
         managed = True
         db_table = 'movimento_carteira'
+        db_table_comment = 'Ledger append-only da carteira, imutavel por trigger (estorno = novo movimento).'
         indexes = [
-            models.Index(fields=['carteira', '-criado_em'], name='idx_movcart_cart'),
-            models.Index(fields=['origem', 'tipo'], name='idx_movcred_origem_tipo'),
+            models.Index(fields=['carteira', '-criado_em'], name='idx_mov_carteira_cart_data'),
+            models.Index(fields=['origem', 'tipo'], name='idx_mov_carteira_origem_tipo'),
         ]
         constraints = [
             # Idempotencia F-CSB: 1 unico CASHBACK_INDICACAO por (credito, atendimento)
             models.UniqueConstraint(
                 fields=['carteira', 'atendimento'],
                 condition=models.Q(origem='CASHBACK_INDICACAO'),
-                name='uniq_cashback_indicacao_por_atendimento',
+                name='uniq_movimento_carteira_indicacao_por_atendimento',
+            ),
+            # Dominio dos choices no banco (padrao-sql §3; NOT VALID no PG pela 0049)
+            models.CheckConstraint(
+                condition=models.Q(tipo__in=['CREDITO', 'DEBITO']),
+                name='chk_movimento_carteira_tipo',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(origem__in=['VALE_PRESENTE', 'CANCELAMENTO', 'AJUSTE_MANUAL', 'USO_AGENDAMENTO', 'CASHBACK_INDICACAO', 'CASHBACK_ESTORNO', 'OUTRO']),
+                name='chk_movimento_carteira_origem',
             ),
         ]
 
@@ -114,7 +127,7 @@ class RegraComissao(TimestampedMixin):
     """
     profissional = models.ForeignKey(
         Profissional, on_delete=models.CASCADE, blank=True, null=True,
-        related_name='regras_comissao',
+        related_name='regras_comissao', db_index=False,
     )
     procedimento = models.ForeignKey(
         Procedimento, on_delete=models.CASCADE, blank=True, null=True,
@@ -135,20 +148,21 @@ class RegraComissao(TimestampedMixin):
     class Meta:
         managed = True
         db_table = 'regra_comissao'
+        db_table_comment = 'Regra de comissao por profissional/procedimento: percentual ou valor fixo.'
         constraints = [
             models.CheckConstraint(
-                check=(
+                condition=(
                     (
                         models.Q(percentual__isnull=False) & models.Q(valor__isnull=True)
                     ) | (
                         models.Q(percentual__isnull=True) & models.Q(valor__isnull=False)
                     )
                 ),
-                name='chk_regra_comissao_percentual_xor_fixo',
+                name='chk_regra_comissao_percentual_xor_valor',
             ),
             # comissao nao passa do valor do atendimento (espelha chk_promocao_desconto_0_100)
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(percentual__isnull=True) |
                     (models.Q(percentual__gte=0) & models.Q(percentual__lte=100))
                 ),
@@ -180,7 +194,7 @@ class MovimentoComissao(models.Model):
     ]
 
     profissional = models.ForeignKey(
-        Profissional, on_delete=models.PROTECT, related_name='comissoes',
+        Profissional, on_delete=models.PROTECT, related_name='comissoes', db_index=False,
     )
     atendimento = models.ForeignKey(
         'Atendimento', on_delete=models.PROTECT, related_name='comissoes',
@@ -200,17 +214,23 @@ class MovimentoComissao(models.Model):
     class Meta:
         managed = True
         db_table = 'movimento_comissao'
+        db_table_comment = 'Comissao por atendimento realizado (PENDENTE->PAGA|ESTORNADA); 1 ativa por atendimento.'
         constraints = [
             # Idempotencia: 1 comissao ATIVA por atendimento (PENDENTE ou PAGA)
             models.UniqueConstraint(
                 fields=['atendimento'],
                 condition=models.Q(status__in=['PENDENTE', 'PAGA']),
-                name='uniq_comissao_ativa_por_atendimento',
+                name='uniq_movimento_comissao_ativa_por_atendimento',
+            ),
+            # Dominio dos choices no banco (padrao-sql §3; NOT VALID no PG pela 0049)
+            models.CheckConstraint(
+                condition=models.Q(status__in=['PENDENTE', 'PAGA', 'ESTORNADA']),
+                name='chk_movimento_comissao_status',
             ),
         ]
         indexes = [
-            models.Index(fields=['profissional', 'status'], name='idx_comissao_prof_status'),
-            models.Index(fields=['-criado_em'], name='idx_comissao_criado'),
+            models.Index(fields=['profissional', 'status'], name='idx_mov_comissao_prof_status'),
+            models.Index(fields=['-criado_em'], name='idx_mov_comissao_criado'),
         ]
 
     def __str__(self):

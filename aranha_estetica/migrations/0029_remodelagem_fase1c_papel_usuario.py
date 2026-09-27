@@ -77,7 +77,7 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name='usuario',
             constraint=models.CheckConstraint(
-                check=models.Q(papel__in=['ADMIN', 'PROFISSIONAL', 'RECEPCAO']),
+                condition=models.Q(papel__in=['ADMIN', 'PROFISSIONAL', 'RECEPCAO']),
                 name='chk_usuario_papel',
             ),
         ),

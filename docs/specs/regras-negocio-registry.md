@@ -32,7 +32,7 @@ e alinhou os valores duplicados, então o drift que motivou o registry diminuiu 
 | 1 | Aprovação de agendamento | Auto-aprovar cliente OTP-validada e sem bloqueio | ❌ **Não implementado**: o agendamento público segue nascendo **PENDENTE** (ARCHITECTURE D8). O agendamento interno nasce AGENDADO; PENDENTE vencido há 24 h é cancelado pelo job |
 | 2 | Estados do atendimento | Semântica fixa: AGENDADO = marcado; CONFIRMADO = cliente respondeu | ✅ Documentado e aplicado (confirmação pelo link do D-1). A FSM não mudou (PENDENTE → CONFIRMADO ainda é permitido) |
 | 3 | Sessão + OTP da cliente | Uma sessão de "cliente verificada"; regra única de OTP | ◐ **Regra única de OTP feita**: todo agendamento exige OTP, preso ao **telefone** (e-mail nunca é identidade); portal e DSAR também pelo telefone. **Sessão única não**: wizard (30 min) e portal (1 h) têm chaves próprias, ambas presas ao telefone |
-| 4 | Antecedência máxima | `min(profissional, teto global 90)` | ◐ Uma regra só: `profissional.max_advance_dias` (padrão 60, faixa 1–365); a constante global de 90 dias foi removida — **não há teto global** |
+| 4 | Antecedência máxima | `min(profissional, teto global 90)` | ◐ Uma regra só: `profissional.antecedencia_maxima_dias` (padrão 60, faixa 1–365); a constante global de 90 dias foi removida — **não há teto global** |
 | 5 | Fonte dos valores | Registry; `otp.max_tentativas` = 5 | ◐ Valor único 5 (`OTP_MAX_TENTATIVAS`); constantes divergentes removidas; registry não criado |
 
 ## 4. Catálogo de regras (valores atuais)
@@ -50,8 +50,8 @@ Legenda: **E** estrutural · **O** operacional · fonte atual entre parênteses.
 ### Agendamento
 | chave | valor | cat |
 |---|---|---|
-| `agenda.antecedencia_min_horas` | 2 (0–720) — `Profissional.min_notice_horas` | O |
-| `agenda.antecedencia_max_dias` | 60 (1–365) — `Profissional.max_advance_dias` | O |
+| `agenda.antecedencia_min_horas` | 2 (0–720) — `Profissional.antecedencia_minima_horas` | O |
+| `agenda.antecedencia_max_dias` | 60 (1–365) — `Profissional.antecedencia_maxima_dias` | O |
 | `agenda.intervalo_slot_min` | 30 — `SlotService.INTERVALO` | E |
 | `agenda.aprovacao` | público → PENDENTE; interno → AGENDADO | E |
 | `agenda.double_booking` | EXCLUDE no banco | E |

@@ -18,9 +18,10 @@ class AvaliacaoNPS(models.Model):
     class Meta:
         managed = True
         db_table = 'avaliacao_nps'
+        db_table_comment = 'Nota NPS (0-10) e depoimento de um atendimento; publicacao exige autorizacao e moderacao.'
         constraints = [
             models.CheckConstraint(
-                check=models.Q(nota__gte=0) & models.Q(nota__lte=10),
+                condition=models.Q(nota__gte=0) & models.Q(nota__lte=10),
                 name='chk_avaliacao_nps_nota'
             )
         ]

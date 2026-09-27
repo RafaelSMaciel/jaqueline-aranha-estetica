@@ -22,7 +22,8 @@ class ListaEspera(models.Model):
     ]
 
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE)
-    procedimento = models.ForeignKey(Procedimento, on_delete=models.CASCADE)
+    # db_index=False: prefixo de idx_lista_espera_busca
+    procedimento = models.ForeignKey(Procedimento, on_delete=models.CASCADE, db_index=False)
     profissional_desejado = models.ForeignKey(
         Profissional, on_delete=models.SET_NULL, blank=True, null=True
     )
@@ -41,9 +42,10 @@ class ListaEspera(models.Model):
     class Meta:
         managed = True
         db_table = 'lista_espera'
+        db_table_comment = 'Fila de espera por procedimento e data; token de reserva quando uma vaga abre.'
         constraints = [
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(turno_desejado__isnull=True) |
                     models.Q(turno_desejado__in=['MANHA', 'TARDE', 'NOITE'])
                 ),
@@ -53,12 +55,11 @@ class ListaEspera(models.Model):
             models.UniqueConstraint(
                 fields=['cliente', 'procedimento', 'data_desejada'],
                 condition=models.Q(notificado=False),
-                name='uniq_espera_ativa',
+                name='uniq_lista_espera_ativa',
             ),
         ]
         indexes = [
-            models.Index(fields=['cliente'], name='idx_espera_cliente'),
-            models.Index(fields=['procedimento', 'data_desejada', 'notificado'], name='idx_espera_proc_data_notif'),
+            models.Index(fields=['procedimento', 'data_desejada', 'notificado'], name='idx_lista_espera_busca'),
         ]
 
     def __str__(self):
@@ -85,11 +86,14 @@ class LogAuditoria(models.Model):
     nao transforma a acao dele em "acao do sistema". O Django admin nao exclui
     Usuario (desativar = ativo=False).
     """
-    usuario = models.ForeignKey('Usuario', on_delete=models.SET_NULL, blank=True, null=True)
+    usuario = models.ForeignKey(
+        'Usuario', on_delete=models.SET_NULL, blank=True, null=True, db_index=False,
+    )
     usuario_nome = models.CharField(max_length=255, blank=True, default='')
     acao = models.TextField()
     tabela = models.CharField(max_length=100, blank=True, null=True)
-    registro_id = models.IntegerField(blank=True, null=True)
+    # bigint: as PKs sao BigAutoField
+    registro_id = models.BigIntegerField(blank=True, null=True)
     detalhes = models.JSONField(blank=True, null=True)
     ip_origem = models.GenericIPAddressField(blank=True, null=True)
     criado_em = models.DateTimeField(auto_now_add=True)
@@ -97,10 +101,11 @@ class LogAuditoria(models.Model):
     class Meta:
         managed = True
         db_table = 'log_auditoria'
+        db_table_comment = 'Trilha de auditoria LGPD art. 37: autor (usuario + snapshot usuario_nome), tabela, registro e IP. Retencao 5 anos.'
         indexes = [
-            models.Index(fields=['tabela'], name='idx_auditoria_tabela'),
-            models.Index(fields=['-criado_em'], name='idx_auditoria_criado'),
-            models.Index(fields=['usuario', '-criado_em'], name='idx_auditoria_user_data'),
+            models.Index(fields=['tabela'], name='idx_log_auditoria_tabela'),
+            models.Index(fields=['-criado_em'], name='idx_log_auditoria_criado'),
+            models.Index(fields=['usuario', '-criado_em'], name='idx_log_auditoria_usuario_data'),
         ]
 
     def save(self, *args, **kwargs):
@@ -137,10 +142,16 @@ class Feriado(models.Model):
     class Meta:
         managed = True
         db_table = 'feriado'
+        db_table_comment = 'Feriado ou recesso que bloqueia a geracao de horarios.'
         constraints = [
-            models.UniqueConstraint(fields=['data', 'escopo'], name='uq_feriado_data_escopo'),
+            models.UniqueConstraint(fields=['data', 'escopo'], name='uniq_feriado_data_escopo'),
+            # Dominio dos choices no banco (padrao-sql §3; NOT VALID no PG pela 0049)
+            models.CheckConstraint(
+                condition=models.Q(escopo__in=['NACIONAL', 'LOCAL', 'CLINICA']),
+                name='chk_feriado_escopo',
+            ),
         ]
-        # idx_feriado_data removido — prefixo de uq_feriado_data_escopo cobre
+        # idx_feriado_data removido — prefixo de uniq_feriado_data_escopo cobre
         ordering = ['data']
 
     def __str__(self):
@@ -155,6 +166,7 @@ class Configuracao(models.Model):
     class Meta:
         managed = True
         db_table = 'configuracao'
+        db_table_comment = 'Parametros chave/valor editaveis no painel.'
 
     def __str__(self):
         return f'{self.chave}: {self.valor}'
@@ -204,18 +216,28 @@ class CodigoOtp(models.Model):
     class Meta:
         managed = True
         db_table = 'codigo_otp'
+        db_table_comment = 'Desafio OTP (HMAC-SHA256), tentativas com teto e proposito por fluxo. Purga apos 24h.'
         constraints = [
             # Teto de banco (10) > MAX_TENTATIVAS logico (default 5) de proposito:
             # o lockout aplicativo bloqueia antes; o CHECK e apenas guarda-corpo
             # contra valores absurdos vindos de escrita direta.
             models.CheckConstraint(
-                check=models.Q(tentativas__lte=10),
-                name='chk_otp_tentativas_teto',
+                condition=models.Q(tentativas__lte=10),
+                name='chk_codigo_otp_tentativas_teto',
+            ),
+            # Dominio dos choices no banco (padrao-sql §3; NOT VALID no PG pela 0049)
+            models.CheckConstraint(
+                condition=models.Q(canal__in=['EMAIL', 'SMS']),
+                name='chk_codigo_otp_canal',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(proposito__in=['AGENDAMENTO', 'LOGIN_CLIENTE', 'DSAR']),
+                name='chk_codigo_otp_proposito',
             ),
         ]
         indexes = [
-            models.Index(fields=['email', '-criado_em'], name='idx_otp_email_data'),
-            models.Index(fields=['proposito', '-criado_em'], name='idx_otp_prop_data'),
+            models.Index(fields=['email', '-criado_em'], name='idx_codigo_otp_email_data'),
+            models.Index(fields=['proposito', '-criado_em'], name='idx_codigo_otp_prop_data'),
         ]
 
     def __str__(self):

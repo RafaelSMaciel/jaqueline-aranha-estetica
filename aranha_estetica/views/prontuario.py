@@ -52,7 +52,7 @@ def _vinculo(prof, cliente, escrita=False):
     """Atendimento que da ao profissional acesso ao prontuario, ou None.
 
     Leitura: REALIZADO nos ultimos JANELA_REALIZADO_DIAS, ou PENDENTE/AGENDADO/
-    CONFIRMADO entre ontem e +max(JANELA_FUTURO_DIAS, prof.max_advance_dias)
+    CONFIRMADO entre ontem e +max(JANELA_FUTURO_DIAS, prof.antecedencia_maxima_dias)
     (a profissional precisa ver os alertas de saude antes de aprovar um pedido;
     quem aceita reserva com 90 dias de antecedencia ve a ficha desde o pedido).
     Escrita: o mesmo, sem PENDENTE.
@@ -61,7 +61,7 @@ def _vinculo(prof, cliente, escrita=False):
     if prof is None or not prof.ativo:
         return None
     agora = timezone.now()
-    janela_futuro = max(JANELA_FUTURO_DIAS, prof.max_advance_dias or 0)
+    janela_futuro = max(JANELA_FUTURO_DIAS, prof.antecedencia_maxima_dias or 0)
     ativos = [Atendimento.STATUS_AGENDADO, Atendimento.STATUS_CONFIRMADO]
     if not escrita:
         ativos.append(Atendimento.STATUS_PENDENTE)

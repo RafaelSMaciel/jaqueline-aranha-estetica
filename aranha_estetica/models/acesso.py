@@ -76,9 +76,10 @@ class Usuario(AbstractBaseUser):
     class Meta:
         managed = True
         db_table = 'usuario'
+        db_table_comment = 'Conta da equipe (painel). papel = ADMIN/PROFISSIONAL/RECEPCAO; 2FA por regra de settings.'
         constraints = [
             models.CheckConstraint(
-                check=models.Q(papel__in=['ADMIN', 'PROFISSIONAL', 'RECEPCAO']),
+                condition=models.Q(papel__in=['ADMIN', 'PROFISSIONAL', 'RECEPCAO']),
                 name='chk_usuario_papel',
             ),
         ]

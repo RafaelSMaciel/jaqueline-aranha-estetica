@@ -42,10 +42,10 @@ def _primeiro_horario_livre(origem: Atendimento, min_dias: int, max_dias: int):
     if prof is None:
         return None
     # Retorno e agendado pela clinica: o horizonte do booking publico
-    # (max_advance_dias) e o aviso minimo nao se aplicam.
+    # (antecedencia_maxima_dias) e o aviso minimo nao se aplicam.
     prof_retorno = copy.copy(prof)
-    prof_retorno.max_advance_dias = max_dias + 30
-    prof_retorno.min_notice_horas = 0
+    prof_retorno.antecedencia_maxima_dias = max_dias + 30
+    prof_retorno.antecedencia_minima_horas = 0
 
     fim_origem = origem.data_hora_fim
     limite_inicio = fim_origem + timedelta(days=min_dias)

@@ -64,9 +64,21 @@ class FormularioAnamnese(models.Model):
     class Meta:
         managed = True
         db_table = 'formulario_anamnese'
+        db_table_comment = 'Modelo de questionario (anamnese pre ou pesquisa pos-atendimento); schema_json = lista de campos.'
+        constraints = [
+            # Dominio dos choices no banco (padrao-sql §3; NOT VALID no PG pela 0049)
+            models.CheckConstraint(
+                condition=models.Q(tipo__in=['ANAMNESE', 'PESQUISA']),
+                name='chk_formulario_anamnese_tipo',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(escopo__in=['GLOBAL', 'CATEGORIA', 'PROCEDIMENTO', 'MODALIDADE']),
+                name='chk_formulario_anamnese_escopo',
+            ),
+        ]
         indexes = [
-            models.Index(fields=['ativo', 'escopo'], name='idx_anamnese_ativo_escopo'),
-            models.Index(fields=['ativo', 'tipo'], name='idx_anamnese_ativo_tipo'),
+            models.Index(fields=['ativo', 'escopo'], name='idx_form_anamnese_ativo_escopo'),
+            models.Index(fields=['ativo', 'tipo'], name='idx_form_anamnese_ativo_tipo'),
         ]
 
     def __str__(self):
@@ -132,7 +144,7 @@ class RespostaAnamnese(models.Model):
 
     formulario = models.ForeignKey(FormularioAnamnese, on_delete=models.RESTRICT)
     # PROTECT: resposta de anamnese e dado de saude (retencao legal)
-    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT)
+    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, db_index=False)
     atendimento = models.ForeignKey('Atendimento', on_delete=models.PROTECT, blank=True, null=True)
     token = models.CharField(
         max_length=64, unique=True, db_index=True, default=_gen_resposta_token,
@@ -144,10 +156,10 @@ class RespostaAnamnese(models.Model):
     class Meta:
         managed = True
         db_table = 'resposta_anamnese'
+        db_table_comment = 'Respostas de um cliente a um formulario de anamnese, via link com token.'
         indexes = [
-            models.Index(fields=['cliente', '-criado_em'], name='idx_anamnese_resp_cli'),
-            models.Index(fields=['atendimento'], name='idx_anamnese_resp_atend'),
-            models.Index(fields=['respondida_em'], name='idx_anamnese_resp_data'),
+            models.Index(fields=['cliente', '-criado_em'], name='idx_resp_anamnese_cli_data'),
+            models.Index(fields=['respondida_em'], name='idx_resp_anamnese_respondida'),
         ]
 
     def __str__(self):
