@@ -9,15 +9,15 @@ import logging
 from datetime import date, datetime, time, timedelta
 
 from django.db import DatabaseError, transaction
+from django.db.models import Q
 from django.http import JsonResponse
 from django.utils import timezone
 from django_ratelimit.decorators import ratelimit
 
 from ..models import (
+    AgendaExcecao,
+    AgendaHorario,
     Atendimento,
-    DisponibilidadeProfissional,
-    ExcecaoDisponibilidade,
-    Feriado,
     Procedimento,
 )
 from ..services.disponibilidade import SlotService, profissionais_para
@@ -154,24 +154,33 @@ def api_dias_disponiveis(request):
     dias = []
     if profissionais and inicio <= ultimo_dia:
         prof_ids = [p.pk for p in profissionais]
-        feriados = set(Feriado.objects.filter(
-            data__range=(inicio, ultimo_dia), bloqueia_agendamento=True,
-        ).values_list('data', flat=True))
         semanal = {}
-        for prof_id, dia_semana in DisponibilidadeProfissional.objects.filter(
+        for prof_id, dia_semana in AgendaHorario.objects.filter(
             profissional_id__in=prof_ids,
         ).values_list('profissional_id', 'dia_semana'):
             semanal.setdefault(prof_id, set()).add(dia_semana)
-        folgas, horario_diferente = set(), set()
-        for prof_id, data_ex, tipo in ExcecaoDisponibilidade.objects.filter(
-            profissional_id__in=prof_ids, data__range=(inicio, ultimo_dia),
-        ).values_list('profissional_id', 'data', 'tipo'):
-            (folgas if tipo == 'FOLGA' else horario_diferente).add((prof_id, data_ex))
+        # FOLGA/HORARIO_DIFERENTE do mes (intervalo de datas); profissional NULL
+        # = feriado/recesso/fechamento da clinica (vale p/ todos)
+        feriados, folgas, horario_diferente = set(), set(), set()
+        for prof_id, tipo, data_ini, data_fim in AgendaExcecao.objects.ativas().filter(
+            Q(profissional_id__in=prof_ids) | Q(profissional__isnull=True),
+            tipo__in=AgendaExcecao.TIPOS_POR_DATA,
+            data_inicio__lte=ultimo_dia, data_fim__gte=inicio,
+        ).values_list('profissional_id', 'tipo', 'data_inicio', 'data_fim'):
+            dia = max(data_ini, inicio)
+            while dia <= min(data_fim, ultimo_dia):
+                if prof_id is None:
+                    feriados.add(dia)
+                elif tipo == AgendaExcecao.TIPO_FOLGA:
+                    folgas.add((prof_id, dia))
+                else:
+                    horario_diferente.add((prof_id, dia))
+                dia += timedelta(days=1)
 
         dia = inicio
         while dia <= ultimo_dia:
             if dia not in feriados:
-                dia_semana = dia.isoweekday() % 7 + 1
+                dia_semana = dia.isoweekday()
                 for prof in profissionais:
                     if dia > hoje + timedelta(days=prof.max_advance_dias):
                         continue

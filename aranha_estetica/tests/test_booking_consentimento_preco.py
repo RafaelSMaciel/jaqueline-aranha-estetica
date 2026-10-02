@@ -20,7 +20,6 @@ from aranha_estetica.models import (
     AceiteTermo,
     Atendimento,
     Cliente,
-    Feriado,
     FormularioAnamnese,
     LogAuditoria,
     Notificacao,
@@ -32,7 +31,7 @@ from aranha_estetica.services.agendamento_service import AgendamentoService
 from aranha_estetica.services.anamnese import validar_respostas
 from aranha_estetica.utils.saude import alertas_saude
 
-from .factories import criar_cliente, criar_procedimento, criar_profissional
+from .factories import criar_cliente, criar_procedimento, criar_profissional, limpar_feriados
 from .test_confirmar_agendamento import slot_local, verificar_sessao
 
 SCHEMA_SAUDE = [
@@ -56,7 +55,7 @@ class _BaseBooking(TestCase):
 
     def setUp(self):
         cache.clear()
-        Feriado.objects.all().delete()
+        limpar_feriados()
         self.prof = criar_profissional()
         self.proc = criar_procedimento(profissional=self.prof, preco=self.preco)
         self.datetime_str = slot_local(dias=3)

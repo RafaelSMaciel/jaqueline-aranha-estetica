@@ -11,7 +11,7 @@ from django.utils import timezone
 from django_ratelimit.decorators import ratelimit
 
 from ..constants import JANELA_MINIMA_REAGENDAMENTO
-from ..models import Atendimento, Cliente, Feriado, Profissional, RespostaAnamnese
+from ..models import AgendaExcecao, Atendimento, Cliente, Profissional, RespostaAnamnese
 from ..services.agendamento_service import formatar_brl, formatar_data_hora
 from ..services.disponibilidade import profissionais_para, profissional_habilitado, slot_disponivel
 from ..services.retorno_service import DURACAO_RETORNO_PADRAO_MINUTOS
@@ -180,7 +180,7 @@ def reagendar_agendamento(request, token):
         messages.error(request, 'Este profissional não realiza este procedimento.')
         return redirect('aranha:reagendar_agendamento', token=token)
 
-    if Feriado.objects.filter(data=nova_data.date(), bloqueia_agendamento=True).exists():
+    if AgendaExcecao.objects.folga_global_em(nova_data.date()).exists():
         messages.error(request, 'A data escolhida é feriado/recesso. Escolha outro dia.')
         return redirect('aranha:reagendar_agendamento', token=token)
 

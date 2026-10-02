@@ -10,9 +10,8 @@ from django.utils import timezone
 
 from aranha_estetica.models import (
     Atendimento,
+    AgendaExcecao,
     Cliente,
-    ExcecaoDisponibilidade,
-    Feriado,
     FormularioAnamnese,
     Habilitacao,
     RespostaAnamnese,
@@ -21,6 +20,7 @@ from aranha_estetica.models import (
 from .factories import (
     criar_procedimento,
     criar_profissional,
+    limpar_feriados,
 )
 
 
@@ -42,7 +42,7 @@ def verificar_sessao(client, telefone):
 class ConfirmarAgendamentoTests(TestCase):
     def setUp(self):
         cache.clear()
-        Feriado.objects.all().delete()  # feriados semeados podem cair na data do teste
+        limpar_feriados()  # feriados semeados podem cair na data do teste
         self.client = Client()
         self.prof = criar_profissional()
         self.proc = criar_procedimento(profissional=self.prof, preco=Decimal('120.00'))
@@ -188,7 +188,7 @@ class ConfirmarAgendamentoTests(TestCase):
 
     def test_rejeita_dia_de_folga(self):
         dia = timezone.localdate() + timedelta(days=3)
-        ExcecaoDisponibilidade.objects.create(profissional=self.prof, data=dia, tipo='FOLGA')
+        AgendaExcecao.objects.create(profissional=self.prof, tipo='FOLGA', data_inicio=dia, data_fim=dia)
         self._post()
         self.assertEqual(Atendimento.objects.count(), 0)
 

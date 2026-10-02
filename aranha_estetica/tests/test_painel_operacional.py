@@ -14,13 +14,12 @@ from django.urls import reverse
 from django.utils import timezone
 
 from aranha_estetica.models import (
+    AgendaExcecao,
+    AgendaHorario,
     Atendimento,
-    BloqueioAgenda,
     Cliente,
     CompraPacote,
     Configuracao,
-    DisponibilidadeProfissional,
-    ExcecaoDisponibilidade,
     Habilitacao,
     ListaEspera,
     LogAuditoria,
@@ -102,7 +101,7 @@ class EditarProfissionalTests(_AdminTestCase):
         self.assertEqual(resp.status_code, 302)
         self.prof.refresh_from_db()
         self.assertTrue(self.prof.ativo)
-        self.assertEqual(DisponibilidadeProfissional.objects.filter(profissional=self.prof).count(), 7)
+        self.assertEqual(AgendaHorario.objects.filter(profissional=self.prof).count(), 7)
         self.assertTrue(Habilitacao.objects.filter(profissional=self.prof, procedimento=self.proc).exists())
 
     def test_sem_ativo_desativa(self):
@@ -115,22 +114,22 @@ class EditarProfissionalTests(_AdminTestCase):
         resp = self._post_roundtrip(hora_inicio_segunda='14:00', hora_fim_segunda='09:00')
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(any('hora de fim' in m for m in _mensagens(resp)))
-        self.assertEqual(DisponibilidadeProfissional.objects.filter(profissional=self.prof).count(), 7)
+        self.assertEqual(AgendaHorario.objects.filter(profissional=self.prof).count(), 7)
 
     def test_dia_marcado_sem_hora_nao_apaga_nada(self):
         resp = self._post_roundtrip(hora_inicio_terca='', hora_fim_terca='')
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(DisponibilidadeProfissional.objects.filter(profissional=self.prof).count(), 7)
+        self.assertEqual(AgendaHorario.objects.filter(profissional=self.prof).count(), 7)
 
     def test_turno_dividido_preservado_se_horario_nao_muda(self):
-        # segunda (dia_semana=2) em turno dividido: 09:00-12:00 + 14:00-18:00
-        DisponibilidadeProfissional.objects.filter(profissional=self.prof, dia_semana=2).update(
+        # segunda (dia_semana ISO 1) em turno dividido: 09:00-12:00 + 14:00-18:00
+        AgendaHorario.objects.filter(profissional=self.prof, dia_semana=1).update(
             hora_fim=time(12, 0))
-        DisponibilidadeProfissional.objects.create(
-            profissional=self.prof, dia_semana=2, hora_inicio=time(14, 0), hora_fim=time(18, 0))
+        AgendaHorario.objects.create(
+            profissional=self.prof, dia_semana=1, hora_inicio=time(14, 0), hora_fim=time(18, 0))
         resp = self._post_roundtrip(hora_inicio_segunda='09:00', hora_fim_segunda='12:00')
         self.assertEqual(resp.status_code, 302)
-        self.assertEqual(DisponibilidadeProfissional.objects.filter(profissional=self.prof, dia_semana=2).count(), 2)
+        self.assertEqual(AgendaHorario.objects.filter(profissional=self.prof, dia_semana=1).count(), 2)
 
     def test_habilitacao_de_procedimento_inativo_preservada(self):
         inativo = criar_procedimento(nome='Antigo', profissional=self.prof)
@@ -149,7 +148,7 @@ class CadastrarProfissionalTests(_AdminTestCase):
         self.assertEqual(resp.status_code, 302)
         prof = Profissional.objects.get(nome='Nova Prof')
         self.assertTrue(prof.ativo)
-        self.assertEqual(prof.disponibilidadeprofissional_set.count(), 1)
+        self.assertEqual(list(prof.agenda_horarios.values_list('dia_semana', flat=True)), [1])  # segunda ISO
 
     def test_sem_ativo_cria_inativo(self):
         self.client.post(reverse('aranha:profissional_cadastro'), {'nome': 'Prof Off'})
@@ -455,11 +454,11 @@ class PrecoVigenciaTests(_AdminTestCase):
 class BloqueioExcecaoTests(_AdminTestCase):
     def test_excluir_bloqueio_global(self):
         agora = timezone.now()
-        b = BloqueioAgenda.objects.create(profissional=None, data_hora_inicio=agora,
-                                          data_hora_fim=agora + timedelta(hours=1))
+        b = AgendaExcecao.objects.create(tipo='BLOQUEIO', profissional=None, data_hora_inicio=agora,
+                                         data_hora_fim=agora + timedelta(hours=1))
         resp = self.client.post(reverse('aranha:admin_excluir_bloqueio', args=[b.pk]))
         self.assertEqual(resp.status_code, 302)
-        self.assertFalse(BloqueioAgenda.objects.filter(pk=b.pk).exists())
+        self.assertFalse(AgendaExcecao.objects.filter(pk=b.pk).exists())
 
     def test_excecao_horario_fim_antes_do_inicio(self):
         prof = criar_profissional()
@@ -468,7 +467,7 @@ class BloqueioExcecaoTests(_AdminTestCase):
             'data': data, 'tipo': 'HORARIO_DIFERENTE', 'hora_inicio': '14:00', 'hora_fim': '09:00',
         })
         self.assertEqual(resp.status_code, 302)
-        self.assertFalse(ExcecaoDisponibilidade.objects.exists())
+        self.assertFalse(AgendaExcecao.objects.filter(profissional=prof).exists())
 
     def test_excecao_hora_malformada(self):
         prof = criar_profissional()
@@ -477,7 +476,7 @@ class BloqueioExcecaoTests(_AdminTestCase):
             'data': data, 'tipo': 'HORARIO_DIFERENTE', 'hora_inicio': '25:99', 'hora_fim': '26:00',
         })
         self.assertEqual(resp.status_code, 302)
-        self.assertFalse(ExcecaoDisponibilidade.objects.exists())
+        self.assertFalse(AgendaExcecao.objects.filter(profissional=prof).exists())
 
 
 # ─── Pacotes ──────────────────────────────────────────────────────────
@@ -1150,7 +1149,7 @@ class BloqueioGlobalPainelTests(_AdminTestCase):
             'data_hora_fim': (inicio + timedelta(hours=9)).strftime('%Y-%m-%dT%H:%M'),
         })
         self.assertEqual(resp.status_code, 302)
-        bloqueio = BloqueioAgenda.objects.get()
+        bloqueio = AgendaExcecao.objects.get(tipo='BLOQUEIO')
         self.assertIsNone(bloqueio.profissional_id)
         self.assertContains(self.client.get(reverse('aranha:admin_bloqueios')), 'Todos os profissionais')
 

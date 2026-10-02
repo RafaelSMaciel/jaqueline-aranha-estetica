@@ -40,7 +40,7 @@ Fluxo: **procedimento → data/horário (e profissional) → dados + código SMS
 - **Código OTP obrigatório em todo agendamento** (cliente nova ou recorrente), preso ao celular
   informado; o telefone do formulário tem de ser o verificado na sessão (30 min).
 - **Horários** vêm do `SlotService` (§5) e o servidor **revalida** no confirmar: procedimento e
-  profissional ativos, profissional habilitado, horário futuro, não é feriado bloqueador, slot
+  profissional ativos, profissional habilitado, horário futuro, não é feriado/recesso ativo, slot
   ainda livre para a duração inteira.
 - **Antecedência mínima:** `profissional.min_notice_horas` (padrão **2 h**, 0–720).
 - **Antecedência máxima:** `profissional.max_advance_dias` (padrão **60 dias**, 1–365). Não há
@@ -81,8 +81,10 @@ Fluxo: **procedimento → data/horário (e profissional) → dados + código SMS
 
 ## 5. Disponibilidade (SlotService)
 
-Slots de **30 min** no dia, considerando: feriado que bloqueia agendamento; exceção do
-profissional (FOLGA ou HORÁRIO_DIFERENTE); expediente semanal (todos os turnos do dia);
+Slots de **30 min** no dia, considerando: folga da clínica ativa (feriado nacional/local,
+recesso — `AgendaExcecao` FOLGA sem profissional; inativa = a clínica abre); exceção do
+profissional (FOLGA em intervalo de datas ou HORÁRIO_DIFERENTE, que substitui a grade do dia);
+grade semanal `AgendaHorario` (todas as janelas do dia, sem sobreposição);
 atendimentos ativos (PENDENTE/AGENDADO/CONFIRMADO) sobrepostos na duração inteira + **buffer**
 do procedimento (0–120 min); bloqueios pontuais e recorrentes (RRULE) do profissional **ou
 globais** ("Todos os profissionais"); `min_notice_horas`; `max_advance_dias`.

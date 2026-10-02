@@ -1,10 +1,5 @@
-# aranha_estetica/models/profissionais.py — Profissionais, disponibilidade, bloqueios
-from datetime import datetime, time, timedelta
-
+# aranha_estetica/models/profissionais.py — Profissionais
 from django.db import models
-from django.utils import timezone
-
-from ..utils.datas import fmt_local
 
 
 class Profissional(models.Model):
@@ -61,163 +56,13 @@ class Profissional(models.Model):
         super().save(*args, **kwargs)
 
     def get_horarios_disponiveis(self, data_selecionada, procedimento=None):
-        """Slots livres no dia (feriado, excecao, regra semanal, atendimentos com
-        buffer, bloqueios, min_notice/max_advance). Logica em
+        """Slots livres no dia (feriado/folga, horario diferente, grade semanal,
+        atendimentos com buffer, bloqueios, min_notice/max_advance). Logica em
         services.disponibilidade.SlotService — extraida do model para uma camada
         testavel; comportamento preservado (tests/test_slots_disponibilidade.py)."""
         from ..services.disponibilidade import SlotService
         return SlotService.slots_livres(self, data_selecionada, procedimento)
 
 
-class DisponibilidadeProfissional(models.Model):
-    profissional = models.ForeignKey(Profissional, on_delete=models.CASCADE)
-    dia_semana = models.SmallIntegerField()  # 1=Dom, 2=Seg, ..., 7=Sab
-    hora_inicio = models.TimeField()
-    hora_fim = models.TimeField()
-
-    class Meta:
-        managed = True
-        db_table = 'disponibilidade_profissional'
-        constraints = [
-            models.CheckConstraint(
-                check=models.Q(dia_semana__gte=1) & models.Q(dia_semana__lte=7),
-                name='chk_disponibilidade_dia_semana'
-            ),
-            models.CheckConstraint(
-                check=models.Q(hora_fim__gt=models.F('hora_inicio')),
-                name='chk_disponibilidade_hora_fim_apos_inicio',
-            ),
-            models.UniqueConstraint(
-                fields=['profissional', 'dia_semana', 'hora_inicio'],
-                name='uniq_disponibilidade_prof_dia_hora',
-            ),
-        ]
-
-
-class BloqueioAgenda(models.Model):
-    profissional = models.ForeignKey(
-        Profissional, on_delete=models.CASCADE, blank=True, null=True
-    )
-    data_hora_inicio = models.DateTimeField()
-    data_hora_fim = models.DateTimeField()
-    motivo = models.TextField(blank=True, null=True)
-    # iCal RRULE (RFC 5545). Vazio = bloqueio unico (sem recorrencia).
-    # Ex: "FREQ=WEEKLY;BYDAY=WE" (toda quarta), "FREQ=MONTHLY;BYDAY=1SA" (1o sabado).
-    regra_recorrencia = models.CharField(max_length=255, blank=True, default='')
-    # Limite de expansao da regra. None = sem fim (mas engine usa janela).
-    recorrencia_ate = models.DateField(blank=True, null=True)
-
-    class Meta:
-        managed = True
-        db_table = 'bloqueio_agenda'
-        constraints = [
-            models.CheckConstraint(
-                check=models.Q(data_hora_fim__gt=models.F('data_hora_inicio')),
-                name='chk_bloqueio_fim_maior_inicio'
-            ),
-        ]
-
-    def __str__(self):
-        prof = self.profissional.nome if self.profissional_id else 'Todos'
-        ini = fmt_local(self.data_hora_inicio) or '?'
-        sfx = f' (recorrente: {self.regra_recorrencia})' if self.regra_recorrencia else ''
-        return f'Bloqueio {prof} @ {ini}{sfx}'
-
-    def expandir_ocorrencias(self, range_inicio, range_fim):
-        """Retorna lista de (inicio, fim) entre range_inicio e range_fim.
-
-        Sem recorrencia: retorna a unica ocorrencia se intersectar.
-        Com recorrencia: usa dateutil.rrule p/ expandir.
-        """
-        duracao = self.data_hora_fim - self.data_hora_inicio
-
-        if not self.regra_recorrencia:
-            if self.data_hora_fim > range_inicio and self.data_hora_inicio < range_fim:
-                return [(self.data_hora_inicio, self.data_hora_fim)]
-            return []
-
-        try:
-            from dateutil.rrule import rrulestr
-        except ImportError:
-            return [(self.data_hora_inicio, self.data_hora_fim)]
-
-        # DTSTART no fuso LOCAL: BYDAY/BYMONTHDAY sao avaliados no dia local
-        # (em UTC, um bloqueio de quarta 21h BRT cairia na quinta).
-        inicio_local = self.data_hora_inicio
-        if timezone.is_aware(inicio_local):
-            inicio_local = timezone.localtime(inicio_local)
-        try:
-            rule = rrulestr(
-                f'RRULE:{self.regra_recorrencia}', dtstart=inicio_local, forceset=True,
-            )
-        except (ValueError, TypeError):
-            return [(self.data_hora_inicio, self.data_hora_fim)]
-
-        ate = self.recorrencia_ate
-        fim_busca = range_fim
-        if ate:
-            # recorrencia_ate e INCLUSIVO: ocorrencias do proprio dia valem
-            limite = datetime.combine(ate + timedelta(days=1), time.min)
-            if timezone.is_naive(limite):
-                limite = timezone.make_aware(limite, timezone.get_current_timezone())
-            if limite < fim_busca:
-                fim_busca = limite
-
-        ocorrencias = []
-        try:
-            candidatos = rule.between(range_inicio - duracao, fim_busca, inc=True)
-        except (ValueError, TypeError):
-            # ex.: UNTIL naive na regra com dtstart aware
-            return [(self.data_hora_inicio, self.data_hora_fim)]
-        for inicio in candidatos:
-            if fim_busca <= inicio:
-                continue
-            fim = inicio + duracao
-            if fim > range_inicio and inicio < range_fim:
-                ocorrencias.append((inicio, fim))
-        return ocorrencias
-
-
-class ExcecaoDisponibilidade(models.Model):
-    """Override pontual da DisponibilidadeProfissional em data especifica.
-    FOLGA: bloqueia o dia inteiro (mesmo se houver regra semanal).
-    HORARIO_DIFERENTE: substitui regra semanal pelo intervalo informado.
-    """
-    TIPO_CHOICES = [
-        ('FOLGA', 'Folga'),
-        ('HORARIO_DIFERENTE', 'Horario Diferente'),
-    ]
-
-    profissional = models.ForeignKey(Profissional, on_delete=models.CASCADE)
-    data = models.DateField()
-    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
-    hora_inicio = models.TimeField(blank=True, null=True)
-    hora_fim = models.TimeField(blank=True, null=True)
-    motivo = models.TextField(blank=True, null=True)
-
-    class Meta:
-        managed = True
-        db_table = 'excecao_disponibilidade'
-        indexes = [
-            models.Index(fields=['profissional', 'data'], name='idx_excecao_prof_data'),
-        ]
-        constraints = [
-            models.UniqueConstraint(
-                fields=['profissional', 'data', 'tipo'],
-                name='uniq_excecao_prof_data_tipo',
-            ),
-            models.CheckConstraint(
-                check=(
-                    models.Q(tipo='FOLGA') |
-                    (
-                        models.Q(tipo='HORARIO_DIFERENTE')
-                        & models.Q(hora_inicio__isnull=False)
-                        & models.Q(hora_fim__isnull=False)
-                    )
-                ),
-                name='chk_excecao_horario_completo',
-            ),
-        ]
-
-    def __str__(self):
-        return f'{self.profissional.nome} {self.data} ({self.get_tipo_display()})'
+# Grade semanal, folgas, bloqueios e feriados: models/agenda.py (AgendaHorario +
+# AgendaExcecao; as 4 tabelas antigas da agenda foram unificadas na migration 0048).

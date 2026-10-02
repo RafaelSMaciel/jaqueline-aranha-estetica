@@ -564,9 +564,11 @@ class DjangoAdminTests(TestCase):
         self.assertTrue(LogAuditoria.objects.filter(tabela='atendimento', registro_id=ok.pk).exists())
 
     def test_regra_comissao_e_feriado_registrados(self):
-        from aranha_estetica.models import Feriado, RegraComissao
+        # feriado/recesso = AgendaExcecao FOLGA da clinica (admin proprio)
+        from aranha_estetica.models import AgendaExcecao, AgendaHorario, RegraComissao
         self.assertIn(RegraComissao, django_admin.site._registry)
-        self.assertIn(Feriado, django_admin.site._registry)
+        self.assertIn(AgendaExcecao, django_admin.site._registry)
+        self.assertIn(AgendaHorario, django_admin.site._registry)
 
 
 class SwaggerTests(TestCase):

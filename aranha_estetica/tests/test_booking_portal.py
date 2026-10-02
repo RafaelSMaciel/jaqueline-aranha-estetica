@@ -12,10 +12,10 @@ from django.urls import reverse
 from django.utils import timezone
 
 from aranha_estetica.forms import ClientePainelForm
-from aranha_estetica.models import Atendimento, Feriado, Notificacao
+from aranha_estetica.models import Atendimento, Notificacao
 from aranha_estetica.services.agendamento_service import AgendamentoService, formatar_brl
 
-from .factories import criar_cliente, criar_procedimento, criar_profissional
+from .factories import criar_cliente, criar_procedimento, criar_profissional, limpar_feriados
 
 
 def _local(dias, hora, minuto=0):
@@ -148,7 +148,7 @@ class ReagendarTests(TestCase):
 
     def setUp(self):
         cache.clear()
-        Feriado.objects.all().delete()
+        limpar_feriados()
         self.prof = criar_profissional()
         self.proc = criar_procedimento(profissional=self.prof)
         self.cli = criar_cliente()
@@ -459,7 +459,7 @@ class ReagendarHorariosTests(TestCase):
 
     def setUp(self):
         cache.clear()
-        Feriado.objects.all().delete()
+        limpar_feriados()
         self.prof = criar_profissional()
         self.proc60 = criar_procedimento(nome='Protocolo 60', duracao=60, profissional=self.prof)
         self.cli = criar_cliente()

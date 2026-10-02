@@ -79,8 +79,8 @@ class RetornoServiceTests(TestCase):
         )
 
     def test_retorno_sem_horario_livre_nao_cria(self):
-        from aranha_estetica.models import DisponibilidadeProfissional
-        DisponibilidadeProfissional.objects.filter(profissional=self.prof).delete()
+        from aranha_estetica.models import AgendaHorario
+        AgendaHorario.objects.filter(profissional=self.prof).delete()
         atend = criar_atendimento(self.cliente, self.prof, self.proc, status='AGENDADO')
         atend.marcar_realizado()
         self.assertFalse(

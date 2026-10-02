@@ -14,7 +14,7 @@ from django_otp.plugins.otp_totp import admin as _otp_totp_admin  # noqa: F401
 from django_otp.plugins.otp_totp.models import TOTPDevice
 
 from .models import (
-    Profissional, DisponibilidadeProfissional, BloqueioAgenda, Habilitacao,
+    Profissional, AgendaHorario, AgendaExcecao, Habilitacao,
     Procedimento, Preco, Promocao,
     Cliente,
     Prontuario, AnotacaoSessao, ProntuarioVersao,
@@ -23,7 +23,7 @@ from .models import (
     AvaliacaoNPS,
     Pacote, ItemPacote, CompraPacote, ConsumoSessao,
     ListaEspera,
-    LogAuditoria, Configuracao, CodigoOtp, Feriado,
+    LogAuditoria, Configuracao, CodigoOtp,
     RegraComissao, MovimentoComissao,
     Usuario,
 )
@@ -103,8 +103,10 @@ class UsuarioAdmin(DjangoUserAdmin):
 # PROFISSIONAIS
 # =====================================================================
 
-class DisponibilidadeInline(admin.TabularInline):
-    model = DisponibilidadeProfissional
+class AgendaHorarioInline(admin.TabularInline):
+    """Grade semanal (dia ISO: 1=segunda ... 7=domingo; varias janelas por dia)."""
+    model = AgendaHorario
+    fields = ('dia_semana', 'hora_inicio', 'hora_fim')
     extra = 0
 
 
@@ -114,12 +116,12 @@ class ProfissionalAdmin(admin.ModelAdmin):
     list_filter = ('ativo',)
     search_fields = ('nome', 'especialidade')
     ordering = ('-ativo', 'nome')
-    inlines = [DisponibilidadeInline]
+    inlines = [AgendaHorarioInline]
     list_per_page = 50
 
 
-@admin.register(DisponibilidadeProfissional)
-class DisponibilidadeProfissionalAdmin(admin.ModelAdmin):
+@admin.register(AgendaHorario)
+class AgendaHorarioAdmin(admin.ModelAdmin):
     list_display = ('profissional', 'dia_semana', 'hora_inicio', 'hora_fim')
     list_filter = ('profissional', 'dia_semana')
     search_fields = ('profissional__nome',)
@@ -128,15 +130,35 @@ class DisponibilidadeProfissionalAdmin(admin.ModelAdmin):
     list_select_related = ('profissional',)
 
 
-@admin.register(BloqueioAgenda)
-class BloqueioAgendaAdmin(admin.ModelAdmin):
-    list_display = ('profissional', 'data_hora_inicio', 'data_hora_fim', 'motivo')
-    list_filter = ('profissional',)
-    search_fields = ('profissional__nome', 'motivo')
-    ordering = ('-data_hora_inicio',)
-    date_hierarchy = 'data_hora_inicio'
+@admin.register(AgendaExcecao)
+class AgendaExcecaoAdmin(admin.ModelAdmin):
+    """Folgas (inclusive feriados/recessos da clinica: sem profissional),
+    horarios diferentes e bloqueios (pontuais ou recorrentes por RRULE).
+    Desmarcar "ativo" mantem o registro e o ignora na agenda (ex.: feriado
+    nacional em que a clinica abre — apagar faria o carregar_feriados recriar)."""
+    list_display = ('__str__', 'tipo', 'origem', 'profissional', 'data_inicio', 'data_fim',
+                    'data_hora_inicio', 'regra_recorrencia', 'ativo')
+    list_filter = ('tipo', 'origem', 'ativo', 'profissional')
+    search_fields = ('motivo', 'observacao', 'profissional__nome')
+    ordering = ('-criado_em',)
     autocomplete_fields = ('profissional',)
     list_select_related = ('profissional',)
+    list_per_page = 50
+    fieldsets = (
+        (None, {'fields': ('tipo', 'profissional', 'origem', 'ativo', 'motivo', 'observacao')}),
+        ('Folga / horário diferente (datas locais)', {
+            'fields': ('data_inicio', 'data_fim', 'hora_inicio', 'hora_fim'),
+        }),
+        ('Bloqueio (data e hora; recorrência opcional)', {
+            'fields': ('data_hora_inicio', 'data_hora_fim', 'regra_recorrencia', 'data_fim_recorrencia'),
+        }),
+        ('Origem externa', {'fields': ('origem_ref',), 'classes': ('collapse',)}),
+    )
+
+    def save_model(self, request, obj, form, change):
+        if not change and request.user.is_authenticated:
+            obj.usuario_autor = request.user
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(Habilitacao)
@@ -813,11 +835,4 @@ class MovimentoComissaoAdmin(admin.ModelAdmin):
         return False
 
 
-@admin.register(Feriado)
-class FeriadoAdmin(admin.ModelAdmin):
-    """Feriados e recessos da clinica (bloqueiam a agenda se bloqueia_agendamento)."""
-    list_display = ('data', 'nome', 'escopo', 'bloqueia_agendamento')
-    list_filter = ('escopo', 'bloqueia_agendamento')
-    search_fields = ('nome',)
-    ordering = ('-data',)
-    date_hierarchy = 'data'
+# Feriados/recessos: AgendaExcecaoAdmin (FOLGA sem profissional, origem FERIADO_*/RECESSO).

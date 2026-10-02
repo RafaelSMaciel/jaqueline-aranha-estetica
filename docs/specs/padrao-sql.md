@@ -1,8 +1,9 @@
 # Padrão SQL e esquema-alvo do banco — Shiva Zen
 
 > **Spec única** (sobrescrever a cada revisão — política do dono: 1 MD por assunto, sem versões
-> acumuladas). **Status: DESIGN — nada implementado.** Base verificada: `front-fundacao` = `main`
-> @ `1462eff`, migrations até `0047`, produção na `0026`, Django 5.2.1, PostgreSQL 18 (Railway, com
+> acumuladas). **Status: fase (a) IMPLEMENTADA (migration `0048_agenda_unificada`, notas de
+> implementação no fim do §4.a); (b)–(f), N1–N2 e L1–L3 seguem em DESIGN.** Base verificada:
+> `front-fundacao` = `main` @ `1462eff`, migrations até `0047`, produção na `0026`, Django 5.2.1, PostgreSQL 18 (Railway, com
 > `btree_gist`, `pg_trgm`, `unaccent`, ICU). Tudo aqui entra como migrations **`0048`+** — as
 > `0027`–`0047` não são editadas. Histórico das 0027–0047: [`remodelagem-banco-v2.md`](remodelagem-banco-v2.md)
 > (a "Fase 7 — agenda 3→2" de lá é **substituída** pela reestruturação (a) deste documento).
@@ -1535,6 +1536,11 @@ Exceções (onde o Django usa **nome calculado**) e como o padrão as neutraliza
   também reescreve índices/CHECK/FK que citam a coluna).
 - **Tabela** (3): `AlterModelTable` normal (é `ALTER TABLE … RENAME TO`) + rename da sequência.
 - **Índice do `Meta`** (15): `migrations.RenameIndex(model_name, new_name=…, old_name=…)` (Django ≥ 4.1).
+  **Nome > 30 caracteres** (quase todo `ix_…` do padrão): o check `models.E034` limita
+  `Index.name` a 30 por causa do Oracle e reprova o `manage.py check`. Usar
+  `aranha_estetica.db.indices.Indice` — o mesmo `models.Index` com `max_name_length = 63` (limite
+  real do PG; o teste de conformidade confere). Criado na 0048; o N2 troca os `models.Index` do
+  `Meta` por `Indice` ao renomear.
 - **Constraint do `Meta`**: operação própria `RenomearConstraint(model_name, antigo, novo)` em
   `aranha_estetica/db/operacoes.py` (módulo congelado — mudança = nova classe): `state_forwards`
   troca o nome no estado; no PG faz `ALTER TABLE … RENAME CONSTRAINT` ou, se o objeto for índice
@@ -1552,7 +1558,14 @@ Exceções (onde o Django usa **nome calculado**) e como o padrão as neutraliza
   `fk_<t>_<col sem _id>` com a ação do `on_delete` do model (`NOT VALID` + `VALIDATE`, tabelas
   pequenas); UNIQUE de 1 coluna fora do `Meta` → `uq_<t>_<col sem _id>`; sequência de `id` →
   `<t>_id_seq`; índices `*_pattern_ops` → `DROP`. Vai ao fim de cada migration que cria tabela
-  (0048–0053, 0056) e na 0055.
+  (0048–0053, 0056) e na 0055. **Implementada na 0048** (`aranha_estetica/db/operacoes.py`). Achado
+  da implementação: o `CreateModel` deixa FK, índices e UNIQUE parcial em
+  `schema_editor.deferred_sql` (o Django só os cria **no fim da migration**) — a operação executa
+  esse SQL pendente antes de introspectar; sem isso a FK da tabela recém-criada nascia depois, com
+  nome de hash e sem `ON DELETE`. Consequência a lembrar nas fases seguintes: dentro da própria
+  migration que cria a tabela, os índices/UNIQUE parciais do `Meta` só existem no PG depois do
+  `PadronizarNomes` (a cópia de dados anterior a ele não é barrada por eles — a pré-checagem é
+  quem garante).
 
 #### 3.6.3 Collation no estado (recomendado, junto da 0054)
 
@@ -1668,7 +1681,7 @@ Os testes de caracterização (`tests/test_slots_disponibilidade.py`) ficam como
 fábricas passam a criar `AgendaHorario`/`AgendaExcecao`); `fn_horarios_livres` (§5.5) é o espelho
 SQL, com teste de paridade.
 
-**Impacto no código:** `models/profissionais.py` (sai `DisponibilidadeProfissional`,
+**Impacto no código (planejado):** `models/profissionais.py` (sai `DisponibilidadeProfissional`,
 `BloqueioAgenda`, `ExcecaoDisponibilidade`), `models/sistema.py` (sai `Feriado`), `models/__init__.py`;
 `services/disponibilidade.py` (acima); `views/booking_api.api_dias_disponiveis` (grade ISO + folgas
 por intervalo + feriado global); `views/booking_public.confirmar_agendamento` (l. 397) e
@@ -1683,6 +1696,53 @@ por intervalo + feriado global); `views/booking_public.confirmar_agendamento` (l
 `management/commands/seed.py`; `admin.py` (inline de grade, admin de exceções); templates
 `painel/bloqueios.html`, `painel/excecoes*.html`, `painel/cadastro_profissional.html`/`editar_profissional.html`;
 fábricas e testes que criam os models antigos.
+
+**Implementação (0048) — o que ficou diferente do desenho acima, e por quê:**
+
+- **Nome só no banco nos models novos também:** `AgendaExcecao.ativo` → coluna `eh_ativo`
+  (como `Cliente.ativo`/`Profissional.ativo` serão na 0054); `usuario_autor`, `related_name`
+  `agenda_horarios`/`agenda_excecoes`; `criado_em` com `default=timezone.now` + `db_default=Now()`
+  (não `auto_now_add`, que sobrescreveria o `criado_em` preservado do feriado na cópia). FKs sem
+  índice automático (`db_index=False`): cobertas pelo gist do EXCLUDE (`agenda_horario`) e pelos
+  `ix_` do `Meta` (`agenda_excecao`), como no §2.4. `db_table_comment`/`db_comment` já na 0048.
+- **`models.E034`:** os `ix_agenda_excecao_*` passam de 30 caracteres → `Indice` (§3.6.2).
+- **`PadronizarNomes`** implementada na 0048 e executa o `deferred_sql` pendente (§3.6.2).
+- **Pré-checagem** num `RunPython` próprio antes da cópia (aborta só nos 2 casos do spec, com os
+  ids). **Saneamentos sem abortar** (comportamento preservado; tudo no `detalhes` do
+  `LogAuditoria` da migration): `HORARIO_DIFERENTE` legado com fim ≤ início (anterior à validação da
+  tela; zerava o dia) vira `FOLGA` — ou é descartado se já há FOLGA no dia; FOLGA com horas (o CHECK
+  antigo aceitava, o motor ignorava) perde as horas; `recorrencia_ate` sem regra é descartado;
+  escopo de feriado desconhecido vira `RECESSO`; `motivo 'gcal:%'` só vira `origem=GCAL` com
+  profissional (senão violaria `ck_agenda_excecao_gcal`).
+- **RRULE** (`aranha_estetica/utils/recorrencia.py`, `normalizar_regra_recorrencia(regra, dtstart)`):
+  aceita e canoniza `RRULE:`/minúsculas/`;` final/`WKST=MO`/`INTERVAL=1`/BYDAY repetido ou fora de
+  ordem; ordinal em BYDAY de DAILY/WEEKLY é descartado (o dateutil já o ignorava); **COUNT/UNTIL
+  viram `data_fim_recorrencia`** (data local da última ocorrência — exato, pois a regra gera no
+  máximo 1 ocorrência por dia; combinado por `min` com o `recorrencia_ate`). A regex do CHECK fica
+  congelada na migration e um teste confere que é igual a `REGEX_SUBCONJUNTO`. O motor
+  (`AgendaExcecao.ocorrencias`) é o `expandir_ocorrencias` de antes (DTSTART local, fim inclusivo),
+  agora também para BLOQUEIO pontual e para FOLGA (dias inteiros locais; HORARIO_DIFERENTE → `[]`).
+- **`LogAuditoria` da migration** só em banco que opera (há cliente) ou com exceção/bloqueio/aviso
+  (padrão 0045/0047): instalação nova não ganha log só pelos feriados semeados da 0012.
+- **QuerySet:** `ativas()`, `do_profissional_ou_global(prof|pk)`, `cobrindo(dia)`,
+  `folga_global_em(dia)` (devolve QuerySet: `…folga_global_em(d).exists()`) e
+  `bloqueios_no_intervalo(inicio, fim)`. `clean()` espelha os CHECKs e os 2 EXCLUDE (mensagem
+  legível no painel/admin; o banco continua sendo a garantia).
+- **Consumidores:** `api_dias_disponiveis` também tira o dia de FOLGA global manual ("clínica
+  fechada") e ignora a inativa; o calendário mostra feriado/recesso (antes não mostrava), expande
+  bloqueio recorrente (ids `bloq-<pk>-<n>`) e, com filtro de profissional, inclui os globais; o
+  `admin_calendar_mover` expande recorrência (§7.3 item 4), mas a checagem de folga continua só a
+  do profissional (feriado não trava o arrastar, como antes); painel de exceções ganhou "Até"
+  (FOLGA em intervalo; reenviar o mesmo período atualiza; sobreposição é recusada); importação do
+  Google faz upsert por `origem_ref` e **adota** a linha importada antes da 0048 (mesmo
+  início/fim, `origem_ref` nulo) em vez de duplicar; `motivo` mantém o prefixo `gcal:`.
+- **SQLite dos testes:** `fields.W163`/`models.W046` (COMMENT só existe no PG) silenciados em
+  `settings/dev.py` (modo teste).
+- **Testes:** `tests/test_migrations_dados.py` (dados antigos → novos, reverso, aborto nos 2 casos
+  e caracterização "mesmos slots antes/depois" contra uma cópia congelada do motor 0047),
+  `tests/test_agenda_unificada.py`, `tests/test_pg_ddl.py` (EXCLUDE/CHECK/nomes/`ON DELETE`). O
+  ensaio 0026 → 0048 em PG com dados sujos deu os mesmos slots (736 combinações
+  profissional × dia × procedimento) pelo motor 0047 e pelo `SlotService` novo.
 
 ### 4.b Tokens em hash (`link_acesso`) — migration 0049
 
@@ -3377,10 +3437,9 @@ Depois de implementar: atualizar `docs/PROJECT.md` §5 (tabelas/invariantes) e �
    gravar só o id e sanear as linhas antigas numa migration que derruba/recria o trigger no mesmo passo.
 2. Ticket médio diferente entre `dashboard.painel_overview` e `admin_financeiro` (§5.4 item 1).
 3. "LTV" da ficha do cliente conta sessão de pacote pelo preço cheio (§5.4 item 2).
-4. `admin_calendar_mover` não expande bloqueio recorrente (comentário "débito menor") — resolvido de
-   graça em (a) usando `AgendaExcecao.ocorrencias`.
-5. Importação do Google duplica evento remarcado (chave era início/fim) — resolvido em (a) com
-   `origem_ref`.
+4. ~~`admin_calendar_mover` não expande bloqueio recorrente~~ — **resolvido na 0048** (usa
+   `AgendaExcecao.ocorrencias`).
+5. ~~Importação do Google duplica evento remarcado~~ — **resolvido na 0048** (upsert por `origem_ref`).
 6. `profissional.gcal_token_renovacao` (refresh token OAuth) segue em texto puro: não dá para
    hashear. Recomendo cifrar em repouso (Fernet com chave em env, rotação documentada) — PR separada.
 7. `log_auditoria.registro_id` é `integer` apontando para PKs `bigint` — corrigido na 0054.
@@ -3406,4 +3465,4 @@ Depois de implementar: atualizar `docs/PROJECT.md` §5 (tabelas/invariantes) e �
 - **Não** depender de `pg_cron`: o cron HTTP (`/cron/run/<job>/`) continua chamando os jobs, que
   chamam as procedures.
 
-_Última atualização: 2026-09-23 — design inicial (nada implementado)._
+_Última atualização: 2026-09-23 — fase (a) implementada (0048, agenda 4→2); demais fases em design._

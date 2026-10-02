@@ -36,6 +36,9 @@ if _is_testing:
     # (aranha/checks.py) viram ruido em toda execucao. Testados direto em
     # tests/test_deploy_config.py.
     SILENCED_SYSTEM_CHECKS = [f'aranha.W{i:03d}' for i in range(1, 12)]
+    # COMMENT ON (db_comment/db_table_comment, padrao SQL §2) so existe no
+    # Postgres; o SQLite dos testes ignora e avisaria em toda execucao.
+    SILENCED_SYSTEM_CHECKS += ['fields.W163', 'models.W046']
 
 if not _is_testing:
     try:

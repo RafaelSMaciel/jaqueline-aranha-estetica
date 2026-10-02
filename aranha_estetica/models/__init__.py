@@ -2,9 +2,8 @@
 # Imports existentes continuam funcionando: from aranha_estetica.models import X
 
 from .acesso import Usuario, UsuarioManager
-from .profissionais import (
-    Profissional, DisponibilidadeProfissional, BloqueioAgenda, ExcecaoDisponibilidade,
-)
+from .profissionais import Profissional
+from .agenda import AgendaHorario, AgendaExcecao
 from .clientes import Cliente
 from .procedimentos import (
     Procedimento, Habilitacao, Preco, Promocao,
@@ -15,7 +14,7 @@ from .termos import VersaoTermo, AceiteTermo
 from .nps import AvaliacaoNPS
 from .pacotes import Pacote, ItemPacote, CompraPacote, ConsumoSessao
 from .sistema import (
-    ListaEspera, LogAuditoria, Configuracao, CodigoOtp, Feriado,
+    ListaEspera, LogAuditoria, Configuracao, CodigoOtp,
 )
 from .push import AssinaturaPush
 from .anamnese import FormularioAnamnese, RespostaAnamnese
@@ -26,7 +25,7 @@ from .extras import (
 
 __all__ = [
     'Usuario', 'UsuarioManager',
-    'Profissional', 'DisponibilidadeProfissional', 'BloqueioAgenda', 'ExcecaoDisponibilidade',
+    'Profissional', 'AgendaHorario', 'AgendaExcecao',
     'Cliente',
     'Procedimento', 'Habilitacao', 'Preco', 'Promocao',
     'Atendimento', 'Notificacao',
@@ -35,7 +34,6 @@ __all__ = [
     'AvaliacaoNPS',
     'Pacote', 'ItemPacote', 'CompraPacote', 'ConsumoSessao',
     'ListaEspera', 'LogAuditoria', 'Configuracao', 'CodigoOtp',
-    'Feriado',
     'AssinaturaPush',
     'FormularioAnamnese', 'RespostaAnamnese',
     # extras (financeiro auxiliar)

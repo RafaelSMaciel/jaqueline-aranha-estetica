@@ -16,8 +16,8 @@ from django.db import DatabaseError, IntegrityError, connection, transaction
 from django.test import TestCase
 
 from aranha_estetica.models import (
-    AceiteTermo, Atendimento, FormularioAnamnese, Prontuario, ProntuarioVersao, RespostaAnamnese,
-    VersaoTermo,
+    AceiteTermo, AgendaExcecao, AgendaHorario, Atendimento, FormularioAnamnese, Prontuario,
+    ProntuarioVersao, RespostaAnamnese, VersaoTermo,
 )
 from aranha_estetica.models.extras import Carteira, MovimentoCarteira
 from aranha_estetica.tests.factories import (
@@ -34,6 +34,9 @@ CONSTRAINTS_SO_PG = {
     'chk_prontuario_extras_objeto': '0043',
     'chk_resposta_anamnese_objeto': '0043',
     'chk_formulario_schema_lista': '0043',
+    'ex_agenda_horario_sobreposicao': '0048',
+    'ex_agenda_excecao_folga_sobreposta': '0048',
+    'ck_agenda_excecao_regra_recorrencia_suportada': '0048',
 }
 # tgname -> (migration que cria, tabela). A 0047 (termo SAUDE, reembolso,
 # promocao geral) so cria CHECKs de model (existem no SQLite tambem) e nao
@@ -90,6 +93,55 @@ class DDLSoPostgresTests(TestCase):
         self._outro(status='CANCELADO')                     # inativo nao conflita
         self._outro(prof=criar_profissional('Dra. Bia'))    # outro profissional
         self._outro(delta=self.proc.duracao_minutos)        # tstzrange [) contiguo
+
+    def test_agenda_exclude_e_check_da_rrule(self):
+        from datetime import date, time
+
+        # grade: janela sobreposta no mesmo dia recusada; encostada e outro dia ok
+        # (a factory ja criou 09:00-18:00 em todos os dias)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            AgendaHorario.objects.create(profissional=self.prof, dia_semana=1,
+                                         hora_inicio=time(17), hora_fim=time(19))
+        AgendaHorario.objects.create(profissional=self.prof, dia_semana=1, hora_inicio=time(18), hora_fim=time(20))
+        # folga do mesmo profissional nao sobrepoe; inativa, global e de outro profissional podem
+        d = date(2031, 5, 5)
+        AgendaExcecao.objects.create(tipo='FOLGA', profissional=self.prof, data_inicio=d, data_fim=d + timedelta(days=4))
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            AgendaExcecao.objects.create(tipo='FOLGA', profissional=self.prof,
+                                         data_inicio=d + timedelta(days=4), data_fim=d + timedelta(days=6))
+        AgendaExcecao.objects.create(tipo='FOLGA', profissional=self.prof, ativo=False, data_inicio=d, data_fim=d)
+        AgendaExcecao.objects.create(tipo='FOLGA', profissional=None, origem='RECESSO', data_inicio=d, data_fim=d)
+        AgendaExcecao.objects.create(tipo='FOLGA', profissional=criar_profissional('Dra. Folga'),
+                                     data_inicio=d, data_fim=d)
+        # RRULE so no subconjunto (o clean normaliza; o banco barra SQL cru/bulk)
+        bloqueio = AgendaExcecao.objects.create(
+            tipo='BLOQUEIO', profissional=self.prof, regra_recorrencia='FREQ=MONTHLY;BYDAY=-1FR',
+            data_hora_inicio=self.at.data_hora_inicio, data_hora_fim=self.at.data_hora_fim,
+        )
+        for regra in ('FREQ=YEARLY', 'FREQ=WEEKLY;BYDAY=1MO', 'FREQ=DAILY;COUNT=3', 'RRULE:FREQ=DAILY',
+                      'FREQ=MONTHLY;BYDAY=5FR', 'FREQ=WEEKLY;BYMONTHDAY=3'):
+            with self.subTest(regra=regra), self.assertRaises(IntegrityError), transaction.atomic():
+                self._sql('UPDATE agenda_excecao SET regra_recorrencia = %s WHERE id = %s', [regra, bloqueio.pk])
+
+    def test_agenda_nomes_padrao_e_on_delete_real(self):
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT conrelid::regclass::text, conname, contype, confdeltype FROM pg_constraint "
+                "WHERE conrelid IN ('agenda_horario'::regclass, 'agenda_excecao'::regclass) "
+                "AND contype IN ('p', 'f')"
+            )
+            objetos = {(t, nome, tipo, acao) for t, nome, tipo, acao in cursor.fetchall()}
+            cursor.execute("SELECT pg_get_serial_sequence('agenda_excecao', 'id'), "
+                           "pg_get_serial_sequence('agenda_horario', 'id')")
+            sequencias = cursor.fetchone()
+        self.assertEqual(objetos, {
+            ('agenda_horario', 'pk_agenda_horario', 'p', ' '),
+            ('agenda_horario', 'fk_agenda_horario_profissional', 'f', 'c'),
+            ('agenda_excecao', 'pk_agenda_excecao', 'p', ' '),
+            ('agenda_excecao', 'fk_agenda_excecao_profissional', 'f', 'c'),
+            ('agenda_excecao', 'fk_agenda_excecao_usuario_autor', 'f', 'n'),
+        })
+        self.assertEqual(sequencias, ('public.agenda_excecao_id_seq', 'public.agenda_horario_id_seq'))
 
     def test_ledger_imutavel(self):
         carteira = Carteira.objects.create(cliente=self.cli, saldo=Decimal('10'))

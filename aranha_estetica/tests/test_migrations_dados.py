@@ -1,4 +1,4 @@
-"""Regressao das data migrations da remodelagem (0029, 0034-0037, 0042-0047).
+"""Regressao das data migrations da remodelagem (0029, 0034-0037, 0042-0048).
 
 Roda a migration real sobre dados "sujos" plausiveis do banco legado (SQLite:
 as partes PG-only — CHECK regex, EXCLUDE, trigger, collation — sao validadas
@@ -583,3 +583,520 @@ class ReversaTermoSaude0047Tests(TestCase):
         self._reverter()
         self.assertFalse(VersaoTermo.objects.filter(tipo='SAUDE').exists())
         self.assertIsNotNone(VersaoTermo.lgpd_vigente())
+
+
+# ─── 0048: agenda 4 -> 2 (agenda_horario + agenda_excecao) ─────────────────
+M0047 = '0047_termo_saude_reembolso_promocao_geral'
+M0048 = '0048_agenda_unificada'
+
+
+def _local_dt(dia, hora, minuto=0):
+    from datetime import datetime, time
+    return timezone.make_aware(datetime.combine(dia, time(hora, minuto)))
+
+
+class AgendaUnificada0048Tests(_MigracaoBase):
+    """Dados antigos -> novos: grade ISO, bloqueio (mesmo id, RRULE normalizada),
+    folga/horario diferente (mapa no log), feriado nacional/local/recesso/inativo."""
+    migrate_from = M0047
+    migrate_to = M0048
+
+    def preparar(self, apps):
+        from datetime import time
+
+        Profissional = apps.get_model(APP, 'Profissional')
+        Disp = apps.get_model(APP, 'DisponibilidadeProfissional')
+        Exc = apps.get_model(APP, 'ExcecaoDisponibilidade')
+        Bloq = apps.get_model(APP, 'BloqueioAgenda')
+        Feriado = apps.get_model(APP, 'Feriado')
+        Cliente = apps.get_model(APP, 'Cliente')
+        Cliente.objects.create(nome='Cliente', telefone='11911112222')  # banco "operando"
+
+        a = Profissional.objects.create(nome='Prof A')
+        b = Profissional.objects.create(nome='Prof B')
+        self.a, self.b = a.pk, b.pk
+        # grade antiga: 1=Dom .. 7=Sab (turno dividido na segunda)
+        Disp.objects.create(profissional=a, dia_semana=1, hora_inicio=time(9), hora_fim=time(12))
+        Disp.objects.create(profissional=a, dia_semana=2, hora_inicio=time(9), hora_fim=time(12))
+        Disp.objects.create(profissional=a, dia_semana=2, hora_inicio=time(14), hora_fim=time(18))
+        Disp.objects.create(profissional=a, dia_semana=7, hora_inicio=time(8), hora_fim=time(12))
+
+        d = date(2031, 3, 10)
+        self.d = d
+        self.folga = Exc.objects.create(profissional=a, data=d, tipo='FOLGA')
+        self.folga_horas = Exc.objects.create(profissional=a, data=d + timedelta(days=1), tipo='FOLGA',
+                                              hora_inicio=time(9), hora_fim=time(10), motivo='Consulta')
+        self.hd = Exc.objects.create(profissional=a, data=d + timedelta(days=2), tipo='HORARIO_DIFERENTE',
+                                     hora_inicio=time(10), hora_fim=time(14), motivo='Meio periodo')
+        # legado anterior a validacao da tela: fim <= inicio zerava o dia
+        self.hd_invalido = Exc.objects.create(profissional=b, data=d, tipo='HORARIO_DIFERENTE',
+                                              hora_inicio=time(14), hora_fim=time(9))
+        self.folga_b = Exc.objects.create(profissional=b, data=d + timedelta(days=1), tipo='FOLGA')
+        self.hd_invalido_com_folga = Exc.objects.create(
+            profissional=b, data=d + timedelta(days=1), tipo='HORARIO_DIFERENTE',
+            hora_inicio=time(15), hora_fim=time(15))
+
+        self.feriados_antes = Feriado.objects.count()  # semeados pela 0012 + os abaixo
+        self.antigo = (timezone.now() - timedelta(days=300)).replace(microsecond=0)
+        self.fer_nacional = Feriado.objects.create(data=date(2031, 1, 1), nome='Confraternizacao',
+                                                   escopo='NACIONAL', bloqueia_agendamento=True)
+        Feriado.objects.filter(pk=self.fer_nacional.pk).update(criado_em=self.antigo)
+        self.fer_inativo = Feriado.objects.create(data=date(2031, 4, 21), nome='Tiradentes', escopo='NACIONAL',
+                                                  bloqueia_agendamento=False, observacao='clinica abre')
+        self.fer_local = Feriado.objects.create(data=date(2031, 7, 9), nome='Revolucao', escopo='LOCAL')
+        self.recesso = Feriado.objects.create(data=date(2031, 12, 24), nome='Recesso', escopo='CLINICA')
+        self.feriados_antes += 4
+
+        ini = _local_dt(date(2031, 3, 5), 12)
+        fim = ini + timedelta(hours=1)
+        self.b_semanal = Bloq.objects.create(profissional=a, data_hora_inicio=ini, data_hora_fim=fim, motivo='Almoco',
+                                             regra_recorrencia='FREQ=WEEKLY;BYDAY=WE',
+                                             recorrencia_ate=date(2031, 6, 30))
+        self.b_global = Bloq.objects.create(profissional=None, data_hora_inicio=ini, data_hora_fim=fim)
+        self.b_gcal = Bloq.objects.create(profissional=a, data_hora_inicio=ini, data_hora_fim=fim,
+                                          motivo='gcal:Reuniao')
+        self.b_gcal_global = Bloq.objects.create(profissional=None, data_hora_inicio=ini, data_hora_fim=fim,
+                                                 motivo='gcal:sem profissional')
+        self.b_sujo = Bloq.objects.create(profissional=b, data_hora_inicio=ini, data_hora_fim=fim,
+                                          regra_recorrencia='rrule:freq=weekly;byday=fr,mo;wkst=MO;')
+        self.b_count = Bloq.objects.create(profissional=b, data_hora_inicio=_local_dt(date(2031, 3, 1), 10),
+                                           data_hora_fim=_local_dt(date(2031, 3, 1), 11),
+                                           regra_recorrencia='FREQ=DAILY;COUNT=3')
+        self.b_ate_sem_regra = Bloq.objects.create(profissional=a, data_hora_inicio=ini, data_hora_fim=fim,
+                                                   recorrencia_ate=date(2031, 5, 1))
+
+    def test_dados_migrados(self):
+        from datetime import time
+
+        AgendaHorario = self.apps.get_model(APP, 'AgendaHorario')
+        AgendaExcecao = self.apps.get_model(APP, 'AgendaExcecao')
+        LogAuditoria = self.apps.get_model(APP, 'LogAuditoria')
+
+        # grade: dia ISO (Dom 1->7, Seg 2->1, Sab 7->6), turno dividido preservado
+        self.assertEqual(
+            set(AgendaHorario.objects.values_list('profissional_id', 'dia_semana', 'hora_inicio', 'hora_fim')),
+            {(self.a, 7, time(9), time(12)), (self.a, 1, time(9), time(12)),
+             (self.a, 1, time(14), time(18)), (self.a, 6, time(8), time(12))},
+        )
+
+        # bloqueios: MESMO id, recorrencia normalizada, origem GCAL so com profissional
+        def bl(obj):
+            return AgendaExcecao.objects.get(pk=obj.pk)
+
+        semanal = bl(self.b_semanal)
+        self.assertEqual((semanal.tipo, semanal.origem, semanal.profissional_id, semanal.motivo),
+                         ('BLOQUEIO', 'MANUAL', self.a, 'Almoco'))
+        self.assertEqual((semanal.regra_recorrencia, semanal.data_fim_recorrencia),
+                         ('FREQ=WEEKLY;BYDAY=WE', date(2031, 6, 30)))
+        self.assertEqual((semanal.data_hora_inicio, semanal.data_hora_fim),
+                         (self.b_semanal.data_hora_inicio, self.b_semanal.data_hora_fim))
+        self.assertIsNone(semanal.data_inicio)
+        glob = bl(self.b_global)
+        self.assertEqual((glob.profissional_id, glob.regra_recorrencia, glob.motivo), (None, None, ''))
+        self.assertEqual(bl(self.b_gcal).origem, 'GCAL')
+        self.assertEqual((bl(self.b_gcal_global).origem, bl(self.b_gcal_global).motivo),
+                         ('MANUAL', 'gcal:sem profissional'))
+        self.assertEqual(bl(self.b_sujo).regra_recorrencia, 'FREQ=WEEKLY;BYDAY=MO,FR')
+        count = bl(self.b_count)
+        self.assertEqual((count.regra_recorrencia, count.data_fim_recorrencia), ('FREQ=DAILY', date(2031, 3, 3)))
+        sem_regra = bl(self.b_ate_sem_regra)
+        self.assertEqual((sem_regra.regra_recorrencia, sem_regra.data_fim_recorrencia), (None, None))
+
+        log = LogAuditoria.objects.get(acao='migration 0048: agenda unificada')
+        det = log.detalhes
+        self.assertEqual(log.tabela, 'agenda_excecao')
+        self.assertEqual(det['bloqueio_agenda'], 'ids preservados')
+        self.assertEqual(set(det['recorrencia_normalizada']), {str(self.b_sujo.pk), str(self.b_count.pk)})
+        self.assertEqual(det['recorrencia_normalizada'][str(self.b_count.pk)]['para'],
+                         ['FREQ=DAILY', '2031-03-03'])
+        self.assertEqual(det['fim_recorrencia_sem_regra_descartado'], [self.b_ate_sem_regra.pk])
+
+        # excecoes: ids novos, mapa no log; saneamentos registrados
+        mapa = det['excecao_disponibilidade']
+
+        def ex(obj):
+            return AgendaExcecao.objects.get(pk=mapa[str(obj.pk)])
+
+        folga = ex(self.folga)
+        self.assertEqual((folga.tipo, folga.profissional_id, folga.data_inicio, folga.data_fim, folga.motivo,
+                          folga.origem, folga.ativo), ('FOLGA', self.a, self.d, self.d, '', 'MANUAL', True))
+        folga_horas = ex(self.folga_horas)
+        self.assertEqual((folga_horas.tipo, folga_horas.hora_inicio, folga_horas.motivo), ('FOLGA', None, 'Consulta'))
+        hd = ex(self.hd)
+        self.assertEqual((hd.tipo, hd.data_inicio, hd.data_fim, hd.hora_inicio, hd.hora_fim, hd.motivo),
+                         ('HORARIO_DIFERENTE', self.d + timedelta(days=2), self.d + timedelta(days=2),
+                          time(10), time(14), 'Meio periodo'))
+        invalido = ex(self.hd_invalido)
+        self.assertEqual((invalido.tipo, invalido.hora_inicio, invalido.profissional_id), ('FOLGA', None, self.b))
+        self.assertNotIn(str(self.hd_invalido_com_folga.pk), mapa)
+        self.assertEqual(ex(self.folga_b).tipo, 'FOLGA')
+        self.assertEqual(det['horario_diferente_invalido_vira_folga'], [self.hd_invalido.pk])
+        self.assertEqual(det['horario_diferente_invalido_descartado'], [self.hd_invalido_com_folga.pk])
+        self.assertEqual(det['folga_com_horas_ignoradas'], [self.folga_horas.pk])
+        self.assertEqual(len(mapa), 5)
+
+        # feriados = FOLGA da clinica; inativo continua registrado (nao volta no carregar_feriados)
+        fer = det['feriado']
+        self.assertEqual(len(fer), self.feriados_antes)
+        globais = AgendaExcecao.objects.filter(profissional__isnull=True, tipo='FOLGA')
+        self.assertEqual(globais.count(), self.feriados_antes)
+
+        def fe(obj):
+            return AgendaExcecao.objects.get(pk=fer[str(obj.pk)])
+
+        nacional = fe(self.fer_nacional)
+        self.assertEqual((nacional.origem, nacional.ativo, nacional.motivo, nacional.data_inicio, nacional.data_fim),
+                         ('FERIADO_NACIONAL', True, 'Confraternizacao', date(2031, 1, 1), date(2031, 1, 1)))
+        self.assertEqual(nacional.criado_em, self.antigo)
+        inativo = fe(self.fer_inativo)
+        self.assertEqual((inativo.origem, inativo.ativo, inativo.observacao), ('FERIADO_NACIONAL', False, 'clinica abre'))
+        self.assertEqual(fe(self.fer_local).origem, 'FERIADO_LOCAL')
+        recesso = fe(self.recesso)
+        self.assertEqual((recesso.origem, recesso.observacao), ('RECESSO', ''))
+
+        # sequencia depois dos ids explicitos: proximo id nao colide
+        novo = AgendaExcecao.objects.create(tipo='FOLGA', profissional_id=self.a,
+                                            data_inicio=date(2031, 9, 1), data_fim=date(2031, 9, 3))
+        self.assertGreater(novo.pk, max(AgendaExcecao.objects.exclude(pk=novo.pk).values_list('pk', flat=True)))
+
+        tabelas = connection.introspection.table_names()
+        for antiga in ('disponibilidade_profissional', 'excecao_disponibilidade', 'bloqueio_agenda', 'feriado'):
+            self.assertNotIn(antiga, tabelas)
+
+    def test_regex_do_banco_e_o_espelho_python(self):
+        import importlib
+
+        from aranha_estetica.utils.recorrencia import REGEX_SUBCONJUNTO
+
+        mig = importlib.import_module('aranha_estetica.migrations.0048_agenda_unificada')
+        self.assertEqual(mig.REGEX_RRULE, REGEX_SUBCONJUNTO)
+
+
+class AgendaUnificadaReversa0048Tests(_MigracaoBase):
+    """Reverso (dev): agenda nova -> 4 tabelas antigas (e sobe de novo no tearDown)."""
+    migrate_from = M0048
+    migrate_to = M0047
+
+    def preparar(self, apps):
+        from datetime import time
+
+        Profissional = apps.get_model(APP, 'Profissional')
+        AgendaHorario = apps.get_model(APP, 'AgendaHorario')
+        AgendaExcecao = apps.get_model(APP, 'AgendaExcecao')
+        p = Profissional.objects.create(nome='Prof R')
+        self.p = p.pk
+        AgendaHorario.objects.create(profissional=p, dia_semana=1, hora_inicio=time(9), hora_fim=time(12))
+        AgendaHorario.objects.create(profissional=p, dia_semana=7, hora_inicio=time(9), hora_fim=time(12))
+        d = date(2032, 5, 10)
+        self.d = d
+        AgendaExcecao.objects.create(tipo='FOLGA', profissional=p, data_inicio=d, data_fim=d + timedelta(days=2),
+                                     motivo='Ferias')
+        self.inativa = AgendaExcecao.objects.create(tipo='FOLGA', profissional=p, data_inicio=d + timedelta(days=9),
+                                                    data_fim=d + timedelta(days=9), ativo=False)
+        AgendaExcecao.objects.create(tipo='HORARIO_DIFERENTE', profissional=p, data_inicio=d + timedelta(days=5),
+                                     data_fim=d + timedelta(days=5), hora_inicio=time(13), hora_fim=time(15))
+        AgendaExcecao.objects.create(tipo='FOLGA', profissional=None, origem='RECESSO', data_inicio=date(2032, 12, 24),
+                                     data_fim=date(2032, 12, 25), motivo='Recesso de Natal')
+        AgendaExcecao.objects.create(tipo='FOLGA', profissional=None, origem='FERIADO_NACIONAL',
+                                     data_inicio=date(2032, 4, 21), data_fim=date(2032, 4, 21), motivo='Tiradentes',
+                                     ativo=False)
+        self.bloqueio = AgendaExcecao.objects.create(
+            tipo='BLOQUEIO', profissional=p, data_hora_inicio=_local_dt(d, 12), data_hora_fim=_local_dt(d, 13),
+            regra_recorrencia='FREQ=WEEKLY;BYDAY=MO', data_fim_recorrencia=date(2032, 8, 1))
+        self.gcal = AgendaExcecao.objects.create(
+            tipo='BLOQUEIO', profissional=p, origem='GCAL', origem_ref='evt-1',
+            data_hora_inicio=_local_dt(d, 16), data_hora_fim=_local_dt(d, 17), motivo='gcal:x')
+
+    def test_restaura_modelo_antigo(self):
+        from datetime import time
+
+        Disp = self.apps.get_model(APP, 'DisponibilidadeProfissional')
+        Exc = self.apps.get_model(APP, 'ExcecaoDisponibilidade')
+        Bloq = self.apps.get_model(APP, 'BloqueioAgenda')
+        Feriado = self.apps.get_model(APP, 'Feriado')
+        LogAuditoria = self.apps.get_model(APP, 'LogAuditoria')
+        self.assertEqual(set(Disp.objects.filter(profissional_id=self.p).values_list('dia_semana', flat=True)), {2, 1})
+        folgas = sorted(Exc.objects.filter(profissional_id=self.p, tipo='FOLGA').values_list('data', flat=True))
+        self.assertEqual(folgas, [self.d, self.d + timedelta(days=1), self.d + timedelta(days=2)])
+        hd = Exc.objects.get(profissional_id=self.p, tipo='HORARIO_DIFERENTE')
+        self.assertEqual((hd.data, hd.hora_inicio, hd.hora_fim), (self.d + timedelta(days=5), time(13), time(15)))
+        b = Bloq.objects.get(pk=self.bloqueio.pk)
+        self.assertEqual((b.regra_recorrencia, b.recorrencia_ate), ('FREQ=WEEKLY;BYDAY=MO', date(2032, 8, 1)))
+        self.assertEqual(Bloq.objects.get(pk=self.gcal.pk).motivo, 'gcal:x')
+        recesso = Feriado.objects.filter(nome='Recesso de Natal', escopo='CLINICA')
+        self.assertEqual(sorted(recesso.values_list('data', flat=True)), [date(2032, 12, 24), date(2032, 12, 25)])
+        self.assertFalse(Feriado.objects.get(data=date(2032, 4, 21), escopo='NACIONAL').bloqueia_agendamento)
+        log = LogAuditoria.objects.get(acao__startswith='migration 0048 (reversa)')
+        self.assertEqual(log.detalhes, {'excecao_inativa': [self.inativa.pk], 'origem_ref': [self.gcal.pk]})
+
+
+class AgendaUnificada0048AbortaTests(TransactionTestCase):
+    """Pre-checagem: janelas sobrepostas e RRULE fora do subconjunto abortam a
+    0048 inteira (nada aplicado) com os ids na mensagem."""
+    serialized_rollback = True
+
+    def setUp(self):
+        super().setUp()
+        executor = MigrationExecutor(connection)
+        executor.migrate([(APP, M0047)])
+        self.antes = executor.loader.project_state([(APP, M0047)]).apps
+
+    def tearDown(self):
+        executor = MigrationExecutor(connection)
+        executor.loader.build_graph()
+        executor.migrate(executor.loader.graph.leaf_nodes())
+        super().tearDown()
+
+    def _migrar_0048(self):
+        executor = MigrationExecutor(connection)
+        executor.loader.build_graph()
+        executor.migrate([(APP, M0048)])
+
+    def _nao_aplicou(self):
+        from django.db.migrations.recorder import MigrationRecorder
+
+        self.assertNotIn((APP, M0048), MigrationRecorder(connection).applied_migrations())
+        self.assertNotIn('agenda_horario', connection.introspection.table_names())
+
+    def test_janelas_sobrepostas_abortam(self):
+        from datetime import time
+
+        Profissional = self.antes.get_model(APP, 'Profissional')
+        Disp = self.antes.get_model(APP, 'DisponibilidadeProfissional')
+        p = Profissional.objects.create(nome='Prof Sobreposta')
+        a = Disp.objects.create(profissional=p, dia_semana=2, hora_inicio=time(9), hora_fim=time(12))
+        b = Disp.objects.create(profissional=p, dia_semana=2, hora_inicio=time(11), hora_fim=time(13))
+        Disp.objects.create(profissional=p, dia_semana=2, hora_inicio=time(13), hora_fim=time(14))  # encosta: ok
+        Disp.objects.create(profissional=p, dia_semana=3, hora_inicio=time(11), hora_fim=time(13))  # outro dia
+        with self.assertRaises(RuntimeError) as ctx:
+            self._migrar_0048()
+        msg = str(ctx.exception)
+        self.assertIn('0048', msg)
+        self.assertIn('janelas de expediente sobrepostas', msg)
+        self.assertIn(f'[({a.pk}, {b.pk})]', msg)
+        self._nao_aplicou()
+        Disp.objects.filter(pk=b.pk).delete()  # corrigido: o tearDown sobe ate o fim
+
+    def test_rrule_fora_do_subconjunto_aborta(self):
+        Bloq = self.antes.get_model(APP, 'BloqueioAgenda')
+        ini = timezone.now()
+        ruins = [
+            Bloq.objects.create(data_hora_inicio=ini, data_hora_fim=ini + timedelta(hours=1), regra_recorrencia=r)
+            for r in ('FREQ=YEARLY;BYMONTH=12', 'FREQ=MONTHLY;BYDAY=5FR', 'FREQ=WEEKLY;BYHOUR=10', 'lixo')
+        ]
+        ok = Bloq.objects.create(data_hora_inicio=ini, data_hora_fim=ini + timedelta(hours=1),
+                                 regra_recorrencia='FREQ=MONTHLY;BYDAY=-1FR')
+        with self.assertRaises(RuntimeError) as ctx:
+            self._migrar_0048()
+        msg = str(ctx.exception)
+        self.assertIn('regra de recorrencia fora do subconjunto', msg)
+        for r in ruins:
+            self.assertIn(f'({r.pk}, ', msg)
+        self.assertNotIn(f'({ok.pk}, ', msg)
+        self._nao_aplicou()
+        Bloq.objects.filter(pk__in=[r.pk for r in ruins]).delete()
+
+
+# Copia CONGELADA do SlotService anterior a 0048 (services/disponibilidade.py +
+# BloqueioAgenda.expandir_ocorrencias @ 0047), sobre os models historicos: a
+# referencia de "antes" da caracterizacao abaixo.
+def _slots_legado(apps, profissional, data_selecionada, procedimento):
+    from datetime import datetime, time
+
+    from dateutil.rrule import rrulestr
+    from django.db.models import Q
+
+    Feriado = apps.get_model(APP, 'Feriado')
+    Exc = apps.get_model(APP, 'ExcecaoDisponibilidade')
+    Disp = apps.get_model(APP, 'DisponibilidadeProfissional')
+    Bloq = apps.get_model(APP, 'BloqueioAgenda')
+    Atendimento = apps.get_model(APP, 'Atendimento')
+
+    def aware(dt):
+        return timezone.make_aware(dt, timezone.get_current_timezone()) if timezone.is_naive(dt) else dt
+
+    def expandir(b, range_inicio, range_fim):
+        duracao = b.data_hora_fim - b.data_hora_inicio
+        if not b.regra_recorrencia:
+            if b.data_hora_fim > range_inicio and b.data_hora_inicio < range_fim:
+                return [(b.data_hora_inicio, b.data_hora_fim)]
+            return []
+        inicio_local = timezone.localtime(b.data_hora_inicio)
+        try:
+            rule = rrulestr(f'RRULE:{b.regra_recorrencia}', dtstart=inicio_local, forceset=True)
+        except (ValueError, TypeError):
+            return [(b.data_hora_inicio, b.data_hora_fim)]
+        fim_busca = range_fim
+        if b.recorrencia_ate:
+            limite = aware(datetime.combine(b.recorrencia_ate + timedelta(days=1), time.min))
+            if limite < fim_busca:
+                fim_busca = limite
+        try:
+            candidatos = rule.between(range_inicio - duracao, fim_busca, inc=True)
+        except (ValueError, TypeError):
+            return [(b.data_hora_inicio, b.data_hora_fim)]
+        return [(i, i + duracao) for i in candidatos
+                if not fim_busca <= i and i + duracao > range_inicio and i < range_fim]
+
+    if Feriado.objects.filter(data=data_selecionada, bloqueia_agendamento=True).exists():
+        return []
+    agora = timezone.localtime()
+    if data_selecionada < agora.date():
+        return []
+    limite_min_notice = agora + timedelta(hours=profissional.min_notice_horas)
+    if data_selecionada > (agora + timedelta(days=profissional.max_advance_dias)).date():
+        return []
+    excecao_horario = None
+    for ex in Exc.objects.filter(profissional=profissional, data=data_selecionada):
+        if ex.tipo == 'FOLGA':
+            return []
+        if ex.tipo == 'HORARIO_DIFERENTE' and ex.hora_inicio and ex.hora_fim:
+            excecao_horario = ex
+    if excecao_horario:
+        janelas = [(excecao_horario.hora_inicio, excecao_horario.hora_fim)]
+    else:
+        janelas = [(d.hora_inicio, d.hora_fim) for d in Disp.objects.filter(
+            profissional=profissional, dia_semana=data_selecionada.isoweekday() % 7 + 1)]
+        if not janelas:
+            return []
+    dia_inicio = aware(datetime.combine(data_selecionada, time.min))
+    dia_fim = dia_inicio + timedelta(days=1)
+    ocupados = []
+    for ag in Atendimento.objects.filter(
+        profissional=profissional, data_hora_inicio__lt=dia_fim, data_hora_fim__gt=dia_inicio,
+        status__in=('PENDENTE', 'AGENDADO', 'CONFIRMADO'),
+    ).select_related('procedimento'):
+        ocupados.append((ag.data_hora_inicio,
+                         ag.data_hora_fim + timedelta(minutes=ag.procedimento.buffer_minutos or 0)))
+    filtro = Q(profissional=profissional) | Q(profissional__isnull=True)
+    bloqueios = [(b.data_hora_inicio, b.data_hora_fim) for b in Bloq.objects.filter(
+        filtro, regra_recorrencia='').filter(data_hora_inicio__lt=dia_fim, data_hora_fim__gt=dia_inicio)]
+    for b in Bloq.objects.filter(filtro).exclude(regra_recorrencia=''):
+        bloqueios.extend(expandir(b, dia_inicio, dia_fim))
+    duracao = timedelta(minutes=procedimento.duracao_minutos) if procedimento.duracao_minutos else timedelta(minutes=30)
+    buffer_proc = timedelta(minutes=procedimento.buffer_minutos or 0)
+    livres = set()
+    for hora_ini, hora_fim in janelas:
+        atual = aware(datetime.combine(data_selecionada, hora_ini))
+        fim_exp = aware(datetime.combine(data_selecionada, hora_fim))
+        while atual + duracao <= fim_exp:
+            if atual >= limite_min_notice:
+                fim_slot = atual + duracao
+                if not any(atual < of and fim_slot + buffer_proc > oi for oi, of in ocupados) and not any(
+                        atual < bf and fim_slot > bi for bi, bf in bloqueios):
+                    livres.add(timezone.localtime(atual).strftime('%H:%M'))
+            atual += timedelta(minutes=30)
+    return sorted(livres)
+
+
+class SlotsAntesDepois0048Tests(_MigracaoBase):
+    """Caracterizacao: os MESMOS horarios livres antes (modelo antigo, motor
+    antigo congelado acima) e depois da 0048 (SlotService atual) — feriado ativo
+    e inativo, recesso, folga, horario diferente (valido e invalido), bloqueio
+    pontual/global/recorrente (WEEKLY com fim, DAILY;COUNT, UNTIL em UTC),
+    atendimento com buffer e antecedencia minima/maxima."""
+    migrate_from = M0047
+    migrate_to = M0048
+    DIAS = range(-1, 16)
+
+    def setUp(self):
+        from datetime import datetime, time
+
+        hoje = timezone.localdate()
+        self.hoje = hoje
+        self.agora_fixa = timezone.make_aware(datetime.combine(hoje, time(10, 17)))
+        super().setUp()
+
+    def _cenario(self):
+        return [(p, self.hoje + timedelta(days=n), proc)
+                for p in (self.pa, self.pb) for n in self.DIAS for proc in (self.p60, self.p30)]
+
+    def preparar(self, apps):
+        from datetime import datetime, time
+        from datetime import timezone as dt_tz
+
+        Profissional = apps.get_model(APP, 'Profissional')
+        Procedimento = apps.get_model(APP, 'Procedimento')
+        Disp = apps.get_model(APP, 'DisponibilidadeProfissional')
+        Exc = apps.get_model(APP, 'ExcecaoDisponibilidade')
+        Bloq = apps.get_model(APP, 'BloqueioAgenda')
+        Feriado = apps.get_model(APP, 'Feriado')
+        Cliente = apps.get_model(APP, 'Cliente')
+        Atendimento = apps.get_model(APP, 'Atendimento')
+        hoje = self.hoje
+
+        def dia(n):
+            return hoje + timedelta(days=n)
+
+        a = Profissional.objects.create(nome='Prof A', min_notice_horas=2, max_advance_dias=12)
+        b = Profissional.objects.create(nome='Prof B', min_notice_horas=0, max_advance_dias=30)
+        p60 = Procedimento.objects.create(nome='Peeling', duracao_minutos=60, buffer_minutos=30)
+        p30 = Procedimento.objects.create(nome='Limpeza', duracao_minutos=30, buffer_minutos=0)
+        self.pa, self.pb, self.p60, self.p30 = a.pk, b.pk, p60.pk, p30.pk
+        for d in (2, 3, 4, 5, 6):  # seg-sex, antigo 1=Dom
+            Disp.objects.create(profissional=a, dia_semana=d, hora_inicio=time(9), hora_fim=time(12))
+            Disp.objects.create(profissional=a, dia_semana=d, hora_inicio=time(14), hora_fim=time(18))
+        Disp.objects.create(profissional=a, dia_semana=7, hora_inicio=time(9), hora_fim=time(13))
+        for d in range(1, 8):
+            Disp.objects.create(profissional=b, dia_semana=d, hora_inicio=time(8), hora_fim=time(17))
+
+        def feriado(n, escopo, bloqueia, nome):
+            Feriado.objects.update_or_create(data=dia(n), escopo=escopo,
+                                             defaults={'nome': nome, 'bloqueia_agendamento': bloqueia})
+
+        feriado(3, 'LOCAL', True, 'Feriado municipal')
+        feriado(4, 'NACIONAL', False, 'Nacional em que a clinica abre')
+        feriado(5, 'CLINICA', True, 'Recesso')
+        Exc.objects.create(profissional=a, data=dia(6), tipo='FOLGA')
+        Exc.objects.create(profissional=a, data=dia(7), tipo='HORARIO_DIFERENTE',
+                           hora_inicio=time(10), hora_fim=time(11, 30))
+        Exc.objects.create(profissional=b, data=dia(8), tipo='HORARIO_DIFERENTE',
+                           hora_inicio=time(15), hora_fim=time(9))  # invalido: zera o dia
+
+        def local(n, h, m=0):
+            return timezone.make_aware(datetime.combine(dia(n), time(h, m)))
+
+        Bloq.objects.create(profissional=a, data_hora_inicio=local(-7, 15), data_hora_fim=local(-7, 16),
+                            regra_recorrencia='FREQ=WEEKLY', recorrencia_ate=dia(7))
+        Bloq.objects.create(profissional=b, data_hora_inicio=local(-1, 12), data_hora_fim=local(-1, 13),
+                            regra_recorrencia='FREQ=DAILY;INTERVAL=2;COUNT=4')
+        # UNTIL em UTC (o motor antigo so aceitava UNTIL com Z quando DTSTART e aware)
+        until = local(9, 20, 59).astimezone(dt_tz.utc).strftime('%Y%m%dT%H%M%SZ')
+        Bloq.objects.create(profissional=b, data_hora_inicio=local(-3, 16, 30), data_hora_fim=local(-3, 17),
+                            regra_recorrencia=f'FREQ=WEEKLY;BYDAY=MO,WE;UNTIL={until}')
+        Bloq.objects.create(profissional=None, data_hora_inicio=local(2, 9), data_hora_fim=local(2, 10, 30))
+        Bloq.objects.create(profissional=b, data_hora_inicio=local(2, 16), data_hora_fim=local(2, 16, 30))
+
+        cli = Cliente.objects.create(nome='Cliente', telefone='11911112222')
+        Atendimento.objects.create(cliente=cli, profissional=a, procedimento=p60, status='AGENDADO',
+                                   data_hora_inicio=local(1, 10), data_hora_fim=local(1, 11))
+        Atendimento.objects.create(cliente=cli, profissional=b, procedimento=p30, status='CONFIRMADO',
+                                   data_hora_inicio=local(2, 9), data_hora_fim=local(2, 9, 30))
+        Atendimento.objects.create(cliente=cli, profissional=b, procedimento=p60, status='CANCELADO',
+                                   data_hora_inicio=local(2, 11), data_hora_fim=local(2, 12))
+
+        P = {x.pk: x for x in Profissional.objects.all()}
+        R = {x.pk: x for x in Procedimento.objects.all()}
+        with mock.patch('django.utils.timezone.now', return_value=self.agora_fixa):
+            self.antes = {
+                (p, d, r): _slots_legado(apps, P[p], d, R[r]) for p, d, r in self._cenario()
+            }
+
+    def test_mesmos_slots_antes_e_depois(self):
+        from aranha_estetica.models import Procedimento, Profissional
+        from aranha_estetica.services.disponibilidade import SlotService
+
+        P = {x.pk: x for x in Profissional.objects.filter(pk__in=[self.pa, self.pb])}
+        R = {x.pk: x for x in Procedimento.objects.filter(pk__in=[self.p60, self.p30])}
+        with mock.patch('django.utils.timezone.now', return_value=self.agora_fixa):
+            depois = {(p, d, r): SlotService.slots_livres(P[p], d, R[r]) for p, d, r in self._cenario()}
+        diferencas = {k: (v, depois[k]) for k, v in self.antes.items() if v != depois[k]}
+        self.assertEqual(diferencas, {})
+        # o cenario exercita os dois lados (nao e "vazio == vazio")
+        cheios = sum(1 for v in self.antes.values() if v)
+        self.assertGreater(cheios, 20)
+        self.assertLess(cheios, len(self.antes))
+        hoje = self.hoje
+        self.assertEqual(self.antes[(self.pb, hoje + timedelta(days=3), self.p30)], [])  # feriado local
+        self.assertTrue(self.antes[(self.pb, hoje + timedelta(days=4), self.p30)])      # feriado inativo
+        self.assertEqual(self.antes[(self.pb, hoje + timedelta(days=8), self.p30)], [])  # HD invalido

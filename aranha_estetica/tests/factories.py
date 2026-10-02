@@ -6,9 +6,10 @@ from decimal import Decimal
 from django.utils import timezone
 
 from aranha_estetica.models import (
+    AgendaExcecao,
+    AgendaHorario,
     Atendimento,
     Cliente,
-    DisponibilidadeProfissional,
     ItemPacote,
     Pacote,
     CompraPacote,
@@ -21,15 +22,21 @@ from aranha_estetica.models import (
 
 def criar_profissional(nome='Dra. Ana', **kwargs):
     prof = Profissional.objects.create(nome=nome, ativo=kwargs.pop('ativo', True), **kwargs)
-    # Disponibilidade padrao: todos os dias 09h-18h
+    # Grade padrao: todos os dias 09h-18h (dia_semana ISO 1..7)
     for dia in range(1, 8):
-        DisponibilidadeProfissional.objects.create(
+        AgendaHorario.objects.create(
             profissional=prof,
             dia_semana=dia,
             hora_inicio=time(9, 0),
             hora_fim=time(18, 0),
         )
     return prof
+
+
+def limpar_feriados():
+    """Feriados/recessos (FOLGA da clinica: semeados pela 0012 e pelo
+    carregar_feriados) podem cair na data do teste."""
+    AgendaExcecao.objects.filter(profissional__isnull=True, tipo=AgendaExcecao.TIPO_FOLGA).delete()
 
 
 def criar_procedimento(nome='Limpeza de Pele', duracao=30, categoria='FACIAL',
