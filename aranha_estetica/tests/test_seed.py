@@ -7,7 +7,7 @@ from django.core.management.base import CommandError
 from django.test import TestCase
 
 from aranha_estetica.models import (
-    Atendimento, Cliente, DisponibilidadeProfissional, FormularioAnamnese,
+    AgendaHorario, Atendimento, Cliente, FormularioAnamnese,
     Habilitacao, Preco, Procedimento, Profissional, VersaoTermo,
 )
 from aranha_estetica.constants import TERMO_LGPD_CONTEUDO
@@ -29,7 +29,11 @@ class SeedTests(TestCase):
         # item sem preco no catalogo fica "a consultar" (sem Preco)
         self.assertFalse(Preco.objects.filter(procedimento__nome='Depilação a Laser').exists())
         self.assertEqual(Preco.objects.count(), len(CATALOGO) - 1)
-        self.assertEqual(DisponibilidadeProfissional.objects.filter(profissional=prof).count(), 6)
+        # seg-sab (ISO 1..6), domingo sem expediente
+        self.assertEqual(
+            sorted(AgendaHorario.objects.filter(profissional=prof).values_list('dia_semana', flat=True)),
+            [1, 2, 3, 4, 5, 6],
+        )
         termo = VersaoTermo.lgpd_vigente()
         # texto real (resumo da politica), nao placeholder de exemplo
         self.assertEqual(termo.conteudo, TERMO_LGPD_CONTEUDO)

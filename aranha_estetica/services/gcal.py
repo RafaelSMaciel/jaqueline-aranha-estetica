@@ -180,12 +180,16 @@ def push_atendimento(atendimento: 'Atendimento') -> bool:
 
 
 def pull_eventos_externos(profissional: 'Profissional') -> int:
-    """Importa eventos do GCal como BloqueioAgenda (sem aranha_atendimento_id).
+    """Importa eventos do GCal como bloqueios (sem aranha_atendimento_id).
+
+    Upsert idempotente por id do evento: AgendaExcecao tipo BLOQUEIO, origem
+    GCAL, origem_ref = event.id (uq_agenda_excecao_gcal_evento) — evento
+    remarcado no Google atualiza o bloqueio em vez de duplicar.
 
     Returns:
-        Numero de bloqueios importados (zero em caso de falha).
+        Numero de eventos importados/atualizados (zero em caso de falha).
     """
-    from ..models import BloqueioAgenda
+    from ..models import AgendaExcecao
     svc = _service(profissional)
     if not svc:
         return 0
@@ -224,13 +228,29 @@ def pull_eventos_externos(profissional: 'Profissional') -> int:
         from django.utils.dateparse import parse_datetime
         s, e = parse_datetime(start), parse_datetime(end)
         if not s or not e or e <= s:
-            continue  # CHECK chk_bloqueio_fim_maior_inicio
-        BloqueioAgenda.objects.get_or_create(
-            profissional=profissional,
-            data_hora_inicio=s,
-            data_hora_fim=e,
-            defaults={'motivo': f'gcal:{ev.get("summary", "evento externo")[:80]}'},
-        )
+            continue  # CHECK ck_agenda_excecao_bloqueio
+        ref = str(ev.get('id') or '')[:255] or None
+        dados = {
+            'tipo': AgendaExcecao.TIPO_BLOQUEIO,
+            'data_hora_inicio': s,
+            'data_hora_fim': e,
+            'motivo': f'gcal:{ev.get("summary", "evento externo")[:80]}',
+        }
+        gcal = AgendaExcecao.objects.filter(profissional=profissional, origem=AgendaExcecao.ORIGEM_GCAL)
+        if ref is None:
+            gcal.get_or_create(
+                profissional=profissional, origem=AgendaExcecao.ORIGEM_GCAL, origem_ref=None,
+                data_hora_inicio=s, data_hora_fim=e, defaults=dados,
+            )
+        elif not gcal.filter(origem_ref=ref).update(atualizado_em=agora, **dados):
+            # importado antes da 0048 (sem origem_ref): adota a linha em vez de duplicar
+            legado = gcal.filter(origem_ref__isnull=True, data_hora_inicio=s, data_hora_fim=e).first()
+            if legado:
+                gcal.filter(pk=legado.pk).update(origem_ref=ref, atualizado_em=agora, **dados)
+            else:
+                AgendaExcecao.objects.create(
+                    profissional=profissional, origem=AgendaExcecao.ORIGEM_GCAL, origem_ref=ref, **dados,
+                )
         importados += 1
     profissional.gcal_ultimo_sync_em = agora
     profissional.save(update_fields=['gcal_ultimo_sync_em'])

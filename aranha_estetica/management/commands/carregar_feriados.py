@@ -1,7 +1,10 @@
 """Carrega feriados nacionais brasileiros para o ano informado.
 
-Idempotente (get_or_create por data+escopo): pode rodar todo mes via cron
-(a migration 0012 so carregou 2026-2027).
+Feriado = AgendaExcecao FOLGA da clinica inteira (profissional NULL, origem
+FERIADO_NACIONAL). Idempotente (get_or_create por origem+data, o mesmo par do
+uq_agenda_excecao_feriado): pode rodar todo mes via cron (a migration 0012 so
+carregou 2026-2027). Feriado em que a clinica abre fica com ativo=False (eh_ativo)
+e nao e recriado nem reativado aqui.
 
 Uso:
   python manage.py carregar_feriados          # ano atual + proximo (fuso local)
@@ -11,7 +14,7 @@ from datetime import date, timedelta
 
 from django.core.management.base import BaseCommand
 
-from aranha_estetica.models import Feriado
+from aranha_estetica.models import AgendaExcecao
 from aranha_estetica.utils.datas import hoje
 
 
@@ -75,12 +78,15 @@ class Command(BaseCommand):
             ] + feriados_moveis(ano)
 
             for dt, nome in entradas:
-                _obj, created = Feriado.objects.get_or_create(
-                    data=dt,
-                    escopo=Feriado.ESCOPO_NACIONAL,
+                _obj, created = AgendaExcecao.objects.get_or_create(
+                    origem=AgendaExcecao.ORIGEM_FERIADO_NACIONAL,
+                    data_inicio=dt,
                     defaults={
-                        'nome': nome,
-                        'bloqueia_agendamento': True,
+                        'tipo': AgendaExcecao.TIPO_FOLGA,
+                        'profissional': None,
+                        'data_fim': dt,
+                        'motivo': nome,
+                        'ativo': True,
                     },
                 )
                 if created:

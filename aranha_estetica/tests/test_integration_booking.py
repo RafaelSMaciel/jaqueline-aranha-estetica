@@ -8,12 +8,13 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from aranha_estetica.models import Atendimento, Cliente, Feriado
+from aranha_estetica.models import Atendimento, Cliente
 
 from .factories import (
     criar_cliente,
     criar_procedimento,
     criar_profissional,
+    limpar_feriados,
 )
 from .test_confirmar_agendamento import slot_local, verificar_sessao
 
@@ -37,7 +38,7 @@ class IntegrationBookingFlowTests(TestCase):
     def setUp(self):
         cache.clear()
         # Feriados seeded via migration 0012 pode colidir com datas dos testes.
-        Feriado.objects.all().delete()
+        limpar_feriados()
         self.client = Client()
         self.prof = criar_profissional()
         self.proc = criar_procedimento(profissional=self.prof, preco=Decimal('150.00'))

@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from ..decorators import staff_required
 from ..models import (
-    DisponibilidadeProfissional,
+    AgendaHorario,
     Procedimento,
     Profissional,
     Habilitacao,
@@ -19,8 +19,8 @@ from ..utils.parse import id_int
 
 logger = logging.getLogger(__name__)
 
-# Ordem de exibicao (seg..dom) e mapeamento p/ DisponibilidadeProfissional.dia_semana
-# (1=Dom, 2=Seg, ..., 7=Sab).
+# Ordem de exibicao (seg..dom) e mapeamento p/ AgendaHorario.dia_semana
+# (ISO 8601: 1=segunda ... 7=domingo = date.isoweekday()).
 DIAS_SEMANA = [
     ('segunda', 'Segunda-feira'),
     ('terca', 'Terça-feira'),
@@ -31,8 +31,8 @@ DIAS_SEMANA = [
     ('domingo', 'Domingo'),
 ]
 DIA_NUMERO = {
-    'segunda': 2, 'terca': 3, 'quarta': 4, 'quinta': 5,
-    'sexta': 6, 'sabado': 7, 'domingo': 1,
+    'segunda': 1, 'terca': 2, 'quarta': 3, 'quinta': 4,
+    'sexta': 5, 'sabado': 6, 'domingo': 7,
 }
 
 HORA_INICIO_PADRAO = '09:00'
@@ -98,13 +98,13 @@ def _dias_do_post(post):
 
 
 def _dias_do_profissional(profissional):
-    """Linhas do form a partir das disponibilidades gravadas.
+    """Linhas do form a partir da grade semanal gravada (AgendaHorario).
 
     O form suporta 1 janela por dia: mostra a primeira e informa quantas
     janelas extras existem (preservadas se o horario do dia nao mudar).
     """
     por_dia = {}
-    for disp in DisponibilidadeProfissional.objects.filter(
+    for disp in AgendaHorario.objects.filter(
         profissional=profissional
     ).order_by('dia_semana', 'hora_inicio'):
         por_dia.setdefault(disp.dia_semana, []).append(disp)
@@ -149,15 +149,15 @@ def profissional_cadastro(request):
             })
 
         try:
-            # Atomico: cadastro + disponibilidades + habilitacoes sao tudo-ou-nada
+            # Atomico: cadastro + grade semanal + habilitacoes sao tudo-ou-nada
             with transaction.atomic():
                 profissional = Profissional.objects.create(
                     nome=nome,
                     especialidade=especialidade,
                     ativo=ativo,
                 )
-                DisponibilidadeProfissional.objects.bulk_create([
-                    DisponibilidadeProfissional(
+                AgendaHorario.objects.bulk_create([
+                    AgendaHorario(
                         profissional=profissional,
                         dia_semana=DIA_NUMERO[key],
                         hora_inicio=hi,
@@ -204,7 +204,7 @@ def _salvar_janelas(profissional, janelas):
     - Dia marcado com horario novo: substitui as janelas do dia por uma.
     """
     existentes = {}
-    for disp in DisponibilidadeProfissional.objects.filter(
+    for disp in AgendaHorario.objects.filter(
         profissional=profissional
     ).order_by('dia_semana', 'hora_inicio'):
         existentes.setdefault(disp.dia_semana, []).append(disp)
@@ -214,14 +214,14 @@ def _salvar_janelas(profissional, janelas):
         atuais = existentes.get(num, [])
         if key not in janelas:
             if atuais:
-                DisponibilidadeProfissional.objects.filter(pk__in=[d.pk for d in atuais]).delete()
+                AgendaHorario.objects.filter(pk__in=[d.pk for d in atuais]).delete()
             continue
         hi, hf = janelas[key]
         if atuais and atuais[0].hora_inicio == hi and atuais[0].hora_fim == hf:
             continue
         if atuais:
-            DisponibilidadeProfissional.objects.filter(pk__in=[d.pk for d in atuais]).delete()
-        DisponibilidadeProfissional.objects.create(
+            AgendaHorario.objects.filter(pk__in=[d.pk for d in atuais]).delete()
+        AgendaHorario.objects.create(
             profissional=profissional, dia_semana=num, hora_inicio=hi, hora_fim=hf,
         )
 

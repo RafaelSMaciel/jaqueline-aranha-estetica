@@ -11,8 +11,7 @@ from django.utils import timezone
 from django.views.decorators.cache import never_cache
 
 from ..models import (
-    AvaliacaoNPS, Cliente, CompraPacote, Atendimento, DisponibilidadeProfissional,
-    Profissional,
+    AgendaHorario, AvaliacaoNPS, Cliente, CompraPacote, Atendimento, Profissional,
 )
 from ..decorators import staff_required
 from ..utils.busca import q_busca_cliente
@@ -107,12 +106,12 @@ def painel_overview(request):
         data_hora_inicio__date__range=[inicio_semana, fim_semana],
         status='REALIZADO',
     ).count()
-    # Cada DisponibilidadeProfissional representa uma janela de UM dia da semana
-    # (campo dia_semana), entao a soma de todas as janelas ativas ja e a
-    # capacidade semanal de slots. Usa total_seconds() (nao .seconds, que zera
-    # o componente de dias) para janelas que possam cruzar/exceder 24h.
+    # Cada AgendaHorario representa uma janela de UM dia da semana (campo
+    # dia_semana), entao a soma de todas as janelas ativas ja e a capacidade
+    # semanal de slots. Usa total_seconds() (nao .seconds, que zera o
+    # componente de dias) para janelas que possam cruzar/exceder 24h.
     slots_semana = 0
-    for d in DisponibilidadeProfissional.objects.filter(profissional__ativo=True):
+    for d in AgendaHorario.objects.filter(profissional__ativo=True):
         duracao = datetime.combine(hoje, d.hora_fim) - datetime.combine(hoje, d.hora_inicio)
         minutos_janela = int(duracao.total_seconds()) // 60
         slots_semana += minutos_janela // 30

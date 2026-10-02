@@ -10,11 +10,9 @@ from django.db.models import Q
 from django.utils import timezone
 
 from ..models import (
+    AgendaExcecao,
+    AgendaHorario,
     Atendimento,
-    BloqueioAgenda,
-    DisponibilidadeProfissional,
-    ExcecaoDisponibilidade,
-    Feriado,
     Habilitacao,
     Profissional,
 )
@@ -29,11 +27,15 @@ def _aware(dt):
 
 
 class SlotService:
-    """Slots livres no dia considerando: feriado bloqueador, ExcecaoDisponibilidade
-    (folga / horario diferente), regra semanal (todos os turnos do dia),
-    atendimentos ativos (sobreposicao no intervalo inteiro + buffers),
-    BloqueioAgenda (pontual + recorrente, do profissional ou global),
-    min_notice_horas e max_advance_dias do profissional."""
+    """Slots livres no dia considerando: folga da clinica (feriado/recesso) ou
+    do profissional, horario diferente (substitui a grade do dia), grade
+    semanal (todas as janelas do dia), atendimentos ativos (sobreposicao no
+    intervalo inteiro + buffers), bloqueios (pontuais + recorrentes, do
+    profissional ou globais), min_notice_horas e max_advance_dias.
+
+    Tudo vem de AgendaHorario + AgendaExcecao (ativas) — 3 consultas: excecoes
+    do dia, grade (so sem horario diferente) e atendimentos. Espelho SQL:
+    fn_horarios_livres (spec padrao-sql §5.5), com teste de paridade."""
 
     INTERVALO = timedelta(minutes=30)
 
@@ -45,9 +47,6 @@ class SlotService:
         ignorar_atendimento_id: atendimento que nao conta como ocupado
         (reagendamento: o proprio horario antigo nao bloqueia o novo).
         """
-        if Feriado.objects.filter(data=data_selecionada, bloqueia_agendamento=True).exists():
-            return []
-
         agora = timezone.localtime()
         if data_selecionada < agora.date():
             return []
@@ -56,31 +55,35 @@ class SlotService:
         if data_selecionada > limite_max_advance:
             return []
 
-        excecoes = ExcecaoDisponibilidade.objects.filter(
-            profissional=profissional, data=data_selecionada
-        )
-        excecao_horario = None
-        for ex in excecoes:
-            if ex.tipo == 'FOLGA':
-                return []
-            if ex.tipo == 'HORARIO_DIFERENTE' and ex.hora_inicio and ex.hora_fim:
-                excecao_horario = ex
-
-        if excecao_horario:
-            janelas = [(excecao_horario.hora_inicio, excecao_horario.hora_fim)]
-        else:
-            dia_semana = data_selecionada.isoweekday() % 7 + 1
-            janelas = [
-                (d.hora_inicio, d.hora_fim)
-                for d in DisponibilidadeProfissional.objects.filter(
-                    profissional=profissional, dia_semana=dia_semana
-                )
-            ]
-            if not janelas:
-                return []
-
         dia_inicio = _aware(datetime.combine(data_selecionada, time.min))
         dia_fim = dia_inicio + timedelta(days=1)
+
+        excecoes = list(
+            AgendaExcecao.objects.ativas().do_profissional_ou_global(profissional).filter(
+                Q(tipo__in=AgendaExcecao.TIPOS_POR_DATA,
+                  data_inicio__lte=data_selecionada, data_fim__gte=data_selecionada)
+                | (Q(tipo=AgendaExcecao.TIPO_BLOQUEIO, data_hora_inicio__lt=dia_fim)
+                   & (Q(regra_recorrencia__isnull=False) | Q(data_hora_fim__gt=dia_inicio)))
+            )
+        )
+        # folga do profissional OU feriado/recesso/fechamento da clinica
+        if any(e.tipo == AgendaExcecao.TIPO_FOLGA for e in excecoes):
+            return []
+
+        # horario diferente so existe com profissional (CHECK) e 1 por dia (UNIQUE)
+        horario_diferente = next(
+            (e for e in excecoes if e.tipo == AgendaExcecao.TIPO_HORARIO_DIFERENTE), None,
+        )
+        if horario_diferente:
+            janelas = [(horario_diferente.hora_inicio, horario_diferente.hora_fim)]
+        else:
+            janelas = list(
+                AgendaHorario.objects.filter(
+                    profissional=profissional, dia_semana=data_selecionada.isoweekday(),
+                ).values_list('hora_inicio', 'hora_fim')
+            )
+            if not janelas:
+                return []
 
         # Atendimentos que intersectam o dia (intervalo, nao __date em UTC)
         agendamentos_qs = Atendimento.objects.filter(
@@ -96,16 +99,12 @@ class SlotService:
             buf_ag = timedelta(minutes=ag.procedimento.buffer_minutos or 0) if ag.procedimento_id else timedelta(0)
             ocupados.append((ag.data_hora_inicio, ag.data_hora_fim + buf_ag))
 
-        # Bloqueios do profissional OU globais (profissional nulo = 'Todos')
-        filtro_prof = Q(profissional=profissional) | Q(profissional__isnull=True)
+        # Bloqueios do profissional OU globais (pontuais + ocorrencias das recorrentes)
         bloqueios = [
-            (b.data_hora_inicio, b.data_hora_fim)
-            for b in BloqueioAgenda.objects.filter(filtro_prof, regra_recorrencia='').filter(
-                data_hora_inicio__lt=dia_fim, data_hora_fim__gt=dia_inicio,
-            )
+            intervalo
+            for e in excecoes if e.tipo == AgendaExcecao.TIPO_BLOQUEIO
+            for intervalo in e.ocorrencias(dia_inicio, dia_fim)
         ]
-        for b in BloqueioAgenda.objects.filter(filtro_prof).exclude(regra_recorrencia=''):
-            bloqueios.extend(b.expandir_ocorrencias(dia_inicio, dia_fim))
 
         duracao = (
             timedelta(minutes=procedimento.duracao_minutos)

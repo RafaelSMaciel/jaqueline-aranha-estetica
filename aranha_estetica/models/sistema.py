@@ -112,39 +112,8 @@ class LogAuditoria(models.Model):
         super().save(*args, **kwargs)
 
 
-class Feriado(models.Model):
-    """Datas bloqueadas para agendamento — feriados nacionais/locais e recessos da clinica."""
-
-    ESCOPO_NACIONAL = 'NACIONAL'
-    ESCOPO_LOCAL = 'LOCAL'
-    ESCOPO_CLINICA = 'CLINICA'
-    ESCOPO_CHOICES = [
-        (ESCOPO_NACIONAL, 'Nacional'),
-        (ESCOPO_LOCAL, 'Local (estadual/municipal)'),
-        (ESCOPO_CLINICA, 'Recesso da clinica'),
-    ]
-
-    data = models.DateField()
-    nome = models.CharField(max_length=120)
-    escopo = models.CharField(max_length=20, choices=ESCOPO_CHOICES, default=ESCOPO_NACIONAL)
-    bloqueia_agendamento = models.BooleanField(
-        default=True,
-        help_text='Se True, impede geracao de horarios livres nesta data.',
-    )
-    observacao = models.CharField(max_length=255, blank=True, null=True)
-    criado_em = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        managed = True
-        db_table = 'feriado'
-        constraints = [
-            models.UniqueConstraint(fields=['data', 'escopo'], name='uq_feriado_data_escopo'),
-        ]
-        # idx_feriado_data removido — prefixo de uq_feriado_data_escopo cobre
-        ordering = ['data']
-
-    def __str__(self):
-        return f'{self.data:%d/%m/%Y} — {self.nome}'
+# Feriados/recessos: AgendaExcecao FOLGA da clinica (profissional NULL, origem
+# FERIADO_NACIONAL/FERIADO_LOCAL/RECESSO) — models/agenda.py, migration 0048.
 
 
 class Configuracao(models.Model):

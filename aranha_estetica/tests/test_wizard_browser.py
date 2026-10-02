@@ -19,9 +19,9 @@ from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from aranha_estetica.models import Feriado, FormularioAnamnese
+from aranha_estetica.models import FormularioAnamnese
 
-from .factories import criar_procedimento, criar_profissional
+from .factories import criar_procedimento, criar_profissional, limpar_feriados
 
 try:
     from playwright.sync_api import sync_playwright
@@ -69,7 +69,7 @@ class WizardNavegadorTests(StaticLiveServerTestCase):
 
     def setUp(self):
         cache.clear()
-        Feriado.objects.all().delete()
+        limpar_feriados()
         self.prof = criar_profissional()
         self.proc = criar_procedimento(profissional=self.prof)
         self.context = self._browser.new_context(timezone_id=TZ, locale='pt-BR')

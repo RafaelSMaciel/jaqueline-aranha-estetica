@@ -31,9 +31,9 @@ from django_ratelimit.decorators import ratelimit
 
 from ..models import (
     AceiteTermo,
+    AgendaExcecao,
     Atendimento,
     Cliente,
-    Feriado,
     FormularioAnamnese,
     Procedimento,
     Profissional,
@@ -394,7 +394,7 @@ def confirmar_agendamento(request):
     if data_hora <= timezone.now():
         return _voltar_com_erro(request, 'Escolha uma data e horário futuros.')
 
-    if Feriado.objects.filter(data=data_hora.date(), bloqueia_agendamento=True).exists():
+    if AgendaExcecao.objects.folga_global_em(data_hora.date()).exists():
         return _voltar_com_erro(request, 'Esta data é feriado/recesso — escolha outro dia.')
 
     # Slot precisa ser um dos oferecidos (expediente, folga, bloqueio, buffer,

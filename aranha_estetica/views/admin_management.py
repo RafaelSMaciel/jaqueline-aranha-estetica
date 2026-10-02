@@ -19,9 +19,9 @@ from django_ratelimit.decorators import ratelimit
 from ..decorators import staff_required
 from ..models import (
     AceiteTermo,
+    AgendaExcecao,
     Atendimento,
     AvaliacaoNPS,
-    BloqueioAgenda,
     Cliente,
     ListaEspera,
     Notificacao,
@@ -66,10 +66,10 @@ def _parse_datetime_aware(valor):
 
 @staff_required
 def admin_bloqueios(request):
-    """Lista e cria bloqueios de agenda."""
-    bloqueios = BloqueioAgenda.objects.select_related(
-        'profissional'
-    ).order_by('-data_hora_inicio')
+    """Lista e cria bloqueios de agenda (AgendaExcecao tipo BLOQUEIO)."""
+    bloqueios = AgendaExcecao.objects.filter(
+        tipo=AgendaExcecao.TIPO_BLOQUEIO,
+    ).select_related('profissional').order_by('-data_hora_inicio')
 
     profissionais = Profissional.objects.filter(ativo=True)
 
@@ -103,14 +103,17 @@ def admin_criar_bloqueio(request):
             messages.error(request, 'Data fim deve ser posterior a data inicio.')
             return redirect('aranha:admin_bloqueios')
 
-        bloqueio = BloqueioAgenda.objects.create(
+        bloqueio = AgendaExcecao.objects.create(
+            tipo=AgendaExcecao.TIPO_BLOQUEIO,
+            origem=AgendaExcecao.ORIGEM_MANUAL,
             profissional=profissional,
             data_hora_inicio=data_inicio,
             data_hora_fim=data_fim,
             motivo=motivo,
+            usuario_autor=request.user,
         )
         alvo = profissional.nome if profissional else 'todos os profissionais'
-        registrar_log(request.user, f'Criou bloqueio para {alvo}', 'bloqueio_agenda', bloqueio.pk, request=request)
+        registrar_log(request.user, f'Criou bloqueio para {alvo}', 'agenda_excecao', bloqueio.pk, request=request)
         messages.success(request, 'Bloqueio criado com sucesso!')
     except Exception as e:
         logger.error(f'Erro ao criar bloqueio: {e}', exc_info=True)
@@ -125,10 +128,10 @@ def admin_excluir_bloqueio(request, bloqueio_id):
     if request.method != 'POST':
         return redirect('aranha:admin_bloqueios')
 
-    bloqueio = get_object_or_404(BloqueioAgenda, pk=bloqueio_id)
+    bloqueio = get_object_or_404(AgendaExcecao, pk=bloqueio_id, tipo=AgendaExcecao.TIPO_BLOQUEIO)
     # profissional nulo = bloqueio global ('Todos os profissionais')
     alvo = bloqueio.profissional.nome if bloqueio.profissional_id else 'todos os profissionais'
-    registrar_log(request.user, f'Excluiu bloqueio de {alvo}', 'bloqueio_agenda', bloqueio_id, request=request)
+    registrar_log(request.user, f'Excluiu bloqueio de {alvo}', 'agenda_excecao', bloqueio_id, request=request)
     bloqueio.delete()
     messages.success(request, 'Bloqueio excluído!')
     return redirect('aranha:admin_bloqueios')

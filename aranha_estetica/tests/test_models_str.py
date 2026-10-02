@@ -8,7 +8,7 @@ from django.utils import timezone
 from aranha_estetica.models import (
     AceiteTermo,
     AvaliacaoNPS,
-    BloqueioAgenda,
+    AgendaExcecao,
     ListaEspera,
     Notificacao,
     Promocao,
@@ -46,8 +46,8 @@ class ModelStrTests(TestCase):
 
     def test_bloqueio_str_em_horario_local(self):
         inicio = datetime(2026, 9, 25, 23, 30, tzinfo=dt_timezone.utc)
-        bloqueio = BloqueioAgenda.objects.create(
-            profissional=self.prof, data_hora_inicio=inicio,
+        bloqueio = AgendaExcecao.objects.create(
+            tipo='BLOQUEIO', profissional=self.prof, data_hora_inicio=inicio,
             data_hora_fim=inicio + timedelta(hours=1),
         )
         self.assertIn('25/09/2026 20:30', str(bloqueio))
@@ -69,9 +69,10 @@ class ModelStrTests(TestCase):
         self.assertIn('Plano Facial', texto)
         self.assertIn('Ativo', texto)
 
-    def test_bloqueio_agenda_str(self):
+    def test_bloqueio_str_contem_profissional(self):
         inicio = timezone.now() + timedelta(days=1)
-        bloqueio = BloqueioAgenda.objects.create(
+        bloqueio = AgendaExcecao.objects.create(
+            tipo='BLOQUEIO',
             profissional=self.prof,
             data_hora_inicio=inicio,
             data_hora_fim=inicio + timedelta(hours=2),

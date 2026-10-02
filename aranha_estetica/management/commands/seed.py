@@ -23,7 +23,7 @@ from aranha_estetica.constants import (
     TERMO_LGPD_CONTEUDO, TERMO_LGPD_TITULO, TERMO_LGPD_VERSAO,
 )
 from aranha_estetica.models import (
-    Atendimento, Cliente, DisponibilidadeProfissional, FormularioAnamnese,
+    AgendaHorario, Atendimento, Cliente, FormularioAnamnese,
     Habilitacao, Preco, Procedimento, Profissional, VersaoTermo,
 )
 
@@ -57,8 +57,8 @@ CATALOGO = [
     ('Depilação a Laser', 'CORPORAL', 30, 'Depilação a laser. Região e valor sob consulta.', None),
 ]
 
-# dia_semana: 1=Dom, 2=Seg, ..., 7=Sab
-AGENDA_SEMANAL = [(dia, time(9, 0), time(18, 0)) for dia in range(2, 7)] + [(7, time(9, 0), time(15, 0))]
+# dia_semana ISO (AgendaHorario): 1=segunda ... 6=sabado
+AGENDA_SEMANAL = [(dia, time(9, 0), time(18, 0)) for dia in range(1, 6)] + [(6, time(9, 0), time(15, 0))]
 
 ANAMNESE_PADRAO = [
     {'key': 'gestante_ou_amamentando', 'tipo': 'bool', 'label': 'Está gestante ou amamentando?', 'obrigatorio': True},
@@ -154,10 +154,10 @@ class Command(BaseCommand):
         return procs
 
     def _agenda(self, prof):
-        if DisponibilidadeProfissional.objects.filter(profissional=prof).exists():
+        if AgendaHorario.objects.filter(profissional=prof).exists():
             return
         for dia, inicio, fim in AGENDA_SEMANAL:
-            DisponibilidadeProfissional.objects.create(
+            AgendaHorario.objects.create(
                 profissional=prof, dia_semana=dia, hora_inicio=inicio, hora_fim=fim,
             )
         self.stdout.write('Agenda semanal: seg-sex 9h-18h, sáb 9h-15h.')

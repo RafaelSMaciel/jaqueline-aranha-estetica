@@ -11,22 +11,42 @@ from django.urls import reverse
 from django.utils import timezone
 
 from aranha_estetica.models import (
+    AgendaExcecao,
+    AgendaHorario,
     Atendimento,
-    BloqueioAgenda,
     Cliente,
-    DisponibilidadeProfissional,
-    ExcecaoDisponibilidade,
-    Feriado,
     Habilitacao,
     Procedimento,
     Profissional,
 )
 from aranha_estetica.services.disponibilidade import SlotService, slot_disponivel
 
+from .factories import limpar_feriados
+
 
 def _dia_semana(d):
-    # Mesmo mapeamento usado no SlotService (Dom=1 ... Sab=7).
-    return d.isoweekday() % 7 + 1
+    # Mesmo mapeamento usado no SlotService (ISO: seg=1 ... dom=7).
+    return d.isoweekday()
+
+
+def _feriado(dia, ativo=True, nome='Feriado'):
+    """Feriado = FOLGA da clinica inteira (profissional NULL)."""
+    return AgendaExcecao.objects.create(
+        tipo='FOLGA', profissional=None, origem='FERIADO_LOCAL', data_inicio=dia, data_fim=dia,
+        motivo=nome, ativo=ativo,
+    )
+
+
+def _folga(prof, dia, ate=None):
+    return AgendaExcecao.objects.create(
+        tipo='FOLGA', profissional=prof, data_inicio=dia, data_fim=ate or dia,
+    )
+
+
+def _bloqueio(prof, inicio, fim, **kw):
+    return AgendaExcecao.objects.create(
+        tipo='BLOQUEIO', profissional=prof, data_hora_inicio=inicio, data_hora_fim=fim, **kw,
+    )
 
 
 class SlotsDisponibilidadeTests(TestCase):
@@ -38,7 +58,8 @@ class SlotsDisponibilidadeTests(TestCase):
             nome='Limpeza', duracao_minutos=30, buffer_minutos=0, ativo=True,
         )
         self.dia = (timezone.localtime() + timedelta(days=7)).date()
-        DisponibilidadeProfissional.objects.create(
+        limpar_feriados()
+        AgendaHorario.objects.create(
             profissional=self.prof, dia_semana=_dia_semana(self.dia),
             hora_inicio=time(9, 0), hora_fim=time(11, 0),
         )
@@ -48,30 +69,44 @@ class SlotsDisponibilidadeTests(TestCase):
         self.assertEqual(slots, ['09:00', '09:30', '10:00', '10:30'])
 
     def test_feriado_retorna_vazio(self):
-        Feriado.objects.create(data=self.dia, bloqueia_agendamento=True)
+        _feriado(self.dia)
         self.assertEqual(SlotService.slots_livres(self.prof, self.dia, self.proc), [])
+
+    def test_feriado_inativo_nao_bloqueia(self):
+        # feriado nacional em que a clinica abre (ativo=False: registrado, mas ignorado)
+        _feriado(self.dia, ativo=False)
+        self.assertEqual(SlotService.slots_livres(self.prof, self.dia, self.proc),
+                         ['09:00', '09:30', '10:00', '10:30'])
 
     def test_folga_retorna_vazio(self):
-        ExcecaoDisponibilidade.objects.create(
-            profissional=self.prof, data=self.dia, tipo='FOLGA',
-        )
+        _folga(self.prof, self.dia)
         self.assertEqual(SlotService.slots_livres(self.prof, self.dia, self.proc), [])
 
+    def test_folga_em_intervalo_cobre_o_meio(self):
+        # ferias numa linha so: o dia do meio do intervalo tambem fica sem horario
+        _folga(self.prof, self.dia - timedelta(days=2), ate=self.dia + timedelta(days=2))
+        self.assertEqual(SlotService.slots_livres(self.prof, self.dia, self.proc), [])
+
+    def test_folga_de_outro_profissional_nao_afeta(self):
+        outra = Profissional.objects.create(nome='Outra', ativo=True)
+        _folga(outra, self.dia)
+        self.assertEqual(len(SlotService.slots_livres(self.prof, self.dia, self.proc)), 4)
+
     def test_horario_diferente_usa_janela_da_excecao(self):
-        ExcecaoDisponibilidade.objects.create(
-            profissional=self.prof, data=self.dia, tipo='HORARIO_DIFERENTE',
+        AgendaExcecao.objects.create(
+            profissional=self.prof, data_inicio=self.dia, data_fim=self.dia, tipo='HORARIO_DIFERENTE',
             hora_inicio=time(14, 0), hora_fim=time(15, 0),
         )
         slots = SlotService.slots_livres(self.prof, self.dia, self.proc)
         self.assertEqual(slots, ['14:00', '14:30'])
 
     def test_sem_disponibilidade_no_dia(self):
-        # 'outro' cai em outro dia da semana (dia+1), sem DisponibilidadeProfissional.
+        # 'outro' cai em outro dia da semana (dia+1), sem janela na grade (AgendaHorario).
         outro = self.dia + timedelta(days=1)
         # Precondicao explicita: se a fixture mudar e passar a ter disponibilidade
         # nesse dia, o teste FALHA aqui em vez de passar sem exercitar o assert.
         self.assertFalse(
-            DisponibilidadeProfissional.objects.filter(
+            AgendaHorario.objects.filter(
                 profissional=self.prof, dia_semana=_dia_semana(outro)
             ).exists()
         )
@@ -105,7 +140,8 @@ class SlotServiceCorrecoesTests(TestCase):
             nome='Botox', duracao_minutos=60, buffer_minutos=0, ativo=True,
         )
         self.dia = (timezone.localtime() + timedelta(days=7)).date()
-        DisponibilidadeProfissional.objects.create(
+        limpar_feriados()
+        AgendaHorario.objects.create(
             profissional=self.prof, dia_semana=_dia_semana(self.dia),
             hora_inicio=time(9, 0), hora_fim=time(12, 0),
         )
@@ -142,9 +178,7 @@ class SlotServiceCorrecoesTests(TestCase):
 
     def test_bloqueio_no_meio_do_slot(self):
         ini = timezone.make_aware(datetime.combine(self.dia, time(10, 15)))
-        BloqueioAgenda.objects.create(
-            profissional=self.prof, data_hora_inicio=ini, data_hora_fim=ini + timedelta(minutes=30),
-        )
+        _bloqueio(self.prof, ini, ini + timedelta(minutes=30))
         slots = SlotService.slots_livres(self.prof, self.dia, self.proc60)
         self.assertNotIn('09:30', slots)
         self.assertNotIn('10:00', slots)
@@ -152,13 +186,28 @@ class SlotServiceCorrecoesTests(TestCase):
 
     def test_bloqueio_global_vale_para_todos(self):
         ini = timezone.make_aware(datetime.combine(self.dia, time(9, 0)))
-        BloqueioAgenda.objects.create(
-            profissional=None, data_hora_inicio=ini, data_hora_fim=ini + timedelta(hours=3),
-        )
+        _bloqueio(None, ini, ini + timedelta(hours=3))
         self.assertEqual(SlotService.slots_livres(self.prof, self.dia, self.proc60), [])
 
+    def test_bloqueio_inativo_ignorado(self):
+        ini = timezone.make_aware(datetime.combine(self.dia, time(9, 0)))
+        _bloqueio(None, ini, ini + timedelta(hours=3), ativo=False)
+        self.assertIn('09:00', SlotService.slots_livres(self.prof, self.dia, self.proc60))
+
+    def test_bloqueio_recorrente_semanal_respeita_fim_inclusivo(self):
+        # comecou 2 semanas antes, toda semana no mesmo dia 10:00-11:00
+        ini = timezone.make_aware(datetime.combine(self.dia - timedelta(days=14), time(10, 0)))
+        rec = _bloqueio(self.prof, ini, ini + timedelta(hours=1),
+                        regra_recorrencia='FREQ=WEEKLY', data_fim_recorrencia=self.dia)
+        slots = SlotService.slots_livres(self.prof, self.dia, self.proc60)
+        self.assertEqual(slots, ['09:00', '11:00'])  # 09:30 invade 10h; 10:00/10:30 no bloqueio
+        rec.data_fim_recorrencia = self.dia - timedelta(days=1)
+        rec.save()
+        self.assertEqual(SlotService.slots_livres(self.prof, self.dia, self.proc60),
+                         ['09:00', '09:30', '10:00', '10:30', '11:00'])
+
     def test_dois_turnos_no_mesmo_dia(self):
-        DisponibilidadeProfissional.objects.create(
+        AgendaHorario.objects.create(
             profissional=self.prof, dia_semana=_dia_semana(self.dia),
             hora_inicio=time(14, 0), hora_fim=time(16, 0),
         )
@@ -194,7 +243,7 @@ class ApiDisponibilidadeTests(TestCase):
 
     def setUp(self):
         cache.clear()
-        Feriado.objects.all().delete()
+        limpar_feriados()
         self.prof = Profissional.objects.create(
             nome='Dra Api', ativo=True, min_notice_horas=0, max_advance_dias=60,
         )
@@ -203,7 +252,7 @@ class ApiDisponibilidadeTests(TestCase):
         )
         Habilitacao.objects.create(profissional=self.prof, procedimento=self.proc)
         for dia in range(1, 8):
-            DisponibilidadeProfissional.objects.create(
+            AgendaHorario.objects.create(
                 profissional=self.prof, dia_semana=dia,
                 hora_inicio=time(9, 0), hora_fim=time(11, 0),
             )
@@ -223,10 +272,10 @@ class ApiDisponibilidadeTests(TestCase):
         self.assertIn('09:00:00', iso)
 
     def test_feriado_e_folga_sem_horarios(self):
-        Feriado.objects.create(data=self.dia, nome='Feriado', bloqueia_agendamento=True)
+        _feriado(self.dia)
         self.assertEqual(self._horarios(self.dia).json()['horarios'], [])
         outro = self.dia + timedelta(days=1)
-        ExcecaoDisponibilidade.objects.create(profissional=self.prof, data=outro, tipo='FOLGA')
+        _folga(self.prof, outro)
         self.assertEqual(self._horarios(outro).json()['horarios'], [])
 
     def test_alem_do_max_advance(self):
@@ -234,9 +283,9 @@ class ApiDisponibilidadeTests(TestCase):
         self.assertEqual(self._horarios(longe).json()['horarios'], [])
 
     def test_dias_exclui_feriado_e_folga(self):
-        Feriado.objects.create(data=self.dia, nome='Feriado', bloqueia_agendamento=True)
+        _feriado(self.dia)
         folga = self.dia + timedelta(days=1)
-        ExcecaoDisponibilidade.objects.create(profissional=self.prof, data=folga, tipo='FOLGA')
+        _folga(self.prof, folga)
         dias = set()
         for d in (self.dia, folga, self.dia + timedelta(days=2)):
             resp = self.client.get(reverse('aranha:api_dias_disponiveis'), {
@@ -267,7 +316,7 @@ class ApiDisponibilidadeTests(TestCase):
     def test_filtro_por_profissional_preselecionado(self):
         outra = Profissional.objects.create(nome='Dra Outra', ativo=True, min_notice_horas=0)
         Habilitacao.objects.create(profissional=outra, procedimento=self.proc)
-        DisponibilidadeProfissional.objects.create(
+        AgendaHorario.objects.create(
             profissional=outra, dia_semana=_dia_semana(self.dia),
             hora_inicio=time(9, 0), hora_fim=time(10, 0),
         )

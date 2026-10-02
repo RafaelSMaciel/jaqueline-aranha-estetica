@@ -1,7 +1,8 @@
 """Visao de calendario (FullCalendar) para agendamentos — alternativa a lista."""
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
@@ -9,7 +10,7 @@ from django.views.decorators.http import require_POST
 from django_ratelimit.decorators import ratelimit
 
 from ..decorators import staff_required
-from ..models import Atendimento, BloqueioAgenda, ExcecaoDisponibilidade, Profissional
+from ..models import AgendaExcecao, Atendimento, Profissional
 from ..utils.audit import registrar_log
 from ..utils.datas import data_local, fmt_local
 from ..utils.parse import id_int
@@ -89,35 +90,42 @@ def admin_calendar_events(request):
             },
         })
 
-    bloq_qs = BloqueioAgenda.objects.filter(
-        data_hora_inicio__lt=dt_end,
-        data_hora_fim__gt=dt_start,
+    # Bloqueios (recorrentes expandidos) e folgas; sem filtro = de todos +
+    # globais; com filtro = do profissional + globais (valem p/ ele tambem)
+    excecoes = AgendaExcecao.objects.ativas().filter(
+        (Q(tipo=AgendaExcecao.TIPO_BLOQUEIO, data_hora_inicio__lt=dt_end)
+         & (Q(regra_recorrencia__isnull=False) | Q(data_hora_fim__gt=dt_start)))
+        | Q(tipo=AgendaExcecao.TIPO_FOLGA,
+            data_inicio__lt=data_local(dt_end), data_fim__gte=data_local(dt_start)),
     )
     if prof_filter:
-        bloq_qs = bloq_qs.filter(profissional_id=prof_filter)
-    for bl in bloq_qs:
-        eventos.append({
-            'id': f'bloq-{bl.pk}',
-            'title': f'Bloqueio: {bl.motivo or "—"}',
-            'start': bl.data_hora_inicio.isoformat(),
-            'end': bl.data_hora_fim.isoformat(),
-            'display': 'background',
-            'backgroundColor': '#bdbdbd',
-            'editable': False,
-        })
-
-    folgas_qs = ExcecaoDisponibilidade.objects.filter(
-        tipo='FOLGA',
-        data__gte=data_local(dt_start),
-        data__lt=data_local(dt_end),
-    )
-    if prof_filter:
-        folgas_qs = folgas_qs.filter(profissional_id=prof_filter)
-    for ex in folgas_qs:
+        excecoes = excecoes.do_profissional_ou_global(prof_filter)
+    for ex in excecoes:
+        if ex.tipo == AgendaExcecao.TIPO_BLOQUEIO:
+            ocorrencias = ex.ocorrencias(dt_start, dt_end)
+            for n, (ini, fim) in enumerate(ocorrencias):
+                eventos.append({
+                    'id': f'bloq-{ex.pk}' if not ex.regra_recorrencia else f'bloq-{ex.pk}-{n}',
+                    'title': f'Bloqueio: {ex.motivo or "—"}',
+                    'start': ini.isoformat(),
+                    'end': fim.isoformat(),
+                    'display': 'background',
+                    'backgroundColor': '#bdbdbd',
+                    'editable': False,
+                })
+            continue
+        if ex.profissional_id:
+            rotulo = 'Folga'
+        elif ex.origem == AgendaExcecao.ORIGEM_MANUAL:
+            rotulo = 'Clínica fechada'
+        else:
+            rotulo = ex.get_origem_display()  # Feriado nacional/local, Recesso da clínica
         eventos.append({
             'id': f'folga-{ex.pk}',
-            'title': f'Folga: {ex.motivo or "—"}',
-            'start': ex.data.isoformat(),
+            'title': f'{rotulo}: {ex.motivo or "—"}',
+            'start': ex.data_inicio.isoformat(),
+            # allDay: o fim do FullCalendar e exclusivo
+            'end': (ex.data_fim + timedelta(days=1)).isoformat(),
             'allDay': True,
             'display': 'background',
             'backgroundColor': '#ffe0b2',
@@ -170,25 +178,24 @@ def admin_calendar_mover(request):
                 'erro': 'Conflito: já existe um atendimento nesse horário para o profissional.',
             }, status=409)
 
-        # Inclui bloqueios globais (profissional nulo = vale p/ todos).
-        # Checagem de sobreposicao direta; nao expande recorrencia (debito menor).
-        from django.db.models import Q
-        conflito_bloqueio = BloqueioAgenda.objects.filter(
-            Q(profissional_id=at.profissional_id) | Q(profissional__isnull=True),
-            data_hora_inicio__lt=novo_fim,
-            data_hora_fim__gt=novo_inicio,
-        ).exists()
+        # Inclui bloqueios globais (profissional nulo = vale p/ todos) e
+        # expande os recorrentes (mesma regra do SlotService).
+        conflito_bloqueio = any(
+            bl.ocorrencias(novo_inicio, novo_fim)
+            for bl in AgendaExcecao.objects.ativas()
+            .do_profissional_ou_global(at.profissional_id)
+            .bloqueios_no_intervalo(novo_inicio, novo_fim)
+        )
         if conflito_bloqueio:
             return JsonResponse({
                 'sucesso': False,
                 'erro': 'Conflito: o horário cai dentro de um bloqueio de agenda.',
             }, status=409)
 
-        conflito_folga = ExcecaoDisponibilidade.objects.filter(
+        conflito_folga = AgendaExcecao.objects.ativas().filter(
             profissional_id=at.profissional_id,
-            tipo='FOLGA',
-            data=timezone.localtime(novo_inicio).date(),
-        ).exists()
+            tipo=AgendaExcecao.TIPO_FOLGA,
+        ).cobrindo(timezone.localtime(novo_inicio).date()).exists()
         if conflito_folga:
             return JsonResponse({
                 'sucesso': False,

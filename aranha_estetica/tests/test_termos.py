@@ -23,7 +23,6 @@ from aranha_estetica.models import (
     AceiteTermo,
     Atendimento,
     Cliente,
-    Feriado,
     FormularioAnamnese,
     LogAuditoria,
     Notificacao,
@@ -38,6 +37,7 @@ from .factories import (
     criar_cliente,
     criar_procedimento,
     criar_profissional,
+    limpar_feriados,
 )
 
 UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) teste-termos'
@@ -255,7 +255,7 @@ class BookingConsentimentoTests(TestCase):
 
     def setUp(self):
         cache.clear()
-        Feriado.objects.all().delete()
+        limpar_feriados()
         self.client = Client(HTTP_USER_AGENT=UA)
         self.prof = criar_profissional()
         self.proc = criar_procedimento(profissional=self.prof, preco=Decimal('120.00'))

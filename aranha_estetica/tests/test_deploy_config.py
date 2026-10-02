@@ -827,12 +827,14 @@ class HousekeepingTests(TestCase):
         self.assertEqual(resumo['otp'], 1)
 
     def test_carregar_feriados(self):
-        from aranha_estetica.models import Feriado
+        from aranha_estetica.models import AgendaExcecao
         from aranha_estetica.tasks_manutencao import job_carregar_feriados
 
         self.assertIn('Feriados', job_carregar_feriados.apply().get())
         ano = timezone.now().year
-        self.assertTrue(Feriado.objects.filter(data__year=ano + 1).exists())
+        self.assertTrue(AgendaExcecao.objects.filter(
+            origem='FERIADO_NACIONAL', profissional__isnull=True, tipo='FOLGA', data_inicio__year=ano + 1,
+        ).exists())
 
 
 # ─── Rate-limit por visitante atras do proxy ─────────────────────────

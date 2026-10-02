@@ -10,7 +10,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from aranha_estetica.models import (
-    AnotacaoSessao, Atendimento, BloqueioAgenda, Carteira, Cliente, CodigoOtp,
+    AgendaExcecao, AnotacaoSessao, Atendimento, Carteira, Cliente, CodigoOtp,
     Configuracao, ConsumoSessao, ListaEspera, LogAuditoria, MovimentoCarteira,
     Notificacao, Preco, Prontuario, RegraComissao, Usuario,
 )
@@ -143,19 +143,19 @@ class BloqueioRecorrenteTests(TestCase):
     def _bloqueio(self, h_ini, h_fim):
         tz = timezone.get_current_timezone()
         ini = timezone.make_aware(datetime(2026, 10, 7, h_ini, 0), tz)  # quarta
-        return BloqueioAgenda.objects.create(
-            profissional=self.prof, data_hora_inicio=ini,
+        return AgendaExcecao.objects.create(
+            tipo='BLOQUEIO', profissional=self.prof, data_hora_inicio=ini,
             data_hora_fim=ini.replace(hour=h_fim), regra_recorrencia='FREQ=WEEKLY;BYDAY=WE',
-            recorrencia_ate=date(2026, 10, 28),
+            data_fim_recorrencia=date(2026, 10, 28),
         )
 
     def _dias_locais(self, ocorrencias):
         return [(timezone.localtime(i).day, timezone.localtime(i).weekday()) for i, _ in ocorrencias]
 
-    def test_recorrencia_ate_e_inclusivo(self):
+    def test_data_fim_recorrencia_e_inclusiva(self):
         b = self._bloqueio(9, 12)
         tz = timezone.get_current_timezone()
-        occ = b.expandir_ocorrencias(timezone.make_aware(datetime(2026, 10, 1), tz),
+        occ = b.ocorrencias(timezone.make_aware(datetime(2026, 10, 1), tz),
                                      timezone.make_aware(datetime(2026, 11, 10), tz))
         self.assertEqual(self._dias_locais(occ), [(7, 2), (14, 2), (21, 2), (28, 2)])
 
@@ -163,7 +163,7 @@ class BloqueioRecorrenteTests(TestCase):
         # 21h-23h BRT = dia seguinte em UTC: tem que continuar caindo na quarta
         b = self._bloqueio(21, 23)
         tz = timezone.get_current_timezone()
-        occ = b.expandir_ocorrencias(timezone.make_aware(datetime(2026, 10, 1), tz),
+        occ = b.ocorrencias(timezone.make_aware(datetime(2026, 10, 1), tz),
                                      timezone.make_aware(datetime(2026, 11, 10), tz))
         self.assertEqual(self._dias_locais(occ), [(7, 2), (14, 2), (21, 2), (28, 2)])
         self.assertTrue(all(timezone.localtime(i).hour == 21 for i, _ in occ))

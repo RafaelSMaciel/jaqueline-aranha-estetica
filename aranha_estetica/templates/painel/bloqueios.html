@@ -69,8 +69,15 @@
         </svg>
         {{ b.data_hora_inicio|date:"d/m/Y H:i" }} — {{ b.data_hora_fim|date:"d/m/Y H:i" }}
       </div>
+      {% if b.regra_recorrencia %}
+      {# recorrente (RRULE, criado no Django admin): o SlotService expande as ocorrencias #}
+      <div class="text-[0.8rem] text-texto-suave mt-1">Repete: {{ b.regra_recorrencia }}{% if b.data_fim_recorrencia %} até {{ b.data_fim_recorrencia|date:"d/m/Y" }}{% endif %}</div>
+      {% endif %}
       {% if b.motivo %}
       <div class="text-[0.85rem] text-texto-suave mt-1">{{ b.motivo }}</div>
+      {% endif %}
+      {% if not b.ativo %}
+      <div class="text-[0.8rem] text-texto-suave mt-1">Inativo (ignorado na agenda)</div>
       {% endif %}
     </div>
 

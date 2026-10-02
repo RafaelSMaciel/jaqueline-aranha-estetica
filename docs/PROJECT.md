@@ -73,8 +73,10 @@ O papel **RECEPCAO** existe no modelo, mas ainda não tem telas nem login (ver
 
 ```
 aranha_estetica/
-├── models/          acesso, clientes, profissionais, procedimentos, agendamentos, prontuario,
-│                    anamnese, termos, nps, pacotes, sistema, push, extras (carteira/comissão), mixins
+├── models/          acesso, clientes, profissionais, agenda (AgendaHorario/AgendaExcecao), procedimentos,
+│                    agendamentos, prontuario, anamnese, termos, nps, pacotes, sistema, push,
+│                    extras (carteira/comissão), mixins
+├── db/              peças de banco usadas por migrations (Indice, PadronizarNomes) — congelado
 ├── views/           public, booking_public/_otp/_reagendar/_api, agenda_publica, anamnese_publica,
 │                    notificacoes (confirmar presença), lgpd, profissional, prontuario, auth, admin_2fa,
 │                    dashboard, admin*, pacotes, relatorios, cron, health, whatsapp, webpush_views
@@ -83,7 +85,7 @@ aranha_estetica/
 │                    anamnese, auditoria, push, gcal
 ├── domain/          event_bus.py (EventBus síncrono, best-effort), events.py, handlers.py (logging)
 ├── utils/           branding, email, sms, whatsapp, precos, saude, fichas, security, dois_fatores,
-│                    pii, captcha, datas, parse, busca, audit
+│                    pii, captcha, datas, parse, busca, audit, recorrencia (RRULE do subconjunto)
 ├── forms/           cliente.py (ClientePainelForm)
 ├── api/             DRF v1 + schema/Swagger
 ├── management/commands/  seed, bootstrap_admin, migrate_atomico, setup_2fa, carregar_feriados
@@ -132,8 +134,9 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   `CashbackLiberado`, `CashbackEstornado`, `ComissaoCalculada`. Síncrono, in-process e
   best-effort (falha de handler é logada, não desfaz a transição).
 - **Disponibilidade**: fonte única `services/disponibilidade.py::SlotService` (slots de 30
-  min; expediente semanal, exceções, feriados, bloqueios pontuais/recorrentes do profissional
-  ou globais, buffers, `min_notice_horas`, `max_advance_dias`). Usada pelo wizard, pelo
+  min; grade semanal `AgendaHorario` e exceções `AgendaExcecao` — folga/feriado/recesso,
+  horário diferente, bloqueios pontuais/recorrentes do profissional ou globais —, buffers,
+  `min_notice_horas`, `max_advance_dias`). Usada pelo wizard, pelo
   reagendamento, pelo agendamento interno e pela validação do servidor.
 - **Preço**: `utils/precos.py` — preço vigente por data (profissional > base) e promoção
   vigente na data; `preco_com_promocao()` é o valor gravado no atendimento e o mesmo que a
@@ -186,11 +189,15 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 
 ### 5.1 Resumo
 
-- **34 tabelas de domínio** (+ tabelas do Django, django-otp, django-axes). PK `BigAutoField`.
+- **32 tabelas de domínio** (+ tabelas do Django, django-otp, django-axes). PK `BigAutoField`.
 - Nomes PT-BR no singular, `db_table` explícito, textos nunca nulos (exceto colunas sob UNIQUE
   parcial), dinheiro em `Decimal(10,2)`, status como `CharField` + CHECK + FSM na aplicação.
-- Migrations `0001`–`0046`. Produção está na **`0026`**: o próximo deploy aplica `0027`→`0046`
-  de uma vez (ver §14 e [`specs/remodelagem-banco-v2.md`](specs/remodelagem-banco-v2.md)).
+- Migrations `0001`–`0048`. Produção está na **`0026`**: o próximo deploy aplica `0027`→`0048`
+  de uma vez (ver §14, [`specs/remodelagem-banco-v2.md`](specs/remodelagem-banco-v2.md) e, da
+  `0048` em diante, o padrão SQL em [`specs/padrao-sql.md`](specs/padrao-sql.md)).
+- Tabelas novas (0048+) já nascem no padrão SQL: `pk_`/`fk_` (FK com `ON DELETE` real)/`ck_`/
+  `uq_`/`ix_`/`ex_`, `COMMENT ON` via `db_table_comment`/`db_comment`, nome só no banco
+  (`AgendaExcecao.ativo` → coluna `eh_ativo`).
 
 ### 5.2 Tabelas
 
@@ -205,10 +212,8 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 | | `habilitacao` (Habilitacao) | Profissional × procedimento (M2M through) |
 | | `preco` (Preco) | Preço versionado por `vigente_desde`, base (sem profissional) ou por profissional |
 | | `promocao` (Promocao) | Desconto 0–100% **XOR** preço fixo, período, procedimento (nulo = geral, só percentual vale) |
-| Agenda | `disponibilidade_profissional` (DisponibilidadeProfissional) | Expediente semanal (1=Dom … 7=Sáb) |
-| | `excecao_disponibilidade` (ExcecaoDisponibilidade) | FOLGA ou HORARIO_DIFERENTE numa data |
-| | `bloqueio_agenda` (BloqueioAgenda) | Bloqueio pontual ou recorrente (RRULE), de um profissional ou global (profissional nulo = "Todos") |
-| | `feriado` (Feriado) | Feriado/recesso; `bloqueia_agendamento` |
+| Agenda | `agenda_horario` (AgendaHorario) | Grade semanal: várias janelas por dia, sem sobreposição; `dia_semana` **ISO** (1=seg … 7=dom = `isoweekday()`) |
+| | `agenda_excecao` (AgendaExcecao) | Tudo que muda a grade numa data: **FOLGA** (intervalo `data_inicio..data_fim`; sem profissional = clínica inteira: feriado nacional/local, recesso), **HORARIO_DIFERENTE** (substitui a grade num dia) e **BLOQUEIO** (`data_hora_*`, pontual ou recorrente por RRULE no subconjunto DAILY/WEEKLY/MONTHLY + `data_fim_recorrencia`; sem profissional = "Todos"). `origem` MANUAL/FERIADO_NACIONAL/FERIADO_LOCAL/RECESSO/GCAL (+ `origem_ref` = id do evento Google); `eh_ativo=false` = registrada e ignorada (ex.: feriado em que a clínica abre). 0048 unificou as 4 tabelas antigas |
 | | `atendimento` (Atendimento) | Agendamento/sessão. FSM de 7 estados, preço gravado (`valor_cobrado`, `valor_original`, `promocao`, `descricao_preco`), retorno (`eh_retorno` + `atendimento_origem`), `reagendado_de`, `token_cancelamento` |
 | | `notificacao` (Notificacao) | Mensagem por atendimento: tipo (LEMBRETE, LEMBRETE_2H, CONFIRMACAO, CANCELAMENTO, NPS, PESQUISA, APROVACAO, TERMO), canal, status PENDENTE/ENVIADO/FALHOU, token do link |
 | | `lista_espera` (ListaEspera) | Pedido de aviso de vaga (procedimento, data, turno, profissional opcional, `email_contato`). `token_reserva`/`expira_em` são legado sem uso |
@@ -244,6 +249,10 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 | Prova de aceite imutável; termo aceito imutável; histórico da ficha imutável | triggers `trg_aceite_termo_imutavel`, `trg_versao_termo_imutavel`, `trg_prontuario_versao_imutavel` (**só PG**) | 0046 |
 | Ordenação pt-BR de nomes | collation ICU `pt_br` em `cliente/profissional/procedimento.nome` (**fora do estado do Django**) | 0038 |
 | Uma cobrança de comissão ativa e um cashback por atendimento | `uniq_comissao_ativa_por_atendimento`, `uniq_cashback_indicacao_por_atendimento` | 0025/0032 |
+| Grade sem janelas sobrepostas; folgas ativas do mesmo profissional sem sobreposição | `ex_agenda_horario_sobreposicao`, `ex_agenda_excecao_folga_sobreposta` — EXCLUDE gist (**só PG**) | 0048 |
+| Exceção coerente com o tipo (FOLGA = datas, HORARIO_DIFERENTE = 1 dia + horas, BLOQUEIO = instantes); feriado/recesso só como FOLGA da clínica; GCAL só BLOQUEIO de profissional | `ck_agenda_excecao_*` (tipo, origem, folga, horario_diferente, bloqueio, recorrencia, feriado_global, gcal) | 0048 |
+| RRULE só no subconjunto que o motor expande | `ck_agenda_excecao_regra_recorrencia_suportada` (regex, **só PG**; `clean()` normaliza) | 0048 |
+| 1 horário diferente ativo por profissional/dia; 1 feriado por origem/data; importação do Google idempotente | `uq_agenda_excecao_horario_diferente_dia`, `uq_agenda_excecao_feriado`, `uq_agenda_excecao_gcal_evento` | 0048 |
 
 Além disso: FKs `PROTECT` em tudo que é histórico clínico/financeiro (prontuário, anotação,
 ficha, compra de pacote, carteira, aceite), índice GIN em `prontuario.respostas_extras`,
@@ -581,9 +590,9 @@ Só dev/testes: `DEBUG`, `SMS_DEV_LOG_ONLY` (em prod gera W002), `DB_ENGINE`/`DB
 
 ## 14. Go-live / Operação (runbook)
 
-Primeiro deploy desta versão: produção sai da migration **`0026`** para a **`0046`** (20
-migrations com renomeações, deduplicação de dados, EXCLUDE, triggers e desativação de contas
-demo). Faça em horário sem movimento.
+Primeiro deploy desta versão: produção sai da migration **`0026`** para a **`0048`** (22
+migrations com renomeações, deduplicação de dados, EXCLUDE, triggers, desativação de contas
+demo e a agenda unificada). Faça em horário sem movimento.
 
 ### a) Pré-deploy
 
@@ -621,6 +630,22 @@ demo). Faça em horário sem movimento.
        AND status IN ('PENDENTE','AGENDADO','CONFIRMADO','REALIZADO')
      GROUP BY atendimento_origem_id HAVING count(*) > 1;
      ```
+   - `0048` (agenda unificada) — (1) duas janelas do expediente semanal do mesmo
+     profissional/dia que se sobrepõem; (2) regra de recorrência de bloqueio fora do subconjunto
+     (DAILY/WEEKLY/MONTHLY, INTERVAL, BYDAY — ordinal só em MONTHLY, -1/1..4 — ou 1 BYMONTHDAY;
+     COUNT/UNTIL viram data de fim sozinhos). A mensagem lista os ids. Pré-checagem no schema 0026:
+     ```sql
+     SELECT a.id, b.id, a.profissional_id, a.dia_semana
+       FROM disponibilidade_profissional a JOIN disponibilidade_profissional b
+         ON a.profissional_id = b.profissional_id AND a.dia_semana = b.dia_semana AND a.id < b.id
+        AND a.hora_inicio < b.hora_fim AND b.hora_inicio < a.hora_fim;
+     SELECT id, regra_recorrencia FROM bloqueio_agenda WHERE coalesce(regra_recorrencia, '') <> '';
+     ```
+     A 0048 não aborta (e registra na `LogAuditoria` `migration 0048: agenda unificada`, junto
+     com o mapa id antigo → id novo de exceções e feriados; bloqueios mantêm o id) por: horário
+     diferente com fim ≤ início (vira FOLGA — era o efeito real), folga com horas (horas
+     ignoradas), fim de recorrência sem regra (descartado), COUNT/UNTIL (viram
+     `data_fim_recorrencia`).
    - Sem ICU no Postgres a `0038` só avisa e pula a collation (não aborta).
    - A `0034` não aborta: normaliza telefone/CPF/e-mail, tira duplicatas (o cliente com mais
      atendimentos fica com o valor; os outros ficam ativos com o campo nulo) e registra cada caso
@@ -638,7 +663,7 @@ demo). Faça em horário sem movimento.
 ### b) O que o deploy faz
 
 1. Build da imagem (§13) — falha de front, collectstatic ou check derruba o build, nada muda.
-2. Pre-deploy: `migrate_atomico` (0027→0046 numa transação; `lock_timeout` 5 s — se o deploy
+2. Pre-deploy: `migrate_atomico` (0027→0048 numa transação; `lock_timeout` 5 s — se o deploy
    antigo segurar lock, falha e é só refazer) e `bootstrap_admin` (cria/reativa o ADMIN).
    Leia o log do pre-deploy: avisos `aranha.W0xx`, `0042: ATENCAO ...` e
    `bootstrap_admin: ERRO — painel sem administrador ativo` indicam env faltando (os checks
@@ -798,6 +823,7 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 |---|---|
 | 2026-05 | Auditoria inicial, CSP com nonce, split do booking |
 | 2026-06 | Remodelagem do banco v2.1 (0027–0038: 50 → 33 tabelas, invariantes no banco); fundação do front (Vite/Tailwind/cotton/Alpine CSP) e migração de 100% das telas; auditoria SWE de backend (0039) |
+| 2026-09-23 | Padrão SQL, fase (a): agenda 4→2 (`agenda_horario` + `agenda_excecao`, migration 0048; [`specs/padrao-sql.md`](specs/padrao-sql.md) §4.a) |
 | 2026-09-23 | Auditoria pré-produção completa (~450 correções em ~30 commits, `b5fd681..182e2e9`): OTP preso ao telefone em todo agendamento, consentimentos LGPD/art. 11 com prova, 2FA obrigatório do ADMIN, histórico do prontuário, prova de aceite imutável, deploy por Dockerfile + `migrate_atomico`, retenção LGPD efetiva, migrations 0040–0046. Detalhe em [`ARCHITECTURE.md`](ARCHITECTURE.md#6-progresso-checkpoint) |
 
 **Mantenedor:** Rafael Maciel · **Última atualização:** 2026-09-23
