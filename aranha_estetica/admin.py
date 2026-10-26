@@ -16,7 +16,7 @@ from django_otp.plugins.otp_totp.models import TOTPDevice
 from .models import (
     Profissional, AgendaHorario, AgendaExcecao, Habilitacao,
     Procedimento, Preco, Promocao,
-    Cliente,
+    Cliente, Consentimento,
     Prontuario, AnotacaoSessao, ProntuarioVersao,
     VersaoTermo, AceiteTermo,
     Atendimento, Notificacao, LinkAcesso,
@@ -209,46 +209,40 @@ class PromocaoAdmin(admin.ModelAdmin):
 # CLIENTES
 # =====================================================================
 
-_CONSENTS = ('consent_email_marketing', 'consent_whatsapp_nps', 'consent_whatsapp_confirmacao')
+class ConsentimentoInline(admin.TabularInline):
+    """Historico de consentimentos (append-only): so leitura no cadastro."""
+    model = Consentimento
+    extra = 0
+    can_delete = False
+    ordering = ('-registrado_em', '-id')
+    fields = ('finalidade', 'canal', 'concedido', 'origem', 'registrado_em', 'usuario_autor', 'texto')
+    readonly_fields = fields
+    show_change_link = False
 
+    def has_add_permission(self, request, obj=None):
+        return False
 
-class ClienteAdminForm(forms.ModelForm):
-    """Consentimento e prova do titular (LGPD art. 8): aqui so se revoga."""
+    def has_change_permission(self, request, obj=None):
+        return False
 
-    class Meta:
-        model = Cliente
-        fields = '__all__'
-
-    def clean(self):
-        dados = super().clean()
-        for campo in _CONSENTS:
-            if dados.get(campo) and not getattr(self.instance, campo, False):
-                self.add_error(
-                    campo,
-                    'Consentimento só pode ser dado pela própria cliente (agendamento ou link). '
-                    'Aqui é possível apenas revogar.',
-                )
-        return dados
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Cliente)
 class ClienteAdmin(admin.ModelAdmin):
-    form = ClienteAdminForm
     list_display = (
         'nome', 'telefone', 'email', 'faltas_consecutivas',
-        'bloqueado_online', 'ativo', 'aceita_comunicacao', 'criado_em',
+        'bloqueado_online', 'ativo', 'criado_em',
     )
-    list_filter = ('ativo', 'bloqueado_online', 'aceita_comunicacao')
+    list_filter = ('ativo', 'bloqueado_online')
     search_fields = ('nome', 'telefone', 'email', 'cpf')
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
-    # Data/IP do consentimento sao evidencia gravada no aceite: nunca editaveis.
-    readonly_fields = (
-        'criado_em', 'atualizado_em', 'deletado_em',
-        'consent_email_marketing_em', 'consent_email_marketing_ip',
-        'consent_whatsapp_nps_em', 'consent_whatsapp_nps_ip',
-        'consent_whatsapp_confirmacao_em', 'consent_whatsapp_confirmacao_ip',
-    )
+    readonly_fields = ('criado_em', 'atualizado_em', 'deletado_em')
+    # Consentimentos (LGPD art. 8): historico so leitura; aqui so se revoga
+    # (acao abaixo) — conceder e da propria cliente ou do painel com justificativa.
+    inlines = [ConsentimentoInline]
     list_per_page = 50
     fieldsets = (
         ('Identificacao', {
@@ -257,19 +251,8 @@ class ClienteAdmin(admin.ModelAdmin):
         ('Contato', {
             'fields': ('email', 'telefone', 'cep', 'endereco'),
         }),
-        ('Status e LGPD', {
-            'fields': (
-                'ativo', 'aceita_comunicacao',
-                'faltas_consecutivas', 'bloqueado_online',
-            ),
-        }),
-        ('Consents granulares (LGPD)', {
-            'fields': (
-                'consent_email_marketing', 'consent_email_marketing_em', 'consent_email_marketing_ip',
-                'consent_whatsapp_nps', 'consent_whatsapp_nps_em', 'consent_whatsapp_nps_ip',
-                'consent_whatsapp_confirmacao', 'consent_whatsapp_confirmacao_em',
-                'consent_whatsapp_confirmacao_ip',
-            ),
+        ('Status', {
+            'fields': ('ativo', 'faltas_consecutivas', 'bloqueado_online'),
         }),
         ('Metadados', {
             'classes': ('collapse',),
@@ -277,7 +260,8 @@ class ClienteAdmin(admin.ModelAdmin):
         }),
     )
     actions = [
-        'acao_excluir_soft', 'acao_anonimizar_lgpd', 'acao_bloquear_online', 'acao_resetar_faltas',
+        'acao_excluir_soft', 'acao_anonimizar_lgpd', 'acao_revogar_comunicacao',
+        'acao_bloquear_online', 'acao_resetar_faltas',
     ]
 
     def get_queryset(self, request):
@@ -314,6 +298,25 @@ class ClienteAdmin(admin.ModelAdmin):
                 LgpdService.esquecer_cliente(cliente, usuario=request.user, request=request)
                 count += 1
         self.message_user(request, f'{count} cliente(s) anonimizado(s).', messages.SUCCESS)
+
+    @admin.action(description='Revogar consentimentos de comunicação (todos os canais)')
+    def acao_revogar_comunicacao(self, request, queryset):
+        from .services import consentimentos
+        revogados = 0
+        with transaction.atomic():
+            for cliente in queryset:
+                novas = consentimentos.revogar_todos(
+                    cliente, origem=Consentimento.ORIGEM_ADMIN,
+                    texto='Revogado pela equipe no Django admin', usuario=request.user,
+                )
+                if novas:
+                    revogados += 1
+                    registrar_log(
+                        request.user, 'Revogou consentimentos de comunicacao (django-admin)', 'cliente',
+                        cliente.pk, detalhes={'pares': [f'{c.finalidade}:{c.canal}' for c in novas]},
+                        request=request,
+                    )
+        self.message_user(request, f'{revogados} cliente(s) com consentimento revogado.', messages.SUCCESS)
 
     @admin.action(description='Bloquear agendamento online')
     def acao_bloquear_online(self, request, queryset):
@@ -360,6 +363,18 @@ class _LeituraClinicaAuditadaMixin(_SomenteLeituraMixin):
             if obj is not None:
                 self._log_leitura(request, obj)
         return resposta
+
+
+@admin.register(Consentimento)
+class ConsentimentoAdmin(_SomenteLeituraMixin, admin.ModelAdmin):
+    """Historico de consentimentos (append-only; no PG o trigger barra UPDATE/DELETE)."""
+    list_display = ('cliente', 'finalidade', 'canal', 'concedido', 'origem', 'registrado_em')
+    list_filter = ('finalidade', 'canal', 'concedido', 'origem')
+    search_fields = ('cliente__nome', 'cliente__telefone')
+    ordering = ('-registrado_em', '-id')
+    date_hierarchy = 'registrado_em'
+    list_select_related = ('cliente',)
+    list_per_page = 50
 
 
 @admin.register(Prontuario)

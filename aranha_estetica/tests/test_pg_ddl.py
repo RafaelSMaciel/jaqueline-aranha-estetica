@@ -16,10 +16,10 @@ from django.db import DatabaseError, IntegrityError, connection, transaction
 from django.test import TestCase
 
 from aranha_estetica.models import (
-    AceiteTermo, AgendaExcecao, AgendaHorario, Atendimento, FormularioAnamnese, LinkAcesso, Notificacao,
-    Prontuario, ProntuarioVersao, RespostaAnamnese, VersaoTermo,
+    AceiteTermo, AgendaExcecao, AgendaHorario, Atendimento, Consentimento, FormularioAnamnese, LinkAcesso,
+    Notificacao, Prontuario, ProntuarioVersao, RespostaAnamnese, VersaoTermo,
 )
-from aranha_estetica.services import links
+from aranha_estetica.services import consentimentos, links
 from aranha_estetica.models.extras import Carteira, MovimentoCarteira
 from aranha_estetica.tests.factories import (
     criar_atendimento, criar_cliente, criar_link, criar_procedimento, criar_profissional,
@@ -49,6 +49,7 @@ TRIGGERS_SO_PG = {
     'trg_versao_termo_imutavel': ('0046', 'versao_termo'),
     'trg_prontuario_versao_imutavel': ('0046', 'prontuario_versao'),
     'tg_link_acesso_imutavel': ('0049', 'link_acesso'),
+    'tg_consentimento_imutavel': ('0050', 'consentimento'),
 }
 
 
@@ -228,6 +229,88 @@ class DDLSoPostgresTests(TestCase):
         # DELETE livre (purga/cascata do alvo)
         notif.delete()
         self.assertFalse(LinkAcesso.objects.exists())
+
+    def test_consentimento_nomes_e_on_delete_real(self):
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT conname, contype, confdeltype FROM pg_constraint "
+                "WHERE conrelid = 'consentimento'::regclass AND contype IN ('p', 'f', 'u')"
+            )
+            objetos = set(cursor.fetchall())
+            cursor.execute("SELECT indexrelid::regclass::text, pg_get_indexdef(indexrelid) FROM pg_index "
+                           "WHERE indrelid = 'consentimento'::regclass")
+            indices = dict(cursor.fetchall())
+            cursor.execute("SELECT pg_get_serial_sequence('consentimento', 'id'), "
+                           "obj_description('consentimento'::regclass, 'pg_class'), "
+                           "format_type(atttypid, atttypmod) FROM pg_attribute "
+                           "WHERE attrelid = 'consentimento'::regclass AND attname = 'ip_origem'")
+            sequencia, comentario, tipo_ip = cursor.fetchone()
+        self.assertEqual(objetos, {
+            ('pk_consentimento', 'p', ' '),
+            ('fk_consentimento_cliente', 'f', 'a'),
+            ('fk_consentimento_usuario_autor', 'f', 'a'),
+        })
+        self.assertEqual(set(indices), {
+            'pk_consentimento', 'ix_consentimento_cliente_finalidade_canal_registrado_em',
+            'ix_consentimento_usuario_autor_parcial',
+        })
+        self.assertIn('(cliente_id, finalidade, canal, registrado_em DESC, id DESC)',
+                      indices['ix_consentimento_cliente_finalidade_canal_registrado_em'])
+        self.assertEqual((sequencia, tipo_ip), ('public.consentimento_id_seq', 'inet'))
+        self.assertIn('append-only', comentario)
+        # colunas antigas do cliente sumiram
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'cliente' "
+                           "AND (column_name LIKE 'consent%%' OR column_name = 'aceita_comunicacao')")
+            self.assertEqual(cursor.fetchall(), [])
+
+    def test_consentimento_append_only_so_aceita_minimizacao(self):
+        req = type('R', (), {'META': {'HTTP_USER_AGENT': 'UA', 'REMOTE_ADDR': '10.1.1.1'}})()
+        linha = consentimentos.registrar(self.cli, 'MARKETING', 'EMAIL', True, origem='AGENDAMENTO_ONLINE',
+                                         texto='Aceito', request=req)
+        self.assertEqual((linha.ip_origem, linha.user_agent), ('10.1.1.1', 'UA'))
+        bloqueados = (
+            "UPDATE consentimento SET eh_concedido = false WHERE id = %s",
+            "UPDATE consentimento SET registrado_em = now() - interval '1 day' WHERE id = %s",
+            "UPDATE consentimento SET texto = 'outro' WHERE id = %s",
+            "UPDATE consentimento SET origem = 'PAINEL' WHERE id = %s",
+            "UPDATE consentimento SET ip_origem = '10.2.2.2' WHERE id = %s",
+            "UPDATE consentimento SET user_agent = 'outro UA' WHERE id = %s",
+            'DELETE FROM consentimento WHERE id = %s',
+        )
+        for sql in bloqueados:
+            # ERRCODE 23000 -> IntegrityError (capturavel, nao 500)
+            with self.subTest(sql=sql), self.assertRaises(IntegrityError), transaction.atomic():
+                self._sql(sql, [linha.pk])
+        # unica mutacao aceita: apagar IP/UA (anonimizacao) — e depois nao volta
+        self.assertEqual(Consentimento.objects.filter(pk=linha.pk).minimizar_dados_de_origem(), 1)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            self._sql("UPDATE consentimento SET ip_origem = '10.1.1.1' WHERE id = %s", [linha.pk])
+        # esquecimento completo pelo servico no PG (revoga + minimiza) e o CHECK de par
+        consentimentos.esquecer(self.cli)
+        self.assertFalse(consentimentos.vigente(self.cli, 'MARKETING', 'EMAIL'))
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Consentimento.objects.create(cliente=self.cli, finalidade='MARKETING', canal='WHATSAPP',
+                                         concedido=True, origem='PAINEL')
+
+    def test_formulario_checks_e_um_prontuario_ativo(self):
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT conname FROM pg_constraint WHERE conrelid = 'formulario_anamnese'::regclass "
+                           "AND conname LIKE 'ck_formulario_%%'")
+            checks = {r[0] for r in cursor.fetchall()}
+            cursor.execute("SELECT pg_get_indexdef('uq_formulario_prontuario_ativo'::regclass)")
+            indice = cursor.fetchone()[0]
+        self.assertEqual(checks, {'ck_formulario_tipo', 'ck_formulario_escopo', 'ck_formulario_escopo_coerente',
+                                  'ck_formulario_prontuario_global'})
+        self.assertIn('UNIQUE INDEX', indice)
+        FormularioAnamnese.objects.create(nome='Q', tipo='PRONTUARIO', schema_json=[])
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            FormularioAnamnese.objects.create(nome='Q2', tipo='PRONTUARIO', schema_json=[])
+        for sql in ("UPDATE formulario_anamnese SET obrigatorio = true WHERE tipo = 'PRONTUARIO'",
+                    "UPDATE formulario_anamnese SET escopo = 'PROCEDIMENTO' WHERE tipo = 'PRONTUARIO'",
+                    "UPDATE formulario_anamnese SET tipo = 'OUTRO' WHERE tipo = 'PRONTUARIO'"):
+            with self.subTest(sql=sql), self.assertRaises(IntegrityError), transaction.atomic():
+                self._sql(sql)
 
     def test_ledger_imutavel(self):
         carteira = Carteira.objects.create(cliente=self.cli, saldo=Decimal('10'))

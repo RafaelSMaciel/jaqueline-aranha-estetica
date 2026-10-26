@@ -5,6 +5,7 @@ from .acesso import Usuario, UsuarioManager
 from .profissionais import Profissional
 from .agenda import AgendaHorario, AgendaExcecao
 from .clientes import Cliente
+from .consentimentos import Consentimento
 from .procedimentos import (
     Procedimento, Habilitacao, Preco, Promocao,
 )
@@ -27,7 +28,7 @@ from .extras import (
 __all__ = [
     'Usuario', 'UsuarioManager',
     'Profissional', 'AgendaHorario', 'AgendaExcecao',
-    'Cliente',
+    'Cliente', 'Consentimento',
     'Procedimento', 'Habilitacao', 'Preco', 'Promocao',
     'Atendimento', 'Notificacao',
     'Prontuario', 'ProntuarioVersao', 'AnotacaoSessao',

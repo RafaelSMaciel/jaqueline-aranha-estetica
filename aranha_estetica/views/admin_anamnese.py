@@ -1,4 +1,11 @@
-"""CRUD FormularioAnamnese + visualizacao de respostas."""
+"""CRUD FormularioAnamnese + visualizacao de respostas.
+
+Mesmo CRUD p/ os 3 tipos do questionario unico (spec padrao-sql §4.d):
+ANAMNESE e PESQUISA (respondidas pela cliente) e PRONTUARIO (perguntas extras
+da ficha, preenchidas pela equipe — sempre Global, nunca obrigatorio, so 1
+ativo; respostas em Prontuario.respostas_extras pela key, entao mudar o label
+nao mexe nelas).
+"""
 import json
 
 from django.contrib import messages
@@ -75,6 +82,9 @@ def admin_anamnese_form(request, pk=None):
         schema_raw = post.get('schema_json', '[]').strip() or '[]'
         ativo = post.get('ativo') == '1'
         obrigatorio = post.get('obrigatorio') == '1'
+        if tipo == FormularioAnamnese.TIPO_PRONTUARIO:
+            # vale p/ toda ficha e nao bloqueia agendamento (ck_formulario_prontuario_global)
+            escopo, obrigatorio = 'GLOBAL', False
 
         # Formulario que ja tem respostas nao muda de perguntas no lugar: as
         # respostas antigas guardam so {key: valor} e perderiam label/sentido.

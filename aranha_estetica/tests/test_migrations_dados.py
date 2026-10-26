@@ -1,4 +1,4 @@
-"""Regressao das data migrations da remodelagem (0029, 0034-0037, 0042-0049).
+"""Regressao das data migrations da remodelagem (0029, 0034-0037, 0042-0051).
 
 Roda a migration real sobre dados "sujos" plausiveis do banco legado (SQLite:
 as partes PG-only — CHECK regex, EXCLUDE, trigger, collation — sao validadas
@@ -1327,3 +1327,330 @@ class LinksEmHashReversa0049Tests(_MigracaoBase):
         self.assertNotIn('tok-r-ics', Profissional.objects.values_list('ics_token', flat=True))
         self.assertTrue(LogAuditoria.objects.filter(acao__startswith='migration 0049 (reversa)').exists())
         self.assertNotIn('link_acesso', connection.introspection.table_names())
+
+
+# ─── 0050: consentimentos com historico ────────────────────────────────────
+M0050 = '0050_consentimento'
+PARES_0050 = (
+    ('email_marketing', 'MARKETING', 'EMAIL'),
+    ('whatsapp_nps', 'PESQUISA_SATISFACAO', 'WHATSAPP'),
+    ('whatsapp_confirmacao', 'LEMBRETE_AGENDAMENTO', 'WHATSAPP'),
+)
+
+
+def _estado_vigente(Consentimento, cliente_id):
+    vigente = {}
+    for c in Consentimento.objects.filter(cliente_id=cliente_id).order_by('-registrado_em', '-id'):
+        vigente.setdefault((c.finalidade, c.canal), c.concedido)
+    return vigente
+
+
+class Consentimentos0050Tests(_MigracaoBase):
+    """consent_*/_em/_ip + aceita_comunicacao -> historico append-only. Invariante:
+    estado vigente = consent_x AND (aceita_comunicacao OR par = LEMBRETE)."""
+    migrate_from = M0049
+    migrate_to = M0050
+
+    def preparar(self, apps):
+        Cliente = apps.get_model(APP, 'Cliente')
+        agora = timezone.now().replace(microsecond=0)
+        self.agora = agora
+        d = lambda dias: agora - timedelta(days=dias)  # noqa: E731
+        self.casos = {}
+
+        def cli(rotulo, tel, **campos):
+            c = Cliente._base_manager.create(nome=rotulo, telefone=tel, **campos)
+            self.casos[rotulo] = (c.pk, campos)
+            return c
+
+        # tudo concedido, com data/IP do aceite
+        cli('todos', '11900000001', consent_email_marketing=True, consent_email_marketing_em=d(30),
+            consent_email_marketing_ip='10.0.0.1', consent_whatsapp_nps=True, consent_whatsapp_nps_em=d(30),
+            consent_whatsapp_confirmacao=True, consent_whatsapp_confirmacao_em=d(30),
+            consent_whatsapp_confirmacao_ip='2001:db8::1')
+        # revogado no wizard (False com data/IP da revogacao) e nunca concedido
+        cli('revogou_nps', '11900000002', consent_whatsapp_nps=False, consent_whatsapp_nps_em=d(5),
+            consent_whatsapp_nps_ip='10.0.0.2', consent_whatsapp_confirmacao=True,
+            consent_whatsapp_confirmacao_em=d(40))
+        # descadastrado: aceita_comunicacao=False com opt-ins ainda True (o descadastro antigo
+        # nao mexia nos *_em) -> marketing/NPS vetados, lembrete continua
+        descad = cli('descadastrado', '11900000003', aceita_comunicacao=False,
+                     consent_email_marketing=True, consent_email_marketing_em=d(60),
+                     consent_whatsapp_nps=True, consent_whatsapp_nps_em=d(60),
+                     consent_whatsapp_confirmacao=True, consent_whatsapp_confirmacao_em=d(60))
+        # cadastro/atualizacao ANTERIORES ao aceite (dado sujo): a revogacao ainda fica por ultimo
+        Cliente._base_manager.filter(pk=descad.pk).update(atualizado_em=d(90), criado_em=d(100))
+        # concedido sem data (legado): registrado_em = criado_em
+        self.sem_data = cli('sem_data', '11900000004', consent_email_marketing=True).pk
+        # opt-out geral sem nenhum opt-in
+        cli('so_opt_out', '11900000005', aceita_comunicacao=False)
+        # nada (nunca concedeu): sem linha
+        self.nada = cli('nada', '11900000006').pk
+        # excluido/anonimizado tambem migra (historico e prova)
+        cli('excluido', '11900000007', deletado_em=d(1), ativo=False, consent_whatsapp_nps=True,
+            consent_whatsapp_nps_em=d(100))
+
+    def test_historico_migrado_preserva_o_estado(self):
+        Consentimento = self.apps.get_model(APP, 'Consentimento')
+        Cliente = self.apps.get_model(APP, 'Cliente')
+        LogAuditoria = self.apps.get_model(APP, 'LogAuditoria')
+        for rotulo, (pk, campos) in self.casos.items():
+            aceita = campos.get('aceita_comunicacao', True)
+            vigente = _estado_vigente(Consentimento, pk)
+            for sufixo, fin, canal in PARES_0050:
+                esperado = bool(campos.get(f'consent_{sufixo}')) and (aceita or fin == 'LEMBRETE_AGENDAMENTO')
+                with self.subTest(cliente=rotulo, par=fin):
+                    self.assertEqual(vigente.get((fin, canal), False), esperado)
+
+        todos = Consentimento.objects.filter(cliente_id=self.casos['todos'][0])
+        self.assertEqual(todos.count(), 3)
+        mkt = todos.get(finalidade='MARKETING')
+        self.assertEqual((mkt.concedido, mkt.origem, mkt.registrado_em, mkt.ip_origem),
+                         (True, 'MIGRACAO', self.agora - timedelta(days=30), '10.0.0.1'))
+        self.assertEqual(mkt.texto, '(migrado de cliente.consent_email_marketing)')
+        self.assertEqual(todos.get(finalidade='LEMBRETE_AGENDAMENTO').ip_origem, '2001:db8::1')
+
+        revogou = Consentimento.objects.get(cliente_id=self.casos['revogou_nps'][0], finalidade='PESQUISA_SATISFACAO')
+        self.assertEqual((revogou.concedido, revogou.registrado_em, revogou.ip_origem),
+                         (False, self.agora - timedelta(days=5), '10.0.0.2'))
+
+        opt_out = Consentimento.objects.filter(cliente_id=self.casos['descadastrado'][0], concedido=False)
+        self.assertEqual({c.finalidade for c in opt_out}, {'MARKETING', 'PESQUISA_SATISFACAO'})
+        # greatest(atualizado_em, criado_em, consent_*_em) + 1 us: depois de qualquer concessao
+        self.assertEqual({c.registrado_em for c in opt_out},
+                         {self.agora - timedelta(days=60) + timedelta(microseconds=1)})
+        self.assertEqual({c.texto for c in opt_out}, {'opt-out geral (aceita_comunicacao=false)'})
+
+        sem_data = Consentimento.objects.get(cliente_id=self.sem_data)
+        self.assertEqual(sem_data.registrado_em, Cliente._base_manager.get(pk=self.sem_data).criado_em)
+        self.assertEqual(Consentimento.objects.filter(cliente_id=self.casos['so_opt_out'][0]).count(), 2)
+        self.assertFalse(Consentimento.objects.filter(cliente_id=self.nada).exists())
+        self.assertTrue(Consentimento.objects.filter(cliente_id=self.casos['excluido'][0], concedido=True).exists())
+
+        log = LogAuditoria.objects.get(acao__startswith='migration 0050')
+        self.assertEqual(log.detalhes['linhas'], Consentimento.objects.count())
+        self.assertEqual(log.detalhes['opt_out_geral'], 2)
+        with connection.cursor() as cursor:
+            colunas = {c.name for c in connection.introspection.get_table_description(cursor, 'cliente')}
+        self.assertFalse({c for c in colunas if c.startswith('consent_') or c == 'aceita_comunicacao'})
+
+    def test_servico_le_o_historico_migrado(self):
+        from aranha_estetica.models import Cliente
+        from aranha_estetica.services import consentimentos
+
+        _subir_ate_o_fim()
+        descad = Cliente.all_objects.get(pk=self.casos['descadastrado'][0])
+        self.assertEqual(consentimentos.estado_wizard(descad), {
+            'consent_email_marketing': False, 'consent_whatsapp_nps': False, 'consent_whatsapp_confirmacao': True,
+        })
+        # reconsentimento depois da migracao volta a valer (o ultimo registro manda)
+        consentimentos.registrar(descad, 'MARKETING', 'EMAIL', True, origem='AGENDAMENTO_ONLINE')
+        self.assertTrue(consentimentos.vigente(descad, 'MARKETING', 'EMAIL'))
+
+
+class ConsentimentosReversa0050Tests(_MigracaoBase):
+    """Reverso (dev): colunas a partir da linha vigente; aceita_comunicacao=False so
+    quando o opt-out geral (MIGRACAO/DESCADASTRO/ESQUECIMENTO) e o mais recente."""
+    migrate_from = M0050
+    migrate_to = M0049
+
+    def preparar(self, apps):
+        Cliente = apps.get_model(APP, 'Cliente')
+        Consentimento = apps.get_model(APP, 'Consentimento')
+        agora = timezone.now().replace(microsecond=0)
+        self.agora = agora
+
+        def linha(cli, fin, canal, concedido, dias, origem='AGENDAMENTO_ONLINE', ip=None, texto=''):
+            Consentimento.objects.create(cliente=cli, finalidade=fin, canal=canal, concedido=concedido,
+                                         origem=origem, registrado_em=agora - timedelta(days=dias),
+                                         ip_origem=ip, texto=texto)
+
+        self.ativa = Cliente.objects.create(nome='Ativa', telefone='11911110001')
+        linha(self.ativa, 'MARKETING', 'EMAIL', True, 10, ip='10.9.9.9')
+        linha(self.ativa, 'PESQUISA_SATISFACAO', 'WHATSAPP', True, 10)
+        linha(self.ativa, 'PESQUISA_SATISFACAO', 'WHATSAPP', False, 5)   # revogou so o NPS (wizard)
+        self.descad = Cliente.objects.create(nome='Descad', telefone='11911110002')
+        linha(self.descad, 'MARKETING', 'EMAIL', True, 20)
+        linha(self.descad, 'MARKETING', 'EMAIL', False, 3, origem='DESCADASTRO')
+        linha(self.descad, 'LEMBRETE_AGENDAMENTO', 'WHATSAPP', True, 1)
+        self.voltou = Cliente.objects.create(nome='Voltou', telefone='11911110003')
+        linha(self.voltou, 'MARKETING', 'EMAIL', False, 9, origem='MIGRACAO',
+              texto='opt-out geral (aceita_comunicacao=false)')
+        linha(self.voltou, 'MARKETING', 'EMAIL', True, 2)
+        self.sem = Cliente.objects.create(nome='Sem', telefone='11911110004')
+
+    def test_colunas_restauradas(self):
+        Cliente = self.apps.get_model(APP, 'Cliente')
+        ativa = Cliente.objects.get(pk=self.ativa.pk)
+        self.assertEqual((ativa.consent_email_marketing, ativa.consent_email_marketing_em,
+                          ativa.consent_email_marketing_ip),
+                         (True, self.agora - timedelta(days=10), '10.9.9.9'))
+        self.assertEqual((ativa.consent_whatsapp_nps, ativa.consent_whatsapp_nps_em),
+                         (False, self.agora - timedelta(days=5)))
+        self.assertTrue(ativa.aceita_comunicacao)  # revogacao no wizard nao e opt-out geral
+        descad = Cliente.objects.get(pk=self.descad.pk)
+        self.assertEqual((descad.consent_email_marketing, descad.consent_whatsapp_confirmacao,
+                          descad.aceita_comunicacao), (False, True, False))
+        self.assertTrue(Cliente.objects.get(pk=self.voltou.pk).aceita_comunicacao)
+        sem = Cliente.objects.get(pk=self.sem.pk)
+        self.assertEqual((sem.consent_email_marketing, sem.consent_email_marketing_em, sem.aceita_comunicacao),
+                         (False, None, True))
+        self.assertNotIn('consentimento', connection.introspection.table_names())
+
+
+# ─── 0051: questionarios unificados (formulario PRONTUARIO) ────────────────
+M0051 = '0051_formulario_prontuario'
+CONFIG_PRONTUARIO = [
+    {'chave': 'esta_gravida_ou_amamentando', 'texto': 'Está grávida ou amamentando?', 'tipo': 'BOOLEAN'},
+    {'chave': 'cirurgias', 'texto': 'Cirurgias anteriores', 'tipo': 'TEXTO'},
+    {'chave': 'fuma', 'texto': 'Fuma?', 'tipo': 'BOOLEAN'},
+]
+
+
+class FormularioProntuario0051Tests(_MigracaoBase):
+    """Configuracao.prontuario_perguntas -> formulario PRONTUARIO (key = chave); respostas
+    intactas; alertas iguais; linha duplicada fica e vai p/ o log."""
+    migrate_from = M0050
+    migrate_to = M0051
+
+    def preparar(self, apps):
+        import json
+
+        Configuracao = apps.get_model(APP, 'Configuracao')
+        Cliente = apps.get_model(APP, 'Cliente')
+        Prontuario = apps.get_model(APP, 'Prontuario')
+        FormularioAnamnese = apps.get_model(APP, 'FormularioAnamnese')
+        # a tela antiga forcava upper(); o leitor usava iexact + 1a por pk
+        self.cfg = Configuracao.objects.create(chave='PRONTUARIO_PERGUNTAS', valor=json.dumps(CONFIG_PRONTUARIO))
+        self.dup = Configuracao.objects.create(chave='prontuario_perguntas', valor='[]').pk
+        cli = Cliente.objects.create(nome='Zelia', telefone='11933330001')
+        self.cli = cli.pk
+        self.extras = {'esta_gravida_ou_amamentando': True, 'cirurgias': 'Rinoplastia', 'fuma': False,
+                       'pergunta_removida_x': 'historico'}
+        Prontuario.objects.create(cliente=cli, respostas_extras=self.extras)
+        self.anamnese = FormularioAnamnese.objects.create(nome='Ficha', tipo='ANAMNESE', schema_json=[]).pk
+
+    def test_configuracao_vira_formulario(self):
+        FormularioAnamnese = self.apps.get_model(APP, 'FormularioAnamnese')
+        Configuracao = self.apps.get_model(APP, 'Configuracao')
+        Prontuario = self.apps.get_model(APP, 'Prontuario')
+        LogAuditoria = self.apps.get_model(APP, 'LogAuditoria')
+
+        form = FormularioAnamnese.objects.get(tipo='PRONTUARIO')
+        self.assertEqual((form.nome, form.escopo, form.ativo, form.obrigatorio),
+                         ('Questionário do prontuário', 'GLOBAL', True, False))
+        self.assertEqual(form.schema_json, [
+            {'key': 'esta_gravida_ou_amamentando', 'label': 'Está grávida ou amamentando?', 'tipo': 'bool',
+             'obrigatorio': False},
+            {'key': 'cirurgias', 'label': 'Cirurgias anteriores', 'tipo': 'longtext', 'obrigatorio': False},
+            {'key': 'fuma', 'label': 'Fuma?', 'tipo': 'bool', 'obrigatorio': False},
+        ])
+        self.assertFalse(Configuracao.objects.filter(pk=self.cfg.pk).exists())
+        self.assertTrue(Configuracao.objects.filter(pk=self.dup).exists())
+        self.assertEqual(Prontuario.objects.get(cliente_id=self.cli).respostas_extras, self.extras)
+        self.assertEqual(FormularioAnamnese.objects.get(pk=self.anamnese).tipo, 'ANAMNESE')
+        log = LogAuditoria.objects.get(acao__startswith='migration 0051')
+        self.assertEqual(log.detalhes, {'configuracao_id': self.cfg.pk, 'configuracao_duplicada_ignorada': [self.dup],
+                                        'formulario_id': form.pk, 'perguntas': 3})
+
+    def test_alertas_e_ficha_continuam_iguais(self):
+        from aranha_estetica.models import Cliente
+        from aranha_estetica.utils.saude import alertas_saude, perguntas_prontuario
+
+        _subir_ate_o_fim()
+        alertas = alertas_saude(Cliente.objects.get(pk=self.cli))
+        # mesmo resultado da regra antiga: label do texto da Configuracao; chave sem pergunta
+        # so alerta se a chave casa a heuristica ('pergunta_removida_x' nao casa). A ordem
+        # segue a do JSON devolvido pelo banco (o jsonb do PG ordena as chaves).
+        self.assertEqual(sorted(alertas, key=lambda a: a['label']), [
+            {'label': 'Cirurgias anteriores', 'valor': 'Rinoplastia', 'origem': 'prontuario'},
+            {'label': 'Está grávida ou amamentando?', 'valor': 'Sim', 'origem': 'prontuario'},
+        ])
+        self.assertEqual([p['key'] for p in perguntas_prontuario()],
+                         ['esta_gravida_ou_amamentando', 'cirurgias', 'fuma'])
+
+
+class FormularioProntuarioJsonInvalido0051Tests(_MigracaoBase):
+    migrate_from = M0050
+    migrate_to = M0051
+
+    def preparar(self, apps):
+        Configuracao = apps.get_model(APP, 'Configuracao')
+        self.cfg = Configuracao.objects.create(chave='prontuario_perguntas', valor='[{"texto": "sem chave"}]').pk
+
+    def test_json_invalido_fica_na_configuracao_e_no_log(self):
+        FormularioAnamnese = self.apps.get_model(APP, 'FormularioAnamnese')
+        Configuracao = self.apps.get_model(APP, 'Configuracao')
+        LogAuditoria = self.apps.get_model(APP, 'LogAuditoria')
+        self.assertFalse(FormularioAnamnese.objects.filter(tipo='PRONTUARIO').exists())
+        self.assertEqual(Configuracao.objects.get(pk=self.cfg).valor, '[{"texto": "sem chave"}]')
+        log = LogAuditoria.objects.get(acao__startswith='migration 0051')
+        self.assertIn('JSON invalido', log.acao)
+        self.assertEqual(log.registro_id, self.cfg)
+
+
+class FormularioProntuarioReversa0051Tests(_MigracaoBase):
+    migrate_from = M0051
+    migrate_to = M0050
+
+    def preparar(self, apps):
+        FormularioAnamnese = apps.get_model(APP, 'FormularioAnamnese')
+        FormularioAnamnese.objects.create(nome='Antigo', tipo='PRONTUARIO', ativo=False, schema_json=[
+            {'key': 'velha', 'label': 'Velha', 'tipo': 'bool'}])
+        FormularioAnamnese.objects.create(nome='Questionário', tipo='PRONTUARIO', schema_json=[
+            {'key': 'fuma', 'label': 'Fuma?', 'tipo': 'bool', 'obrigatorio': False},
+            {'key': 'pele', 'label': 'Pele', 'tipo': 'select', 'opcoes': ['A'], 'obrigatorio': False},
+        ])
+        self.anamnese = FormularioAnamnese.objects.create(nome='Ficha', tipo='ANAMNESE', schema_json=[]).pk
+
+    def test_formulario_volta_para_a_configuracao(self):
+        import json
+
+        FormularioAnamnese = self.apps.get_model(APP, 'FormularioAnamnese')
+        Configuracao = self.apps.get_model(APP, 'Configuracao')
+        self.assertEqual(json.loads(Configuracao.objects.get(chave='prontuario_perguntas').valor), [
+            {'chave': 'fuma', 'texto': 'Fuma?', 'tipo': 'BOOLEAN'},
+            {'chave': 'pele', 'texto': 'Pele', 'tipo': 'TEXTO'},
+        ])
+        self.assertEqual(list(FormularioAnamnese.objects.values_list('pk', flat=True)), [self.anamnese])
+
+
+class FormularioProntuario0051AbortaTests(TransactionTestCase):
+    """Pre-checagem: tipo/escopo fora do dominio ou escopo incoerente abortam a 0051
+    (nada aplicado) com os ids na mensagem."""
+    serialized_rollback = True
+
+    def setUp(self):
+        super().setUp()
+        executor = MigrationExecutor(connection)
+        executor.migrate([(APP, M0050)])
+        self.antes = executor.loader.project_state([(APP, M0050)]).apps
+
+    def tearDown(self):
+        executor = MigrationExecutor(connection)
+        executor.loader.build_graph()
+        executor.migrate(executor.loader.graph.leaf_nodes())
+        super().tearDown()
+
+    def test_escopo_incoerente_aborta(self):
+        from django.db.migrations.recorder import MigrationRecorder
+
+        Formulario = self.antes.get_model(APP, 'FormularioAnamnese')
+        sem_proc = Formulario.objects.create(nome='A', escopo='PROCEDIMENTO', schema_json=[])
+        sem_cat = Formulario.objects.create(nome='B', escopo='CATEGORIA', categoria='', schema_json=[])
+        fora = Formulario.objects.create(nome='C', escopo='TUDO', schema_json=[])
+        ok = Formulario.objects.create(nome='D', escopo='CATEGORIA', categoria='FACIAL', schema_json=[])
+        executor = MigrationExecutor(connection)
+        executor.loader.build_graph()
+        with self.assertRaises(RuntimeError) as ctx:
+            executor.migrate([(APP, M0051)])
+        msg = str(ctx.exception)
+        self.assertIn('0051', msg)
+        for f in (sem_proc, sem_cat, fora):
+            self.assertIn(f'id={f.pk} ', msg)
+        self.assertNotIn(f'id={ok.pk} ', msg)
+        self.assertNotIn((APP, M0051), MigrationRecorder(connection).applied_migrations())
+        with connection.cursor() as cursor:
+            nomes = set(connection.introspection.get_constraints(cursor, 'formulario_anamnese'))
+        self.assertNotIn('ck_formulario_tipo', nomes)
+        Formulario.objects.filter(pk__in=[sem_proc.pk, sem_cat.pk, fora.pk]).delete()

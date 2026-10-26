@@ -36,6 +36,11 @@
         <option value="{{ v }}" {% if form_obj.tipo == v %}selected{% endif %}>{{ l }}</option>
         {% endfor %}
       </select>
+      <p class="text-xs text-texto-suave mt-1">
+        Questionário do prontuário: perguntas extras que a equipe preenche na ficha da cliente
+        (vale para todas, nunca obrigatório, só um ativo). Mudar o texto de uma pergunta não
+        altera as respostas já gravadas — elas ficam ligadas à <code class="bg-fundo px-1 rounded text-[0.78rem]">key</code>.
+      </p>
     </div>
 
     {# ── Escopo ── #}
@@ -106,6 +111,9 @@
         <code class="bg-fundo px-1 rounded text-[0.78rem]">tipo</code> e
         <code class="bg-fundo px-1 rounded text-[0.78rem]">label</code>; use
         <code class="bg-fundo px-1 rounded text-[0.78rem]">"obrigatorio": true</code> (sem acento) para exigir resposta.
+        Opcional: <code class="bg-fundo px-1 rounded text-[0.78rem]">"alerta_saude": true</code> mostra a resposta
+        positiva como alerta de saúde (agenda, prontuário);
+        <code class="bg-fundo px-1 rounded text-[0.78rem]">false</code> nunca alerta; sem o campo, o sistema decide pelo texto.
       </p>
     </div>
 

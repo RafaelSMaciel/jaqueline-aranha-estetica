@@ -13,6 +13,7 @@ from django.utils import timezone
 
 from aranha_estetica.forms import ClientePainelForm
 from aranha_estetica.models import Atendimento, Notificacao
+from aranha_estetica.services import consentimentos
 from aranha_estetica.services.agendamento_service import AgendamentoService, formatar_brl
 
 from .factories import (
@@ -478,13 +479,15 @@ class HelpersBookingTests(TestCase):
         outro = criar_cliente(email='dono@example.com')
         cli = criar_cliente(consent_whatsapp_nps=True)
         base = {'nome': 'Nova', 'telefone': '+55 (17) 99999-0001', 'email': '', 'cpf': '',
-                'ativo': '1', 'aceita_comunicacao': '1'}
+                'ativo': '1'}
         form = ClientePainelForm(base, instance=cli)
         self.assertTrue(form.is_valid(), form.errors)
+        self.assertNotIn('aceita_comunicacao', form.fields)
         salvo = form.save()
         self.assertEqual(salvo.telefone, '17999990001')
         self.assertIsNone(salvo.email)
-        self.assertTrue(salvo.consent_whatsapp_nps)  # consent fora do form fica intacto
+        # consentimento tem historico proprio: o form do cadastro nao mexe nele
+        self.assertTrue(consentimentos.vigente(salvo, 'PESQUISA_SATISFACAO', 'WHATSAPP'))
 
         form = ClientePainelForm({**base, 'cpf': '111.111.111-11'}, instance=cli)
         self.assertFalse(form.is_valid())

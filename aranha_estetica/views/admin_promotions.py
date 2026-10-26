@@ -135,13 +135,13 @@ def admin_editar_promocao(request, pk):
 
 
 def _destinatarios_promocao():
-    """Mesmo publico do job_promocao_mensal: consentimento explicito de marketing."""
-    return Cliente.objects.filter(
-        ativo=True,
-        email__isnull=False,
-        consent_email_marketing=True,
-        aceita_comunicacao=True,
-    ).exclude(email='').order_by('pk')
+    """Mesmo publico do job_promocao_mensal: MARKETING/EMAIL vigente no historico."""
+    from ..services import consentimentos
+
+    return consentimentos.com_consentimento(
+        Cliente.objects.filter(ativo=True, email__isnull=False).exclude(email=''),
+        *consentimentos.MARKETING_EMAIL, caminho='pk',
+    ).order_by('pk')
 
 
 def _enviar_lote_promocao(promo, assunto, corpo, validade_dias):

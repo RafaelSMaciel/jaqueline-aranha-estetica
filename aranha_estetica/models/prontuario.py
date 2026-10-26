@@ -9,10 +9,11 @@ from .clientes import Cliente
 class Prontuario(models.Model):
     """Anamnese base permanente do cliente.
 
-    respostas_extras (JSONB): respostas do questionario configuravel —
-    substitui o EAV ProntuarioPergunta/ProntuarioResposta (remodelagem v2.1
-    fase 5). Schema das perguntas vive em Configuracao
-    chave='prontuario_perguntas' (lista de {chave, texto, tipo}).
+    respostas_extras (JSONB): respostas do questionario do prontuario
+    {key: valor} — substitui o EAV ProntuarioPergunta/ProntuarioResposta
+    (remodelagem v2.1 fase 5). As perguntas sao o FormularioAnamnese tipo
+    PRONTUARIO ativo (0051; antes Configuracao 'prontuario_perguntas'),
+    validadas por services/anamnese.validar_respostas.
     Busca Postgres: Prontuario.objects.filter(respostas_extras__diabetes=True).
     PG: CHECK chk_prontuario_extras_objeto (jsonb_typeof = 'object', 0043).
     PROTECT: dado clinico com retencao de 20 anos — nunca cascateia.

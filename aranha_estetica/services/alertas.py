@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from django.db.models import Q
 
-from ..utils.saude import alertas_saude
+from ..utils.saude import alertas_saude, perguntas_prontuario
 
 
 def alertas_por_cliente(clientes) -> dict[int, list[dict]]:
@@ -26,8 +26,8 @@ def alertas_por_cliente(clientes) -> dict[int, list[dict]]:
     preenchido = Q()
     for campo in ('alergias', 'contraindicacoes', 'medicamentos_uso'):
         preenchido |= Q(**{f'{campo}__isnull': False}) & ~Q(**{campo: ''})
-    # questionario configuravel (EAV migrado na 0036 + prontuario_salvar):
-    # quem so tem respostas_extras tambem passa pelo helper
+    # questionario do prontuario (formulario PRONTUARIO; EAV migrado na 0036 +
+    # prontuario_salvar): quem so tem respostas_extras tambem passa pelo helper
     preenchido |= ~Q(respostas_extras={})
     candidatos = set(
         Prontuario.objects.filter(preenchido, cliente_id__in=por_id)
@@ -40,8 +40,9 @@ def alertas_por_cliente(clientes) -> dict[int, list[dict]]:
     )
 
     mapa = {}
+    perguntas = perguntas_prontuario() if candidatos else []  # 1 leitura p/ o lote
     for cliente_id in candidatos:
-        alertas = alertas_saude(por_id[cliente_id])
+        alertas = alertas_saude(por_id[cliente_id], perguntas=perguntas)
         if alertas:
             mapa[cliente_id] = alertas
     return mapa

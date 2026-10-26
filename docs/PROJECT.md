@@ -189,10 +189,10 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 
 ### 5.1 Resumo
 
-- **33 tabelas de domínio** (+ tabelas do Django, django-otp, django-axes). PK `BigAutoField`.
+- **34 tabelas de domínio** (+ tabelas do Django, django-otp, django-axes). PK `BigAutoField`.
 - Nomes PT-BR no singular, `db_table` explícito, textos nunca nulos (exceto colunas sob UNIQUE
   parcial), dinheiro em `Decimal(10,2)`, status como `CharField` + CHECK + FSM na aplicação.
-- Migrations `0001`–`0049`. Produção está na **`0026`**: o próximo deploy aplica `0027`→`0049`
+- Migrations `0001`–`0051`. Produção está na **`0026`**: o próximo deploy aplica `0027`→`0051`
   de uma vez (ver §14, [`specs/remodelagem-banco-v2.md`](specs/remodelagem-banco-v2.md) e, da
   `0048` em diante, o padrão SQL em [`specs/padrao-sql.md`](specs/padrao-sql.md)).
 - Tabelas novas (0048+) já nascem no padrão SQL: `pk_`/`fk_` (FK com `ON DELETE` real)/`ck_`/
@@ -207,7 +207,7 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 | Acesso | `usuario` (Usuario) | Equipe. Login por e-mail; `papel` ADMIN/PROFISSIONAL/RECEPCAO (CHECK); `is_staff` = ADMIN; 1:1 opcional com Profissional |
 | | `assinatura_push` (AssinaturaPush) | Inscrições Web Push (VAPID) por usuário |
 | | `log_auditoria` (LogAuditoria) | Trilha LGPD art. 37: autor + snapshot `usuario_nome` ("Nome <email>"), ação, tabela, registro, detalhes JSON (PII mascarada), IP |
-| Pessoas | `cliente` (Cliente) | Cliente da clínica. Telefone só dígitos (10–11) é a chave natural; e-mail/CPF opcionais; consentimentos granulares com data e IP; faltas/bloqueio online; soft delete (`deletado_em`); `indicado_por` (cashback) |
+| Pessoas | `cliente` (Cliente) | Cliente da clínica. Telefone só dígitos (10–11) é a chave natural; e-mail/CPF opcionais; consentimentos de comunicação na tabela `consentimento` (histórico, 0050); faltas/bloqueio online; soft delete (`deletado_em`); `indicado_por` (cashback) |
 | | `profissional` (Profissional) | Quem atende. `min_notice_horas` (0–720, padrão 2), `max_advance_dias` (1–365, padrão 60), campos do Google Calendar. Feed ICS por `link_acesso` (FEED_ICS) |
 | Catálogo | `procedimento` (Procedimento) | Serviço: duração, buffer (0–120 min), categoria, modalidade, retorno obrigatório (`exige_retorno` + janela em dias + duração do retorno) |
 | | `habilitacao` (Habilitacao) | Profissional × procedimento (M2M through) |
@@ -218,14 +218,15 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 | | `atendimento` (Atendimento) | Agendamento/sessão. FSM de 7 estados, preço gravado (`valor_cobrado`, `valor_original`, `promocao`, `descricao_preco`), retorno (`eh_retorno` + `atendimento_origem`), `reagendado_de` |
 | | `notificacao` (Notificacao) | Mensagem por atendimento: tipo (LEMBRETE, LEMBRETE_2H, CONFIRMACAO, CANCELAMENTO, NPS, PESQUISA, APROVACAO, TERMO), canal, status PENDENTE/ENVIADO/FALHOU; o link público (/confirmar/, /nps/, /termo/) vive em `link_acesso` |
 | | `lista_espera` (ListaEspera) | Pedido de aviso de vaga (procedimento, data, turno, profissional opcional, `email_contato`) |
-| Clínico | `prontuario` (Prontuario) | Ficha base 1:1 com a cliente: alergias, contraindicações, histórico, medicamentos, observações + `respostas_extras` (JSONB, perguntas configuráveis) |
+| Clínico | `prontuario` (Prontuario) | Ficha base 1:1 com a cliente: alergias, contraindicações, histórico, medicamentos, observações + `respostas_extras` (JSONB `{key: valor}` do questionário do prontuário = formulário PRONTUARIO ativo, 0051) |
 | | `prontuario_versao` (ProntuarioVersao) | **Histórico append-only** da ficha: foto do estado anterior a cada edição, com autor (0046) |
 | | `anotacao_sessao` (AnotacaoSessao) | Nota clínica por atendimento; autor PROTECT + snapshot `autor_nome` |
-| | `formulario_anamnese` (FormularioAnamnese) | Modelo de questionário (ANAMNESE/PESQUISA) em `schema_json`, com escopo e `obrigatorio` |
+| | `formulario_anamnese` (FormularioAnamnese) | Questionário único em `schema_json` (`[{key, tipo, label, obrigatorio, opcoes?, alerta_saude?}]`): ANAMNESE e PESQUISA (respondidas pela cliente) e PRONTUARIO (perguntas extras da ficha, preenchidas pela equipe — no máximo 1 ativo, sempre GLOBAL, nunca obrigatório; 0051). Escopo + `obrigatorio` |
 | | `resposta_anamnese` (RespostaAnamnese) | Ficha respondida (JSON) por cliente/atendimento; link público do convite em `link_acesso` (FORMULARIO, 60 dias) |
 | LGPD | `versao_termo` (VersaoTermo) | Termo versionado (LGPD ou PROCEDIMENTO); 1 ativo por escopo; imutável depois do 1º aceite |
 | | `aceite_termo` (AceiteTermo) | Prova do aceite: cliente, versão, atendimento, IP, user-agent, `conteudo_sha256`, data. Imutável (trigger) |
 | | `codigo_otp` (CodigoOtp) | Desafio OTP (HMAC-SHA256 com a SECRET_KEY), propósito AGENDAMENTO/LOGIN_CLIENTE/DSAR, TTL, tentativas |
+| | `consentimento` (Consentimento) | **Histórico append-only** de concessão/revogação por finalidade × canal (MARKETING/EMAIL, PESQUISA_SATISFACAO/WHATSAPP, LEMBRETE_AGENDAMENTO/WHATSAPP): origem (AGENDAMENTO_ONLINE, DESCADASTRO, PAINEL, ESQUECIMENTO, MIGRACAO, ADMIN), texto exibido, IP, user-agent, autor, `registrado_em`. Estado atual = linha mais recente do par; sem linha = não concedido (0050) |
 | | `link_acesso` (LinkAcesso) | Link público com token ("link mágico"): `finalidade` (GERENCIAR_AGENDAMENTO — só os migrados —, CONFIRMAR_PRESENCA, NPS, TERMO, FORMULARIO, DESCADASTRO, FEED_ICS) + exatamente 1 alvo (atendimento, notificação, ficha, cliente ou profissional); só o **SHA-256** do token (`token_hash char(64)`, sem pepper: rotacionar a SECRET_KEY não derruba link enviado), `expira_em`, `usado_em`, `revogado_em`. O token em claro só existe na URL entregue (0049) |
 | NPS | `avaliacao_nps` (AvaliacaoNPS) | Nota 0–10 + comentário, `autoriza_publicacao` (opt-in da cliente) e `aprovado_publicacao` (moderação) |
 | Pacotes | `pacote` / `item_pacote` | Pacote (preço, validade em meses) e seus itens (procedimento × sessões) |
@@ -233,7 +234,7 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 | | `consumo_sessao` (ConsumoSessao) | 1 sessão consumida por atendimento (OneToOne) |
 | Financeiro | `carteira` / `movimento_carteira` | Saldo da cliente (CHECK ≥ 0) e ledger append-only (trigger) — hoje só cashback de indicação e estorno |
 | | `regra_comissao` / `movimento_comissao` | Regra (percentual 0–100 XOR valor fixo) e comissão por atendimento (PENDENTE/PAGA/ESTORNADA) |
-| Infra | `configuracao` (Configuracao) | Chave-valor: campos do Branding, `email_admin`, `prontuario_perguntas`, `MAX_FALTAS_BLOQUEIO` (opcional) |
+| Infra | `configuracao` (Configuracao) | Chave-valor: campos do Branding, `email_admin`, `MAX_FALTAS_BLOQUEIO` (opcional). As perguntas do prontuário saíram daqui na 0051 (formulário PRONTUARIO) |
 
 ### 5.3 Invariantes garantidas pelo banco
 
@@ -256,6 +257,8 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 | RRULE só no subconjunto que o motor expande | `ck_agenda_excecao_regra_recorrencia_suportada` (regex, **só PG**; `clean()` normaliza) | 0048 |
 | 1 horário diferente ativo por profissional/dia; 1 feriado por origem/data; importação do Google idempotente | `uq_agenda_excecao_horario_diferente_dia`, `uq_agenda_excecao_feriado`, `uq_agenda_excecao_gcal_evento` | 0048 |
 | Link público: alvo coerente com a finalidade (1 FK); 1 link por hash; hash = sha256 hex; depois de criado só `usado_em`/`revogado_em` mudam (uma vez cada) | `ck_link_acesso_finalidade`, `ck_link_acesso_alvo_por_finalidade`, `uq_link_acesso_token_hash`; `ck_link_acesso_token_hash_formato` e trigger `tg_link_acesso_imutavel` (**só PG**) | 0049 |
+| Consentimento: só os 3 pares finalidade × canal que existem, origem no domínio; histórico append-only (só a anonimização pode apagar IP/user-agent) | `ck_consentimento_finalidade`, `_canal`, `_finalidade_canal`, `_origem`; trigger `tg_consentimento_imutavel` (**só PG**) | 0050 |
+| Questionário: tipo/escopo no domínio e coerentes (escopo PROCEDIMENTO/CATEGORIA/MODALIDADE com o alvo); PRONTUARIO sempre GLOBAL e não obrigatório; no máximo 1 PRONTUARIO ativo | `ck_formulario_tipo`, `ck_formulario_escopo`, `ck_formulario_escopo_coerente`, `ck_formulario_prontuario_global`, `uq_formulario_prontuario_ativo` | 0051 |
 
 Além disso: FKs `PROTECT` em tudo que é histórico clínico/financeiro (prontuário, anotação,
 ficha, compra de pacote, carteira, aceite), índice GIN em `prontuario.respostas_extras`,
@@ -401,12 +404,20 @@ Detalhe de login, 2FA, OTP e tokens em [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO
 - **Dado de saúde (art. 11):** ficha do wizard e ficha pública (`/anamnese/<token>/`) só são
   gravadas com a caixa de consentimento destacada marcada; o texto (`TEXTO_CONSENTIMENTO_SAUDE`)
   vai para a `LogAuditoria` com IP.
-- **Comunicação:** `consent_email_marketing`, `consent_whatsapp_confirmacao` (lembrete D-1 e
-  aviso de vaga), `consent_whatsapp_nps` — nunca pré-marcados; cada um guarda data e IP; desmarcar
-  (com o estado do cadastro exibido) revoga com data e IP.
-- **Descadastro** (`/lgpd/unsubscribe/<token>/`): desliga marketing e pesquisas
-  (`aceita_comunicacao`, e-mail marketing, NPS), **mantém o lembrete D-1** (transacional). Cada
+- **Comunicação:** três opt-ins no wizard — promoções por e-mail (MARKETING/EMAIL), lembrete
+  D-1 e aviso de vaga por WhatsApp (LEMBRETE_AGENDAMENTO/WHATSAPP) e pesquisa de satisfação por
+  WhatsApp (PESQUISA_SATISFACAO/WHATSAPP) — nunca pré-marcados. Cada concessão/revogação é uma
+  linha nova em `consentimento` (append-only) com o texto exibido, IP, user-agent e data; o
+  estado vale pela linha mais recente (`services/consentimentos`). Desmarcar (com o estado do
+  cadastro exibido) revoga; marcar de novo depois de um descadastro **volta a valer**
+  (reconsentimento — o antigo `aceita_comunicacao` vetava para sempre e saiu na 0050).
+- **Descadastro** (`/lgpd/unsubscribe/<token>/`): revoga marketing e pesquisa (origem
+  DESCADASTRO, com IP/UA de quem confirmou), **mantém o lembrete D-1** (transacional). Cada
   e-mail de marketing leva o seu link (`link_acesso` DESCADASTRO; descartado se o envio falha).
+- **Painel** (ficha do cliente, "Comunicação autorizada"): a equipe vê o estado por canal e
+  **revoga** a pedido da cliente; registrar uma autorização exige a justificativa (o que foi
+  autorizado e como), gravada como `texto` com o autor (origem PAINEL). Django admin: histórico só
+  leitura + ação "Revogar consentimentos de comunicação" (origem ADMIN).
 - **Depoimento:** só aparece no site com `autoriza_publicacao` (cliente) **e**
   `aprovado_publicacao` (equipe), nota ≥ 9 e comentário.
 - **Imutabilidade:** aceite e termo já aceito não mudam (model + trigger 0046); editar o texto
@@ -416,13 +427,15 @@ Detalhe de login, 2FA, OTP e tokens em [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO
 
 | Direito | Como |
 |---|---|
-| Confirmação, acesso, portabilidade | `/lgpd/meus-dados/`: telefone → OTP DSAR → download JSON (cadastro, atendimentos, fichas, prontuário + versões, aceites, NPS, lista de espera, pacotes, carteira). Resposta idêntica exista ou não o cadastro; auditado |
+| Confirmação, acesso, portabilidade | `/lgpd/meus-dados/`: telefone → OTP DSAR → download JSON (cadastro, consentimentos — estado e histórico —, atendimentos, fichas, prontuário + versões e questionário rotulado, aceites, NPS, lista de espera, pacotes, carteira). Resposta idêntica exista ou não o cadastro; auditado |
 | Correção | Pela equipe na ficha do cliente (`/painel/clientes/<pk>/`) |
-| Revogação de consentimento | Link de descadastro; desmarcar no wizard |
+| Revogação de consentimento | Link de descadastro; desmarcar no wizard; equipe na ficha do cliente (revogar) |
 | Anonimização/eliminação | Ação LGPD no Django admin (`LgpdService.esquecer_cliente`) e job semanal (§9.4) |
 
 **Esquecimento** (`esquecer_cliente`): troca o nome por `[ANONIMIZADO-<pk>]` e zera CPF, RG,
-e-mail, telefone, endereço, nascimento e consentimentos; soft delete; apaga OTPs, lista de
+e-mail, telefone, endereço e nascimento; revoga os consentimentos vigentes (origem
+ESQUECIMENTO — o histórico de datas/finalidades fica como prova de base legal, sem IP e
+user-agent); soft delete; apaga OTPs, lista de
 espera e texto das notificações; apaga fichas que não são de atendimento REALIZADO; tira o
 depoimento do site e apaga o comentário do NPS; **revoga todos os links públicos** do titular
 (descadastro, confirmação, NPS, termo, ficha, reagendar legado); pseudonimiza o nome nos textos da
@@ -469,7 +482,7 @@ curl -fsS -X POST -H "X-Cron-Token: $CRON_TOKEN" https://<dominio>/cron/run/<job
 |---|---|---|---|---|
 | `pacote_expirar` | 00:30 | `30 0 * * *` | `30 3 * * *` | Compras ATIVO com `data_expiracao` < hoje → EXPIRADO |
 | `pacote_expirando` | 07:00 | `0 7 * * *` | `0 10 * * *` | E-mail a quem tem pacote vencendo em 7 ou 1 dia com saldo |
-| `lembrete_diario` | 08:00 | `0 8 * * *` | `0 11 * * *` | WhatsApp D-1 (template `confirmacao_d1`) para atendimentos **AGENDADO** de amanhã com `consent_whatsapp_confirmacao`; idempotente |
+| `lembrete_diario` | 08:00 | `0 8 * * *` | `0 11 * * *` | WhatsApp D-1 (template `confirmacao_d1`) para atendimentos **AGENDADO** de amanhã com LEMBRETE_AGENDAMENTO/WHATSAPP vigente; idempotente |
 | `aniversario` | 09:00 | `0 9 * * *` | `0 12 * * *` | E-mail de felicitação (sem desconto) com consentimento de marketing; 29/02 comemora em 28/02 |
 | `nps_24h` | 10:00 | `0 10 * * *` | `0 13 * * *` | WhatsApp de NPS para REALIZADO entre 24h e 7 dias, com consentimento; até 3 tentativas |
 | `detrator_alerta` | 10:30 | `30 10 * * *` | `30 13 * * *` | E-mail de NPS ≤ 6 para `email_admin` > `ADMIN_EMAIL` > `CLINIC_EMAIL` |
@@ -658,6 +671,25 @@ demo, a agenda unificada e os tokens de link em hash). Faça em horário sem mov
      as notificações cujo token nenhuma rota aceitava (não migram) e token repetido entre tabelas
      (fica o 1º). Depois dela a URL do feed ICS não é mais exibida: quem precisar do link gera um
      novo (o antigo continua valendo até lá).
+   - A `0050` (consentimentos) não aborta: cada `consent_*` vira linha em `consentimento`
+     (concedido com a data/IP do aceite; `False` com data = revogação; sem data = nada) e
+     `aceita_comunicacao=False` vira revogação de marketing e pesquisa **por último** (mesmo efeito
+     de hoje: veta). Registra `migration 0050: consentimentos com historico` com as contagens.
+   - `0051` (questionário do prontuário) — aborta se algum `formulario_anamnese` tem tipo/escopo
+     fora do domínio ou escopo sem o alvo (PROCEDIMENTO sem procedimento, CATEGORIA sem categoria,
+     MODALIDADE sem modalidade) → corrigir no painel. Pré-checagem no schema 0026:
+     ```sql
+     SELECT id, tipo, escopo, categoria, modalidade, procedimento_id FROM formulario_anamnese
+      WHERE tipo NOT IN ('ANAMNESE', 'PESQUISA')
+         OR escopo NOT IN ('GLOBAL', 'CATEGORIA', 'PROCEDIMENTO', 'MODALIDADE')
+         OR (escopo = 'PROCEDIMENTO' AND procedimento_id IS NULL)
+         OR (escopo = 'CATEGORIA' AND categoria = '')
+         OR (escopo = 'MODALIDADE' AND modalidade = '');
+     ```
+     A configuração `prontuario_perguntas` vira o formulário "Questionário do prontuário" (tipo
+     PRONTUARIO; as respostas não mudam). JSON inválido não aborta: fica na Configuração e vai
+     para a `LogAuditoria` (`migration 0051: ... JSON invalido`) — recrie as perguntas em
+     Painel > Anamneses.
    - Sem ICU no Postgres a `0038` só avisa e pula a collation (não aborta).
    - A `0034` não aborta: normaliza telefone/CPF/e-mail, tira duplicatas (o cliente com mais
      atendimentos fica com o valor; os outros ficam ativos com o campo nulo) e registra cada caso
@@ -838,6 +870,7 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 | 2026-06 | Remodelagem do banco v2.1 (0027–0038: 50 → 33 tabelas, invariantes no banco); fundação do front (Vite/Tailwind/cotton/Alpine CSP) e migração de 100% das telas; auditoria SWE de backend (0039) |
 | 2026-09-23 | Padrão SQL, fase (a): agenda 4→2 (`agenda_horario` + `agenda_excecao`, migration 0048; [`specs/padrao-sql.md`](specs/padrao-sql.md) §4.a) |
 | 2026-10-02 | Padrão SQL, fase (b): tokens de link público em hash (`link_acesso`, migration 0049; portal reagenda/cancela por sessão; ICS exibido só na geração; [`specs/padrao-sql.md`](specs/padrao-sql.md) §4.b) |
+| 2026-10-26 | Padrão SQL, fases (c) e (d): consentimentos com histórico append-only (`consentimento`, 0050 — sai `aceita_comunicacao`, reconsentimento vale, painel revoga) e questionário único (perguntas do prontuário = formulário PRONTUARIO, 0051; `alerta_saude` por pergunta) ([`specs/padrao-sql.md`](specs/padrao-sql.md) §4.c/§4.d) |
 | 2026-09-23 | Auditoria pré-produção completa (~450 correções em ~30 commits, `b5fd681..182e2e9`): OTP preso ao telefone em todo agendamento, consentimentos LGPD/art. 11 com prova, 2FA obrigatório do ADMIN, histórico do prontuário, prova de aceite imutável, deploy por Dockerfile + `migrate_atomico`, retenção LGPD efetiva, migrations 0040–0046. Detalhe em [`ARCHITECTURE.md`](ARCHITECTURE.md#6-progresso-checkpoint) |
 
-**Mantenedor:** Rafael Maciel · **Última atualização:** 2026-10-02
+**Mantenedor:** Rafael Maciel · **Última atualização:** 2026-10-26

@@ -67,12 +67,17 @@ def prontuario_consentimento(request):
         for c in clientes_page
     ]
 
-    from .prontuario import _perguntas_configuradas
-    perguntas = _perguntas_configuradas()
+    from ..models import FormularioAnamnese
+    formulario_prontuario = FormularioAnamnese.objects.prontuario_ativo()
+    perguntas = [
+        p for p in (formulario_prontuario.schema_json if formulario_prontuario else [])
+        if isinstance(p, dict) and p.get('key')
+    ]
 
     context = {
         'clientes_list': clientes_list,
         'clientes_page': clientes_page,
+        'formulario_prontuario': formulario_prontuario,
         'perguntas': perguntas,
         'total_perguntas': len(perguntas),
         'search': search,

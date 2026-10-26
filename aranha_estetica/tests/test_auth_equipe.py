@@ -769,22 +769,38 @@ class DjangoAdminEvidenciasTests(TestCase):
         self.assertContains(resp, 'Já existe uma versão ativa')
 
     def test_cliente_consentimento_evidencia_so_leitura_e_nao_concedido_pelo_admin(self):
-        from django.forms.models import model_to_dict
+        """Historico de consentimento: so leitura no admin; a unica acao e revogar (origem ADMIN)."""
+        from aranha_estetica.models import Consentimento
+        from aranha_estetica.services import consentimentos
+
+        from .factories import conceder
+
+        conceder(self.cliente, 'consent_email_marketing', ip='10.0.0.9')
         cliente_admin = django_admin.site._registry[Cliente]
         rf = RequestFactory().get('/')
         rf.user = self.admin
-        readonly = cliente_admin.get_readonly_fields(rf, self.cliente)
-        for campo in ('email_marketing', 'whatsapp_nps', 'whatsapp_confirmacao'):
-            with self.subTest(campo=campo):
-                self.assertIn(f'consent_{campo}_em', readonly)
-                self.assertIn(f'consent_{campo}_ip', readonly)
         form_cls = cliente_admin.get_form(rf, self.cliente)
-        self.assertIn('consent_whatsapp_confirmacao', form_cls.base_fields)
-        dados = {k: v for k, v in model_to_dict(self.cliente, fields=form_cls.base_fields).items() if v is not None}
-        dados['consent_email_marketing'] = True
-        form = form_cls(data=dados, instance=self.cliente)
-        self.assertFalse(form.is_valid())
-        self.assertIn('consent_email_marketing', form.errors)
+        self.assertFalse({c for c in form_cls.base_fields if c.startswith('consent') or c == 'aceita_comunicacao'})
+        inline = next(i for i in cliente_admin.get_inline_instances(rf, self.cliente)
+                      if i.model is Consentimento)
+        self.assertFalse(inline.has_add_permission(rf, self.cliente))
+        self.assertFalse(inline.has_change_permission(rf, self.cliente))
+        self.assertFalse(inline.has_delete_permission(rf, self.cliente))
+        # tela do historico: sem incluir/editar/apagar
+        linha = Consentimento.objects.get(cliente=self.cliente)
+        self.assertEqual(self.c.get(self._url('consentimento', 'add')).status_code, 403)
+        self.assertEqual(self.c.get(self._url('consentimento', 'delete', linha.pk)).status_code, 403)
+        self.c.post(self._url('consentimento', 'change', linha.pk), {'concedido': ''})
+        self.assertTrue(Consentimento.objects.get(pk=linha.pk).concedido)
+        # acao "revogar": linha nova (append-only) com autor e origem ADMIN
+        resp = self.c.post('/django-admin-sv/aranha_estetica/cliente/', {
+            'action': 'acao_revogar_comunicacao', '_selected_action': [self.cliente.pk],
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(consentimentos.vigente(self.cliente, 'MARKETING', 'EMAIL'))
+        revogacao = Consentimento.objects.get(cliente=self.cliente, concedido=False)
+        self.assertEqual((revogacao.origem, revogacao.usuario_autor), ('ADMIN', self.admin))
+        self.assertEqual(Consentimento.objects.filter(cliente=self.cliente).count(), 2)
 
     def test_busca_do_admin_acha_telefone_e_cpf_com_mascara(self):
         cliente_admin = django_admin.site._registry[Cliente]

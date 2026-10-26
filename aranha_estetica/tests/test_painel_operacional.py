@@ -20,6 +20,7 @@ from aranha_estetica.models import (
     Cliente,
     CompraPacote,
     Configuracao,
+    Consentimento,
     Habilitacao,
     ListaEspera,
     LogAuditoria,
@@ -31,6 +32,7 @@ from aranha_estetica.models import (
     Usuario,
     VersaoTermo,
 )
+from aranha_estetica.services import consentimentos
 
 from .factories import (
     criar_atendimento,
@@ -372,9 +374,7 @@ class TermosTests(_AdminTestCase):
 class ClienteEdicaoTests(_AdminTestCase):
     def setUp(self):
         super().setUp()
-        self.c1 = criar_cliente('Cliente Um', email='um@test.com')
-        self.c1.consent_email_marketing = True
-        self.c1.save()
+        self.c1 = criar_cliente('Cliente Um', email='um@test.com', consent_email_marketing=True)
         self.c2 = criar_cliente('Cliente Dois', email='dois@test.com')
         self.url = reverse('aranha:admin_cliente_detalhe', args=[self.c1.pk])
 
@@ -411,7 +411,47 @@ class ClienteEdicaoTests(_AdminTestCase):
         self.c1.refresh_from_db()
         self.assertEqual(self.c1.nome, 'Cliente Um Editado')
         self.assertEqual(self.c1.telefone, '17988887777')
-        self.assertTrue(self.c1.consent_email_marketing)
+        self.assertTrue(consentimentos.vigente(self.c1, 'MARKETING', 'EMAIL'))
+
+    # Consentimentos na ficha: so revoga; conceder exige justificativa (D3 / §7.1)
+    def _consentimento(self, operacao, par, **extra):
+        return self.client.post(self.url, {'acao': 'consentimento', 'operacao': operacao, 'par': par, **extra})
+
+    def test_ficha_mostra_estado_por_canal(self):
+        resp = self.client.get(self.url)
+        linhas = {c['chave']: c['concedido'] for c in resp.context['consentimentos']}
+        self.assertEqual(linhas, {'MARKETING:EMAIL': True, 'PESQUISA_SATISFACAO:WHATSAPP': False,
+                                  'LEMBRETE_AGENDAMENTO:WHATSAPP': False})
+        self.assertContains(resp, 'Promoções e novidades por e-mail')
+        self.assertNotContains(resp, 'name="aceita_comunicacao"')
+
+    def test_revogar_pelo_painel_grava_autor_e_origem(self):
+        resp = self._consentimento('revogar', 'MARKETING:EMAIL')
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(consentimentos.vigente(self.c1, 'MARKETING', 'EMAIL'))
+        ultima = Consentimento.objects.filter(cliente=self.c1).order_by('-registrado_em', '-id').first()
+        self.assertEqual((ultima.concedido, ultima.origem, ultima.usuario_autor), (False, 'PAINEL', self.admin))
+        self.assertTrue(LogAuditoria.objects.filter(acao='Revogou consentimento', registro_id=self.c1.pk).exists())
+        # revogar de novo / o que nunca foi concedido: no-op (historico nao polui)
+        self._consentimento('revogar', 'MARKETING:EMAIL')
+        self._consentimento('revogar', 'PESQUISA_SATISFACAO:WHATSAPP')
+        self.assertEqual(Consentimento.objects.filter(cliente=self.c1).count(), 2)
+
+    def test_conceder_pelo_painel_exige_justificativa(self):
+        self._consentimento('conceder', 'PESQUISA_SATISFACAO:WHATSAPP', justificativa='ok')
+        self.assertFalse(consentimentos.vigente(self.c1, 'PESQUISA_SATISFACAO', 'WHATSAPP'))
+        texto = 'Pediu por telefone em 10/11 para receber a pesquisa por WhatsApp'
+        self._consentimento('conceder', 'PESQUISA_SATISFACAO:WHATSAPP', justificativa=texto)
+        linha = Consentimento.objects.get(cliente=self.c1, finalidade='PESQUISA_SATISFACAO')
+        self.assertEqual((linha.concedido, linha.origem, linha.texto, linha.usuario_autor),
+                         (True, 'PAINEL', texto, self.admin))
+
+    def test_par_invalido_e_recusado(self):
+        resp = self._consentimento('revogar', 'MARKETING:WHATSAPP')
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(Consentimento.objects.filter(cliente=self.c1).count(), 1)
+        self._consentimento('apagar', 'MARKETING:EMAIL')
+        self.assertTrue(consentimentos.vigente(self.c1, 'MARKETING', 'EMAIL'))
 
 
 # ─── Procedimentos / preco com vigencia ───────────────────────────────
@@ -587,8 +627,11 @@ class PromocoesTests(_AdminTestCase):
     def test_lista_grande_sem_worker_vai_em_lotes_sem_reenvio(self):
         from aranha_estetica.views import admin_promotions
         for i in range(admin_promotions.LOTE_PROMOCAO + 5):
-            criar_cliente(f'Cli {i}', email=f'cli{i}@test.com',
-                          consent_email_marketing=True, aceita_comunicacao=True)
+            criar_cliente(f'Cli {i}', email=f'cli{i}@test.com', consent_email_marketing=True)
+        # revogado (descadastro) e quem nunca autorizou ficam fora do publico
+        revogado = criar_cliente('Revogado', email='revogado@test.com', consent_email_marketing=True)
+        consentimentos.revogar(revogado, 'MARKETING', 'EMAIL', origem='DESCADASTRO')
+        criar_cliente('Sem opt-in', email='semoptin@test.com')
         self.client.post(self.url, {'validade_dias': '30'})
         self.assertEqual(len(mail.outbox), admin_promotions.LOTE_PROMOCAO)
         self.assertTrue(Configuracao.objects.filter(chave__startswith='promocao_').exists())

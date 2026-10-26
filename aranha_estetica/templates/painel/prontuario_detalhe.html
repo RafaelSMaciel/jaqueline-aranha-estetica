@@ -97,27 +97,49 @@
       </svg>
       Questionário de Anamnese
     </h6>
+    {# Perguntas do formulario PRONTUARIO (Painel > Anamneses), validadas como as fichas #}
     {% for pergunta in perguntas %}
-    {% with resposta=respostas|get_item:pergunta.chave %}
     <div class="mb-3">
-      <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">{{ pergunta.texto }}</label>
-      {% if pergunta.tipo == 'BOOLEAN' %}
+      <label class="block text-[0.75rem] font-bold text-texto-suave mb-1" {% if pergunta.tipo != 'bool' and pergunta.tipo != 'checkboxes' %}for="p_{{ pergunta.key }}"{% endif %}>{{ pergunta.label }}</label>
+      {% if pergunta.tipo == 'bool' %}
         <div class="flex gap-4">
           <label class="inline-flex items-center gap-1.5 text-[0.85rem] text-texto cursor-pointer">
-            <input type="radio" name="pergunta_{{ pergunta.chave }}" value="sim" id="p{{ pergunta.chave }}_sim"
-                   {% if resposta is True %}checked{% endif %} class="border-borda"> Sim
+            <input type="radio" name="{{ pergunta.nome }}" value="sim" id="p{{ pergunta.key }}_sim"
+                   {% if pergunta.valor is True %}checked{% endif %} class="border-borda"> Sim
           </label>
           <label class="inline-flex items-center gap-1.5 text-[0.85rem] text-texto cursor-pointer">
-            <input type="radio" name="pergunta_{{ pergunta.chave }}" value="nao" id="p{{ pergunta.chave }}_nao"
-                   {% if resposta is False %}checked{% endif %} class="border-borda"> Não
+            <input type="radio" name="{{ pergunta.nome }}" value="nao" id="p{{ pergunta.key }}_nao"
+                   {% if pergunta.valor is False %}checked{% endif %} class="border-borda"> Não
           </label>
         </div>
+      {% elif pergunta.tipo == 'select' or pergunta.tipo == 'scale' %}
+        <select name="{{ pergunta.nome }}" id="p_{{ pergunta.key }}"
+                class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+          <option value="">—</option>
+          {% for opt in pergunta.opcoes %}
+          <option value="{{ opt }}" {% if opt|stringformat:"s" == pergunta.valor_texto %}selected{% endif %}>{{ opt }}</option>
+          {% endfor %}
+        </select>
+      {% elif pergunta.tipo == 'checkboxes' %}
+        <input type="hidden" name="{{ pergunta.nome }}__enviado" value="1">
+        <div class="flex gap-4 flex-wrap">
+          {% for opt in pergunta.opcoes %}
+          <label class="inline-flex items-center gap-1.5 text-[0.85rem] text-texto cursor-pointer">
+            <input type="checkbox" name="{{ pergunta.nome }}" value="{{ opt }}" class="border-borda"
+                   {% if opt|stringformat:"s" in pergunta.valor_lista %}checked{% endif %}> {{ opt }}
+          </label>
+          {% endfor %}
+        </div>
+      {% elif pergunta.tipo == 'text' or pergunta.tipo == 'number' or pergunta.tipo == 'date' or pergunta.tipo == 'email' %}
+        <input type="{% if pergunta.tipo == 'number' %}number{% elif pergunta.tipo == 'date' %}date{% elif pergunta.tipo == 'email' %}email{% else %}text{% endif %}"
+               name="{{ pergunta.nome }}" id="p_{{ pergunta.key }}" value="{{ pergunta.valor_texto }}"
+               {% if pergunta.tipo == 'number' %}step="any"{% endif %}
+               class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
       {% else %}
-        <textarea name="pergunta_{{ pergunta.chave }}" rows="2" placeholder="Resposta..."
-                  class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition resize-y">{{ resposta|default:"" }}</textarea>
+        <textarea name="{{ pergunta.nome }}" id="p_{{ pergunta.key }}" rows="2" placeholder="Resposta..."
+                  class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition resize-y">{{ pergunta.valor_texto }}</textarea>
       {% endif %}
     </div>
-    {% endwith %}
     {% endfor %}
     {% endif %}
     </fieldset>

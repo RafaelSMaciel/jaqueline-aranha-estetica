@@ -9,8 +9,9 @@ from django.urls import reverse
 from django.utils import timezone
 
 from aranha_estetica.models import (
-    AvaliacaoNPS, CodigoOtp,
+    AvaliacaoNPS, CodigoOtp, Consentimento,
 )
+from aranha_estetica.services import consentimentos
 from .factories import (
     criar_atendimento, criar_cliente, criar_link, criar_notificacao_com_link, criar_procedimento,
     criar_profissional,
@@ -25,11 +26,10 @@ class LgpdUnsubscribeTests(TestCase):
     def setUp(self):
         cache.clear()
         self.client = Client()
-        self.cliente = criar_cliente(telefone='17911112222')
-        self.cliente.consent_email_marketing = True
-        self.cliente.consent_whatsapp_nps = True
-        self.cliente.consent_whatsapp_confirmacao = True
-        self.cliente.save()
+        self.cliente = criar_cliente(
+            telefone='17911112222', consent_email_marketing=True, consent_whatsapp_nps=True,
+            consent_whatsapp_confirmacao=True,
+        )
         # link de descadastro: emitido por e-mail de marketing (LinkAcesso DESCADASTRO)
         self.url = reverse('aranha:lgpd_unsubscribe', args=[criar_link('DESCADASTRO', self.cliente)])
 
@@ -37,19 +37,30 @@ class LgpdUnsubscribeTests(TestCase):
         resp = self.client.get(self.url)
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'method="post"')
-        self.cliente.refresh_from_db()
-        self.assertTrue(self.cliente.consent_email_marketing)
-        self.assertTrue(self.cliente.aceita_comunicacao)
+        self.assertEqual(consentimentos.estado_atual(self.cliente), {
+            ('MARKETING', 'EMAIL'): True, ('PESQUISA_SATISFACAO', 'WHATSAPP'): True,
+            ('LEMBRETE_AGENDAMENTO', 'WHATSAPP'): True,
+        })
+        self.assertFalse(Consentimento.objects.filter(concedido=False).exists())
 
     def test_post_marca_optout(self):
-        resp = self.client.post(self.url)
+        resp = self.client.post(self.url, HTTP_USER_AGENT='Leitor de e-mail', REMOTE_ADDR='10.1.2.3')
         self.assertEqual(resp.status_code, 200)
-        self.cliente.refresh_from_db()
-        self.assertFalse(self.cliente.consent_email_marketing)
-        self.assertFalse(self.cliente.consent_whatsapp_nps)
-        self.assertFalse(self.cliente.aceita_comunicacao)
         # Lembrete do agendamento e aviso transacional: continua (copy da pagina diz isso)
-        self.assertTrue(self.cliente.consent_whatsapp_confirmacao)
+        self.assertEqual(consentimentos.estado_atual(self.cliente), {
+            ('MARKETING', 'EMAIL'): False, ('PESQUISA_SATISFACAO', 'WHATSAPP'): False,
+            ('LEMBRETE_AGENDAMENTO', 'WHATSAPP'): True,
+        })
+        # append-only: as concessoes ficam; 2 revogacoes DESCADASTRO com a prova do pedido
+        revogacoes = Consentimento.objects.filter(cliente=self.cliente, concedido=False)
+        self.assertEqual({(c.finalidade, c.origem, c.user_agent) for c in revogacoes}, {
+            ('MARKETING', 'DESCADASTRO', 'Leitor de e-mail'),
+            ('PESQUISA_SATISFACAO', 'DESCADASTRO', 'Leitor de e-mail'),
+        })
+        self.assertEqual(Consentimento.objects.filter(cliente=self.cliente, concedido=True).count(), 3)
+        # 2o POST (link de uso multiplo) nao duplica revogacao
+        self.client.post(self.url)
+        self.assertEqual(revogacoes.count(), 2)
 
     def test_one_click_rfc8058_sem_csrf(self):
         """Provedor (Gmail/Yahoo) faz POST server-side sem token CSRF."""
@@ -59,8 +70,7 @@ class LgpdUnsubscribeTests(TestCase):
             content_type='application/x-www-form-urlencoded',
         )
         self.assertEqual(resp.status_code, 200)
-        self.cliente.refresh_from_db()
-        self.assertFalse(self.cliente.consent_email_marketing)
+        self.assertFalse(consentimentos.vigente(self.cliente, 'MARKETING', 'EMAIL'))
 
     def test_unsubscribe_token_invalido_404(self):
         url = reverse('aranha:lgpd_unsubscribe', args=['token-nao-existe'])
