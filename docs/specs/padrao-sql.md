@@ -1,10 +1,11 @@
 # Padrão SQL e esquema-alvo do banco — Shiva Zen
 
 > **Spec única** (sobrescrever a cada revisão — política do dono: 1 MD por assunto, sem versões
-> acumuladas). **Status: fases (a)–(f) IMPLEMENTADAS (migrations `0048_agenda_unificada`,
+> acumuladas). **Status: fases (a)–(f) e N1–N2 IMPLEMENTADAS (migrations `0048_agenda_unificada`,
 > `0049_link_acesso`, `0050_consentimento`, `0051_formulario_prontuario`,
-> `0052_compra_pacote_item` e `0053_comissao_ledger`, notas de implementação no fim do
-> §4.a–§4.f); N1–N2 e L1–L3 seguem em DESIGN.** Base verificada:
+> `0052_compra_pacote_item`, `0053_comissao_ledger`, `0054_padrao_nomes_tabelas_colunas` e
+> `0055_padrao_nomes_constraints_indices`; notas de implementação no fim do §4.a–§4.f e no
+> §3.6.5); L1–L3 seguem em DESIGN.** Base verificada:
 > `front-fundacao` = `main` @ `1462eff`, migrations até `0047`, produção na `0026`, Django 5.2.1, PostgreSQL 18 (Railway, com
 > `btree_gist`, `pg_trgm`, `unaccent`, ICU). Tudo aqui entra como migrations **`0048`+** — as
 > `0027`–`0047` não são editadas. Histórico das 0027–0047: [`remodelagem-banco-v2.md`](remodelagem-banco-v2.md)
@@ -1587,6 +1588,102 @@ funções/procedures do schema `public` fora de `^(fn|sp)_` (ignorando as de ext
 coluna (exceto a allowlist de autoria); `confdeltype` divergente do `on_delete` do model; tabela com
 `atualizado_em` sem `tg_<t>_atualizado_em`; qualquer índice com opclass `*_pattern_ops`. Tabelas de
 terceiros (§1.5) ficam fora por allowlist.
+
+#### 3.6.5 Implementação (0054/0055) — o que ficou diferente do desenho acima, e por quê
+
+- **Operações novas** em `aranha_estetica/db/operacoes.py` (módulo congelado: só classes novas),
+  todas reversíveis: `RenomearColuna(model_name, name, db_column)` (estado = `db_column`; banco =
+  `RENAME COLUMN` — é o `SeparateDatabaseAndState` da receita numa linha por coluna),
+  `RenomearConstraint` (PG: `RENAME CONSTRAINT` ou `ALTER INDEX … RENAME` pelo catálogo; SQLite:
+  remove + recria pelo estado), `RenomearIndice` (o `RenameIndex` que troca a classe para `Indice`
+  — o autodetector não casa `Index` → `Indice` e geraria DROP + CREATE), `SoltarIndiceDeCampo` e
+  `ComentarColuna` (abaixo). A 0054/0055 foram montadas a partir do `makemigrations` (estado
+  exato; `makemigrations --check` limpo) e reordenadas/trocadas à mão conforme o §6.
+- **Achado: o `AlterField(db_index=False)` do Django apaga UNIQUE parcial do `Meta`.** O
+  `_alter_field` acha o índice automático pelas colunas excluindo só os nomes de `Meta.indexes`; um
+  `UniqueConstraint` parcial/de expressão de 1 coluna (no PG é índice) entra na lista e some calado
+  — `uq_atendimento_retorno_por_origem`, `uq_formulario_prontuario_ativo` e
+  `uq_movimento_comissao_credito_por_atendimento` cairiam ao tirar o `db_index` de
+  `atendimento_origem`, `tipo` e `atendimento` (e numa FK o Django ainda solta e recria a
+  constraint). `SoltarIndiceDeCampo` (47 campos): PG e SQLite = só `DROP INDEX` do btree **não
+  único** da coluna, excluindo índices **e** constraints do `Meta`; reverso recria com o nome do
+  Django (+ `_like` no PG). O teste de conformidade passou a exigir "todo objeto do `Meta` existe
+  no banco com o nome exato" (pega isso e o truncamento > 63).
+- **`ComentarColuna`** (26 colunas só com COMMENT): o `AlterField` do Django trata mudança de
+  comentário como mudança de tipo (`ALTER COLUMN … TYPE <o mesmo>` + COMMENT: o PG reprocessa
+  CHECK/índice/FK da coluna) e no SQLite refaria a tabela; aqui é só `COMMENT ON COLUMN`.
+- **unique/`unique_together` de campo → `Meta` (8 objetos)**: em vez do RENAME do objeto achado por
+  introspecção, as operações do próprio Django (`AlterField(unique=False)` /
+  `AlterUniqueTogether(set())` + `AddConstraint`) — DROP + CREATE do UNIQUE (tabelas pequenas;
+  estado e banco sempre iguais, reverso automático). Idem os índices automáticos de FK que viram
+  `ix_` explícito: DROP do automático + `AddIndex`. Os `_like` das tabelas renomeadas na 0032 (o
+  nome calculado pelo Django não bate) saem no `PadronizarNomes()`.
+- **Dados da 0054 (além do §3.2)**: `cliente.telefone`/`cpf` também `''→NULL` (os
+  `ck_cliente_*_formato` recriados sem a exceção `''` e os UNIQUE parciais simplificados exigem);
+  `pacote.descricao` `NULL→''` (está no DDL do §2.8, faltava na lista do §3.2);
+  `log_auditoria.tabela` dos logs antigos passa ao nome novo das 3 tabelas renomeadas (referência
+  polimórfica `tabela` + `registro_pk`; o código passou a gravar `formulario`/`resposta_formulario`;
+  o reverso devolve). `LogAuditoria` `migration 0054: nulos e vazios normalizados (padrao SQL)` com
+  as contagens, só se algo mudou. Código: `Cliente.save()`/`ListaEspera.save()` gravam ausente como
+  `NULL` (nunca `''`), `registrar_log` grava `tabela or ''`, os agendamentos (site e recepção) e a
+  tela de configurações gravam `''` em vez de `None` nos textos `NOT NULL`, e o
+  `_eh_sobreposicao` reconhece `ex_atendimento_sobreposicao` (o `pgcode` 23P01 continua o 1º
+  critério).
+- **Collation**: a 0054 garante `pt_br` antes do `AlterField(db_collation)` — cria a ICU se faltar
+  e, **sem ICU, aborta** com mensagem (a 0038 só avisava). SQLite: `aranha_estetica/db/collation.py`
+  registrada no `ready()` (`connection_created`): ordem sem acento/caixa com desempate pelo texto
+  cru — a igualdade continua exata como na ICU determinística (comparar "sem acento/caixa" puro
+  faria `Ana = ana` no SQLite e não no PG). `test_pg_ddl.test_collation_nome` vale sempre no PG
+  (com `PG_EXIGE_ICU=1` confere também o provedor ICU).
+- **Triggers**: os 4 da 0038/0046 e as 4 funções caem no 1º passo da 0054 e voltam no último com
+  os corpos do §5.2 (SQLSTATE 23000 → `IntegrityError`, antes `InternalError`);
+  `tg_movimento_carteira_imutavel` usa a `fn_bloquear_mutacao` da 0052 (`CREATE OR REPLACE`
+  idêntico). O reverso recria os originais (nomes e corpos antigos).
+- **Pré-checagem da 0055** é a 1ª operação (não no meio): todos os CHECK/UNIQUE novos + os 3
+  `VALIDATE` da 0043; aborta com regra e ids (≤ 50 por regra); SQL do runbook no topo da migration.
+  Os CHECK `[PG]` novos (`ck_log_auditoria_detalhes_objeto`, `ck_prontuario_versao_dados_objeto`,
+  `ck_aceite_termo_conteudo_hash_formato`, `ck_codigo_otp_codigo_hash_formato`) e os de cliente
+  recriados ficam num `RunPython` só-PG cujo reverso devolve os `chk_cliente_*_digits` da 0034 e o
+  `gin_prontuario_extras`.
+- **`ck_avaliacao_nps_aprovacao_exige_autorizacao`** mudou um comportamento: o Django admin deixava
+  a equipe aprovar depoimento sem o opt-in da cliente (a página pública filtrava). Agora o
+  `AvaliacaoNPS.clean()` espelha o CHECK e o admin mostra o erro (o painel já recusava).
+- **`criado_em`/`atualizado_em`**: nas tabelas antigas continuam `auto_now_add`/`auto_now` (+
+  `db_default=Now()`) — o Python se comporta como antes; as colunas acrescentadas levam COMMENT
+  ("linhas anteriores à 0054 receberam o instante da migration"; `atualizado_em` legado nulo =
+  `criado_em`). `Positive*Field` → `SmallIntegerField` com `MinValueValidator(0)` (formulário
+  continua recusando negativo).
+- **Comentários**: 30 `AlterModelTableComment` (as 5 tabelas das 0048–0053 já tinham) + 26 colunas
+  (`ComentarColuna`) + as dos campos que mudaram por outro motivo; o reverso da 0055 devolve os 13
+  `COMMENT ON TABLE` da 0038. Texto ASCII (`—`/`§` do DDL viraram `-`/"secao").
+- **`ck_cliente_nao_indica_a_si`** mantém a forma gerada pelo Django (`NOT (cliente_indicador_id =
+  id AND cliente_indicador_id IS NOT NULL)`), equivalente ao DDL: é RENAME, não recriação.
+- **Reverso** (dev/testes): 0055 → 0053 devolve tabelas, colunas, tipos, nulidade, CHECKs, índices
+  do `Meta`, triggers/funções da 0038/0046 e o COMMENT da 0038; ficam (no-op de propósito, §3.6.1)
+  os nomes de PK/FK/UNIQUE de OneToOne/sequência do `PadronizarNomes`, os índices automáticos
+  recriados com o nome de hash da tabela nova e o `VALIDATE`.
+- **Teste de conformidade** (`tests/test_nomes_padrao.py`, só PG, 11 testes): o do §3.6.4 + nomes
+  ASCII de tabela/coluna, `_id` só em FK, todo objeto do `Meta` e os só-PG presentes com o nome
+  exato, FK `DEFERRABLE INITIALLY DEFERRED`, sequências `<t>_id_seq`, FK de 1 coluna com o nome
+  exato `fk_<t>_<coluna>`. "Tabela com `atualizado_em` sem `tg_<t>_atualizado_em`" fica pulado até
+  existir a 0056 (L1). O gist do EXCLUDE conta como índice da FK (no harness local sem `btree_gist`
+  a 1ª chave vira `int8range(col, col)`: o teste aceita expressão sobre a coluna).
+- **Custo nos testes**: a 0054/0055 somam ~510 operações; o `test_migrations_dados` desce e sobe a
+  cadeia ~40 vezes e o Django re-renderiza o estado a cada operação (perfilado: ~85% do tempo é
+  `ProjectState.reload_model`, não o SQL — por isso o `SoltarIndiceDeCampo`/`ComentarColuna` sem
+  reconstrução de tabela no SQLite quase não mudam o total). Suíte local: SQLite 1350 testes em
+  ~16–19 min (antes 1337 em ~5 min), Postgres 1345 em ~19 min (antes 1332 em ~6 min). Mitigação:
+  depois que produção aplicar a 0055, aposentar os casos do `test_migrations_dados` das migrations
+  já aplicadas e fazer o squash da cadeia; ou rodar esse arquivo num job próprio do CI.
+- **Resultado**: `check` e `makemigrations --check` limpos; SQLite 1350 testes OK (43 pulados: os
+  13 novos são só-PG); Postgres 1345 OK (4 pulados, entre eles o `atualizado_em` da L1).
+- **Ensaio PG** (pgserver 16 local, EXCLUDE/ICU emulados): 0026 → 0055 numa transação
+  (`migrate_atomico`, 29 migrations) sobre o banco "de produção" dos ensaios anteriores
+  (l49 + c50 + p52): ok, conformidade ok; a mesma base em 2 passos (0026 → 0053, foto; 0053 → 0055):
+  35/35 tabelas iguais (contagem + md5 das linhas na ordem do id, normalização só das transformações
+  acima), 310 linhas; contagens do caminho direto = as do caminho em 2 passos; do zero ok; reverso
+  0055 → 0053 (dados iguais à foto da 0053; colunas, tipos, nulidade, triggers e funções idênticos)
+  → 0055 (dados iguais de novo, conformidade ok).
 
 ---
 
@@ -3655,8 +3752,8 @@ tabelas que criou.
 | (d) ✅ | `0051_formulario_prontuario` | `AlterField tipo` (+PRONTUARIO) → pré-checagem → `AddConstraint` (`ck_formulario_*`, `uq_formulario_prontuario_ativo`) → `RunPython` (Configuracao → formulário) | `tipo`/`escopo` fora do domínio / incoerente | §4.d |
 | (e) ✅ | `0052_compra_pacote_item` | `AddField pacote_nome` (nulo) + `CreateModel CompraPacoteItem` + `AddField compra_pacote_item` (nulo) → `RunPython` (snapshot, reconstrução, logs) → `SET CONSTRAINTS…` → `AlterField` NOT NULL → `PadronizarNomes` + `PadronizarFks` → PG: `fn_bloquear_mutacao` + `tg_compra_pacote_item_imutavel`, `fn_consumo_sessao_validar` + trigger, FK composta | — | §4.e (venda congela, catálogo editável, saldo/débito/comissão/expiração/DSAR pelo item) |
 | (f) ✅ | `0053_comissao_ledger` | pré-checagem → saneamento do nome da indicada em `movimento_carteira` (trigger da 0038 derrubado/recriado no passo) → `RemoveConstraint uniq_comissao_ativa_por_atendimento` → `AlterField criado_em` (`db_default`) → `AddField tipo/movimento_origem/usuario_autor` → `RunPython` (PAGAMENTO/ESTORNO) → `SET CONSTRAINTS…` → `RemoveIndex idx_comissao_prof_status` → `RemoveField status/pago_em` → estado `regra` PROTECT → `AddConstraint` (UNIQUE/CHECK) + `AddIndex` → `PadronizarFks` → PG: `fn_movimento_comissao_validar` + trigger, `tg_movimento_comissao_imutavel` | `valor <= 0`; 2+ linhas p/ o mesmo atendimento; status fora do domínio | §4.f (ledger, saldo negativo no painel) + §7.3 itens 1–3 |
-| N1 | `0054_padrao_nomes_tabelas_colunas` | PG: **derruba** `trg_aceite_termo_imutavel`/`trg_prontuario_versao_imutavel`/`trg_versao_termo_imutavel`/`trg_movimento_carteira_imutavel` e as funções da 0038/0046 → `AlterModelTable` ×3 + sequências → 64 `RenomearColuna` (§3.6.2) → tipos (`registro_pk bigint`, `*_hash char(64)`, `''→NULL` do `conteudo_hash`) → `NULL→''` e `atualizado_em NOT NULL` (backfill) → `AddField criado_em/atualizado_em` onde faltam → `Positive*Field→SmallIntegerField` → `db_collation='pt_br'` (§3.6.3) → PG: recria `fn_bloquear_mutacao`, `fn_aceite_termo_imutavel`, `fn_versao_termo_imutavel`, `fn_prontuario_versao_imutavel` e os `tg_*` | — | só `db_column`/`db_table` nos models, `registrar_log` com `tabela or ''`, fixtures SQL de teste (`test_pg_ddl`, `test_aceite_termo_modelo`, `test_prontuario_versao_autoria` usam SQL cru com nomes antigos) |
-| N2 | `0055_padrao_nomes_constraints_indices` | `RenameIndex` ×15 → `RenomearConstraint` (§3.3) → `SeparateDatabaseAndState` (unique/db_index de campo e `unique_together` → `Meta`) → `RemoveIndex` dos redundantes → `AddIndex` dos novos → pré-checagem + `AddConstraint` dos CHECKs novos → PG: `PadronizarNomes()` (PK, FK recriadas com `ON DELETE`, UNIQUE de OneToOne, sequências, `DROP` dos `_like`), `RENAME` + `VALIDATE` dos CHECK jsonb da 0043, `ex_atendimento_sobreposicao`, CHECK regex de cliente recriados → `db_table_comment`/`db_comment` (36 tabelas) | linha que viola CHECK novo ou jsonb da 0043 | `Meta` de todos os models; `tests/test_nomes_padrao.py` |
+| N1 ✅ | `0054_padrao_nomes_tabelas_colunas` | PG: **derruba** `trg_aceite_termo_imutavel`/`trg_prontuario_versao_imutavel`/`trg_versao_termo_imutavel`/`trg_movimento_carteira_imutavel` e as funções da 0038/0046 → `AlterModelTable` ×3 + sequências → 64 `RenomearColuna` (§3.6.2) → tipos (`registro_pk bigint`, `*_hash char(64)`; `conteudo_hash` anulável) → `RunPython` de dados (`''→NULL` de `conteudo_hash`/e-mail/CPF/telefone/`email_contato`, `NULL→''` dos textos, `atualizado_em` nulo = `criado_em`, `log_auditoria.tabela` das 3 tabelas renomeadas) → `NOT NULL` → `AddField criado_em/atualizado_em` onde faltam → `db_default` → `Positive*Field→SmallIntegerField` → garante a collation + `db_collation='pt_br'` (§3.6.3) → PG: `fn_bloquear_mutacao` (`CREATE OR REPLACE`), `fn_aceite_termo_imutavel`, `fn_versao_termo_imutavel`, `fn_prontuario_versao_imutavel` e os `tg_*` | Postgres sem ICU (collation `pt_br`) | só `db_column`/`db_table`/`db_default`/`db_collation` nos models, `registrar_log` com `tabela or ''`, `''`/`NULL` no `save()` de cliente/espera e nos agendamentos, SQL cru dos testes (`test_pg_ddl`, `test_aceite_termo_modelo`) (§3.6.5) |
+| N2 ✅ | `0055_padrao_nomes_constraints_indices` | pré-checagem (1ª operação) → `RenomearIndice` ×15 → `RenomearConstraint` ×39 (§3.3) + PG: `ex_atendimento_sobreposicao` e os CHECK jsonb da 0043 (`RENAME` + `VALIDATE`) → unique/`unique_together` de campo → `Meta` (`AlterField`/`AlterUniqueTogether` + `AddConstraint`) e `SoltarIndiceDeCampo` ×47 → `RemoveIndex` dos redundantes + RECRIA (UNIQUE parciais de cliente, teto do OTP) → `AddIndex` dos novos → `AddConstraint` dos CHECKs novos → PG: CHECK regex de cliente recriados, CHECK jsonb/regex novos, `DROP` do GIN → `PadronizarNomes()` (PK, FK recriadas com `ON DELETE`, UNIQUE de OneToOne, sequências, `DROP` dos `_like`) → `db_table_comment` (35 tabelas) / `ComentarColuna` | linha que viola CHECK/UNIQUE novo ou jsonb da 0043 | `Meta` de todos os models, `AvaliacaoNPS.clean()`; `tests/test_nomes_padrao.py` (§3.6.5) |
 | L1 | `0056_logica_triggers_historico` | `CreateModel HistoricoAlteracao` → PG: `fn_definir_atualizado_em` + 22 triggers, `tg_anotacao_sessao_imutavel`, `fn_historico_alteracao_imutavel` + trigger, `fn_registrar_historico` + 11 triggers | — | `ContextoBancoMiddleware`, `connection_created`, `cron.py`, sinais Celery, `migrate_atomico` (`app.origem`), `tests/test_pg_historico.py` |
 | L2 | `0057_logica_views_funcoes` | PG: `CREATE EXTENSION pg_trgm, unaccent` → `fn_fuso_clinica`, `fn_data_local`, `fn_sem_acento` → `ix_cliente_nome_trgm` → 8 funções de leitura → 9 views | — | `filtrar_clientes` (trigram), `utils/nps.calcular_nps` (arredondamento), `tests/test_pg_paridade.py` (leitura) |
 | L3 | `0058_logica_procedures` | PG: 4 procedures | — | `utils/banco.py`, `LgpdService`, `tasks`, `tasks_manutencao`, paridade das procedures |
@@ -3690,12 +3787,14 @@ migration). Riscos e o que já está previsto:
    links antigos continuam válidos depois (hash migrado).
 5. **Pontos que abortam** (tudo é desfeito e o log diz a migration): os já conhecidos (0035
    sobreposição, 0043 retorno duplicado) + 0048 (janelas sobrepostas, RRULE), 0051 (`escopo`), 0053
-   (`valor <= 0`, atendimento repetido, status fora do domínio), 0055 (CHECK novo/`VALIDATE`). Cada um tem a pré-checagem SQL no runbook (§4.a e
-   `PROJECT.md` §14.a, a atualizar), rodada no **ensaio com o dump** antes do deploy.
+   (`valor <= 0`, atendimento repetido, status fora do domínio), 0054 (Postgres sem ICU), 0055
+   (CHECK/UNIQUE novo ou `VALIDATE` — a pré-checagem é a 1ª operação e lista regra + ids). Cada um
+   tem a pré-checagem SQL no runbook (§4.a e `PROJECT.md` §14.a; a da 0055 no topo da migration),
+   rodada no **ensaio com o dump** antes do deploy.
 6. **Extensões.** `pg_trgm`/`unaccent` exigem privilégio de `CREATE EXTENSION` (o usuário do Railway
    é dono do banco; o ensaio confirma). Sem elas a 0057 falha — preferível a seguir sem índice.
 7. **Collation.** `db_collation='pt_br'` (0054) exige ICU; sem ICU a 0038 teria pulado a collation e
-   a 0054 falha — o ensaio mostra antes.
+   a 0054 aborta com mensagem (tenta criar a ICU antes) — o ensaio mostra antes.
 8. **Rollback** continua sendo restaurar o `pg_dump` (os reversos existem para dev/teste, mas o dos
    tokens gera tokens novos e o da comissão recalcula status).
 
@@ -3781,4 +3880,4 @@ Depois de implementar: atualizar `docs/PROJECT.md` §5 (tabelas/invariantes) e �
 - **Não** depender de `pg_cron`: o cron HTTP (`/cron/run/<job>/`) continua chamando os jobs, que
   chamam as procedures.
 
-_Última atualização: 2026-10-26 — fases (a)–(f) implementadas (0048–0053: agenda 4→2, tokens em hash, consentimentos, questionário único, pacote congelado, comissão em livro-razão); N1–N2 e L1–L3 em design._
+_Última atualização: 2026-10-26 — fases (a)–(f) implementadas (0048–0053: agenda 4→2, tokens em hash, consentimentos, questionário único, pacote congelado, comissão em livro-razão) e fase de nomes N1–N2 (0054/0055, notas no §3.6.5); L1–L3 em design._

@@ -107,7 +107,7 @@ def _enfileirar_email(funcao, destinatario, dados):
 def _eh_sobreposicao(exc) -> bool:
     """IntegrityError da exclusion constraint (23P01) = corrida de slot perdida."""
     causa = getattr(exc, '__cause__', None)
-    return getattr(causa, 'pgcode', None) == '23P01' or 'excl_atendimento_sobreposicao' in str(exc)
+    return getattr(causa, 'pgcode', None) == '23P01' or 'ex_atendimento_sobreposicao' in str(exc)
 
 
 def _formularios_aplicaveis(procedimento):
@@ -511,7 +511,7 @@ def confirmar_agendamento(request):
                 valor_cobrado=valor,
                 valor_original=valor_cheio if promocao else None,
                 promocao=promocao,
-                descricao_preco=f'Promoção {promocao.nome}' if promocao else None,
+                descricao_preco=f'Promoção {promocao.nome}' if promocao else '',
                 status=Atendimento.STATUS_PENDENTE,
             )
 

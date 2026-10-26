@@ -3,8 +3,11 @@ import secrets
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models.functions import Now
 
+from ..db.indices import Indice
 from .clientes import Cliente
+from .mixins import ATUALIZADO_EM_BACKFILL, atualizado_em_legado
 from .procedimentos import Procedimento
 
 _ANAMNESE_TIPOS_CAMPO = {
@@ -69,28 +72,41 @@ class FormularioAnamnese(models.Model):
 
     nome = models.CharField(max_length=120)
     tipo = models.CharField(
-        max_length=12, choices=TIPO_CHOICES, default='ANAMNESE', db_index=True,
+        max_length=12, choices=TIPO_CHOICES, default='ANAMNESE', db_default='ANAMNESE',
     )
-    escopo = models.CharField(max_length=20, choices=ESCOPO_CHOICES, default='GLOBAL')
-    categoria = models.CharField(max_length=20, blank=True, default='')
-    modalidade = models.CharField(max_length=12, blank=True, default='')
+    escopo = models.CharField(max_length=20, choices=ESCOPO_CHOICES, default='GLOBAL', db_default='GLOBAL')
+    categoria = models.CharField(max_length=20, blank=True, default='', db_default='')
+    modalidade = models.CharField(max_length=12, blank=True, default='', db_default='')
     procedimento = models.ForeignKey(
-        Procedimento, on_delete=models.CASCADE, blank=True, null=True
+        Procedimento, on_delete=models.CASCADE, blank=True, null=True, db_index=False,
     )
-    schema_json = models.JSONField(default=list)
-    ativo = models.BooleanField(default=True)
-    obrigatorio = models.BooleanField(default=False)
-    criado_em = models.DateTimeField(auto_now_add=True)
-    atualizado_em = models.DateTimeField(auto_now=True, null=True)
+    schema_json = models.JSONField(
+        default=list, db_default=[], db_column='perguntas',
+        db_comment=(
+            'Lista [{key, tipo (bool|text|longtext|select|scale|checkboxes|number|date|email), label, '
+            'obrigatorio, opcoes?, alerta_saude?}] - validada por services/anamnese.validar_respostas.'
+        ),
+    )
+    ativo = models.BooleanField(default=True, db_default=True, db_column='eh_ativo')
+    obrigatorio = models.BooleanField(default=False, db_default=False, db_column='eh_obrigatorio')
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
+    atualizado_em = models.DateTimeField(auto_now=True, db_default=Now(), db_comment=ATUALIZADO_EM_BACKFILL)
 
     objects = FormularioAnamneseQuerySet.as_manager()
 
     class Meta:
         managed = True
-        db_table = 'formulario_anamnese'
+        db_table = 'formulario'
+        db_table_comment = (
+            'Questionario unico: ANAMNESE (pre-atendimento, respondida pela cliente), PESQUISA '
+            '(pos-atendimento) e PRONTUARIO (perguntas extras da ficha, preenchidas pela equipe; no maximo '
+            '1 ativo).'
+        )
         indexes = [
-            models.Index(fields=['ativo', 'escopo'], name='idx_anamnese_ativo_escopo'),
-            models.Index(fields=['ativo', 'tipo'], name='idx_anamnese_ativo_tipo'),
+            Indice(
+                fields=['procedimento'], condition=models.Q(procedimento__isnull=False),
+                name='ix_formulario_procedimento_parcial',
+            ),
         ]
         constraints = [
             models.CheckConstraint(
@@ -200,29 +216,38 @@ class RespostaAnamnese(models.Model):
     respondida_em fica populado e o link nao reabre o form.
     """
 
-    formulario = models.ForeignKey(FormularioAnamnese, on_delete=models.RESTRICT)
+    # FKs sem indice automatico: os ix_ do Meta cobrem
+    formulario = models.ForeignKey(FormularioAnamnese, on_delete=models.RESTRICT, db_index=False)
     # PROTECT: resposta de anamnese e dado de saude (retencao legal)
-    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT)
-    atendimento = models.ForeignKey('Atendimento', on_delete=models.PROTECT, blank=True, null=True)
-    respostas_json = models.JSONField(default=dict)
-    criado_em = models.DateTimeField(auto_now_add=True)
-    respondida_em = models.DateTimeField(blank=True, null=True)
+    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, db_index=False)
+    atendimento = models.ForeignKey(
+        'Atendimento', on_delete=models.PROTECT, blank=True, null=True, db_index=False,
+    )
+    respostas_json = models.JSONField(default=dict, db_default={}, db_column='respostas')
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
+    atualizado_em = atualizado_em_legado()
+    respondida_em = models.DateTimeField(blank=True, null=True, db_column='respondido_em')
 
     class Meta:
         managed = True
-        db_table = 'resposta_anamnese'
+        db_table = 'resposta_formulario'
+        db_table_comment = (
+            'Ficha ANAMNESE/PESQUISA respondida pela cliente (dado de saude quando ANAMNESE). respondido_em '
+            'NULL = convite nao respondido. O link publico vive em link_acesso (FORMULARIO).'
+        )
         indexes = [
-            models.Index(fields=['cliente', '-criado_em'], name='idx_anamnese_resp_cli'),
-            models.Index(fields=['atendimento'], name='idx_anamnese_resp_atend'),
-            models.Index(fields=['respondida_em'], name='idx_anamnese_resp_data'),
+            Indice(fields=['cliente', '-criado_em'], name='ix_resposta_formulario_cliente_criado_em'),
+            Indice(fields=['atendimento'], name='ix_resposta_formulario_atendimento'),
+            Indice(fields=['formulario'], name='ix_resposta_formulario_formulario'),
         ]
+        # PG (0043 -> 0055): ck_resposta_formulario_respostas_objeto (jsonb_typeof = 'object', VALIDATE)
 
     def __str__(self):
         # Usa *_id (sem queries lazy) p/ evitar N+1 em listagens de admin nao prefetched.
         return f'Resposta form#{self.formulario_id} - cliente#{self.cliente_id}'
 
     def clean(self):
-        # espelha o CHECK chk_resposta_anamnese_objeto (PG, migration 0043)
+        # espelha o CHECK ck_resposta_formulario_respostas_objeto (PG; 0043, nome desde a 0055)
         super().clean()
         if self.respostas_json is not None and not isinstance(self.respostas_json, dict):
             raise ValidationError({'respostas_json': 'Deve ser um objeto JSON ({"chave": valor}).'})

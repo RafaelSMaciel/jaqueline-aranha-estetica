@@ -496,7 +496,7 @@ class LgpdService:
             qtd = por_modelo.get('aranha_estetica.RespostaAnamnese', 0)
             if qtd:
                 registrar_log(
-                    None, 'Purga de fichas de pedido nao realizado', 'resposta_anamnese', None,
+                    None, 'Purga de fichas de pedido nao realizado', 'resposta_formulario', None,
                     detalhes={'qtd': qtd},
                 )
         logger.info('purgar_fichas_sem_atendimento: %s ficha(s) apagada(s).', qtd)

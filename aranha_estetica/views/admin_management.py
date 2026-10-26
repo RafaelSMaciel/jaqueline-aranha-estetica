@@ -437,7 +437,7 @@ def _salvar_indicacao(request, cliente):
         with transaction.atomic():
             # update(): nao passa pelo save() do cadastro nem por concorrencia do form
             Cliente.objects.filter(pk=cliente.pk).update(indicado_por=indicadora, atualizado_em=timezone.now())
-    except IntegrityError:  # chk_cliente_nao_indica_si_mesmo
+    except IntegrityError:  # ck_cliente_nao_indica_a_si
         messages.error(request, 'Indicação inválida.')
         return destino
     # sem nomes no texto: o log sobrevive ao esquecimento (LGPD); os pks bastam
@@ -700,7 +700,7 @@ def admin_termos(request):
 def admin_criar_termo(request):
     """Publica nova versao de termo.
 
-    So 1 versao ativa por escopo (uniq_termo_ativo_*): a vigente do mesmo
+    So 1 versao ativa por escopo (uq_versao_termo_ativa_*): a vigente do mesmo
     tipo/procedimento e arquivada na mesma transacao. Clientes que aceitaram
     a versao anterior passam a ter o termo novo pendente (versionamento).
     """

@@ -290,7 +290,7 @@ def _reagendar(request, atendimento, *, link, url_voltar, url_horarios):
             )
 
             # Antigo sai da agenda ANTES do novo entrar (FSM + auditoria) — senao
-            # a excl_atendimento_sobreposicao (Postgres) bloqueia mover o horario
+            # a ex_atendimento_sobreposicao (Postgres) bloqueia mover o horario
             # p/ janela que sobrepoe o proprio slot antigo. Rollback do atomic
             # restaura tudo se o INSERT falhar.
             antigo.marcar_reagendado()

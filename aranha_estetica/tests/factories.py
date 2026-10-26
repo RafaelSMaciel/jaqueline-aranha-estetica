@@ -69,7 +69,7 @@ def criar_cliente(nome='Maria Silva', telefone=None, **kwargs):
     from aranha_estetica.services import consentimentos
 
     opt_ins = {campo: kwargs.pop(campo) for campo in list(kwargs) if campo in consentimentos.PARES}
-    # telefone unico por chamada — uniq_cliente_telefone_ativo (fase 3)
+    # telefone unico por chamada — uq_cliente_telefone_ativo (fase 3; nome desde a 0055)
     if telefone is None:
         telefone = f'179{90000 + next(_seq_telefone):08d}'
     cliente = Cliente.objects.create(
@@ -104,7 +104,7 @@ def criar_atendimento(cliente, profissional, procedimento, data_hora=None, statu
         data_hora = base.replace(hour=10, minute=0, second=0, microsecond=0)
         # Sem horario explicito, um 2o atendimento ATIVO do mesmo profissional
         # vai p/ o proximo horario livre: no Postgres o EXCLUDE
-        # excl_atendimento_sobreposicao recusaria o mesmo slot (SQLite nao pega).
+        # ex_atendimento_sobreposicao recusaria o mesmo slot (SQLite nao pega).
         if status in Atendimento.STATUS_ATIVOS:
             while Atendimento.objects.conflito_com(
                 profissional, data_hora, data_hora + duracao,

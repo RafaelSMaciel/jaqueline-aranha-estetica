@@ -1087,10 +1087,21 @@ class DjangoAdminWave3Tests(TestCase):
         resp = self.c.post(f'/django-admin-sv/aranha_estetica/avaliacaonps/{nps.pk}/change/', {
             'nota': '0', 'comentario': 'forjado', 'autoriza_publicacao': 'on', 'aprovado_publicacao': 'on',
         })
-        self.assertEqual(resp.status_code, 302)
+        # sem o opt-in da cliente a aprovacao e recusada (ck_avaliacao_nps_aprovacao_exige_autorizacao, 0055)
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'não autorizou publicar')
         nps.refresh_from_db()
         self.assertEqual((nps.nota, nps.comentario, nps.autoriza_publicacao), (10, 'Amei o cuidado.', False))
-        self.assertTrue(nps.aprovado_publicacao)  # moderacao segue com a equipe
+        self.assertFalse(nps.aprovado_publicacao)
+        # com o opt-in, a moderacao segue com a equipe (os campos da cliente continuam so leitura)
+        AvaliacaoNPS.objects.filter(pk=nps.pk).update(autoriza_publicacao=True)
+        resp = self.c.post(f'/django-admin-sv/aranha_estetica/avaliacaonps/{nps.pk}/change/', {
+            'nota': '0', 'comentario': 'forjado', 'aprovado_publicacao': 'on',
+        })
+        self.assertEqual(resp.status_code, 302)
+        nps.refresh_from_db()
+        self.assertEqual((nps.nota, nps.comentario), (10, 'Amei o cuidado.'))
+        self.assertTrue(nps.aprovado_publicacao)
 
     def test_catalogo_de_pacote_editavel_e_compra_congelada_so_leitura(self):
         # 0052: a venda congela nome/itens (CompraPacoteItem); o catalogo volta a ser editavel

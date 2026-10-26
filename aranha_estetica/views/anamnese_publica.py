@@ -113,7 +113,7 @@ def _gravar_resposta(request, resposta: RespostaAnamnese, link):
         LogAuditoria.objects.create(
             usuario=None,
             acao=f'Form {resposta.formulario.tipo} respondido (cliente {resposta.cliente_id})',
-            tabela='resposta_anamnese',
+            tabela='resposta_formulario',
             registro_id=resposta.pk,
         )
 
@@ -126,7 +126,7 @@ def _gravar_resposta(request, resposta: RespostaAnamnese, link):
             )
             registrar_log(
                 None, 'Consentimento de dados de saude (LGPD art. 11) na ficha publica',
-                'resposta_anamnese', resposta.pk,
+                'resposta_formulario', resposta.pk,
                 detalhes={
                     'cliente_id': resposta.cliente_id, 'texto': texto_saude,
                     'aceite_id': getattr(aceite, 'pk', None),

@@ -497,7 +497,7 @@ class TemplatesPainelTests(TestCase):
 
 
 # ─── Postgres: EXCLUDE real no agendamento interno (sem mock) ─────────
-@skipUnless(connection.vendor == 'postgresql', 'EXCLUDE excl_atendimento_sobreposicao so existe no Postgres')
+@skipUnless(connection.vendor == 'postgresql', 'EXCLUDE ex_atendimento_sobreposicao so existe no Postgres')
 class AgendamentoInternoExcludePgTests(_AdminTestCase):
     def test_corrida_de_slot_vira_mensagem_e_nao_500(self):
         prof = criar_profissional()

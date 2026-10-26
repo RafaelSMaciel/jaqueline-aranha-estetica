@@ -198,7 +198,7 @@ class ProvaAceiteTriggerPgTests(TestCase):
         self.assertIsNone(self.aceite.atendimento_id)
 
     def test_aceite_de_saude_tambem_imutavel_no_banco(self):
-        """0047 nao recria as tabelas: os triggers da 0046 seguem valendo p/ SAUDE."""
+        """0047 nao recria as tabelas: os triggers da 0046 (tg_* desde a 0054) seguem valendo p/ SAUDE."""
         saude = VersaoTermo.saude_vigente()
         aceite = AceiteTermo.registrar(self.cliente, saude, atendimento=self.atendimento)
         self._bloqueado(lambda: AceiteTermo.objects.filter(pk=aceite.pk).update(ip='1.1.1.1'))
@@ -207,7 +207,7 @@ class ProvaAceiteTriggerPgTests(TestCase):
         with connection.cursor() as cur:
             cur.execute(
                 "SELECT tgname FROM pg_trigger WHERE tgname IN "
-                "('trg_aceite_termo_imutavel', 'trg_versao_termo_imutavel') AND NOT tgisinternal"
+                "('tg_aceite_termo_imutavel', 'tg_versao_termo_imutavel') AND NOT tgisinternal"
             )
             self.assertEqual(len(cur.fetchall()), 2)
 

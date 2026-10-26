@@ -53,7 +53,7 @@ class PacoteFinalizacaoTests(TestCase):
 
     def test_verificar_finalizacao_com_todas_sessoes_via_direto(self):
         # Cria sessoes diretamente (bypass signal). Horarios distintos: no
-        # Postgres o EXCLUDE excl_atendimento_sobreposicao barra 3 no mesmo slot.
+        # Postgres o EXCLUDE ex_atendimento_sobreposicao barra 3 no mesmo slot.
         base = (timezone.now() + timedelta(days=1)).replace(hour=10, minute=0, second=0, microsecond=0)
         for i in range(3):
             atd = criar_atendimento(

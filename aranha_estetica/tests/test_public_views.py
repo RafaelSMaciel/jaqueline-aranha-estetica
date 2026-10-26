@@ -6,6 +6,7 @@ from decimal import Decimal
 from unittest.mock import patch
 
 from django.core.cache import cache
+from django.db import IntegrityError, transaction
 from django.template.loader import render_to_string
 from django.test import Client, RequestFactory, TestCase, override_settings
 from django.urls import NoReverseMatch, reverse
@@ -306,7 +307,9 @@ class DepoimentosTests(TestCase):
 
     def test_publica_so_com_autorizacao_e_aprovacao(self):
         self._avaliacao('Maria Aparecida Souza', True, True, comentario='Publicavel')
-        self._avaliacao('Joana Sem Opt', False, True, comentario='SemOptIn')
+        # aprovar sem o opt-in da cliente: o banco recusa (ck_avaliacao_nps_aprovacao_exige_autorizacao, 0055)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            self._avaliacao('Joana Sem Opt', False, True, comentario='SemOptIn')
         self._avaliacao('Carla Nao Aprovada', True, False, comentario='NaoModerado')
         html = self.client.get(reverse('aranha:depoimentos')).content.decode()
         self.assertIn('Publicavel', html)
@@ -459,7 +462,7 @@ class AnamneseBoolTests(TestCase):
         from aranha_estetica.models import LogAuditoria
         self.client.post(self.url, {'gestante': 'nao', 'consent_dados_saude': 'on'})
         log = LogAuditoria.objects.filter(
-            tabela='resposta_anamnese', registro_id=self.resposta.pk, acao__icontains='art. 11',
+            tabela='resposta_formulario', registro_id=self.resposta.pk, acao__icontains='art. 11',
         ).first()
         self.assertIsNotNone(log)
         self.assertIn('LGPD, art. 11', log.detalhes['texto'])
@@ -481,7 +484,7 @@ class AnamneseBoolTests(TestCase):
         self.assertEqual(aceite.atendimento, atd)
         self.assertEqual((aceite.ip, aceite.user_agent), ('200.10.20.30', 'Tablet Recepcao/1.0'))
         self.assertEqual(aceite.conteudo_sha256, saude.sha256_conteudo)
-        log = LogAuditoria.objects.get(tabela='resposta_anamnese', acao__icontains='art. 11')
+        log = LogAuditoria.objects.get(tabela='resposta_formulario', acao__icontains='art. 11')
         self.assertEqual(log.detalhes['aceite_id'], aceite.pk)
 
     def test_ficha_sem_consentimento_nao_grava_aceite(self):

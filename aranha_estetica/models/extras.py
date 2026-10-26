@@ -35,16 +35,20 @@ class Carteira(TimestampedMixin):
     """
     cliente = models.OneToOneField(Cliente, on_delete=models.PROTECT, related_name='carteira')
     saldo = models.DecimalField(
-        max_digits=10, decimal_places=2, default=Decimal('0'),
+        max_digits=10, decimal_places=2, default=Decimal('0'), db_default=Decimal('0'), db_column='valor_saldo',
     )
 
     class Meta:
         managed = True
         db_table = 'carteira'
+        db_table_comment = (
+            'Saldo de credito do cliente (cashback, vale). Toda mutacao: select_for_update + movimento_carteira '
+            'na mesma transacao.'
+        )
         constraints = [
             models.CheckConstraint(
-                check=models.Q(saldo__gte=0),
-                name='chk_carteira_saldo_nao_negativo',
+                condition=models.Q(saldo__gte=0),
+                name='ck_carteira_valor_saldo_nao_negativo',
             ),
         ]
 
@@ -55,7 +59,7 @@ class Carteira(TimestampedMixin):
 class MovimentoCarteira(models.Model):
     """Entrada/saida do credito do cliente.
 
-    Ledger append-only: no PG o trigger trg_movimento_carteira_imutavel (0038)
+    Ledger append-only: no PG o trigger tg_movimento_carteira_imutavel (0038; nome desde a 0054)
     bloqueia UPDATE/DELETE. Por isso todas as FKs sao PROTECT — SET_NULL/CASCADE
     virariam UPDATE/DELETE e estourariam InternalError (500) no admin; com
     PROTECT o Django mostra a tela de "objetos protegidos".
@@ -74,33 +78,52 @@ class MovimentoCarteira(models.Model):
         ('OUTRO', 'Outro'),
     ]
 
-    carteira = models.ForeignKey(Carteira, on_delete=models.PROTECT, related_name='movimentos')
+    # FKs sem indice automatico: carteira/atendimento cobertos pelos ix_; usuario = autoria (§2.11)
+    carteira = models.ForeignKey(Carteira, on_delete=models.PROTECT, related_name='movimentos', db_index=False)
     tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
-    origem = models.CharField(max_length=30, choices=ORIGEM_CHOICES, default='OUTRO')
+    origem = models.CharField(max_length=30, choices=ORIGEM_CHOICES, default='OUTRO', db_default='OUTRO')
     valor = models.DecimalField(max_digits=10, decimal_places=2)
-    saldo_resultante = models.DecimalField(max_digits=10, decimal_places=2)
+    saldo_resultante = models.DecimalField(max_digits=10, decimal_places=2, db_column='valor_saldo_resultante')
     atendimento = models.ForeignKey(
-        'Atendimento', on_delete=models.PROTECT, blank=True, null=True,
+        'Atendimento', on_delete=models.PROTECT, blank=True, null=True, db_index=False,
     )
-    observacoes = models.TextField(blank=True, default='')
+    observacoes = models.TextField(blank=True, default='', db_default='', db_column='observacao')
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, blank=True, null=True,
+        db_column='usuario_autor_id', db_index=False,
     )
-    criado_em = models.DateTimeField(auto_now_add=True)
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
 
     class Meta:
         managed = True
         db_table = 'movimento_carteira'
+        db_table_comment = 'Ledger append-only da carteira (tg_movimento_carteira_imutavel). Estorno = novo movimento.'
         indexes = [
-            models.Index(fields=['carteira', '-criado_em'], name='idx_movcart_cart'),
-            models.Index(fields=['origem', 'tipo'], name='idx_movcred_origem_tipo'),
+            Indice(fields=['carteira', '-criado_em'], name='ix_movimento_carteira_carteira_criado_em'),
+            Indice(
+                fields=['atendimento'], condition=models.Q(atendimento__isnull=False),
+                name='ix_movimento_carteira_atendimento_parcial',
+            ),
         ]
         constraints = [
             # Idempotencia F-CSB: 1 unico CASHBACK_INDICACAO por (credito, atendimento)
             models.UniqueConstraint(
                 fields=['carteira', 'atendimento'],
                 condition=models.Q(origem='CASHBACK_INDICACAO'),
-                name='uniq_cashback_indicacao_por_atendimento',
+                name='uq_movimento_carteira_cashback_por_atendimento',
+            ),
+            models.CheckConstraint(condition=models.Q(tipo__in=['CREDITO', 'DEBITO']), name='ck_movimento_carteira_tipo'),
+            models.CheckConstraint(
+                condition=models.Q(origem__in=[
+                    'VALE_PRESENTE', 'CANCELAMENTO', 'AJUSTE_MANUAL', 'USO_AGENDAMENTO',
+                    'CASHBACK_INDICACAO', 'CASHBACK_ESTORNO', 'OUTRO',
+                ]),
+                name='ck_movimento_carteira_origem',
+            ),
+            models.CheckConstraint(condition=models.Q(valor__gt=0), name='ck_movimento_carteira_valor_positivo'),
+            models.CheckConstraint(
+                condition=models.Q(saldo_resultante__gte=0),
+                name='ck_movimento_carteira_valor_saldo_resultante_nao_negativo',
             ),
         ]
 
@@ -118,13 +141,14 @@ class RegraComissao(TimestampedMixin):
     Suporta percentual OU fixo. Profissional opcional (NULL = aplica a todos).
     Procedimento opcional (NULL = aplica a todos). Combinacao mais especifica vence.
     """
+    # FKs sem indice automatico: os ix_ do Meta cobrem
     profissional = models.ForeignKey(
         Profissional, on_delete=models.CASCADE, blank=True, null=True,
-        related_name='regras_comissao',
+        related_name='regras_comissao', db_index=False,
     )
     procedimento = models.ForeignKey(
         Procedimento, on_delete=models.CASCADE, blank=True, null=True,
-        related_name='regras_comissao',
+        related_name='regras_comissao', db_index=False,
     )
     percentual = models.DecimalField(
         max_digits=5, decimal_places=2, blank=True, null=True,
@@ -135,35 +159,48 @@ class RegraComissao(TimestampedMixin):
         max_digits=10, decimal_places=2, blank=True, null=True,
         validators=[MinValueValidator(Decimal('0.00'))],
         help_text='Valor fixo R$. Se preenchido, percentual deve ser nulo.',
+        db_column='valor_fixo',
     )
-    ativo = models.BooleanField(default=True)
+    ativo = models.BooleanField(default=True, db_default=True, db_column='eh_ativo')
 
     class Meta:
         managed = True
         db_table = 'regra_comissao'
+        db_table_comment = (
+            'Regra percentual XOR valor fixo por (profissional, procedimento); NULL = qualquer. Mais especifica '
+            'vence; empate = atualizada por ultimo. Regra ja usada nao se exclui (FK de movimento_comissao): '
+            'desative.'
+        )
         constraints = [
             models.CheckConstraint(
-                check=(
+                condition=(
                     (
                         models.Q(percentual__isnull=False) & models.Q(valor__isnull=True)
                     ) | (
                         models.Q(percentual__isnull=True) & models.Q(valor__isnull=False)
                     )
                 ),
-                name='chk_regra_comissao_percentual_xor_fixo',
+                name='ck_regra_comissao_percentual_xor_valor_fixo',
             ),
-            # comissao nao passa do valor do atendimento (espelha chk_promocao_desconto_0_100)
+            # comissao nao passa do valor do atendimento (espelha ck_promocao_percentual_desconto_0_100)
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(percentual__isnull=True) |
                     (models.Q(percentual__gte=0) & models.Q(percentual__lte=100))
                 ),
-                name='chk_regra_comissao_percentual_0_100',
+                name='ck_regra_comissao_percentual_0_100',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(valor__isnull=True) | models.Q(valor__gte=0),
+                name='ck_regra_comissao_valor_fixo_nao_negativo',
             ),
         ]
         indexes = [
-            models.Index(fields=['profissional', 'procedimento', 'ativo'],
-                         name='idx_regra_comissao_lookup'),
+            Indice(fields=['profissional', 'procedimento'], name='ix_regra_comissao_profissional_procedimento'),
+            Indice(
+                fields=['procedimento'], condition=models.Q(procedimento__isnull=False),
+                name='ix_regra_comissao_procedimento_parcial',
+            ),
         ]
 
     def __str__(self):
@@ -256,16 +293,18 @@ class MovimentoComissao(models.Model):
         (STATUS_ESTORNADA, 'Estornada'),
     ]
 
+    # FKs sem indice automatico: os ix_ do Meta cobrem (spec §2.9)
     profissional = models.ForeignKey(
-        Profissional, on_delete=models.PROTECT, related_name='comissoes',
+        Profissional, on_delete=models.PROTECT, related_name='comissoes', db_index=False,
     )
     atendimento = models.ForeignKey(
-        'Atendimento', on_delete=models.PROTECT, related_name='comissoes',
+        'Atendimento', on_delete=models.PROTECT, related_name='comissoes', db_index=False,
     )
     tipo = models.CharField(max_length=10, choices=TIPO_CHOICES, default=TIPO_CREDITO)
     # PROTECT: regra ja usada nao se exclui (o SET NULL bateria no trigger) — desative
     regra = models.ForeignKey(
-        RegraComissao, on_delete=models.PROTECT, blank=True, null=True,
+        RegraComissao, on_delete=models.PROTECT, blank=True, null=True, db_column='regra_comissao_id',
+        db_index=False,
     )
     valor = models.DecimalField(
         max_digits=10, decimal_places=2,
@@ -280,7 +319,7 @@ class MovimentoComissao(models.Model):
         db_index=False,
         db_comment='CREDITO que o ESTORNO/PAGAMENTO liquida (NULL no proprio CREDITO).',
     )
-    observacoes = models.TextField(blank=True, default='')
+    observacoes = models.TextField(blank=True, default='', db_default='', db_column='observacao')
     # autoria (quem deu baixa/estornou); sem indice: nenhuma tela filtra por autor (§2.11)
     usuario_autor = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, blank=True, null=True,
@@ -293,6 +332,11 @@ class MovimentoComissao(models.Model):
     class Meta:
         managed = True
         db_table = 'movimento_comissao'
+        db_table_comment = (
+            'Ledger append-only de comissao: CREDITO (atendimento realizado), ESTORNO (cancelamento) e '
+            'PAGAMENTO (baixa), estes dois referenciando o CREDITO. Status e saldo sao derivados (vw_comissao, '
+            'vw_comissao_saldo). Imutavel (tg_movimento_comissao_imutavel).'
+        )
         constraints = [
             models.CheckConstraint(
                 condition=Q(tipo__in=['CREDITO', 'ESTORNO', 'PAGAMENTO']),
@@ -325,8 +369,12 @@ class MovimentoComissao(models.Model):
             ),
         ]
         indexes = [
-            models.Index(fields=['-criado_em'], name='idx_comissao_criado'),
+            Indice(fields=['-criado_em'], name='ix_movimento_comissao_criado_em'),
             Indice(fields=['profissional', '-criado_em'], name='ix_movimento_comissao_profissional_criado_em'),
+            Indice(fields=['atendimento'], name='ix_movimento_comissao_atendimento'),
+            Indice(
+                fields=['regra'], condition=Q(regra__isnull=False), name='ix_movimento_comissao_regra_comissao_parcial',
+            ),
             Indice(
                 fields=['movimento_origem', 'tipo'], condition=Q(movimento_origem__isnull=False),
                 name='ix_movimento_comissao_origem_parcial',

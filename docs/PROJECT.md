@@ -190,69 +190,78 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 ### 5.1 Resumo
 
 - **35 tabelas de domínio** (+ tabelas do Django, django-otp, django-axes). PK `BigAutoField`.
-- Nomes PT-BR no singular, `db_table` explícito, textos nunca nulos (exceto colunas sob UNIQUE
-  parcial), dinheiro em `Decimal(10,2)`, status como `CharField` + CHECK + FSM na aplicação.
-- Migrations `0001`–`0053`. Produção está na **`0026`**: o próximo deploy aplica `0027`→`0053`
+- Migrations `0001`–`0055`. Produção está na **`0026`**: o próximo deploy aplica `0027`→`0055`
   de uma vez (ver §14, [`specs/remodelagem-banco-v2.md`](specs/remodelagem-banco-v2.md) e, da
   `0048` em diante, o padrão SQL em [`specs/padrao-sql.md`](specs/padrao-sql.md)).
-- Tabelas novas (0048+) já nascem no padrão SQL: `pk_`/`fk_` (FK com `ON DELETE` real)/`ck_`/
-  `uq_`/`ix_`/`ex_`, `COMMENT ON` via `db_table_comment`/`db_comment`, nome só no banco
-  (`AgendaExcecao.ativo` → coluna `eh_ativo`).
+- **Padrão SQL em todas as tabelas** (0054/0055): nomes ASCII snake_case PT-BR no singular;
+  colunas `eh_`/`tem_` (booleano), `data_`/`hora_`/`_em`, `valor_`, `qtd_`, `url_`, `_hash`
+  (`char(64)`), `_ref` (id externo), FK `<tabela>[_papel]_id` e autoria `usuario_autor_id`;
+  objetos `pk_`/`fk_` (com `ON DELETE` real, `DEFERRABLE INITIALLY DEFERRED`)/`uq_`/`ck_`/`ix_`/
+  `ex_`/`tg_`/`fn_`; sem índice `_like`; `COMMENT` em toda tabela; todo default também no banco
+  (`db_default`); textos `NOT NULL DEFAULT ''` (exceto e-mail/CPF/telefone sob UNIQUE parcial e
+  dado pessoal opcional: ausente = `NULL`, nunca `''`). Conformidade testada no Postgres por
+  `tests/test_nomes_padrao.py`.
+- **Nome só no banco**: atributos e classes Python não mudaram — o model aponta a coluna/tabela
+  por `db_column`/`db_table` (ex.: `Cliente.ativo` → `eh_ativo`, `Procedimento.buffer_minutos` →
+  `intervalo_minutos`, `ItemPacote` → `pacote_item`, `FormularioAnamnese` → `formulario`). SQL
+  cru usa o nome do banco; mapa completo no §3.2 da spec.
 - Nenhum token de link público fica em texto puro: `link_acesso` guarda só o `sha256` (0049).
 
 ### 5.2 Tabelas
 
 | Domínio | Tabela (model) | Para que serve |
 |---|---|---|
-| Acesso | `usuario` (Usuario) | Equipe. Login por e-mail; `papel` ADMIN/PROFISSIONAL/RECEPCAO (CHECK); `is_staff` = ADMIN; 1:1 opcional com Profissional |
-| | `assinatura_push` (AssinaturaPush) | Inscrições Web Push (VAPID) por usuário |
-| | `log_auditoria` (LogAuditoria) | Trilha LGPD art. 37: autor + snapshot `usuario_nome` ("Nome <email>"), ação, tabela, registro, detalhes JSON (PII mascarada), IP |
-| Pessoas | `cliente` (Cliente) | Cliente da clínica. Telefone só dígitos (10–11) é a chave natural; e-mail/CPF opcionais; consentimentos de comunicação na tabela `consentimento` (histórico, 0050); faltas/bloqueio online; soft delete (`deletado_em`); `indicado_por` (cashback) |
-| | `profissional` (Profissional) | Quem atende. `min_notice_horas` (0–720, padrão 2), `max_advance_dias` (1–365, padrão 60), campos do Google Calendar. Feed ICS por `link_acesso` (FEED_ICS) |
-| Catálogo | `procedimento` (Procedimento) | Serviço: duração, buffer (0–120 min), categoria, modalidade, retorno obrigatório (`exige_retorno` + janela em dias + duração do retorno) |
+| Acesso | `usuario` (Usuario) | Equipe. Login por e-mail; `papel` ADMIN/PROFISSIONAL/RECEPCAO (CHECK); `is_staff` = ADMIN; 1:1 opcional com Profissional; `eh_ativo` (desativar, nunca excluir) |
+| | `assinatura_push` (AssinaturaPush) | Inscrições Web Push (VAPID) por usuário (`usuario_id`, `chave_p256dh`, `chave_auth`) |
+| | `log_auditoria` (LogAuditoria) | Trilha LGPD art. 37: autor (`usuario_autor_id`) + snapshot `usuario_autor_nome` ("Nome <email>"), ação, `tabela` + `registro_pk` (bigint), detalhes JSON (PII mascarada), IP |
+| Pessoas | `cliente` (Cliente) | Cliente da clínica. Telefone só dígitos (10–11) é a chave natural; e-mail/CPF opcionais (ausente = `NULL`); consentimentos de comunicação na tabela `consentimento` (histórico, 0050); `qtd_faltas_consecutivas`/`eh_bloqueado_online`; soft delete (`deletado_em`); `cliente_indicador_id` (cashback); `nome` com collation `pt_br` |
+| | `profissional` (Profissional) | Quem atende. `antecedencia_minima_horas` (0–720, padrão 2), `antecedencia_maxima_dias` (1–365, padrão 60), campos do Google Calendar (`gcal_token_renovacao`, `gcal_calendario_ref`...). Feed ICS por `link_acesso` (FEED_ICS) |
+| Catálogo | `procedimento` (Procedimento) | Serviço: duração, `intervalo_minutos` (folga após, 0–120), categoria, modalidade, retorno obrigatório (`tem_retorno_obrigatorio` + janela em dias + duração do retorno) |
 | | `habilitacao` (Habilitacao) | Profissional × procedimento (M2M through) |
-| | `preco` (Preco) | Preço versionado por `vigente_desde`, base (sem profissional) ou por profissional |
+| | `preco` (Preco) | Preço versionado por `data_inicio_vigencia`, base (sem profissional) ou por profissional |
 | | `promocao` (Promocao) | Desconto 0–100% **XOR** preço fixo, período, procedimento (nulo = geral, só percentual vale) |
 | Agenda | `agenda_horario` (AgendaHorario) | Grade semanal: várias janelas por dia, sem sobreposição; `dia_semana` **ISO** (1=seg … 7=dom = `isoweekday()`) |
 | | `agenda_excecao` (AgendaExcecao) | Tudo que muda a grade numa data: **FOLGA** (intervalo `data_inicio..data_fim`; sem profissional = clínica inteira: feriado nacional/local, recesso), **HORARIO_DIFERENTE** (substitui a grade num dia) e **BLOQUEIO** (`data_hora_*`, pontual ou recorrente por RRULE no subconjunto DAILY/WEEKLY/MONTHLY + `data_fim_recorrencia`; sem profissional = "Todos"). `origem` MANUAL/FERIADO_NACIONAL/FERIADO_LOCAL/RECESSO/GCAL (+ `origem_ref` = id do evento Google); `eh_ativo=false` = registrada e ignorada (ex.: feriado em que a clínica abre). 0048 unificou as 4 tabelas antigas |
-| | `atendimento` (Atendimento) | Agendamento/sessão. FSM de 7 estados, preço gravado (`valor_cobrado`, `valor_original`, `promocao`, `descricao_preco`), retorno (`eh_retorno` + `atendimento_origem`), `reagendado_de` |
+| | `atendimento` (Atendimento) | Agendamento/sessão. FSM de 7 estados, preço gravado (`valor_cobrado`, `valor_original`, `promocao`, `descricao_preco`), retorno (`eh_retorno` + `atendimento_origem_id`), `atendimento_reagendado_id` (o antigo que este substitui) |
 | | `notificacao` (Notificacao) | Mensagem por atendimento: tipo (LEMBRETE, LEMBRETE_2H, CONFIRMACAO, CANCELAMENTO, NPS, PESQUISA, APROVACAO, TERMO), canal, status PENDENTE/ENVIADO/FALHOU; o link público (/confirmar/, /nps/, /termo/) vive em `link_acesso` |
-| | `lista_espera` (ListaEspera) | Pedido de aviso de vaga (procedimento, data, turno, profissional opcional, `email_contato`) |
-| Clínico | `prontuario` (Prontuario) | Ficha base 1:1 com a cliente: alergias, contraindicações, histórico, medicamentos, observações + `respostas_extras` (JSONB `{key: valor}` do questionário do prontuário = formulário PRONTUARIO ativo, 0051) |
-| | `prontuario_versao` (ProntuarioVersao) | **Histórico append-only** da ficha: foto do estado anterior a cada edição, com autor (0046) |
-| | `anotacao_sessao` (AnotacaoSessao) | Nota clínica por atendimento; autor PROTECT + snapshot `autor_nome` |
-| | `formulario_anamnese` (FormularioAnamnese) | Questionário único em `schema_json` (`[{key, tipo, label, obrigatorio, opcoes?, alerta_saude?}]`): ANAMNESE e PESQUISA (respondidas pela cliente) e PRONTUARIO (perguntas extras da ficha, preenchidas pela equipe — no máximo 1 ativo, sempre GLOBAL, nunca obrigatório; 0051). Escopo + `obrigatorio` |
-| | `resposta_anamnese` (RespostaAnamnese) | Ficha respondida (JSON) por cliente/atendimento; link público do convite em `link_acesso` (FORMULARIO, 60 dias) |
-| LGPD | `versao_termo` (VersaoTermo) | Termo versionado (LGPD ou PROCEDIMENTO); 1 ativo por escopo; imutável depois do 1º aceite |
-| | `aceite_termo` (AceiteTermo) | Prova do aceite: cliente, versão, atendimento, IP, user-agent, `conteudo_sha256`, data. Imutável (trigger) |
-| | `codigo_otp` (CodigoOtp) | Desafio OTP (HMAC-SHA256 com a SECRET_KEY), propósito AGENDAMENTO/LOGIN_CLIENTE/DSAR, TTL, tentativas |
+| | `lista_espera` (ListaEspera) | Pedido de aviso de vaga (procedimento, data, turno, `profissional_desejado_id` opcional, `email_contato`, `eh_notificado`) |
+| Clínico | `prontuario` (Prontuario) | Ficha base 1:1 com a cliente: alergias, contraindicações, histórico, medicamentos, observações + `respostas` (JSONB `{key: valor}` do questionário do prontuário = formulário PRONTUARIO ativo, 0051; atributo Python `respostas_extras`) |
+| | `prontuario_versao` (ProntuarioVersao) | **Histórico append-only** da ficha: foto do estado anterior a cada edição, com autor (`usuario_autor_id` + `usuario_autor_nome`, 0046) |
+| | `anotacao_sessao` (AnotacaoSessao) | Nota clínica por atendimento; autor PROTECT + snapshot `usuario_autor_nome` |
+| | `formulario` (FormularioAnamnese) | Questionário único em `perguntas` (`[{key, tipo, label, obrigatorio, opcoes?, alerta_saude?}]`): ANAMNESE e PESQUISA (respondidas pela cliente) e PRONTUARIO (perguntas extras da ficha, preenchidas pela equipe — no máximo 1 ativo, sempre GLOBAL, nunca obrigatório; 0051). Escopo + `eh_obrigatorio`. Era `formulario_anamnese` até a 0054 |
+| | `resposta_formulario` (RespostaAnamnese) | Ficha respondida (`respostas`, `respondido_em`) por cliente/atendimento; link público do convite em `link_acesso` (FORMULARIO, 60 dias). Era `resposta_anamnese` até a 0054 |
+| LGPD | `versao_termo` (VersaoTermo) | Termo versionado (LGPD, SAUDE ou PROCEDIMENTO); 1 ativo por escopo; imutável depois do 1º aceite |
+| | `aceite_termo` (AceiteTermo) | Prova do aceite: cliente, versão, atendimento, `ip_origem`, user-agent, `conteudo_hash` (SHA-256 do texto, `char(64)`; `NULL` = aceite anterior à 0044), data. Imutável (trigger) |
+| | `codigo_otp` (CodigoOtp) | Desafio OTP (`codigo_hash` HMAC-SHA256 com a SECRET_KEY, `char(64)`) por `identificador` (e-mail ou `sms+<dígitos>@shivazen.local`), propósito AGENDAMENTO/LOGIN_CLIENTE/DSAR, TTL, `qtd_tentativas` |
 | | `consentimento` (Consentimento) | **Histórico append-only** de concessão/revogação por finalidade × canal (MARKETING/EMAIL, PESQUISA_SATISFACAO/WHATSAPP, LEMBRETE_AGENDAMENTO/WHATSAPP): origem (AGENDAMENTO_ONLINE, DESCADASTRO, PAINEL, ESQUECIMENTO, MIGRACAO, ADMIN), texto exibido, IP, user-agent, autor, `registrado_em`. Estado atual = linha mais recente do par; sem linha = não concedido (0050) |
 | | `link_acesso` (LinkAcesso) | Link público com token ("link mágico"): `finalidade` (GERENCIAR_AGENDAMENTO — só os migrados —, CONFIRMAR_PRESENCA, NPS, TERMO, FORMULARIO, DESCADASTRO, FEED_ICS) + exatamente 1 alvo (atendimento, notificação, ficha, cliente ou profissional); só o **SHA-256** do token (`token_hash char(64)`, sem pepper: rotacionar a SECRET_KEY não derruba link enviado), `expira_em`, `usado_em`, `revogado_em`. O token em claro só existe na URL entregue (0049) |
-| NPS | `avaliacao_nps` (AvaliacaoNPS) | Nota 0–10 + comentário, `autoriza_publicacao` (opt-in da cliente) e `aprovado_publicacao` (moderação) |
-| Pacotes | `pacote` / `item_pacote` | **Catálogo** (editável a qualquer momento): pacote (preço, validade em meses) e seus itens (procedimento × sessões) — só vale p/ vendas futuras |
+| NPS | `avaliacao_nps` (AvaliacaoNPS) | Nota 0–10 + comentário, `eh_publicacao_autorizada` (opt-in da cliente) e `eh_publicacao_aprovada` (moderação; CHECK: só com o opt-in), `eh_alerta_enviado` |
+| Pacotes | `pacote` / `pacote_item` | **Catálogo** (editável a qualquer momento): pacote (`valor_total`, validade em meses) e seus itens (procedimento × `qtd_sessoes`) — só vale p/ vendas futuras. `pacote_item` era `item_pacote` até a 0054 |
 | | `compra_pacote` (CompraPacote) | Venda a uma cliente (`CompraPacote.vender`): `pacote_nome` congelado, `valor_pago`, `valor_reembolsado`, status ATIVO/FINALIZADO/CANCELADO/EXPIRADO, `data_expiracao` |
 | | `compra_pacote_item` (CompraPacoteItem) | **O que foi vendido** (snapshot imutável, 0052): procedimento, `procedimento_nome`, `qtd_sessoes`, `valor_unitario` (= valor pago ÷ sessões da compra — base da comissão da sessão). Saldo, débito, finalização, e-mail de expiração e DSAR leem daqui |
 | | `consumo_sessao` (ConsumoSessao) | 1 sessão consumida por atendimento (OneToOne) de 1 item da compra (`compra_pacote_item`) |
-| Financeiro | `carteira` / `movimento_carteira` | Saldo da cliente (CHECK ≥ 0) e ledger append-only (trigger) — hoje só cashback de indicação e estorno |
-| | `regra_comissao` / `movimento_comissao` | Regra (percentual 0–100 XOR valor fixo; usada = PROTECT, só desativa) e **livro-razão** de comissão (0053): CREDITO (1 por atendimento), PAGAMENTO e ESTORNO (referenciam o crédito, `usuario_autor`). Status PENDENTE/PAGA/ESTORNADA e saldo (pode ficar negativo) são derivados (`creditos_com_status`, `ComissaoService.saldos_por_profissional`) |
+| Financeiro | `carteira` / `movimento_carteira` | Saldo da cliente (`valor_saldo`, CHECK ≥ 0) e ledger append-only (trigger; `valor` > 0, `valor_saldo_resultante` ≥ 0, autor `usuario_autor_id`) — hoje só cashback de indicação e estorno |
+| | `regra_comissao` / `movimento_comissao` | Regra (`percentual` 0–100 XOR `valor_fixo`; usada = PROTECT, só desativa) e **livro-razão** de comissão (0053): CREDITO (1 por atendimento, `regra_comissao_id`), PAGAMENTO e ESTORNO (referenciam o crédito, `usuario_autor`). Status PENDENTE/PAGA/ESTORNADA e saldo (pode ficar negativo) são derivados (`creditos_com_status`, `ComissaoService.saldos_por_profissional`) |
 | Infra | `configuracao` (Configuracao) | Chave-valor: campos do Branding, `email_admin`, `MAX_FALTAS_BLOQUEIO` (opcional). As perguntas do prontuário saíram daqui na 0051 (formulário PRONTUARIO) |
 
 ### 5.3 Invariantes garantidas pelo banco
 
 | Invariante | Objeto | Migration |
 |---|---|---|
-| Profissional não atende 2 clientes ao mesmo tempo (status PENDENTE/AGENDADO/CONFIRMADO) | `excl_atendimento_sobreposicao` — EXCLUDE gist com `btree_gist`, DEFERRABLE (**só Postgres**) | 0035 |
-| Telefone/e-mail/CPF únicos entre clientes ativos | `uniq_cliente_telefone_ativo`, `uniq_cliente_email_ativo` (LOWER), `uniq_cliente_cpf_ativo` | 0034 |
-| Formato de telefone (10–11 dígitos) e CPF (11) | `chk_cliente_telefone_digits`, `chk_cliente_cpf_digits` (**só Postgres**) | 0034 |
-| 1 termo ativo por escopo; 1 preço por vigência; 1 espera ativa por cliente/procedimento/data | `uniq_termo_ativo_*`, `uniq_preco_*vigencia`, `uniq_espera_ativa` | 0034 |
-| Promoção: desconto 0–100, preço ≥ 0, desconto XOR preço | `chk_promocao_*` | 0034 |
-| Carteira nunca negativa; ledger imutável | `chk_carteira_saldo_nao_negativo`; trigger `trg_movimento_carteira_imutavel` (**só PG**) | 0034 / 0038 |
-| Valor pago de pacote ≥ 0; nota NPS 0–10; comissão 0–100% | `chk_compra_pacote_valor_pago`, `chk_avaliacao_nps_nota`, `chk_regra_comissao_percentual_0_100` | 0039 / 0044 |
-| No máximo 1 retorno vivo por atendimento de origem | `uniq_retorno_por_origem` | 0043 |
-| JSON no formato certo (objeto/lista) | `chk_prontuario_extras_objeto`, `chk_resposta_anamnese_objeto`, `chk_formulario_schema_lista` — **NOT VALID** (só PG; validar depois, §14.h) | 0043 |
-| Prova de aceite imutável; termo aceito imutável; histórico da ficha imutável | triggers `trg_aceite_termo_imutavel`, `trg_versao_termo_imutavel`, `trg_prontuario_versao_imutavel` (**só PG**) | 0046 |
-| Ordenação pt-BR de nomes | collation ICU `pt_br` em `cliente/profissional/procedimento.nome` (**fora do estado do Django**) | 0038 |
-| Um cashback por atendimento | `uniq_cashback_indicacao_por_atendimento` | 0025/0032 |
+| Profissional não atende 2 clientes ao mesmo tempo (status PENDENTE/AGENDADO/CONFIRMADO) | `ex_atendimento_sobreposicao` — EXCLUDE gist com `btree_gist`, DEFERRABLE (**só Postgres**) | 0035 / 0055 |
+| Telefone/e-mail/CPF únicos entre clientes ativos (sem caixa no e-mail); vazio não existe (ausente = `NULL`) | `uq_cliente_telefone_ativo`, `uq_cliente_email_ativo` (`UPPER(email)`: também é o índice do `email__iexact`), `uq_cliente_cpf_ativo`, `ck_cliente_email_nao_vazio` | 0034 / 0055 |
+| Formato de telefone (10–11 dígitos) e CPF (11) | `ck_cliente_telefone_formato`, `ck_cliente_cpf_formato` (**só Postgres**) | 0034 / 0055 |
+| 1 termo ativo por escopo; 1 preço por vigência; 1 espera pendente por cliente/procedimento/data | `uq_versao_termo_ativa_por_procedimento`/`_global`, `uq_preco_vigencia`/`uq_preco_base_vigencia`, `uq_lista_espera_pendente` | 0034 / 0055 |
+| Promoção: desconto 0–100, preço ≥ 0, desconto XOR preço, geral só percentual | `ck_promocao_*` | 0034 / 0047 / 0055 |
+| Carteira nunca negativa; ledger imutável com valor > 0, tipo/origem no domínio e saldo resultante ≥ 0 | `ck_carteira_valor_saldo_nao_negativo`, `ck_movimento_carteira_*`; trigger `tg_movimento_carteira_imutavel` (`fn_bloquear_mutacao`, **só PG**) | 0034 / 0038 / 0054 / 0055 |
+| Valor pago de pacote ≥ 0; nota NPS 0–10 (aprovar depoimento exige o opt-in); comissão 0–100%, valor fixo ≥ 0 | `ck_compra_pacote_valor_pago_nao_negativo`, `ck_avaliacao_nps_nota_0_10`, `ck_avaliacao_nps_aprovacao_exige_autorizacao`, `ck_regra_comissao_*` | 0039 / 0044 / 0055 |
+| No máximo 1 retorno vivo por atendimento de origem; valores do atendimento ≥ 0 | `uq_atendimento_retorno_por_origem`, `ck_atendimento_valores_nao_negativos` | 0043 / 0055 |
+| Notificação e OTP com tipo/canal/status/propósito no domínio; tentativas 0–10; hashes `sha256` hex | `ck_notificacao_{tipo,canal,status,resposta}`, `ck_codigo_otp_{canal,proposito,qtd_tentativas_0_10}`; `ck_codigo_otp_codigo_hash_formato`, `ck_aceite_termo_conteudo_hash_formato` (**só PG**) | 0055 |
+| JSON no formato certo (objeto/lista) | `ck_prontuario_respostas_objeto`, `ck_resposta_formulario_respostas_objeto`, `ck_formulario_perguntas_lista` (validados na 0055), `ck_log_auditoria_detalhes_objeto`, `ck_prontuario_versao_dados_objeto` (**só PG**) | 0043 / 0055 |
+| Prova de aceite imutável; termo aceito imutável; histórico da ficha imutável | triggers `tg_aceite_termo_imutavel`, `tg_versao_termo_imutavel`, `tg_prontuario_versao_imutavel` (**só PG**; SQLSTATE 23000 → `IntegrityError`) | 0046 / 0054 |
+| Ordenação pt-BR de nomes | collation ICU `pt_br` em `cliente/profissional/procedimento.nome`, no estado do Django (`db_collation`; o SQLite dos testes tem um equivalente em `db/collation.py`) | 0038 / 0054 |
+| Um cashback por atendimento | `uq_movimento_carteira_cashback_por_atendimento` | 0025/0032 / 0055 |
+| Padrão de nomes: PK `pk_<t>`, FK `fk_<t>_<coluna>` com `ON DELETE` igual ao `on_delete` do model, UNIQUE de OneToOne `uq_`, sequência `<t>_id_seq`, nenhum índice `_like`, `COMMENT` em toda tabela | `PadronizarNomes()` + `tests/test_nomes_padrao.py` (**só PG**) | 0055 |
 | Grade sem janelas sobrepostas; folgas ativas do mesmo profissional sem sobreposição | `ex_agenda_horario_sobreposicao`, `ex_agenda_excecao_folga_sobreposta` — EXCLUDE gist (**só PG**) | 0048 |
 | Exceção coerente com o tipo (FOLGA = datas, HORARIO_DIFERENTE = 1 dia + horas, BLOQUEIO = instantes); feriado/recesso só como FOLGA da clínica; GCAL só BLOQUEIO de profissional | `ck_agenda_excecao_*` (tipo, origem, folga, horario_diferente, bloqueio, recorrencia, feriado_global, gcal) | 0048 |
 | RRULE só no subconjunto que o motor expande | `ck_agenda_excecao_regra_recorrencia_suportada` (regex, **só PG**; `clean()` normaliza) | 0048 |
@@ -264,9 +273,11 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 | Comissão: 1 CREDITO por atendimento (nem depois de estornado), ≤ 1 PAGAMENTO e ≤ 1 ESTORNO por crédito, valor > 0, origem só fora do CREDITO, regra só no CREDITO; PAGAMENTO/ESTORNO repetem profissional/atendimento/valor do crédito; estornado não se paga; ledger append-only | `uq_movimento_comissao_credito_por_atendimento`, `…_estorno_por_origem`, `…_pagamento_por_origem`, `ck_movimento_comissao_*`; triggers `tg_movimento_comissao_validar` e `tg_movimento_comissao_imutavel` (**só PG**) | 0053 |
 
 Além disso: FKs `PROTECT` em tudo que é histórico clínico/financeiro (prontuário, anotação,
-ficha, compra de pacote, carteira, aceite), índice GIN em `prontuario.respostas_extras`,
-`COMMENT ON TABLE` nas tabelas centrais. Detalhe por migration:
-[`specs/remodelagem-banco-v2.md`](specs/remodelagem-banco-v2.md).
+ficha, compra de pacote, carteira, aceite), índices só onde há query real ou FK (spec §2.11; o
+GIN de `prontuario` saiu na 0055 — nenhuma query de contenção), `COMMENT ON` em todas as tabelas
+e nas colunas não óbvias. Detalhe por migration:
+[`specs/remodelagem-banco-v2.md`](specs/remodelagem-banco-v2.md) (0027–0047) e
+[`specs/padrao-sql.md`](specs/padrao-sql.md) (0048+).
 
 ---
 
@@ -567,7 +578,10 @@ Só dev/testes: `DEBUG`, `SMS_DEV_LOG_ONLY` (em prod gera W002), `DB_ENGINE`/`DB
   `dev_mode` (não precisa do build).
 - `TEST_DATABASE_URL=postgres://... python manage.py test aranha_estetica` — mesma suíte no
   Postgres; `tests/test_pg_ddl.py` confere os objetos só-Postgres (EXCLUDE, CHECK regex,
-  triggers, collation — com `PG_EXIGE_ICU=1` a falta de ICU reprova).
+  triggers, collation — com `PG_EXIGE_ICU=1` a collation tem de ser ICU) e
+  `tests/test_nomes_padrao.py` lê o `pg_catalog` e reprova objeto fora do padrão SQL, FK sem
+  índice, `ON DELETE` divergente do model, tabela sem `COMMENT`, índice `_like` (migration nova
+  que recria FK pelo `AlterField` precisa terminar com `PadronizarNomes()`).
 - `pytest aranha_estetica/tests/test_2fa.py` — o único arquivo estilo pytest.
 - Guardas de regressão relevantes: `test_csp.py` (CSP x templates, allowlist do jsdelivr),
   `test_front_pipeline.py` (Vite/cotton/webpush), `test_deploy_config.py` (checks, migrate
@@ -612,10 +626,12 @@ Só dev/testes: `DEBUG`, `SMS_DEV_LOG_ONLY` (em prod gera W002), `DB_ENGINE`/`DB
 
 ## 14. Go-live / Operação (runbook)
 
-Primeiro deploy desta versão: produção sai da migration **`0026`** para a **`0053`** (27
+Primeiro deploy desta versão: produção sai da migration **`0026`** para a **`0055`** (29
 migrations com renomeações, deduplicação de dados, EXCLUDE, triggers, desativação de contas
 demo, a agenda unificada, os tokens de link em hash, consentimentos com histórico, o questionário
-único, o pacote congelado na venda e a comissão como livro-razão). Faça em horário sem movimento.
+único, o pacote congelado na venda, a comissão como livro-razão e o padrão de nomes — quase toda
+coluna muda de nome). Faça em horário sem movimento: até o container novo subir, o código antigo
+quebra em praticamente toda página.
 
 ### a) Pré-deploy
 
@@ -716,7 +732,17 @@ demo, a agenda unificada, os tokens de link em hash, consentimentos com históri
      descontar do próximo repasse; o painel de comissões mostra). A mesma migration tira o nome da
      indicada das observações de cashback (`Indicacao (cli #id)`), registrado em `migration 0053:
      nome da indicada retirado do ledger da carteira (LGPD)`.
-   - Sem ICU no Postgres a `0038` só avisa e pula a collation (não aborta).
+   - A `0054` (nomes de tabelas e colunas) não aborta por dado: normaliza `NULL`↔`''` (texto
+     `NOT NULL DEFAULT ''`; e-mail/CPF/telefone/hash vazios viram `NULL`), preenche
+     `atualizado_em` nulo com `criado_em`, troca o nome das 3 tabelas renomeadas em
+     `log_auditoria.tabela` e registra `migration 0054: nulos e vazios normalizados (padrao SQL)`.
+     **Exige ICU** (collation `pt_br` no estado): sem ICU a `0038` só avisa, mas a `0054` aborta
+     com mensagem — o Postgres do Railway tem.
+   - `0055` (constraints e índices) — a 1ª operação é uma pré-checagem: aborta listando regra e
+     ids se alguma linha viola um CHECK/UNIQUE novo ou os 3 CHECK jsonb da 0043 (agora
+     validados). O SQL de pré-checagem (nomes de coluna novos, rodar depois da 0054 no ensaio)
+     está no topo de `aranha_estetica/migrations/0055_padrao_nomes_constraints_indices.py`;
+     corrigir no Django admin/SQL e refazer o ensaio.
    - A `0034` não aborta: normaliza telefone/CPF/e-mail, tira duplicatas (o cliente com mais
      atendimentos fica com o valor; os outros ficam ativos com o campo nulo) e registra cada caso
      na `LogAuditoria` (`migration 0034: ...`, com `telefone_original`) para mesclagem manual;
@@ -733,7 +759,7 @@ demo, a agenda unificada, os tokens de link em hash, consentimentos com históri
 ### b) O que o deploy faz
 
 1. Build da imagem (§13) — falha de front, collectstatic ou check derruba o build, nada muda.
-2. Pre-deploy: `migrate_atomico` (0027→0053 numa transação; `lock_timeout` 5 s — se o deploy
+2. Pre-deploy: `migrate_atomico` (0027→0055 numa transação; `lock_timeout` 5 s — se o deploy
    antigo segurar lock, falha e é só refazer) e `bootstrap_admin` (cria/reativa o ADMIN).
    Leia o log do pre-deploy: avisos `aranha.W0xx`, `0042: ATENCAO ...` e
    `bootstrap_admin: ERRO — painel sem administrador ativo` indicam env faltando (os checks
@@ -753,7 +779,7 @@ curl -fsS https://<dominio>/health/                   # db/cache/front = true
 railway ssh   # shell no container:
 python manage.py check --database default             # lista W001–W011 pendentes
 python manage.py sendtestemail voce@exemplo.com       # e-mail real pelo provedor (§14 i)
-python manage.py showmigrations aranha_estetica | tail -3   # [X] 0046
+python manage.py showmigrations aranha_estetica | tail -3   # [X] 0055
 ```
 
 ### d) Jobs periódicos (cron externo)
@@ -828,12 +854,11 @@ termo criado, triggers). Não use `migrate aranha_estetica <anterior>`.
 
 ### h) Operação contínua
 
-- **CHECKs `NOT VALID` da 0043**: depois de inspecionar os dados, valide no Postgres:
-  `ALTER TABLE prontuario VALIDATE CONSTRAINT chk_prontuario_extras_objeto;` (idem
-  `resposta_anamnese.chk_resposta_anamnese_objeto` e `formulario_anamnese.chk_formulario_schema_lista`).
-- **Collation `pt_br`** fica fora do estado do Django: um `AlterField` futuro em
-  `cliente/profissional/procedimento.nome` volta para a collation padrão — reaplique com `RunSQL`
-  (`ALTER TABLE <t> ALTER COLUMN nome TYPE varchar(N) COLLATE pt_br`; N = 150 cliente, 100 os outros).
+- **SQL manual / BI**: use os nomes do banco (`eh_ativo`, `pacote_item`, `resposta_formulario`...;
+  `\d+ <tabela>` mostra o `COMMENT` de tabela e colunas). Os atributos Python seguem os antigos.
+- **Migration nova que mexe numa FK** (`AlterField` de tipo/`null`/destino): o Django recria a FK
+  com nome de hash e sem `ON DELETE` — termine a migration com `PadronizarNomes()`
+  (`aranha_estetica/db/operacoes.py`); o `tests/test_nomes_padrao.py` reprova se esquecer.
 - **Link do ICS vazado/perdido**: Painel > Profissionais > "Novo link"/"Gerar link" (ou o
   próprio profissional em Minha agenda > "Link do calendário"): mostra a URL uma única vez (o
   banco guarda só o hash); o antigo para de funcionar; auditado.
@@ -898,6 +923,7 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 | 2026-10-02 | Padrão SQL, fase (b): tokens de link público em hash (`link_acesso`, migration 0049; portal reagenda/cancela por sessão; ICS exibido só na geração; [`specs/padrao-sql.md`](specs/padrao-sql.md) §4.b) |
 | 2026-10-26 | Padrão SQL, fases (c) e (d): consentimentos com histórico append-only (`consentimento`, 0050 — sai `aceita_comunicacao`, reconsentimento vale, painel revoga) e questionário único (perguntas do prontuário = formulário PRONTUARIO, 0051; `alerta_saude` por pergunta) ([`specs/padrao-sql.md`](specs/padrao-sql.md) §4.c/§4.d) |
 | 2026-10-26 | Padrão SQL, fases (e) e (f): pacote congelado na venda (`compra_pacote_item`, 0052 — catálogo volta a ser editável) e comissão como livro-razão (CREDITO/PAGAMENTO/ESTORNO, 0053 — saldo negativo visível, regra usada só desativa); nome da indicada fora do ledger da carteira; ticket médio e LTV pela mesma regra (`services/financeiro`) ([`specs/padrao-sql.md`](specs/padrao-sql.md) §4.e/§4.f) |
+| 2026-10-26 | Padrão SQL, fase de nomes (N1/N2): 3 tabelas e 64 colunas renomeadas só no banco (0054 — tipos `bigint`/`char(64)`, `NULL`↔`''`, `criado_em`/`atualizado_em` completados, `db_default`, collation no estado, triggers `tg_`/`fn_`) e todas as constraints/índices no padrão (0055 — 15 índices e 39 constraints renomeados, unique de campo no `Meta`, índices das queries reais, CHECKs novos com pré-checagem, PK/FK com `ON DELETE` real, `COMMENT` em todas as tabelas); `tests/test_nomes_padrao.py` ([`specs/padrao-sql.md`](specs/padrao-sql.md) §3) |
 | 2026-09-23 | Auditoria pré-produção completa (~450 correções em ~30 commits, `b5fd681..182e2e9`): OTP preso ao telefone em todo agendamento, consentimentos LGPD/art. 11 com prova, 2FA obrigatório do ADMIN, histórico do prontuário, prova de aceite imutável, deploy por Dockerfile + `migrate_atomico`, retenção LGPD efetiva, migrations 0040–0046. Detalhe em [`ARCHITECTURE.md`](ARCHITECTURE.md#6-progresso-checkpoint) |
 
 **Mantenedor:** Rafael Maciel · **Última atualização:** 2026-10-26

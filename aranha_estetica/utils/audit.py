@@ -47,7 +47,7 @@ def registrar_log(usuario, acao, tabela=None, id_registro=None, detalhes=None, *
             LogAuditoria.objects.create(
                 usuario=usuario if usuario is not None and getattr(usuario, 'is_authenticated', False) else None,
                 acao=acao,
-                tabela=tabela,
+                tabela=tabela or '',  # NOT NULL DEFAULT '' (0054)
                 registro_id=id_registro,
                 detalhes=detalhes,
                 ip_origem=ip,

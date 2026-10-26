@@ -4,10 +4,13 @@ import logging
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import DatabaseError, IntegrityError, models, transaction
+from django.db.models.functions import Now
 from django.utils import timezone
 
+from ..db.indices import Indice
 from ..utils.datas import fmt_local
 from .clientes import Cliente
+from .mixins import ATUALIZADO_EM_BACKFILL, atualizado_em_legado
 from .procedimentos import Procedimento, Promocao
 from .profissionais import Profissional
 
@@ -75,38 +78,47 @@ class Atendimento(models.Model):
         (STATUS_REAGENDADO, 'Reagendado'),
     ]
 
-    cliente = models.ForeignKey(Cliente, on_delete=models.RESTRICT)
-    profissional = models.ForeignKey(Profissional, on_delete=models.RESTRICT)
-    procedimento = models.ForeignKey(Procedimento, on_delete=models.RESTRICT)
+    # FKs sem indice automatico: os ix_ do Meta cobrem (spec §2.4/§2.11)
+    cliente = models.ForeignKey(Cliente, on_delete=models.RESTRICT, db_index=False)
+    profissional = models.ForeignKey(Profissional, on_delete=models.RESTRICT, db_index=False)
+    procedimento = models.ForeignKey(Procedimento, on_delete=models.RESTRICT, db_index=False)
     promocao = models.ForeignKey(
-        Promocao, on_delete=models.SET_NULL, blank=True, null=True
+        Promocao, on_delete=models.SET_NULL, blank=True, null=True, db_index=False,
     )
+    # aponta p/ o atendimento ANTIGO (status REAGENDADO) que este substitui
     reagendado_de = models.ForeignKey(
         'self', on_delete=models.SET_NULL, blank=True, null=True,
-        related_name='reagendamentos'
+        related_name='reagendamentos', db_column='atendimento_reagendado_id', db_index=False,
+        db_comment='Atendimento anterior (status REAGENDADO) que este substitui.',
     )
     # F-RET — vinculo entre sessao principal e retorno gratuito
     atendimento_origem = models.ForeignKey(
         'self', on_delete=models.SET_NULL, blank=True, null=True,
-        related_name='retornos',
+        related_name='retornos', db_index=False,
+        db_comment='Sessao principal quando este e o retorno gratuito (eh_retorno).',
     )
-    eh_retorno = models.BooleanField(default=False, db_index=True)
+    eh_retorno = models.BooleanField(default=False, db_default=False)
     data_hora_inicio = models.DateTimeField()
     data_hora_fim = models.DateTimeField()
     valor_cobrado = models.DecimalField(
         max_digits=10, decimal_places=2, blank=True, null=True,
         validators=[MinValueValidator(0)],
+        db_comment=(
+            'Preco gravado no agendamento (promocao da data); sessao de pacote leva o preco cheio e nao '
+            'soma no faturamento (D20).'
+        ),
     )
     valor_original = models.DecimalField(
         max_digits=10, decimal_places=2, blank=True, null=True,
         validators=[MinValueValidator(0)],
+        db_comment='Preco cheio quando houve promocao.',
     )
-    descricao_preco = models.TextField(blank=True, null=True)
-    status = models.CharField(max_length=20, default='PENDENTE', choices=STATUS_CHOICES)
+    descricao_preco = models.TextField(blank=True, default='', db_default='')
+    status = models.CharField(max_length=20, default='PENDENTE', db_default='PENDENTE', choices=STATUS_CHOICES)
     # Link publico de reagendar/cancelar: link_acesso (GERENCIAR_AGENDAMENTO, so
     # os migrados da 0049). O portal "Meus agendamentos" usa id + sessao do OTP.
-    criado_em = models.DateTimeField(auto_now_add=True)
-    atualizado_em = models.DateTimeField(auto_now=True, null=True)
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
+    atualizado_em = models.DateTimeField(auto_now=True, db_default=Now(), db_comment=ATUALIZADO_EM_BACKFILL)
 
     # ───────── FSM transitions (campo continua CharField) ─────────
     # TODA mudanca de status em views/services/admin passa por estes metodos
@@ -227,37 +239,68 @@ class Atendimento(models.Model):
     class Meta:
         managed = True
         db_table = 'atendimento'
+        db_table_comment = (
+            'Agendamento/sessao. FSM (models.Atendimento.TRANSICOES): PENDENTE->AGENDADO->CONFIRMADO->'
+            'REALIZADO|CANCELADO|FALTOU|REAGENDADO. ex_atendimento_sobreposicao impede 2 ativos sobrepostos '
+            'do mesmo profissional.'
+        )
         indexes = [
-            models.Index(fields=['status'], name='idx_atendimento_status'),
-            models.Index(fields=['data_hora_inicio'], name='idx_atendimento_data'),
-            models.Index(fields=['cliente', 'status'], name='idx_atendimento_cli_status'),
-            # idx_atendimento_cliente removido — prefixo de idx_atendimento_cli_status cobre
-            models.Index(fields=['profissional', 'data_hora_inicio'], name='idx_atend_prof_data'),
+            # slots/conflito/agenda por profissional + dia (cobre a FK profissional)
+            Indice(fields=['profissional', 'data_hora_inicio'], name='ix_atendimento_profissional_data_hora_inicio'),
+            # historico do cliente ordenado (cobre a FK cliente)
+            Indice(fields=['cliente', 'data_hora_inicio'], name='ix_atendimento_cliente_data_hora_inicio'),
+            Indice(fields=['data_hora_inicio'], name='ix_atendimento_data_hora_inicio'),
+            # "agenda em aberto" (proximos/pendentes)
+            Indice(
+                fields=['data_hora_inicio'],
+                condition=models.Q(status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO']),
+                name='ix_atendimento_data_hora_inicio_ativo_parcial',
+            ),
+            Indice(fields=['procedimento'], name='ix_atendimento_procedimento'),
+            Indice(
+                fields=['promocao'], condition=models.Q(promocao__isnull=False),
+                name='ix_atendimento_promocao_parcial',
+            ),
+            Indice(
+                fields=['reagendado_de'], condition=models.Q(reagendado_de__isnull=False),
+                name='ix_atendimento_atendimento_reagendado_parcial',
+            ),
+            Indice(
+                fields=['atendimento_origem'], condition=models.Q(atendimento_origem__isnull=False),
+                name='ix_atendimento_atendimento_origem_parcial',
+            ),
         ]
         constraints = [
             models.CheckConstraint(
-                check=models.Q(status__in=[
+                condition=models.Q(status__in=[
                     'PENDENTE', 'AGENDADO', 'CONFIRMADO', 'REALIZADO',
                     'CANCELADO', 'FALTOU', 'REAGENDADO',
                 ]),
-                name='chk_atendimento_status_v2'
+                name='ck_atendimento_status'
             ),
             models.CheckConstraint(
-                check=models.Q(data_hora_fim__gt=models.F('data_hora_inicio')),
-                name='chk_atendimento_fim_apos_inicio',
+                condition=models.Q(data_hora_fim__gt=models.F('data_hora_inicio')),
+                name='ck_atendimento_fim_apos_inicio',
             ),
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(eh_retorno=False) | models.Q(atendimento_origem__isnull=False)
                 ),
-                name='chk_retorno_tem_origem',
+                name='ck_atendimento_retorno_tem_origem',
             ),
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(eh_retorno=False) | models.Q(valor_cobrado=0) |
                     models.Q(valor_cobrado__isnull=True)
                 ),
-                name='chk_retorno_valor_zero',
+                name='ck_atendimento_retorno_valor_zero',
+            ),
+            models.CheckConstraint(
+                condition=(
+                    (models.Q(valor_cobrado__isnull=True) | models.Q(valor_cobrado__gte=0))
+                    & (models.Q(valor_original__isnull=True) | models.Q(valor_original__gte=0))
+                ),
+                name='ck_atendimento_valores_nao_negativos',
             ),
             # F-RET: no maximo 1 retorno vivo (ou ja realizado) por atendimento de
             # origem — garante no banco a idempotencia do RetornoService.
@@ -267,9 +310,9 @@ class Atendimento(models.Model):
                     eh_retorno=True,
                     status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO', 'REALIZADO'],
                 ),
-                name='uniq_retorno_por_origem',
+                name='uq_atendimento_retorno_por_origem',
             ),
-            # PG: excl_atendimento_sobreposicao (EXCLUDE gist, migration 0035)
+            # PG: ex_atendimento_sobreposicao (EXCLUDE gist, 0035; nome desde a 0055)
             # impede 2 atendimentos ativos sobrepostos do mesmo profissional.
         ]
 
@@ -327,28 +370,48 @@ class Notificacao(models.Model):
         ('CANCELOU', 'Cancelou'),
     ]
 
-    atendimento = models.ForeignKey(Atendimento, on_delete=models.CASCADE)
-    tipo = models.CharField(max_length=30, default='LEMBRETE', choices=TIPO_CHOICES)
-    canal = models.CharField(max_length=20, default='WHATSAPP', choices=CANAL_CHOICES)
-    status = models.CharField(max_length=20, default='PENDENTE', choices=STATUS_CHOICES)
+    # FK sem indice automatico: coberta pelo ix_notificacao_atendimento_tipo
+    atendimento = models.ForeignKey(Atendimento, on_delete=models.CASCADE, db_index=False)
+    tipo = models.CharField(max_length=30, default='LEMBRETE', db_default='LEMBRETE', choices=TIPO_CHOICES)
+    canal = models.CharField(max_length=20, default='WHATSAPP', db_default='WHATSAPP', choices=CANAL_CHOICES)
+    status = models.CharField(max_length=20, default='PENDENTE', db_default='PENDENTE', choices=STATUS_CHOICES)
     resposta = models.CharField(
         max_length=20, blank=True, null=True, choices=RESPOSTA_CHOICES
     )
     # O link publico da mensagem (/confirmar/, /nps/, /termo/) vive em
     # link_acesso (so o hash do token) — services/links.py.
-    mensagem = models.TextField(blank=True, null=True)
+    mensagem = models.TextField(blank=True, default='', db_default='')
     enviado_em = models.DateTimeField(blank=True, null=True)
     respondido_em = models.DateTimeField(blank=True, null=True)
-    criado_em = models.DateTimeField(auto_now_add=True)
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
+    atualizado_em = atualizado_em_legado()
 
     class Meta:
         managed = True
         db_table = 'notificacao'
+        db_table_comment = (
+            'Mensagem ligada a um atendimento (lembrete, NPS, termo...). O link publico da mensagem vive em '
+            'link_acesso (so o hash). mensagem e limpa apos 12 meses.'
+        )
         indexes = [
-            models.Index(fields=['tipo', 'status'], name='idx_notificacao_tipo_status'),
-            models.Index(fields=['-criado_em'], name='idx_notificacao_criado'),
-            models.Index(fields=['tipo', 'canal', 'status', '-criado_em'], name='idx_notif_nps_lookup'),
-            models.Index(fields=['atendimento', 'tipo'], name='idx_notif_atend_tipo'),
+            Indice(fields=['atendimento', 'tipo'], name='ix_notificacao_atendimento_tipo'),
+            Indice(fields=['-criado_em'], name='ix_notificacao_criado_em'),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(tipo__in=[
+                    'LEMBRETE', 'LEMBRETE_2H', 'CONFIRMACAO', 'CANCELAMENTO', 'NPS', 'PESQUISA', 'APROVACAO', 'TERMO',
+                ]),
+                name='ck_notificacao_tipo',
+            ),
+            models.CheckConstraint(condition=models.Q(canal__in=['WHATSAPP', 'SMS', 'EMAIL']), name='ck_notificacao_canal'),
+            models.CheckConstraint(
+                condition=models.Q(status__in=['PENDENTE', 'ENVIADO', 'FALHOU']), name='ck_notificacao_status',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(resposta__isnull=True) | models.Q(resposta__in=['CONFIRMOU', 'CANCELOU']),
+                name='ck_notificacao_resposta',
+            ),
         ]
 
     def __str__(self):

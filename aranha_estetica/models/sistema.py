@@ -6,10 +6,16 @@ import secrets
 from datetime import timedelta
 
 from django.conf import settings
+from django.core.validators import MinValueValidator
 from django.db import connection, models, transaction
+from django.db.models.functions import Now
 from django.utils import timezone
 
+from ..db.campos import HashSha256Field
+from ..db.indices import Indice
+
 from .clientes import Cliente
+from .mixins import atualizado_em_legado, criado_em_legado
 from .procedimentos import Procedimento
 from .profissionais import Profissional
 
@@ -21,43 +27,63 @@ class ListaEspera(models.Model):
         ('NOITE', 'Noite'),
     ]
 
-    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE)
-    procedimento = models.ForeignKey(Procedimento, on_delete=models.CASCADE)
+    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, db_index=False)
+    procedimento = models.ForeignKey(Procedimento, on_delete=models.CASCADE, db_index=False)
     profissional_desejado = models.ForeignKey(
-        Profissional, on_delete=models.SET_NULL, blank=True, null=True
+        Profissional, on_delete=models.SET_NULL, blank=True, null=True, db_index=False,
     )
     data_desejada = models.DateField()
     turno_desejado = models.CharField(
-        max_length=20, blank=True, null=True, choices=TURNO_CHOICES
+        max_length=20, blank=True, null=True, choices=TURNO_CHOICES, db_comment='NULL = qualquer turno.',
     )
-    notificado = models.BooleanField(default=False)
+    notificado = models.BooleanField(default=False, db_default=False, db_column='eh_notificado')
     # E-mail informado no formulario publico quando o cliente ja existe: avisar
     # por aqui sem reescrever o cadastro (uso: email_contato or cliente.email).
-    email_contato = models.EmailField(blank=True, null=True)
-    criado_em = models.DateTimeField(auto_now_add=True)
+    # Ausente = NULL (nunca ''; ck_lista_espera_email_contato_nao_vazio).
+    email_contato = models.EmailField(
+        blank=True, null=True,
+        db_comment='E-mail digitado no formulario publico quando o cliente ja existe (nao reescreve o cadastro).',
+    )
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
+    atualizado_em = atualizado_em_legado()
 
     class Meta:
         managed = True
         db_table = 'lista_espera'
+        db_table_comment = 'Pedido de aviso de vaga. Apagado quando data_desejada passa (sp_aplicar_retencao_lgpd).'
         constraints = [
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(turno_desejado__isnull=True) |
                     models.Q(turno_desejado__in=['MANHA', 'TARDE', 'NOITE'])
                 ),
-                name='chk_lista_espera_turno'
+                name='ck_lista_espera_turno'
+            ),
+            models.CheckConstraint(
+                condition=models.Q(email_contato__isnull=True) | ~models.Q(email_contato=''),
+                name='ck_lista_espera_email_contato_nao_vazio',
             ),
             # cliente nao entra 2x na mesma fila enquanto nao notificado
             models.UniqueConstraint(
                 fields=['cliente', 'procedimento', 'data_desejada'],
                 condition=models.Q(notificado=False),
-                name='uniq_espera_ativa',
+                name='uq_lista_espera_pendente',
             ),
         ]
         indexes = [
-            models.Index(fields=['cliente'], name='idx_espera_cliente'),
-            models.Index(fields=['procedimento', 'data_desejada', 'notificado'], name='idx_espera_proc_data_notif'),
+            Indice(fields=['cliente'], name='ix_lista_espera_cliente'),
+            # candidatos FIFO (procedimento + data, nao notificado): o UNIQUE parcial tambem cobre
+            Indice(fields=['procedimento', 'data_desejada'], name='ix_lista_espera_procedimento_data_desejada'),
+            Indice(fields=['data_desejada'], name='ix_lista_espera_data_desejada'),
+            Indice(
+                fields=['profissional_desejado'], condition=models.Q(profissional_desejado__isnull=False),
+                name='ix_lista_espera_profissional_desejado_parcial',
+            ),
         ]
+
+    def save(self, *args, **kwargs):
+        self.email_contato = self.email_contato or None  # '' -> NULL (CHECK nao vazio)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         cliente_nome = self.cliente.nome if self.cliente_id else 's/ cliente'
@@ -83,22 +109,36 @@ class LogAuditoria(models.Model):
     nao transforma a acao dele em "acao do sistema". O Django admin nao exclui
     Usuario (desativar = ativo=False).
     """
-    usuario = models.ForeignKey('Usuario', on_delete=models.SET_NULL, blank=True, null=True)
-    usuario_nome = models.CharField(max_length=255, blank=True, default='')
+    # sem indice de FK: autoria (spec §2.11 — usuario nunca e excluido; nenhuma tela filtra por autor)
+    usuario = models.ForeignKey(
+        'Usuario', on_delete=models.SET_NULL, blank=True, null=True, db_column='usuario_autor_id',
+        db_index=False,
+    )
+    usuario_nome = models.CharField(
+        max_length=255, blank=True, default='', db_default='', db_column='usuario_autor_nome',
+        db_comment='Snapshot "Nome <email>" do autor no momento da acao.',
+    )
     acao = models.TextField()
-    tabela = models.CharField(max_length=100, blank=True, null=True)
-    registro_id = models.IntegerField(blank=True, null=True)
+    tabela = models.CharField(max_length=100, blank=True, default='', db_default='')
+    # bigint: aponta p/ PKs bigint de qualquer tabela (era integer ate a 0054)
+    registro_id = models.BigIntegerField(
+        blank=True, null=True, db_column='registro_pk',
+        db_comment='PK do registro afetado na tabela indicada em "tabela" (referencia polimorfica, sem FK).',
+    )
     detalhes = models.JSONField(blank=True, null=True)
     ip_origem = models.GenericIPAddressField(blank=True, null=True)
-    criado_em = models.DateTimeField(auto_now_add=True)
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
 
     class Meta:
         managed = True
         db_table = 'log_auditoria'
+        db_table_comment = (
+            'Trilha de ACOES da aplicacao (LGPD art. 37): autor + snapshot "Nome <email>", acao, alvo, IP. '
+            'Retencao 5 anos. A trilha de DADOS (antes/depois) fica em historico_alteracao.'
+        )
         indexes = [
-            models.Index(fields=['tabela'], name='idx_auditoria_tabela'),
-            models.Index(fields=['-criado_em'], name='idx_auditoria_criado'),
-            models.Index(fields=['usuario', '-criado_em'], name='idx_auditoria_user_data'),
+            Indice(fields=['-criado_em'], name='ix_log_auditoria_criado_em'),
+            Indice(fields=['tabela', 'registro_id'], name='ix_log_auditoria_tabela_registro'),
         ]
 
     def save(self, *args, **kwargs):
@@ -115,13 +155,22 @@ class LogAuditoria(models.Model):
 
 
 class Configuracao(models.Model):
-    chave = models.CharField(max_length=100, unique=True)
-    valor = models.TextField(blank=True, null=True)
-    descricao = models.TextField(blank=True, null=True)
+    chave = models.CharField(max_length=100)
+    valor = models.TextField(blank=True, default='', db_default='')
+    descricao = models.TextField(blank=True, default='', db_default='')
+    criado_em = criado_em_legado()
+    atualizado_em = atualizado_em_legado()
 
     class Meta:
         managed = True
         db_table = 'configuracao'
+        db_table_comment = (
+            'Chave-valor editavel no painel: Branding, email_admin, MAX_FALTAS_BLOQUEIO. '
+            '(prontuario_perguntas saiu p/ formulario tipo PRONTUARIO.)'
+        )
+        constraints = [
+            models.UniqueConstraint(fields=['chave'], name='uq_configuracao_chave'),
+        ]
 
     def __str__(self):
         return f'{self.chave}: {self.valor}'
@@ -157,32 +206,48 @@ class CodigoOtp(models.Model):
     MAX_TENTATIVAS = int(os.environ.get('OTP_MAX_TENTATIVAS', '5'))
     REENVIO_MINIMO_SEG = int(os.environ.get('OTP_REENVIO_MINIMO_SEG', '60'))
 
-    email = models.EmailField()
+    # chave do desafio: e-mail ou o pseudo-e-mail 'sms+<digitos>@shivazen.local' (coluna identificador)
+    email = models.EmailField(
+        db_column='identificador',
+        db_comment='Chave do desafio: e-mail, ou "sms+<digitos>@shivazen.local" nos fluxos so-telefone.',
+    )
     telefone = models.CharField(max_length=20, blank=True, null=True)
-    canal = models.CharField(max_length=10, choices=CANAL_CHOICES, default=CANAL_SMS)
-    codigo_hash = models.CharField(max_length=64)  # HMAC-SHA256 hex (chave = SECRET_KEY)
-    proposito = models.CharField(max_length=20, choices=PROPOSITO_CHOICES, default=PROPOSITO_AGENDAMENTO)
-    criado_em = models.DateTimeField(auto_now_add=True)
+    canal = models.CharField(max_length=10, choices=CANAL_CHOICES, default=CANAL_SMS, db_default=CANAL_SMS)
+    codigo_hash = HashSha256Field()  # HMAC-SHA256 hex (chave = SECRET_KEY), char(64)
+    proposito = models.CharField(
+        max_length=20, choices=PROPOSITO_CHOICES, default=PROPOSITO_AGENDAMENTO, db_default=PROPOSITO_AGENDAMENTO,
+    )
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
     expira_em = models.DateTimeField()
     usado_em = models.DateTimeField(blank=True, null=True)
-    tentativas = models.PositiveSmallIntegerField(default=0)
+    tentativas = models.SmallIntegerField(
+        default=0, db_default=0, validators=[MinValueValidator(0)], db_column='qtd_tentativas',
+    )
     ip_origem = models.GenericIPAddressField(blank=True, null=True)
 
     class Meta:
         managed = True
         db_table = 'codigo_otp'
+        db_table_comment = (
+            'Desafio OTP (HMAC-SHA256 com a SECRET_KEY), TTL e lockout. Efemero: apagado apos 24h '
+            '(sp_purgar_dados_expirados).'
+        )
         constraints = [
+            models.CheckConstraint(condition=models.Q(canal__in=['EMAIL', 'SMS']), name='ck_codigo_otp_canal'),
+            models.CheckConstraint(
+                condition=models.Q(proposito__in=['AGENDAMENTO', 'LOGIN_CLIENTE', 'DSAR']),
+                name='ck_codigo_otp_proposito',
+            ),
             # Teto de banco (10) > MAX_TENTATIVAS logico (default 5) de proposito:
             # o lockout aplicativo bloqueia antes; o CHECK e apenas guarda-corpo
             # contra valores absurdos vindos de escrita direta.
             models.CheckConstraint(
-                check=models.Q(tentativas__lte=10),
-                name='chk_otp_tentativas_teto',
+                condition=models.Q(tentativas__gte=0) & models.Q(tentativas__lte=10),
+                name='ck_codigo_otp_qtd_tentativas_0_10',
             ),
         ]
         indexes = [
-            models.Index(fields=['email', '-criado_em'], name='idx_otp_email_data'),
-            models.Index(fields=['proposito', '-criado_em'], name='idx_otp_prop_data'),
+            Indice(fields=['email', 'proposito', '-criado_em'], name='ix_codigo_otp_identificador_proposito_criado_em'),
         ]
 
     def __str__(self):

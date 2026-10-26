@@ -117,7 +117,7 @@ class RetornoService:
                 atendimento_origem=atendimento_origem,
             )
         except IntegrityError:
-            # excl_atendimento_sobreposicao: slot sugerido ja ocupado.
+            # ex_atendimento_sobreposicao: slot sugerido ja ocupado.
             # Best-effort — recepcao agenda o retorno manualmente.
             logger.warning(
                 'retorno_slot_sugerido_ocupado',
