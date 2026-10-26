@@ -16,12 +16,13 @@ from django.db import DatabaseError, IntegrityError, connection, transaction
 from django.test import TestCase
 
 from aranha_estetica.models import (
-    AceiteTermo, AgendaExcecao, AgendaHorario, Atendimento, FormularioAnamnese, Prontuario,
-    ProntuarioVersao, RespostaAnamnese, VersaoTermo,
+    AceiteTermo, AgendaExcecao, AgendaHorario, Atendimento, FormularioAnamnese, LinkAcesso, Notificacao,
+    Prontuario, ProntuarioVersao, RespostaAnamnese, VersaoTermo,
 )
+from aranha_estetica.services import links
 from aranha_estetica.models.extras import Carteira, MovimentoCarteira
 from aranha_estetica.tests.factories import (
-    criar_atendimento, criar_cliente, criar_procedimento, criar_profissional,
+    criar_atendimento, criar_cliente, criar_link, criar_procedimento, criar_profissional,
 )
 
 PG = connection.vendor == 'postgresql'
@@ -37,6 +38,7 @@ CONSTRAINTS_SO_PG = {
     'ex_agenda_horario_sobreposicao': '0048',
     'ex_agenda_excecao_folga_sobreposta': '0048',
     'ck_agenda_excecao_regra_recorrencia_suportada': '0048',
+    'ck_link_acesso_token_hash_formato': '0049',
 }
 # tgname -> (migration que cria, tabela). A 0047 (termo SAUDE, reembolso,
 # promocao geral) so cria CHECKs de model (existem no SQLite tambem) e nao
@@ -46,6 +48,7 @@ TRIGGERS_SO_PG = {
     'trg_aceite_termo_imutavel': ('0046', 'aceite_termo'),
     'trg_versao_termo_imutavel': ('0046', 'versao_termo'),
     'trg_prontuario_versao_imutavel': ('0046', 'prontuario_versao'),
+    'tg_link_acesso_imutavel': ('0049', 'link_acesso'),
 }
 
 
@@ -142,6 +145,89 @@ class DDLSoPostgresTests(TestCase):
             ('agenda_excecao', 'fk_agenda_excecao_usuario_autor', 'f', 'n'),
         })
         self.assertEqual(sequencias, ('public.agenda_excecao_id_seq', 'public.agenda_horario_id_seq'))
+
+    def test_link_acesso_nomes_tipo_e_on_delete_real(self):
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT conname, contype, confdeltype FROM pg_constraint "
+                "WHERE conrelid = 'link_acesso'::regclass AND contype IN ('p', 'f', 'u')"
+            )
+            objetos = set(cursor.fetchall())
+            cursor.execute("SELECT format_type(atttypid, atttypmod) FROM pg_attribute "
+                           "WHERE attrelid = 'link_acesso'::regclass AND attname = 'token_hash'")
+            tipo = cursor.fetchone()[0]
+            cursor.execute("SELECT indexrelid::regclass::text FROM pg_index WHERE indrelid = 'link_acesso'::regclass")
+            indices = {r[0] for r in cursor.fetchall()}
+            cursor.execute("SELECT pg_get_serial_sequence('link_acesso', 'id'), "
+                           "obj_description('link_acesso'::regclass, 'pg_class')")
+            sequencia, comentario = cursor.fetchone()
+        self.assertEqual(objetos, {
+            ('pk_link_acesso', 'p', ' '),
+            ('uq_link_acesso_token_hash', 'u', ' '),
+            ('fk_link_acesso_atendimento', 'f', 'c'),
+            ('fk_link_acesso_notificacao', 'f', 'c'),
+            ('fk_link_acesso_resposta_formulario', 'f', 'c'),
+            ('fk_link_acesso_cliente', 'f', 'c'),
+            ('fk_link_acesso_profissional', 'f', 'c'),
+        })
+        self.assertEqual(tipo, 'character(64)')
+        self.assertEqual(indices, {
+            'pk_link_acesso', 'uq_link_acesso_token_hash', 'ix_link_acesso_atendimento_parcial',
+            'ix_link_acesso_notificacao_parcial', 'ix_link_acesso_resposta_formulario_parcial',
+            'ix_link_acesso_cliente_parcial', 'ix_link_acesso_profissional_parcial',
+            'ix_link_acesso_expira_em_parcial',
+        })
+        self.assertEqual(sequencia, 'public.link_acesso_id_seq')
+        self.assertIn('SHA-256', comentario)
+        # tokens em texto puro: colunas e seus UNIQUE/_like legados sumiram (DROP COLUMN)
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = 'public' "
+                "AND (column_name IN ('token_cancelamento', 'token_descadastro', 'ics_token', 'token_reserva') "
+                "OR (column_name = 'token' AND table_name IN ('notificacao', 'resposta_anamnese')))"
+            )
+            self.assertEqual(cursor.fetchall(), [])
+
+    def test_link_acesso_bulk_create_nao_trunca_o_hash(self):
+        # Django 5.2 no PG: bulk_create por UNNEST faria cast p/ char[] (= char(1)) e
+        # truncaria o hash; HashSha256Field.get_placeholder desliga o UNNEST
+        hashes = [links.sha256_hex(f'tok-bulk-{i}') for i in range(3)]
+        LinkAcesso.objects.bulk_create([
+            LinkAcesso(finalidade='FEED_ICS', profissional=self.prof, token_hash=h) for h in hashes
+        ])
+        self.assertEqual(sorted(LinkAcesso.objects.values_list('token_hash', flat=True)), sorted(hashes))
+        self.assertEqual(links.resolver('FEED_ICS', 'tok-bulk-1').token_hash, hashes[1])
+
+    def test_link_acesso_hash_formato_e_imutavel(self):
+        notif = Notificacao.objects.create(atendimento=self.at, tipo='NPS')
+        # CHECK de formato: sha256 hex minusculo, 64 chars (o SQLite nao tem)
+        for ruim in ('A' * 64, 'g' * 64, 'abc', links.sha256_hex('x').upper()):
+            with self.subTest(hash=ruim), self.assertRaises(IntegrityError), transaction.atomic():
+                LinkAcesso.objects.create(finalidade='NPS', notificacao=notif, token_hash=ruim)
+        token = criar_link('NPS', notif)
+        link = LinkAcesso.objects.get()
+        # depois de criado: finalidade/alvo/hash/validade nunca mudam
+        bloqueados = (
+            ("UPDATE link_acesso SET expira_em = now() + interval '1 year' WHERE id = %s", link.pk),
+            ("UPDATE link_acesso SET token_hash = %s WHERE id = %s", links.sha256_hex('outro'), link.pk),
+            ("UPDATE link_acesso SET finalidade = 'TERMO' WHERE id = %s", link.pk),
+            ("UPDATE link_acesso SET criado_em = now() - interval '1 day' WHERE id = %s", link.pk),
+        )
+        for sql, *params in bloqueados:
+            with self.subTest(sql=sql), self.assertRaises(DatabaseError), transaction.atomic():
+                self._sql(sql, params)
+        # usado_em e revogado_em: preenchidos UMA vez
+        links.marcar_usado(link)
+        links.marcar_usado(link)  # no-op (filtro usado_em IS NULL)
+        with self.assertRaises(DatabaseError), transaction.atomic():
+            self._sql('UPDATE link_acesso SET usado_em = now() WHERE id = %s', [link.pk])
+        self.assertEqual(links.revogar('NPS', notif), 1)
+        with self.assertRaises(DatabaseError), transaction.atomic():
+            self._sql('UPDATE link_acesso SET revogado_em = NULL WHERE id = %s', [link.pk])
+        self.assertIsNone(links.resolver('NPS', token))
+        # DELETE livre (purga/cascata do alvo)
+        notif.delete()
+        self.assertFalse(LinkAcesso.objects.exists())
 
     def test_ledger_imutavel(self):
         carteira = Carteira.objects.create(cliente=self.cli, saldo=Decimal('10'))

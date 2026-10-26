@@ -34,7 +34,6 @@ from aranha_estetica.models import (
     Habilitacao,
     LogAuditoria,
     MovimentoCarteira,
-    Notificacao,
     Pacote,
     Profissional,
     Prontuario,
@@ -49,6 +48,7 @@ from aranha_estetica.views.admin_usuarios import _ler_profissional_id
 from aranha_estetica.views.prontuario import _vinculo
 
 from .factories import (
+    criar_notificacao_com_link,
     criar_atendimento,
     criar_cliente,
     criar_compra_pacote,
@@ -219,10 +219,10 @@ class NotaNpsTests(TestCase):
         proc = criar_procedimento(profissional=prof)
         self.cli = criar_cliente(telefone='17988887777')
         self.atd = criar_atendimento(self.cli, prof, proc, status='REALIZADO')
-        self.notif = Notificacao.objects.create(
-            atendimento=self.atd, tipo='NPS', canal='WHATSAPP', status='ENVIADO', token='tok-nps-b',
+        self.notif, token = criar_notificacao_com_link(
+            self.atd, 'NPS', 'WHATSAPP', token='tok-nps-b', status='ENVIADO',
         )
-        self.url = reverse('aranha:nps_web', args=[self.notif.token])
+        self.url = reverse('aranha:nps_web', args=[token])
 
     def test_nps_web_rejeita_sobrescrito_e_zero_a_esquerda(self):
         for nota in (SOBRESCRITO, '07', '11', '-1', '1²'):
@@ -362,8 +362,8 @@ class NoStoreRotasTokenTests(TestCase):
     def test_pagina_de_token_sai_com_no_store(self):
         prof = criar_profissional()
         atd = criar_atendimento(criar_cliente(), prof, criar_procedimento(profissional=prof), status='REALIZADO')
-        notif = Notificacao.objects.create(atendimento=atd, tipo='NPS', canal='EMAIL', token='tok-cache-b')
-        resp = Client().get(reverse('aranha:nps_web', args=[notif.token]))
+        _notif, token = criar_notificacao_com_link(atd, 'NPS', 'EMAIL', token='tok-cache-b')
+        resp = Client().get(reverse('aranha:nps_web', args=[token]))
         self.assertEqual(resp.status_code, 200)
         self.assertIn('no-store', resp['Cache-Control'])
         self.assertEqual(resp['Referrer-Policy'], 'no-referrer')

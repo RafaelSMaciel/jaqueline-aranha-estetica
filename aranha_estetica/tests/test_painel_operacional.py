@@ -35,6 +35,7 @@ from aranha_estetica.models import (
 from .factories import (
     criar_atendimento,
     criar_cliente,
+    criar_notificacao_com_link,
     criar_pacote,
     criar_procedimento,
     criar_profissional,
@@ -671,11 +672,11 @@ class PaginacaoGcalTests(_AdminTestCase):
 # ─── NPS web: opt-in de publicacao (contrato 4) ───────────────────────
 class NpsOptInTests(TestCase):
     def _notif(self):
-        from aranha_estetica.models import Notificacao
         prof = criar_profissional()
         proc = criar_procedimento(profissional=prof)
         at = criar_atendimento(criar_cliente(), prof, proc, status='REALIZADO')
-        return Notificacao.objects.create(atendimento=at, tipo='NPS', canal='EMAIL', token='tok-nps-p5')
+        notif, notif.token = criar_notificacao_com_link(at, 'NPS', 'EMAIL', token='tok-nps-p5')
+        return notif
 
     def test_optin_marcado_grava_autorizacao(self):
         from aranha_estetica.models import AvaliacaoNPS
@@ -691,6 +692,10 @@ class NpsOptInTests(TestCase):
         notif = self._notif()
         self.client.post(reverse('aranha:nps_web', args=[notif.token]), {'nota': '9'})
         self.assertFalse(AvaliacaoNPS.objects.get(atendimento=notif.atendimento).autoriza_publicacao)
+        # avaliacao registrada = 1o uso do link; o link segue abrindo (mostra "ja respondeu")
+        self.assertIsNotNone(notif.links_acesso.get().usado_em)
+        resp = self.client.get(reverse('aranha:nps_web', args=[notif.token]))
+        self.assertTrue(resp.context['ja_respondeu'])
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -786,17 +791,16 @@ class TermoAssinaturaTests(TestCase):
         self.at = criar_atendimento(self.cli, self.prof, self.proc, data_hora=_local(30, 10))
         self.lgpd = _lgpd()
         self.termo = _termo_proc(self.proc)
-        self.notif = Notificacao.objects.create(atendimento=self.at, tipo='TERMO', canal='EMAIL',
-                                                token='tok-termo-p5')
-        self.url = reverse('aranha:termo_assinatura', args=[self.notif.token])
+        self.notif, token = criar_notificacao_com_link(self.at, 'TERMO', 'EMAIL', token='tok-termo-p5')
+        self.url = reverse('aranha:termo_assinatura', args=[token])
 
     def _aceites(self):
         from aranha_estetica.models import AceiteTermo
         return AceiteTermo.objects.filter(cliente=self.cli)
 
     def test_token_de_nps_nao_abre_termo(self):
-        nps = self.Notificacao.objects.create(atendimento=self.at, tipo='NPS', canal='EMAIL', token='tok-nps-x')
-        self.assertEqual(self.client.get(reverse('aranha:termo_assinatura', args=[nps.token])).status_code, 404)
+        _nps, token = criar_notificacao_com_link(self.at, 'NPS', 'EMAIL', token='tok-nps-x')
+        self.assertEqual(self.client.get(reverse('aranha:termo_assinatura', args=[token])).status_code, 404)
 
     def test_post_parcial_400_sem_gravar(self):
         resp = self.client.post(self.url, {f'aceite_{self.lgpd.pk}': '1'})
@@ -848,19 +852,32 @@ class TermoLinkEPendenciaTests(_AdminTestCase):
         self.at = criar_atendimento(self.cli, self.prof, self.proc, data_hora=_local(5, 11))
         self.termo = _termo_proc(self.proc)
 
-    def test_gerar_link_cria_notificacao_termo_e_reusa(self):
-        from aranha_estetica.models import Notificacao
+    def test_gerar_link_emite_novo_a_cada_clique_e_reusa_a_notificacao(self):
+        # 0049 (D1): o token so existe na geracao — cada clique emite um link novo;
+        # os anteriores continuam validos ate o fim do atendimento
+        from urllib.parse import urlsplit
+
+        from aranha_estetica.models import LinkAcesso, Notificacao
         url = reverse('aranha:admin_gerar_link_termo', args=[self.at.pk])
         resp = self.client.post(url)
         self.assertEqual(resp.status_code, 200)
         notif = Notificacao.objects.get(atendimento=self.at)
         self.assertEqual(notif.tipo, 'TERMO')
-        self.assertContains(resp, reverse('aranha:termo_assinatura', args=[notif.token]))
-        self.client.post(url)
+        link1 = resp.context['link']
+        self.assertIn('/termo/', link1)
+        self.assertContains(resp, link1)
+        link2 = self.client.post(url).context['link']
+        self.assertNotEqual(link1, link2)
         self.assertEqual(Notificacao.objects.filter(atendimento=self.at).count(), 1)
-        # e o link gerado abre a pagina publica do termo
+        self.assertEqual(LinkAcesso.objects.filter(notificacao=notif, finalidade='TERMO').count(), 2)
+        self.assertEqual(
+            set(LinkAcesso.objects.filter(notificacao=notif).values_list('expira_em', flat=True)),
+            {self.at.data_hora_fim},
+        )
+        # os dois links abrem a pagina publica do termo
         self.client.logout()
-        self.assertEqual(self.client.get(reverse('aranha:termo_assinatura', args=[notif.token])).status_code, 200)
+        for link in (link1, link2):
+            self.assertEqual(self.client.get(urlsplit(link).path).status_code, 200)
 
     def test_gerar_link_de_cancelado_recusa(self):
         from aranha_estetica.models import Notificacao
@@ -1093,12 +1110,12 @@ class PromocaoDisparoRodada2Tests(_AdminTestCase):
 
 class NpsNotaInvalidaTests(TestCase):
     def test_nota_fora_da_escala_mostra_erro(self):
-        from aranha_estetica.models import AvaliacaoNPS, Notificacao
+        from aranha_estetica.models import AvaliacaoNPS
         prof = criar_profissional()
         proc = criar_procedimento(profissional=prof)
         at = criar_atendimento(criar_cliente(), prof, proc, status='REALIZADO')
-        notif = Notificacao.objects.create(atendimento=at, tipo='NPS', canal='EMAIL', token='tok-nps-erro')
-        resp = self.client.post(reverse('aranha:nps_web', args=[notif.token]), {'nota': '11'})
+        _notif, token = criar_notificacao_com_link(at, 'NPS', 'EMAIL', token='tok-nps-erro')
+        resp = self.client.post(reverse('aranha:nps_web', args=[token]), {'nota': '11'})
         self.assertContains(resp, 'Escolha uma nota de 0 a 10.')
         self.assertFalse(AvaliacaoNPS.objects.exists())
 

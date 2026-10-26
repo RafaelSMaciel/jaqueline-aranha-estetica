@@ -19,7 +19,7 @@ from .models import (
     Cliente,
     Prontuario, AnotacaoSessao, ProntuarioVersao,
     VersaoTermo, AceiteTermo,
-    Atendimento, Notificacao,
+    Atendimento, Notificacao, LinkAcesso,
     AvaliacaoNPS,
     Pacote, ItemPacote, CompraPacote, ConsumoSessao,
     ListaEspera,
@@ -244,7 +244,7 @@ class ClienteAdmin(admin.ModelAdmin):
     date_hierarchy = 'criado_em'
     # Data/IP do consentimento sao evidencia gravada no aceite: nunca editaveis.
     readonly_fields = (
-        'criado_em', 'atualizado_em', 'deletado_em', 'token_descadastro',
+        'criado_em', 'atualizado_em', 'deletado_em',
         'consent_email_marketing_em', 'consent_email_marketing_ip',
         'consent_whatsapp_nps_em', 'consent_whatsapp_nps_ip',
         'consent_whatsapp_confirmacao_em', 'consent_whatsapp_confirmacao_ip',
@@ -259,7 +259,7 @@ class ClienteAdmin(admin.ModelAdmin):
         }),
         ('Status e LGPD', {
             'fields': (
-                'ativo', 'aceita_comunicacao', 'token_descadastro',
+                'ativo', 'aceita_comunicacao',
                 'faltas_consecutivas', 'bloqueado_online',
             ),
         }),
@@ -512,7 +512,7 @@ class AtendimentoAdmin(admin.ModelAdmin):
     search_fields = ('cliente__nome', 'cliente__telefone', 'profissional__nome')
     ordering = ('-data_hora_inicio',)
     date_hierarchy = 'data_hora_inicio'
-    readonly_fields = ('criado_em', 'atualizado_em', 'token_cancelamento')
+    readonly_fields = ('criado_em', 'atualizado_em')
     autocomplete_fields = ('cliente', 'profissional', 'procedimento', 'promocao', 'reagendado_de')
     list_select_related = ('cliente', 'profissional', 'procedimento')
     list_per_page = 50
@@ -575,10 +575,34 @@ class NotificacaoAdmin(admin.ModelAdmin):
     search_fields = ('atendimento__cliente__nome', 'mensagem')
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
-    readonly_fields = ('token', 'criado_em')
+    readonly_fields = ('criado_em',)
     autocomplete_fields = ('atendimento',)
     list_select_related = ('atendimento', 'atendimento__cliente')
     list_per_page = 50
+
+
+@admin.register(LinkAcesso)
+class LinkAcessoAdmin(_SomenteLeituraMixin, admin.ModelAdmin):
+    """Links publicos (so o hash do token fica no banco — nada a exibir de secreto).
+
+    Somente leitura; a unica acao e revogar (o link passa a dar 404).
+    """
+    list_display = ('finalidade', 'alvo_id_rotulo', 'criado_em', 'expira_em', 'usado_em', 'revogado_em')
+    list_filter = ('finalidade',)
+    ordering = ('-criado_em',)
+    date_hierarchy = 'criado_em'
+    exclude = ('token_hash',)
+    list_per_page = 50
+    actions = ['acao_revogar']
+
+    @admin.action(description='Revogar os links selecionados')
+    def acao_revogar(self, request, queryset):
+        qtd = queryset.filter(revogado_em__isnull=True).update(revogado_em=timezone.now())
+        registrar_log(
+            request.user, f'Revogou {qtd} link(s) publico(s) pelo admin', 'link_acesso', None,
+            detalhes={'ids': list(queryset.values_list('pk', flat=True))[:200]}, request=request,
+        )
+        self.message_user(request, f'{qtd} link(s) revogado(s).', messages.SUCCESS)
 
 
 # =====================================================================

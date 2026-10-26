@@ -110,11 +110,14 @@ class ConfirmarAgendamentoTests(TestCase):
         self.assertEqual(resp.status_code, 302)
         self.assertIn('agendamento', resp.url)
 
-    def test_gera_token_de_cancelamento(self):
+    def test_nao_emite_token_de_reagendar_cancelar(self):
+        # 0049: reagendar/cancelar e pelo portal (id + sessao do OTP); o booking
+        # nao grava token nenhum (nem em texto puro, nem link_acesso)
+        from aranha_estetica.models import LinkAcesso
         self._post()
-        atd = Atendimento.objects.first()
-        self.assertIsNotNone(atd.token_cancelamento)
-        self.assertEqual(len(atd.token_cancelamento), 43)  # token_urlsafe(32)
+        atd = Atendimento.objects.get()
+        self.assertFalse(LinkAcesso.objects.filter(atendimento=atd).exists())
+        self.assertFalse(hasattr(atd, 'token_cancelamento'))
 
     # ─── OTP preso ao telefone (booking-02 / security-03) ───
 

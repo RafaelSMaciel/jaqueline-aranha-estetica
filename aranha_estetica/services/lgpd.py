@@ -1,7 +1,6 @@
 """Servico de LGPD — DSAR (export), unsubscribe, esquecimento e retencao."""
 import logging
 import os
-import secrets
 from datetime import timedelta
 from typing import Any
 
@@ -44,7 +43,6 @@ class LgpdService:
     CAMPOS_ANONIMIZADOS = [
         'nome', 'cpf', 'rg', 'email', 'telefone', 'cep', 'endereco',
         'profissao', 'data_nascimento', 'foto_url', 'aceita_comunicacao',
-        'token_descadastro',
         'consent_email_marketing', 'consent_email_marketing_em', 'consent_email_marketing_ip',
         'consent_whatsapp_nps', 'consent_whatsapp_nps_em', 'consent_whatsapp_nps_ip',
         'consent_whatsapp_confirmacao', 'consent_whatsapp_confirmacao_em',
@@ -201,11 +199,20 @@ class LgpdService:
         }
 
     @staticmethod
-    def cliente_por_token_descadastro(token: str) -> Cliente | None:
-        """Cliente ativo dono do token de descadastro (None se invalido)."""
-        if not token:
+    def link_descadastro(token: str):
+        """LinkAcesso DESCADASTRO vigente de cliente nao excluido (None se invalido)."""
+        from aranha_estetica.services import links
+
+        link = links.resolver(links.DESCADASTRO, token, select_related=('cliente',))
+        if link is None or link.cliente.deletado_em is not None:
             return None
-        return Cliente.objects.filter(token_descadastro=token).first()
+        return link
+
+    @staticmethod
+    def cliente_por_token_descadastro(token: str) -> Cliente | None:
+        """Cliente ativo dono do link de descadastro (None se invalido)."""
+        link = LgpdService.link_descadastro(token)
+        return link.cliente if link else None
 
     @staticmethod
     def unsubscribe_por_token(token: str) -> Cliente | None:
@@ -216,9 +223,12 @@ class LgpdService:
         (consent_whatsapp_confirmacao) e aviso transacional e continua — a
         pagina de descadastro informa isso ao cliente.
         """
-        cliente = LgpdService.cliente_por_token_descadastro(token)
-        if cliente is None:
+        from aranha_estetica.services import links
+
+        link = LgpdService.link_descadastro(token)
+        if link is None:
             return None
+        cliente = link.cliente
         cliente.aceita_comunicacao = False
         cliente.consent_email_marketing = False
         cliente.consent_whatsapp_nps = False
@@ -226,6 +236,7 @@ class LgpdService:
             'aceita_comunicacao', 'consent_email_marketing',
             'consent_whatsapp_nps', 'atualizado_em',
         ])
+        links.marcar_usado(link)
         logger.info('Cliente %s opt-out via token.', cliente.pk)
         return cliente
 
@@ -264,8 +275,6 @@ class LgpdService:
         cliente.data_nascimento = None
         cliente.foto_url = ''
         cliente.aceita_comunicacao = False
-        # Token novo: links de descadastro antigos deixam de identificar o titular.
-        cliente.token_descadastro = secrets.token_urlsafe(32)
         for canal in ('email_marketing', 'whatsapp_nps', 'whatsapp_confirmacao'):
             setattr(cliente, f'consent_{canal}', False)
             setattr(cliente, f'consent_{canal}_em', None)
@@ -274,6 +283,10 @@ class LgpdService:
             cliente.deletado_em = timezone.now()
         cliente.ativo = False
         cliente.save(update_fields=cls.CAMPOS_ANONIMIZADOS)
+        # Links publicos do titular (descadastro, confirmacao, NPS, termo, ficha,
+        # reagendar legado) deixam de funcionar: revogado = 404.
+        from aranha_estetica.services import links
+        links.revogar_do_cliente(cliente_pk)
 
         # Rastros com PII fora do cadastro: OTPs (telefone/pseudo-email/IP),
         # lista de espera e texto das notificacoes (nome do cliente).
@@ -459,7 +472,9 @@ class LgpdService:
     def purgar_fichas_sem_atendimento(cls, dias: int | None = None) -> int:
         """Apaga as fichas de fichas_sem_atendimento_para_purga (retencao LGPD)."""
         with transaction.atomic():
-            qtd, _por_modelo = cls.fichas_sem_atendimento_para_purga(dias).delete()
+            _total, por_modelo = cls.fichas_sem_atendimento_para_purga(dias).delete()
+            # so as fichas: o delete() tambem conta os link_acesso da cascata
+            qtd = por_modelo.get('aranha_estetica.RespostaAnamnese', 0)
             if qtd:
                 registrar_log(
                     None, 'Purga de fichas de pedido nao realizado', 'resposta_anamnese', None,

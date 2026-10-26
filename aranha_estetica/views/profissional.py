@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
@@ -294,3 +295,21 @@ def rejeitar_agendamento(request, pk):
     else:
         messages.success(request, f'Agendamento de {atendimento.cliente.nome} rejeitado.')
     return _redirect_seguro(request, request.POST.get('next'))
+
+
+@profissional_required
+@require_POST
+def gerar_link_calendario(request):
+    """O profissional gera o proprio link do feed ICS (revoga o anterior).
+
+    Mesma tela do painel: a URL com o token so aparece nesta resposta.
+    """
+    from .admin_professional import responder_link_ics
+
+    prof = _profissional_do_usuario(request.user)
+    if not prof:
+        return redirect('aranha:painel_overview')
+    return responder_link_ics(
+        request, prof, template='profissional/ics_link.html',
+        voltar=reverse('aranha:profissional_agenda'), voltar_rotulo='Minha agenda',
+    )

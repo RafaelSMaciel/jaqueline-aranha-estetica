@@ -1,0 +1,12 @@
+{% extends 'estrutura/base_v2.html' %}
+
+{% block titulo %}Link do calendário | {{ CLINIC_NAME }}{% endblock %}
+
+{% block conteudo %}
+<div class="min-h-screen bg-fundo py-8 pb-20">
+<div class="max-w-4xl mx-auto px-4">
+    <h1 class="font-serif text-2xl font-bold text-texto mb-6">Link do calendário</h1>
+    {% include 'partials/_ics_link.html' %}
+</div>
+</div>
+{% endblock %}

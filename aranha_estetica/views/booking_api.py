@@ -20,6 +20,7 @@ from ..models import (
     Atendimento,
     Procedimento,
 )
+from ..services import links
 from ..services.disponibilidade import SlotService, profissionais_para
 from ..utils.parse import id_int
 from ..utils.precos import preco_com_promocao
@@ -199,7 +200,14 @@ def api_dias_disponiveis(request):
 
 @ratelimit(key='ip', rate='10/m', method='POST', block=True)
 def cancelar_agendamento(request):
-    """Cancela um agendamento via token seguro (anti-IDOR), pela FSM."""
+    """Cancela um agendamento pela FSM (anti-IDOR).
+
+    {"atendimento_id": N}: portal "Meus agendamentos" — so agendamento de
+    cliente com o telefone da sessao do OTP. {"token": "..."}: link legado
+    (LinkAcesso GERENCIAR_AGENDAMENTO migrado na 0049).
+    """
+    from .booking_reagendar import atendimento_da_sessao, link_gerenciar
+
     if request.method != 'POST':
         return JsonResponse({'erro': 'Método não permitido'}, status=405)
 
@@ -209,20 +217,25 @@ def cancelar_agendamento(request):
         return JsonResponse({'erro': 'Dados inválidos'}, status=400)
     if not isinstance(data, dict):
         return JsonResponse({'erro': 'Dados inválidos'}, status=400)
-    token = str(data.get('token') or '').strip()
-    if not token:
-        return JsonResponse({'erro': 'Token obrigatório'}, status=400)
+    link = None
+    if 'atendimento_id' in data:
+        alvo = atendimento_da_sessao(request, id_int(data.get('atendimento_id')))
+    else:
+        token = data.get('token')
+        if not isinstance(token, str) or not token.strip():
+            return JsonResponse({'erro': 'Agendamento não informado'}, status=400)
+        link = link_gerenciar(token)
+        alvo = link.atendimento if link else None
+    if alvo is None:
+        return JsonResponse({'erro': 'Agendamento não encontrado'}, status=404)
 
     try:
         with transaction.atomic():
-            try:
-                atendimento = (
-                    Atendimento.objects.select_for_update()
-                    .select_related('procedimento')
-                    .get(token_cancelamento=token)
-                )
-            except Atendimento.DoesNotExist:
-                return JsonResponse({'erro': 'Agendamento não encontrado'}, status=404)
+            atendimento = (
+                Atendimento.objects.select_for_update()
+                .select_related('procedimento')
+                .get(pk=alvo.pk)
+            )
 
             if atendimento.data_hora_inicio <= timezone.now():
                 return JsonResponse(
@@ -232,9 +245,13 @@ def cancelar_agendamento(request):
                 return JsonResponse({'erro': 'Este agendamento não pode mais ser cancelado'}, status=400)
             try:
                 # FSM: auditoria + evento AtendimentoCancelado (lista de espera etc.)
-                atendimento.cancelar(motivo='Cancelado pelo cliente (portal)')
+                atendimento.cancelar(
+                    motivo='Cancelado pelo cliente (link)' if link else 'Cancelado pelo cliente (portal)',
+                )
             except Atendimento.TransicaoInvalida:
                 return JsonResponse({'erro': 'Este agendamento não pode mais ser cancelado'}, status=400)
+            if link is not None:
+                links.marcar_usado(link)
             procedimento_nome = atendimento.procedimento.nome
     except DatabaseError:
         logger.error('cancelar_agendamento_falha', exc_info=True)

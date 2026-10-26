@@ -18,6 +18,7 @@ from .sistema import (
 )
 from .push import AssinaturaPush
 from .anamnese import FormularioAnamnese, RespostaAnamnese
+from .links import LinkAcesso
 from .extras import (
     Carteira, MovimentoCarteira,
     RegraComissao, MovimentoComissao,
@@ -36,6 +37,7 @@ __all__ = [
     'ListaEspera', 'LogAuditoria', 'Configuracao', 'CodigoOtp',
     'AssinaturaPush',
     'FormularioAnamnese', 'RespostaAnamnese',
+    'LinkAcesso',
     # extras (financeiro auxiliar)
     'Carteira', 'MovimentoCarteira',
     'RegraComissao', 'MovimentoComissao',

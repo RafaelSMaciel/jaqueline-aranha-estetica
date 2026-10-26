@@ -1,11 +1,13 @@
 """Views de CRUD de profissionais — cadastro e edicao."""
 import logging
 from datetime import datetime
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import DatabaseError, transaction
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 
 from ..decorators import staff_required
 from ..models import (
@@ -14,6 +16,7 @@ from ..models import (
     Profissional,
     Habilitacao,
 )
+from ..services import links
 from ..utils.audit import registrar_log
 from ..utils.parse import id_int
 
@@ -309,27 +312,39 @@ def profissional_editar(request, pk=None):
     return render(request, 'painel/editar_profissional.html', context)
 
 
+def responder_link_ics(request, profissional, *, template, voltar, voltar_rotulo):
+    """Gera um link novo do feed ICS (revoga o anterior) e RENDERIZA a URL.
+
+    Renderiza em vez de redirecionar: o token nao pode ir p/ URL de redirect
+    nem p/ log, e so existe nesta resposta (o banco guarda o hash; a pagina e
+    no-store como todo /painel/ e /profissional/).
+    """
+    if not profissional.slug:
+        profissional.save()  # Profissional.save() gera o slug
+    token = links.gerar_link_feed_ics(profissional)
+    url = request.build_absolute_uri(
+        reverse('aranha:ics_feed_profissional', args=[profissional.slug])
+    ) + '?' + urlencode({'token': token})
+    registrar_log(
+        request.user, 'Gerou novo link do feed ICS (o anterior foi revogado)', 'profissional',
+        profissional.pk, request=request,
+    )
+    return render(request, template, {
+        'profissional': profissional, 'link': url, 'voltar': voltar, 'voltar_rotulo': voltar_rotulo,
+    })
+
+
 @staff_required
 def profissional_rotacionar_ics(request, pk):
-    """Gera novo token do feed ICS (o link antigo para de funcionar).
+    """Gera o link do feed ICS (o link antigo para de funcionar).
 
-    Usar quando o link vazar (ex.: compartilhado por engano) — o token vai na
-    URL do feed e fica em historico/logs de quem o recebeu.
+    Primeira geracao ou rotacao quando o link vazar (o token vai na URL do
+    feed e fica em historico/logs de quem o recebeu).
     """
     if request.method != 'POST':
         return redirect('aranha:painel_profissionais')
-    import secrets
-
     profissional = get_object_or_404(Profissional, pk=pk)
-    profissional.ics_token = secrets.token_urlsafe(32)
-    profissional.save(update_fields=['ics_token'])
-    registrar_log(
-        request.user, 'Gerou novo link do feed ICS', 'profissional', profissional.pk,
-        request=request,
+    return responder_link_ics(
+        request, profissional, template='painel/ics_link.html',
+        voltar=reverse('aranha:painel_profissionais'), voltar_rotulo='Profissionais',
     )
-    messages.success(
-        request,
-        f'Novo link do calendário (ICS) gerado para {profissional.nome}. '
-        'O link anterior deixou de funcionar — atualize a assinatura no aplicativo de agenda.',
-    )
-    return redirect('aranha:painel_profissionais')

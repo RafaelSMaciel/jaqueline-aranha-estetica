@@ -13,7 +13,7 @@ class Profissional(models.Model):
     ativo = models.BooleanField(default=True)
     min_notice_horas = models.SmallIntegerField(default=2)
     max_advance_dias = models.SmallIntegerField(default=60)
-    ics_token = models.CharField(max_length=64, unique=True, blank=True, null=True)
+    # Feed ICS: link_acesso FEED_ICS (gerado no painel; o token so aparece na geracao)
     # Google Calendar sync — preenchido apos OAuth dance
     gcal_refresh_token = models.TextField(blank=True, default='')
     gcal_calendar_id = models.CharField(max_length=200, blank=True, default='primary')
@@ -50,9 +50,6 @@ class Profissional(models.Model):
                 counter += 1
                 slug = f'{base}-{counter}'
             self.slug = slug
-        if not self.ics_token:
-            import secrets
-            self.ics_token = secrets.token_urlsafe(32)
         super().save(*args, **kwargs)
 
     def get_horarios_disponiveis(self, data_selecionada, procedimento=None):

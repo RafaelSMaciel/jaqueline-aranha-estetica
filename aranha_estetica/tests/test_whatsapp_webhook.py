@@ -25,7 +25,6 @@ def _criar_notificacao_nps(atendimento):
         tipo='NPS',
         canal='WHATSAPP',
         status='ENVIADO',
-        token='tok-nps-wpp',
     )
 
 

@@ -541,9 +541,9 @@
                     </div>
                 </div>
                 <div class="agend-card-footer">
-                    {% if ag.status in status_editaveis and ag.token_cancelamento %}
+                    {% if ag.status in status_editaveis %}
                     {% if ag.data_hora_inicio > limite_reagendar %}
-                    <a href="{% url 'aranha:reagendar_agendamento' token=ag.token_cancelamento %}"
+                    <a href="{% url 'aranha:reagendar_agendamento_portal' ag.pk %}"
                        style="font-size:0.75rem;border:1.5px solid color-mix(in srgb,var(--cor-sucesso) 45%,transparent);color:var(--cor-sucesso);background:color-mix(in srgb,var(--cor-sucesso) 8%,transparent);border-radius:9999px;padding:0.3rem 0.85rem;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:0.3rem;">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                         Reagendar
@@ -554,11 +554,10 @@
                     </span>
                     {% endif %}
                     {% endif %}
-                    {% if ag.status in status_editaveis and ag.token_cancelamento %}
+                    {% if ag.status in status_editaveis %}
                     <button class="btn-cancel-agend"
                             data-cancel
                             data-id="{{ ag.pk }}"
-                            data-token="{{ ag.token_cancelamento }}"
                             data-nome="{{ ag.procedimento.nome }}"
                             data-data="{{ ag.data_hora_inicio|date:'d/m/Y' }}"
                             type="button">
@@ -866,11 +865,9 @@ var CSRF_TOKEN = '{{ csrf_token }}';
 
     /* ═══ CANCEL APPOINTMENT ═══ */
     var cancelAtendimentoId = null;
-    var cancelToken = null;
 
-    function openCancelModal(id, token, nome, data) {
+    function openCancelModal(id, nome, data) {
         cancelAtendimentoId = id;
-        cancelToken = token;
         // textContent: nome vem do dataset (texto cru) — nunca innerHTML
         var alvo = document.getElementById('cancelModalProcedure');
         var forte = document.createElement('strong');
@@ -887,14 +884,13 @@ var CSRF_TOKEN = '{{ csrf_token }}';
     function closeCancelModal() {
         document.getElementById('cancelModal').classList.remove('active');
         cancelAtendimentoId = null;
-        cancelToken = null;
     }
 
     // Delegated listener for cancel buttons
     document.addEventListener('click', function(e) {
         var el = e.target.closest('[data-cancel]');
         if (el) {
-            openCancelModal(el.dataset.id, el.dataset.token, el.dataset.nome, el.dataset.data);
+            openCancelModal(el.dataset.id, el.dataset.nome, el.dataset.data);
         }
     });
 
@@ -923,7 +919,7 @@ var CSRF_TOKEN = '{{ csrf_token }}';
     var btnConfirmCancel = document.getElementById('btnConfirmCancel');
     if (btnConfirmCancel) {
         btnConfirmCancel.addEventListener('click', function() {
-            if (!cancelToken) return;
+            if (!cancelAtendimentoId) return;
             var btn = btnConfirmCancel;
             btn.disabled = true;
             btn.innerHTML = SPIN + 'Cancelando...';
@@ -931,7 +927,8 @@ var CSRF_TOKEN = '{{ csrf_token }}';
             fetch('{% url "aranha:cancelar_agendamento" %}', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
-                body: JSON.stringify({token: cancelToken})
+                // id + sessao do OTP (o servidor confere que o agendamento e desta sessao)
+                body: JSON.stringify({atendimento_id: Number(cancelAtendimentoId)})
             })
             .then(lerJson)
             .then(function(res) {

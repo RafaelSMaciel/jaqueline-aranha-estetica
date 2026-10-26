@@ -11,8 +11,6 @@ nao vale para ninguem.
 """
 from __future__ import annotations
 
-import secrets
-
 from django.conf import settings
 from django.db.models import Q
 from django.urls import reverse
@@ -102,25 +100,29 @@ def url_termo(token: str) -> str:
 
 
 def obter_link_termo(atendimento, canal='WHATSAPP'):
-    """(notificacao, url, criada) do link do termo do atendimento.
+    """(notificacao, url, notificacao_criada) — emite um link NOVO do termo.
 
-    Reusa o link ja emitido p/ o atendimento (clicar 2x nao espalha tokens);
-    senao cria Notificacao TERMO. O link vale enquanto aceita_assinatura().
+    O token so existe em claro na geracao (link_acesso guarda o hash), entao
+    nao da p/ reexibir o link de antes: cada chamada emite outro (decisao D1,
+    spec padrao-sql §7.1). Os anteriores continuam validos ate o fim do
+    atendimento (nao revoga: o link que a recepcao ja mandou segue abrindo).
+    A Notificacao TERMO do atendimento e reaproveitada (1 por atendimento).
     """
-    existente = (
+    from . import links
+
+    notif = (
         Notificacao.objects.filter(Q_NOTIF_TERMO, atendimento=atendimento)
-        .exclude(token__isnull=True).exclude(token='')
-        .order_by('-criado_em').first()
+        .order_by('-criado_em', '-pk').first()
     )
-    if existente is not None:
-        return existente, url_termo(existente.token), False
-    if canal not in dict(Notificacao.CANAL_CHOICES):
-        canal = 'WHATSAPP'
-    notif = Notificacao.objects.create(
-        atendimento=atendimento,
-        tipo=TIPO_NOTIF_TERMO,
-        canal=canal,
-        status='PENDENTE',
-        token=secrets.token_urlsafe(32),
-    )
-    return notif, url_termo(notif.token), True
+    criada = notif is None
+    if criada:
+        if canal not in dict(Notificacao.CANAL_CHOICES):
+            canal = 'WHATSAPP'
+        notif = Notificacao.objects.create(
+            atendimento=atendimento,
+            tipo=TIPO_NOTIF_TERMO,
+            canal=canal,
+            status='PENDENTE',
+        )
+    token = links.emitir(links.TERMO, notif, expira_em=atendimento.data_hora_fim)
+    return notif, url_termo(token), criada

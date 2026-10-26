@@ -234,7 +234,7 @@ class DefaultsRodada2Tests(TestCase):
     def test_notificacao_tipo_termo(self):
         prof = criar_profissional()
         at = criar_atendimento(criar_cliente(), prof, criar_procedimento(profissional=prof))
-        notif = Notificacao.objects.create(atendimento=at, tipo='TERMO', canal='EMAIL', token='t' * 20)
+        notif = Notificacao.objects.create(atendimento=at, tipo='TERMO', canal='EMAIL')
         self.assertEqual(notif.get_tipo_display(), 'Termo de consentimento')
 
 

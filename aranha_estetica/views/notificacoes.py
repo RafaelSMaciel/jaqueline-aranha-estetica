@@ -7,19 +7,22 @@ import logging
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, F, Q
-from django.shortcuts import get_object_or_404, render
+from django.http import Http404
+from django.shortcuts import render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 from django_ratelimit.decorators import ratelimit
 
 from ..decorators import staff_required
 from ..models import Atendimento, Notificacao
+from ..services import links
 from ..utils.audit import registrar_log
 
 logger = logging.getLogger(__name__)
 
-# Unicos tokens que carregam link /confirmar/ (lembrete WhatsApp). Token de
-# termo (canal EMAIL), NPS e cancelamento NAO valem aqui.
+# Notificacoes que pedem resposta pelo link /confirmar/ (LinkAcesso
+# CONFIRMAR_PRESENCA, emitido no lembrete WhatsApp). Link de termo, NPS e
+# reagendar NAO valem aqui (finalidade diferente -> 404).
 TIPOS_LINK_CONFIRMACAO = ('LEMBRETE', 'LEMBRETE_2H', 'CONFIRMACAO')
 STATUS_ALTERAVEIS_PELO_LINK = ('AGENDADO', 'CONFIRMADO')
 # "Sem resposta" so faz sentido p/ o que pede resposta (link de confirmacao
@@ -42,17 +45,19 @@ def _alteravel_pelo_link(atendimento) -> bool:
 def confirmar_presenca(request, token):
     """
     Link publico (sem login) para cliente confirmar/cancelar agendamento.
-    Recebe token unico enviado no lembrete via WhatsApp.
+    Recebe o token do LinkAcesso CONFIRMAR_PRESENCA enviado no lembrete WhatsApp.
 
     Transicoes pela FSM do Atendimento (auditoria + eventos); status terminal,
-    PENDENTE ou horario passado ficam "nao editavel".
+    PENDENTE ou horario passado ficam "nao editavel" (o link vencido abre so
+    para leitura: a regra de horario e a do atendimento atual).
     """
-    notif = get_object_or_404(
-        Notificacao.objects.select_related(
-            'atendimento__procedimento', 'atendimento__profissional',
-        ),
-        token=token, canal='WHATSAPP', tipo__in=TIPOS_LINK_CONFIRMACAO,
+    link = links.resolver(
+        links.CONFIRMAR_PRESENCA, token, aceitar_expirado=True,
+        select_related=('notificacao__atendimento__procedimento', 'notificacao__atendimento__profissional'),
     )
+    if link is None:
+        raise Http404('Link inválido.')
+    notif = link.notificacao
     acao = request.GET.get('acao', '')
     if acao not in ('confirmar', 'cancelar'):
         acao = ''
@@ -85,6 +90,7 @@ def confirmar_presenca(request, token):
                         notif.resposta = resposta
                         notif.respondido_em = timezone.now()
                         notif.save(update_fields=['resposta', 'respondido_em'])
+                        links.marcar_usado(link)
                         logger.info('confirmar_presenca_%s', resposta.lower(),
                                     extra={'atendimento_id': atendimento.pk})
                         # IP de origem da resposta (a FSM audita so a transicao)

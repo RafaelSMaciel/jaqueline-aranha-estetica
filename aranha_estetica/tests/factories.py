@@ -117,3 +117,57 @@ def criar_compra_pacote(cliente, pacote, valor_pago=None, status='ATIVO'):
         valor_pago=valor_pago or pacote.preco_total,
         status=status,
     )
+
+
+# ─── Links publicos (link_acesso, so o hash do token no banco) ─────────────
+_PADRAO = object()
+
+
+def _expira_padrao(finalidade, alvo):
+    """Mesma validade que o codigo grava na emissao (services/termos, tasks, whatsapp...)."""
+    from aranha_estetica.constants import VALIDADE_LINK_FORMULARIO, VALIDADE_LINK_NPS
+    from aranha_estetica.models import LinkAcesso
+
+    if finalidade == LinkAcesso.NPS:
+        return alvo.criado_em + VALIDADE_LINK_NPS
+    if finalidade == LinkAcesso.TERMO:
+        return alvo.atendimento.data_hora_fim
+    if finalidade == LinkAcesso.CONFIRMAR_PRESENCA:
+        return alvo.atendimento.data_hora_inicio
+    if finalidade == LinkAcesso.GERENCIAR_AGENDAMENTO:
+        return alvo.data_hora_inicio
+    if finalidade == LinkAcesso.FORMULARIO:
+        return timezone.now() + VALIDADE_LINK_FORMULARIO
+    return None
+
+
+def criar_link(finalidade, alvo, token=None, *, expira_em=_PADRAO, **campos):
+    """LinkAcesso com token CONHECIDO (o servico sorteia). Devolve o token em claro."""
+    from aranha_estetica.models import LinkAcesso
+    from aranha_estetica.services import links
+
+    token = token or links.gerar_token()
+    if expira_em is _PADRAO:
+        expira_em = _expira_padrao(finalidade, alvo)
+    LinkAcesso.objects.create(
+        finalidade=finalidade, token_hash=links.sha256_hex(token), expira_em=expira_em,
+        **{LinkAcesso.CAMPO_ALVO[finalidade]: alvo}, **campos,
+    )
+    return token
+
+
+_FINALIDADE_DA_NOTIFICACAO = {
+    'NPS': 'NPS', 'TERMO': 'TERMO',
+    'LEMBRETE': 'CONFIRMAR_PRESENCA', 'LEMBRETE_2H': 'CONFIRMAR_PRESENCA', 'CONFIRMACAO': 'CONFIRMAR_PRESENCA',
+}
+
+
+def criar_notificacao_com_link(atendimento, tipo='LEMBRETE', canal='WHATSAPP', token=None,
+                               finalidade=None, expira_em=_PADRAO, **campos):
+    """(notificacao, token): Notificacao + o LinkAcesso que a rota publica dela aceita."""
+    from aranha_estetica.models import Notificacao
+
+    notif = Notificacao.objects.create(atendimento=atendimento, tipo=tipo, canal=canal, **campos)
+    if finalidade is None:
+        finalidade = 'TERMO' if (tipo, canal) == ('LEMBRETE', 'EMAIL') else _FINALIDADE_DA_NOTIFICACAO[tipo]
+    return notif, criar_link(finalidade, notif, token, expira_em=expira_em)

@@ -35,8 +35,6 @@ class ListaEspera(models.Model):
     # por aqui sem reescrever o cadastro (uso: email_contato or cliente.email).
     email_contato = models.EmailField(blank=True, null=True)
     criado_em = models.DateTimeField(auto_now_add=True)
-    token_reserva = models.CharField(max_length=64, blank=True, null=True)
-    expira_em = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         managed = True

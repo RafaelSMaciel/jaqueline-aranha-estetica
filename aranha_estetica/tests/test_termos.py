@@ -33,6 +33,7 @@ from aranha_estetica.models import (
 from aranha_estetica.utils.datas import hoje
 
 from .factories import (
+    criar_notificacao_com_link,
     criar_atendimento,
     criar_cliente,
     criar_procedimento,
@@ -131,9 +132,8 @@ class TermoAssinaturaTests(TestCase):
         self.notif = self._notif('TERMO', 'EMAIL', 'tok-termo')
 
     def _notif(self, tipo, canal, token, atendimento=None):
-        return Notificacao.objects.create(
-            atendimento=atendimento or self.at, tipo=tipo, canal=canal, token=token,
-        )
+        notif, _token = criar_notificacao_com_link(atendimento or self.at, tipo, canal, token=token)
+        return notif
 
     def _url(self, token='tok-termo'):
         return reverse('aranha:termo_assinatura', args=[token])
@@ -349,9 +349,8 @@ class LembreteD1ComTermoTests(TestCase):
         proc = criar_procedimento(profissional=prof)
         at = criar_atendimento(cliente, prof, proc, data_hora=_local(1))
         for canal in ('EMAIL', 'WHATSAPP'):
-            Notificacao.objects.create(
-                atendimento=at, tipo='TERMO', canal=canal, status='ENVIADO',
-                token=f'tok-termo-{canal}', enviado_em=timezone.now(),
+            criar_notificacao_com_link(
+                at, 'TERMO', canal, token=f'tok-termo-{canal}', status='ENVIADO', enviado_em=timezone.now(),
             )
 
         enviada = mock.Mock(status='ENVIADO')

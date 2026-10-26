@@ -44,6 +44,7 @@ from .booking_otp import (
 )
 from .booking_reagendar import (
     meus_agendamentos, reagendar_agendamento, reagendar_horarios,
+    reagendar_agendamento_portal, reagendar_horarios_portal,
 )
 from .booking_api import (
     api_dias_disponiveis,
@@ -73,6 +74,7 @@ from .profissional import (
     anotar as profissional_anotar,
     aprovar_agendamento as profissional_aprovar,
     rejeitar_agendamento as profissional_rejeitar,
+    gerar_link_calendario as profissional_link_calendario,
 )
 from .health import healthcheck, liveness
 from .cron import run_job as cron_run_job

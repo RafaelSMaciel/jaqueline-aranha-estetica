@@ -3,7 +3,7 @@ from datetime import datetime, time, timedelta
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Count, F, Q, Sum
+from django.db.models import Count, F, OuterRef, Q, Subquery, Sum
 from django.db.models.functions import TruncDate
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
@@ -11,9 +11,10 @@ from django.utils import timezone
 from django.views.decorators.cache import never_cache
 
 from ..models import (
-    AgendaHorario, AvaliacaoNPS, Cliente, CompraPacote, Atendimento, Profissional,
+    AgendaHorario, AvaliacaoNPS, Cliente, CompraPacote, Atendimento, LinkAcesso, Profissional,
 )
 from ..decorators import staff_required
+from ..services import links
 from ..utils.busca import q_busca_cliente
 from ..utils.datas import fmt_local, hoje as hoje_local
 from ..utils.parse import id_int
@@ -262,6 +263,11 @@ def painel_profissionais(request):
     # Mes corrente no fuso local (agora.month em UTC erra no fim do mes a noite)
     inicio_mes = hoje_local().replace(day=1)
     proximo_mes = (inicio_mes + timedelta(days=32)).replace(day=1)
+    # Feed ICS: o token so existe na geracao (link_acesso guarda o hash) — a
+    # lista mostra so se ha link vigente e desde quando.
+    link_ics = LinkAcesso.objects.filter(
+        profissional=OuterRef('pk'), finalidade=LinkAcesso.FEED_ICS, revogado_em__isnull=True,
+    ).order_by('-criado_em', '-pk')
     profissionais = Profissional.objects.all().annotate(
         total_agendamentos=Count('atendimento'),
         agendamentos_mes=Count(
@@ -270,12 +276,19 @@ def painel_profissionais(request):
                 atendimento__data_hora_inicio__gte=_inicio_do_dia(inicio_mes),
                 atendimento__data_hora_inicio__lt=_inicio_do_dia(proximo_mes),
             )
-        )
+        ),
+        ics_ativo_desde=Subquery(link_ics.values('criado_em')[:1]),
     ).order_by('nome')
 
     paginator = Paginator(profissionais, 30)
     page = request.GET.get('page', 1)
     profissionais_page = paginator.get_page(page)
+    migracao_links = links.aplicada_em_0049()
+    for prof in profissionais_page:
+        # link migrado do token antigo (antes da 0049): ativo, mas sem data real de criacao
+        prof.ics_migrado = bool(
+            prof.ics_ativo_desde and migracao_links and prof.ics_ativo_desde <= migracao_links
+        )
 
     context = {'profissionais': profissionais_page}
     return render(request, 'painel/profissionais.html', context)

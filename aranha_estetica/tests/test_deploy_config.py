@@ -806,8 +806,8 @@ class HousekeepingTests(TestCase):
         CodigoOtp.objects.filter(pk=velho.pk).update(criado_em=agora - timedelta(hours=25))
 
         at = criar_atendimento(criar_cliente(), criar_profissional(), criar_procedimento())
-        n_velha = Notificacao.objects.create(atendimento=at, mensagem='Oi Maria', token='t-velha')
-        n_nova = Notificacao.objects.create(atendimento=at, mensagem='Oi Maria', token='t-nova')
+        n_velha = Notificacao.objects.create(atendimento=at, mensagem='Oi Maria')
+        n_nova = Notificacao.objects.create(atendimento=at, mensagem='Oi Maria')
         Notificacao.objects.filter(pk=n_velha.pk).update(criado_em=agora - timedelta(days=400))
 
         log_velho = LogAuditoria.objects.create(acao='x')

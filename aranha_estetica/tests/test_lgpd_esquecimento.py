@@ -12,7 +12,8 @@ from aranha_estetica.models import (
 from aranha_estetica.services.lgpd import LgpdService
 
 from .factories import (
-    criar_atendimento, criar_cliente, criar_procedimento, criar_profissional,
+    criar_atendimento, criar_cliente, criar_link, criar_notificacao_com_link, criar_procedimento,
+    criar_profissional,
 )
 
 
@@ -26,7 +27,8 @@ class EsquecerClienteTests(TestCase):
 
     def test_anonimizacao_e_gravada_no_banco(self):
         """Regressao critica: soft_delete() gravava so deletado_em/ativo."""
-        token_antigo = self.cliente.token_descadastro
+        token_antigo = criar_link('DESCADASTRO', self.cliente)
+        self.assertEqual(LgpdService.cliente_por_token_descadastro(token_antigo), self.cliente)
         LgpdService.esquecer_cliente(self.cliente)
 
         salvo = Cliente.all_objects.get(pk=self.cliente.pk)
@@ -38,7 +40,11 @@ class EsquecerClienteTests(TestCase):
         self.assertIsNone(salvo.consent_email_marketing_ip)
         self.assertFalse(salvo.ativo)
         self.assertIsNotNone(salvo.deletado_em)
-        self.assertNotEqual(salvo.token_descadastro, token_antigo)
+        # link de descadastro antigo deixa de identificar o titular (revogado = 404)
+        self.assertIsNone(LgpdService.cliente_por_token_descadastro(token_antigo))
+        self.assertEqual(
+            self.client.get(reverse('aranha:lgpd_unsubscribe', args=[token_antigo])).status_code, 404,
+        )
         self.assertTrue(LogAuditoria.objects.filter(
             tabela='cliente', registro_id=self.cliente.pk, acao__icontains='anonimizado',
         ).exists())
@@ -58,6 +64,36 @@ class EsquecerClienteTests(TestCase):
         self.assertFalse(CodigoOtp.objects.filter(telefone='17900090008').exists())
         self.assertFalse(ListaEspera.objects.filter(cliente_id=self.cliente.pk).exists())
         self.assertEqual(Notificacao.objects.get(atendimento=atd).mensagem, '')
+
+    def test_revoga_todos_os_links_publicos_do_titular(self):
+        from aranha_estetica.models import LinkAcesso
+        from aranha_estetica.services import links
+
+        prof = criar_profissional()
+        proc = criar_procedimento(profissional=prof)
+        realizado = criar_atendimento(self.cliente, prof, proc, status='REALIZADO',
+                                      data_hora=timezone.now() - timedelta(days=2))
+        futuro = criar_atendimento(self.cliente, prof, proc)
+        form = FormularioAnamnese.objects.create(nome='F', tipo='ANAMNESE', schema_json=[])
+        ficha = RespostaAnamnese.objects.create(formulario=form, cliente=self.cliente, atendimento=realizado)
+        tokens = {
+            'DESCADASTRO': criar_link('DESCADASTRO', self.cliente),
+            'GERENCIAR_AGENDAMENTO': criar_link('GERENCIAR_AGENDAMENTO', futuro),
+            'CONFIRMAR_PRESENCA': criar_notificacao_com_link(futuro)[1],
+            'NPS': criar_notificacao_com_link(realizado, 'NPS')[1],
+            'TERMO': criar_notificacao_com_link(futuro, 'TERMO', 'EMAIL')[1],
+            'FORMULARIO': criar_link('FORMULARIO', ficha),
+        }
+        outra = criar_cliente(nome='Outra Titular')
+        token_outra = criar_link('DESCADASTRO', outra)
+
+        LgpdService.esquecer_cliente(self.cliente)
+
+        for finalidade, token in tokens.items():
+            with self.subTest(finalidade=finalidade):
+                self.assertIsNone(links.resolver(finalidade, token, aceitar_expirado=True))
+        self.assertEqual(LinkAcesso.objects.filter(revogado_em__isnull=False).count(), len(tokens))
+        self.assertEqual(LgpdService.cliente_por_token_descadastro(token_outra), outra)
 
     def test_mesmo_telefone_pode_recadastrar(self):
         LgpdService.esquecer_cliente(self.cliente)

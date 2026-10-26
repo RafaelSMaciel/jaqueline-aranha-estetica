@@ -5,20 +5,20 @@ Cliente recebe link via email/WhatsApp:
   /pesquisa/<token>/  → form pos-atendimento
 
 Mesma view, branching por formulario.tipo.
-Sem autenticacao — token urlsafe(32) faz controle de acesso.
+Sem autenticacao — o token (LinkAcesso FORMULARIO; so o hash no banco) faz o
+controle de acesso.
 """
-from datetime import timedelta
-
 from django.contrib import messages
 from django.db import transaction
 from django.http import Http404
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
 from ..models import AceiteTermo, RespostaAnamnese, VersaoTermo
 from ..models.sistema import LogAuditoria
+from ..services import links
 from ..services.anamnese import validar_respostas
 from ..utils.audit import registrar_log
 
@@ -27,23 +27,26 @@ MSG_SEM_CONSENTIMENTO = (
 )
 
 
-def _get_resposta_or_404(token: str, tipo_esperado: str) -> RespostaAnamnese:
-    """Busca RespostaAnamnese pelo token, valida tipo e idade do convite.
+def _get_resposta_or_404(token: str, tipo_esperado: str):
+    """(resposta, link) do LinkAcesso FORMULARIO do token; valida o tipo da rota.
 
-    Token expira em 60 dias para limitar exposicao caso vaze.
+    O convite expira em 60 dias (link_acesso.expira_em, gravado na emissao)
+    para limitar a exposicao caso vaze; vencido, revogado ou desconhecido -> 404.
     """
-    resposta = get_object_or_404(
-        RespostaAnamnese.objects.select_related(
-            'formulario', 'cliente', 'atendimento', 'atendimento__profissional', 'atendimento__procedimento',
+    link = links.resolver(
+        links.FORMULARIO, token,
+        select_related=(
+            'resposta_formulario__formulario', 'resposta_formulario__cliente',
+            'resposta_formulario__atendimento__profissional',
+            'resposta_formulario__atendimento__procedimento',
         ),
-        token=token,
     )
+    if link is None:
+        raise Http404('Link inválido ou expirado.')
+    resposta = link.resposta_formulario
     if resposta.formulario.tipo != tipo_esperado:
         raise Http404('Tipo de formulario nao confere com a rota.')
-    # Convite expira 60 dias apos criacao
-    if resposta.criado_em < timezone.now() - timedelta(days=60):
-        raise Http404('Link expirado.')
-    return resposta
+    return resposta, link
 
 
 def _valores_postados(schema: list, post_data) -> dict:
@@ -90,7 +93,7 @@ def _renderizar(request, resposta: RespostaAnamnese, erros=None, valores=None):
     })
 
 
-def _gravar_resposta(request, resposta: RespostaAnamnese):
+def _gravar_resposta(request, resposta: RespostaAnamnese, link):
     schema = resposta.formulario.schema_json or []
     valores = _valores_postados(schema, request.POST)
     # Mesmo validador do booking: bool 'sim'/'nao' -> True/False, opcoes e tamanhos conferidos
@@ -105,6 +108,7 @@ def _gravar_resposta(request, resposta: RespostaAnamnese):
         resposta.respostas_json = respostas
         resposta.respondida_em = timezone.now()
         resposta.save(update_fields=['respostas_json', 'respondida_em'])
+        links.marcar_usado(link)
 
         LogAuditoria.objects.create(
             usuario=None,
@@ -139,14 +143,14 @@ def _gravar_resposta(request, resposta: RespostaAnamnese):
 @require_http_methods(['GET', 'POST'])
 def anamnese_publica(request, token: str):
     """Form anamnese pre-atendimento (link via email/WhatsApp)."""
-    resposta = _get_resposta_or_404(token, tipo_esperado='ANAMNESE')
+    resposta, link = _get_resposta_or_404(token, tipo_esperado='ANAMNESE')
 
     if resposta.respondida:
         messages.info(request, 'Você já respondeu este formulário. Obrigado!')
         return redirect('aranha:anamnese_obrigado')
 
     if request.method == 'POST':
-        return _gravar_resposta(request, resposta)
+        return _gravar_resposta(request, resposta, link)
     return _renderizar(request, resposta)
 
 
@@ -154,14 +158,14 @@ def anamnese_publica(request, token: str):
 @require_http_methods(['GET', 'POST'])
 def pesquisa_publica(request, token: str):
     """Form pesquisa pos-atendimento (link via WhatsApp 2h apos REALIZADO)."""
-    resposta = _get_resposta_or_404(token, tipo_esperado='PESQUISA')
+    resposta, link = _get_resposta_or_404(token, tipo_esperado='PESQUISA')
 
     if resposta.respondida:
         messages.info(request, 'Você já respondeu esta pesquisa. Obrigado!')
         return redirect('aranha:pesquisa_obrigado')
 
     if request.method == 'POST':
-        return _gravar_resposta(request, resposta)
+        return _gravar_resposta(request, resposta, link)
     return _renderizar(request, resposta)
 
 
