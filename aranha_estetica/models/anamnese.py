@@ -3,7 +3,6 @@ import secrets
 
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.urls import reverse
 
 from .clientes import Cliente
 from .procedimentos import Procedimento
@@ -119,24 +118,24 @@ class FormularioAnamnese(models.Model):
 
 
 def _gen_resposta_token():
+    """Sem uso no codigo: mantida porque a migration 0023 referencia (default antigo
+    de resposta_anamnese.token, coluna removida na 0049)."""
     return secrets.token_urlsafe(32)
 
 
 class RespostaAnamnese(models.Model):
     """Resposta de cliente p/ um formulario, vinculada ao atendimento.
 
-    token: gerado no momento do convite (workflow pre/pos). Link publico
-    /pesquisa/<token>/ ou /anamnese/<token>/ permite preenchimento sem login.
-    Apos POST com sucesso, respondida_em fica populado e link nao reabre form.
+    O link publico (/anamnese/<token>/ ou /pesquisa/<token>/, preenchimento sem
+    login) e um LinkAcesso FORMULARIO emitido no convite
+    (services.links.emitir_link_formulario). Apos o POST com sucesso,
+    respondida_em fica populado e o link nao reabre o form.
     """
 
     formulario = models.ForeignKey(FormularioAnamnese, on_delete=models.RESTRICT)
     # PROTECT: resposta de anamnese e dado de saude (retencao legal)
     cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT)
     atendimento = models.ForeignKey('Atendimento', on_delete=models.PROTECT, blank=True, null=True)
-    token = models.CharField(
-        max_length=64, unique=True, db_index=True, default=_gen_resposta_token,
-    )
     respostas_json = models.JSONField(default=dict)
     criado_em = models.DateTimeField(auto_now_add=True)
     respondida_em = models.DateTimeField(blank=True, null=True)
@@ -159,12 +158,6 @@ class RespostaAnamnese(models.Model):
         super().clean()
         if self.respostas_json is not None and not isinstance(self.respostas_json, dict):
             raise ValidationError({'respostas_json': 'Deve ser um objeto JSON ({"chave": valor}).'})
-
-    def get_link_publico(self):
-        """Retorna path publico baseado no tipo do formulario."""
-        if self.formulario.tipo == 'PESQUISA':
-            return reverse('aranha:pesquisa_publica', args=[self.token])
-        return reverse('aranha:anamnese_publica', args=[self.token])
 
     @property
     def respondida(self):

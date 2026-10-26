@@ -1,7 +1,7 @@
-"""Regressoes do portal do cliente: link /confirmar/, cancelar/reagendar por token,
-Meus Agendamentos, feed ICS, embed e helpers do booking."""
+"""Regressoes do portal do cliente: link /confirmar/, cancelar/reagendar (portal com
+sessao do OTP e link legado por token), Meus Agendamentos, feed ICS, embed e helpers
+do booking."""
 import json
-import secrets
 from datetime import datetime, time, timedelta
 from decimal import Decimal
 from unittest.mock import patch
@@ -15,7 +15,10 @@ from aranha_estetica.forms import ClientePainelForm
 from aranha_estetica.models import Atendimento, Notificacao
 from aranha_estetica.services.agendamento_service import AgendamentoService, formatar_brl
 
-from .factories import criar_cliente, criar_procedimento, criar_profissional, limpar_feriados
+from .factories import (
+    criar_cliente, criar_link, criar_notificacao_com_link, criar_procedimento, criar_profissional,
+    limpar_feriados,
+)
 
 
 def _local(dias, hora, minuto=0):
@@ -32,10 +35,21 @@ def _atendimento(cliente, prof, proc, inicio, status='AGENDADO'):
 
 
 def _notif(atendimento, tipo='LEMBRETE', canal='WHATSAPP'):
-    return Notificacao.objects.create(
-        atendimento=atendimento, tipo=tipo, canal=canal, status='ENVIADO',
-        token=secrets.token_urlsafe(32),
-    )
+    """Notificacao + link publico dela; o token em claro fica em notif.token (so no teste)."""
+    notif, token = criar_notificacao_com_link(atendimento, tipo, canal, status='ENVIADO')
+    notif.token = token
+    return notif
+
+
+def _token_gerenciar(atendimento):
+    """Link legado /reagendar/<token>/ (GERENCIAR_AGENDAMENTO migrado na 0049)."""
+    return criar_link('GERENCIAR_AGENDAMENTO', atendimento)
+
+
+def _logar_portal(client, telefone):
+    session = client.session
+    session['meus_agendamentos_telefone'] = telefone
+    session.save()
 
 
 @override_settings(RATELIMIT_ENABLE=False)
@@ -110,7 +124,7 @@ class ConfirmarPresencaLinkTests(TestCase):
 
 @override_settings(RATELIMIT_ENABLE=False)
 class CancelarPorTokenTests(TestCase):
-    """booking-26 / booking-12: FSM + corpo malformado -> 400."""
+    """booking-26 / booking-12: FSM + corpo malformado -> 400 (link legado por token)."""
 
     def setUp(self):
         cache.clear()
@@ -124,22 +138,64 @@ class CancelarPorTokenTests(TestCase):
 
     def test_cancela_pendente(self):
         at = _atendimento(self.cli, self.prof, self.proc, _local(2, 10), status='PENDENTE')
-        resp = self._post(json.dumps({'token': at.token_cancelamento}))
+        resp = self._post(json.dumps({'token': _token_gerenciar(at)}))
         self.assertEqual(resp.status_code, 200)
         at.refresh_from_db()
         self.assertEqual(at.status, 'CANCELADO')
+        self.assertTrue(at.links_acesso.get().usado_em)
 
     def test_reagendado_nao_pode_ser_cancelado(self):
         at = _atendimento(self.cli, self.prof, self.proc, _local(2, 10), status='REAGENDADO')
-        resp = self._post(json.dumps({'token': at.token_cancelamento}))
+        resp = self._post(json.dumps({'token': _token_gerenciar(at)}))
         self.assertEqual(resp.status_code, 400)
         at.refresh_from_db()
         self.assertEqual(at.status, 'REAGENDADO')
 
     def test_corpo_malformado_retorna_400(self):
-        for corpo in ('[1]', '"x"', json.dumps({'token': 5}), 'nao-json'):
+        for corpo in ('[1]', '"x"', json.dumps({'token': 5}), 'nao-json', json.dumps({'atendimento_id': [1]})):
             with self.subTest(corpo=corpo):
                 self.assertIn(self._post(corpo).status_code, (400, 404))
+
+    def test_link_legado_revogado_ou_passado(self):
+        at = _atendimento(self.cli, self.prof, self.proc, _local(2, 10))
+        token = _token_gerenciar(at)
+        at.links_acesso.update(revogado_em=timezone.now())
+        self.assertEqual(self._post(json.dumps({'token': token})).status_code, 404)
+        passado = _atendimento(self.cli, self.prof, self.proc, timezone.now() - timedelta(hours=2))
+        resp = self._post(json.dumps({'token': _token_gerenciar(passado)}))
+        self.assertEqual(resp.status_code, 400)  # link vencido: mensagem, nada muda
+        passado.refresh_from_db()
+        self.assertEqual(passado.status, 'AGENDADO')
+
+
+@override_settings(RATELIMIT_ENABLE=False)
+class CancelarPeloPortalTests(TestCase):
+    """Portal: {"atendimento_id"} + sessao do OTP; agendamento de outro telefone = 404 (anti-IDOR)."""
+
+    def setUp(self):
+        cache.clear()
+        self.prof = criar_profissional()
+        self.proc = criar_procedimento(profissional=self.prof)
+        self.cli = criar_cliente(telefone='17988887777')
+        self.outro = criar_cliente(telefone='17988886666')
+        self.url = reverse('aranha:cancelar_agendamento')
+
+    def _post(self, pk):
+        return self.client.post(self.url, data=json.dumps({'atendimento_id': pk}), content_type='application/json')
+
+    def test_cancela_o_proprio_e_nao_o_alheio(self):
+        meu = _atendimento(self.cli, self.prof, self.proc, _local(2, 10))
+        alheio = _atendimento(self.outro, self.prof, self.proc, _local(2, 14))
+        self.assertEqual(self._post(meu.pk).status_code, 404)  # sem sessao
+        _logar_portal(self.client, '17988887777')
+        self.assertEqual(self._post(alheio.pk).status_code, 404)
+        self.assertEqual(self._post(999999).status_code, 404)
+        resp = self._post(meu.pk)
+        self.assertEqual(resp.status_code, 200)
+        meu.refresh_from_db()
+        alheio.refresh_from_db()
+        self.assertEqual((meu.status, alheio.status), ('CANCELADO', 'AGENDADO'))
+        self.assertFalse(meu.links_acesso.exists())  # portal nao emite token
 
 
 @override_settings(RATELIMIT_ENABLE=False)
@@ -153,8 +209,11 @@ class ReagendarTests(TestCase):
         self.proc = criar_procedimento(profissional=self.prof)
         self.cli = criar_cliente()
 
+    def _url(self, at):
+        return reverse('aranha:reagendar_agendamento', args=[_token_gerenciar(at)])
+
     def _post(self, at, **dados):
-        return self.client.post(reverse('aranha:reagendar_agendamento', args=[at.token_cancelamento]), dados)
+        return self.client.post(self._url(at), dados)
 
     def test_reagenda_para_slot_valido_mantendo_aprovacao(self):
         at = _atendimento(self.cli, self.prof, self.proc, _local(3, 10))
@@ -212,7 +271,7 @@ class ReagendarTests(TestCase):
 
     def test_get_passa_data_minima_local(self):
         at = _atendimento(self.cli, self.prof, self.proc, _local(3, 10))
-        resp = self.client.get(reverse('aranha:reagendar_agendamento', args=[at.token_cancelamento]))
+        resp = self.client.get(self._url(at))
         self.assertEqual(resp.context['data_min'], (timezone.localdate() + timedelta(days=1)).isoformat())
 
     def _retorno_agendado(self):
@@ -278,6 +337,32 @@ class ReagendarTests(TestCase):
         self.assertEqual(dados['promocao'], 'Glow')
 
 
+class ReagendarPeloPortalTests(ReagendarTests):
+    """Os mesmos cenarios pelo portal: /meus-agendamentos/<id>/reagendar/ + sessao do OTP."""
+
+    def setUp(self):
+        super().setUp()
+        _logar_portal(self.client, self.cli.telefone)
+
+    def _url(self, at):
+        return reverse('aranha:reagendar_agendamento_portal', args=[at.pk])
+
+    def test_sem_sessao_ou_de_outro_telefone_nao_reagenda(self):
+        at = _atendimento(self.cli, self.prof, self.proc, _local(3, 10))
+        alheio = _atendimento(criar_cliente(telefone='17911112222'), self.prof, self.proc, _local(3, 14))
+        resp = self._post(alheio, datetime=_local(4, 11).isoformat())
+        self.assertEqual(resp.url, reverse('aranha:meus_agendamentos'))
+        self.assertEqual(self.client.get(
+            reverse('aranha:reagendar_horarios_portal', args=[alheio.pk]), {'data': '2031-01-01'},
+        ).status_code, 404)
+        self.client.session.flush()
+        self.client.cookies.clear()
+        resp = self._post(at, datetime=_local(4, 11).isoformat())
+        self.assertEqual(resp.url, reverse('aranha:meus_agendamentos'))
+        self.assertFalse(Atendimento.objects.filter(reagendado_de__in=[at, alheio]).exists())
+        self.assertFalse(at.links_acesso.exists())
+
+
 @override_settings(RATELIMIT_ENABLE=False)
 class MeusAgendamentosListaTests(TestCase):
     """booking-22 / booking-30: acoes p/ PENDENTE e sem innerHTML com dado do banco."""
@@ -294,13 +379,14 @@ class MeusAgendamentosListaTests(TestCase):
     def test_pendente_tem_cancelar_e_reagendar(self):
         at = _atendimento(self.cli, self.prof, self.proc, _local(5, 10), status='PENDENTE')
         html = self.client.get(reverse('aranha:meus_agendamentos')).content.decode()
-        self.assertIn(reverse('aranha:reagendar_agendamento', args=[at.token_cancelamento]), html)
-        self.assertIn(f'data-token="{at.token_cancelamento}"', html)
+        self.assertIn(reverse('aranha:reagendar_agendamento_portal', args=[at.pk]), html)
+        self.assertIn(f'data-id="{at.pk}"', html)
+        self.assertNotIn('data-token', html)  # nenhum token no portal (id + sessao)
 
     def test_menos_de_24h_nao_oferece_reagendar(self):
         at = _atendimento(self.cli, self.prof, self.proc, timezone.now() + timedelta(hours=5))
         html = self.client.get(reverse('aranha:meus_agendamentos')).content.decode()
-        self.assertNotIn(reverse('aranha:reagendar_agendamento', args=[at.token_cancelamento]), html)
+        self.assertNotIn(reverse('aranha:reagendar_agendamento_portal', args=[at.pk]), html)
         self.assertIn('Faltam menos de 24h', html)
 
     def test_nome_do_procedimento_nao_vai_para_innerhtml(self):
@@ -319,12 +405,17 @@ class IcsFeedTests(TestCase):
         proc = criar_procedimento(profissional=prof)
         _atendimento(criar_cliente(), prof, proc, _local(1, 10))
         url = reverse('aranha:ics_feed_profissional', args=[prof.slug])
-        resp = self.client.get(url, {'token': prof.ics_token})
+        token = criar_link('FEED_ICS', prof)
+        resp = self.client.get(url, {'token': token})
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(resp['Content-Type'].startswith('text/calendar'))
         self.assertIn('BEGIN:VEVENT', resp.content.decode())
         self.assertEqual(self.client.get(url, {'token': 'errado'}).status_code, 404)
         self.assertEqual(self.client.get(url).status_code, 404)
+        # token valido de OUTRO profissional nao abre esta agenda
+        outro = criar_link('FEED_ICS', criar_profissional(nome='Dra Outra Ics'))
+        self.assertEqual(self.client.get(url, {'token': outro}).status_code, 404)
+        self.assertIsNotNone(prof.links_acesso.get().usado_em)  # 1a assinatura registrada
 
 
 @override_settings(RATELIMIT_ENABLE=False)
@@ -466,11 +557,13 @@ class ReagendarHorariosTests(TestCase):
         self.at = _atendimento(self.cli, self.prof, self.proc60, _local(3, 10))
         self.dia = timezone.localtime(self.at.data_hora_inicio).date().isoformat()
 
+        self.token = _token_gerenciar(self.at)
+
     def _horarios(self, token, **params):
         return self.client.get(reverse('aranha:reagendar_horarios', args=[token]), {'data': self.dia, **params})
 
     def test_proprio_horario_nao_conta_como_ocupado(self):
-        resp = self._horarios(self.at.token_cancelamento)
+        resp = self._horarios(self.token)
         self.assertEqual(resp.status_code, 200)
         horarios = {h['horario']: [p['id'] for p in h['profissionais']] for h in resp.json()['horarios']}
         for hhmm in ('09:30', '10:00', '10:30'):
@@ -482,24 +575,32 @@ class ReagendarHorariosTests(TestCase):
         }).json()['horarios']
         self.assertNotIn('10:00', [h['horario'] for h in geral])
         # E o POST aceita o horario mostrado (paridade com a tela)
-        resp = self.client.post(reverse('aranha:reagendar_agendamento', args=[self.at.token_cancelamento]), {
+        resp = self.client.post(reverse('aranha:reagendar_agendamento', args=[self.token]), {
             'datetime': _local(3, 10, 30).isoformat(), 'profissional': self.prof.pk,
         })
         self.assertIn('sucesso', resp.url)
 
     def test_token_invalido_404_e_regras_do_reagendamento(self):
         self.assertEqual(self._horarios('token-que-nao-existe').status_code, 404)
-        self.assertEqual(self._horarios(self.at.token_cancelamento, data='lixo').status_code, 400)
+        self.assertEqual(self._horarios(self.token, data='lixo').status_code, 400)
         self.cli.bloqueado_online = True
         self.cli.save()
-        self.assertEqual(self._horarios(self.at.token_cancelamento).status_code, 400)
+        self.assertEqual(self._horarios(self.token).status_code, 400)
 
     def test_tela_usa_o_endpoint_do_proprio_link(self):
         html = self.client.get(
-            reverse('aranha:reagendar_agendamento', args=[self.at.token_cancelamento])
+            reverse('aranha:reagendar_agendamento', args=[self.token])
         ).content.decode()
-        self.assertIn(reverse('aranha:reagendar_horarios', args=[self.at.token_cancelamento]), html)
+        self.assertIn(reverse('aranha:reagendar_horarios', args=[self.token]).replace('-', '\\u002D'), html)
         self.assertNotIn(reverse('aranha:api_horarios_disponiveis'), html)
+
+    def test_tela_do_portal_usa_o_endpoint_do_portal(self):
+        _logar_portal(self.client, self.cli.telefone)
+        resp = self.client.get(reverse('aranha:reagendar_agendamento_portal', args=[self.at.pk]))
+        self.assertEqual(resp.context['url_horarios'], reverse('aranha:reagendar_horarios_portal', args=[self.at.pk]))
+        horarios = self.client.get(resp.context['url_horarios'], {'data': self.dia})
+        self.assertEqual(horarios.status_code, 200)
+        self.assertTrue(horarios.json()['horarios'])
 
 
 @override_settings(RATELIMIT_ENABLE=False)
@@ -530,7 +631,7 @@ class DigitosUnicodeTests(TestCase):
 
     def test_reagendar_com_profissional_unicode_volta_com_mensagem(self):
         at = _atendimento(criar_cliente(), self.prof, self.proc, _local(3, 10))
-        resp = self.client.post(reverse('aranha:reagendar_agendamento', args=[at.token_cancelamento]), {
+        resp = self.client.post(reverse('aranha:reagendar_agendamento', args=[_token_gerenciar(at)]), {
             'datetime': _local(4, 11).isoformat(), 'profissional': '²',
         })
         self.assertEqual(resp.status_code, 302)
@@ -544,7 +645,8 @@ class IcsDescricaoTests(TestCase):
         prof = criar_profissional(nome='Dra Ics Desc')
         proc = criar_procedimento(profissional=prof, nome='Peeling')
         _atendimento(criar_cliente(), prof, proc, _local(1, 10))
-        resp = self.client.get(reverse('aranha:ics_feed_profissional', args=[prof.slug]), {'token': prof.ics_token})
+        resp = self.client.get(reverse('aranha:ics_feed_profissional', args=[prof.slug]),
+                               {'token': criar_link('FEED_ICS', prof)})
         linha = next(ln for ln in resp.content.decode().split('\r\n') if ln.startswith('DESCRIPTION:'))
         # r'': barra+n LITERAL no .ics (escape RFC 5545), nunca barra dupla
         self.assertIn(r'Status: Agendado\nProcedimento: Peeling\nProfissional: Dra Ics Desc', linha)

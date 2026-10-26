@@ -123,7 +123,8 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 
 ## 8. Reagendamento e cancelamento
 
-- **Pela cliente** (link `/reagendar/<token>/` ou "Meus agendamentos"): reagendar só com
+- **Pela cliente** ("Meus agendamentos", por sessão do OTP; ou link legado `/reagendar/<token>/`,
+  só para tokens anteriores à 0049): reagendar só com
   **≥ 24 h** de antecedência (`JANELA_MINIMA_REAGENDAMENTO`) e status ativo; cancelar a qualquer
   momento **antes do início**.
 - Reagendar: o antigo vira **REAGENDADO** antes de o novo entrar (a constraint não acusa conflito

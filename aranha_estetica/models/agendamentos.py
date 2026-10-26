@@ -1,6 +1,5 @@
 # aranha_estetica/models/agendamentos.py — Atendimentos e notificacoes
 import logging
-import secrets
 
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
@@ -104,16 +103,10 @@ class Atendimento(models.Model):
     )
     descricao_preco = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=20, default='PENDENTE', choices=STATUS_CHOICES)
-    token_cancelamento = models.CharField(
-        max_length=64, unique=True, blank=True, null=True, db_index=True,
-    )
+    # Link publico de reagendar/cancelar: link_acesso (GERENCIAR_AGENDAMENTO, so
+    # os migrados da 0049). O portal "Meus agendamentos" usa id + sessao do OTP.
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True, null=True)
-
-    def save(self, *args, **kwargs):
-        if not self.token_cancelamento:
-            self.token_cancelamento = secrets.token_urlsafe(32)
-        super().save(*args, **kwargs)
 
     # ───────── FSM transitions (campo continua CharField) ─────────
     # TODA mudanca de status em views/services/admin passa por estes metodos
@@ -316,7 +309,7 @@ class Notificacao(models.Model):
         ('NPS', 'Pesquisa NPS'),
         ('PESQUISA', 'Pesquisa de satisfação detalhada'),
         ('APROVACAO', 'Aprovação Profissional'),
-        # Link de assinatura do termo (/termo/<token>/) — nunca vale em /confirmar/
+        # Link de assinatura do termo (/termo/<token>, LinkAcesso TERMO)
         ('TERMO', 'Termo de consentimento'),
     ]
     CANAL_CHOICES = [
@@ -341,7 +334,8 @@ class Notificacao(models.Model):
     resposta = models.CharField(
         max_length=20, blank=True, null=True, choices=RESPOSTA_CHOICES
     )
-    token = models.CharField(max_length=64, unique=True, blank=True, null=True)
+    # O link publico da mensagem (/confirmar/, /nps/, /termo/) vive em
+    # link_acesso (so o hash do token) — services/links.py.
     mensagem = models.TextField(blank=True, null=True)
     enviado_em = models.DateTimeField(blank=True, null=True)
     respondido_em = models.DateTimeField(blank=True, null=True)

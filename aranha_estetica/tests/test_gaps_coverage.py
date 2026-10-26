@@ -9,10 +9,11 @@ from django.urls import reverse
 from django.utils import timezone
 
 from aranha_estetica.models import (
-    AvaliacaoNPS, Notificacao, CodigoOtp,
+    AvaliacaoNPS, CodigoOtp,
 )
 from .factories import (
-    criar_atendimento, criar_cliente, criar_procedimento, criar_profissional,
+    criar_atendimento, criar_cliente, criar_link, criar_notificacao_com_link, criar_procedimento,
+    criar_profissional,
 )
 
 
@@ -29,9 +30,8 @@ class LgpdUnsubscribeTests(TestCase):
         self.cliente.consent_whatsapp_nps = True
         self.cliente.consent_whatsapp_confirmacao = True
         self.cliente.save()
-        # token_descadastro gerado no save() via signal/save override
-        self.cliente.refresh_from_db()
-        self.url = reverse('aranha:lgpd_unsubscribe', args=[self.cliente.token_descadastro])
+        # link de descadastro: emitido por e-mail de marketing (LinkAcesso DESCADASTRO)
+        self.url = reverse('aranha:lgpd_unsubscribe', args=[criar_link('DESCADASTRO', self.cliente)])
 
     def test_get_nao_altera_consentimento(self):
         resp = self.client.get(self.url)
@@ -79,21 +79,23 @@ class NpsExpiryTests(TestCase):
         prof = criar_profissional()
         proc = criar_procedimento(profissional=prof)
         self.atd = criar_atendimento(cli, prof, proc, status='REALIZADO')
-        self.notif = Notificacao.objects.create(
-            atendimento=self.atd, tipo='NPS', canal='WHATSAPP',
-            status='ENVIADO', token='tok-nps-expiry',
+        self.notif, self.token = criar_notificacao_com_link(
+            self.atd, 'NPS', 'WHATSAPP', token='tok-nps-expiry', status='ENVIADO',
         )
 
     def test_nps_dentro_prazo_ok(self):
-        resp = self.client.get(reverse('aranha:nps_web', args=[self.notif.token]))
+        resp = self.client.get(reverse('aranha:nps_web', args=[self.token]))
         self.assertEqual(resp.status_code, 200)
 
     def test_nps_expirado_410(self):
-        # Forca criado_em > 7 dias atras
-        Notificacao.objects.filter(pk=self.notif.pk).update(
-            criado_em=timezone.now() - timedelta(days=8),
+        # link enviado ha 8 dias: expira_em (criado_em + 7 dias) ja passou
+        oito_dias = timezone.now() - timedelta(days=8)
+        _notif, token = criar_notificacao_com_link(
+            self.atd, 'NPS', 'WHATSAPP', status='ENVIADO', expira_em=oito_dias + timedelta(days=7),
         )
-        resp = self.client.get(reverse('aranha:nps_web', args=[self.notif.token]))
+        resp = self.client.get(reverse('aranha:nps_web', args=[token]))
+        self.assertEqual(resp.status_code, 410)
+        resp = self.client.post(reverse('aranha:nps_web', args=[token]), {'nota': '10'})
         self.assertEqual(resp.status_code, 410)
         self.assertFalse(AvaliacaoNPS.objects.filter(atendimento=self.atd).exists())
 

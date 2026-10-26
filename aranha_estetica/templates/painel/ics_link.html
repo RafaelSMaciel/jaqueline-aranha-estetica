@@ -1,0 +1,9 @@
+{% extends 'painel/base_v2.html' %}
+
+{% block titulo %}Link do calendário — {{ CLINIC_NAME }}{% endblock %}
+{% block page_title %}Link do calendário{% endblock %}
+{% block page_subtitle %}{{ profissional.nome }} · feed ICS{% endblock %}
+
+{% block admin_content %}
+{% include 'partials/_ics_link.html' %}
+{% endblock %}

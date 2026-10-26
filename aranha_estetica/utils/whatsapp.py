@@ -14,19 +14,19 @@ do cliente vai para o log.
 """
 import logging
 import os
-import secrets
 
 import requests
 from django.conf import settings
-from django.db import IntegrityError, transaction
+from django.db import transaction
+from django.urls import reverse
 from django.utils import timezone
 
+from ..services import links
 from .datas import fmt_local
 from .pii import mask_telefone
 
 logger = logging.getLogger(__name__)
 
-MAX_RETRIES = 3
 # Versao da Graph API (versoes antigas sao desligadas pela Meta ~2 anos apos o lancamento).
 WHATSAPP_API_VERSION_PADRAO = 'v23.0'
 
@@ -57,11 +57,6 @@ def whatsapp_configurado() -> bool:
 def pode_enviar_whatsapp() -> bool:
     """Envio 'conta' como feito: DEBUG (so loga) ou provedor configurado."""
     return bool(settings.DEBUG) or whatsapp_configurado()
-
-
-def gerar_token():
-    """Gera token unico para link de confirmacao."""
-    return secrets.token_urlsafe(32)
 
 
 def formatar_telefone(telefone):
@@ -159,32 +154,22 @@ def enviar_confirmacao_d1(atendimento):
         f'{atendimento.procedimento.nome} c/ {atendimento.profissional.nome}'
     )
 
-    # Persistir a Notificacao com token ANTES de enviar: o link so chega ao
-    # cliente apos o token estar gravado, e a colisao de unique (improvavel com
-    # token_urlsafe(32)) e tratada com retry atomico em vez de virar 500.
-    notif = None
-    for _ in range(MAX_RETRIES):
-        token = gerar_token()
-        try:
-            with transaction.atomic():
-                notif = Notificacao.objects.create(
-                    atendimento=atendimento,
-                    tipo='LEMBRETE',
-                    canal='WHATSAPP',
-                    status='PENDENTE',
-                    token=token,
-                    mensagem=mensagem_preview,
-                )
-            break
-        except IntegrityError:
-            logger.warning('whatsapp_d1_token_colisao', extra={'atendimento_id': atendimento.pk})
-            notif = None
-    if notif is None:
-        logger.error('whatsapp_d1_token_falha', extra={'atendimento_id': atendimento.pk})
-        return None
+    # Notificacao + link (LinkAcesso CONFIRMAR_PRESENCA, so o hash no banco)
+    # gravados ANTES de enviar: o link so chega ao cliente depois de existir.
+    # Vale ate o inicio do atendimento (depois a pagina so mostra o estado).
+    with transaction.atomic():
+        notif = Notificacao.objects.create(
+            atendimento=atendimento,
+            tipo='LEMBRETE',
+            canal='WHATSAPP',
+            status='PENDENTE',
+            mensagem=mensagem_preview,
+        )
+        token = links.emitir(links.CONFIRMAR_PRESENCA, notif, expira_em=atendimento.data_hora_inicio)
 
-    link_confirmar = f'{site_url}/confirmar/{notif.token}/?acao=confirmar'
-    link_cancelar = f'{site_url}/confirmar/{notif.token}/?acao=cancelar'
+    caminho = reverse('aranha:confirmar_presenca', args=[token])
+    link_confirmar = f'{site_url}{caminho}?acao=confirmar'
+    link_cancelar = f'{site_url}{caminho}?acao=cancelar'
 
     components = [{
         'type': 'body',
@@ -209,16 +194,15 @@ def enviar_confirmacao_d1(atendimento):
     return notif
 
 
-def enviar_nps_whatsapp(atendimento, link_nps, token_notif):
+def enviar_nps_whatsapp(atendimento, link_nps, notif):
     """Envia pesquisa NPS via WhatsApp (template MARKETING/UTILITY aprovado).
 
-    Parametros do template (ordem):
+    `notif`: a Notificacao NPS (ja criada, com o link emitido) — recebe
+    ENVIADO/FALHOU. Parametros do template (ordem):
       {{1}} nome do cliente
       {{2}} procedimento
       {{3}} link NPS
     """
-    from ..models import Notificacao
-
     components = [{
         'type': 'body',
         'parameters': [
@@ -232,7 +216,6 @@ def enviar_nps_whatsapp(atendimento, link_nps, token_notif):
         atendimento.cliente.telefone, TEMPLATE_NPS, components
     )
 
-    notif = Notificacao.objects.filter(token=token_notif).first()
     if notif is None:
         logger.warning('nps_wa_notificacao_nao_encontrada', extra={'atendimento_id': atendimento.pk})
         return sucesso

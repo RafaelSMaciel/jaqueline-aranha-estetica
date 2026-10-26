@@ -3,11 +3,12 @@ from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
-from aranha_estetica.models import AvaliacaoNPS, Notificacao
+from aranha_estetica.models import AvaliacaoNPS
 
 from .factories import (
     criar_atendimento,
     criar_cliente,
+    criar_notificacao_com_link,
     criar_procedimento,
     criar_profissional,
 )
@@ -24,11 +25,8 @@ class NPSFlowTests(TestCase):
         self.proc = criar_procedimento(profissional=self.prof)
         self.cli = criar_cliente()
         self.atd = criar_atendimento(self.cli, self.prof, self.proc, status='REALIZADO')
-        self.notif = Notificacao.objects.create(
-            atendimento=self.atd,
-            tipo='NPS',
-            canal='WHATSAPP',
-            token='test-nps-token-123',
+        self.notif, _token = criar_notificacao_com_link(
+            self.atd, 'NPS', 'WHATSAPP', token='test-nps-token-123',
         )
 
     def test_nps_form_renderiza(self):

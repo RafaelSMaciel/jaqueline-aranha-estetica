@@ -1,8 +1,7 @@
 """Views publicas por profissional: pagina agendar/<slug>/ + ICS feed.
 
-ICS feed requer query param ?token=<ics_token> p/ nao vazar agenda.
+ICS feed requer ?token= (LinkAcesso FEED_ICS do profissional) p/ nao vazar agenda.
 """
-import hmac
 from datetime import timedelta, timezone as dt_timezone
 from urllib.parse import urlencode
 
@@ -16,6 +15,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.clickjacking import xframe_options_exempt
 
 from ..models import Atendimento, Procedimento, Profissional
+from ..services import links
 
 
 def agendar_por_profissional(request, slug):
@@ -51,14 +51,18 @@ def _ics_format_dt(dt):
 def ics_feed_profissional(request, slug):
     """Retorna agenda do profissional como text/calendar.
 
-    URL: /agenda/<slug>/feed.ics?token=<ics_token>
+    URL: /agenda/<slug>/feed.ics?token=<token do link FEED_ICS>
     Atendimentos AGENDADO/CONFIRMADO/REALIZADO no range -30d..+90d.
+    Busca pelo sha256 do token (indice unico; sem comparacao de segredo em
+    Python); link revogado (novo link gerado no painel) ou de outro
+    profissional -> 404.
     """
     prof = get_object_or_404(Profissional, slug=slug, ativo=True)
-    token = (request.GET.get('token') or '').strip()
-    # Comparacao em tempo constante (token e segredo de assinatura do calendario)
-    if not token or not hmac.compare_digest(token.encode(), (prof.ics_token or '').encode()):
+    link = links.resolver(links.FEED_ICS, request.GET.get('token'))
+    if link is None or link.profissional_id != prof.pk:
         raise Http404('Token invalido')
+    if link.usado_em is None:
+        links.marcar_usado(link)  # 1a assinatura do calendario (o painel mostra)
 
     agora = timezone.now()
     inicio = agora - timedelta(days=30)

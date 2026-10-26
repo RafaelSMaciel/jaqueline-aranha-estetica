@@ -61,6 +61,19 @@
                 Ativar avisos
             </button>
             {% endif %}
+            {# Feed ICS da propria agenda: gerar = revogar o link anterior (o token so aparece na geracao) #}
+            <form method="post" action="{% url 'aranha:profissional_link_calendario' %}" class="m-0"
+                  data-confirm="Gerar um novo link do calendário? Se você já assinou um link antes, ele deixará de funcionar.">
+                {% csrf_token %}
+                <button type="submit"
+                        class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-borda bg-superficie
+                               text-texto-suave hover:text-texto font-bold text-sm cursor-pointer transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+                    </svg>
+                    Link do calendário
+                </button>
+            </form>
             <form method="post" action="{% url 'aranha:usuario_logout' %}" class="m-0">
                 {% csrf_token %}
                 <button type="submit"

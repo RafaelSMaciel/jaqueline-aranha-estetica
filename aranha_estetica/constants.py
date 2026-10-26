@@ -12,6 +12,13 @@ from decimal import Decimal
 JANELA_MINIMA_REAGENDAMENTO = timedelta(hours=24)
 
 
+# ─── Links publicos (link_acesso.expira_em, gravado na emissao) ───────────
+# NPS: 7 dias do envio. Ficha/pesquisa: 60 dias do convite. Confirmacao D-1,
+# termo e reagendar legado expiram no proprio atendimento (inicio/fim).
+VALIDADE_LINK_NPS = timedelta(days=7)
+VALIDADE_LINK_FORMULARIO = timedelta(days=60)
+
+
 # ─── No-show ───────────────────────────────────────────────────────────
 # Default de Cliente.registrar_falta; sobrescrito por Configuracao
 # chave='MAX_FALTAS_BLOQUEIO' (tela Configuracoes do painel).

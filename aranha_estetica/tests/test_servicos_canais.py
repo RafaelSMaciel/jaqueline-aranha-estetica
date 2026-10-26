@@ -85,7 +85,23 @@ class EmailFalhaFechadaTests(TestCase):
         )
         job_aniversario_clientes.apply()
         self.assertEqual(len(mail.outbox), 1)
-        self.assertIn(cli.token_descadastro, mail.outbox[0].extra_headers['List-Unsubscribe'])
+        # cada e-mail de marketing leva o SEU link de descadastro (LinkAcesso; so o hash no banco)
+        token = re.search(r'/lgpd/unsubscribe/([^/]+)/', mail.outbox[0].extra_headers['List-Unsubscribe']).group(1)
+        from aranha_estetica.services.lgpd import LgpdService
+        self.assertEqual(LgpdService.cliente_por_token_descadastro(token), cli)
+        self.assertIn(f'/lgpd/unsubscribe/{token}/', mail.outbox[0].alternatives[0][0])
+
+    def test_marketing_que_nao_sai_descarta_o_link(self):
+        from aranha_estetica.models import LinkAcesso
+        cli = criar_cliente(email='x@example.com')
+        ok = email_utils.enviar_marketing_com_descadastro(cli, lambda _tok: False)
+        self.assertFalse(ok)
+        self.assertFalse(LinkAcesso.objects.filter(cliente=cli).exists())
+        with self.assertRaises(RuntimeError):
+            email_utils.enviar_marketing_com_descadastro(cli, Mock(side_effect=RuntimeError('smtp')))
+        self.assertFalse(LinkAcesso.objects.filter(cliente=cli).exists())
+        self.assertTrue(email_utils.enviar_marketing_com_descadastro(cli, lambda _tok: True))
+        self.assertEqual(LinkAcesso.objects.filter(cliente=cli, finalidade='DESCADASTRO').count(), 1)
 
     def test_aniversario_nao_promete_desconto_sem_mecanismo(self):
         """gap3-03: nenhum fluxo aplica o '15%' — o e-mail so felicita."""
@@ -240,16 +256,23 @@ class WhatsAppTests(TestCase):
         params = [p['text'] for p in fake.call_args[0][2][0]['parameters']]
         self.assertEqual(params[2], '14:00')
         self.assertTrue(params[5].startswith('https://clinica.example.com/confirmar/'))
+        self.assertTrue(params[5].endswith('/?acao=confirmar'))
+        self.assertTrue(params[6].endswith('/?acao=cancelar'))
         self.assertEqual(notif.status, 'ENVIADO')
         self.assertNotIn('Bia', notif.mensagem)
+        from aranha_estetica.services import links
+        token = params[5].split('/confirmar/')[1].split('/')[0]
+        link = links.resolver(links.CONFIRMAR_PRESENCA, token)
+        self.assertEqual((link.notificacao_id, link.expira_em), (notif.pk, atd.data_hora_inicio))
+        self.assertIsNone(links.resolver(links.NPS, token))  # finalidade errada nao resolve
 
     @patch.dict('os.environ', {'WHATSAPP_TOKEN': 'tok', 'WHATSAPP_PHONE_ID': '123'})
     def test_job_d1_envia_mesmo_com_termo_ja_enviado_por_email(self):
         """gap1-05: notificacao do termo (e-mail) nao conta como D-1 enviado."""
         from aranha_estetica.tasks import job_enviar_lembrete_dia_seguinte
         atd = criar_atendimento(self.cli, self.prof, self.proc, data_hora=_as_14h_local())
-        Notificacao.objects.create(atendimento=atd, tipo='TERMO', canal='EMAIL', status='ENVIADO', token='t1')
-        Notificacao.objects.create(atendimento=atd, tipo='LEMBRETE', canal='EMAIL', status='ENVIADO', token='t2')
+        Notificacao.objects.create(atendimento=atd, tipo='TERMO', canal='EMAIL', status='ENVIADO')
+        Notificacao.objects.create(atendimento=atd, tipo='LEMBRETE', canal='EMAIL', status='ENVIADO')
         with patch.object(wa_utils, 'enviar_template_whatsapp', return_value=True) as fake:
             job_enviar_lembrete_dia_seguinte.apply()
         fake.assert_called_once()
@@ -282,14 +305,14 @@ class NpsCandidatosTests(TestCase):
     def test_nps_falhou_mais_lembrete_enviado_e_retentado(self):
         from aranha_estetica.tasks import candidatos_nps
         atd = self._realizado(2)
-        Notificacao.objects.create(atendimento=atd, tipo='NPS', status='FALHOU', token='t1')
-        Notificacao.objects.create(atendimento=atd, tipo='LEMBRETE', status='ENVIADO', token='t2')
+        Notificacao.objects.create(atendimento=atd, tipo='NPS', status='FALHOU')
+        Notificacao.objects.create(atendimento=atd, tipo='LEMBRETE', status='ENVIADO')
         self.assertEqual(list(candidatos_nps().values_list('pk', flat=True)), [atd.pk])
 
     def test_nps_enviado_nao_repete(self):
         from aranha_estetica.tasks import candidatos_nps
         atd = self._realizado(2)
-        Notificacao.objects.create(atendimento=atd, tipo='NPS', status='ENVIADO', token='t1')
+        Notificacao.objects.create(atendimento=atd, tipo='NPS', status='ENVIADO')
         self.assertFalse(candidatos_nps().exists())
 
     def test_historico_antigo_fora_da_janela(self):
@@ -301,7 +324,7 @@ class NpsCandidatosTests(TestCase):
         from aranha_estetica.tasks import candidatos_nps
         atd = self._realizado(2)
         for i in range(3):
-            Notificacao.objects.create(atendimento=atd, tipo='NPS', status='FALHOU', token=f'f{i}')
+            Notificacao.objects.create(atendimento=atd, tipo='NPS', status='FALHOU')
         self.assertFalse(candidatos_nps().exists())
 
 

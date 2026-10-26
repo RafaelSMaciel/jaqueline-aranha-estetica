@@ -207,7 +207,9 @@ class FichaSaudeBookingTests(_BaseBooking):
         self._post(anamnese_respostas=json.dumps(respostas), consent_dados_saude='on')
         ficha = RespostaAnamnese.objects.get()
         self.assertEqual(ficha.respostas_json, {'gestante': False})
-        resp = self.client.get(reverse('aranha:anamnese_publica', args=[ficha.token]))
+        # convite (link FORMULARIO) de uma ficha ja respondida nao reabre o form
+        from aranha_estetica.services import links
+        resp = self.client.get(links.emitir_link_formulario(ficha))
         self.assertRedirects(resp, reverse('aranha:anamnese_obrigado'), fetch_redirect_response=False)
 
     def test_ficha_opcional_em_branco_nao_exige_consentimento(self):

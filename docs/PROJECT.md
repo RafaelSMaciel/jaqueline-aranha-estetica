@@ -189,15 +189,16 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 
 ### 5.1 Resumo
 
-- **32 tabelas de domínio** (+ tabelas do Django, django-otp, django-axes). PK `BigAutoField`.
+- **33 tabelas de domínio** (+ tabelas do Django, django-otp, django-axes). PK `BigAutoField`.
 - Nomes PT-BR no singular, `db_table` explícito, textos nunca nulos (exceto colunas sob UNIQUE
   parcial), dinheiro em `Decimal(10,2)`, status como `CharField` + CHECK + FSM na aplicação.
-- Migrations `0001`–`0048`. Produção está na **`0026`**: o próximo deploy aplica `0027`→`0048`
+- Migrations `0001`–`0049`. Produção está na **`0026`**: o próximo deploy aplica `0027`→`0049`
   de uma vez (ver §14, [`specs/remodelagem-banco-v2.md`](specs/remodelagem-banco-v2.md) e, da
   `0048` em diante, o padrão SQL em [`specs/padrao-sql.md`](specs/padrao-sql.md)).
 - Tabelas novas (0048+) já nascem no padrão SQL: `pk_`/`fk_` (FK com `ON DELETE` real)/`ck_`/
   `uq_`/`ix_`/`ex_`, `COMMENT ON` via `db_table_comment`/`db_comment`, nome só no banco
   (`AgendaExcecao.ativo` → coluna `eh_ativo`).
+- Nenhum token de link público fica em texto puro: `link_acesso` guarda só o `sha256` (0049).
 
 ### 5.2 Tabelas
 
@@ -207,24 +208,25 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 | | `assinatura_push` (AssinaturaPush) | Inscrições Web Push (VAPID) por usuário |
 | | `log_auditoria` (LogAuditoria) | Trilha LGPD art. 37: autor + snapshot `usuario_nome` ("Nome <email>"), ação, tabela, registro, detalhes JSON (PII mascarada), IP |
 | Pessoas | `cliente` (Cliente) | Cliente da clínica. Telefone só dígitos (10–11) é a chave natural; e-mail/CPF opcionais; consentimentos granulares com data e IP; faltas/bloqueio online; soft delete (`deletado_em`); `indicado_por` (cashback) |
-| | `profissional` (Profissional) | Quem atende. `min_notice_horas` (0–720, padrão 2), `max_advance_dias` (1–365, padrão 60), `ics_token` do feed, campos do Google Calendar |
+| | `profissional` (Profissional) | Quem atende. `min_notice_horas` (0–720, padrão 2), `max_advance_dias` (1–365, padrão 60), campos do Google Calendar. Feed ICS por `link_acesso` (FEED_ICS) |
 | Catálogo | `procedimento` (Procedimento) | Serviço: duração, buffer (0–120 min), categoria, modalidade, retorno obrigatório (`exige_retorno` + janela em dias + duração do retorno) |
 | | `habilitacao` (Habilitacao) | Profissional × procedimento (M2M through) |
 | | `preco` (Preco) | Preço versionado por `vigente_desde`, base (sem profissional) ou por profissional |
 | | `promocao` (Promocao) | Desconto 0–100% **XOR** preço fixo, período, procedimento (nulo = geral, só percentual vale) |
 | Agenda | `agenda_horario` (AgendaHorario) | Grade semanal: várias janelas por dia, sem sobreposição; `dia_semana` **ISO** (1=seg … 7=dom = `isoweekday()`) |
 | | `agenda_excecao` (AgendaExcecao) | Tudo que muda a grade numa data: **FOLGA** (intervalo `data_inicio..data_fim`; sem profissional = clínica inteira: feriado nacional/local, recesso), **HORARIO_DIFERENTE** (substitui a grade num dia) e **BLOQUEIO** (`data_hora_*`, pontual ou recorrente por RRULE no subconjunto DAILY/WEEKLY/MONTHLY + `data_fim_recorrencia`; sem profissional = "Todos"). `origem` MANUAL/FERIADO_NACIONAL/FERIADO_LOCAL/RECESSO/GCAL (+ `origem_ref` = id do evento Google); `eh_ativo=false` = registrada e ignorada (ex.: feriado em que a clínica abre). 0048 unificou as 4 tabelas antigas |
-| | `atendimento` (Atendimento) | Agendamento/sessão. FSM de 7 estados, preço gravado (`valor_cobrado`, `valor_original`, `promocao`, `descricao_preco`), retorno (`eh_retorno` + `atendimento_origem`), `reagendado_de`, `token_cancelamento` |
-| | `notificacao` (Notificacao) | Mensagem por atendimento: tipo (LEMBRETE, LEMBRETE_2H, CONFIRMACAO, CANCELAMENTO, NPS, PESQUISA, APROVACAO, TERMO), canal, status PENDENTE/ENVIADO/FALHOU, token do link |
-| | `lista_espera` (ListaEspera) | Pedido de aviso de vaga (procedimento, data, turno, profissional opcional, `email_contato`). `token_reserva`/`expira_em` são legado sem uso |
+| | `atendimento` (Atendimento) | Agendamento/sessão. FSM de 7 estados, preço gravado (`valor_cobrado`, `valor_original`, `promocao`, `descricao_preco`), retorno (`eh_retorno` + `atendimento_origem`), `reagendado_de` |
+| | `notificacao` (Notificacao) | Mensagem por atendimento: tipo (LEMBRETE, LEMBRETE_2H, CONFIRMACAO, CANCELAMENTO, NPS, PESQUISA, APROVACAO, TERMO), canal, status PENDENTE/ENVIADO/FALHOU; o link público (/confirmar/, /nps/, /termo/) vive em `link_acesso` |
+| | `lista_espera` (ListaEspera) | Pedido de aviso de vaga (procedimento, data, turno, profissional opcional, `email_contato`) |
 | Clínico | `prontuario` (Prontuario) | Ficha base 1:1 com a cliente: alergias, contraindicações, histórico, medicamentos, observações + `respostas_extras` (JSONB, perguntas configuráveis) |
 | | `prontuario_versao` (ProntuarioVersao) | **Histórico append-only** da ficha: foto do estado anterior a cada edição, com autor (0046) |
 | | `anotacao_sessao` (AnotacaoSessao) | Nota clínica por atendimento; autor PROTECT + snapshot `autor_nome` |
 | | `formulario_anamnese` (FormularioAnamnese) | Modelo de questionário (ANAMNESE/PESQUISA) em `schema_json`, com escopo e `obrigatorio` |
-| | `resposta_anamnese` (RespostaAnamnese) | Ficha respondida (JSON) por cliente/atendimento; token do link público (60 dias) |
+| | `resposta_anamnese` (RespostaAnamnese) | Ficha respondida (JSON) por cliente/atendimento; link público do convite em `link_acesso` (FORMULARIO, 60 dias) |
 | LGPD | `versao_termo` (VersaoTermo) | Termo versionado (LGPD ou PROCEDIMENTO); 1 ativo por escopo; imutável depois do 1º aceite |
 | | `aceite_termo` (AceiteTermo) | Prova do aceite: cliente, versão, atendimento, IP, user-agent, `conteudo_sha256`, data. Imutável (trigger) |
 | | `codigo_otp` (CodigoOtp) | Desafio OTP (HMAC-SHA256 com a SECRET_KEY), propósito AGENDAMENTO/LOGIN_CLIENTE/DSAR, TTL, tentativas |
+| | `link_acesso` (LinkAcesso) | Link público com token ("link mágico"): `finalidade` (GERENCIAR_AGENDAMENTO — só os migrados —, CONFIRMAR_PRESENCA, NPS, TERMO, FORMULARIO, DESCADASTRO, FEED_ICS) + exatamente 1 alvo (atendimento, notificação, ficha, cliente ou profissional); só o **SHA-256** do token (`token_hash char(64)`, sem pepper: rotacionar a SECRET_KEY não derruba link enviado), `expira_em`, `usado_em`, `revogado_em`. O token em claro só existe na URL entregue (0049) |
 | NPS | `avaliacao_nps` (AvaliacaoNPS) | Nota 0–10 + comentário, `autoriza_publicacao` (opt-in da cliente) e `aprovado_publicacao` (moderação) |
 | Pacotes | `pacote` / `item_pacote` | Pacote (preço, validade em meses) e seus itens (procedimento × sessões) |
 | | `compra_pacote` (CompraPacote) | Venda a uma cliente: `valor_pago`, status ATIVO/FINALIZADO/CANCELADO/EXPIRADO, `data_expiracao` |
@@ -253,6 +255,7 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 | Exceção coerente com o tipo (FOLGA = datas, HORARIO_DIFERENTE = 1 dia + horas, BLOQUEIO = instantes); feriado/recesso só como FOLGA da clínica; GCAL só BLOQUEIO de profissional | `ck_agenda_excecao_*` (tipo, origem, folga, horario_diferente, bloqueio, recorrencia, feriado_global, gcal) | 0048 |
 | RRULE só no subconjunto que o motor expande | `ck_agenda_excecao_regra_recorrencia_suportada` (regex, **só PG**; `clean()` normaliza) | 0048 |
 | 1 horário diferente ativo por profissional/dia; 1 feriado por origem/data; importação do Google idempotente | `uq_agenda_excecao_horario_diferente_dia`, `uq_agenda_excecao_feriado`, `uq_agenda_excecao_gcal_evento` | 0048 |
+| Link público: alvo coerente com a finalidade (1 FK); 1 link por hash; hash = sha256 hex; depois de criado só `usado_em`/`revogado_em` mudam (uma vez cada) | `ck_link_acesso_finalidade`, `ck_link_acesso_alvo_por_finalidade`, `uq_link_acesso_token_hash`; `ck_link_acesso_token_hash_formato` e trigger `tg_link_acesso_imutavel` (**só PG**) | 0049 |
 
 Além disso: FKs `PROTECT` em tudo que é histórico clínico/financeiro (prontuário, anotação,
 ficha, compra de pacote, carteira, aceite), índice GIN em `prontuario.respostas_extras`,
@@ -288,14 +291,15 @@ versão: `/account/*` (django-two-factor), `/api/schema/redoc/`, `/servicos/prod
 | `POST /agendamento/otp/solicitar/` · `POST /agendamento/otp/verificar/` | OTP do celular (Turnstile quando configurado) |
 | `POST /agendamento/confirmar/` · `/agendamento/sucesso/` | Grava o atendimento (PENDENTE) |
 | `/meus-agendamentos/` (+ `otp/enviar/`, `otp/verificar/`, `sair/`) | Portal da cliente (login por celular ou e-mail; código sempre ao celular) |
-| `POST /ajax/cancelar-agendamento/` | Cancelar pelo `token_cancelamento` |
-| `/reagendar/<token>/` (+ `horarios/`) | Reagendar (até 24h antes) |
+| `/meus-agendamentos/<id>/reagendar/` (+ `<id>/horarios/`) | Reagendar pelo portal: id + sessão do OTP (só agendamento do telefone da sessão; até 24h antes) |
+| `POST /ajax/cancelar-agendamento/` | Cancelar: `{"atendimento_id"}` + sessão do portal, ou `{"token"}` do link legado |
+| `/reagendar/<token>/` (+ `horarios/`) | Reagendar pelo link **legado** (tokens antigos migrados na 0049; expiram no início do atendimento). Nenhum link novo é emitido |
 | `/confirmar/<token>/` | Confirmar presença / cancelar a partir do lembrete D-1 |
 | `/termo/<token>/` | Aceitar termo(s) do atendimento (vale até o fim do atendimento) |
 | `/nps/<token>/` | NPS (link de 7 dias) + opt-in de depoimento |
 | `/anamnese/<token>/` · `/pesquisa/<token>/` (+ `obrigado/`) | Ficha/pesquisa por link (60 dias; ficha de saúde exige consentimento art. 11). **Mantidas, hoje sem produtor de link** (decisão pendente do dono: remover × gerar o link) |
 | `/lgpd/meus-dados/` · `/lgpd/unsubscribe/<token>/` · `/lgpd/aceitar-cookies/` | DSAR com OTP, descadastro, registro do aviso de cookies |
-| `/agenda/<slug>/feed.ics?token=` | Feed iCal do profissional (token rotacionável no painel) |
+| `/agenda/<slug>/feed.ics?token=` | Feed iCal do profissional (link gerado no painel ou no portal do profissional; gerar = revogar o anterior; a URL só aparece na geração) |
 
 ### 6.3 Equipe
 
@@ -303,13 +307,13 @@ versão: `/account/*` (django-two-factor), `/api/schema/redoc/`, `/servicos/prod
 |---|---|
 | `/admin-login/` · `/admin-logout/` (logout só via POST; GET mostra confirmação) · `/admin-login/recuperar/...` | Login da equipe e reset de senha |
 | `/painel/seguranca/2fa/` (+ `verificar/`, `challenge/`) | Cadastro e desafio TOTP |
-| `/profissional/` · `/profissional/atendimento/<pk>/{realizado,anotar,aprovar,rejeitar}/` | Portal do profissional |
+| `/profissional/` · `/profissional/atendimento/<pk>/{realizado,anotar,aprovar,rejeitar}/` · `POST /profissional/calendario/novo-link/` | Portal do profissional (+ gerar o próprio link do feed ICS) |
 | `/painel/`, `/painel/overview/` | Dashboard |
 | `/painel/agendamentos/` (+ `novo/`, `bulk/`, `<pk>/aprovar/`, `<pk>/rejeitar/`, `<pk>/termo-link/`, `<pk>/valor/`), `/painel/atualizar-status/` | Agenda em lista, agendamento interno, aprovação, link do termo, valor cobrado, mudança de status (409 `termo_pendente` sem o override) |
 | `/painel/calendario/` (+ `eventos/`, `mover/`) | Calendário FullCalendar com arrastar-e-soltar |
 | `/painel/clientes/`, `/painel/clientes/<pk>/` | Clientes e ficha do cliente (pacotes, alertas, histórico) |
 | `/painel/prontuario/` (+ `<cliente_id>/`, `<cliente_id>/salvar/`), `/painel/anotacao/<id>/salvar/` | Prontuário com histórico de versões e anotações |
-| `/painel/profissionais/` (+ `<pk>/ics/novo-token/`, `<prof_id>/excecoes/...`), `/painel/cadastrar-profissional/`, `/painel/editar-profissional/<pk>/` | Profissionais, exceções, novo link do ICS |
+| `/painel/profissionais/` (+ `<pk>/ics/novo-token/`, `<prof_id>/excecoes/...`), `/painel/cadastrar-profissional/`, `/painel/editar-profissional/<pk>/` | Profissionais, exceções, gerar link do ICS (a lista mostra só "ativo desde"; a URL aparece uma vez, na geração) |
 | `/painel/procedimentos/...`, `/painel/pacotes/...` (+ `vender/`, `compras/<pk>/cancelar/`), `/painel/promocoes/...` (+ `<pk>/disparar/`) | Catálogo, pacotes, promoções |
 | `/painel/bloqueios/...`, `/painel/lista-espera/` (+ `<pk>/notificar/`) | Bloqueios de agenda e lista de espera |
 | `/painel/financeiro/`, `/painel/comissoes/` (+ `<pk>/pagar/`), `/painel/nps/` (+ `<pk>/publicacao/`), `/painel/exportar-relatorio/` | Relatórios, comissões, NPS e moderação de depoimentos, Excel |
@@ -401,7 +405,8 @@ Detalhe de login, 2FA, OTP e tokens em [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO
   aviso de vaga), `consent_whatsapp_nps` — nunca pré-marcados; cada um guarda data e IP; desmarcar
   (com o estado do cadastro exibido) revoga com data e IP.
 - **Descadastro** (`/lgpd/unsubscribe/<token>/`): desliga marketing e pesquisas
-  (`aceita_comunicacao`, e-mail marketing, NPS), **mantém o lembrete D-1** (transacional).
+  (`aceita_comunicacao`, e-mail marketing, NPS), **mantém o lembrete D-1** (transacional). Cada
+  e-mail de marketing leva o seu link (`link_acesso` DESCADASTRO; descartado se o envio falha).
 - **Depoimento:** só aparece no site com `autoriza_publicacao` (cliente) **e**
   `aprovado_publicacao` (equipe), nota ≥ 9 e comentário.
 - **Imutabilidade:** aceite e termo já aceito não mudam (model + trigger 0046); editar o texto
@@ -419,7 +424,8 @@ Detalhe de login, 2FA, OTP e tokens em [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO
 **Esquecimento** (`esquecer_cliente`): troca o nome por `[ANONIMIZADO-<pk>]` e zera CPF, RG,
 e-mail, telefone, endereço, nascimento e consentimentos; soft delete; apaga OTPs, lista de
 espera e texto das notificações; apaga fichas que não são de atendimento REALIZADO; tira o
-depoimento do site e apaga o comentário do NPS; pseudonimiza o nome nos textos da
+depoimento do site e apaga o comentário do NPS; **revoga todos os links públicos** do titular
+(descadastro, confirmação, NPS, termo, ficha, reagendar legado); pseudonimiza o nome nos textos da
 `LogAuditoria` e do histórico do Django admin. Atendimentos, aceites, prontuário e pacotes
 ficam ligados a um titular não identificável.
 
@@ -590,9 +596,9 @@ Só dev/testes: `DEBUG`, `SMS_DEV_LOG_ONLY` (em prod gera W002), `DB_ENGINE`/`DB
 
 ## 14. Go-live / Operação (runbook)
 
-Primeiro deploy desta versão: produção sai da migration **`0026`** para a **`0048`** (22
+Primeiro deploy desta versão: produção sai da migration **`0026`** para a **`0049`** (23
 migrations com renomeações, deduplicação de dados, EXCLUDE, triggers, desativação de contas
-demo e a agenda unificada). Faça em horário sem movimento.
+demo, a agenda unificada e os tokens de link em hash). Faça em horário sem movimento.
 
 ### a) Pré-deploy
 
@@ -646,6 +652,12 @@ demo e a agenda unificada). Faça em horário sem movimento.
      diferente com fim ≤ início (vira FOLGA — era o efeito real), folga com horas (horas
      ignoradas), fim de recorrência sem regra (descartado), COUNT/UNTIL (viram
      `data_fim_recorrencia`).
+   - A `0049` (tokens em hash) não aborta: grava `sha256` de cada token em `link_acesso` — os
+     links já enviados (lembrete, termo, NPS, ficha, descadastro, feed ICS, reagendar) continuam
+     abrindo — e registra `migration 0049: links publicos em hash` com a contagem por finalidade,
+     as notificações cujo token nenhuma rota aceitava (não migram) e token repetido entre tabelas
+     (fica o 1º). Depois dela a URL do feed ICS não é mais exibida: quem precisar do link gera um
+     novo (o antigo continua valendo até lá).
    - Sem ICU no Postgres a `0038` só avisa e pula a collation (não aborta).
    - A `0034` não aborta: normaliza telefone/CPF/e-mail, tira duplicatas (o cliente com mais
      atendimentos fica com o valor; os outros ficam ativos com o campo nulo) e registra cada caso
@@ -663,7 +675,7 @@ demo e a agenda unificada). Faça em horário sem movimento.
 ### b) O que o deploy faz
 
 1. Build da imagem (§13) — falha de front, collectstatic ou check derruba o build, nada muda.
-2. Pre-deploy: `migrate_atomico` (0027→0048 numa transação; `lock_timeout` 5 s — se o deploy
+2. Pre-deploy: `migrate_atomico` (0027→0049 numa transação; `lock_timeout` 5 s — se o deploy
    antigo segurar lock, falha e é só refazer) e `bootstrap_admin` (cria/reativa o ADMIN).
    Leia o log do pre-deploy: avisos `aranha.W0xx`, `0042: ATENCAO ...` e
    `bootstrap_admin: ERRO — painel sem administrador ativo` indicam env faltando (os checks
@@ -764,8 +776,9 @@ termo criado, triggers). Não use `migrate aranha_estetica <anterior>`.
 - **Collation `pt_br`** fica fora do estado do Django: um `AlterField` futuro em
   `cliente/profissional/procedimento.nome` volta para a collation padrão — reaplique com `RunSQL`
   (`ALTER TABLE <t> ALTER COLUMN nome TYPE varchar(N) COLLATE pt_br`; N = 150 cliente, 100 os outros).
-- **Link do ICS vazado**: Painel > Profissionais > botão "Novo link" ao lado do feed (o antigo
-  para de funcionar; auditado).
+- **Link do ICS vazado/perdido**: Painel > Profissionais > "Novo link"/"Gerar link" (ou o
+  próprio profissional em Minha agenda > "Link do calendário"): mostra a URL uma única vez (o
+  banco guarda só o hash); o antigo para de funcionar; auditado.
 - **Escalar**: mais de 1 worker gunicorn exige `REDIS_URL` (rate-limit, axes, lock de slot e quota
   de SMS são por processo no LocMem).
 - **Backups**: mantenha backup automático do Postgres (plano do Railway) ou `pg_dump` periódico.
@@ -824,6 +837,7 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 | 2026-05 | Auditoria inicial, CSP com nonce, split do booking |
 | 2026-06 | Remodelagem do banco v2.1 (0027–0038: 50 → 33 tabelas, invariantes no banco); fundação do front (Vite/Tailwind/cotton/Alpine CSP) e migração de 100% das telas; auditoria SWE de backend (0039) |
 | 2026-09-23 | Padrão SQL, fase (a): agenda 4→2 (`agenda_horario` + `agenda_excecao`, migration 0048; [`specs/padrao-sql.md`](specs/padrao-sql.md) §4.a) |
+| 2026-10-02 | Padrão SQL, fase (b): tokens de link público em hash (`link_acesso`, migration 0049; portal reagenda/cancela por sessão; ICS exibido só na geração; [`specs/padrao-sql.md`](specs/padrao-sql.md) §4.b) |
 | 2026-09-23 | Auditoria pré-produção completa (~450 correções em ~30 commits, `b5fd681..182e2e9`): OTP preso ao telefone em todo agendamento, consentimentos LGPD/art. 11 com prova, 2FA obrigatório do ADMIN, histórico do prontuário, prova de aceite imutável, deploy por Dockerfile + `migrate_atomico`, retenção LGPD efetiva, migrations 0040–0046. Detalhe em [`ARCHITECTURE.md`](ARCHITECTURE.md#6-progresso-checkpoint) |
 
-**Mantenedor:** Rafael Maciel · **Última atualização:** 2026-09-23
+**Mantenedor:** Rafael Maciel · **Última atualização:** 2026-10-02

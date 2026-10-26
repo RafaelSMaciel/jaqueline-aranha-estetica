@@ -17,13 +17,15 @@ Jobs de manutencao (housekeeping, feriados) ficam em tasks_manutencao.py.
 """
 import logging
 import os
-import secrets
 from datetime import timedelta
 
 from celery import shared_task
 from django.conf import settings
+from django.db import transaction
+from django.urls import reverse
 from django.utils import timezone
 
+from .constants import VALIDADE_LINK_NPS
 from .models import Atendimento, AvaliacaoNPS
 from .utils.datas import fmt_local, hoje
 
@@ -153,6 +155,7 @@ def job_pesquisa_satisfacao_24h(self):
     try:
         from .utils.whatsapp import enviar_nps_whatsapp, pode_enviar_whatsapp
         from .models import Notificacao
+        from .services import links
 
         # Sem canal: nao cria Notificacao (nem FALHOU) — quando o WhatsApp
         # for configurado, a janela de 7 dias ainda pega os recentes.
@@ -171,20 +174,21 @@ def job_pesquisa_satisfacao_24h(self):
                 logger.warning(f"[NPS WA] Cliente {agendamento.cliente.pk} sem telefone — NPS nao enviado")
                 continue
 
-            token = secrets.token_urlsafe(32)
-            notif = Notificacao.objects.create(
-                atendimento=agendamento,
-                tipo='NPS',
-                canal='WHATSAPP',
-                token=token,
-                status='PENDENTE',
-            )
-            nps_url = f"{site_url}/nps/{token}/"
+            # Link NPS (LinkAcesso, so o hash no banco): 7 dias do envio.
+            with transaction.atomic():
+                notif = Notificacao.objects.create(
+                    atendimento=agendamento,
+                    tipo='NPS',
+                    canal='WHATSAPP',
+                    status='PENDENTE',
+                )
+                token = links.emitir(links.NPS, notif, expira_em=notif.criado_em + VALIDADE_LINK_NPS)
+            nps_url = f"{site_url}{reverse('aranha:nps_web', args=[token])}"
 
             # enviar_nps_whatsapp grava ENVIADO/FALHOU na Notificacao (nunca
             # fica PENDENTE orfa); FALHOU e re-tentavel ate NPS_MAX_FALHAS.
             try:
-                if enviar_nps_whatsapp(agendamento, nps_url, token):
+                if enviar_nps_whatsapp(agendamento, nps_url, notif):
                     enviados += 1
             except Exception as e:
                 Notificacao.objects.filter(pk=notif.pk).update(status='FALHOU')
@@ -366,7 +370,7 @@ def job_aniversario_clientes(self):
     coletado e o de lembrete do agendamento, que nao cobre marketing.
     """
     try:
-        from .utils.email import enviar_aniversario_email
+        from .utils.email import enviar_aniversario_email, enviar_marketing_com_descadastro
 
         aniversariantes = aniversariantes_do_dia()
         emails_enviados = 0
@@ -378,7 +382,9 @@ def job_aniversario_clientes(self):
             # Falha pontual nao re-dispara o batch (retry reenviaria aos ja
             # parabenizados) — loga e segue.
             try:
-                if enviar_aniversario_email(cliente.email, dados, unsub_token=cliente.token_descadastro):
+                if enviar_marketing_com_descadastro(
+                    cliente, lambda unsub: enviar_aniversario_email(cliente.email, dados, unsub_token=unsub),
+                ):
                     emails_enviados += 1
             except Exception as e:
                 logger.error(
@@ -427,7 +433,7 @@ def job_promocao_mensal(self, assunto: str, corpo_html_partial: str, cupom: str 
       data_fim: fim da promocao (date ou ISO) — teto da validade anunciada
     """
     try:
-        from .utils.email import email_configurado, enviar_promocao_email
+        from .utils.email import email_configurado, enviar_marketing_com_descadastro, enviar_promocao_email
         from .models import Cliente
 
         if not email_configurado():
@@ -449,16 +455,13 @@ def job_promocao_mensal(self, assunto: str, corpo_html_partial: str, cupom: str 
             # Roteia pelo helper dedicado: aplica bleach em corpo_html (anti-XSS)
             # e injeta header List-Unsubscribe (RFC 8058) por ser marketing.
             # Falha pontual nao re-dispara o batch (retry reenviaria a todos).
+            dados = {'nome': cliente.nome, 'corpo_html': corpo_html_partial, 'validade': validade}
             try:
-                ok = enviar_promocao_email(
-                    cliente.email,
-                    {
-                        'nome': cliente.nome,
-                        'corpo_html': corpo_html_partial,
-                        'validade': validade,
-                    },
-                    unsub_token=cliente.token_descadastro,
-                    assunto=assunto,
+                ok = enviar_marketing_com_descadastro(
+                    cliente,
+                    lambda unsub, c=cliente, d=dados: enviar_promocao_email(
+                        c.email, d, unsub_token=unsub, assunto=assunto,
+                    ),
                 )
                 if ok:
                     enviados += 1

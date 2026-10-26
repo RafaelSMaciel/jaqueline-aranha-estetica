@@ -1,4 +1,11 @@
-"""Reagendamento publico via token + listagem 'Meus Agendamentos'."""
+"""Reagendamento + listagem 'Meus Agendamentos'.
+
+Dois acessos ao mesmo fluxo:
+  - portal (/meus-agendamentos/<id>/reagendar/): id + sessao do OTP (telefone do
+    cadastro), anti-IDOR — o caminho normal; nenhum token e emitido;
+  - link legado (/reagendar/<token>/): LinkAcesso GERENCIAR_AGENDAMENTO migrado
+    na 0049 (o token antigo da pagina "Meus agendamentos"), ate expirar.
+"""
 import logging
 from datetime import datetime, timedelta
 
@@ -7,11 +14,13 @@ from django.db import DatabaseError, IntegrityError, transaction
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django_ratelimit.decorators import ratelimit
 
 from ..constants import JANELA_MINIMA_REAGENDAMENTO
 from ..models import AgendaExcecao, Atendimento, Cliente, Profissional, RespostaAnamnese
+from ..services import links
 from ..services.agendamento_service import formatar_brl, formatar_data_hora
 from ..services.disponibilidade import profissionais_para, profissional_habilitado, slot_disponivel
 from ..services.retorno_service import DURACAO_RETORNO_PADRAO_MINUTOS
@@ -73,6 +82,30 @@ def meus_agendamentos(request):
     })
 
 
+def atendimento_da_sessao(request, pk, *select_related):
+    """Atendimento `pk` de um cliente ativo com o telefone da sessao do OTP (None = nao e dela)."""
+    telefone = request.session.get(SESSAO_MEUS_AGENDAMENTOS)
+    if not telefone or pk is None:
+        return None
+    return (
+        Atendimento.objects.select_related(*select_related)
+        .filter(pk=pk, cliente__in=Cliente.objects.filter(telefone=telefone, ativo=True))
+        .first()
+    )
+
+
+def link_gerenciar(token, *select_related):
+    """LinkAcesso GERENCIAR_AGENDAMENTO (legado) do token, com o atendimento carregado.
+
+    Vencido (inicio ja passou) volta assim mesmo: a regra de horario do
+    atendimento (_motivo_sem_reagendamento / cancelamento) recusa com mensagem.
+    """
+    return links.resolver(
+        links.GERENCIAR_AGENDAMENTO, token, aceitar_expirado=True,
+        select_related=('atendimento', *(f'atendimento__{r}' for r in select_related)),
+    )
+
+
 def _motivo_sem_reagendamento(atendimento, agora):
     """Por que o atendimento nao pode ser reagendado online ('' = pode)."""
     if atendimento.data_hora_inicio <= agora:
@@ -89,19 +122,14 @@ def _motivo_sem_reagendamento(atendimento, agora):
     return ''
 
 
-@ratelimit(key='ip', rate='30/m', method='GET', block=True)
-def reagendar_horarios(request, token):
-    """AJAX da tela de reagendamento: horarios livres do dia (GET ?data=).
+def _horarios(request, atendimento):
+    """Horarios livres do dia (GET ?data=) p/ a tela de reagendamento.
 
-    Mesmo token e mesmas regras do POST de reagendar_agendamento; o proprio
-    horario atual NAO conta como ocupado (ignorar_atendimento_id), senao a
-    tela esconderia horarios que o servidor aceita (ex.: empurrar 30 min).
+    Mesmas regras do POST; o proprio horario atual NAO conta como ocupado
+    (ignorar_atendimento_id), senao a tela esconderia horarios que o servidor
+    aceita (ex.: empurrar 30 min).
     """
-    try:
-        atendimento = Atendimento.objects.select_related('cliente', 'procedimento').get(
-            token_cancelamento=token,
-        )
-    except Atendimento.DoesNotExist:
+    if atendimento is None:
         return JsonResponse({'error': 'Agendamento não encontrado'}, status=404)
     motivo = _motivo_sem_reagendamento(atendimento, timezone.now())
     if motivo:
@@ -121,17 +149,51 @@ def reagendar_horarios(request, token):
     })
 
 
+@ratelimit(key='ip', rate='30/m', method='GET', block=True)
+def reagendar_horarios(request, token):
+    """AJAX da tela de reagendamento pelo link legado (token GERENCIAR_AGENDAMENTO)."""
+    link = link_gerenciar(token, 'cliente', 'procedimento')
+    return _horarios(request, link.atendimento if link else None)
+
+
+@ratelimit(key='ip', rate='30/m', method='GET', block=True)
+def reagendar_horarios_portal(request, pk):
+    """AJAX da tela de reagendamento do portal (id + sessao do OTP)."""
+    return _horarios(request, atendimento_da_sessao(request, pk, 'cliente', 'procedimento'))
+
+
 @ratelimit(key='ip', rate='10/m', method='POST', block=True)
 def reagendar_agendamento(request, token):
-    """Fluxo publico de reagendamento via token seguro."""
-    try:
-        atendimento = Atendimento.objects.select_related(
-            'cliente', 'profissional', 'procedimento'
-        ).get(token_cancelamento=token)
-    except Atendimento.DoesNotExist:
+    """Reagendamento pelo link legado (/reagendar/<token>/, LinkAcesso GERENCIAR_AGENDAMENTO)."""
+    link = link_gerenciar(token, 'cliente', 'profissional', 'procedimento')
+    if link is None:
         messages.error(request, 'Agendamento não encontrado.')
         return redirect('aranha:agendamento_publico')
+    return _reagendar(
+        request, link.atendimento, link=link,
+        url_voltar=reverse('aranha:reagendar_agendamento', args=[token]),
+        url_horarios=reverse('aranha:reagendar_horarios', args=[token]),
+    )
 
+
+@ratelimit(key='ip', rate='10/m', method='POST', block=True)
+def reagendar_agendamento_portal(request, pk):
+    """Reagendamento pelo portal "Meus agendamentos" (id + sessao do OTP, anti-IDOR)."""
+    if not request.session.get(SESSAO_MEUS_AGENDAMENTOS):
+        return redirect('aranha:meus_agendamentos')
+    atendimento = atendimento_da_sessao(request, pk, 'cliente', 'profissional', 'procedimento')
+    if atendimento is None:
+        messages.error(request, 'Agendamento não encontrado.')
+        return redirect('aranha:meus_agendamentos')
+    return _reagendar(
+        request, atendimento, link=None,
+        url_voltar=reverse('aranha:reagendar_agendamento_portal', args=[pk]),
+        url_horarios=reverse('aranha:reagendar_horarios_portal', args=[pk]),
+    )
+
+
+def _reagendar(request, atendimento, *, link, url_voltar, url_horarios):
+    """GET: tela de escolha; POST: move o atendimento (antigo REAGENDADO + novo criado)."""
     agora = timezone.now()
     motivo = _motivo_sem_reagendamento(atendimento, agora)
     if motivo:
@@ -141,6 +203,7 @@ def reagendar_agendamento(request, token):
     if request.method == 'GET':
         context = {
             'atendimento': atendimento,
+            'url_horarios': url_horarios,
             # Data local (nao UTC): apos as 21h o "amanha" em UTC pularia um dia.
             'data_min': (hoje() + timedelta(days=1)).isoformat(),
         }
@@ -151,7 +214,7 @@ def reagendar_agendamento(request, token):
 
     if not datetime_str:
         messages.error(request, 'Selecione uma nova data e horário.')
-        return redirect('aranha:reagendar_agendamento', token=token)
+        return redirect(url_voltar)
 
     try:
         nova_data = datetime.fromisoformat(datetime_str)
@@ -160,35 +223,35 @@ def reagendar_agendamento(request, token):
         nova_data = timezone.localtime(nova_data)
     except (ValueError, TypeError, OverflowError):
         messages.error(request, 'Data/horário inválidos.')
-        return redirect('aranha:reagendar_agendamento', token=token)
+        return redirect(url_voltar)
 
     if nova_data <= agora:
         messages.error(request, 'Escolha uma data futura.')
-        return redirect('aranha:reagendar_agendamento', token=token)
+        return redirect(url_voltar)
 
     if profissional_id is None:
         messages.error(request, 'Profissional indisponível.')
-        return redirect('aranha:reagendar_agendamento', token=token)
+        return redirect(url_voltar)
     try:
         profissional = Profissional.objects.get(pk=profissional_id, ativo=True)
     except Profissional.DoesNotExist:
         messages.error(request, 'Profissional indisponível.')
-        return redirect('aranha:reagendar_agendamento', token=token)
+        return redirect(url_voltar)
 
     procedimento = atendimento.procedimento
     if not profissional_habilitado(profissional, procedimento):
         messages.error(request, 'Este profissional não realiza este procedimento.')
-        return redirect('aranha:reagendar_agendamento', token=token)
+        return redirect(url_voltar)
 
     if AgendaExcecao.objects.folga_global_em(nova_data.date()).exists():
         messages.error(request, 'A data escolhida é feriado/recesso. Escolha outro dia.')
-        return redirect('aranha:reagendar_agendamento', token=token)
+        return redirect(url_voltar)
 
     # O proprio horario antigo nao bloqueia o novo (ignorar_atendimento_id).
     if not slot_disponivel(profissional, procedimento, nova_data,
                            ignorar_atendimento_id=atendimento.pk):
         messages.error(request, 'Este horário não está disponível. Escolha outro.')
-        return redirect('aranha:reagendar_agendamento', token=token)
+        return redirect(url_voltar)
 
     # Retorno gratuito ocupa so a duracao de retorno (igual ao RetornoService).
     duracao = (
@@ -214,7 +277,7 @@ def reagendar_agendamento(request, token):
 
             if conflito:
                 messages.error(request, 'Este horário acabou de ser reservado. Escolha outro.')
-                return redirect('aranha:reagendar_agendamento', token=token)
+                return redirect(url_voltar)
 
             # Aprovacao continua valendo so se o original ja estava aprovado e
             # a profissional e a mesma; senao volta p/ a fila (PENDENTE).
@@ -252,9 +315,11 @@ def reagendar_agendamento(request, token):
             )
             # Ficha de anamnese (alergias etc.) acompanha o atendimento vivo.
             RespostaAnamnese.objects.filter(atendimento=antigo).update(atendimento=novo)
+            if link is not None:
+                links.marcar_usado(link)
             registrar_log(
-                None, 'Cliente reagendou pelo link', 'atendimento', novo.pk,
-                detalhes={'reagendado_de': antigo.pk}, request=request,
+                None, 'Cliente reagendou pelo link' if link is not None else 'Cliente reagendou pelo portal',
+                'atendimento', novo.pk, detalhes={'reagendado_de': antigo.pk}, request=request,
             )
     except Atendimento.TransicaoInvalida:
         messages.error(request, 'Este atendimento não pode mais ser reagendado.')
@@ -262,14 +327,14 @@ def reagendar_agendamento(request, token):
     except IntegrityError as exc:
         if _eh_sobreposicao(exc):
             messages.error(request, 'Este horário acabou de ser reservado. Escolha outro.')
-            return redirect('aranha:reagendar_agendamento', token=token)
+            return redirect(url_voltar)
         logger.error(
             'reagendamento_falha',
             extra={'atendimento_id': atendimento.pk, 'erro': str(exc)},
             exc_info=True,
         )
         messages.error(request, 'Ocorreu um erro ao reagendar. Tente novamente.')
-        return redirect('aranha:reagendar_agendamento', token=token)
+        return redirect(url_voltar)
     except DatabaseError as exc:
         logger.error(
             'reagendamento_falha',
@@ -277,7 +342,7 @@ def reagendar_agendamento(request, token):
             exc_info=True,
         )
         messages.error(request, 'Ocorreu um erro ao reagendar. Tente novamente.')
-        return redirect('aranha:reagendar_agendamento', token=token)
+        return redirect(url_voltar)
 
     data_fmt = formatar_data_hora(nova_data)
     pendente = novo.status == Atendimento.STATUS_PENDENTE

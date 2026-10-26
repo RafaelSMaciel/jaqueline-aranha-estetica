@@ -1,8 +1,9 @@
 # Padrão SQL e esquema-alvo do banco — Shiva Zen
 
 > **Spec única** (sobrescrever a cada revisão — política do dono: 1 MD por assunto, sem versões
-> acumuladas). **Status: fase (a) IMPLEMENTADA (migration `0048_agenda_unificada`, notas de
-> implementação no fim do §4.a); (b)–(f), N1–N2 e L1–L3 seguem em DESIGN.** Base verificada:
+> acumuladas). **Status: fases (a) e (b) IMPLEMENTADAS (migrations `0048_agenda_unificada` e
+> `0049_link_acesso`, notas de implementação no fim do §4.a e do §4.b); (c)–(f), N1–N2 e L1–L3
+> seguem em DESIGN.** Base verificada:
 > `front-fundacao` = `main` @ `1462eff`, migrations até `0047`, produção na `0026`, Django 5.2.1, PostgreSQL 18 (Railway, com
 > `btree_gist`, `pg_trgm`, `unaccent`, ICU). Tudo aqui entra como migrations **`0048`+** — as
 > `0027`–`0047` não são editadas. Histórico das 0027–0047: [`remodelagem-banco-v2.md`](remodelagem-banco-v2.md)
@@ -1861,6 +1862,77 @@ texto) — links antigos deixam de funcionar num rollback de dev; em produção 
   (gera ics), `_gen_resposta_token`; `admin.py` (campos `token_*` em readonly/fieldsets); `urls.py`
   (rotas novas do portal). `utils/pii.redigir_tokens_url` continua valendo (URLs em log).
 
+**Implementação (0049) — o que ficou diferente do desenho acima, e por quê:**
+
+- **Ordem da migration:** `CreateModel` → `AlterField resposta_anamnese.token` para NULL → `RunPython`
+  (hash + `LogAuditoria`, termina com `SET CONSTRAINTS ALL IMMEDIATE`) → PG: CHECK de formato,
+  `fn_link_acesso_imutavel` + `tg_link_acesso_imutavel` → `PadronizarNomes(['link_acesso'])` →
+  `RemoveField` ×7. O `AlterField` existe só para o **reverso**: recriar uma coluna NOT NULL
+  UNIQUE com default callable daria o mesmo token a todas as linhas; nula, o reverso grava um
+  token por linha e o `AlterField` reverso volta ao NOT NULL.
+- **Notificação → finalidade = a rota que aceitava o token antes** (nada passa a abrir onde dava
+  404): `NPS` (qualquer canal — `/nps/` filtrava só o tipo); `TERMO` ou `LEMBRETE`+`EMAIL` →
+  TERMO; `LEMBRETE`/`LEMBRETE_2H`/`CONFIRMACAO` **só com canal WHATSAPP** → CONFIRMAR_PRESENCA
+  (o `/confirmar/` exigia WhatsApp; o código do desenho mapeava qualquer canal). O resto não migra
+  (ids em `notificacao_sem_rota_nao_migrada` no log).
+- **Descadastro:** só cliente não excluído (o resolver antigo usava o manager de ativos); o
+  `LgpdService.link_descadastro` também recusa link de cliente com `deletado_em`.
+- **`usado_em` do NPS** = `respondido_em` ou, sem ele, `avaliacao_nps.criado_em` do atendimento (a
+  avaliação nunca preenchia `respondido_em`).
+- **Token repetido entre tabelas** (dado sujo: o UNIQUE era por tabela): fica o primeiro na ordem
+  atendimento → notificação → ficha → cliente → profissional; os outros em
+  `token_repetido_descartado`. `LogAuditoria` `migration 0049: links publicos em hash
+  (link_acesso)` com a contagem por finalidade — só quando migrou algo ou há aviso.
+- **`resolver(..., aceitar_expirado=False)`:** com `True` devolve o link vencido (nunca o
+  revogado) para a view mostrar a página amigável em vez de 404 — NPS 410 "link expirado"; termo
+  410 pela regra `aceita_assinatura` sobre o fim **atual** do atendimento; confirmação só leitura;
+  reagendar/cancelar legado com a mensagem de horário. Nenhuma ação é executada com link vencido.
+  Motivo: `expira_em` é fixado na emissão (e o trigger proíbe mudar), mas o atendimento pode ser
+  movido no calendário — "link do termo vale até o fim do atendimento" continua valendo para o
+  horário novo, como antes. FORMULARIO segue estrito (404, como o convite de 60 dias antigo).
+- **Serviço (`services/links.py`) — extras além do desenho:** `gerar_token`, `descartar(token)`
+  (e-mail de marketing que não saiu: o link, que nunca deixou o servidor, é apagado — via
+  `utils.email.enviar_marketing_com_descadastro`), `vigente()`, `revogar_do_cliente()`
+  (anonimização; espelho do passo 3 do `sp_anonimizar_cliente`), `gerar_link_feed_ics()` (revoga +
+  emite numa transação), `emitir_link_formulario()` (substitui `RespostaAnamnese.get_link_publico`)
+  e `aplicada_em_0049()` (o painel diz "criado antes da atualização" para o link migrado).
+- **`HashSha256Field`** (`aranha_estetica/db/campos.py`, `char(64)`, sem `_like`). Achado no ensaio
+  PG: o `bulk_create` do Django 5.2 no Postgres usa `UNNEST` e tira o tamanho do tipo no cast do
+  array (`char(64)[]` → `char[]` = `char(1)[]`) — **truncava o hash para 1 caractere**. O campo
+  define `get_placeholder`, o que faz o Django voltar ao `INSERT … VALUES` (teste em `test_pg_ddl`).
+- **Termo (D1):** `obter_link_termo` reaproveita a Notificação TERMO do atendimento (1 por
+  atendimento) e emite um link novo a cada clique, com `expira_em` = fim do atendimento; a
+  auditoria sempre registra "Gerou link do termo" (`notificacao_nova` nos detalhes).
+- **ICS:** a geração renderiza `painel/ics_link.html` (URL completa + copiar + aviso "guarde
+  agora"); a lista mostra "Link ativo desde dd/mm/aaaa", "Link ativo (criado antes da
+  atualização)" ou "Sem link" + "Gerar link". O profissional gera o próprio no portal
+  (`POST /profissional/calendario/novo-link/`, botão "Link do calendário" em Minha agenda). O 1º
+  acesso bem-sucedido ao feed preenche `usado_em`. `Profissional.save()` não gera mais token:
+  profissional novo começa "Sem link".
+- **Portal:** `/meus-agendamentos/<id>/reagendar/` e `/meus-agendamentos/<id>/horarios/`;
+  `POST /ajax/cancelar-agendamento/` aceita `{"atendimento_id"}` (sessão do OTP, só cliente ativo
+  com o telefone da sessão) ou `{"token"}` (link legado). A tela de reagendar recebe
+  `url_horarios` (portal ou legado).
+- **Cascata conta no `delete()`:** `LgpdService.purgar_fichas_sem_atendimento` passou a contar só
+  as fichas (o total do `delete()` incluiria os `link_acesso` apagados em cascata).
+- **Admin:** `LinkAcessoAdmin` somente leitura (sem o hash) com a ação "Revogar"; o
+  `ProfissionalAdmin` deixou de expor `ics_token` editável. `_gen_resposta_token` fica no model
+  (a 0023 referencia).
+- **Fora desta fase:** purga de links vencidos/revogados (fica no `sp_purgar_dados_expirados`, L3 —
+  até lá as linhas ficam); regerar os UML/Requisitos (`docs/gerar_requisitos.py`; os diagramas
+  ainda mostram as tabelas de agenda anteriores à 0048 e os campos `token_*`).
+- **Testes:** `tests/test_links_acesso.py` (serviço: hash, finalidade errada, adulterado,
+  revogado, vencido, uso; CHECK de alvo; matriz rota × finalidade = 404),
+  `tests/test_migrations_dados.py` (`LinksEmHash0049Tests`: hash/validade/uso/não migrados/log/
+  colunas e as rotas públicas abrindo com os tokens antigos; `LinksEmHashReversa0049Tests`),
+  `tests/test_pg_ddl.py` (nomes, `char(64)`, `ON DELETE CASCADE`, CHECK de formato, trigger,
+  `bulk_create`), regressões dos fluxos (portal, confirmação, termo, NPS, ficha, descadastro, ICS,
+  anonimização). Ensaio 0026 → 0049 (`migrate_atomico`, 23 migrations numa transação) em PG com
+  banco de produção simulado no código 0026 (dados sujos que 0034/0035/0043/0048 tratam + tokens
+  de todos os tipos: 49 tokens, 43 migrados, 6 sem rota — 5 notificações e o cliente excluído):
+  todos resolvem pelo token em claro e as rotas respondem como antes (200/302/400/410; 404 onde já
+  era 404); do zero ok; reverso 0049 → 0048 → 0049 ok.
+
 ### 4.c Consentimentos com histórico (`consentimento`) — migration 0050
 
 **Modelo** (DDL no §2.7). Finalidade × canal (os 3 pares que existem hoje, fechados por
@@ -3335,7 +3407,7 @@ tabelas que criou.
 | Fase | Migration | Operações (em ordem) | Aborta (lista ids) se | Código na mesma PR |
 |---|---|---|---|---|
 | (a) | `0048_agenda_unificada` | `CreateModel AgendaHorario/AgendaExcecao` (constraints portáveis) → `RunPython` pré-checagem → cópia (bloqueios com id preservado, `setval`, exceções, feriados, grade ISO) + `LogAuditoria` do mapa de ids → `SET CONSTRAINTS ALL IMMEDIATE` → PG: `ex_agenda_horario_sobreposicao`, `ex_agenda_excecao_folga_sobreposta`, `ck_agenda_excecao_regra_recorrencia_suportada` → `DeleteModel` ×4 | janelas sobrepostas; RRULE fora do subconjunto | §4.a |
-| (b) | `0049_link_acesso` | `CreateModel LinkAcesso` → `RunPython` (sha256 dos 5 tipos de token) → `SET CONSTRAINTS…` → PG: `ck_link_acesso_token_hash_formato`, `fn_link_acesso_imutavel` + trigger → `RemoveField` ×7 | — | §4.b (serviço `links`, rotas do portal, ICS) |
+| (b) ✅ | `0049_link_acesso` | `CreateModel LinkAcesso` → `AlterField resposta_anamnese.token` NULL (p/ o reverso) → `RunPython` (sha256 dos 5 tipos de token) → `SET CONSTRAINTS…` → PG: `ck_link_acesso_token_hash_formato`, `fn_link_acesso_imutavel` + trigger → `PadronizarNomes` → `RemoveField` ×7 | — | §4.b (serviço `links`, rotas do portal, ICS) |
 | (c) | `0050_consentimento` | `CreateModel Consentimento` → `RunPython` (histórico a partir de `consent_*`/`aceita_comunicacao`) → PG: `fn_consentimento_imutavel` + trigger → `RemoveField` ×10 | — | §4.c |
 | (d) | `0051_formulario_prontuario` | `AlterField tipo` (+PRONTUARIO) → pré-checagem → `AddConstraint` (`ck_formulario_*`, `uq_formulario_prontuario_ativo`) → `RunPython` (Configuracao → formulário) | `escopo` fora do domínio / incoerente | §4.d |
 | (e) | `0052_compra_pacote_item` | `AddField pacote_nome` (nulo) + `CreateModel CompraPacoteItem` + `AddField compra_pacote_item` (nulo) → `RunPython` (snapshot, reconstrução, logs) → `SET CONSTRAINTS…` → `AlterField` NOT NULL → PG: FK composta, `fn_consumo_sessao_validar`, `tg_compra_pacote_item_imutavel` | — | §4.e |
@@ -3407,7 +3479,7 @@ Depois de implementar: atualizar `docs/PROJECT.md` §5 (tabelas/invariantes) e �
 | # | Tema | Risco / trade-off | Recomendação |
 |---|---|---|---|
 | 1 | **Upgrade big-bang 0026→0058** | 32 migrations, renomeação de quase todas as colunas, 6 migrations que podem abortar (0035, 0043, 0048, 0051, 0053, 0055); o minuto entre o COMMIT e o container novo quebra o código antigo em toda página | Janela de manutenção; ensaio com o dump de produção; teste `test_upgrade_producao.py` no CI antes do deploy. Alternativa conservadora: subir 0027–0047 primeiro (já pronto) e esta série num 2º deploy — dois ensaios, mas cada um menor |
-| 2 | **UX dos links com hash** | ICS passa a ser exibido só na geração; "Meus agendamentos" por sessão; descadastro com token por e-mail; link do termo não pode ser reexibido | (D1) Link do termo: cada clique gera um novo e os anteriores **continuam válidos** até o fim do atendimento (não revogar: evita quebrar o link que a recepção já mandou). ICS: gerar = revogar o anterior (igual à rotação atual) |
+| 2 | **UX dos links com hash** — ✅ decidido e implementado (0049) | ICS passa a ser exibido só na geração; "Meus agendamentos" por sessão; descadastro com token por e-mail; link do termo não pode ser reexibido | (D1) Link do termo: cada clique gera um novo e os anteriores **continuam válidos** até o fim do atendimento (não revogar: evita quebrar o link que a recepção já mandou). ICS: gerar = revogar o anterior (igual à rotação atual) |
 | 3 | **Semântica de consentimento** | Sem `aceita_comunicacao`, quem se descadastrou e depois marca o opt-in no wizard **volta** a receber (hoje continua vetado — o que contraria a revogabilidade). Anonimização passa a manter o histórico (datas/finalidades) e apagar IP/UA | (D2) Aceitar o reconsentimento (é o comportamento correto na LGPD). (D3) Minimizar IP/UA na anonimização (mantém a prova de que houve base legal sem identificar o titular). Painel só **revoga**; conceder pelo painel exige texto/justificativa registrado |
 | 4 | **"Duas fontes" na leitura** | `fn_horarios_livres` replica o `SlotService` incluindo recorrência; RRULE fica restrita a um subconjunto (DAILY/WEEKLY/MONTHLY, INTERVAL, BYDAY, BYMONTHDAY) e a 0048 aborta se houver regra fora dele; NPS muda de arredondamento bancário para "meio para cima" (1 ponto nos casos .5) | O app **continua** usando o Python para slots/saldos/NPS; o SQL é espelho para relatório/integração, travado por paridade no CI. (D7) Aceitar ROUND_HALF_UP no NPS (consistente com o PG e com a expectativa humana) |
 | 5 | **Comissão como livro-razão** | Estornos legados ganham data **estimada** (o sistema nunca gravou); sem baixa parcial (PAGAMENTO = valor do crédito); saldo pode ficar negativo (pago e depois estornado = profissional deve); regra usada não se apaga (só desativa) | Aceitar; registrar no painel "saldo negativo = a descontar do próximo repasse". Baixa parcial/lote vira evolução (PAGAMENTO sem origem + CHECK próprio) quando existir |
@@ -3465,4 +3537,4 @@ Depois de implementar: atualizar `docs/PROJECT.md` §5 (tabelas/invariantes) e �
 - **Não** depender de `pg_cron`: o cron HTTP (`/cron/run/<job>/`) continua chamando os jobs, que
   chamam as procedures.
 
-_Última atualização: 2026-09-23 — fase (a) implementada (0048, agenda 4→2); demais fases em design._
+_Última atualização: 2026-10-02 — fases (a) (0048, agenda 4→2) e (b) (0049, tokens em hash) implementadas; demais fases em design._

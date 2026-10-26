@@ -250,8 +250,8 @@ class ListaEsperaHandlerTests(TestCase):
 
         espera = ListaEspera.objects.get(cliente=self.cliente_espera)
         self.assertTrue(espera.notificado)
-        # Reserva por token nao existe (nenhuma view consome): nao grava mais.
-        self.assertIsNone(espera.token_reserva)
+        # Reserva por token nunca existiu de fato: colunas legadas removidas na 0049.
+        self.assertFalse({'token_reserva', 'expira_em'} & {f.name for f in ListaEspera._meta.fields})
         mock_email.assert_called_once()
         self.assertIn(f'procedimento={self.proc.pk}', mock_email.call_args[0][1]['link'])
         mock_wa.assert_called_once()

@@ -58,9 +58,9 @@ class Cliente(models.Model):
         help_text='Codigo curto compartilhavel (ex: A1B2C3D4) gerado automaticamente.',
     )
 
-    # LGPD: consentimento legado (comunicacao transacional) e unsubscribe token
+    # LGPD: consentimento legado (comunicacao transacional). O link de
+    # descadastro e emitido por e-mail de marketing (link_acesso DESCADASTRO).
     aceita_comunicacao = models.BooleanField(default=True)
-    token_descadastro = models.CharField(max_length=64, blank=True, null=True, db_index=True)
 
     # LGPD: consents granulares por canal/uso — opt-in explicito com audit trail
     consent_email_marketing = models.BooleanField(default=False)
@@ -132,8 +132,6 @@ class Cliente(models.Model):
             self.telefone = normalizar_telefone(self.telefone) or None
         if self.cpf:
             self.cpf = normalizar_cpf(self.cpf) or None
-        if not self.token_descadastro:
-            self.token_descadastro = secrets.token_urlsafe(32)
         if not self.codigo_indicacao:
             self.codigo_indicacao = self._gerar_codigo_indicacao()
         super().save(*args, **kwargs)

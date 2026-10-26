@@ -4,11 +4,12 @@ from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
-from aranha_estetica.models import AvaliacaoNPS, Notificacao
+from aranha_estetica.models import AvaliacaoNPS
 
 from .factories import (
     criar_atendimento,
     criar_cliente,
+    criar_notificacao_com_link,
     criar_procedimento,
     criar_profissional,
 )
@@ -23,9 +24,7 @@ class NPSWebTests(TestCase):
         self.prof = criar_profissional()
         self.proc = criar_procedimento(profissional=self.prof)
         self.atd = criar_atendimento(self.cliente_obj, self.prof, self.proc)
-        self.notif = Notificacao.objects.create(
-            atendimento=self.atd, tipo='NPS', token='token-nps-123'
-        )
+        self.notif, _token = criar_notificacao_com_link(self.atd, 'NPS', token='token-nps-123')
         self.url = reverse('aranha:nps_web', kwargs={'token': 'token-nps-123'})
 
     def test_template_renderiza_11_botoes_de_0_a_10(self):

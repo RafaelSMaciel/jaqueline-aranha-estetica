@@ -11,9 +11,10 @@ from django.test import Client, RequestFactory, TestCase, override_settings
 from django.urls import NoReverseMatch, reverse
 
 from aranha_estetica.models import AvaliacaoNPS, Preco, Promocao
+from aranha_estetica.services.links import emitir_link_formulario
 from aranha_estetica.utils import datas
 
-from .factories import criar_atendimento, criar_cliente, criar_procedimento, criar_profissional
+from .factories import criar_atendimento, criar_cliente, criar_link, criar_procedimento, criar_profissional
 
 
 class PublicViewsTests(TestCase):
@@ -371,7 +372,8 @@ class AnamnesePublicaTests(TestCase):
             ],
         )
         self.resposta = RespostaAnamnese.objects.create(formulario=form, cliente=cli)
-        self.url = reverse('aranha:anamnese_publica', args=[self.resposta.token])
+        # convite: link FORMULARIO (services.links; so o hash no banco)
+        self.url = emitir_link_formulario(self.resposta)
 
     def test_copy_de_ficha_de_avaliacao(self):
         html = self.client.get(self.url).content.decode()
@@ -413,7 +415,7 @@ class AnamneseBoolTests(TestCase):
             ],
         )
         self.resposta = RespostaAnamnese.objects.create(formulario=form, cliente=criar_cliente())
-        self.url = reverse('aranha:anamnese_publica', args=[self.resposta.token])
+        self.url = emitir_link_formulario(self.resposta)
 
     def test_renderiza_radios_sim_e_nao(self):
         html = self.client.get(self.url).content.decode()
@@ -546,7 +548,7 @@ class IcsFeedTests(TestCase):
         criar_atendimento(criar_cliente(), prof, proc)
         prof.refresh_from_db()
         url = reverse('aranha:ics_feed_profissional', args=[prof.slug])
-        r = self.client.get(url, {'token': prof.ics_token})
+        r = self.client.get(url, {'token': criar_link('FEED_ICS', prof)})
         self.assertEqual(r.status_code, 200)
         self.assertIn('text/calendar', r['Content-Type'])
         self.assertIn('BEGIN:VEVENT', r.content.decode())
@@ -706,7 +708,8 @@ class AnamnesePublicaSemCacheTests(TestCase):
                 schema_json=[{'key': 'alergias', 'tipo': 'text', 'label': 'Alergias?', 'obrigatorio': True}],
             )
             resposta = RespostaAnamnese.objects.create(formulario=form, cliente=cli)
-            url = reverse(rota, args=[resposta.token])
+            url = emitir_link_formulario(resposta)
+            self.assertEqual(url.split('/')[1], rota.split(':')[1].split('_')[0])  # /anamnese/ ou /pesquisa/
             for resp in (self.client.get(url), self.client.post(url, {'alergias': ''})):
                 self.assertEqual(resp.status_code, 200, rota)
                 self.assertIn('no-store', resp['Cache-Control'], rota)

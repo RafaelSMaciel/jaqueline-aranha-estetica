@@ -1,4 +1,4 @@
-"""Regressao das data migrations da remodelagem (0029, 0034-0037, 0042-0048).
+"""Regressao das data migrations da remodelagem (0029, 0034-0037, 0042-0049).
 
 Roda a migration real sobre dados "sujos" plausiveis do banco legado (SQLite:
 as partes PG-only — CHECK regex, EXCLUDE, trigger, collation — sao validadas
@@ -1100,3 +1100,230 @@ class SlotsAntesDepois0048Tests(_MigracaoBase):
         self.assertEqual(self.antes[(self.pb, hoje + timedelta(days=3), self.p30)], [])  # feriado local
         self.assertTrue(self.antes[(self.pb, hoje + timedelta(days=4), self.p30)])      # feriado inativo
         self.assertEqual(self.antes[(self.pb, hoje + timedelta(days=8), self.p30)], [])  # HD invalido
+
+
+# ─── 0049: tokens em hash (link_acesso) ────────────────────────────────────
+M0049 = '0049_link_acesso'
+
+
+def _sha(token):
+    import hashlib
+    return hashlib.sha256(token.encode('utf-8')).hexdigest()
+
+
+def _subir_ate_o_fim():
+    executor = MigrationExecutor(connection)
+    executor.loader.build_graph()
+    executor.migrate(executor.loader.graph.leaf_nodes())
+
+
+class LinksEmHash0049Tests(_MigracaoBase):
+    """Tokens em texto puro -> link_acesso (sha256): os links ja enviados continuam
+    abrindo pelo token em claro, com validade/uso derivados dos dados antigos; o
+    que nao tinha rota nao migra; colunas antigas somem."""
+    migrate_from = M0048
+    migrate_to = M0049
+
+    def preparar(self, apps):
+        Profissional = apps.get_model(APP, 'Profissional')
+        Cliente = apps.get_model(APP, 'Cliente')
+        Procedimento = apps.get_model(APP, 'Procedimento')
+        Atendimento = apps.get_model(APP, 'Atendimento')
+        Notificacao = apps.get_model(APP, 'Notificacao')
+        AvaliacaoNPS = apps.get_model(APP, 'AvaliacaoNPS')
+        FormularioAnamnese = apps.get_model(APP, 'FormularioAnamnese')
+        RespostaAnamnese = apps.get_model(APP, 'RespostaAnamnese')
+        ListaEspera = apps.get_model(APP, 'ListaEspera')
+
+        agora = timezone.now().replace(microsecond=0)
+        self.agora = agora
+        prof = Profissional.objects.create(nome='Prof L', slug='prof-l', ics_token='tok-ics-prof')
+        self.prof = prof.pk
+        Profissional.objects.create(nome='Prof Sem Ics', slug='prof-sem-ics')
+        cli = Cliente.objects.create(nome='Cli L', telefone='11911113333', token_descadastro='tok-descad')
+        self.cli = cli.pk
+        # dado sujo: o mesmo token em duas tabelas (o UNIQUE era so por tabela)
+        self.prof_dup = Profissional.objects.create(nome='Prof Dup', slug='prof-dup', ics_token='tok-descad').pk
+        Cliente.objects.create(nome='Cli X', telefone='11911114444', token_descadastro='tok-descad-excluida',
+                               deletado_em=agora)
+        proc = Procedimento.objects.create(nome='Proc L', duracao_minutos=60)
+        self.ini = agora + timedelta(days=3)
+        at = Atendimento.objects.create(cliente=cli, profissional=prof, procedimento=proc, status='AGENDADO',
+                                        data_hora_inicio=self.ini, data_hora_fim=self.ini + timedelta(hours=1),
+                                        token_cancelamento='tok-gerenciar')
+        self.at = at.pk
+        passado = agora - timedelta(days=2)
+        at_real = Atendimento.objects.create(cliente=cli, profissional=prof, procedimento=proc, status='REALIZADO',
+                                             data_hora_inicio=passado, data_hora_fim=passado + timedelta(hours=1),
+                                             token_cancelamento='tok-gerenciar-passado')
+        self.passado = passado
+
+        def notif(tipo, canal, token, atendimento=at, **kw):
+            return Notificacao.objects.create(atendimento=atendimento, tipo=tipo, canal=canal, token=token, **kw).pk
+
+        self.n_d1 = notif('LEMBRETE', 'WHATSAPP', 'tok-d1', resposta='CONFIRMOU',
+                          respondido_em=agora - timedelta(hours=1))
+        self.n_2h = notif('LEMBRETE_2H', 'WHATSAPP', 'tok-2h')
+        self.n_termo = notif('TERMO', 'EMAIL', 'tok-termo')
+        self.n_termo_legado = notif('LEMBRETE', 'EMAIL', 'tok-termo-legado')
+        self.n_nps = notif('NPS', 'WHATSAPP', 'tok-nps', atendimento=at_real)
+        Notificacao.objects.filter(pk=self.n_nps).update(criado_em=agora - timedelta(days=1))
+        self.avaliacao_em = AvaliacaoNPS.objects.create(atendimento=at_real, nota=9).criado_em
+        self.n_sms = notif('LEMBRETE', 'SMS', 'tok-lembrete-sms')          # /confirmar/ exigia WHATSAPP
+        self.n_canc = notif('CANCELAMENTO', 'EMAIL', 'tok-cancelamento')    # nenhuma rota
+        notif('LEMBRETE', 'WHATSAPP', None)
+        notif('LEMBRETE', 'WHATSAPP', '')
+
+        form = FormularioAnamnese.objects.create(nome='F', tipo='ANAMNESE', schema_json=[])
+        self.r_aberta = RespostaAnamnese.objects.create(formulario=form, cliente=cli, atendimento=at,
+                                                        token='tok-ficha')
+        self.r_respondida = RespostaAnamnese.objects.create(
+            formulario=form, cliente=cli, token='tok-ficha-respondida', respostas_json={'a': 1},
+            respondida_em=agora - timedelta(days=1),
+        )
+        ListaEspera.objects.create(cliente=cli, procedimento=proc, data_desejada=self.ini.date(),
+                                   token_reserva='tok-reserva', expira_em=agora)
+
+    def test_hash_validade_uso_e_o_que_nao_migra(self):
+        LinkAcesso = self.apps.get_model(APP, 'LinkAcesso')
+        LogAuditoria = self.apps.get_model(APP, 'LogAuditoria')
+
+        def link(token):
+            return LinkAcesso.objects.get(token_hash=_sha(token))
+
+        fim = self.ini + timedelta(hours=1)
+        esperado = {
+            'tok-gerenciar': ('GERENCIAR_AGENDAMENTO', 'atendimento_id', self.at, self.ini, None),
+            'tok-d1': ('CONFIRMAR_PRESENCA', 'notificacao_id', self.n_d1, self.ini, self.agora - timedelta(hours=1)),
+            'tok-2h': ('CONFIRMAR_PRESENCA', 'notificacao_id', self.n_2h, self.ini, None),
+            'tok-termo': ('TERMO', 'notificacao_id', self.n_termo, fim, None),
+            'tok-termo-legado': ('TERMO', 'notificacao_id', self.n_termo_legado, fim, None),
+            'tok-nps': ('NPS', 'notificacao_id', self.n_nps, self.agora + timedelta(days=6), self.avaliacao_em),
+            'tok-ficha': ('FORMULARIO', 'resposta_formulario_id', self.r_aberta.pk,
+                          self.r_aberta.criado_em + timedelta(days=60), None),
+            'tok-ficha-respondida': ('FORMULARIO', 'resposta_formulario_id', self.r_respondida.pk,
+                                     self.r_respondida.criado_em + timedelta(days=60), self.agora - timedelta(days=1)),
+            'tok-descad': ('DESCADASTRO', 'cliente_id', self.cli, None, None),
+            'tok-ics-prof': ('FEED_ICS', 'profissional_id', self.prof, None, None),
+        }
+        for token, (finalidade, campo, alvo, expira, usado) in esperado.items():
+            with self.subTest(token=token):
+                lk = link(token)
+                self.assertEqual(lk.token_hash, _sha(token))
+                self.assertEqual(lk.finalidade, finalidade)
+                self.assertEqual(getattr(lk, campo), alvo)
+                self.assertEqual(lk.expira_em, expira)
+                self.assertEqual(lk.usado_em, usado)
+                self.assertIsNone(lk.revogado_em)
+        # migrado de atendimento passado ja nasce vencido (expira no inicio)
+        self.assertEqual(link('tok-gerenciar-passado').expira_em, self.passado)
+        # sem rota antes = sem link depois; descadastro de excluida nao resolvia
+        for token in ('tok-lembrete-sms', 'tok-cancelamento', 'tok-descad-excluida', 'tok-reserva'):
+            self.assertFalse(LinkAcesso.objects.filter(token_hash=_sha(token)).exists(), token)
+        self.assertEqual(LinkAcesso.objects.count(), len(esperado) + 1)
+        log = LogAuditoria.objects.get(acao__startswith='migration 0049')
+        self.assertEqual(log.detalhes['migrados'], {
+            'GERENCIAR_AGENDAMENTO': 2, 'CONFIRMAR_PRESENCA': 2, 'TERMO': 2, 'NPS': 1,
+            'FORMULARIO': 2, 'DESCADASTRO': 1, 'FEED_ICS': 1,
+        })
+        self.assertEqual(log.detalhes['notificacao_sem_rota_nao_migrada'], [self.n_sms, self.n_canc])
+        self.assertEqual(log.detalhes['token_repetido_descartado'],
+                         [f'profissional {self.prof_dup} (ja usado por cliente {self.cli})'])
+        # colunas de token em texto puro removidas (+ o legado da lista de espera)
+        with connection.cursor() as cursor:
+            colunas = {
+                tabela: {c.name for c in connection.introspection.get_table_description(cursor, tabela)}
+                for tabela in ('atendimento', 'notificacao', 'resposta_anamnese', 'cliente', 'profissional',
+                               'lista_espera')
+            }
+        removidas = {('atendimento', 'token_cancelamento'), ('notificacao', 'token'), ('resposta_anamnese', 'token'),
+                     ('cliente', 'token_descadastro'), ('profissional', 'ics_token'),
+                     ('lista_espera', 'token_reserva'), ('lista_espera', 'expira_em')}
+        self.assertEqual({(t, c) for t, c in removidas if c in colunas[t]}, set())
+
+    def test_links_ja_enviados_abrem_as_rotas_publicas(self):
+        from django.core.cache import cache
+
+        from aranha_estetica.services import links
+
+        _subir_ate_o_fim()
+        cache.clear()
+        with self.settings(RATELIMIT_ENABLE=False):
+            get = self.client.get
+            self.assertEqual(get('/confirmar/tok-d1/').status_code, 200)
+            self.assertIs(get('/confirmar/tok-2h/').context['nao_editavel'], False)
+            self.assertEqual(get('/termo/tok-termo/').status_code, 200)
+            self.assertEqual(get('/termo/tok-termo-legado/').status_code, 200)
+            resp = get('/nps/tok-nps/')
+            self.assertEqual(resp.status_code, 200)
+            self.assertTrue(resp.context['ja_respondeu'])
+            self.assertEqual(get('/anamnese/tok-ficha/').status_code, 200)
+            self.assertRedirects(get('/anamnese/tok-ficha-respondida/'), '/anamnese/obrigado/',
+                                 fetch_redirect_response=False)
+            self.assertEqual(get('/lgpd/unsubscribe/tok-descad/').status_code, 200)
+            self.assertEqual(get('/agenda/prof-l/feed.ics', {'token': 'tok-ics-prof'}).status_code, 200)
+            dia = (self.ini + timedelta(days=1)).date().isoformat()
+            self.assertEqual(get('/reagendar/tok-gerenciar/horarios/', {'data': dia}).status_code, 200)
+            # o que nao abria antes continua nao abrindo
+            self.assertEqual(get('/confirmar/tok-lembrete-sms/').status_code, 404)
+            self.assertEqual(get('/lgpd/unsubscribe/tok-descad-excluida/').status_code, 404)
+            self.assertEqual(get('/nps/tok-termo/').status_code, 404)
+            self.assertEqual(get('/agenda/prof-dup/feed.ics', {'token': 'tok-descad'}).status_code, 404)
+        self.assertEqual(links.resolver(links.DESCADASTRO, 'tok-descad').cliente_id, self.cli)
+
+
+class LinksEmHashReversa0049Tests(_MigracaoBase):
+    """Reverso (dev): recria as colunas com tokens NOVOS, unicos e nao nulos
+    (resposta_anamnese.token volta NOT NULL UNIQUE) — e sobe de novo no tearDown."""
+    migrate_from = M0049
+    migrate_to = M0048
+
+    def preparar(self, apps):
+        Profissional = apps.get_model(APP, 'Profissional')
+        Cliente = apps.get_model(APP, 'Cliente')
+        Procedimento = apps.get_model(APP, 'Procedimento')
+        Atendimento = apps.get_model(APP, 'Atendimento')
+        Notificacao = apps.get_model(APP, 'Notificacao')
+        FormularioAnamnese = apps.get_model(APP, 'FormularioAnamnese')
+        RespostaAnamnese = apps.get_model(APP, 'RespostaAnamnese')
+        LinkAcesso = apps.get_model(APP, 'LinkAcesso')
+
+        prof = Profissional.objects.create(nome='Prof R', slug='prof-r')
+        cli = Cliente.objects.create(nome='Cli R', telefone='11922223333')
+        Cliente.objects.create(nome='Cli R2', telefone='11922224444')
+        proc = Procedimento.objects.create(nome='Proc R', duracao_minutos=30)
+        ini = timezone.now() + timedelta(days=5)
+        at = Atendimento.objects.create(cliente=cli, profissional=prof, procedimento=proc,
+                                        data_hora_inicio=ini, data_hora_fim=ini + timedelta(minutes=30))
+        Atendimento.objects.create(cliente=cli, profissional=prof, procedimento=proc,
+                                   data_hora_inicio=ini + timedelta(hours=2), data_hora_fim=ini + timedelta(hours=3))
+        com_link = Notificacao.objects.create(atendimento=at, tipo='NPS')
+        self.com_link = com_link.pk
+        self.sem_link = Notificacao.objects.create(atendimento=at, tipo='CANCELAMENTO').pk
+        form = FormularioAnamnese.objects.create(nome='F', tipo='ANAMNESE', schema_json=[])
+        for _ in range(3):
+            RespostaAnamnese.objects.create(formulario=form, cliente=cli)
+        LinkAcesso.objects.create(finalidade='NPS', notificacao=com_link, token_hash=_sha('tok-r-nps'))
+        LinkAcesso.objects.create(finalidade='FEED_ICS', profissional=prof, token_hash=_sha('tok-r-ics'))
+
+    def test_tokens_novos_unicos_e_links_antigos_param(self):
+        Atendimento = self.apps.get_model(APP, 'Atendimento')
+        Cliente = self.apps.get_model(APP, 'Cliente')
+        Profissional = self.apps.get_model(APP, 'Profissional')
+        Notificacao = self.apps.get_model(APP, 'Notificacao')
+        RespostaAnamnese = self.apps.get_model(APP, 'RespostaAnamnese')
+        LogAuditoria = self.apps.get_model(APP, 'LogAuditoria')
+
+        for Model, campo in ((Atendimento, 'token_cancelamento'), (Cliente, 'token_descadastro'),
+                             (Profissional, 'ics_token'), (RespostaAnamnese, 'token')):
+            with self.subTest(campo=campo):
+                tokens = list(Model._base_manager.values_list(campo, flat=True))
+                self.assertTrue(tokens)
+                self.assertNotIn(None, tokens)
+                self.assertEqual(len(set(tokens)), len(tokens))
+                self.assertTrue(all(len(t) >= 43 for t in tokens))
+        self.assertIsNotNone(Notificacao.objects.get(pk=self.com_link).token)
+        self.assertIsNone(Notificacao.objects.get(pk=self.sem_link).token)
+        self.assertNotIn('tok-r-ics', Profissional.objects.values_list('ics_token', flat=True))
+        self.assertTrue(LogAuditoria.objects.filter(acao__startswith='migration 0049 (reversa)').exists())
+        self.assertNotIn('link_acesso', connection.introspection.table_names())

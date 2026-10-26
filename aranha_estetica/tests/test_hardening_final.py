@@ -1,9 +1,11 @@
 """Regressao: Referrer-Policy em rotas com token e rotacao do token do feed ICS."""
+from urllib.parse import parse_qs, urlsplit
+
 from django.test import TestCase
 from django.urls import reverse
 
-from aranha_estetica.models import LogAuditoria, Usuario
-from aranha_estetica.tests.factories import criar_profissional
+from aranha_estetica.models import LinkAcesso, LogAuditoria, Usuario
+from aranha_estetica.tests.factories import criar_link, criar_profissional
 
 
 class ReferrerPolicyTokenTests(TestCase):
@@ -16,7 +18,13 @@ class ReferrerPolicyTokenTests(TestCase):
         self.assertEqual(resp['Referrer-Policy'], 'strict-origin-when-cross-origin')
 
 
+def _token_da_url(url):
+    return parse_qs(urlsplit(url).query)['token'][0]
+
+
 class RotacionarIcsTests(TestCase):
+    """0049: o painel gera o link (revoga o anterior) e RENDERIZA a URL uma unica vez."""
+
     def setUp(self):
         self.admin = Usuario.objects.create_superuser(
             email='admin-ics@test.com', password='senha-forte-123', nome='Admin ICS',
@@ -24,30 +32,79 @@ class RotacionarIcsTests(TestCase):
         self.prof = criar_profissional()
         self.prof.refresh_from_db()
         self.url = reverse('aranha:profissional_rotacionar_ics', args=[self.prof.pk])
+        self.antigo = criar_link('FEED_ICS', self.prof)
 
-    def test_post_gera_token_novo_e_audita(self):
-        antigo = self.prof.ics_token
+    def _feed(self, token):
+        return self.client.get(f'/agenda/{self.prof.slug}/feed.ics', {'token': token}).status_code
+
+    def test_post_gera_link_novo_mostra_uma_vez_e_audita(self):
         self.client.force_login(self.admin)
         resp = self.client.post(self.url)
-        self.assertRedirects(resp, reverse('aranha:painel_profissionais'), fetch_redirect_response=False)
-        self.prof.refresh_from_db()
-        self.assertTrue(self.prof.ics_token)
-        self.assertNotEqual(self.prof.ics_token, antigo)
+        self.assertEqual(resp.status_code, 200)  # renderiza: token fora de URL de redirect/log
+        self.assertTemplateUsed(resp, 'painel/ics_link.html')
+        self.assertIn('no-store', resp['Cache-Control'])
+        url = resp.context['link']
+        self.assertTrue(url.startswith(f'http://testserver/agenda/{self.prof.slug}/feed.ics?token='))
+        token = _token_da_url(url)
+        self.assertContains(resp, 'por segurança este link não é exibido de novo')
+        self.assertEqual(self._feed(token), 200)
+        self.assertEqual(self._feed(self.antigo), 404)  # gerar = revogar o anterior
+        # banco guarda so o hash; a lista nao reexibe o link
+        self.assertFalse(LinkAcesso.objects.filter(token_hash=token).exists())
+        self.assertEqual(LinkAcesso.objects.filter(profissional=self.prof, revogado_em__isnull=True).count(), 1)
+        lista = self.client.get(reverse('aranha:painel_profissionais')).content.decode()
+        self.assertNotIn(token, lista)
+        self.assertIn('Link ativo desde', lista)
         self.assertTrue(LogAuditoria.objects.filter(
             tabela='profissional', registro_id=self.prof.pk, acao__icontains='ICS',
         ).exists())
-        feed = f'/agenda/{self.prof.slug}/feed.ics?token={antigo}'
-        self.assertNotEqual(self.client.get(feed).status_code, 200)
+        self.assertFalse(LogAuditoria.objects.filter(acao__contains=token).exists())
+
+    def test_sem_link_a_lista_oferece_gerar(self):
+        LinkAcesso.objects.filter(profissional=self.prof).delete()
+        self.client.force_login(self.admin)
+        lista = self.client.get(reverse('aranha:painel_profissionais')).content.decode()
+        self.assertIn('Sem link', lista)
+        self.assertIn('Gerar link', lista)
 
     def test_get_nao_altera(self):
-        antigo = self.prof.ics_token
         self.client.force_login(self.admin)
         self.client.get(self.url)
-        self.prof.refresh_from_db()
-        self.assertEqual(self.prof.ics_token, antigo)
+        self.assertEqual(self._feed(self.antigo), 200)
 
     def test_anonimo_nao_rotaciona(self):
-        antigo = self.prof.ics_token
         self.client.post(self.url)
-        self.prof.refresh_from_db()
-        self.assertEqual(self.prof.ics_token, antigo)
+        self.assertEqual(self._feed(self.antigo), 200)
+        self.assertEqual(LinkAcesso.objects.filter(profissional=self.prof).count(), 1)
+
+
+class LinkCalendarioPortalTests(TestCase):
+    """O profissional gera o proprio link do feed no portal (mesma regra do painel)."""
+
+    def setUp(self):
+        self.prof = criar_profissional(nome='Dra. Portal')
+        self.user = Usuario.objects.create_user(
+            email='dra-portal@example.com', password='Senha-forte-123', nome='Dra. Portal',
+            papel=Usuario.PAPEL_PROFISSIONAL, profissional=self.prof,
+        )
+        self.url = reverse('aranha:profissional_link_calendario')
+
+    def test_gera_o_proprio_link_e_revoga_o_anterior(self):
+        antigo = criar_link('FEED_ICS', self.prof)
+        outro_prof = criar_profissional(nome='Dra. Outra')
+        do_outro = criar_link('FEED_ICS', outro_prof)
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.get(self.url).status_code, 405)
+        resp = self.client.post(self.url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertTemplateUsed(resp, 'profissional/ics_link.html')
+        token = _token_da_url(resp.context['link'])
+        feed = f'/agenda/{self.prof.slug}/feed.ics'
+        self.assertEqual(self.client.get(feed, {'token': token}).status_code, 200)
+        self.assertEqual(self.client.get(feed, {'token': antigo}).status_code, 404)
+        # o link de outro profissional nao e tocado
+        self.assertEqual(
+            self.client.get(f'/agenda/{outro_prof.slug}/feed.ics', {'token': do_outro}).status_code, 200,
+        )
+        agenda = self.client.get(reverse('aranha:profissional_agenda')).content.decode()
+        self.assertIn(self.url, agenda)

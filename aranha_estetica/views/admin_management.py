@@ -2,7 +2,7 @@
 lista de espera, NPS web, termos de consentimento."""
 import logging
 import re
-from datetime import datetime, timedelta
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
@@ -10,6 +10,7 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import DatabaseError, IntegrityError, transaction
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
@@ -30,8 +31,8 @@ from ..models import (
     Profissional,
     VersaoTermo,
 )
+from ..services import links
 from ..services.termos import (
-    Q_NOTIF_TERMO,
     aceita_assinatura,
     obter_link_termo,
     termos_pendentes,
@@ -44,7 +45,7 @@ from ..validators import normalizar_telefone
 
 logger = logging.getLogger(__name__)
 
-NPS_TOKEN_EXPIRY = timedelta(days=7)
+# Validade do link NPS: constants.VALIDADE_LINK_NPS (gravada no link_acesso na emissao).
 # Link do termo: vale ate o fim do atendimento (services.termos.aceita_assinatura)
 
 
@@ -576,12 +577,16 @@ def admin_notificar_espera(request, pk):
 
 @ratelimit(key='ip', rate='10/m', method='POST', block=True)
 def nps_web(request, token):
-    """Pagina publica para coletar NPS via link (email/SMS)."""
-    notif = get_object_or_404(Notificacao, token=token, tipo='NPS')
-    atendimento = notif.atendimento
+    """Pagina publica para coletar NPS via link (LinkAcesso NPS, 7 dias)."""
+    link = links.resolver(
+        links.NPS, token, aceitar_expirado=True,
+        select_related=('notificacao__atendimento__cliente',),
+    )
+    if link is None:
+        raise Http404('Link inválido.')
+    atendimento = link.notificacao.atendimento
 
-    idade_token = timezone.now() - notif.criado_em
-    if idade_token > NPS_TOKEN_EXPIRY:
+    if link.expirado:
         return render(request, 'publico/nps_obrigado.html', {
             'expirado': True,
             'cliente': atendimento.cliente,
@@ -605,6 +610,7 @@ def nps_web(request, token):
                 # opt-in explicito p/ virar depoimento publico (moderado no painel)
                 autoriza_publicacao=request.POST.get('autoriza_publicacao') in ('1', 'on', 'true'),
             )
+            links.marcar_usado(link)
             return render(request, 'publico/nps_obrigado.html', {
                 'nota': nota,
                 'cliente': atendimento.cliente,
@@ -719,21 +725,25 @@ def admin_criar_termo(request):
 def termo_assinatura(request, token):
     """Pagina publica p/ a cliente aceitar os termos pendentes do atendimento.
 
-    - So token de Notificacao do termo (tipo TERMO; LEMBRETE+EMAIL legado):
-      token de NPS/lembrete WhatsApp nao abre esta pagina.
-    - Vale ate o fim do atendimento; cancelado/realizado/faltou/reagendado
-      ou ja encerrado -> 410 sem gravar nada.
+    - So LinkAcesso TERMO: link de NPS/lembrete WhatsApp nao abre esta pagina
+      (revogado ou desconhecido -> 404).
+    - Vale ate o fim do atendimento (regra de dominio aceita_assinatura sobre o
+      horario ATUAL — atendimento movido no calendario continua valendo);
+      cancelado/realizado/faltou/reagendado ou ja encerrado -> 410 sem gravar nada.
     - POST exige o aceite de TODOS os termos pendentes (validado no servidor;
       o `required` do checkbox e so conveniencia) e grava pela
       AceiteTermo.registrar (IP, user-agent, SHA-256 do texto) + auditoria.
     """
-    notif = get_object_or_404(
-        Notificacao.objects.select_related(
-            'atendimento__cliente', 'atendimento__procedimento', 'atendimento__profissional',
+    link = links.resolver(
+        links.TERMO, token, aceitar_expirado=True,
+        select_related=(
+            'notificacao__atendimento__cliente', 'notificacao__atendimento__procedimento',
+            'notificacao__atendimento__profissional',
         ),
-        Q_NOTIF_TERMO,
-        token=token,
     )
+    if link is None:
+        raise Http404('Link inválido.')
+    notif = link.notificacao
     atendimento = notif.atendimento
     cliente = atendimento.cliente
 
@@ -766,6 +776,7 @@ def termo_assinatura(request, token):
                 for termo in pendentes:
                     AceiteTermo.registrar(cliente, termo, request=request, atendimento=atendimento)
                 Notificacao.objects.filter(pk=notif.pk).update(respondido_em=timezone.now())
+                links.marcar_usado(link)
             registrar_log(
                 None, 'Cliente aceitou termos', 'aceite_termo', cliente.pk,
                 {'versoes': [t.pk for t in pendentes], 'atendimento': atendimento.pk,
@@ -781,9 +792,11 @@ def termo_assinatura(request, token):
 @require_POST
 @ratelimit(key='user', rate='30/m', method='POST', block=True)
 def admin_gerar_link_termo(request, pk):
-    """Gera (ou reusa) o link do termo do atendimento p/ a recepcao enviar.
+    """Gera um link NOVO do termo do atendimento p/ a recepcao enviar.
 
-    O link vale ate o fim do atendimento. A tela mostra o link p/ copiar,
+    So o hash do token fica no banco: o link nao pode ser reexibido, entao
+    cada clique emite outro; os anteriores seguem validos ate o fim do
+    atendimento (D1, spec padrao-sql §7.1). A tela mostra o link p/ copiar,
     WhatsApp/e-mail ja com o link no texto e "abrir aqui" (aceite no balcao,
     no tablet da clinica).
     """
@@ -801,11 +814,10 @@ def admin_gerar_link_termo(request, pk):
         messages.info(request, f'{atendimento.cliente.nome} já aceitou todos os termos deste atendimento.')
         return _voltar(request)
 
-    notif, link, criado = obter_link_termo(atendimento, request.POST.get('canal', 'WHATSAPP'))
+    notif, link, criada = obter_link_termo(atendimento, request.POST.get('canal', 'WHATSAPP'))
     registrar_log(
-        request.user, 'Gerou link do termo' if criado else 'Consultou link do termo',
-        'atendimento', atendimento.pk,
-        {'notificacao': notif.pk, 'versoes': [t.pk for t in pendentes]},
+        request.user, 'Gerou link do termo', 'atendimento', atendimento.pk,
+        {'notificacao': notif.pk, 'notificacao_nova': criada, 'versoes': [t.pk for t in pendentes]},
         request=request,
     )
     return render(request, 'painel/termo_link.html', {

@@ -62,7 +62,7 @@ urlpatterns = [
     # ─── Confirmação de Presença (link público via WhatsApp) ───
     path('confirmar/<str:token>/', views.confirmar_presenca, name='confirmar_presenca'),
 
-    # ─── Reagendamento Público (link via WhatsApp / meus-agendamentos) ───
+    # ─── Reagendamento pelo link legado (token GERENCIAR_AGENDAMENTO migrado na 0049) ───
     path('reagendar/<str:token>/', views.reagendar_agendamento, name='reagendar_agendamento'),
     path('reagendar/<str:token>/horarios/', views.reagendar_horarios, name='reagendar_horarios'),
 
@@ -71,6 +71,11 @@ urlpatterns = [
     path('meus-agendamentos/otp/enviar/', views.meus_agendamentos_enviar_otp, name='meus_agendamentos_enviar_otp'),
     path('meus-agendamentos/otp/verificar/', views.meus_agendamentos_verificar_otp, name='meus_agendamentos_verificar_otp'),
     path('meus-agendamentos/sair/', views.meus_agendamentos_logout, name='meus_agendamentos_logout'),
+    # reagendar pelo portal: id + sessao do OTP (anti-IDOR), sem token
+    path('meus-agendamentos/<int:pk>/reagendar/', views.reagendar_agendamento_portal,
+         name='reagendar_agendamento_portal'),
+    path('meus-agendamentos/<int:pk>/horarios/', views.reagendar_horarios_portal,
+         name='reagendar_horarios_portal'),
 
     # ─── Lista de Espera (público) ───
     path('lista-espera/', views.lista_espera_publica, name='lista_espera_publica'),
@@ -220,6 +225,7 @@ urlpatterns = [
     path('profissional/atendimento/<int:pk>/anotar/', views.profissional_anotar, name='profissional_anotar'),
     path('profissional/atendimento/<int:pk>/aprovar/', views.profissional_aprovar, name='profissional_aprovar'),
     path('profissional/atendimento/<int:pk>/rejeitar/', views.profissional_rejeitar, name='profissional_rejeitar'),
+    path('profissional/calendario/novo-link/', views.profissional_link_calendario, name='profissional_link_calendario'),
 
     # ─── Healthcheck ───
     path('health/', views.healthcheck, name='healthcheck'),       # readiness

@@ -99,8 +99,9 @@ def _enviar_email(destinatario, assunto, template, contexto,
                   marketing=False, preheader='', unsub_token=None):
     """Envia email HTML. Marketing inclui List-Unsubscribe (RFC 8058 one-click).
 
-    unsub_token: Cliente.token_descadastro. Obrigatorio para marketing=True
-    (sem ele o e-mail NAO sai — LGPD exige o opt-out em toda mensagem).
+    unsub_token: token do LinkAcesso DESCADASTRO deste e-mail (use
+    enviar_marketing_com_descadastro). Obrigatorio para marketing=True (sem ele
+    o e-mail NAO sai — LGPD exige o opt-out em toda mensagem).
     Retorna True so se o backend aceitou a mensagem.
     """
     if not destinatario:
@@ -190,6 +191,25 @@ def enviar_fila_espera_email(email, dados):
         template='email/fila_espera.html',
         contexto={'dados': dados},
     )
+
+
+def enviar_marketing_com_descadastro(cliente, enviar) -> bool:
+    """Emite o link de descadastro DESTE e-mail e chama ``enviar(unsub_token)``.
+
+    Cada e-mail de marketing leva o seu token (link_acesso DESCADASTRO; so o
+    hash no banco). Se o envio falhar, o link — que nunca saiu do servidor —
+    e descartado.
+    """
+    from ..services import links
+
+    token = links.emitir(links.DESCADASTRO, cliente)
+    ok = False
+    try:
+        ok = bool(enviar(token))
+    finally:
+        if not ok:
+            links.descartar(token)
+    return ok
 
 
 def enviar_aniversario_email(email, dados, unsub_token=None):

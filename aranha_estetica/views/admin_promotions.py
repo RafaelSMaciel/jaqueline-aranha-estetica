@@ -150,7 +150,7 @@ def _enviar_lote_promocao(promo, assunto, corpo, validade_dias):
     O cursor (ultimo pk processado) fica em Configuracao para sobreviver a
     restart e evitar reenvio a quem ja recebeu. Retorna (enviados, falhas, restantes).
     """
-    from ..utils.email import enviar_promocao_email
+    from ..utils.email import enviar_marketing_com_descadastro, enviar_promocao_email
 
     chave = f'promocao_{promo.pk}_envio_cursor'
     cfg, _ = Configuracao.objects.get_or_create(
@@ -163,12 +163,13 @@ def _enviar_lote_promocao(promo, assunto, corpo, validade_dias):
     validade = (hoje() + timedelta(days=validade_dias)).strftime('%d/%m/%Y')
     enviados = falhas = 0
     for cliente in lote:
+        dados = {'nome': cliente.nome, 'corpo_html': corpo, 'validade': validade}
         try:
-            ok = enviar_promocao_email(
-                cliente.email,
-                {'nome': cliente.nome, 'corpo_html': corpo, 'validade': validade},
-                unsub_token=cliente.token_descadastro,
-                assunto=assunto,
+            ok = enviar_marketing_com_descadastro(
+                cliente,
+                lambda unsub, c=cliente, d=dados: enviar_promocao_email(
+                    c.email, d, unsub_token=unsub, assunto=assunto,
+                ),
             )
         except Exception:  # pylint: disable=broad-except
             logger.warning('promocao_lote_falha', exc_info=True, extra={'cliente_id': cliente.pk})

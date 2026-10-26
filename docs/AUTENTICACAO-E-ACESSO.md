@@ -141,19 +141,23 @@ foi provado por OTP na sessão).
 
 ### 2.3 Links por token
 
-Todos com `secrets.token_urlsafe(32)` (≈ 256 bits), comparação por igualdade no banco ou
-`compare_digest`, e `Referrer-Policy: no-referrer` nas páginas; o access log do gunicorn e o
-Sentry redigem os tokens.
+Todos com `secrets.token_urlsafe(32)` (≈ 256 bits). Desde a migration 0049 o banco guarda só
+`sha256(token)` em `link_acesso` (`services/links.py`): a busca é por igualdade do hash (índice
+único), sem comparação de segredo em Python; sem pepper/HMAC de propósito (rotacionar a
+SECRET_KEY num incidente não derruba links enviados). O token em claro só existe na URL
+entregue — o feed ICS é exibido uma única vez, na geração. `Referrer-Policy: no-referrer` nas
+páginas; o access log do gunicorn e o Sentry redigem os tokens. Revogado (rotação do ICS,
+anonimização) = 404; token de outra finalidade = 404.
 
-| Token | Onde | Validade | Dá acesso a |
+| Finalidade (`link_acesso`) | Onde | Validade | Dá acesso a |
 |---|---|---|---|
-| `Atendimento.token_cancelamento` | `/reagendar/<token>/`, cancelar no portal | sem expiração; reagendar só até 24h antes, cancelar até o início | Reagendar/cancelar aquele atendimento |
-| `Notificacao.token` (LEMBRETE WhatsApp) | `/confirmar/<token>/` | uma resposta; atendimento futuro e editável | Confirmar presença (AGENDADO → CONFIRMADO) ou cancelar |
-| `Notificacao.token` (TERMO) | `/termo/<token>/` | até o **fim do atendimento** | Aceitar os termos pendentes daquele atendimento (nunca vale em `/confirmar/`) |
-| `Notificacao.token` (NPS) | `/nps/<token>/` | 7 dias, uma resposta | Dar nota 0–10, comentário e autorizar depoimento |
-| `RespostaAnamnese.token` | `/anamnese/<token>/`, `/pesquisa/<token>/` | 60 dias, uma resposta | Responder ficha/pesquisa (ficha de saúde com consentimento art. 11) |
-| `Cliente.token_descadastro` | `/lgpd/unsubscribe/<token>/` | sem expiração (renovado na anonimização) | Descadastro de marketing e pesquisas |
-| `Profissional.ics_token` | `/agenda/<slug>/feed.ics?token=` | até ser **rotacionado** no painel ("Novo link") | Feed iCal com nomes das clientes |
+| GERENCIAR_AGENDAMENTO | `/reagendar/<token>/`, `POST /ajax/cancelar-agendamento/ {token}` | **só os tokens migrados** (o portal usa id + sessão do OTP); expira no início do atendimento; reagendar só até 24h antes | Reagendar/cancelar aquele atendimento |
+| CONFIRMAR_PRESENCA (lembrete WhatsApp) | `/confirmar/<token>/` | uma resposta; até o início (depois só leitura) | Confirmar presença (AGENDADO → CONFIRMADO) ou cancelar |
+| TERMO | `/termo/<token>/` | até o **fim do atendimento**; cada "Gerar link" emite outro e os anteriores continuam valendo | Aceitar os termos pendentes daquele atendimento |
+| NPS | `/nps/<token>/` | 7 dias, uma resposta | Dar nota 0–10, comentário e autorizar depoimento |
+| FORMULARIO | `/anamnese/<token>/`, `/pesquisa/<token>/` | 60 dias, uma resposta | Responder ficha/pesquisa (ficha de saúde com consentimento art. 11) |
+| DESCADASTRO | `/lgpd/unsubscribe/<token>/` | sem expiração; um por e-mail de marketing; revogado na anonimização | Descadastro de marketing e pesquisas |
+| FEED_ICS | `/agenda/<slug>/feed.ics?token=` | até gerar outro (painel "Novo link" ou portal do profissional) | Feed iCal com nomes das clientes |
 | Reset de senha (equipe) | `/admin-login/recuperar/<uid>/<token>/` | 1 h, uso único | Definir nova senha |
 
 ---
@@ -186,7 +190,7 @@ tokens longos e redigidos nos logs; trilha de auditoria com IP.
 |---|---|---|
 | média | DSAR e portal liberados com 1 fator (SMS) — SIM-swap expõe o cadastro | Aceito por ora (público de estética, sem senha); evolução: 2º canal ou entrega do export por e-mail |
 | média | 2FA do PROFISSIONAL é opt-in, mas ele vê alertas de saúde | Ligar `PROFISSIONAL_2FA_OBRIGATORIO=true` quando a equipe estiver pronta |
-| baixa | `token_cancelamento` e `token_descadastro` não expiram | Escopo limitado (um atendimento / opt-out); reagendar exige 24h |
+| baixa | Link de descadastro não expira | Escopo limitado (opt-out); revogado na anonimização. Reagendar/cancelar sem token novo: portal por sessão do OTP; links legados expiram no início do atendimento |
 | baixa | `Enforce2FAMiddleware` depende do marcador de sessão do login da equipe | Em produção a única porta é `/admin-login/` (equivalente); hardening listado no ARCHITECTURE |
 | baixa | Link do termo pode ser enviado por `mailto:` ao e-mail do cadastro | Pendência listada no ARCHITECTURE |
 
