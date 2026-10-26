@@ -226,7 +226,7 @@ class AgendamentosPainelTests(_AdminTestCase):
     def test_calendario_mover_conflito_de_banco_vira_409(self):
         import json
         novo = self.a1.data_hora_inicio + timedelta(days=1)
-        with patch.object(Atendimento, 'save', side_effect=IntegrityError('excl_atendimento_sobreposicao')):
+        with patch.object(Atendimento, 'save', side_effect=IntegrityError('ex_atendimento_sobreposicao')):
             resp = self.client.post(
                 reverse('aranha:admin_calendar_mover'),
                 data=json.dumps({'id': self.a1.pk, 'start': novo.isoformat(),

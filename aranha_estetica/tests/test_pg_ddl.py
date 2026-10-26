@@ -27,14 +27,18 @@ from aranha_estetica.tests.factories import (
 
 PG = connection.vendor == 'postgresql'
 
-# conname -> migration que cria
+# conname -> migration que cria (nomes do padrao desde a 0055: §3.3)
 CONSTRAINTS_SO_PG = {
-    'excl_atendimento_sobreposicao': '0035',
-    'chk_cliente_telefone_digits': '0034',
-    'chk_cliente_cpf_digits': '0034',
-    'chk_prontuario_extras_objeto': '0043',
-    'chk_resposta_anamnese_objeto': '0043',
-    'chk_formulario_schema_lista': '0043',
+    'ex_atendimento_sobreposicao': '0035/0055',
+    'ck_cliente_telefone_formato': '0034/0055',
+    'ck_cliente_cpf_formato': '0034/0055',
+    'ck_prontuario_respostas_objeto': '0043/0055',
+    'ck_resposta_formulario_respostas_objeto': '0043/0055',
+    'ck_formulario_perguntas_lista': '0043/0055',
+    'ck_log_auditoria_detalhes_objeto': '0055',
+    'ck_prontuario_versao_dados_objeto': '0055',
+    'ck_aceite_termo_conteudo_hash_formato': '0055',
+    'ck_codigo_otp_codigo_hash_formato': '0055',
     'ex_agenda_horario_sobreposicao': '0048',
     'ex_agenda_excecao_folga_sobreposta': '0048',
     'ck_agenda_excecao_regra_recorrencia_suportada': '0048',
@@ -45,10 +49,10 @@ CONSTRAINTS_SO_PG = {
 # promocao geral) so cria CHECKs de model (existem no SQLite tambem) e nao
 # recria versao_termo: os triggers da 0046 tem de continuar la.
 TRIGGERS_SO_PG = {
-    'trg_movimento_carteira_imutavel': ('0038', 'movimento_carteira'),
-    'trg_aceite_termo_imutavel': ('0046', 'aceite_termo'),
-    'trg_versao_termo_imutavel': ('0046', 'versao_termo'),
-    'trg_prontuario_versao_imutavel': ('0046', 'prontuario_versao'),
+    'tg_movimento_carteira_imutavel': ('0038/0054', 'movimento_carteira'),
+    'tg_aceite_termo_imutavel': ('0046/0054', 'aceite_termo'),
+    'tg_versao_termo_imutavel': ('0046/0054', 'versao_termo'),
+    'tg_prontuario_versao_imutavel': ('0046/0054', 'prontuario_versao'),
     'tg_link_acesso_imutavel': ('0049', 'link_acesso'),
     'tg_consentimento_imutavel': ('0050', 'consentimento'),
     'tg_compra_pacote_item_imutavel': ('0052', 'compra_pacote_item'),
@@ -190,7 +194,7 @@ class DDLSoPostgresTests(TestCase):
             cursor.execute(
                 "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = 'public' "
                 "AND (column_name IN ('token_cancelamento', 'token_descadastro', 'ics_token', 'token_reserva') "
-                "OR (column_name = 'token' AND table_name IN ('notificacao', 'resposta_anamnese')))"
+                "OR (column_name = 'token' AND table_name IN ('notificacao', 'resposta_formulario')))"
             )
             self.assertEqual(cursor.fetchall(), [])
 
@@ -300,20 +304,20 @@ class DDLSoPostgresTests(TestCase):
 
     def test_formulario_checks_e_um_prontuario_ativo(self):
         with connection.cursor() as cursor:
-            cursor.execute("SELECT conname FROM pg_constraint WHERE conrelid = 'formulario_anamnese'::regclass "
+            cursor.execute("SELECT conname FROM pg_constraint WHERE conrelid = 'formulario'::regclass "
                            "AND conname LIKE 'ck_formulario_%%'")
             checks = {r[0] for r in cursor.fetchall()}
             cursor.execute("SELECT pg_get_indexdef('uq_formulario_prontuario_ativo'::regclass)")
             indice = cursor.fetchone()[0]
         self.assertEqual(checks, {'ck_formulario_tipo', 'ck_formulario_escopo', 'ck_formulario_escopo_coerente',
-                                  'ck_formulario_prontuario_global'})
+                                  'ck_formulario_prontuario_global', 'ck_formulario_perguntas_lista'})
         self.assertIn('UNIQUE INDEX', indice)
         FormularioAnamnese.objects.create(nome='Q', tipo='PRONTUARIO', schema_json=[])
         with self.assertRaises(IntegrityError), transaction.atomic():
             FormularioAnamnese.objects.create(nome='Q2', tipo='PRONTUARIO', schema_json=[])
-        for sql in ("UPDATE formulario_anamnese SET obrigatorio = true WHERE tipo = 'PRONTUARIO'",
-                    "UPDATE formulario_anamnese SET escopo = 'PROCEDIMENTO' WHERE tipo = 'PRONTUARIO'",
-                    "UPDATE formulario_anamnese SET tipo = 'OUTRO' WHERE tipo = 'PRONTUARIO'"):
+        for sql in ("UPDATE formulario SET eh_obrigatorio = true WHERE tipo = 'PRONTUARIO'",
+                    "UPDATE formulario SET escopo = 'PROCEDIMENTO' WHERE tipo = 'PRONTUARIO'",
+                    "UPDATE formulario SET tipo = 'OUTRO' WHERE tipo = 'PRONTUARIO'"):
             with self.subTest(sql=sql), self.assertRaises(IntegrityError), transaction.atomic():
                 self._sql(sql)
 
@@ -323,10 +327,10 @@ class DDLSoPostgresTests(TestCase):
             carteira=carteira, tipo='CREDITO', origem='OUTRO',
             valor=Decimal('10'), saldo_resultante=Decimal('10'),
         )
-        # RAISE do plpgsql (P0001) -> InternalError, subclasse de DatabaseError
-        with self.assertRaises(DatabaseError), transaction.atomic():
+        # fn_bloquear_mutacao (0054): SQLSTATE 23000 -> IntegrityError (antes P0001/InternalError)
+        with self.assertRaises(IntegrityError), transaction.atomic():
             MovimentoCarteira.objects.filter(pk=mov.pk).update(valor=Decimal('99'))
-        with self.assertRaises(DatabaseError), transaction.atomic():
+        with self.assertRaises(IntegrityError), transaction.atomic():
             self._sql('DELETE FROM movimento_carteira WHERE id = %s', [mov.pk])
         mov.refresh_from_db()
         self.assertEqual(mov.valor, Decimal('10'))
@@ -342,25 +346,29 @@ class DDLSoPostgresTests(TestCase):
             prontuario=Prontuario.objects.create(cliente=self.cli), dados={'alergias': 'Dipirona'},
         )
         bloqueados = (
-            ("UPDATE aceite_termo SET ip = '1.1.1.1' WHERE id = %s", aceite.pk),
+            ("UPDATE aceite_termo SET ip_origem = '1.1.1.1' WHERE id = %s", aceite.pk),
+            ("UPDATE aceite_termo SET conteudo_hash = NULL WHERE id = %s", aceite.pk),
             ('DELETE FROM aceite_termo WHERE id = %s', aceite.pk),
             ("UPDATE versao_termo SET conteudo = 'Outro texto' WHERE id = %s", termo.pk),
             ("UPDATE prontuario_versao SET dados = '{}'::jsonb WHERE id = %s", versao.pk),
+            ("UPDATE prontuario_versao SET usuario_autor_nome = 'x' WHERE id = %s", versao.pk),
             ('DELETE FROM prontuario_versao WHERE id = %s', versao.pk),
         )
         for sql, pk in bloqueados:
-            # RAISE do plpgsql (P0001) -> InternalError, subclasse de DatabaseError
-            with self.subTest(sql=sql), self.assertRaises(DatabaseError), transaction.atomic():
+            # fn_*_imutavel (0054): SQLSTATE 23000 -> IntegrityError (antes P0001/InternalError)
+            with self.subTest(sql=sql), self.assertRaises(IntegrityError), transaction.atomic():
                 self._sql(sql, [pk])
         # permitido: desativar o termo e o SET_NULL das FKs
-        self._sql('UPDATE versao_termo SET ativa = false WHERE id = %s', [termo.pk])
+        self._sql('UPDATE versao_termo SET eh_ativo = false WHERE id = %s', [termo.pk])
         self._sql('UPDATE aceite_termo SET atendimento_id = NULL WHERE id = %s', [aceite.pk])
+        self._sql('UPDATE prontuario_versao SET usuario_autor_id = NULL WHERE id = %s', [versao.pk])
         aceite.refresh_from_db()
         self.assertEqual((aceite.ip, aceite.atendimento_id), (None, None))
 
     def test_checks_regex_cliente(self):
-        for coluna, valor in (('telefone', 'abc'), ('telefone', '123'),
-                              ('cpf', '123456789ab'), ('cpf', '1234')):
+        # 0055: vazio deixou de ser aceito (ausente = NULL)
+        for coluna, valor in (('telefone', 'abc'), ('telefone', '123'), ('telefone', ''),
+                              ('cpf', '123456789ab'), ('cpf', '1234'), ('cpf', '')):
             with self.subTest(coluna=coluna, valor=valor), self.assertRaises(IntegrityError), \
                     transaction.atomic():
                 self._sql(f'UPDATE cliente SET {coluna} = %s WHERE id = %s', [valor, self.cli.pk])
@@ -368,35 +376,48 @@ class DDLSoPostgresTests(TestCase):
         self._sql('UPDATE cliente SET cpf = %s WHERE id = %s', ['12345678901', self.cli.pk])
 
     def test_checks_jsonb(self):
-        # NOT VALID: nao revalida o legado, mas vale p/ toda escrita nova
+        # 0043 NOT VALID -> 0055 renomeados e validados (pre-checagem aborta se o legado viola)
         prontuario = Prontuario.objects.create(cliente=self.cli)
         formulario = FormularioAnamnese.objects.create(nome='Ficha', schema_json=[])
         resposta = RespostaAnamnese.objects.create(
             formulario=formulario, cliente=self.cli, respostas_json={},
         )
+        versao = ProntuarioVersao.objects.create(prontuario=prontuario, dados={'alergias': ''})
         casos = (
-            ("UPDATE prontuario SET respostas_extras = '[]'::jsonb WHERE id = %s", prontuario.pk),
-            ("UPDATE resposta_anamnese SET respostas_json = '[]'::jsonb WHERE id = %s", resposta.pk),
-            ("UPDATE formulario_anamnese SET schema_json = '{}'::jsonb WHERE id = %s", formulario.pk),
+            ("UPDATE prontuario SET respostas = '[]'::jsonb WHERE id = %s", [prontuario.pk]),
+            ("UPDATE resposta_formulario SET respostas = '[]'::jsonb WHERE id = %s", [resposta.pk]),
+            ("UPDATE formulario SET perguntas = '{}'::jsonb WHERE id = %s", [formulario.pk]),
+            ("INSERT INTO log_auditoria (acao, detalhes) VALUES ('x', '[1]'::jsonb)", None),
+            ("INSERT INTO prontuario_versao (prontuario_id, dados) VALUES (%s, '[]'::jsonb)", [prontuario.pk]),
         )
-        for sql, pk in casos:
+        self.assertTrue(versao.pk)
+        for sql, params in casos:
             with self.subTest(sql=sql), self.assertRaises(IntegrityError), transaction.atomic():
-                self._sql(sql, [pk])
+                self._sql(sql, params)
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT conname, convalidated FROM pg_constraint WHERE conname IN "
+                           "('ck_prontuario_respostas_objeto', 'ck_resposta_formulario_respostas_objeto', "
+                           "'ck_formulario_perguntas_lista')")
+            self.assertEqual(dict(cursor.fetchall()), {
+                'ck_prontuario_respostas_objeto': True, 'ck_resposta_formulario_respostas_objeto': True,
+                'ck_formulario_perguntas_lista': True,
+            })
 
     def test_collation_nome(self):
-        if os.environ.get('PG_EXIGE_ICU') != '1':
-            # Sem ICU a 0038 so avisa. Nao usar to_regcollation('pt_br') como
-            # gatilho: se o passo sumisse, o teste pularia em vez de reprovar.
-            self.skipTest('collation pt_br so e exigida com PG_EXIGE_ICU=1 (CI)')
+        # 0054: db_collation='pt_br' no estado (a migration aborta se a collation nao existe)
         with connection.cursor() as cursor:
             cursor.execute(
                 "SELECT table_name, collation_name FROM information_schema.columns "
                 "WHERE column_name = 'nome' AND table_name IN ('cliente', 'profissional', 'procedimento')"
             )
             collations = dict(cursor.fetchall())
+            cursor.execute("SELECT collprovider FROM pg_collation WHERE collname = 'pt_br'")
+            provedor = cursor.fetchone()[0]
         self.assertEqual(
             collations, {'cliente': 'pt_br', 'profissional': 'pt_br', 'procedimento': 'pt_br'},
         )
+        if os.environ.get('PG_EXIGE_ICU') == '1':  # CI/producao: ICU de verdade (harness local emula)
+            self.assertEqual(provedor, 'i')
 
     # ─── 0052: pacote congelado ──────────────────────────────────────────
     def _venda(self, sessoes=2):
@@ -495,8 +516,12 @@ class DDLSoPostgresTests(TestCase):
             cursor.execute("SELECT indexrelid::regclass::text, pg_get_indexdef(indexrelid) FROM pg_index "
                            "WHERE indrelid = 'movimento_comissao'::regclass")
             indices = dict(cursor.fetchall())
+        # 0055: as FKs antigas tambem no padrao (PadronizarNomes), todas NO ACTION (PROTECT)
         self.assertEqual(fks, {('fk_movimento_comissao_movimento_comissao_origem', 'a'),
-                               ('fk_movimento_comissao_usuario_autor', 'a')})
+                               ('fk_movimento_comissao_usuario_autor', 'a'),
+                               ('fk_movimento_comissao_profissional', 'a'),
+                               ('fk_movimento_comissao_atendimento', 'a'),
+                               ('fk_movimento_comissao_regra_comissao', 'a')})
         for nome, trecho in (('uq_movimento_comissao_credito_por_atendimento', "'CREDITO'"),
                              ('uq_movimento_comissao_estorno_por_origem', "'ESTORNO'"),
                              ('uq_movimento_comissao_pagamento_por_origem', "'PAGAMENTO'"),
@@ -542,9 +567,63 @@ class DDLSoPostgresTests(TestCase):
             self._sql('DELETE FROM regra_comissao WHERE id = %s', [regra.pk])
             self._sql('SET CONSTRAINTS ALL IMMEDIATE')
 
-    def test_ledger_da_carteira_segue_com_o_trigger_da_0038(self):
-        # a 0053 derruba/recria o trigger p/ sanear o nome da indicada: tem de continuar la
+    def test_ledger_da_carteira_segue_imutavel_com_a_funcao_generica(self):
+        # 0053 derruba/recria o trigger da 0038 (nome da indicada); 0054 troca p/ tg_/fn_bloquear_mutacao
         with connection.cursor() as cursor:
-            cursor.execute("SELECT count(*) FROM pg_trigger WHERE tgname = 'trg_movimento_carteira_imutavel' "
-                           "AND tgrelid = 'movimento_carteira'::regclass AND NOT tgisinternal")
-            self.assertEqual(cursor.fetchone()[0], 1)
+            cursor.execute("SELECT tgname, tgfoid::regproc::text FROM pg_trigger "
+                           "WHERE tgrelid = 'movimento_carteira'::regclass AND NOT tgisinternal")
+            self.assertEqual(cursor.fetchall(), [('tg_movimento_carteira_imutavel', 'fn_bloquear_mutacao')])
+            cursor.execute("SELECT count(*) FROM pg_proc WHERE proname IN ('bloquear_mutacao_ledger', "
+                           "'aceite_termo_imutavel', 'versao_termo_imutavel', 'prontuario_versao_imutavel')")
+            self.assertEqual(cursor.fetchone()[0], 0)
+
+    # ─── 0054/0055: fase de nomes ────────────────────────────────────────
+    def test_fase_de_nomes_tipos_e_tabelas(self):
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT table_name || '.' || column_name, "
+                "       format_type(a.atttypid, a.atttypmod), is_nullable, column_default "
+                "  FROM information_schema.columns c "
+                "  JOIN pg_attribute a ON a.attrelid = (c.table_schema || '.' || c.table_name)::regclass "
+                "   AND a.attname = c.column_name "
+                " WHERE (table_name, column_name) IN (('log_auditoria', 'registro_pk'), ('codigo_otp', 'codigo_hash'), "
+                "       ('aceite_termo', 'conteudo_hash'), ('codigo_otp', 'qtd_tentativas'), "
+                "       ('procedimento', 'duracao_retorno_minutos'), ('cliente', 'atualizado_em'), "
+                "       ('usuario', 'criado_em'), ('log_auditoria', 'tabela'), ('cliente', 'eh_ativo'))"
+            )
+            colunas = {nome: (tipo, nulo, default) for nome, tipo, nulo, default in cursor.fetchall()}
+            cursor.execute("SELECT to_regclass('pacote_item'), to_regclass('formulario'), "
+                           "to_regclass('resposta_formulario'), to_regclass('item_pacote'), "
+                           "to_regclass('formulario_anamnese'), to_regclass('resposta_anamnese')")
+            tabelas = cursor.fetchone()
+        self.assertEqual(colunas['log_auditoria.registro_pk'][0], 'bigint')
+        self.assertEqual(colunas['codigo_otp.codigo_hash'][:2], ('character(64)', 'NO'))
+        self.assertEqual(colunas['aceite_termo.conteudo_hash'][:2], ('character(64)', 'YES'))
+        self.assertEqual(colunas['codigo_otp.qtd_tentativas'], ('smallint', 'NO', '0'))
+        self.assertEqual(colunas['procedimento.duracao_retorno_minutos'], ('smallint', 'NO', '30'))
+        self.assertEqual(colunas['cliente.atualizado_em'][1], 'NO')
+        self.assertIn('statement_timestamp', colunas['usuario.criado_em'][2])
+        self.assertEqual(colunas['log_auditoria.tabela'][1:], ('NO', "''::character varying"))
+        self.assertEqual(colunas['cliente.eh_ativo'][2], 'true')
+        self.assertEqual(tabelas, ('pacote_item', 'formulario', 'resposta_formulario', None, None, None))
+
+    def test_fase_de_nomes_checks_novos(self):
+        from aranha_estetica.models import CodigoOtp
+        from aranha_estetica.models.extras import Carteira, MovimentoCarteira
+
+        carteira = Carteira.objects.create(cliente=self.cli)
+        otp = CodigoOtp.gerar('a@b.com')[1]
+        casos = (
+            ("UPDATE notificacao SET canal = 'TELEGRAM' WHERE atendimento_id = %s", [self.at.pk]),
+            ("UPDATE atendimento SET valor_cobrado = -1 WHERE id = %s", [self.at.pk]),
+            ("UPDATE cliente SET email = '' WHERE id = %s", [self.cli.pk]),
+            ("UPDATE codigo_otp SET codigo_hash = repeat('G', 64) WHERE id = %s", [otp.pk]),
+            ("UPDATE codigo_otp SET qtd_tentativas = -1 WHERE id = %s", [otp.pk]),
+            ("INSERT INTO movimento_carteira (carteira_id, tipo, origem, valor, valor_saldo_resultante, observacao) "
+             "VALUES (%s, 'CREDITO', 'OUTRO', 0, 0, '')", [carteira.pk]),
+        )
+        Notificacao.objects.create(atendimento=self.at, tipo='NPS')
+        for sql, params in casos:
+            with self.subTest(sql=sql), self.assertRaises(IntegrityError), transaction.atomic():
+                self._sql(sql, params)
+        self.assertFalse(MovimentoCarteira.objects.exists())

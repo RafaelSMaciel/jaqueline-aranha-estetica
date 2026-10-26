@@ -570,7 +570,8 @@ def lista_espera_publica(request):
             # Telefone ja cadastrado e nao verificado: o e-mail digitado pode ser de
             # terceiro (receberia nome da cliente + vaga). Aviso vai pelo contato
             # do proprio cadastro (e-mail/WhatsApp) ou pela recepcao.
-            email_contato = email if (cadastro_novo or telefone_verificado) else None
+            # ausente = NULL, nunca '' (ck_lista_espera_email_contato_nao_vazio)
+            email_contato = (email or None) if (cadastro_novo or telefone_verificado) else None
 
             ja_inscrito = ListaEspera.objects.filter(
                 cliente=cliente,

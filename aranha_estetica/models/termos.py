@@ -3,8 +3,12 @@ import hashlib
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models.functions import Now
 
+from ..db.campos import HashSha256Field
+from ..db.indices import Indice
 from .clientes import Cliente
+from .mixins import atualizado_em_legado, criado_em_legado
 from .procedimentos import Procedimento
 
 # Consentimento especifico p/ dado de saude (LGPD art. 11, I): texto da
@@ -37,32 +41,44 @@ class VersaoTermo(models.Model):
 
     tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
     procedimento = models.ForeignKey(
-        Procedimento, on_delete=models.CASCADE, blank=True, null=True
+        Procedimento, on_delete=models.CASCADE, blank=True, null=True, db_index=False,
     )
     titulo = models.TextField()
     conteudo = models.TextField()
     versao = models.CharField(max_length=20)
-    vigente_desde = models.DateField()
-    ativa = models.BooleanField(default=True)
+    vigente_desde = models.DateField(db_column='data_inicio_vigencia')
+    ativa = models.BooleanField(default=True, db_default=True, db_column='eh_ativo')
+    criado_em = criado_em_legado()
+    atualizado_em = atualizado_em_legado()
 
     class Meta:
         managed = True
         db_table = 'versao_termo'
+        db_table_comment = (
+            'Texto versionado de termo (LGPD, SAUDE art. 11, PROCEDIMENTO). Imutavel depois do 1o aceite '
+            '(tg_versao_termo_imutavel); 1 ativo por escopo.'
+        )
         constraints = [
             models.CheckConstraint(
-                check=models.Q(tipo__in=['LGPD', 'SAUDE', 'PROCEDIMENTO']),
-                name='chk_versao_termo_tipo'
+                condition=models.Q(tipo__in=['LGPD', 'SAUDE', 'PROCEDIMENTO']),
+                name='ck_versao_termo_tipo'
             ),
             # so 1 versao ativa por escopo (tipo+procedimento; LGPD/SAUDE = procedimento NULL)
             models.UniqueConstraint(
                 fields=['tipo', 'procedimento'],
                 condition=models.Q(ativa=True),
-                name='uniq_termo_ativo_por_escopo',
+                name='uq_versao_termo_ativa_por_procedimento',
             ),
             models.UniqueConstraint(
                 fields=['tipo'],
                 condition=models.Q(ativa=True) & models.Q(procedimento__isnull=True),
-                name='uniq_termo_ativo_global',
+                name='uq_versao_termo_ativa_global',
+            ),
+        ]
+        indexes = [
+            Indice(
+                fields=['procedimento'], condition=models.Q(procedimento__isnull=False),
+                name='ix_versao_termo_procedimento_parcial',
             ),
         ]
 
@@ -136,28 +152,41 @@ class AceiteTermo(models.Model):
     on_delete=PROTECT no cliente: aceite e evidencia legal (LGPD art. 8) —
     anonimizar, nunca cascatear. Gravar sempre por AceiteTermo.registrar().
     """
-    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='aceites')
-    versao_termo = models.ForeignKey(VersaoTermo, on_delete=models.RESTRICT)
+    # FKs sem indice automatico: cliente coberto pelo UNIQUE (prefixo), os outros pelos ix_
+    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='aceites', db_index=False)
+    versao_termo = models.ForeignKey(VersaoTermo, on_delete=models.RESTRICT, db_index=False)
     atendimento = models.ForeignKey(
-        'Atendimento', on_delete=models.SET_NULL, blank=True, null=True,
+        'Atendimento', on_delete=models.SET_NULL, blank=True, null=True, db_index=False,
     )
-    ip = models.GenericIPAddressField(blank=True, null=True)
-    user_agent = models.CharField(max_length=500, blank=True, default='')
-    # SHA-256 do texto aceito; vazio = aceite anterior a 0044 (sem prova do texto)
-    conteudo_sha256 = models.CharField(max_length=64, blank=True, default='')
-    criado_em = models.DateTimeField(auto_now_add=True)
+    ip = models.GenericIPAddressField(blank=True, null=True, db_column='ip_origem')
+    user_agent = models.CharField(max_length=500, blank=True, default='', db_default='')
+    # SHA-256 do texto aceito (char(64)); NULL = aceite anterior a 0044 (sem prova do texto)
+    conteudo_sha256 = HashSha256Field(
+        blank=True, null=True, db_column='conteudo_hash',
+        db_comment='SHA-256 do versao_termo.conteudo aceito; NULL = aceite anterior a 0044 (sem prova do texto).',
+    )
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
 
     class Meta:
         managed = True
         db_table = 'aceite_termo'
+        db_table_comment = (
+            'Prova do aceite (LGPD art. 8): IP, user-agent e SHA-256 do texto lido. Imutavel '
+            '(tg_aceite_termo_imutavel); retencao 20 anos.'
+        )
         constraints = [
             models.UniqueConstraint(
                 fields=['cliente', 'versao_termo'],
-                name='uniq_aceite_cliente_versao',
+                name='uq_aceite_termo_cliente_versao',
             ),
+            # PG (0055, regex): ck_aceite_termo_conteudo_hash_formato
         ]
         indexes = [
-            models.Index(fields=['cliente', '-criado_em'], name='idx_aceite_cli_data'),
+            Indice(fields=['versao_termo'], name='ix_aceite_termo_versao_termo'),
+            Indice(
+                fields=['atendimento'], condition=models.Q(atendimento__isnull=False),
+                name='ix_aceite_termo_atendimento_parcial',
+            ),
         ]
 
     def __str__(self):

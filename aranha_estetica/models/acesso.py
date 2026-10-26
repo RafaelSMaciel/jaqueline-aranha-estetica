@@ -10,6 +10,8 @@ from django.contrib.auth.signals import user_logged_in
 from django.contrib.auth.models import update_last_login
 from django.db import models
 
+from .mixins import atualizado_em_legado, criado_em_legado
+
 # Desconecta sinal que tenta atualizar last_login (nao presente no schema customizado)
 user_logged_in.disconnect(update_last_login, dispatch_uid='update_last_login')
 
@@ -57,15 +59,22 @@ class Usuario(AbstractBaseUser):
     # Default PROFISSIONAL: RECEPCAO ainda nao tem telas (nao loga) e ADMIN
     # nunca e implicito — create_superuser/bootstrap_admin setam ADMIN.
     papel = models.CharField(
-        max_length=20, choices=PAPEL_CHOICES, default=PAPEL_PROFISSIONAL,
+        max_length=20, choices=PAPEL_CHOICES, default=PAPEL_PROFISSIONAL, db_default=PAPEL_PROFISSIONAL,
     )
     profissional = models.OneToOneField(
-        'Profissional', on_delete=models.SET_NULL, null=True, blank=True
+        'Profissional', on_delete=models.SET_NULL, null=True, blank=True,
+        db_comment='Profissional que este login representa (1:1 opcional).',
     )
     nome = models.CharField(max_length=100)
-    email = models.EmailField(max_length=100, unique=True)
-    password = models.CharField(max_length=255, db_column='senha_hash')
-    ativo = models.BooleanField(default=True)
+    # UNIQUE no Meta (uq_usuario_email): o auth.E003 aceita UniqueConstraint total no USERNAME_FIELD
+    email = models.EmailField(max_length=100)
+    password = models.CharField(
+        max_length=255, db_column='senha_hash',
+        db_comment='Hash do Django (pbkdf2_sha256$...). Excecao a regra char(64) de *_hash.',
+    )
+    ativo = models.BooleanField(default=True, db_default=True, db_column='eh_ativo')
+    criado_em = criado_em_legado()
+    atualizado_em = atualizado_em_legado()
 
     last_login = None
 
@@ -76,10 +85,15 @@ class Usuario(AbstractBaseUser):
     class Meta:
         managed = True
         db_table = 'usuario'
+        db_table_comment = (
+            'Equipe (login por e-mail). papel ADMIN/PROFISSIONAL/RECEPCAO; is_staff = ADMIN. '
+            'Nunca excluir: desativar (eh_ativo=false).'
+        )
         constraints = [
+            models.UniqueConstraint(fields=['email'], name='uq_usuario_email'),
             models.CheckConstraint(
-                check=models.Q(papel__in=['ADMIN', 'PROFISSIONAL', 'RECEPCAO']),
-                name='chk_usuario_papel',
+                condition=models.Q(papel__in=['ADMIN', 'PROFISSIONAL', 'RECEPCAO']),
+                name='ck_usuario_papel',
             ),
         ]
 

@@ -241,7 +241,7 @@ class FichasSemAtendimentoTests(TestCase):
         ficha = _ficha(self.cliente, self._atd('CANCELADO'), dias_atras=91)
         self.assertEqual(LgpdService.purgar_fichas_sem_atendimento(), 1)
         self.assertFalse(RespostaAnamnese.objects.filter(pk=ficha.pk).exists())
-        self.assertTrue(LogAuditoria.objects.filter(tabela='resposta_anamnese').exists())
+        self.assertTrue(LogAuditoria.objects.filter(tabela='resposta_formulario').exists())
 
     def test_ficha_de_realizado_permanece(self):
         ficha = _ficha(self.cliente, self._atd('REALIZADO'), dias_atras=400)

@@ -147,7 +147,7 @@ def admin_anamnese_form(request, pk=None):
                 obj.save()
                 FormularioAnamnese.objects.filter(pk=antigo_pk).update(ativo=False)
             registrar_log(
-                request.user, f'Criou nova versao da anamnese {obj.nome}', 'formulario_anamnese', obj.pk,
+                request.user, f'Criou nova versao da anamnese {obj.nome}', 'formulario', obj.pk,
                 detalhes={'versao_anterior': antigo_pk}, request=request,
             )
             messages.success(
@@ -160,10 +160,10 @@ def admin_anamnese_form(request, pk=None):
         obj.save()
 
         if form is not None:
-            registrar_log(request.user, f'Editou anamnese {obj.nome}', 'formulario_anamnese', obj.pk, request=request)
+            registrar_log(request.user, f'Editou anamnese {obj.nome}', 'formulario', obj.pk, request=request)
             messages.success(request, 'Formulário atualizado.')
         else:
-            registrar_log(request.user, f'Criou anamnese {obj.nome}', 'formulario_anamnese', obj.pk, request=request)
+            registrar_log(request.user, f'Criou anamnese {obj.nome}', 'formulario', obj.pk, request=request)
             messages.success(request, 'Formulário criado.')
         return redirect('aranha:admin_anamneses')
 
@@ -184,14 +184,14 @@ def admin_anamnese_excluir(request, pk):
             form.save(update_fields=['ativo', 'atualizado_em'])
             registrar_log(
                 request.user, f'Desativou anamnese {nome} (possui respostas)',
-                'formulario_anamnese', pk, request=request,
+                'formulario', pk, request=request,
             )
             messages.warning(
                 request,
                 f'O formulário "{nome}" já tem respostas de clientes: foi desativado em vez de excluído.',
             )
             return redirect('aranha:admin_anamneses')
-        registrar_log(request.user, f'Excluiu anamnese {nome}', 'formulario_anamnese', pk, request=request)
+        registrar_log(request.user, f'Excluiu anamnese {nome}', 'formulario', pk, request=request)
         messages.success(request, f'Formulário "{nome}" excluído.')
     return redirect('aranha:admin_anamneses')
 
@@ -208,7 +208,7 @@ def admin_anamnese_respostas(request, pk):
         r.itens = itens_ficha(r)  # label da pergunta + Sim/Não, nao a chave crua
     # Leitura de dado de saude de varias clientes: fica na trilha (LGPD art. 37)
     registrar_log(
-        request.user, 'Leu respostas de anamnese', 'resposta_anamnese', form.pk,
+        request.user, 'Leu respostas de anamnese', 'resposta_formulario', form.pk,
         detalhes={'clientes': sorted({r.cliente_id for r in respostas}), 'pagina': respostas.number},
         request=request,
     )

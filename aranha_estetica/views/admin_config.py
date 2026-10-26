@@ -67,7 +67,7 @@ def admin_criar_configuracao(request):
     if request.method == 'POST':
         chave = _normalizar_chave(request.POST.get('chave', ''))
         valor = request.POST.get('valor', '').strip()
-        descricao = request.POST.get('descricao', '').strip() or None
+        descricao = request.POST.get('descricao', '').strip()
 
         if not chave:
             messages.error(request, 'Chave é obrigatória.')

@@ -332,7 +332,7 @@ class FinanceiroPacoteTests(_AdminBase):
     def test_receita_de_pacote_na_venda_e_nao_na_sessao(self):
         cli = criar_cliente()
         agora = timezone.now()
-        # 2o profissional: no Postgres o EXCLUDE excl_atendimento_sobreposicao
+        # 2o profissional: no Postgres o EXCLUDE ex_atendimento_sobreposicao
         # recusa 2 AGENDADO do mesmo profissional no mesmo horario.
         outra = criar_profissional(nome='Dra. Bia')
         avulso = criar_atendimento(cli, self.prof, self.proc, data_hora=agora, status='AGENDADO')
@@ -482,7 +482,7 @@ class SaudeVisivelTests(_AdminBase):
         self.assertContains(resp, 'Está gestante?')
         self.assertNotContains(resp, '>True<')
         self.assertIn('no-store', resp['Cache-Control'])
-        log = LogAuditoria.objects.get(tabela='resposta_anamnese')
+        log = LogAuditoria.objects.get(tabela='resposta_formulario')
         self.assertEqual(log.detalhes['clientes'], [self.cli.pk])
 
     def test_editar_schema_com_respostas_cria_nova_versao(self):

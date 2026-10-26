@@ -6,6 +6,16 @@ class AranhaEsteticaConfig(AppConfig):
     name = 'aranha_estetica'
 
     def ready(self):
+        # Collation pt_br no SQLite (dev/testes): o estado tem db_collation='pt_br' (0054)
+        from django.db import connections
+        from django.db.backends.signals import connection_created
+
+        from .db.collation import registrar_collation_sqlite
+        connection_created.connect(registrar_collation_sqlite, dispatch_uid='aranha_estetica_pt_br_sqlite')
+        for conexao in connections.all(initialized_only=True):  # aberta antes do ready()
+            if conexao.connection is not None:
+                registrar_collation_sqlite(None, conexao)
+
         # Forca 2FA no Django Admin (substitui classe do site)
         from django.contrib import admin
         from two_factor.admin import AdminSiteOTPRequired

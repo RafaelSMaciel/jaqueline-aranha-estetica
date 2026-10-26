@@ -40,7 +40,7 @@ ACOES = ('buscar', 'horarios', 'agendar')
 def _eh_sobreposicao(exc) -> bool:
     """IntegrityError da exclusion constraint do PG (23P01) = horario ja ocupado."""
     causa = getattr(exc, '__cause__', None)
-    return getattr(causa, 'pgcode', None) == '23P01' or 'excl_atendimento_sobreposicao' in str(exc)
+    return getattr(causa, 'pgcode', None) == '23P01' or 'ex_atendimento_sobreposicao' in str(exc)
 
 
 def _int(valor):
@@ -242,7 +242,7 @@ def admin_agendamento_novo(request):
         return render(request, 'painel/agendamento_novo.html', context)
 
     final, promo, cheio = preco['final'], preco['promocao'], preco['cheio']
-    valor_original, descricao_preco = None, None
+    valor_original, descricao_preco = None, ''
     if valor_informado is not None and valor_informado != final:
         # Valor combinado com a cliente (desconto negociado, cortesia...)
         valor_cobrado, promo = valor_informado, None

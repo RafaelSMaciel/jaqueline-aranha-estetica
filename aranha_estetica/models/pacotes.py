@@ -24,6 +24,7 @@ from django.utils import timezone
 
 from ..db.indices import Indice
 from .clientes import Cliente
+from .mixins import atualizado_em_legado, criado_em_legado
 from .procedimentos import Procedimento
 
 CENTAVO = Decimal('0.01')
@@ -45,22 +46,28 @@ def rateio_por_sessao(valor_pago, total_sessoes) -> Decimal:
 
 class Pacote(models.Model):
     nome = models.CharField(max_length=150)
-    descricao = models.TextField(blank=True, null=True)
-    preco_total = models.DecimalField(max_digits=10, decimal_places=2)
-    ativo = models.BooleanField(default=True)
-    validade_meses = models.SmallIntegerField(default=12)
+    descricao = models.TextField(blank=True, default='', db_default='')
+    preco_total = models.DecimalField(max_digits=10, decimal_places=2, db_column='valor_total')
+    ativo = models.BooleanField(default=True, db_default=True, db_column='eh_ativo')
+    validade_meses = models.SmallIntegerField(default=12, db_default=12)
+    criado_em = criado_em_legado()
+    atualizado_em = atualizado_em_legado()
 
     class Meta:
         managed = True
         db_table = 'pacote'
+        db_table_comment = (
+            'Catalogo de pacotes, editavel a qualquer momento: a venda congela nome/itens em '
+            'compra_pacote/compra_pacote_item.'
+        )
         constraints = [
             models.CheckConstraint(
-                check=models.Q(preco_total__gte=0),
-                name='chk_pacote_preco_positivo'
+                condition=models.Q(preco_total__gte=0),
+                name='ck_pacote_valor_total_nao_negativo'
             ),
             models.CheckConstraint(
-                check=models.Q(validade_meses__gt=0),
-                name='chk_pacote_validade_positiva'
+                condition=models.Q(validade_meses__gt=0),
+                name='ck_pacote_validade_meses_positiva'
             ),
         ]
 
@@ -70,19 +77,25 @@ class Pacote(models.Model):
 
 class ItemPacote(models.Model):
     """Item do CATALOGO (editavel): so vale p/ vendas futuras."""
-    pacote = models.ForeignKey(Pacote, on_delete=models.CASCADE, related_name='itens')
-    procedimento = models.ForeignKey(Procedimento, on_delete=models.CASCADE)
-    quantidade_sessoes = models.SmallIntegerField(default=1)
+    # FKs sem indice automatico: pacote coberto pelo UNIQUE (prefixo), procedimento pelo ix_
+    pacote = models.ForeignKey(Pacote, on_delete=models.CASCADE, related_name='itens', db_index=False)
+    procedimento = models.ForeignKey(Procedimento, on_delete=models.CASCADE, db_index=False)
+    quantidade_sessoes = models.SmallIntegerField(default=1, db_default=1, db_column='qtd_sessoes')
+    criado_em = criado_em_legado()
 
     class Meta:
         managed = True
-        db_table = 'item_pacote'
-        unique_together = (('pacote', 'procedimento'),)
+        db_table = 'pacote_item'
+        db_table_comment = 'Itens do pacote no catalogo (procedimento x sessoes).'
         constraints = [
+            models.UniqueConstraint(fields=['pacote', 'procedimento'], name='uq_pacote_item_pacote_procedimento'),
             models.CheckConstraint(
-                check=models.Q(quantidade_sessoes__gt=0),
-                name='chk_item_pacote_qtd_positiva'
+                condition=models.Q(quantidade_sessoes__gt=0),
+                name='ck_pacote_item_qtd_sessoes_positiva'
             ),
+        ]
+        indexes = [
+            Indice(fields=['procedimento'], name='ix_pacote_item_procedimento'),
         ]
 
 
@@ -99,43 +112,65 @@ class CompraPacote(models.Model):
     ]
 
     # PROTECT: compra e registro fiscal — nao cascateia com o cliente
-    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='pacotes_comprados')
-    pacote = models.ForeignKey(Pacote, on_delete=models.RESTRICT)
+    # FKs sem indice automatico: cliente coberto pelo ix_compra_pacote_cliente_status, pacote pelo ix_
+    cliente = models.ForeignKey(
+        Cliente, on_delete=models.PROTECT, related_name='pacotes_comprados', db_index=False,
+    )
+    pacote = models.ForeignKey(Pacote, on_delete=models.RESTRICT, db_index=False)
     pacote_nome = models.CharField(
         max_length=150,
         db_comment='Nome do pacote no momento da venda (o catalogo pode mudar depois).',
     )
-    criado_em = models.DateTimeField(auto_now_add=True)
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
+    atualizado_em = atualizado_em_legado()
     valor_pago = models.DecimalField(
         max_digits=10, decimal_places=2, validators=[MinValueValidator(0)],
     )
     # Devolvido ao cliente no cancelamento (receita liquida = pago - reembolsado)
     valor_reembolsado = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)],
+        max_digits=10, decimal_places=2, default=0, db_default=0, validators=[MinValueValidator(0)],
     )
-    status = models.CharField(max_length=20, default='ATIVO', choices=STATUS_CHOICES)
-    data_expiracao = models.DateField(blank=True, null=True)
+    status = models.CharField(max_length=20, default='ATIVO', db_default='ATIVO', choices=STATUS_CHOICES)
+    data_expiracao = models.DateField(
+        blank=True, null=True,
+        db_comment=(
+            'Ultimo dia valido (data local); sessao feita ate esse dia debita mesmo com o job ja tendo '
+            'marcado EXPIRADO.'
+        ),
+    )
 
     class Meta:
         managed = True
         db_table = 'compra_pacote'
+        db_table_comment = (
+            'Venda de pacote (registro fiscal, PROTECT). Receita = valor_pago - valor_reembolsado na data '
+            'da venda (D20).'
+        )
         indexes = [
-            models.Index(fields=['cliente', 'status'], name='idx_pacote_cli_status'),
+            Indice(fields=['cliente', 'status'], name='ix_compra_pacote_cliente_status'),
+            Indice(fields=['pacote'], name='ix_compra_pacote_pacote'),
+            # receita de pacotes por periodo (dashboard, financeiro)
+            Indice(fields=['criado_em'], name='ix_compra_pacote_criado_em'),
+            # expiracao (job_expirar_pacotes, job_verificar_pacotes_expirando)
+            Indice(
+                fields=['data_expiracao'], condition=models.Q(status='ATIVO'),
+                name='ix_compra_pacote_data_expiracao_ativo_parcial',
+            ),
         ]
         constraints = [
             models.CheckConstraint(
-                check=models.Q(status__in=['ATIVO', 'FINALIZADO', 'CANCELADO', 'EXPIRADO']),
-                name='chk_pacote_cliente_status'
+                condition=models.Q(status__in=['ATIVO', 'FINALIZADO', 'CANCELADO', 'EXPIRADO']),
+                name='ck_compra_pacote_status'
             ),
             models.CheckConstraint(
-                check=models.Q(valor_pago__gte=0),
-                name='chk_compra_pacote_valor_pago',
+                condition=models.Q(valor_pago__gte=0),
+                name='ck_compra_pacote_valor_pago_nao_negativo',
             ),
             # reembolso nunca negativo nem maior que o pago
             models.CheckConstraint(
-                check=models.Q(valor_reembolsado__gte=0)
+                condition=models.Q(valor_reembolsado__gte=0)
                 & models.Q(valor_reembolsado__lte=models.F('valor_pago')),
-                name='chk_compra_pacote_valor_reembolsado',
+                name='ck_compra_pacote_valor_reembolsado',
             ),
         ]
 
@@ -321,8 +356,9 @@ class CompraPacoteItem(models.Model):
 
 class ConsumoSessao(models.Model):
     """1 sessao de pacote consumida por atendimento REALIZADO (nunca retorno)."""
+    # FK sem indice automatico: coberta pelo ix_consumo_sessao_compra_pacote
     compra_pacote = models.ForeignKey(
-        CompraPacote, on_delete=models.CASCADE, related_name='sessoes_realizadas'
+        CompraPacote, on_delete=models.CASCADE, related_name='sessoes_realizadas', db_index=False,
     )
     # RESTRICT (= NO ACTION): o item nao some com consumo; apagar a COMPRA leva os
     # dois juntos (o RESTRICT do Django aceita o que tambem sai por CASCADE).
@@ -333,13 +369,17 @@ class ConsumoSessao(models.Model):
     atendimento = models.OneToOneField(
         'Atendimento', on_delete=models.RESTRICT, related_name='sessao_pacote_vinculada'
     )
-    criado_em = models.DateTimeField(auto_now_add=True)
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
 
     class Meta:
         managed = True
         db_table = 'consumo_sessao'
+        db_table_comment = (
+            '1 sessao de pacote consumida por atendimento REALIZADO (nunca retorno). tg_consumo_sessao_validar '
+            'confere item da compra, procedimento, retorno e saldo.'
+        )
         indexes = [
-            models.Index(fields=['compra_pacote'], name='idx_sessao_pct_cli'),
+            Indice(fields=['compra_pacote'], name='ix_consumo_sessao_compra_pacote'),
             Indice(fields=['compra_pacote_item'], name='ix_consumo_sessao_compra_pacote_item'),
         ]
 

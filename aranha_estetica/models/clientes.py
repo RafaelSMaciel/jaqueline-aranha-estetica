@@ -3,13 +3,16 @@ import secrets
 from django.db import models, transaction
 from django.core.validators import MinValueValidator
 
-from django.db.models.functions import Lower, Upper
+from django.db.models.functions import Now, Upper
 
 from aranha_estetica.constants import MAX_FALTAS_ANTES_BLOQUEIO
 from aranha_estetica.validators import (
     validate_cpf, validate_telefone_br, validate_data_nascimento,
     normalizar_telefone, normalizar_cpf,
 )
+
+from ..db.indices import Indice
+from .mixins import ATUALIZADO_EM_BACKFILL
 
 
 class ClienteAtivosManager(models.Manager):
@@ -20,42 +23,51 @@ class ClienteAtivosManager(models.Manager):
 
 
 class Cliente(models.Model):
-    # PG: coluna com COLLATE pt_br aplicada pela 0038 FORA do estado do Django.
-    # Qualquer AlterField futuro em `nome` reseta a collation — reaplicar via
-    # RunSQL (ALTER TABLE cliente ALTER COLUMN nome TYPE varchar(150) COLLATE pt_br).
-    nome = models.CharField(max_length=150)
+    # COLLATE pt_br (ICU no PG; shim em db/collation.py no SQLite) — no estado desde a 0054
+    nome = models.CharField(
+        max_length=150, db_collation='pt_br', db_comment='COLLATE pt_br (ICU) - ordenacao correta de acentos.',
+    )
     data_nascimento = models.DateField(
         blank=True, null=True, validators=[validate_data_nascimento],
     )
-    # unique global removido — uniq_cliente_cpf_ativo (parcial) permite
-    # re-cadastro pos soft-delete; max 11 (digits-only canonico)
+    # unique global removido — uq_cliente_cpf_ativo (parcial) permite
+    # re-cadastro pos soft-delete; max 11 (digits-only canonico); ausente = NULL
     cpf = models.CharField(
         max_length=11, blank=True, null=True, validators=[validate_cpf],
     )
     rg = models.CharField(max_length=20, blank=True, null=True)
     profissao = models.CharField(max_length=100, blank=True, null=True)
-    # lookups usam email__iexact (UPPER) -> idx_cliente_email_upper; o UNIQUE
-    # parcial uniq_cliente_email_ativo (LOWER) so garante unicidade
+    # lookups usam email__iexact (UPPER(email)) -> o UNIQUE parcial uq_cliente_email_ativo
+    # (UPPER) serve de indice e garante unicidade entre ativos; ausente = NULL (nunca '')
     email = models.EmailField(max_length=254, blank=True, null=True)
     telefone = models.CharField(
         max_length=20, blank=True, null=True, validators=[validate_telefone_br],
     )
     cep = models.CharField(max_length=10, blank=True, null=True)
     endereco = models.CharField(max_length=255, blank=True, null=True)
-    ativo = models.BooleanField(default=True)
-    faltas_consecutivas = models.SmallIntegerField(default=0, validators=[MinValueValidator(0)])
-    bloqueado_online = models.BooleanField(default=False)
+    ativo = models.BooleanField(default=True, db_default=True, db_column='eh_ativo')
+    faltas_consecutivas = models.SmallIntegerField(
+        default=0, db_default=0, validators=[MinValueValidator(0)], db_column='qtd_faltas_consecutivas',
+        db_comment='Zera ao REALIZADO; ao atingir MAX_FALTAS_BLOQUEIO liga eh_bloqueado_online.',
+    )
+    bloqueado_online = models.BooleanField(default=False, db_default=False, db_column='eh_bloqueado_online')
 
     # Estetica/CRM
-    foto_url = models.URLField(max_length=600, blank=True, default='', help_text='URL S3 / storage')
+    foto_url = models.URLField(
+        max_length=600, blank=True, default='', db_default='', help_text='URL S3 / storage', db_column='url_foto',
+    )
     indicado_por = models.ForeignKey(
         'self', on_delete=models.SET_NULL, blank=True, null=True,
         related_name='indicacoes',
         help_text='Cliente que indicou este (programa fidelidade)',
+        db_column='cliente_indicador_id', db_index=False,
+        db_comment='Quem indicou este cliente (cashback de indicacao em movimento_carteira).',
     )
+    # UNIQUE no Meta (uq_cliente_codigo_indicacao): sem o _like do unique=True
     codigo_indicacao = models.CharField(
-        max_length=12, unique=True, blank=True, null=True, db_index=True,
+        max_length=12, blank=True, null=True,
         help_text='Codigo curto compartilhavel (ex: A1B2C3D4) gerado automaticamente.',
+        db_comment='Codigo curto compartilhavel (hex maiusculo) gerado no save.',
     )
 
     # LGPD: consentimentos de comunicacao (marketing por e-mail, pesquisa e
@@ -63,9 +75,9 @@ class Cliente(models.Model):
     # migration 0050) — ler/gravar por services/consentimentos. O link de
     # descadastro e emitido por e-mail de marketing (link_acesso DESCADASTRO).
 
-    criado_em = models.DateTimeField(auto_now_add=True)
-    atualizado_em = models.DateTimeField(auto_now=True, null=True)
-    deletado_em = models.DateTimeField(blank=True, null=True, db_index=True)
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
+    atualizado_em = models.DateTimeField(auto_now=True, db_default=Now(), db_comment=ATUALIZADO_EM_BACKFILL)
+    deletado_em = models.DateTimeField(blank=True, null=True)
 
     objects = ClienteAtivosManager()
     # all_objects: Manager nu de proposito — retorna TODOS (inclui soft-deleted),
@@ -76,36 +88,49 @@ class Cliente(models.Model):
     class Meta:
         managed = True
         db_table = 'cliente'
+        db_table_comment = (
+            'Cliente da clinica. Telefone (so digitos, 10-11) e a chave natural do agendamento publico '
+            '(uq_cliente_telefone_ativo). Soft delete em deletado_em; anonimizacao LGPD troca nome por '
+            '[ANONIMIZADO-<id>] (sp_anonimizar_cliente). Consentimentos em consentimento.'
+        )
         indexes = [
-            models.Index(fields=['telefone'], name='idx_cliente_telefone'),
-            models.Index(fields=['nome'], name='idx_cliente_nome'),
-            # email__iexact gera UPPER(email) = UPPER(%s): indice de expressao casado
-            models.Index(Upper('email'), name='idx_cliente_email_upper'),
+            Indice(fields=['nome'], name='ix_cliente_nome'),
+            Indice(
+                fields=['indicado_por'], condition=models.Q(indicado_por__isnull=False),
+                name='ix_cliente_cliente_indicador_parcial',
+            ),
+            # purga LGPD (deletado_em < limite); IS NULL (quase todos) nao e seletivo
+            Indice(
+                fields=['deletado_em'], condition=models.Q(deletado_em__isnull=False),
+                name='ix_cliente_deletado_em_parcial',
+            ),
         ]
         constraints = [
-            # UNIQUE parcial case-insensitive: email duplicado proibido entre ativos
-            # (Lower() — maria@X.com == MARIA@x.com; null/'' permitidos)
+            models.UniqueConstraint(fields=['codigo_indicacao'], name='uq_cliente_codigo_indicacao'),
+            # CHAVE NATURAL do booking publico: 1 cliente ativo por telefone (ausente = NULL)
             models.UniqueConstraint(
-                Lower('email'),
-                condition=models.Q(deletado_em__isnull=True) & ~models.Q(email__isnull=True) & ~models.Q(email=''),
-                name='uniq_cliente_email_ativo',
-            ),
-            # CHAVE NATURAL do booking publico: 1 cliente ativo por telefone
-            models.UniqueConstraint(
-                fields=['telefone'],
-                condition=models.Q(deletado_em__isnull=True) & ~models.Q(telefone__isnull=True) & ~models.Q(telefone=''),
-                name='uniq_cliente_telefone_ativo',
+                fields=['telefone'], condition=models.Q(deletado_em__isnull=True), name='uq_cliente_telefone_ativo',
             ),
             # CPF unico entre ativos
             models.UniqueConstraint(
-                fields=['cpf'],
-                condition=models.Q(deletado_em__isnull=True) & ~models.Q(cpf__isnull=True) & ~models.Q(cpf=''),
-                name='uniq_cliente_cpf_ativo',
+                fields=['cpf'], condition=models.Q(deletado_em__isnull=True), name='uq_cliente_cpf_ativo',
+            ),
+            # e-mail unico entre ativos, sem caixa (maria@X.com == MARIA@x.com); e o indice do
+            # email__iexact (UPPER(email::text) = UPPER(%s))
+            models.UniqueConstraint(
+                Upper('email'), condition=models.Q(deletado_em__isnull=True), name='uq_cliente_email_ativo',
             ),
             models.CheckConstraint(
-                check=~models.Q(indicado_por_id=models.F('id')),
-                name='chk_cliente_nao_indica_si_mesmo',
+                condition=~models.Q(indicado_por_id=models.F('id')),
+                name='ck_cliente_nao_indica_a_si',
             ),
+            models.CheckConstraint(
+                condition=models.Q(faltas_consecutivas__gte=0), name='ck_cliente_qtd_faltas_nao_negativa',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(email__isnull=True) | ~models.Q(email=''), name='ck_cliente_email_nao_vazio',
+            ),
+            # PG (0055, regex): ck_cliente_telefone_formato / ck_cliente_cpf_formato
         ]
 
     def __str__(self):
@@ -116,10 +141,11 @@ class Cliente(models.Model):
         # cpf sempre digits-only; lookups das views comparam normalizado.
         # Tamanho NAO e validado aqui (ValidationError no save vira 500): a
         # borda valida com validators.validar_telefone/validar_cpf.
-        if self.telefone:
-            self.telefone = normalizar_telefone(self.telefone) or None
-        if self.cpf:
-            self.cpf = normalizar_cpf(self.cpf) or None
+        # Ausente = NULL, nunca '' (0054: ck_cliente_email_nao_vazio e os CHECK de
+        # formato do PG nao aceitam vazio; os UNIQUE parciais so valem p/ NOT NULL).
+        self.telefone = (normalizar_telefone(self.telefone) or None) if self.telefone else None
+        self.cpf = (normalizar_cpf(self.cpf) or None) if self.cpf else None
+        self.email = self.email or None
         if not self.codigo_indicacao:
             self.codigo_indicacao = self._gerar_codigo_indicacao()
         super().save(*args, **kwargs)

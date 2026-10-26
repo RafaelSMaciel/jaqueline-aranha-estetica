@@ -494,7 +494,9 @@ class HistoricoAutoriaEFichasLegado0046Tests(_MigracaoBase):
         self.assertIsNone(Resposta.objects.get(pk=self.pendente.pk).respondida_em)
         self.assertIsNone(Resposta.objects.get(pk=self.avulsa.pk).respondida_em)
 
-        # a ficha legada passa a gerar alerta de saude (utils/saude)
+        # a ficha legada passa a gerar alerta de saude (utils/saude) — codigo atual = esquema
+        # final (colunas renomeadas na 0054): sobe a cadeia antes de usar os models reais
+        _subir_ate_o_fim()
         from aranha_estetica.models import Cliente
         from aranha_estetica.utils.saude import alertas_saude
         alertas = alertas_saude(Cliente.objects.get(pk=self.cliente_pk))
@@ -1086,6 +1088,7 @@ class SlotsAntesDepois0048Tests(_MigracaoBase):
         from aranha_estetica.models import Procedimento, Profissional
         from aranha_estetica.services.disponibilidade import SlotService
 
+        _subir_ate_o_fim()  # o SlotService usa os models reais: esquema final (nomes da 0054)
         P = {x.pk: x for x in Profissional.objects.filter(pk__in=[self.pa, self.pb])}
         R = {x.pk: x for x in Procedimento.objects.filter(pk__in=[self.p60, self.p30])}
         with mock.patch('django.utils.timezone.now', return_value=self.agora_fixa):

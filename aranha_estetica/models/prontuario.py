@@ -1,9 +1,12 @@
 # aranha_estetica/models/prontuario.py — Prontuario e anotacoes clinicas
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models.functions import Now
 from django.utils import timezone
 
+from ..db.indices import Indice
 from .clientes import Cliente
+from .mixins import criado_em_legado
 
 
 class Prontuario(models.Model):
@@ -15,7 +18,7 @@ class Prontuario(models.Model):
     PRONTUARIO ativo (0051; antes Configuracao 'prontuario_perguntas'),
     validadas por services/anamnese.validar_respostas.
     Busca Postgres: Prontuario.objects.filter(respostas_extras__diabetes=True).
-    PG: CHECK chk_prontuario_extras_objeto (jsonb_typeof = 'object', 0043).
+    PG: CHECK ck_prontuario_respostas_objeto (jsonb_typeof = 'object'; 0043, nome desde a 0055).
     PROTECT: dado clinico com retencao de 20 anos — nunca cascateia.
     Edicao: ProntuarioVersao.registrar() guarda o estado anterior antes do save.
     """
@@ -35,17 +38,29 @@ class Prontuario(models.Model):
     )
 
     cliente = models.OneToOneField(Cliente, on_delete=models.PROTECT)
-    alergias = models.TextField(blank=True, null=True)
-    contraindicacoes = models.TextField(blank=True, null=True)
-    historico_saude = models.TextField(blank=True, null=True)
-    medicamentos_uso = models.TextField(blank=True, null=True)
-    observacoes_gerais = models.TextField(blank=True, null=True)
-    respostas_extras = models.JSONField(default=dict, blank=True)
-    atualizado_em = models.DateTimeField(auto_now=True)
+    alergias = models.TextField(blank=True, default='', db_default='')
+    contraindicacoes = models.TextField(blank=True, default='', db_default='')
+    historico_saude = models.TextField(blank=True, default='', db_default='')
+    medicamentos_uso = models.TextField(blank=True, default='', db_default='')
+    observacoes_gerais = models.TextField(blank=True, default='', db_default='')
+    respostas_extras = models.JSONField(
+        default=dict, db_default={}, blank=True, db_column='respostas',
+        db_comment=(
+            'Respostas do questionario do prontuario {key: valor}; keys = formulario.perguntas do formulario '
+            'tipo PRONTUARIO ativo.'
+        ),
+    )
+    criado_em = criado_em_legado()
+    atualizado_em = models.DateTimeField(auto_now=True, db_default=Now())
 
     class Meta:
         managed = True
         db_table = 'prontuario'
+        db_table_comment = (
+            'Ficha clinica base 1:1 com o cliente (retencao 20 anos). Cada edicao grava antes a foto anterior '
+            'em prontuario_versao; historico_alteracao registra qualquer escrita (inclusive fora da app).'
+        )
+        # PG (0043 -> 0055): ck_prontuario_respostas_objeto (jsonb_typeof = 'object', VALIDATE)
 
     def __str__(self):
         return f'Prontuario {self.cliente_id}'
@@ -75,22 +90,38 @@ class ProntuarioVersao(models.Model):
     clinicos + respostas_extras) com o autor da edicao: trocar/apagar alergias
     nao perde o que estava registrado quando um procedimento foi feito.
     Gravar por ProntuarioVersao.registrar(). Linha nunca e alterada nem
-    excluida (no PG, trigger trg_prontuario_versao_imutavel — 0046); autor
+    excluida (no PG, trigger tg_prontuario_versao_imutavel — 0046/0054); autor
     SET_NULL + autor_nome: excluir o usuario nao apaga a autoria.
     """
-    prontuario = models.ForeignKey(Prontuario, on_delete=models.PROTECT, related_name='versoes')
-    autor = models.ForeignKey('Usuario', on_delete=models.SET_NULL, null=True, blank=True)
-    autor_nome = models.CharField(max_length=100, blank=True, default='')
-    criado_em = models.DateTimeField(auto_now_add=True)
-    dados = models.JSONField(default=dict)
+    # FKs sem indice automatico: prontuario coberto pelo ix_; autor = autoria (spec §2.11)
+    prontuario = models.ForeignKey(Prontuario, on_delete=models.PROTECT, related_name='versoes', db_index=False)
+    autor = models.ForeignKey(
+        'Usuario', on_delete=models.SET_NULL, null=True, blank=True, db_column='usuario_autor_id',
+        db_index=False,
+    )
+    autor_nome = models.CharField(
+        max_length=100, blank=True, default='', db_default='', db_column='usuario_autor_nome',
+    )
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
+    dados = models.JSONField(
+        default=dict, db_default={},
+        db_comment=(
+            'Chaves = atributos Python (CAMPOS_CLINICOS + respostas_extras). E registro historico: nunca '
+            'renomear as chaves.'
+        ),
+    )
 
     objects = ProntuarioVersaoQuerySet.as_manager()
 
     class Meta:
         managed = True
         db_table = 'prontuario_versao'
+        db_table_comment = (
+            'Historico append-only do prontuario (CFM 1.638/2002): foto do estado ANTERIOR a cada edicao. '
+            'Imutavel (tg_prontuario_versao_imutavel; so anular usuario_autor_id e aceito).'
+        )
         indexes = [
-            models.Index(fields=['prontuario', '-criado_em'], name='idx_pront_versao'),
+            Indice(fields=['prontuario', '-criado_em'], name='ix_prontuario_versao_prontuario_criado_em'),
         ]
 
     def __str__(self):
@@ -148,19 +179,28 @@ class AnotacaoSessao(models.Model):
     autor_nome guarda o nome no momento da escrita (renomear o usuario
     nao reescreve o historico).
     """
+    # FKs sem indice automatico: atendimento coberto pelo ix_; autor = autoria (spec §2.11)
     atendimento = models.ForeignKey(
-        'Atendimento', on_delete=models.PROTECT, related_name='anotacoes'
+        'Atendimento', on_delete=models.PROTECT, related_name='anotacoes', db_index=False,
     )
-    autor = models.ForeignKey('Usuario', on_delete=models.PROTECT, null=True, blank=True)
-    autor_nome = models.CharField(max_length=100, blank=True, default='')
+    autor = models.ForeignKey(
+        'Usuario', on_delete=models.PROTECT, null=True, blank=True, db_column='usuario_autor_id',
+        db_index=False,
+    )
+    autor_nome = models.CharField(
+        max_length=100, blank=True, default='', db_default='', db_column='usuario_autor_nome',
+    )
     texto = models.TextField()
-    criado_em = models.DateTimeField(auto_now_add=True)
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
 
     class Meta:
         managed = True
         db_table = 'anotacao_sessao'
+        db_table_comment = (
+            'Nota clinica de um atendimento, append-only (correcao = nova anotacao; tg_anotacao_sessao_imutavel).'
+        )
         indexes = [
-            models.Index(fields=['atendimento', '-criado_em'], name='idx_anot_atn_criado'),
+            Indice(fields=['atendimento', '-criado_em'], name='ix_anotacao_sessao_atendimento_criado_em'),
         ]
 
     def save(self, *args, **kwargs):

@@ -206,7 +206,7 @@ def admin_calendar_mover(request):
         at.data_hora_inicio = novo_inicio
         at.data_hora_fim = novo_fim
         try:
-            # savepoint: a EXCLUDE excl_atendimento_sobreposicao (PG) pode
+            # savepoint: a EXCLUDE ex_atendimento_sobreposicao (PG) pode
             # disparar numa corrida com o booking entre a checagem e o save
             with transaction.atomic():
                 at.save(update_fields=['data_hora_inicio', 'data_hora_fim', 'atualizado_em'])

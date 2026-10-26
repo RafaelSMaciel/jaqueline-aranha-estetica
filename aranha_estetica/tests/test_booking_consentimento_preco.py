@@ -443,7 +443,7 @@ class PromocaoNoBookingTests(_BaseBooking):
         self.assertIsNone(atd.valor_original)
 
     def test_promo_geral_de_preco_fixo_e_recusada(self):
-        """Promo geral so por percentual: clean() e CHECK chk_promocao_geral_so_percentual (0047)."""
+        """Promo geral so por percentual: clean() e CHECK ck_promocao_geral_so_percentual (0047)."""
         hoje = timezone.localdate()
         promo = Promocao(procedimento=None, nome='Tudo por 10', desconto_percentual=Decimal('0'),
                          preco_promocional=Decimal('10'), data_inicio=hoje, data_fim=hoje + timedelta(days=30))

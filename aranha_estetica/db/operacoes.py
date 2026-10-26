@@ -24,6 +24,15 @@ PadronizarFks(tabela, colunas) — o mesmo, mas so p/ as FKs de colunas NOVAS
 numa tabela existente (0052+): o objeto novo nasce com o nome final sem
 antecipar a fase de nomes no resto da tabela.
 
+Fase de nomes (0054/0055, spec §3.6.2/§3.6.5), todas reversiveis:
+  RenomearColuna(model_name, name, db_column)  — estado = db_column; banco = RENAME COLUMN
+  RenomearConstraint(model_name, old_name, new_name) — constraint do Meta (PG: RENAME
+      CONSTRAINT ou ALTER INDEX ... RENAME; SQLite: remove + recria)
+  RenomearIndice(model_name, new_name, old_name) — RenameIndex + classe Indice no estado
+  SoltarIndiceDeCampo(model_name, name, field)  — tira o db_index (indice automatico) sem
+      apagar UNIQUE parcial do Meta na mesma coluna nem recriar a FK
+  ComentarColuna(model_name, name, field)       — so COMMENT ON COLUMN (nada no SQLite)
+
 Modulo CONGELADO (migrations aplicadas importam daqui): mudanca = classe nova.
 """
 from django.db import migrations, models
@@ -249,3 +258,294 @@ class PadronizarFks(PadronizarNomes):
                 f'DEFERRABLE INITIALLY DEFERRED NOT VALID', None,
             )
             se.execute(f'ALTER TABLE {qn(tabela)} VALIDATE CONSTRAINT {qn(novo)}', None)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Fase de nomes (0054/0055) — nome so no banco (spec §1.1, §3.6.2)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class RenomearColuna(migrations.operations.base.Operation):
+    """So a COLUNA de um campo muda (o atributo Python fica): estado = ``db_column``,
+    banco = ``ALTER TABLE ... RENAME COLUMN`` (reversivel).
+
+    Por que nao o AlterField que o makemigrations gera: numa FK ele solta e recria a
+    constraint (nome de hash, sem ON DELETE, revalida a tabela). O RENAME COLUMN e so
+    catalogo no PG; no SQLite (>= 3.25) reescreve indices/CHECK/FK que citam a coluna.
+    CHECK, indice, EXCLUDE e FK do PG guardam a coluna por attnum e seguem o rename;
+    corpo de funcao PL/pgSQL NAO (e texto) — por isso a 0054 derruba e recria os triggers.
+    """
+
+    reversible = True
+
+    def __init__(self, model_name, name, db_column):
+        self.model_name = model_name
+        self.name = name
+        self.db_column = db_column
+
+    @property
+    def model_name_lower(self):
+        return self.model_name.lower()
+
+    def deconstruct(self):
+        return (self.__class__.__qualname__, [],
+                {'model_name': self.model_name, 'name': self.name, 'db_column': self.db_column})
+
+    def state_forwards(self, app_label, state):
+        campo = state.models[app_label, self.model_name_lower].fields[self.name]
+        _nome_campo, _path, args, kwargs = campo.deconstruct()
+        kwargs['db_column'] = self.db_column
+        state.alter_field(app_label, self.model_name_lower, self.name, campo.__class__(*args, **kwargs), True)
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        self._renomear(app_label, schema_editor, from_state, to_state)
+
+    def database_backwards(self, app_label, schema_editor, from_state, to_state):
+        self._renomear(app_label, schema_editor, from_state, to_state)
+
+    def _renomear(self, app_label, schema_editor, from_state, to_state):
+        modelo = to_state.apps.get_model(app_label, self.model_name)
+        if not self.allow_migrate_model(schema_editor.connection.alias, modelo):
+            return
+        antiga = from_state.apps.get_model(app_label, self.model_name)._meta.get_field(self.name).column
+        nova = modelo._meta.get_field(self.name).column
+        if antiga == nova:
+            return
+        tabela = modelo._meta.db_table
+        qn = schema_editor.quote_name
+        schema_editor.execute(f'ALTER TABLE {qn(tabela)} RENAME COLUMN {qn(antiga)} TO {qn(nova)}', None)
+        for sql in schema_editor.deferred_sql:  # SQL pendente de operacoes anteriores
+            if hasattr(sql, 'rename_column_references'):
+                sql.rename_column_references(tabela, antiga, nova)
+
+    def describe(self):
+        return f'Renomeia a coluna de {self.model_name}.{self.name} para {self.db_column}'
+
+    @property
+    def migration_name_fragment(self):
+        return f'{self.model_name_lower}_{self.name}_coluna'
+
+
+def _constraint_e_indice(constraint):
+    """UNIQUE parcial/de expressao/INCLUDE/deferrable vira CREATE UNIQUE INDEX (nao pg_constraint)."""
+    return isinstance(constraint, models.UniqueConstraint) and bool(
+        constraint.condition or constraint.contains_expressions or constraint.include or constraint.deferrable
+    )
+
+
+class RenomearConstraint(migrations.operations.base.Operation):
+    """Renomeia uma constraint do ``Meta`` no estado e no banco (spec §3.6.2), reversivel.
+
+    PG: ``ALTER TABLE ... RENAME CONSTRAINT`` (CHECK/UNIQUE; o indice do UNIQUE vai junto) ou
+    ``ALTER INDEX ... RENAME`` quando o objeto e indice (UNIQUE parcial/de expressao) — decide
+    pelo catalogo. SQLite (nao renomeia constraint): remove + recria pelo estado novo (a
+    tabela e refeita; volume de teste).
+    """
+
+    reversible = True
+
+    def __init__(self, model_name, old_name, new_name):
+        self.model_name = model_name
+        self.old_name = old_name
+        self.new_name = new_name
+
+    @property
+    def model_name_lower(self):
+        return self.model_name.lower()
+
+    def deconstruct(self):
+        return (self.__class__.__qualname__, [],
+                {'model_name': self.model_name, 'old_name': self.old_name, 'new_name': self.new_name})
+
+    def state_forwards(self, app_label, state):
+        model_state = state.models[app_label, self.model_name_lower]
+        nova = model_state.get_constraint_by_name(self.old_name).clone()
+        nova.name = _nome(self.new_name)
+        model_state.options['constraints'] = [
+            nova if c.name == self.old_name else c for c in model_state.options['constraints']
+        ]
+        state.reload_model(app_label, self.model_name_lower, delay=True)
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        self._renomear(app_label, schema_editor, from_state, to_state, self.old_name, self.new_name)
+
+    def database_backwards(self, app_label, schema_editor, from_state, to_state):
+        self._renomear(app_label, schema_editor, from_state, to_state, self.new_name, self.old_name)
+
+    def _renomear(self, app_label, schema_editor, from_state, to_state, antigo, novo):
+        modelo = to_state.apps.get_model(app_label, self.model_name)
+        if not self.allow_migrate_model(schema_editor.connection.alias, modelo):
+            return
+        tabela = modelo._meta.db_table
+        qn = schema_editor.quote_name
+        if schema_editor.connection.vendor == 'postgresql':
+            with schema_editor.connection.cursor() as cursor:
+                cursor.execute(
+                    'SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = %s::regclass AND conname = %s), '
+                    'EXISTS (SELECT 1 FROM pg_index x JOIN pg_class i ON i.oid = x.indexrelid '
+                    '        WHERE x.indrelid = %s::regclass AND i.relname = %s)',
+                    [tabela, antigo, tabela, antigo],
+                )
+                e_constraint, e_indice = cursor.fetchone()
+            if e_constraint:
+                schema_editor.execute(f'ALTER TABLE {qn(tabela)} RENAME CONSTRAINT {qn(antigo)} TO {qn(novo)}', None)
+            elif e_indice:
+                schema_editor.execute(f'ALTER INDEX {qn(antigo)} RENAME TO {qn(novo)}', None)
+            else:
+                raise ValueError(f'RenomearConstraint: {antigo!r} nao existe em {tabela}')
+            return
+        velha = from_state.models[app_label, self.model_name_lower].get_constraint_by_name(antigo)
+        nova = to_state.models[app_label, self.model_name_lower].get_constraint_by_name(novo)
+        # SQLite: CHECK/UNIQUE de tabela -> a tabela e refeita pelo modelo NOVO (ja com o nome
+        # novo); UNIQUE parcial/de expressao -> DROP INDEX + CREATE UNIQUE INDEX.
+        schema_editor.remove_constraint(modelo, velha)
+        if _constraint_e_indice(velha):
+            schema_editor.add_constraint(modelo, nova)
+
+    def describe(self):
+        return f'Renomeia a constraint {self.old_name} para {self.new_name} ({self.model_name})'
+
+    @property
+    def migration_name_fragment(self):
+        return f'rename_{self.old_name}_{self.new_name}'
+
+
+class RenomearIndice(migrations.RenameIndex):
+    """``RenameIndex`` que tambem troca o objeto do estado por ``Indice`` (spec §3.6.2).
+
+    O nome do padrao (``ix_<tabela>_<colunas>``) quase sempre passa dos 30 caracteres do
+    ``models.E034``; o ``Indice`` (limite 63) e o mesmo ``models.Index``. Banco: o do
+    RenameIndex (PG ``ALTER INDEX ... RENAME``; SQLite DROP + CREATE).
+    """
+
+    def __init__(self, model_name, new_name, old_name):
+        super().__init__(model_name, _nome(new_name), old_name=old_name)
+
+    def deconstruct(self):
+        return (self.__class__.__qualname__, [],
+                {'model_name': self.model_name, 'new_name': self.new_name, 'old_name': self.old_name})
+
+    def state_forwards(self, app_label, state):
+        from .indices import Indice
+
+        model_state = state.models[app_label, self.model_name_lower]
+        novos = []
+        for indice in model_state.options['indexes']:
+            if indice.name == self.old_name:
+                _path, args, kwargs = indice.deconstruct()
+                kwargs['name'] = self.new_name
+                indice = Indice(*args, **kwargs)
+            novos.append(indice)
+        model_state.options['indexes'] = novos
+        state.reload_model(app_label, self.model_name_lower, delay=True)
+
+
+class SoltarIndiceDeCampo(migrations.AlterField):
+    """``AlterField`` que so tira o ``db_index`` de um campo (e, se mudar, o COMMENT) — o indice
+    passa a ser um ``ix_`` explicito no ``Meta`` ou some (spec §2.11, §3.6.2).
+
+    PG e SQLite: ``DROP INDEX`` do indice automatico (btree NAO unico da coluna, achado por
+    introspecao, excluindo os indices E as constraints do ``Meta``) e nada mais. Por que nao o
+    AlterField do Django: o ``_alter_field`` exclui so os nomes de ``Meta.indexes`` e apagaria um
+    UNIQUE parcial do ``Meta`` na mesma coluna (ex.: ``uq_atendimento_retorno_por_origem``,
+    ``uq_formulario_prontuario_ativo``, ``uq_movimento_comissao_credito_por_atendimento``); numa
+    FK ele ainda solta e recria a constraint; e no SQLite refaria a tabela inteira. Outros bancos:
+    o AlterField normal. Reverso: recria o indice com o nome do Django (e o ``_like`` no PG).
+    """
+
+    VENDORS = ('postgresql', 'sqlite')
+
+    def _campos(self, app_label, from_state, to_state):
+        de = from_state.apps.get_model(app_label, self.model_name)
+        para = to_state.apps.get_model(app_label, self.model_name)
+        velho, novo = de._meta.get_field(self.name), para._meta.get_field(self.name)
+        _n, pv, av, kv = velho.deconstruct()
+        _n, pn, an, kn = novo.deconstruct()
+        kv, kn = dict(kv), dict(kn)
+        for attr in ('db_index', 'db_comment'):
+            kv.pop(attr, None)
+            kn.pop(attr, None)
+        if (pv, av, kv) != (pn, an, kn):
+            raise ValueError(f'SoltarIndiceDeCampo: {self.model_name}.{self.name} muda mais que db_index/db_comment')
+        return de, para, velho, novo
+
+    @staticmethod
+    def _comentario(schema_editor, modelo, campo):
+        if schema_editor.connection.features.supports_comments:
+            sql, params = schema_editor._alter_column_comment_sql(
+                modelo, campo, campo.db_type(schema_editor.connection), campo.db_comment,
+            )
+            if sql:
+                schema_editor.execute(sql, params)
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        if schema_editor.connection.vendor not in self.VENDORS:
+            return super().database_forwards(app_label, schema_editor, from_state, to_state)
+        de, para, velho, novo = self._campos(app_label, from_state, to_state)
+        if not self.allow_migrate_model(schema_editor.connection.alias, para):
+            return
+        if velho.db_index and not novo.db_index:
+            do_meta = {i.name for i in de._meta.indexes} | {c.name for c in de._meta.constraints}
+            for nome in schema_editor._constraint_names(
+                de, [velho.column], index=True, unique=False, type_=models.Index.suffix, exclude=do_meta,
+            ):
+                schema_editor.execute(schema_editor._delete_index_sql(de, nome))
+        if velho.db_comment != novo.db_comment:
+            self._comentario(schema_editor, para, novo)
+
+    def database_backwards(self, app_label, schema_editor, from_state, to_state):
+        if schema_editor.connection.vendor not in self.VENDORS:
+            return super().database_backwards(app_label, schema_editor, from_state, to_state)
+        # reverso: from_state = sem indice, to_state = com indice
+        de, para, velho, novo = self._campos(app_label, from_state, to_state)
+        if not self.allow_migrate_model(schema_editor.connection.alias, para):
+            return
+        if novo.db_index and not velho.db_index:
+            schema_editor.execute(schema_editor._create_index_sql(para, fields=[novo]))
+            criar_like = getattr(schema_editor, '_create_like_index_sql', None)  # so o PG tem
+            like = criar_like(para, novo) if criar_like else None
+            if like is not None:
+                schema_editor.execute(like)
+        if velho.db_comment != novo.db_comment:
+            self._comentario(schema_editor, para, novo)
+
+    def describe(self):
+        return f'Tira o indice automatico de {self.model_name}.{self.name} (ix_ explicito no Meta)'
+
+
+class ComentarColuna(migrations.AlterField):
+    """``AlterField`` em que so muda o ``db_comment``: no banco, so ``COMMENT ON COLUMN`` (§2).
+
+    O AlterField do Django trata mudanca de comentario como mudanca de tipo e manda um
+    ``ALTER COLUMN ... TYPE <mesmo tipo>`` junto (o PG reprocessa CHECK/indice/FK da coluna); e o
+    SQLite (sem COMMENT) refaria a tabela inteira por nada. Aqui: PG = so o COMMENT; banco sem
+    suporte a comentario = nada.
+    """
+
+    def _comentar(self, app_label, schema_editor, from_state, to_state):
+        de = from_state.apps.get_model(app_label, self.model_name)
+        para = to_state.apps.get_model(app_label, self.model_name)
+        velho, novo = de._meta.get_field(self.name), para._meta.get_field(self.name)
+        _n, pv, av, kv = velho.deconstruct()
+        _n, pn, an, kn = novo.deconstruct()
+        kv, kn = dict(kv), dict(kn)
+        kv.pop('db_comment', None)
+        kn.pop('db_comment', None)
+        if (pv, av, kv) != (pn, an, kn):
+            raise ValueError(f'ComentarColuna: {self.model_name}.{self.name} muda mais que o db_comment')
+        if not self.allow_migrate_model(schema_editor.connection.alias, para):
+            return
+        if schema_editor.connection.features.supports_comments and velho.db_comment != novo.db_comment:
+            sql, params = schema_editor._alter_column_comment_sql(
+                para, novo, novo.db_type(schema_editor.connection), novo.db_comment,
+            )
+            if sql:
+                schema_editor.execute(sql, params)
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        self._comentar(app_label, schema_editor, from_state, to_state)
+
+    def database_backwards(self, app_label, schema_editor, from_state, to_state):
+        self._comentar(app_label, schema_editor, from_state, to_state)
+
+    def describe(self):
+        return f'COMMENT ON COLUMN de {self.model_name}.{self.name}'
