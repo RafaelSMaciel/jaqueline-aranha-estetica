@@ -102,7 +102,10 @@ def processar_mudanca_status(sender, instance, created, **kwargs):
 
         # Debitar sessao de pacote — atomico + select_for_update serializa
         # debitos concorrentes do mesmo cliente (evita over-debit no TOCTOU
-        # entre o .count() de sessoes feitas e o ConsumoSessao.create()).
+        # entre o .count() de sessoes feitas e o ConsumoSessao.create(); no PG
+        # o tg_consumo_sessao_validar trava o item e confere o saldo de novo).
+        # - Saldo pelo ITEM CONGELADO na venda (CompraPacoteItem), nunca pelo
+        #   catalogo atual (editavel).
         # - Retorno gratuito NAO consome sessao paga (REGRAS §7).
         # - Validade conferida na DATA DA SESSAO (local), nao no dia em que se
         #   marca REALIZADO: sessao feita ate o ultimo dia debita mesmo se o
@@ -120,17 +123,16 @@ def processar_mudanca_status(sender, instance, created, **kwargs):
                 ).order_by(F('data_expiracao').asc(nulls_last=True), 'criado_em')
 
                 for pc in pacotes_validos:
-                    itens = pc.pacote.itens.filter(procedimento=instance.procedimento)
-                    if itens.exists():
-                        item = itens.first()
-                        sessoes_ja_feitas = pc.sessoes_realizadas.filter(
-                            atendimento__procedimento=instance.procedimento
-                        ).count()
-                        if sessoes_ja_feitas < item.quantidade_sessoes:
-                            ConsumoSessao.objects.create(
-                                compra_pacote=pc,
-                                atendimento=instance
-                            )
-                            logger.info(f"[PACOTE] Sessao {sessoes_ja_feitas + 1}/{item.quantidade_sessoes} debitada do pacote {pc.pk}")
-                            pc.verificar_finalizacao()
-                            break
+                    item = pc.itens.filter(procedimento_id=instance.procedimento_id).first()
+                    if item is None:
+                        continue
+                    sessoes_ja_feitas = item.consumos.count()
+                    if sessoes_ja_feitas < item.quantidade_sessoes:
+                        ConsumoSessao.objects.create(
+                            compra_pacote=pc,
+                            compra_pacote_item=item,
+                            atendimento=instance,
+                        )
+                        logger.info(f"[PACOTE] Sessao {sessoes_ja_feitas + 1}/{item.quantidade_sessoes} debitada do pacote {pc.pk}")
+                        pc.verificar_finalizacao()
+                        break

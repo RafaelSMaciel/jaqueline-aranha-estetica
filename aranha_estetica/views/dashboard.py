@@ -3,7 +3,7 @@ from datetime import datetime, time, timedelta
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Count, F, OuterRef, Q, Subquery, Sum
+from django.db.models import Count, OuterRef, Q, Subquery
 from django.db.models.functions import TruncDate
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
@@ -14,7 +14,7 @@ from ..models import (
     AgendaHorario, AvaliacaoNPS, Cliente, CompraPacote, Atendimento, LinkAcesso, Profissional,
 )
 from ..decorators import staff_required
-from ..services import links
+from ..services import financeiro, links
 from ..utils.busca import q_busca_cliente
 from ..utils.datas import fmt_local, hoje as hoje_local
 from ..utils.parse import id_int
@@ -83,25 +83,13 @@ def painel_overview(request):
     total_clientes = Cliente.objects.filter(ativo=True).count()
     novos_clientes = Cliente.objects.filter(criado_em__gte=inicio_mes_dt).count()
 
-    # Receita: atendimentos avulsos (sem retorno gratis e sem sessao de pacote,
-    # que ja entrou como receita na venda do pacote) + pacotes vendidos no mes,
-    # liquidos do reembolso (cancelado entra com o valor retido).
-    realizados_mes = Atendimento.objects.filter(
-        data_hora_inicio__gte=inicio_mes_dt,
-        status='REALIZADO',
-        eh_retorno=False,
-        sessao_pacote_vinculada__isnull=True,
-    )
-    agg_atend = realizados_mes.aggregate(total=Sum('valor_cobrado'), qtd=Count('pk'))
-    receita_atendimentos = agg_atend['total'] or 0
-    realizados_count = agg_atend['qtd'] or 0
-    receita_pacotes = CompraPacote.objects.filter(
-        criado_em__gte=inicio_mes_dt,
-    ).aggregate(total=Sum(F('valor_pago') - F('valor_reembolsado')))['total'] or 0
-
-    receita_mensal = _brl(receita_atendimentos + receita_pacotes)
-    ticket_medio_val = (receita_atendimentos / realizados_count) if realizados_count else 0
-    ticket_medio = _brl(ticket_medio_val)
+    # Receita (D20, services/financeiro — mesma regra do financeiro e da ficha):
+    # avulsos faturados (sem retorno, sem valor zero e sem sessao de pacote, que
+    # ja entrou na venda do pacote) + pacotes vendidos no mes, liquidos do reembolso.
+    avulsos_mes = financeiro.resumo_avulsos(Atendimento.objects.filter(data_hora_inicio__gte=inicio_mes_dt))
+    pacotes_mes = financeiro.resumo_pacotes(CompraPacote.objects.filter(criado_em__gte=inicio_mes_dt))
+    receita_mensal = _brl(avulsos_mes['total'] + pacotes_mes['total'])
+    ticket_medio = _brl(avulsos_mes['ticket_medio'])
 
     realizados_semana = Atendimento.objects.filter(
         data_hora_inicio__date__range=[inicio_semana, fim_semana],

@@ -71,6 +71,7 @@
           <th class="py-2 font-bold text-right">Pendente</th>
           <th class="py-2 font-bold text-right">Paga</th>
           <th class="py-2 font-bold text-right">Qtd</th>
+          <th class="py-2 font-bold text-right">Saldo a pagar</th>
         </tr>
       </thead>
       <tbody>
@@ -80,11 +81,13 @@
           <td class="py-2 text-right text-marca-forte font-semibold tabular-nums">R$ {{ r.pendente|default:0|floatformat:2 }}</td>
           <td class="py-2 text-right text-sucesso tabular-nums">R$ {{ r.paga|default:0|floatformat:2 }}</td>
           <td class="py-2 text-right text-texto-suave tabular-nums">{{ r.qtd }}</td>
+          <td class="py-2 text-right font-semibold tabular-nums {% if r.saldo_negativo %}text-red-600{% else %}text-texto{% endif %}">R$ {{ r.saldo|floatformat:2 }}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+  <p class="text-[0.72rem] text-texto-suave mt-2">Saldo a pagar = comissões geradas − pagas − estornadas (todo o histórico, não só o período).{% if tem_saldo_negativo %} <strong class="text-red-600">Saldo negativo = comissão já paga e depois estornada: a descontar do próximo repasse.</strong>{% endif %}</p>
 </div>
 {% endif %}
 
@@ -99,7 +102,7 @@
         {{ c.atendimento.cliente.nome|default:"—" }} · {{ c.atendimento.procedimento.nome|default:"—" }}
       </p>
       <p class="text-[0.72rem] text-texto-suave mt-0.5">
-        Gerada {{ c.criado_em|date:"d/m/Y" }}{% if c.pago_em %} · paga {{ c.pago_em|date:"d/m/Y" }}{% endif %}
+        Gerada {{ c.criado_em|date:"d/m/Y" }}{% if c.pago_em %} · paga {{ c.pago_em|date:"d/m/Y" }}{% endif %}{% if c.estornado_em %} · estornada {{ c.estornado_em|date:"d/m/Y" }}{% if c.pago_em %} (a descontar do próximo repasse){% endif %}{% endif %}
       </p>
     </div>
     <div class="text-right">

@@ -63,7 +63,7 @@
       <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
     </svg>
     <div class="text-[0.65rem] text-texto-suave font-bold uppercase tracking-wide">LTV</div>
-    <div class="text-[1.15rem] font-extrabold text-texto mt-0.5 break-words">R$ {{ cliente_stats.ltv|floatformat:2 }}</div>
+    <div class="text-[1.15rem] font-extrabold text-texto mt-0.5 break-words" title="Atendimentos avulsos R$ {{ cliente_stats.ltv_avulsos|floatformat:2 }} + pacotes R$ {{ cliente_stats.ltv_pacotes|floatformat:2 }} (sessão de pacote não soma de novo)">R$ {{ cliente_stats.ltv|floatformat:2 }}</div>
   </div>
   <div class="relative bg-superficie rounded-2xl shadow-sm p-3.5">
     <svg class="absolute top-2.5 right-2.5 w-4 h-4 text-[#7b1fa2] opacity-40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
@@ -327,7 +327,7 @@
   <div class="border border-borda rounded-xl p-3 mb-2">
     <div class="flex items-start justify-between gap-2 flex-wrap">
       <div>
-        <div class="font-bold text-[0.88rem] text-texto">{{ compra.pacote.nome }}</div>
+        <div class="font-bold text-[0.88rem] text-texto">{{ compra.pacote_nome }}</div>
         <div class="text-[0.72rem] text-texto-suave">
           Comprado em {{ compra.criado_em|date:"d/m/Y" }} · R$ {{ compra.valor_pago|floatformat:2 }}
           {% if compra.data_expiracao %} · Válido até {{ compra.data_expiracao|date:"d/m/Y" }}{% endif %}
@@ -341,7 +341,7 @@
     </div>
     <ul class="mt-2 mb-0 pl-0 list-none text-[0.8rem] text-texto">
       {% for linha in compra.saldo %}
-      <li><strong>{{ linha.procedimento.nome }}:</strong> {{ linha.usadas }}/{{ linha.total }} usadas · <strong>{{ linha.restantes }}</strong> restante{{ linha.restantes|pluralize }}</li>
+      <li><strong>{{ linha.procedimento_nome }}:</strong> {{ linha.usadas }}/{{ linha.total }} usadas · <strong>{{ linha.restantes }}</strong> restante{{ linha.restantes|pluralize }}</li>
       {% endfor %}
     </ul>
     {% if compra.status == 'ATIVO' %}

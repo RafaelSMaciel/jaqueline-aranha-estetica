@@ -20,6 +20,10 @@ e indices do CreateModel da mesma migration so seriam criados no fim dela).
 O Django reencontra PK/FK/UNIQUE/sequencia por introspecao (§3.6.1), entao
 renomear nao atrapalha migrations futuras.
 
+PadronizarFks(tabela, colunas) — o mesmo, mas so p/ as FKs de colunas NOVAS
+numa tabela existente (0052+): o objeto novo nasce com o nome final sem
+antecipar a fase de nomes no resto da tabela.
+
 Modulo CONGELADO (migrations aplicadas importam daqui): mudanca = classe nova.
 """
 from django.db import migrations, models
@@ -172,3 +176,76 @@ class PadronizarNomes(migrations.RunPython):
                AND o.opcname IN ('varchar_pattern_ops', 'text_pattern_ops', 'bpchar_pattern_ops')
         """, [tabela]):
             se.execute(f'DROP INDEX IF EXISTS {se.quote_name(indice)}', None)
+
+
+class PadronizarFks(PadronizarNomes):
+    """So as FKs de colunas NOVAS numa tabela existente (so PG, idempotente, reverso = no-op).
+
+    Coluna FK acrescentada a uma tabela antiga (0052+: consumo_sessao.compra_pacote_item_id,
+    movimento_comissao.movimento_comissao_origem_id/usuario_autor_id): o objeto novo ja nasce
+    com o nome final (spec §6) — fk_<tabela>_<coluna sem _id> e a acao do on_delete — sem
+    mexer no resto da tabela (PK, FKs, UNIQUE e sequencia antigos ficam p/ a fase de nomes,
+    0054/0055). Mesma regra de nome/acao do PadronizarNomes; tambem executa o deferred_sql
+    pendente (o AddField/AlterField deixam a FK p/ o fim da migration). Vai DEPOIS do
+    AlterField que mexe na coluna (o Django solta e recria a FK com nome de hash).
+    """
+
+    def __init__(self, tabela, colunas, app_label='aranha_estetica'):
+        self.tabela = tabela
+        self.colunas = tuple(colunas)
+        super().__init__(tabelas=[tabela], app_label=app_label)
+
+    def deconstruct(self):
+        kwargs = {'tabela': self.tabela, 'colunas': list(self.colunas)}
+        if self.app_label != 'aranha_estetica':
+            kwargs['app_label'] = self.app_label
+        return (self.__class__.__qualname__, [], kwargs)
+
+    def describe(self):
+        return f'Padroniza nome/ON DELETE das FKs novas (so PG): {self.tabela}({", ".join(self.colunas)})'
+
+    def _aplicar(self, apps, schema_editor):
+        if schema_editor.connection.vendor != 'postgresql':
+            return
+        for sql in list(schema_editor.deferred_sql):
+            schema_editor.execute(sql)
+        schema_editor.deferred_sql.clear()
+        modelo = next(
+            m for m in apps.get_app_config(self.app_label).get_models()
+            if m._meta.db_table == self.tabela
+        )
+        self._fks(schema_editor, self.tabela, modelo)
+
+    def _fks(self, se, tabela, modelo):
+        qn = se.quote_name
+        campos = {
+            f.column: f for f in modelo._meta.concrete_fields
+            if f.is_relation and (f.many_to_one or f.one_to_one) and f.column in self.colunas
+        }
+        faltando = set(self.colunas) - set(campos)
+        if faltando:
+            raise ValueError(f'PadronizarFks: {tabela} sem FK no estado p/ {sorted(faltando)}')
+        fks = self._linhas(se, """
+            SELECT c.conname, a.attname, c.confrelid::regclass::text, af.attname,
+                   c.confdeltype, c.condeferrable, c.condeferred
+              FROM pg_constraint c
+              JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = c.conkey[1]
+              JOIN pg_attribute af ON af.attrelid = c.confrelid AND af.attnum = c.confkey[1]
+             WHERE c.conrelid = %s::regclass AND c.contype = 'f'
+               AND array_length(c.conkey, 1) = 1
+        """, [tabela])
+        for atual, coluna, tabela_ref, coluna_ref, deltype, deferrable, deferred in fks:
+            campo = campos.get(coluna)
+            if campo is None:
+                continue  # outra coluna: fica p/ a fase de nomes
+            codigo, acao = _acao_on_delete(campo.remote_field.on_delete)
+            novo = _nome(f'fk_{tabela}_{_sem_id(coluna)}')
+            if atual == novo and deltype == codigo and deferrable and deferred:
+                continue
+            se.execute(f'ALTER TABLE {qn(tabela)} DROP CONSTRAINT {qn(atual)}', None)
+            se.execute(
+                f'ALTER TABLE {qn(tabela)} ADD CONSTRAINT {qn(novo)} FOREIGN KEY ({qn(coluna)}) '
+                f'REFERENCES {tabela_ref} ({qn(coluna_ref)}) ON DELETE {acao} '
+                f'DEFERRABLE INITIALLY DEFERRED NOT VALID', None,
+            )
+            se.execute(f'ALTER TABLE {qn(tabela)} VALIDATE CONSTRAINT {qn(novo)}', None)

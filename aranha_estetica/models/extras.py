@@ -7,8 +7,14 @@ em views/services/admin. Historico no git se precisar ressuscitar.
 from decimal import Decimal
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import Case, OuterRef, Q, Subquery, Value, When
+from django.db.models.functions import Now
+from django.utils import timezone
+
+from ..db.indices import Indice
 
 from .mixins import TimestampedMixin
 from .clientes import Cliente
@@ -167,9 +173,80 @@ class RegraComissao(TimestampedMixin):
         return f'{prof}/{proc}: {valor}'
 
 
-class MovimentoComissao(models.Model):
-    """Comissao gerada/paga p/ profissional em atendimento concluido."""
+MSG_COMISSAO_IMUTAVEL = (
+    'Comissão é livro-razão append-only: pagamento e estorno são lançamentos novos '
+    '(ComissaoService.marcar_paga / estornar_comissao).'
+)
 
+
+class MovimentoComissaoQuerySet(models.QuerySet):
+    """Ledger append-only: UPDATE/DELETE recusados (no PG, tg_movimento_comissao_imutavel)."""
+
+    def update(self, **kwargs):
+        raise ValidationError(MSG_COMISSAO_IMUTAVEL)
+
+    update.alters_data = True
+    update.queryset_only = True
+
+    def delete(self):
+        raise ValidationError(MSG_COMISSAO_IMUTAVEL)
+
+    delete.alters_data = True
+    delete.queryset_only = True
+
+    def creditos(self):
+        return self.filter(tipo=MovimentoComissao.TIPO_CREDITO)
+
+    def creditos_com_status(self):
+        """1 linha por CREDITO com o status derivado (espelho de vw_comissao).
+
+        Anota ``pago_em`` (PAGAMENTO), ``estornado_em`` (ESTORNO) e ``status``:
+        ESTORNADA se ha estorno; senao PAGA se ha pagamento; senao PENDENTE. Os
+        UNIQUE parciais garantem <= 1 pagamento e <= 1 estorno por credito.
+        """
+        filhos = MovimentoComissao.objects.filter(movimento_origem=OuterRef('pk'))
+        return self.creditos().annotate(
+            pago_em=Subquery(
+                filhos.filter(tipo=MovimentoComissao.TIPO_PAGAMENTO).values('criado_em')[:1],
+            ),
+            estornado_em=Subquery(
+                filhos.filter(tipo=MovimentoComissao.TIPO_ESTORNO).values('criado_em')[:1],
+            ),
+        ).annotate(
+            status=Case(
+                When(estornado_em__isnull=False, then=Value(MovimentoComissao.STATUS_ESTORNADA)),
+                When(pago_em__isnull=False, then=Value(MovimentoComissao.STATUS_PAGA)),
+                default=Value(MovimentoComissao.STATUS_PENDENTE),
+                output_field=models.CharField(),
+            ),
+        )
+
+
+class MovimentoComissao(models.Model):
+    """Livro-razao de comissao (docs/specs/padrao-sql.md §2.9 e §4.f — migration 0053).
+
+    CREDITO (atendimento realizado; 1 por atendimento), PAGAMENTO (baixa no
+    painel) e ESTORNO (atendimento cancelado) — os dois ultimos referenciam o
+    CREDITO (``movimento_origem``) e repetem profissional, atendimento e valor
+    (sem baixa parcial). ``valor`` e sempre positivo; o sinal vem do tipo.
+    Status e saldo sao DERIVADOS (``creditos_com_status``,
+    ``services/comissao_service``): o saldo a pagar fica NEGATIVO quando uma
+    comissao ja paga e estornada (desconta do proximo repasse).
+
+    So-PG (0053): tg_movimento_comissao_validar (origem = CREDITO do mesmo
+    profissional/atendimento/valor; nada de PAGAMENTO em credito estornado) e
+    tg_movimento_comissao_imutavel. No SQLite o Python cobre (save/delete).
+    """
+
+    TIPO_CREDITO = 'CREDITO'
+    TIPO_ESTORNO = 'ESTORNO'
+    TIPO_PAGAMENTO = 'PAGAMENTO'
+    TIPO_CHOICES = [
+        (TIPO_CREDITO, 'Crédito (atendimento realizado)'),
+        (TIPO_ESTORNO, 'Estorno (cancelamento)'),
+        (TIPO_PAGAMENTO, 'Pagamento (baixa)'),
+    ]
+    # status DERIVADO do credito (nao e coluna): anotado por creditos_com_status()
     STATUS_PENDENTE = 'PENDENTE'
     STATUS_PAGA = 'PAGA'
     STATUS_ESTORNADA = 'ESTORNADA'
@@ -185,33 +262,161 @@ class MovimentoComissao(models.Model):
     atendimento = models.ForeignKey(
         'Atendimento', on_delete=models.PROTECT, related_name='comissoes',
     )
+    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES, default=TIPO_CREDITO)
+    # PROTECT: regra ja usada nao se exclui (o SET NULL bateria no trigger) — desative
     regra = models.ForeignKey(
-        RegraComissao, on_delete=models.SET_NULL, blank=True, null=True,
+        RegraComissao, on_delete=models.PROTECT, blank=True, null=True,
     )
     valor = models.DecimalField(
         max_digits=10, decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.00'))],
+        validators=[MinValueValidator(Decimal('0.01'))],
+        db_comment='Sempre positivo; o sinal vem do tipo (CREDITO +, ESTORNO/PAGAMENTO -).',
     )
-    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default=STATUS_PENDENTE)
-    pago_em = models.DateTimeField(blank=True, null=True)
+    # CREDITO que o ESTORNO/PAGAMENTO liquida. Sem indice automatico: coberto pelos
+    # UNIQUE parciais e pelo ix_movimento_comissao_origem_parcial.
+    movimento_origem = models.ForeignKey(
+        'self', on_delete=models.PROTECT, blank=True, null=True,
+        related_name='lancamentos_derivados', db_column='movimento_comissao_origem_id',
+        db_index=False,
+        db_comment='CREDITO que o ESTORNO/PAGAMENTO liquida (NULL no proprio CREDITO).',
+    )
     observacoes = models.TextField(blank=True, default='')
-    criado_em = models.DateTimeField(auto_now_add=True)
+    # autoria (quem deu baixa/estornou); sem indice: nenhuma tela filtra por autor (§2.11)
+    usuario_autor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, blank=True, null=True,
+        related_name='+', db_index=False,
+    )
+    criado_em = models.DateTimeField(default=timezone.now, db_default=Now(), editable=False)
+
+    objects = MovimentoComissaoQuerySet.as_manager()
 
     class Meta:
         managed = True
         db_table = 'movimento_comissao'
         constraints = [
-            # Idempotencia: 1 comissao ATIVA por atendimento (PENDENTE ou PAGA)
+            models.CheckConstraint(
+                condition=Q(tipo__in=['CREDITO', 'ESTORNO', 'PAGAMENTO']),
+                name='ck_movimento_comissao_tipo',
+            ),
+            models.CheckConstraint(condition=Q(valor__gt=0), name='ck_movimento_comissao_valor_positivo'),
+            models.CheckConstraint(
+                condition=(
+                    Q(tipo='CREDITO', movimento_origem__isnull=True)
+                    | (~Q(tipo='CREDITO') & Q(movimento_origem__isnull=False))
+                ),
+                name='ck_movimento_comissao_origem_coerente',
+            ),
+            models.CheckConstraint(
+                condition=Q(tipo='CREDITO') | Q(regra__isnull=True),
+                name='ck_movimento_comissao_regra_so_credito',
+            ),
+            # idempotencia: nunca 2 creditos p/ o mesmo atendimento (nem depois de estornado)
             models.UniqueConstraint(
-                fields=['atendimento'],
-                condition=models.Q(status__in=['PENDENTE', 'PAGA']),
-                name='uniq_comissao_ativa_por_atendimento',
+                fields=['atendimento'], condition=Q(tipo='CREDITO'),
+                name='uq_movimento_comissao_credito_por_atendimento',
+            ),
+            models.UniqueConstraint(
+                fields=['movimento_origem'], condition=Q(tipo='ESTORNO'),
+                name='uq_movimento_comissao_estorno_por_origem',
+            ),
+            models.UniqueConstraint(
+                fields=['movimento_origem'], condition=Q(tipo='PAGAMENTO'),
+                name='uq_movimento_comissao_pagamento_por_origem',
             ),
         ]
         indexes = [
-            models.Index(fields=['profissional', 'status'], name='idx_comissao_prof_status'),
             models.Index(fields=['-criado_em'], name='idx_comissao_criado'),
+            Indice(fields=['profissional', '-criado_em'], name='ix_movimento_comissao_profissional_criado_em'),
+            Indice(
+                fields=['movimento_origem', 'tipo'], condition=Q(movimento_origem__isnull=False),
+                name='ix_movimento_comissao_origem_parcial',
+            ),
         ]
 
     def __str__(self):
-        return f'Comissao {self.profissional.nome} R$ {self.valor} ({self.get_status_display()})'
+        return f'{self.get_tipo_display()} {self.profissional.nome} R$ {self.valor}'
+
+    # ─── status derivado ────────────────────────────────────────────────
+    # status / pago_em / estornado_em: anotados por creditos_com_status(); sem a
+    # anotacao, lidos do ledger (so p/ CREDITO). refresh_from_db() descarta o valor.
+    _DERIVADOS = ('_status', '_pago_em', '_estornado_em')
+
+    def _lancamentos(self) -> dict:
+        if self.tipo != self.TIPO_CREDITO or self.pk is None:
+            return {}
+        return dict(self.lancamentos_derivados.values_list('tipo', 'criado_em'))
+
+    @property
+    def status(self):
+        if '_status' in self.__dict__:
+            return self.__dict__['_status']
+        if self.tipo != self.TIPO_CREDITO or self.pk is None:
+            return None
+        lancamentos = self._lancamentos()
+        if self.TIPO_ESTORNO in lancamentos:
+            return self.STATUS_ESTORNADA
+        return self.STATUS_PAGA if self.TIPO_PAGAMENTO in lancamentos else self.STATUS_PENDENTE
+
+    @status.setter
+    def status(self, valor):
+        self.__dict__['_status'] = valor
+
+    @property
+    def pago_em(self):
+        if '_pago_em' in self.__dict__:
+            return self.__dict__['_pago_em']
+        return self._lancamentos().get(self.TIPO_PAGAMENTO)
+
+    @pago_em.setter
+    def pago_em(self, valor):
+        self.__dict__['_pago_em'] = valor
+
+    @property
+    def estornado_em(self):
+        if '_estornado_em' in self.__dict__:
+            return self.__dict__['_estornado_em']
+        return self._lancamentos().get(self.TIPO_ESTORNO)
+
+    @estornado_em.setter
+    def estornado_em(self, valor):
+        self.__dict__['_estornado_em'] = valor
+
+    def refresh_from_db(self, *args, **kwargs):
+        for nome in self._DERIVADOS:
+            self.__dict__.pop(nome, None)
+        super().refresh_from_db(*args, **kwargs)
+
+    def get_status_display(self):
+        return dict(self.STATUS_CHOICES).get(self.status, self.status or '')
+
+    # ─── append-only ────────────────────────────────────────────────────
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValidationError(MSG_COMISSAO_IMUTAVEL)
+        if self.tipo != self.TIPO_CREDITO:
+            self._validar_lancamento()
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError(MSG_COMISSAO_IMUTAVEL)
+
+    def _validar_lancamento(self):
+        """Espelho Python de tg_movimento_comissao_validar (o banco garante no PG)."""
+        origem = (
+            MovimentoComissao.objects.filter(pk=self.movimento_origem_id)
+            .values('tipo', 'profissional_id', 'atendimento_id', 'valor').first()
+        )
+        if origem is None:
+            return  # a FK / o CHECK de origem acusam
+        if origem['tipo'] != self.TIPO_CREDITO:
+            raise ValidationError(f'{self.tipo} deve referenciar um CRÉDITO de comissão.')
+        if (origem['profissional_id'], origem['atendimento_id'], origem['valor']) != (
+            self.profissional_id, self.atendimento_id, Decimal(self.valor),
+        ):
+            raise ValidationError(
+                f'{self.tipo} deve repetir profissional, atendimento e valor do crédito (sem baixa parcial).'
+            )
+        if self.tipo == self.TIPO_PAGAMENTO and MovimentoComissao.objects.filter(
+            movimento_origem_id=self.movimento_origem_id, tipo=self.TIPO_ESTORNO,
+        ).exists():
+            raise ValidationError('Comissão estornada não pode ser paga.')

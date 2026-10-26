@@ -177,13 +177,16 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 
 ## 12. Pacotes
 
-- Pacote = itens (procedimento × sessões), preço total e validade em meses. Pacote **já vendido**
-  tem **nome e itens congelados** (preço, validade e ativo ainda editáveis); pacote inativo não é
-  vendido.
+- Pacote = itens (procedimento × sessões), preço total e validade em meses. O **catálogo é
+  editável a qualquer momento** (nome, itens, preço, validade, ativo): a **venda congela** o que foi
+  vendido — nome do pacote e, por item, procedimento, nome, sessões e **valor de 1 sessão** =
+  `valor_pago` ÷ total de sessões (centavos, meio p/ cima). Editar o catálogo só vale para as
+  próximas vendas; quem já comprou mantém o que comprou. Pacote inativo não é vendido.
 - Venda (ficha da cliente ou Painel > Pacotes): `valor_pago`, expiração = data local da venda +
   validade.
-- Sessão REALIZADA de procedimento do pacote **debita 1 sessão** (1 consumo por atendimento),
-  escolhendo o pacote que vence primeiro. A validade é conferida na **data da sessão**: sessão
+- Sessão REALIZADA de procedimento **do que foi vendido** **debita 1 sessão** daquele item
+  (1 consumo por atendimento; no banco o consumo só entra se o item é da compra, o procedimento é o
+  mesmo, não é retorno e ainda há saldo), escolhendo o pacote que vence primeiro. A validade é conferida na **data da sessão**: sessão
   feita até o último dia debita mesmo que o job já tenha marcado o pacote EXPIRADO; sessão depois
   da validade não debita. Retorno gratuito nunca debita.
 - Status: **ATIVO** → **FINALIZADO** (todas as sessões usadas) | **EXPIRADO** (job
@@ -191,7 +194,11 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
   até o valor pago, e o motivo; auditado; sessões usadas continuam registradas).
 - Aviso por e-mail 7 e 1 dia antes do vencimento, se houver saldo ("Sessões realizadas até dd/mm
   contam no seu pacote").
-- A ficha da cliente mostra por pacote: sessões usadas/total por procedimento e validade.
+- A ficha da cliente mostra por pacote (nome da venda): sessões usadas/total por item vendido e
+  validade. O DSAR exporta o mesmo (nome, itens, sessões usadas/restantes, valor por sessão).
+- Compras de antes da 0052 herdaram o catálogo da época da migração; sessão sem item correspondente
+  virou item reconstruído (valor 0) e consumo acima da quantidade ficou só registrado — ambos na
+  auditoria (`migration 0052: …`).
 
 ---
 
@@ -216,8 +223,13 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
   REALIZADO que já tem comissão lançada. Em REALIZADO sem comissão, calcula a comissão e o
   cashback na hora.
 - **Faturamento** (financeiro/overview) = atendimentos **avulsos** REALIZADOS com valor > 0 (sem
-  retornos, **sem sessões de pacote**) + **vendas de pacote** na data da compra. Venda CANCELADA
-  sai inteira do faturamento (o reembolso fica só na auditoria — pendência no ARCHITECTURE).
+  retornos, **sem sessões de pacote**) + **vendas de pacote** na data da compra, líquidas do valor
+  devolvido (cancelada entra com o que a clínica reteve; devolvida integral = 0).
+- **Ticket médio** = média dos avulsos faturados (mesma regra acima). Uma função só
+  (`services/financeiro`) para a visão geral (mês corrente), o financeiro (30 dias) e a ficha da
+  cliente.
+- **LTV da ficha** = avulsos faturados + pacotes líquidos: a sessão de pacote não soma de novo a
+  preço cheio (a receita dela já entrou na venda).
 - Taxa de faltas do mês = FALTOU / (REALIZADO + FALTOU).
 
 ---
@@ -229,9 +241,17 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
   global; empate = a editada por último.
 - Valor = **percentual** (0–100) **ou** valor fixo, sobre a **base**: `valor_cobrado` no avulso;
   na sessão de pacote, **`valor_pago` do pacote ÷ total de sessões do pacote** (rateio).
-- Idempotente (1 comissão PENDENTE/PAGA por atendimento). Cancelamento posterior → ESTORNADA.
-  Pagamento: Painel > Comissões > pagar (PENDENTE → PAGA, auditado).
-- Regras de comissão são cadastradas no Django admin.
+- **Livro-razão** (append-only, imutável no banco): o cálculo lança um **CRÉDITO** (1 por
+  atendimento, nunca um 2º — nem depois de estornado); a baixa no Painel > Comissões > pagar lança
+  um **PAGAMENTO** (valor integral, sem baixa parcial; autor e auditoria); o cancelamento posterior
+  lança um **ESTORNO** do crédito, pago ou não. Status derivado: ESTORNADA (há estorno) > PAGA
+  (há pagamento) > PENDENTE. Estornada não pode ser paga.
+- **Saldo a pagar** por profissional = créditos − pagamentos − estornos (todo o histórico). Fica
+  **negativo** quando uma comissão já paga é estornada: a diferença é **descontada do próximo
+  repasse** (o painel de comissões e o financeiro mostram isso). Comissões ESTORNADAS de antes da
+  0053 ganharam data **estimada** (o sistema nunca gravou quando estornou).
+- Regras de comissão são cadastradas no Django admin; regra **já usada não se exclui** (o
+  lançamento guarda a regra) — desative.
 
 ---
 
@@ -240,7 +260,9 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 - Quando a **indicada** tem o **primeiro** atendimento REALIZADO **pago** (valor > 0, não retorno),
   a **indicadora** (`indicado_por`) ganha **R$ 50,00** (`VALOR_CASHBACK_INDICACAO`) na carteira.
   Idempotente; cancelamento do atendimento estorna (`CASHBACK_ESTORNO`), saldo nunca negativo.
-- Carteira é ledger **imutável** (trigger): correção = novo movimento.
+- Carteira é ledger **imutável** (trigger): correção = novo movimento. A observação do cashback
+  guarda só o **id** da indicada (`Indicacao (cli #<id>)`), nunca o nome — o ledger não pode ser
+  anonimizado (a 0053 saneou as linhas antigas).
 - **Hoje inerte:** nenhuma tela preenche `indicado_por` e não há fluxo de uso do saldo (pendência
   no ARCHITECTURE).
 
@@ -372,7 +394,7 @@ aceites, prontuário e pacotes ficam, ligados a um titular não identificável.
 | Atendimento criado | Push ao profissional + sync Google Calendar (após o commit) |
 | → REALIZADO | Zera faltas e desbloqueia; debita sessão de pacote (não em retorno); comissão; cashback da indicadora (1º pago); cria retorno se o procedimento exige |
 | → FALTOU | Soma falta (bloqueio online no limite) |
-| → CANCELADO | Estorna comissão e cashback; avisa lista de espera (se futuro) |
+| → CANCELADO | Lança o estorno da comissão e do cashback; avisa lista de espera (se futuro) |
 | → REAGENDADO | Avisa lista de espera (se futuro) |
 | → CONFIRMADO | Só log |
 

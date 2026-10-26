@@ -139,13 +139,12 @@ def admin_criar_pacote(request):
 
 @staff_required
 def admin_editar_pacote(request, pk):
-    """Edita pacote existente (dados, itens e ativo/inativo).
+    """Edita pacote do catalogo (dados, itens e ativo/inativo) — sempre.
 
-    Pacote ja vendido: nome e itens ficam congelados — CompraPacote nao guarda
-    copia dos itens e o saldo/debito/comissao leem pacote.itens na hora, entao
-    mudar os itens alteraria o que a cliente ja comprou. Preco, validade,
-    descricao e ativo seguem editaveis (valem p/ vendas futuras; a validade
-    de quem ja comprou esta gravada em data_expiracao).
+    A venda congela nome e itens (CompraPacote.pacote_nome + CompraPacoteItem,
+    migration 0052): editar aqui so vale p/ vendas futuras; quem ja comprou
+    mantem o que comprou (saldo, debito e comissao leem os itens congelados) e
+    a validade gravada em data_expiracao.
     """
     pacote = get_object_or_404(Pacote, pk=pk)
 
@@ -165,19 +164,6 @@ def admin_editar_pacote(request, pk):
         messages.error(request, 'Dados inválidos: verifique preço, validade e itens (sem procedimento repetido).')
         return redirect('aranha:admin_pacotes')
 
-    vendido = CompraPacote.objects.filter(pacote=pacote).exists()
-    if vendido:
-        atuais = sorted(pacote.itens.values_list('procedimento_id', 'quantidade_sessoes'))
-        # Form de pacote vendido nao envia itens (campos so leitura) = mantem os atuais
-        mudou_itens = 'procedimento_ids' in request.POST and sorted(itens) != atuais
-        if nome != pacote.nome or mudou_itens:
-            messages.error(
-                request,
-                f'O pacote "{pacote.nome}" já foi vendido: nome e itens não podem mudar '
-                '(alteraria o que as clientes compraram). Crie um novo pacote e desative este.',
-            )
-            return redirect('aranha:admin_pacotes')
-
     try:
         with transaction.atomic():
             pacote.nome = nome
@@ -187,8 +173,9 @@ def admin_editar_pacote(request, pk):
             pacote.ativo = request.POST.get('ativo') in ('1', 'on')
             pacote.save()
 
-            if not vendido:
-                # Itens: substitui o conjunto — so enquanto ninguem comprou.
+            # Itens do catalogo: substitui o conjunto (form sem a lista de itens =
+            # mantem os atuais). Compras ja feitas tem os proprios itens congelados.
+            if 'procedimento_ids' in request.POST:
                 ItemPacote.objects.filter(pacote=pacote).delete()
                 ItemPacote.objects.bulk_create([
                     ItemPacote(pacote=pacote, procedimento_id=pid, quantidade_sessoes=qtd)
@@ -232,14 +219,10 @@ def admin_vender_pacote(request):
         return redirect('aranha:admin_pacotes')
 
     try:
-        # data_expiracao fica a cargo de CompraPacote.save() (localdate +
-        # validade em meses civis) — calcular aqui em UTC errava o dia a noite.
-        pc = CompraPacote.objects.create(
-            cliente=cliente,
-            pacote=pacote,
-            valor_pago=valor_pago,
-            status='ATIVO',
-        )
+        # vender() congela nome e itens do catalogo (CompraPacoteItem) e o valor
+        # de cada sessao; data_expiracao fica a cargo de CompraPacote.save()
+        # (localdate + validade em meses civis).
+        pc = CompraPacote.vender(pacote, cliente, valor_pago)
 
         # sem o nome da cliente no texto (o log sobrevive ao esquecimento LGPD)
         registrar_log(
@@ -264,7 +247,7 @@ def admin_cancelar_compra_pacote(request, pk):
     para a auditoria. Sessoes ja usadas continuam registradas; so compra ATIVA
     pode ser cancelada.
     """
-    compra = get_object_or_404(CompraPacote.objects.select_related('cliente', 'pacote'), pk=pk)
+    compra = get_object_or_404(CompraPacote.objects.select_related('cliente'), pk=pk)
     destino = redirect('aranha:admin_cliente_detalhe', pk=compra.cliente_id)
     observacao = (request.POST.get('observacao') or '').strip()[:500]
     if not observacao:
@@ -291,7 +274,7 @@ def admin_cancelar_compra_pacote(request, pk):
         )
     if not atualizadas:
         messages.warning(
-            request, f'O pacote "{compra.pacote.nome}" não está ativo ({compra.get_status_display().lower()}).',
+            request, f'O pacote "{compra.pacote_nome}" não está ativo ({compra.get_status_display().lower()}).',
         )
         return destino
 
@@ -299,12 +282,12 @@ def admin_cancelar_compra_pacote(request, pk):
     # cliente no texto (LGPD).
     registrar_log(
         request.user,
-        f'Cancelou pacote "{compra.pacote.nome}"',
+        f'Cancelou pacote "{compra.pacote_nome}"',
         'compra_pacote', compra.pk,
         {'cliente': compra.cliente_id, 'observacao': observacao,
          'valor_pago': str(compra.valor_pago), 'valor_reembolsado': str(reembolso),
          'sessoes_restantes': compra.sessoes_restantes()},
         request=request,
     )
-    messages.success(request, f'Pacote "{compra.pacote.nome}" cancelado.')
+    messages.success(request, f'Pacote "{compra.pacote_nome}" cancelado.')
     return destino
