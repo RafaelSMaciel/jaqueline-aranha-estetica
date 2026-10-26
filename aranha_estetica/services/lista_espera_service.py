@@ -129,9 +129,11 @@ def _enviar_email_lista_espera(espera: ListaEspera, slot: Atendimento, link: str
 
 
 def _enviar_wa_lista_espera(espera: ListaEspera, slot: Atendimento, link: str) -> bool:
-    """WhatsApp template de vaga (requer telefone + consentimento de WhatsApp)."""
+    """WhatsApp template de vaga (requer telefone + consentimento de lembrete por WhatsApp)."""
+    from . import consentimentos
+
     cliente = espera.cliente
-    if not (cliente.telefone and cliente.consent_whatsapp_confirmacao):
+    if not (cliente.telefone and consentimentos.vigente(cliente, *consentimentos.LEMBRETE_WHATSAPP)):
         return False
     try:
         from ..utils.whatsapp import TEMPLATE_LISTA_ESPERA, enviar_template_whatsapp

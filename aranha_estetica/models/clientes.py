@@ -58,22 +58,10 @@ class Cliente(models.Model):
         help_text='Codigo curto compartilhavel (ex: A1B2C3D4) gerado automaticamente.',
     )
 
-    # LGPD: consentimento legado (comunicacao transacional). O link de
+    # LGPD: consentimentos de comunicacao (marketing por e-mail, pesquisa e
+    # lembrete por WhatsApp) vivem em Consentimento (historico append-only,
+    # migration 0050) — ler/gravar por services/consentimentos. O link de
     # descadastro e emitido por e-mail de marketing (link_acesso DESCADASTRO).
-    aceita_comunicacao = models.BooleanField(default=True)
-
-    # LGPD: consents granulares por canal/uso — opt-in explicito com audit trail
-    consent_email_marketing = models.BooleanField(default=False)
-    consent_email_marketing_em = models.DateTimeField(blank=True, null=True)
-    consent_email_marketing_ip = models.GenericIPAddressField(blank=True, null=True)
-
-    consent_whatsapp_nps = models.BooleanField(default=False)
-    consent_whatsapp_nps_em = models.DateTimeField(blank=True, null=True)
-    consent_whatsapp_nps_ip = models.GenericIPAddressField(blank=True, null=True)
-
-    consent_whatsapp_confirmacao = models.BooleanField(default=False)
-    consent_whatsapp_confirmacao_em = models.DateTimeField(blank=True, null=True)
-    consent_whatsapp_confirmacao_ip = models.GenericIPAddressField(blank=True, null=True)
 
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True, null=True)

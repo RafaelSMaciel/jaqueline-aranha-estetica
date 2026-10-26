@@ -42,6 +42,7 @@ from ..models import (
     VersaoTermo,
 )
 from ..models.termos import TEXTO_CONSENTIMENTO_SAUDE
+from ..services import consentimentos
 from ..services import otp as otp_service
 from ..services.agendamento_service import formatar_brl, formatar_data_hora
 from ..services.anamnese import validar_respostas
@@ -71,12 +72,8 @@ MSG_SEM_TERMO_LGPD = (
 )
 # Teto do JSON da anamnese (todos os formularios somados) — acima disso e abuso.
 MAX_ANAMNESE_BYTES = 20_000
-# Consents de comunicacao (checkbox do wizard -> campos do Cliente).
-CONSENTS_COMUNICACAO = (
-    'consent_email_marketing',
-    'consent_whatsapp_confirmacao',
-    'consent_whatsapp_nps',
-)
+# Consentimentos de comunicacao: checkbox do wizard -> par finalidade x canal
+# (services/consentimentos.PARES; historico append-only na tabela consentimento).
 
 
 class _Recusa(Exception):
@@ -291,6 +288,8 @@ def agendamento_publico(request):
         'termo_lgpd': termo_lgpd,
         'termos_procedimento_data': termos_procedimento,
         'texto_consentimento_saude': texto_consentimento_saude,
+        # Rotulo de cada opt-in de comunicacao = texto gravado como prova no consentimento
+        'textos_consentimento': consentimentos.TEXTOS_WIZARD,
         'proc_preselect': proc_preselect,
         'prof_preselect': prof_preselect,
         # Telefone ja verificado nesta sessao (reidratar sem exigir novo SMS)
@@ -323,7 +322,7 @@ def confirmar_agendamento(request):
     procedimento_id = str(request.POST.get('procedimento') or '').strip()
     profissional_id = str(request.POST.get('profissional') or '').strip()
     datetime_str = (request.POST.get('datetime') or '').strip()
-    consents = {campo: request.POST.get(campo) == 'on' for campo in CONSENTS_COMUNICACAO}
+    consents = {campo: request.POST.get(campo) == 'on' for campo in consentimentos.PARES}
     # '1' = os checkboxes mostravam o estado atual do cadastro (prefill do OTP):
     # so entao desmarcar revoga. Sem isso o POST so concede (nunca revoga as cegas).
     consents_sincronizados = request.POST.get('consents_sincronizados') == '1'
@@ -451,20 +450,12 @@ def confirmar_agendamento(request):
     try:
         with transaction.atomic():
             agora = timezone.now()
-            ip_origem = _client_ip(request) or None
             defaults = {
                 'nome': nome,
                 'data_nascimento': data_nascimento,
                 'email': email,
                 'ativo': True,
             }
-            for campo, marcado in consents.items():
-                if marcado:
-                    defaults.update({
-                        campo: True,
-                        f'{campo}_em': agora,
-                        f'{campo}_ip': ip_origem,
-                    })
 
             cliente, created = Cliente.objects.select_for_update().get_or_create(
                 telefone=telefone,
@@ -487,16 +478,16 @@ def confirmar_agendamento(request):
                     # plantado por terceiro sem verificacao). Em branco = mantem.
                     cliente.email = email
                     atualizar = True
-                for campo, marcado in consents.items():
-                    # Concede ao marcar; revoga ao desmarcar SO se o checkbox
-                    # mostrava o estado do cadastro (data/IP = os da revogacao).
-                    if marcado != getattr(cliente, campo) and (marcado or consents_sincronizados):
-                        setattr(cliente, campo, marcado)
-                        setattr(cliente, f'{campo}_em', agora)
-                        setattr(cliente, f'{campo}_ip', ip_origem)
-                        atualizar = True
                 if atualizar:
                     cliente.save()
+            # Opt-ins -> historico (prova: texto do checkbox, IP, user-agent).
+            # Concede ao marcar; revoga ao desmarcar SO se o checkbox mostrava o
+            # estado do cadastro. Ultimo registro manda: quem se descadastrou e
+            # marca de novo volta a receber (reconsentimento).
+            consentimentos.registrar_do_wizard(
+                cliente, consents, sincronizados=consents_sincronizados,
+                cadastro_novo=created, request=request,
+            )
 
             conflito = Atendimento.objects.select_for_update().filter(
                 profissional=profissional,

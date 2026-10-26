@@ -177,9 +177,6 @@
       <label class="inline-flex items-center gap-1.5 cursor-pointer text-[0.85rem] text-texto">
         <input type="checkbox" name="ativo" value="1" {% if cliente.ativo %}checked{% endif %}> Ativo
       </label>
-      <label class="inline-flex items-center gap-1.5 cursor-pointer text-[0.85rem] text-texto">
-        <input type="checkbox" name="aceita_comunicacao" value="1" {% if cliente.aceita_comunicacao %}checked{% endif %}> Aceita comunicação
-      </label>
     </div>
 
     <div class="flex items-center gap-4 flex-wrap mt-2">
@@ -210,6 +207,66 @@
       </a>
     </div>
   </form>
+</div>
+
+{# ── Consentimentos de comunicacao (LGPD art. 8): estado vigente + revogar; conceder exige justificativa ── #}
+<div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4" id="consentimentos">
+  <h3 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-3">
+    <svg class="w-4 h-4 text-marca" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+    </svg>
+    Comunicação autorizada
+  </h3>
+  {% for c in consentimentos %}
+  <div class="border border-borda rounded-xl p-3 mb-2">
+    <div class="flex items-start justify-between gap-2 flex-wrap">
+      <div>
+        <div class="font-bold text-[0.85rem] text-texto">{{ c.rotulo }}</div>
+        <div class="text-[0.72rem] text-texto-suave">
+          {% if c.registro %}
+          {% if c.concedido %}Autorizado{% else %}Revogado{% endif %} em {{ c.registro.registrado_em|date:"d/m/Y H:i" }} · {{ c.registro.get_origem_display }}
+          {% else %}
+          Nunca autorizado
+          {% endif %}
+        </div>
+      </div>
+      <span class="px-2 py-0.5 rounded-full text-[0.65rem] font-bold uppercase tracking-wide {% if c.concedido %}bg-green-50 text-green-700{% else %}bg-fundo text-texto-suave{% endif %}">
+        {% if c.concedido %}Autorizado{% else %}Não autorizado{% endif %}
+      </span>
+    </div>
+    {% if c.concedido %}
+    <form method="post" class="mt-2">
+      {% csrf_token %}
+      <input type="hidden" name="acao" value="consentimento">
+      <input type="hidden" name="operacao" value="revogar">
+      <input type="hidden" name="par" value="{{ c.chave }}">
+      <button type="submit" data-confirm="Revogar esta autorização? A cliente deixa de receber essa comunicação."
+              class="px-3 py-2 rounded-xl bg-fundo text-texto-suave text-[0.8rem] font-bold border border-borda cursor-pointer hover:opacity-90">
+        Revogar
+      </button>
+    </form>
+    {% else %}
+    <details class="mt-2">
+      <summary class="cursor-pointer text-[0.75rem] font-bold text-texto-suave">Registrar autorização da cliente</summary>
+      <form method="post" class="mt-2">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="consentimento">
+        <input type="hidden" name="operacao" value="conceder">
+        <input type="hidden" name="par" value="{{ c.chave }}">
+        <label for="justificativa-{{ forloop.counter }}" class="block text-[0.72rem] font-bold text-texto-suave mb-1">O que a cliente autorizou e como (fica registrado com seu nome)</label>
+        <textarea id="justificativa-{{ forloop.counter }}" name="justificativa" rows="2" required minlength="10" maxlength="1000"
+                  placeholder="Ex.: pediu por telefone em 10/11 para receber promoções por e-mail"
+                  class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.82rem] text-texto placeholder-texto-suave outline-none focus:ring-2 focus:ring-[#C9A84C]/40"></textarea>
+        <button type="submit"
+                class="mt-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.8rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
+          Registrar autorização
+        </button>
+      </form>
+    </details>
+    {% endif %}
+  </div>
+  {% endfor %}
+  <p class="text-[0.72rem] text-texto-suave mt-2 mb-0">A cliente autoriza no agendamento online e cancela pelo link do e-mail. Cada mudança fica no histórico (Django admin &gt; Consentimentos).</p>
 </div>
 
 {# ── Indicacao: quem indicou esta cliente (cashback no 1o atendimento pago) ── #}

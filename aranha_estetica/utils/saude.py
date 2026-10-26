@@ -1,12 +1,17 @@
 """Alertas de saude do cliente p/ quem executa o procedimento.
 
-Junta o que a equipe preencheu no Prontuario com o que a propria cliente
-declarou nas fichas de anamnese (RespostaAnamnese) — antes a alergia
-declarada no agendamento nunca chegava ao prontuario/portal/agenda.
+Junta o que a equipe preencheu no Prontuario (campos clinicos + respostas do
+questionario do prontuario) com o que a propria cliente declarou nas fichas
+de anamnese (RespostaAnamnese) — antes a alergia declarada no agendamento
+nunca chegava ao prontuario/portal/agenda.
+
+Perguntas de qualquer formulario (ANAMNESE ou PRONTUARIO, spec padrao-sql §4.d)
+seguem a mesma regra por pergunta (``deve_alertar``): ``alerta_saude: true``
+alerta sempre que a resposta for positiva, ``false`` nunca, ausente =
+heuristica ``_RISCO_RX`` sobre ``key + label``.
 """
 from __future__ import annotations
 
-import json
 import logging
 import re
 
@@ -41,30 +46,39 @@ def _valor_positivo(valor) -> str | None:
     return txt[:300]
 
 
-def perguntas_prontuario() -> list:
-    """Schema do questionario do prontuario — lista [{chave, texto, tipo}].
+def rotulo_da_chave(key) -> str:
+    """Label derivado da key (pergunta que saiu do formulario, sufixo '_x' da 0036)."""
+    return str(key).replace('_', ' ').strip().capitalize()
 
-    Vive em Configuracao chave='prontuario_perguntas' (JSON). tipo:
-    'TEXTO' | 'BOOLEAN'. Substitui o EAV (remodelagem v2.1 fase 5).
+
+def deve_alertar(pergunta: dict | None, key, label) -> bool:
+    """A resposta (positiva) desta pergunta vira alerta? alerta_saude > heuristica."""
+    marcado = pergunta.get('alerta_saude') if isinstance(pergunta, dict) else None
+    if isinstance(marcado, bool):
+        return marcado
+    return bool(_RISCO_RX.search(_sem_acento(f'{key} {label}')))
+
+
+def perguntas_prontuario() -> list[dict]:
+    """Perguntas do questionario do prontuario — [{key, label, tipo, ...}].
+
+    Vivem no formulario tipo PRONTUARIO ativo (FormularioAnamnese, no maximo 1;
+    editado no CRUD de anamneses). Antes da 0051 eram o JSON
+    Configuracao 'prontuario_perguntas' ({chave, texto, tipo}).
     """
-    from ..models import Configuracao
-    # iexact: a tela Configuracoes forcava upper() em chaves antigas
-    cfg = Configuracao.objects.filter(chave__iexact='prontuario_perguntas').order_by('pk').first()
-    if not cfg or not cfg.valor:
-        return []
-    try:
-        perguntas = json.loads(cfg.valor)
-    except ValueError:
-        logger.warning('prontuario_perguntas_json_invalido')
-        return []
-    return perguntas if isinstance(perguntas, list) else []
+    from ..models import FormularioAnamnese
+
+    form = FormularioAnamnese.objects.prontuario_ativo()
+    perguntas = form.schema_json if form is not None else []
+    return [p for p in (perguntas if isinstance(perguntas, list) else []) if isinstance(p, dict) and p.get('key')]
 
 
-def alertas_saude(cliente, limite_fichas: int = 5) -> list[dict]:
+def alertas_saude(cliente, limite_fichas: int = 5, perguntas: list[dict] | None = None) -> list[dict]:
     """[{'label', 'valor', 'origem'}] com alergias/contraindicacoes/etc. do cliente.
 
     origem: 'prontuario' ou 'anamnese' (ficha respondida pela cliente). Considera
     as `limite_fichas` fichas de ANAMNESE mais recentes respondidas.
+    `perguntas` = perguntas_prontuario() ja lidas (lote: services.alertas).
     """
     if cliente is None:
         return []
@@ -90,18 +104,17 @@ def alertas_saude(cliente, limite_fichas: int = 5) -> list[dict]:
             valor = _valor_positivo(getattr(pront, campo, None))
             if valor:
                 add(label, valor, 'prontuario')
-        # Questionario configuravel (JSONB): respostas do EAV migrado na 0036 e
-        # as gravadas pelo prontuario_salvar. Chave sem pergunta ativa (inativa,
-        # sufixo '_x' da migracao) ainda alerta, com label derivado da chave.
+        # Questionario do prontuario (formulario PRONTUARIO): respostas do EAV
+        # migrado na 0036 e as gravadas pelo prontuario_salvar. Chave sem
+        # pergunta ativa (removida do formulario, sufixo '_x' da migracao)
+        # ainda alerta, com label derivado da chave.
         extras = pront.respostas_extras if isinstance(pront.respostas_extras, dict) else {}
         if extras:
-            textos = {
-                p.get('chave'): p.get('texto')
-                for p in perguntas_prontuario() if isinstance(p, dict)
-            }
-            for chave, valor in extras.items():
-                label = str(textos.get(chave) or str(chave).replace('_', ' ').strip().capitalize())
-                if not _RISCO_RX.search(_sem_acento(f'{chave} {label}')):
+            por_key = {p['key']: p for p in (perguntas if perguntas is not None else perguntas_prontuario())}
+            for key, valor in extras.items():
+                pergunta = por_key.get(key)
+                label = str((pergunta or {}).get('label') or rotulo_da_chave(key))
+                if not deve_alertar(pergunta, key, label):
                     continue
                 texto = _valor_positivo(valor)
                 if texto:
@@ -116,11 +129,12 @@ def alertas_saude(cliente, limite_fichas: int = 5) -> list[dict]:
     )
     for ficha in fichas:
         schema = ficha.formulario.schema_json if isinstance(ficha.formulario.schema_json, list) else []
-        labels = {c.get('key'): c.get('label') or c.get('key') for c in schema if isinstance(c, dict)}
+        por_key = {c.get('key'): c for c in schema if isinstance(c, dict)}
         respostas = ficha.respostas_json if isinstance(ficha.respostas_json, dict) else {}
         for key, valor in respostas.items():
-            label = str(labels.get(key) or key)
-            if not _RISCO_RX.search(_sem_acento(f'{key} {label}')):
+            pergunta = por_key.get(key)
+            label = str((pergunta or {}).get('label') or key)
+            if not deve_alertar(pergunta, key, label):
                 continue
             texto = _valor_positivo(valor)
             if texto:

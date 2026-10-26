@@ -1,9 +1,9 @@
 # Padrão SQL e esquema-alvo do banco — Shiva Zen
 
 > **Spec única** (sobrescrever a cada revisão — política do dono: 1 MD por assunto, sem versões
-> acumuladas). **Status: fases (a) e (b) IMPLEMENTADAS (migrations `0048_agenda_unificada` e
-> `0049_link_acesso`, notas de implementação no fim do §4.a e do §4.b); (c)–(f), N1–N2 e L1–L3
-> seguem em DESIGN.** Base verificada:
+> acumuladas). **Status: fases (a)–(d) IMPLEMENTADAS (migrations `0048_agenda_unificada`,
+> `0049_link_acesso`, `0050_consentimento` e `0051_formulario_prontuario`, notas de implementação
+> no fim do §4.a–§4.d); (e)–(f), N1–N2 e L1–L3 seguem em DESIGN.** Base verificada:
 > `front-fundacao` = `main` @ `1462eff`, migrations até `0047`, produção na `0026`, Django 5.2.1, PostgreSQL 18 (Railway, com
 > `btree_gist`, `pg_trgm`, `unaccent`, ICU). Tudo aqui entra como migrations **`0048`+** — as
 > `0027`–`0047` não são editadas. Histórico das 0027–0047: [`remodelagem-banco-v2.md`](remodelagem-banco-v2.md)
@@ -2012,6 +2012,72 @@ vira `PARES`); `views/booking_otp` (l. 102–104, pré-preenchimento → `estado
 `templates/painel/cliente_detalhe.html` (l. 181: "Aceita comunicação" vira o estado por canal com
 ação "Revogar", `origem='PAINEL'`, autor = usuário); `domain/handlers.py` (docstring).
 
+**Implementação (0050) — o que ficou diferente do desenho acima, e por quê:**
+
+- **Nome só no banco** (precedente da 0048): atributo `Consentimento.concedido` → coluna
+  `eh_concedido`; `usuario_autor` (FK `PROTECT` = `NO ACTION` do DDL: o trigger não deixa a
+  autoria mudar, então `SET NULL` falharia). FK do cliente sem índice automático (coberta pelo
+  `ix_consentimento_cliente_finalidade_canal_registrado_em`, `(cliente_id, finalidade, canal,
+  registrado_em DESC, id DESC)`).
+- **Ordem da migration:** `CreateModel` → `RunPython` (histórico + `LogAuditoria` `migration 0050:
+  consentimentos com historico` com as contagens; `SET CONSTRAINTS ALL IMMEDIATE`) → PG:
+  `fn_consentimento_imutavel` + `tg_consentimento_imutavel` (corpo do §5.2; SQLSTATE 23000 →
+  `IntegrityError`) → `PadronizarNomes(['consentimento'])` → `RemoveField` ×10 (o §6 não listava o
+  `PadronizarNomes`, mas toda migration que cria tabela termina com ele).
+- **Regras de dado** (além do desenho): `consent_x=False` **com** `_em` vira revogação na data/IP
+  gravados — o descadastro e o admin antigos não atualizavam o `_em`, então essa data pode ser a
+  da concessão (o estado vigente é o mesmo). `aceita_comunicacao=False` grava as 2 revogações
+  **sempre** (mesmo sem concessão anterior: documenta o opt-out e permite o reverso), inclusive
+  para excluído/anonimizado (todo cliente migra), em `greatest(atualizado_em, criado_em,
+  consent_*_em) + 1 µs` (`criado_em` entra porque `atualizado_em` é anulável).
+- **Reverso:** `consent_x/_em/_ip` = linha vigente; `aceita_comunicacao=False` quando a revogação
+  de "opt-out geral" mais recente de MARKETING/PESQUISA — `DESCADASTRO`, `ESQUECIMENTO` ou
+  `MIGRACAO` com o texto `opt-out geral (aceita_comunicacao=false)` (a revogação MIGRACAO de um
+  `consent_x=False` do wizard **não** é opt-out geral) — é posterior a qualquer concessão desses
+  pares. Ida-e-volta preserva o estado, não as linhas (o reverso vira concessão + opt-out em
+  `consent_x=False` com data; subir de novo grava a revogação).
+- **Serviço** (`services/consentimentos.py`), além de `estado_atual/vigente/registrar/
+  anotar_vigente`: `com_consentimento(qs, …)` (anota + filtra; usado pelos jobs/painel),
+  `estado_wizard` (pré-preenchimento do OTP com as chaves dos checkboxes), `registrar_do_wizard`
+  (marcado concede; desmarcado só revoga com `consents_sincronizados` e cadastro existente),
+  `revogar`/`revogar_todos`, `historico` (DSAR), `resumo_painel`, `esquecer` (revoga
+  `ESQUECIMENTO` + `minimizar_dados_de_origem()` = o passo 2 do `sp_anonimizar_cliente`).
+  `registrar` trava a linha do cliente (`select_for_update`) e é no-op quando o vigente já é o
+  pedido (revogar o que nunca foi concedido também não grava). Prova: `texto` = rótulo do
+  checkbox, que o template lê de `TEXTOS_WIZARD` (o que se grava é o que foi exibido), IP
+  (`client_ip`, inválido → NULL) e user-agent.
+- **Nomes dos checkboxes do wizard mantidos** (`consent_email_marketing`, `consent_whatsapp_nps`,
+  `consent_whatsapp_confirmacao`): são o protocolo POST/JSON do wizard (a chave do `PARES`, como no
+  desenho) — as únicas referências aos nomes antigos fora das migrations; nenhum campo de model.
+- **Python cobre o trigger no SQLite:** `save()` de linha existente, `delete()` e
+  `QuerySet.delete()` levantam `ValidationError`; a única mutação é
+  `QuerySet.minimizar_dados_de_origem()` (IP → NULL, UA → '').
+- **Painel** (ficha do cliente, card "Comunicação autorizada"): estado por canal com data e
+  origem; "Revogar" (1 clique, `origem='PAINEL'`, autor); "Registrar autorização" exige
+  justificativa ≥ 10 caracteres (vira o `texto`, com o autor) — decisão D3. `LogAuditoria`
+  "Revogou/Registrou consentimento" com o id. **Django admin:** `ConsentimentoInline` e
+  `ConsentimentoAdmin` só leitura + ação "Revogar consentimentos de comunicação" (`origem='ADMIN'`);
+  o `ClienteAdminForm` (que barrava conceder) saiu com os campos.
+- **Descadastro** grava IP/UA de quem confirmou (o `unsubscribe` passa o `request`); DSAR exporta
+  `consentimentos: {vigentes, historico}` (sai `preferencias.aceita_comunicacao`).
+- **Fora desta fase:** `vw_consentimento_atual`/`fn_tem_consentimento` (L2, com paridade) e o
+  `sp_anonimizar_cliente` (L3) — o Python de hoje já faz o mesmo que o passo 2.
+- **Testes:** `tests/test_consentimentos.py` (serviço: append-only, no-op, último manda, empate por
+  id, linha antiga inserida depois não vence, anotação em Atendimento/Cliente, imutável no
+  Python, esquecimento sem IP/UA, DSAR; regressão: D-1, NPS, aniversário, promoção — job e painel —
+  e aviso de vaga por WhatsApp só com o par vigente, descadastro não corta o D-1,
+  reconsentimento volta a receber), `test_migrations_dados.py` (`Consentimentos0050Tests`:
+  invariante `consent_x AND (aceita_comunicacao OR LEMBRETE)` por cliente/par, revogado, sem
+  data, opt-out sem opt-in, excluído, log e colunas; `ConsentimentosReversa0050Tests`),
+  `test_pg_ddl.py` (nomes, `NO ACTION`, `inet`, índice DESC, trigger aceita só a minimização,
+  CHECK de par), painel/admin/wizard/OTP/descadastro nos testes existentes.
+
+**Ensaio PG (0026 → 0051, `migrate_atomico`, 25 migrations numa transação):** banco 0026 com
+clientes de todos os casos (tudo concedido com IP v4/v6, NPS revogado no wizard, descadastrado com
+opt-ins ainda marcados, opt-out sem opt-in, concedido sem data, excluído) → estado vigente igual
+ao esperado em todos os pares, IPs preservados, reconsentimento vale, trigger barra UPDATE/DELETE
+e aceita a minimização; do zero ok; reverso 0051 → 0049 → 0051 ok (estado igual).
+
 ### 4.d Questionários unificados (`formulario` tipo PRONTUARIO) — migration 0051
 
 **Hoje há dois sistemas:** (1) perguntas do prontuário em `configuracao.prontuario_perguntas`
@@ -2062,6 +2128,52 @@ Reverso: formulário PRONTUARIO → volta a ser a linha de `Configuracao`.
 `views/admin_anamnese.py` (aceita PRONTUARIO e trava escopo/obrigatório); `services/anamnese.py`
 (`alerta_saude` no schema); `seed.py`. `utils/fichas.py` e `services/alertas.py` já filtram
 `tipo='ANAMNESE'` — sem mudança.
+
+**Implementação (0051) — o que ficou diferente do desenho acima, e por quê:**
+
+- **Tabela continua `formulario_anamnese`** (renomeia na 0054), mas os objetos novos já nascem com
+  o nome final: `ck_formulario_tipo`, `ck_formulario_escopo`, `ck_formulario_escopo_coerente`,
+  `ck_formulario_prontuario_global` (CHECKs do `Meta`, existem no SQLite também) e
+  `uq_formulario_prontuario_ativo` (UNIQUE parcial = índice). Os 3 de regra têm
+  `violation_error_message` (o `full_clean` do painel mostra a frase, sem `clean()` duplicado).
+- **Pré-checagem** também reprova `tipo` fora do domínio (o desenho citava só o `escopo`; sem isso
+  o `ck_formulario_tipo` falharia com erro genérico). Aborta com `RuntimeError` listando os ids
+  (padrão 0048); SQL de pré-checagem no topo da migration e no runbook.
+- **Conversão:** JSON válido = lista de objetos com `chave` texto não vazia e única; `texto`
+  ausente → label derivado da chave (o mesmo rótulo que o leitor antigo exibia), `BOOLEAN` →
+  `bool`, resto → `longtext`. Valor vazio ou `[]` → só apaga a linha (não havia pergunta).
+  Linhas duplicadas da chave (`iexact`; o leitor usava a 1ª por pk) ficam intocadas e vão para o
+  `LogAuditoria`. Inválido → mantém a linha + `LogAuditoria` (`registro_id` = a configuração).
+- **`utils/saude`:** `perguntas_prontuario()` lê o PRONTUARIO ativo
+  (`FormularioAnamnese.objects.prontuario_ativo()`); `deve_alertar(pergunta, key, label)`
+  (`alerta_saude` > heurística) vale para prontuário **e** fichas de ANAMNESE;
+  `rotulo_da_chave`; `alertas_saude(…, perguntas=None)` e `services/alertas.alertas_por_cliente`
+  lê as perguntas 1× por lote. Caracterização: com os dados convertidos pela migration o resultado
+  é idêntico ao da regra antiga (teste com cópia congelada). A ordem dos alertas segue a do JSON
+  que o banco devolve (o `jsonb` do PG ordena as chaves) — como antes.
+- **`prontuario_salvar`:** só as perguntas presentes no POST; `validar_respostas` (o mesmo das
+  fichas) — **qualquer erro não salva nada** (antes um bool inválido era ignorado em silêncio);
+  resposta apagada sai do JSON (antes ficava `''`); checkboxes usam o marcador
+  `pergunta_<key>__enviado` (lista vazia não chega no POST). A ficha renderiza os 9 tipos.
+- **Configurações:** `prontuario_perguntas` virou chave reservada (criar recusa com a mensagem
+  "agora ficam em Anamneses"); sai das sugestões.
+- **CRUD de anamneses:** tipo PRONTUARIO força `escopo=GLOBAL`/`obrigatorio=False`; 2º ativo é
+  recusado com a mensagem do UNIQUE; a lista não oferece "Respostas" para PRONTUARIO; a lista do
+  prontuário mostra as perguntas com o link de edição. `RespostaAnamnese.clean()` recusa
+  formulário PRONTUARIO.
+- **`seed`** cria "Questionário do prontuário" (3 perguntas sim/não: fuma, anticoagulante,
+  tendência a queloide) só se não existe nenhum PRONTUARIO — **conteúdo a validar pelo dono**.
+- **DSAR:** `prontuario.questionario` = respostas com o texto da pergunta (além de
+  `respostas_extras`).
+- **Testes:** `tests/test_questionario_prontuario.py` (modelo/CHECK/UNIQUE, ficha com os tipos,
+  salvar pelo validador, erro não salva, apagar resposta, histórico rotulado, CRUD, alertas com
+  `alerta_saude` e caracterização, lote com 1 leitura, conversão da migration, seed),
+  `test_migrations_dados.py` (`FormularioProntuario0051Tests`, JSON inválido, reverso, aborto),
+  `test_pg_ddl.py` (CHECKs/índice no PG).
+
+**Ensaio PG:** EAV do prontuário no schema 0026 (perguntas ativas e inativa + respostas) → 0036 →
+Configuração → 0051: formulário com as 3 perguntas ativas, respostas intactas (inclusive a da
+pergunta inativa), alertas iguais; reverso devolve a Configuração.
 
 ### 4.e Pacote congelado (`compra_pacote_item`) — migration 0052
 
@@ -3408,8 +3520,8 @@ tabelas que criou.
 |---|---|---|---|---|
 | (a) | `0048_agenda_unificada` | `CreateModel AgendaHorario/AgendaExcecao` (constraints portáveis) → `RunPython` pré-checagem → cópia (bloqueios com id preservado, `setval`, exceções, feriados, grade ISO) + `LogAuditoria` do mapa de ids → `SET CONSTRAINTS ALL IMMEDIATE` → PG: `ex_agenda_horario_sobreposicao`, `ex_agenda_excecao_folga_sobreposta`, `ck_agenda_excecao_regra_recorrencia_suportada` → `DeleteModel` ×4 | janelas sobrepostas; RRULE fora do subconjunto | §4.a |
 | (b) ✅ | `0049_link_acesso` | `CreateModel LinkAcesso` → `AlterField resposta_anamnese.token` NULL (p/ o reverso) → `RunPython` (sha256 dos 5 tipos de token) → `SET CONSTRAINTS…` → PG: `ck_link_acesso_token_hash_formato`, `fn_link_acesso_imutavel` + trigger → `PadronizarNomes` → `RemoveField` ×7 | — | §4.b (serviço `links`, rotas do portal, ICS) |
-| (c) | `0050_consentimento` | `CreateModel Consentimento` → `RunPython` (histórico a partir de `consent_*`/`aceita_comunicacao`) → PG: `fn_consentimento_imutavel` + trigger → `RemoveField` ×10 | — | §4.c |
-| (d) | `0051_formulario_prontuario` | `AlterField tipo` (+PRONTUARIO) → pré-checagem → `AddConstraint` (`ck_formulario_*`, `uq_formulario_prontuario_ativo`) → `RunPython` (Configuracao → formulário) | `escopo` fora do domínio / incoerente | §4.d |
+| (c) ✅ | `0050_consentimento` | `CreateModel Consentimento` → `RunPython` (histórico a partir de `consent_*`/`aceita_comunicacao`) → `SET CONSTRAINTS…` → PG: `fn_consentimento_imutavel` + trigger → `PadronizarNomes` → `RemoveField` ×10 | — | §4.c (serviço `consentimentos`, painel revoga, admin só leitura) |
+| (d) ✅ | `0051_formulario_prontuario` | `AlterField tipo` (+PRONTUARIO) → pré-checagem → `AddConstraint` (`ck_formulario_*`, `uq_formulario_prontuario_ativo`) → `RunPython` (Configuracao → formulário) | `tipo`/`escopo` fora do domínio / incoerente | §4.d |
 | (e) | `0052_compra_pacote_item` | `AddField pacote_nome` (nulo) + `CreateModel CompraPacoteItem` + `AddField compra_pacote_item` (nulo) → `RunPython` (snapshot, reconstrução, logs) → `SET CONSTRAINTS…` → `AlterField` NOT NULL → PG: FK composta, `fn_consumo_sessao_validar`, `tg_compra_pacote_item_imutavel` | — | §4.e |
 | (f) | `0053_comissao_ledger` | `RemoveConstraint uniq_comissao_ativa_por_atendimento` → `AddField tipo/movimento_origem/usuario_autor` → `RunPython` (PAGAMENTO/ESTORNO) → `SET CONSTRAINTS…` → `RemoveField status/pago_em` → `AddConstraint` (UNIQUE/CHECK) → estado `regra` PROTECT → PG: `fn_movimento_comissao_validar`, `tg_movimento_comissao_imutavel` | `valor <= 0`; 2 linhas p/ o mesmo atendimento | §4.f |
 | N1 | `0054_padrao_nomes_tabelas_colunas` | PG: **derruba** `trg_aceite_termo_imutavel`/`trg_prontuario_versao_imutavel`/`trg_versao_termo_imutavel`/`trg_movimento_carteira_imutavel` e as funções da 0038/0046 → `AlterModelTable` ×3 + sequências → 64 `RenomearColuna` (§3.6.2) → tipos (`registro_pk bigint`, `*_hash char(64)`, `''→NULL` do `conteudo_hash`) → `NULL→''` e `atualizado_em NOT NULL` (backfill) → `AddField criado_em/atualizado_em` onde faltam → `Positive*Field→SmallIntegerField` → `db_collation='pt_br'` (§3.6.3) → PG: recria `fn_bloquear_mutacao`, `fn_aceite_termo_imutavel`, `fn_versao_termo_imutavel`, `fn_prontuario_versao_imutavel` e os `tg_*` | — | só `db_column`/`db_table` nos models, `registrar_log` com `tabela or ''`, fixtures SQL de teste (`test_pg_ddl`, `test_aceite_termo_modelo`, `test_prontuario_versao_autoria` usam SQL cru com nomes antigos) |
@@ -3480,7 +3592,7 @@ Depois de implementar: atualizar `docs/PROJECT.md` §5 (tabelas/invariantes) e �
 |---|---|---|---|
 | 1 | **Upgrade big-bang 0026→0058** | 32 migrations, renomeação de quase todas as colunas, 6 migrations que podem abortar (0035, 0043, 0048, 0051, 0053, 0055); o minuto entre o COMMIT e o container novo quebra o código antigo em toda página | Janela de manutenção; ensaio com o dump de produção; teste `test_upgrade_producao.py` no CI antes do deploy. Alternativa conservadora: subir 0027–0047 primeiro (já pronto) e esta série num 2º deploy — dois ensaios, mas cada um menor |
 | 2 | **UX dos links com hash** — ✅ decidido e implementado (0049) | ICS passa a ser exibido só na geração; "Meus agendamentos" por sessão; descadastro com token por e-mail; link do termo não pode ser reexibido | (D1) Link do termo: cada clique gera um novo e os anteriores **continuam válidos** até o fim do atendimento (não revogar: evita quebrar o link que a recepção já mandou). ICS: gerar = revogar o anterior (igual à rotação atual) |
-| 3 | **Semântica de consentimento** | Sem `aceita_comunicacao`, quem se descadastrou e depois marca o opt-in no wizard **volta** a receber (hoje continua vetado — o que contraria a revogabilidade). Anonimização passa a manter o histórico (datas/finalidades) e apagar IP/UA | (D2) Aceitar o reconsentimento (é o comportamento correto na LGPD). (D3) Minimizar IP/UA na anonimização (mantém a prova de que houve base legal sem identificar o titular). Painel só **revoga**; conceder pelo painel exige texto/justificativa registrado |
+| 3 | **Semântica de consentimento** — ✅ decidido e implementado (0050) | Sem `aceita_comunicacao`, quem se descadastrou e depois marca o opt-in no wizard **volta** a receber (hoje continua vetado — o que contraria a revogabilidade). Anonimização passa a manter o histórico (datas/finalidades) e apagar IP/UA | (D2) Aceitar o reconsentimento (é o comportamento correto na LGPD). (D3) Minimizar IP/UA na anonimização (mantém a prova de que houve base legal sem identificar o titular). Painel só **revoga**; conceder pelo painel exige texto/justificativa registrado |
 | 4 | **"Duas fontes" na leitura** | `fn_horarios_livres` replica o `SlotService` incluindo recorrência; RRULE fica restrita a um subconjunto (DAILY/WEEKLY/MONTHLY, INTERVAL, BYDAY, BYMONTHDAY) e a 0048 aborta se houver regra fora dele; NPS muda de arredondamento bancário para "meio para cima" (1 ponto nos casos .5) | O app **continua** usando o Python para slots/saldos/NPS; o SQL é espelho para relatório/integração, travado por paridade no CI. (D7) Aceitar ROUND_HALF_UP no NPS (consistente com o PG e com a expectativa humana) |
 | 5 | **Comissão como livro-razão** | Estornos legados ganham data **estimada** (o sistema nunca gravou); sem baixa parcial (PAGAMENTO = valor do crédito); saldo pode ficar negativo (pago e depois estornado = profissional deve); regra usada não se apaga (só desativa) | Aceitar; registrar no painel "saldo negativo = a descontar do próximo repasse". Baixa parcial/lote vira evolução (PAGAMENTO sem origem + CHECK próprio) quando existir |
 

@@ -122,7 +122,7 @@ def unsubscribe(request, token: str):
             return render(request, TEMPLATE_DESCADASTRO, {'estado': 'invalido'}, status=404)
         return render(request, TEMPLATE_DESCADASTRO, {'estado': 'confirmar', 'cliente': cliente})
 
-    cliente = LgpdService.unsubscribe_por_token(token)
+    cliente = LgpdService.unsubscribe_por_token(token, request=request)
     if not cliente:
         return render(request, TEMPLATE_DESCADASTRO, {'estado': 'invalido'}, status=404)
     AuditoriaService.registrar(

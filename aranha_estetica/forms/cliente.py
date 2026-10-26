@@ -15,8 +15,9 @@ class ClientePainelForm(forms.ModelForm):
     """Edicao de cadastro no painel (admin_cliente_detalhe).
 
     Normaliza telefone/CPF ANTES da validacao de constraints (duplicado
-    mascarado vira erro de formulario, nao IntegrityError). Nao inclui os
-    consents LGPD: campo ausente no POST nao pode zerar o opt-in do titular.
+    mascarado vira erro de formulario, nao IntegrityError). Consentimentos de
+    comunicacao ficam fora: historico proprio (services/consentimentos), com
+    revogar/registrar separados na ficha do cliente.
     """
 
     # Sobrescreve os fields do model: aceitam a versao com mascara (o model
@@ -28,7 +29,7 @@ class ClientePainelForm(forms.ModelForm):
         model = Cliente
         fields = [
             'nome', 'telefone', 'email', 'cpf', 'data_nascimento', 'rg',
-            'profissao', 'cep', 'endereco', 'ativo', 'aceita_comunicacao',
+            'profissao', 'cep', 'endereco', 'ativo',
         ]
 
     def _ja_usado(self, **filtro):

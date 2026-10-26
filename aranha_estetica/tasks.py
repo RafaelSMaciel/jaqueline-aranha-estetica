@@ -57,21 +57,21 @@ def job_enviar_lembrete_dia_seguinte(self):
     """Envia confirmacao D-1 via WhatsApp (template) para agendamentos de amanha.
 
     Respeita o consentimento do checkbox 'Aceito receber lembrete ... por
-    WhatsApp' (consent_whatsapp_confirmacao).
+    WhatsApp' (LEMBRETE_AGENDAMENTO/WHATSAPP vigente no historico).
     """
     try:
         from .utils.whatsapp import enviar_confirmacao_d1, pode_enviar_whatsapp
         from .models import Notificacao
+        from .services import consentimentos
 
         if not pode_enviar_whatsapp():
             logger.warning('lembrete_d1_whatsapp_nao_configurado')
             return 'whatsapp nao configurado'
 
         amanha = hoje() + timedelta(days=1)
-        agendamentos = Atendimento.objects.filter(
-            data_hora_inicio__date=amanha,
-            status='AGENDADO',
-            cliente__consent_whatsapp_confirmacao=True,
+        agendamentos = consentimentos.com_consentimento(
+            Atendimento.objects.filter(data_hora_inicio__date=amanha, status='AGENDADO'),
+            *consentimentos.LEMBRETE_WHATSAPP,
         ).select_related('cliente', 'profissional', 'procedimento')
 
         logger.info(f"[JOB LEMBRETE] {agendamentos.count()} agendamentos para amanha ({amanha}).")
@@ -115,7 +115,8 @@ def candidatos_nps(agora=None):
     """Atendimentos REALIZADO elegiveis ao NPS.
 
     - terminaram ha 24h+ e ha no maximo NPS_JANELA_DIAS;
-    - sem avaliacao; cliente com consent_whatsapp_nps e sem opt-out geral;
+    - sem avaliacao; cliente com PESQUISA_SATISFACAO/WHATSAPP vigente (ultimo
+      registro do historico — descadastro revoga, reconsentimento volta a valer);
     - sem NPS PENDENTE/ENVIADO (Exists correlacionado — um exclude() com
       duas condicoes na FK reversa virava dois EXISTS independentes e
       bloqueava o retry de quem tinha NPS FALHOU + LEMBRETE ENVIADO);
@@ -123,20 +124,20 @@ def candidatos_nps(agora=None):
     """
     from django.db.models import Count, Exists, OuterRef, Q
     from .models import Notificacao
+    from .services import consentimentos
 
     agora = agora or timezone.now()
     nps_ativo = Notificacao.objects.filter(
         atendimento=OuterRef('pk'), tipo='NPS', status__in=['PENDENTE', 'ENVIADO'],
     )
+    elegiveis = Atendimento.objects.filter(
+        status='REALIZADO',
+        data_hora_fim__lte=agora - timedelta(days=1),
+        data_hora_fim__gte=agora - timedelta(days=NPS_JANELA_DIAS),
+        avaliacaonps__isnull=True,
+    )
     return (
-        Atendimento.objects.filter(
-            status='REALIZADO',
-            data_hora_fim__lte=agora - timedelta(days=1),
-            data_hora_fim__gte=agora - timedelta(days=NPS_JANELA_DIAS),
-            avaliacaonps__isnull=True,
-            cliente__consent_whatsapp_nps=True,
-            cliente__aceita_comunicacao=True,
-        )
+        consentimentos.com_consentimento(elegiveis, *consentimentos.PESQUISA_WHATSAPP)
         .exclude(Exists(nps_ativo))
         .annotate(nps_falhas=Count(
             'notificacao', filter=Q(notificacao__tipo='NPS', notificacao__status='FALHOU'),
@@ -150,7 +151,7 @@ def candidatos_nps(agora=None):
 def job_pesquisa_satisfacao_24h(self):
     """Envia NPS por WhatsApp 24h apos atendimento REALIZADO.
 
-    Requer consent_whatsapp_nps=True do cliente. Sem consent, ignora.
+    Requer PESQUISA_SATISFACAO/WHATSAPP vigente (candidatos_nps). Sem consentimento, ignora.
     """
     try:
         from .utils.whatsapp import enviar_nps_whatsapp, pode_enviar_whatsapp
@@ -364,19 +365,22 @@ def job_aniversario_clientes(self):
     """Envia e-mail de felicitacao de aniversario (marketing, sem desconto:
     nao ha mecanismo que aplique cupom/percentual no agendamento).
 
-    Requer consent_email_marketing=True e sem opt-out geral (aceita_comunicacao).
+    Requer MARKETING/EMAIL vigente (ultimo registro do historico de consentimento).
     Sai com link + header List-Unsubscribe (LGPD / RFC 8058).
     WhatsApp de aniversario NAO e enviado: o unico consentimento de WhatsApp
     coletado e o de lembrete do agendamento, que nao cobre marketing.
     """
     try:
+        from .services import consentimentos
         from .utils.email import enviar_aniversario_email, enviar_marketing_com_descadastro
 
-        aniversariantes = aniversariantes_do_dia()
+        aniversariantes = consentimentos.anotar_vigente(
+            aniversariantes_do_dia(), *consentimentos.MARKETING_EMAIL, caminho='pk',
+        )
         emails_enviados = 0
 
         for cliente in aniversariantes:
-            if not (cliente.email and cliente.consent_email_marketing and cliente.aceita_comunicacao):
+            if not (cliente.email and cliente.tem_consentimento):
                 continue
             dados = {'nome': cliente.nome}
             # Falha pontual nao re-dispara o batch (retry reenviaria aos ja
@@ -422,7 +426,7 @@ def validade_promocao(validade_dias: int = 30, data_fim=None) -> str:
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def job_promocao_mensal(self, assunto: str, corpo_html_partial: str, cupom: str = None,
                         validade_dias: int = 30, data_fim=None):
-    """Envia email promocional para clientes com consent_email_marketing=True.
+    """Envia email promocional para clientes com MARKETING/EMAIL vigente.
 
     Parametros:
       assunto: subject do email
@@ -435,17 +439,16 @@ def job_promocao_mensal(self, assunto: str, corpo_html_partial: str, cupom: str 
     try:
         from .utils.email import email_configurado, enviar_marketing_com_descadastro, enviar_promocao_email
         from .models import Cliente
+        from .services import consentimentos
 
         if not email_configurado():
             logger.warning('promocao_email_nao_configurado')
             return 'email nao configurado'
 
-        destinatarios = Cliente.objects.filter(
-            ativo=True,
-            email__isnull=False,
-            consent_email_marketing=True,
-            aceita_comunicacao=True,
-        ).exclude(email='')
+        destinatarios = consentimentos.com_consentimento(
+            Cliente.objects.filter(ativo=True, email__isnull=False).exclude(email=''),
+            *consentimentos.MARKETING_EMAIL, caminho='pk',
+        )
 
         logger.info(f"[JOB PROMOCAO] {destinatarios.count()} destinatario(s) com consent.")
 

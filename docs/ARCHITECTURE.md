@@ -159,7 +159,8 @@ verde em SQLite e Postgres).
   congelados, bloqueio global "Todos os profissionais", alertas de saúde visíveis (portal,
   agendamentos, ficha), prontuário com acesso restrito por vínculo + trilha de leitura +
   histórico de versões, moderação de depoimentos, Branding sem upload de logo (Configuracao >
-  env > padrão), Configurações só com `email_admin` e `prontuario_perguntas` sugeridas.
+  env > padrão), Configurações só com `email_admin` sugerida (as perguntas do prontuário viraram
+  o formulário PRONTUARIO na 0051).
 - **Serviços/LGPD:** canais falham fechado (nada marcado como enviado sem entrega), lista de
   espera em mecanismo único (signal → service, envio no `on_commit`, `notificado` só com
   entrega), retenção efetiva (fichas de pedido não realizado 90 dias, lista de espera vencida,
@@ -178,7 +179,7 @@ verde em SQLite e Postgres).
 ### 6.2 Pendências reais (verificadas no código em 2026-09-23)
 
 **Operação / go-live (fora do código)**
-- [ ] Backup `pg_dump` + ensaio do upgrade 0026→0049 num Postgres 18 (runbook §14.a)
+- [ ] Backup `pg_dump` + ensaio do upgrade 0026→0051 num Postgres 18 (runbook §14.a)
 - [ ] Env no Railway (ADMIN_*, CRON_TOKEN, SITE_URL, ZENVIA_*, EMAIL_BACKEND + provedor,
       WHATSAPP_*, TURNSTILE_*, SENTRY_DSN, CLINIC_EMAIL) e remover `STATIC_ROOT`
 - [ ] Provedor de e-mail: `django-anymail` já instalado — escolher o provedor (ex.: Resend) e
@@ -193,8 +194,9 @@ verde em SQLite e Postgres).
 - [x] ~~**Fase 7** — agenda 3→2~~ feita como fase (a) do padrão SQL: agenda 4→2 (grade,
       exceção, bloqueio e feriado → `agenda_horario` + `agenda_excecao`, migration 0048,
       [`specs/padrao-sql.md`](specs/padrao-sql.md) §4.a). Fase (b) feita: tokens de link em hash
-      (`link_acesso`, migration 0049, §4.b). Próximas fases (c)–(f), nomes e lógica no banco:
-      mesma spec, §6.
+      (`link_acesso`, migration 0049, §4.b). Fases (c) e (d) feitas: consentimentos com histórico
+      (`consentimento`, 0050, §4.c) e questionário único (formulário PRONTUARIO, 0051, §4.d).
+      Próximas fases (e)–(f), nomes e lógica no banco: mesma spec, §6.
 - [ ] **T9 — calibração de marca (parcial):** cor #C9A84C confirmada pelo dono e fontes
       definidas (Playfair Display + Lato); falta só o self-host das fontes (hoje Google Fonts,
       já declarado na política de privacidade) — opcional

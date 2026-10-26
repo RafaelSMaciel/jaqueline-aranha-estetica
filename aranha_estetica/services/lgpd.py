@@ -40,13 +40,10 @@ class LgpdService:
 
     # Campos gravados pela anonimizacao (lista explicita: soft_delete() grava
     # so deletado_em/ativo e descartaria o resto — bug corrigido aqui).
+    # Consentimentos ficam fora: historico proprio (consentimentos.esquecer).
     CAMPOS_ANONIMIZADOS = [
         'nome', 'cpf', 'rg', 'email', 'telefone', 'cep', 'endereco',
-        'profissao', 'data_nascimento', 'foto_url', 'aceita_comunicacao',
-        'consent_email_marketing', 'consent_email_marketing_em', 'consent_email_marketing_ip',
-        'consent_whatsapp_nps', 'consent_whatsapp_nps_em', 'consent_whatsapp_nps_ip',
-        'consent_whatsapp_confirmacao', 'consent_whatsapp_confirmacao_em',
-        'consent_whatsapp_confirmacao_ip',
+        'profissao', 'data_nascimento', 'foto_url',
         'deletado_em', 'ativo', 'atualizado_em',
     ]
 
@@ -57,6 +54,7 @@ class LgpdService:
             AceiteTermo, AnotacaoSessao, Carteira, ListaEspera, Notificacao,
             Prontuario, ProntuarioVersao, RespostaAnamnese,
         )
+        from aranha_estetica.services import consentimentos
 
         atendimentos = (
             Atendimento.objects
@@ -69,6 +67,10 @@ class LgpdService:
         prontuario = Prontuario.objects.filter(cliente=cliente).first()
         prontuario_dict = None
         if prontuario:
+            from aranha_estetica.utils.saude import perguntas_prontuario, rotulo_da_chave
+
+            extras = prontuario.respostas_extras if isinstance(prontuario.respostas_extras, dict) else {}
+            rotulos = {p['key']: p.get('label') for p in perguntas_prontuario()} if extras else {}
             prontuario_dict = {
                 'alergias': prontuario.alergias,
                 'contraindicacoes': prontuario.contraindicacoes,
@@ -76,6 +78,11 @@ class LgpdService:
                 'medicamentos_uso': prontuario.medicamentos_uso,
                 'observacoes_gerais': prontuario.observacoes_gerais,
                 'respostas_extras': prontuario.respostas_extras,
+                # mesmas respostas com a pergunta legivel (questionario do prontuario)
+                'questionario': [
+                    {'pergunta': rotulos.get(key) or rotulo_da_chave(key), 'resposta': valor}
+                    for key, valor in extras.items()
+                ],
                 'atualizado_em': _iso(prontuario.atualizado_em),
             }
         # Historico do prontuario: estado ANTERIOR a cada edicao da equipe.
@@ -128,16 +135,16 @@ class LgpdService:
                 'criado_em': _iso(cliente.criado_em),
             },
             'preferencias': {
-                'aceita_comunicacao': cliente.aceita_comunicacao,
                 'bloqueado_online': cliente.bloqueado_online,
             },
+            # Estado vigente por finalidade/canal + historico completo (cada
+            # concessao/revogacao com data, origem, texto exibido e IP).
             'consentimentos': {
-                canal: {
-                    'aceito': getattr(cliente, f'consent_{canal}'),
-                    'registrado_em': _iso(getattr(cliente, f'consent_{canal}_em')),
-                    'ip': getattr(cliente, f'consent_{canal}_ip'),
-                }
-                for canal in ('email_marketing', 'whatsapp_nps', 'whatsapp_confirmacao')
+                'vigentes': [
+                    {'finalidade': fin, 'canal': canal, 'concedido': concedido}
+                    for (fin, canal), concedido in consentimentos.estado_atual(cliente).items()
+                ],
+                'historico': consentimentos.historico(cliente),
             },
             'atendimentos': [
                 {
@@ -215,27 +222,27 @@ class LgpdService:
         return link.cliente if link else None
 
     @staticmethod
-    def unsubscribe_por_token(token: str) -> Cliente | None:
+    @transaction.atomic
+    def unsubscribe_por_token(token: str, request=None) -> Cliente | None:
         """Opt-out de marketing e pesquisas via token publico (link do e-mail).
 
-        Zera consent legado (aceita_comunicacao) e os granulares de marketing
-        (e-mail) e pesquisa (NPS). O lembrete do agendamento
-        (consent_whatsapp_confirmacao) e aviso transacional e continua — a
-        pagina de descadastro informa isso ao cliente.
+        Revoga (origem DESCADASTRO, com IP/UA de quem confirmou) MARKETING por
+        e-mail e PESQUISA_SATISFACAO por WhatsApp. O lembrete do agendamento
+        (LEMBRETE_AGENDAMENTO) e aviso transacional e continua — a pagina de
+        descadastro informa isso ao cliente. Se a cliente marcar o opt-in de
+        novo no agendamento, o registro mais recente volta a valer.
         """
-        from aranha_estetica.services import links
+        from aranha_estetica.models import Consentimento
+        from aranha_estetica.services import consentimentos, links
 
         link = LgpdService.link_descadastro(token)
         if link is None:
             return None
         cliente = link.cliente
-        cliente.aceita_comunicacao = False
-        cliente.consent_email_marketing = False
-        cliente.consent_whatsapp_nps = False
-        cliente.save(update_fields=[
-            'aceita_comunicacao', 'consent_email_marketing',
-            'consent_whatsapp_nps', 'atualizado_em',
-        ])
+        consentimentos.revogar_todos(
+            cliente, origem=Consentimento.ORIGEM_DESCADASTRO, texto=consentimentos.TEXTO_DESCADASTRO,
+            pares=consentimentos.PARES_DESCADASTRO, request=request,
+        )
         links.marcar_usado(link)
         logger.info('Cliente %s opt-out via token.', cliente.pk)
         return cliente
@@ -245,7 +252,9 @@ class LgpdService:
     def esquecer_cliente(cls, cliente: Cliente, usuario=None, request=None) -> None:
         """Direito ao esquecimento: anonimiza PII do titular e faz soft-delete.
 
-        Mantem atendimentos/aceites/prontuario e as fichas de anamnese de
+        Consentimentos: revoga o vigente (ESQUECIMENTO) e apaga IP/user-agent,
+        mantendo datas e finalidades (prova de base legal sem identificar o
+        titular). Mantem atendimentos/aceites/prontuario e as fichas de anamnese de
         atendimentos REALIZADOS (retencao clinica) ligados a um titular nao
         identificavel. Fichas de pedidos nao realizados sao apagadas.
         Depoimento (NPS) sai do site e perde o texto livre (a nota fica p/
@@ -274,15 +283,14 @@ class LgpdService:
         cliente.profissao = None
         cliente.data_nascimento = None
         cliente.foto_url = ''
-        cliente.aceita_comunicacao = False
-        for canal in ('email_marketing', 'whatsapp_nps', 'whatsapp_confirmacao'):
-            setattr(cliente, f'consent_{canal}', False)
-            setattr(cliente, f'consent_{canal}_em', None)
-            setattr(cliente, f'consent_{canal}_ip', None)
         if cliente.deletado_em is None:
             cliente.deletado_em = timezone.now()
         cliente.ativo = False
         cliente.save(update_fields=cls.CAMPOS_ANONIMIZADOS)
+        # Consentimentos: o historico fica (prova de que houve base legal); o que
+        # estava concedido e revogado (ESQUECIMENTO) e IP/user-agent sao apagados.
+        from aranha_estetica.services import consentimentos
+        consentimentos.esquecer(cliente_pk)
         # Links publicos do titular (descadastro, confirmacao, NPS, termo, ficha,
         # reagendar legado) deixam de funcionar: revogado = 404.
         from aranha_estetica.services import links

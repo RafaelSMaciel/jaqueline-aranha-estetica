@@ -18,6 +18,8 @@ from aranha_estetica.models import Cliente, CodigoOtp
 from aranha_estetica.services import otp as otp_service
 from aranha_estetica.utils import sms
 
+from .factories import criar_cliente
+
 
 class OtpCodeModelTests(TestCase):
     def test_gerar_e_verificar_ok(self):
@@ -195,9 +197,7 @@ class OtpAgendamentoEndpointTests(TestCase):
 
     def test_prefill_traz_estado_dos_opt_ins(self):
         # gap1-03: o wizard mostra os checkboxes como estao no cadastro
-        Cliente.objects.create(
-            nome='Rita', telefone='17999990001', consent_whatsapp_confirmacao=True,
-        )
+        criar_cliente(nome='Rita', telefone='17999990001', consent_whatsapp_confirmacao=True)
         self.client.post(self.url_sol, {'telefone': '17999990001'})
         codigo = self.codigos['17999990001']
         resp = self.client.post(self.url_ver, {'telefone': '17999990001', 'codigo': codigo})

@@ -5,7 +5,7 @@ sobrescreve procedimento, preco ou agenda que ja existam. Nao cria usuarios
 nem senhas — o admin real vem de `manage.py bootstrap_admin`.
 
     python manage.py seed           # catalogo real, profissional, agenda, termo LGPD,
-                                    # anamnese padrao e feriados
+                                    # anamnese padrao, questionario do prontuario e feriados
     python manage.py seed --demo    # + clientes e atendimentos ficticios (nunca em producao)
     python manage.py seed --force   # permite rodar em producao (sem --demo)
 """
@@ -67,6 +67,14 @@ ANAMNESE_PADRAO = [
     {'key': 'procedimentos_recentes', 'tipo': 'longtext', 'label': 'Fez algum procedimento estético nos últimos 6 meses? Qual?', 'obrigatorio': False},
 ]
 
+# Perguntas extras da ficha (formulario PRONTUARIO, preenchido pela equipe).
+# So e criado se ainda nao existe nenhum questionario do prontuario.
+PRONTUARIO_PADRAO = [
+    {'key': 'fumante', 'tipo': 'bool', 'label': 'Fuma?', 'obrigatorio': False},
+    {'key': 'usa_anticoagulante', 'tipo': 'bool', 'label': 'Usa anticoagulante?', 'obrigatorio': False},
+    {'key': 'tendencia_queloide', 'tipo': 'bool', 'label': 'Tem tendência a queloide?', 'obrigatorio': False},
+]
+
 CLIENTES_DEMO = [
     ('Cliente Demonstração Um', '11900000001', 'demo1@exemplo.com'),
     ('Cliente Demonstração Dois', '11900000002', 'demo2@exemplo.com'),
@@ -105,6 +113,7 @@ class Command(BaseCommand):
             self._agenda(prof)
             self._termo_lgpd()
             self._anamnese()
+            self._questionario_prontuario()
             if options['demo']:
                 self._demo(prof, procs)
 
@@ -183,6 +192,15 @@ class Command(BaseCommand):
         )
         if novo:
             self.stdout.write('Formulário de anamnese padrão criado.')
+
+    def _questionario_prontuario(self):
+        if FormularioAnamnese.objects.filter(tipo=FormularioAnamnese.TIPO_PRONTUARIO).exists():
+            return
+        FormularioAnamnese.objects.create(
+            nome='Questionário do prontuário', tipo=FormularioAnamnese.TIPO_PRONTUARIO,
+            escopo='GLOBAL', schema_json=PRONTUARIO_PADRAO, ativo=True, obrigatorio=False,
+        )
+        self.stdout.write('Questionário do prontuário criado.')
 
     def _demo(self, prof, procs):
         tz = timezone.get_current_timezone()

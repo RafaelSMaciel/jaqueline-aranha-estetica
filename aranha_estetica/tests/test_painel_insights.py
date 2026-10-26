@@ -288,16 +288,18 @@ class ConfiguracoesTests(_AdminBase):
         self.assertTrue(Configuracao.objects.filter(chave='email_admin').exists())
         self.assertFalse(Configuracao.objects.filter(chave='EMAIL_ADMIN').exists())
 
-    def test_perguntas_prontuario_json_invalido_rejeitado(self):
-        self.client.post(reverse('aranha:admin_criar_configuracao'), {
-            'chave': 'prontuario_perguntas', 'valor': '{nao e json',
-        })
-        self.assertFalse(Configuracao.objects.filter(chave='prontuario_perguntas').exists())
+    def test_perguntas_prontuario_saiu_das_configuracoes(self):
+        """0051: as perguntas do prontuario sao o formulario PRONTUARIO (Anamneses)."""
+        resp = self.client.post(reverse('aranha:admin_criar_configuracao'), {
+            'chave': 'PRONTUARIO_PERGUNTAS', 'valor': '[{"chave": "fuma", "texto": "Fuma?", "tipo": "BOOLEAN"}]',
+        }, follow=True)
+        self.assertFalse(Configuracao.objects.filter(chave__iexact='prontuario_perguntas').exists())
+        self.assertContains(resp, 'Anamneses')
 
     def test_sugestoes_so_chaves_lidas_pelo_codigo(self):
         resp = self.client.get(reverse('aranha:admin_configuracoes'))
         chaves = {s['chave'] for s in resp.context['sugestoes']}
-        self.assertEqual(chaves, {'email_admin', 'prontuario_perguntas'})
+        self.assertEqual(chaves, {'email_admin'})
 
 
 class BrandingTests(_AdminBase):
@@ -799,9 +801,12 @@ class FinanceiroNoShowTests(_AdminBase):
 # ════════════════════════════════════════════════════════════════════
 class AlertasRespostasExtrasTests(_AdminBase):
     def test_respostas_extras_migradas_viram_alerta(self):
-        Configuracao.objects.create(chave='prontuario_perguntas', valor=json.dumps([
-            {'chave': 'esta_gravida_ou_amamentando', 'texto': 'Está grávida ou amamentando?', 'tipo': 'BOOLEAN'},
-        ]))
+        FormularioAnamnese.objects.create(
+            nome='Questionário do prontuário', tipo='PRONTUARIO', schema_json=[
+                {'key': 'esta_gravida_ou_amamentando', 'label': 'Está grávida ou amamentando?',
+                 'tipo': 'bool', 'obrigatorio': False},
+            ],
+        )
         cli = criar_cliente(nome='Zélia')
         Prontuario.objects.create(cliente=cli, respostas_extras={
             'esta_gravida_ou_amamentando': True,
@@ -818,8 +823,10 @@ class AlertasRespostasExtrasTests(_AdminBase):
         self.assertContains(resp, 'Alerta de saúde')
         self.assertContains(resp, 'Usa acido retinoico')
 
-    def test_schema_invalido_nao_quebra_alerta(self):
-        Configuracao.objects.create(chave='prontuario_perguntas', valor='{nao e json')
+    def test_sem_questionario_ativo_alerta_com_label_da_chave(self):
+        FormularioAnamnese.objects.create(nome='Antigo', tipo='PRONTUARIO', ativo=False, schema_json=[
+            {'key': 'esta_gravida_x', 'label': 'Rotulo inativo', 'tipo': 'bool'},
+        ])
         cli = criar_cliente()
         Prontuario.objects.create(cliente=cli, respostas_extras={'esta_gravida_x': True})
         self.assertEqual([a['label'] for a in alertas_saude(cli)], ['Esta gravida x'])

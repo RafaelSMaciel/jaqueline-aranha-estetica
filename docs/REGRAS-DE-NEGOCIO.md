@@ -141,8 +141,8 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 ## 9. Lembrete D-1 e confirmação de presença
 
 - Job `lembrete_diario` (08:00): WhatsApp (template `confirmacao_d1`) para atendimentos
-  **AGENDADO** de amanhã cuja cliente marcou `consent_whatsapp_confirmacao`; não reenvia a quem já
-  recebeu.
+  **AGENDADO** de amanhã cuja cliente autoriza hoje o lembrete por WhatsApp (LEMBRETE_AGENDAMENTO/
+  WHATSAPP vigente no histórico de consentimento); não reenvia a quem já recebeu.
 - O lembrete traz dois links (`/confirmar/<token>/?acao=confirmar|cancelar`): confirmar
   (AGENDADO → CONFIRMADO) ou cancelar, **uma resposta só**; PENDENTE, terminal ou passado não é
   editável.
@@ -256,7 +256,7 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 - **Aviso de vaga** (mecanismo único): quando um atendimento ativo futuro vira CANCELADO ou
   REAGENDADO, todos os pedidos compatíveis (mesmo procedimento, mesmo dia, profissional vazio ou
   igual), em ordem de chegada, recebem e-mail (`email_contato` ou do cadastro) e WhatsApp
-  (template `lista_espera_vaga`, só com `consent_whatsapp_confirmacao`) com link para agendar.
+  (template `lista_espera_vaga`, só com o lembrete por WhatsApp autorizado) com link para agendar.
   Não há reserva do horário: quem agendar primeiro leva. `notificado` só com entrega real; sem
   entrega o pedido fica para contato manual (Painel > Lista de espera > notificar).
 - Pedido com data passada é apagado pelo job semanal de LGPD.
@@ -266,8 +266,8 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 ## 18. NPS e depoimentos
 
 - Job `nps_24h` (10:00): WhatsApp (template `nps_pos_atendimento`) para atendimento REALIZADO
-  que terminou **entre 24 h e 7 dias** atrás, sem avaliação, com `consent_whatsapp_nps` e sem
-  opt-out geral; até 3 tentativas com falha.
+  que terminou **entre 24 h e 7 dias** atrás, sem avaliação, com a pesquisa por WhatsApp
+  autorizada (PESQUISA_SATISFACAO/WHATSAPP vigente — o descadastro revoga); até 3 tentativas com falha.
 - Link `/nps/<token>/` vale **7 dias**; 1 avaliação por atendimento; nota **0–10** (CHECK). A nota
   também pode chegar respondendo o WhatsApp (0–10).
 - **Detrator** (nota ≤ 6): e-mail de alerta para `email_admin` (Configurações) > `ADMIN_EMAIL` >
@@ -281,9 +281,9 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 ## 19. Aniversário e e-mails de promoção
 
 - **Aniversário** (job 09:00): e-mail de **felicitação, sem desconto** (não há mecanismo de
-  cupom), só com `consent_email_marketing` e sem opt-out geral; 29/02 comemora em 28/02 em ano
+  cupom), só com marketing por e-mail autorizado (MARKETING/EMAIL vigente); 29/02 comemora em 28/02 em ano
   não bissexto. Não há WhatsApp de aniversário.
-- **Promoção por e-mail** (Painel > Promoções > Disparar): só para consentimento de marketing,
+- **Promoção por e-mail** (Painel > Promoções > Disparar e job mensal): só para marketing por e-mail autorizado,
   **sem cupom** (a promoção vale sozinha no agendamento), validade anunciada ≤ `data_fim` da
   promoção, HTML sanitizado, link e header de descadastro; envio em lotes de 25 com cursor (sem
   reenvio).
@@ -293,8 +293,11 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 ## 20. Ficha (prontuário), histórico, anotações, anamnese e alertas
 
 - **Prontuário** 1:1 com a cliente: alergias, contraindicações, histórico de saúde, medicamentos,
-  observações + perguntas configuráveis (`Configuracao` `prontuario_perguntas`, JSON, respostas em
-  `respostas_extras`).
+  observações + perguntas extras do **questionário do prontuário** — o formulário tipo PRONTUARIO
+  (Painel > Anamneses, mesmo editor/validador das fichas; 1 ativo, vale para todas, nunca
+  obrigatório). Respostas em `respostas_extras` pela `key` da pergunta: mudar o texto da pergunta
+  não mexe nas respostas; resposta inválida (opção fora da lista, texto longo demais) não salva
+  nada.
 - **Histórico:** cada edição grava antes a foto do estado anterior em `prontuario_versao`
   (append-only, imutável no banco) com autor; a tela mostra o histórico. Edição concorrente é
   recusada (trava otimista) e um POST parcial não apaga campos.
@@ -329,10 +332,12 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 - **Termo LGPD v1.0** (resumo da política de privacidade, `constants.TERMO_LGPD_*`): criado pela
   migration 0045 em banco que já tem clientes e nenhum termo LGPD ativo; instalação nova recebe
   pelo `seed` ou Painel > Termos.
-- **Consentimentos granulares** no cadastro (`consent_email_marketing`,
-  `consent_whatsapp_confirmacao`, `consent_whatsapp_nps`, cada um com data e IP) + opt-out geral
-  (`aceita_comunicacao`). **Descadastro** (link) desliga marketing e pesquisas e mantém o lembrete
-  D-1.
+- **Consentimentos de comunicação** com histórico (tabela `consentimento`, append-only): promoções
+  por e-mail, pesquisa por WhatsApp e lembrete por WhatsApp. Cada concessão/revogação é uma linha
+  com texto exibido, IP, user-agent, origem e data; **vale o registro mais recente** (quem se
+  descadastrou e marca de novo no agendamento volta a receber). **Descadastro** (link) revoga
+  marketing e pesquisa e mantém o lembrete D-1. A equipe, na ficha do cliente, **revoga** a
+  pedido; registrar autorização pelo painel exige justificativa (fica com o autor).
 - **Auditoria** (`log_auditoria`): ação sensível com autor (+ nome gravado), tabela, registro,
   detalhes (PII mascarada) e IP — LGPD art. 37.
 
@@ -353,7 +358,7 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 | Atendimento realizado, prontuário e histórico, aceites | Retidos (registro de saúde, ~20 anos); nunca apagados |
 
 **Esquecimento** (ação no Django admin e job): nome → `[ANONIMIZADO-<pk>]`, dados de contato e
-documentos zerados, consentimentos revogados, soft delete; apaga OTPs, lista de espera, texto das
+documentos zerados, consentimentos vigentes revogados (o histórico fica, sem IP/user-agent), soft delete; apaga OTPs, lista de espera, texto das
 notificações e as fichas que não são de atendimento REALIZADO; tira o depoimento do site e apaga o
 comentário do NPS; troca o nome do titular pelo pseudônimo nos textos da auditoria. Atendimentos,
 aceites, prontuário e pacotes ficam, ligados a um titular não identificável.

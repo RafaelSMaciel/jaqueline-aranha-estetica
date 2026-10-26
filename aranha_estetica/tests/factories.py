@@ -61,14 +61,38 @@ _seq_telefone = itertools.count()
 
 
 def criar_cliente(nome='Maria Silva', telefone=None, **kwargs):
+    """Cliente de teste. Opt-ins com o nome do checkbox do wizard
+    (consent_email_marketing=True, consent_whatsapp_nps=True,
+    consent_whatsapp_confirmacao=True) viram concessoes no historico
+    (consentimento, origem AGENDAMENTO_ONLINE)."""
+    from aranha_estetica.services import consentimentos
+
+    opt_ins = {campo: kwargs.pop(campo) for campo in list(kwargs) if campo in consentimentos.PARES}
     # telefone unico por chamada — uniq_cliente_telefone_ativo (fase 3)
     if telefone is None:
         telefone = f'179{90000 + next(_seq_telefone):08d}'
-    return Cliente.objects.create(
+    cliente = Cliente.objects.create(
         nome=nome,
         telefone=telefone,
         ativo=kwargs.pop('ativo', True),
         **kwargs,
+    )
+    for campo, concedido in opt_ins.items():
+        if concedido:
+            conceder(cliente, campo)
+    return cliente
+
+
+def conceder(cliente, campo, *, origem='AGENDAMENTO_ONLINE', registrado_em=None, ip=None, user_agent=''):
+    """Concessao de um opt-in (nome do checkbox do wizard) no historico."""
+    from aranha_estetica.models import Consentimento
+    from aranha_estetica.services import consentimentos
+
+    finalidade, canal = consentimentos.PARES[campo]
+    return Consentimento.objects.create(
+        cliente=cliente, finalidade=finalidade, canal=canal, concedido=True, origem=origem,
+        texto=consentimentos.TEXTOS_WIZARD[campo], ip_origem=ip, user_agent=user_agent,
+        registrado_em=registrado_em or timezone.now(),
     )
 
 

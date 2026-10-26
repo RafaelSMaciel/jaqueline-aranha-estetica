@@ -1,6 +1,4 @@
 """CRUD de Configuracao (chave-valor editavel via painel)."""
-import json
-
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
@@ -13,17 +11,19 @@ from ..utils.audit import registrar_log
 
 
 # Somente chaves que o codigo de fato le (grep antes de acrescentar outra):
-#   email_admin          -> tasks.py (alerta de NPS detrator)
-#   prontuario_perguntas -> utils/saude.perguntas_prontuario
-# Marca/contatos ficam na tela Branding (utils/branding.BRANDING_FIELDS).
+#   email_admin -> tasks.py (alerta de NPS detrator)
+# Marca/contatos ficam na tela Branding (utils/branding.BRANDING_FIELDS). As
+# perguntas extras do prontuario sao o formulario tipo PRONTUARIO (Painel >
+# Anamneses) desde a migration 0051 — a antiga chave fica recusada aqui.
 CONFIG_SUGERIDAS = [
     ('email_admin', '', 'E-mail que recebe o alerta de avaliação NPS negativa (detrator)'),
-    (
-        'prontuario_perguntas',
-        '[{"chave": "fuma", "texto": "Fuma?", "tipo": "BOOLEAN"}]',
-        'Perguntas extras do prontuário (JSON: lista de {chave, texto, tipo TEXTO|BOOLEAN})',
-    ),
 ]
+CHAVES_RESERVADAS = {
+    'prontuario_perguntas': (
+        'As perguntas do prontuário agora ficam em Anamneses (formulário do tipo '
+        '"Questionário do prontuário").'
+    ),
+}
 
 
 def _normalizar_chave(chave: str) -> str:
@@ -39,15 +39,6 @@ def _validar_valor(chave: str, valor: str) -> str | None:
             validate_email(valor)
         except ValidationError:
             return 'email_admin: informe um e-mail válido.'
-    if chave_l == 'prontuario_perguntas' and valor:
-        try:
-            perguntas = json.loads(valor)
-        except ValueError:
-            return 'prontuario_perguntas: JSON inválido.'
-        if not isinstance(perguntas, list) or not all(
-            isinstance(p, dict) and p.get('chave') and p.get('texto') for p in perguntas
-        ):
-            return 'prontuario_perguntas: use uma lista de objetos com "chave", "texto" e "tipo".'
     return None
 
 
@@ -80,6 +71,9 @@ def admin_criar_configuracao(request):
 
         if not chave:
             messages.error(request, 'Chave é obrigatória.')
+            return redirect('aranha:admin_configuracoes')
+        if chave.lower() in CHAVES_RESERVADAS:
+            messages.error(request, CHAVES_RESERVADAS[chave.lower()])
             return redirect('aranha:admin_configuracoes')
 
         if Configuracao.objects.filter(chave__iexact=chave).exists():

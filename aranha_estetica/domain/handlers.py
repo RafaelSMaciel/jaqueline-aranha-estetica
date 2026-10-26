@@ -6,9 +6,9 @@ IMPORTANTE: a logica de negocio reativa NAO mora aqui. Ela vive em:
 - `services/comissao_service.py` e `services/fidelidade_service.py`: assinam o EventBus
   diretamente (calculo/estorno de comissao e cashback).
 
-Estes handlers cobrem somente o logging estruturado. (Consentimentos LGPD sao
-auditados nos proprios campos consent_*_em/_ip do Cliente; o antigo handler de
-ConsentRegistrado nunca disparava e foi removido.)
+Estes handlers cobrem somente o logging estruturado. (Consentimentos LGPD tem
+historico proprio — tabela consentimento, services/consentimentos; o antigo
+handler de ConsentRegistrado nunca disparava e foi removido.)
 
 Importado em apps.py:ready() para ativar o registry.
 """

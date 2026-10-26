@@ -6,13 +6,14 @@ from django.urls import reverse
 from django.utils import timezone
 
 from aranha_estetica.models import (
-    AceiteTermo, AvaliacaoNPS, Cliente, CodigoOtp, FormularioAnamnese, ListaEspera,
+    AceiteTermo, AvaliacaoNPS, Cliente, CodigoOtp, Consentimento, FormularioAnamnese, ListaEspera,
     LogAuditoria, Notificacao, Prontuario, RespostaAnamnese, VersaoTermo,
 )
+from aranha_estetica.services import consentimentos
 from aranha_estetica.services.lgpd import LgpdService
 
 from .factories import (
-    criar_atendimento, criar_cliente, criar_link, criar_notificacao_com_link, criar_procedimento,
+    conceder, criar_atendimento, criar_cliente, criar_link, criar_notificacao_com_link, criar_procedimento,
     criar_profissional,
 )
 
@@ -21,9 +22,11 @@ class EsquecerClienteTests(TestCase):
     def setUp(self):
         self.cliente = criar_cliente(
             nome='Fulana Real', telefone='17900090008', email='fulana@example.com',
-            cpf='52998224725', consent_email_marketing=True,
-            consent_email_marketing_ip='10.0.0.1',
+            cpf='52998224725',
         )
+        # append-only (no PG o trigger so aceita apagar IP/UA): a prova nasce na criacao
+        self.concessao = conceder(self.cliente, 'consent_email_marketing', ip='10.0.0.1',
+                                  user_agent='Mozilla/5.0 (Fulana)')
 
     def test_anonimizacao_e_gravada_no_banco(self):
         """Regressao critica: soft_delete() gravava so deletado_em/ativo."""
@@ -36,8 +39,15 @@ class EsquecerClienteTests(TestCase):
         self.assertIsNone(salvo.cpf)
         self.assertIsNone(salvo.email)
         self.assertIsNone(salvo.telefone)
-        self.assertFalse(salvo.consent_email_marketing)
-        self.assertIsNone(salvo.consent_email_marketing_ip)
+        # consentimento: historico fica (prova de base legal), o vigente e
+        # revogado (ESQUECIMENTO) e IP/user-agent somem de todas as linhas
+        self.assertFalse(consentimentos.vigente(salvo, 'MARKETING', 'EMAIL'))
+        linhas = list(Consentimento.objects.filter(cliente=salvo).order_by('registrado_em', 'id'))
+        self.assertEqual([(c.concedido, c.origem) for c in linhas],
+                         [(True, 'AGENDAMENTO_ONLINE'), (False, 'ESQUECIMENTO')])
+        self.assertEqual(linhas[0].pk, self.concessao.pk)
+        self.assertEqual(linhas[0].registrado_em, self.concessao.registrado_em)
+        self.assertEqual({(c.ip_origem, c.user_agent) for c in linhas}, {(None, '')})
         self.assertFalse(salvo.ativo)
         self.assertIsNotNone(salvo.deletado_em)
         # link de descadastro antigo deixa de identificar o titular (revogado = 404)

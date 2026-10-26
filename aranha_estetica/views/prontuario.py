@@ -22,10 +22,11 @@ from ..models import (
     Prontuario,
     ProntuarioVersao,
 )
+from ..services.anamnese import validar_respostas
 from ..utils.audit import registrar_log
 from ..utils.datas import fmt_local
 from ..utils.fichas import fichas_do_cliente
-from ..utils.saude import alertas_saude, perguntas_prontuario
+from ..utils.saude import alertas_saude, perguntas_prontuario, rotulo_da_chave
 
 logger = logging.getLogger(__name__)
 
@@ -40,12 +41,45 @@ CAMPOS_PRONTUARIO = (
 
 
 def _perguntas_configuradas():
-    """Schema do questionario do prontuario (utils.saude.perguntas_prontuario).
+    """Perguntas do formulario PRONTUARIO ativo ([{key, label, tipo, ...}]).
 
-    A regra mora em utils/saude: os alertas de saude tambem leem o texto das
+    A regra mora em utils/saude: os alertas de saude tambem leem o label das
     perguntas p/ rotular as respostas_extras.
     """
     return perguntas_prontuario()
+
+
+def _campos_questionario(perguntas, respostas):
+    """Perguntas + resposta atual p/ o template (name = pergunta_<key>)."""
+    campos = []
+    for p in perguntas:
+        valor = respostas.get(p['key'])
+        campos.append({
+            **p,
+            'nome': f"pergunta_{p['key']}",
+            'valor': valor,
+            'valor_texto': '' if valor is None or isinstance(valor, (bool, list)) else str(valor),
+            'valor_lista': [str(v) for v in valor] if isinstance(valor, list) else [],
+        })
+    return campos
+
+
+def _respostas_do_post(post, perguntas):
+    """{key: valor bruto} so das perguntas presentes no POST (POST parcial nao apaga)."""
+    dados = {}
+    for p in perguntas:
+        nome = f"pergunta_{p['key']}"
+        if p.get('tipo') == 'checkboxes':
+            # lista vazia nao chega no POST: o hidden "<nome>__enviado" marca o campo
+            if nome in post or f'{nome}__enviado' in post:
+                dados[p['key']] = post.getlist(nome)
+        elif nome in post:
+            dados[p['key']] = post.get(nome)
+    return dados
+
+
+def _mesmo_valor(antigo, novo) -> bool:
+    return type(antigo) is type(novo) and antigo == novo
 
 
 def _vinculo(prof, cliente, escrita=False):
@@ -162,7 +196,9 @@ def _historico_prontuario(prontuario, perguntas):
     )
     if not versoes:
         return []
-    textos = {p.get('chave'): p.get('texto') for p in perguntas if isinstance(p, dict)}
+    # A foto (ProntuarioVersao.dados) guarda 'respostas_extras' {key: valor}:
+    # rotula pelo label atual da pergunta; key que saiu do formulario -> da chave.
+    textos = {p.get('key'): p.get('label') for p in perguntas if isinstance(p, dict)}
 
     def foto(dados):
         dados = dados if isinstance(dados, dict) else {}
@@ -175,7 +211,7 @@ def _historico_prontuario(prontuario, perguntas):
     def rotulo(k):
         if k.startswith('extra:'):
             chave = k[len('extra:'):]
-            return str(textos.get(chave) or chave.replace('_', ' ').capitalize())
+            return str(textos.get(chave) or rotulo_da_chave(chave))
         return ROTULOS_CAMPOS.get(k, k)
 
     depois = foto({
@@ -248,8 +284,7 @@ def prontuario_detalhe(request, cliente_id):
         'cliente': cliente,
         'prontuario': prontuario,
         'versao_prontuario': _versao(prontuario),
-        'perguntas': perguntas,
-        'respostas': respostas,
+        'perguntas': _campos_questionario(perguntas, respostas),
         'alertas': alertas_saude(cliente),
         'fichas': fichas_do_cliente(cliente),
         'atendimentos': atendimentos,
@@ -305,25 +340,31 @@ def prontuario_salvar(request, cliente_id):
                 setattr(prontuario, campo, novo)
                 alterados.append(campo)
 
-        # Respostas do questionario configuravel -> JSONB (so as perguntas enviadas)
+        # Questionario do prontuario (formulario PRONTUARIO) -> JSONB, so as
+        # perguntas enviadas, pelo MESMO validador das fichas de anamnese
+        # (bool aceita sim/nao; tipo/opcoes/tamanho conferidos).
+        perguntas = _perguntas_configuradas()
+        enviados = _respostas_do_post(request.POST, perguntas)
+        limpas, erros = validar_respostas(perguntas, enviados)
+        if erros:
+            for erro in erros:
+                messages.error(request, erro)
+            messages.error(request, 'Nada foi salvo: corrija as respostas do questionário.')
+            if criado:
+                transaction.set_rollback(True)
+            return redirect('aranha:prontuario_detalhe', cliente_id=cliente_id)
         respostas = dict(prontuario.respostas_extras or {})
-        for pergunta in _perguntas_configuradas():
-            chave = pergunta.get('chave')
-            nome = f'pergunta_{chave}'
-            if not chave or nome not in request.POST:
-                continue
-            valor = request.POST.get(nome)
-            if pergunta.get('tipo') == 'BOOLEAN':
-                if valor not in ('sim', 'nao'):
+        for key in enviados:
+            nome = f'pergunta_{key}'
+            if key in limpas:
+                if key in respostas and _mesmo_valor(respostas[key], limpas[key]):
                     continue
-                novo = (valor == 'sim')
-                if respostas.get(chave) is novo:
-                    continue
+                respostas[key] = limpas[key]
+            elif respostas.get(key) not in (None, '', []):
+                # resposta apagada no formulario: sai do JSON (a foto anterior fica na versao)
+                del respostas[key]
             else:
-                novo = (valor or '').strip()
-                if (respostas.get(chave) or '') == novo:
-                    continue
-            respostas[chave] = novo
+                continue
             alterados.append(nome)
 
         if not alterados:

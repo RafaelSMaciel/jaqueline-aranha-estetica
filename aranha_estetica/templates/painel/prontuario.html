@@ -105,8 +105,13 @@
     <svg class="w-4 h-4 text-[#7a5f1f]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
     </svg>
-    Perguntas do Questionário de Anamnese
+    Perguntas do Questionário do Prontuário
   </h3>
+  {% if formulario_prontuario %}
+  <p class="text-[0.75rem] text-texto-suave mb-3">
+    Editar em <a href="{% url 'aranha:admin_anamnese_editar' formulario_prontuario.pk %}" class="font-bold text-marca">Anamneses &rsaquo; {{ formulario_prontuario.nome }}</a>.
+  </p>
+  {% endif %}
   <div class="overflow-x-auto">
     <table class="w-full text-[0.8rem]">
       <thead>
@@ -120,7 +125,7 @@
         {% for p in perguntas %}
         <tr class="border-b border-borda/50 hover:bg-fundo transition-colors">
           <td class="py-2 text-texto-suave">{{ forloop.counter }}</td>
-          <td class="py-2 text-texto">{{ p.texto }}</td>
+          <td class="py-2 text-texto">{{ p.label }}</td>
           <td class="py-2">
             <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-blue-50 text-blue-700 uppercase tracking-wide">{{ p.tipo }}</span>
           </td>

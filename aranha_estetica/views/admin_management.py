@@ -31,7 +31,7 @@ from ..models import (
     Profissional,
     VersaoTermo,
 )
-from ..services import links
+from ..services import consentimentos, links
 from ..services.termos import (
     aceita_assinatura,
     obter_link_termo,
@@ -382,6 +382,7 @@ def _contexto_cliente(cliente):
         'alertas': alertas_saude(cliente),
         'pacotes': pacotes,
         'indicacao_travada': _indicacao_gerou_cashback(cliente),
+        'consentimentos': consentimentos.resumo_painel(cliente),
     }
 
 
@@ -460,6 +461,56 @@ def _salvar_indicacao(request, cliente):
     return destino
 
 
+def _salvar_consentimento(request, cliente):
+    """Ficha do cliente: revogar (1 clique) ou registrar autorizacao (exige justificativa).
+
+    Consentimento e da titular: a equipe so revoga a pedido dela; conceder pelo
+    painel exige o texto do que foi autorizado e como (ex.: "pediu por telefone
+    em 10/11 para receber promocoes por e-mail") — fica no historico com o autor.
+    """
+    from ..models import Consentimento
+
+    destino = redirect('aranha:admin_cliente_detalhe', pk=cliente.pk)
+    par = consentimentos.par_da_chave(request.POST.get('par'))
+    operacao = request.POST.get('operacao')
+    if par is None or operacao not in ('revogar', 'conceder'):
+        messages.error(request, 'Pedido de consentimento inválido.')
+        return destino
+    rotulo = consentimentos.ROTULOS_PAR[par]
+    if operacao == 'revogar':
+        linha = consentimentos.revogar(
+            cliente, *par, origem=Consentimento.ORIGEM_PAINEL,
+            texto='Revogado pela equipe a pedido da cliente', usuario=request.user,
+        )
+    else:
+        justificativa = (request.POST.get('justificativa') or '').strip()[:1000]
+        if len(justificativa) < consentimentos.MIN_JUSTIFICATIVA:
+            messages.error(
+                request,
+                'Para registrar a autorização, descreva o que a cliente autorizou e como '
+                '(ex.: "pediu por telefone em 10/11 para receber promoções por e-mail").',
+            )
+            return destino
+        linha = consentimentos.registrar(
+            cliente, *par, True, origem=Consentimento.ORIGEM_PAINEL,
+            texto=justificativa, usuario=request.user,
+        )
+    if linha is None:
+        messages.info(request, f'{rotulo}: sem alteração.')
+        return destino
+    registrar_log(
+        request.user,
+        'Revogou consentimento' if operacao == 'revogar' else 'Registrou consentimento',
+        'cliente', cliente.pk,
+        detalhes={'finalidade': par[0], 'canal': par[1], 'consentimento_id': linha.pk},
+        request=request,
+    )
+    messages.success(
+        request, f'{rotulo}: {"revogado" if operacao == "revogar" else "autorização registrada"}.',
+    )
+    return destino
+
+
 @never_cache  # alertas de saude + CPF/RG/endereco: fora do cache do navegador
 @staff_required
 def admin_cliente_detalhe(request, pk):
@@ -468,6 +519,8 @@ def admin_cliente_detalhe(request, pk):
 
     if request.method == 'POST' and request.POST.get('acao') == 'indicacao':
         return _salvar_indicacao(request, cliente)
+    if request.method == 'POST' and request.POST.get('acao') == 'consentimento':
+        return _salvar_consentimento(request, cliente)
 
     if request.method == 'POST':
         # ClientePainelForm: normaliza telefone (+55)/CPF com mascara, valida e

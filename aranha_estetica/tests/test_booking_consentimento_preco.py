@@ -20,6 +20,7 @@ from aranha_estetica.models import (
     AceiteTermo,
     Atendimento,
     Cliente,
+    Consentimento,
     FormularioAnamnese,
     LogAuditoria,
     Notificacao,
@@ -27,11 +28,14 @@ from aranha_estetica.models import (
     RespostaAnamnese,
     VersaoTermo,
 )
+from aranha_estetica.services import consentimentos
 from aranha_estetica.services.agendamento_service import AgendamentoService
 from aranha_estetica.services.anamnese import validar_respostas
 from aranha_estetica.utils.saude import alertas_saude
 
-from .factories import criar_cliente, criar_procedimento, criar_profissional, limpar_feriados
+from .factories import (
+    conceder, criar_cliente, criar_link, criar_procedimento, criar_profissional, limpar_feriados,
+)
 from .test_confirmar_agendamento import slot_local, verificar_sessao
 
 SCHEMA_SAUDE = [
@@ -333,24 +337,62 @@ class ConsentsComunicacaoTests(_BaseBooking):
     def test_cliente_novo_sem_marcar_fica_sem_opt_in(self):
         self._post()
         cli = Cliente.objects.get(telefone='17988887777')
-        self.assertFalse(cli.consent_whatsapp_confirmacao)
+        self.assertFalse(consentimentos.vigente(cli, 'LEMBRETE_AGENDAMENTO', 'WHATSAPP'))
+        # nunca concedeu = sem linha (nem revogacao "as cegas")
+        self.assertFalse(Consentimento.objects.filter(cliente=cli).exists())
+
+    def test_marcar_concede_com_prova_do_texto_exibido(self):
+        self._post(headers={'HTTP_USER_AGENT': 'Navegador Teste'},
+                   consent_whatsapp_confirmacao='on', consent_email_marketing='on')
+        cli = Cliente.objects.get(telefone='17988887777')
+        linhas = {c.finalidade: c for c in Consentimento.objects.filter(cliente=cli)}
+        self.assertEqual(set(linhas), {'LEMBRETE_AGENDAMENTO', 'MARKETING'})
+        lembrete = linhas['LEMBRETE_AGENDAMENTO']
+        self.assertTrue(lembrete.concedido)
+        self.assertEqual(lembrete.origem, 'AGENDAMENTO_ONLINE')
+        self.assertEqual(lembrete.texto, consentimentos.TEXTOS_WIZARD['consent_whatsapp_confirmacao'])
+        self.assertEqual(lembrete.user_agent, 'Navegador Teste')
+        # o rotulo gravado e o mesmo que o wizard mostra
+        html = self.client.get(reverse('aranha:agendamento_publico')).content.decode()
+        self.assertIn(consentimentos.TEXTOS_WIZARD['consent_whatsapp_confirmacao'], html)
 
     def test_desmarcar_revoga_quando_sincronizado(self):
         antes = timezone.now() - timedelta(days=30)
-        cli = criar_cliente(
-            nome='Dora Teste', telefone='17988887777', consent_whatsapp_confirmacao=True,
-            consent_whatsapp_confirmacao_em=antes,
-        )
+        cli = criar_cliente(nome='Dora Teste', telefone='17988887777')
+        concessao = conceder(cli, 'consent_whatsapp_confirmacao', registrado_em=antes)
         self._post(consents_sincronizados='1')
-        cli.refresh_from_db()
-        self.assertFalse(cli.consent_whatsapp_confirmacao)
-        self.assertGreater(cli.consent_whatsapp_confirmacao_em, antes)
+        self.assertFalse(consentimentos.vigente(cli, 'LEMBRETE_AGENDAMENTO', 'WHATSAPP'))
+        # append-only: a concessao antiga fica; a revogacao e uma linha nova, posterior
+        linhas = list(Consentimento.objects.filter(cliente=cli).order_by('registrado_em', 'id'))
+        self.assertEqual([(c.pk == concessao.pk, c.concedido) for c in linhas], [(True, True), (False, False)])
+        self.assertGreater(linhas[1].registrado_em, antes)
+        self.assertEqual(linhas[1].origem, 'AGENDAMENTO_ONLINE')
 
     def test_sem_sincronizacao_post_nao_revoga(self):
         cli = criar_cliente(nome='Dora Teste', telefone='17988887777', consent_whatsapp_confirmacao=True)
         self._post()
-        cli.refresh_from_db()
-        self.assertTrue(cli.consent_whatsapp_confirmacao)
+        self.assertTrue(consentimentos.vigente(cli, 'LEMBRETE_AGENDAMENTO', 'WHATSAPP'))
+        self.assertEqual(Consentimento.objects.filter(cliente=cli).count(), 1)
+
+    def test_marcar_de_novo_o_que_ja_vale_nao_polui_o_historico(self):
+        cli = criar_cliente(nome='Dora Teste', telefone='17988887777', consent_email_marketing=True)
+        self._post(consents_sincronizados='1', consent_email_marketing='on')
+        self.assertEqual(Consentimento.objects.filter(cliente=cli).count(), 1)
+
+    def test_reconsentimento_apos_descadastro_volta_a_valer(self):
+        """D2: o ultimo registro manda (antes aceita_comunicacao=False vetava para sempre)."""
+        from aranha_estetica.services.lgpd import LgpdService
+
+        cli = criar_cliente(nome='Dora Teste', telefone='17988887777', consent_email_marketing=True)
+        LgpdService.unsubscribe_por_token(criar_link('DESCADASTRO', cli))
+        self.assertFalse(consentimentos.vigente(cli, 'MARKETING', 'EMAIL'))
+        self._post(consents_sincronizados='1', consent_email_marketing='on')
+        self.assertTrue(consentimentos.vigente(cli, 'MARKETING', 'EMAIL'))
+        self.assertEqual(
+            list(Consentimento.objects.filter(cliente=cli, finalidade='MARKETING')
+                 .order_by('registrado_em', 'id').values_list('concedido', 'origem')),
+            [(True, 'AGENDAMENTO_ONLINE'), (False, 'DESCADASTRO'), (True, 'AGENDAMENTO_ONLINE')],
+        )
 
 
 class PromocaoNoBookingTests(_BaseBooking):

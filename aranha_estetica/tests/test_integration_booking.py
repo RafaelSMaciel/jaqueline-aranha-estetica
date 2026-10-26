@@ -9,6 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from aranha_estetica.models import Atendimento, Cliente
+from aranha_estetica.services import consentimentos
 
 from .factories import (
     criar_cliente,
@@ -267,13 +268,15 @@ class IntegrationBookingFlowTests(TestCase):
         )
         self.assertEqual(resp.status_code, 302)
         cli = Cliente.objects.get(telefone='17988883333')
-        self.assertTrue(cli.consent_email_marketing)
-        self.assertIsNotNone(cli.consent_email_marketing_em)
+        self.assertTrue(consentimentos.vigente(cli, 'MARKETING', 'EMAIL'))
+        linha = cli.consentimentos.get()
+        self.assertIsNotNone(linha.registrado_em)
+        self.assertEqual(linha.origem, 'AGENDAMENTO_ONLINE')
 
     def test_consent_whatsapp_nps_opt_out_default(self, mock_email):
         """POST sem consent_whatsapp_nps mantem False (opt-in required)."""
         resp = self._post(telefone='17988884444')
         self.assertEqual(resp.status_code, 302)
         cli = Cliente.objects.get(telefone='17988884444')
-        self.assertFalse(cli.consent_whatsapp_nps)
-        self.assertFalse(cli.consent_email_marketing)
+        self.assertEqual(set(consentimentos.estado_atual(cli).values()), {False})
+        self.assertFalse(cli.consentimentos.exists())
