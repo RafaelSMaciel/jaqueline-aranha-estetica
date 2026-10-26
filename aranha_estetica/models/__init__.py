@@ -20,6 +20,7 @@ from .sistema import (
 from .push import AssinaturaPush
 from .anamnese import FormularioAnamnese, RespostaAnamnese
 from .links import LinkAcesso
+from .historico import HistoricoAlteracao
 from .extras import (
     Carteira, MovimentoCarteira,
     RegraComissao, MovimentoComissao,
@@ -39,6 +40,7 @@ __all__ = [
     'AssinaturaPush',
     'FormularioAnamnese', 'RespostaAnamnese',
     'LinkAcesso',
+    'HistoricoAlteracao',
     # extras (financeiro auxiliar)
     'Carteira', 'MovimentoCarteira',
     'RegraComissao', 'MovimentoComissao',

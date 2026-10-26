@@ -171,13 +171,32 @@ class ProntuarioVersao(models.Model):
         return cls.objects.create(prontuario_id=prontuario.pk, autor=autor, dados=dados)
 
 
+MSG_ANOTACAO_IMUTAVEL = 'Anotação de sessão é registro clínico append-only: corrija com uma nova anotação.'
+
+
+class AnotacaoSessaoQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise ValidationError(MSG_ANOTACAO_IMUTAVEL)
+
+    update.alters_data = True
+    update.queryset_only = True
+
+    def delete(self):
+        raise ValidationError(MSG_ANOTACAO_IMUTAVEL)
+
+    delete.alters_data = True
+    delete.queryset_only = True
+
+
 class AnotacaoSessao(models.Model):
     """Observacoes clinicas especificas de cada atendimento.
 
     Registro clinico com autor: append-only (correcao = nova anotacao).
     autor PROTECT — excluir o usuario apagaria a autoria (desative-o);
     autor_nome guarda o nome no momento da escrita (renomear o usuario
-    nao reescreve o historico).
+    nao reescreve o historico). No PG ``tg_anotacao_sessao_imutavel`` (0056)
+    barra UPDATE/DELETE; no Python, save() de linha existente/delete()/QuerySet
+    recusam (FKs PROTECT: o Django nunca precisa de UPDATE aqui).
     """
     # FKs sem indice automatico: atendimento coberto pelo ix_; autor = autoria (spec §2.11)
     atendimento = models.ForeignKey(
@@ -193,6 +212,8 @@ class AnotacaoSessao(models.Model):
     texto = models.TextField()
     criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
 
+    objects = AnotacaoSessaoQuerySet.as_manager()
+
     class Meta:
         managed = True
         db_table = 'anotacao_sessao'
@@ -204,6 +225,11 @@ class AnotacaoSessao(models.Model):
         ]
 
     def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValidationError(MSG_ANOTACAO_IMUTAVEL)
         if self.autor_id and not self.autor_nome:
             self.autor_nome = (self.autor.nome or '')[:100]
         super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError(MSG_ANOTACAO_IMUTAVEL)

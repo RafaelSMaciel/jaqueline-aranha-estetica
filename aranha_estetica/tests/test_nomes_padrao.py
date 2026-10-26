@@ -7,8 +7,8 @@ on_delete do model (ou FK sem DEFERRABLE INITIALLY DEFERRED), tabela sem COMMENT
 *_pattern_ops (o "_like" do Django), coluna _id que nao e FK e nome fora de [a-z0-9_].
 
 Tabelas de terceiros (auth_*, django_*, axes_*, otp_*: §1.5) ficam fora por allowlist.
-"tabela com atualizado_em sem tg_<t>_atualizado_em" so vale a partir da fase de logica (L1, 0056):
-o teste fica pulado ate a migration existir.
+"Tabela com atualizado_em sem tg_<t>_atualizado_em" vale desde a fase de logica (L1, 0056): tabela
+nova com atualizado_em precisa do trigger na mesma migration (fn_definir_atualizado_em).
 
 Quando reprovar depois de um AlterField novo numa FK (o Django recria a FK com nome de hash e sem
 ON DELETE, §3.6.1 item 4): acrescente PadronizarNomes() ao fim da migration (e idempotente).
@@ -18,7 +18,6 @@ from unittest import skipUnless
 
 from django.apps import apps
 from django.db import connection, models
-from django.db.migrations.loader import MigrationLoader
 from django.test import TestCase
 
 PG = connection.vendor == 'postgresql'
@@ -39,19 +38,12 @@ SO_PG = {
     'ck_prontuario_versao_dados_objeto', 'ck_aceite_termo_conteudo_hash_formato', 'ck_codigo_otp_codigo_hash_formato',
     'ck_link_acesso_token_hash_formato', 'ck_agenda_excecao_regra_recorrencia_suportada',
     'fk_consumo_sessao_compra_pacote_item_compra',
+    'ck_historico_alteracao_colunas_alteradas_lista', 'ix_cliente_nome_trgm',   # L1/L2 (0056/0057)
 }
 
 
 def _modelos():
     return [m for m in apps.get_app_config(APP).get_models() if m._meta.managed and not m._meta.proxy]
-
-
-def _fase_logica_existe():
-    """A L1 (0056) cria fn_definir_atualizado_em + tg_<t>_atualizado_em nas 22 tabelas (§5.2)."""
-    if not PG:
-        return False
-    loader = MigrationLoader(None, ignore_no_migrations=True)
-    return any(app == APP and nome[:4] >= '0056' for app, nome in loader.disk_migrations)
 
 
 def _acao_esperada(on_delete):
@@ -219,12 +211,13 @@ class NomesPadraoTests(TestCase):
         self._falhar_se(rotinas, 'funcao/procedure fora de fn_/sp_')
         self._falhar_se(views, 'view fora de vw_')
 
-    @skipUnless(_fase_logica_existe(), 'vale a partir da fase de logica (L1, 0056: tg_<t>_atualizado_em)')
     def test_atualizado_em_tem_trigger(self):
+        """§5.2 (L1, 0056): toda tabela com atualizado_em tem tg_<t>_atualizado_em (fn_definir_atualizado_em)."""
         com_coluna = {t for (t,) in self._linhas(
             "SELECT attrelid::regclass::text FROM pg_attribute WHERE attrelid = ANY(%s::regclass[]) "
             "AND attname = 'atualizado_em' AND NOT attisdropped", [self.tabelas])}
         com_trigger = {t for (t,) in self._linhas(
             "SELECT tgrelid::regclass::text FROM pg_trigger WHERE NOT tgisinternal "
-            "AND tgname = 'tg_' || tgrelid::regclass::text || '_atualizado_em'")}
+            "AND tgname = 'tg_' || tgrelid::regclass::text || '_atualizado_em' "
+            "AND tgfoid = 'fn_definir_atualizado_em'::regproc")}
         self._falhar_se(com_coluna - com_trigger, 'tabela com atualizado_em sem tg_<t>_atualizado_em')

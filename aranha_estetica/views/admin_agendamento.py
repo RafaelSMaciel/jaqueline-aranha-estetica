@@ -24,7 +24,7 @@ from ..decorators import staff_required
 from ..models import Atendimento, Cliente, Procedimento, Profissional
 from ..services.disponibilidade import SlotService, profissionais_para, slot_disponivel
 from ..utils.audit import registrar_log
-from ..utils.busca import q_busca_cliente
+from ..utils.busca import filtrar_clientes
 from ..utils.datas import hoje
 from ..utils.parse import id_int
 from ..utils.precos import preco_com_promocao
@@ -162,11 +162,11 @@ def admin_agendamento_novo(request):
     resultados, inativas = [], []
     if q:
         resultados = list(
-            Cliente.objects.filter(ativo=True).filter(q_busca_cliente(q)).order_by('nome')[:20]
+            filtrar_clientes(Cliente.objects.filter(ativo=True), q).order_by('nome')[:20]
         )
         # inativas aparecem (nao selecionaveis) com o link p/ reativar na ficha
         inativas = list(
-            Cliente.objects.filter(ativo=False).filter(q_busca_cliente(q)).order_by('nome')[:5]
+            filtrar_clientes(Cliente.objects.filter(ativo=False), q).order_by('nome')[:5]
         )
 
     slots, preco = [], None

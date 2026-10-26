@@ -3,6 +3,11 @@
 Roda a migration real sobre dados "sujos" plausiveis do banco legado (SQLite:
 as partes PG-only — CHECK regex, EXCLUDE, trigger, collation — sao validadas
 no ensaio em Postgres; aqui fica a logica de dados, que e portavel).
+
+Tag ``migracoes``: estes testes descem e sobem a cadeia de migrations dezenas de
+vezes (~3/4 do tempo da suite). A suite padrao roda TUDO; no dia a dia,
+``manage.py test aranha_estetica --exclude-tag migracoes`` e o atalho (o CI roda
+a tag num job separado, em paralelo).
 """
 import io
 from contextlib import redirect_stderr
@@ -15,12 +20,13 @@ from types import SimpleNamespace
 from django.contrib.auth.hashers import make_password
 from django.db import connection, transaction
 from django.db.migrations.executor import MigrationExecutor
-from django.test import TestCase, TransactionTestCase
+from django.test import TestCase, TransactionTestCase, tag
 from django.utils import timezone
 
 APP = 'aranha_estetica'
 
 
+@tag('migracoes')
 class _MigracaoBase(TransactionTestCase):
     serialized_rollback = True
     migrate_from = None
@@ -47,6 +53,7 @@ class _MigracaoBase(TransactionTestCase):
         raise NotImplementedError
 
 
+@tag('migracoes')
 class PapelUsuario0029Tests(_MigracaoBase):
     """0029: usuario ligado a Profissional nunca cai em RECEPCAO (sem telas)."""
     migrate_from = '0028_remodelagem_fase1b_otp_unico'
@@ -98,6 +105,7 @@ class PapelUsuario0029Tests(_MigracaoBase):
         self.assertTrue(all(log.tabela_afetada == 'usuario' for log in logs))
 
 
+@tag('migracoes')
 class Remodelagem0034a0037Tests(_MigracaoBase):
     migrate_from = '0033_remodelagem_fase2c_cliente_nome'
     migrate_to = '0037_remodelagem_fase6_aceite_termo'
@@ -268,6 +276,7 @@ class Remodelagem0034a0037Tests(_MigracaoBase):
         self.assertEqual(assinatura.atendimento_id, self.agendado.pk)
 
 
+@tag('migracoes')
 class ContasDemoERetornoDuplicadoTests(_MigracaoBase):
     migrate_from = '0041_on_delete_protect_indice_email_upper'
     migrate_to = '0043_retorno_unico_checks_jsonb'
@@ -337,6 +346,7 @@ class ContasDemoERetornoDuplicadoTests(_MigracaoBase):
         self.assertEqual(Atendimento.objects.get(pk=self.ret_ok.pk).status, 'AGENDADO')
 
 
+@tag('migracoes')
 class AvisoContaDemoSoNoCommitTests(TestCase):
     """0042: com rollback (migrate_atomico falhou depois) o aviso nao sai."""
 
@@ -369,6 +379,7 @@ class AvisoContaDemoSoNoCommitTests(TestCase):
         self.assertIn('conta demo desativada', self._rodar(falhar=False))
 
 
+@tag('migracoes')
 class ProvaAceiteEAutoria0044e0045Tests(_MigracaoBase):
     migrate_from = '0043_retorno_unico_checks_jsonb'
     migrate_to = '0045_dados_termo_lgpd_autoria'
@@ -425,6 +436,7 @@ class ProvaAceiteEAutoria0044e0045Tests(_MigracaoBase):
         self.assertTrue(LogAuditoria.objects.filter(tabela='versao_termo', registro_id=termo.pk).exists())
 
 
+@tag('migracoes')
 class TermoLgpdBancoNovo0045Tests(_MigracaoBase):
     migrate_from = '0044_prova_aceite_autoria_anotacao_ajustes'
     migrate_to = '0045_dados_termo_lgpd_autoria'
@@ -448,6 +460,7 @@ class TermoLgpdBancoNovo0045Tests(_MigracaoBase):
         self.assertFalse(LogAuditoria.objects.filter(tabela='versao_termo', registro_id=termo.pk).exists())
 
 
+@tag('migracoes')
 class HistoricoAutoriaEFichasLegado0046Tests(_MigracaoBase):
     migrate_from = '0045_dados_termo_lgpd_autoria'
     migrate_to = '0046_prontuario_versao_autoria_log_prova_aceite'
@@ -503,6 +516,7 @@ class HistoricoAutoriaEFichasLegado0046Tests(_MigracaoBase):
         self.assertIn('Dipirona', [a['valor'] for a in alertas])
 
 
+@tag('migracoes')
 class TermoSaudeReembolsoPromocao0047Tests(_MigracaoBase):
     migrate_from = '0046_prontuario_versao_autoria_log_prova_aceite'
     migrate_to = '0047_termo_saude_reembolso_promocao_geral'
@@ -554,6 +568,7 @@ class TermoSaudeReembolsoPromocao0047Tests(_MigracaoBase):
         self.assertEqual(LogAuditoria.objects.filter(tabela='promocao').count(), 1)
 
 
+@tag('migracoes')
 class ReversaTermoSaude0047Tests(TestCase):
     """Reversa (dev) da 0047: apaga o termo SAUDE sem aceite; com aceite (prova) recusa."""
 
@@ -597,6 +612,7 @@ def _local_dt(dia, hora, minuto=0):
     return timezone.make_aware(datetime.combine(dia, time(hora, minuto)))
 
 
+@tag('migracoes')
 class AgendaUnificada0048Tests(_MigracaoBase):
     """Dados antigos -> novos: grade ISO, bloqueio (mesmo id, RRULE normalizada),
     folga/horario diferente (mapa no log), feriado nacional/local/recesso/inativo."""
@@ -774,6 +790,7 @@ class AgendaUnificada0048Tests(_MigracaoBase):
         self.assertEqual(mig.REGEX_RRULE, REGEX_SUBCONJUNTO)
 
 
+@tag('migracoes')
 class AgendaUnificadaReversa0048Tests(_MigracaoBase):
     """Reverso (dev): agenda nova -> 4 tabelas antigas (e sobe de novo no tearDown)."""
     migrate_from = M0048
@@ -832,6 +849,7 @@ class AgendaUnificadaReversa0048Tests(_MigracaoBase):
         self.assertEqual(log.detalhes, {'excecao_inativa': [self.inativa.pk], 'origem_ref': [self.gcal.pk]})
 
 
+@tag('migracoes')
 class AgendaUnificada0048AbortaTests(TransactionTestCase):
     """Pre-checagem: janelas sobrepostas e RRULE fora do subconjunto abortam a
     0048 inteira (nada aplicado) com os ids na mensagem."""
@@ -991,6 +1009,7 @@ def _slots_legado(apps, profissional, data_selecionada, procedimento):
     return sorted(livres)
 
 
+@tag('migracoes')
 class SlotsAntesDepois0048Tests(_MigracaoBase):
     """Caracterizacao: os MESMOS horarios livres antes (modelo antigo, motor
     antigo congelado acima) e depois da 0048 (SlotService atual) — feriado ativo
@@ -1120,6 +1139,7 @@ def _subir_ate_o_fim():
     executor.migrate(executor.loader.graph.leaf_nodes())
 
 
+@tag('migracoes')
 class LinksEmHash0049Tests(_MigracaoBase):
     """Tokens em texto puro -> link_acesso (sha256): os links ja enviados continuam
     abrindo pelo token em claro, com validade/uso derivados dos dados antigos; o
@@ -1275,6 +1295,7 @@ class LinksEmHash0049Tests(_MigracaoBase):
         self.assertEqual(links.resolver(links.DESCADASTRO, 'tok-descad').cliente_id, self.cli)
 
 
+@tag('migracoes')
 class LinksEmHashReversa0049Tests(_MigracaoBase):
     """Reverso (dev): recria as colunas com tokens NOVOS, unicos e nao nulos
     (resposta_anamnese.token volta NOT NULL UNIQUE) — e sobe de novo no tearDown."""
@@ -1348,6 +1369,7 @@ def _estado_vigente(Consentimento, cliente_id):
     return vigente
 
 
+@tag('migracoes')
 class Consentimentos0050Tests(_MigracaoBase):
     """consent_*/_em/_ip + aceita_comunicacao -> historico append-only. Invariante:
     estado vigente = consent_x AND (aceita_comunicacao OR par = LEMBRETE)."""
@@ -1451,6 +1473,7 @@ class Consentimentos0050Tests(_MigracaoBase):
         self.assertTrue(consentimentos.vigente(descad, 'MARKETING', 'EMAIL'))
 
 
+@tag('migracoes')
 class ConsentimentosReversa0050Tests(_MigracaoBase):
     """Reverso (dev): colunas a partir da linha vigente; aceita_comunicacao=False so
     quando o opt-out geral (MIGRACAO/DESCADASTRO/ESQUECIMENTO) e o mais recente."""
@@ -1510,6 +1533,7 @@ CONFIG_PRONTUARIO = [
 ]
 
 
+@tag('migracoes')
 class FormularioProntuario0051Tests(_MigracaoBase):
     """Configuracao.prontuario_perguntas -> formulario PRONTUARIO (key = chave); respostas
     intactas; alertas iguais; linha duplicada fica e vai p/ o log."""
@@ -1573,6 +1597,7 @@ class FormularioProntuario0051Tests(_MigracaoBase):
                          ['esta_gravida_ou_amamentando', 'cirurgias', 'fuma'])
 
 
+@tag('migracoes')
 class FormularioProntuarioJsonInvalido0051Tests(_MigracaoBase):
     migrate_from = M0050
     migrate_to = M0051
@@ -1592,6 +1617,7 @@ class FormularioProntuarioJsonInvalido0051Tests(_MigracaoBase):
         self.assertEqual(log.registro_id, self.cfg)
 
 
+@tag('migracoes')
 class FormularioProntuarioReversa0051Tests(_MigracaoBase):
     migrate_from = M0051
     migrate_to = M0050
@@ -1618,6 +1644,7 @@ class FormularioProntuarioReversa0051Tests(_MigracaoBase):
         self.assertEqual(list(FormularioAnamnese.objects.values_list('pk', flat=True)), [self.anamnese])
 
 
+@tag('migracoes')
 class FormularioProntuario0051AbortaTests(TransactionTestCase):
     """Pre-checagem: tipo/escopo fora do dominio ou escopo incoerente abortam a 0051
     (nada aplicado) com os ids na mensagem."""
@@ -1714,6 +1741,7 @@ def _cenario_pacotes(apps, agora):
             'consumos': consumos, 'combo': combo.pk, 'cliente': cli.pk, 'prof': prof.pk}
 
 
+@tag('migracoes')
 class PacoteCongelado0052Tests(_MigracaoBase):
     """compra_pacote ganha pacote_nome + itens congelados; consumo aponta p/ o item do mesmo
     procedimento; consumo sem item -> item reconstruido (log); acima da quantidade -> log."""
@@ -1786,6 +1814,7 @@ class PacoteCongelado0052Tests(_MigracaoBase):
         self.assertEqual(CompraPacote.objects.get(pk=combo.pk).sessoes_restantes(), 3)
 
 
+@tag('migracoes')
 class PacoteCongeladoBancoNovo0052Tests(_MigracaoBase):
     """Instalacao sem compras: nada a congelar, sem LogAuditoria."""
     migrate_from = M0051
@@ -1799,6 +1828,7 @@ class PacoteCongeladoBancoNovo0052Tests(_MigracaoBase):
         self.assertFalse(LogAuditoria.objects.filter(acao__startswith='migration 0052').exists())
 
 
+@tag('migracoes')
 class PacoteCongeladoReversa0052Tests(_MigracaoBase):
     """Reverso: itens e colunas saem; compras/consumos ficam (o catalogo continua la)."""
     migrate_from = M0052
@@ -1901,6 +1931,7 @@ def _cenario_cashback(apps):
     return {'cashback': ids, 'outro': outro, 'nomes': nomes}
 
 
+@tag('migracoes')
 class ComissaoLedger0053Tests(_MigracaoBase):
     """status -> lancamentos: PENDENTE = CREDITO; PAGA = + PAGAMENTO(pago_em); ESTORNADA = + ESTORNO
     (data estimada; + PAGAMENTO se tinha pago_em). Status derivado = status antigo."""
@@ -1992,6 +2023,7 @@ class ComissaoLedger0053Tests(_MigracaoBase):
         self.assertNotIn('Beatriz', str(log.detalhes))
 
 
+@tag('migracoes')
 class ComissaoLedgerReversa0053Tests(_MigracaoBase):
     """Reverso: status/pago_em voltam do ledger (ESTORNADA > PAGA > PENDENTE); so os CREDITOs ficam."""
     migrate_from = M0053
@@ -2031,6 +2063,7 @@ class ComissaoLedgerReversa0053Tests(_MigracaoBase):
         self.assertFalse({'tipo', 'movimento_comissao_origem_id', 'usuario_autor_id'} & colunas)
 
 
+@tag('migracoes')
 class ComissaoLedger0053AbortaTests(TransactionTestCase):
     """Pre-checagem: valor <= 0, 2 comissoes do mesmo atendimento ou status fora do dominio
     abortam a 0053 (nada aplicado) com os ids na mensagem."""

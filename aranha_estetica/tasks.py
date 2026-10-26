@@ -486,14 +486,22 @@ def job_promocao_mensal(self, assunto: str, corpo_html_partial: str, cupom: str 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def job_expirar_pacotes(self):
-    """Expira pacotes vencidos (data_expiracao < hoje LOCAL: o ultimo dia vale)."""
+    """Expira pacotes vencidos (data_expiracao < hoje LOCAL: o ultimo dia vale).
+
+    Postgres: CALL sp_expirar_pacotes(hoje) — fonte unica (spec padrao-sql §5.6); o
+    tg_compra_pacote_historico registra cada linha. SQLite: o update() abaixo.
+    """
     try:
         from .models import CompraPacote
+        from .utils.banco import chamar, usa_logica_pg
 
-        expirados = CompraPacote.objects.filter(
-            status='ATIVO',
-            data_expiracao__lt=hoje()
-        ).update(status='EXPIRADO')
+        if usa_logica_pg():
+            (expirados,) = chamar('sp_expirar_pacotes', hoje(), None)
+        else:
+            expirados = CompraPacote.objects.filter(
+                status='ATIVO',
+                data_expiracao__lt=hoje()
+            ).update(status='EXPIRADO')
 
         if expirados:
             logger.info(f"[PACOTE] {expirados} pacote(s) expirado(s) automaticamente.")
@@ -590,16 +598,15 @@ def job_lgpd_purgar_inativos(self):
       dentro de 20 anos (ver LgpdService.candidatos_purga);
     - apaga fichas de anamnese de pedidos nao realizados ha 90 dias
       (LgpdService.fichas_sem_atendimento_para_purga);
-    - apaga inscricoes da lista de espera com data ja passada."""
+    - apaga inscricoes da lista de espera com data ja passada.
+    Postgres: CALL sp_aplicar_retencao_lgpd (LgpdService.aplicar_retencao)."""
     from .services.lgpd import LgpdService
     try:
-        count = LgpdService.purgar_inativos()
-        logger.info('lgpd_clientes_anonimizados', extra={'count': count})
-        fichas = LgpdService.purgar_fichas_sem_atendimento()
-        esperas = LgpdService.purgar_lista_espera_vencida()
+        resultado = LgpdService.aplicar_retencao()
+        logger.info('lgpd_clientes_anonimizados', extra={'count': resultado['clientes']})
         return (
-            f'{count} clientes anonimizados; {fichas} fichas apagadas; '
-            f'{esperas} inscricoes de espera apagadas'
+            f"{resultado['clientes']} clientes anonimizados; {resultado['fichas']} fichas apagadas; "
+            f"{resultado['esperas']} inscricoes de espera apagadas"
         )
     except Exception as exc:
         logger.exception('Erro em job_lgpd_purgar_inativos: %s', exc)

@@ -1,13 +1,15 @@
 """Middlewares de seguranca — Jaqueline Aranha Estetica.
 
 Inclui Content-Security-Policy com nonce por request e headers adicionais
-(Permissions-Policy, X-Content-Type-Options, Cross-Origin-*).
+(Permissions-Policy, X-Content-Type-Options, Cross-Origin-*) e o contexto do
+banco (autor/IP/origem) lido pela trilha historico_alteracao.
 """
+import logging
 import secrets
 from urllib.parse import urlencode
 
 from django.conf import settings
-from django.db import OperationalError, ProgrammingError
+from django.db import DatabaseError, OperationalError, ProgrammingError, connections
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.urls import resolve, reverse
@@ -15,6 +17,9 @@ from django.urls.exceptions import Resolver404
 from django.utils.cache import add_never_cache_headers
 
 from .utils import dois_fatores
+from .utils.banco import definir_contexto_banco
+
+logger = logging.getLogger(__name__)
 
 
 class Enforce2FAMiddleware:
@@ -266,3 +271,58 @@ class ContentSecurityPolicyMiddleware:
         ])
         response["Content-Security-Policy"] = csp
         return response
+
+
+class ContextoBancoMiddleware:
+    """Autor/IP/origem do request p/ a trilha de dados (spec padrao-sql §5.3).
+
+    Define as GUCs ``app.usuario_id`` / ``app.ip_origem`` / ``app.origem='web'`` no
+    inicio e LIMPA no fim (``utils/banco.definir_contexto_banco``), que
+    ``fn_registrar_historico`` grava em ``historico_alteracao``. So Postgres (no
+    SQLite e no-op). Vai logo depois do ``OTPMiddleware`` (precisa de request.user).
+
+    Nivel de SESSAO (``set_config(..., false)``): o Django roda em autocommit e
+    ``SET LOCAL`` morreria no fim do proprio statement. Como CONN_MAX_AGE
+    reaproveita a conexao no proximo request da mesma thread, o contexto e SEMPRE
+    definido no inicio ('' p/ anonimo) e limpo no fim; se definir ou limpar falhar,
+    a conexao e descartada (nunca volta com o usuario de outra pessoa). Fica fora
+    de transaction.atomic. Resposta em streaming roda depois do ``finally`` (nenhuma
+    escreve hoje). PgBouncer em modo transacao quebraria GUC de sessao: nesse dia,
+    trocar p/ ATOMIC_REQUESTS + SET LOCAL. Custo: 2 round-trips por request dinamico
+    (estaticos saem antes, no WhiteNoise); o liveness (/healthz/) nao toca o banco.
+    """
+
+    CAMINHOS_SEM_BANCO = ('/healthz/',)  # liveness do Railway: nao pode depender do Postgres
+    ORIGEM = 'web'
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if connections['default'].vendor != 'postgresql' or request.path in self.CAMINHOS_SEM_BANCO:
+            return self.get_response(request)
+        self._aplicar(*self._contexto(request))
+        try:
+            return self.get_response(request)
+        finally:
+            self._aplicar()
+
+    @staticmethod
+    def _contexto(request):
+        from .utils.security import IP_FALLBACK, client_ip
+
+        user = getattr(request, 'user', None)
+        usuario_id = user.pk if user is not None and user.is_authenticated else ''
+        ip = client_ip(request)
+        return usuario_id, ('' if not ip or ip == IP_FALLBACK else ip), ContextoBancoMiddleware.ORIGEM
+
+    @staticmethod
+    def _aplicar(usuario_id='', ip='', origem=''):
+        try:
+            definir_contexto_banco(usuario_id, ip, origem)
+        except DatabaseError:
+            # contexto incerto: descarta a conexao (a proxima nasce limpa, connection_created)
+            logger.warning('contexto_banco_falhou', exc_info=True)
+            conexao = connections['default']
+            if not conexao.in_atomic_block:
+                conexao.close()

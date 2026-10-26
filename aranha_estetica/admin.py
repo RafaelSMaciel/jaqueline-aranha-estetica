@@ -23,12 +23,12 @@ from .models import (
     AvaliacaoNPS,
     Pacote, ItemPacote, CompraPacote, CompraPacoteItem, ConsumoSessao,
     ListaEspera,
-    LogAuditoria, Configuracao, CodigoOtp,
+    LogAuditoria, Configuracao, CodigoOtp, HistoricoAlteracao,
     RegraComissao, MovimentoComissao,
     Usuario,
 )
 from .utils.audit import registrar_log
-from .utils.busca import q_busca_cliente
+from .utils.busca import filtrar_clientes
 
 
 # =====================================================================
@@ -272,7 +272,7 @@ class ClienteAdmin(admin.ModelAdmin):
         # '529.982.247-25' precisam da mesma busca do painel.
         if not search_term.strip():
             return super().get_search_results(request, queryset, search_term)
-        return queryset.filter(q_busca_cliente(search_term)), False
+        return filtrar_clientes(queryset, search_term), False
 
     def get_actions(self, request):
         # delete_selected faz QuerySet.delete() (hard-delete em cascata),
@@ -406,6 +406,29 @@ class ProntuarioVersaoAdmin(_LeituraClinicaAuditadaMixin, admin.ModelAdmin):
         registrar_log(
             request.user, 'Visualizou versao do prontuario (django-admin)', 'prontuario',
             obj.prontuario.cliente_id, detalhes={'prontuario_versao_id': obj.pk}, request=request,
+        )
+
+
+@admin.register(HistoricoAlteracao)
+class HistoricoAlteracaoAdmin(_LeituraClinicaAuditadaMixin, admin.ModelAdmin):
+    """Trilha de dados (antes/depois) gravada por trigger no Postgres (spec padrao-sql §5.3).
+
+    Inclui dado de saude (prontuario, retencao 20 anos): so leitura, e cada
+    abertura vai p/ a auditoria (como Prontuario/ProntuarioVersao). O Django
+    admin ja e restrito a ADMIN (is_staff).
+    """
+    list_display = ('criado_em', 'tabela', 'registro_pk', 'operacao', 'usuario_autor', 'origem', 'ip_origem')
+    list_filter = ('tabela', 'operacao', 'origem')
+    search_fields = ('registro_pk__exact', 'transacao_ref__exact')  # Cast p/ texto: termo nao numerico nao quebra
+    ordering = ('-criado_em', '-id')
+    date_hierarchy = 'criado_em'
+    list_select_related = ('usuario_autor',)
+    list_per_page = 50
+
+    def _log_leitura(self, request, obj):
+        registrar_log(
+            request.user, 'Visualizou historico de alteracao (django-admin)', 'historico_alteracao', obj.pk,
+            detalhes={'tabela': obj.tabela, 'registro_pk': obj.registro_pk}, request=request,
         )
 
 

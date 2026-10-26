@@ -27,10 +27,12 @@ Um único design system (tokens Tailwind v4) → duas "peles": site editorial e 
 
 ---
 
-## 2. Banco de dados — CONCLUÍDO (remodelagem v2.1 + auditoria pré-produção)
+## 2. Banco de dados — CONCLUÍDO (remodelagem v2.1 + auditoria pré-produção + padrão SQL)
 
-Migrations `0027`–`0046` (produção ainda na `0026`; o go-live aplica todas de uma vez —
-runbook em [`PROJECT.md` §14](PROJECT.md#14-go-live--operação-runbook)).
+Migrations `0027`–`0058` (produção ainda na `0026`; o go-live aplica todas de uma vez —
+runbook em [`PROJECT.md` §14](PROJECT.md#14-go-live--operação-runbook)). Da `0048` em diante:
+padrão SQL, reestruturações e lógica no banco em [`specs/padrao-sql.md`](specs/padrao-sql.md)
+(estado atual do banco: [`PROJECT.md` §5](PROJECT.md#5-banco-de-dados)).
 
 - **50 → 34 tabelas de domínio** (33 na v2.1 + `prontuario_versao` na 0046). Alvo 33 após a
   Fase 7 (agenda 3→2).
@@ -55,7 +57,11 @@ runbook em [`PROJECT.md` §14](PROJECT.md#14-go-live--operação-runbook)).
 | 6 | Aceite unificado + trigger + collation + comments | ✅ 0037/0038 |
 | — | Auditoria SWE (validators/CHECK) | ✅ 0039 |
 | — | Auditoria pré-produção (depoimentos, PROTECT, contas demo, retorno único, prova de aceite, termo LGPD, histórico do prontuário) | ✅ 0040–0046 |
-| 7 | Agenda 3→2 (`agenda_horario` + `agenda_excecao`) | ⏳ pendente — PR dedicada (mexe no SlotService) |
+| — | Termo SAÚDE, reembolso, promoção geral | ✅ 0047 |
+| 7 / (a) | Agenda 4→2 (`agenda_horario` + `agenda_excecao`) — substituiu a "Fase 7" | ✅ 0048 |
+| (b)–(f) | Tokens em hash (`link_acesso`), consentimentos com histórico, questionário único, pacote congelado, comissão em livro-razão | ✅ 0049–0053 |
+| N1–N2 | Padrão de nomes (tabelas, colunas, constraints, índices, PK/FK com `ON DELETE` real) | ✅ 0054–0055 |
+| L1–L3 | Lógica no banco: trilha `historico_alteracao` + triggers, funções de leitura e views com paridade, procedures como fonte única | ✅ 0056–0058 |
 
 ---
 

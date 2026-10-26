@@ -16,6 +16,12 @@ class AranhaEsteticaConfig(AppConfig):
             if conexao.connection is not None:
                 registrar_collation_sqlite(None, conexao)
 
+        # Trilha historico_alteracao (so PG): conexao nova nasce sem autor/IP/origem
+        # (GUCs app.*, utils/banco) — o middleware/cron/Celery definem e limpam.
+        from .utils.banco import limpar_contexto_conexao_nova
+        connection_created.connect(limpar_contexto_conexao_nova, dispatch_uid='aranha_estetica_contexto_banco')
+        from . import sinais_celery  # noqa: F401  task_prerun/task_postrun (worker real)
+
         # Forca 2FA no Django Admin (substitui classe do site)
         from django.contrib import admin
         from two_factor.admin import AdminSiteOTPRequired
