@@ -35,8 +35,10 @@ jobs:
         run: python manage.py check
       - name: Migrations em dia com os models
         run: python manage.py makemigrations --check --dry-run
-      - name: Suite Django
-        run: python manage.py test aranha_estetica
+      # tests/test_migrations_dados.py (tag `migracoes`, ~3/4 do tempo) roda no job
+      # `migracoes-sqlite`, em paralelo; localmente a suite padrao continua rodando TUDO
+      - name: Suite Django (sem a tag migracoes)
+        run: python manage.py test aranha_estetica --exclude-tag migracoes
       - name: Testes estilo pytest (fixtures/funcoes que o runner do Django nao coleta)
         run: |
           files=$(grep -lE '^(import pytest|from pytest)|@pytest' aranha_estetica/tests/test_*.py || true)
@@ -50,6 +52,23 @@ jobs:
           EMAIL_BACKEND: anymail.backends.resend.EmailBackend
           RESEND_API_KEY: ci-nao-secreto
         run: python manage.py check --deploy --fail-level ERROR
+
+  migracoes-sqlite:
+    name: Django (SQLite) — data migrations (tag migracoes)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements*.txt
+            requirements.lock
+      - run: pip install -r requirements-dev.txt -c requirements.lock
+      # desce e sobe a cadeia 0028 -> ultima com dados "sujos" (reverso de toda migration)
+      - name: Data migrations (tests/test_migrations_dados.py)
+        run: python manage.py test aranha_estetica --tag migracoes
 
   postgres:
     name: Postgres 18 — cadeia de migrations + suite
@@ -91,8 +110,42 @@ jobs:
       # Bloqueante: regressao que so aparece no Postgres (EXCLUDE, CHECK, trigger,
       # collation, migrate atomico) nao pode entrar verde — tests/test_pg_ddl.py
       # confere cada objeto so-Postgres das migrations (no SQLite ele e pulado).
-      - name: Suite Django no Postgres
-        run: python manage.py test aranha_estetica
+      # inclui test_pg_historico (trilha/GUCs), test_pg_paridade (fn_*/vw_*/sp_* x Python) e
+      # test_nomes_padrao (tg_<t>_atualizado_em); a tag migracoes roda em postgres-migracoes
+      - name: Suite Django no Postgres (sem a tag migracoes)
+        run: python manage.py test aranha_estetica --exclude-tag migracoes
+
+  postgres-migracoes:
+    name: Postgres 18 — data migrations (tag migracoes)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/ci
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/ci
+      PG_EXIGE_ICU: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements*.txt
+            requirements.lock
+      - run: pip install -r requirements-dev.txt -c requirements.lock
+      # reverso/ida de cada migration no Postgres (triggers, funcoes, views, procedures 0056-0058)
+      - name: Data migrations no Postgres (tests/test_migrations_dados.py)
+        run: python manage.py test aranha_estetica --tag migracoes
 
   front:
     name: Front (Vite + Tailwind)

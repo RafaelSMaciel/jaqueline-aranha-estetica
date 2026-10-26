@@ -11,7 +11,7 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db.models import Avg, Count, Q
+from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -20,6 +20,7 @@ from ..decorators import staff_required
 from ..models import AvaliacaoNPS, MovimentoComissao, Profissional
 from ..services.comissao_service import ComissaoService
 from ..utils.audit import registrar_log
+from ..utils.nps import resumo_nps
 from ..utils.parse import id_int
 
 logger = logging.getLogger(__name__)
@@ -52,19 +53,14 @@ def painel_nps(request):
     if inicio is not None:
         qs = qs.filter(criado_em__gte=inicio)
 
-    agg = qs.aggregate(
-        total=Count('id'),
-        media=Avg('nota'),
-        promotores=Count('id', filter=Q(nota__gte=9)),
-        neutros=Count('id', filter=Q(nota__gte=7, nota__lte=8)),
-        detratores=Count('id', filter=Q(nota__lte=6)),
-    )
-    total = agg['total'] or 0
-    promotores = agg['promotores'] or 0
-    neutros = agg['neutros'] or 0
-    detratores = agg['detratores'] or 0
+    # utils/nps: score e media "meio p/ cima" (= fn_nps_periodo do Postgres, paridade testada)
+    resumo = resumo_nps(qs)
+    total = resumo['qtd_respostas']
+    promotores = resumo['qtd_promotores']
+    neutros = resumo['qtd_neutros']
+    detratores = resumo['qtd_detratores']
 
-    nps_score = round((promotores - detratores) * 100 / total) if total else None
+    nps_score = resumo['nps']
     pct = lambda n: round(n * 100 / total) if total else 0  # noqa: E731
 
     # Distribuicao por nota (0..10) p/ as barras.
@@ -97,7 +93,7 @@ def painel_nps(request):
     ctx = {
         'periodo': periodo,
         'total': total,
-        'media': round(agg['media'], 1) if agg['media'] is not None else None,
+        'media': resumo['nota_media'],
         'promotores': promotores, 'promotores_pct': pct(promotores),
         'neutros': neutros, 'neutros_pct': pct(neutros),
         'detratores': detratores, 'detratores_pct': pct(detratores),

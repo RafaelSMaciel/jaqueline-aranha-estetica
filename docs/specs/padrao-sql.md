@@ -1,11 +1,12 @@
 # Padrão SQL e esquema-alvo do banco — Shiva Zen
 
 > **Spec única** (sobrescrever a cada revisão — política do dono: 1 MD por assunto, sem versões
-> acumuladas). **Status: fases (a)–(f) e N1–N2 IMPLEMENTADAS (migrations `0048_agenda_unificada`,
-> `0049_link_acesso`, `0050_consentimento`, `0051_formulario_prontuario`,
-> `0052_compra_pacote_item`, `0053_comissao_ledger`, `0054_padrao_nomes_tabelas_colunas` e
-> `0055_padrao_nomes_constraints_indices`; notas de implementação no fim do §4.a–§4.f e no
-> §3.6.5); L1–L3 seguem em DESIGN.** Base verificada:
+> acumuladas). **Status: TUDO IMPLEMENTADO — fases (a)–(f), N1–N2 e L1–L3 (migrations
+> `0048_agenda_unificada`, `0049_link_acesso`, `0050_consentimento`, `0051_formulario_prontuario`,
+> `0052_compra_pacote_item`, `0053_comissao_ledger`, `0054_padrao_nomes_tabelas_colunas`,
+> `0055_padrao_nomes_constraints_indices`, `0056_logica_triggers_historico`,
+> `0057_logica_views_funcoes` e `0058_logica_procedures`; notas de implementação no fim do
+> §4.a–§4.f, no §3.6.5 e no §5.9).** Base verificada:
 > `front-fundacao` = `main` @ `1462eff`, migrations até `0047`, produção na `0026`, Django 5.2.1, PostgreSQL 18 (Railway, com
 > `btree_gist`, `pg_trgm`, `unaccent`, ICU). Tudo aqui entra como migrations **`0048`+** — as
 > `0027`–`0047` não são editadas. Histórico das 0027–0047: [`remodelagem-banco-v2.md`](remodelagem-banco-v2.md)
@@ -1665,8 +1666,8 @@ terceiros (§1.5) ficam fora por allowlist.
 - **Teste de conformidade** (`tests/test_nomes_padrao.py`, só PG, 11 testes): o do §3.6.4 + nomes
   ASCII de tabela/coluna, `_id` só em FK, todo objeto do `Meta` e os só-PG presentes com o nome
   exato, FK `DEFERRABLE INITIALLY DEFERRED`, sequências `<t>_id_seq`, FK de 1 coluna com o nome
-  exato `fk_<t>_<coluna>`. "Tabela com `atualizado_em` sem `tg_<t>_atualizado_em`" fica pulado até
-  existir a 0056 (L1). O gist do EXCLUDE conta como índice da FK (no harness local sem `btree_gist`
+  exato `fk_<t>_<coluna>`. "Tabela com `atualizado_em` sem `tg_<t>_atualizado_em`" ficou pulado até
+  a 0056 (L1) e agora vale sempre (o trigger tem de chamar `fn_definir_atualizado_em`). O gist do EXCLUDE conta como índice da FK (no harness local sem `btree_gist`
   a 1ª chave vira `int8range(col, col)`: o teste aceita expressão sobre a coluna).
 - **Custo nos testes**: a 0054/0055 somam ~510 operações; o `test_migrations_dados` desce e sobe a
   cadeia ~40 vezes e o Django re-renderiza o estado a cada operação (perfilado: ~85% do tempo é
@@ -3725,13 +3726,126 @@ zero; ali os `sp_*` são exercitados pelos próprios testes de serviço (mesma a
 | `vw_consentimento_atual`, `fn_tem_consentimento` | `services/consentimentos.estado_atual` | concede → revoga → reconcede; empate de `registrado_em` |
 | `vw_faturamento_mensal`, `vw_cliente_resumo` | agregação ORM com as regras de `admin_financeiro` (D20) | mês com pacote cancelado com reembolso, sessão de pacote, retorno |
 | `fn_clientes_para_anonimizar` | `LgpdService.candidatos_purga` | um cliente por regra de exclusão |
-| `sp_anonimizar_cliente` | `LgpdService._esquecer_cliente_python` | **dois titulares idênticos** (fábrica `cenario_titular(sufixo)`): Python no A, `CALL` no B, compara uma "foto" normalizada (ids trocados por marcadores, instantes ignorados) de cliente, consentimentos, links, OTP, espera, notificações, fichas, NPS, `log_auditoria`, `django_admin_log` |
+| `sp_anonimizar_cliente` | `LgpdService._esquecer_cliente_python` | ~~dois titulares idênticos~~ → **a mesma fixture** (implementado assim, §5.9): Python numa savepoint desfeita depois da "foto", `CALL` noutra; foto normalizada (linhas novas sem id, instantes ignorados) de cliente, consentimentos (+ vigente), links, OTP, espera, notificações, fichas, NPS, `log_auditoria`, `django_admin_log`, prontuário e atendimentos; uma 2ª titular e um log de terceiro com o mesmo nome provam que nada fora do titular muda |
 | `sp_aplicar_retencao_lgpd` | as 3 funções Python | idem, com `p_confirmar_por_cliente=false` (o `TestCase` está numa transação) |
 | `sp_purgar_dados_expirados`, `sp_expirar_pacotes` | funções Python do housekeeping / `job_expirar_pacotes` | contagens e linhas remanescentes iguais |
 
 Regra de manutenção: mudou a regra no Python → o teste de paridade quebra no CI Postgres até a
 função/procedure ser atualizada por uma migration nova (`CREATE OR REPLACE`). É isso que torna
 aceitável ter "duas fontes": a leitura tem espelho testado; a escrita (procedures) tem **uma** fonte.
+
+### 5.9 Implementação (0056–0058) — o que ficou diferente do desenho acima, e por quê
+
+- **SQL versionado** em `aranha_estetica/migrations/sql/v0056_triggers.py`, `v0057_leitura.py` e
+  `v0058_procedures.py` (pacote, não migration: o `MigrationLoader` só carrega módulos), cada um
+  importado só pela sua migration; `schema_editor.execute(sql, None)`; reverso = `DROP … IF EXISTS`
+  na ordem inversa (views antes das funções; `fn_bloquear_mutacao` fica — é da 0052; as
+  extensões ficam, como o `btree_gist` da 0035). Nenhuma das três faz DML: no upgrade 0026 → 0058
+  a trilha e o `atualizado_em` nascem depois de todo DML de migração.
+- **0056**: `CreateModel HistoricoAlteracao` (atributos = colunas; `registro_pk` sem `db_column`;
+  `usuario_autor` `SET_NULL` sem índice automático — o `ix_historico_alteracao_usuario_autor_parcial`
+  cobre) + `PadronizarNomes(['historico_alteracao'])`; o CHECK jsonb `…_colunas_alteradas_lista`
+  é só-PG (no SQLite ficam os 2 CHECKs do `Meta`). `fn_registrar_historico` = corpo do §5.3
+  (só o alias `c(coluna)` explícito). **Python cobre o SQLite**: `HistoricoAlteracao` recusa
+  `save()` de linha existente, `delete()` e `QuerySet.delete()` — mas **não** `QuerySet.update()`:
+  o `Collector` do Django faz o `SET NULL` do autor por `QuerySet.update` (é a única mutação que o
+  trigger aceita; mesmo motivo do `ProntuarioVersao`). `AnotacaoSessao` ganhou o mesmo guarda
+  (save/delete/`QuerySet.update/delete` recusam; FKs `PROTECT`, o Django nunca precisa de UPDATE).
+  Admin `HistoricoAlteracaoAdmin` só leitura com `LogAuditoria` "Visualizou historico de alteracao
+  (django-admin)" a cada abertura (dado de saúde do prontuário); busca por `registro_pk__exact` /
+  `transacao_ref__exact` (o admin faz `Cast` p/ texto: termo não numérico não quebra).
+- **Contexto (`utils/banco.py`)**: `definir_contexto_banco(usuario_id, ip, origem)` (o
+  `set_config(..., false)` do §5.3; no SQLite é no-op) e `limpar_contexto_conexao_nova`
+  (`connection_created`, em `AppConfig.ready`). `ContextoBancoMiddleware` logo depois do
+  `OTPMiddleware`, com dois acréscimos: **`/healthz/` não toca o banco** (liveness do Railway não pode
+  depender do Postgres) e, se definir/limpar falhar (`DatabaseError`), loga e **fecha a conexão**
+  (fora de `atomic`) — nunca segue com o contexto de outra pessoa. IP desconhecido
+  (`client_ip` → `0.0.0.0`) vira `''` (= `NULL` na trilha). Cron: `views/cron.py` grava
+  `cron:<job>` + IP antes de `job.apply()` (o `finally` do middleware limpa). Celery
+  (`aranha_estetica/sinais_celery.py`): `task_prerun`/`task_postrun` com `celery:<task>` **só em task
+  não-eager** — a eager (produção sem worker, testes) roda dentro do request/cron que a disparou e
+  herda o contexto dele (`web` + usuário ou `cron:<job>`). `migrate_atomico`: `SET LOCAL app.origem =
+  'migracao'` logo após o `lock_timeout`.
+- **0057**: `CREATE EXTENSION IF NOT EXISTS … WITH SCHEMA public` (o `fn_sem_acento` chama
+  `public.unaccent` com o dicionário `public.unaccent`). `fn_horarios_livres` foi **reescrita sobre o
+  `SlotService` real** (não sobre o rascunho): horário diferente casado por intervalo de datas e
+  "do profissional ou global" (como o `excecoes` do Python), duração `<> 0` (o `if
+  procedimento.duracao_minutos` do Python), `coalesce(intervalo_minutos, 0)` e sobreposição com
+  `<`/`>` explícitos sobre arrays de início/fim (o `&&` de `tstzrange` trata intervalo vazio diferente
+  do `any(...)` do Python). `vw_cliente_resumo.valor_pacotes` filtra `valor_pago >
+  valor_reembolsado` (= `financeiro.vendas_pacote`; mesmo total, paridade explícita). Os demais
+  objetos têm o texto do §5.4/§5.5 (colunas conferidas no esquema real 0055: `eh_*`,
+  `qtd_sessoes`, `intervalo_minutos`, `antecedencia_*`, `movimento_comissao_origem_id`,
+  `respostas`, `url_foto`…).
+- **Busca** (`utils/busca.filtrar_clientes(qs, termo, incluir_email=True)`): no PG
+  `qs.alias(nome_sem_acento=SemAcento(F('nome')))` + `nome_sem_acento__contains=SemAcento(Value(termo))`
+  (o `contains` escapa `%`/`_` do termo) OR e-mail/telefone/CPF; no SQLite o `q_busca_cliente` de
+  antes (mantido, portável). Painel (clientes, prontuário, novo agendamento) e Django admin usam
+  `filtrar_clientes`. O uso do índice só é verificável com o `pg_trgm` real: o teste (EXPLAIN com
+  `enable_seqscan=off`) roda no CI (PG 18) e se pula no harness local.
+- **NPS (D7)**: `utils/nps.py` — `calcular_nps` (Decimal `ROUND_HALF_UP`: empate se afasta do zero,
+  = `round(numeric)` do PG), `media_nota` (idem com 1 casa, = `round(avg(nota), 1)`) e
+  `resumo_nps(qs)` (as 6 colunas do `fn_nps_periodo`, 1 query). `dashboard.painel_overview` e
+  `relatorios.painel_nps` usam `resumo_nps`; efeito visível: o score muda 1 ponto nos casos .5 e a
+  média passa a "meio p/ cima" (o teste existente — 33 — continua valendo).
+- **0058**: corpos do §5.6 com uma correção achada pela suíte no PG: `sp_anonimizar_cliente` usa
+  **`clock_timestamp()`** (não `now()`) e grava a revogação com `registrado_em = greatest(relógio,
+  último registro do par + 1 µs)`. Com `now()` (início da transação) a revogação podia ficar
+  **anterior** à concessão gravada pelo Python na mesma transação — ou com o relógio da aplicação
+  adiantado em relação ao do banco — e "o mais recente manda" deixava o consentimento vigente.
+  `sp_aplicar_retencao_lgpd`/`sp_purgar_dados_expirados`/`sp_expirar_pacotes` seguem com
+  `now()` (cortes de retenção).
+- **Python que chama (fonte única no PG)**: `LgpdService.esquecer_cliente` → `CALL
+  sp_anonimizar_cliente(cliente, autor, ip)` + `cliente.refresh_from_db()`; autor/IP pela regra do
+  `registrar_log` (`_autor_e_ip`: sem `usuario`, o do `request`; IP `_ip_valido(client_ip)`); o corpo
+  antigo virou `_esquecer_cliente_python` (fallback/referência). `LgpdService.aplicar_retencao()`
+  (novo; usado pelo `job_lgpd_purgar_inativos`) → `CALL sp_aplicar_retencao_lgpd(…,
+  not connection.in_atomic_block, …)`; no SQLite as 3 funções de antes — `purgar_inativos`,
+  `purgar_fichas_sem_atendimento` e `purgar_lista_espera_vencida` continuam públicas (cada
+  anonimização do laço Python já passa pela procedure no PG). `job_expirar_pacotes` → `CALL
+  sp_expirar_pacotes(hoje(), NULL)` (o "hoje" continua vindo do Python: mockável). `job_housekeeping`
+  no PG: as etapas `otp`, `notificacoes`, `auditoria`, `links`, `historico` viram **uma** chamada
+  (`_purgar_no_banco`), mas o resumo mantém as 5 chaves (mesmo formato do SQLite) e cada etapa que
+  a procedure reportar em `etapas_com_falha` derruba o job (500), como antes. O fallback Python ganhou
+  `_purgar_links` (`RETENCAO_LINK_ACESSO_DIAS`, 90 — setting novo, passado em
+  `p_retencao_link_dias`) e `_purgar_historico` (liga a mesma flag local no PG).
+- **Paridade (`tests/test_pg_paridade.py`, 14 testes)**: as procedures são comparadas sobre a
+  **mesma fixture** (Python numa savepoint desfeita depois da foto, `CALL` noutra — ids iguais, mais
+  exato que os "dois titulares" do desenho), com `override_settings(FORCAR_LOGICA_PYTHON=True)` no lado
+  Python; matriz de slots = 2 profissionais × 4 variações de procedimento (sem, sem intervalo, 60+15,
+  45+10) × 67 dias + `ignorar_atendimento_id` (feriados semeados + recesso global, feriado inativo,
+  folga em intervalo, horário diferente ativo/inativo, bloqueio pontual cruzando meia-noite e inativo,
+  8 bloqueios recorrentes — os do §5.8 + `MONTHLY;BYMONTHDAY=15` cruzando meia-noite e `DAILY`
+  global com fim); ocorrências em janelas de 1 dia e de 1 mês; "item reconstruído" da 0052;
+  NPS +12,5/−12,5/média 7,75; comissão pendente/paga/estornada/paga-e-estornada (saldo −60);
+  consentimento concede/revoga/reconcede + empate de `registrado_em`; faturamento com sessão de
+  pacote, retorno, valor 0, reembolso parcial/total e atendimento às 23:30 do último dia do mês
+  (mês local ≠ mês UTC). Teste de mutação manual: com o Python alterado (status que ocupam a
+  agenda) a paridade de slots reprova — a matriz não compara só listas vazias (> 200 dias com slot,
+  > 50 ocorrências recorrentes).
+- **Conformidade/DDL**: `test_nomes_padrao` com o critério do `atualizado_em` ativo (trigger com
+  `tgfoid = fn_definir_atualizado_em`) e `ix_cliente_nome_trgm`/`ck_historico_alteracao_*` na lista
+  só-PG; `test_pg_ddl` confere os 45 triggers, as 22 funções, as 4 procedures, as 9 views, as 2
+  extensões, o índice trigram e `fn_fuso_clinica() = settings.TIME_ZONE`.
+- **Harness local** (pgserver 16 mingw, sem contrib): extensões **falsas** `pg_trgm` (vazia) e
+  `unaccent` (`translate()` com o dicionário `simple`) instaladas no `share/extension` do pgserver
+  e o `USING gin (… gin_trgm_ops)` trocado por `btree` (mesmo nome) no wrapper do ensaio — só no
+  harness; o código de produção cria as extensões reais.
+- **Resultados**: `check` e `makemigrations --check` limpos; SQLite 1393 testes OK (75 pulados —
+  os só-PG); Postgres (harness abaixo) 1388 OK (5 pulados: os só-SQLite, o EXPLAIN do trigram sem o
+  `pg_trgm` real e os 3 de antes); `--exclude-tag migracoes` = 1353 testes, `--tag migracoes` = 40.
+  Ensaio PG: 0026 → 0058 numa transação (`migrate_atomico`, 32
+  migrations) sobre o banco "de produção" dos ensaios anteriores (p52_base = l49 + c50 + p52): ok,
+  45 triggers / 22 funções / 4 procedures / 9 views, **0 linhas em `historico_alteracao`**,
+  conformidade ok; a mesma base em 2 passos (0026 → 0055, foto; 0055 → 0058): as 46 tabelas de
+  domínio iguais (contagem + md5 das linhas), só `auth_permission` (+4) e `django_content_type`
+  (+1) do model novo; contagens do caminho direto = as do caminho em 2 passos; do zero ok
+  (conformidade ok); reverso 0058 → 0055 (dados iguais à foto da 0055; colunas, constraints,
+  índices e triggers idênticos; sobra só a função da extensão, que fica) → 0058 (dados iguais,
+  conformidade ok). Smoke no banco migrado: request autenticada (ADMIN, IP 203.0.113.77) salva o
+  prontuário → 1 linha UPDATE em `historico_alteracao` com `colunas_alteradas = ["alergias"]`,
+  antes/depois, `usuario_autor_id` do ADMIN, `ip_origem` e `origem = 'web'`; contexto da sessão
+  vazio depois do request.
 
 ---
 
@@ -3754,9 +3868,9 @@ tabelas que criou.
 | (f) ✅ | `0053_comissao_ledger` | pré-checagem → saneamento do nome da indicada em `movimento_carteira` (trigger da 0038 derrubado/recriado no passo) → `RemoveConstraint uniq_comissao_ativa_por_atendimento` → `AlterField criado_em` (`db_default`) → `AddField tipo/movimento_origem/usuario_autor` → `RunPython` (PAGAMENTO/ESTORNO) → `SET CONSTRAINTS…` → `RemoveIndex idx_comissao_prof_status` → `RemoveField status/pago_em` → estado `regra` PROTECT → `AddConstraint` (UNIQUE/CHECK) + `AddIndex` → `PadronizarFks` → PG: `fn_movimento_comissao_validar` + trigger, `tg_movimento_comissao_imutavel` | `valor <= 0`; 2+ linhas p/ o mesmo atendimento; status fora do domínio | §4.f (ledger, saldo negativo no painel) + §7.3 itens 1–3 |
 | N1 ✅ | `0054_padrao_nomes_tabelas_colunas` | PG: **derruba** `trg_aceite_termo_imutavel`/`trg_prontuario_versao_imutavel`/`trg_versao_termo_imutavel`/`trg_movimento_carteira_imutavel` e as funções da 0038/0046 → `AlterModelTable` ×3 + sequências → 64 `RenomearColuna` (§3.6.2) → tipos (`registro_pk bigint`, `*_hash char(64)`; `conteudo_hash` anulável) → `RunPython` de dados (`''→NULL` de `conteudo_hash`/e-mail/CPF/telefone/`email_contato`, `NULL→''` dos textos, `atualizado_em` nulo = `criado_em`, `log_auditoria.tabela` das 3 tabelas renomeadas) → `NOT NULL` → `AddField criado_em/atualizado_em` onde faltam → `db_default` → `Positive*Field→SmallIntegerField` → garante a collation + `db_collation='pt_br'` (§3.6.3) → PG: `fn_bloquear_mutacao` (`CREATE OR REPLACE`), `fn_aceite_termo_imutavel`, `fn_versao_termo_imutavel`, `fn_prontuario_versao_imutavel` e os `tg_*` | Postgres sem ICU (collation `pt_br`) | só `db_column`/`db_table`/`db_default`/`db_collation` nos models, `registrar_log` com `tabela or ''`, `''`/`NULL` no `save()` de cliente/espera e nos agendamentos, SQL cru dos testes (`test_pg_ddl`, `test_aceite_termo_modelo`) (§3.6.5) |
 | N2 ✅ | `0055_padrao_nomes_constraints_indices` | pré-checagem (1ª operação) → `RenomearIndice` ×15 → `RenomearConstraint` ×39 (§3.3) + PG: `ex_atendimento_sobreposicao` e os CHECK jsonb da 0043 (`RENAME` + `VALIDATE`) → unique/`unique_together` de campo → `Meta` (`AlterField`/`AlterUniqueTogether` + `AddConstraint`) e `SoltarIndiceDeCampo` ×47 → `RemoveIndex` dos redundantes + RECRIA (UNIQUE parciais de cliente, teto do OTP) → `AddIndex` dos novos → `AddConstraint` dos CHECKs novos → PG: CHECK regex de cliente recriados, CHECK jsonb/regex novos, `DROP` do GIN → `PadronizarNomes()` (PK, FK recriadas com `ON DELETE`, UNIQUE de OneToOne, sequências, `DROP` dos `_like`) → `db_table_comment` (35 tabelas) / `ComentarColuna` | linha que viola CHECK/UNIQUE novo ou jsonb da 0043 | `Meta` de todos os models, `AvaliacaoNPS.clean()`; `tests/test_nomes_padrao.py` (§3.6.5) |
-| L1 | `0056_logica_triggers_historico` | `CreateModel HistoricoAlteracao` → PG: `fn_definir_atualizado_em` + 22 triggers, `tg_anotacao_sessao_imutavel`, `fn_historico_alteracao_imutavel` + trigger, `fn_registrar_historico` + 11 triggers | — | `ContextoBancoMiddleware`, `connection_created`, `cron.py`, sinais Celery, `migrate_atomico` (`app.origem`), `tests/test_pg_historico.py` |
-| L2 | `0057_logica_views_funcoes` | PG: `CREATE EXTENSION pg_trgm, unaccent` → `fn_fuso_clinica`, `fn_data_local`, `fn_sem_acento` → `ix_cliente_nome_trgm` → 8 funções de leitura → 9 views | — | `filtrar_clientes` (trigram), `utils/nps.calcular_nps` (arredondamento), `tests/test_pg_paridade.py` (leitura) |
-| L3 | `0058_logica_procedures` | PG: 4 procedures | — | `utils/banco.py`, `LgpdService`, `tasks`, `tasks_manutencao`, paridade das procedures |
+| L1 ✅ | `0056_logica_triggers_historico` | `CreateModel HistoricoAlteracao` → `PadronizarNomes` → PG: `ck_historico_alteracao_colunas_alteradas_lista`, `fn_definir_atualizado_em` + 22 triggers, `tg_anotacao_sessao_imutavel`, `fn_historico_alteracao_imutavel` + trigger, `fn_registrar_historico` + 11 triggers | — | `ContextoBancoMiddleware`, `connection_created`, `cron.py`, sinais Celery, `migrate_atomico` (`app.origem`), admin só leitura da trilha, `AnotacaoSessao` append-only no Python, `tests/test_pg_historico.py`, critério do `atualizado_em` no `test_nomes_padrao` (§5.9) |
+| L2 ✅ | `0057_logica_views_funcoes` | PG: `CREATE EXTENSION pg_trgm, unaccent` → `fn_fuso_clinica`, `fn_data_local`, `fn_sem_acento` → `ix_cliente_nome_trgm` → 8 funções de leitura → 9 views | sem `pg_trgm`/`unaccent` | `utils/busca.filtrar_clientes` (trigram), `utils/nps` (arredondamento D7), `tests/test_pg_paridade.py` (leitura) (§5.9) |
+| L3 ✅ | `0058_logica_procedures` | PG: 4 procedures | — | `utils/banco.py`, `LgpdService.esquecer_cliente`/`aplicar_retencao`, `tasks`, `tasks_manutencao` (+ purga de links e da trilha no fallback), paridade das procedures (§5.9) |
 
 Cada `RunSQL`/`RunPython` só-PG tem reverso (`DROP … IF EXISTS` / restauração), e a sequência toda
 precisa descer e subir: `tests/test_migrations_dados.py` migra de volta até a `0028` e sobe de novo.
@@ -3880,4 +3994,4 @@ Depois de implementar: atualizar `docs/PROJECT.md` §5 (tabelas/invariantes) e �
 - **Não** depender de `pg_cron`: o cron HTTP (`/cron/run/<job>/`) continua chamando os jobs, que
   chamam as procedures.
 
-_Última atualização: 2026-10-26 — fases (a)–(f) implementadas (0048–0053: agenda 4→2, tokens em hash, consentimentos, questionário único, pacote congelado, comissão em livro-razão) e fase de nomes N1–N2 (0054/0055, notas no §3.6.5); L1–L3 em design._
+_Última atualização: 2026-10-26 — tudo implementado: fases (a)–(f) (0048–0053: agenda 4→2, tokens em hash, consentimentos, questionário único, pacote congelado, comissão em livro-razão), fase de nomes N1–N2 (0054/0055, notas no §3.6.5) e fase de lógica L1–L3 (0056–0058: triggers + trilha `historico_alteracao`, extensões/utilitárias/busca trigram/funções de leitura/views com paridade, procedures como fonte única; notas no §5.9)._

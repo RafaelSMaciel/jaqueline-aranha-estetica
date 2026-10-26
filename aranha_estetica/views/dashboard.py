@@ -15,7 +15,8 @@ from ..models import (
 )
 from ..decorators import staff_required
 from ..services import financeiro, links
-from ..utils.busca import q_busca_cliente
+from ..utils.busca import filtrar_clientes
+from ..utils.nps import resumo_nps
 from ..utils.datas import fmt_local, hoje as hoje_local
 from ..utils.parse import id_int
 from ..utils.saude import alertas_saude
@@ -113,16 +114,9 @@ def painel_overview(request):
     ).distinct().count()
 
     # NPS de verdade (%promotores - %detratores), mesma formula de relatorios.painel_nps
+    # (utils/nps: meio p/ cima, = fn_nps_periodo do Postgres)
     limite_30d = timezone.now() - timedelta(days=30)
-    agg_nps = AvaliacaoNPS.objects.filter(criado_em__gte=limite_30d).aggregate(
-        total=Count('id'),
-        prom=Count('id', filter=Q(nota__gte=9)),
-        detr=Count('id', filter=Q(nota__lte=6)),
-    )
-    nps_30d = (
-        round((agg_nps['prom'] - agg_nps['detr']) * 100 / agg_nps['total'])
-        if agg_nps['total'] else None
-    )
+    nps_30d = resumo_nps(AvaliacaoNPS.objects.filter(criado_em__gte=limite_30d))['nps']
 
     proximos_agendamentos = _anexar_alertas_saude(list(Atendimento.objects.filter(
         data_hora_inicio__gte=timezone.now(),
@@ -231,7 +225,7 @@ def painel_clientes(request):
     clientes = Cliente.objects.all().order_by('-criado_em')
 
     if search:
-        clientes = clientes.filter(q_busca_cliente(search))
+        clientes = filtrar_clientes(clientes, search)
 
     paginator = Paginator(clientes, 50)
     page = request.GET.get('page', 1)

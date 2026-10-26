@@ -44,6 +44,7 @@ CONSTRAINTS_SO_PG = {
     'ck_agenda_excecao_regra_recorrencia_suportada': '0048',
     'ck_link_acesso_token_hash_formato': '0049',
     'fk_consumo_sessao_compra_pacote_item_compra': '0052',
+    'ck_historico_alteracao_colunas_alteradas_lista': '0056',
 }
 # tgname -> (migration que cria, tabela). A 0047 (termo SAUDE, reembolso,
 # promocao geral) so cria CHECKs de model (existem no SQLite tambem) e nao
@@ -59,6 +60,35 @@ TRIGGERS_SO_PG = {
     'tg_consumo_sessao_validar': ('0052', 'consumo_sessao'),
     'tg_movimento_comissao_validar': ('0053', 'movimento_comissao'),
     'tg_movimento_comissao_imutavel': ('0053', 'movimento_comissao'),
+    # L1 (0056, spec §5.2/§5.3)
+    'tg_anotacao_sessao_imutavel': ('0056', 'anotacao_sessao'),
+    'tg_historico_alteracao_imutavel': ('0056', 'historico_alteracao'),
+    **{f'tg_{t}_atualizado_em': ('0056', t) for t in (
+        'usuario', 'assinatura_push', 'cliente', 'profissional', 'procedimento', 'preco', 'promocao',
+        'agenda_horario', 'agenda_excecao', 'atendimento', 'notificacao', 'lista_espera', 'avaliacao_nps',
+        'prontuario', 'formulario', 'resposta_formulario', 'versao_termo', 'pacote', 'compra_pacote',
+        'carteira', 'regra_comissao', 'configuracao')},
+    **{f'tg_{t}_historico': ('0056', t) for t in (
+        'prontuario', 'atendimento', 'compra_pacote', 'carteira', 'regra_comissao', 'preco', 'promocao',
+        'pacote', 'versao_termo', 'usuario', 'configuracao')},
+}
+# rotinas e views da logica no banco (L1-L3, spec §5): nome -> prokind ('f' funcao, 'p' procedure, 'v' view)
+ROTINAS_SO_PG = {
+    **dict.fromkeys((
+        'fn_bloquear_mutacao', 'fn_aceite_termo_imutavel', 'fn_versao_termo_imutavel',
+        'fn_prontuario_versao_imutavel', 'fn_link_acesso_imutavel', 'fn_consentimento_imutavel',
+        'fn_consumo_sessao_validar', 'fn_movimento_comissao_validar',
+        'fn_definir_atualizado_em', 'fn_historico_alteracao_imutavel', 'fn_registrar_historico',   # 0056
+        'fn_fuso_clinica', 'fn_data_local', 'fn_sem_acento',                                         # 0057
+        'fn_recorrencia_casa_dia', 'fn_ocorrencias_recorrencia', 'fn_horarios_livres', 'fn_saldo_pacote',
+        'fn_nps_periodo', 'fn_saldo_comissao', 'fn_tem_consentimento', 'fn_clientes_para_anonimizar',
+    ), 'f'),
+    **dict.fromkeys(('sp_anonimizar_cliente', 'sp_aplicar_retencao_lgpd', 'sp_purgar_dados_expirados',
+                     'sp_expirar_pacotes'), 'p'),                                                    # 0058
+}
+VIEWS_SO_PG = {
+    'vw_agenda_dia', 'vw_faturamento_mensal', 'vw_nps_mensal', 'vw_comissao', 'vw_comissao_saldo',
+    'vw_cliente_resumo', 'vw_consentimento_atual', 'vw_pacote_saldo', 'vw_atendimento_sem_desfecho',
 }
 
 
@@ -89,6 +119,36 @@ class DDLSoPostgresTests(TestCase):
             triggers = dict(cursor.fetchall())
         self.assertEqual(constraints, set(CONSTRAINTS_SO_PG))
         self.assertEqual(triggers, {nome: tabela for nome, (_, tabela) in TRIGGERS_SO_PG.items()})
+
+    def test_logica_no_banco_rotinas_views_e_indice_trigram(self):
+        """L1-L3 (0056-0058, spec §5): 45 triggers, 22 funcoes, 4 procedures, 9 views, trigram."""
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT p.proname, p.prokind FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
+                "WHERE n.nspname = 'public' AND p.proname ~ '^(fn|sp)_'"
+            )
+            rotinas = dict(cursor.fetchall())
+            cursor.execute("SELECT viewname FROM pg_views WHERE schemaname = 'public'")
+            views = {row[0] for row in cursor.fetchall()}
+            cursor.execute("SELECT count(*) FROM pg_trigger WHERE NOT tgisinternal AND tgname ~ '^tg_'")
+            (qtd_triggers,) = cursor.fetchone()
+            cursor.execute("SELECT extname FROM pg_extension WHERE extname IN ('pg_trgm', 'unaccent')")
+            extensoes = {row[0] for row in cursor.fetchall()}
+            cursor.execute("SELECT pg_get_indexdef('ix_cliente_nome_trgm'::regclass)")
+            (indice,) = cursor.fetchone()
+            cursor.execute("SELECT fn_sem_acento('Joao Avila'), fn_sem_acento('JOÃO ÁVILA')")
+            sem_acento = cursor.fetchone()
+            cursor.execute("SELECT fn_fuso_clinica()")
+            (fuso,) = cursor.fetchone()
+        self.assertEqual(rotinas, ROTINAS_SO_PG)
+        self.assertEqual(views, VIEWS_SO_PG)
+        self.assertEqual(qtd_triggers, len(TRIGGERS_SO_PG))
+        self.assertEqual(len(TRIGGERS_SO_PG), 45)
+        self.assertEqual(extensoes, {'pg_trgm', 'unaccent'})
+        self.assertIn('fn_sem_acento', indice)
+        self.assertEqual(sem_acento, ('joao avila', 'joao avila'))
+        from django.conf import settings
+        self.assertEqual(fuso, settings.TIME_ZONE)
 
     def _outro(self, prof=None, status='PENDENTE', delta=10):
         return Atendimento.objects.create(

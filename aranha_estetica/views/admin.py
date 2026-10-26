@@ -20,7 +20,7 @@ from ..models import (
 )
 from ..services.termos import termos_pendentes
 from ..utils.audit import registrar_log
-from ..utils.busca import q_busca_cliente
+from ..utils.busca import filtrar_clientes
 from ..utils.datas import fmt_local
 from ..utils.parse import id_int
 from ..utils.saude import alertas_saude
@@ -36,7 +36,7 @@ def prontuario_consentimento(request):
 
     clientes = Cliente.objects.all().order_by('nome')
     if search:
-        clientes = clientes.filter(q_busca_cliente(search, incluir_email=False))
+        clientes = filtrar_clientes(clientes, search, incluir_email=False)
 
     clientes = clientes.annotate(
         tem_prontuario=Exists(

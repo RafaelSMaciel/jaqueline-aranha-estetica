@@ -4,12 +4,13 @@ import os
 from datetime import timedelta
 from typing import Any
 
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models import Exists, OuterRef, Q
 from django.utils import timezone
 
 from aranha_estetica.models import Cliente, Atendimento, AvaliacaoNPS
 from aranha_estetica.utils.audit import registrar_log
+from aranha_estetica.utils.banco import chamar, usa_logica_pg
 
 logger = logging.getLogger(__name__)
 
@@ -262,6 +263,37 @@ class LgpdService:
     @transaction.atomic
     def esquecer_cliente(cls, cliente: Cliente, usuario=None, request=None) -> None:
         """Direito ao esquecimento: anonimiza PII do titular e faz soft-delete.
+
+        Postgres: ``CALL sp_anonimizar_cliente`` — a procedure e a fonte UNICA (spec
+        padrao-sql §5.6); depois ``cliente.refresh_from_db()``. O corpo Python
+        (``_esquecer_cliente_python``) e o fallback do SQLite dos testes e a referencia do
+        teste de paridade (mesmo efeito, comparado por "foto" em tests/test_pg_paridade.py).
+        """
+        if usa_logica_pg():
+            autor_id, ip = cls._autor_e_ip(usuario, request)
+            chamar('sp_anonimizar_cliente', cliente.pk, autor_id, ip)
+            cliente.refresh_from_db()
+            logger.info('Cliente %s anonimizado (direito ao esquecimento).', cliente.pk)
+            return
+        cls._esquecer_cliente_python(cliente, usuario=usuario, request=request)
+
+    @staticmethod
+    def _autor_e_ip(usuario, request):
+        """(usuario_autor_id, ip) do registro LGPD — a mesma regra do registrar_log."""
+        from aranha_estetica.utils.audit import _ip_valido
+        from aranha_estetica.utils.security import client_ip
+
+        ip = None
+        if request is not None:
+            ip = _ip_valido(client_ip(request))
+            if usuario is None:
+                usuario = getattr(request, 'user', None)
+        autenticado = usuario is not None and getattr(usuario, 'is_authenticated', False)
+        return (usuario.pk if autenticado else None), ip
+
+    @classmethod
+    def _esquecer_cliente_python(cls, cliente: Cliente, usuario=None, request=None) -> None:
+        """Fallback Python (SQLite) e referencia de paridade do ``sp_anonimizar_cliente``.
 
         Consentimentos: revoga o vigente (ESQUECIMENTO) e apaga IP/user-agent,
         mantendo datas e finalidades (prova de base legal sem identificar o
@@ -521,6 +553,33 @@ class LgpdService:
                 )
         logger.info('purgar_lista_espera_vencida: %s inscricao(oes) apagada(s).', qtd)
         return qtd
+
+    @classmethod
+    def aplicar_retencao(cls) -> dict:
+        """Retencao LGPD do job lgpd_purgar: anonimiza os candidatos, apaga fichas de pedido
+        nao realizado e inscricoes de espera vencidas. {'clientes', 'fichas', 'esperas'}.
+
+        Postgres: ``CALL sp_aplicar_retencao_lgpd`` (fonte unica). Em autocommit (cron) a
+        procedure confirma cliente a cliente (``COMMIT`` por anonimizacao, como o laco
+        Python); dentro de uma transacao (testes) roda inteira na transacao do chamador.
+        SQLite: as 3 funcoes Python abaixo.
+        """
+        if usa_logica_pg():
+            confirmar_por_cliente = not connection.in_atomic_block
+            clientes, fichas, esperas = chamar(
+                'sp_aplicar_retencao_lgpd',
+                cls.RETENCAO_CLIENTE_INATIVO_DIAS, cls.CARENCIA_SOFT_DELETE_DIAS,
+                cls.RETENCAO_ATENDIMENTO_SAUDE_DIAS, cls.RETENCAO_FICHA_SEM_ATENDIMENTO_DIAS,
+                confirmar_por_cliente, None, None, None,
+            )
+            logger.info('sp_aplicar_retencao_lgpd: %s cliente(s), %s ficha(s), %s inscricao(oes).',
+                        clientes, fichas, esperas)
+            return {'clientes': clientes or 0, 'fichas': fichas or 0, 'esperas': esperas or 0}
+        return {
+            'clientes': cls.purgar_inativos(),
+            'fichas': cls.purgar_fichas_sem_atendimento(),
+            'esperas': cls.purgar_lista_espera_vencida(),
+        }
 
     @classmethod
     def purgar_inativos(cls) -> int:

@@ -123,7 +123,7 @@ Legenda: **E** estrutural · **O** operacional · fonte atual entre parênteses.
 | `termo.uma_versao_ativa_escopo` / `imutavel_apos_aceite` | UNIQUE / model + trigger | E |
 | `aceite.prova` | IP + user-agent + SHA-256 do texto; imutável | E |
 | `dsar.fatores` | 1 (SMS) | E |
-| `retencao.*` | OTP 24h · notificação 12m · auditoria 5a · axes 90d · inativa 5a · soft delete 30d · ficha sem atendimento 90d · saúde 20a | O |
+| `retencao.*` | OTP 24h · notificação 12m · auditoria 5a · trilha `historico_alteracao` 5a (prontuário 20a) · link público vencido/revogado 90d · axes 90d · inativa 5a · soft delete 30d · ficha sem atendimento 90d · saúde 20a | O |
 | `notif.lembrete` | D-1 por WhatsApp (AGENDADO + consentimento) | O |
 
 Removidos do catálogo (não existem mais no código): reserva de 30 min da lista de espera, link de

@@ -689,6 +689,9 @@ class MigrateAtomicoTests(TestCase):
         with connection.cursor() as cursor:
             cursor.execute('SHOW lock_timeout')
             self.assertEqual(cursor.fetchone()[0], '5s')
+            # trilha historico_alteracao: o que uma migration mudar sai com origem 'migracao'
+            cursor.execute("SELECT current_setting('app.origem', true)")
+            self.assertEqual(cursor.fetchone()[0], 'migracao')
 
     def test_postgres_checa_constraints_apos_cada_migration(self):
         from aranha_estetica.management.commands import migrate_atomico as mod
@@ -716,6 +719,7 @@ class MigrateAtomicoTests(TestCase):
         # sem fim com as tabelas ja alteradas travadas
         cursor = fake_conn.cursor.return_value.__enter__.return_value
         cursor.execute.assert_any_call("SET LOCAL lock_timeout = '5s'")
+        cursor.execute.assert_any_call("SET LOCAL app.origem = 'migracao'")
 
     # log do pre-deploy tem de dizer que nada ficou pela metade e onde o banco parou
     def test_falha_escreve_estado_no_stderr_e_relevanta(self):
@@ -1171,4 +1175,7 @@ class LockDependenciasTests(SimpleTestCase):
         self.assertIn('-r requirements.txt -c requirements.lock', dockerfile)
         self.assertIn('pip install --no-index', dockerfile)  # runtime so usa os wheels
         ci = (BASE_DIR / '.github' / 'workflows' / 'ci.yml').read_text(encoding='utf-8')
-        self.assertEqual(ci.count('pip install -r requirements-dev.txt -c requirements.lock'), 2)
+        instalacoes = [linha.strip() for linha in ci.splitlines() if 'pip install -r requirements' in linha]
+        # testes, migracoes-sqlite, postgres, postgres-migracoes (tag migracoes em jobs paralelos)
+        self.assertEqual(len(instalacoes), 4)
+        self.assertTrue(all(linha.endswith('-r requirements-dev.txt -c requirements.lock') for linha in instalacoes))

@@ -75,8 +75,10 @@ O papel **RECEPCAO** existe no modelo, mas ainda não tem telas nem login (ver
 aranha_estetica/
 ├── models/          acesso, clientes, profissionais, agenda (AgendaHorario/AgendaExcecao), procedimentos,
 │                    agendamentos, prontuario, anamnese, termos, nps, pacotes, sistema, push,
-│                    extras (carteira/comissão), mixins
+│                    extras (carteira/comissão), historico (trilha historico_alteracao), mixins
 ├── db/              peças de banco usadas por migrations (Indice, PadronizarNomes) — congelado
+├── migrations/sql/  texto SQL das rotinas por versão (v0056 triggers, v0057 leitura/views, v0058
+│                    procedures) — congelado, importado só pela migration da versão
 ├── views/           public, booking_public/_otp/_reagendar/_api, agenda_publica, anamnese_publica,
 │                    notificacoes (confirmar presença), lgpd, profissional, prontuario, auth, admin_2fa,
 │                    dashboard, admin*, pacotes, relatorios, cron, health, whatsapp, webpush_views
@@ -85,7 +87,9 @@ aranha_estetica/
 │                    anamnese, auditoria, push, gcal
 ├── domain/          event_bus.py (EventBus síncrono, best-effort), events.py, handlers.py (logging)
 ├── utils/           branding, email, sms, whatsapp, precos, saude, fichas, security, dois_fatores,
-│                    pii, captcha, datas, parse, busca, audit, recorrencia (RRULE do subconjunto)
+│                    pii, captcha, datas, parse, busca (trigram no PG), audit, recorrencia (RRULE do
+│                    subconjunto), nps (calculo unico, meio p/ cima), banco (GUCs app.* e CALL das
+│                    procedures)
 ├── forms/           cliente.py (ClientePainelForm)
 ├── api/             DRF v1 + schema/Swagger
 ├── management/commands/  seed, bootstrap_admin, migrate_atomico, setup_2fa, carregar_feriados
@@ -98,7 +102,9 @@ aranha_estetica/
 ├── static/dist/     build do Vite (gitignored; gerado no Docker/CI)
 ├── signals.py       efeitos do post_save de Atendimento + cache do Branding
 ├── tasks.py / tasks_manutencao.py   jobs Celery (chamados pelo cron HTTP)
-├── middleware.py    Enforce2FAMiddleware, SecurityHeadersMiddleware, ContentSecurityPolicyMiddleware
+├── sinais_celery.py contexto da trilha (app.origem=celery:<task>) nas tasks do worker real
+├── middleware.py    Enforce2FAMiddleware, SecurityHeadersMiddleware, ContentSecurityPolicyMiddleware,
+│                    ContextoBancoMiddleware (autor/IP/origem p/ a trilha historico_alteracao)
 ├── checks.py        system checks de produção aranha.W001–W009
 ├── context_processors.py · decorators.py · validators.py · constants.py · sitemaps.py · admin.py
 clinica/             settings/{base,dev,prod}.py, urls.py, celery.py, wsgi.py, apps.py, gunicorn_logger.py
@@ -175,7 +181,7 @@ python manage.py runserver              # terminal 2
 |---|---|
 | `seed [--demo] [--force]` | Idempotente e não destrutivo: profissional Jaqueline Aranha, catálogo real (23 procedimentos, com preço base quando há valor — um é "sob consulta"), habilitações, agenda seg–sex 9h–18h e sáb 9h–15h, termo LGPD v1.0 (se não houver), anamnese padrão e feriados. **Não cria usuários.** `--demo` = 3 clientes e atendimentos fictícios (recusado em produção). Em produção exige `--force`. |
 | `bootstrap_admin [--reset-senha]` | Cria/reativa o ADMIN a partir de `ADMIN_EMAIL`/`ADMIN_PASSWORD`/`ADMIN_NOME` (e-mail em minúsculas; senha passa pelos validadores). Senha de conta existente só muda se estava desativada/sem senha ou com `ADMIN_PASSWORD_RESET=true`. Reativação apaga o 2FA antigo da conta. Nunca derruba o pre-deploy; ao final escreve **ERRO** em stderr se não sobrar ADMIN utilizável. |
-| `migrate_atomico [--noinput]` | `migrate` numa transação única no Postgres (tudo ou nada), `SET LOCAL lock_timeout = '5s'`, `SET CONSTRAINTS ALL IMMEDIATE` entre migrations. Fora do Postgres vira `migrate` normal. Usado no pre-deploy e na CI. |
+| `migrate_atomico [--noinput]` | `migrate` numa transação única no Postgres (tudo ou nada), `SET LOCAL lock_timeout = '5s'`, `SET LOCAL app.origem = 'migracao'` (trilha `historico_alteracao`), `SET CONSTRAINTS ALL IMMEDIATE` entre migrations. Fora do Postgres vira `migrate` normal. Usado no pre-deploy e na CI. |
 | `setup_2fa <email> [--force] [--name]` | Cria TOTP confirmado, imprime URI `otpauth://` + QR ASCII e 10 códigos de backup. `--force` = reset completo (apaga todos os devices OTP do usuário; auditado). Recuperação de acesso da equipe. |
 | `carregar_feriados [--ano N]` | Feriados nacionais (fixos + móveis via Páscoa), idempotente; sem `--ano` = ano atual e seguinte. |
 
@@ -189,10 +195,14 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 
 ### 5.1 Resumo
 
-- **35 tabelas de domínio** (+ tabelas do Django, django-otp, django-axes). PK `BigAutoField`.
-- Migrations `0001`–`0055`. Produção está na **`0026`**: o próximo deploy aplica `0027`→`0055`
+- **36 tabelas de domínio** (+ tabelas do Django, django-otp, django-axes). PK `BigAutoField`.
+- Migrations `0001`–`0058`. Produção está na **`0026`**: o próximo deploy aplica `0027`→`0058`
   de uma vez (ver §14, [`specs/remodelagem-banco-v2.md`](specs/remodelagem-banco-v2.md) e, da
   `0048` em diante, o padrão SQL em [`specs/padrao-sql.md`](specs/padrao-sql.md)).
+- **Lógica no banco** (0056–0058, só Postgres — §5.4): 45 triggers (`atualizado_em`,
+  imutabilidade, validação, trilha `historico_alteracao`), 22 funções `fn_*`, 9 views `vw_*` de
+  relatório e 4 procedures `sp_*` que são a **fonte única** da escrita de retenção/LGPD. Exige as
+  extensões `btree_gist`, `pg_trgm` e `unaccent` (o PG 18 do Railway tem).
 - **Padrão SQL em todas as tabelas** (0054/0055): nomes ASCII snake_case PT-BR no singular;
   colunas `eh_`/`tem_` (booleano), `data_`/`hora_`/`_em`, `valor_`, `qtd_`, `url_`, `_hash`
   (`char(64)`), `_ref` (id externo), FK `<tabela>[_papel]_id` e autoria `usuario_autor_id`;
@@ -214,6 +224,7 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 | Acesso | `usuario` (Usuario) | Equipe. Login por e-mail; `papel` ADMIN/PROFISSIONAL/RECEPCAO (CHECK); `is_staff` = ADMIN; 1:1 opcional com Profissional; `eh_ativo` (desativar, nunca excluir) |
 | | `assinatura_push` (AssinaturaPush) | Inscrições Web Push (VAPID) por usuário (`usuario_id`, `chave_p256dh`, `chave_auth`) |
 | | `log_auditoria` (LogAuditoria) | Trilha LGPD art. 37: autor (`usuario_autor_id`) + snapshot `usuario_autor_nome` ("Nome <email>"), ação, `tabela` + `registro_pk` (bigint), detalhes JSON (PII mascarada), IP |
+| | `historico_alteracao` (HistoricoAlteracao) | **Trilha de dados** gravada por trigger (0056, só PG) em prontuario, atendimento, compra_pacote, carteira, regra_comissao, preco, promocao, pacote, versao_termo, usuario e configuracao: operação, só as `colunas_alteradas` com antes/depois (`senha_hash` = `"[redigido]"`), autor/IP/origem da sessão (`web`, `cron:<job>`, `celery:<task>`, `migracao`), `transacao_ref`. Append-only; Django admin só leitura (leitura auditada). `cliente` fica fora de propósito (PII; o esquecimento obrigaria a expurgar a trilha) |
 | Pessoas | `cliente` (Cliente) | Cliente da clínica. Telefone só dígitos (10–11) é a chave natural; e-mail/CPF opcionais (ausente = `NULL`); consentimentos de comunicação na tabela `consentimento` (histórico, 0050); `qtd_faltas_consecutivas`/`eh_bloqueado_online`; soft delete (`deletado_em`); `cliente_indicador_id` (cashback); `nome` com collation `pt_br` |
 | | `profissional` (Profissional) | Quem atende. `antecedencia_minima_horas` (0–720, padrão 2), `antecedencia_maxima_dias` (1–365, padrão 60), campos do Google Calendar (`gcal_token_renovacao`, `gcal_calendario_ref`...). Feed ICS por `link_acesso` (FEED_ICS) |
 | Catálogo | `procedimento` (Procedimento) | Serviço: duração, `intervalo_minutos` (folga após, 0–120), categoria, modalidade, retorno obrigatório (`tem_retorno_obrigatorio` + janela em dias + duração do retorno) |
@@ -271,6 +282,9 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 | Questionário: tipo/escopo no domínio e coerentes (escopo PROCEDIMENTO/CATEGORIA/MODALIDADE com o alvo); PRONTUARIO sempre GLOBAL e não obrigatório; no máximo 1 PRONTUARIO ativo | `ck_formulario_tipo`, `ck_formulario_escopo`, `ck_formulario_escopo_coerente`, `ck_formulario_prontuario_global`, `uq_formulario_prontuario_ativo` | 0051 |
 | Pacote vendido: 1 item por procedimento na compra, sessões > 0, valor ≥ 0; item imutável; o consumo é de um item **da mesma compra**, do **mesmo procedimento**, nunca de retorno e só com saldo | `uq_compra_pacote_item_compra_procedimento`, `ck_compra_pacote_item_*`; FK composta `fk_consumo_sessao_compra_pacote_item_compra`, triggers `tg_consumo_sessao_validar` e `tg_compra_pacote_item_imutavel` (**só PG**; o Python espelha no `save()`) | 0052 |
 | Comissão: 1 CREDITO por atendimento (nem depois de estornado), ≤ 1 PAGAMENTO e ≤ 1 ESTORNO por crédito, valor > 0, origem só fora do CREDITO, regra só no CREDITO; PAGAMENTO/ESTORNO repetem profissional/atendimento/valor do crédito; estornado não se paga; ledger append-only | `uq_movimento_comissao_credito_por_atendimento`, `…_estorno_por_origem`, `…_pagamento_por_origem`, `ck_movimento_comissao_*`; triggers `tg_movimento_comissao_validar` e `tg_movimento_comissao_imutavel` (**só PG**) | 0053 |
+| `atualizado_em` sempre atualizado, inclusive em `QuerySet.update()`, procedure e SQL manual (o valor que o ORM manda é respeitado) | `fn_definir_atualizado_em` + `tg_<t>_atualizado_em` nas 22 tabelas com a coluna (**só PG**; o teste de conformidade reprova tabela com a coluna e sem o trigger) | 0056 |
+| Nota de sessão é append-only (correção = nova nota) | `tg_anotacao_sessao_imutavel` (**só PG**; o Python recusa save/delete/update) | 0056 |
+| Toda escrita nas 11 tabelas sensíveis fica na trilha `historico_alteracao` (autor, IP, origem); a trilha é append-only — só o `SET NULL` do autor e a purga de retenção (flag local `app.expurgo_autorizado`) passam | `fn_registrar_historico` + `tg_<t>_historico`; `fn_historico_alteracao_imutavel` + `tg_historico_alteracao_imutavel`; `ck_historico_alteracao_*` (**só PG**) | 0056 |
 
 Além disso: FKs `PROTECT` em tudo que é histórico clínico/financeiro (prontuário, anotação,
 ficha, compra de pacote, carteira, aceite), índices só onde há query real ou FK (spec §2.11; o
@@ -278,6 +292,39 @@ GIN de `prontuario` saiu na 0055 — nenhuma query de contenção), `COMMENT ON`
 e nas colunas não óbvias. Detalhe por migration:
 [`specs/remodelagem-banco-v2.md`](specs/remodelagem-banco-v2.md) (0027–0047) e
 [`specs/padrao-sql.md`](specs/padrao-sql.md) (0048+).
+
+### 5.4 Lógica no banco (0056–0058, só Postgres)
+
+O SQLite dos testes não tem nada disto: o Python cobre (auto_now, `save()`/`delete()` que recusam,
+fallback das procedures). Texto SQL versionado em `aranha_estetica/migrations/sql/vNNNN_*.py`
+(mudar = módulo + migration nova com `CREATE OR REPLACE`). Detalhe e desvios: spec §5 e §5.9.
+
+| Objeto | O que é | Quem usa |
+|---|---|---|
+| `tg_<t>_atualizado_em` (22) | `fn_definir_atualizado_em`: preenche `atualizado_em` quando o UPDATE não mexeu nela | todo UPDATE |
+| `tg_<t>_historico` (11) | `fn_registrar_historico` (AFTER, por linha): grava `historico_alteracao` — só colunas alteradas; UPDATE só de `atualizado_em` não gera linha | prontuario, atendimento, compra_pacote, carteira, regra_comissao, preco, promocao, pacote, versao_termo, usuario (`senha_hash` redigida), configuracao |
+| `tg_*_imutavel` / `tg_*_validar` (12) | append-only (`movimento_*`, `anotacao_sessao`, `compra_pacote_item`, `aceite_termo`, `versao_termo` aceita, `prontuario_versao`, `consentimento`, `link_acesso`, `historico_alteracao`) e validação (`consumo_sessao`, `movimento_comissao`) — SQLSTATE 23 → `IntegrityError` | — |
+| `fn_fuso_clinica()`, `fn_data_local(ts)`, `fn_sem_acento(txt)` | fuso explícito (`America/Sao_Paulo` = `TIME_ZONE`), data local, `lower(unaccent())` IMMUTABLE | views/funções; `ix_cliente_nome_trgm` (GIN trigram) e a busca de cliente (`utils/busca.filtrar_clientes`: "joao" acha "João") |
+| `fn_horarios_livres`, `fn_ocorrencias_recorrencia`, `fn_recorrencia_casa_dia`, `fn_saldo_pacote`, `fn_nps_periodo`, `fn_saldo_comissao`, `fn_tem_consentimento`, `fn_clientes_para_anonimizar` | **espelho de leitura** do Python (SlotService, `AgendaExcecao.ocorrencias`, `saldo_por_procedimento`, `utils/nps`, `ComissaoService`, `services/consentimentos`, `LgpdService.candidatos_purga`), travado por `tests/test_pg_paridade.py` | relatório/integração e as procedures — **o app continua no Python** (slots nunca vêm do SQL) |
+| `vw_agenda_dia`, `vw_faturamento_mensal`, `vw_nps_mensal`, `vw_comissao`, `vw_comissao_saldo`, `vw_cliente_resumo`, `vw_consentimento_atual`, `vw_pacote_saldo`, `vw_atendimento_sem_desfecho` | views de relatório (mesmas regras de `services/financeiro`, NPS e comissão) | BI/SQL ad hoc (`railway connect` → `SELECT * FROM vw_faturamento_mensal`); o app não lê views |
+| `sp_anonimizar_cliente(cliente, autor, ip)` | direito ao esquecimento (o mesmo efeito do Python, com paridade testada) | `LgpdService.esquecer_cliente` (ação LGPD do admin) |
+| `sp_aplicar_retencao_lgpd(...)` | anonimiza os candidatos (COMMIT por cliente), apaga fichas de pedido não realizado e espera vencida | `job_lgpd_purgar_inativos` (`LgpdService.aplicar_retencao`) |
+| `sp_purgar_dados_expirados(...)` | OTP, texto de notificação, auditoria, `link_acesso` vencido/revogado, trilha antiga (cada etapa num sub-bloco) | `job_housekeeping` (etapa única no PG) |
+| `sp_expirar_pacotes(hoje)` | compras ATIVO vencidas → EXPIRADO | `job_expirar_pacotes` |
+
+**Contexto da sessão (GUCs `app.*`)** lido pela trilha: `app.usuario_id`, `app.ip_origem`,
+`app.origem`. Quem define (`utils/banco.definir_contexto_banco`, `set_config(..., false)` = nível de
+sessão) e **sempre limpa**: `ContextoBancoMiddleware` (`web` + usuário + IP; o `/healthz/` não toca
+o banco), `views/cron.py` (`cron:<job>`), sinais do Celery com worker real (`celery:<task>`),
+`migrate_atomico` (`SET LOCAL app.origem = 'migracao'`); conexão nova nasce limpa
+(`connection_created`). SQL manual sai com autor `NULL` e origem `''`. **PgBouncer em modo
+transação quebraria isso** (o Railway não usa): nesse dia, trocar para `ATOMIC_REQUESTS` +
+`SET LOCAL`.
+
+**Fonte única no Postgres**: `utils/banco.usa_logica_pg()` → `chamar('sp_…', ...)` (allowlist com
+a aridade); o fallback Python (`LgpdService._esquecer_cliente_python`, `purgar_*`,
+`tasks_manutencao._purgar_*`, o `update()` do `job_expirar_pacotes`) roda só no SQLite — e no teste
+de paridade, com `FORCAR_LOGICA_PYTHON=True` (nunca em produção).
 
 ---
 
@@ -464,12 +511,18 @@ ficam ligados a um titular não identificável.
 | Sessões expiradas | — | `housekeeping` (`clearsessions`) |
 | Texto das notificações | 12 meses (`RETENCAO_NOTIFICACAO_DIAS`) | `housekeeping` limpa `mensagem` |
 | Log de auditoria | 5 anos (`RETENCAO_LOG_AUDITORIA_DIAS`) | `housekeeping` apaga |
+| Trilha de dados (`historico_alteracao`) | 5 anos (`RETENCAO_LOG_AUDITORIA_DIAS`); **prontuário: 20 anos** (não purga) | `housekeeping` apaga (flag local `app.expurgo_autorizado`; fora dela o trigger barra DELETE) |
+| Link público vencido ou revogado | 90 dias depois de vencer/ser revogado (`RETENCAO_LINK_ACESSO_DIAS`); feed ICS sem validade fica | `housekeeping` apaga |
 | Logs do django-axes | 90 dias (`RETENCAO_AXES_LOG_DIAS`) | `housekeeping` apaga |
 | Cliente sem atendimento | 5 anos (`LGPD_RETENCAO_CLIENTE_DIAS`) | `lgpd_purgar` anonimiza — **exceto** quem tem prontuário com conteúdo, pacote comprado ou atendimento REALIZADO nos últimos 20 anos |
 | Cliente excluído (soft delete) | 30 dias | `lgpd_purgar` anonimiza (mesmas exceções) |
 | Ficha de pedido não realizado (CANCELADO, PENDENTE vencido, convite não respondido) | 90 dias | `lgpd_purgar` apaga |
 | Lista de espera com data passada | — | `lgpd_purgar` apaga |
 | Atendimento realizado, prontuário e versões, aceites | ≥ 20 anos (registro de saúde) | nunca apagados; triggers impedem DELETE de aceite/versão |
+
+No Postgres a escrita da retenção é das procedures (`sp_purgar_dados_expirados`,
+`sp_aplicar_retencao_lgpd`, `sp_anonimizar_cliente` — §5.4); o Python equivalente só roda no
+SQLite dos testes (paridade em `tests/test_pg_paridade.py`).
 
 ### 9.5 Incidente (art. 48)
 
@@ -494,15 +547,17 @@ curl -fsS -X POST -H "X-Cron-Token: $CRON_TOKEN" https://<dominio>/cron/run/<job
 
 | Job (`<job>`) | Horário BRT | Cron (America/Sao_Paulo) | Cron (UTC) | O que faz |
 |---|---|---|---|---|
-| `pacote_expirar` | 00:30 | `30 0 * * *` | `30 3 * * *` | Compras ATIVO com `data_expiracao` < hoje → EXPIRADO |
+| `pacote_expirar` | 00:30 | `30 0 * * *` | `30 3 * * *` | Compras ATIVO com `data_expiracao` < hoje → EXPIRADO (`sp_expirar_pacotes`) |
 | `pacote_expirando` | 07:00 | `0 7 * * *` | `0 10 * * *` | E-mail a quem tem pacote vencendo em 7 ou 1 dia com saldo |
 | `lembrete_diario` | 08:00 | `0 8 * * *` | `0 11 * * *` | WhatsApp D-1 (template `confirmacao_d1`) para atendimentos **AGENDADO** de amanhã com LEMBRETE_AGENDAMENTO/WHATSAPP vigente; idempotente |
 | `aniversario` | 09:00 | `0 9 * * *` | `0 12 * * *` | E-mail de felicitação (sem desconto) com consentimento de marketing; 29/02 comemora em 28/02 |
 | `nps_24h` | 10:00 | `0 10 * * *` | `0 13 * * *` | WhatsApp de NPS para REALIZADO entre 24h e 7 dias, com consentimento; até 3 tentativas |
 | `detrator_alerta` | 10:30 | `30 10 * * *` | `30 13 * * *` | E-mail de NPS ≤ 6 para `email_admin` > `ADMIN_EMAIL` > `CLINIC_EMAIL` |
 | `limpeza_status` | 23:00 | `0 23 * * *` | `0 2 * * *` | PENDENTE vencido há 24h → CANCELADO (FSM); AGENDADO/CONFIRMADO sem desfecho **só vão para o log** (a equipe decide falta/realizado) |
-| `lgpd_purgar` | dom 03:00 | `0 3 * * 0` | `0 6 * * 0` | Anonimização por retenção, fichas de pedidos não realizados, lista de espera vencida |
-| `housekeeping` | 04:00 | `0 4 * * *` | `0 7 * * *` | Sessões, OTP > 24h, texto de notificação > 12 meses, auditoria > 5 anos, axes > 90 dias (etapas independentes; falha de uma → 500 no fim) |
+| `lgpd_purgar` | dom 03:00 | `0 3 * * 0` | `0 6 * * 0` | Anonimização por retenção (confirmada cliente a cliente), fichas de pedidos não realizados, lista de espera vencida (`sp_aplicar_retencao_lgpd`) |
+| `housekeeping` | 04:00 | `0 4 * * *` | `0 7 * * *` | Sessões, OTP > 24h, texto de notificação > 12 meses, auditoria e trilha `historico_alteracao` > 5 anos (prontuário fica), link público vencido/revogado > 90 dias (`sp_purgar_dados_expirados`), axes > 90 dias (etapas independentes; falha de uma → 500 no fim) |
+
+O que um job muda nas tabelas com trilha sai em `historico_alteracao` com origem `cron:<job>`.
 | `feriados` | dia 1, 04:30 | `30 4 1 * *` | `30 7 1 * *` | `carregar_feriados` (ano atual + seguinte) |
 
 O Brasil está sem horário de verão desde 2019: BRT = UTC−3 o ano todo. `job_promocao_mensal`
@@ -557,7 +612,8 @@ Lista completa e comentada em [`.env.example`](../.env.example). Em produção:
 `WHATSAPP_API_VERSION`, `WHATSAPP_PHONE_NUMBER_ID` (alias) · `GOOGLE_OAUTH_*` · `AWS_*` ·
 `AXES_FAILURE_LIMIT` (5), `AXES_COOLOFF_TIME_HOURS` (1), `PASSWORD_RESET_TIMEOUT_SECONDS`
 (3600), `TWO_FACTOR_REMEMBER_COOKIE_AGE` · `RETENCAO_OTP_HORAS`, `RETENCAO_NOTIFICACAO_DIAS`,
-`RETENCAO_LOG_AUDITORIA_DIAS`, `RETENCAO_AXES_LOG_DIAS` · `DJANGO_LOG_LEVEL` ·
+`RETENCAO_LOG_AUDITORIA_DIAS` (também a trilha `historico_alteracao`), `RETENCAO_LINK_ACESSO_DIAS`
+(90), `RETENCAO_AXES_LOG_DIAS` · `DJANGO_LOG_LEVEL` ·
 `EMAIL_TIMEOUT` (10; vale também para as chamadas HTTP do anymail) · `MAILGUN_SENDER_DOMAIN`
 (Mailgun; padrão = domínio do remetente).
 
@@ -572,16 +628,24 @@ Só dev/testes: `DEBUG`, `SMS_DEV_LOG_ONLY` (em prod gera W002), `DB_ENGINE`/`DB
 
 ## 12. Testes e CI
 
-- `python manage.py test aranha_estetica` — suíte Django (SQLite `db_test.sqlite3`, ~1.060
-  testes em 52 arquivos). Nos testes: Celery eager com propagação, SMS em modo log, avisos
-  `aranha.W00x` silenciados (testados à parte em `test_deploy_config.py`), django-vite em
-  `dev_mode` (não precisa do build).
+- `python manage.py test aranha_estetica` — suíte Django (SQLite `db_test.sqlite3`, ~1.390
+  testes em 64 arquivos — roda **tudo**, inclusive as data migrations). Nos testes: Celery eager
+  com propagação, SMS em modo log, avisos `aranha.W00x` silenciados (testados à parte em
+  `test_deploy_config.py`), django-vite em `dev_mode` (não precisa do build).
+- **Atalho do dia a dia**: `python manage.py test aranha_estetica --exclude-tag migracoes` pula
+  `tests/test_migrations_dados.py` (tag `migracoes`: desce e sobe a cadeia de migrations dezenas
+  de vezes, ~3/4 do tempo da suíte); `--tag migracoes` roda só ele. Antes do merge, rode tudo (o
+  CI roda as duas partes em jobs paralelos).
 - `TEST_DATABASE_URL=postgres://... python manage.py test aranha_estetica` — mesma suíte no
   Postgres; `tests/test_pg_ddl.py` confere os objetos só-Postgres (EXCLUDE, CHECK regex,
-  triggers, collation — com `PG_EXIGE_ICU=1` a collation tem de ser ICU) e
-  `tests/test_nomes_padrao.py` lê o `pg_catalog` e reprova objeto fora do padrão SQL, FK sem
-  índice, `ON DELETE` divergente do model, tabela sem `COMMENT`, índice `_like` (migration nova
-  que recria FK pelo `AlterField` precisa terminar com `PadronizarNomes()`).
+  triggers, funções, views, procedures, extensões, collation — com `PG_EXIGE_ICU=1` a collation
+  tem de ser ICU), `tests/test_nomes_padrao.py` lê o `pg_catalog` e reprova objeto fora do padrão
+  SQL, FK sem índice, `ON DELETE` divergente do model, tabela sem `COMMENT`, tabela com
+  `atualizado_em` sem `tg_<t>_atualizado_em`, índice `_like` (migration nova que recria FK pelo
+  `AlterField` precisa terminar com `PadronizarNomes()`), `tests/test_pg_historico.py` prova a
+  trilha (autor/IP do request, contexto limpo entre requests na mesma conexão, cron, Celery,
+  redação da senha, append-only) e `tests/test_pg_paridade.py` compara cada `fn_*`/`vw_*`/`sp_*`
+  com o Python (mudou a regra no Python → atualize a função/procedure numa migration nova).
 - `pytest aranha_estetica/tests/test_2fa.py` — o único arquivo estilo pytest.
 - Guardas de regressão relevantes: `test_csp.py` (CSP x templates, allowlist do jsdelivr),
   `test_front_pipeline.py` (Vite/cotton/webpush), `test_deploy_config.py` (checks, migrate
@@ -592,8 +656,10 @@ Só dev/testes: `DEBUG`, `SMS_DEV_LOG_ONLY` (em prod gera W002), `DB_ENGINE`/`DB
 
 | Job | Passos |
 |---|---|
-| `testes` | `check`, `makemigrations --check`, suíte Django (SQLite), arquivos pytest, `check --deploy --fail-level ERROR` com settings de prod |
-| `postgres` | Postgres 18: `migrate_atomico` do zero, `bootstrap_admin`, suíte Django no Postgres (bloqueante) |
+| `testes` | `check`, `makemigrations --check`, suíte Django (SQLite, `--exclude-tag migracoes`), arquivos pytest, `check --deploy --fail-level ERROR` com settings de prod |
+| `migracoes-sqlite` | `tests/test_migrations_dados.py` (`--tag migracoes`) no SQLite, em paralelo |
+| `postgres` | Postgres 18: `migrate_atomico` do zero, `bootstrap_admin`, suíte Django no Postgres sem a tag `migracoes` (bloqueante; inclui conformidade, trilha e paridade) |
+| `postgres-migracoes` | `tests/test_migrations_dados.py` no Postgres 18 (reverso/ida de cada migration, inclusive triggers/funções/views/procedures), em paralelo |
 | `front` | `npm ci`, `npm run build`, confere o manifest |
 | `docker` | `docker build` da imagem de produção |
 | `auditoria-deps` | `pip-audit` no `requirements.lock` (informativo) |
@@ -626,12 +692,13 @@ Só dev/testes: `DEBUG`, `SMS_DEV_LOG_ONLY` (em prod gera W002), `DB_ENGINE`/`DB
 
 ## 14. Go-live / Operação (runbook)
 
-Primeiro deploy desta versão: produção sai da migration **`0026`** para a **`0055`** (29
+Primeiro deploy desta versão: produção sai da migration **`0026`** para a **`0058`** (32
 migrations com renomeações, deduplicação de dados, EXCLUDE, triggers, desativação de contas
 demo, a agenda unificada, os tokens de link em hash, consentimentos com histórico, o questionário
-único, o pacote congelado na venda, a comissão como livro-razão e o padrão de nomes — quase toda
-coluna muda de nome). Faça em horário sem movimento: até o container novo subir, o código antigo
-quebra em praticamente toda página.
+único, o pacote congelado na venda, a comissão como livro-razão, o padrão de nomes — quase toda
+coluna muda de nome — e a lógica no banco: trilha de alterações, funções, views e procedures).
+Faça em horário sem movimento: até o container novo subir, o código antigo quebra em praticamente
+toda página.
 
 ### a) Pré-deploy
 
@@ -743,6 +810,17 @@ quebra em praticamente toda página.
      validados). O SQL de pré-checagem (nomes de coluna novos, rodar depois da 0054 no ensaio)
      está no topo de `aranha_estetica/migrations/0055_padrao_nomes_constraints_indices.py`;
      corrigir no Django admin/SQL e refazer o ensaio.
+   - As `0056`–`0058` (lógica no banco) não mexem em dado: criam a tabela `historico_alteracao`,
+     os triggers (`atualizado_em`, imutabilidade, trilha), as extensões `pg_trgm`/`unaccent`, as
+     funções, as 9 views e as 4 procedures. Só a **`0057` aborta**, e só se o Postgres não tiver
+     `pg_trgm`/`unaccent` (ou o usuário não puder criá-las — no Railway ele é dono do banco e as
+     duas são *trusted*). Pré-checagem:
+     ```sql
+     SELECT name, default_version, installed_version FROM pg_available_extensions
+      WHERE name IN ('btree_gist', 'pg_trgm', 'unaccent');      -- 3 linhas
+     ```
+     Os triggers de trilha nascem depois de todo DML das migrations anteriores: logo depois do
+     upgrade `SELECT count(*) FROM historico_alteracao` = 0 (no ensaio também).
    - A `0034` não aborta: normaliza telefone/CPF/e-mail, tira duplicatas (o cliente com mais
      atendimentos fica com o valor; os outros ficam ativos com o campo nulo) e registra cada caso
      na `LogAuditoria` (`migration 0034: ...`, com `telefone_original`) para mesclagem manual;
@@ -759,7 +837,7 @@ quebra em praticamente toda página.
 ### b) O que o deploy faz
 
 1. Build da imagem (§13) — falha de front, collectstatic ou check derruba o build, nada muda.
-2. Pre-deploy: `migrate_atomico` (0027→0055 numa transação; `lock_timeout` 5 s — se o deploy
+2. Pre-deploy: `migrate_atomico` (0027→0058 numa transação; `lock_timeout` 5 s — se o deploy
    antigo segurar lock, falha e é só refazer) e `bootstrap_admin` (cria/reativa o ADMIN).
    Leia o log do pre-deploy: avisos `aranha.W0xx`, `0042: ATENCAO ...` e
    `bootstrap_admin: ERRO — painel sem administrador ativo` indicam env faltando (os checks
@@ -779,7 +857,16 @@ curl -fsS https://<dominio>/health/                   # db/cache/front = true
 railway ssh   # shell no container:
 python manage.py check --database default             # lista W001–W011 pendentes
 python manage.py sendtestemail voce@exemplo.com       # e-mail real pelo provedor (§14 i)
-python manage.py showmigrations aranha_estetica | tail -3   # [X] 0055
+python manage.py showmigrations aranha_estetica | tail -3   # [X] 0058
+```
+
+Trilha funcionando: edite um prontuário de teste pelo painel e confira (`railway connect` no
+Postgres):
+
+```sql
+SELECT criado_em, tabela, registro_pk, operacao, colunas_alteradas, usuario_autor_id, ip_origem, origem
+  FROM historico_alteracao ORDER BY id DESC LIMIT 5;       -- autor = você, origem = 'web', IP real
+SELECT count(*) FROM pg_trigger WHERE NOT tgisinternal AND tgname LIKE 'tg%';   -- 45
 ```
 
 ### d) Jobs periódicos (cron externo)
@@ -859,6 +946,21 @@ termo criado, triggers). Não use `migrate aranha_estetica <anterior>`.
 - **Migration nova que mexe numa FK** (`AlterField` de tipo/`null`/destino): o Django recria a FK
   com nome de hash e sem `ON DELETE` — termine a migration com `PadronizarNomes()`
   (`aranha_estetica/db/operacoes.py`); o `tests/test_nomes_padrao.py` reprova se esquecer.
+- **Tabela nova com `atualizado_em`**: crie o `tg_<t>_atualizado_em` (`EXECUTE FUNCTION
+  fn_definir_atualizado_em()`) na mesma migration — o teste de conformidade reprova sem ele. Tabela
+  sensível nova entra na trilha com `tg_<t>_historico` (`fn_registrar_historico('atualizado_em',
+  '<colunas a redigir>')`).
+- **Regra mudou no Python** (slots, saldo de pacote, NPS, comissão, consentimento, retenção,
+  anonimização): o `tests/test_pg_paridade.py` reprova no CI Postgres até a função/procedure ser
+  atualizada — módulo novo em `migrations/sql/` + migration com `CREATE OR REPLACE`.
+- **Quem mudou o quê**: `historico_alteracao` (Django admin, só leitura e auditado, ou SQL) —
+  `transacao_ref` agrupa o que saiu do mesmo request; SQL manual sai sem autor (origem `''`). Para
+  identificar uma correção manual, rode antes `SELECT set_config('app.origem', 'manual:<seu nome>',
+  false);` na sessão do `psql`.
+- **BI / relatório**: leia as views `vw_*` (§5.4); se um dia houver acesso de BI direto ao banco,
+  crie uma role só-leitura com `GRANT SELECT` nas views. **PgBouncer em modo transação** quebra o
+  contexto da trilha (GUC de sessão) — o Railway não usa; se entrar, trocar para
+  `ATOMIC_REQUESTS` + `SET LOCAL`.
 - **Link do ICS vazado/perdido**: Painel > Profissionais > "Novo link"/"Gerar link" (ou o
   próprio profissional em Minha agenda > "Link do calendário"): mostra a URL uma única vez (o
   banco guarda só o hash); o antigo para de funcionar; auditado.
@@ -924,6 +1026,7 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 | 2026-10-26 | Padrão SQL, fases (c) e (d): consentimentos com histórico append-only (`consentimento`, 0050 — sai `aceita_comunicacao`, reconsentimento vale, painel revoga) e questionário único (perguntas do prontuário = formulário PRONTUARIO, 0051; `alerta_saude` por pergunta) ([`specs/padrao-sql.md`](specs/padrao-sql.md) §4.c/§4.d) |
 | 2026-10-26 | Padrão SQL, fases (e) e (f): pacote congelado na venda (`compra_pacote_item`, 0052 — catálogo volta a ser editável) e comissão como livro-razão (CREDITO/PAGAMENTO/ESTORNO, 0053 — saldo negativo visível, regra usada só desativa); nome da indicada fora do ledger da carteira; ticket médio e LTV pela mesma regra (`services/financeiro`) ([`specs/padrao-sql.md`](specs/padrao-sql.md) §4.e/§4.f) |
 | 2026-10-26 | Padrão SQL, fase de nomes (N1/N2): 3 tabelas e 64 colunas renomeadas só no banco (0054 — tipos `bigint`/`char(64)`, `NULL`↔`''`, `criado_em`/`atualizado_em` completados, `db_default`, collation no estado, triggers `tg_`/`fn_`) e todas as constraints/índices no padrão (0055 — 15 índices e 39 constraints renomeados, unique de campo no `Meta`, índices das queries reais, CHECKs novos com pré-checagem, PK/FK com `ON DELETE` real, `COMMENT` em todas as tabelas); `tests/test_nomes_padrao.py` ([`specs/padrao-sql.md`](specs/padrao-sql.md) §3) |
+| 2026-10-26 | Padrão SQL, fase de lógica (L1–L3): trilha de dados `historico_alteracao` por trigger com autor/IP/origem da sessão (`ContextoBancoMiddleware`, cron, Celery, `migrate_atomico`) e `atualizado_em` por trigger (0056); `pg_trgm`/`unaccent`, busca de cliente sem acento, 8 funções de leitura e 9 views com paridade testada contra o Python, NPS "meio p/ cima" (0057); 4 procedures como fonte única da retenção/LGPD (0058); data migrations em jobs paralelos do CI (tag `migracoes`) ([`specs/padrao-sql.md`](specs/padrao-sql.md) §5) |
 | 2026-09-23 | Auditoria pré-produção completa (~450 correções em ~30 commits, `b5fd681..182e2e9`): OTP preso ao telefone em todo agendamento, consentimentos LGPD/art. 11 com prova, 2FA obrigatório do ADMIN, histórico do prontuário, prova de aceite imutável, deploy por Dockerfile + `migrate_atomico`, retenção LGPD efetiva, migrations 0040–0046. Detalhe em [`ARCHITECTURE.md`](ARCHITECTURE.md#6-progresso-checkpoint) |
 
 **Mantenedor:** Rafael Maciel · **Última atualização:** 2026-10-26
