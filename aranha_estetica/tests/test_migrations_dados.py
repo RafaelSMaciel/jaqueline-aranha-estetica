@@ -1,4 +1,4 @@
-"""Regressao das data migrations da remodelagem (0029, 0034-0037, 0042-0051).
+"""Regressao das data migrations da remodelagem (0029, 0034-0037, 0042-0053).
 
 Roda a migration real sobre dados "sujos" plausiveis do banco legado (SQLite:
 as partes PG-only — CHECK regex, EXCLUDE, trigger, collation — sao validadas
@@ -1654,3 +1654,425 @@ class FormularioProntuario0051AbortaTests(TransactionTestCase):
             nomes = set(connection.introspection.get_constraints(cursor, 'formulario_anamnese'))
         self.assertNotIn('ck_formulario_tipo', nomes)
         Formulario.objects.filter(pk__in=[sem_proc.pk, sem_cat.pk, fora.pk]).delete()
+
+
+# ─── 0052: pacote congelado na venda (compra_pacote_item) ──────────────────
+M0052 = '0052_compra_pacote_item'
+
+
+def _cenario_pacotes(apps, agora):
+    """Banco 0051: compra com consumo; pacote cujo catalogo mudou depois da venda (item
+    removido com consumo + quantidade reduzida abaixo do consumido); pacote sem itens."""
+    Profissional = apps.get_model(APP, 'Profissional')
+    Cliente = apps.get_model(APP, 'Cliente')
+    Procedimento = apps.get_model(APP, 'Procedimento')
+    Atendimento = apps.get_model(APP, 'Atendimento')
+    Pacote = apps.get_model(APP, 'Pacote')
+    ItemPacote = apps.get_model(APP, 'ItemPacote')
+    CompraPacote = apps.get_model(APP, 'CompraPacote')
+    ConsumoSessao = apps.get_model(APP, 'ConsumoSessao')
+
+    prof = Profissional.objects.create(nome='Prof P')
+    procs = {nome: Procedimento.objects.create(nome=nome, duracao_minutos=30)
+             for nome in ('Drenagem', 'Peeling', 'Laser')}
+    cli = Cliente.objects.create(nome='Paula P', telefone='11955550001')
+    combo = Pacote.objects.create(nome='Combo', preco_total=Decimal('1000.00'))
+    ItemPacote.objects.create(pacote=combo, procedimento=procs['Drenagem'], quantidade_sessoes=4)
+    ItemPacote.objects.create(pacote=combo, procedimento=procs['Peeling'], quantidade_sessoes=2)
+    antigo = Pacote.objects.create(nome='Antigo (editado)', preco_total=Decimal('500.00'))
+    ItemPacote.objects.create(pacote=antigo, procedimento=procs['Peeling'], quantidade_sessoes=1)
+    vazio = Pacote.objects.create(nome='Sem itens', preco_total=Decimal('90.00'))
+    validade = agora.date() + timedelta(days=200)
+    compras = {
+        'combo': CompraPacote.objects.create(cliente=cli, pacote=combo, valor_pago=Decimal('1000.00'),
+                                             data_expiracao=validade),
+        'antigo': CompraPacote.objects.create(cliente=cli, pacote=antigo, valor_pago=Decimal('500.00'),
+                                              data_expiracao=validade),
+        'vazio': CompraPacote.objects.create(cliente=cli, pacote=vazio, valor_pago=Decimal('90.00'),
+                                             data_expiracao=validade),
+    }
+    hora = [agora - timedelta(days=30)]
+
+    def consumir(compra, proc):
+        ini = hora[0]
+        hora[0] += timedelta(hours=1)
+        at = Atendimento.objects.create(cliente=cli, profissional=prof, procedimento=procs[proc], status='REALIZADO',
+                                        data_hora_inicio=ini, data_hora_fim=ini + timedelta(minutes=30))
+        return ConsumoSessao.objects.create(compra_pacote=compras[compra], atendimento=at).pk
+
+    consumos = {
+        'combo_drenagem': [consumir('combo', 'Drenagem') for _ in range(2)],
+        'combo_peeling': [consumir('combo', 'Peeling')],
+        # o catalogo de "antigo" perdeu o Laser e baixou o Peeling p/ 1 depois das sessoes
+        'antigo_laser': [consumir('antigo', 'Laser') for _ in range(2)],
+        'antigo_peeling': [consumir('antigo', 'Peeling') for _ in range(3)],
+    }
+    return {'procs': {k: v.pk for k, v in procs.items()}, 'compras': {k: v.pk for k, v in compras.items()},
+            'consumos': consumos, 'combo': combo.pk, 'cliente': cli.pk, 'prof': prof.pk}
+
+
+class PacoteCongelado0052Tests(_MigracaoBase):
+    """compra_pacote ganha pacote_nome + itens congelados; consumo aponta p/ o item do mesmo
+    procedimento; consumo sem item -> item reconstruido (log); acima da quantidade -> log."""
+    migrate_from = M0051
+    migrate_to = M0052
+
+    def preparar(self, apps):
+        self.c = _cenario_pacotes(apps, timezone.now().replace(microsecond=0))
+
+    def _itens(self, compra):
+        CompraPacoteItem = self.apps.get_model(APP, 'CompraPacoteItem')
+        return [(i.procedimento_id, i.procedimento_nome, i.quantidade_sessoes, i.valor_unitario)
+                for i in CompraPacoteItem.objects.filter(compra_pacote_id=self.c['compras'][compra]).order_by('pk')]
+
+    def test_snapshot_nome_itens_e_rateio(self):
+        CompraPacote = self.apps.get_model(APP, 'CompraPacote')
+        p = self.c['procs']
+        nomes = dict(CompraPacote.objects.values_list('pk', 'pacote_nome'))
+        self.assertEqual(nomes, {self.c['compras']['combo']: 'Combo', self.c['compras']['antigo']: 'Antigo (editado)',
+                                 self.c['compras']['vazio']: 'Sem itens'})
+        # 1000 / 6 sessoes = 166,67 (a formula da comissao de sessao de pacote)
+        self.assertEqual(self._itens('combo'), [(p['Drenagem'], 'Drenagem', 4, Decimal('166.67')),
+                                                (p['Peeling'], 'Peeling', 2, Decimal('166.67'))])
+        # catalogo atual (Peeling 1x) + Laser reconstruido (2 consumos, valor 0)
+        self.assertEqual(self._itens('antigo'), [(p['Peeling'], 'Peeling', 1, Decimal('500.00')),
+                                                 (p['Laser'], 'Laser', 2, Decimal('0.00'))])
+        self.assertEqual(self._itens('vazio'), [])
+
+    def test_consumo_aponta_para_o_item_do_mesmo_procedimento(self):
+        ConsumoSessao = self.apps.get_model(APP, 'ConsumoSessao')
+        for chave, ids in self.c['consumos'].items():
+            for consumo in ConsumoSessao.objects.filter(pk__in=ids).select_related('compra_pacote_item', 'atendimento'):
+                with self.subTest(chave):
+                    self.assertEqual(consumo.compra_pacote_item.compra_pacote_id, consumo.compra_pacote_id)
+                    self.assertEqual(consumo.compra_pacote_item.procedimento_id, consumo.atendimento.procedimento_id)
+        self.assertFalse(ConsumoSessao.objects.filter(compra_pacote_item__isnull=True).exists())
+
+    def test_logs_de_reconstrucao_e_consumo_acima(self):
+        LogAuditoria = self.apps.get_model(APP, 'LogAuditoria')
+        CompraPacoteItem = self.apps.get_model(APP, 'CompraPacoteItem')
+        laser = CompraPacoteItem.objects.get(compra_pacote_id=self.c['compras']['antigo'],
+                                             procedimento_id=self.c['procs']['Laser'])
+        peeling = CompraPacoteItem.objects.get(compra_pacote_id=self.c['compras']['antigo'],
+                                               procedimento_id=self.c['procs']['Peeling'])
+        rec = LogAuditoria.objects.get(acao='migration 0052: item reconstruido')
+        self.assertEqual((rec.tabela, rec.registro_id), ('compra_pacote_item', laser.pk))
+        self.assertEqual((rec.detalhes['qtd_sessoes'], rec.detalhes['valor_unitario']), (2, '0.00'))
+        acima = LogAuditoria.objects.get(acao='migration 0052: consumo acima da quantidade')
+        self.assertEqual(acima.registro_id, peeling.pk)
+        self.assertEqual((acima.detalhes['qtd_sessoes'], acima.detalhes['consumos']), (1, 3))
+        self.assertEqual(acima.detalhes['consumo_ids'], self.c['consumos']['antigo_peeling'])
+        resumo = LogAuditoria.objects.get(acao__startswith='migration 0052: pacote congelado')
+        self.assertEqual(resumo.detalhes, {'compras': 3, 'itens': 4, 'consumos': 8,
+                                           'itens_reconstruidos': 1, 'itens_com_consumo_acima': 1})
+
+    def test_saldo_pelo_codigo_novo_e_catalogo_livre(self):
+        from aranha_estetica.models import CompraPacote, ItemPacote
+
+        _subir_ate_o_fim()
+        combo = CompraPacote.objects.get(pk=self.c['compras']['combo'])
+        self.assertEqual([(s['procedimento_nome'], s['total'], s['usadas'], s['restantes'])
+                          for s in combo.saldo_por_procedimento()],
+                         [('Drenagem', 4, 2, 2), ('Peeling', 2, 1, 1)])
+        antigo = CompraPacote.objects.get(pk=self.c['compras']['antigo'])
+        self.assertEqual([(s['procedimento_nome'], s['total'], s['usadas'], s['restantes'])
+                          for s in antigo.saldo_por_procedimento()],
+                         [('Peeling', 1, 3, 0), ('Laser', 2, 2, 0)])
+        # o catalogo agora muda sem afetar a compra
+        ItemPacote.objects.filter(pacote_id=self.c['combo']).delete()
+        self.assertEqual(CompraPacote.objects.get(pk=combo.pk).sessoes_restantes(), 3)
+
+
+class PacoteCongeladoBancoNovo0052Tests(_MigracaoBase):
+    """Instalacao sem compras: nada a congelar, sem LogAuditoria."""
+    migrate_from = M0051
+    migrate_to = M0052
+
+    def preparar(self, apps):
+        pass
+
+    def test_sem_log(self):
+        LogAuditoria = self.apps.get_model(APP, 'LogAuditoria')
+        self.assertFalse(LogAuditoria.objects.filter(acao__startswith='migration 0052').exists())
+
+
+class PacoteCongeladoReversa0052Tests(_MigracaoBase):
+    """Reverso: itens e colunas saem; compras/consumos ficam (o catalogo continua la)."""
+    migrate_from = M0052
+    migrate_to = M0051
+
+    def preparar(self, apps):
+        CompraPacoteItem = apps.get_model(APP, 'CompraPacoteItem')
+        ConsumoSessao = apps.get_model(APP, 'ConsumoSessao')
+        Atendimento = apps.get_model(APP, 'Atendimento')
+        Profissional = apps.get_model(APP, 'Profissional')
+        Cliente = apps.get_model(APP, 'Cliente')
+        Procedimento = apps.get_model(APP, 'Procedimento')
+        Pacote = apps.get_model(APP, 'Pacote')
+        CompraPacote = apps.get_model(APP, 'CompraPacote')
+        agora = timezone.now()
+        proc = Procedimento.objects.create(nome='Drenagem', duracao_minutos=30)
+        cli = Cliente.objects.create(nome='Rev', telefone='11955550009')
+        pacote = Pacote.objects.create(nome='P', preco_total=Decimal('100.00'))
+        compra = CompraPacote.objects.create(cliente=cli, pacote=pacote, pacote_nome='P', valor_pago=Decimal('100.00'))
+        item = CompraPacoteItem.objects.create(compra_pacote=compra, procedimento=proc, procedimento_nome='Drenagem',
+                                               quantidade_sessoes=2, valor_unitario=Decimal('50.00'))
+        at = Atendimento.objects.create(cliente=cli, profissional=Profissional.objects.create(nome='X'),
+                                        procedimento=proc, status='REALIZADO', data_hora_inicio=agora,
+                                        data_hora_fim=agora + timedelta(minutes=30))
+        self.consumo = ConsumoSessao.objects.create(compra_pacote=compra, compra_pacote_item=item, atendimento=at).pk
+        self.compra = compra.pk
+
+    def test_colunas_e_tabela_saem_dados_ficam(self):
+        ConsumoSessao = self.apps.get_model(APP, 'ConsumoSessao')
+        self.assertEqual(ConsumoSessao.objects.get(pk=self.consumo).compra_pacote_id, self.compra)
+        with connection.cursor() as cursor:
+            tabelas = connection.introspection.table_names(cursor)
+            colunas_compra = {c.name for c in connection.introspection.get_table_description(cursor, 'compra_pacote')}
+            colunas_consumo = {c.name for c in connection.introspection.get_table_description(cursor, 'consumo_sessao')}
+        self.assertNotIn('compra_pacote_item', tabelas)
+        self.assertNotIn('pacote_nome', colunas_compra)
+        self.assertNotIn('compra_pacote_item_id', colunas_consumo)
+
+
+# ─── 0053: comissao como livro-razao + nome fora do ledger da carteira ─────
+M0053 = '0053_comissao_ledger'
+
+
+def _cenario_comissoes(apps, agora):
+    """Banco 0052: comissoes nos 3 status (e o PAGA sem pago_em sujo) + cashback com nome."""
+    Profissional = apps.get_model(APP, 'Profissional')
+    Cliente = apps.get_model(APP, 'Cliente')
+    Procedimento = apps.get_model(APP, 'Procedimento')
+    Atendimento = apps.get_model(APP, 'Atendimento')
+    MovimentoComissao = apps.get_model(APP, 'MovimentoComissao')
+    RegraComissao = apps.get_model(APP, 'RegraComissao')
+
+    prof = Profissional.objects.create(nome='Prof C')
+    proc = Procedimento.objects.create(nome='Botox', duracao_minutos=30)
+    cli = Cliente.objects.create(nome='Cli C', telefone='11944440001')
+    regra = RegraComissao.objects.create(percentual=Decimal('10'))
+    hora = [agora - timedelta(days=40)]
+    casos = {}
+
+    def comissao(rotulo, status, valor, pago_em=None, atualizado=None):
+        ini = hora[0]
+        hora[0] += timedelta(hours=1)
+        at = Atendimento.objects.create(cliente=cli, profissional=prof, procedimento=proc, status='REALIZADO',
+                                        data_hora_inicio=ini, data_hora_fim=ini + timedelta(minutes=30))
+        mov = MovimentoComissao.objects.create(profissional=prof, atendimento=at, regra=regra, valor=Decimal(valor),
+                                               status=status, pago_em=pago_em)
+        # auto_now_add nas duas tabelas: datas de "producao" por update (nao ha trigger na 0052)
+        MovimentoComissao.objects.filter(pk=mov.pk).update(criado_em=ini + timedelta(hours=1))
+        Atendimento.objects.filter(pk=at.pk).update(atualizado_em=atualizado)
+        casos[rotulo] = {'id': mov.pk, 'atendimento': at.pk, 'criado_em': ini + timedelta(hours=1),
+                         'pago_em': pago_em, 'atualizado': atualizado, 'valor': Decimal(valor), 'status': status}
+
+    comissao('pendente', 'PENDENTE', '10.00')
+    comissao('paga', 'PAGA', '20.00', pago_em=agora - timedelta(days=20))
+    comissao('estornada_paga', 'ESTORNADA', '40.00', pago_em=agora - timedelta(days=15),
+             atualizado=agora - timedelta(days=10))
+    comissao('estornada', 'ESTORNADA', '80.00', atualizado=agora - timedelta(days=5))
+    comissao('estornada_sem_data', 'ESTORNADA', '5.00')            # atendimento.atualizado_em NULL
+    comissao('paga_sem_data', 'PAGA', '7.00')                      # dado sujo: PAGA sem pago_em
+    return {'casos': casos, 'prof': prof.pk, 'cliente': cli.pk}
+
+
+def _cenario_cashback(apps):
+    Cliente = apps.get_model(APP, 'Cliente')
+    Carteira = apps.get_model(APP, 'Carteira')
+    MovimentoCarteira = apps.get_model(APP, 'MovimentoCarteira')
+    indicadora = Cliente.objects.create(nome='Ana Indicadora', telefone='11944449001')
+    carteira = Carteira.objects.create(cliente=indicadora, saldo=Decimal('30.00'))
+    nomes = ('Beatriz (Bia) Sigilosa', 'Carla\nQuebra de linha')
+    ids = []
+    for i, nome in enumerate(nomes):
+        ids.append(MovimentoCarteira.objects.create(
+            carteira=carteira, tipo='CREDITO', origem='CASHBACK_INDICACAO', valor=Decimal('10.00'),
+            saldo_resultante=Decimal('10.00') * (i + 1), observacoes=f'Indicacao: {nome} (cli #{900 + i})',
+        ).pk)
+    outro = MovimentoCarteira.objects.create(
+        carteira=carteira, tipo='CREDITO', origem='AJUSTE_MANUAL', valor=Decimal('10.00'),
+        saldo_resultante=Decimal('30.00'), observacoes='Indicacao: ajuste manual (cli #1)',
+    ).pk
+    return {'cashback': ids, 'outro': outro, 'nomes': nomes}
+
+
+class ComissaoLedger0053Tests(_MigracaoBase):
+    """status -> lancamentos: PENDENTE = CREDITO; PAGA = + PAGAMENTO(pago_em); ESTORNADA = + ESTORNO
+    (data estimada; + PAGAMENTO se tinha pago_em). Status derivado = status antigo."""
+    migrate_from = M0052
+    migrate_to = M0053
+
+    def preparar(self, apps):
+        self.agora = timezone.now().replace(microsecond=0)
+        self.c = _cenario_comissoes(apps, self.agora)
+        self.cb = _cenario_cashback(apps)
+
+    def _lancamentos(self, rotulo):
+        MovimentoComissao = self.apps.get_model(APP, 'MovimentoComissao')
+        caso = self.c['casos'][rotulo]
+        return {m.tipo: m for m in MovimentoComissao.objects.filter(atendimento_id=caso['atendimento'])}
+
+    def test_cada_status_vira_os_lancamentos_certos(self):
+        tipos = {rotulo: sorted(self._lancamentos(rotulo)) for rotulo in self.c['casos']}
+        self.assertEqual(tipos, {
+            'pendente': ['CREDITO'],
+            'paga': ['CREDITO', 'PAGAMENTO'],
+            'estornada_paga': ['CREDITO', 'ESTORNO', 'PAGAMENTO'],
+            'estornada': ['CREDITO', 'ESTORNO'],
+            'estornada_sem_data': ['CREDITO', 'ESTORNO'],
+            'paga_sem_data': ['CREDITO', 'PAGAMENTO'],
+        })
+        for rotulo, caso in self.c['casos'].items():
+            lanc = self._lancamentos(rotulo)
+            credito = lanc.pop('CREDITO')
+            with self.subTest(rotulo):
+                self.assertEqual((credito.pk, credito.valor, credito.movimento_origem_id), (caso['id'], caso['valor'], None))
+                self.assertIsNotNone(credito.regra_id)
+                for derivado in lanc.values():
+                    self.assertEqual((derivado.movimento_origem_id, derivado.valor, derivado.profissional_id,
+                                      derivado.regra_id, derivado.usuario_autor_id),
+                                     (caso['id'], caso['valor'], self.c['prof'], None, None))
+
+    def test_datas_reais_e_estimadas(self):
+        casos = self.c['casos']
+        paga = self._lancamentos('paga')['PAGAMENTO']
+        self.assertEqual((paga.criado_em, paga.observacoes), (casos['paga']['pago_em'], 'migração 0053'))
+        ep = self._lancamentos('estornada_paga')
+        self.assertEqual(ep['PAGAMENTO'].criado_em, casos['estornada_paga']['pago_em'])
+        self.assertEqual((ep['ESTORNO'].criado_em, ep['ESTORNO'].observacoes),
+                         (casos['estornada_paga']['atualizado'], 'migração 0053: data estimada'))
+        self.assertEqual(self._lancamentos('estornada')['ESTORNO'].criado_em, casos['estornada']['atualizado'])
+        # sem atendimento.atualizado_em: a data do proprio credito
+        self.assertEqual(self._lancamentos('estornada_sem_data')['ESTORNO'].criado_em,
+                         casos['estornada_sem_data']['criado_em'])
+        psd = self._lancamentos('paga_sem_data')['PAGAMENTO']
+        self.assertEqual((psd.criado_em, psd.observacoes),
+                         (casos['paga_sem_data']['criado_em'], 'migração 0053: data estimada'))
+
+    def test_status_e_saldo_derivados_pelo_codigo_novo(self):
+        from aranha_estetica.models import MovimentoComissao
+        from aranha_estetica.services.comissao_service import ComissaoService
+
+        _subir_ate_o_fim()
+        derivado = dict(MovimentoComissao.objects.creditos_com_status().values_list('pk', 'status'))
+        self.assertEqual(derivado, {c['id']: c['status'] for c in self.c['casos'].values()})
+        pago_em = dict(MovimentoComissao.objects.creditos_com_status().values_list('pk', 'pago_em'))
+        self.assertEqual(pago_em[self.c['casos']['paga']['id']], self.c['casos']['paga']['pago_em'])
+        # so o pago-e-estornado fica devendo: 10 (pendente) − 40 = −30
+        self.assertEqual(ComissaoService.saldo_a_pagar(self.c['prof']), Decimal('-30.00'))
+
+    def test_log_e_colunas(self):
+        LogAuditoria = self.apps.get_model(APP, 'LogAuditoria')
+        log = LogAuditoria.objects.get(acao__startswith='migration 0053: comissao')
+        self.assertEqual(log.detalhes, {'creditos': 6, 'pendentes': 1, 'pagas': 2, 'estornadas': 3,
+                                        'pagamentos': 3, 'estornos': 3, 'datas_estimadas': 4,
+                                        'estornadas_depois_de_pagas': 1})
+        with connection.cursor() as cursor:
+            colunas = {c.name for c in connection.introspection.get_table_description(cursor, 'movimento_comissao')}
+            nomes = set(connection.introspection.get_constraints(cursor, 'movimento_comissao'))
+        self.assertTrue({'tipo', 'movimento_comissao_origem_id', 'usuario_autor_id'} <= colunas)
+        self.assertFalse({'status', 'pago_em'} & colunas)
+        self.assertNotIn('uniq_comissao_ativa_por_atendimento', nomes)
+        self.assertTrue({'uq_movimento_comissao_credito_por_atendimento', 'ck_movimento_comissao_origem_coerente',
+                         'ix_movimento_comissao_profissional_criado_em'} <= nomes)
+
+    def test_nome_da_indicada_sai_do_ledger_da_carteira(self):
+        MovimentoCarteira = self.apps.get_model(APP, 'MovimentoCarteira')
+        LogAuditoria = self.apps.get_model(APP, 'LogAuditoria')
+        textos = dict(MovimentoCarteira.objects.values_list('pk', 'observacoes'))
+        self.assertEqual([textos[pk] for pk in self.cb['cashback']], ['Indicacao (cli #900)', 'Indicacao (cli #901)'])
+        self.assertEqual(textos[self.cb['outro']], 'Indicacao: ajuste manual (cli #1)')  # outra origem: intocada
+        log = LogAuditoria.objects.get(acao__startswith='migration 0053: nome da indicada')
+        self.assertEqual(log.detalhes, {'movimentos': 2, 'ids': self.cb['cashback']})
+        self.assertNotIn('Beatriz', str(log.detalhes))
+
+
+class ComissaoLedgerReversa0053Tests(_MigracaoBase):
+    """Reverso: status/pago_em voltam do ledger (ESTORNADA > PAGA > PENDENTE); so os CREDITOs ficam."""
+    migrate_from = M0053
+    migrate_to = M0052
+
+    def preparar(self, apps):
+        Profissional = apps.get_model(APP, 'Profissional')
+        Cliente = apps.get_model(APP, 'Cliente')
+        Procedimento = apps.get_model(APP, 'Procedimento')
+        Atendimento = apps.get_model(APP, 'Atendimento')
+        MovimentoComissao = apps.get_model(APP, 'MovimentoComissao')
+        prof = Profissional.objects.create(nome='Prof R')
+        proc = Procedimento.objects.create(nome='Botox', duracao_minutos=30)
+        cli = Cliente.objects.create(nome='Cli R', telefone='11944440002')
+        agora = timezone.now().replace(microsecond=0)
+        self.esperado = {}
+        for i, tipos in enumerate(((), ('PAGAMENTO',), ('ESTORNO',), ('PAGAMENTO', 'ESTORNO'))):
+            ini = agora - timedelta(days=10 - i)
+            at = Atendimento.objects.create(cliente=cli, profissional=prof, procedimento=proc, status='REALIZADO',
+                                            data_hora_inicio=ini, data_hora_fim=ini + timedelta(minutes=30))
+            credito = MovimentoComissao.objects.create(tipo='CREDITO', profissional=prof, atendimento=at,
+                                                       valor=Decimal('10.00'), criado_em=ini)
+            pago_em = None
+            for j, tipo in enumerate(tipos, start=1):
+                quando = ini + timedelta(hours=j)
+                MovimentoComissao.objects.create(tipo=tipo, profissional=prof, atendimento=at, valor=Decimal('10.00'),
+                                                 movimento_origem=credito, criado_em=quando)
+                pago_em = quando if tipo == 'PAGAMENTO' else pago_em
+            status = 'ESTORNADA' if 'ESTORNO' in tipos else 'PAGA' if tipos else 'PENDENTE'
+            self.esperado[credito.pk] = (status, pago_em)
+
+    def test_status_volta_do_ledger(self):
+        MovimentoComissao = self.apps.get_model(APP, 'MovimentoComissao')
+        self.assertEqual({m.pk: (m.status, m.pago_em) for m in MovimentoComissao.objects.all()}, self.esperado)
+        with connection.cursor() as cursor:
+            colunas = {c.name for c in connection.introspection.get_table_description(cursor, 'movimento_comissao')}
+        self.assertFalse({'tipo', 'movimento_comissao_origem_id', 'usuario_autor_id'} & colunas)
+
+
+class ComissaoLedger0053AbortaTests(TransactionTestCase):
+    """Pre-checagem: valor <= 0, 2 comissoes do mesmo atendimento ou status fora do dominio
+    abortam a 0053 (nada aplicado) com os ids na mensagem."""
+    serialized_rollback = True
+
+    def setUp(self):
+        super().setUp()
+        executor = MigrationExecutor(connection)
+        executor.migrate([(APP, M0052)])
+        self.antes = executor.loader.project_state([(APP, M0052)]).apps
+
+    def tearDown(self):
+        executor = MigrationExecutor(connection)
+        executor.loader.build_graph()
+        executor.migrate(executor.loader.graph.leaf_nodes())
+        super().tearDown()
+
+    def test_dado_invalido_aborta(self):
+        from django.db.migrations.recorder import MigrationRecorder
+
+        c = _cenario_comissoes(self.antes, timezone.now().replace(microsecond=0))
+        MovimentoComissao = self.antes.get_model(APP, 'MovimentoComissao')
+        ok = c['casos']['pendente']['id']
+        dobra = c['casos']['paga']
+        zero = MovimentoComissao.objects.create(profissional_id=c['prof'], atendimento_id=c['casos']['estornada']['atendimento'],
+                                                valor=Decimal('0.00'), status='ESTORNADA')
+        # o UNIQUE antigo so cobria PENDENTE/PAGA: a duplicata possivel e com ESTORNADA
+        repetida = MovimentoComissao.objects.create(profissional_id=c['prof'], atendimento_id=dobra['atendimento'],
+                                                    valor=Decimal('3.00'), status='ESTORNADA')
+        fora = MovimentoComissao.objects.get(pk=c['casos']['paga_sem_data']['id'])
+        MovimentoComissao.objects.filter(pk=fora.pk).update(status='CANCELADA')
+        executor = MigrationExecutor(connection)
+        executor.loader.build_graph()
+        with self.assertRaises(RuntimeError) as ctx:
+            executor.migrate([(APP, M0053)])
+        msg = str(ctx.exception)
+        self.assertIn('0053', msg)
+        for pk in (zero.pk, repetida.pk, dobra['id'], fora.pk):
+            self.assertIn(f'id={pk} ', msg)
+        self.assertIn('valor=0.00', msg)
+        self.assertIn("status='CANCELADA'", msg)
+        self.assertNotIn(f'id={ok} ', msg)
+        self.assertNotIn((APP, M0053), MigrationRecorder(connection).applied_migrations())
+        with connection.cursor() as cursor:
+            colunas = {d.name for d in connection.introspection.get_table_description(cursor, 'movimento_comissao')}
+        self.assertNotIn('tipo', colunas)
+        MovimentoComissao.objects.filter(pk__in=[zero.pk, repetida.pk]).delete()
+        MovimentoComissao.objects.filter(pk=fora.pk).update(status='PAGA')

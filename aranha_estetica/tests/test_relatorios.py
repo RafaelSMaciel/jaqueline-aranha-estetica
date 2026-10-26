@@ -1,5 +1,4 @@
 """Telas de relatorio do admin: NPS e Comissoes."""
-from decimal import Decimal
 
 from django.test import Client, TestCase
 
@@ -8,6 +7,7 @@ from aranha_estetica.models import AvaliacaoNPS, MovimentoComissao, Usuario
 from .factories import (
     criar_atendimento,
     criar_cliente,
+    criar_comissao,
     criar_procedimento,
     criar_profissional,
 )
@@ -26,9 +26,7 @@ class RelatoriosAdminTests(TestCase):
         proc = criar_procedimento(profissional=prof)
         cli = criar_cliente()
         at = criar_atendimento(cli, prof, proc, status='REALIZADO')
-        return MovimentoComissao.objects.create(
-            profissional=prof, atendimento=at, valor=Decimal(valor), status=status,
-        )
+        return criar_comissao(at, valor=valor, status=status)
 
     def test_nps_carrega_vazio(self):
         resp = self.client.get('/painel/nps/')

@@ -13,7 +13,7 @@ from .agendamentos import Atendimento, Notificacao
 from .prontuario import Prontuario, ProntuarioVersao, AnotacaoSessao
 from .termos import VersaoTermo, AceiteTermo
 from .nps import AvaliacaoNPS
-from .pacotes import Pacote, ItemPacote, CompraPacote, ConsumoSessao
+from .pacotes import Pacote, ItemPacote, CompraPacote, CompraPacoteItem, ConsumoSessao
 from .sistema import (
     ListaEspera, LogAuditoria, Configuracao, CodigoOtp,
 )
@@ -34,7 +34,7 @@ __all__ = [
     'Prontuario', 'ProntuarioVersao', 'AnotacaoSessao',
     'VersaoTermo', 'AceiteTermo',
     'AvaliacaoNPS',
-    'Pacote', 'ItemPacote', 'CompraPacote', 'ConsumoSessao',
+    'Pacote', 'ItemPacote', 'CompraPacote', 'CompraPacoteItem', 'ConsumoSessao',
     'ListaEspera', 'LogAuditoria', 'Configuracao', 'CodigoOtp',
     'AssinaturaPush',
     'FormularioAnamnese', 'RespostaAnamnese',

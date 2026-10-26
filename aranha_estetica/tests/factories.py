@@ -11,6 +11,7 @@ from aranha_estetica.models import (
     Atendimento,
     Cliente,
     ItemPacote,
+    MovimentoComissao,
     Pacote,
     CompraPacote,
     Preco,
@@ -135,12 +136,35 @@ def criar_pacote(nome='Pacote Glow', preco=Decimal('600.00'),
 
 
 def criar_compra_pacote(cliente, pacote, valor_pago=None, status='ATIVO'):
-    return CompraPacote.objects.create(
-        cliente=cliente,
-        pacote=pacote,
-        valor_pago=valor_pago or pacote.preco_total,
-        status=status,
+    """Venda pelo caminho real (CompraPacote.vender): nome e itens congelados."""
+    return CompraPacote.vender(
+        pacote, cliente, pacote.preco_total if valor_pago is None else valor_pago, status=status,
     )
+
+
+def criar_comissao(atendimento, valor='50.00', status=MovimentoComissao.STATUS_PENDENTE,
+                   profissional=None, regra=None, usuario=None, criado_em=None):
+    """CREDITO de comissao + os lancamentos do status pedido (livro-razao, 0053):
+    PAGA = + PAGAMENTO; ESTORNADA = + ESTORNO; 'PAGA_ESTORNADA' = PAGAMENTO e ESTORNO.
+    ``criado_em`` data o credito (os lancamentos vem 1 minuto depois, cada)."""
+    prof = profissional or atendimento.profissional
+    criado_em = criado_em or timezone.now()
+    credito = MovimentoComissao.objects.create(
+        tipo=MovimentoComissao.TIPO_CREDITO, profissional=prof, atendimento=atendimento,
+        regra=regra, valor=Decimal(valor), criado_em=criado_em,
+    )
+    derivados = {
+        MovimentoComissao.STATUS_PENDENTE: (),
+        MovimentoComissao.STATUS_PAGA: (MovimentoComissao.TIPO_PAGAMENTO,),
+        MovimentoComissao.STATUS_ESTORNADA: (MovimentoComissao.TIPO_ESTORNO,),
+        'PAGA_ESTORNADA': (MovimentoComissao.TIPO_PAGAMENTO, MovimentoComissao.TIPO_ESTORNO),
+    }[status]
+    for minutos, tipo in enumerate(derivados, start=1):
+        MovimentoComissao.objects.create(
+            tipo=tipo, movimento_origem=credito, profissional=prof, atendimento=atendimento,
+            valor=credito.valor, usuario_autor=usuario, criado_em=criado_em + timedelta(minutes=minutos),
+        )
+    return credito
 
 
 # ─── Links publicos (link_acesso, so o hash do token no banco) ─────────────

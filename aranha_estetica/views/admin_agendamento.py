@@ -345,7 +345,7 @@ def admin_atendimento_valor(request, pk):
     if at.eh_retorno and valor != 0:
         messages.error(request, 'Retorno gratuito fica sempre com valor zero.')
         return voltar
-    if at.status == Atendimento.STATUS_REALIZADO and MovimentoComissao.objects.filter(atendimento=at).exists():
+    if at.status == Atendimento.STATUS_REALIZADO and MovimentoComissao.objects.creditos().filter(atendimento=at).exists():
         messages.error(
             request,
             'Este atendimento já tem comissão lançada: o valor não pode mudar por aqui '

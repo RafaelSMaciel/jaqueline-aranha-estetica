@@ -6,7 +6,8 @@ nem senhas — o admin real vem de `manage.py bootstrap_admin`.
 
     python manage.py seed           # catalogo real, profissional, agenda, termo LGPD,
                                     # anamnese padrao, questionario do prontuario e feriados
-    python manage.py seed --demo    # + clientes e atendimentos ficticios (nunca em producao)
+    python manage.py seed --demo    # + clientes, atendimentos, pacote vendido e comissao
+                                    #   ficticios (nunca em producao)
     python manage.py seed --force   # permite rodar em producao (sem --demo)
 """
 import os
@@ -23,8 +24,8 @@ from aranha_estetica.constants import (
     TERMO_LGPD_CONTEUDO, TERMO_LGPD_TITULO, TERMO_LGPD_VERSAO,
 )
 from aranha_estetica.models import (
-    AgendaHorario, Atendimento, Cliente, FormularioAnamnese,
-    Habilitacao, Preco, Procedimento, Profissional, VersaoTermo,
+    AgendaHorario, Atendimento, Cliente, CompraPacote, FormularioAnamnese,
+    Habilitacao, ItemPacote, Pacote, Preco, Procedimento, Profissional, RegraComissao, VersaoTermo,
 )
 
 PROFISSIONAL_NOME = 'Jaqueline Aranha'
@@ -74,6 +75,9 @@ PRONTUARIO_PADRAO = [
     {'key': 'usa_anticoagulante', 'tipo': 'bool', 'label': 'Usa anticoagulante?', 'obrigatorio': False},
     {'key': 'tendencia_queloide', 'tipo': 'bool', 'label': 'Tem tendência a queloide?', 'obrigatorio': False},
 ]
+
+PACOTE_DEMO = ('Pacote Demonstração', 4)  # (nome, sessoes do 1o procedimento do catalogo)
+REGRA_COMISSAO_DEMO = Decimal('30.00')     # % (so --demo: nunca em producao)
 
 CLIENTES_DEMO = [
     ('Cliente Demonstração Um', '11900000001', 'demo1@exemplo.com'),
@@ -218,6 +222,9 @@ class Command(BaseCommand):
             proc = procs[(i * 5) % len(procs)]
             preco = Preco.objects.filter(procedimento=proc, profissional__isnull=True).first()
             valor = preco.valor if preco else None
+            if i == 0:
+                # pacote vendido ANTES do atendimento realizado: o debito usa o item congelado
+                self._demo_pacote(cliente, proc, valor)
             passado = timezone.make_aware(
                 datetime.combine(timezone.localdate() - timedelta(days=7 + i), time(10 + i, 0)), tz,
             )
@@ -226,10 +233,34 @@ class Command(BaseCommand):
                 fim = inicio + timedelta(minutes=proc.duracao_minutos)
                 if Atendimento.objects.conflito_com(prof, inicio, fim).exists():
                     continue
-                Atendimento.objects.create(
+                at = Atendimento.objects.create(
                     cliente=cliente, profissional=prof, procedimento=proc,
                     data_hora_inicio=inicio, data_hora_fim=fim,
                     valor_cobrado=valor, status=status,
                 )
                 criados += 1
+                if status == Atendimento.STATUS_REALIZADO:
+                    self._demo_comissao(prof, at)
         self.stdout.write(f'Demonstração: {criados} atendimento(s) fictício(s) criado(s).')
+
+    def _demo_pacote(self, cliente, proc, valor_sessao):
+        """Pacote do catalogo + 1 venda (itens congelados em CompraPacoteItem)."""
+        nome, sessoes = PACOTE_DEMO
+        pacote, criado = Pacote.objects.get_or_create(
+            nome=nome,
+            defaults={'descricao': 'Exemplo de pacote (dados fictícios).',
+                      'preco_total': (valor_sessao or Decimal('100.00')) * (sessoes - 1)},
+        )
+        if criado:
+            ItemPacote.objects.create(pacote=pacote, procedimento=proc, quantidade_sessoes=sessoes)
+        if not CompraPacote.objects.filter(cliente=cliente, pacote=pacote).exists():
+            CompraPacote.vender(pacote, cliente, pacote.preco_total)
+            self.stdout.write(f'Demonstração: pacote "{nome}" vendido.')
+
+    def _demo_comissao(self, prof, atendimento):
+        """Regra demo (se nao ha nenhuma do profissional) + CREDITO do realizado."""
+        from aranha_estetica.services.comissao_service import ComissaoService
+
+        if not RegraComissao.objects.filter(profissional=prof).exists():
+            RegraComissao.objects.create(profissional=prof, percentual=REGRA_COMISSAO_DEMO, ativo=True)
+        ComissaoService.calcular_comissao(atendimento)

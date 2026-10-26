@@ -18,6 +18,7 @@ import tempfile
 import time
 from contextlib import contextmanager
 from datetime import date, timedelta
+from decimal import Decimal
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -1091,45 +1092,63 @@ class DjangoAdminWave3Tests(TestCase):
         self.assertEqual((nps.nota, nps.comentario, nps.autoriza_publicacao), (10, 'Amei o cuidado.', False))
         self.assertTrue(nps.aprovado_publicacao)  # moderacao segue com a equipe
 
-    def test_pacote_vendido_congela_nome_e_itens(self):
-        from aranha_estetica.admin import ItemPacoteAdminForm, ItemPacoteInline
-        from aranha_estetica.models import ItemPacote, Pacote
-        from .factories import criar_compra_pacote, criar_pacote, criar_procedimento
+    def test_catalogo_de_pacote_editavel_e_compra_congelada_so_leitura(self):
+        # 0052: a venda congela nome/itens (CompraPacoteItem); o catalogo volta a ser editavel
+        from aranha_estetica.admin import CompraPacoteItemInline, ItemPacoteInline
+        from aranha_estetica.models import CompraPacote, ConsumoSessao, ItemPacote, Pacote
+        from .factories import criar_compra_pacote, criar_pacote
         vendido = criar_pacote(procedimento=self.proc, sessoes=4)
-        livre = criar_pacote(nome='Pacote Livre', procedimento=self.proc, sessoes=2)
-        criar_compra_pacote(self.cliente, vendido)
+        compra = criar_compra_pacote(self.cliente, vendido)
         inline = ItemPacoteInline(Pacote, django_admin.site)
-        pacote_admin = django_admin.site._registry[Pacote]
         item_admin = django_admin.site._registry[ItemPacote]
-        item_vendido = vendido.itens.get()
-
+        item_catalogo = vendido.itens.get()
         for perm in ('has_add_permission', 'has_change_permission', 'has_delete_permission'):
             with self.subTest(perm=perm):
-                self.assertFalse(getattr(inline, perm)(self.rf, vendido))
-                self.assertTrue(getattr(inline, perm)(self.rf, livre))
-        self.assertIn('nome', pacote_admin.get_readonly_fields(self.rf, vendido))
-        self.assertNotIn('nome', pacote_admin.get_readonly_fields(self.rf, livre))
-        self.assertFalse(item_admin.has_change_permission(self.rf, item_vendido))
-        self.assertFalse(item_admin.has_delete_permission(self.rf, item_vendido))
-        self.assertTrue(item_admin.has_change_permission(self.rf, livre.itens.get()))
-        outro = criar_procedimento(nome='Peeling', profissional=self.prof)
-        form = ItemPacoteAdminForm(data={
-            'pacote': vendido.pk, 'procedimento': outro.pk, 'quantidade_sessoes': 1,
-        })
-        self.assertFalse(form.is_valid())
-        self.assertIn('pacote', form.errors)
+                self.assertTrue(getattr(inline, perm)(self.rf, vendido))
+        self.assertNotIn('nome', django_admin.site._registry[Pacote].get_readonly_fields(self.rf, vendido))
+        self.assertTrue(item_admin.has_change_permission(self.rf, item_catalogo))
 
-        # POST do form do pacote vendido nao altera os itens
         resp = self.c.post(f'/django-admin-sv/aranha_estetica/pacote/{vendido.pk}/change/', {
-            'descricao': '', 'preco_total': '600.00', 'validade_meses': '12', 'ativo': 'on',
+            'nome': 'Renomeado', 'descricao': '', 'preco_total': '600.00', 'validade_meses': '12', 'ativo': 'on',
             'itens-TOTAL_FORMS': '1', 'itens-INITIAL_FORMS': '1',
             'itens-MIN_NUM_FORMS': '0', 'itens-MAX_NUM_FORMS': '1000',
-            'itens-0-id': str(item_vendido.pk), 'itens-0-pacote': str(vendido.pk),
+            'itens-0-id': str(item_catalogo.pk), 'itens-0-pacote': str(vendido.pk),
             'itens-0-procedimento': str(self.proc.pk), 'itens-0-quantidade_sessoes': '99',
         })
         self.assertEqual(resp.status_code, 302)
-        item_vendido.refresh_from_db()
-        self.assertEqual(item_vendido.quantidade_sessoes, 4)
+        item_catalogo.refresh_from_db()
+        self.assertEqual(item_catalogo.quantidade_sessoes, 99)
+        compra.refresh_from_db()
+        self.assertEqual(compra.pacote_nome, 'Pacote Glow')
+        self.assertEqual(compra.itens.get().quantidade_sessoes, 4)
+
+        # o que foi vendido e so leitura no admin; venda/consumo nascem no painel/sinal
+        compra_admin = django_admin.site._registry[CompraPacote]
+        self.assertFalse(compra_admin.has_add_permission(self.rf))
+        for campo in ('pacote', 'pacote_nome', 'valor_pago', 'cliente'):
+            self.assertIn(campo, compra_admin.get_readonly_fields(self.rf, compra))
+        compra_inline = CompraPacoteItemInline(CompraPacote, django_admin.site)
+        self.assertFalse(compra_inline.has_add_permission(self.rf, compra))
+        self.assertFalse(compra_inline.has_change_permission(self.rf, compra))
+        consumo_admin = django_admin.site._registry[ConsumoSessao]
+        self.assertFalse(consumo_admin.has_add_permission(self.rf))
+        self.assertFalse(consumo_admin.has_change_permission(self.rf))
+        resp = self.c.get(f'/django-admin-sv/aranha_estetica/comprapacote/{compra.pk}/change/')
+        self.assertContains(resp, self.proc.nome)
+
+    def test_regra_de_comissao_usada_nao_se_exclui(self):
+        from aranha_estetica.models import RegraComissao
+        from .factories import criar_atendimento, criar_comissao
+        usada = RegraComissao.objects.create(percentual=Decimal('10'), ativo=True)
+        livre = RegraComissao.objects.create(percentual=Decimal('5'), ativo=True)
+        at = criar_atendimento(self.cliente, self.prof, self.proc, status='REALIZADO')
+        criar_comissao(at, regra=usada)
+        ma = django_admin.site._registry[RegraComissao]
+        self.assertFalse(ma.has_delete_permission(self.rf, usada))
+        self.assertTrue(ma.has_delete_permission(self.rf, livre))
+        resp = self.c.post(f'/django-admin-sv/aranha_estetica/regracomissao/{usada.pk}/delete/', {'post': 'yes'})
+        self.assertEqual(resp.status_code, 403)
+        self.assertTrue(RegraComissao.objects.filter(pk=usada.pk).exists())
 
 
 # ─── wave 3 / crawl-7: raiz da API so p/ staff ───

@@ -9,12 +9,14 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.core.cache import cache
-from django.db.models import Count, F, Sum
+from django.db.models import Count, Sum
 from django.shortcuts import render
 from django.utils import timezone
 
 from ..decorators import staff_required
-from ..models import Atendimento, CompraPacote, MovimentoComissao
+from ..models import Atendimento, MovimentoComissao
+from ..services import financeiro
+from ..services.comissao_service import ComissaoService
 
 logger = logging.getLogger(__name__)
 
@@ -49,20 +51,16 @@ def _calcular_metricas(agora, hoje) -> dict:
     inicio_semana = agora - timedelta(days=7)
     inicio_mes = agora - timedelta(days=30)
 
-    # Faturamento por periodo (REALIZADO + valor_cobrado > 0, exclui retornos).
-    # Sessao de pacote NAO entra: valor_cobrado dela e o preco cheio do
-    # procedimento, e a receita real ja entrou na venda do pacote (abaixo).
-    base_pago = Atendimento.objects.filter(
-        status=Atendimento.STATUS_REALIZADO,
-        eh_retorno=False,
-        valor_cobrado__gt=0,
-        sessao_pacote_vinculada__isnull=True,
-    )
+    # Faturamento por periodo (D20, services/financeiro — mesma regra do
+    # dashboard e da ficha): avulsos REALIZADOS com valor > 0, sem retorno e sem
+    # sessao de pacote (o valor_cobrado dela e o preco cheio; a receita real ja
+    # entrou na venda do pacote, abaixo).
+    base_pago = financeiro.atendimentos_faturados()
     # Venda de pacote = receita no dia da compra, liquida do reembolso: o
     # cancelado entra com o que a clinica reteve (sessoes usadas/multa);
     # devolvido integral (liquido 0) nao conta como venda.
-    vendas_pacote = CompraPacote.objects.filter(valor_pago__gt=F('valor_reembolsado'))
-    receita_pacote = Sum(F('valor_pago') - F('valor_reembolsado'))
+    vendas_pacote = financeiro.vendas_pacote()
+    receita_pacote = financeiro.RECEITA_PACOTE
 
     fat_hoje = base_pago.filter(data_hora_inicio__date=hoje).aggregate(
         total=Sum('valor_cobrado'), count=Count('id'),
@@ -117,19 +115,25 @@ def _calcular_metricas(agora, hoje) -> dict:
         .order_by('-total')[:5]
     )
 
-    # Comissoes pendentes (todas)
-    comissoes_pendentes = MovimentoComissao.objects.filter(
-        status=MovimentoComissao.STATUS_PENDENTE,
-    ).aggregate(total=Sum('valor'), count=Count('id'))
+    # Comissoes pendentes (todas): creditos sem PAGAMENTO nem ESTORNO (ledger, 0053)
+    creditos = MovimentoComissao.objects.creditos_com_status()
+    pendentes = list(creditos.filter(status=MovimentoComissao.STATUS_PENDENTE).values_list('valor', flat=True))
+    comissoes_pendentes = {'total': sum(pendentes, Decimal('0.00')), 'count': len(pendentes)}
 
-    # Comissoes por profissional (mes)
-    comissoes_por_prof = (
-        MovimentoComissao.objects
-        .filter(criado_em__gte=inicio_mes, status__in=['PENDENTE', 'PAGA'])
-        .values('profissional__nome')
-        .annotate(total=Sum('valor'), count=Count('id'))
-        .order_by('-total')
-    )
+    # Comissoes por profissional (mes): creditos do periodo nao estornados
+    por_prof = {}
+    for nome, valor in (
+        creditos.filter(criado_em__gte=inicio_mes)
+        .exclude(status=MovimentoComissao.STATUS_ESTORNADA)
+        .values_list('profissional__nome', 'valor')
+    ):
+        linha = por_prof.setdefault(nome, {'profissional__nome': nome, 'total': Decimal('0.00'), 'count': 0})
+        linha['total'] += valor
+        linha['count'] += 1
+    comissoes_por_prof = sorted(por_prof.values(), key=lambda r: (-r['total'], r['profissional__nome'] or ''))
+    # Saldo negativo = comissao paga e depois estornada: desconta do proximo repasse
+    saldos = ComissaoService.saldos_por_profissional()
+    comissoes_a_descontar = -sum((s for s in saldos.values() if s < 0), Decimal('0.00'))
 
     zero = Decimal('0.00')
     return {
@@ -145,11 +149,14 @@ def _calcular_metricas(agora, hoje) -> dict:
         'fat_mes_count': fat_mes['count'] or 0,
         'fat_mes_pacotes': pac_mes['count'] or 0,
         'fat_mes_pacotes_total': pac_mes['total'] or zero,
+        # ticket medio dos avulsos (mesma funcao do dashboard e da ficha do cliente)
+        'ticket_medio_mes': financeiro.ticket_medio(fat_mes['total'], fat_mes['count']),
         'no_show_count': no_show_mes,
         'no_show_pct': round(no_show_pct, 1),
         'top_procedimentos': list(top_procs),
         'top_profissionais': list(top_profs),
         'comissoes_pendentes_total': comissoes_pendentes['total'] or Decimal('0.00'),
         'comissoes_pendentes_count': comissoes_pendentes['count'] or 0,
-        'comissoes_por_prof': list(comissoes_por_prof),
+        'comissoes_por_prof': comissoes_por_prof,
+        'comissoes_a_descontar': comissoes_a_descontar,
     }

@@ -11,7 +11,7 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db.models import Avg, Count, F, Q, Sum
+from django.db.models import Avg, Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -147,7 +147,12 @@ def admin_nps_publicacao(request, pk):
 # ════════════════════════════════════════════════════════════════════
 @staff_required
 def painel_comissoes(request):
-    """Lista comissoes com filtros (status/profissional/periodo) + baixa."""
+    """Comissoes (livro-razao, 0053): creditos com status derivado + baixa + saldo.
+
+    Status vem do ledger (PAGAMENTO/ESTORNO do credito). O saldo por profissional
+    e do ledger inteiro (Σ credito − pagamento − estorno) e pode ficar NEGATIVO:
+    comissao paga e depois estornada = a descontar do proximo repasse.
+    """
     periodo = request.GET.get('periodo', '90')
     if periodo not in PERIODOS:
         periodo = '90'
@@ -155,7 +160,7 @@ def painel_comissoes(request):
     prof_filter = request.GET.get('profissional', 'all')
     inicio = _inicio_periodo(periodo)
 
-    base = MovimentoComissao.objects.select_related(
+    base = MovimentoComissao.objects.creditos_com_status().select_related(
         'profissional', 'atendimento__cliente', 'atendimento__procedimento',
     )
     if inicio is not None:
@@ -166,28 +171,19 @@ def painel_comissoes(request):
         base = base.filter(profissional_id=prof_id)
 
     # Totais por status (respeitando periodo+profissional, ignorando o filtro de status).
-    totais = base.aggregate(
-        pendente_total=Sum('valor', filter=Q(status=MovimentoComissao.STATUS_PENDENTE)),
-        pendente_count=Count('id', filter=Q(status=MovimentoComissao.STATUS_PENDENTE)),
-        paga_total=Sum('valor', filter=Q(status=MovimentoComissao.STATUS_PAGA)),
-        paga_count=Count('id', filter=Q(status=MovimentoComissao.STATUS_PAGA)),
-        estornada_count=Count('id', filter=Q(status=MovimentoComissao.STATUS_ESTORNADA)),
-    )
+    totais = {
+        MovimentoComissao.STATUS_PENDENTE: [Decimal('0.00'), 0],
+        MovimentoComissao.STATUS_PAGA: [Decimal('0.00'), 0],
+        MovimentoComissao.STATUS_ESTORNADA: [Decimal('0.00'), 0],
+    }
+    for status, valor in base.order_by().values_list('status', 'valor'):
+        totais[status][0] += valor
+        totais[status][1] += 1
 
-    # Resumo por profissional (pendente + paga).
-    por_prof = (
-        base.exclude(status=MovimentoComissao.STATUS_ESTORNADA)
-        .values('profissional__nome')
-        .annotate(
-            pendente=Sum('valor', filter=Q(status=MovimentoComissao.STATUS_PENDENTE)),
-            paga=Sum('valor', filter=Q(status=MovimentoComissao.STATUS_PAGA)),
-            qtd=Count('id'),
-        )
-        # nulls_last: no Postgres DESC poe NULL (sem pendencia) no topo
-        .order_by(F('pendente').desc(nulls_last=True), 'profissional__nome')
-    )
+    # Resumo por profissional (pendente + paga no periodo; saldo do ledger inteiro).
+    por_prof = ComissaoService.resumo_por_profissional(base, prof_id)
 
-    lista = base.order_by('-criado_em')
+    lista = base.order_by('-criado_em', '-pk')
     if status_filter in (MovimentoComissao.STATUS_PENDENTE, MovimentoComissao.STATUS_PAGA, MovimentoComissao.STATUS_ESTORNADA):
         lista = lista.filter(status=status_filter)
 
@@ -199,12 +195,13 @@ def painel_comissoes(request):
         'status_filter': status_filter,
         'prof_filter': prof_filter,
         'profissionais': Profissional.objects.filter(ativo=True).order_by('nome'),
-        'pendente_total': totais['pendente_total'] or Decimal('0.00'),
-        'pendente_count': totais['pendente_count'] or 0,
-        'paga_total': totais['paga_total'] or Decimal('0.00'),
-        'paga_count': totais['paga_count'] or 0,
-        'estornada_count': totais['estornada_count'] or 0,
-        'por_profissional': list(por_prof),
+        'pendente_total': totais[MovimentoComissao.STATUS_PENDENTE][0],
+        'pendente_count': totais[MovimentoComissao.STATUS_PENDENTE][1],
+        'paga_total': totais[MovimentoComissao.STATUS_PAGA][0],
+        'paga_count': totais[MovimentoComissao.STATUS_PAGA][1],
+        'estornada_count': totais[MovimentoComissao.STATUS_ESTORNADA][1],
+        'por_profissional': por_prof,
+        'tem_saldo_negativo': any(r['saldo_negativo'] for r in por_prof),
         'comissoes': page,
     }
     return render(request, 'painel/comissoes.html', ctx)
@@ -213,10 +210,13 @@ def painel_comissoes(request):
 @staff_required
 @require_POST
 def admin_comissao_pagar(request, pk):
-    """Marca uma comissao PENDENTE como PAGA."""
-    ok = ComissaoService.marcar_paga(pk)
-    if ok:
-        registrar_log(request.user, 'Marcou comissão como paga', 'movimento_comissao', pk, request=request)
+    """Baixa de uma comissao PENDENTE: lanca o PAGAMENTO (autor = quem clicou)."""
+    pagamento = ComissaoService.marcar_paga(pk, usuario=request.user)
+    if pagamento:
+        registrar_log(
+            request.user, 'Marcou comissão como paga', 'movimento_comissao', pk,
+            {'pagamento': pagamento.pk, 'valor': str(pagamento.valor)}, request=request,
+        )
         messages.success(request, 'Comissão marcada como paga.')
     else:
         messages.error(request, 'Comissão não encontrada ou já não estava pendente.')

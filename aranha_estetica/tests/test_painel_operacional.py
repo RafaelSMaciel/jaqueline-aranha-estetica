@@ -37,6 +37,7 @@ from aranha_estetica.services import consentimentos
 from .factories import (
     criar_atendimento,
     criar_cliente,
+    criar_compra_pacote,
     criar_notificacao_com_link,
     criar_pacote,
     criar_procedimento,
@@ -1066,22 +1067,40 @@ class AgendamentoInternoTests(_AdminTestCase):
 class PacoteVendidoTests(_AdminTestCase):
     def setUp(self):
         super().setUp()
-        from .factories import criar_compra_pacote
         self.prof = criar_profissional()
         self.proc = criar_procedimento(profissional=self.prof)
         self.pacote = criar_pacote('Drenagem 10x', preco=Decimal('1500.00'), procedimento=self.proc, sessoes=10)
         self.cli = criar_cliente('Paula Pacote')
         self.compra = criar_compra_pacote(self.cli, self.pacote)
 
-    def test_editar_itens_de_pacote_vendido_bloqueado(self):
+    def test_catalogo_de_pacote_vendido_e_editavel_e_a_compra_nao_muda(self):
+        # 0052: a venda congelou nome/itens/valor por sessao; o catalogo volta a ser editavel
+        outro = criar_procedimento(nome='Peeling', profissional=self.prof)
         resp = self.client.post(reverse('aranha:admin_editar_pacote', args=[self.pacote.pk]), {
-            'nome': 'Drenagem 10x', 'preco_total': '1500', 'validade_meses': '12', 'ativo': '1',
-            'procedimento_ids': [str(self.proc.pk)], 'quantidades': ['2'],
+            'nome': 'Drenagem 2x + Peeling', 'preco_total': '900', 'validade_meses': '6', 'ativo': '1',
+            'procedimento_ids': [str(self.proc.pk), str(outro.pk)], 'quantidades': ['2', '1'],
         })
         self.assertEqual(resp.status_code, 302)
-        self.assertEqual(self.pacote.itens.get().quantidade_sessoes, 10)
-        self.assertTrue(any('já foi vendido' in m for m in _mensagens(resp)))
-        self.assertEqual(self.compra.saldo_por_procedimento()[0]['restantes'], 10)
+        self.assertTrue(any('atualizado' in m for m in _mensagens(resp)))
+        self.pacote.refresh_from_db()
+        self.assertEqual(self.pacote.nome, 'Drenagem 2x + Peeling')
+        self.assertEqual(sorted(self.pacote.itens.values_list('procedimento_id', 'quantidade_sessoes')),
+                         sorted([(self.proc.pk, 2), (outro.pk, 1)]))
+        # quem ja comprou mantem o que comprou
+        self.compra.refresh_from_db()
+        self.assertEqual(self.compra.pacote_nome, 'Drenagem 10x')
+        saldo = self.compra.saldo_por_procedimento()
+        self.assertEqual([(linha['procedimento_nome'], linha['total'], linha['restantes']) for linha in saldo],
+                         [(self.proc.nome, 10, 10)])
+        self.assertEqual(saldo[0]['item'].valor_unitario, Decimal('150.00'))
+        resp = self.client.get(reverse('aranha:admin_cliente_detalhe', args=[self.cli.pk]))
+        self.assertContains(resp, 'Drenagem 10x')
+        self.assertContains(resp, '0/10 usadas')
+        # a proxima venda congela o catalogo novo
+        nova = criar_compra_pacote(criar_cliente('Outra Cliente'), self.pacote)
+        self.assertEqual(nova.pacote_nome, 'Drenagem 2x + Peeling')
+        self.assertEqual([linha['total'] for linha in nova.saldo_por_procedimento()], [2, 1])
+        self.assertEqual({i.valor_unitario for i in nova.itens.all()}, {Decimal('300.00')})
 
     def test_pacote_vendido_aceita_preco_sem_itens_no_form(self):
         self.client.post(reverse('aranha:admin_editar_pacote', args=[self.pacote.pk]), {

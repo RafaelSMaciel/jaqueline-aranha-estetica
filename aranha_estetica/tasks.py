@@ -302,10 +302,10 @@ def job_verificar_pacotes_expirando(self):
             pacotes = CompraPacote.objects.filter(
                 status='ATIVO',
                 data_expiracao=data_alvo
-            ).select_related('cliente', 'pacote').prefetch_related('pacote__itens__procedimento')
+            ).select_related('cliente').prefetch_related('itens__procedimento', 'sessoes_realizadas')
 
             for pc in pacotes:
-                # Mesma fonte de saldo da ficha do cliente (1 query agregada).
+                # Mesma fonte de saldo da ficha do cliente (itens congelados na venda).
                 sessoes_restantes = pc.sessoes_restantes()
 
                 if sessoes_restantes <= 0:
@@ -320,7 +320,7 @@ def job_verificar_pacotes_expirando(self):
                 try:
                     ok = enviar_pacote_expirando_email(pc.cliente.email, {
                         'nome': pc.cliente.nome,
-                        'pacote': pc.pacote.nome,
+                        'pacote': pc.pacote_nome,
                         'dias': dias,
                         'sessoes_restantes': sessoes_restantes,
                         # Sessao conta pela data em que acontece (signals).

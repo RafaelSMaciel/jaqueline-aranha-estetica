@@ -39,6 +39,7 @@ CONSTRAINTS_SO_PG = {
     'ex_agenda_excecao_folga_sobreposta': '0048',
     'ck_agenda_excecao_regra_recorrencia_suportada': '0048',
     'ck_link_acesso_token_hash_formato': '0049',
+    'fk_consumo_sessao_compra_pacote_item_compra': '0052',
 }
 # tgname -> (migration que cria, tabela). A 0047 (termo SAUDE, reembolso,
 # promocao geral) so cria CHECKs de model (existem no SQLite tambem) e nao
@@ -50,6 +51,10 @@ TRIGGERS_SO_PG = {
     'trg_prontuario_versao_imutavel': ('0046', 'prontuario_versao'),
     'tg_link_acesso_imutavel': ('0049', 'link_acesso'),
     'tg_consentimento_imutavel': ('0050', 'consentimento'),
+    'tg_compra_pacote_item_imutavel': ('0052', 'compra_pacote_item'),
+    'tg_consumo_sessao_validar': ('0052', 'consumo_sessao'),
+    'tg_movimento_comissao_validar': ('0053', 'movimento_comissao'),
+    'tg_movimento_comissao_imutavel': ('0053', 'movimento_comissao'),
 }
 
 
@@ -392,3 +397,154 @@ class DDLSoPostgresTests(TestCase):
         self.assertEqual(
             collations, {'cliente': 'pt_br', 'profissional': 'pt_br', 'procedimento': 'pt_br'},
         )
+
+    # ─── 0052: pacote congelado ──────────────────────────────────────────
+    def _venda(self, sessoes=2):
+        from aranha_estetica.tests.factories import criar_compra_pacote, criar_pacote
+        compra = criar_compra_pacote(self.cli, criar_pacote(procedimento=self.proc, sessoes=sessoes,
+                                                            preco=Decimal('300.00')))
+        return compra, compra.itens.get()
+
+    def test_pacote_congelado_nomes_e_on_delete_real(self):
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT conrelid::regclass::text, conname, contype, confdeltype FROM pg_constraint "
+                "WHERE conrelid = 'compra_pacote_item'::regclass "
+                "OR (conrelid = 'consumo_sessao'::regclass AND conname LIKE 'fk_consumo_sessao_compra_pacote_item%%')"
+            )
+            objetos = set(cursor.fetchall())
+            cursor.execute("SELECT pg_get_serial_sequence('compra_pacote_item', 'id'), "
+                           "obj_description('compra_pacote_item'::regclass, 'pg_class'), "
+                           "col_description('compra_pacote'::regclass, "
+                           "(SELECT attnum FROM pg_attribute WHERE attrelid = 'compra_pacote'::regclass "
+                           "AND attname = 'pacote_nome')::int)")
+            sequencia, comentario, comentario_nome = cursor.fetchone()
+            cursor.execute("SELECT indexrelid::regclass::text FROM pg_index "
+                           "WHERE indrelid IN ('compra_pacote_item'::regclass, 'consumo_sessao'::regclass)")
+            indices = {r[0] for r in cursor.fetchall()}
+            cursor.execute("SELECT attnotnull FROM pg_attribute WHERE attrelid = 'consumo_sessao'::regclass "
+                           "AND attname = 'compra_pacote_item_id'")
+            nao_nulo = cursor.fetchone()[0]
+        self.assertEqual(objetos, {
+            ('compra_pacote_item', 'pk_compra_pacote_item', 'p', ' '),
+            ('compra_pacote_item', 'fk_compra_pacote_item_compra_pacote', 'f', 'c'),
+            ('compra_pacote_item', 'fk_compra_pacote_item_procedimento', 'f', 'a'),
+            ('compra_pacote_item', 'uq_compra_pacote_item_compra_procedimento', 'u', ' '),
+            ('compra_pacote_item', 'uq_compra_pacote_item_id_compra', 'u', ' '),
+            ('compra_pacote_item', 'ck_compra_pacote_item_qtd_sessoes_positiva', 'c', ' '),
+            ('compra_pacote_item', 'ck_compra_pacote_item_valor_unitario_nao_negativo', 'c', ' '),
+            ('consumo_sessao', 'fk_consumo_sessao_compra_pacote_item', 'f', 'a'),
+            ('consumo_sessao', 'fk_consumo_sessao_compra_pacote_item_compra', 'f', 'a'),
+        })
+        self.assertTrue({'ix_compra_pacote_item_procedimento', 'ix_consumo_sessao_compra_pacote_item'} <= indices)
+        self.assertEqual(sequencia, 'public.compra_pacote_item_id_seq')
+        self.assertIn('snapshot', comentario)
+        self.assertIn('momento da venda', comentario_nome)
+        self.assertTrue(nao_nulo)
+
+    def test_consumo_sessao_validado_no_banco(self):
+        from aranha_estetica.models import ConsumoSessao
+        compra, item = self._venda(sessoes=1)
+        outra, item_outra = self._venda(sessoes=1)
+        outro_proc = criar_procedimento('Peeling', profissional=self.prof)
+        de_outro_proc = criar_atendimento(self.cli, self.prof, outro_proc)
+        retorno = criar_atendimento(self.cli, self.prof, self.proc)
+        Atendimento.objects.filter(pk=retorno.pk).update(eh_retorno=True, valor_cobrado=0, atendimento_origem=self.at)
+        casos = {
+            'item de outra compra': dict(compra_pacote=compra, compra_pacote_item=item_outra, atendimento=self.at),
+            'retorno': dict(compra_pacote=compra, compra_pacote_item=item, atendimento=retorno),
+            'outro procedimento': dict(compra_pacote=compra, compra_pacote_item=item, atendimento=de_outro_proc),
+        }
+        for nome, campos in casos.items():
+            # bulk_create pula a validacao do save(): o trigger tem de barrar sozinho
+            with self.subTest(nome), self.assertRaises(IntegrityError), transaction.atomic():
+                ConsumoSessao.objects.bulk_create([ConsumoSessao(**campos)])
+        ConsumoSessao.objects.bulk_create([ConsumoSessao(compra_pacote=compra, compra_pacote_item=item,
+                                                         atendimento=self.at)])
+        with self.assertRaises(IntegrityError), transaction.atomic():  # sem saldo (1 de 1)
+            ConsumoSessao.objects.bulk_create([ConsumoSessao(
+                compra_pacote=compra, compra_pacote_item=item,
+                atendimento=criar_atendimento(self.cli, self.prof, self.proc))])
+        # FK composta: mudar so a compra do consumo p/ outra (o trigger e so de INSERT)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            self._sql('UPDATE consumo_sessao SET compra_pacote_id = %s WHERE atendimento_id = %s',
+                      [outra.pk, self.at.pk])
+            self._sql('SET CONSTRAINTS ALL IMMEDIATE')
+
+    def test_item_vendido_imutavel_mas_sai_com_a_compra(self):
+        compra, item = self._venda()
+        for sql in ('UPDATE compra_pacote_item SET qtd_sessoes = 99 WHERE id = %s',
+                    "UPDATE compra_pacote_item SET procedimento_nome = 'x' WHERE id = %s"):
+            # fn_bloquear_mutacao: SQLSTATE 23000 -> IntegrityError
+            with self.subTest(sql=sql), self.assertRaises(IntegrityError), transaction.atomic():
+                self._sql(sql, [item.pk])
+        compra.delete()
+        self.assertFalse(type(item).objects.filter(pk=item.pk).exists())
+
+    # ─── 0053: comissao como livro-razao ─────────────────────────────────
+    def test_comissao_ledger_nomes_e_triggers(self):
+        from aranha_estetica.models import MovimentoComissao
+        from aranha_estetica.tests.factories import criar_comissao
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT conname, confdeltype FROM pg_constraint WHERE conrelid = 'movimento_comissao'::regclass "
+                "AND contype = 'f' AND conname LIKE 'fk_movimento_comissao_%%'"
+            )
+            fks = set(cursor.fetchall())
+            cursor.execute("SELECT indexrelid::regclass::text, pg_get_indexdef(indexrelid) FROM pg_index "
+                           "WHERE indrelid = 'movimento_comissao'::regclass")
+            indices = dict(cursor.fetchall())
+        self.assertEqual(fks, {('fk_movimento_comissao_movimento_comissao_origem', 'a'),
+                               ('fk_movimento_comissao_usuario_autor', 'a')})
+        for nome, trecho in (('uq_movimento_comissao_credito_por_atendimento', "'CREDITO'"),
+                             ('uq_movimento_comissao_estorno_por_origem', "'ESTORNO'"),
+                             ('uq_movimento_comissao_pagamento_por_origem', "'PAGAMENTO'"),
+                             ('ix_movimento_comissao_origem_parcial', 'IS NOT NULL')):
+            with self.subTest(nome):
+                self.assertIn('WHERE', indices[nome])
+                self.assertIn(trecho, indices[nome])
+        Atendimento.objects.filter(pk=self.at.pk).update(status='REALIZADO')
+        credito = criar_comissao(self.at, valor='20.00')
+        base = {'profissional': self.prof, 'atendimento': self.at, 'movimento_origem': credito}
+        invalidos = {
+            'valor diferente': dict(tipo='PAGAMENTO', valor=Decimal('10.00')),
+            'outro profissional': dict(tipo='PAGAMENTO', valor=Decimal('20.00'),
+                                       profissional=criar_profissional('Dra. Outra')),
+        }
+        for nome, campos in invalidos.items():
+            with self.subTest(nome), self.assertRaises(IntegrityError), transaction.atomic():
+                MovimentoComissao.objects.bulk_create([MovimentoComissao(**{**base, **campos})])
+        estorno = MovimentoComissao.objects.bulk_create([MovimentoComissao(tipo='ESTORNO', valor=Decimal('20.00'),
+                                                                           **base)])[0]
+        with self.assertRaises(IntegrityError), transaction.atomic():  # estornado nao se paga
+            MovimentoComissao.objects.bulk_create([MovimentoComissao(tipo='PAGAMENTO', valor=Decimal('20.00'), **base)])
+        with self.assertRaises(IntegrityError), transaction.atomic():  # origem tem de ser CREDITO
+            MovimentoComissao.objects.bulk_create([MovimentoComissao(
+                tipo='ESTORNO', valor=Decimal('20.00'), **{**base, 'movimento_origem': estorno})])
+        # append-only (fn_bloquear_mutacao, SQLSTATE 23000)
+        for sql in ('UPDATE movimento_comissao SET valor = 1 WHERE id = %s',
+                    'DELETE FROM movimento_comissao WHERE id = %s'):
+            with self.subTest(sql=sql), self.assertRaises(IntegrityError), transaction.atomic():
+                self._sql(sql, [credito.pk])
+
+    def test_regra_comissao_usada_protegida(self):
+        from django.db.models import ProtectedError
+
+        from aranha_estetica.models import RegraComissao
+        from aranha_estetica.tests.factories import criar_comissao
+
+        regra = RegraComissao.objects.create(percentual=Decimal('10'))
+        criar_comissao(self.at, valor='5.00', regra=regra)
+        with self.assertRaises(ProtectedError):
+            regra.delete()
+        with self.assertRaises(IntegrityError), transaction.atomic():  # SQL cru: FK NO ACTION
+            self._sql('DELETE FROM regra_comissao WHERE id = %s', [regra.pk])
+            self._sql('SET CONSTRAINTS ALL IMMEDIATE')
+
+    def test_ledger_da_carteira_segue_com_o_trigger_da_0038(self):
+        # a 0053 derruba/recria o trigger p/ sanear o nome da indicada: tem de continuar la
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT count(*) FROM pg_trigger WHERE tgname = 'trg_movimento_carteira_imutavel' "
+                           "AND tgrelid = 'movimento_carteira'::regclass AND NOT tgisinternal")
+            self.assertEqual(cursor.fetchone()[0], 1)

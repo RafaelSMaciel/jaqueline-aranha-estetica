@@ -321,9 +321,10 @@ def _normalizar_telefone_br(valor):
 
 
 def _contexto_cliente(cliente):
-    from django.db.models import Avg, Count, Max, Sum
+    from django.db.models import Count, Max
 
     from ..models import CompraPacote, ConsumoSessao
+    from ..services import financeiro
     from ..services.termos import ids_com_termo_procedimento_pendente
     from ..utils.saude import alertas_saude
 
@@ -341,12 +342,12 @@ def _contexto_cliente(cliente):
         at.termo_link = at.termo_pendente and aceita_assinatura(at)
         at.de_pacote = at.pk in de_pacote
 
-    # Compras de pacote: saldo por procedimento + validade (recepcao responde
-    # "quantas sessoes me restam e ate quando" sem abrir o Django admin)
+    # Compras de pacote: saldo por item CONGELADO na venda + validade (recepcao
+    # responde "quantas sessoes me restam e ate quando" sem abrir o Django admin)
     hoje_local = hoje()
     pacotes = list(
         CompraPacote.objects.filter(cliente=cliente)
-        .select_related('pacote').prefetch_related('pacote__itens__procedimento')
+        .prefetch_related('itens__procedimento', 'sessoes_realizadas')
         .order_by('-criado_em')
     )
     for compra in pacotes:
@@ -356,20 +357,20 @@ def _contexto_cliente(cliente):
         )
 
     realizados_qs = Atendimento.objects.filter(cliente=cliente, status='REALIZADO')
-    agg = realizados_qs.aggregate(
-        total=Sum('valor_cobrado'),
-        qtd=Count('pk'),
-        ticket_medio=Avg('valor_cobrado'),
-        ultima=Max('data_hora_inicio'),
-    )
+    agg = realizados_qs.aggregate(qtd=Count('pk'), ultima=Max('data_hora_inicio'))
     proc_top = realizados_qs.values(
         'procedimento__nome'
     ).annotate(c=Count('pk')).order_by('-c').first()
+    # "LTV" = avulsos faturados + pacotes (liquidos do reembolso): a sessao de pacote
+    # nao soma de novo a preco cheio (D20; mesma regra do dashboard/financeiro).
+    gasto = financeiro.valor_gasto_cliente(cliente)
 
     cliente_stats = {
-        'ltv': agg['total'] or 0,
+        'ltv': gasto['total'],
+        'ltv_avulsos': gasto['avulsos'],
+        'ltv_pacotes': gasto['pacotes'],
         'qtd_realizados': agg['qtd'] or 0,
-        'ticket_medio': agg['ticket_medio'] or 0,
+        'ticket_medio': gasto['ticket_medio'],
         'ultima_visita': agg['ultima'],
         'procedimento_mais_frequente': proc_top['procedimento__nome'] if proc_top else None,
         'no_show_count': Atendimento.objects.filter(cliente=cliente, status='FALTOU').count(),

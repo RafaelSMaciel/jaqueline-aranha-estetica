@@ -123,7 +123,7 @@ cards e dias são `<button>` (teclado) e o estado sobrevive a recusa do servidor
 | D17 | Produção sem worker Celery (eager) + cron HTTP com `X-Cron-Token` | Custo; 1 serviço |
 | D18 | `/anamnese/<token>/` e `/pesquisa/<token>/` mantidas, hoje sem produtor de link | Aguardando decisão do dono (remover × gerar o link); a ficha pública já exige consentimento art. 11 |
 | D19 | Site só pt-BR (sem LocaleMiddleware); sessão da equipe 8h deslizantes | Sem traduções; 30 min fixos deslogavam no meio do atendimento |
-| D20 | Faturamento = avulsos + venda de pacote; sessão de pacote não soma; comissão da sessão de pacote = `valor_pago / total de sessões` | Evita contar a receita duas vezes e inflar comissão |
+| D20 | Faturamento = avulsos + venda de pacote; sessão de pacote não soma; comissão da sessão de pacote = `valor_pago / total de sessões` (congelado na venda, `compra_pacote_item.valor_unitario`); ticket médio e LTV da ficha pela mesma regra (`services/financeiro`) | Evita contar a receita duas vezes e inflar comissão |
 
 ---
 
@@ -155,8 +155,8 @@ verde em SQLite e Postgres).
   cadastro substituído só com telefone provado.
 - **Painel:** agendamento interno pela recepção, valor cobrado, link do termo por atendimento,
   "Termo pendente" + override auditado "Realizado sem termo aceito", pacotes na ficha do cliente
-  (saldo, validade, cancelamento com reembolso auditado), pacote vendido com nome/itens
-  congelados, bloqueio global "Todos os profissionais", alertas de saúde visíveis (portal,
+  (saldo, validade, cancelamento com reembolso auditado), venda congela nome/itens/valor por
+  sessão (catálogo editável, 0052), comissão em livro-razão com saldo negativo visível (0053), bloqueio global "Todos os profissionais", alertas de saúde visíveis (portal,
   agendamentos, ficha), prontuário com acesso restrito por vínculo + trilha de leitura +
   histórico de versões, moderação de depoimentos, Branding sem upload de logo (Configuracao >
   env > padrão), Configurações só com `email_admin` sugerida (as perguntas do prontuário viraram
@@ -179,7 +179,7 @@ verde em SQLite e Postgres).
 ### 6.2 Pendências reais (verificadas no código em 2026-09-23)
 
 **Operação / go-live (fora do código)**
-- [ ] Backup `pg_dump` + ensaio do upgrade 0026→0051 num Postgres 18 (runbook §14.a)
+- [ ] Backup `pg_dump` + ensaio do upgrade 0026→0053 num Postgres 18 (runbook §14.a)
 - [ ] Env no Railway (ADMIN_*, CRON_TOKEN, SITE_URL, ZENVIA_*, EMAIL_BACKEND + provedor,
       WHATSAPP_*, TURNSTILE_*, SENTRY_DSN, CLINIC_EMAIL) e remover `STATIC_ROOT`
 - [ ] Provedor de e-mail: `django-anymail` já instalado — escolher o provedor (ex.: Resend) e
@@ -196,7 +196,9 @@ verde em SQLite e Postgres).
       [`specs/padrao-sql.md`](specs/padrao-sql.md) §4.a). Fase (b) feita: tokens de link em hash
       (`link_acesso`, migration 0049, §4.b). Fases (c) e (d) feitas: consentimentos com histórico
       (`consentimento`, 0050, §4.c) e questionário único (formulário PRONTUARIO, 0051, §4.d).
-      Próximas fases (e)–(f), nomes e lógica no banco: mesma spec, §6.
+      Fases (e) e (f) feitas: pacote congelado na venda (`compra_pacote_item`, 0052, §4.e) e
+      comissão como livro-razão (`movimento_comissao` CREDITO/PAGAMENTO/ESTORNO, 0053, §4.f).
+      Próximas: nomes (N1–N2) e lógica no banco (L1–L3), mesma spec, §6.
 - [ ] **T9 — calibração de marca (parcial):** cor #C9A84C confirmada pelo dono e fontes
       definidas (Playfair Display + Lato); falta só o self-host das fontes (hoje Google Fonts,
       já declarado na política de privacidade) — opcional

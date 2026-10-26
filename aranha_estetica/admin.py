@@ -21,7 +21,7 @@ from .models import (
     VersaoTermo, AceiteTermo,
     Atendimento, Notificacao, LinkAcesso,
     AvaliacaoNPS,
-    Pacote, ItemPacote, CompraPacote, ConsumoSessao,
+    Pacote, ItemPacote, CompraPacote, CompraPacoteItem, ConsumoSessao,
     ListaEspera,
     LogAuditoria, Configuracao, CodigoOtp,
     RegraComissao, MovimentoComissao,
@@ -650,32 +650,12 @@ class AvaliacaoNPSAdmin(admin.ModelAdmin):
 # PACOTES
 # =====================================================================
 
-def _pacote_vendido(pacote) -> bool:
-    """Pacote com CompraPacote: nome e itens congelados (mesma regra do painel).
-
-    CompraPacote nao guarda copia dos itens; saldo, debito e comissao leem
-    pacote.itens na hora — mudar os itens alteraria o que a cliente comprou.
-    """
-    return bool(
-        pacote is not None and pacote.pk
-        and CompraPacote.objects.filter(pacote=pacote).exists()
-    )
-
-
 class ItemPacoteInline(admin.TabularInline):
+    """Itens do CATALOGO: editaveis sempre (a venda congela os itens em
+    CompraPacoteItem; mudar aqui so afeta vendas futuras)."""
     model = ItemPacote
     extra = 1
     autocomplete_fields = ('procedimento',)
-
-    # obj = Pacote (pai)
-    def has_add_permission(self, request, obj=None):
-        return not _pacote_vendido(obj) and super().has_add_permission(request, obj)
-
-    def has_change_permission(self, request, obj=None):
-        return not _pacote_vendido(obj) and super().has_change_permission(request, obj)
-
-    def has_delete_permission(self, request, obj=None):
-        return not _pacote_vendido(obj) and super().has_delete_permission(request, obj)
 
 
 @admin.register(Pacote)
@@ -686,67 +666,66 @@ class PacoteAdmin(admin.ModelAdmin):
     ordering = ('-ativo', 'nome')
     inlines = [ItemPacoteInline]
 
-    def get_readonly_fields(self, request, obj=None):
-        campos = tuple(super().get_readonly_fields(request, obj))
-        return (*campos, 'nome') if _pacote_vendido(obj) else campos
-
-
-class ItemPacoteAdminForm(forms.ModelForm):
-    class Meta:
-        model = ItemPacote
-        fields = '__all__'
-
-    def clean_pacote(self):
-        pacote = self.cleaned_data.get('pacote')
-        if _pacote_vendido(pacote):
-            raise forms.ValidationError(
-                'Pacote já vendido: os itens não podem mudar. Crie um pacote novo.'
-            )
-        return pacote
-
 
 @admin.register(ItemPacote)
 class ItemPacoteAdmin(admin.ModelAdmin):
-    form = ItemPacoteAdminForm
     list_display = ('pacote', 'procedimento', 'quantidade_sessoes')
     search_fields = ('pacote__nome', 'procedimento__nome')
     autocomplete_fields = ('pacote', 'procedimento')
     list_select_related = ('pacote', 'procedimento')
 
-    def has_change_permission(self, request, obj=None):
-        if obj is not None and _pacote_vendido(obj.pacote):
-            return False
-        return super().has_change_permission(request, obj)
 
-    def has_delete_permission(self, request, obj=None):
-        if obj is not None and _pacote_vendido(obj.pacote):
-            return False
-        return super().has_delete_permission(request, obj)
+class CompraPacoteItemInline(admin.TabularInline):
+    """O que foi vendido (snapshot imutavel da venda) — so leitura."""
+    model = CompraPacoteItem
+    extra = 0
+    can_delete = False
+    fields = ('procedimento_nome', 'quantidade_sessoes', 'valor_unitario', 'criado_em')
+    readonly_fields = fields
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(CompraPacote)
 class PacoteClienteAdmin(admin.ModelAdmin):
-    list_display = ('cliente', 'pacote', 'status', 'valor_pago', 'valor_reembolsado', 'data_expiracao', 'criado_em')
+    """Venda pelo painel (Pacotes > Vender: congela os itens). Aqui: consulta e
+    status/expiracao; o que foi vendido (pacote, nome, valor pago, itens) nao muda."""
+    list_display = ('cliente', 'pacote_nome', 'status', 'valor_pago', 'valor_reembolsado', 'data_expiracao', 'criado_em')
     list_filter = ('status',)
-    search_fields = ('cliente__nome', 'pacote__nome')
+    search_fields = ('cliente__nome', 'pacote_nome')
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
-    readonly_fields = ('criado_em',)
-    autocomplete_fields = ('cliente', 'pacote')
-    list_select_related = ('cliente', 'pacote')
+    readonly_fields = ('cliente', 'pacote', 'pacote_nome', 'valor_pago', 'criado_em')
+    list_select_related = ('cliente',)
+    inlines = [CompraPacoteItemInline]
+
+    def has_add_permission(self, request):
+        return False
 
 
 @admin.register(ConsumoSessao)
 class SessaoPacoteAdmin(admin.ModelAdmin):
-    list_display = ('compra_pacote', 'atendimento', 'criado_em')
+    """Gerado pelo debito do atendimento REALIZADO (signals). Excluir = devolver a
+    sessao (debito indevido); criar/editar por aqui nao."""
+    list_display = ('compra_pacote', 'compra_pacote_item', 'atendimento', 'criado_em')
     search_fields = (
         'compra_pacote__cliente__nome',
-        'compra_pacote__pacote__nome',
+        'compra_pacote__pacote_nome',
     )
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
-    autocomplete_fields = ('compra_pacote', 'atendimento')
-    list_select_related = ('compra_pacote', 'atendimento', 'compra_pacote__cliente')
+    readonly_fields = ('compra_pacote', 'compra_pacote_item', 'atendimento', 'criado_em')
+    list_select_related = ('compra_pacote', 'compra_pacote_item', 'atendimento', 'compra_pacote__cliente')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 # =====================================================================
@@ -845,7 +824,8 @@ class RegraComissaoAdmin(admin.ModelAdmin):
     """Sem regra ativa nenhuma comissao e gerada (ComissaoService.calcular_comissao).
 
     Percentual OU valor fixo (CHECK no banco). Profissional/procedimento vazios
-    = vale para todos; a regra mais especifica vence.
+    = vale para todos; a regra mais especifica vence. Regra ja usada em comissao
+    nao se exclui (PROTECT: o lancamento guarda a regra) — desative.
     """
     list_display = ('__str__', 'profissional', 'procedimento', 'percentual', 'valor', 'ativo')
     list_filter = ('ativo', 'profissional')
@@ -853,16 +833,23 @@ class RegraComissaoAdmin(admin.ModelAdmin):
     autocomplete_fields = ('profissional', 'procedimento')
     list_select_related = ('profissional', 'procedimento')
 
+    def has_delete_permission(self, request, obj=None):
+        if obj is not None and MovimentoComissao.objects.filter(regra=obj).exists():
+            return False
+        return super().has_delete_permission(request, obj)
+
 
 @admin.register(MovimentoComissao)
 class MovimentoComissaoAdmin(admin.ModelAdmin):
-    """Somente leitura: gerado pelo servico e pago pela tela Comissoes do painel."""
-    list_display = ('criado_em', 'profissional', 'atendimento', 'valor', 'status', 'pago_em')
-    list_filter = ('status', 'profissional')
+    """Somente leitura (livro-razao append-only): CREDITO gerado pelo servico,
+    PAGAMENTO pela tela Comissoes do painel, ESTORNO no cancelamento."""
+    list_display = ('criado_em', 'tipo', 'profissional', 'atendimento', 'valor', 'movimento_origem',
+                    'usuario_autor')
+    list_filter = ('tipo', 'profissional')
     search_fields = ('profissional__nome', 'atendimento__cliente__nome')
-    ordering = ('-criado_em',)
+    ordering = ('-criado_em', '-pk')
     date_hierarchy = 'criado_em'
-    list_select_related = ('profissional', 'atendimento', 'atendimento__cliente')
+    list_select_related = ('profissional', 'atendimento', 'atendimento__cliente', 'usuario_autor')
 
     def has_add_permission(self, request):
         return False

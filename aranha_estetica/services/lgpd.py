@@ -92,16 +92,27 @@ class LgpdService:
         ]
 
         pacotes = []
-        for compra in (cliente.pacotes_comprados.select_related('pacote')
-                       .prefetch_related('sessoes_realizadas').order_by('-criado_em')):
+        for compra in (cliente.pacotes_comprados.prefetch_related('itens__procedimento', 'sessoes_realizadas')
+                       .order_by('-criado_em')):
             pacotes.append({
-                'pacote': compra.pacote.nome,
+                # o que foi vendido (congelado na venda), nao o catalogo atual
+                'pacote': compra.pacote_nome,
                 'valor_pago': _dec(compra.valor_pago),
                 'valor_reembolsado': _dec(compra.valor_reembolsado),
                 'status': compra.status,
                 'comprado_em': _iso(compra.criado_em),
                 'data_expiracao': _iso(compra.data_expiracao),
                 'sessoes_realizadas': len(compra.sessoes_realizadas.all()),
+                'itens': [
+                    {
+                        'procedimento': linha['procedimento_nome'],
+                        'sessoes': linha['total'],
+                        'sessoes_usadas': linha['usadas'],
+                        'sessoes_restantes': linha['restantes'],
+                        'valor_por_sessao': _dec(linha['item'].valor_unitario),
+                    }
+                    for linha in compra.saldo_por_procedimento()
+                ],
             })
 
         carteira = None

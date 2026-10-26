@@ -1,9 +1,10 @@
 # Padrão SQL e esquema-alvo do banco — Shiva Zen
 
 > **Spec única** (sobrescrever a cada revisão — política do dono: 1 MD por assunto, sem versões
-> acumuladas). **Status: fases (a)–(d) IMPLEMENTADAS (migrations `0048_agenda_unificada`,
-> `0049_link_acesso`, `0050_consentimento` e `0051_formulario_prontuario`, notas de implementação
-> no fim do §4.a–§4.d); (e)–(f), N1–N2 e L1–L3 seguem em DESIGN.** Base verificada:
+> acumuladas). **Status: fases (a)–(f) IMPLEMENTADAS (migrations `0048_agenda_unificada`,
+> `0049_link_acesso`, `0050_consentimento`, `0051_formulario_prontuario`,
+> `0052_compra_pacote_item` e `0053_comissao_ledger`, notas de implementação no fim do
+> §4.a–§4.f); N1–N2 e L1–L3 seguem em DESIGN.** Base verificada:
 > `front-fundacao` = `main` @ `1462eff`, migrations até `0047`, produção na `0026`, Django 5.2.1, PostgreSQL 18 (Railway, com
 > `btree_gist`, `pg_trgm`, `unaccent`, ICU). Tudo aqui entra como migrations **`0048`+** — as
 > `0027`–`0047` não são editadas. Histórico das 0027–0047: [`remodelagem-banco-v2.md`](remodelagem-banco-v2.md)
@@ -2222,6 +2223,69 @@ itens e colunas (sem perda: o catálogo continua lá).
 `tasks.job_verificar_pacotes_expirando` (idem), `services/lgpd.exportar_dados_cliente` (`pacote_nome`
 + itens), `admin.py` (inline só-leitura).
 
+**Implementação (0052) — o que ficou diferente do desenho acima, e por quê:**
+
+- **Nome só no banco** (precedente 0048/0050): `CompraPacoteItem.quantidade_sessoes` → coluna
+  `qtd_sessoes` (o mesmo atributo do `ItemPacote` até a 0054); `related_name` `compra.itens`,
+  `item.consumos`, `procedimento.itens_compra_pacote`. FKs sem índice automático: cobertas por
+  `uq_compra_pacote_item_compra_procedimento` / `ix_compra_pacote_item_procedimento` /
+  `ix_consumo_sessao_compra_pacote_item` (objetos novos já com o nome final).
+- **`consumo_sessao.compra_pacote_item` = `RESTRICT`** (o DDL diz `NO ACTION`; `PROTECT` daria o
+  mesmo no banco, mas o `PROTECT` do Django barraria apagar a **compra**, que leva item e consumo
+  juntos por `CASCADE` — o `RESTRICT` do Django aceita o que também sai pela cascata).
+- **`PadronizarFks(tabela, colunas)`** (classe nova em `aranha_estetica/db/operacoes.py`; a
+  `PadronizarNomes` segue congelada): a FK nova numa tabela antiga (`consumo_sessao.compra_pacote_item_id`)
+  nasce `fk_consumo_sessao_compra_pacote_item` com `ON DELETE` real, **sem** antecipar a fase de
+  nomes no resto da tabela (PK/FKs/UNIQUE/sequência antigos ficam para a 0055). Vai **depois** do
+  `AlterField` NOT NULL — o Django solta e recria a FK (nome de hash) nesse `AlterField`.
+- **`fn_bloquear_mutacao()`** (corpo do §5.2, SQLSTATE 23000) nasce aqui, com o nome final, para o
+  `tg_compra_pacote_item_imutavel` (só `BEFORE UPDATE`: o item sai com a compra por cascata). A
+  0053 reusa; **na 0054** basta trocar o trigger da carteira (`trg_movimento_carteira_imutavel` /
+  `bloquear_mutacao_ledger()` da 0038) para ela — o `CREATE OR REPLACE` não muda nada.
+- **Ordem real:** `AddField pacote_nome` (nulo) → `CreateModel CompraPacoteItem` → `AddField
+  consumo_sessao.compra_pacote_item` (nulo) + índice → `RunPython` (snapshot; `SET CONSTRAINTS ALL
+  IMMEDIATE`) → `AlterField` NOT NULL ×2 → `PadronizarNomes(['compra_pacote_item'])` →
+  `PadronizarFks('consumo_sessao', ['compra_pacote_item_id'])` → PG: `fn_bloquear_mutacao` +
+  `tg_compra_pacote_item_imutavel`, `fn_consumo_sessao_validar` + `tg_consumo_sessao_validar`,
+  `fk_consumo_sessao_compra_pacote_item_compra`.
+- **Dados:** itens na ordem do catálogo, depois os reconstruídos; `valor_unitario` igual em todos os
+  itens da compra (`rateio_por_sessao`, = `base_calculo` da 0051). `LogAuditoria`: um
+  `migration 0052: item reconstruido` por item (com compra/procedimento/sessões) e um
+  `migration 0052: consumo acima da quantidade` por item (com os ids dos consumos), mais o resumo
+  `migration 0052: pacote congelado na venda (compra_pacote_item)` — só quando há compras.
+  Reverso: `RunPython` no-op (o Django tira tabela e colunas; o PG derruba antes os objetos).
+- **Python cobre o banco no SQLite:** `CompraPacoteItem.save()` de linha existente e
+  `QuerySet.update()` recusam; `ConsumoSessao.save()` (novo) resolve o item pelo procedimento do
+  atendimento quando não vem e valida item da compra / procedimento / retorno / saldo
+  (`ValidationError` antes do INSERT; no PG o trigger é a garantia, inclusive para `bulk_create`).
+- **API:** `CompraPacote.vender(pacote, cliente, valor_pago, **campos)` (atômico) +
+  `congelar_itens()` (idempotente); `save()` preenche `pacote_nome` se vier vazio.
+  `saldo_por_procedimento()` devolve também `item` e `procedimento_nome` e usa os prefetches
+  `itens__procedimento`/`sessoes_realizadas` (0 query na ficha). Pacote sem itens continua
+  vendável (compra sem itens), como antes.
+- **Telas:** catálogo editável sempre (sai a trava e o modo só-leitura; aviso "já vendido N vezes:
+  mudanças valem para as próximas vendas"); ficha, e-mail de expiração, cancelamento (auditoria) e
+  DSAR (`pacotes[].itens` com sessões usadas/restantes e valor por sessão) usam o nome/itens
+  congelados. **Django admin:** catálogo livre; compra sem "adicionar" (venda pelo painel congela
+  os itens), com pacote/nome/valor pago/cliente só leitura e os itens vendidos em inline só
+  leitura; consumo só ver/excluir (excluir = devolver sessão debitada errado).
+- **`seed --demo`** vende o "Pacote Demonstração" antes do atendimento realizado demo (que debita
+  1 sessão do item congelado).
+- **Testes:** `tests/test_pacote_congelado.py` (venda/rateio, catálogo editado não muda a compra,
+  imutável, cascata, débito pelo item congelado, validação espelho do trigger, prefetch sem query,
+  comissão pelo valor congelado, e-mail de expiração, DSAR, cancelamento, expirado na validade),
+  `test_migrations_dados.py` (`PacoteCongelado0052Tests`: snapshot, consumo → item, reconstruído e
+  acima da quantidade com logs, saldo pelo código novo; banco novo sem log; reverso),
+  `test_pg_ddl.py` (nomes/`ON DELETE`/índices/comentário, trigger de validação com `bulk_create`,
+  FK composta, imutabilidade), regressão do painel e do admin (catálogo editável).
+
+**Ensaio PG (0026 → 0053, `migrate_atomico`, 27 migrations numa transação):** banco 0026 com 3
+compras (combo com consumo; pacote cujo catálogo perdeu um item consumido e baixou outro abaixo do
+consumido; pacote finalizado) → nomes e itens congelados, valor por sessão 166,67/500,00/90,00, item
+reconstruído e consumo acima nos logs, saldo pelo item igual ao esperado; débito novo depois do
+upgrade cai no item congelado e editar o catálogo não muda a compra; trigger barra UPDATE do item.
+Do zero ok; reverso 0053 → 0051 → 0053 ok (saldos iguais).
+
 ### 4.f Comissão por lançamento (`movimento_comissao` append-only) — migration 0053
 
 **Hoje:** 1 linha por atendimento com `status` PENDENTE→PAGA|ESTORNADA mudado por UPDATE
@@ -2278,6 +2342,72 @@ queryset), `services/comissao_service.py`, `views/relatorios.py` (`painel_comiss
 `templates/painel/comissoes.html`, `dashboard_financeiro.html`, `admin.py` (só leitura, sem
 excluir), testes (`test_retorno_cashback_comissao.py`, `test_comissao_resolver_regra.py`,
 `test_relatorios.py`).
+
+**Implementação (0053) — o que ficou diferente do desenho acima, e por quê:**
+
+- **Nome só no banco:** atributo `MovimentoComissao.movimento_origem` → coluna
+  `movimento_comissao_origem_id` (`related_name='lancamentos_derivados'`); `usuario_autor` (FK
+  `PROTECT`, sem índice — exceção de autoria do §2.11). `regra_id` e `observacoes` mantêm a coluna
+  antiga até a 0054 (§3.2 #63/#64). FKs novas nascem `fk_movimento_comissao_movimento_comissao_origem`
+  / `fk_movimento_comissao_usuario_autor` (`PadronizarFks`).
+- **`criado_em`** passa de `auto_now_add` a `default=timezone.now` + `db_default=Now()` (= `DEFAULT
+  now()` do DDL) num `AlterField` **antes** do `RunPython`: o `auto_now_add` sobrescreveria a data
+  do PAGAMENTO/ESTORNO migrado (mesma lição do `criado_em` da 0048).
+- **Pré-checagem** (primeira operação; aborta com os ids, padrão 0051) também reprova **status fora
+  de PENDENTE/PAGA/ESTORNADA** (o desenho citava só `valor <= 0` e atendimento repetido): sem isso
+  uma linha com status desconhecido viraria CREDITO pendente em silêncio. Duplicata possível no
+  legado = ESTORNADA + outra do mesmo atendimento (o UNIQUE antigo só cobria PENDENTE/PAGA).
+- **Datas:** PAGAMENTO = `pago_em`; **PAGA sem `pago_em`** (dado sujo) → PAGAMENTO na data do
+  crédito, `'migração 0053: data estimada'`. ESTORNO = `max(atendimento.atualizado_em ou
+  crédito.criado_em, crédito.criado_em)`, e depois do PAGAMENTO (+1 µs) quando os dois existem.
+  Lançamentos migrados: `regra` nula (CHECK), `usuario_autor` nulo. `LogAuditoria` `migration 0053:
+  comissao como livro-razao (movimento_comissao)` com as contagens (inclusive `datas_estimadas` e
+  `estornadas_depois_de_pagas`).
+- **Índices:** sai `idx_comissao_prof_status` (a coluna `status` sai); nascem
+  `ix_movimento_comissao_profissional_criado_em` e `ix_movimento_comissao_origem_parcial` (+ os 3
+  UNIQUE parciais). `idx_comissao_criado` (rename) e os índices automáticos de FK ficam para a 0055.
+- **Status derivado no model:** `status`, `pago_em` e `estornado_em` são propriedades — a anotação
+  de `creditos_com_status()` (Subquery + Case, espelho de `vw_comissao`) preenche; sem anotação
+  leem o ledger (só CREDITO); `refresh_from_db()` descarta. `get_status_display()` segue
+  funcionando no template. `save()` de linha existente, `delete()`, `QuerySet.update()/delete()`
+  recusam (`ValidationError`); lançamento novo não-CREDITO é validado como o trigger (origem
+  CREDITO, mesmo profissional/atendimento/valor, estornado não se paga).
+- **Serviço** (`services/comissao_service.py`): `calcular_comissao` lança o CREDITO (idempotente por
+  `tipo=CREDITO`, savepoint na corrida); `marcar_paga(movimento_id, usuario=None)` devolve o
+  PAGAMENTO (ou `None`: não é crédito, já pago/estornado) — a view grava o autor e o id do pagamento
+  na auditoria; `estornar_comissao(atendimento, usuario=None)` lança o ESTORNO do crédito (pago ou
+  não), idempotente. **O motivo livre do cancelamento não vai para o ledger** (imutável: texto livre
+  pode ter dado pessoal que o esquecimento não apagaria) — observação fixa `atendimento cancelado`.
+  Leitura: `saldos_por_profissional()` / `saldo_a_pagar()` (Σ com sinal = `vw_comissao_saldo`) e
+  `resumo_por_profissional()` (pendente/paga do período + saldo do ledger inteiro; quem só tem
+  saldo ≠ 0 também aparece).
+- **Telas:** Comissões ganha a coluna "Saldo a pagar" (vermelho quando negativo) com a nota "saldo
+  negativo = comissão já paga e depois estornada: a descontar do próximo repasse" e a data do
+  estorno na lista; o financeiro mostra pendentes pelo status derivado e o total a descontar.
+  `admin_atendimento_valor` só olha o CREDITO. **Django admin:** lançamentos só leitura (tipo,
+  origem, autor); regra já usada sem "excluir" (`PROTECT` no model: desative).
+- **§7.3 item 1 (no mesmo passo):** `FidelidadeService` grava `Indicacao (cli #<id>)`; a 0053
+  reescreve `Indicacao: <nome> (cli #<id>)` (único formato já gravado — conferido no histórico do
+  git) derrubando e recriando `trg_movimento_carteira_imutavel` no mesmo `RunPython` (o rename para
+  `tg_`/`fn_bloquear_mutacao` continua na 0054). Irreversível de propósito (reverso no-op);
+  `LogAuditoria` `migration 0053: nome da indicada retirado do ledger da carteira (LGPD)` só com ids.
+- **`seed --demo`** cria uma regra demo (30%, se o profissional não tem regra) e lança o CREDITO dos
+  atendimentos realizados de demonstração.
+- **Testes:** `tests/test_comissao_ledger.py` (crédito idempotente mesmo estornado, pagar com autor
+  e sem 2ª baixa, estornado não se paga, pago-e-estornado = saldo negativo e o próximo crédito
+  desconta, append-only e validação no Python, CHECK/UNIQUE com `bulk_create`, cancelamento pela
+  FSM sem o motivo no ledger, regra usada `PROTECT`, painel/financeiro/admin, cashback sem nome,
+  ticket médio único e LTV), `test_migrations_dados.py` (`ComissaoLedger0053Tests`: os 6 casos de
+  status → lançamentos, datas reais/estimadas, status/saldo pelo código novo, log/colunas, nome da
+  indicada; reverso; aborto nos 3 casos), `test_pg_ddl.py` (FKs/índices parciais, trigger de
+  validação com `bulk_create`, append-only SQLSTATE 23000, regra protegida, trigger da carteira
+  recriado).
+
+**Ensaio PG (mesmo banco 0026 da 0052):** comissões PENDENTE, PAGA, ESTORNADA com e sem `pago_em` →
+status/valor/`pago_em` derivados iguais aos antigos, estornos nas datas estimadas, saldo do
+profissional −30,00 (pago-e-estornado); depois do upgrade pagar a pendente e estornar a paga leva a
+−60,00; UPDATE/DELETE no ledger barrados; regra usada `ProtectedError`; cashback sem o nome. Reverso
+0053 → 0051 devolve `status/pago_em` iguais e sobe de novo igual.
 
 ---
 
@@ -2879,12 +3009,13 @@ SELECT a.id AS atendimento_id, a.profissional_id, a.cliente_id, a.status,
 ```
 
 **Achados ao escrever as views (divergências de regra que já existem no código):**
-1. `dashboard.painel_overview` calcula o ticket médio com `realizados_mes` **sem** `valor_cobrado > 0`
-   (conta atendimento sem valor), enquanto `admin_financeiro._calcular_metricas` usa `valor > 0` — as
-   duas telas mostram ticket médio diferente para o mesmo mês. As views seguem o financeiro.
-2. `admin_management._contexto_cliente` mostra "LTV" = Σ `valor_cobrado` de **todo** REALIZADO,
-   incluindo sessão de pacote (preço cheio) — conta a receita do pacote duas vezes (contra a D20).
-   `vw_cliente_resumo.valor_total_gasto` segue a D20.
+1. ~~`dashboard.painel_overview` calcula o ticket médio sem `valor_cobrado > 0`~~ — **resolvido
+   junto da 0053**: uma função só (`services/financeiro`: `atendimentos_faturados`,
+   `ticket_medio`, `resumo_avulsos/pacotes`) para a visão geral (mês corrente), o financeiro (30
+   dias, agora também exibe o ticket) e a ficha; mesma regra das views.
+2. ~~"LTV" da ficha conta sessão de pacote a preço cheio~~ — **resolvido junto da 0053**:
+   `financeiro.valor_gasto_cliente` = avulsos faturados + pacotes líquidos do reembolso
+   (= `vw_cliente_resumo.valor_total_gasto`); o ticket médio da ficha é o dos avulsos faturados.
 3. NPS: `round()` do Python é arredondamento **bancário** (`round(12.5) == 12`, conferido no Python
    do projeto) e o `round(numeric)` do PG arredonda para longe do zero (13). Paridade exige trocar o
    Python (`dashboard.py` l. 135, `relatorios.py` l. 67–68/100) por um helper
@@ -3522,8 +3653,8 @@ tabelas que criou.
 | (b) ✅ | `0049_link_acesso` | `CreateModel LinkAcesso` → `AlterField resposta_anamnese.token` NULL (p/ o reverso) → `RunPython` (sha256 dos 5 tipos de token) → `SET CONSTRAINTS…` → PG: `ck_link_acesso_token_hash_formato`, `fn_link_acesso_imutavel` + trigger → `PadronizarNomes` → `RemoveField` ×7 | — | §4.b (serviço `links`, rotas do portal, ICS) |
 | (c) ✅ | `0050_consentimento` | `CreateModel Consentimento` → `RunPython` (histórico a partir de `consent_*`/`aceita_comunicacao`) → `SET CONSTRAINTS…` → PG: `fn_consentimento_imutavel` + trigger → `PadronizarNomes` → `RemoveField` ×10 | — | §4.c (serviço `consentimentos`, painel revoga, admin só leitura) |
 | (d) ✅ | `0051_formulario_prontuario` | `AlterField tipo` (+PRONTUARIO) → pré-checagem → `AddConstraint` (`ck_formulario_*`, `uq_formulario_prontuario_ativo`) → `RunPython` (Configuracao → formulário) | `tipo`/`escopo` fora do domínio / incoerente | §4.d |
-| (e) | `0052_compra_pacote_item` | `AddField pacote_nome` (nulo) + `CreateModel CompraPacoteItem` + `AddField compra_pacote_item` (nulo) → `RunPython` (snapshot, reconstrução, logs) → `SET CONSTRAINTS…` → `AlterField` NOT NULL → PG: FK composta, `fn_consumo_sessao_validar`, `tg_compra_pacote_item_imutavel` | — | §4.e |
-| (f) | `0053_comissao_ledger` | `RemoveConstraint uniq_comissao_ativa_por_atendimento` → `AddField tipo/movimento_origem/usuario_autor` → `RunPython` (PAGAMENTO/ESTORNO) → `SET CONSTRAINTS…` → `RemoveField status/pago_em` → `AddConstraint` (UNIQUE/CHECK) → estado `regra` PROTECT → PG: `fn_movimento_comissao_validar`, `tg_movimento_comissao_imutavel` | `valor <= 0`; 2 linhas p/ o mesmo atendimento | §4.f |
+| (e) ✅ | `0052_compra_pacote_item` | `AddField pacote_nome` (nulo) + `CreateModel CompraPacoteItem` + `AddField compra_pacote_item` (nulo) → `RunPython` (snapshot, reconstrução, logs) → `SET CONSTRAINTS…` → `AlterField` NOT NULL → `PadronizarNomes` + `PadronizarFks` → PG: `fn_bloquear_mutacao` + `tg_compra_pacote_item_imutavel`, `fn_consumo_sessao_validar` + trigger, FK composta | — | §4.e (venda congela, catálogo editável, saldo/débito/comissão/expiração/DSAR pelo item) |
+| (f) ✅ | `0053_comissao_ledger` | pré-checagem → saneamento do nome da indicada em `movimento_carteira` (trigger da 0038 derrubado/recriado no passo) → `RemoveConstraint uniq_comissao_ativa_por_atendimento` → `AlterField criado_em` (`db_default`) → `AddField tipo/movimento_origem/usuario_autor` → `RunPython` (PAGAMENTO/ESTORNO) → `SET CONSTRAINTS…` → `RemoveIndex idx_comissao_prof_status` → `RemoveField status/pago_em` → estado `regra` PROTECT → `AddConstraint` (UNIQUE/CHECK) + `AddIndex` → `PadronizarFks` → PG: `fn_movimento_comissao_validar` + trigger, `tg_movimento_comissao_imutavel` | `valor <= 0`; 2+ linhas p/ o mesmo atendimento; status fora do domínio | §4.f (ledger, saldo negativo no painel) + §7.3 itens 1–3 |
 | N1 | `0054_padrao_nomes_tabelas_colunas` | PG: **derruba** `trg_aceite_termo_imutavel`/`trg_prontuario_versao_imutavel`/`trg_versao_termo_imutavel`/`trg_movimento_carteira_imutavel` e as funções da 0038/0046 → `AlterModelTable` ×3 + sequências → 64 `RenomearColuna` (§3.6.2) → tipos (`registro_pk bigint`, `*_hash char(64)`, `''→NULL` do `conteudo_hash`) → `NULL→''` e `atualizado_em NOT NULL` (backfill) → `AddField criado_em/atualizado_em` onde faltam → `Positive*Field→SmallIntegerField` → `db_collation='pt_br'` (§3.6.3) → PG: recria `fn_bloquear_mutacao`, `fn_aceite_termo_imutavel`, `fn_versao_termo_imutavel`, `fn_prontuario_versao_imutavel` e os `tg_*` | — | só `db_column`/`db_table` nos models, `registrar_log` com `tabela or ''`, fixtures SQL de teste (`test_pg_ddl`, `test_aceite_termo_modelo`, `test_prontuario_versao_autoria` usam SQL cru com nomes antigos) |
 | N2 | `0055_padrao_nomes_constraints_indices` | `RenameIndex` ×15 → `RenomearConstraint` (§3.3) → `SeparateDatabaseAndState` (unique/db_index de campo e `unique_together` → `Meta`) → `RemoveIndex` dos redundantes → `AddIndex` dos novos → pré-checagem + `AddConstraint` dos CHECKs novos → PG: `PadronizarNomes()` (PK, FK recriadas com `ON DELETE`, UNIQUE de OneToOne, sequências, `DROP` dos `_like`), `RENAME` + `VALIDATE` dos CHECK jsonb da 0043, `ex_atendimento_sobreposicao`, CHECK regex de cliente recriados → `db_table_comment`/`db_comment` (36 tabelas) | linha que viola CHECK novo ou jsonb da 0043 | `Meta` de todos os models; `tests/test_nomes_padrao.py` |
 | L1 | `0056_logica_triggers_historico` | `CreateModel HistoricoAlteracao` → PG: `fn_definir_atualizado_em` + 22 triggers, `tg_anotacao_sessao_imutavel`, `fn_historico_alteracao_imutavel` + trigger, `fn_registrar_historico` + 11 triggers | — | `ContextoBancoMiddleware`, `connection_created`, `cron.py`, sinais Celery, `migrate_atomico` (`app.origem`), `tests/test_pg_historico.py` |
@@ -3559,7 +3690,7 @@ migration). Riscos e o que já está previsto:
    links antigos continuam válidos depois (hash migrado).
 5. **Pontos que abortam** (tudo é desfeito e o log diz a migration): os já conhecidos (0035
    sobreposição, 0043 retorno duplicado) + 0048 (janelas sobrepostas, RRULE), 0051 (`escopo`), 0053
-   (`valor <= 0`), 0055 (CHECK novo/`VALIDATE`). Cada um tem a pré-checagem SQL no runbook (§4.a e
+   (`valor <= 0`, atendimento repetido, status fora do domínio), 0055 (CHECK novo/`VALIDATE`). Cada um tem a pré-checagem SQL no runbook (§4.a e
    `PROJECT.md` §14.a, a atualizar), rodada no **ensaio com o dump** antes do deploy.
 6. **Extensões.** `pg_trgm`/`unaccent` exigem privilégio de `CREATE EXTENSION` (o usuário do Railway
    é dono do banco; o ensaio confirma). Sem elas a 0057 falha — preferível a seguir sem índice.
@@ -3594,7 +3725,7 @@ Depois de implementar: atualizar `docs/PROJECT.md` §5 (tabelas/invariantes) e �
 | 2 | **UX dos links com hash** — ✅ decidido e implementado (0049) | ICS passa a ser exibido só na geração; "Meus agendamentos" por sessão; descadastro com token por e-mail; link do termo não pode ser reexibido | (D1) Link do termo: cada clique gera um novo e os anteriores **continuam válidos** até o fim do atendimento (não revogar: evita quebrar o link que a recepção já mandou). ICS: gerar = revogar o anterior (igual à rotação atual) |
 | 3 | **Semântica de consentimento** — ✅ decidido e implementado (0050) | Sem `aceita_comunicacao`, quem se descadastrou e depois marca o opt-in no wizard **volta** a receber (hoje continua vetado — o que contraria a revogabilidade). Anonimização passa a manter o histórico (datas/finalidades) e apagar IP/UA | (D2) Aceitar o reconsentimento (é o comportamento correto na LGPD). (D3) Minimizar IP/UA na anonimização (mantém a prova de que houve base legal sem identificar o titular). Painel só **revoga**; conceder pelo painel exige texto/justificativa registrado |
 | 4 | **"Duas fontes" na leitura** | `fn_horarios_livres` replica o `SlotService` incluindo recorrência; RRULE fica restrita a um subconjunto (DAILY/WEEKLY/MONTHLY, INTERVAL, BYDAY, BYMONTHDAY) e a 0048 aborta se houver regra fora dele; NPS muda de arredondamento bancário para "meio para cima" (1 ponto nos casos .5) | O app **continua** usando o Python para slots/saldos/NPS; o SQL é espelho para relatório/integração, travado por paridade no CI. (D7) Aceitar ROUND_HALF_UP no NPS (consistente com o PG e com a expectativa humana) |
-| 5 | **Comissão como livro-razão** | Estornos legados ganham data **estimada** (o sistema nunca gravou); sem baixa parcial (PAGAMENTO = valor do crédito); saldo pode ficar negativo (pago e depois estornado = profissional deve); regra usada não se apaga (só desativa) | Aceitar; registrar no painel "saldo negativo = a descontar do próximo repasse". Baixa parcial/lote vira evolução (PAGAMENTO sem origem + CHECK próprio) quando existir |
+| 5 | **Comissão como livro-razão** — ✅ decidido e implementado (0053) | Estornos legados ganham data **estimada** (o sistema nunca gravou); sem baixa parcial (PAGAMENTO = valor do crédito); saldo pode ficar negativo (pago e depois estornado = profissional deve); regra usada não se apaga (só desativa) | Aceito pelo dono: CREDITO/ESTORNO/PAGAMENTO, estorno legado com data estimada, sem baixa parcial, saldo negativo exibido no painel ("a descontar do próximo repasse"), regra usada só desativa. Baixa parcial/lote vira evolução (PAGAMENTO sem origem + CHECK próprio) quando existir |
 
 ### 7.2 Outros riscos (com mitigação)
 
@@ -3615,12 +3746,13 @@ Depois de implementar: atualizar `docs/PROJECT.md` §5 (tabelas/invariantes) e �
 
 ### 7.3 Achados no caminho (fora do escopo, para registrar)
 
-1. **PII em ledger imutável:** `FidelidadeService.liberar_cashback_indicacao` grava
-   `observacoes=f'Indicacao: {cliente.nome} (cli #{cliente.pk})'` em `movimento_carteira`, que é
-   imutável por trigger — o nome da indicada **nunca** é anonimizado pelo esquecimento. Corrigir para
-   gravar só o id e sanear as linhas antigas numa migration que derruba/recria o trigger no mesmo passo.
-2. Ticket médio diferente entre `dashboard.painel_overview` e `admin_financeiro` (§5.4 item 1).
-3. "LTV" da ficha do cliente conta sessão de pacote pelo preço cheio (§5.4 item 2).
+1. ~~**PII em ledger imutável** (nome da indicada em `movimento_carteira.observacoes`)~~ —
+   **resolvido na 0053**: o serviço grava `Indicacao (cli #<id>)` e a migration saneia as linhas
+   antigas derrubando/recriando `trg_movimento_carteira_imutavel` no mesmo passo.
+2. ~~Ticket médio diferente entre `dashboard.painel_overview` e `admin_financeiro`~~ — **resolvido**
+   (`services/financeiro`, §5.4 item 1). Efeito visível: a visão geral deixa de contar atendimento
+   sem valor no ticket.
+3. ~~"LTV" da ficha conta sessão de pacote pelo preço cheio~~ — **resolvido** (§5.4 item 2).
 4. ~~`admin_calendar_mover` não expande bloqueio recorrente~~ — **resolvido na 0048** (usa
    `AgendaExcecao.ocorrencias`).
 5. ~~Importação do Google duplica evento remarcado~~ — **resolvido na 0048** (upsert por `origem_ref`).
@@ -3649,4 +3781,4 @@ Depois de implementar: atualizar `docs/PROJECT.md` §5 (tabelas/invariantes) e �
 - **Não** depender de `pg_cron`: o cron HTTP (`/cron/run/<job>/`) continua chamando os jobs, que
   chamam as procedures.
 
-_Última atualização: 2026-10-02 — fases (a) (0048, agenda 4→2) e (b) (0049, tokens em hash) implementadas; demais fases em design._
+_Última atualização: 2026-10-26 — fases (a)–(f) implementadas (0048–0053: agenda 4→2, tokens em hash, consentimentos, questionário único, pacote congelado, comissão em livro-razão); N1–N2 e L1–L3 em design._
