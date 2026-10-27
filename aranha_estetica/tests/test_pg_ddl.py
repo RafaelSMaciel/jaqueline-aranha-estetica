@@ -489,9 +489,12 @@ class DDLSoPostgresTests(TestCase):
     def test_pacote_congelado_nomes_e_on_delete_real(self):
         with connection.cursor() as cursor:
             cursor.execute(
+                # contype 'n' (PG 18+): NOT NULL vira constraint nomeada pelo proprio Postgres
+                # (<tabela>_<coluna>_not_null) — fora do padrao por definicao, ignorado
+                # tambem pelo test_nomes_padrao.
                 "SELECT conrelid::regclass::text, conname, contype, confdeltype FROM pg_constraint "
-                "WHERE conrelid = 'compra_pacote_item'::regclass "
-                "OR (conrelid = 'consumo_sessao'::regclass AND conname LIKE 'fk_consumo_sessao_compra_pacote_item%%')"
+                "WHERE contype <> 'n' AND (conrelid = 'compra_pacote_item'::regclass "
+                "OR (conrelid = 'consumo_sessao'::regclass AND conname LIKE 'fk_consumo_sessao_compra_pacote_item%%'))"
             )
             objetos = set(cursor.fetchall())
             cursor.execute("SELECT pg_get_serial_sequence('compra_pacote_item', 'id'), "

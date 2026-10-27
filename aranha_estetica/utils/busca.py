@@ -27,7 +27,13 @@ class SemAcento(Func):
 
 def _q_contato(termo: str, incluir_email: bool) -> Q:
     """E-mail/telefone/CPF. Os digitos so sao extraidos quando o termo inteiro tem cara
-    de numero mascarado — 'Maria 2' nao pode virar '2' e casar com todo telefone."""
+    de numero mascarado — 'Maria 2' nao pode virar '2' e casar com todo telefone.
+
+    Termo que nao e numero mascarado nao procura em telefone/CPF: as duas colunas so
+    guardam digitos (ck_cliente_telefone_formato/ck_cliente_cpf_formato), entao nunca
+    casariam — e o OR com elas impedia o Postgres de usar ix_cliente_nome_trgm na
+    busca por nome (achado no CI com PG 18 real).
+    """
     q = Q(email__icontains=termo) if incluir_email else Q()
     digitos = re.sub(r'\D', '', termo)
     if len(digitos) >= 3 and _MASCARA_NUMERICA.fullmatch(termo):
@@ -35,8 +41,6 @@ def _q_contato(termo: str, incluir_email: bool) -> Q:
         # '+55 17 99999-0001': o DDI nao e armazenado (validators.normalizar_telefone)
         if digitos.startswith('55') and len(digitos) in (12, 13):
             q |= Q(telefone__contains=digitos[2:])
-    else:
-        q |= Q(telefone__icontains=termo) | Q(cpf__icontains=termo)
     return q
 
 
