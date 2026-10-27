@@ -1,13 +1,20 @@
 name: CI
 
+# So push: um PR dev -> main mostra os checks do push do mesmo commit (com
+# `pull_request` junto, cada commit rodava 2x em grupos de concorrencia diferentes).
 on:
   push:
-    branches: [main, front-fundacao]
-  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
 
+permissions:
+  contents: read
+
+# Commit novo na dev cancela a execucao anterior; na main toda execucao termina
+# (e o sinal verde do que vai para producao).
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
   PYTHON_VERSION: '3.12'
@@ -20,6 +27,7 @@ jobs:
   testes:
     name: Django (SQLite) — check, migrations, testes
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -56,6 +64,7 @@ jobs:
   migracoes-sqlite:
     name: Django (SQLite) — data migrations (tag migracoes)
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -73,6 +82,7 @@ jobs:
   postgres:
     name: Postgres 18 — cadeia de migrations + suite
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:18
@@ -118,6 +128,7 @@ jobs:
   postgres-migracoes:
     name: Postgres 18 — data migrations (tag migracoes)
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     services:
       postgres:
         image: postgres:18
@@ -150,6 +161,7 @@ jobs:
   front:
     name: Front (Vite + Tailwind)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -164,6 +176,7 @@ jobs:
   docker:
     name: Imagem de producao (Dockerfile)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       # Build completo: stage Node, collectstatic com manifest e check de staticfiles
@@ -172,6 +185,7 @@ jobs:
   auditoria-deps:
     name: pip-audit (informativo)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
