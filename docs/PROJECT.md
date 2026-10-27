@@ -198,8 +198,8 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 - Migrations `0001`–`0058`. Produção está na **`0026`**: o próximo deploy aplica `0027`→`0058`
   de uma vez (ver §14, [`specs/remodelagem-banco-v2.md`](specs/remodelagem-banco-v2.md) e, da
   `0048` em diante, o padrão SQL em [`specs/padrao-sql.md`](specs/padrao-sql.md)).
-- **Lógica no banco** (0056–0058, só Postgres — §5.4): 45 triggers (`atualizado_em`,
-  imutabilidade, validação, trilha `historico_alteracao`), 22 funções `fn_*`, 9 views `vw_*` de
+- **Lógica no banco** (0056–0059, só Postgres — §5.4): 46 triggers (`atualizado_em`,
+  imutabilidade, validação, trilha `historico_alteracao`), 23 funções `fn_*`, 9 views `vw_*` de
   relatório e 4 procedures `sp_*` que são a **fonte única** da escrita de retenção/LGPD. Exige as
   extensões `btree_gist`, `pg_trgm` e `unaccent` (o PG 18 do Railway tem).
 - **Padrão SQL em todas as tabelas** (0054/0055): nomes ASCII snake_case PT-BR no singular;
@@ -222,7 +222,7 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 |---|---|---|
 | Acesso | `usuario` (Usuario) | Equipe. Login por e-mail; `papel` ADMIN/PROFISSIONAL/RECEPCAO (CHECK); `is_staff` = ADMIN; 1:1 opcional com Profissional; `eh_ativo` (desativar, nunca excluir) |
 | | `assinatura_push` (AssinaturaPush) | Inscrições Web Push (VAPID) por usuário (`usuario_id`, `chave_p256dh`, `chave_auth`) |
-| | `log_auditoria` (LogAuditoria) | Trilha LGPD art. 37: autor (`usuario_autor_id`) + snapshot `usuario_autor_nome` ("Nome <email>"), ação, `tabela` + `registro_pk` (bigint), detalhes JSON (PII mascarada), IP |
+| | `log_auditoria` (LogAuditoria) | Trilha LGPD art. 37: autor (`usuario_autor_id`) + snapshot `usuario_autor_nome` ("Nome <email>"), ação, `tabela` + `registro_pk` (bigint), detalhes JSON (PII mascarada), IP. Append-only no PG (0059): só a purga com 180+ dias, a pseudonimização do esquecimento e o `SET NULL` do autor |
 | | `historico_alteracao` (HistoricoAlteracao) | **Trilha de dados** gravada por trigger (0056, só PG) em prontuario, atendimento, compra_pacote, carteira, regra_comissao, preco, promocao, pacote, versao_termo, usuario e configuracao: operação, só as `colunas_alteradas` com antes/depois (`senha_hash` = `"[redigido]"`), autor/IP/origem da sessão (`web`, `cron:<job>`, `celery:<task>`, `migracao`), `transacao_ref`. Append-only; Django admin só leitura (leitura auditada). `cliente` fica fora de propósito (PII; o esquecimento obrigaria a expurgar a trilha) |
 | Pessoas | `cliente` (Cliente) | Cliente da clínica. Telefone só dígitos (10–11) é a chave natural; e-mail/CPF opcionais (ausente = `NULL`); consentimentos de comunicação na tabela `consentimento` (histórico, 0050); `qtd_faltas_consecutivas`/`eh_bloqueado_online`; soft delete (`deletado_em`); `cliente_indicador_id` (cashback); `nome` com collation `pt_br` |
 | | `profissional` (Profissional) | Quem atende. `antecedencia_minima_horas` (0–720, padrão 2), `antecedencia_maxima_dias` (1–365, padrão 60), campos do Google Calendar (`gcal_token_renovacao`, `gcal_calendario_ref`...). Feed ICS por `link_acesso` (FEED_ICS) |
@@ -283,7 +283,8 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 | Comissão: 1 CREDITO por atendimento (nem depois de estornado), ≤ 1 PAGAMENTO e ≤ 1 ESTORNO por crédito, valor > 0, origem só fora do CREDITO, regra só no CREDITO; PAGAMENTO/ESTORNO repetem profissional/atendimento/valor do crédito; estornado não se paga; ledger append-only | `uq_movimento_comissao_credito_por_atendimento`, `…_estorno_por_origem`, `…_pagamento_por_origem`, `ck_movimento_comissao_*`; triggers `tg_movimento_comissao_validar` e `tg_movimento_comissao_imutavel` (**só PG**) | 0053 |
 | `atualizado_em` sempre atualizado, inclusive em `QuerySet.update()`, procedure e SQL manual (o valor que o ORM manda é respeitado) | `fn_definir_atualizado_em` + `tg_<t>_atualizado_em` nas 22 tabelas com a coluna (**só PG**; o teste de conformidade reprova tabela com a coluna e sem o trigger) | 0056 |
 | Nota de sessão é append-only (correção = nova nota) | `tg_anotacao_sessao_imutavel` (**só PG**; o Python recusa save/delete/update) | 0056 |
-| Toda escrita nas 11 tabelas sensíveis fica na trilha `historico_alteracao` (autor, IP, origem); a trilha é append-only — só o `SET NULL` do autor e a purga de retenção (flag local `app.expurgo_autorizado`) passam | `fn_registrar_historico` + `tg_<t>_historico`; `fn_historico_alteracao_imutavel` + `tg_historico_alteracao_imutavel`; `ck_historico_alteracao_*` (**só PG**) | 0056 |
+| Toda escrita nas 11 tabelas sensíveis fica na trilha `historico_alteracao` (autor, IP, origem); a trilha é append-only — só o `SET NULL` do autor e a purga de retenção (flag local `app.expurgo_autorizado` **e** 180+ dias; prontuário 20 anos) passam | `fn_registrar_historico` + `tg_<t>_historico`; `fn_historico_alteracao_imutavel` + `tg_historico_alteracao_imutavel`; `ck_historico_alteracao_*` (**só PG**) | 0056 / 0059 |
+| `log_auditoria` append-only: UPDATE só da pseudonimização (`acao` com `[ANONIMIZADO-<id>]`, `detalhes` NULL) e do `SET NULL` do autor; DELETE só com 180+ dias | `fn_log_auditoria_imutavel` + `tg_log_auditoria_imutavel` (**só PG**) | 0059 |
 
 Além disso: FKs `PROTECT` em tudo que é histórico clínico/financeiro (prontuário, anotação,
 ficha, compra de pacote, carteira, aceite), índices só onde há query real ou FK (spec §2.11; o
@@ -507,8 +508,8 @@ ficam ligados a um titular não identificável.
 | Código OTP | 24 h (`RETENCAO_OTP_HORAS`) | `housekeeping` apaga |
 | Sessões expiradas | — | `housekeeping` (`clearsessions`) |
 | Texto das notificações | 12 meses (`RETENCAO_NOTIFICACAO_DIAS`) | `housekeeping` limpa `mensagem` |
-| Log de auditoria | 5 anos (`RETENCAO_LOG_AUDITORIA_DIAS`) | `housekeeping` apaga |
-| Trilha de dados (`historico_alteracao`) | 5 anos (`RETENCAO_LOG_AUDITORIA_DIAS`); **prontuário: 20 anos** (não purga) | `housekeeping` apaga (flag local `app.expurgo_autorizado`; fora dela o trigger barra DELETE) |
+| Log de auditoria | 5 anos (`RETENCAO_LOG_AUDITORIA_DIAS`, mínimo 180 dias — W013) | `housekeeping` apaga (o trigger só aceita apagar linha com 180+ dias) |
+| Trilha de dados (`historico_alteracao`) | 5 anos (`RETENCAO_LOG_AUDITORIA_DIAS`); **prontuário: 20 anos** (não purga) | `housekeeping` apaga (flag local `app.expurgo_autorizado` + 180 dias; fora disso o trigger barra DELETE) |
 | Link público vencido ou revogado | 90 dias depois de vencer/ser revogado (`RETENCAO_LINK_ACESSO_DIAS`); feed ICS sem validade fica | `housekeeping` apaga |
 | Logs do django-axes | 90 dias (`RETENCAO_AXES_LOG_DIAS`) | `housekeeping` apaga |
 | Cliente sem atendimento | 5 anos (`LGPD_RETENCAO_CLIENTE_DIAS`) | `lgpd_purgar` anonimiza — **exceto** quem tem prontuário com conteúdo, pacote comprado ou atendimento REALIZADO nos últimos 20 anos |
@@ -855,7 +856,7 @@ toda página.
 curl -fsS https://<dominio>/healthz/                  # {"status": "alive"}
 curl -fsS https://<dominio>/health/                   # db/cache/front = true
 railway ssh   # shell no container:
-python manage.py check --database default             # lista W001–W011 pendentes
+python manage.py check --database default             # lista W001–W013 pendentes
 python manage.py sendtestemail voce@exemplo.com       # e-mail real pelo provedor (§14 i)
 python manage.py showmigrations aranha_estetica | tail -3   # [X] 0058
 ```
@@ -866,7 +867,7 @@ Postgres):
 ```sql
 SELECT criado_em, tabela, registro_pk, operacao, colunas_alteradas, usuario_autor_id, ip_origem, origem
   FROM historico_alteracao ORDER BY id DESC LIMIT 5;       -- autor = você, origem = 'web', IP real
-SELECT count(*) FROM pg_trigger WHERE NOT tgisinternal AND tgname LIKE 'tg%';   -- 45
+SELECT count(*) FROM pg_trigger WHERE NOT tgisinternal AND tgname LIKE 'tg%';   -- 46
 ```
 
 ### d) Jobs periódicos (cron externo)
@@ -919,10 +920,11 @@ banco (W004/W007 via Branding, W006, W010) só rodam com `check --database defau
 | `W006` | Nenhum ADMIN ativo com senha — ninguém entra no painel | `ADMIN_EMAIL`/`ADMIN_PASSWORD` + redeploy |
 | `W007` | `CLINIC_EMAIL` vazio — sem canal do titular LGPD | Branding ou env |
 | `W008` | `ADMIN_2FA_OBRIGATORIO=false` em prod | Remover a env |
-| `W012` | `PROFISSIONAL_2FA_OBRIGATORIO=false` em prod — profissional lê dado de saúde só com a senha | Remover a env; profissional sem celular usa códigos de backup impressos |
 | `W009` | SMS real sem Turnstile — cota global de SMS vulnerável | `TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY` |
 | `W010` | Sem versão ativa do termo LGPD e/ou SAÚDE — sem LGPD o agendamento online recusa confirmar; sem SAÚDE o consentimento art. 11 fica sem prova | Painel > Termos: publicar/reativar a versão (a `0045`/`0047` criam as v1.0 se não houver ativa) |
 | `W011` | Backend anymail sem a chave do provedor (ou de provedor não suportado pelos settings), ou `DEFAULT_FROM_EMAIL` de exemplo — nada é entregue | Chave do provedor no Railway; `DEFAULT_FROM_EMAIL` do domínio verificado (§14 i) |
+| `W012` | `PROFISSIONAL_2FA_OBRIGATORIO=false` em prod — profissional lê dado de saúde só com a senha | Remover a env; profissional sem celular usa códigos de backup impressos |
+| `W013` | `RETENCAO_LOG_AUDITORIA_DIAS` abaixo de 180 — o Postgres recusa a purga da trilha | 180 ou mais (padrão 1825; Marco Civil: 6 meses) |
 
 Build: `django_vite.W001` (manifest ausente) reprova o `check --tag staticfiles` do Dockerfile.
 

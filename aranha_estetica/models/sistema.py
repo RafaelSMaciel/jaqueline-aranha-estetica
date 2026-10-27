@@ -102,7 +102,8 @@ def rotulo_usuario(usuario) -> str:
 
 
 class LogAuditoria(models.Model):
-    """Trilha de auditoria (LGPD art. 37).
+    """Trilha de auditoria (LGPD art. 37). No PG e append-only (tg_log_auditoria_imutavel, 0059):
+    so a purga de retencao (180+ dias), a pseudonimizacao do esquecimento e o SET NULL do autor.
 
     usuario SET_NULL + usuario_nome: o snapshot 'Nome <email>' do autor e
     gravado no save (registrar_log incluso) — excluir ou renomear o Usuario
@@ -134,7 +135,8 @@ class LogAuditoria(models.Model):
         db_table = 'log_auditoria'
         db_table_comment = (
             'Trilha de ACOES da aplicacao (LGPD art. 37): autor + snapshot "Nome <email>", acao, alvo, IP. '
-            'Retencao 5 anos. A trilha de DADOS (antes/depois) fica em historico_alteracao.'
+            'Append-only (tg_log_auditoria_imutavel: so purga com 180+ dias, pseudonimizacao e SET NULL do '
+            'autor). Retencao 5 anos. A trilha de DADOS (antes/depois) fica em historico_alteracao.'
         )
         indexes = [
             Indice(fields=['-criado_em'], name='ix_log_auditoria_criado_em'),

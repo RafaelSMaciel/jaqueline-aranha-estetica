@@ -29,6 +29,12 @@ MAX_FALTAS_ANTES_BLOQUEIO = 3
 VALOR_CASHBACK_INDICACAO = Decimal('50.00')
 
 
+# ─── Trilhas (log_auditoria, historico_alteracao) ──────────────────────
+# Idade minima que o Postgres aceita apagar (tg_*_imutavel, 0059): a purga de retencao
+# (RETENCAO_LOG_AUDITORIA_DIAS) nao pode ser menor (aranha.W013; Marco Civil art. 15 = 6 meses).
+TRILHA_RETENCAO_MINIMA_DIAS = 180
+
+
 # ─── Termo LGPD padrao (v1.0) ───────────────────────────────────────────
 # Resumo fiel da pagina /politica-de-privacidade/ (publico/politica_privacidade.html).
 # Usado pela migration 0045 (banco em operacao sem termo LGPD) e pelo `seed` —

@@ -22,13 +22,13 @@ from django.utils import timezone
 
 from aranha_estetica.middleware import ContextoBancoMiddleware
 from aranha_estetica.models import (
-    AnotacaoSessao, Atendimento, CompraPacote, HistoricoAlteracao, Preco, Prontuario, Usuario,
+    AnotacaoSessao, Atendimento, CompraPacote, HistoricoAlteracao, LogAuditoria, Preco, Prontuario, Usuario,
 )
 from aranha_estetica.utils.banco import definir_contexto_banco, limpar_contexto_conexao_nova
 
 from .factories import (
     criar_atendimento, criar_cliente, criar_compra_pacote, criar_pacote, criar_procedimento,
-    criar_profissional, limpar_feriados,
+    criar_profissional, envelhecer_trilha, limpar_feriados,
 )
 from .test_confirmar_agendamento import slot_local, verificar_sessao
 
@@ -200,11 +200,64 @@ class TriggersDaTrilhaTests(TestCase):
             _sql('DELETE FROM historico_alteracao WHERE id = %s', [h.pk])
         # so o SET NULL do autor passa (usuario excluido)
         _sql('UPDATE historico_alteracao SET usuario_autor_id = NULL WHERE id = %s', [h.pk])
+
+        def _purgar(pk):
+            with transaction.atomic():
+                _sql("SELECT set_config('app.expurgo_autorizado', 'on', true)")
+                _sql('DELETE FROM historico_alteracao WHERE id = %s', [pk])
+
+        # 0059: a flag sozinha nao apaga trilha recente (SQL injetado tambem liga a flag)
+        with self.assertRaises(IntegrityError):
+            _purgar(h.pk)
+        envelhecer_trilha(HistoricoAlteracao, h.pk, timezone.now() - timedelta(days=181))
+        _purgar(h.pk)
+        self.assertFalse(HistoricoAlteracao.objects.filter(pk=h.pk).exists())
+
+    def test_trilha_do_prontuario_so_sai_com_20_anos(self):
+        pront = Prontuario.objects.create(cliente=self.cli, alergias='nenhuma')
+        h = HistoricoAlteracao.objects.get(tabela='prontuario', registro_pk=pront.pk)
+        envelhecer_trilha(HistoricoAlteracao, h.pk, timezone.now() - timedelta(days=365 * 6))
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            _sql("SELECT set_config('app.expurgo_autorizado', 'on', true)")
+            _sql('DELETE FROM historico_alteracao WHERE id = %s', [h.pk])
+        envelhecer_trilha(HistoricoAlteracao, h.pk, timezone.now() - timedelta(days=365 * 20 + 6))
         with transaction.atomic():
             _sql("SELECT set_config('app.expurgo_autorizado', 'on', true)")
             _sql('DELETE FROM historico_alteracao WHERE id = %s', [h.pk])
-            _sql("SELECT set_config('app.expurgo_autorizado', 'off', true)")
         self.assertFalse(HistoricoAlteracao.objects.filter(pk=h.pk).exists())
+
+    def test_log_auditoria_append_only(self):
+        log = LogAuditoria.objects.create(
+            acao='Leu prontuario de Maria Silva', tabela='prontuario', registro_id=self.cli.pk,
+            detalhes={'campo': 'alergias'}, ip_origem='10.0.0.1',
+        )
+        for sql_forjado in (
+            "UPDATE log_auditoria SET acao = 'nada aconteceu' WHERE id = %s",
+            "UPDATE log_auditoria SET ip_origem = '10.9.9.9' WHERE id = %s",
+            "UPDATE log_auditoria SET criado_em = now() - interval '10 years' WHERE id = %s",
+            "UPDATE log_auditoria SET detalhes = '{}'::jsonb WHERE id = %s",
+            'DELETE FROM log_auditoria WHERE id = %s',
+        ):
+            with self.subTest(sql=sql_forjado), self.assertRaises(IntegrityError), transaction.atomic():
+                _sql(sql_forjado, [log.pk])
+        # pseudonimizacao do esquecimento (sp_anonimizar_cliente / LgpdService) passa
+        _sql("UPDATE log_auditoria SET acao = replace(acao, 'Maria Silva', '[ANONIMIZADO-1]'), "
+             'detalhes = NULL WHERE id = %s', [log.pk])
+        log.refresh_from_db()
+        self.assertEqual(log.acao, 'Leu prontuario de [ANONIMIZADO-1]')
+        self.assertIsNone(log.detalhes)
+        # purga so com 180+ dias
+        envelhecer_trilha(LogAuditoria, log.pk, timezone.now() - timedelta(days=181))
+        _sql('DELETE FROM log_auditoria WHERE id = %s', [log.pk])
+        self.assertFalse(LogAuditoria.objects.filter(pk=log.pk).exists())
+
+    def test_excluir_usuario_anula_o_autor_do_log_auditoria(self):
+        u = Usuario.objects.create_user(email='temp-log@x.com', password='senha-1-forte', nome='Temp')
+        log = LogAuditoria.objects.create(usuario=u, acao='Exportou relatorio')
+        u.delete()
+        log.refresh_from_db()
+        self.assertIsNone(log.usuario_id)
+        self.assertTrue(log.usuario_nome)          # o snapshot do autor fica
 
     def test_excluir_usuario_anula_o_autor_da_trilha(self):
         u = Usuario.objects.create_user(email='temp@x.com', password='senha-1-forte', nome='Temp')

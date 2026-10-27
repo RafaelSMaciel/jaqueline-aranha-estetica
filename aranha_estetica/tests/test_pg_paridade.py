@@ -38,7 +38,7 @@ from aranha_estetica.utils.nps import resumo_nps
 
 from .factories import (
     conceder, criar_atendimento, criar_cliente, criar_comissao, criar_compra_pacote, criar_link,
-    criar_notificacao_com_link,
+    criar_notificacao_com_link, envelhecer_trilha,
 )
 
 PG = connection.vendor == 'postgresql'
@@ -695,7 +695,7 @@ class ParidadeManutencaoTests(TestCase):
         Notificacao.objects.create(atendimento=at, mensagem='')
         for dias in (365 * 5 + 2, 30):
             log = LogAuditoria.objects.create(acao='x')
-            LogAuditoria.objects.filter(pk=log.pk).update(criado_em=agora - timedelta(days=dias))
+            envelhecer_trilha(LogAuditoria, log.pk, agora - timedelta(days=dias))
         # links: revogado/vencido ha mais e ha menos de 90 dias; sem validade (feed ICS) fica
         for revogado, expira in ((100, None), (10, None), (None, 100), (None, 10), (100, -10)):
             criar_link('GERENCIAR_AGENDAMENTO', at,

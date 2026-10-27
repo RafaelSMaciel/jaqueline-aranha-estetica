@@ -2716,7 +2716,8 @@ CREATE TRIGGER tg_historico_alteracao_imutavel BEFORE UPDATE OR DELETE ON histor
 
 Nota: a flag `app.expurgo_autorizado` não é fronteira de segurança (quem tem SQL também pode
 `DROP TRIGGER`); ela protege contra bug de aplicação/ORM — o mesmo nível de garantia dos triggers
-da 0046.
+da 0046. **Desde a 0059** a flag sozinha não basta: o DELETE também exige idade mínima (180 dias;
+prontuário 20 anos), então um SQL injetado que ligue a flag não apaga trilha recente (§5.10).
 
 #### Validação (2)
 
@@ -3973,6 +3974,29 @@ Depois de implementar: atualizar `docs/PROJECT.md` §5 (tabelas/invariantes) e �
    hashear. Recomendo cifrar em repouso (Fernet com chave em env, rotação documentada) — PR separada.
 7. `log_auditoria.registro_id` é `integer` apontando para PKs `bigint` — corrigido na 0054.
 
+### 5.10 Trilhas append-only de verdade (0059)
+
+A 0058 deixou `log_auditoria` protegida só pelo Django admin (somente leitura) e
+`historico_alteracao` apagável por qualquer sessão que ligasse `app.expurgo_autorizado`. Com o
+mesmo usuário do banco para app e migrations (§7.4: sem roles), um SQL injetado na aplicação
+apagava a prova das leituras de prontuário, do DSAR e do 2FA (LGPD art. 37/46). A 0059
+(`migrations/sql/v0059_trilha_append_only.py`):
+
+- `fn_log_auditoria_imutavel` + `tg_log_auditoria_imutavel` (BEFORE UPDATE OR DELETE): DELETE só de
+  linha com `criado_em` há 180+ dias (purga do `housekeeping`/`sp_purgar_dados_expirados`); UPDATE só
+  se `acao` passar a conter o pseudônimo `[ANONIMIZADO-<id>]`, `detalhes` virar NULL (os dois passos
+  do esquecimento) ou `usuario_autor_id` virar NULL (SET NULL do autor). Qualquer outra coluna é
+  imutável.
+- `fn_historico_alteracao_imutavel` (CREATE OR REPLACE): DELETE exige a flag **e**
+  `criado_em < now() - 180 dias` (`tabela = 'prontuario'`: 20 anos, o registro clínico, que a purga
+  nem tenta apagar).
+- 180 = `constants.TRILHA_RETENCAO_MINIMA_DIAS`; `RETENCAO_LOG_AUDITORIA_DIAS` menor faz a purga
+  falhar no PG (aviso `aranha.W013`); `test_deploy_config` confere que constante e SQL batem.
+- Testes que precisam de linha antiga usam `factories.envelhecer_trilha` (desliga o trigger só no
+  UPDATE, dentro da transação do teste).
+- Não é fronteira contra quem tem DDL (`ALTER TABLE ... DISABLE TRIGGER`): isso exige separar o
+  usuário das migrations do usuário da aplicação, que segue fora (§7.4).
+
 ### 7.4 O que eu recomendo NÃO fazer
 
 - **Não** tornar o `fn_horarios_livres` a fonte do agendamento (nem chamá-lo do wizard): a regra de
@@ -3994,4 +4018,4 @@ Depois de implementar: atualizar `docs/PROJECT.md` §5 (tabelas/invariantes) e �
 - **Não** depender de `pg_cron`: o cron HTTP (`/cron/run/<job>/`) continua chamando os jobs, que
   chamam as procedures.
 
-_Última atualização: 2026-10-26 — tudo implementado: fases (a)–(f) (0048–0053: agenda 4→2, tokens em hash, consentimentos, questionário único, pacote congelado, comissão em livro-razão), fase de nomes N1–N2 (0054/0055, notas no §3.6.5) e fase de lógica L1–L3 (0056–0058: triggers + trilha `historico_alteracao`, extensões/utilitárias/busca trigram/funções de leitura/views com paridade, procedures como fonte única; notas no §5.9)._
+_Última atualização: 2026-10-27 — 0059: trilhas append-only (§5.10). Antes, tudo implementado: fases (a)–(f) (0048–0053: agenda 4→2, tokens em hash, consentimentos, questionário único, pacote congelado, comissão em livro-razão), fase de nomes N1–N2 (0054/0055, notas no §3.6.5) e fase de lógica L1–L3 (0056–0058: triggers + trilha `historico_alteracao`, extensões/utilitárias/busca trigram/funções de leitura/views com paridade, procedures como fonte única; notas no §5.9)._

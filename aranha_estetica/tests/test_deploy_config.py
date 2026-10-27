@@ -221,6 +221,19 @@ class ChecksProducaoTests(SimpleTestCase):
     def test_2fa_de_admin_ligado_nao_avisa(self):
         self.assertEqual(self._ids(**_ENV_PROD_OK), [])
 
+    def test_retencao_da_trilha_abaixo_do_minimo_do_banco_avisa(self):
+        with override_settings(**{**_PROD_OK, 'RETENCAO_LOG_AUDITORIA_DIAS': 90}):
+            self.assertEqual(self._ids(**_ENV_PROD_OK), ['aranha.W013'])
+
+    def test_minimo_da_trilha_bate_com_o_trigger(self):
+        from aranha_estetica.constants import TRILHA_RETENCAO_MINIMA_DIAS
+        from aranha_estetica.migrations.sql import v0059_trilha_append_only as sql
+
+        intervalo = f"interval '{TRILHA_RETENCAO_MINIMA_DIAS} days'"
+        self.assertIn(intervalo, sql.FN_LOG_AUDITORIA_IMUTAVEL)
+        self.assertIn(intervalo, sql.FN_HISTORICO_ALTERACAO_IMUTAVEL)
+        self.assertGreaterEqual(settings.RETENCAO_LOG_AUDITORIA_DIAS, TRILHA_RETENCAO_MINIMA_DIAS)
+
     def test_2fa_de_profissional_desligado_em_prod_avisa(self):
         with override_settings(**{**_PROD_OK, 'PROFISSIONAL_2FA_OBRIGATORIO': False}):
             self.assertEqual(self._ids(**_ENV_PROD_OK), ['aranha.W012'])
@@ -807,7 +820,7 @@ class HousekeepingTests(TestCase):
         from aranha_estetica.models import CodigoOtp, LogAuditoria, Notificacao
         from aranha_estetica.tasks_manutencao import job_housekeeping
         from aranha_estetica.tests.factories import (
-            criar_atendimento, criar_cliente, criar_procedimento, criar_profissional,
+            criar_atendimento, criar_cliente, criar_procedimento, criar_profissional, envelhecer_trilha,
         )
 
         agora = timezone.now()
@@ -822,7 +835,7 @@ class HousekeepingTests(TestCase):
 
         log_velho = LogAuditoria.objects.create(acao='x')
         log_novo = LogAuditoria.objects.create(acao='y')
-        LogAuditoria.objects.filter(pk=log_velho.pk).update(criado_em=agora - timedelta(days=365 * 5 + 2))
+        envelhecer_trilha(LogAuditoria, log_velho.pk, agora - timedelta(days=365 * 5 + 2))
 
         resumo = job_housekeeping.apply().get()
 
