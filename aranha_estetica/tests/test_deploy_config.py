@@ -835,7 +835,7 @@ class HousekeepingTests(TestCase):
         from aranha_estetica.tasks_manutencao import job_carregar_feriados
 
         self.assertIn('Feriados', job_carregar_feriados.apply().get())
-        ano = timezone.now().year
+        ano = timezone.localdate().year  # o comando usa o ano local (31/12 21h+ ja e outro ano em UTC)
         self.assertTrue(AgendaExcecao.objects.filter(
             origem='FERIADO_NACIONAL', profissional__isnull=True, tipo='FOLGA', data_inicio__year=ano + 1,
         ).exists())
