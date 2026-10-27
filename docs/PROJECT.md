@@ -412,7 +412,7 @@ versão: `/account/*` (django-two-factor), `/api/schema/redoc/`, `/servicos/prod
 | **Web Push (VAPID)** | Aviso de novo agendamento ao profissional | `WEBPUSH_VAPID_*` | Botão de ativar escondido |
 | **Google Calendar** | Push do atendimento novo + pull de eventos (OAuth por profissional) | `GOOGLE_OAUTH_CLIENT_ID/SECRET/REDIRECT_URI` | UI escondida |
 | **Cloudflare Turnstile** | Captcha no pedido de OTP (wizard e portal) | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Sem captcha (aviso W009 se o SMS for real) |
-| **Sentry** | Erros; `send_default_pii=False` + `before_send` que mascara PII e tokens de URL | `SENTRY_DSN`, `SENTRY_TRACES_SAMPLE_RATE` | Desligado |
+| **Sentry** | Erros e transações amostradas; `send_default_pii=False`, sem variáveis locais nem corpo do request, `EventScrubber` recursivo (contato e dado de saúde) e filtros em erro, transação e breadcrumb que redigem tokens de link, e-mail/CPF/telefone e o DETAIL do Postgres (`utils/pii.opcoes_sentry`) | `SENTRY_DSN`, `SENTRY_TRACES_SAMPLE_RATE` | Desligado |
 | **Armazenamento S3/R2** (opcional) | Mídia | `AWS_*` (exige instalar `django-storages`, que não está no requirements) | Disco local |
 
 ---
@@ -591,7 +591,7 @@ Lista completa e comentada em [`.env.example`](../.env.example). Em produção:
 |---|---|
 | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET`, `WHATSAPP_TEMPLATE_*` | Lembrete D-1, NPS e aviso de vaga |
 | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Captcha no pedido de OTP; com SMS real sem captcha poucos IPs esgotam a cota global (W009) |
-| `SENTRY_DSN` (+ `SENTRY_TRACES_SAMPLE_RATE`) | Monitoramento de erros |
+| `SENTRY_DSN` (+ `SENTRY_TRACES_SAMPLE_RATE`, `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`) | Monitoramento de erros. Ambiente padrão = `DJANGO_ENV`; release padrão = `RAILWAY_GIT_COMMIT_SHA` |
 | `WEBPUSH_VAPID_PUBLIC_KEY`, `WEBPUSH_VAPID_PRIVATE_KEY`, `WEBPUSH_VAPID_CLAIMS_EMAIL` | Push ao profissional |
 | `ADMIN_2FA_OBRIGATORIO` | Sem a env: ligado em prod. `false` = válvula de emergência (W008) |
 | `PROFISSIONAL_2FA_OBRIGATORIO` | `true` exige 2FA também do PROFISSIONAL (lê alertas de saúde) |

@@ -14,20 +14,14 @@ load_dotenv(BASE_DIR / '.env')
 
 
 # ─── SENTRY (opcional) ───────────────────────────────────────────────
+# Filtros de PII, dado de saude e tokens (erros, transacoes, breadcrumbs): utils/pii.opcoes_sentry
 try:
     import sentry_sdk
-    from sentry_sdk.integrations.django import DjangoIntegration
 
     _sentry_dsn = os.environ.get('SENTRY_DSN')
     if _sentry_dsn:
-        from aranha_estetica.utils.pii import sentry_before_send
-        sentry_sdk.init(
-            dsn=_sentry_dsn,
-            integrations=[DjangoIntegration()],
-            traces_sample_rate=float(os.environ.get('SENTRY_TRACES_SAMPLE_RATE', '0.2')),
-            send_default_pii=False,
-            before_send=sentry_before_send,
-        )
+        from aranha_estetica.utils.pii import opcoes_sentry
+        sentry_sdk.init(**opcoes_sentry(_sentry_dsn))
 except ImportError:
     pass
 

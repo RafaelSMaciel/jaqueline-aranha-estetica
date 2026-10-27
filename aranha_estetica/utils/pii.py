@@ -11,6 +11,7 @@ Uso::
 """
 from __future__ import annotations
 
+import os
 import re
 from typing import Optional
 
@@ -86,13 +87,63 @@ def _mascarar_valor(chave: str, valor: str) -> str:
     return mask_telefone(valor)
 
 
-def sentry_before_send(event: dict, hint: dict) -> dict:
-    """Filtra PII de eventos Sentry antes do envio.
+# Chaves removidas pelo EventScrubber do SDK (recursivo: request, extra, contexts, breadcrumbs,
+# spans), alem do DEFAULT_DENYLIST dele (senha, token, cookie, sessao...): dado pessoal e,
+# principalmente, dado de saude (art. 11), que nao pode sair para o operador no exterior.
+SENTRY_DENYLIST_EXTRA = [
+    'email', 'telefone', 'cpf', 'rg', 'celular', 'phone', 'nome', 'data_nascimento', 'endereco', 'cep',
+    'alergias', 'contraindicacoes', 'historico_saude', 'medicamentos_uso', 'observacoes_gerais',
+    'respostas', 'respostas_extras', 'respostas_json', 'dados', 'dados_antes', 'dados_depois',
+    'texto', 'mensagem', 'comentario', 'codigo', 'otp', 'gcal_refresh_token', 'refresh_token',
+]
 
-    Mascara campos de `extra` cujas keys batam com a lista PII, remove
-    completamente o `request.data` (POST body) e redige tokens de links
-    magicos na URL / query string do request.
-    """
+_KEY_DETAIL_RX = re.compile(r'(Key \([^)]*\)=\()[^)]*(\))')   # DETAIL do IntegrityError do Postgres
+_EMAIL_TEXTO_RX = re.compile(r'[\w.+-]+@[\w-]+(?:\.[\w-]+)+')
+_CPF_TEXTO_RX = re.compile(r'\b\d{3}\.\d{3}\.\d{3}-\d{2}\b')
+_TELEFONE_TEXTO_RX = re.compile(r'\(?\b\d{2}\)?[ -]?9?\d{4}-\d{4}\b')
+_NUMERO_LONGO_RX = re.compile(r'\b\d{10,13}\b')                    # telefone/CPF so com digitos
+
+
+def redigir_texto(valor):
+    """Texto livre de evento (mensagem de excecao, log, breadcrumb): tokens de link, valores do
+    DETAIL do Postgres, e-mail, CPF e telefone viram marcador. Nao-str volta igual."""
+    if not isinstance(valor, str) or not valor:
+        return valor
+    valor = redigir_tokens_url(valor)
+    valor = _KEY_DETAIL_RX.sub(r'\1[redigido]\2', valor)
+    valor = _EMAIL_TEXTO_RX.sub(lambda m: mask_email(m.group(0)), valor)
+    valor = _CPF_TEXTO_RX.sub('[cpf]', valor)
+    valor = _TELEFONE_TEXTO_RX.sub('[telefone]', valor)
+    return _NUMERO_LONGO_RX.sub('[numero]', valor)
+
+
+def _redigir_request(request: dict) -> None:
+    if 'data' in request:
+        request['data'] = '[scrubbed]'
+    for campo in ('url', 'query_string'):
+        if isinstance(request.get(campo), str):
+            request[campo] = redigir_tokens_url(request[campo])
+    headers = request.get('headers')
+    if isinstance(headers, dict):
+        for nome in list(headers):
+            if nome.lower() == 'referer' and isinstance(headers[nome], str):
+                headers[nome] = redigir_tokens_url(headers[nome])
+
+
+def _redigir_breadcrumb(crumb: dict) -> dict:
+    if crumb.get('category') == 'query':
+        # SQL sem os parametros (o texto vem com %s; os valores nunca saem)
+        crumb.pop('data', None)
+    crumb['message'] = redigir_texto(crumb.get('message'))
+    dados = crumb.get('data')
+    if isinstance(dados, dict):
+        for chave in ('url', 'to', 'from'):
+            if isinstance(dados.get(chave), str):
+                dados[chave] = redigir_texto(dados[chave])
+    return crumb
+
+
+def _redigir_evento(event: dict) -> dict:
     extra = event.get('extra') or {}
     for key in list(extra.keys()):
         if key.lower() in _SENTRY_PII_KEYS:
@@ -100,11 +151,76 @@ def sentry_before_send(event: dict, hint: dict) -> dict:
             if isinstance(value, str):
                 extra[key] = _mascarar_valor(key, value)
 
-    request = event.get('request') or {}
-    if 'data' in request:
-        request['data'] = '[scrubbed]'
-    for campo in ('url', 'query_string'):
-        if isinstance(request.get(campo), str):
-            request[campo] = redigir_tokens_url(request[campo])
+    request = event.get('request')
+    if isinstance(request, dict):
+        _redigir_request(request)
 
+    for exc in (event.get('exception') or {}).get('values') or []:
+        exc['value'] = redigir_texto(exc.get('value'))
+        for frame in (exc.get('stacktrace') or {}).get('frames') or []:
+            frame.pop('vars', None)          # variaveis locais: prontuario, respostas, OTP...
+    logentry = event.get('logentry')
+    if isinstance(logentry, dict):
+        for campo in ('message', 'formatted'):
+            logentry[campo] = redigir_texto(logentry.get(campo))
+        logentry.pop('params', None)
+    if isinstance(event.get('message'), str):
+        event['message'] = redigir_texto(event['message'])
+
+    crumbs = event.get('breadcrumbs')
+    lista = crumbs.get('values') if isinstance(crumbs, dict) else crumbs
+    for crumb in lista or []:
+        if isinstance(crumb, dict):
+            _redigir_breadcrumb(crumb)
+
+    if isinstance(event.get('transaction'), str):
+        event['transaction'] = redigir_tokens_url(event['transaction'])
+    for span in event.get('spans') or []:
+        if isinstance(span, dict):
+            span['description'] = redigir_texto(span.get('description'))
     return event
+
+
+def sentry_before_send(event: dict, hint: dict) -> dict:
+    """Filtra PII de eventos de erro do Sentry antes do envio.
+
+    Mascara campos de `extra` cujas keys batam com a lista PII, remove o corpo do
+    request (POST) e as variaveis locais dos frames, redige tokens de links magicos
+    (URL, query string, Referer, nome da transacao) e mascara e-mail/CPF/telefone e o
+    DETAIL do Postgres na mensagem da excecao, no log e nos breadcrumbs.
+    """
+    return _redigir_evento(event)
+
+
+def sentry_before_send_transaction(event: dict, hint: dict) -> dict:
+    """Mesmo filtro para as transacoes de performance (traces_sample_rate): sem ele a URL
+    com o token (/reagendar/<token>/, feed.ics?token=) saia em toda transacao amostrada."""
+    return _redigir_evento(event)
+
+
+def sentry_before_breadcrumb(crumb: dict, hint: dict) -> dict:
+    return _redigir_breadcrumb(crumb)
+
+
+def opcoes_sentry(dsn: str) -> dict:
+    """kwargs do sentry_sdk.init (settings/base.py). Funcao propria p/ o teste conferir a
+    configuracao que vai para producao sem precisar de DSN."""
+    from sentry_sdk.integrations.django import DjangoIntegration
+    from sentry_sdk.scrubber import DEFAULT_DENYLIST, EventScrubber
+
+    return {
+        'dsn': dsn,
+        'integrations': [DjangoIntegration()],
+        'environment': os.environ.get('SENTRY_ENVIRONMENT') or os.environ.get('DJANGO_ENV') or 'prod',
+        # Railway preenche RAILWAY_GIT_COMMIT_SHA: o erro aponta o deploy que o introduziu
+        'release': os.environ.get('SENTRY_RELEASE') or os.environ.get('RAILWAY_GIT_COMMIT_SHA') or None,
+        'traces_sample_rate': float(os.environ.get('SENTRY_TRACES_SAMPLE_RATE', '0.2')),
+        'send_default_pii': False,
+        # variaveis locais dos frames levariam prontuario, respostas e OTP para o Sentry
+        'include_local_variables': False,
+        'max_request_body_size': 'never',
+        'event_scrubber': EventScrubber(denylist=DEFAULT_DENYLIST + SENTRY_DENYLIST_EXTRA, recursive=True),
+        'before_send': sentry_before_send,
+        'before_send_transaction': sentry_before_send_transaction,
+        'before_breadcrumb': sentry_before_breadcrumb,
+    }
