@@ -24,6 +24,8 @@ try:
         sentry_sdk.init(**opcoes_sentry(_sentry_dsn))
 except ImportError:
     pass
+# Politica de privacidade lista o Sentry como operador so quando ele esta ligado
+SENTRY_ATIVO = bool(os.environ.get('SENTRY_DSN'))
 
 
 # ─── SECURITY ────────────────────────────────────────────────────────

@@ -32,11 +32,19 @@ def _validar(chave: str, valor: str):
         if not digitos:
             return valor, 'WhatsApp: informe DDD + número (ex: 17 99123-4567) ou com DDI (5517991234567).'
         return digitos, None
-    if chave == 'CLINIC_EMAIL':
+    if chave in ('CLINIC_EMAIL', 'ENCARREGADO_EMAIL'):
         try:
             validate_email(valor)
         except ValidationError:
-            return valor, 'E-mail de contato inválido.'
+            return valor, ('E-mail de contato inválido.' if chave == 'CLINIC_EMAIL'
+                           else 'E-mail do encarregado de dados inválido.')
+    if chave == 'CLINIC_CNPJ':
+        digitos = re.sub(r'\D', '', valor)
+        if len(digitos) == 14:
+            return f'{digitos[:2]}.{digitos[2:5]}.{digitos[5:8]}/{digitos[8:12]}-{digitos[12:]}', None
+        if len(digitos) == 11:
+            return f'{digitos[:3]}.{digitos[3:6]}.{digitos[6:9]}-{digitos[9:]}', None
+        return valor, 'CNPJ (14 dígitos) ou CPF (11 dígitos) inválido.'
     if chave == 'INSTAGRAM_URL':
         try:
             URLValidator(schemes=['https', 'http'])(valor)
