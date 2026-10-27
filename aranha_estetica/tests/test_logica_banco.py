@@ -106,7 +106,10 @@ class BuscaClienteTests(TestCase):
             cursor.execute("SELECT EXISTS (SELECT 1 FROM pg_opclass WHERE opcname = 'gin_trgm_ops')")
             if not cursor.fetchone()[0]:
                 self.skipTest('Postgres sem pg_trgm real (harness local emula a extensao)')
-        qs = filtrar_clientes(Cliente.objects.all(), 'avila', incluir_email=False).only('pk')
+        # _base_manager: sem o filtro de soft delete (deletado_em IS NULL), que casa com o
+        # predicado de indices parciais (uq_cliente_*_ativo) e, numa tabela de 2 linhas,
+        # vira um bitmap mais barato que o trigram (visto no PG 18 do CI).
+        qs = filtrar_clientes(Cliente._base_manager.all(), 'avila', incluir_email=False).only('pk')
         sql, params = qs.query.sql_with_params()
         with transaction.atomic(), connection.cursor() as cursor:
             # Tabela de teste quase vazia: sem seqscan o planner ainda prefere varrer um
