@@ -98,6 +98,22 @@ class CronEndpointTests(TestCase):
         self.assertEqual(r.json(), {'ok': False, 'job': 'falha', 'error': 'db down'})
         job.apply.assert_called_once_with(retries=3)
 
+    @override_settings(CRON_MONITOR_URL='https://hc-ping.com/chave/')
+    def test_monitor_recebe_ok_e_fail_e_nunca_muda_a_resposta(self):
+        with mock.patch.object(cron.requests, 'post') as post, mock.patch.dict(cron.JOB_MAP, {'ok': _job_ok}):
+            self.assertEqual(self._post('ok').status_code, 200)
+        post.assert_called_once_with('https://hc-ping.com/chave/ok', timeout=5)
+        _CHAMADAS['n'] = 0
+        with mock.patch.object(cron.requests, 'post', side_effect=cron.requests.ConnectionError) as post, \
+                mock.patch.dict(cron.JOB_MAP, {'falha': _job_que_falha}):
+            self.assertEqual(self._post('falha').status_code, 500)       # monitor fora: resposta igual
+        post.assert_called_once_with('https://hc-ping.com/chave/falha/fail', timeout=5)
+
+    def test_sem_monitor_configurado_nao_chama_nada(self):
+        with mock.patch.object(cron.requests, 'post') as post, mock.patch.dict(cron.JOB_MAP, {'ok': _job_ok}):
+            self._post('ok')
+        post.assert_not_called()
+
     def test_jobs_de_manutencao_registrados(self):
         for nome in ('housekeeping', 'feriados', 'lgpd_purgar', 'lembrete_diario'):
             self.assertIn(nome, cron.JOB_MAP)

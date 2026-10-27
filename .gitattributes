@@ -1,0 +1,2 @@
+# scripts shell rodam em Linux (container/cron): sempre LF
+*.sh text eol=lf

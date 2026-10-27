@@ -1,7 +1,7 @@
 # Jaqueline Aranha Estética (Shiva Zen) — Documentação do Projeto
 
-> **Fonte viva textual do projeto.** Reflete o código do branch `front-fundacao`
-> (migrations `0001`–`0046`). Mudou model, rota, env var, job ou deploy? Atualize aqui
+> **Fonte viva textual do projeto.** Reflete o código do branch `dev`
+> (migrations `0001`–`0060`). Mudou model, rota, env var, job ou deploy? Atualize aqui
 > no mesmo commit. Regras funcionais detalhadas: [`REGRAS-DE-NEGOCIO.md`](REGRAS-DE-NEGOCIO.md).
 > Acesso/login: [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO-E-ACESSO.md). Decisões e
 > pendências: [`ARCHITECTURE.md`](ARCHITECTURE.md). Requisitos/UML do TCC:
@@ -78,7 +78,7 @@ aranha_estetica/
 │                    extras (carteira/comissão), historico (trilha historico_alteracao), mixins
 ├── db/              peças de banco usadas por migrations (Indice, PadronizarNomes) — congelado
 ├── migrations/sql/  texto SQL das rotinas por versão (v0056 triggers, v0057 leitura/views, v0058
-│                    procedures) — congelado, importado só pela migration da versão
+│                    procedures, v0059 trilhas append-only) — congelado, importado só pela migration da versão
 ├── views/           public, booking_public/_otp/_reagendar/_api, agenda_publica, anamnese_publica,
 │                    notificacoes (confirmar presença), lgpd, profissional, prontuario, auth, admin_2fa,
 │                    dashboard, admin*, pacotes, relatorios, cron, health, whatsapp, webpush_views
@@ -197,9 +197,10 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 ### 5.1 Resumo
 
 - **36 tabelas de domínio** (+ tabelas do Django, django-otp, django-axes). PK `BigAutoField`.
-- Migrations `0001`–`0058`. Produção está na **`0026`**: o próximo deploy aplica `0027`→`0058`
-  de uma vez (ver §14, [`specs/remodelagem-banco-v2.md`](specs/remodelagem-banco-v2.md) e, da
-  `0048` em diante, o padrão SQL em [`specs/padrao-sql.md`](specs/padrao-sql.md)).
+- Migrations `0001`–`0060`. Ainda não há produção: o primeiro deploy cria o banco do zero (§14).
+  O Postgres do ambiente de desenvolvimento no Railway (na `0026`) está em stand-by. Histórico em
+  [`specs/remodelagem-banco-v2.md`](specs/remodelagem-banco-v2.md) e, da `0048` em diante, o padrão
+  SQL em [`specs/padrao-sql.md`](specs/padrao-sql.md).
 - **Lógica no banco** (0056–0059, só Postgres — §5.4): 46 triggers (`atualizado_em`,
   imutabilidade, validação, trilha `historico_alteracao`), 23 funções `fn_*`, 9 views `vw_*` de
   relatório e 4 procedures `sp_*` que são a **fonte única** da escrita de retenção/LGPD. Exige as
@@ -295,7 +296,7 @@ e nas colunas não óbvias. Detalhe por migration:
 [`specs/remodelagem-banco-v2.md`](specs/remodelagem-banco-v2.md) (0027–0047) e
 [`specs/padrao-sql.md`](specs/padrao-sql.md) (0048+).
 
-### 5.4 Lógica no banco (0056–0058, só Postgres)
+### 5.4 Lógica no banco (0056–0060, só Postgres)
 
 O SQLite dos testes não tem nada disto: o Python cobre (auto_now, `save()`/`delete()` que recusam,
 fallback das procedures). Texto SQL versionado em `aranha_estetica/migrations/sql/vNNNN_*.py`
@@ -615,6 +616,7 @@ Lista completa e comentada em [`.env.example`](../.env.example). Em produção:
 | `EMBED_FRAME_ANCESTORS` | Origens que podem embutir `/embed/agendar/` (vazio = qualquer `https:`) |
 | `LGPD_RETENCAO_CLIENTE_DIAS` | Retenção de cliente inativo (padrão 1825) |
 | `REDIS_URL` | Opcional: cache/sessão compartilhados (obrigatório se `WEB_CONCURRENCY` > 1). **Não** liga worker |
+| `CRON_MONITOR_URL` | Monitor dos jobs (healthchecks.io: `https://hc-ping.com/<ping key>`): cada job avisa `<url>/<job>` ou `<url>/<job>/fail` |
 
 ### 11.3 Opcionais / ajuste fino
 
@@ -705,34 +707,57 @@ todos os jobs:
 - **Healthcheck**: `/healthz/` (timeout 120 s) — 503 se o bundle do Vite faltar.
 - **Produção**: `DEBUG` sempre falso, HTTPS + HSTS, e-mail *dummy* sem `EMAIL_BACKEND`, SMS falha
   fechado sem Zenvia, Celery eager (`CELERY_WORKER_ENABLED=true` liga worker real), logs JSON.
-- O deploy de produção sai do branch `main` (configuração do serviço no Railway). Esta versão
-  vive em `front-fundacao` e vai para produção com o merge em `main`.
+- O deploy de produção sai do branch `main` (configuração do serviço no Railway). O trabalho
+  acontece na `dev`; a `main` é protegida no GitHub (os 6 jobs bloqueantes do CI obrigatórios,
+  inclusive para admin; sem force-push) e recebe a `dev` por PR ou fast-forward.
 
 ---
 
 ## 14. Go-live / Operação (runbook)
 
-Primeiro deploy desta versão: produção sai da migration **`0026`** para a **`0058`** (32
-migrations com renomeações, deduplicação de dados, EXCLUDE, triggers, desativação de contas
-demo, a agenda unificada, os tokens de link em hash, consentimentos com histórico, o questionário
-único, o pacote congelado na venda, a comissão como livro-razão, o padrão de nomes — quase toda
-coluna muda de nome — e a lógica no banco: trilha de alterações, funções, views e procedures).
-Faça em horário sem movimento: até o container novo subir, o código antigo quebra em praticamente
-toda página.
+> **Estado em 2026-10-27:** ainda não há produção. O projeto do Railway que existia (web + Postgres
+> na `0026`) era só **ambiente de desenvolvimento**; está em **stand-by** (trial expirado) e não
+> precisa de upgrade nem de backup. O primeiro deploy de produção cria um **banco novo**: o
+> `migrate_atomico` aplica `0001`→`0060` numa transação e o `seed --force` carrega o catálogo. O
+> roteiro de atualização de um banco já existente (`0026` → `0060`) fica no §14 a.1, para o caso
+> de esse banco um dia ser reaproveitado.
 
 ### a) Pré-deploy
 
-1. **Backup do Postgres de produção** (obrigatório — é o único rollback):
+1. **Contas e acessos** — quem entra no GitHub, no Railway ou no DNS passa por cima de todo
+   controle da aplicação:
+   - 2FA (app autenticador ou passkey, nunca SMS) e o mínimo de membros em GitHub, Railway,
+     registrador/DNS, Meta Business, Zenvia, provedor de e-mail, Sentry, cron e monitor. Faça o
+     inventário (conta, dono, quem tem acesso) e revise a cada trimestre ([`LGPD.md`](LGPD.md) §6).
+   - GitHub: a `main` já está protegida (checks do CI obrigatórios, inclusive para admin; sem
+     force-push nem exclusão). Ligue também *Secret scanning* + *Push protection*
+     (Settings > Code security).
+   - Railway: *Wait for CI* no serviço `web` (deploy só depois do CI verde) e variáveis sensíveis
+     como *sealed*. Postgres **sem TCP proxy público**: ligue só durante uma manutenção, desligue
+     em seguida e troque a senha se ele ficou aberto.
+2. **Chave de cifragem**: `python manage.py gerar_chave_cifragem` → `CHAVES_CIFRAGEM` no Railway e
+   **uma cópia offline com a dona** (gerenciador de senhas + papel). Sem a chave o pre-deploy para
+   (`aranha.E001`); com a chave perdida, o prontuário não abre.
+3. **Variáveis no Railway** (§11): `CHAVES_CIFRAGEM` (passo 2), `CRON_MONITOR_URL` (§14 d),
+   `ADMIN_EMAIL`/`ADMIN_PASSWORD`/`ADMIN_NOME` (senha ≥ 10, não comum), `CRON_TOKEN`, `SITE_URL`, `ZENVIA_*`, `EMAIL_BACKEND` + chave do provedor +
+   `DEFAULT_FROM_EMAIL` (domínio verificado — §14 i), `WHATSAPP_*`,
+   `TURNSTILE_*`, `SENTRY_DSN`, `CLINIC_EMAIL`, `WHATSAPP_NUMERO`; **remova `STATIC_ROOT`**.
+   Confira no painel do Railway que não há *start command* manual antigo (`gunicorn
+   shivazen.wsgi`) competindo com o `railway.json` (config-as-code: builder DOCKERFILE,
+   pre-deploy, healthcheck `/healthz/`).
+4. **Backup** configurado antes do primeiro cliente real (§14 h).
+5. PR ou fast-forward `dev` → `main` (dispara o deploy; a proteção exige o CI verde no commit).
+
+### a.1) Só para atualizar um banco existente (`0026` → `0060`)
+
+1. **Backup** (é o único rollback): `scripts/backup/backup_postgres.sh` (§14 h). Nunca grave o dump
+   em claro dentro do repositório (o `.gitignore`/`.dockerignore` ignoram `*.dump`, mas um
+   `git add -f` ou outra extensão passa).
+2. **Ensaio**: restaure o backup num Postgres 18 local e rode a atualização:
    ```bash
-   # URL pública do Postgres do Railway (variável DATABASE_PUBLIC_URL do serviço Postgres).
-   # Use pg_dump da mesma versão major do servidor (18) ou mais nova.
-   pg_dump "$DATABASE_PUBLIC_URL" --format=custom --no-owner --file=prod_0026_$(date +%F_%H%M).dump
-   pg_restore --list prod_0026_*.dump | head      # confere que o arquivo abre
-   ```
-   Guarde o arquivo fora da máquina (é dado pessoal e de saúde: armazenamento cifrado).
-2. **Ensaio**: restaure o dump num Postgres 18 local e rode a atualização:
-   ```bash
-   createdb shivazen_ensaio && pg_restore --no-owner -d shivazen_ensaio prod_0026_*.dump
+   createdb shivazen_ensaio
+   age -d -i chave-privada.txt -o /tmp/ensaio.dump <backup>.dump.age    # apague depois
+   pg_restore --no-owner -d shivazen_ensaio /tmp/ensaio.dump
    DATABASE_URL=postgres://.../shivazen_ensaio DEBUG=True python manage.py migrate_atomico --noinput
    ```
    As migrations que podem **abortar** (tudo é desfeito) e o que fazer:
@@ -841,30 +866,23 @@ toda página.
      ```
      Os triggers de trilha nascem depois de todo DML das migrations anteriores: logo depois do
      upgrade `SELECT count(*) FROM historico_alteracao` = 0 (no ensaio também).
+   - A `0059` (trilhas append-only) não mexe em dado. A `0060` cifra o dado de saúde existente
+     (inclusive na trilha) e **aborta sem `CHAVES_CIFRAGEM`** em prod: defina a chave antes (§14 a, passo 2).
    - A `0034` não aborta: normaliza telefone/CPF/e-mail, tira duplicatas (o cliente com mais
      atendimentos fica com o valor; os outros ficam ativos com o campo nulo) e registra cada caso
      na `LogAuditoria` (`migration 0034: ...`, com `telefone_original`) para mesclagem manual;
      promoção fora do CHECK é **desativada**.
-3. **Variáveis no Railway** (§11): defina `ADMIN_EMAIL`/`ADMIN_PASSWORD`/`ADMIN_NOME` (senha ≥ 10,
-   não comum), `CRON_TOKEN`, `SITE_URL`, `ZENVIA_*`, `EMAIL_BACKEND` + chave do provedor +
-   `DEFAULT_FROM_EMAIL` (domínio verificado — §14 i), `WHATSAPP_*`,
-   `TURNSTILE_*`, `SENTRY_DSN`, `CLINIC_EMAIL`, `WHATSAPP_NUMERO`; **remova `STATIC_ROOT`**.
-   Confira no painel do Railway que não há *start command* manual antigo (`gunicorn
-   shivazen.wsgi`) competindo com o `railway.json` (config-as-code: builder DOCKERFILE,
-   pre-deploy, healthcheck `/healthz/`).
-4. Merge `front-fundacao` → `main` (dispara o deploy).
-
 ### b) O que o deploy faz
 
 1. Build da imagem (§13) — falha de front, collectstatic ou check derruba o build, nada muda.
-2. Pre-deploy: `migrate_atomico` (0027→0058 numa transação; `lock_timeout` 5 s — se o deploy
-   antigo segurar lock, falha e é só refazer) e `bootstrap_admin` (cria/reativa o ADMIN).
+2. Pre-deploy: `migrate_atomico` (`0001`→`0060` no banco novo, ou `0027`→`0060` no §14 a.1, numa
+   transação; `lock_timeout` 5 s — se o deploy antigo segurar lock, falha e é só refazer) e `bootstrap_admin` (cria/reativa o ADMIN).
    Leia o log do pre-deploy: avisos `aranha.W0xx`, `0042: ATENCAO ...` e
    `bootstrap_admin: ERRO — painel sem administrador ativo` indicam env faltando (os checks
    rodam **antes** das migrations: W006/W010 ali podem ser o banco antigo — confira no passo c).
    Se uma migration falhar, o log termina com `migrate_atomico: FALHOU - transacao desfeita;
    banco continua em aranha_estetica.<ultima aplicada>` (ex.: `0026_otpcode_canal_default_sms`):
-   nada foi alterado e o deploy antigo segue no ar — corrija (ensaio do passo a.2) e refaça.
+   nada foi alterado e o deploy antigo segue no ar — corrija (ensaio do §14 a.1) e refaça.
 3. Container novo sobe; só recebe tráfego depois de `/healthz/` responder 200.
 4. Até a troca, o código antigo roda contra o schema novo por alguns segundos (erros pontuais
    esperados — por isso o horário sem movimento).
@@ -877,7 +895,7 @@ curl -fsS https://<dominio>/health/                   # db/cache/front = true
 railway ssh   # shell no container:
 python manage.py check --database default             # lista W001–W013 pendentes
 python manage.py sendtestemail voce@exemplo.com       # e-mail real pelo provedor (§14 i)
-python manage.py showmigrations aranha_estetica | tail -3   # [X] 0058
+python manage.py showmigrations aranha_estetica | tail -3   # [X] 0060
 ```
 
 Trilha funcionando: edite um prontuário de teste pelo painel e confira (`railway connect` no
@@ -899,7 +917,9 @@ Crie um agendamento por job da tabela do §10 (`POST`, header `X-Cron-Token`):
   `curl -fsS -X POST -H "X-Cron-Token: $CRON_TOKEN" https://<dominio>/cron/run/<job>/`; o
   agendamento do Railway é em **UTC** (use a coluna UTC); um serviço por horário.
 
-Teste cada um manualmente uma vez (resposta `{"ok": true, ...}`).
+Teste cada um manualmente uma vez (resposta `{"ok": true, ...}`). Com `CRON_MONITOR_URL`, crie no
+monitor um check por job com o **mesmo nome do job** e o horário da tabela: ele alerta quando o job
+não roda (cron apagado, token trocado, site fora) ou falha.
 
 ### e) Primeiro acesso
 
@@ -950,17 +970,20 @@ Build: `django_vite.W001` (manifest ausente) reprova o `check --tag staticfiles`
 
 ### g) Rollback
 
-**Rollback = restaurar o dump.** Os *reverse* das migrations não recuperam dados (renomeações,
-dedup da 0034 — cujo reverse não recria o UNIQUE global de CPF —, contas demo desativadas,
-termo criado, triggers). Não use `migrate aranha_estetica <anterior>`.
+**Rollback = redeploy do anterior + restaurar o backup mais recente.** Os *reverse* das migrations
+não recuperam dados (renomeações, dedup da 0034, contas demo desativadas, termo criado, triggers).
+Não use `migrate aranha_estetica <anterior>`.
 
-1. Railway → Deployments → *Redeploy* do último deployment anterior (código da `0026`).
-2. Restaure o banco:
-   ```bash
-   pg_restore --clean --if-exists --no-owner -d "$DATABASE_PUBLIC_URL" prod_0026_<data>.dump
-   ```
-3. Confira `/health/` e um login. Tudo gravado entre o deploy e o rollback se perde (exporte
-   antes o que for preciso).
+1. Railway → Deployments → *Redeploy* do último deployment bom.
+2. No banco atual (se ele ainda abre), liste quem foi anonimizado depois do backup:
+   `python manage.py reaplicar_esquecimentos --listar --desde <data do backup> > esquecidos.json`.
+3. Teste o backup num banco descartável (`scripts/backup/testar_restauracao.sh`) e restaure:
+   decifre com a chave privada num arquivo temporário (`age -d -i chave.txt -o /tmp/r.dump
+   <backup>.dump.age`), `pg_restore --clean --if-exists --no-owner --dbname="$DATABASE_URL"
+   /tmp/r.dump` e apague o `/tmp/r.dump`.
+4. `python manage.py reaplicar_esquecimentos esquecidos.json` — quem pediu o esquecimento depois do
+   backup não pode voltar identificado.
+5. Confira `/health/` e um login. O que foi gravado entre o backup e o rollback se perde.
 
 ### h) Operação contínua
 
@@ -989,7 +1012,15 @@ termo criado, triggers). Não use `migrate aranha_estetica <anterior>`.
   banco guarda só o hash); o antigo para de funcionar; auditado.
 - **Escalar**: mais de 1 worker gunicorn exige `REDIS_URL` (rate-limit, axes, lock de slot e quota
   de SMS são por processo no LocMem).
-- **Backups**: mantenha backup automático do Postgres (plano do Railway) ou `pg_dump` periódico.
+- **Backups** (fora do Railway e cifrados): `scripts/backup/backup_postgres.sh` todo dia (serviço
+  Cron do Railway com `postgresql-client`, `age` e `rclone`, ou outra máquina) para um bucket com
+  versionamento/*object lock*. Lá fica só a chave **pública** do age; a privada fica offline com a
+  dona. Retenção sugerida: 30 diários + 12 mensais (declarar em [`LGPD.md`](LGPD.md) §3). **Todo
+  mês**, `scripts/backup/testar_restauracao.sh` num banco descartável. Rotacionou a
+  `CHAVES_CIFRAGEM`? Guarde a antiga enquanto existir backup feito com ela.
+- **Monitoramento**: `SENTRY_DSN` (ambiente e release preenchidos sozinhos; filtros de PII em
+  `utils/pii.opcoes_sentry`), `CRON_MONITOR_URL` (§14 d) e um monitor de uptime externo
+  (healthchecks.io, UptimeRobot...) em `/healthz/` a cada 5 min.
 
 ### i) E-mail em produção (provedor HTTP)
 
@@ -1006,8 +1037,11 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 | Mailgun | `anymail.backends.mailgun.EmailBackend` | `MAILGUN_API_KEY` (+ `MAILGUN_SENDER_DOMAIN`) |
 | Postmark | `anymail.backends.postmark.EmailBackend` | `POSTMARK_SERVER_TOKEN` |
 
-1. Crie a conta no provedor e **verifique o domínio** da clínica (registros SPF/DKIM — e de
-   preferência DMARC — no DNS do domínio). Sem domínio verificado o provedor recusa o envio.
+1. Crie a conta no provedor e **verifique o domínio** da clínica no DNS: SPF terminando em
+   `-all`, DKIM e **DMARC** (comece com `p=quarantine; rua=mailto:<e-mail da clínica>` e passe para
+   `p=reject` quando os relatórios estiverem limpos — os e-mails levam links de termo, descadastro e
+   senha, alvo fácil de phishing). Se o registrador permitir, registro CAA e DNSSEC. Sem domínio
+   verificado o provedor recusa o envio.
 2. Gere a chave de API (permissão só de envio).
 3. No Railway: `EMAIL_BACKEND=anymail.backends.resend.EmailBackend`, `RESEND_API_KEY=re_...` e
    `DEFAULT_FROM_EMAIL=Jaqueline Aranha Estética <contato@<dominio verificado>>`. Redeploy.
@@ -1052,4 +1086,4 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 | 2026-10-26 | Padrão SQL, fase de lógica (L1–L3): trilha de dados `historico_alteracao` por trigger com autor/IP/origem da sessão (`ContextoBancoMiddleware`, cron, Celery, `migrate_atomico`) e `atualizado_em` por trigger (0056); `pg_trgm`/`unaccent`, busca de cliente sem acento, 8 funções de leitura e 9 views com paridade testada contra o Python, NPS "meio p/ cima" (0057); 4 procedures como fonte única da retenção/LGPD (0058); data migrations em jobs paralelos do CI (tag `migracoes`) ([`specs/padrao-sql.md`](specs/padrao-sql.md) §5) |
 | 2026-09-23 | Auditoria pré-produção completa (~450 correções em ~30 commits, `b5fd681..182e2e9`): OTP preso ao telefone em todo agendamento, consentimentos LGPD/art. 11 com prova, 2FA obrigatório do ADMIN, histórico do prontuário, prova de aceite imutável, deploy por Dockerfile + `migrate_atomico`, retenção LGPD efetiva, migrations 0040–0046. Detalhe em [`ARCHITECTURE.md`](ARCHITECTURE.md#6-progresso-checkpoint) |
 
-**Mantenedor:** Rafael Maciel · **Última atualização:** 2026-10-26
+**Mantenedor:** Rafael Maciel · **Última atualização:** 2026-10-27
