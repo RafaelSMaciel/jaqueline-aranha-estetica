@@ -748,3 +748,25 @@ class CtaAgendarSemSmsTests(TestCase):
             html = self._html()
         self.assertNotIn('wa.me/', html)
         self.assertIn('href="%s"' % reverse('aranha:agendamento_publico'), html)
+
+
+class PoliticaPrivacidadeTests(TestCase):
+    """Texto coerente com o sistema (LGPD art. 6 VI e 9): operadores e prazos reais."""
+
+    def test_operadores_e_retencao_reais(self):
+        resp = self.client.get(reverse('aranha:politica_privacidade'))
+        self.assertContains(resp, 'Cloudflare Turnstile')
+        self.assertContains(resp, 'calendário')
+        self.assertContains(resp, '20 anos')
+        self.assertContains(resp, 'gravados cifrados')
+        self.assertNotContains(resp, 'até 5 anos após o último atendimento')
+        # sem dados da Branding: nada de placeholder de razao social/encarregado
+        self.assertNotContains(resp, 'CNPJ')
+        self.assertContains(resp, 'fale com a responsável pela clínica')
+
+    @override_settings(SENTRY_ATIVO=True, EMAIL_BACKEND='anymail.backends.resend.EmailBackend')
+    def test_sentry_e_provedor_de_email_quando_configurados(self):
+        resp = self.client.get(reverse('aranha:politica_privacidade'))
+        self.assertContains(resp, 'Sentry')
+        self.assertContains(resp, '(Resend)')
+

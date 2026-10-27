@@ -28,6 +28,11 @@ BRANDING_FIELDS = [
     ('WHATSAPP_NUMERO', 'WhatsApp (só dígitos com DDI, ex: 5517991234567)', 'text'),
     ('INSTAGRAM_URL', 'URL do Instagram', 'url'),
     ('THEME_COLOR', 'Cor da barra do navegador/app no celular (hex, ex: #C9A84C)', 'color'),
+    # Politica de privacidade (LGPD arts. 9 e 41): quem e o controlador e o encarregado
+    ('CLINIC_RAZAO_SOCIAL', 'Razão social (política de privacidade)', 'text'),
+    ('CLINIC_CNPJ', 'CNPJ, ou CPF de quem atende como autônomo (política de privacidade)', 'text'),
+    ('ENCARREGADO_NOME', 'Encarregado de dados — LGPD art. 41 (pode ser a própria dona)', 'text'),
+    ('ENCARREGADO_EMAIL', 'E-mail do encarregado de dados', 'email'),
 ]
 
 DEFAULTS = {
@@ -40,6 +45,10 @@ DEFAULTS = {
     'WHATSAPP_NUMERO': '',
     'INSTAGRAM_URL': '',
     'THEME_COLOR': '#C9A84C',
+    'CLINIC_RAZAO_SOCIAL': '',
+    'CLINIC_CNPJ': '',
+    'ENCARREGADO_NOME': '',
+    'ENCARREGADO_EMAIL': '',
 }
 
 

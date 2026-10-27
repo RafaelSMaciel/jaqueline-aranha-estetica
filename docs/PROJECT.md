@@ -536,6 +536,9 @@ SQLite dos testes (paridade em `tests/test_pg_paridade.py`).
 
 ### 9.5 Incidente (art. 48)
 
+Passo a passo, prazos (3 dias úteis; registro por 5 anos), registro das operações (art. 37),
+operadores e o relatório de impacto do dado de saúde: [`LGPD.md`](LGPD.md).
+
 Conter (revogar tokens/sessões, `setup_2fa --force`, rotacionar `DJANGO_SECRET_KEY` — invalida
 sessões —, `OTP_HMAC_KEY` e, se a chave de cifragem vazou, `CHAVES_CIFRAGEM` com
 `rotacionar_chave_cifragem`), avaliar pela `LogAuditoria`, comunicar a ANPD e os titulares
@@ -596,6 +599,7 @@ Lista completa e comentada em [`.env.example`](../.env.example). Em produção:
 | `EMAIL_BACKEND` + chave do provedor + `DEFAULT_FROM_EMAIL` | Sem ele nada é entregue (W003). **O Railway Hobby bloqueia SMTP**: use o `django-anymail` (já no requirements), ex.: `EMAIL_BACKEND=anymail.backends.resend.EmailBackend` + `RESEND_API_KEY` (ou Brevo/SendGrid/Mailgun/Postmark — §14 i). `DEFAULT_FROM_EMAIL` = remetente de um **domínio verificado** no provedor; sem a chave ou com o remetente de exemplo, W011 e nada sai. SMTP (`EMAIL_HOST*`) só no plano Pro |
 | `WHATSAPP_NUMERO` (ou tela Branding) | Botões de WhatsApp e fallback do agendamento (W004) |
 | `CLINIC_EMAIL` (ou tela Branding) | Canal do titular LGPD e fallback do alerta de detrator (W007) |
+| `CLINIC_RAZAO_SOCIAL`, `CLINIC_CNPJ`, `ENCARREGADO_NOME`, `ENCARREGADO_EMAIL` (ou tela Branding) | Controlador e encarregado (art. 41) na política de privacidade; vazios somem do texto |
 
 ### 11.2 Recomendadas
 

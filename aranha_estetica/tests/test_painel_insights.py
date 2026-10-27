@@ -324,6 +324,20 @@ class BrandingTests(_AdminBase):
         self.assertEqual(resp.status_code, 200)
         self.assertNotContains(resp, 'name="logo"')
 
+    def test_controlador_e_encarregado_vao_para_a_politica(self):
+        self._post(CLINIC_RAZAO_SOCIAL='Jaqueline Aranha Estetica Ltda', CLINIC_CNPJ='12345678000199',
+                   ENCARREGADO_NOME='Jaqueline Aranha', ENCARREGADO_EMAIL='privacidade@clinica.test')
+        b = get_branding()
+        self.assertEqual(b['CLINIC_CNPJ'], '12.345.678/0001-99')
+        resp = self.client.get(reverse('aranha:politica_privacidade'))
+        for trecho in ('Jaqueline Aranha Estetica Ltda', 'CNPJ 12.345.678/0001-99',
+                       'encarregado pelo tratamento', 'privacidade@clinica.test'):
+            self.assertContains(resp, trecho)
+
+    def test_cnpj_e_email_do_encarregado_invalidos_nao_gravam(self):
+        self._post(CLINIC_CNPJ='123', ENCARREGADO_EMAIL='sem-arroba')
+        self.assertFalse(Configuracao.objects.filter(chave__in=['CLINIC_CNPJ', 'ENCARREGADO_EMAIL']).exists())
+
 
 # ════════════════════════════════════════════════════════════════════
 # Financeiro: sessao de pacote nao conta a preco cheio; venda de pacote conta
