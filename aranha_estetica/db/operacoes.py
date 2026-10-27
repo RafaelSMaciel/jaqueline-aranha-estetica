@@ -549,3 +549,45 @@ class ComentarColuna(migrations.AlterField):
 
     def describe(self):
         return f'COMMENT ON COLUMN de {self.model_name}.{self.name}'
+
+
+class TrocarClasseDoCampo(migrations.AlterField):
+    """``AlterField`` que troca so a classe Python do campo (mesmo tipo de coluna, ex.: TextField ->
+    TextoCifrado, 0060) e, se mudar, o ``db_comment``: no banco, so ``COMMENT ON COLUMN``.
+
+    O AlterField do Django manda ``ALTER COLUMN ... TYPE <mesmo tipo>`` junto do COMMENT, e o PG
+    recusa isso em coluna usada por funcao ``BEGIN ATOMIC``/view ("unexpected object depending on
+    column": fn_clientes_para_anonimizar, vw_cliente_resumo); o SQLite refaria a tabela. Confere que
+    tipo, coluna, null e defaults batem — mudanca de verdade continua indo por AlterField.
+    """
+
+    _IGNORAR = ('db_comment', 'finalidade')
+
+    def _aplicar(self, app_label, schema_editor, from_state, to_state):
+        de = from_state.apps.get_model(app_label, self.model_name)
+        para = to_state.apps.get_model(app_label, self.model_name)
+        velho, novo = de._meta.get_field(self.name), para._meta.get_field(self.name)
+        conexao = schema_editor.connection
+        _n, _pv, av, kv = velho.deconstruct()
+        _n, _pn, an, kn = novo.deconstruct()
+        kv = {k: v for k, v in kv.items() if k not in self._IGNORAR}
+        kn = {k: v for k, v in kn.items() if k not in self._IGNORAR}
+        if (av, kv, velho.db_type(conexao), velho.column) != (an, kn, novo.db_type(conexao), novo.column):
+            raise ValueError(f'TrocarClasseDoCampo: {self.model_name}.{self.name} muda a coluna, nao so a classe')
+        if not self.allow_migrate_model(conexao.alias, para):
+            return
+        if conexao.features.supports_comments and velho.db_comment != novo.db_comment:
+            sql, params = schema_editor._alter_column_comment_sql(
+                para, novo, novo.db_type(conexao), novo.db_comment,
+            )
+            if sql:
+                schema_editor.execute(sql, params)
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        self._aplicar(app_label, schema_editor, from_state, to_state)
+
+    def database_backwards(self, app_label, schema_editor, from_state, to_state):
+        self._aplicar(app_label, schema_editor, from_state, to_state)
+
+    def describe(self):
+        return f'Troca a classe de {self.model_name}.{self.name} (banco: so COMMENT ON COLUMN)'

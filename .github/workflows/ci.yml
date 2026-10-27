@@ -59,6 +59,8 @@ jobs:
           # E-mail como no Railway Hobby (sem SMTP): sobe o app 'anymail' com os settings de prod
           EMAIL_BACKEND: anymail.backends.resend.EmailBackend
           RESEND_API_KEY: ci-nao-secreto
+          # chave Fernet so do CI (sem ela o aranha.E001 reprova o check, como no pre-deploy)
+          CHAVES_CIFRAGEM: Y2ktc28tcGFyYS1vLWNoZWNrLWRlcGxveS0zMmJ5dGU=
         run: python manage.py check --deploy --fail-level ERROR
 
   migracoes-sqlite:

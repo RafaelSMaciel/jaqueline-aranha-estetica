@@ -3970,8 +3970,8 @@ Depois de implementar: atualizar `docs/PROJECT.md` §5 (tabelas/invariantes) e �
 4. ~~`admin_calendar_mover` não expande bloqueio recorrente~~ — **resolvido na 0048** (usa
    `AgendaExcecao.ocorrencias`).
 5. ~~Importação do Google duplica evento remarcado~~ — **resolvido na 0048** (upsert por `origem_ref`).
-6. `profissional.gcal_token_renovacao` (refresh token OAuth) segue em texto puro: não dá para
-   hashear. Recomendo cifrar em repouso (Fernet com chave em env, rotação documentada) — PR separada.
+6. ~~`profissional.gcal_token_renovacao` (refresh token OAuth) segue em texto puro~~ — **resolvido na
+   0060**: cifrado em repouso (Fernet, `CHAVES_CIFRAGEM`, finalidade `segredos`; §5.11).
 7. `log_auditoria.registro_id` é `integer` apontando para PKs `bigint` — corrigido na 0054.
 
 ### 5.10 Trilhas append-only de verdade (0059)
@@ -3997,6 +3997,34 @@ apagava a prova das leituras de prontuário, do DSAR e do 2FA (LGPD art. 37/46).
 - Não é fronteira contra quem tem DDL (`ALTER TABLE ... DISABLE TRIGGER`): isso exige separar o
   usuário das migrations do usuário da aplicação, que segue fora (§7.4).
 
+### 5.11 Cifragem em repouso (0060)
+
+Dado de saúde e segredo reversível gravados cifrados pela aplicação (`utils/cifragem`):
+
+| Coluna | Campo | Finalidade |
+|---|---|---|
+| `prontuario.{alergias, contraindicacoes, historico_saude, medicamentos_uso, observacoes_gerais}` | `TextoCifrado` | saude |
+| `prontuario.respostas`, `prontuario_versao.dados`, `resposta_formulario.respostas` | `JsonCifrado` | saude |
+| `anotacao_sessao.texto` | `TextoCifrado` | saude |
+| `profissional.gcal_token_renovacao` | `TextoCifrado` | segredos |
+
+- Formato: texto `'cif1:' || <token Fernet>`; JSON `{"_cifra": "<token>"}` — segue objeto (os CHECKs
+  `jsonb_typeof = 'object'` valem) e `{}`/`''` seguem vazios (os `<> ''`/`<> '{}'` de
+  `fn_clientes_para_anonimizar` e `vw_cliente_resumo` continuam certos).
+- Chave: `CHAVES_CIFRAGEM` (lista; a 1ª cifra) com subchave HKDF por finalidade. Prod sem chave =
+  `aranha.E001` (erro: barra o pre-deploy). Rotação: `rotacionar_chave_cifragem`.
+- O valor lido guarda o cifrado de origem e o save o reaproveita quando o conteúdo não mudou
+  (Fernet é aleatório: sem isso cada save mudaria todas as colunas e o `tg_prontuario_historico`
+  marcaria campos alterados que ninguém tocou).
+- A trilha do prontuário guarda o cifrado (o trigger copia a linha); o Django admin mostra decifrado.
+- A migration usa `TrocarClasseDoCampo` (`db/operacoes`): o `AlterField` do Django manda
+  `ALTER COLUMN ... TYPE` junto do `COMMENT` e o PG recusa em coluna usada por função
+  `BEGIN ATOMIC` (`fn_clientes_para_anonimizar`). Os dados existentes (inclusive
+  `historico_alteracao.dados_antes/dados_depois` do prontuário) são cifrados com os triggers de
+  usuário das tabelas desligados; reverso decifra.
+- Consequência aceita: o banco não filtra pelo conteúdo (sem `respostas_extras__chave`, busca
+  textual em anotação ou igualdade em alergias).
+
 ### 7.4 O que eu recomendo NÃO fazer
 
 - **Não** tornar o `fn_horarios_livres` a fonte do agendamento (nem chamá-lo do wizard): a regra de
@@ -4018,4 +4046,4 @@ apagava a prova das leituras de prontuário, do DSAR e do 2FA (LGPD art. 37/46).
 - **Não** depender de `pg_cron`: o cron HTTP (`/cron/run/<job>/`) continua chamando os jobs, que
   chamam as procedures.
 
-_Última atualização: 2026-10-27 — 0059: trilhas append-only (§5.10). Antes, tudo implementado: fases (a)–(f) (0048–0053: agenda 4→2, tokens em hash, consentimentos, questionário único, pacote congelado, comissão em livro-razão), fase de nomes N1–N2 (0054/0055, notas no §3.6.5) e fase de lógica L1–L3 (0056–0058: triggers + trilha `historico_alteracao`, extensões/utilitárias/busca trigram/funções de leitura/views com paridade, procedures como fonte única; notas no §5.9)._
+_Última atualização: 2026-10-27 — 0059: trilhas append-only (§5.10); 0060: cifragem em repouso (§5.11). Antes, tudo implementado: fases (a)–(f) (0048–0053: agenda 4→2, tokens em hash, consentimentos, questionário único, pacote congelado, comissão em livro-razão), fase de nomes N1–N2 (0054/0055, notas no §3.6.5) e fase de lógica L1–L3 (0056–0058: triggers + trilha `historico_alteracao`, extensões/utilitárias/busca trigram/funções de leitura/views com paridade, procedures como fonte única; notas no §5.9)._

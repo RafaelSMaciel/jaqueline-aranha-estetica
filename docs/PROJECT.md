@@ -183,6 +183,8 @@ python manage.py runserver              # terminal 2
 | `migrate_atomico [--noinput]` | `migrate` numa transação única no Postgres (tudo ou nada), `SET LOCAL lock_timeout = '5s'`, `SET LOCAL app.origem = 'migracao'` (trilha `historico_alteracao`), `SET CONSTRAINTS ALL IMMEDIATE` entre migrations. Fora do Postgres vira `migrate` normal. Usado no pre-deploy e na CI. |
 | `setup_2fa <email> [--force] [--name]` | Cria TOTP confirmado, imprime URI `otpauth://` + QR ASCII e 10 códigos de backup. `--force` = reset completo (apaga todos os devices OTP do usuário; auditado). Recuperação de acesso da equipe. |
 | `carregar_feriados [--ano N]` | Feriados nacionais (fixos + móveis via Páscoa), idempotente; sem `--ano` = ano atual e seguinte. |
+| `gerar_chave_cifragem` | Imprime uma chave nova para `CHAVES_CIFRAGEM`. |
+| `rotacionar_chave_cifragem [--dry-run]` | Recifra tudo com a 1ª chave de `CHAVES_CIFRAGEM` (inclusive a trilha do prontuário), numa transação, com os triggers de usuário das tabelas desligados durante o UPDATE; auditado. Passo do meio da rotação (nova na frente → rodar → tirar a antiga). |
 
 Úteis do Django/libs: `check`, `check --deploy`, `check --database default` (roda também o
 W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes_reset`
@@ -518,6 +520,16 @@ ficam ligados a um titular não identificável.
 | Lista de espera com data passada | — | `lgpd_purgar` apaga |
 | Atendimento realizado, prontuário e versões, aceites | ≥ 20 anos (registro de saúde) | nunca apagados; triggers impedem DELETE de aceite/versão |
 
+**Cifragem em repouso** (0060, `utils/cifragem` + `db/campos.TextoCifrado`/`JsonCifrado`): os 5
+campos clínicos e as respostas do prontuário, as versões do prontuário, as anotações de sessão e as
+fichas de anamnese (finalidade `saude`) e o refresh token do Google Calendar (finalidade
+`segredos`) ficam gravados cifrados (Fernet, chave de `CHAVES_CIFRAGEM` com subchave por
+finalidade); a trilha `historico_alteracao` do prontuário guarda o mesmo texto cifrado. A aplicação
+lê em claro; vazio continua vazio no banco. Um dump/backup sem a chave não mostra a ficha (e um
+incidente com dado ininteligível pesa menos — art. 48 §3). Consequência: o banco não busca nem
+filtra pelo conteúdo desses campos. Não protege contra quem tem a chave (ADMIN no painel, acesso ao
+Railway).
+
 No Postgres a escrita da retenção é das procedures (`sp_purgar_dados_expirados`,
 `sp_aplicar_retencao_lgpd`, `sp_anonimizar_cliente` — §5.4); o Python equivalente só roda no
 SQLite dos testes (paridade em `tests/test_pg_paridade.py`).
@@ -525,7 +537,8 @@ SQLite dos testes (paridade em `tests/test_pg_paridade.py`).
 ### 9.5 Incidente (art. 48)
 
 Conter (revogar tokens/sessões, `setup_2fa --force`, rotacionar `DJANGO_SECRET_KEY` — invalida
-sessões e OTPs pendentes), avaliar pela `LogAuditoria`, comunicar a ANPD e os titulares
+sessões —, `OTP_HMAC_KEY` e, se a chave de cifragem vazou, `CHAVES_CIFRAGEM` com
+`rotacionar_chave_cifragem`), avaliar pela `LogAuditoria`, comunicar a ANPD e os titulares
 afetados quando houver risco relevante.
 
 ---
@@ -571,7 +584,8 @@ Lista completa e comentada em [`.env.example`](../.env.example). Em produção:
 
 | Variável | Propósito |
 |---|---|
-| `DJANGO_SECRET_KEY` | Chave do Django (sessões, reset, HMAC do OTP). Sem ela o boot falha fora de DEBUG |
+| `DJANGO_SECRET_KEY` | Chave do Django (sessões, reset; HMAC do OTP se não houver `OTP_HMAC_KEY`). Sem ela o boot falha fora de DEBUG |
+| `CHAVES_CIFRAGEM` | Chave(s) Fernet da cifragem em repouso do dado de saúde e do token OAuth (`manage.py gerar_chave_cifragem`). **Sem ela o deploy para** (check `aranha.E001` no pre-deploy). Várias, por vírgula: a 1ª cifra, todas decifram. **Cópia offline com a dona**: sem a chave o prontuário não abre |
 | `DJANGO_ENV=prod` | Carrega `settings/prod.py` (a imagem já define; qualquer valor fora de `dev`/`prod` derruba o boot) |
 | `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS` | Domínio próprio (o `RAILWAY_PUBLIC_DOMAIN` e o host do healthcheck entram sozinhos) |
 | `SITE_URL` | URL pública https sem barra final — links de e-mail/WhatsApp/termos/JSON-LD (W001) |
@@ -591,6 +605,7 @@ Lista completa e comentada em [`.env.example`](../.env.example). Em produção:
 | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Captcha no pedido de OTP; com SMS real sem captcha poucos IPs esgotam a cota global (W009) |
 | `SENTRY_DSN` (+ `SENTRY_TRACES_SAMPLE_RATE`, `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`) | Monitoramento de erros. Ambiente padrão = `DJANGO_ENV`; release padrão = `RAILWAY_GIT_COMMIT_SHA` |
 | `WEBPUSH_VAPID_PUBLIC_KEY`, `WEBPUSH_VAPID_PRIVATE_KEY`, `WEBPUSH_VAPID_CLAIMS_EMAIL` | Push ao profissional |
+| `OTP_HMAC_KEY` | Chave própria do HMAC dos códigos OTP (vazia = `DJANGO_SECRET_KEY`): rotacionar uma não mexe na outra |
 | `ADMIN_2FA_OBRIGATORIO` | Sem a env: ligado em prod. `false` = válvula de emergência (W008) |
 | `PROFISSIONAL_2FA_OBRIGATORIO` | Sem a env: ligado em prod (o PROFISSIONAL lê prontuário e alertas de saúde). `false` = válvula de emergência (W012) |
 | `EMBED_FRAME_ANCESTORS` | Origens que podem embutir `/embed/agendar/` (vazio = qualquer `https:`) |
@@ -925,6 +940,7 @@ banco (W004/W007 via Branding, W006, W010) só rodam com `check --database defau
 | `W011` | Backend anymail sem a chave do provedor (ou de provedor não suportado pelos settings), ou `DEFAULT_FROM_EMAIL` de exemplo — nada é entregue | Chave do provedor no Railway; `DEFAULT_FROM_EMAIL` do domínio verificado (§14 i) |
 | `W012` | `PROFISSIONAL_2FA_OBRIGATORIO=false` em prod — profissional lê dado de saúde só com a senha | Remover a env; profissional sem celular usa códigos de backup impressos |
 | `W013` | `RETENCAO_LOG_AUDITORIA_DIAS` abaixo de 180 — o Postgres recusa a purga da trilha | 180 ou mais (padrão 1825; Marco Civil: 6 meses) |
+| `E001` (**erro**) | Prod sem `CHAVES_CIFRAGEM` válida — barra o `migrate_atomico` do pre-deploy (o deploy anterior segue no ar) | `CHAVES_CIFRAGEM=<manage.py gerar_chave_cifragem>` + cópia offline |
 
 Build: `django_vite.W001` (manifest ausente) reprova o `check --tag staticfiles` do Dockerfile.
 

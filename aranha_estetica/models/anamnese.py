@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.functions import Now
 
+from ..db.campos import JsonCifrado
 from ..db.indices import Indice
 from .clientes import Cliente
 from .mixins import ATUALIZADO_EM_BACKFILL, atualizado_em_legado
@@ -223,7 +224,11 @@ class RespostaAnamnese(models.Model):
     atendimento = models.ForeignKey(
         'Atendimento', on_delete=models.PROTECT, blank=True, null=True, db_index=False,
     )
-    respostas_json = models.JSONField(default=dict, db_default={}, db_column='respostas')
+    # dado de saude (ficha ANAMNESE): cifrado em repouso, {} = nao respondida (utils/cifragem)
+    respostas_json = JsonCifrado(
+        default=dict, db_default={}, db_column='respostas',
+        db_comment='Respostas {key: valor}. Cifrado: {"_cifra": token} ({} = vazio; utils/cifragem).',
+    )
     criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
     atualizado_em = atualizado_em_legado()
     respondida_em = models.DateTimeField(blank=True, null=True, db_column='respondido_em')

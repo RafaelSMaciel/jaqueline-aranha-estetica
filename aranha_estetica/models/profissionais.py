@@ -1,6 +1,7 @@
 # aranha_estetica/models/profissionais.py — Profissionais
 from django.db import models
 
+from ..db.campos import TextoCifrado
 from .mixins import atualizado_em_legado, criado_em_legado
 
 
@@ -25,11 +26,12 @@ class Profissional(models.Model):
     )
     # Feed ICS: link_acesso FEED_ICS (gerado no painel; o token so aparece na geracao)
     # Google Calendar sync — preenchido apos OAuth dance
-    gcal_refresh_token = models.TextField(
+    gcal_refresh_token = TextoCifrado(
+        finalidade='segredos',
         blank=True, default='', db_default='', db_column='gcal_token_renovacao',
         db_comment=(
-            'Refresh token OAuth do Google Calendar - segredo reversivel (nao da p/ hashear); '
-            'ver padrao-sql secao 7.3 (cifrar).'
+            'Refresh token OAuth do Google Calendar - segredo reversivel (nao da p/ hashear): cifrado '
+            '(cif1:, finalidade segredos; utils/cifragem).'
         ),
     )
     gcal_calendar_id = models.CharField(

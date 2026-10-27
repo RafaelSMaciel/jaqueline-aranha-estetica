@@ -4,6 +4,7 @@ from django.db import models
 from django.db.models.functions import Now
 from django.utils import timezone
 
+from ..db.campos import JsonCifrado, TextoCifrado
 from ..db.indices import Indice
 from .clientes import Cliente
 from .mixins import criado_em_legado
@@ -17,7 +18,8 @@ class Prontuario(models.Model):
     (remodelagem v2.1 fase 5). As perguntas sao o FormularioAnamnese tipo
     PRONTUARIO ativo (0051; antes Configuracao 'prontuario_perguntas'),
     validadas por services/anamnese.validar_respostas.
-    Busca Postgres: Prontuario.objects.filter(respostas_extras__diabetes=True).
+    Campos clinicos e respostas cifrados em repouso (0060, utils/cifragem): o banco nao
+    filtra por conteudo (sem respostas_extras__chave / alergias='x'); vazio segue vazio.
     PG: CHECK ck_prontuario_respostas_objeto (jsonb_typeof = 'object'; 0043, nome desde a 0055).
     PROTECT: dado clinico com retencao de 20 anos — nunca cascateia.
     Edicao: ProntuarioVersao.registrar() guarda o estado anterior antes do save.
@@ -38,16 +40,16 @@ class Prontuario(models.Model):
     )
 
     cliente = models.OneToOneField(Cliente, on_delete=models.PROTECT)
-    alergias = models.TextField(blank=True, default='', db_default='')
-    contraindicacoes = models.TextField(blank=True, default='', db_default='')
-    historico_saude = models.TextField(blank=True, default='', db_default='')
-    medicamentos_uso = models.TextField(blank=True, default='', db_default='')
-    observacoes_gerais = models.TextField(blank=True, default='', db_default='')
-    respostas_extras = models.JSONField(
+    alergias = TextoCifrado(blank=True, default='', db_default='', db_comment='Cifrado (cif1:; utils/cifragem).')
+    contraindicacoes = TextoCifrado(blank=True, default='', db_default='', db_comment='Cifrado (cif1:; utils/cifragem).')
+    historico_saude = TextoCifrado(blank=True, default='', db_default='', db_comment='Cifrado (cif1:; utils/cifragem).')
+    medicamentos_uso = TextoCifrado(blank=True, default='', db_default='', db_comment='Cifrado (cif1:; utils/cifragem).')
+    observacoes_gerais = TextoCifrado(blank=True, default='', db_default='', db_comment='Cifrado (cif1:; utils/cifragem).')
+    respostas_extras = JsonCifrado(
         default=dict, db_default={}, blank=True, db_column='respostas',
         db_comment=(
             'Respostas do questionario do prontuario {key: valor}; keys = formulario.perguntas do formulario '
-            'tipo PRONTUARIO ativo.'
+            'tipo PRONTUARIO ativo. Cifrado: {"_cifra": token} ({} = vazio; utils/cifragem).'
         ),
     )
     criado_em = criado_em_legado()
@@ -103,11 +105,11 @@ class ProntuarioVersao(models.Model):
         max_length=100, blank=True, default='', db_default='', db_column='usuario_autor_nome',
     )
     criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
-    dados = models.JSONField(
+    dados = JsonCifrado(
         default=dict, db_default={},
         db_comment=(
             'Chaves = atributos Python (CAMPOS_CLINICOS + respostas_extras). E registro historico: nunca '
-            'renomear as chaves.'
+            'renomear as chaves. Cifrado: {"_cifra": token} (utils/cifragem).'
         ),
     )
 
@@ -209,7 +211,7 @@ class AnotacaoSessao(models.Model):
     autor_nome = models.CharField(
         max_length=100, blank=True, default='', db_default='', db_column='usuario_autor_nome',
     )
-    texto = models.TextField()
+    texto = TextoCifrado(db_comment='Cifrado (cif1:; utils/cifragem).')
     criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
 
     objects = AnotacaoSessaoQuerySet.as_manager()
