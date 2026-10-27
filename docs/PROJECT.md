@@ -652,7 +652,10 @@ Só dev/testes: `DEBUG`, `SMS_DEV_LOG_ONLY` (em prod gera W002), `DB_ENGINE`/`DB
   atômico, Dockerfile/railway.json), `test_slots_disponibilidade.py` (caracterização do
   SlotService).
 
-**CI** (`.github/workflows/ci.yml`, push em `main`/`front-fundacao` e PRs):
+**CI** (`.github/workflows/ci.yml`, push em `main` e `dev` ou manual; sem gatilho de PR — o PR
+`dev` → `main` mostra os checks do push do mesmo commit). Commit novo na `dev` cancela a execução
+anterior; na `main` toda execução termina. `permissions: contents: read` e `timeout-minutes` em
+todos os jobs:
 
 | Job | Passos |
 |---|---|
