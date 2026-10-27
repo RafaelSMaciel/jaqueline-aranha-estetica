@@ -26,7 +26,7 @@ def obrigatorio_para(user) -> bool:
 
     ADMIN: setting ADMIN_2FA_OBRIGATORIO (default: fora de DEBUG).
     PROFISSIONAL vinculado (le prontuario e alertas de saude, LGPD art. 11):
-    setting PROFISSIONAL_2FA_OBRIGATORIO (opt-in; default desligado).
+    setting PROFISSIONAL_2FA_OBRIGATORIO (ligado em prod; desligado em dev/testes).
     """
     if getattr(user, 'is_staff', False):
         return bool(getattr(settings, 'ADMIN_2FA_OBRIGATORIO', not settings.DEBUG))
@@ -78,3 +78,29 @@ def verificar_token(user, token):
     if not token:
         return None
     return match_token(user, token)
+
+
+QTD_CODIGOS_BACKUP = 10
+
+
+def gerar_codigos_backup(user) -> list[str]:
+    """Troca os codigos de backup do usuario por QTD_CODIGOS_BACKUP novos e devolve-os.
+
+    Um StaticDevice 'backup' por usuario; cada codigo vale uma vez (verificar_token aceita).
+    Quem chama mostra a lista uma unica vez: nao guardar em sessao nem em log.
+    """
+    from django_otp.plugins.otp_static.models import StaticDevice, StaticToken
+
+    device, _ = StaticDevice.objects.get_or_create(user=user, name='backup', defaults={'confirmed': True})
+    if not device.confirmed:
+        device.confirmed = True
+        device.save(update_fields=['confirmed'])
+    device.token_set.all().delete()
+    codigos = [StaticToken.random_token() for _ in range(QTD_CODIGOS_BACKUP)]
+    StaticToken.objects.bulk_create([StaticToken(device=device, token=c) for c in codigos])
+    return codigos
+
+
+def codigos_backup_restantes(user) -> int:
+    from django_otp.plugins.otp_static.models import StaticToken
+    return StaticToken.objects.filter(device__user=user, device__confirmed=True).count()

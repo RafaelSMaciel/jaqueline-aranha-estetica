@@ -242,10 +242,12 @@ LOGOUT_REDIRECT_URL = '/'
 _2fa_obrigatorio = os.environ.get('ADMIN_2FA_OBRIGATORIO', '').strip().lower()
 if _2fa_obrigatorio:
     ADMIN_2FA_OBRIGATORIO = _2fa_obrigatorio in ('true', '1', 'yes', 'on')
-# 2FA obrigatorio tambem p/ PROFISSIONAL (le prontuario/alertas de saude, art. 11).
-# Opt-in por env (default desligado); utils/dois_fatores decide em runtime.
+# 2FA obrigatorio tambem p/ PROFISSIONAL (le prontuario/alertas de saude, art. 11). Sem a
+# env: ligado fora de DEBUG (prod), como o do ADMIN. PROFISSIONAL_2FA_OBRIGATORIO=false e
+# valvula de emergencia (system check aranha.W012 avisa enquanto estiver desligado).
+_2fa_profissional = os.environ.get('PROFISSIONAL_2FA_OBRIGATORIO', '').strip().lower()
 PROFISSIONAL_2FA_OBRIGATORIO = (
-    os.environ.get('PROFISSIONAL_2FA_OBRIGATORIO', '').strip().lower() in ('true', '1', 'yes', 'on')
+    _2fa_profissional in ('true', '1', 'yes', 'on') if _2fa_profissional else not DEBUG
 )
 # Django admin do django_otp: nunca mostrar semente TOTP/QR/codigos de backup
 # de outro usuario (config/qrcode da 403). Reset de 2FA = `manage.py setup_2fa --force`.

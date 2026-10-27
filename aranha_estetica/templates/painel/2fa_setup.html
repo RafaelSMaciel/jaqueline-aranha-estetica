@@ -43,6 +43,38 @@
     </form>
   </div>
 
+  <div class="bg-superficie rounded-2xl shadow-sm p-5 mt-4">
+    <h2 class="font-extrabold text-texto mb-1">Códigos de backup</h2>
+    {% if codigos_backup %}
+      <div class="px-4 py-3 rounded-xl bg-amber-50 text-amber-800 font-bold text-[0.85rem] mb-3" role="alert">
+        Guarde estes códigos agora, fora do celular (impressos ou num gerenciador de senhas).
+        Eles não serão mostrados de novo e cada um vale uma única vez.
+      </div>
+      <ul class="grid grid-cols-2 gap-2 font-mono text-[1rem] font-bold text-texto mb-4" aria-label="Códigos de backup">
+        {% for codigo in codigos_backup %}<li class="px-3 py-2 rounded-lg bg-fundo border border-borda text-center">{{ codigo }}</li>{% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-[0.88rem] text-texto-suave mb-3">
+        Use um código de backup para entrar se perder o celular.
+        {% if codigos_restantes %}Você tem <strong>{{ codigos_restantes }}</strong> código{{ codigos_restantes|pluralize }} sem uso.{% else %}Você ainda não tem códigos de backup.{% endif %}
+        Gerar novos invalida os anteriores.
+      </p>
+    {% endif %}
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="acao" value="codigos">
+      <label for="token-codigos" class="block text-[0.85rem] font-bold text-texto mb-1">Código atual do app</label>
+      <input type="text" id="token-codigos" name="token"
+             maxlength="8" autocomplete="one-time-code" autocapitalize="off" spellcheck="false"
+             placeholder="000000" required
+             class="w-full px-4 py-3 mb-3 rounded-xl border-2 border-borda bg-fundo text-texto text-2xl text-center font-bold font-mono tracking-[0.4em] focus:border-marca transition-colors">
+      <button type="submit"
+              class="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.9rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
+        {% if codigos_restantes or codigos_backup %}Gerar novos códigos{% else %}Gerar códigos de backup{% endif %}
+      </button>
+    </form>
+  </div>
+
 {% elif device_pendente and qr_b64 %}
   <div class="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 text-amber-700 font-bold text-[0.85rem] mb-4">
     <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">

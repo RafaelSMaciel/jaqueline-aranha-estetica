@@ -175,10 +175,12 @@ _ENV_PROD_OK = {
 }
 _PROD_OK = dict(
     DEBUG=False, SITE_URL='https://jaquelinearanha.com.br', SMS_DEV_LOG_ONLY=False,
-    EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',
+    EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend', PROFISSIONAL_2FA_OBRIGATORIO=True,
 )
 
 
+# Prod liga o 2FA do PROFISSIONAL por padrao; os testes de settings de dev o tem desligado (W012)
+@override_settings(PROFISSIONAL_2FA_OBRIGATORIO=True)
 class ChecksProducaoTests(SimpleTestCase):
     def _ids(self, **env):
         with mock.patch.dict(os.environ, env):
@@ -190,7 +192,7 @@ class ChecksProducaoTests(SimpleTestCase):
 
     @override_settings(
         DEBUG=False, SITE_URL='http://127.0.0.1:8000', SMS_DEV_LOG_ONLY=False,
-        EMAIL_BACKEND='django.core.mail.backends.dummy.EmailBackend',
+        EMAIL_BACKEND='django.core.mail.backends.dummy.EmailBackend', PROFISSIONAL_2FA_OBRIGATORIO=True,
     )
     def test_config_ausente_gera_warnings(self):
         ids = self._ids(ZENVIA_API_TOKEN='', ZENVIA_FROM='', WHATSAPP_NUMERO='',
@@ -218,6 +220,10 @@ class ChecksProducaoTests(SimpleTestCase):
     @override_settings(**_PROD_OK, ADMIN_2FA_OBRIGATORIO=True)
     def test_2fa_de_admin_ligado_nao_avisa(self):
         self.assertEqual(self._ids(**_ENV_PROD_OK), [])
+
+    def test_2fa_de_profissional_desligado_em_prod_avisa(self):
+        with override_settings(**{**_PROD_OK, 'PROFISSIONAL_2FA_OBRIGATORIO': False}):
+            self.assertEqual(self._ids(**_ENV_PROD_OK), ['aranha.W012'])
 
     @override_settings(**_PROD_OK)
     def test_sem_banco_liberado_nao_confere_admin(self):
@@ -934,13 +940,14 @@ class SettingsProdTests(SimpleTestCase):
 
     def _importar_prod(self, **env_extra):
         env = {k: v for k, v in os.environ.items()
-               if k not in ('ADMIN_2FA_OBRIGATORIO', 'EMBED_FRAME_ANCESTORS')}
+               if k not in ('ADMIN_2FA_OBRIGATORIO', 'PROFISSIONAL_2FA_OBRIGATORIO', 'EMBED_FRAME_ANCESTORS')}
         env.update({'DJANGO_ENV': 'prod', 'DJANGO_SECRET_KEY': 'x' * 50, **env_extra})
         codigo = (
             'import json\n'
             'import clinica.settings.prod as s\n'
             'print(json.dumps({"tem_2fa": hasattr(s, "ADMIN_2FA_OBRIGATORIO"),'
             '"obrig": getattr(s, "ADMIN_2FA_OBRIGATORIO", None),'
+            '"prof": s.PROFISSIONAL_2FA_OBRIGATORIO,'
             '"frames": s.EMBED_FRAME_ANCESTORS}))\n'
         )
         proc = subprocess.run(
@@ -949,6 +956,10 @@ class SettingsProdTests(SimpleTestCase):
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
         return json.loads(proc.stdout.strip().splitlines()[-1])
+
+    def test_2fa_de_profissional_ligado_por_padrao_em_prod(self):
+        self.assertIs(self._importar_prod()['prof'], True)
+        self.assertIs(self._importar_prod(PROFISSIONAL_2FA_OBRIGATORIO='false')['prof'], False)
 
     _CHAVES_ESP = ('RESEND_API_KEY', 'BREVO_API_KEY', 'SENDGRID_API_KEY', 'MAILGUN_API_KEY',
                    'MAILGUN_SENDER_DOMAIN', 'POSTMARK_SERVER_TOKEN')
@@ -998,10 +1009,10 @@ class SettingsProdTests(SimpleTestCase):
 
     def test_2fa_e_frame_ancestors_por_env(self):
         # sem env: o codigo decide em runtime (2FA ligado fora de DEBUG)
-        self.assertEqual(self._importar_prod(), {'tem_2fa': False, 'obrig': None, 'frames': ''})
+        self.assertEqual(self._importar_prod(), {'tem_2fa': False, 'obrig': None, 'prof': True, 'frames': ''})
         s = self._importar_prod(ADMIN_2FA_OBRIGATORIO='false',
                                 EMBED_FRAME_ANCESTORS=' https://linktr.ee ')
-        self.assertEqual(s, {'tem_2fa': True, 'obrig': False, 'frames': 'https://linktr.ee'})
+        self.assertEqual(s, {'tem_2fa': True, 'obrig': False, 'prof': True, 'frames': 'https://linktr.ee'})
         self.assertTrue(self._importar_prod(ADMIN_2FA_OBRIGATORIO='True')['obrig'])
 
 
@@ -1041,8 +1052,9 @@ class Settings2FAEApiTests(TestCase):
         self.assertIs(settings.OTP_ADMIN_HIDE_SENSITIVE_DATA, True)
         self.assertIs(otp_settings.OTP_ADMIN_HIDE_SENSITIVE_DATA, True)
 
-    def test_2fa_de_profissional_opt_in_por_env(self):
-        # rev_security-14: setting lido por utils/dois_fatores (default desligado)
+    def test_2fa_de_profissional_desligado_em_dev(self):
+        # rev_security-14: setting lido por utils/dois_fatores; em prod o padrao e ligado
+        # (SettingsProdTests.test_2fa_de_profissional_ligado_por_padrao_em_prod)
         self.assertIs(settings.PROFISSIONAL_2FA_OBRIGATORIO, False)
 
 
