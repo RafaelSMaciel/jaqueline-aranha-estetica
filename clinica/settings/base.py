@@ -71,47 +71,10 @@ INSTALLED_APPS = [
     'django_otp.plugins.otp_static',
     'two_factor',
     'axes',
-    'rest_framework',
-    'drf_spectacular',
     'django_vite',
     'django_cotton',
 ]
 
-# DRF
-REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
-    ],
-    # Fechado por padrao: a API e so p/ staff. Cobre a raiz do router
-    # (/api/v1/ listava os endpoints p/ PROFISSIONAL) e viewsets futuros que
-    # esquecam permission_classes; os atuais declaram IsStaff.
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAdminUser',
-    ],
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 20,
-    'DEFAULT_THROTTLE_CLASSES': [
-        'rest_framework.throttling.AnonRateThrottle',
-        'rest_framework.throttling.UserRateThrottle',
-    ],
-    'DEFAULT_THROTTLE_RATES': {
-        'anon': '60/hour',
-        'user': '1000/hour',
-    },
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-}
-
-SPECTACULAR_SETTINGS = {
-    'TITLE': 'Jaqueline Aranha Estética — API',
-    'DESCRIPTION': 'API REST da plataforma de clinica estetica',
-    'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,
-    'COMPONENT_SPLIT_REQUEST': True,
-    # Versao fixa (o default e @latest: um release novo do CDN mudaria a UI em
-    # prod sem deploy). Atualizar junto: DIST e FAVICON.
-    'SWAGGER_UI_DIST': 'https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.32.15',
-    'SWAGGER_UI_FAVICON_HREF': 'https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.32.15/favicon-32x32.png',
-}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

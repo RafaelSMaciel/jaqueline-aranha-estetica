@@ -52,12 +52,12 @@ O papel **RECEPCAO** existe no modelo, mas ainda não tem telas nem login (ver
 | Web | Django 5.2 (MVT, server-render), gunicorn 23, WhiteNoise 6 (estáticos `CompressedManifest` em prod) |
 | Banco | PostgreSQL 18 em produção e CI; SQLite (`db_dev.sqlite3` / `db_test.sqlite3`) em dev e testes rápidos |
 | Front-end | Vite 6 + Tailwind CSS v4 (`@tailwindcss/vite`) + Alpine.js via `@alpinejs/csp` + django-vite 3 + django-cotton 2. **Sem HTMX, Bootstrap ou jQuery** |
-| Libs no CDN (com SRI) | FullCalendar 6.1.11 (`painel/calendar.html`), Chart.js 4.4.0 (`painel/overview.html`), Swagger UI 5.32.15 (`/api/schema/swagger/`) |
+| Libs no CDN (com SRI) | FullCalendar 6.1.11 (`painel/calendar.html`), Chart.js 4.4.0 (`painel/overview.html`) |
 | Fontes | Playfair Display + Lato (Google Fonts) — tokens em `static/src/css/tokens.css` |
 | Assíncrono | Celery 5.4. Em produção roda **eager** (sem worker) salvo `CELERY_WORKER_ENABLED=true`; jobs periódicos via cron HTTP |
 | Cache / sessão | LocMemCache + sessão no banco (padrão, 1 worker). `REDIS_URL` troca para django-redis + sessão em cache |
 | Auth | Usuário próprio (`AbstractBaseUser`, e-mail), django-axes 8, django-otp + django-two-factor-auth (só models/TOTP; rotas `/account/*` **não** publicadas), django-ratelimit 4 |
-| API | Django REST Framework 3.17 (somente leitura, só ADMIN) + drf-spectacular 0.29 (Swagger, sem ReDoc) |
+| API | Sem API REST (a DRF saiu: não tinha consumidor). Endpoints JSON do próprio site (wizard, painel) são views Django |
 | Integrações | Zenvia SMS (OTP), WhatsApp Cloud API (Meta), e-mail (backend Django), pywebpush (VAPID), Google Calendar (OAuth, opcional), Cloudflare Turnstile, Sentry |
 | Outros | bleach (HTML de promoção), openpyxl (Excel), python-dateutil (RRULE), python-json-logger (logs JSON em prod), qrcode (QR SVG do 2FA, sem Pillow) |
 | Deploy | Railway (Dockerfile multi-stage + `railway.json`) |
@@ -91,7 +91,6 @@ aranha_estetica/
 │                    subconjunto), nps (calculo unico, meio p/ cima), banco (GUCs app.* e CALL das
 │                    procedures)
 ├── forms/           cliente.py (ClientePainelForm)
-├── api/             DRF v1 + schema/Swagger
 ├── management/commands/  seed, bootstrap_admin, migrate_atomico, setup_2fa, carregar_feriados
 ├── templatetags/    painel_tags, atendimento_tags, gcal_tags, dict_extras
 ├── templates/       estrutura/, cotton/, publico/, agenda/, servicos/, painel/, profissional/,
@@ -387,12 +386,10 @@ versão: `/account/*` (django-two-factor), `/api/schema/redoc/`, `/servicos/prod
 | `/webpush/{public-key,subscribe,unsubscribe}/` | Web Push da equipe |
 | `/django-admin-sv/` | Django admin (só ADMIN com sessão 2FA verificada) |
 
-### 6.4 API, webhooks e infraestrutura
+### 6.4 Webhooks e infraestrutura
 
 | Rota | Função |
 |---|---|
-| `/api/v1/{profissionais,procedimentos,clientes,atendimentos}/` (+ `atendimentos/hoje/`) | DRF somente leitura, só ADMIN (PII mascarada em clientes); throttling anon 60/h, user 1000/h |
-| `/api/schema/`, `/api/schema/swagger/` | OpenAPI + Swagger (SplitView, CSP com nonce), só ADMIN |
 | `GET/POST /api/whatsapp/webhook/` | Meta: handshake `hub.challenge` (`WHATSAPP_VERIFY_TOKEN`) e eventos assinados (`X-Hub-Signature-256` com `WHATSAPP_APP_SECRET`); captura nota de NPS 0–10 |
 | `POST /api/zenvia/webhook/` | Status de entrega de SMS (`ZENVIA_ALLOWED_IPS` e/ou HMAC `ZENVIA_WEBHOOK_SECRET`; recusa tudo em prod sem nenhum dos dois) |
 | `POST /cron/run/<job>/` | Jobs periódicos (§10), header `X-Cron-Token` |

@@ -1045,30 +1045,6 @@ class Settings2FAEApiTests(TestCase):
         # rev_security-14: setting lido por utils/dois_fatores (default desligado)
         self.assertIs(settings.PROFISSIONAL_2FA_OBRIGATORIO, False)
 
-    def test_api_fechada_por_padrao_e_raiz_do_router_so_p_staff(self):
-        # crawl-7: /api/v1/ (DefaultRouter) herdava IsAuthenticated e listava os
-        # endpoints p/ PROFISSIONAL
-        from aranha_estetica.models import Profissional
-
-        self.assertEqual(settings.REST_FRAMEWORK['DEFAULT_PERMISSION_CLASSES'],
-                         ['rest_framework.permissions.IsAdminUser'])
-        U = get_user_model()
-        prof = Profissional.objects.create(nome='Dra. Portal')
-        user = U.objects.create_user('prof@clinica.com.br', SENHA_FORTE, nome='Dra. Portal',
-                                     papel=U.PAPEL_PROFISSIONAL, profissional=prof)
-        self.client.force_login(user)
-        for url in ('/api/v1/', '/api/v1/.json'):
-            with self.subTest(url=url):
-                self.assertEqual(self.client.get(url).status_code, 403)
-
-
-class SettingsSwaggerTests(SimpleTestCase):
-    def test_swagger_ui_em_versao_fixa(self):
-        # @latest mudaria a UI (e o JS carregado com a CSP) sem deploy
-        for chave in ('SWAGGER_UI_DIST', 'SWAGGER_UI_FAVICON_HREF'):
-            url = settings.SPECTACULAR_SETTINGS[chave]
-            self.assertRegex(url, r'^https://cdn\.jsdelivr\.net/npm/swagger-ui-dist@\d+\.\d+\.\d+(/|$)')
-
 
 # ─── Bloqueio do django-axes ─────────────────────────────────────────
 @override_settings(RATELIMIT_ENABLE=False, AXES_FAILURE_LIMIT=2)
