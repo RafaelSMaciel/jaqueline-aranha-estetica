@@ -1,5 +1,5 @@
 # aranha_estetica/urls.py
-from django.urls import include, path
+from django.urls import path
 from django.views.generic import TemplateView
 from . import views
 
@@ -246,7 +246,4 @@ urlpatterns = [
     path('lgpd/meus-dados/', views.lgpd_meus_dados, name='lgpd_meus_dados'),
     path('lgpd/unsubscribe/<str:token>/', views.lgpd_unsubscribe, name='lgpd_unsubscribe'),
     path('lgpd/aceitar-cookies/', views.lgpd_aceitar_cookies, name='lgpd_aceitar_cookies'),
-
-    # ─── REST API v1 + OpenAPI ───
-    path('api/', include('aranha_estetica.api.urls')),
 ]

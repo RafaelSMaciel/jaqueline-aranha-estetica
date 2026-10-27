@@ -179,7 +179,7 @@ class ContentSecurityPolicyMiddleware:
     Hosts externos: so os realmente usados (Google Fonts; Turnstile). O
     jsdelivr serve QUALQUER pacote npm/GitHub — liberar o host inteiro deixaria
     um <script src> injetado rodar apesar do nonce. Por isso so os caminhos
-    das libs em uso (JSDELIVR_PATHS) + o SWAGGER_UI_DIST do drf-spectacular.
+    das libs em uso (JSDELIVR_PATHS).
     Trocou a versao da lib no template? Atualize aqui (test_csp confere
     templates x allowlist).
     """
@@ -216,22 +216,14 @@ class ContentSecurityPolicyMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
-    @staticmethod
-    def _swagger_srcs():
-        """Pasta do swagger-ui no CDN (SPECTACULAR_SETTINGS['SWAGGER_UI_DIST'])."""
-        spectacular = getattr(settings, 'SPECTACULAR_SETTINGS', None) or {}
-        dist = spectacular.get('SWAGGER_UI_DIST') or ''
-        return [dist.rstrip('/') + '/'] if dist.startswith('https://') else []
-
     def __call__(self, request):
         nonce = secrets.token_urlsafe(16)
         request.csp_nonce = nonce
 
         response = self.get_response(request)
 
-        swagger = self._swagger_srcs()
-        script_src = self.ALLOWED_SCRIPT_SRCS + swagger + [f"'nonce-{nonce}'"]
-        style_src = self.ALLOWED_STYLE_SRCS + swagger + [f"'nonce-{nonce}'"]
+        script_src = self.ALLOWED_SCRIPT_SRCS + [f"'nonce-{nonce}'"]
+        style_src = self.ALLOWED_STYLE_SRCS + [f"'nonce-{nonce}'"]
         connect_src = list(self.ALLOWED_CONNECT_SRCS)
 
         # Em DEBUG (desenvolvimento), o Vite HMR carrega scripts e CSS de
@@ -243,7 +235,7 @@ class ContentSecurityPolicyMiddleware:
             # Vite dev injeta <style> inline (sem nonce) para o HMR de CSS. Com
             # nonce presente os browsers ignoram 'unsafe-inline', entao em DEBUG
             # montamos style-src SEM nonce + 'unsafe-inline'. Producao fica estrita.
-            style_src = self.ALLOWED_STYLE_SRCS + swagger + ["http://localhost:5173", "'unsafe-inline'"]
+            style_src = self.ALLOWED_STYLE_SRCS + ["http://localhost:5173", "'unsafe-inline'"]
             connect_src = connect_src + [
                 "http://localhost:5173",
                 "ws://localhost:5173",

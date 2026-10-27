@@ -224,12 +224,12 @@ class RotasTwoFactorEAdminTests(TestCase):
 # ─── security-13: /api/ coberta + 2FA obrigatorio p/ ADMIN ───
 
 class Enforce2FAApiEObrigatorioTests(TestCase):
-    def test_api_exige_2fa_quando_ha_device(self):
+    def test_rota_json_exige_2fa_quando_ha_device(self):
         admin_user = _admin()
         _com_totp(admin_user)
         c = Client()
         c.force_login(admin_user)
-        resp = c.get('/api/v1/clientes/')
+        resp = c.get('/webpush/subscribe/')
         self.assertEqual(resp.status_code, 403)
         self.assertEqual(resp.json(), {'detail': '2fa_required'})
 
@@ -240,10 +240,10 @@ class Enforce2FAApiEObrigatorioTests(TestCase):
         resp = c.post(reverse('aranha:usuario_login'), {'username': 'adm@test.com', 'password': SENHA})
         self.assertEqual(resp.status_code, 302)
         self.assertIn(reverse('aranha:admin_2fa_setup'), resp['Location'])
-        # preso no cadastro: painel e API barrados
+        # preso no cadastro: painel e rotas JSON barrados
         resp = c.get(reverse('aranha:painel_overview'))
         self.assertIn(reverse('aranha:admin_2fa_setup'), resp['Location'])
-        self.assertEqual(c.get('/api/v1/clientes/').status_code, 403)
+        self.assertEqual(c.get('/webpush/subscribe/').status_code, 403)
         # cadastra e confirma -> liberado
         c.post(reverse('aranha:admin_2fa_setup'), {'acao': 'gerar'})
         pendente = TOTPDevice.objects.get(user__email='adm@test.com', confirmed=False)
@@ -572,29 +572,6 @@ class DjangoAdminTests(TestCase):
         self.assertIn(AgendaHorario, django_admin.site._registry)
 
 
-class SwaggerTests(TestCase):
-    def test_swagger_sem_script_inline(self):
-        admin_user = _admin()
-        device = _com_totp(admin_user)
-        c = Client()
-        c.force_login(admin_user)
-        c.post(reverse('aranha:admin_2fa_verify'), {'token': _token(device)})
-        resp = c.get('/api/schema/swagger/')
-        self.assertEqual(resp.status_code, 200)
-        html = resp.content.decode()
-        self.assertIsNone(re.search(r'<script>(?!\s*</script>)', html), 'script inline sem nonce')
-        self.assertIn('?script', html)
-        # swagger-ui vem do CDN: a CSP (restrita por caminho) precisa liberar
-        from .test_csp import _diretiva, permitido_pela_csp
-        csp = resp.headers['Content-Security-Policy']
-        for tag, url in re.findall(r'<(script|link)\b[^>]*?(?:src|href)="(https://[^"]+)"', html):
-            if tag == 'link' and url.endswith('.png'):
-                continue  # favicon: img-src https:
-            diretiva = _diretiva(csp, 'script-src' if tag == 'script' else 'style-src')
-            with self.subTest(url=url):
-                self.assertTrue(permitido_pela_csp(url, diretiva), f'{url} bloqueada pela CSP')
-
-
 # ─── Telas de auth/2FA renderizam (CSP-safe, sem 500) ───
 
 @override_settings(ADMIN_2FA_OBRIGATORIO=False)
@@ -848,7 +825,7 @@ class Obrigatoriedade2FAPorRequestTests(TestCase):
                 resp = c.get(reverse(nome))
                 self.assertEqual(resp.status_code, 302)
                 self.assertTrue(resp['Location'].startswith(setup), resp['Location'])
-        resp = c.get('/api/v1/clientes/')
+        resp = c.get('/webpush/subscribe/')
         self.assertEqual(resp.status_code, 403)
         self.assertEqual(resp.json(), {'detail': '2fa_required'})
         # a tela de cadastro abre e explica o bloqueio
@@ -934,7 +911,7 @@ class WebpushExige2FATests(TestCase):
 
 @override_settings(ADMIN_2FA_OBRIGATORIO=False)
 class CacheAreasPrivadasTests(TestCase):
-    def test_telas_da_equipe_e_api_sem_cache(self):
+    def test_telas_da_equipe_sem_cache(self):
         admin_user = _admin()
         cli = Cliente.objects.create(nome='Cliente Cache', telefone='17999990077')
         c = Client()
@@ -943,7 +920,6 @@ class CacheAreasPrivadasTests(TestCase):
             reverse('aranha:painel_overview'),
             reverse('aranha:admin_usuarios'),
             reverse('aranha:admin_cliente_detalhe', args=[cli.pk]),
-            '/api/v1/clientes/',
         )
         for url in urls:
             with self.subTest(url=url):
@@ -1160,23 +1136,3 @@ class DjangoAdminWave3Tests(TestCase):
         resp = self.c.post(f'/django-admin-sv/aranha_estetica/regracomissao/{usada.pk}/delete/', {'post': 'yes'})
         self.assertEqual(resp.status_code, 403)
         self.assertTrue(RegraComissao.objects.filter(pk=usada.pk).exists())
-
-
-# ─── wave 3 / crawl-7: raiz da API so p/ staff ───
-
-@override_settings(ADMIN_2FA_OBRIGATORIO=False)
-class ApiRaizSoStaffTests(TestCase):
-    def test_profissional_nao_lista_os_endpoints(self):
-        user, _ = _profissional_user()
-        c = Client()
-        c.force_login(user)
-        for url in ('/api/v1/', '/api/v1/.json'):
-            with self.subTest(url=url):
-                self.assertEqual(c.get(url).status_code, 403)
-
-    def test_staff_lista_os_endpoints(self):
-        c = Client()
-        c.force_login(_admin())
-        resp = c.get('/api/v1/.json')
-        self.assertEqual(resp.status_code, 200)
-        self.assertIn('clientes', resp.json())

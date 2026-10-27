@@ -172,8 +172,8 @@ anonimização) = 404; token de outra finalidade = 404.
 - `X-Frame-Options: DENY`, `nosniff`, COOP/CORP `same-origin`, Permissions-Policy restritiva,
   `Referrer-Policy: strict-origin-when-cross-origin` (e `no-referrer` nas rotas com token).
 - CSRF em todos os formulários; o `webpush.js` lê o token da página (cookie CSRF é HttpOnly).
-- API DRF: sessão + permissão padrão `IsAdminUser` (inclusive a raiz `/api/v1/`, o schema e o
-  Swagger).
+- Sem API REST: a DRF (somente leitura, sem consumidor, exportava CPF/telefone em lote) foi removida;
+  sob `/api/` só ficam os webhooks da Meta e da Zenvia.
 
 ---
 

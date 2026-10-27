@@ -58,7 +58,6 @@ modelos, rotas, env vars, jobs, deploy e runbook de go-live).
 | Assíncrono | Celery 5.4 em modo *eager* (sem worker por padrão); jobs periódicos via cron HTTP `/cron/run/<job>/` |
 | Cache/sessão | LocMem + sessão no banco (1 worker gunicorn); Redis opcional via `REDIS_URL` |
 | Segurança | CSP com nonce, django-axes, django-ratelimit, django-otp (TOTP), Cloudflare Turnstile |
-| API | Django REST Framework (somente leitura, só ADMIN) + drf-spectacular (Swagger) |
 | Integrações | Zenvia (SMS/OTP), WhatsApp Business (Meta), e-mail (backend Django), Web Push (VAPID), Google Calendar (opcional), Sentry |
 | Deploy | Railway: Dockerfile multi-stage (Node 22 → Python 3.12), gunicorn 1 worker × 4 threads, WhiteNoise |
 | CI | GitHub Actions (`.github/workflows/ci.yml`): SQLite, Postgres 18, build do front, build da imagem, pip-audit |
@@ -135,7 +134,6 @@ aranha_estetica/                 app Django
 │                                comissão, cashback, retorno, lista de espera, alertas, gcal, push)
 ├── domain/                      EventBus + eventos (comissão, cashback, retorno reagem a eles)
 ├── utils/                       branding, e-mail, SMS, WhatsApp, preços, saúde, segurança, PII...
-├── api/                         DRF v1 (somente leitura, ADMIN) + Swagger
 ├── management/commands/         seed, bootstrap_admin, migrate_atomico, setup_2fa, carregar_feriados
 ├── migrations/                  0001–0046
 ├── templates/                   estrutura/ (site), painel/ (equipe), profissional/, agenda/, publico/,
