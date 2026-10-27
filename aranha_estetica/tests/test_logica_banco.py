@@ -109,7 +109,12 @@ class BuscaClienteTests(TestCase):
         qs = filtrar_clientes(Cliente.objects.all(), 'avila', incluir_email=False).only('pk')
         sql, params = qs.query.sql_with_params()
         with transaction.atomic(), connection.cursor() as cursor:
+            # Tabela de teste quase vazia: sem seqscan o planner ainda prefere varrer um
+            # btree qualquer inteiro (visto no PG 18 do CI: uq_cliente_email_ativo + Filter).
+            # Deixando so bitmap scan, o plano prova que a expressao e indexavel pelo trigram.
             cursor.execute('SET LOCAL enable_seqscan = off')
+            cursor.execute('SET LOCAL enable_indexscan = off')
+            cursor.execute('SET LOCAL enable_indexonlyscan = off')
             cursor.execute('EXPLAIN ' + sql, params)
             plano = '\n'.join(linha for (linha,) in cursor.fetchall())
         self.assertIn('ix_cliente_nome_trgm', plano)
