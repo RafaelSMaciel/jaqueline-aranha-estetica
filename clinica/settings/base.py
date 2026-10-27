@@ -555,6 +555,11 @@ CIFRAGEM_EXIGE_CHAVE = False
 OTP_HMAC_KEY = os.environ.get('OTP_HMAC_KEY', '').strip()
 
 
+# Monitor dos jobs do cron (healthchecks.io: https://hc-ping.com/<ping key>): views/cron avisa
+# <url>/<job> a cada execucao ok e <url>/<job>/fail na falha. Vazio = sem monitor.
+CRON_MONITOR_URL = os.environ.get('CRON_MONITOR_URL', '').strip()
+
+
 # ─── RETENCAO (job_housekeeping) ─────────────────────────────────────
 # docs/specs/regras-negocio-registry.md: otp 24h · notif 12m · auditoria 5a
 RETENCAO_OTP_HORAS = int(os.environ.get('RETENCAO_OTP_HORAS', '24'))
