@@ -16,6 +16,11 @@ htmlcov/
 *.sqlite3
 *.sqlite3.bak-*
 db.sqlite3
+# Backups/dumps do Postgres (dado pessoal e de saude): nunca no git nem na imagem
+*.dump
+*.dump.age
+*.backup
+*.sql.gz
 .env
 .env.*
 !.env.example

@@ -35,6 +35,12 @@ aranha_estetica/static/dist/
 *.swo
 *~
 
+# ── Backups do banco ──
+*.dump
+*.dump.age
+*.backup
+*.sql.gz
+
 # ── Configuracoes sensiveis ──
 .env
 .env.*
