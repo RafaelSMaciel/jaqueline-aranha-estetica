@@ -1,4 +1,6 @@
 # aranha_estetica/admin.py
+import json
+
 from django import forms
 from django.contrib import admin, messages
 from django.contrib.admin.utils import unquote
@@ -28,6 +30,7 @@ from .models import (
     Usuario,
 )
 from .utils.audit import registrar_log
+from .utils.cifragem import decifrar_profundo
 from .utils.busca import filtrar_clientes
 
 
@@ -424,6 +427,23 @@ class HistoricoAlteracaoAdmin(_LeituraClinicaAuditadaMixin, admin.ModelAdmin):
     date_hierarchy = 'criado_em'
     list_select_related = ('usuario_autor',)
     list_per_page = 50
+    # no banco o dado de saude da trilha do prontuario esta cifrado (0060): a tela mostra decifrado
+    exclude = ('dados_antes', 'dados_depois')
+    readonly_fields = ('dados_antes_legiveis', 'dados_depois_legiveis')
+
+    @staticmethod
+    def _legivel(dados):
+        if dados is None:
+            return '-'
+        return json.dumps(decifrar_profundo(dados), ensure_ascii=False, indent=2, sort_keys=True)
+
+    @admin.display(description='Dados antes')
+    def dados_antes_legiveis(self, obj):
+        return self._legivel(obj.dados_antes)
+
+    @admin.display(description='Dados depois')
+    def dados_depois_legiveis(self, obj):
+        return self._legivel(obj.dados_depois)
 
     def _log_leitura(self, request, obj):
         registrar_log(
@@ -435,7 +455,7 @@ class HistoricoAlteracaoAdmin(_LeituraClinicaAuditadaMixin, admin.ModelAdmin):
 @admin.register(AnotacaoSessao)
 class AnotacaoSessaoAdmin(_LeituraClinicaAuditadaMixin, admin.ModelAdmin):
     list_display = ('atendimento', 'autor', 'criado_em')
-    search_fields = ('atendimento__cliente__nome', 'texto')
+    search_fields = ('atendimento__cliente__nome',)  # texto e cifrado em repouso (0060): sem busca
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
     autocomplete_fields = ('atendimento', 'autor')

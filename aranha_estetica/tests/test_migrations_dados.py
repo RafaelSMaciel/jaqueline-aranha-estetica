@@ -2112,3 +2112,87 @@ class ComissaoLedger0053AbortaTests(TransactionTestCase):
         self.assertNotIn('tipo', colunas)
         MovimentoComissao.objects.filter(pk__in=[zero.pk, repetida.pk]).delete()
         MovimentoComissao.objects.filter(pk=fora.pk).update(status='PAGA')
+
+
+# ─── 0060: dado de saude e token OAuth cifrados em repouso ─────────────
+M0059 = '0059_trilha_append_only'
+M0060 = '0060_cifragem_dados_saude'
+
+
+def _cru(tabela, coluna, pk):
+    import json
+    with connection.cursor() as cursor:
+        cursor.execute(f'SELECT {coluna} FROM {tabela} WHERE id = %s', [pk])
+        valor = cursor.fetchone()[0]
+    if isinstance(valor, str) and valor and valor[0] in '{[':
+        return json.loads(valor)
+    return valor
+
+
+def _historico_prontuario(HistoricoAlteracao, pk):
+    return HistoricoAlteracao.objects.create(
+        tabela='prontuario', registro_pk=pk, operacao='UPDATE', colunas_alteradas=['alergias', 'respostas'],
+        dados_antes={'alergias': '', 'respostas': {}},
+        dados_depois={'alergias': 'Dipirona', 'respostas': {'fuma': True}}, transacao_ref=1,
+    ).pk
+
+
+@tag('migracoes')
+class Cifragem0060Tests(_MigracaoBase):
+    """0060: o que ja existe em claro (inclusive a trilha do prontuario) passa a ser gravado cifrado."""
+    migrate_from = M0059
+    migrate_to = M0060
+
+    def preparar(self, apps):
+        Cliente = apps.get_model(APP, 'Cliente')
+        Prontuario = apps.get_model(APP, 'Prontuario')
+        ProntuarioVersao = apps.get_model(APP, 'ProntuarioVersao')
+        Profissional = apps.get_model(APP, 'Profissional')
+        HistoricoAlteracao = apps.get_model(APP, 'HistoricoAlteracao')
+        cli = Cliente.objects.create(nome='Cifra', telefone='11977770001')
+        pront = Prontuario.objects.create(cliente=cli, alergias='Dipirona', respostas_extras={'fuma': True})
+        vazio = Prontuario.objects.create(cliente=Cliente.objects.create(nome='Vazio', telefone='11977770002'))
+        self.ids = {
+            'pront': pront.pk, 'vazio': vazio.pk,
+            'versao': ProntuarioVersao.objects.create(prontuario=pront, dados={'alergias': 'Latex'}).pk,
+            'prof': Profissional.objects.create(nome='Dra Cifra', gcal_refresh_token='1//tok').pk,
+            'trilha': _historico_prontuario(HistoricoAlteracao, pront.pk),
+        }
+
+    def test_dados_existentes_ficam_cifrados(self):
+        from aranha_estetica.utils import cifragem
+
+        alergias = _cru('prontuario', 'alergias', self.ids['pront'])
+        self.assertTrue(alergias.startswith('cif1:'))
+        self.assertEqual(cifragem.decifrar(alergias), 'Dipirona')
+        self.assertEqual(cifragem.decifrar_json(_cru('prontuario', 'respostas', self.ids['pront'])), {'fuma': True})
+        self.assertEqual(_cru('prontuario', 'respostas', self.ids['vazio']), {})
+        self.assertEqual(_cru('prontuario', 'alergias', self.ids['vazio']), '')
+        self.assertEqual(cifragem.decifrar_json(_cru('prontuario_versao', 'dados', self.ids['versao'])),
+                         {'alergias': 'Latex'})
+        self.assertEqual(cifragem.decifrar(_cru('profissional', 'gcal_token_renovacao', self.ids['prof']), 'segredos'),
+                         '1//tok')
+        depois = _cru('historico_alteracao', 'dados_depois', self.ids['trilha'])
+        self.assertNotIn('Dipirona', str(depois))
+        self.assertEqual(cifragem.decifrar_profundo(depois), {'alergias': 'Dipirona', 'respostas': {'fuma': True}})
+        self.assertEqual(_cru('historico_alteracao', 'dados_antes', self.ids['trilha']), {'alergias': '', 'respostas': {}})
+        # o model (estado 0060) le em claro
+        Prontuario = self.apps.get_model(APP, 'Prontuario')
+        self.assertEqual(Prontuario.objects.get(pk=self.ids['pront']).alergias, 'Dipirona')
+
+
+@tag('migracoes')
+class CifragemReversa0060Tests(_MigracaoBase):
+    migrate_from = M0060
+    migrate_to = M0059
+
+    def preparar(self, apps):
+        Cliente = apps.get_model(APP, 'Cliente')
+        Prontuario = apps.get_model(APP, 'Prontuario')
+        cli = Cliente.objects.create(nome='Rev Cifra', telefone='11977770003')
+        self.pk = Prontuario.objects.create(cliente=cli, alergias='Latex', respostas_extras={'x': 1}).pk
+        self.assertTrue(_cru('prontuario', 'alergias', self.pk).startswith('cif1:'))
+
+    def test_reverso_decifra(self):
+        self.assertEqual(_cru('prontuario', 'alergias', self.pk), 'Latex')
+        self.assertEqual(_cru('prontuario', 'respostas', self.pk), {'x': 1})

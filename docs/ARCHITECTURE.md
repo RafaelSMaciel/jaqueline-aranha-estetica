@@ -130,6 +130,8 @@ cards e dias são `<button>` (teclado) e o estado sobrevive a recusa do servidor
 | D18 | `/anamnese/<token>/` e `/pesquisa/<token>/` mantidas, hoje sem produtor de link | Aguardando decisão do dono (remover × gerar o link); a ficha pública já exige consentimento art. 11 |
 | D19 | Site só pt-BR (sem LocaleMiddleware); sessão da equipe 8h deslizantes | Sem traduções; 30 min fixos deslogavam no meio do atendimento |
 | D20 | Faturamento = avulsos + venda de pacote; sessão de pacote não soma; comissão da sessão de pacote = `valor_pago / total de sessões` (congelado na venda, `compra_pacote_item.valor_unitario`); ticket médio e LTV da ficha pela mesma regra (`services/financeiro`) | Evita contar a receita duas vezes e inflar comissão |
+| D21 | Dado de saúde e token OAuth **cifrados na aplicação** (Fernet, `CHAVES_CIFRAGEM`, subchave por finalidade; 0060), sem busca no banco por conteúdo | Dump/backup vazado não expõe a ficha (LGPD art. 46/48 §3); pgcrypto deixaria a chave no SQL de toda consulta |
+| D22 | Trilhas append-only no banco: `log_auditoria` imutável e expurgo só com 180+ dias (0059) | Mesmo usuário do banco p/ app e migrations: SQL injetado não apaga a prova (art. 37) |
 
 ---
 

@@ -257,10 +257,11 @@ class CodigoOtp(models.Model):
 
     @staticmethod
     def _hash_codigo(email: str, codigo: str) -> str:
-        """HMAC-SHA256(SECRET_KEY, email:codigo). Sem a chave, um dump do
+        """HMAC-SHA256(OTP_HMAC_KEY ou SECRET_KEY, email:codigo). Sem a chave, um dump do
         banco nao permite testar os 10^6 codigos offline (sha256 puro permitia)."""
         msg = f'{email}:{codigo or ""}'.encode()
-        return hmac.new(settings.SECRET_KEY.encode(), msg, hashlib.sha256).hexdigest()
+        chave = getattr(settings, 'OTP_HMAC_KEY', '') or settings.SECRET_KEY
+        return hmac.new(chave.encode(), msg, hashlib.sha256).hexdigest()
 
     @staticmethod
     def email_para_telefone(telefone: str) -> str:

@@ -541,6 +541,18 @@ CELERY_BEAT_SCHEDULE = {
 }
 
 
+# ─── CIFRAGEM EM REPOUSO (utils/cifragem; prontuario, fichas, token OAuth) ───
+# Chaves Fernet (base64 de 32 bytes) separadas por virgula: a 1a cifra, todas decifram (rotacao:
+# nova na frente + `manage.py rotacionar_chave_cifragem` + tirar a antiga). Gerar:
+# `manage.py gerar_chave_cifragem`. Perder a chave = perder o prontuario: copia offline com a dona.
+# Sem a env: dev/testes derivam da SECRET_KEY; prod (CIFRAGEM_EXIGE_CHAVE) recusa (aranha.E001).
+CHAVES_CIFRAGEM = [c.strip() for c in os.environ.get('CHAVES_CIFRAGEM', '').split(',') if c.strip()]
+CIFRAGEM_EXIGE_CHAVE = False
+# HMAC dos codigos OTP com chave propria (vazar/rotacionar a SECRET_KEY nao mexe nos OTP e
+# vice-versa). Vazia: usa a SECRET_KEY, como antes.
+OTP_HMAC_KEY = os.environ.get('OTP_HMAC_KEY', '').strip()
+
+
 # ─── RETENCAO (job_housekeeping) ─────────────────────────────────────
 # docs/specs/regras-negocio-registry.md: otp 24h · notif 12m · auditoria 5a
 RETENCAO_OTP_HORAS = int(os.environ.get('RETENCAO_OTP_HORAS', '24'))

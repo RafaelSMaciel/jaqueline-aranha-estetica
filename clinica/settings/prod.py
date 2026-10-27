@@ -62,6 +62,10 @@ EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND') or 'django.core.mail.backends.du
 # SMS: sem ZENVIA_API_TOKEN/ZENVIA_FROM o envio falha fechado (nunca "finge" sucesso)
 SMS_EXIGIR_PROVEDOR = True
 
+# Dado de saude nunca e gravado com chave derivada da SECRET_KEY: sem CHAVES_CIFRAGEM o check
+# aranha.E001 barra o migrate do pre-deploy (e utils/cifragem recusa em runtime)
+CIFRAGEM_EXIGE_CHAVE = True
+
 # Logging mais restrito em prod
 LOGGING['root']['level'] = 'WARNING'
 LOGGING['loggers']['django']['level'] = 'WARNING'

@@ -25,6 +25,7 @@ from aranha_estetica.models import (
     AnotacaoSessao, Atendimento, CompraPacote, HistoricoAlteracao, LogAuditoria, Preco, Prontuario, Usuario,
 )
 from aranha_estetica.utils.banco import definir_contexto_banco, limpar_contexto_conexao_nova
+from aranha_estetica.utils.cifragem import decifrar_profundo
 
 from .factories import (
     criar_atendimento, criar_cliente, criar_compra_pacote, criar_pacote, criar_procedimento,
@@ -77,12 +78,15 @@ class TrilhaDoRequestTests(TestCase):
             self.assertEqual(h.origem, 'web')
         self.assertEqual(len({h.transacao_ref for h in linhas}), 1)  # uma transacao (o atomic da view)
         ultima = linhas[0]
+        # dado de saude cifrado tambem na trilha (0060): o antes/depois so abre com a chave
+        self.assertNotIn('Dipirona', str(ultima.dados_depois))
+        depois = decifrar_profundo(ultima.dados_depois)
         if ultima.operacao == HistoricoAlteracao.OPERACAO_UPDATE:
             self.assertEqual(ultima.colunas_alteradas, ['alergias'])
             self.assertEqual(ultima.dados_antes, {'alergias': ''})
-            self.assertEqual(ultima.dados_depois, {'alergias': 'Dipirona'})
+            self.assertEqual(depois, {'alergias': 'Dipirona'})
         else:
-            self.assertEqual(ultima.dados_depois['alergias'], 'Dipirona')
+            self.assertEqual(depois['alergias'], 'Dipirona')
         self.assertNotIn('atualizado_em', ultima.dados_depois)  # ignorada
         # contexto limpo no fim do request (CONN_MAX_AGE: a conexao volta p/ o proximo)
         self.assertEqual(_contexto(), ('', '', ''))

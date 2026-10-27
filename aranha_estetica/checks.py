@@ -1,5 +1,8 @@
 """System checks de configuracao de producao (Warnings; nunca derrubam o boot).
 
+Excecao: aranha.E001 (Error) — prod sem CHAVES_CIFRAGEM valida. Esse barra o migrate do
+pre-deploy de proposito (o deploy anterior segue no ar).
+
 Rodam em todo comando de manage.py (inclusive o `migrate` do pre-deploy, entao
 aparecem no log do deploy) e ficam mudos com DEBUG=True (dev/testes).
 Levantar ImproperlyConfigured no import quebraria CI e `check --deploy` sem env.
@@ -128,6 +131,28 @@ def _aviso_anymail(backend):
             id='aranha.W011',
         )
     return None
+
+
+@checks.register(TAG)
+def check_chaves_cifragem(app_configs=None, **kwargs):
+    """E001 (Error, nao Warning): prod sem CHAVES_CIFRAGEM valida. Barra o migrate do
+    pre-deploy — melhor nao subir do que gravar prontuario sem a chave da clinica."""
+    if not getattr(settings, 'CIFRAGEM_EXIGE_CHAVE', False):
+        return []
+    from django.core.exceptions import ImproperlyConfigured
+
+    from .utils import cifragem
+    try:
+        for finalidade in cifragem.FINALIDADES:
+            cifragem.cofre(finalidade)
+    except ImproperlyConfigured as exc:
+        return [checks.Error(
+            str(exc),
+            hint='Defina CHAVES_CIFRAGEM no Railway (python manage.py gerar_chave_cifragem) e guarde '
+                 'uma copia offline: sem ela o prontuario cifrado nao abre.',
+            id='aranha.E001',
+        )]
+    return []
 
 
 @checks.register(TAG)
