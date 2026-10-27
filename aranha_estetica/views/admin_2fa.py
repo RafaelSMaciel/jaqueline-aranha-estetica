@@ -42,8 +42,21 @@ def admin_2fa_setup(request):
         challenge = reverse('aranha:admin_2fa_challenge')
         return redirect(f'{challenge}?{urlencode({"next": request.path})}')
 
+    codigos_backup = None
     if request.method == 'POST':
         acao = request.POST.get('acao', '')
+
+        if acao == 'codigos':
+            if not device_confirmado:
+                messages.error(request, 'Ative o 2FA antes de gerar códigos de backup.')
+                return redirect('aranha:admin_2fa_setup')
+            # Como no desativar: quem troca os codigos prova a posse do fator neste pedido
+            if not dois_fatores.verificar_token(request.user, request.POST.get('token')):
+                messages.error(request, 'Código inválido. Digite o código atual do app para gerar os códigos.')
+                return redirect('aranha:admin_2fa_setup')
+            codigos_backup = dois_fatores.gerar_codigos_backup(request.user)
+            registrar_log(request.user, 'Gerou codigos de backup do 2FA', 'staticdevice', None, request=request)
+            # Sem redirect: a lista aparece so nesta resposta (no-store; nada vai p/ a sessao)
 
         if acao == 'gerar':
             TOTPDevice.objects.filter(user=request.user, confirmed=False).delete()
@@ -118,6 +131,8 @@ def admin_2fa_setup(request):
         'cadastro_obrigatorio': bool(request.session.get(dois_fatores.SESSION_CADASTRO_PENDENTE))
         or (obrigatorio and not device_confirmado),
         'obrigatorio': obrigatorio,
+        'codigos_backup': codigos_backup,
+        'codigos_restantes': dois_fatores.codigos_backup_restantes(request.user) if device_confirmado else 0,
     }
     return render(request, 'painel/2fa_setup.html', context)
 

@@ -179,6 +179,61 @@ class Bypass2FATests(TestCase):
         self.assertIn(self.url, resp['Location'])
 
 
+# ─── Codigos de backup gerados pelo painel (antes so via SSH/setup_2fa) ───
+
+@override_settings(ADMIN_2FA_OBRIGATORIO=True)
+class CodigosBackupPainelTests(TestCase):
+    def setUp(self):
+        super().setUp()
+        self.admin = _admin()
+        self.device = _com_totp(self.admin)
+        self.url = reverse('aranha:admin_2fa_setup')
+        self.c = Client()
+        self.c.force_login(self.admin)
+        self.c.post(reverse('aranha:admin_2fa_verify'), {'token': _token(self.device)})
+        # o pedido prova a posse do fator com um codigo de backup antigo (o TOTP deste passo
+        # ja foi usado no desafio e o django-otp recusa reuso)
+        static = StaticDevice.objects.create(user=self.admin, name='backup', confirmed=True)
+        StaticToken.objects.create(device=static, token='antigo12')
+
+    def test_gera_10_codigos_mostrados_uma_vez(self):
+        resp = self.c.post(self.url, {'acao': 'codigos', 'token': 'antigo12'})
+        self.assertEqual(resp.status_code, 200)
+        codigos = resp.context['codigos_backup']
+        self.assertEqual(len(codigos), 10)
+        self.assertEqual(
+            sorted(StaticToken.objects.filter(device__user=self.admin).values_list('token', flat=True)),
+            sorted(codigos),
+        )  # o antigo saiu
+        for codigo in codigos:
+            self.assertContains(resp, codigo)
+        self.assertIn('no-store', resp['Cache-Control'])
+        self.assertTrue(LogAuditoria.objects.filter(acao='Gerou codigos de backup do 2FA').exists())
+        # GET seguinte nao reexibe a lista
+        resp = self.c.get(self.url)
+        self.assertIsNone(resp.context['codigos_backup'])
+        self.assertNotContains(resp, codigos[0])
+        self.assertEqual(resp.context['codigos_restantes'], 10)
+
+    def test_sem_codigo_atual_nao_gera(self):
+        resp = self.c.post(self.url, {'acao': 'codigos', 'token': '000000'})
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(list(StaticToken.objects.filter(device__user=self.admin).values_list('token', flat=True)),
+                         ['antigo12'])
+
+    def test_codigo_gerado_vale_no_desafio_uma_vez(self):
+        resp = self.c.post(self.url, {'acao': 'codigos', 'token': 'antigo12'})
+        codigo = resp.context['codigos_backup'][0]
+        outro = Client()
+        outro.force_login(self.admin)
+        outro.post(reverse('aranha:admin_2fa_verify'), {'token': codigo})
+        self.assertEqual(outro.get(reverse('aranha:painel_overview')).status_code, 200)
+        terceiro = Client()
+        terceiro.force_login(self.admin)
+        terceiro.post(reverse('aranha:admin_2fa_verify'), {'token': codigo})
+        self.assertEqual(terceiro.get(reverse('aranha:painel_overview')).status_code, 302)
+
+
 # ─── security-02 / security-14: rotas two_factor e Django admin ───
 
 class RotasTwoFactorEAdminTests(TestCase):

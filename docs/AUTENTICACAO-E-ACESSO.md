@@ -49,25 +49,31 @@ de `/profissional/`. PROFISSIONAL que abre `/painel/` volta para o próprio port
 ### 1.3 2FA (TOTP)
 
 - **Obrigatório para ADMIN** fora de DEBUG (`ADMIN_2FA_OBRIGATORIO`, padrão ligado em prod;
-  `false` = válvula de emergência com aviso `aranha.W008`). **PROFISSIONAL** só com
-  `PROFISSIONAL_2FA_OBRIGATORIO=true`.
+  `false` = válvula de emergência com aviso `aranha.W008`). **PROFISSIONAL** vinculado também,
+  pela mesma regra (`PROFISSIONAL_2FA_OBRIGATORIO`, padrão ligado em prod; `false` = válvula com
+  aviso `aranha.W012`) — ele lê prontuário e alertas de saúde.
 - **Cadastro forçado:** ADMIN sem TOTP que faz login fica preso em `/painel/seguranca/2fa/` até
   escanear o QR (SVG, sem Pillow) e confirmar o primeiro código. O middleware confere a
   obrigatoriedade **a cada request** (sessão promovida a ADMIN depois do login, sessão antiga ou
   aberta com a válvula desligada também cai no cadastro).
 - **Desafio:** quem tem TOTP confirmado passa por `/painel/seguranca/2fa/challenge/` em toda
   sessão nova (`verificar/`: 5/min por usuário). Aceita o TOTP de qualquer device confirmado e
-  os **códigos de backup** gerados pelo `setup_2fa`. Sucesso → `django_otp.login()` + troca do
+  os **códigos de backup** (tela do 2FA ou `setup_2fa`). Sucesso → `django_otp.login()` + troca do
   id da sessão.
 - **Trocar de aparelho / desativar:** exige a sessão já verificada **e** o código atual. ADMIN
   que remove o 2FA volta direto para o cadastro.
-- **Onde vale:** `/painel/`, `/profissional/`, `/api/`, `/django-admin-sv/`, `/webpush/subscribe|unsubscribe/`
+- **Códigos de backup:** em `/painel/seguranca/2fa/` ("Gerar códigos de backup"), com a sessão
+  verificada **e** o código atual: 10 códigos de uso único, mostrados só naquela resposta
+  (`no-store`, nada na sessão); gerar de novo invalida os anteriores; auditado. A tela mostra
+  quantos ainda não foram usados.
+- **Onde vale:** `/painel/`, `/profissional/`, `/api/` (webhooks), `/django-admin-sv/`, `/webpush/subscribe|unsubscribe/`
   (em `/api/` e `/webpush/` a resposta é 403 JSON). O Django admin usa o `AdminSiteOTPRequired`:
   só abre depois do desafio do painel.
 - **Rotas do django-two-factor (`/account/*`) não são publicadas** — eram uma 2ª tela de login
   que deixava uma sessão só com senha cadastrar TOTP e entrar no admin.
-- **Recuperação** (2FA perdido): `railway ssh` → `python manage.py setup_2fa <email> --force`
-  (apaga todos os devices, cria TOTP novo, imprime QR ASCII e 10 códigos de backup; auditado).
+- **Recuperação** (2FA perdido): entrar com um código de backup e cadastrar o aparelho novo. Sem
+  código: `railway ssh` → `python manage.py setup_2fa <email> --force` (apaga todos os devices,
+  cria TOTP novo, imprime QR ASCII e 10 códigos de backup; auditado).
 - O Django admin nunca mostra semente/QR/códigos de outro usuário
   (`OTP_ADMIN_HIDE_SENSITIVE_DATA`).
 
@@ -189,7 +195,6 @@ tokens longos e redigidos nos logs; trilha de auditoria com IP.
 | Sev | Ponto | Situação |
 |---|---|---|
 | média | DSAR e portal liberados com 1 fator (SMS) — SIM-swap expõe o cadastro | Aceito por ora (público de estética, sem senha); evolução: 2º canal ou entrega do export por e-mail |
-| média | 2FA do PROFISSIONAL é opt-in, mas ele vê alertas de saúde | Ligar `PROFISSIONAL_2FA_OBRIGATORIO=true` quando a equipe estiver pronta |
 | baixa | Link de descadastro não expira | Escopo limitado (opt-out); revogado na anonimização. Reagendar/cancelar sem token novo: portal por sessão do OTP; links legados expiram no início do atendimento |
 | baixa | `Enforce2FAMiddleware` depende do marcador de sessão do login da equipe | Em produção a única porta é `/admin-login/` (equivalente); hardening listado no ARCHITECTURE |
 | baixa | Link do termo pode ser enviado por `mailto:` ao e-mail do cadastro | Pendência listada no ARCHITECTURE |

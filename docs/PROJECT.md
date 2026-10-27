@@ -591,7 +591,7 @@ Lista completa e comentada em [`.env.example`](../.env.example). Em produção:
 | `SENTRY_DSN` (+ `SENTRY_TRACES_SAMPLE_RATE`, `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`) | Monitoramento de erros. Ambiente padrão = `DJANGO_ENV`; release padrão = `RAILWAY_GIT_COMMIT_SHA` |
 | `WEBPUSH_VAPID_PUBLIC_KEY`, `WEBPUSH_VAPID_PRIVATE_KEY`, `WEBPUSH_VAPID_CLAIMS_EMAIL` | Push ao profissional |
 | `ADMIN_2FA_OBRIGATORIO` | Sem a env: ligado em prod. `false` = válvula de emergência (W008) |
-| `PROFISSIONAL_2FA_OBRIGATORIO` | `true` exige 2FA também do PROFISSIONAL (lê alertas de saúde) |
+| `PROFISSIONAL_2FA_OBRIGATORIO` | Sem a env: ligado em prod (o PROFISSIONAL lê prontuário e alertas de saúde). `false` = válvula de emergência (W012) |
 | `EMBED_FRAME_ANCESTORS` | Origens que podem embutir `/embed/agendar/` (vazio = qualquer `https:`) |
 | `LGPD_RETENCAO_CLIENTE_DIAS` | Retenção de cliente inativo (padrão 1825) |
 | `REDIS_URL` | Opcional: cache/sessão compartilhados (obrigatório se `WEB_CONCURRENCY` > 1). **Não** liga worker |
@@ -884,9 +884,9 @@ Teste cada um manualmente uma vez (resposta `{"ok": true, ...}`).
 ### e) Primeiro acesso
 
 1. Entre em `/admin-login/` com `ADMIN_EMAIL`/`ADMIN_PASSWORD`. O painel **obriga o cadastro do
-   2FA**: escaneie o QR em `/painel/seguranca/2fa/` e confirme o código. Para ter códigos de
-   backup, rode `python manage.py setup_2fa <email> --force` pelo `railway ssh` (gera novo TOTP
-   + 10 códigos; guarde-os).
+   2FA**: escaneie o QR em `/painel/seguranca/2fa/` e confirme o código. Na mesma tela, gere os
+   **códigos de backup** (10, uso único, mostrados uma vez) e guarde-os fora do celular. Cada
+   profissional faz o mesmo no primeiro login (o 2FA dele também é obrigatório em prod).
 2. **Remova `ADMIN_PASSWORD` do Railway** (fica em texto puro; o comando não faz nada sem ela).
 3. Rode `python manage.py axes_reset` (limpa bloqueios de login herdados do deploy antigo).
 4. **Painel > Branding**: telefone, WhatsApp (DDI+DDD+número), e-mail de contato, endereço e
@@ -919,6 +919,7 @@ banco (W004/W007 via Branding, W006, W010) só rodam com `check --database defau
 | `W006` | Nenhum ADMIN ativo com senha — ninguém entra no painel | `ADMIN_EMAIL`/`ADMIN_PASSWORD` + redeploy |
 | `W007` | `CLINIC_EMAIL` vazio — sem canal do titular LGPD | Branding ou env |
 | `W008` | `ADMIN_2FA_OBRIGATORIO=false` em prod | Remover a env |
+| `W012` | `PROFISSIONAL_2FA_OBRIGATORIO=false` em prod — profissional lê dado de saúde só com a senha | Remover a env; profissional sem celular usa códigos de backup impressos |
 | `W009` | SMS real sem Turnstile — cota global de SMS vulnerável | `TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY` |
 | `W010` | Sem versão ativa do termo LGPD e/ou SAÚDE — sem LGPD o agendamento online recusa confirmar; sem SAÚDE o consentimento art. 11 fica sem prova | Painel > Termos: publicar/reativar a versão (a `0045`/`0047` criam as v1.0 se não houver ativa) |
 | `W011` | Backend anymail sem a chave do provedor (ou de provedor não suportado pelos settings), ou `DEFAULT_FROM_EMAIL` de exemplo — nada é entregue | Chave do provedor no Railway; `DEFAULT_FROM_EMAIL` do domínio verificado (§14 i) |

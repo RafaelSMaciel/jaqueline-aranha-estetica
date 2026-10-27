@@ -118,7 +118,7 @@ cards e dias são `<button>` (teclado) e o estado sobrevive a recusa do servidor
 | D6 | Fase 7 do banco em PR dedicada | Mexe no cálculo de slots |
 | D7 | **Todo agendamento público exige OTP do celular**; a identidade é o telefone, e-mail nunca é identidade | Anti-sequestro de cadastro; sem enumeração |
 | D8 | Agendamento público nasce **PENDENTE** (clínica aprova); interno nasce AGENDADO | Estado atual do código; a auto-aprovação aprovada no registry (R5) não foi implementada — reabrir com o dono se quiser tirar o gargalo |
-| D9 | **2FA obrigatório para ADMIN** (válvula `ADMIN_2FA_OBRIGATORIO=false`); PROFISSIONAL opt-in | Painel lê dado de saúde (LGPD art. 11/46) |
+| D9 | **2FA obrigatório para ADMIN e PROFISSIONAL** em prod (válvulas `ADMIN_2FA_OBRIGATORIO=false` / `PROFISSIONAL_2FA_OBRIGATORIO=false`, avisos W008/W012); códigos de backup gerados no painel | Painel e portal leem dado de saúde (LGPD art. 11/46) |
 | D10 | Rotas do django-two-factor (`/account/*`) e ReDoc não publicadas | 2ª tela de login burlava o 2FA; ReDoc exige `unsafe-inline` |
 | D11 | RECEPCAO sem login até existirem telas próprias | Papel sem superfície própria = acesso indevido ao painel |
 | D12 | Prova de aceite imutável (SHA-256 do texto + trigger) e termo aceito imutável | Evidência legal (LGPD art. 8) |

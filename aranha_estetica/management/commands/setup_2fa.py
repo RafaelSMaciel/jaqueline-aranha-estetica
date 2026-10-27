@@ -14,8 +14,9 @@ Uso:
 """
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
-from django_otp.plugins.otp_static.models import StaticDevice, StaticToken
 from django_otp.plugins.otp_totp.models import TOTPDevice
+
+from aranha_estetica.utils import dois_fatores
 
 
 class Command(BaseCommand):
@@ -71,14 +72,8 @@ class Command(BaseCommand):
         except Exception as exc:
             self.stdout.write(self.style.WARNING(f'(QR nao gerado: {exc})'))
 
-        # Backup tokens — static device
-        static_dev, _ = StaticDevice.objects.get_or_create(
-            user=user, name='backup', confirmed=True
-        )
-        static_dev.token_set.all().delete()
-        tokens = [StaticToken.random_token() for _ in range(10)]
-        for t in tokens:
-            StaticToken.objects.create(device=static_dev, token=t)
+        # Backup tokens — static device (mesmo helper da tela /painel/seguranca/2fa/)
+        tokens = dois_fatores.gerar_codigos_backup(user)
 
         self.stdout.write(self.style.SUCCESS('\nBackup tokens (use 1 vez cada — guarde seguro!):'))
         for t in tokens:

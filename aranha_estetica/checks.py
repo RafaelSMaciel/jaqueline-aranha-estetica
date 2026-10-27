@@ -248,4 +248,13 @@ def check_config_producao(app_configs=None, databases=None, **kwargs):
             id='aranha.W008',
         ))
 
+    if getattr(settings, 'PROFISSIONAL_2FA_OBRIGATORIO', True) is False:
+        avisos.append(checks.Warning(
+            'PROFISSIONAL_2FA_OBRIGATORIO=false fora de DEBUG: profissionais leem prontuario e '
+            'alertas de saude (dado sensivel, LGPD art. 11) so com a senha.',
+            hint='Use so como valvula de emergencia; remova a env. Profissional sem celular: '
+                 'gere codigos de backup em /painel/seguranca/2fa/ e entregue impressos.',
+            id='aranha.W012',
+        ))
+
     return avisos
