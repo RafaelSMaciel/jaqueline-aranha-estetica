@@ -34,6 +34,25 @@ def criar_profissional(nome='Dra. Ana', **kwargs):
     return prof
 
 
+def envelhecer_trilha(model, pk, criado_em):
+    """Backdata criado_em de linha append-only (log_auditoria, historico_alteracao) p/ testar a
+    purga. No PG o tg_<tabela>_imutavel (0059) recusa o UPDATE: sai do ar so neste UPDATE (DDL
+    transacional — volta com o rollback do teste)."""
+    from django.db import connection
+
+    tabela = model._meta.db_table
+    if connection.vendor != 'postgresql':
+        model._base_manager.filter(pk=pk).update(criado_em=criado_em)
+        return
+    with connection.cursor() as cursor:
+        # FKs deferidas do teste pendentes impedem o ALTER TABLE: checa agora e volta a deferir
+        cursor.execute('SET CONSTRAINTS ALL IMMEDIATE')
+        cursor.execute(f'ALTER TABLE {tabela} DISABLE TRIGGER tg_{tabela}_imutavel')
+        cursor.execute(f'UPDATE {tabela} SET criado_em = %s WHERE id = %s', [criado_em, pk])
+        cursor.execute(f'ALTER TABLE {tabela} ENABLE TRIGGER tg_{tabela}_imutavel')
+        cursor.execute('SET CONSTRAINTS ALL DEFERRED')
+
+
 def limpar_feriados():
     """Feriados/recessos (FOLGA da clinica: semeados pela 0012 e pelo
     carregar_feriados) podem cair na data do teste."""

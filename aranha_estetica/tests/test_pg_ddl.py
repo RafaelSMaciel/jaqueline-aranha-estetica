@@ -63,6 +63,7 @@ TRIGGERS_SO_PG = {
     # L1 (0056, spec §5.2/§5.3)
     'tg_anotacao_sessao_imutavel': ('0056', 'anotacao_sessao'),
     'tg_historico_alteracao_imutavel': ('0056', 'historico_alteracao'),
+    'tg_log_auditoria_imutavel': ('0059', 'log_auditoria'),
     **{f'tg_{t}_atualizado_em': ('0056', t) for t in (
         'usuario', 'assinatura_push', 'cliente', 'profissional', 'procedimento', 'preco', 'promocao',
         'agenda_horario', 'agenda_excecao', 'atendimento', 'notificacao', 'lista_espera', 'avaliacao_nps',
@@ -82,6 +83,7 @@ ROTINAS_SO_PG = {
         'fn_fuso_clinica', 'fn_data_local', 'fn_sem_acento',                                         # 0057
         'fn_recorrencia_casa_dia', 'fn_ocorrencias_recorrencia', 'fn_horarios_livres', 'fn_saldo_pacote',
         'fn_nps_periodo', 'fn_saldo_comissao', 'fn_tem_consentimento', 'fn_clientes_para_anonimizar',
+        'fn_log_auditoria_imutavel',                                                                 # 0059
     ), 'f'),
     **dict.fromkeys(('sp_anonimizar_cliente', 'sp_aplicar_retencao_lgpd', 'sp_purgar_dados_expirados',
                      'sp_expirar_pacotes'), 'p'),                                                    # 0058
@@ -121,7 +123,7 @@ class DDLSoPostgresTests(TestCase):
         self.assertEqual(triggers, {nome: tabela for nome, (_, tabela) in TRIGGERS_SO_PG.items()})
 
     def test_logica_no_banco_rotinas_views_e_indice_trigram(self):
-        """L1-L3 (0056-0058, spec §5): 45 triggers, 22 funcoes, 4 procedures, 9 views, trigram."""
+        """L1-L3 (0056-0059, spec §5): 46 triggers, 23 funcoes, 4 procedures, 9 views, trigram."""
         with connection.cursor() as cursor:
             cursor.execute(
                 "SELECT p.proname, p.prokind FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
@@ -143,7 +145,7 @@ class DDLSoPostgresTests(TestCase):
         self.assertEqual(rotinas, ROTINAS_SO_PG)
         self.assertEqual(views, VIEWS_SO_PG)
         self.assertEqual(qtd_triggers, len(TRIGGERS_SO_PG))
-        self.assertEqual(len(TRIGGERS_SO_PG), 45)
+        self.assertEqual(len(TRIGGERS_SO_PG), 46)
         self.assertEqual(extensoes, {'pg_trgm', 'unaccent'})
         self.assertIn('fn_sem_acento', indice)
         self.assertEqual(sem_acento, ('joao avila', 'joao avila'))

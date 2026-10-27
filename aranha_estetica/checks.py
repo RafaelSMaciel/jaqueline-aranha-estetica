@@ -248,6 +248,17 @@ def check_config_producao(app_configs=None, databases=None, **kwargs):
             id='aranha.W008',
         ))
 
+    from .constants import TRILHA_RETENCAO_MINIMA_DIAS
+    retencao = getattr(settings, 'RETENCAO_LOG_AUDITORIA_DIAS', TRILHA_RETENCAO_MINIMA_DIAS)
+    if retencao < TRILHA_RETENCAO_MINIMA_DIAS:
+        avisos.append(checks.Warning(
+            f'RETENCAO_LOG_AUDITORIA_DIAS={retencao} abaixo de {TRILHA_RETENCAO_MINIMA_DIAS}: o Postgres '
+            'so deixa apagar trilha com 180+ dias (tg_log_auditoria_imutavel / '
+            'tg_historico_alteracao_imutavel) e a purga do job_housekeeping falha.',
+            hint='Use 180 ou mais (Marco Civil art. 15: registros de acesso por 6 meses); padrao 1825.',
+            id='aranha.W013',
+        ))
+
     if getattr(settings, 'PROFISSIONAL_2FA_OBRIGATORIO', True) is False:
         avisos.append(checks.Warning(
             'PROFISSIONAL_2FA_OBRIGATORIO=false fora de DEBUG: profissionais leem prontuario e '
