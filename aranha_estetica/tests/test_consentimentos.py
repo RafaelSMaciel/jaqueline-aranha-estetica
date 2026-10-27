@@ -213,7 +213,8 @@ class MarketingEmailTests(TestCase):
     def test_aniversario_so_para_marketing_vigente(self):
         from aranha_estetica.tasks import job_aniversario_clientes
         hoje = timezone.localdate()
-        self._clientes(data_nascimento=hoje.replace(year=1990))
+        # 1992 e bissexto: hoje.replace() nao estoura em 29/02
+        self._clientes(data_nascimento=hoje.replace(year=1992))
         job_aniversario_clientes.apply()
         self.assertEqual([m.to[0] for m in mail.outbox], ['sim@example.com'])
 

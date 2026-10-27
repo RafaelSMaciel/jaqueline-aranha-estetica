@@ -109,7 +109,7 @@ class EmailFalhaFechadaTests(TestCase):
         hoje = timezone.localdate()
         criar_cliente(
             nome='Aniversariante', email='niver@example.com',
-            data_nascimento=hoje.replace(year=1990), consent_email_marketing=True,
+            data_nascimento=hoje.replace(year=1992), consent_email_marketing=True,  # bissexto: vale em 29/02
         )
         job_aniversario_clientes.apply()
         msg = mail.outbox[0]

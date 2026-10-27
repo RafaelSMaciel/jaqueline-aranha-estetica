@@ -39,6 +39,7 @@ from .factories import (
     criar_pacote,
     criar_procedimento,
     criar_profissional,
+    limpar_feriados,
 )
 from .test_painel_operacional import _AdminTestCase, _local, _mensagens
 
@@ -407,6 +408,7 @@ class FichaPendenteTests(_AdminTestCase):
 
     def setUp(self):
         super().setUp()
+        limpar_feriados()  # hoje+2 cai em feriado (ex.: 31/10 -> Finados) e o agendamento e recusado
         self.prof = criar_profissional('Dra. Ficha')
         self.proc = criar_procedimento(profissional=self.prof)
         self.cli = criar_cliente('Cliente Telefone')
