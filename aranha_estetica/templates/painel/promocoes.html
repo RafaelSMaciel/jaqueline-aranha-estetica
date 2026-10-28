@@ -63,13 +63,20 @@
       <form method="post" action="{% url 'aranha:admin_disparar_promocao' promo.pk %}"
             class="mt-2 p-3 rounded-xl border border-borda bg-fundo flex flex-wrap items-end gap-2">
         {% csrf_token %}
-        <label class="text-[0.72rem] font-bold text-texto-suave">Validade no e-mail (dias)
-          <input type="number" name="validade_dias" value="30" min="1" max="365"
-                 class="block mt-1 w-20 px-2 py-1.5 rounded-lg border border-borda bg-superficie text-[0.8rem] text-texto">
-        </label>
+        {% if promo.envio_em_andamento %}
+        <button type="submit"
+                class="px-3 py-1.5 rounded-lg bg-green-700 text-white text-[0.75rem] font-bold border-none cursor-pointer hover:bg-green-800 transition-colors">Continuar envio</button>
+        <p class="w-full text-[0.7rem] text-texto-suave m-0">Envio iniciado em {{ promo.disparada_em|date:"d/m/Y H:i" }}: cada clique manda o próximo lote, sem repetir quem já recebeu.</p>
+        {% elif promo.envio_concluido %}
+        <input type="hidden" name="reenviar_para_todos" value="1">
+        <button type="submit" data-confirm="Esta promoção já foi enviada a todos em {{ promo.disparada_em|date:'d/m/Y' }}. Enviar de novo para todos os clientes que autorizaram ofertas?"
+                class="px-3 py-1.5 rounded-lg bg-green-700 text-white text-[0.75rem] font-bold border-none cursor-pointer hover:bg-green-800 transition-colors">Reenviar para todos</button>
+        <p class="w-full text-[0.7rem] text-texto-suave m-0">Enviada a todos em {{ promo.disparada_em|date:"d/m/Y H:i" }}.</p>
+        {% else %}
         <button type="submit" data-confirm="Enviar esta promoção por e-mail para os clientes que autorizaram receber ofertas?"
                 class="px-3 py-1.5 rounded-lg bg-green-700 text-white text-[0.75rem] font-bold border-none cursor-pointer hover:bg-green-800 transition-colors">Enviar</button>
-        <p class="w-full text-[0.7rem] text-texto-suave m-0">Só recebe quem aceitou e-mails de ofertas. A validade informada nunca passa do fim da promoção ({{ promo.data_fim|date:"d/m/Y" }}). Listas grandes são enviadas em lotes: clique de novo para continuar.</p>
+        <p class="w-full text-[0.7rem] text-texto-suave m-0">Só recebe quem aceitou e-mails de ofertas. O e-mail diz que o preço vale para atendimentos de {{ promo.data_inicio|date:"d/m/Y" }} a {{ promo.data_fim|date:"d/m/Y" }}. Listas grandes saem em lotes: clique em "Continuar envio" até concluir.</p>
+        {% endif %}
       </form>
     </details>
     {% endif %}
