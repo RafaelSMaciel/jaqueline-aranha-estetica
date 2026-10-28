@@ -11,6 +11,7 @@ from django_ratelimit.decorators import ratelimit
 
 from ..decorators import staff_required
 from ..models import AgendaExcecao, Atendimento, Profissional
+from ..services.disponibilidade import STATUS_OCUPAM_AGENDA, slot_disponivel
 from ..utils.audit import registrar_log
 from ..utils.datas import data_local, fmt_local
 from ..utils.parse import id_int
@@ -139,7 +140,14 @@ def admin_calendar_events(request):
 @require_POST
 @ratelimit(key='user', rate='60/m', method='POST', block=True)
 def admin_calendar_mover(request):
-    """Reagenda atendimento via drag-drop no calendario."""
+    """Reagenda atendimento via drag-drop no calendario.
+
+    Mesma regra de horario do site, do agendamento pelo painel e do reagendamento pelo portal
+    (SlotService): expediente/horario diferente do dia, folga do profissional OU feriado/recesso
+    da clinica, bloqueios, buffer, antecedencia e limite de dias. Os 409 especificos (conflito,
+    bloqueio, folga) vem antes so p/ a mensagem dizer o motivo. O preco/promocao combinados
+    seguem com o atendimento (como no portal). A duracao nao muda (eventDurationEditable=false).
+    """
     import json
     try:
         payload = json.loads(request.body)
@@ -164,13 +172,14 @@ def admin_calendar_mover(request):
                 'erro': f'Não é possível mover um atendimento {at.get_status_display().lower()}.',
             }, status=400)
 
+        novo_fim = novo_inicio + (at.data_hora_fim - at.data_hora_inicio)
         # Bloqueia double-booking: nao mover para janela que sobrepoe outro
         # atendimento ativo do mesmo profissional, um bloqueio ou uma folga.
         conflito_atendimento = Atendimento.objects.filter(
             profissional_id=at.profissional_id,
             data_hora_inicio__lt=novo_fim,
             data_hora_fim__gt=novo_inicio,
-            status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO', 'REALIZADO'],
+            status__in=STATUS_OCUPAM_AGENDA,
         ).exclude(pk=at.pk).exists()
         if conflito_atendimento:
             return JsonResponse({
@@ -192,14 +201,24 @@ def admin_calendar_mover(request):
                 'erro': 'Conflito: o horário cai dentro de um bloqueio de agenda.',
             }, status=409)
 
-        conflito_folga = AgendaExcecao.objects.ativas().filter(
-            profissional_id=at.profissional_id,
-            tipo=AgendaExcecao.TIPO_FOLGA,
-        ).cobrindo(timezone.localtime(novo_inicio).date()).exists()
-        if conflito_folga:
+        # folga do profissional OU feriado/recesso/fechamento da clinica (profissional nulo)
+        folga = (
+            AgendaExcecao.objects.ativas().do_profissional_ou_global(at.profissional_id)
+            .filter(tipo=AgendaExcecao.TIPO_FOLGA)
+            .cobrindo(timezone.localtime(novo_inicio).date()).first()
+        )
+        if folga is not None:
             return JsonResponse({
                 'sucesso': False,
-                'erro': 'Conflito: o profissional está de folga nesse dia.',
+                'erro': ('Conflito: o profissional está de folga nesse dia.' if folga.profissional_id
+                         else 'Conflito: a clínica não atende nesse dia (feriado ou recesso).'),
+            }, status=409)
+
+        if not slot_disponivel(at.profissional, at.procedimento, novo_inicio, ignorar_atendimento_id=at.pk):
+            return JsonResponse({
+                'sucesso': False,
+                'erro': ('Fora do horário de atendimento do profissional (expediente, intervalo entre '
+                         'sessões, antecedência mínima ou dias liberados para agendar).'),
             }, status=409)
 
         antigo = at.data_hora_inicio.isoformat()
