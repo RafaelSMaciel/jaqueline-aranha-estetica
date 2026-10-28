@@ -1,0 +1,4 @@
+<c-vars texto="Agendar" class="" />
+{% comment %}Link "Agendar" do site: o wizard ou, sem SMS (o codigo nao chega e o wizard nao conclui),
+o WhatsApp da clinica em outra aba — site_tags.agendar_link. Uso: <c-cta-agendar class="..." />{% endcomment %}
+<a {% agendar_link %} class="{{ class }}"{% if AGENDAR_WHATSAPP %} aria-label="{{ texto }} pelo WhatsApp"{% endif %} {{ attrs }}>{{ texto }}</a>

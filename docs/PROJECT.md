@@ -205,7 +205,10 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
 - **Front**: `static/src/js/app.js` registra componentes Alpine CSP-safe (`temaToggle`,
   `modal`, `navMenu`, `cookieConsent`, `adminShell`, `alertaDismiss`, `anotacaoModal`,
   `pacoteCriar`) + `data-confirm` global e a busca instantânea do painel. Componentes cotton:
-  `<c-botao>`, `<c-card>`, `<c-campo>` e o chrome do site (`cabecalho`, `rodape`, `mensagens`,
+  `<c-botao>`, `<c-card>`, `<c-campo>`, `<c-cta-agendar>` (o "Agendar" do site: wizard ou, sem SMS, o
+  WhatsApp — tag `{% agendar_link %}`, builtin, usada em todo link p/ o wizard), `<c-servico.passo>`,
+  `<c-servico.cartao>`/`<c-servico.item>` (páginas de serviço) e o chrome do site (`cabecalho` com o menu de
+  `{% menu_publico %}` — uma lista p/ desktop e celular, `aria-current` —, `rodape`, `mensagens`,
   `cookie_consent`). Tema: sem escolha segue o sistema (`prefers-color-scheme`); o botão grava o cookie `tema` (`data-theme="claro|escuro"`) sem FOUC.
   Tokens em `tokens.css` (contraste AA conferido nos 2 temas): texto, `--cor-borda-campo` (3:1 nos
   inputs), `--cor-foco` (anel `:focus-visible` global), erro/sucesso/aviso/info/destaque com `-fundo`

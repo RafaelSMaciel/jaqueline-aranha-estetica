@@ -58,7 +58,7 @@
       </div>
       <h3 class="text-texto text-xl font-bold">Galeria em preparação</h3>
       <p class="text-texto-suave max-w-md mx-auto">Em breve compartilharemos fotos do nosso espaço. Enquanto isso, agende uma visita e conheça pessoalmente.</p>
-      <a href="{% url 'aranha:agendamento_publico' %}"
+      <a {% agendar_link %}
          class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity mt-2">
         Agendar Visita
       </a>
@@ -88,7 +88,7 @@
         Venha conhecer nossas instalações pessoalmente. Agende uma visita e conheça o espaço preparado para o seu bem-estar.
       </p>
 
-      <a href="{% url 'aranha:agendamento_publico' %}"
+      <a {% agendar_link %}
          class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
         Agendar Visita
       </a>
