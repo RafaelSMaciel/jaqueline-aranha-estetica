@@ -57,11 +57,11 @@ urlpatterns = [
     path('painel/profissionais/<int:pk>/ics/novo-token/', profissionais.profissional_rotacionar_ics, name='profissional_rotacionar_ics'),
     path('painel/exportar-relatorio/', visao_geral.exportar_relatorio_excel, name='exportar_relatorio_excel'),
     # ─── Admin Promoções (CRUD) ───
-    path('painel/promocoes/', promocoes.admin_promocoes, name='admin_promocoes'),
-    path('painel/promocoes/criar/', promocoes.admin_criar_promocao, name='admin_criar_promocao'),
-    path('painel/promocoes/<int:pk>/editar/', promocoes.admin_editar_promocao, name='admin_editar_promocao'),
-    path('painel/promocoes/<int:pk>/excluir/', promocoes.admin_excluir_promocao, name='admin_excluir_promocao'),
-    path('painel/promocoes/<int:pk>/disparar/', promocoes.admin_disparar_promocao, name='admin_disparar_promocao'),
+    path('painel/promocoes/', promocoes.lista, name='admin_promocoes'),
+    path('painel/promocoes/criar/', promocoes.criar, name='admin_criar_promocao'),
+    path('painel/promocoes/<int:pk>/editar/', promocoes.editar, name='admin_editar_promocao'),
+    path('painel/promocoes/<int:pk>/excluir/', promocoes.excluir, name='admin_excluir_promocao'),
+    path('painel/promocoes/<int:pk>/disparar/', promocoes.disparar, name='admin_disparar_promocao'),
     # ─── Relatórios (Financeiro / NPS / Comissões) ───
     path('painel/financeiro/', financeiro.dashboard_financeiro, name='dashboard_financeiro'),
     path('painel/nps/', relatorios.painel_nps, name='painel_nps'),

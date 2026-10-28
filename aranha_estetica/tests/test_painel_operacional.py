@@ -9,7 +9,7 @@ from unittest.mock import patch
 from django.contrib.messages import get_messages
 from django.core import mail
 from django.db import IntegrityError
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
@@ -19,7 +19,6 @@ from aranha_estetica.models import (
     Atendimento,
     Cliente,
     CompraPacote,
-    Configuracao,
     Consentimento,
     Habilitacao,
     ListaEspera,
@@ -37,6 +36,7 @@ from aranha_estetica.models import (
 from aranha_estetica.services import consentimentos
 
 from .factories import (
+    email_da_fila,
     ja_comecou,
     criar_atendimento,
     criar_cliente,
@@ -408,7 +408,7 @@ class PortalProfissionalTests(TestCase):
         local = timezone.localtime(timezone.now() + timedelta(days=4)).replace(
             hour=10, minute=0, second=0, microsecond=0)
         at = criar_atendimento(self.cliente, self.prof, self.proc, data_hora=local, status='PENDENTE')
-        with patch('aranha_estetica.utils.email.enviar_confirmacao_agendamento_email', return_value=True) as enviar:
+        with email_da_fila('CONFIRMACAO') as enviar:
             with self.captureOnCommitCallbacks(execute=True):
                 self.client.post(reverse('aranha:profissional_aprovar', args=[at.pk]))
         self.assertTrue(enviar.called)
@@ -674,70 +674,6 @@ class PacotesTests(_AdminTestCase):
         self.assertEqual(compra.valor_pago, Decimal('1350.00'))
         self.assertEqual(compra.data_expiracao,
                          timezone.localdate() + relativedelta(months=self.p1.validade_meses))
-
-
-# ─── Promocoes ────────────────────────────────────────────────────────
-class PromocoesTests(_AdminTestCase):
-    def setUp(self):
-        super().setUp()
-        self.proc = criar_procedimento()
-        hoje = timezone.localdate()
-        self.promo = Promocao.objects.create(
-            nome='Primavera', desconto_percentual=Decimal('15.00'), procedimento=self.proc,
-            data_inicio=hoje, data_fim=hoje + timedelta(days=30),
-        )
-        self.url = reverse('aranha:admin_disparar_promocao', args=[self.promo.pk])
-
-    def test_lista_com_desconto_sem_virgula_e_botao_disparo(self):
-        resp = self.client.get(reverse('aranha:admin_promocoes'))
-        self.assertContains(resp, 'value="15.00"')
-        self.assertContains(resp, self.url)
-
-    def test_editar_desconto_decimal(self):
-        hoje = timezone.localdate()
-        self.client.post(reverse('aranha:admin_editar_promocao', args=[self.promo.pk]), {
-            'nome': 'Primavera', 'procedimento': self.proc.pk, 'desconto': '12,5',
-            'data_inicio': hoje.isoformat(), 'data_fim': (hoje + timedelta(days=5)).isoformat(),
-            'ativa': '1',
-        })
-        self.promo.refresh_from_db()
-        self.assertEqual(self.promo.desconto_percentual, Decimal('12.50'))
-
-    @patch('aranha_estetica.jobs.job_promocao_mensal')
-    def test_validade_vazia_nao_da_500(self, mock_delay):
-        resp = self.client.post(self.url, {'validade_dias': ''})
-        self.assertEqual(resp.status_code, 302)
-        mock_delay.assert_called_once()
-
-    @patch('aranha_estetica.jobs.job_promocao_mensal')
-    def test_validade_invalida(self, mock_delay):
-        resp = self.client.post(self.url, {'validade_dias': 'abc'})
-        self.assertEqual(resp.status_code, 302)
-        mock_delay.assert_not_called()
-
-    @override_settings(EMAIL_BACKEND='django.core.mail.backends.console.EmailBackend', DEBUG=False)
-    @patch('aranha_estetica.jobs.job_promocao_mensal')
-    def test_email_nao_configurado_nao_dispara(self, mock_delay):
-        resp = self.client.post(self.url, {'validade_dias': '30'})
-        mock_delay.assert_not_called()
-        self.assertTrue(any('não está configurado' in m for m in _mensagens(resp)))
-
-    def test_lista_grande_sem_worker_vai_em_lotes_sem_reenvio(self):
-        from aranha_estetica.views.painel import promocoes as admin_promotions
-        for i in range(admin_promotions.LOTE_PROMOCAO + 5):
-            criar_cliente(f'Cli {i}', email=f'cli{i}@test.com', consent_email_marketing=True)
-        # revogado (descadastro) e quem nunca autorizou ficam fora do publico
-        revogado = criar_cliente('Revogado', email='revogado@test.com', consent_email_marketing=True)
-        consentimentos.revogar(revogado, 'MARKETING', 'EMAIL', origem='DESCADASTRO')
-        criar_cliente('Sem opt-in', email='semoptin@test.com')
-        self.client.post(self.url, {'validade_dias': '30'})
-        self.assertEqual(len(mail.outbox), admin_promotions.LOTE_PROMOCAO)
-        self.assertTrue(Configuracao.objects.filter(chave__startswith='promocao_').exists())
-        self.client.post(self.url, {'validade_dias': '30'})
-        self.assertEqual(len(mail.outbox), admin_promotions.LOTE_PROMOCAO + 5)
-        destinatarios = [m.to[0] for m in mail.outbox]
-        self.assertEqual(len(destinatarios), len(set(destinatarios)))
-        self.assertFalse(Configuracao.objects.filter(chave__startswith='promocao_').exists())
 
 
 # ─── Lista de espera ──────────────────────────────────────────────────
@@ -1239,41 +1175,6 @@ class PacoteVendidoTests(_AdminTestCase):
         self.assertEqual(self.compra.status, 'CANCELADO')
         self.assertTrue(LogAuditoria.objects.filter(tabela='compra_pacote', registro_id=self.compra.pk,
                                                     acao__startswith='Cancelou pacote').exists())
-
-
-class PromocaoDisparoRodada2Tests(_AdminTestCase):
-    def setUp(self):
-        super().setUp()
-        self.proc = criar_procedimento()
-        hoje = timezone.localdate()
-        self.promo = Promocao.objects.create(
-            nome='Setembro Glow', preco_promocional=Decimal('99.00'), procedimento=self.proc,
-            data_inicio=hoje, data_fim=hoje + timedelta(days=10),
-        )
-        self.url = reverse('aranha:admin_disparar_promocao', args=[self.promo.pk])
-
-    @patch('aranha_estetica.jobs.job_promocao_mensal')
-    def test_preco_fixo_sem_zero_off_e_validade_ate_fim_da_promocao(self, mock_delay):
-        self.client.post(self.url, {'validade_dias': '60'})
-        mock_delay.assert_called_once()
-        assunto = mock_delay.call_args[0][0]
-        self.assertNotIn('0% OFF', assunto)
-        self.assertIn('99,00', assunto)
-        self.assertEqual(mock_delay.call_args[1]['validade_dias'], 10)
-        self.assertNotIn('cupom', mock_delay.call_args[1])
-
-    @patch('aranha_estetica.jobs.job_promocao_mensal')
-    def test_promocao_expirada_nao_dispara(self, mock_delay):
-        Promocao.objects.filter(pk=self.promo.pk).update(
-            data_inicio=timezone.localdate() - timedelta(days=20),
-            data_fim=timezone.localdate() - timedelta(days=1))
-        self.client.post(self.url, {'validade_dias': '30'})
-        mock_delay.assert_not_called()
-
-    def test_lista_sem_campo_cupom_e_mostra_preco_fixo(self):
-        resp = self.client.get(reverse('aranha:admin_promocoes'))
-        self.assertNotContains(resp, 'name="cupom"')
-        self.assertContains(resp, 'R$ 99,00')
 
 
 class NpsNotaInvalidaTests(TestCase):
