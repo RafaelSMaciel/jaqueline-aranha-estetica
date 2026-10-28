@@ -219,8 +219,11 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   Formulário: todo campo tem nome acessível — `<label for>` (o `app.js` associa o rótulo solto ao campo
   seguinte e a dica no meio vira `aria-describedby`) ou `aria-label` nos filtros. Toast do painel:
   erro = `role="alert"`, o resto `role="status"`; nenhum some sozinho.
-- **PWA**: `/manifest.json` + `/sw.js` (service worker v8: cacheia só páginas públicas e
-  estáticos; nunca HTML privado) e `/painel/manifest.json` para o app da equipe.
+- **PWA**: `/manifest.json` + `/sw.js` (service worker v9: cacheia só páginas públicas e
+  estáticos; nunca HTML privado; sem rede, página offline com a marca) e `/painel/manifest.json` para
+  o app da equipe. Registrado no site público e no painel. Ícones em `static/assets/pwa/` (192 e 512
+  "any" e 512 "maskable" com margem de segurança — só o monograma "JA"; o texto da logo some em ícone
+  pequeno). Subir `VERSION` no `sw.js` a cada mudança dele.
 
 ---
 

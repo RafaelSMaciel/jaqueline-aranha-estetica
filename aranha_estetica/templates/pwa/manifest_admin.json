@@ -9,19 +9,25 @@
   "background_color": "#1a1a2e",
   "theme_color": "#C9A84C",
   "description": "Painel administrativo {{ CLINIC_NAME }} — agenda, clientes, prontuário.",
-  "categories": ["business", "medical", "productivity"],
+  "categories": ["business", "lifestyle", "productivity"],
   "icons": [
     {
-      "src": "/static/assets/logo-completa.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/static/assets/apple-touch-icon.png",
-      "sizes": "180x180",
+      "src": "/static/assets/pwa/icon-192.png",
+      "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/static/assets/pwa/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/assets/pwa/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "shortcuts": [
