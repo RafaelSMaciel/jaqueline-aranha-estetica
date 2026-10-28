@@ -3,8 +3,43 @@
 {% block titulo %}Comissões — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Comissões{% endblock %}
 {% block page_subtitle %}Comissões dos profissionais por atendimento{% endblock %}
+{% block page_actions %}
+<a href="{% url 'aranha:painel_comissao_regras' %}"
+   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold border border-borda text-texto-suave no-underline hover:text-texto transition-colors">Regras de comissão</a>
+{% endblock %}
 
 {% block admin_content %}
+
+{% if sem_regra_comissao %}
+<div class="bg-aviso-fundo border-l-4 border-aviso rounded-xl px-4 py-3 mb-4 text-[0.85rem] text-texto" role="status">
+  <strong class="text-aviso">Nenhuma regra de comissão ativa:</strong> nenhum atendimento realizado gera comissão.
+  <a href="{% url 'aranha:painel_comissao_regras' %}" class="font-bold text-marca-forte">Cadastrar regra</a>
+</div>
+{% endif %}
+
+{# ── Repasse em lote ── #}
+<div class="bg-superficie rounded-2xl shadow-sm p-4 mb-4">
+  <h2 class="text-base font-bold text-texto mb-1">Repasse</h2>
+  <p class="text-[0.75rem] text-texto-suave mb-3">Paga de uma vez as comissões pendentes da profissional com atendimento até a data (inclusive) e abre o comprovante para imprimir.</p>
+  <form method="POST" action="{% url 'aranha:admin_comissao_repasse' %}" class="flex gap-2 flex-wrap items-end">
+    {% csrf_token %}
+    <div class="flex-1 min-w-[160px]">
+      <label for="repasseProf" class="block text-[0.72rem] font-bold text-texto-suave mb-1">Profissional</label>
+      <select id="repasseProf" name="profissional" required class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo">
+        {% for p in profissionais %}
+        <option value="{{ p.pk }}" {% if prof_filter == p.pk|stringformat:'s' %}selected{% endif %}>{{ p.nome }}{% if not p.ativo %} (inativa){% endif %}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="repasseAte" class="block text-[0.72rem] font-bold text-texto-suave mb-1">Atendimentos até</label>
+      <input id="repasseAte" type="date" name="ate" required value="{{ hoje|date:'Y-m-d' }}" max="{{ hoje|date:'Y-m-d' }}"
+             class="px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo">
+    </div>
+    <button type="submit" data-confirm="Pagar todas as comissões pendentes desta profissional até a data escolhida?"
+            class="px-4 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.85rem] font-semibold hover:opacity-90 transition">Pagar pendentes até a data</button>
+  </form>
+</div>
 
 {# ── Cards de totais ── #}
 <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
@@ -42,15 +77,15 @@
       <select id="fProf" name="profissional" class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
         <option value="all" {% if prof_filter == 'all' %}selected{% endif %}>Todos os profissionais</option>
         {% for p in profissionais %}
-        <option value="{{ p.pk }}" {% if prof_filter == p.pk|stringformat:'s' %}selected{% endif %}>{{ p.nome }}</option>
+        <option value="{{ p.pk }}" {% if prof_filter == p.pk|stringformat:'s' %}selected{% endif %}>{{ p.nome }}{% if not p.ativo %} (inativa){% endif %}</option>
         {% endfor %}
       </select>
     </div>
     <div class="flex-1 min-w-[120px]">
       <label for="fPeriodo" class="sr-only">Período</label>
       <select id="fPeriodo" name="periodo" class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
-        <option value="30" {% if periodo == '30' %}selected{% endif %}>30 dias</option>
-        <option value="90" {% if periodo == '90' %}selected{% endif %}>90 dias</option>
+        <option value="30" {% if periodo == '30' %}selected{% endif %}>Atendimentos de 30 dias</option>
+        <option value="90" {% if periodo == '90' %}selected{% endif %}>Atendimentos de 90 dias</option>
         <option value="tudo" {% if periodo == 'tudo' %}selected{% endif %}>Tudo</option>
       </select>
     </div>
@@ -102,7 +137,8 @@
         {{ c.atendimento.cliente.nome|default:"—" }} · {{ c.atendimento.procedimento.nome|default:"—" }}
       </p>
       <p class="text-[0.72rem] text-texto-suave mt-0.5">
-        Gerada {{ c.criado_em|date:"d/m/Y" }}{% if c.pago_em %} · paga {{ c.pago_em|date:"d/m/Y" }}{% endif %}{% if c.estornado_em %} · estornada {{ c.estornado_em|date:"d/m/Y" }}{% if c.pago_em %} (a descontar do próximo repasse){% endif %}{% endif %}
+        Atendimento {{ c.atendimento.data_hora_inicio|date:"d/m/Y" }}{% if c.base_calculo is not None %} · {% if c.percentual_aplicado is not None %}{{ c.percentual_aplicado }}% de {{ c.base_calculo|brl }}{% else %}valor fixo sobre {{ c.base_calculo|brl }}{% endif %}{% endif %} ·
+        gerada {{ c.criado_em|date:"d/m/Y" }}{% if c.pago_em %} · paga {{ c.pago_em|date:"d/m/Y" }}{% if c.pagamento_pk %} (<a href="{% url 'aranha:painel_comissao_repasse' c.pagamento_pk %}" class="text-marca-forte">comprovante</a>){% endif %}{% endif %}{% if c.estornado_em %} · estornada {{ c.estornado_em|date:"d/m/Y" }}{% if c.pago_em %} (a descontar do próximo repasse){% endif %}{% endif %}
       </p>
     </div>
     <div class="text-right">

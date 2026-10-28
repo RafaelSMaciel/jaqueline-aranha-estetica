@@ -11,4 +11,5 @@ urlpatterns = [
     path('profissional/atendimento/<int:pk>/aprovar/', portal.aprovar_agendamento, name='profissional_aprovar'),
     path('profissional/atendimento/<int:pk>/rejeitar/', portal.rejeitar_agendamento, name='profissional_rejeitar'),
     path('profissional/calendario/novo-link/', portal.gerar_link_calendario, name='profissional_link_calendario'),
+    path('profissional/comissoes/', portal.minhas_comissoes, name='profissional_comissoes'),
 ]

@@ -54,6 +54,11 @@
                 Ativar avisos
             </button>
             {% endif %}
+            <a href="{% url 'aranha:profissional_comissoes' %}"
+               class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-borda bg-superficie
+                      text-texto-suave hover:text-texto font-bold text-sm no-underline transition-colors">
+                Minhas comissões
+            </a>
             {# Feed ICS da propria agenda: gerar = revogar o link anterior (o token so aparece na geracao) #}
             <form method="post" action="{% url 'aranha:profissional_link_calendario' %}" class="m-0"
                   data-confirm="Gerar um novo link do calendário? Se você já assinou um link antes, ele deixará de funcionar.">

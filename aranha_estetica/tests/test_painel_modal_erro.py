@@ -161,9 +161,8 @@ class PacoteModalTests(_Admin):
         self.assertIn('value="Pacote Leveza"', html)
         self.assertRegex(html, rf'<option value="{self.proc.pk}" selected>Drenagem</option>')
         self.assertIn('name="quantidades" value="4"', html)
-        self.assertCampoRecusado(html, 'pacote-novo-preco', 'Informe o preço total')
-        self.assertIn('Dados inválidos: verifique preço, validade e itens (sem procedimento repetido).',
-                      _mensagens(resp))
+        self.assertCampoRecusado(html, 'pacote-novo-preco', 'Preço inválido')
+        self.assertIn('Preço inválido: use números, ex.: 1350,00.', _mensagens(resp))
 
     def test_edicao_sem_nome_reabre_o_modal_do_pacote(self):
         pacote = criar_pacote('Pacote Glow', procedimento=self.proc)
@@ -173,7 +172,7 @@ class PacoteModalTests(_Admin):
         self.assertEqual(resp.status_code, 200)
         html = resp.content.decode()
         self.assertEqual(html.count('data-erro="1"'), 1)
-        self.assertCampoRecusado(html, f'pacote-{pacote.pk}-nome', 'Informe o nome do pacote.')
+        self.assertCampoRecusado(html, f'pacote-{pacote.pk}-nome', 'Nome do pacote é obrigatório.')
         self.assertIn('value="700"', html)
         pacote.refresh_from_db()
         self.assertEqual(pacote.nome, 'Pacote Glow')
