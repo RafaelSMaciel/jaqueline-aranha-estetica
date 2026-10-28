@@ -63,6 +63,16 @@ def producao(qs=None):
         valor_produzido=VALOR_PRODUZIDO)
 
 
+def creditos_indicacao_usados(desde) -> Decimal:
+    """Credito de indicacao abatido em atendimentos desde `desde`, menos o devolvido (custo de
+    marketing da clinica: o valor_cobrado segue cheio, base da comissao)."""
+    from ..models import MovimentoCarteira
+
+    def soma(**filtro):
+        return MovimentoCarteira.objects.filter(criado_em__gte=desde, **filtro).aggregate(t=Sum('valor'))['t'] or ZERO
+    return soma(origem='USO_AGENDAMENTO', tipo='DEBITO') - soma(origem='CANCELAMENTO', tipo='CREDITO')
+
+
 def ticket_medio(total, qtd) -> Decimal:
     """Σ valor / quantidade, em centavos (meio p/ cima); 0 sem atendimento."""
     if not qtd:

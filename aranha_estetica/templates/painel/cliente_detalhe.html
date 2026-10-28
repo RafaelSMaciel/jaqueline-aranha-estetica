@@ -306,6 +306,40 @@
   </form>
   <p class="text-[0.72rem] text-texto-suave mt-2 mb-0">Quem indicou recebe o cashback de indicação no 1º atendimento pago desta cliente.</p>
   {% endif %}
+
+  {# Credito de indicacao desta cliente: saldo, quem ela indicou e extrato (ledger) #}
+  <div class="mt-4 pt-4 border-t border-borda">
+    <p class="text-[0.8rem] text-texto m-0 mb-1">
+      Crédito de indicação disponível: <strong class="text-sucesso">{{ carteira.saldo|default:0|brl }}</strong>
+      <span class="text-texto-suave">— abate no valor de um atendimento (Agendamentos &rsaquo; Valor &rsaquo; "Abater crédito").</span>
+    </p>
+    {% if indicadas %}
+    <p class="text-[0.8rem] text-texto m-0 mb-2">Indicou:
+      {% for ind in indicadas %}<a href="{% url 'aranha:admin_cliente_detalhe' ind.pk %}" class="font-bold text-marca">{{ ind.nome }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}
+    </p>
+    {% endif %}
+    {% if extrato_credito %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-[0.78rem]">
+        <caption class="sr-only">Extrato do crédito de indicação</caption>
+        <thead><tr class="text-left text-texto-suave">
+          <th class="py-1 pr-3 font-bold">Data</th><th class="py-1 pr-3 font-bold">Movimento</th>
+          <th class="py-1 pr-3 font-bold text-right">Valor</th><th class="py-1 font-bold text-right">Saldo</th>
+        </tr></thead>
+        <tbody>
+          {% for mov in extrato_credito %}
+          <tr class="border-t border-borda">
+            <td class="py-1 pr-3 text-texto-suave">{{ mov.criado_em|date:"d/m/Y" }}</td>
+            <td class="py-1 pr-3 text-texto">{{ mov.get_origem_display }}{% if mov.atendimento_id %} <span class="text-texto-suave">(atendimento #{{ mov.atendimento_id }})</span>{% endif %}</td>
+            <td class="py-1 pr-3 text-right font-bold {% if mov.tipo == 'CREDITO' %}text-sucesso{% else %}text-erro{% endif %}">{% if mov.tipo == 'CREDITO' %}+{% else %}−{% endif %} {{ mov.valor|brl }}</td>
+            <td class="py-1 text-right text-texto">{{ mov.saldo_resultante|brl }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
 </div>
 
 {# ── Pacotes comprados: saldo por procedimento e validade ── #}

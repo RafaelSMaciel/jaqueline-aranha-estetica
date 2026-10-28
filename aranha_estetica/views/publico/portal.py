@@ -70,8 +70,18 @@ def meus_agendamentos(request):
         | Q(status__in=STATUS_FINALIZADOS)
     )
 
+    # programa de indicacao: o codigo da cliente e o credito dela (antes so a recepcao via)
+    from ...constants import VALOR_CASHBACK_INDICACAO
+    from ...services.fidelidade import FidelidadeService
+    cliente = clientes.exclude(codigo_indicacao__isnull=True).exclude(codigo_indicacao='').first()
+    indicacao = {
+        'codigo': cliente.codigo_indicacao, 'valor': VALOR_CASHBACK_INDICACAO,
+        'saldo': sum(FidelidadeService.saldos(clientes.values_list('pk', flat=True)).values()),
+    } if cliente else None
+
     return render(request, 'agendamento/meus_agendamentos.html', {
         'step': '3',
+        'indicacao': indicacao,
         'telefone_mascarado': mask_telefone(telefone),
         'agendamentos_futuros': agendamentos_futuros[:20],
         'agendamentos_passados': agendamentos_passados.distinct()[:20],

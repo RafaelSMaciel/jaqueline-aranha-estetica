@@ -336,7 +336,7 @@ def admin_atendimento_valor(request, pk):
         return voltar
 
     antigo = at.valor_cobrado
-    comissao = cashback = None
+    comissao = cashback = credito_usado = None
     try:
         with transaction.atomic():
             if at.valor_original is None and antigo is not None and antigo != valor:
@@ -344,6 +344,11 @@ def admin_atendimento_valor(request, pk):
             at.valor_cobrado = valor
             at.descricao_preco = 'Valor combinado pela recepção'
             at.save(update_fields=['valor_cobrado', 'valor_original', 'descricao_preco', 'atualizado_em'])
+            if request.POST.get('usar_credito') == '1':
+                # credito de indicacao da propria cliente: abate ate o saldo e ate o valor
+                saldo = FidelidadeService.saldos([at.cliente_id]).get(at.cliente_id, 0)
+                if saldo:
+                    credito_usado = FidelidadeService.usar_credito(at, min(saldo, valor), request.user)
             if at.status == Atendimento.STATUS_REALIZADO:
                 comissao = ComissaoService.recalcular(at, request.user)
                 # Mesmo gatilho do REALIZADO: sem valor o cashback da indicadora
@@ -362,11 +367,14 @@ def admin_atendimento_valor(request, pk):
         request.user, 'Registrou valor cobrado', 'atendimento', at.pk,
         {'de': str(antigo) if antigo is not None else None, 'para': str(valor),
          'comissao': comissao.pk if comissao else None,
-         'cashback': cashback.pk if cashback else None},
+         'cashback': cashback.pk if cashback else None,
+         'credito_usado': str(credito_usado.valor) if credito_usado else None},
         request=request,
     )
     from ...utils.formatos import formatar_brl
-    messages.success(request, f'Valor de {at.cliente.nome} registrado: {formatar_brl(valor)}.')
+    messages.success(request, f'Valor de {at.cliente.nome} registrado: {formatar_brl(valor)}'
+                     + (f' (crédito de indicação abatido: {formatar_brl(credito_usado.valor)}).' if credito_usado
+                        else '.'))
     return voltar
 
 

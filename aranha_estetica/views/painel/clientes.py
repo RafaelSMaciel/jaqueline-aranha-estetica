@@ -8,7 +8,7 @@ from django.utils import timezone
 from django.views.decorators.cache import never_cache
 
 from ...decorators import staff_required
-from ...models import Atendimento, Cliente
+from ...models import Atendimento, Carteira, Cliente, MovimentoCarteira
 from ...models.agendamentos import StatusAtendimento
 from ...services import consentimentos
 from ...services.termos import aceita_assinatura
@@ -81,6 +81,11 @@ def _contexto_cliente(cliente):
         'alertas': alertas_saude(cliente),
         'pacotes': pacotes,
         'indicacao_travada': _indicacao_gerou_cashback(cliente),
+        # credito de indicacao: saldo, extrato e quem esta cliente indicou
+        'carteira': Carteira.objects.filter(cliente=cliente).first(),
+        'extrato_credito': list(MovimentoCarteira.objects.filter(carteira__cliente=cliente)
+                                .select_related('atendimento').order_by('-criado_em')[:12]),
+        'indicadas': list(cliente.indicacoes.order_by('nome').values('pk', 'nome')),
         'consentimentos': consentimentos.resumo_painel(cliente),
     }
 
@@ -88,7 +93,6 @@ def _contexto_cliente(cliente):
 def _indicacao_gerou_cashback(cliente):
     """Indicacao que ja creditou cashback nao muda mais (o credito ficaria
     com a indicadora errada)."""
-    from ...models import MovimentoCarteira
     return bool(cliente.indicado_por_id) and MovimentoCarteira.objects.filter(
         origem=MovimentoCarteira.Origem.CASHBACK_INDICACAO, tipo=MovimentoCarteira.Tipo.CREDITO, atendimento__cliente=cliente,
     ).exists()

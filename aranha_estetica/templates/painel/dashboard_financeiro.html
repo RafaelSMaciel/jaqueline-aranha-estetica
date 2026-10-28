@@ -25,7 +25,7 @@
   </div>
 </div>
 
-<p class="text-[0.72rem] text-texto-suave -mt-2 mb-4">Faturamento = atendimentos avulsos realizados + pacotes vendidos (menos o valor devolvido em pacote cancelado). Sessões de pacote não somam de novo; retornos gratuitos ficam fora. Ticket médio = média dos atendimentos avulsos com valor (a mesma conta da visão geral). Nos rankings, produção = valor de cada sessão realizada (sessão de pacote pelo valor unitário da venda).</p>
+<p class="text-[0.72rem] text-texto-suave -mt-2 mb-4">Faturamento = atendimentos avulsos realizados + pacotes vendidos (menos o valor devolvido em pacote cancelado). Sessões de pacote não somam de novo; retornos gratuitos ficam fora. Ticket médio = média dos atendimentos avulsos com valor (a mesma conta da visão geral). Nos rankings, produção = valor de cada sessão realizada (sessão de pacote pelo valor unitário da venda).{% if creditos_indicacao_mes %} Crédito de indicação abatido nos últimos 30 dias: <strong>{{ creditos_indicacao_mes|brl }}</strong> (desconto dado às clientes; o faturamento acima é o valor cheio).{% endif %}</p>
 
 {# ── No-show / Comissões ── #}
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">

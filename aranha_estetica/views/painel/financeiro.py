@@ -159,4 +159,5 @@ def _calcular_metricas(agora, hoje) -> dict:
         'comissoes_pendentes_count': comissoes_pendentes['count'] or 0,
         'comissoes_por_prof': comissoes_por_prof,
         'comissoes_a_descontar': comissoes_a_descontar,
+        'creditos_indicacao_mes': financeiro.creditos_indicacao_usados(inicio_mes),
     }

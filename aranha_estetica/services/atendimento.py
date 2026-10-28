@@ -52,6 +52,10 @@ def ao_mudar_status(at, anterior, novo) -> None:
         logger.info('falta_registrada', extra={'cliente_id': at.cliente_id,
                                                'faltas': at.cliente.faltas_consecutivas})
 
+    if novo in (StatusAtendimento.CANCELADO, StatusAtendimento.FALTOU, StatusAtendimento.REAGENDADO):
+        from .fidelidade import FidelidadeService
+        FidelidadeService.devolver_credito_usado(at)   # credito de indicacao abatido volta p/ a cliente
+
     if novo in STATUS_LIBERAM_VAGA and anterior in STATUS_ATIVOS:
         _avisar_lista_de_espera(at)
 
