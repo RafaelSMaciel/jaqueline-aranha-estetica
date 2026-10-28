@@ -73,6 +73,18 @@ jobs:
           # Postgres obrigatorio em prod (aranha.E002); o check nao conecta
           DATABASE_URL: postgres://ci:ci@localhost:5432/ci
         run: python manage.py check --deploy --fail-level ERROR
+      # Ambiente de testes publicado (Railway "dev"): producao + travas (settings/staging.py)
+      - name: check --deploy com settings de staging
+        env:
+          DJANGO_ENV: staging
+          DEBUG: 'False'
+          DJANGO_SECRET_KEY: ci-check-deploy-0123456789-abcdefghijklmnopqrstuvwxyz-ABCDEFGHIJ
+          EMAIL_BACKEND: anymail.backends.resend.EmailBackend
+          RESEND_API_KEY: ci-nao-secreto
+          CHAVES_CIFRAGEM: Y2ktc28tcGFyYS1vLWNoZWNrLWRlcGxveS0zMmJ5dGU=
+          DATABASE_URL: postgres://ci:ci@localhost:5432/ci
+          RAILWAY_ENVIRONMENT_NAME: dev
+        run: python manage.py check --deploy --fail-level ERROR
 
   migracoes-sqlite:
     name: Django (SQLite) — data migrations (tag migracoes)
