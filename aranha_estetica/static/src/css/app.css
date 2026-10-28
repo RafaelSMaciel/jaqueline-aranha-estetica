@@ -35,6 +35,8 @@
   --color-destaque: var(--cor-destaque);
   --color-destaque-fundo: var(--cor-destaque-fundo);
   --color-sobre-marca: var(--cor-sobre-marca);
+  --color-sucesso-forte: var(--cor-sucesso-forte);
+  --color-sobre-sucesso: var(--cor-sobre-sucesso);
   --radius-md: 8px;
   --radius-lg: 12px;
 }

@@ -96,7 +96,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
             </svg>
             Aguardando sua aprovação
-            <span class="bg-yellow-400 text-white rounded-full w-5 h-5 inline-flex items-center justify-center text-xs font-bold">{{ pendentes|length }}</span>
+            <span class="bg-aviso text-superficie rounded-full w-5 h-5 inline-flex items-center justify-center text-xs font-bold">{{ pendentes|length }}</span>
         </div>
         {% for p in pendentes %}
         <div class="bg-superficie rounded-lg px-4 py-3 mb-2 flex flex-wrap items-center gap-3 shadow-sm last:mb-0">
@@ -116,7 +116,7 @@
                     {% csrf_token %}
                     <input type="hidden" name="next" value="{{ request.get_full_path }}">
                     <button type="submit"
-                            class="bg-green-700 hover:bg-green-900 text-white text-xs font-bold
+                            class="bg-sucesso-forte hover:opacity-90 text-sobre-sucesso text-xs font-bold
                                    px-3 py-2 rounded-lg inline-flex items-center gap-1 cursor-pointer transition-colors"
                             data-confirm="Aprovar agendamento?">
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">

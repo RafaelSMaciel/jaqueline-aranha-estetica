@@ -9,7 +9,7 @@
 
 {% if not promocoes %}
 <div class="text-center py-12">
-  <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
+  <div class="w-16 h-16 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mx-auto mb-4">
     <svg class="w-7 h-7 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
       <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>
     </svg>
@@ -22,7 +22,7 @@
 {% for promo in promocoes %}
 <div x-data="modal"
      class="relative overflow-hidden bg-superficie rounded-2xl shadow-sm p-4 mb-3 border-l-4 {% if promo.ativa %}border-sucesso{% else %}border-borda opacity-70{% endif %}">
-  <div class="absolute top-3 right-3 px-3 py-1 rounded-full bg-gradient-to-br from-[#C9A84C] to-[#e8c94f] text-white font-extrabold text-[0.8rem]">{% if promo.preco_promocional is not None %}{{ promo.preco_promocional|brl }}{% else %}-{{ promo.desconto_percentual|floatformat:"-2" }}%{% endif %}</div>
+  <div class="absolute top-3 right-3 px-3 py-1 rounded-full bg-marca-forte text-sobre-marca font-extrabold text-[0.8rem]">{% if promo.preco_promocional is not None %}{{ promo.preco_promocional|brl }}{% else %}-{{ promo.desconto_percentual|floatformat:"-2" }}%{% endif %}</div>
   <div class="font-bold text-[1rem] text-texto mb-0.5 pr-16">{{ promo.nome }}</div>
   <div class="flex items-center gap-1.5 text-[0.8rem] text-texto-suave">
     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
@@ -68,7 +68,7 @@
                  class="block mt-1 w-20 px-2 py-1.5 rounded-lg border border-borda bg-superficie text-[0.8rem] text-texto">
         </label>
         <button type="submit" data-confirm="Enviar esta promoção por e-mail para os clientes que autorizaram receber ofertas?"
-                class="px-3 py-1.5 rounded-lg bg-green-700 text-white text-[0.75rem] font-bold border-none cursor-pointer hover:bg-green-800 transition-colors">Enviar</button>
+                class="px-3 py-1.5 rounded-lg bg-sucesso-forte text-sobre-sucesso text-[0.75rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">Enviar</button>
         <p class="w-full text-[0.7rem] text-texto-suave m-0">Só recebe quem aceitou e-mails de ofertas. A validade informada nunca passa do fim da promoção ({{ promo.data_fim|date:"d/m/Y" }}). Listas grandes são enviadas em lotes: clique de novo para continuar.</p>
       </form>
     </details>
@@ -155,7 +155,7 @@
           </div>
         </div>
         <button type="submit"
-                class="w-full py-2.5 rounded-full bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">Salvar Alterações</button>
+                class="w-full py-2.5 rounded-full bg-marca-forte text-sobre-marca font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">Salvar Alterações</button>
       </form>
     </div>
   </dialog>
@@ -167,7 +167,7 @@
 {# ── FAB + Modal criar ── #}
 <div x-data="modal">
   <button type="button" x-on:click="abrir" aria-label="Nova promoção"
-          class="fixed bottom-6 right-6 z-[9000] w-14 h-14 rounded-full bg-gradient-to-br from-[#C9A84C] to-[#e8c94f] text-white shadow-lg flex items-center justify-center border-none cursor-pointer hover:opacity-90 transition-opacity">
+          class="fixed bottom-6 right-6 z-[9000] w-14 h-14 rounded-full bg-marca-forte text-sobre-marca shadow-lg flex items-center justify-center border-none cursor-pointer hover:opacity-90 transition-opacity">
     <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
       <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
     </svg>
@@ -239,7 +239,7 @@
           </div>
         </div>
         <button type="submit"
-                class="w-full py-2.5 rounded-full bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">Criar Promoção</button>
+                class="w-full py-2.5 rounded-full bg-marca-forte text-sobre-marca font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">Criar Promoção</button>
       </form>
     </div>
   </dialog>

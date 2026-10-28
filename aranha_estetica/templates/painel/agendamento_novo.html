@@ -34,7 +34,7 @@ SlotService; "Agendar" valida tudo de novo no servidor.
     <fieldset class="border-0 p-0 m-0">
       <legend class="sr-only">Escolha a cliente</legend>
       {% if cliente %}
-      <label class="flex items-center gap-2 px-3 py-2 mb-1 rounded-xl border-2 border-[#C9A84C] bg-fundo cursor-pointer text-[0.85rem] text-texto">
+      <label class="flex items-center gap-2 px-3 py-2 mb-1 rounded-xl border-2 border-marca-forte bg-fundo cursor-pointer text-[0.85rem] text-texto">
         <input type="radio" name="cliente_id" value="{{ cliente.pk }}" checked>
         <span><strong>{{ cliente.nome }}</strong>{% if cliente.telefone %} · {{ cliente.telefone }}{% endif %}{% if cliente.email %} · {{ cliente.email }}{% endif %}</span>
       </label>
@@ -163,7 +163,7 @@ SlotService; "Agendar" valida tudo de novo no servidor.
 
     {% if slots %}
     <button type="submit" name="acao" value="agendar"
-            class="mt-4 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
+            class="mt-4 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-marca-forte text-sobre-marca text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
       Agendar
     </button>
     {% endif %}

@@ -10,7 +10,7 @@
 <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
   <div class="bg-superficie rounded-2xl shadow-sm p-4">
     <p class="text-[0.72rem] font-bold text-texto-suave uppercase tracking-wide">A pagar (pendente)</p>
-    <p class="text-2xl font-extrabold text-marca-forte mt-1 leading-none">{{ pendente_total|brl }}</p>
+    <p class="text-2xl font-extrabold text-marca mt-1 leading-none">{{ pendente_total|brl }}</p>
     <p class="text-[0.72rem] text-texto-suave mt-1">{{ pendente_count }} comissã{{ pendente_count|pluralize:"o,ões" }}</p>
   </div>
   <div class="bg-superficie rounded-2xl shadow-sm p-4">
@@ -78,7 +78,7 @@
         {% for r in por_profissional %}
         <tr class="border-b border-borda/60 last:border-0">
           <td class="py-2 text-texto">{{ r.profissional__nome }}</td>
-          <td class="py-2 text-right text-marca-forte font-semibold tabular-nums">{{ r.pendente|default:0|brl }}</td>
+          <td class="py-2 text-right text-marca font-semibold tabular-nums">{{ r.pendente|default:0|brl }}</td>
           <td class="py-2 text-right text-sucesso tabular-nums">{{ r.paga|default:0|brl }}</td>
           <td class="py-2 text-right text-texto-suave tabular-nums">{{ r.qtd }}</td>
           <td class="py-2 text-right font-semibold tabular-nums {% if r.saldo_negativo %}text-erro{% else %}text-texto{% endif %}">{{ r.saldo|brl }}</td>
@@ -108,7 +108,7 @@
     <div class="text-right">
       <p class="text-lg font-extrabold text-texto tabular-nums leading-none">{{ c.valor|brl }}</p>
       <span class="inline-block mt-1 text-[0.68rem] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full
-        {% if c.status == 'PENDENTE' %}bg-marca-forte/[0.12] text-marca-forte
+        {% if c.status == 'PENDENTE' %}bg-marca-forte/[0.12] text-marca
         {% elif c.status == 'PAGA' %}bg-sucesso/[0.12] text-sucesso
         {% else %}bg-fundo text-texto-suave{% endif %}">{{ c.get_status_display }}</span>
     </div>
@@ -116,7 +116,7 @@
     <form method="POST" action="{% url 'aranha:admin_comissao_pagar' c.pk %}" class="flex-shrink-0">
       {% csrf_token %}
       <button type="submit" data-confirm="Marcar esta comissão de {{ c.valor|brl }} como paga?"
-              class="px-4 py-2 rounded-xl bg-sucesso text-white text-[0.8rem] font-semibold hover:opacity-90 transition">
+              class="px-4 py-2 rounded-xl bg-sucesso-forte text-sobre-sucesso text-[0.8rem] font-semibold hover:opacity-90 transition">
         Marcar paga
       </button>
     </form>

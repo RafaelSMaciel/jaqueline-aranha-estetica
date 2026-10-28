@@ -5,7 +5,7 @@
 {% block page_subtitle %}Gerencie a equipe com acesso ao sistema{% endblock %}
 {% block page_actions %}
 <a href="{% url 'aranha:admin_criar_usuario' %}"
-   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold bg-[#C9A84C] text-white hover:bg-[#b48c4c] transition-colors no-underline">
+   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold bg-marca-forte text-sobre-marca hover:opacity-90 transition-colors no-underline">
   <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
     <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
   </svg>
@@ -35,7 +35,7 @@
       </select>
     </div>
     <button type="submit"
-            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#C9A84C] text-white text-[0.82rem] font-bold hover:bg-[#b48c4c] transition-colors">
+            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.82rem] font-bold hover:opacity-90 transition-opacity">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
         <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
       </svg>
@@ -156,8 +156,8 @@
   </div>
   {% empty %}
   <div class="bg-superficie rounded-2xl p-12 text-center shadow-sm">
-    <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
-      <svg class="w-7 h-7 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+    <div class="w-16 h-16 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mx-auto mb-4">
+      <svg class="w-7 h-7 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
       </svg>
     </div>
@@ -169,8 +169,8 @@
 
 {# ── Empty state do filtro instantâneo ── #}
 <div id="emptyFiltroUsuarios" class="bg-superficie rounded-2xl p-10 text-center shadow-sm" style="display:none;">
-  <div class="w-14 h-14 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-3">
-    <svg class="w-6 h-6 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+  <div class="w-14 h-14 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mx-auto mb-3">
+    <svg class="w-6 h-6 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
       <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
     </svg>
   </div>
@@ -183,12 +183,12 @@
 <div class="flex justify-center gap-1.5 mt-4">
   {% if usuarios.has_previous %}
   <a href="?page={{ usuarios.previous_page_number }}&q={{ busca }}&papel={{ papel_filter }}"
-     class="px-3 py-1.5 rounded-lg bg-fundo border border-borda text-[0.8rem] font-bold text-texto no-underline hover:bg-[#C9A84C] hover:text-white hover:border-[#C9A84C] transition-colors">&laquo;</a>
+     class="px-3 py-1.5 rounded-lg bg-fundo border border-borda text-[0.8rem] font-bold text-texto no-underline hover:bg-marca-forte hover:text-sobre-marca hover:border-marca-forte transition-colors">&laquo;</a>
   {% endif %}
   <span class="px-3 py-1.5 text-[0.8rem] text-texto-suave font-bold">{{ usuarios.number }} / {{ usuarios.paginator.num_pages }}</span>
   {% if usuarios.has_next %}
   <a href="?page={{ usuarios.next_page_number }}&q={{ busca }}&papel={{ papel_filter }}"
-     class="px-3 py-1.5 rounded-lg bg-fundo border border-borda text-[0.8rem] font-bold text-texto no-underline hover:bg-[#C9A84C] hover:text-white hover:border-[#C9A84C] transition-colors">&raquo;</a>
+     class="px-3 py-1.5 rounded-lg bg-fundo border border-borda text-[0.8rem] font-bold text-texto no-underline hover:bg-marca-forte hover:text-sobre-marca hover:border-marca-forte transition-colors">&raquo;</a>
   {% endif %}
 </div>
 {% endif %}

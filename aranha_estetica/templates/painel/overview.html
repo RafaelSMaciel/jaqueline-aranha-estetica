@@ -87,7 +87,7 @@
     <div class="flex items-center gap-2 font-extrabold text-aviso text-[0.85rem] uppercase tracking-wide">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v4M5 8a7 7 0 0114 0c0 7-7 4-7 10 0-6-7-3-7-10z"/></svg>
       Pendentes de aprovação
-      <span class="bg-amber-500 text-white rounded-full px-2.5 py-0.5 text-[0.7rem] font-extrabold">{{ total_pendentes }}</span>
+      <span class="bg-aviso text-superficie rounded-full px-2.5 py-0.5 text-[0.7rem] font-extrabold">{{ total_pendentes }}</span>
     </div>
     <a href="{% url 'aranha:painel_agendamentos' %}?status=pendente" class="text-[0.78rem] font-bold text-aviso no-underline">Ver todos &rarr;</a>
   </div>
@@ -102,7 +102,7 @@
       <form method="post" action="{% url 'aranha:admin_aprovar_agendamento' pk=p.pk %}" class="m-0">
         {% csrf_token %}
         <button type="submit" data-confirm="Aprovar agendamento de {{ p.cliente.nome }}?"
-                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-700 text-white text-[0.7rem] font-bold border-none cursor-pointer hover:bg-green-800 transition-colors">
+                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-sucesso-forte text-sobre-sucesso text-[0.7rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>
           Aprovar
         </button>
