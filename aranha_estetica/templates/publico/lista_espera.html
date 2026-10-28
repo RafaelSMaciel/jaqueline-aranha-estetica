@@ -17,8 +17,8 @@
     </span>
     <h1 class="text-3xl font-bold text-texto">Não encontrou um horário?</h1>
     <p class="mt-2 text-texto-suave max-w-lg mx-auto">
-      Cadastre-se na lista de espera. Assim que um horário liberar para a
-      data e turno que você prefere, avisamos você por e-mail ou pelo celular.
+      Entre na lista de espera. Se um horário liberar na data e no turno que você prefere,
+      avisamos você — e você continua na lista até a data passar ou até agendar.
     </p>
   </div>
 
@@ -49,12 +49,15 @@
 
       <!-- E-mail -->
       <div class="mb-5 flex flex-col gap-1">
-        <label for="id_email" class="text-sm font-medium text-texto">E-mail</label>
-        <input id="id_email" type="email" name="email" required maxlength="254"
+        <label for="id_email" class="text-sm font-medium text-texto">
+          E-mail
+          <span class="text-xs text-texto-suave font-normal">(opcional)</span>
+        </label>
+        <input id="id_email" type="email" name="email" maxlength="254"
                placeholder="seu@email.com" autocomplete="email"
                value="{{ form_data.email|default:'' }}"
                class="rounded-md border border-borda bg-fundo px-3 py-2 text-texto">
-        <span class="text-xs text-texto-suave">O aviso de vaga chega por aqui. Se o celular já tem cadastro conosco, usamos o contato do cadastro.</span>
+        <span class="text-xs text-texto-suave">Usamos o e-mail para o aviso só quando você já confirmou o seu celular por SMS no agendamento. Sem isso, a clínica fala com você pelo celular informado.</span>
       </div>
 
       <!-- Procedimento -->
@@ -103,6 +106,8 @@
           </select>
         </div>
       </div>
+
+      {% include 'partials/_antiabuso.html' %}
 
       <!-- Botão -->
       <button type="submit"

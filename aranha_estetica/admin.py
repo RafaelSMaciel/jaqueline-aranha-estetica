@@ -809,9 +809,12 @@ class SessaoPacoteAdmin(_SomenteLeituraMixin, admin.ModelAdmin):
 
 @admin.register(ListaEspera)
 class ListaEsperaAdmin(admin.ModelAdmin):
-    list_display = ('cliente', 'procedimento', 'profissional_desejado', 'data_desejada', 'turno_desejado', 'notificado', 'criado_em')
-    list_filter = ('notificado', 'turno_desejado')
-    search_fields = ('cliente__nome', 'procedimento__nome')
+    list_display = (
+        'nome', 'procedimento', 'profissional_desejado', 'data_desejada', 'turno_desejado', 'ultimo_aviso_em',
+        'criado_em',
+    )
+    list_filter = (('ultimo_aviso_em', admin.EmptyFieldListFilter), 'turno_desejado')
+    search_fields = ('cliente__nome', 'nome_contato', 'procedimento__nome')
     ordering = ('-criado_em',)
     date_hierarchy = 'data_desejada'
     autocomplete_fields = ('cliente', 'procedimento', 'profissional_desejado')

@@ -186,7 +186,7 @@ class LgpdService:
             'carteira': carteira,
             'lista_espera': [
                 {'procedimento': e.procedimento.nome, 'data_desejada': _iso(e.data_desejada),
-                 'turno': e.turno_desejado, 'notificado': e.notificado,
+                 'turno': e.turno_desejado, 'ultimo_aviso_em': _iso(e.ultimo_aviso_em),
                  'profissional_desejado': (
                      e.profissional_desejado.nome if e.profissional_desejado else None
                  ),
