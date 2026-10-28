@@ -1,33 +1,7 @@
-"""Testes do modulo utils.security (PII masking, comparison, IP do cliente, next)."""
+"""Testes de utils/seguranca (IP do cliente, ?next=, segredos). Mascaras: test_pii_sentry."""
 from django.test import RequestFactory, SimpleTestCase, override_settings
 
-from aranha_estetica.utils.seguranca import (
-    client_ip,
-    mask_cpf,
-    mask_email,
-    mask_telefone,
-    safe_next,
-)
-
-
-class MaskingTests(SimpleTestCase):
-    def test_mask_email(self):
-        masked = mask_email('rafael@example.com')
-        self.assertTrue(masked.startswith('raf'))
-        self.assertIn('@example.com', masked)
-        self.assertEqual(mask_email(''), '')
-        self.assertEqual(mask_email(None), '')
-
-    def test_mask_cpf(self):
-        masked = mask_cpf('52998224725')
-        self.assertIn('***', masked)
-        self.assertTrue(masked.endswith('25'))
-
-    def test_mask_telefone(self):
-        masked = mask_telefone('17999990000')
-        self.assertIn('***', masked)
-
-
+from aranha_estetica.utils.seguranca import client_ip, safe_next
 
 
 @override_settings(CLIENT_IP_HEADER='')

@@ -595,7 +595,8 @@ class ParidadeLgpdTests(TestCase):
         pseudo = f'[ANONIMIZADO-{titular.pk}]'
         clientes = {c[0]: c for c in depois['cliente']}
         # cadastro: so o pseudonimo, inativo e excluido; a terceira nao muda
-        self.assertEqual(clientes[titular.pk][1:13], (pseudo, *[None] * 8, '', False, True))
+        # nome, cpf, email, telefone, cep, endereco, nascimento | ativo, excluido, faltas, bloqueado
+        self.assertEqual(clientes[titular.pk][1:12], (pseudo, *[None] * 6, False, True, 0, False))
         self.assertEqual(clientes[terceira.pk], {c[0]: c for c in antes['cliente']}[terceira.pk])
         # consentimentos: historico fica, nada concedido em vigor, sem IP/user-agent
         vigentes = [v for v in depois['consentimento_vigente'] if v[0] == titular.pk]

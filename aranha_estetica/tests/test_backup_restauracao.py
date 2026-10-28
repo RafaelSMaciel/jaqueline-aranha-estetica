@@ -3,6 +3,7 @@
 import io
 import json
 import tempfile
+from fnmatch import fnmatch
 from pathlib import Path
 
 from unittest import skipUnless
@@ -49,9 +50,18 @@ class ReaplicarEsquecimentosTests(TestCase):
 
 
 class DumpsForaDoRepositorioTests(SimpleTestCase):
+    DUMPS = ('*.dump', '*.dump.age', '*.backup', '*.sql.gz')
+
     def test_gitignore_e_dockerignore_bloqueiam_dump(self):
-        for nome in ('.gitignore', '.dockerignore'):
-            linhas = set((Path(settings.BASE_DIR) / nome).read_text(encoding='utf-8').split())
-            for padrao in ('*.dump', '*.dump.age', '*.backup', '*.sql.gz'):
-                with self.subTest(arquivo=nome, padrao=padrao):
-                    self.assertIn(padrao, linhas)
+        # .gitignore: padrao sem barra vale em qualquer pasta
+        linhas = set((Path(settings.BASE_DIR) / '.gitignore').read_text(encoding='utf-8').split())
+        for padrao in self.DUMPS:
+            with self.subTest(arquivo='.gitignore', padrao=padrao):
+                self.assertIn(padrao, linhas)
+        # .dockerignore: sem '**/' o padrao so casa na raiz do contexto do build
+        globais = [linha for linha in (Path(settings.BASE_DIR) / '.dockerignore').read_text(encoding='utf-8').split()
+                   if linha.startswith('**/')]
+        for padrao in self.DUMPS:
+            with self.subTest(arquivo='.dockerignore', padrao=padrao):
+                exemplo = 'aranha_estetica/sub/backup' + padrao[1:]
+                self.assertTrue(any(fnmatch(exemplo, glob) for glob in globais), exemplo)

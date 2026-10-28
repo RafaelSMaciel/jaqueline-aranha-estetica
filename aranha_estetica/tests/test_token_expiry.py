@@ -5,6 +5,7 @@ v2.1 fase 1b — guardava codigo em texto plano).
 """
 from datetime import timedelta
 
+from django.conf import settings
 from django.test import TestCase
 from django.utils import timezone
 
@@ -74,7 +75,7 @@ class OtpSmsVerificarTests(TestCase):
         self.assertFalse(r2)
 
     def test_bloqueio_apos_max_tentativas(self):
-        for _ in range(CodigoOtp.MAX_TENTATIVAS):
+        for _ in range(settings.OTP_MAX_TENTATIVAS):
             CodigoOtp.verificar_sms(self.telefone, '999999', proposito=CodigoOtp.PROPOSITO_LOGIN)
         # Mesmo o codigo certo agora falha (bloqueado/consumido)
         ok, _ = CodigoOtp.verificar_sms(

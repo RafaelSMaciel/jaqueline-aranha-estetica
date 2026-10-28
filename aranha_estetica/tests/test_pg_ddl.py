@@ -238,7 +238,6 @@ class DDLSoPostgresTests(TestCase):
         self.assertEqual(objetos, {
             ('pk_link_acesso', 'p', ' '),
             ('uq_link_acesso_token_hash', 'u', ' '),
-            ('fk_link_acesso_atendimento', 'f', 'c'),
             ('fk_link_acesso_notificacao', 'f', 'c'),
             ('fk_link_acesso_resposta_formulario', 'f', 'c'),
             ('fk_link_acesso_cliente', 'f', 'c'),
@@ -246,7 +245,7 @@ class DDLSoPostgresTests(TestCase):
         })
         self.assertEqual(tipo, 'character(64)')
         self.assertEqual(indices, {
-            'pk_link_acesso', 'uq_link_acesso_token_hash', 'ix_link_acesso_atendimento_parcial',
+            'pk_link_acesso', 'uq_link_acesso_token_hash',
             'ix_link_acesso_notificacao_parcial', 'ix_link_acesso_resposta_formulario_parcial',
             'ix_link_acesso_cliente_parcial', 'ix_link_acesso_profissional_parcial',
             'ix_link_acesso_expira_em_parcial',

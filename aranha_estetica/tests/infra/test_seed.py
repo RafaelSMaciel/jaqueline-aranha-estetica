@@ -7,7 +7,7 @@ from django.core.management.base import CommandError
 from django.test import TestCase
 
 from aranha_estetica.models import (
-    AgendaHorario, Atendimento, Cliente, FormularioAnamnese,
+    AgendaHorario, Atendimento, Cliente, Consentimento, FormularioAnamnese,
     Habilitacao, Preco, Procedimento, Profissional, VersaoTermo,
 )
 from aranha_estetica.constants import TERMO_LGPD_CONTEUDO
@@ -58,6 +58,10 @@ class SeedTests(TestCase):
         _seed('--demo')
         _seed('--demo')
         self.assertEqual(Cliente.objects.filter(email__endswith='@example.com').count(), 3)
+        # dominio reservado (RFC 2606) e nenhum consentimento de comunicacao: os jobs de lembrete,
+        # NPS e marketing nunca escolhem a cliente demo como destinataria
+        self.assertFalse(Cliente.objects.exclude(email__endswith='@example.com').exists())
+        self.assertFalse(Consentimento.objects.exists())
         self.assertEqual(Atendimento.objects.count(), 6)
         for at in Atendimento.objects.filter(status='AGENDADO'):
             self.assertFalse(

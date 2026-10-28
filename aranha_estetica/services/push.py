@@ -1,9 +1,10 @@
 """Web Push (VAPID) — envia notificacoes browser-native.
 
-Requer env vars:
+Configuracao (settings, env de mesmo nome):
   WEBPUSH_VAPID_PUBLIC_KEY  (P-256 public, base64url)
   WEBPUSH_VAPID_PRIVATE_KEY (P-256 private, base64url)
-  WEBPUSH_VAPID_CLAIMS_EMAIL (mailto:...)
+  WEBPUSH_VAPID_CLAIMS_EMAIL (mailto:... — contato da clinica p/ os push services; sem ele vale o
+                              ADMIN_EMAIL e depois o CLINIC_EMAIL da marca)
 
 Gerar chaves localmente:
   py_vapid Vapid().generate_keys() ou usar https://web-push-codelab.glitch.me/
@@ -12,10 +13,12 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from typing import Any, Mapping, TYPE_CHECKING
 
+from django.conf import settings
 from django.utils import timezone
+
+from ..utils.branding import get_branding
 
 if TYPE_CHECKING:
     from ..models import Usuario, AssinaturaPush
@@ -25,13 +28,17 @@ logger = logging.getLogger(__name__)
 
 def get_vapid_public_key() -> str:
     """Retorna chave publica VAPID (base64url) ou string vazia se nao configurada."""
-    return os.environ.get('WEBPUSH_VAPID_PUBLIC_KEY', '')
+    return settings.WEBPUSH_VAPID_PUBLIC_KEY
 
 
-def _claims() -> dict[str, str]:
-    # py_vapid exige 'sub' comecando com mailto: ou https:// (senao VapidException
-    # em TODO envio) — aceita tambem o e-mail puro na env.
-    sub = (os.environ.get('WEBPUSH_VAPID_CLAIMS_EMAIL') or 'mailto:rafelsebas@gmail.com').strip()
+def _claims() -> dict[str, str] | None:
+    """Claim 'sub' do VAPID: contato da clinica que o push service (FCM, Mozilla) usa p/ avisar de
+    abuso ou falha de entrega. None sem nenhum contato configurado (o push nao sai)."""
+    sub = (settings.WEBPUSH_VAPID_CLAIMS_EMAIL or settings.ADMIN_EMAIL
+           or get_branding().get('CLINIC_EMAIL') or '').strip()
+    if not sub:
+        return None
+    # py_vapid exige 'sub' comecando com mailto: ou https:// (senao VapidException em TODO envio)
     if not sub.startswith(('mailto:', 'https://')):
         sub = f'mailto:{sub}'
     return {'sub': sub}
@@ -55,9 +62,13 @@ def send_push(subscription: 'AssinaturaPush', payload: Mapping[str, Any]) -> boo
     Side effects:
         Em status 404/410 (Gone) marca subscription como inativa.
     """
-    private_key = os.environ.get('WEBPUSH_VAPID_PRIVATE_KEY', '')
+    private_key = settings.WEBPUSH_VAPID_PRIVATE_KEY
     if not private_key:
         logger.warning('webpush_vapid_key_missing')
+        return False
+    claims = _claims()
+    if claims is None:
+        logger.warning('webpush_sem_contato')
         return False
 
     try:
@@ -76,7 +87,7 @@ def send_push(subscription: 'AssinaturaPush', payload: Mapping[str, Any]) -> boo
             subscription_info=sub_info,
             data=json.dumps(payload),
             vapid_private_key=private_key,
-            vapid_claims=_claims(),
+            vapid_claims=claims,
             timeout=WEBPUSH_TIMEOUT_SEGUNDOS,
         )
         return True

@@ -466,11 +466,12 @@ class TemplatesPainelTests(TestCase):
 
     def test_calendario_com_sri(self):
         html = (TEMPLATES / 'painel' / 'calendar.html').read_text(encoding='utf-8')
-        scripts = re.findall(r'<script src="https://cdn\.jsdelivr\.net/[^>]*>', html)
+        scripts = re.findall(r'<script[^>]*\ssrc="https://cdn\.jsdelivr\.net/[^>]*>', html)
         self.assertEqual(len(scripts), 2)
         for tag in scripts:
             self.assertIn('integrity="sha384-', tag)
             self.assertIn('crossorigin="anonymous"', tag)
+            self.assertIn('nonce="{{ csp_nonce }}"', tag)
 
     def test_alerta_em_lote_considera_respostas_extras(self):
         from aranha_estetica.services.alertas import alertas_por_cliente

@@ -42,12 +42,12 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     DJANGO_ENV=prod
 
-# libpq5 (runtime) + curl (healthcheck)
+# libpq5 (runtime). Sem curl: o HEALTHCHECK usa o Python da imagem (curl so ajudaria quem
+# explorasse o processo a baixar ferramenta ou exfiltrar dado). Usuario de runtime sem shell.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
-    curl \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd --create-home --shell /bin/bash app
+    && useradd --create-home --shell /usr/sbin/nologin app
 
 WORKDIR /app
 
@@ -61,8 +61,10 @@ RUN pip install --no-index --no-cache /wheels/* \
 # passar a exigir PIL — antes o setup dava 500 e trancava o painel.
 RUN python -c "import io, qrcode, qrcode.image.svg; qrcode.make('otpauth://totp/smoke', image_factory=qrcode.image.svg.SvgPathFillImage).save(io.BytesIO())"
 
-COPY --chown=app:app . .
-COPY --from=front --chown=app:app /src/aranha_estetica/static/dist ./aranha_estetica/static/dist
+# Codigo e estaticos do root, so leitura para o usuario app: um RCE no gunicorn nao reescreve .py
+# nem template para persistir ate o proximo deploy (nada em runtime escreve em /app).
+COPY . .
+COPY --from=front /src/aranha_estetica/static/dist ./aranha_estetica/static/dist
 
 # Estaticos no build (whitenoise CompressedManifest em /app/staticfiles; o
 # static/src do Vite fica fora via clinica.apps.StaticFilesSemFonteConfig).
@@ -75,10 +77,11 @@ USER app
 
 EXPOSE 8080
 
-# Liveness (/healthz/): processo vivo + bundle do front presente, sem banco.
-# Host do healthcheck do Railway: sempre em ALLOWED_HOSTS (prod.py).
+# Liveness (/healthz/): processo vivo + bundle do front presente, sem banco. Vale para docker run e
+# compose; o Railway usa o healthcheckPath do railway.json. Host do healthcheck do Railway: sempre
+# em ALLOWED_HOSTS (prod.py). urlopen levanta em resposta != 2xx (sai != 0).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD curl -fsS -H "Host: healthcheck.railway.app" "http://localhost:${PORT:-8080}/healthz/" || exit 1
+    CMD python -c "import os, urllib.request as u; u.urlopen(u.Request('http://localhost:%s/healthz/' % os.environ.get('PORT', '8080'), headers={'Host': 'healthcheck.railway.app'}), timeout=4)" || exit 1
 
 # 1 worker x 4 threads: cache LocMem (rate-limit, lock de slot, quota de SMS) e
 # por processo; mais workers so com REDIS_URL. Migrations rodam no pre-deploy
