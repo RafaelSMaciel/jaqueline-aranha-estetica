@@ -1142,6 +1142,25 @@ class AxesBloqueioTests(TestCase):
         self.assertNotContains(r, 'Account locked', status_code=429)
 
 
+# ─── Runner unico (manage.py test) ───────────────────────────────────
+class RunnerUnicoTests(SimpleTestCase):
+    """O runner e so o `manage.py test`: teste em funcao solta (estilo pytest) nunca seria
+    coletado, e pytest/pytest-django/conftest sairam do projeto."""
+
+    def test_nenhum_teste_fora_de_testcase(self):
+        soltos = [
+            f'{arq.name}: {m.group(1)}'
+            for arq in sorted((BASE_DIR / 'aranha_estetica' / 'tests').glob('test_*.py'))
+            for m in re.finditer(r'^(?:async\s+)?def (test_\w+)', arq.read_text(encoding='utf-8'), re.M)
+        ]
+        self.assertEqual(soltos, [])
+
+    def test_sem_pytest_no_projeto(self):
+        self.assertFalse((BASE_DIR / 'aranha_estetica' / 'tests' / 'conftest.py').exists())
+        self.assertNotIn('pytest', (BASE_DIR / 'requirements-dev.txt').read_text(encoding='utf-8'))
+        self.assertNotIn('[tool.pytest', (BASE_DIR / 'pyproject.toml').read_text(encoding='utf-8'))
+
+
 # ─── Access log do gunicorn sem tokens ───────────────────────────────
 class GunicornLoggerTests(SimpleTestCase):
     """rev_security-13 / rev_infra-02: o access log padrao gravava /confirmar/<token>/,

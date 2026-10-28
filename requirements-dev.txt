@@ -1,7 +1,5 @@
 # Ferramentas de dev/CI (nao vao p/ a imagem de producao)
 -r requirements.txt
-pytest==9.0.3
-pytest-django==4.12.0
 # traceback dos workers no `manage.py test --parallel` (CI: jobs da tag migracoes)
 tblib==3.2.2
 # erros + fuso (pyproject.toml [tool.ruff.lint]); gancho local: .pre-commit-config.yaml
