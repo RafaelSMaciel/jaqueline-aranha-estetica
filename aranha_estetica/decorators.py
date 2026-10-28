@@ -5,6 +5,12 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import redirect
+from django.views.decorators.http import require_POST
+from django_ratelimit.decorators import ratelimit
+
+# Teto de escritas por usuario nas telas da equipe: folga para o uso normal (aprovar varios pedidos
+# seguidos) e freio para script/sessao roubada disparando POST em massa.
+LIMITE_ESCRITA_EQUIPE = '30/m'
 
 
 def _profissional_ativo(user):
@@ -52,3 +58,20 @@ def profissional_required(view_func: Callable) -> Callable:
             return redirect('aranha:inicio')
         return view_func(request, *args, **kwargs)
     return _wrapped_view
+
+
+def _escrita(guarda: Callable, view_func: Callable) -> Callable:
+    limite = ratelimit(key='user', rate=LIMITE_ESCRITA_EQUIPE, method='POST', block=True)
+    return guarda(require_POST(limite(view_func)))
+
+
+def escrita_painel(view_func: Callable) -> Callable:
+    """View so de escrita do painel: staff_required + require_POST (GET -> 405) + ratelimit por
+    usuario (LIMITE_ESCRITA_EQUIPE; estourou -> 429). Uma guarda so em vez de tres empilhadas
+    (ou de `if request.method != 'POST': return redirect(...)` em cada view)."""
+    return _escrita(staff_required, view_func)
+
+
+def escrita_profissional(view_func: Callable) -> Callable:
+    """Mesma guarda de escrita_painel para o portal do profissional (profissional_required)."""
+    return _escrita(profissional_required, view_func)
