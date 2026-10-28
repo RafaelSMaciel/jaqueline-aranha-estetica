@@ -190,7 +190,7 @@ class FidelidadeService:
         carteira = Carteira.objects.select_for_update().filter(cliente_id=atendimento.cliente_id).first()
         saldo = carteira.saldo if carteira else Decimal('0')
         limite = min(saldo, atendimento.valor_cobrado or Decimal('0'))
-        if valor <= 0 or valor > limite:
+        if carteira is None or valor <= 0 or valor > limite:
             raise RegraDeNegocio(f'Crédito disponível para este atendimento: até R$ {limite:.2f}.'.replace('.', ','),
                                  codigo='credito_insuficiente')
         movimento = MovimentoCarteira.objects.create(
