@@ -10,9 +10,9 @@ conhece a sessao. Aqui fica a regra, testavel sem HTTP e reutilizavel por outra 
 4. termos de procedimento que a titular ainda nao aceitou (services/termos) — marcados no wizard;
 5. e-mail que ja e de outro cadastro (evita sequestro e IntegrityError);
 6. lock do horario no cache: serializa confirmacoes simultaneas (depois o banco decide);
-7. numa transacao: cadastro da titular, bloqueio online, opt-ins de comunicacao, reserva com o
-   preco da data, e-mail (APROVACAO p/ a profissional ou CONFIRMACAO p/ a cliente — D8), aceites
-   com prova e fichas com a trilha do art. 11.
+7. numa transacao: cadastro da titular, bloqueio online, teto de pedidos em aberto (D8),
+   opt-ins de comunicacao, reserva com o preco da data, e-mail (APROVACAO p/ a profissional ou
+   CONFIRMACAO p/ a cliente — D8), aceites com prova e fichas com a trilha do art. 11.
 
 Toda recusa e ``RegraDeNegocio`` com ``codigo``; a view so mostra ``mensagem``.
 """
@@ -29,6 +29,7 @@ from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
 
+from ..constants import MAX_ATIVOS_ONLINE
 from ..excecoes import RegraDeNegocio
 from ..models import (
     AceiteTermo,
@@ -67,6 +68,10 @@ MSG_CONSENT_SAUDE = (
 )
 MSG_EMAIL_DE_OUTRO = 'Este e-mail já está vinculado a outro cadastro. Use outro e-mail ou deixe em branco.'
 MSG_EM_CONFIRMACAO = 'Este horário está sendo confirmado por outra pessoa. Tente outro.'
+MSG_LIMITE_ONLINE = (
+    f'Você já tem {MAX_ATIVOS_ONLINE} horários marcados com a gente. '
+    'Para marcar mais um, fale conosco pelo WhatsApp.'
+)
 
 # Lock do horario no cache (s): so cobre a janela entre as checagens e o INSERT
 TRAVA_HORARIO_SEGUNDOS = 30
@@ -122,6 +127,8 @@ def solicitar(pedido: PedidoAgendamento, *, request: HttpRequest | None = None) 
 
     with _horario_travado(pedido.profissional, pedido.inicio), transaction.atomic():
         cliente, cadastro_novo = _cadastro_da_titular(pedido)
+        if not cadastro_novo:
+            validar_limite_online(cliente)   # linha da cliente travada: pedidos simultaneos serializam
         # Opt-ins -> historico (prova: texto do checkbox, IP, user-agent). Concede ao marcar;
         # revoga ao desmarcar SO se o checkbox mostrava o estado do cadastro. Ultimo registro manda.
         consentimentos.registrar_do_wizard(
@@ -216,6 +223,17 @@ def _gravar_fichas(cliente, atendimento, fichas, *, request) -> None:
 
 
 # ─── Termos, cadastro e horario ─────────────────────────────────────────────
+
+def validar_limite_online(cliente: Cliente) -> None:
+    """Recusa o pedido pelo site de quem ja tem MAX_ATIVOS_ONLINE horarios futuros ativos (D8): o
+    PENDENTE trava a agenda, entao sem teto um celular verificado reservaria a semana inteira. Conta
+    todos os canais (o atendimento nao guarda a origem); a recepcao segue marcando pelo painel."""
+    ativos = Atendimento.objects.filter(
+        cliente=cliente, status__in=Atendimento.STATUS_ATIVOS, data_hora_inicio__gte=timezone.now(),
+    ).count()
+    if ativos >= MAX_ATIVOS_ONLINE:
+        raise RegraDeNegocio(MSG_LIMITE_ONLINE, codigo='limite_online')
+
 
 def _termos_aceitos(pedido: PedidoAgendamento, titular: Cliente | None) -> list[VersaoTermo]:
     """Termos de procedimento marcados no wizard (o proprio + o geral, services/termos).
