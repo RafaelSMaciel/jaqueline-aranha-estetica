@@ -151,7 +151,8 @@ class SecurityHeadersMiddleware:
         privada = com_token or path.startswith(self.PREFIXOS_PRIVADOS)
         if privada and not response.has_header('Cache-Control'):
             add_never_cache_headers(response)
-        if privada:
+        if privada or getattr(settings, 'AMBIENTE_TESTE', False):
+            # ambiente de testes publicado: nada entra no indice (concorreria com o dominio real)
             response.setdefault('X-Robots-Tag', 'noindex, nofollow, noarchive')
         response.setdefault("X-Content-Type-Options", "nosniff")
         response.setdefault("Permissions-Policy", self.PERMISSIONS_POLICY)

@@ -52,6 +52,8 @@ def clinica_globals(request):
     ctx['CLINIC_PHONE_TEL'] = _telefone_tel(ctx.get('CLINIC_PHONE', ''))
     ctx['CLINIC_SHORT_NAME'] = _nome_curto(ctx.get('CLINIC_NAME', ''))
     ctx['AGENDAR_WHATSAPP'] = _agendar_whatsapp(ctx.get('WHATSAPP_NUMERO', ''))
+    # ambiente de testes publicado: faixa no topo e robots.txt fechado (settings/staging.py)
+    ctx['AMBIENTE_TESTE'] = getattr(settings, 'AMBIENTE_TESTE', False)
     return ctx
 
 

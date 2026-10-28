@@ -15,6 +15,7 @@ entrega real quando a chave do ESP esta em settings.ANYMAIL (montado da env em
 settings/base.py); sem ela todo envio falharia -> tambem "nao configurado".
 """
 import logging
+from email.utils import parseaddr
 import re
 from html import unescape
 
@@ -99,7 +100,8 @@ def email_configurado() -> bool:
     """True se o backend entrega de fato (em DEBUG o console basta)."""
     if settings.DEBUG:
         return True
-    backend = getattr(settings, 'EMAIL_BACKEND', '') or ''
+    # ambiente de testes: a trava (BackendAmbienteTeste) entrega pelo backend real
+    backend = getattr(settings, 'EMAIL_BACKEND_REAL', '') or getattr(settings, 'EMAIL_BACKEND', '') or ''
     if backend.endswith(_BACKENDS_SEM_ENTREGA):
         return False
     # anymail sem a chave do ESP: todo envio levantaria AnymailConfigurationError
@@ -303,3 +305,40 @@ def enviar_aprovacao_profissional_email(email, dados):
     )
 
 
+
+
+class BackendAmbienteTeste:
+    """EMAIL_BACKEND do ambiente de testes publicado (settings/staging.py): so entrega aos
+    DESTINATARIOS_TESTE, pelo backend real (EMAIL_BACKEND_REAL). Pega todo e-mail do sistema —
+    inclusive o reset de senha do Django —, nao so os de utils/email. Destinatario fora da lista
+    some da mensagem; mensagem sem ninguem permitido nao sai (log envio_bloqueado_ambiente_teste)."""
+
+    def __init__(self, fail_silently=False, **kwargs):
+        from django.core.mail import get_connection
+        self.real = get_connection(getattr(settings, 'EMAIL_BACKEND_REAL', ''), fail_silently=fail_silently, **kwargs)
+
+    def open(self):
+        return self.real.open()
+
+    def close(self):
+        return self.real.close()
+
+    def __enter__(self):
+        self.open()
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+
+    def send_messages(self, mensagens):
+        from .seguranca import destino_permitido
+        liberadas = []
+        for msg in mensagens:
+            msg.to = [d for d in msg.to if destino_permitido(parseaddr(d)[1])]
+            msg.cc = [d for d in msg.cc if destino_permitido(parseaddr(d)[1])]
+            msg.bcc = [d for d in msg.bcc if destino_permitido(parseaddr(d)[1])]
+            if msg.to or msg.cc or msg.bcc:
+                liberadas.append(msg)
+            else:
+                logger.info('envio_bloqueado_ambiente_teste', extra={'canal': 'email'})
+        return self.real.send_messages(liberadas) if liberadas else 0

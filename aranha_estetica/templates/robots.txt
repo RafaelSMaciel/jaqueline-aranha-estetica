@@ -1,5 +1,6 @@
 User-agent: *
-Allow: /
+{% if AMBIENTE_TESTE %}Disallow: /
+{% else %}Allow: /
 
 Disallow: /painel/
 Disallow: /admin-login/
@@ -21,3 +22,4 @@ Disallow: /cron/
 Disallow: /agenda/
 
 Sitemap: {{ SITE_URL }}/sitemap.xml
+{% endif %}

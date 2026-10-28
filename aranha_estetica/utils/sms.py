@@ -160,8 +160,9 @@ def enviar_sms(telefone: str, mensagem: str) -> bool:
 
     if sms_modo_dev():
         extra = {'telefone_mask': _mask(telefone_fmt), 'tamanho': len(mensagem)}
-        if getattr(settings, 'DEBUG', False):
-            # Preview (com o codigo) so no dev local interativo — nunca em prod/testes.
+        if getattr(settings, 'DEBUG', False) or getattr(settings, 'AMBIENTE_TESTE', False):
+            # Preview (com o codigo) so no dev local e no ambiente de testes publicado (log do
+            # Railway, so quem tem acesso ao projeto) — nunca em producao nem na suite.
             extra['preview'] = mensagem[:200]
         logger.info('sms_dev_log', extra=extra)
         return True

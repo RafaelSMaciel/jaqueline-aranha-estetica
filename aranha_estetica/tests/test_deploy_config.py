@@ -1037,19 +1037,77 @@ class DjangoEnvInvalidoTests(SimpleTestCase):
         )
 
     def test_valor_desconhecido_derruba_o_boot(self):
-        for valor in ('production', 'staging'):
+        for valor in ('production', 'homolog'):
             with self.subTest(valor=valor):
                 proc = self._importar(valor)
                 self.assertNotEqual(proc.returncode, 0)
                 self.assertIn('ImproperlyConfigured', proc.stderr)
                 self.assertIn(valor, proc.stderr)
 
-    def test_dev_e_prod_continuam_valendo(self):
-        for valor, debug in (('prod', 'False'), (' PROD ', 'False'), ('dev', 'True')):
+    def test_prod_e_staging_valem_no_railway_e_dev_nao(self):
+        for valor, debug in (('prod', 'False'), (' PROD ', 'False'), ('staging', 'False')):
             with self.subTest(valor=valor):
                 proc = self._importar(valor)
                 self.assertEqual(proc.returncode, 0, proc.stderr)
                 self.assertEqual(proc.stdout.strip().splitlines()[-1], debug)
+        # o .env de dev colado no Railway publicaria DEBUG=True: o boot cai
+        proc = self._importar('dev')
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn('DJANGO_ENV=dev no Railway', proc.stderr)
+
+
+class AmbienteTesteTests(TestCase):
+    """Ambiente de testes publicado (settings/staging.py): producao + travas de envio."""
+
+    def test_staging_importa_com_as_travas(self):
+        env = {k: v for k, v in os.environ.items() if k not in ('DEBUG', 'SMS_DEV_LOG_ONLY')}
+        env.update({'DJANGO_ENV': 'staging', 'DJANGO_SECRET_KEY': 'x' * 50, 'RAILWAY_ENVIRONMENT_NAME': 'dev',
+                    'EMAIL_BACKEND': 'django.core.mail.backends.locmem.EmailBackend'})
+        codigo = ('import json\nimport clinica.settings as s\n'
+                  'print(json.dumps({"teste": s.AMBIENTE_TESTE, "debug": s.DEBUG, "sms": s.SMS_DEV_LOG_ONLY,'
+                  '"email": s.EMAIL_BACKEND, "real": s.EMAIL_BACKEND_REAL}))\n')
+        proc = subprocess.run([sys.executable, '-W', 'ignore', '-c', codigo], cwd=BASE_DIR, env=env,
+                              capture_output=True, text=True, timeout=120)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        s = json.loads(proc.stdout.strip().splitlines()[-1])
+        self.assertEqual(s, {'teste': True, 'debug': False, 'sms': True,
+                             'email': 'aranha_estetica.utils.email.BackendAmbienteTeste',
+                             'real': 'django.core.mail.backends.locmem.EmailBackend'})
+
+    @override_settings(AMBIENTE_TESTE=True, DESTINATARIOS_TESTE=['dona@clinica.test', '(17) 99999-0000'],
+                       EMAIL_BACKEND='aranha_estetica.utils.email.BackendAmbienteTeste',
+                       EMAIL_BACKEND_REAL='django.core.mail.backends.locmem.EmailBackend')
+    def test_so_destinatarios_de_teste_recebem(self):
+        from django.core import mail
+
+        from aranha_estetica.utils.seguranca import destino_permitido
+        self.assertTrue(destino_permitido('Dona@Clinica.test'))
+        self.assertTrue(destino_permitido('5517999990000'))
+        self.assertFalse(destino_permitido('cliente@gmail.com'))
+        self.assertFalse(destino_permitido('17988887777'))
+        mail.send_mail('Oi', 'texto', 'clinica@clinica.test', ['cliente@gmail.com', 'dona@clinica.test'])
+        mail.send_mail('Oi', 'texto', 'clinica@clinica.test', ['outra@gmail.com'])
+        self.assertEqual([m.to for m in mail.outbox], [['dona@clinica.test']])
+
+    def test_fora_do_ambiente_de_teste_nada_e_bloqueado(self):
+        from aranha_estetica.utils.seguranca import destino_permitido
+        self.assertTrue(destino_permitido('qualquer@gmail.com'))
+
+    @override_settings(AMBIENTE_TESTE=True)
+    def test_robots_fechado_noindex_e_faixa(self):
+        robots = self.client.get('/robots.txt').content.decode()
+        self.assertIn('Disallow: /\n', robots)
+        self.assertNotIn('Sitemap', robots)
+        home = self.client.get('/')
+        self.assertEqual(home['X-Robots-Tag'], 'noindex, nofollow, noarchive')
+        self.assertContains(home, 'Ambiente de testes')
+
+    def test_producao_sem_postgres_e_erro(self):
+        from aranha_estetica.checks import check_postgres_obrigatorio
+        with override_settings(CIFRAGEM_EXIGE_CHAVE=True,
+                               DATABASES={'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': ':memory:'}}):
+            self.assertEqual([e.id for e in check_postgres_obrigatorio()], ['aranha.E002'])
+        self.assertEqual(check_postgres_obrigatorio(), [])   # dev/testes nao exigem
 
 
 class Settings2FAEApiTests(TestCase):

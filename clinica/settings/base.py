@@ -403,6 +403,11 @@ if EMAIL_BACKEND.startswith('anymail.'):
 # Fora disso, sem ZENVIA_API_TOKEN/ZENVIA_FROM o envio falha fechado (False).
 SMS_DEV_LOG_ONLY = os.environ.get('SMS_DEV_LOG_ONLY', '').strip().lower() == 'true'
 
+# Ambiente de testes publicado (settings/staging.py liga): travas de envio, noindex, seed --demo.
+AMBIENTE_TESTE = False
+# So estes e-mails/celulares recebem mensagem no ambiente de testes (utils/seguranca.destino_permitido)
+DESTINATARIOS_TESTE = [d.strip() for d in os.environ.get('DESTINATARIOS_TESTE', '').split(',') if d.strip()]
+
 # Password reset: token TTL 1h (default Django = 3 dias). Reduz janela de ataque.
 PASSWORD_RESET_TIMEOUT = int(os.environ.get('PASSWORD_RESET_TIMEOUT_SECONDS', 3600))
 

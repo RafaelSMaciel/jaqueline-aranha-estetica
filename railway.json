@@ -2,7 +2,19 @@
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
     "builder": "DOCKERFILE",
-    "dockerfilePath": "Dockerfile"
+    "dockerfilePath": "Dockerfile",
+    "watchPatterns": [
+      "/aranha_estetica/**",
+      "/clinica/**",
+      "/manage.py",
+      "/requirements.txt",
+      "/requirements.lock",
+      "/package.json",
+      "/package-lock.json",
+      "/vite.config.js",
+      "/Dockerfile",
+      "/railway.json"
+    ]
   },
   "deploy": {
     "numReplicas": 1,
@@ -14,5 +26,14 @@
     "restartPolicyMaxRetries": 5,
     "healthcheckPath": "/healthz/",
     "healthcheckTimeout": 120
+  },
+  "environments": {
+    "dev": {
+      "deploy": {
+        "preDeployCommand": [
+          "sh -c 'python manage.py migrate_atomico --noinput && python manage.py bootstrap_admin && python manage.py seed --demo'"
+        ]
+      }
+    }
   }
 }
