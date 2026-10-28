@@ -66,7 +66,7 @@ SMS_EXIGIR_PROVEDOR = True
 # aranha.E001 barra o migrate do pre-deploy (e utils/cifragem recusa em runtime)
 CIFRAGEM_EXIGE_CHAVE = True
 
-# Logging mais restrito em prod
+# Logging mais restrito em prod; DJANGO_LOG_LEVEL=INFO abre o log do Django p/ investigar
 LOGGING['root']['level'] = 'WARNING'
-LOGGING['loggers']['django']['level'] = 'WARNING'
+LOGGING['loggers']['django']['level'] = os.environ.get('DJANGO_LOG_LEVEL', 'WARNING')
 
