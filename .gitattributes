@@ -1,2 +1,13 @@
-# scripts shell rodam em Linux (container/cron): sempre LF
-*.sh text eol=lf
+# Fim de linha LF no repositorio e no checkout (Windows inclusive): imagem, CI e cron sao Linux,
+# e o diff nao muda por causa do editor. Binarios nunca sao convertidos.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
+*.svg text eol=lf
+*.woff2 binary
+*.docx binary
+*.pdf binary
+*.sqlite3 binary
