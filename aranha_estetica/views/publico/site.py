@@ -80,7 +80,7 @@ def home(request):
                 {'q': 'Preciso criar uma conta para agendar?',
                  'a': 'Não. O agendamento é sem cadastro: você se identifica pelo telefone e confirma com um código enviado por SMS. Rápido e sem senha.'},
                 {'q': 'Posso cancelar ou remarcar meu horário?',
-                 'a': 'Sim. Cancelamentos e remarcações podem ser feitos com até 24h de antecedência, sem custo, pela área "Meus agendamentos" (link no rodapé do site).'},
+                 'a': 'Sim, sem custo, pela área "Meus agendamentos" (link no rodapé do site): a remarcação online vale até 24 h antes do horário e o cancelamento, até o horário marcado. Se não puder vir, avise o quanto antes — o horário volta para quem está na lista de espera.'},
                 {'q': 'Como funciona a avaliação inicial?',
                  'a': 'Antes de qualquer procedimento, fazemos uma avaliação individualizada para entender seu objetivo e indicar o cuidado mais adequado para você.'},
             ],
