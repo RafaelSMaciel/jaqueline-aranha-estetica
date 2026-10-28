@@ -58,7 +58,7 @@
       {% if item.cliente.telefone %}
       <a href="https://wa.me/55{{ item.cliente.telefone }}?text=Ol%C3%A1%20{{ item.cliente.nome|urlencode }}%2C%20abriu%20uma%20vaga%20para%20{{ item.procedimento.nome|urlencode }}.%20Quer%20agendar%3F%20{{ CLINIC_NAME|urlencode }}"
          target="_blank" rel="noopener"
-         class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#dcf5e7] text-[#1e8e4e] text-[0.75rem] font-bold no-underline hover:opacity-80 transition-opacity">
+         class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sucesso-fundo text-sucesso text-[0.75rem] font-bold no-underline hover:opacity-80 transition-opacity">
         <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.6 6.32A8 8 0 004.06 14.4L3 21l6.78-1.05A8 8 0 1017.6 6.32zM12 19.5a7.5 7.5 0 01-3.8-1l-.27-.16-2.83.44.45-2.75-.18-.28A7.5 7.5 0 1112 19.5z"/></svg>
         WhatsApp
       </a>
@@ -86,12 +86,12 @@
 </div>
 {% empty %}
 <div class="bg-superficie rounded-2xl p-12 text-center shadow-sm">
-  <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
-    <svg class="w-7 h-7 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+  <div class="w-16 h-16 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mx-auto mb-4">
+    <svg class="w-7 h-7 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
       <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
     </svg>
   </div>
-  <h5 class="font-bold text-texto mb-1">Lista de espera vazia</h5>
+  <p class="font-serif font-bold text-texto mb-1">Lista de espera vazia</p>
   <p class="text-[0.85rem] text-texto-suave">Nenhum cliente aguardando no momento.</p>
 </div>
 {% endfor %}

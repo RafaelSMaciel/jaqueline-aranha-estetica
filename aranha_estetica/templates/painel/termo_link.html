@@ -20,7 +20,7 @@
   <label for="linkTermo" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Link</label>
   <div class="flex gap-2 flex-wrap">
     <input id="linkTermo" type="text" readonly value="{{ link }}"
-           class="flex-1 min-w-[16rem] px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.8rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40">
+           class="flex-1 min-w-[16rem] px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.8rem] text-texto">
     <button type="button" id="copiarLinkTermo"
             class="px-4 py-2 rounded-xl border border-borda bg-superficie text-texto text-[0.8rem] font-bold cursor-pointer hover:bg-fundo transition-colors">
       Copiar
@@ -32,13 +32,13 @@
     {% if telefone_wa %}
     <a href="https://wa.me/55{{ telefone_wa }}?text={{ 'Olá '|urlencode }}{{ cliente.nome|urlencode }}{{ ', antes do seu atendimento de '|urlencode }}{{ atendimento.procedimento.nome|urlencode }}{{ ', leia e aceite o termo neste link: '|urlencode }}{{ link|urlencode }}"
        target="_blank" rel="noopener"
-       class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#dcf5e7] text-[#1e8e4e] text-[0.82rem] font-bold no-underline hover:opacity-80 transition-opacity">
+       class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sucesso-fundo text-sucesso text-[0.82rem] font-bold no-underline hover:opacity-80 transition-opacity">
       Enviar pelo WhatsApp
     </a>
     {% endif %}
     {% if cliente.email %}
     <a href="mailto:{{ cliente.email }}?subject={{ 'Termo de consentimento'|urlencode }}&body={{ 'Olá, leia e aceite o termo do seu atendimento neste link: '|urlencode }}{{ link|urlencode }}"
-       class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#e3f2fd] text-[#1565c0] text-[0.82rem] font-bold no-underline hover:opacity-80 transition-opacity">
+       class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-info-fundo text-info text-[0.82rem] font-bold no-underline hover:opacity-80 transition-opacity">
       Enviar por e-mail
     </a>
     {% endif %}

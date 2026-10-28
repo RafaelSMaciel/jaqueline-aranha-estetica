@@ -57,5 +57,7 @@ class ContrasteDouradoTests(SimpleTestCase):
                 self.assertIsNone(regra.search((base / rel).read_text(encoding='utf-8')))
         js = (base / 'static' / 'src' / 'js' / 'wizard.js').read_text(encoding='utf-8')
         self.assertNotIn("style.color = 'white'", js)
-        self.assertIn('var(--cor-sobre-marca)', js)
+        # filtro de categoria: o escolhido (aria-pressed) pinta pelo CSS do template, com sobre-marca
+        html = (base / 'templates' / 'agendamento' / 'agendamento_publico.html').read_text(encoding='utf-8')
+        self.assertRegex(html, r'\.cat-tab\[aria-pressed="true"\]\s*\{[^}]*color:\s*var\(--cor-sobre-marca\)')
 

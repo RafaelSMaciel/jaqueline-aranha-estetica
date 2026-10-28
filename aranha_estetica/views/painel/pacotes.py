@@ -73,16 +73,60 @@ def _ler_itens(post):
     return itens
 
 
-@staff_required
-def admin_pacotes(request):
-    """Lista todos os pacotes com itens e vendas."""
+MSG_DADOS_INVALIDOS = 'Dados inválidos: verifique preço, validade e itens (sem procedimento repetido).'
+
+
+def _erros_dos_campos(post, valor_padrao=None, validade_padrao='12'):
+    """Mesmos parsers da gravacao, campo a campo, so p/ dizer na tela QUAL campo foi recusado."""
+    erros = {}
+    try:
+        _parse_valor(post.get('preco_total', valor_padrao))
+    except (ValueError, TypeError):
+        erros['preco_total'] = 'Informe o preço total, ex.: 1350,00.'
+    try:
+        _parse_validade(post.get('validade_meses', validade_padrao))
+    except (ValueError, TypeError):
+        erros['validade_meses'] = 'Validade de 1 a 120 meses.'
+    try:
+        _ler_itens(post)
+    except (ValueError, TypeError):
+        erros['itens'] = 'Confira os itens: quantidade de 1 sessão ou mais e sem procedimento repetido.'
+    return erros
+
+
+def _itens_digitados(post):
+    """Linhas de item como vieram (procedimento como int p/ comparar com o pk; quantidade como texto)."""
+    linhas = []
+    for proc_id, qtd in zip(post.getlist('procedimento_ids'), post.getlist('quantidades'), strict=False):
+        linhas.append({'procedimento_id': id_int(proc_id), 'quantidade': qtd})
+    return linhas or [{'procedimento_id': None, 'quantidade': '1'}]
+
+
+def _valores_digitados(post):
+    return {
+        'nome': post.get('nome', ''), 'descricao': post.get('descricao', ''),
+        'preco_total': post.get('preco_total', ''), 'validade_meses': post.get('validade_meses', ''),
+        'ativo': post.get('ativo') in ('1', 'on'), 'itens': _itens_digitados(post),
+    }
+
+
+def _contexto_lista():
     pacotes = list(
         Pacote.objects.prefetch_related('itens__procedimento').annotate(
             total_vendas=Count('comprapacote'),
         ).order_by('-ativo', 'nome')
     )
+    for pacote in pacotes:
+        # o que o modal de edicao mostra (o salvo; no envio recusado, o digitado)
+        pacote.valores = {
+            'nome': pacote.nome, 'descricao': pacote.descricao or '', 'preco_total': pacote.preco_total,
+            'validade_meses': pacote.validade_meses, 'ativo': pacote.ativo,
+            'itens': [{'procedimento_id': i.procedimento_id, 'quantidade': i.quantidade_sessoes}
+                      for i in pacote.itens.all()],
+        }
+        pacote.erros = {}
 
-    context = {
+    return {
         'pacotes': pacotes,
         'pacotes_ativos': [p for p in pacotes if p.ativo],
         'procedimentos': Procedimento.objects.filter(ativo=True).order_by('nome'),
@@ -90,8 +134,37 @@ def admin_pacotes(request):
         'procedimentos_todos': Procedimento.objects.order_by('-ativo', 'nome'),
         # Renderizado UMA vez (modal unico de venda), nao por pacote.
         'clientes_ativos': Cliente.objects.filter(ativo=True).only('pk', 'nome', 'telefone').order_by('nome'),
+        # modal de novo pacote: em branco (no envio recusado, o digitado + erros)
+        'novo': {'valores': {'validade_meses': '12', 'itens': [{'procedimento_id': None, 'quantidade': '1'}]},
+                 'erros': {}},
     }
-    return render(request, 'painel/pacotes.html', context)
+
+
+def _devolver_com_erro(request, mensagem, erros, editar=None):
+    """Envio recusado: a lista volta SEM redirect, com o modal aberto, o digitado e o erro no campo.
+
+    Antes o redirect fechava o modal e perdia tudo, inclusive as linhas de item. `mensagem` (o texto
+    de sempre) vai p/ o aviso do topo e p/ dentro do modal (o resto da tela fica inerte com ele
+    aberto). editar = o pacote do modal de edicao; None = modal de novo pacote."""
+    messages.error(request, mensagem)
+    erros = {**erros, 'geral': mensagem}
+    contexto = _contexto_lista()
+    valores = _valores_digitados(request.POST)
+    if editar is None:
+        contexto['novo'] = {'valores': valores, 'erros': erros}
+    else:
+        for pacote in contexto['pacotes']:
+            if pacote.pk == editar.pk:
+                if 'procedimento_ids' not in request.POST:   # form sem a lista: itens intocados
+                    valores['itens'] = pacote.valores['itens']
+                pacote.valores, pacote.erros, pacote.reabrir = valores, erros, True
+    return render(request, 'painel/pacotes.html', contexto)
+
+
+@staff_required
+def admin_pacotes(request):
+    """Lista todos os pacotes com itens e vendas."""
+    return render(request, 'painel/pacotes.html', _contexto_lista())
 
 
 @staff_required
@@ -104,19 +177,18 @@ def admin_criar_pacote(request):
     descricao = request.POST.get('descricao', '').strip()
 
     if not nome:
-        messages.error(request, 'Nome do pacote é obrigatório.')
-        return redirect('aranha:admin_pacotes')
+        return _devolver_com_erro(request, 'Nome do pacote é obrigatório.',
+                                  {'nome': 'Informe o nome do pacote.'})
 
     try:
         preco_total = _parse_valor(request.POST.get('preco_total', ''))
         validade_meses = _parse_validade(request.POST.get('validade_meses', '12'))
         itens = _ler_itens(request.POST)
     except (ValueError, TypeError):
-        messages.error(request, 'Dados inválidos: verifique preço, validade e itens (sem procedimento repetido).')
-        return redirect('aranha:admin_pacotes')
+        return _devolver_com_erro(request, MSG_DADOS_INVALIDOS, _erros_dos_campos(request.POST, ''))
     if not itens:
-        messages.error(request, 'Inclua ao menos um procedimento no pacote.')
-        return redirect('aranha:admin_pacotes')
+        return _devolver_com_erro(request, 'Inclua ao menos um procedimento no pacote.',
+                                  {'itens': 'Escolha ao menos um procedimento.'})
 
     try:
         with transaction.atomic():
@@ -157,19 +229,19 @@ def admin_editar_pacote(request, pk):
 
     nome = request.POST.get('nome', pacote.nome).strip()
     if not nome:
-        messages.error(request, 'Nome do pacote é obrigatório.')
-        return redirect('aranha:admin_pacotes')
+        return _devolver_com_erro(request, 'Nome do pacote é obrigatório.',
+                                  {'nome': 'Informe o nome do pacote.'}, editar=pacote)
 
     try:
         preco_total = _parse_valor(request.POST.get('preco_total', str(pacote.preco_total)))
         validade_meses = _parse_validade(request.POST.get('validade_meses', pacote.validade_meses))
         itens = _ler_itens(request.POST)
     except (ValueError, TypeError):
-        messages.error(request, 'Dados inválidos: verifique preço, validade e itens (sem procedimento repetido).')
-        return redirect('aranha:admin_pacotes')
+        erros = _erros_dos_campos(request.POST, str(pacote.preco_total), pacote.validade_meses)
+        return _devolver_com_erro(request, MSG_DADOS_INVALIDOS, erros, editar=pacote)
     if 'procedimento_ids' in request.POST and not itens:
-        messages.error(request, 'O pacote precisa de ao menos um procedimento.')
-        return redirect('aranha:admin_pacotes')
+        return _devolver_com_erro(request, 'O pacote precisa de ao menos um procedimento.',
+                                  {'itens': 'Escolha ao menos um procedimento.'}, editar=pacote)
 
     try:
         with transaction.atomic():

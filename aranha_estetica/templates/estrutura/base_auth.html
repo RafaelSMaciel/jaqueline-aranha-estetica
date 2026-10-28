@@ -15,7 +15,7 @@
   {% block css %}{% endblock %}
 </head>
 <body class="bg-fundo text-texto antialiased min-h-screen flex items-center justify-center px-4">
-{% if AMBIENTE_TESTE %}<div role="note" class="fixed top-0 inset-x-0 z-50 bg-aviso text-white text-center text-[0.8rem] font-bold py-1.5 px-4">Ambiente de testes — os agendamentos daqui não são reais.</div>{% endif %}
+{% if AMBIENTE_TESTE %}<div role="note" class="fixed top-0 inset-x-0 z-50 bg-aviso text-superficie text-center text-[0.8rem] font-bold py-1.5 px-4">Ambiente de testes — os agendamentos daqui não são reais.</div>{% endif %}
   <main class="w-full max-w-md">{% block conteudo %}{% endblock %}</main>
   {% block js %}{% endblock %}
 </body>
