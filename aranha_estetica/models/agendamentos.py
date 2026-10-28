@@ -15,12 +15,63 @@ from .procedimentos import Procedimento, Promocao
 from .profissionais import Profissional
 
 
+class StatusAtendimento(models.TextChoices):
+    """Status do atendimento (FSM em Atendimento.TRANSICOES). Membro e str: compara com o valor do
+    banco; erro de digitacao vira AttributeError em vez de filtro vazio."""
+    PENDENTE = 'PENDENTE', 'Pendente de Confirmação'
+    AGENDADO = 'AGENDADO', 'Agendado'
+    CONFIRMADO = 'CONFIRMADO', 'Confirmado'
+    REALIZADO = 'REALIZADO', 'Realizado'
+    CANCELADO = 'CANCELADO', 'Cancelado'
+    FALTOU = 'FALTOU', 'Faltou'
+    REAGENDADO = 'REAGENDADO', 'Reagendado'
+
+
+# Grupos usados em consulta (ocupam a agenda / encerrados)
+STATUS_ATIVOS = (StatusAtendimento.PENDENTE, StatusAtendimento.AGENDADO, StatusAtendimento.CONFIRMADO)
+STATUS_FINALIZADOS = (
+    StatusAtendimento.REALIZADO, StatusAtendimento.CANCELADO, StatusAtendimento.FALTOU,
+    StatusAtendimento.REAGENDADO,
+)
+
+
+class TipoNotificacao(models.TextChoices):
+    LEMBRETE = 'LEMBRETE', 'Lembrete D-1'
+    LEMBRETE_2H = 'LEMBRETE_2H', 'Lembrete T-2h'
+    CONFIRMACAO = 'CONFIRMACAO', 'Confirmação'
+    CANCELAMENTO = 'CANCELAMENTO', 'Cancelamento'
+    NPS = 'NPS', 'Pesquisa NPS'
+    PESQUISA = 'PESQUISA', 'Pesquisa de satisfação detalhada'
+    APROVACAO = 'APROVACAO', 'Aprovação Profissional'
+    # Link de assinatura do termo (/termo/<token>, LinkAcesso TERMO)
+    TERMO = 'TERMO', 'Termo de consentimento'
+
+
+class CanalNotificacao(models.TextChoices):
+    WHATSAPP = 'WHATSAPP', 'WhatsApp'
+    SMS = 'SMS', 'SMS'
+    EMAIL = 'EMAIL', 'E-mail'
+
+
+class StatusNotificacao(models.TextChoices):
+    PENDENTE = 'PENDENTE', 'Pendente'
+    ENVIADO = 'ENVIADO', 'Enviado'
+    FALHOU = 'FALHOU', 'Falhou'
+
+
+class RespostaNotificacao(models.TextChoices):
+    CONFIRMOU = 'CONFIRMOU', 'Confirmou'
+    CANCELOU = 'CANCELOU', 'Cancelou'
+
+
 class AtendimentoQuerySet(models.QuerySet):
     """QuerySet com queries reutilizaveis — encapsula conhecimento de dominio."""
 
     def ativos(self):
         """Atendimentos nao cancelados/reagendados/faltados."""
-        return self.exclude(status__in=['CANCELADO', 'REAGENDADO', 'FALTOU'])
+        return self.exclude(status__in=[
+            StatusAtendimento.CANCELADO, StatusAtendimento.REAGENDADO, StatusAtendimento.FALTOU,
+        ])
 
     def futuros(self):
         return self.filter(data_hora_inicio__gte=timezone.now())
@@ -33,10 +84,10 @@ class AtendimentoQuerySet(models.QuerySet):
         return self.filter(data_hora_inicio__date=hoje)
 
     def pendentes_aprovacao(self):
-        return self.filter(status='PENDENTE')
+        return self.filter(status=StatusAtendimento.PENDENTE)
 
     def realizados(self):
-        return self.filter(status='REALIZADO')
+        return self.filter(status=StatusAtendimento.REALIZADO)
 
     def conflito_com(self, profissional, data_inicio, data_fim):
         """Atendimentos que conflitam com janela [data_inicio, data_fim)."""
@@ -44,7 +95,7 @@ class AtendimentoQuerySet(models.QuerySet):
             profissional=profissional,
             data_hora_inicio__lt=data_fim,
             data_hora_fim__gt=data_inicio,
-            status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO'],
+            status__in=STATUS_ATIVOS,
         )
 
 
@@ -55,28 +106,21 @@ AtendimentoManager = models.Manager.from_queryset(AtendimentoQuerySet)
 
 
 class Atendimento(models.Model):
-    # Constantes publicas — referencia unica p/ status (substitui magic strings)
-    STATUS_PENDENTE = 'PENDENTE'
-    STATUS_AGENDADO = 'AGENDADO'
-    STATUS_CONFIRMADO = 'CONFIRMADO'
-    STATUS_REALIZADO = 'REALIZADO'
-    STATUS_CANCELADO = 'CANCELADO'
-    STATUS_FALTOU = 'FALTOU'
-    STATUS_REAGENDADO = 'REAGENDADO'
+    # Atalhos do enum StatusAtendimento (codigo antigo usa Atendimento.STATUS_*)
+    Status = StatusAtendimento
+    STATUS_PENDENTE = StatusAtendimento.PENDENTE
+    STATUS_AGENDADO = StatusAtendimento.AGENDADO
+    STATUS_CONFIRMADO = StatusAtendimento.CONFIRMADO
+    STATUS_REALIZADO = StatusAtendimento.REALIZADO
+    STATUS_CANCELADO = StatusAtendimento.CANCELADO
+    STATUS_FALTOU = StatusAtendimento.FALTOU
+    STATUS_REAGENDADO = StatusAtendimento.REAGENDADO
 
     # Grupos para queries semanticas
-    STATUS_FINALIZADOS = (STATUS_REALIZADO, STATUS_CANCELADO, STATUS_FALTOU, STATUS_REAGENDADO)
-    STATUS_ATIVOS = (STATUS_PENDENTE, STATUS_AGENDADO, STATUS_CONFIRMADO)
+    STATUS_FINALIZADOS = STATUS_FINALIZADOS
+    STATUS_ATIVOS = STATUS_ATIVOS
 
-    STATUS_CHOICES = [
-        (STATUS_PENDENTE, 'Pendente de Confirmação'),
-        (STATUS_AGENDADO, 'Agendado'),
-        (STATUS_CONFIRMADO, 'Confirmado'),
-        (STATUS_REALIZADO, 'Realizado'),
-        (STATUS_CANCELADO, 'Cancelado'),
-        (STATUS_FALTOU, 'Faltou'),
-        (STATUS_REAGENDADO, 'Reagendado'),
-    ]
+    STATUS_CHOICES = StatusAtendimento.choices
 
     # FKs sem indice automatico: os ix_ do Meta cobrem (spec §2.4/§2.11)
     cliente = models.ForeignKey(Cliente, on_delete=models.RESTRICT, db_index=False)
@@ -114,7 +158,10 @@ class Atendimento(models.Model):
         db_comment='Preco cheio quando houve promocao.',
     )
     descricao_preco = models.TextField(blank=True, default='', db_default='')
-    status = models.CharField(max_length=20, default='PENDENTE', db_default='PENDENTE', choices=STATUS_CHOICES)
+    status = models.CharField(
+        max_length=20, default=StatusAtendimento.PENDENTE, db_default=StatusAtendimento.PENDENTE,
+        choices=StatusAtendimento.choices,
+    )
     # Link publico de reagendar/cancelar: link_acesso (GERENCIAR_AGENDAMENTO, so
     # os migrados da 0049). O portal "Meus agendamentos" usa id + sessao do OTP.
     criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
@@ -128,13 +175,22 @@ class Atendimento(models.Model):
     # (comissao, cashback, retorno, lista de espera).
 
     TRANSICOES = {
-        'PENDENTE': {'AGENDADO', 'CONFIRMADO', 'CANCELADO', 'REAGENDADO'},
-        'AGENDADO': {'CONFIRMADO', 'CANCELADO', 'FALTOU', 'REAGENDADO', 'REALIZADO'},
-        'CONFIRMADO': {'REALIZADO', 'CANCELADO', 'FALTOU', 'REAGENDADO'},
-        'REALIZADO': set(),
-        'CANCELADO': set(),
-        'FALTOU': set(),
-        'REAGENDADO': set(),
+        StatusAtendimento.PENDENTE: {
+            StatusAtendimento.AGENDADO, StatusAtendimento.CONFIRMADO, StatusAtendimento.CANCELADO,
+            StatusAtendimento.REAGENDADO,
+        },
+        StatusAtendimento.AGENDADO: {
+            StatusAtendimento.CONFIRMADO, StatusAtendimento.CANCELADO, StatusAtendimento.FALTOU,
+            StatusAtendimento.REAGENDADO, StatusAtendimento.REALIZADO,
+        },
+        StatusAtendimento.CONFIRMADO: {
+            StatusAtendimento.REALIZADO, StatusAtendimento.CANCELADO, StatusAtendimento.FALTOU,
+            StatusAtendimento.REAGENDADO,
+        },
+        StatusAtendimento.REALIZADO: set(),
+        StatusAtendimento.CANCELADO: set(),
+        StatusAtendimento.FALTOU: set(),
+        StatusAtendimento.REAGENDADO: set(),
     }
 
     class TransicaoInvalida(Exception):
@@ -187,7 +243,7 @@ class Atendimento(models.Model):
     def confirmar(self, by_user=None):
         from ..domain.events import AtendimentoConfirmado
         with transaction.atomic():
-            self._transicionar('CONFIRMADO', by_user=by_user)
+            self._transicionar(StatusAtendimento.CONFIRMADO, by_user=by_user)
             self._publish_event(AtendimentoConfirmado, confirmado_por_id=getattr(by_user, 'pk', None))
 
     def cancelar(self, motivo='', by_user=None, *, pela_cliente=False):
@@ -195,7 +251,7 @@ class Atendimento(models.Model):
         equipe nao (antes `by_user is None` marcava o cancelamento automatico como da cliente)."""
         from ..domain.events import AtendimentoCancelado
         with transaction.atomic():
-            self._transicionar('CANCELADO', motivo=motivo, by_user=by_user)
+            self._transicionar(StatusAtendimento.CANCELADO, motivo=motivo, by_user=by_user)
             self._publish_event(
                 AtendimentoCancelado,
                 motivo=motivo or '',
@@ -205,7 +261,7 @@ class Atendimento(models.Model):
     def marcar_realizado(self, by_user=None):
         from ..domain.events import AtendimentoRealizado
         with transaction.atomic():
-            self._transicionar('REALIZADO', by_user=by_user)
+            self._transicionar(StatusAtendimento.REALIZADO, by_user=by_user)
             self._publish_event(
                 AtendimentoRealizado,
                 cliente_id=self.cliente_id,
@@ -215,14 +271,14 @@ class Atendimento(models.Model):
     def marcar_falta(self, by_user=None):
         from ..domain.events import AtendimentoFaltou
         with transaction.atomic():
-            self._transicionar('FALTOU', by_user=by_user)
+            self._transicionar(StatusAtendimento.FALTOU, by_user=by_user)
             self._publish_event(AtendimentoFaltou, cliente_id=self.cliente_id)
 
     def marcar_reagendado(self, by_user=None):
-        self._transicionar('REAGENDADO', by_user=by_user)
+        self._transicionar(StatusAtendimento.REAGENDADO, by_user=by_user)
 
     def aprovar(self, by_user=None):
-        self._transicionar('AGENDADO', by_user=by_user)
+        self._transicionar(StatusAtendimento.AGENDADO, by_user=by_user)
 
     def _publish_event(self, event_cls, **fields) -> None:
         """Publica o DomainEvent (classe, nao nome: erro de digitacao vira ImportError) na
@@ -250,7 +306,7 @@ class Atendimento(models.Model):
             # "agenda em aberto" (proximos/pendentes)
             Indice(
                 fields=['data_hora_inicio'],
-                condition=models.Q(status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO']),
+                condition=models.Q(status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO']),  # = STATUS_ATIVOS
                 name='ix_atendimento_data_hora_inicio_ativo_parcial',
             ),
             Indice(fields=['procedimento'], name='ix_atendimento_procedimento'),
@@ -269,10 +325,7 @@ class Atendimento(models.Model):
         ]
         constraints = [
             models.CheckConstraint(
-                condition=models.Q(status__in=[
-                    'PENDENTE', 'AGENDADO', 'CONFIRMADO', 'REALIZADO',
-                    'CANCELADO', 'FALTOU', 'REAGENDADO',
-                ]),
+                condition=models.Q(status__in=StatusAtendimento.values),   # CHECK = o enum
                 name='ck_atendimento_status'
             ),
             models.CheckConstraint(
@@ -341,39 +394,31 @@ class Atendimento(models.Model):
 
 
 class Notificacao(models.Model):
-    TIPO_CHOICES = [
-        ('LEMBRETE', 'Lembrete D-1'),
-        ('LEMBRETE_2H', 'Lembrete T-2h'),
-        ('CONFIRMACAO', 'Confirmação'),
-        ('CANCELAMENTO', 'Cancelamento'),
-        ('NPS', 'Pesquisa NPS'),
-        ('PESQUISA', 'Pesquisa de satisfação detalhada'),
-        ('APROVACAO', 'Aprovação Profissional'),
-        # Link de assinatura do termo (/termo/<token>, LinkAcesso TERMO)
-        ('TERMO', 'Termo de consentimento'),
-    ]
-    CANAL_CHOICES = [
-        ('WHATSAPP', 'WhatsApp'),
-        ('SMS', 'SMS'),
-        ('EMAIL', 'E-mail'),
-    ]
-    STATUS_CHOICES = [
-        ('PENDENTE', 'Pendente'),
-        ('ENVIADO', 'Enviado'),
-        ('FALHOU', 'Falhou'),
-    ]
-    RESPOSTA_CHOICES = [
-        ('CONFIRMOU', 'Confirmou'),
-        ('CANCELOU', 'Cancelou'),
-    ]
+    Tipo = TipoNotificacao
+    Canal = CanalNotificacao
+    Status = StatusNotificacao
+    Resposta = RespostaNotificacao
+    TIPO_CHOICES = TipoNotificacao.choices
+    CANAL_CHOICES = CanalNotificacao.choices
+    STATUS_CHOICES = StatusNotificacao.choices
+    RESPOSTA_CHOICES = RespostaNotificacao.choices
 
     # FK sem indice automatico: coberta pelo ix_notificacao_atendimento_tipo
     atendimento = models.ForeignKey(Atendimento, on_delete=models.CASCADE, db_index=False)
-    tipo = models.CharField(max_length=30, default='LEMBRETE', db_default='LEMBRETE', choices=TIPO_CHOICES)
-    canal = models.CharField(max_length=20, default='WHATSAPP', db_default='WHATSAPP', choices=CANAL_CHOICES)
-    status = models.CharField(max_length=20, default='PENDENTE', db_default='PENDENTE', choices=STATUS_CHOICES)
+    tipo = models.CharField(
+        max_length=30, default=TipoNotificacao.LEMBRETE, db_default=TipoNotificacao.LEMBRETE,
+        choices=TipoNotificacao.choices,
+    )
+    canal = models.CharField(
+        max_length=20, default=CanalNotificacao.WHATSAPP, db_default=CanalNotificacao.WHATSAPP,
+        choices=CanalNotificacao.choices,
+    )
+    status = models.CharField(
+        max_length=20, default=StatusNotificacao.PENDENTE, db_default=StatusNotificacao.PENDENTE,
+        choices=StatusNotificacao.choices,
+    )
     resposta = models.CharField(
-        max_length=20, blank=True, null=True, choices=RESPOSTA_CHOICES
+        max_length=20, blank=True, null=True, choices=RespostaNotificacao.choices
     )
     # O link publico da mensagem (/confirmar/, /nps/, /termo/) vive em
     # link_acesso (so o hash do token) — services/links.py.
@@ -396,17 +441,14 @@ class Notificacao(models.Model):
         ]
         constraints = [
             models.CheckConstraint(
-                condition=models.Q(tipo__in=[
-                    'LEMBRETE', 'LEMBRETE_2H', 'CONFIRMACAO', 'CANCELAMENTO', 'NPS', 'PESQUISA', 'APROVACAO', 'TERMO',
-                ]),
-                name='ck_notificacao_tipo',
+                condition=models.Q(tipo__in=TipoNotificacao.values), name='ck_notificacao_tipo',
             ),
-            models.CheckConstraint(condition=models.Q(canal__in=['WHATSAPP', 'SMS', 'EMAIL']), name='ck_notificacao_canal'),
+            models.CheckConstraint(condition=models.Q(canal__in=CanalNotificacao.values), name='ck_notificacao_canal'),
             models.CheckConstraint(
-                condition=models.Q(status__in=['PENDENTE', 'ENVIADO', 'FALHOU']), name='ck_notificacao_status',
+                condition=models.Q(status__in=StatusNotificacao.values), name='ck_notificacao_status',
             ),
             models.CheckConstraint(
-                condition=models.Q(resposta__isnull=True) | models.Q(resposta__in=['CONFIRMOU', 'CANCELOU']),
+                condition=models.Q(resposta__isnull=True) | models.Q(resposta__in=RespostaNotificacao.values),
                 name='ck_notificacao_resposta',
             ),
         ]

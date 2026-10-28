@@ -56,6 +56,21 @@ class Carteira(TimestampedMixin):
         return f'Credito {self.cliente.nome}: R$ {self.saldo}'
 
 
+class TipoMovimentoCarteira(models.TextChoices):
+    CREDITO = 'CREDITO', 'Credito (vale, refund, ajuste+)'
+    DEBITO = 'DEBITO', 'Debito (uso, ajuste-)'
+
+
+class OrigemMovimentoCarteira(models.TextChoices):
+    VALE_PRESENTE = 'VALE_PRESENTE', 'Vale presente'
+    CANCELAMENTO = 'CANCELAMENTO', 'Refund cancelamento'
+    AJUSTE_MANUAL = 'AJUSTE_MANUAL', 'Ajuste manual'
+    USO_AGENDAMENTO = 'USO_AGENDAMENTO', 'Uso em agendamento'
+    CASHBACK_INDICACAO = 'CASHBACK_INDICACAO', 'Cashback por indicacao'
+    CASHBACK_ESTORNO = 'CASHBACK_ESTORNO', 'Estorno cashback'
+    OUTRO = 'OUTRO', 'Outro'
+
+
 class MovimentoCarteira(models.Model):
     """Entrada/saida do credito do cliente.
 
@@ -64,24 +79,18 @@ class MovimentoCarteira(models.Model):
     virariam UPDATE/DELETE e estourariam InternalError (500) no admin; com
     PROTECT o Django mostra a tela de "objetos protegidos".
     """
-    TIPO_CHOICES = [
-        ('CREDITO', 'Credito (vale, refund, ajuste+)'),
-        ('DEBITO', 'Debito (uso, ajuste-)'),
-    ]
-    ORIGEM_CHOICES = [
-        ('VALE_PRESENTE', 'Vale presente'),
-        ('CANCELAMENTO', 'Refund cancelamento'),
-        ('AJUSTE_MANUAL', 'Ajuste manual'),
-        ('USO_AGENDAMENTO', 'Uso em agendamento'),
-        ('CASHBACK_INDICACAO', 'Cashback por indicacao'),
-        ('CASHBACK_ESTORNO', 'Estorno cashback'),
-        ('OUTRO', 'Outro'),
-    ]
+    Tipo = TipoMovimentoCarteira
+    Origem = OrigemMovimentoCarteira
+    TIPO_CHOICES = TipoMovimentoCarteira.choices
+    ORIGEM_CHOICES = OrigemMovimentoCarteira.choices
 
     # FKs sem indice automatico: carteira/atendimento cobertos pelos ix_; usuario = autoria (§2.11)
     carteira = models.ForeignKey(Carteira, on_delete=models.PROTECT, related_name='movimentos', db_index=False)
-    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
-    origem = models.CharField(max_length=30, choices=ORIGEM_CHOICES, default='OUTRO', db_default='OUTRO')
+    tipo = models.CharField(max_length=10, choices=TipoMovimentoCarteira.choices)
+    origem = models.CharField(
+        max_length=30, choices=OrigemMovimentoCarteira.choices,
+        default=OrigemMovimentoCarteira.OUTRO, db_default=OrigemMovimentoCarteira.OUTRO,
+    )
     valor = models.DecimalField(max_digits=10, decimal_places=2)
     saldo_resultante = models.DecimalField(max_digits=10, decimal_places=2, db_column='valor_saldo_resultante')
     atendimento = models.ForeignKey(
@@ -109,16 +118,14 @@ class MovimentoCarteira(models.Model):
             # Idempotencia F-CSB: 1 unico CASHBACK_INDICACAO por (credito, atendimento)
             models.UniqueConstraint(
                 fields=['carteira', 'atendimento'],
-                condition=models.Q(origem='CASHBACK_INDICACAO'),
+                condition=models.Q(origem=OrigemMovimentoCarteira.CASHBACK_INDICACAO),
                 name='uq_movimento_carteira_cashback_por_atendimento',
             ),
-            models.CheckConstraint(condition=models.Q(tipo__in=['CREDITO', 'DEBITO']), name='ck_movimento_carteira_tipo'),
             models.CheckConstraint(
-                condition=models.Q(origem__in=[
-                    'VALE_PRESENTE', 'CANCELAMENTO', 'AJUSTE_MANUAL', 'USO_AGENDAMENTO',
-                    'CASHBACK_INDICACAO', 'CASHBACK_ESTORNO', 'OUTRO',
-                ]),
-                name='ck_movimento_carteira_origem',
+                condition=models.Q(tipo__in=TipoMovimentoCarteira.values), name='ck_movimento_carteira_tipo',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(origem__in=OrigemMovimentoCarteira.values), name='ck_movimento_carteira_origem',
             ),
             models.CheckConstraint(condition=models.Q(valor__gt=0), name='ck_movimento_carteira_valor_positivo'),
             models.CheckConstraint(
@@ -259,6 +266,19 @@ class MovimentoComissaoQuerySet(models.QuerySet):
         )
 
 
+class TipoMovimentoComissao(models.TextChoices):
+    CREDITO = 'CREDITO', 'Crédito (atendimento realizado)'
+    ESTORNO = 'ESTORNO', 'Estorno (cancelamento)'
+    PAGAMENTO = 'PAGAMENTO', 'Pagamento (baixa)'
+
+
+class StatusComissao(models.TextChoices):
+    """Status DERIVADO do credito (nao e coluna): MovimentoComissao.objects.creditos_com_status()."""
+    PENDENTE = 'PENDENTE', 'Pendente'
+    PAGA = 'PAGA', 'Paga'
+    ESTORNADA = 'ESTORNADA', 'Estornada'
+
+
 class MovimentoComissao(models.Model):
     """Livro-razao de comissao (docs/specs/padrao-sql.md §2.9 e §4.f — migration 0053).
 
@@ -275,23 +295,17 @@ class MovimentoComissao(models.Model):
     tg_movimento_comissao_imutavel. No SQLite o Python cobre (save/delete).
     """
 
-    TIPO_CREDITO = 'CREDITO'
-    TIPO_ESTORNO = 'ESTORNO'
-    TIPO_PAGAMENTO = 'PAGAMENTO'
-    TIPO_CHOICES = [
-        (TIPO_CREDITO, 'Crédito (atendimento realizado)'),
-        (TIPO_ESTORNO, 'Estorno (cancelamento)'),
-        (TIPO_PAGAMENTO, 'Pagamento (baixa)'),
-    ]
+    Tipo = TipoMovimentoComissao
+    Status = StatusComissao
+    TIPO_CREDITO = TipoMovimentoComissao.CREDITO
+    TIPO_ESTORNO = TipoMovimentoComissao.ESTORNO
+    TIPO_PAGAMENTO = TipoMovimentoComissao.PAGAMENTO
+    TIPO_CHOICES = TipoMovimentoComissao.choices
     # status DERIVADO do credito (nao e coluna): anotado por creditos_com_status()
-    STATUS_PENDENTE = 'PENDENTE'
-    STATUS_PAGA = 'PAGA'
-    STATUS_ESTORNADA = 'ESTORNADA'
-    STATUS_CHOICES = [
-        (STATUS_PENDENTE, 'Pendente'),
-        (STATUS_PAGA, 'Paga'),
-        (STATUS_ESTORNADA, 'Estornada'),
-    ]
+    STATUS_PENDENTE = StatusComissao.PENDENTE
+    STATUS_PAGA = StatusComissao.PAGA
+    STATUS_ESTORNADA = StatusComissao.ESTORNADA
+    STATUS_CHOICES = StatusComissao.choices
 
     # FKs sem indice automatico: os ix_ do Meta cobrem (spec §2.9)
     profissional = models.ForeignKey(
@@ -339,7 +353,7 @@ class MovimentoComissao(models.Model):
         )
         constraints = [
             models.CheckConstraint(
-                condition=Q(tipo__in=['CREDITO', 'ESTORNO', 'PAGAMENTO']),
+                condition=Q(tipo__in=TipoMovimentoComissao.values),
                 name='ck_movimento_comissao_tipo',
             ),
             models.CheckConstraint(condition=Q(valor__gt=0), name='ck_movimento_comissao_valor_positivo'),
