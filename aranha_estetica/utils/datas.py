@@ -63,6 +63,11 @@ def ler_data(valor: str) -> date:
     return datetime.strptime(valor, '%Y-%m-%d').date()  # noqa: DTZ007 - so a data
 
 
+def ler_mes(valor: str) -> date:
+    """'AAAA-MM' (input type=month, ?mes=) -> 1o dia do mes. ValueError se invalido."""
+    return datetime.strptime(valor, '%Y-%m').date()  # noqa: DTZ007 - so a data
+
+
 def ler_hora(valor: str) -> time:
     """'HH:MM' ou 'HH:MM:SS' (input type=time) -> time. ValueError se invalido."""
     for formato in ('%H:%M', '%H:%M:%S'):

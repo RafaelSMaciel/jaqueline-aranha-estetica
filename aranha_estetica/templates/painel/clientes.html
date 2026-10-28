@@ -4,7 +4,7 @@
 {% block page_subtitle %}Gerencie todos os clientes da clínica{% endblock %}
 {% block page_actions %}
 <a href="{% url 'aranha:admin_lista_espera' %}"
-   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold border-2 border-[#C9A84C] text-[#C9A84C] bg-superficie hover:bg-[#C9A84C] hover:text-white transition-colors no-underline">
+   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold border-2 border-marca-forte text-marca bg-superficie hover:bg-marca-forte hover:text-sobre-marca transition-colors no-underline">
   <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
     <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
   </svg>
@@ -23,14 +23,14 @@
         type="text"
         id="searchInput"
         name="search"
-        class="w-full px-3 py-2 rounded-xl border border-borda text-[0.875rem] text-texto bg-fundo placeholder-texto-suave outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition"
+        class="w-full px-3 py-2 rounded-xl border border-borda text-[0.875rem] text-texto bg-fundo placeholder-texto-suave transition"
         placeholder="Buscar por nome, CPF, email ou telefone..."
         value="{{ search }}"
       >
     </div>
     <button
       type="submit"
-      class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#C9A84C] text-white text-[0.82rem] font-bold hover:bg-[#b48c4c] transition-colors"
+      class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.82rem] font-bold hover:opacity-90 transition-opacity"
     >
       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
         <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -54,7 +54,7 @@
   <input
     type="text"
     id="filtroClientesInstant" aria-label="Filtrar clientes visíveis"
-    class="w-full px-0 py-1.5 text-[0.85rem] text-texto bg-transparent border-none outline-none placeholder-texto-suave"
+    class="w-full px-0 py-1.5 text-[0.85rem] text-texto bg-transparent border-none placeholder-texto-suave"
     placeholder="Filtrar visíveis..."
     data-search-filter="#listaClientes"
     data-search-counter="#cntClientesVisiveis"
@@ -86,7 +86,7 @@
     {# Info #}
     <div class="flex-1 min-w-0">
       <div class="font-bold text-[0.9rem] truncate">
-        <a href="{% url 'aranha:admin_cliente_detalhe' cliente.pk %}" class="text-texto no-underline hover:text-[#C9A84C] transition-colors">
+        <a href="{% url 'aranha:admin_cliente_detalhe' cliente.pk %}" class="text-texto no-underline hover:text-marca transition-colors">
           {{ cliente.nome }}
         </a>
       </div>
@@ -140,15 +140,15 @@
   </div>
   {% empty %}
   <div class="bg-superficie rounded-2xl p-12 text-center shadow-sm">
-    <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
-      <svg class="w-7 h-7 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+    <div class="w-16 h-16 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mx-auto mb-4">
+      <svg class="w-7 h-7 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
         <path stroke-linecap="round" stroke-linejoin="round" d="M23 21v-2a4 4 0 00-3-3.87"/><path stroke-linecap="round" stroke-linejoin="round" d="M16 3.13a4 4 0 010 7.75"/>
       </svg>
     </div>
-    <h5 class="font-bold text-texto mb-1">
+    <p class="font-serif font-bold text-texto mb-1">
       {% if search %}Nada encontrado{% else %}Nenhum cliente cadastrado{% endif %}
-    </h5>
+    </p>
     <p class="text-[0.85rem] text-texto-suave mb-4">
       {% if search %}
         Nenhum cliente para "{{ search }}". Tente outro termo.
@@ -158,7 +158,7 @@
     </p>
     {% if search %}
     <a href="{% url 'aranha:painel_clientes' %}"
-       class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#C9A84C] text-white text-[0.82rem] font-bold hover:bg-[#b48c4c] transition-colors no-underline">
+       class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.82rem] font-bold hover:opacity-90 transition-opacity no-underline">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
         <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
       </svg>
@@ -171,12 +171,12 @@
 
 {# ── Empty state do filtro instantâneo ── #}
 <div id="emptyFiltroClientes" class="bg-superficie rounded-2xl p-10 text-center shadow-sm" style="display:none;">
-  <div class="w-14 h-14 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-3">
-    <svg class="w-6 h-6 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+  <div class="w-14 h-14 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mx-auto mb-3">
+    <svg class="w-6 h-6 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
       <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
     </svg>
   </div>
-  <h5 class="font-bold text-texto mb-1">Nenhum cliente bate com o filtro</h5>
+  <p class="font-serif font-bold text-texto mb-1">Nenhum cliente bate com o filtro</p>
   <p class="text-[0.85rem] text-texto-suave">Ajuste o termo ou limpe o campo.</p>
 </div>
 

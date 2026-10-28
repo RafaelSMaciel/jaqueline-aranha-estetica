@@ -77,7 +77,7 @@
         content: ''; position: absolute; bottom: 0; left: 20%; right: 20%;
         height: 3px; background: var(--gold); border-radius: 2px 2px 0 0;
     }
-    .step-item.done { color: var(--gold); }
+    .step-item.done { color: var(--cor-marca); }   /* dourado de texto (o --gold como texto dava 2,2:1) */
     .step-num {
         display: inline-flex; align-items: center; justify-content: center;
         width: 28px; height: 28px; border-radius: 50%;
@@ -94,6 +94,14 @@
     .btn-continuar { margin-top: 1.5rem; }
     .btn-continuar:disabled { opacity: .55; cursor: not-allowed; box-shadow: none; }
 
+    /* ─── FILTRO DE CATEGORIA (botoes com aria-pressed; o escolhido = preenchido) ─── */
+    .cat-tabs { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .cat-tab {
+        background: var(--cor-superficie); color: var(--cor-marca); border: 1px solid var(--cor-marca-forte);
+        border-radius: 999px; padding: 0.4rem 1rem; font-size: 0.78rem; font-weight: 700; cursor: pointer;
+    }
+    .cat-tab[aria-pressed="true"] { background: var(--cor-marca-forte); color: var(--cor-sobre-marca); }
+
     /* ─── PROCEDURE CARDS ─── */
     .proc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
     .proc-card {
@@ -107,7 +115,7 @@
         box-shadow: 0 8px 24px rgba(201,168,76,0.15);
     }
     .proc-card.selected {
-        border-color: var(--gold); background: linear-gradient(145deg, #fffef9, #fff9e8);
+        border-color: var(--gold); background: var(--gold-light);   /* token: legivel no tema escuro */
         box-shadow: 0 8px 24px rgba(201,168,76,0.2);
     }
     .proc-icon {
@@ -118,7 +126,7 @@
     .proc-name { font-weight: 700; font-size: 1rem; color: var(--earth); margin-bottom: 0.3rem; }
     .proc-desc { font-size: 0.82rem; color: var(--cor-texto-suave); margin-bottom: 0.8rem; line-height: 1.45; }
     .proc-meta { display: flex; align-items: center; gap: 1rem; }
-    .proc-price { font-weight: 800; color: var(--gold); font-size: 1.1rem; }
+    .proc-price { font-weight: 800; color: var(--cor-marca); font-size: 1.1rem; }
     .proc-price-cheio {
         font-size: 0.78rem; font-weight: 600; color: var(--cor-texto-suave);
         text-decoration: line-through; margin-right: 0.2rem;
@@ -238,7 +246,7 @@
     .recap-value { color: var(--earth); font-weight: 600; text-align: right; }
     .recap-price .recap-value {
         font-family: 'Playfair Display', serif; font-size: 1.35rem;
-        font-weight: 700; color: var(--gold);
+        font-weight: 700; color: var(--cor-marca);
     }
     .recap-price .recap-cheio {
         display: block; font-family: inherit; font-size: 0.8rem; font-weight: 600;
@@ -311,11 +319,37 @@
         font-size: 0.85rem; font-weight: 600;
     }
     .cliente-badge[data-state="existing"] {
-        background: #edf7ee; color: #2e7d32; border: 1px solid #c8e6c9;
+        background: var(--cor-sucesso-fundo); color: var(--cor-sucesso);
+        border: 1px solid color-mix(in srgb, var(--cor-sucesso) 35%, transparent);
     }
     .cliente-badge[data-state="new"] {
-        background: #fbf6e6; color: #8b5c00; border: 1px solid #ecd894;
+        background: var(--cor-aviso-fundo); color: var(--cor-aviso);
+        border: 1px solid color-mix(in srgb, var(--cor-aviso) 35%, transparent);
     }
+    /* consentimentos de comunicacao (LGPD): texto suave do tema, sem o caixa-alta do .form-field label */
+    .form-field label.consent-check {
+        display: flex; align-items: flex-start; gap: 8px; cursor: pointer;
+        font-size: 0.82rem; color: var(--cor-texto-suave);
+        text-transform: none; letter-spacing: 0; font-weight: 500;
+    }
+    .consent-check input { width: auto; margin-top: 3px; }
+    /* ficha de anamnese montada pelo wizard.js (classes, sem cor fixa) */
+    .ficha-anamnese {
+        border: 1px solid var(--cor-borda); border-radius: 10px; padding: 0.75rem;
+        margin-bottom: 0.6rem; background: var(--cor-fundo);
+    }
+    .ficha-titulo { font-weight: 700; color: var(--cor-texto); font-size: 0.85rem; margin-bottom: 0.5rem; }
+    .ficha-campo { margin-bottom: 0.5rem; }
+    .ficha-rotulo { display: block; font-size: 0.78rem; color: var(--cor-texto-suave); font-weight: 600; margin-bottom: 0.2rem; }
+    .ficha-opcao { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--cor-texto); }
+    .ficha-entrada {
+        width: 100%; padding: 0.45rem; border: 1px solid var(--cor-borda-campo); border-radius: 6px;
+        font-size: 0.85rem; background: var(--cor-superficie); color: var(--cor-texto);
+    }
+    /* mensagens do SMS/codigo (wizard.js alterna as classes) */
+    .msg-ok { color: var(--cor-sucesso); }
+    .msg-erro { color: var(--cor-erro); }
+    .msg-ok a, .msg-erro a { font-weight: 700; text-decoration: underline; margin-left: 4px; color: inherit; }
 
     .confirm-subnote {
         display: block; text-align: center; margin-top: 0.75rem;
@@ -359,14 +393,6 @@
         margin-top: 0.75rem;
     }
     .btn-back-step:hover { background: var(--cor-fundo); }
-
-    .wpp-note {
-        display: flex; align-items: center; gap: 0.7rem;
-        background: #dcf5e7; border-left: 4px solid #25D366;
-        border-radius: 12px; padding: 1rem; margin: 1.25rem 0;
-        font-size: 0.85rem; color: #1B5E20; line-height: 1.5;
-    }
-    .wpp-note i, .wpp-note svg { font-size: 1.2rem; color: #25D366; flex-shrink: 0; }
 
     .empty-procs {
         text-align: center; padding: 3rem 1rem; color: var(--cor-texto-suave);
@@ -419,9 +445,9 @@
 
         <!-- ═══ STEP 1: Escolher Procedimento ═══ -->
         <div class="step-panel active" id="step-1" role="region" aria-labelledby="step-1-titulo">
-            <h3 id="step-1-titulo" class="step-titulo" tabindex="-1" style="font-family:'Playfair Display',serif;font-weight:700;color:var(--earth);margin-bottom:0.3rem;">
+            <h2 id="step-1-titulo" class="step-titulo" tabindex="-1" style="font-family:'Playfair Display',serif;font-weight:700;color:var(--earth);margin-bottom:0.3rem;">
                 Escolha seu tratamento
-            </h3>
+            </h2>
             <p style="color:var(--cor-texto-suave);font-size:0.9rem;margin-bottom:1.5rem;">
                 Selecione o procedimento desejado para ver as datas disponíveis.
             </p>
@@ -436,17 +462,11 @@
 
             {% if procedimentos %}
             {% if categorias_disponiveis|length > 1 %}
-            <div class="cat-tabs" role="tablist" aria-label="Filtrar por categoria"
-                 style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-bottom:1rem;">
-                <button type="button" class="cat-tab active" data-cat=""
-                        style="background:var(--cor-marca-forte); color:var(--cor-sobre-marca); border:none; border-radius:999px; padding:0.4rem 1rem; font-size:0.78rem; font-weight:700; cursor:pointer;">
-                    Todos
-                </button>
+            {# Filtro = botoes liga/desliga (aria-pressed), nao abas: nao ha painel de aba por categoria #}
+            <div class="cat-tabs" role="group" aria-label="Filtrar por categoria">
+                <button type="button" class="cat-tab" data-cat="" aria-pressed="true">Todos</button>
                 {% for cat_value, cat_label in categorias_disponiveis %}
-                <button type="button" class="cat-tab" data-cat="{{ cat_value }}"
-                        style="background:var(--cor-superficie); color:var(--cor-marca); border:1px solid var(--cor-marca-forte); border-radius:999px; padding:0.4rem 1rem; font-size:0.78rem; font-weight:700; cursor:pointer;">
-                    {{ cat_label }}
-                </button>
+                <button type="button" class="cat-tab" data-cat="{{ cat_value }}" aria-pressed="false">{{ cat_label }}</button>
                 {% endfor %}
             </div>
             {% endif %}
@@ -467,7 +487,7 @@
                                 {% if proc.preco_cheio %}<s class="proc-price-cheio">{{ proc.preco_cheio|brl }}</s>{% endif %}
                                 {{ proc.preco|brl }}
                             {% else %}
-                                <small style="font-size:0.78rem;font-weight:700;color:#7a5f1f;">A consultar</small>
+                                <small style="font-size:0.78rem;font-weight:700;color:var(--cor-marca);">A consultar</small>
                             {% endif %}
                         </span>
                         <span class="proc-duration">
@@ -485,13 +505,13 @@
             </button>
             {% else %}
             <div class="empty-procs" style="padding:4rem 2rem;">
-                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="font-size:3.5rem;color:#7a5f1f;display:block;margin:0 auto 1.25rem;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M12 18.5l-2.3-2.2a1.6 1.6 0 0 1 2.3-2.3 1.6 1.6 0 0 1 2.3 2.3z"/></svg>
-                <h4 style="font-weight:700;color:#4A3425;font-family:'Playfair Display',serif;font-size:1.4rem;">Em breve</h4>
-                <p style="color:#6B6256;max-width:360px;margin:0.5rem auto 1.5rem;">Nossos tratamentos estarão disponíveis para agendamento online em breve.</p>
+                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="font-size:3.5rem;color:var(--cor-marca);display:block;margin:0 auto 1.25rem;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M12 18.5l-2.3-2.2a1.6 1.6 0 0 1 2.3-2.3 1.6 1.6 0 0 1 2.3 2.3z"/></svg>
+                <h2 style="font-weight:700;color:var(--cor-texto);font-family:var(--heading-font);font-size:1.4rem;">Em breve</h2>
+                <p style="color:var(--cor-texto-suave);max-width:360px;margin:0.5rem auto 1.5rem;">Nossos tratamentos estarão disponíveis para agendamento online em breve.</p>
                 {% if WHATSAPP_NUMERO %}
                 <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text={{ 'Olá! Gostaria de agendar um horário.'|urlencode }}" target="_blank" rel="noopener"
                    class="inline-flex items-center gap-2 px-4 py-2 rounded-full font-bold"
-                   style="background:#25D366;color:white;font-size:0.9rem;box-shadow:0 4px 16px rgba(37,211,102,0.3);">
+                   style="background:var(--cor-sucesso-forte);color:var(--cor-sobre-sucesso);font-size:0.9rem;box-shadow:0 4px 16px rgba(37,211,102,0.3);">
                     <svg width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="font-size:1.1rem;"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M11.999 2C6.477 2 2 6.477 2 12c0 1.89.525 3.659 1.438 5.168L2 22l4.984-1.407A9.945 9.945 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.95 7.95 0 01-4.055-1.109l-.291-.173-3.007.849.85-2.932-.19-.301A7.94 7.94 0 014 12c0-4.418 3.582-8 8-8s8 3.582 8 8-3.582 8-8 8z"/></svg>Agendar via WhatsApp
                 </a>
                 {% endif %}
@@ -501,7 +521,7 @@
 
         <!-- ═══ STEP 2: Calendário + Horários ═══ -->
         <div class="step-panel" id="step-2" role="region" aria-labelledby="step-2-titulo">
-            <h3 id="step-2-titulo" class="step-titulo sr-only" tabindex="-1">Escolha a data e o horário</h3>
+            <h2 id="step-2-titulo" class="step-titulo sr-only" tabindex="-1">Escolha a data e o horário</h2>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <!-- Calendário -->
                 <div>
@@ -555,9 +575,9 @@
         <div class="step-panel" id="step-3" role="region" aria-labelledby="step-3-titulo">
             <div class="flex justify-center">
                 <div class="w-full max-w-lg">
-                    <h3 id="step-3-titulo" class="step-titulo" tabindex="-1" style="font-family:'Playfair Display',serif;font-weight:700;color:var(--earth);margin-bottom:1.5rem;text-align:center;">
+                    <h2 id="step-3-titulo" class="step-titulo" tabindex="-1" style="font-family:'Playfair Display',serif;font-weight:700;color:var(--earth);margin-bottom:1.5rem;text-align:center;">
                         Confirme seu agendamento
-                    </h3>
+                    </h2>
 
                     <!-- Resumo -->
                     <div class="booking-recap">
@@ -654,22 +674,22 @@
                             </div>
 
                             <div class="form-field" style="margin-bottom:0.5rem;">
-                                <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:0.82rem;color:#6b6256;text-transform:none;letter-spacing:0;font-weight:500;">
-                                    <input type="checkbox" name="consent_email_marketing" id="form-consent-email" style="width:auto;margin-top:3px;">
+                                <label class="consent-check">
+                                    <input type="checkbox" name="consent_email_marketing" id="form-consent-email">
                                     <span>{{ textos_consentimento.consent_email_marketing }}</span>
                                 </label>
                             </div>
 
                             <div class="form-field" style="margin-bottom:0.5rem;">
-                                <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:0.82rem;color:#6b6256;text-transform:none;letter-spacing:0;font-weight:500;">
-                                    <input type="checkbox" name="consent_whatsapp_confirmacao" id="form-consent-wa-d1" style="width:auto;margin-top:3px;">
+                                <label class="consent-check">
+                                    <input type="checkbox" name="consent_whatsapp_confirmacao" id="form-consent-wa-d1">
                                     <span>{{ textos_consentimento.consent_whatsapp_confirmacao }}</span>
                                 </label>
                             </div>
 
                             <div class="form-field" style="margin-bottom:0;">
-                                <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:0.82rem;color:#6b6256;text-transform:none;letter-spacing:0;font-weight:500;">
-                                    <input type="checkbox" name="consent_whatsapp_nps" id="form-consent-nps" style="width:auto;margin-top:3px;">
+                                <label class="consent-check">
+                                    <input type="checkbox" name="consent_whatsapp_nps" id="form-consent-nps">
                                     <span>{{ textos_consentimento.consent_whatsapp_nps }}</span>
                                 </label>
                             </div>
@@ -677,7 +697,7 @@
 
                         <!-- Anamnese dinamica (preenchida via JS conforme procedimento) -->
                         <div id="anamneseContainer" style="display:none;">
-                            <div style="font-weight:700;color:#7a5f1f;margin:1rem 0 0.5rem;font-size:0.9rem;">
+                            <div style="font-weight:700;color:var(--cor-marca);margin:1rem 0 0.5rem;font-size:0.9rem;">
                                 <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-0.125em;"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M12 17l-2.3-2.2a1.6 1.6 0 0 1 2.3-2.3 1.6 1.6 0 0 1 2.3 2.3z"/></svg> Questionário pré-atendimento
                             </div>
                             <div id="anamneseFields"></div>

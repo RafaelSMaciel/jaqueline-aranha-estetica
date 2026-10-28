@@ -40,13 +40,13 @@
       {% if forloop.first %}checked{% endif %}>
     {% endfor %}
 
-    {# — Barra de tabs — #}
-    <div class="flex flex-wrap gap-2 mb-10 border-b border-borda pb-2" role="tablist">
+    {# — Barra de tabs — (radios + label: o teclado usa as setas do grupo de radios; sem role=tab,
+       que pedia um label focavel com aria-selected) #}
+    <div class="flex flex-wrap gap-2 mb-10 border-b border-borda pb-2">
       {% for grupo in grupos %}
       <label
         for="esp-radio-{{ grupo.key|lower }}"
-        class="esp-tab-label cursor-pointer px-5 py-2.5 rounded-t-lg text-sm font-semibold transition-colors border-b-2 border-transparent text-texto-suave hover:text-marca hover:border-marca"
-        role="tab">
+        class="esp-tab-label cursor-pointer px-5 py-2.5 rounded-t-lg text-sm font-semibold transition-colors border-b-2 border-transparent text-texto-suave hover:text-marca hover:border-marca">
         {{ grupo.label }}
       </label>
       {% endfor %}
@@ -56,8 +56,7 @@
     {% for grupo in grupos %}
     <div
       id="esp-panel-{{ grupo.key|lower }}"
-      class="esp-panel hidden"
-      role="tabpanel">
+      class="esp-panel hidden">
 
       <div class="grid lg:grid-cols-[1fr_2fr] gap-10 items-start">
 
@@ -154,9 +153,13 @@
   /* Destaca o label da tab ativa */
   {% for grupo in grupos %}
   #esp-radio-{{ grupo.key|lower }}:checked ~ * label[for="esp-radio-{{ grupo.key|lower }}"] {
-    color: var(--color-marca, #C9A84C);
-    border-bottom-color: var(--color-marca, #C9A84C);
-    background-color: var(--color-superficie, #fff);
+    color: var(--cor-marca);
+    border-bottom-color: var(--cor-marca);
+    background-color: var(--cor-superficie);
+  }
+  /* o radio e invisivel (sr-only): o foco do teclado aparece no label dele */
+  #esp-radio-{{ grupo.key|lower }}:focus-visible ~ * label[for="esp-radio-{{ grupo.key|lower }}"] {
+    outline: 2px solid var(--cor-foco); outline-offset: 2px;
   }
   {% endfor %}
 </style>

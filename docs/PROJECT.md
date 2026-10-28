@@ -1,7 +1,7 @@
 # Jaqueline Aranha Estética (Shiva Zen) — Documentação do Projeto
 
 > **Fonte viva textual do projeto.** Reflete o código do branch `dev`
-> (migrations `0001`–`0061`). Mudou model, rota, env var, job ou deploy? Atualize aqui
+> (migrations `0001`–`0067`). Mudou model, rota, env var, job ou deploy? Atualize aqui
 > no mesmo commit. Regras funcionais detalhadas: [`REGRAS-DE-NEGOCIO.md`](REGRAS-DE-NEGOCIO.md).
 > Acesso/login: [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO-E-ACESSO.md). Decisões e
 > pendências: [`ARCHITECTURE.md`](ARCHITECTURE.md). Documento do TCC (requisitos, UML,
@@ -279,7 +279,7 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 ### 5.1 Resumo
 
 - **36 tabelas de domínio** (+ tabelas do Django, django-otp, django-axes). PK `BigAutoField`.
-- Migrations `0001`–`0061`. Ainda não há produção: o primeiro deploy cria o banco do zero (§14).
+- Migrations `0001`–`0067`. Ainda não há produção: o primeiro deploy cria o banco do zero (§14).
   O Postgres do ambiente de desenvolvimento no Railway (na `0026`) está em stand-by. Histórico em
   [`specs/remodelagem-banco-v2.md`](specs/remodelagem-banco-v2.md) e, da `0048` em diante, o padrão
   SQL em [`specs/padrao-sql.md`](specs/padrao-sql.md).

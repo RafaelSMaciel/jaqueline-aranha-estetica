@@ -134,6 +134,7 @@ cards e dias são `<button>` (teclado) e o estado sobrevive a recusa do servidor
 | D22 | Trilhas append-only no banco: `log_auditoria` imutável e expurgo só com 180+ dias (0059) | Mesmo usuário do banco p/ app e migrations: SQL injetado não apaga a prova (art. 37) |
 | D23 | **Postgres é a fonte única da escrita** de esquecimento, retenção LGPD, limpeza e expiração de pacotes (procedures 0058, sem fallback Python); funções de leitura seguem como espelho testado do Python | Decisão do dono (2026-10-27): uma regra, um lugar; custa exigir Postgres (Docker) para rodar esses testes e rotinas localmente |
 | D24 | Ambiente de testes publicado = **perfil `staging`** (`prod.py` + travas: SMS só em log com a prévia, e-mail/WhatsApp só p/ `DESTINATARIOS_TESTE`, noindex, faixa, `seed --demo`); `DJANGO_ENV=dev` no Railway derruba o boot e produção sem Postgres é Error (`aranha.E002`) | Testar o fluxo inteiro (wizard + OTP) na internet sem mandar mensagem a cliente real nem expor DEBUG |
+| D25 | Financeiro por **competência mensal** (`services/financeiro.competencia`): pacote = vendas pela data da venda − reembolsos pela data do cancelamento (`compra_pacote.cancelado_em`); comissão pela data do atendimento; rateio da venda **ponderado pelo preço de tabela**; CRÉDITO de comissão congela base e percentual; regra usada é imutável (trigger) | Mês fechado não muda; o valor de cada sessão reflete o procedimento; comissão explicável depois |
 
 ---
 
@@ -215,8 +216,8 @@ verde em SQLite e Postgres).
 - [x] ~~**Janela do vínculo profissional ↔ prontuário**~~ resolvido (janela = max(60, `max_advance_dias`)).
 - [x] ~~**Link da ficha de anamnese** no agendamento interno~~ resolvido (D18: botão "Link da ficha" na agenda).
 - [x] ~~**Purga LGPD × histórico do prontuário:**~~ resolvido (`candidatos_purga` retém quem tem `prontuario_versao`).
-- [ ] **Cashback de indicação (parcial):** a ficha do cliente já registra "Indicada por"
-      (crédito automático no 1º atendimento pago); falta fluxo de **uso** do saldo da carteira
+- [x] ~~**Cashback de indicação**~~ resolvido: crédito visível na ficha e no portal (código + saldo) e
+      usado no valor do atendimento, devolvido se o atendimento não acontece (2026-10-28).
 - [x] ~~`Promocao.clean()` e promoção geral de preço fixo~~ resolvido (clean + CHECK na 0047).
 - [x] ~~`migrate_atomico` sem aviso de falha~~ resolvido (escreve FALHOU + migration corrente).
 - [x] ~~`tests/test_pg_ddl.py` sem os triggers da 0046~~ resolvido.

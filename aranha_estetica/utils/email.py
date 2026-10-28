@@ -117,6 +117,18 @@ def _remetente() -> str:
     return getattr(settings, 'DEFAULT_FROM_EMAIL', '') or 'noreply@localhost'
 
 
+def link_agendar() -> str:
+    """Destino do botao "Agendar" dos e-mails = o dos botoes do site (site_tags.agendar_link).
+
+    O wizard pede codigo por SMS: sem SMS ele nao conclui, e o site manda p/ o WhatsApp da
+    clinica (context_processors._agendar_whatsapp). Antes o e-mail tinha '/agendamento/' fixo."""
+    from ..context_processors import _agendar_whatsapp
+    from .branding import get_branding
+
+    whatsapp = _agendar_whatsapp(get_branding().get('WHATSAPP_NUMERO', ''))
+    return whatsapp or settings.SITE_URL.rstrip('/') + reverse('aranha:agendamento_publico')
+
+
 def url_descadastro(unsub_token: str) -> str:
     """URL absoluta do descadastro (link do rodape + List-Unsubscribe)."""
     return settings.SITE_URL.rstrip('/') + reverse('aranha:lgpd_unsubscribe', args=[unsub_token])
@@ -143,6 +155,7 @@ def _enviar_email(destinatario, assunto, template, contexto,
     contexto.setdefault('clinic_name', _nome_clinica())
     contexto.setdefault('site_url', settings.SITE_URL.rstrip('/'))
     contexto.setdefault('preheader', preheader)
+    contexto.setdefault('link_agendar', link_agendar())
 
     remetente = _remetente()
     headers = {}

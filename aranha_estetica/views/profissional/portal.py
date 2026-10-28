@@ -145,6 +145,41 @@ def agenda(request):
     return render(request, 'profissional/agenda.html', context)
 
 
+@never_cache
+@profissional_required
+def minhas_comissoes(request):
+    """Extrato SOMENTE LEITURA da profissional logada: comissoes do mes (?mes=AAAA-MM, pela data do
+    atendimento — a mesma competencia do financeiro), com base e regra de cada uma, e o saldo a
+    receber. Sem nome de cliente (minimizacao: o extrato e financeiro)."""
+    from ...models import MovimentoComissao
+    from ...services import financeiro
+    from ...services.comissao import ComissaoService
+
+    prof = _profissional_do_usuario(request.user)
+    if not prof:
+        return redirect('aranha:painel_comissoes')   # staff sem profissional: a tela da equipe
+    periodo = financeiro.competencia_do_param(request.GET.get('mes'))
+    creditos = (
+        MovimentoComissao.objects.creditos_com_status()
+        .filter(profissional=prof, **periodo.filtro('atendimento__data_hora_inicio'))
+        .select_related('atendimento__procedimento')
+        .order_by('atendimento__data_hora_inicio', 'pk')
+    )
+    totais = ComissaoService.totais_por_status(creditos)
+    atual = financeiro.competencia()
+    return render(request, 'profissional/comissoes.html', {
+        'profissional': prof,
+        'periodo': periodo,
+        'periodo_anterior': periodo.anterior(),
+        'periodo_seguinte': periodo.seguinte() if periodo.inicio < atual.inicio else None,
+        'creditos': creditos,
+        'gerada_mes': totais['PENDENTE']['total'] + totais['PAGA']['total'],
+        'paga_mes': totais['PAGA']['total'],
+        'pendente_mes': totais['PENDENTE']['total'],
+        'saldo_a_receber': ComissaoService.saldo_a_pagar(prof),
+    })
+
+
 @profissional_required
 @require_POST
 def marcar_realizado(request, pk):

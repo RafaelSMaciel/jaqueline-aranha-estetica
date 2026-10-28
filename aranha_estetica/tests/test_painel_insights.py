@@ -98,7 +98,8 @@ class OverviewTests(_AdminBase):
             valor_cobrado=Decimal('0'), eh_retorno=True, atendimento_origem=at,
         )
         resp = self.client.get(reverse('aranha:painel_overview'))
-        self.assertEqual(resp.context['ticket_medio'], '200,00')
+        self.assertEqual(resp.context['ticket_medio'], Decimal('200.00'))
+        self.assertContains(resp, 'R$ 200,00')
 
     def test_filtro_profissional_nao_numerico_nao_da_500(self):
         resp = self.client.get(reverse('aranha:painel_agendamentos') + '?profissional=abc')
@@ -116,15 +117,20 @@ class OverviewTests(_AdminBase):
 
 
 class ExportarExcelTests(_AdminBase):
-    def _planilha(self):
+    """Excel gerencial por competencia (?mes=): total = card do financeiro do mesmo mes."""
+
+    def _mes(self, instante):
+        from aranha_estetica.services import financeiro
+        return financeiro.competencia(timezone.localtime(instante).date()).param
+
+    def _planilha(self, instante, aba='Atendimentos'):
         import openpyxl
-        resp = self.client.get(reverse('aranha:exportar_relatorio_excel'))
+        resp = self.client.get(reverse('aranha:exportar_relatorio_excel'), {'mes': self._mes(instante)})
         self.assertEqual(resp.status_code, 200)
-        return openpyxl.load_workbook(io.BytesIO(resp.content))['Atendimentos']
+        return openpyxl.load_workbook(io.BytesIO(resp.content))[aba]
 
     def test_total_bate_com_o_faturamento_e_exportacao_auditada(self):
         import openpyxl
-        from decimal import Decimal
 
         from aranha_estetica.models import Atendimento, LogAuditoria
         ontem = timezone.now() - timedelta(days=1)
@@ -133,20 +139,45 @@ class ExportarExcelTests(_AdminBase):
                                       status='CANCELADO')
         Atendimento.objects.filter(pk=pago.pk).update(valor_cobrado=Decimal('150.00'))
         Atendimento.objects.filter(pk=cancelado.pk).update(valor_cobrado=Decimal('90.00'))
-        resp = self.client.get(reverse('aranha:exportar_relatorio_excel'))
+        mes = self._mes(ontem)
+        resp = self.client.get(reverse('aranha:exportar_relatorio_excel'), {'mes': mes})
+        self.assertIn(f'relatorio_{mes}.xlsx', resp['Content-Disposition'])
         wb = openpyxl.load_workbook(io.BytesIO(resp.content))
+        self.assertEqual(wb.sheetnames, ['Resumo', 'Atendimentos', 'Pacotes', 'Comissões'])
         ws = wb['Atendimentos']
-        self.assertEqual(ws.cell(row=ws.max_row, column=12).value, 150.0)   # cancelado com valor nao conta
+        self.assertEqual(ws.cell(row=ws.max_row, column=11).value, 150)   # cancelado com valor nao conta
+        self.assertEqual(ws.cell(row=2, column=11).number_format, '#,##0.00')
         resumo = {linha[0].value: linha[1].value for linha in wb['Resumo'].iter_rows() if linha[0].value}
-        self.assertEqual(resumo['Faturamento do período (R$)'], 150.0)
+        cache.clear()
+        card = self.client.get(reverse('aranha:dashboard_financeiro'), {'mes': mes}).context['receita']['total']
+        self.assertEqual(Decimal(str(resumo['Faturamento do mês (R$)'])), card)
+        self.assertEqual(card, Decimal('150.00'))
         log = LogAuditoria.objects.get(acao='Exportou relatório gerencial')
-        self.assertEqual(log.detalhes['atendimentos'], 2)
+        self.assertEqual((log.detalhes['atendimentos'], log.detalhes['mes']), (2, mes))
+
+    def test_abas_de_pacotes_e_comissoes_do_mes(self):
+        from aranha_estetica.services import pacotes as pacotes_service
+        from .factories import criar_comissao, criar_compra_pacote, criar_pacote
+
+        cli = criar_cliente()
+        compra = criar_compra_pacote(cli, criar_pacote('Glow', preco=Decimal('600.00'), procedimento=self.proc))
+        pacotes_service.cancelar_compra(compra, Decimal('100.00'), motivo='Mudou de cidade')
+        at = criar_atendimento(cli, self.prof, self.proc, data_hora=timezone.now(), status='REALIZADO')
+        criar_comissao(at, valor='30.00')
+        agora = timezone.now()
+        wp = self._planilha(agora, 'Pacotes')
+        linhas = [[c.value for c in linha] for linha in wp.iter_rows(min_row=2)]
+        self.assertEqual([(linha[1], linha[6]) for linha in linhas[:-1]],
+                         [('Venda', 600), ('Reembolso (cancelamento)', -100)])
+        self.assertEqual(linhas[-1][6], 500)
+        wc = self._planilha(agora, 'Comissões')
+        self.assertEqual([c.value for c in wc[2]][:3], [self.prof.nome, 1, 30])
 
     def test_nome_com_formula_vira_texto(self):
         cli = criar_cliente(nome='=HYPERLINK("http://evil.example","clique")')
         ontem = timezone.now() - timedelta(days=1)
         criar_atendimento(cli, self.prof, self.proc, data_hora=ontem, status='REALIZADO')
-        ws = self._planilha()
+        ws = self._planilha(ontem)
         celula = ws.cell(row=2, column=4)
         self.assertEqual(celula.data_type, 's')
         self.assertTrue(celula.value.startswith('=HYPERLINK'))
@@ -156,7 +187,7 @@ class ExportarExcelTests(_AdminBase):
         ontem = timezone.localdate() - timedelta(days=1)
         local_11h = timezone.make_aware(datetime.combine(ontem, time(11, 0)))
         criar_atendimento(cli, self.prof, self.proc, data_hora=local_11h, status='AGENDADO')
-        ws = self._planilha()
+        ws = self._planilha(local_11h)
         self.assertEqual(ws.cell(row=2, column=3).value, '11:00')
         self.assertEqual(ws.cell(row=2, column=7).value, 'Agendado')
 
@@ -382,9 +413,10 @@ class FinanceiroPacoteTests(_AdminBase):
         resp = self.client.get(reverse('aranha:dashboard_financeiro'))
         self.assertEqual(resp.status_code, 200)
         # 200 (avulso) + 700 (venda do pacote); a sessao (200) nao soma de novo
-        self.assertEqual(resp.context['fat_hoje_total'], Decimal('900.00'))
-        self.assertEqual(resp.context['fat_hoje_count'], 1)
-        self.assertEqual(resp.context['fat_hoje_pacotes'], 1)
+        receita = resp.context['receita']
+        self.assertEqual(receita['total'], Decimal('900.00'))
+        self.assertEqual(receita['avulsos']['qtd'], 1)
+        self.assertEqual(receita['pacotes']['qtd_vendas'], 1)
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -801,14 +833,27 @@ class AtualizarStatusEntradaInvalidaTests(_AdminBase):
 # Wave 3 — no-show do financeiro conta todos os realizados (rev_painel-04)
 # ════════════════════════════════════════════════════════════════════
 class FinanceiroNoShowTests(_AdminBase):
-    def _realizado(self, cli, dias, compra=None, **campos):
+    """Faltas do mes ÷ (faltas + realizados do mes): no mes ANTERIOR, fechado (?mes=)."""
+
+    def setUp(self):
+        super().setUp()
+        from aranha_estetica.services import financeiro
+        self.mes = financeiro.competencia().anterior()
+
+    def _quando(self, dia):
+        return self.mes.inicio_dt + timedelta(days=dia, hours=10)
+
+    def _realizado(self, cli, dia, compra=None, **campos):
         # AGENDADO + update (sem signals): o sinal de REALIZADO consumiria o pacote sozinho
-        quando = timezone.now() - timedelta(days=dias)
-        at = criar_atendimento(cli, self.prof, self.proc, data_hora=quando, status='AGENDADO')
+        at = criar_atendimento(cli, self.prof, self.proc, data_hora=self._quando(dia), status='AGENDADO')
         if compra is not None:
             ConsumoSessao.objects.create(compra_pacote=compra, atendimento=at)
         Atendimento.objects.filter(pk=at.pk).update(status='REALIZADO', **campos)
         return at
+
+    def _financeiro(self):
+        cache.clear()
+        return self.client.get(reverse('aranha:dashboard_financeiro'), {'mes': self.mes.param}).context
 
     def test_sessoes_de_pacote_entram_no_denominador(self):
         cli = criar_cliente()
@@ -816,12 +861,11 @@ class FinanceiroNoShowTests(_AdminBase):
         for dia in range(1, 9):
             self._realizado(cli, dia, compra=compra, valor_cobrado=Decimal('200.00'))
         self._realizado(cli, 10, valor_cobrado=Decimal('200.00'))  # avulso
-        criar_atendimento(cli, self.prof, self.proc,
-                          data_hora=timezone.now() - timedelta(days=11), status='FALTOU')
-        ctx = self.client.get(reverse('aranha:dashboard_financeiro')).context
-        self.assertEqual(ctx['fat_mes_count'], 1)  # faturamento continua so o avulso
-        self.assertEqual(ctx['no_show_count'], 1)
-        self.assertEqual(ctx['no_show_pct'], 10.0)
+        criar_atendimento(cli, self.prof, self.proc, data_hora=self._quando(11), status='FALTOU')
+        criar_atendimento(cli, self.prof, self.proc, data_hora=self._quando(-3), status='FALTOU')  # mes antes
+        ctx = self._financeiro()
+        self.assertEqual(ctx['receita']['avulsos']['qtd'], 1)  # faturamento continua so o avulso
+        self.assertEqual(ctx['no_show'], {'faltas': 1, 'finalizados': 10, 'percentual': 10.0})
 
     def test_retorno_e_sem_valor_entram_no_denominador(self):
         cli = criar_cliente()
@@ -829,10 +873,8 @@ class FinanceiroNoShowTests(_AdminBase):
         self._realizado(cli, 1, eh_retorno=True, atendimento_origem=origem, valor_cobrado=Decimal('0'))
         self._realizado(cli, 2, valor_cobrado=None)
         self._realizado(cli, 3, valor_cobrado=Decimal('150.00'))
-        criar_atendimento(cli, self.prof, self.proc,
-                          data_hora=timezone.now() - timedelta(days=4), status='FALTOU')
-        ctx = self.client.get(reverse('aranha:dashboard_financeiro')).context
-        self.assertEqual(ctx['no_show_pct'], 20.0)  # 1 falta / (4 realizados + 1)
+        criar_atendimento(cli, self.prof, self.proc, data_hora=self._quando(4), status='FALTOU')
+        self.assertEqual(self._financeiro()['no_show']['percentual'], 20.0)  # 1 falta / (4 realizados + 1)
 
 
 # ════════════════════════════════════════════════════════════════════

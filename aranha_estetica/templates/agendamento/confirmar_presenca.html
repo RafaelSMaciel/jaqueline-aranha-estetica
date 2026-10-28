@@ -23,14 +23,14 @@
     {% if ja_respondeu %}
     <!-- Estado: já respondeu -->
     {% if resposta == 'CONFIRMOU' or atendimento.status == 'CONFIRMADO' %}
-    <div class="flex flex-col items-center bg-green-600 px-6 py-8 text-center text-white">
+    <div class="flex flex-col items-center bg-sucesso-forte px-6 py-8 text-center text-sobre-sucesso">
       <div class="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-white/20">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
       </div>
       <h2 class="text-xl font-bold">Presença confirmada!</h2>
-      <p class="mt-1 text-sm opacity-80">Obrigado por confirmar. Te esperamos!</p>
+      <p class="mt-1 text-sm opacity-90">Obrigado por confirmar. Te esperamos!</p>
     </div>
     {% elif resposta == 'CANCELOU' or atendimento.status == 'CANCELADO' %}
     <div class="flex flex-col items-center bg-red-700 px-6 py-8 text-center text-white">
@@ -40,7 +40,7 @@
         </svg>
       </div>
       <h2 class="text-xl font-bold">Agendamento cancelado</h2>
-      <p class="mt-1 text-sm opacity-80">Seu agendamento foi cancelado com sucesso.</p>
+      <p class="mt-1 text-sm opacity-90">Seu agendamento foi cancelado com sucesso.</p>
     </div>
     {% else %}
     <div class="flex flex-col items-center bg-superficie px-6 py-8 text-center">
@@ -122,7 +122,7 @@
       <form method="POST">
         {% csrf_token %}
         <button type="submit" name="acao" value="confirmar"
-                class="mb-3 inline-flex w-full items-center justify-center rounded-full bg-green-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-green-700">
+                class="mb-3 inline-flex w-full items-center justify-center rounded-full bg-sucesso-forte px-4 py-3 text-sm font-bold text-sobre-sucesso transition hover:opacity-90">
           <svg xmlns="http://www.w3.org/2000/svg" class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>

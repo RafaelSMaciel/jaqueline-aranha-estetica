@@ -1,36 +1,36 @@
 {% extends "email/base_email.html" %}
 {% block header_sub %}<div style="color:rgba(255,255,255,0.88);font-size:13px;letter-spacing:2.4px;text-transform:uppercase;margin-top:6px;">Agendamento confirmado</div>{% endblock %}
 {% block content %}
-<h1 class="hero-title text-main" style="margin:0 0 12px;color:#2c2418;font-size:26px;font-weight:700;line-height:1.25;">Olá, {{ dados.nome }}!</h1>
-<p class="text-soft" style="margin:0 0 28px;color:#6b6256;font-size:15px;line-height:1.6;">
+<h1 class="hero-title text-main" style="margin:0 0 12px;color:{{ cor_texto }};font-size:26px;font-weight:700;line-height:1.25;">Olá, {{ dados.nome }}!</h1>
+<p class="text-soft" style="margin:0 0 28px;color:{{ cor_suave }};font-size:15px;line-height:1.6;">
   Seu agendamento foi recebido e está confirmado. Até lá, respire fundo &mdash; você merece esse cuidado.
 </p>
 
-<table bgcolor="#FFFEF5" role="presentation" width="100%" cellpadding="0" cellspacing="0" class="card-inner" style="background-color:#FFFEF5;background-image:linear-gradient(145deg,#FFFEF5,#FFF4D6);border:2px solid #C4A35A;border-radius:16px;margin-bottom:24px;">
+<table bgcolor="#FFFEF5" role="presentation" width="100%" cellpadding="0" cellspacing="0" class="card-inner" style="background-color:#FFFEF5;background-image:linear-gradient(145deg,#FFFEF5,#FFF4D6);border:2px solid {{ cor_marca }};border-radius:16px;margin-bottom:24px;">
 <tr><td style="padding:24px 28px;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-    <tr><td class="text-muted" style="padding:4px 0;color:#8a7e6b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;">Procedimento</td></tr>
-    <tr><td class="text-main" style="padding:0 0 14px;color:#2c2418;font-size:17px;font-weight:700;">{{ dados.procedimento }}</td></tr>
+    <tr><td class="text-muted" style="padding:4px 0;color:{{ cor_suave }};font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;">Procedimento</td></tr>
+    <tr><td class="text-main" style="padding:0 0 14px;color:{{ cor_texto }};font-size:17px;font-weight:700;">{{ dados.procedimento }}</td></tr>
 
-    <tr><td class="text-muted" style="padding:4px 0;color:#8a7e6b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;">Profissional</td></tr>
-    <tr><td class="text-soft" style="padding:0 0 14px;color:#3a2e1f;font-size:15px;">{{ dados.profissional }}</td></tr>
+    <tr><td class="text-muted" style="padding:4px 0;color:{{ cor_suave }};font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;">Profissional</td></tr>
+    <tr><td class="text-soft" style="padding:0 0 14px;color:{{ cor_texto }};font-size:15px;">{{ dados.profissional }}</td></tr>
 
-    <tr><td class="text-muted" style="padding:4px 0;color:#8a7e6b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;">Data &amp; horário</td></tr>
-    <tr><td class="text-soft" style="padding:0 0 14px;color:#7a5f1f;font-size:18px;font-weight:800;letter-spacing:0.5px;">{{ dados.data_hora }}</td></tr>
+    <tr><td class="text-muted" style="padding:4px 0;color:{{ cor_suave }};font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;">Data &amp; horário</td></tr>
+    <tr><td class="text-soft" style="padding:0 0 14px;color:{{ cor_marca_texto }};font-size:18px;font-weight:800;letter-spacing:0.5px;">{{ dados.data_hora }}</td></tr>
 
     {% if dados.valor %}
-    <tr><td class="text-muted" style="padding:4px 0;color:#8a7e6b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;">Valor</td></tr>
-    <tr><td class="text-main" style="padding:0;color:#2c2418;font-size:20px;font-weight:800;">{{ dados.valor }}</td></tr>
+    <tr><td class="text-muted" style="padding:4px 0;color:{{ cor_suave }};font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;">Valor</td></tr>
+    <tr><td class="text-main" style="padding:0;color:{{ cor_texto }};font-size:20px;font-weight:800;">{{ dados.valor }}</td></tr>
     {% endif %}
   </table>
 </td></tr>
 </table>
 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:4px 0 20px;">
-  <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;"><tr><td bgcolor="#C4A35A" style="border-radius:999px;background-color:#C4A35A;mso-padding-alt:14px 36px;"><a href="{{ site_url }}/meus-agendamentos/" style="display:inline-block;background-color:#C4A35A;background-image:linear-gradient(135deg,#C4A35A,#B8915F);color:#23200f;padding:14px 36px;border-radius:999px;text-decoration:none;font-weight:700;font-size:14px;letter-spacing:0.5px;box-shadow:0 4px 12px rgba(196,163,90,0.35);">Gerenciar agendamento</a></td></tr></table>
+  <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;"><tr><td bgcolor="{{ cor_marca }}" style="border-radius:999px;background-color:{{ cor_marca }};mso-padding-alt:14px 36px;"><a href="{{ site_url }}{% url 'aranha:meus_agendamentos' %}" style="display:inline-block;background-color:{{ cor_marca }};color:{{ cor_sobre_marca }};padding:14px 36px;border-radius:999px;text-decoration:none;font-weight:700;font-size:14px;letter-spacing:0.5px;box-shadow:0 4px 12px rgba(201,168,76,0.35);">Gerenciar agendamento</a></td></tr></table>
 </td></tr></table>
 
-<p class="text-muted" style="margin:8px 0 0;color:#8a7e6b;font-size:13px;line-height:1.6;text-align:center;">
-  Precisa remarcar? Acesse <a href="{{ site_url }}/meus-agendamentos/" style="color:#7a5f1f;">Meus Agendamentos</a> com seu telefone.
+<p class="text-muted" style="margin:8px 0 0;color:{{ cor_suave }};font-size:13px;line-height:1.6;text-align:center;">
+  Precisa remarcar? Acesse <a href="{{ site_url }}{% url 'aranha:meus_agendamentos' %}" style="color:{{ cor_marca_texto }};">Meus agendamentos</a> com seu telefone.
 </p>
 {% endblock %}
