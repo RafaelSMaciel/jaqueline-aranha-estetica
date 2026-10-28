@@ -21,6 +21,7 @@ from django_ratelimit.decorators import ratelimit
 
 from ...models import Cliente, Consentimento, Notificacao
 from ...services import consentimentos, nps
+from ...utils import telefone as telefones
 from ...utils import whatsapp as canal_whatsapp
 from ...utils.auditoria import registrar_log
 from ...utils.branding import get_branding
@@ -208,14 +209,11 @@ def _mensagens_recebidas(data):
 
 
 def _telefones_candidatos(telefone_limpo: str) -> list[str]:
-    """O numero como veio e com/sem o codigo do pais (55): match EXATO, nunca parcial (anti-IDOR —
-    um sufixo comum poria a resposta na ficha de outra cliente)."""
-    candidatos = [telefone_limpo]
-    if telefone_limpo.startswith('55') and len(telefone_limpo) > 11:
-        candidatos.append(telefone_limpo[2:])  # sem codigo do pais
-    elif len(telefone_limpo) <= 11:
-        candidatos.append('55' + telefone_limpo)  # com codigo do pais
-    return candidatos
+    """Cliente.telefone guarda a forma canonica (utils/telefone: sem o 55 que a Meta manda) e o
+    match e EXATO, nunca parcial (anti-IDOR — um sufixo comum poria a resposta na ficha de outra
+    cliente). Numero que nao e telefone BR valido nao casa com ninguem."""
+    canonico = telefones.valido_ou_vazio(telefone_limpo)
+    return [canonico] if canonico else []
 
 
 def _normalizar(texto: str) -> str:
