@@ -18,6 +18,7 @@ from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
 from aranha_estetica import checks as aranha_checks
+from aranha_estetica import jobs
 from aranha_estetica.views.infra import cron
 
 BASE_DIR = Path(settings.BASE_DIR)
@@ -81,17 +82,17 @@ class CronEndpointTests(TestCase):
 
     @override_settings(CRON_MONITOR_URL='https://hc-ping.com/chave/')
     def test_monitor_recebe_ok_e_fail_e_nunca_muda_a_resposta(self):
-        with mock.patch.object(cron.requests, 'post') as post, mock.patch.dict(cron.JOB_MAP, {'ok': _job_ok}):
+        with mock.patch.object(jobs.requests, 'post') as post, mock.patch.dict(cron.JOB_MAP, {'ok': _job_ok}):
             self.assertEqual(self._post('ok').status_code, 200)
         post.assert_called_once_with('https://hc-ping.com/chave/ok', timeout=5)
         _CHAMADAS['n'] = 0
-        with mock.patch.object(cron.requests, 'post', side_effect=cron.requests.ConnectionError) as post, \
+        with mock.patch.object(jobs.requests, 'post', side_effect=jobs.requests.ConnectionError) as post, \
                 mock.patch.dict(cron.JOB_MAP, {'falha': _job_que_falha}):
             self.assertEqual(self._post('falha').status_code, 500)       # monitor fora: resposta igual
         post.assert_called_once_with('https://hc-ping.com/chave/falha/fail', timeout=5)
 
     def test_sem_monitor_configurado_nao_chama_nada(self):
-        with mock.patch.object(cron.requests, 'post') as post, mock.patch.dict(cron.JOB_MAP, {'ok': _job_ok}):
+        with mock.patch.object(jobs.requests, 'post') as post, mock.patch.dict(cron.JOB_MAP, {'ok': _job_ok}):
             self._post('ok')
         post.assert_not_called()
 

@@ -184,11 +184,11 @@ class AvisoAProfissionalTests(_Base):
 class PedidoVencidoTests(_Base):
     def test_pedido_vence_uma_hora_antes_do_inicio(self):
         from aranha_estetica.constants import MSG_PEDIDO_EXPIRADO
-        from aranha_estetica.jobs import job_limpeza_status_atendimentos
+        from aranha_estetica.jobs import job_limpeza_status
         quase = criar_atendimento(self.cli, self.prof, self.proc, status='PENDENTE',
                                   data_hora=timezone.now() + timedelta(minutes=30))
         futuro = criar_atendimento(criar_cliente(nome='Outra'), self.prof, self.proc, status='PENDENTE')
-        job_limpeza_status_atendimentos()
+        job_limpeza_status()
         quase.refresh_from_db()
         futuro.refresh_from_db()
         self.assertEqual((quase.status, futuro.status), ('CANCELADO', 'PENDENTE'))

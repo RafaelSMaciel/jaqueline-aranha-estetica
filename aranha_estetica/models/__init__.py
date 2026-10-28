@@ -24,6 +24,7 @@ from .links import LinkAcesso
 from .historico import HistoricoAlteracao
 from .carteira import Carteira, MovimentoCarteira, OrigemMovimentoCarteira, TipoMovimentoCarteira
 from .comissao import MovimentoComissao, RegraComissao, StatusComissao, TipoMovimentoComissao
+from .execucoes import ExecucaoJob
 
 __all__ = [
     'Usuario', 'UsuarioManager',
@@ -44,4 +45,5 @@ __all__ = [
     # carteira e comissao
     'Carteira', 'MovimentoCarteira', 'OrigemMovimentoCarteira', 'TipoMovimentoCarteira',
     'RegraComissao', 'MovimentoComissao', 'StatusComissao', 'TipoMovimentoComissao',
+    'ExecucaoJob',
 ]
