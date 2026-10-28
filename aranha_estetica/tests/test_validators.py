@@ -1,4 +1,4 @@
-"""Testes dos validators (CPF, telefone, datas, valor)."""
+"""Testes dos validators (CPF, telefone, data de nascimento)."""
 from datetime import date, timedelta
 
 from django.core.exceptions import ValidationError
@@ -6,18 +6,11 @@ from django.test import SimpleTestCase
 from django.utils import timezone
 
 from aranha_estetica.validators import (
-    MSG_TELEFONE_INVALIDO,
-    cpf_valido,
     normalizar_cpf,
     normalizar_telefone,
-    telefone_valido,
-    validar_cpf,
-    validar_telefone,
     validate_cpf,
     validate_data_nascimento,
-    validate_maior_idade,
     validate_telefone_br,
-    validate_valor_positivo,
 )
 
 
@@ -74,28 +67,11 @@ class NormalizarTelefoneTests(SimpleTestCase):
         self.assertEqual(normalizar_telefone('99999-0001'), '999990001')
         self.assertEqual(normalizar_telefone(None), '')
 
-    def test_telefone_valido(self):
-        self.assertTrue(telefone_valido('+55 (17) 99999-0001'))
-        self.assertFalse(telefone_valido('99999-0001'))
-        self.assertFalse(telefone_valido(''))
-        self.assertFalse(telefone_valido(None))
-
-    def test_validar_telefone_retorna_canonico_ou_erro_amigavel(self):
-        self.assertEqual(validar_telefone('(17) 99999-0001'), '17999990001')
-        with self.assertRaises(ValidationError) as ctx:
-            validar_telefone('9999-0001')
-        self.assertEqual(ctx.exception.messages, [MSG_TELEFONE_INVALIDO])
-
 
 class CpfHelpersTests(SimpleTestCase):
-    def test_normalizar_e_validar(self):
+    def test_normalizar_cpf(self):
         self.assertEqual(normalizar_cpf('529.982.247-25'), '52998224725')
-        self.assertTrue(cpf_valido('529.982.247-25'))
-        self.assertFalse(cpf_valido('1234567890'))
-        self.assertEqual(validar_cpf('529.982.247-25'), '52998224725')
-        self.assertIsNone(validar_cpf('  '))
-        with self.assertRaises(ValidationError):
-            validar_cpf('123.456.789-00')
+        self.assertEqual(normalizar_cpf(None), '')
 
 
 class DataNascimentoTests(SimpleTestCase):
@@ -109,24 +85,3 @@ class DataNascimentoTests(SimpleTestCase):
     def test_idade_excessiva_falha(self):
         with self.assertRaises(ValidationError):
             validate_data_nascimento(timezone.localdate() - timedelta(days=151 * 365))
-
-
-class MaiorIdadeTests(SimpleTestCase):
-    def test_maior_idade_ok(self):
-        validate_maior_idade(timezone.localdate() - timedelta(days=20 * 365))
-
-    def test_menor_idade_falha(self):
-        with self.assertRaises(ValidationError):
-            validate_maior_idade(timezone.localdate() - timedelta(days=10 * 365))
-
-
-class ValorPositivoTests(SimpleTestCase):
-    def test_positivo_ok(self):
-        validate_valor_positivo(10)
-
-    def test_zero_ok(self):
-        validate_valor_positivo(0)
-
-    def test_negativo_falha(self):
-        with self.assertRaises(ValidationError):
-            validate_valor_positivo(-5)

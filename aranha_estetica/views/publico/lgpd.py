@@ -1,9 +1,9 @@
-"""Views LGPD — DSAR (export de dados), unsubscribe, cookie consent."""
+"""Views LGPD — DSAR (export de dados) e descadastro de comunicacao."""
 import json
 import logging
 
 from django.contrib import messages
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -122,19 +122,3 @@ def unsubscribe(request, token: str):
         return render(request, TEMPLATE_DESCADASTRO, {'estado': 'invalido'}, status=404)
     registrar_log(None, 'LGPD: opt-out de comunicacao', 'cliente', cliente.pk)
     return render(request, TEMPLATE_DESCADASTRO, {'estado': 'sucesso', 'cliente': cliente})
-
-
-@ratelimit(key='ip', rate='30/m', method='POST', block=True)
-@require_http_methods(['POST'])
-def aceitar_cookies(request):
-    """Registra consentimento granular de cookies (essencial sempre, analytics, marketing)."""
-    from django.utils import timezone
-    prefs = {
-        'essential': True,
-        'analytics': request.POST.get('analytics', '0') == '1',
-        'marketing': request.POST.get('marketing', '0') == '1',
-    }
-    request.session['cookie_consent'] = True
-    request.session['cookie_consent_prefs'] = prefs
-    request.session['cookie_consent_ts'] = timezone.now().isoformat()
-    return JsonResponse({'success': True, 'prefs': prefs})

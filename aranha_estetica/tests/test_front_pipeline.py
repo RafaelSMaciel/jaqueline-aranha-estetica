@@ -44,10 +44,14 @@ class FrontPipelineGuards(TestCase):
         app_js = (_SRC.parent / 'js' / 'app.js').read_text(encoding='utf-8')
         self.assertNotIn("import 'htmx.org'", app_js)
 
-    def test_cookie_consent_persistido_em_cookie(self):
+    def test_cookie_consent_persistido_em_cookie_sem_chamar_o_servidor(self):
         app_js = (_SRC.parent / 'js' / 'app.js').read_text(encoding='utf-8')
-        self.assertIn('cookie_consent=', app_js)
-        self.assertIn('max-age=31536000', app_js)
+        bloco = app_js.split("Alpine.data('cookieConsent'")[1].split('Alpine.data(')[0]
+        self.assertIn('cookie_consent=essenciais', bloco)
+        self.assertIn('max-age=31536000', bloco)
+        # so cookies essenciais: nada de preferencias de analytics/marketing nem fetch p/ o servidor
+        for proibido in ('fetch(', 'analytics', 'marketing', 'aceitarTodos'):
+            self.assertNotIn(proibido, bloco)
 
     def test_dourado_de_texto_passa_aa_no_tema_claro(self):
         # text-marca no claro: #7A5F1F (5,8:1). #C9A84C como texto dava 2,2:1.

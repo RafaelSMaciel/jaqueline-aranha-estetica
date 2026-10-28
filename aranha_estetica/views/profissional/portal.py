@@ -13,12 +13,13 @@ from ...decorators import profissional_required
 from ...models import AnotacaoSessao, Atendimento
 from ...models.agendamentos import StatusAtendimento
 from ...services.alertas import alertas_por_cliente, ids_com_ficha_pendente
+from ...services.prontuario import vinculo_clinico
 from ...services.termos import ids_com_termo_procedimento_pendente, termos_pendentes
 from ...utils.auditoria import registrar_log
 from ...utils.saude import alertas_saude
 from ...utils.seguranca import safe_next
-from ..painel.prontuario import _vinculo
 from ...utils.datas import dias_locais, ler_data
+from ..comum import responder_link_ics
 
 logger = logging.getLogger(__name__)
 
@@ -54,13 +55,13 @@ def _atendimento_do_profissional(user, pk, *, select_related=None):
 def _clientes_com_vinculo(user, prof, clientes):
     """ids (de {cliente_id: Cliente}) cujo dado de saude o usuario pode ver.
 
-    Mesma regra do prontuario (views.prontuario._vinculo): staff ve tudo; o
+    Mesma regra do prontuario (services.prontuario.vinculo_clinico): staff ve tudo; o
     profissional so com atendimento REALIZADO recente ou marcado na janela.
     Atendimento cancelado/antigo na agenda nao abre alergia nem a ficha.
     """
     if user.is_staff:
         return set(clientes)
-    return {cid for cid, cliente in clientes.items() if _vinculo(prof, cliente) is not None}
+    return {cid for cid, cliente in clientes.items() if vinculo_clinico(prof, cliente) is not None}
 
 
 @never_cache  # alertas de saude das clientes: fora do cache/bfcache do navegador
@@ -230,7 +231,7 @@ def anotar(request, pk):
     """Formulario para adicionar anotacao de sessao ao atendimento.
 
     Historico de notas e alertas de saude seguem a regra do prontuario
-    (_vinculo): sem atendimento recente/marcado com a cliente a tela so aceita
+    (services.prontuario.vinculo_clinico): sem atendimento recente/marcado com a cliente a tela so aceita
     a nova anotacao. Leitura e escrita entram na trilha (LGPD art. 37), com a
     mesma convencao do prontuario (tabela='prontuario', registro = cliente).
     """
@@ -239,7 +240,7 @@ def anotar(request, pk):
     )
     vinculo = None
     if not request.user.is_staff:
-        vinculo = _vinculo(_profissional_do_usuario(request.user), atendimento.cliente)
+        vinculo = vinculo_clinico(_profissional_do_usuario(request.user), atendimento.cliente)
     pode_ver = request.user.is_staff or vinculo is not None
 
     if request.method == 'POST':
@@ -343,8 +344,6 @@ def gerar_link_calendario(request):
 
     Mesma tela do painel: a URL com o token so aparece nesta resposta.
     """
-    from ..painel.profissionais import responder_link_ics
-
     prof = _profissional_do_usuario(request.user)
     if not prof:
         return redirect('aranha:painel_overview')

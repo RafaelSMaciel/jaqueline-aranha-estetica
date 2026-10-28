@@ -71,19 +71,9 @@
       <select id="filtroTipo" name="tipo"
               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
         <option value="all" {% if tipo_filter == 'all' %}selected{% endif %}>Todos os tipos</option>
-        {% if tipos %}
         {% for v, l in tipos %}
         <option value="{{ v }}" {% if tipo_filter == v %}selected{% endif %}>{{ l }}</option>
         {% endfor %}
-        {% else %}
-        <option value="LEMBRETE" {% if tipo_filter == 'LEMBRETE' %}selected{% endif %}>Lembrete D-1</option>
-        <option value="LEMBRETE_2H" {% if tipo_filter == 'LEMBRETE_2H' %}selected{% endif %}>Lembrete T-2h</option>
-        <option value="CONFIRMACAO" {% if tipo_filter == 'CONFIRMACAO' %}selected{% endif %}>Confirmação</option>
-        <option value="CANCELAMENTO" {% if tipo_filter == 'CANCELAMENTO' %}selected{% endif %}>Cancelamento</option>
-        <option value="NPS" {% if tipo_filter == 'NPS' %}selected{% endif %}>Pesquisa NPS</option>
-        <option value="PESQUISA" {% if tipo_filter == 'PESQUISA' %}selected{% endif %}>Pesquisa de satisfação</option>
-        <option value="APROVACAO" {% if tipo_filter == 'APROVACAO' %}selected{% endif %}>Aprovação do profissional</option>
-        {% endif %}
       </select>
     </div>
     <div class="flex-1 min-w-[140px]">

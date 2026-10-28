@@ -5,9 +5,8 @@ em ambiente local e `prod` quando Railway e detectado. `staging` = ambiente de t
 publicado (Railway "dev"): producao + travas de envio (settings/staging.py). `dev` no
 Railway derruba o boot: publicaria DEBUG=True (traceback, cookies sem Secure, IP do proxy).
 
-`manage.py test` sempre usa `test` (unica deteccao de "estou em teste"; o pytest
-aponta direto p/ clinica.settings.test no pyproject.toml): nem um DJANGO_ENV=prod
-herdado leva a suite p/ o banco de producao.
+`manage.py test` (o runner unico da suite) sempre usa `test` — unica deteccao de "estou em
+teste": nem um DJANGO_ENV=prod herdado leva a suite p/ o banco de producao.
 
 Qualquer outro valor ('production', 'homolog'...) derruba o boot: antes caia
 em silencio no dev.py (DEBUG=True, e-mail no console, SMS/WhatsApp "fingindo"

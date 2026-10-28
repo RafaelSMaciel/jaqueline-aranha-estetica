@@ -55,7 +55,6 @@ def _ctx(form_obj, posted=None):
         'ESCOPO_CHOICES': FormularioAnamnese.ESCOPO_CHOICES,
         'TIPO_CHOICES': FormularioAnamnese.TIPO_CHOICES,
         'CATEGORIA_CHOICES': Procedimento.CATEGORIA_CHOICES,
-        'MODALIDADE_CHOICES': Procedimento.MODALIDADE_CHOICES,
         'schema_texto': schema_texto,
     }
 
@@ -83,7 +82,6 @@ def admin_anamnese_form(request, pk=None):
         tipo = post.get('tipo', '').strip() or (form.tipo if form else 'ANAMNESE')
         escopo = post.get('escopo', 'GLOBAL').strip()
         categoria = post.get('categoria', '').strip()
-        modalidade = post.get('modalidade', '').strip()
         proc_id = post.get('procedimento', '').strip()
         schema_raw = post.get('schema_json', '[]').strip() or '[]'
         ativo = post.get('ativo') == '1'
@@ -106,7 +104,6 @@ def admin_anamnese_form(request, pk=None):
         obj.tipo = tipo
         obj.escopo = escopo
         obj.categoria = categoria if escopo == 'CATEGORIA' else ''
-        obj.modalidade = modalidade if escopo == 'MODALIDADE' else ''
         # id_int: isdigit() aceitava '²' e o int() dava 500
         obj.procedimento_id = id_int(proc_id) if escopo == 'PROCEDIMENTO' else None
         obj.ativo = ativo
@@ -131,8 +128,6 @@ def admin_anamnese_form(request, pk=None):
             erros.append('Escopo inválido.')
         if escopo == 'CATEGORIA' and categoria not in dict(Procedimento.CATEGORIA_CHOICES):
             erros.append('Escolha a categoria do escopo.')
-        if escopo == 'MODALIDADE' and modalidade not in dict(Procedimento.MODALIDADE_CHOICES):
-            erros.append('Escolha a modalidade do escopo.')
         if escopo == 'PROCEDIMENTO' and obj.procedimento_id is None:
             erros.append('Escolha o procedimento do escopo.')
         if erros:

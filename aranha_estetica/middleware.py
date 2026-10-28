@@ -141,7 +141,7 @@ class SecurityHeadersMiddleware:
     # vaza p/ CDN/links externos abertos a partir da pagina; e sem cache
     # (no-store), como as areas privadas.
     PREFIXOS_TOKEN = (
-        '/confirmar/', '/reagendar/', '/nps/', '/anamnese/', '/pesquisa/',
+        '/confirmar/', '/nps/', '/anamnese/', '/pesquisa/',
         '/termo/', '/lgpd/unsubscribe/', '/admin-login/recuperar/', '/agenda/',
     )
 

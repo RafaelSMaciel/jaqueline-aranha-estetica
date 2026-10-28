@@ -212,7 +212,7 @@ def agendamento_publico(request):
     formularios_anamnese = []
     try:
         # 'procedimentos': onde a ficha vale, decidido aqui (FormularioAnamnese.aplica_a) — o JS
-        # so consulta; antes repetia a regra e ignorava o escopo por modalidade
+        # so consulta, nao repete a regra
         formularios_anamnese = [
             {
                 'id': form.pk,

@@ -1,12 +1,6 @@
 # Config de ferramentas (nao e pacote instalavel). Deps: requirements*.txt.
 # Caches e dados das ferramentas ficam todos em .cache/ (ignorado): a raiz do repo so tem codigo e config.
 
-[tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "clinica.settings.test"
-python_files = ["test_*.py"]
-testpaths = ["aranha_estetica/tests"]
-cache_dir = ".cache/pytest"
-
 [tool.ruff]
 target-version = "py312"
 cache-dir = ".cache/ruff"
@@ -30,16 +24,13 @@ select = ["E4", "E7", "E9", "F", "DTZ", "TID251"]
 "docs/gerar_requisitos.py" = ["E702"]
 # quem le o ambiente: os settings, os pontos de entrada (DJANGO_SETTINGS_MODULE), os geradores da
 # documentacao, os comandos do pre-deploy (ADMIN_*), as opcoes do Sentry (montadas durante o import
-# dos settings) e os modulos que ainda leem o ambiente direto (jobs: ADMIN_EMAIL; lgpd:
-# LGPD_RETENCAO_CLIENTE_DIAS; gcal: integracao desligada)
+# dos settings) e o modulo que ainda le o ambiente direto (lgpd: LGPD_RETENCAO_CLIENTE_DIAS)
 "clinica/**" = ["TID251"]
 "manage.py" = ["TID251"]
 "docs/**" = ["TID251"]
 "aranha_estetica/management/commands/**" = ["TID251"]
 "aranha_estetica/utils/pii.py" = ["TID251"]
-"aranha_estetica/jobs.py" = ["TID251"]
 "aranha_estetica/services/lgpd.py" = ["TID251"]
-"aranha_estetica/services/gcal.py" = ["TID251"]
 
 # Camadas (lint-imports; CI job Django SQLite): views > services > models. Para baixo pode, para
 # cima nao — cada excecao abaixo e uma inversao consciente (import tardio dentro da funcao).
@@ -53,8 +44,6 @@ layers = ["aranha_estetica.views", "aranha_estetica.services", "aranha_estetica.
 ignore_imports = [
     # a FSM aplica os efeitos da transicao (caso de uso) na mesma transacao do status
     "aranha_estetica.models.agendamentos -> aranha_estetica.services.atendimento",
-    # Profissional.horarios_disponiveis() delega ao SlotService (atalho p/ templates/admin)
-    "aranha_estetica.models.profissionais -> aranha_estetica.services.disponibilidade",
 ]
 
 [[tool.importlinter.contracts]]
@@ -75,6 +64,16 @@ source_modules = ["aranha_estetica.utils"]
 forbidden_modules = ["aranha_estetica.services"]
 # so o import direto: utils -> models -> services ja e coberto (e excecao consciente) no contrato de camadas
 allow_indirect_imports = true
+
+# Areas de views independentes: nenhuma importa outra (helper compartilhado vai p/ services/utils
+# ou views.comum, fora do contrato). Cada area tem as suas rotas em urls/<area>.py.
+[[tool.importlinter.contracts]]
+name = "Areas de views independentes"
+type = "independence"
+modules = [
+    "aranha_estetica.views.publico", "aranha_estetica.views.painel", "aranha_estetica.views.profissional",
+    "aranha_estetica.views.conta", "aranha_estetica.views.infra",
+]
 
 # Tipos nos services (mypy + django-stubs; CI job Django SQLite). So services/: o resto do app entra
 # como dependencia (follow_imports=silent) sem cobrar anotacao.

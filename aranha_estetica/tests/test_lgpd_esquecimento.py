@@ -98,7 +98,6 @@ class EsquecerClienteTests(TestCase):
         ficha = RespostaAnamnese.objects.create(formulario=form, cliente=self.cliente, atendimento=realizado)
         tokens = {
             'DESCADASTRO': criar_link('DESCADASTRO', self.cliente),
-            'GERENCIAR_AGENDAMENTO': criar_link('GERENCIAR_AGENDAMENTO', futuro),
             'CONFIRMAR_PRESENCA': criar_notificacao_com_link(futuro)[1],
             'NPS': criar_notificacao_com_link(realizado, 'NPS')[1],
             'TERMO': criar_notificacao_com_link(futuro, 'TERMO', 'EMAIL')[1],
@@ -426,6 +425,16 @@ class DepoimentoAposEsquecimentoTests(TestCase):
 
 
 class ExportDsarTests(TestCase):
+    def test_cadastro_exportado_so_com_dado_que_tem_finalidade(self):
+        """RG, profissao e foto sairam do cadastro (0071): o export traz o que a clinica guarda."""
+        cliente = criar_cliente(nome='Titular Cadastro', cpf='52998224725')
+        pessoal = LgpdService.exportar_dados_cliente(cliente)['pessoal']
+        self.assertEqual(
+            set(pessoal),
+            {'nome', 'data_nascimento', 'cpf', 'email', 'telefone', 'cep', 'endereco', 'criado_em'},
+        )
+        self.assertEqual(pessoal['cpf'], '52998224725')
+
     def test_lista_espera_exporta_email_de_contato_e_profissional(self):
         """followups-dsar-email-contato."""
         cliente = criar_cliente(nome='Titular Espera')

@@ -39,7 +39,6 @@ aranha_estetica/static/dist/
 
 # runtime / editores / ferramentas
 staticfiles/
-media/
 **/*.log
 .DS_Store
 .vscode/
