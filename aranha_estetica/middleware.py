@@ -202,12 +202,10 @@ class ContentSecurityPolicyMiddleware:
     ALLOWED_STYLE_SRCS = [
         "'self'",
         *JSDELIVR_PATHS,
-        "https://fonts.googleapis.com",
     ]
     ALLOWED_FONT_SRCS = [
         "'self'",
         "data:",
-        "https://fonts.gstatic.com",
     ]
     ALLOWED_IMG_SRCS = [
         "'self'",
@@ -230,6 +228,7 @@ class ContentSecurityPolicyMiddleware:
         script_src = self.ALLOWED_SCRIPT_SRCS + [f"'nonce-{nonce}'"]
         style_src = self.ALLOWED_STYLE_SRCS + [f"'nonce-{nonce}'"]
         connect_src = list(self.ALLOWED_CONNECT_SRCS)
+        font_src = list(self.ALLOWED_FONT_SRCS)
 
         # Em DEBUG (desenvolvimento), o Vite HMR carrega scripts e CSS de
         # http://localhost:5173 e abre um WebSocket ws://localhost:5173 para
@@ -245,6 +244,7 @@ class ContentSecurityPolicyMiddleware:
                 "http://localhost:5173",
                 "ws://localhost:5173",
             ]
+            font_src = font_src + ["http://localhost:5173"]   # fontes self-hosted no dev server
 
         # Widget embutivel (@xframe_options_exempt): libera o iframe externo.
         if getattr(response, 'xframe_options_exempt', False):
@@ -257,7 +257,7 @@ class ContentSecurityPolicyMiddleware:
             f"script-src {' '.join(script_src)}",
             f"style-src {' '.join(style_src)}",
             "style-src-attr 'unsafe-inline'",
-            f"font-src {' '.join(self.ALLOWED_FONT_SRCS)}",
+            f"font-src {' '.join(font_src)}",
             f"img-src {' '.join(self.ALLOWED_IMG_SRCS)}",
             f"connect-src {' '.join(connect_src)}",
             "frame-src 'self' https://www.google.com https://challenges.cloudflare.com",

@@ -5,7 +5,7 @@
    Contraste conferido (WCAG AA): texto >= 4,5:1, borda de campo e foco >= 3:1. */
 :root {
   color-scheme: light;
-  /* Tipografia da marca (carregada via Google Fonts no <head> do base_v2) */
+  /* Tipografia da marca (self-hosted: @fontsource no app.css) */
   --heading-font: 'Playfair Display', Georgia, 'Times New Roman', serif;
   --body-font: 'Lato', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 

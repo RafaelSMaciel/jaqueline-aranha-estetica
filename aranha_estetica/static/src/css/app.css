@@ -1,4 +1,11 @@
 @import "tailwindcss";
+/* Fontes da marca servidas pelo proprio site (sem Google Fonts: sem IP do visitante p/ terceiro,
+   sem CSP extra, arquivo com hash no build). So o subconjunto latin (cobre o portugues). */
+@import "@fontsource/playfair-display/latin-500.css";
+@import "@fontsource/playfair-display/latin-600.css";
+@import "@fontsource/playfair-display/latin-700.css";
+@import "@fontsource/lato/latin-400.css";
+@import "@fontsource/lato/latin-700.css";
 @import "./tokens.css";
 
 /* Tailwind v4 nao auto-detecta os templates Django — declarar explicito,
