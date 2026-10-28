@@ -1,0 +1,37 @@
+@startuml 08-fila-de-email
+!include ../estilo.iuml
+title Sequência — fila de e-mail transacional (envio no commit, reenvio pelo cron)
+autonumber
+
+participant "Caso de uso\n(aprovar, cancelar...)" as UC
+participant "services.comunicacao" as COM
+participant "utils.email" as UE
+participant "Backend de e-mail\n(Resend / teste)" as BE
+actor "Agendador (cron)" as CR
+database "PostgreSQL" as DB
+
+UC -> COM : enfileirar_email(at, tipo, mensagem)
+COM -> DB : Notificacao EMAIL PENDENTE\n(mesma transação do caso de uso)
+COM -> COM : transaction.on_commit(enviar_da_fila)
+note right of COM : rollback do caso de uso\n= nenhum e-mail sai
+...commit...
+COM -> DB : notificação FOR UPDATE SKIP LOCKED
+COM -> UE : enviar_<tipo>(destino, dados + mensagem)
+UE -> BE : send (HTML + texto)
+alt entregue
+  COM -> DB : ENVIADO + enviado_em
+else falhou
+  COM -> DB : tentativas++ e próxima tentativa (backoff)
+  note right of DB : 5 tentativas ou 48 h → FALHOU\n(log de erro para a equipe)
+end
+CR -> COM : POST /cron/run/emails/ (a cada 15 min)
+COM -> DB : PENDENTES vencidas
+loop cada uma
+  COM -> COM : enviar_da_fila(id)
+end
+
+note over BE
+  Ambiente de testes publicado: BackendAmbienteTeste
+  só entrega para DESTINATARIOS_TESTE.
+end note
+@enduml

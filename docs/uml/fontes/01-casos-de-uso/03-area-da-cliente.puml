@@ -1,0 +1,51 @@
+@startuml 03-area-da-cliente
+!include ../estilo.iuml
+left to right direction
+title Casos de uso — área da cliente e links recebidos
+
+actor "Cliente" as C
+actor "SMS (Zenvia)" as SMS <<externo>>
+actor "Profissional" as P
+
+rectangle "Área da cliente (Meus agendamentos)" {
+  usecase "Entrar com o celular (OTP)" as UC1
+  usecase "Ver próximos e anteriores" as UC2
+  usecase "Cancelar um agendamento\n(antes do início)" as UC3
+  usecase "Remarcar\n(até 24 h antes)" as UC4
+  usecase "Ver crédito e código\nde indicação" as UC5
+  usecase "Ver retorno sem custo\na marcar" as UC6
+  usecase "Ver sessão do pacote\n(restam N)" as UC7
+}
+
+rectangle "Links individuais (token, sem login)" {
+  usecase "Confirmar presença ou\ncancelar (lembrete D-1)" as UL1
+  usecase "Avaliar o atendimento (NPS)" as UL2
+  usecase "Responder a pesquisa\npós-atendimento" as UL3
+  usecase "Responder a ficha\nde anamnese" as UL4
+  usecase "Ler e aceitar o termo\ndo procedimento" as UL5
+  usecase "Assinar a agenda (ICS)" as UL6
+}
+
+C --> UC1
+UC1 --> SMS
+UC2 ..> UC1 : <<include>>
+UC3 ..> UC2 : <<extend>>
+UC4 ..> UC2 : <<extend>>
+UC5 ..> UC2 : <<extend>>
+UC6 ..> UC2 : <<extend>>
+UC7 ..> UC2 : <<extend>>
+C --> UL1
+C --> UL2
+UL3 ..> UL2 : <<extend>>\n(pesquisa ativa)
+C --> UL4
+C --> UL5
+UC3 --> P : push "Cliente cancelou"
+UC4 --> P : push "Cliente remarcou"
+P --> UL6
+
+note bottom of UL4
+  Link de 60 dias (hash SHA-256 no banco).
+  A ficha é dado de saúde: exige consentimento
+  específico (LGPD art. 11).
+end note
+@enduml

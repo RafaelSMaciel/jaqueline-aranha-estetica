@@ -1,0 +1,24 @@
+@startuml 03-notificacao
+!include ../estilo.iuml
+title Estados — Notificação (fila de e-mail e mensagens)
+
+[*] --> PENDENTE : enfileirar_email()\n/ envio no on_commit
+
+PENDENTE --> ENVIADO : provedor aceitou
+PENDENTE --> PENDENTE : falha / tentativas++\n(cron emails reenvia)
+PENDENTE --> FALHOU : 5 tentativas, 48 h\nou sem destinatário
+
+state ENVIADO {
+  [*] --> SemResposta
+  SemResposta --> CONFIRMOU : link "confirmar"
+  SemResposta --> CANCELOU : link "cancelar"
+}
+
+ENVIADO --> [*]
+FALHOU --> [*]
+
+note right of ENVIADO
+  Resposta (só no lembrete D-1): uma única vez,
+  com o link marcado como usado.
+end note
+@enduml

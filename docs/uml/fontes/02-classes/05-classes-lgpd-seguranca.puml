@@ -1,0 +1,111 @@
+@startuml 05-classes-lgpd-seguranca
+' GERADO por docs/uml/gerar_uml.py a partir do codigo — nao edite a mao.
+!include ../estilo.iuml
+hide empty members
+title Classes do domínio — LGPD, termos, auditoria e acesso
+
+class Consentimento <<Entity>> {
+  + finalidade : str
+  + canal : str
+  + concedido : bool
+  + origem : str
+  + texto : str
+  + ip_origem : IP [0..1]
+  + user_agent : str
+  + registrado_em : datetime
+  + criado_em : datetime
+  --
+  + /par «property»
+}
+class ConsentimentoQuerySet <<QuerySet>> {
+  + do_titular(cliente)
+  + minimizar_dados_de_origem()
+}
+Consentimento ..> ConsentimentoQuerySet : objects
+
+class VersaoTermo <<Entity>> {
+  + tipo : str
+  + titulo : str
+  + conteudo : str
+  + versao : str
+  + vigente_desde : date
+  + ativa : bool
+  + criado_em : datetime
+  + atualizado_em : datetime
+  --
+  + {static} lgpd_vigente()
+  + {static} saude_vigente()
+  + {static} texto_saude_vigente()
+  + /sha256_conteudo «property»
+}
+
+class AceiteTermo <<Entity>> {
+  + ip : IP [0..1]
+  + user_agent : str
+  + conteudo_sha256 : str [0..1]
+  + criado_em : datetime
+  --
+  + {static} registrar(cliente, versao_termo, request, atendime…)
+}
+
+class LogAuditoria <<Entity>> {
+  + usuario_nome : str
+  + acao : str
+  + tabela : str
+  + registro_id : int [0..1]
+  + detalhes : json [0..1]
+  + ip_origem : IP [0..1]
+  + criado_em : datetime
+}
+
+class HistoricoAlteracao <<Entity>> {
+  + tabela : str
+  + registro_pk : int
+  + operacao : str
+  + colunas_alteradas : json
+  + dados_antes : json [0..1]
+  + dados_depois : json [0..1]
+  + ip_origem : IP [0..1]
+  + origem : str
+  + transacao_ref : int
+  + criado_em : datetime
+}
+class HistoricoAlteracaoQuerySet <<QuerySet>> {
+  + do_registro(tabela, pk)
+}
+HistoricoAlteracao ..> HistoricoAlteracaoQuerySet : objects
+
+class Usuario <<Entity>> {
+  + papel : str
+  + nome : str
+  + email : str
+  + password : str
+  + ativo : bool
+  + criado_em : datetime
+  + atualizado_em : datetime
+  --
+  + /is_active «property»
+  + /is_staff «property»
+  + /first_name «property»
+  + has_perm(perm, obj)
+  + has_module_perms(app_label)
+}
+
+class Configuracao <<Entity>> {
+  + chave : str
+  + valor : str
+  + descricao : str
+  + criado_em : datetime
+  + atualizado_em : datetime
+}
+
+Usuario "0..1" --> "0..1" Profissional : profissional
+Consentimento "0..*" --> "1" Cliente : cliente
+Consentimento "0..*" --> "0..1" Usuario : usuario_autor
+VersaoTermo "0..*" --> "0..1" Procedimento : procedimento
+AceiteTermo "0..*" --> "1" Cliente : cliente
+AceiteTermo "0..*" --> "1" VersaoTermo : versao_termo
+AceiteTermo "0..*" --> "0..1" Atendimento : atendimento
+LogAuditoria "0..*" --> "0..1" Usuario : usuario
+HistoricoAlteracao "0..*" --> "0..1" Usuario : usuario_autor
+@enduml

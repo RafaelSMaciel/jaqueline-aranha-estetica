@@ -1,0 +1,46 @@
+@startuml 02-pedido-online
+!include ../estilo.iuml
+title Atividade — do pedido online ao atendimento realizado
+
+|Cliente|
+start
+:escolhe procedimento, profissional e horário;
+:verifica o celular (OTP por SMS);
+:aceita a Política e responde a ficha (se houver);
+|Sistema|
+if (cliente de confiança?\n(já atendida, sem falta,\n< 2 horários futuros)) then (sim)
+  :status AGENDADO;
+  :e-mail de confirmação à cliente;
+else (não)
+  :status PENDENTE;
+  :e-mail de aprovação à profissional;
+  |Profissional|
+  if (decide antes de 1 h do início?) then (aprova)
+    :aprovar;
+    |Sistema|
+    :e-mail de confirmação à cliente;
+  else (recusa ou não decide)
+    |Sistema|
+    :CANCELADO + e-mail à cliente;
+    :vaga para a lista de espera;
+    stop
+  endif
+endif
+|Sistema|
+:lembrete D-1 por WhatsApp (com opt-in);
+|Cliente|
+:confirma presença (ou cancela);
+|Profissional|
+if (a cliente compareceu?) then (sim)
+  :marca REALIZADO;
+  |Sistema|
+  :comissão, pacote, cashback, retorno devido;
+  :NPS no dia seguinte;
+else (não)
+  |Profissional|
+  :marca FALTOU;
+  |Sistema|
+  :soma falta (3 bloqueiam o online);
+endif
+stop
+@enduml

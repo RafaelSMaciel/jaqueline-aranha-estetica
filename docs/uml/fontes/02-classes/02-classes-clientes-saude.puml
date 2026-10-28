@@ -1,0 +1,101 @@
+@startuml 02-classes-clientes-saude
+' GERADO por docs/uml/gerar_uml.py a partir do codigo — nao edite a mao.
+!include ../estilo.iuml
+hide empty members
+title Classes do domínio — Clientes, saúde e formulários
+
+class Cliente <<Entity>> {
+  + nome : str
+  + data_nascimento : date [0..1]
+  + cpf : str [0..1]
+  + rg : str [0..1]
+  + profissao : str [0..1]
+  + email : str [0..1]
+  + telefone : str [0..1]
+  + cep : str [0..1]
+  + endereco : str [0..1]
+  + ativo : bool
+  + faltas_consecutivas : int
+  + bloqueado_online : bool
+  + foto_url : str
+  + codigo_indicacao : str [0..1]
+  + criado_em : datetime
+  + atualizado_em : datetime
+  + deletado_em : datetime [0..1]
+  --
+  + {static} limite_faltas_bloqueio()
+  + registrar_falta()
+  + resetar_faltas()
+  + soft_delete()
+}
+
+class Prontuario <<Entity>> {
+  + alergias : str «cifrado»
+  + contraindicacoes : str «cifrado»
+  + historico_saude : str «cifrado»
+  + medicamentos_uso : str «cifrado»
+  + observacoes_gerais : str «cifrado»
+  + respostas_extras : json «cifrado»
+  + criado_em : datetime
+  + atualizado_em : datetime
+}
+
+class ProntuarioVersao <<Entity>> {
+  + autor_nome : str
+  + criado_em : datetime
+  + dados : json «cifrado»
+  --
+  + {static} registrar(prontuario, usuario)
+}
+
+class AnotacaoSessao <<Entity>> {
+  + autor_nome : str
+  + texto : str «cifrado»
+  + criado_em : datetime
+}
+class AnotacaoSessaoQuerySet <<QuerySet>> {
+  + update(**kwargs)
+}
+AnotacaoSessao ..> AnotacaoSessaoQuerySet : objects
+
+class FormularioAnamnese <<Entity>> {
+  + nome : str
+  + tipo : str
+  + escopo : str
+  + categoria : str
+  + modalidade : str
+  + schema_json : json
+  + ativo : bool
+  + obrigatorio : bool
+  + criado_em : datetime
+  + atualizado_em : datetime
+  --
+  + aplica_a(procedimento)
+  + /eh_prontuario «property»
+}
+class FormularioAnamneseQuerySet <<QuerySet>> {
+  + aplicaveis_a(procedimento)
+  + prontuario_ativo()
+}
+FormularioAnamnese ..> FormularioAnamneseQuerySet : objects
+
+class RespostaAnamnese <<Entity>> {
+  + respostas_json : json «cifrado»
+  + criado_em : datetime
+  + atualizado_em : datetime
+  + respondida_em : datetime [0..1]
+  --
+  + /respondida «property»
+}
+
+Cliente "0..*" --> "0..1" Cliente : indicado_por
+Prontuario "0..1" --> "1" Cliente : cliente
+ProntuarioVersao "0..*" --> "1" Prontuario : prontuario
+ProntuarioVersao "0..*" --> "0..1" Usuario : autor
+AnotacaoSessao "0..*" --> "1" Atendimento : atendimento
+AnotacaoSessao "0..*" --> "0..1" Usuario : autor
+FormularioAnamnese "0..*" --> "0..1" Procedimento : procedimento
+RespostaAnamnese "0..*" --> "1" FormularioAnamnese : formulario
+RespostaAnamnese "0..*" --> "1" Cliente : cliente
+RespostaAnamnese "0..*" --> "0..1" Atendimento : atendimento
+@enduml

@@ -1,0 +1,43 @@
+@startuml 03-realizado-efeitos
+!include ../estilo.iuml
+title Sequência — marcar REALIZADO e os efeitos na mesma transação
+autonumber
+
+actor "Profissional\nou Administradora" as A
+participant "view\n(painel / portal)" as V
+participant "Atendimento\n(FSM)" as AT
+participant "ao_mudar_status" as EF
+participant "Cliente" as CL
+participant "debitar_sessao\n_de_pacote" as PAC
+participant "ComissaoService" as COM
+participant "FidelidadeService" as FID
+database "PostgreSQL\n(triggers)" as DB
+
+A -> V : Realizado
+V -> V : termo do procedimento aceito?\n(se não: confirmação explícita "sem termo")
+V -> AT : marcar_realizado(by_user)
+group transaction.atomic (tudo ou nada)
+  AT -> DB : SELECT status, início FOR UPDATE
+  AT -> AT : início <= agora + 30 min?\nAGENDADO/CONFIRMADO → REALIZADO?
+  AT -> DB : UPDATE status + LogAuditoria
+  AT -> EF : ao_mudar_status(anterior, REALIZADO)
+  EF -> CL : resetar_faltas() (desbloqueia o online)
+  EF -> PAC : debitar_sessao_de_pacote(at)
+  PAC -> DB : compra que vence primeiro FOR UPDATE\nConsumoSessao (item congelado)
+  DB -> DB : tg_consumo_sessao_validar (saldo)
+  EF -> COM : calcular_comissao(at)
+  COM -> DB : RegraComissao mais específica\nMovimentoComissao CREDITO (base congelada)
+  DB -> DB : fn_movimento_comissao_validar\n(1 crédito ativo por atendimento)
+  EF -> FID : liberar_cashback_indicacao(at)
+  FID -> DB : 1º atendimento pago da indicada →\nMovimentoCarteira CREDITO p/ quem indicou
+  EF -> EF : retorno obrigatório fica DEVIDO\n(services.retorno.devidos)
+end
+DB --> V : commit (qualquer falha desfaz o status e os lançamentos)
+V --> A : sucesso
+
+note right of EF
+  Desfazer realização (painel, com motivo):
+  estorna comissão pendente e cashback, devolve a sessão
+  do pacote e cancela o retorno marcado. Comissão já paga recusa.
+end note
+@enduml

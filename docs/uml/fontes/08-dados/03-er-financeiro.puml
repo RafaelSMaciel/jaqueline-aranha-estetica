@@ -1,0 +1,146 @@
+@startuml 03-er-financeiro
+' GERADO por docs/uml/gerar_uml.py a partir dos models — nao edite a mao.
+!include ../estilo.iuml
+!include ../estilo-er.iuml
+title Modelo de dados — Pacotes, comissão e carteira
+
+entity "pacote" as pacote {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * nome : varchar(150)
+  * descricao : text
+  * valor_total : numeric(10,2)
+  * eh_ativo : boolean
+  * validade_meses : smallint
+  * criado_em : timestamptz
+  * atualizado_em : timestamptz
+}
+
+entity "pacote_item" as pacote_item {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * pacote_id : bigint <<FK>>
+  * procedimento_id : bigint <<FK>>
+  * qtd_sessoes : smallint
+  * criado_em : timestamptz
+}
+
+entity "compra_pacote" as compra_pacote {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * cliente_id : bigint <<FK>>
+  * pacote_id : bigint <<FK>>
+  * pacote_nome : varchar(150)
+  * criado_em : timestamptz
+  * atualizado_em : timestamptz
+  * valor_pago : numeric(10,2)
+  * valor_reembolsado : numeric(10,2)
+  * status : varchar(20)
+  data_expiracao : date
+}
+
+entity "compra_pacote_item" as compra_pacote_item {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * compra_pacote_id : bigint <<FK>>
+  * procedimento_id : bigint <<FK>>
+  * procedimento_nome : varchar(100)
+  * qtd_sessoes : smallint
+  * valor_unitario : numeric(10,2)
+  * criado_em : timestamptz
+}
+
+entity "consumo_sessao" as consumo_sessao {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * compra_pacote_id : bigint <<FK>>
+  * compra_pacote_item_id : bigint <<FK>>
+  * atendimento_id : bigint <<FK,UK>>
+  * criado_em : timestamptz
+}
+
+entity "regra_comissao" as regra_comissao {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * criado_em : timestamptz
+  * atualizado_em : timestamptz
+  profissional_id : bigint <<FK>>
+  procedimento_id : bigint <<FK>>
+  percentual : numeric(5,2)
+  valor_fixo : numeric(10,2)
+  * eh_ativo : boolean
+}
+
+entity "movimento_comissao" as movimento_comissao {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * profissional_id : bigint <<FK>>
+  * atendimento_id : bigint <<FK>>
+  * tipo : varchar(10)
+  regra_comissao_id : bigint <<FK>>
+  * valor : numeric(10,2)
+  movimento_comissao_origem_id : bigint <<FK>>
+  * observacao : text
+  usuario_autor_id : bigint <<FK>>
+  * criado_em : timestamptz
+}
+
+entity "carteira" as carteira {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * criado_em : timestamptz
+  * atualizado_em : timestamptz
+  * cliente_id : bigint <<FK,UK>>
+  * valor_saldo : numeric(10,2)
+}
+
+entity "movimento_carteira" as movimento_carteira {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * carteira_id : bigint <<FK>>
+  * tipo : varchar(10)
+  * origem : varchar(30)
+  * valor : numeric(10,2)
+  * valor_saldo_resultante : numeric(10,2)
+  atendimento_id : bigint <<FK>>
+  * observacao : text
+  usuario_autor_id : bigint <<FK>>
+  * criado_em : timestamptz
+}
+
+entity "atendimento" as atendimento #F2F2F2 {
+}
+
+entity "cliente" as cliente #F2F2F2 {
+}
+
+entity "procedimento" as procedimento #F2F2F2 {
+}
+
+entity "profissional" as profissional #F2F2F2 {
+}
+
+entity "usuario" as usuario #F2F2F2 {
+}
+
+pacote ||--o{ pacote_item : pacote_id
+procedimento ||--o{ pacote_item : procedimento_id
+cliente ||--o{ compra_pacote : cliente_id
+pacote ||--o{ compra_pacote : pacote_id
+compra_pacote ||--o{ compra_pacote_item : compra_pacote_id
+procedimento ||--o{ compra_pacote_item : procedimento_id
+compra_pacote ||--o{ consumo_sessao : compra_pacote_id
+compra_pacote_item ||--o{ consumo_sessao : compra_pacote_item_id
+atendimento ||--o| consumo_sessao : atendimento_id
+cliente ||--o| carteira : cliente_id
+carteira ||--o{ movimento_carteira : carteira_id
+atendimento |o--o{ movimento_carteira : atendimento_id
+usuario |o--o{ movimento_carteira : usuario_autor_id
+profissional |o--o{ regra_comissao : profissional_id
+procedimento |o--o{ regra_comissao : procedimento_id
+profissional ||--o{ movimento_comissao : profissional_id
+atendimento ||--o{ movimento_comissao : atendimento_id
+regra_comissao |o--o{ movimento_comissao : regra_comissao_id
+movimento_comissao |o--o{ movimento_comissao : movimento_comissao_origem_id
+usuario |o--o{ movimento_comissao : usuario_autor_id
+@enduml

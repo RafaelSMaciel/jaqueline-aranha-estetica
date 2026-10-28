@@ -1,0 +1,34 @@
+@startuml 09-lgpd-retencao
+!include ../estilo.iuml
+title Sequência — LGPD: pseudonimização a pedido e retenção automática
+autonumber
+
+actor "Administradora" as A
+actor "Agendador (cron)" as CR
+participant "Django admin\n(ação da cliente)" as ADM
+participant "LgpdService" as L
+participant "utils.banco.chamar" as B
+database "PostgreSQL\n(procedures)" as DB
+
+== Direito de eliminação (a pedido da titular) ==
+A -> ADM : "Esquecer cliente" (com confirmação)
+ADM -> L : esquecer_cliente(cliente, usuario, request)
+L -> B : CALL sp_anonimizar_cliente(id, autor, ip)
+B -> DB : PII substituída (nome, contato, CPF, endereço);\nsoft delete; trilhas preservadas sem PII
+DB -> DB : triggers de imutabilidade liberam só\na própria pseudonimização
+L --> ADM : feito + registro LGPD (autor, IP)
+
+== Retenção (job lgpd_purgar, domingo 03:00) ==
+CR -> L : aplicar_retencao()
+L -> B : CALL sp_aplicar_retencao_lgpd()
+B -> DB : fn_clientes_para_anonimizar():\ninativas há 5 anos ou excluídas há 30 dias,\nexceto com saúde/pacote dentro do prazo legal
+DB -> DB : sp_anonimizar_cliente para cada uma
+DB -> DB : apaga fichas de pedidos não realizados (90 dias)\ne inscrições vencidas da lista de espera
+L --> CR : {clientes, fichas, esperas}
+
+note right of L
+  A procedure é a fonte única (Python só chama):
+  a mesma regra vale no job, no admin e em SQL manual.
+  Exige PostgreSQL (o SQLite dos testes pula).
+end note
+@enduml

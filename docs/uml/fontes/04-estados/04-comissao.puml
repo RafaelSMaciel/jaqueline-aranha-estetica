@@ -1,0 +1,21 @@
+@startuml 04-comissao
+!include ../estilo.iuml
+title Estados — Comissão (status derivado do livro-razão append-only)
+
+[*] --> PENDENTE : REALIZADO\n/ MovimentoComissao CREDITO
+PENDENTE --> PAGA : pagar\n/ lançamento PAGAMENTO
+PENDENTE --> ESTORNADA : cancelamento ou realização desfeita\n/ lançamento ESTORNO
+PENDENTE --> PENDENTE : valor corrigido (recalcular)\n/ ESTORNO + novo CREDITO
+PAGA --> [*]
+ESTORNADA --> [*]
+
+note right of PAGA
+  Comissão paga nunca é estornada:
+  desfazer a realização é recusado
+  (acerto no repasse).
+end note
+note bottom of PENDENTE
+  Nenhuma linha é alterada ou apagada (trigger do PostgreSQL).
+  No máximo 1 crédito ativo por atendimento.
+end note
+@enduml

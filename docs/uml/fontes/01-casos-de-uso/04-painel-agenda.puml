@@ -1,0 +1,56 @@
+@startuml 04-painel-agenda
+!include ../estilo.iuml
+left to right direction
+title Casos de uso — painel: operação da agenda
+
+actor "Administradora" as A
+actor "Cliente" as C <<notificada>>
+
+rectangle "Painel — agenda e atendimento" {
+  usecase "Ver a visão geral\n(hoje, pendências, alertas)" as UC1
+  usecase "Aprovar ou recusar pedido\n(botão, lote ou seletor)" as UC2
+  usecase "Agendar pela recepção" as UC3
+  usecase "Mudar status do atendimento" as UC4
+  usecase "Marcar realizado" as UC4a
+  usecase "Marcar falta" as UC4b
+  usecase "Cancelar" as UC4c
+  usecase "Desfazer realização\n(com motivo)" as UC5
+  usecase "Mover no calendário\n(arrastar)" as UC6
+  usecase "Registrar valor combinado\ne usar crédito de indicação" as UC7
+  usecase "Gerar link do termo" as UC8
+  usecase "Gerar link da ficha" as UC9
+  usecase "Marcar retorno sem custo" as UC10
+  usecase "Avisar a lista de espera" as UC11
+  usecase "Bloquear horários e\nregistrar folgas/feriados" as UC12
+  usecase "Resolver atendimentos\nsem desfecho" as UC13
+}
+
+A --> UC1
+A --> UC2
+A --> UC3
+A --> UC4
+A --> UC5
+A --> UC6
+A --> UC7
+A --> UC8
+A --> UC9
+A --> UC10
+A --> UC11
+A --> UC12
+A --> UC13
+UC4 <|-- UC4a
+UC4 <|-- UC4b
+UC4 <|-- UC4c
+UC13 ..> UC4 : <<include>>
+UC4a ..> UC8 : <<extend>>\n(termo pendente:\nconfirmação explícita)
+UC2 --> C : e-mail de confirmação\nou cancelamento
+UC3 --> C : e-mail de confirmação
+UC4c --> C : e-mail de cancelamento
+
+note right of UC4a
+  Só a partir do início (folga de 30 min).
+  Efeitos na mesma transação: zera faltas, debita sessão
+  de pacote, lança comissão, libera cashback da indicação
+  e deixa o retorno devido.
+end note
+@enduml
