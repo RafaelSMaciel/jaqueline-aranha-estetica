@@ -7,10 +7,12 @@ from django.core.exceptions import ValidationError
 from django.db import DatabaseError, transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 
 from ...decorators import staff_required
 from ...models import (
     AgendaHorario,
+    Atendimento,
     Procedimento,
     Profissional,
     Habilitacao,
@@ -247,6 +249,37 @@ def _salvar_habilitacoes(profissional, selecionados):
     )
 
 
+def _atendimentos_que_ficariam_orfaos(profissional, ativo, janelas, procedimentos):
+    """Atendimentos futuros que a edicao deixaria sem quem atenda: desativar, desmarcar o dia,
+    mudar a janela do dia p/ fora do horario marcado ou tirar a habilitacao do procedimento.
+    A edicao e recusada listando-os (reagendar/cancelar antes): antes os horarios ficavam na
+    agenda, o lembrete D-1 confirmava presenca e a profissional nem via a lista."""
+    futuros = list(Atendimento.objects.filter(
+        profissional=profissional, status__in=Atendimento.STATUS_ATIVOS, data_hora_inicio__gte=timezone.now(),
+    ).select_related('cliente', 'procedimento').order_by('data_hora_inicio'))
+    if not futuros:
+        return []
+    if profissional.ativo and not ativo:
+        return futuros
+    janela_por_dia = {DIA_NUMERO[k]: v for k, v in janelas.items()}
+    primeira_atual = {}
+    for disp in AgendaHorario.objects.filter(profissional=profissional).order_by('dia_semana', 'hora_inicio'):
+        primeira_atual.setdefault(disp.dia_semana, (disp.hora_inicio, disp.hora_fim))
+    ativos = set(Procedimento.objects.filter(ativo=True).values_list('pk', flat=True))
+    atuais = set(Habilitacao.objects.filter(profissional=profissional).values_list('procedimento_id', flat=True))
+    sem_habilitacao = (atuais & ativos) - procedimentos
+    orfaos = []
+    for at in futuros:
+        inicio, fim = timezone.localtime(at.data_hora_inicio), timezone.localtime(at.data_hora_fim)
+        dia = inicio.isoweekday()
+        janela = janela_por_dia.get(dia)
+        fora_da_janela = janela is None or (
+            janela != primeira_atual.get(dia) and not (janela[0] <= inicio.time() and fim.time() <= janela[1]))
+        if fora_da_janela or at.procedimento_id in sem_habilitacao:
+            orfaos.append(at)
+    return orfaos
+
+
 @staff_required
 def profissional_editar(request, pk=None):
     """Editar profissional existente"""
@@ -262,6 +295,16 @@ def profissional_editar(request, pk=None):
         janelas, erros = _ler_janelas(request.POST)
         if not nome:
             erros.insert(0, 'O nome do profissional é obrigatório.')
+        if not erros:
+            orfaos = _atendimentos_que_ficariam_orfaos(
+                profissional, _ativo_do_post(request), janelas, _ids_procedimentos(request.POST))
+            if orfaos:
+                lista = '; '.join(
+                    f"{timezone.localtime(a.data_hora_inicio):%d/%m %H:%M} {a.procedimento.nome} ({a.cliente.nome})"
+                    for a in orfaos[:5])
+                mais = f' e mais {len(orfaos) - 5}' if len(orfaos) > 5 else ''
+                erros.append(f'{len(orfaos)} atendimento(s) futuro(s) ficariam sem quem atenda: {lista}{mais}. '
+                             'Reagende ou cancele antes (Painel > Agendamentos).')
 
         if erros:
             # Nada e gravado/apagado: re-renderiza com o que foi digitado.
