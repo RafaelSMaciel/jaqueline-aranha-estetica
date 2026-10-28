@@ -46,7 +46,7 @@ def autenticado(usuario):
 class Ator:
     usuario: object = None   # Usuario autenticado; None = cliente anonima ou sistema
     ip: str | None = None
-    origem: str = ''         # web | cron:<job> | celery:<task> | migracao
+    origem: str = ''         # web | cron:<job> | comando:<job> | migracao
 
     @classmethod
     def do_request(cls, request, origem='web') -> Ator:

@@ -30,6 +30,7 @@ from aranha_estetica.models import (
     RespostaAnamnese,
     Usuario,
     VersaoTermo,
+    Notificacao,
 )
 from aranha_estetica.utils.branding import get_branding
 from aranha_estetica.utils.saude import alertas_saude
@@ -374,7 +375,7 @@ class CancelamentoPainelTests(_AdminBase):
         amanha = timezone.localdate() + timedelta(days=1)
         local_14h = timezone.make_aware(datetime.combine(amanha, time(14, 0)))
         at = criar_atendimento(cli, self.prof, self.proc, data_hora=local_14h, status='AGENDADO')
-        with mock.patch('aranha_estetica.tasks.send_email_async.delay') as delay, \
+        with mock.patch('aranha_estetica.utils.email.enviar_cancelamento_email', return_value=True) as enviar, \
                 self.captureOnCommitCallbacks(execute=True):
             resp = self.client.post(
                 reverse('aranha:admin_atualizar_status'),
@@ -382,10 +383,13 @@ class CancelamentoPainelTests(_AdminBase):
                 content_type='application/json',
             )
         self.assertEqual(resp.status_code, 200, resp.content)
-        delay.assert_called_once()
-        funcao, email, dados = delay.call_args.args
-        self.assertEqual((funcao, email), ('enviar_cancelamento_email', 'cli@x.com'))
+        enviar.assert_called_once()
+        email, dados = enviar.call_args.args
+        self.assertEqual(email, 'cli@x.com')
         self.assertIn('14:00', dados['data_hora'])
+        # historico: o e-mail fica como notificacao do atendimento
+        self.assertTrue(Notificacao.objects.filter(
+            atendimento=at, tipo='CANCELAMENTO', canal='EMAIL', status='ENVIADO').exists())
 
 
 # ════════════════════════════════════════════════════════════════════

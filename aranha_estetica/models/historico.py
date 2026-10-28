@@ -9,8 +9,8 @@ versao_termo, usuario, configuracao), gravada pelo trigger ``tg_<t>_historico``
 (antes/depois); ``usuario.senha_hash`` aparece como ``"[redigido]"``.
 
 Autor/IP/origem vem das GUCs da sessao (``app.usuario_id``, ``app.ip_origem``,
-``app.origem``) que o ``ContextoBancoMiddleware``/cron/Celery/``migrate_atomico``
-definem (``utils/banco.definir_contexto_banco``). Sem contexto (SQL manual) =
+``app.origem``) que o Ator da borda (``ator.atuando``: middleware, cron, ``rodar_job``) e o
+``migrate_atomico`` definem (``utils/banco.definir_contexto_banco``). Sem contexto (SQL manual) =
 autor NULL e origem ''.
 
 So existe conteudo no Postgres (o SQLite dos testes nao tem triggers). Append-only:
@@ -88,7 +88,7 @@ class HistoricoAlteracao(models.Model):
     ip_origem = models.GenericIPAddressField(blank=True, null=True)
     origem = models.CharField(
         max_length=60, blank=True, default='', db_default='',
-        db_comment='current_setting(app.origem): web, cron:<job>, celery:<task>, migracao; vazio = SQL manual.',
+        db_comment='current_setting(app.origem): web, cron:<job>, comando:<job>, migracao; vazio = SQL manual.',
     )
     transacao_ref = models.BigIntegerField(
         db_comment='pg_current_xact_id() - agrupa as linhas de uma mesma transacao/request.',

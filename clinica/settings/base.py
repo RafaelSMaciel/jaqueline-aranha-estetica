@@ -374,7 +374,7 @@ EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 # 'Jaqueline Aranha Estetica <contato@seudominio.com.br>'. O default e so
 # placeholder: provedor HTTP recusa remetente de dominio nao verificado.
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@clinica.com.br')
-# Sem timeout o socket SMTP pendura a thread do gunicorn (Celery eager = no request)
+# Sem timeout o socket SMTP pendura a thread do gunicorn (o envio roda no request/cron)
 EMAIL_TIMEOUT = int(os.environ.get('EMAIL_TIMEOUT') or 10)
 
 # Provedor HTTP (django-anymail): o plano Hobby do Railway bloqueia SMTP de saida.
@@ -391,7 +391,7 @@ if EMAIL_BACKEND.startswith('anymail.'):
         chave: valor for chave in ANYMAIL_CHAVES_ENV
         if (valor := (os.environ.get(chave) or '').strip())
     }
-    # Default do anymail e 30 s: mesmo teto do SMTP (request/Celery eager)
+    # Default do anymail e 30 s: mesmo teto do SMTP (envio no request/cron)
     ANYMAIL['REQUESTS_TIMEOUT'] = EMAIL_TIMEOUT
 
 # SMS (utils/sms): SMS_DEV_LOG_ONLY=true so loga (dev/testes; nunca o codigo).
@@ -448,19 +448,11 @@ LOGGING = {
 }
 
 
-# ─── CELERY + CACHE ──────────────────────────────────────────────────
-# REDIS_URL serve cache/sessao; broker/result do Celery usam CELERY_* ou caem nele.
-# Worker Celery so e usado com CELERY_WORKER_ENABLED=true (prod.py); sem isso
-# as tasks rodam eager e os jobs periodicos vem do cron HTTP (views/cron.py).
+# ─── CACHE ───────────────────────────────────────────────────────────
+# REDIS_URL = cache/sessao compartilhados entre workers do gunicorn. Sem fila de tarefas: os
+# jobs sao funcoes chamadas pelo cron HTTP (views/cron.py) e o e-mail tem fila no banco
+# (services/comunicacao).
 REDIS_URL = os.environ.get('REDIS_URL', '')
-CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL') or REDIS_URL or 'redis://localhost:6379/0'
-CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND') or REDIS_URL or 'redis://localhost:6379/0'
-CELERY_ACCEPT_CONTENT = ['application/json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = TIME_ZONE
-# Jobs de manutencao ficam fora de tasks.py (autodiscover so acha tasks.py)
-CELERY_IMPORTS = ('aranha_estetica.tasks_manutencao',)
 
 if REDIS_URL:
     CACHES = {
@@ -475,8 +467,7 @@ if REDIS_URL:
 else:
     # LocMemCache e por-processo: ok com 1 worker gunicorn (threads compartilham).
     # Com mais workers, rate-limit/axes/lock de slot/quota de SMS deixam de ser
-    # compartilhados — ai sim precisa de REDIS_URL (so cache; worker Celery e
-    # outra coisa: CELERY_WORKER_ENABLED=true).
+    # compartilhados — ai sim precisa de REDIS_URL.
     try:
         _web_workers = int(os.environ.get('WEB_CONCURRENCY', '1') or 1)
     except ValueError:
@@ -494,53 +485,6 @@ else:
         'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'},
     }
     SESSION_ENGINE = 'django.contrib.sessions.backends.db'
-
-
-# Agendamento Celery Beat
-from celery.schedules import crontab  # noqa: E402
-
-CELERY_BEAT_SCHEDULE = {
-    'lembretes-diarios-08h': {
-        'task': 'aranha_estetica.tasks.job_enviar_lembrete_dia_seguinte',
-        'schedule': crontab(hour=8, minute=0),
-    },
-    'envio-pesquisa-nps-diaria': {
-        'task': 'aranha_estetica.tasks.job_pesquisa_satisfacao_24h',
-        'schedule': crontab(hour=10, minute=0),
-    },
-    'alerta-detrator-nps': {
-        'task': 'aranha_estetica.tasks.job_alerta_detrator_nps',
-        'schedule': crontab(hour=10, minute=30),
-    },
-    'verificar-pacotes-expirando': {
-        'task': 'aranha_estetica.tasks.job_verificar_pacotes_expirando',
-        'schedule': crontab(hour=7, minute=0),
-    },
-    'expirar-pacotes': {
-        'task': 'aranha_estetica.tasks.job_expirar_pacotes',
-        'schedule': crontab(hour=0, minute=30),
-    },
-    'limpeza-status-atendimentos': {
-        'task': 'aranha_estetica.tasks.job_limpeza_status_atendimentos',
-        'schedule': crontab(hour=23, minute=0),
-    },
-    'aniversario-clientes': {
-        'task': 'aranha_estetica.tasks.job_aniversario_clientes',
-        'schedule': crontab(hour=9, minute=0),
-    },
-    'lgpd-purgar-inativos': {
-        'task': 'aranha_estetica.tasks.job_lgpd_purgar_inativos',
-        'schedule': crontab(hour=3, minute=0, day_of_week=0),  # Domingo 3h
-    },
-    'housekeeping-diario': {
-        'task': 'aranha_estetica.tasks_manutencao.job_housekeeping',
-        'schedule': crontab(hour=4, minute=0),
-    },
-    'carregar-feriados-mensal': {
-        'task': 'aranha_estetica.tasks_manutencao.job_carregar_feriados',
-        'schedule': crontab(hour=4, minute=30, day_of_month=1),
-    },
-}
 
 
 # ─── CIFRAGEM EM REPOUSO (utils/cifragem; prontuario, fichas, token OAuth) ───

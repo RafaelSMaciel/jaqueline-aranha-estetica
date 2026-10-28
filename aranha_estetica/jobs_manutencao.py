@@ -1,10 +1,9 @@
-"""Jobs de manutencao/retencao (cron HTTP em prod; beat se houver worker).
+"""Jobs de manutencao/retencao (funcoes chamadas pelo cron HTTP e pelo comando rodar_job).
 
 Politica (docs/specs/regras-negocio-registry.md `retencao.*`): OTP 24h,
 texto de notificacao 12 meses, auditoria 5 anos, link publico vencido/revogado
 90 dias, trilha historico_alteracao 5 anos (prontuario: 20, nao purga aqui).
-Prazos em settings.RETENCAO_*. Registrado no Celery via CELERY_IMPORTS
-(autodiscover so acha tasks.py).
+Prazos em settings.RETENCAO_*.
 
 Postgres: as etapas de tabelas do app viram UMA etapa "banco" = CALL
 sp_purgar_dados_expirados (fonte unica, spec padrao-sql §5.6; cada etapa num
@@ -14,7 +13,6 @@ continuam Python (tabelas de terceiros). SQLite: as funcoes _purgar_* abaixo.
 import io
 import logging
 
-from celery import shared_task
 from django.conf import settings
 from django.core.management import call_command
 
@@ -67,8 +65,7 @@ ETAPAS_HOUSEKEEPING = [
 ]
 
 
-@shared_task(bind=True, max_retries=0)
-def job_housekeeping(self):
+def job_housekeeping():
     """Limpeza diaria: sessoes expiradas, o sp_purgar_dados_expirados (OTP, texto de
     notificacoes, auditoria e trilha alem da retencao, links vencidos/revogados) e logs do axes.
     Cada etapa e independente; se alguma falhar, as outras rodam e o job termina em erro (cron
@@ -96,8 +93,7 @@ def job_housekeeping(self):
     return resumo
 
 
-@shared_task(bind=True, max_retries=0)
-def job_carregar_feriados(self):
+def job_carregar_feriados():
     """Garante feriados nacionais do ano atual + proximo (comando idempotente).
     A migration so semeou 2026-2027; sem isso nenhum feriado bloqueia a agenda."""
     saida = io.StringIO()

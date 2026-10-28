@@ -149,9 +149,9 @@ class LembreteD1Tests(TestCase):
         self.proc = criar_procedimento(profissional=self.prof)
 
     def _enviar(self):
-        from aranha_estetica.tasks import job_enviar_lembrete_dia_seguinte
+        from aranha_estetica.jobs import job_enviar_lembrete_dia_seguinte
         with patch.object(wa_utils, 'enviar_template_whatsapp', return_value=True) as fake:
-            job_enviar_lembrete_dia_seguinte.apply()
+            job_enviar_lembrete_dia_seguinte()
         return fake
 
     def test_so_quem_autorizou_e_nao_revogou(self):
@@ -183,7 +183,7 @@ class NpsConsentimentoTests(TestCase):
         return criar_atendimento(cli, self.prof, self.proc, data_hora=inicio, status='REALIZADO')
 
     def test_candidatos_respeitam_ultimo_registro(self):
-        from aranha_estetica.tasks import candidatos_nps
+        from aranha_estetica.jobs import candidatos_nps
         ok = self._realizado(criar_cliente(consent_whatsapp_nps=True))
         descadastrada = criar_cliente(consent_whatsapp_nps=True)
         LgpdService.unsubscribe_por_token(criar_link('DESCADASTRO', descadastrada))
@@ -196,7 +196,7 @@ class NpsConsentimentoTests(TestCase):
         self.assertEqual(set(candidatos_nps().values_list('pk', flat=True)), {ok.pk, at_voltou.pk})
 
     def test_contagem_de_falhas_continua_com_a_anotacao(self):
-        from aranha_estetica.tasks import candidatos_nps
+        from aranha_estetica.jobs import candidatos_nps
         at = self._realizado(criar_cliente(consent_whatsapp_nps=True))
         for _ in range(2):
             Notificacao.objects.create(atendimento=at, tipo='NPS', status='FALHOU')
@@ -214,17 +214,17 @@ class MarketingEmailTests(TestCase):
         return autorizou
 
     def test_aniversario_so_para_marketing_vigente(self):
-        from aranha_estetica.tasks import job_aniversario_clientes
+        from aranha_estetica.jobs import job_aniversario_clientes
         hoje = timezone.localdate()
         # 1992 e bissexto: hoje.replace() nao estoura em 29/02
         self._clientes(data_nascimento=hoje.replace(year=1992))
-        job_aniversario_clientes.apply()
+        job_aniversario_clientes()
         self.assertEqual([m.to[0] for m in mail.outbox], ['sim@example.com'])
 
     def test_promocao_mensal_so_para_marketing_vigente(self):
-        from aranha_estetica.tasks import job_promocao_mensal
+        from aranha_estetica.jobs import job_promocao_mensal
         self._clientes()
-        job_promocao_mensal.apply(args=('Promo', '<p>Oferta</p>'))
+        job_promocao_mensal('Promo', '<p>Oferta</p>')
         self.assertEqual([m.to[0] for m in mail.outbox], ['sim@example.com'])
 
     def test_promocao_do_painel_mesmo_publico(self):

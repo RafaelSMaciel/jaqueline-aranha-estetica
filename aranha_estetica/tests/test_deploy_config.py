@@ -9,7 +9,6 @@ from io import StringIO
 from pathlib import Path
 from unittest import mock, skipIf, skipUnless
 
-from celery import shared_task
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
@@ -24,17 +23,11 @@ BASE_DIR = Path(settings.BASE_DIR)
 _CHAMADAS = {'n': 0}
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=60)
-def _job_que_falha(self):
-    """Espelha os job_* reais: captura e pede retry."""
+def _job_que_falha():
     _CHAMADAS['n'] += 1
-    try:
-        raise ValueError('db down')
-    except ValueError as exc:
-        raise self.retry(exc=exc)
+    raise ValueError('db down')
 
 
-@shared_task
 def _job_ok():
     return 3
 
@@ -83,20 +76,7 @@ class CronEndpointTests(TestCase):
             r = self._post('falha')
         self.assertEqual(r.status_code, 500)
         self.assertFalse(r.json()['ok'])
-        self.assertEqual(_CHAMADAS['n'], 1)  # sem reexecutar o lote 4x
-
-    def test_falha_em_eager_sem_propagar_vira_500(self):
-        # prod: EAGER_PROPAGATES=False -> apply() devolve FAILURE sem levantar
-        resultado = mock.Mock()
-        resultado.failed.return_value = True
-        resultado.result = RuntimeError('db down')
-        job = mock.Mock(max_retries=3)
-        job.apply.return_value = resultado
-        with mock.patch.dict(cron.JOB_MAP, {'falha': job}):
-            r = self._post('falha')
-        self.assertEqual(r.status_code, 500)
-        self.assertEqual(r.json(), {'ok': False, 'job': 'falha', 'error': 'db down'})
-        job.apply.assert_called_once_with(retries=3)
+        self.assertEqual(_CHAMADAS['n'], 1)  # roda uma vez: nada de retry na hora
 
     @override_settings(CRON_MONITOR_URL='https://hc-ping.com/chave/')
     def test_monitor_recebe_ok_e_fail_e_nunca_muda_a_resposta(self):
@@ -115,7 +95,7 @@ class CronEndpointTests(TestCase):
         post.assert_not_called()
 
     def test_jobs_de_manutencao_registrados(self):
-        for nome in ('housekeeping', 'feriados', 'lgpd_purgar', 'lembrete_diario'):
+        for nome in ('emails', 'housekeeping', 'feriados', 'lgpd_purgar', 'lembrete_diario'):
             self.assertIn(nome, cron.JOB_MAP)
 
 
@@ -144,42 +124,6 @@ class HealthcheckTests(TestCase):
             r = self.client.get('/health/')
         self.assertEqual(r.status_code, 503)
         self.assertFalse(r.json()['front'])
-
-    # rev_infra-03: ?celery=1 publico pingava um broker inexistente (prod sem
-    # worker) e prendia uma das 4 threads ~6 s por chamada anonima
-    def test_celery_ping_ignorado_sem_worker(self):
-        with mock.patch('celery.app.control.Control.ping') as ping:
-            normal = self.client.get('/health/')
-            r = self.client.get('/health/?celery=1')
-        ping.assert_not_called()
-        self.assertEqual(r.status_code, normal.status_code)
-        self.assertNotIn('celery', r.json())
-
-    @override_settings(CELERY_WORKER_ENABLED=True)
-    @mock.patch.dict(os.environ, {'CRON_TOKEN': 'segredo-cron'})
-    def test_celery_ping_com_worker_exige_token(self):
-        from aranha_estetica.views import health
-
-        with mock.patch.object(health, '_ping_celery', return_value=True) as ping:
-            anonimo = self.client.get('/health/?celery=1')
-            errado = self.client.get('/health/?celery=1', HTTP_X_CRON_TOKEN='x')
-            ping.assert_not_called()
-            ok = self.client.get('/health/?celery=1', HTTP_X_CRON_TOKEN='segredo-cron')
-        ping.assert_called_once()
-        self.assertNotIn('celery', anonimo.json())
-        self.assertNotIn('celery', errado.json())
-        self.assertTrue(ok.json()['celery'])
-
-    def test_ping_celery_limita_a_conexao_ao_broker(self):
-        from aranha_estetica.views import health
-
-        with mock.patch('celery.current_app') as app:
-            conn = app.connection_for_write.return_value.__enter__.return_value
-            app.control.ping.return_value = [{'w1': {'ok': 'pong'}}]
-            self.assertTrue(health._ping_celery())
-        conn.ensure_connection.assert_called_once_with(
-            max_retries=1, interval_start=0, interval_step=0, timeout=1)
-        app.control.ping.assert_called_once_with(timeout=1, connection=conn)
 
 
 # ─── System checks de producao ───────────────────────────────────────
@@ -835,7 +779,7 @@ class MigrateAtomicoTests(TestCase):
 class HousekeepingTests(TestCase):
     def test_purga_otp_notificacao_e_auditoria_antigos(self):
         from aranha_estetica.models import CodigoOtp, LogAuditoria, Notificacao
-        from aranha_estetica.tasks_manutencao import job_housekeeping
+        from aranha_estetica.jobs_manutencao import job_housekeeping
         from aranha_estetica.tests.factories import (
             criar_atendimento, criar_cliente, criar_procedimento, criar_profissional, envelhecer_trilha,
         )
@@ -854,7 +798,7 @@ class HousekeepingTests(TestCase):
         log_novo = LogAuditoria.objects.create(acao='y')
         envelhecer_trilha(LogAuditoria, log_velho.pk, agora - timedelta(days=365 * 5 + 2))
 
-        resumo = job_housekeeping.apply().get()
+        resumo = job_housekeeping()
 
         self.assertFalse(CodigoOtp.objects.filter(pk=velho.pk).exists())
         self.assertTrue(CodigoOtp.objects.filter(pk=novo.pk).exists())
@@ -868,9 +812,9 @@ class HousekeepingTests(TestCase):
 
     def test_carregar_feriados(self):
         from aranha_estetica.models import AgendaExcecao
-        from aranha_estetica.tasks_manutencao import job_carregar_feriados
+        from aranha_estetica.jobs_manutencao import job_carregar_feriados
 
-        self.assertIn('Feriados', job_carregar_feriados.apply().get())
+        self.assertIn('Feriados', job_carregar_feriados())
         ano = timezone.localdate().year  # o comando usa o ano local (31/12 21h+ ja e outro ano em UTC)
         self.assertTrue(AgendaExcecao.objects.filter(
             origem='FERIADO_NACIONAL', profissional__isnull=True, tipo='FOLGA', data_inicio__year=ano + 1,
@@ -928,7 +872,7 @@ class SettingsProdTests(SimpleTestCase):
 
     def test_prod_coerente_mesmo_com_debug_na_env(self):
         env = {k: v for k, v in os.environ.items()
-               if k not in ('REDIS_URL', 'CELERY_WORKER_ENABLED', 'CLIENT_IP_HEADER', 'SMS_DEV_LOG_ONLY')}
+               if k not in ('REDIS_URL', 'CLIENT_IP_HEADER', 'SMS_DEV_LOG_ONLY')}
         env.update({'DJANGO_ENV': 'prod', 'DEBUG': 'True', 'DJANGO_SECRET_KEY': 'x' * 50,
                     'STATIC_ROOT': '/tmp/legado', 'ALLOWED_HOSTS': 'exemplo.com.br'})
         codigo = (
@@ -941,7 +885,6 @@ class SettingsProdTests(SimpleTestCase):
             '"static": s.STORAGES["staticfiles"]["BACKEND"], "static_root": str(s.STATIC_ROOT),'
             '"hosts": s.ALLOWED_HOSTS, "ip_header": s.CLIENT_IP_HEADER,'
             '"email": s.EMAIL_BACKEND, "email_env": os.environ.get("EMAIL_BACKEND"),'
-            '"eager": s.CELERY_TASK_ALWAYS_EAGER, "annot": s.CELERY_TASK_ANNOTATIONS,'
             '"sess_save": s.SESSION_SAVE_EVERY_REQUEST, "sess_age": s.SESSION_COOKIE_AGE,'
             '"sms_exigir": s.SMS_EXIGIR_PROVEDOR, "langs": [c for c, _ in s.LANGUAGES]}))\n'
         )
@@ -961,8 +904,6 @@ class SettingsProdTests(SimpleTestCase):
         self.assertIn('healthcheck.railway.app', s['hosts'])
         self.assertEqual(s['ip_header'], 'HTTP_X_REAL_IP')
         self.assertEqual(s['email'], s['email_env'] or 'django.core.mail.backends.dummy.EmailBackend')
-        self.assertTrue(s['eager'])
-        self.assertEqual(s['annot'], {'*': {'max_retries': 0}})
         self.assertTrue(s['sess_save'])
         self.assertEqual(s['sess_age'], 8 * 3600)
         self.assertTrue(s['sms_exigir'])
@@ -1185,7 +1126,7 @@ class LockDependenciasTests(SimpleTestCase):
             with self.subTest(pacote=nome):
                 self.assertEqual(lock.get(nome), versao,
                                  f'{nome}: requirements.txt e requirements.lock divergem')
-        for transitiva in ('kombu', 'cryptography', 'django-otp', 'qrcode', 'phonenumbers'):
+        for transitiva in ('py-vapid', 'cryptography', 'django-otp', 'qrcode', 'phonenumbers'):
             self.assertIn(transitiva, lock)
 
     def test_build_e_ci_instalam_pelo_lock(self):

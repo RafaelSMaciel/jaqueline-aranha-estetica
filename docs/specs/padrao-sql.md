@@ -264,7 +264,7 @@ CREATE INDEX ix_historico_alteracao_criado_em ON historico_alteracao (criado_em)
 CREATE INDEX ix_historico_alteracao_usuario_autor_parcial ON historico_alteracao (usuario_autor_id, criado_em DESC)
     WHERE usuario_autor_id IS NOT NULL;
 COMMENT ON TABLE historico_alteracao IS 'Trilha de dados gravada por trigger (fn_registrar_historico) nas tabelas sensiveis: antes/depois so das colunas alteradas. Append-only (tg_historico_alteracao_imutavel). Retencao: 20 anos p/ prontuario, 5 anos p/ o resto.';
-COMMENT ON COLUMN historico_alteracao.origem IS 'current_setting(app.origem): web, cron:<job>, celery:<task>, migracao; vazio = SQL manual.';
+COMMENT ON COLUMN historico_alteracao.origem IS 'current_setting(app.origem): web, cron:<job>, comando:<job>, migracao; vazio = SQL manual.';
 COMMENT ON COLUMN historico_alteracao.transacao_ref IS 'pg_current_xact_id() — agrupa as linhas de uma mesma transacao/request.';
 ```
 

@@ -3,14 +3,14 @@
 A criacao do agendamento publico vive em views/booking_public.py (OTP por
 telefone, validacao de slot via services.disponibilidade e lock de slot).
 Aqui ficam as transicoes PENDENTE -> AGENDADO/CANCELADO disparadas pela
-recepcao, com auditoria e e-mail ao cliente.
+recepcao, com auditoria e e-mail ao cliente (fila: services/comunicacao).
 """
 import logging
 from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
 
-from ..models import Atendimento
+from ..models import Atendimento, Notificacao
 from ..utils.audit import registrar_log
 from ..utils.datas import fmt_local
 
@@ -23,23 +23,11 @@ def avisar_cancelamento(atendimento) -> None:
     """E-mail a cliente quando a CLINICA cancela (painel, rejeicao, Django admin, pedido
     PENDENTE que venceu sem aprovacao). Cancelamento pela propria cliente nao avisa.
 
-    Enfileirado apos o commit (robust): falha de envio nunca desfaz o cancelamento.
+    Fila de e-mail (services/comunicacao): sai no on_commit; falha de envio nunca desfaz o
+    cancelamento e o cron reenvia.
     """
-    email = atendimento.cliente.email
-    if not email:
-        return
-    dados = {
-        'nome': atendimento.cliente.nome,
-        'procedimento': atendimento.procedimento.nome,
-        'profissional': atendimento.profissional.nome,
-        'data_hora': fmt_local(atendimento.data_hora_inicio, FORMATO_DATA_HORA),
-    }
-
-    def _enfileirar():
-        from ..tasks import send_email_async
-        send_email_async.delay('enviar_cancelamento_email', email, dados)
-
-    transaction.on_commit(_enfileirar, robust=True)
+    from .comunicacao import enfileirar_email
+    enfileirar_email(atendimento, Notificacao.Tipo.CANCELAMENTO)
 
 
 def formatar_brl(valor) -> str:
@@ -86,18 +74,8 @@ class AgendamentoService:
         atendimento.aprovar(by_user=by_user)
         registrar_log(by_user, 'Aprovou agendamento', 'atendimento', atendimento.pk, request=request)
 
-        if atendimento.cliente.email:
-            dados = {
-                'nome': atendimento.cliente.nome,
-                'procedimento': atendimento.procedimento.nome,
-                'profissional': atendimento.profissional.nome,
-                'data_hora': formatar_data_hora(atendimento.data_hora_inicio),
-                'valor': formatar_valor_atendimento(atendimento),
-            }
-            email = atendimento.cliente.email
-            transaction.on_commit(
-                lambda: self._enviar_email_confirmacao(email, dados), robust=True,
-            )
+        from .comunicacao import enfileirar_email
+        enfileirar_email(atendimento, Notificacao.Tipo.CONFIRMACAO)
         return True
 
     @transaction.atomic
@@ -117,8 +95,3 @@ class AgendamentoService:
         avisar_cancelamento(atendimento)
         return True
 
-    @staticmethod
-    def _enviar_email_confirmacao(email: str, dados: dict) -> None:
-        """Enfileira email de confirmacao via Celery."""
-        from ..tasks import send_email_async
-        send_email_async.delay('enviar_confirmacao_agendamento_email', email, dados)

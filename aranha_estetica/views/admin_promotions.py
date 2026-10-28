@@ -3,7 +3,6 @@ import logging
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
-from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
@@ -20,8 +19,8 @@ from .admin_management import _parse_preco
 
 logger = logging.getLogger(__name__)
 
-# Sem worker Celery (prod: eager) o envio roda DENTRO do request: limita cada
-# clique a um lote pequeno p/ nao estourar o timeout do gunicorn.
+# O envio roda DENTRO do request (sem fila de tarefas): limita cada clique a um lote pequeno
+# p/ nao estourar o timeout do gunicorn.
 LOTE_PROMOCAO = 25
 
 
@@ -194,9 +193,8 @@ def _enviar_lote_promocao(promo, assunto, corpo, validade_dias):
 def admin_disparar_promocao(request, pk):
     """Dispara e-mail da promocao p/ clientes com consentimento de marketing.
 
-    - Com worker Celery: enfileira o job (assincrono).
-    - Sem worker (eager, prod atual): lista pequena vai inteira; lista grande
-      vai em lotes de LOTE_PROMOCAO por clique, com cursor (sem reenvio).
+    Roda no request: lista pequena vai inteira; lista grande vai em lotes de LOTE_PROMOCAO por
+    clique, com cursor (sem reenvio).
 
     Sem cupom: nada no agendamento aceita codigo — a promocao vale sozinha
     no preco (utils.precos). O "valido ate" nunca passa do fim da promocao.
@@ -228,13 +226,12 @@ def admin_disparar_promocao(request, pk):
     assunto = _assunto_promocao(promo)
     corpo = promo.descricao or ''
     total = _destinatarios_promocao().count()
-    eager = getattr(settings, 'CELERY_TASK_ALWAYS_EAGER', False)
     detalhes = {'validade_dias': validade_dias, 'destinatarios': total}
 
-    if not eager or total <= LOTE_PROMOCAO:
-        from ..tasks import job_promocao_mensal
+    if total <= LOTE_PROMOCAO:
+        from ..jobs import job_promocao_mensal
         try:
-            job_promocao_mensal.delay(assunto, corpo, validade_dias=validade_dias)
+            job_promocao_mensal(assunto, corpo, validade_dias=validade_dias)
         except Exception as e:  # pylint: disable=broad-except
             logger.error('Erro ao disparar promocao: %s', e, exc_info=True)
             messages.error(request, 'Não foi possível iniciar o envio. Tente novamente.')
@@ -242,10 +239,8 @@ def admin_disparar_promocao(request, pk):
         registrar_log(request.user, f'Disparou promoção: {promo.nome}', 'promocao', promo.pk, detalhes, request=request)
         if total == 0:
             messages.info(request, 'Nenhum cliente autorizou receber ofertas por e-mail.')
-        elif eager:
-            messages.success(request, f'Promoção "{promo.nome}" enviada para {total} cliente(s).')
         else:
-            messages.success(request, f'Envio de "{promo.nome}" agendado para {total} cliente(s).')
+            messages.success(request, f'Promoção "{promo.nome}" enviada para {total} cliente(s).')
         return redirect('aranha:admin_promocoes')
 
     enviados, falhas, restantes = _enviar_lote_promocao(promo, assunto, corpo, validade_dias)

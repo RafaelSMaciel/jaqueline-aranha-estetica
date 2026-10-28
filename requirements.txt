@@ -14,7 +14,6 @@ sqlparse==0.6.0
 tzdata==2025.2
 urllib3==2.8.0
 whitenoise==6.6.0
-celery==5.4.0
 # cifragem em repouso (utils/cifragem); ja vinha como transitiva do pywebpush
 cryptography==50.0.1
 requests==2.33.0

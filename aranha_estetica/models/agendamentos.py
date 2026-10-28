@@ -391,6 +391,15 @@ class Notificacao(models.Model):
     mensagem = models.TextField(blank=True, default='', db_default='')
     enviado_em = models.DateTimeField(blank=True, null=True)
     respondido_em = models.DateTimeField(blank=True, null=True)
+    # Fila de e-mail (services/comunicacao): PENDENTE com proxima_tentativa_em vencida = o cron
+    # 'emails' reenvia; esgotou as tentativas ou a validade -> FALHOU.
+    tentativas = models.SmallIntegerField(
+        default=0, db_default=0, db_comment='Envios que falharam (fila de e-mail: services/comunicacao).',
+    )
+    proxima_tentativa_em = models.DateTimeField(
+        blank=True, null=True,
+        db_comment='Fila de e-mail: quando o cron reenvia (NULL = fora da fila).',
+    )
     criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
     atualizado_em = atualizado_em_legado()
 
@@ -398,12 +407,17 @@ class Notificacao(models.Model):
         managed = True
         db_table = 'notificacao'
         db_table_comment = (
-            'Mensagem ligada a um atendimento (lembrete, NPS, termo...). O link publico da mensagem vive em '
-            'link_acesso (so o hash). mensagem e limpa apos 12 meses.'
+            'Mensagem ligada a um atendimento (lembrete, NPS, termo, e-mails de confirmacao/cancelamento/'
+            'aprovacao): historico por canal e fila do e-mail (tentativas/proxima_tentativa_em). O link '
+            'publico da mensagem vive em link_acesso (so o hash). mensagem e limpa apos 12 meses.'
         )
         indexes = [
             Indice(fields=['atendimento', 'tipo'], name='ix_notificacao_atendimento_tipo'),
             Indice(fields=['-criado_em'], name='ix_notificacao_criado_em'),
+            Indice(
+                fields=['proxima_tentativa_em'], name='ix_notificacao_fila_email',
+                condition=models.Q(status=StatusNotificacao.PENDENTE, canal=CanalNotificacao.EMAIL),
+            ),
         ]
         constraints = [
             models.CheckConstraint(
@@ -417,6 +431,7 @@ class Notificacao(models.Model):
                 condition=models.Q(resposta__isnull=True) | models.Q(resposta__in=RespostaNotificacao.values),
                 name='ck_notificacao_resposta',
             ),
+            models.CheckConstraint(condition=models.Q(tentativas__gte=0), name='ck_notificacao_tentativas'),
         ]
 
     def __str__(self):

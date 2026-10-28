@@ -1,4 +1,4 @@
-"""Endpoint HTTP p/ cron externo (substitui o Celery Beat; prod roda sem worker).
+"""Endpoint HTTP p/ cron externo — o agendador dos jobs (jobs.py; sem Celery nem worker).
 
 Uso (cron-job.org, servico Cron do Railway etc.):
     curl -fsS -X POST -H "X-Cron-Token: $CRON_TOKEN" https://<dominio>/cron/run/<job>/
@@ -11,11 +11,11 @@ Monitor (CRON_MONITOR_URL, healthchecks.io ou compativel): cada execucao avisa
 <url>/<job> (ok) ou <url>/<job>/fail. Job que para de rodar — cron externo apagado, token
 trocado, site fora — vira alerta pela falta do aviso.
 
-Horarios sugeridos (BRT), espelhando CELERY_BEAT_SCHEDULE:
-    pacote_expirar 00:30 · pacote_expirando 07:00 · lembrete_diario 08:00 ·
-    aniversario 09:00 · nps_24h 10:00 · detrator_alerta 10:30 ·
-    limpeza_status 23:00 · lgpd_purgar dom 03:00 · housekeeping 04:00 ·
-    feriados dia 1 04:30
+Horarios sugeridos (BRT):
+    emails a cada 15 min · pacote_expirar 00:30 · pacote_expirando 07:00 ·
+    lembrete_diario 08:00 · aniversario 09:00 · nps_24h 10:00 · detrator_alerta 10:30 ·
+    limpeza_status 23:00 · lgpd_purgar dom 03:00 · housekeeping 04:00 · feriados dia 1 04:30
+Fora do HTTP (shell do servidor, dev): ``python manage.py rodar_job <job>``.
 """
 import hmac
 import logging
@@ -27,7 +27,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from aranha_estetica import tasks, tasks_manutencao
+from aranha_estetica import jobs, jobs_manutencao
 from aranha_estetica.ator import Ator, atuando, ip_valido
 from aranha_estetica.utils.security import client_ip
 
@@ -35,17 +35,25 @@ logger = logging.getLogger(__name__)
 
 
 JOB_MAP = {
-    'lembrete_diario': tasks.job_enviar_lembrete_dia_seguinte,
-    'nps_24h': tasks.job_pesquisa_satisfacao_24h,
-    'detrator_alerta': tasks.job_alerta_detrator_nps,
-    'pacote_expirando': tasks.job_verificar_pacotes_expirando,
-    'pacote_expirar': tasks.job_expirar_pacotes,
-    'aniversario': tasks.job_aniversario_clientes,
-    'limpeza_status': tasks.job_limpeza_status_atendimentos,
-    'lgpd_purgar': tasks.job_lgpd_purgar_inativos,
-    'housekeeping': tasks_manutencao.job_housekeeping,
-    'feriados': tasks_manutencao.job_carregar_feriados,
+    'emails': jobs.job_reenviar_emails,
+    'lembrete_diario': jobs.job_enviar_lembrete_dia_seguinte,
+    'nps_24h': jobs.job_pesquisa_satisfacao_24h,
+    'detrator_alerta': jobs.job_alerta_detrator_nps,
+    'pacote_expirando': jobs.job_verificar_pacotes_expirando,
+    'pacote_expirar': jobs.job_expirar_pacotes,
+    'aniversario': jobs.job_aniversario_clientes,
+    'limpeza_status': jobs.job_limpeza_status_atendimentos,
+    'lgpd_purgar': jobs.job_lgpd_purgar_inativos,
+    'housekeeping': jobs_manutencao.job_housekeeping,
+    'feriados': jobs_manutencao.job_carregar_feriados,
 }
+
+
+def executar(job_name, *, ip=None, origem=None):
+    """Roda o job uma vez dentro do Ator dele (trilhas com origem cron:<job>, sem autor).
+    Erro propaga: quem chama decide (HTTP 500 / exit code do comando)."""
+    with atuando(Ator(ip=ip, origem=origem or f'cron:{job_name}')):
+        return JOB_MAP[job_name]()
 
 
 def _avisar_monitor(job_name: str, ok: bool) -> None:
@@ -79,30 +87,18 @@ def run_job(request, job_name):
         logger.warning('Cron: token invalido (%s) IP=%s', job_name, client_ip(request))
         return JsonResponse({'error': 'forbidden'}, status=403)
 
-    job = JOB_MAP.get(job_name)
-    if not job:
+    if job_name not in JOB_MAP:
         return JsonResponse({'error': 'unknown job', 'available': sorted(JOB_MAP)}, status=404)
 
     # Trilhas (LogAuditoria e historico_alteracao): o que o job mudar sai como origem
-    # 'cron:<job>', sem autor, com o IP do agendador.
+    # 'cron:<job>', sem autor, com o IP do agendador. Roda UMA vez (sem retry na hora: jobs
+    # de mensagem nao sao todos idempotentes; o proximo run pega o que ficou).
     try:
-        with atuando(Ator(ip=ip_valido(client_ip(request)), origem=f'cron:{job_name}')):
-            # retries=max_retries: roda UMA vez (eager reexecutaria o lote na hora a
-            # cada self.retry, reenviando mensagens de jobs sem idempotencia)
-            result = job.apply(retries=job.max_retries or 0)
-    except Exception as e:  # testes/dev: EAGER_PROPAGATES=True levanta aqui
+        resultado = executar(job_name, ip=ip_valido(client_ip(request)))
+    except Exception as e:  # noqa: BLE001 — o cron externo precisa ver o 500
         logger.exception('Cron job %s falhou', job_name)
         _avisar_monitor(job_name, ok=False)
         return JsonResponse({'ok': False, 'job': job_name, 'error': str(e)}, status=500)
 
-    if result.failed():
-        logger.error('Cron job %s falhou: %r', job_name, result.result)
-        _avisar_monitor(job_name, ok=False)
-        return JsonResponse({'ok': False, 'job': job_name, 'error': str(result.result)}, status=500)
-
     _avisar_monitor(job_name, ok=True)
-    return JsonResponse({
-        'ok': True,
-        'job': job_name,
-        'result': str(result.result) if result.result else 'ok',
-    })
+    return JsonResponse({'ok': True, 'job': job_name, 'result': str(resultado) if resultado else 'ok'})

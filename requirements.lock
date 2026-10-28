@@ -2,7 +2,7 @@
 # transitivas — imagem de prod e CI instalam exatamente estas versoes:
 #   Dockerfile: pip wheel -r requirements.txt -c requirements.lock
 #   CI:         pip install -r requirements-dev.txt -c requirements.lock
-# Sem ele, kombu/cryptography/django-otp/qrcode... eram resolvidos na hora do
+# Sem ele, cryptography/django-otp/qrcode... eram resolvidos na hora do
 # build e a imagem mudava entre o CI e o deploy do mesmo commit.
 #
 # Alvo: Linux x86_64, CPython 3.12 (python:3.12-slim). Sem hashes: o wheel
@@ -21,19 +21,12 @@
 aiohappyeyeballs==2.7.1
 aiohttp==3.14.4
 aiosignal==1.4.0
-amqp==5.4.0
 asgiref==3.8.1
 attrs==26.1.0
-billiard==4.3.0
 bleach==6.4.0
-celery==5.4.0
 certifi==2026.10.19
 cffi==2.1.1
 charset-normalizer==3.5.1
-click==8.5.0
-click-didyoumean==0.3.1
-click-plugins==1.1.1.2
-click-repl==0.4.0
 cryptography==50.0.1
 dj-database-url==3.1.0
 Django==5.2.17
@@ -52,12 +45,10 @@ frozenlist==1.8.0
 gunicorn==23.0.0
 http-ece==1.2.1
 idna==3.20
-kombu==5.6.2
 multidict==6.9.1
 openpyxl==3.1.5
 packaging==26.0
 phonenumbers==8.13.55
-prompt_toolkit==3.0.53
 propcache==0.5.4
 psycopg2-binary==2.9.11
 py-vapid==1.9.4
@@ -76,8 +67,6 @@ sqlparse==0.6.0
 typing_extensions==4.16.0
 tzdata==2025.2
 urllib3==2.8.0
-vine==5.1.0
-wcwidth==0.9.1
 webencodings==0.6.1
 whitenoise==6.6.0
 yarl==1.25.1
