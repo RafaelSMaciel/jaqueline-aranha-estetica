@@ -69,8 +69,7 @@ COPY --from=front --chown=app:app /src/aranha_estetica/static/dist ./aranha_este
 # Sem `|| true`: qualquer falha derruba o build. O check reprova manifest do
 # Vite ausente (django_vite.W001). DJANGO_SECRET_KEY de build nao vai p/ runtime.
 RUN DJANGO_SECRET_KEY=build-only python manage.py collectstatic --noinput --verbosity 1 \
-    && DJANGO_SECRET_KEY=build-only python manage.py check --tag staticfiles --fail-level WARNING \
-    && mkdir -p /app/media && chown app:app /app/media
+    && DJANGO_SECRET_KEY=build-only python manage.py check --tag staticfiles --fail-level WARNING
 
 USER app
 
