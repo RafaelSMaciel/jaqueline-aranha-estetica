@@ -42,6 +42,7 @@ from .factories import (
     criar_pacote,
     criar_procedimento,
     criar_profissional,
+    limpar_feriados,
 )
 
 
@@ -225,7 +226,8 @@ class AgendamentosPainelTests(_AdminTestCase):
 
     def test_calendario_mover_conflito_de_banco_vira_409(self):
         import json
-        novo = self.a1.data_hora_inicio + timedelta(days=1)
+        limpar_feriados()
+        novo = _local(5, 11)          # horario livre de verdade: so o save (corrida) recusa
         with patch.object(Atendimento, 'save', side_effect=IntegrityError('ex_atendimento_sobreposicao')):
             resp = self.client.post(
                 reverse('aranha:admin_calendar_mover'),
@@ -235,6 +237,37 @@ class AgendamentosPainelTests(_AdminTestCase):
             )
         self.assertEqual(resp.status_code, 409)
         self.assertFalse(resp.json()['sucesso'])
+
+    def test_calendario_mover_segue_a_regra_do_slot_service(self):
+        import json
+        from aranha_estetica.models import AgendaExcecao
+
+        limpar_feriados()
+        url = reverse('aranha:admin_calendar_mover')
+
+        def mover(inicio):
+            return self.client.post(url, data=json.dumps({
+                'id': self.a1.pk, 'start': inicio.isoformat(), 'end': (inicio + timedelta(minutes=30)).isoformat(),
+            }), content_type='application/json')
+
+        # fora do expediente (grade 09h-18h): antes era aceito
+        resp = mover(_local(5, 20))
+        self.assertEqual(resp.status_code, 409)
+        self.assertIn('Fora do horário', resp.json()['erro'])
+        # feriado da clinica (profissional nulo): antes so a folga do proprio profissional barrava
+        dia = _local(6, 11)
+        AgendaExcecao.objects.create(tipo='FOLGA', profissional=None, origem='FERIADO_NACIONAL',
+                                     data_inicio=dia.date(), data_fim=dia.date(), motivo='Feriado X')
+        resp = mover(dia)
+        self.assertEqual(resp.status_code, 409)
+        self.assertIn('feriado', resp.json()['erro'])
+        # horario livre: move e mantem a duracao
+        duracao = self.a1.data_hora_fim - self.a1.data_hora_inicio
+        resp = mover(_local(5, 11))
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.a1.refresh_from_db()
+        self.assertEqual(self.a1.data_hora_inicio, _local(5, 11))
+        self.assertEqual(self.a1.data_hora_fim - self.a1.data_hora_inicio, duracao)
 
     def test_calendario_mover_fim_antes_do_inicio(self):
         import json
