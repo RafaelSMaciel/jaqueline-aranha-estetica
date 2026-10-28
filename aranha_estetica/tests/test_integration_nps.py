@@ -36,18 +36,17 @@ class NPSFlowTests(TestCase):
 
     def test_nps_submissao_valida(self):
         url = reverse('aranha:nps_web', kwargs={'token': 'test-nps-token-123'})
-        # The view renders nps_obrigado.html (status 200) on success — no redirect.
+        # A view renderiza nps_obrigado.html (200) no sucesso — sem redirect.
         resp = self.client.post(url, {'nota': '9', 'comentario': 'Excelente!'})
-        self.assertIn(resp.status_code, [200, 302])
-        nps = AvaliacaoNPS.objects.filter(atendimento=self.atd).first()
-        if nps:
-            self.assertEqual(nps.nota, 9)
-            self.assertEqual(nps.comentario, 'Excelente!')
+        self.assertEqual(resp.status_code, 200)
+        self.assertTemplateUsed(resp, 'publico/nps_obrigado.html')
+        nps = AvaliacaoNPS.objects.get(atendimento=self.atd)
+        self.assertEqual((nps.nota, nps.comentario), (9, 'Excelente!'))
 
     def test_nps_token_invalido_retorna_404(self):
         url = reverse('aranha:nps_web', kwargs={'token': 'token-invalido-xyz'})
         resp = self.client.get(url)
-        self.assertIn(resp.status_code, [404, 302])
+        self.assertEqual(resp.status_code, 404)
 
     def test_nps_nota_duplicada_rejeitada(self):
         """Once NPS is submitted, re-submission should not overwrite."""
