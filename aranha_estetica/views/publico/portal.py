@@ -78,15 +78,18 @@ def meus_agendamentos(request):
         'codigo': cliente.codigo_indicacao, 'valor': VALOR_CASHBACK_INDICACAO,
         'saldo': sum(FidelidadeService.saldos(clientes.values_list('pk', flat=True)).values()),
     } if cliente else None
+    from ...services.pacotes import sessoes_previstas
     from ...services.retorno import devidos
     retornos = [r for c in clientes for r in devidos(cliente_id=c.pk)]
+    futuros = list(agendamentos_futuros[:20])
 
     return render(request, 'agendamento/meus_agendamentos.html', {
         'step': '3',
         'indicacao': indicacao,
         'retornos': retornos,   # retorno sem custo a combinar com a clinica (services/retorno)
         'telefone_mascarado': mask_telefone(telefone),
-        'agendamentos_futuros': agendamentos_futuros[:20],
+        'agendamentos_futuros': futuros,
+        'pacotes_previstos': sessoes_previstas(futuros),   # "Sessão do pacote X" no lugar do preco
         'agendamentos_passados': agendamentos_passados.distinct()[:20],
         'status_editaveis': Atendimento.STATUS_ATIVOS,
         'limite_reagendar': agora + JANELA_MINIMA_REAGENDAMENTO,

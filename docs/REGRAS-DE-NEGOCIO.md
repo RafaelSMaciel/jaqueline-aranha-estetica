@@ -122,8 +122,9 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
   Confirmado aprova, Cancelado recusa, pelo mesmo `AgendamentoService`) ou pelo portal (só os
   próprios pedidos do profissional). Auditado com IP. Pedido não pode ir direto a CONFIRMADO
   (confirmar presença é da cliente, depois de aprovado).
-- PENDENTE cujo **horário já começou** sem decisão → CANCELADO + e-mail à cliente pelo job
-  `limpeza_status` ("expirado sem aprovação").
+- PENDENTE sem decisão a **menos de 1 h do início** (`PRAZO_DECISAO_PENDENTE`) → CANCELADO pelo
+  job `limpeza_status` (de hora em hora; "expirado sem aprovação") + e-mail à cliente "não
+  conseguimos confirmar o seu pedido a tempo", e a vaga volta para a lista de espera.
 
 **Quem é avisado de quê** (e-mail pela fila; push só se a profissional ativou):
 
@@ -210,6 +211,10 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
   mesmo, não é retorno e ainda há saldo), escolhendo o pacote que vence primeiro. A validade é conferida na **data da sessão**: sessão
   feita até o último dia debita mesmo que o job já tenha marcado o pacote EXPIRADO; sessão depois
   da validade não debita. Retorno gratuito nunca debita.
+- **Sessão prevista** (`services/pacotes.sessoes_previstas`, só leitura): antes do Realizado, o
+  atendimento que um pacote da cliente vai cobrir (mesma ordem do débito, descontando as sessões
+  já marcadas) aparece como "Pacote · restam N" no painel e "Sessão do pacote X" no portal, no
+  e-mail de confirmação e na página de sucesso — nunca o preço cheio.
 - Status: **ATIVO** → **FINALIZADO** (todas as sessões usadas) | **EXPIRADO** (job
   `pacote_expirar`: vencimento < hoje) | **CANCELADO** (painel: exige o **valor devolvido**, de 0
   até o valor pago, e o motivo; auditado; sessões usadas continuam registradas).

@@ -147,13 +147,18 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
       {% if agend.pk in marc.pacote %}
       {# Sessao debitada de pacote ja pago: nao cobrar de novo #}
       <span class="px-2 py-0.5 rounded-full text-[0.7rem] font-bold bg-info-fundo text-info">Pacote</span>
+      {% elif agend.pk in marc.pacote_previsto %}
+      {# Ainda nao realizado, mas um pacote da cliente cobre: nao cobrar (debita no Realizado) #}
+      {% with p=marc.pacote_previsto|get_item:agend.pk %}
+      <span class="px-2 py-0.5 rounded-full text-[0.7rem] font-bold bg-info-fundo text-info" title="Sessão do pacote {{ p.pacote }}: não cobrar — debita no Realizado">Pacote · restam {{ p.restam }}</span>
+      {% endwith %}
       {% elif agend.valor_cobrado is not None %}
       <span class="text-[0.78rem] font-bold text-sucesso">{{ agend.valor_cobrado|brl }}</span>
       {% with usado=marc.credito_usado|get_item:agend.pk %}{% if usado %}
       <span class="text-[0.72rem] font-bold text-info" title="Crédito de indicação abatido">− {{ usado|brl }} crédito</span>
       {% endif %}{% endwith %}
       {% endif %}
-      {% if agend.pk not in marc.pacote and not agend.eh_retorno and agend.status != 'CANCELADO' and agend.status != 'FALTOU' and agend.status != 'REAGENDADO' %}
+      {% if agend.pk not in marc.pacote and agend.pk not in marc.pacote_previsto and not agend.eh_retorno and agend.status != 'CANCELADO' and agend.status != 'FALTOU' and agend.status != 'REAGENDADO' %}
       {# Valor combinado / "a consultar": registrado aqui (realizado: a comissao pendente e recalculada) #}
       {# No celular o popover entra no fluxo (largura da linha): absolute right-0 saia da tela pela esquerda #}
       <details class="relative w-full sm:w-auto">

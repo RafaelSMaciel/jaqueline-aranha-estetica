@@ -14,7 +14,7 @@ trocado, site fora — vira alerta pela falta do aviso.
 Horarios sugeridos (BRT):
     emails a cada 15 min · pacote_expirar 00:30 · pacote_expirando 07:00 ·
     lembrete_diario 08:00 · aniversario 09:00 · nps_24h 10:00 · detrator_alerta 10:30 ·
-    limpeza_status 23:00 · lgpd_purgar dom 03:00 · housekeeping 04:00 · feriados dia 1 04:30
+    limpeza_status de hora em hora · lgpd_purgar dom 03:00 · housekeeping 04:00 · feriados dia 1 04:30
 Fora do HTTP (shell do servidor, dev): ``python manage.py rodar_job <job>``.
 """
 import hmac

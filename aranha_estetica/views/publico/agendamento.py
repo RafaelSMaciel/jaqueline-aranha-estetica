@@ -44,7 +44,7 @@ from ...excecoes import RegraDeNegocio
 from ...services import agenda, comunicacao, consentimentos
 from ...services import otp as otp_service
 from ...services.disponibilidade import procedimentos_agendaveis
-from ...services.agendamento import formatar_data_hora
+from ...services.agendamento import formatar_data_hora, formatar_valor_atendimento
 from ...utils.formatos import formatar_brl
 from ...services.anamnese import validar_respostas
 from ...utils.auditoria import registrar_log
@@ -521,16 +521,19 @@ def confirmar_agendamento(request):
         cache.delete(slot_key)
 
     data_formatada = formatar_data_hora(data_hora)
+    valor_texto = formatar_valor_atendimento(atendimento)
+    em_pacote = valor_texto.startswith('Sessão do pacote')
 
     request.session['agendamento_sucesso'] = {
         'nome': nome,
         'procedimento': procedimento.nome,
         'profissional': profissional.nome,
         'data_hora': data_formatada,
-        'valor': formatar_brl(atendimento.valor_cobrado) if atendimento.valor_cobrado is not None else 'A consultar',
+        # 'Sessão do pacote X' quando um pacote dela cobre (nunca o preco cheio), senao o valor
+        'valor': valor_texto,
         # cheio riscado + nome da promo quando a promocao reduziu o valor
-        'valor_cheio': formatar_brl(atendimento.valor_original) if atendimento.promocao else '',
-        'promocao': atendimento.promocao.nome if atendimento.promocao else '',
+        'valor_cheio': formatar_brl(atendimento.valor_original) if atendimento.promocao and not em_pacote else '',
+        'promocao': atendimento.promocao.nome if atendimento.promocao and not em_pacote else '',
         'pendente': atendimento.status == Atendimento.STATUS_PENDENTE,
         # So promete acompanhamento por e-mail se o backend entrega de fato
         'email': bool(email_cliente) and email_configurado(),

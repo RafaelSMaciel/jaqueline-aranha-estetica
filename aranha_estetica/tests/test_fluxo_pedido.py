@@ -182,13 +182,15 @@ class AvisoAProfissionalTests(_Base):
 
 
 class PedidoVencidoTests(_Base):
-    def test_pedido_vence_quando_o_horario_comeca(self):
+    def test_pedido_vence_uma_hora_antes_do_inicio(self):
+        from aranha_estetica.constants import MSG_PEDIDO_EXPIRADO
         from aranha_estetica.jobs import job_limpeza_status_atendimentos
-        vencido = criar_atendimento(self.cli, self.prof, self.proc, status='PENDENTE',
-                                    data_hora=timezone.now() - timedelta(hours=1))
+        quase = criar_atendimento(self.cli, self.prof, self.proc, status='PENDENTE',
+                                  data_hora=timezone.now() + timedelta(minutes=30))
         futuro = criar_atendimento(criar_cliente(nome='Outra'), self.prof, self.proc, status='PENDENTE')
         job_limpeza_status_atendimentos()
-        vencido.refresh_from_db()
+        quase.refresh_from_db()
         futuro.refresh_from_db()
-        self.assertEqual((vencido.status, futuro.status), ('CANCELADO', 'PENDENTE'))
-        self.assertEqual(_emails(vencido, 'CANCELAMENTO'), 1)
+        self.assertEqual((quase.status, futuro.status), ('CANCELADO', 'PENDENTE'))
+        aviso = Notificacao.objects.get(atendimento=quase, tipo='CANCELAMENTO')
+        self.assertEqual(aviso.mensagem, MSG_PEDIDO_EXPIRADO)
