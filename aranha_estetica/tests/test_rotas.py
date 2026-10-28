@@ -88,6 +88,7 @@ ROTAS = {
         SEM, lambda d: f"data={d['amanha']}&procedimento_id={d['proc'].pk}", OUTRA),
     'aranha:cancelar_agendamento': (SEM, '', SO_POST),
     'aranha:nps_web': (_d(token=lambda d: d['tok_nps']), '', PUBLICA),
+    'aranha:nps_obrigado': (_d(token=lambda d: d['tok_nps']), '', PUBLICA),
     'aranha:anamnese_publica': (_d(token=lambda d: d['tok_anamnese']), '', PUBLICA),
     'aranha:anamnese_obrigado': (SEM, '', PUBLICA),
     'aranha:pesquisa_publica': (_d(token=lambda d: d['tok_pesquisa']), '', PUBLICA),

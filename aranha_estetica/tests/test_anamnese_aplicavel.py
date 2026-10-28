@@ -113,13 +113,13 @@ class PesquisaNoFimDoNpsTests(_Base):
     def test_oferece_a_pesquisa_ativa(self):
         _form('GLOBAL', tipo='PESQUISA', obrigatorio=False)
         at, url = self._nps()
-        resp = self.client.post(url, {'nota': '9'})
+        resp = self.client.post(url, {'nota': '9'}, follow=True)   # PRG: o convite sai no obrigado
         self.assertTrue(AvaliacaoNPS.objects.filter(atendimento=at).exists())
         self.assertIn('/pesquisa/', resp.context['link_pesquisa'])
         self.assertContains(resp, 'Tem mais um minutinho?')
 
     def test_sem_pesquisa_ativa_so_agradece(self):
         _at, url = self._nps()
-        resp = self.client.post(url, {'nota': '9'})
+        resp = self.client.post(url, {'nota': '9'}, follow=True)   # PRG: o convite sai no obrigado
         self.assertIsNone(resp.context['link_pesquisa'])
         self.assertNotContains(resp, 'Tem mais um minutinho?')
