@@ -5,7 +5,7 @@ IntegrityError com pgcode lido na view. Agora o service levanta uma destas (mens
 a tela + `codigo` p/ teste e JSON) e a view so mostra:
 
     except RegraDeNegocio as exc:
-        messages.error(request, exc.mensagem)        # JSON: {'erro': exc.mensagem, 'codigo': exc.codigo}
+        messages.error(request, exc.mensagem)        # JSON: utils/respostas.json_recusa(exc)
 """
 class RegraDeNegocio(Exception):
     codigo = 'regra_de_negocio'
