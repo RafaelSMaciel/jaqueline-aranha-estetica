@@ -43,7 +43,6 @@ PARES = {
     'consent_whatsapp_nps': PESQUISA_WHATSAPP,
     'consent_whatsapp_confirmacao': LEMBRETE_WHATSAPP,
 }
-CAMPO_DO_PAR = {par: campo for campo, par in PARES.items()}
 PARES_DESCADASTRO = (MARKETING_EMAIL, PESQUISA_WHATSAPP)
 
 # Texto exibido ao lado de cada checkbox do agendamento (o template le daqui):

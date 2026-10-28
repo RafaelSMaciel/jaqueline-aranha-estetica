@@ -160,10 +160,6 @@ class FormularioAnamnese(models.Model):
             or (self.escopo == 'PROCEDIMENTO' and self.procedimento_id == procedimento.pk)
         )
 
-    @property
-    def eh_prontuario(self) -> bool:
-        return self.tipo == self.TIPO_PRONTUARIO
-
     def clean(self):
         """Valida o schema_json (lista de campos com keys obrigatorias). Os
         CHECK/UNIQUE do Meta sao validados pelo full_clean (validate_constraints)
