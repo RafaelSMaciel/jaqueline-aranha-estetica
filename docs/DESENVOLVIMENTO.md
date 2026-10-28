@@ -39,7 +39,7 @@ MD5 (rápido; produção não muda), SMS só em log, avisos de produção silenc
 | Comando | Quando |
 |---|---|
 | `python manage.py test aranha_estetica --exclude-tag migracoes` | Dia a dia — ~1.460 testes em ~40 s |
-| `python manage.py test aranha_estetica.tests.test_x --keepdb` | Um módulo: o banco de teste (`db_test.sqlite3`) fica pronto entre execuções (~15 s → ~2 s) |
+| `python manage.py test aranha_estetica.tests.test_x --keepdb` | Um módulo: o banco de teste (`.cache/db_test.sqlite3`) fica pronto entre execuções (~15 s → ~2 s) |
 | `python manage.py test aranha_estetica --tag migracoes` | Data migrations (descem e sobem a cadeia; lento) — antes do merge |
 | `python manage.py test aranha_estetica` | Tudo |
 

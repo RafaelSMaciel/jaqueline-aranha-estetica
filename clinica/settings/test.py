@@ -19,7 +19,7 @@ CSRF_COOKIE_SECURE = False
 # PBKDF2 com 1M de iteracoes custava ~1/3 da suite (cada create_user/login). Producao nao muda.
 PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
 
-# Banco: SQLite em arquivo por padrao — `--keepdb` reaproveita as migrations entre execucoes
+# Banco: SQLite em arquivo (.cache/db_test.sqlite3) por padrao — `--keepdb` reaproveita as migrations entre execucoes
 # (um modulo de teste: ~15 s -> ~2 s). No Windows/macOS o `--parallel` so funciona com o banco em
 # memoria (o Django clona p/ os workers "spawn" so a partir dele): TESTE_SQLITE_MEMORIA=1.
 # TEST_DATABASE_URL=postgres://... roda no Postgres (CI e docker-compose): DDL, CHECK, EXCLUDE,
@@ -30,10 +30,12 @@ if _test_db_url:
     DATABASES = {'default': opcoes_postgres(dj_database_url.parse(_test_db_url))}
 else:
     _arquivo = os.environ.get('TESTE_SQLITE_MEMORIA', '').strip() != '1'
+    _banco = BASE_DIR / '.cache' / 'db_test.sqlite3'   # .cache/ (ignorado): raiz do repo limpa
+    _banco.parent.mkdir(exist_ok=True)
     DATABASES = {'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db_test.sqlite3',
-        'TEST': {'NAME': BASE_DIR / 'db_test.sqlite3' if _arquivo else None},
+        'NAME': _banco,
+        'TEST': {'NAME': _banco if _arquivo else None},
     }}
 
 # vite_asset sem manifest.json no disco: as tags apontam p/ o dev server. TESTE_VITE_BUILD=1 usa

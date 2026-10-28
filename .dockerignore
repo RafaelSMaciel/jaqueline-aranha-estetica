@@ -1,36 +1,47 @@
+# Contexto do `docker build`: so o necessario para a imagem (codigo, requirements, front).
 .git
 .gitignore
 .github
+.gitattributes
+.pre-commit-config.yaml
+
+# ambientes, caches e bancos locais
 .venv
 venv/
 env/
+.cache/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+.import_linter_cache/
+.grimp_cache/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
 .coverage
 htmlcov/
 *.sqlite3
-*.sqlite3.bak-*
-db.sqlite3
+*.sqlite3-journal
+
 # Backups/dumps do Postgres (dado pessoal e de saude): nunca no git nem na imagem
 *.dump
 *.dump.age
 *.backup
 *.sql.gz
+
+# segredos
 .env
 .env.*
 !.env.example
+
+# front: node_modules e o dist local (o stage `front` do Dockerfile gera o dist da imagem)
 node_modules/
-tmp_req/
+aranha_estetica/static/dist/
+
+# runtime / editores / ferramentas
 staticfiles/
 media/
-# gerado no stage `front` do Dockerfile (nunca o dist local, possivelmente velho)
-aranha_estetica/static/dist/
-aranha_estetica/static/_design_tmp/
 *.log
 .DS_Store
 .vscode/
@@ -39,8 +50,9 @@ aranha_estetica/static/_design_tmp/
 .worktrees/
 .playwright-mcp/
 screenshots/
+
+# documentacao e arquivos do repo que a imagem nao usa
 docs/
-tests/
 *.md
 !README.md
 .dockerignore

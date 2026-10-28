@@ -50,7 +50,7 @@ jobs:
       - name: ruff (erros + fuso)
         run: ruff check .
       - name: Camadas (import-linter)
-        run: lint-imports
+        run: lint-imports --cache-dir .cache/import-linter
       - name: Tipos dos services (mypy)
         run: mypy
       # tests/test_migrations_dados.py (tag `migracoes`, ~3/4 do tempo) roda no job
