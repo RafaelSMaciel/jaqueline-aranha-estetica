@@ -17,6 +17,12 @@ class ReferrerPolicyTokenTests(TestCase):
         resp = self.client.get(reverse('aranha:inicio'))
         self.assertEqual(resp['Referrer-Policy'], 'strict-origin-when-cross-origin')
 
+    def test_token_e_area_privada_fora_do_indice_e_vitrine_dentro(self):
+        for url in ('/confirmar/token-inexistente/', '/nps/x/', '/lgpd/unsubscribe/x/', '/meus-agendamentos/'):
+            with self.subTest(url=url):
+                self.assertEqual(self.client.get(url)['X-Robots-Tag'], 'noindex, nofollow, noarchive')
+        self.assertFalse(self.client.get(reverse('aranha:inicio')).has_header('X-Robots-Tag'))
+
 
 def _token_da_url(url):
     return parse_qs(urlsplit(url).query)['token'][0]

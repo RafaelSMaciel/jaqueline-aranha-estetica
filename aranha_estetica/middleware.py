@@ -117,6 +117,9 @@ class SecurityHeadersMiddleware:
     esquecer o @never_cache; Cache-Control definido pela view e respeitado.
     Rotas de link magico (PREFIXOS_TOKEN) idem: a pagina do token mostra
     nome, horario e ficha de saude da cliente.
+
+    Privada ou com token: X-Robots-Tag noindex (o robots.txt so pede p/ nao buscar; um link
+    vazado ainda podia entrar no indice so com a URL — e a URL carrega o token).
     """
 
     PERMISSIONS_POLICY = (
@@ -148,6 +151,8 @@ class SecurityHeadersMiddleware:
         privada = com_token or path.startswith(self.PREFIXOS_PRIVADOS)
         if privada and not response.has_header('Cache-Control'):
             add_never_cache_headers(response)
+        if privada:
+            response.setdefault('X-Robots-Tag', 'noindex, nofollow, noarchive')
         response.setdefault("X-Content-Type-Options", "nosniff")
         response.setdefault("Permissions-Policy", self.PERMISSIONS_POLICY)
         response.setdefault("Cross-Origin-Opener-Policy", "same-origin")
