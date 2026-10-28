@@ -1,0 +1,41 @@
+@startuml 02-aprovacao-pedido
+!include ../estilo.iuml
+title Sequência — aprovação de pedido pendente (painel ou portal da profissional)
+autonumber
+
+actor "Administradora\nou Profissional" as A
+participant "views.painel\n(aprovar / seletor)" as V
+participant "AgendamentoService" as S
+participant "Atendimento\n(FSM)" as AT
+participant "services.atendimento\n.ao_mudar_status" as EF
+participant "services\n.comunicacao" as COM
+participant "utils.email\n(Resend)" as M
+database "PostgreSQL" as DB
+
+A -> V : Aprovar (botão, lote ou seletor "Agendado/Confirmado")
+V -> S : aprovar(atendimento, by_user, request)
+group transaction.atomic
+  S -> AT : aprovar(by_user)
+  AT -> DB : SELECT status FOR UPDATE
+  AT -> AT : PENDENTE → AGENDADO permitido? (TRANSICOES)
+  alt transição inválida (já decidido)
+    AT --> V : TransicaoInvalida → 400 "já decidido"
+  end
+  AT -> DB : UPDATE status
+  AT -> DB : LogAuditoria (autor, IP)
+  AT -> EF : ao_mudar_status(PENDENTE, AGENDADO)
+  S -> DB : LogAuditoria "Aprovou agendamento"
+  S -> COM : enfileirar_email(CONFIRMACAO)
+  COM -> DB : Notificacao EMAIL PENDENTE
+end
+DB --> S : commit
+COM -> M : on_commit: enviar_da_fila()
+M --> COM : enviado → Notificacao ENVIADO\n(falha → tentativas++, o cron reenvia)
+V --> A : sucesso
+
+note over V, S
+  Recusar = rejeitar(): PENDENTE → CANCELADO + e-mail de cancelamento.
+  O seletor de status usa o MESMO serviço: antes chamava a FSM
+  direto e a cliente nunca recebia a resposta.
+end note
+@enduml

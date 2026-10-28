@@ -1,0 +1,63 @@
+@startuml 01-agendamento-online
+!include ../estilo.iuml
+title Sequência — agendamento online pelo site (wizard + OTP)
+autonumber
+
+actor "Cliente" as C
+participant "Navegador\n(wizard.js)" as N
+participant "views.publico\n.agendamento" as V
+participant "services\n.disponibilidade" as D
+participant "services.otp" as O
+participant "SMS\n(Zenvia)" as SMS
+participant "services.agenda" as AG
+participant "services\n.comunicacao" as COM
+database "PostgreSQL" as DB
+
+C -> N : abre /agendamento/
+N -> V : GET agendamento_publico
+V -> D : procedimentos_agendaveis()
+D -> DB : procedimentos com profissional habilitado
+V --> N : página + fichas aplicáveis por procedimento (JSON)
+C -> N : escolhe procedimento e mês
+N -> V : GET api/dias e api/horarios
+V -> D : SlotService.slots_livres(prof, dia, proc)
+note right of D
+  expediente, folgas, feriados, bloqueios,
+  buffer, antecedência mínima e horizonte
+end note
+D --> N : horários livres
+C -> N : nome, celular, nascimento
+N -> V : POST solicitar_otp_agendamento
+V -> O : solicitar_otp_telefone(celular)
+O -> DB : grava hash do código (codigo_otp)
+O -> SMS : envia o código (ou log no ambiente de testes)
+C -> N : digita o código
+N -> V : POST verificar_otp_agendamento
+V -> O : verificar_otp_telefone() → sessão presa ao celular
+
+C -> N : aceita a Política, responde a ficha e confirma
+N -> V : POST confirmar_agendamento
+V -> V : valida captcha, consentimentos, ficha (schema)\ne trava o horário no cache (30 s)
+group transaction.atomic
+  V -> DB : Cliente get_or_create(telefone)
+  alt cliente bloqueada (3 faltas) ou inativa
+    V --> N : recusa com orientação (WhatsApp)
+  end
+  V -> AG : validar_horario(prof, proc, início)
+  V -> AG : status_inicial_publico(cliente)
+  AG --> V : PENDENTE (primeira vez)\nou AGENDADO (cliente de confiança)
+  V -> AG : reservar(..., status)
+  AG -> DB : SELECT FOR UPDATE + INSERT atendimento\n(EXCLUDE impede sobreposição)
+  alt PENDENTE
+    V -> COM : enfileirar_email(APROVACAO → profissional)
+  else AGENDADO
+    V -> COM : enfileirar_email(CONFIRMACAO → cliente)
+  end
+  V -> DB : AceiteTermo (LGPD e procedimento: IP, UA, SHA-256)\nRespostaAnamnese (cifrada), Consentimentos
+end
+DB --> V : commit
+V -> COM : on_commit: enviar_da_fila()
+V -> V : on_commit: push para a profissional
+V --> N : redirect /agendamento/sucesso/
+N --> C : "Solicitação recebida" ou "Agendamento confirmado"
+@enduml

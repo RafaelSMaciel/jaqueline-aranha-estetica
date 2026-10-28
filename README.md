@@ -165,7 +165,7 @@ requirements.txt · requirements-dev.txt · requirements.lock · .env.example
 | [docs/REGRAS-DE-NEGOCIO.md](docs/REGRAS-DE-NEGOCIO.md) | Regras funcionais com os valores reais do código |
 | [docs/LGPD.md](docs/LGPD.md) | Registro das operações (art. 37), operadores, relatório de impacto do dado de saúde, plano de incidente |
 | [docs/specs/](docs/specs/) | Specs por assunto: banco (migrations 0027–0046), front, registry de regras |
-| [docs/diagramas/](docs/diagramas/) + [docs/gerar_requisitos.py](docs/gerar_requisitos.py) | UML (Mermaid) e documento de requisitos do TCC (`Requisitos-ShivaZen.docx/.pdf`) |
+| [docs/uml/](docs/uml/README.md) + [docs/gerar_documentacao.py](docs/gerar_documentacao.py) | UML completa (PlantUML: casos de uso, classes geradas do código, sequência, estados, atividades, componentes, implantação, ER) e a documentação técnica do TCC (`ShivaZen-Documentacao.docx/.pdf`) |
 
 ---
 

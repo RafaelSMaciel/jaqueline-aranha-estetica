@@ -1,0 +1,50 @@
+@startuml 01-railway
+!include ../estilo.iuml
+title Implantação — Railway (produção na main, ambiente de testes na dev)
+
+node "GitHub" as GH {
+  artifact "branch main" as MAIN
+  artifact "branch dev" as DEV
+  [GitHub Actions — CI (8 jobs)] as CI
+}
+
+cloud "Railway" {
+  node "environment: production" as PROD {
+    node "serviço web (Docker)" as WEBP {
+      artifact "imagem: node:22 (Vite) → python:3.12-slim\nusuário não-root" as IMGP
+      component "gunicorn clinica.wsgi\n+ WhiteNoise (estáticos)" as GUNP
+    }
+    database "Postgres 18\n(postgres-ssl:18 + volume)" as PGP
+  }
+  node "environment: dev\n(DJANGO_ENV=staging)" as STG {
+    node "serviço web (Docker)" as WEBD {
+      component "gunicorn + faixa\n'Ambiente de testes' + noindex" as GUND
+    }
+    database "Postgres 18\n(dados de demonstração)" as PGD
+  }
+}
+
+actor "Clientes e equipe" as USR
+cloud "Cron externo" as CRON
+
+MAIN --> CI : push / PR
+DEV --> CI : push
+CI --> WEBP : CI verde → build (watchPatterns)
+CI --> WEBD : CI verde → build
+WEBP --> PGP : DATABASE_URL (TLS)
+WEBD --> PGD : DATABASE_URL
+USR --> GUNP : HTTPS (HSTS)
+CRON --> GUNP : POST /cron/run/<job>/
+
+note right of WEBP
+  pre-deploy: migrate_atomico (todas as migrations
+  numa transação) + bootstrap_admin
+  healthcheck: /healthz/ (troca o container só
+  quando a versão nova responde)
+end note
+note right of WEBD
+  pre-deploy também roda seed --demo;
+  SMS só no log; e-mail e WhatsApp só para
+  DESTINATARIOS_TESTE; DJANGO_ENV=dev derruba o boot
+end note
+@enduml

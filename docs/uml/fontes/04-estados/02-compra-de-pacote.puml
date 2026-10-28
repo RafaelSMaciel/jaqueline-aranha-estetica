@@ -1,0 +1,25 @@
+@startuml 02-compra-de-pacote
+!include ../estilo.iuml
+title Estados — Compra de pacote (CompraPacote)
+
+[*] --> ATIVO : vender()\n[itens congelados: procedimento,\nsessões e valor unitário]
+
+ATIVO --> ATIVO : sessão realizada\n/ ConsumoSessao (saldo − 1)
+ATIVO --> FINALIZADO : última sessão consumida\n(verificar_finalizacao)
+ATIVO --> EXPIRADO : data_expiracao < hoje\n(job pacote_expirar)
+ATIVO --> CANCELADO : cancelar compra\n[reembolso ≤ valor pago]
+EXPIRADO --> EXPIRADO : sessão feita até a validade\nainda debita
+FINALIZADO --> ATIVO : realização desfeita\n(devolve a sessão)
+FINALIZADO --> EXPIRADO : realização desfeita\ndepois da validade
+
+FINALIZADO --> [*]
+EXPIRADO --> [*]
+CANCELADO --> [*]
+
+note bottom of ATIVO
+  O débito usa a compra que vence primeiro.
+  Retorno gratuito nunca consome sessão.
+  Antes do Realizado, a sessão aparece como
+  "prevista" (services.pacotes).
+end note
+@enduml

@@ -1,0 +1,97 @@
+@startuml 10-servicos-agenda
+' GERADO por docs/uml/gerar_uml.py a partir do codigo — nao edite a mao.
+!include ../estilo.iuml
+hide empty members
+title Serviços — agenda e atendimento
+
+class "services.agenda" as agenda <<módulo>> {
+  + duracao(procedimento, *, eh_retorno)
+  + preco_do_dia(procedimento, profissional, inicio)
+  + validar_horario(profissional, procedimento, inicio, *,…)
+  + reservar(*, cliente, profissional, procedimento…)
+  + status_inicial_publico(cliente)
+  + reagendar(antigo, novo_inicio, profissional, *, …)
+  + mover(atendimento_id, novo_inicio)
+}
+class "services.agendamento" as agendamento <<módulo>> {
+  + avisar_cancelamento(atendimento, mensagem)
+  + formatar_data_hora(dt)
+  + formatar_valor_atendimento(atendimento)
+}
+class AgendamentoService <<serviço>> {
+  + {static} aprovar()
+  + {static} rejeitar()
+}
+agendamento *-- AgendamentoService
+class "services.atendimento" as atendimento <<módulo>> {
+  + ao_mudar_status(at, anterior, novo, *, pela_cliente)
+  + devolver_sessao_de_pacote(at)
+  + ao_criar(at)
+  + debitar_sessao_de_pacote(at)
+}
+class "services.disponibilidade" as disponibilidade <<módulo>> {
+  + slot_disponivel(profissional, procedimento, data_hora,…)
+  + profissionais_para(procedimento)
+  + procedimentos_agendaveis(qs)
+  + profissional_habilitado(profissional, procedimento)
+}
+class SlotService <<serviço>> {
+  + {static} slots_livres()
+}
+disponibilidade *-- SlotService
+class "services.retorno" as retorno <<módulo>> {
+  + janela(origem)
+  + devidos(cliente_id)
+  + horarios(origem, dia, profissional)
+  + agendar(origem, inicio, *, profissional)
+}
+class RetornoDevido <<serviço>> {
+}
+retorno *-- RetornoDevido
+class "services.pacotes" as pacotes <<módulo>> {
+  + sessoes_previstas(atendimentos)
+}
+class "services.lista_espera" as lista_espera <<módulo>> {
+}
+class ListaEsperaService <<serviço>> {
+  + {static} candidatos()
+  + {static} notificar_compativeis()
+}
+lista_espera *-- ListaEsperaService
+class "services.alertas" as alertas <<módulo>> {
+  + alertas_por_cliente(clientes)
+  + ids_com_ficha_pendente(atendimentos)
+}
+class "services.indicadores" as indicadores <<módulo>> {
+  + ocupacao_semana(inicio, fim)
+}
+class "services.gcal" as gcal <<módulo>> {
+  + gcal_disponivel()
+  + build_authorization_url(state)
+  + handle_oauth_callback(profissional, code, code_verifier)
+  + push_atendimento(atendimento)
+  + pull_eventos_externos(profissional)
+}
+class "services.comissao" as comissao #F2F2F2
+hide comissao members
+class "services.comunicacao" as comunicacao #F2F2F2
+hide comunicacao members
+class "services.consentimentos" as consentimentos #F2F2F2
+hide consentimentos members
+class "services.fidelidade" as fidelidade #F2F2F2
+hide fidelidade members
+class "services.push" as push #F2F2F2
+hide push members
+agenda ..> atendimento
+agenda ..> disponibilidade
+agendamento ..> comunicacao
+agendamento ..> pacotes
+atendimento ..> comissao
+atendimento ..> fidelidade
+atendimento ..> gcal
+atendimento ..> lista_espera
+atendimento ..> push
+lista_espera ..> consentimentos
+retorno ..> agenda
+retorno ..> disponibilidade
+@enduml

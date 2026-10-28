@@ -1,0 +1,105 @@
+@startuml 04-er-comunicacao
+' GERADO por docs/uml/gerar_uml.py a partir dos models — nao edite a mao.
+!include ../estilo.iuml
+!include ../estilo-er.iuml
+title Modelo de dados — Comunicação, links de acesso e verificação
+
+entity "notificacao" as notificacao {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * atendimento_id : bigint <<FK>>
+  * tipo : varchar(30)
+  * canal : varchar(20)
+  * status : varchar(20)
+  resposta : varchar(20)
+  * mensagem : text
+  enviado_em : timestamptz
+  respondido_em : timestamptz
+  * tentativas : smallint
+  proxima_tentativa_em : timestamptz
+  * criado_em : timestamptz
+  * atualizado_em : timestamptz
+}
+
+entity "avaliacao_nps" as avaliacao_nps {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * atendimento_id : bigint <<FK,UK>>
+  * nota : smallint
+  * comentario : text
+  * eh_publicacao_autorizada : boolean
+  * eh_publicacao_aprovada : boolean
+  * eh_alerta_enviado : boolean
+  * criado_em : timestamptz
+  * atualizado_em : timestamptz
+}
+
+entity "assinatura_push" as assinatura_push {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * usuario_id : bigint <<FK>>
+  * endpoint : varchar(600)
+  * chave_p256dh : varchar(140)
+  * chave_auth : varchar(80)
+  * user_agent : varchar(300)
+  * eh_ativo : boolean
+  * criado_em : timestamptz
+  * atualizado_em : timestamptz
+  ultima_falha_em : timestamptz
+}
+
+entity "link_acesso" as link_acesso {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * finalidade : varchar(30)
+  atendimento_id : bigint <<FK>>
+  notificacao_id : bigint <<FK>>
+  resposta_formulario_id : bigint <<FK>>
+  cliente_id : bigint <<FK>>
+  profissional_id : bigint <<FK>>
+  * token_hash : char(64)
+  expira_em : timestamptz
+  usado_em : timestamptz
+  revogado_em : timestamptz
+  * criado_em : timestamptz
+}
+
+entity "codigo_otp" as codigo_otp {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * identificador : varchar(254)
+  telefone : varchar(20)
+  * canal : varchar(10)
+  * codigo_hash : char(64)
+  * proposito : varchar(20)
+  * criado_em : timestamptz
+  * expira_em : timestamptz
+  usado_em : timestamptz
+  * qtd_tentativas : smallint
+  ip_origem : inet
+}
+
+entity "atendimento" as atendimento #F2F2F2 {
+}
+
+entity "cliente" as cliente #F2F2F2 {
+}
+
+entity "profissional" as profissional #F2F2F2 {
+}
+
+entity "resposta_formulario" as resposta_formulario #F2F2F2 {
+}
+
+entity "usuario" as usuario #F2F2F2 {
+}
+
+atendimento ||--o{ notificacao : atendimento_id
+atendimento ||--o| avaliacao_nps : atendimento_id
+usuario ||--o{ assinatura_push : usuario_id
+atendimento |o--o{ link_acesso : atendimento_id
+notificacao |o--o{ link_acesso : notificacao_id
+resposta_formulario |o--o{ link_acesso : resposta_formulario_id
+cliente |o--o{ link_acesso : cliente_id
+profissional |o--o{ link_acesso : profissional_id
+@enduml

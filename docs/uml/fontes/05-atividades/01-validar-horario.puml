@@ -1,0 +1,44 @@
+@startuml 01-validar-horario
+!include ../estilo.iuml
+title Atividade — um horário pode ser agendado? (services.agenda.validar_horario + SlotService)
+
+start
+:recebe profissional, procedimento e início;
+if (profissional habilitada\npara o procedimento?) then (não)
+  :RegraDeNegocio "não realiza este procedimento";
+  stop
+endif
+if (início no futuro?) then (não)
+  :HorarioIndisponivel "escolha data futura";
+  stop
+endif
+if (feriado ou recesso da clínica?) then (sim)
+  :HorarioIndisponivel "feriado";
+  stop
+endif
+:monta os slots do dia;
+note right
+  expediente da profissional (AgendaHorario)
+  − folgas e bloqueios (AgendaExcecao, inclusive recorrentes)
+  − atendimentos ativos + buffer do procedimento
+  − antes da antecedência mínima / depois do horizonte
+end note
+if (início é um slot livre?) then (sim)
+  :pode reservar;
+else (não)
+  if (equipe?) then (sim)
+    :motivo detalhado (conflito, bloqueio,\nfolga, fora do expediente);
+  else (site)
+    :mensagem genérica;
+  endif
+  stop
+endif
+:reservar(): SELECT FOR UPDATE do conflito;
+:INSERT em savepoint;
+if (EXCLUDE do PostgreSQL acusou\nsobreposição?) then (sim)
+  :"Este horário acabou de ser reservado";
+  stop
+endif
+:atendimento criado;\npush e agenda da profissional (on_commit);
+stop
+@enduml

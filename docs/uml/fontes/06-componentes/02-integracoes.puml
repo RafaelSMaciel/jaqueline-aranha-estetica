@@ -1,0 +1,52 @@
+@startuml 02-integracoes
+!include ../estilo.iuml
+left to right direction
+title Componentes — integrações externas
+
+component "Shiva Zen\n(Django + gunicorn)" as APP
+
+interface "SMTP/HTTP API" as I_MAIL
+interface "REST (SMS)" as I_SMS
+interface "Graph API\n(WhatsApp Cloud)" as I_WA
+interface "Web Push\n(VAPID)" as I_PUSH
+interface "siteverify" as I_CAP
+interface "SDK (eventos)" as I_SEN
+interface "POST /cron/run/<job>/\n(X-Cron-Token)" as I_CRON
+interface "ICS (feed assinado)" as I_ICS
+
+cloud "Resend\n(via django-anymail)" as RESEND
+cloud "Zenvia\n(SMS do OTP)" as ZENVIA
+cloud "Meta\n(WhatsApp Business)" as META
+cloud "Navegadores\n(push service)" as PUSH
+cloud "Cloudflare Turnstile\n(captcha)" as TURN
+cloud "Sentry\n(erros)" as SENTRY
+cloud "Cron externo\n(cron-job.org / Railway)" as CRON
+cloud "Healthchecks\n(monitor dos jobs)" as HC
+cloud "Agenda da profissional\n(Google/Apple/Outlook)" as CAL
+
+APP --( I_MAIL
+I_MAIL - RESEND
+APP --( I_SMS
+I_SMS - ZENVIA
+APP --( I_WA
+I_WA - META
+APP --( I_PUSH
+I_PUSH - PUSH
+APP --( I_CAP
+I_CAP - TURN
+APP --( I_SEN
+I_SEN - SENTRY
+CRON --( I_CRON
+I_CRON - APP
+APP --> HC : ping ok/fail por job
+CAL --( I_ICS
+I_ICS - APP
+META --> APP : webhook (respostas, status)
+ZENVIA --> APP : webhook (status de entrega)
+
+note bottom of APP
+  Todo canal falha fechado: sem credencial, nada é enviado
+  (e o painel mostra). No ambiente de testes publicado,
+  SMS só no log e e-mail/WhatsApp só para DESTINATARIOS_TESTE.
+end note
+@enduml

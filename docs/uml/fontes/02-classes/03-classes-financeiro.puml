@@ -1,0 +1,144 @@
+@startuml 03-classes-financeiro
+' GERADO por docs/uml/gerar_uml.py a partir do codigo — nao edite a mao.
+!include ../estilo.iuml
+hide empty members
+title Classes do domínio — Pacotes, comissão e carteira
+
+class Pacote <<Entity>> {
+  + nome : str
+  + descricao : str
+  + preco_total : Decimal
+  + ativo : bool
+  + validade_meses : int
+  + criado_em : datetime
+  + atualizado_em : datetime
+}
+
+class ItemPacote <<Entity>> {
+  + quantidade_sessoes : int
+  + criado_em : datetime
+}
+
+class CompraPacote <<Entity>> {
+  + pacote_nome : str
+  + criado_em : datetime
+  + atualizado_em : datetime
+  + valor_pago : Decimal
+  + valor_reembolsado : Decimal
+  + status : StatusCompraPacote
+  + data_expiracao : date [0..1]
+  --
+  + {static} vender(pacote, cliente, valor_pago, **campos)
+  + congelar_itens()
+  + consumos_por_item()
+  + saldo_por_procedimento()
+  + sessoes_restantes()
+  + verificar_finalizacao()
+}
+
+class CompraPacoteItem <<Entity>> {
+  + procedimento_nome : str
+  + quantidade_sessoes : int
+  + valor_unitario : Decimal
+  + criado_em : datetime
+}
+class CompraPacoteItemQuerySet <<QuerySet>> {
+  + update(**kwargs)
+}
+CompraPacoteItem ..> CompraPacoteItemQuerySet : objects
+
+class ConsumoSessao <<Entity>> {
+  + criado_em : datetime
+}
+
+class RegraComissao <<Entity>> {
+  + criado_em : datetime
+  + atualizado_em : datetime
+  + percentual : Decimal [0..1]
+  + valor : Decimal [0..1]
+  + ativo : bool
+}
+
+class MovimentoComissao <<Entity>> {
+  + tipo : TipoMovimentoComissao
+  + valor : Decimal
+  + observacoes : str
+  + criado_em : datetime
+  --
+  + /status «property»
+  + /pago_em «property»
+  + /estornado_em «property»
+  + refresh_from_db(*args, **kwargs)
+}
+class MovimentoComissaoQuerySet <<QuerySet>> {
+  + update(**kwargs)
+  + creditos()
+  + creditos_ativos()
+  + creditos_com_status()
+}
+MovimentoComissao ..> MovimentoComissaoQuerySet : objects
+
+class Carteira <<Entity>> {
+  + criado_em : datetime
+  + atualizado_em : datetime
+  + saldo : Decimal
+}
+
+class MovimentoCarteira <<Entity>> {
+  + tipo : TipoMovimentoCarteira
+  + origem : OrigemMovimentoCarteira
+  + valor : Decimal
+  + saldo_resultante : Decimal
+  + observacoes : str
+  + criado_em : datetime
+}
+
+enum OrigemMovimentoCarteira {
+  VALE_PRESENTE
+  CANCELAMENTO
+  AJUSTE_MANUAL
+  USO_AGENDAMENTO
+  CASHBACK_INDICACAO
+  CASHBACK_ESTORNO
+  OUTRO
+}
+
+enum StatusCompraPacote {
+  ATIVO
+  FINALIZADO
+  CANCELADO
+  EXPIRADO
+}
+
+enum TipoMovimentoCarteira {
+  CREDITO
+  DEBITO
+}
+
+enum TipoMovimentoComissao {
+  CREDITO
+  ESTORNO
+  PAGAMENTO
+}
+
+ItemPacote "0..*" --> "1" Pacote : pacote
+ItemPacote "0..*" --> "1" Procedimento : procedimento
+CompraPacote "0..*" --> "1" Cliente : cliente
+CompraPacote "0..*" --> "1" Pacote : pacote
+CompraPacoteItem "0..*" --> "1" CompraPacote : compra_pacote
+CompraPacoteItem "0..*" --> "1" Procedimento : procedimento
+ConsumoSessao "0..*" --> "1" CompraPacote : compra_pacote
+ConsumoSessao "0..*" --> "1" CompraPacoteItem : compra_pacote_item
+ConsumoSessao "0..1" --> "1" Atendimento : atendimento
+Carteira "0..1" --> "1" Cliente : cliente
+MovimentoCarteira "0..*" --> "1" Carteira : carteira
+MovimentoCarteira "0..*" --> "0..1" Atendimento : atendimento
+MovimentoCarteira "0..*" --> "0..1" Usuario : usuario
+RegraComissao "0..*" --> "0..1" Profissional : profissional
+RegraComissao "0..*" --> "0..1" Procedimento : procedimento
+MovimentoComissao "0..*" --> "1" Profissional : profissional
+MovimentoComissao "0..*" --> "1" Atendimento : atendimento
+MovimentoComissao "0..*" --> "0..1" RegraComissao : regra
+MovimentoComissao "0..*" --> "0..1" MovimentoComissao : movimento_origem
+MovimentoComissao "0..*" --> "0..1" Usuario : usuario_autor
+@enduml

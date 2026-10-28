@@ -1,0 +1,235 @@
+@startuml 01-er-agenda-atendimento
+' GERADO por docs/uml/gerar_uml.py a partir dos models — nao edite a mao.
+!include ../estilo.iuml
+!include ../estilo-er.iuml
+title Modelo de dados — Agenda e atendimento
+
+entity "profissional" as profissional {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * nome : varchar(100)
+  slug : varchar(140)
+  * especialidade : text
+  * url_foto : varchar(600)
+  * biografia : text
+  * eh_ativo : boolean
+  * antecedencia_minima_horas : smallint
+  * antecedencia_maxima_dias : smallint
+  * gcal_token_renovacao : text
+  * gcal_calendario_ref : varchar(200)
+  * gcal_token_sincronizacao : text
+  gcal_sincronizado_em : timestamptz
+  * criado_em : timestamptz
+  * atualizado_em : timestamptz
+}
+
+entity "procedimento" as procedimento {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * nome : varchar(100)
+  slug : varchar(140)
+  * descricao : text
+  * descricao_longa : text
+  * duracao_minutos : smallint
+  * intervalo_minutos : smallint
+  * categoria : varchar(20)
+  * modalidade : varchar(12)
+  * url_videoconferencia : varchar(500)
+  * url_imagem_destaque : varchar(500)
+  * eh_ativo : boolean
+  * tem_retorno_obrigatorio : boolean
+  retorno_minimo_dias : smallint
+  retorno_maximo_dias : smallint
+  * duracao_retorno_minutos : smallint
+  * criado_em : timestamptz
+  * atualizado_em : timestamptz
+}
+
+entity "habilitacao" as habilitacao {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * profissional_id : bigint <<FK>>
+  * procedimento_id : bigint <<FK>>
+  * criado_em : timestamptz
+}
+
+entity "preco" as preco {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * procedimento_id : bigint <<FK>>
+  profissional_id : bigint <<FK>>
+  * valor : numeric(10,2)
+  * descricao : text
+  * data_inicio_vigencia : date
+  * criado_em : timestamptz
+  * atualizado_em : timestamptz
+}
+
+entity "promocao" as promocao {
+  * <b>id</b> : bigint <<PK>>
+  --
+  procedimento_id : bigint <<FK>>
+  * nome : varchar(150)
+  * descricao : text
+  * percentual_desconto : numeric(5,2)
+  valor_promocional : numeric(10,2)
+  * data_inicio : date
+  * data_fim : date
+  * eh_ativo : boolean
+  * url_imagem : text
+  * criado_em : timestamptz
+  * atualizado_em : timestamptz
+}
+
+entity "agenda_horario" as agenda_horario {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * profissional_id : bigint <<FK>>
+  * dia_semana : smallint
+  * hora_inicio : time
+  * hora_fim : time
+  * criado_em : timestamptz
+  * atualizado_em : timestamptz
+}
+
+entity "agenda_excecao" as agenda_excecao {
+  * <b>id</b> : bigint <<PK>>
+  --
+  profissional_id : bigint <<FK>>
+  * tipo : varchar(20)
+  * origem : varchar(20)
+  origem_ref : varchar(255)
+  data_inicio : date
+  data_fim : date
+  hora_inicio : time
+  hora_fim : time
+  data_hora_inicio : timestamptz
+  data_hora_fim : timestamptz
+  regra_recorrencia : varchar(255)
+  data_fim_recorrencia : date
+  * motivo : text
+  * observacao : text
+  * eh_ativo : boolean
+  usuario_autor_id : bigint <<FK>>
+  * criado_em : timestamptz
+  * atualizado_em : timestamptz
+}
+
+entity "atendimento" as atendimento {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * cliente_id : bigint <<FK>>
+  * profissional_id : bigint <<FK>>
+  * procedimento_id : bigint <<FK>>
+  promocao_id : bigint <<FK>>
+  atendimento_reagendado_id : bigint <<FK>>
+  atendimento_origem_id : bigint <<FK>>
+  * eh_retorno : boolean
+  * data_hora_inicio : timestamptz
+  * data_hora_fim : timestamptz
+  valor_cobrado : numeric(10,2)
+  valor_original : numeric(10,2)
+  * descricao_preco : text
+  * status : varchar(20)
+  * criado_em : timestamptz
+  * atualizado_em : timestamptz
+}
+
+entity "lista_espera" as lista_espera {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * cliente_id : bigint <<FK>>
+  * procedimento_id : bigint <<FK>>
+  profissional_desejado_id : bigint <<FK>>
+  * data_desejada : date
+  turno_desejado : varchar(20)
+  * eh_notificado : boolean
+  email_contato : varchar(254)
+  * criado_em : timestamptz
+  * atualizado_em : timestamptz
+}
+
+entity "aceite_termo" as aceite_termo #F2F2F2 {
+}
+
+entity "anotacao_sessao" as anotacao_sessao #F2F2F2 {
+}
+
+entity "avaliacao_nps" as avaliacao_nps #F2F2F2 {
+}
+
+entity "cliente" as cliente #F2F2F2 {
+}
+
+entity "compra_pacote_item" as compra_pacote_item #F2F2F2 {
+}
+
+entity "consumo_sessao" as consumo_sessao #F2F2F2 {
+}
+
+entity "formulario" as formulario #F2F2F2 {
+}
+
+entity "link_acesso" as link_acesso #F2F2F2 {
+}
+
+entity "movimento_carteira" as movimento_carteira #F2F2F2 {
+}
+
+entity "movimento_comissao" as movimento_comissao #F2F2F2 {
+}
+
+entity "notificacao" as notificacao #F2F2F2 {
+}
+
+entity "pacote_item" as pacote_item #F2F2F2 {
+}
+
+entity "regra_comissao" as regra_comissao #F2F2F2 {
+}
+
+entity "resposta_formulario" as resposta_formulario #F2F2F2 {
+}
+
+entity "usuario" as usuario #F2F2F2 {
+}
+
+entity "versao_termo" as versao_termo #F2F2F2 {
+}
+
+profissional |o--o| usuario : profissional_id
+profissional ||--o{ agenda_horario : profissional_id
+profissional |o--o{ agenda_excecao : profissional_id
+usuario |o--o{ agenda_excecao : usuario_autor_id
+profissional ||--o{ habilitacao : profissional_id
+procedimento ||--o{ habilitacao : procedimento_id
+procedimento ||--o{ preco : procedimento_id
+profissional |o--o{ preco : profissional_id
+procedimento |o--o{ promocao : procedimento_id
+cliente ||--o{ atendimento : cliente_id
+profissional ||--o{ atendimento : profissional_id
+procedimento ||--o{ atendimento : procedimento_id
+promocao |o--o{ atendimento : promocao_id
+atendimento |o--o{ atendimento : atendimento_reagendado_id
+atendimento |o--o{ atendimento : atendimento_origem_id
+atendimento ||--o{ notificacao : atendimento_id
+atendimento ||--o{ anotacao_sessao : atendimento_id
+procedimento |o--o{ versao_termo : procedimento_id
+atendimento |o--o{ aceite_termo : atendimento_id
+atendimento ||--o| avaliacao_nps : atendimento_id
+procedimento ||--o{ pacote_item : procedimento_id
+procedimento ||--o{ compra_pacote_item : procedimento_id
+atendimento ||--o| consumo_sessao : atendimento_id
+cliente ||--o{ lista_espera : cliente_id
+procedimento ||--o{ lista_espera : procedimento_id
+profissional |o--o{ lista_espera : profissional_desejado_id
+procedimento |o--o{ formulario : procedimento_id
+atendimento |o--o{ resposta_formulario : atendimento_id
+atendimento |o--o{ link_acesso : atendimento_id
+profissional |o--o{ link_acesso : profissional_id
+atendimento |o--o{ movimento_carteira : atendimento_id
+profissional |o--o{ regra_comissao : profissional_id
+procedimento |o--o{ regra_comissao : procedimento_id
+profissional ||--o{ movimento_comissao : profissional_id
+atendimento ||--o{ movimento_comissao : atendimento_id
+@enduml

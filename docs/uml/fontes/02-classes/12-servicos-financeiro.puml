@@ -1,0 +1,47 @@
+@startuml 12-servicos-financeiro
+' GERADO por docs/uml/gerar_uml.py a partir do codigo — nao edite a mao.
+!include ../estilo.iuml
+hide empty members
+title Serviços — financeiro e relatórios
+
+class "services.comissao" as comissao <<módulo>> {
+}
+class ComissaoService <<serviço>> {
+  + {static} resolver_regra()
+  + {static} base_calculo()
+  + {static} calcular_comissao()
+  + {static} recalcular()
+  + {static} estornar_para_desfazer()
+  + {static} marcar_paga()
+  + {static} estornar_comissao()
+  + {static} saldos_por_profissional()
+  + {static} saldo_a_pagar()
+  + {static} resumo_por_profissional()
+}
+comissao *-- ComissaoService
+class "services.fidelidade" as fidelidade <<módulo>> {
+}
+class FidelidadeService <<serviço>> {
+  + {static} liberar_cashback_indicacao()
+  + {static} estornar_cashback_de_atendimento()
+  + {static} saldos()
+  + {static} creditos_usados()
+  + {static} usar_credito()
+  + {static} devolver_credito_usado()
+}
+fidelidade *-- FidelidadeService
+class "services.financeiro" as financeiro <<módulo>> {
+  + atendimentos_faturados(qs)
+  + vendas_pacote(qs)
+  + producao(qs)
+  + creditos_indicacao_usados(desde)
+  + ticket_medio(total, qtd)
+  + resumo_avulsos(qs)
+  + resumo_pacotes(qs)
+  + valor_gasto_cliente(cliente)
+}
+class "services.relatorios" as relatorios <<módulo>> {
+  + planilha_gerencial(inicio, fim)
+}
+relatorios ..> financeiro
+@enduml

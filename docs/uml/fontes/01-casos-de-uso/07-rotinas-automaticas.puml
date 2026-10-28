@@ -1,0 +1,51 @@
+@startuml 07-rotinas-automaticas
+!include ../estilo.iuml
+left to right direction
+title Casos de uso — rotinas automáticas (cron HTTP) e webhooks
+
+actor "Agendador\n(cron externo)" as Cron <<sistema>>
+actor "WhatsApp (Meta)" as WA <<externo>>
+actor "SMS (Zenvia)" as SMS <<externo>>
+actor "E-mail (Resend)" as Mail <<externo>>
+
+rectangle "POST /cron/run/<job>/ (X-Cron-Token)" {
+  usecase "emails — reenviar a fila\n(a cada 15 min)" as J1
+  usecase "lembrete_diario — lembrete D-1\ncom confirmar/cancelar (08:00)" as J2
+  usecase "nps_24h — pesquisa NPS\n(10:00)" as J3
+  usecase "detrator_alerta — avisar\nnota baixa (10:30)" as J4
+  usecase "limpeza_status — vencer pedido\npendente a 1 h do início (de hora em hora)" as J5
+  usecase "pacote_expirando / pacote_expirar\n(07:00 / 00:30)" as J6
+  usecase "aniversario — felicitação\ncom opt-in (09:00)" as J7
+  usecase "lgpd_purgar — pseudonimizar\ninativos (domingo 03:00)" as J8
+  usecase "housekeeping / feriados\n(04:00 / dia 1)" as J9
+}
+
+rectangle "Webhooks" {
+  usecase "Receber respostas e\nstatus do WhatsApp" as W1
+  usecase "Receber status de\nentrega do SMS" as W2
+}
+
+Cron --> J1
+Cron --> J2
+Cron --> J3
+Cron --> J4
+Cron --> J5
+Cron --> J6
+Cron --> J7
+Cron --> J8
+Cron --> J9
+J1 --> Mail
+J2 --> WA
+J3 --> WA
+J5 --> Mail
+J6 --> Mail
+WA --> W1
+SMS --> W2
+
+note bottom of J2
+  Mensagem só com consentimento vigente
+  (histórico de consentimento por finalidade e canal).
+  Cada execução avisa o monitor (healthchecks):
+  job que para de rodar vira alerta.
+end note
+@enduml

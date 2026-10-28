@@ -4,8 +4,9 @@
 > (migrations `0001`–`0061`). Mudou model, rota, env var, job ou deploy? Atualize aqui
 > no mesmo commit. Regras funcionais detalhadas: [`REGRAS-DE-NEGOCIO.md`](REGRAS-DE-NEGOCIO.md).
 > Acesso/login: [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO-E-ACESSO.md). Decisões e
-> pendências: [`ARCHITECTURE.md`](ARCHITECTURE.md). Requisitos/UML do TCC:
-> [`gerar_requisitos.py`](gerar_requisitos.py) → `Requisitos-ShivaZen.docx/.pdf`.
+> pendências: [`ARCHITECTURE.md`](ARCHITECTURE.md). Documento do TCC (requisitos, UML,
+> arquitetura): [`gerar_documentacao.py`](gerar_documentacao.py) → `ShivaZen-Documentacao.docx/.pdf`;
+> diagramas em [`uml/`](uml/README.md).
 
 ## Sumário
 

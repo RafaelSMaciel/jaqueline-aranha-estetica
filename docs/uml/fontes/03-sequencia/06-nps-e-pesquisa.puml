@@ -1,0 +1,34 @@
+@startuml 06-nps-e-pesquisa
+!include ../estilo.iuml
+title Sequência — NPS 24 h depois e pesquisa pós-atendimento
+autonumber
+
+actor "Agendador\n(cron)" as CR
+participant "jobs.job_pesquisa_\nsatisfacao_24h" as J
+participant "WhatsApp" as WA
+actor "Cliente" as C
+participant "views.publico.nps" as V
+participant "services.anamnese" as AN
+participant "views.publico\n.formularios" as F
+database "PostgreSQL" as DB
+
+CR -> J : POST /cron/run/nps_24h/
+J -> DB : REALIZADOS de ontem sem avaliação,\ncom PESQUISA_SATISFACAO/WHATSAPP vigente
+J -> WA : link /nps/<token>/ (7 dias)
+C -> V : abre e envia nota 0–10 + comentário\n(+ autoriza publicar como depoimento)
+V -> DB : AvaliacaoNPS + link usado
+V -> AN : convite_pesquisa(atendimento)
+AN -> DB : PESQUISA ativa aplicável ao procedimento?\nainda não respondida?
+alt há pesquisa
+  AN -> DB : RespostaAnamnese (convite) + link FORMULARIO (60 dias)
+  V --> C : "Obrigado! Tem mais um minutinho?" [Responder]
+  C -> F : /pesquisa/<token>/
+  F -> F : validar_respostas(schema)
+  F -> DB : respostas + respondida_em
+else sem pesquisa
+  V --> C : "Obrigado!"
+end
+
+CR -> J : POST /cron/run/detrator_alerta/
+note right of J : nota ≤ 6 → alerta à equipe\npara contato
+@enduml

@@ -1,0 +1,36 @@
+@startuml 04-cancelamento-pela-cliente
+!include ../estilo.iuml
+title Sequência — a cliente cancela pela área "Meus agendamentos"
+autonumber
+
+actor "Cliente" as C
+participant "views.publico\n(portal / API)" as V
+participant "Atendimento\n(FSM)" as AT
+participant "ao_mudar_status" as EF
+participant "ComissaoService\nFidelidadeService" as FIN
+participant "ListaEsperaService" as LE
+participant "Push\n(profissional)" as P
+database "PostgreSQL" as DB
+
+C -> V : POST cancelar (sessão do OTP)
+V -> DB : atendimento da cliente da sessão FOR UPDATE
+alt já começou ou não está ativo
+  V --> C : 400 "não pode mais ser cancelado"
+end
+group transaction.atomic
+  V -> AT : cancelar(motivo, pela_cliente=True)
+  AT -> DB : UPDATE status = CANCELADO + LogAuditoria [pela cliente]
+  AT -> EF : ao_mudar_status(AGENDADO, CANCELADO, pela_cliente=True)
+  EF -> FIN : estornar comissão e cashback;\ndevolver crédito de indicação usado
+  EF -> LE : notificar_compativeis(at) (savepoint, best-effort)
+  LE -> DB : inscrições compatíveis → aviso por e-mail/WhatsApp
+end
+EF -> P : on_commit: push "Cliente cancelou"
+V --> C : "Agendamento cancelado"
+
+note over V
+  Remarcar (≥ 24 h): o antigo vira REAGENDADO e nasce um novo
+  com o preço combinado; a profissional recebe "Cliente remarcou"
+  e "Novo agendamento". Mudou a profissional → volta a PENDENTE.
+end note
+@enduml

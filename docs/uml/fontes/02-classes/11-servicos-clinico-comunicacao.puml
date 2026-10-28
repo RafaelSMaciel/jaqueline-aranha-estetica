@@ -1,0 +1,89 @@
+@startuml 11-servicos-clinico-comunicacao
+' GERADO por docs/uml/gerar_uml.py a partir do codigo — nao edite a mao.
+!include ../estilo.iuml
+hide empty members
+title Serviços — fichas, termos, LGPD e comunicação
+
+class "services.anamnese" as anamnese <<módulo>> {
+  + validar_respostas(schema, dados)
+  + convidar(formulario, atendimento)
+  + fichas_pendentes(atendimento)
+  + convite_pesquisa(atendimento)
+}
+class "services.termos" as termos <<módulo>> {
+  + q_termos_aplicaveis(procedimento_id)
+  + termos_aplicaveis(procedimento)
+  + termos_pendentes(cliente, procedimento, *, so_procedime…)
+  + aceita_assinatura(atendimento)
+  + ids_com_termo_procedimento_pendente(atendimentos)
+  + url_termo(token)
+  + obter_link_termo(atendimento, canal)
+}
+class "services.consentimentos" as consentimentos <<módulo>> {
+  + ultimos(cliente)
+  + estado_atual(cliente)
+  + estado_wizard(cliente)
+  + vigente(cliente, finalidade, canal)
+  + anotar_vigente(qs, finalidade, canal, *, caminho, nome)
+  + com_consentimento(qs, finalidade, canal, *, caminho)
+  + registrar(cliente, finalidade, canal, concedido,…)
+  + revogar(cliente, finalidade, canal, *, origem,…)
+  + revogar_todos(cliente, *, origem, texto, pares, requ…)
+  + registrar_do_wizard(cliente, marcados, *, sincronizados, c…)
+  + historico(cliente)
+  + resumo_painel(cliente)
+  + par_da_chave(chave)
+}
+class "services.lgpd" as lgpd <<módulo>> {
+}
+class LgpdService <<serviço>> {
+  + {static} exportar_dados_cliente()
+  + {static} link_descadastro()
+  + {static} cliente_por_token_descadastro()
+  + {static} unsubscribe_por_token()
+  + {static} esquecer_cliente()
+  + {static} candidatos_retencao()
+  + {static} aplicar_retencao()
+}
+lgpd *-- LgpdService
+class "services.comunicacao" as comunicacao <<módulo>> {
+  + link_revisar_agenda(data_hora)
+  + enfileirar_email(atendimento, tipo, mensagem)
+  + enviar_da_fila(notificacao_id)
+  + reenviar_pendentes(agora)
+}
+class "services.links" as links <<módulo>> {
+  + sha256_hex(token)
+  + gerar_token()
+  + emitir(finalidade, alvo, *, expira_em)
+  + resolver(finalidades, token, *, select_related,…)
+  + marcar_usado(link)
+  + revogar(finalidade, alvo)
+  + descartar(token)
+  + vigente(finalidade, alvo)
+  + gerar_link_feed_ics(profissional)
+  + aplicada_em_0049()
+  + emitir_link_formulario(resposta)
+}
+class "services.otp" as otp <<módulo>> {
+  + normalizar_telefone_br(valor)
+  + eh_celular_br(digitos)
+  + solicitar_otp(email, *, request, proposito, telefone…)
+  + verificar_otp(email, codigo, *, proposito)
+  + solicitar_otp_telefone(digitos, *, request, proposito)
+  + verificar_otp_telefone(digitos, codigo, *, proposito)
+  + registrar_verificacao_agendamento(request, digitos)
+  + telefone_verificado_agendamento(request)
+  + limpar_verificacao_agendamento(request)
+}
+class "services.push" as push <<módulo>> {
+  + get_vapid_public_key()
+  + send_push(subscription, payload)
+  + send_push_to_user(user, payload)
+}
+class "services.agendamento" as agendamento #F2F2F2
+hide agendamento members
+anamnese ..> links
+comunicacao ..> agendamento
+termos ..> links
+@enduml
