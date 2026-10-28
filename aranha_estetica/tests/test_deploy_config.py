@@ -34,7 +34,7 @@ def _job_ok():
 
 
 # ─── Cron ────────────────────────────────────────────────────────────
-@mock.patch.dict(os.environ, {'CRON_TOKEN': 'segredo-cron'})
+@override_settings(CRON_TOKEN='segredo-cron')
 class CronEndpointTests(TestCase):
     url = '/cron/run/{}/'
 
@@ -100,7 +100,7 @@ class CronEndpointTests(TestCase):
             self.assertIn(nome, cron.JOB_MAP)
 
 
-@mock.patch.dict(os.environ, {'CRON_TOKEN': ''})
+@override_settings(CRON_TOKEN='')
 class CronSemTokenConfiguradoTests(TestCase):
     def test_sem_cron_token_no_ambiente_recusa(self):
         r = self.client.post('/cron/run/housekeeping/', HTTP_X_CRON_TOKEN='')
@@ -130,10 +130,18 @@ class HealthcheckTests(TestCase):
 # ─── System checks de producao ───────────────────────────────────────
 _ENV_PROD_OK = {
     'ZENVIA_API_TOKEN': 'tok', 'ZENVIA_FROM': 'clinica',
-    'WHATSAPP_NUMERO': '5517991234567', 'CRON_TOKEN': 'c', 'SMS_DEV_LOG_ONLY': '',
+    'WHATSAPP_NUMERO': '5517991234567', 'CRON_TOKEN': 'c',
     'CLINIC_EMAIL': 'contato@clinica.com.br',
     'TURNSTILE_SECRET_KEY': 'ts-secret', 'TURNSTILE_SITE_KEY': 'ts-site',
 }
+
+
+def _config(**env):
+    """Variaveis de ambiente do caso -> override_settings: settings/base.py le a env no boot (marca em
+    MARCA_ENV, o resto em settings de mesmo nome) e os checks leem os settings."""
+    marca = {chave: valor for chave, valor in env.items() if chave in settings.MARCA_ENV}
+    outros = {chave: valor for chave, valor in env.items() if chave not in marca}
+    return override_settings(MARCA_ENV={**settings.MARCA_ENV, **marca}, **outros)
 _PROD_OK = dict(
     DEBUG=False, SITE_URL='https://jaquelinearanha.com.br', SMS_DEV_LOG_ONLY=False,
     EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend', PROFISSIONAL_2FA_OBRIGATORIO=True,
@@ -144,7 +152,7 @@ _PROD_OK = dict(
 @override_settings(PROFISSIONAL_2FA_OBRIGATORIO=True)
 class ChecksProducaoTests(SimpleTestCase):
     def _ids(self, **env):
-        with mock.patch.dict(os.environ, env):
+        with _config(**env):
             return sorted(e.id for e in aranha_checks.check_config_producao())
 
     @override_settings(DEBUG=True)
@@ -157,7 +165,7 @@ class ChecksProducaoTests(SimpleTestCase):
     )
     def test_config_ausente_gera_warnings(self):
         ids = self._ids(ZENVIA_API_TOKEN='', ZENVIA_FROM='', WHATSAPP_NUMERO='',
-                        CRON_TOKEN='', SMS_DEV_LOG_ONLY='', CLINIC_EMAIL='')
+                        CRON_TOKEN='', CLINIC_EMAIL='')
         self.assertEqual(ids, ['aranha.W001', 'aranha.W002', 'aranha.W003', 'aranha.W004',
                                'aranha.W005', 'aranha.W007'])
 
@@ -257,7 +265,7 @@ class ChecksProducaoTests(SimpleTestCase):
 
         with override_settings(EMAIL_BACKEND=backend, ANYMAIL=anymail or {},
                                DEFAULT_FROM_EMAIL=remetente), \
-                mock.patch.dict(os.environ, _ENV_PROD_OK):
+                _config(**_ENV_PROD_OK):
             avisos = [e for e in aranha_checks.check_config_producao()
                       if e.id in ('aranha.W003', 'aranha.W011')]
             return avisos, email_utils.email_configurado()
@@ -335,7 +343,7 @@ class ChecksComBancoTests(TestCase):
                                            versao='1.0', vigente_desde=timezone.localdate())
 
     def _ids(self, databases=('default',), **env):
-        with mock.patch.dict(os.environ, {**_ENV_PROD_OK, **env}):
+        with _config(**{**_ENV_PROD_OK, **env}):
             return sorted(e.id for e in aranha_checks.check_config_producao(
                 databases=list(databases) if databases else None))
 
@@ -366,7 +374,7 @@ class ChecksComBancoTests(TestCase):
         Configuracao.objects.create(chave='WHATSAPP_NUMERO', valor='123')
         Configuracao.objects.create(chave='CLINIC_EMAIL', valor='sem-arroba')
         invalidar_cache()
-        with mock.patch.dict(os.environ, _ENV_PROD_OK):
+        with _config(**_ENV_PROD_OK):
             self.assertEqual(get_branding()['WHATSAPP_NUMERO'], '')
         invalidar_cache()
         self.assertEqual(self._ids(), ['aranha.W004', 'aranha.W007'])
@@ -402,7 +410,7 @@ class ChecksComBancoTests(TestCase):
     # contrato 3: sem termo LGPD ativo o booking recusa; sem SAUDE o aceite do
     # dado de saude (art. 11) fica sem prova
     def _w010(self):
-        with mock.patch.dict(os.environ, _ENV_PROD_OK):
+        with _config(**_ENV_PROD_OK):
             return [e for e in aranha_checks.check_config_producao(databases=['default'])
                     if e.id == 'aranha.W010']
 

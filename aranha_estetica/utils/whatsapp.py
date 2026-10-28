@@ -13,7 +13,6 @@ retorna False (nada de marcar ENVIADO sem ter enviado) e nada com token/nome
 do cliente vai para o log.
 """
 import logging
-import os
 
 import requests
 from django.conf import settings
@@ -27,25 +26,12 @@ from .pii import mask_telefone
 
 logger = logging.getLogger(__name__)
 
-# Versao da Graph API (versoes antigas sao desligadas pela Meta ~2 anos apos o lancamento).
-WHATSAPP_API_VERSION_PADRAO = 'v23.0'
-
-# Nomes dos templates aprovados no Meta Business API
-TEMPLATE_CONFIRMACAO_D1 = os.environ.get('WHATSAPP_TEMPLATE_D1', 'confirmacao_d1')
-TEMPLATE_NPS = os.environ.get('WHATSAPP_TEMPLATE_NPS', 'nps_pos_atendimento')
-TEMPLATE_LISTA_ESPERA = os.environ.get('WHATSAPP_TEMPLATE_LISTA_ESPERA', 'lista_espera_vaga')
-
-
 def _credenciais():
-    """(token, url da API) lidos do ambiente em tempo de chamada."""
-    token = os.environ.get('WHATSAPP_TOKEN', '')
-    # WHATSAPP_PHONE_NUMBER_ID aceito como alias (nome usado no .env.example antigo).
-    phone_id = os.environ.get('WHATSAPP_PHONE_ID') or os.environ.get('WHATSAPP_PHONE_NUMBER_ID', '')
-    api_url = os.environ.get('WHATSAPP_API_URL', '')
-    if not api_url and phone_id:
-        versao = os.environ.get('WHATSAPP_API_VERSION', WHATSAPP_API_VERSION_PADRAO)
-        api_url = f'https://graph.facebook.com/{versao}/{phone_id}/messages'
-    return token, api_url
+    """(token, url da API) dos settings WHATSAPP_*, lidos em tempo de chamada."""
+    api_url = settings.WHATSAPP_API_URL
+    if not api_url and settings.WHATSAPP_PHONE_ID:
+        api_url = f'https://graph.facebook.com/{settings.WHATSAPP_API_VERSION}/{settings.WHATSAPP_PHONE_ID}/messages'
+    return settings.WHATSAPP_TOKEN, api_url
 
 
 def whatsapp_configurado() -> bool:
@@ -137,7 +123,7 @@ def enviar_template_whatsapp(telefone, template_name, components=None):
 def enviar_confirmacao_d1(atendimento):
     """
     Lembrete/confirmacao D-1 via WhatsApp com link de confirmacao/cancelamento.
-    Usa template aprovado TEMPLATE_CONFIRMACAO_D1 (categoria UTILITY).
+    Usa o template aprovado settings.WHATSAPP_TEMPLATE_D1 (categoria UTILITY).
     Parametros do template (ordem):
       {{1}} nome do cliente
       {{2}} data formatada (dd/mm/aaaa, hora local)
@@ -154,7 +140,7 @@ def enviar_confirmacao_d1(atendimento):
     data_formatada = fmt_local(atendimento.data_hora_inicio, '%d/%m/%Y')
     hora_formatada = fmt_local(atendimento.data_hora_inicio, '%H:%M')
     mensagem_preview = (
-        f'[Template {TEMPLATE_CONFIRMACAO_D1}] '
+        f'[Template {settings.WHATSAPP_TEMPLATE_D1}] '
         f'{data_formatada} {hora_formatada} / '
         f'{atendimento.procedimento.nome} c/ {atendimento.profissional.nome}'
     )
@@ -190,7 +176,7 @@ def enviar_confirmacao_d1(atendimento):
     }]
 
     sucesso = enviar_template_whatsapp(
-        atendimento.cliente.telefone, TEMPLATE_CONFIRMACAO_D1, components
+        atendimento.cliente.telefone, settings.WHATSAPP_TEMPLATE_D1, components
     )
 
     notif.status = 'ENVIADO' if sucesso else 'FALHOU'
@@ -218,7 +204,7 @@ def enviar_nps_whatsapp(atendimento, link_nps, notif):
     }]
 
     sucesso = enviar_template_whatsapp(
-        atendimento.cliente.telefone, TEMPLATE_NPS, components
+        atendimento.cliente.telefone, settings.WHATSAPP_TEMPLATE_NPS, components
     )
 
     if notif is None:
@@ -226,6 +212,6 @@ def enviar_nps_whatsapp(atendimento, link_nps, notif):
         return sucesso
     notif.status = 'ENVIADO' if sucesso else 'FALHOU'
     notif.enviado_em = timezone.now() if sucesso else None
-    notif.mensagem = f'[Template {TEMPLATE_NPS}] NPS {atendimento.procedimento.nome}'
+    notif.mensagem = f'[Template {settings.WHATSAPP_TEMPLATE_NPS}] NPS {atendimento.procedimento.nome}'
     notif.save(update_fields=['status', 'enviado_em', 'mensagem'])
     return sucesso

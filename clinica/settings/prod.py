@@ -23,6 +23,9 @@ CSRF_COOKIE_SECURE = True
 if 'healthcheck.railway.app' not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append('healthcheck.railway.app')
 
+# CSRF: so origem https e confiavel em producao (o padrao de base.py e o http://localhost do dev)
+CSRF_TRUSTED_ORIGINS = [origem for origem in CSRF_TRUSTED_ORIGINS if origem.startswith('https://')]
+
 # HSTS — 1 ano
 SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True

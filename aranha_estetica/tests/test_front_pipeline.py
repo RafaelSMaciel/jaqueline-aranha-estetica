@@ -6,10 +6,8 @@ que afetam producao, a custo zero (leitura de arquivo / settings).
 """
 import json
 from decimal import Decimal
-import os
 import re
 from pathlib import Path
-from unittest.mock import patch
 
 from django.conf import settings
 from django.test import Client, SimpleTestCase, TestCase, override_settings
@@ -81,7 +79,7 @@ class WebpushCsrfTests(TestCase):
         self.assertIn('return registrar(sub)', js)
 
     @override_settings(ADMIN_2FA_OBRIGATORIO=False)
-    @patch.dict(os.environ, {'WEBPUSH_VAPID_PUBLIC_KEY': 'chave-publica-teste'})
+    @override_settings(WEBPUSH_VAPID_PUBLIC_KEY='chave-publica-teste')
     def test_token_da_pagina_do_portal_passa_no_csrf_do_subscribe(self):
         from aranha_estetica.models import AssinaturaPush, Profissional, Usuario
         prof = Profissional.objects.create(nome='Dra. Push', ativo=True)

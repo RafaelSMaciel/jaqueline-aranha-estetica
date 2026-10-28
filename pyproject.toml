@@ -16,12 +16,30 @@ extend-exclude = ["aranha_estetica/migrations", "node_modules"]
 # Lista fixa (o padrao do ruff muda entre versoes): erros reais (F, E4/E7/E9) + fuso (DTZ).
 # date.today()/datetime.now() sem fuso erram o dia entre 21h e 24h (servidor em UTC): use
 # timezone.localdate()/localtime(); data/hora de formulario: utils/datas.ler_data/ler_hora.
-select = ["E4", "E7", "E9", "F", "DTZ"]
+# TID251: configuracao por ambiente so nos settings (os.environ lido no boot, com parse e validacao).
+select = ["E4", "E7", "E9", "F", "DTZ", "TID251"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"os.environ".msg = "Configuracao por ambiente so em clinica/settings: leia settings.X na hora da chamada."
+"os.getenv".msg = "Configuracao por ambiente so em clinica/settings: leia settings.X na hora da chamada."
 
 [tool.ruff.lint.per-file-ignores]
-# testes montam datetime naive de proposito antes do make_aware (ou p/ o relogio do navegador)
-"aranha_estetica/tests/**" = ["DTZ001", "DTZ007"]
+# testes montam datetime naive de proposito antes do make_aware (ou p/ o relogio do navegador) e
+# montam o ambiente dos processos que importam os settings
+"aranha_estetica/tests/**" = ["DTZ001", "DTZ007", "TID251"]
 "docs/gerar_requisitos.py" = ["E702"]
+# quem le o ambiente: os settings, os pontos de entrada (DJANGO_SETTINGS_MODULE), os geradores da
+# documentacao, os comandos do pre-deploy (ADMIN_*), as opcoes do Sentry (montadas durante o import
+# dos settings) e os modulos que ainda leem o ambiente direto (jobs: ADMIN_EMAIL; lgpd:
+# LGPD_RETENCAO_CLIENTE_DIAS; gcal: integracao desligada)
+"clinica/**" = ["TID251"]
+"manage.py" = ["TID251"]
+"docs/**" = ["TID251"]
+"aranha_estetica/management/commands/**" = ["TID251"]
+"aranha_estetica/utils/pii.py" = ["TID251"]
+"aranha_estetica/jobs.py" = ["TID251"]
+"aranha_estetica/services/lgpd.py" = ["TID251"]
+"aranha_estetica/services/gcal.py" = ["TID251"]
 
 # Camadas (lint-imports; CI job Django SQLite): views > services > models. Para baixo pode, para
 # cima nao — cada excecao abaixo e uma inversao consciente (import tardio dentro da funcao).

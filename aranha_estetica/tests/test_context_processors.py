@@ -1,7 +1,6 @@
 """Tests for context processors."""
-from unittest.mock import patch
 
-from django.test import RequestFactory, TestCase
+from django.test import RequestFactory, TestCase, override_settings
 
 from aranha_estetica.context_processors import clinica_globals
 
@@ -22,7 +21,7 @@ class ClinicaGlobalsTests(TestCase):
         for key in expected_keys:
             self.assertIn(key, ctx, f'{key} missing from context')
 
-    @patch.dict('os.environ', {
+    @override_settings(MARCA_ENV={
         'CLINIC_NAME': 'Minha Clinica',
         'CLINIC_EMAIL': 'test@test.com',
         'CLINIC_PHONE': '11999999999',
@@ -50,7 +49,7 @@ class BrandingSemPlaceholderTests(TestCase):
         cache.clear()
         self.factory = RequestFactory()
 
-    @patch.dict('os.environ', {'WHATSAPP_NUMERO': '', 'CLINIC_PHONE': '', 'CLINIC_EMAIL': ''})
+    @override_settings(MARCA_ENV={'WHATSAPP_NUMERO': '', 'CLINIC_PHONE': '', 'CLINIC_EMAIL': ''})
     def test_contatos_ausentes_ficam_vazios(self):
         ctx = clinica_globals(self.factory.get('/'))
         self.assertEqual(ctx['WHATSAPP_NUMERO'], '')
@@ -59,24 +58,23 @@ class BrandingSemPlaceholderTests(TestCase):
         self.assertEqual(ctx['CLINIC_PHONE_TEL'], '')
 
     def test_site_url_vem_de_settings(self):
-        from django.test import override_settings
         with override_settings(SITE_URL='https://clinica.exemplo'):
             ctx = clinica_globals(self.factory.get('/'))
         self.assertEqual(ctx['SITE_URL'], 'https://clinica.exemplo')
 
-    @patch.dict('os.environ', {'CLINIC_PHONE': '(17) 3222-1111'})
+    @override_settings(MARCA_ENV={'CLINIC_PHONE': '(17) 3222-1111'})
     def test_telefone_vira_href_tel(self):
         ctx = clinica_globals(self.factory.get('/'))
         self.assertEqual(ctx['CLINIC_PHONE_TEL'], '+551732221111')
 
-    @patch.dict('os.environ', {'CLINIC_PHONE': ''})
+    @override_settings(MARCA_ENV={'CLINIC_PHONE': ''})
     def test_tela_branding_tem_precedencia_sobre_env(self):
         from aranha_estetica.models import Configuracao
         Configuracao.objects.create(chave='CLINIC_PHONE', valor='(17) 98888-7777')
         ctx = clinica_globals(self.factory.get('/'))
         self.assertEqual(ctx['CLINIC_PHONE'], '(17) 98888-7777')
 
-    @patch.dict('os.environ', {'INSTAGRAM_URL': 'javascript:alert(1)', 'THEME_COLOR': 'red;x'})
+    @override_settings(MARCA_ENV={'INSTAGRAM_URL': 'javascript:alert(1)', 'THEME_COLOR': 'red;x'})
     def test_valores_inseguros_sao_descartados(self):
         ctx = clinica_globals(self.factory.get('/'))
         self.assertEqual(ctx['INSTAGRAM_URL'], '')
@@ -105,12 +103,12 @@ class NormalizarWhatsappTests(TestCase):
         self.assertEqual(normalizar_whatsapp(''), '')
         self.assertEqual(normalizar_whatsapp(None), '')
 
-    @patch.dict('os.environ', {'WHATSAPP_NUMERO': '(17) 99123-4567'})
+    @override_settings(MARCA_ENV={'WHATSAPP_NUMERO': '(17) 99123-4567'})
     def test_env_sem_ddi_ganha_55_no_branding(self):
         ctx = clinica_globals(RequestFactory().get('/'))
         self.assertEqual(ctx['WHATSAPP_NUMERO'], '5517991234567')
 
-    @patch.dict('os.environ', {'WHATSAPP_NUMERO': '123'})
+    @override_settings(MARCA_ENV={'WHATSAPP_NUMERO': '123'})
     def test_env_invalida_esconde_whatsapp(self):
         ctx = clinica_globals(RequestFactory().get('/'))
         self.assertEqual(ctx['WHATSAPP_NUMERO'], '')
