@@ -1110,10 +1110,14 @@
         }
     }
 
-    // Pre-select
+    // Pre-select: veio de "Agendar <servico>" — a escolha ja foi feita, abre na data (o Voltar
+    // do navegador leva a etapa 1 p/ trocar)
     if (!rehidratado && preselect) {
         var card = document.querySelector('.proc-card[data-proc-id="' + preselect + '"]');
-        if (card) card.click();
+        if (card) {
+            card.click();
+            goToStep(2, {semFoco: true});
+        }
     }
 
 })();
