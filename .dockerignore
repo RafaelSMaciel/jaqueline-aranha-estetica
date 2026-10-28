@@ -5,15 +5,14 @@
 .gitattributes
 .pre-commit-config.yaml
 
-# ambientes, caches e bancos locais
+# ambientes, caches e bancos locais. `**/`: sem ele o padrao so casa na raiz do contexto
+# (um __pycache__ ou sqlite dentro de aranha_estetica/ ia para a imagem)
 .venv
 venv/
 env/
 .cache/
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
+**/__pycache__
+**/*.py[cod]
 .import_linter_cache/
 .grimp_cache/
 .pytest_cache/
@@ -21,14 +20,12 @@ __pycache__/
 .mypy_cache/
 .coverage
 htmlcov/
-*.sqlite3
-*.sqlite3-journal
+**/*.sqlite3*
 
 # Backups/dumps do Postgres (dado pessoal e de saude): nunca no git nem na imagem
-*.dump
-*.dump.age
-*.backup
-*.sql.gz
+**/*.dump*
+**/*.backup
+**/*.sql.gz
 
 # segredos
 .env
@@ -42,7 +39,7 @@ aranha_estetica/static/dist/
 # runtime / editores / ferramentas
 staticfiles/
 media/
-*.log
+**/*.log
 .DS_Store
 .vscode/
 .idea/
@@ -51,8 +48,11 @@ media/
 .playwright-mcp/
 screenshots/
 
-# documentacao e arquivos do repo que a imagem nao usa
+# documentacao e arquivos do repo que a imagem nao usa: testes (fixtures e dados ficticios) e os
+# scripts de backup (rodam fora do Railway, com pg_dump e age)
 docs/
+aranha_estetica/tests/
+scripts/
 *.md
 !README.md
 .dockerignore
