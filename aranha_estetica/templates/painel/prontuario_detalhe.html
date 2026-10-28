@@ -301,9 +301,8 @@
 </a>
 
 {# ── Modal de anotação (shared, fetch) ── #}
-<div x-show="aberto" x-cloak role="dialog" aria-modal="true" aria-label="Adicionar anotação"
-     class="fixed inset-0 z-[10000] flex items-center justify-center p-4" style="background:rgba(0,0,0,.45)">
-  <div x-on:click.outside="fechar"
+<dialog x-ref="dialogo" x-on:click="cliqueFora" x-on:close="aoFechar" aria-label="Adicionar anotação" class="dialogo">
+  <div
        class="bg-superficie text-texto rounded-2xl w-full max-w-md shadow-xl">
     <div class="flex items-center justify-between px-5 py-4 border-b border-borda">
       <h5 class="font-bold text-[0.95rem]">Adicionar Anotação</h5>
@@ -322,7 +321,7 @@
               class="px-5 py-2 rounded-full bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">Salvar</button>
     </div>
   </div>
-</div>
+</dialog>
 
 </div>
 {% endblock %}

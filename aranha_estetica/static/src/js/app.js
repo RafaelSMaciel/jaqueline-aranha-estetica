@@ -21,11 +21,18 @@ Alpine.data('temaToggle', () => ({
   },
 }))
 
-Alpine.data('modal', () => ({
+// Modal = <dialog x-ref="dialogo"> nativo: foco preso, Esc fecha, fundo inerte (showModal).
+// Clique no backdrop (fora do painel) fecha. Os componentes abaixo herdam este comportamento.
+const comDialogo = (extra = {}) => ({
   aberto: false,
-  abrir() { this.aberto = true },
-  fechar() { this.aberto = false },
-}))
+  abrir() { this.aberto = true; this.$refs.dialogo?.showModal() },
+  fechar() { this.$refs.dialogo?.close(); this.aberto = false },
+  aoFechar() { this.aberto = false },
+  cliqueFora(e) { if (e.target === this.$refs.dialogo) this.fechar() },
+  ...extra,
+})
+
+Alpine.data('modal', () => comDialogo())
 
 // Nav do site publico: toggle do menu mobile (CSP-safe).
 Alpine.data('navMenu', () => ({
@@ -70,16 +77,15 @@ Alpine.data('alertaDismiss', () => ({
 
 // Modal de anotacao clinica (prontuario): guarda atendimento e faz fetch.
 // CSP-safe: abrir(e) le data-atendimento-id do botao clicado; sem expressao inline.
-Alpine.data('anotacaoModal', () => ({
-  aberto: false,
+Alpine.data('anotacaoModal', () => comDialogo({
   atendId: null,
   erro: '',
-  fechar() { this.aberto = false },
   abrir(e) {
     const b = e.target.closest('[data-atendimento-id]')
     this.atendId = b ? b.getAttribute('data-atendimento-id') : null
     this.erro = ''
     this.aberto = true
+    this.$refs.dialogo?.showModal()
   },
   salvar() {
     const ta = this.$refs.texto
@@ -96,10 +102,7 @@ Alpine.data('anotacaoModal', () => ({
 }))
 
 // Modal de criar pacote: estado do modal + clonar linha de item (CSP-safe).
-Alpine.data('pacoteCriar', () => ({
-  aberto: false,
-  abrir() { this.aberto = true },
-  fechar() { this.aberto = false },
+Alpine.data('pacoteCriar', () => comDialogo({
   addItem() {
     const c = this.$refs.itens
     const base = c.querySelector('.item-row')

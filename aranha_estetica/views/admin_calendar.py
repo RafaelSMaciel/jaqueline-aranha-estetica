@@ -115,7 +115,7 @@ def admin_calendar_events(request):
                     'start': ini.isoformat(),
                     'end': fim.isoformat(),
                     'display': 'background',
-                    'backgroundColor': '#bdbdbd',
+                    'backgroundColor': 'var(--cor-borda-campo)',   # bloqueio (tokens: claro/escuro)
                     'editable': False,
                 })
             continue
@@ -133,7 +133,7 @@ def admin_calendar_events(request):
             'end': (ex.data_fim + timedelta(days=1)).isoformat(),
             'allDay': True,
             'display': 'background',
-            'backgroundColor': '#ffe0b2',
+            'backgroundColor': 'var(--cor-aviso-fundo)',   # folga/feriado
             'editable': False,
         })
 
