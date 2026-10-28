@@ -86,7 +86,7 @@ aranha_estetica/
 │                    agendamento_service, disponibilidade (SlotService),
 │                    otp, lgpd, termos, alertas,
 │                    comissao_service, fidelidade_service, retorno_service, lista_espera_service,
-│                    anamnese, auditoria, push, gcal
+│                    anamnese, push, gcal
 ├── utils/           branding, email, sms, whatsapp, precos, saude, fichas, security, dois_fatores,
 │                    pii, captcha, datas, parse, busca (trigram no PG), audit, recorrencia (RRULE do
 │                    subconjunto), nps (calculo unico, meio p/ cima), banco (GUCs app.* e CALL das
@@ -104,9 +104,10 @@ aranha_estetica/
 ├── tasks.py / tasks_manutencao.py   jobs Celery (chamados pelo cron HTTP)
 ├── sinais_celery.py contexto da trilha (app.origem=celery:<task>) nas tasks do worker real
 ├── middleware.py    Enforce2FAMiddleware, SecurityHeadersMiddleware, ContentSecurityPolicyMiddleware,
-│                    ContextoBancoMiddleware (autor/IP/origem p/ a trilha historico_alteracao)
+│                    ContextoBancoMiddleware (abre o Ator do request)
 ├── checks.py        system checks de produção aranha.W001–W009
 ├── excecoes.py      RegraDeNegocio (mensagem + codigo), HorarioIndisponivel, TransicaoInvalida
+├── ator.py          Ator (usuário, IP, origem) da borda em ContextVar → LogAuditoria + GUCs app.*
 ├── context_processors.py · decorators.py · validators.py · constants.py · sitemaps.py · admin.py
 clinica/             settings/{base,dev,prod}.py, urls.py, celery.py, wsgi.py, apps.py, gunicorn_logger.py
 ```
@@ -334,8 +335,9 @@ fallback das procedures). Texto SQL versionado em `aranha_estetica/migrations/sq
 
 **Contexto da sessão (GUCs `app.*`)** lido pela trilha: `app.usuario_id`, `app.ip_origem`,
 `app.origem`. Quem define (`utils/banco.definir_contexto_banco`, `set_config(..., false)` = nível de
-sessão) e **sempre limpa**: `ContextoBancoMiddleware` (`web` + usuário + IP; o `/healthz/` não toca
-o banco), `views/cron.py` (`cron:<job>`), sinais do Celery com worker real (`celery:<task>`),
+sessão) e **sempre limpa**: o `Ator` (`ator.atuando`) aberto pelo `ContextoBancoMiddleware` (`web`
++ usuário + IP; o `/healthz/` não toca o banco) e por `views/cron.py` (`cron:<job>`; aninhado, volta
+ao do request na saída) — o mesmo autor/IP vai à `LogAuditoria` —, sinais do Celery com worker real (`celery:<task>`),
 `migrate_atomico` (`SET LOCAL app.origem = 'migracao'`); conexão nova nasce limpa
 (`connection_created`). SQL manual sai com autor `NULL` e origem `''`. **PgBouncer em modo
 transação quebraria isso** (o Railway não usa): nesse dia, trocar para `ATOMIC_REQUESTS` +
@@ -1085,7 +1087,9 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 - Toda escrita multi-tabela em `transaction.atomic`; I/O externo (e-mail, WhatsApp, push) só no
   `on_commit`, best-effort.
 - Datas "hoje/amanhã" sempre no fuso da clínica (`utils/datas`), nunca `date.today()`.
-- Ação sensível → `utils/audit.registrar_log(..., request=request)` (grava IP; sem nome de cliente
+- Ação sensível → `utils/audit.registrar_log(usuario, acao, tabela, pk, detalhes)` — registrador
+  único; autor e IP vêm do `Ator` da borda (`ator.py`: middleware `web`, cron `cron:<job>`),
+  `usuario`/`request` explícitos só quando o Ator não basta (sem nome de cliente
   no texto — use pk em `detalhes`).
 - Templates: CSP estrita (sem `onclick`, `<script>`/`<style>` com `nonce`), lógica Alpine em
   `Alpine.data()` no `app.js`, tokens de cor do `tokens.css` (nunca cor crua). Lib nova no CDN =

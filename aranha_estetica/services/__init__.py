@@ -8,12 +8,10 @@ e notificacoes.
 """
 from .agendamento_service import AgendamentoService
 from .lgpd import LgpdService
-from .auditoria import AuditoriaService
 from . import otp as otp_service
 
 __all__ = [
     'AgendamentoService',
     'LgpdService',
-    'AuditoriaService',
     'otp_service',
 ]

@@ -17,7 +17,6 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
 from ..models import AceiteTermo, RespostaAnamnese, VersaoTermo
-from ..models.sistema import LogAuditoria
 from ..services import links
 from ..services.anamnese import validar_respostas
 from ..utils.audit import registrar_log
@@ -110,12 +109,8 @@ def _gravar_resposta(request, resposta: RespostaAnamnese, link):
         resposta.save(update_fields=['respostas_json', 'respondida_em'])
         links.marcar_usado(link)
 
-        LogAuditoria.objects.create(
-            usuario=None,
-            acao=f'Form {resposta.formulario.tipo} respondido (cliente {resposta.cliente_id})',
-            tabela='resposta_formulario',
-            registro_id=resposta.pk,
-        )
+        registrar_log(None, f'Form {resposta.formulario.tipo} respondido (cliente {resposta.cliente_id})',
+                      'resposta_formulario', resposta.pk)
 
         if eh_ficha_saude:
             # Consentimento art. 11 = aceite da versao SAUDE vigente (prova no
