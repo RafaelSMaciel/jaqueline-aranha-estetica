@@ -16,8 +16,8 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 
 from aranha_estetica.models import (
-    AgendaExcecao, AvaliacaoNPS, Configuracao, FormularioAnamnese, LinkAcesso, ListaEspera, Promocao,
-    RespostaAnamnese, Usuario,
+    AgendaExcecao, AvaliacaoNPS, Configuracao, FormularioAnamnese, LinkAcesso, ListaEspera, MovimentoComissao,
+    Promocao, RegraComissao, RespostaAnamnese, Usuario,
 )
 
 from .factories import (
@@ -128,6 +128,12 @@ ROTAS = {
     'aranha:admin_nps_publicacao': (_d(pk=lambda d: d['nps'].pk), '', SO_POST),
     'aranha:painel_comissoes': (SEM, '', STAFF),
     'aranha:admin_comissao_pagar': (_d(pk=lambda d: d['comissao'].pk), '', SO_POST),
+    'aranha:admin_comissao_repasse': (SEM, '', SO_POST),
+    'aranha:painel_comissao_repasse': (_d(pk=lambda d: d['pagamento'].pk), '', STAFF),
+    'aranha:painel_comissao_regras': (SEM, '', STAFF),
+    'aranha:admin_comissao_regra_criar': (SEM, '', SO_POST),
+    'aranha:admin_comissao_regra_ativo': (_d(pk=lambda d: d['regra'].pk), '', SO_POST),
+    'aranha:admin_comissao_regra_excluir': (_d(pk=lambda d: d['regra'].pk), '', SO_POST),
     'aranha:painel_notificacoes': (SEM, '', STAFF),
     'aranha:prontuario_detalhe': (_d(cliente_id=lambda d: d['cliente'].pk), '', PROFISSIONAL),
     'aranha:prontuario_salvar': (_d(cliente_id=lambda d: d['cliente'].pk), '', SO_POST),
@@ -135,8 +141,9 @@ ROTAS = {
     'aranha:admin_pacotes': (SEM, '', STAFF),
     'aranha:admin_criar_pacote': (SEM, '', SO_POST),   # formulario em modal na lista
     'aranha:admin_editar_pacote': (_d(pk=lambda d: d['pacote'].pk), '', SO_POST),
-    'aranha:admin_vender_pacote': (SEM, '', OUTRA),
+    'aranha:admin_vender_pacote': (SEM, '', SO_POST),
     'aranha:admin_cancelar_compra_pacote': (_d(pk=lambda d: d['compra'].pk), '', SO_POST),
+    'aranha:admin_prorrogar_compra_pacote': (_d(pk=lambda d: d['compra'].pk), '', SO_POST),
     'aranha:admin_bloqueios': (SEM, '', STAFF),
     'aranha:admin_criar_bloqueio': (SEM, '', OUTRA),
     'aranha:admin_excluir_bloqueio': (_d(bloqueio_id=lambda d: d['bloqueio'].pk), '', SO_POST),
@@ -194,6 +201,7 @@ ROTAS = {
     'aranha:profissional_aprovar': (_d(pk=lambda d: d['pendente'].pk), '', SO_POST),
     'aranha:profissional_rejeitar': (_d(pk=lambda d: d['pendente'].pk), '', SO_POST),
     'aranha:profissional_link_calendario': (SEM, '', SO_POST),
+    'aranha:profissional_comissoes': (SEM, '', PROFISSIONAL),
     # ─── infra ───
     'aranha:healthcheck': (SEM, '', OUTRA),
     'aranha:liveness': (SEM, '', PUBLICA),
@@ -260,6 +268,10 @@ def montar_dados():
         'config': Configuracao.objects.create(chave='teste_rotas', valor='1'),
         'nps': AvaliacaoNPS.objects.create(atendimento=realizado, nota=10),
         'comissao': criar_comissao(realizado),
+        'pagamento': MovimentoComissao.objects.get(tipo='PAGAMENTO', movimento_origem=criar_comissao(
+            criar_atendimento(cliente, prof, proc, data_hora=agora - timedelta(days=3), status='REALIZADO'),
+            status=MovimentoComissao.STATUS_PAGA)),
+        'regra': RegraComissao.objects.create(percentual=Decimal('30'), ativo=True),
         'espera': ListaEspera.objects.create(
             cliente=cliente, procedimento=proc, data_desejada=hoje + timedelta(days=3), turno_desejado='MANHA'),
         'tok_confirmar': criar_notificacao_com_link(at, 'LEMBRETE')[1],

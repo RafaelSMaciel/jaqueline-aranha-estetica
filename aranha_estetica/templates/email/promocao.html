@@ -1,26 +1,26 @@
 {% extends "email/base_email.html" %}
 {% block header_sub %}<div style="color:rgba(255,255,255,0.92);font-size:13px;letter-spacing:2.4px;text-transform:uppercase;margin-top:6px;">Oferta especial</div>{% endblock %}
 {% block content %}
-<h1 class="hero-title text-main" style="margin:0 0 14px;color:#2c2418;font-size:28px;font-weight:700;line-height:1.2;">{% if nome %}{{ nome }},{% endif %} uma oferta feita para você</h1>
+<h1 class="hero-title text-main" style="margin:0 0 14px;color:{{ cor_texto }};font-size:28px;font-weight:700;line-height:1.2;">{% if nome %}{{ nome }},{% endif %} uma oferta feita para você</h1>
 
 {% if oferta %}
-<p class="text-main" style="margin:0 0 16px;color:#2c2418;font-size:18px;font-weight:700;line-height:1.4;">{{ oferta }}</p>
+<p class="text-main" style="margin:0 0 16px;color:{{ cor_texto }};font-size:18px;font-weight:700;line-height:1.4;">{{ oferta }}</p>
 {% endif %}
 
 {% if corpo_html %}
-<div class="text-soft" style="color:#6b6256;font-size:15px;line-height:1.7;margin-bottom:24px;">
+<div class="text-soft" style="color:{{ cor_suave }};font-size:15px;line-height:1.7;margin-bottom:24px;">
   {{ corpo_html|safe }}
 </div>
 {% endif %}
 
 {% if data_inicio and data_fim %}
-<p class="text-soft" style="margin:0 0 20px;color:#6b6256;font-size:14px;line-height:1.6;text-align:center;">Para atendimentos de {{ data_inicio }} a {{ data_fim }}.</p>
+<p class="text-soft" style="margin:0 0 20px;color:{{ cor_suave }};font-size:14px;line-height:1.6;text-align:center;">Para atendimentos de {{ data_inicio }} a {{ data_fim }}.</p>
 {% endif %}
 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:4px 0 12px;">
-  <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;"><tr><td bgcolor="#C4A35A" style="border-radius:999px;background-color:#C4A35A;mso-padding-alt:14px 36px;"><a href="{{ link_agendar|default:site_url }}" style="display:inline-block;background-color:#C4A35A;background-image:linear-gradient(135deg,#C4A35A,#C08B7F);color:#23200f;padding:16px 40px;border-radius:999px;text-decoration:none;font-weight:700;font-size:15px;letter-spacing:0.5px;box-shadow:0 4px 14px rgba(196,163,90,0.35);">Aproveitar oferta</a></td></tr></table>
+  <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;"><tr><td bgcolor="{{ cor_marca }}" style="border-radius:999px;background-color:{{ cor_marca }};mso-padding-alt:14px 36px;"><a href="{% if link_agendar %}{{ link_agendar }}{% else %}{{ site_url }}{% url 'aranha:agendamento_publico' %}{% endif %}" style="display:inline-block;background-color:{{ cor_marca }};background-image:linear-gradient(135deg,{{ cor_marca }},#C08B7F);color:{{ cor_sobre_marca }};padding:16px 40px;border-radius:999px;text-decoration:none;font-weight:700;font-size:15px;letter-spacing:0.5px;box-shadow:0 4px 14px rgba(201,168,76,0.35);">Aproveitar oferta</a></td></tr></table>
 </td></tr></table>
 {% endblock %}
 {% block footer_extra %}
-<p class="text-muted" style="margin:8px 0 0;color:#8a7e6b;font-size:11px;line-height:1.6;">Você recebe esta comunicação porque autorizou receber promoções por e-mail.</p>
+<p class="text-muted" style="margin:8px 0 0;color:{{ cor_suave }};font-size:11px;line-height:1.6;">Você recebe esta comunicação porque autorizou receber promoções por e-mail.</p>
 {% endblock %}

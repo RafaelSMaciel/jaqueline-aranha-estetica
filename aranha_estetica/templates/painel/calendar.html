@@ -21,7 +21,7 @@
   .fc-event:active { cursor: grabbing; }
 
   #calModal .modal-box { background: var(--cor-superficie, #fff); color: var(--cor-texto, #333); border-radius: 16px; padding: 1.25rem; max-width: 420px; width: 100%; }
-  #calModal h4 { font-weight: 800; margin-bottom: 0.75rem; }
+  #calModal h2 { font-weight: 800; margin-bottom: 0.75rem; }
   #calModal .row-info { display: flex; padding: 0.35rem 0; border-bottom: 1px solid var(--cor-borda, #f0f0f0); font-size: 0.85rem; }
   #calModal .row-info:last-child { border: none; }
   #calModal .lbl { color: var(--cor-texto-suave, #999); min-width: 110px; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; }
@@ -34,7 +34,7 @@
 <div class="flex items-center gap-2 flex-wrap bg-superficie rounded-2xl shadow-sm p-3 mb-3">
   <label for="filtroProfissional" class="text-[0.8rem] font-bold text-texto-suave">Profissional:</label>
   <select id="filtroProfissional"
-          class="px-3 py-1.5 rounded-lg border border-borda bg-fundo text-[0.8rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+          class="px-3 py-1.5 rounded-lg border border-borda bg-fundo text-[0.8rem] text-texto transition">
     <option value="">Todos</option>
     {% for p in profissionais %}
     <option value="{{ p.pk }}">{{ p.nome }}</option>
@@ -61,7 +61,7 @@
 {# Modal de evento (CSS custom + classList, CSP-safe) #}
 <dialog id="calModal" class="dialogo" aria-labelledby="cmClienteNome">
   <div class="modal-box">
-    <h4 id="cmClienteNome">–</h4>
+    <h2 id="cmClienteNome">–</h2>
     <div class="row-info"><div class="lbl">Status</div><div class="val"><span id="cmStatus" class="status-pill">–</span></div></div>
     <div class="row-info"><div class="lbl">Procedimento</div><div class="val" id="cmProcedimento">–</div></div>
     <div class="row-info"><div class="lbl">Profissional</div><div class="val" id="cmProfissional">–</div></div>
@@ -146,9 +146,21 @@
         .catch(function(){ alert('Erro de rede.'); info.revert(); });
     }
 
+    // Setas do FullCalendar: o <span class="fc-icon" role="img"> sai sem nome (axe role-img-alt).
+    // O nome fica no botao (aria-label) e o icone vira decorativo. Reaplica a cada troca de periodo.
+    var NOMES_SETAS = { 'fc-prev-button': 'Período anterior', 'fc-next-button': 'Próximo período' };
+    function nomearSetas() {
+        Object.keys(NOMES_SETAS).forEach(function (cls) {
+            calendarEl.querySelectorAll('.' + cls).forEach(function (b) { b.setAttribute('aria-label', NOMES_SETAS[cls]); });
+        });
+        calendarEl.querySelectorAll('.fc-icon').forEach(function (i) { i.setAttribute('aria-hidden', 'true'); });
+    }
+
     document.addEventListener('DOMContentLoaded', function(){
         calendar = new FullCalendar.Calendar(calendarEl, {
             locale: 'pt-br',
+            buttonHints: { prev: 'Período anterior', next: 'Próximo período', today: 'Ir para hoje' },
+            datesSet: nomearSetas,
             // celular: lista da semana (a grade de 7 colunas nao cabe em 375px)
             initialView: celular ? 'listWeek' : 'timeGridWeek',
             headerToolbar: celular

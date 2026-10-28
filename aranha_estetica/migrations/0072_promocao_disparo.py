@@ -17,7 +17,7 @@ def apagar_cursores_em_configuracao(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('aranha_estetica', '0064_carteira_rotulos'),
+        ('aranha_estetica', '0067_carteira_origens_com_fluxo'),
     ]
 
     operations = [

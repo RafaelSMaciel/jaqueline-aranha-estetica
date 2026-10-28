@@ -11,7 +11,7 @@ from django_ratelimit.decorators import ratelimit
 
 from ...decorators import staff_required
 from ...excecoes import RegraDeNegocio
-from ...forms.painel import ProcedimentoForm, avisar_erros
+from ...forms.painel import ProcedimentoForm, avisar_erros, erros_por_campo
 from ...models import Atendimento, Habilitacao, Preco, Procedimento, Profissional
 from ...utils.auditoria import registrar_log
 from ...utils.datas import hoje
@@ -55,9 +55,21 @@ def _sincronizar_habilitacoes(proc, profissionais):
         Habilitacao.objects.create(procedimento=proc, profissional_id=pk)
 
 
-@staff_required
-def admin_procedimentos(request):
-    """Lista e gerencia procedimentos."""
+POR_PAGINA = 30
+
+
+def _valores_digitados(post):
+    """O que veio no POST, no formato que o template usa p/ preencher o formulario de volta."""
+    return {
+        'nome': post.get('nome', ''), 'descricao': post.get('descricao', ''),
+        'duracao_minutos': post.get('duracao_minutos', ''), 'categoria': post.get('categoria', ''),
+        'preco': post.get('preco', ''), 'ativo': post.get('ativo') == '1',
+        'habilitados': {int(v) for v in post.getlist('profissionais') if v.isascii() and v.isdigit()},
+    }
+
+
+def _contexto_lista(request, editar_pk=None):
+    """Contexto da lista. editar_pk: abre a pagina onde esta esse procedimento (reabrir o modal)."""
     procedimentos = list(
         Procedimento.objects.all().order_by('-ativo', 'categoria', 'nome')
     )
@@ -71,17 +83,50 @@ def admin_procedimentos(request):
     for proc in procedimentos:
         proc.preco_base = preco_map.get(proc.pk)
         proc.habilitados = habilitados.get(proc.pk, set())
+        # o que o modal de edicao mostra (o salvo; no envio recusado, o digitado)
+        proc.valores = {
+            'nome': proc.nome, 'descricao': proc.descricao or '', 'duracao_minutos': proc.duracao_minutos,
+            'categoria': proc.categoria, 'preco': proc.preco_base, 'ativo': proc.ativo,
+            'habilitados': proc.habilitados,
+        }
+        proc.erros = {}
 
-    paginator = Paginator(procedimentos, 30)
+    paginator = Paginator(procedimentos, POR_PAGINA)
     page = request.GET.get('page', 1)
+    if editar_pk is not None:
+        pks = [pr.pk for pr in procedimentos]
+        page = pks.index(editar_pk) // POR_PAGINA + 1 if editar_pk in pks else 1
     procs_page = paginator.get_page(page)
 
-    context = {
+    return {
         'procedimentos': procs_page,
         'categorias': Procedimento.CATEGORIA_CHOICES,
         'profissionais': Profissional.objects.filter(ativo=True).order_by('nome'),
     }
-    return render(request, 'painel/procedimentos.html', context)
+
+
+def _devolver_com_erro(request, erros, post, editar=None):
+    """Envio recusado: a lista volta SEM redirect, com o que foi digitado e o erro em cada campo.
+
+    Antes o redirect fechava o modal e perdia tudo (e o aviso nao dizia qual campo). editar = o
+    procedimento do modal de edicao (reaberto pelo data-erro no template); None = formulario de novo."""
+    contexto = _contexto_lista(request, editar_pk=editar.pk if editar else None)
+    if editar is None:
+        contexto['novo'] = {'valores': _valores_digitados(post), 'erros': erros}
+    else:
+        for proc in contexto['procedimentos']:
+            if proc.pk == editar.pk:
+                valores = _valores_digitados(post)
+                if not post.get('profissionais_enviado'):   # form sem o grupo: habilitacoes intocadas
+                    valores['habilitados'] = proc.habilitados
+                proc.valores, proc.erros, proc.reabrir = valores, erros, True
+    return render(request, 'painel/procedimentos.html', contexto)
+
+
+@staff_required
+def admin_procedimentos(request):
+    """Lista e gerencia procedimentos."""
+    return render(request, 'painel/procedimentos.html', _contexto_lista(request))
 
 
 @staff_required
@@ -94,7 +139,7 @@ def admin_criar_procedimento(request):
     form = ProcedimentoForm(request.POST)
     if not form.is_valid():
         avisar_erros(request, form)
-        return redirect('aranha:admin_procedimentos')
+        return _devolver_com_erro(request, erros_por_campo(form), request.POST)
     d = form.cleaned_data
     try:
         with transaction.atomic():
@@ -137,7 +182,7 @@ def admin_editar_procedimento(request, pk):
     form = ProcedimentoForm(dados, instance=proc)
     if not form.is_valid():
         avisar_erros(request, form)
-        return redirect('aranha:admin_procedimentos')
+        return _devolver_com_erro(request, erros_por_campo(form), dados, editar=proc)
     d = form.cleaned_data
     try:
         with transaction.atomic():
@@ -161,7 +206,9 @@ def admin_editar_procedimento(request, pk):
         registrar_log(request.user, f'Editou procedimento: {proc.nome}', 'procedimento', proc.pk, request=request)
         messages.success(request, f'Procedimento "{proc.nome}" atualizado!')
     except RegraDeNegocio as e:
+        # habilitacao em uso: nada foi salvo (atomic); o modal volta aberto com o que foi marcado
         messages.error(request, e.mensagem)
+        return _devolver_com_erro(request, {'profissionais': e.mensagem}, dados, editar=proc)
     except (DatabaseError, ValidationError) as e:
         logger.error(f'Erro ao editar procedimento: {e}', exc_info=True)
         messages.error(request, 'Erro ao editar procedimento.')

@@ -11,6 +11,7 @@ from ..models import Procedimento, Promocao
 from .painel import CampoPreco
 
 MSG_DESCONTO_OU_PRECO = 'Informe o desconto (até 100%) ou o preço fixo.'
+MSG_PERIODO = 'A data de fim deve ser igual ou posterior à de início.'
 CEM = Decimal('100')
 
 
@@ -35,17 +36,18 @@ class CampoPercentual(forms.CharField):
 class PromocaoForm(forms.ModelForm):
     # vazio = promocao geral (todos os procedimentos); inativo continua valido (edicao nao troca calada)
     procedimento = forms.ModelChoiceField(
-        queryset=Procedimento.objects.all(), required=False,
+        queryset=Procedimento.objects.all(), required=False, label='Procedimento',
         error_messages={'invalid_choice': 'Procedimento inválido.'},
     )
-    desconto = CampoPercentual(required=False)
-    preco_promocional = CampoPreco(required=False)
+    desconto = CampoPercentual(required=False, label='Desconto')
+    preco_promocional = CampoPreco(required=False, label='Preço fixo')
     # select Sim/Nao da tela ('1'/'0'): o BooleanField leria '0' como verdadeiro
     ativa = forms.CharField(required=False)
 
     class Meta:
         model = Promocao
         fields = ['nome', 'descricao', 'procedimento', 'preco_promocional', 'data_inicio', 'data_fim', 'ativa']
+        labels = {'nome': 'Nome', 'descricao': 'Descrição', 'data_inicio': 'Data de início', 'data_fim': 'Data de fim'}
         error_messages = {
             'nome': {'required': 'Informe o nome da promoção.'},
             'data_inicio': {'required': 'Informe as datas da promoção.', 'invalid': 'Data inválida.'},
@@ -59,7 +61,7 @@ class PromocaoForm(forms.ModelForm):
         dados = super().clean()
         inicio, fim = dados.get('data_inicio'), dados.get('data_fim')
         if inicio and fim and fim < inicio:
-            self.add_error('data_fim', 'O fim da promoção não pode ser antes do início.')
+            self.add_error('data_fim', MSG_PERIODO)
         preco, desconto = dados.get('preco_promocional'), dados.get('desconto')
         if 'desconto' in self.errors or 'preco_promocional' in self.errors:
             return dados

@@ -16,7 +16,7 @@ from django.utils import timezone
 from aranha_estetica.models import (
     Atendimento, CompraPacote, CompraPacoteItem, ConsumoSessao, ItemPacote, MovimentoComissao, RegraComissao,
 )
-from aranha_estetica.models.pacotes import rateio_por_sessao
+from aranha_estetica.models.pacotes import rateio_ponderado, rateio_por_sessao
 from aranha_estetica.services.comissao import ComissaoService
 
 from .factories import (
@@ -86,6 +86,69 @@ class VendaCongelaItensTests(TestCase):
         compra.delete()
         self.assertFalse(CompraPacoteItem.objects.exists())
         self.assertFalse(ConsumoSessao.objects.exists())
+
+
+class RateioPonderadoTests(TestCase):
+    """Rateio do valor pago pelo preco de tabela de cada procedimento no dia da venda."""
+
+    def test_funcao_pura(self):
+        # 1200 + 5 x 150 = 1950 de tabela; 1800 pagos -> 1107,69 / 138,46 (Σ 1799,99): o centavo
+        # que falta vai p/ o item de maior peso, que tem 1 sessao
+        self.assertEqual(rateio_ponderado(Decimal('1800.00'), [(Decimal('1200'), 1), (Decimal('150'), 5)]),
+                         [Decimal('1107.70'), Decimal('138.46')])
+        # sem preco (None/0) em algum item: uniforme
+        self.assertEqual(rateio_ponderado(Decimal('100.00'), [(None, 1), (Decimal('50'), 3)]), [Decimal('25.00')] * 2)
+        self.assertEqual(rateio_ponderado(Decimal('100.00'), [(Decimal('0'), 1), (Decimal('50'), 3)]),
+                         [Decimal('25.00')] * 2)
+        # um procedimento so: identico ao rateio uniforme (residuo < qtd centavos fica)
+        self.assertEqual(rateio_ponderado(Decimal('1000.00'), [(Decimal('150'), 3)]),
+                         [rateio_por_sessao(Decimal('1000.00'), 3)])
+        # residuo divisivel pela qtd do item de maior peso (1o no empate): entra inteiro.
+        # 20 / 6 = 3,33 -> Σ 19,98; os 2 centavos viram +0,01 nas 2 sessoes do 1o item
+        self.assertEqual(rateio_ponderado(Decimal('20.00'), [(Decimal('1'), 2), (Decimal('1'), 4)]),
+                         [Decimal('3.34'), Decimal('3.33')])
+        # nao divisivel: sobra menos de qtd centavos (10 / 3 = 3,33 -> Σ 9,99; 1 centavo < 2 sessoes)
+        self.assertEqual(rateio_ponderado(Decimal('10.00'), [(Decimal('1'), 2), (Decimal('1'), 1)]),
+                         [Decimal('3.33'), Decimal('3.33')])
+        self.assertEqual(rateio_ponderado(Decimal('0.00'), [(Decimal('10'), 1)]), [Decimal('0.00')])
+
+    def test_venda_heterogenea_e_comissao_da_drenagem(self):
+        prof = criar_profissional()
+        toxina = criar_procedimento('Toxina', preco=Decimal('1200.00'), profissional=prof)
+        drenagem = criar_procedimento('Drenagem', preco=Decimal('150.00'), profissional=prof)
+        pacote = criar_pacote('Harmonia', preco=Decimal('1800.00'), procedimento=toxina, sessoes=1)
+        ItemPacote.objects.create(pacote=pacote, procedimento=drenagem, quantidade_sessoes=5)
+        cli = criar_cliente()
+        compra = CompraPacote.vender(pacote, cli, Decimal('1800.00'))
+        unitarios = {i.procedimento_id: i.valor_unitario for i in compra.itens.all()}
+        self.assertEqual(unitarios, {toxina.pk: Decimal('1107.70'), drenagem.pk: Decimal('138.46')})
+        self.assertLessEqual(abs(sum(i.valor_unitario * i.quantidade_sessoes for i in compra.itens.all())
+                                 - compra.valor_pago), Decimal('0.05'))
+
+        RegraComissao.objects.create(percentual=Decimal('10'), ativo=True)
+        at = _realizar(criar_atendimento(cli, prof, drenagem))
+        self.assertEqual(ComissaoService.base_calculo(at), Decimal('138.46'))
+        self.assertEqual(MovimentoComissao.objects.get(atendimento=at, tipo='CREDITO').valor, Decimal('13.85'))
+
+    def test_procedimento_sem_preco_cai_no_uniforme(self):
+        com_preco = criar_procedimento('Peeling', preco=Decimal('400.00'))
+        sem_preco = criar_procedimento('Avaliacao', preco=None)
+        pacote = criar_pacote('Misto', preco=Decimal('600.00'), procedimento=com_preco, sessoes=2)
+        ItemPacote.objects.create(pacote=pacote, procedimento=sem_preco, quantidade_sessoes=1)
+        compra = CompraPacote.vender(pacote, criar_cliente(), Decimal('600.00'))
+        self.assertEqual({i.valor_unitario for i in compra.itens.all()}, {Decimal('200.00')})
+
+    def test_preco_mudado_depois_nao_altera_a_compra(self):
+        from aranha_estetica.models import Preco
+
+        toxina = criar_procedimento('Toxina', preco=Decimal('1000.00'))
+        drenagem = criar_procedimento('Drenagem', preco=Decimal('100.00'))
+        pacote = criar_pacote('Duo', preco=Decimal('1100.00'), procedimento=toxina, sessoes=1)
+        ItemPacote.objects.create(pacote=pacote, procedimento=drenagem, quantidade_sessoes=1)
+        compra = CompraPacote.vender(pacote, criar_cliente(), Decimal('1100.00'))
+        Preco.objects.filter(procedimento=drenagem).update(valor=Decimal('900.00'))
+        self.assertEqual(sorted(i.valor_unitario for i in compra.itens.all()),
+                         [Decimal('100.00'), Decimal('1000.00')])
 
 
 class ConsumoPeloItemCongeladoTests(TestCase):

@@ -39,7 +39,7 @@
         id="id_telefone"
         type="tel"
         name="telefone"
-        class="w-full rounded-md border border-borda bg-fundo px-3 py-2 text-texto text-sm focus:outline-none focus:ring-2 focus:ring-marca"
+        class="w-full rounded-md border border-borda bg-fundo px-3 py-2 text-texto text-sm"
         value="{{ telefone|default_if_none:'' }}"
         {% if aguardando_codigo %}readonly{% endif %}
         required
@@ -55,7 +55,7 @@
           id="id_codigo"
           type="text"
           name="codigo"
-          class="w-full rounded-md border border-borda bg-fundo px-3 py-2 text-texto text-sm focus:outline-none focus:ring-2 focus:ring-marca"
+          class="w-full rounded-md border border-borda bg-fundo px-3 py-2 text-texto text-sm"
           maxlength="6"
           required
           autofocus

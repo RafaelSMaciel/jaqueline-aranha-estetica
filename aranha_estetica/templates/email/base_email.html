@@ -14,7 +14,7 @@
   .email-card { background:#201913 !important; }
   .text-main { color:#f3ece1 !important; }
   .text-soft { color:#b8ac9a !important; }
-  .text-muted { color:#8a7e6b !important; }
+  .text-muted { color:#b8ac9a !important; }
   .divider { border-top-color:#3a2f24 !important; }
   .card-inner { background:linear-gradient(145deg,#2a2118,#3a2b1c) !important; border-color:#8a6a2a !important; }
 }
@@ -25,9 +25,15 @@
   .hero-title { font-size:22px !important; }
   .otp-code { font-size:32px !important; letter-spacing:8px !important; padding:16px 24px !important; }
 }
-a { color:#C4A35A; }
+a { color:#7a5f1f; }
 </style>
 </head>
+{% comment %}
+Paleta unica dos e-mails (cliente de e-mail nao le CSS var nem o tokens.css do site; os valores
+sao os mesmos do tema claro). Os filhos usam {{ cor_* }} no style inline:
+  cor_marca #C9A84C (botao/borda) | cor_sobre_marca #23200f (texto no botao, 7:1)
+  cor_marca_texto #7a5f1f (dourado como texto/link, 5,8:1) | cor_texto #2c2418 | cor_suave #6b6256 (5,9:1)
+{% endcomment %}{% with cor_marca="#C9A84C" cor_sobre_marca="#23200f" cor_marca_texto="#7a5f1f" cor_texto="#2c2418" cor_suave="#6b6256" %}
 <body class="email-bg" style="margin:0;padding:0;background:#f5f3ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased;">
 
 {% if preheader %}<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">{{ preheader }}</div>{% endif %}
@@ -53,13 +59,13 @@ a { color:#C4A35A; }
 
 <!-- Footer -->
 <tr><td style="padding:24px 40px 32px;text-align:center;">
-  <p class="text-muted" style="margin:0 0 8px;color:#8a7e6b;font-size:12px;line-height:1.6;">
+  <p class="text-muted" style="margin:0 0 8px;color:{{ cor_suave }};font-size:12px;line-height:1.6;">
     {{ clinic_name }} &middot; Este é um e-mail automático, favor não responder.
   </p>
   {% block footer_extra %}{% endblock %}
   {% if unsub_url %}
-  <p class="text-muted" style="margin:12px 0 0;color:#8a7e6b;font-size:11px;">
-    Para deixar de receber este tipo de e-mail, <a href="{{ unsub_url }}" style="color:#8a7e6b;text-decoration:underline;">descadastre-se aqui</a>.
+  <p class="text-muted" style="margin:12px 0 0;color:{{ cor_suave }};font-size:11px;">
+    Para deixar de receber este tipo de e-mail, <a href="{{ unsub_url }}" style="color:{{ cor_suave }};text-decoration:underline;">descadastre-se aqui</a>.
   </p>
   {% endif %}
 </td></tr>
@@ -70,4 +76,5 @@ a { color:#C4A35A; }
 </table>
 
 </body>
+{% endwith %}
 </html>

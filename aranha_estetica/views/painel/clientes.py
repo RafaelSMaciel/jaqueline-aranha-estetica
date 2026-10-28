@@ -48,11 +48,15 @@ def _contexto_cliente(cliente):
         .prefetch_related('itens__procedimento', 'sessoes_realizadas')
         .order_by('-criado_em')
     )
+    from ...services.pacotes import reembolso_sugerido
+
     for compra in pacotes:
         compra.saldo = compra.saldo_por_procedimento()
         compra.vencido = bool(
             compra.status == CompraPacote.STATUS_ATIVO and compra.data_expiracao and compra.data_expiracao < hoje_local
         )
+        if compra.status == CompraPacote.STATUS_ATIVO:
+            compra.reembolso_sugerido = reembolso_sugerido(compra)   # sessoes restantes x unitario
 
     realizados_qs = Atendimento.objects.filter(cliente=cliente, status=StatusAtendimento.REALIZADO)
     agg = realizados_qs.aggregate(qtd=Count('pk'), ultima=Max('data_hora_inicio'))
