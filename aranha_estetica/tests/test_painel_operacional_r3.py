@@ -201,6 +201,23 @@ class EmailPreviewTests(_AdminTestCase):
                 self.assertEqual(re.findall(r'<style(?![^>]*nonce=)', html), [], nome)
                 self.assertIn(f'nonce="{m.group(1)}"', html, nome)
 
+    def test_previa_so_de_e_mail_que_e_enviado(self):
+        """Todo template da previa e enviado por utils/email.py e todo e-mail enviado tem previa
+        (otp e nps sairam: OTP vai por SMS e NPS por WhatsApp)."""
+        from django.conf import settings
+
+        from aranha_estetica.views.painel.previa_email import EMAIL_PREVIEW_FIXTURES
+        fonte = (Path(settings.BASE_DIR) / 'aranha_estetica' / 'utils' / 'email.py').read_text(encoding='utf-8')
+        enviados = set(re.findall(r"template='(email/[a-z_]+\.html)'", fonte))
+        previas = {fx['template'] for fx in EMAIL_PREVIEW_FIXTURES.values()}
+        self.assertEqual(previas, enviados)
+        self.assertNotIn('otp', EMAIL_PREVIEW_FIXTURES)
+        self.assertNotIn('nps', EMAIL_PREVIEW_FIXTURES)
+        html = self._get('aprovacao_profissional').content.decode()
+        self.assertIn('Maria Silva', html)
+        self.assertEqual(self._get('otp').status_code, 200)   # nome desconhecido cai na lista
+        self.assertNotIn('/otp/', self._get('otp').content.decode())
+
     def test_promocao_e_aniversario_como_no_envio_real(self):
         html = self._get('promocao').content.decode()
         for trecho in ('Maria Silva', 'Oferta especial do mês', '30/05/2026'):

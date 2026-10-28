@@ -171,7 +171,7 @@ ROTAS = {
     'aranha:admin_calendar_events': (SEM, lambda d: f"start={d['hoje']}&end={d['semana']}", OUTRA),
     'aranha:admin_calendar_mover': (SEM, '', SO_POST),
     'aranha:admin_email_preview': (SEM, '', OUTRA),
-    'aranha:admin_email_preview_nome': (_d(nome='otp'), '', OUTRA),
+    'aranha:admin_email_preview_nome': (_d(nome='confirmacao'), '', OUTRA),
     'aranha:admin_anamneses': (SEM, '', STAFF),
     'aranha:admin_anamnese_criar': (SEM, '', STAFF),
     'aranha:admin_anamnese_editar': (_d(pk=lambda d: d['form'].pk), '', STAFF),
