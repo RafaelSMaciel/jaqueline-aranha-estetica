@@ -48,7 +48,7 @@ reprova coluna nova com dado pessoal sem tratamento e tratamento que a procedure
 | Provedor de e-mail (Resend, Brevo… o que for configurado) | e-mails transacionais e de marketing | e-mail, nome, conteúdo da mensagem | depende do provedor | ☐ DPA |
 | Cloudflare (Turnstile) | verificação contra robôs no pedido do código | IP, dados técnicos do navegador | sim | ☐ DPA |
 | Sentry (se ligado) | erros do site | eventos sem contato nem saúde (filtrados em `utils/pii.opcoes_sentry`) | sim | ☐ DPA, região de dados |
-| Google (fontes, mapa; Calendar se a profissional conectar) | exibição do site; agenda da profissional | IP do visitante; no Calendar, horário, procedimento e nome | sim | ☐ termos do Google Workspace/Calendar |
+| Google (mapa; Calendar se a profissional conectar) | mapa do endereço (embutido na página de contato); agenda da profissional | IP de quem abre a página de contato; no Calendar, horário, procedimento e nome | sim | ☐ termos do Google Workspace/Calendar |
 | Apple/Microsoft/Google (feed ICS do calendário) | agenda da profissional | horário, procedimento, nome | sim | assinatura feita pela profissional |
 | Provedor do backup (bucket) | cópia do banco | dump **cifrado com age** (sem a chave privada não abre) | depende | ☐ escolher e registrar |
 

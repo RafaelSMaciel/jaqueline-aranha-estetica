@@ -21,9 +21,6 @@
   <link rel="apple-touch-icon" href="{% static 'assets/apple-touch-icon.png' %}">
   <link rel="manifest" href="{% url 'aranha:manifest' %}">
   <meta name="theme-color" content="{{ THEME_COLOR|default:'#C9A84C' }}">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
   {# nonce obrigatorio: a CSP de prod bloqueia <style> sem nonce mesmo com JS desligado #}
   <noscript><style nonce="{{ csp_nonce }}">.reveal{opacity:1 !important;transform:none !important;}</style></noscript>
   {% vite_hmr_client %}

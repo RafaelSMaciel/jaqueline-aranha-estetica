@@ -80,7 +80,7 @@ O papel **RECEPCAO** existe no modelo, mas ainda não tem telas nem login (ver
 | Banco | PostgreSQL 18 em produção e CI; SQLite (`db_dev.sqlite3` / `db_test.sqlite3`) em dev e testes rápidos |
 | Front-end | Vite 6 + Tailwind CSS v4 (`@tailwindcss/vite`) + Alpine.js via `@alpinejs/csp` + django-vite 3 + django-cotton 2. **Sem HTMX, Bootstrap ou jQuery** |
 | Libs no CDN (com SRI) | FullCalendar 6.1.11 (`painel/calendar.html`), Chart.js 4.4.0 (`painel/overview.html`) |
-| Fontes | Playfair Display + Lato (Google Fonts) — tokens em `static/src/css/tokens.css` |
+| Fontes | Playfair Display + Lato servidas pelo próprio site (`@fontsource`, subconjunto latin, no build do Vite; sem Google Fonts) — tokens em `static/src/css/tokens.css` |
 | Jobs / fila | Sem Celery: jobs são funções (`jobs.py`) chamadas pelo cron HTTP `/cron/run/<job>/` ou por `manage.py rodar_job`; e-mail transacional com fila no banco (`Notificacao` EMAIL, reenvio pelo job `emails`) |
 | Cache / sessão | LocMemCache + sessão no banco (padrão, 1 worker). `REDIS_URL` troca para django-redis + sessão em cache |
 | Auth | Usuário próprio (`AbstractBaseUser`, e-mail), django-axes 8, django-otp + django-two-factor-auth (só models/TOTP; rotas `/account/*` **não** publicadas), django-ratelimit 4 |
