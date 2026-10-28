@@ -137,6 +137,32 @@ class EditarProfissionalTests(_AdminTestCase):
         self.assertEqual(resp.status_code, 302)
         self.assertEqual(AgendaHorario.objects.filter(profissional=self.prof, dia_semana=1).count(), 2)
 
+    def test_nao_deixa_atendimento_futuro_sem_quem_atenda(self):
+        """Desativar, desmarcar o dia, mudar a janela p/ fora do horario ou tirar a habilitacao com
+        atendimento futuro marcado e recusado (nada e gravado); sem conflito, salva."""
+        from datetime import datetime
+        dia = timezone.localdate() + timedelta(days=3)
+        at = criar_atendimento(criar_cliente(), self.prof, self.proc,
+                               data_hora=timezone.make_aware(datetime.combine(dia, time(15, 0))))
+        chave = ('segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado', 'domingo')[dia.isoweekday() - 1]
+        casos = {
+            'desativar': {'ativo': ''},
+            'desmarcar o dia': {f'trabalha_{chave}': ''},
+            'janela p/ fora': {f'hora_fim_{chave}': '12:00'},
+            'tirar a habilitacao': {'procedimentos': []},
+        }
+        for caso, extra in casos.items():
+            with self.subTest(caso=caso):
+                resp = self._post_roundtrip(**extra)
+                self.assertEqual(resp.status_code, 200)
+                self.assertTrue(any('ficariam sem quem atenda' in m for m in _mensagens(resp)))
+                self.prof.refresh_from_db()
+                self.assertTrue(self.prof.ativo)
+                self.assertEqual(AgendaHorario.objects.filter(profissional=self.prof).count(), 7)
+        self.assertEqual(self._post_roundtrip(**{f'hora_fim_{chave}': '17:00'}).status_code, 302)
+        Atendimento.objects.filter(pk=at.pk).update(status='CANCELADO')
+        self.assertEqual(self._post_roundtrip(ativo='').status_code, 302)
+
     def test_habilitacao_de_procedimento_inativo_preservada(self):
         inativo = criar_procedimento(nome='Antigo', profissional=self.prof)
         inativo.ativo = False
