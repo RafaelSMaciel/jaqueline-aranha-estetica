@@ -177,3 +177,8 @@ class ComissaoArredondamentoTests(TestCase):
         with mock.patch.object(ComissaoService, 'resolver_regra', return_value=regra):
             mov = ComissaoService.calcular_comissao(at)
         self.assertEqual(mov.valor, Decimal('200.00'))
+
+    def test_valor_fixo_nunca_passa_da_base(self):
+        RegraComissao.objects.create(valor=Decimal('60.00'), ativo=True)
+        self.assertEqual(ComissaoService.calcular_comissao(self._realizado('50.00')).valor, Decimal('50.00'))
+        self.assertEqual(ComissaoService.calcular_comissao(self._realizado('150.00')).valor, Decimal('60.00'))

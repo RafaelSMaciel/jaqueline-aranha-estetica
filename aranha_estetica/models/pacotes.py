@@ -190,6 +190,9 @@ class CompraPacote(models.Model):
         da comissao da sessao de pacote. Editar o catalogo depois so afeta vendas
         futuras.
         """
+        if not pacote.itens.exists():
+            from ..excecoes import RegraDeNegocio
+            raise RegraDeNegocio('Pacote sem procedimentos não pode ser vendido.', codigo='pacote_sem_itens')
         with transaction.atomic():
             compra = cls(
                 cliente=cliente, pacote=pacote, pacote_nome=pacote.nome,

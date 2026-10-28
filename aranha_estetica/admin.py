@@ -121,6 +121,13 @@ class ProfissionalAdmin(admin.ModelAdmin):
     ordering = ('-ativo', 'nome')
     inlines = [AgendaHorarioInline]
     list_per_page = 50
+    # tokens OAuth do Google nunca na tela (com eles se le a agenda Google da profissional)
+    exclude = ('gcal_refresh_token', 'gcal_sync_token')
+    readonly_fields = ('google_agenda_conectada', 'gcal_ultimo_sync_em')
+
+    @admin.display(boolean=True, description='Google Agenda conectada')
+    def google_agenda_conectada(self, obj):
+        return bool(obj and obj.gcal_refresh_token)
 
 
 @admin.register(AgendaHorario)
@@ -746,9 +753,9 @@ class CompraPacoteItemInline(admin.TabularInline):
 
 
 @admin.register(CompraPacote)
-class PacoteClienteAdmin(admin.ModelAdmin):
-    """Venda pelo painel (Pacotes > Vender: congela os itens). Aqui: consulta e
-    status/expiracao; o que foi vendido (pacote, nome, valor pago, itens) nao muda."""
+class PacoteClienteAdmin(_SomenteLeituraMixin, admin.ModelAdmin):
+    """So consulta: venda, cancelamento/reembolso e validade mudam pelo painel (com motivo e
+    auditoria). Editar status/reembolso aqui furava a regra do pacote sem rastro."""
     list_display = ('cliente', 'pacote_nome', 'status', 'valor_pago', 'valor_reembolsado', 'data_expiracao', 'criado_em')
     list_filter = ('status',)
     search_fields = ('cliente__nome', 'pacote_nome')
@@ -758,14 +765,11 @@ class PacoteClienteAdmin(admin.ModelAdmin):
     list_select_related = ('cliente',)
     inlines = [CompraPacoteItemInline]
 
-    def has_add_permission(self, request):
-        return False
-
 
 @admin.register(ConsumoSessao)
-class SessaoPacoteAdmin(admin.ModelAdmin):
-    """Gerado pelo debito do atendimento REALIZADO (signals). Excluir = devolver a
-    sessao (debito indevido); criar/editar por aqui nao."""
+class SessaoPacoteAdmin(_SomenteLeituraMixin, admin.ModelAdmin):
+    """Gerado pelo debito do atendimento REALIZADO (services/atendimento). So consulta: excluir
+    aqui devolvia a sessao e inflava o faturamento com o preco cheio."""
     list_display = ('compra_pacote', 'compra_pacote_item', 'atendimento', 'criado_em')
     search_fields = (
         'compra_pacote__cliente__nome',
@@ -775,12 +779,6 @@ class SessaoPacoteAdmin(admin.ModelAdmin):
     date_hierarchy = 'criado_em'
     readonly_fields = ('compra_pacote', 'compra_pacote_item', 'atendimento', 'criado_em')
     list_select_related = ('compra_pacote', 'compra_pacote_item', 'atendimento', 'compra_pacote__cliente')
-
-    def has_add_permission(self, request):
-        return False
-
-    def has_change_permission(self, request, obj=None):
-        return False
 
 
 # =====================================================================

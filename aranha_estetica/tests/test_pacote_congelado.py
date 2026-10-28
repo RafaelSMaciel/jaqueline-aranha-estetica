@@ -212,3 +212,30 @@ class ExpiracaoEDsarComItensCongeladosTests(TestCase):
         quando = timezone.now() - timedelta(days=2)
         at = _realizar(criar_atendimento(self.cli, self.prof, self.proc, data_hora=quando, status='AGENDADO'))
         self.assertTrue(ConsumoSessao.objects.filter(atendimento=at, compra_pacote=self.compra).exists())
+
+
+class PacoteSoComItensEAdminSoLeituraTests(TestCase):
+    """Pacote sem procedimento nao e vendido; compra e consumo nao mudam pelo Django admin."""
+
+    def test_pacote_sem_itens_nao_e_vendido(self):
+        from aranha_estetica.excecoes import RegraDeNegocio
+        pacote = criar_pacote(procedimento=None)
+        with self.assertRaises(RegraDeNegocio):
+            CompraPacote.vender(pacote, criar_cliente(), Decimal('100.00'))
+
+    def test_django_admin_de_compra_consumo_e_profissional(self):
+        from django.contrib import admin
+        from django.test import RequestFactory
+
+        from aranha_estetica.models import ConsumoSessao, Profissional, Usuario
+        request = RequestFactory().get('/')
+        request.user = Usuario.objects.create_superuser(email='adm@pacote.test', password='x')
+        for model in (CompraPacote, ConsumoSessao):
+            modeladmin = admin.site._registry[model]
+            with self.subTest(model=model.__name__):
+                self.assertFalse(modeladmin.has_change_permission(request))
+                self.assertFalse(modeladmin.has_delete_permission(request))
+                self.assertFalse(modeladmin.has_add_permission(request))
+        form = admin.site._registry[Profissional].get_form(request)
+        self.assertNotIn('gcal_refresh_token', form.base_fields)
+        self.assertNotIn('gcal_sync_token', form.base_fields)
