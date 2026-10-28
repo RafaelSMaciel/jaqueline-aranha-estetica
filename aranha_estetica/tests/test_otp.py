@@ -4,10 +4,10 @@ Django TestCase (roda no `manage.py test`, antes era pytest-only e ficava fora
 da suite).
 """
 import logging
-import os
 from datetime import timedelta
 from unittest.mock import patch
 
+from django.conf import settings
 from django.core import mail
 from django.core.cache import cache
 from django.test import TestCase, override_settings
@@ -38,7 +38,7 @@ class OtpCodeModelTests(TestCase):
 
     def test_bloqueio_apos_max_tentativas(self):
         CodigoOtp.gerar('z@x.com')
-        for _ in range(CodigoOtp.MAX_TENTATIVAS):
+        for _ in range(settings.OTP_MAX_TENTATIVAS):
             CodigoOtp.verificar('z@x.com', '000000')
         ok, motivo = CodigoOtp.verificar('z@x.com', '000000')
         self.assertFalse(ok)
@@ -110,8 +110,7 @@ class SmsFalhaFechadaTests(TestCase):
     def setUp(self):
         cache.clear()
 
-    @override_settings(DEBUG=False, SMS_DEV_LOG_ONLY=False)
-    @patch.dict(os.environ, {'SMS_DEV_LOG_ONLY': '', 'ZENVIA_API_TOKEN': '', 'ZENVIA_FROM': ''})
+    @override_settings(DEBUG=False, SMS_DEV_LOG_ONLY=False, ZENVIA_API_TOKEN='', ZENVIA_FROM='')
     def test_sem_provedor_em_prod_retorna_false(self):
         self.assertFalse(sms.sms_disponivel())
         self.assertFalse(sms.enviar_sms('17999990000', 'teste'))
@@ -129,8 +128,7 @@ class SmsFalhaFechadaTests(TestCase):
             self.assertNotIn('483920', str(getattr(rec, 'preview', '')))
             self.assertFalse(hasattr(rec, 'preview'))
 
-    @override_settings(DEBUG=False, SMS_DEV_LOG_ONLY=False)
-    @patch.dict(os.environ, {'SMS_DEV_LOG_ONLY': '', 'ZENVIA_API_TOKEN': 'tok', 'ZENVIA_FROM': 'clinica'})
+    @override_settings(DEBUG=False, SMS_DEV_LOG_ONLY=False, ZENVIA_API_TOKEN='tok', ZENVIA_FROM='clinica')
     @patch('aranha_estetica.utils.sms.requests.post')
     def test_erro_5xx_nao_faz_retry_nem_sleep(self, post):
         post.return_value.status_code = 503
@@ -222,8 +220,7 @@ class OtpAgendamentoEndpointTests(TestCase):
                 self.assertEqual(resp.json()['erro'], 'telefone_invalido')
         self.assertEqual(self.codigos, {})
 
-    @override_settings(SMS_DEV_LOG_ONLY=False, DEBUG=False)
-    @patch.dict(os.environ, {'SMS_DEV_LOG_ONLY': '', 'ZENVIA_API_TOKEN': '', 'ZENVIA_FROM': ''})
+    @override_settings(SMS_DEV_LOG_ONLY=False, DEBUG=False, ZENVIA_API_TOKEN='', ZENVIA_FROM='')
     def test_sms_indisponivel_responde_sms_falha(self):
         resp = self.client.post(self.url_sol, {'telefone': '17900000001'})
         self.assertEqual(resp.status_code, 503)
@@ -302,7 +299,7 @@ class OtpQuotaNaoQueimaCodigoTests(TestCase):
         CodigoOtp.objects.update(criado_em=timezone.now() - timedelta(minutes=5))
 
     def _esgotar_quota_do_telefone(self):
-        cache.set(f'sms_rl:tel:55{self.TEL}', sms.SMS_MAX_POR_HORA, 3600)
+        cache.set(f'sms_rl:tel:55{self.TEL}', settings.SMS_MAX_POR_HORA, 3600)
 
     def test_quota_esgotada_mantem_o_codigo_da_vitima(self):
         ok, _motivo, _canal = otp_service.solicitar_otp_telefone(self.TEL)
@@ -336,7 +333,7 @@ class OtpQuotaNaoQueimaCodigoTests(TestCase):
 
     def test_quota_por_ip_agrupa_ipv6_por_prefixo_64(self):
         # Trocar o sufixo do IPv6 (mesmo /64) nao renova a quota por IP
-        for i in range(sms.SMS_MAX_POR_IP_HORA):
+        for i in range(settings.SMS_MAX_POR_IP_HORA):
             sms.registrar_envio(f'1799000{i:04d}', ip=f'2001:db8:1:2::{i + 1:x}')
         self.assertFalse(sms.pode_enviar('17991112222', ip='2001:db8:1:2:aaaa:bbbb:cccc:dddd'))
         self.assertTrue(sms.pode_enviar('17991112222', ip='2001:db8:1:3::1'))

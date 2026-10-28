@@ -10,14 +10,13 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import re
 from datetime import datetime, timedelta
 from typing import Optional, Tuple, TYPE_CHECKING
 
-from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from ..models import CodigoOtp
+from ..utils import telefone
 from ..utils.sms import enviar_otp_sms, pode_enviar, sms_disponivel
 
 if TYPE_CHECKING:
@@ -53,19 +52,9 @@ def _client_ip(request: Optional['HttpRequest']) -> Optional[str]:
 def normalizar_telefone_br(valor) -> str:
     """Celular/fixo BR canonico (10-11 digitos, DDD valido) ou '' se invalido.
 
-    Remove mascara, DDI 55 (autofill '+55 ...') e zero de discagem a frente.
+    Atalho para utils/telefone.valido_ou_vazio (fonte unica), usado pelas views do wizard e do portal.
     """
-    from ..validators import normalizar_telefone, validate_telefone_br
-    digitos = normalizar_telefone(str(valor or ''))
-    if len(digitos) in (12, 13) and digitos.startswith('55'):
-        digitos = digitos[2:]
-    if len(digitos) in (11, 12) and digitos.startswith('0'):
-        digitos = digitos[1:]
-    try:
-        validate_telefone_br(digitos)
-    except ValidationError:
-        return ''
-    return digitos if len(digitos) in (10, 11) else ''
+    return telefone.valido_ou_vazio(valor)
 
 
 def eh_celular_br(digitos) -> bool:
@@ -74,7 +63,7 @@ def eh_celular_br(digitos) -> bool:
     So o ENVIO de OTP exige celular: normalizar_telefone_br continua aceitando
     fixo (cadastro feito na recepcao, confirmacao do agendamento).
     """
-    return bool(re.fullmatch(r'[1-9]{2}9\d{8}', digitos or ''))
+    return telefone.eh_celular(digitos)
 
 
 def solicitar_otp(

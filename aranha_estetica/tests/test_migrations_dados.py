@@ -18,7 +18,7 @@ from unittest import mock
 from types import SimpleNamespace
 
 from django.contrib.auth.hashers import make_password
-from django.db import connection, transaction
+from django.db import OperationalError, connection, transaction
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TestCase, TransactionTestCase, tag
 from django.utils import timezone
@@ -27,6 +27,22 @@ APP = 'aranha_estetica'
 
 
 @tag('migracoes')
+
+def migrar_ao_topo():
+    """Sobe ate o topo do grafo (tearDown dos testes de migration). No Postgres do CI (workers em
+    paralelo) a subida as vezes cai em "deadlock detected" ao alterar tabela com o cenario recem-
+    gravado; cada migration e atomica, entao repetir continua de onde parou. Outro erro (ou 3
+    deadlocks seguidos) sobe normal."""
+    for tentativa in range(3):
+        executor = MigrationExecutor(connection)
+        executor.loader.build_graph()
+        try:
+            executor.migrate(executor.loader.graph.leaf_nodes())
+            return
+        except OperationalError as erro:
+            if 'deadlock detected' not in str(erro) or tentativa == 2:
+                raise
+
 class _MigracaoBase(TransactionTestCase):
     serialized_rollback = True
     migrate_from = None
@@ -44,9 +60,7 @@ class _MigracaoBase(TransactionTestCase):
         self.apps = executor.loader.project_state([(APP, self.migrate_to)]).apps
 
     def tearDown(self):
-        executor = MigrationExecutor(connection)
-        executor.loader.build_graph()
-        executor.migrate(executor.loader.graph.leaf_nodes())
+        migrar_ao_topo()
         super().tearDown()
 
     def preparar(self, apps):
@@ -105,7 +119,7 @@ class PapelUsuario0029Tests(_MigracaoBase):
         self.assertTrue(all(log.tabela_afetada == 'usuario' for log in logs))
 
     def tearDown(self):
-        # o papel RECEPCAO saiu na 0069, que aborta se ainda houver um: o legado do teste sai antes
+        # o papel RECEPCAO saiu na 0072, que aborta se ainda houver um: o legado do teste sai antes
         self.apps.get_model(APP, 'Usuario').objects.filter(papel='RECEPCAO').delete()
         super().tearDown()
 
@@ -867,9 +881,7 @@ class AgendaUnificada0048AbortaTests(TransactionTestCase):
         self.antes = executor.loader.project_state([(APP, M0047)]).apps
 
     def tearDown(self):
-        executor = MigrationExecutor(connection)
-        executor.loader.build_graph()
-        executor.migrate(executor.loader.graph.leaf_nodes())
+        migrar_ao_topo()
         super().tearDown()
 
     def _migrar_0048(self):
@@ -1664,9 +1676,7 @@ class FormularioProntuario0051AbortaTests(TransactionTestCase):
         self.antes = executor.loader.project_state([(APP, M0050)]).apps
 
     def tearDown(self):
-        executor = MigrationExecutor(connection)
-        executor.loader.build_graph()
-        executor.migrate(executor.loader.graph.leaf_nodes())
+        migrar_ao_topo()
         super().tearDown()
 
     def test_escopo_incoerente_aborta(self):
@@ -2083,9 +2093,7 @@ class ComissaoLedger0053AbortaTests(TransactionTestCase):
         self.antes = executor.loader.project_state([(APP, M0052)]).apps
 
     def tearDown(self):
-        executor = MigrationExecutor(connection)
-        executor.loader.build_graph()
-        executor.migrate(executor.loader.graph.leaf_nodes())
+        migrar_ao_topo()
         super().tearDown()
 
     def test_dado_invalido_aborta(self):

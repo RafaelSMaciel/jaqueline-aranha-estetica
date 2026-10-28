@@ -24,7 +24,7 @@ def _resposta(status=200):
 
 
 @override_settings(DEBUG=False, SITE_URL='https://clinica.example.com')
-@mock.patch.dict('os.environ', WHATSAPP_OK)
+@override_settings(**WHATSAPP_OK)
 class NpsJobTests(TestCase):
     def setUp(self):
         self.prof = criar_profissional()
@@ -110,7 +110,7 @@ class NpsJobTests(TestCase):
         enviar.assert_called_once()
         self.assertEqual(Notificacao.objects.get(tipo='NPS').atendimento_id, recente.pk)
 
-    @mock.patch.dict('os.environ', {'WHATSAPP_TOKEN': '', 'WHATSAPP_PHONE_ID': ''})
+    @override_settings(WHATSAPP_TOKEN='', WHATSAPP_PHONE_ID='')
     def test_sem_canal_nao_cria_notificacao(self):
         self._realizado()
         self.assertEqual(job_nps_24h(), '0 NPS enviados')
