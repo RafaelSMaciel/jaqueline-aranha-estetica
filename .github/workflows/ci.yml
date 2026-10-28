@@ -55,11 +55,17 @@ jobs:
         run: mypy
       # tests/test_migrations_dados.py (tag `migracoes`, ~3/4 do tempo) roda no job
       # `migracoes-sqlite`, em paralelo; localmente a suite padrao continua rodando TUDO
-      # catraca: pyproject.toml [tool.coverage.report] fail_under (so sobe)
+      # cobertura em modo paralelo (pyproject [tool.coverage.run] parallel): o job `cobertura` junta
+      # este arquivo com o do Postgres e aplica a catraca (fail_under) no total
       - name: Suite Django (sem a tag migracoes) + cobertura
-        run: |
-          coverage run manage.py test aranha_estetica --exclude-tag migracoes
-          coverage report
+        run: coverage run manage.py test aranha_estetica --exclude-tag migracoes
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cobertura-sqlite
+          path: .cache/coverage.*
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
       - name: check --deploy com settings de producao
         env:
           DJANGO_ENV: prod
@@ -148,8 +154,36 @@ jobs:
       # confere cada objeto so-Postgres das migrations (no SQLite ele e pulado).
       # inclui test_pg_historico (trilha/GUCs), test_pg_paridade (fn_*/vw_*/sp_* x Python) e
       # test_nomes_padrao (tg_<t>_atualizado_em); a tag migracoes roda em postgres-migracoes
-      - name: Suite Django no Postgres (sem a tag migracoes)
-        run: python manage.py test aranha_estetica --exclude-tag migracoes
+      - name: Suite Django no Postgres (sem a tag migracoes) + cobertura
+        run: coverage run manage.py test aranha_estetica --exclude-tag migracoes
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cobertura-postgres
+          path: .cache/coverage.*
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  cobertura:
+    name: Cobertura combinada (SQLite + Postgres) — catraca
+    needs: [testes, postgres]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install "$(grep -i '^coverage==' requirements-dev.txt)"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: cobertura-*
+          path: .cache
+          merge-multiple: true
+      # o codigo so-Postgres (procedures, paridades, LGPD) passa a contar como testado; a catraca
+      # pyproject.toml [tool.coverage.report] fail_under (so sobe) vale para o total combinado
+      - run: coverage combine
+      - run: coverage report
 
   postgres-migracoes:
     name: Postgres 18 — data migrations (tag migracoes)
@@ -231,31 +265,95 @@ jobs:
         run: python manage.py test aranha_estetica.tests.test_wizard_browser
 
   docker:
-    name: Imagem de producao (Dockerfile)
+    name: Imagem de producao — build, pre-deploy e start (smoke)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      PG_IMAGEM: postgres:18@sha256:bc8d7bdd54dc38115ef954fef07f30a96bb2b5b080effa692e0093f03eabac8f
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       # Build completo: stage Node, collectstatic com manifest e check de staticfiles. Camadas no
       # cache do Actions: so refaz o que mudou (npm ci / pip wheel ficam em cache entre commits).
+      # load: a imagem fica no docker do runner para o smoke abaixo.
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           push: false
+          load: true
           tags: shivazen:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      # O caminho exato do 1o deploy, com prod.py: Postgres 18 exigindo SSL (sslmode=require), o
+      # preDeployCommand e o startCommand LIDOS do railway.json (nunca reescritos aqui), usuario
+      # nao-root, gunicorn com LoggerSemTokens e /healthz/ com o Host do healthcheck do Railway.
+      - name: Postgres 18 com ssl=on (certificado autoassinado so do CI)
+        run: |
+          ssl="$RUNNER_TEMP/pgssl"
+          mkdir -p "$ssl"
+          openssl req -new -x509 -days 1 -nodes -subj "/CN=localhost" \
+            -keyout "$ssl/server.key" -out "$ssl/server.crt"
+          chmod 600 "$ssl/server.key"
+          sudo chown 999:999 "$ssl/server.key" "$ssl/server.crt"
+          docker run -d --name pg --network host -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=ci \
+            -v "$ssl:/ssl:ro" "$PG_IMAGEM" \
+            -c ssl=on -c ssl_cert_file=/ssl/server.crt -c ssl_key_file=/ssl/server.key
+          for _ in $(seq 1 30); do docker exec pg pg_isready -U postgres -h localhost && break; sleep 2; done
+          docker exec pg pg_isready -U postgres -h localhost
+      # Segredos aleatorios por execucao (passam no aranha.E003/E001); nada fica no repositorio
+      - name: Ambiente do smoke (DJANGO_ENV=prod da imagem)
+        run: |
+          {
+            echo "DJANGO_SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_urlsafe(50))')"
+            echo "CHAVES_CIFRAGEM=$(python3 -c 'import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())')"
+            echo "DATABASE_URL=postgres://postgres:postgres@localhost:5432/ci"
+            echo "ADMIN_EMAIL=smoke@ci.example.com"
+            echo "ADMIN_PASSWORD=$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
+          } > "$RUNNER_TEMP/smoke.env"
+      - name: preDeployCommand do railway.json (migrate_atomico + bootstrap_admin)
+        run: |
+          pre="$(jq -r '.deploy.preDeployCommand[0]' railway.json)"
+          docker run --rm --network host --env-file "$RUNNER_TEMP/smoke.env" shivazen:ci sh -c "$pre"
+      - name: startCommand do railway.json + healthchecks
+        run: |
+          start="$(jq -r '.deploy.startCommand' railway.json)"
+          docker run -d --name web --network host --env-file "$RUNNER_TEMP/smoke.env" -e PORT=8080 \
+            shivazen:ci sh -c "$start"
+          for _ in $(seq 1 30); do
+            curl -fsS -H 'Host: healthcheck.railway.app' http://localhost:8080/healthz/ && break
+            sleep 2
+          done
+          curl -fsS -H 'Host: healthcheck.railway.app' http://localhost:8080/healthz/
+          curl -fsS -H 'Host: localhost' http://localhost:8080/health/
+          test "$(docker exec web id -u)" != "0"   # gunicorn nao roda como root
+      - name: Logs do container (falha)
+        if: failure()
+        run: docker logs web || true
 
   auditoria-deps:
-    name: pip-audit (bloqueante)
+    name: Auditoria — pip-audit, npm audit e gitleaks (bloqueante)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # historico inteiro: o gitleaks varre os commits do push
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: pip install pip-audit==2.10.1
       # Lock completo (transitivas inclusas), versoes ja fixas: sem resolver de novo
       - run: pip-audit -r requirements.lock --no-deps --progress-spinner off
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      # So o package-lock (sem instalar): vulnerabilidade alta do front tambem derruba o CI
+      - run: npm audit --package-lock-only --audit-level=high
+      # Segredo commitado por engano (.env, dump, chave): regras padrao + allowlist dos dados
+      # sinteticos conhecidos, cada um explicado em .gitleaks.toml
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_VERSION: 8.30.0
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false

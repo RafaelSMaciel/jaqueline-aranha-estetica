@@ -4,6 +4,7 @@
 .github
 .gitattributes
 .pre-commit-config.yaml
+.gitleaks.toml
 
 # ambientes, caches e bancos locais. `**/`: sem ele o padrao so casa na raiz do contexto
 # (um __pycache__ ou sqlite dentro de aranha_estetica/ ia para a imagem)
