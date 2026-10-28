@@ -23,6 +23,8 @@ import requests
 from django.conf import settings
 from django.core.cache import cache
 
+from . import telefone as telefones
+
 logger = logging.getLogger(__name__)
 
 # Timeout curto (connect, read): o envio roda dentro do request do OTP e o
@@ -48,25 +50,13 @@ def sms_disponivel() -> bool:
     return sms_modo_dev() or sms_configurado()
 
 
-def _mask(telefone: str) -> str:
-    digits = ''.join(ch for ch in (telefone or '') if ch.isdigit())
-    if len(digits) <= 4:
-        return '***' + digits
-    return digits[:2] + '****' + digits[-2:]
+_mask = telefones.mascarar
 
 
 def formatar_telefone(telefone: str) -> str:
-    """Normaliza p/ E.164 BR sem '+' (55 + DDD + numero). '' se nao for BR valido.
-
-    Aceita 10/11 digitos (DDD+numero) ou 12/13 ja com DDI 55. Qualquer outro
-    formato (internacional, curto, lixo) e recusado — evita SMS pumping.
-    """
-    digits = ''.join(ch for ch in (telefone or '') if ch.isdigit())
-    if len(digits) in (12, 13) and digits.startswith('55'):
-        return digits
-    if len(digits) in (10, 11):
-        return '55' + digits
-    return ''
+    """Destino do SMS em E.164 BR sem '+' (utils/telefone.e164). '' se nao for telefone BR
+    valido: internacional, curto ou lixo e recusado — evita SMS pumping."""
+    return telefones.e164(telefone)
 
 
 def _chave_ip(ip: str) -> str:

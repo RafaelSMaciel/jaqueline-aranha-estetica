@@ -15,6 +15,8 @@ import os
 import re
 from typing import Optional
 
+from .telefone import mascarar as _mascarar_telefone
+
 _EMAIL_RX = re.compile(r'^([^@]+)@(.+)$')
 _DIGITS_RX = re.compile(r'\D+')
 
@@ -33,13 +35,8 @@ def mask_email(value: Optional[str]) -> str:
 
 
 def mask_telefone(value: Optional[str]) -> str:
-    """Mascara meio do telefone. `17999990000` -> `17****0000`."""
-    if not value:
-        return ''
-    digits = _DIGITS_RX.sub('', value)
-    if len(digits) < 6:
-        return '***'
-    return f'{digits[:2]}****{digits[-4:]}'
+    """Mascara meio do telefone. `17999990000` -> `17****0000` (utils/telefone.mascarar)."""
+    return _mascarar_telefone(value)
 
 
 def mask_cpf(value: Optional[str]) -> str:

@@ -3,17 +3,8 @@ from urllib.parse import quote
 
 from django.conf import settings
 
+from .utils import telefone
 from .utils.branding import get_branding
-
-
-def _telefone_tel(telefone: str) -> str:
-    """'(17) 99999-0000' -> '+5517999990000' p/ href tel: ('' se nao parecer telefone BR)."""
-    digitos = ''.join(ch for ch in (telefone or '') if ch.isdigit())
-    if len(digitos) in (10, 11):
-        return f'+55{digitos}'
-    if len(digitos) in (12, 13) and digitos.startswith('55'):
-        return f'+{digitos}'
-    return ''
 
 
 def _nome_curto(nome: str) -> str:
@@ -49,7 +40,7 @@ def clinica_globals(request):
     """
     ctx = get_branding()
     ctx['SITE_URL'] = settings.SITE_URL
-    ctx['CLINIC_PHONE_TEL'] = _telefone_tel(ctx.get('CLINIC_PHONE', ''))
+    ctx['CLINIC_PHONE_TEL'] = telefone.href_tel(ctx.get('CLINIC_PHONE', ''))
     ctx['CLINIC_SHORT_NAME'] = _nome_curto(ctx.get('CLINIC_NAME', ''))
     ctx['AGENDAR_WHATSAPP'] = _agendar_whatsapp(ctx.get('WHATSAPP_NUMERO', ''))
     # ambiente de testes publicado: faixa no topo e robots.txt fechado (settings/staging.py)

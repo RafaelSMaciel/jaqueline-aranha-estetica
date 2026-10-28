@@ -21,6 +21,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from ..services import links
+from . import telefone as telefones
 from .datas import fmt_local
 from .pii import mask_telefone
 
@@ -46,11 +47,9 @@ def pode_enviar_whatsapp() -> bool:
 
 
 def formatar_telefone(telefone):
-    """Formata telefone para padrao internacional (55...)."""
-    digits = ''.join(filter(str.isdigit, telefone or ''))
-    if len(digits) in (10, 11):
-        digits = '55' + digits
-    return digits
+    """Destino em E.164 BR sem '+' (utils/telefone.e164), a mesma regra do SMS: numero que nao e
+    telefone BR valido nao recebe mensagem ('' -> o envio nao acontece)."""
+    return telefones.e164(telefone)
 
 
 def enviar_template_whatsapp(telefone, template_name, components=None):
