@@ -22,10 +22,9 @@ from ..models.agendamentos import STATUS_ATIVOS
 # Atendimento que ainda aceita assinatura de termo (e gera link novo)
 STATUS_ACEITA_TERMO = STATUS_ATIVOS
 
-# Tipo da Notificacao que carrega o link do termo. LEMBRETE+EMAIL e o formato
-# legado (booking antes do tipo TERMO) — nenhum outro fluxo cria LEMBRETE por e-mail.
+# Tipo da Notificacao que carrega o link do termo (/termo/<token>, LinkAcesso TERMO)
 TIPO_NOTIF_TERMO = 'TERMO'
-Q_NOTIF_TERMO = Q(tipo=TIPO_NOTIF_TERMO) | Q(tipo=Notificacao.Tipo.LEMBRETE, canal=Notificacao.Canal.EMAIL)
+Q_NOTIF_TERMO = Q(tipo=TIPO_NOTIF_TERMO)
 
 
 def q_termos_aplicaveis(procedimento_id) -> Q:

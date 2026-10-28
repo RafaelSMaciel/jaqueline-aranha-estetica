@@ -25,21 +25,6 @@ from ...utils.parse import id_int
 
 logger = logging.getLogger(__name__)
 
-# RECEPCAO ainda nao tem telas proprias (nao consegue logar): fica fora das
-# opcoes de criacao ate existirem. O CHECK do banco continua aceitando.
-PAPEIS_DISPONIVEIS = [
-    (valor, rotulo) for valor, rotulo in Usuario.PAPEL_CHOICES
-    if valor != Usuario.PAPEL_RECEPCAO
-]
-
-
-def _papeis_para(usuario=None):
-    """Choices do select. Quem ja e RECEPCAO mantem a opcao (nao troca em silencio)."""
-    if usuario is not None and usuario.papel == Usuario.PAPEL_RECEPCAO:
-        return list(Usuario.PAPEL_CHOICES)
-    return list(PAPEIS_DISPONIVEIS)
-
-
 def _profissionais_para(usuario=None):
     """Profissionais ativos + o ja vinculado (mesmo inativo), p/ nao desvincular ao salvar."""
     filtro = Q(ativo=True)
@@ -52,7 +37,7 @@ def _render_form(request, modo, usuario=None, form_data=None):
     return render(request, 'painel/usuario_form.html', {
         'usuario': usuario,
         'modo': modo,
-        'papeis': _papeis_para(usuario),
+        'papeis': Usuario.PAPEL_CHOICES,
         'profissionais': _profissionais_para(usuario),
         'form_data': form_data if form_data is not None else {},
         'email_configurado': email_configurado(),
@@ -132,7 +117,7 @@ def admin_criar_usuario(request):
 
         if not erro and (not nome or not email):
             erro = 'Nome e e-mail são obrigatórios.'
-        if not erro and papel not in dict(PAPEIS_DISPONIVEIS):
+        if not erro and papel not in dict(Usuario.PAPEL_CHOICES):
             erro = 'Papel inválido.'
         if not erro and Usuario.objects.filter(email__iexact=email).exists():
             erro = 'Já existe usuário com esse e-mail.'
@@ -204,7 +189,7 @@ def admin_editar_usuario(request, pk):
 
         if not erro and (not nome or not novo_email):
             erro = 'Nome e e-mail são obrigatórios.'
-        if not erro and novo_papel not in dict(_papeis_para(usuario)):
+        if not erro and novo_papel not in dict(Usuario.PAPEL_CHOICES):
             erro = 'Papel inválido.'
         if not erro and Usuario.objects.filter(
             email__iexact=novo_email

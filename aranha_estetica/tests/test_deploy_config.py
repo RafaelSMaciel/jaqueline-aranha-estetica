@@ -558,10 +558,10 @@ class BootstrapAdminTests(TestCase):
         U = get_user_model()
         self._outro_admin()
         u = U.objects.create_user('dona@clinica.com.br', SENHA_FORTE, nome='Dona',
-                                  papel=U.PAPEL_RECEPCAO)
+                                  papel=U.PAPEL_PROFISSIONAL)
         _, err = self._run(ADMIN_EMAIL='dona@clinica.com.br', ADMIN_PASSWORD=SENHA_FORTE)
         u.refresh_from_db()
-        self.assertEqual(u.papel, U.PAPEL_RECEPCAO)
+        self.assertEqual(u.papel, U.PAPEL_PROFISSIONAL)
         self.assertIn('mantido', err)
         self._run(ADMIN_EMAIL='dona@clinica.com.br', ADMIN_PASSWORD=SENHA_FORTE,
                   ADMIN_PASSWORD_RESET='true')
@@ -1143,7 +1143,7 @@ class AxesBloqueioTests(TestCase):
 
 # ─── Access log do gunicorn sem tokens ───────────────────────────────
 class GunicornLoggerTests(SimpleTestCase):
-    """rev_security-13 / rev_infra-02: o access log padrao gravava /reagendar/<token>/,
+    """rev_security-13 / rev_infra-02: o access log padrao gravava /confirmar/<token>/,
     reset de senha, ?token= do feed ICS e o Referer em claro nos logs do Railway."""
 
     def test_start_do_docker_e_do_railway_usam_o_logger(self):
@@ -1180,14 +1180,14 @@ class GunicornLoggerTests(SimpleTestCase):
             }
 
         dt = datetime.timedelta(milliseconds=1)
-        logger.access(resp, req, environ('/reagendar/abc123/'), dt)
+        logger.access(resp, req, environ('/confirmar/abc123/'), dt)
         logger.access(resp, req, environ('/agenda/dra-x/feed.ics', 'token=FEED777&x=1'), dt)
         logger.access(resp, req, environ('/admin-login/recuperar/MQ/cabc12-deadbeef/'), dt)
         logger.access(resp, req, environ('/anamnese/obrigado/'), dt)
         log = saida.getvalue()
         for segredo in ('abc123', 'zzz999', 'FEED777', 'deadbeef'):
             self.assertNotIn(segredo, log)
-        self.assertIn('/reagendar/[token]/', log)
+        self.assertIn('/confirmar/[token]/', log)
         self.assertIn('token=[token]&x=1', log)
         self.assertIn('/anamnese/obrigado/', log)
 

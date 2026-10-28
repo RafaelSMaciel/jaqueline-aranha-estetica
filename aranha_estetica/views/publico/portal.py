@@ -1,11 +1,9 @@
-"""Reagendamento + listagem 'Meus Agendamentos'.
+"""Portal "Meus agendamentos": listagem, reagendamento e cancelamento pela cliente.
 
-Dois acessos ao mesmo fluxo:
-  - portal (/meus-agendamentos/<id>/reagendar/): id + sessao do OTP (telefone do
-    cadastro), anti-IDOR — o caminho normal; nenhum token e emitido;
-  - link legado (/reagendar/<token>/): LinkAcesso GERENCIAR_AGENDAMENTO migrado
-    na 0049 (o token antigo da pagina "Meus agendamentos"), ate expirar.
+Acesso unico: id do atendimento + sessao do OTP (telefone do cadastro), anti-IDOR. Nenhum
+token e emitido (o link /reagendar/<token>/ antigo saiu com a 0066).
 """
+import json
 import logging
 from datetime import datetime, timedelta
 
@@ -22,7 +20,7 @@ from ...constants import JANELA_MINIMA_REAGENDAMENTO
 from ...models import Atendimento, Cliente, Notificacao, Profissional
 from ...models.agendamentos import STATUS_FINALIZADOS
 from ...excecoes import RegraDeNegocio, TransicaoInvalida
-from ...services import agenda, comunicacao, links
+from ...services import agenda, comunicacao
 from ...services.agendamento import formatar_data_hora
 from ...utils.datas import ler_data
 from ...utils.formatos import formatar_brl
@@ -105,18 +103,6 @@ def atendimento_da_sessao(request, pk, *select_related):
     )
 
 
-def link_gerenciar(token, *select_related):
-    """LinkAcesso GERENCIAR_AGENDAMENTO (legado) do token, com o atendimento carregado.
-
-    Vencido (inicio ja passou) volta assim mesmo: a regra de horario do
-    atendimento (_motivo_sem_reagendamento / cancelamento) recusa com mensagem.
-    """
-    return links.resolver(
-        links.GERENCIAR_AGENDAMENTO, token, aceitar_expirado=True,
-        select_related=('atendimento', *(f'atendimento__{r}' for r in select_related)),
-    )
-
-
 def _motivo_sem_reagendamento(atendimento, agora):
     """Por que o atendimento nao pode ser reagendado online ('' = pode)."""
     if atendimento.data_hora_inicio <= agora:
@@ -161,30 +147,9 @@ def _horarios(request, atendimento):
 
 
 @ratelimit(key='ip', rate='30/m', method='GET', block=True)
-def reagendar_horarios(request, token):
-    """AJAX da tela de reagendamento pelo link legado (token GERENCIAR_AGENDAMENTO)."""
-    link = link_gerenciar(token, 'cliente', 'procedimento')
-    return _horarios(request, link.atendimento if link else None)
-
-
-@ratelimit(key='ip', rate='30/m', method='GET', block=True)
 def reagendar_horarios_portal(request, pk):
     """AJAX da tela de reagendamento do portal (id + sessao do OTP)."""
     return _horarios(request, atendimento_da_sessao(request, pk, 'cliente', 'procedimento'))
-
-
-@ratelimit(key='ip', rate='10/m', method='POST', block=True)
-def reagendar_agendamento(request, token):
-    """Reagendamento pelo link legado (/reagendar/<token>/, LinkAcesso GERENCIAR_AGENDAMENTO)."""
-    link = link_gerenciar(token, 'cliente', 'profissional', 'procedimento')
-    if link is None:
-        messages.error(request, 'Agendamento não encontrado.')
-        return redirect('aranha:agendamento_publico')
-    return _reagendar(
-        request, link.atendimento, link=link,
-        url_voltar=reverse('aranha:reagendar_agendamento', args=[token]),
-        url_horarios=reverse('aranha:reagendar_horarios', args=[token]),
-    )
 
 
 @ratelimit(key='ip', rate='10/m', method='POST', block=True)
@@ -197,13 +162,13 @@ def reagendar_agendamento_portal(request, pk):
         messages.error(request, 'Agendamento não encontrado.')
         return redirect('aranha:meus_agendamentos')
     return _reagendar(
-        request, atendimento, link=None,
+        request, atendimento,
         url_voltar=reverse('aranha:reagendar_agendamento_portal', args=[pk]),
         url_horarios=reverse('aranha:reagendar_horarios_portal', args=[pk]),
     )
 
 
-def _reagendar(request, atendimento, *, link, url_voltar, url_horarios):
+def _reagendar(request, atendimento, *, url_voltar, url_horarios):
     """GET: tela de escolha; POST: move o atendimento (antigo REAGENDADO + novo criado)."""
     agora = timezone.now()
     motivo = _motivo_sem_reagendamento(atendimento, agora)
@@ -257,10 +222,8 @@ def _reagendar(request, atendimento, *, link, url_voltar, url_horarios):
             novo = agenda.reagendar(atendimento, nova_data, profissional)
             if novo.status == Atendimento.STATUS_PENDENTE:   # volta p/ a profissional aprovar
                 comunicacao.enfileirar_email(novo, Notificacao.Tipo.APROVACAO)
-            if link is not None:
-                links.marcar_usado(link)
             registrar_log(
-                None, 'Cliente reagendou pelo link' if link is not None else 'Cliente reagendou pelo portal',
+                None, 'Cliente reagendou pelo portal',
                 'atendimento', novo.pk, detalhes={'reagendado_de': atendimento.pk}, request=request,
             )
     except TransicaoInvalida as recusa:
@@ -306,3 +269,53 @@ def _reagendar(request, atendimento, *, link, url_voltar, url_horarios):
         'email': bool(antigo.cliente.email) and email_configurado(),
     }
     return redirect('aranha:agendamento_sucesso')
+
+
+@ratelimit(key='ip', rate='10/m', method='POST', block=True)
+def cancelar_agendamento(request):
+    """Cancela pelo portal (POST JSON {"atendimento_id": N}) pela FSM, anti-IDOR: so agendamento
+    de cliente com o telefone da sessao do OTP."""
+    if request.method != 'POST':
+        return JsonResponse({'erro': 'Método não permitido'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({'erro': 'Dados inválidos'}, status=400)
+    if not isinstance(data, dict):
+        return JsonResponse({'erro': 'Dados inválidos'}, status=400)
+    atendimento_id = id_int(data.get('atendimento_id'))
+    if atendimento_id is None:
+        return JsonResponse({'erro': 'Agendamento não informado'}, status=400)
+    alvo = atendimento_da_sessao(request, atendimento_id)
+    if alvo is None:
+        return JsonResponse({'erro': 'Agendamento não encontrado'}, status=404)
+
+    try:
+        with transaction.atomic():
+            atendimento = (
+                Atendimento.objects.select_for_update()
+                .select_related('procedimento')
+                .get(pk=alvo.pk)
+            )
+
+            if atendimento.data_hora_inicio <= timezone.now():
+                return JsonResponse(
+                    {'erro': 'Não é possível cancelar agendamentos passados'}, status=400
+                )
+            if atendimento.status not in Atendimento.STATUS_ATIVOS:
+                return JsonResponse({'erro': 'Este agendamento não pode mais ser cancelado'}, status=400)
+            try:
+                # FSM: auditoria + efeitos (lista de espera, aviso a profissional)
+                atendimento.cancelar(motivo='Cancelado pelo cliente (portal)', pela_cliente=True)
+            except Atendimento.TransicaoInvalida:
+                return JsonResponse({'erro': 'Este agendamento não pode mais ser cancelado'}, status=400)
+            procedimento_nome = atendimento.procedimento.nome
+    except DatabaseError:
+        logger.error('cancelar_agendamento_falha', exc_info=True)
+        return JsonResponse({'erro': 'Ocorreu um erro interno. Tente novamente.'}, status=500)
+
+    return JsonResponse({
+        'sucesso': True,
+        'mensagem': f'Agendamento de {procedimento_nome} cancelado com sucesso.',
+    })

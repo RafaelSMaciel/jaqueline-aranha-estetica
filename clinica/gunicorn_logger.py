@@ -4,8 +4,8 @@ Uso (Dockerfile CMD e railway.json startCommand):
     gunicorn ... --access-logfile - --logger-class clinica.gunicorn_logger.LoggerSemTokens
 
 O formato padrao do access log grava a linha da requisicao ("%(r)s": path +
-query) e o Referer ("%(f)s"). Links magicos (/reagendar/<token>/,
-/confirmar/<token>/, /termo/<token>/, reset de senha, feed ICS ?token=...)
+query) e o Referer ("%(f)s"). Links magicos (/confirmar/<token>/,
+/termo/<token>/, /nps/<token>/, reset de senha, feed ICS ?token=...)
 iam em claro p/ os logs do Railway — inclusive no Referer dos assets
 estaticos pedidos a partir dessas paginas. Mesma redacao do Sentry
 (utils/pii.redigir_tokens_url).

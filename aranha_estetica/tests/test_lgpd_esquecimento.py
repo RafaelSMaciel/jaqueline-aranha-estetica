@@ -98,7 +98,6 @@ class EsquecerClienteTests(TestCase):
         ficha = RespostaAnamnese.objects.create(formulario=form, cliente=self.cliente, atendimento=realizado)
         tokens = {
             'DESCADASTRO': criar_link('DESCADASTRO', self.cliente),
-            'GERENCIAR_AGENDAMENTO': criar_link('GERENCIAR_AGENDAMENTO', futuro),
             'CONFIRMAR_PRESENCA': criar_notificacao_com_link(futuro)[1],
             'NPS': criar_notificacao_com_link(realizado, 'NPS')[1],
             'TERMO': criar_notificacao_com_link(futuro, 'TERMO', 'EMAIL')[1],

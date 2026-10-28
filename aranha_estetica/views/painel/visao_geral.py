@@ -15,7 +15,7 @@ from ...models import (
 )
 from ...models.agendamentos import STATUS_ATIVOS, StatusAtendimento
 from ...decorators import staff_required
-from ...services import financeiro, links
+from ...services import financeiro
 from ...utils.busca import filtrar_clientes
 from ...utils.nps import resumo_nps
 from ...services.indicadores import ocupacao_semana
@@ -50,7 +50,7 @@ def painel(request):
     prof = getattr(user, 'profissional', None)
     if prof is not None and prof.ativo:
         return redirect('aranha:profissional_agenda')
-    # Papel sem tela propria (ex.: recepcao ainda sem permissoes): encerra a sessao.
+    # Profissional sem cadastro ativo vinculado nao tem tela: encerra a sessao.
     auth_logout(request)
     return redirect('aranha:inicio')
 
@@ -255,12 +255,6 @@ def painel_profissionais(request):
     paginator = Paginator(profissionais, 30)
     page = request.GET.get('page', 1)
     profissionais_page = paginator.get_page(page)
-    migracao_links = links.aplicada_em_0049()
-    for prof in profissionais_page:
-        # link migrado do token antigo (antes da 0049): ativo, mas sem data real de criacao
-        prof.ics_migrado = bool(
-            prof.ics_ativo_desde and migracao_links and prof.ics_ativo_desde <= migracao_links
-        )
 
     context = {'profissionais': profissionais_page}
     return render(request, 'painel/profissionais.html', context)
