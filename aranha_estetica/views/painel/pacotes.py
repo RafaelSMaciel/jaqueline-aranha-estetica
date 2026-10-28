@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from ...decorators import staff_required
+from ...excecoes import RegraDeNegocio
 from ...models import (
     Cliente,
     ItemPacote,
@@ -113,6 +114,9 @@ def admin_criar_pacote(request):
     except (ValueError, TypeError):
         messages.error(request, 'Dados inválidos: verifique preço, validade e itens (sem procedimento repetido).')
         return redirect('aranha:admin_pacotes')
+    if not itens:
+        messages.error(request, 'Inclua ao menos um procedimento no pacote.')
+        return redirect('aranha:admin_pacotes')
 
     try:
         with transaction.atomic():
@@ -162,6 +166,9 @@ def admin_editar_pacote(request, pk):
         itens = _ler_itens(request.POST)
     except (ValueError, TypeError):
         messages.error(request, 'Dados inválidos: verifique preço, validade e itens (sem procedimento repetido).')
+        return redirect('aranha:admin_pacotes')
+    if 'procedimento_ids' in request.POST and not itens:
+        messages.error(request, 'O pacote precisa de ao menos um procedimento.')
         return redirect('aranha:admin_pacotes')
 
     try:
@@ -231,6 +238,8 @@ def admin_vender_pacote(request):
             'compra_pacote', pc.pk, {'cliente': cliente.pk}, request=request,
         )
         messages.success(request, f'Pacote vendido para {cliente.nome}!')
+    except RegraDeNegocio as e:
+        messages.error(request, e.mensagem)
     except (DatabaseError, ValidationError) as e:
         logger.error(f'Erro ao vender pacote: {e}', exc_info=True)
         messages.error(request, 'Erro ao vender pacote.')

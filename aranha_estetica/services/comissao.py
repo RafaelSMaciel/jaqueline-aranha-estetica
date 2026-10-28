@@ -123,7 +123,13 @@ class ComissaoService:
                 percentual = CEM
             valor = _centavos(base * percentual / CEM)
         else:
+            # valor fixo nunca passa da base (sessao de pacote promocional, avulso com desconto):
+            # a clinica nao paga R$ 60 sobre R$ 50 de receita
             valor = regra.valor or ZERO
+            if valor > base:
+                logger.info('regra_comissao_fixa_limitada_a_base',
+                            extra={'regra_id': regra.pk, 'atendimento_id': atendimento.pk})
+                valor = base
 
         if valor <= 0:
             return None
