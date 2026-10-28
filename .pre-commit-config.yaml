@@ -1,8 +1,15 @@
 # Ganchos locais: os mesmos checks rapidos do CI, antes do commit. Usam as ferramentas do venv
-# (versoes fixas em requirements-dev.txt), sem baixar nada. Instalar uma vez:
+# (versoes fixas em requirements-dev.txt), sem baixar nada — exceto o gitleaks (binario Go que o
+# pre-commit baixa uma vez, na versao fixa abaixo, a mesma do CI). Instalar uma vez:
 #   pip install -r requirements-dev.txt -c requirements.lock && pre-commit install
 # Rodar em tudo: pre-commit run --all-files     (guia: docs/DESENVOLVIMENTO.md)
 repos:
+  # Segredo commitado por engano (.env, dump, chave de API): so o que esta sendo commitado.
+  # Dados sinteticos conhecidos: allowlist explicada em .gitleaks.toml
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
   - repo: local
     hooks:
       - id: ruff

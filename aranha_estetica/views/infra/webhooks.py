@@ -8,11 +8,11 @@ import hashlib
 import hmac
 import json
 import logging
-import os
 import re
 import unicodedata
 from datetime import timedelta
 
+from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -21,10 +21,12 @@ from django_ratelimit.decorators import ratelimit
 
 from ...models import Cliente, Consentimento, Notificacao
 from ...services import consentimentos, nps
+from ...utils import telefone as telefones
 from ...utils import whatsapp as canal_whatsapp
 from ...utils.auditoria import registrar_log
 from ...utils.branding import get_branding
 from ...utils.pii import mask_telefone
+from ...utils.seguranca import client_ip, segredo_confere
 
 logger = logging.getLogger(__name__)
 
@@ -37,10 +39,6 @@ PALAVRAS_PARAR = frozenset({'parar', 'sair', 'stop', 'cancelar mensagens', 'desc
 PARES_WHATSAPP = (consentimentos.PESQUISA_WHATSAPP, consentimentos.LEMBRETE_WHATSAPP)
 TEXTO_PARAR = 'Pedido de parar enviado pelo WhatsApp.'
 
-WHATSAPP_APP_SECRET = os.environ.get('WHATSAPP_APP_SECRET', '')
-# Token do handshake de verificacao do webhook (GET hub.challenge da Meta)
-WHATSAPP_VERIFY_TOKEN = os.environ.get('WHATSAPP_VERIFY_TOKEN', '')
-
 
 def _verify_signature(request):
     """Verifica X-Hub-Signature-256 da Meta Business API.
@@ -49,7 +47,8 @@ def _verify_signature(request):
     fallback DEBUG). Isto evita que uma variavel de ambiente ausente em
     producao transforme o webhook em endpoint aberto.
     """
-    if not WHATSAPP_APP_SECRET:
+    secret = settings.WHATSAPP_APP_SECRET
+    if not secret:
         logger.error('WHATSAPP_APP_SECRET nao configurado — webhook rejeitando requisicoes')
         return False
 
@@ -58,19 +57,12 @@ def _verify_signature(request):
         return False
 
     expected = hmac.new(
-        WHATSAPP_APP_SECRET.encode(),
+        secret.encode(),
         request.body,
         hashlib.sha256,
     ).hexdigest()
 
-    return hmac.compare_digest(signature[7:], expected)
-
-
-ZENVIA_WEBHOOK_SECRET = os.environ.get('ZENVIA_WEBHOOK_SECRET', '')
-# IPs/CIDRs da Zenvia separados por virgula (consultar docs Zenvia)
-ZENVIA_ALLOWED_IPS = [
-    ip.strip() for ip in os.environ.get('ZENVIA_ALLOWED_IPS', '').split(',') if ip.strip()
-]
+    return segredo_confere(expected, signature[7:])
 
 
 def _ip_in_allowlist(ip: str, allowlist: list) -> bool:
@@ -99,37 +91,39 @@ def _ip_in_allowlist(ip: str, allowlist: list) -> bool:
 def zenvia_sms_webhook(request):
     """Recebe status de entrega da Zenvia.
 
-    Defense-in-depth:
-      1. IP allowlist (se configurado ZENVIA_ALLOWED_IPS)
-      2. HMAC via X-Zenvia-Signature (obrigatorio se ZENVIA_WEBHOOK_SECRET setado)
-      3. Sem secret E sem allowlist = rejeita em prod
+    Defesa em camadas:
+      1. allowlist de IP/CIDR (se ZENVIA_ALLOWED_IPS configurado);
+      2. segredo compartilhado no header X-Zenvia-Signature, o valor configurado na assinatura do
+         webhook na Zenvia (obrigatorio se ZENVIA_WEBHOOK_SECRET definido). O corpo NAO e assinado:
+         e um segredo estatico, comparado em tempo constante;
+      3. sem segredo E sem allowlist = recusa fora de DEBUG (503).
     """
-    from ...utils.seguranca import client_ip
-    from django.conf import settings
-
     ip = client_ip(request)
+    allowlist = settings.ZENVIA_ALLOWED_IPS
+    secret = settings.ZENVIA_WEBHOOK_SECRET
 
-    if ZENVIA_ALLOWED_IPS and not _ip_in_allowlist(ip, ZENVIA_ALLOWED_IPS):
+    if allowlist and not _ip_in_allowlist(ip, allowlist):
         logger.warning('Zenvia webhook: IP %s nao permitido', ip)
         return JsonResponse({'error': 'ip nao permitido'}, status=403)
 
-    if not ZENVIA_WEBHOOK_SECRET and not ZENVIA_ALLOWED_IPS and not settings.DEBUG:
+    if not secret and not allowlist and not settings.DEBUG:
         logger.error('Zenvia webhook: sem secret E sem allowlist em prod — rejeitando')
         return JsonResponse({'error': 'webhook nao configurado'}, status=503)
 
-    if ZENVIA_WEBHOOK_SECRET:
-        provided = request.headers.get('X-Zenvia-Signature', '')
-        if not hmac.compare_digest(provided, ZENVIA_WEBHOOK_SECRET):
-            logger.warning('Zenvia webhook: assinatura invalida')
-            return JsonResponse({'error': 'assinatura invalida'}, status=403)
+    if secret and not segredo_confere(secret, request.headers.get('X-Zenvia-Signature', '')):
+        logger.warning('Zenvia webhook: segredo invalido')
+        return JsonResponse({'error': 'assinatura invalida'}, status=403)
 
     try:
         data = json.loads(request.body)
-    except json.JSONDecodeError:
+    except ValueError:  # JSONDecodeError e corpo que nao e UTF-8
+        return JsonResponse({'error': 'json invalido'}, status=400)
+    if not isinstance(data, dict):
         return JsonResponse({'error': 'json invalido'}, status=400)
 
     message_id = data.get('messageId') or data.get('id', '')
-    status = data.get('messageStatus', {}).get('code') or data.get('status', '')
+    status_info = data.get('messageStatus')
+    status = (status_info.get('code') if isinstance(status_info, dict) else None) or data.get('status', '')
     to = data.get('to', '')
     logger.info(
         'zenvia_status_callback',
@@ -146,11 +140,10 @@ def whatsapp_webhook(request):
     Webhook do WhatsApp (Meta Cloud API).
     GET = handshake de verificacao (hub.challenge); POST = eventos (respostas/NPS).
     """
-    # Handshake da Meta: ecoa hub.challenge quando o verify_token confere.
+    # Handshake da Meta: ecoa hub.challenge quando o verify_token confere (tempo constante).
     if request.method == 'GET':
         if (request.GET.get('hub.mode') == 'subscribe'
-                and WHATSAPP_VERIFY_TOKEN
-                and request.GET.get('hub.verify_token') == WHATSAPP_VERIFY_TOKEN):
+                and segredo_confere(settings.WHATSAPP_VERIFY_TOKEN, request.GET.get('hub.verify_token', ''))):
             return HttpResponse(request.GET.get('hub.challenge', ''), content_type='text/plain')
         return HttpResponse('Forbidden', status=403)
 
@@ -216,14 +209,11 @@ def _mensagens_recebidas(data):
 
 
 def _telefones_candidatos(telefone_limpo: str) -> list[str]:
-    """O numero como veio e com/sem o codigo do pais (55): match EXATO, nunca parcial (anti-IDOR —
-    um sufixo comum poria a resposta na ficha de outra cliente)."""
-    candidatos = [telefone_limpo]
-    if telefone_limpo.startswith('55') and len(telefone_limpo) > 11:
-        candidatos.append(telefone_limpo[2:])  # sem codigo do pais
-    elif len(telefone_limpo) <= 11:
-        candidatos.append('55' + telefone_limpo)  # com codigo do pais
-    return candidatos
+    """Cliente.telefone guarda a forma canonica (utils/telefone: sem o 55 que a Meta manda) e o
+    match e EXATO, nunca parcial (anti-IDOR — um sufixo comum poria a resposta na ficha de outra
+    cliente). Numero que nao e telefone BR valido nao casa com ninguem."""
+    canonico = telefones.valido_ou_vazio(telefone_limpo)
+    return [canonico] if canonico else []
 
 
 def _normalizar(texto: str) -> str:

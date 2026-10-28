@@ -10,7 +10,7 @@ class StaffRequiredDecoratorTests(TestCase):
     def test_anonimo_redireciona(self):
         client = Client()
         resp = client.get('/painel/overview/')
-        self.assertIn(resp.status_code, [302, 403])
+        self.assertRedirects(resp, '/admin-login/?next=/painel/overview/', fetch_redirect_response=False)
 
     def test_usuario_recepcao_sem_admin_redireciona(self):
         user = Usuario.objects.create_user(email='normal@test.com', password='senha123')

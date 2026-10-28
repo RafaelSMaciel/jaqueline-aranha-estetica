@@ -8,7 +8,7 @@ Railway derruba o boot: publicaria DEBUG=True (traceback, cookies sem Secure, IP
 `manage.py test` (o runner unico da suite) sempre usa `test` — unica deteccao de "estou em
 teste": nem um DJANGO_ENV=prod herdado leva a suite p/ o banco de producao.
 
-Qualquer outro valor ('production', 'staging'...) derruba o boot: antes caia
+Qualquer outro valor ('production', 'homolog'...) derruba o boot: antes caia
 em silencio no dev.py (DEBUG=True, e-mail no console, SMS/WhatsApp "fingindo"
 envio, checks de prod mudos) mesmo no Railway. Falhar no preDeploy mantem o
 deploy anterior no ar.

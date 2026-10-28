@@ -15,6 +15,8 @@ import os
 import re
 from typing import Optional
 
+from .telefone import mascarar as _mascarar_telefone
+
 _EMAIL_RX = re.compile(r'^([^@]+)@(.+)$')
 _DIGITS_RX = re.compile(r'\D+')
 
@@ -33,13 +35,19 @@ def mask_email(value: Optional[str]) -> str:
 
 
 def mask_telefone(value: Optional[str]) -> str:
-    """Mascara meio do telefone. `17999990000` -> `17****0000`."""
-    if not value:
-        return ''
-    digits = _DIGITS_RX.sub('', value)
-    if len(digits) < 6:
-        return '***'
-    return f'{digits[:2]}****{digits[-4:]}'
+    """Mascara meio do telefone. `17999990000` -> `17****0000` (utils/telefone.mascarar)."""
+    return _mascarar_telefone(value)
+
+
+def nome_publico(nome: Optional[str]) -> str:
+    """Nome para fora da clinica (depoimento no site, evento no calendario externo): primeiro nome +
+    inicial do ultimo. 'Maria da Silva' -> 'Maria S.'; pseudonimo '[ANONIMIZADO-n]' -> 'Cliente'."""
+    partes = (nome or '').split()
+    if not partes or partes[0].startswith('['):
+        return 'Cliente'
+    if len(partes) == 1:
+        return partes[0]
+    return f'{partes[0]} {partes[-1][0].upper()}.'
 
 
 def mask_cpf(value: Optional[str]) -> str:
@@ -211,7 +219,10 @@ def opcoes_sentry(dsn: str) -> dict:
     return {
         'dsn': dsn,
         'integrations': [DjangoIntegration()],
-        'environment': os.environ.get('SENTRY_ENVIRONMENT') or os.environ.get('DJANGO_ENV') or 'prod',
+        # Nome do ambiente no Railway ('production', 'dev') antes do DJANGO_ENV, que a imagem fixa
+        # em prod: sem isso os erros do ambiente de testes caiam no mesmo 'prod' da producao
+        'environment': (os.environ.get('SENTRY_ENVIRONMENT') or os.environ.get('RAILWAY_ENVIRONMENT_NAME')
+                        or os.environ.get('DJANGO_ENV') or 'prod'),
         # Railway preenche RAILWAY_GIT_COMMIT_SHA: o erro aponta o deploy que o introduziu
         'release': os.environ.get('SENTRY_RELEASE') or os.environ.get('RAILWAY_GIT_COMMIT_SHA') or None,
         'traces_sample_rate': float(os.environ.get('SENTRY_TRACES_SAMPLE_RATE', '0.2')),

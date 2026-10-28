@@ -1,7 +1,7 @@
-"""Infraestrutura: healthcheck, cron HTTP, webhooks (WhatsApp/Zenvia) e Web Push."""
+"""Infraestrutura: healthcheck, cron HTTP, webhooks (WhatsApp/Zenvia), Web Push e feed ICS."""
 from django.urls import path
 
-from ..views.infra import cron, healthcheck, webhooks, webpush
+from ..views.infra import cron, feed_ics, healthcheck, webhooks, webpush
 
 urlpatterns = [
     # ─── Web Push ───
@@ -16,4 +16,6 @@ urlpatterns = [
     # ─── WhatsApp Bot API ───
     path('api/whatsapp/webhook/', webhooks.whatsapp_webhook, name='whatsapp_webhook'),
     path('api/zenvia/webhook/', webhooks.zenvia_sms_webhook, name='zenvia_sms_webhook'),
+    # ─── Feed ICS da agenda do profissional (?token= do LinkAcesso FEED_ICS) ───
+    path('agenda/<slug:slug>/feed.ics', feed_ics.feed_profissional, name='ics_feed_profissional'),
 ]

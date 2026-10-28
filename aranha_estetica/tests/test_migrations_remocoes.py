@@ -11,7 +11,7 @@ from django.db.migrations.executor import MigrationExecutor
 from django.db.migrations.recorder import MigrationRecorder
 from django.test import TransactionTestCase, tag
 
-from .test_migrations_dados import APP, _local_dt, _MigracaoBase, _sha
+from .test_migrations_dados import APP, _local_dt, _MigracaoBase, _sha, migrar_ao_topo
 
 M0070 = '0070_execucao_job'   # ultima antes das remocoes
 M0071 = '0071_google_agenda_removida'
@@ -30,9 +30,7 @@ class _AbortaBase(TransactionTestCase):
         self.antes = executor.loader.project_state([(APP, self.migrate_from)]).apps
 
     def tearDown(self):
-        executor = MigrationExecutor(connection)
-        executor.loader.build_graph()
-        executor.migrate(executor.loader.graph.leaf_nodes())
+        migrar_ao_topo()
         super().tearDown()
 
     def migrar_e_esperar_aborto(self):

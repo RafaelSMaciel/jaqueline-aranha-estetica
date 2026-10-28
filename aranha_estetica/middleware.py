@@ -36,6 +36,9 @@ class Enforce2FAMiddleware:
          inclusive o /django-admin-sv/ (AdminSiteOTPRequired exige is_verified()).
 
     Em /api/ e /webpush/ a resposta e 403 JSON em vez de redirect HTML.
+
+    Falha fechada: se a consulta do 2FA der erro de banco (statement_timeout, conexao caida), a
+    sessao ainda nao verificada vai para o desafio em vez de seguir so com a senha.
     """
 
     EXEMPT_NAMES = {
@@ -93,10 +96,11 @@ class Enforce2FAMiddleware:
             # (senao o AdminSiteOTPRequired devolve p/ o login em loop).
             if path.startswith(self.ADMIN_PREFIX) and request.user.is_staff:
                 return self._barrar(request, 'aranha:admin_2fa_setup')
-        except (ImportError, OperationalError, ProgrammingError):
-            # TOTPDevice nao disponivel (app desinstalado) ou tabela inexistente
-            # (migrations pendentes). Nao bloqueia request — segue sem 2FA challenge.
-            pass
+        except (OperationalError, ProgrammingError):
+            # Controle de acesso nao falha aberto: sem saber se ha TOTP, a sessao so com senha
+            # nao chega ao painel, ao portal nem ao prontuario.
+            logger.exception('2fa_indisponivel')
+            return self._barrar(request, 'aranha:admin_2fa_challenge')
 
         return self.get_response(request)
 
@@ -182,10 +186,11 @@ class ContentSecurityPolicyMiddleware:
     @xframe_options_exempt (widget /embed/agendar/), que usam
     settings.EMBED_FRAME_ANCESTORS (default: qualquer origem https).
 
-    Hosts externos: so os realmente usados (Google Fonts; Turnstile). O
+    Hosts externos: so os realmente usados (Turnstile; libs do painel no jsdelivr). O
     jsdelivr serve QUALQUER pacote npm/GitHub — liberar o host inteiro deixaria
     um <script src> injetado rodar apesar do nonce. Por isso so os caminhos
-    das libs em uso (JSDELIVR_PATHS).
+    das libs em uso (JSDELIVR_PATHS), e so em script-src: nenhum template carrega CSS de la.
+    Os <script> das libs levam nonce e integrity (SRI).
     Trocou a versao da lib no template? Atualize aqui (test_csp confere
     templates x allowlist).
     """
@@ -202,7 +207,6 @@ class ContentSecurityPolicyMiddleware:
     ]
     ALLOWED_STYLE_SRCS = [
         "'self'",
-        *JSDELIVR_PATHS,
     ]
     ALLOWED_FONT_SRCS = [
         "'self'",

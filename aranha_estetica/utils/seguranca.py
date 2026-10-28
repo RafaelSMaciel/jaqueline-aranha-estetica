@@ -1,42 +1,13 @@
-"""Utilitarios de seguranca: masking de PII, comparacoes time-constant, IP do cliente."""
+"""Utilitarios de seguranca: IP do cliente, validacao de ?next=, segredos e destinos permitidos.
+
+Mascara de dado pessoal para log fica em utils/pii (fonte unica).
+"""
+import hmac
 import ipaddress
 import re
 
 from django.conf import settings
 from django.utils.http import url_has_allowed_host_and_scheme
-
-
-def mask_email(email: str) -> str:
-    """Mascara email para logs: rafa***@gmail.com"""
-    if not email or "@" not in email:
-        return email or ""
-    user, domain = email.split("@", 1)
-    if len(user) <= 2:
-        masked_user = user[:1] + "*"
-    else:
-        masked_user = user[:3] + "*" * max(1, len(user) - 3)
-    return f"{masked_user}@{domain}"
-
-
-def mask_cpf(cpf: str) -> str:
-    """Mascara CPF: 123.***.***-45"""
-    if not cpf:
-        return ""
-    digits = re.sub(r"\D+", "", cpf)
-    if len(digits) != 11:
-        return "***"
-    return f"{digits[:3]}.***.***-{digits[9:]}"
-
-
-def mask_telefone(tel: str) -> str:
-    """Mascara telefone: +55 (11) *****-3210"""
-    if not tel:
-        return ""
-    digits = re.sub(r"\D+", "", tel)
-    if len(digits) < 8:
-        return "***"
-    return f"***-{digits[-4:]}"
-
 
 IP_FALLBACK = "0.0.0.0"
 
@@ -91,6 +62,20 @@ def safe_next(request, raw, fallback="aranha:painel_overview"):
     ):
         return raw
     return fallback
+
+
+def segredo_confere(esperado: str, recebido: str) -> bool:
+    """Confere um segredo compartilhado (header do cron, segredo do webhook, verify token) em tempo
+    constante. Lado vazio nunca confere: segredo nao configurado nao autentica ninguem.
+
+    Compara bytes: compare_digest(str, str) levanta TypeError com caractere nao ASCII, e um header
+    forjado ('X-Cron-Token: cao') virava 500; surrogateescape codifica qualquer str sem erro.
+    """
+    if not esperado or not recebido:
+        return False
+    return hmac.compare_digest(
+        esperado.encode('utf-8', 'surrogateescape'), recebido.encode('utf-8', 'surrogateescape'),
+    )
 
 
 def destino_permitido(endereco: str) -> bool:

@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone as dt_timezone
 from unittest import skipUnless
 from unittest.mock import Mock, patch
 
+from django.conf import settings
 from django.core import mail
 from django.db import connection
 from django.test import RequestFactory, TestCase, override_settings
@@ -223,21 +224,21 @@ class WhatsAppTests(TestCase):
         self.proc = criar_procedimento(profissional=self.prof)
         self.cli = criar_cliente(nome='Bia', consent_whatsapp_confirmacao=True)
 
-    @patch.dict('os.environ', {'WHATSAPP_TOKEN': '', 'WHATSAPP_PHONE_ID': ''})
+    @override_settings(WHATSAPP_TOKEN='', WHATSAPP_PHONE_ID='')
     def test_sem_token_nao_marca_enviado(self):
         self.assertFalse(wa_utils.enviar_template('17999990000', 'x'))
         atd = criar_atendimento(self.cli, self.prof, self.proc, data_hora=_as_14h_local())
         notif = comunicacao.enviar_confirmacao_d1(atd)
         self.assertEqual(notif.status, 'FALHOU')
 
-    @patch.dict('os.environ', {'WHATSAPP_TOKEN': '', 'WHATSAPP_PHONE_ID': ''})
+    @override_settings(WHATSAPP_TOKEN='', WHATSAPP_PHONE_ID='')
     def test_job_d1_sem_canal_nao_cria_notificacao(self):
         from aranha_estetica.jobs import job_lembrete_diario
         criar_atendimento(self.cli, self.prof, self.proc, data_hora=_as_14h_local())
         job_lembrete_diario()
         self.assertFalse(Notificacao.objects.exists())
 
-    @patch.dict('os.environ', {'WHATSAPP_TOKEN': 'tok', 'WHATSAPP_PHONE_ID': '123'})
+    @override_settings(WHATSAPP_TOKEN='tok', WHATSAPP_PHONE_ID='123')
     def test_d1_usa_hora_local_e_site_url(self):
         atd = criar_atendimento(self.cli, self.prof, self.proc, data_hora=_as_14h_local())
         atd = Atendimento.objects.select_related('cliente', 'profissional', 'procedimento').get(pk=atd.pk)
@@ -256,7 +257,7 @@ class WhatsAppTests(TestCase):
         self.assertEqual((link.notificacao_id, link.expira_em), (notif.pk, atd.data_hora_inicio))
         self.assertIsNone(links.resolver(links.NPS, token))  # finalidade errada nao resolve
 
-    @patch.dict('os.environ', {'WHATSAPP_TOKEN': 'tok', 'WHATSAPP_PHONE_ID': '123'})
+    @override_settings(WHATSAPP_TOKEN='tok', WHATSAPP_PHONE_ID='123')
     def test_job_d1_envia_mesmo_com_termo_ja_enviado_por_email(self):
         """gap1-05: notificacao do termo (e-mail) nao conta como D-1 enviado."""
         from aranha_estetica.jobs import job_lembrete_diario
@@ -269,7 +270,7 @@ class WhatsAppTests(TestCase):
             atendimento=atd, tipo='LEMBRETE', canal='WHATSAPP', status='ENVIADO',
         ).exists())
 
-    @patch.dict('os.environ', {'WHATSAPP_TOKEN': 'tok', 'WHATSAPP_PHONE_ID': '123'})
+    @override_settings(WHATSAPP_TOKEN='tok', WHATSAPP_PHONE_ID='123')
     def test_job_d1_respeita_consentimento(self):
         from aranha_estetica.jobs import job_lembrete_diario
         sem_consent = criar_cliente(nome='Sem', consent_whatsapp_confirmacao=False)
@@ -568,7 +569,7 @@ class DsarOtpQuotaTests(TestCase):
         codigo, obj = CodigoOtp.gerar_sms(self.TEL, proposito=CodigoOtp.PROPOSITO_DSAR)
         # fora da janela de reenvio (60s): so a quota decide
         CodigoOtp.objects.filter(pk=obj.pk).update(criado_em=timezone.now() - timedelta(minutes=5))
-        cache.set(f'sms_rl:tel:{sms.formatar_telefone(self.TEL)}', sms.SMS_MAX_POR_HORA, 3600)
+        cache.set(f'sms_rl:tel:{sms.formatar_telefone(self.TEL)}', settings.SMS_MAX_POR_HORA, 3600)
         self.assertEqual(self._post().status_code, 200)
         self.assertEqual(CodigoOtp.objects.filter(proposito=CodigoOtp.PROPOSITO_DSAR).count(), 1)
         ok, _motivo = CodigoOtp.verificar_sms(self.TEL, codigo, proposito=CodigoOtp.PROPOSITO_DSAR)
