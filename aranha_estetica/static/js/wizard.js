@@ -363,9 +363,15 @@
         // Resposta antiga (outro dia clicado depois) não troca os horários
         function obsoleta() { return meu !== seqHorarios || dateStr !== selectedDate; }
         fetch(URL_HORARIOS + '?' + qs)
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
+            .then(function(r) { return r.json().then(function(data) { return {ok: r.ok, data: data}; }); })
+            .then(function(res) {
                 if (obsoleta()) return;
+                var data = res.data;
+                if (!res.ok) {
+                    // 4xx/5xx: mostra o motivo do servidor (antes virava "Nenhum horario disponivel")
+                    mensagemSlots(container, SVG_INFO, data.erro || 'Não foi possível carregar os horários. Tente de novo.');
+                    return;
+                }
                 horariosData = data.horarios || [];
                 if (horariosData.length === 0) {
                     mensagemSlots(container, SVG_INFO, 'Nenhum horário disponível nesta data.');

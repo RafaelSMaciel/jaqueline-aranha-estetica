@@ -32,14 +32,14 @@ def _procedimento_ativo(procedimento_id):
     """(procedimento, JsonResponse de erro)."""
     procedimento_id = str(procedimento_id or '').strip()
     if not procedimento_id:
-        return None, JsonResponse({'error': 'Parâmetros obrigatórios: data, procedimento_id'}, status=400)
+        return None, JsonResponse({'erro': 'Parâmetros obrigatórios: data, procedimento_id'}, status=400)
     pk = id_int(procedimento_id)
     if pk is None:
-        return None, JsonResponse({'error': 'Parâmetro inválido'}, status=400)
+        return None, JsonResponse({'erro': 'Parâmetro inválido'}, status=400)
     try:
         return Procedimento.objects.get(pk=pk, ativo=True), None
     except Procedimento.DoesNotExist:
-        return None, JsonResponse({'error': 'Procedimento não encontrado'}, status=404)
+        return None, JsonResponse({'erro': 'Procedimento não encontrado'}, status=404)
 
 
 def _preco_json(procedimento, profissional, dia):
@@ -106,12 +106,12 @@ def api_horarios_disponiveis(request):
     """
     data_str = request.GET.get('data', '')
     if not data_str or not request.GET.get('procedimento_id'):
-        return JsonResponse({'error': 'Parâmetros obrigatórios: data, procedimento_id'}, status=400)
+        return JsonResponse({'erro': 'Parâmetros obrigatórios: data, procedimento_id'}, status=400)
 
     try:
         data_selecionada = datetime.strptime(data_str, '%Y-%m-%d').date()
     except ValueError:
-        return JsonResponse({'error': 'Data inválida'}, status=400)
+        return JsonResponse({'erro': 'Data inválida'}, status=400)
 
     procedimento, erro = _procedimento_ativo(request.GET.get('procedimento_id'))
     if erro:
@@ -136,14 +136,14 @@ def api_dias_disponiveis(request):
     """
     mes_str = request.GET.get('mes', '')
     if not mes_str or not request.GET.get('procedimento_id'):
-        return JsonResponse({'error': 'Parâmetros obrigatórios'}, status=400)
+        return JsonResponse({'erro': 'Parâmetros obrigatórios'}, status=400)
 
     try:
         ano, mes = map(int, mes_str.split('-'))
         primeiro_dia = date(ano, mes, 1)
         ultimo_dia = (date(ano + 1, 1, 1) if mes == 12 else date(ano, mes + 1, 1)) - timedelta(days=1)
     except (ValueError, TypeError, OverflowError):
-        return JsonResponse({'error': 'Mês inválido'}, status=400)
+        return JsonResponse({'erro': 'Mês inválido'}, status=400)
 
     procedimento, erro = _procedimento_ativo(request.GET.get('procedimento_id'))
     if erro:

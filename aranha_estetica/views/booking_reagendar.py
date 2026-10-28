@@ -130,14 +130,14 @@ def _horarios(request, atendimento):
     aceita (ex.: empurrar 30 min).
     """
     if atendimento is None:
-        return JsonResponse({'error': 'Agendamento não encontrado'}, status=404)
+        return JsonResponse({'erro': 'Agendamento não encontrado'}, status=404)
     motivo = _motivo_sem_reagendamento(atendimento, timezone.now())
     if motivo:
-        return JsonResponse({'error': motivo}, status=400)
+        return JsonResponse({'erro': motivo}, status=400)
     try:
         dia = datetime.strptime(request.GET.get('data', ''), '%Y-%m-%d').date()
     except ValueError:
-        return JsonResponse({'error': 'Data inválida'}, status=400)
+        return JsonResponse({'erro': 'Data inválida'}, status=400)
 
     procedimento = atendimento.procedimento
     return JsonResponse({

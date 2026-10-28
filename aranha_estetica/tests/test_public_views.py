@@ -770,3 +770,23 @@ class PoliticaPrivacidadeTests(TestCase):
         self.assertContains(resp, 'Sentry')
         self.assertContains(resp, '(Resend)')
 
+
+class ContratoErroApiAgendamentoTests(TestCase):
+    """O wizard le `erro` (nunca `error`) e mostra o motivo do 4xx em vez de "sem horarios"."""
+
+    def test_4xx_do_agendamento_usam_a_chave_erro(self):
+        for nome, params in (('aranha:api_horarios_disponiveis', {}),
+                             ('aranha:api_horarios_disponiveis', {'data': 'x', 'procedimento_id': 'y'})):
+            with self.subTest(params=params):
+                resp = self.client.get(reverse(nome), params)
+                self.assertEqual(resp.status_code, 400)
+                self.assertIn('erro', resp.json())
+                self.assertNotIn('error', resp.json())
+
+    def test_wizard_mostra_o_motivo_do_servidor(self):
+        from django.conf import settings
+        from pathlib import Path
+        js = (Path(settings.BASE_DIR) / 'aranha_estetica' / 'static' / 'js' / 'wizard.js').read_text(encoding='utf-8')
+        self.assertIn('if (!res.ok)', js)
+        self.assertIn('data.erro ||', js)
+
