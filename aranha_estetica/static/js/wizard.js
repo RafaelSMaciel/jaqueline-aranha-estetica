@@ -198,12 +198,32 @@
         if (selectedDate && selectedProc) carregarHorarios(selectedDate);
 
         // Popula hiddens + resumo + navega pro step 3 (reutiliza função existente)
-        goToStep3();
+        liberarContinuar('btn-continuar-1', true);
+        liberarContinuar('btn-continuar-2', true);
+        goToStep3({semFoco: true});
         return true;
     }
 
     // ═══ STEP NAVIGATION ═══
-    window.goToStep = function(n) {
+    // Sem avanco automatico: cada etapa termina no botao "Continuar". A etapa vai p/ o historico
+    // do navegador (o "Voltar" do celular volta uma etapa, nao sai do agendamento) e o foco vai
+    // p/ o titulo da etapa nova (leitor de tela anuncia onde a pessoa esta).
+    var etapaAtual = 1;
+
+    function avisar(texto) {
+        var el = document.getElementById('wizard-aviso');
+        if (el) { el.textContent = ''; setTimeout(function() { el.textContent = texto; }, 30); }
+    }
+
+    function etapaPossivel(n) {
+        if (n >= 3 && !(selectedProc && selectedSlot && selectedProf)) n = 2;
+        if (n >= 2 && !selectedProc) n = 1;
+        return n;
+    }
+
+    window.goToStep = function(n, opcoes) {
+        opcoes = opcoes || {};
+        n = etapaPossivel(n);
         var panels = document.querySelectorAll('.step-panel');
         for (var i = 0; i < panels.length; i++) {
             panels[i].classList.remove('active');
@@ -213,10 +233,36 @@
         var items = document.querySelectorAll('.step-item');
         for (var k = 0; k < items.length; k++) {
             items[k].classList.remove('active', 'done');
+            items[k].removeAttribute('aria-current');
             if (k + 1 < n) items[k].classList.add('done');
-            if (k + 1 === n) items[k].classList.add('active');
+            if (k + 1 === n) { items[k].classList.add('active'); items[k].setAttribute('aria-current', 'step'); }
+        }
+
+        if (!opcoes.semHistorico && n !== etapaAtual) {
+            try { history.pushState({passo: n}, '', ''); } catch (e) {}
+        }
+        etapaAtual = n;
+        if (!opcoes.semFoco) {
+            var titulo = document.getElementById('step-' + n + '-titulo');
+            if (titulo) titulo.focus({preventScroll: false});
         }
     };
+
+    try { history.replaceState({passo: 1}, '', ''); } catch (e) {}
+    window.addEventListener('popstate', function(e) {
+        var passo = (e.state && e.state.passo) || 1;
+        if (passo === 3) { goToStep3({semHistorico: true}); return; }
+        goToStep(passo, {semHistorico: true});
+    });
+
+    function liberarContinuar(id, ok) {
+        var b = document.getElementById(id);
+        if (b) b.disabled = !ok;
+    }
+    var btnCont1 = document.getElementById('btn-continuar-1');
+    if (btnCont1) btnCont1.addEventListener('click', function() { if (selectedProc) goToStep(2); });
+    var btnCont2 = document.getElementById('btn-continuar-2');
+    if (btnCont2) btnCont2.addEventListener('click', function() { goToStep3(); });
 
     // ═══ DELEGATED [data-goto] LISTENER ═══
     document.addEventListener('click', function(e) {
@@ -230,8 +276,12 @@
     for (var c = 0; c < procCards.length; c++) {
         procCards[c].addEventListener('click', function() {
             var allCards = document.querySelectorAll('.proc-card');
-            for (var j = 0; j < allCards.length; j++) allCards[j].classList.remove('selected');
+            for (var j = 0; j < allCards.length; j++) {
+                allCards[j].classList.remove('selected');
+                allCards[j].setAttribute('aria-pressed', 'false');
+            }
             this.classList.add('selected');
+            this.setAttribute('aria-pressed', 'true');
 
             selectedProc = {
                 id: String(this.dataset.procId),
@@ -246,9 +296,11 @@
             selectedProf = null;
 
             salvarEstado();
-            goToStep(2);
+            liberarContinuar('btn-continuar-1', true);
+            liberarContinuar('btn-continuar-2', false);
             currentMonth = primeiroDoMes();
             loadMonth();
+            avisar(selectedProc.nome + ' selecionado. Use Continuar para escolher a data.');
         });
     }
 
@@ -304,11 +356,15 @@
             div.type = 'button';
             div.textContent = d;
             div.className = 'cal-day';
+            try {
+                div.setAttribute('aria-label', dateObj.toLocaleDateString('pt-BR', {weekday: 'long', day: 'numeric', month: 'long'})
+                    + (isAvailable ? '' : ', sem horário'));
+            } catch (e) {}
             if (isToday) div.classList.add('today');
             if (isAvailable) {
                 div.classList.add('available');
                 div.setAttribute('data-date', dateStr);
-                if (dateStr === selectedDate) div.classList.add('selected');
+                if (dateStr === selectedDate) { div.classList.add('selected'); div.setAttribute('aria-pressed', 'true'); }
                 div.addEventListener('click', function() {
                     selectDate(this.getAttribute('data-date'));
                 });
@@ -347,9 +403,10 @@
         salvarEstado();
 
         var allDays = document.querySelectorAll('.cal-day');
-        for (var i = 0; i < allDays.length; i++) allDays[i].classList.remove('selected');
+        for (var i = 0; i < allDays.length; i++) { allDays[i].classList.remove('selected'); allDays[i].removeAttribute('aria-pressed'); }
         var sel = document.querySelector('.cal-day[data-date="' + dateStr + '"]');
-        if (sel) sel.classList.add('selected');
+        if (sel) { sel.classList.add('selected'); sel.setAttribute('aria-pressed', 'true'); }
+        liberarContinuar('btn-continuar-2', false);
 
         carregarHorarios(dateStr);
     }
@@ -390,14 +447,16 @@
                     b.type = 'button';
                     b.className = 'slot-btn';
                     b.setAttribute('data-idx', String(i));
+                    b.setAttribute('aria-pressed', 'false');
                     b.textContent = slot.horario;
-                    if (selectedSlot && selectedSlot.iso === slot.datetime_iso) b.classList.add('selected');
+                    if (selectedSlot && selectedSlot.iso === slot.datetime_iso) { b.classList.add('selected'); b.setAttribute('aria-pressed', 'true'); }
                     b.addEventListener('click', function() { selectSlot(this); });
                     grid.appendChild(b);
                 });
                 container.textContent = '';
                 container.appendChild(title);
                 container.appendChild(grid);
+                avisar(horariosData.length + ' horários disponíveis em ' + parts[2] + '/' + parts[1] + '.');
             })
             .catch(function() {
                 if (obsoleta()) return;
@@ -407,8 +466,11 @@
 
     function selectSlot(btn) {
         var allBtns = document.querySelectorAll('.slot-btn');
-        for (var i = 0; i < allBtns.length; i++) allBtns[i].classList.remove('selected');
+        for (var i = 0; i < allBtns.length; i++) { allBtns[i].classList.remove('selected'); allBtns[i].setAttribute('aria-pressed', 'false'); }
         btn.classList.add('selected');
+        btn.setAttribute('aria-pressed', 'true');
+        selectedProf = null;
+        liberarContinuar('btn-continuar-2', false);
 
         var idx = parseInt(btn.getAttribute('data-idx'), 10);
         var slot = horariosData[idx];
@@ -430,29 +492,34 @@
             var pbtn = document.createElement('button');
             pbtn.type = 'button';
             pbtn.className = 'prof-btn selected';
+            pbtn.setAttribute('aria-pressed', 'true');
             pbtn.textContent = selectedProf.nome;
             profOptions.appendChild(pbtn);
-            setTimeout(function() { goToStep3(); }, 500);
+            liberarContinuar('btn-continuar-2', true);
+            avisar(slot.horario + ' com ' + selectedProf.nome + '. Use Continuar para confirmar.');
         } else {
             selectedSlot.profissionais.forEach(function(prof) {
                 var b = document.createElement('button');
                 b.type = 'button';
                 b.className = 'prof-btn';
+                b.setAttribute('aria-pressed', 'false');
                 b.textContent = prof.nome;
                 b.addEventListener('click', function() {
                     var all = document.querySelectorAll('.prof-btn');
-                    for (var k = 0; k < all.length; k++) all[k].classList.remove('selected');
+                    for (var k = 0; k < all.length; k++) { all[k].classList.remove('selected'); all[k].setAttribute('aria-pressed', 'false'); }
                     this.classList.add('selected');
+                    this.setAttribute('aria-pressed', 'true');
                     selectedProf = prof;
                     salvarEstado();
-                    setTimeout(function() { goToStep3(); }, 500);
+                    liberarContinuar('btn-continuar-2', true);
+                    avisar(slot.horario + ' com ' + prof.nome + '. Use Continuar para confirmar.');
                 });
                 profOptions.appendChild(b);
             });
         }
     }
 
-    function goToStep3() {
+    function goToStep3(opcoes) {
         if (!selectedProc || !selectedSlot || !selectedProf) return;
 
         document.getElementById('sum-proc').textContent = selectedProc.nome;
@@ -473,7 +540,7 @@
         renderAnamnese();
         renderTermos();
 
-        goToStep(3);
+        goToStep(3, opcoes);
     }
 
     // Valor da DATA escolhida p/ o profissional (API de horários, promoção
