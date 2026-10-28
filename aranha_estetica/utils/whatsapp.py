@@ -13,36 +13,25 @@ de marcar ENVIADO sem ter enviado). No ambiente de testes publicado so os DESTIN
 recebem (utils/seguranca.destino_permitido). Nada com token ou nome da cliente vai para o log.
 """
 import logging
-import os
 
 import requests
 from django.conf import settings
 
+from . import telefone as telefones
 from .pii import mask_telefone
 from .seguranca import destino_permitido
 
 logger = logging.getLogger(__name__)
 
-# Versao da Graph API (versoes antigas sao desligadas pela Meta ~2 anos apos o lancamento).
-WHATSAPP_API_VERSION_PADRAO = 'v23.0'
 TIMEOUT_SEGUNDOS = 10
-
-# Nomes dos templates aprovados no Meta Business API
-TEMPLATE_CONFIRMACAO_D1 = os.environ.get('WHATSAPP_TEMPLATE_D1', 'confirmacao_d1')
-TEMPLATE_NPS = os.environ.get('WHATSAPP_TEMPLATE_NPS', 'nps_pos_atendimento')
-TEMPLATE_LISTA_ESPERA = os.environ.get('WHATSAPP_TEMPLATE_LISTA_ESPERA', 'lista_espera_vaga')
 
 
 def _credenciais():
-    """(token, url da API) lidos do ambiente em tempo de chamada."""
-    token = os.environ.get('WHATSAPP_TOKEN', '')
-    # WHATSAPP_PHONE_NUMBER_ID aceito como alias (nome usado no .env.example antigo).
-    phone_id = os.environ.get('WHATSAPP_PHONE_ID') or os.environ.get('WHATSAPP_PHONE_NUMBER_ID', '')
-    api_url = os.environ.get('WHATSAPP_API_URL', '')
-    if not api_url and phone_id:
-        versao = os.environ.get('WHATSAPP_API_VERSION', WHATSAPP_API_VERSION_PADRAO)
-        api_url = f'https://graph.facebook.com/{versao}/{phone_id}/messages'
-    return token, api_url
+    """(token, url da API) dos settings WHATSAPP_*, lidos em tempo de chamada."""
+    api_url = settings.WHATSAPP_API_URL
+    if not api_url and settings.WHATSAPP_PHONE_ID:
+        api_url = f'https://graph.facebook.com/{settings.WHATSAPP_API_VERSION}/{settings.WHATSAPP_PHONE_ID}/messages'
+    return settings.WHATSAPP_TOKEN, api_url
 
 
 def whatsapp_configurado() -> bool:
@@ -57,11 +46,9 @@ def pode_enviar_whatsapp() -> bool:
 
 
 def formatar_telefone(telefone):
-    """Formata telefone para padrao internacional (55...)."""
-    digits = ''.join(filter(str.isdigit, telefone or ''))
-    if len(digits) in (10, 11):
-        digits = '55' + digits
-    return digits
+    """Destino em E.164 BR sem '+' (utils/telefone.e164), a mesma regra do SMS: numero que nao e
+    telefone BR valido nao recebe mensagem ('' -> o envio nao acontece)."""
+    return telefones.e164(telefone)
 
 
 def _enviar(telefone, mensagem: dict, rotulo: str) -> bool:

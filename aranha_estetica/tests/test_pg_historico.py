@@ -6,7 +6,6 @@ autor — o test client roda na mesma thread/conexao do teste), (3) UPDATE so de
 gera linha, (4) senha_hash e redigida, (5) a trilha e append-only (so a purga com a flag local
 apaga) e (6) cron/Celery/conexao nova definem/limpam app.origem.
 """
-import os
 from io import StringIO
 from datetime import timedelta
 from decimal import Decimal
@@ -111,7 +110,7 @@ class TrilhaDoRequestTests(TestCase):
         cli = criar_cliente()
         compra = criar_compra_pacote(cli, criar_pacote(procedimento=self.proc, sessoes=2))
         CompraPacote.objects.filter(pk=compra.pk).update(data_expiracao=timezone.localdate() - timedelta(days=2))
-        with mock.patch.dict(os.environ, {'CRON_TOKEN': 'segredo-cron'}):
+        with override_settings(CRON_TOKEN='segredo-cron'):
             resp = Client().post('/cron/run/pacote_expirar/', HTTP_X_CRON_TOKEN='segredo-cron',
                                  REMOTE_ADDR='192.0.2.10')
         self.assertEqual(resp.status_code, 200, resp.content)

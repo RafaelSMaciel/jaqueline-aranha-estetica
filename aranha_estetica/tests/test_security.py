@@ -46,18 +46,17 @@ class StaffRequiredTests(TestCase):
             with self.subTest(endpoint=name):
                 url = reverse(name, kwargs=kwargs)
                 resp = self.client.get(url)
-                self.assertIn(resp.status_code, [302, 403],
-                    f'{name} deveria redirecionar anonimo')
+                self.assertEqual(resp.status_code, 302, f'{name} deveria redirecionar anonimo')
+                self.assertTrue(resp['Location'].startswith(reverse('aranha:usuario_login')), resp['Location'])
 
     def test_usuario_comum_bloqueado(self):
+        # sem papel com tela: volta ao site (o roteador /painel/ ainda encerra a sessao)
         user = _criar_usuario_comum()
-        self.client.force_login(user)
         for name, kwargs in self.ENDPOINTS_STAFF:
             with self.subTest(endpoint=name):
-                url = reverse(name, kwargs=kwargs)
-                resp = self.client.get(url)
-                self.assertIn(resp.status_code, [302, 403],
-                    f'{name} deveria bloquear usuario comum')
+                self.client.force_login(user)
+                resp = self.client.get(reverse(name, kwargs=kwargs))
+                self.assertRedirects(resp, reverse('aranha:inicio'), fetch_redirect_response=False)
 
     def test_staff_permite_acesso(self):
         staff = _criar_staff()
@@ -87,7 +86,7 @@ class ProntuarioAcessoTests(TestCase):
         self.client.force_login(user)
         url = reverse('aranha:prontuario_detalhe', kwargs={'cliente_id': self.cliente.pk})
         resp = self.client.get(url)
-        self.assertIn(resp.status_code, [302, 403])
+        self.assertEqual(resp.status_code, 403)
 
     def test_staff_acessa(self):
         staff = _criar_staff()
@@ -131,7 +130,9 @@ class AdminAtualizarStatusTests(TestCase):
             data=json.dumps({'atendimento_id': self.atd.pk, 'status': 'CONFIRMADO'}),
             content_type='application/json',
         )
-        self.assertIn(resp.status_code, [302, 403])
+        self.assertRedirects(resp, reverse('aranha:inicio'), fetch_redirect_response=False)
+        self.atd.refresh_from_db()
+        self.assertNotEqual(self.atd.status, 'CONFIRMADO')
 
     def test_staff_atualiza_status(self):
         staff = _criar_staff()

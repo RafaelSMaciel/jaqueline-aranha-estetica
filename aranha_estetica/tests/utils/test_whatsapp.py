@@ -11,7 +11,7 @@ CREDENCIAIS = {'WHATSAPP_TOKEN': 'tok-meta', 'WHATSAPP_PHONE_ID': '123456'}
 
 
 @override_settings(DEBUG=False)
-@mock.patch.dict('os.environ', CREDENCIAIS)
+@override_settings(**CREDENCIAIS)
 class EnviarTemplateTests(SimpleTestCase):
     def test_payload_url_e_cabecalhos(self):
         components = [{'type': 'body', 'parameters': [{'type': 'text', 'text': 'Bia'}]}]
@@ -45,7 +45,7 @@ class EnviarTemplateTests(SimpleTestCase):
             self.assertFalse(whatsapp.enviar_template('', 'x'))
         post.assert_not_called()
 
-    @mock.patch.dict('os.environ', {'WHATSAPP_TOKEN': '', 'WHATSAPP_PHONE_ID': ''})
+    @override_settings(WHATSAPP_TOKEN='', WHATSAPP_PHONE_ID='')
     def test_sem_credencial_falha_fechado(self):
         with mock.patch(POST) as post:
             self.assertFalse(whatsapp.enviar_template('17999990000', 'x'))

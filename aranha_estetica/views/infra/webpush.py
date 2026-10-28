@@ -1,14 +1,14 @@
-"""Endpoints Web Push: subscribe, unsubscribe, public key."""
+"""Endpoints Web Push: subscribe, unsubscribe, public key (JSON no contrato de utils/respostas)."""
 import json
 import logging
 
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_POST, require_GET
 
 from ...models import AssinaturaPush
 from ...services.push import get_vapid_public_key
+from ...utils.respostas import json_erro, json_ok
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 @require_GET
 def webpush_public_key(request):
     """Retorna VAPID public key para o front subscrever."""
-    return JsonResponse({'public_key': get_vapid_public_key()})
+    return json_ok(public_key=get_vapid_public_key())
 
 
 def _payload_json(request):
@@ -28,6 +28,10 @@ def _payload_json(request):
     return payload if isinstance(payload, dict) else None
 
 
+def _payload_invalido():
+    return json_erro('payload_invalido', 'Corpo JSON invalido: esperado um objeto.')
+
+
 def _texto(valor) -> str:
     return valor.strip() if isinstance(valor, str) else ''
 
@@ -36,7 +40,8 @@ def _falta_2fa(request) -> bool:
     """Sessao que ainda deve o desafio 2FA (mesma regra do Enforce2FAMiddleware).
 
     O push leva nome de cliente/procedimento/horario: sessao so com senha de
-    quem tem TOTP (ou ADMIN com cadastro de 2FA pendente) nao assina.
+    quem tem TOTP (ou ADMIN com cadastro de 2FA pendente) nao assina. Erro de
+    banco na consulta conta como "falta" (falha fechada, como o middleware).
     """
     from django.db import OperationalError, ProgrammingError
 
@@ -48,8 +53,9 @@ def _falta_2fa(request) -> bool:
         return False
     try:
         return dois_fatores.tem_2fa(request.user)
-    except (ImportError, OperationalError, ProgrammingError):
-        return False
+    except (OperationalError, ProgrammingError):
+        logger.exception('2fa_indisponivel')
+        return True
 
 
 @require_POST
@@ -57,20 +63,20 @@ def _falta_2fa(request) -> bool:
 @login_required
 def webpush_subscribe(request):
     if _falta_2fa(request):
-        return JsonResponse({'ok': False, 'detail': '2fa_required'}, status=403)
+        return json_erro('2fa_required', 'Confirme o código de verificação em duas etapas.', status=403)
     payload = _payload_json(request)
     if payload is None:
-        return JsonResponse({'ok': False, 'erro': 'payload invalido'}, status=400)
+        return _payload_invalido()
     keys = payload.get('keys') if isinstance(payload.get('keys'), dict) else {}
     endpoint = _texto(payload.get('endpoint'))
     p256dh = _texto(keys.get('p256dh'))
     auth = _texto(keys.get('auth'))
 
     if not endpoint or not p256dh or not auth:
-        return JsonResponse({'ok': False, 'erro': 'campos obrigatorios ausentes'}, status=400)
+        return json_erro('campos_ausentes', 'Informe endpoint, p256dh e auth.')
     # Push services reais sao sempre https; evita o servidor fazer request p/ URL arbitraria.
     if not endpoint.startswith('https://') or len(endpoint) > 600:
-        return JsonResponse({'ok': False, 'erro': 'endpoint invalido'}, status=400)
+        return json_erro('endpoint_invalido', 'Endpoint de push invalido.')
 
     user_agent = request.META.get('HTTP_USER_AGENT', '')[:300]
 
@@ -85,7 +91,7 @@ def webpush_subscribe(request):
             'ultima_falha_em': None,
         },
     )
-    return JsonResponse({'ok': True, 'created': created, 'id': sub.pk})
+    return json_ok(created=created, id=sub.pk)
 
 
 @require_POST
@@ -94,12 +100,12 @@ def webpush_subscribe(request):
 def webpush_unsubscribe(request):
     payload = _payload_json(request)
     if payload is None:
-        return JsonResponse({'ok': False, 'erro': 'payload invalido'}, status=400)
+        return _payload_invalido()
     endpoint = _texto(payload.get('endpoint'))
     if not endpoint:
-        return JsonResponse({'ok': False, 'erro': 'endpoint ausente'}, status=400)
+        return json_erro('campos_ausentes', 'Informe o endpoint.')
 
     deleted, _ = AssinaturaPush.objects.filter(
         user=request.user, endpoint=endpoint
     ).delete()
-    return JsonResponse({'ok': True, 'deleted': deleted})
+    return json_ok(deleted=deleted)
