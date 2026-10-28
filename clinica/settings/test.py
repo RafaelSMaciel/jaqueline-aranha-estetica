@@ -1,4 +1,4 @@
-"""Settings da suite (manage.py test e pytest) — escolhido em settings/__init__.py.
+"""Settings da suite (manage.py test, o runner unico) — escolhido em settings/__init__.py.
 
 E a unica deteccao de "estou em teste" (antes: sys.argv em base.py e em dev.py). Mesmo
 ponto de partida do dev (DEBUG da env, sem HTTPS), sem debug-toolbar e com hasher rapido.

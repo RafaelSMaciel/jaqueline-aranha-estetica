@@ -75,8 +75,6 @@ ROTAS = {
     'aranha:solicitar_otp_agendamento': (SEM, '', SO_POST),
     'aranha:verificar_otp_agendamento': (SEM, '', SO_POST),
     'aranha:confirmar_presenca': (_d(token=lambda d: d['tok_confirmar']), '', PUBLICA),
-    'aranha:reagendar_agendamento': (_d(token=lambda d: d['tok_reagendar']), '', PUBLICA),
-    'aranha:reagendar_horarios': (_d(token=lambda d: d['tok_reagendar']), lambda d: f"data={d['amanha']}", OUTRA),
     'aranha:meus_agendamentos': (SEM, '', PUBLICA),
     'aranha:meus_agendamentos_enviar_otp': (SEM, '', SO_POST),
     'aranha:meus_agendamentos_verificar_otp': (SEM, '', SO_POST),
@@ -96,7 +94,6 @@ ROTAS = {
     'aranha:termo_assinatura': (_d(token=lambda d: d['tok_termo']), '', PUBLICA),
     'aranha:lgpd_meus_dados': (SEM, '', OUTRA),
     'aranha:lgpd_unsubscribe': (_d(token=lambda d: d['tok_descadastro']), '', PUBLICA),
-    'aranha:lgpd_aceitar_cookies': (SEM, '', SO_POST),
     # ─── conta da equipe ───
     'aranha:usuario_login': (SEM, '', OUTRA),
     'aranha:usuario_logout': (SEM, '', OUTRA),
@@ -182,7 +179,7 @@ ROTAS = {
     'aranha:admin_calendar_events': (SEM, lambda d: f"start={d['hoje']}&end={d['semana']}", OUTRA),
     'aranha:admin_calendar_mover': (SEM, '', SO_POST),
     'aranha:admin_email_preview': (SEM, '', OUTRA),
-    'aranha:admin_email_preview_nome': (_d(nome='otp'), '', OUTRA),
+    'aranha:admin_email_preview_nome': (_d(nome='confirmacao'), '', OUTRA),
     'aranha:admin_anamneses': (SEM, '', STAFF),
     'aranha:admin_anamnese_criar': (SEM, '', STAFF),
     'aranha:admin_anamnese_editar': (_d(pk=lambda d: d['form'].pk), '', STAFF),
@@ -191,9 +188,6 @@ ROTAS = {
     'aranha:admin_excecoes': (_d(prof_id=lambda d: d['prof'].pk), '', STAFF),
     'aranha:admin_excecao_criar': (_d(prof_id=lambda d: d['prof'].pk), '', SO_POST),
     'aranha:admin_excecao_excluir': (_d(pk=lambda d: d['folga'].pk), '', OUTRA),
-    'aranha:gcal_connect': (_d(prof_id=lambda d: d['prof'].pk), '', OUTRA),
-    'aranha:gcal_callback': (SEM, '', OUTRA),
-    'aranha:gcal_pull': (_d(prof_id=lambda d: d['prof'].pk), '', SO_POST),
     # ─── portal do profissional ───
     'aranha:profissional_agenda': (SEM, '', PROFISSIONAL),
     'aranha:profissional_marcar_realizado': (_d(pk=lambda d: d['at'].pk), '', SO_POST),
@@ -239,7 +233,7 @@ def montar_dados():
     prof = criar_profissional('Jaqueline Aranha')
     proc = criar_procedimento(profissional=prof)
     cliente = criar_cliente(email='maria@exemplo.com')
-    # longe o bastante p/ o link de reagendar valer (antecedencia minima) a qualquer hora do dia
+    # longe o bastante p/ o reagendamento pelo portal valer (antecedencia minima) a qualquer hora do dia
     at = criar_atendimento(cliente, prof, proc, data_hora=timezone.make_aware(
         datetime.combine(hoje + timedelta(days=4), time(10, 0))))
     pendente = criar_atendimento(cliente, prof, proc, data_hora=agora + timedelta(days=3), status='PENDENTE')
@@ -275,7 +269,6 @@ def montar_dados():
         'espera': ListaEspera.objects.create(
             cliente=cliente, procedimento=proc, data_desejada=hoje + timedelta(days=3), turno_desejado='MANHA'),
         'tok_confirmar': criar_notificacao_com_link(at, 'LEMBRETE')[1],
-        'tok_reagendar': criar_link(LinkAcesso.GERENCIAR_AGENDAMENTO, at),
         'tok_nps': criar_notificacao_com_link(realizado, 'NPS')[1],
         'tok_termo': criar_notificacao_com_link(at, 'TERMO')[1],
         'tok_anamnese': criar_link(LinkAcesso.FORMULARIO, resposta_anamnese),

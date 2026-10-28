@@ -47,6 +47,25 @@ class PublicViewsTests(TestCase):
         self.assertIn('assets/favicon.png', r['Location'])
 
 
+class AvisoDeCookiesTests(TestCase):
+    """So cookies essenciais: o aviso e informativo e nao abre sessao nem guarda preferencia no servidor."""
+
+    def test_aviso_aparece_ate_o_cookie_e_nao_chama_o_servidor(self):
+        c = Client()
+        resp = c.get(reverse('aranha:inicio'))
+        self.assertContains(resp, 'x-data="cookieConsent"')
+        self.assertNotContains(resp, 'aceitar-cookies')
+        self.assertNotIn('sessionid', resp.cookies)
+        c.cookies['cookie_consent'] = 'essenciais'
+        self.assertNotContains(c.get(reverse('aranha:inicio')), 'x-data="cookieConsent"')
+
+    def test_endpoint_antigo_nao_existe(self):
+        resp = Client().post('/lgpd/aceitar-cookies/', {'analytics': '1', 'marketing': '1'})
+        self.assertEqual(resp.status_code, 404)
+        with self.assertRaises(NoReverseMatch):
+            reverse('aranha:lgpd_aceitar_cookies')
+
+
 class DadosInventadosTests(TestCase):
     """Regressao public_front-10/11/22: nada de dado fabricado nem link quebrado."""
 

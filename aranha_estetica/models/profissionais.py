@@ -1,7 +1,6 @@
 # aranha_estetica/models/profissionais.py — Profissionais
 from django.db import models
 
-from ..db.campos import TextoCifrado
 from .mixins import atualizado_em_legado, criado_em_legado
 
 
@@ -24,22 +23,8 @@ class Profissional(models.Model):
         default=60, db_default=60, db_column='antecedencia_maxima_dias',
         db_comment='Dias maximos a frente oferecidos online.',
     )
-    # Feed ICS: link_acesso FEED_ICS (gerado no painel; o token so aparece na geracao)
-    # Google Calendar sync — preenchido apos OAuth dance
-    gcal_refresh_token = TextoCifrado(
-        finalidade='segredos',
-        blank=True, default='', db_default='', db_column='gcal_token_renovacao',
-        db_comment=(
-            'Refresh token OAuth do Google Calendar - segredo reversivel (nao da p/ hashear): cifrado '
-            '(cif1:, finalidade segredos; utils/cifragem).'
-        ),
-    )
-    gcal_calendar_id = models.CharField(
-        max_length=200, blank=True, default='primary', db_default='primary', db_column='gcal_calendario_ref',
-        db_comment='Id do calendario no Google (externo).',
-    )
-    gcal_sync_token = models.TextField(blank=True, default='', db_default='', db_column='gcal_token_sincronizacao')
-    gcal_ultimo_sync_em = models.DateTimeField(blank=True, null=True, db_column='gcal_sincronizado_em')
+    # Agenda externa da profissional: feed ICS (link_acesso FEED_ICS, gerado no painel; o token so
+    # aparece na geracao). Sem sincronizacao com Google Agenda (removida na 0068).
     criado_em = criado_em_legado()
     atualizado_em = atualizado_em_legado()
 
@@ -76,14 +61,6 @@ class Profissional(models.Model):
                 slug = f'{base}-{counter}'
             self.slug = slug
         super().save(*args, **kwargs)
-
-    def get_horarios_disponiveis(self, data_selecionada, procedimento=None):
-        """Slots livres no dia (feriado/folga, horario diferente, grade semanal,
-        atendimentos com buffer, bloqueios, min_notice/max_advance). Logica em
-        services.disponibilidade.SlotService — extraida do model para uma camada
-        testavel; comportamento preservado (tests/test_slots_disponibilidade.py)."""
-        from ..services.disponibilidade import SlotService
-        return SlotService.slots_livres(self, data_selecionada, procedimento)
 
 
 # Grade semanal, folgas, bloqueios e feriados: models/agenda.py (AgendaHorario +

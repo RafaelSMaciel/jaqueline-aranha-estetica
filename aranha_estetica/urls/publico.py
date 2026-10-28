@@ -45,9 +45,6 @@ urlpatterns = [
     path('agendamento/otp/verificar/', verificacao.verificar_otp_agendamento, name='verificar_otp_agendamento'),
     # ─── Confirmação de Presença (link público via WhatsApp) ───
     path('confirmar/<str:token>/', confirmacao.confirmar_presenca, name='confirmar_presenca'),
-    # ─── Reagendamento pelo link legado (token GERENCIAR_AGENDAMENTO migrado na 0049) ───
-    path('reagendar/<str:token>/', portal.reagendar_agendamento, name='reagendar_agendamento'),
-    path('reagendar/<str:token>/horarios/', portal.reagendar_horarios, name='reagendar_horarios'),
     # ─── Meus Agendamentos (login via OTP email) ───
     path('meus-agendamentos/', portal.meus_agendamentos, name='meus_agendamentos'),
     path('meus-agendamentos/otp/enviar/', verificacao.meus_agendamentos_enviar_otp, name='meus_agendamentos_enviar_otp'),
@@ -75,7 +72,7 @@ urlpatterns = [
     # ─── AJAX ───
     path('ajax/horarios-disponiveis/', agendamento_api.api_horarios_disponiveis, name='api_horarios_disponiveis'),
     path('ajax/dias-disponiveis/', agendamento_api.api_dias_disponiveis, name='api_dias_disponiveis'),
-    path('ajax/cancelar-agendamento/', agendamento_api.cancelar_agendamento, name='cancelar_agendamento'),
+    path('ajax/cancelar-agendamento/', portal.cancelar_agendamento, name='cancelar_agendamento'),
     # ─── PWA ───
     path('manifest.json', TemplateView.as_view(template_name='pwa/manifest.json', content_type='application/json'), name='manifest'),
     path('painel/manifest.json', TemplateView.as_view(template_name='pwa/manifest_admin.json', content_type='application/json'), name='manifest_admin'),
@@ -83,5 +80,4 @@ urlpatterns = [
     # ─── LGPD ───
     path('lgpd/meus-dados/', lgpd.meus_dados, name='lgpd_meus_dados'),
     path('lgpd/unsubscribe/<str:token>/', lgpd.unsubscribe, name='lgpd_unsubscribe'),
-    path('lgpd/aceitar-cookies/', lgpd.aceitar_cookies, name='lgpd_aceitar_cookies'),
 ]

@@ -152,7 +152,7 @@ def anamnese_publica(request, token: str):
 @never_cache
 @require_http_methods(['GET', 'POST'])
 def pesquisa_publica(request, token: str):
-    """Form pesquisa pos-atendimento (link via WhatsApp 2h apos REALIZADO)."""
+    """Pesquisa pos-atendimento (convite no fim da pagina do NPS: services/anamnese.convite_pesquisa)."""
     resposta, link = _get_resposta_or_404(token, tipo_esperado='PESQUISA')
 
     if resposta.respondida:

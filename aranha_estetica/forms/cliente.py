@@ -28,8 +28,7 @@ class ClientePainelForm(forms.ModelForm):
     class Meta:
         model = Cliente
         fields = [
-            'nome', 'telefone', 'email', 'cpf', 'data_nascimento', 'rg',
-            'profissao', 'cep', 'endereco', 'ativo',
+            'nome', 'telefone', 'email', 'cpf', 'data_nascimento', 'cep', 'endereco', 'ativo',
         ]
 
     def _ja_usado(self, **filtro):
@@ -70,12 +69,6 @@ class ClientePainelForm(forms.ModelForm):
     def _limpar_opcional(self, campo):
         valor = (self.cleaned_data.get(campo) or '').strip()
         return valor or None
-
-    def clean_rg(self):
-        return self._limpar_opcional('rg')
-
-    def clean_profissao(self):
-        return self._limpar_opcional('profissao')
 
     def clean_cep(self):
         return self._limpar_opcional('cep')

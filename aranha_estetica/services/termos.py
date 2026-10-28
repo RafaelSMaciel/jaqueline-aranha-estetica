@@ -22,7 +22,7 @@ from ..models.agendamentos import STATUS_ATIVOS
 # Atendimento que ainda aceita assinatura de termo (e gera link novo)
 STATUS_ACEITA_TERMO = STATUS_ATIVOS
 
-# Tipo da Notificacao que carrega o link do termo (LEMBRETE por e-mail e o lembrete D-1, D19).
+# Tipo da Notificacao que carrega o link do termo (/termo/<token>, LinkAcesso TERMO)
 TIPO_NOTIF_TERMO = 'TERMO'
 Q_NOTIF_TERMO = Q(tipo=TIPO_NOTIF_TERMO)
 

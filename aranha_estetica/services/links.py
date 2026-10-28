@@ -29,7 +29,6 @@ from ..models import LinkAcesso
 
 TAMANHO_MAXIMO_TOKEN = 128
 
-GERENCIAR_AGENDAMENTO = LinkAcesso.GERENCIAR_AGENDAMENTO
 CONFIRMAR_PRESENCA = LinkAcesso.CONFIRMAR_PRESENCA
 NPS = LinkAcesso.NPS
 TERMO = LinkAcesso.TERMO
@@ -119,19 +118,6 @@ def gerar_link_feed_ics(profissional) -> str:
     with transaction.atomic():
         revogar(FEED_ICS, profissional)
         return emitir(FEED_ICS, profissional)
-
-
-def aplicada_em_0049():
-    """Instante em que a 0049 foi registrada (links com criado_em anterior = migrados
-    de token em texto puro: a URL nao pode ser reexibida). None se nao registrada."""
-    from django.db import connection
-    from django.db.migrations.recorder import MigrationRecorder
-
-    return (
-        MigrationRecorder(connection).migration_qs
-        .filter(app='aranha_estetica', name='0049_link_acesso')
-        .values_list('applied', flat=True).first()
-    )
 
 
 # ─── URLs absolutas (o token so vive nelas) ────────────────────────────────

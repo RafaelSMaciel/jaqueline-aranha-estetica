@@ -32,7 +32,7 @@ def ids_com_ficha_pendente(atendimentos) -> set[int]:
         return set()
     formularios = list(
         FormularioAnamnese.objects.filter(tipo='ANAMNESE', ativo=True, obrigatorio=True)
-        .only('pk', 'escopo', 'categoria', 'modalidade', 'procedimento_id')
+        .only('pk', 'escopo', 'categoria', 'procedimento_id')
     )
     if not formularios:
         return set()

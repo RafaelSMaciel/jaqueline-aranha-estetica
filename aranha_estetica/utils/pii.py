@@ -67,10 +67,10 @@ _SENTRY_PII_KEYS = {
 }
 
 # Segmentos de URL que carregam token de acesso (link magico): /confirmar/<tok>/,
-# /reagendar/<tok>/, /nps/<tok>/, /termo/<tok>/, /pesquisa/<tok>/,
+# /nps/<tok>/, /termo/<tok>/, /pesquisa/<tok>/,
 # /anamnese/<tok>/, /lgpd/unsubscribe/<tok>/ e ?token=... (ICS).
 _TOKEN_PATH_RX = re.compile(
-    r'(/(?:confirmar|reagendar|nps|termo|pesquisa|anamnese|lgpd/unsubscribe|admin-login/recuperar/[^/]+)/)'
+    r'(/(?:confirmar|nps|termo|pesquisa|anamnese|lgpd/unsubscribe|admin-login/recuperar/[^/]+)/)'
     r'(?!obrigado/)[^/?#]+'
 )
 _TOKEN_QUERY_RX = re.compile(r'((?:^|[?&])token=)[^&#]*', re.IGNORECASE)
@@ -102,7 +102,7 @@ SENTRY_DENYLIST_EXTRA = [
     'email', 'telefone', 'cpf', 'rg', 'celular', 'phone', 'nome', 'data_nascimento', 'endereco', 'cep',
     'alergias', 'contraindicacoes', 'historico_saude', 'medicamentos_uso', 'observacoes_gerais',
     'respostas', 'respostas_extras', 'respostas_json', 'dados', 'dados_antes', 'dados_depois',
-    'texto', 'mensagem', 'comentario', 'codigo', 'otp', 'gcal_refresh_token', 'refresh_token',
+    'texto', 'mensagem', 'comentario', 'codigo', 'otp', 'refresh_token',
 ]
 
 _KEY_DETAIL_RX = re.compile(r'(Key \([^)]*\)=\()[^)]*(\))')   # DETAIL do IntegrityError do Postgres
@@ -202,7 +202,7 @@ def sentry_before_send(event: dict, hint: dict) -> dict:
 
 def sentry_before_send_transaction(event: dict, hint: dict) -> dict:
     """Mesmo filtro para as transacoes de performance (traces_sample_rate): sem ele a URL
-    com o token (/reagendar/<token>/, feed.ics?token=) saia em toda transacao amostrada."""
+    com o token (/confirmar/<token>/, feed.ics?token=) saia em toda transacao amostrada."""
     return _redigir_evento(event)
 
 

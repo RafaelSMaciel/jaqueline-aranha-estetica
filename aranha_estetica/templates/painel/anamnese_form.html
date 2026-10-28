@@ -66,18 +66,6 @@
       </select>
     </div>
 
-    {# ── Modalidade (condicional) ── #}
-    <div id="anModalidadeWrap" class="mb-4" style="display:none;">
-      <label for="anModalidade" class="block text-sm font-medium text-texto mb-1">Modalidade</label>
-      <select id="anModalidade" name="modalidade"
-              class="w-full rounded-md border border-borda bg-superficie px-3 py-2 text-texto text-sm">
-        <option value="">—</option>
-        {% for v, l in MODALIDADE_CHOICES %}
-        <option value="{{ v }}" {% if form_obj.modalidade == v %}selected{% endif %}>{{ l }}</option>
-        {% endfor %}
-      </select>
-    </div>
-
     {# ── Procedimento (condicional) ── #}
     <div id="anProcedimentoWrap" class="mb-4" style="display:none;">
       <label for="anProcedimento" class="block text-sm font-medium text-texto mb-1">Procedimento</label>
@@ -154,11 +142,9 @@
 (function(){
   var sel = document.getElementById('anEscopo');
   var cat = document.getElementById('anCategoriaWrap');
-  var mod = document.getElementById('anModalidadeWrap');
   var proc = document.getElementById('anProcedimentoWrap');
   function toggle(){
     cat.style.display = sel.value === 'CATEGORIA' ? '' : 'none';
-    mod.style.display = sel.value === 'MODALIDADE' ? '' : 'none';
     proc.style.display = sel.value === 'PROCEDIMENTO' ? '' : 'none';
   }
   sel.addEventListener('change', toggle);

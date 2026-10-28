@@ -27,7 +27,6 @@ TEXTOS = (
     ('prontuario', 'medicamentos_uso', 'saude'),
     ('prontuario', 'observacoes_gerais', 'saude'),
     ('anotacao_sessao', 'texto', 'saude'),
-    ('profissional', 'gcal_token_renovacao', 'segredos'),
 )
 JSONS = (
     ('prontuario', 'respostas', 'saude'),

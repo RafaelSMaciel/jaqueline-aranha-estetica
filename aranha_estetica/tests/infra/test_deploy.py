@@ -111,9 +111,8 @@ class EnvExampleTests(SimpleTestCase):
         'STATIC_ROOT',  # legado: prod.py ignora (estaticos do build em BASE_DIR/staticfiles)
         'PORT',  # o Railway injeta (startCommand do gunicorn)
     }
-    # Documentadas sem leitura: o Celery saiu do projeto (o bloco do exemplo sai junto com as
-    # outras configuracoes mortas)
-    DOCUMENTADAS_SEM_LEITURA = {'CELERY_WORKER_ENABLED', 'CELERY_BROKER_URL', 'CELERY_RESULT_BACKEND'}
+    # Documentadas de proposito sem leitura no codigo (vazio: toda linha do exemplo tem uso)
+    DOCUMENTADAS_SEM_LEITURA: set[str] = set()
 
     def _lidas(self):
         arquivos = [*(BASE_DIR / 'clinica' / 'settings').glob('*.py'), *(BASE_DIR / 'aranha_estetica').rglob('*.py')]
