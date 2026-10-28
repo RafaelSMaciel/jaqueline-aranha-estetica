@@ -13,6 +13,7 @@ from django.views.decorators.cache import never_cache
 from ..models import (
     AgendaHorario, AvaliacaoNPS, Cliente, CompraPacote, Atendimento, LinkAcesso, Profissional,
 )
+from ..models.agendamentos import STATUS_ATIVOS, StatusAtendimento
 from ..decorators import staff_required
 from ..services import financeiro, links
 from ..utils.busca import filtrar_clientes
@@ -73,12 +74,12 @@ def painel_overview(request):
 
     agendamentos_hoje = Atendimento.objects.filter(
         data_hora_inicio__date=hoje,
-        status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO']
+        status__in=STATUS_ATIVOS
     ).count()
 
     agendamentos_semana = Atendimento.objects.filter(
         data_hora_inicio__date__range=[inicio_semana, fim_semana],
-        status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO']
+        status__in=STATUS_ATIVOS
     ).count()
 
     total_clientes = Cliente.objects.filter(ativo=True).count()
@@ -94,7 +95,7 @@ def painel_overview(request):
 
     realizados_semana = Atendimento.objects.filter(
         data_hora_inicio__date__range=[inicio_semana, fim_semana],
-        status='REALIZADO',
+        status=StatusAtendimento.REALIZADO,
     ).count()
     # Cada AgendaHorario representa uma janela de UM dia da semana (campo
     # dia_semana), entao a soma de todas as janelas ativas ja e a capacidade
@@ -110,7 +111,7 @@ def painel_overview(request):
     limite_90d = timezone.now() - timedelta(days=90)
     clientes_ativos_90d = Cliente.objects.filter(
         atendimento__data_hora_inicio__gte=limite_90d,
-        atendimento__status__in=['REALIZADO', 'CONFIRMADO'],
+        atendimento__status__in=(StatusAtendimento.REALIZADO, StatusAtendimento.CONFIRMADO),
     ).distinct().count()
 
     # NPS de verdade (%promotores - %detratores), mesma formula de relatorios.painel_nps
@@ -120,16 +121,16 @@ def painel_overview(request):
 
     proximos_agendamentos = _anexar_alertas_saude(list(Atendimento.objects.filter(
         data_hora_inicio__gte=timezone.now(),
-        status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO']
+        status__in=STATUS_ATIVOS
     ).select_related('cliente', 'profissional', 'procedimento').order_by('data_hora_inicio')[:10]))
 
     # Pendentes de aprovação (todos) — com alerta de saude visivel p/ quem aprova
     pendentes_aprovacao = _anexar_alertas_saude(list(Atendimento.objects.filter(
-        status='PENDENTE',
+        status=StatusAtendimento.PENDENTE,
         data_hora_inicio__gte=timezone.now(),
     ).select_related('cliente', 'profissional', 'procedimento').order_by('data_hora_inicio')[:15]))
     total_pendentes = Atendimento.objects.filter(
-        status='PENDENTE',
+        status=StatusAtendimento.PENDENTE,
         data_hora_inicio__gte=timezone.now(),
     ).count()
 
@@ -138,7 +139,7 @@ def painel_overview(request):
     agendamentos_por_dia = dict(
         Atendimento.objects.filter(
             data_hora_inicio__date__range=[inicio_semana, fim_semana],
-            status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO', 'REALIZADO']
+            status__in=(*STATUS_ATIVOS, StatusAtendimento.REALIZADO)
         ).annotate(
             dia=TruncDate('data_hora_inicio')
         ).values('dia').annotate(total=Count('pk')).values_list('dia', 'total')

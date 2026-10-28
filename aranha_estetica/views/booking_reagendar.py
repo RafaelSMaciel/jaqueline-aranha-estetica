@@ -20,6 +20,7 @@ from django_ratelimit.decorators import ratelimit
 
 from ..constants import JANELA_MINIMA_REAGENDAMENTO
 from ..models import Atendimento, Cliente, Notificacao, Profissional
+from ..models.agendamentos import STATUS_FINALIZADOS
 from ..excecoes import RegraDeNegocio, TransicaoInvalida
 from ..services import agenda, comunicacao, links
 from ..services.agendamento_service import formatar_brl, formatar_data_hora
@@ -37,7 +38,7 @@ from .booking_public import MSG_BLOQUEADO_ONLINE
 
 logger = logging.getLogger(__name__)
 
-STATUS_FINALIZADOS = ('CANCELADO', 'REALIZADO', 'FALTOU', 'REAGENDADO')
+
 
 
 def meus_agendamentos(request):

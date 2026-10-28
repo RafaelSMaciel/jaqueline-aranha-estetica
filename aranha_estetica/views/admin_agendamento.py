@@ -22,6 +22,7 @@ from django_ratelimit.decorators import ratelimit
 
 from ..decorators import staff_required
 from ..models import Atendimento, Cliente, Procedimento, Profissional
+from ..models.agendamentos import StatusAtendimento
 from ..excecoes import RegraDeNegocio
 from ..services import agenda
 from ..services.disponibilidade import SlotService, profissionais_para
@@ -326,7 +327,7 @@ def admin_atendimento_valor(request, pk):
     if valor is None:
         messages.error(request, 'Valor inválido: use números, ex.: 150,00.')
         return voltar
-    if at.status in ('CANCELADO', 'FALTOU', 'REAGENDADO'):
+    if at.status in (StatusAtendimento.CANCELADO, StatusAtendimento.FALTOU, StatusAtendimento.REAGENDADO):
         messages.error(request, f'Atendimento {at.get_status_display().lower()}: o valor não pode ser alterado.')
         return voltar
     if at.eh_retorno and valor != 0:

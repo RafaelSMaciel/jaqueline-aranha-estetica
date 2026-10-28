@@ -269,8 +269,8 @@ def admin_cancelar_compra_pacote(request, pk):
     # valor_reembolsado gravado na compra (CHECK 0 <= reembolso <= valor_pago):
     # a receita dos dashboards e valor_pago - valor_reembolsado.
     with transaction.atomic():
-        atualizadas = CompraPacote.objects.filter(pk=compra.pk, status='ATIVO').update(
-            status='CANCELADO', valor_reembolsado=reembolso,
+        atualizadas = CompraPacote.objects.filter(pk=compra.pk, status=CompraPacote.STATUS_ATIVO).update(
+            status=CompraPacote.STATUS_CANCELADO, valor_reembolsado=reembolso,
         )
     if not atualizadas:
         messages.warning(

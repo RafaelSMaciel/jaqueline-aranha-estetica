@@ -18,6 +18,7 @@ from ..models import (
     Prontuario,
     RespostaAnamnese,
 )
+from ..models.agendamentos import StatusAtendimento
 from ..services.agendamento_service import avisar_cancelamento
 from ..services.termos import termos_pendentes
 from ..utils.audit import registrar_log
@@ -176,11 +177,11 @@ def admin_atualizar_status(request):
     # Usa a FSM do model: valida a transicao e publica os eventos colaterais
     # (no-show, etc.). Evita transicoes invalidas como REALIZADO -> PENDENTE.
     metodos = {
-        'CONFIRMADO': atendimento.confirmar,
-        'REALIZADO': atendimento.marcar_realizado,
-        'CANCELADO': atendimento.cancelar,
-        'FALTOU': atendimento.marcar_falta,
-        'AGENDADO': atendimento.aprovar,
+        StatusAtendimento.CONFIRMADO: atendimento.confirmar,
+        StatusAtendimento.REALIZADO: atendimento.marcar_realizado,
+        StatusAtendimento.CANCELADO: atendimento.cancelar,
+        StatusAtendimento.FALTOU: atendimento.marcar_falta,
+        StatusAtendimento.AGENDADO: atendimento.aprovar,
     }
     acao = metodos.get(novo_status)
     if acao is None:
@@ -189,7 +190,7 @@ def admin_atualizar_status(request):
         )
 
     sem_termo = []
-    if novo_status == 'REALIZADO' and status_anterior in ('AGENDADO', 'CONFIRMADO'):
+    if novo_status == StatusAtendimento.REALIZADO and status_anterior in (StatusAtendimento.AGENDADO, StatusAtendimento.CONFIRMADO):
         sem_termo = termos_pendentes(
             atendimento.cliente, atendimento.procedimento, so_procedimento=True,
         )
@@ -223,7 +224,7 @@ def admin_atualizar_status(request):
             {'termos': [t.pk for t in sem_termo]}, request=request,
         )
 
-    if novo_status == 'CANCELADO':
+    if novo_status == StatusAtendimento.CANCELADO:
         avisar_cancelamento(atendimento)
 
     return JsonResponse({

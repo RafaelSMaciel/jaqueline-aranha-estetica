@@ -65,7 +65,7 @@ class FidelidadeService:
             with transaction.atomic():
                 movimento = MovimentoCarteira.objects.create(
                     carteira=carteira,
-                    tipo='CREDITO',
+                    tipo=MovimentoCarteira.Tipo.CREDITO,
                     origem='CASHBACK_INDICACAO',
                     valor=VALOR_CASHBACK_INDICACAO,
                     saldo_resultante=novo_saldo,
@@ -105,12 +105,12 @@ class FidelidadeService:
         creditos = list(MovimentoCarteira.objects.select_for_update().filter(
             atendimento=atendimento,
             origem='CASHBACK_INDICACAO',
-            tipo='CREDITO',
+            tipo=MovimentoCarteira.Tipo.CREDITO,
         ))
         # Idempotente: cancelamento publicado 2x (corrida/duplo clique) nao
         # debita de novo — o lock acima serializa e a 2a chamada ve o estorno.
         if not creditos or MovimentoCarteira.objects.filter(
-            atendimento=atendimento, origem='CASHBACK_ESTORNO', tipo='DEBITO',
+            atendimento=atendimento, origem=MovimentoCarteira.Origem.CASHBACK_ESTORNO, tipo=MovimentoCarteira.Tipo.DEBITO,
         ).exists():
             return 0
         estornados = 0
@@ -122,7 +122,7 @@ class FidelidadeService:
 
             MovimentoCarteira.objects.create(
                 carteira=carteira,
-                tipo='DEBITO',
+                tipo=MovimentoCarteira.Tipo.DEBITO,
                 origem='CASHBACK_ESTORNO',
                 valor=valor,
                 saldo_resultante=saldo_pos,
