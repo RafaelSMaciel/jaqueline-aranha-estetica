@@ -31,9 +31,8 @@ from ..utils.datas import hoje
 from ..utils.parse import id_int
 from ..utils.precos import preco_com_promocao
 from ..utils.security import safe_next
-from ..validators import validate_telefone_br
+from ..validators import normalizar_telefone, validate_telefone_br
 from ..forms.painel import parse_preco as _parse_preco
-from .admin_management import _normalizar_telefone_br
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +72,7 @@ def _validar_cliente_novo(nome, telefone_raw, email):
     elif len(nome) > 150:
         erros.append('O nome aceita no máximo 150 caracteres.')
 
-    telefone = _normalizar_telefone_br(telefone_raw)
+    telefone = normalizar_telefone(telefone_raw)
     try:
         validate_telefone_br(telefone)
     except ValidationError:

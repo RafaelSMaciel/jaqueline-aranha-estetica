@@ -74,14 +74,16 @@ O papel **RECEPCAO** existe no modelo, mas ainda não tem telas nem login (ver
 ```
 aranha_estetica/
 ├── models/          acesso, clientes, profissionais, agenda (AgendaHorario/AgendaExcecao), procedimentos,
-│                    agendamentos, prontuario, anamnese, termos, nps, pacotes, sistema, push,
-│                    extras (carteira/comissão), historico (trilha historico_alteracao), mixins
+│                    agendamentos (Atendimento/FSM), notificacoes, prontuario, anamnese, termos, nps,
+│                    pacotes, sistema, push, carteira, comissao, historico (trilha historico_alteracao), mixins
 ├── db/              peças de banco usadas por migrations (Indice, PadronizarNomes) — congelado
 ├── migrations/sql/  texto SQL das rotinas por versão (v0056 triggers, v0057 leitura/views, v0058
 │                    procedures, v0059 trilhas append-only) — congelado, importado só pela migration da versão
 ├── views/           public, booking_public/_otp/_reagendar/_api, agenda_publica, anamnese_publica,
 │                    notificacoes (confirmar presença), lgpd, profissional, prontuario, auth, admin_2fa,
-│                    dashboard, admin*, pacotes, relatorios, cron, health, whatsapp, webpush_views
+│                    dashboard, admin_* (um módulo por tela: bloqueios, procedimentos, clientes,
+│                    lista_espera, aprovacao, email_preview…), termos, nps_publico, pacotes, relatorios,
+│                    cron, health, whatsapp, webpush_views
 ├── services/        agenda (reservar/reagendar/mover), atendimento (efeitos de criar/mudar status),
 │                    comunicacao (canais, fila de e-mail), agendamento_service, disponibilidade (SlotService),
 │                    otp, lgpd, termos, alertas,
@@ -713,7 +715,7 @@ todos os jobs:
 
 | Job | Passos |
 |---|---|
-| `testes` | `check`, `makemigrations --check`, suíte Django (SQLite, `--exclude-tag migracoes`), `check --deploy --fail-level ERROR` com settings de prod |
+| `testes` | `check`, `makemigrations --check`, `lint-imports` (camadas), suíte Django (SQLite, `--exclude-tag migracoes`), `check --deploy --fail-level ERROR` com settings de prod |
 | `migracoes-sqlite` | `tests/test_migrations_dados.py` (`--tag migracoes`) no SQLite, em paralelo |
 | `postgres` | Postgres 18: `migrate_atomico` do zero, `bootstrap_admin`, suíte Django no Postgres sem a tag `migracoes` (bloqueante; inclui conformidade, trilha e paridade) |
 | `postgres-migracoes` | `tests/test_migrations_dados.py` no Postgres 18 (reverso/ida de cada migration, inclusive triggers/funções/views/procedures), em paralelo |
@@ -1093,6 +1095,9 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 ## 15. Convenções de código
 
 - Regra de negócio em `services/`/`utils/`, não em view; mudança de status só pela FSM.
+- Camadas `views > services > models` (para baixo pode, para cima não) e nada importa `views`
+  fora dela: `lint-imports` no CI (`pyproject.toml [tool.importlinter]`; exceção = inversão
+  consciente listada lá).
 - Entrada de formulário do painel = Django Form (`forms/`), não `request.POST.get` campo a campo;
   erro vira `messages.error` por `forms.painel.avisar_erros`.
 - Recusa de regra = `excecoes.RegraDeNegocio` com mensagem pronta para a tela (nunca `None`/

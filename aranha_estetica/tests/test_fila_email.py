@@ -107,6 +107,6 @@ class RodarJobTests(_Base):
             call_command('rodar_job', 'nao-existe')
 
     def test_falha_do_job_vira_erro_do_comando(self):
-        with patch.dict('aranha_estetica.views.cron.JOB_MAP', {'x': lambda: 1 / 0}), \
+        with patch.dict('aranha_estetica.jobs.JOB_MAP', {'x': lambda: 1 / 0}), \
                 self.assertRaisesMessage(CommandError, 'x falhou'):
             call_command('rodar_job', 'x')

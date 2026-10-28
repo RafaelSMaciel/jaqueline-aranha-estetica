@@ -58,16 +58,14 @@ from .pacotes import (
     admin_pacotes, admin_criar_pacote, admin_editar_pacote, admin_vender_pacote,
     admin_cancelar_compra_pacote,
 )
-from .admin_management import (
-    admin_bloqueios, admin_criar_bloqueio, admin_excluir_bloqueio,
-    admin_procedimentos, admin_criar_procedimento, admin_editar_procedimento,
-    admin_cliente_detalhe, admin_lista_espera, admin_notificar_espera,
-    nps_web, admin_termos, admin_criar_termo, termo_assinatura,
-    admin_gerar_link_termo,
-    admin_email_preview,
-    admin_aprovar_agendamento, admin_rejeitar_agendamento,
-    admin_bulk_agendamentos,
-)
+from .admin_bloqueios import admin_bloqueios, admin_criar_bloqueio, admin_excluir_bloqueio
+from .admin_procedimentos import admin_procedimentos, admin_criar_procedimento, admin_editar_procedimento
+from .admin_clientes import admin_cliente_detalhe
+from .admin_lista_espera import admin_lista_espera, admin_notificar_espera
+from .nps_publico import nps_web
+from .termos import admin_termos, admin_criar_termo, termo_assinatura, admin_gerar_link_termo
+from .admin_email_preview import admin_email_preview
+from .admin_aprovacao import admin_aprovar_agendamento, admin_rejeitar_agendamento, admin_bulk_agendamentos
 from .profissional import (
     agenda as profissional_agenda,
     marcar_realizado as profissional_marcar_realizado,

@@ -3,3 +3,5 @@
 pytest==9.0.3
 pytest-django==4.12.0
 pip-audit==2.10.1
+# camadas views > services > models (pyproject.toml [tool.importlinter]; `lint-imports`)
+import-linter==2.15

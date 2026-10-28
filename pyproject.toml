@@ -8,3 +8,28 @@ testpaths = ["aranha_estetica/tests"]
 [tool.ruff]
 target-version = "py312"
 extend-exclude = ["aranha_estetica/migrations", "node_modules"]
+
+# Camadas (lint-imports; CI job Django SQLite): views > services > models. Para baixo pode, para
+# cima nao — cada excecao abaixo e uma inversao consciente (import tardio dentro da funcao).
+[tool.importlinter]
+root_package = "aranha_estetica"
+
+[[tool.importlinter.contracts]]
+name = "Camadas: views > services > models"
+type = "layers"
+layers = ["aranha_estetica.views", "aranha_estetica.services", "aranha_estetica.models"]
+ignore_imports = [
+    # a FSM aplica os efeitos da transicao (caso de uso) na mesma transacao do status
+    "aranha_estetica.models.agendamentos -> aranha_estetica.services.atendimento",
+    # Profissional.horarios_disponiveis() delega ao SlotService (atalho p/ templates/admin)
+    "aranha_estetica.models.profissionais -> aranha_estetica.services.disponibilidade",
+]
+
+[[tool.importlinter.contracts]]
+name = "utils, db, jobs e comandos nao importam views"
+type = "forbidden"
+source_modules = [
+    "aranha_estetica.utils", "aranha_estetica.db", "aranha_estetica.services", "aranha_estetica.models",
+    "aranha_estetica.jobs", "aranha_estetica.jobs_manutencao", "aranha_estetica.management",
+]
+forbidden_modules = ["aranha_estetica.views"]

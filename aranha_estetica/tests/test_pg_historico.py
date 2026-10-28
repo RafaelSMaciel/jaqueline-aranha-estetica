@@ -328,7 +328,7 @@ class ContextoDaSessaoTests(TestCase):
         from django.core.management import call_command
 
         visto = {}
-        with mock.patch.dict('aranha_estetica.views.cron.JOB_MAP', {'x': lambda: visto.setdefault('c', _contexto())}):
+        with mock.patch.dict('aranha_estetica.jobs.JOB_MAP', {'x': lambda: visto.setdefault('c', _contexto())}):
             call_command('rodar_job', 'x', stdout=StringIO())
         self.assertEqual(visto['c'], ('', '', 'comando:x'))
         self.assertEqual(_contexto(), ('', '', ''))
