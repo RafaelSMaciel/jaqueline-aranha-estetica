@@ -3,13 +3,14 @@
 // profissional, django-admin, meus agendamentos, links com token) NUNCA vai
 // para o Cache Storage — ele sobrevive ao logout em computador compartilhado.
 // Subir VERSION a cada mudanca: o activate apaga os caches antigos.
-const VERSION = 'v8';   // v8: JS das telas saiu de /static/js/ (sem versao) p/ o build do Vite
+const VERSION = 'v9';   // v9: icones novos (192/maskable) e pagina offline; v8: JS das telas no build do Vite
 const STATIC_CACHE = `aranha-static-${VERSION}`;
 const RUNTIME_CACHE = `aranha-runtime-${VERSION}`;
 const IMAGE_CACHE = `aranha-img-${VERSION}`;
 const PAGES_CACHE = `aranha-pages-${VERSION}`;
 
 const PRECACHE_URLS = [
+  '/static/assets/pwa/icon-192.png',
   '/static/assets/logo-completa.png',
   '/static/assets/favicon.png',
 ];
@@ -36,9 +37,15 @@ const MAX_PAGES_ENTRIES = 30;
 const MAX_IMAGE_ENTRIES = 60;
 
 const OFFLINE_HTML =
-  '<!doctype html><html lang="pt-br"><meta charset="utf-8"><title>Sem conexão</title>' +
-  '<body style="font-family:sans-serif;padding:2rem;text-align:center">' +
-  '<h1>Sem conexão</h1><p>Verifique sua internet e recarregue a página.</p></body></html>';
+  '<!doctype html><html lang="pt-br"><meta charset="utf-8">' +
+  '<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark">' +
+  '<title>Sem conexão</title>' +
+  '<body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#FAFAF8;color:#1B1F23;' +
+  'font-family:Lato,system-ui,sans-serif;text-align:center;padding:2rem">' +
+  '<main><img src="/static/assets/pwa/icon-192.png" alt="" width="96" height="96" style="border-radius:24px">' +
+  '<h1 style="font-family:Georgia,serif;font-weight:600;color:#7A5F1F">Sem conexão</h1>' +
+  '<p>Verifique sua internet e tente de novo.</p>' +
+  '<p><a href="" style="color:#7A5F1F;font-weight:700">Recarregar</a></p></main></body></html>';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
