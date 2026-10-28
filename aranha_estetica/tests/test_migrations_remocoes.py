@@ -243,3 +243,29 @@ class NotificacaoRespondida0067AbortaTests(_AbortaBase):
         self.assertNotIn(f'notificacao.id={sem_resposta.pk} ', msg)
         self.assertTrue(Notificacao.objects.filter(pk=sem_resposta.pk).exists())   # nada aplicado
         Notificacao.objects.filter(pk=respondida.pk).delete()   # o tearDown sobe ate o fim
+
+
+# ─── 0068: cadastro sem RG, profissao e foto ──────────────────────────────
+M0068 = '0068_cliente_dados_sem_finalidade'
+
+
+@tag('migracoes')
+class ClienteSemDadoSemFinalidade0068Tests(_MigracaoBase):
+    """0068: rg, profissao e url_foto saem; o resto do cadastro fica intacto."""
+    migrate_from = M0067
+    migrate_to = M0068
+
+    def preparar(self, apps):
+        Cliente = apps.get_model(APP, 'Cliente')
+        self.cli = Cliente.objects.create(
+            nome='Cli 0068', telefone='11966680068', cpf='52998224725', cep='15000000', endereco='Rua A, 1',
+            rg='123456', profissao='Designer', foto_url='https://exemplo.test/f.jpg',
+        ).pk
+
+    def test_colunas_saem_e_o_cadastro_fica(self):
+        with connection.cursor() as cursor:
+            colunas = {c.name for c in connection.introspection.get_table_description(cursor, 'cliente')}
+        self.assertFalse({'rg', 'profissao', 'url_foto'} & colunas)
+        cli = self.apps.get_model(APP, 'Cliente').objects.get(pk=self.cli)
+        self.assertEqual((cli.nome, cli.cpf, cli.cep, cli.endereco),
+                         ('Cli 0068', '52998224725', '15000000', 'Rua A, 1'))

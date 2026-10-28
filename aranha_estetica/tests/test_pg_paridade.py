@@ -460,7 +460,7 @@ def _foto_lgpd():
     """Estado normalizado das tabelas que a anonimizacao/retencao tocam (ids novos e instantes fora)."""
     return {
         'cliente': _q(
-            'SELECT id, nome, cpf, rg, email, telefone, cep, endereco, profissao, data_nascimento, url_foto, '
+            'SELECT id, nome, cpf, email, telefone, cep, endereco, data_nascimento, '
             'eh_ativo, deletado_em IS NOT NULL, qtd_faltas_consecutivas, eh_bloqueado_online '
             'FROM cliente ORDER BY id'),
         'consentimento': _ordenado(_q(
@@ -517,9 +517,8 @@ class ParidadeLgpdTests(TestCase):
 
     def _titular(self, nome, telefone, email, cpf, dia_futuro=5):
         """Titular com rastro em todas as tabelas que o esquecimento toca."""
-        cli = criar_cliente(nome=nome, telefone=telefone, email=email, cpf=cpf, rg='123456', cep='15000000',
-                            endereco='Rua A, 1', profissao='Designer', data_nascimento=date(1990, 5, 1),
-                            foto_url='https://exemplo.com/f.jpg')
+        cli = criar_cliente(nome=nome, telefone=telefone, email=email, cpf=cpf, cep='15000000',
+                            endereco='Rua A, 1', data_nascimento=date(1990, 5, 1))
         conceder(cli, 'consent_email_marketing', ip='10.0.0.1', user_agent='UA titular')
         conceder(cli, 'consent_whatsapp_confirmacao')
         conceder(cli, 'consent_whatsapp_nps')

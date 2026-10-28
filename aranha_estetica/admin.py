@@ -248,7 +248,7 @@ class ClienteAdmin(admin.ModelAdmin):
     list_per_page = 50
     fieldsets = (
         ('Identificacao', {
-            'fields': ('nome', 'data_nascimento', 'cpf', 'rg', 'profissao'),
+            'fields': ('nome', 'data_nascimento', 'cpf'),
         }),
         ('Contato', {
             'fields': ('email', 'telefone', 'cep', 'endereco'),
