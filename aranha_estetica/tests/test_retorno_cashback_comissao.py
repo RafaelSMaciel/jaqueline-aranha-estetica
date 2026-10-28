@@ -310,3 +310,54 @@ class ListaEsperaHandlerTests(TestCase):
         with self.captureOnCommitCallbacks(execute=True):
             atend.cancelar(motivo='teste')
         mock_email.assert_not_called()
+
+
+class CreditoIndicacaoUsoTests(TestCase):
+    """O credito de indicacao agora e visivel e usavel: abate no atendimento e volta se nao acontecer."""
+
+    def setUp(self):
+        from decimal import Decimal
+
+        from aranha_estetica.models import Carteira, MovimentoCarteira
+        from .factories import criar_atendimento, criar_cliente, criar_procedimento, criar_profissional
+        self.prof = criar_profissional()
+        self.proc = criar_procedimento(profissional=self.prof)
+        self.cli = criar_cliente()
+        carteira = Carteira.objects.create(cliente=self.cli, saldo=Decimal('50.00'))
+        MovimentoCarteira.objects.create(carteira=carteira, tipo='CREDITO', origem='CASHBACK_INDICACAO',
+                                         valor=Decimal('50.00'), saldo_resultante=Decimal('50.00'))
+        self.at = criar_atendimento(self.cli, self.prof, self.proc)
+        type(self.at).objects.filter(pk=self.at.pk).update(valor_cobrado=Decimal('30.00'))
+        self.at.refresh_from_db()
+
+    def test_abate_ate_o_valor_e_devolve_ao_cancelar(self):
+        from decimal import Decimal
+
+        from aranha_estetica.excecoes import RegraDeNegocio
+        from aranha_estetica.models import Carteira
+        from aranha_estetica.services.fidelidade import FidelidadeService
+        with self.assertRaises(RegraDeNegocio):
+            FidelidadeService.usar_credito(self.at, Decimal('40.00'))     # acima do valor do atendimento
+        FidelidadeService.usar_credito(self.at, Decimal('30.00'))
+        self.assertEqual(Carteira.objects.get(cliente=self.cli).saldo, Decimal('20.00'))
+        self.assertEqual(FidelidadeService.creditos_usados([self.at.pk]), {self.at.pk: Decimal('30.00')})
+        with self.assertRaises(RegraDeNegocio):
+            FidelidadeService.usar_credito(self.at, Decimal('10.00'))     # 1 uso por atendimento
+        self.at.cancelar(motivo='desistiu')
+        self.assertEqual(Carteira.objects.get(cliente=self.cli).saldo, Decimal('50.00'))
+        self.assertEqual(FidelidadeService.creditos_usados([self.at.pk]), {})
+
+    def test_painel_abate_pelo_formulario_de_valor_e_ficha_mostra_extrato(self):
+        from decimal import Decimal
+
+        from django.urls import reverse
+
+        from aranha_estetica.models import Carteira, Usuario
+        admin = Usuario.objects.create_superuser(email='adm@credito.test', password='x')
+        self.client.force_login(admin)
+        self.client.post(reverse('aranha:admin_atendimento_valor', args=[self.at.pk]),
+                         {'valor': '30,00', 'usar_credito': '1'})
+        self.assertEqual(Carteira.objects.get(cliente=self.cli).saldo, Decimal('20.00'))
+        ficha = self.client.get(reverse('aranha:admin_cliente_detalhe', args=[self.cli.pk]))
+        self.assertContains(ficha, 'Uso em atendimento')
+        self.assertContains(ficha, 'Crédito de indicação disponível')

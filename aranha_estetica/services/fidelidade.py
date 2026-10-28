@@ -147,3 +147,77 @@ class FidelidadeService:
             estornados += 1
         return estornados
 
+
+    # ─── uso do credito (a cliente abate o proprio saldo num atendimento) ───────
+    @staticmethod
+    def saldos(cliente_ids) -> dict:
+        """{cliente_id: saldo > 0} das carteiras (1 consulta p/ a lista)."""
+        return dict(Carteira.objects.filter(cliente_id__in=set(cliente_ids), saldo__gt=0)
+                    .values_list('cliente_id', 'saldo'))
+
+    @staticmethod
+    def creditos_usados(atendimento_ids) -> dict:
+        """{atendimento_id: valor abatido e nao devolvido}."""
+        from django.db.models import Sum
+        usos = dict(MovimentoCarteira.objects.filter(
+            atendimento_id__in=set(atendimento_ids), origem=MovimentoCarteira.Origem.USO_AGENDAMENTO,
+            tipo=MovimentoCarteira.Tipo.DEBITO,
+        ).values('atendimento_id').annotate(total=Sum('valor')).values_list('atendimento_id', 'total'))
+        devolvidos = dict(MovimentoCarteira.objects.filter(
+            atendimento_id__in=set(usos), origem=MovimentoCarteira.Origem.CANCELAMENTO,
+            tipo=MovimentoCarteira.Tipo.CREDITO,
+        ).values('atendimento_id').annotate(total=Sum('valor')).values_list('atendimento_id', 'total'))
+        return {at: total - devolvidos.get(at, Decimal('0')) for at, total in usos.items()
+                if total - devolvidos.get(at, Decimal('0')) > 0}
+
+    @staticmethod
+    @transaction.atomic
+    def usar_credito(atendimento: Atendimento, valor: Decimal, usuario=None) -> MovimentoCarteira:
+        """Abate `valor` do credito da cliente no atendimento (DEBITO USO_AGENDAMENTO, com autor).
+
+        Limites: ate o saldo e ate o valor do atendimento; 1 uso por atendimento; nao em retorno,
+        cancelado, faltou ou reagendado. O valor_cobrado segue cheio (base da comissao: a
+        profissional nao paga o marketing da clinica) — o desconto aparece no painel e no
+        financeiro como "credito de indicacao usado". Cancelar/faltar/reagendar devolve.
+        """
+        from ..excecoes import RegraDeNegocio
+
+        if atendimento.eh_retorno or atendimento.status in (
+                Atendimento.STATUS_CANCELADO, Atendimento.STATUS_FALTOU, Atendimento.STATUS_REAGENDADO):
+            raise RegraDeNegocio('Este atendimento não aceita crédito de indicação.', codigo='credito_invalido')
+        if FidelidadeService.creditos_usados([atendimento.pk]):
+            raise RegraDeNegocio('O crédito já foi usado neste atendimento.', codigo='credito_ja_usado')
+        carteira = Carteira.objects.select_for_update().filter(cliente_id=atendimento.cliente_id).first()
+        saldo = carteira.saldo if carteira else Decimal('0')
+        limite = min(saldo, atendimento.valor_cobrado or Decimal('0'))
+        if valor <= 0 or valor > limite:
+            raise RegraDeNegocio(f'Crédito disponível para este atendimento: até R$ {limite:.2f}.'.replace('.', ','),
+                                 codigo='credito_insuficiente')
+        movimento = MovimentoCarteira.objects.create(
+            carteira=carteira, tipo=MovimentoCarteira.Tipo.DEBITO, origem=MovimentoCarteira.Origem.USO_AGENDAMENTO,
+            valor=valor, saldo_resultante=saldo - valor, atendimento=atendimento,
+            usuario=usuario if getattr(usuario, 'pk', None) else None,
+            observacoes=f'Uso no atendimento #{atendimento.pk}',
+        )
+        carteira.saldo = saldo - valor
+        carteira.save(update_fields=['saldo', 'atualizado_em'])
+        logger.info('credito_indicacao_usado', extra={'atendimento_id': atendimento.pk, 'valor': str(valor)})
+        return movimento
+
+    @staticmethod
+    @transaction.atomic
+    def devolver_credito_usado(atendimento: Atendimento) -> int:
+        """Atendimento que nao aconteceu (cancelado, faltou, reagendado): o credito abatido volta
+        (CREDITO CANCELAMENTO). Idempotente."""
+        usado = FidelidadeService.creditos_usados([atendimento.pk]).get(atendimento.pk)
+        if not usado:
+            return 0
+        carteira = Carteira.objects.select_for_update().get(cliente_id=atendimento.cliente_id)
+        MovimentoCarteira.objects.create(
+            carteira=carteira, tipo=MovimentoCarteira.Tipo.CREDITO, origem=MovimentoCarteira.Origem.CANCELAMENTO,
+            valor=usado, saldo_resultante=carteira.saldo + usado, atendimento=atendimento,
+            observacoes=f'Devolução do uso no atendimento #{atendimento.pk}',
+        )
+        carteira.saldo += usado
+        carteira.save(update_fields=['saldo', 'atualizado_em'])
+        return 1

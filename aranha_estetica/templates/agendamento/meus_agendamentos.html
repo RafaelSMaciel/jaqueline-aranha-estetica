@@ -458,6 +458,17 @@
                 </div>
             </div>
 
+            {% if indicacao %}
+            <div class="rounded-2xl border border-borda bg-superficie p-4 mb-6 text-[0.9rem] text-texto">
+                <strong>Indique uma amiga e ganhe crédito.</strong>
+                Passe o seu código <strong class="text-marca-forte">{{ indicacao.codigo }}</strong>: quando ela fizer o
+                primeiro atendimento, você ganha {{ indicacao.valor|brl }} para usar no seu próximo cuidado.
+                {% if indicacao.saldo %}
+                <div class="mt-1">Seu crédito disponível: <strong class="text-sucesso">{{ indicacao.saldo|brl }}</strong> — é só avisar na recepção.</div>
+                {% endif %}
+            </div>
+            {% endif %}
+
             <!-- Summary cards -->
             <div class="summary-row">
                 <div class="summary-card">

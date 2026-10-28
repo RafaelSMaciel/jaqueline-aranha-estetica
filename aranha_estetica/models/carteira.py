@@ -41,17 +41,17 @@ class Carteira(TimestampedMixin):
 
 
 class TipoMovimentoCarteira(models.TextChoices):
-    CREDITO = 'CREDITO', 'Credito (vale, refund, ajuste+)'
-    DEBITO = 'DEBITO', 'Debito (uso, ajuste-)'
+    CREDITO = 'CREDITO', 'Crédito'
+    DEBITO = 'DEBITO', 'Débito'
 
 
 class OrigemMovimentoCarteira(models.TextChoices):
-    VALE_PRESENTE = 'VALE_PRESENTE', 'Vale presente'
-    CANCELAMENTO = 'CANCELAMENTO', 'Refund cancelamento'
+    VALE_PRESENTE = 'VALE_PRESENTE', 'Vale-presente'
+    CANCELAMENTO = 'CANCELAMENTO', 'Devolução (atendimento não realizado)'
     AJUSTE_MANUAL = 'AJUSTE_MANUAL', 'Ajuste manual'
-    USO_AGENDAMENTO = 'USO_AGENDAMENTO', 'Uso em agendamento'
-    CASHBACK_INDICACAO = 'CASHBACK_INDICACAO', 'Cashback por indicacao'
-    CASHBACK_ESTORNO = 'CASHBACK_ESTORNO', 'Estorno cashback'
+    USO_AGENDAMENTO = 'USO_AGENDAMENTO', 'Uso em atendimento'
+    CASHBACK_INDICACAO = 'CASHBACK_INDICACAO', 'Crédito por indicação'
+    CASHBACK_ESTORNO = 'CASHBACK_ESTORNO', 'Estorno do crédito por indicação'
     OUTRO = 'OUTRO', 'Outro'
 
 

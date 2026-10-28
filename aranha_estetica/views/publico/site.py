@@ -93,7 +93,8 @@ def home(request):
                  'a': 'Aceitamos PIX, cartão de débito, cartão de crédito (com parcelamento) e dinheiro.'},
                 {'q': 'Como funcionam os pacotes de sessões?',
                  'a': 'Os pacotes reúnem um número de sessões por um valor fechado, com validade definida e condições especiais em relação às sessões avulsas.'},
-                # Sem 'credito por indicacao': nao ha tela p/ registrar quem indicou nem usar o saldo.
+                {'q': 'Ganho algo indicando uma amiga?',
+                 'a': 'Sim. Seu código de indicação fica em "Meus agendamentos": quando a amiga informar o código e fizer o primeiro atendimento, você ganha um crédito para usar no seu próximo cuidado.'},
             ],
         },
         {

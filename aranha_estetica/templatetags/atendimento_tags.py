@@ -16,16 +16,18 @@ def marcadores_atendimentos(atendimentos):
     termo_pendente: termo de procedimento ainda nao aceito (atendimento ativo);
     termo_link: dos pendentes, os que ainda aceitam assinatura (link valido);
     ficha_pendente: ficha de anamnese obrigatoria nunca respondida (ativo);
-    pacote: sessao debitada de pacote (nao cobrar de novo).
+    pacote: sessao debitada de pacote (nao cobrar de novo);
+    saldo: {cliente_id: credito de indicacao disponivel}; credito_usado: {atendimento_id: valor abatido}.
     """
     from ..models import ConsumoSessao
     from ..services.alertas import alertas_por_cliente, ids_com_ficha_pendente
+    from ..services.fidelidade import FidelidadeService
     from ..services.termos import aceita_assinatura, ids_com_termo_procedimento_pendente
 
     lista = list(atendimentos or [])
     if not lista:
         return {'alertas': {}, 'termo_pendente': set(), 'termo_link': set(),
-                'ficha_pendente': set(), 'pacote': set()}
+                'ficha_pendente': set(), 'pacote': set(), 'saldo': {}, 'credito_usado': {}}
     termo_pendente = ids_com_termo_procedimento_pendente(lista)
     return {
         'alertas': alertas_por_cliente(at.cliente for at in lista),
@@ -36,4 +38,6 @@ def marcadores_atendimentos(atendimentos):
             ConsumoSessao.objects.filter(atendimento_id__in=[at.pk for at in lista])
             .values_list('atendimento_id', flat=True)
         ),
+        'saldo': FidelidadeService.saldos(at.cliente_id for at in lista),
+        'credito_usado': FidelidadeService.creditos_usados(at.pk for at in lista),
     }

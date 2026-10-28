@@ -1,5 +1,5 @@
 {% extends 'painel/base_v2.html' %}
-{% load atendimento_tags dict_extras %}
+{% load atendimento_tags dict_extras l10n %}
 
 {% block titulo %}Agendamentos — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Agendamentos{% endblock %}
@@ -149,6 +149,9 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
       <span class="px-2 py-0.5 rounded-full text-[0.7rem] font-bold bg-info-fundo text-info">Pacote</span>
       {% elif agend.valor_cobrado is not None %}
       <span class="text-[0.78rem] font-bold text-sucesso">{{ agend.valor_cobrado|brl }}</span>
+      {% with usado=marc.credito_usado|get_item:agend.pk %}{% if usado %}
+      <span class="text-[0.72rem] font-bold text-info" title="Crédito de indicação abatido">− {{ usado|brl }} crédito</span>
+      {% endif %}{% endwith %}
       {% endif %}
       {% if agend.pk not in marc.pacote and not agend.eh_retorno and agend.status != 'CANCELADO' and agend.status != 'FALTOU' and agend.status != 'REAGENDADO' %}
       {# Valor combinado / "a consultar": registrado aqui (realizado: a comissao pendente e recalculada) #}
@@ -162,7 +165,13 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
           {% csrf_token %}
           <label class="sr-only" for="valor-{{ agend.pk }}">Valor cobrado de {{ agend.cliente.nome }}</label>
           <input id="valor-{{ agend.pk }}" type="text" name="valor" inputmode="decimal" required placeholder="150,00"
+                 {% if agend.valor_cobrado is not None %}value="{{ agend.valor_cobrado|unlocalize }}"{% endif %}
                  class="w-24 px-2 py-1 rounded-lg border border-borda bg-fundo text-[0.8rem] text-texto">
+          {% with saldo=marc.saldo|get_item:agend.cliente_id %}{% if saldo and not marc.credito_usado|get_item:agend.pk %}
+          <label class="inline-flex items-center gap-1 text-[0.7rem] text-texto whitespace-nowrap">
+            <input type="checkbox" name="usar_credito" value="1" class="rounded border-borda"> Abater crédito ({{ saldo|brl }})
+          </label>
+          {% endif %}{% endwith %}
           <button type="submit" class="px-2.5 py-1 rounded-lg bg-green-700 text-white text-[0.72rem] font-bold border-none cursor-pointer hover:bg-green-800">Salvar</button>
         </form>
       </details>
