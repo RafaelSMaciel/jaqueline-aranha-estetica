@@ -99,17 +99,20 @@ class ItemPacote(models.Model):
         ]
 
 
+class StatusCompraPacote(models.TextChoices):
+    ATIVO = 'ATIVO', 'Ativo'
+    FINALIZADO = 'FINALIZADO', 'Finalizado'
+    CANCELADO = 'CANCELADO', 'Cancelado'
+    EXPIRADO = 'EXPIRADO', 'Expirado'
+
+
 class CompraPacote(models.Model):
-    STATUS_ATIVO = 'ATIVO'
-    STATUS_FINALIZADO = 'FINALIZADO'
-    STATUS_CANCELADO = 'CANCELADO'
-    STATUS_EXPIRADO = 'EXPIRADO'
-    STATUS_CHOICES = [
-        (STATUS_ATIVO, 'Ativo'),
-        (STATUS_FINALIZADO, 'Finalizado'),
-        (STATUS_CANCELADO, 'Cancelado'),
-        (STATUS_EXPIRADO, 'Expirado'),
-    ]
+    Status = StatusCompraPacote
+    STATUS_ATIVO = StatusCompraPacote.ATIVO
+    STATUS_FINALIZADO = StatusCompraPacote.FINALIZADO
+    STATUS_CANCELADO = StatusCompraPacote.CANCELADO
+    STATUS_EXPIRADO = StatusCompraPacote.EXPIRADO
+    STATUS_CHOICES = StatusCompraPacote.choices
 
     # PROTECT: compra e registro fiscal — nao cascateia com o cliente
     # FKs sem indice automatico: cliente coberto pelo ix_compra_pacote_cliente_status, pacote pelo ix_
@@ -130,7 +133,10 @@ class CompraPacote(models.Model):
     valor_reembolsado = models.DecimalField(
         max_digits=10, decimal_places=2, default=0, db_default=0, validators=[MinValueValidator(0)],
     )
-    status = models.CharField(max_length=20, default='ATIVO', db_default='ATIVO', choices=STATUS_CHOICES)
+    status = models.CharField(
+        max_length=20, default=StatusCompraPacote.ATIVO, db_default=StatusCompraPacote.ATIVO,
+        choices=StatusCompraPacote.choices,
+    )
     data_expiracao = models.DateField(
         blank=True, null=True,
         db_comment=(
@@ -159,7 +165,7 @@ class CompraPacote(models.Model):
         ]
         constraints = [
             models.CheckConstraint(
-                condition=models.Q(status__in=['ATIVO', 'FINALIZADO', 'CANCELADO', 'EXPIRADO']),
+                condition=models.Q(status__in=StatusCompraPacote.values),
                 name='ck_compra_pacote_status'
             ),
             models.CheckConstraint(
