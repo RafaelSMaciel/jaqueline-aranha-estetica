@@ -149,9 +149,9 @@ class LembreteD1Tests(TestCase):
         self.proc = criar_procedimento(profissional=self.prof)
 
     def _enviar(self):
-        from aranha_estetica.jobs import job_enviar_lembrete_dia_seguinte
-        with patch.object(wa_utils, 'enviar_template_whatsapp', return_value=True) as fake:
-            job_enviar_lembrete_dia_seguinte()
+        from aranha_estetica.jobs import job_lembrete_diario
+        with patch.object(wa_utils, 'enviar_template', return_value=True) as fake:
+            job_lembrete_diario()
         return fake
 
     def test_so_quem_autorizou_e_nao_revogou(self):
@@ -183,7 +183,7 @@ class NpsConsentimentoTests(TestCase):
         return criar_atendimento(cli, self.prof, self.proc, data_hora=inicio, status='REALIZADO')
 
     def test_candidatos_respeitam_ultimo_registro(self):
-        from aranha_estetica.jobs import candidatos_nps
+        from aranha_estetica.services.nps import candidatos
         ok = self._realizado(criar_cliente(consent_whatsapp_nps=True))
         descadastrada = criar_cliente(consent_whatsapp_nps=True)
         LgpdService.unsubscribe_por_token(criar_link('DESCADASTRO', descadastrada))
@@ -193,14 +193,14 @@ class NpsConsentimentoTests(TestCase):
         consentimentos.registrar(voltou, *NPS, True, origem='AGENDAMENTO_ONLINE')
         at_voltou = self._realizado(voltou)
         self._realizado(criar_cliente(consent_whatsapp_confirmacao=True))  # outro par nao vale
-        self.assertEqual(set(candidatos_nps().values_list('pk', flat=True)), {ok.pk, at_voltou.pk})
+        self.assertEqual(set(candidatos().values_list('pk', flat=True)), {ok.pk, at_voltou.pk})
 
     def test_contagem_de_falhas_continua_com_a_anotacao(self):
-        from aranha_estetica.jobs import candidatos_nps
+        from aranha_estetica.services.nps import candidatos
         at = self._realizado(criar_cliente(consent_whatsapp_nps=True))
         for _ in range(2):
             Notificacao.objects.create(atendimento=at, tipo='NPS', status='FALHOU')
-        self.assertEqual(list(candidatos_nps().values_list('pk', 'nps_falhas')), [(at.pk, 2)])
+        self.assertEqual(list(candidatos().values_list('pk', 'nps_falhas')), [(at.pk, 2)])
 
 
 @override_settings(EMAIL_BACKEND=LOCMEM, SITE_URL='https://clinica.example.com')
@@ -214,23 +214,23 @@ class MarketingEmailTests(TestCase):
         return autorizou
 
     def test_aniversario_so_para_marketing_vigente(self):
-        from aranha_estetica.jobs import job_aniversario_clientes
+        from aranha_estetica.jobs import job_aniversario
         hoje = timezone.localdate()
         # 1992 e bissexto: hoje.replace() nao estoura em 29/02
         self._clientes(data_nascimento=hoje.replace(year=1992))
-        job_aniversario_clientes()
+        job_aniversario()
         self.assertEqual([m.to[0] for m in mail.outbox], ['sim@example.com'])
 
-    def test_promocao_mensal_so_para_marketing_vigente(self):
-        from aranha_estetica.jobs import job_promocao_mensal
-        self._clientes()
-        job_promocao_mensal('Promo', '<p>Oferta</p>')
-        self.assertEqual([m.to[0] for m in mail.outbox], ['sim@example.com'])
-
-    def test_promocao_do_painel_mesmo_publico(self):
-        from aranha_estetica.views.painel.promocoes import _destinatarios_promocao
+    def test_promocao_so_para_marketing_vigente(self):
+        from aranha_estetica.models import Promocao
+        from aranha_estetica.services import marketing
         autorizou = self._clientes()
-        self.assertEqual(list(_destinatarios_promocao()), [autorizou])
+        hoje = timezone.localdate()
+        promo = Promocao.objects.create(nome='Promo', descricao='<p>Oferta</p>', desconto_percentual=10,
+                                        data_inicio=hoje, data_fim=hoje)
+        self.assertEqual(list(marketing.destinatarios_promocao()), [autorizou])
+        self.assertEqual(marketing.enviar_promocao(promo), (1, 0, 0))
+        self.assertEqual([m.to[0] for m in mail.outbox], ['sim@example.com'])
 
 
 class ListaEsperaWhatsAppTests(TestCase):
@@ -238,7 +238,7 @@ class ListaEsperaWhatsAppTests(TestCase):
         self.prof = criar_profissional()
         self.proc = criar_procedimento(profissional=self.prof)
 
-    @patch('aranha_estetica.utils.whatsapp.enviar_template_whatsapp', return_value=True)
+    @patch('aranha_estetica.utils.whatsapp.enviar_template', return_value=True)
     def test_aviso_de_vaga_por_whatsapp_exige_lembrete_vigente(self, fake):
         from aranha_estetica.services.lista_espera import _enviar_wa_lista_espera
         slot = criar_atendimento(criar_cliente(), self.prof, self.proc)
