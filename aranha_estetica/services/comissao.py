@@ -288,6 +288,30 @@ class ComissaoService:
         return ComissaoService.saldos_por_profissional(pk).get(pk, ZERO)
 
     @staticmethod
+    def ha_regra_ativa() -> bool:
+        """Sem nenhuma regra ativa nenhuma comissao e gerada — Comissoes e Financeiro avisam."""
+        return RegraComissao.objects.filter(ativo=True).exists()
+
+    @staticmethod
+    def totais_por_status(creditos) -> dict:
+        """{status: {'total', 'qtd'}} dos CREDITOs (``creditos_com_status()`` ja filtrado), com os
+        3 status sempre presentes."""
+        totais: dict[str, dict[str, Any]] = {
+            status: {'total': ZERO, 'qtd': 0} for status in MovimentoComissao.Status.values
+        }
+        for status, valor in creditos.order_by().values_list('status', 'valor'):
+            totais[status]['total'] += valor
+            totais[status]['qtd'] += 1
+        return totais
+
+    @staticmethod
+    def profissionais_do_filtro():
+        """Profissionais do filtro de Comissoes: as ativas e as INATIVAS com saldo a pagar != 0 (quem
+        saiu com comissao pendente precisa do repasse)."""
+        com_saldo = [pk for pk, saldo in ComissaoService.saldos_por_profissional().items() if saldo]
+        return Profissional.objects.filter(Q(ativo=True) | Q(pk__in=com_saldo)).order_by('-ativo', 'nome')
+
+    @staticmethod
     def resumo_por_profissional(creditos, profissional_id: Optional[int] = None) -> list:
         """Linhas do painel por profissional: pendente/paga/qtd dos CREDITOs do filtro
         (``creditos`` = creditos_com_status() ja filtrado) + saldo a pagar do ledger
@@ -314,6 +338,7 @@ class ComissaoService:
             linhas[prof_id] = {'profissional_id': prof_id, 'profissional__nome': nome,
                                'pendente': ZERO, 'paga': ZERO, 'qtd': 0}
         for linha in linhas.values():
+            linha['gerada'] = linha['pendente'] + linha['paga']
             linha['saldo'] = saldos.get(linha['profissional_id'], ZERO)
             linha['saldo_negativo'] = linha['saldo'] < 0
         return sorted(linhas.values(), key=lambda r: (-r['pendente'], r['profissional__nome'] or ''))

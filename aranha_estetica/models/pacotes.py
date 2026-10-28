@@ -175,13 +175,17 @@ class CompraPacote(models.Model):
             'marcado EXPIRADO.'
         ),
     )
+    cancelado_em = models.DateTimeField(
+        blank=True, null=True,
+        db_comment='Instante do cancelamento: o reembolso deduz a receita do mes deste instante (competencia).',
+    )
 
     class Meta:
         managed = True
         db_table = 'compra_pacote'
         db_table_comment = (
-            'Venda de pacote (registro fiscal, PROTECT). Receita = valor_pago - valor_reembolsado na data '
-            'da venda (D20).'
+            'Venda de pacote (registro fiscal, PROTECT). Receita por competencia (D20): valor_pago no mes da '
+            'venda; valor_reembolsado deduz no mes do cancelamento (cancelado_em).'
         )
         indexes = [
             Indice(fields=['cliente', 'status'], name='ix_compra_pacote_cliente_status'),
@@ -192,6 +196,11 @@ class CompraPacote(models.Model):
             Indice(
                 fields=['data_expiracao'], condition=models.Q(status='ATIVO'),
                 name='ix_compra_pacote_data_expiracao_ativo_parcial',
+            ),
+            # reembolsos por mes (financeiro por competencia, vw_faturamento_mensal)
+            Indice(
+                fields=['cancelado_em'], condition=models.Q(cancelado_em__isnull=False),
+                name='ix_compra_pacote_cancelado_em_parcial',
             ),
         ]
         constraints = [
@@ -208,6 +217,19 @@ class CompraPacote(models.Model):
                 condition=models.Q(valor_reembolsado__gte=0)
                 & models.Q(valor_reembolsado__lte=models.F('valor_pago')),
                 name='ck_compra_pacote_valor_reembolsado',
+            ),
+            # cancelado_em acompanha o status (o reembolso precisa de um mes para deduzir)
+            models.CheckConstraint(
+                condition=(
+                    (models.Q(status=StatusCompraPacote.CANCELADO) & models.Q(cancelado_em__isnull=False))
+                    | (~models.Q(status=StatusCompraPacote.CANCELADO) & models.Q(cancelado_em__isnull=True))
+                ),
+                name='ck_compra_pacote_cancelado_em_coerente',
+            ),
+            # so a compra cancelada devolve dinheiro
+            models.CheckConstraint(
+                condition=models.Q(valor_reembolsado=0) | models.Q(status=StatusCompraPacote.CANCELADO),
+                name='ck_compra_pacote_reembolso_so_cancelado',
             ),
         ]
 
@@ -273,6 +295,12 @@ class CompraPacote(models.Model):
             self.data_expiracao = (
                 timezone.localdate() + relativedelta(months=self.pacote.validade_meses)
             )
+        if self.status == self.STATUS_CANCELADO and self.cancelado_em is None:
+            # o fluxo real (services.pacotes.cancelar_compra) grava o instante; aqui so o invariante
+            # do ck_compra_pacote_cancelado_em_coerente p/ quem cria/salva a compra ja cancelada
+            self.cancelado_em = timezone.now()
+            if kwargs.get('update_fields') is not None:
+                kwargs['update_fields'] = {*kwargs['update_fields'], 'cancelado_em'}
         super().save(*args, **kwargs)
 
     # ─── saldo (itens congelados) ───────────────────────────────────────
@@ -366,8 +394,8 @@ class CompraPacoteItem(models.Model):
     valor_unitario = models.DecimalField(
         max_digits=10, decimal_places=2,
         db_comment=(
-            'Rateio do valor pago por sessao: round(valor_pago / total de sessoes da compra, 2) '
-            '- base da comissao da sessao de pacote (D20). 0 = item reconstruido pela 0052.'
+            'Valor de 1 sessao: valor pago rateado pelo preco de tabela de cada procedimento no dia da '
+            'venda (uniforme sem preco) - base da comissao da sessao de pacote (D20). 0 = reconstruido pela 0052.'
         ),
     )
     criado_em = models.DateTimeField(default=timezone.now, db_default=Now(), editable=False)
