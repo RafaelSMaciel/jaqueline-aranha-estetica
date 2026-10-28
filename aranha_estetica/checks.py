@@ -228,7 +228,8 @@ def check_config_producao(app_configs=None, databases=None, **kwargs):
             id='aranha.W009',
         ))
 
-    backend = getattr(settings, 'EMAIL_BACKEND', '') or ''
+    # ambiente de testes (staging): a trava BackendAmbienteTeste entrega pelo backend real
+    backend = getattr(settings, 'EMAIL_BACKEND_REAL', '') or getattr(settings, 'EMAIL_BACKEND', '') or ''
     if backend.endswith(_EMAIL_SEM_ENTREGA):
         avisos.append(checks.Warning(
             f'EMAIL_BACKEND={backend!r}: nenhum e-mail e entregue (reset de senha, '
