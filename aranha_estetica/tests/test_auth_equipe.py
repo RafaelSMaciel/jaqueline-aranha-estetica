@@ -486,9 +486,25 @@ class UsuarioFormTests(TestCase):
         self.assertFalse(parser.aninhado, 'form de reset aninhado no form de edicao')
         self.assertContains(resp, reverse('aranha:admin_resetar_senha_usuario', args=[self.outro.pk]))
 
-    def test_criar_oculta_recepcao(self):
+    def test_papeis_sao_so_admin_e_profissional(self):
+        """RECEPCAO saiu (0066): nao aparece no select e o POST com ele e recusado."""
         resp = self.c.get(reverse('aranha:admin_criar_usuario'))
+        self.assertContains(resp, 'value="ADMIN"')
+        self.assertContains(resp, 'value="PROFISSIONAL"')
         self.assertNotContains(resp, 'value="RECEPCAO"')
+        resp = self.c.post(reverse('aranha:admin_criar_usuario'), {
+            'nome': 'Rec', 'email': 'rec@test.com', 'papel': 'RECEPCAO', 'senha': SENHA,
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'Papel inválido.')
+        self.assertFalse(Usuario.objects.filter(email='rec@test.com').exists())
+        resp = self.c.post(reverse('aranha:admin_editar_usuario', args=[self.outro.pk]), {
+            'nome': 'X', 'email': 'prof@test.com', 'papel': 'RECEPCAO',
+            'profissional_id': self.prof.pk, 'ativo': '1',
+        })
+        self.assertContains(resp, 'Papel inválido.')
+        self.outro.refresh_from_db()
+        self.assertEqual(self.outro.papel, Usuario.PAPEL_PROFISSIONAL)
 
     def test_editar_email_duplicado_mostra_erro(self):
         resp = self.c.post(reverse('aranha:admin_editar_usuario', args=[self.outro.pk]), {
@@ -934,11 +950,6 @@ class Obrigatoriedade2FAPorRequestTests(TestCase):
             self.assertFalse(dois_fatores.obrigatorio_para(prof_user))
         with override_settings(PROFISSIONAL_2FA_OBRIGATORIO=True):
             self.assertTrue(dois_fatores.obrigatorio_para(prof_user))
-        recepcao = Usuario.objects.create_user(
-            email='rec@test.com', password=SENHA, nome='Rec', papel=Usuario.PAPEL_RECEPCAO,
-        )
-        with override_settings(PROFISSIONAL_2FA_OBRIGATORIO=True):
-            self.assertFalse(dois_fatores.obrigatorio_para(recepcao))
 
 
 # ─── wave 3 / rev_security-08: assinatura de push exige o 2FA da sessao ───

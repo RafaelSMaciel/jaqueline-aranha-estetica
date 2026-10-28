@@ -203,10 +203,10 @@ class HousekeepingLinksETrilhaTests(TestCase):
 
         agora = timezone.now()
         prof = criar_profissional()
-        at = criar_atendimento(criar_cliente(), prof, criar_procedimento(profissional=prof))
-        criar_link('GERENCIAR_AGENDAMENTO', at, expira_em=agora - timedelta(days=100))   # sai
-        vencido_recente = criar_link('GERENCIAR_AGENDAMENTO', at, expira_em=agora - timedelta(days=10))
-        criar_link('GERENCIAR_AGENDAMENTO', at, expira_em=agora + timedelta(days=5))
+        cli = criar_cliente()
+        criar_link('DESCADASTRO', cli, expira_em=agora - timedelta(days=100))   # sai
+        vencido_recente = criar_link('DESCADASTRO', cli, expira_em=agora - timedelta(days=10))
+        criar_link('DESCADASTRO', cli, expira_em=agora + timedelta(days=5))
         revogado = LinkAcesso.objects.latest('id')
         LinkAcesso.objects.filter(pk=revogado.pk).update(revogado_em=agora - timedelta(days=95))  # sai
         criar_link('FEED_ICS', prof, expira_em=None)                                             # fica

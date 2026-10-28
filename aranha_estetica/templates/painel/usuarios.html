@@ -89,8 +89,6 @@
         <span class="font-bold text-[0.9rem] truncate text-texto">{{ u.nome }}</span>
         {% if u.papel == "ADMIN" %}
         <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-info-fundo text-info uppercase tracking-wide">ADM</span>
-        {% elif u.papel == "RECEPCAO" %}
-        <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-destaque-fundo text-destaque uppercase tracking-wide">Recep</span>
         {% elif u.papel == "PROFISSIONAL" %}
         <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-sucesso-fundo text-sucesso uppercase tracking-wide">Prof</span>
         {% endif %}

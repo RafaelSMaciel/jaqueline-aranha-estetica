@@ -81,7 +81,7 @@
           <svg class="w-3.5 h-3.5 text-aviso flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 5c7.18 0 13 5.82 13 13M6 11a7 7 0 017 7M6 17a1 1 0 011 1"/></svg>
           <span class="font-bold text-texto-suave">ICS feed</span>
           <span class="flex-1 min-w-0 text-[0.7rem] text-texto-suave">
-            {% if prof.ics_migrado %}Link ativo (criado antes da atualização){% elif prof.ics_ativo_desde %}Link ativo desde {{ prof.ics_ativo_desde|date:"d/m/Y" }}{% else %}Sem link{% endif %}
+            {% if prof.ics_ativo_desde %}Link ativo desde {{ prof.ics_ativo_desde|date:"d/m/Y" }}{% else %}Sem link{% endif %}
           </span>
           <form method="post" action="{% url 'aranha:profissional_rotacionar_ics' prof.pk %}" class="flex-shrink-0 m-0"
                 {% if prof.ics_ativo_desde %}data-confirm="Gerar um novo link do calendário? O link atual deixará de funcionar."{% endif %}>

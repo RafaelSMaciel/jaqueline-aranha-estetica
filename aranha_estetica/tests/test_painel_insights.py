@@ -690,7 +690,7 @@ class PainelDiversosTests(_AdminBase):
     def test_nao_staff_com_profissional_ativo_vai_ao_portal(self):
         user = Usuario.objects.create_user(
             email='recep@insights.com', password='x', nome='R',
-            papel=Usuario.PAPEL_RECEPCAO, profissional=self.prof,
+            papel=Usuario.PAPEL_PROFISSIONAL, profissional=self.prof,
         )
         c = Client()
         c.force_login(user)

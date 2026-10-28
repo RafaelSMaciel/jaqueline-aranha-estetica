@@ -532,7 +532,6 @@ class ParidadeLgpdTests(TestCase):
         ficha_cancelada = self._ficha(cli, cancelado)
         self._ficha(cli, None, respondida=False)
         criar_link('DESCADASTRO', cli)
-        criar_link('GERENCIAR_AGENDAMENTO', futuro)
         criar_link('FORMULARIO', ficha_cancelada)
         notif, _token = criar_notificacao_com_link(realizado, tipo='NPS', mensagem=f'Oi {nome}, avalie')
         ja_revogado = LinkAcesso.objects.get(notificacao=notif)
@@ -720,7 +719,7 @@ class ParidadeManutencaoTests(TestCase):
             envelhecer_trilha(LogAuditoria, log.pk, agora - timedelta(days=dias))
         # links: revogado/vencido ha mais e ha menos de 90 dias; sem validade (feed ICS) fica
         for revogado, expira in ((100, None), (10, None), (None, 100), (None, 10), (100, -10)):
-            criar_link('GERENCIAR_AGENDAMENTO', at,
+            criar_link('DESCADASTRO', self.cli,
                        expira_em=agora - timedelta(days=expira) if expira is not None else agora + timedelta(days=30))
             if revogado:
                 LinkAcesso.objects.filter(pk=LinkAcesso.objects.latest('id').pk).update(

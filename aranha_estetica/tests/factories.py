@@ -205,8 +205,6 @@ def _expira_padrao(finalidade, alvo):
         return alvo.atendimento.data_hora_fim
     if finalidade == LinkAcesso.CONFIRMAR_PRESENCA:
         return alvo.atendimento.data_hora_inicio
-    if finalidade == LinkAcesso.GERENCIAR_AGENDAMENTO:
-        return alvo.data_hora_inicio
     if finalidade == LinkAcesso.FORMULARIO:
         return timezone.now() + VALIDADE_LINK_FORMULARIO
     return None
