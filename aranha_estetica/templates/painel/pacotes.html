@@ -31,14 +31,14 @@
 <div x-data="pacoteCriar"{% if pacote.reabrir %} data-erro="1"{% endif %} class="bg-superficie rounded-2xl shadow-sm p-4 mb-3 {% if not pacote.ativo %}opacity-75{% endif %}">
   <div class="flex items-start justify-between gap-2 flex-wrap">
     <div class="min-w-0">
-      <h6 class="flex items-center gap-2 flex-wrap font-bold text-texto mb-1">
+      <h2 class="font-sans flex items-center gap-2 flex-wrap font-bold text-texto mb-1">
         {{ pacote.nome }}
         {% if pacote.ativo %}
         <span class="px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-sucesso-fundo text-sucesso uppercase tracking-wide">Ativo</span>
         {% else %}
         <span class="px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-erro-fundo text-erro uppercase tracking-wide">Inativo</span>
         {% endif %}
-      </h6>
+      </h2>
       <p class="text-[0.8rem] text-texto-suave mb-1">{{ pacote.descricao|default:"Sem descrição" }}</p>
       <div class="text-[0.8rem] text-texto">
         <strong>{{ pacote.preco_total|brl }}</strong> &middot;
@@ -84,7 +84,7 @@
       <form method="post" action="{% url 'aranha:admin_editar_pacote' pacote.pk %}">
         {% csrf_token %}
         <div class="flex items-center justify-between px-5 py-4 border-b border-borda">
-          <h5 class="font-bold text-[0.95rem]">Editar "{{ pacote.nome }}"</h5>
+          <h2 class="font-bold text-[0.95rem]">Editar "{{ pacote.nome }}"</h2>
           <button type="button" x-on:click="fechar" aria-label="Fechar"
                   class="text-texto-suave hover:text-texto text-2xl leading-none border-none bg-transparent cursor-pointer">&times;</button>
         </div>
@@ -123,7 +123,7 @@
             </div>
           </div>
 
-          <h6 class="font-bold text-texto mt-4 mb-1">Itens do Pacote</h6>
+          <h2 class="font-bold text-texto mt-4 mb-1">Itens do pacote</h2>
           {% if pacote.total_vendas %}
           {# A venda congela nome/itens/valor por sessao (CompraPacoteItem): editar so vale p/ vendas futuras #}
           <p class="text-[0.75rem] font-bold text-aviso bg-aviso-fundo rounded-lg px-3 py-2 mb-2">
@@ -193,7 +193,7 @@
   <form method="post" action="{% url 'aranha:admin_vender_pacote' %}">
     {% csrf_token %}
     <div class="flex items-center justify-between px-5 py-4 border-b border-borda">
-      <h5 class="font-bold text-[0.95rem]">Vender pacote</h5>
+      <h2 class="font-bold text-[0.95rem]">Vender pacote</h2>
       <button type="button" data-fechar-dialog aria-label="Fechar"
               class="text-texto-suave hover:text-texto text-2xl leading-none border-none bg-transparent cursor-pointer">&times;</button>
     </div>
@@ -243,7 +243,7 @@
       <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
     </svg>
   </div>
-  <h6 class="font-bold text-texto-suave">Nenhum pacote cadastrado</h6>
+  <p class="font-serif font-bold text-texto-suave">Nenhum pacote cadastrado</p>
 </div>
 {% endif %}
 
@@ -262,7 +262,7 @@
       <form method="post" action="{% url 'aranha:admin_criar_pacote' %}">
         {% csrf_token %}
         <div class="flex items-center justify-between px-5 py-4 border-b border-borda">
-          <h5 class="font-bold text-[0.95rem]">Novo Pacote</h5>
+          <h2 class="font-bold text-[0.95rem]">Novo Pacote</h2>
           <button type="button" x-on:click="fechar" aria-label="Fechar"
                   class="text-texto-suave hover:text-texto text-2xl leading-none border-none bg-transparent cursor-pointer">&times;</button>
         </div>
@@ -294,7 +294,7 @@
             </div>
           </div>
 
-          <h6 class="font-bold text-texto mt-4 mb-2">Itens do Pacote</h6>
+          <h2 class="font-bold text-texto mt-4 mb-2">Itens do pacote</h2>
           <div x-ref="itens">
             {% for item in novo.valores.itens %}
             <div class="grid grid-cols-12 gap-2 mb-2 item-row">

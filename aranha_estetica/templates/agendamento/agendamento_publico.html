@@ -94,6 +94,14 @@
     .btn-continuar { margin-top: 1.5rem; }
     .btn-continuar:disabled { opacity: .55; cursor: not-allowed; box-shadow: none; }
 
+    /* ─── FILTRO DE CATEGORIA (botoes com aria-pressed; o escolhido = preenchido) ─── */
+    .cat-tabs { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .cat-tab {
+        background: var(--cor-superficie); color: var(--cor-marca); border: 1px solid var(--cor-marca-forte);
+        border-radius: 999px; padding: 0.4rem 1rem; font-size: 0.78rem; font-weight: 700; cursor: pointer;
+    }
+    .cat-tab[aria-pressed="true"] { background: var(--cor-marca-forte); color: var(--cor-sobre-marca); }
+
     /* ─── PROCEDURE CARDS ─── */
     .proc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
     .proc-card {
@@ -437,9 +445,9 @@
 
         <!-- ═══ STEP 1: Escolher Procedimento ═══ -->
         <div class="step-panel active" id="step-1" role="region" aria-labelledby="step-1-titulo">
-            <h3 id="step-1-titulo" class="step-titulo" tabindex="-1" style="font-family:'Playfair Display',serif;font-weight:700;color:var(--earth);margin-bottom:0.3rem;">
+            <h2 id="step-1-titulo" class="step-titulo" tabindex="-1" style="font-family:'Playfair Display',serif;font-weight:700;color:var(--earth);margin-bottom:0.3rem;">
                 Escolha seu tratamento
-            </h3>
+            </h2>
             <p style="color:var(--cor-texto-suave);font-size:0.9rem;margin-bottom:1.5rem;">
                 Selecione o procedimento desejado para ver as datas disponíveis.
             </p>
@@ -454,17 +462,11 @@
 
             {% if procedimentos %}
             {% if categorias_disponiveis|length > 1 %}
-            <div class="cat-tabs" role="tablist" aria-label="Filtrar por categoria"
-                 style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-bottom:1rem;">
-                <button type="button" class="cat-tab active" data-cat=""
-                        style="background:var(--cor-marca-forte); color:var(--cor-sobre-marca); border:none; border-radius:999px; padding:0.4rem 1rem; font-size:0.78rem; font-weight:700; cursor:pointer;">
-                    Todos
-                </button>
+            {# Filtro = botoes liga/desliga (aria-pressed), nao abas: nao ha painel de aba por categoria #}
+            <div class="cat-tabs" role="group" aria-label="Filtrar por categoria">
+                <button type="button" class="cat-tab" data-cat="" aria-pressed="true">Todos</button>
                 {% for cat_value, cat_label in categorias_disponiveis %}
-                <button type="button" class="cat-tab" data-cat="{{ cat_value }}"
-                        style="background:var(--cor-superficie); color:var(--cor-marca); border:1px solid var(--cor-marca-forte); border-radius:999px; padding:0.4rem 1rem; font-size:0.78rem; font-weight:700; cursor:pointer;">
-                    {{ cat_label }}
-                </button>
+                <button type="button" class="cat-tab" data-cat="{{ cat_value }}" aria-pressed="false">{{ cat_label }}</button>
                 {% endfor %}
             </div>
             {% endif %}
@@ -519,7 +521,7 @@
 
         <!-- ═══ STEP 2: Calendário + Horários ═══ -->
         <div class="step-panel" id="step-2" role="region" aria-labelledby="step-2-titulo">
-            <h3 id="step-2-titulo" class="step-titulo sr-only" tabindex="-1">Escolha a data e o horário</h3>
+            <h2 id="step-2-titulo" class="step-titulo sr-only" tabindex="-1">Escolha a data e o horário</h2>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <!-- Calendário -->
                 <div>
@@ -573,9 +575,9 @@
         <div class="step-panel" id="step-3" role="region" aria-labelledby="step-3-titulo">
             <div class="flex justify-center">
                 <div class="w-full max-w-lg">
-                    <h3 id="step-3-titulo" class="step-titulo" tabindex="-1" style="font-family:'Playfair Display',serif;font-weight:700;color:var(--earth);margin-bottom:1.5rem;text-align:center;">
+                    <h2 id="step-3-titulo" class="step-titulo" tabindex="-1" style="font-family:'Playfair Display',serif;font-weight:700;color:var(--earth);margin-bottom:1.5rem;text-align:center;">
                         Confirme seu agendamento
-                    </h3>
+                    </h2>
 
                     <!-- Resumo -->
                     <div class="booking-recap">

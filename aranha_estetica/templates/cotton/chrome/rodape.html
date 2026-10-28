@@ -28,7 +28,7 @@
 
       {# ── Navegar ── #}
       <nav class="lg:col-span-2" aria-label="Navegação do rodapé">
-        <h3 class="font-serif text-base font-semibold text-[#ece8df]">Navegar</h3>
+        <h2 class="font-serif text-base font-semibold text-[#ece8df]">Navegar</h2>
         <ul class="mt-4 space-y-2.5 text-sm">
           {% with lc="text-[#9a958a] no-underline hover:text-[#C9A84C] transition" %}
           <li><a href="{% url 'aranha:inicio' %}" class="{{ lc }}">Início</a></li>
@@ -45,7 +45,7 @@
 
       {# ── Autoatendimento (citado no FAQ) ── #}
       <nav class="lg:col-span-2" aria-label="Área do cliente">
-        <h3 class="font-serif text-base font-semibold text-[#ece8df]">Para você</h3>
+        <h2 class="font-serif text-base font-semibold text-[#ece8df]">Para você</h2>
         <ul class="mt-4 space-y-2.5 text-sm">
           {% with lc="text-[#9a958a] no-underline hover:text-[#C9A84C] transition" %}
           <li><a href="{% url 'aranha:meus_agendamentos' %}" class="{{ lc }}">Meus agendamentos</a></li>
@@ -58,7 +58,7 @@
 
       {# ── Atendimento ── #}
       <div class="lg:col-span-3">
-        <h3 class="font-serif text-base font-semibold text-[#ece8df]">Atendimento</h3>
+        <h2 class="font-serif text-base font-semibold text-[#ece8df]">Atendimento</h2>
         <ul class="mt-4 space-y-3 text-sm text-[#9a958a]">
           <li class="flex gap-2.5">
             <svg class="h-4 w-4 mt-0.5 shrink-0 text-marca-forte" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
@@ -85,7 +85,7 @@
 
       {# ── CTA ── #}
       <div class="lg:col-span-2">
-        <h3 class="font-serif text-base font-semibold text-[#ece8df]">Cuide-se</h3>
+        <h2 class="font-serif text-base font-semibold text-[#ece8df]">Cuide-se</h2>
         {% if AGENDAR_WHATSAPP %}
         <p class="mt-4 text-sm text-[#9a958a]">Reserve seu horário pelo WhatsApp.</p>
         {% else %}

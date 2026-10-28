@@ -20,15 +20,8 @@
     tabs.forEach(function(tab){
         tab.addEventListener('click', function(){
             var cat = tab.dataset.cat;
-            tabs.forEach(function(t){
-                t.classList.remove('active');
-                // tokens (tema claro e escuro): #fff/#7a5f1f davam 2,7:1 no escuro
-                t.style.background = 'var(--cor-superficie)';
-                t.style.color = 'var(--cor-marca)';
-            });
-            tab.classList.add('active');
-            tab.style.background = 'var(--cor-marca-forte)';
-            tab.style.color = 'var(--cor-sobre-marca)';  // branco sobre o dourado dava 2,3:1
+            // Botoes liga/desliga (nao abas): o estado e o aria-pressed; o visual vem do CSS do template
+            tabs.forEach(function(t){ t.setAttribute('aria-pressed', t === tab ? 'true' : 'false'); });
             cards.forEach(function(c){
                 c.style.display = (!cat || c.dataset.categoria === cat) ? '' : 'none';
             });

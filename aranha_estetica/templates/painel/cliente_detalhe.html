@@ -108,12 +108,12 @@
 
 {# ── Dados do cliente ── #}
 <div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
-  <h3 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-4">
+  <h2 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-4">
     <svg class="w-4 h-4 text-marca" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
     </svg>
     Dados pessoais
-  </h3>
+  </h2>
   <form method="post">
     {% csrf_token %}
     <div class="mb-3">
@@ -207,12 +207,12 @@
 
 {# ── Consentimentos de comunicacao (LGPD art. 8): estado vigente + revogar; conceder exige justificativa ── #}
 <div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4" id="consentimentos">
-  <h3 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-3">
+  <h2 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-3">
     <svg class="w-4 h-4 text-marca" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
     </svg>
     Comunicação autorizada
-  </h3>
+  </h2>
   {% for c in consentimentos %}
   <div class="border border-borda rounded-xl p-3 mb-2">
     <div class="flex items-start justify-between gap-2 flex-wrap">
@@ -267,12 +267,12 @@
 
 {# ── Indicacao: quem indicou esta cliente (cashback no 1o atendimento pago) ── #}
 <div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
-  <h3 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-3">
+  <h2 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-3">
     <svg class="w-4 h-4 text-marca" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
     </svg>
     Indicação
-  </h3>
+  </h2>
   <p class="text-[0.8rem] text-texto m-0 mb-2">
     Código de indicação desta cliente: <strong>{{ cliente.codigo_indicacao|default:"—" }}</strong>
   </p>
@@ -347,12 +347,12 @@
 
 {# ── Pacotes comprados: saldo por procedimento e validade ── #}
 <div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
-  <h3 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-4">
+  <h2 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-4">
     <svg class="w-4 h-4 text-marca" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
     </svg>
     Pacotes
-  </h3>
+  </h2>
   {% for compra in pacotes %}
   <div class="border border-borda rounded-xl p-3 mb-2">
     <div class="flex items-start justify-between gap-2 flex-wrap">
@@ -400,12 +400,12 @@
 
 {# ── Timeline de atendimentos ── #}
 <div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
-  <h3 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-4">
+  <h2 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-4">
     <svg class="w-4 h-4 text-marca" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
     </svg>
     Linha do tempo (últimos 20)
-  </h3>
+  </h2>
   {% if atendimentos %}
   <div class="cli-timeline">
     {% for a in atendimentos %}

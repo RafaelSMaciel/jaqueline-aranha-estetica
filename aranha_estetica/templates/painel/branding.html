@@ -18,12 +18,12 @@
 
   {# ── Identidade e contatos ── #}
   <div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
-    <h5 class="flex items-center gap-2 font-extrabold text-[0.95rem] text-texto mb-4">
+    <h2 class="flex items-center gap-2 font-extrabold text-[0.95rem] text-texto mb-4">
       <svg class="w-4 h-4 text-marca" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/>
       </svg>
       Identidade da clínica
-    </h5>
+    </h2>
     {% for c in campos %}
       {% if c.tipo != 'color' %}
       <div class="mb-3">
@@ -37,13 +37,13 @@
 
   {# ── Cor da marca ── #}
   <div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
-    <h5 class="flex items-center gap-2 font-extrabold text-[0.95rem] text-texto mb-4">
+    <h2 class="flex items-center gap-2 font-extrabold text-[0.95rem] text-texto mb-4">
       <svg class="w-4 h-4 text-marca" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
         <circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/>
         <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125 0-.938.726-1.688 1.624-1.688H16.5c3.038 0 5.5-2.462 5.5-5.5C22 6.04 17.5 2 12 2z"/>
       </svg>
       Cor da marca
-    </h5>
+    </h2>
     {% for c in campos %}
       {% if c.tipo == 'color' %}
       <div class="mb-1">
