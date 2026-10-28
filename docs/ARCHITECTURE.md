@@ -126,7 +126,7 @@ cards e dias são `<button>` (teclado) e o estado sobrevive a recusa do servidor
 | D14 | `limpeza_status` não marca FALTOU sozinho | Falta é terminal e bloqueia online; só a equipe decide |
 | D15 | Aniversário = felicitação sem desconto; promoção sem cupom; validade anunciada ≤ fim da promoção | Nada é prometido sem mecanismo que aplique |
 | D16 | Deploy por Dockerfile + `migrate_atomico` no pre-deploy; **rollback = restaurar dump** | Upgrade 0026→0046 tudo-ou-nada; reverses não recuperam dados |
-| D17 | Produção sem worker Celery (eager) + cron HTTP com `X-Cron-Token` | Custo; 1 serviço |
+| D17 | **Sem Celery** (saiu em 2026-10-27): jobs são funções chamadas pelo cron HTTP (`X-Cron-Token`) ou `rodar_job`; e-mail transacional é fila na própria `notificacao` (0061, reenvio pelo job `emails`) | Custo; 1 serviço; nada roda "em segundo plano" sem rastro |
 | D18 | `/anamnese/<token>/` e `/pesquisa/<token>/` mantidas, hoje sem produtor de link | Aguardando decisão do dono (remover × gerar o link); a ficha pública já exige consentimento art. 11 |
 | D19 | Site só pt-BR (sem LocaleMiddleware); sessão da equipe 8h deslizantes | Sem traduções; 30 min fixos deslogavam no meio do atendimento |
 | D20 | Faturamento = avulsos + venda de pacote; sessão de pacote não soma; comissão da sessão de pacote = `valor_pago / total de sessões` (congelado na venda, `compra_pacote_item.valor_unitario`); ticket médio e LTV da ficha pela mesma regra (`services/financeiro`) | Evita contar a receita duas vezes e inflar comissão |
@@ -208,9 +208,8 @@ verde em SQLite e Postgres).
       Fases (e) e (f) feitas: pacote congelado na venda (`compra_pacote_item`, 0052, §4.e) e
       comissão como livro-razão (`movimento_comissao` CREDITO/PAGAMENTO/ESTORNO, 0053, §4.f).
       Próximas: nomes (N1–N2) e lógica no banco (L1–L3), mesma spec, §6.
-- [ ] **T9 — calibração de marca (parcial):** cor #C9A84C confirmada pelo dono e fontes
-      definidas (Playfair Display + Lato); falta só o self-host das fontes (hoje Google Fonts,
-      já declarado na política de privacidade) — opcional
+- [x] ~~**T9 — calibração de marca**~~ cor #C9A84C e fontes Playfair Display + Lato servidas
+      pelo próprio site (@fontsource no bundle do Vite, 2026-10-27; sem Google Fonts)
 - [x] ~~**Pacote cancelado some do faturamento:**~~ resolvido (0047 `valor_reembolsado`; receita = pago − reembolsado).
 - [x] ~~**Janela do vínculo profissional ↔ prontuário**~~ resolvido (janela = max(60, `max_advance_dias`)).
 - [ ] **Link da ficha de anamnese** no agendamento interno: o marcador "ficha pendente" existe,
@@ -234,8 +233,12 @@ verde em SQLite e Postgres).
 - [ ] Registry de regras (spec 5.1) e sessão única de cliente verificado (5.3) — ver
       [`specs/regras-negocio-registry.md`](specs/regras-negocio-registry.md)
 - [ ] RECEPCAO: telas próprias (hoje sem login)
-- [ ] Decidido não fazer (por ora): trigger de `atualizado_em`; UNIQUE de regra de comissão ativa
-      (quebraria o desempate por "mais recente"); consentimento de WhatsApp para marketing
+- [ ] Decidido não fazer (por ora): UNIQUE de regra de comissão ativa (quebraria o desempate por
+      "mais recente"); consentimento de WhatsApp para marketing. (O trigger de `atualizado_em`
+      entrou na 0056.)
+- [x] Revisão de 2026-10 (fases 0–5: bugs, testes/CI, arquitetura, front, banco e performance)
+      concluída — o que entrou está no [`PROJECT.md` §16](PROJECT.md#16-histórico); fora do código
+      ficaram as ações do dono e o go-live (Railway em stand-by).
 
 ### 6.3 Histórico anterior (resumo)
 
