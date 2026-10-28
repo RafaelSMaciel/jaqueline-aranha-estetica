@@ -28,15 +28,8 @@ from ..db.indices import Indice
 
 MSG_IMUTAVEL = 'Histórico de alterações é trilha append-only: não pode ser alterado nem excluído.'
 
-# Tabelas com trilha (spec §5.3). cliente fica fora de proposito (PII pura: o
-# direito ao esquecimento obrigaria a expurgar a trilha); append-only e efemeras tambem.
-TABELAS_COM_TRILHA = (
-    'prontuario', 'atendimento', 'compra_pacote', 'carteira', 'regra_comissao', 'preco',
-    'promocao', 'pacote', 'versao_termo', 'usuario', 'configuracao',
-)
-# colunas cujo VALOR nunca vai para a trilha (registra que mudou, nao o conteudo)
-COLUNAS_REDIGIDAS = {'usuario': ('senha_hash',)}
-REDIGIDO = '[redigido]'
+# Quais tabelas tem trilha e quais colunas sao redigidas: fonte unica no trigger
+# (migrations/sql/v0056_triggers.TABELAS_HISTORICO).
 
 
 class HistoricoAlteracaoQuerySet(models.QuerySet):

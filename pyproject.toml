@@ -29,8 +29,6 @@ layers = ["aranha_estetica.views", "aranha_estetica.services", "aranha_estetica.
 ignore_imports = [
     # a FSM aplica os efeitos da transicao (caso de uso) na mesma transacao do status
     "aranha_estetica.models.agendamentos -> aranha_estetica.services.atendimento",
-    # Profissional.horarios_disponiveis() delega ao SlotService (atalho p/ templates/admin)
-    "aranha_estetica.models.profissionais -> aranha_estetica.services.disponibilidade",
 ]
 
 [[tool.importlinter.contracts]]

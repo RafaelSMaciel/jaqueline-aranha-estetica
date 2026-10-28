@@ -62,14 +62,6 @@ class Profissional(models.Model):
             self.slug = slug
         super().save(*args, **kwargs)
 
-    def get_horarios_disponiveis(self, data_selecionada, procedimento=None):
-        """Slots livres no dia (feriado/folga, horario diferente, grade semanal,
-        atendimentos com buffer, bloqueios, min_notice/max_advance). Logica em
-        services.disponibilidade.SlotService — extraida do model para uma camada
-        testavel; comportamento preservado (tests/test_slots_disponibilidade.py)."""
-        from ..services.disponibilidade import SlotService
-        return SlotService.slots_livres(self, data_selecionada, procedimento)
-
 
 # Grade semanal, folgas, bloqueios e feriados: models/agenda.py (AgendaHorario +
 # AgendaExcecao; as 4 tabelas antigas da agenda foram unificadas na migration 0048).
