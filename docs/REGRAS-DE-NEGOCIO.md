@@ -420,7 +420,7 @@ consentimento; **push** para a equipe. Sem credencial do canal nada é marcado c
 | Verificação OTP no wizard / sessão do portal | 30 min / 1 h | `services/otp`, `views/booking_otp` |
 | Duração padrão do retorno | 30 min | `Procedimento.duracao_retorno_minutos` |
 | Cashback por indicação | R$ 50,00 | `constants.VALOR_CASHBACK_INDICACAO` |
-| NPS: janela / validade do link / tentativas | 24 h–7 dias / 7 dias / 3 | `tasks.py`, `views/admin_management` |
+| NPS: janela / validade do link / tentativas | 24 h–7 dias / 7 dias / 3 | `jobs.py`, `views/nps_publico.py` |
 | Detrator | nota ≤ 6 | `tasks.job_alerta_detrator_nps` |
 | Depoimento | nota ≥ 9 + opt-in + aprovação | `views/public.depoimentos` |
 | Link de ficha/pesquisa | 60 dias | `views/anamnese_publica` |
