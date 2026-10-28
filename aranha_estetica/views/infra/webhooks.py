@@ -2,10 +2,10 @@ import hashlib
 import hmac
 import json
 import logging
-import os
 import re
 from datetime import timedelta
 
+from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -20,10 +20,6 @@ logger = logging.getLogger(__name__)
 # Janela para correlacionar resposta WhatsApp com Notificacao NPS enviada.
 NPS_JANELA_RESPOSTA = timedelta(days=7)
 
-WHATSAPP_APP_SECRET = os.environ.get('WHATSAPP_APP_SECRET', '')
-# Token do handshake de verificacao do webhook (GET hub.challenge da Meta)
-WHATSAPP_VERIFY_TOKEN = os.environ.get('WHATSAPP_VERIFY_TOKEN', '')
-
 
 def _verify_signature(request):
     """Verifica X-Hub-Signature-256 da Meta Business API.
@@ -32,7 +28,8 @@ def _verify_signature(request):
     fallback DEBUG). Isto evita que uma variavel de ambiente ausente em
     producao transforme o webhook em endpoint aberto.
     """
-    if not WHATSAPP_APP_SECRET:
+    secret = settings.WHATSAPP_APP_SECRET
+    if not secret:
         logger.error('WHATSAPP_APP_SECRET nao configurado — webhook rejeitando requisicoes')
         return False
 
@@ -41,19 +38,12 @@ def _verify_signature(request):
         return False
 
     expected = hmac.new(
-        WHATSAPP_APP_SECRET.encode(),
+        secret.encode(),
         request.body,
         hashlib.sha256,
     ).hexdigest()
 
     return hmac.compare_digest(signature[7:], expected)
-
-
-ZENVIA_WEBHOOK_SECRET = os.environ.get('ZENVIA_WEBHOOK_SECRET', '')
-# IPs/CIDRs da Zenvia separados por virgula (consultar docs Zenvia)
-ZENVIA_ALLOWED_IPS = [
-    ip.strip() for ip in os.environ.get('ZENVIA_ALLOWED_IPS', '').split(',') if ip.strip()
-]
 
 
 def _ip_in_allowlist(ip: str, allowlist: list) -> bool:
@@ -88,21 +78,22 @@ def zenvia_sms_webhook(request):
       3. Sem secret E sem allowlist = rejeita em prod
     """
     from ...utils.seguranca import client_ip
-    from django.conf import settings
 
     ip = client_ip(request)
+    allowlist = settings.ZENVIA_ALLOWED_IPS
+    secret = settings.ZENVIA_WEBHOOK_SECRET
 
-    if ZENVIA_ALLOWED_IPS and not _ip_in_allowlist(ip, ZENVIA_ALLOWED_IPS):
+    if allowlist and not _ip_in_allowlist(ip, allowlist):
         logger.warning('Zenvia webhook: IP %s nao permitido', ip)
         return JsonResponse({'error': 'ip nao permitido'}, status=403)
 
-    if not ZENVIA_WEBHOOK_SECRET and not ZENVIA_ALLOWED_IPS and not settings.DEBUG:
+    if not secret and not allowlist and not settings.DEBUG:
         logger.error('Zenvia webhook: sem secret E sem allowlist em prod — rejeitando')
         return JsonResponse({'error': 'webhook nao configurado'}, status=503)
 
-    if ZENVIA_WEBHOOK_SECRET:
+    if secret:
         provided = request.headers.get('X-Zenvia-Signature', '')
-        if not hmac.compare_digest(provided, ZENVIA_WEBHOOK_SECRET):
+        if not hmac.compare_digest(provided, secret):
             logger.warning('Zenvia webhook: assinatura invalida')
             return JsonResponse({'error': 'assinatura invalida'}, status=403)
 
@@ -131,9 +122,10 @@ def whatsapp_webhook(request):
     """
     # Handshake da Meta: ecoa hub.challenge quando o verify_token confere.
     if request.method == 'GET':
+        verify_token = settings.WHATSAPP_VERIFY_TOKEN
         if (request.GET.get('hub.mode') == 'subscribe'
-                and WHATSAPP_VERIFY_TOKEN
-                and request.GET.get('hub.verify_token') == WHATSAPP_VERIFY_TOKEN):
+                and verify_token
+                and request.GET.get('hub.verify_token') == verify_token):
             return HttpResponse(request.GET.get('hub.challenge', ''), content_type='text/plain')
         return HttpResponse('Forbidden', status=403)
 

@@ -1,7 +1,13 @@
-"""Settings base — compartilhados entre dev e prod."""
+"""Settings base — compartilhados entre dev e prod.
+
+Fonte unica da configuracao por ambiente: so os settings leem os.environ (com parse e validacao) e o
+codigo le settings.X na hora da chamada — override_settings funciona nos testes e um valor invalido
+derruba o boot com o nome da variavel, em vez de virar 500 no meio de um fluxo.
+"""
 import os
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 
@@ -10,6 +16,24 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # Carrega .env da raiz do projeto
 load_dotenv(BASE_DIR / '.env')
+
+
+def _env_texto(nome: str, padrao: str = '') -> str:
+    return (os.environ.get(nome) or padrao).strip()
+
+
+def _env_int(nome: str, padrao: int) -> int:
+    valor = _env_texto(nome)
+    if not valor:
+        return padrao
+    try:
+        return int(valor)
+    except ValueError as exc:
+        raise ImproperlyConfigured(f'{nome}={valor!r} nao e um numero inteiro.') from exc
+
+
+def _env_lista(nome: str) -> list[str]:
+    return [item.strip() for item in _env_texto(nome).split(',') if item.strip()]
 
 
 # ─── SENTRY (opcional) ───────────────────────────────────────────────
@@ -410,6 +434,68 @@ DESTINATARIOS_TESTE = [d.strip() for d in os.environ.get('DESTINATARIOS_TESTE', 
 
 # Password reset: token TTL 1h (default Django = 3 dias). Reduz janela de ataque.
 PASSWORD_RESET_TIMEOUT = int(os.environ.get('PASSWORD_RESET_TIMEOUT_SECONDS', 3600))
+
+
+# ─── INTEGRACOES E CANAIS (lidos so aqui; o codigo le settings.X na hora da chamada) ───
+# OTP (models/sistema.CodigoOtp). O CHECK ck_codigo_otp_qtd_tentativas_0_10 do banco limita as
+# tentativas a 10: OTP_MAX_TENTATIVAS fora de 1..10 e erro de config (aranha.E004), nao 500 no 11o erro.
+OTP_TTL_SEGUNDOS = _env_int('OTP_TTL_SEGUNDOS', 600)
+OTP_MAX_TENTATIVAS = _env_int('OTP_MAX_TENTATIVAS', 5)
+OTP_REENVIO_MINIMO_SEG = _env_int('OTP_REENVIO_MINIMO_SEG', 60)
+
+# SMS pela Zenvia (utils/sms): sem token + remetente o envio falha fechado. Quotas por hora.
+ZENVIA_API_TOKEN = _env_texto('ZENVIA_API_TOKEN')
+ZENVIA_FROM = _env_texto('ZENVIA_FROM')
+ZENVIA_API_URL = _env_texto('ZENVIA_API_URL', 'https://api.zenvia.com/v2/channels/sms/messages')
+SMS_MAX_POR_HORA = _env_int('SMS_MAX_POR_HORA', 3)
+SMS_MAX_POR_IP_HORA = _env_int('SMS_MAX_POR_IP_HORA', 10)
+SMS_MAX_GLOBAL_HORA = _env_int('SMS_MAX_GLOBAL_HORA', 60)
+# Webhook de status da Zenvia (views/infra/webhooks): segredo no header e/ou allowlist de IP/CIDR
+ZENVIA_WEBHOOK_SECRET = _env_texto('ZENVIA_WEBHOOK_SECRET')
+ZENVIA_ALLOWED_IPS = _env_lista('ZENVIA_ALLOWED_IPS')
+
+# WhatsApp Cloud API da Meta (utils/whatsapp): sem token + phone id o envio falha fechado.
+WHATSAPP_TOKEN = _env_texto('WHATSAPP_TOKEN')
+# WHATSAPP_PHONE_NUMBER_ID: alias aceito (nome do .env.example antigo)
+WHATSAPP_PHONE_ID = _env_texto('WHATSAPP_PHONE_ID') or _env_texto('WHATSAPP_PHONE_NUMBER_ID')
+WHATSAPP_API_URL = _env_texto('WHATSAPP_API_URL')
+# Versoes antigas da Graph API sao desligadas pela Meta ~2 anos apos o lancamento
+WHATSAPP_API_VERSION = _env_texto('WHATSAPP_API_VERSION', 'v23.0')
+# Nomes dos templates aprovados na Meta
+WHATSAPP_TEMPLATE_D1 = _env_texto('WHATSAPP_TEMPLATE_D1', 'confirmacao_d1')
+WHATSAPP_TEMPLATE_NPS = _env_texto('WHATSAPP_TEMPLATE_NPS', 'nps_pos_atendimento')
+WHATSAPP_TEMPLATE_LISTA_ESPERA = _env_texto('WHATSAPP_TEMPLATE_LISTA_ESPERA', 'lista_espera_vaga')
+# Webhook (views/infra/webhooks): APP_SECRET assina o corpo (X-Hub-Signature-256); VERIFY_TOKEN e o
+# segredo do handshake GET. Definido, o VERIFY_TOKEN precisa de 32+ caracteres (aranha.E003).
+WHATSAPP_APP_SECRET = _env_texto('WHATSAPP_APP_SECRET')
+WHATSAPP_VERIFY_TOKEN = _env_texto('WHATSAPP_VERIFY_TOKEN')
+
+# Captcha Cloudflare Turnstile antes do envio de SMS (utils/captcha)
+TURNSTILE_SITE_KEY = _env_texto('TURNSTILE_SITE_KEY')
+TURNSTILE_SECRET_KEY = _env_texto('TURNSTILE_SECRET_KEY')
+
+# Web Push VAPID (services/push). Contato do claim: WEBPUSH_VAPID_CLAIMS_EMAIL > ADMIN_EMAIL >
+# CLINIC_EMAIL da marca; sem nenhum o push nao sai (log webpush_sem_contato).
+WEBPUSH_VAPID_PUBLIC_KEY = _env_texto('WEBPUSH_VAPID_PUBLIC_KEY')
+WEBPUSH_VAPID_PRIVATE_KEY = _env_texto('WEBPUSH_VAPID_PRIVATE_KEY')
+WEBPUSH_VAPID_CLAIMS_EMAIL = _env_texto('WEBPUSH_VAPID_CLAIMS_EMAIL')
+
+# Cron HTTP (views/infra/cron): header X-Cron-Token. Definido, precisa de 32+ caracteres (aranha.E003).
+CRON_TOKEN = _env_texto('CRON_TOKEN')
+
+# E-mail do administrador: conta criada no pre-deploy (bootstrap_admin) e contato padrao da clinica
+ADMIN_EMAIL = _env_texto('ADMIN_EMAIL')
+
+# Marca/contatos por env: fallback da tela Branding (utils/branding.get_branding aplica os defaults).
+# Mesmas chaves de utils/branding.DEFAULTS (tests/infra/test_deploy confere).
+MARCA_ENV = {
+    chave: _env_texto(chave)
+    for chave in (
+        'CLINIC_NAME', 'CLINIC_SUBTITLE', 'CLINIC_EMAIL', 'CLINIC_PHONE', 'CLINIC_ADDRESS', 'CLINIC_HOURS',
+        'WHATSAPP_NUMERO', 'INSTAGRAM_URL', 'THEME_COLOR',
+        'CLINIC_RAZAO_SOCIAL', 'CLINIC_CNPJ', 'ENCARREGADO_NOME', 'ENCARREGADO_EMAIL',
+    )
+}
 
 
 # ─── LOGGING ─────────────────────────────────────────────────────────

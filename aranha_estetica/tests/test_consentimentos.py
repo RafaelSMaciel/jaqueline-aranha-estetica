@@ -141,8 +141,8 @@ class ServicoConsentimentoTests(TestCase):
 
 
 # ─── Regressao: so envia com o par vigente concedido ───────────────────
-@override_settings(DEBUG=False, SITE_URL='https://clinica.example.com')
-@patch.dict('os.environ', {'WHATSAPP_TOKEN': 'tok', 'WHATSAPP_PHONE_ID': '123'})
+@override_settings(DEBUG=False, SITE_URL='https://clinica.example.com',
+                   WHATSAPP_TOKEN='tok', WHATSAPP_PHONE_ID='123')
 class LembreteD1Tests(TestCase):
     def setUp(self):
         self.prof = criar_profissional()

@@ -1,8 +1,10 @@
 """System checks de configuracao de producao (Warnings; nunca derrubam o boot).
 
-Excecao: aranha.E001 (Error) — prod sem CHAVES_CIFRAGEM valida. Esse barra o migrate do
-pre-deploy de proposito (o deploy anterior segue no ar). E o aranha.W014 e o inverso: so no dev
-(DEBUG=True), avisa ambiente local fora do requirements.lock.
+Excecao: os Errors barram o migrate do pre-deploy de proposito (o deploy anterior segue no ar):
+aranha.E001 (sem CHAVES_CIFRAGEM valida), E002 (sem Postgres), E003 (segredo fraco ou de exemplo)
+— so nos perfis publicados (prod/staging) — e E004 (OTP_MAX_TENTATIVAS fora do teto do banco), em
+qualquer perfil. O aranha.W014 e o inverso: so no dev (DEBUG=True), avisa ambiente local fora do
+requirements.lock.
 
 Rodam em todo comando de manage.py (inclusive o `migrate` do pre-deploy, entao
 aparecem no log do deploy) e ficam mudos com DEBUG=True (dev/testes).
@@ -14,7 +16,6 @@ rodam quando o comando libera o banco (`migrate`, `check --database default`). N
 no 1o deploy quem avisa de painel sem administrador e o bootstrap_admin (roda
 depois do migrate), e o W010 pode aparecer antes da migration que cria os termos.
 """
-import os
 import sys
 from email.utils import parseaddr
 from urllib.parse import urlparse
@@ -38,8 +39,10 @@ _EMAIL_SEM_ENTREGA = (*_BACKENDS_SEM_ENTREGA, 'locmem.EmailBackend',
 _DOMINIOS_REMETENTE_PLACEHOLDER = {'', 'clinica.com.br', 'localhost', 'example.com'}
 
 
-def _env(nome):
-    return (os.environ.get(nome) or '').strip()
+def _perfil_publicado() -> bool:
+    """prod.py e staging.py (CIFRAGEM_EXIGE_CHAVE). Os Errors de config so valem nesses perfis: o
+    runner da suite roda os checks com DEBUG=False, mas com a chave e o banco de dev."""
+    return bool(getattr(settings, 'CIFRAGEM_EXIGE_CHAVE', False))
 
 
 def _banco_liberado(databases):
@@ -47,7 +50,7 @@ def _banco_liberado(databases):
 
 
 def _config_efetiva(chave, databases):
-    """Valor efetivo: tela Branding (Configuracao, com o banco liberado) > env.
+    """Valor efetivo: tela Branding (Configuracao, com o banco liberado) > env (settings.MARCA_ENV).
 
     Mesma precedencia de utils/branding.get_branding (`db.get(chave) or env`:
     valor salvo no banco vence a env; vazio no banco cai na env), mas com
@@ -65,7 +68,7 @@ def _config_efetiva(chave, databases):
             valor_db = None
         if valor_db:
             return valor_db.strip()
-    return _env(chave)
+    return (settings.MARCA_ENV.get(chave) or '').strip()
 
 
 def _whatsapp_configurado(databases):
@@ -139,7 +142,7 @@ def _aviso_anymail(backend):
 def check_chaves_cifragem(app_configs=None, **kwargs):
     """E001 (Error, nao Warning): prod sem CHAVES_CIFRAGEM valida. Barra o migrate do
     pre-deploy — melhor nao subir do que gravar prontuario sem a chave da clinica."""
-    if not getattr(settings, 'CIFRAGEM_EXIGE_CHAVE', False):
+    if not _perfil_publicado():
         return []
     from django.core.exceptions import ImproperlyConfigured
 
@@ -163,7 +166,7 @@ def check_postgres_obrigatorio(app_configs=None, databases=None, **kwargs):
     silencio: sem as procedures/triggers/views da 0056-0060 (Postgres e a fonte unica da retencao
     LGPD, D23) e com o banco apagado a cada deploy. W015: Postgres fora do major 18 (o CI e as
     paridades fn_*/vw_* so validam a 18)."""
-    if not getattr(settings, 'CIFRAGEM_EXIGE_CHAVE', False):
+    if not _perfil_publicado():
         return []
     avisos = []
     if 'postgresql' not in settings.DATABASES['default'].get('ENGINE', ''):
@@ -187,6 +190,70 @@ def check_postgres_obrigatorio(app_configs=None, databases=None, **kwargs):
     return avisos
 
 
+# Valores de exemplo/build que nunca podem assinar sessao, reset de senha e OTP em producao
+_SECRET_KEYS_DE_EXEMPLO = {'troque-essa-chave-em-producao', 'build-only', 'ci-only-nao-secreto'}
+SECRET_KEY_MIN_CARACTERES = 50
+SECRET_KEY_MIN_DISTINTOS = 5
+# Segredos compartilhados em header (cron, handshake do webhook da Meta): sem freio de forca bruta
+# alem do rate limit, o tamanho e a defesa
+TOKEN_MIN_CARACTERES = 32
+_TOKENS_COMPARTILHADOS = ('CRON_TOKEN', 'WHATSAPP_VERIFY_TOKEN')
+
+
+def _secret_key_fraca(chave: str) -> bool:
+    return (
+        len(chave) < SECRET_KEY_MIN_CARACTERES
+        or len(set(chave)) < SECRET_KEY_MIN_DISTINTOS
+        or chave.startswith('django-insecure-')
+        or chave in _SECRET_KEYS_DE_EXEMPLO
+    )
+
+
+@checks.register(TAG)
+def check_segredos(app_configs=None, **kwargs):
+    """E003: segredo fraco ou de exemplo num perfil publicado. A SECRET_KEY assina a sessao, o token
+    de reset de senha e (sem OTP_HMAC_KEY) o HMAC dos OTP: chave do .env.example ou curta deixa
+    forjar tudo isso. Antes so a presenca era conferida."""
+    if not _perfil_publicado():
+        return []
+    erros = []
+    if _secret_key_fraca(settings.SECRET_KEY or ''):
+        erros.append(checks.Error(
+            f'DJANGO_SECRET_KEY fraca ou de exemplo: exige {SECRET_KEY_MIN_CARACTERES}+ caracteres '
+            f'aleatorios (sem o prefixo django-insecure-).',
+            hint='Gere com: python -c "from django.core.management.utils import get_random_secret_key; '
+                 'print(get_random_secret_key())" e defina no Railway.',
+            id='aranha.E003',
+        ))
+    for nome in _TOKENS_COMPARTILHADOS:
+        valor = getattr(settings, nome, '') or ''
+        if valor and len(valor) < TOKEN_MIN_CARACTERES:
+            erros.append(checks.Error(
+                f'{nome} com menos de {TOKEN_MIN_CARACTERES} caracteres: segredo de header adivinhavel.',
+                hint='Gere com: python -c "import secrets; print(secrets.token_urlsafe(32))" e atualize '
+                     'tambem o agendador/provedor que envia o header.',
+                id='aranha.E003',
+            ))
+    return erros
+
+
+@checks.register(TAG)
+def check_tentativas_otp(app_configs=None, **kwargs):
+    """E004: OTP_MAX_TENTATIVAS fora de 1..10. Acima do teto do CHECK do banco o 11o erro do codigo
+    virava IntegrityError (500) no meio do agendamento; zero bloquearia todo codigo."""
+    from .models.sistema import OTP_TETO_TENTATIVAS
+
+    maximo = settings.OTP_MAX_TENTATIVAS
+    if 1 <= maximo <= OTP_TETO_TENTATIVAS:
+        return []
+    return [checks.Error(
+        f'OTP_MAX_TENTATIVAS={maximo} fora de 1..{OTP_TETO_TENTATIVAS} (teto do banco, '
+        'ck_codigo_otp_qtd_tentativas_0_10).',
+        hint='Use o padrao (5) ou um valor ate 10.',
+        id='aranha.E004',
+    )]
+
+
 @checks.register(TAG)
 def check_config_producao(app_configs=None, databases=None, **kwargs):
     if settings.DEBUG:
@@ -203,8 +270,7 @@ def check_config_producao(app_configs=None, databases=None, **kwargs):
             id='aranha.W001',
         ))
 
-    sms_dev = getattr(settings, 'SMS_DEV_LOG_ONLY', False) or _env('SMS_DEV_LOG_ONLY').lower() == 'true'
-    if sms_dev:
+    if settings.SMS_DEV_LOG_ONLY:
         avisos.append(checks.Warning(
             'SMS_DEV_LOG_ONLY=true fora de DEBUG: nenhum SMS (codigo OTP) e enviado de verdade.',
             hint='Remova SMS_DEV_LOG_ONLY do ambiente de producao.',
@@ -217,7 +283,7 @@ def check_config_producao(app_configs=None, databases=None, **kwargs):
             hint='Defina ZENVIA_API_TOKEN e ZENVIA_FROM ou oriente o cliente pelo WhatsApp.',
             id='aranha.W002',
         ))
-    elif not (_env('TURNSTILE_SECRET_KEY') and _env('TURNSTILE_SITE_KEY')):
+    elif not (settings.TURNSTILE_SECRET_KEY and settings.TURNSTILE_SITE_KEY):
         # SMS real sem captcha: o OTP e obrigatorio em todo agendamento e a cota
         # de SMS e global (utils/sms) — poucos IPs travam o booking de todos.
         avisos.append(checks.Warning(
@@ -254,7 +320,7 @@ def check_config_producao(app_configs=None, databases=None, **kwargs):
             id='aranha.W004',
         ))
 
-    if not _env('CRON_TOKEN'):
+    if not settings.CRON_TOKEN:
         avisos.append(checks.Warning(
             'CRON_TOKEN ausente: /cron/run/<job>/ recusa tudo (403) e nenhum job '
             'periodico roda (lembretes, NPS, pacotes, limpeza, LGPD).',

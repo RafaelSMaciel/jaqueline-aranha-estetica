@@ -43,8 +43,6 @@ else:
 DJANGO_VITE['default']['dev_mode'] = os.environ.get('TESTE_VITE_BUILD', '').strip() != '1'
 
 # SMS so logado (o runner roda sem ZENVIA_*; fora disso utils/sms falha fechado).
-# Env + setting: vale p/ leitura no import.
-os.environ.setdefault('SMS_DEV_LOG_ONLY', 'true')
 SMS_DEV_LOG_ONLY = True
 
 # O runner roda os checks com DEBUG=False: os avisos de config de producao (aranha/checks.py)

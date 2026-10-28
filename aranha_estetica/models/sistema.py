@@ -1,7 +1,6 @@
 # aranha_estetica/models/sistema.py — Auditoria, configuracao, lista de espera, verificacao
 import hashlib
 import hmac
-import os
 import secrets
 from datetime import timedelta
 
@@ -183,6 +182,10 @@ class Configuracao(models.Model):
 # (HMAC-SHA256 + lockout). Usado pelo booking (agendamento/login) e por
 # lgpd.meus_dados (proposito DSAR).
 
+# Teto de tentativas por codigo no banco (ck_codigo_otp_qtd_tentativas_0_10); settings.OTP_MAX_TENTATIVAS
+# precisa caber nele (aranha.E004).
+OTP_TETO_TENTATIVAS = 10
+
 
 class CodigoOtp(models.Model):
     """OTP por email ou SMS: codigo hashed, TTL, rate limit por tentativas, IP.
@@ -204,9 +207,8 @@ class CodigoOtp(models.Model):
     CANAL_SMS = 'SMS'
     CANAL_CHOICES = [(CANAL_EMAIL, 'Email'), (CANAL_SMS, 'SMS')]
 
-    TTL_SEGUNDOS = int(os.environ.get('OTP_TTL_SEGUNDOS', '600'))  # 10 min default
-    MAX_TENTATIVAS = int(os.environ.get('OTP_MAX_TENTATIVAS', '5'))
-    REENVIO_MINIMO_SEG = int(os.environ.get('OTP_REENVIO_MINIMO_SEG', '60'))
+    # Validade, tentativas e intervalo de reenvio: settings.OTP_* (lidos na chamada; override_settings
+    # vale nos testes).
 
     # chave do desafio: e-mail ou o pseudo-e-mail 'sms+<digitos>@shivazen.local' (coluna identificador)
     email = models.EmailField(
@@ -240,11 +242,11 @@ class CodigoOtp(models.Model):
                 condition=models.Q(proposito__in=['AGENDAMENTO', 'LOGIN_CLIENTE', 'DSAR']),
                 name='ck_codigo_otp_proposito',
             ),
-            # Teto de banco (10) > MAX_TENTATIVAS logico (default 5) de proposito:
+            # Teto de banco (OTP_TETO_TENTATIVAS) > OTP_MAX_TENTATIVAS logico (padrao 5) de proposito:
             # o lockout aplicativo bloqueia antes; o CHECK e apenas guarda-corpo
             # contra valores absurdos vindos de escrita direta.
             models.CheckConstraint(
-                condition=models.Q(tentativas__gte=0) & models.Q(tentativas__lte=10),
+                condition=models.Q(tentativas__gte=0) & models.Q(tentativas__lte=OTP_TETO_TENTATIVAS),
                 name='ck_codigo_otp_qtd_tentativas_0_10',
             ),
         ]
@@ -289,8 +291,8 @@ class CodigoOtp(models.Model):
 
     @classmethod
     def pode_reenviar(cls, email, proposito=PROPOSITO_AGENDAMENTO):
-        """True se passou REENVIO_MINIMO_SEG desde ultimo codigo."""
-        limite = timezone.now() - timedelta(seconds=cls.REENVIO_MINIMO_SEG)
+        """True se passou settings.OTP_REENVIO_MINIMO_SEG desde ultimo codigo."""
+        limite = timezone.now() - timedelta(seconds=settings.OTP_REENVIO_MINIMO_SEG)
         return not cls.objects.filter(
             email=email, proposito=proposito, criado_em__gt=limite
         ).exists()
@@ -312,7 +314,7 @@ class CodigoOtp(models.Model):
             canal=canal,
             codigo_hash=codigo_hash,
             proposito=proposito,
-            expira_em=agora + timedelta(seconds=cls.TTL_SEGUNDOS),
+            expira_em=agora + timedelta(seconds=settings.OTP_TTL_SEGUNDOS),
             ip_origem=ip,
         )
         return codigo, obj
@@ -335,14 +337,14 @@ class CodigoOtp(models.Model):
             obj = qs.first()
             if not obj:
                 return False, 'expirado'
-            if obj.tentativas >= cls.MAX_TENTATIVAS:
+            if obj.tentativas >= settings.OTP_MAX_TENTATIVAS:
                 obj.usado_em = timezone.now()
                 obj.save(update_fields=['usado_em'])
                 return False, 'bloqueado'
             if not hmac.compare_digest(obj.codigo_hash, codigo_hash):
                 obj.tentativas += 1
                 obj.save(update_fields=['tentativas'])
-                restante = cls.MAX_TENTATIVAS - obj.tentativas
+                restante = settings.OTP_MAX_TENTATIVAS - obj.tentativas
                 return False, f'incorreto:{restante}'
             obj.usado_em = timezone.now()
             obj.save(update_fields=['usado_em'])

@@ -1,13 +1,13 @@
 """Marca/contatos da clinica — fonte unica p/ site, e-mails e WhatsApp.
 
 Precedencia: valor salvo na tela Branding do painel (tabela Configuracao)
--> variavel de ambiente -> default. Contatos sem valor ficam '' (os templates
+-> variavel de ambiente (settings.MARCA_ENV, lida em settings/base.py) -> default. Contatos sem valor ficam '' (os templates
 escondem o item) — nunca exibir telefone/e-mail ficticio.
 """
 import logging
-import os
 import re
 
+from django.conf import settings
 from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
@@ -88,11 +88,12 @@ def normalizar_whatsapp(valor) -> str:
 
 
 def get_branding() -> dict:
-    """Marca efetiva: Configuracao > env > DEFAULTS. Valores sempre str."""
+    """Marca efetiva: Configuracao > env (settings.MARCA_ENV) > DEFAULTS. Valores sempre str."""
     db = config_dict()
+    env = settings.MARCA_ENV
     out = {}
     for chave, default in DEFAULTS.items():
-        valor = (db.get(chave) or os.environ.get(chave) or default or '').strip()
+        valor = (db.get(chave) or env.get(chave) or default or '').strip()
         out[chave] = valor
     out['WHATSAPP_NUMERO'] = normalizar_whatsapp(out['WHATSAPP_NUMERO'])
     # Valores vao p/ href/meta: so aceita formatos seguros (senao cai no default)

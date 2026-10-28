@@ -19,7 +19,6 @@ Fora do HTTP (shell do servidor, dev): ``python manage.py rodar_job <job>``.
 """
 import hmac
 import logging
-import os
 
 import requests
 from django.conf import settings
@@ -48,7 +47,7 @@ def _avisar_monitor(job_name: str, ok: bool) -> None:
 
 
 def _token_ok(token_req: str) -> bool:
-    token_env = os.environ.get('CRON_TOKEN', '')
+    token_env = settings.CRON_TOKEN
     if not token_env or not token_req:
         return False
     # bytes: compare_digest(str, str) levanta TypeError com nao-ASCII (-> 500)

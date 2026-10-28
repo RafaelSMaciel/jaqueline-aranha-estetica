@@ -11,7 +11,7 @@ from decimal import Decimal
 from unittest import mock
 
 from django.core.cache import cache
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -443,9 +443,9 @@ class PainelShellTests(_AdminBase):
         self.assertIn('<form method="post" action="%s"' % reverse('aranha:usuario_logout'), html)
 
     def test_botao_push_so_com_vapid(self):
-        with mock.patch.dict('os.environ', {'WEBPUSH_VAPID_PUBLIC_KEY': ''}):
+        with override_settings(WEBPUSH_VAPID_PUBLIC_KEY=''):
             self.assertNotIn('id="webpushEnable"', self._html())
-        with mock.patch.dict('os.environ', {'WEBPUSH_VAPID_PUBLIC_KEY': 'BPk-teste'}):
+        with override_settings(WEBPUSH_VAPID_PUBLIC_KEY='BPk-teste'):
             self.assertIn('id="webpushEnable"', self._html())
 
 
