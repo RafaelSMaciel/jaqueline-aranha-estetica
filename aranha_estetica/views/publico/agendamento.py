@@ -273,7 +273,7 @@ def agendamento_publico(request):
         'turnstile_enabled': turnstile_enabled(),
     }
 
-    return render(request, 'agenda/agendamento_publico.html', context)
+    return render(request, 'agendamento/agendamento_publico.html', context)
 
 
 @ratelimit(key='ip', rate='10/m', method='POST', block=True)
@@ -548,4 +548,4 @@ def agendamento_sucesso(request):
     dados = request.session.pop('agendamento_sucesso', None)
     if not dados:
         return redirect('aranha:agendamento_publico')
-    return render(request, 'agenda/agendamento_sucesso.html', {'dados': dados})
+    return render(request, 'agendamento/agendamento_sucesso.html', {'dados': dados})

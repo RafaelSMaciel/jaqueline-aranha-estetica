@@ -143,7 +143,7 @@ aranha_estetica/                 app Django
 ├── migrations/                  0001–0046
 ├── templates/                   estrutura/ (site), painel/ (equipe), profissional/, agenda/, publico/,
 │                                cotton/ (componentes), email/, pwa/, usuario/, erros 400/403/404/429/500
-├── static/src/                  fonte do Vite (tokens.css, app.css; JS por tela: app/wizard/admin-search/webpush)
+├── static/src/                  fonte do Vite (tokens.css, app.css; JS por tela: app/wizard/painel-busca/webpush)
 ├── signals.py · jobs.py · jobs_manutencao.py · middleware.py · checks.py
 └── tests/
 clinica/                         settings (base/dev/prod), urls, wsgi, gunicorn_logger

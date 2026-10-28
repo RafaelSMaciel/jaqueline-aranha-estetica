@@ -159,7 +159,7 @@ def usuario_login(request):
         messages.error(request, 'Credenciais inválidas ou acesso não autorizado.')
         return redirect('aranha:usuario_login')
 
-    return render(request, 'usuario/login.html')
+    return render(request, 'conta/login.html')
 
 
 @require_http_methods(["GET", "POST"])
@@ -180,7 +180,7 @@ def usuario_logout(request):
         resposta['Clear-Site-Data'] = '"cache"'
         return resposta
     voltar = destino_padrao(request.user) if pode_acessar(request.user) else 'aranha:inicio'
-    return render(request, 'usuario/logout.html', {'voltar_url': reverse(voltar)})
+    return render(request, 'conta/logout.html', {'voltar_url': reverse(voltar)})
 
 
 # ─── Password Recovery (Class-Based Views) ───
@@ -202,9 +202,9 @@ class ClinicaPasswordResetForm(PasswordResetForm):
     name='dispatch'
 )
 class ClinicaPasswordResetView(PasswordResetView):
-    template_name = 'usuario/password_reset.html'
-    email_template_name = 'usuario/password_reset_email.html'
-    subject_template_name = 'usuario/password_reset_subject.txt'
+    template_name = 'conta/password_reset.html'
+    email_template_name = 'conta/password_reset_email.html'
+    subject_template_name = 'conta/password_reset_subject.txt'
     form_class = ClinicaPasswordResetForm
     success_url = reverse_lazy('aranha:password_reset_done')
 
@@ -237,11 +237,11 @@ class ClinicaPasswordResetView(PasswordResetView):
 
 
 class ClinicaPasswordResetDoneView(PasswordResetDoneView):
-    template_name = 'usuario/password_reset_done.html'
+    template_name = 'conta/password_reset_done.html'
 
 
 class ClinicaPasswordResetConfirmView(PasswordResetConfirmView):
-    template_name = 'usuario/password_reset_confirm.html'
+    template_name = 'conta/password_reset_confirm.html'
     success_url = reverse_lazy('aranha:password_reset_complete')
 
     def get_form(self, form_class=None):
@@ -262,4 +262,4 @@ class ClinicaPasswordResetConfirmView(PasswordResetConfirmView):
 
 
 class ClinicaPasswordResetCompleteView(PasswordResetCompleteView):
-    template_name = 'usuario/password_reset_complete.html'
+    template_name = 'conta/password_reset_complete.html'

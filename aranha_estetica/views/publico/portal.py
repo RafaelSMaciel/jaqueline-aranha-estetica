@@ -47,7 +47,7 @@ def meus_agendamentos(request):
     """Listagem autenticada via OTP (sessao presa ao telefone do cadastro)."""
     telefone = request.session.get(SESSAO_MEUS_AGENDAMENTOS)
     if not telefone:
-        return render(request, 'agenda/meus_agendamentos.html', {
+        return render(request, 'agendamento/meus_agendamentos.html', {
             'step': '1',
             'turnstile_site_key': turnstile_site_key(),
             'turnstile_enabled': turnstile_enabled(),
@@ -70,7 +70,7 @@ def meus_agendamentos(request):
         | Q(status__in=STATUS_FINALIZADOS)
     )
 
-    return render(request, 'agenda/meus_agendamentos.html', {
+    return render(request, 'agendamento/meus_agendamentos.html', {
         'step': '3',
         'telefone_mascarado': mask_telefone(telefone),
         'agendamentos_futuros': agendamentos_futuros[:20],
@@ -205,7 +205,7 @@ def _reagendar(request, atendimento, *, link, url_voltar, url_horarios):
             # Data local (nao UTC): apos as 21h o "amanha" em UTC pularia um dia.
             'data_min': (hoje() + timedelta(days=1)).isoformat(),
         }
-        return render(request, 'agenda/reagendar.html', context)
+        return render(request, 'agendamento/reagendar.html', context)
 
     datetime_str = (request.POST.get('datetime') or '').strip()
     profissional_id = id_int(request.POST.get('profissional') or atendimento.profissional_id)

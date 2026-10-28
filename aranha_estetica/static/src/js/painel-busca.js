@@ -1,4 +1,4 @@
-// admin-search.js — filtro instantaneo client-side para listas em cards.
+// painel-busca.js — filtro instantaneo client-side para listas em cards.
 // Uso:
 //   <input data-search-filter="#minha-lista" placeholder="Buscar...">
 //   <div id="minha-lista">

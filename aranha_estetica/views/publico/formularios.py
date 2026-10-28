@@ -67,9 +67,9 @@ def _valores_postados(schema: list, post_data) -> dict:
 
 def _renderizar(request, resposta: RespostaAnamnese, erros=None, valores=None):
     template = (
-        'agenda/pesquisa.html'
+        'agendamento/pesquisa.html'
         if resposta.formulario.tipo == 'PESQUISA'
-        else 'agenda/anamnese_publica.html'
+        else 'agendamento/anamnese_publica.html'
     )
     valores = valores or {}
     # texto exibido = o da versao SAUDE que o POST grava no aceite (art. 11)
@@ -165,8 +165,8 @@ def pesquisa_publica(request, token: str):
 
 
 def anamnese_obrigado(request):
-    return render(request, 'agenda/anamnese_obrigado.html')
+    return render(request, 'agendamento/anamnese_obrigado.html')
 
 
 def pesquisa_obrigado(request):
-    return render(request, 'agenda/pesquisa_obrigado.html')
+    return render(request, 'agendamento/pesquisa_obrigado.html')

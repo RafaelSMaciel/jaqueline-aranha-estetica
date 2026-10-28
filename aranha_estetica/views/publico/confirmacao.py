@@ -108,4 +108,4 @@ def confirmar_presenca(request, token):
         'resposta': notif.resposta,
         'nao_editavel': not ja_respondeu and not _alteravel_pelo_link(atendimento),
     }
-    return render(request, 'agenda/confirmar_presenca.html', context)
+    return render(request, 'agendamento/confirmar_presenca.html', context)

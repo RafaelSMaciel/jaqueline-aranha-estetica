@@ -23,7 +23,7 @@ from ...utils.fichas import itens_ficha
 from ...utils.parse import id_int
 
 # Exemplo exibido em formulario novo. Chave 'obrigatorio' SEM acento: e o que
-# anamnese_publica.py e agenda/pesquisa.html leem.
+# anamnese_publica.py e agendamento/pesquisa.html leem.
 SCHEMA_EXEMPLO = [
     {'key': 'gestante', 'tipo': 'bool', 'label': 'Está gestante?', 'obrigatorio': True},
     {'key': 'alergias', 'tipo': 'text', 'label': 'Possui alergias?', 'obrigatorio': False},

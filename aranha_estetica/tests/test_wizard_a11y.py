@@ -52,7 +52,7 @@ class ContrasteDouradoTests(SimpleTestCase):
 
         base = Path(settings.BASE_DIR) / 'aranha_estetica'
         regra = re.compile(r'background:\s*var\(--(gold|cor-marca-forte)[^;{}]*;[^{}]*?color:\s*(white|#fff)\b', re.I)
-        for rel in ('templates/agenda/agendamento_publico.html', 'templates/agenda/reagendar.html'):
+        for rel in ('templates/agendamento/agendamento_publico.html', 'templates/agendamento/reagendar.html'):
             with self.subTest(arquivo=rel):
                 self.assertIsNone(regra.search((base / rel).read_text(encoding='utf-8')))
         js = (base / 'static' / 'src' / 'js' / 'wizard.js').read_text(encoding='utf-8')

@@ -14,7 +14,7 @@ export default defineConfig({
       input: {
         app: 'aranha_estetica/static/src/js/app.js',
         wizard: 'aranha_estetica/static/src/js/wizard.js',
-        'admin-search': 'aranha_estetica/static/src/js/admin-search.js',
+        'painel-busca': 'aranha_estetica/static/src/js/painel-busca.js',
         webpush: 'aranha_estetica/static/src/js/webpush.js',
       },
     },

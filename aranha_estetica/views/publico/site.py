@@ -207,13 +207,13 @@ def agenda_contato(request):
         faltando = not all([name, email, subject, message, privacy])
         if faltando:
             messages.error(request, 'Preencha todos os campos obrigatórios.')
-            return render(request, 'agenda/contato.html', {'form_data': form_data})
+            return render(request, 'publico/contato.html', {'form_data': form_data})
 
         try:
             validate_email(email)
         except ValidationError:
             messages.error(request, 'Informe um e-mail válido.')
-            return render(request, 'agenda/contato.html', {'form_data': form_data})
+            return render(request, 'publico/contato.html', {'form_data': form_data})
 
         assunto = ASSUNTOS_CONTATO.get(subject, 'Outros')
         destino = _destino_contato()
@@ -257,7 +257,7 @@ def agenda_contato(request):
                 'formulário: tente de novo mais tarde'
                 + (' ou use outro canal de contato desta página.' if outro_canal else '.'),
             )
-            return render(request, 'agenda/contato.html', {
+            return render(request, 'publico/contato.html', {
                 'form_data': form_data,
                 'envio_falhou': True,
             })
@@ -265,7 +265,7 @@ def agenda_contato(request):
         messages.success(request, 'Mensagem enviada! Entraremos em contato em breve.')
         return redirect('aranha:agenda_contato')
 
-    return render(request, 'agenda/contato.html')
+    return render(request, 'publico/contato.html')
 
 
 # ─── Promocoes / precos de vitrine ───
@@ -449,7 +449,7 @@ def galeria(request):
     # Apenas fotos genuinamente esteticas/spa (curadoria de marca).
     fotos = [
         {'src': 'assets/clinica/espaco-2.webp', 'titulo': 'Recepção'},
-        {'src': 'assets/clinica/consulta-1.webp', 'titulo': 'Sala de avaliação'},
+        {'src': 'assets/clinica/atendimento-1.webp', 'titulo': 'Sala de avaliação'},
         {'src': 'assets/clinica/facial-2.webp', 'titulo': 'Tratamento facial com LED'},
         {'src': 'assets/clinica/facial-3.webp', 'titulo': 'Máscara facial'},
     ]
@@ -495,8 +495,8 @@ def servico_detalhe(request, slug):
 # ─── Servicos por categoria (paginas institucionais estaticas) ───
 
 def servicos_faciais(request):
-    return render(request, 'servicos/faciais.html')
+    return render(request, 'publico/servicos/faciais.html')
 
 
 def servicos_corporais(request):
-    return render(request, 'servicos/corporais.html')
+    return render(request, 'publico/servicos/corporais.html')
