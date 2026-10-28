@@ -1,6 +1,6 @@
 """Lado Python da logica no banco (docs/specs/padrao-sql.md §5) — roda no SQLite e no Postgres.
 
-utils/nps (meio p/ cima, D7), utils/banco (allowlist do CALL, gating SQLite x PG), busca de
+services/nps (meio p/ cima, D7), utils/banco (allowlist do CALL, gating SQLite x PG), busca de
 cliente (trigram/sem acento no PG, icontains no SQLite), HistoricoAlteracao/AnotacaoSessao
 append-only no Python, admin da trilha so leitura com trilha de leitura e o housekeeping
 (links vencidos/revogados e trilha antiga; so Postgres).
@@ -22,7 +22,7 @@ from aranha_estetica.models import (
 )
 from aranha_estetica.utils import banco
 from aranha_estetica.utils.busca import filtrar_clientes
-from aranha_estetica.utils.nps import calcular_nps, media_nota, resumo_nps
+from aranha_estetica.services.nps import calcular_nps, media_nota, resumo_nps
 
 from .factories import criar_atendimento, criar_cliente, criar_link, criar_procedimento, criar_profissional
 

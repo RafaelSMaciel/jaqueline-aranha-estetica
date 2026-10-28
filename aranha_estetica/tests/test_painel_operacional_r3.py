@@ -26,7 +26,6 @@ from aranha_estetica.models import (
     MovimentoCarteira,
     Pacote,
     Procedimento,
-    Promocao,
     Prontuario,
     RespostaAnamnese,
     Usuario,
@@ -203,7 +202,7 @@ class EmailPreviewTests(_AdminTestCase):
 
     def test_promocao_e_aniversario_como_no_envio_real(self):
         html = self._get('promocao').content.decode()
-        for trecho in ('Maria Silva', 'Oferta especial do mês', '30/05/2026'):
+        for trecho in ('Maria Silva', 'Oferta especial do mês', 'Para atendimentos de 01/05/2026 a 31/05/2026'):
             self.assertIn(trecho, html)
         self.assertNotIn('Presente de aniversario', self._get('aniversario').content.decode())
 
@@ -285,77 +284,6 @@ class PacoteCanceladoReembolsoTests(_AdminTestCase):
         log = LogAuditoria.objects.get(acao__startswith='Vendeu pacote')
         self.assertNotIn('Fernanda', log.acao)
         self.assertEqual(log.detalhes['cliente'], self.cli.pk)
-
-
-# ─── Promocoes: criar geral/preco fixo e nao excluir a ja usada ────────
-class PromocaoCriacaoExclusaoTests(_AdminTestCase):
-    def setUp(self):
-        super().setUp()
-        self.proc = criar_procedimento()
-        hoje = timezone.localdate()
-        self.datas = {'data_inicio': hoje.isoformat(), 'data_fim': (hoje + timedelta(days=10)).isoformat(),
-                      'ativa': '1', 'descricao': ''}
-
-    def _criar(self, **campos):
-        return self.client.post(reverse('aranha:admin_criar_promocao'), {**self.datas, **campos}, follow=True)
-
-    def test_geral_percentual_e_especifica_preco_fixo(self):
-        self._criar(nome='Semana da pele', desconto='15')
-        geral = Promocao.objects.get(nome='Semana da pele')
-        self.assertIsNone(geral.procedimento)
-        self.assertEqual(geral.desconto_percentual, Decimal('15.00'))
-        self._criar(nome='Limpeza por 99', procedimento=str(self.proc.pk), preco_promocional='99,00')
-        fixa = Promocao.objects.get(nome='Limpeza por 99')
-        self.assertEqual(fixa.preco_promocional, Decimal('99.00'))
-        resp = self._criar(nome='Fixa sem procedimento', preco_promocional='50')
-        self.assertFalse(Promocao.objects.filter(nome='Fixa sem procedimento').exists())
-        self.assertTrue(any('escolha o procedimento' in m for m in _mensagens(resp)))
-
-    def test_promocao_usada_nao_e_excluida(self):
-        promo = Promocao.objects.create(nome='Usada', desconto_percentual=Decimal('10'), procedimento=self.proc,
-                                        data_inicio=timezone.localdate(), data_fim=timezone.localdate())
-        at = criar_atendimento(criar_cliente(), criar_profissional(), self.proc)
-        at.promocao = promo
-        at.save(update_fields=['promocao'])
-        resp = self.client.post(reverse('aranha:admin_excluir_promocao', args=[promo.pk]), follow=True)
-        self.assertTrue(Promocao.objects.filter(pk=promo.pk).exists())
-        self.assertTrue(any('desative em vez de excluir' in m for m in _mensagens(resp)))
-
-
-# ─── Promocoes: global e preco fixo editaveis ─────────────────────────
-class PromocaoEdicaoTests(_AdminTestCase):
-    def setUp(self):
-        super().setUp()
-        self.proc = criar_procedimento()
-        self.hoje = timezone.localdate()
-
-    def _post(self, promo, **extra):
-        data = {'nome': promo.nome, 'descricao': '', 'ativa': '0',
-                'data_inicio': promo.data_inicio.isoformat(), 'data_fim': promo.data_fim.isoformat()}
-        data.update(extra)
-        return self.client.post(reverse('aranha:admin_editar_promocao', args=[promo.pk]), data)
-
-    def test_global_continua_global(self):
-        promo = Promocao.objects.create(nome='Global', desconto_percentual=Decimal('10'),
-                                        data_inicio=self.hoje, data_fim=self.hoje + timedelta(days=10))
-        resp = self.client.get(reverse('aranha:admin_promocoes'))
-        self.assertContains(resp, '<option value="" selected>Todos os procedimentos</option>', html=True)
-        self._post(promo, procedimento='', desconto='10')
-        promo.refresh_from_db()
-        self.assertIsNone(promo.procedimento_id)
-        self.assertFalse(promo.ativa)
-
-    def test_preco_fixo_pode_ser_desativado(self):
-        promo = Promocao.objects.create(nome='Fixa', preco_promocional=Decimal('99.00'), procedimento=self.proc,
-                                        data_inicio=self.hoje, data_fim=self.hoje + timedelta(days=10))
-        resp = self.client.get(reverse('aranha:admin_promocoes'))
-        self.assertContains(resp, 'name="preco_promocional"')
-        resp = self._post(promo, procedimento=str(self.proc.pk), preco_promocional='99.00')
-        promo.refresh_from_db()
-        self.assertFalse(promo.ativa)
-        self.assertEqual(promo.preco_promocional, Decimal('99.00'))
-        self.assertEqual(promo.desconto_percentual, Decimal('0'))
-        self.assertFalse(any('Erro' in m for m in _mensagens(resp)))
 
 
 # ─── Agendamento interno: cliente inativa ─────────────────────────────

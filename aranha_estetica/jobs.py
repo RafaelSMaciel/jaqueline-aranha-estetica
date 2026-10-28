@@ -1,571 +1,211 @@
-"""Jobs periodicos — funcoes simples chamadas pelo cron HTTP (views/infra/cron) e pelo comando
-``rodar_job`` (sem Celery: nada roda em segundo plano).
+"""Jobs periodicos: o registro (JOB_MAP), a agenda (JOB_AGENDA) e a execucao (executar).
 
-Estrategia de canais (aprovada 2026-04-18):
-  WhatsApp:  Confirmacao D-1, NPS pos-atendimento, aviso de vaga (lista de espera)
-  Email:     confirmacao, cancelamento, fila, pacotes, aniversario,
-             promocoes, termos, alertas admin (detrator NPS)
-  SMS:       OTP — integrado via utils/sms.py
+Sem Celery: cada job e uma funcao curta que chama o caso de uso em services/ e devolve um resumo.
+Quem dispara: o comando ``rodar_jobs_devidos`` (servico Cron do Railway a cada 15 min, le a
+JOB_AGENDA), o cron HTTP (views/infra/cron) e, a mao, ``python manage.py rodar_job <job>``.
 
 Regras transversais:
   - "hoje/amanha" sempre no fuso da clinica (utils/datas), nunca data UTC;
   - canal sem credencial fora de DEBUG => nada e marcado como enviado;
-  - consentimento do cliente respeitado por canal/finalidade;
-  - erro propaga: o cron ve 500 e avisa o monitor; nada e reexecutado na hora (falha pontual
-    por destinatario e logada e o lote segue — o proximo run pega quem ficou de fora).
-Jobs de manutencao (housekeeping, feriados) ficam em jobs_manutencao.py.
+  - consentimento da cliente respeitado por canal/finalidade (services/consentimentos);
+  - nunca mandar duas vezes: lembrete e NPS tem marca por destinatario (Notificacao); os jobs de
+    mensagem sem essa marca (JOBS_UMA_VEZ_POR_DIA) rodam no maximo uma vez por dia (ExecucaoJob);
+  - erro propaga: o cron ve 500 e avisa o monitor; nada e reexecutado na hora (falha pontual por
+    destinatario e logada e o lote segue).
 """
+from __future__ import annotations
+
 import logging
-import os
+from dataclasses import dataclass
 from datetime import timedelta
 
+import requests
 from django.conf import settings
-from django.db import transaction
-from django.urls import reverse
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from .constants import VALIDADE_LINK_NPS
-from .models import Atendimento, AvaliacaoNPS
-from .models.agendamentos import StatusAtendimento
-from .utils.datas import dias_locais, fmt_local, hoje
+from . import jobs_manutencao
+from .models import ExecucaoJob
+from .services import comunicacao, lembretes, marketing, nps
+from .services.atendimento import cancelar_pendentes_vencidos
+from .services.lgpd import LgpdService
+from .services.pacotes import avisar_expirando
+from .utils.banco import chamar
+from .utils.datas import hoje
 
 logger = logging.getLogger(__name__)
 
-# Janela do NPS: so atendimentos recentes (evita disparo p/ todo o historico
-# na primeira execucao) e no maximo N tentativas por atendimento.
-NPS_JANELA_DIAS = 7
-NPS_MAX_FALHAS = 3
 
+# ═══ Jobs (1 a 3 linhas: a regra mora em services/) ═══════════════════════
 
-# Workflow engine removido na remodelagem v2.1 fase 1d — regras configuraveis
-# por UI eram over-engineering p/ 1 clinica; reacoes vivem em services/handlers.
-
-
-# ═══════════════════════════════════════
-#  WHATSAPP — Confirmacao D-1
-# ═══════════════════════════════════════
-
-def job_enviar_lembrete_dia_seguinte():
-    """Envia confirmacao D-1 via WhatsApp (template) para agendamentos de amanha.
-
-    Respeita o consentimento do checkbox 'Aceito receber lembrete ... por
-    WhatsApp' (LEMBRETE_AGENDAMENTO/WHATSAPP vigente no historico).
-    """
-    from .utils.whatsapp import enviar_confirmacao_d1, pode_enviar_whatsapp
-    from .models import Notificacao
-    from .services import consentimentos
-
-    if not pode_enviar_whatsapp():
-        logger.warning('lembrete_d1_whatsapp_nao_configurado')
-        return 'whatsapp nao configurado'
-
-    amanha = hoje() + timedelta(days=1)
-    agendamentos = consentimentos.com_consentimento(
-        Atendimento.objects.filter(**dias_locais('data_hora_inicio', amanha), status=StatusAtendimento.AGENDADO),
-        *consentimentos.LEMBRETE_WHATSAPP,
-    ).select_related('cliente', 'profissional', 'procedimento')
-
-    logger.info(f"[JOB LEMBRETE] {agendamentos.count()} agendamentos para amanha ({amanha}).")
-
-    enviados = 0
-    for agendamento in agendamentos:
-        if not agendamento.cliente.telefone:
-            continue
-        ja_enviou = Notificacao.objects.filter(
-            atendimento=agendamento,
-            tipo=Notificacao.Tipo.LEMBRETE,
-            canal=Notificacao.Canal.WHATSAPP,
-            status=Notificacao.Status.ENVIADO,
-        ).exists()
-        if ja_enviou:
-            continue
-        # Falha pontual nao re-dispara o batch (retry reenviaria a quem ja
-        # recebeu); o guard ja_enviou acima ja garante idempotencia.
-        try:
-            notif = enviar_confirmacao_d1(agendamento)
-            if notif and notif.status == Notificacao.Status.ENVIADO:
-                enviados += 1
-        except Exception as e:
-            logger.error(
-                '[JOB LEMBRETE] Falha ao enviar para atendimento %s: %s',
-                agendamento.pk, type(e).__name__, exc_info=True,
-            )
-
-    logger.info(f"[JOB LEMBRETE] {enviados} lembretes enviados com sucesso.")
-    return f'{enviados} lembretes enviados'
-
-
-# ═══════════════════════════════════════
-#  WHATSAPP — NPS 24h pos atendimento
-# ═══════════════════════════════════════
-
-def candidatos_nps(agora=None):
-    """Atendimentos REALIZADO elegiveis ao NPS.
-
-    - terminaram ha 24h+ e ha no maximo NPS_JANELA_DIAS;
-    - sem avaliacao; cliente com PESQUISA_SATISFACAO/WHATSAPP vigente (ultimo
-      registro do historico — descadastro revoga, reconsentimento volta a valer);
-    - sem NPS PENDENTE/ENVIADO (Exists correlacionado — um exclude() com
-      duas condicoes na FK reversa virava dois EXISTS independentes e
-      bloqueava o retry de quem tinha NPS FALHOU + LEMBRETE ENVIADO);
-    - menos de NPS_MAX_FALHAS tentativas falhas.
-    """
-    from django.db.models import Count, Exists, OuterRef, Q
-    from .models import Notificacao
-    from .services import consentimentos
-
-    agora = agora or timezone.now()
-    nps_ativo = Notificacao.objects.filter(
-        atendimento=OuterRef('pk'), tipo=Notificacao.Tipo.NPS,
-        status__in=[Notificacao.Status.PENDENTE, Notificacao.Status.ENVIADO],
-    )
-    elegiveis = Atendimento.objects.filter(
-        status=StatusAtendimento.REALIZADO,
-        data_hora_fim__lte=agora - timedelta(days=1),
-        data_hora_fim__gte=agora - timedelta(days=NPS_JANELA_DIAS),
-        avaliacaonps__isnull=True,
-    )
-    return (
-        consentimentos.com_consentimento(elegiveis, *consentimentos.PESQUISA_WHATSAPP)
-        .exclude(Exists(nps_ativo))
-        .annotate(nps_falhas=Count(
-            'notificacao', filter=Q(notificacao__tipo=Notificacao.Tipo.NPS, notificacao__status=Notificacao.Status.FALHOU),
-        ))
-        .filter(nps_falhas__lt=NPS_MAX_FALHAS)
-        .select_related('cliente', 'procedimento')
-    )
-
-
-def job_pesquisa_satisfacao_24h():
-    """Envia NPS por WhatsApp 24h apos atendimento REALIZADO.
-
-    Requer PESQUISA_SATISFACAO/WHATSAPP vigente (candidatos_nps). Sem consentimento, ignora.
-    """
-    from .utils.whatsapp import enviar_nps_whatsapp, pode_enviar_whatsapp
-    from .models import Notificacao
-    from .services import links
-
-    # Sem canal: nao cria Notificacao (nem FALHOU) — quando o WhatsApp
-    # for configurado, a janela de 7 dias ainda pega os recentes.
-    if not pode_enviar_whatsapp():
-        logger.warning('nps_whatsapp_nao_configurado')
-        return 'whatsapp nao configurado'
-
-    site_url = settings.SITE_URL.rstrip('/')
-    agendamentos = candidatos_nps()
-
-    logger.info(f"[JOB NPS] {agendamentos.count()} atendimentos sem avaliacao e com consent.")
-
-    enviados = 0
-    for agendamento in agendamentos:
-        if not agendamento.cliente.telefone:
-            logger.warning(f"[NPS WA] Cliente {agendamento.cliente.pk} sem telefone — NPS nao enviado")
-            continue
-
-        # Link NPS (LinkAcesso, so o hash no banco): 7 dias do envio.
-        with transaction.atomic():
-            notif = Notificacao.objects.create(
-                atendimento=agendamento,
-                tipo=Notificacao.Tipo.NPS,
-                canal=Notificacao.Canal.WHATSAPP,
-                status=Notificacao.Status.PENDENTE,
-            )
-            token = links.emitir(links.NPS, notif, expira_em=notif.criado_em + VALIDADE_LINK_NPS)
-        nps_url = f"{site_url}{reverse('aranha:nps_web', args=[token])}"
-
-        # enviar_nps_whatsapp grava ENVIADO/FALHOU na Notificacao (nunca
-        # fica PENDENTE orfa); FALHOU e re-tentavel ate NPS_MAX_FALHAS.
-        try:
-            if enviar_nps_whatsapp(agendamento, nps_url, notif):
-                enviados += 1
-        except Exception as e:
-            Notificacao.objects.filter(pk=notif.pk).update(status=Notificacao.Status.FALHOU)
-            logger.error('[JOB NPS] Falha no atendimento %s: %s', agendamento.pk, type(e).__name__)
-
-    logger.info(f"[JOB NPS] {enviados} NPS enviados via WhatsApp.")
-    return f'{enviados} NPS enviados'
-
-
-# ═══════════════════════════════════════
-#  EMAIL — Alerta detrator NPS (admin)
-# ═══════════════════════════════════════
-
-def email_alerta_detrator() -> str:
-    """Destino do alerta: Configuracao email_admin (qualquer caixa) > env
-    ADMIN_EMAIL > e-mail de contato da clinica (Branding)."""
-    from .models import Configuracao
-    from .utils.branding import get_branding
-
-    cfg = Configuracao.objects.filter(chave__iexact='email_admin').first()
-    valor = (cfg.valor or '').strip() if cfg else ''
-    return valor or os.environ.get('ADMIN_EMAIL', '').strip() or get_branding().get('CLINIC_EMAIL', '')
-
-
-def job_alerta_detrator_nps():
-    """Alerta admin por EMAIL quando NPS <= 6 (detrator)."""
-    from django.core.mail import send_mail
-    from .utils.branding import get_branding
-    from .utils.email import email_configurado
-
-    detratores = list(AvaliacaoNPS.objects.filter(
-        nota__lte=6,
-        alerta_enviado=False
-    ).select_related('atendimento__cliente', 'atendimento__procedimento', 'atendimento__profissional'))
-
-    if not detratores:
-        return
-
-    email_admin = email_alerta_detrator()
-    if not email_admin:
-        logger.warning('nps_detrator_sem_email_admin', extra={'pendentes': len(detratores)})
-        return
-    # Sem backend real (console/dummy fora de DEBUG) nao marca alerta_enviado:
-    # o alerta sai quando o e-mail for configurado.
-    if not email_configurado():
-        logger.warning('nps_detrator_email_nao_configurado', extra={'pendentes': len(detratores)})
-        return
-
-    clinica = get_branding()['CLINIC_NAME']
-    default_from = getattr(settings, 'DEFAULT_FROM_EMAIL', '') or 'noreply@localhost'
-
-    for avaliacao in detratores:
-        at = avaliacao.atendimento
-        assunto = f'[{clinica}] Alerta NPS — {at.cliente.nome} nota {avaliacao.nota}'
-        corpo = (
-            f'Cliente: {at.cliente.nome}\n'
-            f'Procedimento: {at.procedimento.nome}\n'
-            f'Profissional: {at.profissional.nome if at.profissional_id else "-"}\n'
-            f'Data do atendimento: {fmt_local(at.data_hora_inicio)}\n'
-            f'Nota: {avaliacao.nota}/10\n'
-            f'Comentário: {avaliacao.comentario or "(sem comentário)"}\n'
-        )
-        try:
-            send_mail(
-                subject=assunto,
-                message=corpo,
-                from_email=default_from,
-                recipient_list=[email_admin],
-                fail_silently=False,
-            )
-            avaliacao.alerta_enviado = True
-            avaliacao.save(update_fields=['alerta_enviado'])
-            logger.warning(
-                'nps_detrator_alerta_enviado',
-                extra={'cliente_id': at.cliente_id, 'nota': avaliacao.nota},
-            )
-        except Exception as e:
-            # Nao marca alerta_enviado -> re-tentado no proximo run (idempotente).
-            logger.error('nps_detrator_falha_alerta', extra={'erro': type(e).__name__})
-
-
-# Lista de espera: aviso de vaga saiu daqui — um unico mecanismo em
-# services/lista_espera (disparado por signals, e-mail no on_commit).
-
-
-# ═══════════════════════════════════════
-#  EMAIL — Pacotes expirando
-# ═══════════════════════════════════════
-
-def job_verificar_pacotes_expirando():
-    """Notifica clientes com pacotes expirando em 7 ou 1 dia — por EMAIL."""
-    from .utils.email import enviar_pacote_expirando_email
-    from .models import CompraPacote
-
-    data_hoje = hoje()
-    enviados = 0
-
-    for dias in [7, 1]:
-        data_alvo = data_hoje + timedelta(days=dias)
-        pacotes = CompraPacote.objects.filter(
-            status=CompraPacote.STATUS_ATIVO,
-            data_expiracao=data_alvo
-        ).select_related('cliente').prefetch_related('itens__procedimento', 'sessoes_realizadas')
-
-        for pc in pacotes:
-            # Mesma fonte de saldo da ficha do cliente (itens congelados na venda).
-            sessoes_restantes = pc.sessoes_restantes()
-
-            if sessoes_restantes <= 0:
-                continue
-            if not pc.cliente.email:
-                logger.warning(
-                    '[PACOTE EXPIRANDO] Cliente %s sem email — nao notificado',
-                    pc.cliente.pk,
-                )
-                continue
-            # Falha de 1 destinatario nao re-dispara o batch inteiro.
-            try:
-                ok = enviar_pacote_expirando_email(pc.cliente.email, {
-                    'nome': pc.cliente.nome,
-                    'pacote': pc.pacote_nome,
-                    'dias': dias,
-                    'sessoes_restantes': sessoes_restantes,
-                    # Sessao conta pela data em que acontece (signals).
-                    'valido_ate': pc.data_expiracao.strftime('%d/%m/%Y'),
-                })
-                if ok:
-                    enviados += 1
-                    logger.info(f"[PACOTE EXPIRANDO] Cliente {pc.cliente.pk} — {dias} dias restantes")
-                else:
-                    logger.warning('[PACOTE EXPIRANDO] E-mail nao enviado ao cliente %s', pc.cliente.pk)
-            except Exception as e:
-                logger.error(
-                    '[PACOTE EXPIRANDO] Falha ao notificar cliente %s: %s',
-                    pc.cliente.pk, type(e).__name__, exc_info=True,
-                )
-    return f'{enviados} avisos enviados'
-
-
-# ═══════════════════════════════════════
-#  EMAIL — Aniversario
-# ═══════════════════════════════════════
-
-def aniversariantes_do_dia(data=None):
-    """Clientes ativos que fazem aniversario na data (29/02 comemora em 28/02
-    nos anos nao bissextos)."""
-    import calendar
-    from django.db.models import Q
-    from .models import Cliente
-
-    data = data or hoje()
-    filtro = Q(data_nascimento__month=data.month, data_nascimento__day=data.day)
-    if data.month == 2 and data.day == 28 and not calendar.isleap(data.year):
-        filtro |= Q(data_nascimento__month=2, data_nascimento__day=29)
-    return Cliente.objects.filter(filtro, ativo=True)
-
-
-def job_aniversario_clientes():
-    """Envia e-mail de felicitacao de aniversario (marketing, sem desconto:
-    nao ha mecanismo que aplique cupom/percentual no agendamento).
-
-    Requer MARKETING/EMAIL vigente (ultimo registro do historico de consentimento).
-    Sai com link + header List-Unsubscribe (LGPD / RFC 8058).
-    WhatsApp de aniversario NAO e enviado: o unico consentimento de WhatsApp
-    coletado e o de lembrete do agendamento, que nao cobre marketing.
-    """
-    from .services import consentimentos
-    from .utils.email import enviar_aniversario_email, enviar_marketing_com_descadastro
-
-    aniversariantes = consentimentos.anotar_vigente(
-        aniversariantes_do_dia(), *consentimentos.MARKETING_EMAIL, caminho='pk',
-    )
-    emails_enviados = 0
-
-    for cliente in aniversariantes:
-        if not (cliente.email and cliente.tem_consentimento):
-            continue
-        dados = {'nome': cliente.nome}
-        # Falha pontual nao re-dispara o batch (retry reenviaria aos ja
-        # parabenizados) — loga e segue.
-        try:
-            if enviar_marketing_com_descadastro(
-                cliente, lambda unsub: enviar_aniversario_email(cliente.email, dados, unsub_token=unsub),
-            ):
-                emails_enviados += 1
-        except Exception as e:
-            logger.error(
-                'aniversario_email_falha',
-                extra={'cliente_id': cliente.pk, 'erro': type(e).__name__},
-            )
-
-    logger.info(
-        'aniversario_disparado',
-        extra={'aniversariantes': aniversariantes.count(), 'emails': emails_enviados},
-    )
-    return f'{emails_enviados} e-mails de aniversario'
-
-
-# ═══════════════════════════════════════
-#  EMAIL — Promocao mensal (opt-in)
-# ═══════════════════════════════════════
-
-def validade_promocao(validade_dias: int = 30, data_fim=None) -> str:
-    """'dd/mm/aaaa' anunciado no e-mail: hoje (local) + validade_dias, mas
-    nunca depois do fim da promocao (data_fim: date ou ISO 'aaaa-mm-dd')."""
-    from datetime import date
-
-    limite = hoje() + timedelta(days=validade_dias)
-    if data_fim:
-        if not isinstance(data_fim, date):
-            data_fim = date.fromisoformat(str(data_fim)[:10])
-        limite = min(limite, data_fim)
-    return limite.strftime('%d/%m/%Y')
-
-
-def job_promocao_mensal(assunto: str, corpo_html_partial: str, validade_dias: int = 30, data_fim=None):
-    """Envia email promocional para clientes com MARKETING/EMAIL vigente.
-
-    Parametros:
-      assunto: subject do email
-      corpo_html_partial: snippet HTML inserido no template base de promocao
-      validade_dias: dias de validade anunciada (default 30)
-      data_fim: fim da promocao (date ou ISO) — teto da validade anunciada
-    """
-    from .utils.email import email_configurado, enviar_marketing_com_descadastro, enviar_promocao_email
-    from .models import Cliente
-    from .services import consentimentos
-
-    if not email_configurado():
-        logger.warning('promocao_email_nao_configurado')
-        return 'email nao configurado'
-
-    destinatarios = consentimentos.com_consentimento(
-        Cliente.objects.filter(ativo=True, email__isnull=False).exclude(email=''),
-        *consentimentos.MARKETING_EMAIL, caminho='pk',
-    )
-
-    logger.info(f"[JOB PROMOCAO] {destinatarios.count()} destinatario(s) com consent.")
-
-    validade = validade_promocao(validade_dias, data_fim)
-    enviados = 0
-    for cliente in destinatarios:
-        # Roteia pelo helper dedicado: aplica bleach em corpo_html (anti-XSS)
-        # e injeta header List-Unsubscribe (RFC 8058) por ser marketing.
-        # Falha pontual nao re-dispara o batch (retry reenviaria a todos).
-        dados = {'nome': cliente.nome, 'corpo_html': corpo_html_partial, 'validade': validade}
-        try:
-            ok = enviar_marketing_com_descadastro(
-                cliente,
-                lambda unsub, c=cliente, d=dados: enviar_promocao_email(
-                    c.email, d, unsub_token=unsub, assunto=assunto,
-                ),
-            )
-            if ok:
-                enviados += 1
-        except Exception as e:
-            logger.error(
-                '[JOB PROMOCAO] Falha ao enviar para cliente %s: %s',
-                cliente.pk, type(e).__name__, exc_info=True,
-            )
-    logger.info(f"[JOB PROMOCAO] {enviados} emails enviados.")
-    return f'{enviados} promocoes enviadas'
-
-
-# ═══════════════════════════════════════
-#  SISTEMA — Expirar pacotes
-# ═══════════════════════════════════════
-
-def job_expirar_pacotes():
-    """Expira pacotes vencidos (data_expiracao < hoje LOCAL: o ultimo dia vale).
-
-    CALL sp_expirar_pacotes(hoje) — fonte unica (spec padrao-sql §5.6; so Postgres); o
-    tg_compra_pacote_historico registra cada linha.
-    """
-    from .utils.banco import chamar
-
-    (expirados,) = chamar('sp_expirar_pacotes', hoje(), None)
-
-    if expirados:
-        logger.info(f"[PACOTE] {expirados} pacote(s) expirado(s) automaticamente.")
-    return f'{expirados} pacotes expirados'
-
-
-# ═══════════════════════════════════════
-#  SISTEMA — Limpeza de status
-# ═══════════════════════════════════════
-
-def job_limpeza_status_atendimentos():
-    """Pedidos que venceram e atendimentos sem desfecho.
-
-    - PENDENTE a menos de PRAZO_DECISAO_PENDENTE (1 h) do inicio -> CANCELADO + e-mail a cliente
-      ("nao conseguimos confirmar a tempo"): a clinica nao decidiu (nao e falta dela) e a vaga
-      volta p/ a lista de espera. Roda de hora em hora. Antes esperava 24 h depois do FIM.
-    - AGENDADO/CONFIRMADO vencidos ha 24 h: NAO vira FALTOU automaticamente. Falta e terminal
-      na FSM, conta no bloqueio de agendamento online e impede corrigir para
-      REALIZADO (comissao, pacote, NPS) — so a equipe decide. O job apenas
-      lista os atendimentos sem desfecho no log para a equipe resolver.
-    Usa a FSM do model (valida transicao + auditoria).
-    """
-    from .constants import MSG_PEDIDO_EXPIRADO, PRAZO_DECISAO_PENDENTE
-    from .services.agendamento import avisar_cancelamento
-
-    agora = timezone.now()
-    limite = agora - timedelta(hours=24)
-
-    pendentes = Atendimento.objects.filter(
-        data_hora_inicio__lt=agora + PRAZO_DECISAO_PENDENTE, status=StatusAtendimento.PENDENTE)
-    cancelados = 0
-    for atendimento in pendentes:
-        try:
-            atendimento.cancelar(motivo='expirado sem aprovacao')
-            avisar_cancelamento(atendimento, MSG_PEDIDO_EXPIRADO)   # a cliente pediu e ficou sem resposta
-            cancelados += 1
-            logger.info(f"[LIMPEZA] Atendimento {atendimento.pk} -> CANCELADO (expirado)")
-        except Atendimento.TransicaoInvalida as exc:
-            logger.warning(f"[LIMPEZA] Atendimento {atendimento.pk}: transicao invalida ({exc})")
-
-    sem_desfecho = list(Atendimento.objects.sem_desfecho(ate=limite).values_list('pk', flat=True)[:200])
-    if sem_desfecho:
-        logger.warning(
-            'atendimentos_sem_desfecho',
-            extra={'count': len(sem_desfecho), 'ids': sem_desfecho},
-        )
-    return f'{cancelados} pendentes cancelados; {len(sem_desfecho)} sem desfecho'
-
-
-# ═══════════════════════════════════════
-#  EMAIL — Fila (reenvio)
-# ═══════════════════════════════════════
-
-def job_reenviar_emails():
-    """Reenvia os e-mails da fila (Notificacao EMAIL PENDENTE vencida) — services/comunicacao."""
-    from .services.comunicacao import reenviar_pendentes
-    r = reenviar_pendentes()
+def job_emails():
+    r = comunicacao.reenviar_pendentes()
     return f"{r['enviados']} e-mails enviados; {r['pendentes']} na fila"
 
 
-# ═══════════════════════════════════════
-#  LGPD — Anonimizacao automatica retencao
-# ═══════════════════════════════════════
-
-def job_lgpd_purgar_inativos():
-    """Retencao LGPD:
-    - anonimiza clientes sem atendimento ha 5 anos
-      (LgpdService.RETENCAO_CLIENTE_INATIVO_DIAS) ou soft-deletados ha 30 dias;
-      nunca quem tem prontuario com conteudo, pacote ou atendimento de saude
-      dentro de 20 anos (ver LgpdService.candidatos_retencao);
-    - apaga fichas de anamnese de pedidos nao realizados ha 90 dias;
-    - apaga inscricoes da lista de espera com data ja passada.
-    CALL sp_aplicar_retencao_lgpd (LgpdService.aplicar_retencao; so Postgres)."""
-    from .services.lgpd import LgpdService
-    resultado = LgpdService.aplicar_retencao()
-    logger.info('lgpd_clientes_anonimizados', extra={'count': resultado['clientes']})
-    return (
-        f"{resultado['clientes']} clientes anonimizados; {resultado['fichas']} fichas apagadas; "
-        f"{resultado['esperas']} inscricoes de espera apagadas"
-    )
+def job_lembrete_diario():
+    r = lembretes.enviar_lembretes_d1()
+    return f"{r['whatsapp']} lembretes por WhatsApp; {r['email']} por e-mail"
 
 
-# dispatch_webhook removido junto com o workflow engine (unico caller).
+def job_sem_desfecho():
+    return f'{lembretes.avisar_sem_desfecho()} profissionais avisadas'
 
 
-# ═══════════════════════════════════════
-#  REGISTRO — o que o cron HTTP e o rodar_job podem chamar
-# ═══════════════════════════════════════
-
-def _jobs():
-    from . import jobs_manutencao
-    return {
-        'emails': job_reenviar_emails,
-        'lembrete_diario': job_enviar_lembrete_dia_seguinte,
-        'nps_24h': job_pesquisa_satisfacao_24h,
-        'detrator_alerta': job_alerta_detrator_nps,
-        'pacote_expirando': job_verificar_pacotes_expirando,
-        'pacote_expirar': job_expirar_pacotes,
-        'aniversario': job_aniversario_clientes,
-        'limpeza_status': job_limpeza_status_atendimentos,
-        'lgpd_purgar': job_lgpd_purgar_inativos,
-        'housekeeping': jobs_manutencao.job_housekeeping,
-        'feriados': jobs_manutencao.job_carregar_feriados,
-    }
+def job_nps_24h():
+    return f'{nps.enviar_pesquisas()} NPS enviados'
 
 
-JOB_MAP = _jobs()
+def job_detrator_alerta():
+    return f'{nps.alertar_detratores()} alertas de detrator'
 
 
-def executar(job_name, *, ip=None, origem=None):
+def job_pacote_expirando():
+    return f'{avisar_expirando()} avisos enviados'
+
+
+def job_pacote_expirar():
+    """CALL sp_expirar_pacotes(hoje local): o ultimo dia vale (so Postgres)."""
+    (expirados,) = chamar('sp_expirar_pacotes', hoje(), None)
+    return f'{expirados} pacotes expirados'
+
+
+def job_aniversario():
+    return f'{marketing.felicitar_aniversariantes()} e-mails de aniversario'
+
+
+def job_limpeza_status():
+    return f'{cancelar_pendentes_vencidos()} pendentes cancelados'
+
+
+def job_lgpd_purgar():
+    r = LgpdService.aplicar_retencao()
+    return (f"{r['clientes']} clientes anonimizados; {r['fichas']} fichas apagadas; "
+            f"{r['esperas']} inscricoes de espera apagadas")
+
+
+JOB_MAP = {
+    'emails': job_emails,
+    'lembrete_diario': job_lembrete_diario,
+    'sem_desfecho': job_sem_desfecho,
+    'nps_24h': job_nps_24h,
+    'detrator_alerta': job_detrator_alerta,
+    'pacote_expirando': job_pacote_expirando,
+    'pacote_expirar': job_pacote_expirar,
+    'aniversario': job_aniversario,
+    'limpeza_status': job_limpeza_status,
+    'lgpd_purgar': job_lgpd_purgar,
+    'housekeeping': jobs_manutencao.job_housekeeping,
+    'feriados': jobs_manutencao.job_carregar_feriados,
+}
+
+# Jobs de mensagem sem marca por destinatario: a 2a execucao no mesmo dia mandaria tudo de novo.
+# (lembrete_diario roda 2x por dia e se protege por atendimento; o NPS tambem tem a marca, mas so
+# precisa de uma rodada por dia.)
+JOBS_UMA_VEZ_POR_DIA = frozenset({'aniversario', 'pacote_expirando', 'nps_24h'})
+
+
+# ═══ Agenda (horario de Brasilia, sem horario de verao desde 2019) ═══════════
+
+@dataclass(frozen=True)
+class Horario:
+    """Quando um job roda, como no cron: None = qualquer valor. dia_semana como date.weekday()
+    (0 = segunda ... 6 = domingo)."""
+    minuto: int | tuple[int, ...]
+    hora: int | None = None
+    dia_mes: int | None = None
+    dia_semana: int | None = None
+
+    def bate(self, momento) -> bool:
+        minutos = self.minuto if isinstance(self.minuto, tuple) else (self.minuto,)
+        return (
+            momento.minute in minutos
+            and self.hora in (None, momento.hour)
+            and self.dia_mes in (None, momento.day)
+            and self.dia_semana in (None, momento.weekday())
+        )
+
+
+JOB_AGENDA: dict[str, tuple[Horario, ...]] = {
+    'emails': (Horario(minuto=(0, 15, 30, 45)),),
+    'limpeza_status': (Horario(minuto=0),),
+    'pacote_expirar': (Horario(minuto=30, hora=0),),
+    'pacote_expirando': (Horario(minuto=0, hora=7),),
+    'lembrete_diario': (Horario(minuto=0, hora=8), Horario(minuto=0, hora=18)),
+    'sem_desfecho': (Horario(minuto=0, hora=8),),
+    'aniversario': (Horario(minuto=0, hora=9),),
+    'nps_24h': (Horario(minuto=0, hora=10),),
+    'detrator_alerta': (Horario(minuto=30, hora=10),),
+    'lgpd_purgar': (Horario(minuto=0, hora=3, dia_semana=6),),
+    'housekeeping': (Horario(minuto=0, hora=4),),
+    'feriados': (Horario(minuto=30, hora=4, dia_mes=1),),
+}
+
+
+def jobs_devidos(inicio, fim) -> list[str]:
+    """Jobs com horario no intervalo (inicio, fim] (datetimes; comparados no fuso local, por
+    minuto), na ordem da JOB_AGENDA."""
+    inicio = timezone.localtime(inicio).replace(second=0, microsecond=0)
+    fim = timezone.localtime(fim).replace(second=0, microsecond=0)
+    minutos = []
+    momento = fim
+    while momento > inicio:
+        minutos.append(momento)
+        momento -= timedelta(minutes=1)
+    return [job for job, horarios in JOB_AGENDA.items()
+            if any(h.bate(m) for h in horarios for m in minutos)]
+
+
+# ═══ Execucao ═════════════════════════════════════════════════════════════
+
+class JobJaExecutado(Exception):
+    """Job de JOBS_UMA_VEZ_POR_DIA que ja rodou hoje (o cron HTTP responde 409)."""
+
+
+def _reservar_dia(job_name, *, forcar=False) -> ExecucaoJob | None:
+    """A linha do dia nasce ANTES do job (a UNIQUE decide entre duas chamadas simultaneas)."""
+    if job_name not in JOBS_UMA_VEZ_POR_DIA:
+        return None
+    try:
+        with transaction.atomic():
+            return ExecucaoJob.objects.create(job=job_name, dia=hoje())
+    except IntegrityError as exc:
+        if not forcar:
+            raise JobJaExecutado(f'{job_name} ja rodou hoje') from exc
+    return ExecucaoJob.objects.get(job=job_name, dia=hoje())
+
+
+def executar(job_name, *, ip=None, origem=None, forcar=False):
     """Roda o job uma vez dentro do Ator dele (trilhas com origem cron:<job>, sem autor).
-    Erro propaga: quem chama decide (HTTP 500 / exit code do comando)."""
+
+    Job de JOBS_UMA_VEZ_POR_DIA que ja rodou hoje levanta JobJaExecutado (``forcar`` passa por
+    cima: decisao da equipe depois de uma falha). Erro do job propaga: quem chama decide (HTTP 500
+    / exit code do comando); a execucao do dia fica registrada com o erro."""
     from .ator import Ator, atuando
+
+    execucao = _reservar_dia(job_name, forcar=forcar)
     with atuando(Ator(ip=ip, origem=origem or f'cron:{job_name}')):
-        return JOB_MAP[job_name]()
+        try:
+            resultado = JOB_MAP[job_name]()
+        except Exception as exc:
+            if execucao is not None:
+                ExecucaoJob.objects.filter(pk=execucao.pk).update(resultado=f'erro: {type(exc).__name__}')
+            raise
+    if execucao is not None:
+        ExecucaoJob.objects.filter(pk=execucao.pk).update(
+            concluido_em=timezone.now(), resultado=str(resultado or 'ok')[:500])
+    return resultado
+
+
+def avisar_monitor(job_name: str, ok: bool) -> None:
+    """Heartbeat do job no monitor externo (CRON_MONITOR_URL): <url>/<job> ou <url>/<job>/fail.
+    Best-effort: monitor fora do ar nunca muda o resultado do job (o agendador segue vendo o
+    sucesso/erro de verdade)."""
+    base = (getattr(settings, 'CRON_MONITOR_URL', '') or '').rstrip('/')
+    if not base:
+        return
+    url = f'{base}/{job_name}' + ('' if ok else '/fail')
+    try:
+        requests.post(url, timeout=5)
+    except requests.RequestException as exc:
+        logger.warning('cron_monitor_falhou', extra={'job': job_name, 'erro': type(exc).__name__})

@@ -35,6 +35,7 @@ from aranha_estetica.services.anamnese import validar_respostas
 from aranha_estetica.utils.saude import alertas_saude
 
 from .factories import (
+    email_da_fila,
     conceder, criar_cliente, criar_link, criar_procedimento, criar_profissional, limpar_feriados,
 )
 from .test_confirmar_agendamento import slot_local, verificar_sessao
@@ -306,14 +307,13 @@ class PoliticaETermosBookingTests(_BaseBooking):
         self.assertEqual(Notificacao.objects.count(), 0)   # profissional sem usuario: nem o pedido
         self.assertEqual(mail.outbox, [])
 
-    @patch('aranha_estetica.utils.email.enviar_aprovacao_profissional_email', return_value=True)
-    def test_email_da_profissional_leva_so_link_revisar_do_dia_local(self, enviar):
+    def test_email_da_profissional_leva_so_link_revisar_do_dia_local(self):
         from aranha_estetica.models import Usuario
         Usuario.objects.create_user(
             email='dra@example.com', password='Senha-forte-123', nome='Dra. Ana',
             papel=Usuario.PAPEL_PROFISSIONAL, profissional=self.prof,
         )
-        with self.captureOnCommitCallbacks(execute=True):
+        with email_da_fila('APROVACAO') as enviar, self.captureOnCommitCallbacks(execute=True):
             self._post()
         email, dados = enviar.call_args.args
         self.assertEqual(email, 'dra@example.com')
@@ -490,8 +490,7 @@ class EmailAprovacaoRetornoTests(TestCase):
             data_hora_inicio=inicio, data_hora_fim=inicio + timedelta(minutes=30),
             valor_cobrado=Decimal('0'), eh_retorno=True, atendimento_origem=origem,
         )
-        with patch('aranha_estetica.utils.email.enviar_confirmacao_agendamento_email', return_value=True) as enviar, \
-                self.captureOnCommitCallbacks(execute=True):
+        with email_da_fila('CONFIRMACAO') as enviar, self.captureOnCommitCallbacks(execute=True):
             AgendamentoService().aprovar(retorno)
         self.assertEqual(enviar.call_args.args[1]['valor'], 'Sem custo (retorno)')
 

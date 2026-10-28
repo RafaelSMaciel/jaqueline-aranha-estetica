@@ -22,8 +22,8 @@ EMAIL_PREVIEW_FIXTURES = {
             'valor': '180,00',
         }, 'clinic_name': 'Jaqueline Aranha Estética'},
     },
-    # Mesmo contexto do envio real (utils.email): aniversario so felicita (sem
-    # desconto) e a promocao usa variaveis de primeiro nivel (sem cupom).
+    # Mesmo contexto do envio real (services/marketing): aniversario so felicita (sem
+    # desconto) e a promocao usa variaveis de primeiro nivel (periodo do atendimento, sem cupom).
     'aniversario': {
         'template': 'email/aniversario.html',
         'contexto': {'dados': {'nome': 'Maria Silva'},
@@ -35,9 +35,18 @@ EMAIL_PREVIEW_FIXTURES = {
         'template': 'email/promocao.html',
         'contexto': {
             'nome': 'Maria Silva', 'corpo_html': '<p>Oferta especial do mês.</p>',
-            'validade': '30/05/2026',
+            'oferta': '20% de desconto em Limpeza de Pele',
+            'data_inicio': '01/05/2026', 'data_fim': '31/05/2026', 'link_agendar': '#preview',
             'clinic_name': 'Jaqueline Aranha Estética', 'unsub_url': '#preview',
         },
+    },
+    'lembrete': {
+        'template': 'email/lembrete.html',
+        'contexto': {'dados': {
+            'nome': 'Maria Silva', 'procedimento': 'Limpeza de Pele',
+            'profissional': 'Jaqueline Aranha', 'data_hora': '20/04/2026 às 14:00',
+            'link_confirmar': '#preview', 'link_cancelar': '#preview',
+        }, 'clinic_name': 'Jaqueline Aranha Estética'},
     },
     'cancelamento': {
         'template': 'email/cancelamento.html',

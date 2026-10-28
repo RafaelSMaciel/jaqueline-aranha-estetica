@@ -16,6 +16,22 @@ def hoje() -> date:
     return timezone.localdate()
 
 
+# Janelas das telas de relatorio do painel (NPS, comissoes), em dias; 'tudo' = sem corte.
+PERIODOS = {'30': 30, '90': 90, 'tudo': None}
+PERIODO_PADRAO = '90'
+
+
+def periodo_valido(periodo: str | None) -> str:
+    """O periodo pedido (?periodo=) ou o padrao, se nao for um dos aceitos."""
+    return periodo if periodo in PERIODOS else PERIODO_PADRAO
+
+
+def inicio_periodo(periodo: str) -> datetime | None:
+    """Instante de corte da janela (None = 'tudo')."""
+    dias = PERIODOS[periodo_valido(periodo)]
+    return None if dias is None else timezone.now() - timedelta(days=dias)
+
+
 def inicio_do_dia(dia: date) -> datetime:
     """Meia-noite local (aware) de uma data — limite de filtro em DateTimeField."""
     return timezone.make_aware(datetime.combine(dia, time.min))
