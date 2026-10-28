@@ -11,7 +11,7 @@ from ..utils.audit import registrar_log
 
 
 # Somente chaves que o codigo de fato le (grep antes de acrescentar outra):
-#   email_admin -> tasks.py (alerta de NPS detrator)
+#   email_admin -> jobs.py (alerta de NPS detrator)
 # Marca/contatos ficam na tela Branding (utils/branding.BRANDING_FIELDS). As
 # perguntas extras do prontuario sao o formulario tipo PRONTUARIO (Painel >
 # Anamneses) desde a migration 0051 — a antiga chave fica recusada aqui.

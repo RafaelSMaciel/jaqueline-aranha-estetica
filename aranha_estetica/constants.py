@@ -86,4 +86,4 @@ TERMO_LGPD_CONTEUDO = (
 
 
 # Prazos de retencao (OTP, notificacao, auditoria) vivem em settings.RETENCAO_*
-# (ajustaveis por env) — ver clinica/settings/base.py e tasks_manutencao.py.
+# (ajustaveis por env) — ver clinica/settings/base.py e jobs_manutencao.py.
