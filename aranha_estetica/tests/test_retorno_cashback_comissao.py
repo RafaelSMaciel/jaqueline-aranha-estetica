@@ -207,7 +207,7 @@ class ComissaoServiceTests(TestCase):
 
 # ─── Lista de Espera ──────────────────────────────────────────────────
 ENVIAR_EMAIL = 'aranha_estetica.utils.email.enviar_fila_espera_email'
-ENVIAR_WA = 'aranha_estetica.utils.whatsapp.enviar_template_whatsapp'
+ENVIAR_WA = 'aranha_estetica.utils.whatsapp.enviar_template'
 
 
 class ListaEsperaHandlerTests(TestCase):

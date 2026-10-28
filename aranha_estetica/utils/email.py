@@ -1,10 +1,13 @@
 """
 Email Notification Service — Plataforma de Clinicas
 
-Envia emails transacionais: confirmacao, cancelamento, pacotes, aniversario,
-fila de espera, aprovacao profissional, promocao, termos pendentes.
+Adaptador do canal: renderiza o template e entrega (SMTP ou API HTTP do ESP). Transacionais:
+confirmacao, cancelamento, lembrete D-1, pacote expirando, fila de espera, aprovacao profissional;
+marketing: aniversario e promocao (headers RFC 8058); aviso interno em texto (alerta de detrator).
 (OTP nao usa email — canal exclusivo SMS via utils.sms.)
-Usa Django EmailMultiAlternatives com headers RFC 8058 para marketing.
+
+Quem recebe, os links (LinkAcesso) e o registro em Notificacao ficam em services/comunicacao: este
+modulo nao le o banco nem importa services.
 
 Falha fechada (contrato 7): fora de DEBUG, backend console/dummy/filebased =
 e-mail nao configurado -> as funcoes retornam False (nada de "sucesso" so no
@@ -22,7 +25,6 @@ from html import unescape
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
-from django.urls import reverse
 from django.utils.html import strip_tags
 
 from .pii import mask_email
@@ -117,17 +119,12 @@ def _remetente() -> str:
     return getattr(settings, 'DEFAULT_FROM_EMAIL', '') or 'noreply@localhost'
 
 
-def url_descadastro(unsub_token: str) -> str:
-    """URL absoluta do descadastro (link do rodape + List-Unsubscribe)."""
-    return settings.SITE_URL.rstrip('/') + reverse('aranha:lgpd_unsubscribe', args=[unsub_token])
-
-
 def _enviar_email(destinatario, assunto, template, contexto,
-                  marketing=False, preheader='', unsub_token=None):
+                  marketing=False, preheader='', unsub_url=None):
     """Envia email HTML. Marketing inclui List-Unsubscribe (RFC 8058 one-click).
 
-    unsub_token: token do LinkAcesso DESCADASTRO deste e-mail (use
-    enviar_marketing_com_descadastro). Obrigatorio para marketing=True (sem ele
+    unsub_url: URL absoluta do descadastro DESTE e-mail (services/comunicacao
+    .enviar_marketing_com_descadastro). Obrigatoria para marketing=True (sem ela
     o e-mail NAO sai — LGPD exige o opt-out em toda mensagem).
     Retorna True so se o backend aceitou a mensagem.
     """
@@ -136,7 +133,7 @@ def _enviar_email(destinatario, assunto, template, contexto,
     if not email_configurado():
         logger.warning('email_nao_configurado', extra={'template': template})
         return False
-    if marketing and not unsub_token:
+    if marketing and not unsub_url:
         logger.error('email_marketing_sem_descadastro', extra={'template': template})
         return False
 
@@ -147,7 +144,6 @@ def _enviar_email(destinatario, assunto, template, contexto,
     remetente = _remetente()
     headers = {}
     if marketing:
-        unsub_url = url_descadastro(unsub_token)
         headers['List-Unsubscribe'] = (
             f'<{unsub_url}>, <mailto:{remetente}?subject=unsubscribe>'
         )
@@ -220,26 +216,42 @@ def enviar_fila_espera_email(email, dados):
     )
 
 
-def enviar_marketing_com_descadastro(cliente, enviar) -> bool:
-    """Emite o link de descadastro DESTE e-mail e chama ``enviar(unsub_token)``.
+def enviar_lembrete_email(email, dados):
+    """Lembrete D-1 com os links de confirmar/cancelar (quem nao autorizou o WhatsApp)."""
+    return _enviar_email(
+        destinatario=email,
+        assunto=f'{_nome_clinica()} — Lembrete do seu horário de amanhã',
+        template='email/lembrete.html',
+        contexto={'dados': dados},
+        preheader='Confirme sua presença com um clique',
+    )
 
-    Cada e-mail de marketing leva o seu token (link_acesso DESCADASTRO; so o
-    hash no banco). Se o envio falhar, o link — que nunca saiu do servidor —
-    e descartado.
-    """
-    from ..services import links
 
-    token = links.emitir(links.DESCADASTRO, cliente)
-    ok = False
+def enviar_aviso_interno(destinatario, assunto, corpo) -> bool:
+    """E-mail em texto puro para a equipe da clinica (alerta de NPS detrator, pedidos do titular).
+
+    Mesma falha fechada dos demais: sem backend real, False (quem chama tenta de novo depois)."""
+    if not destinatario:
+        return False
+    if not email_configurado():
+        logger.warning('email_nao_configurado', extra={'template': 'aviso_interno'})
+        return False
     try:
-        ok = bool(enviar(token))
-    finally:
-        if not ok:
-            links.descartar(token)
-    return ok
+        enviados = EmailMultiAlternatives(
+            subject=assunto, body=corpo, from_email=_remetente(), to=[destinatario],
+        ).send(fail_silently=False)
+    except Exception as e:  # noqa: BLE001 — SMTP/API do provedor: nunca quebra o fluxo
+        logger.error('email_falha_envio', extra={'destinatario': mask_email(destinatario),
+                                                 'template': 'aviso_interno', 'erro': type(e).__name__})
+        return False
+    if not enviados:
+        logger.error('email_nao_aceito', extra={'destinatario': mask_email(destinatario), 'template': 'aviso_interno'})
+        return False
+    logger.info('email_enviado', extra={'destinatario': mask_email(destinatario), 'template': 'aviso_interno'})
+    return True
 
 
-def enviar_aniversario_email(email, dados, unsub_token=None):
+def enviar_aniversario_email(email, dados, unsub_url=None):
     """Envia felicitacao de aniversario (marketing; sem desconto/cupom)."""
     return _enviar_email(
         destinatario=email,
@@ -248,12 +260,12 @@ def enviar_aniversario_email(email, dados, unsub_token=None):
         contexto={'dados': dados},
         marketing=True,
         preheader='Um carinho da nossa equipe para o seu dia',
-        unsub_token=unsub_token,
+        unsub_url=unsub_url,
     )
 
 
-def enviar_promocao_email(email, dados, unsub_token=None, assunto=None):
-    """Envia promocao mensal (marketing).
+def enviar_promocao_email(email, dados, unsub_url=None, assunto=None):
+    """Envia promocao (marketing), disparada pelo painel (services/marketing).
 
     Sanitiza `dados['corpo_html']` via bleach se presente — mitiga XSS
     e limita tags HTML permitidas (admin trusted mas defesa em profundidade).
@@ -281,17 +293,17 @@ def enviar_promocao_email(email, dados, unsub_token=None, assunto=None):
             from django.utils.html import escape
             dados = dict(dados)
             dados['corpo_html'] = escape(dados['corpo_html'])
-    # promocao.html usa variaveis top-level ({{ nome }}, {{ validade }}, {{ corpo_html }}...),
+    # promocao.html usa variaveis top-level ({{ nome }}, {{ oferta }}, {{ data_inicio }}, {{ corpo_html }}...),
     # entao o contexto vai FLAT (nao embrulhado em {'dados': ...}).
     contexto = dict(dados) if isinstance(dados, dict) else {'dados': dados}
     return _enviar_email(
         destinatario=email,
-        assunto=assunto or f'{_nome_clinica()} — Ofertas especiais deste mês',
+        assunto=assunto or f'{_nome_clinica()} — Ofertas especiais',
         template='email/promocao.html',
         contexto=contexto,
         marketing=True,
         preheader=preheader,
-        unsub_token=unsub_token,
+        unsub_url=unsub_url,
     )
 
 
@@ -303,8 +315,6 @@ def enviar_aprovacao_profissional_email(email, dados):
         template='email/aprovacao_profissional.html',
         contexto={'dados': dados},
     )
-
-
 
 
 class BackendAmbienteTeste:

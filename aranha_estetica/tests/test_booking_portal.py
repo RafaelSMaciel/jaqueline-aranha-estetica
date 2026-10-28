@@ -17,6 +17,7 @@ from aranha_estetica.services import consentimentos
 from aranha_estetica.services.agendamento import AgendamentoService, formatar_brl
 
 from .factories import (
+    email_da_fila,
     ja_comecou,
     criar_cliente, criar_link, criar_notificacao_com_link, criar_procedimento, criar_profissional,
     limpar_feriados,
@@ -468,8 +469,7 @@ class HelpersBookingTests(TestCase):
         cli = criar_cliente(email='cli@example.com')
         at = _atendimento(cli, prof, proc, _local(2, 10), status='PENDENTE')
         at = Atendimento.objects.select_related('cliente', 'procedimento', 'profissional').get(pk=at.pk)
-        with patch('aranha_estetica.utils.email.enviar_confirmacao_agendamento_email', return_value=True) as enviar, \
-                self.captureOnCommitCallbacks(execute=True):
+        with email_da_fila('CONFIRMACAO') as enviar, self.captureOnCommitCallbacks(execute=True):
             self.assertTrue(AgendamentoService().aprovar(at))
         dados = enviar.call_args.args[1]
         self.assertIn('às 10:00', dados['data_hora'])
