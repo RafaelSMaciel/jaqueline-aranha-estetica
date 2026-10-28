@@ -117,6 +117,13 @@ class WizardNavegadorTests(StaticLiveServerTestCase):
         self.page.fill('#form-telefone', '17999998888')
         self.page.check('#form-aceite-politica')
 
+    def _drenar(self):
+        """Espera o JS terminar de tratar a resposta (promessas + 2 quadros), sem sleep fixo."""
+        self.page.evaluate('() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))')
+
+    def _json(self, route, corpo, status=200):
+        route.fulfill(status=status, content_type='application/json', body=json.dumps(corpo))
+
     def _valido(self):
         return self.page.evaluate("document.getElementById('booking-form').checkValidity()")
 
@@ -231,11 +238,71 @@ class WizardNavegadorTests(StaticLiveServerTestCase):
         self.page.wait_for_selector('#cal-days-grid .cal-day')
         self.assertEqual(len(presas), 1)
         # Resposta de outubro chega DEPOIS da de novembro
-        presas[0].fulfill(status=200, content_type='application/json',
-                          body=json.dumps({'mes': '2026-10', 'dias_disponiveis': ['2026-10-20']}))
-        self.page.wait_for_timeout(300)
+        with self.page.expect_event('requestfinished', lambda r: 'mes=2026-10' in r.url):
+            presas[0].fulfill(status=200, content_type='application/json',
+                              body=json.dumps({'ok': True, 'mes': '2026-10', 'dias_disponiveis': ['2026-10-20']}))
+        self._drenar()
         self.assertEqual(self.page.text_content('#cal-month-label'), 'Novembro 2026')
         self.assertEqual(self.page.eval_on_selector_all(
             '#cal-days-grid .cal-day[data-date^="2026-10"]', 'els => els.length'), 0)
         self.assertEqual(self.page.eval_on_selector_all(
             '#cal-days-grid .cal-day:not(.empty)', 'els => els.length'), 30)
+
+    # ─── lista de espera no dia sem horario ───
+    def test_dia_sem_horario_oferece_a_lista_de_espera(self):
+        self.page.route('**/ajax/horarios-disponiveis/**', lambda route: self._json(route, {'ok': True, 'horarios': []}))
+        self._abrir()
+        self.page.wait_for_selector('#cal-days-grid .cal-day.available')
+        dia = self.page.eval_on_selector('#cal-days-grid .cal-day.available', 'el => el.dataset.date')
+        self.page.click(f'.cal-day[data-date="{dia}"]')
+        link = self.page.wait_for_selector('#lista-espera-link')
+        self.assertEqual(link.text_content(), 'Avise-me se vagar')
+        href = link.get_attribute('href')
+        self.assertIn(reverse('aranha:lista_espera_publica'), href)
+        self.assertIn(f'procedimento={self.proc.pk}', href)
+        self.assertIn(f'data={dia}', href)
+
+    # ─── D16: o agendamento e da titular do celular ───
+    def test_cadastro_existente_deixa_o_nome_so_leitura(self):
+        self.page.route('**/agendamento/otp/solicitar/', lambda route: self._json(route, {'ok': True, 'canal': 'SMS'}))
+        self.page.route('**/agendamento/otp/verificar/', lambda route: self._json(route, {
+            'ok': True, 'aviso': '', 'aviso_mensagem': '',
+            'prefill': {'nome': 'Titular do Celular', 'telefone': '17999998888', 'email': '',
+                        'data_nascimento': '1990-01-01', 'consents': {}},
+        }))
+        self._ir_para_passo_3()
+        self.assertTrue(self.page.eval_on_selector('#nome-titular-aviso', 'el => el.hidden'))
+        self.page.click('#btn-enviar-otp')
+        self.page.wait_for_selector('#otp-field', state='visible')
+        self.page.fill('#otp-codigo', '123456')
+        self.page.click('#btn-verificar-otp')
+        self.page.wait_for_selector('#nome-titular-aviso', state='visible')
+        self.assertEqual(self.page.input_value('#form-nome'), 'Titular do Celular')
+        self.assertTrue(self.page.eval_on_selector('#form-nome', 'el => el.readOnly'))
+        self.assertIn('outra pessoa', self.page.text_content('#nome-titular-aviso'))
+
+    def test_codigo_incorreto_mostra_a_mensagem_do_servidor(self):
+        self.page.route('**/agendamento/otp/solicitar/', lambda route: self._json(route, {'ok': True, 'canal': 'SMS'}))
+        self.page.route('**/agendamento/otp/verificar/', lambda route: self._json(route, {
+            'ok': False, 'codigo': 'incorreto', 'mensagem': 'Código incorreto. Tentativas restantes: 4', 'restantes': 4,
+        }, status=400))
+        self._ir_para_passo_3()
+        self.page.click('#btn-enviar-otp')
+        self.page.wait_for_selector('#otp-field', state='visible')
+        self.page.fill('#otp-codigo', '123456')
+        with self.page.expect_response(lambda r: 'otp/verificar' in r.url):
+            self.page.click('#btn-verificar-otp')
+        self._drenar()
+        self.assertEqual(self.page.text_content('#otp-msg'), 'Código incorreto. Tentativas restantes: 4')
+
+    # ─── tema escuro ───
+    def test_card_selecionado_legivel_no_tema_escuro(self):
+        escuro = self._browser.new_context(timezone_id=TZ, locale='pt-BR', color_scheme='dark')
+        self.addCleanup(escuro.close)
+        pagina = escuro.new_page()
+        pagina.goto(f"{self.live_server_url}{reverse('aranha:agendamento_publico')}")
+        pagina.click(f'.proc-card[data-proc-id="{self.proc.pk}"]')
+        texto, fundo = pagina.eval_on_selector(
+            '.proc-card.selected', """card => [getComputedStyle(card.querySelector('.proc-name')).color,
+                                              getComputedStyle(card).backgroundColor]""")
+        self.assertNotEqual(texto, fundo)

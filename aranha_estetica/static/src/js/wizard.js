@@ -8,6 +8,7 @@
  *   otpTitular      — esse celular já tem cadastro (nome só leitura — D16)
  *   rehidratar      — true quando o servidor devolveu erro do "Confirmar"
  *   whatsappNumero  — dígitos p/ CTA de WhatsApp (vazio = sem CTA)
+ *   urlListaEspera  — inscrição na lista de espera (dia sem horário: "Avise-me se vagar")
  *
  * Identidade do agendamento = CELULAR verificado por SMS. O e-mail é só um
  * dado de contato — nunca é enviado no OTP.
@@ -390,6 +391,19 @@
         container.appendChild(box);
     }
 
+    // Dia sem horário: inscrição na lista de espera já com o tratamento, a profissional e o dia
+    function oferecerListaEspera(container, dateStr) {
+        if (!cfg.urlListaEspera || !selectedProc) return;
+        var a = document.createElement('a');
+        a.className = 'lista-espera-link';
+        a.id = 'lista-espera-link';
+        a.href = cfg.urlListaEspera + '?' + query({procedimento: selectedProc.id, profissional: profPreselect, data: dateStr});
+        a.textContent = 'Avise-me se vagar';
+        var box = container.querySelector('.slots-loading') || container;
+        box.appendChild(document.createElement('br'));
+        box.appendChild(a);
+    }
+
     function selectDate(dateStr) {
         selectedDate = dateStr;
         selectedSlot = null;
@@ -427,6 +441,7 @@
                 horariosData = data.horarios || [];
                 if (horariosData.length === 0) {
                     mensagemSlots(container, SVG_INFO, 'Nenhum horário disponível nesta data.');
+                    oferecerListaEspera(container, dateStr);
                     return;
                 }
 
