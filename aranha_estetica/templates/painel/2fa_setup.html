@@ -8,13 +8,13 @@
 <div class="max-w-xl mx-auto">
 
 {% if cadastro_obrigatorio %}
-  <div class="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 text-amber-700 font-bold text-[0.85rem] mb-4" role="alert">
+  <div class="flex items-center gap-2 px-4 py-3 rounded-xl bg-aviso-fundo text-aviso font-bold text-[0.85rem] mb-4" role="alert">
     O 2FA é obrigatório para a sua conta. Ative-o para continuar.
   </div>
 {% endif %}
 
 {% if device_confirmado %}
-  <div class="flex items-center gap-2 px-4 py-3 rounded-xl bg-green-50 text-green-700 font-bold text-[0.85rem] mb-4">
+  <div class="flex items-center gap-2 px-4 py-3 rounded-xl bg-sucesso-fundo text-sucesso font-bold text-[0.85rem] mb-4">
     <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
     </svg>
@@ -34,7 +34,7 @@
              class="w-full px-4 py-3 mb-3 rounded-xl border-2 border-borda bg-fundo text-texto text-2xl text-center font-bold font-mono tracking-[0.4em] outline-none focus:border-[#C9A84C] transition-colors">
       <button type="submit"
               data-confirm="{% if obrigatorio %}Remover o aparelho atual? Você cadastrará o novo em seguida.{% else %}Desativar o 2FA? Sua conta ficará menos segura.{% endif %}"
-              class="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-red-50 text-red-700 text-[0.9rem] font-bold border-none cursor-pointer hover:bg-red-100 transition-colors">
+              class="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-erro-fundo text-erro text-[0.9rem] font-bold border-none cursor-pointer hover:bg-erro-fundo transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
         </svg>
@@ -46,7 +46,7 @@
   <div class="bg-superficie rounded-2xl shadow-sm p-5 mt-4">
     <h2 class="font-extrabold text-texto mb-1">Códigos de backup</h2>
     {% if codigos_backup %}
-      <div class="px-4 py-3 rounded-xl bg-amber-50 text-amber-800 font-bold text-[0.85rem] mb-3" role="alert">
+      <div class="px-4 py-3 rounded-xl bg-aviso-fundo text-aviso font-bold text-[0.85rem] mb-3" role="alert">
         Guarde estes códigos agora, fora do celular (impressos ou num gerenciador de senhas).
         Eles não serão mostrados de novo e cada um vale uma única vez.
       </div>
@@ -76,7 +76,7 @@
   </div>
 
 {% elif device_pendente and qr_b64 %}
-  <div class="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 text-amber-700 font-bold text-[0.85rem] mb-4">
+  <div class="flex items-center gap-2 px-4 py-3 rounded-xl bg-aviso-fundo text-aviso font-bold text-[0.85rem] mb-4">
     <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
     </svg>
@@ -131,7 +131,7 @@
   </div>
 
 {% else %}
-  <div class="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 text-amber-700 font-bold text-[0.85rem] mb-4">
+  <div class="flex items-center gap-2 px-4 py-3 rounded-xl bg-aviso-fundo text-aviso font-bold text-[0.85rem] mb-4">
     <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
     </svg>

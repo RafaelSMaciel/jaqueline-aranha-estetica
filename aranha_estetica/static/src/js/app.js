@@ -12,9 +12,11 @@ function aplicarTema(novo) {
 
 // Componente CSP-safe (sem expressao JS inline em atributo).
 // Uso na casca: <button x-data="temaToggle" x-on:click="alternar">
+// Sem escolha salva o tema segue o sistema: o "atual" e o que a pessoa esta vendo.
 Alpine.data('temaToggle', () => ({
   alternar() {
-    const atual = document.documentElement.dataset.theme === 'escuro' ? 'escuro' : 'claro'
+    const escolhido = document.documentElement.dataset.theme
+    const atual = escolhido || (matchMedia('(prefers-color-scheme: dark)').matches ? 'escuro' : 'claro')
     aplicarTema(atual === 'escuro' ? 'claro' : 'escuro')
   },
 }))

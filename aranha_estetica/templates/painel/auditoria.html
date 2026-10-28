@@ -56,11 +56,11 @@
 
     {# Ícone da ação #}
     <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0
-      {% if 'Criou' in log.acao or 'Cadastr' in log.acao %}bg-green-50 text-green-700
-      {% elif 'Editou' in log.acao or 'atuali' in log.acao %}bg-blue-50 text-blue-700
-      {% elif 'Excluiu' in log.acao or 'Delet' in log.acao %}bg-red-50 text-red-600
-      {% elif 'Status' in log.acao %}bg-yellow-50 text-yellow-700
-      {% elif 'Login' in log.acao or 'Logout' in log.acao %}bg-purple-50 text-purple-700
+      {% if 'Criou' in log.acao or 'Cadastr' in log.acao %}bg-sucesso-fundo text-sucesso
+      {% elif 'Editou' in log.acao or 'atuali' in log.acao %}bg-info-fundo text-info
+      {% elif 'Excluiu' in log.acao or 'Delet' in log.acao %}bg-erro-fundo text-erro
+      {% elif 'Status' in log.acao %}bg-aviso-fundo text-aviso
+      {% elif 'Login' in log.acao or 'Logout' in log.acao %}bg-destaque-fundo text-destaque
       {% else %}bg-fundo text-texto-suave{% endif %}" aria-hidden="true">
       {% if 'Criou' in log.acao or 'Cadastr' in log.acao %}
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>

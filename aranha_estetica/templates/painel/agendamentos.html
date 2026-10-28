@@ -109,7 +109,7 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
 
   <div id="listaAgendamentos" data-search-rows=".agend-card">
   {% for agend in agendamentos %}
-  <div class="agend-card flex flex-wrap sm:flex-nowrap items-center gap-3 bg-superficie rounded-2xl shadow-sm p-4 mb-1.5 {% if agend.status == 'PENDENTE' %}border-l-4 border-amber-500{% endif %}"
+  <div class="agend-card flex flex-wrap sm:flex-nowrap items-center gap-3 bg-superficie rounded-2xl shadow-sm p-4 mb-1.5 {% if agend.status == 'PENDENTE' %}border-l-4 border-aviso{% endif %}"
        id="appt-{{ agend.pk }}"
        data-search-text="{{ agend.cliente.nome }} {{ agend.procedimento.nome }} {{ agend.profissional.nome }} {{ agend.status }}">
     {% if agend.status == 'PENDENTE' %}
@@ -130,7 +130,7 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
       </div>
       {% include 'partials/_alerta_saude.html' with alertas=marc.alertas|get_item:agend.cliente_id %}
       {% if agend.pk in marc.termo_pendente %}
-      <p class="m-0 mt-1 inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2 py-0.5 text-[0.7rem] font-bold text-amber-800" role="note">
+      <p class="m-0 mt-1 inline-flex items-center gap-1 rounded-lg border border-aviso bg-aviso-fundo px-2 py-0.5 text-[0.7rem] font-bold text-aviso" role="note">
         Termo pendente: o termo do procedimento ainda não foi aceito
       </p>
       {% endif %}
@@ -145,9 +145,9 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
     <div class="flex flex-wrap items-center justify-end gap-1.5 w-full sm:w-auto sm:shrink-0">
       {% if agend.pk in marc.pacote %}
       {# Sessao debitada de pacote ja pago: nao cobrar de novo #}
-      <span class="px-2 py-0.5 rounded-full text-[0.7rem] font-bold bg-blue-50 text-blue-700">Pacote</span>
+      <span class="px-2 py-0.5 rounded-full text-[0.7rem] font-bold bg-info-fundo text-info">Pacote</span>
       {% elif agend.valor_cobrado is not None %}
-      <span class="text-[0.78rem] font-bold text-green-700">R$ {{ agend.valor_cobrado|floatformat:2 }}</span>
+      <span class="text-[0.78rem] font-bold text-sucesso">R$ {{ agend.valor_cobrado|floatformat:2 }}</span>
       {% endif %}
       {% if agend.pk not in marc.pacote and not agend.eh_retorno and agend.status != 'CANCELADO' and agend.status != 'FALTOU' and agend.status != 'REAGENDADO' %}
       {# Valor combinado / "a consultar": registrado aqui (realizado sem comissao lancada gera a comissao) #}
@@ -170,7 +170,7 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
       <form method="post" action="{% url 'aranha:admin_gerar_link_termo' agend.pk %}" class="m-0">
         {% csrf_token %}
         <button type="submit"
-                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-50 text-amber-800 text-[0.7rem] font-bold border-none cursor-pointer hover:bg-amber-100 transition-colors">
+                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-aviso-fundo text-aviso text-[0.7rem] font-bold border-none cursor-pointer hover:bg-aviso-fundo transition-colors">
           Link do termo
         </button>
       </form>
@@ -186,7 +186,7 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
       <form method="post" action="{% url 'aranha:admin_rejeitar_agendamento' pk=agend.pk %}" class="m-0">
         {% csrf_token %}
         <button type="submit" data-confirm="Rejeitar agendamento?"
-                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-superficie text-red-600 border border-red-600 text-[0.7rem] font-bold cursor-pointer hover:bg-red-600 hover:text-white transition-colors">
+                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-superficie text-erro border border-erro text-[0.7rem] font-bold cursor-pointer hover:bg-red-600 hover:text-white transition-colors">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Rejeitar
         </button>
       </form>

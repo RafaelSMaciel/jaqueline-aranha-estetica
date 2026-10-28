@@ -7,7 +7,7 @@
 {% block admin_content %}
 
 {% for item in lista_espera %}
-<div class="bg-superficie rounded-2xl shadow-sm px-4 py-4 mb-2 border-l-4 {% if item.notificado %}border-green-400 opacity-75{% else %}border-orange-400{% endif %} hover:shadow-md transition-all duration-200">
+<div class="bg-superficie rounded-2xl shadow-sm px-4 py-4 mb-2 border-l-4 {% if item.notificado %}border-sucesso opacity-75{% else %}border-aviso{% endif %} hover:shadow-md transition-all duration-200">
   <div class="flex justify-between items-start gap-3">
 
     {# Informações do cliente #}
@@ -47,7 +47,7 @@
         </svg>
         {{ item.data_desejada|date:"d/m/Y" }}
         {% if item.turno_desejado %}
-        <span class="ml-1 inline-block px-2 py-0.5 rounded-full text-[0.65rem] font-bold bg-orange-50 text-orange-700">{{ item.get_turno_desejado_display }}</span>
+        <span class="ml-1 inline-block px-2 py-0.5 rounded-full text-[0.65rem] font-bold bg-aviso-fundo text-aviso">{{ item.get_turno_desejado_display }}</span>
         {% endif %}
       </div>
       <div class="text-[0.7rem] text-texto-suave mt-1">Cadastro: {{ item.criado_em|date:"d/m/Y H:i" }}</div>
@@ -64,7 +64,7 @@
       </a>
       {% endif %}
       {% if item.notificado %}
-      <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[0.7rem] font-bold bg-green-50 text-green-700">
+      <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[0.7rem] font-bold bg-sucesso-fundo text-sucesso">
         <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
         Avisado
       </span>
@@ -73,7 +73,7 @@
         {% csrf_token %}
         <button type="submit"
                 title="{% if item.email_contato or item.cliente.email %}Envia o aviso de vaga por e-mail e marca como avisado{% else %}Marca como avisado (cliente sem e-mail: avise pelo WhatsApp){% endif %}"
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-[0.75rem] font-bold border-none cursor-pointer hover:bg-blue-100 transition-colors">
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-info-fundo text-info text-[0.75rem] font-bold border-none cursor-pointer hover:bg-info-fundo transition-colors">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
             <polyline points="20 6 9 17 4 12"/>
           </svg>

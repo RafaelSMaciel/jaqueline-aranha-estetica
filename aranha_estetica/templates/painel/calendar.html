@@ -28,7 +28,7 @@
   #calModal .row-info:last-child { border: none; }
   #calModal .lbl { color: var(--cor-texto-suave, #999); min-width: 110px; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; }
   #calModal .val { flex: 1; }
-  #calModal .status-pill { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.7rem; font-weight: 800; color: white; }
+  #calModal .status-pill { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.7rem; font-weight: 800; }
 </style>
 {% endblock %}
 
@@ -52,14 +52,11 @@
   </a>
 </div>
 
-<div class="flex gap-3 flex-wrap text-[0.7rem] text-texto-suave mb-2">
-  {% for status, color in status_colors.items %}
-  <div class="flex items-center gap-1.5">
-    <span class="w-2.5 h-2.5 rounded-full" style="background:{{ color }}"></span>
-    <span>{{ status|title }}</span>
-  </div>
+<ul class="flex gap-2 flex-wrap mb-2" aria-label="Legenda das cores">
+  {% for status in status_colors %}
+  <li>{% include 'partials/_status_badge.html' with status=status %}</li>
   {% endfor %}
-</div>
+</ul>
 
 <div id="calendar"></div>
 
@@ -85,10 +82,8 @@
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js" integrity="sha384-5JIwZN3kuxX2zKsavvNmbZ3zhZZMUtu/eQiK3BbXukpSXp0Cd2ZP4OAYKx7mrPgI" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.11/locales/pt-br.global.min.js" integrity="sha384-EnDmL1vzWaulolGLeEzjsg5pqgwFtAE2qxU/9nupVnkomz65CqX5cfxyvJP5O3vP" crossorigin="anonymous"></script>
 
-{{ status_colors|json_script:"status-colors-data" }}
 <script nonce="{{ csp_nonce }}">
 (function(){
-    var statusColors = JSON.parse(document.getElementById('status-colors-data').textContent);
     var filtroProfissional = document.getElementById('filtroProfissional');
     var calendarEl = document.getElementById('calendar');
     var modal = document.getElementById('calModal');
@@ -112,7 +107,7 @@
         document.getElementById('cmClienteNome').textContent = p.cliente_nome || e.title;
         var statusEl = document.getElementById('cmStatus');
         statusEl.textContent = p.status || '–';
-        statusEl.style.background = statusColors[p.status] || '#999';
+        statusEl.className = 'status-pill status-' + (p.status || 'X');
         document.getElementById('cmProcedimento').textContent = p.procedimento || '–';
         document.getElementById('cmProfissional').textContent = p.profissional || '–';
         document.getElementById('cmData').textContent =

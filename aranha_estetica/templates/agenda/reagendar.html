@@ -42,10 +42,10 @@
     }
     .reag-input {
         width: 100%; padding: 0.75rem 1rem;
-        border: 2px solid var(--cor-borda); border-radius: 10px;
+        border: 2px solid var(--cor-borda-campo); border-radius: 10px;
         font-size: 1rem; background: var(--cor-superficie); color: var(--cor-texto);
     }
-    .reag-input:focus { outline: none; border-color: var(--gold); }
+    .reag-input:focus { outline: none; border-color: var(--cor-foco); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cor-foco) 45%, transparent); }
     .horarios-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));

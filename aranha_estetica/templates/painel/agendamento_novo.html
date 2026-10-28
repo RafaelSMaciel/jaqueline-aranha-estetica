@@ -52,11 +52,11 @@ SlotService; "Agendar" valida tudo de novo no servidor.
       <p class="flex items-center gap-2 flex-wrap px-3 py-2 mb-1 rounded-xl border border-dashed border-borda text-[0.85rem] text-texto-suave">
         <span><strong>{{ c.nome }}</strong>{% if c.telefone %} · {{ c.telefone }}{% endif %}</span>
         <span class="px-2 py-0.5 rounded-full text-[0.65rem] font-bold uppercase bg-fundo text-texto-suave">Inativa</span>
-        <a href="{% url 'aranha:admin_cliente_detalhe' c.pk %}" class="font-bold text-blue-800 hover:underline">Reativar na ficha</a>
+        <a href="{% url 'aranha:admin_cliente_detalhe' c.pk %}" class="font-bold text-info hover:underline">Reativar na ficha</a>
       </p>
       {% endif %}{% endfor %}
       {% if cliente_inativa %}
-      <p class="flex items-center gap-2 flex-wrap px-3 py-2 mb-1 rounded-xl border border-amber-300 bg-amber-50 text-[0.85rem] text-amber-800" role="note">
+      <p class="flex items-center gap-2 flex-wrap px-3 py-2 mb-1 rounded-xl border border-aviso bg-aviso-fundo text-[0.85rem] text-aviso" role="note">
         <span><strong>{{ cliente_inativa.nome }}</strong> está com o cadastro inativo.</span>
         <a href="{% url 'aranha:admin_cliente_detalhe' cliente_inativa.pk %}" class="font-bold underline">Abrir a ficha para reativar</a>
       </p>
@@ -141,7 +141,7 @@ SlotService; "Agendar" valida tudo de novo no servidor.
       </div>
     </fieldset>
     {% else %}
-    <p class="text-[0.85rem] font-bold text-amber-800 bg-amber-50 rounded-lg px-3 py-2">Nenhum horário livre neste dia para este profissional. Escolha outro dia ou profissional.</p>
+    <p class="text-[0.85rem] font-bold text-aviso bg-aviso-fundo rounded-lg px-3 py-2">Nenhum horário livre neste dia para este profissional. Escolha outro dia ou profissional.</p>
     {% endif %}
 
     <div class="mt-4 text-[0.85rem] text-texto">
@@ -149,7 +149,7 @@ SlotService; "Agendar" valida tudo de novo no servidor.
       Valor:
       {% if preco.promocao %}<s class="text-texto-suave">R$ {{ preco.cheio|floatformat:2 }}</s>{% endif %}
       <strong>R$ {{ preco.final|floatformat:2 }}</strong>
-      {% if preco.promocao %}<span class="ml-1 px-2 py-0.5 rounded-full text-[0.7rem] font-bold bg-green-50 text-green-700">Promoção {{ preco.promocao.nome }}</span>{% endif %}
+      {% if preco.promocao %}<span class="ml-1 px-2 py-0.5 rounded-full text-[0.7rem] font-bold bg-sucesso-fundo text-sucesso">Promoção {{ preco.promocao.nome }}</span>{% endif %}
       {% else %}
       Procedimento sem preço cadastrado (valor a consultar).
       {% endif %}

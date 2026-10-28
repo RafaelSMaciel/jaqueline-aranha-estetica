@@ -42,7 +42,7 @@ copy fala em "aceite". Texto do termo rolavel por teclado (tabindex + role=regio
                 <span class="text-xs font-semibold px-2 py-0.5 rounded-full border border-borda bg-fundo text-marca-forte">{{ termo.get_tipo_display }}</span>
                 <span class="text-xs text-texto-suave">versão {{ termo.versao }}</span>
             </div>
-            <div class="text-sm text-texto-suave leading-relaxed max-h-48 overflow-y-auto bg-fundo rounded-md p-3 mb-3 border border-borda focus:outline-none focus-visible:ring-2 focus-visible:ring-marca"
+            <div class="text-sm text-texto-suave leading-relaxed max-h-48 overflow-y-auto bg-fundo rounded-md p-3 mb-3 border border-borda focus-visible:ring-2 focus-visible:ring-marca"
                  tabindex="0" role="region" aria-label="Texto do termo {{ termo.titulo }}">
                 {{ termo.conteudo|linebreaksbr }}
             </div>

@@ -28,7 +28,7 @@
     </div>
     <div class="text-[1.4rem] font-extrabold text-texto leading-none">{{ total_clientes|default:0 }}</div>
     <div class="text-[0.65rem] font-bold uppercase tracking-wide text-texto-suave mt-1">Clientes</div>
-    {% if novos_clientes %}<div class="text-[0.65rem] font-bold text-purple-700 mt-1">+{{ novos_clientes }} este mês</div>{% endif %}
+    {% if novos_clientes %}<div class="text-[0.65rem] font-bold text-destaque mt-1">+{{ novos_clientes }} este mês</div>{% endif %}
   </div>
   <div class="bg-superficie rounded-2xl shadow-sm p-4">
     <div class="w-9 h-9 rounded-xl flex items-center justify-center mb-2" style="background:#fff8e1;color:#f57f17;">
@@ -69,14 +69,14 @@
 
 {# ── Pendentes de aprovação ── #}
 {% if pendentes_aprovacao %}
-<div class="bg-gradient-to-br from-[#fff8e1] to-[#ffecb3] border-l-4 border-amber-500 rounded-2xl p-5 mb-4">
+<div class="bg-gradient-to-br from-[#fff8e1] to-[#ffecb3] border-l-4 border-aviso rounded-2xl p-5 mb-4">
   <div class="flex justify-between items-center mb-3">
-    <div class="flex items-center gap-2 font-extrabold text-amber-800 text-[0.85rem] uppercase tracking-wide">
+    <div class="flex items-center gap-2 font-extrabold text-aviso text-[0.85rem] uppercase tracking-wide">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v4M5 8a7 7 0 0114 0c0 7-7 4-7 10 0-6-7-3-7-10z"/></svg>
       Pendentes de aprovação
       <span class="bg-amber-500 text-white rounded-full px-2.5 py-0.5 text-[0.7rem] font-extrabold">{{ total_pendentes }}</span>
     </div>
-    <a href="{% url 'aranha:painel_agendamentos' %}?status=pendente" class="text-[0.78rem] font-bold text-amber-800 no-underline">Ver todos &rarr;</a>
+    <a href="{% url 'aranha:painel_agendamentos' %}?status=pendente" class="text-[0.78rem] font-bold text-aviso no-underline">Ver todos &rarr;</a>
   </div>
   {% for p in pendentes_aprovacao %}
   <div class="flex items-center gap-3 bg-superficie rounded-xl px-3.5 py-2.5 mb-1.5">
@@ -97,7 +97,7 @@
       <form method="post" action="{% url 'aranha:admin_rejeitar_agendamento' pk=p.pk %}" class="m-0">
         {% csrf_token %}
         <button type="submit" data-confirm="Rejeitar agendamento de {{ p.cliente.nome }}?"
-                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-superficie text-red-600 border border-red-600 text-[0.7rem] font-bold cursor-pointer hover:bg-red-600 hover:text-white transition-colors">
+                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-superficie text-erro border border-erro text-[0.7rem] font-bold cursor-pointer hover:bg-red-600 hover:text-white transition-colors">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           Rejeitar
         </button>
@@ -150,7 +150,7 @@
   {% if proximos_agendamentos %}
   {% for agend in proximos_agendamentos %}
   <div class="flex items-center gap-3 py-2.5 {% if not forloop.last %}border-b border-borda{% endif %}" id="appt-{{ agend.pk }}">
-    <div class="w-10 h-10 rounded-xl bg-green-100 text-green-700 flex items-center justify-center font-extrabold text-[0.8rem] shrink-0">
+    <div class="w-10 h-10 rounded-xl bg-sucesso-fundo text-sucesso flex items-center justify-center font-extrabold text-[0.8rem] shrink-0">
       {{ agend.cliente.nome|make_list|first }}
     </div>
     <div class="flex-1 min-w-0">

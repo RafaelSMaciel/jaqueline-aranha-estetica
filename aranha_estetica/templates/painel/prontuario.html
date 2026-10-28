@@ -9,24 +9,24 @@
 {# ── Stats ── #}
 <div class="grid grid-cols-2 gap-3 mb-4">
   <div class="bg-superficie rounded-2xl shadow-sm px-4 py-4 flex items-center gap-3">
-    <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 bg-green-50 text-green-600" aria-hidden="true">
+    <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 bg-sucesso-fundo text-sucesso" aria-hidden="true">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
       </svg>
     </div>
     <div>
-      <div class="font-extrabold text-[1.4rem] text-green-600 leading-none">{{ clientes_page.paginator.count }}</div>
+      <div class="font-extrabold text-[1.4rem] text-sucesso leading-none">{{ clientes_page.paginator.count }}</div>
       <div class="text-[0.72rem] text-texto-suave mt-0.5">Clientes</div>
     </div>
   </div>
   <div class="bg-superficie rounded-2xl shadow-sm px-4 py-4 flex items-center gap-3">
-    <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 bg-blue-50 text-blue-600" aria-hidden="true">
+    <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 bg-info-fundo text-info" aria-hidden="true">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
       </svg>
     </div>
     <div>
-      <div class="font-extrabold text-[1.4rem] text-blue-600 leading-none">{{ total_perguntas }}</div>
+      <div class="font-extrabold text-[1.4rem] text-info leading-none">{{ total_perguntas }}</div>
       <div class="text-[0.72rem] text-texto-suave mt-0.5">Perguntas Ativas</div>
     </div>
   </div>
@@ -65,7 +65,7 @@
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
   <div class="bg-superficie rounded-2xl shadow-sm px-4 py-4">
     <div class="flex items-center gap-3 mb-2">
-      <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-green-50 text-green-600" aria-hidden="true">
+      <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-sucesso-fundo text-sucesso" aria-hidden="true">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
         </svg>
@@ -82,7 +82,7 @@
   </div>
   <div class="bg-superficie rounded-2xl shadow-sm px-4 py-4">
     <div class="flex items-center gap-3 mb-2">
-      <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-blue-50 text-blue-600" aria-hidden="true">
+      <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-info-fundo text-info" aria-hidden="true">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
         </svg>
@@ -127,7 +127,7 @@
           <td class="py-2 text-texto-suave">{{ forloop.counter }}</td>
           <td class="py-2 text-texto">{{ p.label }}</td>
           <td class="py-2">
-            <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-blue-50 text-blue-700 uppercase tracking-wide">{{ p.tipo }}</span>
+            <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-info-fundo text-info uppercase tracking-wide">{{ p.tipo }}</span>
           </td>
         </tr>
         {% endfor %}
@@ -152,7 +152,7 @@
      class="flex items-center gap-3 bg-superficie rounded-2xl shadow-sm px-4 py-3 mb-2 hover:shadow-md hover:-translate-y-px transition-all duration-200 no-underline">
 
     {# Avatar ── iniciais truncadas em 2 chars #}
-    <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 font-extrabold text-[0.75rem] {% if item.tem_prontuario or item.tem_ficha %}bg-green-50 text-green-700{% else %}bg-[rgba(201,168,76,0.12)] text-[#7a5f1f]{% endif %}" aria-hidden="true">
+    <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 font-extrabold text-[0.75rem] {% if item.tem_prontuario or item.tem_ficha %}bg-sucesso-fundo text-sucesso{% else %}bg-[rgba(201,168,76,0.12)] text-[#7a5f1f]{% endif %}" aria-hidden="true">
       {{ item.cliente.nome|truncatechars:2 }}
     </div>
 
@@ -169,16 +169,16 @@
     {# Badges de status ── prontuário + termos #}
     <div class="flex flex-col items-end gap-1 flex-shrink-0">
       {% if item.tem_prontuario %}
-      <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-green-50 text-green-700 uppercase tracking-wide">Prontuário</span>
+      <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-sucesso-fundo text-sucesso uppercase tracking-wide">Prontuário</span>
       {% endif %}
       {% if item.tem_ficha %}
-      <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-blue-50 text-blue-700 uppercase tracking-wide">Ficha online</span>
+      <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-info-fundo text-info uppercase tracking-wide">Ficha online</span>
       {% endif %}
       {% if not item.tem_prontuario and not item.tem_ficha %}
-      <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-yellow-50 text-yellow-700 uppercase tracking-wide">Sem dados de saúde</span>
+      <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-aviso-fundo text-aviso uppercase tracking-wide">Sem dados de saúde</span>
       {% endif %}
       {% if item.total_termos > 0 %}
-      <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-green-50 text-green-700 uppercase tracking-wide">{{ item.total_termos }} termo{{ item.total_termos|pluralize }}</span>
+      <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-sucesso-fundo text-sucesso uppercase tracking-wide">{{ item.total_termos }} termo{{ item.total_termos|pluralize }}</span>
       {% endif %}
     </div>
   </a>

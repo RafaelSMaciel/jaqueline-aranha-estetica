@@ -6,28 +6,21 @@
 
 {% block css %}
 <style nonce="{{ csp_nonce }}">
-    /* Status badges (dynamic .status-{{ a.status }}) */
-    .status-AGENDADO { background: #e3f2fd; color: #1565c0; }
-    .status-CONFIRMADO { background: #e8f5e9; color: #2e7d32; }
-    .status-REALIZADO { background: #f3e5f5; color: #7b1fa2; }
-    .status-CANCELADO { background: #fce4ec; color: #c62828; }
-    .status-FALTOU { background: #fff3e0; color: #e65100; }
-
     /* Timeline (vertical line + dots via pseudo-elements) */
     .cli-timeline { position: relative; padding-left: 1.6rem; }
     .cli-timeline::before {
         content: ''; position: absolute; top: 0.3rem; bottom: 0.3rem;
-        left: 0.55rem; width: 2px; background: #e8e8e8;
+        left: 0.55rem; width: 2px; background: var(--cor-borda);
     }
     .cli-tl-item { position: relative; padding-bottom: 0.85rem; }
     .cli-tl-item::before {
         content: ''; position: absolute; left: -1.4rem; top: 0.3rem;
         width: 12px; height: 12px; border-radius: 50%;
-        background: white; border: 3px solid #C9A84C;
+        background: var(--cor-superficie); border: 3px solid var(--cor-marca-forte);
     }
-    .cli-tl-item.is-FALTOU::before { border-color: #e65100; }
-    .cli-tl-item.is-CANCELADO::before { border-color: #c62828; }
-    .cli-tl-item.is-REALIZADO::before { border-color: #7b1fa2; }
+    .cli-tl-item.is-FALTOU::before { border-color: var(--st-faltou-texto); }
+    .cli-tl-item.is-CANCELADO::before { border-color: var(--st-cancelado-texto); }
+    .cli-tl-item.is-REALIZADO::before { border-color: var(--st-realizado-texto); }
     .cli-tl-item.is-CONFIRMADO::before { border-color: #2e7d32; }
 </style>
 {% endblock %}
@@ -230,7 +223,7 @@
           {% endif %}
         </div>
       </div>
-      <span class="px-2 py-0.5 rounded-full text-[0.65rem] font-bold uppercase tracking-wide {% if c.concedido %}bg-green-50 text-green-700{% else %}bg-fundo text-texto-suave{% endif %}">
+      <span class="px-2 py-0.5 rounded-full text-[0.65rem] font-bold uppercase tracking-wide {% if c.concedido %}bg-sucesso-fundo text-sucesso{% else %}bg-fundo text-texto-suave{% endif %}">
         {% if c.concedido %}Autorizado{% else %}Não autorizado{% endif %}
       </span>
     </div>
@@ -335,7 +328,7 @@
         </div>
       </div>
       <span class="px-2 py-0.5 rounded-full text-[0.65rem] font-bold uppercase tracking-wide
-                   {% if compra.vencido %}bg-red-50 text-red-700{% elif compra.status == 'ATIVO' %}bg-green-50 text-green-700{% else %}bg-fundo text-texto-suave{% endif %}">
+                   {% if compra.vencido %}bg-erro-fundo text-erro{% elif compra.status == 'ATIVO' %}bg-sucesso-fundo text-sucesso{% else %}bg-fundo text-texto-suave{% endif %}">
         {% if compra.vencido %}Vencido{% else %}{{ compra.get_status_display }}{% endif %}
       </span>
     </div>
@@ -346,7 +339,7 @@
     </ul>
     {% if compra.status == 'ATIVO' %}
     <details class="mt-2">
-      <summary class="cursor-pointer text-[0.75rem] font-bold text-red-700">Cancelar pacote</summary>
+      <summary class="cursor-pointer text-[0.75rem] font-bold text-erro">Cancelar pacote</summary>
       <form method="post" action="{% url 'aranha:admin_cancelar_compra_pacote' compra.pk %}" class="mt-2">
         {% csrf_token %}
         <label for="reembCancel{{ compra.pk }}" class="block text-[0.72rem] font-bold text-texto-suave mb-1">Valor devolvido à cliente (R$; 0 se nada foi devolvido)</label>
@@ -391,17 +384,17 @@
       <div class="flex gap-1.5 mt-1 flex-wrap items-center">
         <span class="status-{{ a.status }} text-[0.65rem] px-2 py-0.5 rounded-[10px] font-bold">{{ a.get_status_display }}</span>
         {% if a.de_pacote %}
-        <span class="text-[0.7rem] px-2 py-0.5 rounded-lg font-bold bg-blue-50 text-blue-700">Sessão de pacote</span>
+        <span class="text-[0.7rem] px-2 py-0.5 rounded-lg font-bold bg-info-fundo text-info">Sessão de pacote</span>
         {% elif a.valor_cobrado is not None %}
         <span class="text-[0.7rem] px-2 py-0.5 rounded-lg font-bold bg-[#fff8e1] text-[#f57f17]">R$ {{ a.valor_cobrado|floatformat:2 }}</span>
         {% endif %}
         {% if a.termo_pendente %}
-        <span class="text-[0.7rem] px-2 py-0.5 rounded-lg font-bold bg-amber-50 text-amber-800">Termo pendente</span>
+        <span class="text-[0.7rem] px-2 py-0.5 rounded-lg font-bold bg-aviso-fundo text-aviso">Termo pendente</span>
         {% endif %}
         {% if a.termo_link %}
         <form method="post" action="{% url 'aranha:admin_gerar_link_termo' a.pk %}" class="m-0 inline">
           {% csrf_token %}
-          <button type="submit" class="text-[0.7rem] px-2 py-0.5 rounded-lg font-bold bg-superficie border border-amber-300 text-amber-800 cursor-pointer hover:bg-amber-50">Link do termo</button>
+          <button type="submit" class="text-[0.7rem] px-2 py-0.5 rounded-lg font-bold bg-superficie border border-aviso text-aviso cursor-pointer hover:bg-aviso-fundo">Link do termo</button>
         </form>
         {% endif %}
       </div>

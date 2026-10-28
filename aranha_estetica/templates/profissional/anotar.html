@@ -44,7 +44,7 @@
                 </div>
                 {% if pode_ver_clinico %}
                 <a href="{% url 'aranha:prontuario_detalhe' atendimento.cliente_id %}"
-                   class="inline-block mt-2 text-xs font-bold text-blue-800 hover:underline">Ver ficha da cliente</a>
+                   class="inline-block mt-2 text-xs font-bold text-info hover:underline">Ver ficha da cliente</a>
                 {% include 'partials/_alerta_saude.html' with alertas=alertas %}
                 {% else %}
                 <p class="mt-2 mb-0 text-xs text-texto-suave">
@@ -61,7 +61,7 @@
                 <textarea name="texto" rows="5" required
                           placeholder="Descreva as observações da sessão, produtos utilizados, reações observadas..."
                           class="w-full px-4 py-3 rounded-xl border-2 border-borda bg-fundo text-texto text-sm
-                                 resize-y focus:outline-none focus:border-[var(--cor-marca)] transition-colors
+                                 resize-y focus:border-[var(--cor-marca)] transition-colors
                                  placeholder:text-texto-suave"></textarea>
                 <button type="submit"
                         class="mt-4 w-full bg-marca-forte text-sobre-marca font-bold py-3 rounded-full

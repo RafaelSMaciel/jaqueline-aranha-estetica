@@ -42,7 +42,7 @@
       <div>
         <div class="font-bold text-[1rem] text-texto leading-tight">
           {{ prof.nome }}
-          {% if not prof.ativo %}<span class="ml-1 align-middle px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-red-50 text-red-600 uppercase tracking-wide">Inativo</span>{% endif %}
+          {% if not prof.ativo %}<span class="ml-1 align-middle px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-erro-fundo text-erro uppercase tracking-wide">Inativo</span>{% endif %}
         </div>
         <div class="text-[0.75rem] text-texto-suave mt-0.5">{{ prof.especialidade|default:"Profissional" }}</div>
       </div>
@@ -51,11 +51,11 @@
     {# Stats #}
     <div class="grid grid-cols-2 gap-2 mb-4">
       <div class="text-center p-3 rounded-xl bg-fundo">
-        <div class="font-extrabold text-[1.2rem] text-blue-700 leading-none">{{ prof.total_agendamentos|default:0 }}</div>
+        <div class="font-extrabold text-[1.2rem] text-info leading-none">{{ prof.total_agendamentos|default:0 }}</div>
         <div class="text-[0.65rem] font-bold uppercase tracking-wide text-texto-suave mt-1">Total</div>
       </div>
       <div class="text-center p-3 rounded-xl bg-fundo">
-        <div class="font-extrabold text-[1.2rem] text-green-700 leading-none">{{ prof.agendamentos_mes|default:0 }}</div>
+        <div class="font-extrabold text-[1.2rem] text-sucesso leading-none">{{ prof.agendamentos_mes|default:0 }}</div>
         <div class="text-[0.65rem] font-bold uppercase tracking-wide text-texto-suave mt-1">Este Mês</div>
       </div>
     </div>
@@ -63,12 +63,12 @@
     {# Ações #}
     <div class="flex gap-2 mb-4">
       <a href="{% url 'aranha:profissional_editar' prof.pk %}"
-         class="flex-1 text-center py-2 rounded-xl bg-blue-50 text-blue-700 text-[0.75rem] font-bold no-underline hover:bg-blue-100 transition-colors">
+         class="flex-1 text-center py-2 rounded-xl bg-info-fundo text-info text-[0.75rem] font-bold no-underline hover:bg-info-fundo transition-colors">
         <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
         Editar
       </a>
       <a href="{% url 'aranha:painel_agendamentos' %}?profissional={{ prof.pk }}"
-         class="flex-1 text-center py-2 rounded-xl bg-green-50 text-green-700 text-[0.75rem] font-bold no-underline hover:bg-green-100 transition-colors">
+         class="flex-1 text-center py-2 rounded-xl bg-sucesso-fundo text-sucesso text-[0.75rem] font-bold no-underline hover:bg-sucesso-fundo transition-colors">
         <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         Agenda
       </a>
@@ -80,7 +80,7 @@
       <div class="flex flex-col gap-2">
         {# Feed ICS: o token so aparece na geracao (link_acesso guarda o hash) #}
         <div class="flex items-center gap-2 text-[0.75rem]">
-          <svg class="w-3.5 h-3.5 text-orange-600 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 5c7.18 0 13 5.82 13 13M6 11a7 7 0 017 7M6 17a1 1 0 011 1"/></svg>
+          <svg class="w-3.5 h-3.5 text-aviso flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 5c7.18 0 13 5.82 13 13M6 11a7 7 0 017 7M6 17a1 1 0 011 1"/></svg>
           <span class="font-bold text-texto-suave">ICS feed</span>
           <span class="flex-1 min-w-0 text-[0.7rem] text-texto-suave">
             {% if prof.ics_migrado %}Link ativo (criado antes da atualização){% elif prof.ics_ativo_desde %}Link ativo desde {{ prof.ics_ativo_desde|date:"d/m/Y" }}{% else %}Sem link{% endif %}
@@ -97,16 +97,16 @@
         {% if gcal_ativo %}
         {# Google Calendar so aparece com a integracao configurada (libs + env OAuth) #}
         <div class="flex items-center gap-2 text-[0.75rem]">
-          <svg class="w-3.5 h-3.5 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <svg class="w-3.5 h-3.5 text-info flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           <span class="font-bold text-texto-suave">Google Calendar</span>
           {% if prof.gcal_refresh_token %}
-          <span class="text-green-700 font-bold text-[0.7rem]">Conectado</span>
+          <span class="text-sucesso font-bold text-[0.7rem]">Conectado</span>
           <form method="post" action="{% url 'aranha:gcal_pull' prof.pk %}" class="ml-auto m-0">
             {% csrf_token %}
-            <button type="submit" class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md text-[0.7rem] font-bold border-none cursor-pointer hover:bg-blue-100 transition-colors">Sincronizar</button>
+            <button type="submit" class="bg-info-fundo text-info px-2 py-0.5 rounded-md text-[0.7rem] font-bold border-none cursor-pointer hover:bg-info-fundo transition-colors">Sincronizar</button>
           </form>
           {% else %}
-          <a href="{% url 'aranha:gcal_connect' prof.pk %}" class="ml-auto bg-superficie border border-blue-400 text-blue-600 px-2 py-0.5 rounded-md text-[0.7rem] font-bold no-underline hover:bg-blue-50 transition-colors">Conectar</a>
+          <a href="{% url 'aranha:gcal_connect' prof.pk %}" class="ml-auto bg-superficie border border-info text-info px-2 py-0.5 rounded-md text-[0.7rem] font-bold no-underline hover:bg-info-fundo transition-colors">Conectar</a>
           {% endif %}
         </div>
         {% endif %}

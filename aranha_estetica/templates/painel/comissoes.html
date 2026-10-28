@@ -81,13 +81,13 @@
           <td class="py-2 text-right text-marca-forte font-semibold tabular-nums">R$ {{ r.pendente|default:0|floatformat:2 }}</td>
           <td class="py-2 text-right text-sucesso tabular-nums">R$ {{ r.paga|default:0|floatformat:2 }}</td>
           <td class="py-2 text-right text-texto-suave tabular-nums">{{ r.qtd }}</td>
-          <td class="py-2 text-right font-semibold tabular-nums {% if r.saldo_negativo %}text-red-600{% else %}text-texto{% endif %}">R$ {{ r.saldo|floatformat:2 }}</td>
+          <td class="py-2 text-right font-semibold tabular-nums {% if r.saldo_negativo %}text-erro{% else %}text-texto{% endif %}">R$ {{ r.saldo|floatformat:2 }}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-  <p class="text-[0.72rem] text-texto-suave mt-2">Saldo a pagar = comissões geradas − pagas − estornadas (todo o histórico, não só o período).{% if tem_saldo_negativo %} <strong class="text-red-600">Saldo negativo = comissão já paga e depois estornada: a descontar do próximo repasse.</strong>{% endif %}</p>
+  <p class="text-[0.72rem] text-texto-suave mt-2">Saldo a pagar = comissões geradas − pagas − estornadas (todo o histórico, não só o período).{% if tem_saldo_negativo %} <strong class="text-erro">Saldo negativo = comissão já paga e depois estornada: a descontar do próximo repasse.</strong>{% endif %}</p>
 </div>
 {% endif %}
 

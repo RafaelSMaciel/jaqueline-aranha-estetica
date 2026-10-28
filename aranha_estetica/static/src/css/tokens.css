@@ -1,6 +1,10 @@
 [x-cloak] { display: none !important; }
 
+/* Tema: data-theme="claro|escuro" vem do cookie `tema` (escolha da pessoa). Sem cookie, o
+   <html> sai sem data-theme e o tema segue o sistema (prefers-color-scheme, bloco abaixo).
+   Contraste conferido (WCAG AA): texto >= 4,5:1, borda de campo e foco >= 3:1. */
 :root {
+  color-scheme: light;
   /* Tipografia da marca (carregada via Google Fonts no <head> do base_v2) */
   --heading-font: 'Playfair Display', Georgia, 'Times New Roman', serif;
   --body-font: 'Lato', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -21,12 +25,33 @@
   /* text-marca = texto (AA); marca-forte = preenchimento. #C9A84C como texto no claro da 2,2:1 */
   --cor-marca: var(--ouro-700);
   --cor-marca-forte: var(--ouro-500);
-  --cor-borda: #E7E8E3;
+  --cor-borda: #E7E8E3;            /* divisoria/cartao (decorativa) */
+  --cor-borda-campo: #8C857A;      /* borda de input/select/textarea: 3,6:1 (WCAG 1.4.11) */
+  --cor-foco: var(--ouro-700);     /* anel de foco do teclado: 5,8:1 */
   --cor-erro: #A32D2D;
   --cor-sucesso: #1D7A4F;
+  --cor-aviso: #8A5A00;
   --cor-sobre-marca: #23200f;   /* texto sobre fundo marca-forte (dourado) — igual nos 2 temas */
+  /* mensagens/estado (texto sobre o fundo do mesmo nome >= 4,5:1) */
+  --cor-erro-fundo: #FBE8E8;
+  --cor-sucesso-fundo: #E3F2E9;
+  --cor-aviso-fundo: #FDF3D3;
+  --cor-info: #1B4A88;       --cor-info-fundo: #E4EEFA;
+  --cor-destaque: #583B85;   --cor-destaque-fundo: #EFEAF6;
+
+  /* Status do atendimento: fundo do selo / texto (e preenchimento do evento no calendario) */
+  --st-pendente-fundo: #FDF3D3;   --st-pendente-texto: #6E5200;
+  --st-agendado-fundo: #EDF0F4;   --st-agendado-texto: #3F4A57;
+  --st-confirmado-fundo: #E4EEFA; --st-confirmado-texto: #1B4A88;
+  --st-realizado-fundo: #E3F2E9;  --st-realizado-texto: #1A6340;
+  --st-cancelado-fundo: #FBE8E8;  --st-cancelado-texto: #9B2B2B;
+  --st-faltou-fundo: #FCEBD7;     --st-faltou-texto: #83470A;
+  --st-reagendado-fundo: #EFEAF6; --st-reagendado-texto: #583B85;
 }
+
+/* Escuro — o mesmo bloco duas vezes: escolha explicita (cookie) e sistema sem escolha. */
 [data-theme="escuro"] {
+  color-scheme: dark;
   --cor-fundo: #14171A;
   --cor-superficie: #1B2024;
   --cor-texto: #EDEFEC;
@@ -34,6 +59,50 @@
   --cor-marca: #C9A84C;
   --cor-marca-forte: #C9A84C;
   --cor-borda: #2A3034;
+  --cor-borda-campo: #6B7378;
+  --cor-foco: #C9A84C;
   --cor-erro: #E07A7A;
   --cor-sucesso: #5DCAA5;
+  --cor-aviso: #F2D27A;
+  --cor-erro-fundo: #3F1F21;
+  --cor-sucesso-fundo: #183528;
+  --cor-aviso-fundo: #3A3115;
+  --cor-info: #9DC3F2;       --cor-info-fundo: #1C2D44;
+  --cor-destaque: #C9B3EE;   --cor-destaque-fundo: #2F2640;
+  --st-pendente-fundo: #3A3115;   --st-pendente-texto: #F2D27A;
+  --st-agendado-fundo: #2A3138;   --st-agendado-texto: #C3CCD6;
+  --st-confirmado-fundo: #1C2D44; --st-confirmado-texto: #9DC3F2;
+  --st-realizado-fundo: #183528;  --st-realizado-texto: #8FD8B0;
+  --st-cancelado-fundo: #3F1F21;  --st-cancelado-texto: #F0A3A3;
+  --st-faltou-fundo: #3E2A16;     --st-faltou-texto: #F3B97A;
+  --st-reagendado-fundo: #2F2640; --st-reagendado-texto: #C9B3EE;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --cor-fundo: #14171A;
+    --cor-superficie: #1B2024;
+    --cor-texto: #EDEFEC;
+    --cor-texto-suave: #9AA0A2;
+    --cor-marca: #C9A84C;
+    --cor-marca-forte: #C9A84C;
+    --cor-borda: #2A3034;
+    --cor-borda-campo: #6B7378;
+    --cor-foco: #C9A84C;
+    --cor-erro: #E07A7A;
+    --cor-sucesso: #5DCAA5;
+    --cor-aviso: #F2D27A;
+    --cor-erro-fundo: #3F1F21;
+    --cor-sucesso-fundo: #183528;
+    --cor-aviso-fundo: #3A3115;
+    --cor-info: #9DC3F2;       --cor-info-fundo: #1C2D44;
+    --cor-destaque: #C9B3EE;   --cor-destaque-fundo: #2F2640;
+    --st-pendente-fundo: #3A3115;   --st-pendente-texto: #F2D27A;
+    --st-agendado-fundo: #2A3138;   --st-agendado-texto: #C3CCD6;
+    --st-confirmado-fundo: #1C2D44; --st-confirmado-texto: #9DC3F2;
+    --st-realizado-fundo: #183528;  --st-realizado-texto: #8FD8B0;
+    --st-cancelado-fundo: #3F1F21;  --st-cancelado-texto: #F0A3A3;
+    --st-faltou-fundo: #3E2A16;     --st-faltou-texto: #F3B97A;
+    --st-reagendado-fundo: #2F2640; --st-reagendado-texto: #C9B3EE;
+  }
 }
