@@ -1,6 +1,5 @@
 """Views de CRUD de profissionais — cadastro e edicao."""
 import logging
-from datetime import datetime
 from urllib.parse import urlencode
 
 from django.contrib import messages
@@ -19,6 +18,7 @@ from ..models import (
 from ..services import links
 from ..utils.audit import registrar_log
 from ..utils.parse import id_int
+from ..utils.datas import ler_hora
 
 logger = logging.getLogger(__name__)
 
@@ -49,13 +49,10 @@ def _ativo_do_post(request):
 
 def _parse_hora(valor):
     """'HH:MM' ou 'HH:MM:SS' (input type=time) -> time; None se vazio/invalido."""
-    valor = (valor or '').strip()
-    for fmt in ('%H:%M', '%H:%M:%S'):
-        try:
-            return datetime.strptime(valor, fmt).time()
-        except ValueError:
-            continue
-    return None
+    try:
+        return ler_hora((valor or '').strip())
+    except ValueError:
+        return None
 
 
 def _ler_janelas(post):

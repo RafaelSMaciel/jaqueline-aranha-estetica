@@ -6,7 +6,6 @@ datas (ferias numa linha so); HORARIO_DIFERENTE substitui a grade num dia.
 Bloqueios (intervalo exato) ficam em admin_bloqueios; feriados/recessos da
 clinica (FOLGA sem profissional) no carregar_feriados / Django admin.
 """
-from datetime import datetime
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
@@ -17,6 +16,7 @@ from django.utils import timezone
 from ..decorators import staff_required
 from ..models import AgendaExcecao, Profissional
 from ..utils.audit import registrar_log
+from ..utils.datas import ler_data, ler_hora
 
 TIPOS_PAINEL = [
     (AgendaExcecao.TIPO_FOLGA, 'Folga'),
@@ -26,16 +26,11 @@ TIPOS_PAINEL = [
 
 def _parse_hora(valor):
     """'HH:MM' ou 'HH:MM:SS' (input type=time) -> time. ValueError se invalido."""
-    for fmt in ('%H:%M', '%H:%M:%S'):
-        try:
-            return datetime.strptime(valor, fmt).time()
-        except ValueError:
-            continue
-    raise ValueError(f'hora invalida: {valor!r}')
+    return ler_hora(valor)
 
 
 def _parse_data(valor):
-    return datetime.strptime(valor, '%Y-%m-%d').date()
+    return ler_data(valor)
 
 
 def _mensagem(exc):

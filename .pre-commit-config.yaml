@@ -1,0 +1,24 @@
+# Ganchos locais: os mesmos checks rapidos do CI, antes do commit. Usam as ferramentas do venv
+# (versoes fixas em requirements-dev.txt), sem baixar nada. Instalar uma vez:
+#   pip install -r requirements-dev.txt -c requirements.lock && pre-commit install
+# Rodar em tudo: pre-commit run --all-files     (guia: docs/DESENVOLVIMENTO.md)
+repos:
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff (erros + fuso)
+        entry: ruff check --force-exclude
+        language: system
+        types: [python]
+      - id: lint-imports
+        name: camadas views > services > models (import-linter)
+        entry: lint-imports
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: migrations
+        name: migrations em dia com os models
+        entry: python manage.py makemigrations --check --dry-run
+        language: system
+        files: ^aranha_estetica/(models|migrations)/
+        pass_filenames: false

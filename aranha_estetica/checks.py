@@ -1,7 +1,8 @@
 """System checks de configuracao de producao (Warnings; nunca derrubam o boot).
 
 Excecao: aranha.E001 (Error) — prod sem CHAVES_CIFRAGEM valida. Esse barra o migrate do
-pre-deploy de proposito (o deploy anterior segue no ar).
+pre-deploy de proposito (o deploy anterior segue no ar). E o aranha.W014 e o inverso: so no dev
+(DEBUG=True), avisa ambiente local fora do requirements.lock.
 
 Rodam em todo comando de manage.py (inclusive o `migrate` do pre-deploy, entao
 aparecem no log do deploy) e ficam mudos com DEBUG=True (dev/testes).
@@ -14,6 +15,7 @@ no 1o deploy quem avisa de painel sem administrador e o bootstrap_admin (roda
 depois do migrate), e o W010 pode aparecer antes da migration que cria os termos.
 """
 import os
+import sys
 from email.utils import parseaddr
 from urllib.parse import urlparse
 
@@ -294,3 +296,42 @@ def check_config_producao(app_configs=None, databases=None, **kwargs):
         ))
 
     return avisos
+
+
+@checks.register('ambiente_dev')
+def check_ambiente_igual_ao_lock(app_configs=None, **kwargs):
+    """Dev: Python ou pacote local diferente do CI/imagem (Python 3.12 + requirements.lock).
+
+    Django 5.2.1 local x 5.2.17 no lock (e Python 3.14) escondia do dev o que so o CI via.
+    Pacote do lock nao instalado e ignorado (o lock e da imagem Linux).
+    """
+    if not settings.DEBUG:
+        return []
+    from importlib import metadata
+
+    try:
+        linhas = (settings.BASE_DIR / 'requirements.lock').read_text(encoding='utf-8').splitlines()
+    except OSError:
+        return []
+    diferentes = []
+    if sys.version_info[:2] != (3, 12):
+        diferentes.append(f'Python {sys.version_info.major}.{sys.version_info.minor} (CI 3.12)')
+    for linha in linhas:
+        nome, _, versao = linha.split('#', 1)[0].strip().partition('==')
+        if not versao:
+            continue
+        try:
+            instalada = metadata.version(nome)
+        except metadata.PackageNotFoundError:
+            continue
+        if instalada != versao:
+            diferentes.append(f'{nome} {instalada} (lock {versao})')
+    if not diferentes:
+        return []
+    resumo = ', '.join(diferentes[:5]) + (f' e mais {len(diferentes) - 5}' if len(diferentes) > 5 else '')
+    return [checks.Warning(
+        f'Ambiente local diferente do CI e da imagem: {resumo}.',
+        hint='venv com Python 3.12 e `pip install -r requirements-dev.txt -c requirements.lock` '
+             '(docs/DESENVOLVIMENTO.md).',
+        id='aranha.W014',
+    )]

@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
@@ -17,6 +17,7 @@ from ..utils.audit import registrar_log
 from ..utils.saude import alertas_saude
 from ..utils.security import safe_next
 from .prontuario import _vinculo
+from ..utils.datas import ler_data
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +74,7 @@ def agenda(request):
 
     data_str = request.GET.get('data', '')
     try:
-        dia = datetime.strptime(data_str, '%Y-%m-%d').date() if data_str else timezone.localdate()
+        dia = ler_data(data_str) if data_str else timezone.localdate()
     except ValueError:
         dia = timezone.localdate()
 

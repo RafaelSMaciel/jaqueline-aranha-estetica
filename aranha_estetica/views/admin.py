@@ -1,6 +1,5 @@
 import json
 import logging
-from datetime import datetime
 
 from django.core.paginator import Paginator
 from django.db import DatabaseError
@@ -25,6 +24,7 @@ from ..utils.audit import registrar_log
 from ..utils.busca import filtrar_clientes
 from ..utils.parse import id_int
 from ..utils.saude import alertas_saude
+from ..utils.datas import ler_data
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +106,7 @@ def admin_auditoria(request):
         logs = logs.filter(acao__icontains=acao_filter)
     if data_filter:
         try:
-            data = datetime.strptime(data_filter, '%Y-%m-%d').date()
+            data = ler_data(data_filter)
             logs = logs.filter(criado_em__date=data)
         except ValueError:
             pass

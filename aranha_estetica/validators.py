@@ -13,6 +13,7 @@ import re
 from datetime import date
 
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 
@@ -131,7 +132,7 @@ def validate_data_nascimento(value: date) -> None:
     """Data de nascimento deve ser no passado e ate 150 anos atras."""
     if value is None:
         return
-    hoje = date.today()
+    hoje = timezone.localdate()
     if value > hoje:
         raise ValidationError(_("Data de nascimento não pode ser futura."), code="invalid_birth")
     if (hoje.year - value.year) > 150:
@@ -142,7 +143,7 @@ def validate_maior_idade(value: date) -> None:
     """Exige maior de 18 anos."""
     if value is None:
         return
-    hoje = date.today()
+    hoje = timezone.localdate()
     idade = hoje.year - value.year - ((hoje.month, hoje.day) < (value.month, value.day))
     if idade < 18:
         raise ValidationError(_("Cadastro permitido apenas para maiores de 18 anos."), code="underage")

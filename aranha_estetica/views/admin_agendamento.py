@@ -28,6 +28,7 @@ from ..services import agenda
 from ..services.disponibilidade import SlotService, profissionais_para
 from ..utils.audit import registrar_log
 from ..utils.busca import filtrar_clientes
+from ..utils.datas import ler_data, ler_hora
 from ..utils.datas import hoje
 from ..utils.parse import id_int
 from ..utils.precos import preco_com_promocao
@@ -47,14 +48,14 @@ def _int(valor):
 
 def _data(valor):
     try:
-        return datetime.strptime((valor or '').strip(), '%Y-%m-%d').date()
+        return ler_data((valor or '').strip())
     except ValueError:
         return None
 
 
 def _hora(valor):
     try:
-        return datetime.strptime((valor or '').strip(), '%H:%M').time()
+        return ler_hora((valor or '').strip())
     except ValueError:
         return None
 

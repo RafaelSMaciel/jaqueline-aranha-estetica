@@ -23,6 +23,7 @@ from django.utils import timezone
 from aranha_estetica.models import Cliente, LogAuditoria
 from aranha_estetica.services.lgpd import LgpdService
 from aranha_estetica.utils.audit import registrar_log
+from ...utils.datas import ler_data
 
 ACAO_ANONIMIZADO = 'Cliente anonimizado'
 
@@ -46,7 +47,7 @@ class Command(BaseCommand):
         if not desde:
             raise CommandError('--listar exige --desde AAAA-MM-DD (data do backup).')
         try:
-            dia = datetime.strptime(desde, '%Y-%m-%d').date()
+            dia = ler_data(desde)
         except ValueError as exc:
             raise CommandError('--desde no formato AAAA-MM-DD.') from exc
         inicio = timezone.make_aware(datetime.combine(dia, time.min))

@@ -22,6 +22,7 @@ from django.utils import timezone
 from ..excecoes import HorarioIndisponivel
 from ..models import Atendimento
 from .agenda import reservar
+from ..utils.datas import ler_hora
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +55,7 @@ def _primeiro_horario_livre(origem: Atendimento, min_dias: int, max_dias: int):
     for dias in sorted(range(min_dias, max_dias + 1), key=lambda d: (abs(d - alvo), d)):
         dia = base + timedelta(days=dias)
         for hhmm in SlotService.slots_livres(prof_retorno, dia, origem.procedimento):
-            hora = datetime.strptime(hhmm, '%H:%M').time()
+            hora = ler_hora(hhmm)
             inicio = timezone.make_aware(datetime.combine(dia, hora))
             if inicio >= limite_inicio:
                 return inicio

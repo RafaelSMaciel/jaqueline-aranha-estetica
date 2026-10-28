@@ -3,9 +3,10 @@
 Com USE_TZ=True o banco devolve datetimes em UTC. Qualquer texto exibido ao
 cliente/equipe (e-mail, WhatsApp, SMS, push, Excel) ou calculo de "hoje"
 deve passar por aqui — `dt.strftime()` direto ou `timezone.now().date()`
-mostram/calculam em UTC (+3h / dia seguinte apos as 21h em BRT).
+mostram/calculam em UTC (+3h / dia seguinte apos as 21h em BRT). O ruff (DTZ) barra
+date.today()/datetime.now() sem fuso no CI.
 """
-from datetime import date, datetime
+from datetime import date, datetime, time
 
 from django.utils import timezone
 
@@ -36,3 +37,21 @@ def data_local(dt: datetime | None) -> date | None:
     if dt is None:
         return None
     return local(dt).date()
+
+
+def ler_data(valor: str) -> date:
+    """'AAAA-MM-DD' (input type=date, query string) -> date "de parede". ValueError se invalido.
+
+    O instante sai de timezone.make_aware(datetime.combine(dia, hora)) no fuso da clinica.
+    """
+    return datetime.strptime(valor, '%Y-%m-%d').date()  # noqa: DTZ007 - so a data
+
+
+def ler_hora(valor: str) -> time:
+    """'HH:MM' ou 'HH:MM:SS' (input type=time) -> time. ValueError se invalido."""
+    for formato in ('%H:%M', '%H:%M:%S'):
+        try:
+            return datetime.strptime(valor, formato).time()  # noqa: DTZ007 - so a hora
+        except ValueError:
+            continue
+    raise ValueError(f'hora invalida: {valor!r}')

@@ -107,10 +107,10 @@ def _until_local(valor):
     if not m:
         raise RegraNaoSuportada(f'UNTIL invalido: {valor!r}')
     try:
-        dia = datetime.strptime(m.group(1), '%Y%m%d')
+        dia = datetime.strptime(m.group(1), '%Y%m%d')  # noqa: DTZ007 - motor rrule e naive local
         if not m.group(2):
             return datetime.combine(dia.date(), time.max)  # UNTIL em data: o dia inteiro vale
-        instante = datetime.strptime(m.group(1) + m.group(3), '%Y%m%d%H%M%S')
+        instante = datetime.strptime(m.group(1) + m.group(3), '%Y%m%d%H%M%S')  # noqa: DTZ007 - idem; Z abaixo
     except ValueError as exc:
         raise RegraNaoSuportada(f'UNTIL invalido: {valor!r}') from exc
     if m.group(4):  # Z = UTC
@@ -170,7 +170,7 @@ def normalizar_regra_recorrencia(regra, dtstart=None):
 
     try:
         from dateutil.rrule import rrulestr
-        rrulestr(f'RRULE:{canonica}', dtstart=datetime(2000, 1, 3))
+        rrulestr(f'RRULE:{canonica}', dtstart=datetime(2000, 1, 3))  # noqa: DTZ001 - so valida a sintaxe
     except (ValueError, TypeError) as exc:  # defensivo: o subconjunto sempre parseia
         raise RegraNaoSuportada(f'dateutil recusou {canonica!r}: {exc}') from exc
     if not re.fullmatch(REGEX_SUBCONJUNTO, canonica):
