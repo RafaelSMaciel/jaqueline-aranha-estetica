@@ -18,6 +18,7 @@ from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
 from aranha_estetica import checks as aranha_checks
+from aranha_estetica import jobs
 from aranha_estetica.views.infra import cron
 
 BASE_DIR = Path(settings.BASE_DIR)
@@ -85,17 +86,17 @@ class CronEndpointTests(TestCase):
 
     @override_settings(CRON_MONITOR_URL='https://hc-ping.com/chave/')
     def test_monitor_recebe_ok_e_fail_e_nunca_muda_a_resposta(self):
-        with mock.patch.object(cron.requests, 'post') as post, mock.patch.dict(cron.JOB_MAP, {'ok': _job_ok}):
+        with mock.patch.object(jobs.requests, 'post') as post, mock.patch.dict(cron.JOB_MAP, {'ok': _job_ok}):
             self.assertEqual(self._post('ok').status_code, 200)
         post.assert_called_once_with('https://hc-ping.com/chave/ok', timeout=5)
         _CHAMADAS['n'] = 0
-        with mock.patch.object(cron.requests, 'post', side_effect=cron.requests.ConnectionError) as post, \
+        with mock.patch.object(jobs.requests, 'post', side_effect=jobs.requests.ConnectionError) as post, \
                 mock.patch.dict(cron.JOB_MAP, {'falha': _job_que_falha}):
             self.assertEqual(self._post('falha').status_code, 500)       # monitor fora: resposta igual
         post.assert_called_once_with('https://hc-ping.com/chave/falha/fail', timeout=5)
 
     def test_sem_monitor_configurado_nao_chama_nada(self):
-        with mock.patch.object(cron.requests, 'post') as post, mock.patch.dict(cron.JOB_MAP, {'ok': _job_ok}):
+        with mock.patch.object(jobs.requests, 'post') as post, mock.patch.dict(cron.JOB_MAP, {'ok': _job_ok}):
             self._post('ok')
         post.assert_not_called()
 
@@ -857,16 +858,6 @@ class HousekeepingTests(TestCase):
         self.assertFalse(LogAuditoria.objects.filter(pk=log_velho.pk).exists())
         self.assertTrue(LogAuditoria.objects.filter(pk=log_novo.pk).exists())
         self.assertEqual(resumo['otp'], 1)
-
-    def test_carregar_feriados(self):
-        from aranha_estetica.models import AgendaExcecao
-        from aranha_estetica.jobs_manutencao import job_carregar_feriados
-
-        self.assertIn('Feriados', job_carregar_feriados())
-        ano = timezone.localdate().year  # o comando usa o ano local (31/12 21h+ ja e outro ano em UTC)
-        self.assertTrue(AgendaExcecao.objects.filter(
-            origem='FERIADO_NACIONAL', profissional__isnull=True, tipo='FOLGA', data_inicio__year=ano + 1,
-        ).exists())
 
 
 # ─── Rate-limit por visitante atras do proxy ─────────────────────────

@@ -43,7 +43,7 @@ def formatar_valor_atendimento(atendimento) -> str:
     from .pacotes import sessoes_previstas
     previsto = sessoes_previstas([atendimento]).get(atendimento.pk)
     if previsto:
-        return f"Sessão do pacote {previsto['pacote']}"
+        return f"Sessão do pacote {previsto['pacote']} (restam {previsto['restam']})"
     if atendimento.valor_cobrado is None:
         return 'A consultar'
     return formatar_brl(atendimento.valor_cobrado)

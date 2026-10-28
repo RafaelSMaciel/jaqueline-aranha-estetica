@@ -96,6 +96,32 @@ def devolver_sessao_de_pacote(at) -> None:
     logger.info('pacote_sessao_devolvida', extra={'compra_pacote_id': compra.pk, 'atendimento_id': at.pk})
 
 
+def cancelar_pendentes_vencidos(agora=None) -> int:
+    """Job limpeza_status (de hora em hora): pedido PENDENTE a menos de PRAZO_DECISAO_PENDENTE do
+    inicio vira CANCELADO pela FSM (motivo 'expirado sem aprovacao'). A clinica nao decidiu a tempo
+    (nao e falta da cliente): a cliente recebe MSG_PEDIDO_EXPIRADO com o link p/ escolher outro
+    horario e a vaga volta p/ a lista de espera (ao_mudar_status). Devolve quantos cancelou."""
+    from django.utils import timezone
+
+    from ..constants import MSG_PEDIDO_EXPIRADO, PRAZO_DECISAO_PENDENTE
+    from ..models import Atendimento
+    from .agendamento import avisar_cancelamento
+
+    limite = (agora or timezone.now()) + PRAZO_DECISAO_PENDENTE
+    cancelados = 0
+    for at in Atendimento.objects.filter(status=StatusAtendimento.PENDENTE, data_hora_inicio__lt=limite):
+        try:
+            with transaction.atomic():
+                at.cancelar(motivo='expirado sem aprovacao')
+                avisar_cancelamento(at, MSG_PEDIDO_EXPIRADO)   # a cliente pediu e ficou sem resposta
+        except Atendimento.TransicaoInvalida as exc:   # outro processo decidiu no meio do caminho
+            logger.warning('pendente_vencido_transicao_invalida', extra={'atendimento_id': at.pk, 'erro': str(exc)})
+            continue
+        cancelados += 1
+        logger.info('pendente_vencido_cancelado', extra={'atendimento_id': at.pk})
+    return cancelados
+
+
 def ao_criar(at) -> None:
     """Novo atendimento: push p/ a profissional e evento no Google Calendar dela (on_commit)."""
     transaction.on_commit(lambda: _push_profissional(at, 'Novo agendamento'))

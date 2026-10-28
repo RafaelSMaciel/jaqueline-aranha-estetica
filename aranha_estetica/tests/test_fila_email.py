@@ -12,9 +12,11 @@ from django.utils import timezone
 from aranha_estetica.models import Cliente, Notificacao
 from aranha_estetica.services import comunicacao
 
-from .factories import criar_atendimento, criar_cliente, criar_procedimento, criar_profissional
+from .factories import criar_atendimento, criar_cliente, criar_procedimento, criar_profissional, email_da_fila
 
-CANCELAMENTO = 'aranha_estetica.utils.email.enviar_cancelamento_email'
+
+def falha_no_envio():
+    return email_da_fila(Notificacao.Tipo.CANCELAMENTO, retorno=False)
 
 
 class _Base(TestCase):
@@ -44,7 +46,7 @@ class FilaEmailTests(_Base):
         self.assertEqual(mail.outbox, [])
 
     def test_falha_reagenda_e_o_cron_reenvia(self):
-        with patch(CANCELAMENTO, return_value=False), self.captureOnCommitCallbacks(execute=True):
+        with falha_no_envio(), self.captureOnCommitCallbacks(execute=True):
             comunicacao.enfileirar_email(self.at, Notificacao.Tipo.CANCELAMENTO)
         notif = self._notif()
         self.assertEqual((notif.status, notif.tentativas), ('PENDENTE', 1))
@@ -56,7 +58,7 @@ class FilaEmailTests(_Base):
         self.assertEqual(self._notif().status, 'ENVIADO')
 
     def test_esgotou_as_tentativas_vira_falhou(self):
-        with patch(CANCELAMENTO, return_value=False):
+        with falha_no_envio():
             notif = comunicacao.enfileirar_email(self.at, Notificacao.Tipo.CANCELAMENTO)
             for _ in range(comunicacao.MAX_TENTATIVAS):
                 comunicacao.enviar_da_fila(notif.pk)
@@ -67,7 +69,7 @@ class FilaEmailTests(_Base):
     def test_pedido_velho_nao_sai_mais(self):
         notif = comunicacao.enfileirar_email(self.at, Notificacao.Tipo.CANCELAMENTO)
         Notificacao.objects.filter(pk=notif.pk).update(criado_em=timezone.now() - timedelta(days=3))
-        with patch(CANCELAMENTO, return_value=False):
+        with falha_no_envio():
             comunicacao.enviar_da_fila(notif.pk)
         self.assertEqual(self._notif().status, 'FALHOU')
 
@@ -89,7 +91,7 @@ class FilaEmailTests(_Base):
 
 class RodarJobTests(_Base):
     def test_rodar_job_emails(self):
-        with patch(CANCELAMENTO, return_value=False), self.captureOnCommitCallbacks(execute=True):
+        with falha_no_envio(), self.captureOnCommitCallbacks(execute=True):
             comunicacao.enfileirar_email(self.at, Notificacao.Tipo.CANCELAMENTO)
         Notificacao.objects.update(proxima_tentativa_em=timezone.now() - timedelta(minutes=1))
         saida = StringIO()

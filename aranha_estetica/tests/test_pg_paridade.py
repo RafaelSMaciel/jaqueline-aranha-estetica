@@ -1,7 +1,7 @@
 """Logica no banco — so Postgres (docs/specs/padrao-sql.md §5.8).
 
 Leitura (0057): cada funcao fn_* / view vw_* e comparada com a implementacao Python que o app
-usa (SlotService, AgendaExcecao.ocorrencias, CompraPacote.saldo_por_procedimento, utils/nps,
+usa (SlotService, AgendaExcecao.ocorrencias, CompraPacote.saldo_por_procedimento, services/nps,
 creditos_com_status/ComissaoService, services/consentimentos, services/financeiro) em cenarios
 representativos. Regra mudou no Python -> este teste quebra no CI Postgres ate a funcao ser
 atualizada por uma migration nova (CREATE OR REPLACE).
@@ -31,7 +31,7 @@ from aranha_estetica.services import consentimentos, financeiro
 from aranha_estetica.services.comissao import ComissaoService
 from aranha_estetica.services.disponibilidade import SlotService
 from aranha_estetica.services.lgpd import LgpdService
-from aranha_estetica.utils.nps import resumo_nps
+from aranha_estetica.services.nps import resumo_nps
 
 from .factories import (
     conceder, criar_atendimento, criar_cliente, criar_comissao, criar_compra_pacote, criar_link,
@@ -771,7 +771,7 @@ class ParidadeManutencaoTests(TestCase):
         self.assertEqual({k: resumo_job[k] for k in resumo}, resumo)
 
     def test_sp_expirar_pacotes(self):
-        from aranha_estetica.jobs import job_expirar_pacotes
+        from aranha_estetica.jobs import job_pacote_expirar
 
         pacote = Pacote.objects.create(nome='Validade', preco_total=Decimal('10'), validade_meses=1)
         hoje = timezone.localdate()
@@ -786,7 +786,7 @@ class ParidadeManutencaoTests(TestCase):
         def foto():
             return _q('SELECT id, status FROM compra_pacote ORDER BY id')
 
-        r_sql, f_sql = _rodar_e_fotografar(lambda: job_expirar_pacotes(), foto)
+        r_sql, f_sql = _rodar_e_fotografar(lambda: job_pacote_expirar(), foto)
         self.assertEqual(r_sql, '1 pacotes expirados')
         self.assertEqual(dict(f_sql)[compras[0]], 'EXPIRADO')
         self.assertEqual(dict(f_sql)[compras[1]], 'ATIVO')  # o ultimo dia ainda vale

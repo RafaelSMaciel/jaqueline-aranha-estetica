@@ -1,8 +1,15 @@
+"""Webhooks dos provedores: status do SMS (Zenvia) e mensagens recebidas no WhatsApp (Meta).
+
+WhatsApp: a cliente pode responder a nota do NPS (0-10) ou pedir para nao receber mais mensagens
+('PARAR', 'SAIR'...) — o pedido revoga o lembrete e a pesquisa por WhatsApp (LGPD art. 8 §5:
+revogar tem de ser tao facil quanto consentir) e ela recebe a confirmacao com o caminho de volta.
+"""
 import hashlib
 import hmac
 import json
 import logging
 import re
+import unicodedata
 from datetime import timedelta
 
 from django.conf import settings
@@ -12,7 +19,11 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django_ratelimit.decorators import ratelimit
 
-from ...models import AvaliacaoNPS, Notificacao
+from ...models import Cliente, Consentimento, Notificacao
+from ...services import consentimentos, nps
+from ...utils import whatsapp as canal_whatsapp
+from ...utils.auditoria import registrar_log
+from ...utils.branding import get_branding
 from ...utils.pii import mask_telefone
 from ...utils.seguranca import client_ip, segredo_confere
 
@@ -20,6 +31,12 @@ logger = logging.getLogger(__name__)
 
 # Janela para correlacionar resposta WhatsApp com Notificacao NPS enviada.
 NPS_JANELA_RESPOSTA = timedelta(days=7)
+
+# Mensagem inteira (sem acento, caixa ou espacos nas pontas) que revoga o WhatsApp. So a mensagem
+# inteira: 'vou sair mais cedo' nao e pedido de descadastro.
+PALAVRAS_PARAR = frozenset({'parar', 'sair', 'stop', 'cancelar mensagens', 'descadastrar'})
+PARES_WHATSAPP = (consentimentos.PESQUISA_WHATSAPP, consentimentos.LEMBRETE_WHATSAPP)
+TEXTO_PARAR = 'Pedido de parar enviado pelo WhatsApp.'
 
 
 def _verify_signature(request):
@@ -139,11 +156,12 @@ def whatsapp_webhook(request):
         return JsonResponse({'error': 'JSON invalido'}, status=400)
 
     # Evento assinado sempre recebe 200: status (sent/delivered/read) e
-    # mensagens nao-NPS sao ignorados. Responder 4xx/5xx faz a Meta reenviar
+    # outras mensagens sao ignorados. Responder 4xx/5xx faz a Meta reenviar
     # e, persistindo, desativar o webhook.
     try:
         for telefone, texto in _mensagens_recebidas(data):
-            _processar_resposta_nps(telefone, texto)
+            if not _processar_opt_out(telefone, texto):
+                _processar_resposta_nps(telefone, texto)
     except Exception as e:  # noqa: BLE001
         logger.error('whatsapp_webhook_erro: %s', type(e).__name__, exc_info=True)
     return JsonResponse({'status': 'ok'})
@@ -189,20 +207,52 @@ def _mensagens_recebidas(data):
                     yield telefone, texto
 
 
-def _processar_resposta_nps(telefone_limpo: str, mensagem: str) -> None:
-    """Resposta 0-10 vira AvaliacaoNPS do ultimo NPS enviado a este telefone."""
-    logger.info('WhatsApp webhook: mensagem de %s', mask_telefone(telefone_limpo))
-    # fullmatch: isdigit() aceitava '²' (int() -> ValueError) e '07'
-    if not re.fullmatch(r'10|[0-9]', mensagem):
-        return
-    nota = int(mensagem)
-    # SEGURANCA: match exato por telefone (com e sem codigo do pais BR 55)
-    # para evitar colisao entre clientes diferentes (anti-IDOR).
+def _telefones_candidatos(telefone_limpo: str) -> list[str]:
+    """O numero como veio e com/sem o codigo do pais (55): match EXATO, nunca parcial (anti-IDOR —
+    um sufixo comum poria a resposta na ficha de outra cliente)."""
     candidatos = [telefone_limpo]
     if telefone_limpo.startswith('55') and len(telefone_limpo) > 11:
         candidatos.append(telefone_limpo[2:])  # sem codigo do pais
     elif len(telefone_limpo) <= 11:
         candidatos.append('55' + telefone_limpo)  # com codigo do pais
+    return candidatos
+
+
+def _normalizar(texto: str) -> str:
+    """'  PARAR! ' -> 'parar': sem acento, caixa, pontuacao final e espacos repetidos."""
+    sem_acento = unicodedata.normalize('NFKD', texto).encode('ascii', 'ignore').decode('ascii')
+    return ' '.join(sem_acento.casefold().strip(' .!').split())
+
+
+def _processar_opt_out(telefone_limpo: str, mensagem: str) -> bool:
+    """'PARAR' & cia.: revoga lembrete e pesquisa por WhatsApp (origem WHATSAPP) de quem tem este
+    telefone e responde como voltar. True = era pedido de parar (a mensagem nao e nota de NPS)."""
+    if _normalizar(mensagem) not in PALAVRAS_PARAR:
+        return False
+    clientes = list(Cliente.objects.filter(telefone__in=_telefones_candidatos(telefone_limpo)))
+    for cliente in clientes:
+        revogados = consentimentos.revogar_todos(
+            cliente, origem=Consentimento.ORIGEM_WHATSAPP, texto=TEXTO_PARAR, pares=PARES_WHATSAPP,
+        )
+        registrar_log(None, 'LGPD: revogou WhatsApp pelo PARAR', 'cliente', cliente.pk,
+                      detalhes={'pares': [f'{r.finalidade}/{r.canal}' for r in revogados]})
+    logger.info('whatsapp_parar', extra={'telefone_mask': mask_telefone(telefone_limpo), 'clientes': len(clientes)})
+    canal_whatsapp.enviar_texto(telefone_limpo, (
+        f"Pronto: a {get_branding()['CLINIC_NAME']} não vai mais enviar lembretes nem pesquisas por "
+        'WhatsApp para este número. Se quiser voltar a receber, marque a opção ao agendar pelo site '
+        'ou peça à nossa recepção.'
+    ))
+    return True
+
+
+def _processar_resposta_nps(telefone_limpo: str, mensagem: str) -> None:
+    """Resposta 0-10 vira a avaliacao do ultimo NPS enviado a este telefone (services/nps)."""
+    logger.info('WhatsApp webhook: mensagem de %s', mask_telefone(telefone_limpo))
+    # fullmatch: isdigit() aceitava '²' (int() -> ValueError) e '07'
+    if not re.fullmatch(r'10|[0-9]', mensagem):
+        return
+    nota = int(mensagem)
+    candidatos = _telefones_candidatos(telefone_limpo)
     notif = (
         Notificacao.objects
         .filter(
@@ -216,15 +266,6 @@ def _processar_resposta_nps(telefone_limpo: str, mensagem: str) -> None:
         .order_by('-criado_em')
         .first()
     )
-    if not notif:
-        return
-    _avaliacao, criada = AvaliacaoNPS.objects.get_or_create(
-        atendimento=notif.atendimento,
-        defaults={'nota': nota},
-    )
-    if criada:
-        logger.info(
-            'NPS registrado via WhatsApp: atendimento=%s nota=%s',
-            notif.atendimento_id, nota,
-        )
+    if notif:
+        nps.registrar_avaliacao(notif.atendimento, nota)
 

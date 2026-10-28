@@ -18,6 +18,7 @@ from aranha_estetica.models import (
     Atendimento, AvaliacaoNPS, CompraPacote, Configuracao, LogAuditoria, Notificacao,
     Usuario,
 )
+from aranha_estetica.services import comunicacao
 from aranha_estetica.utils import email as email_utils
 from aranha_estetica.utils import whatsapp as wa_utils
 
@@ -57,7 +58,7 @@ class EmailFalhaFechadaTests(TestCase):
 
     def test_marketing_leva_list_unsubscribe_com_site_url_atual(self):
         ok = email_utils.enviar_aniversario_email(
-            'ana@example.com', {'nome': 'Ana'}, unsub_token='tok123',
+            'ana@example.com', {'nome': 'Ana'}, unsub_url=comunicacao.url_descadastro('tok123'),
         )
         self.assertTrue(ok)
         msg = mail.outbox[0]
@@ -75,13 +76,13 @@ class EmailFalhaFechadaTests(TestCase):
 
 
     def test_aniversario_job_envia_com_descadastro(self):
-        from aranha_estetica.jobs import job_aniversario_clientes
+        from aranha_estetica.jobs import job_aniversario
         hoje = timezone.localdate()
         cli = criar_cliente(
             nome='Aniversariante', email='niver@example.com',
             data_nascimento=hoje.replace(year=1992), consent_email_marketing=True,
         )
-        job_aniversario_clientes()
+        job_aniversario()
         self.assertEqual(len(mail.outbox), 1)
         # cada e-mail de marketing leva o SEU link de descadastro (LinkAcesso; so o hash no banco)
         token = re.search(r'/lgpd/unsubscribe/([^/]+)/', mail.outbox[0].extra_headers['List-Unsubscribe']).group(1)
@@ -92,24 +93,24 @@ class EmailFalhaFechadaTests(TestCase):
     def test_marketing_que_nao_sai_descarta_o_link(self):
         from aranha_estetica.models import LinkAcesso
         cli = criar_cliente(email='x@example.com')
-        ok = email_utils.enviar_marketing_com_descadastro(cli, lambda _tok: False)
+        ok = comunicacao.enviar_marketing_com_descadastro(cli, lambda _url: False)
         self.assertFalse(ok)
         self.assertFalse(LinkAcesso.objects.filter(cliente=cli).exists())
         with self.assertRaises(RuntimeError):
-            email_utils.enviar_marketing_com_descadastro(cli, Mock(side_effect=RuntimeError('smtp')))
+            comunicacao.enviar_marketing_com_descadastro(cli, Mock(side_effect=RuntimeError('smtp')))
         self.assertFalse(LinkAcesso.objects.filter(cliente=cli).exists())
-        self.assertTrue(email_utils.enviar_marketing_com_descadastro(cli, lambda _tok: True))
+        self.assertTrue(comunicacao.enviar_marketing_com_descadastro(cli, lambda _url: True))
         self.assertEqual(LinkAcesso.objects.filter(cliente=cli, finalidade='DESCADASTRO').count(), 1)
 
     def test_aniversario_nao_promete_desconto_sem_mecanismo(self):
         """gap3-03: nenhum fluxo aplica o '15%' — o e-mail so felicita."""
-        from aranha_estetica.jobs import job_aniversario_clientes
+        from aranha_estetica.jobs import job_aniversario
         hoje = timezone.localdate()
         criar_cliente(
             nome='Aniversariante', email='niver@example.com',
             data_nascimento=hoje.replace(year=1992), consent_email_marketing=True,  # bissexto: vale em 29/02
         )
-        job_aniversario_clientes()
+        job_aniversario()
         msg = mail.outbox[0]
         html = msg.alternatives[0][0]
         texto = strip_tags(re.sub(r'<style.*?</style>', '', html, flags=re.S))
@@ -167,23 +168,29 @@ class EmailFalhaFechadaTests(TestCase):
         self.assertFalse(ok)
         self.assertEqual(logs.records[0].getMessage(), 'email_falha_envio')
 
-    def test_promocao_sem_cupom_e_validade_limitada_ao_fim_da_promo(self):
-        """gap3-02: validade anunciada nunca passa de promo.data_fim; cupom nao sai."""
-        from aranha_estetica.jobs import job_promocao_mensal, validade_promocao
-        fim = timezone.localdate() + timedelta(days=10)
-        self.assertEqual(validade_promocao(30, fim.isoformat()), fim.strftime('%d/%m/%Y'))
-        self.assertEqual(
-            validade_promocao(5, fim), (timezone.localdate() + timedelta(days=5)).strftime('%d/%m/%Y'),
-        )
+    def test_promocao_diz_o_periodo_do_atendimento_sem_cupom(self):
+        """D15: o preco vale pela data do atendimento — o e-mail diz o periodo (nunca 'valida ate
+        hoje+N') e leva ao agendamento com o procedimento escolhido."""
+        from aranha_estetica.models import Promocao
+        from aranha_estetica.services import marketing
+        inicio, fim = timezone.localdate(), timezone.localdate() + timedelta(days=10)
+        proc = criar_procedimento(nome='Glow Facial')
+        promo = Promocao.objects.create(nome='Setembro Glow', descricao='<p>Oferta</p>', procedimento=proc,
+                                        desconto_percentual=15, data_inicio=inicio, data_fim=fim)
         criar_cliente(nome='Promo', email='promo@example.com', consent_email_marketing=True)
-        job_promocao_mensal('Setembro Glow', '<p>Oferta</p>', validade_dias=60, data_fim=fim.isoformat())
-        corpo = mail.outbox[0].alternatives[0][0]
+        marketing.enviar_promocao(promo)
+        msg = mail.outbox[0]
+        corpo = msg.alternatives[0][0]
+        self.assertEqual(msg.subject, 'Setembro Glow — 15% OFF')
         self.assertNotIn('cupom', corpo.lower())
-        self.assertIn(f'Oferta válida até {fim.strftime("%d/%m/%Y")}', corpo)
+        self.assertNotIn('válida até', corpo)
+        self.assertIn(f'Para atendimentos de {inicio:%d/%m/%Y} a {fim:%d/%m/%Y}', corpo)
+        self.assertIn('15% de desconto em Glow Facial', corpo)
+        self.assertIn(f'https://clinica.example.com/agendamento/?procedimento={proc.pk}', corpo)
 
 
     def test_job_pacote_expirando_usa_o_saldo_da_compra(self):
-        from aranha_estetica.jobs import job_verificar_pacotes_expirando
+        from aranha_estetica.jobs import job_pacote_expirando
         prof = criar_profissional()
         proc = criar_procedimento(profissional=prof)
         cli = criar_cliente(nome='Pacoteira', email='pacote@example.com')
@@ -193,7 +200,7 @@ class EmailFalhaFechadaTests(TestCase):
         atd = criar_atendimento(cli, prof, proc)
         ja_comecou(atd).marcar_realizado()
 
-        job_verificar_pacotes_expirando()
+        job_pacote_expirando()
 
         self.assertEqual(len(mail.outbox), 1)
         corpo = mail.outbox[0].alternatives[0][0]
@@ -219,24 +226,24 @@ class WhatsAppTests(TestCase):
 
     @override_settings(WHATSAPP_TOKEN='', WHATSAPP_PHONE_ID='')
     def test_sem_token_nao_marca_enviado(self):
-        self.assertFalse(wa_utils.enviar_template_whatsapp('17999990000', 'x'))
+        self.assertFalse(wa_utils.enviar_template('17999990000', 'x'))
         atd = criar_atendimento(self.cli, self.prof, self.proc, data_hora=_as_14h_local())
-        notif = wa_utils.enviar_confirmacao_d1(atd)
+        notif = comunicacao.enviar_confirmacao_d1(atd)
         self.assertEqual(notif.status, 'FALHOU')
 
     @override_settings(WHATSAPP_TOKEN='', WHATSAPP_PHONE_ID='')
     def test_job_d1_sem_canal_nao_cria_notificacao(self):
-        from aranha_estetica.jobs import job_enviar_lembrete_dia_seguinte
+        from aranha_estetica.jobs import job_lembrete_diario
         criar_atendimento(self.cli, self.prof, self.proc, data_hora=_as_14h_local())
-        job_enviar_lembrete_dia_seguinte()
+        job_lembrete_diario()
         self.assertFalse(Notificacao.objects.exists())
 
     @override_settings(WHATSAPP_TOKEN='tok', WHATSAPP_PHONE_ID='123')
     def test_d1_usa_hora_local_e_site_url(self):
         atd = criar_atendimento(self.cli, self.prof, self.proc, data_hora=_as_14h_local())
         atd = Atendimento.objects.select_related('cliente', 'profissional', 'procedimento').get(pk=atd.pk)
-        with patch.object(wa_utils, 'enviar_template_whatsapp', return_value=True) as fake:
-            notif = wa_utils.enviar_confirmacao_d1(atd)
+        with patch.object(wa_utils, 'enviar_template', return_value=True) as fake:
+            notif = comunicacao.enviar_confirmacao_d1(atd)
         params = [p['text'] for p in fake.call_args[0][2][0]['parameters']]
         self.assertEqual(params[2], '14:00')
         self.assertTrue(params[5].startswith('https://clinica.example.com/confirmar/'))
@@ -253,12 +260,11 @@ class WhatsAppTests(TestCase):
     @override_settings(WHATSAPP_TOKEN='tok', WHATSAPP_PHONE_ID='123')
     def test_job_d1_envia_mesmo_com_termo_ja_enviado_por_email(self):
         """gap1-05: notificacao do termo (e-mail) nao conta como D-1 enviado."""
-        from aranha_estetica.jobs import job_enviar_lembrete_dia_seguinte
+        from aranha_estetica.jobs import job_lembrete_diario
         atd = criar_atendimento(self.cli, self.prof, self.proc, data_hora=_as_14h_local())
         Notificacao.objects.create(atendimento=atd, tipo='TERMO', canal='EMAIL', status='ENVIADO')
-        Notificacao.objects.create(atendimento=atd, tipo='LEMBRETE', canal='EMAIL', status='ENVIADO')
-        with patch.object(wa_utils, 'enviar_template_whatsapp', return_value=True) as fake:
-            job_enviar_lembrete_dia_seguinte()
+        with patch.object(wa_utils, 'enviar_template', return_value=True) as fake:
+            job_lembrete_diario()
         fake.assert_called_once()
         self.assertTrue(Notificacao.objects.filter(
             atendimento=atd, tipo='LEMBRETE', canal='WHATSAPP', status='ENVIADO',
@@ -266,11 +272,11 @@ class WhatsAppTests(TestCase):
 
     @override_settings(WHATSAPP_TOKEN='tok', WHATSAPP_PHONE_ID='123')
     def test_job_d1_respeita_consentimento(self):
-        from aranha_estetica.jobs import job_enviar_lembrete_dia_seguinte
+        from aranha_estetica.jobs import job_lembrete_diario
         sem_consent = criar_cliente(nome='Sem', consent_whatsapp_confirmacao=False)
         criar_atendimento(sem_consent, self.prof, self.proc, data_hora=_as_14h_local())
-        with patch.object(wa_utils, 'enviar_template_whatsapp', return_value=True) as fake:
-            job_enviar_lembrete_dia_seguinte()
+        with patch.object(wa_utils, 'enviar_template', return_value=True) as fake:
+            job_lembrete_diario()
         fake.assert_not_called()
 
 
@@ -287,29 +293,29 @@ class NpsCandidatosTests(TestCase):
         return atd
 
     def test_nps_falhou_mais_lembrete_enviado_e_retentado(self):
-        from aranha_estetica.jobs import candidatos_nps
+        from aranha_estetica.services.nps import candidatos
         atd = self._realizado(2)
         Notificacao.objects.create(atendimento=atd, tipo='NPS', status='FALHOU')
         Notificacao.objects.create(atendimento=atd, tipo='LEMBRETE', status='ENVIADO')
-        self.assertEqual(list(candidatos_nps().values_list('pk', flat=True)), [atd.pk])
+        self.assertEqual(list(candidatos().values_list('pk', flat=True)), [atd.pk])
 
     def test_nps_enviado_nao_repete(self):
-        from aranha_estetica.jobs import candidatos_nps
+        from aranha_estetica.services.nps import candidatos
         atd = self._realizado(2)
         Notificacao.objects.create(atendimento=atd, tipo='NPS', status='ENVIADO')
-        self.assertFalse(candidatos_nps().exists())
+        self.assertFalse(candidatos().exists())
 
     def test_historico_antigo_fora_da_janela(self):
-        from aranha_estetica.jobs import candidatos_nps
+        from aranha_estetica.services.nps import candidatos
         self._realizado(30)
-        self.assertFalse(candidatos_nps().exists())
+        self.assertFalse(candidatos().exists())
 
     def test_limite_de_falhas(self):
-        from aranha_estetica.jobs import candidatos_nps
+        from aranha_estetica.services.nps import candidatos
         atd = self._realizado(2)
         for i in range(3):
             Notificacao.objects.create(atendimento=atd, tipo='NPS', status='FALHOU')
-        self.assertFalse(candidatos_nps().exists())
+        self.assertFalse(candidatos().exists())
 
 
 # ─── Jobs em hora local ───────────────────────────────────────────────
@@ -317,26 +323,26 @@ class JobsHoraLocalTests(TestCase):
     @skipUnless(connection.vendor == 'postgresql', 'sp_expirar_pacotes so no Postgres')
     def test_expirar_pacotes_as_22h30_nao_expira_o_ultimo_dia(self):
         """22:30 BRT = 01:30 UTC do dia seguinte: o ultimo dia ainda vale."""
-        from aranha_estetica.jobs import job_expirar_pacotes
+        from aranha_estetica.jobs import job_pacote_expirar
         prof = criar_profissional()
         proc = criar_procedimento(profissional=prof)
         pc = criar_compra_pacote(criar_cliente(), criar_pacote(procedimento=proc, sessoes=2))
         CompraPacote.objects.filter(pk=pc.pk).update(data_expiracao=datetime(2026, 9, 19).date())
         agora_utc = datetime(2026, 9, 20, 1, 30, tzinfo=dt_timezone.utc)
         with patch('django.utils.timezone.now', return_value=agora_utc):
-            job_expirar_pacotes()
+            job_pacote_expirar()
         pc.refresh_from_db()
         self.assertEqual(pc.status, 'ATIVO')
 
     def test_limpeza_nao_lanca_falta_automatica(self):
-        from aranha_estetica.jobs import job_limpeza_status_atendimentos
+        from aranha_estetica.jobs import job_limpeza_status
         prof = criar_profissional()
         proc = criar_procedimento(profissional=prof)
         cli = criar_cliente()
         passado = timezone.now() - timedelta(days=3)
         agendado = criar_atendimento(cli, prof, proc, data_hora=passado, status='AGENDADO')
         pendente = criar_atendimento(cli, prof, proc, data_hora=passado + timedelta(hours=2), status='PENDENTE')
-        job_limpeza_status_atendimentos()
+        job_limpeza_status()
         agendado.refresh_from_db()
         pendente.refresh_from_db()
         cli.refresh_from_db()
@@ -355,18 +361,18 @@ class AlertaDetratorTests(TestCase):
         self.nps = AvaliacaoNPS.objects.create(atendimento=atd, nota=3)
 
     def test_chave_em_maiusculas_da_tela_de_config_funciona(self):
-        from aranha_estetica.jobs import job_alerta_detrator_nps
+        from aranha_estetica.jobs import job_detrator_alerta
         Configuracao.objects.create(chave='EMAIL_ADMIN', valor='dona@example.com')
-        job_alerta_detrator_nps()
+        job_detrator_alerta()
         self.assertEqual(mail.outbox[0].to, ['dona@example.com'])
         self.nps.refresh_from_db()
         self.assertTrue(self.nps.alerta_enviado)
 
     @override_settings(EMAIL_BACKEND=CONSOLE, DEBUG=False)
     def test_sem_backend_real_nao_marca_enviado(self):
-        from aranha_estetica.jobs import job_alerta_detrator_nps
+        from aranha_estetica.jobs import job_detrator_alerta
         Configuracao.objects.create(chave='email_admin', valor='dona@example.com')
-        job_alerta_detrator_nps()
+        job_detrator_alerta()
         self.nps.refresh_from_db()
         self.assertFalse(self.nps.alerta_enviado)
 

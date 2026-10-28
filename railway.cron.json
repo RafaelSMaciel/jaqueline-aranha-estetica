@@ -1,0 +1,22 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "Dockerfile",
+    "watchPatterns": [
+      "/aranha_estetica/**",
+      "/clinica/**",
+      "/manage.py",
+      "/requirements.txt",
+      "/requirements.lock",
+      "/Dockerfile",
+      "/railway.cron.json"
+    ]
+  },
+  "deploy": {
+    "numReplicas": 1,
+    "cronSchedule": "*/15 * * * *",
+    "startCommand": "python manage.py rodar_jobs_devidos",
+    "restartPolicyType": "NEVER"
+  }
+}

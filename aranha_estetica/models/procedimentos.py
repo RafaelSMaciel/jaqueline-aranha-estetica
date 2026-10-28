@@ -211,6 +211,17 @@ class Promocao(models.Model):
         blank=True, default='', db_default='', db_column='url_imagem',
         db_comment='text (legado sem limite de tamanho): excecao ao varchar das url_*.',
     )
+    # Disparo por e-mail em lotes (services/marketing): o cursor anda ANTES de cada lote sair
+    envio_cursor = models.BigIntegerField(
+        blank=True, null=True,
+        db_comment='Disparo por e-mail em andamento: ultimo cliente.id ja reservado p/ envio '
+                   '(NULL = nao iniciado ou concluido).',
+    )
+    disparada_em = models.DateTimeField(
+        blank=True, null=True,
+        db_comment='Inicio do ultimo disparo por e-mail (NULL = nunca disparada). Novo disparo so com '
+                   'confirmacao de reenvio.',
+    )
     criado_em = criado_em_legado()
     atualizado_em = atualizado_em_legado()
 
@@ -266,6 +277,14 @@ class Promocao(models.Model):
         # que ja e garantido por ck_promocao_desconto_xor_valor no banco).
         hoje = timezone.localdate()
         return self.ativa and self.data_inicio <= hoje <= self.data_fim
+
+    @property
+    def envio_em_andamento(self) -> bool:
+        return self.envio_cursor is not None
+
+    @property
+    def envio_concluido(self) -> bool:
+        return self.disparada_em is not None and self.envio_cursor is None
 
     def __str__(self):
         return self.nome
