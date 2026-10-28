@@ -36,7 +36,8 @@ def _falta_2fa(request) -> bool:
     """Sessao que ainda deve o desafio 2FA (mesma regra do Enforce2FAMiddleware).
 
     O push leva nome de cliente/procedimento/horario: sessao so com senha de
-    quem tem TOTP (ou ADMIN com cadastro de 2FA pendente) nao assina.
+    quem tem TOTP (ou ADMIN com cadastro de 2FA pendente) nao assina. Erro de
+    banco na consulta conta como "falta" (falha fechada, como o middleware).
     """
     from django.db import OperationalError, ProgrammingError
 
@@ -48,8 +49,9 @@ def _falta_2fa(request) -> bool:
         return False
     try:
         return dois_fatores.tem_2fa(request.user)
-    except (ImportError, OperationalError, ProgrammingError):
-        return False
+    except (OperationalError, ProgrammingError):
+        logger.exception('2fa_indisponivel')
+        return True
 
 
 @require_POST
