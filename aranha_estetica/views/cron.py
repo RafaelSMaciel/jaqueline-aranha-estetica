@@ -28,8 +28,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from aranha_estetica import tasks, tasks_manutencao
-from aranha_estetica.utils.banco import definir_contexto_banco
-from aranha_estetica.utils.security import IP_FALLBACK, client_ip
+from aranha_estetica.ator import Ator, atuando, ip_valido
+from aranha_estetica.utils.security import client_ip
 
 logger = logging.getLogger(__name__)
 
@@ -83,15 +83,13 @@ def run_job(request, job_name):
     if not job:
         return JsonResponse({'error': 'unknown job', 'available': sorted(JOB_MAP)}, status=404)
 
-    # Trilha historico_alteracao (PG): o que o job mudar sai como origem 'cron:<job>',
-    # sem autor. O ContextoBancoMiddleware limpa no fim do request.
-    ip = client_ip(request)
-    definir_contexto_banco('', '' if ip == IP_FALLBACK else ip, f'cron:{job_name}')
-
+    # Trilhas (LogAuditoria e historico_alteracao): o que o job mudar sai como origem
+    # 'cron:<job>', sem autor, com o IP do agendador.
     try:
-        # retries=max_retries: roda UMA vez (eager reexecutaria o lote na hora a
-        # cada self.retry, reenviando mensagens de jobs sem idempotencia)
-        result = job.apply(retries=job.max_retries or 0)
+        with atuando(Ator(ip=ip_valido(client_ip(request)), origem=f'cron:{job_name}')):
+            # retries=max_retries: roda UMA vez (eager reexecutaria o lote na hora a
+            # cada self.retry, reenviando mensagens de jobs sem idempotencia)
+            result = job.apply(retries=job.max_retries or 0)
     except Exception as e:  # testes/dev: EAGER_PROPAGATES=True levanta aqui
         logger.exception('Cron job %s falhou', job_name)
         _avisar_monitor(job_name, ok=False)

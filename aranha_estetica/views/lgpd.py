@@ -11,7 +11,7 @@ from django_ratelimit.decorators import ratelimit
 
 from ..models import Cliente, CodigoOtp
 from ..services import LgpdService
-from ..services.auditoria import AuditoriaService
+from ..utils.audit import registrar_log
 from ..utils.sms import enviar_otp_sms, sms_disponivel
 from ..utils.sms import pode_enviar as sms_pode_enviar
 
@@ -94,12 +94,7 @@ def meus_dados(request):
         )
         return render(request, TEMPLATE_DSAR, {})
 
-    AuditoriaService.registrar(
-        request=request,
-        acao='DSAR: exportacao de dados',
-        tabela='cliente',
-        id_registro=cliente.pk,
-    )
+    registrar_log(None, 'DSAR: exportacao de dados', 'cliente', cliente.pk)
 
     response = HttpResponse(conteudo, content_type='application/json; charset=utf-8')
     response['Content-Disposition'] = f'attachment; filename="meus_dados_{cliente.pk}.json"'
@@ -125,12 +120,7 @@ def unsubscribe(request, token: str):
     cliente = LgpdService.unsubscribe_por_token(token, request=request)
     if not cliente:
         return render(request, TEMPLATE_DESCADASTRO, {'estado': 'invalido'}, status=404)
-    AuditoriaService.registrar(
-        request=request,
-        acao='LGPD: opt-out de comunicacao',
-        tabela='cliente',
-        id_registro=cliente.pk,
-    )
+    registrar_log(None, 'LGPD: opt-out de comunicacao', 'cliente', cliente.pk)
     return render(request, TEMPLATE_DESCADASTRO, {'estado': 'sucesso', 'cliente': cliente})
 
 

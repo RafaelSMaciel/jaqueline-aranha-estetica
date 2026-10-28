@@ -7,6 +7,7 @@ from django.db import connection, transaction
 
 from aranha_estetica.models import Cliente, Atendimento, AvaliacaoNPS
 from aranha_estetica.utils.banco import chamar, exigir_postgres
+from aranha_estetica.utils.audit import autor_e_ip
 
 logger = logging.getLogger(__name__)
 
@@ -255,24 +256,10 @@ class LgpdService:
         texto das notificacoes, fichas de pedido nao realizado, depoimento, nome nas trilhas e no
         django_admin_log, e o registro LGPD com autor e IP. Exige Postgres (utils/banco.chamar).
         """
-        autor_id, ip = cls._autor_e_ip(usuario, request)
-        chamar('sp_anonimizar_cliente', cliente.pk, autor_id, ip)
+        autor, ip = autor_e_ip(usuario, request)
+        chamar('sp_anonimizar_cliente', cliente.pk, getattr(autor, 'pk', None), ip)
         cliente.refresh_from_db()
         logger.info('Cliente %s anonimizado (direito ao esquecimento).', cliente.pk)
-
-    @staticmethod
-    def _autor_e_ip(usuario, request):
-        """(usuario_autor_id, ip) do registro LGPD — a mesma regra do registrar_log."""
-        from aranha_estetica.utils.audit import _ip_valido
-        from aranha_estetica.utils.security import client_ip
-
-        ip = None
-        if request is not None:
-            ip = _ip_valido(client_ip(request))
-            if usuario is None:
-                usuario = getattr(request, 'user', None)
-        autenticado = usuario is not None and getattr(usuario, 'is_authenticated', False)
-        return (usuario.pk if autenticado else None), ip
 
     @classmethod
     def candidatos_retencao(cls) -> list[int]:

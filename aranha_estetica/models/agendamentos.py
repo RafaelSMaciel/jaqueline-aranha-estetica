@@ -1,9 +1,8 @@
 # aranha_estetica/models/agendamentos.py — Atendimentos e notificacoes
-import logging
 
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
-from django.db import DatabaseError, IntegrityError, models, transaction
+from django.db import models, transaction
 from django.db.models.functions import Now
 from django.utils import timezone
 
@@ -205,6 +204,7 @@ class Atendimento(models.Model):
         # pacote, comissao, cashback, retorno, lista de espera) na MESMA transacao:
         # efeito que falha desfaz a transicao inteira (I/O externo vai em on_commit).
         from ..services.atendimento import ao_mudar_status
+        from ..utils.audit import registrar_log
         with transaction.atomic():
             if self.pk is not None:
                 atual = (
@@ -224,25 +224,13 @@ class Atendimento(models.Model):
             anterior = atual
             self.status = novo_status
             self.save(update_fields=['status', 'atualizado_em'])
-            try:
-                from .sistema import LogAuditoria
-                # atomic aninhado (savepoint): falha de auditoria nao "envenena"
-                # a transacao externa nem desfaz a mudanca de status.
-                with transaction.atomic():
-                    LogAuditoria.objects.create(
-                        usuario=by_user,
-                        acao=f'Atendimento {self.pk}: {anterior} -> {novo_status}'
-                             + (f' ({motivo})' if motivo else '')
-                             + (' [pela cliente]' if pela_cliente else ''),
-                        tabela='atendimento',
-                        registro_id=self.pk,
-                    )
-            except (DatabaseError, IntegrityError) as exc:
-                # Auditoria best-effort — falha de DB nao bloqueia transicao de status
-                logging.getLogger(__name__).warning(
-                    'log_auditoria_falhou',
-                    extra={'atendimento_id': self.pk, 'erro': str(exc)},
-                )
+            # autor = by_user ou o Ator da borda (com IP); best-effort, em savepoint
+            registrar_log(
+                by_user,
+                f'Atendimento {self.pk}: {anterior} -> {novo_status}'
+                + (f' ({motivo})' if motivo else '') + (' [pela cliente]' if pela_cliente else ''),
+                'atendimento', self.pk,
+            )
             ao_mudar_status(self, anterior, novo_status)
 
     def confirmar(self, by_user=None):
