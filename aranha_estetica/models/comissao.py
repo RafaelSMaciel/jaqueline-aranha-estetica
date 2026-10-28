@@ -160,7 +160,7 @@ class MovimentoComissao(models.Model):
     CREDITO (``movimento_origem``) e repetem profissional, atendimento e valor
     (sem baixa parcial). ``valor`` e sempre positivo; o sinal vem do tipo.
     Status e saldo sao DERIVADOS (``creditos_com_status``,
-    ``services/comissao_service``): o saldo a pagar fica NEGATIVO quando uma
+    ``services/comissao``): o saldo a pagar fica NEGATIVO quando uma
     comissao ja paga e estornada (desconta do proximo repasse).
 
     So-PG (0053): tg_movimento_comissao_validar (origem = CREDITO do mesmo

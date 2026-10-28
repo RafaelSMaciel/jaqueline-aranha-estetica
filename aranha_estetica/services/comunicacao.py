@@ -44,7 +44,7 @@ def link_revisar_agenda(data_hora) -> str:
 
 
 def _valor(at) -> str:
-    from .agendamento_service import formatar_valor_atendimento
+    from .agendamento import formatar_valor_atendimento
     return formatar_valor_atendimento(at)
 
 

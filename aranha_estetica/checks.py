@@ -227,7 +227,7 @@ def check_config_producao(app_configs=None, databases=None, **kwargs):
         avisos.append(checks.Warning(
             'CRON_TOKEN ausente: /cron/run/<job>/ recusa tudo (403) e nenhum job '
             'periodico roda (lembretes, NPS, pacotes, limpeza, LGPD).',
-            hint='Defina CRON_TOKEN e agende POSTs com header X-Cron-Token (ver views/cron.py).',
+            hint='Defina CRON_TOKEN e agende POSTs com header X-Cron-Token (ver views/infra/cron.py).',
             id='aranha.W005',
         ))
 

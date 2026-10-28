@@ -30,9 +30,9 @@ STATUS_LIBERAM_VAGA = (StatusAtendimento.CANCELADO, StatusAtendimento.REAGENDADO
 def ao_mudar_status(at, anterior, novo) -> None:
     """Efeitos de ``anterior`` -> ``novo`` (a FSM ja validou a transicao e gravou o status)."""
     if novo == StatusAtendimento.REALIZADO:
-        from .comissao_service import ComissaoService
-        from .fidelidade_service import FidelidadeService
-        from .retorno_service import RetornoService
+        from .comissao import ComissaoService
+        from .fidelidade import FidelidadeService
+        from .retorno import RetornoService
 
         at.cliente.resetar_faltas()
         debitar_sessao_de_pacote(at)
@@ -40,8 +40,8 @@ def ao_mudar_status(at, anterior, novo) -> None:
         FidelidadeService.liberar_cashback_indicacao(at)
         RetornoService.sugerir_retorno(at)
     elif novo == StatusAtendimento.CANCELADO:
-        from .comissao_service import ComissaoService
-        from .fidelidade_service import FidelidadeService
+        from .comissao import ComissaoService
+        from .fidelidade import FidelidadeService
 
         ComissaoService.estornar_comissao(at)
         FidelidadeService.estornar_cashback_de_atendimento(at, motivo='atendimento cancelado')
@@ -99,7 +99,7 @@ def debitar_sessao_de_pacote(at) -> None:
 def _avisar_lista_de_espera(at) -> None:
     """Vaga liberada: seleciona os compativeis nesta transacao (e-mail/WhatsApp no on_commit do
     service). Savepoint + best-effort: o aviso nunca desfaz o cancelamento."""
-    from .lista_espera_service import ListaEsperaService
+    from .lista_espera import ListaEsperaService
     try:
         with transaction.atomic():
             ListaEsperaService.notificar_compativeis(at)

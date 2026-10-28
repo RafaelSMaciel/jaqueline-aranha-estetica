@@ -11,7 +11,7 @@ from decimal import Decimal
 from django.test import TestCase
 
 from aranha_estetica.models import RegraComissao
-from aranha_estetica.services.comissao_service import ComissaoService
+from aranha_estetica.services.comissao import ComissaoService
 
 from .factories import criar_procedimento, criar_profissional
 

@@ -658,7 +658,7 @@ class PromocoesTests(_AdminTestCase):
         self.assertTrue(any('não está configurado' in m for m in _mensagens(resp)))
 
     def test_lista_grande_sem_worker_vai_em_lotes_sem_reenvio(self):
-        from aranha_estetica.views import admin_promotions
+        from aranha_estetica.views.painel import promocoes as admin_promotions
         for i in range(admin_promotions.LOTE_PROMOCAO + 5):
             criar_cliente(f'Cli {i}', email=f'cli{i}@test.com', consent_email_marketing=True)
         # revogado (descadastro) e quem nunca autorizou ficam fora do publico

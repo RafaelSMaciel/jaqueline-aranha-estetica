@@ -44,7 +44,7 @@ de `/profissional/`. PROFISSIONAL que abre `/painel/` volta para o próprio port
   por IP + usuário; zera no sucesso; página pt-BR `axes_bloqueio.html` (status 429). Limpar:
   `python manage.py axes_reset`.
 - Rate-limit do login: 10/min por IP, 5/min por e-mail, e 5 falhas/min por IP no cache.
-- IP sempre por `utils/security.client_ip` (`CLIENT_IP_HEADER`; prod `X-Real-IP` do Railway).
+- IP sempre por `utils/seguranca.client_ip` (`CLIENT_IP_HEADER`; prod `X-Real-IP` do Railway).
 
 ### 1.3 2FA (TOTP)
 
@@ -103,7 +103,7 @@ de `/profissional/`. PROFISSIONAL que abre `/painel/` volta para o próprio port
 
 ### 1.6 Acesso do profissional à ficha (prontuário)
 
-Regra em `views/prontuario._vinculo`: o profissional lê a ficha de uma cliente só se tiver com
+Regra em `views/painel/prontuario._vinculo`: o profissional lê a ficha de uma cliente só se tiver com
 ela um atendimento **REALIZADO nos últimos 180 dias** ou **PENDENTE/AGENDADO/CONFIRMADO entre
 ontem e +60 dias** (escrita: o mesmo, sem PENDENTE). CANCELADO/REAGENDADO/FALTOU nunca dão
 vínculo. Toda leitura, gravação e negativa vai para a `LogAuditoria` (sem nome da cliente no

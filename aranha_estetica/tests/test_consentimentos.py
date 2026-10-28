@@ -228,7 +228,7 @@ class MarketingEmailTests(TestCase):
         self.assertEqual([m.to[0] for m in mail.outbox], ['sim@example.com'])
 
     def test_promocao_do_painel_mesmo_publico(self):
-        from aranha_estetica.views.admin_promotions import _destinatarios_promocao
+        from aranha_estetica.views.painel.promocoes import _destinatarios_promocao
         autorizou = self._clientes()
         self.assertEqual(list(_destinatarios_promocao()), [autorizou])
 
@@ -240,7 +240,7 @@ class ListaEsperaWhatsAppTests(TestCase):
 
     @patch('aranha_estetica.utils.whatsapp.enviar_template_whatsapp', return_value=True)
     def test_aviso_de_vaga_por_whatsapp_exige_lembrete_vigente(self, fake):
-        from aranha_estetica.services.lista_espera_service import _enviar_wa_lista_espera
+        from aranha_estetica.services.lista_espera import _enviar_wa_lista_espera
         slot = criar_atendimento(criar_cliente(), self.prof, self.proc)
         com = criar_cliente(consent_whatsapp_confirmacao=True)
         sem = criar_cliente(consent_whatsapp_confirmacao=True)

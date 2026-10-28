@@ -17,7 +17,7 @@ from django.core.management.base import BaseCommand
 from django.db import connection, transaction
 
 from aranha_estetica.utils import cifragem
-from aranha_estetica.utils.audit import registrar_log
+from aranha_estetica.utils.auditoria import registrar_log
 
 # (tabela, coluna, finalidade) — tests/test_cifragem confere contra os campos dos models
 TEXTOS = (

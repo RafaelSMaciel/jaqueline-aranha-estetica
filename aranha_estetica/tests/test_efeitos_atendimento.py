@@ -19,7 +19,7 @@ from .factories import (
     limpar_feriados,
 )
 
-NOTIFICAR = 'aranha_estetica.services.lista_espera_service.ListaEsperaService.notificar_compativeis'
+NOTIFICAR = 'aranha_estetica.services.lista_espera.ListaEsperaService.notificar_compativeis'
 
 
 class _Base(TestCase):

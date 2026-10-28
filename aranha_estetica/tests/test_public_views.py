@@ -286,7 +286,7 @@ class PromocoesTests(TestCase):
         Promocao.objects.create(nome='Termina hoje', procedimento=self.proc,
                                 desconto_percentual=Decimal('10'),
                                 data_inicio=hoje - timedelta(days=2), data_fim=hoje)
-        with patch('aranha_estetica.views.public.datas.hoje', return_value=hoje):
+        with patch('aranha_estetica.views.publico.site.datas.hoje', return_value=hoje):
             html = self.client.get(reverse('aranha:promocoes')).content.decode()
         self.assertIn('Termina hoje', html)
 
@@ -338,7 +338,7 @@ class TemplatesDeErroTests(TestCase):
         self.assertIn('Acesso não permitido', html)
 
     def test_limite_excedido_responde_429(self):
-        from aranha_estetica.views import limite_excedido
+        from aranha_estetica.views.publico.site import limite_excedido
         req = RequestFactory().get('/')
         req.session = {}
         resp = limite_excedido(req, Exception())

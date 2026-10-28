@@ -30,7 +30,7 @@ from aranha_estetica.models import (
     VersaoTermo,
 )
 from aranha_estetica.services import consentimentos
-from aranha_estetica.services.agendamento_service import AgendamentoService
+from aranha_estetica.services.agendamento import AgendamentoService
 from aranha_estetica.services.anamnese import validar_respostas
 from aranha_estetica.utils.saude import alertas_saude
 
@@ -184,7 +184,7 @@ class FichaSaudeBookingTests(_BaseBooking):
         """Termo SAUDE arquivado (aviso aranha.W010): o log com o texto segue como registro."""
         VersaoTermo.objects.filter(tipo='SAUDE').update(ativa=False)
         form = self._ficha()
-        with self.assertLogs('aranha_estetica.views.booking_public', 'WARNING'):
+        with self.assertLogs('aranha_estetica.views.publico.agendamento', 'WARNING'):
             resp = self._post(anamnese_respostas=json.dumps({str(form.pk): {'gestante': 'nao'}}),
                               consent_dados_saude='on')
         self.assertIn('sucesso', resp.url)
@@ -236,7 +236,7 @@ class PoliticaETermosBookingTests(_BaseBooking):
     def test_sem_termo_lgpd_vigente_recusa_sem_gravar(self):
         """Contrato 3: sem versao LGPD nao ha prova do aceite -> nada e gravado."""
         VersaoTermo.objects.filter(tipo='LGPD').update(ativa=False)
-        with self.assertLogs('aranha_estetica.views.booking_public', 'ERROR') as logs:
+        with self.assertLogs('aranha_estetica.views.publico.agendamento', 'ERROR') as logs:
             resp = self._post()
         self.assertNotIn('sucesso', resp.url)
         self.assertIn('booking_sem_termo_lgpd_vigente', logs.output[0])
@@ -543,7 +543,7 @@ class CardComPrecoDoProfissionalTests(_BaseBooking):
     def test_card_aplica_percentual_sobre_o_preco_do_profissional(self):
         from aranha_estetica.models import Preco
         from aranha_estetica.utils.precos import preco_com_promocao
-        from aranha_estetica.views.booking_public import _precos_card
+        from aranha_estetica.views.publico.agendamento import _precos_card
 
         Preco.objects.create(procedimento=self.proc, profissional=self.prof, valor=Decimal('1000.00'))
         hoje = timezone.localdate()
@@ -561,14 +561,14 @@ class AvisoSemSmsNoPasso1Tests(_BaseBooking):
     """rev_booking-02: sem SMS, o aviso aparece antes de escolher tratamento/horario."""
 
     def test_aviso_antes_do_passo_2(self):
-        with patch('aranha_estetica.views.booking_public.sms_disponivel', return_value=False):
+        with patch('aranha_estetica.views.publico.agendamento.sms_disponivel', return_value=False):
             html = self.client.get(reverse('aranha:agendamento_publico')).content.decode()
         self.assertIn('id="aviso-sms-indisponivel"', html)
         self.assertLess(html.index('id="step-1"'), html.index('id="aviso-sms-indisponivel"'))
         self.assertLess(html.index('id="aviso-sms-indisponivel"'), html.index('id="step-2"'))
 
     def test_sem_aviso_com_sms(self):
-        with patch('aranha_estetica.views.booking_public.sms_disponivel', return_value=True):
+        with patch('aranha_estetica.views.publico.agendamento.sms_disponivel', return_value=True):
             html = self.client.get(reverse('aranha:agendamento_publico')).content.decode()
         self.assertNotIn('id="aviso-sms-indisponivel"', html)
 

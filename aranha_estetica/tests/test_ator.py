@@ -5,7 +5,7 @@ from django.test import RequestFactory, TestCase
 from aranha_estetica.ator import Ator, ator_atual, atuando, ip_valido
 from aranha_estetica.middleware import ContextoBancoMiddleware
 from aranha_estetica.models import LogAuditoria, Usuario
-from aranha_estetica.utils.audit import registrar_log
+from aranha_estetica.utils.auditoria import registrar_log
 
 from .factories import criar_atendimento, criar_cliente, criar_procedimento, criar_profissional
 

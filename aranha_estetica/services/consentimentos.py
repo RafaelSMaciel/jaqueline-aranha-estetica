@@ -83,7 +83,7 @@ def _prova(request) -> tuple[str | None, str]:
     """(ip, user_agent) do titular; IP desconhecido = NULL (nunca inventado)."""
     if request is None:
         return None, ''
-    from ..utils.security import IP_FALLBACK, client_ip
+    from ..utils.seguranca import IP_FALLBACK, client_ip
     ip: str | None = client_ip(request)
     if not ip or ip == IP_FALLBACK:
         ip = None

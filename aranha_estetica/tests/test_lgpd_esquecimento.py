@@ -315,7 +315,7 @@ class TrilhaAuditoriaAnonimizadaTests(TestCase):
     """gap2-06: depois do esquecimento o log nao liga mais nome, prontuario e id."""
 
     def test_nome_do_titular_sai_do_texto_do_log(self):
-        from aranha_estetica.utils.audit import registrar_log
+        from aranha_estetica.utils.auditoria import registrar_log
         cliente = criar_cliente(nome='Fabi Reis')
         outra = criar_cliente(nome='Carla Lima')
         pront = Prontuario.objects.create(cliente=cliente, alergias='nenhuma')
@@ -336,7 +336,7 @@ class TrilhaAuditoriaAnonimizadaTests(TestCase):
 
     def test_log_de_pacote_e_nome_antigo_saem(self):
         """rev_security-07: 'Vendeu pacote ... para <nome>' e nome anterior a edicao."""
-        from aranha_estetica.utils.audit import registrar_log
+        from aranha_estetica.utils.auditoria import registrar_log
 
         from .factories import criar_compra_pacote, criar_pacote
         cliente = criar_cliente(nome='Fernanda Rastreavel')

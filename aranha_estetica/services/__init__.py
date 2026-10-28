@@ -6,7 +6,7 @@ Objetivo: extrair logica das views e signals para classes testaveis e
 reutilizaveis. Views chamam services; services orquestram models, tasks
 e notificacoes.
 """
-from .agendamento_service import AgendamentoService
+from .agendamento import AgendamentoService
 from .lgpd import LgpdService
 from . import otp as otp_service
 

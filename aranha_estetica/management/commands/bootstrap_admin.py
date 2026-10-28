@@ -35,8 +35,8 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from aranha_estetica.checks import ha_admin_utilizavel
-from aranha_estetica.utils.audit import registrar_log
-from aranha_estetica.utils.security import mask_email
+from aranha_estetica.utils.auditoria import registrar_log
+from aranha_estetica.utils.seguranca import mask_email
 
 
 class Command(BaseCommand):

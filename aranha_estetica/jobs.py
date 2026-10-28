@@ -1,4 +1,4 @@
-"""Jobs periodicos — funcoes simples chamadas pelo cron HTTP (views/cron) e pelo comando
+"""Jobs periodicos — funcoes simples chamadas pelo cron HTTP (views/infra/cron) e pelo comando
 ``rodar_job`` (sem Celery: nada roda em segundo plano).
 
 Estrategia de canais (aprovada 2026-04-18):
@@ -259,7 +259,7 @@ def job_alerta_detrator_nps():
 
 
 # Lista de espera: aviso de vaga saiu daqui — um unico mecanismo em
-# services/lista_espera_service (disparado por signals, e-mail no on_commit).
+# services/lista_espera (disparado por signals, e-mail no on_commit).
 
 
 # ═══════════════════════════════════════
@@ -474,7 +474,7 @@ def job_limpeza_status_atendimentos():
       lista os atendimentos sem desfecho no log para a equipe resolver.
     Usa a FSM do model (valida transicao + auditoria).
     """
-    from .services.agendamento_service import avisar_cancelamento
+    from .services.agendamento import avisar_cancelamento
 
     limite = timezone.now() - timedelta(hours=24)
 

@@ -18,7 +18,7 @@ from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
 from aranha_estetica import checks as aranha_checks
-from aranha_estetica.views import cron
+from aranha_estetica.views.infra import cron
 
 BASE_DIR = Path(settings.BASE_DIR)
 _CHAMADAS = {'n': 0}
@@ -891,8 +891,8 @@ class SettingsBaseTests(TestCase):
         self.assertNotEqual(r.headers.get('Content-Language'), 'en')
 
     def test_ratelimit_e_axes_usam_client_ip(self):
-        self.assertEqual(settings.RATELIMIT_IP_META_KEY, 'aranha_estetica.utils.security.client_ip')
-        self.assertEqual(settings.AXES_CLIENT_IP_CALLABLE, 'aranha_estetica.utils.security.client_ip')
+        self.assertEqual(settings.RATELIMIT_IP_META_KEY, 'aranha_estetica.utils.seguranca.client_ip')
+        self.assertEqual(settings.AXES_CLIENT_IP_CALLABLE, 'aranha_estetica.utils.seguranca.client_ip')
 
     def test_sem_staticfiles_dirs_duplicado_e_src_fora_da_coleta(self):
         from django.apps import apps

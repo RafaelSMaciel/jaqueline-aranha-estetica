@@ -7,7 +7,7 @@ from django.db import connection, transaction
 
 from aranha_estetica.models import Cliente, Atendimento, AvaliacaoNPS
 from aranha_estetica.utils.banco import chamar, exigir_postgres
-from aranha_estetica.utils.audit import autor_e_ip
+from aranha_estetica.utils.auditoria import autor_e_ip
 
 logger = logging.getLogger(__name__)
 

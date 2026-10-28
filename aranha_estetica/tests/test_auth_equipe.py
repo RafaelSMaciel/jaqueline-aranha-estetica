@@ -436,8 +436,7 @@ class ResetSenhaTests(TestCase):
     def test_um_so_contrato_de_email_configurado(self):
         from importlib import import_module
         from aranha_estetica.utils import email as email_utils
-        # views/__init__ reexporta as funcoes com o mesmo nome dos modulos
-        for modulo in ('auth', 'admin_usuarios'):
+        for modulo in ('conta.autenticacao', 'painel.usuarios'):
             with self.subTest(modulo=modulo):
                 mod = import_module(f'aranha_estetica.views.{modulo}')
                 self.assertIs(mod.email_configurado, email_utils.email_configurado)

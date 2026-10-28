@@ -17,8 +17,8 @@ from django.test import RequestFactory, TestCase
 from django.utils import timezone
 
 from aranha_estetica.models import Atendimento, LogAuditoria, Usuario
-from aranha_estetica.services.comissao_service import ComissaoService
-from aranha_estetica.services.fidelidade_service import FidelidadeService
+from aranha_estetica.services.comissao import ComissaoService
+from aranha_estetica.services.fidelidade import FidelidadeService
 
 from .factories import criar_atendimento, criar_cliente, criar_procedimento, criar_profissional
 

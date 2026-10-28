@@ -29,7 +29,7 @@ from .models import (
     RegraComissao, MovimentoComissao,
     Usuario,
 )
-from .utils.audit import registrar_log
+from .utils.auditoria import registrar_log
 from .utils.cifragem import decifrar_profundo
 from .utils.busca import filtrar_clientes
 
@@ -626,7 +626,7 @@ class AtendimentoAdmin(admin.ModelAdmin):
 
     @admin.action(description='Cancelar selecionados')
     def acao_marcar_cancelado(self, request, queryset):
-        from .services.agendamento_service import avisar_cancelamento
+        from .services.agendamento import avisar_cancelamento
         # como o cancelamento pelo painel: a cliente recebe o e-mail
         self._transicionar(
             request, queryset, 'cancelar', 'cancelado(s)', motivo='Cancelado via Django admin',
