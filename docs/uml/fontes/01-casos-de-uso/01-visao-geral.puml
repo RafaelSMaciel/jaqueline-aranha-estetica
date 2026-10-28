@@ -1,0 +1,68 @@
+@startuml 01-visao-geral
+!include ../estilo.iuml
+left to right direction
+title Casos de uso — visão geral (atores e subsistemas)
+
+actor "Visitante" as Visitante
+actor "Cliente\n(celular verificado)" as Cliente
+actor "Profissional" as Prof
+actor "Administradora\n(dona / recepção)" as Admin
+actor "Agendador\n(cron externo)" as Cron <<sistema>>
+
+Visitante <|-- Cliente
+
+rectangle "Shiva Zen — Sistema de gestão da clínica" {
+  package "Site público" {
+    usecase "Conhecer serviços,\nequipe e promoções" as UC_SITE
+    usecase "Agendar online\n(wizard + OTP)" as UC_AGENDAR
+    usecase "Entrar na lista de espera" as UC_ESPERA
+    usecase "Exercer direitos LGPD\n(meus dados, descadastro)" as UC_LGPD
+  }
+  package "Área da cliente" {
+    usecase "Acompanhar, cancelar\ne remarcar agendamentos" as UC_PORTAL
+    usecase "Responder links\n(confirmação, NPS, ficha, termo)" as UC_LINKS
+  }
+  package "Painel administrativo" {
+    usecase "Operar a agenda\n(aprovar, agendar, desfecho)" as UC_AGENDA
+    usecase "Gerir catálogo, pacotes\ne promoções" as UC_CATALOGO
+    usecase "Acompanhar financeiro,\ncomissões e NPS" as UC_FIN
+    usecase "Gerir clientes, prontuário\ne conformidade LGPD" as UC_CLIENTES
+    usecase "Administrar usuários,\nconfigurações e auditoria" as UC_ADMIN
+  }
+  package "Portal da profissional" {
+    usecase "Ver a própria agenda,\naprovar e registrar sessão" as UC_PROF
+  }
+  package "Rotinas automáticas" {
+    usecase "Enviar lembretes, NPS\ne avisos" as UC_JOBS
+    usecase "Expirar pedidos e pacotes,\npurgar dados (LGPD)" as UC_MANUT
+  }
+}
+
+Visitante --> UC_SITE
+Visitante --> UC_AGENDAR
+Visitante --> UC_ESPERA
+Visitante --> UC_LGPD
+Cliente --> UC_PORTAL
+Cliente --> UC_LINKS
+Admin --> UC_AGENDA
+Admin --> UC_CATALOGO
+Admin --> UC_FIN
+Admin --> UC_CLIENTES
+Admin --> UC_ADMIN
+Prof --> UC_PROF
+Cron --> UC_JOBS
+Cron --> UC_MANUT
+
+actor "SMS (Zenvia)" as SMS <<externo>>
+actor "WhatsApp (Meta)" as WA <<externo>>
+actor "E-mail (Resend)" as Mail <<externo>>
+UC_AGENDAR --> SMS
+UC_JOBS --> WA
+UC_JOBS --> Mail
+
+note bottom of Admin
+  Papéis com login: ADMIN e PROFISSIONAL,
+  ambos com 2FA (TOTP) obrigatório.
+  A cliente não tem senha: prova o celular por SMS (OTP).
+end note
+@enduml

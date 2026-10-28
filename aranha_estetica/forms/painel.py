@@ -6,9 +6,10 @@ duracao, data ISO) e mensagem solta. Aqui a validacao e o Form; a view so faz:
     form = ProcedimentoForm(request.POST)
     if not form.is_valid():
         avisar_erros(request, form)
-        return redirect(...)
+        return ...   # tela com modal: devolve a lista com o form aberto (procedimentos)
 
-Mensagens iguais as de antes (os testes e a equipe ja conhecem).
+Mensagens iguais as de antes (os testes e a equipe ja conhecem); o aviso no topo leva o
+rotulo do campo na frente ("Preço (R$): ..."), p/ dizer QUAL campo foi recusado (WCAG 3.3.1).
 """
 from decimal import Decimal, InvalidOperation
 
@@ -24,13 +25,24 @@ MSG_DURACAO_OU_PRECO = 'Duração ou preço inválido.'
 
 
 def avisar_erros(request, form) -> None:
-    """Cada erro do form vira um messages.error (a tela mostra no topo; sem repetir)."""
+    """Cada erro do form vira um messages.error (a tela mostra no topo; sem repetir).
+
+    Erro de campo sai com o rotulo do campo na frente ("Nome: Informe o nome..."), a nao ser que
+    a mensagem ja comece por ele ("Versão deve ter..."); erro geral (clean() do form) sai como esta."""
     vistos = set()
-    for erros in form.errors.values():
+    for campo, erros in form.errors.items():
+        rotulo = form.fields[campo].label if campo in form.fields else None
         for erro in erros:
-            if erro not in vistos:
-                vistos.add(erro)
-                messages.error(request, erro)
+            erro = str(erro)
+            texto = f'{rotulo}: {erro}' if rotulo and not erro.lower().startswith(rotulo.lower()) else erro
+            if texto not in vistos:
+                vistos.add(texto)
+                messages.error(request, texto)
+
+
+def erros_por_campo(form) -> dict:
+    """{campo: primeira mensagem} p/ o template marcar o campo (aria-invalid + texto do erro)."""
+    return {campo: erros[0] for campo, erros in form.errors.items() if erros}
 
 
 class CampoPreco(forms.CharField):
@@ -62,19 +74,20 @@ def parse_preco(valor):
 
 
 class ProcedimentoForm(forms.Form):
-    nome = forms.CharField(max_length=100, error_messages={
+    nome = forms.CharField(label='Nome', max_length=100, error_messages={
         'required': 'Informe o nome do procedimento.',
         'max_length': 'Nome do procedimento com no máximo 100 caracteres.',
     })
-    descricao = forms.CharField(required=False)
-    duracao_minutos = forms.IntegerField(required=False, min_value=5, max_value=600, error_messages={
+    descricao = forms.CharField(label='Descrição', required=False)
+    duracao_minutos = forms.IntegerField(label='Duração (min)', required=False, min_value=5, max_value=600, error_messages={
         'invalid': MSG_DURACAO_OU_PRECO, 'min_value': MSG_DURACAO_OU_PRECO, 'max_value': MSG_DURACAO_OU_PRECO,
     })
-    preco = CampoPreco(required=False, error_messages={'invalid': MSG_DURACAO_OU_PRECO})
-    categoria = forms.CharField(required=False)
-    ativo = forms.CharField(required=False)
+    preco = CampoPreco(label='Preço (R$)', required=False, error_messages={'invalid': MSG_DURACAO_OU_PRECO})
+    categoria = forms.CharField(label='Categoria', required=False)
+    ativo = forms.CharField(label='Ativo', required=False)
     # quem realiza (Habilitacao): so profissional habilitado aparece no agendamento
-    profissionais = forms.ModelMultipleChoiceField(queryset=Profissional.objects.none(), required=False)
+    profissionais = forms.ModelMultipleChoiceField(label='Quem realiza', queryset=Profissional.objects.none(),
+                                                   required=False)
 
     def __init__(self, *args, instance=None, **kwargs):
         self.instance = instance
@@ -106,11 +119,11 @@ class ProcedimentoForm(forms.Form):
 
 class BloqueioForm(forms.Form):
     """Bloqueio pontual de agenda (AgendaExcecao BLOQUEIO). profissional_id='todos' = global."""
-    profissional_id = forms.CharField()
+    profissional_id = forms.CharField(label='Profissional')
     # ISO 8601 (o datetime-local da tela); sem fuso = fuso da clinica (o Form torna aware)
-    data_hora_inicio = forms.DateTimeField()
-    data_hora_fim = forms.DateTimeField()
-    motivo = forms.CharField(required=False)
+    data_hora_inicio = forms.DateTimeField(label='Início')
+    data_hora_fim = forms.DateTimeField(label='Fim')
+    motivo = forms.CharField(label='Motivo', required=False)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -145,14 +158,14 @@ class BloqueioForm(forms.Form):
 
 class TermoForm(forms.Form):
     """Nova versao de termo (LGPD, SAUDE ou de PROCEDIMENTO)."""
-    tipo = forms.ChoiceField(choices=VersaoTermo.TIPO_CHOICES, required=False,
+    tipo = forms.ChoiceField(label='Tipo', choices=VersaoTermo.TIPO_CHOICES, required=False,
                              error_messages={'invalid_choice': 'Tipo de termo inválido.'})
-    titulo = forms.CharField(required=False)
-    conteudo = forms.CharField(required=False)
-    versao = forms.CharField(required=False, max_length=20,
+    titulo = forms.CharField(label='Título', required=False)
+    conteudo = forms.CharField(label='Conteúdo', required=False)
+    versao = forms.CharField(label='Versão', required=False, max_length=20,
                              error_messages={'max_length': 'Versão deve ter no máximo 20 caracteres.'})
-    procedimento_id = forms.CharField(required=False)
-    vigente_desde = forms.DateField(required=False, input_formats=['%Y-%m-%d'],
+    procedimento_id = forms.CharField(label='Procedimento', required=False)
+    vigente_desde = forms.DateField(label='Vigente desde', required=False, input_formats=['%Y-%m-%d'],
                                     error_messages={'invalid': 'Data de vigência inválida.'})
 
     def clean_tipo(self):

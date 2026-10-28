@@ -9,15 +9,15 @@
 
 {# ── Filtros ── #}
 <form method="get" class="bg-superficie rounded-2xl shadow-sm p-3 mb-3 flex gap-2 flex-wrap items-center">
-  <select name="tipo"
-          class="px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.8rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+  <select name="tipo" aria-label="Tipo de termo"
+          class="px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.8rem] text-texto transition">
     <option value="">Todos tipos</option>
     {% for code, label in tipos %}
     <option value="{{ code }}" {% if tipo_filter == code %}selected{% endif %}>{{ label }}</option>
     {% endfor %}
   </select>
   <button type="submit"
-          class="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.8rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
+          class="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.8rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
     Filtrar
   </button>
 </form>
@@ -57,7 +57,7 @@
     <div class="text-[1.3rem] font-extrabold text-marca">{{ r.pct|floatformat:1 }}%</div>
   </div>
   <div class="bg-superficie rounded-[10px] h-2 overflow-hidden mt-2">
-    <div class="progress-bar-fill h-full rounded-[10px] bg-gradient-to-r from-[#8b6f47] to-[#c9a58a] transition-[width] duration-300" data-pct="{{ r.pct|unlocalize }}"></div>
+    <div class="progress-bar-fill h-full rounded-[10px] bg-marca-forte transition-[width] duration-300" data-pct="{{ r.pct|unlocalize }}"></div>
   </div>
   {% if r.pendentes > 0 %}
   <a href="?versao={{ r.versao.pk }}" class="inline-flex items-center gap-1.5 mt-2 text-marca font-bold text-[0.78rem] no-underline hover:opacity-90 transition-opacity">
@@ -132,7 +132,7 @@
     {% if c.telefone %}
     <a href="https://wa.me/55{{ c.telefone|cut:'(' |cut:')' |cut:'-' |cut:' ' }}?text=Ol%C3%A1%20{{ c.nome|urlencode }}%2C%20precisamos%20que%20voc%C3%AA%20assine%20o%20termo%20de%20consentimento."
        target="_blank"
-       class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[0.72rem] font-bold no-underline bg-[#dcf5e7] text-[#25D366]">
+       class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[0.72rem] font-bold no-underline bg-sucesso-fundo text-sucesso">
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 4v-4z"/>
       </svg>
@@ -141,7 +141,7 @@
     {% endif %}
     {% if c.email %}
     <a href="mailto:{{ c.email }}?subject=Termo%20de%20consentimento%20pendente"
-       class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[0.72rem] font-bold no-underline bg-[#e3f2fd] text-[#1565c0]">
+       class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[0.72rem] font-bold no-underline bg-info-fundo text-info">
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
       </svg>

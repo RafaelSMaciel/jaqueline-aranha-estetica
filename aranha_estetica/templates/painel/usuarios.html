@@ -5,7 +5,7 @@
 {% block page_subtitle %}Gerencie a equipe com acesso ao sistema{% endblock %}
 {% block page_actions %}
 <a href="{% url 'aranha:admin_criar_usuario' %}"
-   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold bg-[#C9A84C] text-white hover:bg-[#b48c4c] transition-colors no-underline">
+   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold bg-marca-forte text-sobre-marca hover:opacity-90 transition-colors no-underline">
   <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
     <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
   </svg>
@@ -22,12 +22,12 @@
       <label for="buscaInput" class="sr-only">Buscar usuário</label>
       <input type="text" id="buscaInput" name="q" value="{{ busca }}"
              placeholder="Buscar nome ou e-mail..."
-             class="w-full px-3 py-2 rounded-xl border border-borda text-[0.875rem] text-texto bg-fundo placeholder-texto-suave outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+             class="w-full px-3 py-2 rounded-xl border border-borda text-[0.875rem] text-texto bg-fundo placeholder-texto-suave transition">
     </div>
     <div class="min-w-[140px]">
       <label for="papelSelect" class="sr-only">Papel</label>
       <select id="papelSelect" name="papel"
-              class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+              class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
         <option value="">Todos papéis</option>
         {% for valor, rotulo in papeis %}
         <option value="{{ valor }}" {% if papel_filter == valor %}selected{% endif %}>{{ rotulo }}</option>
@@ -35,7 +35,7 @@
       </select>
     </div>
     <button type="submit"
-            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#C9A84C] text-white text-[0.82rem] font-bold hover:bg-[#b48c4c] transition-colors">
+            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.82rem] font-bold hover:opacity-90 transition-opacity">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
         <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
       </svg>
@@ -56,7 +56,7 @@
 {# ── Filtro instantâneo client-side ── #}
 <div class="bg-superficie rounded-2xl shadow-sm px-4 py-2 mb-3">
   <input type="text" id="filtroUsuariosInstant"
-         class="w-full px-0 py-1.5 text-[0.85rem] text-texto bg-transparent border-none outline-none placeholder-texto-suave"
+         class="w-full px-0 py-1.5 text-[0.85rem] text-texto bg-transparent border-none placeholder-texto-suave"
          placeholder="Filtrar visíveis..."
          data-search-filter="#listaUsuarios"
          data-search-counter="#cntUsuariosVisiveis"
@@ -79,7 +79,7 @@
        data-search-text="{{ u.nome }} {{ u.email }} {{ u.get_papel_display }}">
 
     {# Avatar com iniciais #}
-    <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 font-extrabold text-[0.75rem] bg-[#eef0f8] text-[#3f3d56]" aria-hidden="true">
+    <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 font-extrabold text-[0.75rem] bg-info-fundo text-info" aria-hidden="true">
       {{ u.nome|make_list|first }}{{ u.nome|make_list|slice:"1:2"|join:"" }}
     </div>
 
@@ -154,12 +154,12 @@
   </div>
   {% empty %}
   <div class="bg-superficie rounded-2xl p-12 text-center shadow-sm">
-    <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
-      <svg class="w-7 h-7 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+    <div class="w-16 h-16 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mx-auto mb-4">
+      <svg class="w-7 h-7 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
       </svg>
     </div>
-    <h5 class="font-bold text-texto mb-1">Nenhum usuário encontrado</h5>
+    <p class="font-serif font-bold text-texto mb-1">Nenhum usuário encontrado</p>
     <p class="text-[0.85rem] text-texto-suave">Ajuste os filtros ou cadastre um novo usuário.</p>
   </div>
   {% endfor %}
@@ -167,12 +167,12 @@
 
 {# ── Empty state do filtro instantâneo ── #}
 <div id="emptyFiltroUsuarios" class="bg-superficie rounded-2xl p-10 text-center shadow-sm" style="display:none;">
-  <div class="w-14 h-14 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-3">
-    <svg class="w-6 h-6 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+  <div class="w-14 h-14 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mx-auto mb-3">
+    <svg class="w-6 h-6 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
       <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
     </svg>
   </div>
-  <h5 class="font-bold text-texto mb-1">Nenhum usuário bate com o filtro</h5>
+  <p class="font-serif font-bold text-texto mb-1">Nenhum usuário bate com o filtro</p>
   <p class="text-[0.85rem] text-texto-suave">Ajuste o termo ou limpe o campo.</p>
 </div>
 
@@ -181,12 +181,12 @@
 <div class="flex justify-center gap-1.5 mt-4">
   {% if usuarios.has_previous %}
   <a href="?page={{ usuarios.previous_page_number }}&q={{ busca }}&papel={{ papel_filter }}"
-     class="px-3 py-1.5 rounded-lg bg-fundo border border-borda text-[0.8rem] font-bold text-texto no-underline hover:bg-[#C9A84C] hover:text-white hover:border-[#C9A84C] transition-colors">&laquo;</a>
+     class="px-3 py-1.5 rounded-lg bg-fundo border border-borda text-[0.8rem] font-bold text-texto no-underline hover:bg-marca-forte hover:text-sobre-marca hover:border-marca-forte transition-colors">&laquo;</a>
   {% endif %}
   <span class="px-3 py-1.5 text-[0.8rem] text-texto-suave font-bold">{{ usuarios.number }} / {{ usuarios.paginator.num_pages }}</span>
   {% if usuarios.has_next %}
   <a href="?page={{ usuarios.next_page_number }}&q={{ busca }}&papel={{ papel_filter }}"
-     class="px-3 py-1.5 rounded-lg bg-fundo border border-borda text-[0.8rem] font-bold text-texto no-underline hover:bg-[#C9A84C] hover:text-white hover:border-[#C9A84C] transition-colors">&raquo;</a>
+     class="px-3 py-1.5 rounded-lg bg-fundo border border-borda text-[0.8rem] font-bold text-texto no-underline hover:bg-marca-forte hover:text-sobre-marca hover:border-marca-forte transition-colors">&raquo;</a>
   {% endif %}
 </div>
 {% endif %}

@@ -1,0 +1,146 @@
+@startuml 05-er-lgpd-seguranca
+' GERADO por docs/uml/gerar_uml.py a partir dos models — nao edite a mao.
+!include ../estilo.iuml
+!include ../estilo-er.iuml
+title Modelo de dados — LGPD, termos, auditoria e acesso
+
+entity "consentimento" as consentimento {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * cliente_id : bigint <<FK>>
+  * finalidade : varchar(30)
+  * canal : varchar(20)
+  * eh_concedido : boolean
+  * origem : varchar(30)
+  * texto : text
+  ip_origem : inet
+  * user_agent : varchar(500)
+  usuario_autor_id : bigint <<FK>>
+  * registrado_em : timestamptz
+  * criado_em : timestamptz
+}
+
+entity "versao_termo" as versao_termo {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * tipo : varchar(20)
+  procedimento_id : bigint <<FK>>
+  * titulo : text
+  * conteudo : text
+  * versao : varchar(20)
+  * data_inicio_vigencia : date
+  * eh_ativo : boolean
+  * criado_em : timestamptz
+  * atualizado_em : timestamptz
+}
+
+entity "aceite_termo" as aceite_termo {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * cliente_id : bigint <<FK>>
+  * versao_termo_id : bigint <<FK>>
+  atendimento_id : bigint <<FK>>
+  ip_origem : inet
+  * user_agent : varchar(500)
+  conteudo_hash : char(64)
+  * criado_em : timestamptz
+}
+
+entity "log_auditoria" as log_auditoria {
+  * <b>id</b> : bigint <<PK>>
+  --
+  usuario_autor_id : bigint <<FK>>
+  * usuario_autor_nome : varchar(255)
+  * acao : text
+  * tabela : varchar(100)
+  registro_pk : bigint
+  detalhes : jsonb
+  ip_origem : inet
+  * criado_em : timestamptz
+}
+
+entity "historico_alteracao" as historico_alteracao {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * tabela : varchar(63)
+  * registro_pk : bigint
+  * operacao : varchar(6)
+  * colunas_alteradas : jsonb
+  dados_antes : jsonb
+  dados_depois : jsonb
+  usuario_autor_id : bigint <<FK>>
+  ip_origem : inet
+  * origem : varchar(60)
+  * transacao_ref : bigint
+  * criado_em : timestamptz
+}
+
+entity "usuario" as usuario {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * papel : varchar(20)
+  profissional_id : bigint <<FK,UK>>
+  * nome : varchar(100)
+  * email : varchar(100)
+  * senha_hash : varchar(255)
+  * eh_ativo : boolean
+  * criado_em : timestamptz
+  * atualizado_em : timestamptz
+}
+
+entity "configuracao" as configuracao {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * chave : varchar(100)
+  * valor : text
+  * descricao : text
+  * criado_em : timestamptz
+  * atualizado_em : timestamptz
+}
+
+entity "agenda_excecao" as agenda_excecao #F2F2F2 {
+}
+
+entity "anotacao_sessao" as anotacao_sessao #F2F2F2 {
+}
+
+entity "assinatura_push" as assinatura_push #F2F2F2 {
+}
+
+entity "atendimento" as atendimento #F2F2F2 {
+}
+
+entity "cliente" as cliente #F2F2F2 {
+}
+
+entity "movimento_carteira" as movimento_carteira #F2F2F2 {
+}
+
+entity "movimento_comissao" as movimento_comissao #F2F2F2 {
+}
+
+entity "procedimento" as procedimento #F2F2F2 {
+}
+
+entity "profissional" as profissional #F2F2F2 {
+}
+
+entity "prontuario_versao" as prontuario_versao #F2F2F2 {
+}
+
+profissional |o--o| usuario : profissional_id
+usuario |o--o{ agenda_excecao : usuario_autor_id
+cliente ||--o{ consentimento : cliente_id
+usuario |o--o{ consentimento : usuario_autor_id
+usuario |o--o{ prontuario_versao : usuario_autor_id
+usuario |o--o{ anotacao_sessao : usuario_autor_id
+procedimento |o--o{ versao_termo : procedimento_id
+cliente ||--o{ aceite_termo : cliente_id
+versao_termo ||--o{ aceite_termo : versao_termo_id
+atendimento |o--o{ aceite_termo : atendimento_id
+usuario |o--o{ log_auditoria : usuario_autor_id
+usuario ||--o{ assinatura_push : usuario_id
+usuario |o--o{ historico_alteracao : usuario_autor_id
+usuario |o--o{ movimento_carteira : usuario_autor_id
+usuario |o--o{ movimento_comissao : usuario_autor_id
+@enduml

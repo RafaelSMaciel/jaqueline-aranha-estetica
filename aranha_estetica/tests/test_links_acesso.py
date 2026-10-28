@@ -140,7 +140,7 @@ class ModeloLinkAcessoTests(_Base):
             {'finalidade': 'FEED_ICS'},                                         # sem alvo
             {'finalidade': 'TERMO', 'notificacao': notif, 'cliente': self.cli},  # 2 alvos
             {'finalidade': 'OUTRA', 'cliente': self.cli},
-            {'finalidade': 'GERENCIAR_AGENDAMENTO', 'cliente': self.cli},          # link legado (0066)
+            {'finalidade': 'GERENCIAR_AGENDAMENTO', 'cliente': self.cli},          # link legado (0069)
         ]
         for kw in ruins:
             with self.subTest(kw=kw), self.assertRaises(IntegrityError):

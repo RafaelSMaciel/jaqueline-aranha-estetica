@@ -1,5 +1,5 @@
 """Regressoes do portal do cliente: link /confirmar/, cancelar/reagendar (portal com
-sessao do OTP — o link legado por token saiu na 0066), Meus Agendamentos, feed ICS, embed e
+sessao do OTP — o link legado por token saiu na 0069), Meus Agendamentos, feed ICS, embed e
 helpers do booking."""
 import json
 from datetime import datetime, time, timedelta
@@ -156,7 +156,7 @@ class CancelarPeloPortalTests(TestCase):
                 self.assertEqual(at.status, status)
 
     def test_sem_atendimento_id_responde_400(self):
-        """So {"atendimento_id"}: o {"token"} do link legado (0066) e qualquer outro corpo = 400."""
+        """So {"atendimento_id"}: o {"token"} do link legado (0069) e qualquer outro corpo = 400."""
         at = _atendimento(self.cli, self.prof, self.proc, _local(2, 10))
         _logar_portal(self.client, '17988887777')
         for corpo in (json.dumps({'token': 'qualquer'}), json.dumps({}), json.dumps({'atendimento_id': [1]}),
@@ -187,7 +187,7 @@ class CancelarPeloPortalTests(TestCase):
 @override_settings(RATELIMIT_ENABLE=False)
 class ReagendarTests(TestCase):
     """booking-06/21 + security-17: slot validado, sem troca silenciosa, FSM. Pelo portal:
-    /meus-agendamentos/<id>/reagendar/ + sessao do OTP (o link legado por token saiu na 0066)."""
+    /meus-agendamentos/<id>/reagendar/ + sessao do OTP (o link legado por token saiu na 0069)."""
 
     def setUp(self):
         cache.clear()

@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 FORMATO_DATA_HORA = '%d/%m/%Y às %H:%M'
 
 
-def avisar_cancelamento(atendimento) -> None:
+def avisar_cancelamento(atendimento, mensagem: str = '') -> None:
     """E-mail a cliente quando a CLINICA cancela (painel, rejeicao, Django admin, pedido
     PENDENTE que venceu sem aprovacao). Cancelamento pela propria cliente nao avisa.
 
@@ -27,7 +27,7 @@ def avisar_cancelamento(atendimento) -> None:
     cancelamento e o cron reenvia.
     """
     from .comunicacao import enfileirar_email
-    enfileirar_email(atendimento, Notificacao.Tipo.CANCELAMENTO)
+    enfileirar_email(atendimento, Notificacao.Tipo.CANCELAMENTO, mensagem)
 
 
 def formatar_data_hora(dt) -> str:
@@ -36,9 +36,14 @@ def formatar_data_hora(dt) -> str:
 
 
 def formatar_valor_atendimento(atendimento) -> str:
-    """Valor p/ o cliente: retorno gratuito nao vira 'A consultar' (R$ 0)."""
+    """Valor p/ o cliente: retorno gratuito nao vira 'A consultar' (R$ 0) e sessao que um pacote
+    dela cobre aparece como do pacote, nunca com o preco cheio (services/pacotes)."""
     if atendimento.eh_retorno:
         return 'Sem custo (retorno)'
+    from .pacotes import sessoes_previstas
+    previsto = sessoes_previstas([atendimento]).get(atendimento.pk)
+    if previsto:
+        return f"Sessão do pacote {previsto['pacote']}"
     if atendimento.valor_cobrado is None:
         return 'A consultar'
     return formatar_brl(atendimento.valor_cobrado)

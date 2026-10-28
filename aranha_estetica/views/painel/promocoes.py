@@ -6,7 +6,7 @@ from decimal import Decimal, InvalidOperation
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django_ratelimit.decorators import ratelimit
 
@@ -49,21 +49,92 @@ def _assunto_promocao(promo):
     return f'{promo.nome} — {_fmt_desconto(promo.desconto_percentual)}% OFF'
 
 
+POR_PAGINA = 30
+# campo do model -> campo do formulario (o resto tem o mesmo nome)
+_CAMPO_DO_FORM = {'desconto_percentual': 'desconto'}
+
+
+def _valores_salvos(promo):
+    return {
+        'nome': promo.nome, 'descricao': promo.descricao or '', 'procedimento': promo.procedimento_id,
+        'desconto': promo.desconto_percentual, 'preco_promocional': promo.preco_promocional,
+        'ativa': promo.ativa, 'data_inicio': promo.data_inicio.isoformat() if promo.data_inicio else '',
+        'data_fim': promo.data_fim.isoformat() if promo.data_fim else '',
+    }
+
+
+def _valores_digitados(post):
+    """O que veio no POST, no formato do template (procedimento como int p/ comparar com o pk)."""
+    proc = (post.get('procedimento') or '').strip()
+    return {
+        'nome': post.get('nome', ''), 'descricao': post.get('descricao', ''),
+        'procedimento': int(proc) if proc.isascii() and proc.isdigit() else None,
+        'desconto': post.get('desconto', ''), 'preco_promocional': post.get('preco_promocional', ''),
+        'ativa': post.get('ativa') == '1', 'data_inicio': post.get('data_inicio', ''),
+        'data_fim': post.get('data_fim', ''),
+    }
+
+
+MSG_PERIODO = 'A data de fim deve ser igual ou posterior à de início.'
+
+
+def _erros_por_campo(exc):
+    """Erro do model/banco -> {campo do formulario: mensagem}, p/ marcar o campo na tela.
+
+    ValidationError do full_clean vem por campo; a CHECK do periodo (ck_promocao_periodo) vem
+    como erro geral (full_clean) ou IntegrityError (save) e e marcada na data de fim."""
+    erros = {}
+    if hasattr(exc, 'message_dict'):
+        erros = {_CAMPO_DO_FORM.get(campo, campo): msgs[0]
+                 for campo, msgs in exc.message_dict.items() if campo != '__all__' and msgs}
+    if 'ck_promocao_periodo' in str(exc):
+        erros['data_fim'] = MSG_PERIODO
+    return erros
+
+
+def _contexto_lista(request, editar_pk=None):
+    """Contexto da lista. editar_pk: abre a pagina onde esta essa promocao (reabrir o modal)."""
+    promocoes = Promocao.objects.select_related('procedimento').order_by('-ativa', '-data_inicio', 'pk')
+
+    paginator = Paginator(promocoes, POR_PAGINA)
+    page = request.GET.get('page', 1)
+    if editar_pk is not None:
+        pks = list(promocoes.values_list('pk', flat=True))
+        page = pks.index(editar_pk) // POR_PAGINA + 1 if editar_pk in pks else 1
+    promocoes_page = paginator.get_page(page)
+    for promo in promocoes_page:
+        # o que o modal de edicao mostra (o salvo; no envio recusado, o digitado)
+        promo.valores, promo.erros = _valores_salvos(promo), {}
+
+    return {
+        'promocoes': promocoes_page,
+        'procedimentos': Procedimento.objects.filter(ativo=True),
+    }
+
+
+def _devolver_com_erro(request, mensagem, erros, editar=None):
+    """Envio recusado: a lista volta SEM redirect, com o modal aberto, o digitado e o erro no campo.
+
+    Antes o redirect fechava o modal e perdia o que foi digitado. `mensagem` (o texto de sempre)
+    vai p/ o aviso do topo e, como o modal aberto deixa o resto da tela inerte, tambem p/ dentro
+    dele (erros['geral']). editar = a promocao do modal de edicao; None = modal de nova promocao."""
+    messages.error(request, mensagem)
+    erros = {**erros, 'geral': mensagem}
+    contexto = _contexto_lista(request, editar_pk=editar.pk if editar else None)
+    valores = _valores_digitados(request.POST)
+    if editar is None:
+        contexto['nova'] = {'valores': valores, 'erros': erros}
+    else:
+        for promo in contexto['promocoes']:
+            if promo.pk == editar.pk:
+                promo.valores, promo.erros, promo.reabrir = valores, erros, True
+    return render(request, 'painel/promocoes.html', contexto)
+
+
 @staff_required
 def admin_promocoes(request):
     """Lista todas as promoções"""
-    promocoes = Promocao.objects.select_related('procedimento').order_by('-ativa', '-data_inicio')
-
-    paginator = Paginator(promocoes, 30)
-    page = request.GET.get('page', 1)
-    promocoes_page = paginator.get_page(page)
-
-    procedimentos = Procedimento.objects.filter(ativo=True)
-    context = {
-        'promocoes': promocoes_page,
-        'procedimentos': procedimentos,
-    }
-    return render(request, 'painel/promocoes.html', context)
+    return render(request, 'painel/promocoes.html', _contexto_lista(request))
 
 
 @staff_required
@@ -91,19 +162,25 @@ def admin_criar_promocao(request):
             else:
                 promo.desconto_percentual = _parse_desconto(request.POST.get('desconto', ''))
             promo.full_clean()
-            promo.save()
+            with transaction.atomic():   # CHECK recusada nao deixa a conexao quebrada p/ devolver a tela
+                promo.save()
             registrar_log(request.user, f'Criou promoção: {promo.nome}', 'promocao', promo.pk,
                           {'desconto': str(promo.desconto_percentual),
                            'preco_fixo': str(promo.preco_promocional) if promo.preco_promocional else None},
                           request=request)
             messages.success(request, 'Promoção criada com sucesso!')
         except ValidationError as e:
-            messages.error(request, ' '.join(m for msgs in e.message_dict.values() for m in msgs)
-                           if hasattr(e, 'message_dict') else 'Promoção inválida.')
+            mensagem = (' '.join(m for msgs in e.message_dict.values() for m in msgs)
+                        if hasattr(e, 'message_dict') else 'Promoção inválida.')
+            return _devolver_com_erro(request, mensagem, _erros_por_campo(e))
         except (ValueError, IntegrityError) as e:
             logger.error(f'Erro ao criar promoção: {e}', exc_info=True)
-            messages.error(request, 'Erro ao criar promoção. Informe desconto (até 100%) ou preço fixo e datas '
-                                    '(fim depois do início).')
+            mensagem = ('Erro ao criar promoção. Informe desconto (até 100%) ou preço fixo e datas '
+                        '(fim depois do início).')
+            # ValueError = parse do valor digitado (preco fixo, se veio; senao o desconto)
+            erros = ({'preco_promocional' if preco_raw else 'desconto': 'Valor inválido.'}
+                     if isinstance(e, ValueError) else _erros_por_campo(e))
+            return _devolver_com_erro(request, mensagem, erros)
     return redirect('aranha:admin_promocoes')
 
 
@@ -121,10 +198,11 @@ def admin_editar_promocao(request, pk):
         pid = (request.POST.get('procedimento') or '').strip()
         proc_id = id_int(pid)
         if pid and proc_id is None:
-            messages.error(request, 'Procedimento inválido.')
-            return redirect('aranha:admin_promocoes')
+            return _devolver_com_erro(request, 'Procedimento inválido.',
+                                      {'procedimento': 'Procedimento inválido.'}, editar=promo)
         # 404 real (procedimento inexistente) nao deve ser mascarado como erro interno
         procedimento = get_object_or_404(Procedimento, pk=proc_id) if pid else None
+        preco_fixo = promo.preco_promocional is not None
         try:
             promo.nome = request.POST.get('nome', promo.nome).strip()
             promo.descricao = request.POST.get('descricao', promo.descricao or '').strip()
@@ -140,12 +218,19 @@ def admin_editar_promocao(request, pk):
             promo.data_inicio = request.POST.get('data_inicio')
             promo.data_fim = request.POST.get('data_fim')
             promo.ativa = request.POST.get('ativa') == '1'
-            promo.save()
+            with transaction.atomic():   # CHECK recusada nao deixa a conexao quebrada p/ devolver a tela
+                promo.save()
             registrar_log(request.user, f'Editou promoção: {promo.nome}', 'promocao', promo.pk, request=request)
             messages.success(request, 'Promoção atualizada!')
         except (ValueError, ValidationError, IntegrityError) as e:
             logger.error(f'Erro ao atualizar promoção: {e}', exc_info=True)
-            messages.error(request, 'Erro ao atualizar promoção. Verifique desconto (até 100%) e datas (fim depois do início).')
+            if isinstance(e, ValueError):   # parse do valor digitado (preco fixo ou desconto)
+                erros = {'preco_promocional' if preco_fixo else 'desconto': 'Valor inválido.'}
+            else:
+                erros = _erros_por_campo(e)
+            return _devolver_com_erro(
+                request, 'Erro ao atualizar promoção. Verifique desconto (até 100%) e datas (fim depois do início).',
+                erros, editar=promo)
     return redirect('aranha:admin_promocoes')
 
 

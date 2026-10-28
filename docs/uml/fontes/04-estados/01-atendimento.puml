@@ -1,0 +1,55 @@
+@startuml 01-atendimento
+!include ../estilo.iuml
+title Estados — Atendimento (FSM em Atendimento.TRANSICOES)
+
+[*] --> PENDENTE : pedido pelo site\n(cliente nova)
+[*] --> AGENDADO : painel, retorno marcado\nou cliente de confiança
+
+state "PENDENTE\n(pedido aguardando a clínica)" as PENDENTE
+state "AGENDADO\n(horário garantido)" as AGENDADO
+state "CONFIRMADO\n(a cliente confirmou presença)" as CONFIRMADO
+state "REALIZADO" as REALIZADO
+state "CANCELADO" as CANCELADO
+state "FALTOU" as FALTOU
+state "REAGENDADO\n(substituído por outro)" as REAGENDADO
+
+PENDENTE --> AGENDADO : aprovar()\n[e-mail de confirmação]
+PENDENTE --> CANCELADO : rejeitar() / cliente cancela /\nvence 1 h antes sem decisão
+PENDENTE --> REAGENDADO : cliente remarca
+
+AGENDADO --> CONFIRMADO : confirmar()\n[link do lembrete D-1]
+AGENDADO --> REALIZADO : marcar_realizado()\n[início − 30 min]
+AGENDADO --> FALTOU : marcar_falta()\n[depois do início]
+AGENDADO --> CANCELADO : cancelar()
+AGENDADO --> REAGENDADO : marcar_reagendado()
+
+CONFIRMADO --> REALIZADO : marcar_realizado()
+CONFIRMADO --> FALTOU : marcar_falta()
+CONFIRMADO --> CANCELADO : cancelar()
+CONFIRMADO --> REAGENDADO : marcar_reagendado()
+
+REALIZADO --> AGENDADO : desfazer_realizacao()\n[admin, motivo]
+REALIZADO --> CANCELADO : desfazer_realizacao()
+REALIZADO --> FALTOU : desfazer_realizacao()
+
+REALIZADO --> [*]
+CANCELADO --> [*]
+FALTOU --> [*]
+REAGENDADO --> [*]
+
+note right of REALIZADO
+  entry / zera faltas, debita sessão de pacote,
+  lança comissão, libera cashback da indicação,
+  retorno fica devido
+end note
+note right of FALTOU
+  entry / soma falta; 3 seguidas bloqueiam
+  o agendamento online
+end note
+note left of CANCELADO
+  entry / estorna comissão e cashback, devolve crédito
+  usado, avisa a lista de espera; e-mail à cliente
+  quando a clínica cancela; push à profissional
+  quando a cliente cancela
+end note
+@enduml

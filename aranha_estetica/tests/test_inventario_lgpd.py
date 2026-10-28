@@ -14,7 +14,7 @@ from django.test import SimpleTestCase
 
 from aranha_estetica import inventario_lgpd as inv
 from aranha_estetica.migrations.sql import v0058_procedures as procs
-from aranha_estetica.migrations.sql import v0068_anonimizar_cliente as anonimizar   # versao vigente
+from aranha_estetica.migrations.sql import v0071_anonimizar_cliente as anonimizar   # versao vigente
 
 # nome de coluna que costuma guardar dado de pessoa (o detector e largo; falso positivo = declarar)
 DETECTOR = re.compile(
@@ -90,8 +90,8 @@ class InventarioLgpdTests(SimpleTestCase):
         self.assertEqual(ruins, [])
 
     def test_cadastro_sem_dado_sem_finalidade(self):
-        """RG, profissao e foto da cliente sairam (0068, art. 6º III): nem coluna, nem inventario, nem
-        procedure; o link_acesso nao tem mais alvo atendimento (0066)."""
+        """RG, profissao e foto da cliente sairam (0071, art. 6º III): nem coluna, nem inventario, nem
+        procedure; o link_acesso nao tem mais alvo atendimento (0069)."""
         colunas = {f.column for f in apps.get_model('aranha_estetica', 'Cliente')._meta.concrete_fields}
         self.assertFalse({'rg', 'profissao', 'url_foto'} & colunas)
         self.assertFalse({('cliente', c) for c in ('rg', 'profissao', 'url_foto')} & set(inv.COLUNAS))

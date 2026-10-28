@@ -1,0 +1,86 @@
+@startuml 01-camadas
+!include ../estilo.iuml
+title Componentes — arquitetura em camadas do monólito Django
+
+package "Navegador" {
+  [Templates Django\n(django-cotton)] as TPL
+  [JS do bundle Vite\n(wizard, painel, Alpine.js)] as JS
+  [Service Worker / PWA\n(push)] as SW
+}
+
+package "aranha_estetica (app Django)" {
+  [Middleware\n(CSP + headers, ator e IP no banco,\nratelimit, noindex de teste)] as MW
+  package "urls/ (por área)" {
+    [publico · conta · painel\nprofissional · infra] as URLS
+  }
+  package "views/ (borda HTTP)" {
+    [publico] as VPUB
+    [conta] as VCON
+    [painel] as VPAI
+    [profissional] as VPRO
+    [infra (cron, webhooks,\nhealthz, push)] as VINF
+  }
+  [forms/\n(validação de entrada)] as FORMS
+  package "services/ (casos de uso)" {
+    [agenda · agendamento · atendimento\ndisponibilidade · retorno · pacotes] as SAG
+    [anamnese · termos · consentimentos\nlgpd · links · otp · comunicacao · push] as SCL
+    [comissao · fidelidade\nfinanceiro · relatorios · indicadores] as SFI
+  }
+  package "models/ (domínio)" {
+    [Entidades + FSM do Atendimento\n+ QuerySets de domínio] as MOD
+  }
+  [db/ (campos cifrados,\níndices nomeados)] as DBX
+  [utils/ (auditoria, segurança, datas,\ne-mail, SMS, WhatsApp, cifragem)] as UT
+  [jobs.py\n(rotinas do cron)] as JOBS
+  [admin.py\n(Django admin, só leitura\nnos livros-razão)] as ADM
+}
+
+database "PostgreSQL 18" {
+  [Tabelas + CHECK/UNIQUE/EXCLUDE] as TAB
+  [Triggers (imutabilidade,\nhistórico, validações)] as TRG
+  [Procedures e funções\n(LGPD, pacotes, saldos)] as PROC
+  [Views de leitura\n(faturamento, saldos)] as VW
+}
+
+TPL --> MW : HTTPS
+JS --> MW : fetch JSON
+MW --> URLS
+URLS --> VPUB
+URLS --> VCON
+URLS --> VPAI
+URLS --> VPRO
+URLS --> VINF
+VPUB --> FORMS
+VPAI --> FORMS
+VPUB --> SAG
+VPUB --> SCL
+VPAI --> SAG
+VPAI --> SFI
+VPAI --> SCL
+VPRO --> SAG
+VINF --> JOBS
+JOBS --> SAG
+JOBS --> SCL
+SAG --> MOD
+SCL --> MOD
+SFI --> MOD
+SAG --> UT
+SCL --> UT
+MOD --> DBX
+MOD --> TAB : ORM
+SCL --> PROC : utils.banco.chamar
+SFI --> VW
+TAB --> TRG
+ADM --> MOD
+
+note right of SAG
+  Regras de negócio e efeitos colaterais vivem nos services;
+  as views só traduzem HTTP. Contratos do import-linter:
+  utils, db, jobs e comandos nunca importam views.
+end note
+note bottom of TRG
+  PostgreSQL é a fonte única da escrita: o que o banco
+  garante (sobreposição, ledger append-only, trilha)
+  vale também para SQL manual e para o Django admin.
+end note
+@enduml

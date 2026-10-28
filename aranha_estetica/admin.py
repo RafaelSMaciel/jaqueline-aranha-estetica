@@ -866,11 +866,11 @@ class OtpCodeAdmin(admin.ModelAdmin):
 
 @admin.register(RegraComissao)
 class RegraComissaoAdmin(admin.ModelAdmin):
-    """Sem regra ativa nenhuma comissao e gerada (ComissaoService.calcular_comissao).
+    """Tela principal: painel > Comissoes > Regras. Sem regra ativa nenhuma comissao e gerada.
 
     Percentual OU valor fixo (CHECK no banco). Profissional/procedimento vazios
     = vale para todos; a regra mais especifica vence. Regra ja usada em comissao
-    nao se exclui (PROTECT: o lancamento guarda a regra) — desative.
+    nao muda nem se exclui (o credito cita a regra): aqui so o "ativo" fica editavel.
     """
     list_display = ('__str__', 'profissional', 'procedimento', 'percentual', 'valor', 'ativo')
     list_filter = ('ativo', 'profissional')
@@ -878,8 +878,13 @@ class RegraComissaoAdmin(admin.ModelAdmin):
     autocomplete_fields = ('profissional', 'procedimento')
     list_select_related = ('profissional', 'procedimento')
 
+    def get_readonly_fields(self, request, obj=None):
+        if obj is not None and obj.foi_usada():
+            return ('profissional', 'procedimento', 'percentual', 'valor')
+        return super().get_readonly_fields(request, obj)
+
     def has_delete_permission(self, request, obj=None):
-        if obj is not None and MovimentoComissao.objects.filter(regra=obj).exists():
+        if obj is not None and obj.foi_usada():
             return False
         return super().has_delete_permission(request, obj)
 

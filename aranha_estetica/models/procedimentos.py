@@ -28,7 +28,7 @@ class Procedimento(models.Model):
         default=0, db_default=0, db_column='intervalo_minutos',
         db_comment='Folga apos o procedimento (limpeza/preparo) que tambem ocupa a agenda (0-120).',
     )
-    # Todo atendimento e presencial (sem modalidade/videoconferencia desde a 0067)
+    # Todo atendimento e presencial (sem modalidade/videoconferencia desde a 0070)
     categoria = models.CharField(max_length=20, default='OUTRO', db_default='OUTRO', choices=CATEGORIA_CHOICES)
     imagem_destaque = models.URLField(
         max_length=500, blank=True, default='', db_default='', db_column='url_imagem_destaque',

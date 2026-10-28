@@ -1,0 +1,112 @@
+@startuml 04-classes-comunicacao
+' GERADO por docs/uml/gerar_uml.py a partir do codigo — nao edite a mao.
+!include ../estilo.iuml
+hide empty members
+title Classes do domínio — Comunicação, links de acesso e verificação
+
+class Notificacao <<Entity>> {
+  + tipo : TipoNotificacao
+  + canal : CanalNotificacao
+  + status : StatusNotificacao
+  + resposta : RespostaNotificacao [0..1]
+  + mensagem : str
+  + enviado_em : datetime [0..1]
+  + respondido_em : datetime [0..1]
+  + tentativas : int
+  + proxima_tentativa_em : datetime [0..1]
+  + criado_em : datetime
+  + atualizado_em : datetime
+}
+
+class AvaliacaoNPS <<Entity>> {
+  + nota : int
+  + comentario : str
+  + autoriza_publicacao : bool
+  + aprovado_publicacao : bool
+  + alerta_enviado : bool
+  + criado_em : datetime
+  + atualizado_em : datetime
+}
+
+class AssinaturaPush <<Entity>> {
+  + endpoint : str
+  + p256dh : str
+  + auth : str
+  + user_agent : str
+  + ativo : bool
+  + criado_em : datetime
+  + atualizado_em : datetime
+  + ultima_falha_em : datetime [0..1]
+}
+
+class LinkAcesso <<Entity>> {
+  + finalidade : str
+  + token_hash : str
+  + expira_em : datetime [0..1]
+  + usado_em : datetime [0..1]
+  + revogado_em : datetime [0..1]
+  + criado_em : datetime
+  --
+  + /alvo_id_rotulo «property»
+  + /alvo «property»
+  + /expirado «property»
+  + /revogado «property»
+}
+
+class CodigoOtp <<Entity>> {
+  + email : str
+  + telefone : str [0..1]
+  + canal : str
+  + codigo_hash : str
+  + proposito : str
+  + criado_em : datetime
+  + expira_em : datetime
+  + usado_em : datetime [0..1]
+  + tentativas : int
+  + ip_origem : IP [0..1]
+  --
+  + {static} email_para_telefone(telefone)
+  + {static} gerar_sms(telefone, ip, proposito)
+  + {static} verificar_sms(telefone, codigo, proposito)
+  + {static} pode_reenviar(email, proposito)
+  + {static} gerar(email, ip, proposito, canal, telefone)
+  + {static} verificar(email, codigo, proposito)
+}
+
+enum CanalNotificacao {
+  WHATSAPP
+  SMS
+  EMAIL
+}
+
+enum RespostaNotificacao {
+  CONFIRMOU
+  CANCELOU
+}
+
+enum StatusNotificacao {
+  PENDENTE
+  ENVIADO
+  FALHOU
+}
+
+enum TipoNotificacao {
+  LEMBRETE
+  LEMBRETE_2H
+  CONFIRMACAO
+  CANCELAMENTO
+  NPS
+  PESQUISA
+  APROVACAO
+  TERMO
+}
+
+Notificacao "0..*" --> "1" Atendimento : atendimento
+AvaliacaoNPS "0..1" --> "1" Atendimento : atendimento
+AssinaturaPush "0..*" --> "1" Usuario : user
+LinkAcesso "0..*" --> "0..1" Atendimento : atendimento
+LinkAcesso "0..*" --> "0..1" Notificacao : notificacao
+LinkAcesso "0..*" --> "0..1" RespostaAnamnese : resposta_formulario
+LinkAcesso "0..*" --> "0..1" Cliente : cliente
+LinkAcesso "0..*" --> "0..1" Profissional : profissional
+@enduml

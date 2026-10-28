@@ -48,8 +48,8 @@ class RegraComissao(TimestampedMixin):
         db_table = 'regra_comissao'
         db_table_comment = (
             'Regra percentual XOR valor fixo por (profissional, procedimento); NULL = qualquer. Mais especifica '
-            'vence; empate = atualizada por ultimo. Regra ja usada nao se exclui (FK de movimento_comissao): '
-            'desative.'
+            'vence; empate = atualizada por ultimo. Regra ja usada nao muda nem se exclui '
+            '(tg_regra_comissao_validar, FK de movimento_comissao): desative e crie outra.'
         )
         constraints = [
             models.CheckConstraint(
@@ -83,11 +83,42 @@ class RegraComissao(TimestampedMixin):
             ),
         ]
 
+    # o que define o calculo: regra ja usada em comissao nao muda isso (so desativa) — o CREDITO
+    # antigo continua explicavel pela regra que ele cita. No PG: tg_regra_comissao_validar (0066).
+    CAMPOS_DO_CALCULO = ('profissional_id', 'procedimento_id', 'percentual', 'valor')
+    ESPECIFICIDADES = {
+        3: 'Profissional + procedimento', 2: 'Profissional (qualquer procedimento)',
+        1: 'Procedimento (qualquer profissional)', 0: 'Geral (qualquer um)',
+    }
+
     def __str__(self):
         prof = self.profissional.nome if self.profissional_id else 'qualquer'
         proc = self.procedimento.nome if self.procedimento_id else 'qualquer'
-        valor = f'{self.percentual}%' if self.percentual else f'R$ {self.valor}'
+        valor = f'{self.percentual}%' if self.percentual is not None else f'R$ {self.valor}'
         return f'{prof}/{proc}: {valor}'
+
+    @property
+    def especificidade(self) -> int:
+        """3 = profissional+procedimento ... 0 = geral (a mais especifica vence: ComissaoService)."""
+        return (2 if self.profissional_id else 0) + (1 if self.procedimento_id else 0)
+
+    def get_especificidade_display(self) -> str:
+        return self.ESPECIFICIDADES[self.especificidade]
+
+    def foi_usada(self) -> bool:
+        return self.pk is not None and MovimentoComissao.objects.filter(regra_id=self.pk).exists()
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding and self.foi_usada():
+            antes = RegraComissao.objects.filter(pk=self.pk).values(*self.CAMPOS_DO_CALCULO).first()
+            if antes and any(antes[c] != getattr(self, c) for c in self.CAMPOS_DO_CALCULO):
+                raise ValidationError(MSG_REGRA_USADA)
+        super().save(*args, **kwargs)
+
+
+MSG_REGRA_USADA = (
+    'Regra já usada em comissão não muda (o crédito antigo cita esta regra): desative-a e crie uma nova.'
+)
 
 
 MSG_COMISSAO_IMUTAVEL = (
@@ -204,6 +235,17 @@ class MovimentoComissao(models.Model):
         validators=[MinValueValidator(Decimal('0.01'))],
         db_comment='Sempre positivo; o sinal vem do tipo (CREDITO +, ESTORNO/PAGAMENTO -).',
     )
+    # Snapshot do calculo no CREDITO (como o item congelado da 0052): a regra pode ser desativada e
+    # o preco mudar, e o credito continua explicavel. NULL nos derivados e nos creditos anteriores a 0066.
+    # (db_comment sem o simbolo de porcento: o COMMENT ON COLUMN do PG passa pelo mogrify do psycopg)
+    base_calculo = models.DecimalField(
+        max_digits=10, decimal_places=2, blank=True, null=True, db_column='valor_base_calculo',
+        db_comment='CREDITO: base em que a regra incidiu (valor cobrado ou unitario do pacote), congelada.',
+    )
+    percentual_aplicado = models.DecimalField(
+        max_digits=5, decimal_places=2, blank=True, null=True,
+        db_comment='CREDITO de regra percentual: o percentual aplicado (no maximo 100). NULL em regra de valor fixo.',
+    )
     # CREDITO que o ESTORNO/PAGAMENTO liquida. Sem indice automatico: coberto pelos
     # UNIQUE parciais e pelo ix_movimento_comissao_origem_parcial.
     movimento_origem = models.ForeignKey(
@@ -246,6 +288,20 @@ class MovimentoComissao(models.Model):
             models.CheckConstraint(
                 condition=Q(tipo='CREDITO') | Q(regra__isnull=True),
                 name='ck_movimento_comissao_regra_so_credito',
+            ),
+            models.CheckConstraint(
+                condition=Q(tipo='CREDITO') | (Q(base_calculo__isnull=True) & Q(percentual_aplicado__isnull=True)),
+                name='ck_movimento_comissao_snapshot_so_credito',
+            ),
+            # comissao nunca passa da base (percentual <= 100; valor fixo limitado a base)
+            models.CheckConstraint(
+                condition=Q(base_calculo__isnull=True) | (Q(base_calculo__gte=0) & Q(valor__lte=models.F('base_calculo'))),
+                name='ck_movimento_comissao_valor_ate_base_calculo',
+            ),
+            models.CheckConstraint(
+                condition=Q(percentual_aplicado__isnull=True) | (Q(percentual_aplicado__gte=0)
+                                                                 & Q(percentual_aplicado__lte=100)),
+                name='ck_movimento_comissao_percentual_aplicado_0_100',
             ),
             # no maximo 1 CREDITO ATIVO (nao estornado) por atendimento: tg_movimento_comissao_validar
             # (0063) + _validar_lancamento — estornado, pode nascer outro (valor corrigido, realizacao refeita)

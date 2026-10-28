@@ -84,7 +84,8 @@ def admin_email_preview(request, nome=None):
     fx = EMAIL_PREVIEW_FIXTURES[nome]
     # site_url como no envio real (utils.email faz setdefault): CTAs absolutos
     # e sem VariableDoesNotExist em `{{ x|default:site_url }}`
-    contexto = {'site_url': settings.SITE_URL.rstrip('/'), **fx['contexto']}
+    from ...utils.email import link_agendar
+    contexto = {'site_url': settings.SITE_URL.rstrip('/'), 'link_agendar': link_agendar(), **fx['contexto']}
     html = render_to_string(fx['template'], contexto)
     # A previa e servida sob a CSP do painel (style-src com nonce): sem o
     # nonce o navegador descarta o <style> do e-mail (media queries, dark mode).

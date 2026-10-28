@@ -114,3 +114,15 @@ class LinkCalendarioPortalTests(TestCase):
         )
         agenda = self.client.get(reverse('aranha:profissional_agenda')).content.decode()
         self.assertIn(self.url, agenda)
+
+    def test_portal_tem_casca_propria_sem_o_site_publico(self):
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse('aranha:profissional_agenda'))
+        self.assertTemplateUsed(resp, 'profissional/base.html')
+        self.assertTemplateNotUsed(resp, 'estrutura/base_v2.html')
+        html = resp.content.decode()
+        self.assertIn('Portal da profissional', html)
+        self.assertIn('aria-current="page"', html)
+        self.assertNotIn('Falar no WhatsApp', html)          # sem o botao flutuante do site
+        self.assertIn('noindex', html)
+        self.assertEqual(html.count(reverse('aranha:usuario_logout')), 1)   # "Sair" so na casca

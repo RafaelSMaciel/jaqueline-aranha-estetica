@@ -245,7 +245,8 @@ class ParidadeLeituraTests(TestCase):
         for dias, proc in ((4, self.proc), (5, self.proc), (6, self.proc), (7, self.proc2), (8, self.proc2)):
             ConsumoSessao.objects.create(compra_pacote=cheia, atendimento=self._realizado(cheia.cliente, proc, dias))
         ConsumoSessao.objects.create(compra_pacote=cancelada, atendimento=self._realizado(cancelada.cliente, dias=9))
-        CompraPacote.objects.filter(pk=cancelada.pk).update(status='CANCELADO', valor_reembolsado=Decimal('100.00'))
+        CompraPacote.objects.filter(pk=cancelada.pk).update(status='CANCELADO', valor_reembolsado=Decimal('100.00'),
+                                                             cancelado_em=timezone.now())
         # "item reconstruido" (0052: procedimento consumido que saiu do catalogo; valor 0)
         antigo = Procedimento.objects.create(nome='Procedimento Antigo', duracao_minutos=30)
         CompraPacoteItem.objects.create(compra_pacote=parcial, procedimento=antigo,
@@ -352,19 +353,28 @@ class ParidadeLeituraTests(TestCase):
     # ─── financeiro: faturamento mensal, resumo do cliente, agenda ───────────
     def test_vw_faturamento_mensal_vw_cliente_resumo_e_vw_agenda_dia(self):
         bia = criar_cliente(nome='Bia Financeiro')
-        meses = (date(2026, 8, 1), date(2026, 9, 1))
+        # dois meses fechados dentro da janela dos ultimos 12: m1 (vendas) e m2 (reembolsos)
+        atual = financeiro.competencia()
+        m1, m2 = atual.anterior().anterior(), atual.anterior()
         pacote = Pacote.objects.create(nome='Glow', preco_total=Decimal('300.00'), validade_meses=6)
         ItemPacote.objects.create(pacote=pacote, procedimento=self.proc, quantidade_sessoes=3)
         compra = criar_compra_pacote(bia, pacote)
+        tardia = criar_compra_pacote(bia, pacote)
         cancelada = criar_compra_pacote(self.cli, pacote, valor_pago=Decimal('300.00'))
         devolvida = criar_compra_pacote(self.cli, pacote, valor_pago=Decimal('300.00'))
-        CompraPacote.objects.filter(pk=compra.pk).update(criado_em=_local(meses[0], 10))
-        CompraPacote.objects.filter(pk=cancelada.pk).update(criado_em=_local(meses[1], 10), status='CANCELADO',
-                                                             valor_reembolsado=Decimal('120.00'))
-        CompraPacote.objects.filter(pk=devolvida.pk).update(criado_em=_local(meses[1], 11), status='CANCELADO',
-                                                             valor_reembolsado=Decimal('300.00'))
+        CompraPacote.objects.filter(pk=compra.pk).update(criado_em=_local(m1.inicio, 10))
+        # vendida em m1, reembolsada em m2: m1 nao muda (mes fechado), m2 deduz
+        CompraPacote.objects.filter(pk=tardia.pk).update(
+            criado_em=_local(m1.inicio, 11), status='CANCELADO', valor_reembolsado=Decimal('280.00'),
+            cancelado_em=_local(m2.inicio.replace(day=5), 15))
+        CompraPacote.objects.filter(pk=cancelada.pk).update(
+            criado_em=_local(m2.inicio, 10), status='CANCELADO', valor_reembolsado=Decimal('120.00'),
+            cancelado_em=_local(m2.inicio.replace(day=3), 10))
+        CompraPacote.objects.filter(pk=devolvida.pk).update(
+            criado_em=_local(m2.inicio, 11), status='CANCELADO', valor_reembolsado=Decimal('300.00'),
+            cancelado_em=_local(m2.ultimo_dia, 23, 40))                     # 23:40 local = mes seguinte em UTC
         hoje = timezone.localdate()
-        ago, set_ = meses
+        ago, set_ = m1.inicio, m2.inicio
         origem = self._realizado(bia, quando=_local(ago, 9), valor='150.00')
         self._realizado(bia, quando=_local(ago.replace(day=2), 10), valor='99.99')
         self._realizado(bia, quando=_local(ago.replace(day=3), 11), valor='0.00')            # sem valor: fora
@@ -372,7 +382,7 @@ class ParidadeLeituraTests(TestCase):
                         atendimento_origem=origem)
         sessao = self._realizado(bia, quando=_local(set_.replace(day=2), 10), valor='150.00')  # sessao de pacote
         ConsumoSessao.objects.create(compra_pacote=compra, atendimento=sessao)
-        self._realizado(self.cli, quando=_local(set_.replace(day=30), 23, 30), valor='120.01')  # 23:30 local = outubro UTC
+        self._realizado(self.cli, quando=_local(m2.ultimo_dia, 23, 30), valor='120.01')  # 23:30 local = mes seguinte UTC
         faltou = criar_atendimento(bia, self.prof, self.proc, data_hora=timezone.now() - timedelta(days=5),
                                    status='FALTOU')
         futuro = criar_atendimento(bia, self.prof, self.proc, data_hora=timezone.now() + timedelta(days=3))
@@ -380,23 +390,38 @@ class ParidadeLeituraTests(TestCase):
         Prontuario.objects.create(cliente=bia, alergias='Latex')
         Prontuario.objects.create(cliente=self.cli)                                      # vazio: nao conta
 
-        # vw_faturamento_mensal x services/financeiro (D20) por mes local
+        # vw_faturamento_mensal (0065, competencia) x services/financeiro (D20) por mes local
         view = {linha[0]: linha[1:] for linha in _q(
             'SELECT mes, valor_atendimentos, qtd_atendimentos, valor_pacotes, qtd_pacotes, valor_total, '
-            'valor_ticket_medio FROM vw_faturamento_mensal')}
+            'valor_ticket_medio, valor_vendas_pacotes, valor_reembolsos_pacotes, qtd_reembolsos_pacotes '
+            'FROM vw_faturamento_mensal')}
         meses_python = {timezone.localtime(a.data_hora_inicio).date().replace(day=1)
                         for a in financeiro.atendimentos_faturados()}
-        meses_python |= {timezone.localtime(c.criado_em).date().replace(day=1) for c in financeiro.vendas_pacote()}
+        meses_python |= {timezone.localtime(c.criado_em).date().replace(day=1)
+                         for c in CompraPacote.objects.filter(valor_pago__gt=0)}
+        meses_python |= {timezone.localtime(c.cancelado_em).date().replace(day=1)
+                         for c in CompraPacote.objects.filter(valor_reembolsado__gt=0)}
         self.assertEqual(set(view), meses_python)
+        doze = {linha['periodo'].inicio: linha for linha in financeiro.ultimos_12_meses(atual)}
         for mes in meses_python:
-            fim = date(mes.year + (mes.month == 12), mes.month % 12 + 1, 1)
-            ini_dt, fim_dt = _local(mes, 0), _local(fim, 0)
-            av = financeiro.resumo_avulsos(Atendimento.objects.filter(data_hora_inicio__gte=ini_dt,
-                                                                      data_hora_inicio__lt=fim_dt))
-            pc = financeiro.resumo_pacotes(CompraPacote.objects.filter(criado_em__gte=ini_dt, criado_em__lt=fim_dt))
-            esperado = (av['total'], av['qtd'], pc['total'], pc['qtd'], av['total'] + pc['total'],
-                        av['ticket_medio'] if av['qtd'] else None)
+            receita = financeiro.resumo_receita(financeiro.competencia(mes))
+            av, pc = receita['avulsos'], receita['pacotes']
+            esperado = (av['total'], av['qtd'], pc['total'], pc['qtd_vendas'], receita['total'],
+                        av['ticket_medio'] if av['qtd'] else None, pc['vendas'], pc['reembolsos'],
+                        pc['qtd_reembolsos'])
             self.assertEqual(esperado, view[mes], mes)
+            if mes in doze:   # ultimos_12_meses: mesmas contas, 3 consultas
+                linha = doze[mes]
+                self.assertEqual((linha['avulsos'], linha['qtd_avulsos'], linha['pacotes'], linha['total'],
+                                  linha['vendas_pacotes'], linha['reembolsos_pacotes']),
+                                 (av['total'], av['qtd'], pc['total'], receita['total'], pc['vendas'],
+                                  pc['reembolsos']), mes)
+        # reembolso de m2 nao muda m1 (mes fechado); m2 fecha com pacotes negativo. O reembolso das
+        # 23:40 do ultimo dia de m2 (UTC ja no mes seguinte) fica em m2: mes LOCAL
+        self.assertEqual(view[m1.inicio][2:4], (Decimal('600.00'), 2))           # 300 + 300 vendidos em m1
+        self.assertEqual(view[m2.inicio][2], Decimal('-100.00'))                 # 600 vendidos - 700 reembolsados
+        self.assertEqual(view[m2.inicio][6:], (Decimal('600.00'), Decimal('700.00'), 3))
+
 
         # vw_cliente_resumo x ORM/financeiro
         ((agora_db,),) = _q('SELECT now()')
@@ -751,7 +776,9 @@ class ParidadeManutencaoTests(TestCase):
         compras = []
         for delta, status in ((-1, 'ATIVO'), (0, 'ATIVO'), (1, 'ATIVO'), (-5, 'CANCELADO'), (-5, 'FINALIZADO')):
             c = criar_compra_pacote(criar_cliente(), pacote)
-            CompraPacote.objects.filter(pk=c.pk).update(data_expiracao=hoje + timedelta(days=delta), status=status)
+            CompraPacote.objects.filter(pk=c.pk).update(
+                data_expiracao=hoje + timedelta(days=delta), status=status,
+                cancelado_em=timezone.now() if status == 'CANCELADO' else None)   # ck_..._cancelado_em_coerente
             compras.append(c.pk)
 
         def foto():

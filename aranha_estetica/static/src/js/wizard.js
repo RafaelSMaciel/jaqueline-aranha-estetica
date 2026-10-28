@@ -20,15 +20,8 @@
     tabs.forEach(function(tab){
         tab.addEventListener('click', function(){
             var cat = tab.dataset.cat;
-            tabs.forEach(function(t){
-                t.classList.remove('active');
-                // tokens (tema claro e escuro): #fff/#7a5f1f davam 2,7:1 no escuro
-                t.style.background = 'var(--cor-superficie)';
-                t.style.color = 'var(--cor-marca)';
-            });
-            tab.classList.add('active');
-            tab.style.background = 'var(--cor-marca-forte)';
-            tab.style.color = 'var(--cor-sobre-marca)';  // branco sobre o dourado dava 2,3:1
+            // Botoes liga/desliga (nao abas): o estado e o aria-pressed; o visual vem do CSS do template
+            tabs.forEach(function(t){ t.setAttribute('aria-pressed', t === tab ? 'true' : 'false'); });
             cards.forEach(function(c){
                 c.style.display = (!cat || c.dataset.categoria === cat) ? '' : 'none';
             });
@@ -385,7 +378,7 @@
     });
 
     var SVG_LOADING = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" style="display:block;margin:0 auto 0.75rem;" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite"/></path></svg>';
-    var SVG_INFO = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#CBB994" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto 0.75rem;" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+    var SVG_INFO = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto 0.75rem;" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
 
     function mensagemSlots(container, svg, texto) {
         var box = document.createElement('div');
@@ -671,17 +664,18 @@
             // começar a responder (mesma regra do servidor, _validar_anamnese).
             formWrap.dataset.fichaId = form.id;
             formWrap.dataset.fichaObrigatoria = form.obrigatorio ? '1' : '';
-            formWrap.style.cssText = 'border:1px solid #eee;border-radius:10px;padding:0.75rem;margin-bottom:0.6rem;background:#fafafa;';
+            // Cores pelas classes do template (tokens): o cssText fixo ficava ilegivel no tema escuro
+            formWrap.className = 'ficha-anamnese';
             var ttl = document.createElement('div');
-            ttl.style.cssText = 'font-weight:700;color:#4A3425;font-size:0.85rem;margin-bottom:0.5rem;';
+            ttl.className = 'ficha-titulo';
             ttl.textContent = form.nome;
             formWrap.appendChild(ttl);
 
             (form.schema || []).forEach(function(field){
                 var fwrap = document.createElement('div');
-                fwrap.style.marginBottom = '0.5rem';
+                fwrap.className = 'ficha-campo';
                 var lbl = document.createElement('label');
-                lbl.style.cssText = 'display:block;font-size:0.78rem;color:#666;font-weight:600;margin-bottom:0.2rem;';
+                lbl.className = 'ficha-rotulo';
                 lbl.textContent = field.label + (field.obrigatorio ? ' *' : '');
                 fwrap.appendChild(lbl);
 
@@ -699,7 +693,7 @@
                     grupo.dataset.label = field.label;
                     opcoes.forEach(function(o){
                         var l = document.createElement('label');
-                        l.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:0.82rem;color:#4A3425;';
+                        l.className = 'ficha-opcao';
                         var cb = document.createElement('input');
                         cb.type = 'checkbox';
                         cb.value = o.valor;
@@ -731,7 +725,7 @@
                 } else {
                     input = document.createElement('input'); input.type = 'text';
                 }
-                input.style.cssText = 'width:100%;padding:0.45rem;border:1px solid #ddd;border-radius:6px;font-size:0.85rem;';
+                input.className = 'ficha-entrada';
                 input.dataset.formId = form.id;
                 input.dataset.fieldKey = field.key;
                 input.setAttribute('aria-label', field.label);
@@ -903,7 +897,7 @@
         a.target = '_blank';
         a.rel = 'noopener';
         a.textContent = 'Agende pelo WhatsApp';
-        a.style.cssText = 'font-weight:700;text-decoration:underline;margin-left:4px;color:#1a7f37;';
+        // estilo (sublinhado, cor da mensagem) vem de .msg-ok/.msg-erro no template
         return a;
     }
 
@@ -911,7 +905,9 @@
         var el = document.getElementById(elId);
         if (!el) return;
         el.textContent = texto;
-        el.style.color = ok ? '#1a7f37' : '#b42318';
+        // tokens do tema: as cores fixas davam ~3:1 e ~2,5:1 no tema escuro
+        el.classList.toggle('msg-ok', !!ok);
+        el.classList.toggle('msg-erro', !ok);
         if (comWhatsApp) {
             var a = linkWhatsApp();
             if (a) { el.appendChild(document.createTextNode(' ')); el.appendChild(a); }

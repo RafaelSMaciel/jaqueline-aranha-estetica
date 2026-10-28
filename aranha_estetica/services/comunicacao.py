@@ -80,15 +80,17 @@ MENSAGENS_EMAIL: dict[str, tuple[str, Callable[[Atendimento], str | None], Calla
 }
 
 
-def enfileirar_email(atendimento, tipo) -> Notificacao | None:
+def enfileirar_email(atendimento, tipo, mensagem: str = '') -> Notificacao | None:
     """Pede o e-mail ``tipo`` do atendimento: Notificacao PENDENTE agora, envio no on_commit.
 
-    Sem destinatario (cliente sem e-mail, profissional sem usuario) nao cria nada."""
+    mensagem: paragrafo extra do e-mail (ex.: o motivo do cancelamento), gravado na notificacao
+    p/ o reenvio sair igual. Sem destinatario (cliente sem e-mail, profissional sem usuario) nao
+    cria nada."""
     _funcao, destino, _dados = MENSAGENS_EMAIL[tipo]
     if not destino(atendimento):
         return None
     notif = Notificacao.objects.create(
-        atendimento=atendimento, tipo=tipo, canal=Notificacao.Canal.EMAIL,
+        atendimento=atendimento, tipo=tipo, canal=Notificacao.Canal.EMAIL, mensagem=mensagem,
         status=Notificacao.Status.PENDENTE, proxima_tentativa_em=timezone.now(),
     )
     transaction.on_commit(lambda: enviar_da_fila(notif.pk), robust=True)
@@ -114,7 +116,8 @@ def enviar_da_fila(notificacao_id) -> bool:
               .get(pk=notif.atendimento_id))
         nome_funcao, destino, dados = MENSAGENS_EMAIL[notif.tipo]
         email = destino(at)
-        ok = bool(email) and bool(getattr(email_utils, nome_funcao)(email, dados(at)))
+        conteudo = {**dados(at), 'mensagem': notif.mensagem}
+        ok = bool(email) and bool(getattr(email_utils, nome_funcao)(email, conteudo))
         if ok:
             notif.status, notif.enviado_em, notif.proxima_tentativa_em = (
                 Notificacao.Status.ENVIADO, agora, None)

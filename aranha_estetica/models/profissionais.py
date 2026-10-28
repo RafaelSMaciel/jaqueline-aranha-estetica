@@ -24,7 +24,7 @@ class Profissional(models.Model):
         db_comment='Dias maximos a frente oferecidos online.',
     )
     # Agenda externa da profissional: feed ICS (link_acesso FEED_ICS, gerado no painel; o token so
-    # aparece na geracao). Sem sincronizacao com Google Agenda (removida na 0065).
+    # aparece na geracao). Sem sincronizacao com Google Agenda (removida na 0068).
     criado_em = criado_em_legado()
     atualizado_em = atualizado_em_legado()
 

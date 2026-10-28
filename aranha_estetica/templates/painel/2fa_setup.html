@@ -31,7 +31,7 @@
       <input type="text" id="token-desativar" name="token"
              maxlength="8" autocomplete="one-time-code" autocapitalize="off" spellcheck="false"
              placeholder="000000" required
-             class="w-full px-4 py-3 mb-3 rounded-xl border-2 border-borda bg-fundo text-texto text-2xl text-center font-bold font-mono tracking-[0.4em] outline-none focus:border-[#C9A84C] transition-colors">
+             class="w-full px-4 py-3 mb-3 rounded-xl border-2 border-borda bg-fundo text-texto text-2xl text-center font-bold font-mono tracking-[0.4em] focus:border-marca transition-colors">
       <button type="submit"
               data-confirm="{% if obrigatorio %}Remover o aparelho atual? Você cadastrará o novo em seguida.{% else %}Desativar o 2FA? Sua conta ficará menos segura.{% endif %}"
               class="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-erro-fundo text-erro text-[0.9rem] font-bold border-none cursor-pointer hover:bg-erro-fundo transition-colors">
@@ -84,7 +84,7 @@
   </div>
 
   <div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
-    <h5 class="font-extrabold text-texto mb-1">Passo 1: escaneie o QR code</h5>
+    <h2 class="font-extrabold text-texto mb-1">Passo 1: escaneie o QR code</h2>
     <p class="text-[0.85rem] text-texto-suave mb-3">
       Abra <strong>Google Authenticator</strong>, <strong>Authy</strong> ou <strong>Microsoft Authenticator</strong> e escaneie:
     </p>
@@ -97,12 +97,12 @@
       <summary class="cursor-pointer text-marca font-bold text-[0.85rem]">
         Não consegue escanear? Digite manualmente
       </summary>
-      <div class="font-mono text-[0.9rem] bg-fundo px-3 py-2 rounded-lg border border-dashed border-[#c9a58a] break-all mt-3 text-marca font-bold">{{ secret_b32 }}</div>
+      <div class="font-mono text-[0.9rem] bg-fundo px-3 py-2 rounded-lg border border-dashed border-marca-forte break-all mt-3 text-marca font-bold">{{ secret_b32 }}</div>
     </details>
   </div>
 
   <div class="bg-superficie rounded-2xl shadow-sm p-5">
-    <h5 class="font-extrabold text-texto mb-1">Passo 2: confirme o código gerado</h5>
+    <h2 class="font-extrabold text-texto mb-1">Passo 2: confirme o código gerado</h2>
     <p class="text-[0.85rem] text-texto-suave mb-3">
       Digite os 6 dígitos que apareceram no app:
     </p>
@@ -113,10 +113,10 @@
       <input type="text" name="token"
              maxlength="6" pattern="\d{6}" autocomplete="one-time-code"
              placeholder="000000" required autofocus
-             class="w-full px-4 py-3 rounded-xl border-2 border-borda bg-fundo text-texto text-2xl text-center font-bold font-mono tracking-[0.4em] outline-none focus:border-[#C9A84C] transition-colors">
+             class="w-full px-4 py-3 rounded-xl border-2 border-borda bg-fundo text-texto text-2xl text-center font-bold font-mono tracking-[0.4em] focus:border-marca transition-colors">
       <div class="flex gap-2 mt-4">
         <button type="submit"
-                class="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.9rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
+                class="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.9rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
           </svg>
@@ -150,7 +150,7 @@
       <input type="hidden" name="next" value="{{ next }}">
       <input type="hidden" name="acao" value="gerar">
       <button type="submit"
-              class="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.9rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
+              class="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.9rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
         </svg>
