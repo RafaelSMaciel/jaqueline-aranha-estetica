@@ -1,0 +1,53 @@
+{% load static django_vite %}
+{# Casca do portal da profissional: area de trabalho logada, sem rodape, CTA, WhatsApp, SEO nem #}
+{# aviso de cookies do site publico. Mesmos tokens e bundle do site (tema claro/escuro). #}
+<!doctype html>
+<html lang="pt-br" {% if tema %}data-theme="{{ tema }}"{% endif %}>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% block titulo %}Minha agenda | {{ CLINIC_NAME }}{% endblock %}</title>
+  <link rel="icon" type="image/png" href="{% static 'assets/favicon.png' %}">
+  <link rel="apple-touch-icon" href="{% static 'assets/pwa/apple-touch-icon.png' %}">
+  <link rel="manifest" href="{% url 'aranha:manifest' %}">
+  <meta name="theme-color" content="{{ THEME_COLOR|default:'#C9A84C' }}">
+  {% vite_hmr_client %}
+  {% vite_asset 'aranha_estetica/static/src/js/app.js' %}
+  {% block css %}{% endblock %}
+</head>
+<body class="bg-fundo text-texto antialiased">
+{% if AMBIENTE_TESTE %}<div role="note" class="bg-aviso text-superficie text-center text-[0.8rem] font-bold py-1.5 px-4">Ambiente de testes — os agendamentos daqui não são reais.</div>{% endif %}
+  <a href="#conteudo" class="sr-only focus:not-sr-only">Pular para o conteúdo</a>
+  <header class="border-b border-borda bg-superficie">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+      <div class="flex items-center gap-3 min-w-0">
+        <a href="{% url 'aranha:profissional_agenda' %}" class="font-serif text-lg font-bold text-texto no-underline truncate">{{ CLINIC_NAME }}</a>
+        <span class="hidden sm:inline text-[0.75rem] font-bold uppercase tracking-wider text-texto-suave">Portal da profissional</span>
+      </div>
+      <nav aria-label="Portal da profissional" class="flex items-center gap-2">
+        <a href="{% url 'aranha:profissional_agenda' %}"
+           class="px-3 py-1.5 rounded-full text-sm font-bold no-underline {% if request.resolver_match.url_name == 'profissional_agenda' %}bg-fundo text-texto{% else %}text-texto-suave hover:text-texto{% endif %}"
+           {% if request.resolver_match.url_name == 'profissional_agenda' %}aria-current="page"{% endif %}>Minha agenda</a>
+        <form method="post" action="{% url 'aranha:usuario_logout' %}" class="m-0">
+          {% csrf_token %}
+          <button type="submit" class="px-3 py-1.5 rounded-full border border-borda bg-superficie text-sm font-bold text-texto-suave hover:text-texto cursor-pointer">Sair</button>
+        </form>
+      </nav>
+    </div>
+  </header>
+  <main id="conteudo">
+    {% block mensagens %}{% include 'cotton/chrome/mensagens.html' %}{% endblock %}
+    {% block conteudo %}{% endblock %}
+  </main>
+  {% block js %}{% endblock %}
+<script nonce="{{ csp_nonce }}">
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register("{% url 'aranha:sw' %}").catch(function () {});
+    });
+  }
+</script>
+</body>
+</html>
