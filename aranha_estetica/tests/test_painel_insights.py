@@ -119,7 +119,27 @@ class ExportarExcelTests(_AdminBase):
         import openpyxl
         resp = self.client.get(reverse('aranha:exportar_relatorio_excel'))
         self.assertEqual(resp.status_code, 200)
-        return openpyxl.load_workbook(io.BytesIO(resp.content)).active
+        return openpyxl.load_workbook(io.BytesIO(resp.content))['Atendimentos']
+
+    def test_total_bate_com_o_faturamento_e_exportacao_auditada(self):
+        import openpyxl
+        from decimal import Decimal
+
+        from aranha_estetica.models import Atendimento, LogAuditoria
+        ontem = timezone.now() - timedelta(days=1)
+        pago = criar_atendimento(criar_cliente(), self.prof, self.proc, data_hora=ontem, status='REALIZADO')
+        cancelado = criar_atendimento(criar_cliente(), self.prof, self.proc, data_hora=ontem - timedelta(hours=2),
+                                      status='CANCELADO')
+        Atendimento.objects.filter(pk=pago.pk).update(valor_cobrado=Decimal('150.00'))
+        Atendimento.objects.filter(pk=cancelado.pk).update(valor_cobrado=Decimal('90.00'))
+        resp = self.client.get(reverse('aranha:exportar_relatorio_excel'))
+        wb = openpyxl.load_workbook(io.BytesIO(resp.content))
+        ws = wb['Atendimentos']
+        self.assertEqual(ws.cell(row=ws.max_row, column=12).value, 150.0)   # cancelado com valor nao conta
+        resumo = {linha[0].value: linha[1].value for linha in wb['Resumo'].iter_rows() if linha[0].value}
+        self.assertEqual(resumo['Faturamento do período (R$)'], 150.0)
+        log = LogAuditoria.objects.get(acao='Exportou relatório gerencial')
+        self.assertEqual(log.detalhes['atendimentos'], 2)
 
     def test_nome_com_formula_vira_texto(self):
         cli = criar_cliente(nome='=HYPERLINK("http://evil.example","clique")')

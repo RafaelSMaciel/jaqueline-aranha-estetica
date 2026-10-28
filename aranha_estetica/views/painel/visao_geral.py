@@ -18,7 +18,8 @@ from ...decorators import staff_required
 from ...services import financeiro, links
 from ...utils.busca import filtrar_clientes
 from ...utils.nps import resumo_nps
-from ...utils.datas import dias_locais, fmt_local, hoje as hoje_local, inicio_do_dia, ler_data
+from ...utils.auditoria import registrar_log
+from ...utils.datas import dias_locais, hoje as hoje_local, inicio_do_dia, ler_data
 from ...utils.parse import id_int
 from ...utils.saude import alertas_em_lote
 
@@ -273,54 +274,28 @@ def painel_profissionais(request):
     return render(request, 'painel/profissionais.html', context)
 
 
-def _celula_texto_seguro(ws) -> None:
-    """Impede formula injection na ultima linha escrita.
-
-    O openpyxl grava como formula qualquer str iniciada por '='. Nome de
-    cliente vem do booking publico (texto livre) — '=HYPERLINK(...)' viraria
-    formula executada no Excel do admin. Forcar data_type 's' grava texto puro.
-    """
-    for cell in ws[ws.max_row]:
-        if isinstance(cell.value, str) and cell.value.startswith('='):
-            cell.data_type = 's'
-
-
 @staff_required
 def exportar_relatorio_excel(request):
-    """Gera um relatório Excel dos últimos 30 dias de atendimentos"""
-    import openpyxl
+    """Relatorio gerencial (Resumo, Atendimentos, Pacotes vendidos) do periodo — mesmos numeros do
+    painel (services/relatorios). ?inicio=AAAA-MM-DD&fim=AAAA-MM-DD; padrao: ultimos 30 dias.
+    Exportar nomes de clientes em lote fica na auditoria (LGPD art. 37)."""
+    from ...services.relatorios import planilha_gerencial
 
-    data_limite = timezone.now() - timedelta(days=30)
-    atendimentos = (
-        Atendimento.objects.filter(data_hora_inicio__gte=data_limite)
-        .select_related('cliente', 'profissional', 'procedimento')
-        .order_by('data_hora_inicio')
-    )
-
+    fim = hoje_local()
+    inicio = fim - timedelta(days=29)
+    try:
+        if request.GET.get('fim'):
+            fim = ler_data(request.GET['fim'])
+        if request.GET.get('inicio'):
+            inicio = ler_data(request.GET['inicio'])
+    except ValueError:
+        pass
+    if inicio > fim:
+        inicio, fim = fim, inicio
+    wb, contagem = planilha_gerencial(inicio, fim)
+    registrar_log(request.user, 'Exportou relatório gerencial', 'atendimento', None,
+                  {'inicio': inicio.isoformat(), 'fim': fim.isoformat(), **contagem}, request=request)
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename="relatorio_atendimentos.xlsx"'
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Atendimentos Últimos 30 dias"
-
-    # Header
-    columns = ['ID', 'Data', 'Hora', 'Cliente', 'Profissional', 'Procedimento', 'Status', 'Valor (R$)']
-    ws.append(columns)
-
-    for at in atendimentos:
-        valor = at.valor_cobrado or 0
-        ws.append([
-            at.pk,
-            fmt_local(at.data_hora_inicio, '%d/%m/%Y'),  # hora local, nao UTC
-            fmt_local(at.data_hora_inicio, '%H:%M'),
-            at.cliente.nome,
-            at.profissional.nome,
-            at.procedimento.nome,
-            at.get_status_display(),
-            float(valor)
-        ])
-        _celula_texto_seguro(ws)
-
+    response['Content-Disposition'] = f'attachment; filename="relatorio_{inicio:%Y%m%d}_{fim:%Y%m%d}.xlsx"'
     wb.save(response)
     return response
