@@ -25,21 +25,6 @@ def _manifest_vite_ok() -> bool:
     return bool(manifest) and os.path.exists(manifest)
 
 
-def _pode_pingar_celery(request) -> bool:
-    if not getattr(settings, 'CELERY_WORKER_ENABLED', False):  # so existe em prod.py
-        return False
-    from .cron import _token_ok
-    return _token_ok(request.headers.get('X-Cron-Token', ''))
-
-
-def _ping_celery() -> bool:
-    """Ping no worker com a conexao ao broker limitada (1 tentativa, ~1 s)."""
-    from celery import current_app
-    with current_app.connection_for_write() as conn:
-        conn.ensure_connection(max_retries=1, interval_start=0, interval_step=0, timeout=1)
-        return bool(current_app.control.ping(timeout=1, connection=conn))
-
-
 @require_GET
 def healthcheck(request):
     """Readiness: 200 se DB+cache ok; 503 se qualquer dependencia falha.
@@ -48,7 +33,6 @@ def healthcheck(request):
     """
     db_ok = False
     cache_ok = False
-    celery_ok = None  # None = nao checado por padrao
     front_ok = _manifest_vite_ok()
 
     try:
@@ -65,17 +49,7 @@ def healthcheck(request):
     except Exception as e:
         logger.error('Healthcheck: cache indisponivel — %s', e)
 
-    # Celery ping opcional (?celery=1) SO com worker ligado e header X-Cron-Token:
-    # o endpoint e publico e, sem worker (prod hoje), o broker nao existe — cada
-    # ping anonimo prendia uma das 4 threads do gunicorn por ~6 s (retries do kombu).
-    if request.GET.get('celery') == '1' and _pode_pingar_celery(request):
-        try:
-            celery_ok = _ping_celery()
-        except Exception as e:
-            logger.error('Healthcheck: celery ping falhou — %s', e)
-            celery_ok = False
-
-    ok = db_ok and cache_ok and front_ok and (celery_ok is not False)
+    ok = db_ok and cache_ok and front_ok
     payload = {
         'status': 'ok' if ok else 'degraded',
         'db': db_ok,
@@ -83,8 +57,6 @@ def healthcheck(request):
         'front': front_ok,
         'timestamp': timezone.now().isoformat(),
     }
-    if celery_ok is not None:
-        payload['celery'] = celery_ok
     return JsonResponse(payload, status=200 if ok else 503)
 
 

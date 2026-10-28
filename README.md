@@ -55,7 +55,7 @@ modelos, rotas, env vars, jobs, deploy e runbook de go-live).
 | Backend | Python 3.12, Django 5.2 (server-render, sem SPA) |
 | Banco | PostgreSQL 18 em produção/CI (EXCLUDE, CHECK, triggers, collation ICU); SQLite em dev/testes rápidos |
 | Front-end | Vite 6 + Tailwind CSS v4 + Alpine.js (build **CSP**, `@alpinejs/csp`) + componentes django-cotton. **Sem HTMX, sem Bootstrap, sem jQuery** |
-| Assíncrono | Celery 5.4 em modo *eager* (sem worker por padrão); jobs periódicos via cron HTTP `/cron/run/<job>/` |
+| Jobs / fila | Sem Celery: jobs periódicos via cron HTTP `/cron/run/<job>/` (ou `manage.py rodar_job`); fila de e-mail no banco |
 | Cache/sessão | LocMem + sessão no banco (1 worker gunicorn); Redis opcional via `REDIS_URL` |
 | Segurança | CSP com nonce, django-axes, django-ratelimit, django-otp (TOTP), Cloudflare Turnstile |
 | Integrações | Zenvia (SMS/OTP), WhatsApp Business (Meta), e-mail (backend Django), Web Push (VAPID), Google Calendar (opcional), Sentry |
@@ -139,9 +139,9 @@ aranha_estetica/                 app Django
 │                                cotton/ (componentes), email/, pwa/, usuario/, erros 400/403/404/429/500
 ├── static/src/                  fonte do Vite (tokens.css, app.css, app.js — Alpine CSP)
 ├── static/js/                   wizard.js, admin-search.js, webpush.js (servidos direto)
-├── signals.py · tasks.py · tasks_manutencao.py · middleware.py · checks.py
+├── signals.py · jobs.py · jobs_manutencao.py · middleware.py · checks.py
 └── tests/
-clinica/                         settings (base/dev/prod), urls, celery, wsgi, gunicorn_logger
+clinica/                         settings (base/dev/prod), urls, wsgi, gunicorn_logger
 docs/                            documentação (abaixo)
 Dockerfile · railway.json · .github/workflows/ci.yml · package.json · vite.config.js
 requirements.txt · requirements-dev.txt · requirements.lock · .env.example

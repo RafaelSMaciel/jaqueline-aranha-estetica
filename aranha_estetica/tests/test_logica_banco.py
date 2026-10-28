@@ -199,7 +199,7 @@ class HousekeepingLinksETrilhaTests(TestCase):
     pelo sp_purgar_dados_expirados."""
 
     def test_purga_links_e_trilha(self):
-        from aranha_estetica.tasks_manutencao import job_housekeeping
+        from aranha_estetica.jobs_manutencao import job_housekeeping
 
         agora = timezone.now()
         prof = criar_profissional()
@@ -220,7 +220,7 @@ class HousekeepingLinksETrilhaTests(TestCase):
                 )
         antes = HistoricoAlteracao.objects.count()
 
-        resumo = job_housekeeping.apply().get()
+        resumo = job_housekeeping()
 
         self.assertEqual((resumo['links'], resumo['historico']), (2, 1))
         self.assertEqual(LinkAcesso.objects.count(), 2)  # vencido ha 10 dias + feed ICS sem validade

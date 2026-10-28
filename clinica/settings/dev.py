@@ -23,11 +23,6 @@ _is_testing = (
     or _os.environ.get('TESTING', '').lower() == 'true'
 )
 if _is_testing:
-    # Em test: Celery executa sincronamente, sem Redis
-    CELERY_TASK_ALWAYS_EAGER = True
-    CELERY_TASK_EAGER_PROPAGATES = True
-    CELERY_BROKER_URL = 'memory://'
-    CELERY_RESULT_BACKEND = 'cache+memory://'
     # SMS so logado nos testes (o runner roda com DEBUG=False e sem ZENVIA_*;
     # fora disso utils/sms falha fechado). Env + setting: vale p/ leitura no import.
     _os.environ.setdefault('SMS_DEV_LOG_ONLY', 'true')

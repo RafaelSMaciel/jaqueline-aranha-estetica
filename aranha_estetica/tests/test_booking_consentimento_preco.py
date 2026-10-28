@@ -293,30 +293,31 @@ class PoliticaETermosBookingTests(_BaseBooking):
         resp = self._post()
         self.assertIn('sucesso', resp.url)
 
-    @patch('aranha_estetica.views.booking_public._enfileirar_email')
-    def test_booking_nao_cria_notificacao_nem_email_de_termo(self, enfileirar):
+    @patch('aranha_estetica.utils.email.enviar_termos_pendentes_email')
+    def test_booking_nao_cria_notificacao_nem_email_de_termo(self, termos):
         _lgpd_vigente()
         termo = VersaoTermo.objects.create(
             tipo='PROCEDIMENTO', procedimento=self.proc, titulo='Termo Toxina',
             conteudo='Riscos.', versao='1', vigente_desde=timezone.localdate(),
         )
-        resp = self._post(email='dora@example.com', **{f'aceite_termo_{termo.pk}': 'on'})
+        with self.captureOnCommitCallbacks(execute=True):
+            resp = self._post(email='dora@example.com', **{f'aceite_termo_{termo.pk}': 'on'})
         self.assertIn('sucesso', resp.url)
-        self.assertEqual(Notificacao.objects.count(), 0)
-        funcoes = [c.args[0] for c in enfileirar.call_args_list]
-        self.assertNotIn('enviar_termos_pendentes_email', funcoes)
+        self.assertEqual(Notificacao.objects.count(), 0)   # profissional sem usuario: nem o pedido
+        termos.assert_not_called()
 
-    @patch('aranha_estetica.views.booking_public._enfileirar_email')
-    def test_email_da_profissional_leva_so_link_revisar_do_dia_local(self, enfileirar):
+    @patch('aranha_estetica.utils.email.enviar_aprovacao_profissional_email', return_value=True)
+    def test_email_da_profissional_leva_so_link_revisar_do_dia_local(self, enviar):
         from aranha_estetica.models import Usuario
         Usuario.objects.create_user(
             email='dra@example.com', password='Senha-forte-123', nome='Dra. Ana',
             papel=Usuario.PAPEL_PROFISSIONAL, profissional=self.prof,
         )
-        self._post()
-        chamada = next(c for c in enfileirar.call_args_list
-                       if c.args[0] == 'enviar_aprovacao_profissional_email')
-        dados = chamada.args[2]
+        with self.captureOnCommitCallbacks(execute=True):
+            self._post()
+        email, dados = enviar.call_args.args
+        self.assertEqual(email, 'dra@example.com')
+        self.assertTrue(Notificacao.objects.filter(tipo='APROVACAO', canal='EMAIL', status='ENVIADO').exists())
         self.assertNotIn('link_aprovar', dados)
         self.assertNotIn('link_rejeitar', dados)
         dia = (timezone.localdate() + timedelta(days=3)).isoformat()
@@ -489,7 +490,7 @@ class EmailAprovacaoRetornoTests(TestCase):
             data_hora_inicio=inicio, data_hora_fim=inicio + timedelta(minutes=30),
             valor_cobrado=Decimal('0'), eh_retorno=True, atendimento_origem=origem,
         )
-        with patch.object(AgendamentoService, '_enviar_email_confirmacao') as enviar, \
+        with patch('aranha_estetica.utils.email.enviar_confirmacao_agendamento_email', return_value=True) as enviar, \
                 self.captureOnCommitCallbacks(execute=True):
             AgendamentoService().aprovar(retorno)
         self.assertEqual(enviar.call_args.args[1]['valor'], 'Sem custo (retorno)')

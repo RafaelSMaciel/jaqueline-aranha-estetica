@@ -8,7 +8,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from aranha_estetica.models import CompraPacote, ConsumoSessao
-from aranha_estetica.tasks import job_expirar_pacotes
+from aranha_estetica.jobs import job_expirar_pacotes
 
 from .factories import (
     criar_atendimento,

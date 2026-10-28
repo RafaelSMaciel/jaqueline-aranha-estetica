@@ -4,7 +4,7 @@ Identidade do booking = TELEFONE verificado por OTP (SMS) na sessao — exigido
 de TODO agendamento (cliente novo ou recorrente). O servidor revalida o slot
 (SlotService), procedimento/profissional ativos + habilitacao, regra de
 bloqueio online e anamnese obrigatoria. Slot lock via cache + SELECT FOR
-UPDATE + exclusion constraint (Postgres). E-mails best-effort (Celery).
+UPDATE + exclusion constraint (Postgres). E-mail a profissional pela fila (services/comunicacao).
 
 LGPD: aceite da Politica de Privacidade obrigatorio (grava AceiteTermo da
 versao LGPD vigente; sem versao vigente o booking recusa — nada sem prova);
@@ -17,7 +17,6 @@ import json
 import logging
 from datetime import datetime
 
-from django.conf import settings
 from django.contrib import messages
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
@@ -25,7 +24,6 @@ from django.core.validators import validate_email
 from django.db import DatabaseError, IntegrityError, OperationalError, ProgrammingError, transaction
 from django.db.models import Q
 from django.shortcuts import redirect, render
-from django.urls import reverse
 from django.utils import timezone
 from django_ratelimit.decorators import ratelimit
 
@@ -34,6 +32,7 @@ from ..models import (
     Atendimento,
     Cliente,
     FormularioAnamnese,
+    Notificacao,
     Procedimento,
     Profissional,
     Promocao,
@@ -42,13 +41,12 @@ from ..models import (
 )
 from ..models.termos import TEXTO_CONSENTIMENTO_SAUDE
 from ..excecoes import RegraDeNegocio
-from ..services import agenda, consentimentos
+from ..services import agenda, comunicacao, consentimentos
 from ..services import otp as otp_service
 from ..services.agendamento_service import formatar_brl, formatar_data_hora
 from ..services.anamnese import validar_respostas
 from ..utils.audit import registrar_log
 from ..utils.captcha import turnstile_enabled, turnstile_site_key
-from ..utils.datas import data_local
 from ..utils.datas import hoje as hoje_local
 from ..utils.email import email_configurado
 from ..utils.parse import id_int
@@ -80,23 +78,6 @@ def _voltar_com_erro(request, mensagem):
     messages.error(request, mensagem)
     request.session[SESSAO_REHIDRATAR] = True
     return redirect('aranha:agendamento_publico')
-
-
-def link_revisar_agenda(data_hora):
-    """Link (GET) p/ a agenda do portal no dia LOCAL do atendimento."""
-    return (
-        f"{settings.SITE_URL}{reverse('aranha:profissional_agenda')}"
-        f"?data={data_local(data_hora):%Y-%m-%d}"
-    )
-
-
-def _enfileirar_email(funcao, destinatario, dados):
-    """E-mail best-effort: falha de notificacao nunca derruba o agendamento ja salvo."""
-    try:
-        from ..tasks import send_email_async
-        send_email_async.delay(funcao, destinatario, dados)
-    except Exception:  # noqa: BLE001 — notificacao nao pode virar 500 pos-commit
-        logger.warning('booking_email_falhou', extra={'funcao': funcao}, exc_info=True)
 
 
 def _formularios_aplicaveis(procedimento):
@@ -475,6 +456,8 @@ def confirmar_agendamento(request):
                 cliente=cliente, profissional=profissional, procedimento=procedimento,
                 inicio=data_hora, status=Atendimento.STATUS_PENDENTE,
             )
+            # Pedido p/ a profissional aprovar (fila de e-mail; o link so leva a agenda do dia)
+            comunicacao.enfileirar_email(atendimento, Notificacao.Tipo.APROVACAO)
 
             # Aceites com prova (IP, user-agent, SHA-256 do texto): Politica de
             # Privacidade (versao LGPD vigente) + termo(s) do procedimento.
@@ -539,19 +522,6 @@ def confirmar_agendamento(request):
         cache.delete(slot_key)
 
     data_formatada = formatar_data_hora(data_hora)
-
-    usuario_prof = getattr(profissional, 'usuario', None)
-    prof_email = getattr(usuario_prof, 'email', None)
-    if prof_email:
-        # Aprovar/rejeitar e POST dentro do portal: o e-mail so leva ate a agenda
-        # do dia (GET).
-        _enfileirar_email('enviar_aprovacao_profissional_email', prof_email, {
-            'profissional': profissional.nome,
-            'cliente': nome,
-            'procedimento': procedimento.nome,
-            'data_hora': data_formatada,
-            'link_revisar': link_revisar_agenda(data_hora),
-        })
 
     request.session['agendamento_sucesso'] = {
         'nome': nome,

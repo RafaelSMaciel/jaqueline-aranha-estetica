@@ -5,13 +5,13 @@ Contexto da sessao (GUCs ``app.*``) lido por ``fn_registrar_historico`` (trilha
 
     app.usuario_id  pk do usuario autenticado ('' = anonimo/sistema)
     app.ip_origem   IP do cliente HTTP ('' = desconhecido)
-    app.origem      web | cron:<job> | celery:<task> | migracao ('' = SQL manual)
+    app.origem      web | cron:<job> | comando:<job> | migracao ('' = SQL manual)
 
 ``definir_contexto_banco`` usa ``set_config(..., false)`` = nivel de SESSAO: o
 Django roda em autocommit (ATOMIC_REQUESTS=False), entao ``SET LOCAL`` morreria
 no fim do proprio statement. Com CONN_MAX_AGE a conexao volta no proximo request
-da mesma thread — por isso quem define SEMPRE limpa no fim (middleware, cron,
-sinais do Celery) e a conexao nova nasce limpa (``connection_created``).
+da mesma thread — por isso quem define SEMPRE limpa no fim (o Ator: ``ator.atuando``) e a
+conexao nova nasce limpa (``connection_created``).
 PgBouncer em modo transacao quebraria GUC de sessao: nesse dia, trocar para
 ATOMIC_REQUESTS + SET LOCAL.
 

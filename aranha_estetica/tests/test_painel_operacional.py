@@ -343,11 +343,11 @@ class PortalProfissionalTests(TestCase):
         local = timezone.localtime(timezone.now() + timedelta(days=4)).replace(
             hour=10, minute=0, second=0, microsecond=0)
         at = criar_atendimento(self.cliente, self.prof, self.proc, data_hora=local, status='PENDENTE')
-        with patch('aranha_estetica.tasks.send_email_async.delay') as delay:
+        with patch('aranha_estetica.utils.email.enviar_confirmacao_agendamento_email', return_value=True) as enviar:
             with self.captureOnCommitCallbacks(execute=True):
                 self.client.post(reverse('aranha:profissional_aprovar', args=[at.pk]))
-        self.assertTrue(delay.called)
-        dados = delay.call_args[0][2]
+        self.assertTrue(enviar.called)
+        dados = enviar.call_args[0][1]
         self.assertIn('10:00', dados['data_hora'])
 
     def test_agenda_tem_botao_sair_e_mensagens(self):
@@ -638,26 +638,25 @@ class PromocoesTests(_AdminTestCase):
         self.promo.refresh_from_db()
         self.assertEqual(self.promo.desconto_percentual, Decimal('12.50'))
 
-    @patch('aranha_estetica.tasks.job_promocao_mensal.delay')
+    @patch('aranha_estetica.jobs.job_promocao_mensal')
     def test_validade_vazia_nao_da_500(self, mock_delay):
         resp = self.client.post(self.url, {'validade_dias': ''})
         self.assertEqual(resp.status_code, 302)
         mock_delay.assert_called_once()
 
-    @patch('aranha_estetica.tasks.job_promocao_mensal.delay')
+    @patch('aranha_estetica.jobs.job_promocao_mensal')
     def test_validade_invalida(self, mock_delay):
         resp = self.client.post(self.url, {'validade_dias': 'abc'})
         self.assertEqual(resp.status_code, 302)
         mock_delay.assert_not_called()
 
     @override_settings(EMAIL_BACKEND='django.core.mail.backends.console.EmailBackend', DEBUG=False)
-    @patch('aranha_estetica.tasks.job_promocao_mensal.delay')
+    @patch('aranha_estetica.jobs.job_promocao_mensal')
     def test_email_nao_configurado_nao_dispara(self, mock_delay):
         resp = self.client.post(self.url, {'validade_dias': '30'})
         mock_delay.assert_not_called()
         self.assertTrue(any('não está configurado' in m for m in _mensagens(resp)))
 
-    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_lista_grande_sem_worker_vai_em_lotes_sem_reenvio(self):
         from aranha_estetica.views import admin_promotions
         for i in range(admin_promotions.LOTE_PROMOCAO + 5):
@@ -1180,7 +1179,7 @@ class PromocaoDisparoRodada2Tests(_AdminTestCase):
         )
         self.url = reverse('aranha:admin_disparar_promocao', args=[self.promo.pk])
 
-    @patch('aranha_estetica.tasks.job_promocao_mensal.delay')
+    @patch('aranha_estetica.jobs.job_promocao_mensal')
     def test_preco_fixo_sem_zero_off_e_validade_ate_fim_da_promocao(self, mock_delay):
         self.client.post(self.url, {'validade_dias': '60'})
         mock_delay.assert_called_once()
@@ -1190,7 +1189,7 @@ class PromocaoDisparoRodada2Tests(_AdminTestCase):
         self.assertEqual(mock_delay.call_args[1]['validade_dias'], 10)
         self.assertNotIn('cupom', mock_delay.call_args[1])
 
-    @patch('aranha_estetica.tasks.job_promocao_mensal.delay')
+    @patch('aranha_estetica.jobs.job_promocao_mensal')
     def test_promocao_expirada_nao_dispara(self, mock_delay):
         Promocao.objects.filter(pk=self.promo.pk).update(
             data_inicio=timezone.localdate() - timedelta(days=20),

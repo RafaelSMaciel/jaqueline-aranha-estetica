@@ -173,12 +173,12 @@ class ExpiracaoEDsarComItensCongeladosTests(TestCase):
         self.pacote.itens.all().delete()
 
     def test_email_de_expiracao_usa_nome_e_saldo_congelados(self):
-        from aranha_estetica.tasks import job_verificar_pacotes_expirando
+        from aranha_estetica.jobs import job_verificar_pacotes_expirando
         from aranha_estetica.utils.datas import hoje
 
         CompraPacote.objects.filter(pk=self.compra.pk).update(data_expiracao=hoje() + timedelta(days=7))
         with mock.patch('aranha_estetica.utils.email.enviar_pacote_expirando_email', return_value=True) as envio:
-            job_verificar_pacotes_expirando.apply()
+            job_verificar_pacotes_expirando()
         dados = envio.call_args.args[1]
         self.assertEqual((dados['pacote'], dados['sessoes_restantes']), ('Drenagem 3x', 2))
 

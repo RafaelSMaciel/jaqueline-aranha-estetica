@@ -70,13 +70,3 @@ CIFRAGEM_EXIGE_CHAVE = True
 LOGGING['root']['level'] = 'WARNING'
 LOGGING['loggers']['django']['level'] = 'WARNING'
 
-# Celery: sem worker (padrao no Railway) as tasks rodam eager (sincronas) e o
-# cron externo chama os jobs via HTTP. REDIS_URL sozinho NAO liga o worker
-# (antes desligava o eager e todo .delay() tentava um broker inexistente).
-CELERY_WORKER_ENABLED = os.environ.get('CELERY_WORKER_ENABLED', '').strip().lower() == 'true'
-if not CELERY_WORKER_ENABLED:
-    CELERY_TASK_ALWAYS_EAGER = True
-    CELERY_TASK_EAGER_PROPAGATES = False
-    # Em eager, retry/autoretry reexecuta NA HORA dentro do request (sem countdown):
-    # 4 tentativas SMTP no POST do agendamento. Sem retries sincronos.
-    CELERY_TASK_ANNOTATIONS = {'*': {'max_retries': 0}}

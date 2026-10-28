@@ -29,8 +29,6 @@ def _future_datetime_iso(days=2, hour=10):
 
 @override_settings(
     RATELIMIT_ENABLE=False,
-    CELERY_TASK_ALWAYS_EAGER=True,
-    CELERY_TASK_EAGER_PROPAGATES=False,
 )
 @patch('aranha_estetica.utils.email.enviar_confirmacao_agendamento_email', return_value=True)
 class IntegrationBookingFlowTests(TestCase):

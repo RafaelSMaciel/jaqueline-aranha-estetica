@@ -342,7 +342,7 @@ class BookingConsentimentoTests(TestCase):
 # ─── Lembrete D-1 nao e suprimido pelo link do termo ─────────────────
 class LembreteD1ComTermoTests(TestCase):
     def test_notificacao_de_termo_enviada_nao_bloqueia_o_d1(self):
-        from aranha_estetica.tasks import job_enviar_lembrete_dia_seguinte
+        from aranha_estetica.jobs import job_enviar_lembrete_dia_seguinte
 
         cliente = criar_cliente(consent_whatsapp_confirmacao=True)
         prof = criar_profissional()
@@ -357,7 +357,7 @@ class LembreteD1ComTermoTests(TestCase):
         with mock.patch('aranha_estetica.utils.whatsapp.pode_enviar_whatsapp', return_value=True), \
                 mock.patch('aranha_estetica.utils.whatsapp.enviar_confirmacao_d1',
                            return_value=enviada) as envio:
-            job_enviar_lembrete_dia_seguinte.apply()
+            job_enviar_lembrete_dia_seguinte()
         envio.assert_called_once()
         self.assertEqual(envio.call_args.args[0].pk, at.pk)
 

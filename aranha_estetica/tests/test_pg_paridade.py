@@ -704,7 +704,7 @@ class ParidadeManutencaoTests(TestCase):
         }
 
     def test_sp_purgar_dados_expirados(self):
-        from aranha_estetica import tasks_manutencao as tm
+        from aranha_estetica import jobs_manutencao as tm
 
         agora = timezone.now()
         _, velho = CodigoOtp.gerar('velho@x.com')
@@ -742,11 +742,11 @@ class ParidadeManutencaoTests(TestCase):
         self.assertEqual(sorted(m for _id, m in depois['notificacao']), ['', '', 'Oi Cliente'])
         self.assertIn('prontuario', {t for _id, t in depois['historico_alteracao']})   # 20 anos: fica
         # o job usa a procedure e expoe as mesmas chaves
-        resumo_job = tm.job_housekeeping.apply().get()
+        resumo_job = tm.job_housekeeping()
         self.assertEqual({k: resumo_job[k] for k in resumo}, resumo)
 
     def test_sp_expirar_pacotes(self):
-        from aranha_estetica.tasks import job_expirar_pacotes
+        from aranha_estetica.jobs import job_expirar_pacotes
 
         pacote = Pacote.objects.create(nome='Validade', preco_total=Decimal('10'), validade_meses=1)
         hoje = timezone.localdate()
@@ -759,7 +759,7 @@ class ParidadeManutencaoTests(TestCase):
         def foto():
             return _q('SELECT id, status FROM compra_pacote ORDER BY id')
 
-        r_sql, f_sql = _rodar_e_fotografar(lambda: job_expirar_pacotes.apply().get(), foto)
+        r_sql, f_sql = _rodar_e_fotografar(lambda: job_expirar_pacotes(), foto)
         self.assertEqual(r_sql, '1 pacotes expirados')
         self.assertEqual(dict(f_sql)[compras[0]], 'EXPIRADO')
         self.assertEqual(dict(f_sql)[compras[1]], 'ATIVO')  # o ultimo dia ainda vale

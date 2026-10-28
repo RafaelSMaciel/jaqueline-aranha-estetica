@@ -7,9 +7,9 @@ gera linha, (4) senha_hash e redigida, (5) a trilha e append-only (so a purga co
 apaga) e (6) cron/Celery/conexao nova definem/limpam app.origem.
 """
 import os
+from io import StringIO
 from datetime import timedelta
 from decimal import Decimal
-from types import SimpleNamespace
 from unittest import mock, skipUnless
 
 from django.core.cache import cache
@@ -324,16 +324,11 @@ class ContextoDaSessaoTests(TestCase):
         limpar_contexto_conexao_nova(None, connection)
         self.assertEqual(_contexto(), ('', '', ''))
 
-    def test_sinais_do_celery_so_no_worker_real(self):
-        from aranha_estetica.sinais_celery import definir_contexto_task, limpar_contexto_task
+    def test_comando_rodar_job_grava_origem_e_limpa(self):
+        from django.core.management import call_command
 
-        worker = SimpleNamespace(name='aranha_estetica.tasks.job_x', request=SimpleNamespace(is_eager=False))
-        definir_contexto_task(task=worker)
-        self.assertEqual(_contexto(), ('', '', 'celery:aranha_estetica.tasks.job_x'))
-        limpar_contexto_task(task=worker)
+        visto = {}
+        with mock.patch.dict('aranha_estetica.views.cron.JOB_MAP', {'x': lambda: visto.setdefault('c', _contexto())}):
+            call_command('rodar_job', 'x', stdout=StringIO())
+        self.assertEqual(visto['c'], ('', '', 'comando:x'))
         self.assertEqual(_contexto(), ('', '', ''))
-        # eager (producao sem worker / testes): herda o contexto do request ou cron
-        definir_contexto_banco('', '', 'cron:x')
-        eager = SimpleNamespace(name='job', request=SimpleNamespace(is_eager=True))
-        definir_contexto_task(task=eager)
-        self.assertEqual(_contexto(), ('', '', 'cron:x'))

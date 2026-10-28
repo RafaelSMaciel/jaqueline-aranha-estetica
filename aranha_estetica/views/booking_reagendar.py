@@ -19,9 +19,9 @@ from django.utils import timezone
 from django_ratelimit.decorators import ratelimit
 
 from ..constants import JANELA_MINIMA_REAGENDAMENTO
-from ..models import Atendimento, Cliente, Profissional
+from ..models import Atendimento, Cliente, Notificacao, Profissional
 from ..excecoes import RegraDeNegocio, TransicaoInvalida
-from ..services import agenda, links
+from ..services import agenda, comunicacao, links
 from ..services.agendamento_service import formatar_brl, formatar_data_hora
 from ..services.disponibilidade import profissionais_para
 from ..utils.audit import registrar_log
@@ -33,11 +33,7 @@ from ..utils.pii import mask_telefone
 from ..utils.sms import sms_disponivel
 from .booking_api import agrupar_horarios
 from .booking_otp import SESSAO_MEUS_AGENDAMENTOS
-from .booking_public import (
-    MSG_BLOQUEADO_ONLINE,
-    _enfileirar_email,
-    link_revisar_agenda,
-)
+from .booking_public import MSG_BLOQUEADO_ONLINE
 
 logger = logging.getLogger(__name__)
 
@@ -243,6 +239,8 @@ def _reagendar(request, atendimento, *, link, url_voltar, url_horarios):
             # Mesma regra de horario das outras portas; antigo -> REAGENDADO + novo com o preco
             # combinado (services.agenda). O proprio horario antigo nao bloqueia o novo.
             novo = agenda.reagendar(atendimento, nova_data, profissional)
+            if novo.status == Atendimento.STATUS_PENDENTE:   # volta p/ a profissional aprovar
+                comunicacao.enfileirar_email(novo, Notificacao.Tipo.APROVACAO)
             if link is not None:
                 links.marcar_usado(link)
             registrar_log(
@@ -267,18 +265,6 @@ def _reagendar(request, atendimento, *, link, url_voltar, url_horarios):
 
     data_fmt = formatar_data_hora(nova_data)
     pendente = novo.status == Atendimento.STATUS_PENDENTE
-
-    if pendente:
-        usuario_prof = getattr(profissional, 'usuario', None)
-        prof_email = getattr(usuario_prof, 'email', None)
-        if prof_email:
-            _enfileirar_email('enviar_aprovacao_profissional_email', prof_email, {
-                'profissional': profissional.nome,
-                'cliente': antigo.cliente.nome,
-                'procedimento': procedimento.nome,
-                'data_hora': data_fmt,
-                'link_revisar': link_revisar_agenda(nova_data),
-            })
 
     if novo.eh_retorno:
         valor_txt = 'Sem custo (retorno)'

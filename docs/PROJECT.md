@@ -1,7 +1,7 @@
 # Jaqueline Aranha Estética (Shiva Zen) — Documentação do Projeto
 
 > **Fonte viva textual do projeto.** Reflete o código do branch `dev`
-> (migrations `0001`–`0060`). Mudou model, rota, env var, job ou deploy? Atualize aqui
+> (migrations `0001`–`0061`). Mudou model, rota, env var, job ou deploy? Atualize aqui
 > no mesmo commit. Regras funcionais detalhadas: [`REGRAS-DE-NEGOCIO.md`](REGRAS-DE-NEGOCIO.md).
 > Acesso/login: [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO-E-ACESSO.md). Decisões e
 > pendências: [`ARCHITECTURE.md`](ARCHITECTURE.md). Requisitos/UML do TCC:
@@ -54,7 +54,7 @@ O papel **RECEPCAO** existe no modelo, mas ainda não tem telas nem login (ver
 | Front-end | Vite 6 + Tailwind CSS v4 (`@tailwindcss/vite`) + Alpine.js via `@alpinejs/csp` + django-vite 3 + django-cotton 2. **Sem HTMX, Bootstrap ou jQuery** |
 | Libs no CDN (com SRI) | FullCalendar 6.1.11 (`painel/calendar.html`), Chart.js 4.4.0 (`painel/overview.html`) |
 | Fontes | Playfair Display + Lato (Google Fonts) — tokens em `static/src/css/tokens.css` |
-| Assíncrono | Celery 5.4. Em produção roda **eager** (sem worker) salvo `CELERY_WORKER_ENABLED=true`; jobs periódicos via cron HTTP |
+| Jobs / fila | Sem Celery: jobs são funções (`jobs.py`) chamadas pelo cron HTTP `/cron/run/<job>/` ou por `manage.py rodar_job`; e-mail transacional com fila no banco (`Notificacao` EMAIL, reenvio pelo job `emails`) |
 | Cache / sessão | LocMemCache + sessão no banco (padrão, 1 worker). `REDIS_URL` troca para django-redis + sessão em cache |
 | Auth | Usuário próprio (`AbstractBaseUser`, e-mail), django-axes 8, django-otp + django-two-factor-auth (só models/TOTP; rotas `/account/*` **não** publicadas), django-ratelimit 4 |
 | API | Sem API REST (a DRF saiu: não tinha consumidor). Endpoints JSON do próprio site (wizard, painel) são views Django |
@@ -83,7 +83,7 @@ aranha_estetica/
 │                    notificacoes (confirmar presença), lgpd, profissional, prontuario, auth, admin_2fa,
 │                    dashboard, admin*, pacotes, relatorios, cron, health, whatsapp, webpush_views
 ├── services/        agenda (reservar/reagendar/mover), atendimento (efeitos de criar/mudar status),
-│                    agendamento_service, disponibilidade (SlotService),
+│                    comunicacao (canais, fila de e-mail), agendamento_service, disponibilidade (SlotService),
 │                    otp, lgpd, termos, alertas,
 │                    comissao_service, fidelidade_service, retorno_service, lista_espera_service,
 │                    anamnese, push, gcal
@@ -101,15 +101,14 @@ aranha_estetica/
 ├── static/js/       wizard.js, admin-search.js, webpush.js (servidos direto pelo staticfiles)
 ├── static/dist/     build do Vite (gitignored; gerado no Docker/CI)
 ├── signals.py       só o cache do Branding (post_save/post_delete de Configuracao)
-├── tasks.py / tasks_manutencao.py   jobs Celery (chamados pelo cron HTTP)
-├── sinais_celery.py contexto da trilha (app.origem=celery:<task>) nas tasks do worker real
+├── jobs.py / jobs_manutencao.py     jobs periódicos (funções; cron HTTP e `rodar_job`)
 ├── middleware.py    Enforce2FAMiddleware, SecurityHeadersMiddleware, ContentSecurityPolicyMiddleware,
 │                    ContextoBancoMiddleware (abre o Ator do request)
 ├── checks.py        system checks de produção aranha.W001–W009
 ├── excecoes.py      RegraDeNegocio (mensagem + codigo), HorarioIndisponivel, TransicaoInvalida
 ├── ator.py          Ator (usuário, IP, origem) da borda em ContextVar → LogAuditoria + GUCs app.*
 ├── context_processors.py · decorators.py · validators.py · constants.py · sitemaps.py · admin.py
-clinica/             settings/{base,dev,prod}.py, urls.py, celery.py, wsgi.py, apps.py, gunicorn_logger.py
+clinica/             settings/{base,dev,prod}.py, urls.py, wsgi.py, apps.py, gunicorn_logger.py
 ```
 
 ### 3.2 Camadas e fluxo de uma requisição
@@ -166,8 +165,13 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   vitrine (`/promocoes/`, `/especialidades/`, cards do wizard) mostra.
 - **Branding**: `utils/branding.get_branding()` — precedência **tela Branding (tabela
   `configuracao`) > env > padrão**; contatos vazios escondem o item no site.
-- **Celery**: `send_email_async` e os `job_*` são tasks, mas em produção rodam eager (dentro do
-  request/cron), sem retry síncrono (`CELERY_TASK_ANNOTATIONS max_retries=0`).
+- **Comunicação** (`services/comunicacao.py`): toda mensagem ligada a um atendimento é uma
+  `Notificacao` (tipo × canal × status) — o histórico do que a cliente e a equipe receberam.
+  Os e-mails de confirmação, cancelamento e o pedido de aprovação à profissional nascem
+  `Notificacao` EMAIL PENDENTE **na transação de quem pediu** (outbox) e saem no `on_commit`; se
+  falhar, o job `emails` reenvia com espera crescente (5/10/20/40 min) até 5 tentativas ou 48 h →
+  FALHOU. A fila não guarda cópia de PII: destino e texto saem do atendimento na hora do envio.
+  Marketing e avisos em lote saem direto pelos jobs. Sem Celery (nada roda em segundo plano).
 - **Front**: `static/src/js/app.js` registra componentes Alpine CSP-safe (`temaToggle`,
   `modal`, `navMenu`, `cookieConsent`, `adminShell`, `alertaDismiss`, `anotacaoModal`,
   `pacoteCriar`) + `data-confirm` global e a busca instantânea do painel. Componentes cotton:
@@ -215,7 +219,7 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 ### 5.1 Resumo
 
 - **36 tabelas de domínio** (+ tabelas do Django, django-otp, django-axes). PK `BigAutoField`.
-- Migrations `0001`–`0060`. Ainda não há produção: o primeiro deploy cria o banco do zero (§14).
+- Migrations `0001`–`0061`. Ainda não há produção: o primeiro deploy cria o banco do zero (§14).
   O Postgres do ambiente de desenvolvimento no Railway (na `0026`) está em stand-by. Histórico em
   [`specs/remodelagem-banco-v2.md`](specs/remodelagem-banco-v2.md) e, da `0048` em diante, o padrão
   SQL em [`specs/padrao-sql.md`](specs/padrao-sql.md).
@@ -244,7 +248,7 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 | Acesso | `usuario` (Usuario) | Equipe. Login por e-mail; `papel` ADMIN/PROFISSIONAL/RECEPCAO (CHECK); `is_staff` = ADMIN; 1:1 opcional com Profissional; `eh_ativo` (desativar, nunca excluir) |
 | | `assinatura_push` (AssinaturaPush) | Inscrições Web Push (VAPID) por usuário (`usuario_id`, `chave_p256dh`, `chave_auth`) |
 | | `log_auditoria` (LogAuditoria) | Trilha LGPD art. 37: autor (`usuario_autor_id`) + snapshot `usuario_autor_nome` ("Nome <email>"), ação, `tabela` + `registro_pk` (bigint), detalhes JSON (PII mascarada), IP. Append-only no PG (0059): só a purga com 180+ dias, a pseudonimização do esquecimento e o `SET NULL` do autor |
-| | `historico_alteracao` (HistoricoAlteracao) | **Trilha de dados** gravada por trigger (0056, só PG) em prontuario, atendimento, compra_pacote, carteira, regra_comissao, preco, promocao, pacote, versao_termo, usuario e configuracao: operação, só as `colunas_alteradas` com antes/depois (`senha_hash` = `"[redigido]"`), autor/IP/origem da sessão (`web`, `cron:<job>`, `celery:<task>`, `migracao`), `transacao_ref`. Append-only; Django admin só leitura (leitura auditada). `cliente` fica fora de propósito (PII; o esquecimento obrigaria a expurgar a trilha) |
+| | `historico_alteracao` (HistoricoAlteracao) | **Trilha de dados** gravada por trigger (0056, só PG) em prontuario, atendimento, compra_pacote, carteira, regra_comissao, preco, promocao, pacote, versao_termo, usuario e configuracao: operação, só as `colunas_alteradas` com antes/depois (`senha_hash` = `"[redigido]"`), autor/IP/origem da sessão (`web`, `cron:<job>`, `comando:<job>`, `migracao`), `transacao_ref`. Append-only; Django admin só leitura (leitura auditada). `cliente` fica fora de propósito (PII; o esquecimento obrigaria a expurgar a trilha) |
 | Pessoas | `cliente` (Cliente) | Cliente da clínica. Telefone só dígitos (10–11) é a chave natural; e-mail/CPF opcionais (ausente = `NULL`); consentimentos de comunicação na tabela `consentimento` (histórico, 0050); `qtd_faltas_consecutivas`/`eh_bloqueado_online`; soft delete (`deletado_em`); `cliente_indicador_id` (cashback); `nome` com collation `pt_br` |
 | | `profissional` (Profissional) | Quem atende. `antecedencia_minima_horas` (0–720, padrão 2), `antecedencia_maxima_dias` (1–365, padrão 60), campos do Google Calendar (`gcal_token_renovacao`, `gcal_calendario_ref`...). Feed ICS por `link_acesso` (FEED_ICS) |
 | Catálogo | `procedimento` (Procedimento) | Serviço: duração, `intervalo_minutos` (folga após, 0–120), categoria, modalidade, retorno obrigatório (`tem_retorno_obrigatorio` + janela em dias + duração do retorno) |
@@ -254,7 +258,7 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 | Agenda | `agenda_horario` (AgendaHorario) | Grade semanal: várias janelas por dia, sem sobreposição; `dia_semana` **ISO** (1=seg … 7=dom = `isoweekday()`) |
 | | `agenda_excecao` (AgendaExcecao) | Tudo que muda a grade numa data: **FOLGA** (intervalo `data_inicio..data_fim`; sem profissional = clínica inteira: feriado nacional/local, recesso), **HORARIO_DIFERENTE** (substitui a grade num dia) e **BLOQUEIO** (`data_hora_*`, pontual ou recorrente por RRULE no subconjunto DAILY/WEEKLY/MONTHLY + `data_fim_recorrencia`; sem profissional = "Todos"). `origem` MANUAL/FERIADO_NACIONAL/FERIADO_LOCAL/RECESSO/GCAL (+ `origem_ref` = id do evento Google); `eh_ativo=false` = registrada e ignorada (ex.: feriado em que a clínica abre). 0048 unificou as 4 tabelas antigas |
 | | `atendimento` (Atendimento) | Agendamento/sessão. FSM de 7 estados, preço gravado (`valor_cobrado`, `valor_original`, `promocao`, `descricao_preco`), retorno (`eh_retorno` + `atendimento_origem_id`), `atendimento_reagendado_id` (o antigo que este substitui) |
-| | `notificacao` (Notificacao) | Mensagem por atendimento: tipo (LEMBRETE, LEMBRETE_2H, CONFIRMACAO, CANCELAMENTO, NPS, PESQUISA, APROVACAO, TERMO), canal, status PENDENTE/ENVIADO/FALHOU; o link público (/confirmar/, /nps/, /termo/) vive em `link_acesso` |
+| | `notificacao` (Notificacao) | Mensagem por atendimento: tipo (LEMBRETE, LEMBRETE_2H, CONFIRMACAO, CANCELAMENTO, NPS, PESQUISA, APROVACAO, TERMO), canal, status PENDENTE/ENVIADO/FALHOU; também a fila do e-mail (`tentativas`, `proxima_tentativa_em`, índice parcial `ix_notificacao_fila_email`, 0061); o link público (/confirmar/, /nps/, /termo/) vive em `link_acesso` |
 | | `lista_espera` (ListaEspera) | Pedido de aviso de vaga (procedimento, data, turno, `profissional_desejado_id` opcional, `email_contato`, `eh_notificado`) |
 | Clínico | `prontuario` (Prontuario) | Ficha base 1:1 com a cliente: alergias, contraindicações, histórico, medicamentos, observações + `respostas` (JSONB `{key: valor}` do questionário do prontuário = formulário PRONTUARIO ativo, 0051; atributo Python `respostas_extras`) |
 | | `prontuario_versao` (ProntuarioVersao) | **Histórico append-only** da ficha: foto do estado anterior a cada edição, com autor (`usuario_autor_id` + `usuario_autor_nome`, 0046) |
@@ -337,7 +341,7 @@ fallback das procedures). Texto SQL versionado em `aranha_estetica/migrations/sq
 `app.origem`. Quem define (`utils/banco.definir_contexto_banco`, `set_config(..., false)` = nível de
 sessão) e **sempre limpa**: o `Ator` (`ator.atuando`) aberto pelo `ContextoBancoMiddleware` (`web`
 + usuário + IP; o `/healthz/` não toca o banco) e por `views/cron.py` (`cron:<job>`; aninhado, volta
-ao do request na saída) — o mesmo autor/IP vai à `LogAuditoria` —, sinais do Celery com worker real (`celery:<task>`),
+ao do request na saída) — o mesmo autor/IP vai à `LogAuditoria` —, `rodar_job` (`comando:<job>`),
 `migrate_atomico` (`SET LOCAL app.origem = 'migracao'`); conexão nova nasce limpa
 (`connection_created`). SQL manual sai com autor `NULL` e origem `''`. **PgBouncer em modo
 transação quebraria isso** (o Railway não usa): nesse dia, trocar para `ATOMIC_REQUESTS` +
@@ -417,7 +421,7 @@ versão: `/account/*` (django-two-factor), `/api/schema/redoc/`, `/servicos/prod
 | `POST /api/zenvia/webhook/` | Status de entrega de SMS (`ZENVIA_ALLOWED_IPS` e/ou HMAC `ZENVIA_WEBHOOK_SECRET`; recusa tudo em prod sem nenhum dos dois) |
 | `POST /cron/run/<job>/` | Jobs periódicos (§10), header `X-Cron-Token` |
 | `/healthz/` | Liveness (processo vivo + manifest do Vite); healthcheck do Railway |
-| `/health/` | Readiness: banco + cache + manifest (503 se algo falha); `?celery=1` com `X-Cron-Token` pinga o worker |
+| `/health/` | Readiness: banco + cache + manifest (503 se algo falha) |
 
 ---
 
@@ -569,12 +573,12 @@ afetados quando houver risco relevante.
 
 ## 10. Jobs periódicos
 
-Produção roda sem worker Celery: um **cron externo** chama
+Os jobs são funções (`jobs.py`, `jobs_manutencao.py`; sem Celery): um **cron externo** chama
 `POST /cron/run/<job>/` com o header `X-Cron-Token: $CRON_TOKEN` (nunca `?token=`).
 Resposta `200 {"ok": true}`; `500 {"ok": false}` quando o job falha (o cron deve alertar);
-`403` token; `404` job desconhecido (lista os disponíveis). O job roda **dentro do request**
-(eager) e o gunicorn corta em 120 s. Os mesmos horários estão em `CELERY_BEAT_SCHEDULE`
-(usado só se houver worker + beat).
+`403` token; `404` job desconhecido (lista os disponíveis). O job roda **dentro do request**,
+uma vez (sem retry na hora), e o gunicorn corta em 120 s. No shell do servidor ou em dev:
+`python manage.py rodar_job <job>` (`--lista`; erro = exit 1; trilha com origem `comando:<job>`).
 
 ```bash
 curl -fsS -X POST -H "X-Cron-Token: $CRON_TOKEN" https://<dominio>/cron/run/<job>/
@@ -582,6 +586,7 @@ curl -fsS -X POST -H "X-Cron-Token: $CRON_TOKEN" https://<dominio>/cron/run/<job
 
 | Job (`<job>`) | Horário BRT | Cron (America/Sao_Paulo) | Cron (UTC) | O que faz |
 |---|---|---|---|---|
+| `emails` | a cada 15 min | `*/15 * * * *` | `*/15 * * * *` | Reenvia a fila de e-mail (`Notificacao` EMAIL PENDENTE vencida; até 5 tentativas / 48 h) |
 | `pacote_expirar` | 00:30 | `30 0 * * *` | `30 3 * * *` | Compras ATIVO com `data_expiracao` < hoje → EXPIRADO (`sp_expirar_pacotes`) |
 | `pacote_expirando` | 07:00 | `0 7 * * *` | `0 10 * * *` | E-mail a quem tem pacote vencendo em 7 ou 1 dia com saldo |
 | `lembrete_diario` | 08:00 | `0 8 * * *` | `0 11 * * *` | WhatsApp D-1 (template `confirmacao_d1`) para atendimentos **AGENDADO** de amanhã com LEMBRETE_AGENDAMENTO/WHATSAPP vigente; idempotente |
@@ -592,8 +597,9 @@ curl -fsS -X POST -H "X-Cron-Token: $CRON_TOKEN" https://<dominio>/cron/run/<job
 | `lgpd_purgar` | dom 03:00 | `0 3 * * 0` | `0 6 * * 0` | Anonimização por retenção (confirmada cliente a cliente), fichas de pedidos não realizados, lista de espera vencida (`sp_aplicar_retencao_lgpd`) |
 | `housekeeping` | 04:00 | `0 4 * * *` | `0 7 * * *` | Sessões, OTP > 24h, texto de notificação > 12 meses, auditoria e trilha `historico_alteracao` > 5 anos (prontuário fica), link público vencido/revogado > 90 dias (`sp_purgar_dados_expirados`), axes > 90 dias (etapas independentes; falha de uma → 500 no fim) |
 
-O que um job muda nas tabelas com trilha sai em `historico_alteracao` com origem `cron:<job>`.
 | `feriados` | dia 1, 04:30 | `30 4 1 * *` | `30 7 1 * *` | `carregar_feriados` (ano atual + seguinte) |
+
+O que um job muda nas tabelas com trilha sai em `historico_alteracao` com origem `cron:<job>`.
 
 O Brasil está sem horário de verão desde 2019: BRT = UTC−3 o ano todo. `job_promocao_mensal`
 não está no cron — é disparado pelo painel (Promoções > Disparar).
@@ -635,7 +641,7 @@ Lista completa e comentada em [`.env.example`](../.env.example). Em produção:
 | `PROFISSIONAL_2FA_OBRIGATORIO` | Sem a env: ligado em prod (o PROFISSIONAL lê prontuário e alertas de saúde). `false` = válvula de emergência (W012) |
 | `EMBED_FRAME_ANCESTORS` | Origens que podem embutir `/embed/agendar/` (vazio = qualquer `https:`) |
 | `LGPD_RETENCAO_CLIENTE_DIAS` | Retenção de cliente inativo (padrão 1825) |
-| `REDIS_URL` | Opcional: cache/sessão compartilhados (obrigatório se `WEB_CONCURRENCY` > 1). **Não** liga worker |
+| `REDIS_URL` | Opcional: cache/sessão compartilhados (obrigatório se `WEB_CONCURRENCY` > 1) |
 | `CRON_MONITOR_URL` | Monitor dos jobs (healthchecks.io: `https://hc-ping.com/<ping key>`): cada job avisa `<url>/<job>` ou `<url>/<job>/fail` |
 
 ### 11.3 Opcionais / ajuste fino
@@ -643,8 +649,7 @@ Lista completa e comentada em [`.env.example`](../.env.example). Em produção:
 `CLINIC_NAME`, `CLINIC_SUBTITLE`, `CLINIC_PHONE`, `CLINIC_ADDRESS`, `CLINIC_HOURS`,
 `INSTAGRAM_URL`, `THEME_COLOR` (a tela Branding vence a env) · `USE_HTTPS` ·
 `CLIENT_IP_HEADER` (prod: `HTTP_X_REAL_IP`) · `WEB_CONCURRENCY` (1), `WEB_THREADS` (4),
-`WEB_TIMEOUT` (120) · `SESSION_COOKIE_AGE` (28800) · `CELERY_WORKER_ENABLED`,
-`CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND` · `ADMIN_PASSWORD_RESET` · `SMS_MAX_POR_HORA` (3),
+`WEB_TIMEOUT` (120) · `SESSION_COOKIE_AGE` (28800) · `ADMIN_PASSWORD_RESET` · `SMS_MAX_POR_HORA` (3),
 `SMS_MAX_POR_IP_HORA` (10), `SMS_MAX_GLOBAL_HORA` (60), `ZENVIA_API_URL`,
 `ZENVIA_WEBHOOK_SECRET`, `ZENVIA_ALLOWED_IPS` · `OTP_TTL_SEGUNDOS` (600),
 `OTP_MAX_TENTATIVAS` (5), `OTP_REENVIO_MINIMO_SEG` (60) · `WHATSAPP_API_URL`,
@@ -668,8 +673,7 @@ Só dev/testes: `DEBUG`, `SMS_DEV_LOG_ONLY` (em prod gera W002), `DB_ENGINE`/`DB
 ## 12. Testes e CI
 
 - `python manage.py test aranha_estetica` — suíte Django (SQLite `db_test.sqlite3`, ~1.390
-  testes em 64 arquivos — roda **tudo**, inclusive as data migrations). Nos testes: Celery eager
-  com propagação, SMS em modo log, avisos `aranha.W00x` silenciados (testados à parte em
+  testes em 64 arquivos — roda **tudo**, inclusive as data migrations). Nos testes: SMS em modo log, avisos `aranha.W00x` silenciados (testados à parte em
   `test_deploy_config.py`), django-vite em `dev_mode` (não precisa do build).
 - **Atalho do dia a dia**: `python manage.py test aranha_estetica --exclude-tag migracoes` pula
   `tests/test_migrations_dados.py` (tag `migracoes`: desce e sobe a cadeia de migrations dezenas
@@ -687,7 +691,7 @@ Só dev/testes: `DEBUG`, `SMS_DEV_LOG_ONLY` (em prod gera W002), `DB_ENGINE`/`DB
   SQL, FK sem índice, `ON DELETE` divergente do model, tabela sem `COMMENT`, tabela com
   `atualizado_em` sem `tg_<t>_atualizado_em`, índice `_like` (migration nova que recria FK pelo
   `AlterField` precisa terminar com `PadronizarNomes()`), `tests/test_pg_historico.py` prova a
-  trilha (autor/IP do request, contexto limpo entre requests na mesma conexão, cron, Celery,
+  trilha (autor/IP do request, contexto limpo entre requests na mesma conexão, cron, `rodar_job`,
   redação da senha, append-only) e `tests/test_pg_paridade.py` compara cada `fn_*`/`vw_*` com o
   Python (mudou a regra no Python → atualize a função numa migration nova) e confere o efeito de
   cada `sp_*`.
@@ -731,7 +735,7 @@ todos os jobs:
   o `CMD` do Dockerfile (mudar os dois juntos). 1 réplica; restart ON_FAILURE (5×).
 - **Healthcheck**: `/healthz/` (timeout 120 s) — 503 se o bundle do Vite faltar.
 - **Produção**: `DEBUG` sempre falso, HTTPS + HSTS, e-mail *dummy* sem `EMAIL_BACKEND`, SMS falha
-  fechado sem Zenvia, Celery eager (`CELERY_WORKER_ENABLED=true` liga worker real), logs JSON.
+  fechado sem Zenvia, logs JSON. Sem worker de fila: jobs pelo cron HTTP (§10).
 - O deploy de produção sai do branch `main` (configuração do serviço no Railway). O trabalho
   acontece na `dev`; a `main` é protegida no GitHub (os 6 jobs bloqueantes do CI obrigatórios,
   inclusive para admin; sem force-push) e recebe a `dev` por PR ou fast-forward.
@@ -743,8 +747,8 @@ todos os jobs:
 > **Estado em 2026-10-27:** ainda não há produção. O projeto do Railway que existia (web + Postgres
 > na `0026`) era só **ambiente de desenvolvimento**; está em **stand-by** (trial expirado) e não
 > precisa de upgrade nem de backup. O primeiro deploy de produção cria um **banco novo**: o
-> `migrate_atomico` aplica `0001`→`0060` numa transação e o `seed --force` carrega o catálogo. O
-> roteiro de atualização de um banco já existente (`0026` → `0060`) fica no §14 a.1, para o caso
+> `migrate_atomico` aplica `0001`→`0061` numa transação e o `seed --force` carrega o catálogo. O
+> roteiro de atualização de um banco já existente (`0026` → `0061`) fica no §14 a.1, para o caso
 > de esse banco um dia ser reaproveitado.
 
 ### a) Pré-deploy
@@ -773,7 +777,7 @@ todos os jobs:
 4. **Backup** configurado antes do primeiro cliente real (§14 h).
 5. PR ou fast-forward `dev` → `main` (dispara o deploy; a proteção exige o CI verde no commit).
 
-### a.1) Só para atualizar um banco existente (`0026` → `0060`)
+### a.1) Só para atualizar um banco existente (`0026` → `0061`)
 
 1. **Backup** (é o único rollback): `scripts/backup/backup_postgres.sh` (§14 h). Nunca grave o dump
    em claro dentro do repositório (o `.gitignore`/`.dockerignore` ignoram `*.dump`, mas um
@@ -893,6 +897,7 @@ todos os jobs:
      upgrade `SELECT count(*) FROM historico_alteracao` = 0 (no ensaio também).
    - A `0059` (trilhas append-only) não mexe em dado. A `0060` cifra o dado de saúde existente
      (inclusive na trilha) e **aborta sem `CHAVES_CIFRAGEM`** em prod: defina a chave antes (§14 a, passo 2).
+   - A `0061` só acrescenta a fila de e-mail na `notificacao` (2 colunas + índice parcial); sem DML.
    - A `0034` não aborta: normaliza telefone/CPF/e-mail, tira duplicatas (o cliente com mais
      atendimentos fica com o valor; os outros ficam ativos com o campo nulo) e registra cada caso
      na `LogAuditoria` (`migration 0034: ...`, com `telefone_original`) para mesclagem manual;
@@ -900,7 +905,7 @@ todos os jobs:
 ### b) O que o deploy faz
 
 1. Build da imagem (§13) — falha de front, collectstatic ou check derruba o build, nada muda.
-2. Pre-deploy: `migrate_atomico` (`0001`→`0060` no banco novo, ou `0027`→`0060` no §14 a.1, numa
+2. Pre-deploy: `migrate_atomico` (`0001`→`0061` no banco novo, ou `0027`→`0061` no §14 a.1, numa
    transação; `lock_timeout` 5 s — se o deploy antigo segurar lock, falha e é só refazer) e `bootstrap_admin` (cria/reativa o ADMIN).
    Leia o log do pre-deploy: avisos `aranha.W0xx`, `0042: ATENCAO ...` e
    `bootstrap_admin: ERRO — painel sem administrador ativo` indicam env faltando (os checks
@@ -920,7 +925,7 @@ curl -fsS https://<dominio>/health/                   # db/cache/front = true
 railway ssh   # shell no container:
 python manage.py check --database default             # lista W001–W013 pendentes
 python manage.py sendtestemail voce@exemplo.com       # e-mail real pelo provedor (§14 i)
-python manage.py showmigrations aranha_estetica | tail -3   # [X] 0060
+python manage.py showmigrations aranha_estetica | tail -3   # [X] 0061
 ```
 
 Trilha funcionando: edite um prontuário de teste pelo painel e confira (`railway connect` no

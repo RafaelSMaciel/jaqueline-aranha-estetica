@@ -460,7 +460,6 @@ class HelpersBookingTests(TestCase):
         self.assertEqual(formatar_brl(1500), 'R$ 1.500,00')
         self.assertEqual(formatar_brl(None), '')
 
-    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_aprovar_envia_email_com_hora_local(self):
         """booking-19: dt do banco vem em UTC — e-mail precisa mostrar 10:00 local."""
         prof = criar_profissional()
@@ -468,7 +467,7 @@ class HelpersBookingTests(TestCase):
         cli = criar_cliente(email='cli@example.com')
         at = _atendimento(cli, prof, proc, _local(2, 10), status='PENDENTE')
         at = Atendimento.objects.select_related('cliente', 'procedimento', 'profissional').get(pk=at.pk)
-        with patch.object(AgendamentoService, '_enviar_email_confirmacao') as enviar, \
+        with patch('aranha_estetica.utils.email.enviar_confirmacao_agendamento_email', return_value=True) as enviar, \
                 self.captureOnCommitCallbacks(execute=True):
             self.assertTrue(AgendamentoService().aprovar(at))
         dados = enviar.call_args.args[1]
