@@ -15,20 +15,12 @@ from ...models import (
 )
 from ...services import otp as otp_service
 from ...utils import datas
-from ...validators import normalizar_telefone, validate_telefone_br
+from ...utils import telefone as telefones
 from ...utils.datas import ler_data
 
 logger = logging.getLogger(__name__)
 
 TURNOS = [('MANHA', 'Manhã'), ('TARDE', 'Tarde'), ('NOITE', 'Noite')]
-
-
-def _telefone_br(valor: str) -> str:
-    """Digitos do celular, sem DDI 55 (autofill costuma trazer +55)."""
-    digitos = normalizar_telefone(valor)
-    if len(digitos) in (12, 13) and digitos.startswith('55'):
-        digitos = digitos[2:]
-    return digitos
 
 
 @ratelimit(key='ip', rate='10/m', method='POST', block=True)
@@ -67,7 +59,7 @@ def lista_espera_publica(request):
     nome = request.POST.get('nome', '').strip()[:150]
     email = request.POST.get('email', '').strip()[:254]
     telefone_bruto = request.POST.get('telefone', '').strip()
-    telefone = _telefone_br(telefone_bruto)
+    telefone = telefones.valido_ou_vazio(telefone_bruto)
     procedimento_id = request.POST.get('procedimento', '')
     profissional_id = request.POST.get('profissional', '')
     data_desejada = request.POST.get('data_desejada', '')
@@ -87,11 +79,7 @@ def lista_espera_publica(request):
         return _erro('Preencha nome, celular, e-mail, procedimento e data.')
 
     # Valida antes do banco: o CHECK do Postgres (10-11 digitos) viraria 500.
-    try:
-        if not telefone:
-            raise ValidationError('sem dígitos')
-        validate_telefone_br(telefone)
-    except ValidationError:
+    if not telefone:
         return _erro('Informe um celular válido com DDD, ex.: (17) 99999-9999.')
 
     try:

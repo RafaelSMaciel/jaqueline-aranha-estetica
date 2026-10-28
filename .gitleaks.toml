@@ -1,0 +1,24 @@
+# gitleaks (pre-commit e CI, job auditoria-deps): regras padrao + allowlist dos dados SINTETICOS
+# conhecidos do repositorio. Cada entrada explica por que nao e segredo. Segredo real nunca entra
+# aqui: vai para as variaveis do Railway e, se for commitado por engano, e rotacionado.
+title = "Shiva Zen"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Dados sinteticos: suite, valores falsos do CI e exemplos"
+paths = [
+  # suite: chaves, tokens e senhas gerados para cada caso, nunca usados fora do runner
+  '''^aranha_estetica/tests/''',
+  # SQLite de dev com as contas demo (@shivazen.com, desativadas pela migration 0042) e dados
+  # ficticios de clientes; removido do repositorio no commit 429c689
+  '''^db_dev\.sqlite3\.bak''',
+]
+regexes = [
+  # chaves falsas do CI (suite e check --deploy) e o valor de exemplo antigo do .env.example
+  '''ci-check-deploy-0123456789-abcdefghijklmnopqrstuvwxyz-ABCDEFGHIJ''',
+  '''ci-only-nao-secreto''',
+  '''ci-nao-secreto''',
+  '''troque-essa-chave-em-producao''',
+]

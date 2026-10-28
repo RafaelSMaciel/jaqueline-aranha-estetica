@@ -1,14 +1,16 @@
 """Marca/contatos da clinica — fonte unica p/ site, e-mails e WhatsApp.
 
 Precedencia: valor salvo na tela Branding do painel (tabela Configuracao)
--> variavel de ambiente -> default. Contatos sem valor ficam '' (os templates
+-> variavel de ambiente (settings.MARCA_ENV, lida em settings/base.py) -> default. Contatos sem valor ficam '' (os templates
 escondem o item) — nunca exibir telefone/e-mail ficticio.
 """
 import logging
-import os
 import re
 
+from django.conf import settings
 from django.core.cache import cache
+
+from . import telefone
 
 logger = logging.getLogger(__name__)
 
@@ -71,28 +73,25 @@ def invalidar_cache() -> None:
 
 
 def normalizar_whatsapp(valor) -> str:
-    """Numero p/ wa.me: so digitos, com DDI. '' se invalido.
+    """Numero p/ wa.me: E.164 BR sem '+' (utils/telefone.e164). '' se invalido.
 
-    '(17) 99123-4567' -> '5517991234567' (10-11 digitos = numero BR sem DDI: prefixa 55).
-    Sem isso, wa.me/17991234567 abre +1 (EUA/Canada). Final precisa ter 12-13 digitos.
+    '(17) 99123-4567' -> '5517991234567' (sem o DDI, wa.me/17991234567 abriria +1, EUA/Canada).
     """
-    digitos = ''.join(ch for ch in str(valor or '') if ch.isdigit())
-    if not digitos:
+    if not str(valor or '').strip():
         return ''
-    if len(digitos) in (10, 11):
-        digitos = f'55{digitos}'
-    if len(digitos) not in (12, 13):
-        logger.warning('whatsapp_numero_invalido', extra={'digitos': len(digitos)})
-        return ''
-    return digitos
+    numero = telefone.e164(valor)
+    if not numero:
+        logger.warning('whatsapp_numero_invalido', extra={'digitos': len(telefone.normalizar(valor))})
+    return numero
 
 
 def get_branding() -> dict:
-    """Marca efetiva: Configuracao > env > DEFAULTS. Valores sempre str."""
+    """Marca efetiva: Configuracao > env (settings.MARCA_ENV) > DEFAULTS. Valores sempre str."""
     db = config_dict()
+    env = settings.MARCA_ENV
     out = {}
     for chave, default in DEFAULTS.items():
-        valor = (db.get(chave) or os.environ.get(chave) or default or '').strip()
+        valor = (db.get(chave) or env.get(chave) or default or '').strip()
         out[chave] = valor
     out['WHATSAPP_NUMERO'] = normalizar_whatsapp(out['WHATSAPP_NUMERO'])
     # Valores vao p/ href/meta: so aceita formatos seguros (senao cai no default)

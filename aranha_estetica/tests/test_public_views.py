@@ -1,5 +1,4 @@
 """Smoke + regressao das views/templates publicos (auditoria pre-producao, P8)."""
-import os
 import re
 from datetime import timedelta
 from decimal import Decimal
@@ -26,7 +25,7 @@ class PublicViewsTests(TestCase):
 
     def test_home(self):
         r = self.client.get(reverse('aranha:inicio'))
-        self.assertIn(r.status_code, (200, 301, 302))
+        self.assertEqual(r.status_code, 200)
 
     def test_healthcheck_ok(self):
         r = self.client.get('/health/')
@@ -106,7 +105,7 @@ class DadosInventadosTests(TestCase):
             self.assertIn(f'href="{reverse("aranha:" + nome)}"', html, nome)
 
 
-@patch.dict(os.environ, {'WHATSAPP_NUMERO': '', 'CLINIC_PHONE': '', 'CLINIC_EMAIL': ''})
+@override_settings(MARCA_ENV={'WHATSAPP_NUMERO': '', 'CLINIC_PHONE': '', 'CLINIC_EMAIL': ''})
 class ContatosVaziosTests(TestCase):
     """Regressao public_front-02/booking-11: sem contato real, nada de numero/e-mail ficticio."""
 
@@ -123,7 +122,7 @@ class ContatosVaziosTests(TestCase):
             self.assertNotIn('99999-0000', html, nome)
             self.assertNotIn('contato@clinica.com.br', html, nome)
 
-    @patch.dict(os.environ, {'WHATSAPP_NUMERO': '5517991234567', 'CLINIC_PHONE': '(17) 99123-4567'})
+    @override_settings(MARCA_ENV={'WHATSAPP_NUMERO': '5517991234567', 'CLINIC_PHONE': '(17) 99123-4567'})
     def test_com_whatsapp_renderiza_cta_e_tel_correto(self):
         cache.clear()
         html = self.client.get(reverse('aranha:inicio')).content.decode()
@@ -148,7 +147,7 @@ class FaqHonestoTests(TestCase):
         self.assertNotIn('benefício por indicação', html)
         self.assertNotIn('indicar uma amiga', respostas)
 
-    @patch.dict(os.environ, {'WHATSAPP_NUMERO': '', 'CLINIC_PHONE': '', 'CLINIC_EMAIL': ''})
+    @override_settings(MARCA_ENV={'WHATSAPP_NUMERO': '', 'CLINIC_PHONE': '', 'CLINIC_EMAIL': ''})
     def test_sem_canais_faq_nao_cita_whatsapp_telefone_nem_email(self):
         respostas, _ = self._respostas()
         self.assertNotIn('WhatsApp', respostas)
@@ -157,7 +156,7 @@ class FaqHonestoTests(TestCase):
         self.assertIn('presencialmente na clínica', respostas)
         self.assertIn('agendar online pelo nosso site', respostas)
 
-    @patch.dict(os.environ, {'WHATSAPP_NUMERO': '5517991234567', 'CLINIC_PHONE': '',
+    @override_settings(MARCA_ENV={'WHATSAPP_NUMERO': '5517991234567', 'CLINIC_PHONE': '',
                              'CLINIC_EMAIL': 'oi@clinica.com.br'})
     def test_com_canais_faq_cita_so_os_existentes(self):
         respostas, _ = self._respostas()
@@ -746,7 +745,7 @@ class CtaAgendarSemSmsTests(TestCase):
         cache.clear()
         return self.client.get(reverse('aranha:quem_somos')).content.decode()
 
-    @patch.dict(os.environ, {'WHATSAPP_NUMERO': '5517991234567'})
+    @override_settings(MARCA_ENV={'WHATSAPP_NUMERO': '5517991234567'})
     def test_sem_sms_cta_do_cabecalho_e_rodape_vai_ao_whatsapp(self):
         with patch('aranha_estetica.utils.sms.sms_disponivel', return_value=False):
             html = self._html()
@@ -755,14 +754,14 @@ class CtaAgendarSemSmsTests(TestCase):
         self.assertIn('https://wa.me/5517991234567?text=Ol%C3%A1%21%20Gostaria%20de%20agendar', html)
         self.assertIn('Reserve seu horário pelo WhatsApp.', html)
 
-    @patch.dict(os.environ, {'WHATSAPP_NUMERO': '5517991234567'})
+    @override_settings(MARCA_ENV={'WHATSAPP_NUMERO': '5517991234567'})
     def test_com_sms_cta_segue_para_o_wizard(self):
         with patch('aranha_estetica.utils.sms.sms_disponivel', return_value=True):
             html = self._html()
         self.assertNotIn('Agendar pelo WhatsApp', html)
         self.assertIn('href="%s"' % reverse('aranha:agendamento_publico'), html)
 
-    @patch.dict(os.environ, {'WHATSAPP_NUMERO': ''})
+    @override_settings(MARCA_ENV={'WHATSAPP_NUMERO': ''})
     def test_sem_sms_e_sem_whatsapp_mantem_o_wizard(self):
         with patch('aranha_estetica.utils.sms.sms_disponivel', return_value=False):
             html = self._html()

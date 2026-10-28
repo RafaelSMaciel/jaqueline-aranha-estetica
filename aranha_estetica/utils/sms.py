@@ -4,11 +4,12 @@ SMS Notification Service — Plataforma de Clinicas (Provider: Zenvia REST API v
 Uso atual: apenas OTP de autenticacao/agendamento (canal primario).
 Todas as demais mensagens transacionais seguem por email.
 
-Variaveis de ambiente (lidas em tempo de chamada):
+Configuracao (settings, lidos em tempo de chamada; env de mesmo nome em settings/base.py):
   ZENVIA_API_TOKEN     Token X-API-TOKEN da Zenvia
   ZENVIA_FROM          Identificador do remetente (integracao SMS Zenvia)
-  ZENVIA_API_URL       URL base (default https://api.zenvia.com/v2/channels/sms/messages)
-  SMS_DEV_LOG_ONLY     true = apenas loga sem chamar API (dev/testes)
+  ZENVIA_API_URL       URL da API de envio
+  SMS_DEV_LOG_ONLY     True = apenas loga sem chamar API (dev/testes/staging)
+  SMS_MAX_POR_HORA, SMS_MAX_POR_IP_HORA, SMS_MAX_GLOBAL_HORA   quotas anti-abuso por hora
 
 Falha FECHADA: fora de DEBUG/SMS_DEV_LOG_ONLY e sem provedor configurado,
 enviar_sms retorna False (nunca "sucesso" so logando). O conteudo da
@@ -16,46 +17,32 @@ mensagem (que carrega o codigo OTP) so vai para o log com DEBUG=True.
 """
 import ipaddress
 import logging
-import os
 from typing import Optional
 
 import requests
 from django.conf import settings
 from django.core.cache import cache
 
+from . import telefone as telefones
+
 logger = logging.getLogger(__name__)
 
-ZENVIA_API_URL_DEFAULT = 'https://api.zenvia.com/v2/channels/sms/messages'
 # Timeout curto (connect, read): o envio roda dentro do request do OTP e o
 # prod tem 1 worker/4 threads — sem retry nem sleep aqui (cliente reenvia).
 TIMEOUT = (3, 5)
 
-# Rate limit por telefone (anti-abuse): 3 SMS por hora
-SMS_MAX_POR_HORA = int(os.environ.get('SMS_MAX_POR_HORA', '3'))
-# Rate limit por IP (cross-phone abuse): 10 SMS por hora por IP
-SMS_MAX_POR_IP_HORA = int(os.environ.get('SMS_MAX_POR_IP_HORA', '10'))
-# Rate limit global (burst protection): 60 SMS por hora
-SMS_MAX_GLOBAL_HORA = int(os.environ.get('SMS_MAX_GLOBAL_HORA', '60'))
 # TTL (segundos) da janela de rate limit dos contadores de quota = 1 hora
 RATE_LIMIT_TTL = 3600
 
 
-def _env(nome: str, default: str = '') -> str:
-    return (os.environ.get(nome) or default).strip()
-
-
 def sms_configurado() -> bool:
     """True se as credenciais da Zenvia existem (token + remetente)."""
-    return bool(_env('ZENVIA_API_TOKEN') and _env('ZENVIA_FROM'))
+    return bool(settings.ZENVIA_API_TOKEN and settings.ZENVIA_FROM)
 
 
 def sms_modo_dev() -> bool:
-    """Modo log-only: DEBUG ou flag explicita (settings/env SMS_DEV_LOG_ONLY)."""
-    if getattr(settings, 'DEBUG', False):
-        return True
-    if getattr(settings, 'SMS_DEV_LOG_ONLY', False):
-        return True
-    return _env('SMS_DEV_LOG_ONLY').lower() == 'true'
+    """Modo log-only: DEBUG ou settings.SMS_DEV_LOG_ONLY (testes e staging)."""
+    return bool(settings.DEBUG or settings.SMS_DEV_LOG_ONLY)
 
 
 def sms_disponivel() -> bool:
@@ -63,25 +50,13 @@ def sms_disponivel() -> bool:
     return sms_modo_dev() or sms_configurado()
 
 
-def _mask(telefone: str) -> str:
-    digits = ''.join(ch for ch in (telefone or '') if ch.isdigit())
-    if len(digits) <= 4:
-        return '***' + digits
-    return digits[:2] + '****' + digits[-2:]
+_mask = telefones.mascarar
 
 
 def formatar_telefone(telefone: str) -> str:
-    """Normaliza p/ E.164 BR sem '+' (55 + DDD + numero). '' se nao for BR valido.
-
-    Aceita 10/11 digitos (DDD+numero) ou 12/13 ja com DDI 55. Qualquer outro
-    formato (internacional, curto, lixo) e recusado — evita SMS pumping.
-    """
-    digits = ''.join(ch for ch in (telefone or '') if ch.isdigit())
-    if len(digits) in (12, 13) and digits.startswith('55'):
-        return digits
-    if len(digits) in (10, 11):
-        return '55' + digits
-    return ''
+    """Destino do SMS em E.164 BR sem '+' (utils/telefone.e164). '' se nao for telefone BR
+    valido: internacional, curto ou lixo e recusado — evita SMS pumping."""
+    return telefones.e164(telefone)
 
 
 def _chave_ip(ip: str) -> str:
@@ -105,17 +80,18 @@ def pode_enviar(telefone: str, ip: Optional[str] = None) -> bool:
     tel_fmt = formatar_telefone(telefone)
     if not tel_fmt:
         return False
-    if cache.get(f'sms_rl:tel:{tel_fmt}', 0) >= SMS_MAX_POR_HORA:
+    if cache.get(f'sms_rl:tel:{tel_fmt}', 0) >= settings.SMS_MAX_POR_HORA:
         logger.warning('sms_rate_limit_telefone', extra={'telefone_mask': _mask(tel_fmt)})
         return False
     global_atual = cache.get('sms_rl:global', 0)
-    if global_atual >= SMS_MAX_GLOBAL_HORA:
+    teto_global = settings.SMS_MAX_GLOBAL_HORA
+    if global_atual >= teto_global:
         logger.warning('sms_rate_limit_global')
         return False
-    if global_atual >= SMS_MAX_GLOBAL_HORA * 0.8 and cache.add('sms_rl:alerta80', 1, RATE_LIMIT_TTL):
+    if global_atual >= teto_global * 0.8 and cache.add('sms_rl:alerta80', 1, RATE_LIMIT_TTL):
         # Alerta 1x/hora: possivel SMS pumping antes de esgotar a quota global.
-        logger.error('sms_quota_global_80', extra={'atual': global_atual, 'max': SMS_MAX_GLOBAL_HORA})
-    if ip and cache.get(f'sms_rl:ip:{_chave_ip(ip)}', 0) >= SMS_MAX_POR_IP_HORA:
+        logger.error('sms_quota_global_80', extra={'atual': global_atual, 'max': teto_global})
+    if ip and cache.get(f'sms_rl:ip:{_chave_ip(ip)}', 0) >= settings.SMS_MAX_POR_IP_HORA:
         logger.warning('sms_rate_limit_ip', extra={'ip': ip})
         return False
     return True
@@ -167,8 +143,8 @@ def enviar_sms(telefone: str, mensagem: str) -> bool:
         logger.info('sms_dev_log', extra=extra)
         return True
 
-    token = _env('ZENVIA_API_TOKEN')
-    remetente = _env('ZENVIA_FROM')
+    token = settings.ZENVIA_API_TOKEN
+    remetente = settings.ZENVIA_FROM
     if not token or not remetente:
         logger.error('sms_zenvia_nao_configurado')
         return False
@@ -185,7 +161,7 @@ def enviar_sms(telefone: str, mensagem: str) -> bool:
 
     try:
         response = requests.post(
-            _env('ZENVIA_API_URL', ZENVIA_API_URL_DEFAULT),
+            settings.ZENVIA_API_URL,
             json=payload, headers=headers, timeout=TIMEOUT,
         )
     except requests.exceptions.Timeout:

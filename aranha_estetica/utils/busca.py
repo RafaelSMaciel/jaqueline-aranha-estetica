@@ -15,6 +15,8 @@ import re
 from django.db import connections
 from django.db.models import F, Func, Q, TextField, Value
 
+from . import telefone
+
 # Termo "numerico com mascara": so digitos + separadores comuns de telefone/CPF.
 _MASCARA_NUMERICA = re.compile(r'[\d\s().+\-/]+')
 
@@ -38,9 +40,10 @@ def _q_contato(termo: str, incluir_email: bool) -> Q:
     digitos = re.sub(r'\D', '', termo)
     if len(digitos) >= 3 and _MASCARA_NUMERICA.fullmatch(termo):
         q |= Q(telefone__contains=digitos) | Q(cpf__contains=digitos)
-        # '+55 17 99999-0001': o DDI nao e armazenado (validators.normalizar_telefone)
-        if digitos.startswith('55') and len(digitos) in (12, 13):
-            q |= Q(telefone__contains=digitos[2:])
+        # '+55 17 99999-0001' / '017 ...': DDI e zero de tronco nao sao armazenados (utils/telefone)
+        canonico = telefone.normalizar(digitos)
+        if canonico != digitos:
+            q |= Q(telefone__contains=canonico)
     return q
 
 
