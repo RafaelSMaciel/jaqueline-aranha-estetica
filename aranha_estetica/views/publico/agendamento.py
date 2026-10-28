@@ -16,6 +16,7 @@ from django_ratelimit.decorators import ratelimit
 from ...excecoes import RegraDeNegocio
 from ...forms.agendamento import AgendamentoPublicoForm
 from ...models import (
+    Cliente,
     FormularioAnamnese,
     Profissional,
     Promocao,
@@ -155,6 +156,7 @@ def agendamento_publico(request):
     except (OperationalError, ProgrammingError):
         pass
 
+    otp_telefone = otp_service.telefone_verificado_agendamento(request)
     context = {
         'procedimentos': procedimentos_com_preco,
         'categorias_disponiveis': categorias_disponiveis,
@@ -166,8 +168,10 @@ def agendamento_publico(request):
         'textos_consentimento': consentimentos.TEXTOS_WIZARD,
         'proc_preselect': proc_preselect,
         'prof_preselect': prof_preselect,
-        # Telefone ja verificado nesta sessao (reidratar sem exigir novo SMS)
-        'otp_telefone': otp_service.telefone_verificado_agendamento(request),
+        # Telefone ja verificado nesta sessao (reidratar sem exigir novo SMS) e se ja tem cadastro
+        # (D16: o nome da titular fica so leitura)
+        'otp_telefone': otp_telefone,
+        'otp_titular': bool(otp_telefone) and Cliente.objects.filter(telefone=otp_telefone).exists(),
         'rehidratar': bool(request.session.pop(SESSAO_REHIDRATAR, False)),
         # Sem canal de SMS (prod sem provedor) o OTP e impossivel: avisa ja no
         # passo 1 (antes de escolher tratamento/horario) e de novo no passo 3

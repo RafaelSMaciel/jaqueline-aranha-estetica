@@ -243,6 +243,9 @@ def _termos_aceitos(pedido: PedidoAgendamento, titular: Cliente | None) -> list[
 def _cadastro_da_titular(pedido: PedidoAgendamento) -> tuple[Cliente, bool]:
     """(cliente, cadastro_novo) do celular verificado, com a linha travada ate o fim da transacao.
 
+    O agendamento e sempre da TITULAR do celular (D16): cadastro existente mantem o nome — nome
+    diferente no POST e ignorado e vai p/ o log (renomear so pelo painel, com auditoria). Assim
+    quem agenda p/ outra pessoa nao mistura a ficha de saude dela no cadastro da titular.
     Cadastro com agendamento online suspenso (3 faltas ou bloqueio pelo painel) ou inativo recusa.
     """
     cliente, criado = Cliente.objects.select_for_update().get_or_create(
@@ -257,9 +260,11 @@ def _cadastro_da_titular(pedido: PedidoAgendamento) -> tuple[Cliente, bool]:
     if cliente.bloqueado_online or not cliente.ativo:
         raise RegraDeNegocio(MSG_BLOQUEADO_ONLINE, codigo='bloqueado_online')
     alterados = []
-    if cliente.nome != pedido.nome:
+    if not (cliente.nome or '').strip():
         cliente.nome = pedido.nome
         alterados.append('nome')
+    elif cliente.nome != pedido.nome:
+        logger.info('booking_nome_divergente', extra={'cliente_id': cliente.pk})
     if not cliente.data_nascimento and pedido.data_nascimento:
         cliente.data_nascimento = pedido.data_nascimento
         alterados.append('data_nascimento')
