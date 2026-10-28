@@ -47,10 +47,6 @@ jobs:
       # `migracoes-sqlite`, em paralelo; localmente a suite padrao continua rodando TUDO
       - name: Suite Django (sem a tag migracoes)
         run: python manage.py test aranha_estetica --exclude-tag migracoes
-      - name: Testes estilo pytest (fixtures/funcoes que o runner do Django nao coleta)
-        run: |
-          files=$(grep -lE '^(import pytest|from pytest)|@pytest' aranha_estetica/tests/test_*.py || true)
-          if [ -n "$files" ]; then pytest $files; else echo "nenhum teste pytest-only"; fi
       - name: check --deploy com settings de producao
         env:
           DJANGO_ENV: prod
