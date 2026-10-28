@@ -37,6 +37,10 @@
   --color-sobre-marca: var(--cor-sobre-marca);
   --color-sucesso-forte: var(--cor-sucesso-forte);
   --color-sobre-sucesso: var(--cor-sobre-sucesso);
+  --color-rodape-fundo: var(--cor-rodape-fundo);
+  --color-rodape-titulo: var(--cor-rodape-titulo);
+  --color-rodape-texto: var(--cor-rodape-texto);
+  --color-rodape-suave: var(--cor-rodape-suave);
   --radius-md: 8px;
   --radius-lg: 12px;
 }

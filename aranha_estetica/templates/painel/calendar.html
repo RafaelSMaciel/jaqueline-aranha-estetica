@@ -146,9 +146,21 @@
         .catch(function(){ alert('Erro de rede.'); info.revert(); });
     }
 
+    // Setas do FullCalendar: o <span class="fc-icon" role="img"> sai sem nome (axe role-img-alt).
+    // O nome fica no botao (aria-label) e o icone vira decorativo. Reaplica a cada troca de periodo.
+    var NOMES_SETAS = { 'fc-prev-button': 'Período anterior', 'fc-next-button': 'Próximo período' };
+    function nomearSetas() {
+        Object.keys(NOMES_SETAS).forEach(function (cls) {
+            calendarEl.querySelectorAll('.' + cls).forEach(function (b) { b.setAttribute('aria-label', NOMES_SETAS[cls]); });
+        });
+        calendarEl.querySelectorAll('.fc-icon').forEach(function (i) { i.setAttribute('aria-hidden', 'true'); });
+    }
+
     document.addEventListener('DOMContentLoaded', function(){
         calendar = new FullCalendar.Calendar(calendarEl, {
             locale: 'pt-br',
+            buttonHints: { prev: 'Período anterior', next: 'Próximo período', today: 'Ir para hoje' },
+            datesSet: nomearSetas,
             // celular: lista da semana (a grade de 7 colunas nao cabe em 375px)
             initialView: celular ? 'listWeek' : 'timeGridWeek',
             headerToolbar: celular
