@@ -51,3 +51,33 @@ class FocoVisivelTests(SimpleTestCase):
                    for n, linha in enumerate(arq.read_text(encoding='utf-8').splitlines(), 1)
                    if proibido.search(linha)]
         self.assertEqual(achados, [])
+
+
+def _classes(html):
+    """Conjuntos de classes de cada atributo class="..." (sem variante: hover:x conta a parte)."""
+    return [set(m.group(1).split()) for m in re.finditer(r'class="([^"]*)"', html)]
+
+
+class ContrasteMarcaTests(SimpleTestCase):
+    """Achado 164: branco sobre o dourado da 2,3:1; o texto sobre marca-forte e --cor-sobre-marca."""
+
+    def test_sem_texto_branco_sobre_dourado(self):
+        achados = []
+        for arq in _templates_html():
+            if 'email' in arq.parts:   # e-mail tem paleta propria (sem CSS var)
+                continue
+            html = arq.read_text(encoding='utf-8')
+            if re.search(r'from-\[#C9A84C\]|bg-\[#C9A84C\] text-white', html):
+                achados.append(f'{arq.name}: gradiente/fundo dourado cru')
+            for cls in _classes(html):
+                if 'bg-marca-forte' in cls and 'text-white' in cls:
+                    achados.append(f'{arq.name}: {" ".join(sorted(cls))[:80]}')
+        self.assertEqual(achados, [])
+
+    def test_tokens_de_acao_de_sucesso_nos_dois_temas(self):
+        tokens = (_CSS / 'tokens.css').read_text(encoding='utf-8')
+        # :root (claro), [data-theme="escuro"] e o bloco do sistema (prefers-color-scheme)
+        self.assertEqual(tokens.count('--cor-sucesso-forte:'), 3)
+        self.assertEqual(tokens.count('--cor-sobre-sucesso:'), 3)
+        app = (_CSS / 'app.css').read_text(encoding='utf-8')
+        self.assertIn('--color-sucesso-forte: var(--cor-sucesso-forte);', app)

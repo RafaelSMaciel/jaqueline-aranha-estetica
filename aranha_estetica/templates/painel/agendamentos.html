@@ -6,7 +6,7 @@
 {% block page_subtitle %}Gerencie todos os agendamentos da clínica{% endblock %}
 {% block page_actions %}
 <a href="{% url 'aranha:admin_agendamento_novo' %}"
-   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white no-underline hover:opacity-90 transition-opacity">
+   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold bg-marca-forte text-sobre-marca no-underline hover:opacity-90 transition-opacity">
   <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
   Novo agendamento
 </a>
@@ -68,7 +68,7 @@
     <span id="bulkCount" class="font-extrabold text-[0.85rem]">0 selecionado(s)</span>
     <div class="flex-1"></div>
     <button type="submit" name="acao" value="aprovar" data-confirm="Aprovar todos selecionados?"
-            class="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-lg bg-green-700 text-white text-[0.8rem] font-bold border-none cursor-pointer hover:bg-green-800 transition-colors">
+            class="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-lg bg-sucesso-forte text-sobre-sucesso text-[0.8rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg> Aprovar
     </button>
     <button type="submit" name="acao" value="rejeitar" data-confirm="Rejeitar todos selecionados?"
@@ -172,7 +172,7 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
             <input type="checkbox" name="usar_credito" value="1" class="rounded border-borda"> Abater crédito ({{ saldo|brl }})
           </label>
           {% endif %}{% endwith %}
-          <button type="submit" class="px-2.5 py-1 rounded-lg bg-green-700 text-white text-[0.72rem] font-bold border-none cursor-pointer hover:bg-green-800">Salvar</button>
+          <button type="submit" class="px-2.5 py-1 rounded-lg bg-sucesso-forte text-sobre-sucesso text-[0.72rem] font-bold border-none cursor-pointer hover:opacity-90">Salvar</button>
         </form>
       </details>
       {% endif %}
@@ -198,7 +198,7 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
                  class="px-2 py-1 rounded-lg border border-borda bg-fundo text-[0.8rem] text-texto">
           <p class="text-[0.7rem] text-texto-suave m-0">Estorna a comissão ainda não paga e o cashback, devolve a sessão do pacote e cancela o retorno sugerido.</p>
           <button type="submit" data-confirm="Desfazer a realização de {{ agend.cliente.nome }}?"
-                  class="px-2.5 py-1 rounded-lg bg-superficie text-erro border border-erro text-[0.72rem] font-bold cursor-pointer hover:bg-erro hover:text-white">Desfazer</button>
+                  class="px-2.5 py-1 rounded-lg bg-superficie text-erro border border-erro text-[0.72rem] font-bold cursor-pointer hover:bg-erro hover:text-superficie">Desfazer</button>
         </form>
       </details>
       {% endif %}
@@ -215,7 +215,7 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
       <form method="post" action="{% url 'aranha:admin_aprovar_agendamento' pk=agend.pk %}" class="m-0">
         {% csrf_token %}
         <button type="submit" data-confirm="Aprovar agendamento?"
-                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-700 text-white text-[0.7rem] font-bold border-none cursor-pointer hover:bg-green-800 transition-colors">
+                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-sucesso-forte text-sobre-sucesso text-[0.7rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg> Aprovar
         </button>
       </form>
@@ -246,12 +246,12 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
   </div>
   {% empty %}
   <div class="bg-superficie rounded-2xl p-12 text-center shadow-sm">
-    <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
-      <svg class="w-7 h-7 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l2 2 4-4"/></svg>
+    <div class="w-16 h-16 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mx-auto mb-4">
+      <svg class="w-7 h-7 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l2 2 4-4"/></svg>
     </div>
     <h5 class="font-bold text-texto mb-1">Nenhum agendamento encontrado</h5>
     <p class="text-[0.85rem] text-texto-suave mb-4">Ajuste os filtros ou crie um novo agendamento.</p>
-    <a href="{% url 'aranha:admin_agendamento_novo' %}" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.85rem] font-bold no-underline hover:opacity-90 transition-opacity">
+    <a href="{% url 'aranha:admin_agendamento_novo' %}" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.85rem] font-bold no-underline hover:opacity-90 transition-opacity">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Novo agendamento
     </a>

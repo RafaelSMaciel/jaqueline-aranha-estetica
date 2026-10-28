@@ -99,7 +99,7 @@
         width: 28px; height: 28px; min-width: 28px; border-radius: 50%;
         background: color-mix(in srgb, var(--cor-marca-forte) 12%, transparent);
         display: flex; align-items: center; justify-content: center;
-        color: var(--cor-marca-forte); font-size: 0.7rem; font-weight: 700;
+        color: var(--cor-marca); font-size: 0.7rem; font-weight: 700;
     }
     .helper-step-text {
         font-size: 0.72rem; color: var(--cor-texto-suave); line-height: 1.35;
@@ -193,7 +193,7 @@
     }
     .agend-date-month {
         font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
-        letter-spacing: 1px; color: var(--cor-marca-forte);
+        letter-spacing: 1px; color: var(--cor-marca);
     }
     .agend-date-weekday {
         font-size: 0.6rem; color: var(--cor-texto-suave); text-transform: uppercase;
@@ -461,7 +461,7 @@
             {% if indicacao %}
             <div class="rounded-2xl border border-borda bg-superficie p-4 mb-6 text-[0.9rem] text-texto">
                 <strong>Indique uma amiga e ganhe crédito.</strong>
-                Passe o seu código <strong class="text-marca-forte">{{ indicacao.codigo }}</strong>: quando ela fizer o
+                Passe o seu código <strong class="text-marca">{{ indicacao.codigo }}</strong>: quando ela fizer o
                 primeiro atendimento, você ganha {{ indicacao.valor|brl }} para usar no seu próximo cuidado.
                 {% if indicacao.saldo %}
                 <div class="mt-1">Seu crédito disponível: <strong class="text-sucesso">{{ indicacao.saldo|brl }}</strong> — é só avisar na recepção.</div>
@@ -504,7 +504,7 @@
             {% if agendamentos_futuros %}
             <div class="section-divider">
                 <div class="section-divider-line"></div>
-                <div class="section-divider-label" style="background:color-mix(in srgb,var(--cor-marca-forte) 8%,transparent);color:var(--cor-marca-forte);">
+                <div class="section-divider-label" style="background:color-mix(in srgb,var(--cor-marca-forte) 8%,transparent);color:var(--cor-marca);">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                     Próximos Agendamentos
                 </div>

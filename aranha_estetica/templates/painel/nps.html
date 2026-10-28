@@ -9,9 +9,9 @@
 {# ── Filtro de período ── #}
 <div class="flex items-center gap-1.5 mb-4">
   {% with seg="px-3.5 py-1.5 rounded-full text-sm font-semibold no-underline border transition" %}
-  <a href="?periodo=30" class="{{ seg }} {% if periodo == '30' %}border-marca-forte text-marca-forte bg-marca-forte/[0.1]{% else %}border-borda text-texto-suave hover:border-marca{% endif %}">30 dias</a>
-  <a href="?periodo=90" class="{{ seg }} {% if periodo == '90' %}border-marca-forte text-marca-forte bg-marca-forte/[0.1]{% else %}border-borda text-texto-suave hover:border-marca{% endif %}">90 dias</a>
-  <a href="?periodo=tudo" class="{{ seg }} {% if periodo == 'tudo' %}border-marca-forte text-marca-forte bg-marca-forte/[0.1]{% else %}border-borda text-texto-suave hover:border-marca{% endif %}">Tudo</a>
+  <a href="?periodo=30" class="{{ seg }} {% if periodo == '30' %}border-marca-forte text-marca bg-marca-forte/[0.1]{% else %}border-borda text-texto-suave hover:border-marca{% endif %}">30 dias</a>
+  <a href="?periodo=90" class="{{ seg }} {% if periodo == '90' %}border-marca-forte text-marca bg-marca-forte/[0.1]{% else %}border-borda text-texto-suave hover:border-marca{% endif %}">90 dias</a>
+  <a href="?periodo=tudo" class="{{ seg }} {% if periodo == 'tudo' %}border-marca-forte text-marca bg-marca-forte/[0.1]{% else %}border-borda text-texto-suave hover:border-marca{% endif %}">Tudo</a>
   {% endwith %}
 </div>
 
@@ -23,8 +23,8 @@
   <div class="space-y-3">
     {% for a in aguardando_moderacao %}
     <div class="flex flex-wrap items-start gap-3 p-3 rounded-xl bg-fundo">
-      <span class="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm text-white
-        {% if a.nota >= 9 %}bg-sucesso{% elif a.nota >= 7 %}bg-marca-forte{% else %}bg-erro{% endif %}">{{ a.nota }}</span>
+      <span class="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm
+        {% if a.nota >= 9 %}bg-sucesso text-superficie{% elif a.nota >= 7 %}bg-marca-forte text-sobre-marca{% else %}bg-erro text-superficie{% endif %}">{{ a.nota }}</span>
       <div class="min-w-0 flex-1">
         <p class="text-sm text-texto leading-relaxed">{{ a.comentario }}</p>
         <p class="text-[0.72rem] text-texto-suave mt-1">
@@ -35,7 +35,7 @@
         {% csrf_token %}
         <input type="hidden" name="periodo" value="{{ periodo }}">
         <button type="submit" name="acao" value="aprovar"
-                class="px-3 py-1.5 rounded-lg bg-sucesso text-white text-[0.78rem] font-semibold hover:opacity-90 transition">
+                class="px-3 py-1.5 rounded-lg bg-sucesso-forte text-sobre-sucesso text-[0.78rem] font-semibold hover:opacity-90 transition">
           Publicar no site
         </button>
       </form>
@@ -53,9 +53,9 @@
   {# Score grande #}
   <div class="bg-superficie rounded-2xl shadow-sm p-6 flex flex-col items-center justify-center text-center">
     <p class="text-[0.72rem] font-bold text-texto-suave uppercase tracking-wide mb-2">NPS</p>
-    <p class="font-serif font-bold leading-none text-[4rem] {% if nps_score >= 50 %}text-sucesso{% elif nps_score >= 0 %}text-marca-forte{% else %}text-erro{% endif %}">{{ nps_score }}</p>
+    <p class="font-serif font-bold leading-none text-[4rem] {% if nps_score >= 50 %}text-sucesso{% elif nps_score >= 0 %}text-marca{% else %}text-erro{% endif %}">{{ nps_score }}</p>
     <p class="mt-2 text-sm font-semibold
-      {% if nps_score >= 75 %}text-sucesso{% elif nps_score >= 50 %}text-sucesso{% elif nps_score >= 0 %}text-marca-forte{% else %}text-erro{% endif %}">
+      {% if nps_score >= 75 %}text-sucesso{% elif nps_score >= 50 %}text-sucesso{% elif nps_score >= 0 %}text-marca{% else %}text-erro{% endif %}">
       {% if nps_score >= 75 %}Excelente{% elif nps_score >= 50 %}Muito bom{% elif nps_score >= 0 %}Razoável{% else %}Crítico{% endif %}
     </p>
     <p class="text-[0.72rem] text-texto-suave mt-1">{{ total }} avaliaç{{ total|pluralize:"ão,ões" }} · média {{ media }}</p>
@@ -69,7 +69,7 @@
       <p class="text-[0.72rem] text-texto-suave">{{ promotores }} · notas 9–10</p>
     </div>
     <div class="bg-superficie rounded-2xl shadow-sm p-4 flex flex-col justify-center">
-      <p class="text-2xl font-extrabold text-marca-forte leading-none">{{ neutros_pct }}%</p>
+      <p class="text-2xl font-extrabold text-marca leading-none">{{ neutros_pct }}%</p>
       <p class="text-sm font-bold text-texto mt-1">Neutros</p>
       <p class="text-[0.72rem] text-texto-suave">{{ neutros }} · notas 7–8</p>
     </div>
@@ -87,7 +87,7 @@
   <div class="space-y-1.5">
     {% for d in distribuicao %}
     <div class="flex items-center gap-3">
-      <span class="w-6 text-right text-sm font-bold {% if d.classe == 'promotor' %}text-sucesso{% elif d.classe == 'neutro' %}text-marca-forte{% else %}text-erro{% endif %}">{{ d.nota }}</span>
+      <span class="w-6 text-right text-sm font-bold {% if d.classe == 'promotor' %}text-sucesso{% elif d.classe == 'neutro' %}text-marca{% else %}text-erro{% endif %}">{{ d.nota }}</span>
       <div class="flex-1 h-5 rounded-full bg-fundo overflow-hidden">
         <div class="h-full rounded-full {% if d.classe == 'promotor' %}bg-sucesso{% elif d.classe == 'neutro' %}bg-marca-forte{% else %}bg-erro{% endif %}" style="width:{{ d.altura }}%"></div>
       </div>
@@ -104,8 +104,8 @@
   <div class="space-y-3">
     {% for a in comentarios %}
     <div class="flex gap-3 p-3 rounded-xl bg-fundo">
-      <span class="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm text-white
-        {% if a.nota >= 9 %}bg-sucesso{% elif a.nota >= 7 %}bg-marca-forte{% else %}bg-erro{% endif %}">{{ a.nota }}</span>
+      <span class="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm
+        {% if a.nota >= 9 %}bg-sucesso text-superficie{% elif a.nota >= 7 %}bg-marca-forte text-sobre-marca{% else %}bg-erro text-superficie{% endif %}">{{ a.nota }}</span>
       <div class="min-w-0 flex-1">
         <p class="text-sm text-texto leading-relaxed">{{ a.comentario }}</p>
         <p class="text-[0.72rem] text-texto-suave mt-1">
@@ -118,7 +118,7 @@
           {% if a.aprovado_publicacao %}
           <span class="inline-block px-2 py-0.5 rounded-full text-[0.65rem] font-bold bg-sucesso/[0.12] text-sucesso">Publicado no site</span>
           {% else %}
-          <span class="inline-block px-2 py-0.5 rounded-full text-[0.65rem] font-bold bg-marca-forte/[0.12] text-marca-forte">Autorizou publicar</span>
+          <span class="inline-block px-2 py-0.5 rounded-full text-[0.65rem] font-bold bg-marca-forte/[0.12] text-marca">Autorizou publicar</span>
           {% endif %}
           <form method="post" action="{% url 'aranha:admin_nps_publicacao' a.pk %}" class="m-0">
             {% csrf_token %}
@@ -128,7 +128,7 @@
                     class="px-2.5 py-1 rounded-lg border border-borda text-texto-suave text-[0.72rem] font-semibold hover:text-texto transition">Retirar do site</button>
             {% else %}
             <button type="submit" name="acao" value="aprovar"
-                    class="px-2.5 py-1 rounded-lg bg-sucesso text-white text-[0.72rem] font-semibold hover:opacity-90 transition">Publicar no site</button>
+                    class="px-2.5 py-1 rounded-lg bg-sucesso-forte text-sobre-sucesso text-[0.72rem] font-semibold hover:opacity-90 transition">Publicar no site</button>
             {% endif %}
           </form>
         </div>

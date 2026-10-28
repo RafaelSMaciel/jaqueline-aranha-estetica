@@ -171,7 +171,7 @@
           <button type="button" x-on:click="fechar"
                   class="px-4 py-2 rounded-xl border border-borda text-texto text-[0.85rem] font-bold bg-superficie cursor-pointer hover:bg-fundo transition-colors">Cancelar</button>
           <button type="submit"
-                  class="px-5 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">Salvar</button>
+                  class="px-5 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">Salvar</button>
         </div>
       </form>
     </div>
@@ -220,7 +220,7 @@
       <button type="button" data-fechar-dialog
               class="px-4 py-2 rounded-xl border border-borda text-texto text-[0.85rem] font-bold bg-superficie cursor-pointer hover:bg-fundo transition-colors">Cancelar</button>
       <button type="submit"
-              class="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
+              class="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
         Confirmar Venda
       </button>
@@ -231,7 +231,7 @@
 
 {% if not pacotes %}
 <div class="text-center py-12">
-  <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
+  <div class="w-16 h-16 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mx-auto mb-4">
     <svg class="w-7 h-7 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
       <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
     </svg>
@@ -243,7 +243,7 @@
 {# ── FAB + Modal novo pacote ── #}
 <div x-data="pacoteCriar">
   <button type="button" x-on:click="abrir" aria-label="Novo pacote"
-          class="fixed bottom-6 right-6 z-[9000] w-14 h-14 rounded-full bg-gradient-to-br from-[#C9A84C] to-[#e8c94f] text-white shadow-lg flex items-center justify-center border-none cursor-pointer hover:opacity-90 transition-opacity">
+          class="fixed bottom-6 right-6 z-[9000] w-14 h-14 rounded-full bg-marca-forte text-sobre-marca shadow-lg flex items-center justify-center border-none cursor-pointer hover:opacity-90 transition-opacity">
     <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
       <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
     </svg>
@@ -311,7 +311,7 @@
           <button type="button" x-on:click="fechar"
                   class="px-4 py-2 rounded-xl border border-borda text-texto text-[0.85rem] font-bold bg-superficie cursor-pointer hover:bg-fundo transition-colors">Cancelar</button>
           <button type="submit"
-                  class="px-5 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">Criar Pacote</button>
+                  class="px-5 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">Criar Pacote</button>
         </div>
       </form>
     </div>

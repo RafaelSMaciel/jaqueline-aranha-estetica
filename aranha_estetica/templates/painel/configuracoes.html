@@ -52,7 +52,7 @@
     <input type="text" name="valor" value="{{ s.valor }}"
            class="flex-1 px-3 py-1.5 rounded-lg border border-aviso bg-superficie text-[0.85rem] text-texto">
     <button type="submit"
-            class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 text-white text-[0.75rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
+            class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-aviso text-superficie text-[0.75rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
       </svg>
@@ -79,8 +79,8 @@
     {% csrf_token %}
     <input type="text" name="valor" value="{{ c.valor|default:'' }}"
            class="px-3 py-1.5 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
-    <button type="submit" title="Salvar"
-            class="inline-flex items-center px-3 py-1.5 rounded-lg bg-green-600 text-white border-none cursor-pointer hover:opacity-90 transition-opacity">
+    <button type="submit" title="Salvar" aria-label="Salvar"
+            class="inline-flex items-center px-3 py-1.5 rounded-lg bg-sucesso-forte text-sobre-sucesso border-none cursor-pointer hover:opacity-90 transition-opacity">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
       </svg>
