@@ -278,7 +278,7 @@ class PacoteCanceladoReembolsoTests(_AdminTestCase):
 
     def test_venda_nao_grava_nome_da_cliente_no_log(self):
         """rev_security-07: 'Vendeu pacote ... para <nome>' sobrevivia ao esquecimento."""
-        pacote = criar_pacote('Pacote Novo')
+        pacote = criar_pacote('Pacote Novo', procedimento=criar_procedimento(nome='Drenagem'))
         self.client.post(reverse('aranha:admin_vender_pacote'),
                          {'pacote_id': str(pacote.pk), 'cliente_id': str(self.cli.pk), 'valor_pago': '600'})
         log = LogAuditoria.objects.get(acao__startswith='Vendeu pacote')

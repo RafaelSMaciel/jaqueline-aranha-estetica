@@ -155,7 +155,11 @@ def criar_pacote(nome='Pacote Glow', preco=Decimal('600.00'),
 
 
 def criar_compra_pacote(cliente, pacote, valor_pago=None, status='ATIVO'):
-    """Venda pelo caminho real (CompraPacote.vender): nome e itens congelados."""
+    """Venda pelo caminho real (CompraPacote.vender): nome e itens congelados. Pacote sem item
+    (nao vendavel) ganha um procedimento de 4 sessoes antes — o teste so queria "uma venda"."""
+    if not pacote.itens.exists():
+        ItemPacote.objects.create(pacote=pacote, procedimento=criar_procedimento(nome=f'Sessao {pacote.nome}'),
+                                  quantidade_sessoes=4)
     return CompraPacote.vender(
         pacote, cliente, pacote.preco_total if valor_pago is None else valor_pago, status=status,
     )
