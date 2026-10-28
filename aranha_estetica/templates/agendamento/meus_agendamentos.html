@@ -515,7 +515,7 @@
             <div class="agend-card" id="agend-{{ ag.pk }}">
                 <div class="agend-card-body">
                     <!-- Date block -->
-                    <div class="agend-date-block" aria-label="{{ ag.data_hora_inicio|date:'d M Y' }}">
+                    <div class="agend-date-block" role="group" aria-label="{{ ag.data_hora_inicio|date:'d M Y' }}">
                         <div class="agend-date-day">{{ ag.data_hora_inicio|date:"d" }}</div>
                         <div class="agend-date-month">{{ ag.data_hora_inicio|date:"M" }}</div>
                         <div class="agend-date-weekday">{{ ag.data_hora_inicio|date:"D" }}</div>

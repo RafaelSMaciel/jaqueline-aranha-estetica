@@ -157,6 +157,34 @@ class CascaDoPainelTests(TestCase):
         self.assertIn('navInerte()', js)
 
 
+class ViolacoesDoAxeTests(SimpleTestCase):
+    """Apontadas pelo axe-core no crawl de todas as rotas (desktop)."""
+
+    def test_aria_label_so_em_elemento_com_papel(self):
+        # aria-label em div/span/p sem role e proibido (aria-prohibited-attr): o leitor ignora
+        achados = [f'{arq.relative_to(_TEMPLATES)}: {m.group(0)[:60]}'
+                   for arq in _templates_html()
+                   for m in re.finditer(r'<(?:div|span|p)\b[^>]*\baria-label=[^>]*>', arq.read_text(encoding='utf-8'))
+                   if 'role=' not in m.group(0)]
+        self.assertEqual(achados, [])
+
+    def test_campos_sem_rotulo_visivel_tem_nome(self):
+        config = (_TEMPLATES / 'painel' / 'configuracoes.html').read_text(encoding='utf-8')
+        for campo in re.findall(r'<input type="text"[^>]*>', config):
+            self.assertIn('aria-label=', campo)
+        compliance = (_TEMPLATES / 'painel' / 'termos_compliance.html').read_text(encoding='utf-8')
+        self.assertIn('<select name="tipo" aria-label=', compliance)
+
+    def test_setas_do_calendario_com_nome(self):
+        cal = (_TEMPLATES / 'painel' / 'calendar.html').read_text(encoding='utf-8')
+        self.assertIn('buttonHints', cal)
+        self.assertIn("setAttribute('aria-hidden', 'true')", cal)
+
+    def test_rodape_sem_cor_crua(self):
+        rodape = (_TEMPLATES / 'cotton' / 'chrome' / 'rodape.html').read_text(encoding='utf-8')
+        self.assertIsNone(re.search(r'\[#[0-9a-fA-F]{3,6}\]', rodape))
+
+
 class TitulosEAbasTests(SimpleTestCase):
     """Achado 170: h1 -> h5/h6 no painel, h3 sem h2 no rodape e tablist sem tabs."""
 
