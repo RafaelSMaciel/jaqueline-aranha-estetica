@@ -15,7 +15,7 @@ from django.test import SimpleTestCase, TestCase, override_settings
 from aranha_estetica import checks as aranha_checks
 from aranha_estetica.db.campos import JsonCifrado, TextoCifrado
 from aranha_estetica.models import (
-    AnotacaoSessao, FormularioAnamnese, LogAuditoria, Profissional, Prontuario, ProntuarioVersao,
+    AnotacaoSessao, FormularioAnamnese, LogAuditoria, Prontuario, ProntuarioVersao,
     RespostaAnamnese,
 )
 from aranha_estetica.utils import cifragem
@@ -147,7 +147,7 @@ class CamposCifradosTests(TestCase):
         p.save()
         self.assertTrue(_cru('prontuario', 'alergias', p.pk).startswith('cif1:'))
 
-    def test_versao_anotacao_ficha_e_token_oauth(self):
+    def test_versao_anotacao_e_ficha(self):
         p = Prontuario.objects.create(cliente=self.cli, alergias='Latex')
         versao = ProntuarioVersao.registrar(p, None)
         self.assertEqual(set(_json_cru('prontuario_versao', 'dados', versao.pk)), {'_cifra'})
@@ -165,12 +165,6 @@ class CamposCifradosTests(TestCase):
         self.assertEqual(set(_json_cru('resposta_formulario', 'respostas', ficha.pk)), {'_cifra'})
         self.assertEqual(_json_cru('resposta_formulario', 'respostas', vazia.pk), {})
         self.assertEqual(RespostaAnamnese.objects.get(pk=ficha.pk).respostas_json, {'diabetes': True})
-
-        Profissional.objects.filter(pk=prof.pk).update(gcal_refresh_token='1//refresh-google')
-        token = _cru('profissional', 'gcal_token_renovacao', prof.pk)
-        self.assertTrue(token.startswith('cif1:'))
-        self.assertEqual(cifragem.decifrar(token, 'segredos'), '1//refresh-google')
-        self.assertEqual(Profissional.objects.get(pk=prof.pk).gcal_refresh_token, '1//refresh-google')
 
     def test_rotacionar_chave(self):
         p = Prontuario.objects.create(cliente=self.cli, alergias='Latex', respostas_extras={'fuma': True})

@@ -2,13 +2,12 @@
 
 RRULE no subconjunto (utils.recorrencia), validacoes do model (espelho dos
 CHECK/EXCLUDE do PG), dias disponiveis com folga em intervalo e feriado
-inativo, painel de excecoes, calendario/mover com recorrencia expandida,
-importacao idempotente do Google Agenda e carregar_feriados.
+inativo, painel de excecoes, calendario/mover com recorrencia expandida
+e carregar_feriados.
 """
 import json
 from datetime import date, datetime, time, timedelta
 from io import StringIO
-from unittest import mock
 
 from django.contrib.messages import get_messages
 from django.core.exceptions import ValidationError
@@ -118,12 +117,14 @@ class AgendaExcecaoModelTests(TestCase):
                         data_fim=self.dia + timedelta(days=3), hora_inicio=time(9), hora_fim=time(12))
         self.assertEqual(e.data_fim, self.dia)  # vale um dia
 
-    def test_feriado_e_gcal_coerentes(self):
+    def test_feriado_coerente_e_origem_gcal_nao_existe_mais(self):
         with self.assertRaises(ValidationError):
             self._clean(tipo='FOLGA', profissional=self.prof, origem='FERIADO_NACIONAL', data_inicio=self.dia)
-        with self.assertRaises(ValidationError):
-            self._clean(tipo='BLOQUEIO', profissional=None, origem='GCAL',
+        # Google Agenda removido (0065): GCAL deixou de ser origem valida
+        with self.assertRaises(ValidationError) as ctx:
+            self._clean(tipo='BLOQUEIO', profissional=self.prof, origem='GCAL',
                         data_hora_inicio=_local(self.dia, 9), data_hora_fim=_local(self.dia, 10))
+        self.assertIn('origem', ctx.exception.message_dict)
 
     def test_bloqueio_normaliza_rrule_e_converte_count(self):
         e = self._clean(tipo='BLOQUEIO', profissional=self.prof,
@@ -314,52 +315,6 @@ class CalendarioAgendaTests(_Admin):
         self.assertContains(resp, 'Repete: FREQ=WEEKLY;BYDAY=FR até 31/01/2031')
 
 
-class GcalPullTests(TestCase):
-    def setUp(self):
-        self.prof = Profissional.objects.create(nome='Dra Gcal', gcal_refresh_token='x')
-
-    def _pull(self, *eventos):
-        from aranha_estetica.services import gcal
-
-        svc = mock.MagicMock()
-        svc.events.return_value.list.return_value.execute.return_value = {'items': list(eventos)}
-        with mock.patch.object(gcal, '_service', return_value=svc):
-            return gcal.pull_eventos_externos(self.prof)
-
-    @staticmethod
-    def _evento(ev_id, ini, fim, titulo='Dentista'):
-        return {'id': ev_id, 'summary': titulo,
-                'start': {'dateTime': ini.isoformat()}, 'end': {'dateTime': fim.isoformat()}}
-
-    def test_upsert_por_id_do_evento(self):
-        ini = _local(date(2030, 3, 4), 9)
-        self.assertEqual(self._pull(self._evento('ev1', ini, ini + timedelta(hours=1))), 1)
-        self.assertEqual(self._pull(self._evento('ev1', ini, ini + timedelta(hours=1))), 1)
-        # remarcado no Google: atualiza em vez de duplicar
-        self._pull(self._evento('ev1', ini + timedelta(hours=3), ini + timedelta(hours=4), 'Dentista 2'))
-        bl = AgendaExcecao.objects.get(profissional=self.prof)
-        self.assertEqual((bl.tipo, bl.origem, bl.origem_ref, bl.data_hora_inicio, bl.motivo),
-                         ('BLOQUEIO', 'GCAL', 'ev1', ini + timedelta(hours=3), 'gcal:Dentista 2'))
-
-    def test_adota_bloqueio_importado_antes_da_0048(self):
-        ini = _local(date(2030, 3, 5), 9)
-        legado = AgendaExcecao.objects.create(tipo='BLOQUEIO', origem='GCAL', profissional=self.prof,
-                                              data_hora_inicio=ini, data_hora_fim=ini + timedelta(hours=1),
-                                              motivo='gcal:Dentista')
-        self._pull(self._evento('ev9', ini, ini + timedelta(hours=1)))
-        legado.refresh_from_db()
-        self.assertEqual(legado.origem_ref, 'ev9')
-        self.assertEqual(AgendaExcecao.objects.filter(profissional=self.prof).count(), 1)
-
-    def test_ignora_evento_proprio_e_sem_hora(self):
-        ini = _local(date(2030, 3, 6), 9)
-        proprio = self._evento('ev2', ini, ini + timedelta(hours=1))
-        proprio['extendedProperties'] = {'private': {'aranha_atendimento_id': '5'}}
-        dia_inteiro = {'id': 'ev3', 'start': {'date': '2030-03-06'}, 'end': {'date': '2030-03-07'}}
-        self.assertEqual(self._pull(proprio, dia_inteiro), 0)
-        self.assertFalse(AgendaExcecao.objects.filter(profissional=self.prof).exists())
-
-
 class CarregarFeriadosTests(TestCase):
     def test_cria_folga_global_idempotente_e_respeita_inativo(self):
         AgendaExcecao.objects.filter(data_inicio__year=2035).delete()
@@ -410,7 +365,7 @@ class DjangoAdminAgendaTests(TestCase):
             'motivo': 'Curso', 'observacao': '',
             'data_hora_inicio_0': '2030-09-02', 'data_hora_inicio_1': '14:00',
             'data_hora_fim_0': '2030-09-02', 'data_hora_fim_1': '16:00',
-            'regra_recorrencia': 'rrule:freq=weekly;byday=mo;count=4', 'origem_ref': '',
+            'regra_recorrencia': 'rrule:freq=weekly;byday=mo;count=4',
         })
         self.assertEqual(resp.status_code, 302, getattr(resp, 'context', None) and resp.context.get('errors'))
         bl = AgendaExcecao.objects.get(tipo='BLOQUEIO', profissional=self.prof)
@@ -422,7 +377,7 @@ class DjangoAdminAgendaTests(TestCase):
             'tipo': 'BLOQUEIO', 'profissional': self.prof.pk, 'origem': 'MANUAL', 'ativo': 'on',
             'data_hora_inicio_0': '2030-09-02', 'data_hora_inicio_1': '14:00',
             'data_hora_fim_0': '2030-09-02', 'data_hora_fim_1': '16:00',
-            'regra_recorrencia': 'FREQ=YEARLY', 'origem_ref': '',
+            'regra_recorrencia': 'FREQ=YEARLY',
         })
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'Recorrência não suportada')

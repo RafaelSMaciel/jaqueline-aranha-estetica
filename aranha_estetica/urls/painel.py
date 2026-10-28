@@ -13,7 +13,6 @@ from ..views.painel import (
     conformidade_termos,
     excecoes,
     financeiro,
-    google_agenda,
     lista_espera,
     marca,
     notificacoes,
@@ -31,10 +30,6 @@ from ..views.painel import (
 )
 
 urlpatterns = [
-    # ─── Google Calendar OAuth ───
-    path('painel/integrations/google/connect/<int:prof_id>/', google_agenda.gcal_connect, name='gcal_connect'),
-    path('painel/integrations/google/callback/', google_agenda.gcal_callback, name='gcal_callback'),
-    path('painel/integrations/google/pull/<int:prof_id>/', google_agenda.gcal_pull, name='gcal_pull'),
     # ─── Anamnese ───
     path('painel/anamneses/', anamneses.admin_anamneses, name='admin_anamneses'),
     path('painel/anamneses/novo/', anamneses.admin_anamnese_form, name='admin_anamnese_criar'),

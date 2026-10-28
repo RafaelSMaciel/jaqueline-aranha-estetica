@@ -228,7 +228,7 @@ class PacoteSoComItensEAdminSoLeituraTests(TestCase):
         from django.contrib import admin
         from django.test import RequestFactory
 
-        from aranha_estetica.models import ConsumoSessao, Profissional, Usuario
+        from aranha_estetica.models import ConsumoSessao, Usuario
         request = RequestFactory().get('/')
         request.user = Usuario.objects.create_superuser(email='adm@pacote.test', password='x')
         for model in (CompraPacote, ConsumoSessao):
@@ -237,6 +237,3 @@ class PacoteSoComItensEAdminSoLeituraTests(TestCase):
                 self.assertFalse(modeladmin.has_change_permission(request))
                 self.assertFalse(modeladmin.has_delete_permission(request))
                 self.assertFalse(modeladmin.has_add_permission(request))
-        form = admin.site._registry[Profissional].get_form(request)
-        self.assertNotIn('gcal_refresh_token', form.base_fields)
-        self.assertNotIn('gcal_sync_token', form.base_fields)

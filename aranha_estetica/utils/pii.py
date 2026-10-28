@@ -94,7 +94,7 @@ SENTRY_DENYLIST_EXTRA = [
     'email', 'telefone', 'cpf', 'rg', 'celular', 'phone', 'nome', 'data_nascimento', 'endereco', 'cep',
     'alergias', 'contraindicacoes', 'historico_saude', 'medicamentos_uso', 'observacoes_gerais',
     'respostas', 'respostas_extras', 'respostas_json', 'dados', 'dados_antes', 'dados_depois',
-    'texto', 'mensagem', 'comentario', 'codigo', 'otp', 'gcal_refresh_token', 'refresh_token',
+    'texto', 'mensagem', 'comentario', 'codigo', 'otp', 'refresh_token',
 ]
 
 _KEY_DETAIL_RX = re.compile(r'(Key \([^)]*\)=\()[^)]*(\))')   # DETAIL do IntegrityError do Postgres
