@@ -23,14 +23,13 @@ from ...excecoes import RegraDeNegocio, TransicaoInvalida
 from ...services import agenda, agendamento_online, comunicacao
 from ...services.agendamento_online import MSG_BLOQUEADO_ONLINE
 from ...utils.datas import ler_data
-from ...services.disponibilidade import profissionais_para
+from ...services.disponibilidade import horarios_agrupados, profissionais_para
 from ...utils.auditoria import registrar_log
 from ...utils.captcha import turnstile_enabled, turnstile_site_key
 from ...utils.datas import hoje
 from ...utils.parse import id_int
 from ...utils.pii import mask_telefone
 from ...utils.sms import sms_disponivel
-from .agendamento_api import agrupar_horarios
 from .verificacao import SESSAO_MEUS_AGENDAMENTOS
 from .agendamento import SESSAO_SUCESSO
 
@@ -140,7 +139,7 @@ def _horarios(request, atendimento):
     procedimento = atendimento.procedimento
     return JsonResponse({
         'data': dia.isoformat(),
-        'horarios': agrupar_horarios(
+        'horarios': horarios_agrupados(
             procedimento, profissionais_para(procedimento), dia,
             ignorar_atendimento_id=atendimento.pk, com_preco=False,
         ),

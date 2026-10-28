@@ -421,7 +421,7 @@
                 var data = res.data;
                 if (!res.ok) {
                     // 4xx/5xx: mostra o motivo do servidor (antes virava "Nenhum horario disponivel")
-                    mensagemSlots(container, SVG_INFO, data.erro || 'Não foi possível carregar os horários. Tente de novo.');
+                    mensagemSlots(container, SVG_INFO, data.mensagem || 'Não foi possível carregar os horários. Tente de novo.');
                     return;
                 }
                 horariosData = data.horarios || [];
@@ -926,11 +926,13 @@
         escreverMsg('otp-msg', texto, ok, comWhatsApp);
     }
 
+    // Contrato do servidor (utils/respostas): {ok, codigo, mensagem}. Resposta que não é JSON
+    // (bloqueio do rate limit, queda de rede) vira um código local.
     function lerJson(r) {
         return r.text().then(function(t) {
             var data;
             try { data = JSON.parse(t); }
-            catch (e) { data = {ok: false, erro: (r.status === 403 || r.status === 429) ? 'limite' : 'rede'}; }
+            catch (e) { data = {ok: false, codigo: (r.status === 403 || r.status === 429) ? 'limite' : 'rede'}; }
             return {status: r.status, data: data};
         });
     }
@@ -1026,7 +1028,7 @@
                 .then(function(res) {
                     btnEnviar.disabled = false;
                     resetCaptcha();  // token Turnstile é de uso único
-                    var erro = res.data.erro;
+                    var codigo = res.data.codigo;
                     if (res.data.ok) {
                         document.getElementById('otp-field').style.display = '';
                         setStatusMsg('Código enviado por SMS para seu celular. Válido por 10 minutos.', true);
@@ -1034,20 +1036,14 @@
                         if (txt) txt.textContent = 'Reenviar';
                         var campoCodigo = document.getElementById('otp-codigo');
                         if (campoCodigo) campoCodigo.focus();
-                    } else if (erro === 'aguarde' || erro === 'limite') {
+                    } else if (codigo === 'limite') {
                         setStatusMsg('Aguarde um minuto antes de pedir outro código.', false);
-                    } else if (erro === 'limite_sms') {
-                        // Nenhum código novo foi gerado: o último recebido ainda vale
-                        document.getElementById('otp-field').style.display = '';
-                        setStatusMsg('Você atingiu o limite de códigos nesta hora. Use o último código recebido.', false, true);
-                    } else if (erro === 'captcha') {
-                        setStatusMsg('Confirme a verificação de segurança e tente novamente.', false);
-                    } else if (erro === 'telefone_invalido') {
-                        setStatusMsg(MSG_CELULAR, false);
-                    } else if (erro === 'sms_falha') {
-                        setStatusMsg('Não conseguimos enviar o código agora.', false, true);
                     } else {
-                        setStatusMsg('Não foi possível enviar o código. Tente novamente.', false, true);
+                        // Nenhum código novo no limite da hora: o último recebido ainda vale
+                        if (codigo === 'limite_sms') document.getElementById('otp-field').style.display = '';
+                        // Erro que a pessoa resolve sozinha não oferece o WhatsApp
+                        var resolveSozinha = ['aguarde', 'captcha', 'telefone_invalido'].indexOf(codigo) !== -1;
+                        setStatusMsg(res.data.mensagem || 'Não foi possível enviar o código. Tente novamente.', false, !resolveSozinha);
                     }
                 })
                 .catch(function() {
@@ -1075,25 +1071,19 @@
                 .then(lerJson)
                 .then(function(res) {
                     btnVerif.disabled = false;
-                    var erro = res.data.erro || '';
                     if (res.data.ok) {
                         marcarVerificado();
                         if (res.data.aviso === 'bloqueado_online') {
-                            setStatusMsg('Seu cadastro está com agendamento online suspenso. Fale conosco para marcar seu horário.', false, true);
+                            setStatusMsg(res.data.aviso_mensagem, false, true);
                             return;
                         }
                         // checkboxes agora refletem o cadastro (ou cliente novo)
                         consentsSincronizados(true);
                         mostrarDados(res.data.prefill, !!res.data.prefill);
-                    } else if (erro.indexOf('incorreto') === 0) {
-                        var restante = erro.split(':')[1] || '';
-                        setOtpMsg('Código incorreto. Tentativas restantes: ' + restante, false);
-                    } else if (erro === 'bloqueado') {
-                        setOtpMsg('Muitas tentativas. Solicite um novo código.', false);
-                    } else if (erro === 'limite') {
+                    } else if (res.data.codigo === 'limite') {
                         setOtpMsg('Muitas tentativas. Aguarde um minuto.', false);
                     } else {
-                        setOtpMsg('Código expirado. Solicite um novo.', false);
+                        setOtpMsg(res.data.mensagem || 'Código expirado. Solicite um novo.', false);
                     }
                 })
                 .catch(function() {
