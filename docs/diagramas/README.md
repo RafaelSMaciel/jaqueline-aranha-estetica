@@ -28,7 +28,7 @@ PDF pelo Word/LibreOffice).
 
 # 2. renderizar os diagramas
 cd docs/diagramas
-for f in *.mmd; do npx -y @mermaid-js/mermaid-cli -i "$f" -o "${f%.mmd}.png" -p puppeteer.json -b white -s 2; done
+for f in *.mmd; do npx -y @mermaid-js/mermaid-cli -i "$f" -o "${f%.mmd}.png" -p puppeteer.json -b white -s 2 -w 1800; done
 
 # 3. gerar DOCX + PDF
 cd ../.. && python docs/gerar_requisitos.py

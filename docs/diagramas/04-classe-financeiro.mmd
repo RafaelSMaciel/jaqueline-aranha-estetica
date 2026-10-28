@@ -16,28 +16,41 @@ classDiagram
     class Profissional {
         «ref» núcleo de agendamento
     }
+    class Usuario {
+        «ref» acesso
+    }
 
     class Pacote {
-        +nome: CharField «congelado após a venda»
+        +nome: CharField
         +preco_total: Decimal
         +validade_meses: Smallint
         +ativo: Boolean
+        «catálogo: editável, vale p/ vendas futuras»
     }
     class ItemPacote {
         +quantidade_sessoes: Smallint «>0»
-        «congelado após a venda»
     }
     class CompraPacote {
+        +pacote_nome: CharField «congelado»
         +valor_pago: Decimal «>= 0»
+        +valor_reembolsado: Decimal «0..valor_pago»
         +status: ATIVO|FINALIZADO|CANCELADO|EXPIRADO
         +data_expiracao: Date
+        +vender(pacote, cliente, valor_pago)$
         +saldo_por_procedimento()
         +sessoes_restantes()
         +verificar_finalizacao()
     }
+    class CompraPacoteItem {
+        +procedimento_nome: CharField
+        +quantidade_sessoes: Smallint «>0»
+        +valor_unitario: Decimal «valor pago ÷ sessões»
+        «snapshot da venda, imutável por trigger»
+    }
     class ConsumoSessao {
         +criado_em: DateTime
         «1 por atendimento, O2O»
+        «mesma compra, mesmo procedimento, com saldo»
     }
     class Carteira {
         +saldo: Decimal «CHECK >= 0»
@@ -45,31 +58,42 @@ classDiagram
     class MovimentoCarteira {
         +tipo: CREDITO|DEBITO
         +origem: CASHBACK_INDICACAO|CASHBACK_ESTORNO|...
-        +valor: Decimal
-        +saldo_resultante: Decimal
+        +valor: Decimal «> 0»
+        +saldo_resultante: Decimal «>= 0»
         «ledger imutável por trigger»
     }
     class RegraComissao {
         +percentual: 0..100
-        +valor: Decimal
-        «percentual XOR valor»
-        +ativo: Boolean
+        +valor: Decimal «valor fixo»
+        «percentual XOR valor fixo»
+        +ativo: Boolean «usada = só desativa»
     }
     class MovimentoComissao {
-        +valor: Decimal
-        +status: PENDENTE|PAGA|ESTORNADA
-        +pago_em: DateTime
-        «1 ativa por atendimento»
+        +tipo: CREDITO|PAGAMENTO|ESTORNO
+        +valor: Decimal «> 0»
+        +status: PENDENTE|PAGA|ESTORNADA «derivado»
+        «livro-razão append-only»
+        «1 CREDITO por atendimento»
+    }
+    class ComissaoService {
+        «service»
+        +resolver_regra(profissional, procedimento)$
+        +calcular_comissao(atendimento)$
+        +marcar_paga(movimento, usuario)$
+        +estornar_comissao(atendimento)$
+        +saldos_por_profissional()$
     }
 
-    Pacote "1" --> "1..*" ItemPacote : itens
+    Pacote "1" --> "1..*" ItemPacote : itens do catálogo
     ItemPacote "0..*" --> "1" Procedimento
-    Cliente "1" --> "0..*" CompraPacote : pacotes_comprados (PROTECT)
-    Pacote "1" --> "0..*" CompraPacote
-    CompraPacote "1" --> "0..*" ConsumoSessao : sessoes_realizadas
+    Cliente "1" --> "0..*" CompraPacote : pacotes_comprados - PROTECT
+    Pacote "1" --> "0..*" CompraPacote : vendido como
+    CompraPacote "1" --> "1..*" CompraPacoteItem : itens congelados
+    CompraPacoteItem "0..*" --> "1" Procedimento
+    CompraPacoteItem "1" --> "0..*" ConsumoSessao : consumos
     ConsumoSessao "0..1" --> "1" Atendimento : O2O
 
-    Cliente "1" --> "0..1" Carteira : O2O (PROTECT)
+    Cliente "1" --> "0..1" Carteira : O2O - PROTECT
     Carteira "1" --> "0..*" MovimentoCarteira : movimentos
     MovimentoCarteira "0..*" --> "0..1" Atendimento
 
@@ -77,4 +101,9 @@ classDiagram
     RegraComissao "0..*" --> "0..1" Procedimento
     Profissional "1" --> "0..*" MovimentoComissao : comissoes
     Atendimento "1" --> "0..*" MovimentoComissao
-    MovimentoComissao "0..*" --> "0..1" RegraComissao
+    MovimentoComissao "0..*" --> "0..1" RegraComissao : só no CREDITO
+    MovimentoComissao ..> MovimentoComissao : PAGAMENTO/ESTORNO → CREDITO
+    Usuario "0..1" --> "0..*" MovimentoComissao : autor
+    ComissaoService ..> MovimentoComissao : lança
+    ComissaoService ..> RegraComissao : mais específica
+    ComissaoService ..> CompraPacoteItem : base da sessão de pacote

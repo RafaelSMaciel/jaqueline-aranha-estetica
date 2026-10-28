@@ -8,15 +8,17 @@ flowchart TB
     end
 
     subgraph Plataforma["Railway — contêiner Docker (1 réplica)"]
-        WEB["Django App — gunicorn 1 worker × 4 threads<br/>booking, painel, API DRF, cron HTTP, webhooks,<br/>healthz + middlewares CSP / headers / 2FA / axes"]
-        CEL["Celery eager<br/>(tasks no próprio request)"]
+        WEB["Django App — gunicorn 1 worker × 4 threads<br/>booking, painel, portal, cron HTTP, webhooks, healthz<br/>middlewares CSP / headers / 2FA / axes / Ator"]
+        SRV["services/agenda + services/atendimento<br/>(regras de horário e efeitos da FSM)"]
+        JOB["Jobs — jobs.py<br/>(cron HTTP ou rodar_job, sem Celery)"]
+        FILA["Fila de e-mail<br/>(Notificacao PENDENTE + job emails)"]
         CACHE["Cache local + sessão no banco<br/>(Redis opcional)"]
         WN["WhiteNoise<br/>(estáticos com hash)"]
         PRE["Pre-deploy<br/>migrate_atomico + bootstrap_admin"]
     end
 
     subgraph Dados["Dados"]
-        PG[("PostgreSQL 18<br/>FSM, EXCLUDE, CHECK/UNIQUE,<br/>triggers de imutabilidade, auditoria")]
+        PG[("PostgreSQL 18 — padrão SQL<br/>EXCLUDE, CHECK/UNIQUE, 46 triggers,<br/>trilha historico_alteracao, fn_* / vw_* / sp_*,<br/>dado de saúde cifrado")]
     end
 
     subgraph Externos["Serviços Externos"]
@@ -33,14 +35,21 @@ flowchart TB
     ADM -->|HTTPS| WEB
     WEB --- WN
     WEB --- CACHE
-    WEB --> CEL
+    WEB --> SRV
+    SRV --> PG
     WEB --> PG
+    WEB --> JOB
+    JOB -->|CALL sp_*| PG
+    SRV --> FILA
+    JOB --> FILA
+    FILA --> PG
     PRE --> PG
     CRON -->|POST /cron/run/job + X-Cron-Token| WEB
 
     WEB -->|OTP| ZEN
-    CEL -->|templates| WA
-    CEL -->|transacional + marketing| MAIL
+    JOB -->|templates| WA
+    FILA -->|transacional| MAIL
+    JOB -->|marketing| MAIL
     WEB -->|verifica captcha| TS
     WEB <-->|sync agenda| GC
     WEB -.erros.-> OBS

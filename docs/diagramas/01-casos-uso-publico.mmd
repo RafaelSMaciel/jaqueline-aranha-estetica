@@ -8,18 +8,18 @@ flowchart LR
 
     subgraph S["Sistema Shiva Zen — Área Pública"]
         direction TB
-        UC01(["UC01 Agendar online<br/>(aceites + consentimento art. 11)"])
+        UC01(["UC01 Agendar online<br/>(aceites, termo de saúde, autorizações)"])
         UC02(["UC02 Verificar celular por OTP"])
         UC03(["UC03 Consultar disponibilidade"])
-        UC04(["UC04 Reagendar atendimento"])
-        UC05(["UC05 Cancelar atendimento"])
+        UC04(["UC04 Reagendar atendimento<br/>(portal)"])
+        UC05(["UC05 Cancelar atendimento<br/>(portal)"])
         UC06(["UC06 Entrar em Meus agendamentos"])
         UC07(["UC07 Confirmar presença (D-1)"])
         UC08(["UC08 Entrar na lista de espera"])
         UC09(["UC09 Responder ficha por link"])
         UC10(["UC10 Responder NPS / autorizar depoimento"])
         UC11(["UC11 Aceitar termo por link"])
-        UC12(["UC12 Exercer direitos LGPD (DSAR)"])
+        UC12(["UC12 Exercer direitos LGPD<br/>(DSAR, descadastro)"])
     end
 
     A1 --- UC01
