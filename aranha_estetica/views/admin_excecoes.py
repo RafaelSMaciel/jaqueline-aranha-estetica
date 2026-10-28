@@ -3,7 +3,7 @@
 Padrao Easy!Appointments / Cal.com working plan exceptions: override pontual
 da grade semanal (AgendaHorario) sem mexer nela. FOLGA cobre um intervalo de
 datas (ferias numa linha so); HORARIO_DIFERENTE substitui a grade num dia.
-Bloqueios (intervalo exato) ficam em admin_management; feriados/recessos da
+Bloqueios (intervalo exato) ficam em admin_bloqueios; feriados/recessos da
 clinica (FOLGA sem profissional) no carregar_feriados / Django admin.
 """
 from datetime import datetime

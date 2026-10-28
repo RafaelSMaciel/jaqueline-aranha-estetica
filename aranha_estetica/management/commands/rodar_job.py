@@ -10,7 +10,7 @@ servidor enxerga a falha, como o 500 do /cron/run/).
 """
 from django.core.management.base import BaseCommand, CommandError
 
-from aranha_estetica.views.cron import JOB_MAP, executar
+from aranha_estetica.jobs import JOB_MAP, executar
 
 
 class Command(BaseCommand):

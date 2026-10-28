@@ -20,7 +20,7 @@ from aranha_estetica.models import (
     Notificacao, Prontuario, ProntuarioVersao, RespostaAnamnese, VersaoTermo,
 )
 from aranha_estetica.services import consentimentos, links
-from aranha_estetica.models.extras import Carteira, MovimentoCarteira
+from aranha_estetica.models.carteira import Carteira, MovimentoCarteira
 from aranha_estetica.tests.factories import (
     criar_atendimento, criar_cliente, criar_link, criar_procedimento, criar_profissional,
 )
@@ -674,7 +674,7 @@ class DDLSoPostgresTests(TestCase):
 
     def test_fase_de_nomes_checks_novos(self):
         from aranha_estetica.models import CodigoOtp
-        from aranha_estetica.models.extras import Carteira, MovimentoCarteira
+        from aranha_estetica.models.carteira import Carteira, MovimentoCarteira
 
         carteira = Carteira.objects.create(cliente=self.cli)
         otp = CodigoOtp.gerar('a@b.com')[1]

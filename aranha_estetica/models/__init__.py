@@ -9,10 +9,8 @@ from .consentimentos import Consentimento
 from .procedimentos import (
     Procedimento, Habilitacao, Preco, Promocao,
 )
-from .agendamentos import (
-    Atendimento, CanalNotificacao, Notificacao, RespostaNotificacao, StatusAtendimento, StatusNotificacao,
-    TipoNotificacao,
-)
+from .agendamentos import Atendimento, StatusAtendimento
+from .notificacoes import CanalNotificacao, Notificacao, RespostaNotificacao, StatusNotificacao, TipoNotificacao
 from .prontuario import Prontuario, ProntuarioVersao, AnotacaoSessao
 from .termos import VersaoTermo, AceiteTermo
 from .nps import AvaliacaoNPS
@@ -24,10 +22,8 @@ from .push import AssinaturaPush
 from .anamnese import FormularioAnamnese, RespostaAnamnese
 from .links import LinkAcesso
 from .historico import HistoricoAlteracao
-from .extras import (
-    Carteira, MovimentoCarteira, OrigemMovimentoCarteira, TipoMovimentoCarteira,
-    RegraComissao, MovimentoComissao, StatusComissao, TipoMovimentoComissao,
-)
+from .carteira import Carteira, MovimentoCarteira, OrigemMovimentoCarteira, TipoMovimentoCarteira
+from .comissao import MovimentoComissao, RegraComissao, StatusComissao, TipoMovimentoComissao
 
 __all__ = [
     'Usuario', 'UsuarioManager',
@@ -45,7 +41,7 @@ __all__ = [
     'FormularioAnamnese', 'RespostaAnamnese',
     'LinkAcesso',
     'HistoricoAlteracao',
-    # extras (financeiro auxiliar)
+    # carteira e comissao
     'Carteira', 'MovimentoCarteira', 'OrigemMovimentoCarteira', 'TipoMovimentoCarteira',
     'RegraComissao', 'MovimentoComissao', 'StatusComissao', 'TipoMovimentoComissao',
 ]

@@ -27,33 +27,11 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from aranha_estetica import jobs, jobs_manutencao
-from aranha_estetica.ator import Ator, atuando, ip_valido
+from aranha_estetica.ator import ip_valido
+from aranha_estetica.jobs import JOB_MAP, executar
 from aranha_estetica.utils.security import client_ip
 
 logger = logging.getLogger(__name__)
-
-
-JOB_MAP = {
-    'emails': jobs.job_reenviar_emails,
-    'lembrete_diario': jobs.job_enviar_lembrete_dia_seguinte,
-    'nps_24h': jobs.job_pesquisa_satisfacao_24h,
-    'detrator_alerta': jobs.job_alerta_detrator_nps,
-    'pacote_expirando': jobs.job_verificar_pacotes_expirando,
-    'pacote_expirar': jobs.job_expirar_pacotes,
-    'aniversario': jobs.job_aniversario_clientes,
-    'limpeza_status': jobs.job_limpeza_status_atendimentos,
-    'lgpd_purgar': jobs.job_lgpd_purgar_inativos,
-    'housekeeping': jobs_manutencao.job_housekeeping,
-    'feriados': jobs_manutencao.job_carregar_feriados,
-}
-
-
-def executar(job_name, *, ip=None, origem=None):
-    """Roda o job uma vez dentro do Ator dele (trilhas com origem cron:<job>, sem autor).
-    Erro propaga: quem chama decide (HTTP 500 / exit code do comando)."""
-    with atuando(Ator(ip=ip, origem=origem or f'cron:{job_name}')):
-        return JOB_MAP[job_name]()
 
 
 def _avisar_monitor(job_name: str, ok: bool) -> None:

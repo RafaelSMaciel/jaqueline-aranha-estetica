@@ -127,7 +127,7 @@ do Vite e o `docker build`.
 
 ```
 aranha_estetica/                 app Django
-├── models/                      15 módulos, 34 tabelas de domínio (ver docs/PROJECT.md §5)
+├── models/                      20 módulos, 34 tabelas de domínio (ver docs/PROJECT.md §5)
 ├── views/                       site público, booking, portal do profissional, painel, cron, health
 ├── services/                    regras de negócio (agendamento, disponibilidade, OTP, LGPD, termos,
 │                                comissão, cashback, retorno, lista de espera, alertas, gcal, push)

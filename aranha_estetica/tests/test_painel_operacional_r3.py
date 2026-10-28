@@ -190,7 +190,7 @@ class EmailPreviewTests(_AdminTestCase):
         return self.client.get(reverse('aranha:admin_email_preview_nome', args=[nome]))
 
     def test_todas_renderizam_com_nonce_e_links(self):
-        from aranha_estetica.views.admin_management import EMAIL_PREVIEW_FIXTURES
+        from aranha_estetica.views.admin_email_preview import EMAIL_PREVIEW_FIXTURES
         for nome in EMAIL_PREVIEW_FIXTURES:
             resp = self._get(nome)
             self.assertEqual(resp.status_code, 200, nome)

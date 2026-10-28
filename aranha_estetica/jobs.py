@@ -537,3 +537,35 @@ def job_lgpd_purgar_inativos():
 
 
 # dispatch_webhook removido junto com o workflow engine (unico caller).
+
+
+# ═══════════════════════════════════════
+#  REGISTRO — o que o cron HTTP e o rodar_job podem chamar
+# ═══════════════════════════════════════
+
+def _jobs():
+    from . import jobs_manutencao
+    return {
+        'emails': job_reenviar_emails,
+        'lembrete_diario': job_enviar_lembrete_dia_seguinte,
+        'nps_24h': job_pesquisa_satisfacao_24h,
+        'detrator_alerta': job_alerta_detrator_nps,
+        'pacote_expirando': job_verificar_pacotes_expirando,
+        'pacote_expirar': job_expirar_pacotes,
+        'aniversario': job_aniversario_clientes,
+        'limpeza_status': job_limpeza_status_atendimentos,
+        'lgpd_purgar': job_lgpd_purgar_inativos,
+        'housekeeping': jobs_manutencao.job_housekeeping,
+        'feriados': jobs_manutencao.job_carregar_feriados,
+    }
+
+
+JOB_MAP = _jobs()
+
+
+def executar(job_name, *, ip=None, origem=None):
+    """Roda o job uma vez dentro do Ator dele (trilhas com origem cron:<job>, sem autor).
+    Erro propaga: quem chama decide (HTTP 500 / exit code do comando)."""
+    from .ator import Ator, atuando
+    with atuando(Ator(ip=ip, origem=origem or f'cron:{job_name}')):
+        return JOB_MAP[job_name]()
