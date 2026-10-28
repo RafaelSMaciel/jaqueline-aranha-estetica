@@ -286,6 +286,41 @@ class PacoteCanceladoReembolsoTests(_AdminTestCase):
         self.assertEqual(log.detalhes['cliente'], self.cli.pk)
 
 
+# ─── Promocoes: criar geral/preco fixo e nao excluir a ja usada ────────
+class PromocaoCriacaoExclusaoTests(_AdminTestCase):
+    def setUp(self):
+        super().setUp()
+        self.proc = criar_procedimento()
+        hoje = timezone.localdate()
+        self.datas = {'data_inicio': hoje.isoformat(), 'data_fim': (hoje + timedelta(days=10)).isoformat(),
+                      'ativa': '1', 'descricao': ''}
+
+    def _criar(self, **campos):
+        return self.client.post(reverse('aranha:admin_criar_promocao'), {**self.datas, **campos}, follow=True)
+
+    def test_geral_percentual_e_especifica_preco_fixo(self):
+        self._criar(nome='Semana da pele', desconto='15')
+        geral = Promocao.objects.get(nome='Semana da pele')
+        self.assertIsNone(geral.procedimento)
+        self.assertEqual(geral.desconto_percentual, Decimal('15.00'))
+        self._criar(nome='Limpeza por 99', procedimento=str(self.proc.pk), preco_promocional='99,00')
+        fixa = Promocao.objects.get(nome='Limpeza por 99')
+        self.assertEqual(fixa.preco_promocional, Decimal('99.00'))
+        resp = self._criar(nome='Fixa sem procedimento', preco_promocional='50')
+        self.assertFalse(Promocao.objects.filter(nome='Fixa sem procedimento').exists())
+        self.assertTrue(any('escolha o procedimento' in m for m in _mensagens(resp)))
+
+    def test_promocao_usada_nao_e_excluida(self):
+        promo = Promocao.objects.create(nome='Usada', desconto_percentual=Decimal('10'), procedimento=self.proc,
+                                        data_inicio=timezone.localdate(), data_fim=timezone.localdate())
+        at = criar_atendimento(criar_cliente(), criar_profissional(), self.proc)
+        at.promocao = promo
+        at.save(update_fields=['promocao'])
+        resp = self.client.post(reverse('aranha:admin_excluir_promocao', args=[promo.pk]), follow=True)
+        self.assertTrue(Promocao.objects.filter(pk=promo.pk).exists())
+        self.assertTrue(any('desative em vez de excluir' in m for m in _mensagens(resp)))
+
+
 # ─── Promocoes: global e preco fixo editaveis ─────────────────────────
 class PromocaoEdicaoTests(_AdminTestCase):
     def setUp(self):

@@ -11,7 +11,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django_ratelimit.decorators import ratelimit
 
 from ...decorators import staff_required
-from ...models import Cliente, Configuracao, Procedimento, Promocao
+from ...models import Atendimento, Cliente, Configuracao, Procedimento, Promocao
 from ...utils.auditoria import registrar_log
 from ...utils.datas import hoje
 from ...utils.parse import id_int
@@ -69,25 +69,41 @@ def admin_promocoes(request):
 @staff_required
 @ratelimit(key='user', rate='30/m', method='POST', block=True)
 def admin_criar_promocao(request):
-    """Cria nova promoção via POST"""
+    """Cria promocao (REGRAS §13): geral = todos os procedimentos, so percentual; especifica =
+    percentual OU preco fixo (XOR, validado pelo model e pelo CHECK do banco)."""
     if request.method == 'POST':
+        proc_id = (request.POST.get('procedimento') or '').strip()
         # 404 real (procedimento inexistente) nao deve ser mascarado como erro interno
-        procedimento = get_object_or_404(Procedimento, pk=request.POST.get('procedimento'))
+        procedimento = get_object_or_404(Procedimento, pk=proc_id) if proc_id else None
+        preco_raw = (request.POST.get('preco_promocional') or '').strip()
         try:
-            promo = Promocao.objects.create(
+            promo = Promocao(
                 nome=request.POST.get('nome', '').strip(),
                 descricao=request.POST.get('descricao', '').strip(),
-                desconto_percentual=_parse_desconto(request.POST.get('desconto', '10')),
                 procedimento=procedimento,
                 data_inicio=request.POST.get('data_inicio'),
                 data_fim=request.POST.get('data_fim'),
                 ativa=request.POST.get('ativa') == '1',
             )
-            registrar_log(request.user, f'Criou promoção: {promo.nome}', 'promocao', promo.pk, {'desconto': str(promo.desconto_percentual)}, request=request)
+            if preco_raw:
+                promo.preco_promocional = _parse_preco(preco_raw)
+                promo.desconto_percentual = Decimal('0')
+            else:
+                promo.desconto_percentual = _parse_desconto(request.POST.get('desconto', ''))
+            promo.full_clean()
+            promo.save()
+            registrar_log(request.user, f'Criou promoção: {promo.nome}', 'promocao', promo.pk,
+                          {'desconto': str(promo.desconto_percentual),
+                           'preco_fixo': str(promo.preco_promocional) if promo.preco_promocional else None},
+                          request=request)
             messages.success(request, 'Promoção criada com sucesso!')
-        except (ValueError, ValidationError, IntegrityError) as e:
+        except ValidationError as e:
+            messages.error(request, ' '.join(m for msgs in e.message_dict.values() for m in msgs)
+                           if hasattr(e, 'message_dict') else 'Promoção inválida.')
+        except (ValueError, IntegrityError) as e:
             logger.error(f'Erro ao criar promoção: {e}', exc_info=True)
-            messages.error(request, 'Erro ao criar promoção. Verifique desconto (até 100%) e datas (fim depois do início).')
+            messages.error(request, 'Erro ao criar promoção. Informe desconto (até 100%) ou preço fixo e datas '
+                                    '(fim depois do início).')
     return redirect('aranha:admin_promocoes')
 
 
@@ -264,8 +280,12 @@ def admin_disparar_promocao(request, pk):
 def admin_excluir_promocao(request, pk):
     """Exclui promoção via POST"""
     if request.method == 'POST':
+        promo = get_object_or_404(Promocao, pk=pk)
+        if Atendimento.objects.filter(promocao=promo).exists():
+            # preco ja cobrado com esta promocao: excluir apagava o rastro do desconto
+            messages.error(request, f'"{promo.nome}" já foi usada em atendimentos: desative em vez de excluir.')
+            return redirect('aranha:admin_promocoes')
         try:
-            promo = get_object_or_404(Promocao, pk=pk)
             nome = promo.nome
             promo.delete()
             registrar_log(request.user, f'Excluiu promoção: {nome}', 'promocao', pk, request=request)
