@@ -22,12 +22,13 @@
             var cat = tab.dataset.cat;
             tabs.forEach(function(t){
                 t.classList.remove('active');
-                t.style.background = '#fff';
-                t.style.color = '#7a5f1f';
+                // tokens (tema claro e escuro): #fff/#7a5f1f davam 2,7:1 no escuro
+                t.style.background = 'var(--cor-superficie)';
+                t.style.color = 'var(--cor-marca)';
             });
             tab.classList.add('active');
-            tab.style.background = 'var(--gold,#C9A84C)';
-            tab.style.color = 'white';
+            tab.style.background = 'var(--cor-marca-forte)';
+            tab.style.color = 'var(--cor-sobre-marca)';  // branco sobre o dourado dava 2,3:1
             cards.forEach(function(c){
                 c.style.display = (!cat || c.dataset.categoria === cat) ? '' : 'none';
             });

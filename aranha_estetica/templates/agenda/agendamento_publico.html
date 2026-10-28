@@ -84,8 +84,8 @@
         background: var(--cor-borda); color: #BBB; font-size: 0.72rem; font-weight: 800;
         margin-right: 0.5rem; vertical-align: middle; transition: all 0.3s;
     }
-    .step-item.active .step-num { background: var(--gold); color: white; }
-    .step-item.done .step-num { background: var(--gold); color: white; }
+    .step-item.active .step-num { background: var(--gold); color: var(--cor-sobre-marca); }
+    .step-item.done .step-num { background: var(--gold); color: var(--cor-sobre-marca); }
 
     /* ─── STEP PANELS — CRITICAL HIDE/SHOW ─── */
     .step-panel { display: none !important; padding: 2rem; }
@@ -146,7 +146,7 @@
         display: flex; align-items: center; justify-content: center;
         cursor: pointer; transition: all 0.2s; color: var(--earth);
     }
-    .cal-nav-btn:hover { background: var(--gold); border-color: var(--gold); color: white; }
+    .cal-nav-btn:hover { background: var(--gold); border-color: var(--gold); color: var(--cor-sobre-marca); }
 
     .cal-weekdays {
         display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
@@ -174,7 +174,7 @@
         background: var(--gold-light); border-color: var(--gold); transform: scale(1.1);
     }
     .cal-day.selected {
-        background: var(--gold) !important; color: white !important;
+        background: var(--gold) !important; color: var(--cor-sobre-marca) !important;
         border-color: var(--gold) !important;
         transform: scale(1.1); box-shadow: 0 4px 12px rgba(201,168,76,0.3);
     }
@@ -201,7 +201,7 @@
     }
     .slot-btn:hover { border-color: var(--gold); background: var(--gold-light); }
     .slot-btn.selected {
-        background: var(--gold); color: white; border-color: var(--gold);
+        background: var(--gold); color: var(--cor-sobre-marca); border-color: var(--gold);
         box-shadow: 0 4px 12px rgba(201,168,76,0.3);
     }
     .slots-loading { text-align: center; padding: 2rem; color: var(--cor-texto-suave); }
@@ -215,7 +215,7 @@
         cursor: pointer; transition: all 0.2s;
     }
     .prof-btn:hover { border-color: var(--gold); background: var(--gold-light); }
-    .prof-btn.selected { background: var(--gold); color: white; border-color: var(--gold); }
+    .prof-btn.selected { background: var(--gold); color: var(--cor-sobre-marca); border-color: var(--gold); }
 
     /* ─── STEP 3 FORM ─── */
     .booking-recap {
@@ -339,7 +339,7 @@
 
     .btn-confirm-booking {
         width: 100%; padding: 0.95rem; background: var(--gold);
-        color: white; border: none; border-radius: 50px;
+        color: var(--cor-sobre-marca); border: none; border-radius: 50px;
         font-size: 0.92rem; font-weight: 800; text-transform: uppercase;
         letter-spacing: 1.2px; cursor: pointer; transition: all 0.25s;
         box-shadow: 0 6px 20px rgba(201,168,76,0.35);
@@ -435,12 +435,12 @@
             <div class="cat-tabs" role="tablist" aria-label="Filtrar por categoria"
                  style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-bottom:1rem;">
                 <button type="button" class="cat-tab active" data-cat=""
-                        style="background:var(--gold,#C9A84C); color:white; border:none; border-radius:999px; padding:0.4rem 1rem; font-size:0.78rem; font-weight:700; cursor:pointer;">
+                        style="background:var(--cor-marca-forte); color:var(--cor-sobre-marca); border:none; border-radius:999px; padding:0.4rem 1rem; font-size:0.78rem; font-weight:700; cursor:pointer;">
                     Todos
                 </button>
                 {% for cat_value, cat_label in categorias_disponiveis %}
                 <button type="button" class="cat-tab" data-cat="{{ cat_value }}"
-                        style="background:var(--cor-superficie); color:#7a5f1f; border:1px solid var(--cor-marca-forte); border-radius:999px; padding:0.4rem 1rem; font-size:0.78rem; font-weight:700; cursor:pointer;">
+                        style="background:var(--cor-superficie); color:var(--cor-marca); border:1px solid var(--cor-marca-forte); border-radius:999px; padding:0.4rem 1rem; font-size:0.78rem; font-weight:700; cursor:pointer;">
                     {{ cat_label }}
                 </button>
                 {% endfor %}
