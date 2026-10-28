@@ -4,7 +4,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db import models
+from django.db import IntegrityError, models
 from django.db.models import Case, OuterRef, Q, Subquery, Value, When
 from django.db.models.functions import Now
 from django.utils import timezone
@@ -113,6 +113,12 @@ class MovimentoComissaoQuerySet(models.QuerySet):
 
     def creditos(self):
         return self.filter(tipo=MovimentoComissao.TIPO_CREDITO)
+
+    def creditos_ativos(self):
+        """CREDITOs sem ESTORNO (no maximo 1 por atendimento — tg_movimento_comissao_validar, 0063)."""
+        estornados = MovimentoComissao.objects.filter(tipo=MovimentoComissao.TIPO_ESTORNO).values(
+            'movimento_origem_id')
+        return self.creditos().exclude(pk__in=estornados)
 
     def creditos_com_status(self):
         """1 linha por CREDITO com o status derivado (espelho de vw_comissao).
@@ -241,11 +247,8 @@ class MovimentoComissao(models.Model):
                 condition=Q(tipo='CREDITO') | Q(regra__isnull=True),
                 name='ck_movimento_comissao_regra_so_credito',
             ),
-            # idempotencia: nunca 2 creditos p/ o mesmo atendimento (nem depois de estornado)
-            models.UniqueConstraint(
-                fields=['atendimento'], condition=Q(tipo='CREDITO'),
-                name='uq_movimento_comissao_credito_por_atendimento',
-            ),
+            # no maximo 1 CREDITO ATIVO (nao estornado) por atendimento: tg_movimento_comissao_validar
+            # (0063) + _validar_lancamento — estornado, pode nascer outro (valor corrigido, realizacao refeita)
             models.UniqueConstraint(
                 fields=['movimento_origem'], condition=Q(tipo='ESTORNO'),
                 name='uq_movimento_comissao_estorno_por_origem',
@@ -330,6 +333,10 @@ class MovimentoComissao(models.Model):
             raise ValidationError(MSG_COMISSAO_IMUTAVEL)
         if self.tipo != self.TIPO_CREDITO:
             self._validar_lancamento()
+        elif self.atendimento_id and MovimentoComissao.objects.creditos_ativos().filter(
+                atendimento_id=self.atendimento_id).exists():
+            # espelho do tg_movimento_comissao_validar (0063): estorne o credito ativo antes
+            raise IntegrityError('movimento_comissao: atendimento ja tem credito ativo')
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):

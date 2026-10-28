@@ -1296,12 +1296,23 @@ class ValorAtendimentoTests(_AdminTestCase):
         self.assertEqual(MovimentoComissao.objects.get(atendimento=at).valor, Decimal('80.00'))
         self.assertTrue(LogAuditoria.objects.filter(acao='Registrou valor cobrado', registro_id=at.pk).exists())
 
-    def test_com_comissao_lancada_ou_cancelado_recusa(self):
+    def test_realizado_recalcula_comissao_pendente_e_paga_recusa(self):
+        RegraComissao.objects.create(percentual=Decimal('10'), ativo=True)
         at = criar_atendimento(self.cli, self.prof, self.proc, status='REALIZADO')
-        MovimentoComissao.objects.create(profissional=self.prof, atendimento=at, valor=Decimal('10.00'))
+        MovimentoComissao.objects.create(profissional=self.prof, atendimento=at, valor=Decimal('150.00'))
         self.client.post(reverse('aranha:admin_atendimento_valor', args=[at.pk]), {'valor': '150'})
         at.refresh_from_db()
-        self.assertIsNone(at.valor_cobrado)
+        self.assertEqual(at.valor_cobrado, Decimal('150.00'))
+        ativo = MovimentoComissao.objects.creditos_ativos().get(atendimento=at)
+        self.assertEqual(ativo.valor, Decimal('15.00'))   # estornou o de 150 e lancou 10% de 150
+        MovimentoComissao.objects.create(tipo='PAGAMENTO', valor=ativo.valor, profissional=self.prof,
+                                         atendimento=at, movimento_origem=ativo)
+        resp = self.client.post(reverse('aranha:admin_atendimento_valor', args=[at.pk]), {'valor': '90'}, follow=True)
+        at.refresh_from_db()
+        self.assertEqual(at.valor_cobrado, Decimal('150.00'))
+        self.assertTrue(any('já foi paga' in m for m in _mensagens(resp)))
+
+    def test_cancelado_recusa(self):
         cancelado = criar_atendimento(self.cli, self.prof, self.proc, data_hora=_local(4, 9), status='CANCELADO')
         self.client.post(reverse('aranha:admin_atendimento_valor', args=[cancelado.pk]), {'valor': '150'})
         cancelado.refresh_from_db()

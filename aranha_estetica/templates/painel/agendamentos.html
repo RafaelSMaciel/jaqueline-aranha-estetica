@@ -151,7 +151,7 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
       <span class="text-[0.78rem] font-bold text-sucesso">{{ agend.valor_cobrado|brl }}</span>
       {% endif %}
       {% if agend.pk not in marc.pacote and not agend.eh_retorno and agend.status != 'CANCELADO' and agend.status != 'FALTOU' and agend.status != 'REAGENDADO' %}
-      {# Valor combinado / "a consultar": registrado aqui (realizado sem comissao lancada gera a comissao) #}
+      {# Valor combinado / "a consultar": registrado aqui (realizado: a comissao pendente e recalculada) #}
       {# No celular o popover entra no fluxo (largura da linha): absolute right-0 saia da tela pela esquerda #}
       <details class="relative w-full sm:w-auto">
         <summary class="list-none w-fit ml-auto cursor-pointer px-2 py-1 rounded-lg border border-borda text-[0.7rem] font-bold text-texto-suave hover:text-texto">
@@ -164,6 +164,32 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
           <input id="valor-{{ agend.pk }}" type="text" name="valor" inputmode="decimal" required placeholder="150,00"
                  class="w-24 px-2 py-1 rounded-lg border border-borda bg-fundo text-[0.8rem] text-texto">
           <button type="submit" class="px-2.5 py-1 rounded-lg bg-green-700 text-white text-[0.72rem] font-bold border-none cursor-pointer hover:bg-green-800">Salvar</button>
+        </form>
+      </details>
+      {% endif %}
+      {% if agend.status == 'REALIZADO' %}
+      {# Realizado por engano: volta (com motivo) e os efeitos sao desfeitos (comissao pendente, cashback, pacote) #}
+      <details class="relative w-full sm:w-auto">
+        <summary class="list-none w-fit ml-auto cursor-pointer px-2 py-1 rounded-lg border border-erro text-[0.7rem] font-bold text-erro">
+          Desfazer realização
+        </summary>
+        <form method="post" action="{% url 'aranha:admin_desfazer_realizacao' agend.pk %}"
+              class="static sm:absolute sm:right-0 z-30 mt-1 flex flex-col gap-1.5 p-3 w-72 max-w-full rounded-xl border border-borda bg-superficie shadow-lg">
+          {% csrf_token %}
+          <label for="destino-{{ agend.pk }}" class="text-[0.72rem] font-bold text-texto-suave">Voltar para</label>
+          <select id="destino-{{ agend.pk }}" name="destino" required
+                  class="px-2 py-1 rounded-lg border border-borda bg-fundo text-[0.8rem] text-texto">
+            <option value="AGENDADO">Agendado — ainda vai acontecer</option>
+            <option value="FALTOU">Faltou — a cliente não veio</option>
+            <option value="CANCELADO">Cancelado — não aconteceu</option>
+          </select>
+          <label for="motivo-{{ agend.pk }}" class="text-[0.72rem] font-bold text-texto-suave">Motivo</label>
+          <input id="motivo-{{ agend.pk }}" type="text" name="motivo" required maxlength="200"
+                 placeholder="Ex.: marcado no atendimento errado"
+                 class="px-2 py-1 rounded-lg border border-borda bg-fundo text-[0.8rem] text-texto">
+          <p class="text-[0.7rem] text-texto-suave m-0">Estorna a comissão ainda não paga e o cashback, devolve a sessão do pacote e cancela o retorno sugerido.</p>
+          <button type="submit" data-confirm="Desfazer a realização de {{ agend.cliente.nome }}?"
+                  class="px-2.5 py-1 rounded-lg bg-superficie text-erro border border-erro text-[0.72rem] font-bold cursor-pointer hover:bg-erro hover:text-white">Desfazer</button>
         </form>
       </details>
       {% endif %}

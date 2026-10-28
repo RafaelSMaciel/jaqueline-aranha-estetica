@@ -156,6 +156,7 @@ ROTAS = {
     'aranha:admin_bulk_agendamentos': (SEM, '', SO_POST),
     'aranha:admin_agendamento_novo': (SEM, '', STAFF),
     'aranha:admin_atendimento_valor': (_d(pk=lambda d: d['realizado'].pk), '', SO_POST),
+    'aranha:admin_desfazer_realizacao': (_d(pk=lambda d: d['realizado'].pk), '', SO_POST),
     'aranha:admin_usuarios': (SEM, '', STAFF),
     'aranha:admin_criar_usuario': (SEM, '', STAFF),
     'aranha:admin_editar_usuario': (_d(pk=lambda d: d['usuario_prof'].pk), '', STAFF),

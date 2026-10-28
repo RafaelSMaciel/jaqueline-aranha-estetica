@@ -134,10 +134,10 @@ class ComissaoService:
         if valor <= 0:
             return None
 
-        # Idempotencia total por atendimento: 1 CREDITO, nunca um 2o (mesmo depois
-        # de estornado) — previne double-pay quando um atendimento volta a Realizado.
-        # O UNIQUE parcial (uq_movimento_comissao_credito_por_atendimento) garante no banco.
-        if MovimentoComissao.objects.filter(atendimento=atendimento, tipo=CREDITO).exists():
+        # Idempotencia por atendimento: no maximo 1 CREDITO ATIVO (nao estornado). Credito novo so
+        # depois do estorno do anterior (valor corrigido, realizacao refeita) — no PG o
+        # tg_movimento_comissao_validar garante (0063).
+        if MovimentoComissao.objects.creditos_ativos().filter(atendimento=atendimento).exists():
             logger.info('comissao_ja_existe_ignorada', extra={'atendimento_id': atendimento.pk})
             return None
 
@@ -178,6 +178,35 @@ class ComissaoService:
             usuario_autor=usuario if getattr(usuario, 'pk', None) else None,
             observacoes=observacoes,
         )
+
+    @staticmethod
+    def _estornar_credito_pendente(atendimento: Atendimento, usuario, observacoes: str) -> None:
+        """Estorna o credito ativo do atendimento, se houver; PAGO recusa (RegraDeNegocio): o repasse
+        ja saiu — o ajuste vai no proximo repasse, fora do sistema."""
+        from ..excecoes import RegraDeNegocio
+
+        credito = (MovimentoComissao.objects.select_for_update()
+                   .creditos_ativos().filter(atendimento=atendimento).first())
+        if credito is None:
+            return
+        if MovimentoComissao.objects.filter(movimento_origem=credito, tipo=PAGAMENTO).exists():
+            raise RegraDeNegocio('A comissão deste atendimento já foi paga à profissional: '
+                                 'acerte no próximo repasse.', codigo='comissao_paga')
+        ComissaoService._derivado(credito, ESTORNO, usuario, observacoes=observacoes)
+
+    @staticmethod
+    @transaction.atomic
+    def recalcular(atendimento: Atendimento, usuario=None) -> Optional[MovimentoComissao]:
+        """Valor do atendimento REALIZADO corrigido: estorna o credito PENDENTE e lanca o novo com
+        a base atual. Comissao ja paga recusa (RegraDeNegocio)."""
+        ComissaoService._estornar_credito_pendente(atendimento, usuario, 'valor do atendimento corrigido')
+        return ComissaoService.calcular_comissao(atendimento)
+
+    @staticmethod
+    @transaction.atomic
+    def estornar_para_desfazer(atendimento: Atendimento, usuario=None) -> None:
+        """Realizacao desfeita: estorna o credito PENDENTE (pago recusa toda a operacao)."""
+        ComissaoService._estornar_credito_pendente(atendimento, usuario, 'realização desfeita')
 
     @staticmethod
     @transaction.atomic

@@ -59,8 +59,10 @@ class LedgerComissaoTests(_Base):
         self.assertEqual((credito.tipo, credito.valor, credito.status), (C, Decimal('20.00'), 'PENDENTE'))
         self.assertIsNone(ComissaoService.calcular_comissao(at))
         self.assertEqual(ComissaoService.estornar_comissao(at), 1)
-        self.assertIsNone(ComissaoService.calcular_comissao(at))  # nunca um 2o CREDITO
-        self.assertEqual(self._tipos(at), [C, E])
+        # estornado, um novo calculo lanca outro CREDITO (no maximo 1 ATIVO por atendimento)
+        self.assertIsNotNone(ComissaoService.calcular_comissao(at))
+        self.assertIsNone(ComissaoService.calcular_comissao(at))
+        self.assertEqual(self._tipos(at), [C, C, E])   # ordenado
 
     def test_pagar_lanca_pagamento_com_autor_e_nao_paga_duas_vezes(self):
         at = self._realizado()
@@ -129,7 +131,6 @@ class LedgerComissaoTests(_Base):
         at = self._realizado()
         credito = criar_comissao(at, valor='20.00')
         casos = {
-            'CREDITO repetido': dict(tipo=C, valor=Decimal('5')),
             'valor zero': dict(tipo=C, valor=Decimal('0'), atendimento=self._realizado(dias=3)),
             'credito com origem': dict(tipo=C, valor=Decimal('5'), movimento_origem=credito,
                                        atendimento=self._realizado(dias=4)),
@@ -148,6 +149,23 @@ class LedgerComissaoTests(_Base):
         with self.assertRaises(IntegrityError), transaction.atomic():
             MovimentoComissao.objects.bulk_create([MovimentoComissao(
                 tipo=P, valor=Decimal('20.00'), profissional=self.prof, atendimento=at, movimento_origem=credito)])
+
+    def test_um_credito_ativo_por_atendimento(self):
+        """2o CREDITO so depois do estorno do 1o (0063): o save() recusa e, no Postgres, o gatilho
+        tg_movimento_comissao_validar recusa ate o bulk_create (que pula o save)."""
+        from django.db import connection
+        at = self._realizado()
+        credito = criar_comissao(at, valor='20.00')
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            MovimentoComissao.objects.create(tipo=C, valor=Decimal('5'), profissional=self.prof, atendimento=at)
+        if connection.vendor == 'postgresql':
+            with self.assertRaises(IntegrityError), transaction.atomic():
+                MovimentoComissao.objects.bulk_create([MovimentoComissao(
+                    tipo=C, valor=Decimal('5'), profissional=self.prof, atendimento=at)])
+        MovimentoComissao.objects.create(tipo=E, valor=credito.valor, profissional=self.prof, atendimento=at,
+                                         movimento_origem=credito)
+        novo = MovimentoComissao.objects.create(tipo=C, valor=Decimal('25'), profissional=self.prof, atendimento=at)
+        self.assertEqual(list(MovimentoComissao.objects.creditos_ativos().filter(atendimento=at)), [novo])
 
     def test_cancelamento_pela_fsm_estorna(self):
         at = criar_atendimento(self.cli, self.prof, self.proc, status='AGENDADO')
