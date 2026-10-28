@@ -27,7 +27,7 @@ from django.utils import timezone
 from .constants import VALIDADE_LINK_NPS
 from .models import Atendimento, AvaliacaoNPS
 from .models.agendamentos import StatusAtendimento
-from .utils.datas import fmt_local, hoje
+from .utils.datas import dias_locais, fmt_local, hoje
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ def job_enviar_lembrete_dia_seguinte():
 
     amanha = hoje() + timedelta(days=1)
     agendamentos = consentimentos.com_consentimento(
-        Atendimento.objects.filter(data_hora_inicio__date=amanha, status=StatusAtendimento.AGENDADO),
+        Atendimento.objects.filter(**dias_locais('data_hora_inicio', amanha), status=StatusAtendimento.AGENDADO),
         *consentimentos.LEMBRETE_WHATSAPP,
     ).select_related('cliente', 'profissional', 'procedimento')
 

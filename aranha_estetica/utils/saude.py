@@ -77,13 +77,62 @@ def alertas_saude(cliente, limite_fichas: int = 5, perguntas: list[dict] | None 
     """[{'label', 'valor', 'origem'}] com alergias/contraindicacoes/etc. do cliente.
 
     origem: 'prontuario' ou 'anamnese' (ficha respondida pela cliente). Considera
-    as `limite_fichas` fichas de ANAMNESE mais recentes respondidas.
-    `perguntas` = perguntas_prontuario() ja lidas (lote: services.alertas).
+    as `limite_fichas` fichas de ANAMNESE mais recentes respondidas. Lista de
+    clientes: alertas_em_lote (mesmas consultas p/ 1 ou 50).
     """
-    if cliente is None:
+    if cliente is None or not getattr(cliente, 'pk', None):
         return []
+    return alertas_em_lote([cliente.pk], limite_fichas, perguntas).get(cliente.pk, [])
+
+
+def alertas_em_lote(cliente_ids, limite_fichas: int = 5,
+                    perguntas: list[dict] | None = None) -> dict[int, list[dict]]:
+    """{cliente_id: alertas} so p/ quem tem alerta — 3 consultas no maximo, qualquer que seja o
+    tamanho da lista (prontuarios, fichas e as perguntas do prontuario, essas so se precisar).
+
+    Antes cada cliente custava 2-3 consultas (o painel com 25 linhas passava de 70).
+    `perguntas` = perguntas_prontuario() ja lidas.
+    """
+    from django.db.models import F, Window
+    from django.db.models.functions import RowNumber
+
     from ..models import Prontuario, RespostaAnamnese
 
+    ids = {int(i) for i in cliente_ids if i}
+    if not ids:
+        return {}
+    prontuarios = {
+        p.cliente_id: p for p in Prontuario.objects.filter(cliente_id__in=ids).only(
+            'cliente_id', 'alergias', 'contraindicacoes', 'medicamentos_uso', 'respostas_extras')
+    }
+    fichas: dict[int, list] = {}
+    for ficha in (
+        RespostaAnamnese.objects.filter(
+            cliente_id__in=ids, formulario__tipo='ANAMNESE', respondida_em__isnull=False,
+        )
+        .select_related('formulario')
+        .annotate(ordem=Window(RowNumber(), partition_by=[F('cliente_id')],
+                               order_by=[F('respondida_em').desc(), F('pk').desc()]))
+        .filter(ordem__lte=limite_fichas)
+        .order_by('cliente_id', '-respondida_em', '-pk')
+    ):
+        fichas.setdefault(ficha.cliente_id, []).append(ficha)
+
+    if perguntas is None and any(
+        isinstance(p.respostas_extras, dict) and p.respostas_extras for p in prontuarios.values()
+    ):
+        perguntas = perguntas_prontuario()
+    por_key = {p['key']: p for p in perguntas or []}
+
+    mapa = {}
+    for cliente_id in ids:
+        alertas = _montar_alertas(prontuarios.get(cliente_id), fichas.get(cliente_id, []), por_key)
+        if alertas:
+            mapa[cliente_id] = alertas
+    return mapa
+
+
+def _montar_alertas(pront, fichas, perguntas_por_key) -> list[dict]:
     out: list[dict] = []
     vistos: set[tuple[str, str]] = set()
 
@@ -94,7 +143,6 @@ def alertas_saude(cliente, limite_fichas: int = 5, perguntas: list[dict] | None 
         vistos.add(chave)
         out.append({'label': label, 'valor': valor, 'origem': origem})
 
-    pront = Prontuario.objects.filter(cliente=cliente).first()
     if pront is not None:
         for campo, label in (
             ('alergias', 'Alergias'),
@@ -109,24 +157,15 @@ def alertas_saude(cliente, limite_fichas: int = 5, perguntas: list[dict] | None 
         # pergunta ativa (removida do formulario, sufixo '_x' da migracao)
         # ainda alerta, com label derivado da chave.
         extras = pront.respostas_extras if isinstance(pront.respostas_extras, dict) else {}
-        if extras:
-            por_key = {p['key']: p for p in (perguntas if perguntas is not None else perguntas_prontuario())}
-            for key, valor in extras.items():
-                pergunta = por_key.get(key)
-                label = str((pergunta or {}).get('label') or rotulo_da_chave(key))
-                if not deve_alertar(pergunta, key, label):
-                    continue
-                texto = _valor_positivo(valor)
-                if texto:
-                    add(label, texto, 'prontuario')
+        for key, valor in extras.items():
+            pergunta = perguntas_por_key.get(key)
+            label = str((pergunta or {}).get('label') or rotulo_da_chave(key))
+            if not deve_alertar(pergunta, key, label):
+                continue
+            texto = _valor_positivo(valor)
+            if texto:
+                add(label, texto, 'prontuario')
 
-    fichas = (
-        RespostaAnamnese.objects.filter(
-            cliente=cliente, formulario__tipo='ANAMNESE', respondida_em__isnull=False,
-        )
-        .select_related('formulario')
-        .order_by('-respondida_em')[:limite_fichas]
-    )
     for ficha in fichas:
         schema = ficha.formulario.schema_json if isinstance(ficha.formulario.schema_json, list) else []
         por_key = {c.get('key'): c for c in schema if isinstance(c, dict)}

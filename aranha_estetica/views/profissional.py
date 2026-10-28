@@ -17,7 +17,7 @@ from ..utils.audit import registrar_log
 from ..utils.saude import alertas_saude
 from ..utils.security import safe_next
 from .prontuario import _vinculo
-from ..utils.datas import ler_data
+from ..utils.datas import dias_locais, ler_data
 
 logger = logging.getLogger(__name__)
 
@@ -83,15 +83,14 @@ def agenda(request):
 
     atendimentos_dia = list(Atendimento.objects.filter(
         profissional=prof,
-        data_hora_inicio__date=dia,
+        **dias_locais('data_hora_inicio', dia),
     ).select_related(
         'cliente', 'procedimento'
     ).order_by('data_hora_inicio'))
 
     atendimentos_semana = list(Atendimento.objects.filter(
         profissional=prof,
-        data_hora_inicio__date__gte=inicio_semana,
-        data_hora_inicio__date__lt=fim_semana,
+        **dias_locais('data_hora_inicio', inicio_semana, fim_semana - timedelta(days=1)),
     ).select_related(
         'cliente', 'procedimento'
     ).order_by('data_hora_inicio'))

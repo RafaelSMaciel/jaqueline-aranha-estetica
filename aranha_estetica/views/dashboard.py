@@ -1,4 +1,4 @@
-from datetime import datetime, time, timedelta
+from datetime import datetime, timedelta
 
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
@@ -18,15 +18,9 @@ from ..decorators import staff_required
 from ..services import financeiro, links
 from ..utils.busca import filtrar_clientes
 from ..utils.nps import resumo_nps
-from ..utils.datas import fmt_local, hoje as hoje_local
+from ..utils.datas import dias_locais, fmt_local, hoje as hoje_local, inicio_do_dia, ler_data
 from ..utils.parse import id_int
-from ..utils.saude import alertas_saude
-from ..utils.datas import ler_data
-
-
-def _inicio_do_dia(d):
-    """Meia-noite local (aware) de uma data — limite para lookups em DateTimeField."""
-    return timezone.make_aware(datetime.combine(d, time.min))
+from ..utils.saude import alertas_em_lote
 
 
 def _brl(valor) -> str:
@@ -34,16 +28,12 @@ def _brl(valor) -> str:
 
 
 def _anexar_alertas_saude(atendimentos):
-    """Seta `atend.alertas_saude` (utils.saude.alertas_saude) em cada item.
-
-    Alerta visivel de alergia/contraindicacao — do prontuario E das fichas que a
-    cliente respondeu no booking. Uma consulta por cliente distinto da pagina.
-    """
-    cache_cliente = {}
+    """Seta `atend.alertas_saude` em cada item: alerta visivel de alergia/contraindicacao — do
+    prontuario E das fichas que a cliente respondeu no booking. Lote (utils.saude.alertas_em_lote):
+    as mesmas 3 consultas p/ a lista inteira."""
+    mapa = alertas_em_lote(at.cliente_id for at in atendimentos)
     for atend in atendimentos:
-        if atend.cliente_id not in cache_cliente:
-            cache_cliente[atend.cliente_id] = alertas_saude(atend.cliente)
-        atend.alertas_saude = cache_cliente[atend.cliente_id]
+        atend.alertas_saude = mapa.get(atend.cliente_id, [])
     return atendimentos
 
 
@@ -71,15 +61,15 @@ def painel_overview(request):
     inicio_semana = hoje - timedelta(days=hoje.weekday())
     fim_semana = inicio_semana + timedelta(days=6)
     inicio_mes = hoje.replace(day=1)
-    inicio_mes_dt = _inicio_do_dia(inicio_mes)
+    inicio_mes_dt = inicio_do_dia(inicio_mes)
 
     agendamentos_hoje = Atendimento.objects.filter(
-        data_hora_inicio__date=hoje,
+        **dias_locais('data_hora_inicio', hoje),
         status__in=STATUS_ATIVOS
     ).count()
 
     agendamentos_semana = Atendimento.objects.filter(
-        data_hora_inicio__date__range=[inicio_semana, fim_semana],
+        **dias_locais('data_hora_inicio', inicio_semana, fim_semana),
         status__in=STATUS_ATIVOS
     ).count()
 
@@ -95,7 +85,7 @@ def painel_overview(request):
     ticket_medio = _brl(avulsos_mes['ticket_medio'])
 
     realizados_semana = Atendimento.objects.filter(
-        data_hora_inicio__date__range=[inicio_semana, fim_semana],
+        **dias_locais('data_hora_inicio', inicio_semana, fim_semana),
         status=StatusAtendimento.REALIZADO,
     ).count()
     # Cada AgendaHorario representa uma janela de UM dia da semana (campo
@@ -139,7 +129,7 @@ def painel_overview(request):
     dias_semana_list = [(inicio_semana + timedelta(days=i)).strftime('%d/%m') for i in range(7)]
     agendamentos_por_dia = dict(
         Atendimento.objects.filter(
-            data_hora_inicio__date__range=[inicio_semana, fim_semana],
+            **dias_locais('data_hora_inicio', inicio_semana, fim_semana),
             status__in=(*STATUS_ATIVOS, StatusAtendimento.REALIZADO)
         ).annotate(
             dia=TruncDate('data_hora_inicio')
@@ -196,7 +186,7 @@ def painel_agendamentos(request):
     if data_filter:
         try:
             data = ler_data(data_filter)
-            agendamentos = agendamentos.filter(data_hora_inicio__date=data)
+            agendamentos = agendamentos.filter(**dias_locais('data_hora_inicio', data))
         except ValueError:
             pass
 
@@ -257,8 +247,8 @@ def painel_profissionais(request):
         agendamentos_mes=Count(
             'atendimento',
             filter=Q(
-                atendimento__data_hora_inicio__gte=_inicio_do_dia(inicio_mes),
-                atendimento__data_hora_inicio__lt=_inicio_do_dia(proximo_mes),
+                atendimento__data_hora_inicio__gte=inicio_do_dia(inicio_mes),
+                atendimento__data_hora_inicio__lt=inicio_do_dia(proximo_mes),
             )
         ),
         ics_ativo_desde=Subquery(link_ics.values('criado_em')[:1]),

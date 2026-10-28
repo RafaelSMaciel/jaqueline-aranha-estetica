@@ -1,53 +1,17 @@
 """Alertas de saude em lote p/ listas (agenda do portal, agendamentos do painel).
 
-utils.saude.alertas_saude(cliente) e a regra (prontuario + fichas de
-anamnese respondidas); aqui so evitamos 2 queries por linha: um pre-filtro
-em lote acha quem TEM algo a alertar e so esses passam pelo helper.
+A regra (prontuario + fichas de anamnese respondidas) e o carregamento em lote ficam em
+utils.saude (alertas_saude / alertas_em_lote: 3 consultas p/ a lista inteira).
 ids_com_ficha_pendente marca quem ainda nao respondeu a ficha obrigatoria.
 """
 from __future__ import annotations
 
-from typing import Any
-
-from django.db.models import Q
-
-from ..utils.saude import alertas_saude, perguntas_prontuario
+from ..utils.saude import alertas_em_lote
 
 
 def alertas_por_cliente(clientes) -> dict[int, list[dict]]:
     """{cliente_id: [{'label','valor','origem'}]} so p/ quem tem alerta."""
-    from ..models import Prontuario, RespostaAnamnese
-
-    por_id: dict[int, Any] = {}
-    for cli in clientes:
-        if cli is not None and getattr(cli, 'pk', None):
-            por_id.setdefault(cli.pk, cli)
-    if not por_id:
-        return {}
-
-    preenchido = Q()
-    for campo in ('alergias', 'contraindicacoes', 'medicamentos_uso'):
-        preenchido |= Q(**{f'{campo}__isnull': False}) & ~Q(**{campo: ''})
-    # questionario do prontuario (formulario PRONTUARIO; EAV migrado na 0036 +
-    # prontuario_salvar): quem so tem respostas_extras tambem passa pelo helper
-    preenchido |= ~Q(respostas_extras={})
-    candidatos = set(
-        Prontuario.objects.filter(preenchido, cliente_id__in=por_id)
-        .values_list('cliente_id', flat=True)
-    )
-    candidatos |= set(
-        RespostaAnamnese.objects.filter(
-            cliente_id__in=por_id, formulario__tipo='ANAMNESE', respondida_em__isnull=False,
-        ).values_list('cliente_id', flat=True)
-    )
-
-    mapa = {}
-    perguntas = perguntas_prontuario() if candidatos else []  # 1 leitura p/ o lote
-    for cliente_id in candidatos:
-        alertas = alertas_saude(por_id[cliente_id], perguntas=perguntas)
-        if alertas:
-            mapa[cliente_id] = alertas
-    return mapa
+    return alertas_em_lote(getattr(cli, 'pk', None) for cli in clientes if cli is not None)
 
 
 def ids_com_ficha_pendente(atendimentos) -> set[int]:

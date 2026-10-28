@@ -6,7 +6,7 @@ deve passar por aqui — `dt.strftime()` direto ou `timezone.now().date()`
 mostram/calculam em UTC (+3h / dia seguinte apos as 21h em BRT). O ruff (DTZ) barra
 date.today()/datetime.now() sem fuso no CI.
 """
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 
 from django.utils import timezone
 
@@ -14,6 +14,22 @@ from django.utils import timezone
 def hoje() -> date:
     """Data de hoje no fuso local (nao UTC)."""
     return timezone.localdate()
+
+
+def inicio_do_dia(dia: date) -> datetime:
+    """Meia-noite local (aware) de uma data — limite de filtro em DateTimeField."""
+    return timezone.make_aware(datetime.combine(dia, time.min))
+
+
+def dias_locais(campo: str, de: date, ate: date | None = None) -> dict:
+    """Filtro dos dias locais `de`..`ate` (inclusive) num DateTimeField, como intervalo:
+    ``.filter(**dias_locais('data_hora_inicio', hoje()))``.
+
+    `campo__date=` da o mesmo resultado, mas converte cada linha p/ o fuso no SQL e nao usa o
+    indice da coluna (agenda, financeiro e auditoria filtram por dia o tempo todo).
+    """
+    fim = (ate or de) + timedelta(days=1)
+    return {f'{campo}__gte': inicio_do_dia(de), f'{campo}__lt': inicio_do_dia(fim)}
 
 
 def local(dt: datetime | None) -> datetime | None:

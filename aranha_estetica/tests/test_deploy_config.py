@@ -652,6 +652,37 @@ class Setup2FAResetTests(TestCase):
             acao__icontains='setup_2fa', registro_id=u.pk).exists())
 
 
+# ─── Conexao Postgres (settings/base.opcoes_postgres) ────────────────
+class OpcoesPostgresTests(SimpleTestCase):
+    """Nome da conexao (pg_stat_activity, log do Postgres) e teto por statement."""
+    databases = {'default'}   # so SHOW (leitura), sem isolamento de transacao
+
+    def _opcoes(self, db, **env):
+        from clinica.settings.base import opcoes_postgres
+
+        with mock.patch.dict(os.environ, env):
+            for chave in ('DB_APPLICATION_NAME', 'DB_STATEMENT_TIMEOUT_MS'):
+                if chave not in env:
+                    os.environ.pop(chave, None)
+            return opcoes_postgres(db).get('OPTIONS')
+
+    def test_padrao_e_por_env(self):
+        pg = 'django.db.backends.postgresql'
+        self.assertEqual(self._opcoes({'ENGINE': pg, 'OPTIONS': {'sslmode': 'require'}}), {
+            'sslmode': 'require', 'application_name': 'shivazen', 'options': '-c statement_timeout=30000'})
+        self.assertEqual(self._opcoes({'ENGINE': pg}, DB_APPLICATION_NAME='shivazen-cron',
+                                      DB_STATEMENT_TIMEOUT_MS='0'), {'application_name': 'shivazen-cron'})
+        self.assertIsNone(self._opcoes({'ENGINE': 'django.db.backends.sqlite3'}))
+
+    @skipUnless(connection.vendor == 'postgresql', 'so no Postgres')
+    def test_conexao_da_suite_usa_as_opcoes(self):
+        with connection.cursor() as cursor:
+            cursor.execute('SHOW statement_timeout')
+            self.assertEqual(cursor.fetchone()[0], '30s')
+            cursor.execute('SHOW application_name')
+            self.assertEqual(cursor.fetchone()[0], 'shivazen')
+
+
 # ─── migrate_atomico ─────────────────────────────────────────────────
 class MigrateAtomicoTests(TestCase):
     @skipIf(connection.vendor == 'postgresql', 'no Postgres o migrate_atomico entra no ramo atomico')
@@ -669,6 +700,9 @@ class MigrateAtomicoTests(TestCase):
         with connection.cursor() as cursor:
             cursor.execute('SHOW lock_timeout')
             self.assertEqual(cursor.fetchone()[0], '5s')
+            # sem o teto da conexao (opcoes_postgres): data migration longa nao cai no meio
+            cursor.execute('SHOW statement_timeout')
+            self.assertEqual(cursor.fetchone()[0], '0')
             # trilha historico_alteracao: o que uma migration mudar sai com origem 'migracao'
             cursor.execute("SELECT current_setting('app.origem', true)")
             self.assertEqual(cursor.fetchone()[0], 'migracao')
@@ -699,6 +733,7 @@ class MigrateAtomicoTests(TestCase):
         # sem fim com as tabelas ja alteradas travadas
         cursor = fake_conn.cursor.return_value.__enter__.return_value
         cursor.execute.assert_any_call("SET LOCAL lock_timeout = '5s'")
+        cursor.execute.assert_any_call('SET LOCAL statement_timeout = 0')
         cursor.execute.assert_any_call("SET LOCAL app.origem = 'migracao'")
 
     # log do pre-deploy tem de dizer que nada ficou pela metade e onde o banco parou

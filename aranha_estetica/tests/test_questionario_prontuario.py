@@ -309,12 +309,35 @@ class AlertasQuestionarioTests(TestCase):
     def test_lote_le_as_perguntas_uma_vez(self):
         from aranha_estetica.services.alertas import alertas_por_cliente
         _questionario([{'key': 'fuma', 'tipo': 'bool', 'label': 'Fuma?', 'alerta_saude': True}])
-        clientes = [criar_cliente() for _ in range(3)]
+        clientes = [criar_cliente() for _ in range(6)]
         for cli in clientes:
             Prontuario.objects.create(cliente=cli, respostas_extras={'fuma': True})
-        with self.assertNumQueries(2 + 1 + 3 * 2):  # candidatos (2) + perguntas (1) + 2 por cliente
-            mapa = alertas_por_cliente(clientes)
-        self.assertEqual(set(mapa), {c.pk for c in clientes})
+        # prontuarios + fichas + perguntas: o mesmo p/ 2 ou 6 clientes (antes 2 por cliente)
+        for lote in (clientes[:2], clientes):
+            with self.subTest(clientes=len(lote)), self.assertNumQueries(3):
+                mapa = alertas_por_cliente(lote)
+            self.assertEqual(set(mapa), {c.pk for c in lote})
+
+    def test_lote_considera_as_5_fichas_mais_recentes_de_cada_cliente(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from aranha_estetica.utils.saude import alertas_em_lote
+        form = FormularioAnamnese.objects.create(
+            nome='Anamnese', tipo='ANAMNESE', escopo='GLOBAL',
+            schema_json=[{'key': 'alergia', 'tipo': 'text', 'label': 'Alergia?'}])
+        muitas, uma = criar_cliente(), criar_cliente()
+        agora = timezone.now()
+        # a alergia so aparece na 6a ficha mais recente: fica de fora (limite 5 por cliente)
+        for dias, valor in ((10, 'dipirona'), (5, 'nao'), (4, 'nao'), (3, 'nao'), (2, 'nao'), (1, 'nao')):
+            RespostaAnamnese.objects.create(formulario=form, cliente=muitas, respostas_json={'alergia': valor},
+                                            respondida_em=agora - timedelta(days=dias))
+        RespostaAnamnese.objects.create(formulario=form, cliente=uma, respostas_json={'alergia': 'latex'},
+                                        respondida_em=agora - timedelta(days=30))
+        mapa = alertas_em_lote([muitas.pk, uma.pk])
+        self.assertEqual(mapa, {uma.pk: [{'label': 'Alergia?', 'valor': 'latex', 'origem': 'anamnese'}]})
+        self.assertEqual(alertas_saude(muitas, limite_fichas=6)[0]['valor'], 'dipirona')
 
 
 class ConversaoDaMigracaoTests(TestCase):

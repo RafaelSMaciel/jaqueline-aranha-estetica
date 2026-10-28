@@ -3,7 +3,7 @@ from datetime import date, datetime, time
 from datetime import timezone as dt_timezone
 from unittest.mock import patch
 
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase
 
 from aranha_estetica.utils import datas
 
@@ -39,3 +39,26 @@ class LeituraDeFormularioTests(SimpleTestCase):
         for invalido in ('', '25:00', '9h30', '09:30:00:00'):
             with self.subTest(valor=invalido), self.assertRaises(ValueError):
                 datas.ler_hora(invalido)
+
+
+class DiasLocaisTests(TestCase):
+    """Filtro por intervalo do dia local: mesmo resultado do __date, sem perder o indice."""
+
+    def test_atendimento_das_23h30_fica_no_dia_local(self):
+        from django.utils import timezone
+
+        from aranha_estetica.models import Atendimento
+
+        from .factories import criar_atendimento, criar_cliente, criar_procedimento, criar_profissional
+        prof = criar_profissional()
+        proc = criar_procedimento(profissional=prof)
+        noite = timezone.make_aware(datetime(2030, 3, 6, 23, 30))   # 02h30 do dia 7 em UTC
+        at = criar_atendimento(criar_cliente(), prof, proc, data_hora=noite)
+        filtro = lambda de, ate=None: set(  # noqa: E731
+            Atendimento.objects.filter(**datas.dias_locais('data_hora_inicio', de, ate)).values_list('pk', flat=True))
+        self.assertEqual(filtro(date(2030, 3, 6)), {at.pk})
+        self.assertEqual(filtro(date(2030, 3, 7)), set())
+        self.assertEqual(filtro(date(2030, 3, 1), date(2030, 3, 6)), {at.pk})   # ate inclusivo
+        self.assertEqual(filtro(date(2030, 3, 6)),
+                         set(Atendimento.objects.filter(data_hora_inicio__date=date(2030, 3, 6))
+                             .values_list('pk', flat=True)))

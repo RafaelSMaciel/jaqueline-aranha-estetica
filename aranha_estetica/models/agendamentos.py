@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from ..db.indices import Indice
 from ..excecoes import TransicaoInvalida
-from ..utils.datas import fmt_local
+from ..utils.datas import dias_locais, fmt_local
 from .clientes import Cliente
 from .mixins import ATUALIZADO_EM_BACKFILL
 from .procedimentos import Procedimento, Promocao
@@ -51,8 +51,7 @@ class AtendimentoQuerySet(models.QuerySet):
         return self.filter(data_hora_fim__lt=timezone.now())
 
     def hoje(self):
-        hoje = timezone.localdate()
-        return self.filter(data_hora_inicio__date=hoje)
+        return self.filter(**dias_locais('data_hora_inicio', timezone.localdate()))
 
     def pendentes_aprovacao(self):
         return self.filter(status=StatusAtendimento.PENDENTE)
