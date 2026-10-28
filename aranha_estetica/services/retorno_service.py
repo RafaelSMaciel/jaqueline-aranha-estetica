@@ -19,8 +19,6 @@ from typing import Optional
 from django.db import transaction
 from django.utils import timezone
 
-from ..domain.event_bus import EventBus
-from ..domain.events import AtendimentoRealizado, RetornoSugerido
 from ..excecoes import HorarioIndisponivel
 from ..models import Atendimento
 from .agenda import reservar
@@ -120,13 +118,6 @@ class RetornoService:
             )
             return None
 
-        transaction.on_commit(lambda: EventBus.publish(RetornoSugerido(
-            occurred_at=timezone.now(),
-            atendimento_origem_id=atendimento_origem.pk,
-            atendimento_retorno_id=retorno.pk,
-            cliente_id=atendimento_origem.cliente_id,
-            procedimento_id=proc.pk,
-        )))
         logger.info(
             'retorno_sugerido',
             extra={
@@ -137,16 +128,3 @@ class RetornoService:
         )
         return retorno
 
-
-@EventBus.subscribe(AtendimentoRealizado)
-def _on_realizado_sugere_retorno(event: AtendimentoRealizado) -> None:
-    """Handler: AtendimentoRealizado -> RetornoService."""
-    try:
-        atendimento = (
-            Atendimento.objects
-            .select_related('procedimento', 'cliente', 'profissional')
-            .get(pk=event.atendimento_id)
-        )
-    except Atendimento.DoesNotExist:
-        return
-    RetornoService.sugerir_retorno(atendimento)

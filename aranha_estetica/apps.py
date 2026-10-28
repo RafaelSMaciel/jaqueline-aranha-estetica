@@ -27,17 +27,8 @@ class AranhaEsteticaConfig(AppConfig):
         from two_factor.admin import AdminSiteOTPRequired
         admin.site.__class__ = AdminSiteOTPRequired
 
-        # Registra signals legados
+        # Cache do Branding (os efeitos do atendimento sao explicitos: services.atendimento)
         from . import signals  # noqa: F401
-
-        # Registra handlers do EventBus de dominio
-        from .domain import handlers  # noqa: F401
-
-        # Registra services com handlers EventBus (F-RET, F-CSB, comissao, lista espera)
-        from .services import retorno_service  # noqa: F401
-        from .services import fidelidade_service  # noqa: F401
-        from .services import comissao_service  # noqa: F401
-        from .services import lista_espera_service  # noqa: F401
 
         # System checks de config de producao (SITE_URL, SMS, e-mail, WhatsApp, cron)
         from . import checks  # noqa: F401

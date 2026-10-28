@@ -1,8 +1,8 @@
 """Transicao de status e seus efeitos numa transacao so; autor do cancelamento; aviso a cliente.
 
-- Comissao, cashback e retorno (assinantes do EventBus) gravam junto com o status ou nada grava:
-  antes a falha virava so um log com o atendimento ja REALIZADO e sem comissao.
-- cancelado_por_cliente so nos fluxos da propria cliente (o job marcava como dela).
+- Comissao, cashback e retorno (services.atendimento, chamados pela FSM) gravam junto com o status
+  ou nada grava: antes a falha virava so um log com o atendimento ja REALIZADO e sem comissao.
+- "pela cliente" so nos fluxos da propria cliente (o job marcava como dela).
 - Cancelamento pela clinica avisa a cliente por e-mail em todo caminho (painel, Django admin,
   pedido PENDENTE vencido), nao so no painel.
 """
@@ -16,9 +16,7 @@ from django.db import transaction
 from django.test import RequestFactory, TestCase
 from django.utils import timezone
 
-from aranha_estetica.domain.event_bus import EventBus
-from aranha_estetica.domain.events import AtendimentoCancelado
-from aranha_estetica.models import Atendimento, Usuario
+from aranha_estetica.models import Atendimento, LogAuditoria, Usuario
 from aranha_estetica.services.comissao_service import ComissaoService
 from aranha_estetica.services.fidelidade_service import FidelidadeService
 
@@ -60,30 +58,24 @@ class TransicaoAtomicaTests(_Base):
 
 
 class AutorDoCancelamentoTests(_Base):
-    def _eventos_de_cancelamento(self, funcao):
-        eventos = []
-        original = EventBus.publish
-
-        def capturar(evento):
-            if isinstance(evento, AtendimentoCancelado):
-                eventos.append(evento)
-            return original(evento)
-
-        with mock.patch.object(EventBus, 'publish', side_effect=capturar):
-            funcao()
-        return eventos
+    def _trilha_de_cancelamento(self, at):
+        return list(LogAuditoria.objects.filter(
+            tabela='atendimento', registro_id=at.pk, acao__contains='-> CANCELADO',
+        ).values_list('acao', flat=True))
 
     def test_job_de_pendente_vencido_nao_e_cancelamento_da_cliente(self):
         from aranha_estetica.tasks import job_limpeza_status_atendimentos
 
-        self._at(status='PENDENTE', dias=-3)
-        eventos = self._eventos_de_cancelamento(lambda: job_limpeza_status_atendimentos.apply())
-        self.assertEqual([e.cancelado_por_cliente for e in eventos], [False])
+        at = self._at(status='PENDENTE', dias=-3)
+        job_limpeza_status_atendimentos.apply()
+        trilha = self._trilha_de_cancelamento(at)
+        self.assertEqual(len(trilha), 1)
+        self.assertNotIn('pela cliente', trilha[0])
 
     def test_cancelamento_pela_cliente_e_marcado(self):
         at = self._at()
-        eventos = self._eventos_de_cancelamento(lambda: at.cancelar(motivo='portal', pela_cliente=True))
-        self.assertEqual([e.cancelado_por_cliente for e in eventos], [True])
+        at.cancelar(motivo='portal', pela_cliente=True)
+        self.assertIn('[pela cliente]', self._trilha_de_cancelamento(at)[0])
 
 
 class AvisoDeCancelamentoTests(_Base):

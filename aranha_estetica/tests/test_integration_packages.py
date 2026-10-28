@@ -28,16 +28,14 @@ class PackageLifecycleTests(TestCase):
 
         # Session 1
         atd1 = criar_atendimento(self.cli, self.prof, self.proc, status='CONFIRMADO')
-        atd1.status = 'REALIZADO'
-        atd1.save()
+        atd1.marcar_realizado()
         pc.refresh_from_db()
         self.assertEqual(pc.status, 'ATIVO')
         self.assertEqual(ConsumoSessao.objects.filter(compra_pacote=pc).count(), 1)
 
         # Session 2 — should auto-finalize
         atd2 = criar_atendimento(self.cli, self.prof, self.proc, status='CONFIRMADO')
-        atd2.status = 'REALIZADO'
-        atd2.save()
+        atd2.marcar_realizado()
         pc.refresh_from_db()
         self.assertEqual(pc.status, 'FINALIZADO')
         self.assertEqual(ConsumoSessao.objects.filter(compra_pacote=pc).count(), 2)
@@ -46,8 +44,7 @@ class PackageLifecycleTests(TestCase):
         # 3 faltas consecutivas
         for _ in range(3):
             atd = criar_atendimento(self.cli, self.prof, self.proc, status='CONFIRMADO')
-            atd.status = 'FALTOU'
-            atd.save()
+            atd.marcar_falta()
 
         self.cli.refresh_from_db()
         self.assertTrue(self.cli.bloqueado_online)
@@ -55,8 +52,7 @@ class PackageLifecycleTests(TestCase):
 
         # 1 realizado reseta tudo
         atd = criar_atendimento(self.cli, self.prof, self.proc, status='CONFIRMADO')
-        atd.status = 'REALIZADO'
-        atd.save()
+        atd.marcar_realizado()
 
         self.cli.refresh_from_db()
         self.assertFalse(self.cli.bloqueado_online)
@@ -69,8 +65,7 @@ class PackageLifecycleTests(TestCase):
 
         outro_proc = criar_procedimento(nome='Outro Procedimento', profissional=self.prof)
         atd = criar_atendimento(self.cli, self.prof, outro_proc, status='CONFIRMADO')
-        atd.status = 'REALIZADO'
-        atd.save()
+        atd.marcar_realizado()
 
         self.assertEqual(ConsumoSessao.objects.filter(compra_pacote=pc).count(), 0)
         pc.refresh_from_db()

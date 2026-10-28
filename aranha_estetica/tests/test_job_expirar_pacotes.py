@@ -113,8 +113,7 @@ class ValidadePelaDataDaSessaoTests(TestCase):
         return criar_atendimento(self.cliente, self.prof, self.proc, data_hora=inicio)
 
     def _realizar(self, atd):
-        atd.status = 'REALIZADO'
-        atd.save()
+        atd.marcar_realizado()
 
     def test_sessao_no_ultimo_dia_marcada_no_dia_seguinte_debita(self):
         CompraPacote.objects.filter(pk=self.pc.pk).update(data_expiracao=self.ontem)

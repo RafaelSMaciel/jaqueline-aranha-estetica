@@ -577,6 +577,12 @@ class AtendimentoAdmin(admin.ModelAdmin):
     inlines = [NotificacaoInline]
     actions = ['acao_marcar_realizado', 'acao_marcar_cancelado', 'acao_marcar_faltou']
 
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if not change:
+            from .services.atendimento import ao_criar
+            ao_criar(obj)   # push + Google Calendar, como nas outras portas (services.agenda)
+
     def get_readonly_fields(self, request, obj=None):
         # Status so muda pela FSM (actions abaixo / painel), nunca editando o
         # campo — nem no "add": nasceria REALIZADO sem comissao/cashback/
