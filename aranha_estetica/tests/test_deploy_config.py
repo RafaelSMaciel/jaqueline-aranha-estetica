@@ -38,6 +38,10 @@ def _job_ok():
 class CronEndpointTests(TestCase):
     url = '/cron/run/{}/'
 
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()  # contador do rate limit do cron (30/h por IP)
+
     def _post(self, job, token='segredo-cron'):
         headers = {'HTTP_X_CRON_TOKEN': token} if token is not None else {}
         return self.client.post(self.url.format(job), **headers)
@@ -63,13 +67,13 @@ class CronEndpointTests(TestCase):
     def test_job_desconhecido_404(self):
         r = self._post('nao-existe')
         self.assertEqual(r.status_code, 404)
-        self.assertIn('housekeeping', r.json()['available'])
+        self.assertIn('housekeeping', r.json()['disponiveis'])
 
     def test_job_ok_200(self):
         with mock.patch.dict(cron.JOB_MAP, {'ok': _job_ok}):
             r = self._post('ok')
         self.assertEqual(r.status_code, 200)
-        self.assertEqual(r.json(), {'ok': True, 'job': 'ok', 'result': '3'})
+        self.assertEqual(r.json(), {'ok': True, 'job': 'ok', 'resultado': '3'})
 
     def test_job_que_falha_500_e_roda_uma_vez(self):
         _CHAMADAS['n'] = 0

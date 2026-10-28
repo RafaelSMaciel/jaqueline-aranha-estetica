@@ -2,6 +2,7 @@
 
 Mascara de dado pessoal para log fica em utils/pii (fonte unica).
 """
+import hmac
 import ipaddress
 import re
 
@@ -61,6 +62,20 @@ def safe_next(request, raw, fallback="aranha:painel_overview"):
     ):
         return raw
     return fallback
+
+
+def segredo_confere(esperado: str, recebido: str) -> bool:
+    """Confere um segredo compartilhado (header do cron, segredo do webhook, verify token) em tempo
+    constante. Lado vazio nunca confere: segredo nao configurado nao autentica ninguem.
+
+    Compara bytes: compare_digest(str, str) levanta TypeError com caractere nao ASCII, e um header
+    forjado ('X-Cron-Token: cao') virava 500; surrogateescape codifica qualquer str sem erro.
+    """
+    if not esperado or not recebido:
+        return False
+    return hmac.compare_digest(
+        esperado.encode('utf-8', 'surrogateescape'), recebido.encode('utf-8', 'surrogateescape'),
+    )
 
 
 def destino_permitido(endereco: str) -> bool:
