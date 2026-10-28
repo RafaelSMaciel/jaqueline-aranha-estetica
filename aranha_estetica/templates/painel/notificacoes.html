@@ -69,7 +69,7 @@
     <div class="flex-1 min-w-[140px]">
       <label for="filtroTipo" class="sr-only">Tipo</label>
       <select id="filtroTipo" name="tipo"
-              class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+              class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
         <option value="all" {% if tipo_filter == 'all' %}selected{% endif %}>Todos os tipos</option>
         {% if tipos %}
         {% for v, l in tipos %}
@@ -89,14 +89,14 @@
     <div class="flex-1 min-w-[140px]">
       <label for="filtroStatus" class="sr-only">Status</label>
       <select id="filtroStatus" name="status"
-              class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+              class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
         <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Todos os status</option>
         <option value="respondido" {% if status_filter == 'respondido' %}selected{% endif %}>Respondidos</option>
         <option value="pendente" {% if status_filter == 'pendente' %}selected{% endif %}>Sem resposta</option>
       </select>
     </div>
     <button type="submit"
-            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#C9A84C] text-white text-[0.82rem] font-bold hover:bg-[#b48c4c] transition-colors">
+            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.82rem] font-bold hover:opacity-90 transition-opacity">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
         <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
       </svg>
@@ -170,12 +170,12 @@
   {% include 'partials/_paginacao.html' with page=notificacoes %}
 {% else %}
   <div class="bg-superficie rounded-2xl p-12 text-center shadow-sm">
-    <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
-      <svg class="w-7 h-7 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+    <div class="w-16 h-16 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mx-auto mb-4">
+      <svg class="w-7 h-7 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
       </svg>
     </div>
-    <h5 class="font-bold text-texto mb-1">Nenhuma notificação encontrada</h5>
+    <p class="font-serif font-bold text-texto mb-1">Nenhuma notificação encontrada</p>
     <p class="text-[0.85rem] text-texto-suave">Lembretes, confirmações e pesquisas aparecem aqui assim que são gerados.</p>
   </div>
 {% endif %}

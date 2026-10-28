@@ -1,17 +1,17 @@
 {% extends "email/base_email.html" %}
 {% block header_sub %}<div style="color:rgba(255,255,255,0.88);font-size:13px;letter-spacing:2.4px;text-transform:uppercase;margin-top:6px;">Agendamento cancelado</div>{% endblock %}
 {% block content %}
-<h1 class="hero-title text-main" style="color:#4A3425;margin:0 0 12px;font-size:26px;font-weight:700;line-height:1.25;">Olá, {{ dados.nome }}!</h1>
-<p class="text-soft" style="color:#666;font-size:15px;margin:0 0 24px;">{% if dados.mensagem %}{{ dados.mensagem }}{% else %}Seu agendamento foi cancelado.{% endif %}</p>
+<h1 class="hero-title text-main" style="color:{{ cor_texto }};margin:0 0 12px;font-size:26px;font-weight:700;line-height:1.25;">Olá, {{ dados.nome }}!</h1>
+<p class="text-soft" style="color:{{ cor_suave }};font-size:15px;margin:0 0 24px;">{% if dados.mensagem %}{{ dados.mensagem }}{% else %}Seu agendamento foi cancelado.{% endif %}</p>
 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="card-inner" style="background:#fff5f5;border:2px solid #e57373;border-radius:16px;margin:0 0 24px;">
 <tr><td style="padding:24px;">
-<p class="text-soft" style="margin:0 0 8px;color:#4A3425;font-weight:700;">{{ dados.procedimento }}</p>
-<p class="text-soft" style="margin:0 0 4px;color:#999;">{{ dados.data_hora }}</p>
-<p class="text-soft" style="margin:0;color:#999;">{{ dados.profissional }}</p>
+<p class="text-soft" style="margin:0 0 8px;color:{{ cor_texto }};font-weight:700;">{{ dados.procedimento }}</p>
+<p class="text-soft" style="margin:0 0 4px;color:{{ cor_suave }};">{{ dados.data_hora }}</p>
+<p class="text-soft" style="margin:0;color:{{ cor_suave }};">{{ dados.profissional }}</p>
 </td></tr>
 </table>
 
-<p class="text-soft" style="color:#666;font-size:14px;margin:0 0 16px;">Para reagendar, acesse:</p>
-<table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;"><tr><td bgcolor="#C9A84C" style="border-radius:999px;background-color:#C9A84C;mso-padding-alt:14px 36px;"><a href="{{ site_url }}/agendamento/" style="display:inline-block;background-color:#C9A84C;color:#23200f;padding:12px 32px;border-radius:999px;text-decoration:none;font-weight:700;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.18);">Agendar Novamente</a></td></tr></table>
+<p class="text-soft" style="color:{{ cor_suave }};font-size:14px;margin:0 0 16px;">Para reagendar, acesse:</p>
+<table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;"><tr><td bgcolor="{{ cor_marca }}" style="border-radius:999px;background-color:{{ cor_marca }};mso-padding-alt:14px 36px;"><a href="{% if link_agendar %}{{ link_agendar }}{% else %}{{ site_url }}{% url 'aranha:agendamento_publico' %}{% endif %}" style="display:inline-block;background-color:{{ cor_marca }};color:{{ cor_sobre_marca }};padding:12px 32px;border-radius:999px;text-decoration:none;font-weight:700;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.18);">Agendar novamente</a></td></tr></table>
 {% endblock %}

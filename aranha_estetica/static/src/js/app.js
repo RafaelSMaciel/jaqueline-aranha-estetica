@@ -23,8 +23,19 @@ Alpine.data('temaToggle', () => ({
 
 // Modal = <dialog x-ref="dialogo"> nativo: foco preso, Esc fecha, fundo inerte (showModal).
 // Clique no backdrop (fora do painel) fecha. Os componentes abaixo herdam este comportamento.
+// data-erro no x-data: o servidor recusou o envio e devolveu a tela com o que foi digitado ->
+// o modal ja abre, com o foco no primeiro campo recusado (aria-invalid) ou no resumo do erro.
 const comDialogo = (extra = {}) => ({
   aberto: false,
+  init() { if (this.$el.dataset.erro) this.$nextTick(() => this.abrirSeErro()) },
+  abrirSeErro() {
+    const dlg = this.$refs.dialogo
+    if (!dlg) return
+    this.aberto = true
+    dlg.showModal()
+    const alvo = dlg.querySelector('[aria-invalid="true"]') || dlg.querySelector('[data-resumo-erro]')
+    alvo?.focus()
+  },
   abrir() { this.aberto = true; this.$refs.dialogo?.showModal() },
   fechar() { this.$refs.dialogo?.close(); this.aberto = false },
   aoFechar() { this.aberto = false },
@@ -63,11 +74,30 @@ Alpine.data('cookieConsent', () => ({
 
 // App-shell do painel admin: sidenav drawer mobile + backdrop.
 // classeDrawer() = metodo (CSP build nao aceita ternario inline em x-bind).
+// navInerte(): no celular, menu fechado fica fora da tela -> inert (sai da ordem do Tab e do
+// leitor de tela); no desktop (lg, >= 1024px) o menu e fixo e sempre navegavel.
+const CELULAR = '(max-width: 1023px)'
 Alpine.data('adminShell', () => ({
   menuAberto: false,
-  alternarMenu() { this.menuAberto = !this.menuAberto },
+  celular: false,
+  init() {
+    const mq = matchMedia(CELULAR)
+    this.celular = mq.matches
+    mq.addEventListener('change', (e) => { this.celular = e.matches; if (!e.matches) this.menuAberto = false })
+  },
+  alternarMenu() {
+    this.menuAberto = !this.menuAberto
+    // abriu: foco no 1o link do menu (sem isso o Tab seguia pelo conteudo atras do backdrop)
+    if (this.menuAberto) this.$nextTick(() => document.querySelector('#sidenavMain a')?.focus())
+  },
   fecharMenu() { this.menuAberto = false },
+  fecharMenuTeclado() {
+    if (!this.menuAberto) return
+    this.menuAberto = false
+    document.querySelector('[aria-controls="sidenavMain"]')?.focus()
+  },
   classeDrawer() { return this.menuAberto ? '!translate-x-0' : '' },
+  navInerte() { return this.celular && !this.menuAberto },
 }))
 
 // Fecha o alerta pai (CSP-safe: logica no metodo, nao inline em x-on).
@@ -95,6 +125,12 @@ function associarRotulos(raiz = document) {
   })
 }
 document.addEventListener('DOMContentLoaded', () => associarRotulos())
+
+// Formulario fora de modal devolvido com erro: foco no primeiro campo recusado (o modal cuida do seu)
+document.addEventListener('DOMContentLoaded', () => {
+  const recusado = document.querySelector('form [aria-invalid="true"]')
+  if (recusado && !recusado.closest('dialog')) recusado.focus()
+})
 
 // Modal de anotacao clinica (prontuario): guarda atendimento e faz fetch.
 // CSP-safe: abrir(e) le data-atendimento-id do botao clicado; sem expressao inline.
@@ -130,7 +166,11 @@ Alpine.data('pacoteCriar', () => comDialogo({
     const row = base.cloneNode(true)
     const sel = row.querySelector('select')
     const inp = row.querySelector('input')
-    if (sel) sel.value = ''
+    if (sel) {
+      sel.value = ''
+      sel.removeAttribute('aria-invalid')   // a marca de erro e da 1a linha, nao da copia
+      sel.removeAttribute('aria-describedby')
+    }
     if (inp) inp.value = '1'
     c.appendChild(row)
   },

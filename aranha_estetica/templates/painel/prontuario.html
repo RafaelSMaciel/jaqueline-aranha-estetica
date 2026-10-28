@@ -38,12 +38,12 @@
     <div class="flex-1">
       <label for="searchInput" class="sr-only">Buscar cliente</label>
       <input type="text" id="searchInput" name="search"
-             class="w-full px-3 py-2 rounded-xl border border-borda text-[0.875rem] text-texto bg-fundo placeholder-texto-suave outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition"
+             class="w-full px-3 py-2 rounded-xl border border-borda text-[0.875rem] text-texto bg-fundo placeholder-texto-suave transition"
              placeholder="Buscar por nome, CPF ou telefone..."
              value="{{ search }}">
     </div>
     <button type="submit"
-            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#C9A84C] text-white text-[0.82rem] font-bold hover:bg-[#b48c4c] transition-colors">
+            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.82rem] font-bold hover:opacity-90 transition-opacity">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
         <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
       </svg>
@@ -101,12 +101,12 @@
 {# ── Perguntas do questionário de anamnese ── #}
 {% if perguntas %}
 <div class="bg-superficie rounded-2xl shadow-sm px-4 py-4 mb-4">
-  <h3 class="flex items-center gap-2 text-[0.85rem] font-bold text-texto mb-3">
-    <svg class="w-4 h-4 text-[#7a5f1f]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+  <h2 class="flex items-center gap-2 text-[0.85rem] font-bold text-texto mb-3">
+    <svg class="w-4 h-4 text-marca" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
     </svg>
     Perguntas do questionário do prontuário
-  </h3>
+  </h2>
   {% if formulario_prontuario %}
   <p class="text-[0.75rem] text-texto-suave mb-3">
     Editar em <a href="{% url 'aranha:admin_anamnese_editar' formulario_prontuario.pk %}" class="font-bold text-marca">Anamneses &rsaquo; {{ formulario_prontuario.nome }}</a>.
@@ -152,7 +152,7 @@
      class="flex items-center gap-3 bg-superficie rounded-2xl shadow-sm px-4 py-3 mb-2 hover:shadow-md hover:-translate-y-px transition-all duration-200 no-underline">
 
     {# Avatar ── iniciais truncadas em 2 chars #}
-    <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 font-extrabold text-[0.75rem] {% if item.tem_prontuario or item.tem_ficha %}bg-sucesso-fundo text-sucesso{% else %}bg-[rgba(201,168,76,0.12)] text-[#7a5f1f]{% endif %}" aria-hidden="true">
+    <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 font-extrabold text-[0.75rem] {% if item.tem_prontuario or item.tem_ficha %}bg-sucesso-fundo text-sucesso{% else %}bg-marca-forte/[0.12] text-[#7a5f1f]{% endif %}" aria-hidden="true">
       {{ item.cliente.nome|truncatechars:2 }}
     </div>
 
@@ -186,18 +186,18 @@
   {% include 'partials/_paginacao.html' with page=clientes_page %}
 {% else %}
 <div class="bg-superficie rounded-2xl p-12 text-center shadow-sm">
-  <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
-    <svg class="w-7 h-7 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+  <div class="w-16 h-16 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mx-auto mb-4">
+    <svg class="w-7 h-7 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
       <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
     </svg>
   </div>
-  <h5 class="font-bold text-texto mb-1">Nenhum cliente encontrado</h5>
+  <p class="font-serif font-bold text-texto mb-1">Nenhum cliente encontrado</p>
   <p class="text-[0.85rem] text-texto-suave">
     {% if search %}Nenhum resultado para "{{ search }}". Tente outro termo.{% else %}Nenhum cliente cadastrado ainda.{% endif %}
   </p>
   {% if search %}
   <a href="{% url 'aranha:prontuario_consentimento' %}"
-     class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#C9A84C] text-white text-[0.82rem] font-bold hover:bg-[#b48c4c] transition-colors no-underline mt-4">
+     class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.82rem] font-bold hover:opacity-90 transition-opacity no-underline mt-4">
     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
     </svg>
