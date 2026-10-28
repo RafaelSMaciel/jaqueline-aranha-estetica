@@ -61,8 +61,7 @@ def csp_nonce(request):
 
 
 def tema_atual(request):
-    """Retorna o tema visual (claro/escuro) lido do cookie do usuario."""
-    valor = request.COOKIES.get('tema', 'claro')
-    if valor not in ('claro', 'escuro'):
-        valor = 'claro'
-    return {'tema': valor}
+    """Tema escolhido (cookie `tema`: claro/escuro). Sem escolha valida = '' — o <html> sai sem
+    data-theme e o CSS segue o sistema (prefers-color-scheme, tokens.css)."""
+    valor = request.COOKIES.get('tema', '')
+    return {'tema': valor if valor in ('claro', 'escuro') else ''}

@@ -16,12 +16,12 @@
 {# ── Stats ── #}
 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
   <div class="bg-superficie rounded-2xl shadow-sm p-4">
-    <div class="w-9 h-9 rounded-xl bg-green-100 flex items-center justify-center mb-2">
-      <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+    <div class="w-9 h-9 rounded-xl bg-sucesso-fundo flex items-center justify-center mb-2">
+      <svg class="w-5 h-5 text-sucesso" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
       </svg>
     </div>
-    <div class="text-[1.5rem] font-extrabold text-green-600 leading-none">{{ pacotes|length }}</div>
+    <div class="text-[1.5rem] font-extrabold text-sucesso leading-none">{{ pacotes|length }}</div>
     <div class="text-[0.65rem] font-bold uppercase tracking-wide text-texto-suave mt-1">Pacotes</div>
   </div>
 </div>
@@ -34,9 +34,9 @@
       <h6 class="flex items-center gap-2 flex-wrap font-bold text-texto mb-1">
         {{ pacote.nome }}
         {% if pacote.ativo %}
-        <span class="px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-green-50 text-green-700 uppercase tracking-wide">Ativo</span>
+        <span class="px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-sucesso-fundo text-sucesso uppercase tracking-wide">Ativo</span>
         {% else %}
-        <span class="px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-red-50 text-red-600 uppercase tracking-wide">Inativo</span>
+        <span class="px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-erro-fundo text-erro uppercase tracking-wide">Inativo</span>
         {% endif %}
       </h6>
       <p class="text-[0.8rem] text-texto-suave mb-1">{{ pacote.descricao|default:"Sem descrição" }}</p>
@@ -48,7 +48,7 @@
     </div>
     <div class="flex gap-2 shrink-0">
       <button type="button" x-on:click="abrir"
-              class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-[0.75rem] font-bold border-none cursor-pointer hover:bg-blue-100 transition-colors">
+              class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-info-fundo text-info text-[0.75rem] font-bold border-none cursor-pointer hover:bg-info-fundo transition-colors">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
         </svg>
@@ -70,7 +70,7 @@
   <div class="mt-2 pt-2 border-t border-borda">
     <span class="text-[0.75rem] text-texto-suave font-bold">Itens:</span>
     {% for item in pacote.itens.all %}
-    <span class="inline-block ml-1 px-2 py-0.5 rounded-full text-[0.65rem] font-bold bg-blue-50 text-blue-700">
+    <span class="inline-block ml-1 px-2 py-0.5 rounded-full text-[0.65rem] font-bold bg-info-fundo text-info">
       {{ item.procedimento.nome }} ({{ item.quantidade_sessoes }}x)
     </span>
     {% endfor %}
@@ -122,7 +122,7 @@
           <h6 class="font-bold text-texto mt-4 mb-1">Itens do Pacote</h6>
           {% if pacote.total_vendas %}
           {# A venda congela nome/itens/valor por sessao (CompraPacoteItem): editar so vale p/ vendas futuras #}
-          <p class="text-[0.75rem] font-bold text-amber-800 bg-amber-50 rounded-lg px-3 py-2 mb-2">
+          <p class="text-[0.75rem] font-bold text-aviso bg-aviso-fundo rounded-lg px-3 py-2 mb-2">
             Já vendido {{ pacote.total_vendas }} vez{{ pacote.total_vendas|pluralize:"es" }}: as mudanças valem só para as próximas vendas. Quem já comprou mantém o que comprou.
           </p>
           {% endif %}

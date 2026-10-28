@@ -21,7 +21,7 @@
 
 {% for promo in promocoes %}
 <div x-data="modal" x-on:keydown.escape.window="fechar"
-     class="relative overflow-hidden bg-superficie rounded-2xl shadow-sm p-4 mb-3 border-l-4 {% if promo.ativa %}border-green-500{% else %}border-gray-300 opacity-70{% endif %}">
+     class="relative overflow-hidden bg-superficie rounded-2xl shadow-sm p-4 mb-3 border-l-4 {% if promo.ativa %}border-sucesso{% else %}border-borda opacity-70{% endif %}">
   <div class="absolute top-3 right-3 px-3 py-1 rounded-full bg-gradient-to-br from-[#C9A84C] to-[#e8c94f] text-white font-extrabold text-[0.8rem]">{% if promo.preco_promocional is not None %}R$ {{ promo.preco_promocional|floatformat:2 }}{% else %}-{{ promo.desconto_percentual|floatformat:"-2" }}%{% endif %}</div>
   <div class="font-bold text-[1rem] text-texto mb-0.5 pr-16">{{ promo.nome }}</div>
   <div class="flex items-center gap-1.5 text-[0.8rem] text-texto-suave">
@@ -39,14 +39,14 @@
     </svg>
     {{ promo.data_inicio|date:"d/m/Y" }} — {{ promo.data_fim|date:"d/m/Y" }}
     {% if promo.esta_vigente %}
-    <span class="px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-green-50 text-green-700 uppercase tracking-wide">ATIVA</span>
+    <span class="px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-sucesso-fundo text-sucesso uppercase tracking-wide">ATIVA</span>
     {% else %}
-    <span class="px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-red-50 text-red-600 uppercase tracking-wide">EXPIRADA</span>
+    <span class="px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-erro-fundo text-erro uppercase tracking-wide">EXPIRADA</span>
     {% endif %}
   </div>
   <div class="flex flex-wrap items-start gap-2 mt-3">
     <button type="button" x-on:click="abrir"
-            class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-[0.75rem] font-bold border-none cursor-pointer hover:bg-blue-100 transition-colors">
+            class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-info-fundo text-info text-[0.75rem] font-bold border-none cursor-pointer hover:bg-info-fundo transition-colors">
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
       </svg>
@@ -54,7 +54,7 @@
     </button>
     {% if promo.esta_vigente %}
     <details class="inline-block">
-      <summary class="list-none inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-50 text-green-700 text-[0.75rem] font-bold cursor-pointer hover:bg-green-100 transition-colors">
+      <summary class="list-none inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-sucesso-fundo text-sucesso text-[0.75rem] font-bold cursor-pointer hover:bg-sucesso-fundo transition-colors">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
         </svg>
@@ -76,7 +76,7 @@
     <form method="post" action="{% url 'aranha:admin_excluir_promocao' promo.pk %}" class="inline">
       {% csrf_token %}
       <button type="submit" data-confirm="Excluir esta promoção?"
-              class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-50 text-red-700 text-[0.75rem] font-bold border-none cursor-pointer hover:bg-red-100 transition-colors">
+              class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-erro-fundo text-erro text-[0.75rem] font-bold border-none cursor-pointer hover:bg-erro-fundo transition-colors">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
         </svg>

@@ -88,14 +88,14 @@
       <div class="flex items-center gap-1.5 flex-wrap">
         <span class="font-bold text-[0.9rem] truncate text-texto">{{ u.nome }}</span>
         {% if u.papel == "ADMIN" %}
-        <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-blue-50 text-blue-700 uppercase tracking-wide">ADM</span>
+        <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-info-fundo text-info uppercase tracking-wide">ADM</span>
         {% elif u.papel == "RECEPCAO" %}
-        <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-purple-50 text-purple-700 uppercase tracking-wide">Recep</span>
+        <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-destaque-fundo text-destaque uppercase tracking-wide">Recep</span>
         {% elif u.papel == "PROFISSIONAL" %}
-        <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-green-50 text-green-700 uppercase tracking-wide">Prof</span>
+        <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-sucesso-fundo text-sucesso uppercase tracking-wide">Prof</span>
         {% endif %}
         {% if not u.ativo %}
-        <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-red-50 text-red-600 uppercase tracking-wide">Inativo</span>
+        <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-erro-fundo text-erro uppercase tracking-wide">Inativo</span>
         {% endif %}
       </div>
       <div class="text-[0.72rem] text-texto-suave mt-0.5 flex items-center gap-1 flex-wrap">
@@ -116,7 +116,7 @@
     {# Ações #}
     <div class="flex gap-1.5 flex-shrink-0 flex-wrap justify-end">
       <a href="{% url 'aranha:admin_editar_usuario' u.pk %}"
-         class="w-8 h-8 rounded-lg flex items-center justify-center bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors no-underline"
+         class="w-8 h-8 rounded-lg flex items-center justify-center bg-info-fundo text-info hover:bg-info-fundo transition-colors no-underline"
          title="Editar">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
@@ -125,7 +125,7 @@
       <form method="post" action="{% url 'aranha:admin_resetar_senha_usuario' u.pk %}" class="m-0">
         {% csrf_token %}
         <button type="submit"
-                class="w-8 h-8 rounded-lg flex items-center justify-center bg-yellow-50 text-yellow-700 hover:bg-yellow-100 transition-colors border-none cursor-pointer"
+                class="w-8 h-8 rounded-lg flex items-center justify-center bg-aviso-fundo text-aviso hover:bg-aviso-fundo transition-colors border-none cursor-pointer"
                 title="Enviar reset de senha"
                 data-confirm="Enviar e-mail de redefinição de senha para {{ u.email }}?">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
@@ -137,7 +137,7 @@
       <form method="post" action="{% url 'aranha:admin_desativar_usuario' u.pk %}" class="m-0">
         {% csrf_token %}
         <button type="submit"
-                class="w-8 h-8 rounded-lg flex items-center justify-center {% if u.ativo %}bg-red-50 text-red-600 hover:bg-red-100{% else %}bg-green-50 text-green-700 hover:bg-green-100{% endif %} transition-colors border-none cursor-pointer"
+                class="w-8 h-8 rounded-lg flex items-center justify-center {% if u.ativo %}bg-erro-fundo text-erro hover:bg-erro-fundo{% else %}bg-sucesso-fundo text-sucesso hover:bg-sucesso-fundo{% endif %} transition-colors border-none cursor-pointer"
                 title="{% if u.ativo %}Desativar{% else %}Ativar{% endif %}"
                 data-confirm="{% if u.ativo %}Desativar{% else %}Ativar{% endif %} acesso de {{ u.nome }}?">
           {% if u.ativo %}

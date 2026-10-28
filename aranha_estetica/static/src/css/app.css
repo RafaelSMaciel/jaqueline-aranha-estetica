@@ -16,19 +16,33 @@
   --color-marca: var(--cor-marca);
   --color-marca-forte: var(--cor-marca-forte);
   --color-borda: var(--cor-borda);
+  --color-borda-campo: var(--cor-borda-campo);
   --color-erro: var(--cor-erro);
   --color-sucesso: var(--cor-sucesso);
+  --color-aviso: var(--cor-aviso);
+  --color-erro-fundo: var(--cor-erro-fundo);
+  --color-sucesso-fundo: var(--cor-sucesso-fundo);
+  --color-aviso-fundo: var(--cor-aviso-fundo);
+  --color-info: var(--cor-info);
+  --color-info-fundo: var(--cor-info-fundo);
+  --color-destaque: var(--cor-destaque);
+  --color-destaque-fundo: var(--cor-destaque-fundo);
   --color-sobre-marca: var(--cor-sobre-marca);
   --radius-md: 8px;
   --radius-lg: 12px;
 }
 
-/* Form controls: borda no token (senao Tailwind v4 preflight usa currentColor,
-   que fica claro/errado em dark). Utilitario explicito (ex.: border-marca) sobrescreve. */
+/* Form controls: borda no token de CAMPO (3:1 — a de cartao, --cor-borda, some no branco).
+   Utilitario explicito (ex.: border-marca) sobrescreve. */
 @layer base {
-  input, select, textarea { border-color: var(--cor-borda); }
-  /* rolagem suave ao navegar pelas ancoras (ex.: nav do FAQ) */
-  html { scroll-behavior: smooth; }
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="hidden"]), select, textarea {
+    border-color: var(--cor-borda-campo);
+  }
+  /* Foco do teclado sempre visivel (inclusive onde o template tira o outline p/ o mouse) */
+  :focus-visible { outline: 2px solid var(--cor-foco); outline-offset: 2px; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offset: 0; }
+  /* rolagem suave ao navegar pelas ancoras (ex.: nav do FAQ) — so sem pedido de menos movimento */
+  @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
   /* corpo na fonte da marca (Lato); titulos usam font-serif (Playfair) */
   body { font-family: var(--body-font); }
   /* titulos do site publico em Playfair Display (admin nao carrega a fonte) */
@@ -38,6 +52,30 @@
      ficam de fora de proposito. */
   .painel-admin :is(h1, h2, h3, h4, h5) { font-family: var(--heading-font); }
 }
+
+/* Campo de formulario com a borda de cartao (border-borda) usa a de campo (3:1). Na camada de
+   utilitarios: ganha do .border-borda (mais especifico) e perde do focus:border-* (pseudo-classe). */
+@layer utilities {
+  input:not([type="checkbox"], [type="radio"], [type="range"]).border-borda,
+  select.border-borda, textarea.border-borda { border-color: var(--cor-borda-campo); }
+}
+
+/* Menos movimento (sistema): nada anima nem desliza, em qualquer tela */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important; scroll-behavior: auto !important;
+  }
+}
+
+/* Selo de status do atendimento (partials/_status_badge.html, ficha da cliente, calendario) */
+.status-PENDENTE   { background: var(--st-pendente-fundo);   color: var(--st-pendente-texto); }
+.status-AGENDADO   { background: var(--st-agendado-fundo);   color: var(--st-agendado-texto); }
+.status-CONFIRMADO { background: var(--st-confirmado-fundo); color: var(--st-confirmado-texto); }
+.status-REALIZADO  { background: var(--st-realizado-fundo);  color: var(--st-realizado-texto); }
+.status-CANCELADO  { background: var(--st-cancelado-fundo);  color: var(--st-cancelado-texto); }
+.status-FALTOU     { background: var(--st-faltou-fundo);     color: var(--st-faltou-texto); }
+.status-REAGENDADO { background: var(--st-reagendado-fundo); color: var(--st-reagendado-texto); }
 
 /* Scroll-reveal: elementos sobem/fade ao entrar na viewport (JS adiciona .is-visible) */
 .reveal { opacity: 0; transform: translateY(22px); transition: opacity .7s ease, transform .7s cubic-bezier(.22,.61,.36,1); will-change: opacity, transform; }

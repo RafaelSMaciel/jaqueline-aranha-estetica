@@ -328,13 +328,13 @@
     }
     .form-field label i, .form-field label svg { color: var(--gold); }
     .form-input {
-        width: 100%; padding: 0.85rem 1rem; border: 2px solid var(--cor-borda);
+        width: 100%; padding: 0.85rem 1rem; border: 2px solid var(--cor-borda-campo);
         border-radius: 14px; font-size: 0.95rem; background: var(--cor-fundo);
         color: var(--earth); font-weight: 500; transition: border-color 0.2s;
     }
     .form-input:focus {
-        outline: none; border-color: var(--gold);
-        box-shadow: 0 0 0 4px rgba(201,168,76,0.12); background: var(--cor-superficie);
+        outline: none; border-color: var(--cor-foco);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--cor-foco) 45%, transparent); background: var(--cor-superficie);
     }
 
     .btn-confirm-booking {
@@ -585,7 +585,7 @@
                         {% if turnstile_enabled %}
                         {# Verificacao anti-robo exigida ao pedir o SMS (visivel antes do botao) #}
                         <div class="form-field" id="captcha-field">
-                            <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" data-theme="light"></div>
+                            <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" data-theme="auto"></div>
                         </div>
                         {% endif %}
 

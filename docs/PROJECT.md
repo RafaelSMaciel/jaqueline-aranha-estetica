@@ -206,7 +206,11 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   `modal`, `navMenu`, `cookieConsent`, `adminShell`, `alertaDismiss`, `anotacaoModal`,
   `pacoteCriar`) + `data-confirm` global e a busca instantânea do painel. Componentes cotton:
   `<c-botao>`, `<c-card>`, `<c-campo>` e o chrome do site (`cabecalho`, `rodape`, `mensagens`,
-  `cookie_consent`). Tema claro/escuro por cookie `tema` (`data-theme="claro|escuro"`) sem FOUC.
+  `cookie_consent`). Tema: sem escolha segue o sistema (`prefers-color-scheme`); o botão grava o cookie `tema` (`data-theme="claro|escuro"`) sem FOUC.
+  Tokens em `tokens.css` (contraste AA conferido nos 2 temas): texto, `--cor-borda-campo` (3:1 nos
+  inputs), `--cor-foco` (anel `:focus-visible` global), erro/sucesso/aviso/info/destaque com `-fundo`
+  e o status do atendimento (`--st-<status>-fundo/-texto`, classes `.status-<STATUS>`); nada de cor
+  crua do Tailwind (`bg-red-50`…) fora de botão sólido. `prefers-reduced-motion` zera animações.
 - **PWA**: `/manifest.json` + `/sw.js` (service worker v7: cacheia só páginas públicas e
   estáticos; nunca HTML privado) e `/painel/manifest.json` para o app da equipe.
 

@@ -75,13 +75,13 @@
     .phone-input-wrap { position: relative; }
     .phone-input-wrap .field-input {
         padding-left: 3.2rem; font-weight: 600; font-size: 1.1rem;
-        background: var(--cor-fundo); border: 2px solid var(--cor-borda); border-radius: 16px;
+        background: var(--cor-fundo); border: 2px solid var(--cor-borda-campo); border-radius: 16px;
         height: 56px; color: var(--cor-texto); transition: all 0.25s;
         width: 100%; outline: none;
     }
     .phone-input-wrap .field-input:focus {
-        border-color: var(--cor-marca-forte); background: var(--cor-superficie);
-        box-shadow: 0 0 0 4px color-mix(in srgb, var(--cor-marca-forte) 15%, transparent);
+        border-color: var(--cor-foco); background: var(--cor-superficie);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--cor-foco) 45%, transparent);
     }
     .phone-input-wrap .phone-icon {
         position: absolute; left: 1rem; top: 50%; transform: translateY(-50%);
@@ -114,14 +114,14 @@
         display: flex; gap: 0.6rem; justify-content: center; margin: 1.25rem 0 1.5rem;
     }
     .code-input {
-        width: 52px; height: 62px; border: 2px solid var(--cor-borda);
+        width: 52px; height: 62px; border: 2px solid var(--cor-borda-campo);
         border-radius: 14px; text-align: center; font-size: 1.5rem;
         font-weight: 700; color: var(--cor-texto); background: var(--cor-superficie);
         transition: all 0.2s; font-family: 'Lato', monospace;
     }
     .code-input:focus {
-        outline: none; border-color: var(--cor-marca-forte);
-        box-shadow: 0 0 0 4px color-mix(in srgb, var(--cor-marca-forte) 15%, transparent);
+        outline: none; border-color: var(--cor-foco);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--cor-foco) 45%, transparent);
         transform: scale(1.05);
     }
     .code-input.filled {
@@ -379,7 +379,7 @@
 
                 {% if turnstile_enabled %}
                 <div style="margin-bottom:0.75rem;">
-                    <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" data-theme="light"></div>
+                    <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" data-theme="auto"></div>
                 </div>
                 {% endif %}
 

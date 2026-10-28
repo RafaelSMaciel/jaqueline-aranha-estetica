@@ -32,13 +32,14 @@ def _parse_iso_aware(valor):
 
 
 STATUS_COLORS = {
-    StatusAtendimento.PENDENTE: '#f9a825',
-    StatusAtendimento.AGENDADO: '#1565c0',
-    StatusAtendimento.CONFIRMADO: '#2e7d32',
-    StatusAtendimento.REALIZADO: '#7b1fa2',
-    StatusAtendimento.CANCELADO: '#c62828',
-    StatusAtendimento.FALTOU: '#e65100',
-    StatusAtendimento.REAGENDADO: '#999999',
+    # tokens --st-<status>-texto (tokens.css): texto branco no evento passa 7:1 no claro
+    StatusAtendimento.PENDENTE: 'var(--st-pendente-texto)',
+    StatusAtendimento.AGENDADO: 'var(--st-agendado-texto)',
+    StatusAtendimento.CONFIRMADO: 'var(--st-confirmado-texto)',
+    StatusAtendimento.REALIZADO: 'var(--st-realizado-texto)',
+    StatusAtendimento.CANCELADO: 'var(--st-cancelado-texto)',
+    StatusAtendimento.FALTOU: 'var(--st-faltou-texto)',
+    StatusAtendimento.REAGENDADO: 'var(--st-reagendado-texto)',
 }
 
 
@@ -81,8 +82,9 @@ def admin_calendar_events(request):
             'title': f'{at.cliente.nome} · {at.procedimento.nome}',
             'start': at.data_hora_inicio.isoformat(),
             'end': at.data_hora_fim.isoformat(),
-            'backgroundColor': STATUS_COLORS.get(at.status, '#999'),
-            'borderColor': STATUS_COLORS.get(at.status, '#999'),
+            'backgroundColor': STATUS_COLORS.get(at.status, 'var(--cor-texto-suave)'),
+            'borderColor': STATUS_COLORS.get(at.status, 'var(--cor-texto-suave)'),
+            'textColor': 'var(--cor-superficie)',   # >= 7:1 nos dois temas
             'extendedProps': {
                 'profissional': at.profissional.nome,
                 'procedimento': at.procedimento.nome,

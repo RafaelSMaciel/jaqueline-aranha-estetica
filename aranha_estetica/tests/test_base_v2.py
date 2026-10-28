@@ -17,6 +17,11 @@ class BaseV2Tests(TestCase):
     def test_aplica_tema_escuro(self):
         self.assertIn('data-theme="escuro"', self._render('escuro'))
 
+    def test_sem_escolha_nao_fixa_tema(self):
+        html = self._render('')
+        self.assertNotIn('data-theme', html)
+        self.assertIn('name="color-scheme" content="light dark"', html)
+
 
     def test_renderiza_messages_uma_vez(self):
         """Regressao public_front-21: base nao renderizava messages e elas vazavam depois."""
