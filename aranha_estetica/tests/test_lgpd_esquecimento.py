@@ -425,6 +425,16 @@ class DepoimentoAposEsquecimentoTests(TestCase):
 
 
 class ExportDsarTests(TestCase):
+    def test_cadastro_exportado_so_com_dado_que_tem_finalidade(self):
+        """RG, profissao e foto sairam do cadastro (0068): o export traz o que a clinica guarda."""
+        cliente = criar_cliente(nome='Titular Cadastro', cpf='52998224725')
+        pessoal = LgpdService.exportar_dados_cliente(cliente)['pessoal']
+        self.assertEqual(
+            set(pessoal),
+            {'nome', 'data_nascimento', 'cpf', 'email', 'telefone', 'cep', 'endereco', 'criado_em'},
+        )
+        self.assertEqual(pessoal['cpf'], '52998224725')
+
     def test_lista_espera_exporta_email_de_contato_e_profissional(self):
         """followups-dsar-email-contato."""
         cliente = criar_cliente(nome='Titular Espera')

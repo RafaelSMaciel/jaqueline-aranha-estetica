@@ -14,6 +14,7 @@ from django.test import SimpleTestCase
 
 from aranha_estetica import inventario_lgpd as inv
 from aranha_estetica.migrations.sql import v0058_procedures as procs
+from aranha_estetica.migrations.sql import v0068_anonimizar_cliente as anonimizar   # versao vigente
 
 # nome de coluna que costuma guardar dado de pessoa (o detector e largo; falso positivo = declarar)
 DETECTOR = re.compile(
@@ -38,7 +39,7 @@ def _sem_comentarios(sql):
     return re.sub(r'--[^\n]*', '', sql)
 
 
-ANONIMIZAR = _sem_comentarios(procs.SP_ANONIMIZAR_CLIENTE)
+ANONIMIZAR = _sem_comentarios(anonimizar.SP_ANONIMIZAR_CLIENTE)
 ESQUECIMENTO_E_RETENCAO = ANONIMIZAR + _sem_comentarios(procs.SP_APLICAR_RETENCAO_LGPD)
 PURGAR = _sem_comentarios(procs.SP_PURGAR_DADOS_EXPIRADOS)
 
@@ -87,6 +88,16 @@ class InventarioLgpdTests(SimpleTestCase):
             and not re.search(rf'(DELETE\s+FROM|UPDATE)\s+(?:public\.)?{t}\b', PURGAR, re.I)
         })
         self.assertEqual(ruins, [])
+
+    def test_cadastro_sem_dado_sem_finalidade(self):
+        """RG, profissao e foto da cliente sairam (0068, art. 6º III): nem coluna, nem inventario, nem
+        procedure; o link_acesso nao tem mais alvo atendimento (0066)."""
+        colunas = {f.column for f in apps.get_model('aranha_estetica', 'Cliente')._meta.concrete_fields}
+        self.assertFalse({'rg', 'profissao', 'url_foto'} & colunas)
+        self.assertFalse({('cliente', c) for c in ('rg', 'profissao', 'url_foto')} & set(inv.COLUNAS))
+        for removida in (r'\brg\b', r'\bprofissao\b', r'\burl_foto\b', r'OR\s+atendimento_id\s*=\s*ANY'):
+            with self.subTest(coluna=removida):
+                self.assertNotRegex(ANONIMIZAR, removida)
 
     def test_retem_tem_motivo(self):
         sem = [f'{t}.{c}' for (t, c), v in inv.COLUNAS.items()

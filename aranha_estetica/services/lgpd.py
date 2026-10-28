@@ -125,12 +125,10 @@ class LgpdService:
                 'nome': cliente.nome,
                 'data_nascimento': _iso(cliente.data_nascimento),
                 'cpf': cliente.cpf,
-                'rg': cliente.rg,
                 'email': cliente.email,
                 'telefone': cliente.telefone,
                 'cep': cliente.cep,
                 'endereco': cliente.endereco,
-                'profissao': cliente.profissao,
                 'criado_em': _iso(cliente.criado_em),
             },
             'preferencias': {
