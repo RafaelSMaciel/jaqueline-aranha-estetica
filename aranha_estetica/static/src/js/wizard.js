@@ -567,6 +567,12 @@
         }
     }
 
+    // Ficha/termo -> procedimentos onde vale: lista calculada no servidor (FormularioAnamnese.aplica_a,
+    // services/termos.vale_para); o JS nunca repete a regra
+    function valeParaProc(item, proc) {
+        return (item.procedimentos || []).map(String).indexOf(String(proc.id)) !== -1;
+    }
+
     // ═══ TERMO(S) DO PROCEDIMENTO (JSON via json_script p/ XSS-safe) ═══
     var TERMOS_PROCEDIMENTO = [];
     try {
@@ -580,8 +586,9 @@
         var fields = document.getElementById('termosFields');
         if (!container || !fields || !selectedProc) return;
         fields.textContent = '';
+        // O servidor decide onde cada termo vale (services/termos.vale_para) — aqui só consulta
         var aplicaveis = TERMOS_PROCEDIMENTO.filter(function(t) {
-            return t.procedimento_id == null || String(t.procedimento_id) === String(selectedProc.id);
+            return valeParaProc(t, selectedProc);
         });
         container.style.display = aplicaveis.length ? '' : 'none';
         aplicaveis.forEach(function(t) {
@@ -624,10 +631,6 @@
         ) || [];
     } catch (e) { FORMULARIOS_ANAMNESE = []; }
 
-    // O servidor decide onde cada ficha vale (FormularioAnamnese.aplica_a, os 4 escopos)
-    function formularioAplicaAoProc(form, proc) {
-        return (form.procedimentos || []).map(String).indexOf(String(proc.id)) !== -1;
-    }
 
     function criarSelect(opcoes) {
         var sel = document.createElement('select');
@@ -649,7 +652,7 @@
         fields.textContent = '';
 
         var aplicaveis = FORMULARIOS_ANAMNESE.filter(function(f){
-            return formularioAplicaAoProc(f, selectedProc);
+            return valeParaProc(f, selectedProc);
         });
         setAnamneseMsg('');
         atualizarConsentSaude();
