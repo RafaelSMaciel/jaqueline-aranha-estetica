@@ -147,7 +147,7 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
       {# Sessao debitada de pacote ja pago: nao cobrar de novo #}
       <span class="px-2 py-0.5 rounded-full text-[0.7rem] font-bold bg-info-fundo text-info">Pacote</span>
       {% elif agend.valor_cobrado is not None %}
-      <span class="text-[0.78rem] font-bold text-sucesso">R$ {{ agend.valor_cobrado|floatformat:2 }}</span>
+      <span class="text-[0.78rem] font-bold text-sucesso">{{ agend.valor_cobrado|brl }}</span>
       {% endif %}
       {% if agend.pk not in marc.pacote and not agend.eh_retorno and agend.status != 'CANCELADO' and agend.status != 'FALTOU' and agend.status != 'REAGENDADO' %}
       {# Valor combinado / "a consultar": registrado aqui (realizado sem comissao lancada gera a comissao) #}

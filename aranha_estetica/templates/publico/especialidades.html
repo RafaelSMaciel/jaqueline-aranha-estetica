@@ -104,9 +104,9 @@
                 </span>
                 {% endif %}
                 {% if item.preco > 0 %}
-                <span class="text-marca font-semibold">A partir de R$ {{ item.preco|floatformat:"2g" }}</span>
+                <span class="text-marca font-semibold">A partir de {{ item.preco|brl }}</span>
                 {% if item.preco_cheio %}
-                <s><span class="sr-only">Preço sem promoção: </span>R$ {{ item.preco_cheio|floatformat:"2g" }}</s>
+                <s><span class="sr-only">Preço sem promoção: </span>{{ item.preco_cheio|brl }}</s>
                 {% endif %}
                 {% endif %}
               </div>
@@ -181,7 +181,7 @@
   <div class="max-w-6xl mx-auto px-6">
 
     <div class="text-center mb-14">
-      <h2 class="text-3xl md:text-4xl font-bold text-texto">Nossas Áreas de Atuação</h2>
+      <h2 class="text-3xl md:text-4xl font-bold text-texto">Nossas áreas de atuação</h2>
       <p class="text-texto-suave mt-3 text-lg">Especialidades que transformam seu bem-estar</p>
     </div>
 
@@ -203,7 +203,7 @@
               <path d="M12 8v4l3 3"/>
             </svg>
           </div>
-          <h3 class="text-texto font-bold text-lg">Tratamentos Faciais Injetáveis</h3>
+          <h3 class="text-texto font-bold text-lg">Tratamentos faciais injetáveis</h3>
           <p class="text-texto-suave text-sm leading-relaxed flex-1">
             Botox (1, 2 ou 3 regiões), preenchimentos labiais, bigode chinês, malar, rinomodelação, bioestimulador e PRP.
           </p>
@@ -354,7 +354,7 @@
 {# ═══ CTA FINAL ═══ #}
 <section class="py-16 bg-superficie">
   <div class="max-w-3xl mx-auto px-6 text-center">
-    <h2 class="text-3xl font-bold text-texto mb-4">Pronto para Transformar Sua Beleza?</h2>
+    <h2 class="text-3xl font-bold text-texto mb-4">Pronto para transformar sua beleza?</h2>
     <p class="text-texto-suave text-lg mb-8">
       Agende uma avaliação e descubra o cuidado ideal para você.
     </p>

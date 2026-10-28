@@ -147,8 +147,8 @@ SlotService; "Agendar" valida tudo de novo no servidor.
     <div class="mt-4 text-[0.85rem] text-texto">
       {% if preco and preco.final is not None %}
       Valor:
-      {% if preco.promocao %}<s class="text-texto-suave">R$ {{ preco.cheio|floatformat:2 }}</s>{% endif %}
-      <strong>R$ {{ preco.final|floatformat:2 }}</strong>
+      {% if preco.promocao %}<s class="text-texto-suave">{{ preco.cheio|brl }}</s>{% endif %}
+      <strong>{{ preco.final|brl }}</strong>
       {% if preco.promocao %}<span class="ml-1 px-2 py-0.5 rounded-full text-[0.7rem] font-bold bg-sucesso-fundo text-sucesso">Promoção {{ preco.promocao.nome }}</span>{% endif %}
       {% else %}
       Procedimento sem preço cadastrado (valor a consultar).

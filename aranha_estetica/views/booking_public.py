@@ -43,7 +43,8 @@ from ..models.termos import TEXTO_CONSENTIMENTO_SAUDE
 from ..excecoes import RegraDeNegocio
 from ..services import agenda, comunicacao, consentimentos
 from ..services import otp as otp_service
-from ..services.agendamento_service import formatar_brl, formatar_data_hora
+from ..services.agendamento_service import formatar_data_hora
+from ..utils.formatos import formatar_brl
 from ..services.anamnese import validar_respostas
 from ..utils.audit import registrar_log
 from ..utils.captcha import turnstile_enabled, turnstile_site_key

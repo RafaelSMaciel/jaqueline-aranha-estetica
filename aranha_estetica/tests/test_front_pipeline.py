@@ -5,13 +5,14 @@ quebrada (4 bugs achados so na verificacao visual). Estas guardas travam os 3
 que afetam producao, a custo zero (leitura de arquivo / settings).
 """
 import json
+from decimal import Decimal
 import os
 import re
 from pathlib import Path
 from unittest.mock import patch
 
 from django.conf import settings
-from django.test import Client, TestCase, override_settings
+from django.test import Client, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
 _SRC = Path(settings.BASE_DIR) / 'aranha_estetica' / 'static' / 'src' / 'css'
@@ -105,3 +106,10 @@ class WebpushCsrfTests(TestCase):
                       content_type='application/json', HTTP_X_CSRFTOKEN=m.group(1))
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(AssinaturaPush.objects.filter(user=user).count(), 1)
+
+
+class FiltroBrlTests(SimpleTestCase):
+    def test_brl_e_builtin_e_sempre_com_milhar(self):
+        from django.template import engines
+        tmpl = engines['django'].from_string('{{ a|brl }}|{{ b|brl }}|{{ c|brl }}')
+        self.assertEqual(tmpl.render({'a': Decimal('1350.5'), 'b': 89, 'c': None}), 'R$ 1.350,50|R$ 89,00|')

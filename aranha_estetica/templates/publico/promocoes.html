@@ -99,7 +99,7 @@
   <div class="max-w-6xl mx-auto px-6">
 
     <div class="text-center mb-14">
-      <h2 class="text-3xl md:text-4xl font-bold text-texto">Promoções Ativas</h2>
+      <h2 class="text-3xl md:text-4xl font-bold text-texto">Promoções ativas</h2>
       <p class="text-texto-suave mt-3 text-lg">Aproveite nossas ofertas especiais por tempo limitado</p>
     </div>
 
@@ -143,9 +143,9 @@
           {% if promo.preco_final is not None %}
           <div class="flex items-baseline gap-3">
             {% if promo.preco_original and promo.preco_final < promo.preco_original %}
-            <span class="text-texto-suave text-sm line-through">De R$ {{ promo.preco_original|floatformat:"2g" }}</span>
+            <span class="text-texto-suave text-sm line-through">De {{ promo.preco_original|brl }}</span>
             {% endif %}
-            <span class="text-marca font-bold text-2xl">R$ {{ promo.preco_final|floatformat:"2g" }}</span>
+            <span class="text-marca font-bold text-2xl">{{ promo.preco_final|brl }}</span>
           </div>
           {% endif %}
 
@@ -232,7 +232,7 @@
 
     {# bloco CTA #}
     <div class="text-center max-w-2xl mx-auto mb-16 space-y-6">
-      <h2 class="text-3xl md:text-4xl font-bold text-texto">Quer um Desconto Personalizado?</h2>
+      <h2 class="text-3xl md:text-4xl font-bold text-texto">Quer um desconto personalizado?</h2>
       <p class="text-texto-suave text-lg leading-relaxed">
         {% if WHATSAPP_NUMERO %}Fale conosco pelo WhatsApp e negocie condições exclusivas para o seu tratamento.{% else %}Na sua avaliação, a equipe monta com você o plano de cuidados ideal.{% endif %} Pacotes especiais e combos com preços diferenciados.
       </p>
@@ -269,7 +269,7 @@
             <circle cx="17.5" cy="17.5" r="2.5"/>
           </svg>
         </div>
-        <h3 class="text-texto font-bold text-lg">Descontos Reais</h3>
+        <h3 class="text-texto font-bold text-lg">Descontos reais</h3>
         <p class="text-texto-suave text-sm leading-relaxed">Promoções genuínas com economia real nos nossos tratamentos.</p>
       </div>
 
@@ -282,7 +282,7 @@
             <circle cx="18.5" cy="18.5" r="2.5"/>
           </svg>
         </div>
-        <h3 class="text-texto font-bold text-lg">Combos e Pacotes</h3>
+        <h3 class="text-texto font-bold text-lg">Combos e pacotes</h3>
         <p class="text-texto-suave text-sm leading-relaxed">Combine tratamentos com preços especiais e potencialize resultados.</p>
       </div>
 
@@ -295,7 +295,7 @@
             <path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/>
           </svg>
         </div>
-        <h3 class="text-texto font-bold text-lg">Primeira Avaliação</h3>
+        <h3 class="text-texto font-bold text-lg">Primeira avaliação</h3>
         <p class="text-texto-suave text-sm leading-relaxed">Condições especiais para novos clientes na avaliação inicial.</p>
       </div>
 

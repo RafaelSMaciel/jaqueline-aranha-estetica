@@ -44,7 +44,7 @@ def _fmt_desconto(valor):
 def _assunto_promocao(promo):
     """Assunto do e-mail: preco fixo mostra o preco (nunca '0% OFF')."""
     if promo.preco_promocional is not None:
-        from ..services.agendamento_service import formatar_brl
+        from ..utils.formatos import formatar_brl
         return f'{promo.nome} — por {formatar_brl(promo.preco_promocional)}'
     return f'{promo.nome} — {_fmt_desconto(promo.desconto_percentual)}% OFF'
 

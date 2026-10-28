@@ -41,7 +41,7 @@
       </h6>
       <p class="text-[0.8rem] text-texto-suave mb-1">{{ pacote.descricao|default:"Sem descrição" }}</p>
       <div class="text-[0.8rem] text-texto">
-        <strong>R$ {{ pacote.preco_total|floatformat:2 }}</strong> &middot;
+        <strong>{{ pacote.preco_total|brl }}</strong> &middot;
         Validade: {{ pacote.validade_meses }} {{ pacote.validade_meses|pluralize:"mês,meses" }} &middot;
         {{ pacote.total_vendas }} venda{{ pacote.total_vendas|pluralize:"s" }}
       </div>

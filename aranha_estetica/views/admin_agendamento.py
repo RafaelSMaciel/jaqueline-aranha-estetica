@@ -368,6 +368,6 @@ def admin_atendimento_valor(request, pk):
          'cashback': cashback.pk if cashback else None},
         request=request,
     )
-    from ..services.agendamento_service import formatar_brl
+    from ..utils.formatos import formatar_brl
     messages.success(request, f'Valor de {at.cliente.nome} registrado: {formatar_brl(valor)}.')
     return voltar

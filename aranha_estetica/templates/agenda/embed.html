@@ -65,7 +65,7 @@
                 <div class="proc-mini-name">{{ p.nome }}</div>
                 <div class="proc-mini-meta">
                     {% if p.preco > 0 %}
-                    <span class="proc-mini-price">A partir de R$ {{ p.preco|floatformat:"2g" }}</span>
+                    <span class="proc-mini-price">A partir de {{ p.preco|brl }}</span>
                     {% else %}
                     <span class="proc-mini-price">A consultar</span>
                     {% endif %}

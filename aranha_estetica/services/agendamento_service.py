@@ -6,13 +6,13 @@ Aqui ficam as transicoes PENDENTE -> AGENDADO/CANCELADO disparadas pela
 recepcao, com auditoria e e-mail ao cliente (fila: services/comunicacao).
 """
 import logging
-from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
 
 from ..models import Atendimento, Notificacao
 from ..utils.audit import registrar_log
 from ..utils.datas import fmt_local
+from ..utils.formatos import formatar_brl
 
 logger = logging.getLogger(__name__)
 
@@ -28,18 +28,6 @@ def avisar_cancelamento(atendimento) -> None:
     """
     from .comunicacao import enfileirar_email
     enfileirar_email(atendimento, Notificacao.Tipo.CANCELAMENTO)
-
-
-def formatar_brl(valor) -> str:
-    """Valor monetario em pt-BR ('R$ 1.234,50'); '' se vazio/invalido."""
-    if valor in (None, ''):
-        return ''
-    try:
-        numero = Decimal(str(valor))
-    except (InvalidOperation, ValueError, TypeError):
-        return ''
-    texto = f'{numero:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
-    return f'R$ {texto}'
 
 
 def formatar_data_hora(dt) -> str:

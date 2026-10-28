@@ -464,8 +464,8 @@
                         <span class="proc-price">
                             {% if proc.preco_base > 0 %}
                                 <small style="font-size:0.65rem;font-weight:600;color:var(--cor-texto-suave);letter-spacing:0.5px;">A partir de</small>
-                                {% if proc.preco_cheio %}<s class="proc-price-cheio">R$ {{ proc.preco_cheio|floatformat:"2g" }}</s>{% endif %}
-                                R$ {{ proc.preco|floatformat:"2g" }}
+                                {% if proc.preco_cheio %}<s class="proc-price-cheio">{{ proc.preco_cheio|brl }}</s>{% endif %}
+                                {{ proc.preco|brl }}
                             {% else %}
                                 <small style="font-size:0.78rem;font-weight:700;color:#7a5f1f;">A consultar</small>
                             {% endif %}
