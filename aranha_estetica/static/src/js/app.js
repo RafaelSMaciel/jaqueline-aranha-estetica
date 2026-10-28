@@ -23,8 +23,19 @@ Alpine.data('temaToggle', () => ({
 
 // Modal = <dialog x-ref="dialogo"> nativo: foco preso, Esc fecha, fundo inerte (showModal).
 // Clique no backdrop (fora do painel) fecha. Os componentes abaixo herdam este comportamento.
+// data-erro no x-data: o servidor recusou o envio e devolveu a tela com o que foi digitado ->
+// o modal ja abre, com o foco no primeiro campo recusado (aria-invalid) ou no resumo do erro.
 const comDialogo = (extra = {}) => ({
   aberto: false,
+  init() { if (this.$el.dataset.erro) this.$nextTick(() => this.abrirSeErro()) },
+  abrirSeErro() {
+    const dlg = this.$refs.dialogo
+    if (!dlg) return
+    this.aberto = true
+    dlg.showModal()
+    const alvo = dlg.querySelector('[aria-invalid="true"]') || dlg.querySelector('[data-resumo-erro]')
+    alvo?.focus()
+  },
   abrir() { this.aberto = true; this.$refs.dialogo?.showModal() },
   fechar() { this.$refs.dialogo?.close(); this.aberto = false },
   aoFechar() { this.aberto = false },
@@ -96,6 +107,12 @@ function associarRotulos(raiz = document) {
 }
 document.addEventListener('DOMContentLoaded', () => associarRotulos())
 
+// Formulario fora de modal devolvido com erro: foco no primeiro campo recusado (o modal cuida do seu)
+document.addEventListener('DOMContentLoaded', () => {
+  const recusado = document.querySelector('form [aria-invalid="true"]')
+  if (recusado && !recusado.closest('dialog')) recusado.focus()
+})
+
 // Modal de anotacao clinica (prontuario): guarda atendimento e faz fetch.
 // CSP-safe: abrir(e) le data-atendimento-id do botao clicado; sem expressao inline.
 Alpine.data('anotacaoModal', () => comDialogo({
@@ -130,7 +147,11 @@ Alpine.data('pacoteCriar', () => comDialogo({
     const row = base.cloneNode(true)
     const sel = row.querySelector('select')
     const inp = row.querySelector('input')
-    if (sel) sel.value = ''
+    if (sel) {
+      sel.value = ''
+      sel.removeAttribute('aria-invalid')   // a marca de erro e da 1a linha, nao da copia
+      sel.removeAttribute('aria-describedby')
+    }
     if (inp) inp.value = '1'
     c.appendChild(row)
   },

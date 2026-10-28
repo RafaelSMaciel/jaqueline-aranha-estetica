@@ -205,7 +205,7 @@ class IdsInvalidosTests(_AdminBase):
             'nome': 'Pacote X', 'preco_total': '500', 'validade_meses': '12',
             'procedimento_ids': [SOBRESCRITO], 'quantidades': ['2'],
         })
-        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp.status_code, 200)   # modal devolvido com o erro (sem 500)
         self.assertFalse(Pacote.objects.filter(nome='Pacote X').exists())
 
 

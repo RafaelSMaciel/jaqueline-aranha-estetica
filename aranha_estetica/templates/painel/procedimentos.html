@@ -17,33 +17,37 @@
   </h3>
   <form method="post" action="{% url 'aranha:admin_criar_procedimento' %}">
     {% csrf_token %}
+    {# Envio recusado: a view devolve a tela (sem redirect) com novo.valores (o digitado) e novo.erros #}
     <div class="mb-3">
-      <label for="novo_nome" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Nome</label>
-      <input type="text" name="nome" id="novo_nome" required placeholder="Ex: Limpeza de Pele"
-             class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
+      <c-campo nome="nome" id="novo_nome" label="Nome" erro="{{ novo.erros.nome }}"
+               classe_rotulo="block text-[0.75rem] font-bold text-texto-suave"
+               classe_campo="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
+               value="{{ novo.valores.nome }}" required placeholder="Ex: Limpeza de Pele"></c-campo>
     </div>
     <div class="mb-3">
       <label for="novo_descricao" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Descrição</label>
       <textarea name="descricao" id="novo_descricao" rows="2" placeholder="Descrição do procedimento..."
-                class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition resize-y"></textarea>
+                class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition resize-y">{{ novo.valores.descricao }}</textarea>
     </div>
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
       <div>
-        <label for="novo_duracao" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Duração (min)</label>
-        <input type="number" name="duracao_minutos" id="novo_duracao" value="30" min="5" required
-               class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
+        <c-campo nome="duracao_minutos" id="novo_duracao" label="Duração (min)" tipo="number" erro="{{ novo.erros.duracao_minutos }}"
+                 classe_rotulo="block text-[0.75rem] font-bold text-texto-suave"
+                 classe_campo="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
+                 value="{{ novo.valores.duracao_minutos|default:'30' }}" min="5" required></c-campo>
       </div>
       <div>
         <label for="novo_categoria" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Categoria</label>
         <select name="categoria" id="novo_categoria"
                 class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
-          {% for val, label in categorias %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+          {% for val, label in categorias %}<option value="{{ val }}" {% if val == novo.valores.categoria %}selected{% endif %}>{{ label }}</option>{% endfor %}
         </select>
       </div>
       <div>
-        <label for="novo_preco" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Preço (R$)</label>
-        <input type="number" name="preco" id="novo_preco" step="0.01" min="0" placeholder="0.00"
-               class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
+        <c-campo nome="preco" id="novo_preco" label="Preço (R$)" tipo="number" erro="{{ novo.erros.preco }}"
+                 classe_rotulo="block text-[0.75rem] font-bold text-texto-suave"
+                 classe_campo="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
+                 value="{{ novo.valores.preco }}" step="0.01" min="0" placeholder="0.00"></c-campo>
       </div>
     </div>
     <fieldset class="mb-3">
@@ -51,7 +55,7 @@
       <div class="flex flex-wrap gap-x-4 gap-y-1">
         {% for prof in profissionais %}
         <label class="inline-flex items-center gap-2 text-[0.85rem] text-texto cursor-pointer">
-          <input type="checkbox" name="profissionais" value="{{ prof.pk }}" class="rounded border-borda"> {{ prof.nome }}
+          <input type="checkbox" name="profissionais" value="{{ prof.pk }}" {% if prof.pk in novo.valores.habilitados %}checked{% endif %} class="rounded border-borda"> {{ prof.nome }}
         </label>
         {% empty %}<span class="text-[0.8rem] text-texto-suave">Cadastre um profissional primeiro.</span>{% endfor %}
       </div>
@@ -66,7 +70,7 @@
 
 {# ── Lista de procedimentos ── #}
 {% for proc in procedimentos %}
-<div x-data="modal"
+<div x-data="modal"{% if proc.reabrir %} data-erro="1"{% endif %}
      class="bg-superficie rounded-2xl shadow-sm p-4 mb-3 border-l-4 {% if proc.ativo %}border-sucesso{% else %}border-borda opacity-70{% endif %}">
   <div class="flex items-start justify-between gap-2">
     <div class="min-w-0">
@@ -114,52 +118,57 @@
       </div>
       <form method="post" action="{% url 'aranha:admin_editar_procedimento' proc.pk %}" class="p-5">
         {% csrf_token %}
+        {# proc.valores = o salvo; no envio recusado, o digitado (e proc.erros, por campo) #}
         <div class="mb-3">
-          <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Nome</label>
-          <input type="text" name="nome" value="{{ proc.nome }}" required
-                 class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
+          <c-campo nome="nome" id="proc-{{ proc.pk }}-nome" label="Nome" erro="{{ proc.erros.nome }}"
+                   classe_rotulo="block text-[0.75rem] font-bold text-texto-suave"
+                   classe_campo="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
+                   value="{{ proc.valores.nome }}" required></c-campo>
         </div>
         <div class="mb-3">
-          <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Descrição</label>
-          <textarea name="descricao" rows="2"
-                    class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition resize-y">{{ proc.descricao|default_if_none:'' }}</textarea>
+          <label for="proc-{{ proc.pk }}-descricao" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Descrição</label>
+          <textarea name="descricao" id="proc-{{ proc.pk }}-descricao" rows="2"
+                    class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition resize-y">{{ proc.valores.descricao }}</textarea>
         </div>
         <div class="grid grid-cols-2 gap-3 mb-3">
           <div>
-            <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Duração (min)</label>
-            <input type="number" name="duracao_minutos" value="{{ proc.duracao_minutos }}" min="5" required
-                   class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
+            <c-campo nome="duracao_minutos" id="proc-{{ proc.pk }}-duracao" label="Duração (min)" tipo="number" erro="{{ proc.erros.duracao_minutos }}"
+                     classe_rotulo="block text-[0.75rem] font-bold text-texto-suave"
+                     classe_campo="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
+                     value="{{ proc.valores.duracao_minutos }}" min="5" required></c-campo>
           </div>
           <div>
-            <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Categoria</label>
-            <select name="categoria"
+            <label for="proc-{{ proc.pk }}-categoria" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Categoria</label>
+            <select name="categoria" id="proc-{{ proc.pk }}-categoria"
                     class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
               {% for val, label in categorias %}
-              <option value="{{ val }}" {% if val == proc.categoria %}selected{% endif %}>{{ label }}</option>
+              <option value="{{ val }}" {% if val == proc.valores.categoria %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
             </select>
           </div>
         </div>
         <div class="mb-3">
-          <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Preço (R$)</label>
           <p class="text-[0.7rem] text-texto-suave mb-1">Mudar o preço cria uma nova vigência a partir de hoje (o histórico é mantido).</p>
-          <input type="number" name="preco" value="{{ proc.preco_base|default_if_none:''|unlocalize }}" step="0.01" min="0"
-                 class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
+          <c-campo nome="preco" id="proc-{{ proc.pk }}-preco" label="Preço (R$)" tipo="number" erro="{{ proc.erros.preco }}"
+                   classe_rotulo="block text-[0.75rem] font-bold text-texto-suave"
+                   classe_campo="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
+                   value="{{ proc.valores.preco|default_if_none:''|unlocalize }}" step="0.01" min="0"></c-campo>
         </div>
-        <fieldset class="mb-3">
+        <fieldset class="mb-3"{% if proc.erros.profissionais %} aria-describedby="proc-{{ proc.pk }}-profissionais-erro"{% endif %}>
           <legend class="block text-[0.75rem] font-bold text-texto-suave mb-1">Quem realiza</legend>
           <input type="hidden" name="profissionais_enviado" value="1">
           <div class="flex flex-wrap gap-x-4 gap-y-1">
             {% for prof in profissionais %}
             <label class="inline-flex items-center gap-2 text-[0.85rem] text-texto cursor-pointer">
-              <input type="checkbox" name="profissionais" value="{{ prof.pk }}" {% if prof.pk in proc.habilitados %}checked{% endif %} class="rounded border-borda"> {{ prof.nome }}
+              <input type="checkbox" name="profissionais" value="{{ prof.pk }}" {% if prof.pk in proc.valores.habilitados %}checked{% endif %} class="rounded border-borda"{% if proc.erros.profissionais and forloop.first %} aria-invalid="true"{% endif %}> {{ prof.nome }}
             </label>
             {% endfor %}
           </div>
+          {% if proc.erros.profissionais %}<p id="proc-{{ proc.pk }}-profissionais-erro" class="text-erro text-sm mt-1">{{ proc.erros.profissionais }}</p>{% endif %}
         </fieldset>
         <div class="mb-4">
           <label class="inline-flex items-center gap-2 text-[0.85rem] text-texto cursor-pointer">
-            <input type="checkbox" name="ativo" value="1" {% if proc.ativo %}checked{% endif %} class="rounded border-borda">
+            <input type="checkbox" name="ativo" value="1" {% if proc.valores.ativo %}checked{% endif %} class="rounded border-borda">
             Ativo
           </label>
         </div>

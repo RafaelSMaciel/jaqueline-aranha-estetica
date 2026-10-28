@@ -1,11 +1,19 @@
-<c-vars nome="" label="" tipo="text" erro="" class="" />
+<c-vars nome="" id="" label="" tipo="text" erro="" class="" classe_rotulo="text-sm font-medium text-texto" classe_campo="rounded-md border border-borda bg-superficie px-3 py-2 text-texto" />
+{% comment %}
+Campo com rotulo associado e erro acessivel (aria-invalid + aria-describedby).
+`id` (opcional, padrao = nome): em lista com um modal por item o id precisa ser unico.
+`classe_rotulo`/`classe_campo` trocam o visual base (ex.: o dos formularios do painel);
+`class` e somado ao do campo.
+{% endcomment %}
+{% with cid=id|default:nome %}
 <div class="flex flex-col gap-1">
-  <label for="{{ nome }}" class="text-sm font-medium text-texto">{{ label }}</label>
-  <input id="{{ nome }}" name="{{ nome }}" type="{{ tipo }}"
-         class="rounded-md border border-borda bg-superficie px-3 py-2 text-texto {{ class }}"
-         {% if erro %}aria-invalid="true" aria-describedby="{{ nome }}-erro"{% endif %}
+  <label for="{{ cid }}" class="{{ classe_rotulo }}">{{ label }}</label>
+  <input id="{{ cid }}" name="{{ nome }}" type="{{ tipo }}"
+         class="{{ classe_campo }} {{ class }}"
+         {% if erro %}aria-invalid="true" aria-describedby="{{ cid }}-erro"{% endif %}
          {{ attrs }}>
   {% if erro %}
-    <span id="{{ nome }}-erro" class="text-erro text-sm">{{ erro }}</span>
+    <span id="{{ cid }}-erro" class="text-erro text-sm">{{ erro }}</span>
   {% endif %}
 </div>
+{% endwith %}

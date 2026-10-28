@@ -28,7 +28,7 @@
 
 {# ── Pacotes ── #}
 {% for pacote in pacotes %}
-<div x-data="pacoteCriar" class="bg-superficie rounded-2xl shadow-sm p-4 mb-3 {% if not pacote.ativo %}opacity-75{% endif %}">
+<div x-data="pacoteCriar"{% if pacote.reabrir %} data-erro="1"{% endif %} class="bg-superficie rounded-2xl shadow-sm p-4 mb-3 {% if not pacote.ativo %}opacity-75{% endif %}">
   <div class="flex items-start justify-between gap-2 flex-wrap">
     <div class="min-w-0">
       <h6 class="flex items-center gap-2 flex-wrap font-bold text-texto mb-1">
@@ -89,30 +89,35 @@
                   class="text-texto-suave hover:text-texto text-2xl leading-none border-none bg-transparent cursor-pointer">&times;</button>
         </div>
         <div class="p-5">
+          {# pacote.valores = o salvo; no envio recusado, o digitado (pacote.erros por campo + geral) #}
+          {% if pacote.erros.geral %}<p data-resumo-erro tabindex="-1" class="mb-3 rounded-lg border border-erro bg-erro-fundo px-3 py-2 text-[0.8rem] text-erro">{{ pacote.erros.geral }}</p>{% endif %}
           <div class="grid grid-cols-1 sm:grid-cols-12 gap-3">
             <div class="sm:col-span-6">
-              <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Nome</label>
-              <input type="text" name="nome" value="{{ pacote.nome }}" required maxlength="150"
-                     class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
+              <c-campo nome="nome" id="pacote-{{ pacote.pk }}-nome" label="Nome" erro="{{ pacote.erros.nome }}"
+                       classe_rotulo="block text-[0.75rem] font-bold text-texto-suave"
+                       classe_campo="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
+                       value="{{ pacote.valores.nome }}" required maxlength="150"></c-campo>
             </div>
             <div class="sm:col-span-3">
-              <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Preço Total (R$)</label>
-              <input type="number" step="0.01" min="0" name="preco_total" value="{{ pacote.preco_total|unlocalize }}" required
-                     class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
+              <c-campo nome="preco_total" id="pacote-{{ pacote.pk }}-preco" label="Preço total (R$)" tipo="number" erro="{{ pacote.erros.preco_total }}"
+                       classe_rotulo="block text-[0.75rem] font-bold text-texto-suave"
+                       classe_campo="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
+                       value="{{ pacote.valores.preco_total|unlocalize }}" step="0.01" min="0" required></c-campo>
             </div>
             <div class="sm:col-span-3">
-              <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Validade (meses)</label>
-              <input type="number" min="1" max="120" name="validade_meses" value="{{ pacote.validade_meses|unlocalize }}" required
-                     class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
+              <c-campo nome="validade_meses" id="pacote-{{ pacote.pk }}-validade" label="Validade (meses)" tipo="number" erro="{{ pacote.erros.validade_meses }}"
+                       classe_rotulo="block text-[0.75rem] font-bold text-texto-suave"
+                       classe_campo="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
+                       value="{{ pacote.valores.validade_meses|unlocalize }}" min="1" max="120" required></c-campo>
             </div>
             <div class="sm:col-span-12">
-              <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Descrição</label>
-              <textarea name="descricao" rows="2"
-                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition resize-y">{{ pacote.descricao|default_if_none:'' }}</textarea>
+              <label for="pacote-{{ pacote.pk }}-descricao" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Descrição</label>
+              <textarea name="descricao" id="pacote-{{ pacote.pk }}-descricao" rows="2"
+                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition resize-y">{{ pacote.valores.descricao }}</textarea>
             </div>
             <div class="sm:col-span-12">
               <label class="inline-flex items-center gap-2 text-[0.85rem] text-texto cursor-pointer">
-                <input type="checkbox" name="ativo" value="1" {% if pacote.ativo %}checked{% endif %} class="rounded border-borda">
+                <input type="checkbox" name="ativo" value="1" {% if pacote.valores.ativo %}checked{% endif %} class="rounded border-borda">
                 Ativo (disponível para venda)
               </label>
             </div>
@@ -127,11 +132,12 @@
           {% endif %}
           <p class="text-[0.75rem] text-texto-suave mb-2">Para remover um item, deixe o procedimento em branco.</p>
           <div x-ref="itens">
-            {% for item in pacote.itens.all %}
+            {% for item in pacote.valores.itens %}
             <div class="grid grid-cols-12 gap-2 mb-2 item-row">
               <div class="col-span-8">
                 <select name="procedimento_ids" aria-label="Procedimento"
-                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
+                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
+                        {% if pacote.erros.itens and forloop.first %}aria-invalid="true" aria-describedby="pacote-{{ pacote.pk }}-itens-erro"{% endif %}>
                   <option value="">Procedimento...</option>
                   {% for proc in procedimentos_todos %}
                   <option value="{{ proc.pk }}" {% if proc.pk == item.procedimento_id %}selected{% endif %}>{{ proc.nome }}{% if not proc.ativo %} (inativo){% endif %}</option>
@@ -139,7 +145,7 @@
                 </select>
               </div>
               <div class="col-span-4">
-                <input type="number" name="quantidades" value="{{ item.quantidade_sessoes|unlocalize }}" min="1" aria-label="Quantidade de sessões"
+                <input type="number" name="quantidades" value="{{ item.quantidade|unlocalize }}" min="1" aria-label="Quantidade de sessões"
                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
               </div>
             </div>
@@ -161,6 +167,7 @@
             </div>
             {% endfor %}
           </div>
+          {% if pacote.erros.itens %}<p id="pacote-{{ pacote.pk }}-itens-erro" class="text-erro text-sm mb-1">{{ pacote.erros.itens }}</p>{% endif %}
           <button type="button" x-on:click="addItem"
                   class="inline-flex items-center gap-1 mt-1 px-3 py-1.5 rounded-lg border border-borda text-texto text-[0.75rem] font-bold bg-superficie cursor-pointer hover:bg-fundo transition-colors">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -240,8 +247,8 @@
 </div>
 {% endif %}
 
-{# ── FAB + Modal novo pacote ── #}
-<div x-data="pacoteCriar">
+{# ── FAB + Modal novo pacote (novo.valores/novo.erros: em branco ou o envio recusado) ── #}
+<div x-data="pacoteCriar"{% if novo.erros %} data-erro="1"{% endif %}>
   <button type="button" x-on:click="abrir" aria-label="Novo pacote"
           class="fixed bottom-6 right-6 z-[9000] w-14 h-14 rounded-full bg-marca-forte text-sobre-marca shadow-lg flex items-center justify-center border-none cursor-pointer hover:opacity-90 transition-opacity">
     <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
@@ -260,47 +267,55 @@
                   class="text-texto-suave hover:text-texto text-2xl leading-none border-none bg-transparent cursor-pointer">&times;</button>
         </div>
         <div class="p-5">
+          {% if novo.erros.geral %}<p data-resumo-erro tabindex="-1" class="mb-3 rounded-lg border border-erro bg-erro-fundo px-3 py-2 text-[0.8rem] text-erro">{{ novo.erros.geral }}</p>{% endif %}
           <div class="grid grid-cols-1 sm:grid-cols-12 gap-3">
             <div class="sm:col-span-6">
-              <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Nome</label>
-              <input type="text" name="nome" required placeholder="Ex: Pacote Harmonização 5 sessões"
-                     class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
+              <c-campo nome="nome" id="pacote-novo-nome" label="Nome" erro="{{ novo.erros.nome }}"
+                       classe_rotulo="block text-[0.75rem] font-bold text-texto-suave"
+                       classe_campo="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
+                       value="{{ novo.valores.nome }}" required placeholder="Ex: Pacote Harmonização 5 sessões"></c-campo>
             </div>
             <div class="sm:col-span-3">
-              <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Preço Total (R$)</label>
-              <input type="number" step="0.01" name="preco_total" required
-                     class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
+              <c-campo nome="preco_total" id="pacote-novo-preco" label="Preço total (R$)" tipo="number" erro="{{ novo.erros.preco_total }}"
+                       classe_rotulo="block text-[0.75rem] font-bold text-texto-suave"
+                       classe_campo="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
+                       value="{{ novo.valores.preco_total }}" step="0.01" required></c-campo>
             </div>
             <div class="sm:col-span-3">
-              <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Validade (meses)</label>
-              <input type="number" name="validade_meses" value="12"
-                     class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
+              <c-campo nome="validade_meses" id="pacote-novo-validade" label="Validade (meses)" tipo="number" erro="{{ novo.erros.validade_meses }}"
+                       classe_rotulo="block text-[0.75rem] font-bold text-texto-suave"
+                       classe_campo="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
+                       value="{{ novo.valores.validade_meses }}"></c-campo>
             </div>
             <div class="sm:col-span-12">
-              <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Descrição</label>
-              <textarea name="descricao" rows="2"
-                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition resize-y"></textarea>
+              <label for="pacote-novo-descricao" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Descrição</label>
+              <textarea name="descricao" id="pacote-novo-descricao" rows="2"
+                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition resize-y">{{ novo.valores.descricao }}</textarea>
             </div>
           </div>
 
           <h6 class="font-bold text-texto mt-4 mb-2">Itens do Pacote</h6>
           <div x-ref="itens">
+            {% for item in novo.valores.itens %}
             <div class="grid grid-cols-12 gap-2 mb-2 item-row">
               <div class="col-span-8">
                 <select name="procedimento_ids" aria-label="Procedimento"
-                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
+                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
+                        {% if novo.erros.itens and forloop.first %}aria-invalid="true" aria-describedby="pacote-novo-itens-erro"{% endif %}>
                   <option value="">Procedimento...</option>
                   {% for proc in procedimentos %}
-                  <option value="{{ proc.pk }}">{{ proc.nome }}</option>
+                  <option value="{{ proc.pk }}" {% if proc.pk == item.procedimento_id %}selected{% endif %}>{{ proc.nome }}</option>
                   {% endfor %}
                 </select>
               </div>
               <div class="col-span-4">
-                <input type="number" name="quantidades" value="1" min="1" placeholder="Qtd sessões" aria-label="Quantidade de sessões"
+                <input type="number" name="quantidades" value="{{ item.quantidade }}" min="1" placeholder="Qtd sessões" aria-label="Quantidade de sessões"
                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
               </div>
             </div>
+            {% endfor %}
           </div>
+          {% if novo.erros.itens %}<p id="pacote-novo-itens-erro" class="text-erro text-sm mb-1">{{ novo.erros.itens }}</p>{% endif %}
           <button type="button" x-on:click="addItem"
                   class="inline-flex items-center gap-1 mt-1 px-3 py-1.5 rounded-lg border border-borda text-texto text-[0.75rem] font-bold bg-superficie cursor-pointer hover:bg-fundo transition-colors">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
