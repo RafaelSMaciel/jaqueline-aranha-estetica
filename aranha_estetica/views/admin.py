@@ -23,8 +23,8 @@ from ..services.termos import termos_pendentes
 from ..utils.audit import registrar_log
 from ..utils.busca import filtrar_clientes
 from ..utils.parse import id_int
-from ..utils.saude import alertas_saude
-from ..utils.datas import ler_data
+from ..utils.saude import alertas_em_lote
+from ..utils.datas import dias_locais, ler_data
 
 logger = logging.getLogger(__name__)
 
@@ -56,14 +56,15 @@ def prontuario_consentimento(request):
     page = request.GET.get('page', 1)
     clientes_page = paginator.get_page(page)
 
+    # Alerta visivel na lista; so quem tem algum dado de saude, em lote (3 consultas p/ a pagina)
+    alertas = alertas_em_lote(c.pk for c in clientes_page if c.tem_prontuario or c.tem_ficha)
     clientes_list = [
         {
             'cliente': c,
             'tem_prontuario': c.tem_prontuario,
             'tem_ficha': c.tem_ficha,
             'total_termos': c.total_termos,
-            # Alerta visivel na lista; so consulta quem tem algum dado de saude
-            'alertas': alertas_saude(c) if (c.tem_prontuario or c.tem_ficha) else [],
+            'alertas': alertas.get(c.pk, []),
         }
         for c in clientes_page
     ]
@@ -107,7 +108,7 @@ def admin_auditoria(request):
     if data_filter:
         try:
             data = ler_data(data_filter)
-            logs = logs.filter(criado_em__date=data)
+            logs = logs.filter(**dias_locais('criado_em', data))
         except ValueError:
             pass
 

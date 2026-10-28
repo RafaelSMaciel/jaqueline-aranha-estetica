@@ -17,6 +17,9 @@ Detalhes:
   esperando sem fim, com as tabelas ja alteradas travadas (requests enfileiram
   atras). Com o timeout o migrate falha (LockNotAvailable), tudo volta e o
   deploy e refeito depois.
+- `SET LOCAL statement_timeout = 0`: a conexao vem com teto por statement
+  (settings/base.opcoes_postgres, 30 s); data migration em tabela grande pode passar
+  disso e nao deve cair no meio (o lock_timeout continua valendo).
 - `SET LOCAL app.origem = 'migracao'` (logo apos o lock_timeout): a trilha
   historico_alteracao (0056+) marca o que uma migration futura mudar com
   origem 'migracao' (spec padrao-sql §5.3). Os triggers de trilha so nascem na
@@ -43,6 +46,7 @@ class Command(MigrateCommand):
 
     # SET LOCAL: vale so ate o fim da transacao do upgrade
     LOCK_TIMEOUT_SQL = "SET LOCAL lock_timeout = '5s'"
+    STATEMENT_TIMEOUT_SQL = 'SET LOCAL statement_timeout = 0'
     ORIGEM_SQL = "SET LOCAL app.origem = 'migracao'"
 
     # App cujo estado o log de falha informa (a unica com migrations proprias)
@@ -64,6 +68,7 @@ class Command(MigrateCommand):
             with transaction.atomic(using=self._alias):
                 with connection.cursor() as cursor:
                     cursor.execute(self.LOCK_TIMEOUT_SQL)
+                    cursor.execute(self.STATEMENT_TIMEOUT_SQL)
                     cursor.execute(self.ORIGEM_SQL)
                 return super().handle(*args, **options)
         except Exception:

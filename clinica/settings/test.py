@@ -26,7 +26,8 @@ PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
 # trigger e procedures das migrations so existem la.
 _test_db_url = os.environ.get('TEST_DATABASE_URL', '').strip()
 if _test_db_url:
-    DATABASES = {'default': dj_database_url.parse(_test_db_url)}
+    # mesmas OPTIONS de producao (application_name, statement_timeout): o CI roda com elas
+    DATABASES = {'default': opcoes_postgres(dj_database_url.parse(_test_db_url))}
 else:
     _arquivo = os.environ.get('TESTE_SQLITE_MEMORIA', '').strip() != '1'
     DATABASES = {'default': {

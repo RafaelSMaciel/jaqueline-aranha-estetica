@@ -13,6 +13,8 @@ from django.db.models import Count, Sum
 from django.shortcuts import render
 from django.utils import timezone
 
+from ..utils.datas import dias_locais
+
 from ..decorators import staff_required
 from ..models import Atendimento, MovimentoComissao
 from ..services import financeiro
@@ -62,7 +64,7 @@ def _calcular_metricas(agora, hoje) -> dict:
     vendas_pacote = financeiro.vendas_pacote()
     receita_pacote = financeiro.RECEITA_PACOTE
 
-    fat_hoje = base_pago.filter(data_hora_inicio__date=hoje).aggregate(
+    fat_hoje = base_pago.filter(**dias_locais('data_hora_inicio', hoje)).aggregate(
         total=Sum('valor_cobrado'), count=Count('id'),
     )
     fat_semana = base_pago.filter(data_hora_inicio__gte=inicio_semana).aggregate(
@@ -71,7 +73,7 @@ def _calcular_metricas(agora, hoje) -> dict:
     fat_mes = base_pago.filter(data_hora_inicio__gte=inicio_mes).aggregate(
         total=Sum('valor_cobrado'), count=Count('id'),
     )
-    pac_hoje = vendas_pacote.filter(criado_em__date=hoje).aggregate(
+    pac_hoje = vendas_pacote.filter(**dias_locais('criado_em', hoje)).aggregate(
         total=receita_pacote, count=Count('id'),
     )
     pac_semana = vendas_pacote.filter(criado_em__gte=inicio_semana).aggregate(
