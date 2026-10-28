@@ -490,7 +490,7 @@ Detalhe de login, 2FA, OTP e tokens em [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO
   X-Frame-Options DENY, nosniff, COOP/CORP, Permissions-Policy.
 - **Privacidade no navegador:** `/painel/`, `/profissional/`, `/meus-agendamentos/`, `/lgpd/`,
   `/api/`, `/django-admin-sv/` saem com `Cache-Control: no-store` (e views sensíveis com
-  `@never_cache`); rotas com token no path usam `Referrer-Policy: no-referrer`; logout envia
+  `@never_cache`); rotas com token no path usam `Referrer-Policy: no-referrer`; privadas e com token saem com `X-Robots-Tag: noindex, nofollow, noarchive` (o robots.txt só pede para não buscar); logout envia
   `Clear-Site-Data: "cache"`; o access log do gunicorn redige tokens (`LoggerSemTokens`).
 - **Cookies:** HttpOnly, SameSite=Lax, Secure em prod; sessão da equipe 8h deslizantes que
   expira ao fechar o navegador.
