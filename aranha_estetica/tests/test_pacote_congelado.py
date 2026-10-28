@@ -14,7 +14,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from aranha_estetica.models import (
-    Atendimento, CompraPacote, CompraPacoteItem, ConsumoSessao, ItemPacote, RegraComissao,
+    Atendimento, CompraPacote, CompraPacoteItem, ConsumoSessao, ItemPacote, MovimentoComissao, RegraComissao,
 )
 from aranha_estetica.models.pacotes import rateio_por_sessao
 from aranha_estetica.services.comissao_service import ComissaoService
@@ -30,8 +30,7 @@ from .factories import (
 
 
 def _realizar(atendimento):
-    atendimento.status = 'REALIZADO'
-    atendimento.save()
+    atendimento.marcar_realizado()
     return atendimento
 
 
@@ -155,9 +154,9 @@ class ConsumoPeloItemCongeladoTests(TestCase):
         at = criar_atendimento(self.cli, self.prof, self.proc)
         Atendimento.objects.filter(pk=at.pk).update(valor_cobrado=Decimal('180.00'))
         at.refresh_from_db()
-        _realizar(at)
+        _realizar(at)   # a FSM lanca a comissao pela base congelada
         self.assertEqual(ComissaoService.base_calculo(at), Decimal('150.00'))  # 300 / 2
-        self.assertEqual(ComissaoService.calcular_comissao(at).valor, Decimal('15.00'))
+        self.assertEqual(MovimentoComissao.objects.get(atendimento=at, tipo='CREDITO').valor, Decimal('15.00'))
 
 
 class ExpiracaoEDsarComItensCongeladosTests(TestCase):

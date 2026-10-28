@@ -13,16 +13,8 @@ from decimal import Decimal
 from typing import Optional
 
 from django.db import IntegrityError, transaction
-from django.utils import timezone
 
 from ..constants import VALOR_CASHBACK_INDICACAO
-from ..domain.event_bus import EventBus
-from ..domain.events import (
-    AtendimentoCancelado,
-    AtendimentoRealizado,
-    CashbackEstornado,
-    CashbackLiberado,
-)
 from ..models import Atendimento, Carteira, MovimentoCarteira
 
 logger = logging.getLogger(__name__)
@@ -92,13 +84,6 @@ class FidelidadeService:
         carteira.saldo = novo_saldo
         carteira.save(update_fields=['saldo', 'atualizado_em'])
 
-        transaction.on_commit(lambda: EventBus.publish(CashbackLiberado(
-            occurred_at=timezone.now(),
-            movimento_id=movimento.pk,
-            cliente_indicador_id=cliente.indicado_por_id,
-            cliente_indicada_id=cliente.pk,
-            valor=str(VALOR_CASHBACK_INDICACAO),
-        )))
         logger.info(
             'cashback_liberado',
             extra={
@@ -159,36 +144,6 @@ class FidelidadeService:
                     },
                 )
 
-            transaction.on_commit(lambda v=valor, c=carteira, mid=cred_mov.pk: EventBus.publish(
-                CashbackEstornado(
-                    occurred_at=timezone.now(),
-                    movimento_estorno_id=mid,
-                    cliente_indicador_id=c.cliente_id,
-                    valor=str(v),
-                    motivo=motivo,
-                ),
-            ))
             estornados += 1
         return estornados
 
-
-@EventBus.subscribe(AtendimentoRealizado)
-def _on_realizado_libera_cashback(event: AtendimentoRealizado) -> None:
-    """Handler: AtendimentoRealizado -> credita indicador."""
-    try:
-        atendimento = Atendimento.objects.select_related('cliente').get(pk=event.atendimento_id)
-    except Atendimento.DoesNotExist:
-        return
-    FidelidadeService.liberar_cashback_indicacao(atendimento)
-
-
-@EventBus.subscribe(AtendimentoCancelado)
-def _on_cancelado_estorna_cashback(event: AtendimentoCancelado) -> None:
-    """Handler: AtendimentoCancelado -> estorna carteira gerado."""
-    try:
-        atendimento = Atendimento.objects.get(pk=event.atendimento_id)
-    except Atendimento.DoesNotExist:
-        return
-    FidelidadeService.estornar_cashback_de_atendimento(
-        atendimento, motivo='atendimento cancelado',
-    )

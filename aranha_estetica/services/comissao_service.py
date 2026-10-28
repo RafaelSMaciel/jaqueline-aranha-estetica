@@ -25,14 +25,7 @@ from typing import Optional
 
 from django.db import IntegrityError, transaction
 from django.db.models import Case, DecimalField, F, Q, Sum, When
-from django.utils import timezone
 
-from ..domain.event_bus import EventBus
-from ..domain.events import (
-    AtendimentoCancelado,
-    AtendimentoRealizado,
-    ComissaoCalculada,
-)
 from ..models import Atendimento, ConsumoSessao, MovimentoComissao, Profissional, RegraComissao
 
 logger = logging.getLogger(__name__)
@@ -158,13 +151,6 @@ class ComissaoService:
             )
             return None
 
-        transaction.on_commit(lambda: EventBus.publish(ComissaoCalculada(
-            occurred_at=timezone.now(),
-            movimento_comissao_id=movimento.pk,
-            profissional_id=atendimento.profissional_id,
-            atendimento_id=atendimento.pk,
-            valor=str(valor),
-        )))
         logger.info(
             'comissao_calculada',
             extra={
@@ -297,22 +283,3 @@ class ComissaoService:
             linha['saldo_negativo'] = linha['saldo'] < 0
         return sorted(linhas.values(), key=lambda r: (-r['pendente'], r['profissional__nome'] or ''))
 
-
-@EventBus.subscribe(AtendimentoRealizado)
-def _on_realizado_calcula_comissao(event: AtendimentoRealizado) -> None:
-    try:
-        atendimento = Atendimento.objects.select_related('profissional', 'procedimento').get(
-            pk=event.atendimento_id,
-        )
-    except Atendimento.DoesNotExist:
-        return
-    ComissaoService.calcular_comissao(atendimento)
-
-
-@EventBus.subscribe(AtendimentoCancelado)
-def _on_cancelado_estorna_comissao(event: AtendimentoCancelado) -> None:
-    try:
-        atendimento = Atendimento.objects.get(pk=event.atendimento_id)
-    except Atendimento.DoesNotExist:
-        return
-    ComissaoService.estornar_comissao(atendimento)

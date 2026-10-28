@@ -197,13 +197,14 @@ class Atendimento(models.Model):
     # Atendimento.TransicaoInvalida segue valendo (views/admin/tasks); e a RegraDeNegocio comum.
     TransicaoInvalida = TransicaoInvalida
 
-    def _transicionar(self, novo_status, motivo=None, by_user=None):
+    def _transicionar(self, novo_status, motivo=None, by_user=None, *, pela_cliente=False):
         # Valida contra o status ATUAL do banco com a linha travada
         # (select_for_update): duplo clique / link da cliente + recepcao ao
-        # mesmo tempo nao passam os dois pela checagem nem publicam o mesmo
-        # evento 2x. Os metodos publicos rodam este passo E o _publish_event na
-        # MESMA transacao: comissao, cashback e retorno gravam junto com o status
-        # ou nada grava (I/O externo dos handlers vai em on_commit).
+        # mesmo tempo nao passam os dois pela checagem nem aplicam os efeitos 2x.
+        # Status, auditoria e efeitos (services.atendimento.ao_mudar_status: faltas,
+        # pacote, comissao, cashback, retorno, lista de espera) na MESMA transacao:
+        # efeito que falha desfaz a transicao inteira (I/O externo vai em on_commit).
+        from ..services.atendimento import ao_mudar_status
         with transaction.atomic():
             if self.pk is not None:
                 atual = (
@@ -231,7 +232,8 @@ class Atendimento(models.Model):
                     LogAuditoria.objects.create(
                         usuario=by_user,
                         acao=f'Atendimento {self.pk}: {anterior} -> {novo_status}'
-                             + (f' ({motivo})' if motivo else ''),
+                             + (f' ({motivo})' if motivo else '')
+                             + (' [pela cliente]' if pela_cliente else ''),
                         tabela='atendimento',
                         registro_id=self.pk,
                     )
@@ -241,53 +243,27 @@ class Atendimento(models.Model):
                     'log_auditoria_falhou',
                     extra={'atendimento_id': self.pk, 'erro': str(exc)},
                 )
+            ao_mudar_status(self, anterior, novo_status)
 
     def confirmar(self, by_user=None):
-        from ..domain.events import AtendimentoConfirmado
-        with transaction.atomic():
-            self._transicionar(StatusAtendimento.CONFIRMADO, by_user=by_user)
-            self._publish_event(AtendimentoConfirmado, confirmado_por_id=getattr(by_user, 'pk', None))
+        self._transicionar(StatusAtendimento.CONFIRMADO, by_user=by_user)
 
     def cancelar(self, motivo='', by_user=None, *, pela_cliente=False):
         """pela_cliente: so os fluxos da propria cliente (link/portal) passam True — job e
-        equipe nao (antes `by_user is None` marcava o cancelamento automatico como da cliente)."""
-        from ..domain.events import AtendimentoCancelado
-        with transaction.atomic():
-            self._transicionar(StatusAtendimento.CANCELADO, motivo=motivo, by_user=by_user)
-            self._publish_event(
-                AtendimentoCancelado,
-                motivo=motivo or '',
-                cancelado_por_cliente=pela_cliente,
-            )
+        equipe nao; fica na trilha (LogAuditoria) e a clinica nao avisa a cliente dela mesma."""
+        self._transicionar(StatusAtendimento.CANCELADO, motivo=motivo, by_user=by_user, pela_cliente=pela_cliente)
 
     def marcar_realizado(self, by_user=None):
-        from ..domain.events import AtendimentoRealizado
-        with transaction.atomic():
-            self._transicionar(StatusAtendimento.REALIZADO, by_user=by_user)
-            self._publish_event(
-                AtendimentoRealizado,
-                cliente_id=self.cliente_id,
-                profissional_id=self.profissional_id,
-            )
+        self._transicionar(StatusAtendimento.REALIZADO, by_user=by_user)
 
     def marcar_falta(self, by_user=None):
-        from ..domain.events import AtendimentoFaltou
-        with transaction.atomic():
-            self._transicionar(StatusAtendimento.FALTOU, by_user=by_user)
-            self._publish_event(AtendimentoFaltou, cliente_id=self.cliente_id)
+        self._transicionar(StatusAtendimento.FALTOU, by_user=by_user)
 
     def marcar_reagendado(self, by_user=None):
         self._transicionar(StatusAtendimento.REAGENDADO, by_user=by_user)
 
     def aprovar(self, by_user=None):
         self._transicionar(StatusAtendimento.AGENDADO, by_user=by_user)
-
-    def _publish_event(self, event_cls, **fields) -> None:
-        """Publica o DomainEvent (classe, nao nome: erro de digitacao vira ImportError) na
-        transacao da transicao. Handler que falha propaga e desfaz a transicao inteira — antes a
-        falha de comissao/cashback/retorno virava so uma linha de log com o status ja gravado."""
-        from ..domain.event_bus import EventBus
-        EventBus.publish(event_cls(occurred_at=timezone.now(), atendimento_id=self.pk, **fields))
 
     objects = AtendimentoManager()
 

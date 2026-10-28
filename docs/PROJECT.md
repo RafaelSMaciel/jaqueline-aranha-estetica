@@ -82,11 +82,11 @@ aranha_estetica/
 ├── views/           public, booking_public/_otp/_reagendar/_api, agenda_publica, anamnese_publica,
 │                    notificacoes (confirmar presença), lgpd, profissional, prontuario, auth, admin_2fa,
 │                    dashboard, admin*, pacotes, relatorios, cron, health, whatsapp, webpush_views
-├── services/        agenda (reservar/reagendar/mover), agendamento_service, disponibilidade (SlotService),
+├── services/        agenda (reservar/reagendar/mover), atendimento (efeitos de criar/mudar status),
+│                    agendamento_service, disponibilidade (SlotService),
 │                    otp, lgpd, termos, alertas,
 │                    comissao_service, fidelidade_service, retorno_service, lista_espera_service,
 │                    anamnese, auditoria, push, gcal
-├── domain/          event_bus.py (EventBus síncrono, na transação da FSM), events.py, handlers.py (logging)
 ├── utils/           branding, email, sms, whatsapp, precos, saude, fichas, security, dois_fatores,
 │                    pii, captcha, datas, parse, busca (trigram no PG), audit, recorrencia (RRULE do
 │                    subconjunto), nps (calculo unico, meio p/ cima), banco (GUCs app.* e CALL das
@@ -100,7 +100,7 @@ aranha_estetica/
 ├── static/src/      fonte do Vite (css/tokens.css, css/app.css, js/app.js) — fora do collectstatic
 ├── static/js/       wizard.js, admin-search.js, webpush.js (servidos direto pelo staticfiles)
 ├── static/dist/     build do Vite (gitignored; gerado no Docker/CI)
-├── signals.py       efeitos do post_save de Atendimento + cache do Branding
+├── signals.py       só o cache do Branding (post_save/post_delete de Configuracao)
 ├── tasks.py / tasks_manutencao.py   jobs Celery (chamados pelo cron HTTP)
 ├── sinais_celery.py contexto da trilha (app.origem=celery:<task>) nas tasks do worker real
 ├── middleware.py    Enforce2FAMiddleware, SecurityHeadersMiddleware, ContentSecurityPolicyMiddleware,
@@ -120,28 +120,27 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
                  → Axes → Ratelimit
       └─ view (validação + permissão) ──▶ services/ e utils/ (regra de negócio)
             └─ models (FSM do Atendimento, managers, constraints) ──▶ PostgreSQL
-                  ├─ signals.py (post_save do Atendimento): faltas, débito de pacote,
-                  │   lista de espera, push/Google Calendar no on_commit
-                  └─ EventBus (na mesma transação da FSM): comissão, cashback, retorno
+                  └─ services/atendimento (na mesma transação da FSM): faltas, débito de
+                      pacote, comissão, cashback, retorno, lista de espera; push/Google
+                      Calendar do novo atendimento no on_commit
 ```
 
 - **FSM do atendimento** (`models/agendamentos.py`): toda mudança de status passa por
   `aprovar/confirmar/cancelar/marcar_realizado/marcar_falta/marcar_reagendado`, que travam a
-  linha (`select_for_update`), validam `TRANSICOES`, gravam `LogAuditoria` e publicam o
-  evento. `status = X; save()` pula tudo isso e é proibido no código.
-- **Signals** (efeitos que valem para qualquer caminho de gravação, inclusive Django admin):
-  contador de faltas (3-strike), débito de sessão de pacote (nunca de retorno; validade pela
-  data da sessão), aviso da lista de espera (CANCELADO/REAGENDADO), push ao profissional e
-  sync do Google Calendar no `on_commit` de um atendimento novo, invalidação do cache do
-  Branding.
-- **EventBus** (`domain/`): `AtendimentoRealizado` → comissão, cashback de indicação e
-  retorno obrigatório; `AtendimentoCancelado` → estorno de comissão e de cashback;
-  `AtendimentoConfirmado` → só log. Eventos existentes: `AtendimentoConfirmado`,
-  `AtendimentoRealizado`, `AtendimentoCancelado`, `AtendimentoFaltou`, `RetornoSugerido`,
-  `CashbackLiberado`, `CashbackEstornado`, `ComissaoCalculada`. Síncrono, in-process e **na
-  mesma transação da transição**: handler que falha é logado e desfaz a transição inteira
-  (status + efeitos gravam juntos ou nada grava); I/O externo vai em `on_commit`.
-  `cancelar(..., pela_cliente=True)` só nos fluxos da própria cliente (link/portal).
+  linha (`select_for_update`), validam `TRANSICOES`, gravam `LogAuditoria` e aplicam os
+  efeitos (`services/atendimento.ao_mudar_status`). `status = X; save()` pula tudo isso e é
+  proibido no código.
+- **Efeitos do atendimento** (`services/atendimento.py`, chamados explicitamente — sem
+  post_save nem EventBus): `ao_mudar_status` roda dentro da transação da FSM, em ordem —
+  REALIZADO zera as faltas, debita a sessão do pacote (item congelado na venda; nunca de
+  retorno; validade pela data da sessão), lança a comissão, libera o cashback de indicação e
+  sugere o retorno obrigatório; CANCELADO estorna comissão e cashback; FALTOU conta a falta
+  (3 seguidas suspendem o agendamento online); CANCELADO/REAGENDADO de um ativo avisa a lista
+  de espera (savepoint, best-effort). Efeito que falha desfaz a transição inteira (status +
+  livro-razão gravam juntos ou nada grava). `ao_criar` (chamado por `services.agenda.reservar`
+  e pelo "adicionar" do Django admin) manda push e sincroniza o Google Calendar no
+  `on_commit`. `status = X; save()` não aplica regra nenhuma. `cancelar(..., pela_cliente=True)`
+  só nos fluxos da própria cliente (link/portal) — fica na trilha (`[pela cliente]`).
 - **Aviso de cancelamento** (`services/agendamento_service.avisar_cancelamento`): e-mail à
   cliente quando a clínica cancela — painel, rejeição, Django admin e pedido PENDENTE que venceu
   sem aprovação. Cancelamento pela própria cliente não avisa.

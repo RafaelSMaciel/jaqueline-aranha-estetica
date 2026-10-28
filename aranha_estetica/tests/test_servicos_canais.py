@@ -208,8 +208,7 @@ class EmailFalhaFechadaTests(TestCase):
         validade = timezone.localdate() + timedelta(days=7)
         CompraPacote.objects.filter(pk=compra.pk).update(data_expiracao=validade)
         atd = criar_atendimento(cli, prof, proc)
-        atd.status = 'REALIZADO'
-        atd.save()
+        atd.marcar_realizado()
 
         job_verificar_pacotes_expirando.apply()
 

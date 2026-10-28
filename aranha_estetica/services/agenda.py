@@ -25,6 +25,7 @@ from ..excecoes import HorarioIndisponivel, RegraDeNegocio, TransicaoInvalida, e
 from ..models import AgendaExcecao, Atendimento, RespostaAnamnese
 from ..models.agendamentos import STATUS_ATIVOS, STATUS_FINALIZADOS
 from ..utils.precos import preco_com_promocao
+from .atendimento import ao_criar
 from .disponibilidade import profissional_habilitado, slot_disponivel
 
 # Duracao do atendimento de retorno quando o procedimento nao define (= RetornoService).
@@ -119,7 +120,7 @@ def reservar(*, cliente, profissional, procedimento, inicio, status, preco=None,
     preco = preco_do_dia(procedimento, profissional, inicio) if preco is None else preco
     try:
         with transaction.atomic():
-            return Atendimento.objects.create(
+            at = Atendimento.objects.create(
                 cliente=cliente, profissional=profissional, procedimento=procedimento,
                 data_hora_inicio=inicio, data_hora_fim=fim, status=status,
                 eh_retorno=eh_retorno, atendimento_origem=atendimento_origem, reagendado_de=reagendado_de,
@@ -129,6 +130,8 @@ def reservar(*, cliente, profissional, procedimento, inicio, status, preco=None,
         if eh_sobreposicao(exc):
             raise HorarioIndisponivel(MSG_CORRIDA, codigo='horario_ocupado') from exc
         raise
+    ao_criar(at)   # push + Google Calendar da profissional (on_commit)
+    return at
 
 
 def reagendar(antigo, novo_inicio, profissional, *, por=None) -> Atendimento:
