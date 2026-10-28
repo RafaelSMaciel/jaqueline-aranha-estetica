@@ -27,8 +27,11 @@ logger = logging.getLogger(__name__)
 STATUS_LIBERAM_VAGA = (StatusAtendimento.CANCELADO, StatusAtendimento.REAGENDADO)
 
 
-def ao_mudar_status(at, anterior, novo) -> None:
-    """Efeitos de ``anterior`` -> ``novo`` (a FSM ja validou a transicao e gravou o status)."""
+def ao_mudar_status(at, anterior, novo, *, pela_cliente=False) -> None:
+    """Efeitos de ``anterior`` -> ``novo`` (a FSM ja validou a transicao e gravou o status).
+
+    pela_cliente: a propria cliente cancelou/remarcou (portal ou link) — a profissional e avisada
+    (push); quando a clinica cancela, quem e avisada e a cliente (services.agendamento)."""
     if anterior == StatusAtendimento.REALIZADO:
         _desfazer_realizacao(at)
     if novo == StatusAtendimento.REALIZADO:
@@ -58,6 +61,9 @@ def ao_mudar_status(at, anterior, novo) -> None:
 
     if novo in STATUS_LIBERAM_VAGA and anterior in STATUS_ATIVOS:
         _avisar_lista_de_espera(at)
+        if pela_cliente:
+            titulo = 'Cliente cancelou' if novo == StatusAtendimento.CANCELADO else 'Cliente remarcou'
+            transaction.on_commit(lambda: _push_profissional(at, titulo))
 
 
 def _desfazer_realizacao(at) -> None:
@@ -93,7 +99,7 @@ def devolver_sessao_de_pacote(at) -> None:
 
 def ao_criar(at) -> None:
     """Novo atendimento: push p/ a profissional e evento no Google Calendar dela (on_commit)."""
-    transaction.on_commit(lambda: _push_novo_agendamento(at))
+    transaction.on_commit(lambda: _push_profissional(at, 'Novo agendamento'))
     transaction.on_commit(lambda: _sync_gcal(at))
 
 
@@ -144,7 +150,8 @@ def _avisar_lista_de_espera(at) -> None:
         logger.exception('lista_espera_falhou', extra={'atendimento_id': at.pk})
 
 
-def _push_novo_agendamento(at) -> None:
+def _push_profissional(at, titulo) -> None:
+    """Push p/ a profissional do atendimento (best-effort: sem inscricao, nada acontece)."""
     try:
         user = getattr(at.profissional, 'usuario', None)
         if user is None:
@@ -152,7 +159,7 @@ def _push_novo_agendamento(at) -> None:
         from ..utils.datas import fmt_local
         from .push import send_push_to_user
         send_push_to_user(user, {
-            'head': 'Novo agendamento',
+            'head': titulo,
             'body': f'{at.cliente.nome} - {at.procedimento.nome} em {fmt_local(at.data_hora_inicio, "%d/%m %H:%M")}',
             'url': '/profissional/',
         })

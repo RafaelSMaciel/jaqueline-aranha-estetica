@@ -47,7 +47,11 @@ Fluxo: **procedimento → data/horário (e profissional) → dados + código SMS
   teto global.
 - **Anti double-booking:** trava de 30 s no cache + `SELECT FOR UPDATE` + EXCLUDE no Postgres;
   perdeu a corrida → "Este horário acabou de ser reservado".
-- **Status inicial: PENDENTE** — a clínica aprova (§7). Não há auto-aprovação.
+- **Status inicial** (`services/agenda.status_inicial_publico`, D8): cliente **de confiança** — já
+  atendida (1+ REALIZADO), sem falta em aberto, sem bloqueio e com menos de
+  `LIMITE_AUTOAPROVACAO` (**2**) horários futuros — nasce **AGENDADO** e recebe o e-mail de
+  confirmação na hora; os demais (primeira vez incluída) nascem **PENDENTE** e a profissional
+  recebe o e-mail de aprovação (§7). A página de sucesso diz qual dos dois aconteceu.
 - **Preço gravado** = preço vigente na **data do atendimento** (profissional > base) com a
   promoção que vale nesse dia (§13): `valor_cobrado`, `valor_original` (cheio, se houve
   promoção), `promocao`, `descricao_preco`. É o mesmo valor mostrado no resumo, nos cards e em
@@ -95,7 +99,7 @@ globais** ("Todos os profissionais"); `min_notice_horas`; `max_advance_dias`.
 
 | De | Para (permitido) |
 |---|---|
-| PENDENTE | AGENDADO, CONFIRMADO, CANCELADO, REAGENDADO |
+| PENDENTE | AGENDADO, CANCELADO, REAGENDADO |
 | AGENDADO | CONFIRMADO, REALIZADO, CANCELADO, FALTOU, REAGENDADO |
 | CONFIRMADO | REALIZADO, CANCELADO, FALTOU, REAGENDADO |
 | REALIZADO, CANCELADO, FALTOU, REAGENDADO | — (terminais) |
@@ -114,10 +118,23 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 ## 7. Aprovação e rejeição
 
 - PENDENTE → **aprovar** = AGENDADO + e-mail de confirmação à cliente; **rejeitar** = CANCELADO +
-  e-mail de cancelamento. Pelo painel (individual ou em lote) ou pelo portal (só os próprios
-  pedidos do profissional). Auditado com IP.
-- PENDENTE que passou 24 h do horário sem decisão → CANCELADO pelo job `limpeza_status`
-  ("expirado sem aprovação").
+  e-mail de cancelamento. Pelo painel (botões, em lote **ou o seletor de status** — Agendado/
+  Confirmado aprova, Cancelado recusa, pelo mesmo `AgendamentoService`) ou pelo portal (só os
+  próprios pedidos do profissional). Auditado com IP. Pedido não pode ir direto a CONFIRMADO
+  (confirmar presença é da cliente, depois de aprovado).
+- PENDENTE cujo **horário já começou** sem decisão → CANCELADO + e-mail à cliente pelo job
+  `limpeza_status` ("expirado sem aprovação").
+
+**Quem é avisado de quê** (e-mail pela fila; push só se a profissional ativou):
+
+| Evento | Cliente | Profissional |
+|---|---|---|
+| Pedido pelo site (cliente nova) | página "Solicitação recebida" | e-mail de aprovação + push |
+| Pedido pelo site (cliente de confiança) | e-mail de confirmação | push "Novo agendamento" |
+| Clínica aprova / recusa / cancela | e-mail de confirmação / cancelamento | — |
+| Clínica agenda pelo painel | e-mail de confirmação | push "Novo agendamento" |
+| Cliente cancela ou remarca (portal/link) | tela de sucesso | push "Cliente cancelou" / "Cliente remarcou" |
+| Pedido vence sem aprovação | e-mail de cancelamento | — |
 
 ---
 

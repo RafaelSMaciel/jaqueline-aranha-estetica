@@ -70,8 +70,8 @@ class IntegrationBookingFlowTests(TestCase):
     def test_fluxo_completo_agendamento(self, mock_email):
         """
         POST valid data → client created, Atendimento at PENDENTE.
-        Then drive the real FSM: PENDENTE → CONFIRMADO → REALIZADO via the
-        domain methods (confirmar / marcar_realizado), exercising the actual
+        Then drive the real FSM: PENDENTE → AGENDADO → CONFIRMADO → REALIZADO via
+        the domain methods (aprovar / confirmar / marcar_realizado), exercising the actual
         transition table.
         REALIZADO must reset faltas_consecutivas to 0 as a SIDE EFFECT of the
         real transition (post_save signal), not via a manual resetar_faltas call.
@@ -97,7 +97,8 @@ class IntegrationBookingFlowTests(TestCase):
         self.assertEqual(atd.procedimento, self.proc)
         self.assertEqual(atd.profissional, self.prof)
 
-        # Drive the real FSM: PENDENTE → CONFIRMADO
+        # Drive the real FSM: PENDENTE → AGENDADO (clinica aprova) → CONFIRMADO (cliente confirma)
+        atd.aprovar()
         atd.confirmar()
         atd.refresh_from_db()
         self.assertEqual(atd.status, 'CONFIRMADO')

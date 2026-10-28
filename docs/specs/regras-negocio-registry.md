@@ -135,7 +135,7 @@ da pesquisa online, desconto/cupom de aniversário, saldo mínimo de uso do cash
 | Spec | Cobre | Estado |
 |---|---|---|
 | 5.1 Registry (fonte única) | itens 4 + 5 | ❌ não iniciado (valores já alinhados à mão) |
-| 5.2 Estados + auto-aprovação | itens 1 + 2 | ◐ semântica feita; auto-aprovação não implementada (D8) |
+| 5.2 Estados + auto-aprovação | itens 1 + 2 | ✔ auto-aprovação p/ cliente de confiança (D8, `status_inicial_publico`) |
 | 5.3 Identidade/sessão da cliente | item 3 | ◐ OTP único por telefone feito; sessão única pendente |
 
 ## 6. Fora de escopo — situação

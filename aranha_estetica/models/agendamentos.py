@@ -154,9 +154,10 @@ class Atendimento(models.Model):
     # (comissao, cashback, retorno, lista de espera).
 
     TRANSICOES = {
+        # Pedido so sai aprovado (AGENDADO), recusado/vencido (CANCELADO) ou remarcado: confirmar
+        # presenca de algo que a clinica nao aprovou pulava o e-mail de confirmacao a cliente.
         StatusAtendimento.PENDENTE: {
-            StatusAtendimento.AGENDADO, StatusAtendimento.CONFIRMADO, StatusAtendimento.CANCELADO,
-            StatusAtendimento.REAGENDADO,
+            StatusAtendimento.AGENDADO, StatusAtendimento.CANCELADO, StatusAtendimento.REAGENDADO,
         },
         StatusAtendimento.AGENDADO: {
             StatusAtendimento.CONFIRMADO, StatusAtendimento.CANCELADO, StatusAtendimento.FALTOU,
@@ -219,7 +220,7 @@ class Atendimento(models.Model):
                 + (f' ({motivo})' if motivo else '') + (' [pela cliente]' if pela_cliente else ''),
                 'atendimento', self.pk,
             )
-            ao_mudar_status(self, anterior, novo_status)
+            ao_mudar_status(self, anterior, novo_status, pela_cliente=pela_cliente)
 
     def confirmar(self, by_user=None):
         self._transicionar(StatusAtendimento.CONFIRMADO, by_user=by_user)
@@ -235,8 +236,8 @@ class Atendimento(models.Model):
     def marcar_falta(self, by_user=None):
         self._transicionar(StatusAtendimento.FALTOU, by_user=by_user)
 
-    def marcar_reagendado(self, by_user=None):
-        self._transicionar(StatusAtendimento.REAGENDADO, by_user=by_user)
+    def marcar_reagendado(self, by_user=None, *, pela_cliente=False):
+        self._transicionar(StatusAtendimento.REAGENDADO, by_user=by_user, pela_cliente=pela_cliente)
 
     def aprovar(self, by_user=None):
         self._transicionar(StatusAtendimento.AGENDADO, by_user=by_user)

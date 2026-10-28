@@ -23,7 +23,8 @@ from django.utils import timezone
 
 from ..excecoes import HorarioIndisponivel, RegraDeNegocio, TransicaoInvalida, eh_sobreposicao
 from ..models import AgendaExcecao, Atendimento, RespostaAnamnese
-from ..models.agendamentos import STATUS_ATIVOS, STATUS_FINALIZADOS
+from ..constants import LIMITE_AUTOAPROVACAO
+from ..models.agendamentos import STATUS_ATIVOS, STATUS_FINALIZADOS, StatusAtendimento
 from ..utils.precos import preco_com_promocao
 from .atendimento import ao_criar
 from .disponibilidade import profissional_habilitado, slot_disponivel
@@ -134,6 +135,20 @@ def reservar(*, cliente, profissional, procedimento, inicio, status, preco=None,
     return at
 
 
+def status_inicial_publico(cliente) -> str:
+    """Status do pedido feito pelo site (D8). Cliente de confianca — ja atendida (1+ realizado),
+    sem falta em aberto e com menos de LIMITE_AUTOAPROVACAO horarios futuros — nasce AGENDADO e
+    recebe a confirmacao na hora; primeira vez (ou muitos horarios em aberto) fica PENDENTE p/ a
+    profissional aprovar."""
+    if cliente.pk is None or cliente.faltas_consecutivas or cliente.bloqueado_online:
+        return StatusAtendimento.PENDENTE
+    historico = Atendimento.objects.filter(cliente=cliente)
+    if not historico.filter(status=StatusAtendimento.REALIZADO).exists():
+        return StatusAtendimento.PENDENTE
+    futuros = historico.filter(status__in=STATUS_ATIVOS, data_hora_inicio__gte=timezone.now()).count()
+    return StatusAtendimento.AGENDADO if futuros < LIMITE_AUTOAPROVACAO else StatusAtendimento.PENDENTE
+
+
 def reagendar(antigo, novo_inicio, profissional, *, por=None) -> Atendimento:
     """Move pelo portal/link: o antigo vira REAGENDADO e nasce um novo (historico preservado).
 
@@ -155,7 +170,7 @@ def reagendar(antigo, novo_inicio, profissional, *, por=None) -> Atendimento:
         )
         # Antigo sai da agenda ANTES do novo entrar (FSM + auditoria): senao o EXCLUDE do PG barra
         # mover p/ janela que sobrepoe o proprio slot antigo. Qualquer recusa desfaz os dois.
-        antigo.marcar_reagendado(by_user=por)
+        antigo.marcar_reagendado(by_user=por, pela_cliente=True)   # a profissional recebe o aviso
         novo = reservar(
             cliente=antigo.cliente, profissional=profissional, procedimento=procedimento,
             inicio=novo_inicio, status=novo_status, eh_retorno=antigo.eh_retorno,
