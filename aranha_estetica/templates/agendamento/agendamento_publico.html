@@ -216,6 +216,12 @@
         box-shadow: 0 4px 12px rgba(201,168,76,0.3);
     }
     .slots-loading { text-align: center; padding: 2rem; color: var(--cor-texto-suave); }
+    .lista-espera-link {
+        display: inline-block; margin-top: 0.85rem; padding: 0.5rem 1rem; border-radius: 999px;
+        border: 2px solid var(--gold); color: var(--cor-marca); font-weight: 700; font-size: 0.85rem;
+        text-decoration: none;
+    }
+    .lista-espera-link:hover { background: var(--gold-light); }
 
     /* ─── PROFISSIONAL SELECT ─── */
     .prof-options { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1rem; }
@@ -778,7 +784,8 @@
     otpTelefone:     "{{ otp_telefone|escapejs }}",
     otpTitular:      {% if otp_titular %}true{% else %}false{% endif %},
     rehidratar:      {% if rehidratar %}true{% else %}false{% endif %},
-    whatsappNumero:  "{{ WHATSAPP_NUMERO|escapejs }}"
+    whatsappNumero:  "{{ WHATSAPP_NUMERO|escapejs }}",
+    urlListaEspera:  "{% url 'aranha:lista_espera_publica' %}"
   };
 </script>
 {% vite_asset 'aranha_estetica/static/src/js/wizard.js' %}
