@@ -131,7 +131,7 @@ def reservar(*, cliente, profissional, procedimento, inicio, status, preco=None,
         if eh_sobreposicao(exc):
             raise HorarioIndisponivel(MSG_CORRIDA, codigo='horario_ocupado') from exc
         raise
-    ao_criar(at)   # push + Google Calendar da profissional (on_commit)
+    ao_criar(at)   # push p/ a profissional (on_commit)
     return at
 
 

@@ -20,12 +20,11 @@ _ANAMNESE_TIPOS_CAMPO = {
 class FormularioAnamneseQuerySet(models.QuerySet):
     def aplicaveis_a(self, procedimento):
         """Formularios que valem p/ o procedimento — regra unica do wizard, dos alertas do painel e
-        dos convites (os 4 escopos; espelho em memoria: FormularioAnamnese.aplica_a)."""
+        dos convites (os 3 escopos; espelho em memoria: FormularioAnamnese.aplica_a)."""
         return self.filter(
             models.Q(escopo='GLOBAL')
             | models.Q(escopo='CATEGORIA', categoria=procedimento.categoria)
             | models.Q(escopo='PROCEDIMENTO', procedimento=procedimento)
-            | models.Q(escopo='MODALIDADE', modalidade=procedimento.modalidade)
         )
 
     def prontuario_ativo(self):
@@ -69,7 +68,6 @@ class FormularioAnamnese(models.Model):
         ('GLOBAL', 'Global (todo agendamento)'),
         ('CATEGORIA', 'Por categoria de procedimento'),
         ('PROCEDIMENTO', 'Por procedimento especifico'),
-        ('MODALIDADE', 'Por modalidade (presencial/online/hibrido)'),
     ]
 
     TIPO_ANAMNESE = 'ANAMNESE'
@@ -87,7 +85,6 @@ class FormularioAnamnese(models.Model):
     )
     escopo = models.CharField(max_length=20, choices=ESCOPO_CHOICES, default='GLOBAL', db_default='GLOBAL')
     categoria = models.CharField(max_length=20, blank=True, default='', db_default='')
-    modalidade = models.CharField(max_length=12, blank=True, default='', db_default='')
     procedimento = models.ForeignKey(
         Procedimento, on_delete=models.CASCADE, blank=True, null=True, db_index=False,
     )
@@ -125,17 +122,16 @@ class FormularioAnamnese(models.Model):
                 name='ck_formulario_tipo',
             ),
             models.CheckConstraint(
-                condition=models.Q(escopo__in=['GLOBAL', 'CATEGORIA', 'PROCEDIMENTO', 'MODALIDADE']),
+                condition=models.Q(escopo__in=['GLOBAL', 'CATEGORIA', 'PROCEDIMENTO']),
                 name='ck_formulario_escopo',
             ),
             models.CheckConstraint(
                 condition=(
                     (~models.Q(escopo='PROCEDIMENTO') | models.Q(procedimento__isnull=False))
                     & (~models.Q(escopo='CATEGORIA') | ~models.Q(categoria=''))
-                    & (~models.Q(escopo='MODALIDADE') | ~models.Q(modalidade=''))
                 ),
                 name='ck_formulario_escopo_coerente',
-                violation_error_message='Escolha a categoria, a modalidade ou o procedimento do escopo.',
+                violation_error_message='Escolha a categoria ou o procedimento do escopo.',
             ),
             models.CheckConstraint(
                 condition=~models.Q(tipo='PRONTUARIO') | models.Q(
@@ -162,12 +158,7 @@ class FormularioAnamnese(models.Model):
             self.escopo == 'GLOBAL'
             or (self.escopo == 'CATEGORIA' and self.categoria == procedimento.categoria)
             or (self.escopo == 'PROCEDIMENTO' and self.procedimento_id == procedimento.pk)
-            or (self.escopo == 'MODALIDADE' and self.modalidade == procedimento.modalidade)
         )
-
-    @property
-    def eh_prontuario(self) -> bool:
-        return self.tipo == self.TIPO_PRONTUARIO
 
     def clean(self):
         """Valida o schema_json (lista de campos com keys obrigatorias). Os

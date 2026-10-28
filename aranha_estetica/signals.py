@@ -1,6 +1,6 @@
 """Signals de model — so o que nao e regra de negocio.
 
-Os efeitos do atendimento (faltas, pacote, lista de espera, push/gcal, comissao, cashback,
+Os efeitos do atendimento (faltas, pacote, lista de espera, push, comissao, cashback,
 retorno) sao chamados explicitamente por services.atendimento (FSM e services.agenda), nao por
 post_save.
 """

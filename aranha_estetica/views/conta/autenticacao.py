@@ -70,10 +70,7 @@ def _register_failed_login(request, window=LOGIN_RL_WINDOW):
 # ─── Quem entra e para onde vai ───
 
 def pode_acessar(usuario) -> bool:
-    """Login da equipe: ADMIN, ou PROFISSIONAL vinculado a um profissional ativo.
-
-    RECEPCAO ainda nao tem telas proprias — fica de fora ate existirem.
-    """
+    """Login da equipe: ADMIN, ou PROFISSIONAL vinculado a um profissional ativo."""
     if usuario is None or not usuario.is_active:
         return False
     if usuario.is_staff:

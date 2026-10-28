@@ -2,8 +2,7 @@
 """LinkAcesso (docs/specs/padrao-sql.md §2.7 e §4.b — migration 0049).
 
 Toda URL publica autenticada por token (/confirmar/, /nps/, /termo/,
-/anamnese/, /pesquisa/, /reagendar/ legado, /lgpd/unsubscribe/, feed ICS) vira
-uma linha aqui. So o SHA-256 do token e gravado (``token_hash``): o token em
+/anamnese/, /pesquisa/, /lgpd/unsubscribe/, feed ICS) vira uma linha aqui. So o SHA-256 do token e gravado (``token_hash``): o token em
 claro existe apenas na URL entregue — emitir/resolver/revogar em
 ``services/links.py``. O alvo e tipado pela finalidade (exatamente 1 FK
 preenchida, ``ck_link_acesso_alvo_por_finalidade``).
@@ -20,7 +19,7 @@ from django.utils import timezone
 from ..db.campos import HashSha256Field
 from ..db.indices import Indice
 
-_ALVOS = ('atendimento', 'notificacao', 'resposta_formulario', 'cliente', 'profissional')
+_ALVOS = ('notificacao', 'resposta_formulario', 'cliente', 'profissional')
 
 
 def _so_alvo(campo):
@@ -29,7 +28,6 @@ def _so_alvo(campo):
 
 
 class LinkAcesso(models.Model):
-    GERENCIAR_AGENDAMENTO = 'GERENCIAR_AGENDAMENTO'
     CONFIRMAR_PRESENCA = 'CONFIRMAR_PRESENCA'
     NPS = 'NPS'
     TERMO = 'TERMO'
@@ -37,7 +35,6 @@ class LinkAcesso(models.Model):
     DESCADASTRO = 'DESCADASTRO'
     FEED_ICS = 'FEED_ICS'
     FINALIDADE_CHOICES = [
-        (GERENCIAR_AGENDAMENTO, 'Reagendar/cancelar (link legado)'),
         (CONFIRMAR_PRESENCA, 'Confirmar presença'),
         (NPS, 'Pesquisa NPS'),
         (TERMO, 'Aceite de termo'),
@@ -47,7 +44,6 @@ class LinkAcesso(models.Model):
     ]
     # finalidade -> atributo do alvo (o CHECK do banco exige exatamente este preenchido)
     CAMPO_ALVO = {
-        GERENCIAR_AGENDAMENTO: 'atendimento',
         CONFIRMAR_PRESENCA: 'notificacao',
         NPS: 'notificacao',
         TERMO: 'notificacao',
@@ -58,10 +54,6 @@ class LinkAcesso(models.Model):
 
     finalidade = models.CharField(max_length=30, choices=FINALIDADE_CHOICES)
     # FKs sem indice automatico: cobertas pelos ix_link_acesso_*_parcial do Meta
-    atendimento = models.ForeignKey(
-        'Atendimento', on_delete=models.CASCADE, blank=True, null=True,
-        db_index=False, related_name='links_acesso',
-    )
     notificacao = models.ForeignKey(
         'Notificacao', on_delete=models.CASCADE, blank=True, null=True,
         db_index=False, related_name='links_acesso',
@@ -89,8 +81,8 @@ class LinkAcesso(models.Model):
     usado_em = models.DateTimeField(
         blank=True, null=True,
         db_comment=(
-            'Primeiro uso efetivo (acao concluida). Links de uso multiplo (ICS, descadastro, '
-            'gerenciar) continuam validos.'
+            'Primeiro uso efetivo (acao concluida). Links de uso multiplo (ICS, descadastro) '
+            'continuam validos.'
         ),
     )
     revogado_em = models.DateTimeField(
@@ -110,15 +102,13 @@ class LinkAcesso(models.Model):
             models.UniqueConstraint(fields=['token_hash'], name='uq_link_acesso_token_hash'),
             models.CheckConstraint(
                 condition=Q(finalidade__in=[
-                    'GERENCIAR_AGENDAMENTO', 'CONFIRMAR_PRESENCA', 'NPS', 'TERMO',
-                    'FORMULARIO', 'DESCADASTRO', 'FEED_ICS',
+                    'CONFIRMAR_PRESENCA', 'NPS', 'TERMO', 'FORMULARIO', 'DESCADASTRO', 'FEED_ICS',
                 ]),
                 name='ck_link_acesso_finalidade',
             ),
             models.CheckConstraint(
                 condition=(
-                    (Q(finalidade='GERENCIAR_AGENDAMENTO') & _so_alvo('atendimento'))
-                    | (Q(finalidade__in=['CONFIRMAR_PRESENCA', 'NPS', 'TERMO']) & _so_alvo('notificacao'))
+                    (Q(finalidade__in=['CONFIRMAR_PRESENCA', 'NPS', 'TERMO']) & _so_alvo('notificacao'))
                     | (Q(finalidade='FORMULARIO') & _so_alvo('resposta_formulario'))
                     | (Q(finalidade='DESCADASTRO') & _so_alvo('cliente'))
                     | (Q(finalidade='FEED_ICS') & _so_alvo('profissional'))
@@ -127,8 +117,6 @@ class LinkAcesso(models.Model):
             ),
         ]
         indexes = [
-            Indice(fields=['atendimento'], condition=Q(atendimento__isnull=False),
-                   name='ix_link_acesso_atendimento_parcial'),
             Indice(fields=['notificacao'], condition=Q(notificacao__isnull=False),
                    name='ix_link_acesso_notificacao_parcial'),
             Indice(fields=['resposta_formulario'], condition=Q(resposta_formulario__isnull=False),
@@ -151,7 +139,7 @@ class LinkAcesso(models.Model):
 
     @property
     def alvo(self):
-        """O objeto alvo da finalidade (atendimento, notificacao, ficha, cliente ou profissional)."""
+        """O objeto alvo da finalidade (notificacao, ficha, cliente ou profissional)."""
         campo = self.CAMPO_ALVO.get(self.finalidade)
         return getattr(self, campo) if campo else None
 

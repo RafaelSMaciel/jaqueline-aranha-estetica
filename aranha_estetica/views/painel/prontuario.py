@@ -1,6 +1,5 @@
 """Views para prontuario, anamnese e termos de consentimento."""
 import logging
-from datetime import timedelta
 from functools import wraps
 
 from django.contrib import messages
@@ -8,10 +7,9 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, Exists, OuterRef, Prefetch, Q
+from django.db.models import Count, Exists, OuterRef, Prefetch
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.utils import timezone
 from django.views.decorators.cache import never_cache
 
 from ...models import (
@@ -24,6 +22,7 @@ from ...models import (
     RespostaAnamnese,
 )
 from ...services.anamnese import validar_respostas
+from ...services.prontuario import vinculo_clinico
 from ...utils.auditoria import registrar_log
 from ...utils.datas import fmt_local
 from ...utils.fichas import fichas_do_cliente
@@ -32,10 +31,6 @@ from ...utils.busca import filtrar_clientes
 from ...utils.saude import alertas_em_lote, alertas_saude, perguntas_prontuario, rotulo_da_chave
 
 logger = logging.getLogger(__name__)
-
-# Vinculo profissional -> prontuario (a dona pode ajustar as janelas).
-JANELA_REALIZADO_DIAS = 180   # atendeu a cliente nos ultimos N dias
-JANELA_FUTURO_DIAS = 60       # tem horario marcado nos proximos N dias
 
 CAMPOS_PRONTUARIO = (
     'alergias', 'contraindicacoes', 'historico_saude',
@@ -84,37 +79,6 @@ def _mesmo_valor(antigo, novo) -> bool:
     return type(antigo) is type(novo) and antigo == novo
 
 
-def _vinculo(prof, cliente, escrita=False):
-    """Atendimento que da ao profissional acesso ao prontuario, ou None.
-
-    Leitura: REALIZADO nos ultimos JANELA_REALIZADO_DIAS, ou PENDENTE/AGENDADO/
-    CONFIRMADO entre ontem e +max(JANELA_FUTURO_DIAS, prof.max_advance_dias)
-    (a profissional precisa ver os alertas de saude antes de aprovar um pedido;
-    quem aceita reserva com 90 dias de antecedencia ve a ficha desde o pedido).
-    Escrita: o mesmo, sem PENDENTE.
-    CANCELADO/REAGENDADO/FALTOU nunca dao vinculo.
-    """
-    if prof is None or not prof.ativo:
-        return None
-    agora = timezone.now()
-    janela_futuro = max(JANELA_FUTURO_DIAS, prof.max_advance_dias or 0)
-    ativos = [Atendimento.STATUS_AGENDADO, Atendimento.STATUS_CONFIRMADO]
-    if not escrita:
-        ativos.append(Atendimento.STATUS_PENDENTE)
-    return (
-        Atendimento.objects.filter(cliente=cliente, profissional=prof)
-        .filter(
-            Q(status=Atendimento.STATUS_REALIZADO,
-              data_hora_inicio__gte=agora - timedelta(days=JANELA_REALIZADO_DIAS))
-            | Q(status__in=ativos,
-                data_hora_inicio__gte=agora - timedelta(days=1),
-                data_hora_inicio__lte=agora + timedelta(days=janela_futuro))
-        )
-        .order_by('-data_hora_inicio')
-        .first()
-    )
-
-
 def _profissional_do_usuario(user):
     prof = getattr(user, 'profissional', None)
     return prof if prof is not None and prof.ativo else None
@@ -134,7 +98,7 @@ def prontuario_access_required(escrita=False):
             user = request.user
             vinculo = None
             if not user.is_staff:
-                vinculo = _vinculo(_profissional_do_usuario(user), cliente, escrita=escrita)
+                vinculo = vinculo_clinico(_profissional_do_usuario(user), cliente, escrita=escrita)
                 if vinculo is None:
                     registrar_log(
                         user, 'Acesso NEGADO a prontuario',
@@ -280,7 +244,7 @@ def prontuario_detalhe(request, cliente_id):
     aceites = termos.filter(versao_termo__tipo__in=('LGPD', 'SAUDE'))
     assinaturas = termos.filter(versao_termo__tipo='PROCEDIMENTO')
 
-    pode_editar = user.is_staff or _vinculo(prof, cliente, escrita=True) is not None
+    pode_editar = user.is_staff or vinculo_clinico(prof, cliente, escrita=True) is not None
 
     context = {
         'cliente': cliente,

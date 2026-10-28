@@ -243,10 +243,6 @@ LOGIN_REDIRECT_URL = '/painel/'
 
 # 2FA (django-two-factor-auth)
 TWO_FACTOR_PATCH_ADMIN = False  # admin patched manualmente via clinica.urls
-TWO_FACTOR_REMEMBER_COOKIE_AGE = int(os.environ.get('TWO_FACTOR_REMEMBER_COOKIE_AGE', 30 * 24 * 3600))
-TWO_FACTOR_REMEMBER_COOKIE_SECURE = not DEBUG
-TWO_FACTOR_REMEMBER_COOKIE_HTTPONLY = True
-TWO_FACTOR_REMEMBER_COOKIE_SAMESITE = 'Lax'
 LOGOUT_REDIRECT_URL = '/'
 
 # 2FA obrigatorio p/ ADMIN (utils/dois_fatores). Sem a env o codigo decide em
@@ -284,14 +280,14 @@ LANGUAGES = [
 ]
 
 
-# ─── STATIC / MEDIA ──────────────────────────────────────────────────
+# ─── STATIC ──────────────────────────────────────────────────────────
 STATIC_URL = '/static/'
 # Sem STATICFILES_DIRS: aranha_estetica/static ja e achado pelo AppDirectoriesFinder
 # (duplicava tudo no collectstatic). static/src (fonte do Vite) fica fora da
 # coleta via clinica.apps.StaticFilesSemFonteConfig.
 STATIC_ROOT = os.environ.get('STATIC_ROOT') or os.path.join(BASE_DIR, 'staticfiles')
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# Sem MEDIA_*: o sistema nao recebe upload (nenhum FileField/ImageField). Upload futuro = ADR antes
+# (bucket privado, URL assinada).
 
 # Django 5.1+ ignora STATICFILES_STORAGE/DEFAULT_FILE_STORAGE: so STORAGES vale.
 # Aqui (dev/testes) storage simples, sem manifest; prod.py liga o whitenoise
@@ -300,24 +296,6 @@ STORAGES = {
     'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
     'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
 }
-
-# django-storages opcional (S3 / R2 / GCS) - ativa via AWS_STORAGE_BUCKET_NAME
-_S3_BUCKET = os.environ.get('AWS_STORAGE_BUCKET_NAME')
-if _S3_BUCKET:
-    try:
-        import storages  # noqa: F401
-        STORAGES['default'] = {'BACKEND': 'storages.backends.s3boto3.S3Boto3Storage'}
-        AWS_STORAGE_BUCKET_NAME = _S3_BUCKET
-        AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
-        AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
-        AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME', 'us-east-1')
-        AWS_S3_ENDPOINT_URL = os.environ.get('AWS_S3_ENDPOINT_URL')  # R2/MinIO
-        AWS_S3_CUSTOM_DOMAIN = os.environ.get('AWS_S3_CUSTOM_DOMAIN')
-        AWS_DEFAULT_ACL = None
-        AWS_S3_FILE_OVERWRITE = False
-        AWS_QUERYSTRING_AUTH = False
-    except ImportError:
-        pass
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

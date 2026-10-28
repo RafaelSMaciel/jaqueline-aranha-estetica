@@ -49,15 +49,13 @@ class UsuarioManager(BaseUserManager):
 class Usuario(AbstractBaseUser):
     PAPEL_ADMIN = 'ADMIN'
     PAPEL_PROFISSIONAL = 'PROFISSIONAL'
-    PAPEL_RECEPCAO = 'RECEPCAO'
     PAPEL_CHOICES = [
         (PAPEL_ADMIN, 'Administrador'),
         (PAPEL_PROFISSIONAL, 'Profissional'),
-        (PAPEL_RECEPCAO, 'Recepcao'),
     ]
 
-    # Default PROFISSIONAL: RECEPCAO ainda nao tem telas (nao loga) e ADMIN
-    # nunca e implicito — create_superuser/bootstrap_admin setam ADMIN.
+    # Dois papeis (a recepcao e feita pela dona, ADMIN). Default PROFISSIONAL: ADMIN nunca e
+    # implicito — create_superuser/bootstrap_admin setam ADMIN.
     papel = models.CharField(
         max_length=20, choices=PAPEL_CHOICES, default=PAPEL_PROFISSIONAL, db_default=PAPEL_PROFISSIONAL,
     )
@@ -86,13 +84,13 @@ class Usuario(AbstractBaseUser):
         managed = True
         db_table = 'usuario'
         db_table_comment = (
-            'Equipe (login por e-mail). papel ADMIN/PROFISSIONAL/RECEPCAO; is_staff = ADMIN. '
+            'Equipe (login por e-mail). papel ADMIN/PROFISSIONAL; is_staff = ADMIN. '
             'Nunca excluir: desativar (eh_ativo=false).'
         )
         constraints = [
             models.UniqueConstraint(fields=['email'], name='uq_usuario_email'),
             models.CheckConstraint(
-                condition=models.Q(papel__in=['ADMIN', 'PROFISSIONAL', 'RECEPCAO']),
+                condition=models.Q(papel__in=['ADMIN', 'PROFISSIONAL']),
                 name='ck_usuario_papel',
             ),
         ]

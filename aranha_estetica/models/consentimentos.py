@@ -35,12 +35,6 @@ class ConsentimentoQuerySet(models.QuerySet):
     def do_titular(self, cliente):
         return self.filter(cliente_id=getattr(cliente, 'pk', cliente))
 
-    def minimizar_dados_de_origem(self) -> int:
-        """Anonimizacao (LGPD): apaga IP e user-agent — unica mutacao que o banco aceita."""
-        return self.filter(Q(ip_origem__isnull=False) | ~Q(user_agent='')).update(
-            ip_origem=None, user_agent='',
-        )
-
 
 class Consentimento(models.Model):
     # finalidade

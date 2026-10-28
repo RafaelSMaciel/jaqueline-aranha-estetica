@@ -1,8 +1,9 @@
-"""Ficha aplicavel (regra unica, 4 escopos), link da ficha p/ quem agendou pelo painel e pesquisa
-pos-atendimento oferecida no fim do NPS."""
+"""Ficha aplicavel (regra unica, 3 escopos: global, categoria, procedimento), link da ficha p/ quem
+agendou pelo painel e pesquisa pos-atendimento oferecida no fim do NPS."""
 from datetime import timedelta
 
 from django.core.cache import cache
+from django.core.exceptions import ValidationError
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -29,20 +30,17 @@ class _Base(TestCase):
     def setUp(self):
         cache.clear()
         self.prof = criar_profissional()
-        self.proc = criar_procedimento(profissional=self.prof)   # FACIAL, PRESENCIAL
+        self.proc = criar_procedimento(profissional=self.prof)   # FACIAL
         self.outro = criar_procedimento(nome='Massagem', categoria='CORPORAL', profissional=self.prof)
-        self.outro.modalidade = 'ONLINE'
-        self.outro.save(update_fields=['modalidade'])
         self.cli = criar_cliente(email='ficha@exemplo.test')
 
 
 class RegraUnicaTests(_Base):
-    def test_os_quatro_escopos(self):
+    def test_os_tres_escopos(self):
         casos = {
             _form('GLOBAL'): {self.proc, self.outro},
             _form('CATEGORIA', categoria='FACIAL'): {self.proc},
             _form('PROCEDIMENTO', procedimento=self.outro): {self.outro},
-            _form('MODALIDADE', modalidade='PRESENCIAL'): {self.proc},
         }
         for form, valem in casos.items():
             for proc in (self.proc, self.outro):
@@ -52,14 +50,21 @@ class RegraUnicaTests(_Base):
                     self.assertEqual(
                         FormularioAnamnese.objects.aplicaveis_a(proc).filter(pk=form.pk).exists(), esperado)
 
-    def test_ficha_por_modalidade_vira_pendencia_no_painel(self):
-        _form('MODALIDADE', modalidade='PRESENCIAL')
+    def test_escopo_modalidade_nao_existe_mais(self):
+        """Todo atendimento e presencial (0070): o escopo MODALIDADE saiu das choices e do CHECK."""
+        self.assertNotIn('MODALIDADE', dict(FormularioAnamnese.ESCOPO_CHOICES))
+        with self.assertRaises(ValidationError):
+            FormularioAnamnese(nome='Online', escopo='MODALIDADE', schema_json=SCHEMA).full_clean()
+
+    def test_ficha_por_categoria_vira_pendencia_no_painel(self):
+        _form('CATEGORIA', categoria='FACIAL')
         at = criar_atendimento(self.cli, self.prof, self.proc)
-        self.assertEqual(ids_com_ficha_pendente([at]), {at.pk})
+        outro = criar_atendimento(self.cli, self.prof, self.outro, data_hora=timezone.now() + timedelta(days=4))
+        self.assertEqual(ids_com_ficha_pendente([at, outro]), {at.pk})
 
     @override_settings(RATELIMIT_ENABLE=False)
-    def test_wizard_recebe_onde_cada_ficha_vale_e_exige_a_por_modalidade(self):
-        form = _form('MODALIDADE', modalidade='PRESENCIAL')
+    def test_wizard_recebe_onde_cada_ficha_vale_e_exige_a_da_categoria(self):
+        form = _form('CATEGORIA', categoria='FACIAL')
         client = Client()
         ctx = client.get(reverse('aranha:agendamento_publico')).context
         dados = {f['id']: f['procedimentos'] for f in ctx['formularios_anamnese_data']}

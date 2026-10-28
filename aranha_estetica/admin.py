@@ -121,13 +121,6 @@ class ProfissionalAdmin(admin.ModelAdmin):
     ordering = ('-ativo', 'nome')
     inlines = [AgendaHorarioInline]
     list_per_page = 50
-    # tokens OAuth do Google nunca na tela (com eles se le a agenda Google da profissional)
-    exclude = ('gcal_refresh_token', 'gcal_sync_token')
-    readonly_fields = ('google_agenda_conectada', 'gcal_ultimo_sync_em')
-
-    @admin.display(boolean=True, description='Google Agenda conectada')
-    def google_agenda_conectada(self, obj):
-        return bool(obj and obj.gcal_refresh_token)
 
 
 @admin.register(AgendaHorario)
@@ -162,7 +155,6 @@ class AgendaExcecaoAdmin(admin.ModelAdmin):
         ('Bloqueio (data e hora; recorrência opcional)', {
             'fields': ('data_hora_inicio', 'data_hora_fim', 'regra_recorrencia', 'data_fim_recorrencia'),
         }),
-        ('Origem externa', {'fields': ('origem_ref',), 'classes': ('collapse',)}),
     )
 
     def save_model(self, request, obj, form, change):
@@ -256,7 +248,7 @@ class ClienteAdmin(admin.ModelAdmin):
     list_per_page = 50
     fieldsets = (
         ('Identificacao', {
-            'fields': ('nome', 'data_nascimento', 'cpf', 'rg', 'profissao'),
+            'fields': ('nome', 'data_nascimento', 'cpf'),
         }),
         ('Contato', {
             'fields': ('email', 'telefone', 'cep', 'endereco'),
@@ -588,7 +580,7 @@ class AtendimentoAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
         if not change:
             from .services.atendimento import ao_criar
-            ao_criar(obj)   # push + Google Calendar, como nas outras portas (services.agenda)
+            ao_criar(obj)   # push p/ a profissional, como nas outras portas (services.agenda)
 
     def get_readonly_fields(self, request, obj=None):
         # Status so muda pela FSM (actions abaixo / painel), nunca editando o

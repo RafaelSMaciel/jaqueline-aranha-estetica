@@ -356,7 +356,7 @@ class DDLSoPostgresTests(TestCase):
             with self.subTest(sql=sql), self.assertRaises(IntegrityError), transaction.atomic():
                 self._sql(sql, [linha.pk])
         # unica mutacao aceita: apagar IP/UA (anonimizacao) — e depois nao volta
-        self.assertEqual(Consentimento.objects.filter(pk=linha.pk).minimizar_dados_de_origem(), 1)
+        self.assertEqual(Consentimento.objects.filter(pk=linha.pk).update(ip_origem=None, user_agent=''), 1)
         with self.assertRaises(IntegrityError), transaction.atomic():
             self._sql("UPDATE consentimento SET ip_origem = '10.1.1.1' WHERE id = %s", [linha.pk])
         # esquecimento completo (sp_anonimizar_cliente: revoga + minimiza) e o CHECK de par
