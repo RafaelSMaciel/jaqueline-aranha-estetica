@@ -19,7 +19,7 @@
     <div class="mb-3">
       <label for="profissionalSelect" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Profissional</label>
       <select id="profissionalSelect" name="profissional_id" required
-              class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+              class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
         <option value="">Selecione...</option>
         {# Global: fecha a agenda de todos (recesso, reforma) — o SlotService respeita #}
         <option value="todos">Todos os profissionais (clínica fechada)</option>
@@ -32,18 +32,18 @@
       <div>
         <label for="dataInicio" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Início</label>
         <input id="dataInicio" type="datetime-local" name="data_hora_inicio" required
-               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
       </div>
       <div>
         <label for="dataFim" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Fim</label>
         <input id="dataFim" type="datetime-local" name="data_hora_fim" required
-               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
       </div>
     </div>
     <div class="mb-4">
       <label for="motivoInput" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Motivo</label>
       <input id="motivoInput" type="text" name="motivo" placeholder="Férias, consulta, etc."
-             class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo placeholder-texto-suave outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+             class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo placeholder-texto-suave transition">
     </div>
     <button type="submit"
             class="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">

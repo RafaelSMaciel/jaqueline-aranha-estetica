@@ -20,30 +20,30 @@
     <div class="mb-3">
       <label for="novo_nome" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Nome</label>
       <input type="text" name="nome" id="novo_nome" required placeholder="Ex: Limpeza de Pele"
-             class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+             class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
     </div>
     <div class="mb-3">
       <label for="novo_descricao" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Descrição</label>
       <textarea name="descricao" id="novo_descricao" rows="2" placeholder="Descrição do procedimento..."
-                class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition resize-y"></textarea>
+                class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition resize-y"></textarea>
     </div>
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
       <div>
         <label for="novo_duracao" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Duração (min)</label>
         <input type="number" name="duracao_minutos" id="novo_duracao" value="30" min="5" required
-               class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+               class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
       </div>
       <div>
         <label for="novo_categoria" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Categoria</label>
         <select name="categoria" id="novo_categoria"
-                class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+                class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
           {% for val, label in categorias %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
         </select>
       </div>
       <div>
         <label for="novo_preco" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Preço (R$)</label>
         <input type="number" name="preco" id="novo_preco" step="0.01" min="0" placeholder="0.00"
-               class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+               class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
       </div>
     </div>
     <fieldset class="mb-3">
@@ -117,23 +117,23 @@
         <div class="mb-3">
           <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Nome</label>
           <input type="text" name="nome" value="{{ proc.nome }}" required
-                 class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+                 class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
         </div>
         <div class="mb-3">
           <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Descrição</label>
           <textarea name="descricao" rows="2"
-                    class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition resize-y">{{ proc.descricao|default_if_none:'' }}</textarea>
+                    class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition resize-y">{{ proc.descricao|default_if_none:'' }}</textarea>
         </div>
         <div class="grid grid-cols-2 gap-3 mb-3">
           <div>
             <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Duração (min)</label>
             <input type="number" name="duracao_minutos" value="{{ proc.duracao_minutos }}" min="5" required
-                   class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+                   class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
           </div>
           <div>
             <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Categoria</label>
             <select name="categoria"
-                    class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+                    class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
               {% for val, label in categorias %}
               <option value="{{ val }}" {% if val == proc.categoria %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
@@ -144,7 +144,7 @@
           <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Preço (R$)</label>
           <p class="text-[0.7rem] text-texto-suave mb-1">Mudar o preço cria uma nova vigência a partir de hoje (o histórico é mantido).</p>
           <input type="number" name="preco" value="{{ proc.preco_base|default_if_none:''|unlocalize }}" step="0.01" min="0"
-                 class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+                 class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
         </div>
         <fieldset class="mb-3">
           <legend class="block text-[0.75rem] font-bold text-texto-suave mb-1">Quem realiza</legend>

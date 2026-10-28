@@ -116,54 +116,54 @@
     <div class="mb-3">
       <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Nome Completo</label>
       <input type="text" name="nome" value="{{ cliente.nome }}" required
-             class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+             class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto transition">
     </div>
     <div class="grid grid-cols-2 gap-3">
       <div class="mb-3">
         <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Telefone</label>
         <input type="tel" name="telefone" value="{{ cliente.telefone|default_if_none:'' }}" inputmode="tel" autocomplete="tel"
-               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto transition">
       </div>
       <div class="mb-3">
         <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">CPF</label>
         <input type="text" name="cpf" value="{{ cliente.cpf|default_if_none:'' }}"
-               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto transition">
       </div>
     </div>
     <div class="grid grid-cols-2 gap-3">
       <div class="mb-3">
         <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">E-mail</label>
         <input type="email" name="email" value="{{ cliente.email|default_if_none:'' }}"
-               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto transition">
       </div>
       <div class="mb-3">
         <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Data de Nascimento</label>
         <input type="date" name="data_nascimento" value="{{ cliente.data_nascimento|date:'Y-m-d' }}"
-               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto transition">
       </div>
     </div>
     <div class="grid grid-cols-2 gap-3">
       <div class="mb-3">
         <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">RG</label>
         <input type="text" name="rg" value="{{ cliente.rg|default_if_none:'' }}"
-               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto transition">
       </div>
       <div class="mb-3">
         <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Profissão</label>
         <input type="text" name="profissao" value="{{ cliente.profissao|default_if_none:'' }}"
-               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto transition">
       </div>
     </div>
     <div class="grid grid-cols-[1fr_2fr] gap-3">
       <div class="mb-3">
         <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">CEP</label>
         <input type="text" name="cep" value="{{ cliente.cep|default_if_none:'' }}" placeholder="00000-000"
-               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto placeholder-texto-suave outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto placeholder-texto-suave transition">
       </div>
       <div class="mb-3">
         <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Endereço</label>
         <input type="text" name="endereco" value="{{ cliente.endereco|default_if_none:'' }}" placeholder="Rua, nº - Bairro"
-               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto placeholder-texto-suave outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto placeholder-texto-suave transition">
       </div>
     </div>
     <div class="flex gap-6 flex-wrap mb-3">
@@ -249,7 +249,7 @@
         <label for="justificativa-{{ forloop.counter }}" class="block text-[0.72rem] font-bold text-texto-suave mb-1">O que a cliente autorizou e como (fica registrado com seu nome)</label>
         <textarea id="justificativa-{{ forloop.counter }}" name="justificativa" rows="2" required minlength="10" maxlength="1000"
                   placeholder="Ex.: pediu por telefone em 10/11 para receber promoções por e-mail"
-                  class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.82rem] text-texto placeholder-texto-suave outline-none focus:ring-2 focus:ring-[#C9A84C]/40"></textarea>
+                  class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.82rem] text-texto placeholder-texto-suave"></textarea>
         <button type="submit"
                 class="mt-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.8rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
           Registrar autorização
@@ -291,7 +291,7 @@
     <div>
       <label for="indicadoPorBusca" class="block text-[0.72rem] font-bold text-texto-suave mb-1">Código de indicação ou nome de quem indicou</label>
       <input id="indicadoPorBusca" type="text" name="indicado_por_busca" maxlength="150" placeholder="Ex.: A1B2C3D4"
-             class="w-64 max-w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.82rem] text-texto placeholder-texto-suave outline-none focus:ring-2 focus:ring-[#C9A84C]/40">
+             class="w-64 max-w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.82rem] text-texto placeholder-texto-suave">
     </div>
     <button type="submit"
             class="px-4 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.8rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
@@ -378,10 +378,10 @@
         {% csrf_token %}
         <label for="reembCancel{{ compra.pk }}" class="block text-[0.72rem] font-bold text-texto-suave mb-1">Valor devolvido à cliente (R$; 0 se nada foi devolvido)</label>
         <input id="reembCancel{{ compra.pk }}" type="text" name="valor_reembolsado" inputmode="decimal" required placeholder="0,00"
-               class="w-32 px-3 py-2 mb-2 rounded-xl border border-borda bg-fundo text-[0.8rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40">
+               class="w-32 px-3 py-2 mb-2 rounded-xl border border-borda bg-fundo text-[0.8rem] text-texto">
         <label for="obsCancel{{ compra.pk }}" class="block text-[0.72rem] font-bold text-texto-suave mb-1">Motivo e reembolso/acordo (vai para a auditoria)</label>
         <textarea id="obsCancel{{ compra.pk }}" name="observacao" rows="2" required maxlength="500"
-                  class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.8rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 resize-y"></textarea>
+                  class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.8rem] text-texto resize-y"></textarea>
         <button type="submit" data-confirm="Cancelar este pacote? As sessões restantes deixam de ser debitadas."
                 class="mt-2 px-3 py-1.5 rounded-lg bg-red-700 text-white text-[0.75rem] font-bold border-none cursor-pointer hover:bg-red-800 transition-colors">
           Confirmar cancelamento

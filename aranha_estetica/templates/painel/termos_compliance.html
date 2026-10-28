@@ -10,7 +10,7 @@
 {# ── Filtros ── #}
 <form method="get" class="bg-superficie rounded-2xl shadow-sm p-3 mb-3 flex gap-2 flex-wrap items-center">
   <select name="tipo"
-          class="px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.8rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+          class="px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.8rem] text-texto transition">
     <option value="">Todos tipos</option>
     {% for code, label in tipos %}
     <option value="{{ code }}" {% if tipo_filter == code %}selected{% endif %}>{{ label }}</option>

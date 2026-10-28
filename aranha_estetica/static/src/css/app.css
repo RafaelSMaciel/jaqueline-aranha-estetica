@@ -45,9 +45,6 @@
   input:not([type="checkbox"], [type="radio"], [type="range"], [type="hidden"]), select, textarea {
     border-color: var(--cor-borda-campo);
   }
-  /* Foco do teclado sempre visivel (inclusive onde o template tira o outline p/ o mouse) */
-  :focus-visible { outline: 2px solid var(--cor-foco); outline-offset: 2px; }
-  input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offset: 0; }
   /* rolagem suave ao navegar pelas ancoras (ex.: nav do FAQ) — so sem pedido de menos movimento */
   @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
   /* corpo na fonte da marca (Lato); titulos usam font-serif (Playfair) */
@@ -59,6 +56,16 @@
      ficam de fora de proposito. */
   .painel-admin :is(h1, h2, h3, h4, h5) { font-family: var(--heading-font); }
 }
+
+/* Foco do teclado sempre visivel (WCAG 2.4.7/1.4.11). FORA de @layer de proposito: CSS sem
+   camada vence a camada `utilities` qualquer que seja a especificidade, entao um `outline-none`
+   num template nao apaga o anel (dentro de @layer base ele perdia p/ o utilitario).
+   Componente com indicador proprio (borda + sombra no token de foco) usa seletor mais especifico. */
+:focus-visible { outline: 2px solid var(--cor-foco); outline-offset: 2px; }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offset: 0; }
+/* Cromo escuro nos 2 temas (menu/barra do painel, rodape do site): o foco do tema claro
+   (dourado escuro) some no fundo escuro; la o anel e o dourado da marca (~8:1). */
+.cromo-escuro :focus-visible { outline-color: var(--ouro-500); }
 
 /* Campo de formulario com a borda de cartao (border-borda) usa a de campo (3:1). Na camada de
    utilitarios: ganha do .border-borda (mais especifico) e perde do focus:border-* (pseudo-classe). */
