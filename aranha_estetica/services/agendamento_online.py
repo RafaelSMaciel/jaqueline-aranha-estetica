@@ -54,9 +54,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Diz o motivo e o caminho de revisao: a suspensao automatica (faltas seguidas, MAX_FALTAS_BLOQUEIO)
+# e decisao automatizada — a titular pode pedir revisao (LGPD art. 20)
 MSG_BLOQUEADO_ONLINE = (
-    'Seu cadastro está com agendamento online suspenso. '
-    'Fale conosco pelo WhatsApp para marcar seu horário.'
+    'O agendamento online do seu cadastro está suspenso — isso acontece depois de faltas '
+    'seguidas sem aviso ou por decisão da clínica. Para pedir a revisão ou marcar seu horário, '
+    'fale conosco pelo WhatsApp.'
 )
 MSG_SEM_TERMO_LGPD = (
     'Não foi possível concluir o agendamento online agora. '
