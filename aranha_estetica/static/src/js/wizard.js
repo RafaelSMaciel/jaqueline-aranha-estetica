@@ -5,6 +5,7 @@
  *   procPreselect   — id do procedimento pré-selecionado (ou vazio)
  *   profPreselect   — id do profissional pré-selecionado (link "Agendar com X")
  *   otpTelefone     — celular já verificado nesta sessão (dígitos) ou vazio
+ *   otpTitular      — esse celular já tem cadastro (nome só leitura — D16)
  *   rehidratar      — true quando o servidor devolveu erro do "Confirmar"
  *   whatsappNumero  — dígitos p/ CTA de WhatsApp (vazio = sem CTA)
  *
@@ -953,6 +954,7 @@
         }
         nome.required = true;
         nasc.required = true;
+        titularDoCelular(clienteExistente);
         if (clienteExistente) {
             badge.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px;" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
             badge.appendChild(document.createTextNode('Bem-vindo(a) de volta — seus dados foram carregados.'));
@@ -967,6 +969,18 @@
             btnConfirmar.disabled = false;
             btnConfirmar.title = '';
         }
+    }
+
+    // D16: o agendamento é da titular do celular verificado — com cadastro, o nome não muda por
+    // aqui (o servidor ignora nome diferente); agendar p/ outra pessoa = usar o celular dela.
+    function titularDoCelular(existente) {
+        var nome = document.getElementById('form-nome');
+        var aviso = document.getElementById('nome-titular-aviso');
+        if (!nome) return;
+        nome.readOnly = !!existente;
+        if (existente) nome.setAttribute('aria-readonly', 'true');
+        else nome.removeAttribute('aria-readonly');
+        if (aviso) aviso.hidden = !existente;
     }
 
     function marcarVerificado() {
@@ -1099,6 +1113,7 @@
         if (atual === cfg.otpTelefone) {
             marcarVerificado();
             mostrarDados(null, false);
+            titularDoCelular(!!cfg.otpTitular);
             var badge = document.getElementById('cliente-badge');
             if (badge) badge.style.display = 'none';
         }

@@ -101,6 +101,15 @@ class CaminhoFelizTests(_Base):
         self.assertEqual(_emails(at, Notificacao.Tipo.CONFIRMACAO), 1)
         self.assertEqual(_emails(at, Notificacao.Tipo.APROVACAO), 0)
 
+    def test_nome_divergente_nao_altera_o_cadastro_da_titular(self):
+        """D16: quem agenda p/ outra pessoa com o proprio celular nao renomeia a titular."""
+        cli = criar_cliente(nome='Titular Original', telefone='17988887777')
+        at = self._solicitar(nome='Outra Pessoa', email='nova@exemplo.test')
+        cli.refresh_from_db()
+        self.assertEqual(at.cliente, cli)
+        self.assertEqual(cli.nome, 'Titular Original')
+        self.assertEqual(cli.email, 'nova@exemplo.test')   # e-mail da dona do celular continua valendo
+
     def test_ficha_com_consentimento_grava_resposta_aceite_saude_e_trilha(self):
         ficha = self._ficha()
         at = self._solicitar(anamneses={str(ficha.pk): {'gestante': 'nao'}}, consent_saude=True)

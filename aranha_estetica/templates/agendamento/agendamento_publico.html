@@ -369,6 +369,7 @@
         border-radius: 14px; font-size: 0.95rem; background: var(--cor-fundo);
         color: var(--earth); font-weight: 500; transition: border-color 0.2s;
     }
+    .form-input[readonly]:not(#form-telefone) { background: var(--cor-superficie); color: var(--cor-texto-suave); }
     .form-input:focus {
         outline: none; border-color: var(--cor-foco);
         box-shadow: 0 0 0 3px color-mix(in srgb, var(--cor-foco) 45%, transparent); background: var(--cor-superficie);
@@ -659,7 +660,11 @@
 
                             <div class="form-field">
                                 <label><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Nome completo</label>
-                                <input type="text" name="nome" class="form-input" placeholder="Nome completo" id="form-nome" aria-label="Nome completo">
+                                <input type="text" name="nome" class="form-input" placeholder="Nome completo" id="form-nome" aria-label="Nome completo" aria-describedby="nome-titular-aviso">
+                                {# D16: o agendamento e da titular do celular verificado (cadastro existente: nome so leitura) #}
+                                <small id="nome-titular-aviso" hidden style="color:var(--cor-texto-suave);font-size:0.72rem;margin-top:0.35rem;display:block;">
+                                    Vai agendar para outra pessoa? Use o celular dela ou fale conosco pelo WhatsApp.
+                                </small>
                             </div>
 
                             <div class="field-row">
@@ -771,6 +776,7 @@
     procPreselect:   "{{ proc_preselect|escapejs }}",
     profPreselect:   "{{ prof_preselect|escapejs }}",
     otpTelefone:     "{{ otp_telefone|escapejs }}",
+    otpTitular:      {% if otp_titular %}true{% else %}false{% endif %},
     rehidratar:      {% if rehidratar %}true{% else %}false{% endif %},
     whatsappNumero:  "{{ WHATSAPP_NUMERO|escapejs }}"
   };
