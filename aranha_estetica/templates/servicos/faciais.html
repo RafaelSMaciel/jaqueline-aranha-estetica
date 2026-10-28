@@ -43,7 +43,7 @@
 
         {# CTAs #}
         <div class="flex flex-wrap gap-4">
-          <a href="{% url 'aranha:agendamento_publico' %}"
+          <a {% agendar_link %}
              class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
             Agendar Avaliação
           </a>
@@ -114,58 +114,42 @@
     <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
 
       {# Step 01 — Avaliação #}
-      <div class="relative text-center space-y-4 p-6 rounded-xl bg-fundo border border-borda">
-        <span class="absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-marca-forte text-sobre-marca text-xs font-bold flex items-center justify-center">01</span>
-        <div class="mx-auto w-12 h-12 rounded-full bg-superficie border border-borda flex items-center justify-center mt-2">
-          <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <c-servico.passo numero="01" titulo="Avaliação"
+                       texto="Análise detalhada do seu tipo de pele e necessidades específicas.">
+        <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
             <path d="M9 12h6M9 16h4"/>
           </svg>
-        </div>
-        <h3 class="text-texto font-semibold text-lg">Avaliação</h3>
-        <p class="text-texto-suave text-sm leading-relaxed">Análise detalhada do seu tipo de pele e necessidades específicas.</p>
-      </div>
+      </c-servico.passo>
 
       {# Step 02 — Protocolo #}
-      <div class="relative text-center space-y-4 p-6 rounded-xl bg-fundo border border-borda">
-        <span class="absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-marca-forte text-sobre-marca text-xs font-bold flex items-center justify-center">02</span>
-        <div class="mx-auto w-12 h-12 rounded-full bg-superficie border border-borda flex items-center justify-center mt-2">
-          <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <c-servico.passo numero="02" titulo="Protocolo"
+                       texto="Elaboração do protocolo personalizado para o seu tratamento.">
+        <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
             <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
           </svg>
-        </div>
-        <h3 class="text-texto font-semibold text-lg">Protocolo</h3>
-        <p class="text-texto-suave text-sm leading-relaxed">Elaboração do protocolo personalizado para o seu tratamento.</p>
-      </div>
+      </c-servico.passo>
 
       {# Step 03 — Procedimento #}
-      <div class="relative text-center space-y-4 p-6 rounded-xl bg-fundo border border-borda">
-        <span class="absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-marca-forte text-sobre-marca text-xs font-bold flex items-center justify-center">03</span>
-        <div class="mx-auto w-12 h-12 rounded-full bg-superficie border border-borda flex items-center justify-center mt-2">
-          <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <c-servico.passo numero="03" titulo="Procedimento"
+                       texto="Execução do tratamento com equipamentos de última geração.">
+        <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
           </svg>
-        </div>
-        <h3 class="text-texto font-semibold text-lg">Procedimento</h3>
-        <p class="text-texto-suave text-sm leading-relaxed">Execução do tratamento com equipamentos de última geração.</p>
-      </div>
+      </c-servico.passo>
 
       {# Step 04 — Acompanhamento #}
-      <div class="relative text-center space-y-4 p-6 rounded-xl bg-fundo border border-borda">
-        <span class="absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-marca-forte text-sobre-marca text-xs font-bold flex items-center justify-center">04</span>
-        <div class="mx-auto w-12 h-12 rounded-full bg-superficie border border-borda flex items-center justify-center mt-2">
-          <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <c-servico.passo numero="04" titulo="Acompanhamento"
+                       texto="Monitoramento dos resultados e ajustes conforme necessário.">
+        <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
             <line x1="16" y1="2" x2="16" y2="6"/>
             <line x1="8" y1="2" x2="8" y2="6"/>
             <line x1="3" y1="10" x2="21" y2="10"/>
             <path d="M9 16l2 2 4-4"/>
           </svg>
-        </div>
-        <h3 class="text-texto font-semibold text-lg">Acompanhamento</h3>
-        <p class="text-texto-suave text-sm leading-relaxed">Monitoramento dos resultados e ajustes conforme necessário.</p>
-      </div>
+      </c-servico.passo>
 
     </div>
   </div>
@@ -215,7 +199,7 @@
               Botox 3 regiões
             </li>
           </ul>
-          <a href="{% url 'aranha:agendamento_publico' %}"
+          <a {% agendar_link %}
              class="inline-flex items-center gap-2 text-marca font-semibold text-sm hover:underline mt-auto">
             Agendar
             <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
@@ -255,7 +239,7 @@
               Malar &amp; Rinomodelação
             </li>
           </ul>
-          <a href="{% url 'aranha:agendamento_publico' %}"
+          <a {% agendar_link %}
              class="inline-flex items-center gap-2 text-marca font-semibold text-sm hover:underline mt-auto">
             Agendar
             <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
@@ -269,67 +253,31 @@
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
 
       {# Limpeza de Pele #}
-      <article class="rounded-xl border border-borda bg-superficie p-6 flex flex-col space-y-4">
-        <div class="w-12 h-12 rounded-lg bg-fundo border border-borda flex items-center justify-center">
-          <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <c-servico.cartao titulo="Limpeza de Pele Profunda"
+                        texto="Remoção completa de impurezas, cravos e células mortas com técnicas especializadas para todos os tipos de pele.">
+        <c-slot name="icone"><svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/>
-          </svg>
-        </div>
-        <h3 class="text-texto font-bold text-lg">Limpeza de Pele Profunda</h3>
-        <p class="text-texto-suave text-sm leading-relaxed">
-          Remoção completa de impurezas, cravos e células mortas com técnicas especializadas para todos os tipos de pele.
-        </p>
-        <ul class="space-y-1.5 flex-1">
-          <li class="text-texto-suave text-sm flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Extração de impurezas
-          </li>
-          <li class="text-texto-suave text-sm flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Hidratação profunda
-          </li>
-          <li class="text-texto-suave text-sm flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Máscaras revitalizantes
-          </li>
-        </ul>
-        <a href="{% url 'aranha:agendamento_publico' %}"
-           class="inline-flex items-center gap-2 text-marca font-semibold text-sm hover:underline mt-auto pt-2">
-          Agendar
-          <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </a>
-      </article>
+          </svg></c-slot>
+        <c-servico.item>Extração de impurezas</c-servico.item>
+        <c-servico.item>Hidratação profunda</c-servico.item>
+        <c-servico.item>Máscaras revitalizantes</c-servico.item>
+      </c-servico.cartao>
 
       {# Bioestimulador #}
-      <article class="rounded-xl border border-borda bg-superficie p-6 flex flex-col space-y-4">
-        <div class="w-12 h-12 rounded-lg bg-fundo border border-borda flex items-center justify-center">
-          <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <c-servico.cartao titulo="Bioestimulador de Colágeno"
+                        texto="Estímulo natural da produção de colágeno para uma pele mais firme, jovem e com sustentação natural.">
+        <c-slot name="icone"><svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
-          </svg>
-        </div>
-        <h3 class="text-texto font-bold text-lg">Bioestimulador de Colágeno</h3>
-        <p class="text-texto-suave text-sm leading-relaxed">
-          Estímulo natural da produção de colágeno para uma pele mais firme, jovem e com sustentação natural.
-        </p>
-        <ul class="space-y-1.5 flex-1">
-          <li class="text-texto-suave text-sm flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Firmeza e sustentação
-          </li>
-          <li class="text-texto-suave text-sm flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Duração prolongada
-          </li>
-          <li class="text-texto-suave text-sm flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Efeito lifting natural
-          </li>
-        </ul>
-        <a href="{% url 'aranha:agendamento_publico' %}"
-           class="inline-flex items-center gap-2 text-marca font-semibold text-sm hover:underline mt-auto pt-2">
-          Agendar
-          <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </a>
-      </article>
+          </svg></c-slot>
+        <c-servico.item>Firmeza e sustentação</c-servico.item>
+        <c-servico.item>Duração prolongada</c-servico.item>
+        <c-servico.item>Efeito lifting natural</c-servico.item>
+      </c-servico.cartao>
 
       {# PRP #}
-      <article class="rounded-xl border border-borda bg-superficie p-6 flex flex-col space-y-4">
-        <div class="w-12 h-12 rounded-lg bg-fundo border border-borda flex items-center justify-center">
-          <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <c-servico.cartao titulo="PRP (Fibrina) & Preenchimento com PRP"
+                        texto="Plasma rico em plaquetas para regeneração celular, estímulo de colágeno e rejuvenescimento natural.">
+        <c-slot name="icone"><svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="5"/>
             <line x1="12" y1="1" x2="12" y2="3"/>
             <line x1="12" y1="21" x2="12" y2="23"/>
@@ -339,29 +287,11 @@
             <line x1="21" y1="12" x2="23" y2="12"/>
             <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
             <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-          </svg>
-        </div>
-        <h3 class="text-texto font-bold text-lg">PRP (Fibrina) &amp; Preenchimento com PRP</h3>
-        <p class="text-texto-suave text-sm leading-relaxed">
-          Plasma rico em plaquetas para regeneração celular, estímulo de colágeno e rejuvenescimento natural.
-        </p>
-        <ul class="space-y-1.5 flex-1">
-          <li class="text-texto-suave text-sm flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>PRP (Fibrina) por sessão
-          </li>
-          <li class="text-texto-suave text-sm flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Preenchimento com PRP
-          </li>
-          <li class="text-texto-suave text-sm flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Resultado progressivo
-          </li>
-        </ul>
-        <a href="{% url 'aranha:agendamento_publico' %}"
-           class="inline-flex items-center gap-2 text-marca font-semibold text-sm hover:underline mt-auto pt-2">
-          Agendar
-          <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </a>
-      </article>
+          </svg></c-slot>
+        <c-servico.item>PRP (Fibrina) por sessão</c-servico.item>
+        <c-servico.item>Preenchimento com PRP</c-servico.item>
+        <c-servico.item>Resultado progressivo</c-servico.item>
+      </c-servico.cartao>
 
     </div>
   </div>
@@ -400,7 +330,7 @@
           <p class="text-white/80 text-sm leading-relaxed mb-4">
             Estímulo à produção natural de colágeno para firmeza, sustentação e rejuvenescimento progressivo. A resposta e a duração variam de pessoa para pessoa.
           </p>
-          <a href="{% url 'aranha:agendamento_publico' %}"
+          <a {% agendar_link %}
              class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-marca-forte text-sobre-marca font-semibold text-sm hover:opacity-90 transition-opacity">
             Agendar Bioestimulador
           </a>
@@ -423,7 +353,7 @@
             <p class="text-texto-suave text-sm leading-relaxed mb-3">
               Estímulo da produção de colágeno com microagulhas para rejuvenescimento e redução de cicatrizes.
             </p>
-            <a href="{% url 'aranha:agendamento_publico' %}"
+            <a {% agendar_link %}
                class="text-marca text-sm font-semibold hover:underline">
               Agendar
             </a>
@@ -442,7 +372,7 @@
             <p class="text-texto-suave text-sm leading-relaxed mb-3">
               Hidratação profunda com ácido hialurônico injetável para luminosidade e viço da pele.
             </p>
-            <a href="{% url 'aranha:agendamento_publico' %}"
+            <a {% agendar_link %}
                class="text-marca text-sm font-semibold hover:underline">
               Agendar
             </a>
@@ -463,7 +393,7 @@
             <p class="text-texto-suave text-sm leading-relaxed mb-3">
               Drenagem manual facial para reduzir inchaço, melhorar circulação e devolver viço à pele.
             </p>
-            <a href="{% url 'aranha:agendamento_publico' %}"
+            <a {% agendar_link %}
                class="text-marca text-sm font-semibold hover:underline">
               Agendar
             </a>
@@ -491,7 +421,7 @@
           Nossos tratamentos faciais são personalizados após uma avaliação detalhada. Agende sua avaliação para recomendarmos o cuidado ideal para a sua pele.
         </p>
         <div class="flex flex-wrap gap-4">
-          <a href="{% url 'aranha:agendamento_publico' %}"
+          <a {% agendar_link %}
              class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
             Agendar Avaliação
             <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>

@@ -100,7 +100,7 @@
 
         {# CTAs #}
         <div class="flex flex-wrap gap-4 pt-2">
-          <a href="{% url 'aranha:agendamento_publico' %}?procedimento={{ procedimento.pk }}"
+          <a {% agendar_link procedimento=procedimento.pk %}
              class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
             <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
@@ -188,7 +188,7 @@
           <p class="text-texto-suave text-xs mt-1">{{ prof.especialidade|truncatechars:60 }}</p>
           {% endif %}
         </div>
-        <a href="{% url 'aranha:agendamento_publico' %}?profissional={{ prof.pk }}&procedimento={{ procedimento.pk }}"
+        <a {% agendar_link profissional=prof.pk procedimento=procedimento.pk %}
            class="inline-flex items-center gap-1 px-4 py-2 rounded-md border border-borda text-texto text-sm font-medium hover:bg-fundo transition-colors w-full justify-center">
           Agendar
         </a>
@@ -236,7 +236,7 @@
     <p class="text-texto-suave text-lg mb-8">
       Agende sua sessão de {{ procedimento.nome }} e cuide da sua beleza com quem entende.
     </p>
-    <a href="{% url 'aranha:agendamento_publico' %}?procedimento={{ procedimento.pk }}"
+    <a {% agendar_link procedimento=procedimento.pk %}
        class="inline-flex items-center gap-2 px-8 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
       <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>

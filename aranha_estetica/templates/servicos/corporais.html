@@ -43,7 +43,7 @@
 
         {# CTAs #}
         <div class="flex flex-wrap gap-4">
-          <a href="{% url 'aranha:agendamento_publico' %}"
+          <a {% agendar_link %}
              class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
             Agendar Avaliação
           </a>
@@ -114,10 +114,9 @@
     <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
 
       {# Step 01 — Avaliação Corporal #}
-      <div class="relative text-center space-y-4 p-6 rounded-xl bg-fundo border border-borda">
-        <span class="absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-marca-forte text-sobre-marca text-xs font-bold flex items-center justify-center">01</span>
-        <div class="mx-auto w-12 h-12 rounded-full bg-superficie border border-borda flex items-center justify-center mt-2">
-          <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <c-servico.passo numero="01" titulo="Avaliação corporal"
+                       texto="Análise de medidas, composição corporal e identificação das áreas de tratamento.">
+        <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <line x1="8" y1="6" x2="21" y2="6"/>
             <line x1="8" y1="12" x2="21" y2="12"/>
             <line x1="8" y1="18" x2="21" y2="18"/>
@@ -125,49 +124,34 @@
             <line x1="3" y1="12" x2="3.01" y2="12"/>
             <line x1="3" y1="18" x2="3.01" y2="18"/>
           </svg>
-        </div>
-        <h3 class="text-texto font-semibold text-lg">Avaliação corporal</h3>
-        <p class="text-texto-suave text-sm leading-relaxed">Análise de medidas, composição corporal e identificação das áreas de tratamento.</p>
-      </div>
+      </c-servico.passo>
 
       {# Step 02 — Plano de Tratamento #}
-      <div class="relative text-center space-y-4 p-6 rounded-xl bg-fundo border border-borda">
-        <span class="absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-marca-forte text-sobre-marca text-xs font-bold flex items-center justify-center">02</span>
-        <div class="mx-auto w-12 h-12 rounded-full bg-superficie border border-borda flex items-center justify-center mt-2">
-          <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <c-servico.passo numero="02" titulo="Plano de tratamento"
+                       texto="Definição do protocolo ideal com número de sessões e tecnologias utilizadas.">
+        <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
             <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
           </svg>
-        </div>
-        <h3 class="text-texto font-semibold text-lg">Plano de tratamento</h3>
-        <p class="text-texto-suave text-sm leading-relaxed">Definição do protocolo ideal com número de sessões e tecnologias utilizadas.</p>
-      </div>
+      </c-servico.passo>
 
       {# Step 03 — Sessões #}
-      <div class="relative text-center space-y-4 p-6 rounded-xl bg-fundo border border-borda">
-        <span class="absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-marca-forte text-sobre-marca text-xs font-bold flex items-center justify-center">03</span>
-        <div class="mx-auto w-12 h-12 rounded-full bg-superficie border border-borda flex items-center justify-center mt-2">
-          <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <c-servico.passo numero="03" titulo="Sessões"
+                       texto="Aplicação das tecnologias com acompanhamento individualizado em cada sessão.">
+        <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
           </svg>
-        </div>
-        <h3 class="text-texto font-semibold text-lg">Sessões</h3>
-        <p class="text-texto-suave text-sm leading-relaxed">Aplicação das tecnologias com acompanhamento individualizado em cada sessão.</p>
-      </div>
+      </c-servico.passo>
 
       {# Step 04 — Resultados #}
-      <div class="relative text-center space-y-4 p-6 rounded-xl bg-fundo border border-borda">
-        <span class="absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-marca-forte text-sobre-marca text-xs font-bold flex items-center justify-center">04</span>
-        <div class="mx-auto w-12 h-12 rounded-full bg-superficie border border-borda flex items-center justify-center mt-2">
-          <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <c-servico.passo numero="04" titulo="Resultados"
+                       texto="Acompanhamento com medições e registros fotográficos dos resultados.">
+        <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <line x1="18" y1="20" x2="18" y2="10"/>
             <line x1="12" y1="20" x2="12" y2="4"/>
             <line x1="6" y1="20" x2="6" y2="14"/>
           </svg>
-        </div>
-        <h3 class="text-texto font-semibold text-lg">Resultados</h3>
-        <p class="text-texto-suave text-sm leading-relaxed">Acompanhamento com medições e registros fotográficos dos resultados.</p>
-      </div>
+      </c-servico.passo>
 
     </div>
   </div>
@@ -217,7 +201,7 @@
               Enzimas para estrias
             </li>
           </ul>
-          <a href="{% url 'aranha:agendamento_publico' %}"
+          <a {% agendar_link %}
              class="inline-flex items-center gap-2 text-marca font-semibold text-sm hover:underline mt-auto">
             Agendar
             <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
@@ -254,7 +238,7 @@
               Resultado Natural
             </li>
           </ul>
-          <a href="{% url 'aranha:agendamento_publico' %}"
+          <a {% agendar_link %}
              class="inline-flex items-center gap-2 text-marca font-semibold text-sm hover:underline mt-auto">
             Agendar
             <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
@@ -268,93 +252,39 @@
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
 
       {# Endermoterapia #}
-      <article class="rounded-xl border border-borda bg-superficie p-6 flex flex-col space-y-4">
-        <div class="w-12 h-12 rounded-lg bg-fundo border border-borda flex items-center justify-center">
-          <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <c-servico.cartao titulo="Endermoterapia"
+                        texto="Massagem mecânica subcutânea para redução de medidas, melhora da circulação e atenuação de celulite.">
+        <c-slot name="icone"><svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
-          </svg>
-        </div>
-        <h3 class="text-texto font-bold text-lg">Endermoterapia</h3>
-        <p class="text-texto-suave text-sm leading-relaxed">
-          Massagem mecânica subcutânea para redução de medidas, melhora da circulação e atenuação de celulite.
-        </p>
-        <ul class="space-y-1.5 flex-1">
-          <li class="text-texto-suave text-sm flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Redução de medidas
-          </li>
-          <li class="text-texto-suave text-sm flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Melhora da circulação
-          </li>
-          <li class="text-texto-suave text-sm flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Atenua celulite
-          </li>
-        </ul>
-        <a href="{% url 'aranha:agendamento_publico' %}"
-           class="inline-flex items-center gap-2 text-marca font-semibold text-sm hover:underline mt-auto pt-2">
-          Agendar
-          <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </a>
-      </article>
+          </svg></c-slot>
+        <c-servico.item>Redução de medidas</c-servico.item>
+        <c-servico.item>Melhora da circulação</c-servico.item>
+        <c-servico.item>Atenua celulite</c-servico.item>
+      </c-servico.cartao>
 
       {# Massagem Relaxante #}
-      <article class="rounded-xl border border-borda bg-superficie p-6 flex flex-col space-y-4">
-        <div class="w-12 h-12 rounded-lg bg-fundo border border-borda flex items-center justify-center">
-          <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <c-servico.cartao titulo="Massagem Relaxante"
+                        texto="Massagem corporal relaxante para alívio do estresse, tensão muscular e bem-estar integral.">
+        <c-slot name="icone"><svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/>
-          </svg>
-        </div>
-        <h3 class="text-texto font-bold text-lg">Massagem Relaxante</h3>
-        <p class="text-texto-suave text-sm leading-relaxed">
-          Massagem corporal relaxante para alívio do estresse, tensão muscular e bem-estar integral.
-        </p>
-        <ul class="space-y-1.5 flex-1">
-          <li class="text-texto-suave text-sm flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Alívio de estresse
-          </li>
-          <li class="text-texto-suave text-sm flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Tensão muscular
-          </li>
-          <li class="text-texto-suave text-sm flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Bem-estar integral
-          </li>
-        </ul>
-        <a href="{% url 'aranha:agendamento_publico' %}"
-           class="inline-flex items-center gap-2 text-marca font-semibold text-sm hover:underline mt-auto pt-2">
-          Agendar
-          <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </a>
-      </article>
+          </svg></c-slot>
+        <c-servico.item>Alívio de estresse</c-servico.item>
+        <c-servico.item>Tensão muscular</c-servico.item>
+        <c-servico.item>Bem-estar integral</c-servico.item>
+      </c-servico.cartao>
 
       {# Drenagem Linfática #}
-      <article class="rounded-xl border border-borda bg-superficie p-6 flex flex-col space-y-4">
-        <div class="w-12 h-12 rounded-lg bg-fundo border border-borda flex items-center justify-center">
-          <svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <c-servico.cartao titulo="Drenagem Linfática"
+                        texto="Drenagem manual facial e corporal que ajuda a reduzir o inchaço e traz sensação de leveza.">
+        <c-slot name="icone"><svg class="w-6 h-6 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/>
             <line x1="12" y1="10" x2="12" y2="14"/>
             <line x1="10" y1="12" x2="14" y2="12"/>
-          </svg>
-        </div>
-        <h3 class="text-texto font-bold text-lg">Drenagem Linfática</h3>
-        <p class="text-texto-suave text-sm leading-relaxed">
-          Drenagem manual facial e corporal que ajuda a reduzir o inchaço e traz sensação de leveza.
-        </p>
-        <ul class="space-y-1.5 flex-1">
-          <li class="text-texto-suave text-sm flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Drenagem corporal
-          </li>
-          <li class="text-texto-suave text-sm flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Drenagem facial
-          </li>
-          <li class="text-texto-suave text-sm flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-marca flex-shrink-0"></span>Ajuda a reduzir o inchaço
-          </li>
-        </ul>
-        <a href="{% url 'aranha:agendamento_publico' %}"
-           class="inline-flex items-center gap-2 text-marca font-semibold text-sm hover:underline mt-auto pt-2">
-          Agendar
-          <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </a>
-      </article>
+          </svg></c-slot>
+        <c-servico.item>Drenagem corporal</c-servico.item>
+        <c-servico.item>Drenagem facial</c-servico.item>
+        <c-servico.item>Ajuda a reduzir o inchaço</c-servico.item>
+      </c-servico.cartao>
 
     </div>
 
@@ -415,7 +345,7 @@
           <p class="text-texto-suave text-sm leading-relaxed mb-4">
             Redução progressiva dos pelos, com indicação após avaliação do fototipo. Sessões rápidas; a sensação varia de pessoa para pessoa. Consulte região e número de sessões.
           </p>
-          <a href="{% url 'aranha:agendamento_publico' %}"
+          <a {% agendar_link %}
              class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-marca-forte text-sobre-marca font-semibold text-sm hover:opacity-90 transition-opacity">
             Agendar Depilação
           </a>
@@ -437,7 +367,7 @@
             <p class="text-texto-suave text-sm leading-relaxed mb-3">
               Drenagem manual corporal que ajuda a reduzir o inchaço e traz bem-estar.
             </p>
-            <a href="{% url 'aranha:agendamento_publico' %}"
+            <a {% agendar_link %}
                class="text-marca text-sm font-semibold hover:underline">
               Agendar
             </a>
@@ -457,7 +387,7 @@
             <p class="text-texto-suave text-sm leading-relaxed mb-3">
               Terapia com ventosas para relaxamento, melhora da circulação e alívio de tensões musculares.
             </p>
-            <a href="{% url 'aranha:agendamento_publico' %}"
+            <a {% agendar_link %}
                class="text-marca text-sm font-semibold hover:underline">
               Agendar
             </a>
@@ -477,7 +407,7 @@
             <p class="text-texto-suave text-sm leading-relaxed mb-3">
               Massagem corporal relaxante para alívio do estresse, tensão muscular e bem-estar integral.
             </p>
-            <a href="{% url 'aranha:agendamento_publico' %}"
+            <a {% agendar_link %}
                class="text-marca text-sm font-semibold hover:underline">
               Agendar
             </a>
@@ -505,7 +435,7 @@
           Nossos protocolos corporais são selecionados para trazer as melhores respostas ao seu corpo. Agende uma avaliação corporal completa.
         </p>
         <div class="flex flex-wrap gap-4">
-          <a href="{% url 'aranha:agendamento_publico' %}"
+          <a {% agendar_link %}
              class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
             Agendar Avaliação
             <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>

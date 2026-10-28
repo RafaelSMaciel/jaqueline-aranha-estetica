@@ -160,7 +160,10 @@ TEMPLATES = [
                     'django.template.loaders.app_directories.Loader',
                 ]
             ),
-            'builtins': ['django_cotton.templatetags.cotton', 'aranha_estetica.templatetags.formatos'],
+            'builtins': [
+                'django_cotton.templatetags.cotton', 'aranha_estetica.templatetags.formatos',
+                'aranha_estetica.templatetags.site_tags',
+            ],
         },
     },
 ]

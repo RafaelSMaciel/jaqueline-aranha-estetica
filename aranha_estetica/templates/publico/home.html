@@ -64,7 +64,7 @@
         </div>
 
         <div class="flex flex-wrap gap-4">
-          <a href="{% url 'aranha:agendamento_publico' %}"
+          <a {% agendar_link %}
              class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
             Agendar Avaliação
           </a>
@@ -237,7 +237,7 @@
         </div>
         <div class="flex gap-3 mt-auto pt-2">
           <a href="{% url 'aranha:equipe' %}" class="flex-1 text-center px-4 py-2 rounded-lg border border-borda text-texto text-sm font-medium hover:bg-fundo transition-colors">Ver Perfil</a>
-          <a href="{% url 'aranha:agendamento_publico' %}?profissional={{ prof.pk }}" class="flex-1 text-center px-4 py-2 rounded-lg bg-marca-forte text-sobre-marca text-sm font-semibold hover:opacity-90 transition-opacity">Agendar</a>
+          <a {% agendar_link profissional=prof.pk %} class="flex-1 text-center px-4 py-2 rounded-lg bg-marca-forte text-sobre-marca text-sm font-semibold hover:opacity-90 transition-opacity">Agendar</a>
         </div>
       </div>
       {% endfor %}
@@ -273,7 +273,7 @@
             Online, em poucos cliques e sem precisar criar conta. Tire suas dúvidas ou reserve seu horário com a {{ CLINIC_NAME }}.
           </p>
           <div class="flex flex-wrap gap-3">
-            <a href="{% url 'aranha:agendamento_publico' %}"
+            <a {% agendar_link %}
                class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
               Agendar Avaliação
               <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
