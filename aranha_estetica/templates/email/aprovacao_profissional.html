@@ -1,28 +1,28 @@
 {% extends "email/base_email.html" %}
 {% block header_sub %}<div style="color:rgba(255,255,255,0.88);font-size:13px;letter-spacing:2.4px;text-transform:uppercase;margin-top:6px;">Novo agendamento</div>{% endblock %}
 {% block content %}
-<h1 class="hero-title text-main" style="color:#4A3425;margin:0 0 12px;font-size:26px;font-weight:700;line-height:1.25;">Olá, {{ dados.profissional }}!</h1>
-<p class="text-soft" style="color:#666;font-size:15px;margin:0 0 24px;">Você tem um novo agendamento pendente de aprovação.</p>
+<h1 class="hero-title text-main" style="color:{{ cor_texto }};margin:0 0 12px;font-size:26px;font-weight:700;line-height:1.25;">Olá, {{ dados.profissional }}!</h1>
+<p class="text-soft" style="color:{{ cor_suave }};font-size:15px;margin:0 0 24px;">Você tem um novo agendamento pendente de aprovação.</p>
 
-<table bgcolor="#FFFEF5" role="presentation" width="100%" cellpadding="0" cellspacing="0" class="card-inner" style="background-color:#FFFEF5;background-image:linear-gradient(145deg,#FFFEF5,#FFF9E3);border:2px solid #C9A84C;border-radius:16px;margin:0 0 24px;">
+<table bgcolor="#FFFEF5" role="presentation" width="100%" cellpadding="0" cellspacing="0" class="card-inner" style="background-color:#FFFEF5;background-image:linear-gradient(145deg,#FFFEF5,#FFF9E3);border:2px solid {{ cor_marca }};border-radius:16px;margin:0 0 24px;">
 <tr><td style="padding:24px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-<tr><td class="text-soft" style="padding:4px 0;color:#999;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Cliente</td></tr>
-<tr><td class="text-soft" style="padding:0 0 12px;color:#4A3425;font-size:16px;font-weight:700;">{{ dados.cliente }}</td></tr>
-<tr><td class="text-soft" style="padding:4px 0;color:#999;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Procedimento</td></tr>
-<tr><td class="text-soft" style="padding:0 0 12px;color:#4A3425;font-size:15px;">{{ dados.procedimento }}</td></tr>
-<tr><td class="text-soft" style="padding:4px 0;color:#999;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Data e Horário</td></tr>
-<tr><td class="text-soft" style="padding:0 0 12px;color:#7a5f1f;font-size:16px;font-weight:700;">{{ dados.data_hora }}</td></tr>
+<tr><td class="text-soft" style="padding:4px 0;color:{{ cor_suave }};font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Cliente</td></tr>
+<tr><td class="text-soft" style="padding:0 0 12px;color:{{ cor_texto }};font-size:16px;font-weight:700;">{{ dados.cliente }}</td></tr>
+<tr><td class="text-soft" style="padding:4px 0;color:{{ cor_suave }};font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Procedimento</td></tr>
+<tr><td class="text-soft" style="padding:0 0 12px;color:{{ cor_texto }};font-size:15px;">{{ dados.procedimento }}</td></tr>
+<tr><td class="text-soft" style="padding:4px 0;color:{{ cor_suave }};font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Data e horário</td></tr>
+<tr><td class="text-soft" style="padding:0 0 12px;color:{{ cor_marca_texto }};font-size:16px;font-weight:700;">{{ dados.data_hora }}</td></tr>
 </table>
 </td></tr>
 </table>
 
 {# Link unico (GET) p/ o portal: aprovar/rejeitar sao POST com CSRF dentro da agenda #}
 <div style="text-align:center;margin:0 0 24px;">
-<table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;"><tr><td bgcolor="#C9A84C" style="border-radius:999px;background-color:#C9A84C;mso-padding-alt:14px 36px;"><a href="{% if dados.link_revisar %}{{ dados.link_revisar }}{% else %}{{ site_url }}/profissional/{% endif %}" style="display:inline-block;background-color:#C9A84C;color:#23200f;padding:12px 32px;border-radius:999px;text-decoration:none;font-weight:700;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.18);">Revisar e aprovar</a></td></tr></table>
+<table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;"><tr><td bgcolor="{{ cor_marca }}" style="border-radius:999px;background-color:{{ cor_marca }};mso-padding-alt:14px 36px;"><a href="{% if dados.link_revisar %}{{ dados.link_revisar }}{% else %}{{ site_url }}{% url 'aranha:profissional_agenda' %}{% endif %}" style="display:inline-block;background-color:{{ cor_marca }};color:{{ cor_sobre_marca }};padding:12px 32px;border-radius:999px;text-decoration:none;font-weight:700;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.18);">Revisar e aprovar</a></td></tr></table>
 </div>
 
-<p class="text-muted" style="color:#999;font-size:13px;margin:0;">
+<p class="text-muted" style="color:{{ cor_suave }};font-size:13px;margin:0;">
 Entre com seu e-mail e senha para aprovar ou recusar o horário na sua agenda.
 </p>
 {% endblock %}

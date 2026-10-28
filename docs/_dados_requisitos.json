@@ -2434,7 +2434,7 @@
    {
     "de": "PENDENTE",
     "para": "AGENDADO",
-    "acao": "aprovar() — clínica aprova o pedido (painel ou portal)",
+    "acao": "aprovar() — clínica aprova o pedido (botão, lote, seletor do painel ou portal) + e-mail",
     "guarda": "TRANSICOES['PENDENTE']"
    },
    {
@@ -2531,7 +2531,7 @@
   "efeitos": [
    "Toda transição: _transicionar trava a linha (select_for_update), valida TRANSICOES contra o status atual do banco, grava status + LogAuditoria e aplica os efeitos (services/atendimento.ao_mudar_status) na MESMA transação: efeito que falha desfaz a transição inteira. Transição inválida levanta Atendimento.TransicaoInvalida (a tela mostra a mensagem).",
    "Criação (services/agenda.reservar → ao_criar): push \"Novo agendamento\" ao profissional e sync com o Google Calendar no on_commit, best-effort.",
-   "→ REALIZADO, em ordem: zera faltas e desbloqueia a cliente; debita 1 sessão do item congelado do pacote que vence primeiro (nunca em retorno; validade na data da sessão); lança o CREDITO de comissão (base = valor cobrado, ou valor unitário congelado da sessão de pacote); libera o cashback da indicadora no 1º atendimento pago; cria o retorno obrigatório (PENDENTE, valor 0) se o procedimento exige.",
+   "→ REALIZADO, em ordem: zera faltas e desbloqueia a cliente; debita 1 sessão do item congelado do pacote que vence primeiro (nunca em retorno; validade na data da sessão); lança o CREDITO de comissão (base = valor cobrado, ou valor unitário congelado da sessão de pacote); libera o cashback da indicadora no 1º atendimento pago; deixa o retorno obrigatório fica devido (a recepção marca com a cliente, valor 0) se o procedimento exige.",
    "→ FALTOU: registrar_falta — soma a falta e suspende o agendamento online no limite (padrão 3).",
    "→ CANCELADO: lança o ESTORNO da comissão e estorna o cashback; vindo de um estado ativo, avisa a lista de espera. Cancelado pela clínica: e-mail à cliente (fila de e-mail).",
    "→ REAGENDADO: vindo de um estado ativo, avisa a lista de espera.",
@@ -2539,7 +2539,9 @@
    "Aprovação (PENDENTE → AGENDADO) e rejeição geram e-mail à cliente pela fila de e-mail (Notificacao EMAIL na mesma transação, envio no on_commit, reenvio pelo job emails).",
    "NPS e lembrete D-1 não são disparados por transição: vêm dos jobs nps_24h e lembrete_diario (cron HTTP).",
    "PENDENTE sem aprovação a 1 h do início → CANCELADO pelo job limpeza_status (de hora em hora); AGENDADO/CONFIRMADO sem desfecho só vão para o log (a equipe decide falta ou realizado).",
-   "Toda escrita em atendimento entra na trilha historico_alteracao (trigger) com autor, IP e origem."
+   "Toda escrita em atendimento entra na trilha historico_alteracao (trigger) com autor, IP e origem.",
+   "Cliente cancela ou remarca (portal/link): push à profissional no on_commit.",
+   "Pedido criado pela recepção ou aprovado: e-mail de confirmação à cliente (fila de e-mail)."
   ]
  },
  "regras-requisitos": {
@@ -2596,8 +2598,8 @@
    },
    {
     "id": "RN11",
-    "titulo": "Pedido público nasce PENDENTE",
-    "descricao": "O agendamento público entra como PENDENTE; a clínica aprova (AGENDADO + e-mail de confirmação) ou rejeita (CANCELADO + e-mail), no painel (individual ou em lote) ou no portal do profissional. PENDENTE vencido há 24 h é cancelado pelo job de limpeza."
+    "titulo": "Pedido público: aprovação ou confiança",
+    "descricao": "Cliente de confiança — já atendida (1+ REALIZADO), sem falta em aberto, sem bloqueio e com menos de 2 horários futuros — tem o pedido online criado como AGENDADO, com e-mail de confirmação na hora; as demais (primeira vez incluída) ficam PENDENTE e a profissional recebe o e-mail de aprovação. Aprovar (botão, lote, seletor de status do painel ou portal) = AGENDADO + e-mail de confirmação; recusar = CANCELADO + e-mail. Pedido sem decisão a menos de 1 h do início é cancelado pelo job de hora em hora, com o e-mail \"não conseguimos confirmar a tempo\", e a vaga volta para a lista de espera."
    },
    {
     "id": "RN12",
@@ -2642,7 +2644,7 @@
    {
     "id": "RN20",
     "titulo": "Máquina de estados do atendimento",
-    "descricao": "PENDENTE → AGENDADO/CONFIRMADO/CANCELADO/REAGENDADO; AGENDADO → CONFIRMADO/REALIZADO/CANCELADO/FALTOU/REAGENDADO; CONFIRMADO → REALIZADO/CANCELADO/FALTOU/REAGENDADO; REALIZADO, CANCELADO, FALTOU e REAGENDADO são terminais. AGENDADO = horário aprovado; CONFIRMADO = a cliente confirmou. Os efeitos da transição (pacote, comissão, cashback, faltas, retorno, lista de espera) gravam na mesma transação do status: tudo ou nada."
+    "descricao": "PENDENTE → AGENDADO/CANCELADO/REAGENDADO; AGENDADO → CONFIRMADO/REALIZADO/CANCELADO/FALTOU/REAGENDADO; CONFIRMADO → REALIZADO/CANCELADO/FALTOU/REAGENDADO; REALIZADO, CANCELADO, FALTOU e REAGENDADO são terminais. AGENDADO = horário aprovado; CONFIRMADO = a cliente confirmou. Os efeitos da transição (pacote, comissão, cashback, faltas, retorno, lista de espera) gravam na mesma transação do status: tudo ou nada."
    },
    {
     "id": "RN21",
@@ -2652,7 +2654,7 @@
    {
     "id": "RN22",
     "titulo": "Cancelamento pela cliente",
-    "descricao": "Pelo portal (id do atendimento + sessão do OTP) ou pelo link legado, a qualquer momento antes do início, pela FSM; a trilha registra \"[pela cliente]\". Cancelamento feito pela clínica avisa a cliente por e-mail."
+    "descricao": "Pelo portal (id do atendimento + sessão do OTP) ou pelo link legado, a qualquer momento antes do início, pela FSM; a trilha registra \"[pela cliente]\". Cancelamento feito pela clínica avisa a cliente por e-mail. Quando a cliente cancela ou remarca, a profissional recebe push (\"Cliente cancelou\" / \"Cliente remarcou\")."
    },
    {
     "id": "RN23",
@@ -2667,12 +2669,12 @@
    {
     "id": "RN25",
     "titulo": "Retorno obrigatório (F-RET)",
-    "descricao": "Procedimento com retorno obrigatório gera, ao REALIZADO, um atendimento de retorno PENDENTE com valor 0 no primeiro horário livre da janela [mínimo, máximo] a partir do meio, gravado por services/agenda.reservar. Sem horário livre, não cria. No máximo 1 retorno vivo por origem (UNIQUE). Retorno não gera comissão, cashback nem débito de pacote."
+    "descricao": "Procedimento com retorno obrigatório deixa, ao REALIZADO, o retorno DEVIDO na janela [mínimo, máximo] dias após o atendimento — o sistema não reserva horário sozinho. A recepção marca com a cliente em \"Retornos a marcar\" (só horários livres dentro da janela; AGENDADO, valor 0) e a cliente vê em Meus agendamentos o prazo do retorno sem custo. No máximo 1 retorno vivo por origem (UNIQUE). Retorno não gera comissão, cashback nem débito de pacote."
    },
    {
     "id": "RN26",
     "titulo": "Pacotes — consumo",
-    "descricao": "Sessão REALIZADA debita 1 sessão do item congelado (compra_pacote_item) do pacote que vence primeiro (1 consumo por atendimento). A validade é conferida na data da sessão. O banco garante que o consumo é de um item da mesma compra, do mesmo procedimento, nunca de retorno e só com saldo."
+    "descricao": "Sessão REALIZADA debita 1 sessão do item congelado (compra_pacote_item) do pacote que vence primeiro (1 consumo por atendimento). A validade é conferida na data da sessão. O banco garante que o consumo é de um item da mesma compra, do mesmo procedimento, nunca de retorno e só com saldo. Antes do REALIZADO, o atendimento que um pacote vai cobrir (mesma ordem, descontando as sessões já marcadas) aparece como \"Sessão do pacote\" no painel, no portal, no e-mail e na página de sucesso — nunca o preço cheio."
    },
    {
     "id": "RN27",
@@ -2707,7 +2709,7 @@
    {
     "id": "RN33",
     "titulo": "NPS",
-    "descricao": "WhatsApp de NPS entre 24 h e 7 dias após o REALIZADO, com autorização de pesquisa vigente (até 3 tentativas); link válido por 7 dias; 1 avaliação por atendimento; nota 0–10. Nota ≤ 6 gera alerta por e-mail à clínica. O cálculo do NPS é único (arredondamento \"meio para cima\") no painel, nas views e no banco."
+    "descricao": "WhatsApp de NPS entre 24 h e 7 dias após o REALIZADO, com autorização de pesquisa vigente (até 3 tentativas); link válido por 7 dias; 1 avaliação por atendimento; nota 0–10. Nota ≤ 6 gera alerta por e-mail à clínica. O cálculo do NPS é único (arredondamento \"meio para cima\") no painel, nas views e no banco. Ao fim da avaliação, se houver pesquisa pós-atendimento (formulário PESQUISA) aplicável e não respondida, a página oferece o link dela (opcional, sem mensagem extra)."
    },
    {
     "id": "RN34",
@@ -2732,7 +2734,7 @@
    {
     "id": "RN38",
     "titulo": "Alertas de saúde",
-    "descricao": "Alergias, contraindicações, medicamentos e respostas marcadas como alerta de saúde nas fichas aparecem como texto visível no portal, na agenda do painel e na ficha da cliente (calculados em lote); marcador \"ficha pendente\" quando a ficha obrigatória não foi respondida."
+    "descricao": "Alergias, contraindicações, medicamentos e respostas marcadas como alerta de saúde nas fichas aparecem como texto visível no portal, na agenda do painel e na ficha da cliente (calculados em lote); marcador \"ficha pendente\" quando a ficha obrigatória não foi respondida. Onde a ficha vale (global, categoria, procedimento ou modalidade) é decidido por uma regra única (FormularioAnamnese.aplica_a); para cliente agendada pelo painel, o botão \"Link da ficha\" gera o convite (60 dias)."
    },
    {
     "id": "RN39",

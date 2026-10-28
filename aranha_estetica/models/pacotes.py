@@ -34,14 +34,45 @@ MSG_ITEM_IMUTAVEL = (
 
 
 def rateio_por_sessao(valor_pago, total_sessoes) -> Decimal:
-    """Valor de 1 sessao da compra: round(valor_pago / sessoes, 2), meio p/ cima.
+    """Rateio UNIFORME: valor de 1 sessao = round(valor_pago / sessoes, 2), meio p/ cima.
 
-    Mesma formula que a comissao de sessao de pacote usava antes da 0052
-    (ComissaoService.base_calculo): a comissao nao muda com o congelamento.
+    Formula da 0052 (itens reconstruidos) e fallback do rateio_ponderado quando falta preco de
+    tabela. Sem ajuste de residuo: qtd x unitario pode diferir do pago em menos de qtd/2 centavos.
     """
     if not total_sessoes or total_sessoes <= 0:
         return Decimal('0.00')
     return (Decimal(valor_pago) / Decimal(total_sessoes)).quantize(CENTAVO, rounding=ROUND_HALF_UP)
+
+
+def rateio_ponderado(valor_pago, itens) -> list[Decimal]:
+    """Valor de 1 sessao de cada item, proporcional ao peso (preco de tabela) — decisao de rateio.
+
+    ``itens`` = [(peso, qtd)] na ordem dos itens. unitario_i = valor_pago x peso_i / Σ(peso x qtd),
+    em centavos meio p/ cima. Peso ausente (None) ou <= 0 em algum item, ou soma zero: rateio
+    uniforme (``rateio_por_sessao``), igual para todos.
+
+    Residuo (valor_pago - Σ unitario x qtd, poucos centavos): vai para o item de MAIOR peso (o 1o
+    em empate) quando cabe inteiro nas sessoes dele — qtd 1, ou residuo divisivel pela qtd. Senao
+    ele recebe a parte inteira (residuo // qtd por sessao) e sobra uma diferenca de menos de qtd
+    centavos entre Σ e o pago, documentada (o item e imutavel: nao ha onde guardar fracao de
+    centavo). Pacote de um procedimento so da o mesmo valor que o rateio uniforme.
+    """
+    total_sessoes = sum(qtd for _peso, qtd in itens)
+    uniforme = [rateio_por_sessao(valor_pago, total_sessoes)] * len(itens)
+    if any(peso is None or peso <= 0 for peso, _qtd in itens):
+        return uniforme
+    soma = sum(Decimal(peso) * qtd for peso, qtd in itens)
+    if not soma:
+        return uniforme
+    pago = Decimal(valor_pago)
+    unitarios = [(pago * Decimal(peso) / soma).quantize(CENTAVO, rounding=ROUND_HALF_UP) for peso, _qtd in itens]
+    residuo_centavos = int((pago - sum(u * qtd for u, (_p, qtd) in zip(unitarios, itens, strict=True))) / CENTAVO)
+    if residuo_centavos:
+        maior = max(range(len(itens)), key=lambda i: (itens[i][0], -i))
+        qtd = itens[maior][1]
+        por_sessao = abs(residuo_centavos) // qtd * (1 if residuo_centavos > 0 else -1)
+        unitarios[maior] = max(Decimal('0.00'), unitarios[maior] + por_sessao * CENTAVO)
+    return unitarios
 
 
 class Pacote(models.Model):
@@ -144,13 +175,17 @@ class CompraPacote(models.Model):
             'marcado EXPIRADO.'
         ),
     )
+    cancelado_em = models.DateTimeField(
+        blank=True, null=True,
+        db_comment='Instante do cancelamento: o reembolso deduz a receita do mes deste instante (competencia).',
+    )
 
     class Meta:
         managed = True
         db_table = 'compra_pacote'
         db_table_comment = (
-            'Venda de pacote (registro fiscal, PROTECT). Receita = valor_pago - valor_reembolsado na data '
-            'da venda (D20).'
+            'Venda de pacote (registro fiscal, PROTECT). Receita por competencia (D20): valor_pago no mes da '
+            'venda; valor_reembolsado deduz no mes do cancelamento (cancelado_em).'
         )
         indexes = [
             Indice(fields=['cliente', 'status'], name='ix_compra_pacote_cliente_status'),
@@ -161,6 +196,11 @@ class CompraPacote(models.Model):
             Indice(
                 fields=['data_expiracao'], condition=models.Q(status='ATIVO'),
                 name='ix_compra_pacote_data_expiracao_ativo_parcial',
+            ),
+            # reembolsos por mes (financeiro por competencia, vw_faturamento_mensal)
+            Indice(
+                fields=['cancelado_em'], condition=models.Q(cancelado_em__isnull=False),
+                name='ix_compra_pacote_cancelado_em_parcial',
             ),
         ]
         constraints = [
@@ -178,6 +218,19 @@ class CompraPacote(models.Model):
                 & models.Q(valor_reembolsado__lte=models.F('valor_pago')),
                 name='ck_compra_pacote_valor_reembolsado',
             ),
+            # cancelado_em acompanha o status (o reembolso precisa de um mes para deduzir)
+            models.CheckConstraint(
+                condition=(
+                    (models.Q(status=StatusCompraPacote.CANCELADO) & models.Q(cancelado_em__isnull=False))
+                    | (~models.Q(status=StatusCompraPacote.CANCELADO) & models.Q(cancelado_em__isnull=True))
+                ),
+                name='ck_compra_pacote_cancelado_em_coerente',
+            ),
+            # so a compra cancelada devolve dinheiro
+            models.CheckConstraint(
+                condition=models.Q(valor_reembolsado=0) | models.Q(status=StatusCompraPacote.CANCELADO),
+                name='ck_compra_pacote_reembolso_so_cancelado',
+            ),
         ]
 
     # ─── venda ──────────────────────────────────────────────────────────
@@ -186,9 +239,9 @@ class CompraPacote(models.Model):
         """Registra a venda congelando nome e itens do catalogo (atomico).
 
         Cada item vira um CompraPacoteItem com o procedimento, o nome, as sessoes e
-        o valor unitario = valor_pago / total de sessoes (rateio_por_sessao) — base
-        da comissao da sessao de pacote. Editar o catalogo depois so afeta vendas
-        futuras.
+        o valor unitario do rateio ponderado pelo preco de tabela do dia da venda
+        (congelar_itens) — base da comissao da sessao de pacote. Editar o catalogo
+        ou a tabela de precos depois so afeta vendas futuras.
         """
         if not pacote.itens.exists():
             from ..excecoes import RegraDeNegocio
@@ -203,11 +256,24 @@ class CompraPacote(models.Model):
         return compra
 
     def congelar_itens(self):
-        """Copia os itens ATUAIS do catalogo p/ a compra (so na venda; idempotente)."""
+        """Copia os itens ATUAIS do catalogo p/ a compra (so na venda; idempotente).
+
+        Valor unitario = rateio_ponderado pelo preco BASE de tabela de cada procedimento no dia
+        (sem profissional e sem promocao): a sessao de toxina vale mais que a de drenagem e a
+        comissao de cada uma sai proporcional. Sem preco em algum item: rateio uniforme.
+        """
+        from ..utils.datas import hoje
+        from ..utils.precos import preco_para
+
         if self.itens.exists():
             return list(self.itens.all())
         do_catalogo = list(self.pacote.itens.select_related('procedimento').order_by('pk'))
-        unitario = rateio_por_sessao(self.valor_pago, sum(i.quantidade_sessoes for i in do_catalogo))
+        dia = hoje()
+        pesos = []
+        for item in do_catalogo:
+            preco = preco_para(item.procedimento, data=dia)
+            pesos.append((preco.valor if preco else None, item.quantidade_sessoes))
+        unitarios = rateio_ponderado(self.valor_pago, pesos)
         return CompraPacoteItem.objects.bulk_create([
             CompraPacoteItem(
                 compra_pacote=self,
@@ -216,7 +282,7 @@ class CompraPacote(models.Model):
                 quantidade_sessoes=item.quantidade_sessoes,
                 valor_unitario=unitario,
             )
-            for item in do_catalogo
+            for item, unitario in zip(do_catalogo, unitarios, strict=True)
         ])
 
     def save(self, *args, **kwargs):
@@ -229,6 +295,12 @@ class CompraPacote(models.Model):
             self.data_expiracao = (
                 timezone.localdate() + relativedelta(months=self.pacote.validade_meses)
             )
+        if self.status == self.STATUS_CANCELADO and self.cancelado_em is None:
+            # o fluxo real (services.pacotes.cancelar_compra) grava o instante; aqui so o invariante
+            # do ck_compra_pacote_cancelado_em_coerente p/ quem cria/salva a compra ja cancelada
+            self.cancelado_em = timezone.now()
+            if kwargs.get('update_fields') is not None:
+                kwargs['update_fields'] = {*kwargs['update_fields'], 'cancelado_em'}
         super().save(*args, **kwargs)
 
     # ─── saldo (itens congelados) ───────────────────────────────────────
@@ -322,8 +394,8 @@ class CompraPacoteItem(models.Model):
     valor_unitario = models.DecimalField(
         max_digits=10, decimal_places=2,
         db_comment=(
-            'Rateio do valor pago por sessao: round(valor_pago / total de sessoes da compra, 2) '
-            '- base da comissao da sessao de pacote (D20). 0 = item reconstruido pela 0052.'
+            'Valor de 1 sessao: valor pago rateado pelo preco de tabela de cada procedimento no dia da '
+            'venda (uniforme sem preco) - base da comissao da sessao de pacote (D20). 0 = reconstruido pela 0052.'
         ),
     )
     criado_em = models.DateTimeField(default=timezone.now, db_default=Now(), editable=False)

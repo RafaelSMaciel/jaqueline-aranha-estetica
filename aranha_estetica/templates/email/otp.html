@@ -1,26 +1,26 @@
 {% extends "email/base_email.html" %}
 {% block header_sub %}<div style="color:rgba(255,255,255,0.88);font-size:13px;letter-spacing:2.4px;text-transform:uppercase;margin-top:6px;">Código de verificação</div>{% endblock %}
 {% block content %}
-<h1 class="hero-title text-main" style="margin:0 0 12px;color:#2c2418;font-size:26px;font-weight:700;line-height:1.25;">Seu código de acesso</h1>
-<p class="text-soft" style="margin:0 0 28px;color:#6b6256;font-size:15px;line-height:1.6;">
+<h1 class="hero-title text-main" style="margin:0 0 12px;color:{{ cor_texto }};font-size:26px;font-weight:700;line-height:1.25;">Seu código de acesso</h1>
+<p class="text-soft" style="margin:0 0 28px;color:{{ cor_suave }};font-size:15px;line-height:1.6;">
   Use o código abaixo para concluir sua verificação na {{ clinic_name }}. Ele expira em <strong>10 minutos</strong>.
 </p>
 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:8px 0 24px;">
-  <table role="presentation" cellpadding="0" cellspacing="0" align="center" bgcolor="#FFFEF5" class="card-inner" style="background-color:#FFFEF5;background-image:linear-gradient(145deg,#FFFEF5,#FFF4D6);border:2px solid #C4A35A;border-radius:18px;"><tr><td style="padding:24px 48px;text-align:center;">
-    <div class="text-muted" style="color:#8a7e6b;font-size:11px;letter-spacing:3px;text-transform:uppercase;margin-bottom:10px;">Código</div>
-    <div class="otp-code" style="font-family:'SF Mono','Consolas',Menlo,monospace;font-size:40px;font-weight:800;letter-spacing:14px;color:#7a5f1f;line-height:1;">{{ codigo }}</div>
+  <table role="presentation" cellpadding="0" cellspacing="0" align="center" bgcolor="#FFFEF5" class="card-inner" style="background-color:#FFFEF5;background-image:linear-gradient(145deg,#FFFEF5,#FFF4D6);border:2px solid {{ cor_marca }};border-radius:18px;"><tr><td style="padding:24px 48px;text-align:center;">
+    <div class="text-muted" style="color:{{ cor_suave }};font-size:11px;letter-spacing:3px;text-transform:uppercase;margin-bottom:10px;">Código</div>
+    <div class="otp-code" style="font-family:'SF Mono','Consolas',Menlo,monospace;font-size:40px;font-weight:800;letter-spacing:14px;color:{{ cor_marca_texto }};line-height:1;">{{ codigo }}</div>
   </td></tr></table>
 </td></tr></table>
 
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="card-inner" style="background:#fff8ec;border-left:3px solid #C4A35A;border-radius:6px;margin-top:8px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="card-inner" style="background:#fff8ec;border-left:3px solid {{ cor_marca }};border-radius:6px;margin-top:8px;">
 <tr><td style="padding:14px 18px;">
   <p class="text-soft" style="margin:0;color:#6b5324;font-size:13px;line-height:1.5;">
     <strong>Nunca compartilhe</strong> este código. Nossa equipe jamais solicita o código por telefone ou WhatsApp.
   </p>
 </td></tr></table>
 
-<p class="text-muted" style="margin:24px 0 0;color:#8a7e6b;font-size:12px;line-height:1.6;">
+<p class="text-muted" style="margin:24px 0 0;color:{{ cor_suave }};font-size:12px;line-height:1.6;">
   Não foi você que solicitou? Ignore este email &mdash; seu acesso continua seguro.
 </p>
 {% endblock %}

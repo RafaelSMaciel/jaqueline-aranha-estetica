@@ -1,0 +1,96 @@
+{% extends 'painel/base_v2.html' %}
+
+{% block titulo %}Regras de comissão — {{ CLINIC_NAME }}{% endblock %}
+{% block page_title %}Regras de comissão{% endblock %}
+{% block page_subtitle %}A regra mais específica vence; regra já usada não muda, só é desativada{% endblock %}
+{% block page_actions %}
+<a href="{% url 'aranha:painel_comissoes' %}"
+   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold border border-borda text-texto-suave no-underline hover:text-texto transition-colors">Voltar às comissões</a>
+{% endblock %}
+
+{% block admin_content %}
+
+{% if sem_regra_comissao %}
+<div class="bg-aviso-fundo border-l-4 border-aviso rounded-xl px-4 py-3 mb-4 text-[0.85rem] text-texto" role="status">
+  <strong class="text-aviso">Nenhuma regra ativa:</strong> nenhum atendimento realizado gera comissão até você cadastrar uma.
+</div>
+{% endif %}
+
+{# ── Nova regra ── #}
+<div class="bg-superficie rounded-2xl shadow-sm p-4 mb-4">
+  <h2 class="text-base font-bold text-texto mb-1">Nova regra</h2>
+  <p class="text-[0.75rem] text-texto-suave mb-3">Deixe profissional ou procedimento em branco para valer para todos. Informe o percentual <strong>ou</strong> o valor fixo. A base é o valor cobrado do atendimento avulso ou o valor da sessão do pacote; a comissão nunca passa da base.</p>
+  <form method="POST" action="{% url 'aranha:admin_comissao_regra_criar' %}" class="grid grid-cols-1 sm:grid-cols-5 gap-2 items-end">
+    {% csrf_token %}
+    <div>
+      <label for="regraProf" class="block text-[0.72rem] font-bold text-texto-suave mb-1">Profissional</label>
+      <select id="regraProf" name="profissional" class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo">
+        <option value="">Qualquer profissional</option>
+        {% for p in form.fields.profissional.queryset %}<option value="{{ p.pk }}">{{ p.nome }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="regraProc" class="block text-[0.72rem] font-bold text-texto-suave mb-1">Procedimento</label>
+      <select id="regraProc" name="procedimento" class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo">
+        <option value="">Qualquer procedimento</option>
+        {% for p in form.fields.procedimento.queryset %}<option value="{{ p.pk }}">{{ p.nome }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="regraPerc" class="block text-[0.72rem] font-bold text-texto-suave mb-1">Percentual (%)</label>
+      <input id="regraPerc" type="text" name="percentual" inputmode="decimal" placeholder="Ex.: 30"
+             class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo">
+    </div>
+    <div>
+      <label for="regraValor" class="block text-[0.72rem] font-bold text-texto-suave mb-1">ou valor fixo (R$)</label>
+      <input id="regraValor" type="text" name="valor" inputmode="decimal" placeholder="Ex.: 50,00"
+             class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo">
+    </div>
+    <button type="submit" class="px-4 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.85rem] font-semibold hover:opacity-90 transition">Criar regra</button>
+  </form>
+</div>
+
+{# ── Regras ── #}
+<div class="bg-superficie rounded-2xl shadow-sm overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-[0.85rem]">
+      <thead>
+        <tr class="text-texto-suave text-[0.75rem] uppercase tracking-wide border-b border-borda">
+          <th scope="col" class="text-left font-bold px-4 py-2">Vale para</th>
+          <th scope="col" class="text-left font-bold px-4 py-2">Especificidade</th>
+          <th scope="col" class="text-right font-bold px-4 py-2">Comissão</th>
+          <th scope="col" class="text-right font-bold px-4 py-2">Usos</th>
+          <th scope="col" class="text-left font-bold px-4 py-2">Situação</th>
+          <th scope="col" class="px-4 py-2"><span class="sr-only">Ações</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in regras %}
+        <tr class="border-t border-borda text-texto{% if not r.ativo %} text-texto-suave{% endif %}">
+          <td class="px-4 py-2">{{ r.profissional.nome|default:"Qualquer profissional" }} · {{ r.procedimento.nome|default:"qualquer procedimento" }}</td>
+          <td class="px-4 py-2">{{ r.get_especificidade_display }}</td>
+          <td class="px-4 py-2 text-right tabular-nums">{% if r.percentual is not None %}{{ r.percentual }}%{% else %}{{ r.valor|brl }}{% endif %}</td>
+          <td class="px-4 py-2 text-right tabular-nums">{{ r.usos }}</td>
+          <td class="px-4 py-2">{% if r.ativo %}<span class="font-bold text-sucesso">Ativa</span>{% else %}Desativada{% endif %}</td>
+          <td class="px-4 py-2 text-right whitespace-nowrap">
+            <form method="POST" action="{% url 'aranha:admin_comissao_regra_ativo' r.pk %}" class="inline">
+              {% csrf_token %}
+              <button type="submit" class="px-3 py-1 rounded-lg border border-borda text-[0.78rem] font-bold text-texto-suave hover:text-texto bg-transparent cursor-pointer">{% if r.ativo %}Desativar{% else %}Reativar{% endif %}</button>
+            </form>
+            {% if not r.usos %}
+            <form method="POST" action="{% url 'aranha:admin_comissao_regra_excluir' r.pk %}" class="inline">
+              {% csrf_token %}
+              <button type="submit" data-confirm="Excluir esta regra (nunca usada)?" class="px-3 py-1 rounded-lg border border-borda text-[0.78rem] font-bold text-erro bg-transparent cursor-pointer">Excluir</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-texto-suave text-center px-4 py-6">Nenhuma regra cadastrada.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="text-[0.72rem] text-texto-suave px-4 py-3 border-t border-borda">Ordem de prioridade: profissional + procedimento &gt; profissional &gt; procedimento &gt; geral; no empate, a atualizada por último. Para mudar o percentual de uma regra já usada, desative-a e crie outra: cada comissão guarda a base e o percentual aplicados.</p>
+</div>
+{% endblock %}

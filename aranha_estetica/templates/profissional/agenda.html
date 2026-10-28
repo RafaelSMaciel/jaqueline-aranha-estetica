@@ -1,4 +1,4 @@
-{% extends 'estrutura/base_v2.html' %}
+{% extends 'profissional/base.html' %}
 {% load static painel_tags django_vite %}
 
 {% block titulo %}Minha Agenda | {{ CLINIC_NAME }}{% endblock %}
@@ -7,21 +7,14 @@
 {# webpush.js le o token daqui: o cookie csrftoken e HttpOnly (sem ele o POST de inscricao da 403) #}
 <meta name="csrf-token" content="{{ csrf_token }}">
 <style nonce="{{ csp_nonce }}">
-    /* Status border colors */
-    .atn-card-CONFIRMADO { border-left-color: #4caf50; }
-    .atn-card-REALIZADO  { border-left-color: #1565c0; }
-    .atn-card-CANCELADO  { border-left-color: #c62828; opacity: 0.6; }
-    .atn-card-FALTOU     { border-left-color: #7b1fa2; opacity: 0.6; }
-    .atn-card-REAGENDADO { border-left-color: #ff8f00; opacity: 0.6; }
-    .atn-card-PENDENTE   { border-left-color: #f9a825; background: rgba(249, 168, 37, 0.08); }
-
-    /* Status badge colors */
-    .badge-AGENDADO   { background: #fff8e1; color: #f57f17; }
-    .badge-CONFIRMADO { background: #e8f5e9; color: #2e7d32; }
-    .badge-REALIZADO  { background: #e3f2fd; color: #1565c0; }
-    .badge-CANCELADO  { background: #fce4ec; color: #c62828; }
-    .badge-FALTOU     { background: #f3e5f5; color: #7b1fa2; }
-    .badge-REAGENDADO { background: #fff3e0; color: #ff8f00; }
+    /* Borda do card na cor do status: mesma paleta dos selos (tokens --st-*, claro/escuro) */
+    .atn-card-AGENDADO   { border-left-color: var(--st-agendado-texto); }
+    .atn-card-CONFIRMADO { border-left-color: var(--st-confirmado-texto); }
+    .atn-card-REALIZADO  { border-left-color: var(--st-realizado-texto); }
+    .atn-card-CANCELADO  { border-left-color: var(--st-cancelado-texto); opacity: 0.6; }
+    .atn-card-FALTOU     { border-left-color: var(--st-faltou-texto); opacity: 0.6; }
+    .atn-card-REAGENDADO { border-left-color: var(--st-reagendado-texto); opacity: 0.6; }
+    .atn-card-PENDENTE   { border-left-color: var(--st-pendente-texto); background: var(--st-pendente-fundo); }
 
     @media (max-width: 768px) {
         .week-grid { grid-template-columns: 1fr !important; }
@@ -61,6 +54,11 @@
                 Ativar avisos
             </button>
             {% endif %}
+            <a href="{% url 'aranha:profissional_comissoes' %}"
+               class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-borda bg-superficie
+                      text-texto-suave hover:text-texto font-bold text-sm no-underline transition-colors">
+                Minhas comissões
+            </a>
             {# Feed ICS da propria agenda: gerar = revogar o link anterior (o token so aparece na geracao) #}
             <form method="post" action="{% url 'aranha:profissional_link_calendario' %}" class="m-0"
                   data-confirm="Gerar um novo link do calendário? Se você já assinou um link antes, ele deixará de funcionar.">
@@ -74,17 +72,6 @@
                     Link do calendário
                 </button>
             </form>
-            <form method="post" action="{% url 'aranha:usuario_logout' %}" class="m-0">
-                {% csrf_token %}
-                <button type="submit"
-                        class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-borda bg-superficie
-                               text-texto-suave hover:text-texto font-bold text-sm cursor-pointer transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
-                    </svg>
-                    Sair
-                </button>
-            </form>
         </div>
     </div>
 
@@ -96,7 +83,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
             </svg>
             Aguardando sua aprovação
-            <span class="bg-yellow-400 text-white rounded-full w-5 h-5 inline-flex items-center justify-center text-xs font-bold">{{ pendentes|length }}</span>
+            <span class="bg-aviso text-superficie rounded-full w-5 h-5 inline-flex items-center justify-center text-xs font-bold">{{ pendentes|length }}</span>
         </div>
         {% for p in pendentes %}
         <div class="bg-superficie rounded-lg px-4 py-3 mb-2 flex flex-wrap items-center gap-3 shadow-sm last:mb-0">
@@ -116,7 +103,7 @@
                     {% csrf_token %}
                     <input type="hidden" name="next" value="{{ request.get_full_path }}">
                     <button type="submit"
-                            class="bg-green-700 hover:bg-green-900 text-white text-xs font-bold
+                            class="bg-sucesso-forte hover:opacity-90 text-sobre-sucesso text-xs font-bold
                                    px-3 py-2 rounded-lg inline-flex items-center gap-1 cursor-pointer transition-colors"
                             data-confirm="Aprovar agendamento?">
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
@@ -209,9 +196,7 @@
                 {% include 'partials/_alerta_saude.html' with alertas=atd.alertas %}
                 {% if atd.termo_pendente %}{% include 'profissional/_termo_pendente.html' %}{% endif %}
                 {% if atd.ficha_pendente %}{% include 'partials/_ficha_pendente.html' %}{% endif %}
-                <span class="inline-block text-xs font-black uppercase px-2 py-0.5 rounded mt-1 badge-{{ atd.status }}">
-                    {{ atd.get_status_display }}
-                </span>
+                <div class="mt-1">{% include 'partials/_status_badge.html' with status=atd.status %}</div>
             </div>
             <div class="atn-actions flex gap-2 flex-shrink-0">
                 {% if atd.status == 'AGENDADO' or atd.status == 'CONFIRMADO' %}{% if atd.data_hora_inicio <= limite_desfecho %}

@@ -17,12 +17,12 @@
 
 {# ── Formulário de criação ── #}
 <div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
-  <h3 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-4">
-    <svg class="w-4 h-4 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+  <h2 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-4">
+    <svg class="w-4 h-4 text-marca-forte" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
     </svg>
     Publicar nova versão
-  </h3>
+  </h2>
   <p class="text-[0.78rem] text-texto-suave -mt-2 mb-4">Ao publicar, a versão ativa do mesmo tipo (e procedimento) é arquivada e os clientes passam a ter a nova versão pendente de aceite.</p>
   <form method="post" action="{% url 'aranha:admin_criar_termo' %}">
     {% csrf_token %}
@@ -30,7 +30,7 @@
       <div>
         <label for="tipo_termo" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Tipo</label>
         <select name="tipo" id="tipo_termo"
-                class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+                class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
           <option value="LGPD">LGPD / Privacidade</option>
           <option value="PROCEDIMENTO">Procedimento</option>
         </select>
@@ -38,7 +38,7 @@
       <div id="proc_group" style="display:none;">
         <label for="procedimento_select" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Procedimento</label>
         <select name="procedimento_id" id="procedimento_select"
-                class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+                class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
           <option value="">Geral (vale para todos os procedimentos)</option>
           {% for p in procedimentos %}
           <option value="{{ p.pk }}">{{ p.nome }}</option>
@@ -50,28 +50,28 @@
       <label for="titulo_input" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Título</label>
       <input type="text" name="titulo" id="titulo_input" required
              placeholder="Ex: Termo de Consentimento para Peeling"
-             class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo placeholder-texto-suave outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+             class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo placeholder-texto-suave transition">
     </div>
     <div class="mb-3">
       <label for="conteudo_input" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Conteúdo</label>
       <textarea name="conteudo" id="conteudo_input" rows="5" required
                 placeholder="Texto completo do termo..."
-                class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo placeholder-texto-suave outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition resize-y"></textarea>
+                class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo placeholder-texto-suave transition resize-y"></textarea>
     </div>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
       <div>
         <label for="versao_input" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Versão</label>
         <input type="text" name="versao" id="versao_input" value="1.0" required
-               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
       </div>
       <div>
         <label for="vigente_desde_input" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Vigente Desde</label>
         <input type="date" name="vigente_desde" id="vigente_desde_input"
-               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
       </div>
     </div>
     <button type="submit"
-            class="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
+            class="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
       </svg>
@@ -108,12 +108,12 @@
 </div>
 {% empty %}
 <div class="bg-superficie rounded-2xl p-12 text-center shadow-sm">
-  <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
-    <svg class="w-7 h-7 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+  <div class="w-16 h-16 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mx-auto mb-4">
+    <svg class="w-7 h-7 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
     </svg>
   </div>
-  <h5 class="font-bold text-texto mb-1">Nenhum termo cadastrado</h5>
+  <p class="font-serif font-bold text-texto mb-1">Nenhum termo cadastrado</p>
   <p class="text-[0.85rem] text-texto-suave">Use o formulário acima para cadastrar o primeiro termo.</p>
 </div>
 {% endfor %}
