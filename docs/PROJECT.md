@@ -91,7 +91,7 @@ aranha_estetica/
 │                    pii, captcha, datas, parse, busca (trigram no PG), audit, recorrencia (RRULE do
 │                    subconjunto), nps (calculo unico, meio p/ cima), banco (GUCs app.* e CALL das
 │                    procedures)
-├── forms/           cliente.py (ClientePainelForm)
+├── forms/           cliente.py (ClientePainelForm), painel.py (ProcedimentoForm, BloqueioForm, TermoForm, parse_preco)
 ├── management/commands/  seed, bootstrap_admin, migrate_atomico, setup_2fa, carregar_feriados
 ├── templatetags/    painel_tags, atendimento_tags, gcal_tags, dict_extras
 ├── templates/       estrutura/, cotton/, publico/, agenda/, servicos/, painel/, profissional/,
@@ -1087,6 +1087,8 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 ## 15. Convenções de código
 
 - Regra de negócio em `services/`/`utils/`, não em view; mudança de status só pela FSM.
+- Entrada de formulário do painel = Django Form (`forms/`), não `request.POST.get` campo a campo;
+  erro vira `messages.error` por `forms.painel.avisar_erros`.
 - Recusa de regra = `excecoes.RegraDeNegocio` com mensagem pronta para a tela (nunca `None`/
   `False`/exceção privada da view); horário de atendimento só por `services/agenda`.
 - Toda escrita multi-tabela em `transaction.atomic`; I/O externo (e-mail, WhatsApp, push) só no

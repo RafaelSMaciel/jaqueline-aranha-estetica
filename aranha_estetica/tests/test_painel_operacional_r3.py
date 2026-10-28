@@ -211,7 +211,7 @@ class EmailPreviewTests(_AdminTestCase):
 # ─── Valores com teto (sem 500) ───────────────────────────────────────
 class ValorComTetoTests(_AdminTestCase):
     def test_parser_recusa_magnitude_e_lixo(self):
-        from aranha_estetica.views.admin_management import _parse_preco
+        from aranha_estetica.forms.painel import parse_preco as _parse_preco
         for valor in ('1e30', '1e26', '9' * 30, '123456789', 'NaN', 'inf', '-1', 'abc'):
             with self.assertRaises(ValueError, msg=valor):
                 _parse_preco(valor)
