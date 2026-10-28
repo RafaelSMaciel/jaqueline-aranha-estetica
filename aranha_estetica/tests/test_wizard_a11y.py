@@ -5,7 +5,7 @@ foram verificados no browser. Estes testes travam o que e' testavel no server:
 a11y de teclado (cards = <button>) e a remocao do Bootstrap (re-skin base_v2).
 """
 
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 
 from .factories import criar_procedimento, criar_profissional
@@ -38,3 +38,24 @@ class WizardMigracaoTests(TestCase):
         html = self._html()
         self.assertIn('js/wizard.js', html)
         self.assertIn('WIZARD_CFG', html)  # config dos URLs Django
+
+
+class ContrasteDouradoTests(SimpleTestCase):
+    """Texto sobre o dourado (marca-forte) usa --cor-sobre-marca (7,15:1); branco dava 2,29:1
+    no botao de concluir, no passo atual e nos itens selecionados do agendamento."""
+
+    def test_sem_branco_sobre_o_dourado_no_agendamento(self):
+        import re
+        from pathlib import Path
+
+        from django.conf import settings
+
+        base = Path(settings.BASE_DIR) / 'aranha_estetica'
+        regra = re.compile(r'background:\s*var\(--(gold|cor-marca-forte)[^;{}]*;[^{}]*?color:\s*(white|#fff)\b', re.I)
+        for rel in ('templates/agenda/agendamento_publico.html', 'templates/agenda/reagendar.html'):
+            with self.subTest(arquivo=rel):
+                self.assertIsNone(regra.search((base / rel).read_text(encoding='utf-8')))
+        js = (base / 'static' / 'js' / 'wizard.js').read_text(encoding='utf-8')
+        self.assertNotIn("style.color = 'white'", js)
+        self.assertIn('var(--cor-sobre-marca)', js)
+
