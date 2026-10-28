@@ -21,6 +21,7 @@ from ..utils.nps import resumo_nps
 from ..utils.datas import fmt_local, hoje as hoje_local
 from ..utils.parse import id_int
 from ..utils.saude import alertas_saude
+from ..utils.datas import ler_data
 
 
 def _inicio_do_dia(d):
@@ -194,7 +195,7 @@ def painel_agendamentos(request):
 
     if data_filter:
         try:
-            data = datetime.strptime(data_filter, '%Y-%m-%d').date()
+            data = ler_data(data_filter)
             agendamentos = agendamentos.filter(data_hora_inicio__date=data)
         except ValueError:
             pass

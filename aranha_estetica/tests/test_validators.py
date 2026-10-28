@@ -3,6 +3,7 @@ from datetime import date, timedelta
 
 from django.core.exceptions import ValidationError
 from django.test import SimpleTestCase
+from django.utils import timezone
 
 from aranha_estetica.validators import (
     MSG_TELEFONE_INVALIDO,
@@ -103,20 +104,20 @@ class DataNascimentoTests(SimpleTestCase):
 
     def test_data_futura_falha(self):
         with self.assertRaises(ValidationError):
-            validate_data_nascimento(date.today() + timedelta(days=1))
+            validate_data_nascimento(timezone.localdate() + timedelta(days=1))
 
     def test_idade_excessiva_falha(self):
         with self.assertRaises(ValidationError):
-            validate_data_nascimento(date.today() - timedelta(days=151 * 365))
+            validate_data_nascimento(timezone.localdate() - timedelta(days=151 * 365))
 
 
 class MaiorIdadeTests(SimpleTestCase):
     def test_maior_idade_ok(self):
-        validate_maior_idade(date.today() - timedelta(days=20 * 365))
+        validate_maior_idade(timezone.localdate() - timedelta(days=20 * 365))
 
     def test_menor_idade_falha(self):
         with self.assertRaises(ValidationError):
-            validate_maior_idade(date.today() - timedelta(days=10 * 365))
+            validate_maior_idade(timezone.localdate() - timedelta(days=10 * 365))
 
 
 class ValorPositivoTests(SimpleTestCase):

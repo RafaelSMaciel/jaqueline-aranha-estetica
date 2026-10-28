@@ -1,4 +1,4 @@
-"""Testes do job_expirar_pacotes (Celery task)."""
+"""Testes do job_expirar_pacotes (rodar_job expirar_pacotes)."""
 from datetime import datetime, time, timedelta
 
 from unittest import skipUnless

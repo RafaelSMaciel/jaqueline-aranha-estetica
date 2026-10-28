@@ -48,7 +48,7 @@ from ..utils.formatos import formatar_brl
 from ..services.anamnese import validar_respostas
 from ..utils.audit import registrar_log
 from ..utils.captcha import turnstile_enabled, turnstile_site_key
-from ..utils.datas import hoje as hoje_local
+from ..utils.datas import hoje as hoje_local, ler_data
 from ..utils.email import email_configurado
 from ..utils.parse import id_int
 from ..utils.pii import mask_email, mask_telefone
@@ -333,7 +333,7 @@ def confirmar_agendamento(request):
             return _voltar_com_erro(request, 'Informe um e-mail válido ou deixe o campo em branco.')
 
     try:
-        data_nascimento = datetime.strptime(data_nascimento_str, '%Y-%m-%d').date()
+        data_nascimento = ler_data(data_nascimento_str)
         validate_data_nascimento(data_nascimento)
     except (ValueError, ValidationError):
         return _voltar_com_erro(request, 'Data de nascimento inválida.')

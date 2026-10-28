@@ -158,7 +158,7 @@ class Remodelagem0034a0037Tests(_MigracaoBase):
         self.pend_vencido = atend(curto, passado + timedelta(minutes=15), status='PENDENTE')
 
         # 0034: termo/preco/promocao/lista duplicados ou fora do CHECK
-        hoje = date.today()
+        hoje = timezone.localdate()
         self.termo_v1 = VersaoTermo.objects.create(tipo='LGPD', titulo='v1', conteudo='.', versao='1',
                                                    vigente_desde=hoje - timedelta(days=30), ativa=True)
         self.termo_v2 = VersaoTermo.objects.create(tipo='LGPD', titulo='v2', conteudo='.', versao='2',
@@ -530,7 +530,7 @@ class TermoSaudeReembolsoPromocao0047Tests(_MigracaoBase):
         # a reversa da 0047 apagou o SAUDE do banco de teste (sem aceite)
         self.assertFalse(apps.get_model(APP, 'VersaoTermo').objects.filter(tipo='SAUDE').exists())
 
-        hoje = date.today()
+        hoje = timezone.localdate()
         datas = {'data_inicio': hoje, 'data_fim': hoje + timedelta(days=10)}
         proc = Procedimento.objects.create(nome='Peeling', duracao_minutos=30)
         # geral de preco fixo: ignorada no preco (utils.precos), mas ativa no site

@@ -24,6 +24,7 @@ from ..services import links
 from ..services.disponibilidade import SlotService, profissionais_para
 from ..utils.parse import id_int
 from ..utils.precos import preco_com_promocao
+from ..utils.datas import ler_data
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +110,7 @@ def api_horarios_disponiveis(request):
         return JsonResponse({'erro': 'Parâmetros obrigatórios: data, procedimento_id'}, status=400)
 
     try:
-        data_selecionada = datetime.strptime(data_str, '%Y-%m-%d').date()
+        data_selecionada = ler_data(data_str)
     except ValueError:
         return JsonResponse({'erro': 'Data inválida'}, status=400)
 

@@ -24,6 +24,7 @@ from ..models.agendamentos import STATUS_FINALIZADOS
 from ..excecoes import RegraDeNegocio, TransicaoInvalida
 from ..services import agenda, comunicacao, links
 from ..services.agendamento_service import formatar_data_hora
+from ..utils.datas import ler_data
 from ..utils.formatos import formatar_brl
 from ..services.disponibilidade import profissionais_para
 from ..utils.audit import registrar_log
@@ -132,7 +133,7 @@ def _horarios(request, atendimento):
     if motivo:
         return JsonResponse({'erro': motivo}, status=400)
     try:
-        dia = datetime.strptime(request.GET.get('data', ''), '%Y-%m-%d').date()
+        dia = ler_data(request.GET.get('data', ''))
     except ValueError:
         return JsonResponse({'erro': 'Data inválida'}, status=400)
 

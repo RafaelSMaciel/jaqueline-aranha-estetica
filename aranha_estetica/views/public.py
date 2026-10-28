@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime
 
 from django.conf import settings
 from django.contrib import messages
@@ -27,6 +26,7 @@ from ..utils.email import email_configurado
 from ..utils.pii import mask_email
 from ..utils.precos import _promocao_aplicavel, aplicar_promocao, preco_base_map, promocao_vigente
 from ..validators import normalizar_telefone, validate_telefone_br
+from ..utils.datas import ler_data
 
 logger = logging.getLogger(__name__)
 
@@ -555,7 +555,7 @@ def lista_espera_publica(request):
             profissional = None
 
     try:
-        data_obj = datetime.strptime(data_desejada, '%Y-%m-%d').date()
+        data_obj = ler_data(data_desejada)
     except ValueError:
         return _erro('Data inválida.')
 

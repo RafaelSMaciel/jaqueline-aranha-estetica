@@ -1,6 +1,5 @@
 """Settings base — compartilhados entre dev e prod."""
 import os
-import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -207,19 +206,6 @@ else:
             }
         }
 
-# Test DB — SQLite (rapido) por padrao. TEST_DATABASE_URL=postgres://... roda a
-# suite no Postgres (CI): DDL/CHECK/EXCLUDE/trigger das migrations so existem la.
-if 'test' in sys.argv or 'test_coverage' in sys.argv:
-    _test_db_url = os.environ.get('TEST_DATABASE_URL', '').strip()
-    if _test_db_url:
-        DATABASES['default'] = dj_database_url.parse(_test_db_url)
-    else:
-        DATABASES['default'] = {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db_test.sqlite3',
-        }
-
-
 # ─── AUTH ────────────────────────────────────────────────────────────
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -325,12 +311,6 @@ DJANGO_VITE = {
         'manifest_path': BASE_DIR / 'aranha_estetica' / 'static' / 'dist' / 'manifest.json',
     },
 }
-
-# Em testes, forcar dev_mode p/ que vite_asset nao precise do manifest.json no disco.
-# Em dev_mode, as tags emitem URLs apontando p/ dev server (sem ler manifest.json).
-if 'test' in sys.argv or 'test_coverage' in sys.argv:
-    DJANGO_VITE['default']['dev_mode'] = True
-
 
 # ─── SECURITY BASE ───────────────────────────────────────────────────
 X_FRAME_OPTIONS = 'DENY'

@@ -7,7 +7,11 @@ from unittest import skipUnless
 from django.test import SimpleTestCase
 
 from aranha_estetica.utils.pii import (
+    mask_cpf,
+    mask_email,
+    mask_telefone,
     redigir_texto,
+    redigir_tokens_url,
     sentry_before_breadcrumb,
     sentry_before_send,
     sentry_before_send_transaction,
@@ -111,3 +115,38 @@ class OpcoesSentryTests(SimpleTestCase):
         self.assertNotIn('dipirona', bruto)
         self.assertNotIn('asma', bruto)
         self.assertNotIn('gestante', bruto)
+
+
+class MascarasTests(SimpleTestCase):
+    """Mascaras deterministas p/ log/Sentry: prefixo e sufixo p/ depurar, corpo oculto."""
+
+    def test_email(self):
+        self.assertEqual(mask_email('joao.silva@gmail.com'), 'jo***@gmail.com')
+        self.assertEqual(mask_email(' ab@x.com '), 'a***@x.com')
+        self.assertEqual(mask_email('sem-arroba'), '***')
+        self.assertEqual(mask_email(None), '')
+
+    def test_telefone(self):
+        self.assertEqual(mask_telefone('(17) 99999-0000'), '17****0000')
+        self.assertEqual(mask_telefone('123'), '***')
+        self.assertEqual(mask_telefone(''), '')
+
+    def test_cpf(self):
+        self.assertEqual(mask_cpf('123.456.789-00'), '123*****00')
+        self.assertEqual(mask_cpf('1234'), '***')
+        self.assertEqual(mask_cpf(None), '')
+
+    def test_tokens_url(self):
+        self.assertEqual(redigir_tokens_url(f'/nps/{TOKEN}/'), '/nps/[token]/')
+        self.assertEqual(redigir_tokens_url('/nps/obrigado/'), '/nps/obrigado/')
+        self.assertEqual(redigir_tokens_url(None), '')
+
+    def test_extra_com_chave_pessoal_sai_mascarado(self):
+        evento = sentry_before_send({'extra': {
+            'email': 'maria.silva@gmail.com', 'cpf': '12345678900', 'nome': 'Maria',
+            'telefone': '17991234567', 'destinatario': 'ana@x.com', 'tentativas': 3,
+        }}, {})
+        self.assertEqual(evento['extra'], {
+            'email': 'ma***@gmail.com', 'cpf': '123*****00', 'nome': 'M***',
+            'telefone': '17****4567', 'destinatario': 'an***@x.com', 'tentativas': 3,
+        })
