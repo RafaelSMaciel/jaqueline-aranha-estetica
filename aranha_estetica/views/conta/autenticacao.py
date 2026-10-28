@@ -10,7 +10,6 @@ from django.contrib.auth.views import (
     PasswordResetView, PasswordResetDoneView,
     PasswordResetConfirmView, PasswordResetCompleteView,
 )
-from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponseRedirect
 from django.shortcuts import redirect, render
@@ -26,45 +25,10 @@ from ...utils.branding import get_branding
 # Contrato unico de "e-mail sai de verdade" (sem provedor, links de senha NAO
 # podem ir para o log — falha fechada).
 from ...utils.email import email_configurado
-from ...utils.seguranca import client_ip
+from ...utils.pii import mask_email
+from ...utils.seguranca import client_ip, safe_next
 
 logger = logging.getLogger(__name__)
-
-
-LOGIN_RL_MAX_ATTEMPTS = 5
-LOGIN_RL_WINDOW = 60
-
-
-def _login_rl_key(request):
-    ip = client_ip(request) or '0.0.0.0'
-    return f'login_attempts_{ip}'
-
-
-def _check_rate_limit(request, max_attempts=LOGIN_RL_MAX_ATTEMPTS):
-    """Verifica (sem incrementar) se o IP excedeu as tentativas FALHAS de login.
-
-    O contador so e incrementado em falha de autenticacao (ver
-    _register_failed_login); logins bem-sucedidos nao contam, evitando
-    falso-positivo de bloqueio para uma recepcao que alterna varias contas.
-    """
-    try:
-        attempts = cache.get(_login_rl_key(request), 0)
-        return attempts >= max_attempts
-    except Exception:
-        # Cache indisponivel: nao bloquear (django-axes + @ratelimit ainda cobrem),
-        # mas registrar para nao desativar a protecao silenciosamente.
-        logger.warning('login_rate_limit_cache_indisponivel', exc_info=True)
-        return False
-
-
-def _register_failed_login(request, window=LOGIN_RL_WINDOW):
-    """Incrementa o contador de tentativas falhas para o IP."""
-    try:
-        cache_key = _login_rl_key(request)
-        attempts = cache.get(cache_key, 0)
-        cache.set(cache_key, attempts + 1, window)
-    except Exception:
-        logger.warning('login_rate_limit_cache_indisponivel', exc_info=True)
 
 
 # ─── Quem entra e para onde vai ───
@@ -92,7 +56,7 @@ def destino_padrao(usuario) -> str:
 def _next_permitido(request, usuario):
     """?next= validado (open redirect) e compativel com o papel; None se descartado."""
     raw = request.POST.get('next') or request.GET.get('next')
-    nxt = dois_fatores.safe_next(request, raw, None)
+    nxt = safe_next(request, raw, None)
     if not nxt or nxt.startswith(reverse('aranha:usuario_login')):
         return None
     # Profissional so navega no proprio portal (evita loop /painel/ <-> login)
@@ -105,17 +69,16 @@ def _next_permitido(request, usuario):
 @ratelimit(key='post:username', rate='5/m', method='POST', block=True)
 @require_http_methods(["GET", "POST"])
 def usuario_login(request):
-    """Login da equipe: ADMIN -> painel; PROFISSIONAL -> portal /profissional/."""
+    """Login da equipe: ADMIN -> painel; PROFISSIONAL -> portal /profissional/.
+
+    Forca bruta: o django-axes bloqueia por IP+usuario e por IP (settings AXES_LOCKOUT_PARAMETERS)
+    e os dois @ratelimit freiam rajadas por IP e por usuario (429). O 2FA obrigatorio fecha o resto.
+    """
     # Ja logado: segue p/ o ?next= validado ou p/ a area do papel
     if request.user.is_authenticated and pode_acessar(request.user):
         return redirect(_next_permitido(request, request.user) or destino_padrao(request.user))
 
     if request.method == 'POST':
-        # SEGURANÇA: Rate limiting — bloquear após 5 tentativas por minuto
-        if _check_rate_limit(request):
-            messages.error(request, 'Muitas tentativas de login. Aguarde um momento e tente novamente.')
-            return redirect('aranha:usuario_login')
-
         email = request.POST.get('username', '').strip()
         senha = request.POST.get('password', '')
 
@@ -148,11 +111,7 @@ def usuario_login(request):
                 return redirect(f'{setup}?{urlencode({"next": destino})}')
             return redirect(destino)
 
-        # SEGURANÇA: contar apenas tentativas FALHAS para o rate-limit por IP
-        _register_failed_login(request)
-        # SEGURANÇA: Log sem PII (apenas últimos 4 chars do email para rastreabilidade)
-        email_masked = f'***{email[-4:]}' if len(email) > 4 else '***'
-        logger.warning(f'Login falho para: {email_masked} | IP: {client_ip(request)}')
+        logger.warning('login_falho', extra={'email': mask_email(email), 'ip': client_ip(request)})
         messages.error(request, 'Credenciais inválidas ou acesso não autorizado.')
         return redirect('aranha:usuario_login')
 
@@ -210,12 +169,11 @@ class ClinicaPasswordResetView(PasswordResetView):
         ip = client_ip(self.request) or None
         # Hash estavel entre processos (hash() builtin tem seed aleatorio por processo)
         email_hash = hashlib.sha256(email.encode()).hexdigest()[:12]
-        email_masked = f'***{email[-4:]}' if len(email) > 4 else '***'
         logger.info('password_reset_requested', extra={'email_hash': email_hash, 'ip': ip})
         # PII mascarada: nao persistir email em claro na trilha de auditoria.
         # registrar_log grava o IP (client_ip) e nunca derruba a requisicao.
         registrar_log(
-            None, f'Solicitacao de reset de senha (email: {email_masked})', 'usuario',
+            None, f'Solicitacao de reset de senha (email: {mask_email(email)})', 'usuario',
             request=self.request,
         )
 

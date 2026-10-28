@@ -1,5 +1,4 @@
 """Jobs periodicos: registro, agenda, trava diaria, housekeeping e feriados (SQLite)."""
-import os
 from datetime import date, datetime, timedelta
 from io import StringIO
 from unittest import mock
@@ -78,7 +77,7 @@ class TravaDiariaTests(TestCase):
                 jobs.executar('aniversario')
         self.assertEqual(ExecucaoJob.objects.get(job='aniversario').resultado, 'erro: RuntimeError')
 
-    @mock.patch.dict(os.environ, {'CRON_TOKEN': 'segredo-cron'})
+    @override_settings(CRON_TOKEN='segredo-cron')
     def test_cron_http_responde_409_na_segunda_chamada(self):
         primeira = self.client.post('/cron/run/aniversario/', HTTP_X_CRON_TOKEN='segredo-cron')
         segunda = self.client.post('/cron/run/aniversario/', HTTP_X_CRON_TOKEN='segredo-cron')
@@ -151,7 +150,7 @@ class HousekeepingIsolamentoTests(TestCase):
                 self.assertRaisesMessage(RuntimeError, 'links'):
             jobs_manutencao.job_housekeeping()
 
-    @mock.patch.dict(os.environ, {'CRON_TOKEN': 'segredo-cron'})
+    @override_settings(CRON_TOKEN='segredo-cron')
     def test_cron_http_da_500_quando_uma_etapa_falha(self):
         etapas = [('a', mock.Mock(side_effect=OSError('disco')))]
         with mock.patch.object(jobs_manutencao, 'ETAPAS_HOUSEKEEPING', etapas):

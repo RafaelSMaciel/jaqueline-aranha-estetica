@@ -23,7 +23,7 @@ def _amanha_as(hora=14):
 
 
 @override_settings(DEBUG=False, SITE_URL='https://clinica.example.com', EMAIL_BACKEND=LOCMEM)
-@mock.patch.dict('os.environ', WHATSAPP_OK)
+@override_settings(**WHATSAPP_OK)
 class LembreteD1Tests(TestCase):
     def setUp(self):
         self.prof = criar_profissional(nome='Dra. Jaqueline')
@@ -80,7 +80,7 @@ class LembreteD1Tests(TestCase):
         fake.assert_not_called()
         self.assertFalse(Notificacao.objects.exists())
 
-    @mock.patch.dict('os.environ', {'WHATSAPP_TOKEN': '', 'WHATSAPP_PHONE_ID': ''})
+    @override_settings(WHATSAPP_TOKEN='', WHATSAPP_PHONE_ID='')
     def test_sem_canal_whatsapp_quem_autorizou_e_tem_email_vai_por_email(self):
         self._at(criar_cliente(email='autorizou@example.com', consent_whatsapp_confirmacao=True))
         with self.captureOnCommitCallbacks(execute=True):

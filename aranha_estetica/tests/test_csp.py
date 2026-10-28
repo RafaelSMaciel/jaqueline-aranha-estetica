@@ -157,4 +157,15 @@ class CdnComSriTests(TestCase):
                     # .min.js que o pacote nao publica e gerado pelo jsDelivr na
                     # hora (o proprio arquivo avisa: nao usar SRI) — hash quebraria
                     self.assertFalse(url.endswith('chart.umd.min.js'), url)
+                    if tag.startswith('<script'):
+                        self.assertIn('nonce="{{ csp_nonce }}"', tag)
         self.assertTrue(urls, 'nenhuma lib de CDN encontrada: revise o teste')
+
+    def test_jsdelivr_fora_do_style_src(self):
+        # nenhum template carrega CSS do jsdelivr: liberar o host no style-src so abria porta
+        from aranha_estetica.middleware import ContentSecurityPolicyMiddleware as Csp
+        self.assertFalse([origem for origem in Csp.ALLOWED_STYLE_SRCS if 'jsdelivr' in origem])
+        css_de_cdn = re.compile(r'<link\b[^>]*?href="https://cdn\.jsdelivr\.net/')
+        for arq in TEMPLATES_DIR.rglob('*.html'):
+            with self.subTest(template=str(arq.relative_to(TEMPLATES_DIR))):
+                self.assertIsNone(css_de_cdn.search(arq.read_text(encoding='utf-8')))

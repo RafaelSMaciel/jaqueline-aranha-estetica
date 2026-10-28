@@ -236,14 +236,14 @@ def _enviar_template(notif: Notificacao, telefone, template: str, components: li
 
 
 def enviar_confirmacao_d1(atendimento) -> Notificacao:
-    """Lembrete D-1 por WhatsApp (template TEMPLATE_CONFIRMACAO_D1, categoria UTILITY).
+    """Lembrete D-1 por WhatsApp (template settings.WHATSAPP_TEMPLATE_D1, categoria UTILITY).
 
     Parametros do template (ordem): {{1}} nome · {{2}} data dd/mm/aaaa · {{3}} hora HH:MM (fuso da
     clinica) · {{4}} procedimento · {{5}} profissional · {{6}} link confirmar · {{7}} link cancelar.
     O link (CONFIRMAR_PRESENCA) vale ate o inicio do atendimento."""
     data = fmt_local(atendimento.data_hora_inicio, '%d/%m/%Y')
     hora = fmt_local(atendimento.data_hora_inicio, '%H:%M')
-    template = canal_whatsapp.TEMPLATE_CONFIRMACAO_D1
+    template = settings.WHATSAPP_TEMPLATE_D1
     with transaction.atomic():
         notif = Notificacao.objects.create(
             atendimento=atendimento, tipo=Tipo.LEMBRETE, canal=Canal.WHATSAPP, status=Status.PENDENTE,
@@ -260,9 +260,9 @@ def enviar_confirmacao_d1(atendimento) -> Notificacao:
 
 
 def enviar_nps_whatsapp(atendimento) -> Notificacao:
-    """Pesquisa NPS por WhatsApp (template TEMPLATE_NPS): {{1}} nome · {{2}} procedimento ·
+    """Pesquisa NPS por WhatsApp (template settings.WHATSAPP_TEMPLATE_NPS): {{1}} nome · {{2}} procedimento ·
     {{3}} link da pesquisa (LinkAcesso NPS, VALIDADE_LINK_NPS a partir do envio)."""
-    template = canal_whatsapp.TEMPLATE_NPS
+    template = settings.WHATSAPP_TEMPLATE_NPS
     with transaction.atomic():
         notif = Notificacao.objects.create(
             atendimento=atendimento, tipo=Tipo.NPS, canal=Canal.WHATSAPP, status=Status.PENDENTE,
