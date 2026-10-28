@@ -349,14 +349,16 @@
 
     {# ── Django messages como toasts ── #}
     {% if messages %}
-    <div id="adminToasts" class="fixed top-[70px] right-5 z-[10060] flex flex-col gap-2 max-w-[360px]" aria-live="polite" aria-atomic="true">
+    {# Erro = alert (anuncia na hora); o resto = status (educado). Sem sumir sozinho: quem le devagar
+       ou usa leitor de tela fecha quando quiser. #}
+    <div id="adminToasts" class="fixed top-[70px] right-5 left-5 sm:left-auto z-[10060] flex flex-col gap-2 sm:max-w-[360px]">
       {% for message in messages %}
-      <div class="flex items-start gap-3 bg-superficie rounded-xl shadow-lg px-4 py-3 text-[0.85rem] border-l-4
-                  {% if message.tags == 'success' %}border-l-green-700{% elif message.tags == 'error' %}border-l-red-700{% elif message.tags == 'warning' %}border-l-yellow-600{% else %}border-l-marca-forte{% endif %}"
-           role="alert">
+      <div data-toast class="flex items-start gap-3 bg-superficie rounded-xl shadow-lg px-4 py-3 text-[0.85rem] border-l-4
+                  {% if message.tags == 'success' %}border-l-sucesso{% elif message.tags == 'error' %}border-l-erro{% elif message.tags == 'warning' %}border-l-aviso{% else %}border-l-marca-forte{% endif %}"
+           role="{% if message.tags == 'error' %}alert{% else %}status{% endif %}">
         <div class="flex-1 text-texto">{{ message }}</div>
         <button type="button" class="text-texto-suave hover:text-texto text-lg leading-none" aria-label="Fechar"
-                x-data="alertaDismiss" x-on:click="fechar">&times;</button>
+                x-data="alertaDismiss" x-on:click="fechar"><span aria-hidden="true">&times;</span></button>
       </div>
       {% endfor %}
     </div>

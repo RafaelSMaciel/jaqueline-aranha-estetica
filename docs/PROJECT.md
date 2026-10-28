@@ -213,6 +213,9 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   crua do Tailwind (`bg-red-50`…) fora de botão sólido. `prefers-reduced-motion` zera animações.
   Modal = `<dialog class="dialogo">` nativo (`showModal`: foco preso, Esc fecha, fundo inerte);
   no Alpine, componente `modal` (ou `comDialogo({...})` em `app.js`) com `x-ref="dialogo"`.
+  Formulário: todo campo tem nome acessível — `<label for>` (o `app.js` associa o rótulo solto ao campo
+  seguinte e a dica no meio vira `aria-describedby`) ou `aria-label` nos filtros. Toast do painel:
+  erro = `role="alert"`, o resto `role="status"`; nenhum some sozinho.
 - **PWA**: `/manifest.json` + `/sw.js` (service worker v8: cacheia só páginas públicas e
   estáticos; nunca HTML privado) e `/painel/manifest.json` para o app da equipe.
 

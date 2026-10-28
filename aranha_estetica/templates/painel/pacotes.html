@@ -287,7 +287,7 @@
           <div x-ref="itens">
             <div class="grid grid-cols-12 gap-2 mb-2 item-row">
               <div class="col-span-8">
-                <select name="procedimento_ids"
+                <select name="procedimento_ids" aria-label="Procedimento"
                         class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
                   <option value="">Procedimento...</option>
                   {% for proc in procedimentos %}
@@ -296,7 +296,7 @@
                 </select>
               </div>
               <div class="col-span-4">
-                <input type="number" name="quantidades" value="1" min="1" placeholder="Qtd sessões"
+                <input type="number" name="quantidades" value="1" min="1" placeholder="Qtd sessões" aria-label="Quantidade de sessões"
                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
               </div>
             </div>
