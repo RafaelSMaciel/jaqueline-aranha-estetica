@@ -18,6 +18,13 @@ TOLERANCIA_DESFECHO = timedelta(minutes=30)
 # Cliente ja atendida, sem falta em aberto, com menos que isto de horarios futuros: o pedido
 # nasce AGENDADO (sem fila de aprovacao). Primeira vez ou acima do limite: PENDENTE.
 LIMITE_AUTOAPROVACAO = 2
+# Pedido sem decisao e cancelado ate esta folga antes do inicio (job limpeza_status, de hora em
+# hora): a vaga volta p/ a lista de espera e a cliente sabe a tempo de escolher outro horario.
+PRAZO_DECISAO_PENDENTE = timedelta(hours=1)
+MSG_PEDIDO_EXPIRADO = (
+    'Não conseguimos confirmar o seu pedido a tempo. Escolha outro horário — '
+    'será um prazer receber você.'
+)
 
 
 # ─── Links publicos (link_acesso.expira_em, gravado na emissao) ───────────

@@ -1,0 +1,179 @@
+@startuml 01-classes-agenda-atendimento
+' GERADO por docs/uml/gerar_uml.py a partir do codigo — nao edite a mao.
+!include ../estilo.iuml
+hide empty members
+title Classes do domínio — Agenda e atendimento
+
+class Profissional <<Entity>> {
+  + nome : str
+  + slug : str [0..1]
+  + especialidade : str
+  + foto_url : str
+  + bio : str
+  + ativo : bool
+  + min_notice_horas : int
+  + max_advance_dias : int
+  + gcal_refresh_token : str «cifrado»
+  + gcal_calendar_id : str
+  + gcal_sync_token : str
+  + gcal_ultimo_sync_em : datetime [0..1]
+  + criado_em : datetime
+  + atualizado_em : datetime
+  --
+  + get_horarios_disponiveis(data_selecionada, procedimento)
+}
+
+class Procedimento <<Entity>> {
+  + nome : str
+  + slug : str [0..1]
+  + descricao : str
+  + descricao_longa : str
+  + duracao_minutos : int
+  + buffer_minutos : int
+  + categoria : str
+  + modalidade : str
+  + link_videoconferencia : str
+  + imagem_destaque : str
+  + ativo : bool
+  + exige_retorno : bool
+  + retorno_minimo_dias : int [0..1]
+  + retorno_maximo_dias : int [0..1]
+  + duracao_retorno_minutos : int
+  + criado_em : datetime
+  + atualizado_em : datetime
+}
+
+class Habilitacao <<Entity>> {
+  + criado_em : datetime
+}
+
+class Preco <<Entity>> {
+  + valor : Decimal
+  + descricao : str
+  + vigente_desde : date
+  + criado_em : datetime
+  + atualizado_em : datetime
+}
+
+class Promocao <<Entity>> {
+  + nome : str
+  + descricao : str
+  + desconto_percentual : Decimal
+  + preco_promocional : Decimal [0..1]
+  + data_inicio : date
+  + data_fim : date
+  + ativa : bool
+  + imagem_url : str
+  + criado_em : datetime
+  + atualizado_em : datetime
+  --
+  + /esta_vigente «property»
+}
+
+class AgendaHorario <<Entity>> {
+  + dia_semana : int
+  + hora_inicio : time
+  + hora_fim : time
+  + criado_em : datetime
+  + atualizado_em : datetime
+}
+
+class AgendaExcecao <<Entity>> {
+  + tipo : str
+  + origem : str
+  + origem_ref : str [0..1]
+  + data_inicio : date [0..1]
+  + data_fim : date [0..1]
+  + hora_inicio : time [0..1]
+  + hora_fim : time [0..1]
+  + data_hora_inicio : datetime [0..1]
+  + data_hora_fim : datetime [0..1]
+  + regra_recorrencia : str [0..1]
+  + data_fim_recorrencia : date [0..1]
+  + motivo : str
+  + observacao : str
+  + ativo : bool
+  + criado_em : datetime
+  + atualizado_em : datetime
+  --
+  + /periodo_display «property»
+  + ocorrencias(range_inicio, range_fim)
+}
+class AgendaExcecaoQuerySet <<QuerySet>> {
+  + ativas()
+  + do_profissional_ou_global(profissional)
+  + cobrindo(dia)
+  + folga_global_em(dia)
+  + bloqueios_no_intervalo(inicio, fim)
+}
+AgendaExcecao ..> AgendaExcecaoQuerySet : objects
+
+class Atendimento <<Entity>> {
+  + eh_retorno : bool
+  + data_hora_inicio : datetime
+  + data_hora_fim : datetime
+  + valor_cobrado : Decimal [0..1]
+  + valor_original : Decimal [0..1]
+  + descricao_preco : str
+  + status : StatusAtendimento
+  + criado_em : datetime
+  + atualizado_em : datetime
+  --
+  + confirmar(by_user)
+  + cancelar(motivo, by_user, *, pela_cliente)
+  + marcar_realizado(by_user)
+  + marcar_falta(by_user)
+  + marcar_reagendado(by_user, *, pela_cliente)
+  + aprovar(by_user)
+  + desfazer_realizacao(destino, motivo, by_user)
+}
+class AtendimentoQuerySet <<QuerySet>> {
+  + ativos()
+  + futuros()
+  + passados()
+  + hoje()
+  + pendentes_aprovacao()
+  + sem_desfecho(ate)
+  + realizados()
+  + conflito_com(profissional, data_inicio, data_fim)
+}
+Atendimento ..> AtendimentoQuerySet : objects
+
+class ListaEspera <<Entity>> {
+  + data_desejada : date
+  + turno_desejado : str [0..1]
+  + notificado : bool
+  + email_contato : str [0..1]
+  + criado_em : datetime
+  + atualizado_em : datetime
+}
+
+enum StatusAtendimento {
+  PENDENTE
+  AGENDADO
+  CONFIRMADO
+  REALIZADO
+  CANCELADO
+  FALTOU
+  REAGENDADO
+}
+
+AgendaHorario "0..*" --> "1" Profissional : profissional
+AgendaExcecao "0..*" --> "0..1" Profissional : profissional
+AgendaExcecao "0..*" --> "0..1" Usuario : usuario_autor
+Procedimento "0..*" -- "0..*" Profissional : profissionais
+Habilitacao "0..*" --> "1" Profissional : profissional
+Habilitacao "0..*" --> "1" Procedimento : procedimento
+Preco "0..*" --> "1" Procedimento : procedimento
+Preco "0..*" --> "0..1" Profissional : profissional
+Promocao "0..*" --> "0..1" Procedimento : procedimento
+Atendimento "0..*" --> "1" Cliente : cliente
+Atendimento "0..*" --> "1" Profissional : profissional
+Atendimento "0..*" --> "1" Procedimento : procedimento
+Atendimento "0..*" --> "0..1" Promocao : promocao
+Atendimento "0..*" --> "0..1" Atendimento : reagendado_de
+Atendimento "0..*" --> "0..1" Atendimento : atendimento_origem
+ListaEspera "0..*" --> "1" Cliente : cliente
+ListaEspera "0..*" --> "1" Procedimento : procedimento
+ListaEspera "0..*" --> "0..1" Profissional : profissional_desejado
+@enduml

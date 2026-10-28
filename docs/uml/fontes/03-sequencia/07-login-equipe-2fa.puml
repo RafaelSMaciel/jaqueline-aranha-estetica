@@ -1,0 +1,41 @@
+@startuml 07-login-equipe-2fa
+!include ../estilo.iuml
+title Sequência — login da equipe com segundo fator (TOTP)
+autonumber
+
+actor "Usuária da equipe" as U
+participant "views.conta\n.autenticacao" as V
+participant "Proteções\n(ratelimit + django-axes)" as R
+participant "Django auth" as AU
+participant "dois_fatores\n(django-otp)" as T
+database "PostgreSQL" as DB
+
+U -> V : POST /admin-login/ (e-mail + senha)
+V -> R : tentativas recentes do IP/usuário
+alt bloqueado
+  V --> U : "Muitas tentativas. Aguarde."
+end
+V -> AU : authenticate()
+alt credencial inválida
+  V -> R : registra falha
+  V --> U : erro genérico (sem dizer qual campo)
+end
+V -> T : tem_2fa(usuario)?
+alt ainda sem dispositivo (obrigatório)
+  V --> U : redirect /2fa/setup/ (QR code)
+  U -> T : confirma o 1º código → dispositivo ativo
+else com dispositivo
+  V --> U : redirect /2fa/challenge/
+  U -> T : código de 6 dígitos
+  T -> DB : verifica TOTP (janela de tempo)
+end
+T --> V : sessão verificada (otp_device_id)
+V -> DB : LogAuditoria "login" (IP)
+V --> U : destino pelo papel:\nADMIN → /painel/ · PROFISSIONAL → /profissional/
+
+note right of V
+  Senha: PBKDF2; troca obrigatória no 1º acesso do admin
+  criado por bootstrap_admin. Recuperação por e-mail
+  (link de uso único do Django).
+end note
+@enduml

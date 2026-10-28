@@ -51,7 +51,7 @@ class RegraUnicaTests(_Base):
                         FormularioAnamnese.objects.aplicaveis_a(proc).filter(pk=form.pk).exists(), esperado)
 
     def test_escopo_modalidade_nao_existe_mais(self):
-        """Todo atendimento e presencial (0067): o escopo MODALIDADE saiu das choices e do CHECK."""
+        """Todo atendimento e presencial (0070): o escopo MODALIDADE saiu das choices e do CHECK."""
         self.assertNotIn('MODALIDADE', dict(FormularioAnamnese.ESCOPO_CHOICES))
         with self.assertRaises(ValidationError):
             FormularioAnamnese(nome='Online', escopo='MODALIDADE', schema_json=SCHEMA).full_clean()

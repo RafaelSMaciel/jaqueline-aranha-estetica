@@ -17,11 +17,28 @@ class ValorReembolsadoTests(TestCase):
         self.compra = criar_compra_pacote(criar_cliente(), criar_pacote(), valor_pago=Decimal('600.00'))
 
     def _gravar(self, valor):
-        CompraPacote.objects.filter(pk=self.compra.pk).update(valor_reembolsado=valor)
+        CompraPacote.objects.filter(pk=self.compra.pk).update(
+            valor_reembolsado=valor, status='CANCELADO', cancelado_em=timezone.now())
 
     def test_default_zero(self):
         self.compra.refresh_from_db()
         self.assertEqual(self.compra.valor_reembolsado, Decimal('0.00'))
+        self.assertIsNone(self.compra.cancelado_em)
+
+    def test_reembolso_e_cancelado_em_so_com_compra_cancelada(self):
+        """ck_compra_pacote_reembolso_so_cancelado e ck_compra_pacote_cancelado_em_coerente (0065)."""
+        casos = (
+            {'valor_reembolsado': Decimal('10.00')},                       # reembolso sem cancelar
+            {'cancelado_em': timezone.now()},                               # instante sem cancelar
+            {'status': 'CANCELADO'},                                        # cancelada sem instante
+        )
+        for campos in casos:
+            with self.subTest(campos=campos), self.assertRaises(IntegrityError), transaction.atomic():
+                CompraPacote.objects.filter(pk=self.compra.pk).update(**campos)
+
+    def test_save_da_compra_cancelada_grava_o_instante(self):
+        compra = criar_compra_pacote(criar_cliente(), criar_pacote('Outro'), status='CANCELADO')
+        self.assertIsNotNone(compra.cancelado_em)
 
     def test_reembolso_ate_o_valor_pago(self):
         self._gravar(Decimal('600.00'))

@@ -1,0 +1,71 @@
+@startuml 05-painel-gestao
+!include ../estilo.iuml
+left to right direction
+title Casos de uso — painel: gestão da clínica
+
+actor "Administradora" as A
+actor "Profissional" as P
+
+rectangle "Painel — gestão" {
+  package "Catálogo" {
+    usecase "Manter procedimentos,\npreços e quem realiza" as C1
+    usecase "Manter profissionais\ne expediente" as C2
+    usecase "Manter promoções\ne disparar campanha" as C3
+    usecase "Manter pacotes" as C4
+  }
+  package "Clientes e saúde" {
+    usecase "Consultar a ficha da cliente" as S1
+    usecase "Editar prontuário\n(versões, trava otimista)" as S2
+    usecase "Anotar a sessão" as S3
+    usecase "Gerir formulários\nde anamnese" as S4
+    usecase "Publicar versões de termo\ne ver a conformidade" as S5
+    usecase "Registrar consentimentos" as S6
+  }
+  package "Financeiro" {
+    usecase "Vender pacote" as F1
+    usecase "Cancelar compra\ne reembolsar" as F2
+    usecase "Ver faturamento,\nticket médio e rankings" as F3
+    usecase "Exportar relatório\n(Excel)" as F4
+    usecase "Pagar comissões" as F5
+    usecase "Acompanhar NPS e\npublicar depoimentos" as F6
+  }
+  package "Administração" {
+    usecase "Gerir usuários e 2FA" as G1
+    usecase "Ajustar configurações\ne identidade visual" as G2
+    usecase "Consultar a auditoria" as G3
+    usecase "Acompanhar notificações\ne prévias de e-mail" as G4
+  }
+}
+
+A --> C1
+A --> C2
+A --> C3
+A --> C4
+A --> S1
+A --> S2
+A --> S3
+A --> S4
+A --> S5
+A --> S6
+A --> F1
+A --> F2
+A --> F3
+A --> F4
+A --> F5
+A --> F6
+A --> G1
+A --> G2
+A --> G3
+A --> G4
+P --> S2
+P --> S3
+S2 ..> S1 : <<extend>>
+F2 ..> F1 : <<extend>>
+F4 ..> F3 : <<extend>>
+
+note bottom of S2
+  Profissional só acessa o prontuário de quem
+  atende (vínculo por atendimento). Toda leitura e
+  escrita de dado de saúde fica na trilha de auditoria.
+end note
+@enduml

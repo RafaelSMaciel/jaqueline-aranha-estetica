@@ -120,7 +120,7 @@ class AgendaExcecaoModelTests(TestCase):
     def test_feriado_coerente_e_origem_gcal_nao_existe_mais(self):
         with self.assertRaises(ValidationError):
             self._clean(tipo='FOLGA', profissional=self.prof, origem='FERIADO_NACIONAL', data_inicio=self.dia)
-        # Google Agenda removido (0065): GCAL deixou de ser origem valida
+        # Google Agenda removido (0068): GCAL deixou de ser origem valida
         with self.assertRaises(ValidationError) as ctx:
             self._clean(tipo='BLOQUEIO', profissional=self.prof, origem='GCAL',
                         data_hora_inicio=_local(self.dia, 9), data_hora_fim=_local(self.dia, 10))

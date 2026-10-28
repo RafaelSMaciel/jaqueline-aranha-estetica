@@ -354,7 +354,7 @@ class LoginPorPapelTests(TestCase):
         self.assertEqual(resp['Location'], self.url)
         self.assertNotIn('_auth_user_id', c.session)
 
-    def test_recepcao_nao_loga(self):
+    def test_sem_profissional_vinculado_nao_loga(self):
         Usuario.objects.create_user(email='recep@test.com', password=SENHA, nome='Recep')
         c, resp = self._login('recep@test.com')
         self.assertEqual(resp['Location'], self.url)
@@ -487,7 +487,7 @@ class UsuarioFormTests(TestCase):
         self.assertContains(resp, reverse('aranha:admin_resetar_senha_usuario', args=[self.outro.pk]))
 
     def test_papeis_sao_so_admin_e_profissional(self):
-        """RECEPCAO saiu (0066): nao aparece no select e o POST com ele e recusado."""
+        """RECEPCAO saiu (0069): nao aparece no select e o POST com ele e recusado."""
         resp = self.c.get(reverse('aranha:admin_criar_usuario'))
         self.assertContains(resp, 'value="ADMIN"')
         self.assertContains(resp, 'value="PROFISSIONAL"')

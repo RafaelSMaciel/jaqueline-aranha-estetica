@@ -1,0 +1,137 @@
+@startuml 02-er-clientes-saude
+' GERADO por docs/uml/gerar_uml.py a partir dos models — nao edite a mao.
+!include ../estilo.iuml
+!include ../estilo-er.iuml
+title Modelo de dados — Clientes, saúde e formulários
+
+entity "cliente" as cliente {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * nome : varchar(150)
+  data_nascimento : date
+  cpf : varchar(11)
+  rg : varchar(20)
+  profissao : varchar(100)
+  email : varchar(254)
+  telefone : varchar(20)
+  cep : varchar(10)
+  endereco : varchar(255)
+  * eh_ativo : boolean
+  * qtd_faltas_consecutivas : smallint
+  * eh_bloqueado_online : boolean
+  * url_foto : varchar(600)
+  cliente_indicador_id : bigint <<FK>>
+  codigo_indicacao : varchar(12)
+  * criado_em : timestamptz
+  * atualizado_em : timestamptz
+  deletado_em : timestamptz
+}
+
+entity "prontuario" as prontuario {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * cliente_id : bigint <<FK,UK>>
+  * alergias : text
+  * contraindicacoes : text
+  * historico_saude : text
+  * medicamentos_uso : text
+  * observacoes_gerais : text
+  * respostas : jsonb
+  * criado_em : timestamptz
+  * atualizado_em : timestamptz
+}
+
+entity "prontuario_versao" as prontuario_versao {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * prontuario_id : bigint <<FK>>
+  usuario_autor_id : bigint <<FK>>
+  * usuario_autor_nome : varchar(100)
+  * criado_em : timestamptz
+  * dados : jsonb
+}
+
+entity "anotacao_sessao" as anotacao_sessao {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * atendimento_id : bigint <<FK>>
+  usuario_autor_id : bigint <<FK>>
+  * usuario_autor_nome : varchar(100)
+  * texto : text
+  * criado_em : timestamptz
+}
+
+entity "formulario" as formulario {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * nome : varchar(120)
+  * tipo : varchar(12)
+  * escopo : varchar(20)
+  * categoria : varchar(20)
+  * modalidade : varchar(12)
+  procedimento_id : bigint <<FK>>
+  * perguntas : jsonb
+  * eh_ativo : boolean
+  * eh_obrigatorio : boolean
+  * criado_em : timestamptz
+  * atualizado_em : timestamptz
+}
+
+entity "resposta_formulario" as resposta_formulario {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * formulario_id : bigint <<FK>>
+  * cliente_id : bigint <<FK>>
+  atendimento_id : bigint <<FK>>
+  * respostas : jsonb
+  * criado_em : timestamptz
+  * atualizado_em : timestamptz
+  respondido_em : timestamptz
+}
+
+entity "aceite_termo" as aceite_termo #F2F2F2 {
+}
+
+entity "atendimento" as atendimento #F2F2F2 {
+}
+
+entity "carteira" as carteira #F2F2F2 {
+}
+
+entity "compra_pacote" as compra_pacote #F2F2F2 {
+}
+
+entity "consentimento" as consentimento #F2F2F2 {
+}
+
+entity "link_acesso" as link_acesso #F2F2F2 {
+}
+
+entity "lista_espera" as lista_espera #F2F2F2 {
+}
+
+entity "procedimento" as procedimento #F2F2F2 {
+}
+
+entity "usuario" as usuario #F2F2F2 {
+}
+
+cliente |o--o{ cliente : cliente_indicador_id
+cliente ||--o{ consentimento : cliente_id
+cliente ||--o{ atendimento : cliente_id
+cliente ||--o| prontuario : cliente_id
+prontuario ||--o{ prontuario_versao : prontuario_id
+usuario |o--o{ prontuario_versao : usuario_autor_id
+atendimento ||--o{ anotacao_sessao : atendimento_id
+usuario |o--o{ anotacao_sessao : usuario_autor_id
+cliente ||--o{ aceite_termo : cliente_id
+cliente ||--o{ compra_pacote : cliente_id
+cliente ||--o{ lista_espera : cliente_id
+procedimento |o--o{ formulario : procedimento_id
+formulario ||--o{ resposta_formulario : formulario_id
+cliente ||--o{ resposta_formulario : cliente_id
+atendimento |o--o{ resposta_formulario : atendimento_id
+resposta_formulario |o--o{ link_acesso : resposta_formulario_id
+cliente |o--o{ link_acesso : cliente_id
+cliente ||--o| carteira : cliente_id
+@enduml

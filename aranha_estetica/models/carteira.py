@@ -1,4 +1,4 @@
-"""Carteira de credito da cliente (vale, cashback de indicacao, estorno) — livro-razao."""
+"""Carteira de credito da cliente (cashback de indicacao, uso e devolucao) — livro-razao."""
 from decimal import Decimal
 
 from django.conf import settings
@@ -11,7 +11,7 @@ from .mixins import TimestampedMixin
 
 
 class Carteira(TimestampedMixin):
-    """Saldo do cliente (vale presente, credito de cancelamento, refund).
+    """Saldo de credito da cliente (programa de indicacao: credito, uso no atendimento, devolucao).
 
     REGRA: toda mutacao de saldo exige select_for_update() + transaction.atomic.
     O CHECK abaixo pega qualquer lost-update que escapar do lock.
@@ -46,13 +46,13 @@ class TipoMovimentoCarteira(models.TextChoices):
 
 
 class OrigemMovimentoCarteira(models.TextChoices):
-    VALE_PRESENTE = 'VALE_PRESENTE', 'Vale-presente'
+    """So origens com fluxo (0067 tirou VALE_PRESENTE e OUTRO, que nada gerava). Reembolso de pacote
+    e so em dinheiro: nao vira credito de carteira."""
     CANCELAMENTO = 'CANCELAMENTO', 'Devolução (atendimento não realizado)'
     AJUSTE_MANUAL = 'AJUSTE_MANUAL', 'Ajuste manual'
     USO_AGENDAMENTO = 'USO_AGENDAMENTO', 'Uso em atendimento'
     CASHBACK_INDICACAO = 'CASHBACK_INDICACAO', 'Crédito por indicação'
     CASHBACK_ESTORNO = 'CASHBACK_ESTORNO', 'Estorno do crédito por indicação'
-    OUTRO = 'OUTRO', 'Outro'
 
 
 class MovimentoCarteira(models.Model):
@@ -71,10 +71,8 @@ class MovimentoCarteira(models.Model):
     # FKs sem indice automatico: carteira/atendimento cobertos pelos ix_; usuario = autoria (§2.11)
     carteira = models.ForeignKey(Carteira, on_delete=models.PROTECT, related_name='movimentos', db_index=False)
     tipo = models.CharField(max_length=10, choices=TipoMovimentoCarteira.choices)
-    origem = models.CharField(
-        max_length=30, choices=OrigemMovimentoCarteira.choices,
-        default=OrigemMovimentoCarteira.OUTRO, db_default=OrigemMovimentoCarteira.OUTRO,
-    )
+    # sem default: todo movimento diz de onde veio
+    origem = models.CharField(max_length=30, choices=OrigemMovimentoCarteira.choices)
     valor = models.DecimalField(max_digits=10, decimal_places=2)
     saldo_resultante = models.DecimalField(max_digits=10, decimal_places=2, db_column='valor_saldo_resultante')
     atendimento = models.ForeignKey(

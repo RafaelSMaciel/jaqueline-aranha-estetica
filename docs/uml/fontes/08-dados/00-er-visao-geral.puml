@@ -1,0 +1,117 @@
+@startuml 00-er-visao-geral
+' GERADO por docs/uml/gerar_uml.py a partir dos models — nao edite a mao.
+!include ../estilo.iuml
+!include ../estilo-er.iuml
+title Modelo de dados — visão geral (36 tabelas)
+
+package "Agenda e atendimento" {
+  entity "profissional" as profissional
+  entity "procedimento" as procedimento
+  entity "habilitacao" as habilitacao
+  entity "preco" as preco
+  entity "promocao" as promocao
+  entity "agenda_horario" as agenda_horario
+  entity "agenda_excecao" as agenda_excecao
+  entity "atendimento" as atendimento
+  entity "lista_espera" as lista_espera
+}
+package "Clientes, saúde e formulários" {
+  entity "cliente" as cliente
+  entity "prontuario" as prontuario
+  entity "prontuario_versao" as prontuario_versao
+  entity "anotacao_sessao" as anotacao_sessao
+  entity "formulario" as formulario
+  entity "resposta_formulario" as resposta_formulario
+}
+package "Pacotes, comissão e carteira" {
+  entity "pacote" as pacote
+  entity "pacote_item" as pacote_item
+  entity "compra_pacote" as compra_pacote
+  entity "compra_pacote_item" as compra_pacote_item
+  entity "consumo_sessao" as consumo_sessao
+  entity "regra_comissao" as regra_comissao
+  entity "movimento_comissao" as movimento_comissao
+  entity "carteira" as carteira
+  entity "movimento_carteira" as movimento_carteira
+}
+package "Comunicação, links de acesso e verificação" {
+  entity "notificacao" as notificacao
+  entity "avaliacao_nps" as avaliacao_nps
+  entity "assinatura_push" as assinatura_push
+  entity "link_acesso" as link_acesso
+  entity "codigo_otp" as codigo_otp
+}
+package "LGPD, termos, auditoria e acesso" {
+  entity "consentimento" as consentimento
+  entity "versao_termo" as versao_termo
+  entity "aceite_termo" as aceite_termo
+  entity "log_auditoria" as log_auditoria
+  entity "historico_alteracao" as historico_alteracao
+  entity "usuario" as usuario
+  entity "configuracao" as configuracao
+}
+profissional |o--o| usuario : profissional_id
+profissional ||--o{ agenda_horario : profissional_id
+profissional |o--o{ agenda_excecao : profissional_id
+usuario |o--o{ agenda_excecao : usuario_autor_id
+cliente |o--o{ cliente : cliente_indicador_id
+cliente ||--o{ consentimento : cliente_id
+usuario |o--o{ consentimento : usuario_autor_id
+profissional ||--o{ habilitacao : profissional_id
+procedimento ||--o{ habilitacao : procedimento_id
+procedimento ||--o{ preco : procedimento_id
+profissional |o--o{ preco : profissional_id
+procedimento |o--o{ promocao : procedimento_id
+cliente ||--o{ atendimento : cliente_id
+profissional ||--o{ atendimento : profissional_id
+procedimento ||--o{ atendimento : procedimento_id
+promocao |o--o{ atendimento : promocao_id
+atendimento |o--o{ atendimento : atendimento_reagendado_id
+atendimento |o--o{ atendimento : atendimento_origem_id
+atendimento ||--o{ notificacao : atendimento_id
+cliente ||--o| prontuario : cliente_id
+prontuario ||--o{ prontuario_versao : prontuario_id
+usuario |o--o{ prontuario_versao : usuario_autor_id
+atendimento ||--o{ anotacao_sessao : atendimento_id
+usuario |o--o{ anotacao_sessao : usuario_autor_id
+procedimento |o--o{ versao_termo : procedimento_id
+cliente ||--o{ aceite_termo : cliente_id
+versao_termo ||--o{ aceite_termo : versao_termo_id
+atendimento |o--o{ aceite_termo : atendimento_id
+atendimento ||--o| avaliacao_nps : atendimento_id
+pacote ||--o{ pacote_item : pacote_id
+procedimento ||--o{ pacote_item : procedimento_id
+cliente ||--o{ compra_pacote : cliente_id
+pacote ||--o{ compra_pacote : pacote_id
+compra_pacote ||--o{ compra_pacote_item : compra_pacote_id
+procedimento ||--o{ compra_pacote_item : procedimento_id
+compra_pacote ||--o{ consumo_sessao : compra_pacote_id
+compra_pacote_item ||--o{ consumo_sessao : compra_pacote_item_id
+atendimento ||--o| consumo_sessao : atendimento_id
+cliente ||--o{ lista_espera : cliente_id
+procedimento ||--o{ lista_espera : procedimento_id
+profissional |o--o{ lista_espera : profissional_desejado_id
+usuario |o--o{ log_auditoria : usuario_autor_id
+usuario ||--o{ assinatura_push : usuario_id
+procedimento |o--o{ formulario : procedimento_id
+formulario ||--o{ resposta_formulario : formulario_id
+cliente ||--o{ resposta_formulario : cliente_id
+atendimento |o--o{ resposta_formulario : atendimento_id
+atendimento |o--o{ link_acesso : atendimento_id
+notificacao |o--o{ link_acesso : notificacao_id
+resposta_formulario |o--o{ link_acesso : resposta_formulario_id
+cliente |o--o{ link_acesso : cliente_id
+profissional |o--o{ link_acesso : profissional_id
+usuario |o--o{ historico_alteracao : usuario_autor_id
+cliente ||--o| carteira : cliente_id
+carteira ||--o{ movimento_carteira : carteira_id
+atendimento |o--o{ movimento_carteira : atendimento_id
+usuario |o--o{ movimento_carteira : usuario_autor_id
+profissional |o--o{ regra_comissao : profissional_id
+procedimento |o--o{ regra_comissao : procedimento_id
+profissional ||--o{ movimento_comissao : profissional_id
+atendimento ||--o{ movimento_comissao : atendimento_id
+regra_comissao |o--o{ movimento_comissao : regra_comissao_id
+movimento_comissao |o--o{ movimento_comissao : movimento_comissao_origem_id
+usuario |o--o{ movimento_comissao : usuario_autor_id
+@enduml

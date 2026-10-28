@@ -105,7 +105,7 @@ class PapelUsuario0029Tests(_MigracaoBase):
         self.assertTrue(all(log.tabela_afetada == 'usuario' for log in logs))
 
     def tearDown(self):
-        # o papel RECEPCAO saiu na 0066, que aborta se ainda houver um: o legado do teste sai antes
+        # o papel RECEPCAO saiu na 0069, que aborta se ainda houver um: o legado do teste sai antes
         self.apps.get_model(APP, 'Usuario').objects.filter(papel='RECEPCAO').delete()
         super().tearDown()
 
@@ -1279,7 +1279,7 @@ class LinksEmHash0049Tests(_MigracaoBase):
         with self.settings(RATELIMIT_ENABLE=False):
             get = self.client.get
             self.assertEqual(get('/confirmar/tok-d1/').status_code, 200)
-            # LEMBRETE_2H saiu na 0067 (sem job que o enviasse): o nao respondido e apagado com o link
+            # LEMBRETE_2H saiu na 0070 (sem job que o enviasse): o nao respondido e apagado com o link
             self.assertEqual(get('/confirmar/tok-2h/').status_code, 404)
             self.assertEqual(get('/termo/tok-termo/').status_code, 200)
             self.assertEqual(get('/termo/tok-termo-legado/').status_code, 200)
@@ -1291,7 +1291,7 @@ class LinksEmHash0049Tests(_MigracaoBase):
                                  fetch_redirect_response=False)
             self.assertEqual(get('/lgpd/unsubscribe/tok-descad/').status_code, 200)
             self.assertEqual(get('/agenda/prof-l/feed.ics', {'token': 'tok-ics-prof'}).status_code, 200)
-            # o link legado de reagendar (GERENCIAR_AGENDAMENTO) saiu na 0066: rota e link
+            # o link legado de reagendar (GERENCIAR_AGENDAMENTO) saiu na 0069: rota e link
             dia = (self.ini + timedelta(days=1)).date().isoformat()
             self.assertEqual(get('/reagendar/tok-gerenciar/horarios/', {'data': dia}).status_code, 404)
             # o que nao abria antes continua nao abrindo

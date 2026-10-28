@@ -5,7 +5,7 @@
 {% block page_subtitle %}Anamneses pré-atendimento e pesquisas pós-atendimento{% endblock %}
 {% block page_actions %}
 <a href="{% url 'aranha:admin_anamnese_criar' %}"
-   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold bg-[#C9A84C] text-white hover:bg-[#b48c4c] transition-colors no-underline">
+   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold bg-marca-forte text-sobre-marca hover:opacity-90 transition-colors no-underline">
   <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
     <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
   </svg>
@@ -80,15 +80,15 @@
 </div>
 {% empty %}
 <div class="bg-superficie rounded-2xl p-12 text-center shadow-sm">
-  <div class="w-16 h-16 rounded-full bg-[rgba(201,168,76,0.12)] flex items-center justify-center mx-auto mb-4">
-    <svg class="w-7 h-7 text-[#C9A84C]" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+  <div class="w-16 h-16 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mx-auto mb-4">
+    <svg class="w-7 h-7 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
     </svg>
   </div>
-  <h5 class="font-bold text-texto mb-1">Nenhum formulário cadastrado</h5>
+  <p class="font-serif font-bold text-texto mb-1">Nenhum formulário cadastrado</p>
   <p class="text-[0.85rem] text-texto-suave mb-4">Crie formulários de anamnese para exibir antes do agendamento.</p>
   <a href="{% url 'aranha:admin_anamnese_criar' %}"
-     class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#C9A84C] text-white text-[0.82rem] font-bold hover:bg-[#b48c4c] transition-colors no-underline">
+     class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.82rem] font-bold hover:opacity-90 transition-opacity no-underline">
     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
     </svg>

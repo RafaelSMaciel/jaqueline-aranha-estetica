@@ -426,7 +426,7 @@ class DepoimentoAposEsquecimentoTests(TestCase):
 
 class ExportDsarTests(TestCase):
     def test_cadastro_exportado_so_com_dado_que_tem_finalidade(self):
-        """RG, profissao e foto sairam do cadastro (0068): o export traz o que a clinica guarda."""
+        """RG, profissao e foto sairam do cadastro (0071): o export traz o que a clinica guarda."""
         cliente = criar_cliente(nome='Titular Cadastro', cpf='52998224725')
         pessoal = LgpdService.exportar_dados_cliente(cliente)['pessoal']
         self.assertEqual(

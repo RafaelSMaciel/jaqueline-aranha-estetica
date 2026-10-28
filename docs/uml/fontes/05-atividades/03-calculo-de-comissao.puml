@@ -1,0 +1,32 @@
+@startuml 03-calculo-de-comissao
+!include ../estilo.iuml
+title Atividade — cálculo da comissão no REALIZADO (ComissaoService.calcular_comissao)
+
+start
+if (retorno gratuito?) then (sim)
+  :sem comissão;
+  stop
+endif
+if (já existe crédito ativo\npara o atendimento?) then (sim)
+  :idempotente: não lança de novo;
+  stop
+endif
+if (sessão debitada de pacote?) then (sim)
+  :base = valor unitário do item congelado\n(rateio do valor pago);
+else (não)
+  :base = valor cobrado do atendimento;
+endif
+:regra mais específica ativa\n(profissional + procedimento > profissional\n> procedimento > geral);
+if (há regra?) then (não)
+  :sem comissão (log);
+  stop
+endif
+if (regra percentual?) then (sim)
+  :valor = base × percentual / 100\n(centavos, HALF_UP);
+else (fixa)
+  :valor = mínimo(valor fixo, base);
+endif
+:MovimentoComissao CREDITO (append-only);
+:trigger valida: 1 crédito ativo,\nnada de UPDATE/DELETE;
+stop
+@enduml

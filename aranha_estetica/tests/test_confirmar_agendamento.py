@@ -111,7 +111,7 @@ class ConfirmarAgendamentoTests(TestCase):
         self.assertIn('agendamento', resp.url)
 
     def test_nao_emite_token_de_reagendar_cancelar(self):
-        # reagendar/cancelar e so pelo portal (id + sessao do OTP; o link por token saiu na 0066):
+        # reagendar/cancelar e so pelo portal (id + sessao do OTP; o link por token saiu na 0069):
         # o booking nao grava token de gerenciar (nem em texto puro, nem link_acesso)
         from aranha_estetica.models import LinkAcesso
         self._post()

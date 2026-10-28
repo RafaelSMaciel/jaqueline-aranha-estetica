@@ -1,17 +1,17 @@
 {% extends "email/base_email.html" %}
 {% block header_sub %}<div style="color:rgba(255,255,255,0.92);font-size:13px;letter-spacing:2.4px;text-transform:uppercase;margin-top:6px;">Uma vaga abriu para você</div>{% endblock %}
 {% block content %}
-<h1 class="hero-title text-main" style="margin:0 0 12px;color:#2c2418;font-size:26px;font-weight:700;line-height:1.25;">Boa notícia{% if dados.nome %}, {{ dados.nome }}{% endif %}!</h1>
-<p class="text-soft" style="margin:0 0 28px;color:#6b6256;font-size:15px;line-height:1.6;">
+<h1 class="hero-title text-main" style="margin:0 0 12px;color:{{ cor_texto }};font-size:26px;font-weight:700;line-height:1.25;">Boa notícia{% if dados.nome %}, {{ dados.nome }}{% endif %}!</h1>
+<p class="text-soft" style="margin:0 0 28px;color:{{ cor_suave }};font-size:15px;line-height:1.6;">
   Uma vaga para <strong>{{ dados.procedimento }}</strong> acabou de abrir. Como você está na lista de espera, avisamos você primeiro.
 </p>
 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
 <table bgcolor="#FDF2EC" role="presentation" cellpadding="0" cellspacing="0" class="card-inner" style="background-color:#FDF2EC;background-image:linear-gradient(145deg,#FDF2EC,#FBE3D9);border:2px solid #C08B7F;border-radius:18px;margin-bottom:24px;">
 <tr><td style="padding:28px 44px;text-align:center;">
-  <div class="text-soft" style="color:#8a6a5a;font-size:11px;letter-spacing:3px;text-transform:uppercase;margin-bottom:8px;">Data disponível</div>
+  <div class="text-soft" style="color:{{ cor_suave }};font-size:11px;letter-spacing:3px;text-transform:uppercase;margin-bottom:8px;">Data disponível</div>
   <div class="text-main" style="font-family:'Playfair Display',Georgia,serif;font-size:40px;font-weight:800;color:#8a4c3f;line-height:1.1;">{{ dados.data }}</div>
-  <div class="text-soft" style="color:#6b6256;font-size:14px;margin-top:10px;">{{ dados.procedimento }}</div>
+  <div class="text-soft" style="color:{{ cor_suave }};font-size:14px;margin-top:10px;">{{ dados.procedimento }}</div>
 </td></tr>
 </table>
 </td></tr></table>
@@ -24,6 +24,6 @@
 </td></tr></table>
 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
-  <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;"><tr><td bgcolor="#C08B7F" style="border-radius:999px;background-color:#C08B7F;mso-padding-alt:14px 36px;"><a href="{% if dados.link %}{{ dados.link }}{% else %}{{ site_url }}/agendamento/{% endif %}" style="display:inline-block;background-color:#C08B7F;background-image:linear-gradient(135deg,#C08B7F,#B8915F);color:#23200f;padding:14px 36px;border-radius:999px;text-decoration:none;font-weight:700;font-size:14px;letter-spacing:0.5px;box-shadow:0 4px 12px rgba(192,139,127,0.35);">Reservar agora</a></td></tr></table>
+  <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;"><tr><td bgcolor="#C08B7F" style="border-radius:999px;background-color:#C08B7F;mso-padding-alt:14px 36px;"><a href="{% if dados.link %}{{ dados.link }}{% elif link_agendar %}{{ link_agendar }}{% else %}{{ site_url }}{% url 'aranha:agendamento_publico' %}{% endif %}" style="display:inline-block;background-color:#C08B7F;background-image:linear-gradient(135deg,#C08B7F,#B8915F);color:{{ cor_sobre_marca }};padding:14px 36px;border-radius:999px;text-decoration:none;font-weight:700;font-size:14px;letter-spacing:0.5px;box-shadow:0 4px 12px rgba(192,139,127,0.35);">Reservar agora</a></td></tr></table>
 </td></tr></table>
 {% endblock %}

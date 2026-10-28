@@ -255,12 +255,13 @@ class ValorComTetoTests(_AdminTestCase):
             self.assertEqual(resp.status_code, 200)
             self.assertTrue(any('Valor inválido' in m for m in _mensagens(resp)), valor)
 
+            # cadastro em modal recusado volta a tela (200) com o digitado, sem gravar (achado 166)
             resp = self.client.post(reverse('aranha:admin_criar_procedimento'),
                                     {'nome': f'Proc {valor}', 'duracao_minutos': '30', 'preco': valor})
-            self.assertEqual(resp.status_code, 302)
+            self.assertEqual(resp.status_code, 200)
             resp = self.client.post(reverse('aranha:admin_criar_pacote'),
                                     {'nome': f'Pac {valor}', 'preco_total': valor, 'validade_meses': '12'})
-            self.assertEqual(resp.status_code, 302)
+            self.assertEqual(resp.status_code, 200)
             resp = self.client.post(reverse('aranha:admin_vender_pacote'),
                                     {'pacote_id': str(pacote.pk), 'cliente_id': str(cli.pk), 'valor_pago': valor})
             self.assertEqual(resp.status_code, 302)

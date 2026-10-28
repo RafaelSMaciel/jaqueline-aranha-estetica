@@ -1,0 +1,30 @@
+@startuml 02-pipeline-ci
+!include ../estilo.iuml
+title Atividade — pipeline de integração contínua (GitHub Actions)
+
+start
+:push na dev ou PR para a main;
+fork
+  :Django (SQLite)\ncheck · migrations em dia · ruff\nimport-linter · mypy · suíte + cobertura\ncheck --deploy;
+fork again
+  :Django (SQLite)\ndata migrations (tag migracoes);
+fork again
+  :Postgres 18\nmigrate_atomico do zero · bootstrap_admin\nsuíte no Postgres;
+fork again
+  :Postgres 18\ndata migrations;
+fork again
+  :Front\nVite + Tailwind (manifest);
+fork again
+  :Navegador (Playwright)\nwizard de agendamento ponta a ponta;
+fork again
+  :Imagem de produção\nbuild do Dockerfile;
+fork again
+  :pip-audit\nvulnerabilidades (bloqueante);
+end fork
+if (todos verdes?) then (sim)
+  :Railway constrói e publica\n(main → produção, dev → testes);
+else (não)
+  :deploy bloqueado\n(main protegida: os jobs são obrigatórios);
+endif
+stop
+@enduml

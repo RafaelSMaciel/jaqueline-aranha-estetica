@@ -1,0 +1,11 @@
+' Complemento dos diagramas de dados (notacao IE / pe de galinha): * = NOT NULL,
+' <<PK>>/<<FK>>/<<UK>> = chave primaria/estrangeira/unica; cinza = tabela de outra parte.
+hide circle
+hide empty members
+hide stereotype
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 50
+skinparam EntityFontSize 13
+skinparam EntityAttributeFontSize 11
+skinparam EntityHeaderBackgroundColor #F3E7C6

@@ -215,8 +215,8 @@ verde em SQLite e Postgres).
 - [x] ~~**Janela do vínculo profissional ↔ prontuário**~~ resolvido (janela = max(60, `max_advance_dias`)).
 - [x] ~~**Link da ficha de anamnese** no agendamento interno~~ resolvido (D18: botão "Link da ficha" na agenda).
 - [x] ~~**Purga LGPD × histórico do prontuário:**~~ resolvido (`candidatos_purga` retém quem tem `prontuario_versao`).
-- [ ] **Cashback de indicação (parcial):** a ficha do cliente já registra "Indicada por"
-      (crédito automático no 1º atendimento pago); falta fluxo de **uso** do saldo da carteira
+- [x] ~~**Cashback de indicação**~~ resolvido: crédito visível na ficha e no portal (código + saldo) e
+      usado no valor do atendimento, devolvido se o atendimento não acontece (2026-10-28).
 - [x] ~~`Promocao.clean()` e promoção geral de preço fixo~~ resolvido (clean + CHECK na 0047).
 - [x] ~~`migrate_atomico` sem aviso de falha~~ resolvido (escreve FALHOU + migration corrente).
 - [x] ~~`tests/test_pg_ddl.py` sem os triggers da 0046~~ resolvido.
