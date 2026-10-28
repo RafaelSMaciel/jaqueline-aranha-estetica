@@ -11,6 +11,7 @@ from django.core.cache import cache
 from django.test import RequestFactory, TestCase
 from django.utils import timezone
 
+from aranha_estetica.constants import MAX_ATIVOS_ONLINE
 from aranha_estetica.excecoes import HorarioIndisponivel, RegraDeNegocio
 from aranha_estetica.models import (
     AceiteTermo,
@@ -167,6 +168,18 @@ class RecusasTests(_Base):
     def test_cadastro_bloqueado_online(self):
         criar_cliente(telefone='17988887777', bloqueado_online=True)
         self._recusa('bloqueado_online')
+
+    def test_teto_de_pedidos_em_aberto(self):
+        """D8: MAX_ATIVOS_ONLINE horarios futuros ativos -> o proximo pedido vai p/ o WhatsApp; passado,
+        cancelado ou realizado nao conta."""
+        cli = criar_cliente(telefone='17988887777')
+        for dias in range(5, 5 + MAX_ATIVOS_ONLINE - 1):
+            criar_atendimento(cli, self.prof, self.proc, data_hora=_inicio(dias=dias))
+        criar_atendimento(cli, self.prof, self.proc, status='CANCELADO', data_hora=_inicio(dias=9))
+        criar_atendimento(cli, self.prof, self.proc, status='REALIZADO', data_hora=timezone.now() - timedelta(days=9))
+        self.assertIsNotNone(self._solicitar())   # o 3o ainda passa
+        recusa = self._recusa('limite_online', inicio=_inicio(dias=4))
+        self.assertIn('WhatsApp', recusa.mensagem)
 
     def test_horario_ocupado_na_corrida(self):
         # outro pedido levou o horario entre a checagem do slot e o INSERT
