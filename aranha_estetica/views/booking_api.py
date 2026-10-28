@@ -247,6 +247,7 @@ def cancelar_agendamento(request):
                 # FSM: auditoria + evento AtendimentoCancelado (lista de espera etc.)
                 atendimento.cancelar(
                     motivo='Cancelado pelo cliente (link)' if link else 'Cancelado pelo cliente (portal)',
+                    pela_cliente=True,
                 )
             except Atendimento.TransicaoInvalida:
                 return JsonResponse({'erro': 'Este agendamento não pode mais ser cancelado'}, status=400)

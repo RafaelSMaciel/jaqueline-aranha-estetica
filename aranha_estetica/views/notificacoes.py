@@ -82,7 +82,7 @@ def confirmar_presenca(request, token):
                                 atendimento.confirmar()
                             resposta = 'CONFIRMOU'
                         else:
-                            atendimento.cancelar(motivo='Cancelado pelo cliente via link')
+                            atendimento.cancelar(motivo='Cancelado pelo cliente via link', pela_cliente=True)
                             resposta = 'CANCELOU'
                     except Atendimento.TransicaoInvalida:
                         resposta = None

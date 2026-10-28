@@ -85,7 +85,7 @@ aranha_estetica/
 ├── services/        agendamento_service, disponibilidade (SlotService), otp, lgpd, termos, alertas,
 │                    comissao_service, fidelidade_service, retorno_service, lista_espera_service,
 │                    anamnese, auditoria, push, gcal
-├── domain/          event_bus.py (EventBus síncrono, best-effort), events.py, handlers.py (logging)
+├── domain/          event_bus.py (EventBus síncrono, na transação da FSM), events.py, handlers.py (logging)
 ├── utils/           branding, email, sms, whatsapp, precos, saude, fichas, security, dois_fatores,
 │                    pii, captcha, datas, parse, busca (trigram no PG), audit, recorrencia (RRULE do
 │                    subconjunto), nps (calculo unico, meio p/ cima), banco (GUCs app.* e CALL das
@@ -120,7 +120,7 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
             └─ models (FSM do Atendimento, managers, constraints) ──▶ PostgreSQL
                   ├─ signals.py (post_save do Atendimento): faltas, débito de pacote,
                   │   lista de espera, push/Google Calendar no on_commit
-                  └─ EventBus (após a transição da FSM): comissão, cashback, retorno
+                  └─ EventBus (na mesma transação da FSM): comissão, cashback, retorno
 ```
 
 - **FSM do atendimento** (`models/agendamentos.py`): toda mudança de status passa por
@@ -136,8 +136,13 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   retorno obrigatório; `AtendimentoCancelado` → estorno de comissão e de cashback;
   `AtendimentoConfirmado` → só log. Eventos existentes: `AtendimentoConfirmado`,
   `AtendimentoRealizado`, `AtendimentoCancelado`, `AtendimentoFaltou`, `RetornoSugerido`,
-  `CashbackLiberado`, `CashbackEstornado`, `ComissaoCalculada`. Síncrono, in-process e
-  best-effort (falha de handler é logada, não desfaz a transição).
+  `CashbackLiberado`, `CashbackEstornado`, `ComissaoCalculada`. Síncrono, in-process e **na
+  mesma transação da transição**: handler que falha é logado e desfaz a transição inteira
+  (status + efeitos gravam juntos ou nada grava); I/O externo vai em `on_commit`.
+  `cancelar(..., pela_cliente=True)` só nos fluxos da própria cliente (link/portal).
+- **Aviso de cancelamento** (`services/agendamento_service.avisar_cancelamento`): e-mail à
+  cliente quando a clínica cancela — painel, rejeição, Django admin e pedido PENDENTE que venceu
+  sem aprovação. Cancelamento pela própria cliente não avisa.
 - **Disponibilidade**: fonte única `services/disponibilidade.py::SlotService` (slots de 30
   min; grade semanal `AgendaHorario` e exceções `AgendaExcecao` — folga/feriado/recesso,
   horário diferente, bloqueios pontuais/recorrentes do profissional ou globais —, buffers,

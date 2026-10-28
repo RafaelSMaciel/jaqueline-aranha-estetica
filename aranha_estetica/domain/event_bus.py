@@ -53,10 +53,12 @@ class EventBus:
 
     @classmethod
     def publish(cls, event: DomainEvent) -> None:
-        """Dispara todos os handlers registrados.
+        """Dispara os handlers registrados, em ordem, na transacao de quem publica.
 
-        Falhas individuais sao logadas mas nao quebram a publicacao
-        (handler que falha nao impede outros de rodar — best-effort).
+        Handler que falha PROPAGA (loga e re-levanta): os assinantes gravam livro-razao
+        (comissao, carteira) e o retorno sugerido, e a transicao de status que publicou tem de
+        ser desfeita junto — engolir deixava status REALIZADO sem comissao. I/O externo dentro
+        de handler vai em transaction.on_commit.
         """
         handlers = cls._handlers.get(type(event), [])
         if not handlers:
@@ -66,15 +68,12 @@ class EventBus:
         for handler in handlers:
             try:
                 handler(event)
-            except Exception as exc:
+            except Exception:
                 logger.exception(
                     'event_handler_failed',
-                    extra={
-                        'event': type(event).__name__,
-                        'handler': handler.__name__,
-                        'error': str(exc),
-                    },
+                    extra={'event': type(event).__name__, 'handler': handler.__name__},
                 )
+                raise
 
     @classmethod
     def reset(cls) -> None:

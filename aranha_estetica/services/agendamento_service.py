@@ -19,6 +19,29 @@ logger = logging.getLogger(__name__)
 FORMATO_DATA_HORA = '%d/%m/%Y às %H:%M'
 
 
+def avisar_cancelamento(atendimento) -> None:
+    """E-mail a cliente quando a CLINICA cancela (painel, rejeicao, Django admin, pedido
+    PENDENTE que venceu sem aprovacao). Cancelamento pela propria cliente nao avisa.
+
+    Enfileirado apos o commit (robust): falha de envio nunca desfaz o cancelamento.
+    """
+    email = atendimento.cliente.email
+    if not email:
+        return
+    dados = {
+        'nome': atendimento.cliente.nome,
+        'procedimento': atendimento.procedimento.nome,
+        'profissional': atendimento.profissional.nome,
+        'data_hora': fmt_local(atendimento.data_hora_inicio, FORMATO_DATA_HORA),
+    }
+
+    def _enfileirar():
+        from ..tasks import send_email_async
+        send_email_async.delay('enviar_cancelamento_email', email, dados)
+
+    transaction.on_commit(_enfileirar, robust=True)
+
+
 def formatar_brl(valor) -> str:
     """Valor monetario em pt-BR ('R$ 1.234,50'); '' se vazio/invalido."""
     if valor in (None, ''):
@@ -91,24 +114,8 @@ class AgendamentoService:
         atendimento.cancelar(motivo=motivo or 'rejeitado pela recepcao', by_user=by_user)
         registrar_log(by_user, 'Rejeitou agendamento', 'atendimento', atendimento.pk, request=request)
 
-        if atendimento.cliente.email:
-            dados = {
-                'nome': atendimento.cliente.nome,
-                'procedimento': atendimento.procedimento.nome,
-                'profissional': atendimento.profissional.nome,
-                'data_hora': formatar_data_hora(atendimento.data_hora_inicio),
-            }
-            email = atendimento.cliente.email
-            transaction.on_commit(
-                lambda: self._enviar_email_cancelamento(email, dados), robust=True,
-            )
+        avisar_cancelamento(atendimento)
         return True
-
-    @staticmethod
-    def _enviar_email_cancelamento(email: str, dados: dict) -> None:
-        """Enfileira email de cancelamento via Celery."""
-        from ..tasks import send_email_async
-        send_email_async.delay('enviar_cancelamento_email', email, dados)
 
     @staticmethod
     def _enviar_email_confirmacao(email: str, dados: dict) -> None:
