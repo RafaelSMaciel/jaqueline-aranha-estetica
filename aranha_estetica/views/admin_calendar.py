@@ -12,6 +12,7 @@ from django_ratelimit.decorators import ratelimit
 from ..decorators import staff_required
 from ..excecoes import RegraDeNegocio, TransicaoInvalida
 from ..models import AgendaExcecao, Atendimento, Profissional
+from ..models.agendamentos import StatusAtendimento
 from ..services import agenda
 from ..utils.audit import registrar_log
 from ..utils.datas import data_local, fmt_local
@@ -31,13 +32,13 @@ def _parse_iso_aware(valor):
 
 
 STATUS_COLORS = {
-    'PENDENTE': '#f9a825',
-    'AGENDADO': '#1565c0',
-    'CONFIRMADO': '#2e7d32',
-    'REALIZADO': '#7b1fa2',
-    'CANCELADO': '#c62828',
-    'FALTOU': '#e65100',
-    'REAGENDADO': '#999999',
+    StatusAtendimento.PENDENTE: '#f9a825',
+    StatusAtendimento.AGENDADO: '#1565c0',
+    StatusAtendimento.CONFIRMADO: '#2e7d32',
+    StatusAtendimento.REALIZADO: '#7b1fa2',
+    StatusAtendimento.CANCELADO: '#c62828',
+    StatusAtendimento.FALTOU: '#e65100',
+    StatusAtendimento.REAGENDADO: '#999999',
 }
 
 

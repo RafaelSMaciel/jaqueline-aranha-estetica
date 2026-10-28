@@ -16,8 +16,9 @@ from ..models import (
     Habilitacao,
     Profissional,
 )
+from ..models.agendamentos import STATUS_ATIVOS
 
-STATUS_OCUPAM_AGENDA = ('PENDENTE', 'AGENDADO', 'CONFIRMADO')
+STATUS_OCUPAM_AGENDA = STATUS_ATIVOS
 
 
 def _aware(dt):

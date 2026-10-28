@@ -214,9 +214,9 @@ def _processar_resposta_nps(telefone_limpo: str, mensagem: str) -> None:
     notif = (
         Notificacao.objects
         .filter(
-            tipo='NPS',
-            canal='WHATSAPP',
-            status='ENVIADO',
+            tipo=Notificacao.Tipo.NPS,
+            canal=Notificacao.Canal.WHATSAPP,
+            status=Notificacao.Status.ENVIADO,
             criado_em__gte=timezone.now() - NPS_JANELA_RESPOSTA,
             atendimento__cliente__telefone__in=candidatos,
         )

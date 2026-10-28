@@ -10,6 +10,7 @@ from django.views.decorators.http import require_POST
 
 from ..decorators import profissional_required
 from ..models import AnotacaoSessao, Atendimento
+from ..models.agendamentos import StatusAtendimento
 from ..services.alertas import alertas_por_cliente, ids_com_ficha_pendente
 from ..services.termos import ids_com_termo_procedimento_pendente, termos_pendentes
 from ..utils.audit import registrar_log
@@ -106,7 +107,7 @@ def agenda(request):
     # Agendamentos pendentes de aprovação
     pendentes = list(Atendimento.objects.filter(
         profissional=prof,
-        status='PENDENTE',
+        status=StatusAtendimento.PENDENTE,
         data_hora_inicio__gte=timezone.now(),
     ).select_related('cliente', 'procedimento').order_by('data_hora_inicio'))
 
@@ -157,7 +158,7 @@ def marcar_realizado(request, pk):
         request.user, pk, select_related=['cliente', 'procedimento'],
     )
     sem_termo = []
-    if atendimento.status in ('AGENDADO', 'CONFIRMADO'):
+    if atendimento.status in (StatusAtendimento.AGENDADO, StatusAtendimento.CONFIRMADO):
         sem_termo = termos_pendentes(atendimento.cliente, atendimento.procedimento, so_procedimento=True)
     if sem_termo and request.POST.get('sem_termo') != '1':
         messages.warning(

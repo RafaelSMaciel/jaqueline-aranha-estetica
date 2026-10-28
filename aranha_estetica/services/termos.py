@@ -17,14 +17,15 @@ from django.urls import reverse
 from django.utils import timezone
 
 from ..models import AceiteTermo, Notificacao, VersaoTermo
+from ..models.agendamentos import STATUS_ATIVOS
 
 # Atendimento que ainda aceita assinatura de termo (e gera link novo)
-STATUS_ACEITA_TERMO = ('PENDENTE', 'AGENDADO', 'CONFIRMADO')
+STATUS_ACEITA_TERMO = STATUS_ATIVOS
 
 # Tipo da Notificacao que carrega o link do termo. LEMBRETE+EMAIL e o formato
 # legado (booking antes do tipo TERMO) — nenhum outro fluxo cria LEMBRETE por e-mail.
 TIPO_NOTIF_TERMO = 'TERMO'
-Q_NOTIF_TERMO = Q(tipo=TIPO_NOTIF_TERMO) | Q(tipo='LEMBRETE', canal='EMAIL')
+Q_NOTIF_TERMO = Q(tipo=TIPO_NOTIF_TERMO) | Q(tipo=Notificacao.Tipo.LEMBRETE, canal=Notificacao.Canal.EMAIL)
 
 
 def q_termos_aplicaveis(procedimento_id) -> Q:
@@ -99,7 +100,7 @@ def url_termo(token: str) -> str:
     return f"{settings.SITE_URL.rstrip('/')}{reverse('aranha:termo_assinatura', args=[token])}"
 
 
-def obter_link_termo(atendimento, canal='WHATSAPP'):
+def obter_link_termo(atendimento, canal=Notificacao.Canal.WHATSAPP):
     """(notificacao, url, notificacao_criada) — emite um link NOVO do termo.
 
     O token so existe em claro na geracao (link_acesso guarda o hash), entao
@@ -122,7 +123,7 @@ def obter_link_termo(atendimento, canal='WHATSAPP'):
             atendimento=atendimento,
             tipo=TIPO_NOTIF_TERMO,
             canal=canal,
-            status='PENDENTE',
+            status=Notificacao.Status.PENDENTE,
         )
     token = links.emitir(links.TERMO, notif, expira_em=atendimento.data_hora_fim)
     return notif, url_termo(token), criada

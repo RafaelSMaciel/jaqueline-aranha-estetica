@@ -9,6 +9,7 @@ from django_ratelimit.decorators import ratelimit
 
 from ..decorators import staff_required
 from ..models import Atendimento
+from ..models.agendamentos import StatusAtendimento
 from ..utils.security import safe_next
 
 logger = logging.getLogger(__name__)
@@ -101,7 +102,7 @@ def admin_bulk_agendamentos(request):
     with transaction.atomic():
         atendimentos = list(
             Atendimento.objects.select_related('cliente', 'procedimento', 'profissional')
-            .filter(pk__in=ids, status='PENDENTE')
+            .filter(pk__in=ids, status=StatusAtendimento.PENDENTE)
         )
         for at in atendimentos:
             try:

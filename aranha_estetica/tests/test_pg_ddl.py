@@ -357,8 +357,9 @@ class DDLSoPostgresTests(TestCase):
         self.assertEqual(Consentimento.objects.filter(pk=linha.pk).minimizar_dados_de_origem(), 1)
         with self.assertRaises(IntegrityError), transaction.atomic():
             self._sql("UPDATE consentimento SET ip_origem = '10.1.1.1' WHERE id = %s", [linha.pk])
-        # esquecimento completo pelo servico no PG (revoga + minimiza) e o CHECK de par
-        consentimentos.esquecer(self.cli)
+        # esquecimento completo (sp_anonimizar_cliente: revoga + minimiza) e o CHECK de par
+        from aranha_estetica.services.lgpd import LgpdService
+        LgpdService.esquecer_cliente(self.cli)
         self.assertFalse(consentimentos.vigente(self.cli, 'MARKETING', 'EMAIL'))
         with self.assertRaises(IntegrityError), transaction.atomic():
             Consentimento.objects.create(cliente=self.cli, finalidade='MARKETING', canal='WHATSAPP',

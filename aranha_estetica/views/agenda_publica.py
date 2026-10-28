@@ -15,6 +15,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.clickjacking import xframe_options_exempt
 
 from ..models import Atendimento, Procedimento, Profissional
+from ..models.agendamentos import StatusAtendimento
 from ..services import links
 
 
@@ -72,7 +73,7 @@ def ics_feed_profissional(request, slug):
         profissional=prof,
         data_hora_inicio__gte=inicio,
         data_hora_inicio__lte=fim,
-        status__in=['AGENDADO', 'CONFIRMADO', 'REALIZADO'],
+        status__in=(StatusAtendimento.AGENDADO, StatusAtendimento.CONFIRMADO, StatusAtendimento.REALIZADO),
     ).select_related('cliente', 'procedimento')
 
     lines = [
@@ -103,7 +104,7 @@ def ics_feed_profissional(request, slug):
             f'DTEND:{_ics_format_dt(at.data_hora_fim)}',
             f'SUMMARY:{_ics_escape(summary)}',
             f'DESCRIPTION:{_ics_escape(descricao)}',
-            f'STATUS:{"CONFIRMED" if at.status in ("CONFIRMADO","REALIZADO") else "TENTATIVE"}',
+            f'STATUS:{"CONFIRMED" if at.status in (StatusAtendimento.CONFIRMADO, StatusAtendimento.REALIZADO) else "TENTATIVE"}',
             'END:VEVENT',
         ])
     lines.append('END:VCALENDAR')

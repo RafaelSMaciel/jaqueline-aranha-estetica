@@ -12,12 +12,13 @@ from ..models import (
     RespostaAnamnese,
     VersaoTermo,
 )
+from ..models.agendamentos import STATUS_ATIVOS, StatusAtendimento
 from ..services.termos import STATUS_ACEITA_TERMO
 from ..utils.parse import id_int
 
 # Atendimento que torna o termo de procedimento exigivel da cliente
 # (cancelado/faltou/reagendado nao conta).
-STATUS_ALVO_PROCEDIMENTO = ('PENDENTE', 'AGENDADO', 'CONFIRMADO', 'REALIZADO')
+STATUS_ALVO_PROCEDIMENTO = (*STATUS_ATIVOS, StatusAtendimento.REALIZADO)
 
 
 def _clientes_alvo(versao):

@@ -26,6 +26,7 @@ from django.utils import timezone
 
 from .constants import VALIDADE_LINK_NPS
 from .models import Atendimento, AvaliacaoNPS
+from .models.agendamentos import StatusAtendimento
 from .utils.datas import fmt_local, hoje
 
 logger = logging.getLogger(__name__)
@@ -60,7 +61,7 @@ def job_enviar_lembrete_dia_seguinte():
 
     amanha = hoje() + timedelta(days=1)
     agendamentos = consentimentos.com_consentimento(
-        Atendimento.objects.filter(data_hora_inicio__date=amanha, status='AGENDADO'),
+        Atendimento.objects.filter(data_hora_inicio__date=amanha, status=StatusAtendimento.AGENDADO),
         *consentimentos.LEMBRETE_WHATSAPP,
     ).select_related('cliente', 'profissional', 'procedimento')
 
@@ -72,9 +73,9 @@ def job_enviar_lembrete_dia_seguinte():
             continue
         ja_enviou = Notificacao.objects.filter(
             atendimento=agendamento,
-            tipo='LEMBRETE',
-            canal='WHATSAPP',
-            status='ENVIADO'
+            tipo=Notificacao.Tipo.LEMBRETE,
+            canal=Notificacao.Canal.WHATSAPP,
+            status=Notificacao.Status.ENVIADO,
         ).exists()
         if ja_enviou:
             continue
@@ -82,7 +83,7 @@ def job_enviar_lembrete_dia_seguinte():
         # recebeu); o guard ja_enviou acima ja garante idempotencia.
         try:
             notif = enviar_confirmacao_d1(agendamento)
-            if notif and notif.status == 'ENVIADO':
+            if notif and notif.status == Notificacao.Status.ENVIADO:
                 enviados += 1
         except Exception as e:
             logger.error(
@@ -115,10 +116,11 @@ def candidatos_nps(agora=None):
 
     agora = agora or timezone.now()
     nps_ativo = Notificacao.objects.filter(
-        atendimento=OuterRef('pk'), tipo='NPS', status__in=['PENDENTE', 'ENVIADO'],
+        atendimento=OuterRef('pk'), tipo=Notificacao.Tipo.NPS,
+        status__in=[Notificacao.Status.PENDENTE, Notificacao.Status.ENVIADO],
     )
     elegiveis = Atendimento.objects.filter(
-        status='REALIZADO',
+        status=StatusAtendimento.REALIZADO,
         data_hora_fim__lte=agora - timedelta(days=1),
         data_hora_fim__gte=agora - timedelta(days=NPS_JANELA_DIAS),
         avaliacaonps__isnull=True,
@@ -127,7 +129,7 @@ def candidatos_nps(agora=None):
         consentimentos.com_consentimento(elegiveis, *consentimentos.PESQUISA_WHATSAPP)
         .exclude(Exists(nps_ativo))
         .annotate(nps_falhas=Count(
-            'notificacao', filter=Q(notificacao__tipo='NPS', notificacao__status='FALHOU'),
+            'notificacao', filter=Q(notificacao__tipo=Notificacao.Tipo.NPS, notificacao__status=Notificacao.Status.FALHOU),
         ))
         .filter(nps_falhas__lt=NPS_MAX_FALHAS)
         .select_related('cliente', 'procedimento')
@@ -164,9 +166,9 @@ def job_pesquisa_satisfacao_24h():
         with transaction.atomic():
             notif = Notificacao.objects.create(
                 atendimento=agendamento,
-                tipo='NPS',
-                canal='WHATSAPP',
-                status='PENDENTE',
+                tipo=Notificacao.Tipo.NPS,
+                canal=Notificacao.Canal.WHATSAPP,
+                status=Notificacao.Status.PENDENTE,
             )
             token = links.emitir(links.NPS, notif, expira_em=notif.criado_em + VALIDADE_LINK_NPS)
         nps_url = f"{site_url}{reverse('aranha:nps_web', args=[token])}"
@@ -177,7 +179,7 @@ def job_pesquisa_satisfacao_24h():
             if enviar_nps_whatsapp(agendamento, nps_url, notif):
                 enviados += 1
         except Exception as e:
-            Notificacao.objects.filter(pk=notif.pk).update(status='FALHOU')
+            Notificacao.objects.filter(pk=notif.pk).update(status=Notificacao.Status.FALHOU)
             logger.error('[JOB NPS] Falha no atendimento %s: %s', agendamento.pk, type(e).__name__)
 
     logger.info(f"[JOB NPS] {enviados} NPS enviados via WhatsApp.")
@@ -275,7 +277,7 @@ def job_verificar_pacotes_expirando():
     for dias in [7, 1]:
         data_alvo = data_hoje + timedelta(days=dias)
         pacotes = CompraPacote.objects.filter(
-            status='ATIVO',
+            status=CompraPacote.STATUS_ATIVO,
             data_expiracao=data_alvo
         ).select_related('cliente').prefetch_related('itens__procedimento', 'sessoes_realizadas')
 
@@ -476,7 +478,7 @@ def job_limpeza_status_atendimentos():
 
     limite = timezone.now() - timedelta(hours=24)
 
-    pendentes = Atendimento.objects.filter(data_hora_fim__lt=limite, status='PENDENTE')
+    pendentes = Atendimento.objects.filter(data_hora_fim__lt=limite, status=StatusAtendimento.PENDENTE)
     cancelados = 0
     for atendimento in pendentes:
         try:
@@ -489,7 +491,7 @@ def job_limpeza_status_atendimentos():
 
     sem_desfecho = list(
         Atendimento.objects.filter(
-            data_hora_fim__lt=limite, status__in=['AGENDADO', 'CONFIRMADO'],
+            data_hora_fim__lt=limite, status__in=(StatusAtendimento.AGENDADO, StatusAtendimento.CONFIRMADO),
         ).values_list('pk', flat=True)[:200]
     )
     if sem_desfecho:

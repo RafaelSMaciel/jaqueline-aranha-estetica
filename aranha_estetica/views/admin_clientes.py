@@ -9,6 +9,7 @@ from django.views.decorators.cache import never_cache
 
 from ..decorators import staff_required
 from ..models import Atendimento, Cliente
+from ..models.agendamentos import StatusAtendimento
 from ..services import consentimentos
 from ..services.termos import aceita_assinatura
 from ..utils.audit import registrar_log
@@ -50,10 +51,10 @@ def _contexto_cliente(cliente):
     for compra in pacotes:
         compra.saldo = compra.saldo_por_procedimento()
         compra.vencido = bool(
-            compra.status == 'ATIVO' and compra.data_expiracao and compra.data_expiracao < hoje_local
+            compra.status == CompraPacote.STATUS_ATIVO and compra.data_expiracao and compra.data_expiracao < hoje_local
         )
 
-    realizados_qs = Atendimento.objects.filter(cliente=cliente, status='REALIZADO')
+    realizados_qs = Atendimento.objects.filter(cliente=cliente, status=StatusAtendimento.REALIZADO)
     agg = realizados_qs.aggregate(qtd=Count('pk'), ultima=Max('data_hora_inicio'))
     proc_top = realizados_qs.values(
         'procedimento__nome'
@@ -70,8 +71,8 @@ def _contexto_cliente(cliente):
         'ticket_medio': gasto['ticket_medio'],
         'ultima_visita': agg['ultima'],
         'procedimento_mais_frequente': proc_top['procedimento__nome'] if proc_top else None,
-        'no_show_count': Atendimento.objects.filter(cliente=cliente, status='FALTOU').count(),
-        'cancelados_count': Atendimento.objects.filter(cliente=cliente, status='CANCELADO').count(),
+        'no_show_count': Atendimento.objects.filter(cliente=cliente, status=StatusAtendimento.FALTOU).count(),
+        'cancelados_count': Atendimento.objects.filter(cliente=cliente, status=StatusAtendimento.CANCELADO).count(),
     }
     return {
         'cliente': cliente,
@@ -89,7 +90,7 @@ def _indicacao_gerou_cashback(cliente):
     com a indicadora errada)."""
     from ..models import MovimentoCarteira
     return bool(cliente.indicado_por_id) and MovimentoCarteira.objects.filter(
-        origem='CASHBACK_INDICACAO', tipo='CREDITO', atendimento__cliente=cliente,
+        origem=MovimentoCarteira.Origem.CASHBACK_INDICACAO, tipo=MovimentoCarteira.Tipo.CREDITO, atendimento__cliente=cliente,
     ).exists()
 
 

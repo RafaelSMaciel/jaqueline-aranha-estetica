@@ -160,9 +160,9 @@ def enviar_confirmacao_d1(atendimento):
     with transaction.atomic():
         notif = Notificacao.objects.create(
             atendimento=atendimento,
-            tipo='LEMBRETE',
-            canal='WHATSAPP',
-            status='PENDENTE',
+            tipo=Notificacao.Tipo.LEMBRETE,
+            canal=Notificacao.Canal.WHATSAPP,
+            status=Notificacao.Status.PENDENTE,
             mensagem=mensagem_preview,
         )
         token = links.emitir(links.CONFIRMAR_PRESENCA, notif, expira_em=atendimento.data_hora_inicio)

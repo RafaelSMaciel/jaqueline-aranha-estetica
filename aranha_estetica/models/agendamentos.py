@@ -243,7 +243,7 @@ class Atendimento(models.Model):
             # "agenda em aberto" (proximos/pendentes)
             Indice(
                 fields=['data_hora_inicio'],
-                condition=models.Q(status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO']),  # = STATUS_ATIVOS
+                condition=models.Q(status__in=STATUS_ATIVOS),
                 name='ix_atendimento_data_hora_inicio_ativo_parcial',
             ),
             Indice(fields=['procedimento'], name='ix_atendimento_procedimento'),
@@ -295,7 +295,7 @@ class Atendimento(models.Model):
                 fields=['atendimento_origem'],
                 condition=models.Q(
                     eh_retorno=True,
-                    status__in=['PENDENTE', 'AGENDADO', 'CONFIRMADO', 'REALIZADO'],
+                    status__in=(*STATUS_ATIVOS, StatusAtendimento.REALIZADO),
                 ),
                 name='uq_atendimento_retorno_por_origem',
             ),

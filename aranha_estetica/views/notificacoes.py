@@ -15,6 +15,7 @@ from django_ratelimit.decorators import ratelimit
 
 from ..decorators import staff_required
 from ..models import Atendimento, Notificacao
+from ..models.agendamentos import StatusAtendimento
 from ..services import links
 from ..utils.audit import registrar_log
 
@@ -24,11 +25,11 @@ logger = logging.getLogger(__name__)
 # CONFIRMAR_PRESENCA, emitido no lembrete WhatsApp). Link de termo, NPS e
 # reagendar NAO valem aqui (finalidade diferente -> 404).
 TIPOS_LINK_CONFIRMACAO = ('LEMBRETE', 'LEMBRETE_2H', 'CONFIRMACAO')
-STATUS_ALTERAVEIS_PELO_LINK = ('AGENDADO', 'CONFIRMADO')
+STATUS_ALTERAVEIS_PELO_LINK = (StatusAtendimento.AGENDADO, StatusAtendimento.CONFIRMADO)
 # "Sem resposta" so faz sentido p/ o que pede resposta (link de confirmacao
 # enviado): termo, NPS, cancelamento e falhas de envio nao contam.
 AGUARDA_RESPOSTA = Q(
-    tipo__in=TIPOS_LINK_CONFIRMACAO, canal='WHATSAPP', status='ENVIADO', resposta__isnull=True,
+    tipo__in=TIPOS_LINK_CONFIRMACAO, canal=Notificacao.Canal.WHATSAPP, status=Notificacao.Status.ENVIADO, resposta__isnull=True,
 )
 
 
@@ -134,8 +135,8 @@ def painel_notificacoes(request):
     # Stats — agregacao condicional unica.
     stats = notifs.aggregate(
         total=Count('id'),
-        enviadas=Count('id', filter=Q(status='ENVIADO')),
-        falhas=Count('id', filter=Q(status='FALHOU')),
+        enviadas=Count('id', filter=Q(status=Notificacao.Status.ENVIADO)),
+        falhas=Count('id', filter=Q(status=Notificacao.Status.FALHOU)),
         confirmados=Count('id', filter=Q(resposta='CONFIRMOU')),
         cancelados=Count('id', filter=Q(resposta='CANCELOU')),
         sem_resposta=Count('id', filter=AGUARDA_RESPOSTA),
