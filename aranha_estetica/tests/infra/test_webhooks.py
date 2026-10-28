@@ -1,4 +1,4 @@
-"""Testes do webhook WhatsApp: verificacao HMAC e processamento NPS."""
+"""Webhook do WhatsApp: verificacao HMAC, nota do NPS e o pedido de PARAR."""
 import hashlib
 import hmac
 import json
@@ -9,9 +9,10 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 import aranha_estetica.views.infra.webhooks as whatsapp_mod
-from aranha_estetica.models import AvaliacaoNPS, Notificacao
+from aranha_estetica.models import AvaliacaoNPS, Consentimento, LogAuditoria, Notificacao
+from aranha_estetica.services import consentimentos
 
-from .factories import (
+from ..factories import (
     criar_atendimento,
     criar_cliente,
     criar_procedimento,
@@ -186,3 +187,65 @@ class WhatsAppWebhookNPSTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         nps = AvaliacaoNPS.objects.get(atendimento=self.atd)
         self.assertEqual(nps.nota, 7)
+
+
+@override_settings(DEBUG=True)
+class WhatsAppPararTests(TestCase):
+    """'PARAR' & cia. revogam lembrete e pesquisa por WhatsApp (LGPD art. 8 §5) e respondem como voltar."""
+
+    def setUp(self):
+        secret_patch = patch.object(whatsapp_mod, 'WHATSAPP_APP_SECRET', APP_SECRET)
+        secret_patch.start()
+        self.addCleanup(secret_patch.stop)
+        self.url = reverse('aranha:whatsapp_webhook')
+        self.cliente = criar_cliente(telefone='17988887777', consent_whatsapp_confirmacao=True,
+                                     consent_whatsapp_nps=True, consent_email_marketing=True)
+
+    def _post(self, texto, telefone='5517988887777'):
+        body = json.dumps(_payload_meta(telefone, texto)).encode()
+        with patch('aranha_estetica.utils.whatsapp.enviar_texto', return_value=True) as resposta:
+            resp = self.client.post(self.url, data=body, content_type='application/json',
+                                    HTTP_X_HUB_SIGNATURE_256=_assinar(body))
+        self.assertEqual(resp.status_code, 200)
+        return resposta
+
+    def _estado(self):
+        return consentimentos.estado_atual(self.cliente)
+
+    def test_parar_revoga_os_dois_pares_do_whatsapp_com_origem_e_trilha(self):
+        resposta = self._post('  Parar! ')
+        estado = self._estado()
+        self.assertFalse(estado[('LEMBRETE_AGENDAMENTO', 'WHATSAPP')])
+        self.assertFalse(estado[('PESQUISA_SATISFACAO', 'WHATSAPP')])
+        self.assertTrue(estado[('MARKETING', 'EMAIL')])   # o e-mail de marketing tem descadastro proprio
+        revogacoes = Consentimento.objects.filter(cliente=self.cliente, concedido=False)
+        self.assertEqual(sorted(revogacoes.values_list('origem', flat=True)), ['WHATSAPP', 'WHATSAPP'])
+        self.assertTrue(LogAuditoria.objects.filter(registro_id=self.cliente.pk, acao__contains='PARAR').exists())
+        resposta.assert_called_once()
+        self.assertEqual(resposta.call_args.args[0], '5517988887777')
+        self.assertIn('voltar a receber', resposta.call_args.args[1])
+
+    def test_variacoes_aceitas_e_numero_sem_55(self):
+        for texto in ('SAIR', 'stop', 'Cancelar  mensagens', 'descadastrar.'):
+            with self.subTest(texto=texto):
+                consentimentos.registrar(self.cliente, 'PESQUISA_SATISFACAO', 'WHATSAPP', True,
+                                         origem='AGENDAMENTO_ONLINE')
+                self._post(texto, telefone='17988887777')
+                self.assertFalse(self._estado()[('PESQUISA_SATISFACAO', 'WHATSAPP')])
+
+    def test_frase_com_a_palavra_nao_revoga(self):
+        resposta = self._post('vou sair mais cedo do trabalho')
+        estado = self._estado()
+        self.assertTrue(estado[('LEMBRETE_AGENDAMENTO', 'WHATSAPP')])
+        self.assertTrue(estado[('PESQUISA_SATISFACAO', 'WHATSAPP')])
+        resposta.assert_not_called()
+
+    def test_numero_desconhecido_so_recebe_a_resposta(self):
+        resposta = self._post('parar', telefone='5517900001111')
+        self.assertTrue(self._estado()[('PESQUISA_SATISFACAO', 'WHATSAPP')])
+        resposta.assert_called_once()
+        self.assertFalse(AvaliacaoNPS.objects.exists())
+
+    def test_erro_interno_ainda_responde_200(self):
+        with patch.object(whatsapp_mod, '_processar_opt_out', side_effect=RuntimeError('boom')):
+            self._post('parar')
