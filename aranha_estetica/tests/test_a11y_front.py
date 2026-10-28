@@ -7,7 +7,8 @@ import re
 from pathlib import Path
 
 from django.conf import settings
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase
+from django.urls import reverse
 
 _APP = Path(settings.BASE_DIR) / 'aranha_estetica'
 _TEMPLATES = _APP / 'templates'
@@ -116,3 +117,41 @@ class PaletaDeStatusTests(SimpleTestCase):
         self.assertEqual(re.findall(r'\.cli-tl-item[^{]*\{[^}]*#[0-9a-fA-F]{3,6}', ficha), [])
         visao = (_TEMPLATES / 'painel' / 'overview.html').read_text(encoding='utf-8')
         self.assertIn("'--st-' + s.toLowerCase() + '-texto'", visao)
+
+
+class CascaDoPainelTests(TestCase):
+    """Achado 169: sem link de pulo, ativo so pela cor, menu fora da tela ainda focavel."""
+
+    def setUp(self):
+        from aranha_estetica.models import Usuario
+        self.client.force_login(Usuario.objects.create_superuser(
+            email='casca@test.com', password='senha-forte-123', nome='Casca'))
+
+    def _html(self, rota):
+        resp = self.client.get(reverse(rota))
+        self.assertEqual(resp.status_code, 200)
+        return resp.content.decode()
+
+    def test_link_de_pulo_e_o_primeiro_link(self):
+        html = self._html('aranha:painel_agendamentos')
+        corpo = html[html.index('<body'):]
+        primeiro = re.search(r'<a\s[^>]*href="([^"]+)"', corpo)
+        self.assertEqual(primeiro.group(1), '#conteudo')
+        self.assertIn('id="conteudo"', html)
+
+    def test_item_da_tela_aberta_tem_aria_current(self):
+        html = self._html('aranha:painel_agendamentos')
+        self.assertEqual(html.count('aria-current="page"'), 1)
+        self.assertRegex(html, r'href="%s"[^>]*aria-current="page"' % re.escape(reverse('aranha:painel_agendamentos')))
+        # 2FA nunca ficava ativo
+        html = self._html('aranha:admin_2fa_setup')
+        self.assertRegex(html, r'href="%s"[^>]*aria-current="page"' % re.escape(reverse('aranha:admin_2fa_setup')))
+
+    def test_calendario_na_operacao_logo_apos_a_agenda_e_menu_inerte_no_celular(self):
+        html = self._html('aranha:painel_overview')
+        menu = html[html.index('id="sidenavMain"'):html.index('</nav>')]
+        rotulos = re.findall(r'<span>([^<]+)</span>\s*</a>', menu)
+        self.assertEqual(rotulos[:3], ['Visão geral', 'Agenda', 'Calendário'])
+        self.assertIn('x-bind:inert="navInerte()"', html)
+        js = (_JS / 'app.js').read_text(encoding='utf-8')
+        self.assertIn('navInerte()', js)
