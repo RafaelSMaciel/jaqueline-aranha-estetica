@@ -74,11 +74,30 @@ Alpine.data('cookieConsent', () => ({
 
 // App-shell do painel admin: sidenav drawer mobile + backdrop.
 // classeDrawer() = metodo (CSP build nao aceita ternario inline em x-bind).
+// navInerte(): no celular, menu fechado fica fora da tela -> inert (sai da ordem do Tab e do
+// leitor de tela); no desktop (lg, >= 1024px) o menu e fixo e sempre navegavel.
+const CELULAR = '(max-width: 1023px)'
 Alpine.data('adminShell', () => ({
   menuAberto: false,
-  alternarMenu() { this.menuAberto = !this.menuAberto },
+  celular: false,
+  init() {
+    const mq = matchMedia(CELULAR)
+    this.celular = mq.matches
+    mq.addEventListener('change', (e) => { this.celular = e.matches; if (!e.matches) this.menuAberto = false })
+  },
+  alternarMenu() {
+    this.menuAberto = !this.menuAberto
+    // abriu: foco no 1o link do menu (sem isso o Tab seguia pelo conteudo atras do backdrop)
+    if (this.menuAberto) this.$nextTick(() => document.querySelector('#sidenavMain a')?.focus())
+  },
   fecharMenu() { this.menuAberto = false },
+  fecharMenuTeclado() {
+    if (!this.menuAberto) return
+    this.menuAberto = false
+    document.querySelector('[aria-controls="sidenavMain"]')?.focus()
+  },
   classeDrawer() { return this.menuAberto ? '!translate-x-0' : '' },
+  navInerte() { return this.celular && !this.menuAberto },
 }))
 
 // Fecha o alerta pai (CSP-safe: logica no metodo, nao inline em x-on).
