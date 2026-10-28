@@ -242,3 +242,16 @@ def criar_notificacao_com_link(atendimento, tipo='LEMBRETE', canal='WHATSAPP', t
     if finalidade is None:
         finalidade = 'TERMO' if (tipo, canal) == ('LEMBRETE', 'EMAIL') else _FINALIDADE_DA_NOTIFICACAO[tipo]
     return notif, criar_link(finalidade, notif, token, expira_em=expira_em)
+
+
+def ja_comecou(atendimento):
+    """Leva o atendimento futuro p/ o passado (mesmo horario, N dias antes): Realizado/Faltou so
+    depois do inicio (constants.TOLERANCIA_DESFECHO). Devolve o proprio atendimento."""
+    agora = timezone.now()
+    if atendimento.data_hora_inicio > agora:
+        dias = (atendimento.data_hora_inicio - agora).days + 2
+        delta = timedelta(days=dias)
+        Atendimento.objects.filter(pk=atendimento.pk).update(
+            data_hora_inicio=atendimento.data_hora_inicio - delta, data_hora_fim=atendimento.data_hora_fim - delta)
+        atendimento.refresh_from_db()
+    return atendimento

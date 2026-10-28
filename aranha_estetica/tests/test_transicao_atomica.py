@@ -20,7 +20,7 @@ from aranha_estetica.models import Atendimento, LogAuditoria, Usuario
 from aranha_estetica.services.comissao import ComissaoService
 from aranha_estetica.services.fidelidade import FidelidadeService
 
-from .factories import criar_atendimento, criar_cliente, criar_procedimento, criar_profissional
+from .factories import criar_atendimento, criar_cliente, criar_procedimento, criar_profissional, ja_comecou
 
 
 class _Base(TestCase):
@@ -39,7 +39,7 @@ class TransicaoAtomicaTests(_Base):
         at = self._at()
         with mock.patch.object(ComissaoService, 'calcular_comissao', side_effect=RuntimeError('ledger')), \
                 self.assertRaises(RuntimeError):
-            at.marcar_realizado()
+            ja_comecou(at).marcar_realizado()
         self.assertEqual(Atendimento.objects.get(pk=at.pk).status, 'AGENDADO')
 
     def test_credito_duplicado_nao_quebra_a_transacao_de_quem_chama(self):

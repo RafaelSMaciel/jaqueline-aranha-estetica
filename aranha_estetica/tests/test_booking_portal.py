@@ -17,6 +17,7 @@ from aranha_estetica.services import consentimentos
 from aranha_estetica.services.agendamento import AgendamentoService, formatar_brl
 
 from .factories import (
+    ja_comecou,
     criar_cliente, criar_link, criar_notificacao_com_link, criar_procedimento, criar_profissional,
     limpar_feriados,
 )
@@ -303,7 +304,7 @@ class ReagendarTests(TestCase):
         self.assertEqual(novo.data_hora_fim - novo.data_hora_inicio, timedelta(minutes=15))
         self.assertEqual(self.client.session['agendamento_sucesso']['valor'], 'Sem custo (retorno)')
 
-        novo.marcar_realizado()
+        ja_comecou(novo).marcar_realizado()
         self.assertFalse(Atendimento.objects.filter(atendimento_origem=novo).exists())
 
     def test_reagendar_leva_a_ficha_de_anamnese(self):

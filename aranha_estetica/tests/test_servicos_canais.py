@@ -21,6 +21,7 @@ from aranha_estetica.utils import email as email_utils
 from aranha_estetica.utils import whatsapp as wa_utils
 
 from .factories import (
+    ja_comecou,
     criar_atendimento, criar_cliente, criar_compra_pacote, criar_pacote,
     criar_procedimento, criar_profissional,
 )
@@ -189,7 +190,7 @@ class EmailFalhaFechadaTests(TestCase):
         validade = timezone.localdate() + timedelta(days=7)
         CompraPacote.objects.filter(pk=compra.pk).update(data_expiracao=validade)
         atd = criar_atendimento(cli, prof, proc)
-        atd.marcar_realizado()
+        ja_comecou(atd).marcar_realizado()
 
         job_verificar_pacotes_expirando()
 

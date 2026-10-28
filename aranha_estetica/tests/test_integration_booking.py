@@ -12,6 +12,7 @@ from aranha_estetica.models import Atendimento, Cliente
 from aranha_estetica.services import consentimentos
 
 from .factories import (
+    ja_comecou,
     criar_cliente,
     criar_procedimento,
     criar_profissional,
@@ -109,7 +110,7 @@ class IntegrationBookingFlowTests(TestCase):
         # CONFIRMADO → REALIZADO via the domain method. This fires the post_save
         # signal whose side effect resets the client's faltas — we must NOT call
         # resetar_faltas() by hand, that is what we are verifying.
-        atd.marcar_realizado()
+        ja_comecou(atd).marcar_realizado()
         atd.refresh_from_db()
         self.assertEqual(atd.status, 'REALIZADO')
 

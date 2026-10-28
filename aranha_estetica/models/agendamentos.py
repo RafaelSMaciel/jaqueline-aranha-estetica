@@ -7,6 +7,7 @@ from django.db.models.functions import Now
 from django.utils import timezone
 
 from ..db.indices import Indice
+from ..constants import TOLERANCIA_DESFECHO
 from ..excecoes import TransicaoInvalida
 from ..utils.datas import dias_locais, fmt_local
 from .clientes import Cliente
@@ -189,14 +190,18 @@ class Atendimento(models.Model):
         from ..utils.auditoria import registrar_log
         with transaction.atomic():
             if self.pk is not None:
-                atual = (
+                atual, inicio = (
                     type(self).objects.select_for_update()
-                    .values_list('status', flat=True).get(pk=self.pk)
+                    .values_list('status', 'data_hora_inicio').get(pk=self.pk)
                 )
                 # memoria reflete o banco (um save() posterior nao grava status velho)
                 self.status = atual
             else:
-                atual = self.status
+                atual, inicio = self.status, self.data_hora_inicio
+            if (novo_status in (StatusAtendimento.REALIZADO, StatusAtendimento.FALTOU) and inicio
+                    and inicio > timezone.now() + TOLERANCIA_DESFECHO):
+                raise self.TransicaoInvalida(
+                    'Só é possível marcar realizado ou falta depois do início do atendimento.')
             permitido = (self.DESFAZER_REALIZACAO if desfazendo and atual == StatusAtendimento.REALIZADO
                          else self.TRANSICOES.get(atual, set()))
             if novo_status not in permitido:

@@ -16,6 +16,7 @@ from aranha_estetica.models import (
 )
 
 from .factories import (
+    ja_comecou,
     criar_atendimento, criar_cliente, criar_compra_pacote, criar_pacote,
     criar_procedimento, criar_profissional,
 )
@@ -33,7 +34,7 @@ class FsmAtendimentoTests(TestCase):
         copia = Atendimento.objects.get(pk=self.at.pk)
         self.at.cancelar(motivo='cliente desistiu')
         with self.assertRaises(Atendimento.TransicaoInvalida):
-            copia.marcar_realizado()
+            ja_comecou(copia).marcar_realizado()
         self.assertEqual(copia.status, 'CANCELADO')  # memoria sincronizada com o banco
         self.at.refresh_from_db()
         self.assertEqual(self.at.status, 'CANCELADO')
@@ -44,7 +45,7 @@ class FsmAtendimentoTests(TestCase):
 
     def test_transicao_valida_grava_e_audita(self):
         self.at.confirmar()
-        self.at.marcar_realizado()
+        ja_comecou(self.at).marcar_realizado()
         self.at.refresh_from_db()
         self.assertEqual(self.at.status, 'REALIZADO')
 
@@ -65,7 +66,7 @@ class FsmAtendimentoTests(TestCase):
             outro.clean()
 
     def test_um_retorno_vivo_por_origem(self):
-        self.at.marcar_realizado()
+        ja_comecou(self.at).marcar_realizado()
         base = self.at.data_hora_inicio + timedelta(days=15)
 
         def retorno(delta_h, status='PENDENTE'):
@@ -252,3 +253,22 @@ class SaldoPacoteTests(TestCase):
         self.assertEqual(saldo[0]['procedimento'], proc)
         self.assertEqual((saldo[0]['total'], saldo[0]['usadas'], saldo[0]['restantes']), (5, 1, 4))
         self.assertEqual(compra.sessoes_restantes(), 4)
+
+
+class DesfechoSoDepoisDoInicioTests(TestCase):
+    """Realizado/Faltou so a partir do inicio (folga TOLERANCIA_DESFECHO): um clique na agenda do mes
+    seguinte gerava comissao, debitava pacote e contava falta."""
+
+    def test_futuro_recusa_e_em_andamento_aceita(self):
+        from aranha_estetica.excecoes import TransicaoInvalida
+        from aranha_estetica.models import Atendimento
+        from .factories import criar_atendimento, criar_cliente, criar_procedimento, criar_profissional
+        prof = criar_profissional()
+        proc = criar_procedimento(profissional=prof)
+        futuro = criar_atendimento(criar_cliente(), prof, proc, data_hora=timezone.now() + timedelta(days=3))
+        for acao in ('marcar_realizado', 'marcar_falta'):
+            with self.subTest(acao=acao), self.assertRaises(TransicaoInvalida):
+                getattr(futuro, acao)()
+        logo_mais = criar_atendimento(criar_cliente(), prof, proc, data_hora=timezone.now() + timedelta(minutes=10))
+        logo_mais.marcar_realizado()   # dentro da folga de 30 min
+        self.assertEqual(Atendimento.objects.get(pk=logo_mais.pk).status, 'REALIZADO')

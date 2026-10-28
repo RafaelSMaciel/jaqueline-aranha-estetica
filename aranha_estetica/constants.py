@@ -10,6 +10,9 @@ from decimal import Decimal
 
 # ─── Reagendamento self-service ────────────────────────────────────────
 JANELA_MINIMA_REAGENDAMENTO = timedelta(hours=24)
+# Realizado/Faltou so a partir do inicio do atendimento (menos esta folga p/ quem marca na hora):
+# antes, um clique na agenda do mes seguinte gerava comissao, debitava pacote e contava falta.
+TOLERANCIA_DESFECHO = timedelta(minutes=30)
 
 
 # ─── Links publicos (link_acesso.expira_em, gravado na emissao) ───────────

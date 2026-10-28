@@ -20,6 +20,7 @@ from aranha_estetica.models.pacotes import rateio_por_sessao
 from aranha_estetica.services.comissao import ComissaoService
 
 from .factories import (
+    ja_comecou,
     criar_atendimento,
     criar_cliente,
     criar_compra_pacote,
@@ -30,7 +31,7 @@ from .factories import (
 
 
 def _realizar(atendimento):
-    atendimento.marcar_realizado()
+    ja_comecou(atendimento).marcar_realizado()
     return atendimento
 
 
