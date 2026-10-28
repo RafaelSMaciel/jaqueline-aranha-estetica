@@ -79,7 +79,7 @@ class ModeloTests(TestCase):
             {'escopo': 'QUALQUER'},
             {'escopo': 'PROCEDIMENTO'},
             {'escopo': 'CATEGORIA', 'categoria': ''},
-            {'escopo': 'MODALIDADE', 'modalidade': ''},
+            {'escopo': 'MODALIDADE'},                     # todo atendimento e presencial (0067)
         )
         for extra in casos:
             with self.subTest(extra=extra), self.assertRaises(IntegrityError), transaction.atomic():

@@ -17,12 +17,6 @@ class Procedimento(models.Model):
         ('OUTRO', 'Outro'),
     ]
 
-    MODALIDADE_CHOICES = [
-        ('PRESENCIAL', 'Presencial'),
-        ('ONLINE', 'Online'),
-        ('HIBRIDO', 'Híbrido (presencial + online)'),
-    ]
-
     # COLLATE pt_br (ICU no PG; shim em db/collation.py no SQLite) — no estado desde a 0054
     nome = models.CharField(max_length=100, db_collation='pt_br')
     # UNIQUE no Meta (uq_procedimento_slug): sem o indice/_like do SlugField
@@ -34,13 +28,8 @@ class Procedimento(models.Model):
         default=0, db_default=0, db_column='intervalo_minutos',
         db_comment='Folga apos o procedimento (limpeza/preparo) que tambem ocupa a agenda (0-120).',
     )
+    # Todo atendimento e presencial (sem modalidade/videoconferencia desde a 0067)
     categoria = models.CharField(max_length=20, default='OUTRO', db_default='OUTRO', choices=CATEGORIA_CHOICES)
-    modalidade = models.CharField(
-        max_length=12, default='PRESENCIAL', db_default='PRESENCIAL', choices=MODALIDADE_CHOICES,
-    )
-    link_videoconferencia = models.URLField(
-        max_length=500, blank=True, default='', db_default='', db_column='url_videoconferencia',
-    )
     imagem_destaque = models.URLField(
         max_length=500, blank=True, default='', db_default='', db_column='url_imagem_destaque',
     )
@@ -78,10 +67,6 @@ class Procedimento(models.Model):
             models.CheckConstraint(
                 condition=models.Q(categoria__in=['FACIAL', 'CORPORAL', 'CAPILAR', 'OUTRO']),
                 name='ck_procedimento_categoria'
-            ),
-            models.CheckConstraint(
-                condition=models.Q(modalidade__in=['PRESENCIAL', 'ONLINE', 'HIBRIDO']),
-                name='ck_procedimento_modalidade'
             ),
             models.CheckConstraint(
                 condition=(

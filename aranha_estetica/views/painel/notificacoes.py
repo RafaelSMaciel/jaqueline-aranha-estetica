@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 # Notificacoes que pedem resposta pelo link /confirmar/ (LinkAcesso
 # CONFIRMAR_PRESENCA, emitido no lembrete WhatsApp). Link de termo e NPS NAO
 # valem aqui (finalidade diferente -> 404).
-TIPOS_LINK_CONFIRMACAO = ('LEMBRETE', 'LEMBRETE_2H', 'CONFIRMACAO')
+TIPOS_LINK_CONFIRMACAO = ('LEMBRETE', 'CONFIRMACAO')
 STATUS_ALTERAVEIS_PELO_LINK = (StatusAtendimento.AGENDADO, StatusAtendimento.CONFIRMADO)
 # "Sem resposta" so faz sentido p/ o que pede resposta (link de confirmacao
 # enviado): termo, NPS, cancelamento e falhas de envio nao contam.
