@@ -23,7 +23,8 @@ from ..models import Atendimento, Cliente, Notificacao, Profissional
 from ..models.agendamentos import STATUS_FINALIZADOS
 from ..excecoes import RegraDeNegocio, TransicaoInvalida
 from ..services import agenda, comunicacao, links
-from ..services.agendamento_service import formatar_brl, formatar_data_hora
+from ..services.agendamento_service import formatar_data_hora
+from ..utils.formatos import formatar_brl
 from ..services.disponibilidade import profissionais_para
 from ..utils.audit import registrar_log
 from ..utils.captcha import turnstile_enabled, turnstile_site_key

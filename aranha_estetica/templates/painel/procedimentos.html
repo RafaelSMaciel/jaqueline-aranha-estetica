@@ -68,7 +68,7 @@
           <circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/>
         </svg>
         {{ proc.duracao_minutos }} min
-        {% if proc.preco_base is not None %} &middot; R$ {{ proc.preco_base|floatformat:2 }}{% endif %}
+        {% if proc.preco_base is not None %} &middot; {{ proc.preco_base|brl }}{% endif %}
         {% if not proc.ativo %} &middot; <span class="text-erro">Inativo</span>{% endif %}
       </div>
       {% if proc.descricao %}

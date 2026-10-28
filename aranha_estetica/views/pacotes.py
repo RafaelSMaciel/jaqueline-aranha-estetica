@@ -258,7 +258,7 @@ def admin_cancelar_compra_pacote(request, pk):
     except ValueError:
         reembolso = None
     if reembolso is None or reembolso > compra.valor_pago:
-        from ..services.agendamento_service import formatar_brl
+        from ..utils.formatos import formatar_brl
         messages.error(
             request,
             'Informe o valor devolvido à cliente (0 se nada foi devolvido), '

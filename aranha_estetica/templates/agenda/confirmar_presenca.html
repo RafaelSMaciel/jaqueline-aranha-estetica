@@ -1,7 +1,7 @@
 {% extends 'estrutura/base_v2.html' %}
 {% load static %}
 
-{% block titulo %}Confirmar Presença | {{ CLINIC_NAME }}{% endblock %}
+{% block titulo %}Confirmar presença | {{ CLINIC_NAME }}{% endblock %}
 
 {% block conteudo %}
 <div class="mx-auto max-w-2xl px-6 py-12">
@@ -14,7 +14,7 @@
       </svg>
       Confirmação
     </span>
-    <h1 class="text-3xl font-bold text-texto">Confirmar Presença</h1>
+    <h1 class="text-3xl font-bold text-texto">Confirmar presença</h1>
   </div>
 
   <!-- Card principal -->
@@ -29,7 +29,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
       </div>
-      <h2 class="text-xl font-bold">Presença Confirmada!</h2>
+      <h2 class="text-xl font-bold">Presença confirmada!</h2>
       <p class="mt-1 text-sm opacity-80">Obrigado por confirmar. Te esperamos!</p>
     </div>
     {% elif resposta == 'CANCELOU' or atendimento.status == 'CANCELADO' %}
@@ -39,7 +39,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
       </div>
-      <h2 class="text-xl font-bold">Agendamento Cancelado</h2>
+      <h2 class="text-xl font-bold">Agendamento cancelado</h2>
       <p class="mt-1 text-sm opacity-80">Seu agendamento foi cancelado com sucesso.</p>
     </div>
     {% else %}
@@ -66,7 +66,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
         </svg>
       </div>
-      <h2 class="text-xl font-bold">Confirme sua Presença</h2>
+      <h2 class="text-xl font-bold">Confirme sua presença</h2>
       <p class="mt-1 text-sm opacity-75">Você pode confirmar ou cancelar seu agendamento</p>
     </div>
     {% endif %}

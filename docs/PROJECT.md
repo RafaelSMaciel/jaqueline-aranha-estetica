@@ -1145,6 +1145,9 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
   atualizar `JSDELIVR_PATHS` + SRI.
 - Copy do site em tom de estética/bem-estar (cliente, atendimento, avaliação — nunca
   "paciente/consulta médica").
+- Títulos com só a 1ª maiúscula ("Lista de espera", "Perguntas frequentes"); nome de tratamento do
+  catálogo e sigla ficam como são. Dinheiro sempre `{{ valor|brl }}` (R$ 1.350,00; filtro builtin,
+  `utils/formatos.formatar_brl`), nunca `R$ {{ x|floatformat }}`.
 - Migrations: nunca editar migration já aplicada em produção; DDL só-Postgres via `RunPython`
   com checagem de vendor; teste no Postgres (CI) antes do merge.
 - Commits: Conventional Commits (`feat(scope)`, `fix(scope)`, `docs(scope)`...).

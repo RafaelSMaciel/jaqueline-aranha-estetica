@@ -85,10 +85,10 @@
               <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
             </svg>
             <strong class="text-texto">
-              {% if preco %}A partir de R$ {{ preco|floatformat:"2g" }}{% else %}Valor a consultar{% endif %}
+              {% if preco %}A partir de {{ preco|brl }}{% else %}Valor a consultar{% endif %}
             </strong>
             {% if preco and preco_cheio %}
-            <s class="text-texto-suave"><span class="sr-only">Preço sem promoção: </span>R$ {{ preco_cheio|floatformat:"2g" }}</s>
+            <s class="text-texto-suave"><span class="sr-only">Preço sem promoção: </span>{{ preco_cheio|brl }}</s>
             <span class="text-marca font-medium">{{ promocao.nome }}</span>
             {% endif %}
           </div>
@@ -158,7 +158,7 @@
 <section class="py-16 md:py-24 bg-superficie">
   <div class="max-w-4xl mx-auto px-6">
     <div class="text-center mb-10">
-      <h2 class="text-3xl font-bold text-texto">Sobre o Tratamento</h2>
+      <h2 class="text-3xl font-bold text-texto">Sobre o tratamento</h2>
       <div class="w-16 h-1 bg-marca-forte mx-auto mt-4 rounded-full"></div>
     </div>
     <div class="prose-custom text-texto-suave leading-relaxed text-base space-y-4">
@@ -173,7 +173,7 @@
 <section class="py-16 md:py-24 bg-fundo">
   <div class="max-w-6xl mx-auto px-6">
     <div class="text-center mb-12">
-      <h2 class="text-3xl font-bold text-texto">Profissionais Especializados</h2>
+      <h2 class="text-3xl font-bold text-texto">Profissionais especializados</h2>
       <p class="text-texto-suave mt-3">Conheça quem vai cuidar de você</p>
     </div>
     <div class="flex flex-wrap justify-center gap-6">
@@ -204,7 +204,7 @@
 <section class="py-16 md:py-24 bg-superficie">
   <div class="max-w-6xl mx-auto px-6">
     <div class="text-center mb-12">
-      <h2 class="text-3xl font-bold text-texto">Você Também Pode Gostar</h2>
+      <h2 class="text-3xl font-bold text-texto">Você também pode gostar</h2>
       <p class="text-texto-suave mt-3">Outros tratamentos da categoria {{ procedimento.get_categoria_display }}</p>
     </div>
     <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -232,7 +232,7 @@
 {# ═══ CTA FINAL ═══ #}
 <section class="py-16 bg-fundo">
   <div class="max-w-3xl mx-auto px-6 text-center">
-    <h2 class="text-3xl font-bold text-texto mb-4">Pronto para Começar?</h2>
+    <h2 class="text-3xl font-bold text-texto mb-4">Pronto para começar?</h2>
     <p class="text-texto-suave text-lg mb-8">
       Agende sua sessão de {{ procedimento.nome }} e cuide da sua beleza com quem entende.
     </p>
