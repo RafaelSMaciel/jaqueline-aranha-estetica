@@ -80,11 +80,11 @@ mapa canônico com SVG inline) e `<c-toast>`/`<c-modal>` (mensagens do Django vi
 **Componentes Alpine** (`static/src/js/app.js`, CSP-safe): `temaToggle`, `modal`, `navMenu`,
 `cookieConsent`, `adminShell`, `alertaDismiss`, `anotacaoModal` (fetch da anotação),
 `pacoteCriar` (clonar item do pacote). Também no bundle: `data-confirm` global delegado
-(substitui `window.confirm` inline) e `admin-search.js`.
+(substitui `window.confirm` inline) e `painel-busca.js`.
 
 **JS estático fora do Vite** (`static/js/`): `wizard.js` (wizard de agendamento, vanilla,
 estado em `sessionStorage`), `webpush.js` (inscrição de push; lê o CSRF da página),
-`admin-search.js`.
+`painel-busca.js`.
 
 **Parciais** (`templates/partials/`): `_status_badge`, `_paginacao`, `_alerta_saude` (alertas de
 saúde em texto visível), `_ficha_pendente`, `faq_accordion`.
@@ -113,7 +113,7 @@ saúde em texto visível), `_ficha_pendente`, `faq_accordion`.
 - **T9 (parcial):** cor final confirmada; fontes definidas (Playfair Display + Lato). Falta só,
   se desejado, servir as fontes localmente (woff2) em vez do Google Fonts.
 - Migrar os `style=""` restantes e então remover `style-src-attr 'unsafe-inline'`.
-- `agenda/embed.html` segue mínimo (sem chrome), por design.
+- `agendamento/embed.html` segue mínimo (sem chrome), por design.
 
 ---
 

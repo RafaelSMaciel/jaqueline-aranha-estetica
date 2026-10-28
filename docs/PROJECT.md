@@ -131,11 +131,12 @@ aranha_estetica/
 ├── forms/           cliente.py (ClientePainelForm), painel.py (ProcedimentoForm, BloqueioForm, TermoForm, parse_preco)
 ├── management/commands/  seed, bootstrap_admin, migrate_atomico, setup_2fa, carregar_feriados
 ├── templatetags/    painel_tags, atendimento_tags, gcal_tags, dict_extras
-├── templates/       estrutura/, cotton/, publico/, agenda/, servicos/, painel/, profissional/,
-│                    partials/, email/, usuario/, pwa/, api/, erros (400/403/403_csrf/404/429/500),
-│                    axes_bloqueio.html, robots.txt
+├── templates/       estrutura/ (bases), cotton/ (componentes), publico/ (site; servicos/), agendamento/
+│                    (wizard, portal da cliente, links), conta/ (login, senha), painel/, profissional/,
+│                    partials/, email/, pwa/, erros (400/403/403_csrf/404/429/500), axes_bloqueio.html,
+│                    robots.txt
 ├── static/src/      fonte do Vite — css/tokens.css, css/app.css e uma entrada JS por tela (app.js,
-│                    wizard.js, admin-search.js, webpush.js; nome com hash no build) — fora do collectstatic
+│                    wizard.js, painel-busca.js, webpush.js; nome com hash no build) — fora do collectstatic
 ├── static/dist/     build do Vite (gitignored; gerado no Docker/CI)
 ├── signals.py       só o cache do Branding (post_save/post_delete de Configuracao)
 ├── jobs.py / jobs_manutencao.py     jobs periódicos (funções; cron HTTP e `rodar_job`)

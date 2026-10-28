@@ -1937,7 +1937,7 @@ texto) — links antigos deixam de funcionar num rollback de dev; em produção 
   gerar outro revoga o anterior (mesma semântica da rotação atual). A lista mostra "Link ativo desde
   dd/mm/aaaa" (links migrados: "ativo, criado antes da atualização") ou "Sem link". O profissional
   pode gerar o próprio link no portal.
-- **Meus agendamentos** (`templates/agenda/meus_agendamentos.html` l. 544–561 e `agenda/reagendar.html`
+- **Meus agendamentos** (`templates/agendamento/meus_agendamentos.html` l. 544–561 e `agendamento/reagendar.html`
   l. 170 leem `ag.token_cancelamento`): a página já é autenticada por OTP (sessão com o telefone,
   `booking_otp.SESSAO_MEUS_AGENDAMENTOS`). Reagendar/cancelar passam a usar **o id + a sessão**
   (`/meus-agendamentos/<id>/reagendar/`, `POST /api/cancelar {atendimento_id}` com checagem

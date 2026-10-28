@@ -146,4 +146,4 @@ def embed_agendar(request):
         'procedimentos': procedimentos,
         'booking_url': booking_url,
     }
-    return render(request, 'agenda/embed.html', context)
+    return render(request, 'agendamento/embed.html', context)
