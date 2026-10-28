@@ -7,10 +7,12 @@ revogado (descadastro/painel/esquecimento) nao recebe; reconsentimento volta a
 receber.
 """
 from datetime import datetime, timedelta, timezone as dt_timezone
+from unittest import skipUnless
 from unittest.mock import patch
 
 from django.core import mail
 from django.core.exceptions import ValidationError
+from django.db import connection
 from django.test import RequestFactory, TestCase, override_settings
 from django.utils import timezone
 
@@ -113,6 +115,7 @@ class ServicoConsentimentoTests(TestCase):
         clientes = consentimentos.com_consentimento(Cliente.objects.all(), *D1, caminho='pk')
         self.assertEqual(list(clientes), [self.cli])
 
+    @skipUnless(connection.vendor == 'postgresql', 'sp_anonimizar_cliente so no Postgres')
     def test_esquecer_mantem_historico_sem_ip_ua_e_revoga(self):
         req = RequestFactory().post('/', HTTP_USER_AGENT='UA', REMOTE_ADDR='10.0.0.7')
         self._registrar(MKT, True, request=req)

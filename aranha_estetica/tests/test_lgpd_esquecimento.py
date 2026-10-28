@@ -1,6 +1,12 @@
-"""LGPD: direito ao esquecimento (anonimizacao persistida) e purga por retencao."""
-from datetime import timedelta
+"""LGPD: direito ao esquecimento (anonimizacao persistida) e purga por retencao.
 
+Esquecimento e retencao sao as procedures sp_anonimizar_cliente/sp_aplicar_retencao_lgpd
+(fonte unica, sem fallback Python): essas classes rodam so no Postgres (CI e docker compose).
+"""
+from datetime import timedelta
+from unittest import skipUnless
+
+from django.db import connection
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -17,7 +23,11 @@ from .factories import (
     criar_profissional,
 )
 
+PG = connection.vendor == 'postgresql'
+MOTIVO = 'esquecimento/retencao: procedures so no Postgres (0058)'
 
+
+@skipUnless(PG, MOTIVO)
 class EsquecerClienteTests(TestCase):
     def setUp(self):
         self.cliente = criar_cliente(
@@ -111,6 +121,7 @@ class EsquecerClienteTests(TestCase):
         self.assertTrue(novo.pk)
 
 
+@skipUnless(PG, MOTIVO)
 class PurgaRetencaoTests(TestCase):
     def _envelhecer(self, cliente, dias):
         Cliente.all_objects.filter(pk=cliente.pk).update(
@@ -123,20 +134,20 @@ class PurgaRetencaoTests(TestCase):
     def test_lead_inativo_ha_mais_de_5_anos_e_anonimizado(self):
         lead = criar_cliente(nome='Lead Antigo')
         self._envelhecer(lead, 365 * 5 + 10)
-        self.assertEqual(LgpdService.purgar_inativos(), 1)
+        self.assertEqual(LgpdService.aplicar_retencao()['clientes'], 1)
         self.assertTrue(Cliente.all_objects.get(pk=lead.pk).nome.startswith('[ANONIMIZADO-'))
 
     def test_inativo_ha_3_anos_nao_e_anonimizado(self):
         cliente = criar_cliente(nome='Recente')
         self._envelhecer(cliente, 365 * 3)
-        self.assertEqual(LgpdService.purgar_inativos(), 0)
+        self.assertEqual(LgpdService.aplicar_retencao()['clientes'], 0)
         self.assertEqual(Cliente.all_objects.get(pk=cliente.pk).nome, 'Recente')
 
     def test_cliente_com_prontuario_fica_retido(self):
         cliente = criar_cliente(nome='Com Prontuario')
         Prontuario.objects.create(cliente=cliente, alergias='nenhuma')
         self._envelhecer(cliente, 365 * 6)
-        self.assertEqual(LgpdService.purgar_inativos(), 0)
+        self.assertEqual(LgpdService.aplicar_retencao()['clientes'], 0)
         self.assertEqual(Cliente.all_objects.get(pk=cliente.pk).nome, 'Com Prontuario')
 
     def test_soft_deletado_ha_30_dias_e_anonimizado(self):
@@ -145,11 +156,11 @@ class PurgaRetencaoTests(TestCase):
         Cliente.all_objects.filter(pk=cliente.pk).update(
             deletado_em=timezone.now() - timedelta(days=31),
         )
-        self.assertEqual(LgpdService.purgar_inativos(), 1)
+        self.assertEqual(LgpdService.aplicar_retencao()['clientes'], 1)
         salvo = Cliente.all_objects.get(pk=cliente.pk)
         self.assertIsNone(salvo.email)
         # Ja anonimizado nao volta a ser processado
-        self.assertEqual(LgpdService.purgar_inativos(), 0)
+        self.assertEqual(LgpdService.aplicar_retencao()['clientes'], 0)
 
     def _aceite_lgpd(self, cliente):
         termo = VersaoTermo.lgpd_vigente() or VersaoTermo.objects.create(
@@ -163,7 +174,7 @@ class PurgaRetencaoTests(TestCase):
         cliente = criar_cliente(nome='Velha Com Aceite')
         aceite = self._aceite_lgpd(cliente)
         self._envelhecer(cliente, 365 * 6)
-        self.assertEqual(LgpdService.purgar_inativos(), 1)
+        self.assertEqual(LgpdService.aplicar_retencao()['clientes'], 1)
         self.assertTrue(Cliente.all_objects.get(pk=cliente.pk).nome.startswith('[ANONIMIZADO-'))
         # prova do consentimento continua ligada ao mesmo id
         self.assertEqual(AceiteTermo.objects.get(pk=aceite.pk).cliente_id, cliente.pk)
@@ -175,7 +186,7 @@ class PurgaRetencaoTests(TestCase):
         Cliente.all_objects.filter(pk=cliente.pk).update(
             deletado_em=timezone.now() - timedelta(days=31),
         )
-        self.assertIn(cliente.pk, set(LgpdService.candidatos_purga().values_list('pk', flat=True)))
+        self.assertIn(cliente.pk, set(LgpdService.candidatos_retencao()))
 
     def test_prontuario_vazio_nao_retem(self):
         """followups-purga-prontuario-vazio: registro vazio (GET legado) nao conta."""
@@ -185,14 +196,14 @@ class PurgaRetencaoTests(TestCase):
         Prontuario.objects.create(cliente=branco, alergias='', respostas_extras={})
         for cliente in (vazio, branco):
             self._envelhecer(cliente, 365 * 6)
-        candidatos = set(LgpdService.candidatos_purga().values_list('pk', flat=True))
+        candidatos = set(LgpdService.candidatos_retencao())
         self.assertEqual(candidatos, {vazio.pk, branco.pk})
 
     def test_prontuario_so_com_respostas_extras_retem(self):
         cliente = criar_cliente(nome='Com Extras')
         Prontuario.objects.create(cliente=cliente, respostas_extras={'diabetes': True})
         self._envelhecer(cliente, 365 * 6)
-        self.assertEqual(LgpdService.purgar_inativos(), 0)
+        self.assertEqual(LgpdService.aplicar_retencao()['clientes'], 0)
 
     def test_historico_do_prontuario_retem_mesmo_com_prontuario_zerado(self):
         """Prontuario hoje vazio, mas com ProntuarioVersao: historico clinico (retencao legal)."""
@@ -205,9 +216,9 @@ class PurgaRetencaoTests(TestCase):
         Prontuario.objects.create(cliente=sem_historico)
         for c in (cliente, sem_historico):
             self._envelhecer(c, 365 * 6)
-        candidatos = set(LgpdService.candidatos_purga().values_list('pk', flat=True))
+        candidatos = set(LgpdService.candidatos_retencao())
         self.assertEqual(candidatos, {sem_historico.pk})
-        LgpdService.purgar_inativos()
+        LgpdService.aplicar_retencao()['clientes']
         self.assertEqual(Cliente.all_objects.get(pk=cliente.pk).nome, 'Historico Clinico')
 
 
@@ -225,6 +236,7 @@ def _ficha(cliente, atendimento=None, respondida=True, dias_atras=0):
     return ficha
 
 
+@skipUnless(PG, MOTIVO)
 class FichasSemAtendimentoTests(TestCase):
     """gap2-08: ficha de saude de pedido que nunca aconteceu nao fica para sempre."""
 
@@ -239,26 +251,26 @@ class FichasSemAtendimentoTests(TestCase):
 
     def test_ficha_de_cancelado_antiga_e_apagada(self):
         ficha = _ficha(self.cliente, self._atd('CANCELADO'), dias_atras=91)
-        self.assertEqual(LgpdService.purgar_fichas_sem_atendimento(), 1)
+        self.assertEqual(LgpdService.aplicar_retencao()['fichas'], 1)
         self.assertFalse(RespostaAnamnese.objects.filter(pk=ficha.pk).exists())
         self.assertTrue(LogAuditoria.objects.filter(tabela='resposta_formulario').exists())
 
     def test_ficha_de_realizado_permanece(self):
         ficha = _ficha(self.cliente, self._atd('REALIZADO'), dias_atras=400)
-        self.assertEqual(LgpdService.purgar_fichas_sem_atendimento(), 0)
+        self.assertEqual(LgpdService.aplicar_retencao()['fichas'], 0)
         self.assertTrue(RespostaAnamnese.objects.filter(pk=ficha.pk).exists())
 
     def test_cliente_recorrente_nao_protege_ficha_de_pedido_cancelado(self):
         _ficha(self.cliente, self._atd('REALIZADO', dias=-200), dias_atras=200)
         cancelada = _ficha(self.cliente, self._atd('CANCELADO'), dias_atras=91)
-        LgpdService.purgar_fichas_sem_atendimento()
+        LgpdService.aplicar_retencao()['fichas']
         self.assertFalse(RespostaAnamnese.objects.filter(pk=cancelada.pk).exists())
         self.assertEqual(RespostaAnamnese.objects.filter(cliente=self.cliente).count(), 1)
 
     def test_pendente_vencido_e_convite_nunca_respondido_saem(self):
         _ficha(self.cliente, self._atd('PENDENTE'), dias_atras=91)
         _ficha(self.cliente, None, respondida=False, dias_atras=91)
-        self.assertEqual(LgpdService.purgar_fichas_sem_atendimento(), 2)
+        self.assertEqual(LgpdService.aplicar_retencao()['fichas'], 2)
 
     def test_convite_vazio_de_horario_passado_sai_e_ficha_legada_fica(self):
         """rev_painel-11: link da recepcao ignorado nao fica para sempre; ficha do
@@ -270,7 +282,7 @@ class FichasSemAtendimentoTests(TestCase):
         futuro = _ficha(self.cliente, self._atd('AGENDADO', dias=5), respondida=False, dias_atras=91)
         RespostaAnamnese.objects.filter(pk=futuro.pk).update(respostas_json={})
 
-        self.assertEqual(LgpdService.purgar_fichas_sem_atendimento(), 1)
+        self.assertEqual(LgpdService.aplicar_retencao()['fichas'], 1)
 
         self.assertFalse(RespostaAnamnese.objects.filter(pk=convite.pk).exists())
         self.assertTrue(RespostaAnamnese.objects.filter(pk=legada.pk).exists())
@@ -278,7 +290,7 @@ class FichasSemAtendimentoTests(TestCase):
 
     def test_ficha_recente_de_cancelado_ainda_fica(self):
         _ficha(self.cliente, self._atd('CANCELADO', dias=-10), dias_atras=10)
-        self.assertEqual(LgpdService.purgar_fichas_sem_atendimento(), 0)
+        self.assertEqual(LgpdService.aplicar_retencao()['fichas'], 0)
 
     def test_job_de_retencao_chama_a_purga_de_fichas(self):
         from aranha_estetica.tasks import job_lgpd_purgar_inativos
@@ -298,6 +310,7 @@ class FichasSemAtendimentoTests(TestCase):
         )
 
 
+@skipUnless(PG, MOTIVO)
 class TrilhaAuditoriaAnonimizadaTests(TestCase):
     """gap2-06: depois do esquecimento o log nao liga mais nome, prontuario e id."""
 
@@ -387,6 +400,7 @@ class TrilhaAuditoriaAnonimizadaTests(TestCase):
         self.assertEqual(outro.detalhes, {'telefone': '11****1111'})
 
 
+@skipUnless(PG, MOTIVO)
 class DepoimentoAposEsquecimentoTests(TestCase):
     """rev_security-02: esquecimento tira o depoimento do site e apaga o texto."""
 
@@ -455,6 +469,7 @@ class ExportDsarTests(TestCase):
         self.assertIn('SAUDE', [a['tipo'] for a in dados['aceites_termos']])
 
 
+@skipUnless(PG, MOTIVO)
 class ListaEsperaVencidaTests(TestCase):
     """rev_security-01 (5): inscricao com data passada e apagada pela retencao."""
 

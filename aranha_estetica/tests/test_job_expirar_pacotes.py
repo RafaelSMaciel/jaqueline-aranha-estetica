@@ -1,6 +1,9 @@
 """Testes do job_expirar_pacotes (Celery task)."""
 from datetime import datetime, time, timedelta
 
+from unittest import skipUnless
+
+from django.db import connection
 from django.test import TestCase
 from django.utils import timezone
 
@@ -17,6 +20,7 @@ from .factories import (
 )
 
 
+@skipUnless(connection.vendor == 'postgresql', 'sp_expirar_pacotes so no Postgres')
 class JobExpirarPacotesTests(TestCase):
     def setUp(self):
         self.cliente = criar_cliente()
@@ -118,6 +122,7 @@ class ValidadePelaDataDaSessaoTests(TestCase):
         self._realizar(atd)
         self.assertTrue(ConsumoSessao.objects.filter(compra_pacote=self.pc, atendimento=atd).exists())
 
+    @skipUnless(connection.vendor == 'postgresql', 'sp_expirar_pacotes so no Postgres')
     def test_job_antes_da_marcacao_nao_impede_o_debito(self):
         CompraPacote.objects.filter(pk=self.pc.pk).update(data_expiracao=self.ontem)
         atd = self._sessao_em(self.ontem)

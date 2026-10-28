@@ -569,9 +569,3 @@ RETENCAO_AXES_LOG_DIAS = int(os.environ.get('RETENCAO_AXES_LOG_DIAS', '90'))
 # link_acesso vencido/revogado ha mais de N dias e apagado (sp_purgar_dados_expirados);
 # historico_alteracao segue RETENCAO_LOG_AUDITORIA_DIAS (prontuario: 20 anos, nao purga)
 RETENCAO_LINK_ACESSO_DIAS = int(os.environ.get('RETENCAO_LINK_ACESSO_DIAS', '90'))
-
-# ─── LOGICA NO BANCO (docs/specs/padrao-sql.md §5.6/§5.7) ──────────
-# No Postgres as procedures sp_* sao a fonte unica (utils/banco.usa_logica_pg); o
-# fallback Python existe so p/ o SQLite dos testes. True SO no teste de paridade
-# (roda o fallback no Postgres p/ comparar) — nunca em producao.
-FORCAR_LOGICA_PYTHON = False

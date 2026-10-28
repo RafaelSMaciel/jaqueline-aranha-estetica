@@ -831,6 +831,7 @@ class MigrateAtomicoTests(TestCase):
 
 
 # ─── Retencao / housekeeping ─────────────────────────────────────────
+@skipUnless(connection.vendor == 'postgresql', 'sp_purgar_dados_expirados so no Postgres')
 class HousekeepingTests(TestCase):
     def test_purga_otp_notificacao_e_auditoria_antigos(self):
         from aranha_estetica.models import CodigoOtp, LogAuditoria, Notificacao

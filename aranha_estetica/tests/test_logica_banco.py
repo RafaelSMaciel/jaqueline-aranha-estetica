@@ -3,15 +3,15 @@
 utils/nps (meio p/ cima, D7), utils/banco (allowlist do CALL, gating SQLite x PG), busca de
 cliente (trigram/sem acento no PG, icontains no SQLite), HistoricoAlteracao/AnotacaoSessao
 append-only no Python, admin da trilha so leitura com trilha de leitura e o housekeeping
-(links vencidos/revogados e trilha antiga) pelo caminho de cada banco.
+(links vencidos/revogados e trilha antiga; so Postgres).
 """
 from datetime import timedelta
 from decimal import Decimal
 from unittest import skipIf, skipUnless
 
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.db import IntegrityError, connection, transaction
-from django.test import Client, RequestFactory, TestCase, override_settings
+from django.test import Client, RequestFactory, TestCase
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
@@ -65,10 +65,11 @@ class BancoUtilTests(TestCase):
         with self.assertRaises(ValueError):
             banco.chamar('DROP TABLE cliente; --', 1, 2)
 
-    def test_gating_sqlite_x_postgres(self):
-        self.assertEqual(banco.usa_logica_pg(), PG)
-        with override_settings(FORCAR_LOGICA_PYTHON=True):
-            self.assertFalse(banco.usa_logica_pg())
+    @skipIf(PG, 'no Postgres o CALL roda (test_lgpd_esquecimento, test_pg_paridade)')
+    def test_procedure_fora_do_postgres_recusa_com_mensagem(self):
+        # sem fallback Python: no SQLite o esquecimento/retencao nao "finge" que rodou
+        with self.assertRaisesRegex(ImproperlyConfigured, 'docker compose up -d db'):
+            banco.chamar('sp_expirar_pacotes', None, None)
 
     @skipIf(PG, 'no Postgres o contexto vai ao banco (test_pg_historico)')
     def test_contexto_e_middleware_sao_no_op_no_sqlite(self):
@@ -192,9 +193,10 @@ class HistoricoAlteracaoAdminTests(TestCase):
         self.assertContains(self.c.get(self.base, {'q': '7'}), 'prontuario')
 
 
+@skipUnless(PG, 'sp_purgar_dados_expirados so no Postgres (0058)')
 class HousekeepingLinksETrilhaTests(TestCase):
-    """job_housekeeping: links vencidos/revogados (90 dias) e trilha antiga (5 anos; prontuario fica).
-    SQLite: _purgar_links/_purgar_historico; Postgres: sp_purgar_dados_expirados."""
+    """job_housekeeping: links vencidos/revogados (90 dias) e trilha antiga (5 anos; prontuario fica)
+    pelo sp_purgar_dados_expirados."""
 
     def test_purga_links_e_trilha(self):
         from aranha_estetica.tasks_manutencao import job_housekeeping

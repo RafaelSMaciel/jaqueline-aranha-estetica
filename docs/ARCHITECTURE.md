@@ -132,6 +132,7 @@ cards e dias são `<button>` (teclado) e o estado sobrevive a recusa do servidor
 | D20 | Faturamento = avulsos + venda de pacote; sessão de pacote não soma; comissão da sessão de pacote = `valor_pago / total de sessões` (congelado na venda, `compra_pacote_item.valor_unitario`); ticket médio e LTV da ficha pela mesma regra (`services/financeiro`) | Evita contar a receita duas vezes e inflar comissão |
 | D21 | Dado de saúde e token OAuth **cifrados na aplicação** (Fernet, `CHAVES_CIFRAGEM`, subchave por finalidade; 0060), sem busca no banco por conteúdo | Dump/backup vazado não expõe a ficha (LGPD art. 46/48 §3); pgcrypto deixaria a chave no SQL de toda consulta |
 | D22 | Trilhas append-only no banco: `log_auditoria` imutável e expurgo só com 180+ dias (0059) | Mesmo usuário do banco p/ app e migrations: SQL injetado não apaga a prova (art. 37) |
+| D23 | **Postgres é a fonte única da escrita** de esquecimento, retenção LGPD, limpeza e expiração de pacotes (procedures 0058, sem fallback Python); funções de leitura seguem como espelho testado do Python | Decisão do dono (2026-10-27): uma regra, um lugar; custa exigir Postgres (Docker) para rodar esses testes e rotinas localmente |
 
 ---
 

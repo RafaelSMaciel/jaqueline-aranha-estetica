@@ -13,14 +13,10 @@ continuam Python (tabelas de terceiros). SQLite: as funcoes _purgar_* abaixo.
 """
 import io
 import logging
-from datetime import timedelta
 
 from celery import shared_task
 from django.conf import settings
 from django.core.management import call_command
-from django.db import connection, models, transaction
-from django.db.models import Q
-from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -30,80 +26,25 @@ def _limpar_sessoes():
     return 'ok'
 
 
-def _purgar_otp():
-    from .models import CodigoOtp
-    limite = timezone.now() - timedelta(hours=settings.RETENCAO_OTP_HORAS)
-    return CodigoOtp.objects.filter(criado_em__lt=limite).delete()[0]
-
-
-def _limpar_texto_notificacoes():
-    from .models import Notificacao
-    limite = timezone.now() - timedelta(days=settings.RETENCAO_NOTIFICACAO_DIAS)
-    return (
-        Notificacao.objects.filter(criado_em__lt=limite)
-        .exclude(mensagem__isnull=True).exclude(mensagem='')
-        .update(mensagem='')
-    )
-
-
-def _purgar_auditoria():
-    from .models import LogAuditoria
-    limite = timezone.now() - timedelta(days=settings.RETENCAO_LOG_AUDITORIA_DIAS)
-    return LogAuditoria.objects.filter(criado_em__lt=limite).delete()[0]
-
-
-def _purgar_links():
-    """link_acesso vencido ou revogado ha mais de N dias (sem validade e nao revogado fica)."""
-    from .models import LinkAcesso
-    limite = timezone.now() - timedelta(days=settings.RETENCAO_LINK_ACESSO_DIAS)
-    _total, por_modelo = LinkAcesso.objects.filter(
-        Q(revogado_em__lt=limite) | Q(revogado_em__isnull=True, expira_em__lt=limite),
-    ).delete()
-    return por_modelo.get('aranha_estetica.LinkAcesso', 0)
-
-
-def _purgar_historico():
-    """historico_alteracao alem da retencao (5 anos), exceto prontuario (registro clinico, 20 anos).
-
-    Trilha append-only: o QuerySet do model recusa delete(); a purga usa o delete base e, no
-    Postgres, liga a flag local da transacao que o tg_historico_alteracao_imutavel aceita
-    (como o sp_purgar_dados_expirados).
-    """
-    from .models import HistoricoAlteracao
-    limite = timezone.now() - timedelta(days=settings.RETENCAO_LOG_AUDITORIA_DIAS)
-    qs = HistoricoAlteracao.objects.exclude(tabela='prontuario').filter(criado_em__lt=limite)
-    with transaction.atomic():
-        if connection.vendor == 'postgresql':
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT set_config('app.expurgo_autorizado', 'on', true)")
-        qtd, _por_modelo = models.QuerySet.delete(qs)
-        if connection.vendor == 'postgresql':
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT set_config('app.expurgo_autorizado', 'off', true)")
-    return qtd
-
-
 def _purgar_logs_axes():
     from axes.handlers.proxy import AxesProxyHandler
     dias = settings.RETENCAO_AXES_LOG_DIAS
     return AxesProxyHandler.reset_logs(age_days=dias) + AxesProxyHandler.reset_failure_logs(age_days=dias)
 
 
-ETAPAS_HOUSEKEEPING = [
-    ('sessoes', _limpar_sessoes),
-    ('otp', _purgar_otp),
-    ('notificacoes', _limpar_texto_notificacoes),
-    ('auditoria', _purgar_auditoria),
-    ('links', _purgar_links),
-    ('historico', _purgar_historico),
-    ('axes', _purgar_logs_axes),
-]
-# etapas que o sp_purgar_dados_expirados faz no Postgres (na ordem dos INOUT da procedure)
+# etapas que o sp_purgar_dados_expirados faz (na ordem dos INOUT da procedure)
 ETAPAS_DO_BANCO = ('otp', 'notificacoes', 'auditoria', 'links', 'historico')
 
 
 def _purgar_no_banco():
-    """CALL sp_purgar_dados_expirados -> ({etapa: qtd}, [etapas com falha])."""
+    """CALL sp_purgar_dados_expirados -> ({etapa: qtd}, [etapas com falha]).
+
+    OTP com mais de RETENCAO_OTP_HORAS, texto de notificacao com mais de
+    RETENCAO_NOTIFICACAO_DIAS, log_auditoria e historico_alteracao (menos prontuario) alem de
+    RETENCAO_LOG_AUDITORIA_DIAS e link_acesso vencido/revogado ha mais de
+    RETENCAO_LINK_ACESSO_DIAS (link sem validade e nao revogado fica: feed ICS). Cada etapa e uma
+    subtransacao na procedure: a falha de uma nao impede as outras.
+    """
     from .utils.banco import chamar
     *qtds, falhas = chamar(
         'sp_purgar_dados_expirados',
@@ -119,22 +60,21 @@ def _purgar_no_banco():
     return resumo, falhas
 
 
+ETAPAS_HOUSEKEEPING = [
+    ('sessoes', _limpar_sessoes),
+    ('banco', _purgar_no_banco),
+    ('axes', _purgar_logs_axes),
+]
+
+
 @shared_task(bind=True, max_retries=0)
 def job_housekeeping(self):
-    """Limpeza diaria: sessoes expiradas, OTP, texto de notificacoes antigas,
-    auditoria alem da retencao, links publicos vencidos/revogados, trilha de
-    alteracoes alem da retencao e logs do axes. Cada etapa e independente;
-    se alguma falhar, as outras rodam e o job termina em erro (cron ve 500).
-    No Postgres as 5 etapas do app sao o sp_purgar_dados_expirados."""
-    from .utils.banco import usa_logica_pg
-
-    pg = usa_logica_pg()
+    """Limpeza diaria: sessoes expiradas, o sp_purgar_dados_expirados (OTP, texto de
+    notificacoes, auditoria e trilha alem da retencao, links vencidos/revogados) e logs do axes.
+    Cada etapa e independente; se alguma falhar, as outras rodam e o job termina em erro (cron
+    ve 500)."""
     resumo, falhas = {}, []
     for nome, etapa in ETAPAS_HOUSEKEEPING:
-        if pg and nome in ETAPAS_DO_BANCO:
-            if nome != ETAPAS_DO_BANCO[0]:
-                continue  # uma chamada so faz as 5
-            nome, etapa = 'banco', _purgar_no_banco
         try:
             resultado = etapa()
         except Exception as exc:  # noqa: BLE001 — isola a etapa
