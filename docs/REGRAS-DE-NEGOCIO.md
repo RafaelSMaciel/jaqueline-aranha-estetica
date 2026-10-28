@@ -180,13 +180,17 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 
 ## 11. Retorno obrigatório (F-RET)
 
-- Procedimento com `exige_retorno` (janela `retorno_minimo_dias`–`retorno_maximo_dias`,
-  `duracao_retorno_minutos`, padrão 30): ao marcar o atendimento **REALIZADO** o sistema cria o
-  retorno: `eh_retorno=True`, **valor 0**, status **PENDENTE**, no primeiro horário livre do
-  profissional dentro da janela, a partir do **meio** da janela (ignora `max_advance_dias`/aviso
-  mínimo, respeita expediente, folgas, feriados e bloqueios).
-- Sem horário livre na janela → não cria (recepção agenda). Idempotente: no máximo **1 retorno
-  vivo por origem** (UNIQUE no banco).
+- Procedimento com `exige_retorno` (janela `retorno_minimo_dias`–`retorno_maximo_dias` após o
+  fim do atendimento, `duracao_retorno_minutos`, padrão 30): o **REALIZADO** deixa o retorno
+  **devido** — o sistema **não reserva** horário sozinho (a cliente não escolhia o dia e, sem
+  aprovação, recebia "cancelado").
+- **Quem marca:** a recepção, em **Painel › Retornos a marcar** (card na visão geral e na ficha da
+  cliente): só horários livres **dentro da janela** (ignora `max_advance_dias`/aviso mínimo,
+  respeita expediente, folgas, feriados e bloqueios) → `eh_retorno=True`, **valor 0**, status
+  **AGENDADO** (combinado com a cliente). A cliente vê em **Meus agendamentos** "Seu retorno de X é
+  sem custo — agende entre dd/mm e dd/mm", com atalho para o WhatsApp da clínica.
+- Fora da janela, origem não realizada ou retorno já marcado → recusa com o motivo. No máximo
+  **1 retorno vivo por origem** (UNIQUE no banco). Janela vencida sai da lista.
 - Retorno **não gera comissão, não gera cashback, não consome sessão de pacote** e o valor fica
   sempre 0.
 
@@ -419,7 +423,7 @@ aceites, prontuário e pacotes ficam, ligados a um titular não identificável.
 | Evento | Efeito |
 |---|---|
 | Atendimento criado | Push ao profissional + sync Google Calendar (após o commit) |
-| → REALIZADO | Zera faltas e desbloqueia; debita sessão de pacote (não em retorno); comissão; cashback da indicadora (1º pago); cria retorno se o procedimento exige |
+| → REALIZADO | Zera faltas e desbloqueia; debita sessão de pacote (não em retorno); comissão; cashback da indicadora (1º pago); retorno fica devido se o procedimento exige (a recepção marca) |
 | → FALTOU | Soma falta (bloqueio online no limite) |
 | → CANCELADO | Lança o estorno da comissão e do cashback; avisa lista de espera (se futuro) |
 | → REAGENDADO | Avisa lista de espera (se futuro) |

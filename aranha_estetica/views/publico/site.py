@@ -106,7 +106,7 @@ def home(request):
                 {'q': 'Quanto tempo dura cada sessão?',
                  'a': 'Depende do procedimento escolhido — a duração estimada aparece na hora de agendar, junto com os horários disponíveis.'},
                 {'q': 'Alguns procedimentos têm retorno?',
-                 'a': 'Sim. Quando o cuidado prevê acompanhamento, o retorno é sinalizado e agendado para você, sem custo adicional.'},
+                 'a': 'Sim. Quando o cuidado prevê acompanhamento, o retorno é sem custo: você combina o melhor dia com a clínica dentro do prazo indicado em Meus agendamentos.'},
                 {'q': 'Existem contraindicações?',
                  'a': 'Algumas. Por isso preenchemos uma ficha de avaliação antes do atendimento — assim garantimos sua segurança e o melhor resultado.'},
             ],

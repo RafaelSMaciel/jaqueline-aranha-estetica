@@ -37,13 +37,12 @@ def ao_mudar_status(at, anterior, novo, *, pela_cliente=False) -> None:
     if novo == StatusAtendimento.REALIZADO:
         from .comissao import ComissaoService
         from .fidelidade import FidelidadeService
-        from .retorno import RetornoService
 
         at.cliente.resetar_faltas()
         debitar_sessao_de_pacote(at)
         ComissaoService.calcular_comissao(at)
         FidelidadeService.liberar_cashback_indicacao(at)
-        RetornoService.sugerir_retorno(at)
+        # retorno obrigatorio fica DEVIDO (services.retorno.devidos): a recepcao marca com a cliente
     elif novo == StatusAtendimento.CANCELADO:
         from .comissao import ComissaoService
         from .fidelidade import FidelidadeService
@@ -77,7 +76,7 @@ def _desfazer_realizacao(at) -> None:
     FidelidadeService.estornar_cashback_de_atendimento(at, motivo='realização desfeita')
     devolver_sessao_de_pacote(at)
     for retorno in Atendimento.objects.filter(atendimento_origem=at, eh_retorno=True, status__in=STATUS_ATIVOS):
-        retorno.cancelar(motivo='realização do atendimento de origem desfeita')
+        retorno.cancelar(motivo='realização do atendimento de origem desfeita')   # avisa a cliente (painel)
 
 
 def devolver_sessao_de_pacote(at) -> None:

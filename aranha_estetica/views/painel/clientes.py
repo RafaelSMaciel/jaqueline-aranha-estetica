@@ -10,7 +10,7 @@ from django.views.decorators.cache import never_cache
 from ...decorators import staff_required
 from ...models import Atendimento, Carteira, Cliente, MovimentoCarteira
 from ...models.agendamentos import StatusAtendimento
-from ...services import consentimentos
+from ...services import consentimentos, retorno
 from ...services.termos import aceita_assinatura
 from ...utils.auditoria import registrar_log
 from ...utils.datas import hoje
@@ -87,6 +87,7 @@ def _contexto_cliente(cliente):
                                 .select_related('atendimento').order_by('-criado_em')[:12]),
         'indicadas': list(cliente.indicacoes.order_by('nome').values('pk', 'nome')),
         'consentimentos': consentimentos.resumo_painel(cliente),
+        'retornos': retorno.devidos(cliente_id=cliente.pk),
     }
 
 

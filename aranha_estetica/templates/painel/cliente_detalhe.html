@@ -49,6 +49,14 @@
 </div>
 {% endif %}
 
+{# ── Retorno sem custo a marcar (services/retorno) ── #}
+{% for r in retornos %}
+<div class="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border-l-4 border-info bg-superficie px-4 py-3 text-[0.85rem] text-texto" role="note">
+  <span>Retorno de <strong>{{ r.origem.procedimento.nome }}</strong> sem custo a marcar entre {{ r.de|date:"d/m" }} e <strong>{{ r.ate|date:"d/m/Y" }}</strong>.</span>
+  <a href="{% url 'aranha:admin_agendar_retorno' r.origem.pk %}" class="inline-flex px-3 py-1.5 rounded-lg bg-marca-forte text-sobre-marca text-[0.78rem] font-bold no-underline hover:opacity-90">Marcar retorno</a>
+</div>
+{% endfor %}
+
 {# ── KPIs do cliente ── #}
 <div class="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-2.5 mb-4">
   <div class="relative bg-superficie rounded-2xl shadow-sm p-3.5">
