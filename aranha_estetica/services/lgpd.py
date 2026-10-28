@@ -1,8 +1,14 @@
-"""Servico de LGPD — DSAR (export), unsubscribe, esquecimento e retencao."""
+"""Servico de LGPD — DSAR (export), unsubscribe, esquecimento (pseudonimizacao) e retencao.
+
+O "esquecimento" e PSEUDONIMIZACAO (art. 13 §4), nao anonimizacao: o cadastro vira
+'[ANONIMIZADO-<id>]' sem contato, documento, indicacao nem IP, mas o registro de saude e os
+contratos ficam pelo prazo legal ligados a esse id. Os prazos vem de settings.RETENCAO_* (sem env:
+mudar exige versao nova do termo LGPD; check aranha.W016).
+"""
 import logging
-import os
 from typing import Any
 
+from django.conf import settings
 from django.db import connection, transaction
 
 from aranha_estetica.models import Cliente, Atendimento, AvaliacaoNPS
@@ -22,18 +28,18 @@ def _dec(valor):
     return str(valor) if valor is not None else None
 
 
+def prazos_retencao() -> dict[str, int]:
+    """Prazos efetivos (dias) que as procedures recebem — os mesmos publicados no termo LGPD."""
+    return {
+        'cliente_inativo': settings.RETENCAO_CLIENTE_INATIVO_DIAS,
+        'carencia_soft_delete': settings.RETENCAO_CARENCIA_SOFT_DELETE_DIAS,
+        'saude': settings.RETENCAO_ATENDIMENTO_SAUDE_DIAS,
+        'ficha_sem_atendimento': settings.RETENCAO_FICHA_SEM_ATENDIMENTO_DIAS,
+        'pacote_apos_expirar': settings.RETENCAO_PACOTE_APOS_EXPIRAR_DIAS,
+    }
+
+
 class LgpdService:
-    # Cliente sem atendimento ha 5 anos e anonimizado (PROJECT.md §Retencao,
-    # politica de privacidade). Ajustavel por env sem deploy de codigo.
-    RETENCAO_CLIENTE_INATIVO_DIAS = int(os.environ.get('LGPD_RETENCAO_CLIENTE_DIAS', 365 * 5))
-    # Soft-delete vira anonimizacao apos 30 dias (PROJECT.md §Direitos).
-    CARENCIA_SOFT_DELETE_DIAS = 30
-    # Atendimento REALIZADO (registro de saude) e retido por 20 anos.
-    RETENCAO_ATENDIMENTO_SAUDE_DIAS = 365 * 20
-    # Ficha de anamnese de pedido que nao virou atendimento (rejeitado,
-    # cancelado, pendente vencido, convite nunca respondido): fim da
-    # finalidade (LGPD art. 15/16) -> exclusao apos N dias.
-    RETENCAO_FICHA_SEM_ATENDIMENTO_DIAS = 90
 
     @staticmethod
     def exportar_dados_cliente(cliente: Cliente) -> dict[str, Any]:
@@ -247,54 +253,61 @@ class LgpdService:
     @classmethod
     @transaction.atomic
     def esquecer_cliente(cls, cliente: Cliente, usuario=None, request=None) -> None:
-        """Direito ao esquecimento: anonimiza PII do titular e faz soft-delete.
+        """Direito ao esquecimento: PSEUDONIMIZA o titular (art. 13 §4) e faz soft-delete.
 
         ``CALL sp_anonimizar_cliente`` — a procedure e a fonte UNICA (spec padrao-sql §5.6):
-        cadastro, consentimentos (revoga e tira IP/user-agent), links, OTP, lista de espera,
-        texto das notificacoes, fichas de pedido nao realizado, depoimento, nome nas trilhas e no
-        django_admin_log, e o registro LGPD com autor e IP. Exige Postgres (utils/banco.chamar).
+        cadastro (com codigo de indicacao e quem indicou), consentimentos (revoga e tira
+        IP/user-agent), IP/user-agent do aceite LGPD, links, OTP, lista de espera (inclusive a
+        inscricao anonima pelo celular), texto das notificacoes, fichas de pedido nao realizado,
+        depoimento, nome e detalhes LGPD nas trilhas e no django_admin_log, e o registro com autor
+        e IP. O registro de saude fica pelo prazo (expurgo aos 20 anos). Exige Postgres.
         """
         autor, ip = autor_e_ip(usuario, request)
         chamar('sp_anonimizar_cliente', cliente.pk, getattr(autor, 'pk', None), ip)
         cliente.refresh_from_db()
-        logger.info('Cliente %s anonimizado (direito ao esquecimento).', cliente.pk)
+        logger.info('Cliente %s pseudonimizado (direito ao esquecimento).', cliente.pk)
 
     @classmethod
     def candidatos_retencao(cls) -> list[int]:
-        """Ids que a proxima retencao anonimiza (``fn_clientes_para_anonimizar``, a mesma funcao
+        """Ids que a proxima retencao pseudonimiza (``fn_clientes_para_anonimizar``, a mesma funcao
         que o ``sp_aplicar_retencao_lgpd`` usa).
 
-        Regra: ativo criado ha mais de N anos sem atendimento nesse periodo, ou soft-deletado ha
-        mais de 30 dias; nunca quem ja foi anonimizado, nem quem tem prontuario com conteudo ou com
-        historico (versoes), pacote comprado ou atendimento REALIZADO nos ultimos 20 anos. Aceite
-        de termo NAO retem (todo booking online grava o aceite LGPD).
+        Regra: ativo criado ha mais de RETENCAO_CLIENTE_INATIVO_DIAS sem atendimento nesse periodo,
+        ou soft-deletado ha mais da carencia; nunca quem ja foi pseudonimizado. Retem enquanto o
+        registro de saude esta na janela (REALIZADO, versao do prontuario ou prontuario editado nos
+        ultimos RETENCAO_ATENDIMENTO_SAUDE_DIAS) e enquanto o pacote nao passou
+        RETENCAO_PACOTE_APOS_EXPIRAR_DIAS do fim (cancelamento, validade ou compra). Aceite de termo
+        NAO retem (todo booking online grava o aceite LGPD).
         """
         exigir_postgres('fn_clientes_para_anonimizar')
+        prazos = prazos_retencao()
         with connection.cursor() as cursor:
             cursor.execute(
-                'SELECT * FROM fn_clientes_para_anonimizar(%s, %s, %s)',
-                [cls.RETENCAO_CLIENTE_INATIVO_DIAS, cls.CARENCIA_SOFT_DELETE_DIAS,
-                 cls.RETENCAO_ATENDIMENTO_SAUDE_DIAS],
+                'SELECT * FROM fn_clientes_para_anonimizar(%s, %s, %s, %s)',
+                [prazos['cliente_inativo'], prazos['carencia_soft_delete'], prazos['saude'],
+                 prazos['pacote_apos_expirar']],
             )
             return [pk for (pk,) in cursor.fetchall()]
 
     @classmethod
     def aplicar_retencao(cls) -> dict:
         """Retencao LGPD do job lgpd_purgar: ``CALL sp_aplicar_retencao_lgpd`` (fonte unica) —
-        anonimiza os candidatos (candidatos_retencao), apaga as fichas de pedido nao realizado ha
-        mais de 90 dias (CANCELADO, PENDENTE vencido, convite nunca respondido ou vazio de horario
-        passado; ficha RESPONDIDA de FALTOU/REAGENDADO fica) e as inscricoes de espera vencidas.
-        {'clientes', 'fichas', 'esperas'}.
+        pseudonimiza os candidatos (candidatos_retencao), apaga as fichas de pedido nao realizado
+        ha mais de RETENCAO_FICHA_SEM_ATENDIMENTO_DIAS (CANCELADO, PENDENTE vencido, convite nunca
+        respondido ou vazio de horario passado; ficha RESPONDIDA de FALTOU/REAGENDADO fica) e as
+        inscricoes de espera vencidas. {'clientes', 'fichas', 'esperas'}. O expurgo do registro de
+        saude aos 20 anos e a etapa 'saude' do job_housekeeping (sp_purgar_dados_expirados).
 
         Em autocommit (cron) a procedure confirma cliente a cliente (``COMMIT`` por
-        anonimizacao: um aborto no meio preserva os ja feitos); dentro de uma transacao (testes)
+        pseudonimizacao: um aborto no meio preserva os ja feitos); dentro de uma transacao (testes)
         roda inteira na transacao do chamador.
         """
         confirmar_por_cliente = not connection.in_atomic_block
+        prazos = prazos_retencao()
         clientes, fichas, esperas = chamar(
             'sp_aplicar_retencao_lgpd',
-            cls.RETENCAO_CLIENTE_INATIVO_DIAS, cls.CARENCIA_SOFT_DELETE_DIAS,
-            cls.RETENCAO_ATENDIMENTO_SAUDE_DIAS, cls.RETENCAO_FICHA_SEM_ATENDIMENTO_DIAS,
+            prazos['cliente_inativo'], prazos['carencia_soft_delete'], prazos['saude'],
+            prazos['ficha_sem_atendimento'], prazos['pacote_apos_expirar'],
             confirmar_por_cliente, None, None, None,
         )
         logger.info('sp_aplicar_retencao_lgpd: %s cliente(s), %s ficha(s), %s inscricao(oes).',

@@ -272,7 +272,7 @@ class ClienteAdmin(admin.ModelAdmin):
         }),
     )
     actions = [
-        'acao_excluir_soft', 'acao_anonimizar_lgpd', 'acao_revogar_comunicacao',
+        'acao_excluir_soft', 'acao_pseudonimizar_lgpd', 'acao_revogar_comunicacao',
         'acao_revogar_saude', 'acao_bloquear_online', 'acao_resetar_faltas',
     ]
 
@@ -301,15 +301,19 @@ class ClienteAdmin(admin.ModelAdmin):
             count += 1
         self.message_user(request, f'{count} cliente(s) desativado(s).', messages.SUCCESS)
 
-    @admin.action(description='Anonimizar (direito ao esquecimento LGPD)')
-    def acao_anonimizar_lgpd(self, request, queryset):
+    @admin.action(description='Pseudonimizar (direito ao esquecimento LGPD)')
+    def acao_pseudonimizar_lgpd(self, request, queryset):
+        """Pseudonimizacao (art. 13 §4), tudo ou nada: uma falha desfaz o lote inteiro."""
         from .services import LgpdService
         count = 0
         with transaction.atomic():
             for cliente in queryset:
                 LgpdService.esquecer_cliente(cliente, usuario=request.user, request=request)
                 count += 1
-        self.message_user(request, f'{count} cliente(s) anonimizado(s).', messages.SUCCESS)
+        self.message_user(
+            request, f'{count} cliente(s) pseudonimizado(s): contato, documento e indicação removidos; '
+                     'o registro de saúde fica pelo prazo legal.', messages.SUCCESS,
+        )
 
     @admin.action(description='Revogar consentimentos de comunicação (todos os canais)')
     def acao_revogar_comunicacao(self, request, queryset):

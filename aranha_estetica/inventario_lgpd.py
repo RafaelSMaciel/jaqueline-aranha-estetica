@@ -34,19 +34,22 @@ TABELAS = {
     'agenda_horario': EQUIPE, 'agenda_excecao': EQUIPE, 'habilitacao': EQUIPE, 'regra_comissao': EQUIPE,
     # catalogo e configuracao
     'procedimento': SISTEMA, 'preco': SISTEMA, 'promocao': SISTEMA, 'versao_termo': SISTEMA,
-    'pacote': SISTEMA, 'pacote_item': SISTEMA, 'configuracao': SISTEMA, 'formulario': SISTEMA,
-    'execucao_job': SISTEMA,
+    'pacote': SISTEMA, 'pacote_item': SISTEMA, 'formulario': SISTEMA, 'execucao_job': SISTEMA,
+    # configuracao guarda nome e e-mail de pessoas da equipe (encarregado, administrador)
+    'configuracao': EQUIPE,
 }
 
-_SAUDE = 'registro de saude: 20 anos (cifrado em repouso)'
-_PROVA = 'prova do aceite/consentimento (exercicio de direitos, art. 7º VI)'
+# registro de saude: expurgo 20 anos depois do ultimo atendimento REALIZADO / ultima versao (0077,
+# etapa 'saude' do sp_purgar_dados_expirados); ate la fica cifrado em repouso
+_SAUDE = 'registro de saude: expurgo aos 20 anos do ultimo evento de saude (cifrado em repouso)'
 
 # (tabela, coluna) -> tratamento ou (tratamento, motivo)
 COLUNAS = {
-    # cadastro
+    # cadastro (codigo de indicacao e quem indicou tambem saem: reidentificam, art. 13 §4)
     ('cliente', 'nome'): ANONIMIZA, ('cliente', 'data_nascimento'): ANONIMIZA,
     ('cliente', 'cpf'): ANONIMIZA, ('cliente', 'email'): ANONIMIZA, ('cliente', 'telefone'): ANONIMIZA,
     ('cliente', 'cep'): ANONIMIZA, ('cliente', 'endereco'): ANONIMIZA,
+    ('cliente', 'codigo_indicacao'): ANONIMIZA, ('cliente', 'cliente_indicador_id'): ANONIMIZA,
     # consentimento: o historico fica (prova), IP e user-agent saem
     ('consentimento', 'ip_origem'): ANONIMIZA, ('consentimento', 'user_agent'): ANONIMIZA,
     # mensagens e contatos
@@ -57,15 +60,19 @@ COLUNAS = {
     ('codigo_otp', 'identificador'): APAGA, ('codigo_otp', 'telefone'): APAGA,
     ('codigo_otp', 'ip_origem'): APAGA,
     # saude
-    ('prontuario', 'alergias'): (RETEM, _SAUDE), ('prontuario', 'contraindicacoes'): (RETEM, _SAUDE),
-    ('prontuario', 'historico_saude'): (RETEM, _SAUDE), ('prontuario', 'medicamentos_uso'): (RETEM, _SAUDE),
-    ('prontuario', 'observacoes_gerais'): (RETEM, _SAUDE), ('prontuario', 'respostas'): (RETEM, _SAUDE),
-    ('prontuario_versao', 'dados'): (RETEM, _SAUDE),
-    ('anotacao_sessao', 'texto'): (RETEM, _SAUDE),
-    # ficha sem atendimento REALIZADO sai no esquecimento e na retencao (90 dias); a do realizado fica
+    ('prontuario', 'alergias'): (PURGA, _SAUDE), ('prontuario', 'contraindicacoes'): (PURGA, _SAUDE),
+    ('prontuario', 'historico_saude'): (PURGA, _SAUDE), ('prontuario', 'medicamentos_uso'): (PURGA, _SAUDE),
+    ('prontuario', 'observacoes_gerais'): (PURGA, _SAUDE), ('prontuario', 'respostas'): (PURGA, _SAUDE),
+    ('prontuario_versao', 'dados'): (PURGA, _SAUDE),
+    ('anotacao_sessao', 'texto'): (PURGA, _SAUDE),
+    # ficha sem atendimento REALIZADO sai no esquecimento e na retencao (90 dias); a do realizado sai
+    # no expurgo de saude aos 20 anos
     ('resposta_formulario', 'respostas'): APAGA,
-    # provas
-    ('aceite_termo', 'ip_origem'): (RETEM, _PROVA), ('aceite_termo', 'user_agent'): (RETEM, _PROVA),
+    # provas: IP/user-agent do aceite LGPD saem na pseudonimizacao; os de SAUDE/PROCEDIMENTO, quando
+    # nao ha mais registro de saude (pseudonimizacao sem saude ou expurgo aos 20 anos)
+    ('aceite_termo', 'ip_origem'): ANONIMIZA, ('aceite_termo', 'user_agent'): ANONIMIZA,
+    # configuracao: contato do encarregado (art. 41 §1) e e-mail do administrador
+    ('configuracao', 'valor'): (RETEM, 'contato do encarregado (art. 41 §1) e e-mail do administrador'),
     # livro-razao financeiro (append-only)
     ('movimento_carteira', 'observacao'): (RETEM, 'livro-razao da carteira (append-only)'),
     # trilhas: nome do titular pseudonimizado no esquecimento; o resto sai por idade

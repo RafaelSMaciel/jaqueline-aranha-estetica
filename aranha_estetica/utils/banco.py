@@ -26,8 +26,8 @@ from django.db import DEFAULT_DB_ALIAS, connections
 # nome -> quantidade de argumentos (IN + INOUT). O nome nunca vem de input.
 PROCEDURES = {
     'sp_anonimizar_cliente': 3,
-    'sp_aplicar_retencao_lgpd': 8,
-    'sp_purgar_dados_expirados': 10,
+    'sp_aplicar_retencao_lgpd': 9,
+    'sp_purgar_dados_expirados': 12,
     'sp_expirar_pacotes': 2,
 }
 

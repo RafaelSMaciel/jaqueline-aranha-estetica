@@ -86,6 +86,7 @@ ROTINAS_SO_PG = {
         'fn_nps_periodo', 'fn_saldo_comissao', 'fn_tem_consentimento', 'fn_clientes_para_anonimizar',
         'fn_log_auditoria_imutavel',                                                                 # 0059
         'fn_regra_comissao_validar',                                                                 # 0066
+        'fn_anotacao_sessao_imutavel',                                                               # 0077
     ), 'f'),
     **dict.fromkeys(('sp_anonimizar_cliente', 'sp_aplicar_retencao_lgpd', 'sp_purgar_dados_expirados',
                      'sp_expirar_pacotes'), 'p'),                                                    # 0058
@@ -125,7 +126,7 @@ class DDLSoPostgresTests(TestCase):
         self.assertEqual(triggers, {nome: tabela for nome, (_, tabela) in TRIGGERS_SO_PG.items()})
 
     def test_logica_no_banco_rotinas_views_e_indice_trigram(self):
-        """L1-L3 (0056-0059, spec §5) + 0066: 47 triggers, 24 funcoes, 4 procedures, 9 views, trigram."""
+        """L1-L3 (0056-0059, spec §5) + 0066 + 0077: 47 triggers, 25 funcoes, 4 procedures, 9 views, trigram."""
         with connection.cursor() as cursor:
             cursor.execute(
                 "SELECT p.proname, p.prokind FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
