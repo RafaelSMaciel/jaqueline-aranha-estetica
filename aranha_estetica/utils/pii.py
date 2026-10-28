@@ -211,7 +211,10 @@ def opcoes_sentry(dsn: str) -> dict:
     return {
         'dsn': dsn,
         'integrations': [DjangoIntegration()],
-        'environment': os.environ.get('SENTRY_ENVIRONMENT') or os.environ.get('DJANGO_ENV') or 'prod',
+        # Nome do ambiente no Railway ('production', 'dev') antes do DJANGO_ENV, que a imagem fixa
+        # em prod: sem isso os erros do ambiente de testes caiam no mesmo 'prod' da producao
+        'environment': (os.environ.get('SENTRY_ENVIRONMENT') or os.environ.get('RAILWAY_ENVIRONMENT_NAME')
+                        or os.environ.get('DJANGO_ENV') or 'prod'),
         # Railway preenche RAILWAY_GIT_COMMIT_SHA: o erro aponta o deploy que o introduziu
         'release': os.environ.get('SENTRY_RELEASE') or os.environ.get('RAILWAY_GIT_COMMIT_SHA') or None,
         'traces_sample_rate': float(os.environ.get('SENTRY_TRACES_SAMPLE_RATE', '0.2')),

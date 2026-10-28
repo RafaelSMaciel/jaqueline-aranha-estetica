@@ -432,14 +432,20 @@ LOGGING = {
         # So referenciado quando not DEBUG (_LOG_FORMATTER vira 'json'); em DEBUG
         # o handler usa 'verbose', entao este formatter nunca e instanciado.
         'json': {
-            '()': 'pythonjsonlogger.jsonlogger.JsonFormatter',
+            '()': 'pythonjsonlogger.json.JsonFormatter',
             'format': '%(asctime)s %(name)s %(levelname)s %(message)s',
         },
+    },
+    # Token de link magico, e-mail, CPF e telefone redigidos na mensagem, no traceback e nos extras
+    # (o django.request loga o caminho /confirmar/<token>/ em todo 4xx/5xx)
+    'filters': {
+        'redigir': {'()': 'clinica.logging_filtros.RedigirLog'},
     },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
             'formatter': _LOG_FORMATTER,
+            'filters': ['redigir'],
         },
     },
     'root': {'handlers': ['console'], 'level': 'WARNING'},
