@@ -2,6 +2,7 @@
 entre Dockerfile, railway.json e .env.example."""
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -92,6 +93,52 @@ class SegredosTests(SimpleTestCase):
     def test_so_nos_perfis_publicados(self):
         # dev/testes (e o runner, que roda os checks com DEBUG=False) usam a chave de dev
         self.assertEqual(self._ids(CIFRAGEM_EXIGE_CHAVE=False, SECRET_KEY='curta'), [])
+
+
+class EnvExampleTests(SimpleTestCase):
+    """O .env.example e o roteiro de quem monta um ambiente: lista toda variavel que o codigo le e
+    nenhuma que ele ignora (antes faltavam CRON_MONITOR_URL, dados do encarregado LGPD...)."""
+
+    _LEITURA = re.compile(
+        r"(?:os\.environ\.get|os\.environ\.setdefault|_env_texto|_env_int|_env_lista)\(\s*'([A-Z][A-Z0-9_]*)'"
+        r"|os\.environ\[\s*'([A-Z][A-Z0-9_]*)'\]"
+    )
+    _DOCUMENTADA = re.compile(r'^#?[ \t]*([A-Z][A-Z0-9_]*)=', re.M)
+    # Lidas pelo codigo e fora do exemplo de proposito (alem de RAILWAY_*, que o Railway injeta)
+    LIDAS_SEM_DOCUMENTAR = {
+        'TESTE_SQLITE_MEMORIA', 'TESTE_VITE_BUILD',  # so a suite (settings/test.py)
+        'STATIC_ROOT',  # legado: prod.py ignora (estaticos do build em BASE_DIR/staticfiles)
+        'PORT',  # o Railway injeta (startCommand do gunicorn)
+    }
+    # Documentadas sem leitura: o Celery saiu do projeto (o bloco do exemplo sai junto com as
+    # outras configuracoes mortas)
+    DOCUMENTADAS_SEM_LEITURA = {'CELERY_WORKER_ENABLED', 'CELERY_BROKER_URL', 'CELERY_RESULT_BACKEND'}
+
+    def _lidas(self):
+        arquivos = [*(BASE_DIR / 'clinica' / 'settings').glob('*.py'), *(BASE_DIR / 'aranha_estetica').rglob('*.py')]
+        lidas = set()
+        for arquivo in arquivos:
+            partes = arquivo.relative_to(BASE_DIR).parts
+            if 'tests' in partes or 'migrations' in partes:
+                continue
+            for direto, indexado in self._LEITURA.findall(arquivo.read_text(encoding='utf-8')):
+                lidas.add(direto or indexado)
+        # gunicorn: ${WEB_THREADS:-4} no CMD do Dockerfile e no startCommand do railway.json
+        for arquivo in ('Dockerfile', 'railway.json'):
+            lidas |= set(re.findall(r'\$\{([A-Z][A-Z0-9_]*)', (BASE_DIR / arquivo).read_text(encoding='utf-8')))
+        # lidas em laco: marca (MARCA_ENV) e chaves dos provedores de e-mail (ANYMAIL)
+        return lidas | set(settings.MARCA_ENV) | set(settings.ANYMAIL_CHAVES_ENV)
+
+    def test_exemplo_lista_o_que_o_codigo_le(self):
+        documentadas = set(self._DOCUMENTADA.findall((BASE_DIR / '.env.example').read_text(encoding='utf-8')))
+        lidas = {nome for nome in self._lidas() if not nome.startswith('RAILWAY_')}
+        self.assertEqual(lidas - documentadas - self.LIDAS_SEM_DOCUMENTAR, set(), 'faltam no .env.example')
+        self.assertEqual(documentadas - lidas - self.DOCUMENTADAS_SEM_LEITURA, set(), 'sem uso no codigo')
+
+    def test_exemplo_nao_traz_segredo_preenchido(self):
+        texto = (BASE_DIR / '.env.example').read_text(encoding='utf-8')
+        self.assertRegex(texto, r'(?m)^DJANGO_SECRET_KEY=$')
+        self.assertRegex(texto, r'(?m)^# DJANGO_ENV=dev$')  # dev nunca ativo: o exemplo vai p/ o Railway
 
 
 class CsrfEmProducaoTests(SimpleTestCase):
