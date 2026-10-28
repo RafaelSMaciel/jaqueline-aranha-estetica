@@ -73,10 +73,13 @@ class ProcedimentoForm(forms.Form):
     preco = CampoPreco(required=False, error_messages={'invalid': MSG_DURACAO_OU_PRECO})
     categoria = forms.CharField(required=False)
     ativo = forms.CharField(required=False)
+    # quem realiza (Habilitacao): so profissional habilitado aparece no agendamento
+    profissionais = forms.ModelMultipleChoiceField(queryset=Profissional.objects.none(), required=False)
 
     def __init__(self, *args, instance=None, **kwargs):
         self.instance = instance
         super().__init__(*args, **kwargs)
+        self.fields['profissionais'].queryset = Profissional.objects.filter(ativo=True)
 
     def clean_nome(self):
         nome = self.cleaned_data['nome'].strip()

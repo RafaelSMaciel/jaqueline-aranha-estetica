@@ -134,8 +134,8 @@ class Habilitacao(models.Model):
         managed = True
         db_table = 'habilitacao'
         db_table_comment = (
-            'Profissional x procedimento que ele realiza. Sem nenhuma linha p/ um procedimento, qualquer '
-            'profissional ativo atende (services/disponibilidade.profissionais_para).'
+            'Profissional x procedimento que ele realiza. So atende quem tem linha aqui: procedimento sem '
+            'habilitacao nao aparece no agendamento (services/disponibilidade.profissionais_para).'
         )
         constraints = [
             models.UniqueConstraint(

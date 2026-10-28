@@ -6,11 +6,13 @@ from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import DatabaseError, transaction
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django_ratelimit.decorators import ratelimit
 
 from ...decorators import staff_required
+from ...excecoes import RegraDeNegocio
 from ...forms.painel import ProcedimentoForm, avisar_erros
-from ...models import Preco, Procedimento
+from ...models import Atendimento, Habilitacao, Preco, Procedimento, Profissional
 from ...utils.auditoria import registrar_log
 from ...utils.datas import hoje
 
@@ -32,6 +34,27 @@ def _preco_base_vigente_map(procedimento_ids):
     return mapa
 
 
+def _sincronizar_habilitacoes(proc, profissionais):
+    """Habilitacoes do procedimento = os profissionais marcados. Tirar quem ainda tem atendimento
+    futuro deste procedimento e recusado (RegraDeNegocio): reagende/cancele antes."""
+    novos = {p.pk for p in profissionais}
+    atuais = set(Habilitacao.objects.filter(procedimento=proc).values_list('profissional_id', flat=True))
+    sair = atuais - novos
+    if sair:
+        presos = (Atendimento.objects.filter(
+            procedimento=proc, profissional_id__in=sair, status__in=Atendimento.STATUS_ATIVOS,
+            data_hora_inicio__gte=timezone.now(),
+        ).select_related('profissional').order_by('data_hora_inicio'))
+        if presos.exists():
+            nomes = sorted({a.profissional.nome for a in presos})
+            raise RegraDeNegocio(
+                f'{", ".join(nomes)} ainda tem {presos.count()} atendimento(s) futuro(s) de {proc.nome}: '
+                'reagende ou cancele antes de tirar a habilitação.', codigo='habilitacao_em_uso')
+        Habilitacao.objects.filter(procedimento=proc, profissional_id__in=sair).delete()
+    for pk in novos - atuais:
+        Habilitacao.objects.create(procedimento=proc, profissional_id=pk)
+
+
 @staff_required
 def admin_procedimentos(request):
     """Lista e gerencia procedimentos."""
@@ -41,8 +64,13 @@ def admin_procedimentos(request):
 
     # Preco base vigente (profissional=NULL) por procedimento — um único query
     preco_map = _preco_base_vigente_map([pr.pk for pr in procedimentos])
+    habilitados = {}
+    for proc_id, prof_id in Habilitacao.objects.filter(profissional__ativo=True).values_list(
+            'procedimento_id', 'profissional_id'):
+        habilitados.setdefault(proc_id, set()).add(prof_id)
     for proc in procedimentos:
         proc.preco_base = preco_map.get(proc.pk)
+        proc.habilitados = habilitados.get(proc.pk, set())
 
     paginator = Paginator(procedimentos, 30)
     page = request.GET.get('page', 1)
@@ -51,6 +79,7 @@ def admin_procedimentos(request):
     context = {
         'procedimentos': procs_page,
         'categorias': Procedimento.CATEGORIA_CHOICES,
+        'profissionais': Profissional.objects.filter(ativo=True).order_by('nome'),
     }
     return render(request, 'painel/procedimentos.html', context)
 
@@ -76,9 +105,13 @@ def admin_criar_procedimento(request):
             # Preco base (sem profissional), vigente a partir de hoje
             if d['preco'] is not None:
                 Preco.objects.create(procedimento=proc, valor=d['preco'], vigente_desde=hoje())
+            _sincronizar_habilitacoes(proc, d['profissionais'])
 
         registrar_log(request.user, f'Criou procedimento: {proc.nome}', 'procedimento', proc.pk, request=request)
         messages.success(request, f'Procedimento "{proc.nome}" criado!')
+        if not d['profissionais']:
+            messages.warning(request, 'Nenhum profissional marcado: o procedimento não aparece no agendamento '
+                             'até alguém ser habilitado.')
     except (DatabaseError, ValidationError) as e:
         logger.error(f'Erro ao criar procedimento: {e}', exc_info=True)
         messages.error(request, 'Erro ao criar procedimento.')
@@ -122,9 +155,13 @@ def admin_editar_procedimento(request, pk):
                         procedimento=proc, profissional=None, vigente_desde=hoje(),
                         defaults={'valor': d['preco']},
                     )
+            if dados.get('profissionais_enviado'):   # grupo de checkboxes veio no formulario
+                _sincronizar_habilitacoes(proc, d['profissionais'])
 
         registrar_log(request.user, f'Editou procedimento: {proc.nome}', 'procedimento', proc.pk, request=request)
         messages.success(request, f'Procedimento "{proc.nome}" atualizado!')
+    except RegraDeNegocio as e:
+        messages.error(request, e.mensagem)
     except (DatabaseError, ValidationError) as e:
         logger.error(f'Erro ao editar procedimento: {e}', exc_info=True)
         messages.error(request, 'Erro ao editar procedimento.')
