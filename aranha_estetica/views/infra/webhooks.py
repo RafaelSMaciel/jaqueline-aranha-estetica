@@ -14,6 +14,7 @@ from django_ratelimit.decorators import ratelimit
 
 from ...models import AvaliacaoNPS, Notificacao
 from ...utils.pii import mask_telefone
+from ...utils.seguranca import client_ip, segredo_confere
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ def _verify_signature(request):
         hashlib.sha256,
     ).hexdigest()
 
-    return hmac.compare_digest(signature[7:], expected)
+    return segredo_confere(expected, signature[7:])
 
 
 def _ip_in_allowlist(ip: str, allowlist: list) -> bool:
@@ -72,13 +73,13 @@ def _ip_in_allowlist(ip: str, allowlist: list) -> bool:
 def zenvia_sms_webhook(request):
     """Recebe status de entrega da Zenvia.
 
-    Defense-in-depth:
-      1. IP allowlist (se configurado ZENVIA_ALLOWED_IPS)
-      2. HMAC via X-Zenvia-Signature (obrigatorio se ZENVIA_WEBHOOK_SECRET setado)
-      3. Sem secret E sem allowlist = rejeita em prod
+    Defesa em camadas:
+      1. allowlist de IP/CIDR (se ZENVIA_ALLOWED_IPS configurado);
+      2. segredo compartilhado no header X-Zenvia-Signature, o valor configurado na assinatura do
+         webhook na Zenvia (obrigatorio se ZENVIA_WEBHOOK_SECRET definido). O corpo NAO e assinado:
+         e um segredo estatico, comparado em tempo constante;
+      3. sem segredo E sem allowlist = recusa fora de DEBUG (503).
     """
-    from ...utils.seguranca import client_ip
-
     ip = client_ip(request)
     allowlist = settings.ZENVIA_ALLOWED_IPS
     secret = settings.ZENVIA_WEBHOOK_SECRET
@@ -91,19 +92,20 @@ def zenvia_sms_webhook(request):
         logger.error('Zenvia webhook: sem secret E sem allowlist em prod — rejeitando')
         return JsonResponse({'error': 'webhook nao configurado'}, status=503)
 
-    if secret:
-        provided = request.headers.get('X-Zenvia-Signature', '')
-        if not hmac.compare_digest(provided, secret):
-            logger.warning('Zenvia webhook: assinatura invalida')
-            return JsonResponse({'error': 'assinatura invalida'}, status=403)
+    if secret and not segredo_confere(secret, request.headers.get('X-Zenvia-Signature', '')):
+        logger.warning('Zenvia webhook: segredo invalido')
+        return JsonResponse({'error': 'assinatura invalida'}, status=403)
 
     try:
         data = json.loads(request.body)
-    except json.JSONDecodeError:
+    except ValueError:  # JSONDecodeError e corpo que nao e UTF-8
+        return JsonResponse({'error': 'json invalido'}, status=400)
+    if not isinstance(data, dict):
         return JsonResponse({'error': 'json invalido'}, status=400)
 
     message_id = data.get('messageId') or data.get('id', '')
-    status = data.get('messageStatus', {}).get('code') or data.get('status', '')
+    status_info = data.get('messageStatus')
+    status = (status_info.get('code') if isinstance(status_info, dict) else None) or data.get('status', '')
     to = data.get('to', '')
     logger.info(
         'zenvia_status_callback',
@@ -120,12 +122,10 @@ def whatsapp_webhook(request):
     Webhook do WhatsApp (Meta Cloud API).
     GET = handshake de verificacao (hub.challenge); POST = eventos (respostas/NPS).
     """
-    # Handshake da Meta: ecoa hub.challenge quando o verify_token confere.
+    # Handshake da Meta: ecoa hub.challenge quando o verify_token confere (tempo constante).
     if request.method == 'GET':
-        verify_token = settings.WHATSAPP_VERIFY_TOKEN
         if (request.GET.get('hub.mode') == 'subscribe'
-                and verify_token
-                and request.GET.get('hub.verify_token') == verify_token):
+                and segredo_confere(settings.WHATSAPP_VERIFY_TOKEN, request.GET.get('hub.verify_token', ''))):
             return HttpResponse(request.GET.get('hub.challenge', ''), content_type='text/plain')
         return HttpResponse('Forbidden', status=403)
 
