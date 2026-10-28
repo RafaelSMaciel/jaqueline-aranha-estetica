@@ -64,10 +64,10 @@ class AutorDoCancelamentoTests(_Base):
         ).values_list('acao', flat=True))
 
     def test_job_de_pendente_vencido_nao_e_cancelamento_da_cliente(self):
-        from aranha_estetica.jobs import job_limpeza_status_atendimentos
+        from aranha_estetica.jobs import job_limpeza_status
 
         at = self._at(status='PENDENTE', dias=-3)
-        job_limpeza_status_atendimentos()
+        job_limpeza_status()
         trilha = self._trilha_de_cancelamento(at)
         self.assertEqual(len(trilha), 1)
         self.assertNotIn('pela cliente', trilha[0])
@@ -97,11 +97,11 @@ class AvisoDeCancelamentoTests(_Base):
         self.assertEqual(len(self._cancelamentos_enviados()), 1)
 
     def test_pendente_vencido_avisa_a_cliente(self):
-        from aranha_estetica.jobs import job_limpeza_status_atendimentos
+        from aranha_estetica.jobs import job_limpeza_status
 
         self._at(status='PENDENTE', dias=-3)
         with self.captureOnCommitCallbacks(execute=True):
-            job_limpeza_status_atendimentos()
+            job_limpeza_status()
         self.assertEqual(len(self._cancelamentos_enviados()), 1)
 
     def test_cancelamento_pela_cliente_nao_avisa_ela_mesma(self):

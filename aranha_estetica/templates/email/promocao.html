@@ -3,14 +3,18 @@
 {% block content %}
 <h1 class="hero-title text-main" style="margin:0 0 14px;color:{{ cor_texto }};font-size:28px;font-weight:700;line-height:1.2;">{% if nome %}{{ nome }},{% endif %} uma oferta feita para você</h1>
 
+{% if oferta %}
+<p class="text-main" style="margin:0 0 16px;color:{{ cor_texto }};font-size:18px;font-weight:700;line-height:1.4;">{{ oferta }}</p>
+{% endif %}
+
 {% if corpo_html %}
 <div class="text-soft" style="color:{{ cor_suave }};font-size:15px;line-height:1.7;margin-bottom:24px;">
   {{ corpo_html|safe }}
 </div>
 {% endif %}
 
-{% if validade %}
-<p class="text-muted" style="margin:0 0 20px;color:{{ cor_suave }};font-size:13px;line-height:1.6;text-align:center;">Oferta válida até {{ validade }}.</p>
+{% if data_inicio and data_fim %}
+<p class="text-soft" style="margin:0 0 20px;color:{{ cor_suave }};font-size:14px;line-height:1.6;text-align:center;">Para atendimentos de {{ data_inicio }} a {{ data_fim }}.</p>
 {% endif %}
 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:4px 0 12px;">

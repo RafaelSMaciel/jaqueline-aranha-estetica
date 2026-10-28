@@ -22,7 +22,7 @@
     {% endif %}
   </div>
 
-  <h1 class="text-xl font-bold text-texto mb-3">Obrigado, {{ cliente.nome|truncatewords:1 }}!</h1>
+  <h1 class="text-xl font-bold text-texto mb-3">Obrigado{% if primeiro_nome %}, {{ primeiro_nome }}{% endif %}!</h1>
   <p class="text-texto-suave text-sm leading-relaxed">
     Sua avaliação é muito importante para a {{ CLINIC_NAME }}.<br>
     Usamos seu feedback para melhorar continuamente nossos serviços.

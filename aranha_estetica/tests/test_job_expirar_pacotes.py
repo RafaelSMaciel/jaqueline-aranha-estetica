@@ -1,4 +1,4 @@
-"""Testes do job_expirar_pacotes (rodar_job expirar_pacotes)."""
+"""Testes do job_pacote_expirar (rodar_job expirar_pacotes)."""
 from datetime import datetime, time, timedelta
 
 from unittest import skipUnless
@@ -8,7 +8,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from aranha_estetica.models import CompraPacote, ConsumoSessao
-from aranha_estetica.jobs import job_expirar_pacotes
+from aranha_estetica.jobs import job_pacote_expirar
 
 from .factories import (
     ja_comecou,
@@ -34,7 +34,7 @@ class JobExpirarPacotesTests(TestCase):
         ontem = timezone.localdate() - timedelta(days=1)
         CompraPacote.objects.filter(pk=pc.pk).update(data_expiracao=ontem)
 
-        job_expirar_pacotes()
+        job_pacote_expirar()
 
         pc.refresh_from_db()
         self.assertEqual(pc.status, 'EXPIRADO')
@@ -44,7 +44,7 @@ class JobExpirarPacotesTests(TestCase):
         amanha = timezone.localdate() + timedelta(days=1)
         CompraPacote.objects.filter(pk=pc.pk).update(data_expiracao=amanha)
 
-        job_expirar_pacotes()
+        job_pacote_expirar()
 
         pc.refresh_from_db()
         self.assertEqual(pc.status, 'ATIVO')
@@ -54,7 +54,7 @@ class JobExpirarPacotesTests(TestCase):
         hoje = timezone.localdate()
         CompraPacote.objects.filter(pk=pc.pk).update(data_expiracao=hoje)
 
-        job_expirar_pacotes()
+        job_pacote_expirar()
 
         pc.refresh_from_db()
         self.assertEqual(pc.status, 'ATIVO')  # expira somente quando data < hoje
@@ -64,7 +64,7 @@ class JobExpirarPacotesTests(TestCase):
         ontem = timezone.localdate() - timedelta(days=1)
         CompraPacote.objects.filter(pk=pc.pk).update(data_expiracao=ontem)
 
-        job_expirar_pacotes()
+        job_pacote_expirar()
 
         pc.refresh_from_db()
         self.assertEqual(pc.status, 'FINALIZADO')
@@ -74,7 +74,7 @@ class JobExpirarPacotesTests(TestCase):
         ontem = timezone.localdate() - timedelta(days=1)
         CompraPacote.objects.filter(pk=pc.pk).update(data_expiracao=ontem)
 
-        job_expirar_pacotes()
+        job_pacote_expirar()
 
         pc.refresh_from_db()
         self.assertEqual(pc.status, 'CANCELADO')
@@ -89,7 +89,7 @@ class JobExpirarPacotesTests(TestCase):
         ontem = timezone.localdate() - timedelta(days=1)
         CompraPacote.objects.filter(pk__in=[pc1.pk, pc2.pk]).update(data_expiracao=ontem)
 
-        job_expirar_pacotes()
+        job_pacote_expirar()
 
         pc1.refresh_from_db()
         pc2.refresh_from_db()
@@ -126,7 +126,7 @@ class ValidadePelaDataDaSessaoTests(TestCase):
     def test_job_antes_da_marcacao_nao_impede_o_debito(self):
         CompraPacote.objects.filter(pk=self.pc.pk).update(data_expiracao=self.ontem)
         atd = self._sessao_em(self.ontem)
-        job_expirar_pacotes()
+        job_pacote_expirar()
         self.pc.refresh_from_db()
         self.assertEqual(self.pc.status, 'EXPIRADO')
         self._realizar(atd)

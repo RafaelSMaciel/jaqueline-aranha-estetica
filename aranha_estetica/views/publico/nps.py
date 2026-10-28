@@ -1,65 +1,83 @@
-"""Pesquisa NPS pelo link da mensagem (/nps/<token>/) — pagina publica."""
+"""Pesquisa NPS pelo link da mensagem (/nps/<token>/) — pagina publica.
+
+POST valido -> services/nps.registrar_avaliacao -> redirect p/ /nps/<token>/obrigado/ (PRG: recarregar
+a pagina de agradecimento nao reenvia a nota; clique duplo devolve a avaliacao que ja existe).
+"""
 import logging
-import re
 
 from django.http import Http404
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django_ratelimit.decorators import ratelimit
 
+from ...forms.nps import NpsForm
 from ...models import AvaliacaoNPS
-from ...services import anamnese, links
+from ...services import anamnese, links, nps
 
 logger = logging.getLogger(__name__)
 
 
-@ratelimit(key='ip', rate='10/m', method='POST', block=True)
-def nps_web(request, token):
-    """Pagina publica para coletar NPS via link (LinkAcesso NPS, 7 dias)."""
+def _link_nps(token):
+    """LinkAcesso NPS do token (vencido tambem: a pagina diz 'expirado'); 404 se nao existe."""
     link = links.resolver(
         links.NPS, token, aceitar_expirado=True,
-        select_related=('notificacao__atendimento__cliente',),
+        select_related=('notificacao__atendimento__cliente', 'notificacao__atendimento__procedimento',
+                        'notificacao__atendimento__profissional'),
     )
     if link is None:
         raise Http404('Link inválido.')
-    atendimento = link.notificacao.atendimento
+    return link
 
+
+def _expirado(request):
+    """Link vencido (410): quem chega aqui NAO avaliou — sem 'obrigado pela avaliacao'."""
+    return render(request, 'publico/nps_obrigado.html', {'expirado': True}, status=410)
+
+
+@ratelimit(key='ip', rate='10/m', method='POST', block=True)
+def avaliar(request, token):
+    """Formulario da nota 0-10 (LinkAcesso NPS, 7 dias do envio)."""
+    link = _link_nps(token)
+    atendimento = link.notificacao.atendimento
     if link.expirado:
-        return render(request, 'publico/nps_obrigado.html', {
-            'expirado': True,
-            'cliente': atendimento.cliente,
-        }, status=410)
+        return _expirado(request)
 
     ja_respondeu = AvaliacaoNPS.objects.filter(atendimento=atendimento).exists()
-
-    erro = None
-    if request.method == 'POST' and not ja_respondeu:
-        nota_str = request.POST.get('nota', '').strip()
-        comentario = request.POST.get('comentario', '').strip()
-
-        # fullmatch: isdigit() aceitava '²' (int() -> 500) e '07'
-        if re.fullmatch(r'10|[0-9]', nota_str):
-            nota = int(nota_str)
-
-            AvaliacaoNPS.objects.create(
-                atendimento=atendimento,
-                nota=nota,
-                comentario=comentario,
-                # opt-in explicito p/ virar depoimento publico (moderado no painel)
-                autoriza_publicacao=request.POST.get('autoriza_publicacao') in ('1', 'on', 'true'),
+    form = NpsForm()
+    if request.method == 'POST':
+        if ja_respondeu:
+            return redirect('aranha:nps_obrigado', token=token)
+        form = NpsForm(request.POST)
+        if form.is_valid():
+            nps.registrar_avaliacao(
+                atendimento, form.cleaned_data['nota'],
+                comentario=form.cleaned_data['comentario'],
+                autoriza_publicacao=form.cleaned_data['autoriza_publicacao'],
+                link=link,
             )
-            links.marcar_usado(link)
-            return render(request, 'publico/nps_obrigado.html', {
-                'nota': nota,
-                'cliente': atendimento.cliente,
-                # pesquisa pos-atendimento (opcional) no mesmo link, sem outra mensagem
-                'link_pesquisa': anamnese.convite_pesquisa(atendimento),
-            })
-        erro = 'Escolha uma nota de 0 a 10.'
+            return redirect('aranha:nps_obrigado', token=token)
 
-    context = {
+    erros = [erro for campo in ('nota', 'comentario') for erro in form.errors.get(campo, [])]
+    return render(request, 'publico/nps_web.html', {
         'atendimento': atendimento,
         'ja_respondeu': ja_respondeu,
         'notas_range': range(11),  # 0..10 (escala NPS real)
-        'erro': erro,
-    }
-    return render(request, 'publico/nps_web.html', context)
+        'erro': erros[0] if erros else None,
+    })
+
+
+def obrigado(request, token):
+    """Agradecimento depois da nota (+ convite da pesquisa pos-atendimento, se houver)."""
+    link = _link_nps(token)
+    atendimento = link.notificacao.atendimento
+    avaliacao = AvaliacaoNPS.objects.filter(atendimento=atendimento).first()
+    if avaliacao is None:
+        if link.expirado:
+            return _expirado(request)
+        return redirect('aranha:nps_web', token=token)
+    return render(request, 'publico/nps_obrigado.html', {
+        'nota': avaliacao.nota,
+        # truncatewords:1 deixava 'Maria …' (o filtro marca o corte)
+        'primeiro_nome': next(iter((atendimento.cliente.nome or '').split()), ''),
+        # pesquisa pos-atendimento (opcional) no mesmo link, sem outra mensagem
+        'link_pesquisa': anamnese.convite_pesquisa(atendimento),
+    })

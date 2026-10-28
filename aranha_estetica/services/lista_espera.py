@@ -138,7 +138,7 @@ def _enviar_wa_lista_espera(espera: ListaEspera, slot: Atendimento, link: str) -
     if not (cliente.telefone and consentimentos.vigente(cliente, *consentimentos.LEMBRETE_WHATSAPP)):
         return False
     try:
-        from ..utils.whatsapp import enviar_template_whatsapp
+        from ..utils.whatsapp import enviar_template
         components = [{
             'type': 'body',
             'parameters': [
@@ -148,7 +148,7 @@ def _enviar_wa_lista_espera(espera: ListaEspera, slot: Atendimento, link: str) -
                 {'type': 'text', 'text': link},
             ],
         }]
-        return bool(enviar_template_whatsapp(
+        return bool(enviar_template(
             cliente.telefone, settings.WHATSAPP_TEMPLATE_LISTA_ESPERA, components=components,
         ))
     except Exception as exc:  # noqa: BLE001 — best-effort

@@ -62,7 +62,8 @@ urlpatterns = [
     path('lista-espera/', lista_espera.lista_espera_publica, name='lista_espera_publica'),
     path('lista-espera/sucesso/', lista_espera.lista_espera_sucesso, name='lista_espera_sucesso'),
     # ─── NPS Web (público) ───
-    path('nps/<str:token>/', nps.nps_web, name='nps_web'),
+    path('nps/<str:token>/', nps.avaliar, name='nps_web'),
+    path('nps/<str:token>/obrigado/', nps.obrigado, name='nps_obrigado'),
     # ─── Anamnese / Pesquisa públicas (link mago via WhatsApp/Email) ───
     # IMPORTANTE: rotas /obrigado/ devem vir ANTES de <str:token>/ p/ não colidir
     path('anamnese/obrigado/', formularios.anamnese_obrigado, name='anamnese_obrigado'),

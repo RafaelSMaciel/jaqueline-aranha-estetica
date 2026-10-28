@@ -8,7 +8,6 @@ import json
 import re
 from datetime import datetime, time, timedelta
 from decimal import Decimal
-from unittest import mock
 
 from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
@@ -36,6 +35,7 @@ from aranha_estetica.utils.branding import get_branding
 from aranha_estetica.utils.saude import alertas_saude
 
 from .factories import (
+    email_da_fila,
     ja_comecou,
     criar_atendimento,
     criar_cliente,
@@ -428,8 +428,7 @@ class CancelamentoPainelTests(_AdminBase):
         amanha = timezone.localdate() + timedelta(days=1)
         local_14h = timezone.make_aware(datetime.combine(amanha, time(14, 0)))
         at = criar_atendimento(cli, self.prof, self.proc, data_hora=local_14h, status='AGENDADO')
-        with mock.patch('aranha_estetica.utils.email.enviar_cancelamento_email', return_value=True) as enviar, \
-                self.captureOnCommitCallbacks(execute=True):
+        with email_da_fila('CANCELAMENTO') as enviar, self.captureOnCommitCallbacks(execute=True):
             resp = self.client.post(
                 reverse('aranha:admin_atualizar_status'),
                 data=json.dumps({'atendimento_id': at.pk, 'status': 'CANCELADO'}),

@@ -293,9 +293,9 @@ class FichasSemAtendimentoTests(TestCase):
         self.assertEqual(LgpdService.aplicar_retencao()['fichas'], 0)
 
     def test_job_de_retencao_chama_a_purga_de_fichas(self):
-        from aranha_estetica.jobs import job_lgpd_purgar_inativos
+        from aranha_estetica.jobs import job_lgpd_purgar
         _ficha(self.cliente, self._atd('CANCELADO'), dias_atras=91)
-        resultado = job_lgpd_purgar_inativos()
+        resultado = job_lgpd_purgar()
         self.assertIn('1 fichas apagadas', resultado)
         self.assertFalse(RespostaAnamnese.objects.exists())
 
@@ -474,7 +474,7 @@ class ListaEsperaVencidaTests(TestCase):
     """rev_security-01 (5): inscricao com data passada e apagada pela retencao."""
 
     def test_purga_so_data_passada_e_job_chama(self):
-        from aranha_estetica.jobs import job_lgpd_purgar_inativos
+        from aranha_estetica.jobs import job_lgpd_purgar
         cliente = criar_cliente(nome='Espera Antiga')
         proc = criar_procedimento()
         hoje = timezone.localdate()
@@ -484,7 +484,7 @@ class ListaEsperaVencidaTests(TestCase):
         )
         de_hoje = ListaEspera.objects.create(cliente=cliente, procedimento=proc, data_desejada=hoje)
 
-        resultado = job_lgpd_purgar_inativos()
+        resultado = job_lgpd_purgar()
 
         self.assertIn('1 inscricoes de espera apagadas', resultado)
         self.assertFalse(ListaEspera.objects.filter(pk=vencida.pk).exists())
