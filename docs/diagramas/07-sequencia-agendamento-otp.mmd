@@ -6,6 +6,7 @@ sequenceDiagram
     actor C as Cliente
     participant W as Wizard JS
     participant D as Django App
+    participant A as services/agenda
     participant K as Cache local
     participant DB as PostgreSQL
     participant Z as Zenvia SMS
@@ -16,11 +17,12 @@ sequenceDiagram
 
     C->>W: escolhe procedimento e data
     W->>D: GET dias-disponiveis / horarios-disponiveis
-    D->>DB: SlotService [expediente, exceções, feriados, bloqueios, ocupados]
+    D->>DB: SlotService [agenda_horario, agenda_excecao, ocupados]
     DB-->>D: dados da agenda
     D-->>W: horários livres por profissional
+    C->>W: escolhe horário e avança com Continuar
 
-    C->>W: dados, consentimentos (desmarcados), aceites e ficha
+    C->>W: dados, autorizações (desmarcadas), aceites, ficha e consentimento de saúde
     W->>D: POST solicitar_otp_agendamento [celular + Turnstile]
     D->>K: intervalo 60 s e cotas de SMS [telefone, IP, global]
     D->>DB: CodigoOtp.gerar [HMAC-SHA256]
@@ -32,17 +34,23 @@ sequenceDiagram
     D-->>W: telefone verificado na sessão [30 min] + pré-preenchimento
 
     W->>D: POST confirmar_agendamento
-    D->>D: telefone do formulário = verificado? aceite da política?
-    D->>DB: valida slot, habilitação, feriado, idade 18+, ficha, termos
+    D->>D: telefone = verificado? aceite da política? idade 18+?
+    D->>A: validar_horario [habilitação, futuro, feriado, slot]
     D->>K: trava do horário [30 s]
-    D->>DB: transaction.atomic + SELECT FOR UPDATE
-    D->>DB: cliente pelo telefone [consentimentos com data e IP]
-    D->>DB: cria Atendimento PENDENTE [preço + promoção da data]
-    D->>DB: AceiteTermo [IP, navegador, SHA-256] + ficha + auditoria art. 11
+    D->>DB: transaction.atomic - cliente pelo telefone [SELECT FOR UPDATE]
+    D->>DB: consentimentos.registrar_do_wizard [histórico append-only]
+    D->>A: reservar [status PENDENTE]
+    A->>DB: conflito com SELECT FOR UPDATE + preço da data
+    A->>DB: INSERT atendimento em savepoint
     alt outro pedido ganhou a corrida
-        DB-->>D: EXCLUDE 23P01
+        DB-->>A: EXCLUDE 23P01
+        A-->>D: HorarioIndisponivel
         D-->>W: horário acabou de ser reservado [wizard reidratado]
     else gravado
-        D->>D: on_commit - e-mail e push ao profissional
+        D->>DB: Notificacao EMAIL de aprovação à profissional [fila]
+        D->>DB: AceiteTermo LGPD, procedimento e SAÚDE [IP, navegador, SHA-256]
+        D->>DB: ficha cifrada + LogAuditoria art. 11
+        DB-->>DB: trigger grava historico_alteracao
+        D->>D: on_commit - e-mail à profissional, push e Google Calendar
         D-->>C: página de sucesso [aguardando aprovação da clínica]
     end

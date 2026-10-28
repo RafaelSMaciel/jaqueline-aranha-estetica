@@ -9,7 +9,7 @@ stateDiagram-v2
     PENDENTE --> AGENDADO: aprovar()
     PENDENTE --> CONFIRMADO: confirmar()
     PENDENTE --> CANCELADO: rejeitar / cancelar / job 24h
-    PENDENTE --> REAGENDADO: marcar_reagendado()
+    PENDENTE --> REAGENDADO: services/agenda.reagendar
 
     AGENDADO --> CONFIRMADO: confirmar() — link do D-1
     AGENDADO --> REALIZADO: marcar_realizado()
@@ -29,13 +29,15 @@ stateDiagram-v2
 
     note right of REALIZADO
       Exige termo aceito ou override auditado.
-      Efeitos: zera faltas, debita sessão de
-      pacote (não em retorno), comissão,
+      Efeitos na mesma transação: zera faltas,
+      debita sessão do item congelado do pacote
+      (não em retorno), CREDITO de comissão,
       cashback da indicadora, retorno gratuito
     end note
     note right of CANCELADO
-      Estorna comissão e cashback,
-      avisa a lista de espera (horário futuro)
+      ESTORNO da comissão e do cashback,
+      avisa a lista de espera; pela clínica,
+      e-mail à cliente pela fila
     end note
     note right of FALTOU
       Só a equipe marca. registrar_falta():

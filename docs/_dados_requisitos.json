@@ -4,7 +4,7 @@
    {
     "nome": "Cliente",
     "tabela": "cliente",
-    "descricao": "Cliente da clínica: identidade pelo celular (só dígitos, único entre ativos), e-mail/CPF opcionais, consentimentos granulares com data e IP, contador de faltas e bloqueio online, indicação (cashback) e soft delete.",
+    "descricao": "Cliente da clínica: identidade pelo celular (só dígitos, 10–11, único entre ativas); e-mail, CPF e demais dados pessoais opcionais (ausente = NULL); contador de faltas e bloqueio do agendamento online; indicação (código próprio + indicadora, base do cashback); exclusão lógica (deletado_em). As autorizações de comunicação ficam na tabela consentimento (histórico, 0050).",
     "campos": [
      {
       "nome": "nome",
@@ -28,7 +28,7 @@
      },
      {
       "nome": "email",
-      "tipo": "CharField(254) (null)"
+      "tipo": "EmailField(254) (null)"
      },
      {
       "nome": "telefone",
@@ -44,67 +44,27 @@
      },
      {
       "nome": "ativo",
-      "tipo": "BooleanField (default=True)"
+      "tipo": "BooleanField (default=True)",
+      "coluna": "eh_ativo"
      },
      {
       "nome": "faltas_consecutivas",
-      "tipo": "SmallIntegerField (default=0)"
+      "tipo": "SmallIntegerField (default=0)",
+      "coluna": "qtd_faltas_consecutivas"
      },
      {
       "nome": "bloqueado_online",
-      "tipo": "BooleanField (default=False)"
+      "tipo": "BooleanField (default=False)",
+      "coluna": "eh_bloqueado_online"
      },
      {
       "nome": "foto_url",
-      "tipo": "CharField(600) (default=)"
+      "tipo": "URLField(600) (default=)",
+      "coluna": "url_foto"
      },
      {
       "nome": "codigo_indicacao",
-      "tipo": "CharField(12) (unique, null)"
-     },
-     {
-      "nome": "aceita_comunicacao",
-      "tipo": "BooleanField (default=True)"
-     },
-     {
-      "nome": "token_descadastro",
-      "tipo": "CharField(64) (null, db_index)"
-     },
-     {
-      "nome": "consent_email_marketing",
-      "tipo": "BooleanField (default=False)"
-     },
-     {
-      "nome": "consent_email_marketing_em",
-      "tipo": "DateTimeField (null)"
-     },
-     {
-      "nome": "consent_email_marketing_ip",
-      "tipo": "GenericIPAddressField (null)"
-     },
-     {
-      "nome": "consent_whatsapp_nps",
-      "tipo": "BooleanField (default=False)"
-     },
-     {
-      "nome": "consent_whatsapp_nps_em",
-      "tipo": "DateTimeField (null)"
-     },
-     {
-      "nome": "consent_whatsapp_nps_ip",
-      "tipo": "GenericIPAddressField (null)"
-     },
-     {
-      "nome": "consent_whatsapp_confirmacao",
-      "tipo": "BooleanField (default=False)"
-     },
-     {
-      "nome": "consent_whatsapp_confirmacao_em",
-      "tipo": "DateTimeField (null)"
-     },
-     {
-      "nome": "consent_whatsapp_confirmacao_ip",
-      "tipo": "GenericIPAddressField (null)"
+      "tipo": "CharField(12) (null)"
      },
      {
       "nome": "criado_em",
@@ -112,11 +72,11 @@
      },
      {
       "nome": "atualizado_em",
-      "tipo": "DateTimeField (null, auto_now)"
+      "tipo": "DateTimeField (auto_now)"
      },
      {
       "nome": "deletado_em",
-      "tipo": "DateTimeField (null, db_index)"
+      "tipo": "DateTimeField (null)"
      }
     ],
     "relacoes": [
@@ -126,28 +86,36 @@
       "alvo": "Cliente (self)",
       "multiplicidade": "0..1",
       "on_delete": "SET_NULL",
-      "related_name": "indicacoes"
+      "related_name": "indicacoes",
+      "coluna": "cliente_indicador_id"
      }
     ],
     "metodos": [
-     "save: normaliza telefone/CPF para dígitos e gera token_descadastro e codigo_indicacao",
-     "limite_faltas_bloqueio (static): Configuracao MAX_FALTAS_BLOQUEIO ou padrão 3",
-     "registrar_falta: soma falta sob lock e bloqueia o agendamento online ao atingir o limite",
-     "resetar_faltas: zera faltas e desbloqueia (chamado ao REALIZADO)",
-     "soft_delete / delete: exclusão lógica (hard=True só explícito)",
-     "managers: objects (só ativos, sem soft delete) e all_objects"
+     "save: normaliza telefone/CPF (só dígitos), vazio vira NULL e gera codigo_indicacao",
+     "registrar_falta / resetar_faltas: contador de faltas consecutivas e bloqueio online no limite",
+     "limite_faltas_bloqueio: Configuracao MAX_FALTAS_BLOQUEIO (padrão 3)",
+     "soft_delete / delete: exclusão lógica por padrão (hard=True só explícito)",
+     "manager padrão exclui clientes com deletado_em"
     ],
     "constraints": [
-     "uniq_cliente_email_ativo",
-     "uniq_cliente_telefone_ativo",
-     "uniq_cliente_cpf_ativo",
-     "chk_cliente_nao_indica_si_mesmo"
+     "uq_cliente_codigo_indicacao",
+     "uq_cliente_telefone_ativo",
+     "uq_cliente_cpf_ativo",
+     "uq_cliente_email_ativo",
+     "ck_cliente_nao_indica_a_si",
+     "ck_cliente_qtd_faltas_nao_negativa",
+     "ck_cliente_email_nao_vazio"
+    ],
+    "indices": [
+     "ix_cliente_nome",
+     "ix_cliente_cliente_indicador_parcial",
+     "ix_cliente_deletado_em_parcial"
     ]
    },
    {
     "nome": "Profissional",
     "tabela": "profissional",
-    "descricao": "Profissional que atende: antecedência mínima (min_notice_horas) e máxima (max_advance_dias) do agendamento, token do feed iCal (rotacionável) e integração com o Google Calendar.",
+    "descricao": "Profissional que atende: antecedência mínima (0–720 h, padrão 2) e máxima (1–365 dias, padrão 60), dados de vitrine (especialidade, foto, biografia) e integração opcional com o Google Calendar (token de renovação cifrado). O feed iCal usa um link_acesso FEED_ICS.",
     "campos": [
      {
       "nome": "nome",
@@ -155,71 +123,86 @@
      },
      {
       "nome": "slug",
-      "tipo": "SlugField(140) (unique, null)"
+      "tipo": "SlugField(140) (null)"
      },
      {
       "nome": "especialidade",
-      "tipo": "TextField (null)"
+      "tipo": "TextField (default=)"
      },
      {
       "nome": "foto_url",
-      "tipo": "CharField(600) (default=)"
+      "tipo": "URLField(600) (default=)",
+      "coluna": "url_foto"
      },
      {
       "nome": "bio",
-      "tipo": "TextField (default=)"
+      "tipo": "TextField (default=)",
+      "coluna": "biografia"
      },
      {
       "nome": "ativo",
-      "tipo": "BooleanField (default=True)"
+      "tipo": "BooleanField (default=True)",
+      "coluna": "eh_ativo"
      },
      {
       "nome": "min_notice_horas",
-      "tipo": "SmallIntegerField (default=2)"
+      "tipo": "SmallIntegerField (default=2)",
+      "coluna": "antecedencia_minima_horas"
      },
      {
       "nome": "max_advance_dias",
-      "tipo": "SmallIntegerField (default=60)"
-     },
-     {
-      "nome": "ics_token",
-      "tipo": "CharField(64) (unique, null)"
+      "tipo": "SmallIntegerField (default=60)",
+      "coluna": "antecedencia_maxima_dias"
      },
      {
       "nome": "gcal_refresh_token",
-      "tipo": "TextField (default=)"
+      "tipo": "TextoCifrado (default=)",
+      "coluna": "gcal_token_renovacao"
      },
      {
       "nome": "gcal_calendar_id",
-      "tipo": "CharField(200) (default=primary)"
+      "tipo": "CharField(200) (default=primary)",
+      "coluna": "gcal_calendario_ref"
      },
      {
       "nome": "gcal_sync_token",
-      "tipo": "TextField (default=)"
+      "tipo": "TextField (default=)",
+      "coluna": "gcal_token_sincronizacao"
      },
      {
       "nome": "gcal_ultimo_sync_em",
-      "tipo": "DateTimeField (null)"
+      "tipo": "DateTimeField (null)",
+      "coluna": "gcal_sincronizado_em"
+     },
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (auto_now_add)"
+     },
+     {
+      "nome": "atualizado_em",
+      "tipo": "DateTimeField (auto_now)"
      }
     ],
     "relacoes": [],
     "metodos": [
-     "save: gera slug único e ics_token",
-     "get_horarios_disponiveis: delega ao SlotService.slots_livres"
+     "save: gera slug único a partir do nome",
+     "get_horarios_disponiveis: atalho para o SlotService no dia"
     ],
     "constraints": [
-     "chk_profissional_min_notice_range",
-     "chk_profissional_max_advance_range"
-    ]
+     "uq_profissional_slug",
+     "ck_profissional_antecedencia_minima",
+     "ck_profissional_antecedencia_maxima"
+    ],
+    "indices": []
    },
    {
-    "nome": "DisponibilidadeProfissional",
-    "tabela": "disponibilidade_profissional",
-    "descricao": "Expediente semanal recorrente do profissional (1=Dom … 7=Sáb, vários turnos por dia).",
+    "nome": "AgendaHorario",
+    "tabela": "agenda_horario",
+    "descricao": "Grade semanal de atendimento do profissional: várias janelas por dia, sem sobreposição (EXCLUDE), dia_semana ISO (1 = segunda … 7 = domingo). Substitui disponibilidade_profissional (0048).",
     "campos": [
      {
       "nome": "dia_semana",
-      "tipo": "SmallIntegerField"
+      "tipo": "SmallIntegerField (choices 1/2/3/4/5/6/7)"
      },
      {
       "nome": "hora_inicio",
@@ -228,6 +211,14 @@
      {
       "nome": "hora_fim",
       "tipo": "TimeField"
+     },
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (default=now)"
+     },
+     {
+      "nome": "atualizado_em",
+      "tipo": "DateTimeField (auto_now)"
      }
     ],
     "relacoes": [
@@ -237,42 +228,87 @@
       "alvo": "Profissional",
       "multiplicidade": "1",
       "on_delete": "CASCADE",
-      "related_name": "(default)"
+      "related_name": "agenda_horarios"
      }
     ],
     "metodos": [
-     "CHECK dia_semana 1..7 e fim após início; UNIQUE (profissional, dia, hora_inicio)"
+     "clean: fim depois do início e sem sobreposição com outra janela do mesmo dia"
     ],
     "constraints": [
-     "chk_disponibilidade_dia_semana",
-     "chk_disponibilidade_hora_fim_apos_inicio",
-     "uniq_disponibilidade_prof_dia_hora"
-    ]
+     "ck_agenda_horario_dia_semana",
+     "ck_agenda_horario_fim_apos_inicio"
+    ],
+    "indices": []
    },
    {
-    "nome": "BloqueioAgenda",
-    "tabela": "bloqueio_agenda",
-    "descricao": "Bloqueio de agenda pontual ou recorrente (RRULE) de um profissional ou global (profissional nulo = todos).",
+    "nome": "AgendaExcecao",
+    "tabela": "agenda_excecao",
+    "descricao": "Tudo o que muda a grade numa data (0048 unificou exceção, bloqueio e feriado): FOLGA (intervalo de datas; sem profissional = clínica inteira — feriado nacional/local ou recesso), HORARIO_DIFERENTE (substitui a grade num dia) e BLOQUEIO (instantes, pontual ou recorrente por RRULE DAILY/WEEKLY/MONTHLY; sem profissional = todos). Origem MANUAL, FERIADO_NACIONAL, FERIADO_LOCAL, RECESSO ou GCAL; inativa = registrada e ignorada.",
     "campos": [
      {
+      "nome": "tipo",
+      "tipo": "CharField(20) (choices FOLGA/HORARIO_DIFERENTE/BLOQUEIO)"
+     },
+     {
+      "nome": "origem",
+      "tipo": "CharField(20) (choices MANUAL/FERIADO_NACIONAL/FERIADO_LOCAL/RECESSO/GCAL, default=MANUAL)"
+     },
+     {
+      "nome": "origem_ref",
+      "tipo": "CharField(255) (null)"
+     },
+     {
+      "nome": "data_inicio",
+      "tipo": "DateField (null)"
+     },
+     {
+      "nome": "data_fim",
+      "tipo": "DateField (null)"
+     },
+     {
+      "nome": "hora_inicio",
+      "tipo": "TimeField (null)"
+     },
+     {
+      "nome": "hora_fim",
+      "tipo": "TimeField (null)"
+     },
+     {
       "nome": "data_hora_inicio",
-      "tipo": "DateTimeField"
+      "tipo": "DateTimeField (null)"
      },
      {
       "nome": "data_hora_fim",
-      "tipo": "DateTimeField"
-     },
-     {
-      "nome": "motivo",
-      "tipo": "TextField (null)"
+      "tipo": "DateTimeField (null)"
      },
      {
       "nome": "regra_recorrencia",
-      "tipo": "CharField(255) (default=)"
+      "tipo": "CharField(255) (null)"
      },
      {
-      "nome": "recorrencia_ate",
+      "nome": "data_fim_recorrencia",
       "tipo": "DateField (null)"
+     },
+     {
+      "nome": "motivo",
+      "tipo": "TextField (default=)"
+     },
+     {
+      "nome": "observacao",
+      "tipo": "TextField (default=)"
+     },
+     {
+      "nome": "ativo",
+      "tipo": "BooleanField (default=True)",
+      "coluna": "eh_ativo"
+     },
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (default=now)"
+     },
+     {
+      "nome": "atualizado_em",
+      "tipo": "DateTimeField (auto_now)"
      }
     ],
     "relacoes": [
@@ -282,64 +318,45 @@
       "alvo": "Profissional",
       "multiplicidade": "0..1",
       "on_delete": "CASCADE",
-      "related_name": "(default)"
-     }
-    ],
-    "metodos": [
-     "expandir_ocorrencias: expande a RRULE em intervalos dentro de uma janela"
-    ],
-    "constraints": [
-     "chk_bloqueio_fim_maior_inicio"
-    ]
-   },
-   {
-    "nome": "ExcecaoDisponibilidade",
-    "tabela": "excecao_disponibilidade",
-    "descricao": "Exceção pontual ao expediente numa data: FOLGA (dia bloqueado) ou HORARIO_DIFERENTE.",
-    "campos": [
-     {
-      "nome": "data",
-      "tipo": "DateField"
+      "related_name": "agenda_excecoes"
      },
      {
-      "nome": "tipo",
-      "tipo": "CharField(20) (choices FOLGA/HORARIO_DIFERENTE)"
-     },
-     {
-      "nome": "hora_inicio",
-      "tipo": "TimeField (null)"
-     },
-     {
-      "nome": "hora_fim",
-      "tipo": "TimeField (null)"
-     },
-     {
-      "nome": "motivo",
-      "tipo": "TextField (null)"
-     }
-    ],
-    "relacoes": [
-     {
-      "campo": "profissional",
+      "campo": "usuario_autor",
       "tipo": "FK",
-      "alvo": "Profissional",
-      "multiplicidade": "1",
-      "on_delete": "CASCADE",
-      "related_name": "(default)"
+      "alvo": "Usuario",
+      "multiplicidade": "0..1",
+      "on_delete": "SET_NULL",
+      "related_name": "+"
      }
     ],
     "metodos": [
-     "CHECK horário completo para HORARIO_DIFERENTE; UNIQUE (profissional, data, tipo)"
+     "clean: espelho legível dos CHECKs por tipo e normalização da RRULE",
+     "ocorrencias(inicio, fim): intervalos que a exceção ocupa na janela (expande a recorrência)",
+     "queryset: ativas, do_profissional_ou_global, cobrindo(dia), folga_global_em(dia), bloqueios_no_intervalo"
     ],
     "constraints": [
-     "uniq_excecao_prof_data_tipo",
-     "chk_excecao_horario_completo"
+     "ck_agenda_excecao_tipo",
+     "ck_agenda_excecao_origem",
+     "ck_agenda_excecao_folga",
+     "ck_agenda_excecao_horario_diferente",
+     "ck_agenda_excecao_bloqueio",
+     "ck_agenda_excecao_recorrencia",
+     "ck_agenda_excecao_feriado_global",
+     "ck_agenda_excecao_gcal",
+     "uq_agenda_excecao_horario_diferente_dia",
+     "uq_agenda_excecao_feriado",
+     "uq_agenda_excecao_gcal_evento"
+    ],
+    "indices": [
+     "ix_agenda_excecao_profissional_data_fim",
+     "ix_agenda_excecao_profissional_data_hora_fim",
+     "ix_agenda_excecao_usuario_autor_parcial"
     ]
    },
    {
     "nome": "Procedimento",
     "tabela": "procedimento",
-    "descricao": "Serviço do catálogo: duração, buffer (0–120 min), categoria, modalidade e regra de retorno obrigatório (janela em dias e duração do retorno).",
+    "descricao": "Serviço do catálogo: duração, intervalo após a sessão (0–120 min), categoria, modalidade, imagem e regra de retorno obrigatório (janela mínima/máxima em dias e duração do retorno, padrão 30 min).",
     "campos": [
      {
       "nome": "nome",
@@ -347,15 +364,15 @@
      },
      {
       "nome": "slug",
-      "tipo": "SlugField(140) (unique, null)"
+      "tipo": "SlugField(140) (null)"
      },
      {
       "nome": "descricao",
-      "tipo": "TextField (null)"
+      "tipo": "TextField (default=)"
      },
      {
       "nome": "descricao_longa",
-      "tipo": "TextField (null)"
+      "tipo": "TextField (default=)"
      },
      {
       "nome": "duracao_minutos",
@@ -363,7 +380,8 @@
      },
      {
       "nome": "buffer_minutos",
-      "tipo": "SmallIntegerField (default=0)"
+      "tipo": "SmallIntegerField (default=0)",
+      "coluna": "intervalo_minutos"
      },
      {
       "nome": "categoria",
@@ -371,64 +389,85 @@
      },
      {
       "nome": "modalidade",
-      "tipo": "CharField(12) (choices PRESENCIAL/ONLINE/HIBRIDO, default=PRESENCIAL, db_index)"
+      "tipo": "CharField(12) (choices PRESENCIAL/ONLINE/HIBRIDO, default=PRESENCIAL)"
      },
      {
       "nome": "link_videoconferencia",
-      "tipo": "CharField(500) (default=)"
+      "tipo": "URLField(500) (default=)",
+      "coluna": "url_videoconferencia"
      },
      {
       "nome": "imagem_destaque",
-      "tipo": "CharField(500) (null)"
+      "tipo": "URLField(500) (default=)",
+      "coluna": "url_imagem_destaque"
      },
      {
       "nome": "ativo",
-      "tipo": "BooleanField (default=True)"
+      "tipo": "BooleanField (default=True)",
+      "coluna": "eh_ativo"
      },
      {
       "nome": "exige_retorno",
-      "tipo": "BooleanField (default=False)"
+      "tipo": "BooleanField (default=False)",
+      "coluna": "tem_retorno_obrigatorio"
      },
      {
       "nome": "retorno_minimo_dias",
-      "tipo": "PositiveSmallIntegerField (null)"
+      "tipo": "SmallIntegerField (null)"
      },
      {
       "nome": "retorno_maximo_dias",
-      "tipo": "PositiveSmallIntegerField (null)"
+      "tipo": "SmallIntegerField (null)"
      },
      {
       "nome": "duracao_retorno_minutos",
-      "tipo": "PositiveSmallIntegerField (default=30)"
+      "tipo": "SmallIntegerField (default=30)"
+     },
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (auto_now_add)"
+     },
+     {
+      "nome": "atualizado_em",
+      "tipo": "DateTimeField (auto_now)"
      }
     ],
     "relacoes": [
      {
+      "campo": "profissionais",
       "tipo": "M2M",
       "alvo": "Profissional",
-      "multiplicidade": "0..*",
-      "on_delete": "",
-      "related_name": "",
+      "multiplicidade": "*",
       "through": "Habilitacao"
      }
     ],
     "metodos": [
-     "save: gera slug único",
-     "CHECKs de duração, buffer, categoria, modalidade e janela de retorno coerente"
+     "save: gera slug único a partir do nome",
+     "profissionais: M2M through Habilitacao"
     ],
     "constraints": [
-     "chk_procedimento_duracao_positiva",
-     "chk_procedimento_buffer_range",
-     "chk_procedimento_categoria",
-     "chk_procedimento_modalidade",
-     "chk_procedimento_prazo_retorno_coerente"
-    ]
+     "uq_procedimento_slug",
+     "ck_procedimento_duracao_positiva",
+     "ck_procedimento_intervalo_0_120",
+     "ck_procedimento_categoria",
+     "ck_procedimento_modalidade",
+     "ck_procedimento_retorno_coerente",
+     "ck_procedimento_retorno_minimo_dias_nao_negativo",
+     "ck_procedimento_retorno_maximo_dias_nao_negativo",
+     "ck_procedimento_duracao_retorno_nao_negativa"
+    ],
+    "indices": []
    },
    {
     "nome": "Habilitacao",
     "tabela": "habilitacao",
-    "descricao": "Liga profissional e procedimento (M2M through): só profissional habilitado atende o procedimento.",
-    "campos": [],
+    "descricao": "Liga profissional e procedimento (M2M through): só profissional habilitado realiza o procedimento; sem nenhuma habilitação cadastrada, todos realizam.",
+    "campos": [
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (auto_now_add)"
+     }
+    ],
     "relacoes": [
      {
       "campo": "profissional",
@@ -448,14 +487,19 @@
      }
     ],
     "metodos": [
-     "unique_together (profissional, procedimento)"
+     "UNIQUE profissional + procedimento"
     ],
-    "constraints": []
+    "constraints": [
+     "uq_habilitacao_profissional_procedimento"
+    ],
+    "indices": [
+     "ix_habilitacao_procedimento"
+    ]
    },
    {
     "nome": "Preco",
     "tabela": "preco",
-    "descricao": "Preço versionado por vigência (vigente_desde, data local), base (sem profissional) ou por profissional.",
+    "descricao": "Preço versionado por data de início de vigência (data local), base (sem profissional) ou por profissional; o atendimento usa o preço da data do atendimento (profissional > base).",
     "campos": [
      {
       "nome": "valor",
@@ -463,11 +507,20 @@
      },
      {
       "nome": "descricao",
-      "tipo": "TextField (null)"
+      "tipo": "TextField (default=)"
      },
      {
       "nome": "vigente_desde",
-      "tipo": "DateField (default=localdate)"
+      "tipo": "DateField (default=localdate)",
+      "coluna": "data_inicio_vigencia"
+     },
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (auto_now_add)"
+     },
+     {
+      "nome": "atualizado_em",
+      "tipo": "DateTimeField (auto_now)"
      }
     ],
     "relacoes": [
@@ -489,18 +542,21 @@
      }
     ],
     "metodos": [
-     "UNIQUE por procedimento/profissional/vigência e por procedimento/vigência do preço base; CHECK valor >= 0"
+     "UNIQUE de vigência por profissional e da base"
     ],
     "constraints": [
-     "chk_preco_valor_positivo",
-     "uniq_preco_vigencia",
-     "uniq_preco_base_vigencia"
+     "ck_preco_valor_nao_negativo",
+     "uq_preco_vigencia",
+     "uq_preco_base_vigencia"
+    ],
+    "indices": [
+     "ix_preco_profissional_parcial"
     ]
    },
    {
     "nome": "Promocao",
     "tabela": "promocao",
-    "descricao": "Promoção por período: desconto percentual (0–100) XOR preço fixo; procedimento nulo = promoção geral (só percentual vale).",
+    "descricao": "Promoção por período: desconto percentual (0–100) XOR preço fixo; procedimento nulo = promoção geral (só percentual vale). Aplica-se só quando reduz o valor.",
     "campos": [
      {
       "nome": "nome",
@@ -508,15 +564,17 @@
      },
      {
       "nome": "descricao",
-      "tipo": "TextField (null)"
+      "tipo": "TextField (default=)"
      },
      {
       "nome": "desconto_percentual",
-      "tipo": "DecimalField(5,2) (default=0)"
+      "tipo": "DecimalField(5,2) (default=0)",
+      "coluna": "percentual_desconto"
      },
      {
       "nome": "preco_promocional",
-      "tipo": "DecimalField(10,2) (null)"
+      "tipo": "DecimalField(10,2) (null)",
+      "coluna": "valor_promocional"
      },
      {
       "nome": "data_inicio",
@@ -528,11 +586,21 @@
      },
      {
       "nome": "ativa",
-      "tipo": "BooleanField (default=True)"
+      "tipo": "BooleanField (default=True)",
+      "coluna": "eh_ativo"
      },
      {
       "nome": "imagem_url",
-      "tipo": "TextField (null)"
+      "tipo": "TextField (default=)",
+      "coluna": "url_imagem"
+     },
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (auto_now_add)"
+     },
+     {
+      "nome": "atualizado_em",
+      "tipo": "DateTimeField (auto_now)"
      }
     ],
     "relacoes": [
@@ -546,24 +614,28 @@
      }
     ],
     "metodos": [
-     "esta_vigente (property): ativa e hoje dentro do período",
-     "CHECKs: desconto 0..100, preço >= 0, desconto XOR preço, fim >= início"
+     "clean: período e desconto XOR preço fixo",
+     "esta_vigente: ativa e dentro do período"
     ],
     "constraints": [
-     "chk_promocao_data_fim_valida",
-     "chk_promocao_desconto_0_100",
-     "chk_promocao_preco_positivo",
-     "chk_promocao_desconto_xor_preco"
+     "ck_promocao_periodo",
+     "ck_promocao_percentual_desconto_0_100",
+     "ck_promocao_valor_promocional_nao_negativo",
+     "ck_promocao_desconto_xor_valor",
+     "ck_promocao_geral_so_percentual"
+    ],
+    "indices": [
+     "ix_promocao_procedimento_parcial"
     ]
    },
    {
     "nome": "Atendimento",
     "tabela": "atendimento",
-    "descricao": "Agendamento/sessão: cliente, profissional, procedimento, período, preço gravado (valor_cobrado, valor_original, promoção, descrição), retorno (eh_retorno + origem), reagendado_de e FSM de 7 estados.",
+    "descricao": "Agendamento/sessão: cliente, profissional, procedimento, período, preço gravado (valor cobrado, valor original, promoção e descrição), retorno (eh_retorno + atendimento de origem), atendimento que este substitui (reagendamento) e FSM de 7 estados. Sem token próprio: links públicos em link_acesso.",
     "campos": [
      {
       "nome": "eh_retorno",
-      "tipo": "BooleanField (default=False, db_index)"
+      "tipo": "BooleanField (default=False)"
      },
      {
       "nome": "data_hora_inicio",
@@ -583,15 +655,11 @@
      },
      {
       "nome": "descricao_preco",
-      "tipo": "TextField (null)"
+      "tipo": "TextField (default=)"
      },
      {
       "nome": "status",
       "tipo": "CharField(20) (choices PENDENTE/AGENDADO/CONFIRMADO/REALIZADO/CANCELADO/FALTOU/REAGENDADO, default=PENDENTE)"
-     },
-     {
-      "nome": "token_cancelamento",
-      "tipo": "CharField(64) (unique, null)"
      },
      {
       "nome": "criado_em",
@@ -599,7 +667,7 @@
      },
      {
       "nome": "atualizado_em",
-      "tipo": "DateTimeField (null, auto_now)"
+      "tipo": "DateTimeField (auto_now)"
      }
     ],
     "relacoes": [
@@ -641,7 +709,8 @@
       "alvo": "Atendimento (self)",
       "multiplicidade": "0..1",
       "on_delete": "SET_NULL",
-      "related_name": "reagendamentos"
+      "related_name": "reagendamentos",
+      "coluna": "atendimento_reagendado_id"
      },
      {
       "campo": "atendimento_origem",
@@ -653,25 +722,35 @@
      }
     ],
     "metodos": [
-     "save: gera token_cancelamento",
-     "_transicionar: trava a linha, valida TRANSICOES, grava status e LogAuditoria",
-     "aprovar / confirmar / cancelar / marcar_realizado / marcar_falta / marcar_reagendado: transições da FSM + evento de domínio",
+     "_transicionar: trava a linha, valida TRANSICOES, grava status + LogAuditoria e chama services/atendimento.ao_mudar_status na mesma transação",
+     "aprovar / confirmar / cancelar / marcar_realizado / marcar_falta / marcar_reagendado: transições da FSM",
      "clean: fim após início e sem conflito com outro atendimento ativo do profissional",
      "manager: ativos, futuros, passados, hoje, pendentes_aprovacao, realizados, conflito_com",
-     "constraints: EXCLUDE excl_atendimento_sobreposicao (PG), uniq_retorno_por_origem, CHECKs de status/retorno"
+     "criação só por services/agenda.reservar (wizard, painel, reagendamento, retorno)"
     ],
     "constraints": [
-     "chk_atendimento_status_v2",
-     "chk_atendimento_fim_apos_inicio",
-     "chk_retorno_tem_origem",
-     "chk_retorno_valor_zero",
-     "uniq_retorno_por_origem"
+     "ck_atendimento_status",
+     "ck_atendimento_fim_apos_inicio",
+     "ck_atendimento_retorno_tem_origem",
+     "ck_atendimento_retorno_valor_zero",
+     "ck_atendimento_valores_nao_negativos",
+     "uq_atendimento_retorno_por_origem"
+    ],
+    "indices": [
+     "ix_atendimento_profissional_data_hora_inicio",
+     "ix_atendimento_cliente_data_hora_inicio",
+     "ix_atendimento_data_hora_inicio",
+     "ix_atendimento_data_hora_inicio_ativo_parcial",
+     "ix_atendimento_procedimento",
+     "ix_atendimento_promocao_parcial",
+     "ix_atendimento_atendimento_reagendado_parcial",
+     "ix_atendimento_atendimento_origem_parcial"
     ]
    },
    {
     "nome": "Notificacao",
     "tabela": "notificacao",
-    "descricao": "Mensagem ligada a um atendimento (LEMBRETE D-1, NPS, TERMO, CONFIRMACAO, CANCELAMENTO, APROVACAO...), por canal, com status PENDENTE/ENVIADO/FALHOU e token do link público.",
+    "descricao": "Toda mensagem ligada a um atendimento (LEMBRETE, LEMBRETE_2H, CONFIRMACAO, CANCELAMENTO, NPS, PESQUISA, APROVACAO, TERMO) por canal (WhatsApp, SMS, e-mail) e status PENDENTE/ENVIADO/FALHOU. Também é a fila do e-mail transacional (tentativas, próxima tentativa; 0061); não guarda cópia de dado pessoal.",
     "campos": [
      {
       "nome": "tipo",
@@ -690,12 +769,8 @@
       "tipo": "CharField(20) (choices CONFIRMOU/CANCELOU, null)"
      },
      {
-      "nome": "token",
-      "tipo": "CharField(64) (unique, null)"
-     },
-     {
       "nome": "mensagem",
-      "tipo": "TextField (null)"
+      "tipo": "TextField (default=)"
      },
      {
       "nome": "enviado_em",
@@ -706,8 +781,20 @@
       "tipo": "DateTimeField (null)"
      },
      {
+      "nome": "tentativas",
+      "tipo": "SmallIntegerField (default=0)"
+     },
+     {
+      "nome": "proxima_tentativa_em",
+      "tipo": "DateTimeField (null)"
+     },
+     {
       "nome": "criado_em",
       "tipo": "DateTimeField (auto_now_add)"
+     },
+     {
+      "nome": "atualizado_em",
+      "tipo": "DateTimeField (auto_now)"
      }
     ],
     "relacoes": [
@@ -721,102 +808,403 @@
      }
     ],
     "metodos": [
-     "token único: /confirmar/ só aceita LEMBRETE de WhatsApp; /termo/ só TERMO; /nps/ só NPS"
+     "enfileirar_email / enviar_da_fila / reenviar_pendentes (services/comunicacao)",
+     "índice parcial ix_notificacao_fila_email"
     ],
-    "constraints": []
+    "constraints": [
+     "ck_notificacao_tipo",
+     "ck_notificacao_canal",
+     "ck_notificacao_status",
+     "ck_notificacao_resposta",
+     "ck_notificacao_tentativas"
+    ],
+    "indices": [
+     "ix_notificacao_atendimento_tipo",
+     "ix_notificacao_criado_em",
+     "ix_notificacao_fila_email"
+    ]
+   },
+   {
+    "nome": "LinkAcesso",
+    "tabela": "link_acesso",
+    "descricao": "Link público com token (confirmar presença, NPS, termo, ficha, descadastro, feed iCal e o legado gerenciar agendamento): finalidade + exatamente 1 alvo; o banco guarda só o SHA-256 do token, a validade, o uso e a revogação (0049). O token em claro existe só na URL entregue.",
+    "campos": [
+     {
+      "nome": "finalidade",
+      "tipo": "CharField(30) (choices GERENCIAR_AGENDAMENTO/CONFIRMAR_PRESENCA/NPS/TERMO/FORMULARIO/DESCADASTRO/FEED_ICS)"
+     },
+     {
+      "nome": "token_hash",
+      "tipo": "HashSha256Field(64)"
+     },
+     {
+      "nome": "expira_em",
+      "tipo": "DateTimeField (null)"
+     },
+     {
+      "nome": "usado_em",
+      "tipo": "DateTimeField (null)"
+     },
+     {
+      "nome": "revogado_em",
+      "tipo": "DateTimeField (null)"
+     },
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (default=now)"
+     }
+    ],
+    "relacoes": [
+     {
+      "campo": "atendimento",
+      "tipo": "FK",
+      "alvo": "Atendimento",
+      "multiplicidade": "0..1",
+      "on_delete": "CASCADE",
+      "related_name": "links_acesso"
+     },
+     {
+      "campo": "notificacao",
+      "tipo": "FK",
+      "alvo": "Notificacao",
+      "multiplicidade": "0..1",
+      "on_delete": "CASCADE",
+      "related_name": "links_acesso"
+     },
+     {
+      "campo": "resposta_formulario",
+      "tipo": "FK",
+      "alvo": "RespostaAnamnese",
+      "multiplicidade": "0..1",
+      "on_delete": "CASCADE",
+      "related_name": "links_acesso"
+     },
+     {
+      "campo": "cliente",
+      "tipo": "FK",
+      "alvo": "Cliente",
+      "multiplicidade": "0..1",
+      "on_delete": "CASCADE",
+      "related_name": "links_acesso"
+     },
+     {
+      "campo": "profissional",
+      "tipo": "FK",
+      "alvo": "Profissional",
+      "multiplicidade": "0..1",
+      "on_delete": "CASCADE",
+      "related_name": "links_acesso"
+     }
+    ],
+    "metodos": [
+     "services/links: emitir, resolver, marcar_usado, revogar, vigente, gerar_link_feed_ics",
+     "expirado / revogado / alvo",
+     "imutável por trigger: só usado_em e revogado_em mudam, uma vez cada"
+    ],
+    "constraints": [
+     "uq_link_acesso_token_hash",
+     "ck_link_acesso_finalidade",
+     "ck_link_acesso_alvo_por_finalidade"
+    ],
+    "indices": [
+     "ix_link_acesso_atendimento_parcial",
+     "ix_link_acesso_notificacao_parcial",
+     "ix_link_acesso_resposta_formulario_parcial",
+     "ix_link_acesso_cliente_parcial",
+     "ix_link_acesso_profissional_parcial",
+     "ix_link_acesso_expira_em_parcial"
+    ]
    }
   ]
  },
  "models-aux": {
   "models": [
    {
-    "nome": "Pacote",
-    "tabela": "pacote",
-    "descricao": "Pacote de sessões com preço total e validade em meses; nome e itens congelados após a 1ª venda.",
+    "nome": "Usuario",
+    "tabela": "usuario",
+    "descricao": "Usuário da equipe (login por e-mail): papel ADMIN, PROFISSIONAL ou RECEPCAO (sem login); is_staff = ADMIN; vínculo opcional 1:1 com Profissional; desativar em vez de excluir.",
     "campos": [
      {
+      "nome": "papel",
+      "tipo": "CharField(20) (choices ADMIN/PROFISSIONAL/RECEPCAO, default=PROFISSIONAL)"
+     },
+     {
       "nome": "nome",
-      "tipo": "CharField(150)"
+      "tipo": "CharField(100)"
      },
      {
-      "nome": "descricao",
-      "tipo": "TextField (null)"
+      "nome": "email",
+      "tipo": "EmailField(100)"
      },
      {
-      "nome": "preco_total",
-      "tipo": "DecimalField(10,2)"
+      "nome": "password",
+      "tipo": "CharField(255)",
+      "coluna": "senha_hash"
      },
      {
       "nome": "ativo",
-      "tipo": "BooleanField (default=True)"
+      "tipo": "BooleanField (default=True)",
+      "coluna": "eh_ativo"
      },
-     {
-      "nome": "validade_meses",
-      "tipo": "SmallIntegerField (default=12)"
-     }
-    ],
-    "relacoes": [],
-    "metodos": [],
-    "constraints": [
-     "chk_pacote_preco_positivo",
-     "chk_pacote_validade_positiva"
-    ]
-   },
-   {
-    "nome": "ItemPacote",
-    "tabela": "item_pacote",
-    "descricao": "Item do pacote: procedimento e quantidade de sessões.",
-    "campos": [
-     {
-      "nome": "quantidade_sessoes",
-      "tipo": "SmallIntegerField (default=1)"
-     }
-    ],
-    "relacoes": [
-     {
-      "campo": "pacote",
-      "tipo": "FK",
-      "alvo": "Pacote",
-      "multiplicidade": "1",
-      "on_delete": "CASCADE",
-      "related_name": "itens"
-     },
-     {
-      "campo": "procedimento",
-      "tipo": "FK",
-      "alvo": "Procedimento",
-      "multiplicidade": "1",
-      "on_delete": "CASCADE",
-      "related_name": "(default)"
-     }
-    ],
-    "metodos": [
-     "unique_together (pacote, procedimento); CHECK quantidade > 0"
-    ],
-    "constraints": [
-     "chk_item_pacote_qtd_positiva"
-    ]
-   },
-   {
-    "nome": "CompraPacote",
-    "tabela": "compra_pacote",
-    "descricao": "Venda de pacote a uma cliente: valor pago, status ATIVO/FINALIZADO/CANCELADO/EXPIRADO e data de expiração.",
-    "campos": [
      {
       "nome": "criado_em",
       "tipo": "DateTimeField (auto_now_add)"
      },
      {
-      "nome": "valor_pago",
-      "tipo": "DecimalField(10,2)"
+      "nome": "atualizado_em",
+      "tipo": "DateTimeField (auto_now)"
+     }
+    ],
+    "relacoes": [
+     {
+      "campo": "profissional",
+      "tipo": "O2O",
+      "alvo": "Profissional",
+      "multiplicidade": "0..1",
+      "on_delete": "SET_NULL",
+      "related_name": "(default)"
+     }
+    ],
+    "metodos": [
+     "UsuarioManager: login insensível a maiúsculas, create_user / create_superuser",
+     "is_active / is_staff derivados de eh_ativo e papel"
+    ],
+    "constraints": [
+     "uq_usuario_email",
+     "ck_usuario_papel"
+    ],
+    "indices": []
+   },
+   {
+    "nome": "AssinaturaPush",
+    "tabela": "assinatura_push",
+    "descricao": "Inscrição Web Push (VAPID) de um usuário da equipe, para o aviso de novo agendamento.",
+    "campos": [
+     {
+      "nome": "endpoint",
+      "tipo": "URLField(600)"
      },
      {
-      "nome": "status",
-      "tipo": "CharField(20) (choices ATIVO/FINALIZADO/CANCELADO/EXPIRADO, default=ATIVO)"
+      "nome": "p256dh",
+      "tipo": "CharField(140)",
+      "coluna": "chave_p256dh"
      },
      {
-      "nome": "data_expiracao",
-      "tipo": "DateField (null)"
+      "nome": "auth",
+      "tipo": "CharField(80)",
+      "coluna": "chave_auth"
+     },
+     {
+      "nome": "user_agent",
+      "tipo": "CharField(300) (default=)"
+     },
+     {
+      "nome": "ativo",
+      "tipo": "BooleanField (default=True)",
+      "coluna": "eh_ativo"
+     },
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (auto_now_add)"
+     },
+     {
+      "nome": "atualizado_em",
+      "tipo": "DateTimeField (auto_now)"
+     },
+     {
+      "nome": "ultima_falha_em",
+      "tipo": "DateTimeField (null)"
+     }
+    ],
+    "relacoes": [
+     {
+      "campo": "user",
+      "tipo": "FK",
+      "alvo": "Usuario",
+      "multiplicidade": "1",
+      "on_delete": "CASCADE",
+      "related_name": "push_subscriptions",
+      "coluna": "usuario_id"
+     }
+    ],
+    "metodos": [
+     "UNIQUE endpoint; desativada após falha permanente"
+    ],
+    "constraints": [
+     "uq_assinatura_push_endpoint"
+    ],
+    "indices": [
+     "ix_assinatura_push_usuario"
+    ]
+   },
+   {
+    "nome": "LogAuditoria",
+    "tabela": "log_auditoria",
+    "descricao": "Trilha de auditoria das ações (LGPD art. 37): autor + snapshot \"Nome <email>\", ação, tabela, registro, detalhes com PII mascarada e IP. Append-only no banco (0059): só a purga com 180+ dias, a pseudonimização do esquecimento e o SET NULL do autor.",
+    "campos": [
+     {
+      "nome": "usuario_nome",
+      "tipo": "CharField(255) (default=)",
+      "coluna": "usuario_autor_nome"
+     },
+     {
+      "nome": "acao",
+      "tipo": "TextField"
+     },
+     {
+      "nome": "tabela",
+      "tipo": "CharField(100) (default=)"
+     },
+     {
+      "nome": "registro_id",
+      "tipo": "BigIntegerField (null)",
+      "coluna": "registro_pk"
+     },
+     {
+      "nome": "detalhes",
+      "tipo": "JSONField (null)"
+     },
+     {
+      "nome": "ip_origem",
+      "tipo": "GenericIPAddressField (null)"
+     },
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (auto_now_add)"
+     }
+    ],
+    "relacoes": [
+     {
+      "campo": "usuario",
+      "tipo": "FK",
+      "alvo": "Usuario",
+      "multiplicidade": "0..1",
+      "on_delete": "SET_NULL",
+      "related_name": "(default)",
+      "coluna": "usuario_autor_id"
+     }
+    ],
+    "metodos": [
+     "save: grava o snapshot do autor",
+     "utils/audit.registrar_log com o Ator da requisição"
+    ],
+    "constraints": [],
+    "indices": [
+     "ix_log_auditoria_criado_em",
+     "ix_log_auditoria_tabela_registro"
+    ]
+   },
+   {
+    "nome": "HistoricoAlteracao",
+    "tabela": "historico_alteracao",
+    "descricao": "Trilha de dados gravada por trigger (0056) nas 11 tabelas sensíveis: operação, colunas alteradas com antes/depois (senha redigida), autor, IP, origem (web, cron, comando, migração) e transação. Append-only; leitura auditada.",
+    "campos": [
+     {
+      "nome": "tabela",
+      "tipo": "CharField(63)"
+     },
+     {
+      "nome": "registro_pk",
+      "tipo": "BigIntegerField"
+     },
+     {
+      "nome": "operacao",
+      "tipo": "CharField(6) (choices INSERT/UPDATE/DELETE)"
+     },
+     {
+      "nome": "colunas_alteradas",
+      "tipo": "JSONField (default=list)"
+     },
+     {
+      "nome": "dados_antes",
+      "tipo": "JSONField (null)"
+     },
+     {
+      "nome": "dados_depois",
+      "tipo": "JSONField (null)"
+     },
+     {
+      "nome": "ip_origem",
+      "tipo": "GenericIPAddressField (null)"
+     },
+     {
+      "nome": "origem",
+      "tipo": "CharField(60) (default=)"
+     },
+     {
+      "nome": "transacao_ref",
+      "tipo": "BigIntegerField"
+     },
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (auto_now_add)"
+     }
+    ],
+    "relacoes": [
+     {
+      "campo": "usuario_autor",
+      "tipo": "FK",
+      "alvo": "Usuario",
+      "multiplicidade": "0..1",
+      "on_delete": "SET_NULL",
+      "related_name": "+"
+     }
+    ],
+    "metodos": [
+     "save / delete recusados no Python; no Postgres o trigger barra UPDATE/DELETE",
+     "queryset do_registro(tabela, pk)"
+    ],
+    "constraints": [
+     "ck_historico_alteracao_operacao",
+     "ck_historico_alteracao_dados_coerentes"
+    ],
+    "indices": [
+     "ix_historico_alteracao_tabela_registro",
+     "ix_historico_alteracao_criado_em",
+     "ix_historico_alteracao_usuario_autor_parcial"
+    ]
+   },
+   {
+    "nome": "Consentimento",
+    "tabela": "consentimento",
+    "descricao": "Histórico append-only de autorizações de comunicação por finalidade × canal (MARKETING/E-MAIL, LEMBRETE_AGENDAMENTO/WHATSAPP, PESQUISA_SATISFACAO/WHATSAPP): concedido ou revogado, origem, texto exibido, IP, navegador, autor e data. Vale a linha mais recente do par; sem linha = não concedido (0050).",
+    "campos": [
+     {
+      "nome": "finalidade",
+      "tipo": "CharField(30) (choices MARKETING/PESQUISA_SATISFACAO/LEMBRETE_AGENDAMENTO)"
+     },
+     {
+      "nome": "canal",
+      "tipo": "CharField(20) (choices EMAIL/WHATSAPP/SMS)"
+     },
+     {
+      "nome": "concedido",
+      "tipo": "BooleanField",
+      "coluna": "eh_concedido"
+     },
+     {
+      "nome": "origem",
+      "tipo": "CharField(30) (choices AGENDAMENTO_ONLINE/DESCADASTRO/PAINEL/ESQUECIMENTO/MIGRACAO/ADMIN)"
+     },
+     {
+      "nome": "texto",
+      "tipo": "TextField (default=)"
+     },
+     {
+      "nome": "ip_origem",
+      "tipo": "GenericIPAddressField (null)"
+     },
+     {
+      "nome": "user_agent",
+      "tipo": "CharField(500) (default=)"
+     },
+     {
+      "nome": "registrado_em",
+      "tipo": "DateTimeField (default=now)"
+     },
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (default=now)"
      }
     ],
     "relacoes": [
@@ -826,87 +1214,66 @@
       "alvo": "Cliente",
       "multiplicidade": "1",
       "on_delete": "PROTECT",
-      "related_name": "pacotes_comprados"
+      "related_name": "consentimentos"
      },
      {
-      "campo": "pacote",
+      "campo": "usuario_autor",
       "tipo": "FK",
-      "alvo": "Pacote",
-      "multiplicidade": "1",
-      "on_delete": "RESTRICT",
-      "related_name": "(default)"
+      "alvo": "Usuario",
+      "multiplicidade": "0..1",
+      "on_delete": "PROTECT",
+      "related_name": "+"
      }
     ],
     "metodos": [
-     "save: expiração = data local da venda + validade_meses",
-     "saldo_por_procedimento / sessoes_restantes: sessões usadas e restantes por item",
-     "verificar_finalizacao: marca FINALIZADO quando todos os itens foram consumidos",
-     "CHECK valor_pago >= 0; cliente PROTECT"
+     "save: só INSERT; delete recusado (trigger no Postgres)",
+     "queryset do_titular, minimizar_dados_de_origem (anonimização apaga IP/navegador)",
+     "services/consentimentos: estado atual, registrar_do_wizard, revogar, registrar pelo painel"
     ],
     "constraints": [
-     "chk_pacote_cliente_status",
-     "chk_compra_pacote_valor_pago"
+     "ck_consentimento_finalidade",
+     "ck_consentimento_canal",
+     "ck_consentimento_finalidade_canal",
+     "ck_consentimento_origem"
+    ],
+    "indices": [
+     "ix_consentimento_cliente_finalidade_canal_registrado_em",
+     "ix_consentimento_usuario_autor_parcial"
     ]
-   },
-   {
-    "nome": "ConsumoSessao",
-    "tabela": "consumo_sessao",
-    "descricao": "Consumo de 1 sessão de uma compra de pacote por um atendimento REALIZADO (OneToOne com o atendimento).",
-    "campos": [
-     {
-      "nome": "criado_em",
-      "tipo": "DateTimeField (auto_now_add)"
-     }
-    ],
-    "relacoes": [
-     {
-      "campo": "compra_pacote",
-      "tipo": "FK",
-      "alvo": "CompraPacote",
-      "multiplicidade": "1",
-      "on_delete": "CASCADE",
-      "related_name": "sessoes_realizadas"
-     },
-     {
-      "campo": "atendimento",
-      "tipo": "O2O",
-      "alvo": "Atendimento",
-      "multiplicidade": "1",
-      "on_delete": "RESTRICT",
-      "related_name": "sessao_pacote_vinculada"
-     }
-    ],
-    "metodos": [],
-    "constraints": []
    },
    {
     "nome": "Prontuario",
     "tabela": "prontuario",
-    "descricao": "Ficha base 1:1 da cliente: alergias, contraindicações, histórico, medicamentos, observações e perguntas configuráveis (respostas_extras JSONB).",
+    "descricao": "Ficha base 1:1 da cliente preenchida pela equipe: alergias, contraindicações, histórico, medicamentos, observações e respostas do questionário do prontuário (formulário PRONTUARIO, 0051). Conteúdo cifrado em repouso (0060).",
     "campos": [
      {
       "nome": "alergias",
-      "tipo": "TextField (null)"
+      "tipo": "TextoCifrado (default=)"
      },
      {
       "nome": "contraindicacoes",
-      "tipo": "TextField (null)"
+      "tipo": "TextoCifrado (default=)"
      },
      {
       "nome": "historico_saude",
-      "tipo": "TextField (null)"
+      "tipo": "TextoCifrado (default=)"
      },
      {
       "nome": "medicamentos_uso",
-      "tipo": "TextField (null)"
+      "tipo": "TextoCifrado (default=)"
      },
      {
       "nome": "observacoes_gerais",
-      "tipo": "TextField (null)"
+      "tipo": "TextoCifrado (default=)"
      },
      {
       "nome": "respostas_extras",
-      "tipo": "JSONField (default=dict)"
+      "tipo": "JsonCifrado (default=dict)",
+      "coluna": "respostas"
+     },
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (auto_now_add)"
      },
      {
       "nome": "atualizado_em",
@@ -924,20 +1291,21 @@
      }
     ],
     "metodos": [
-     "clean: respostas_extras precisa ser objeto JSON (espelha o CHECK NOT VALID do PG)",
-     "Q_COM_CONTEUDO: critério de prontuário com conteúdo clínico (retenção)",
-     "cliente PROTECT"
+     "clean: respostas como objeto JSON",
+     "cada edição grava antes a ProntuarioVersao anterior"
     ],
-    "constraints": []
+    "constraints": [],
+    "indices": []
    },
    {
     "nome": "ProntuarioVersao",
     "tabela": "prontuario_versao",
-    "descricao": "Histórico append-only do prontuário: foto do estado anterior a cada edição, com autor e data (imutável no model e por trigger no PG).",
+    "descricao": "Histórico append-only do prontuário: foto do estado anterior a cada edição (cifrada), com autor e data.",
     "campos": [
      {
       "nome": "autor_nome",
-      "tipo": "CharField(100) (default=)"
+      "tipo": "CharField(100) (default=)",
+      "coluna": "usuario_autor_nome"
      },
      {
       "nome": "criado_em",
@@ -945,7 +1313,7 @@
      },
      {
       "nome": "dados",
-      "tipo": "JSONField (default=dict)"
+      "tipo": "JsonCifrado (default=dict)"
      }
     ],
     "relacoes": [
@@ -963,27 +1331,32 @@
       "alvo": "Usuario",
       "multiplicidade": "0..1",
       "on_delete": "SET_NULL",
-      "related_name": "(default)"
+      "related_name": "(default)",
+      "coluna": "usuario_autor_id"
      }
     ],
     "metodos": [
-     "registrar (classmethod): grava a foto persistida antes da edição",
-     "save/delete: recusam alteração e exclusão (ValidationError)"
+     "registrar(prontuario, usuario): grava a versão anterior",
+     "save só INSERT; delete recusado; imutável por trigger"
     ],
-    "constraints": []
+    "constraints": [],
+    "indices": [
+     "ix_prontuario_versao_prontuario_criado_em"
+    ]
    },
    {
     "nome": "AnotacaoSessao",
     "tabela": "anotacao_sessao",
-    "descricao": "Anotação clínica de um atendimento, com autor preservado (PROTECT + snapshot autor_nome).",
+    "descricao": "Anotação da sessão de um atendimento (texto cifrado), com autor preservado (PROTECT + snapshot do nome). Append-only: correção = nova anotação.",
     "campos": [
      {
       "nome": "autor_nome",
-      "tipo": "CharField(100) (default=)"
+      "tipo": "CharField(100) (default=)",
+      "coluna": "usuario_autor_nome"
      },
      {
       "nome": "texto",
-      "tipo": "TextField"
+      "tipo": "TextoCifrado"
      },
      {
       "nome": "criado_em",
@@ -1005,18 +1378,22 @@
       "alvo": "Usuario",
       "multiplicidade": "0..1",
       "on_delete": "PROTECT",
-      "related_name": "(default)"
+      "related_name": "(default)",
+      "coluna": "usuario_autor_id"
      }
     ],
     "metodos": [
-     "save: grava autor_nome a partir do autor"
+     "save só INSERT; update/delete recusados; trigger tg_anotacao_sessao_imutavel"
     ],
-    "constraints": []
+    "constraints": [],
+    "indices": [
+     "ix_anotacao_sessao_atendimento_criado_em"
+    ]
    },
    {
     "nome": "FormularioAnamnese",
-    "tabela": "formulario_anamnese",
-    "descricao": "Modelo de questionário (ANAMNESE pré-atendimento ou PESQUISA) em schema JSON, com escopo (global, categoria, procedimento, modalidade) e flag obrigatório.",
+    "tabela": "formulario",
+    "descricao": "Questionário em lista de perguntas (key, tipo, rótulo, obrigatória, opções, alerta de saúde): ANAMNESE e PESQUISA respondidas pela cliente e PRONTUARIO (perguntas extras da ficha, preenchidas pela equipe — no máximo 1 ativo, sempre global e não obrigatório). Escopo global, categoria, procedimento ou modalidade. Tabela formulario.",
     "campos": [
      {
       "nome": "nome",
@@ -1024,7 +1401,7 @@
      },
      {
       "nome": "tipo",
-      "tipo": "CharField(12) (choices ANAMNESE/PESQUISA, default=ANAMNESE, db_index)"
+      "tipo": "CharField(12) (choices ANAMNESE/PESQUISA/PRONTUARIO, default=ANAMNESE)"
      },
      {
       "nome": "escopo",
@@ -1040,15 +1417,18 @@
      },
      {
       "nome": "schema_json",
-      "tipo": "JSONField (default=list)"
+      "tipo": "JSONField (default=list)",
+      "coluna": "perguntas"
      },
      {
       "nome": "ativo",
-      "tipo": "BooleanField (default=True)"
+      "tipo": "BooleanField (default=True)",
+      "coluna": "eh_ativo"
      },
      {
       "nome": "obrigatorio",
-      "tipo": "BooleanField (default=False)"
+      "tipo": "BooleanField (default=False)",
+      "coluna": "eh_obrigatorio"
      },
      {
       "nome": "criado_em",
@@ -1056,7 +1436,7 @@
      },
      {
       "nome": "atualizado_em",
-      "tipo": "DateTimeField (null, auto_now)"
+      "tipo": "DateTimeField (auto_now)"
      }
     ],
     "relacoes": [
@@ -1070,30 +1450,43 @@
      }
     ],
     "metodos": [
-     "clean: valida o schema (lista de campos com chave, tipo, label; chaves únicas; opções)"
+     "clean: valida o schema das perguntas e a coerência do escopo",
+     "queryset prontuario_ativo",
+     "eh_prontuario"
     ],
-    "constraints": []
+    "constraints": [
+     "ck_formulario_tipo",
+     "ck_formulario_escopo",
+     "ck_formulario_escopo_coerente",
+     "ck_formulario_prontuario_global",
+     "uq_formulario_prontuario_ativo"
+    ],
+    "indices": [
+     "ix_formulario_procedimento_parcial"
+    ]
    },
    {
     "nome": "RespostaAnamnese",
-    "tabela": "resposta_anamnese",
-    "descricao": "Ficha respondida pela cliente (JSON), ligada ao atendimento; token do link público (60 dias).",
+    "tabela": "resposta_formulario",
+    "descricao": "Ficha respondida pela cliente (respostas cifradas), ligada ao atendimento; o convite por link vive em link_acesso (FORMULARIO, 60 dias). Tabela resposta_formulario.",
     "campos": [
      {
-      "nome": "token",
-      "tipo": "CharField(64) (unique, default=_gen_resposta_token)"
-     },
-     {
       "nome": "respostas_json",
-      "tipo": "JSONField (default=dict)"
+      "tipo": "JsonCifrado (default=dict)",
+      "coluna": "respostas"
      },
      {
       "nome": "criado_em",
       "tipo": "DateTimeField (auto_now_add)"
      },
      {
+      "nome": "atualizado_em",
+      "tipo": "DateTimeField (auto_now)"
+     },
+     {
       "nome": "respondida_em",
-      "tipo": "DateTimeField (null)"
+      "tipo": "DateTimeField (null)",
+      "coluna": "respondido_em"
      }
     ],
     "relacoes": [
@@ -1123,556 +1516,24 @@
      }
     ],
     "metodos": [
-     "clean: respostas_json precisa ser objeto JSON",
-     "get_link_publico: /anamnese/<token>/ ou /pesquisa/<token>/",
-     "respondida (property)"
+     "clean: valida as respostas contra o schema do formulário",
+     "respondida"
     ],
-    "constraints": []
-   },
-   {
-    "nome": "AvaliacaoNPS",
-    "tabela": "avaliacao_nps",
-    "descricao": "Avaliação NPS 0–10 de um atendimento, comentário, opt-in de publicação da cliente e aprovação da clínica (depoimento).",
-    "campos": [
-     {
-      "nome": "nota",
-      "tipo": "SmallIntegerField"
-     },
-     {
-      "nome": "comentario",
-      "tipo": "TextField (null)"
-     },
-     {
-      "nome": "autoriza_publicacao",
-      "tipo": "BooleanField (default=False)"
-     },
-     {
-      "nome": "aprovado_publicacao",
-      "tipo": "BooleanField (default=False)"
-     },
-     {
-      "nome": "alerta_enviado",
-      "tipo": "BooleanField (default=False)"
-     },
-     {
-      "nome": "criado_em",
-      "tipo": "DateTimeField (auto_now_add)"
-     }
-    ],
-    "relacoes": [
-     {
-      "campo": "atendimento",
-      "tipo": "O2O",
-      "alvo": "Atendimento",
-      "multiplicidade": "1",
-      "on_delete": "CASCADE",
-      "related_name": "(default)"
-     }
-    ],
-    "metodos": [
-     "CHECK nota 0..10; 1 por atendimento"
-    ],
-    "constraints": [
-     "chk_avaliacao_nps_nota"
-    ]
-   },
-   {
-    "nome": "ListaEspera",
-    "tabela": "lista_espera",
-    "descricao": "Pedido de aviso de vaga: procedimento, data, turno, profissional opcional e e-mail de contato da inscrição.",
-    "campos": [
-     {
-      "nome": "data_desejada",
-      "tipo": "DateField"
-     },
-     {
-      "nome": "turno_desejado",
-      "tipo": "CharField(20) (choices MANHA/TARDE/NOITE, null)"
-     },
-     {
-      "nome": "notificado",
-      "tipo": "BooleanField (default=False)"
-     },
-     {
-      "nome": "email_contato",
-      "tipo": "CharField(254) (null)"
-     },
-     {
-      "nome": "criado_em",
-      "tipo": "DateTimeField (auto_now_add)"
-     },
-     {
-      "nome": "token_reserva",
-      "tipo": "CharField(64) (null)"
-     },
-     {
-      "nome": "expira_em",
-      "tipo": "DateTimeField (null)"
-     }
-    ],
-    "relacoes": [
-     {
-      "campo": "cliente",
-      "tipo": "FK",
-      "alvo": "Cliente",
-      "multiplicidade": "1",
-      "on_delete": "CASCADE",
-      "related_name": "(default)"
-     },
-     {
-      "campo": "procedimento",
-      "tipo": "FK",
-      "alvo": "Procedimento",
-      "multiplicidade": "1",
-      "on_delete": "CASCADE",
-      "related_name": "(default)"
-     },
-     {
-      "campo": "profissional_desejado",
-      "tipo": "FK",
-      "alvo": "Profissional",
-      "multiplicidade": "0..1",
-      "on_delete": "SET_NULL",
-      "related_name": "(default)"
-     }
-    ],
-    "metodos": [
-     "UNIQUE (cliente, procedimento, data) enquanto não notificado",
-     "token_reserva/expira_em: legado sem uso"
-    ],
-    "constraints": [
-     "chk_lista_espera_turno",
-     "uniq_espera_ativa"
-    ]
-   },
-   {
-    "nome": "LogAuditoria",
-    "tabela": "log_auditoria",
-    "descricao": "Trilha de auditoria (LGPD art. 37): autor + snapshot do nome, ação, tabela, registro, detalhes JSON com PII mascarada e IP.",
-    "campos": [
-     {
-      "nome": "usuario_nome",
-      "tipo": "CharField(255) (default=)"
-     },
-     {
-      "nome": "acao",
-      "tipo": "TextField"
-     },
-     {
-      "nome": "tabela",
-      "tipo": "CharField(100) (null)"
-     },
-     {
-      "nome": "registro_id",
-      "tipo": "IntegerField (null)"
-     },
-     {
-      "nome": "detalhes",
-      "tipo": "JSONField (null)"
-     },
-     {
-      "nome": "ip_origem",
-      "tipo": "GenericIPAddressField (null)"
-     },
-     {
-      "nome": "criado_em",
-      "tipo": "DateTimeField (auto_now_add)"
-     }
-    ],
-    "relacoes": [
-     {
-      "campo": "usuario",
-      "tipo": "FK",
-      "alvo": "Usuario",
-      "multiplicidade": "0..1",
-      "on_delete": "SET_NULL",
-      "related_name": "(default)"
-     }
-    ],
-    "metodos": [
-     "save: grava usuario_nome (\"Nome <email>\") a partir do usuário"
-    ],
-    "constraints": []
-   },
-   {
-    "nome": "Feriado",
-    "tabela": "feriado",
-    "descricao": "Feriado ou recesso (nacional, local ou da clínica) que pode bloquear o agendamento.",
-    "campos": [
-     {
-      "nome": "data",
-      "tipo": "DateField"
-     },
-     {
-      "nome": "nome",
-      "tipo": "CharField(120)"
-     },
-     {
-      "nome": "escopo",
-      "tipo": "CharField(20) (choices NACIONAL/LOCAL/CLINICA, default=NACIONAL)"
-     },
-     {
-      "nome": "bloqueia_agendamento",
-      "tipo": "BooleanField (default=True)"
-     },
-     {
-      "nome": "observacao",
-      "tipo": "CharField(255) (null)"
-     },
-     {
-      "nome": "criado_em",
-      "tipo": "DateTimeField (auto_now_add)"
-     }
-    ],
-    "relacoes": [],
-    "metodos": [
-     "UNIQUE (data, escopo)"
-    ],
-    "constraints": [
-     "uq_feriado_data_escopo"
-    ]
-   },
-   {
-    "nome": "Configuracao",
-    "tabela": "configuracao",
-    "descricao": "Chave-valor editável no painel: campos do Branding, email_admin, prontuario_perguntas e MAX_FALTAS_BLOQUEIO.",
-    "campos": [
-     {
-      "nome": "chave",
-      "tipo": "CharField(100) (unique)"
-     },
-     {
-      "nome": "valor",
-      "tipo": "TextField (null)"
-     },
-     {
-      "nome": "descricao",
-      "tipo": "TextField (null)"
-     }
-    ],
-    "relacoes": [],
-    "metodos": [
-     "alterações invalidam o cache do Branding (signal)"
-    ],
-    "constraints": []
-   },
-   {
-    "nome": "CodigoOtp",
-    "tabela": "codigo_otp",
-    "descricao": "Desafio OTP de 6 dígitos (HMAC-SHA256 com a SECRET_KEY), preso ao telefone, com propósito (AGENDAMENTO, LOGIN_CLIENTE, DSAR), validade e tentativas.",
-    "campos": [
-     {
-      "nome": "email",
-      "tipo": "CharField(254)"
-     },
-     {
-      "nome": "telefone",
-      "tipo": "CharField(20) (null)"
-     },
-     {
-      "nome": "canal",
-      "tipo": "CharField(10) (choices EMAIL/SMS, default=SMS)"
-     },
-     {
-      "nome": "codigo_hash",
-      "tipo": "CharField(64)"
-     },
-     {
-      "nome": "proposito",
-      "tipo": "CharField(20) (choices AGENDAMENTO/LOGIN_CLIENTE/DSAR, default=AGENDAMENTO)"
-     },
-     {
-      "nome": "criado_em",
-      "tipo": "DateTimeField (auto_now_add)"
-     },
-     {
-      "nome": "expira_em",
-      "tipo": "DateTimeField"
-     },
-     {
-      "nome": "usado_em",
-      "tipo": "DateTimeField (null)"
-     },
-     {
-      "nome": "tentativas",
-      "tipo": "PositiveSmallIntegerField (default=0)"
-     },
-     {
-      "nome": "ip_origem",
-      "tipo": "GenericIPAddressField (null)"
-     }
-    ],
-    "relacoes": [],
-    "metodos": [
-     "gerar / gerar_sms: invalida os anteriores e cria novo",
-     "verificar / verificar_sms: consome sob lock; 5 tentativas; compare_digest",
-     "pode_reenviar: intervalo mínimo de 60 s",
-     "email_para_telefone: chave canônica sms+<dígitos>@shivazen.local"
-    ],
-    "constraints": [
-     "chk_otp_tentativas_teto"
-    ]
-   },
-   {
-    "nome": "Usuario",
-    "tabela": "usuario",
-    "descricao": "Usuário da equipe (login por e-mail): papel ADMIN, PROFISSIONAL ou RECEPCAO (sem login); is_staff = ADMIN.",
-    "campos": [
-     {
-      "nome": "papel",
-      "tipo": "CharField(20) (choices ADMIN/PROFISSIONAL/RECEPCAO, default=PROFISSIONAL)"
-     },
-     {
-      "nome": "nome",
-      "tipo": "CharField(100)"
-     },
-     {
-      "nome": "email",
-      "tipo": "CharField(100) (unique)"
-     },
-     {
-      "nome": "password",
-      "tipo": "CharField(255)"
-     },
-     {
-      "nome": "ativo",
-      "tipo": "BooleanField (default=True)"
-     }
-    ],
-    "relacoes": [
-     {
-      "campo": "profissional",
-      "tipo": "O2O",
-      "alvo": "Profissional",
-      "multiplicidade": "0..1",
-      "on_delete": "SET_NULL",
-      "related_name": "(default)"
-     }
-    ],
-    "metodos": [
-     "is_staff (property): papel == ADMIN",
-     "has_perm / has_module_perms: só ADMIN",
-     "CHECK papel válido; padrão PROFISSIONAL"
-    ],
-    "constraints": [
-     "chk_usuario_papel"
-    ]
-   },
-   {
-    "nome": "Carteira",
-    "tabela": "carteira",
-    "descricao": "Saldo de crédito da cliente (hoje só cashback de indicação e estorno); CHECK saldo >= 0.",
-    "campos": [
-     {
-      "nome": "criado_em",
-      "tipo": "DateTimeField (auto_now_add)"
-     },
-     {
-      "nome": "atualizado_em",
-      "tipo": "DateTimeField (auto_now)"
-     },
-     {
-      "nome": "saldo",
-      "tipo": "DecimalField(10,2) (default=0)"
-     }
-    ],
-    "relacoes": [
-     {
-      "campo": "cliente",
-      "tipo": "O2O",
-      "alvo": "Cliente",
-      "multiplicidade": "1",
-      "on_delete": "PROTECT",
-      "related_name": "carteira"
-     }
-    ],
-    "metodos": [],
-    "constraints": [
-     "chk_carteira_saldo_nao_negativo"
-    ]
-   },
-   {
-    "nome": "MovimentoCarteira",
-    "tabela": "movimento_carteira",
-    "descricao": "Lançamento do ledger da carteira (crédito/débito, origem, saldo resultante); imutável por trigger.",
-    "campos": [
-     {
-      "nome": "tipo",
-      "tipo": "CharField(10) (choices CREDITO/DEBITO)"
-     },
-     {
-      "nome": "origem",
-      "tipo": "CharField(30) (choices VALE_PRESENTE/CANCELAMENTO/AJUSTE_MANUAL/USO_AGENDAMENTO/CASHBACK_INDICACAO/CASHBACK_ESTORNO/OUTRO, default=OUTRO)"
-     },
-     {
-      "nome": "valor",
-      "tipo": "DecimalField(10,2)"
-     },
-     {
-      "nome": "saldo_resultante",
-      "tipo": "DecimalField(10,2)"
-     },
-     {
-      "nome": "observacoes",
-      "tipo": "TextField (default=)"
-     },
-     {
-      "nome": "criado_em",
-      "tipo": "DateTimeField (auto_now_add)"
-     }
-    ],
-    "relacoes": [
-     {
-      "campo": "carteira",
-      "tipo": "FK",
-      "alvo": "Carteira",
-      "multiplicidade": "1",
-      "on_delete": "PROTECT",
-      "related_name": "movimentos"
-     },
-     {
-      "campo": "atendimento",
-      "tipo": "FK",
-      "alvo": "Atendimento",
-      "multiplicidade": "0..1",
-      "on_delete": "PROTECT",
-      "related_name": "(default)"
-     },
-     {
-      "campo": "usuario",
-      "tipo": "FK",
-      "alvo": "Usuario",
-      "multiplicidade": "0..1",
-      "on_delete": "PROTECT",
-      "related_name": "(default)"
-     }
-    ],
-    "metodos": [
-     "UNIQUE (carteira, atendimento) para CASHBACK_INDICACAO"
-    ],
-    "constraints": [
-     "uniq_cashback_indicacao_por_atendimento"
-    ]
-   },
-   {
-    "nome": "RegraComissao",
-    "tabela": "regra_comissao",
-    "descricao": "Regra de comissão por profissional e/ou procedimento: percentual (0–100) XOR valor fixo.",
-    "campos": [
-     {
-      "nome": "criado_em",
-      "tipo": "DateTimeField (auto_now_add)"
-     },
-     {
-      "nome": "atualizado_em",
-      "tipo": "DateTimeField (auto_now)"
-     },
-     {
-      "nome": "percentual",
-      "tipo": "DecimalField(5,2) (null)"
-     },
-     {
-      "nome": "valor",
-      "tipo": "DecimalField(10,2) (null)"
-     },
-     {
-      "nome": "ativo",
-      "tipo": "BooleanField (default=True)"
-     }
-    ],
-    "relacoes": [
-     {
-      "campo": "profissional",
-      "tipo": "FK",
-      "alvo": "Profissional",
-      "multiplicidade": "0..1",
-      "on_delete": "CASCADE",
-      "related_name": "regras_comissao"
-     },
-     {
-      "campo": "procedimento",
-      "tipo": "FK",
-      "alvo": "Procedimento",
-      "multiplicidade": "0..1",
-      "on_delete": "CASCADE",
-      "related_name": "regras_comissao"
-     }
-    ],
-    "metodos": [
-     "CHECKs percentual XOR valor e percentual 0..100"
-    ],
-    "constraints": [
-     "chk_regra_comissao_percentual_xor_fixo",
-     "chk_regra_comissao_percentual_0_100"
-    ]
-   },
-   {
-    "nome": "MovimentoComissao",
-    "tabela": "movimento_comissao",
-    "descricao": "Comissão de um atendimento realizado: valor, status PENDENTE/PAGA/ESTORNADA.",
-    "campos": [
-     {
-      "nome": "valor",
-      "tipo": "DecimalField(10,2)"
-     },
-     {
-      "nome": "status",
-      "tipo": "CharField(15) (choices PENDENTE/PAGA/ESTORNADA, default=PENDENTE)"
-     },
-     {
-      "nome": "pago_em",
-      "tipo": "DateTimeField (null)"
-     },
-     {
-      "nome": "observacoes",
-      "tipo": "TextField (default=)"
-     },
-     {
-      "nome": "criado_em",
-      "tipo": "DateTimeField (auto_now_add)"
-     }
-    ],
-    "relacoes": [
-     {
-      "campo": "profissional",
-      "tipo": "FK",
-      "alvo": "Profissional",
-      "multiplicidade": "1",
-      "on_delete": "PROTECT",
-      "related_name": "comissoes"
-     },
-     {
-      "campo": "atendimento",
-      "tipo": "FK",
-      "alvo": "Atendimento",
-      "multiplicidade": "1",
-      "on_delete": "PROTECT",
-      "related_name": "comissoes"
-     },
-     {
-      "campo": "regra",
-      "tipo": "FK",
-      "alvo": "RegraComissao",
-      "multiplicidade": "0..1",
-      "on_delete": "SET_NULL",
-      "related_name": "(default)"
-     }
-    ],
-    "metodos": [
-     "UNIQUE 1 comissão PENDENTE/PAGA por atendimento"
-    ],
-    "constraints": [
-     "uniq_comissao_ativa_por_atendimento"
+    "constraints": [],
+    "indices": [
+     "ix_resposta_formulario_cliente_criado_em",
+     "ix_resposta_formulario_atendimento",
+     "ix_resposta_formulario_formulario"
     ]
    },
    {
     "nome": "VersaoTermo",
     "tabela": "versao_termo",
-    "descricao": "Termo versionado (LGPD global ou PROCEDIMENTO); 1 versão ativa por escopo; imutável depois do 1º aceite.",
+    "descricao": "Termo versionado: LGPD (Política de Privacidade), SAUDE (consentimento para dado de saúde, art. 11) ou PROCEDIMENTO (geral ou de um procedimento); 1 versão ativa por escopo; imutável depois do 1º aceite.",
     "campos": [
      {
       "nome": "tipo",
-      "tipo": "CharField(20) (choices LGPD/PROCEDIMENTO)"
+      "tipo": "CharField(20) (choices LGPD/SAUDE/PROCEDIMENTO)"
      },
      {
       "nome": "titulo",
@@ -1688,11 +1549,21 @@
      },
      {
       "nome": "vigente_desde",
-      "tipo": "DateField"
+      "tipo": "DateField",
+      "coluna": "data_inicio_vigencia"
      },
      {
       "nome": "ativa",
-      "tipo": "BooleanField (default=True)"
+      "tipo": "BooleanField (default=True)",
+      "coluna": "eh_ativo"
+     },
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (auto_now_add)"
+     },
+     {
+      "nome": "atualizado_em",
+      "tipo": "DateTimeField (auto_now)"
      }
     ],
     "relacoes": [
@@ -1706,24 +1577,28 @@
      }
     ],
     "metodos": [
-     "lgpd_vigente (classmethod): versão LGPD ativa",
-     "sha256_conteudo (property): hash do texto gravado no aceite",
-     "save/clean: recusam alterar título/conteúdo/versão/tipo/procedimento de versão já aceita"
+     "lgpd_vigente / saude_vigente / texto_saude_vigente",
+     "sha256_conteudo",
+     "save / clean: recusa editar versão já aceita (trigger no Postgres)"
     ],
     "constraints": [
-     "chk_versao_termo_tipo",
-     "uniq_termo_ativo_por_escopo",
-     "uniq_termo_ativo_global"
+     "ck_versao_termo_tipo",
+     "uq_versao_termo_ativa_por_procedimento",
+     "uq_versao_termo_ativa_global"
+    ],
+    "indices": [
+     "ix_versao_termo_procedimento_parcial"
     ]
    },
    {
     "nome": "AceiteTermo",
     "tabela": "aceite_termo",
-    "descricao": "Prova de aceite de termo: cliente, versão, atendimento, IP, navegador, SHA-256 do texto e data; imutável (trigger no PG).",
+    "descricao": "Prova de aceite de termo: cliente, versão, atendimento, IP, navegador e SHA-256 do texto aceito. Imutável e nunca apagado.",
     "campos": [
      {
       "nome": "ip",
-      "tipo": "GenericIPAddressField (null)"
+      "tipo": "GenericIPAddressField (null)",
+      "coluna": "ip_origem"
      },
      {
       "nome": "user_agent",
@@ -1731,7 +1606,8 @@
      },
      {
       "nome": "conteudo_sha256",
-      "tipo": "CharField(64) (default=)"
+      "tipo": "HashSha256Field(64) (null)",
+      "coluna": "conteudo_hash"
      },
      {
       "nome": "criado_em",
@@ -1765,64 +1641,767 @@
      }
     ],
     "metodos": [
-     "registrar (classmethod): grava a prova; idempotente por cliente+versão",
-     "UNIQUE (cliente, versao_termo); cliente PROTECT"
+     "registrar(cliente, versao, request, atendimento): idempotente por cliente + versão"
     ],
     "constraints": [
-     "uniq_aceite_cliente_versao"
+     "uq_aceite_termo_cliente_versao"
+    ],
+    "indices": [
+     "ix_aceite_termo_versao_termo",
+     "ix_aceite_termo_atendimento_parcial"
     ]
    },
    {
-    "nome": "AssinaturaPush",
-    "tabela": "assinatura_push",
-    "descricao": "Inscrição Web Push (VAPID) de um usuário da equipe.",
+    "nome": "CodigoOtp",
+    "tabela": "codigo_otp",
+    "descricao": "Desafio OTP de 6 dígitos guardado como HMAC-SHA256, preso ao telefone, com propósito AGENDAMENTO, LOGIN_CLIENTE ou DSAR, validade de 10 min e até 5 tentativas.",
     "campos": [
      {
-      "nome": "endpoint",
-      "tipo": "CharField(600) (unique)"
+      "nome": "email",
+      "tipo": "EmailField(254)",
+      "coluna": "identificador"
      },
      {
-      "nome": "p256dh",
-      "tipo": "CharField(140)"
+      "nome": "telefone",
+      "tipo": "CharField(20) (null)"
      },
      {
-      "nome": "auth",
-      "tipo": "CharField(80)"
+      "nome": "canal",
+      "tipo": "CharField(10) (choices EMAIL/SMS, default=SMS)"
      },
      {
-      "nome": "user_agent",
-      "tipo": "CharField(300) (default=)"
+      "nome": "codigo_hash",
+      "tipo": "HashSha256Field(64)"
      },
      {
-      "nome": "ativo",
-      "tipo": "BooleanField (default=True)"
+      "nome": "proposito",
+      "tipo": "CharField(20) (choices AGENDAMENTO/LOGIN_CLIENTE/DSAR, default=AGENDAMENTO)"
      },
      {
       "nome": "criado_em",
       "tipo": "DateTimeField (auto_now_add)"
      },
      {
-      "nome": "ultima_falha_em",
+      "nome": "expira_em",
+      "tipo": "DateTimeField"
+     },
+     {
+      "nome": "usado_em",
       "tipo": "DateTimeField (null)"
+     },
+     {
+      "nome": "tentativas",
+      "tipo": "SmallIntegerField (default=0)",
+      "coluna": "qtd_tentativas"
+     },
+     {
+      "nome": "ip_origem",
+      "tipo": "GenericIPAddressField (null)"
+     }
+    ],
+    "relacoes": [],
+    "metodos": [
+     "gerar_sms / verificar_sms / pode_reenviar (reenvio ≥ 60 s)",
+     "gerar invalida o código anterior; comparação em tempo constante"
+    ],
+    "constraints": [
+     "ck_codigo_otp_canal",
+     "ck_codigo_otp_proposito",
+     "ck_codigo_otp_qtd_tentativas_0_10"
+    ],
+    "indices": [
+     "ix_codigo_otp_identificador_proposito_criado_em"
+    ]
+   },
+   {
+    "nome": "AvaliacaoNPS",
+    "tabela": "avaliacao_nps",
+    "descricao": "Avaliação NPS 0–10 de um atendimento: comentário, autorização de publicação da cliente, aprovação da clínica (só com a autorização) e alerta de detrator enviado.",
+    "campos": [
+     {
+      "nome": "nota",
+      "tipo": "SmallIntegerField"
+     },
+     {
+      "nome": "comentario",
+      "tipo": "TextField (default=)"
+     },
+     {
+      "nome": "autoriza_publicacao",
+      "tipo": "BooleanField (default=False)",
+      "coluna": "eh_publicacao_autorizada"
+     },
+     {
+      "nome": "aprovado_publicacao",
+      "tipo": "BooleanField (default=False)",
+      "coluna": "eh_publicacao_aprovada"
+     },
+     {
+      "nome": "alerta_enviado",
+      "tipo": "BooleanField (default=False)",
+      "coluna": "eh_alerta_enviado"
+     },
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (auto_now_add)"
+     },
+     {
+      "nome": "atualizado_em",
+      "tipo": "DateTimeField (auto_now)"
      }
     ],
     "relacoes": [
      {
-      "campo": "user",
-      "tipo": "FK",
-      "alvo": "Usuario",
+      "campo": "atendimento",
+      "tipo": "O2O",
+      "alvo": "Atendimento",
       "multiplicidade": "1",
       "on_delete": "CASCADE",
-      "related_name": "push_subscriptions"
+      "related_name": "(default)"
      }
     ],
-    "metodos": [],
-    "constraints": []
+    "metodos": [
+     "clean: aprovação exige a autorização da cliente"
+    ],
+    "constraints": [
+     "ck_avaliacao_nps_nota_0_10",
+     "ck_avaliacao_nps_aprovacao_exige_autorizacao"
+    ],
+    "indices": [
+     "ix_avaliacao_nps_criado_em",
+     "ix_avaliacao_nps_alerta_pendente_parcial",
+     "ix_avaliacao_nps_depoimento_parcial"
+    ]
+   },
+   {
+    "nome": "ListaEspera",
+    "tabela": "lista_espera",
+    "descricao": "Pedido de aviso de vaga: procedimento, data, turno, profissional desejado opcional e e-mail de contato só da inscrição; 1 pedido pendente por cliente/procedimento/data.",
+    "campos": [
+     {
+      "nome": "data_desejada",
+      "tipo": "DateField"
+     },
+     {
+      "nome": "turno_desejado",
+      "tipo": "CharField(20) (choices MANHA/TARDE/NOITE, null)"
+     },
+     {
+      "nome": "notificado",
+      "tipo": "BooleanField (default=False)",
+      "coluna": "eh_notificado"
+     },
+     {
+      "nome": "email_contato",
+      "tipo": "EmailField(254) (null)"
+     },
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (auto_now_add)"
+     },
+     {
+      "nome": "atualizado_em",
+      "tipo": "DateTimeField (auto_now)"
+     }
+    ],
+    "relacoes": [
+     {
+      "campo": "cliente",
+      "tipo": "FK",
+      "alvo": "Cliente",
+      "multiplicidade": "1",
+      "on_delete": "CASCADE",
+      "related_name": "(default)"
+     },
+     {
+      "campo": "procedimento",
+      "tipo": "FK",
+      "alvo": "Procedimento",
+      "multiplicidade": "1",
+      "on_delete": "CASCADE",
+      "related_name": "(default)"
+     },
+     {
+      "campo": "profissional_desejado",
+      "tipo": "FK",
+      "alvo": "Profissional",
+      "multiplicidade": "0..1",
+      "on_delete": "SET_NULL",
+      "related_name": "(default)"
+     }
+    ],
+    "metodos": [
+     "save: e-mail vazio vira NULL",
+     "ListaEsperaService.notificar_compativeis"
+    ],
+    "constraints": [
+     "ck_lista_espera_turno",
+     "ck_lista_espera_email_contato_nao_vazio",
+     "uq_lista_espera_pendente"
+    ],
+    "indices": [
+     "ix_lista_espera_cliente",
+     "ix_lista_espera_procedimento_data_desejada",
+     "ix_lista_espera_data_desejada",
+     "ix_lista_espera_profissional_desejado_parcial"
+    ]
+   },
+   {
+    "nome": "Pacote",
+    "tabela": "pacote",
+    "descricao": "Catálogo de pacotes de sessões: valor total e validade em meses. Editável a qualquer momento — vale só para vendas futuras (o vendido fica congelado em compra_pacote_item).",
+    "campos": [
+     {
+      "nome": "nome",
+      "tipo": "CharField(150)"
+     },
+     {
+      "nome": "descricao",
+      "tipo": "TextField (default=)"
+     },
+     {
+      "nome": "preco_total",
+      "tipo": "DecimalField(10,2)",
+      "coluna": "valor_total"
+     },
+     {
+      "nome": "ativo",
+      "tipo": "BooleanField (default=True)",
+      "coluna": "eh_ativo"
+     },
+     {
+      "nome": "validade_meses",
+      "tipo": "SmallIntegerField (default=12)"
+     },
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (auto_now_add)"
+     },
+     {
+      "nome": "atualizado_em",
+      "tipo": "DateTimeField (auto_now)"
+     }
+    ],
+    "relacoes": [],
+    "metodos": [
+     "itens: ItemPacote"
+    ],
+    "constraints": [
+     "ck_pacote_valor_total_nao_negativo",
+     "ck_pacote_validade_meses_positiva"
+    ],
+    "indices": []
+   },
+   {
+    "nome": "ItemPacote",
+    "tabela": "pacote_item",
+    "descricao": "Item do catálogo do pacote: procedimento e quantidade de sessões. Tabela pacote_item.",
+    "campos": [
+     {
+      "nome": "quantidade_sessoes",
+      "tipo": "SmallIntegerField (default=1)",
+      "coluna": "qtd_sessoes"
+     },
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (auto_now_add)"
+     }
+    ],
+    "relacoes": [
+     {
+      "campo": "pacote",
+      "tipo": "FK",
+      "alvo": "Pacote",
+      "multiplicidade": "1",
+      "on_delete": "CASCADE",
+      "related_name": "itens"
+     },
+     {
+      "campo": "procedimento",
+      "tipo": "FK",
+      "alvo": "Procedimento",
+      "multiplicidade": "1",
+      "on_delete": "CASCADE",
+      "related_name": "(default)"
+     }
+    ],
+    "metodos": [
+     "UNIQUE pacote + procedimento"
+    ],
+    "constraints": [
+     "uq_pacote_item_pacote_procedimento",
+     "ck_pacote_item_qtd_sessoes_positiva"
+    ],
+    "indices": [
+     "ix_pacote_item_procedimento"
+    ]
+   },
+   {
+    "nome": "CompraPacote",
+    "tabela": "compra_pacote",
+    "descricao": "Venda de pacote a uma cliente: nome do pacote congelado, valor pago, valor reembolsado, status ATIVO/FINALIZADO/CANCELADO/EXPIRADO e data de expiração.",
+    "campos": [
+     {
+      "nome": "pacote_nome",
+      "tipo": "CharField(150)"
+     },
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (auto_now_add)"
+     },
+     {
+      "nome": "atualizado_em",
+      "tipo": "DateTimeField (auto_now)"
+     },
+     {
+      "nome": "valor_pago",
+      "tipo": "DecimalField(10,2)"
+     },
+     {
+      "nome": "valor_reembolsado",
+      "tipo": "DecimalField(10,2) (default=0)"
+     },
+     {
+      "nome": "status",
+      "tipo": "CharField(20) (choices ATIVO/FINALIZADO/CANCELADO/EXPIRADO, default=ATIVO)"
+     },
+     {
+      "nome": "data_expiracao",
+      "tipo": "DateField (null)"
+     }
+    ],
+    "relacoes": [
+     {
+      "campo": "cliente",
+      "tipo": "FK",
+      "alvo": "Cliente",
+      "multiplicidade": "1",
+      "on_delete": "PROTECT",
+      "related_name": "pacotes_comprados"
+     },
+     {
+      "campo": "pacote",
+      "tipo": "FK",
+      "alvo": "Pacote",
+      "multiplicidade": "1",
+      "on_delete": "RESTRICT",
+      "related_name": "(default)"
+     }
+    ],
+    "metodos": [
+     "vender(pacote, cliente, valor_pago): cria a compra e congela os itens",
+     "saldo_por_procedimento / sessoes_restantes: lidos dos itens congelados",
+     "verificar_finalizacao: FINALIZADO quando todas as sessões foram usadas"
+    ],
+    "constraints": [
+     "ck_compra_pacote_status",
+     "ck_compra_pacote_valor_pago_nao_negativo",
+     "ck_compra_pacote_valor_reembolsado"
+    ],
+    "indices": [
+     "ix_compra_pacote_cliente_status",
+     "ix_compra_pacote_pacote",
+     "ix_compra_pacote_criado_em",
+     "ix_compra_pacote_data_expiracao_ativo_parcial"
+    ]
+   },
+   {
+    "nome": "CompraPacoteItem",
+    "tabela": "compra_pacote_item",
+    "descricao": "O que foi vendido (snapshot imutável, 0052): procedimento, nome, quantidade de sessões e valor unitário (valor pago ÷ sessões — base da comissão da sessão de pacote).",
+    "campos": [
+     {
+      "nome": "procedimento_nome",
+      "tipo": "CharField(100)"
+     },
+     {
+      "nome": "quantidade_sessoes",
+      "tipo": "SmallIntegerField",
+      "coluna": "qtd_sessoes"
+     },
+     {
+      "nome": "valor_unitario",
+      "tipo": "DecimalField(10,2)"
+     },
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (default=now)"
+     }
+    ],
+    "relacoes": [
+     {
+      "campo": "compra_pacote",
+      "tipo": "FK",
+      "alvo": "CompraPacote",
+      "multiplicidade": "1",
+      "on_delete": "CASCADE",
+      "related_name": "itens"
+     },
+     {
+      "campo": "procedimento",
+      "tipo": "FK",
+      "alvo": "Procedimento",
+      "multiplicidade": "1",
+      "on_delete": "PROTECT",
+      "related_name": "itens_compra_pacote"
+     }
+    ],
+    "metodos": [
+     "save só INSERT; update recusado; trigger tg_compra_pacote_item_imutavel"
+    ],
+    "constraints": [
+     "uq_compra_pacote_item_compra_procedimento",
+     "uq_compra_pacote_item_id_compra",
+     "ck_compra_pacote_item_qtd_sessoes_positiva",
+     "ck_compra_pacote_item_valor_unitario_nao_negativo"
+    ],
+    "indices": [
+     "ix_compra_pacote_item_procedimento"
+    ]
+   },
+   {
+    "nome": "ConsumoSessao",
+    "tabela": "consumo_sessao",
+    "descricao": "Consumo de 1 sessão de um item da compra por um atendimento REALIZADO (OneToOne com o atendimento): mesmo procedimento, mesma compra, nunca retorno e só com saldo.",
+    "campos": [
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (auto_now_add)"
+     }
+    ],
+    "relacoes": [
+     {
+      "campo": "compra_pacote",
+      "tipo": "FK",
+      "alvo": "CompraPacote",
+      "multiplicidade": "1",
+      "on_delete": "CASCADE",
+      "related_name": "sessoes_realizadas"
+     },
+     {
+      "campo": "compra_pacote_item",
+      "tipo": "FK",
+      "alvo": "CompraPacoteItem",
+      "multiplicidade": "1",
+      "on_delete": "RESTRICT",
+      "related_name": "consumos"
+     },
+     {
+      "campo": "atendimento",
+      "tipo": "O2O",
+      "alvo": "Atendimento",
+      "multiplicidade": "1",
+      "on_delete": "RESTRICT",
+      "related_name": "sessao_pacote_vinculada"
+     }
+    ],
+    "metodos": [
+     "save: escolhe o item do procedimento e valida (espelho do trigger tg_consumo_sessao_validar)"
+    ],
+    "constraints": [],
+    "indices": [
+     "ix_consumo_sessao_compra_pacote",
+     "ix_consumo_sessao_compra_pacote_item"
+    ]
+   },
+   {
+    "nome": "Carteira",
+    "tabela": "carteira",
+    "descricao": "Saldo de crédito da cliente (cashback de indicação e estorno); CHECK saldo ≥ 0.",
+    "campos": [
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (auto_now_add)"
+     },
+     {
+      "nome": "atualizado_em",
+      "tipo": "DateTimeField (auto_now)"
+     },
+     {
+      "nome": "saldo",
+      "tipo": "DecimalField(10,2) (default=0)",
+      "coluna": "valor_saldo"
+     }
+    ],
+    "relacoes": [
+     {
+      "campo": "cliente",
+      "tipo": "O2O",
+      "alvo": "Cliente",
+      "multiplicidade": "1",
+      "on_delete": "PROTECT",
+      "related_name": "carteira"
+     }
+    ],
+    "metodos": [
+     "1:1 com Cliente (PROTECT)"
+    ],
+    "constraints": [
+     "ck_carteira_valor_saldo_nao_negativo"
+    ],
+    "indices": []
+   },
+   {
+    "nome": "MovimentoCarteira",
+    "tabela": "movimento_carteira",
+    "descricao": "Lançamento do livro-razão da carteira (crédito/débito, origem, saldo resultante, autor); imutável por trigger; 1 cashback por atendimento.",
+    "campos": [
+     {
+      "nome": "tipo",
+      "tipo": "CharField(10) (choices CREDITO/DEBITO)"
+     },
+     {
+      "nome": "origem",
+      "tipo": "CharField(30) (choices VALE_PRESENTE/CANCELAMENTO/AJUSTE_MANUAL/USO_AGENDAMENTO/CASHBACK_INDICACAO/CASHBACK_ESTORNO/OUTRO, default=OUTRO)"
+     },
+     {
+      "nome": "valor",
+      "tipo": "DecimalField(10,2)"
+     },
+     {
+      "nome": "saldo_resultante",
+      "tipo": "DecimalField(10,2)",
+      "coluna": "valor_saldo_resultante"
+     },
+     {
+      "nome": "observacoes",
+      "tipo": "TextField (default=)",
+      "coluna": "observacao"
+     },
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (auto_now_add)"
+     }
+    ],
+    "relacoes": [
+     {
+      "campo": "carteira",
+      "tipo": "FK",
+      "alvo": "Carteira",
+      "multiplicidade": "1",
+      "on_delete": "PROTECT",
+      "related_name": "movimentos"
+     },
+     {
+      "campo": "atendimento",
+      "tipo": "FK",
+      "alvo": "Atendimento",
+      "multiplicidade": "0..1",
+      "on_delete": "PROTECT",
+      "related_name": "(default)"
+     },
+     {
+      "campo": "usuario",
+      "tipo": "FK",
+      "alvo": "Usuario",
+      "multiplicidade": "0..1",
+      "on_delete": "PROTECT",
+      "related_name": "(default)",
+      "coluna": "usuario_autor_id"
+     }
+    ],
+    "metodos": [
+     "FidelidadeService.liberar_cashback_indicacao / estornar_cashback_de_atendimento"
+    ],
+    "constraints": [
+     "uq_movimento_carteira_cashback_por_atendimento",
+     "ck_movimento_carteira_tipo",
+     "ck_movimento_carteira_origem",
+     "ck_movimento_carteira_valor_positivo",
+     "ck_movimento_carteira_valor_saldo_resultante_nao_negativo"
+    ],
+    "indices": [
+     "ix_movimento_carteira_carteira_criado_em",
+     "ix_movimento_carteira_atendimento_parcial"
+    ]
+   },
+   {
+    "nome": "RegraComissao",
+    "tabela": "regra_comissao",
+    "descricao": "Regra de comissão por profissional e/ou procedimento: percentual (0–100) XOR valor fixo; regra já usada é protegida (só desativa).",
+    "campos": [
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (auto_now_add)"
+     },
+     {
+      "nome": "atualizado_em",
+      "tipo": "DateTimeField (auto_now)"
+     },
+     {
+      "nome": "percentual",
+      "tipo": "DecimalField(5,2) (null)"
+     },
+     {
+      "nome": "valor",
+      "tipo": "DecimalField(10,2) (null)",
+      "coluna": "valor_fixo"
+     },
+     {
+      "nome": "ativo",
+      "tipo": "BooleanField (default=True)",
+      "coluna": "eh_ativo"
+     }
+    ],
+    "relacoes": [
+     {
+      "campo": "profissional",
+      "tipo": "FK",
+      "alvo": "Profissional",
+      "multiplicidade": "0..1",
+      "on_delete": "CASCADE",
+      "related_name": "regras_comissao"
+     },
+     {
+      "campo": "procedimento",
+      "tipo": "FK",
+      "alvo": "Procedimento",
+      "multiplicidade": "0..1",
+      "on_delete": "CASCADE",
+      "related_name": "regras_comissao"
+     }
+    ],
+    "metodos": [
+     "ComissaoService.resolver_regra: a mais específica vence"
+    ],
+    "constraints": [
+     "ck_regra_comissao_percentual_xor_valor_fixo",
+     "ck_regra_comissao_percentual_0_100",
+     "ck_regra_comissao_valor_fixo_nao_negativo"
+    ],
+    "indices": [
+     "ix_regra_comissao_profissional_procedimento",
+     "ix_regra_comissao_procedimento_parcial"
+    ]
+   },
+   {
+    "nome": "MovimentoComissao",
+    "tabela": "movimento_comissao",
+    "descricao": "Livro-razão da comissão (0053): CREDITO (1 por atendimento realizado, com a regra), PAGAMENTO (baixa, com autor) e ESTORNO (cancelamento), os dois últimos referenciando o crédito. Status e saldo são derivados; o saldo pode ficar negativo (comissão paga e depois estornada).",
+    "campos": [
+     {
+      "nome": "tipo",
+      "tipo": "CharField(10) (choices CREDITO/ESTORNO/PAGAMENTO, default=CREDITO)"
+     },
+     {
+      "nome": "valor",
+      "tipo": "DecimalField(10,2)"
+     },
+     {
+      "nome": "observacoes",
+      "tipo": "TextField (default=)",
+      "coluna": "observacao"
+     },
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (default=now)"
+     }
+    ],
+    "relacoes": [
+     {
+      "campo": "profissional",
+      "tipo": "FK",
+      "alvo": "Profissional",
+      "multiplicidade": "1",
+      "on_delete": "PROTECT",
+      "related_name": "comissoes"
+     },
+     {
+      "campo": "atendimento",
+      "tipo": "FK",
+      "alvo": "Atendimento",
+      "multiplicidade": "1",
+      "on_delete": "PROTECT",
+      "related_name": "comissoes"
+     },
+     {
+      "campo": "regra",
+      "tipo": "FK",
+      "alvo": "RegraComissao",
+      "multiplicidade": "0..1",
+      "on_delete": "PROTECT",
+      "related_name": "(default)",
+      "coluna": "regra_comissao_id"
+     },
+     {
+      "campo": "movimento_origem",
+      "tipo": "FK",
+      "alvo": "MovimentoComissao (self)",
+      "multiplicidade": "0..1",
+      "on_delete": "PROTECT",
+      "related_name": "lancamentos_derivados",
+      "coluna": "movimento_comissao_origem_id"
+     },
+     {
+      "campo": "usuario_autor",
+      "tipo": "FK",
+      "alvo": "Usuario",
+      "multiplicidade": "0..1",
+      "on_delete": "PROTECT",
+      "related_name": "+"
+     }
+    ],
+    "metodos": [
+     "save só INSERT; delete recusado; _validar_lancamento espelha tg_movimento_comissao_validar",
+     "queryset creditos_com_status; propriedades status, pago_em, estornado_em derivadas",
+     "ComissaoService.calcular_comissao / marcar_paga / estornar_comissao / saldos_por_profissional"
+    ],
+    "constraints": [
+     "ck_movimento_comissao_tipo",
+     "ck_movimento_comissao_valor_positivo",
+     "ck_movimento_comissao_origem_coerente",
+     "ck_movimento_comissao_regra_so_credito",
+     "uq_movimento_comissao_credito_por_atendimento",
+     "uq_movimento_comissao_estorno_por_origem",
+     "uq_movimento_comissao_pagamento_por_origem"
+    ],
+    "indices": [
+     "ix_movimento_comissao_criado_em",
+     "ix_movimento_comissao_profissional_criado_em",
+     "ix_movimento_comissao_atendimento",
+     "ix_movimento_comissao_regra_comissao_parcial",
+     "ix_movimento_comissao_origem_parcial"
+    ]
+   },
+   {
+    "nome": "Configuracao",
+    "tabela": "configuracao",
+    "descricao": "Chave-valor editável no painel: campos do Branding, e-mail de alertas da clínica e MAX_FALTAS_BLOQUEIO (opcional).",
+    "campos": [
+     {
+      "nome": "chave",
+      "tipo": "CharField(100)"
+     },
+     {
+      "nome": "valor",
+      "tipo": "TextField (default=)"
+     },
+     {
+      "nome": "descricao",
+      "tipo": "TextField (default=)"
+     },
+     {
+      "nome": "criado_em",
+      "tipo": "DateTimeField (auto_now_add)"
+     },
+     {
+      "nome": "atualizado_em",
+      "tipo": "DateTimeField (auto_now)"
+     }
+    ],
+    "relacoes": [],
+    "metodos": [
+     "cache do Branding invalidado por signal"
+    ],
+    "constraints": [
+     "uq_configuracao_chave"
+    ],
+    "indices": []
    },
    {
     "nome": "TimestampedMixin [ABSTRATO]",
     "tabela": "(abstract — sem tabela)",
-    "descricao": "ABSTRATO: adiciona criado_em + atualizado_em (usado por Carteira e RegraComissao).",
+    "descricao": "ABSTRATO: adiciona criado_em + atualizado_em com DEFAULT now() no banco (usado por Carteira e RegraComissao).",
     "campos": [
      {
       "nome": "criado_em",
@@ -1867,13 +2446,13 @@
    {
     "de": "PENDENTE",
     "para": "CANCELADO",
-    "acao": "cancelar() — rejeitar pedido, cliente cancela ou job limpeza_status (vencido há 24 h)",
+    "acao": "cancelar() — rejeitar pedido, cliente cancela (portal) ou job limpeza_status (vencido há 24 h)",
     "guarda": "TRANSICOES['PENDENTE']"
    },
    {
     "de": "PENDENTE",
     "para": "REAGENDADO",
-    "acao": "marcar_reagendado() — reagendamento",
+    "acao": "marcar_reagendado() — services/agenda.reagendar",
     "guarda": "TRANSICOES['PENDENTE']"
    },
    {
@@ -1903,7 +2482,7 @@
    {
     "de": "AGENDADO",
     "para": "REAGENDADO",
-    "acao": "marcar_reagendado()",
+    "acao": "marcar_reagendado() — services/agenda.reagendar",
     "guarda": "TRANSICOES['AGENDADO']"
    },
    {
@@ -1927,7 +2506,7 @@
    {
     "de": "CONFIRMADO",
     "para": "REAGENDADO",
-    "acao": "marcar_reagendado()",
+    "acao": "marcar_reagendado() — services/agenda.reagendar",
     "guarda": "TRANSICOES['CONFIRMADO']"
    },
    {
@@ -1956,17 +2535,17 @@
    }
   ],
   "efeitos": [
-   "Toda transição: _transicionar trava a linha (select_for_update), valida TRANSICOES contra o status atual do banco, grava status + LogAuditoria na mesma transação (auditoria em savepoint). Transição inválida levanta Atendimento.TransicaoInvalida (a tela mostra a mensagem).",
-   "Criação (post_save): push \"Novo agendamento\" ao profissional e sync com o Google Calendar, ambos no on_commit e best-effort.",
-   "→ REALIZADO (signals): zera faltas e desbloqueia a cliente; debita 1 sessão do pacote que vence primeiro (nunca em retorno; validade conferida na data da sessão). EventBus AtendimentoRealizado: comissão (base = valor cobrado, ou valor pago do pacote ÷ sessões), cashback da indicadora no 1º atendimento pago, retorno obrigatório (PENDENTE, valor 0) se o procedimento exige.",
-   "→ FALTOU (signals): registrar_falta — soma falta e bloqueia o agendamento online ao atingir o limite (padrão 3). Evento AtendimentoFaltou sem handler.",
-   "→ CANCELADO: EventBus AtendimentoCancelado estorna comissão e cashback; signals avisa a lista de espera (se o horário é futuro).",
-   "→ REAGENDADO: signals avisa a lista de espera (se o horário é futuro); sem evento de domínio.",
-   "→ CONFIRMADO: evento AtendimentoConfirmado só registra log.",
-   "Lista de espera (mecanismo único): a seleção dos pedidos compatíveis roda na transação de quem liberou a vaga; e-mail e WhatsApp saem no on_commit; notificado só com entrega.",
+   "Toda transição: _transicionar trava a linha (select_for_update), valida TRANSICOES contra o status atual do banco, grava status + LogAuditoria e aplica os efeitos (services/atendimento.ao_mudar_status) na MESMA transação: efeito que falha desfaz a transição inteira. Transição inválida levanta Atendimento.TransicaoInvalida (a tela mostra a mensagem).",
+   "Criação (services/agenda.reservar → ao_criar): push \"Novo agendamento\" ao profissional e sync com o Google Calendar no on_commit, best-effort.",
+   "→ REALIZADO, em ordem: zera faltas e desbloqueia a cliente; debita 1 sessão do item congelado do pacote que vence primeiro (nunca em retorno; validade na data da sessão); lança o CREDITO de comissão (base = valor cobrado, ou valor unitário congelado da sessão de pacote); libera o cashback da indicadora no 1º atendimento pago; cria o retorno obrigatório (PENDENTE, valor 0) se o procedimento exige.",
+   "→ FALTOU: registrar_falta — soma a falta e suspende o agendamento online no limite (padrão 3).",
+   "→ CANCELADO: lança o ESTORNO da comissão e estorna o cashback; vindo de um estado ativo, avisa a lista de espera. Cancelado pela clínica: e-mail à cliente (fila de e-mail).",
+   "→ REAGENDADO: vindo de um estado ativo, avisa a lista de espera.",
+   "Lista de espera: seleção dos compatíveis em savepoint na transação de quem liberou a vaga; e-mail e WhatsApp no on_commit; falha no aviso nunca desfaz o cancelamento.",
+   "Aprovação (PENDENTE → AGENDADO) e rejeição geram e-mail à cliente pela fila de e-mail (Notificacao EMAIL na mesma transação, envio no on_commit, reenvio pelo job emails).",
    "NPS e lembrete D-1 não são disparados por transição: vêm dos jobs nps_24h e lembrete_diario (cron HTTP).",
-   "PENDENTE vencido há 24 h → CANCELADO pelo job limpeza_status; AGENDADO/CONFIRMADO sem desfecho só vão para o log (a equipe decide).",
-   "EventBus síncrono, in-process e best-effort: falha de handler é logada e não desfaz a transição."
+   "PENDENTE vencido há 24 h → CANCELADO pelo job limpeza_status; AGENDADO/CONFIRMADO sem desfecho só vão para o log (a equipe decide falta ou realizado).",
+   "Toda escrita em atendimento entra na trilha historico_alteracao (trigger) com autor, IP e origem."
   ]
  },
  "regras-requisitos": {
@@ -2014,12 +2593,12 @@
    {
     "id": "RN09",
     "titulo": "Cálculo de disponibilidade",
-    "descricao": "SlotService (fonte única): slots de 30 min considerando feriado, exceção (folga/horário diferente), expediente semanal, atendimentos ativos sobrepostos na duração inteira + buffer do procedimento, bloqueios pontuais/recorrentes do profissional ou globais, antecedência mínima e máxima."
+    "descricao": "SlotService (fonte única): slots de 30 min a partir da grade semanal (agenda_horario) e das exceções (agenda_excecao: folga do profissional, feriado/recesso da clínica, horário diferente, bloqueios pontuais e recorrentes do profissional ou de todos), atendimentos ativos sobrepostos na duração inteira + intervalo do procedimento, antecedência mínima e máxima."
    },
    {
     "id": "RN10",
     "titulo": "Anti double-booking",
-    "descricao": "Um profissional não pode ter dois atendimentos ativos sobrepostos: trava de 30 s no cache, SELECT FOR UPDATE e constraint EXCLUDE no Postgres. Corrida perdida gera a mensagem \"Este horário acabou de ser reservado\"."
+    "descricao": "Um profissional não pode ter dois atendimentos ativos sobrepostos: trava de 30 s no cache durante a confirmação do site, SELECT FOR UPDATE em services/agenda.reservar e constraint EXCLUDE no Postgres. Corrida perdida vira HorarioIndisponivel com a mensagem \"Este horário acabou de ser reservado\"."
    },
    {
     "id": "RN11",
@@ -2029,7 +2608,7 @@
    {
     "id": "RN12",
     "titulo": "Agendamento interno",
-    "descricao": "A recepção agenda pelo painel (cliente existente ou nova com telefone validado) usando o mesmo SlotService; não há OTP; o atendimento nasce AGENDADO e o valor pode ser ajustado (fica registrado)."
+    "descricao": "A recepção agenda pelo painel (cliente existente ou nova com telefone validado) pela mesma validação do site (services/agenda.validar_horario, com o motivo detalhado para a equipe: conflito, bloqueio, folga, expediente); não há OTP; o atendimento nasce AGENDADO e o valor combinado pode ser registrado."
    },
    {
     "id": "RN13",
@@ -2044,7 +2623,7 @@
    {
     "id": "RN15",
     "titulo": "Consentimento para dado de saúde (art. 11)",
-    "descricao": "A ficha de anamnese (no wizard ou pelo link público) só é gravada com a caixa de consentimento específica marcada; o texto do consentimento, a data e o IP vão para a auditoria."
+    "descricao": "A ficha de anamnese (no wizard ou pelo link) só é gravada com a caixa de consentimento específica marcada; o aceite vira AceiteTermo da versão SAUDE vigente (IP, navegador, SHA-256 do texto) e vai também para a auditoria."
    },
    {
     "id": "RN16",
@@ -2054,7 +2633,7 @@
    {
     "id": "RN17",
     "titulo": "Consentimentos de comunicação",
-    "descricao": "E-mail marketing, lembrete por WhatsApp e pesquisa por WhatsApp nunca vêm pré-marcados; conceder e revogar gravam data e IP. O descadastro por link desliga marketing e pesquisas e mantém o lembrete D-1 (aviso do serviço)."
+    "descricao": "Três autorizações por finalidade × canal — promoções por e-mail, lembrete/aviso de vaga por WhatsApp e pesquisa de satisfação por WhatsApp —, nunca pré-marcadas. Cada concessão ou revogação é uma linha nova e imutável (texto exibido, IP, navegador, autor, data); vale a mais recente; marcar de novo depois de um descadastro volta a valer. O descadastro por link revoga marketing e pesquisa e mantém o lembrete D-1. A equipe revoga a pedido da cliente e só registra autorização com justificativa."
    },
    {
     "id": "RN18",
@@ -2069,22 +2648,22 @@
    {
     "id": "RN20",
     "titulo": "Máquina de estados do atendimento",
-    "descricao": "PENDENTE → AGENDADO/CONFIRMADO/CANCELADO/REAGENDADO; AGENDADO → CONFIRMADO/REALIZADO/CANCELADO/FALTOU/REAGENDADO; CONFIRMADO → REALIZADO/CANCELADO/FALTOU/REAGENDADO; REALIZADO, CANCELADO, FALTOU e REAGENDADO são terminais. AGENDADO = horário aprovado; CONFIRMADO = a cliente confirmou."
+    "descricao": "PENDENTE → AGENDADO/CONFIRMADO/CANCELADO/REAGENDADO; AGENDADO → CONFIRMADO/REALIZADO/CANCELADO/FALTOU/REAGENDADO; CONFIRMADO → REALIZADO/CANCELADO/FALTOU/REAGENDADO; REALIZADO, CANCELADO, FALTOU e REAGENDADO são terminais. AGENDADO = horário aprovado; CONFIRMADO = a cliente confirmou. Os efeitos da transição (pacote, comissão, cashback, faltas, retorno, lista de espera) gravam na mesma transação do status: tudo ou nada."
    },
    {
     "id": "RN21",
     "titulo": "Reagendamento pela cliente",
-    "descricao": "Permitido até 24 h antes. O atendimento antigo vira REAGENDADO antes de o novo entrar; o novo herda preço, promoção, vínculo de retorno e a ficha de anamnese. Fica AGENDADO se o original estava aprovado e a profissional é a mesma; senão volta a PENDENTE."
+    "descricao": "Pelo portal \"Meus agendamentos\" (sessão do OTP, só agendamentos do telefone verificado) ou pelo link legado, até 24 h antes. services/agenda.reagendar: o antigo vira REAGENDADO antes de o novo entrar; o novo herda preço, promoção, vínculo de retorno e a ficha. Fica AGENDADO se o original estava aprovado e a profissional é a mesma; senão volta a PENDENTE."
    },
    {
     "id": "RN22",
     "titulo": "Cancelamento pela cliente",
-    "descricao": "Pelo token do atendimento (portal ou link), a qualquer momento antes do início, pela FSM."
+    "descricao": "Pelo portal (id do atendimento + sessão do OTP) ou pelo link legado, a qualquer momento antes do início, pela FSM; a trilha registra \"[pela cliente]\". Cancelamento feito pela clínica avisa a cliente por e-mail."
    },
    {
     "id": "RN23",
     "titulo": "Lembrete D-1 e confirmação de presença",
-    "descricao": "Às 08:00 o sistema envia WhatsApp (template aprovado) aos atendimentos AGENDADO do dia seguinte com consentimento de lembrete; o link permite confirmar (→ CONFIRMADO) ou cancelar, uma única vez."
+    "descricao": "Às 08:00 o sistema envia WhatsApp (template aprovado) aos atendimentos AGENDADO do dia seguinte com autorização de lembrete vigente; o link (link_acesso CONFIRMAR_PRESENCA, válido até o início) permite confirmar (→ CONFIRMADO) ou cancelar, uma única vez."
    },
    {
     "id": "RN24",
@@ -2094,17 +2673,17 @@
    {
     "id": "RN25",
     "titulo": "Retorno obrigatório (F-RET)",
-    "descricao": "Procedimento com exige_retorno gera, ao REALIZADO, um atendimento de retorno PENDENTE com valor 0 no primeiro horário livre da janela [mínimo, máximo] a partir do meio. Sem horário livre, não cria. No máximo 1 retorno vivo por origem (UNIQUE). Retorno não gera comissão, cashback nem débito de pacote."
+    "descricao": "Procedimento com retorno obrigatório gera, ao REALIZADO, um atendimento de retorno PENDENTE com valor 0 no primeiro horário livre da janela [mínimo, máximo] a partir do meio, gravado por services/agenda.reservar. Sem horário livre, não cria. No máximo 1 retorno vivo por origem (UNIQUE). Retorno não gera comissão, cashback nem débito de pacote."
    },
    {
     "id": "RN26",
     "titulo": "Pacotes — consumo",
-    "descricao": "Sessão REALIZADA de procedimento do pacote debita 1 sessão do pacote que vence primeiro (1 consumo por atendimento). A validade é conferida na data da sessão. Pacote vendido tem nome e itens congelados."
+    "descricao": "Sessão REALIZADA debita 1 sessão do item congelado (compra_pacote_item) do pacote que vence primeiro (1 consumo por atendimento). A validade é conferida na data da sessão. O banco garante que o consumo é de um item da mesma compra, do mesmo procedimento, nunca de retorno e só com saldo."
    },
    {
     "id": "RN27",
-    "titulo": "Pacotes — ciclo de vida",
-    "descricao": "ATIVO → FINALIZADO (todas as sessões usadas), EXPIRADO (job diário, vencimento < hoje) ou CANCELADO (exige valor devolvido entre 0 e o valor pago e motivo, auditados). Aviso por e-mail 7 e 1 dia antes do vencimento com saldo."
+    "titulo": "Pacotes — venda e ciclo de vida",
+    "descricao": "A venda congela o nome e os itens (procedimento, sessões, valor unitário = valor pago ÷ sessões); o catálogo continua editável só para vendas futuras. ATIVO → FINALIZADO (todas as sessões usadas), EXPIRADO (job diário, vencimento < hoje) ou CANCELADO (valor devolvido entre 0 e o valor pago e motivo, auditados). Aviso por e-mail 7 e 1 dia antes do vencimento com saldo."
    },
    {
     "id": "RN28",
@@ -2114,12 +2693,12 @@
    {
     "id": "RN29",
     "titulo": "Valor cobrado e faturamento",
-    "descricao": "A clínica pode registrar o valor combinado (não em cancelado/faltou/reagendado, retorno ou realizado com comissão lançada). Faturamento = avulsos realizados com valor > 0 + vendas de pacote na data da compra; sessão de pacote e retorno não somam."
+    "descricao": "A clínica pode registrar o valor combinado (não em cancelado/faltou/reagendado, retorno ou realizado com comissão lançada). Faturamento = avulsos realizados com valor > 0 + vendas de pacote na data da compra (líquidas do reembolso); sessão de pacote e retorno não somam. Ticket médio e LTV pela mesma regra."
    },
    {
     "id": "RN30",
-    "titulo": "Comissão",
-    "descricao": "Calculada ao REALIZADO (não em retorno) pela regra mais específica (profissional+procedimento > profissional > procedimento > global; empate = mais recente): percentual 0–100 ou valor fixo sobre o valor cobrado, ou, em sessão de pacote, valor pago ÷ total de sessões. 1 comissão ativa por atendimento; cancelamento estorna."
+    "titulo": "Comissão (livro-razão)",
+    "descricao": "Ao REALIZADO (não em retorno) lança 1 CREDITO pela regra mais específica (profissional+procedimento > profissional > procedimento > global; empate = mais recente): percentual 0–100 ou valor fixo sobre o valor cobrado ou, em sessão de pacote, sobre o valor unitário congelado. A baixa é um PAGAMENTO e o cancelamento um ESTORNO, ambos referenciando o crédito; estornado não se paga; nada é alterado ou apagado. Status e saldo são derivados e o saldo pode ficar negativo. Regra já usada só é desativada."
    },
    {
     "id": "RN31",
@@ -2129,12 +2708,12 @@
    {
     "id": "RN32",
     "titulo": "Lista de espera",
-    "descricao": "Um pedido ativo por cliente/procedimento/data. Quando um atendimento ativo futuro vira CANCELADO ou REAGENDADO, todos os pedidos compatíveis recebem e-mail e WhatsApp (com consentimento) com link para agendar, sem reserva do horário; notificado só com entrega. O e-mail digitado no formulário anônimo fica só na inscrição."
+    "descricao": "Um pedido pendente por cliente/procedimento/data. Quando um atendimento ativo vira CANCELADO ou REAGENDADO, os pedidos compatíveis recebem e-mail e WhatsApp (com autorização) com link para agendar, sem reserva do horário; notificado só com entrega. O e-mail digitado no formulário anônimo fica só na inscrição."
    },
    {
     "id": "RN33",
     "titulo": "NPS",
-    "descricao": "WhatsApp de NPS entre 24 h e 7 dias após o REALIZADO, com consentimento e sem opt-out geral (até 3 tentativas); link válido por 7 dias; 1 avaliação por atendimento; nota 0–10. Nota ≤ 6 gera alerta por e-mail à clínica."
+    "descricao": "WhatsApp de NPS entre 24 h e 7 dias após o REALIZADO, com autorização de pesquisa vigente (até 3 tentativas); link válido por 7 dias; 1 avaliação por atendimento; nota 0–10. Nota ≤ 6 gera alerta por e-mail à clínica. O cálculo do NPS é único (arredondamento \"meio para cima\") no painel, nas views e no banco."
    },
    {
     "id": "RN34",
@@ -2149,7 +2728,7 @@
    {
     "id": "RN36",
     "titulo": "Prontuário e histórico",
-    "descricao": "Ficha 1:1 com campos clínicos e perguntas configuráveis. Cada edição grava antes a versão anterior (histórico append-only, imutável); edição concorrente é recusada; POST parcial não apaga campos."
+    "descricao": "Ficha 1:1 com campos clínicos e as perguntas do formulário PRONTUARIO (no máximo 1 ativo). Cada edição grava antes a versão anterior (histórico append-only, imutável); edição concorrente é recusada; POST parcial não apaga campos. Anotações de sessão também são append-only (correção = nova anotação)."
    },
    {
     "id": "RN37",
@@ -2159,22 +2738,22 @@
    {
     "id": "RN38",
     "titulo": "Alertas de saúde",
-    "descricao": "Alergias, contraindicações, medicamentos e respostas de risco declaradas nas fichas aparecem como texto visível no portal, na agenda do painel e na ficha da cliente; marcador \"ficha pendente\" quando a ficha obrigatória não foi respondida."
+    "descricao": "Alergias, contraindicações, medicamentos e respostas marcadas como alerta de saúde nas fichas aparecem como texto visível no portal, na agenda do painel e na ficha da cliente (calculados em lote); marcador \"ficha pendente\" quando a ficha obrigatória não foi respondida."
    },
    {
     "id": "RN39",
     "titulo": "Termos versionados e imutáveis",
-    "descricao": "1 versão ativa por escopo (LGPD global; PROCEDIMENTO geral ou por procedimento). Versão com aceite não pode ser editada (model + trigger): mudar = publicar nova versão. O aceite é imutável e nunca apagado."
+    "descricao": "1 versão ativa por escopo (LGPD e SAUDE globais; PROCEDIMENTO geral ou por procedimento). Versão com aceite não pode ser editada (model + trigger): mudar = publicar nova versão. O aceite é imutável e nunca apagado."
    },
    {
     "id": "RN40",
     "titulo": "Retenção de dados",
-    "descricao": "OTP 24 h; texto de notificação 12 meses; auditoria 5 anos; logs de login 90 dias; cliente sem atendimento há 5 anos ou excluída há 30 dias é anonimizada, exceto com prontuário com conteúdo, pacote comprado ou atendimento realizado nos últimos 20 anos; ficha de pedido não realizado apagada após 90 dias; lista de espera vencida apagada."
+    "descricao": "OTP 24 h; texto de notificação 12 meses; auditoria e trilha de dados 5 anos (prontuário 20 anos); link público vencido ou revogado 90 dias; logs de login 90 dias; cliente sem atendimento há 5 anos ou excluída há 30 dias é anonimizada, exceto com prontuário com conteúdo, pacote comprado ou atendimento realizado nos últimos 20 anos; ficha de pedido não realizado apagada após 90 dias; lista de espera vencida apagada. A escrita é das procedures do Postgres (fonte única)."
    },
    {
     "id": "RN41",
     "titulo": "Direito ao esquecimento",
-    "descricao": "Anonimiza nome ([ANONIMIZADO-pk]), contatos, documentos e consentimentos; soft delete; apaga OTPs, lista de espera, texto de notificações e fichas que não são de atendimento realizado; retira o depoimento e o comentário do NPS; pseudonimiza o nome nos textos da auditoria. Atendimentos, aceites, prontuário e pacotes ficam ligados a titular não identificável."
+    "descricao": "sp_anonimizar_cliente: anonimiza nome ([ANONIMIZADO-pk]), contatos e documentos; revoga as autorizações vigentes (histórico fica sem IP/navegador); soft delete; apaga OTPs, lista de espera, texto de notificações e fichas que não são de atendimento realizado; retira o depoimento e o comentário do NPS; revoga todos os links públicos; pseudonimiza o nome nos textos da auditoria. Atendimentos, aceites, prontuário e pacotes ficam ligados a titular não identificável."
    },
    {
     "id": "RN42",
@@ -2183,18 +2762,38 @@
    },
    {
     "id": "RN43",
-    "titulo": "Auditoria",
-    "descricao": "Toda ação sensível grava autor (+ nome), tabela, registro, detalhes com PII mascarada e IP (LGPD art. 37)."
+    "titulo": "Auditoria e trilha de dados",
+    "descricao": "Toda ação sensível grava autor (+ nome), tabela, registro, detalhes com PII mascarada e IP (LGPD art. 37), com o Ator da requisição (usuário, IP, origem). Além disso, triggers registram cada alteração das 11 tabelas sensíveis em historico_alteracao. As duas trilhas são append-only no banco."
    },
    {
     "id": "RN44",
     "titulo": "Login da equipe e 2FA",
-    "descricao": "E-mail + senha (mínimo 10, validadores do Django). 2FA TOTP obrigatório para ADMIN (cadastro forçado após o login, conferido a cada request); opcional para PROFISSIONAL. Trocar de aparelho exige o código atual; recuperação por comando setup_2fa --force. Sessão da equipe de 8 h deslizantes; logout só via POST."
+    "descricao": "E-mail + senha (mínimo 10, validadores do Django). 2FA TOTP obrigatório para ADMIN e PROFISSIONAL em produção (cadastro forçado após o login, conferido a cada request; válvula de emergência por variável de ambiente com aviso). Códigos de backup no painel; trocar de aparelho exige o código atual; recuperação por comando setup_2fa --force. Sessão da equipe de 8 h deslizantes; logout só via POST."
    },
    {
     "id": "RN45",
     "titulo": "Bloqueio de login e reset de senha",
     "descricao": "django-axes bloqueia por 1 h após 5 falhas (IP + usuário); rate-limit no login. Reset de senha com token de 1 h, 3 pedidos/15 min por IP, resposta genérica; sem backend de e-mail real nada é enviado."
+   },
+   {
+    "id": "RN46",
+    "titulo": "Exceções de agenda",
+    "descricao": "Folga (do profissional ou da clínica inteira: feriado nacional/local e recesso, carregados pelo job mensal de feriados), horário diferente (1 por profissional/dia) e bloqueio (pontual ou recorrente por RRULE diária/semanal/mensal). Grade sem janelas sobrepostas e folgas do mesmo profissional sem sobreposição (EXCLUDE). Exceção inativa fica registrada e é ignorada (ex.: feriado em que a clínica abre). Eventos do Google Calendar entram como bloqueio, sem duplicar."
+   },
+   {
+    "id": "RN47",
+    "titulo": "Links públicos",
+    "descricao": "Todo link das mensagens (confirmar presença, NPS, termo, ficha, descadastro, feed iCal) é um link_acesso com finalidade e 1 alvo; o banco guarda só o SHA-256 do token. Validade por finalidade: confirmação até o início, termo até o fim do atendimento, NPS 7 dias, ficha 60 dias, descadastro e feed sem validade. Gerar novo feed revoga o anterior; a URL aparece só na geração."
+   },
+   {
+    "id": "RN48",
+    "titulo": "Dados de saúde cifrados",
+    "descricao": "Campos clínicos e respostas do prontuário, versões do prontuário, anotações de sessão, fichas de anamnese e o token do Google Calendar ficam cifrados em repouso (Fernet, chave por finalidade); a aplicação lê em claro e o banco não busca pelo conteúdo. Rotação de chave por comando."
+   },
+   {
+    "id": "RN49",
+    "titulo": "Fila de e-mail transacional",
+    "descricao": "Confirmação, cancelamento e pedido de aprovação à profissional nascem Notificacao EMAIL PENDENTE na transação de quem pediu e saem no on_commit; se falhar, o job emails reenvia com espera crescente (5/10/20/40 min) até 5 tentativas ou 48 h (→ FALHOU). A fila não guarda cópia de dado pessoal."
    }
   ],
   "requisitos_funcionais": [
@@ -2211,7 +2810,7 @@
    {
     "id": "RF03",
     "ator": "Cliente (público)",
-    "descricao": "No agendamento, aceitar a Política de Privacidade e os termos do procedimento, consentir o uso do dado de saúde e responder a ficha de anamnese."
+    "descricao": "No agendamento, aceitar a Política de Privacidade e os termos do procedimento, consentir o uso do dado de saúde (termo SAÚDE), escolher as autorizações de comunicação e responder a ficha de anamnese."
    },
    {
     "id": "RF04",
@@ -2221,12 +2820,12 @@
    {
     "id": "RF05",
     "ator": "Cliente (público)",
-    "descricao": "Reagendar um atendimento até 24 h antes, escolhendo novo horário disponível."
+    "descricao": "Reagendar um atendimento até 24 h antes pelo portal, escolhendo novo horário disponível."
    },
    {
     "id": "RF06",
     "ator": "Cliente (público)",
-    "descricao": "Cancelar um atendimento futuro."
+    "descricao": "Cancelar um atendimento futuro pelo portal."
    },
    {
     "id": "RF07",
@@ -2256,7 +2855,7 @@
    {
     "id": "RF12",
     "ator": "Cliente (público)",
-    "descricao": "Baixar os próprios dados (DSAR) com código SMS e descadastrar-se de marketing e pesquisas."
+    "descricao": "Baixar os próprios dados (DSAR) com código SMS, descadastrar-se de marketing e pesquisas por link e registrar o aviso de cookies."
    },
    {
     "id": "RF13",
@@ -2266,7 +2865,7 @@
    {
     "id": "RF14",
     "ator": "Equipe",
-    "descricao": "Entrar com e-mail e senha, cadastrar e validar 2FA (obrigatório para ADMIN) e redefinir a senha por link."
+    "descricao": "Entrar com e-mail e senha, cadastrar e validar 2FA (obrigatório para ADMIN e PROFISSIONAL em produção), gerar códigos de backup e redefinir a senha por link."
    },
    {
     "id": "RF15",
@@ -2281,7 +2880,7 @@
    {
     "id": "RF17",
     "ator": "ADMIN",
-    "descricao": "Operar a agenda: lista com filtros, calendário com arrastar-e-soltar, mudança de status pela FSM, valor cobrado, link do termo e override \"Realizado sem termo aceito\"."
+    "descricao": "Operar a agenda: lista com filtros por dia, calendário com arrastar-e-soltar (motivo detalhado da recusa), mudança de status pela FSM, valor cobrado, link do termo e override \"Realizado sem termo aceito\"."
    },
    {
     "id": "RF18",
@@ -2291,22 +2890,22 @@
    {
     "id": "RF19",
     "ator": "ADMIN / Profissional",
-    "descricao": "Registrar e consultar o prontuário com histórico de versões e as anotações de sessão."
+    "descricao": "Registrar e consultar o prontuário (com as perguntas do formulário PRONTUARIO) e o histórico de versões, e anotar as sessões."
    },
    {
     "id": "RF20",
     "ator": "ADMIN",
-    "descricao": "Gerir clientes: busca, ficha com alertas, pacotes, histórico e edição validada (telefone/CPF/e-mail únicos)."
+    "descricao": "Gerir clientes: busca sem acento, ficha com alertas, pacotes, histórico, autorizações de comunicação e edição validada (telefone/CPF/e-mail únicos)."
    },
    {
     "id": "RF21",
     "ator": "ADMIN",
-    "descricao": "Gerir profissionais (expediente, exceções, antecedências, novo link do feed iCal), procedimentos, preços, habilitações e bloqueios de agenda (inclusive para todos os profissionais)."
+    "descricao": "Gerir profissionais (grade semanal, exceções — folga, horário diferente, bloqueio —, antecedências, novo link do feed iCal), procedimentos, preços, habilitações e bloqueios de agenda (inclusive para todos os profissionais)."
    },
    {
     "id": "RF22",
     "ator": "ADMIN",
-    "descricao": "Gerir pacotes: criar/editar, vender, acompanhar saldo e validade, cancelar com valor devolvido."
+    "descricao": "Gerir pacotes: criar/editar o catálogo, vender (itens congelados na venda), acompanhar saldo e validade, cancelar com valor devolvido."
    },
    {
     "id": "RF23",
@@ -2316,7 +2915,7 @@
    {
     "id": "RF24",
     "ator": "ADMIN",
-    "descricao": "Acompanhar dashboard e financeiro (faturamento, faltas, rankings), pagar comissões e exportar relatório em Excel."
+    "descricao": "Acompanhar dashboard e financeiro (faturamento, faltas, rankings), comissões em livro-razão (créditos, pagamentos, estornos e saldo por profissional), pagar comissões e exportar relatório em Excel."
    },
    {
     "id": "RF25",
@@ -2331,17 +2930,17 @@
    {
     "id": "RF27",
     "ator": "ADMIN",
-    "descricao": "Gerir formulários de anamnese e termos versionados, e acompanhar a conformidade dos aceites."
+    "descricao": "Gerir formulários (anamnese, pesquisa e perguntas do prontuário) e termos versionados (LGPD, saúde, procedimento), e acompanhar a conformidade dos aceites."
    },
    {
     "id": "RF28",
     "ator": "ADMIN",
-    "descricao": "Gerir usuários da equipe, configurações, Branding (contatos e marca), notificações e consultar a auditoria."
+    "descricao": "Gerir usuários da equipe, configurações, Branding (contatos e marca), notificações, pré-visualizar e-mails e consultar a auditoria."
    },
    {
     "id": "RF29",
     "ator": "Sistema",
-    "descricao": "Executar jobs periódicos por cron HTTP autenticado: lembrete D-1, NPS, alerta de detrator, pacotes, aniversário, limpeza de status, retenção LGPD, housekeeping e feriados."
+    "descricao": "Executar jobs periódicos por cron HTTP autenticado ou pelo comando rodar_job: fila de e-mail, lembrete D-1, NPS, alerta de detrator, pacotes, aniversário, limpeza de status, retenção LGPD, housekeeping e feriados."
    },
    {
     "id": "RF30",
@@ -2351,7 +2950,7 @@
    {
     "id": "RF31",
     "ator": "Sistema",
-    "descricao": "Calcular comissão, liberar/estornar cashback e debitar sessão de pacote automaticamente conforme as transições."
+    "descricao": "Ao mudar o status do atendimento, aplicar na mesma transação: débito de sessão de pacote, comissão (crédito/estorno), cashback, faltas, retorno e aviso à lista de espera."
    },
    {
     "id": "RF32",
@@ -2361,12 +2960,22 @@
    {
     "id": "RF33",
     "ator": "ADMIN",
-    "descricao": "Consultar a API REST somente leitura (profissionais, procedimentos, clientes com PII mascarada, atendimentos) e a documentação Swagger."
+    "descricao": "Na ficha da cliente, ver as autorizações de comunicação por canal, revogá-las a pedido e registrar autorização com justificativa (histórico preservado)."
    },
    {
     "id": "RF34",
     "ator": "Profissional",
-    "descricao": "Assinar o feed iCal da própria agenda e conectar o Google Calendar."
+    "descricao": "Gerar o link do feed iCal da própria agenda (exibido uma única vez) e conectar o Google Calendar."
+   },
+   {
+    "id": "RF35",
+    "ator": "Sistema",
+    "descricao": "Enfileirar os e-mails transacionais na própria notificação e reenviá-los com espera crescente até 5 tentativas."
+   },
+   {
+    "id": "RF36",
+    "ator": "Sistema",
+    "descricao": "Registrar automaticamente, por trigger, toda alteração das tabelas sensíveis com autor, IP e origem."
    }
   ],
   "requisitos_nao_funcionais": [
@@ -2383,7 +2992,7 @@
    {
     "id": "RNF03",
     "categoria": "Segurança",
-    "descricao": "2FA TOTP obrigatório para ADMIN, conferido a cada request em painel, API, Django admin e push; sem tela de login paralela; recuperação só por comando no servidor."
+    "descricao": "2FA TOTP obrigatório para ADMIN e PROFISSIONAL em produção, conferido a cada request no painel, portal, Django admin e push; códigos de backup; sem tela de login paralela; recuperação só por comando no servidor."
    },
    {
     "id": "RNF04",
@@ -2393,32 +3002,32 @@
    {
     "id": "RNF05",
     "categoria": "Segurança",
-    "descricao": "Rate-limit em camadas: cotas de SMS (telefone, IP, global), limites por IP nos endpoints públicos, django-axes no login, throttling da API; captcha Turnstile no pedido de código."
+    "descricao": "Rate-limit em camadas: cotas de SMS (telefone, IP, global), limites por IP nos endpoints públicos, django-axes no login; captcha Turnstile no pedido de código."
    },
    {
     "id": "RNF06",
     "categoria": "Privacidade",
-    "descricao": "Áreas privadas sem cache no navegador (no-store), Referrer-Policy no-referrer nas rotas com token, Clear-Site-Data no logout, tokens redigidos no access log e no Sentry."
+    "descricao": "Áreas privadas sem cache no navegador (no-store), Referrer-Policy no-referrer nas rotas com token, X-Robots-Tag noindex nas privadas, Clear-Site-Data no logout; links públicos guardam só o SHA-256 do token; tokens redigidos no access log e no Sentry."
    },
    {
     "id": "RNF07",
     "categoria": "Segurança",
-    "descricao": "Segredos só em variáveis de ambiente; SECRET_KEY obrigatória fora de DEBUG; DJANGO_ENV inválido derruba o boot; system checks (aranha.W001–W009) apontam configuração de produção faltando."
+    "descricao": "Segredos só em variáveis de ambiente; SECRET_KEY obrigatória fora de DEBUG; DJANGO_ENV inválido derruba o boot; system checks (aranha.W001–W014) apontam configuração de produção faltando."
    },
    {
     "id": "RNF08",
     "categoria": "Confiabilidade",
-    "descricao": "Canais de mensagem falham fechado: sem credencial nada é enviado nem marcado como enviado; I/O externo só após o commit."
+    "descricao": "Canais de mensagem falham fechado: sem credencial nada é enviado nem marcado como enviado; I/O externo só após o commit; e-mail transacional em fila no banco com reenvio (sem Celery, nada roda em segundo plano sem rastro)."
    },
    {
     "id": "RNF09",
     "categoria": "LGPD",
-    "descricao": "Consentimentos granulares com data e IP; aceite da política e dos termos com prova (IP, navegador, SHA-256); consentimento específico para dado de saúde (art. 11)."
+    "descricao": "Autorizações de comunicação por finalidade × canal em histórico append-only (texto exibido, IP, navegador, autor); aceite da política, do termo de saúde (art. 11) e dos termos do procedimento com prova (IP, navegador, SHA-256)."
    },
    {
     "id": "RNF10",
     "categoria": "LGPD",
-    "descricao": "Retenção automatizada (OTP, notificações, auditoria, logs de login, clientes inativas/excluídas, fichas de pedidos não realizados, lista de espera) e direito ao esquecimento com pseudonimização."
+    "descricao": "Retenção automatizada (OTP, notificações, auditoria, trilha, links, logs de login, clientes inativas/excluídas, fichas de pedidos não realizados, lista de espera) e esquecimento com pseudonimização, executados por procedures do Postgres; inventário LGPD coluna a coluna conferido por teste."
    },
    {
     "id": "RNF11",
@@ -2428,52 +3037,62 @@
    {
     "id": "RNF12",
     "categoria": "LGPD",
-    "descricao": "Trilha de auditoria com autor, IP e detalhes mascarados; PII mascarada em logs, API e Sentry (send_default_pii=False)."
+    "descricao": "Trilha de auditoria (log_auditoria) e trilha de dados (historico_alteracao, por trigger) com autor, IP e origem, ambas append-only no banco; PII mascarada em logs e no Sentry (send_default_pii=False)."
    },
    {
     "id": "RNF13",
     "categoria": "Integridade",
-    "descricao": "Invariantes no banco: EXCLUDE anti double-booking, UNIQUE parciais, CHECKs, triggers de imutabilidade (ledger, prova de aceite, termo aceito, histórico do prontuário) e FKs PROTECT no histórico clínico/financeiro."
+    "descricao": "Invariantes no banco: EXCLUDE (atendimento, grade, folgas), UNIQUE parciais, CHECKs, 46 triggers (atualizado_em, imutabilidade de ledgers, prova de aceite, termo aceito, prontuário, anotação, item de pacote, consentimento e link; validação de consumo e de comissão) e FKs PROTECT no histórico clínico/financeiro."
    },
    {
     "id": "RNF14",
     "categoria": "Confiabilidade",
-    "descricao": "Migrações aplicadas numa transação única com lock_timeout no pre-deploy (tudo ou nada); rollback de produção por restauração do backup."
+    "descricao": "Migrações aplicadas numa transação única com lock_timeout no pre-deploy (tudo ou nada); data migrations com pré-checagem que aborta listando os registros; rollback de produção por restauração do backup."
    },
    {
     "id": "RNF15",
     "categoria": "Confiabilidade",
-    "descricao": "FSM com transições validadas sob lock e auditadas; efeitos idempotentes (1 retorno por origem, 1 consumo e 1 comissão por atendimento, cashback único)."
+    "descricao": "FSM com transições validadas sob lock e auditadas; efeitos explícitos (services/atendimento) na mesma transação do status; efeitos idempotentes (1 retorno por origem, 1 consumo e 1 crédito de comissão por atendimento, cashback único)."
    },
    {
     "id": "RNF16",
     "categoria": "Desempenho",
-    "descricao": "gunicorn 1 worker × 4 threads com cache local (Redis opcional para escalar); estáticos comprimidos e com hash (WhiteNoise); cache do Branding; índices compostos para agenda e relatórios."
+    "descricao": "gunicorn 1 worker × 4 threads com cache local (Redis opcional para escalar); estáticos comprimidos e com hash (WhiteNoise); índices das consultas reais, busca trigram sem acento, alertas de saúde em lote, statement_timeout na conexão e consultas lentas pelo pg_stat_statements."
    },
    {
     "id": "RNF17",
     "categoria": "Observabilidade",
-    "descricao": "Healthchecks /healthz/ (liveness + build do front) e /health/ (banco, cache, front); Sentry opcional; logs JSON em produção."
+    "descricao": "Healthchecks /healthz/ (liveness + build do front) e /health/ (banco, cache, front); Sentry opcional; logs JSON em produção; jobs devolvem 500 quando falham (o cron alerta)."
    },
    {
     "id": "RNF18",
     "categoria": "Qualidade",
-    "descricao": "Cerca de 1.060 testes automatizados; CI com SQLite, Postgres 18 (bloqueante), build do front, build da imagem Docker e auditoria de dependências."
+    "descricao": "Cerca de 1.500 testes automatizados em 77 arquivos; CI com SQLite, Postgres 18 (conformidade do padrão SQL, trilha e paridade das funções com o Python), data migrations em paralelo, build do front, wizard no Chromium (Playwright), imagem Docker e pip-audit bloqueante; ruff, import-linter, mypy nos services e cobertura com catraca (≈ 87 %)."
    },
    {
     "id": "RNF19",
     "categoria": "Usabilidade",
-    "descricao": "Interface pt-BR em tom de estética e bem-estar; contraste AA nos tokens; wizard operável por teclado; tema claro/escuro; PWA instalável para o site e para a equipe."
+    "descricao": "Interface pt-BR em tom de estética e bem-estar; contraste AA nos tokens, foco visível, formulários acessíveis, diálogos nativos e respeito a prefers-reduced-motion; wizard com botão Continuar operável por teclado; tema claro/escuro automático; fontes locais; PWA instalável para o site e para a equipe."
    },
    {
     "id": "RNF20",
     "categoria": "Manutenibilidade",
-    "descricao": "Camadas views → services/utils → models; fontes únicas (SlotService, preços, Branding, termos); componentes cotton e Alpine CSP; documentação viva e requisitos gerados a partir de dados versionados."
+    "descricao": "Camadas views → services/utils → models verificadas por import-linter; fontes únicas (services/agenda, services/atendimento, SlotService, preços, Branding, termos, consentimentos); recusas tipadas (RegraDeNegocio); Django Forms no painel; componentes cotton e Alpine CSP; documentação viva e requisitos gerados a partir de dados versionados."
    },
    {
     "id": "RNF21",
     "categoria": "Implantação",
     "descricao": "Imagem Docker multi-stage (Node para o front, Python para a app) com dependências fixadas (requirements.lock), usuário não-root e healthcheck; deploy no Railway com pre-deploy de migração e criação do ADMIN."
+   },
+   {
+    "id": "RNF22",
+    "categoria": "Privacidade",
+    "descricao": "Dado de saúde e token OAuth cifrados em repouso na aplicação (Fernet, CHAVES_CIFRAGEM com subchave por finalidade e rotação por comando): dump ou backup sem a chave não expõe a ficha."
+   },
+   {
+    "id": "RNF23",
+    "categoria": "Manutenibilidade",
+    "descricao": "Padrão SQL em todas as tabelas (nomes snake_case PT-BR, prefixos pk_/fk_/uq_/ck_/ix_/ex_/tg_/fn_, ON DELETE real, COMMENT em toda tabela, defaults no banco), conferido por teste no pg_catalog."
    }
   ]
  },
@@ -2481,23 +3100,23 @@
   "atores": [
    {
     "nome": "Visitante / Cliente (público, sem login)",
-    "descricao": "Navega no site e agenda sem conta: a identidade é o celular, confirmado por código SMS em todo agendamento. Aceita a Política de Privacidade e os termos, consente o uso do dado de saúde, entra na lista de espera, responde NPS e fichas por link. Precisa ter 18 anos ou mais."
+    "descricao": "Navega no site e agenda sem conta: a identidade é o celular, confirmado por código SMS em todo agendamento. Aceita a Política de Privacidade, o consentimento para dado de saúde e os termos do procedimento, escolhe as autorizações de comunicação, entra na lista de espera e responde NPS por link. Precisa ter 18 anos ou mais."
    },
    {
     "nome": "Cliente cadastrada",
-    "descricao": "Cliente com cadastro ativo (mesmo celular). Entra em \"Meus agendamentos\" por celular ou e-mail (o código vai ao celular do cadastro), reagenda (até 24 h antes), cancela, confirma presença pelo lembrete D-1 e exerce os direitos LGPD (exportar dados, descadastrar)."
+    "descricao": "Cliente com cadastro ativo (mesmo celular). Entra em \"Meus agendamentos\" por celular ou e-mail (o código vai ao celular do cadastro), reagenda (até 24 h antes) e cancela pela sessão do portal, confirma presença pelo link do lembrete D-1, aceita termos pendentes e exerce os direitos LGPD (exportar dados, descadastrar)."
    },
    {
     "nome": "Profissional",
-    "descricao": "Usuário PROFISSIONAL vinculado a um profissional ativo. Usa o portal /profissional/: agenda própria, aprova/rejeita os próprios pedidos, marca realizado (com termo aceito ou override auditado), anota a sessão e lê a ficha só das clientes com vínculo. Feed iCal, Google Calendar e push. 2FA opcional (obrigatório se configurado)."
+    "descricao": "Usuário PROFISSIONAL vinculado a um profissional ativo, com 2FA obrigatório em produção. Usa o portal /profissional/: agenda própria, aprova/rejeita os próprios pedidos, marca realizado (com termo aceito ou override auditado), anota a sessão e lê a ficha só das clientes com vínculo. Gera o link do feed iCal, conecta o Google Calendar e ativa o push."
    },
    {
     "nome": "Administrador (ADMIN)",
-    "descricao": "Usuário ADMIN (is_staff), com 2FA obrigatório. Painel completo, incluindo as tarefas de recepção: agenda, agendamento interno, aprovação, clientes e prontuário, profissionais, catálogo, pacotes, promoções, financeiro, comissões, NPS e depoimentos, lista de espera, formulários e termos, usuários, configurações, Branding e auditoria."
+    "descricao": "Usuário ADMIN (is_staff), com 2FA obrigatório. Painel completo, incluindo as tarefas de recepção: agenda, agendamento interno, aprovação, clientes, autorizações de comunicação e prontuário, profissionais e exceções de agenda, catálogo, pacotes, promoções, financeiro, comissões, NPS e depoimentos, lista de espera, formulários e termos, usuários, configurações, Branding e auditoria."
    },
    {
     "nome": "Sistema / Cron externo",
-    "descricao": "Agendador externo (cron-job.org ou Railway Cron) que chama POST /cron/run/<job>/ com o header X-Cron-Token: lembrete D-1, NPS, alerta de detrator, pacotes, aniversário, limpeza de status, retenção LGPD, housekeeping e feriados."
+    "descricao": "Agendador externo (cron-job.org ou Railway Cron) que chama POST /cron/run/<job>/ com o header X-Cron-Token, ou o comando rodar_job no servidor: fila de e-mail, lembrete D-1, NPS, alerta de detrator, pacotes, aniversário, limpeza de status, retenção LGPD, housekeeping e feriados. Sem Celery: o job roda dentro do request."
    },
    {
     "nome": "Serviços externos",
@@ -2513,7 +3132,7 @@
      "Cliente cadastrada",
      "Serviços externos"
     ],
-    "fluxo": "Cliente escolhe procedimento, data/horário e profissional, informa dados, aceita a política e os termos, consente o dado de saúde e responde a ficha; confirma o celular com código SMS (UC02). O servidor revalida slot, habilitação, feriado, idade ≥ 18 e aceites; trava o slot (cache + SELECT FOR UPDATE + EXCLUDE), cria/atualiza a cliente pelo telefone, grava o atendimento PENDENTE com o preço da data, os aceites com prova, a ficha e o consentimento na auditoria; avisa o profissional.",
+    "fluxo": "Cliente escolhe procedimento, data/horário e profissional (botão Continuar a cada etapa), informa dados, aceita a política e os termos, consente o dado de saúde, escolhe as autorizações de comunicação e responde a ficha; confirma o celular com código SMS (UC02). O servidor revalida idade ≥ 18, aceites e o horário (services/agenda.validar_horario); trava o slot (cache + SELECT FOR UPDATE + EXCLUDE), cria/atualiza a cliente pelo telefone, registra os consentimentos (histórico), grava o atendimento PENDENTE com o preço da data (services/agenda.reservar), os aceites com prova (LGPD, SAÚDE, procedimento) e a ficha cifrada; o pedido de aprovação à profissional entra na fila de e-mail e o push sai no on_commit.",
     "inclui": [
      "UC02",
      "UC03"
@@ -2536,7 +3155,7 @@
     "atores": [
      "Visitante / Cliente (público, sem login)"
     ],
-    "fluxo": "O wizard consulta dias do mês e horários livres; o SlotService calcula os slots de 30 min por profissional considerando expediente, exceções, feriados, bloqueios, atendimentos, buffer e antecedências.",
+    "fluxo": "O wizard consulta dias do mês e horários livres; o SlotService calcula os slots de 30 min por profissional a partir da grade semanal e das exceções (folga, feriado/recesso, horário diferente, bloqueios), atendimentos, intervalo do procedimento e antecedências.",
     "inclui": []
    },
    {
@@ -2545,7 +3164,7 @@
     "atores": [
      "Cliente cadastrada"
     ],
-    "fluxo": "Pelo token do atendimento: exige ≥ 24 h de antecedência; escolhe novo horário (UC03); o antigo vira REAGENDADO e o novo herda preço, retorno e ficha; fica AGENDADO se já aprovado e com a mesma profissional, senão PENDENTE.",
+    "fluxo": "Pelo portal (id + sessão do OTP, só agendamentos do telefone verificado) ou pelo link legado: exige ≥ 24 h de antecedência; escolhe novo horário (UC03); services/agenda.reagendar marca o antigo REAGENDADO e cria o novo com preço, retorno e ficha; fica AGENDADO se já aprovado e com a mesma profissional, senão PENDENTE.",
     "inclui": [
      "UC03"
     ]
@@ -2556,7 +3175,7 @@
     "atores": [
      "Cliente cadastrada"
     ],
-    "fluxo": "Pelo token (portal): atendimento ativo e futuro vai para CANCELADO pela FSM; a vaga é oferecida à lista de espera.",
+    "fluxo": "Pelo portal (id + sessão do OTP) ou pelo link legado: atendimento ativo e futuro vai para CANCELADO pela FSM (trilha \"[pela cliente]\"); a vaga é oferecida à lista de espera.",
     "inclui": []
    },
    {
@@ -2577,7 +3196,7 @@
     "atores": [
      "Cliente cadastrada"
     ],
-    "fluxo": "Pelo link do lembrete D-1 (WhatsApp): confirmar (AGENDADO → CONFIRMADO) ou cancelar, uma única vez.",
+    "fluxo": "Pelo link do lembrete D-1 (WhatsApp; link_acesso válido até o início): confirmar (AGENDADO → CONFIRMADO) ou cancelar, uma única vez.",
     "inclui": []
    },
    {
@@ -2595,7 +3214,7 @@
     "atores": [
      "Visitante / Cliente (público, sem login)"
     ],
-    "fluxo": "Pelo token (60 dias): responde a ficha; para ficha de saúde marca o consentimento do art. 11 (auditado); respostas validadas contra o schema; uma resposta por link.",
+    "fluxo": "Pelo link (60 dias): responde a ficha; para ficha de saúde marca o consentimento do art. 11 (aceite do termo SAÚDE com prova); respostas validadas contra o schema e gravadas cifradas; uma resposta por link. Rota mantida, hoje sem produtor de link.",
     "inclui": []
    },
    {
@@ -2614,7 +3233,7 @@
     "atores": [
      "Cliente cadastrada"
     ],
-    "fluxo": "Pelo link do atendimento (válido até o fim dele): lê e aceita os termos pendentes; o aceite grava IP, navegador e SHA-256 do texto.",
+    "fluxo": "Pelo link do atendimento (link_acesso TERMO, válido até o fim dele): lê e aceita os termos pendentes; o aceite grava IP, navegador e SHA-256 do texto.",
     "inclui": []
    },
    {
@@ -2624,7 +3243,7 @@
      "Cliente cadastrada",
      "Serviços externos"
     ],
-    "fluxo": "Baixar os dados em JSON após código SMS (DSAR), descadastrar-se por link e registrar o aviso de cookies.",
+    "fluxo": "Baixar os dados em JSON após código SMS (DSAR: cadastro, consentimentos com histórico, atendimentos, fichas, prontuário, aceites, NPS, pacotes, carteira), descadastrar-se por link (revoga marketing e pesquisa) e registrar o aviso de cookies.",
     "inclui": [
      "UC02"
     ]
@@ -2636,7 +3255,7 @@
      "Administrador (ADMIN)",
      "Profissional"
     ],
-    "fluxo": "Login por e-mail/senha com rate-limit e django-axes; ADMIN sem 2FA vai ao cadastro obrigatório; com 2FA passa pelo desafio (UC14); reset de senha por link (1 h). Logout só via POST.",
+    "fluxo": "Login por e-mail/senha com rate-limit e django-axes; sem 2FA cadastrado vai ao cadastro obrigatório; com 2FA passa pelo desafio (UC14); reset de senha por link (1 h). Logout só via POST.",
     "inclui": [
      "UC14"
     ]
@@ -2648,7 +3267,7 @@
      "Administrador (ADMIN)",
      "Profissional"
     ],
-    "fluxo": "Cadastro por QR (SVG) e confirmação do primeiro código; desafio a cada sessão (TOTP ou código de backup); trocar de aparelho exige o código atual.",
+    "fluxo": "Cadastro por QR (SVG) e confirmação do primeiro código; desafio a cada sessão (TOTP ou código de backup); códigos de backup gerados no painel; trocar de aparelho exige o código atual.",
     "inclui": []
    },
    {
@@ -2666,7 +3285,7 @@
     "atores": [
      "Administrador (ADMIN)"
     ],
-    "fluxo": "Lista com filtros e marcadores (termo pendente, ficha pendente, alertas); aprovar/rejeitar individual ou em lote; mudar status pela FSM (409 sem termo, salvo override); calendário com arrastar-e-soltar; valor cobrado; link do termo.",
+    "fluxo": "Lista com filtros por dia e marcadores (termo pendente, ficha pendente, alertas); aprovar/rejeitar individual ou em lote (e-mail pela fila); mudar status pela FSM (409 sem termo, salvo override); calendário com arrastar-e-soltar (services/agenda.mover, motivo detalhado da recusa); valor cobrado; link do termo.",
     "inclui": []
    },
    {
@@ -2676,8 +3295,10 @@
      "Administrador (ADMIN)",
      "Profissional"
     ],
-    "fluxo": "Ficha da cliente (dados validados, alertas, pacotes, histórico); prontuário com histórico de versões, trava de edição concorrente e trilha de leitura; anotações de sessão.",
-    "inclui": []
+    "fluxo": "Ficha da cliente (dados validados, alertas, pacotes, histórico, autorizações de comunicação); prontuário com as perguntas do formulário PRONTUARIO, histórico de versões, trava de edição concorrente e trilha de leitura; anotações de sessão append-only. Conteúdo clínico cifrado.",
+    "inclui": [
+     "UC29"
+    ]
    },
    {
     "id": "UC18",
@@ -2686,7 +3307,7 @@
      "Administrador (ADMIN)",
      "Serviços externos"
     ],
-    "fluxo": "Profissionais (expediente, antecedências, habilitações, preços), exceções, bloqueios (inclusive globais), procedimentos, novo link do feed iCal e conexão com o Google Calendar.",
+    "fluxo": "Profissionais (grade semanal, antecedências, habilitações, preços), exceções de agenda (folga, horário diferente, bloqueio pontual ou recorrente, inclusive para todos), feriados e recessos, procedimentos, novo link do feed iCal e conexão com o Google Calendar.",
     "inclui": []
    },
    {
@@ -2695,7 +3316,7 @@
     "atores": [
      "Administrador (ADMIN)"
     ],
-    "fluxo": "Criar/editar pacotes (congelados após a venda), vender a uma cliente, acompanhar saldo/validade e cancelar com valor devolvido.",
+    "fluxo": "Criar/editar pacotes do catálogo (vale para vendas futuras), vender a uma cliente (itens congelados com valor unitário), acompanhar saldo/validade e cancelar com valor devolvido.",
     "inclui": []
    },
    {
@@ -2714,7 +3335,7 @@
     "atores": [
      "Administrador (ADMIN)"
     ],
-    "fluxo": "Dashboard e financeiro (faturamento de avulsos + vendas de pacote, faltas, rankings), comissões pendentes/pagas (pagar) e exportação em Excel.",
+    "fluxo": "Dashboard e financeiro (faturamento de avulsos + vendas de pacote líquidas, faltas, rankings, ticket médio); comissões em livro-razão (créditos, pagamentos, estornos, saldo por profissional — pode ficar negativo), pagar um crédito e exportar em Excel.",
     "inclui": []
    },
    {
@@ -2733,7 +3354,7 @@
     "atores": [
      "Administrador (ADMIN)"
     ],
-    "fluxo": "Formulários de anamnese (schema JSON; mudar schema com respostas cria nova versão) e termos versionados (1 ativo por escopo; imutáveis após aceite); painel de conformidade dos aceites.",
+    "fluxo": "Formulários de anamnese, pesquisa e perguntas do prontuário (lista de perguntas com alerta de saúde; 1 PRONTUARIO ativo) e termos versionados LGPD, SAÚDE e de procedimento (1 ativo por escopo; imutáveis após aceite); painel de conformidade dos aceites.",
     "inclui": []
    },
    {
@@ -2752,7 +3373,7 @@
      "Sistema / Cron externo",
      "Serviços externos"
     ],
-    "fluxo": "POST /cron/run/<job>/ com X-Cron-Token executa o job (lembrete D-1, NPS, alerta de detrator, pacotes, aniversário, limpeza de status, retenção LGPD, housekeeping, feriados); 500 quando o job falha.",
+    "fluxo": "POST /cron/run/<job>/ com X-Cron-Token (ou rodar_job no servidor) executa o job dentro do request: fila de e-mail (15 min), lembrete D-1, NPS, alerta de detrator, pacotes, aniversário, limpeza de status, retenção LGPD e housekeeping (procedures do Postgres), feriados; 500 quando o job falha; trilha com origem cron:<job>.",
     "inclui": []
    },
    {
@@ -2784,93 +3405,283 @@
     ],
     "fluxo": "No painel de NPS, aprovar (só com opt-in da cliente e comentário) ou retirar depoimentos do site; auditado.",
     "inclui": []
+   },
+   {
+    "id": "UC29",
+    "nome": "Gerir autorizações de comunicação",
+    "atores": [
+     "Administrador (ADMIN)"
+    ],
+    "fluxo": "Na ficha da cliente: ver o estado de cada finalidade × canal, revogar a pedido da cliente e registrar autorização com justificativa (origem PAINEL, autor); o histórico é preservado e o mais recente vale.",
+    "inclui": []
+   },
+   {
+    "id": "UC30",
+    "nome": "Assinar o feed iCal da agenda",
+    "atores": [
+     "Profissional",
+     "Administrador (ADMIN)"
+    ],
+    "fluxo": "Gerar o link do feed iCal (no portal ou no painel): o link anterior é revogado e a URL aparece uma única vez; o banco guarda só o hash do token.",
+    "inclui": []
    }
   ]
  },
  "arquitetura": {
   "componentes": [
    {
+    "nome": "Navegador (site público + wizard)",
+    "papel": "Páginas server-render com Vite, Tailwind CSS v4, Alpine.js (build CSP) e componentes django-cotton; uma entrada JS por tela; fontes locais; PWA com service worker (só páginas públicas)."
+   },
+   {
+    "nome": "Navegador (painel ADMIN + portal do profissional)",
+    "papel": "App-shell PWA da equipe com 2FA, Django Forms, calendário (FullCalendar) e Web Push."
+   },
+   {
     "nome": "Django App (gunicorn)",
-    "papel": "Aplicação monolítica Django 5.2 (app aranha_estetica + projeto clinica), server-render, servida por gunicorn com 1 worker × 4 threads (timeout 120 s, access log com tokens redigidos). Site público, portal do profissional, painel, API REST somente leitura, cron HTTP, webhooks e healthchecks."
+    "papel": "Monólito Django 5.2: views (validação + permissão) → services/utils (regra de negócio) → models (FSM, managers, constraints). Middlewares de CSP com nonce, headers, 2FA, axes, rate-limit e ContextoBancoMiddleware (Ator da requisição)."
    },
    {
-    "nome": "Middlewares de segurança",
-    "papel": "ContentSecurityPolicyMiddleware (CSP com nonce), SecurityHeadersMiddleware (no-store nas áreas privadas, no-referrer nas rotas com token, COOP/CORP/Permissions-Policy), Enforce2FAMiddleware (2FA da equipe a cada request), django-axes e django-ratelimit."
+    "nome": "services/agenda e services/atendimento",
+    "papel": "Fonte única das regras de horário (validar_horario, reservar, reagendar, mover) e dos efeitos de criar/mudar status do atendimento, chamados explicitamente na transação da FSM."
    },
    {
-    "nome": "Serviços, FSM, signals e EventBus",
-    "papel": "Regras em services/ e utils/ (SlotService, OTP, preços, termos, LGPD, alertas, comissão, cashback, retorno, lista de espera). FSM do atendimento no model; signals para faltas, pacote, lista de espera e push; EventBus síncrono para comissão, cashback e retorno."
+    "nome": "Jobs (jobs.py, jobs_manutencao.py)",
+    "papel": "Funções chamadas pelo cron HTTP /cron/run/<job>/ (X-Cron-Token) ou por manage.py rodar_job; sem Celery nem worker de fila."
    },
    {
-    "nome": "Celery (eager) + cron HTTP",
-    "papel": "Tasks Celery rodam em modo eager em produção (sem worker e sem retry síncrono); jobs periódicos chamados por cron externo em /cron/run/<job>/. Worker real opcional (CELERY_WORKER_ENABLED)."
+    "nome": "Fila de e-mail (notificacao)",
+    "papel": "E-mail transacional gravado como Notificacao PENDENTE na transação, enviado no on_commit e reenviado pelo job emails com espera crescente."
    },
    {
     "nome": "PostgreSQL 18",
-    "papel": "Banco principal (34 tabelas de domínio) com EXCLUDE anti double-booking, UNIQUE parciais, CHECKs, triggers de imutabilidade e collation pt_br. SQLite em desenvolvimento e testes rápidos."
+    "papel": "36 tabelas de domínio no padrão SQL; invariantes por EXCLUDE, CHECK, UNIQUE parciais e 46 triggers; trilha historico_alteracao; 23 funções fn_*, 9 views vw_* de relatório e 4 procedures sp_* (retenção/LGPD, expiração de pacotes); extensões btree_gist, pg_trgm e unaccent."
    },
    {
     "nome": "Cache e sessão",
-    "papel": "LocMemCache + sessão no banco (1 worker): rate-limit, axes, trava de slot e cotas de SMS. REDIS_URL opcional troca para Redis (necessário com mais de um worker)."
+    "papel": "LocMemCache + sessão no banco (1 worker); REDIS_URL troca para django-redis."
    },
    {
-    "nome": "Front-end (Vite + Tailwind + Alpine + cotton)",
-    "papel": "Bundle Vite com Tailwind v4 e Alpine CSP servido pelo django-vite; componentes django-cotton; JS estático do wizard; estáticos com hash e compressão pelo WhiteNoise."
+    "nome": "WhiteNoise",
+    "papel": "Estáticos comprimidos e com hash servidos pelo próprio processo."
    },
    {
-    "nome": "PWA e Web Push",
-    "papel": "Manifest do site e da equipe, service worker v7 (só páginas públicas em cache), push VAPID ao profissional."
-   },
-   {
-    "nome": "Railway (Docker)",
-    "papel": "Imagem multi-stage (Node 22 → Python 3.12), pre-deploy com migrate_atomico + bootstrap_admin, healthcheck /healthz/, 1 réplica."
+    "nome": "Pre-deploy (Railway)",
+    "papel": "migrate_atomico (todas as migrations numa transação, com lock_timeout) + bootstrap_admin; imagem Docker multi-stage com usuário não-root e healthcheck."
    }
   ],
   "integracoes_externas": [
    {
     "nome": "Zenvia SMS",
-    "uso": "Único canal de OTP (agendamento, Meus agendamentos, DSAR), só para celular, com cotas por telefone/IP/global. Sem provedor: falha fechada e o site orienta o WhatsApp. Webhook de status com IP permitido e/ou HMAC."
+    "uso": "OTP do agendamento, do \"Meus agendamentos\" e do DSAR (só celular), com cotas; webhook de status autenticado. Sem configuração o agendamento online fecha e o botão Agendar leva ao WhatsApp."
    },
    {
     "nome": "WhatsApp Cloud API (Meta)",
-    "uso": "Templates aprovados: lembrete D-1 com links de confirmar/cancelar, NPS pós-atendimento e aviso de vaga da lista de espera; sempre com consentimento. Webhook com handshake e assinatura X-Hub-Signature-256 captura a nota de NPS."
+    "uso": "Templates de lembrete D-1, NPS e aviso de vaga; webhook assinado (X-Hub-Signature-256) captura a nota do NPS."
    },
    {
-    "nome": "Provedor de e-mail",
-    "uso": "Backend Django configurável (SMTP ou HTTP): aprovação/rejeição, cancelamento, termos, lista de espera, pacote expirando, aviso ao profissional, reset/convite de senha, contato, aniversário e promoções (com List-Unsubscribe e HTML sanitizado). Sem backend real nada é enviado."
+    "nome": "E-mail (backend Django)",
+    "uso": "Transacional pela fila (aprovação, rejeição, cancelamento, aviso à profissional), termos, pacote expirando, reset/convite de senha e marketing com List-Unsubscribe."
+   },
+   {
+    "nome": "Web Push (VAPID)",
+    "uso": "Aviso de novo agendamento ao profissional."
+   },
+   {
+    "nome": "Google Calendar",
+    "uso": "Push do atendimento novo e importação de eventos como bloqueio (OAuth por profissional, token cifrado; opcional)."
    },
    {
     "nome": "Cloudflare Turnstile",
-    "uso": "Captcha no pedido de código SMS (wizard e Meus agendamentos), verificado no servidor com o IP da cliente."
+    "uso": "Captcha no pedido de código OTP."
    },
    {
-    "nome": "Google Calendar (opcional)",
-    "uso": "OAuth por profissional: envio do atendimento novo e leitura de eventos; feed iCal próprio com token rotacionável."
-   },
-   {
-    "nome": "Sentry (opcional)",
-    "uso": "Monitoramento de erros com PII e tokens removidos antes do envio."
-   },
-   {
-    "nome": "Railway",
-    "uso": "Hospedagem (Docker), Postgres gerenciado, variáveis de ambiente e agendamento (Railway Cron, opcional)."
+    "nome": "Sentry",
+    "uso": "Erros e transações amostradas sem PII (scrubber de contato, saúde e tokens); opcional."
    }
   ],
   "fluxo_agendamento_otp": [
-   "1. Cliente abre /agendamento/ (GET agendamento_publico) e recebe o wizard com procedimentos (preço com a promoção da data), fichas de anamnese aplicáveis, termos e a chave do Turnstile.",
-   "2. Ao escolher procedimento e data, o wizard.js consulta /ajax/dias-disponiveis/ e /ajax/horarios-disponiveis/; o SlotService devolve os horários livres por profissional.",
-   "3. Cliente preenche nome, celular, nascimento, e-mail (opcional), escolhe os consentimentos de comunicação (desmarcados), aceita a Política de Privacidade e os termos do procedimento e responde a ficha (com o consentimento do art. 11).",
-   "4. Pede o código: POST solicitar_otp_agendamento (5/min por IP) valida o Turnstile, recusa telefone fixo, checa intervalo de 60 s e cotas de SMS antes de gerar o código (HMAC) e envia pela Zenvia (válido 10 min). A resposta não revela se o telefone é cadastrado.",
-   "5. Digita o código: POST verificar_otp_agendamento confere (5 tentativas), troca o id da sessão e grava o telefone verificado (30 min); devolve o pré-preenchimento do cadastro daquele telefone.",
-   "6. Confirma: POST confirmar_agendamento (10/min por IP) checa honeypot, campos obrigatórios, aceite da política e se o telefone do formulário é o verificado na sessão.",
-   "7. O servidor valida e-mail, idade ≥ 18, procedimento/profissional ativos e habilitação, data futura, feriado, slot livre (SlotService), ficha contra o schema + consentimento art. 11, termos de procedimento aceitos e e-mail que não pertença a outro cadastro.",
-   "8. Trava o slot no cache (30 s) para serializar confirmações simultâneas.",
-   "9. Em transaction.atomic: get_or_create da cliente pelo telefone com SELECT FOR UPDATE (bloqueada online é recusada), atualiza nome, e-mail e consentimentos (data + IP), confere conflito com SELECT FOR UPDATE, calcula preço + promoção da data e cria o atendimento PENDENTE.",
-   "10. Na mesma transação grava os aceites (AceiteTermo.registrar: LGPD vigente + termos, com IP, navegador e SHA-256), as fichas respondidas e a auditoria do consentimento de saúde.",
-   "11. Se outro pedido ganhou a corrida, a constraint EXCLUDE (23P01) vira a mensagem \"horário acabou de ser reservado\" e o wizard é reidratado.",
-   "12. Após o commit: e-mail ao profissional com link para a agenda do dia, push ao profissional e sync do Google Calendar (on_commit).",
-   "13. A sessão de OTP é limpa e a página de sucesso mostra o resumo (valor com promoção) e que o pedido aguarda a aprovação da clínica.",
-   "14. Depois, a clínica aprova (AGENDADO + e-mail de confirmação) ou rejeita (CANCELADO + e-mail) pelo painel ou pelo portal do profissional."
+   "A cliente abre /agendamento/; o wizard recebe o catálogo com o preço da data (promoção), os termos e as fichas aplicáveis.",
+   "Escolhe procedimento e data; o wizard consulta /ajax/dias-disponiveis/ e /ajax/horarios-disponiveis/ (SlotService sobre agenda_horario, agenda_excecao e atendimentos ativos).",
+   "Escolhe o horário e o profissional e avança com o botão Continuar.",
+   "Informa nome, celular, nascimento e e-mail opcional; marca (nunca pré-marcadas) as autorizações de comunicação; aceita a Política de Privacidade e os termos; responde a ficha e o consentimento de saúde.",
+   "Pede o código: o servidor valida o Turnstile, recusa fixo, confere intervalo de 60 s e cotas de SMS e grava o CodigoOtp (HMAC-SHA256); a Zenvia entrega o SMS.",
+   "Digita o código: até 5 tentativas; o telefone fica verificado na sessão por 30 min e o cadastro daquele telefone pré-preenche o formulário.",
+   "Confirma: o servidor exige o telefone do formulário = o verificado, o aceite da política e idade ≥ 18.",
+   "services/agenda.validar_horario revalida habilitação, horário futuro, feriado/recesso e o slot.",
+   "Trava do horário no cache (30 s) e transaction.atomic: cliente pelo telefone (SELECT FOR UPDATE), recusa se bloqueada online.",
+   "services/consentimentos.registrar_do_wizard grava as concessões/revogações (histórico append-only).",
+   "services/agenda.reservar: conflito com SELECT FOR UPDATE, preço da data e INSERT do atendimento PENDENTE num savepoint (corrida perdida para o EXCLUDE vira HorarioIndisponivel).",
+   "Na mesma transação: Notificacao EMAIL de aprovação à profissional (fila), AceiteTermo LGPD, de procedimento e SAÚDE (IP, navegador, SHA-256), fichas cifradas e LogAuditoria do consentimento art. 11; a trilha historico_alteracao registra o atendimento.",
+   "Após o commit: e-mail à profissional, push e Google Calendar (best-effort); a trava do cache é liberada.",
+   "A cliente vê a página de sucesso (aguardando aprovação da clínica); a clínica aprova (AGENDADO + e-mail) ou rejeita."
+  ],
+  "rotas": [
+   {
+    "grupo": "Site público",
+    "rota": "/, /quem-somos/, /equipe/, /especialidades/, /galeria/, /depoimentos/, /promocoes/",
+    "funcao": "Páginas institucionais; depoimentos só com autorização + aprovação; promoções com o mesmo preço do agendamento"
+   },
+   {
+    "grupo": "Site público",
+    "rota": "/servicos/faciais/, /servicos/corporais/, /servicos/detalhe/<slug>/",
+    "funcao": "Catálogo de serviços"
+   },
+   {
+    "grupo": "Site público",
+    "rota": "/contato/, /termos-de-uso/, /politica-de-privacidade/",
+    "funcao": "Contato (e-mail do Branding) e textos legais"
+   },
+   {
+    "grupo": "Site público",
+    "rota": "/lista-espera/ (+ sucesso/)",
+    "funcao": "Pedido de aviso de vaga"
+   },
+   {
+    "grupo": "Site público",
+    "rota": "/sitemap.xml, /robots.txt, /manifest.json, /sw.js, /favicon.ico",
+    "funcao": "SEO e PWA"
+   },
+   {
+    "grupo": "Agendamento",
+    "rota": "/agendamento/, /agendar/<slug>/, /embed/agendar/",
+    "funcao": "Wizard (geral, direto por profissional, widget para iframe)"
+   },
+   {
+    "grupo": "Agendamento",
+    "rota": "/ajax/dias-disponiveis/, /ajax/horarios-disponiveis/",
+    "funcao": "Dias do mês e horários livres (SlotService)"
+   },
+   {
+    "grupo": "Agendamento",
+    "rota": "POST /agendamento/otp/solicitar/, POST /agendamento/otp/verificar/",
+    "funcao": "Código OTP do celular (Turnstile quando configurado)"
+   },
+   {
+    "grupo": "Agendamento",
+    "rota": "POST /agendamento/confirmar/, /agendamento/sucesso/",
+    "funcao": "Grava o atendimento PENDENTE"
+   },
+   {
+    "grupo": "Cliente",
+    "rota": "/meus-agendamentos/ (+ otp/enviar/, otp/verificar/, sair/)",
+    "funcao": "Portal da cliente (código sempre ao celular)"
+   },
+   {
+    "grupo": "Cliente",
+    "rota": "/meus-agendamentos/<id>/reagendar/ (+ <id>/horarios/), POST /ajax/cancelar-agendamento/",
+    "funcao": "Reagendar e cancelar pela sessão do portal"
+   },
+   {
+    "grupo": "Cliente",
+    "rota": "/reagendar/<token>/ (+ horarios/)",
+    "funcao": "Reagendar pelo link legado (nenhum link novo é emitido)"
+   },
+   {
+    "grupo": "Cliente",
+    "rota": "/confirmar/<token>/, /termo/<token>/, /nps/<token>/",
+    "funcao": "Confirmar presença (D-1), aceitar termos, responder NPS"
+   },
+   {
+    "grupo": "Cliente",
+    "rota": "/anamnese/<token>/, /pesquisa/<token>/ (+ obrigado/)",
+    "funcao": "Ficha e pesquisa por link (mantidas, hoje sem produtor de link)"
+   },
+   {
+    "grupo": "Cliente",
+    "rota": "/lgpd/meus-dados/, /lgpd/unsubscribe/<token>/, /lgpd/aceitar-cookies/",
+    "funcao": "DSAR com OTP, descadastro, aviso de cookies"
+   },
+   {
+    "grupo": "Equipe",
+    "rota": "/admin-login/, /admin-logout/, /admin-login/recuperar/…",
+    "funcao": "Login da equipe (logout só via POST) e reset de senha"
+   },
+   {
+    "grupo": "Equipe",
+    "rota": "/painel/seguranca/2fa/ (+ verificar/, challenge/)",
+    "funcao": "Cadastro e desafio TOTP"
+   },
+   {
+    "grupo": "Equipe",
+    "rota": "/profissional/ (+ atendimento/<pk>/{realizado,anotar,aprovar,rejeitar}/, calendario/novo-link/)",
+    "funcao": "Portal do profissional e link do próprio feed iCal"
+   },
+   {
+    "grupo": "Equipe",
+    "rota": "/agenda/<slug>/feed.ics?token=",
+    "funcao": "Feed iCal do profissional"
+   },
+   {
+    "grupo": "Painel",
+    "rota": "/painel/, /painel/overview/",
+    "funcao": "Dashboard"
+   },
+   {
+    "grupo": "Painel",
+    "rota": "/painel/agendamentos/ (+ novo/, bulk/, <pk>/aprovar|rejeitar|termo-link|valor/), /painel/atualizar-status/",
+    "funcao": "Agenda em lista, agendamento interno, aprovação, link do termo, valor cobrado, mudança de status"
+   },
+   {
+    "grupo": "Painel",
+    "rota": "/painel/calendario/ (+ eventos/, mover/)",
+    "funcao": "Calendário com arrastar-e-soltar"
+   },
+   {
+    "grupo": "Painel",
+    "rota": "/painel/clientes/, /painel/clientes/<pk>/",
+    "funcao": "Clientes e ficha (pacotes, alertas, autorizações de comunicação, histórico)"
+   },
+   {
+    "grupo": "Painel",
+    "rota": "/painel/prontuario/ (+ <cliente_id>/, salvar/), /painel/anotacao/<id>/salvar/",
+    "funcao": "Prontuário com histórico de versões e anotações"
+   },
+   {
+    "grupo": "Painel",
+    "rota": "/painel/profissionais/… (+ excecoes/, ics/novo-token/), /painel/bloqueios/…",
+    "funcao": "Profissionais, exceções de agenda, bloqueios e link do feed iCal"
+   },
+   {
+    "grupo": "Painel",
+    "rota": "/painel/procedimentos/…, /painel/pacotes/… (+ vender/, compras/<pk>/cancelar/), /painel/promocoes/… (+ disparar/)",
+    "funcao": "Catálogo, pacotes e promoções"
+   },
+   {
+    "grupo": "Painel",
+    "rota": "/painel/financeiro/, /painel/comissoes/ (+ <pk>/pagar/), /painel/nps/ (+ publicacao/), /painel/exportar-relatorio/",
+    "funcao": "Relatórios, comissões, NPS e moderação de depoimentos, Excel"
+   },
+   {
+    "grupo": "Painel",
+    "rota": "/painel/lista-espera/ (+ notificar/), /painel/anamneses/…, /painel/termos/ (+ criar/, compliance/)",
+    "funcao": "Lista de espera, formulários e termos"
+   },
+   {
+    "grupo": "Painel",
+    "rota": "/painel/notificacoes/, /painel/auditoria/, /painel/usuarios/…, /painel/configuracoes/…, /painel/branding/, /painel/email-preview/",
+    "funcao": "Sistema"
+   },
+   {
+    "grupo": "Painel",
+    "rota": "/painel/integrations/google/{connect,callback,pull}/…, /webpush/…, /django-admin-sv/",
+    "funcao": "Google Calendar, Web Push e Django admin (só ADMIN com 2FA verificado)"
+   },
+   {
+    "grupo": "Infraestrutura",
+    "rota": "GET/POST /api/whatsapp/webhook/, POST /api/zenvia/webhook/",
+    "funcao": "Webhooks autenticados (Meta e Zenvia)"
+   },
+   {
+    "grupo": "Infraestrutura",
+    "rota": "POST /cron/run/<job>/",
+    "funcao": "Jobs periódicos (header X-Cron-Token)"
+   },
+   {
+    "grupo": "Infraestrutura",
+    "rota": "/healthz/, /health/",
+    "funcao": "Liveness e readiness"
+   }
   ]
  }
 }

@@ -14,6 +14,7 @@ from docx import Document
 from docx.enum.section import WD_ORIENT, WD_SECTION
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.image.image import Image as DocxImage
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
@@ -22,8 +23,8 @@ BASE = os.path.dirname(os.path.abspath(__file__))
 DIAG = os.path.join(BASE, 'diagramas')
 DADOS = os.path.join(BASE, '_dados_requisitos.json')
 
-VERSAO = '2.2'
-DATA = date(2026, 9, 23).strftime('%d/%m/%Y')
+VERSAO = '2.3'
+DATA = date(2026, 10, 28).strftime('%d/%m/%Y')
 # (versao, data, descricao) — acrescente uma linha a cada regeneracao relevante
 HISTORICO = [
     ('2.1', '21/06/2026', 'Documento de requisitos + modelagem UML gerado a partir do código '
@@ -32,6 +33,15 @@ HISTORICO = [
                           'consentimentos LGPD/art. 11 com prova de aceite imutável, 2FA obrigatório '
                           'para ADMIN, histórico do prontuário, agendamento interno, deploy por Docker '
                           '+ migração atômica (migrations 0040–0046).'),
+    ('2.3', '28/10/2026', 'Atualização pós-revisão de outubro/2026 (migrations 0047–0061): termo de saúde, '
+                          'agenda unificada (agenda_horario + agenda_excecao), links públicos em hash '
+                          '(link_acesso), consentimentos com histórico, questionário do prontuário como '
+                          'formulário PRONTUARIO, pacote congelado na venda (compra_pacote_item), comissão como '
+                          'livro-razão, padrão SQL de nomes, lógica no banco (triggers, funções, views e '
+                          'procedures), trilhas imutáveis, cifragem do dado de saúde, fila de e-mail na '
+                          'notificação e saída do Celery (jobs.py/rodar_job); services/agenda e '
+                          'services/atendimento, Ator da requisição, Django Forms no painel, wizard com botão '
+                          'Continuar e PWA. Diagramas UML revisados e tabela de rotas.'),
 ]
 GOLD = RGBColor(0xC4, 0xA3, 0x5A)
 DARK = RGBColor(0x4A, 0x34, 0x25)
@@ -87,36 +97,56 @@ def add_table(headers, rows, widths=None):
     return t
 
 
-def add_image(nome, legenda, largura=6.4, paisagem=False):
+def _orientar(paisagem):
+    """Garante a orientacao da pagina atual. Secao nova (= pagina nova) so quando ela muda:
+    voltar ao retrato logo apos cada figura deixava uma pagina em branco entre 2 paisagens."""
+    sec = doc.sections[-1]
+    if (sec.orientation == WD_ORIENT.LANDSCAPE) == paisagem:
+        return False
+    sec = doc.add_section(WD_SECTION.NEW_PAGE)
+    sec.orientation = WD_ORIENT.LANDSCAPE if paisagem else WD_ORIENT.PORTRAIT
+    sec.page_width, sec.page_height = sec.page_height, sec.page_width
+    return True
+
+
+def add_image(nome, legenda, paisagem=False):
     path = os.path.join(DIAG, nome)
     if not os.path.exists(path):
         doc.add_paragraph(f'[diagrama ausente: {nome}]')
         return
+    img = DocxImage.from_file(path)
+    proporcao = img.px_height / img.px_width
+    # Diagrama alto aproveita melhor a pagina em retrato (paisagem so p/ os largos).
+    paisagem = paisagem and proporcao <= 0.8
     if paisagem:
-        sec = doc.add_section(WD_SECTION.NEW_PAGE)
-        sec.orientation = WD_ORIENT.LANDSCAPE
-        sec.page_width, sec.page_height = sec.page_height, sec.page_width
-        largura = 9.2
+        if not _orientar(True):
+            doc.add_page_break()   # figura em paisagem logo apos outra
+    else:
+        _orientar(False)
+    # Cabe na area util (largura e altura, com folga p/ a legenda): largura fixa
+    # estourava a pagina com os diagramas altos.
+    sec = doc.sections[-1]
+    max_w = sec.page_width - sec.left_margin - sec.right_margin
+    max_h = sec.page_height - sec.top_margin - sec.bottom_margin - Inches(0.8)
+    largura = min(max_w, int(max_h / proporcao))
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p.add_run().add_picture(path, width=Inches(largura))
+    p.add_run().add_picture(path, width=largura)
     cap = doc.add_paragraph()
     cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
     r = cap.add_run(legenda)
     r.italic = True
     r.font.size = Pt(8.5)
     r.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
-    if paisagem:
-        sec2 = doc.add_section(WD_SECTION.NEW_PAGE)
-        sec2.orientation = WD_ORIENT.PORTRAIT
-        sec2.page_width, sec2.page_height = sec2.page_height, sec2.page_width
 
 
 def h1(txt):
+    _orientar(False)
     doc.add_heading(txt, level=1)
 
 
 def h2(txt):
+    _orientar(False)
     doc.add_heading(txt, level=2)
 
 
@@ -180,27 +210,32 @@ h2('1.1 Objetivo')
 par('Este documento especifica os requisitos funcionais e não funcionais, as regras '
     'de negócio e a modelagem UML do sistema Shiva Zen — plataforma web de gestão da '
     'clínica de estética Jaqueline Aranha. O conteúdo foi derivado diretamente do '
-    'código-fonte da aplicação (Django 5.2, migrations até 0046), garantindo aderência ao '
+    'código-fonte da aplicação (Django 5.2, migrations até 0061), garantindo aderência ao '
     'comportamento realmente implementado.')
 h2('1.2 Escopo')
 par('O sistema cobre o agendamento online público (sem senha: a cliente é identificada '
     'pelo celular, confirmado por código OTP via SMS em todo agendamento), com aceite da '
-    'Política de Privacidade, consentimento para dado de saúde e termos do procedimento; a '
-    'área "Meus agendamentos"; o portal do profissional; o painel administrativo (agenda, '
-    'agendamento interno, clientes, prontuário com histórico, pacotes, promoções, comissões, '
-    'NPS e depoimentos, termos, auditoria); rotinas automáticas (lembrete D-1, NPS, pacotes, '
-    'aniversário, limpeza de status, retenção LGPD) e integrações externas (SMS Zenvia, '
-    'WhatsApp Meta, e-mail, Google Calendar, Cloudflare Turnstile, Sentry).')
+    'Política de Privacidade, consentimento para dado de saúde, termos do procedimento e '
+    'autorizações de comunicação com histórico; a área "Meus agendamentos" (reagendar e '
+    'cancelar); o portal do profissional; o painel administrativo (agenda com grade e '
+    'exceções, agendamento interno, clientes, prontuário com histórico, pacotes, promoções, '
+    'comissões em livro-razão, NPS e depoimentos, termos, auditoria); rotinas automáticas '
+    '(fila de e-mail, lembrete D-1, NPS, pacotes, aniversário, limpeza de status, retenção '
+    'LGPD) e integrações externas (SMS Zenvia, WhatsApp Meta, e-mail, Google Calendar, '
+    'Cloudflare Turnstile, Sentry).')
 h2('1.3 Visão geral da arquitetura')
 par('Aplicação Django monolítica renderizada no servidor e servida por gunicorn '
     '(1 worker × 4 threads) em contêiner Docker no Railway, com PostgreSQL 18 como banco '
-    'principal (invariantes garantidas por EXCLUDE, CHECK, UNIQUE parciais e triggers). As '
-    'tarefas Celery rodam em modo síncrono (eager) e os jobs periódicos são disparados por '
-    'um cron externo via HTTP autenticado; cache e sessão são locais, com Redis opcional. O '
-    'front-end usa Vite, Tailwind CSS v4, Alpine.js (build CSP) e componentes django-cotton, '
-    'com PWA. A regra de negócio reside em serviços, sinais de modelo e eventos de domínio '
-    '(EventBus); o estado do atendimento é governado por uma máquina de estados (FSM). '
-    'Detalhes nas seções 8 e 10.')
+    'principal: 36 tabelas no padrão SQL, invariantes garantidas por EXCLUDE, CHECK, UNIQUE '
+    'parciais e triggers, trilha de alterações por trigger, funções e views de relatório e '
+    'procedures que concentram a retenção LGPD; o dado de saúde é gravado cifrado. Não há '
+    'Celery: os jobs periódicos são funções disparadas por um cron externo via HTTP '
+    'autenticado e o e-mail transacional é uma fila na própria tabela de notificações; cache '
+    'e sessão são locais, com Redis opcional. O front-end usa Vite, Tailwind CSS v4, '
+    'Alpine.js (build CSP) e componentes django-cotton, com PWA. A regra de negócio reside '
+    'nos serviços — services/agenda concentra as regras de horário e services/atendimento os '
+    'efeitos de cada mudança de status, aplicados na mesma transação da máquina de estados '
+    '(FSM) do atendimento. Detalhes nas seções 8 e 10.')
 
 # ===================== 2. ATORES =====================
 doc.add_page_break()
@@ -254,9 +289,13 @@ add_table(
 # ===================== 7. MODELO DE DOMINIO =====================
 doc.add_page_break()
 h1('7. Modelo de Domínio (Diagrama de Classes)')
+par('Os atributos seguem os nomes das classes Python; no banco, tabelas e colunas seguem o '
+    'padrão SQL do projeto (por exemplo, ativo → eh_ativo, buffer_minutos → '
+    'intervalo_minutos). O nome físico de cada tabela está no dicionário de entidades (7.1).')
 add_image('03-classe-agendamento.png', 'Figura 3 — Diagrama de Classes (UML): Núcleo de Agendamento.', paisagem=True)
-add_image('04-classe-financeiro.png', 'Figura 4 — Diagrama de Classes (UML): Pacotes, Carteira, Fidelidade e Comissao.', paisagem=True)
-add_image('05-classe-prontuario-lgpd.png', 'Figura 5 — Diagrama de Classes (UML): Prontuário, Anamnese, NPS, Termos, Acesso e Auditoria.', paisagem=True)
+add_image('04-classe-financeiro.png', 'Figura 4 — Diagrama de Classes (UML): Pacotes, Carteira, Fidelidade e Comissão.', paisagem=True)
+add_image('05-classe-prontuario-lgpd.png', 'Figura 5 — Diagrama de Classes (UML): Prontuário, Formulários, NPS, Termos, '
+          'Consentimentos, Acesso e Trilhas.', paisagem=True)
 h2('7.1 Dicionário de entidades')
 linhas = []
 for grupo in ('models-core', 'models-aux'):
@@ -274,7 +313,7 @@ add_image('06-estados-atendimento.png', 'Figura 6 — Diagrama de Estados (UML):
 h2('8.1 Tabela de transições')
 trans = [[t['de'], t['para'], t['acao']] for t in D['fsm']['transicoes'] if t['para'] != '(nenhum)']
 add_table(['Estado origem', 'Estado destino', 'Ação / gatilho'], trans, widths=[1.6, 1.6, 3.5])
-h2('8.2 Efeitos automáticos (signals / EventBus / jobs)')
+h2('8.2 Efeitos automáticos (services/atendimento / jobs)')
 for ef in D['fsm']['efeitos']:
     p = doc.add_paragraph(style='List Bullet')
     p.add_run(ef).font.size = Pt(9)
@@ -300,9 +339,13 @@ add_table(['Componente', 'Papel'],
           [[c['nome'], c['papel']] for c in D['arquitetura']['componentes']],
           widths=[1.8, 4.9])
 h2('10.2 Integrações externas')
-add_table(['Servico', 'Uso'],
+add_table(['Serviço', 'Uso'],
           [[i['nome'], i['uso']] for i in D['arquitetura']['integracoes_externas']],
           widths=[1.8, 4.9])
+h2('10.3 Rotas')
+add_table(['Área', 'Rota', 'Função'],
+          [[r['grupo'], r['rota'], r['funcao']] for r in D['arquitetura']['rotas']],
+          widths=[1.0, 2.9, 2.8])
 
 # ===================== HISTORICO =====================
 doc.add_page_break()
