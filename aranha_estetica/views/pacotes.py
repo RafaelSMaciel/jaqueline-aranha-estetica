@@ -18,7 +18,7 @@ from ..models import (
 )
 from ..utils.audit import registrar_log
 from ..utils.parse import id_int
-from .admin_management import _parse_preco
+from ..forms.painel import parse_preco as _parse_preco
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 def _parse_valor(valor):
     """'1350,50' / '1350.50' -> Decimal em [0, VALOR_MAX]. ValueError se vazio/invalido.
 
-    Mesmo parser dos precos do painel (admin_management._parse_preco): teto
+    Mesmo parser dos precos do painel (forms.painel.parse_preco): teto
     dos campos conferido antes do quantize ('1e30' dava 500).
     """
     numero = _parse_preco(valor)

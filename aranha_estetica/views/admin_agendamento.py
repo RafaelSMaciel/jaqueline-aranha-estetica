@@ -32,7 +32,8 @@ from ..utils.parse import id_int
 from ..utils.precos import preco_com_promocao
 from ..utils.security import safe_next
 from ..validators import validate_telefone_br
-from .admin_management import _normalizar_telefone_br, _parse_preco
+from ..forms.painel import parse_preco as _parse_preco
+from .admin_management import _normalizar_telefone_br
 
 logger = logging.getLogger(__name__)
 

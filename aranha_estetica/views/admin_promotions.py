@@ -15,7 +15,7 @@ from ..models import Cliente, Configuracao, Procedimento, Promocao
 from ..utils.audit import registrar_log
 from ..utils.datas import hoje
 from ..utils.parse import id_int
-from .admin_management import _parse_preco
+from ..forms.painel import parse_preco as _parse_preco
 
 logger = logging.getLogger(__name__)
 

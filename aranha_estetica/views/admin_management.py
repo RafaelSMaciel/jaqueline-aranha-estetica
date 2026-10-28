@@ -3,7 +3,6 @@ lista de espera, NPS web, termos de consentimento."""
 import logging
 import re
 from datetime import datetime
-from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
 from django.contrib import messages
@@ -37,9 +36,9 @@ from ..services.termos import (
     obter_link_termo,
     termos_pendentes,
 )
+from ..forms.painel import BloqueioForm, ProcedimentoForm, TermoForm, avisar_erros
 from ..utils.audit import registrar_log
 from ..utils.datas import hoje
-from ..utils.parse import id_int
 from ..utils.security import safe_next
 from ..validators import normalizar_telefone
 
@@ -88,38 +87,23 @@ def admin_bloqueios(request):
 @staff_required
 @ratelimit(key='user', rate='30/m', method='POST', block=True)
 def admin_criar_bloqueio(request):
-    """Cria bloqueio de agenda via POST."""
+    """Cria bloqueio de agenda via POST (BloqueioForm)."""
     if request.method != 'POST':
         return redirect('aranha:admin_bloqueios')
 
+    form = BloqueioForm(request.POST)
+    if not form.is_valid():
+        avisar_erros(request, form)
+        return redirect('aranha:admin_bloqueios')
     try:
-        prof_id = request.POST.get('profissional_id', '')
-        # 'todos' = bloqueio global (profissional nulo): vale p/ a agenda inteira
-        profissional = None if prof_id == 'todos' else get_object_or_404(Profissional, pk=prof_id)
-        data_inicio = _parse_datetime_aware(request.POST.get('data_hora_inicio', ''))
-        data_fim = _parse_datetime_aware(request.POST.get('data_hora_fim', ''))
-        motivo = request.POST.get('motivo', '').strip()
-
-        if data_fim <= data_inicio:
-            messages.error(request, 'Data fim deve ser posterior a data inicio.')
-            return redirect('aranha:admin_bloqueios')
-
-        bloqueio = AgendaExcecao.objects.create(
-            tipo=AgendaExcecao.TIPO_BLOQUEIO,
-            origem=AgendaExcecao.ORIGEM_MANUAL,
-            profissional=profissional,
-            data_hora_inicio=data_inicio,
-            data_hora_fim=data_fim,
-            motivo=motivo,
-            usuario_autor=request.user,
-        )
-        alvo = profissional.nome if profissional else 'todos os profissionais'
-        registrar_log(request.user, f'Criou bloqueio para {alvo}', 'agenda_excecao', bloqueio.pk, request=request)
-        messages.success(request, 'Bloqueio criado com sucesso!')
-    except Exception as e:
+        bloqueio = form.criar(request.user)
+    except (DatabaseError, ValidationError) as e:
         logger.error(f'Erro ao criar bloqueio: {e}', exc_info=True)
         messages.error(request, 'Erro ao criar bloqueio.')
-
+        return redirect('aranha:admin_bloqueios')
+    alvo = bloqueio.profissional.nome if bloqueio.profissional_id else 'todos os profissionais'
+    registrar_log(request.user, f'Criou bloqueio para {alvo}', 'agenda_excecao', bloqueio.pk, request=request)
+    messages.success(request, 'Bloqueio criado com sucesso!')
     return redirect('aranha:admin_bloqueios')
 
 
@@ -157,44 +141,6 @@ def _preco_base_vigente_map(procedimento_ids):
     return mapa
 
 
-# Teto dos campos de valor (DecimalField max_digits=10, decimal_places=2)
-VALOR_MAX = Decimal('99999999.99')
-
-
-def _parse_preco(valor):
-    """'1350,50' / '1350.50' -> Decimal em [0, VALOR_MAX]; None se vazio. ValueError se invalido.
-
-    O teto e conferido ANTES do quantize: '1e30' estourava o contexto decimal
-    (InvalidOperation, que nao e ValueError -> 500) e '123456789' passava e
-    so falhava no banco (numeric field overflow no Postgres).
-    """
-    valor = (valor or '').strip()
-    if not valor:
-        return None
-    try:
-        preco = Decimal(valor.replace(',', '.'))
-    except (InvalidOperation, ValueError, TypeError) as exc:
-        raise ValueError('preco invalido') from exc
-    if not preco.is_finite() or preco < 0 or preco > VALOR_MAX:
-        raise ValueError('preco invalido')
-    return preco.quantize(Decimal('0.01'))
-
-
-def _parse_duracao(valor, padrao=30):
-    try:
-        duracao = int(valor if valor not in (None, '') else padrao)
-    except (TypeError, ValueError) as exc:
-        raise ValueError('duracao invalida') from exc
-    if duracao < 5 or duracao > 600:
-        raise ValueError('duracao invalida')
-    return duracao
-
-
-def _categoria_valida(valor, padrao='OUTRO'):
-    validas = dict(Procedimento.CATEGORIA_CHOICES)
-    return valor if valor in validas else padrao
-
-
 @staff_required
 def admin_procedimentos(request):
     """Lista e gerencia procedimentos."""
@@ -221,33 +167,24 @@ def admin_procedimentos(request):
 @staff_required
 @ratelimit(key='user', rate='30/m', method='POST', block=True)
 def admin_criar_procedimento(request):
-    """Cria procedimento via POST."""
+    """Cria procedimento via POST (ProcedimentoForm)."""
     if request.method != 'POST':
         return redirect('aranha:admin_procedimentos')
 
-    nome = request.POST.get('nome', '').strip()
-    if not nome:
-        messages.error(request, 'Informe o nome do procedimento.')
+    form = ProcedimentoForm(request.POST)
+    if not form.is_valid():
+        avisar_erros(request, form)
         return redirect('aranha:admin_procedimentos')
-    try:
-        duracao = _parse_duracao(request.POST.get('duracao_minutos'))
-        preco = _parse_preco(request.POST.get('preco'))
-    except ValueError:
-        messages.error(request, 'Duração ou preço inválido.')
-        return redirect('aranha:admin_procedimentos')
-
+    d = form.cleaned_data
     try:
         with transaction.atomic():
             proc = Procedimento.objects.create(
-                nome=nome,
-                descricao=request.POST.get('descricao', '').strip(),
-                duracao_minutos=duracao,
-                categoria=_categoria_valida(request.POST.get('categoria')),
-                ativo=True,
+                nome=d['nome'], descricao=d['descricao'].strip(), duracao_minutos=d['duracao_minutos'],
+                categoria=d['categoria'], ativo=True,
             )
             # Preco base (sem profissional), vigente a partir de hoje
-            if preco is not None:
-                Preco.objects.create(procedimento=proc, valor=preco, vigente_desde=hoje())
+            if d['preco'] is not None:
+                Preco.objects.create(procedimento=proc, valor=d['preco'], vigente_desde=hoje())
 
         registrar_log(request.user, f'Criou procedimento: {proc.nome}', 'procedimento', proc.pk, request=request)
         messages.success(request, f'Procedimento "{proc.nome}" criado!')
@@ -261,7 +198,7 @@ def admin_criar_procedimento(request):
 @staff_required
 @ratelimit(key='user', rate='30/m', method='POST', block=True)
 def admin_editar_procedimento(request, pk):
-    """Edita procedimento via POST.
+    """Edita procedimento via POST (ProcedimentoForm).
 
     Preco e versionado (Preco.vigente_desde): mudar o valor cria uma nova
     vigencia a partir de hoje em vez de sobrescrever o historico (se ja
@@ -271,32 +208,28 @@ def admin_editar_procedimento(request, pk):
     if request.method != 'POST':
         return redirect('aranha:admin_procedimentos')
 
-    nome = request.POST.get('nome', proc.nome).strip()
-    if not nome:
-        messages.error(request, 'Informe o nome do procedimento.')
+    dados = request.POST.copy()
+    dados.setdefault('nome', proc.nome)   # campo ausente = mantem o nome
+    form = ProcedimentoForm(dados, instance=proc)
+    if not form.is_valid():
+        avisar_erros(request, form)
         return redirect('aranha:admin_procedimentos')
-    try:
-        duracao = _parse_duracao(request.POST.get('duracao_minutos'), proc.duracao_minutos)
-        preco = _parse_preco(request.POST.get('preco'))
-    except ValueError:
-        messages.error(request, 'Duração ou preço inválido.')
-        return redirect('aranha:admin_procedimentos')
-
+    d = form.cleaned_data
     try:
         with transaction.atomic():
-            proc.nome = nome
-            proc.descricao = request.POST.get('descricao', '').strip()
-            proc.duracao_minutos = duracao
-            proc.categoria = _categoria_valida(request.POST.get('categoria'), proc.categoria)
-            proc.ativo = request.POST.get('ativo') == '1'
+            proc.nome = d['nome']
+            proc.descricao = d['descricao'].strip()
+            proc.duracao_minutos = d['duracao_minutos']
+            proc.categoria = d['categoria']
+            proc.ativo = d['ativo']
             proc.save()
 
-            if preco is not None:
+            if d['preco'] is not None:
                 vigente = _preco_base_vigente_map([proc.pk]).get(proc.pk)
-                if vigente is None or vigente != preco:
+                if vigente is None or vigente != d['preco']:
                     Preco.objects.update_or_create(
                         procedimento=proc, profissional=None, vigente_desde=hoje(),
-                        defaults={'valor': preco},
+                        defaults={'valor': d['preco']},
                     )
 
         registrar_log(request.user, f'Editou procedimento: {proc.nome}', 'procedimento', proc.pk, request=request)
@@ -707,40 +640,12 @@ def admin_criar_termo(request):
     if request.method != 'POST':
         return redirect('aranha:admin_termos')
 
-    tipo = request.POST.get('tipo', 'LGPD')
-    if tipo not in dict(VersaoTermo.TIPO_CHOICES):
-        messages.error(request, 'Tipo de termo inválido.')
+    form = TermoForm(request.POST)
+    if not form.is_valid():
+        avisar_erros(request, form)
         return redirect('aranha:admin_termos')
-
-    titulo = request.POST.get('titulo', '').strip()
-    conteudo = request.POST.get('conteudo', '').strip()
-    versao = request.POST.get('versao', '').strip() or '1.0'
-    if not titulo or not conteudo:
-        messages.error(request, 'Informe título e conteúdo do termo.')
-        return redirect('aranha:admin_termos')
-    if len(versao) > 20:
-        messages.error(request, 'Versão deve ter no máximo 20 caracteres.')
-        return redirect('aranha:admin_termos')
-
-    procedimento = None
-    proc_id = request.POST.get('procedimento_id', '')
-    if tipo == 'PROCEDIMENTO' and proc_id:
-        # id_int: isdigit() aceitava '²' e o int() dava 500
-        proc_pk = id_int(proc_id)
-        if proc_pk is None:
-            messages.error(request, 'Procedimento inválido.')
-            return redirect('aranha:admin_termos')
-        procedimento = Procedimento.objects.filter(pk=proc_pk).first()
-        if procedimento is None:
-            messages.error(request, 'Procedimento não encontrado.')
-            return redirect('aranha:admin_termos')
-
-    vigente_raw = request.POST.get('vigente_desde', '').strip()
-    try:
-        vigente_desde = datetime.strptime(vigente_raw, '%Y-%m-%d').date() if vigente_raw else hoje()
-    except ValueError:
-        messages.error(request, 'Data de vigência inválida.')
-        return redirect('aranha:admin_termos')
+    d = form.cleaned_data
+    tipo, procedimento, versao = d['tipo'], d['procedimento'], d['versao']
 
     try:
         with transaction.atomic():
@@ -751,13 +656,8 @@ def admin_criar_termo(request):
                 vigentes = vigentes.filter(procedimento=procedimento)
             arquivadas = vigentes.update(ativa=False)
             novo = VersaoTermo.objects.create(
-                tipo=tipo,
-                procedimento=procedimento,
-                titulo=titulo,
-                conteudo=conteudo,
-                versao=versao,
-                vigente_desde=vigente_desde,
-                ativa=True,
+                tipo=tipo, procedimento=procedimento, titulo=d['titulo'], conteudo=d['conteudo'],
+                versao=versao, vigente_desde=d['vigente_desde'], ativa=True,
             )
     except (IntegrityError, DatabaseError, ValidationError) as e:
         logger.error(f'Erro ao publicar termo: {e}', exc_info=True)
