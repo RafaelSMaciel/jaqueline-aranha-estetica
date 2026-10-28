@@ -3,6 +3,8 @@
 A concessao e o AceiteTermo SAUDE; a revogacao e Cliente.saude_revogada_em com trilha. Um aceite SAUDE
 novo (nova ficha) reativa. Os alertas de saude mostram a revogacao sem esconder o registro ja feito.
 """
+from datetime import timedelta
+from unittest.mock import patch
 
 from django.template.loader import render_to_string
 from django.test import Client, RequestFactory, TestCase
@@ -62,12 +64,15 @@ class RevogarSaudeTests(TestCase):
         self.assertEqual(AceiteTermo.objects.filter(cliente=self.cliente).count(), 1)   # prova do 1o aceite
 
     def test_aceite_de_versao_nova_posterior_a_revogacao_vale(self):
-        Cliente.objects.filter(pk=self.cliente.pk).update(saude_revogada_em=timezone.now())
+        revogada = AceiteTermo.objects.get(cliente=self.cliente).criado_em   # mesmo instante do 1o aceite
+        Cliente.objects.filter(pk=self.cliente.pk).update(saude_revogada_em=revogada)
         self.assertFalse(consentimentos.saude_consentida(self.cliente))
         VersaoTermo.objects.filter(tipo='SAUDE').update(ativa=False)
         nova = VersaoTermo.objects.create(tipo='SAUDE', titulo='Saude v2', conteudo='Texto v2.', versao='2.0',
                                           vigente_desde=timezone.localdate())
-        AceiteTermo.objects.create(cliente=self.cliente, versao_termo=nova, conteudo_sha256=nova.sha256_conteudo)
+        # relogio do Windows tem resolucao grossa: o aceite novo nasce explicitamente depois
+        with patch('django.utils.timezone.now', return_value=revogada + timedelta(seconds=1)):
+            AceiteTermo.objects.create(cliente=self.cliente, versao_termo=nova, conteudo_sha256=nova.sha256_conteudo)
         self.assertTrue(consentimentos.saude_consentida(self.cliente))
 
 

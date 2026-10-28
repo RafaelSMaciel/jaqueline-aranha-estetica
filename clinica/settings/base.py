@@ -597,5 +597,23 @@ RETENCAO_NOTIFICACAO_DIAS = int(os.environ.get('RETENCAO_NOTIFICACAO_DIAS', '365
 RETENCAO_LOG_AUDITORIA_DIAS = int(os.environ.get('RETENCAO_LOG_AUDITORIA_DIAS', str(365 * 5)))
 RETENCAO_AXES_LOG_DIAS = int(os.environ.get('RETENCAO_AXES_LOG_DIAS', '90'))
 # link_acesso vencido/revogado ha mais de N dias e apagado (sp_purgar_dados_expirados);
-# historico_alteracao segue RETENCAO_LOG_AUDITORIA_DIAS (prontuario: 20 anos, nao purga)
+# historico_alteracao segue RETENCAO_LOG_AUDITORIA_DIAS (prontuario: 20 anos, com o expurgo de saude)
 RETENCAO_LINK_ACESSO_DIAS = int(os.environ.get('RETENCAO_LINK_ACESSO_DIAS', '90'))
+
+# ─── RETENCAO LGPD (prazos publicados na Politica de Privacidade) ──────
+# Fonte unica dos prazos que services/lgpd passa as procedures (fn_clientes_para_anonimizar,
+# sp_aplicar_retencao_lgpd, sp_purgar_dados_expirados). SEM env de proposito: o prazo e o que a
+# cliente leu no termo aceito — mudar exige versao nova do termo LGPD (o check aranha.W016 compara
+# estes numeros com o texto da versao vigente). Os triggers de imutabilidade so aceitam o expurgo de
+# saude com 20 anos ou mais (0077): RETENCAO_ATENDIMENTO_SAUDE_DIAS abaixo disso falha a etapa.
+# Cliente sem atendimento ha 5 anos e pseudonimizada
+RETENCAO_CLIENTE_INATIVO_DIAS = 365 * 5
+# Soft delete (pedido de exclusao) vira pseudonimizacao depois desta carencia
+RETENCAO_CARENCIA_SOFT_DELETE_DIAS = 30
+# Registro de saude (prontuario, versoes, anotacoes, fichas de atendimento realizado): expurgo 20 anos
+# depois do ultimo atendimento REALIZADO ou da ultima versao
+RETENCAO_ATENDIMENTO_SAUDE_DIAS = 365 * 20
+# Ficha de anamnese de pedido que nao virou atendimento (fim da finalidade, arts. 15/16)
+RETENCAO_FICHA_SEM_ATENDIMENTO_DIAS = 90
+# Pacote e contrato: retem a cliente 5 anos depois de expirar/cancelar (CDC art. 27, prescricao)
+RETENCAO_PACOTE_APOS_EXPIRAR_DIAS = 365 * 5

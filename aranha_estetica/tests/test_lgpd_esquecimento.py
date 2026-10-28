@@ -128,7 +128,8 @@ class PurgaRetencaoTests(TestCase):
         )
 
     def test_prazo_documentado_de_5_anos(self):
-        self.assertEqual(LgpdService.RETENCAO_CLIENTE_INATIVO_DIAS, 365 * 5)
+        from django.conf import settings
+        self.assertEqual(settings.RETENCAO_CLIENTE_INATIVO_DIAS, 365 * 5)
 
     def test_lead_inativo_ha_mais_de_5_anos_e_anonimizado(self):
         lead = criar_cliente(nome='Lead Antigo')
