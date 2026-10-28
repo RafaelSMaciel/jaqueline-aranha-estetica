@@ -588,8 +588,9 @@ class DDLSoPostgresTests(TestCase):
                                ('fk_movimento_comissao_profissional', 'a'),
                                ('fk_movimento_comissao_atendimento', 'a'),
                                ('fk_movimento_comissao_regra_comissao', 'a')})
-        for nome, trecho in (('uq_movimento_comissao_credito_por_atendimento', "'CREDITO'"),
-                             ('uq_movimento_comissao_estorno_por_origem', "'ESTORNO'"),
+        # 0063: sai o UNIQUE de 1 CREDITO p/ sempre; "1 CREDITO ATIVO" fica no gatilho de validacao
+        self.assertNotIn('uq_movimento_comissao_credito_por_atendimento', indices)
+        for nome, trecho in (('uq_movimento_comissao_estorno_por_origem', "'ESTORNO'"),
                              ('uq_movimento_comissao_pagamento_por_origem', "'PAGAMENTO'"),
                              ('ix_movimento_comissao_origem_parcial', 'IS NOT NULL')):
             with self.subTest(nome):

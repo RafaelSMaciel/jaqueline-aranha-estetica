@@ -312,12 +312,10 @@ def admin_agendamento_novo(request):
 def admin_atendimento_valor(request, pk):
     """Registra o valor cobrado de um atendimento (desconto combinado, 'a consultar').
 
-    Antes de realizado: so grava. Realizado sem comissao lancada: grava e
-    calcula a comissao (valor vazio nao gerava nenhuma). Realizado com
-    comissao ja lancada, cancelado/faltou/reagendado e retorno gratuito
-    (sempre 0): recusado com a explicacao — nada muda em silencio.
+    Antes de realizado: so grava. Realizado: grava e (re)calcula a comissao — com credito
+    PENDENTE, estorna e lanca o novo com o valor corrigido; comissao ja PAGA recusa (o repasse
+    saiu). Cancelado/faltou/reagendado e retorno gratuito (sempre 0): recusado com a explicacao.
     """
-    from ...models import MovimentoComissao
     from ...services.comissao import ComissaoService
     from ...services.fidelidade import FidelidadeService
 
@@ -336,13 +334,6 @@ def admin_atendimento_valor(request, pk):
     if at.eh_retorno and valor != 0:
         messages.error(request, 'Retorno gratuito fica sempre com valor zero.')
         return voltar
-    if at.status == Atendimento.STATUS_REALIZADO and MovimentoComissao.objects.creditos().filter(atendimento=at).exists():
-        messages.error(
-            request,
-            'Este atendimento já tem comissão lançada: o valor não pode mudar por aqui '
-            '(ajuste a comissão no financeiro).',
-        )
-        return voltar
 
     antigo = at.valor_cobrado
     comissao = cashback = None
@@ -354,11 +345,14 @@ def admin_atendimento_valor(request, pk):
             at.descricao_preco = 'Valor combinado pela recepção'
             at.save(update_fields=['valor_cobrado', 'valor_original', 'descricao_preco', 'atualizado_em'])
             if at.status == Atendimento.STATUS_REALIZADO:
-                comissao = ComissaoService.calcular_comissao(at)
+                comissao = ComissaoService.recalcular(at, request.user)
                 # Mesmo gatilho do REALIZADO: sem valor o cashback da indicadora
                 # tinha sido pulado e o evento nao roda de novo. Idempotente
                 # (UNIQUE carteira+atendimento+origem; 1o pago exclui o proprio pk).
                 cashback = FidelidadeService.liberar_cashback_indicacao(at)
+    except RegraDeNegocio as e:
+        messages.error(request, e.mensagem)
+        return voltar
     except DatabaseError:
         logger.error('atendimento_valor_falha', exc_info=True, extra={'atendimento_id': at.pk})
         messages.error(request, 'Não foi possível registrar o valor. Confira o número e tente novamente.')
@@ -475,3 +469,27 @@ def admin_atualizar_status(request):
         'status_anterior': status_anterior,
         'status_novo': novo_status,
     })
+
+
+@staff_required
+@require_POST
+@ratelimit(key='user', rate='30/m', method='POST', block=True)
+def admin_desfazer_realizacao(request, pk):
+    """Realizado marcado por engano -> Agendado, Faltou ou Cancelado, com motivo obrigatorio.
+    Estorna comissao pendente e cashback, devolve a sessao do pacote e cancela o retorno sugerido
+    (services/atendimento); comissao ja paga recusa."""
+    at = get_object_or_404(Atendimento.objects.select_related('cliente'), pk=pk)
+    voltar = redirect(safe_next(request, request.META.get('HTTP_REFERER'), 'aranha:painel_agendamentos'))
+    destinos = {'AGENDADO': StatusAtendimento.AGENDADO, 'FALTOU': StatusAtendimento.FALTOU,
+                'CANCELADO': StatusAtendimento.CANCELADO}
+    destino = destinos.get((request.POST.get('destino') or '').upper())
+    if destino is None:
+        messages.error(request, 'Escolha para onde o atendimento volta: agendado, faltou ou cancelado.')
+        return voltar
+    try:
+        at.desfazer_realizacao(destino, request.POST.get('motivo', ''), by_user=request.user)
+    except RegraDeNegocio as e:
+        messages.error(request, e.mensagem)
+        return voltar
+    messages.success(request, f'Realização de {at.cliente.nome} desfeita: agora {destino.label.lower()}.')
+    return voltar

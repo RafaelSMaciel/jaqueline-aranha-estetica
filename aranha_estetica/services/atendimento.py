@@ -29,6 +29,8 @@ STATUS_LIBERAM_VAGA = (StatusAtendimento.CANCELADO, StatusAtendimento.REAGENDADO
 
 def ao_mudar_status(at, anterior, novo) -> None:
     """Efeitos de ``anterior`` -> ``novo`` (a FSM ja validou a transicao e gravou o status)."""
+    if anterior == StatusAtendimento.REALIZADO:
+        _desfazer_realizacao(at)
     if novo == StatusAtendimento.REALIZADO:
         from .comissao import ComissaoService
         from .fidelidade import FidelidadeService
@@ -52,6 +54,37 @@ def ao_mudar_status(at, anterior, novo) -> None:
 
     if novo in STATUS_LIBERAM_VAGA and anterior in STATUS_ATIVOS:
         _avisar_lista_de_espera(at)
+
+
+def _desfazer_realizacao(at) -> None:
+    """Inverso dos efeitos do REALIZADO (Atendimento.desfazer_realizacao). Comissao ja paga recusa
+    (RegraDeNegocio) e desfaz a transicao inteira. As faltas zeradas no Realizado nao voltam."""
+    from ..models import Atendimento
+    from .comissao import ComissaoService
+    from .fidelidade import FidelidadeService
+
+    ComissaoService.estornar_para_desfazer(at)
+    FidelidadeService.estornar_cashback_de_atendimento(at, motivo='realização desfeita')
+    devolver_sessao_de_pacote(at)
+    for retorno in Atendimento.objects.filter(atendimento_origem=at, eh_retorno=True, status__in=STATUS_ATIVOS):
+        retorno.cancelar(motivo='realização do atendimento de origem desfeita')
+
+
+def devolver_sessao_de_pacote(at) -> None:
+    """Apaga o consumo do atendimento e reabre a compra que tinha finalizado com ele."""
+    from ..models import CompraPacote, ConsumoSessao
+    from ..utils.datas import hoje
+
+    consumo = ConsumoSessao.objects.select_related('compra_pacote').filter(atendimento=at).first()
+    if consumo is None:
+        return
+    compra = consumo.compra_pacote
+    consumo.delete()
+    if compra.status == CompraPacote.STATUS_FINALIZADO:
+        vencida = compra.data_expiracao is not None and compra.data_expiracao < hoje()
+        compra.status = CompraPacote.STATUS_EXPIRADO if vencida else CompraPacote.STATUS_ATIVO
+        compra.save(update_fields=['status'])
+    logger.info('pacote_sessao_devolvida', extra={'compra_pacote_id': compra.pk, 'atendimento_id': at.pk})
 
 
 def ao_criar(at) -> None:

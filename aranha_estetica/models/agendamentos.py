@@ -171,10 +171,14 @@ class Atendimento(models.Model):
         StatusAtendimento.REAGENDADO: set(),
     }
 
+    # Realizado e terminal na FSM comum; so o "Desfazer realizacao" do painel (admin, com motivo)
+    # sai dele — os efeitos (comissao, cashback, sessao de pacote, retorno) sao desfeitos juntos.
+    DESFAZER_REALIZACAO = {StatusAtendimento.AGENDADO, StatusAtendimento.CANCELADO, StatusAtendimento.FALTOU}
+
     # Atendimento.TransicaoInvalida segue valendo (views/admin/tasks); e a RegraDeNegocio comum.
     TransicaoInvalida = TransicaoInvalida
 
-    def _transicionar(self, novo_status, motivo=None, by_user=None, *, pela_cliente=False):
+    def _transicionar(self, novo_status, motivo=None, by_user=None, *, pela_cliente=False, desfazendo=False):
         # Valida contra o status ATUAL do banco com a linha travada
         # (select_for_update): duplo clique / link da cliente + recepcao ao
         # mesmo tempo nao passam os dois pela checagem nem aplicam os efeitos 2x.
@@ -193,7 +197,8 @@ class Atendimento(models.Model):
                 self.status = atual
             else:
                 atual = self.status
-            permitido = self.TRANSICOES.get(atual, set())
+            permitido = (self.DESFAZER_REALIZACAO if desfazendo and atual == StatusAtendimento.REALIZADO
+                         else self.TRANSICOES.get(atual, set()))
             if novo_status not in permitido:
                 raise self.TransicaoInvalida(
                     f'Não é possível passar de {StatusAtendimento(atual).label.lower()} para '
@@ -230,6 +235,15 @@ class Atendimento(models.Model):
 
     def aprovar(self, by_user=None):
         self._transicionar(StatusAtendimento.AGENDADO, by_user=by_user)
+
+    def desfazer_realizacao(self, destino, motivo, by_user=None):
+        """REALIZADO marcado por engano -> AGENDADO (vai acontecer), FALTOU ou CANCELADO. Estorna a
+        comissao pendente (paga recusa), o cashback, devolve a sessao do pacote e cancela o retorno
+        sugerido (services/atendimento). Motivo obrigatorio (fica na trilha)."""
+        if not (motivo or '').strip():
+            raise self.TransicaoInvalida('Informe o motivo para desfazer a realização.')
+        self._transicionar(destino, motivo=f'realização desfeita: {motivo.strip()}', by_user=by_user,
+                           desfazendo=True)
 
     objects = AtendimentoManager()
 

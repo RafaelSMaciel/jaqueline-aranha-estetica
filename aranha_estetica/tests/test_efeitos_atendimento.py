@@ -152,3 +152,68 @@ class NovoAtendimentoTests(TestCase):
                 self.captureOnCommitCallbacks(execute=True):
             criar_atendimento(criar_cliente(), prof, proc)
         mock_push.assert_not_called()
+
+
+class DesfazerRealizacaoTests(_Base):
+    """Realizado por engano volta (com motivo) e os efeitos do Realizado sao desfeitos juntos."""
+
+    def setUp(self):
+        super().setUp()
+        from decimal import Decimal
+
+        from aranha_estetica.models import RegraComissao
+        RegraComissao.objects.create(percentual=Decimal('10'), ativo=True)
+        self.compra = criar_compra_pacote(self.cli, criar_pacote(procedimento=self.proc, sessoes=1))
+
+    def _realizar(self):
+        at = self._at(horas=-2)
+        Atendimento.objects.filter(pk=at.pk).update(valor_cobrado=100)
+        at.refresh_from_db()
+        at.marcar_realizado()
+        return at
+
+    def test_volta_para_agendado_estorna_e_devolve_sessao(self):
+        from aranha_estetica.models import MovimentoComissao
+        at = self._realizar()
+        self.compra.refresh_from_db()
+        self.assertEqual(self.compra.status, 'FINALIZADO')
+        at.desfazer_realizacao(Atendimento.STATUS_AGENDADO, 'marcado na cliente errada')
+        at.refresh_from_db()
+        self.compra.refresh_from_db()
+        self.assertEqual(at.status, 'AGENDADO')
+        self.assertFalse(ConsumoSessao.objects.filter(atendimento=at).exists())
+        self.assertEqual(self.compra.status, 'ATIVO')
+        self.assertFalse(MovimentoComissao.objects.creditos_ativos().filter(atendimento=at).exists())
+        self.assertTrue(LogAuditoria.objects.filter(acao__contains='realização desfeita: marcado na cliente errada').exists())
+        at.marcar_realizado()   # refeito: novo debito e novo credito
+        self.assertTrue(ConsumoSessao.objects.filter(atendimento=at).exists())
+        self.assertTrue(MovimentoComissao.objects.creditos_ativos().filter(atendimento=at).exists())
+
+    def test_comissao_paga_ou_sem_motivo_recusa(self):
+        from aranha_estetica.excecoes import RegraDeNegocio
+        from aranha_estetica.models import MovimentoComissao
+        from aranha_estetica.services.comissao import ComissaoService
+        at = self._realizar()
+        with self.assertRaises(RegraDeNegocio):
+            at.desfazer_realizacao(Atendimento.STATUS_CANCELADO, '  ')
+        credito = MovimentoComissao.objects.creditos_ativos().get(atendimento=at)
+        ComissaoService.marcar_paga(credito.pk)
+        with self.assertRaises(RegraDeNegocio):
+            at.desfazer_realizacao(Atendimento.STATUS_FALTOU, 'cliente nao veio')
+        at.refresh_from_db()
+        self.assertEqual(at.status, 'REALIZADO')
+        self.assertTrue(ConsumoSessao.objects.filter(atendimento=at).exists())   # nada desfeito
+
+    def test_tela_do_painel(self):
+        from django.urls import reverse
+
+        from aranha_estetica.models import Usuario
+        at = self._realizar()
+        admin = Usuario.objects.create_superuser(email='adm@desfazer.test', password='x')
+        self.client.force_login(admin)
+        self.client.post(reverse('aranha:admin_desfazer_realizacao', args=[at.pk]),
+                         {'destino': 'FALTOU', 'motivo': 'a cliente nao veio'})
+        at.refresh_from_db()
+        self.assertEqual(at.status, 'FALTOU')
+        self.cli.refresh_from_db()
+        self.assertEqual(self.cli.faltas_consecutivas, 1)
