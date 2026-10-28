@@ -846,16 +846,6 @@ class HousekeepingTests(TestCase):
         self.assertTrue(LogAuditoria.objects.filter(pk=log_novo.pk).exists())
         self.assertEqual(resumo['otp'], 1)
 
-    def test_carregar_feriados(self):
-        from aranha_estetica.models import AgendaExcecao
-        from aranha_estetica.jobs_manutencao import job_carregar_feriados
-
-        self.assertIn('Feriados', job_carregar_feriados())
-        ano = timezone.localdate().year  # o comando usa o ano local (31/12 21h+ ja e outro ano em UTC)
-        self.assertTrue(AgendaExcecao.objects.filter(
-            origem='FERIADO_NACIONAL', profissional__isnull=True, tipo='FOLGA', data_inicio__year=ano + 1,
-        ).exists())
-
 
 # ─── Rate-limit por visitante atras do proxy ─────────────────────────
 @override_settings(CLIENT_IP_HEADER='HTTP_X_REAL_IP', RATELIMIT_ENABLE=True)

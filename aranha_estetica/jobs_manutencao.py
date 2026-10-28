@@ -10,11 +10,12 @@ sp_purgar_dados_expirados (fonte unica, spec padrao-sql §5.6; cada etapa num
 sub-bloco da procedure, falha de uma nao impede as outras); sessoes e axes
 continuam Python (tabelas de terceiros). SQLite: as funcoes _purgar_* abaixo.
 """
-import io
 import logging
 
 from django.conf import settings
 from django.core.management import call_command
+
+from .services import feriados
 
 logger = logging.getLogger(__name__)
 
@@ -94,9 +95,6 @@ def job_housekeeping():
 
 
 def job_carregar_feriados():
-    """Garante feriados nacionais do ano atual + proximo (comando idempotente).
+    """Garante feriados nacionais do ano atual + proximo (services/feriados, idempotente).
     A migration so semeou 2026-2027; sem isso nenhum feriado bloqueia a agenda."""
-    saida = io.StringIO()
-    call_command('carregar_feriados', stdout=saida)
-    linhas = saida.getvalue().strip().splitlines()
-    return linhas[-1] if linhas else 'ok'
+    return f'{feriados.carregar()} feriados criados'
