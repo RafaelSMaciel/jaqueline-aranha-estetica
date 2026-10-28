@@ -219,4 +219,16 @@ class AceiteTermo(models.Model):
                 'conteudo_sha256': versao_termo.sha256_conteudo,
             },
         )
+        if versao_termo.tipo == 'SAUDE':
+            cls._reativar_consentimento_saude(cliente)
         return aceite
+
+    @staticmethod
+    def _reativar_consentimento_saude(cliente):
+        """Novo aceite SAUDE (nova ficha) depois de uma revogacao: o consentimento volta a valer.
+
+        A mesma versao ja aceita nao gera linha nova (prova do 1o aceite); quem chama grava a trilha
+        do consentimento com o texto e o IP. Aqui so a revogacao deixa de valer.
+        """
+        Cliente.all_objects.filter(pk=cliente.pk, saude_revogada_em__isnull=False).update(saude_revogada_em=None)
+        cliente.saude_revogada_em = None
