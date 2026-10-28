@@ -580,7 +580,7 @@ class AtendimentoAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
         if not change:
             from .services.atendimento import ao_criar
-            ao_criar(obj)   # push + Google Calendar, como nas outras portas (services.agenda)
+            ao_criar(obj)   # push p/ a profissional, como nas outras portas (services.agenda)
 
     def get_readonly_fields(self, request, obj=None):
         # Status so muda pela FSM (actions abaixo / painel), nunca editando o
