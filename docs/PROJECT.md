@@ -77,7 +77,7 @@ O papel **RECEPCAO** existe no modelo, mas ainda não tem telas nem login (ver
 |---|---|
 | Linguagem | Python 3.12 (`.python-version`), Node 22 no build (`.nvmrc`; Tailwind v4 exige ≥ 20) |
 | Web | Django 5.2 (MVT, server-render), gunicorn 23, WhiteNoise 6 (estáticos `CompressedManifest` em prod) |
-| Banco | PostgreSQL 18 em produção e CI; SQLite (`db_dev.sqlite3` / `db_test.sqlite3`) em dev e testes rápidos |
+| Banco | PostgreSQL 18 em produção e CI; SQLite (`db_dev.sqlite3`; testes em `.cache/db_test.sqlite3`) em dev e testes rápidos |
 | Front-end | Vite 6 + Tailwind CSS v4 (`@tailwindcss/vite`) + Alpine.js via `@alpinejs/csp` + django-vite 3 + django-cotton 2. **Sem HTMX, Bootstrap ou jQuery** |
 | Libs no CDN (com SRI) | FullCalendar 6.1.11 (`painel/calendar.html`), Chart.js 4.4.0 (`painel/overview.html`) |
 | Fontes | Playfair Display + Lato servidas pelo próprio site (`@fontsource`, subconjunto latin, no build do Vite; sem Google Fonts) — tokens em `static/src/css/tokens.css` |
@@ -731,7 +731,7 @@ Só dev/testes: `DEBUG`, `SMS_DEV_LOG_ONLY` (em prod gera W002), `DB_ENGINE`/`DB
 
 ## 12. Testes e CI
 
-- `python manage.py test aranha_estetica` — suíte Django (SQLite `db_test.sqlite3`, ~1.500
+- `python manage.py test aranha_estetica` — suíte Django (SQLite `.cache/db_test.sqlite3`, ~1.500
   testes em 77 arquivos — roda **tudo**, inclusive as data migrations). `manage.py test` sempre
   carrega `clinica/settings/test.py` (única detecção de teste, em `settings/__init__.py`; o pytest
   aponta para o mesmo módulo): hash de senha MD5, SMS em modo log, avisos `aranha.W001`–`W013`

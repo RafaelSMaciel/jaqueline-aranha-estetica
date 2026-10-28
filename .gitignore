@@ -3,76 +3,68 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
-.Python
 build/
 dist/
 *.egg-info/
-*.egg
 
-# ── Virtual environments ──
+# ── Ambientes virtuais ──
+.venv/
 venv/
 env/
-.venv/
+
+# ── Caches e dados de ferramentas (pytest, ruff, mypy, coverage, import-linter, banco de teste) ──
+.cache/
+.import_linter_cache/
+.grimp_cache/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
 
 # ── Django ──
 *.log
 local_settings.py
-db.sqlite3
-db.sqlite3-journal
-db_test.sqlite3
-db_dev.sqlite3
+*.sqlite3
+*.sqlite3-journal
 staticfiles/
 media/
 
-# ── Node ──
+# ── Node / front ──
 node_modules/
 aranha_estetica/static/dist/
 
-# ── IDE / Editor ──
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# ── Backups do banco ──
+# ── Backups do banco (dado pessoal e de saude: nunca no git) ──
 *.dump
 *.dump.age
 *.backup
 *.sql.gz
 
-# ── Configuracoes sensiveis ──
+# ── Configuracao sensivel ──
 .env
 .env.*
 !.env.example
 
-# ── Ferramentas CI / Dev ──
+# ── Editores e SO ──
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ── Ferramentas de agente / navegador ──
 .claude/
 .playwright-mcp/
-.pytest_cache/
-.coverage
-htmlcov/
-.mypy_cache/
-.ruff_cache/
+.worktrees/
 
-# ── Artefatos temporarios ──
-docs/superpowers/
-tasks/
-screenshots/
-
-# ── Screenshots / prints soltos na raiz ──
+# ── Prints soltos na raiz ──
 /*.png
 /*.jpg
 /*.jpeg
 /*.webp
-tmp_req/node_modules/
-db_dev.sqlite3.bak-*
-default_*.sqlite3
+screenshots/
 
-# Mockups temporários de design (não versionar)
-aranha_estetica/static/_design_tmp/
-# Worktrees isolados
-.worktrees/
-
-# ── Docs (build) ──
+# ── Render local dos diagramas (caminho do Chrome) ──
 docs/diagramas/puppeteer.json

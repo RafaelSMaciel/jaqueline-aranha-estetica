@@ -12,7 +12,7 @@ repos:
         types: [python]
       - id: lint-imports
         name: camadas views > services > models (import-linter)
-        entry: lint-imports
+        entry: lint-imports --cache-dir .cache/import-linter
         language: system
         types: [python]
         pass_filenames: false
