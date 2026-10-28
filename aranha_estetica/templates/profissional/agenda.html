@@ -1,5 +1,5 @@
 {% extends 'estrutura/base_v2.html' %}
-{% load static painel_tags %}
+{% load static painel_tags django_vite %}
 
 {% block titulo %}Minha Agenda | {{ CLINIC_NAME }}{% endblock %}
 
@@ -323,7 +323,7 @@
     }
     window.WEBPUSH_AUTO = true;
 </script>
-<script src="{% static 'js/webpush.js' %}" defer></script>
+{% vite_asset 'aranha_estetica/static/src/js/webpush.js' %}
 {% endif %}
 <script nonce="{{ csp_nonce }}">
 (function () {

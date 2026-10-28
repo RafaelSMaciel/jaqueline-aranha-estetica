@@ -55,7 +55,7 @@ class ContrasteDouradoTests(SimpleTestCase):
         for rel in ('templates/agenda/agendamento_publico.html', 'templates/agenda/reagendar.html'):
             with self.subTest(arquivo=rel):
                 self.assertIsNone(regra.search((base / rel).read_text(encoding='utf-8')))
-        js = (base / 'static' / 'js' / 'wizard.js').read_text(encoding='utf-8')
+        js = (base / 'static' / 'src' / 'js' / 'wizard.js').read_text(encoding='utf-8')
         self.assertNotIn("style.color = 'white'", js)
         self.assertIn('var(--cor-sobre-marca)', js)
 

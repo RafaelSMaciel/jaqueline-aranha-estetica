@@ -126,8 +126,8 @@ aranha_estetica/
 ├── templates/       estrutura/, cotton/, publico/, agenda/, servicos/, painel/, profissional/,
 │                    partials/, email/, usuario/, pwa/, api/, erros (400/403/403_csrf/404/429/500),
 │                    axes_bloqueio.html, robots.txt
-├── static/src/      fonte do Vite (css/tokens.css, css/app.css, js/app.js) — fora do collectstatic
-├── static/js/       wizard.js, admin-search.js, webpush.js (servidos direto pelo staticfiles)
+├── static/src/      fonte do Vite — css/tokens.css, css/app.css e uma entrada JS por tela (app.js,
+│                    wizard.js, admin-search.js, webpush.js; nome com hash no build) — fora do collectstatic
 ├── static/dist/     build do Vite (gitignored; gerado no Docker/CI)
 ├── signals.py       só o cache do Branding (post_save/post_delete de Configuracao)
 ├── jobs.py / jobs_manutencao.py     jobs periódicos (funções; cron HTTP e `rodar_job`)
@@ -211,7 +211,7 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   inputs), `--cor-foco` (anel `:focus-visible` global), erro/sucesso/aviso/info/destaque com `-fundo`
   e o status do atendimento (`--st-<status>-fundo/-texto`, classes `.status-<STATUS>`); nada de cor
   crua do Tailwind (`bg-red-50`…) fora de botão sólido. `prefers-reduced-motion` zera animações.
-- **PWA**: `/manifest.json` + `/sw.js` (service worker v7: cacheia só páginas públicas e
+- **PWA**: `/manifest.json` + `/sw.js` (service worker v8: cacheia só páginas públicas e
   estáticos; nunca HTML privado) e `/painel/manifest.json` para o app da equipe.
 
 ---

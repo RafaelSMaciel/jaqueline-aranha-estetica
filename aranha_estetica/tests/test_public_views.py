@@ -787,7 +787,7 @@ class ContratoErroApiAgendamentoTests(TestCase):
     def test_wizard_mostra_o_motivo_do_servidor(self):
         from django.conf import settings
         from pathlib import Path
-        js = (Path(settings.BASE_DIR) / 'aranha_estetica' / 'static' / 'js' / 'wizard.js').read_text(encoding='utf-8')
+        js = (Path(settings.BASE_DIR) / 'aranha_estetica' / 'static' / 'src' / 'js' / 'wizard.js').read_text(encoding='utf-8')
         self.assertIn('if (!res.ok)', js)
         self.assertIn('data.erro ||', js)
 
