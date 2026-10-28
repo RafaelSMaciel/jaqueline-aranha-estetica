@@ -1302,3 +1302,20 @@ class BloqueioGlobalPainelTests(_AdminTestCase):
         self.assertIsNone(bloqueio.profissional_id)
         self.assertContains(self.client.get(reverse('aranha:admin_bloqueios')), 'Todos os profissionais')
 
+
+
+class SemDesfechoTests(_AdminTestCase):
+    """Atendimento que ja terminou sem Realizado/Faltou/Cancelado aparece no painel (antes so no log)."""
+
+    def test_card_e_filtro(self):
+        prof = criar_profissional()
+        proc = criar_procedimento(profissional=prof)
+        passado = criar_atendimento(criar_cliente(), prof, proc, data_hora=timezone.now() - timedelta(days=2))
+        criar_atendimento(criar_cliente(), prof, proc, data_hora=timezone.now() - timedelta(days=1), status='REALIZADO')
+        futuro = criar_atendimento(criar_cliente(), prof, proc)
+        self.assertEqual(list(Atendimento.objects.sem_desfecho()), [passado])
+        overview = self.client.get(reverse('aranha:painel_overview'))
+        self.assertContains(overview, '1 atendimento sem desfecho')
+        lista = self.client.get(reverse('aranha:painel_agendamentos'), {'status': 'sem_desfecho'})
+        self.assertEqual([a.pk for a in lista.context['agendamentos']], [passado.pk])
+        self.assertNotIn(futuro.pk, [a.pk for a in lista.context['agendamentos']])

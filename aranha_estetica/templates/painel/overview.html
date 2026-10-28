@@ -67,6 +67,18 @@
   </div>
 </div>
 
+{# ── Sem desfecho: terminou e ninguem marcou Realizado/Faltou/Cancelado ── #}
+{% if total_sem_desfecho %}
+<a href="{% url 'aranha:painel_agendamentos' %}?status=sem_desfecho"
+   class="flex items-center justify-between gap-3 bg-superficie border-l-4 border-erro rounded-2xl px-5 py-3 mb-4 no-underline hover:bg-fundo transition-colors">
+  <span class="text-[0.85rem] text-texto">
+    <strong class="text-erro">{{ total_sem_desfecho }} atendimento{{ total_sem_desfecho|pluralize }} sem desfecho</strong>
+    — já passaram e ninguém marcou Realizado, Faltou ou Cancelado (sem isso não há comissão, débito de pacote nem NPS).
+  </span>
+  <span class="text-[0.78rem] font-bold text-erro shrink-0">Resolver &rarr;</span>
+</a>
+{% endif %}
+
 {# ── Pendentes de aprovação ── #}
 {% if pendentes_aprovacao %}
 <div class="bg-gradient-to-br from-[#fff8e1] to-[#ffecb3] border-l-4 border-aviso rounded-2xl p-5 mb-4">

@@ -489,11 +489,7 @@ def job_limpeza_status_atendimentos():
         except Atendimento.TransicaoInvalida as exc:
             logger.warning(f"[LIMPEZA] Atendimento {atendimento.pk}: transicao invalida ({exc})")
 
-    sem_desfecho = list(
-        Atendimento.objects.filter(
-            data_hora_fim__lt=limite, status__in=(StatusAtendimento.AGENDADO, StatusAtendimento.CONFIRMADO),
-        ).values_list('pk', flat=True)[:200]
-    )
+    sem_desfecho = list(Atendimento.objects.sem_desfecho(ate=limite).values_list('pk', flat=True)[:200])
     if sem_desfecho:
         logger.warning(
             'atendimentos_sem_desfecho',

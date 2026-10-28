@@ -120,6 +120,7 @@ def painel_overview(request):
         status=StatusAtendimento.PENDENTE,
         data_hora_inicio__gte=timezone.now(),
     ).select_related('cliente', 'profissional', 'procedimento').order_by('data_hora_inicio')[:15]))
+    total_sem_desfecho = Atendimento.objects.sem_desfecho().count()
     total_pendentes = Atendimento.objects.filter(
         status=StatusAtendimento.PENDENTE,
         data_hora_inicio__gte=timezone.now(),
@@ -163,6 +164,7 @@ def painel_overview(request):
         'status_totais': [s['total'] for s in agendamentos_por_status],
         'pendentes_aprovacao': pendentes_aprovacao,
         'total_pendentes': total_pendentes,
+        'total_sem_desfecho': total_sem_desfecho,
     }
 
     return render(request, 'painel/overview.html', context)
@@ -180,7 +182,10 @@ def painel_agendamentos(request):
         'cliente', 'cliente__prontuario', 'profissional', 'procedimento'
     ).order_by('-data_hora_inicio')
 
-    if status_filter != 'all':
+    if status_filter == 'sem_desfecho':
+        # ja terminou e ninguem marcou o desfecho: mais antigo primeiro (resolver a fila)
+        agendamentos = agendamentos.sem_desfecho().order_by('data_hora_inicio')
+    elif status_filter != 'all':
         agendamentos = agendamentos.filter(status=status_filter.upper())
 
     if data_filter:
