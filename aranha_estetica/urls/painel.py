@@ -107,6 +107,7 @@ urlpatterns = [
     # Agendamento interno pela recepcao (sem OTP) + link do termo do atendimento
     path('painel/agendamentos/novo/', agendamentos.admin_agendamento_novo, name='admin_agendamento_novo'),
     path('painel/agendamentos/<int:pk>/termo-link/', termos.admin_gerar_link_termo, name='admin_gerar_link_termo'),
+    path('painel/agendamentos/<int:pk>/ficha-link/', anamneses.admin_link_ficha, name='admin_link_ficha'),
     path('painel/agendamentos/<int:pk>/valor/', agendamentos.admin_atendimento_valor, name='admin_atendimento_valor'),
     path('painel/agendamentos/<int:pk>/desfazer-realizacao/', agendamentos.admin_desfazer_realizacao,
          name='admin_desfazer_realizacao'),

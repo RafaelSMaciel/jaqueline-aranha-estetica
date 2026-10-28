@@ -348,6 +348,16 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
   global/categoria/procedimento/modalidade, `obrigatorio`): respondidas no wizard ou por link
   `/anamnese/<token>/` (60 dias; consentimento art. 11 obrigatório). Formulário com respostas cujo
   schema muda vira nova versão (o antigo é desativado).
+- **Onde a ficha vale** — regra única `FormularioAnamnese.aplica_a` / `aplicaveis_a` (wizard,
+  alertas do painel, convites): global; categoria do procedimento; o procedimento; a **modalidade**
+  do procedimento (presencial/online/híbrido). O wizard recebe do servidor a lista de procedimentos
+  de cada ficha (não repete a regra no JS).
+- **Cliente agendada pelo painel** (não passa pelo wizard): o botão **"Link da ficha"** na agenda
+  gera o convite de cada ficha obrigatória pendente (WhatsApp, e-mail ou "abrir no balcão"); o
+  segundo clique reaproveita o convite em aberto.
+- **Pesquisa pós-atendimento** (tipo PESQUISA, opcional): oferecida na página de agradecimento do
+  NPS (§ NPS), no mesmo link que a cliente já recebeu — sem mensagem extra. Uma resposta por
+  atendimento.
 - **Alertas de saúde** (texto visível no portal, na agenda do painel e na ficha da cliente): o que
   a equipe registrou no prontuário (alergias, contraindicações, medicamentos, perguntas extras) +
   respostas de risco declaradas pela cliente nas fichas (alergia, gestação, anticoagulante,

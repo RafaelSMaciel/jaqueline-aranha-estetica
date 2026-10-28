@@ -27,6 +27,13 @@
     Sua avaliação é muito importante para a {{ CLINIC_NAME }}.<br>
     Usamos seu feedback para melhorar continuamente nossos serviços.
   </p>
+  {% if link_pesquisa %}
+  <div class="mt-8 rounded-lg border border-borda bg-superficie p-5 text-left">
+    <p class="text-sm font-semibold text-texto mb-1">Tem mais um minutinho?</p>
+    <p class="text-sm text-texto-suave mb-4">Responda algumas perguntas rápidas sobre a sua experiência. É opcional.</p>
+    <a href="{{ link_pesquisa }}" class="inline-flex items-center rounded-md bg-marca-forte px-5 py-2.5 text-sm font-semibold text-sobre-marca hover:opacity-90 transition-opacity">Responder</a>
+  </div>
+  {% endif %}
   {% endif %}
 
 </div>

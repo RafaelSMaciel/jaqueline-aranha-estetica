@@ -127,7 +127,7 @@ cards e dias são `<button>` (teclado) e o estado sobrevive a recusa do servidor
 | D15 | Aniversário = felicitação sem desconto; promoção sem cupom; validade anunciada ≤ fim da promoção | Nada é prometido sem mecanismo que aplique |
 | D16 | Deploy por Dockerfile + `migrate_atomico` no pre-deploy; **rollback = restaurar dump** | Upgrade 0026→0046 tudo-ou-nada; reverses não recuperam dados |
 | D17 | **Sem Celery** (saiu em 2026-10-27): jobs são funções chamadas pelo cron HTTP (`X-Cron-Token`) ou `rodar_job`; e-mail transacional é fila na própria `notificacao` (0061, reenvio pelo job `emails`) | Custo; 1 serviço; nada roda "em segundo plano" sem rastro |
-| D18 | `/anamnese/<token>/` e `/pesquisa/<token>/` mantidas, hoje sem produtor de link | Aguardando decisão do dono (remover × gerar o link); a ficha pública já exige consentimento art. 11 |
+| D18 | `/anamnese/<token>/` e `/pesquisa/<token>/` **com produtor**: "Link da ficha" na agenda do painel (cliente agendada pela recepção) e convite da pesquisa no fim do NPS | Ficha obrigatória chega a quem não passou pelo wizard; a pesquisa reaproveita o link do NPS (sem segunda mensagem) |
 | D19 | Site só pt-BR (sem LocaleMiddleware); sessão da equipe 8h deslizantes | Sem traduções; 30 min fixos deslogavam no meio do atendimento |
 | D20 | Faturamento = avulsos + venda de pacote; sessão de pacote não soma; comissão da sessão de pacote = `valor_pago / total de sessões` (congelado na venda, `compra_pacote_item.valor_unitario`); ticket médio e LTV da ficha pela mesma regra (`services/financeiro`) | Evita contar a receita duas vezes e inflar comissão |
 | D21 | Dado de saúde e token OAuth **cifrados na aplicação** (Fernet, `CHAVES_CIFRAGEM`, subchave por finalidade; 0060), sem busca no banco por conteúdo | Dump/backup vazado não expõe a ficha (LGPD art. 46/48 §3); pgcrypto deixaria a chave no SQL de toda consulta |
@@ -213,8 +213,7 @@ verde em SQLite e Postgres).
       pelo próprio site (@fontsource no bundle do Vite, 2026-10-27; sem Google Fonts)
 - [x] ~~**Pacote cancelado some do faturamento:**~~ resolvido (0047 `valor_reembolsado`; receita = pago − reembolsado).
 - [x] ~~**Janela do vínculo profissional ↔ prontuário**~~ resolvido (janela = max(60, `max_advance_dias`)).
-- [ ] **Link da ficha de anamnese** no agendamento interno: o marcador "ficha pendente" existe,
-      mas nada gera convite para `/anamnese/<token>/` (rev_painel-11; depende da decisão D18)
+- [x] ~~**Link da ficha de anamnese** no agendamento interno~~ resolvido (D18: botão "Link da ficha" na agenda).
 - [x] ~~**Purga LGPD × histórico do prontuário:**~~ resolvido (`candidatos_purga` retém quem tem `prontuario_versao`).
 - [ ] **Cashback de indicação (parcial):** a ficha do cliente já registra "Indicada por"
       (crédito automático no 1º atendimento pago); falta fluxo de **uso** do saldo da carteira

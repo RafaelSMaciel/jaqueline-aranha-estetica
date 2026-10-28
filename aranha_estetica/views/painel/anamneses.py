@@ -13,12 +13,18 @@ from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import ProtectedError, RestrictedError
+from django.conf import settings
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_POST
+from django_ratelimit.decorators import ratelimit
 
 from ...decorators import staff_required
-from ...models import FormularioAnamnese, Procedimento, RespostaAnamnese
+from ...models import Atendimento, FormularioAnamnese, Procedimento, RespostaAnamnese
+from ...services import anamnese
 from ...utils.auditoria import registrar_log
+from ...utils.seguranca import safe_next
+from ...validators import normalizar_telefone
 from ...utils.fichas import itens_ficha
 from ...utils.parse import id_int
 
@@ -215,4 +221,33 @@ def admin_anamnese_respostas(request, pk):
     return render(request, 'painel/anamnese_respostas.html', {
         'form_obj': form,
         'respostas': respostas,
+    })
+
+
+@staff_required
+@require_POST
+@ratelimit(key='user', rate='30/m', method='POST', block=True)
+def admin_link_ficha(request, pk):
+    """Link da ficha de anamnese obrigatoria p/ a cliente agendada pelo painel (D18).
+
+    O agendamento pela recepcao nao passa pelo wizard, entao a ficha fica pendente: aqui a equipe
+    gera o convite (1 por ficha, 60 dias) e manda por WhatsApp/e-mail ou abre no balcao.
+    """
+    atendimento = get_object_or_404(
+        Atendimento.objects.select_related('cliente', 'procedimento'), pk=pk,
+    )
+    pendentes = anamnese.fichas_pendentes(atendimento) if atendimento.status in Atendimento.STATUS_ATIVOS else []
+    if not pendentes:
+        messages.info(request, f'{atendimento.cliente.nome} não tem ficha pendente para este atendimento.')
+        return redirect(safe_next(request, request.META.get('HTTP_REFERER'), 'aranha:painel_agendamentos'))
+    site = settings.SITE_URL.rstrip('/')
+    fichas = [(form, site + anamnese.convidar(form, atendimento)) for form in pendentes]
+    registrar_log(request.user, 'Gerou link da ficha de anamnese', 'atendimento', atendimento.pk,
+                  {'formularios': [form.pk for form in pendentes]}, request=request)
+    return render(request, 'painel/ficha_link.html', {
+        'atendimento': atendimento,
+        'cliente': atendimento.cliente,
+        'fichas': fichas,
+        'links_texto': ' '.join(link for _form, link in fichas),
+        'telefone_wa': normalizar_telefone(atendimento.cliente.telefone or ''),
     })

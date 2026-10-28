@@ -304,8 +304,8 @@ def admin_agendamento_novo(request):
     if ids_com_ficha_pendente([atendimento]):
         messages.warning(
             request,
-            'Ficha de anamnese obrigatória pendente: confirme alergias e contraindicações '
-            'com a cliente antes do procedimento e registre no prontuário.',
+            'Ficha de anamnese obrigatória pendente: use "Link da ficha" na agenda para a cliente '
+            'responder antes do procedimento (ou confirme alergias e contraindicações no balcão).',
         )
     return redirect(f"{reverse('aranha:painel_agendamentos')}?data={data.isoformat()}")
 
