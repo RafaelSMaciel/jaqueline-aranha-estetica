@@ -1,12 +1,6 @@
 # Config de ferramentas (nao e pacote instalavel). Deps: requirements*.txt.
 # Caches e dados das ferramentas ficam todos em .cache/ (ignorado): a raiz do repo so tem codigo e config.
 
-[tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "clinica.settings.test"
-python_files = ["test_*.py"]
-testpaths = ["aranha_estetica/tests"]
-cache_dir = ".cache/pytest"
-
 [tool.ruff]
 target-version = "py312"
 cache-dir = ".cache/ruff"
