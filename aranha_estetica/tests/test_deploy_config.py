@@ -916,7 +916,8 @@ class SettingsProdTests(SimpleTestCase):
             'import clinica.settings.prod as s\n'
             'print(json.dumps({'
             '"debug": s.DEBUG, "vite_dev": s.DJANGO_VITE["default"]["dev_mode"],'
-            '"cookie_2fa": s.TWO_FACTOR_REMEMBER_COOKIE_SECURE, "axes_verbose": s.AXES_VERBOSE,'
+            '"mortas": [n for n in ("TWO_FACTOR_REMEMBER_COOKIE_SECURE", "MEDIA_ROOT", "MEDIA_URL",'
+            ' "AWS_QUERYSTRING_AUTH") if hasattr(s, n)], "axes_verbose": s.AXES_VERBOSE,'
             '"loader_cached": "cached" in str(s.TEMPLATES[0]["OPTIONS"]["loaders"]),'
             '"static": s.STORAGES["staticfiles"]["BACKEND"], "static_root": str(s.STATIC_ROOT),'
             '"hosts": s.ALLOWED_HOSTS, "ip_header": s.CLIENT_IP_HEADER,'
@@ -932,7 +933,7 @@ class SettingsProdTests(SimpleTestCase):
         s = json.loads(proc.stdout.strip().splitlines()[-1])
         self.assertFalse(s['debug'])
         self.assertFalse(s['vite_dev'])
-        self.assertTrue(s['cookie_2fa'])
+        self.assertEqual(s['mortas'], [])   # 2FA "lembrar", MEDIA e S3 sem uso sairam da config
         self.assertFalse(s['axes_verbose'])
         self.assertTrue(s['loader_cached'])
         self.assertEqual(s['static'], 'whitenoise.storage.CompressedManifestStaticFilesStorage')
