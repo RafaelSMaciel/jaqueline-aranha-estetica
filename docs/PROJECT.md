@@ -42,6 +42,33 @@ Um único projeto Django, renderizado no servidor, com duas superfícies:
 O papel **RECEPCAO** existe no modelo, mas ainda não tem telas nem login (ver
 [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO-E-ACESSO.md)).
 
+### 1.1 Glossário (termo do negócio → código)
+
+| Termo | No código | O que é |
+|---|---|---|
+| Cliente | `Cliente` | Quem é atendida (nunca "paciente"); identidade = celular + OTP |
+| Atendimento | `Atendimento` | Uma sessão marcada. Status: **PENDENTE** (pedido esperando a profissional), **AGENDADO** (aprovado), **CONFIRMADO** (a cliente confirmou presença), **REALIZADO**, **CANCELADO**, **FALTOU**, **REAGENDADO** (substituído por outro) — FSM em `Atendimento.TRANSICOES` |
+| Retorno | `eh_retorno`, `atendimento_origem` | Sessão gratuita de acompanhamento criada ao marcar REALIZADO um procedimento com retorno obrigatório |
+| Habilitação | `Habilitacao` | A profissional realiza o procedimento (sem nenhuma cadastrada, todas realizam) |
+| Grade / exceção | `AgendaHorario` / `AgendaExcecao` | Expediente semanal / o que muda numa data: **FOLGA** (da profissional, ou feriado/recesso da clínica), **HORARIO_DIFERENTE**, **BLOQUEIO** |
+| Horário livre (slot) | `SlotService`, `services/agenda` | Horário oferecido (grade, exceções, buffer, antecedência); reservar/reagendar/mover só por `services/agenda` |
+| Pacote | `Pacote` → `CompraPacote` + `CompraPacoteItem` + `ConsumoSessao` | Combo de sessões; na venda o nome e os valores ficam **congelados** e cada REALIZADO debita uma sessão |
+| Preço vigente / promoção | `Preco`, `Promocao`, `utils/precos` | Preço da data do atendimento (profissional > base) com a promoção daquele dia |
+| Carteira / cashback | `Carteira`, `MovimentoCarteira` | Crédito da cliente (vale, indicação); livro-razão |
+| Comissão | `RegraComissao`, `MovimentoComissao` | Livro-razão da profissional: CRÉDITO (realizado), PAGAMENTO (baixa), ESTORNO (cancelado) |
+| Lista de espera | `ListaEspera` | Quem quer vaga num dia; avisada quando um horário compatível libera |
+| Notificação | `Notificacao` | Toda mensagem ligada a um atendimento (lembrete, NPS, termo, e-mails); também a fila do e-mail |
+| Link de acesso | `LinkAcesso`, `services/links` | Link público das mensagens (confirmar, avaliar, termo, reagendar); no banco só o hash do token |
+| Ficha / prontuário / anotação | `RespostaAnamnese` (`resposta_formulario`) / `Prontuario` / `AnotacaoSessao` | Questionário da cliente / ficha clínica da equipe / nota de cada sessão — dado de saúde, cifrado |
+| Termo / aceite | `VersaoTermo` / `AceiteTermo` | Texto versionado (LGPD, saúde, procedimento) / prova do aceite (IP, user-agent, hash) |
+| Consentimento | `Consentimento`, `services/consentimentos` | Autorização por finalidade × canal (marketing/e-mail, lembrete/WhatsApp, pesquisa/WhatsApp); histórico append-only, o mais recente vale |
+| NPS / detrator / depoimento | `AvaliacaoNPS` | Nota 0–10 pós-atendimento; ≤ 6 alerta a clínica; comentário publicado só com autorização e aprovação |
+| Esquecimento / retenção | `sp_anonimizar_cliente`, `sp_aplicar_retencao_lgpd` | Anonimizar a pedido da titular / por prazo (`inventario_lgpd.py` diz o que acontece com cada coluna) |
+| Ator / trilhas | `ator.py`; `LogAuditoria`, `HistoricoAlteracao` | Quem agiu (usuário, IP, origem) / registro das ações e das alterações de dado |
+| Recusa de regra | `excecoes.RegraDeNegocio` (`HorarioIndisponivel`, `TransicaoInvalida`) | O "não" de um service, com a mensagem pronta para a tela |
+| Job | `jobs.py`, `/cron/run/<job>/`, `rodar_job` | Tarefa periódica chamada pelo cron externo |
+| Branding | `Configuracao`, `utils/branding` | Nome, contatos e dados legais da clínica editáveis no painel |
+
 ---
 
 ## 2. Stack
