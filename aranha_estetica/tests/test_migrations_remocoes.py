@@ -142,3 +142,104 @@ class PapelRecepcao0066AbortaTests(_AbortaBase):
         self.assertIn('0066', msg)
         self.assertTrue(msg.endswith(f'usuario.id={rec.pk}'), msg)
         Usuario.objects.filter(pk=rec.pk).delete()   # o tearDown sobe ate o fim
+
+
+# ─── 0067: modalidade, LEMBRETE_2H e notificacao PESQUISA ─────────────────
+M0067 = '0067_formularios_notificacoes_modalidade'
+
+
+def _cenario_0067(apps):
+    Profissional = apps.get_model(APP, 'Profissional')
+    Cliente = apps.get_model(APP, 'Cliente')
+    Procedimento = apps.get_model(APP, 'Procedimento')
+    Atendimento = apps.get_model(APP, 'Atendimento')
+    prof = Profissional.objects.create(nome='Dra 0067', slug='dra-0067')
+    cli = Cliente.objects.create(nome='Cli 0067', telefone='11966670067')
+    proc = Procedimento.objects.create(nome='Proc 0067', slug='proc-0067', duracao_minutos=30)
+    ini = _local_dt(date(2031, 6, 3), 10)
+    at = Atendimento.objects.create(cliente=cli, profissional=prof, procedimento=proc, status='AGENDADO',
+                                    data_hora_inicio=ini, data_hora_fim=ini + timedelta(minutes=30))
+    return at, proc
+
+
+@tag('migracoes')
+class FormulariosNotificacoesModalidade0067Tests(_MigracaoBase):
+    """0067: ficha MODALIDADE PRESENCIAL/HIBRIDO vira GLOBAL e a ONLINE e desativada; notificacao
+    LEMBRETE_2H/PESQUISA sem resposta e apagada (com o link); procedimento online vai p/ o log."""
+    migrate_from = M0066
+    migrate_to = M0067
+
+    def preparar(self, apps):
+        Formulario = apps.get_model(APP, 'FormularioAnamnese')
+        Notificacao = apps.get_model(APP, 'Notificacao')
+        LinkAcesso = apps.get_model(APP, 'LinkAcesso')
+        Procedimento = apps.get_model(APP, 'Procedimento')
+        at, proc = _cenario_0067(apps)
+
+        def ficha(nome, modalidade):
+            return Formulario.objects.create(nome=nome, escopo='MODALIDADE', modalidade=modalidade,
+                                             obrigatorio=True, schema_json=[]).pk
+
+        self.presencial = ficha('Presencial', 'PRESENCIAL')
+        self.hibrida = ficha('Hibrida', 'HIBRIDO')
+        self.online = ficha('Online', 'ONLINE')
+        self.categoria = Formulario.objects.create(nome='Facial', escopo='CATEGORIA', categoria='FACIAL',
+                                                   schema_json=[]).pk
+        self.n_2h = Notificacao.objects.create(atendimento=at, tipo='LEMBRETE_2H', status='ENVIADO').pk
+        LinkAcesso.objects.create(finalidade='CONFIRMAR_PRESENCA', notificacao_id=self.n_2h,
+                                  token_hash=_sha('tok-2h-0067'))
+        self.n_pesquisa = Notificacao.objects.create(atendimento=at, tipo='PESQUISA').pk
+        self.n_d1 = Notificacao.objects.create(atendimento=at, tipo='LEMBRETE', resposta='CONFIRMOU').pk
+        self.online_proc = Procedimento.objects.create(
+            nome='Consulta online', slug='consulta-online-0067', duracao_minutos=30, modalidade='ONLINE',
+            link_videoconferencia='https://video.example/sala',
+        ).pk
+        self.proc = proc.pk
+
+    def test_conversoes_e_ids_no_log(self):
+        Formulario = self.apps.get_model(APP, 'FormularioAnamnese')
+        Notificacao = self.apps.get_model(APP, 'Notificacao')
+        LinkAcesso = self.apps.get_model(APP, 'LinkAcesso')
+        LogAuditoria = self.apps.get_model(APP, 'LogAuditoria')
+
+        def estado(pk):
+            f = Formulario.objects.get(pk=pk)
+            return f.escopo, f.ativo, f.obrigatorio
+
+        self.assertEqual(estado(self.presencial), ('GLOBAL', True, True))
+        self.assertEqual(estado(self.hibrida), ('GLOBAL', True, True))
+        self.assertEqual(estado(self.online), ('GLOBAL', False, True))
+        self.assertEqual(Formulario.objects.get(pk=self.categoria).escopo, 'CATEGORIA')
+        self.assertEqual(list(Notificacao.objects.values_list('pk', flat=True)), [self.n_d1])
+        self.assertFalse(LinkAcesso.objects.exists())
+        log = LogAuditoria.objects.get(acao__startswith='migration 0067')
+        self.assertEqual(log.detalhes, {
+            'notificacao_apagada': [self.n_2h, self.n_pesquisa],
+            'formulario_modalidade_vira_global': [self.presencial, self.hibrida],
+            'formulario_online_desativado': [self.online],
+            'procedimento_vira_so_presencial': [self.online_proc],
+        })
+        with connection.cursor() as cursor:
+            proc = {c.name for c in connection.introspection.get_table_description(cursor, 'procedimento')}
+            form = {c.name for c in connection.introspection.get_table_description(cursor, 'formulario')}
+        self.assertFalse({'modalidade', 'url_videoconferencia'} & proc)
+        self.assertNotIn('modalidade', form)
+
+
+@tag('migracoes')
+class NotificacaoRespondida0067AbortaTests(_AbortaBase):
+    """Guarda: LEMBRETE_2H/PESQUISA com resposta da cliente aborta a 0067 (nada aplicado)."""
+    migrate_from = M0066
+    migrate_to = M0067
+
+    def test_respondida_aborta_com_os_ids(self):
+        Notificacao = self.antes.get_model(APP, 'Notificacao')
+        at, _proc = _cenario_0067(self.antes)
+        respondida = Notificacao.objects.create(atendimento=at, tipo='LEMBRETE_2H', resposta='CANCELOU')
+        sem_resposta = Notificacao.objects.create(atendimento=at, tipo='LEMBRETE_2H')
+        msg = self.migrar_e_esperar_aborto()
+        self.assertIn('0067', msg)
+        self.assertIn(f'notificacao.id={respondida.pk} (LEMBRETE_2H)', msg)
+        self.assertNotIn(f'notificacao.id={sem_resposta.pk} ', msg)
+        self.assertTrue(Notificacao.objects.filter(pk=sem_resposta.pk).exists())   # nada aplicado
+        Notificacao.objects.filter(pk=respondida.pk).delete()   # o tearDown sobe ate o fim
