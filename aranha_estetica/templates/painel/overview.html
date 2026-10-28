@@ -49,7 +49,8 @@
       <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
     </div>
     <div class="text-[1.4rem] font-extrabold text-texto leading-none">{{ taxa_ocupacao|default:0 }}%</div>
-    <div class="text-[0.65rem] font-bold uppercase tracking-wide text-texto-suave mt-1">Ocupação Semana</div>
+    <div class="text-[0.65rem] font-bold uppercase tracking-wide text-texto-suave mt-1">Ocupação da semana</div>
+    <div class="text-[0.7rem] text-texto-suave mt-0.5">{{ ocupacao.horas_ocupadas }} h de {{ ocupacao.horas_expediente }} h</div>
   </div>
   <div class="bg-superficie rounded-2xl shadow-sm p-4">
     <div class="w-9 h-9 rounded-xl flex items-center justify-center mb-2" style="background:#ede7f6;color:#5e35b1;">

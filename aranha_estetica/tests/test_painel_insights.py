@@ -963,3 +963,27 @@ class AuditoriaAutorSnapshotTests(_AdminBase):
         html = resp.content.decode()
         self.assertIn('Dra. Ex &lt;ex@x.com&gt;', html)
         self.assertRegex(html, r'>Sistema</span>')
+
+
+class OcupacaoSemanaTests(TestCase):
+    """Ocupacao = horas de atendimento ÷ horas de expediente (sem folga/feriado) — services/indicadores."""
+
+    def test_horas_e_folga(self):
+        from datetime import date
+
+        from aranha_estetica.models import AgendaExcecao, AgendaHorario, Profissional
+        from aranha_estetica.services.indicadores import ocupacao_semana
+        prof = Profissional.objects.create(nome='Ana Ocupacao', ativo=True)
+        segunda = date(2030, 3, 4)
+        for dia in (1, 2):   # seg e ter, 09-17 (8 h cada)
+            AgendaHorario.objects.create(profissional=prof, dia_semana=dia, hora_inicio=time(9), hora_fim=time(17))
+        proc = criar_procedimento(duracao=90, profissional=prof)
+        inicio = timezone.make_aware(datetime.combine(segunda, time(10)))
+        criar_atendimento(criar_cliente(), prof, proc, data_hora=inicio)                         # 1,5 h
+        criar_atendimento(criar_cliente(), prof, proc, data_hora=inicio + timedelta(hours=3), status='CANCELADO')
+        r = ocupacao_semana(segunda, segunda + timedelta(days=6))
+        self.assertEqual((r['horas_ocupadas'], r['horas_expediente']), (1.5, 16.0))
+        self.assertEqual(r['percentual'], round(1.5 * 100 / 16, 1))
+        AgendaExcecao.objects.create(tipo=AgendaExcecao.TIPO_FOLGA, data_inicio=segunda + timedelta(days=1),
+                                     data_fim=segunda + timedelta(days=1))   # feriado na terca
+        self.assertEqual(ocupacao_semana(segunda, segunda + timedelta(days=6))['horas_expediente'], 8.0)
