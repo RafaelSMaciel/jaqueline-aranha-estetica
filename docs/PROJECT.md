@@ -107,6 +107,7 @@ aranha_estetica/
 ├── checks.py        system checks de produção aranha.W001–W009
 ├── excecoes.py      RegraDeNegocio (mensagem + codigo), HorarioIndisponivel, TransicaoInvalida
 ├── ator.py          Ator (usuário, IP, origem) da borda em ContextVar → LogAuditoria + GUCs app.*
+├── inventario_lgpd.py  tabela → classe (titular/equipe/sistema); coluna pessoal → anonimiza/apaga/purga/retém
 ├── context_processors.py · decorators.py · validators.py · constants.py · sitemaps.py · admin.py
 clinica/             settings/{base,dev,prod}.py, urls.py, wsgi.py, apps.py, gunicorn_logger.py
 ```
@@ -528,6 +529,11 @@ depoimento do site e apaga o comentário do NPS; **revoga todos os links públic
 ficam ligados a um titular não identificável.
 
 ### 9.4 Retenção
+
+Inventário coluna a coluna em `inventario_lgpd.py`, conferido por `tests/test_inventario_lgpd.py`
+contra os models, as procedures (`sp_anonimizar_cliente`, `sp_aplicar_retencao_lgpd`,
+`sp_purgar_dados_expirados`) e o registro de operações do `docs/LGPD.md`: tabela ou coluna pessoal
+nova sem tratamento declarado reprova o CI.
 
 | Dado | Prazo | Mecanismo |
 |---|---|---|

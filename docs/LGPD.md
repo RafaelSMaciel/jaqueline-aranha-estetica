@@ -30,7 +30,13 @@ dado de saúde pesa contra a dispensa e nomear não custa nada: a recomendação
 | 7 | Lista de espera e contato | nome, contato, mensagem | visitantes/clientes | legítimo interesse / procedimentos preliminares | `lista_espera`, e-mail da clínica | até a data desejada passar |
 | 8 | Contas da equipe, 2FA, trilha de auditoria | nome, e-mail, papel, ações, IP | equipe | execução de contrato / obrigação legal | `usuario`, dispositivos OTP, `log_auditoria`, `historico_alteracao` | trilha: 5 anos (mínimo do banco: 180 dias); prontuário na trilha: 20 anos |
 | 9 | Segurança do site | IP, data e hora, tentativas de login | visitantes/equipe | legítimo interesse (art. 7º IX) | django-axes, logs da aplicação | até 6 meses |
-| 10 | Comissões e financeiro | valores por atendimento e profissional | profissionais | execução de contrato | `movimento_comissao`, `carteira` | livro-razão append-only |
+| 10 | Comissões e financeiro | valores por atendimento e profissional; crédito de indicação | profissionais e clientes | execução de contrato | `movimento_comissao`, `carteira`, `movimento_carteira` | livro-razão append-only |
+| 11 | Pacotes de sessões | pacote comprado (nome e valores congelados na venda), sessões feitas | clientes | execução de contrato | `compra_pacote`, `compra_pacote_item`, `consumo_sessao` | enquanto houver o cadastro; quem comprou pacote nos últimos 20 anos não é anonimizado pela retenção |
+| 12 | Links das mensagens (confirmar, avaliar, assinar termo, reagendar) | só o hash do token + vínculo ao atendimento | clientes | execução de contrato | `link_acesso` | revogados no esquecimento; vencido ou revogado: apagado após 90 dias |
+
+O inventário coluna a coluna (o que o esquecimento anonimiza, apaga, purga por idade ou retém por
+obrigação legal) fica em `aranha_estetica/inventario_lgpd.py`; o teste `test_inventario_lgpd`
+reprova coluna nova com dado pessoal sem tratamento e tratamento que a procedure não faz.
 
 ## 3. Operadores e transferência internacional
 
