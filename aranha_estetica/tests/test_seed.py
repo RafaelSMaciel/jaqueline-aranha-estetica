@@ -57,7 +57,7 @@ class SeedTests(TestCase):
     def test_demo_cria_clientes_e_atendimentos_sem_sobrepor(self):
         _seed('--demo')
         _seed('--demo')
-        self.assertEqual(Cliente.objects.filter(email__endswith='@exemplo.com').count(), 3)
+        self.assertEqual(Cliente.objects.filter(email__endswith='@example.com').count(), 3)
         self.assertEqual(Atendimento.objects.count(), 6)
         for at in Atendimento.objects.filter(status='AGENDADO'):
             self.assertFalse(
@@ -77,6 +77,13 @@ class SeedProducaoTests(TestCase):
     def test_demo_nunca_em_producao(self):
         with self.assertRaises(CommandError):
             _seed('--force', '--demo')
+
+    @mock.patch.dict('os.environ', {'RAILWAY_ENVIRONMENT_NAME': 'dev'})
+    def test_demo_no_ambiente_de_testes_publicado(self):
+        from django.test import override_settings
+        with override_settings(AMBIENTE_TESTE=True):
+            _seed('--demo')
+        self.assertEqual(Cliente.objects.filter(email__endswith='@example.com').count(), 3)
 
     @mock.patch.dict('os.environ', {'RAILWAY_ENVIRONMENT_NAME': 'production'})
     def test_force_carrega_catalogo_em_producao(self):

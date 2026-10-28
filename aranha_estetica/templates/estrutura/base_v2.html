@@ -29,6 +29,7 @@
   {% block schema_extra %}{% endblock %}
 </head>
 <body class="site-publico bg-fundo text-texto antialiased">
+{% if AMBIENTE_TESTE %}<div role="note" class="bg-aviso text-white text-center text-[0.8rem] font-bold py-1.5 px-4">Ambiente de testes — os agendamentos daqui não são reais.</div>{% endif %}
   <a href="#conteudo" class="sr-only focus:not-sr-only">Pular para o conteúdo</a>
   {% include 'cotton/chrome/cabecalho.html' %}
   <main id="conteudo">

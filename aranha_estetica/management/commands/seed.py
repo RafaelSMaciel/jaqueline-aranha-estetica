@@ -80,15 +80,20 @@ PACOTE_DEMO = ('Pacote Demonstração', 4)  # (nome, sessoes do 1o procedimento 
 REGRA_COMISSAO_DEMO = Decimal('30.00')     # % (so --demo: nunca em producao)
 
 CLIENTES_DEMO = [
-    ('Cliente Demonstração Um', '11900000001', 'demo1@exemplo.com'),
-    ('Cliente Demonstração Dois', '11900000002', 'demo2@exemplo.com'),
-    ('Cliente Demonstração Três', '11900000003', 'demo3@exemplo.com'),
+    ('Cliente Demonstração Um', '11900000001', 'demo1@example.com'),
+    ('Cliente Demonstração Dois', '11900000002', 'demo2@example.com'),
+    ('Cliente Demonstração Três', '11900000003', 'demo3@example.com'),
 ]
 
 
 def _em_producao() -> bool:
-    return bool(os.environ.get('RAILWAY_ENVIRONMENT_NAME')) or \
-        os.environ.get('DJANGO_ENV', '').strip().lower() == 'prod'
+    """Producao de verdade (Railway ou DJANGO_ENV=prod), fora do ambiente de testes publicado
+    (settings/staging.py: AMBIENTE_TESTE libera o --demo p/ a demonstracao)."""
+    from django.conf import settings
+    if getattr(settings, 'AMBIENTE_TESTE', False):
+        return False
+    return (bool(os.environ.get('RAILWAY_ENVIRONMENT_NAME'))
+            or os.environ.get('DJANGO_ENV', '').strip().lower() == 'prod')
 
 
 class Command(BaseCommand):

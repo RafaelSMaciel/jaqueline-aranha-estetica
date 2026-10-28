@@ -91,3 +91,18 @@ def safe_next(request, raw, fallback="aranha:painel_overview"):
     ):
         return raw
     return fallback
+
+
+def destino_permitido(endereco: str) -> bool:
+    """No ambiente de testes publicado (settings.AMBIENTE_TESTE) so DESTINATARIOS_TESTE recebem
+    e-mail/SMS/WhatsApp; fora dele, sempre True. Celular compara pelos digitos (ultimos 11)."""
+    if not getattr(settings, 'AMBIENTE_TESTE', False):
+        return True
+    alvo = (endereco or '').strip().lower()
+    if not alvo:
+        return False
+    permitidos = [d.strip().lower() for d in getattr(settings, 'DESTINATARIOS_TESTE', []) if d.strip()]
+    if '@' in alvo:
+        return alvo in permitidos
+    digitos = re.sub(r'\D', '', alvo)[-11:]
+    return bool(digitos) and any(re.sub(r'\D', '', p)[-11:] == digitos for p in permitidos if '@' not in p)

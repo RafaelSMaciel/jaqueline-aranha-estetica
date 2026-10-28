@@ -22,6 +22,7 @@
 </head>
 {# Sem x-cloak no <body>: se o bundle JS falhar o painel (forms) continua visivel #}
 <body class="painel-admin bg-superficie text-texto antialiased" x-data="adminShell">
+{% if AMBIENTE_TESTE %}<div role="note" class="bg-aviso text-white text-center text-[0.8rem] font-bold py-1.5 px-4">Ambiente de testes — os agendamentos daqui não são reais.</div>{% endif %}
 
   {# ── Backdrop do sidenav mobile ── #}
   <div

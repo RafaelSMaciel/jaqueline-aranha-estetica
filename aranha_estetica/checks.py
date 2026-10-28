@@ -158,6 +158,36 @@ def check_chaves_cifragem(app_configs=None, **kwargs):
 
 
 @checks.register(TAG)
+def check_postgres_obrigatorio(app_configs=None, databases=None, **kwargs):
+    """E002: producao (ou staging) sem Postgres — sem DATABASE_URL o Django caia em SQLite em
+    silencio: sem as procedures/triggers/views da 0056-0060 (Postgres e a fonte unica da retencao
+    LGPD, D23) e com o banco apagado a cada deploy. W015: Postgres fora do major 18 (o CI e as
+    paridades fn_*/vw_* so validam a 18)."""
+    if not getattr(settings, 'CIFRAGEM_EXIGE_CHAVE', False):
+        return []
+    avisos = []
+    if 'postgresql' not in settings.DATABASES['default'].get('ENGINE', ''):
+        avisos.append(checks.Error(
+            'Producao sem Postgres: DATABASE_URL ausente (o banco caiu no SQLite).',
+            hint='No Railway, variavel de referencia DATABASE_URL=${{Postgres.DATABASE_URL}} no servico web.',
+            id='aranha.E002',
+        ))
+    elif _banco_liberado(databases):
+        from django.db import connection
+        try:
+            major = connection.pg_version // 10000
+        except DatabaseError:
+            major = None
+        if major is not None and major != 18:
+            avisos.append(checks.Warning(
+                f'Postgres {major} no ar; o sistema e validado no Postgres 18 (CI, paridades, procedures).',
+                hint='Crie o servico com a imagem ghcr.io/railwayapp-templates/postgres-ssl:18 (nunca :latest).',
+                id='aranha.W015',
+            ))
+    return avisos
+
+
+@checks.register(TAG)
 def check_config_producao(app_configs=None, databases=None, **kwargs):
     if settings.DEBUG:
         return []

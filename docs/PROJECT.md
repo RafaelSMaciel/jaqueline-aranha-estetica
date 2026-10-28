@@ -729,7 +729,9 @@ conexão Postgres, abaixo do `WEB_TIMEOUT`; `0` desliga; o `migrate_atomico` rod
 `shivazen-cron` no serviço do cron, `shivazen-staging`).
 
 Só dev/testes: `DEBUG`, `SMS_DEV_LOG_ONLY` (em prod gera W002), `DB_ENGINE`/`DB_*`,
-`TEST_DATABASE_URL`, `PG_EXIGE_ICU`, `TESTE_SQLITE_MEMORIA`, `TESTE_VITE_BUILD`, `EXIGE_NAVEGADOR`
+`TEST_DATABASE_URL`, `PG_EXIGE_ICU`, `TESTE_SQLITE_MEMORIA`, `TESTE_VITE_BUILD`, `EXIGE_NAVEGADOR`.
+Só no ambiente de testes publicado (`DJANGO_ENV=staging`, §13.1): `DESTINATARIOS_TESTE`
+(e-mails/celulares separados por vírgula — os únicos que recebem mensagem)
 ([`DESENVOLVIMENTO.md`](DESENVOLVIMENTO.md)).
 
 **Legada — remover do Railway:** `STATIC_ROOT` (era `/tmp`; `settings/prod.py` ignora e usa
@@ -823,6 +825,44 @@ pin; `tests/test_deploy_config.CiFixadoTests` reprova pin solto:
 - O deploy de produção sai do branch `main` (configuração do serviço no Railway). O trabalho
   acontece na `dev`; a `main` é protegida no GitHub (os 6 jobs bloqueantes do CI obrigatórios,
   inclusive para admin; sem force-push) e recebe a `dev` por PR ou fast-forward.
+
+### 13.1 Ambiente **dev** publicado (testes, sai da branch `dev`)
+
+Primeiro deploy: um ambiente de testes na internet, igual à produção, mas sem risco de mandar
+mensagem a cliente real. Perfil `DJANGO_ENV=staging` (`clinica/settings/staging.py` = `prod.py` +
+travas): faixa "Ambiente de testes" no site e no painel, `robots.txt` fechado e `X-Robots-Tag:
+noindex` em toda resposta, código do SMS só no log (`sms_dev_log`, com a prévia), e-mail e WhatsApp
+só para `DESTINATARIOS_TESTE` (o `BackendAmbienteTeste` filtra todo e-mail, inclusive o de
+recuperação de senha) e `seed --demo` liberado. `DJANGO_ENV=dev` no Railway derruba o boot.
+
+Passo a passo (projeto do Railway reativado):
+
+1. **Environment** `dev` no projeto (Settings › Environments) com o serviço web ligado ao repositório,
+   **branch `dev`** (produção segue da `main`). O `railway.json` já traz o pre-deploy deste
+   environment: `migrate_atomico`, `bootstrap_admin` e `seed --demo` (idempotente).
+2. **Postgres 18** no environment: imagem `ghcr.io/railwayapp-templates/postgres-ssl:18` (nunca
+   `:latest`; o check `aranha.W015` avisa outro major).
+3. **Variáveis** do serviço web:
+   - `DJANGO_ENV=staging`, `DATABASE_URL=${{Postgres.DATABASE_URL}}` (sem ela o check `aranha.E002`
+     barra o pre-deploy — antes caía em SQLite em silêncio);
+   - `DJANGO_SECRET_KEY` e `CHAVES_CIFRAGEM` **próprias** do dev (`python manage.py
+     gerar_chave_cifragem`; nunca as de produção);
+   - `SITE_URL=https://<app>.up.railway.app`, `CSRF_TRUSTED_ORIGINS` igual (o domínio do Railway
+     entra sozinho em `ALLOWED_HOSTS`);
+   - `ADMIN_EMAIL`, `ADMIN_PASSWORD` (a dona define; trocar a senha no 1º acesso), `CRON_TOKEN`;
+   - `DESTINATARIOS_TESTE=<e-mail da dona>,<celular da dona>` (só eles recebem mensagem);
+   - e-mail opcional: `EMAIL_BACKEND=anymail.backends.resend.EmailBackend` + `RESEND_API_KEY` com
+     `DEFAULT_FROM_EMAIL=onboarding@resend.dev` (sem domínio verificado o Resend só entrega na
+     caixa do dono da conta);
+   - `SENTRY_DSN` opcional (o *environment* sai `staging` sozinho);
+   - `DB_APPLICATION_NAME=shivazen-dev`.
+4. **Deploy**: push na `dev` → CI verde → o Railway constrói a imagem (o `watchPatterns` ignora
+   commit só de documentação), roda o pre-deploy e troca o container quando `/healthz/` responde.
+5. **Conferir**: `/healthz/` 200; a faixa amarela no topo; login da equipe (`/admin-login/`) com o
+   2FA; agendar pelo site com o celular da lista e pegar o código no log (`sms_dev_log` → `preview`);
+   `python manage.py check --deploy --database default` no shell do Railway.
+6. **Cron** (opcional no dev): os mesmos jobs do §10 apontando para a URL do dev, com o
+   `CRON_TOKEN` do dev.
 
 ---
 
@@ -1139,14 +1179,9 @@ Não use `migrate aranha_estetica <anterior>`.
   sempre intervalo (`utils/datas.dias_locais`), nunca `campo__date` (que não usa o índice); lista
   com alerta de saúde por linha usa `utils/saude.alertas_em_lote` (3 consultas para a página toda;
   `tests/test_consultas_por_tela.py` reprova N+1 no painel e nos prontuários).
-- **Staging** (quando o Railway voltar; hoje não existe): um *environment* `staging` no mesmo
-  projeto do Railway, com Postgres próprio e deploy da `dev` (produção segue da `main`).
-  `DJANGO_ENV=prod` (não existe `staging` — o boot recusa), `ALLOWED_HOSTS`/`CSRF_TRUSTED_ORIGINS`
-  do domínio de staging, `CHAVES_CIFRAGEM` e `DJANGO_SECRET_KEY` **próprias**,
-  `DB_APPLICATION_NAME=shivazen-staging`, e-mail para um provedor de teste (ou `dummy`), SMS e
-  WhatsApp sem credencial real (falham fechados) e `SENTRY_ENVIRONMENT=staging`. **Nunca** dados
-  reais de cliente: `seed --demo --force` ou dump anonimizado. Serve para ensaiar o go-live (§14 a)
-  e cada migration nova num banco que já tem dados antes da `main`.
+- **Ambiente de testes (dev publicado)**: roteiro no §13.1. **Nunca** dados reais de cliente
+  (`seed --demo` ou dump anonimizado). Serve para ensaiar o go-live (§14 a) e cada migration nova num
+  banco que já tem dados antes da `main`.
 - **Backups** (fora do Railway e cifrados): `scripts/backup/backup_postgres.sh` todo dia (serviço
   Cron do Railway com `postgresql-client`, `age` e `rclone`, ou outra máquina) para um bucket com
   versionamento/*object lock*. Lá fica só a chave **pública** do age; a privada fica offline com a

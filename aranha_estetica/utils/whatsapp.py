@@ -103,6 +103,11 @@ def enviar_template_whatsapp(telefone, template_name, components=None):
     if components:
         payload['template']['components'] = components
 
+    from .seguranca import destino_permitido
+    if not destino_permitido(telefone):
+        logger.info('envio_bloqueado_ambiente_teste', extra={'canal': 'whatsapp'})
+        return False
+
     try:
         response = requests.post(
             api_url,
