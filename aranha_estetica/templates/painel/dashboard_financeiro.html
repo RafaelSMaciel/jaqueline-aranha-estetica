@@ -25,7 +25,7 @@
   </div>
 </div>
 
-<p class="text-[0.72rem] text-texto-suave -mt-2 mb-4">Faturamento = atendimentos avulsos realizados + pacotes vendidos (menos o valor devolvido em pacote cancelado). Sessões de pacote não somam de novo; retornos gratuitos ficam fora. Ticket médio = média dos atendimentos avulsos com valor (a mesma conta da visão geral).</p>
+<p class="text-[0.72rem] text-texto-suave -mt-2 mb-4">Faturamento = atendimentos avulsos realizados + pacotes vendidos (menos o valor devolvido em pacote cancelado). Sessões de pacote não somam de novo; retornos gratuitos ficam fora. Ticket médio = média dos atendimentos avulsos com valor (a mesma conta da visão geral). Nos rankings, produção = valor de cada sessão realizada (sessão de pacote pelo valor unitário da venda).</p>
 
 {# ── No-show / Comissões ── #}
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
@@ -45,12 +45,12 @@
 {# ── Top procedimentos / profissionais ── #}
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
   <div class="bg-superficie rounded-2xl shadow-sm overflow-hidden">
-    <div class="px-4 py-3 border-b border-borda font-bold text-[0.9rem] text-texto">Top 5 Procedimentos (30 dias)</div>
+    <div class="px-4 py-3 border-b border-borda font-bold text-[0.9rem] text-texto">Procedimentos que mais produziram (30 dias)</div>
     <table class="w-full text-[0.85rem]">
       <thead>
         <tr class="text-texto-suave text-[0.75rem] uppercase tracking-wide">
           <th class="text-left font-bold px-4 py-2">Procedimento</th>
-          <th class="text-right font-bold px-4 py-2">Faturamento</th>
+          <th class="text-right font-bold px-4 py-2">Produção</th>
           <th class="text-right font-bold px-4 py-2">Qtd</th>
         </tr>
       </thead>
@@ -69,12 +69,12 @@
   </div>
 
   <div class="bg-superficie rounded-2xl shadow-sm overflow-hidden">
-    <div class="px-4 py-3 border-b border-borda font-bold text-[0.9rem] text-texto">Top 5 Profissionais (30 dias)</div>
+    <div class="px-4 py-3 border-b border-borda font-bold text-[0.9rem] text-texto">Profissionais que mais produziram (30 dias)</div>
     <table class="w-full text-[0.85rem]">
       <thead>
         <tr class="text-texto-suave text-[0.75rem] uppercase tracking-wide">
           <th class="text-left font-bold px-4 py-2">Profissional</th>
-          <th class="text-right font-bold px-4 py-2">Faturamento</th>
+          <th class="text-right font-bold px-4 py-2">Produção</th>
           <th class="text-right font-bold px-4 py-2">Qtd</th>
         </tr>
       </thead>

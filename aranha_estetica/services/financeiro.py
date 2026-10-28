@@ -17,7 +17,8 @@ from __future__ import annotations
 
 from decimal import ROUND_HALF_UP, Decimal
 
-from django.db.models import Count, F, Sum
+from django.db.models import Count, DecimalField, F, Sum
+from django.db.models.functions import Coalesce
 
 from ..models import Atendimento, CompraPacote
 
@@ -43,6 +44,23 @@ def vendas_pacote(qs=None):
 
 
 RECEITA_PACOTE = Sum(F('valor_pago') - F('valor_reembolsado'))
+
+
+# Producao (competencia): o valor de cada sessao REALIZADA — avulso pelo valor cobrado, sessao de
+# pacote pelo valor unitario congelado na venda. Para rankings por profissional/procedimento: o
+# faturamento (caixa) poe a receita do pacote no dia da venda e zera a sessao, e quem so atende
+# pacote aparecia com "gerou R$ 0" ao lado da comissao dela.
+VALOR_PRODUZIDO = Coalesce(
+    F('sessao_pacote_vinculada__compra_pacote_item__valor_unitario'), F('valor_cobrado'),
+    output_field=DecimalField(max_digits=10, decimal_places=2),
+)
+
+
+def producao(qs=None):
+    """Atendimentos realizados (sem retorno) anotados com `valor_produzido`."""
+    qs = Atendimento.objects.all() if qs is None else qs
+    return qs.filter(status=Atendimento.STATUS_REALIZADO, eh_retorno=False).annotate(
+        valor_produzido=VALOR_PRODUZIDO)
 
 
 def ticket_medio(total, qtd) -> Decimal:
