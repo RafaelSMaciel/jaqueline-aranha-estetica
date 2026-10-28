@@ -111,7 +111,6 @@ python manage.py runserver           # http://127.0.0.1:8000
 python manage.py check
 python manage.py makemigrations --check --dry-run
 python manage.py test aranha_estetica                 # SQLite (db_test.sqlite3), rápido
-pytest aranha_estetica/tests/test_2fa.py              # único arquivo só-pytest (o CI roda à parte)
 
 # Mesma suíte no Postgres (como a CI): EXCLUDE, CHECK, triggers e collation só existem lá
 TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/ci PG_EXIGE_ICU=1 \

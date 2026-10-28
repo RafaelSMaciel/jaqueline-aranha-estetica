@@ -677,7 +677,6 @@ Só dev/testes: `DEBUG`, `SMS_DEV_LOG_ONLY` (em prod gera W002), `DB_ENGINE`/`DB
   redação da senha, append-only) e `tests/test_pg_paridade.py` compara cada `fn_*`/`vw_*` com o
   Python (mudou a regra no Python → atualize a função numa migration nova) e confere o efeito de
   cada `sp_*`.
-- `pytest aranha_estetica/tests/test_2fa.py` — o único arquivo estilo pytest.
 - Guardas de regressão relevantes: `test_csp.py` (CSP x templates, allowlist do jsdelivr),
   `test_front_pipeline.py` (Vite/cotton/webpush), `test_deploy_config.py` (checks, migrate
   atômico, Dockerfile/railway.json), `test_slots_disponibilidade.py` (caracterização do
@@ -690,7 +689,7 @@ todos os jobs:
 
 | Job | Passos |
 |---|---|
-| `testes` | `check`, `makemigrations --check`, suíte Django (SQLite, `--exclude-tag migracoes`), arquivos pytest, `check --deploy --fail-level ERROR` com settings de prod |
+| `testes` | `check`, `makemigrations --check`, suíte Django (SQLite, `--exclude-tag migracoes`), `check --deploy --fail-level ERROR` com settings de prod |
 | `migracoes-sqlite` | `tests/test_migrations_dados.py` (`--tag migracoes`) no SQLite, em paralelo |
 | `postgres` | Postgres 18: `migrate_atomico` do zero, `bootstrap_admin`, suíte Django no Postgres sem a tag `migracoes` (bloqueante; inclui conformidade, trilha e paridade) |
 | `postgres-migracoes` | `tests/test_migrations_dados.py` no Postgres 18 (reverso/ida de cada migration, inclusive triggers/funções/views/procedures), em paralelo |

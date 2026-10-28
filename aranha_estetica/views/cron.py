@@ -47,17 +47,6 @@ JOB_MAP = {
     'feriados': tasks_manutencao.job_carregar_feriados,
 }
 
-# Jobs opcionais de tasks.py: entram no mapa so se existirem (evita ImportError
-# quando ainda nao foram criados).
-for _nome, _attr in (
-    ('limpeza_dados', 'job_limpeza_dados'),
-    ('otp_purgar', 'job_purgar_otp'),
-    ('promocao_lote', 'job_promocao_lote'),
-):
-    _job = getattr(tasks, _attr, None)
-    if _job is not None:
-        JOB_MAP[_nome] = _job
-
 
 def _avisar_monitor(job_name: str, ok: bool) -> None:
     """Heartbeat do job no monitor externo. Best-effort: monitor fora do ar nunca muda a
