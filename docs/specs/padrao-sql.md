@@ -3709,11 +3709,13 @@ END $$;
 | CHECK regex/jsonb, EXCLUDE, FK composta, `ix_cliente_nome_trgm`, ação `ON DELETE`, renomeação de objetos automáticos | ❌ (`RunPython` sai se `vendor != 'postgresql'`) | ✅ |
 | Triggers `atualizado_em`, imutabilidade, validação, histórico | ❌ — o Python cobre: `auto_now`, `save()`/`delete()` que recusam (ex.: `ProntuarioVersao`), serviços que validam antes do INSERT | ✅ |
 | Views e funções `fn_*` | ❌ — o app não depende delas | ✅ (teste de paridade) |
-| Procedures `sp_*` | ❌ — fallback Python | ✅ **fonte única** |
+| Procedures `sp_*` | ❌ — **não rodam** (`utils/banco.chamar` recusa com `ImproperlyConfigured`; testes pulados) | ✅ **fonte única** (sem fallback Python desde 2026-10-27, §5.12) |
 | Collation `pt_br` | shim `create_collation` (§3.6.3) | ICU |
 
 O job `postgres` do CI (bloqueante) roda a suíte inteira no PG 18 depois do `migrate_atomico` do
-zero; ali os `sp_*` são exercitados pelos próprios testes de serviço (mesma asserção do SQLite).
+zero; ali os `sp_*` são exercitados pelos testes de serviço (`test_lgpd_esquecimento`,
+`test_job_expirar_pacotes`, housekeeping) e pelos testes de efeito do `test_pg_paridade`. Local:
+`docker compose up -d db` + `TEST_DATABASE_URL`.
 
 ### 5.8 Testes de paridade (`tests/test_pg_paridade.py`, `skipUnless(vendor == 'postgresql')`)
 
@@ -3726,14 +3728,15 @@ zero; ali os `sp_*` são exercitados pelos próprios testes de serviço (mesma a
 | `fn_saldo_comissao`, `vw_comissao`, `vw_comissao_saldo` | `MovimentoComissao.objects.creditos_com_status()` + agregação ORM | crédito pendente, pago, estornado, pago-e-estornado |
 | `vw_consentimento_atual`, `fn_tem_consentimento` | `services/consentimentos.estado_atual` | concede → revoga → reconcede; empate de `registrado_em` |
 | `vw_faturamento_mensal`, `vw_cliente_resumo` | agregação ORM com as regras de `admin_financeiro` (D20) | mês com pacote cancelado com reembolso, sessão de pacote, retorno |
-| `fn_clientes_para_anonimizar` | `LgpdService.candidatos_purga` | um cliente por regra de exclusão |
-| `sp_anonimizar_cliente` | `LgpdService._esquecer_cliente_python` | ~~dois titulares idênticos~~ → **a mesma fixture** (implementado assim, §5.9): Python numa savepoint desfeita depois da "foto", `CALL` noutra; foto normalizada (linhas novas sem id, instantes ignorados) de cliente, consentimentos (+ vigente), links, OTP, espera, notificações, fichas, NPS, `log_auditoria`, `django_admin_log`, prontuário e atendimentos; uma 2ª titular e um log de terceiro com o mesmo nome provam que nada fora do titular muda |
-| `sp_aplicar_retencao_lgpd` | as 3 funções Python | idem, com `p_confirmar_por_cliente=false` (o `TestCase` está numa transação) |
-| `sp_purgar_dados_expirados`, `sp_expirar_pacotes` | funções Python do housekeeping / `job_expirar_pacotes` | contagens e linhas remanescentes iguais |
+| `fn_clientes_para_anonimizar` | — (efeito esperado) | um cliente por regra de exclusão; o conjunto esperado é o da fixture |
+| `sp_anonimizar_cliente` | — (efeito esperado) | titular com rastro em todas as tabelas: cadastro só com o pseudônimo, consentimentos revogados sem IP/UA, links revogados, OTP e espera apagados, texto das notificações limpo, só a ficha do REALIZADO fica, NPS sem texto, nome trocado nas trilhas e no `django_admin_log`, registro LGPD com autor e IP; uma 2ª titular e um log de terceiro com o mesmo nome provam que nada fora do titular muda |
+| `sp_aplicar_retencao_lgpd` | — (efeito esperado) | contagens e quem foi anonimizado; idempotente |
+| `sp_purgar_dados_expirados`, `sp_expirar_pacotes` | — (efeito esperado) | contagens = linhas que saíram; o que tem de ficar fica |
 
-Regra de manutenção: mudou a regra no Python → o teste de paridade quebra no CI Postgres até a
-função/procedure ser atualizada por uma migration nova (`CREATE OR REPLACE`). É isso que torna
-aceitável ter "duas fontes": a leitura tem espelho testado; a escrita (procedures) tem **uma** fonte.
+Regra de manutenção: mudou a regra de **leitura** no Python → o teste de paridade quebra no CI
+Postgres até a função ser atualizada por uma migration nova (`CREATE OR REPLACE`). A **escrita**
+(procedures) tem uma fonte só — o SQL; mudou a regra, muda a procedure (migration nova) e o teste
+de efeito.
 
 ### 5.9 Implementação (0056–0058) — o que ficou diferente do desenho acima, e por quê
 
@@ -4025,6 +4028,17 @@ Dado de saúde e segredo reversível gravados cifrados pela aplicação (`utils/
 - Consequência aceita: o banco não filtra pelo conteúdo (sem `respostas_extras__chave`, busca
   textual em anotação ou igualdade em alergias).
 
+### 5.12 Postgres como fonte única da escrita (2026-10-27)
+
+Decisão do dono: as 4 procedures são o **único** caminho do esquecimento, da retenção LGPD, do
+housekeeping e da expiração de pacotes. Saíram os fallbacks Python (`_esquecer_cliente_python`,
+`candidatos_purga`, `purgar_*`, `tasks_manutencao._purgar_*`, o `update()` do
+`job_expirar_pacotes`), o `usa_logica_pg()` e o `FORCAR_LOGICA_PYTHON`. `utils/banco.chamar`
+recusa banco que não é Postgres (`ImproperlyConfigured`, apontando o `docker compose up -d db`);
+`LgpdService.candidatos_retencao()` lê o `fn_clientes_para_anonimizar`. Os testes dessas rotinas
+viraram só-Postgres (pulados no SQLite) e os de paridade de escrita viraram testes de efeito
+esperado (§5.8). As funções de leitura seguem como espelho testado do Python.
+
 ### 7.4 O que eu recomendo NÃO fazer
 
 - **Não** tornar o `fn_horarios_livres` a fonte do agendamento (nem chamá-lo do wizard): a regra de
@@ -4046,4 +4060,4 @@ Dado de saúde e segredo reversível gravados cifrados pela aplicação (`utils/
 - **Não** depender de `pg_cron`: o cron HTTP (`/cron/run/<job>/`) continua chamando os jobs, que
   chamam as procedures.
 
-_Última atualização: 2026-10-27 — 0059: trilhas append-only (§5.10); 0060: cifragem em repouso (§5.11). Antes, tudo implementado: fases (a)–(f) (0048–0053: agenda 4→2, tokens em hash, consentimentos, questionário único, pacote congelado, comissão em livro-razão), fase de nomes N1–N2 (0054/0055, notas no §3.6.5) e fase de lógica L1–L3 (0056–0058: triggers + trilha `historico_alteracao`, extensões/utilitárias/busca trigram/funções de leitura/views com paridade, procedures como fonte única; notas no §5.9)._
+_Última atualização: 2026-10-27 — 0059: trilhas append-only (§5.10); 0060: cifragem em repouso (§5.11); Postgres como fonte única da escrita (§5.12). Antes, tudo implementado: fases (a)–(f) (0048–0053: agenda 4→2, tokens em hash, consentimentos, questionário único, pacote congelado, comissão em livro-razão), fase de nomes N1–N2 (0054/0055, notas no §3.6.5) e fase de lógica L1–L3 (0056–0058: triggers + trilha `historico_alteracao`, extensões/utilitárias/busca trigram/funções de leitura/views com paridade, procedures como fonte única; notas no §5.9)._

@@ -1,16 +1,12 @@
 """Servico de LGPD — DSAR (export), unsubscribe, esquecimento e retencao."""
 import logging
 import os
-from datetime import timedelta
 from typing import Any
 
 from django.db import connection, transaction
-from django.db.models import Exists, OuterRef, Q
-from django.utils import timezone
 
 from aranha_estetica.models import Cliente, Atendimento, AvaliacaoNPS
-from aranha_estetica.utils.audit import registrar_log
-from aranha_estetica.utils.banco import chamar, usa_logica_pg
+from aranha_estetica.utils.banco import chamar, exigir_postgres
 
 logger = logging.getLogger(__name__)
 
@@ -37,16 +33,6 @@ class LgpdService:
     # cancelado, pendente vencido, convite nunca respondido): fim da
     # finalidade (LGPD art. 15/16) -> exclusao apos N dias.
     RETENCAO_FICHA_SEM_ATENDIMENTO_DIAS = 90
-    PURGA_LOG_PROGRESSO_LOTE = 100  # loga progresso a cada N anonimizacoes
-
-    # Campos gravados pela anonimizacao (lista explicita: soft_delete() grava
-    # so deletado_em/ativo e descartaria o resto — bug corrigido aqui).
-    # Consentimentos ficam fora: historico proprio (consentimentos.esquecer).
-    CAMPOS_ANONIMIZADOS = [
-        'nome', 'cpf', 'rg', 'email', 'telefone', 'cep', 'endereco',
-        'profissao', 'data_nascimento', 'foto_url',
-        'deletado_em', 'ativo', 'atualizado_em',
-    ]
 
     @staticmethod
     def exportar_dados_cliente(cliente: Cliente) -> dict[str, Any]:
@@ -264,18 +250,15 @@ class LgpdService:
     def esquecer_cliente(cls, cliente: Cliente, usuario=None, request=None) -> None:
         """Direito ao esquecimento: anonimiza PII do titular e faz soft-delete.
 
-        Postgres: ``CALL sp_anonimizar_cliente`` — a procedure e a fonte UNICA (spec
-        padrao-sql §5.6); depois ``cliente.refresh_from_db()``. O corpo Python
-        (``_esquecer_cliente_python``) e o fallback do SQLite dos testes e a referencia do
-        teste de paridade (mesmo efeito, comparado por "foto" em tests/test_pg_paridade.py).
+        ``CALL sp_anonimizar_cliente`` — a procedure e a fonte UNICA (spec padrao-sql §5.6):
+        cadastro, consentimentos (revoga e tira IP/user-agent), links, OTP, lista de espera,
+        texto das notificacoes, fichas de pedido nao realizado, depoimento, nome nas trilhas e no
+        django_admin_log, e o registro LGPD com autor e IP. Exige Postgres (utils/banco.chamar).
         """
-        if usa_logica_pg():
-            autor_id, ip = cls._autor_e_ip(usuario, request)
-            chamar('sp_anonimizar_cliente', cliente.pk, autor_id, ip)
-            cliente.refresh_from_db()
-            logger.info('Cliente %s anonimizado (direito ao esquecimento).', cliente.pk)
-            return
-        cls._esquecer_cliente_python(cliente, usuario=usuario, request=request)
+        autor_id, ip = cls._autor_e_ip(usuario, request)
+        chamar('sp_anonimizar_cliente', cliente.pk, autor_id, ip)
+        cliente.refresh_from_db()
+        logger.info('Cliente %s anonimizado (direito ao esquecimento).', cliente.pk)
 
     @staticmethod
     def _autor_e_ip(usuario, request):
@@ -292,307 +275,43 @@ class LgpdService:
         return (usuario.pk if autenticado else None), ip
 
     @classmethod
-    def _esquecer_cliente_python(cls, cliente: Cliente, usuario=None, request=None) -> None:
-        """Fallback Python (SQLite) e referencia de paridade do ``sp_anonimizar_cliente``.
+    def candidatos_retencao(cls) -> list[int]:
+        """Ids que a proxima retencao anonimiza (``fn_clientes_para_anonimizar``, a mesma funcao
+        que o ``sp_aplicar_retencao_lgpd`` usa).
 
-        Consentimentos: revoga o vigente (ESQUECIMENTO) e apaga IP/user-agent,
-        mantendo datas e finalidades (prova de base legal sem identificar o
-        titular). Mantem atendimentos/aceites/prontuario e as fichas de anamnese de
-        atendimentos REALIZADOS (retencao clinica) ligados a um titular nao
-        identificavel. Fichas de pedidos nao realizados sao apagadas.
-        Depoimento (NPS) sai do site e perde o texto livre (a nota fica p/
-        estatistica). LogAuditoria continua (trilha legal — autor, tabela,
-        registro, IP), mas o nome do titular no texto da acao vira o
-        pseudonimo; o mesmo no historico do Django admin (django_admin_log).
+        Regra: ativo criado ha mais de N anos sem atendimento nesse periodo, ou soft-deletado ha
+        mais de 30 dias; nunca quem ja foi anonimizado, nem quem tem prontuario com conteudo ou com
+        historico (versoes), pacote comprado ou atendimento REALIZADO nos ultimos 20 anos. Aceite
+        de termo NAO retem (todo booking online grava o aceite LGPD).
         """
-        from aranha_estetica.models import (
-            Carteira, CodigoOtp, CompraPacote, ListaEspera, LogAuditoria, Notificacao,
-            Prontuario, RespostaAnamnese,
-        )
-
-        cliente_pk = cliente.pk
-        telefone_original = cliente.telefone
-        email_original = cliente.email
-        nome_original = cliente.nome or ''
-        pseudonimo = f'[ANONIMIZADO-{cliente_pk}]'
-
-        cliente.nome = pseudonimo
-        cliente.cpf = None
-        cliente.rg = None
-        cliente.email = None
-        cliente.telefone = None
-        cliente.cep = None
-        cliente.endereco = None
-        cliente.profissao = None
-        cliente.data_nascimento = None
-        cliente.foto_url = ''
-        if cliente.deletado_em is None:
-            cliente.deletado_em = timezone.now()
-        cliente.ativo = False
-        cliente.save(update_fields=cls.CAMPOS_ANONIMIZADOS)
-        # Consentimentos: o historico fica (prova de que houve base legal); o que
-        # estava concedido e revogado (ESQUECIMENTO) e IP/user-agent sao apagados.
-        from aranha_estetica.services import consentimentos
-        consentimentos.esquecer(cliente_pk)
-        # Links publicos do titular (descadastro, confirmacao, NPS, termo, ficha,
-        # reagendar legado) deixam de funcionar: revogado = 404.
-        from aranha_estetica.services import links
-        links.revogar_do_cliente(cliente_pk)
-
-        # Rastros com PII fora do cadastro: OTPs (telefone/pseudo-email/IP),
-        # lista de espera e texto das notificacoes (nome do cliente).
-        otp_q = Q()
-        if telefone_original:
-            otp_q |= Q(telefone=telefone_original)
-            otp_q |= Q(email=CodigoOtp.email_para_telefone(telefone_original))
-        if email_original:
-            otp_q |= Q(email__iexact=email_original)
-        if otp_q:
-            CodigoOtp.objects.filter(otp_q).delete()
-        espera_ids = list(
-            ListaEspera.objects.filter(cliente_id=cliente_pk).values_list('pk', flat=True)
-        )
-        ListaEspera.objects.filter(pk__in=espera_ids).delete()
-        Notificacao.objects.filter(atendimento__cliente_id=cliente_pk).update(mensagem='')
-        # Dado de saude sem atendimento realizado: fim da finalidade -> apaga.
-        RespostaAnamnese.objects.filter(cliente_id=cliente_pk).exclude(
-            atendimento__status=Atendimento.STATUS_REALIZADO,
-        ).delete()
-        # Depoimento: sai do site (autorizacao revogada) e o texto livre some;
-        # a nota fica (estatistica de NPS sem titular identificavel).
-        AvaliacaoNPS.objects.filter(atendimento__cliente_id=cliente_pk).update(
-            autoriza_publicacao=False, aprovado_publicacao=False, comentario='',
-        )
-
-        # Trilha de auditoria: registros do titular (cliente/prontuario/
-        # atendimento/pacote) guardam autor, data, tabela e id; so o nome sai do texto.
-        prontuario_ids = list(
-            Prontuario.objects.filter(cliente_id=cliente_pk).values_list('pk', flat=True)
-        )
-        atendimento_ids = list(
-            Atendimento.objects.filter(cliente_id=cliente_pk).values_list('pk', flat=True)
-        )
-        compra_ids = list(
-            CompraPacote.objects.filter(cliente_id=cliente_pk).values_list('pk', flat=True)
-        )
-        if len(nome_original.strip()) >= 3 and not nome_original.startswith('[ANONIMIZADO-'):
-            from django.db.models import Value
-            from django.db.models.functions import Replace
-
-            do_titular = (
-                Q(tabela='cliente', registro_id=cliente_pk)
-                | Q(tabela='prontuario', registro_id__in=[cliente_pk, *prontuario_ids])
-                | Q(tabela='atendimento', registro_id__in=atendimento_ids)
-                | Q(tabela='compra_pacote', registro_id__in=compra_ids)
+        exigir_postgres('fn_clientes_para_anonimizar')
+        with connection.cursor() as cursor:
+            cursor.execute(
+                'SELECT * FROM fn_clientes_para_anonimizar(%s, %s, %s)',
+                [cls.RETENCAO_CLIENTE_INATIVO_DIAS, cls.CARENCIA_SOFT_DELETE_DIAS,
+                 cls.RETENCAO_ATENDIMENTO_SAUDE_DIAS],
             )
-            LogAuditoria.objects.filter(do_titular, acao__contains=nome_original).update(
-                acao=Replace('acao', Value(nome_original), Value(pseudonimo)),
-            )
-        # Nome ANTERIOR a uma edicao do cadastro ('Editou cliente: <nome antigo>').
-        LogAuditoria.objects.filter(
-            tabela='cliente', registro_id=cliente_pk, acao__startswith='Editou cliente:',
-        ).update(acao=f'Editou cliente: {pseudonimo}')
-        # Telefone/CPF/e-mail (mascarados) que a migration 0034 guardou em detalhes.
-        LogAuditoria.objects.filter(
-            tabela='cliente', registro_id=cliente_pk, acao__startswith='migration 0034',
-        ).update(detalhes=None)
-        # Django admin: object_repr = str(obj), que traz o nome do cliente.
-        cls._pseudonimizar_admin_log(pseudonimo, [
-            (Cliente, [cliente_pk]),
-            (Atendimento, atendimento_ids),
-            (CompraPacote, compra_ids),
-            (ListaEspera, espera_ids),
-            (AvaliacaoNPS, AvaliacaoNPS.objects.filter(
-                atendimento__cliente_id=cliente_pk).values_list('pk', flat=True)),
-            (Notificacao, Notificacao.objects.filter(
-                atendimento__cliente_id=cliente_pk).values_list('pk', flat=True)),
-            (Carteira, Carteira.objects.filter(cliente_id=cliente_pk).values_list('pk', flat=True)),
-        ])
-
-        # Trilha de auditoria LGPD (sem PII no registro).
-        registrar_log(
-            usuario,
-            'Cliente anonimizado (direito ao esquecimento / retencao LGPD)',
-            'cliente',
-            cliente_pk,
-            request=request,
-        )
-        logger.info('Cliente %s anonimizado (direito ao esquecimento).', cliente_pk)
-
-    @staticmethod
-    def _pseudonimizar_admin_log(pseudonimo: str, objetos) -> int:
-        """django_admin_log: object_repr (str(obj) = nome do cliente) vira o pseudonimo.
-
-        objetos: [(Model, ids)]. change_message guarda so nomes de campos
-        (sem valores) e fica. Retorna quantas entradas foram reescritas.
-        """
-        from django.contrib.admin.models import LogEntry
-        from django.contrib.contenttypes.models import ContentType
-
-        total = 0
-        for model, ids in objetos:
-            ids = [str(pk) for pk in ids]
-            if not ids:
-                continue
-            total += LogEntry.objects.filter(
-                content_type=ContentType.objects.get_for_model(model, for_concrete_model=False),
-                object_id__in=ids,
-            ).update(object_repr=pseudonimo)
-        return total
-
-    @classmethod
-    def candidatos_purga(cls):
-        """Clientes elegiveis a anonimizacao automatica.
-
-        - ativo criado ha mais de N anos sem atendimento nesse periodo, OU
-          soft-deletado ha mais de 30 dias;
-        - nunca quem ja foi anonimizado;
-        - nunca quem tem registro com retencao legal: prontuario com conteudo
-          clinico ou com historico (ProntuarioVersao — prontuario hoje vazio
-          ja teve dado clinico), pacote comprado (fiscal) ou atendimento
-          REALIZADO nos ultimos 20 anos (registro de saude).
-        Aceite de termo NAO retem a identidade: anonimizar e UPDATE, a linha de
-        AceiteTermo (prova do consentimento) continua ligada ao mesmo id. Todo
-        booking online grava o aceite LGPD — reter por ele desligaria a purga.
-        """
-        from aranha_estetica.models import Prontuario, ProntuarioVersao
-
-        agora = timezone.now()
-        limite = agora - timedelta(days=cls.RETENCAO_CLIENTE_INATIVO_DIAS)
-        limite_soft = agora - timedelta(days=cls.CARENCIA_SOFT_DELETE_DIAS)
-        limite_saude = agora - timedelta(days=cls.RETENCAO_ATENDIMENTO_SAUDE_DIAS)
-
-        base = Cliente.all_objects.filter(
-            Q(deletado_em__isnull=True, criado_em__lt=limite)
-            | Q(deletado_em__lt=limite_soft)
-        ).exclude(nome__startswith='[ANONIMIZADO-')
-
-        com_atendimento_recente = Atendimento.objects.filter(
-            data_hora_inicio__gte=limite,
-        ).values('cliente_id')
-        com_saude_retida = Atendimento.objects.filter(
-            status=Atendimento.STATUS_REALIZADO,
-            data_hora_inicio__gte=limite_saude,
-        ).values('cliente_id')
-        # Prontuario vazio (GET antigo do painel fazia get_or_create) nao retem.
-        com_prontuario = Prontuario.objects.filter(
-            Prontuario.Q_COM_CONTEUDO, cliente_id=OuterRef('pk'),
-        )
-        # Historico clinico (CFM 1.638/2002) retem mesmo com o prontuario zerado.
-        com_historico_clinico = ProntuarioVersao.objects.filter(
-            prontuario__cliente_id=OuterRef('pk'),
-        )
-
-        return (
-            base
-            .exclude(pk__in=com_atendimento_recente)
-            .exclude(pk__in=com_saude_retida)
-            .exclude(Exists(com_prontuario))
-            .exclude(Exists(com_historico_clinico))
-            .exclude(pacotes_comprados__isnull=False)
-            .distinct()
-        )
-
-    @classmethod
-    def fichas_sem_atendimento_para_purga(cls, dias: int | None = None):
-        """Fichas de anamnese de pedido nao realizado, criadas ha mais de N dias.
-
-        Criterio e o status do atendimento DA PROPRIA ficha (nunca "cliente
-        tem algum REALIZADO", que protegeria para sempre as fichas de quem e
-        recorrente): CANCELADO; PENDENTE com horario ja passado; ficha sem
-        atendimento nunca respondida; ou convite vazio (sem respostas) cujo
-        horario ja passou (link enviado pela recepcao e ignorado).
-        Ficha RESPONDIDA de FALTOU/REAGENDADO fica (decisao da clinica).
-        """
-        from aranha_estetica.models import RespostaAnamnese
-
-        agora = timezone.now()
-        dias = cls.RETENCAO_FICHA_SEM_ATENDIMENTO_DIAS if dias is None else dias
-        return RespostaAnamnese.objects.filter(
-            criado_em__lt=agora - timedelta(days=dias),
-        ).filter(
-            Q(atendimento__status=Atendimento.STATUS_CANCELADO)
-            | Q(atendimento__status=Atendimento.STATUS_PENDENTE, atendimento__data_hora_inicio__lt=agora)
-            | Q(atendimento__isnull=True, respondida_em__isnull=True)
-            # convite vazio: ficha legada (booking antigo) tem respostas e
-            # respondida_em nulo — essa NUNCA entra aqui
-            | Q(respondida_em__isnull=True, respostas_json={}, atendimento__data_hora_inicio__lt=agora)
-        )
-
-    @classmethod
-    def purgar_fichas_sem_atendimento(cls, dias: int | None = None) -> int:
-        """Apaga as fichas de fichas_sem_atendimento_para_purga (retencao LGPD)."""
-        with transaction.atomic():
-            _total, por_modelo = cls.fichas_sem_atendimento_para_purga(dias).delete()
-            # so as fichas: o delete() tambem conta os link_acesso da cascata
-            qtd = por_modelo.get('aranha_estetica.RespostaAnamnese', 0)
-            if qtd:
-                registrar_log(
-                    None, 'Purga de fichas de pedido nao realizado', 'resposta_formulario', None,
-                    detalhes={'qtd': qtd},
-                )
-        logger.info('purgar_fichas_sem_atendimento: %s ficha(s) apagada(s).', qtd)
-        return qtd
-
-    @staticmethod
-    def purgar_lista_espera_vencida() -> int:
-        """Apaga inscricoes da lista de espera cuja data desejada ja passou.
-
-        Fim da finalidade (LGPD art. 15/16): o aviso de vaga nao pode mais
-        acontecer e a inscricao guarda contato (email_contato) de quem pediu.
-        """
-        from aranha_estetica.models import ListaEspera
-        from aranha_estetica.utils.datas import hoje
-
-        with transaction.atomic():
-            qtd, _por_modelo = ListaEspera.objects.filter(data_desejada__lt=hoje()).delete()
-            if qtd:
-                registrar_log(
-                    None, 'Purga da lista de espera vencida', 'lista_espera', None,
-                    detalhes={'qtd': qtd},
-                )
-        logger.info('purgar_lista_espera_vencida: %s inscricao(oes) apagada(s).', qtd)
-        return qtd
+            return [pk for (pk,) in cursor.fetchall()]
 
     @classmethod
     def aplicar_retencao(cls) -> dict:
-        """Retencao LGPD do job lgpd_purgar: anonimiza os candidatos, apaga fichas de pedido
-        nao realizado e inscricoes de espera vencidas. {'clientes', 'fichas', 'esperas'}.
+        """Retencao LGPD do job lgpd_purgar: ``CALL sp_aplicar_retencao_lgpd`` (fonte unica) —
+        anonimiza os candidatos (candidatos_retencao), apaga as fichas de pedido nao realizado ha
+        mais de 90 dias (CANCELADO, PENDENTE vencido, convite nunca respondido ou vazio de horario
+        passado; ficha RESPONDIDA de FALTOU/REAGENDADO fica) e as inscricoes de espera vencidas.
+        {'clientes', 'fichas', 'esperas'}.
 
-        Postgres: ``CALL sp_aplicar_retencao_lgpd`` (fonte unica). Em autocommit (cron) a
-        procedure confirma cliente a cliente (``COMMIT`` por anonimizacao, como o laco
-        Python); dentro de uma transacao (testes) roda inteira na transacao do chamador.
-        SQLite: as 3 funcoes Python abaixo.
+        Em autocommit (cron) a procedure confirma cliente a cliente (``COMMIT`` por
+        anonimizacao: um aborto no meio preserva os ja feitos); dentro de uma transacao (testes)
+        roda inteira na transacao do chamador.
         """
-        if usa_logica_pg():
-            confirmar_por_cliente = not connection.in_atomic_block
-            clientes, fichas, esperas = chamar(
-                'sp_aplicar_retencao_lgpd',
-                cls.RETENCAO_CLIENTE_INATIVO_DIAS, cls.CARENCIA_SOFT_DELETE_DIAS,
-                cls.RETENCAO_ATENDIMENTO_SAUDE_DIAS, cls.RETENCAO_FICHA_SEM_ATENDIMENTO_DIAS,
-                confirmar_por_cliente, None, None, None,
-            )
-            logger.info('sp_aplicar_retencao_lgpd: %s cliente(s), %s ficha(s), %s inscricao(oes).',
-                        clientes, fichas, esperas)
-            return {'clientes': clientes or 0, 'fichas': fichas or 0, 'esperas': esperas or 0}
-        return {
-            'clientes': cls.purgar_inativos(),
-            'fichas': cls.purgar_fichas_sem_atendimento(),
-            'esperas': cls.purgar_lista_espera_vencida(),
-        }
-
-    @classmethod
-    def purgar_inativos(cls) -> int:
-        """Anonimiza os candidatos de retencao (ver candidatos_purga).
-
-        Cada esquecer_cliente roda em sua propria transacao: um aborto no meio
-        deixa os ja anonimizados comitados e o resto e retomado no proximo run.
-        """
-        count = 0
-        for cliente in cls.candidatos_purga().iterator():
-            cls.esquecer_cliente(cliente)
-            count += 1
-            if count % cls.PURGA_LOG_PROGRESSO_LOTE == 0:
-                logger.info('purgar_inativos: %s clientes anonimizados ate agora.', count)
-        logger.info('purgar_inativos: concluido, %s clientes anonimizados.', count)
-        return count
+        confirmar_por_cliente = not connection.in_atomic_block
+        clientes, fichas, esperas = chamar(
+            'sp_aplicar_retencao_lgpd',
+            cls.RETENCAO_CLIENTE_INATIVO_DIAS, cls.CARENCIA_SOFT_DELETE_DIAS,
+            cls.RETENCAO_ATENDIMENTO_SAUDE_DIAS, cls.RETENCAO_FICHA_SEM_ATENDIMENTO_DIAS,
+            confirmar_por_cliente, None, None, None,
+        )
+        logger.info('sp_aplicar_retencao_lgpd: %s cliente(s), %s ficha(s), %s inscricao(oes).',
+                    clientes, fichas, esperas)
+        return {'clientes': clientes or 0, 'fichas': fichas or 0, 'esperas': esperas or 0}

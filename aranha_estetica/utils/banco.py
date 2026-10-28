@@ -15,12 +15,12 @@ sinais do Celery) e a conexao nova nasce limpa (``connection_created``).
 PgBouncer em modo transacao quebraria GUC de sessao: nesse dia, trocar para
 ATOMIC_REQUESTS + SET LOCAL.
 
-Procedures (fonte unica no Postgres; fallback Python so no SQLite dos testes):
-``usa_logica_pg()`` decide e ``chamar()`` executa o CALL com allowlist.
-``settings.FORCAR_LOGICA_PYTHON`` existe SO para o teste de paridade rodar o
-fallback Python no Postgres — em producao e sempre False.
+Procedures (fonte UNICA da escrita de retencao/LGPD — sem fallback Python):
+``chamar()`` executa o CALL com allowlist e recusa banco que nao e Postgres
+(``exigir_postgres``): no SQLite o esquecimento, a retencao, a limpeza e a
+expiracao de pacotes nao rodam (dev local: ``docker compose up -d db``).
 """
-from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from django.db import DEFAULT_DB_ALIAS, connections
 
 # nome -> quantidade de argumentos (IN + INOUT). O nome nunca vem de input.
@@ -63,15 +63,19 @@ def limpar_contexto_conexao_nova(sender, connection, **kwargs) -> None:
         cursor.execute(SQL_CONTEXTO, ['', '', ''])
 
 
-def usa_logica_pg(alias=DEFAULT_DB_ALIAS) -> bool:
-    """True = chamar a procedure do Postgres; False = fallback Python (SQLite / teste de paridade)."""
-    return connections[alias].vendor == 'postgresql' and not getattr(settings, 'FORCAR_LOGICA_PYTHON', False)
+def exigir_postgres(rotina, alias=DEFAULT_DB_ALIAS) -> None:
+    if connections[alias].vendor != 'postgresql':
+        raise ImproperlyConfigured(
+            f'{rotina} so existe no Postgres (logica no banco, 0056-0058). Rode com DATABASE_URL de '
+            'um Postgres — local: `docker compose up -d db` (docs/PROJECT.md §12).'
+        )
 
 
 def chamar(nome, *args, alias=DEFAULT_DB_ALIAS):
     """CALL <procedure>(...) com allowlist. INOUT vao como None e voltam na tupla (ou None)."""
     if PROCEDURES.get(nome) != len(args):
         raise ValueError(f'procedure desconhecida ou aridade errada: {nome}/{len(args)}')
+    exigir_postgres(nome, alias)
     with connections[alias].cursor() as cursor:
         cursor.execute(f"CALL {nome}({', '.join(['%s'] * len(args))})", list(args))
         return cursor.fetchone() if cursor.description else None

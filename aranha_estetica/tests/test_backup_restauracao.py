@@ -5,8 +5,11 @@ import json
 import tempfile
 from pathlib import Path
 
+from unittest import skipUnless
+
 from django.conf import settings
 from django.core.management import call_command
+from django.db import connection
 from django.test import SimpleTestCase, TestCase
 
 from aranha_estetica.models import Cliente, LogAuditoria
@@ -15,6 +18,7 @@ from aranha_estetica.services.lgpd import LgpdService
 from .factories import criar_cliente
 
 
+@skipUnless(connection.vendor == 'postgresql', 'sp_anonimizar_cliente so no Postgres')
 class ReaplicarEsquecimentosTests(TestCase):
     def test_lista_antes_e_reaplica_no_banco_restaurado(self):
         esquecida = criar_cliente('Ana Esquecida', telefone='11988880001')

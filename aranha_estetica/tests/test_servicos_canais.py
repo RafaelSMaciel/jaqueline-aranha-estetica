@@ -3,9 +3,11 @@ local, SITE_URL em tempo de chamada, consentimento e janelas do NPS."""
 import json
 import re
 from datetime import datetime, timedelta, timezone as dt_timezone
+from unittest import skipUnless
 from unittest.mock import Mock, patch
 
 from django.core import mail
+from django.db import connection
 from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -330,6 +332,7 @@ class NpsCandidatosTests(TestCase):
 
 # ─── Jobs em hora local ───────────────────────────────────────────────
 class JobsHoraLocalTests(TestCase):
+    @skipUnless(connection.vendor == 'postgresql', 'sp_expirar_pacotes so no Postgres')
     def test_expirar_pacotes_as_22h30_nao_expira_o_ultimo_dia(self):
         """22:30 BRT = 01:30 UTC do dia seguinte: o ultimo dia ainda vale."""
         from aranha_estetica.tasks import job_expirar_pacotes

@@ -1,16 +1,13 @@
-"""Paridade SQL x Python — so Postgres (docs/specs/padrao-sql.md §5.8).
+"""Logica no banco — so Postgres (docs/specs/padrao-sql.md §5.8).
 
 Leitura (0057): cada funcao fn_* / view vw_* e comparada com a implementacao Python que o app
 usa (SlotService, AgendaExcecao.ocorrencias, CompraPacote.saldo_por_procedimento, utils/nps,
-creditos_com_status/ComissaoService, services/consentimentos, services/financeiro,
-LgpdService.candidatos_purga) em cenarios representativos.
+creditos_com_status/ComissaoService, services/consentimentos, services/financeiro) em cenarios
+representativos. Regra mudou no Python -> este teste quebra no CI Postgres ate a funcao ser
+atualizada por uma migration nova (CREATE OR REPLACE).
 
-Escrita (0058): a procedure e o fallback Python rodam sobre a MESMA fixture, cada um numa
-savepoint desfeita depois da "foto" normalizada (ids novos e instantes fora) — mesmo efeito
-nos dois lados. O fallback roda no Postgres com FORCAR_LOGICA_PYTHON (so para este teste).
-
-Regra de manutencao: mudou a regra no Python -> este teste quebra no CI Postgres ate a
-funcao/procedure ser atualizada por uma migration nova (CREATE OR REPLACE).
+Escrita (0058): as procedures sao a fonte UNICA (sem fallback Python): aqui fica o efeito
+esperado de cada uma sobre uma fixture com rastro em todas as tabelas que ela toca.
 """
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
@@ -21,7 +18,7 @@ from django.conf import settings
 from django.contrib.admin.models import CHANGE, LogEntry
 from django.contrib.contenttypes.models import ContentType
 from django.db import connection, transaction
-from django.test import RequestFactory, TestCase, override_settings
+from django.test import RequestFactory, TestCase
 from django.utils import timezone
 
 from aranha_estetica.models import (
@@ -44,7 +41,6 @@ from .factories import (
 PG = connection.vendor == 'postgresql'
 TZ = ZoneInfo(settings.TIME_ZONE)
 AGORA = datetime(2026, 11, 3, 10, 17, tzinfo=TZ)  # terca-feira, 10:17 local (instante fixo dos dois lados)
-FORCAR_PYTHON = override_settings(FORCAR_LOGICA_PYTHON=True)
 
 
 def _q(sql, params=None):
@@ -67,8 +63,7 @@ def _ordenado(linhas):
 
 
 def _rodar_e_fotografar(funcao, foto):
-    """Roda ``funcao`` numa savepoint, fotografa o banco e desfaz: a outra implementacao parte
-    exatamente da mesma fixture."""
+    """Roda ``funcao`` numa savepoint, fotografa o banco e desfaz (a fixture volta intacta)."""
     with transaction.atomic():
         resultado = funcao()
         imagem = foto()
@@ -563,45 +558,79 @@ class ParidadeLgpdTests(TestCase):
             _admin_log(self.admin, obj)
         return cli
 
-    def test_sp_anonimizar_cliente_mesmo_efeito_do_python(self):
+    def test_sp_anonimizar_cliente_efeito_completo(self):
         titular = self._titular('Fernanda Titular', '17911112222', 'fernanda@exemplo.com', '52998224725')
         terceira = self._titular('Joana Terceira', '17933334444', 'joana@exemplo.com', '11144477735', dia_futuro=6)
         LogAuditoria.objects.create(acao='Nota sobre Fernanda Titular', tabela='cliente', registro_id=terceira.pk)
         request = RequestFactory().post('/django-admin-sv/', REMOTE_ADDR='203.0.113.9')
         request.user = self.admin
+        antes = _foto_lgpd()
 
-        def esquecer():
-            LgpdService.esquecer_cliente(Cliente.all_objects.get(pk=titular.pk), usuario=self.admin, request=request)
+        LgpdService.esquecer_cliente(Cliente.all_objects.get(pk=titular.pk), usuario=self.admin, request=request)
 
-        with FORCAR_PYTHON:
-            _, python = _rodar_e_fotografar(esquecer, _foto_lgpd)
-        with mock.patch.object(LgpdService, '_esquecer_cliente_python', side_effect=AssertionError('python')):
-            _, sql = _rodar_e_fotografar(esquecer, _foto_lgpd)
-        for tabela in python:
-            self.assertEqual(python[tabela], sql[tabela], tabela)
-        # a foto mudou de verdade (o teste nao compara dois "nada aconteceu")
-        self.assertIn((titular.pk, f'[ANONIMIZADO-{titular.pk}]'), [(c[0], c[1]) for c in sql['cliente']])
+        depois = _foto_lgpd()
+        pseudo = f'[ANONIMIZADO-{titular.pk}]'
+        clientes = {c[0]: c for c in depois['cliente']}
+        # cadastro: so o pseudonimo, inativo e excluido; a terceira nao muda
+        self.assertEqual(clientes[titular.pk][1:13], (pseudo, *[None] * 8, '', False, True))
+        self.assertEqual(clientes[terceira.pk], {c[0]: c for c in antes['cliente']}[terceira.pk])
+        # consentimentos: historico fica, nada concedido em vigor, sem IP/user-agent
+        vigentes = [v for v in depois['consentimento_vigente'] if v[0] == titular.pk]
+        self.assertTrue(vigentes)
+        self.assertFalse(any(v[3] for v in vigentes))
+        do_titular = [c for c in depois['consentimento'] if c[0] == titular.pk]
+        self.assertTrue(all(c[6] is None and c[7] == '' for c in do_titular))
+        self.assertIn('ESQUECIMENTO', {c[4] for c in do_titular})
+        # links, OTP, lista de espera e texto das notificacoes
+        from django.db.models import Q
+        do_titular_q = (Q(cliente_id=titular.pk) | Q(atendimento__cliente_id=titular.pk)
+                        | Q(notificacao__atendimento__cliente_id=titular.pk)
+                        | Q(resposta_formulario__cliente_id=titular.pk))
+        self.assertFalse(LinkAcesso.objects.filter(do_titular_q, revogado_em__isnull=True).exists())
+        self.assertTrue(LinkAcesso.objects.filter(cliente_id=terceira.pk, revogado_em__isnull=True).exists())
+        self.assertFalse(CodigoOtp.objects.filter(telefone='17911112222').exists())
+        self.assertFalse(CodigoOtp.objects.filter(email__iexact='fernanda@exemplo.com').exists())
+        self.assertTrue(CodigoOtp.objects.filter(telefone='17933334444').exists())
+        self.assertFalse(ListaEspera.objects.filter(cliente_id=titular.pk).exists())
+        self.assertTrue(ListaEspera.objects.filter(cliente_id=terceira.pk).exists())
+        self.assertEqual(set(Notificacao.objects.filter(atendimento__cliente_id=titular.pk)
+                             .values_list('mensagem', flat=True)), {''})
+        # fichas: so a do atendimento REALIZADO fica (registro de saude); depoimento sem texto
+        self.assertEqual([f.atendimento.status for f in RespostaAnamnese.objects.filter(cliente_id=titular.pk)],
+                         ['REALIZADO'])
+        nps = AvaliacaoNPS.objects.get(atendimento__cliente_id=titular.pk)
+        self.assertEqual((nps.nota, nps.comentario, nps.autoriza_publicacao, nps.aprovado_publicacao),
+                         (9, '', False, False))
+        # trilhas: o nome vira o pseudonimo so no que e do titular; detalhes da 0034 somem
+        acoes = [linha[2] for linha in depois['log_auditoria']]
+        for acao in (f'Acessou prontuario de {pseudo}', f'Atualizou prontuario de {pseudo}',
+                     f'Vendeu pacote para {pseudo}', f'Agendou {pseudo}', f'Editou cliente: {pseudo}'):
+            self.assertIn(acao, acoes)
+        self.assertIn('Nota sobre Fernanda Titular', acoes)                     # registro da terceira
+        self.assertIsNone(LogAuditoria.objects.get(tabela='cliente', registro_id=titular.pk,
+                                                   acao='migration 0034: telefone').detalhes)
+        reprs = [r for _id, r in depois['django_admin_log']]
+        self.assertEqual(reprs.count(pseudo), 7)
+        self.assertFalse(any('Fernanda' in r for r in reprs))
+        # registro LGPD com autor e IP; prontuario e atendimentos ficam (retencao clinica)
         self.assertIn((self.admin.pk, 'Dra. DPO <dpo@clinica.com>',
                        'Cliente anonimizado (direito ao esquecimento / retencao LGPD)', 'cliente', titular.pk,
-                       None, '203.0.113.9'), sql['log_auditoria'])
-        self.assertIn(('Nota sobre Fernanda Titular'), [linha[2] for linha in sql['log_auditoria']])
+                       None, '203.0.113.9'), depois['log_auditoria'])
+        self.assertTrue(Prontuario.objects.filter(cliente_id=titular.pk).exists())
+        self.assertEqual(Atendimento.objects.filter(cliente_id=titular.pk).count(), 3)
 
     def test_sp_anonimizar_cliente_sem_autor_nem_request_e_inexistente(self):
         titular = self._titular('Rita Sem Autor', '17955556666', 'rita@exemplo.com', '39053344705')
-
-        def esquecer():
-            LgpdService.esquecer_cliente(Cliente.all_objects.get(pk=titular.pk))
-
-        with FORCAR_PYTHON:
-            _, python = _rodar_e_fotografar(esquecer, _foto_lgpd)
-        _, sql = _rodar_e_fotografar(esquecer, _foto_lgpd)
-        self.assertEqual(python, sql)
+        LgpdService.esquecer_cliente(Cliente.all_objects.get(pk=titular.pk))
+        log = LogAuditoria.objects.get(tabela='cliente', registro_id=titular.pk,
+                                       acao__startswith='Cliente anonimizado')
+        self.assertEqual((log.usuario_id, log.usuario_nome, log.ip_origem), (None, '', None))
         from django.db import InternalError
         with self.assertRaises(InternalError), transaction.atomic():
             _q('CALL sp_anonimizar_cliente(%s, NULL, NULL)', [999999])
 
     def _cenario_retencao(self):
-        """Um cliente por regra de candidatos_purga (e fichas/esperas da retencao)."""
+        """Um cliente por regra de fn_clientes_para_anonimizar (e fichas/esperas da retencao)."""
         anos = timedelta(days=365)
 
         def cliente(nome, criado_ha=6 * anos, deletado_ha=None):
@@ -642,24 +671,17 @@ class ParidadeLgpdTests(TestCase):
         ListaEspera.objects.create(cliente=dona, procedimento=self.proc, data_desejada=timezone.localdate())
         return {c.pk for c in esperados}
 
-    def test_fn_clientes_para_anonimizar_igual_a_candidatos_purga(self):
+    def test_fn_clientes_para_anonimizar(self):
         esperados = self._cenario_retencao()
-        python = list(LgpdService.candidatos_purga().order_by('pk').values_list('pk', flat=True))
-        sql = [pk for (pk,) in _q('SELECT * FROM fn_clientes_para_anonimizar(%s, %s, %s)', [
-            LgpdService.RETENCAO_CLIENTE_INATIVO_DIAS, LgpdService.CARENCIA_SOFT_DELETE_DIAS,
-            LgpdService.RETENCAO_ATENDIMENTO_SAUDE_DIAS])]
-        self.assertEqual(python, sql)
-        self.assertEqual(set(python), esperados)
+        self.assertEqual(set(LgpdService.candidatos_retencao()), esperados)
 
-    def test_sp_aplicar_retencao_lgpd_mesmo_efeito_do_python(self):
-        self._cenario_retencao()
-        with FORCAR_PYTHON:
-            r_python, python = _rodar_e_fotografar(LgpdService.aplicar_retencao, _foto_lgpd)
-        r_sql, sql = _rodar_e_fotografar(LgpdService.aplicar_retencao, _foto_lgpd)
-        self.assertEqual(r_python, r_sql)
-        self.assertEqual(r_sql, {'clientes': 3, 'fichas': 4, 'esperas': 1})
-        for tabela in python:
-            self.assertEqual(python[tabela], sql[tabela], tabela)
+    def test_sp_aplicar_retencao_lgpd(self):
+        esperados = self._cenario_retencao()
+        self.assertEqual(LgpdService.aplicar_retencao(), {'clientes': 3, 'fichas': 4, 'esperas': 1})
+        anonimizados = set(Cliente.all_objects.filter(nome__startswith='[ANONIMIZADO-')
+                           .exclude(nome='[ANONIMIZADO-1]').values_list('pk', flat=True))
+        self.assertEqual(anonimizados, esperados)
+        self.assertEqual(LgpdService.candidatos_retencao(), [])                   # idempotente
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -681,7 +703,7 @@ class ParidadeManutencaoTests(TestCase):
             'historico_alteracao': _q('SELECT id, tabela FROM historico_alteracao ORDER BY id'),
         }
 
-    def test_sp_purgar_dados_expirados_mesmo_efeito_do_python(self):
+    def test_sp_purgar_dados_expirados(self):
         from aranha_estetica import tasks_manutencao as tm
 
         agora = timezone.now()
@@ -710,24 +732,20 @@ class ParidadeManutencaoTests(TestCase):
                "transacao_ref, criado_em) VALUES (%s, 1, 'INSERT', '[]', '{}', 1, now() - make_interval(days => %s))",
                [tabela, dias])
 
-        def python():
-            return {nome: funcao() for nome, funcao in (
-                ('otp', tm._purgar_otp), ('notificacoes', tm._limpar_texto_notificacoes),
-                ('auditoria', tm._purgar_auditoria), ('links', tm._purgar_links),
-                ('historico', tm._purgar_historico))}
-
-        with FORCAR_PYTHON:
-            r_python, f_python = _rodar_e_fotografar(python, self._foto)
-        (r_sql, falhas), f_sql = _rodar_e_fotografar(tm._purgar_no_banco, self._foto)
+        antes = self._foto()
+        (resumo, falhas), depois = _rodar_e_fotografar(tm._purgar_no_banco, self._foto)
         self.assertEqual(falhas, [])
-        self.assertEqual(r_python, r_sql)
-        self.assertEqual(r_sql, {'otp': 1, 'notificacoes': 1, 'auditoria': 1, 'links': 3, 'historico': 1})
-        self.assertEqual(f_python, f_sql)
-        # o job no PG usa a procedure e expoe as mesmas chaves do SQLite
-        resumo = tm.job_housekeeping.apply().get()
-        self.assertEqual({k: resumo[k] for k in r_sql}, r_sql)
+        self.assertEqual(resumo, {'otp': 1, 'notificacoes': 1, 'auditoria': 1, 'links': 3, 'historico': 1})
+        for tabela, etapa in (('codigo_otp', 'otp'), ('log_auditoria', 'auditoria'),
+                              ('link_acesso', 'links'), ('historico_alteracao', 'historico')):
+            self.assertEqual(len(antes[tabela]) - len(depois[tabela]), resumo[etapa], tabela)
+        self.assertEqual(sorted(m for _id, m in depois['notificacao']), ['', '', 'Oi Cliente'])
+        self.assertIn('prontuario', {t for _id, t in depois['historico_alteracao']})   # 20 anos: fica
+        # o job usa a procedure e expoe as mesmas chaves
+        resumo_job = tm.job_housekeeping.apply().get()
+        self.assertEqual({k: resumo_job[k] for k in resumo}, resumo)
 
-    def test_sp_expirar_pacotes_mesmo_efeito_do_python(self):
+    def test_sp_expirar_pacotes(self):
         from aranha_estetica.tasks import job_expirar_pacotes
 
         pacote = Pacote.objects.create(nome='Validade', preco_total=Decimal('10'), validade_meses=1)
@@ -741,10 +759,7 @@ class ParidadeManutencaoTests(TestCase):
         def foto():
             return _q('SELECT id, status FROM compra_pacote ORDER BY id')
 
-        with FORCAR_PYTHON:
-            r_python, f_python = _rodar_e_fotografar(lambda: job_expirar_pacotes.apply().get(), foto)
         r_sql, f_sql = _rodar_e_fotografar(lambda: job_expirar_pacotes.apply().get(), foto)
-        self.assertEqual((r_python, f_python), (r_sql, f_sql))
         self.assertEqual(r_sql, '1 pacotes expirados')
         self.assertEqual(dict(f_sql)[compras[0]], 'EXPIRADO')
         self.assertEqual(dict(f_sql)[compras[1]], 'ATIVO')  # o ultimo dia ainda vale

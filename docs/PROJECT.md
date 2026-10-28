@@ -308,11 +308,11 @@ fallback das procedures). Texto SQL versionado em `aranha_estetica/migrations/sq
 | `tg_<t>_historico` (11) | `fn_registrar_historico` (AFTER, por linha): grava `historico_alteracao` — só colunas alteradas; UPDATE só de `atualizado_em` não gera linha | prontuario, atendimento, compra_pacote, carteira, regra_comissao, preco, promocao, pacote, versao_termo, usuario (`senha_hash` redigida), configuracao |
 | `tg_*_imutavel` / `tg_*_validar` (12) | append-only (`movimento_*`, `anotacao_sessao`, `compra_pacote_item`, `aceite_termo`, `versao_termo` aceita, `prontuario_versao`, `consentimento`, `link_acesso`, `historico_alteracao`) e validação (`consumo_sessao`, `movimento_comissao`) — SQLSTATE 23 → `IntegrityError` | — |
 | `fn_fuso_clinica()`, `fn_data_local(ts)`, `fn_sem_acento(txt)` | fuso explícito (`America/Sao_Paulo` = `TIME_ZONE`), data local, `lower(unaccent())` IMMUTABLE | views/funções; `ix_cliente_nome_trgm` (GIN trigram) e a busca de cliente (`utils/busca.filtrar_clientes`: "joao" acha "João") |
-| `fn_horarios_livres`, `fn_ocorrencias_recorrencia`, `fn_recorrencia_casa_dia`, `fn_saldo_pacote`, `fn_nps_periodo`, `fn_saldo_comissao`, `fn_tem_consentimento`, `fn_clientes_para_anonimizar` | **espelho de leitura** do Python (SlotService, `AgendaExcecao.ocorrencias`, `saldo_por_procedimento`, `utils/nps`, `ComissaoService`, `services/consentimentos`, `LgpdService.candidatos_purga`), travado por `tests/test_pg_paridade.py` | relatório/integração e as procedures — **o app continua no Python** (slots nunca vêm do SQL) |
+| `fn_horarios_livres`, `fn_ocorrencias_recorrencia`, `fn_recorrencia_casa_dia`, `fn_saldo_pacote`, `fn_nps_periodo`, `fn_saldo_comissao`, `fn_tem_consentimento`, `fn_clientes_para_anonimizar` | **espelho de leitura** do Python (SlotService, `AgendaExcecao.ocorrencias`, `saldo_por_procedimento`, `utils/nps`, `ComissaoService`, `services/consentimentos`); `fn_clientes_para_anonimizar` é a regra da retenção (sem espelho: `LgpdService.candidatos_retencao` lê dela), travado por `tests/test_pg_paridade.py` | relatório/integração e as procedures — **o app continua no Python** (slots nunca vêm do SQL) |
 | `vw_agenda_dia`, `vw_faturamento_mensal`, `vw_nps_mensal`, `vw_comissao`, `vw_comissao_saldo`, `vw_cliente_resumo`, `vw_consentimento_atual`, `vw_pacote_saldo`, `vw_atendimento_sem_desfecho` | views de relatório (mesmas regras de `services/financeiro`, NPS e comissão) | BI/SQL ad hoc (`railway connect` → `SELECT * FROM vw_faturamento_mensal`); o app não lê views |
-| `sp_anonimizar_cliente(cliente, autor, ip)` | direito ao esquecimento (o mesmo efeito do Python, com paridade testada) | `LgpdService.esquecer_cliente` (ação LGPD do admin) |
+| `sp_anonimizar_cliente(cliente, autor, ip)` | direito ao esquecimento (efeito completo testado em `test_pg_paridade`/`test_lgpd_esquecimento`) | `LgpdService.esquecer_cliente` (ação LGPD do admin) |
 | `sp_aplicar_retencao_lgpd(...)` | anonimiza os candidatos (COMMIT por cliente), apaga fichas de pedido não realizado e espera vencida | `job_lgpd_purgar_inativos` (`LgpdService.aplicar_retencao`) |
-| `sp_purgar_dados_expirados(...)` | OTP, texto de notificação, auditoria, `link_acesso` vencido/revogado, trilha antiga (cada etapa num sub-bloco) | `job_housekeeping` (etapa única no PG) |
+| `sp_purgar_dados_expirados(...)` | OTP, texto de notificação, auditoria, `link_acesso` vencido/revogado, trilha antiga (cada etapa num sub-bloco) | `job_housekeeping` (etapa `banco`) |
 | `sp_expirar_pacotes(hoje)` | compras ATIVO vencidas → EXPIRADO | `job_expirar_pacotes` |
 
 **Contexto da sessão (GUCs `app.*`)** lido pela trilha: `app.usuario_id`, `app.ip_origem`,
@@ -324,10 +324,10 @@ o banco), `views/cron.py` (`cron:<job>`), sinais do Celery com worker real (`cel
 transação quebraria isso** (o Railway não usa): nesse dia, trocar para `ATOMIC_REQUESTS` +
 `SET LOCAL`.
 
-**Fonte única no Postgres**: `utils/banco.usa_logica_pg()` → `chamar('sp_…', ...)` (allowlist com
-a aridade); o fallback Python (`LgpdService._esquecer_cliente_python`, `purgar_*`,
-`tasks_manutencao._purgar_*`, o `update()` do `job_expirar_pacotes`) roda só no SQLite — e no teste
-de paridade, com `FORCAR_LOGICA_PYTHON=True` (nunca em produção).
+**Fonte única no Postgres** (decisão de 2026-10-27, ARCHITECTURE D23): `utils/banco.chamar('sp_…',
+...)` (allowlist com a aridade) é o único caminho; não há fallback Python. Fora do Postgres ele
+recusa com `ImproperlyConfigured` (dev: `docker compose up -d db`), e os testes dessas rotinas são
+só-Postgres.
 
 ---
 
@@ -532,8 +532,9 @@ filtra pelo conteúdo desses campos. Não protege contra quem tem a chave (ADMIN
 Railway).
 
 No Postgres a escrita da retenção é das procedures (`sp_purgar_dados_expirados`,
-`sp_aplicar_retencao_lgpd`, `sp_anonimizar_cliente` — §5.4); o Python equivalente só roda no
-SQLite dos testes (paridade em `tests/test_pg_paridade.py`).
+`sp_aplicar_retencao_lgpd`, `sp_anonimizar_cliente` — §5.4), **fonte única**: não há equivalente
+em Python, então no SQLite (dev sem Postgres) esquecimento, retenção e limpeza não rodam
+(`docker compose up -d db` — §12).
 
 ### 9.5 Incidente (art. 48)
 
@@ -655,6 +656,11 @@ Só dev/testes: `DEBUG`, `SMS_DEV_LOG_ONLY` (em prod gera W002), `DB_ENGINE`/`DB
   `tests/test_migrations_dados.py` (tag `migracoes`: desce e sobe a cadeia de migrations dezenas
   de vezes, ~3/4 do tempo da suíte); `--tag migracoes` roda só ele. Antes do merge, rode tudo (o
   CI roda as duas partes em jobs paralelos).
+- **Postgres local** (`docker-compose.yml`, PG 18 com ICU): `docker compose up -d db` e
+  `TEST_DATABASE_URL=postgres://shivazen:shivazen@localhost:5432/shivazen PG_EXIGE_ICU=1 python
+  manage.py test aranha_estetica`. No SQLite os testes do esquecimento, da retenção, do housekeeping
+  e da expiração de pacotes são **pulados** (procedures sem fallback Python — §9.4); o CI roda
+  tudo no Postgres.
 - `TEST_DATABASE_URL=postgres://... python manage.py test aranha_estetica` — mesma suíte no
   Postgres; `tests/test_pg_ddl.py` confere os objetos só-Postgres (EXCLUDE, CHECK regex,
   triggers, funções, views, procedures, extensões, collation — com `PG_EXIGE_ICU=1` a collation
@@ -663,8 +669,9 @@ Só dev/testes: `DEBUG`, `SMS_DEV_LOG_ONLY` (em prod gera W002), `DB_ENGINE`/`DB
   `atualizado_em` sem `tg_<t>_atualizado_em`, índice `_like` (migration nova que recria FK pelo
   `AlterField` precisa terminar com `PadronizarNomes()`), `tests/test_pg_historico.py` prova a
   trilha (autor/IP do request, contexto limpo entre requests na mesma conexão, cron, Celery,
-  redação da senha, append-only) e `tests/test_pg_paridade.py` compara cada `fn_*`/`vw_*`/`sp_*`
-  com o Python (mudou a regra no Python → atualize a função/procedure numa migration nova).
+  redação da senha, append-only) e `tests/test_pg_paridade.py` compara cada `fn_*`/`vw_*` com o
+  Python (mudou a regra no Python → atualize a função numa migration nova) e confere o efeito de
+  cada `sp_*`.
 - `pytest aranha_estetica/tests/test_2fa.py` — o único arquivo estilo pytest.
 - Guardas de regressão relevantes: `test_csp.py` (CSP x templates, allowlist do jsdelivr),
   `test_front_pipeline.py` (Vite/cotton/webpush), `test_deploy_config.py` (checks, migrate
@@ -996,9 +1003,11 @@ Não use `migrate aranha_estetica <anterior>`.
   fn_definir_atualizado_em()`) na mesma migration — o teste de conformidade reprova sem ele. Tabela
   sensível nova entra na trilha com `tg_<t>_historico` (`fn_registrar_historico('atualizado_em',
   '<colunas a redigir>')`).
-- **Regra mudou no Python** (slots, saldo de pacote, NPS, comissão, consentimento, retenção,
-  anonimização): o `tests/test_pg_paridade.py` reprova no CI Postgres até a função/procedure ser
-  atualizada — módulo novo em `migrations/sql/` + migration com `CREATE OR REPLACE`.
+- **Regra mudou no Python** (slots, saldo de pacote, NPS, comissão, consentimento): o
+  `tests/test_pg_paridade.py` reprova no CI Postgres até a função de leitura ser atualizada —
+  módulo novo em `migrations/sql/` + migration com `CREATE OR REPLACE`. **Retenção, anonimização,
+  limpeza e expiração de pacotes** só existem nas procedures: mudar a regra = migration nova com a
+  procedure + ajuste do teste de efeito (`test_lgpd_esquecimento`, `test_pg_paridade`).
 - **Quem mudou o quê**: `historico_alteracao` (Django admin, só leitura e auditado, ou SQL) —
   `transacao_ref` agrupa o que saiu do mesmo request; SQL manual sai sem autor (origem `''`). Para
   identificar uma correção manual, rode antes `SELECT set_config('app.origem', 'manual:<seu nome>',
