@@ -40,6 +40,16 @@ source_modules = [
 ]
 forbidden_modules = ["aranha_estetica.views"]
 
+# Areas de views independentes: nenhuma importa outra (helper compartilhado vai p/ services/utils
+# ou views.comum, fora do contrato). Cada area tem as suas rotas em urls/<area>.py.
+[[tool.importlinter.contracts]]
+name = "Areas de views independentes"
+type = "independence"
+modules = [
+    "aranha_estetica.views.publico", "aranha_estetica.views.painel", "aranha_estetica.views.profissional",
+    "aranha_estetica.views.conta", "aranha_estetica.views.infra",
+]
+
 # Tipos nos services (mypy + django-stubs; CI job Django SQLite). So services/: o resto do app entra
 # como dependencia (follow_imports=silent) sem cobrar anotacao.
 [tool.mypy]
