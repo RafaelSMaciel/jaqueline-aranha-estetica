@@ -41,24 +41,15 @@ Alpine.data('navMenu', () => ({
   fechar() { this.aberto = false },
 }))
 
-// Banner de consentimento de cookies (LGPD). Grava a escolha em cookie de 1 ano
-// (a sessao expira em 30 min e o banner voltava), registra no servidor e some.
-// CSP-safe: URL/CSRF vem de data-attrs do $root; sem expressao inline.
+// Aviso de cookies (LGPD): o site so usa cookies essenciais. "Entendi" grava cookie_consent de
+// 1 ano no navegador (sem chamada ao servidor: nada a registrar, nenhuma sessao aberta) e some.
 Alpine.data('cookieConsent', () => ({
-  enviar(analytics, marketing) {
-    let cookie = `cookie_consent=${analytics || marketing ? 'todos' : 'essenciais'}; path=/; max-age=31536000; samesite=lax`
+  entendi() {
+    let cookie = 'cookie_consent=essenciais; path=/; max-age=31536000; samesite=lax'
     if (location.protocol === 'https:') cookie += '; secure'
     document.cookie = cookie
-    const fd = new FormData()
-    fd.append('analytics', analytics ? '1' : '0')
-    fd.append('marketing', marketing ? '1' : '0')
-    fd.append('csrfmiddlewaretoken', this.$root.dataset.csrf)
-    fetch(this.$root.dataset.url, {
-      method: 'POST', body: fd, headers: { 'X-CSRFToken': this.$root.dataset.csrf },
-    }).catch(() => {}).finally(() => { this.$root.remove() })
+    this.$root.remove()
   },
-  aceitarTodos() { this.enviar(true, true) },
-  soEssenciais() { this.enviar(false, false) },
 }))
 
 // App-shell do painel admin: sidenav drawer mobile + backdrop.

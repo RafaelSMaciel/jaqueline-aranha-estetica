@@ -80,5 +80,4 @@ urlpatterns = [
     # ─── LGPD ───
     path('lgpd/meus-dados/', lgpd.meus_dados, name='lgpd_meus_dados'),
     path('lgpd/unsubscribe/<str:token>/', lgpd.unsubscribe, name='lgpd_unsubscribe'),
-    path('lgpd/aceitar-cookies/', lgpd.aceitar_cookies, name='lgpd_aceitar_cookies'),
 ]

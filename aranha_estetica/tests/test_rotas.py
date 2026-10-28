@@ -93,7 +93,6 @@ ROTAS = {
     'aranha:termo_assinatura': (_d(token=lambda d: d['tok_termo']), '', PUBLICA),
     'aranha:lgpd_meus_dados': (SEM, '', OUTRA),
     'aranha:lgpd_unsubscribe': (_d(token=lambda d: d['tok_descadastro']), '', PUBLICA),
-    'aranha:lgpd_aceitar_cookies': (SEM, '', SO_POST),
     # ─── conta da equipe ───
     'aranha:usuario_login': (SEM, '', OUTRA),
     'aranha:usuario_logout': (SEM, '', OUTRA),
