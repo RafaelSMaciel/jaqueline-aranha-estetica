@@ -144,7 +144,10 @@ AUTHENTICATION_BACKENDS = [
 # django-axes config
 AXES_FAILURE_LIMIT = int(os.environ.get('AXES_FAILURE_LIMIT', 5))
 AXES_COOLOFF_TIME = float(os.environ.get('AXES_COOLOFF_TIME_HOURS', '1'))
-AXES_LOCKOUT_PARAMETERS = ['ip_address', 'username']
+# Bloqueio por IP+usuario e por IP, nunca por usuario sozinho: com o 2FA obrigatorio o ganho contra
+# adivinhacao de senha e pequeno, e 5 senhas erradas de qualquer IP trancavam a dona fora do painel
+# (DoS barato com o e-mail publico). O freio distribuido por usuario e o @ratelimit curto do login.
+AXES_LOCKOUT_PARAMETERS = [['ip_address', 'username'], 'ip_address']
 AXES_RESET_ON_SUCCESS = True
 # Pagina pt-BR (status 429) em vez do texto cru em ingles do axes
 AXES_LOCKOUT_TEMPLATE = 'axes_bloqueio.html'
