@@ -7,7 +7,7 @@
 </p>
 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
-<table role="presentation" cellpadding="0" cellspacing="0" class="card-inner" style="background:linear-gradient(145deg,#FFF8E1,#FFE8A5);border:2px solid #E4B64A;border-radius:18px;margin-bottom:24px;">
+<table bgcolor="#FFF8E1" role="presentation" cellpadding="0" cellspacing="0" class="card-inner" style="background-color:#FFF8E1;background-image:linear-gradient(145deg,#FFF8E1,#FFE8A5);border:2px solid #E4B64A;border-radius:18px;margin-bottom:24px;">
 <tr><td style="padding:28px 44px;text-align:center;">
   <div class="text-soft" style="color:#8a6a2a;font-size:11px;letter-spacing:3px;text-transform:uppercase;margin-bottom:8px;">Sessões restantes</div>
   <div class="text-main" style="font-family:'Playfair Display',Georgia,serif;font-size:64px;font-weight:800;color:#6b5324;line-height:1;">{{ dados.sessoes_restantes }}</div>
@@ -20,6 +20,6 @@
   {% if dados.valido_ate %}Sessões realizadas até {{ dados.valido_ate }} contam no seu pacote. {% endif %}Agende a próxima para aproveitar o que já foi contratado.
 </p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
-  <a href="{{ site_url }}/agendamento/" style="display:inline-block;background-color:#C4A35A;background-image:linear-gradient(135deg,#C4A35A,#B8915F);color:#ffffff;padding:14px 36px;border-radius:999px;text-decoration:none;font-weight:700;font-size:14px;letter-spacing:0.5px;box-shadow:0 4px 12px rgba(196,163,90,0.35);">Agendar sessão</a>
+  <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;"><tr><td bgcolor="#C4A35A" style="border-radius:999px;background-color:#C4A35A;mso-padding-alt:14px 36px;"><a href="{{ site_url }}/agendamento/" style="display:inline-block;background-color:#C4A35A;background-image:linear-gradient(135deg,#C4A35A,#B8915F);color:#23200f;padding:14px 36px;border-radius:999px;text-decoration:none;font-weight:700;font-size:14px;letter-spacing:0.5px;box-shadow:0 4px 12px rgba(196,163,90,0.35);">Agendar sessão</a></td></tr></table>
 </td></tr></table>
 {% endblock %}

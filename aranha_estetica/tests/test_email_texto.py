@@ -46,3 +46,31 @@ class EnvioTests(TestCase):
         corpo = mail.outbox[0].body
         self.assertNotIn('@media', corpo)
         self.assertIn('Agendar Novamente: http', corpo)   # o botao vira texto + URL
+
+
+class EmailNoOutlookTests(SimpleTestCase):
+    """Outlook (motor do Word) ignora gradiente e padding em <a>: toda faixa com gradiente tem cor
+    solida de reserva e todo botao fica num <td bgcolor> (senao: texto branco no branco, link miudo)."""
+
+    def _templates(self):
+        pasta = Path(settings.BASE_DIR) / 'aranha_estetica' / 'templates' / 'email'
+        return {p.name: p.read_text(encoding='utf-8') for p in pasta.glob('*.html')}
+
+    def test_gradiente_tem_cor_de_reserva(self):
+        import re
+        sem = []
+        for nome, html in self._templates().items():
+            for estilo in re.findall(r'style="([^"]*linear-gradient[^"]*)"', html):
+                if 'background-color:' not in estilo.split('linear-gradient')[0]:
+                    sem.append(f'{nome}: {estilo[:60]}')
+        self.assertEqual(sem, [])
+
+    def test_botao_dentro_de_td_com_bgcolor(self):
+        import re
+        soltos = []
+        for nome, html in self._templates().items():
+            for m in re.finditer(r'<a href="[^"]+" style="display:inline-block;background-color:', html):
+                antes = html[max(0, m.start() - 250):m.start()]
+                if '<td bgcolor=' not in antes:
+                    soltos.append(nome)
+        self.assertEqual(soltos, [])

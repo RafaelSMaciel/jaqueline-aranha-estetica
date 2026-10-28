@@ -1150,6 +1150,9 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
   atualizar `JSDELIVR_PATHS` + SRI.
 - Copy do site em tom de estética/bem-estar (cliente, atendimento, avaliação — nunca
   "paciente/consulta médica").
+- E-mail (`templates/email/`): layout em tabela; faixa com gradiente leva `bgcolor` + `background-color`
+  de reserva (o Outlook ignora gradiente) e botão vai num `<td bgcolor>` com `mso-padding-alt` (o Outlook
+  ignora padding em `<a>`); texto do botão escuro (`#23200f`). `test_email_texto.EmailNoOutlookTests` cobra.
 - Títulos com só a 1ª maiúscula ("Lista de espera", "Perguntas frequentes"); nome de tratamento do
   catálogo e sigla ficam como são. Dinheiro sempre `{{ valor|brl }}` (R$ 1.350,00; filtro builtin,
   `utils/formatos.formatar_brl`), nunca `R$ {{ x|floatformat }}`.
