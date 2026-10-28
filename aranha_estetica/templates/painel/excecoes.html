@@ -38,17 +38,17 @@
       <div>
         <label for="excData" class="block text-[0.75rem] font-bold text-texto-suave mb-1 uppercase tracking-wide">Data</label>
         <input type="date" name="data" id="excData" required
-               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
       </div>
       <div class="exc-folga-field">
         <label for="excDataFim" class="block text-[0.75rem] font-bold text-texto-suave mb-1 uppercase tracking-wide">Até (opcional)</label>
         <input type="date" name="data_fim" id="excDataFim"
-               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
       </div>
       <div>
         <label for="excTipo" class="block text-[0.75rem] font-bold text-texto-suave mb-1 uppercase tracking-wide">Tipo</label>
         <select name="tipo" id="excTipo" required
-                class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+                class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
           {% for v, l in TIPO_CHOICES %}
           <option value="{{ v }}">{{ l }}</option>
           {% endfor %}
@@ -57,19 +57,19 @@
       <div class="exc-horario-field" style="display:none;">
         <label for="excHoraInicio" class="block text-[0.75rem] font-bold text-texto-suave mb-1 uppercase tracking-wide">Hora início</label>
         <input type="time" name="hora_inicio" id="excHoraInicio"
-               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
       </div>
       <div class="exc-horario-field" style="display:none;">
         <label for="excHoraFim" class="block text-[0.75rem] font-bold text-texto-suave mb-1 uppercase tracking-wide">Hora fim</label>
         <input type="time" name="hora_fim" id="excHoraFim"
-               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
       </div>
     </div>
     <div class="mb-4">
       <label for="excMotivo" class="block text-[0.75rem] font-bold text-texto-suave mb-1 uppercase tracking-wide">Motivo (opcional)</label>
       <input type="text" name="motivo" id="excMotivo"
              placeholder="Ex: Feriado nacional, viagem, congresso..."
-             class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo placeholder-texto-suave outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+             class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo placeholder-texto-suave transition">
     </div>
     <button type="submit"
             class="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">

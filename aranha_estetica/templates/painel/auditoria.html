@@ -12,7 +12,7 @@
     <div class="flex-1 min-w-[120px]">
       <label for="filtroTabela" class="sr-only">Tabela</label>
       <select id="filtroTabela" name="tabela"
-              class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+              class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
         <option value="">Todas as tabelas</option>
         {% for t in tabelas %}
         <option value="{{ t }}" {% if tabela_filter == t %}selected{% endif %}>{{ t }}</option>
@@ -23,12 +23,12 @@
       <label for="filtroAcao" class="sr-only">Ação</label>
       <input id="filtroAcao" type="text" name="acao" placeholder="Buscar ação..."
              value="{{ acao_filter }}"
-             class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo placeholder-texto-suave outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+             class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo placeholder-texto-suave transition">
     </div>
     <div class="flex-1 min-w-[120px]">
       <label for="filtroData" class="sr-only">Data</label>
       <input id="filtroData" type="date" name="data" value="{{ data_filter }}"
-             class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+             class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
     </div>
     <button type="submit"
             class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#C9A84C] text-white text-[0.82rem] font-bold hover:bg-[#b48c4c] transition-colors">

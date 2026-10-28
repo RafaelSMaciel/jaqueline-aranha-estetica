@@ -176,7 +176,7 @@
     </div>
     <div class="flex items-center gap-1.5 shrink-0">
       <select data-atend-id="{{ agend.pk }}" title="Alterar status"
-              class="px-1.5 py-1 rounded-lg border-2 border-borda bg-superficie text-[0.7rem] font-bold text-texto cursor-pointer outline-none">
+              class="px-1.5 py-1 rounded-lg border-2 border-borda bg-superficie text-[0.7rem] font-bold text-texto cursor-pointer">
         <option value="">⚡</option>
         <option value="CONFIRMADO" {% if agend.status == 'CONFIRMADO' %}disabled{% endif %}>✅ Confirmar</option>
         <option value="REALIZADO" {% if agend.status == 'REALIZADO' %}disabled{% endif %}>✔️ Realizado</option>

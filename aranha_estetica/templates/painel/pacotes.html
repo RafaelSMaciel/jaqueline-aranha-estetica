@@ -93,22 +93,22 @@
             <div class="sm:col-span-6">
               <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Nome</label>
               <input type="text" name="nome" value="{{ pacote.nome }}" required maxlength="150"
-                     class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+                     class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
             </div>
             <div class="sm:col-span-3">
               <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Preço Total (R$)</label>
               <input type="number" step="0.01" min="0" name="preco_total" value="{{ pacote.preco_total|unlocalize }}" required
-                     class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+                     class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
             </div>
             <div class="sm:col-span-3">
               <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Validade (meses)</label>
               <input type="number" min="1" max="120" name="validade_meses" value="{{ pacote.validade_meses|unlocalize }}" required
-                     class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+                     class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
             </div>
             <div class="sm:col-span-12">
               <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Descrição</label>
               <textarea name="descricao" rows="2"
-                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition resize-y">{{ pacote.descricao|default_if_none:'' }}</textarea>
+                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition resize-y">{{ pacote.descricao|default_if_none:'' }}</textarea>
             </div>
             <div class="sm:col-span-12">
               <label class="inline-flex items-center gap-2 text-[0.85rem] text-texto cursor-pointer">
@@ -131,7 +131,7 @@
             <div class="grid grid-cols-12 gap-2 mb-2 item-row">
               <div class="col-span-8">
                 <select name="procedimento_ids" aria-label="Procedimento"
-                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
                   <option value="">Procedimento...</option>
                   {% for proc in procedimentos_todos %}
                   <option value="{{ proc.pk }}" {% if proc.pk == item.procedimento_id %}selected{% endif %}>{{ proc.nome }}{% if not proc.ativo %} (inativo){% endif %}</option>
@@ -140,14 +140,14 @@
               </div>
               <div class="col-span-4">
                 <input type="number" name="quantidades" value="{{ item.quantidade_sessoes|unlocalize }}" min="1" aria-label="Quantidade de sessões"
-                       class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+                       class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
               </div>
             </div>
             {% empty %}
             <div class="grid grid-cols-12 gap-2 mb-2 item-row">
               <div class="col-span-8">
                 <select name="procedimento_ids" aria-label="Procedimento"
-                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
                   <option value="">Procedimento...</option>
                   {% for proc in procedimentos %}
                   <option value="{{ proc.pk }}">{{ proc.nome }}</option>
@@ -156,7 +156,7 @@
               </div>
               <div class="col-span-4">
                 <input type="number" name="quantidades" value="1" min="1" aria-label="Quantidade de sessões"
-                       class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+                       class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
               </div>
             </div>
             {% endfor %}
@@ -194,7 +194,7 @@
       <div class="mb-3">
         <label for="venderPacote" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Pacote</label>
         <select id="venderPacote" name="pacote_id" required
-                class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+                class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
           {% for p in pacotes_ativos %}
           <option value="{{ p.pk }}" data-valor="{{ p.preco_total|unlocalize }}">{{ p.nome }}</option>
           {% endfor %}
@@ -203,7 +203,7 @@
       <div class="mb-3">
         <label for="venderCliente" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Cliente</label>
         <select id="venderCliente" name="cliente_id" required
-                class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+                class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
           <option value="">Selecione...</option>
           {% for c in clientes_ativos %}
           <option value="{{ c.pk }}">{{ c.nome }}{% if c.telefone %} — {{ c.telefone }}{% endif %}</option>
@@ -213,7 +213,7 @@
       <div class="mb-1">
         <label for="venderValor" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Valor Pago (R$)</label>
         <input id="venderValor" type="number" step="0.01" min="0" name="valor_pago" value="{{ pacotes_ativos.0.preco_total|unlocalize }}" required
-               class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+               class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
       </div>
     </div>
     <div class="flex justify-end gap-2 px-5 py-4 border-t border-borda">
@@ -264,22 +264,22 @@
             <div class="sm:col-span-6">
               <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Nome</label>
               <input type="text" name="nome" required placeholder="Ex: Pacote Harmonização 5 sessões"
-                     class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+                     class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
             </div>
             <div class="sm:col-span-3">
               <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Preço Total (R$)</label>
               <input type="number" step="0.01" name="preco_total" required
-                     class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+                     class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
             </div>
             <div class="sm:col-span-3">
               <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Validade (meses)</label>
               <input type="number" name="validade_meses" value="12"
-                     class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+                     class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
             </div>
             <div class="sm:col-span-12">
               <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Descrição</label>
               <textarea name="descricao" rows="2"
-                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition resize-y"></textarea>
+                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition resize-y"></textarea>
             </div>
           </div>
 
@@ -288,7 +288,7 @@
             <div class="grid grid-cols-12 gap-2 mb-2 item-row">
               <div class="col-span-8">
                 <select name="procedimento_ids" aria-label="Procedimento"
-                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
                   <option value="">Procedimento...</option>
                   {% for proc in procedimentos %}
                   <option value="{{ proc.pk }}">{{ proc.nome }}</option>
@@ -297,7 +297,7 @@
               </div>
               <div class="col-span-4">
                 <input type="number" name="quantidades" value="1" min="1" placeholder="Qtd sessões" aria-label="Quantidade de sessões"
-                       class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+                       class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
               </div>
             </div>
           </div>

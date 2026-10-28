@@ -69,7 +69,7 @@
     <div class="flex-1 min-w-[140px]">
       <label for="filtroTipo" class="sr-only">Tipo</label>
       <select id="filtroTipo" name="tipo"
-              class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+              class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
         <option value="all" {% if tipo_filter == 'all' %}selected{% endif %}>Todos os tipos</option>
         {% if tipos %}
         {% for v, l in tipos %}
@@ -89,7 +89,7 @@
     <div class="flex-1 min-w-[140px]">
       <label for="filtroStatus" class="sr-only">Status</label>
       <select id="filtroStatus" name="status"
-              class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+              class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
         <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Todos os status</option>
         <option value="respondido" {% if status_filter == 'respondido' %}selected{% endif %}>Respondidos</option>
         <option value="pendente" {% if status_filter == 'pendente' %}selected{% endif %}>Sem resposta</option>

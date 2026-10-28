@@ -34,7 +34,7 @@
 <div class="flex items-center gap-2 flex-wrap bg-superficie rounded-2xl shadow-sm p-3 mb-3">
   <label for="filtroProfissional" class="text-[0.8rem] font-bold text-texto-suave">Profissional:</label>
   <select id="filtroProfissional"
-          class="px-3 py-1.5 rounded-lg border border-borda bg-fundo text-[0.8rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+          class="px-3 py-1.5 rounded-lg border border-borda bg-fundo text-[0.8rem] text-texto transition">
     <option value="">Todos</option>
     {% for p in profissionais %}
     <option value="{{ p.pk }}">{{ p.nome }}</option>

@@ -30,7 +30,7 @@
       <div>
         <label for="tipo_termo" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Tipo</label>
         <select name="tipo" id="tipo_termo"
-                class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+                class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
           <option value="LGPD">LGPD / Privacidade</option>
           <option value="PROCEDIMENTO">Procedimento</option>
         </select>
@@ -38,7 +38,7 @@
       <div id="proc_group" style="display:none;">
         <label for="procedimento_select" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Procedimento</label>
         <select name="procedimento_id" id="procedimento_select"
-                class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+                class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
           <option value="">Geral (vale para todos os procedimentos)</option>
           {% for p in procedimentos %}
           <option value="{{ p.pk }}">{{ p.nome }}</option>
@@ -50,24 +50,24 @@
       <label for="titulo_input" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Título</label>
       <input type="text" name="titulo" id="titulo_input" required
              placeholder="Ex: Termo de Consentimento para Peeling"
-             class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo placeholder-texto-suave outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+             class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo placeholder-texto-suave transition">
     </div>
     <div class="mb-3">
       <label for="conteudo_input" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Conteúdo</label>
       <textarea name="conteudo" id="conteudo_input" rows="5" required
                 placeholder="Texto completo do termo..."
-                class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo placeholder-texto-suave outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition resize-y"></textarea>
+                class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo placeholder-texto-suave transition resize-y"></textarea>
     </div>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
       <div>
         <label for="versao_input" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Versão</label>
         <input type="text" name="versao" id="versao_input" value="1.0" required
-               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
       </div>
       <div>
         <label for="vigente_desde_input" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Vigente Desde</label>
         <input type="date" name="vigente_desde" id="vigente_desde_input"
-               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
       </div>
     </div>
     <button type="submit"

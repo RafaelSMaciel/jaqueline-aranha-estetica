@@ -30,7 +30,7 @@
   <form method="GET" class="flex gap-2 flex-wrap items-end">
     <div class="flex-1 min-w-[140px]">
       <label for="fStatus" class="sr-only">Status</label>
-      <select id="fStatus" name="status" class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-marca-forte/40 transition">
+      <select id="fStatus" name="status" class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
         <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Todos os status</option>
         <option value="PENDENTE" {% if status_filter == 'PENDENTE' %}selected{% endif %}>Pendentes</option>
         <option value="PAGA" {% if status_filter == 'PAGA' %}selected{% endif %}>Pagas</option>
@@ -39,7 +39,7 @@
     </div>
     <div class="flex-1 min-w-[140px]">
       <label for="fProf" class="sr-only">Profissional</label>
-      <select id="fProf" name="profissional" class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-marca-forte/40 transition">
+      <select id="fProf" name="profissional" class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
         <option value="all" {% if prof_filter == 'all' %}selected{% endif %}>Todos os profissionais</option>
         {% for p in profissionais %}
         <option value="{{ p.pk }}" {% if prof_filter == p.pk|stringformat:'s' %}selected{% endif %}>{{ p.nome }}</option>
@@ -48,7 +48,7 @@
     </div>
     <div class="flex-1 min-w-[120px]">
       <label for="fPeriodo" class="sr-only">Período</label>
-      <select id="fPeriodo" name="periodo" class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo outline-none focus:ring-2 focus:ring-marca-forte/40 transition">
+      <select id="fPeriodo" name="periodo" class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
         <option value="30" {% if periodo == '30' %}selected{% endif %}>30 dias</option>
         <option value="90" {% if periodo == '90' %}selected{% endif %}>90 dias</option>
         <option value="tudo" {% if periodo == 'tudo' %}selected{% endif %}>Tudo</option>

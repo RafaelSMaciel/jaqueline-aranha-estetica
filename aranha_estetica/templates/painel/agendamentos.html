@@ -25,7 +25,7 @@
 <div class="bg-superficie rounded-2xl shadow-sm p-4 mb-3">
   <form method="get" class="grid grid-cols-2 md:grid-cols-12 gap-2 items-end">
     <div class="col-span-1 md:col-span-2">
-      <select name="status" aria-label="Filtrar por status" class="w-full px-2.5 py-1.5 rounded-lg border border-borda bg-fundo text-[0.8rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+      <select name="status" aria-label="Filtrar por status" class="w-full px-2.5 py-1.5 rounded-lg border border-borda bg-fundo text-[0.8rem] text-texto transition">
         <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Todos</option>
         <option value="pendente" {% if status_filter == 'pendente' %}selected{% endif %}>⏳ Pendente aprovação</option>
         <option value="agendado" {% if status_filter == 'agendado' %}selected{% endif %}>Agendado</option>
@@ -37,10 +37,10 @@
       </select>
     </div>
     <div class="col-span-1 md:col-span-2">
-      <input type="date" name="data" value="{{ request.GET.data }}" aria-label="Filtrar por data" class="w-full px-2.5 py-1.5 rounded-lg border border-borda bg-fundo text-[0.8rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+      <input type="date" name="data" value="{{ request.GET.data }}" aria-label="Filtrar por data" class="w-full px-2.5 py-1.5 rounded-lg border border-borda bg-fundo text-[0.8rem] text-texto transition">
     </div>
     <div class="col-span-2 md:col-span-2">
-      <select name="profissional" aria-label="Filtrar por profissional" class="w-full px-2.5 py-1.5 rounded-lg border border-borda bg-fundo text-[0.8rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+      <select name="profissional" aria-label="Filtrar por profissional" class="w-full px-2.5 py-1.5 rounded-lg border border-borda bg-fundo text-[0.8rem] text-texto transition">
         <option value="">Todos profissionais</option>
         {% for prof in profissionais %}
         <option value="{{ prof.pk }}" {% if request.GET.profissional == prof.pk|stringformat:"d" %}selected{% endif %}>{{ prof.nome }}</option>
@@ -64,7 +64,7 @@
 
 <form method="post" action="{% url 'aranha:admin_bulk_agendamentos' %}" id="bulkForm">
   {% csrf_token %}
-  <div id="bulkToolbar" style="display:none;" class="sticky top-[52px] z-40 items-center gap-2 bg-[#1a1a2e] text-white px-3.5 py-2 rounded-xl mb-3 shadow-lg">
+  <div id="bulkToolbar" style="display:none;" class="cromo-escuro sticky top-[52px] z-40 items-center gap-2 bg-[#1a1a2e] text-white px-3.5 py-2 rounded-xl mb-3 shadow-lg">
     <span id="bulkCount" class="font-extrabold text-[0.85rem]">0 selecionado(s)</span>
     <div class="flex-1"></div>
     <button type="submit" name="acao" value="aprovar" data-confirm="Aprovar todos selecionados?"
@@ -92,7 +92,7 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
            data-search-filter="#listaAgendamentos"
            data-search-counter="#cntAgendVisiveis"
            data-search-empty="#emptyFiltroAgend"
-           class="w-full px-3 py-1.5 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+           class="w-full px-3 py-1.5 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
   </div>
 
   <div class="flex justify-between items-center mb-2">
@@ -228,7 +228,7 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
       </form>
       {% endif %}
       <select data-atend-id="{{ agend.pk }}"{% if agend.pk in marc.termo_pendente %} data-termo-pendente="1"{% endif %} title="Alterar status" aria-label="Alterar status"
-              class="px-1.5 py-1 rounded-lg border-2 border-borda bg-superficie text-[0.7rem] font-bold text-texto cursor-pointer outline-none">
+              class="px-1.5 py-1 rounded-lg border-2 border-borda bg-superficie text-[0.7rem] font-bold text-texto cursor-pointer">
         <option value="">⚡</option>
         <option value="CONFIRMADO" {% if agend.status == 'CONFIRMADO' %}disabled{% endif %}>✅ Confirmar</option>
         <option value="REALIZADO" {% if agend.status == 'REALIZADO' %}disabled{% endif %}>✔️ Realizado</option>
