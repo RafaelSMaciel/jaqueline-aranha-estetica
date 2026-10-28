@@ -83,6 +83,7 @@ erram o dia entre 21h e 24h. O ruff (`DTZ`) barra no CI e no gancho:
 | `dt.strftime(...)` de datetime do banco | `utils.datas.fmt_local(dt)` |
 | `datetime.strptime(x, '%Y-%m-%d').date()` (formulário/query) | `utils.datas.ler_data(x)` / `ler_hora(x)` |
 | `datetime(2026, 1, 1, 9)` em código | `timezone.make_aware(datetime.combine(dia, hora))` |
+| `.filter(campo__date=dia)` | `.filter(**utils.datas.dias_locais('campo', dia))` (intervalo: usa o índice) |
 
 Nos testes, datetime naive antes do `make_aware` é permitido (`per-file-ignores`).
 
