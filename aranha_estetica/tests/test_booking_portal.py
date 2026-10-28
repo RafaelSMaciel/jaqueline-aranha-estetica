@@ -585,7 +585,8 @@ class ReagendarHorariosTests(TestCase):
 
     def test_token_invalido_404_e_regras_do_reagendamento(self):
         self.assertEqual(self._horarios('token-que-nao-existe').status_code, 404)
-        self.assertEqual(self._horarios(self.token, data='lixo').status_code, 400)
+        resp = self._horarios(self.token, data='lixo')
+        self.assertEqual((resp.status_code, resp.json()), (400, {'erro': 'Data inválida'}))  # a tela mostra o motivo
         self.cli.bloqueado_online = True
         self.cli.save()
         self.assertEqual(self._horarios(self.token).status_code, 400)
