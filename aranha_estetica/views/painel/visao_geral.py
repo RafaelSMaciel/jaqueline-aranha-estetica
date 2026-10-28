@@ -110,6 +110,8 @@ def painel_overview(request):
         data_hora_inicio__gte=timezone.now(),
     ).select_related('cliente', 'profissional', 'procedimento').order_by('data_hora_inicio')[:15]))
     total_sem_desfecho = Atendimento.objects.sem_desfecho().count()
+    from ...services.retorno import devidos
+    total_retornos = len(devidos())
     total_pendentes = Atendimento.objects.filter(
         status=StatusAtendimento.PENDENTE,
         data_hora_inicio__gte=timezone.now(),
@@ -155,6 +157,7 @@ def painel_overview(request):
         'pendentes_aprovacao': pendentes_aprovacao,
         'total_pendentes': total_pendentes,
         'total_sem_desfecho': total_sem_desfecho,
+        'total_retornos': total_retornos,
     }
 
     return render(request, 'painel/overview.html', context)

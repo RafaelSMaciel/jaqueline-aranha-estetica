@@ -80,6 +80,18 @@
 </a>
 {% endif %}
 
+{# ── Retornos sem custo a marcar com a cliente (services/retorno) ── #}
+{% if total_retornos %}
+<a href="{% url 'aranha:painel_retornos' %}"
+   class="flex items-center justify-between gap-3 bg-superficie border-l-4 border-info rounded-2xl px-5 py-3 mb-4 no-underline hover:bg-fundo transition-colors">
+  <span class="text-[0.85rem] text-texto">
+    <strong class="text-info">{{ total_retornos }} retorno{{ total_retornos|pluralize }} a marcar</strong>
+    — procedimento{{ total_retornos|pluralize }} com retorno sem custo: combine o dia com a cliente.
+  </span>
+  <span class="text-[0.78rem] font-bold text-info shrink-0">Marcar &rarr;</span>
+</a>
+{% endif %}
+
 {# ── Pendentes de aprovação ── #}
 {% if pendentes_aprovacao %}
 <div class="bg-gradient-to-br from-[#fff8e1] to-[#ffecb3] border-l-4 border-aviso rounded-2xl p-5 mb-4">

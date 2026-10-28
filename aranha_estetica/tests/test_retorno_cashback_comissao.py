@@ -1,9 +1,9 @@
 """Tests Sprint 1-2 + 3-4: F-RET, F-CSB, Comissao, Lista Espera."""
-from datetime import timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
-from django.test import TestCase
+from django.test import Client, TestCase
 from django.utils import timezone
 
 from aranha_estetica.models import (
@@ -16,7 +16,9 @@ from aranha_estetica.models import (
 )
 from aranha_estetica.services.comissao import ComissaoService
 from aranha_estetica.services.fidelidade import FidelidadeService
-from aranha_estetica.services.retorno import RetornoService
+from aranha_estetica.excecoes import RegraDeNegocio
+from aranha_estetica.services import retorno
+from aranha_estetica.utils.datas import data_local, ler_hora
 
 from .factories import (
     ja_comecou,
@@ -26,6 +28,8 @@ from .factories import (
 
 # ─── F-RET ────────────────────────────────────────────────────────────
 class RetornoServiceTests(TestCase):
+    """Retorno obrigatorio: fica DEVIDO no Realizado e a recepcao marca dentro da janela."""
+
     def setUp(self):
         self.prof = criar_profissional()
         self.proc = criar_procedimento(profissional=self.prof)
@@ -36,65 +40,56 @@ class RetornoServiceTests(TestCase):
         self.proc.save()
         self.cliente = criar_cliente()
 
-    def test_cria_retorno_quando_procedimento_requer(self):
-        atend = criar_atendimento(self.cliente, self.prof, self.proc, status='AGENDADO')
+    def _realizado(self, proc=None):
+        atend = criar_atendimento(self.cliente, self.prof, proc or self.proc, status='AGENDADO')
         ja_comecou(atend).marcar_realizado()
         atend.refresh_from_db()
-        retorno = Atendimento.objects.filter(atendimento_origem=atend, eh_retorno=True).first()
-        self.assertIsNotNone(retorno)
-        self.assertEqual(retorno.valor_cobrado, Decimal('0'))
-        self.assertEqual(retorno.status, Atendimento.STATUS_PENDENTE)
+        return atend
 
-    def test_idempotente_nao_duplica_retorno(self):
-        atend = criar_atendimento(self.cliente, self.prof, self.proc, status='AGENDADO')
-        ja_comecou(atend).marcar_realizado()
-        # Tenta sugerir de novo direto
-        RetornoService.sugerir_retorno(atend)
-        count = Atendimento.objects.filter(atendimento_origem=atend, eh_retorno=True).count()
-        self.assertEqual(count, 1)
+    def _inicio_na_janela(self, atend, dias=17):
+        de, ate = retorno.janela(atend)
+        dia = data_local(atend.data_hora_fim) + timedelta(days=dias)
+        self.assertTrue(de <= dia <= ate)
+        hhmm = retorno.horarios(atend, dia)[0]
+        return timezone.make_aware(datetime.combine(dia, ler_hora(hhmm)))
 
-    def test_nao_cria_se_procedimento_nao_requer(self):
-        proc_simples = criar_procedimento(nome='Drenagem', profissional=self.prof)
-        atend = criar_atendimento(self.cliente, self.prof, proc_simples, status='AGENDADO')
-        ja_comecou(atend).marcar_realizado()
-        self.assertFalse(
-            Atendimento.objects.filter(atendimento_origem=atend, eh_retorno=True).exists(),
-        )
+    def test_realizado_deixa_o_retorno_devido_sem_reservar(self):
+        atend = self._realizado()
+        self.assertFalse(Atendimento.objects.filter(atendimento_origem=atend).exists())
+        (devido,) = retorno.devidos()
+        self.assertEqual(devido.origem, atend)
+        base = data_local(atend.data_hora_fim)
+        self.assertEqual((devido.de, devido.ate), (base + timedelta(days=15), base + timedelta(days=21)))
 
-    def test_retorno_em_horario_de_expediente(self):
-        """Janela impar (7..14) nao gera horario de madrugada: slot livre do profissional."""
-        self.proc.retorno_minimo_dias = 7
-        self.proc.retorno_maximo_dias = 14
-        self.proc.save()
-        atend = criar_atendimento(self.cliente, self.prof, self.proc, status='AGENDADO')
-        ja_comecou(atend).marcar_realizado()
-        retorno = Atendimento.objects.get(atendimento_origem=atend, eh_retorno=True)
-        inicio_local = timezone.localtime(retorno.data_hora_inicio)
-        # criar_profissional: expediente 09h-18h todos os dias
-        self.assertGreaterEqual(inicio_local.hour, 9)
-        self.assertLess(inicio_local.hour, 18)
-        self.assertGreaterEqual(retorno.data_hora_inicio - atend.data_hora_fim, timedelta(days=7))
-        self.assertLessEqual(
-            timezone.localdate(retorno.data_hora_inicio) - timezone.localdate(atend.data_hora_fim),
-            timedelta(days=14),
-        )
+    def test_agendar_cria_retorno_agendado_sem_custo_e_sai_dos_devidos(self):
+        atend = self._realizado()
+        novo = retorno.agendar(atend, self._inicio_na_janela(atend))
+        self.assertEqual((novo.status, novo.valor_cobrado, novo.eh_retorno), ('AGENDADO', Decimal('0'), True))
+        self.assertEqual(novo.atendimento_origem, atend)
+        self.assertEqual(retorno.devidos(), [])
+        with self.assertRaises(RegraDeNegocio) as ctx:
+            retorno.agendar(atend, self._inicio_na_janela(atend, dias=18))
+        self.assertEqual(ctx.exception.codigo, 'retorno_existente')
 
-    def test_retorno_sem_horario_livre_nao_cria(self):
-        from aranha_estetica.models import AgendaHorario
-        AgendaHorario.objects.filter(profissional=self.prof).delete()
-        atend = criar_atendimento(self.cliente, self.prof, self.proc, status='AGENDADO')
-        ja_comecou(atend).marcar_realizado()
-        self.assertFalse(
-            Atendimento.objects.filter(atendimento_origem=atend, eh_retorno=True).exists(),
-        )
+    def test_fora_da_janela_recusa(self):
+        atend = self._realizado()
+        dia = data_local(atend.data_hora_fim) + timedelta(days=30)
+        self.assertEqual(retorno.horarios(atend, dia), [])
+        with self.assertRaises(RegraDeNegocio) as ctx:
+            retorno.agendar(atend, timezone.make_aware(datetime.combine(dia, ler_hora('10:00'))))
+        self.assertEqual(ctx.exception.codigo, 'retorno_fora_da_janela')
 
-    def test_retorno_data_dentro_da_janela(self):
-        atend = criar_atendimento(self.cliente, self.prof, self.proc, status='AGENDADO')
-        ja_comecou(atend).marcar_realizado()
-        retorno = Atendimento.objects.get(atendimento_origem=atend, eh_retorno=True)
-        delta = (retorno.data_hora_inicio - atend.data_hora_fim).days
-        self.assertGreaterEqual(delta, 15)
-        self.assertLessEqual(delta, 21)
+    def test_sem_retorno_no_procedimento(self):
+        atend = self._realizado(criar_procedimento(nome='Drenagem', profissional=self.prof))
+        self.assertIsNone(retorno.janela(atend))
+        self.assertEqual(retorno.devidos(), [])
+
+    def test_janela_vencida_some_dos_devidos(self):
+        atend = self._realizado()
+        Atendimento.objects.filter(pk=atend.pk).update(
+            data_hora_inicio=atend.data_hora_inicio - timedelta(days=40),
+            data_hora_fim=atend.data_hora_fim - timedelta(days=40))
+        self.assertEqual(retorno.devidos(), [])
 
     def test_retorno_gratuito_nao_consome_sessao_do_pacote(self):
         """Regressao gap3-05: o retorno (R$0) debitava uma sessao paga."""
@@ -102,14 +97,12 @@ class RetornoServiceTests(TestCase):
         from .factories import criar_compra_pacote, criar_pacote
 
         compra = criar_compra_pacote(self.cliente, criar_pacote(procedimento=self.proc, sessoes=3))
-        atend = criar_atendimento(self.cliente, self.prof, self.proc, status='AGENDADO')
-        ja_comecou(atend).marcar_realizado()
-        retorno = Atendimento.objects.get(atendimento_origem=atend, eh_retorno=True)
-        retorno.aprovar()
-        ja_comecou(retorno).marcar_realizado()
+        atend = self._realizado()
+        novo = retorno.agendar(atend, self._inicio_na_janela(atend))
+        ja_comecou(novo).marcar_realizado()
 
         self.assertEqual(compra.sessoes_realizadas.count(), 1)
-        self.assertFalse(ConsumoSessao.objects.filter(atendimento=retorno).exists())
+        self.assertFalse(ConsumoSessao.objects.filter(atendimento=novo).exists())
         compra.refresh_from_db()
         self.assertEqual(compra.status, 'ATIVO')
 
@@ -362,3 +355,52 @@ class CreditoIndicacaoUsoTests(TestCase):
         ficha = self.client.get(reverse('aranha:admin_cliente_detalhe', args=[self.cli.pk]))
         self.assertContains(ficha, 'Uso em atendimento')
         self.assertContains(ficha, 'Crédito de indicação disponível')
+
+
+class RetornoTelasTests(TestCase):
+    """Painel (lista + marcar retorno), card da visao geral e aviso em Meus agendamentos."""
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        from aranha_estetica.models import Usuario
+        cache.clear()
+        self.prof = criar_profissional()
+        self.proc = criar_procedimento(profissional=self.prof)
+        self.proc.exige_retorno, self.proc.retorno_minimo_dias, self.proc.retorno_maximo_dias = True, 7, 14
+        self.proc.save()
+        self.cliente = criar_cliente()
+        self.origem = criar_atendimento(self.cliente, self.prof, self.proc)
+        ja_comecou(self.origem).marcar_realizado()
+        admin = Usuario.objects.create_user(email='admin-ret@test.com', password='senha-forte-123',
+                                            papel=Usuario.PAPEL_ADMIN)
+        self.client.force_login(admin)
+
+    def test_lista_visao_geral_e_ficha_mostram_o_retorno(self):
+        from django.urls import reverse
+        url = reverse('aranha:admin_agendar_retorno', args=[self.origem.pk])
+        self.assertContains(self.client.get(reverse('aranha:painel_retornos')), url)
+        self.assertContains(self.client.get(reverse('aranha:painel_overview')), '1 retorno a marcar')
+        self.assertContains(self.client.get(reverse('aranha:admin_cliente_detalhe', args=[self.cliente.pk])), url)
+
+    def test_marcar_pela_tela(self):
+        from django.urls import reverse
+        de, _ate = retorno.janela(self.origem)
+        url = reverse('aranha:admin_agendar_retorno', args=[self.origem.pk])
+        tela = self.client.get(url, {'data': de.isoformat()})
+        hora = tela.context['slots'][0]
+        resp = self.client.post(url, {'data': de.isoformat(), 'hora': hora, 'profissional_id': self.prof.pk})
+        self.assertEqual(resp.status_code, 302)
+        novo = Atendimento.objects.get(atendimento_origem=self.origem)
+        self.assertEqual((novo.status, novo.eh_retorno), ('AGENDADO', True))
+
+    def test_portal_avisa_a_cliente(self):
+        from django.urls import reverse
+
+        from aranha_estetica.views.publico.portal import SESSAO_MEUS_AGENDAMENTOS
+        cliente = Client()
+        sessao = cliente.session
+        sessao[SESSAO_MEUS_AGENDAMENTOS] = self.cliente.telefone
+        sessao.save()
+        resp = cliente.get(reverse('aranha:meus_agendamentos'))
+        self.assertContains(resp, f'Seu retorno de {self.proc.nome} é sem custo.')

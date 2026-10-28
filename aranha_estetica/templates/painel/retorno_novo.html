@@ -1,0 +1,61 @@
+{% extends 'painel/base_v2.html' %}
+
+{% block titulo %}Marcar retorno — {{ CLINIC_NAME }}{% endblock %}
+{% block page_title %}Marcar retorno{% endblock %}
+{% block page_subtitle %}{{ origem.cliente.nome }} · {{ origem.procedimento.nome }} realizado em {{ origem.data_hora_inicio|date:"d/m/Y" }}{% endblock %}
+{% block page_actions %}
+<a href="{% url 'aranha:painel_retornos' %}"
+   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold border border-borda text-texto-suave no-underline hover:text-texto hover:border-texto-suave transition-colors">
+  ← Retornos a marcar
+</a>
+{% endblock %}
+
+{% block admin_content %}
+<div class="max-w-3xl">
+  <p class="mb-3 rounded-xl border border-borda bg-superficie px-4 py-3 text-[0.85rem] text-texto" role="note">
+    Retorno <strong>sem custo</strong>, entre <strong>{{ de|date:"d/m/Y" }}</strong> e <strong>{{ ate|date:"d/m/Y" }}</strong>.
+    Combine o dia com a cliente e escolha um horário livre.
+  </p>
+
+  <form method="get" class="bg-superficie rounded-2xl shadow-sm p-5 mb-3">
+    <div class="grid gap-3 sm:grid-cols-2">
+      <div>
+        <label for="retProf" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Profissional</label>
+        <select id="retProf" name="profissional_id" class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto">
+          {% for prof in profissionais %}
+          <option value="{{ prof.pk }}" {% if prof.pk == profissional.pk %}selected{% endif %}>{{ prof.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="retData" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Dia</label>
+        <input id="retData" type="date" name="data" value="{{ dia|date:'Y-m-d' }}" min="{{ de|date:'Y-m-d' }}" max="{{ ate|date:'Y-m-d' }}"
+               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto">
+      </div>
+    </div>
+    <button type="submit" class="mt-3 inline-flex px-4 py-2 rounded-xl border border-borda bg-superficie text-texto text-[0.82rem] font-bold cursor-pointer hover:bg-fundo transition-colors">Ver horários livres</button>
+  </form>
+
+  <form method="post" class="bg-superficie rounded-2xl shadow-sm p-5">
+    {% csrf_token %}
+    <input type="hidden" name="data" value="{{ dia|date:'Y-m-d' }}">
+    <input type="hidden" name="profissional_id" value="{{ profissional.pk }}">
+    <h2 class="text-[0.9rem] font-bold text-texto mb-3">Horários livres em {{ dia|date:"d/m/Y" }} com {{ profissional.nome }}</h2>
+    {% if slots %}
+    <fieldset class="border-0 p-0 m-0">
+      <legend class="sr-only">Horários livres</legend>
+      <div class="flex flex-wrap gap-2">
+        {% for s in slots %}
+        <label class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-borda bg-fundo cursor-pointer text-[0.85rem] font-bold text-texto">
+          <input type="radio" name="hora" value="{{ s }}" required> {{ s }}
+        </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    <button type="submit" class="mt-4 inline-flex px-5 py-2.5 rounded-xl bg-marca-forte text-sobre-marca text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90">Marcar retorno</button>
+    {% else %}
+    <p class="text-[0.85rem] font-bold text-aviso bg-aviso-fundo rounded-lg px-3 py-2">Nenhum horário livre neste dia (ou fora do prazo do retorno). Escolha outro dia ou profissional.</p>
+    {% endif %}
+  </form>
+</div>
+{% endblock %}

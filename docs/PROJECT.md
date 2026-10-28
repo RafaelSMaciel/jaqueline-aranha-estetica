@@ -189,7 +189,7 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   `min_notice_horas`, `max_advance_dias`). Usada pelo wizard, pelo
   reagendamento, pelo agendamento interno e pela validação do servidor.
 - **Agenda** (`services/agenda.py`): as 5 portas que gravam horário (wizard, agendamento pelo
-  painel, reagendamento pelo portal/link, arrasto do calendário, retorno automático) passam por
+  painel, reagendamento pelo portal/link, arrasto do calendário, retorno marcado pela recepção) passam por
   `validar_horario` (habilitação, horário futuro, feriado/recesso, SlotService; `detalhado=True`
   dá o motivo à equipe — conflito, bloqueio, folga, expediente — e o site vê a mensagem
   genérica), `reservar` (conflito com `select_for_update`, preço da data, INSERT em savepoint;
