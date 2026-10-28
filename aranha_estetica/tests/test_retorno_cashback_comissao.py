@@ -14,9 +14,9 @@ from aranha_estetica.models import (
     MovimentoCarteira,
     RegraComissao,
 )
-from aranha_estetica.services.comissao_service import ComissaoService
-from aranha_estetica.services.fidelidade_service import FidelidadeService
-from aranha_estetica.services.retorno_service import RetornoService
+from aranha_estetica.services.comissao import ComissaoService
+from aranha_estetica.services.fidelidade import FidelidadeService
+from aranha_estetica.services.retorno import RetornoService
 
 from .factories import (
     criar_atendimento, criar_cliente, criar_procedimento, criar_profissional,

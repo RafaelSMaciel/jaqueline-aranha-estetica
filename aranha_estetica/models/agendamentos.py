@@ -174,7 +174,7 @@ class Atendimento(models.Model):
         # pacote, comissao, cashback, retorno, lista de espera) na MESMA transacao:
         # efeito que falha desfaz a transicao inteira (I/O externo vai em on_commit).
         from ..services.atendimento import ao_mudar_status
-        from ..utils.audit import registrar_log
+        from ..utils.auditoria import registrar_log
         with transaction.atomic():
             if self.pk is not None:
                 atual = (

@@ -46,7 +46,7 @@ class Command(BaseCommand):
         if options['force']:
             from django_otp import devices_for_user
 
-            from aranha_estetica.utils.audit import registrar_log
+            from aranha_estetica.utils.auditoria import registrar_log
 
             removidos = list(devices_for_user(user, confirmed=None))
             for device in removidos:

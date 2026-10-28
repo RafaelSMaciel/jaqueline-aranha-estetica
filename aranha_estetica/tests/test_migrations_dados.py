@@ -1987,7 +1987,7 @@ class ComissaoLedger0053Tests(_MigracaoBase):
 
     def test_status_e_saldo_derivados_pelo_codigo_novo(self):
         from aranha_estetica.models import MovimentoComissao
-        from aranha_estetica.services.comissao_service import ComissaoService
+        from aranha_estetica.services.comissao import ComissaoService
 
         _subir_ate_o_fim()
         derivado = dict(MovimentoComissao.objects.creditos_com_status().values_list('pk', 'status'))

@@ -1,7 +1,7 @@
 """Testes do modulo utils.security (PII masking, comparison, IP do cliente, next)."""
 from django.test import RequestFactory, SimpleTestCase, override_settings
 
-from aranha_estetica.utils.security import (
+from aranha_estetica.utils.seguranca import (
     client_ip,
     mask_cpf,
     mask_email,

@@ -127,7 +127,7 @@ class SecurityHeadersMiddleware:
         "usb=(), magnetometer=(), gyroscope=(), accelerometer=(), "
         "autoplay=(self), fullscreen=(self)"
     )
-    # Bater com aranha_estetica/urls.py e clinica/urls.py
+    # Bater com aranha_estetica/urls/ e clinica/urls.py
     PREFIXOS_PRIVADOS = (
         '/painel/', '/profissional/', '/meus-agendamentos/', '/lgpd/',
         Enforce2FAMiddleware.ADMIN_PREFIX, Enforce2FAMiddleware.API_PREFIX,

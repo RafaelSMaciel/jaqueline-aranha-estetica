@@ -755,7 +755,7 @@ class AtualizarStatusEntradaInvalidaTests(_AdminBase):
             ('{nao e json', 400),
             (b'\xff\xfe', 400),
         ]
-        with self.assertNoLogs('aranha_estetica.views.admin', level='ERROR'):
+        with self.assertNoLogs('aranha_estetica.views.painel.auditoria', level='ERROR'):
             for corpo, esperado in casos:
                 with self.subTest(corpo=corpo):
                     resp = self.client.post(url, data=corpo, content_type='application/json')

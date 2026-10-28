@@ -589,8 +589,8 @@ git commit -m "feat(front): toast (anti-XSS) + modal acessivel (Alpine)"
 
 **Files:**
 - Create: `aranha_estetica/templates/publico/prova_v2.html`
-- Modify: `aranha_estetica/views/public.py` (add view `prova_v2`)
-- Modify: `aranha_estetica/urls.py` (rota `/v2-prova/`)
+- Modify: `aranha_estetica/views/publico/site.py` (add view `prova_v2`)
+- Modify: `aranha_estetica/urls/` (rota `/v2-prova/`)
 - Test: `aranha_estetica/tests/test_prova_v2.py`
 
 - [ ] **Step 1: Teste — rota responde 200 e usa base nova + componentes**
@@ -615,12 +615,12 @@ Expected: FAIL (rota inexistente).
 
 - [ ] **Step 3: View + rota + template**
 
-Em `aranha_estetica/views/public.py`:
+Em `aranha_estetica/views/publico/site.py`:
 ```python
 def prova_v2(request):
     return render(request, 'publico/prova_v2.html')
 ```
-Em `aranha_estetica/urls.py` (dentro do app namespace):
+Em `aranha_estetica/urls/` (dentro do app namespace):
 ```python
 path('v2-prova/', public.prova_v2, name='prova_v2'),
 ```
@@ -659,7 +659,7 @@ Run dev: `npm run dev` (Vite) + `python manage.py runserver`. Abrir `/v2-prova/`
 
 - [ ] **Step 7: Commit**
 ```bash
-git add aranha_estetica/templates/publico/prova_v2.html aranha_estetica/views/public.py aranha_estetica/urls.py aranha_estetica/tests/test_prova_v2.py
+git add aranha_estetica/templates/publico/prova_v2.html aranha_estetica/views/publico/site.py aranha_estetica/urls/ aranha_estetica/tests/test_prova_v2.py
 git commit -m "feat(front): pagina de prova da fundacao (/v2-prova) + verificacao"
 ```
 

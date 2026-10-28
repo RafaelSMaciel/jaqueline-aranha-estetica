@@ -17,7 +17,7 @@ class ContatoViewTests(TestCase):
         self.client = Client()
         self.url = reverse('aranha:agenda_contato')
         # Destino vem de settings.CLINIC_EMAIL (Branding/env isolados do ambiente local)
-        p = patch('aranha_estetica.views.public.get_branding', return_value={'CLINIC_EMAIL': ''})
+        p = patch('aranha_estetica.views.publico.site.get_branding', return_value={'CLINIC_EMAIL': ''})
         p.start()
         self.addCleanup(p.stop)
 
@@ -140,7 +140,7 @@ class ContatoViewTests(TestCase):
 
     @override_settings(CLINIC_EMAIL='', DEFAULT_FROM_EMAIL='noreply@clinica.com.br')
     def test_falha_com_whatsapp_sugere_outro_canal(self):
-        with patch('aranha_estetica.views.public.get_branding',
+        with patch('aranha_estetica.views.publico.site.get_branding',
                    return_value={'CLINIC_EMAIL': '', 'WHATSAPP_NUMERO': '5517991234567'}):
             resp = self._post()
         msgs = [str(m) for m in resp.context['messages']]

@@ -1211,11 +1211,11 @@ tabela de dezenas de linhas (catálogo) só tem PK/UNIQUE/FK.
 
 | Tabela | Índice-alvo | Query atendida (arquivo → função) | Decisão |
 |---|---|---|---|
-| atendimento | `ix_atendimento_profissional_data_hora_inicio` | `services/disponibilidade.SlotService.slots_livres` (prof + dia, status ativo); conflito em `views/booking_public.confirmar_agendamento`, `booking_reagendar.reagendar_agendamento`, `admin_calendar.admin_calendar_mover`; `views/profissional.agenda` (dia/semana); `agenda_publica.ics_feed_profissional`; `views/prontuario._vinculo`. Cobre a FK `profissional_id` | renomeia `idx_atend_prof_data` |
+| atendimento | `ix_atendimento_profissional_data_hora_inicio` | `services/disponibilidade.SlotService.slots_livres` (prof + dia, status ativo); conflito em `views/publico/agendamento.confirmar_agendamento`, `booking_reagendar.reagendar_agendamento`, `admin_calendar.admin_calendar_mover`; `views/profissional/portal.agenda` (dia/semana); `agenda_publica.ics_feed_profissional`; `views/painel/prontuario._vinculo`. Cobre a FK `profissional_id` | renomeia `idx_atend_prof_data` |
 | | `ix_atendimento_cliente_data_hora_inicio` | `booking_reagendar.meus_agendamentos` (cliente IN … ORDER BY início), `admin_management._contexto_cliente`, `prontuario.prontuario_detalhe`, `lgpd.candidatos_purga`/export, `fidelidade_service.liberar_cashback_indicacao`. Cobre a FK `cliente_id` | **substitui** `idx_atendimento_cli_status` (cliente tem dezenas de linhas; a 2ª coluna útil é a data) |
 | | `ix_atendimento_data_hora_inicio` | `admin_calendar` (intervalo sem profissional), `dashboard.painel_overview` (mês), `admin_financeiro._calcular_metricas`, `relatorios.exportar_relatorio_excel`, `api.AtendimentoViewSet` (ORDER BY −início) | renomeia `idx_atendimento_data` |
 | | `ix_atendimento_data_hora_inicio_ativo_parcial` | `dashboard.painel_overview` "próximos"/"pendentes" (`início >= now() AND status IN ativos ORDER BY início LIMIT`), `profissional.agenda` pendentes, `tasks.job_limpeza_status_atendimentos` (PENDENTE vencido) | **novo** — "agenda em aberto" |
-| | `uq_atendimento_retorno_por_origem` + `ix_atendimento_atendimento_origem_parcial` | `services/retorno_service.sugerir_retorno` (`atendimento_origem=X, eh_retorno`), FK SET NULL | parcial (coluna quase sempre NULL) |
+| | `uq_atendimento_retorno_por_origem` + `ix_atendimento_atendimento_origem_parcial` | `services/retorno.sugerir_retorno` (`atendimento_origem=X, eh_retorno`), FK SET NULL | parcial (coluna quase sempre NULL) |
 | | `ix_atendimento_procedimento`, `…_promocao_parcial`, `…_atendimento_reagendado_parcial` | FKs; `admin_financeiro` top procedimentos | parciais onde a coluna é quase sempre NULL |
 | | EXCLUDE `ex_atendimento_sobreposicao` (gist) | garante a invariante; o ORM usa `<`/`>` nas colunas (não `&&`), por isso o btree acima continua necessário | renomeia `excl_atendimento_sobreposicao` |
 | | ~~`idx_atendimento_status`~~, ~~`eh_retorno` db_index~~, ~~FK automáticas de `cliente_id`/`profissional_id`~~ | status (7 valores) e booleano não são seletivos; FKs cobertas | **removidos** |
@@ -1230,11 +1230,11 @@ tabela de dezenas de linhas (catálogo) só tem PK/UNIQUE/FK.
 | notificacao | `ix_notificacao_atendimento_tipo` | `tasks.job_enviar_lembrete_dia_seguinte` (já enviou?), `tasks.candidatos_nps` (Exists + Count), `services/termos.obter_link_termo`. Cobre a FK | renomeia `idx_notif_atend_tipo` |
 | | `ix_notificacao_criado_em` | housekeeping (`criado_em < limite`), `notificacoes.painel_notificacoes` | renomeia `idx_notificacao_criado` |
 | | ~~`idx_notificacao_tipo_status`~~, ~~`idx_notif_nps_lookup`~~, ~~`token` UNIQUE + `_like`~~ | nenhuma query filtra tipo+canal+status sem o atendimento; token vai p/ `link_acesso` | **removidos** |
-| lista_espera | `uq_lista_espera_pendente`, `ix_lista_espera_procedimento_data_desejada` | `services/lista_espera_service.candidatos` (procedimento + data + não notificado, FIFO). Cobre a FK procedimento | `idx_espera_proc_data_notif` sem o booleano |
+| lista_espera | `uq_lista_espera_pendente`, `ix_lista_espera_procedimento_data_desejada` | `services/lista_espera.candidatos` (procedimento + data + não notificado, FIFO). Cobre a FK procedimento | `idx_espera_proc_data_notif` sem o booleano |
 | | `ix_lista_espera_cliente`, `ix_lista_espera_data_desejada` | FK/`sp_anonimizar_cliente`; purga `data_desejada < hoje` | renomeia `idx_espera_cliente`; data **nova** |
 | avaliacao_nps | `ix_avaliacao_nps_criado_em` | `relatorios.painel_nps`, `dashboard` (NPS 30d), `fn_nps_periodo` | **novo** |
 | | `ix_avaliacao_nps_alerta_pendente_parcial` | `tasks.job_alerta_detrator_nps` (`nota <= 6 AND NOT alerta`) — quase sempre vazio | **novo** |
-| | `ix_avaliacao_nps_depoimento_parcial` | `views/public.depoimentos` (página pública) | **novo** |
+| | `ix_avaliacao_nps_depoimento_parcial` | `views/publico/site.depoimentos` (página pública) | **novo** |
 | prontuario | ~~`gin_prontuario_extras`~~ | nenhuma query de contenção (`@>`) no código; só `~Q(respostas_extras={})` | **removido** (recriar quando houver busca por resposta) |
 | resposta_formulario | `ix_resposta_formulario_cliente_criado_em` | `utils/fichas.fichas_do_cliente`, `utils/saude.alertas_saude`, `services/alertas` (cliente IN …) | renomeia `idx_anamnese_resp_cli` |
 | | `ix_resposta_formulario_atendimento`, `…_formulario` | FKs; `lgpd.fichas_sem_atendimento_para_purga` | ~~`idx_anamnese_resp_data`~~ **removido** (ninguém filtra `respondida_em` sem cliente) |
@@ -1783,14 +1783,14 @@ SQL, com teste de paridade.
 
 **Impacto no código (planejado):** `models/profissionais.py` (sai `DisponibilidadeProfissional`,
 `BloqueioAgenda`, `ExcecaoDisponibilidade`), `models/sistema.py` (sai `Feriado`), `models/__init__.py`;
-`services/disponibilidade.py` (acima); `views/booking_api.api_dias_disponiveis` (grade ISO + folgas
-por intervalo + feriado global); `views/booking_public.confirmar_agendamento` (l. 397) e
-`views/booking_reagendar.reagendar_agendamento` (l. 183): `Feriado.objects.filter(...)` →
-`AgendaExcecao.objects.folga_global_em(data)`; `views/admin_calendar` (eventos de bloqueio/folga e
+`services/disponibilidade.py` (acima); `views/publico/agendamento_api.api_dias_disponiveis` (grade ISO + folgas
+por intervalo + feriado global); `views/publico/agendamento.confirmar_agendamento` (l. 397) e
+`views/publico/portal.reagendar_agendamento` (l. 183): `Feriado.objects.filter(...)` →
+`AgendaExcecao.objects.folga_global_em(data)`; `views/painel/calendario` (eventos de bloqueio/folga e
 `admin_calendar_mover`, que passa a expandir recorrência — hoje não expande, comentado como
-"débito menor"); `views/admin_excecoes` (CRUD; FOLGA com intervalo); `views/admin_management`
-(`admin_bloqueios`/`admin_criar_bloqueio`/`admin_excluir_bloqueio` → BLOQUEIO); `views/admin_professional`
-(`_dias_do_profissional`, `_salvar_janelas`, `DIA_NUMERO` em ISO); `views/dashboard.painel_overview`
+"débito menor"); `views/painel/excecoes` (CRUD; FOLGA com intervalo); `views/admin_management`
+(`admin_bloqueios`/`admin_criar_bloqueio`/`admin_excluir_bloqueio` → BLOQUEIO); `views/painel/profissionais`
+(`_dias_do_profissional`, `_salvar_janelas`, `DIA_NUMERO` em ISO); `views/painel/visao_geral.painel_overview`
 (capacidade semanal); `services/gcal.pull_eventos_externos` (upsert por `origem_ref`);
 `management/commands/carregar_feriados.py` (`get_or_create(origem=FERIADO_NACIONAL, data_inicio=…)`);
 `management/commands/seed.py`; `admin.py` (inline de grade, admin de exceções); templates
@@ -2039,9 +2039,9 @@ texto) — links antigos deixam de funcionar num rollback de dev; em produção 
 
 | Coluna antiga em `cliente` | `finalidade` | `canal` | Onde é exigido hoje |
 |---|---|---|---|
-| `consent_email_marketing` (+`_em`, `_ip`) | MARKETING | EMAIL | `tasks.job_aniversario_clientes`, `tasks.job_promocao_mensal`, `views/admin_promotions` |
+| `consent_email_marketing` (+`_em`, `_ip`) | MARKETING | EMAIL | `tasks.job_aniversario_clientes`, `tasks.job_promocao_mensal`, `views/painel/promocoes` |
 | `consent_whatsapp_nps` (+`_em`, `_ip`) | PESQUISA_SATISFACAO | WHATSAPP | `tasks.candidatos_nps` |
-| `consent_whatsapp_confirmacao` (+`_em`, `_ip`) | LEMBRETE_AGENDAMENTO | WHATSAPP | `tasks.job_enviar_lembrete_dia_seguinte`, `services/lista_espera_service` (aviso de vaga) |
+| `consent_whatsapp_confirmacao` (+`_em`, `_ip`) | LEMBRETE_AGENDAMENTO | WHATSAPP | `tasks.job_enviar_lembrete_dia_seguinte`, `services/lista_espera` (aviso de vaga) |
 
 `services/consentimentos.py`:
 
@@ -2099,14 +2099,14 @@ mais recente que qualquer concessão)`.
 insere revogações `origem='ESQUECIMENTO'` do que estiver concedido e **minimiza** `ip_origem`/
 `user_agent` das linhas do titular (única mutação que `tg_consentimento_imutavel` aceita — D3 no §7).
 
-**Impacto no código:** `models/clientes.py` (saem 10 campos), `models/consentimentos.py` (novo); `views/booking_public.confirmar_agendamento`
+**Impacto no código:** `models/clientes.py` (saem 10 campos), `models/consentimentos.py` (novo); `views/publico/agendamento.confirmar_agendamento`
 (l. 461–497: `defaults` com `consent_*` e o laço de concede/revoga → `consentimentos.registrar(...,
 origem='AGENDAMENTO_ONLINE', texto=<rótulo do checkbox>, request=request)`; `CONSENTS_COMUNICACAO`
-vira `PARES`); `views/booking_otp` (l. 102–104, pré-preenchimento → `estado_atual`); `tasks.py`
+vira `PARES`); `views/publico/verificacao` (l. 102–104, pré-preenchimento → `estado_atual`); `tasks.py`
 (lembrete l. 69–73, `candidatos_nps` l. 130–137, aniversário l. 380, promoção l. 440–445);
-`services/lista_espera_service` (l. 134); `services/lgpd` (`CAMPOS_ANONIMIZADOS`,
+`services/lista_espera` (l. 134); `services/lgpd` (`CAMPOS_ANONIMIZADOS`,
 `unsubscribe_por_token` → revogações `origem='DESCADASTRO'`, export DSAR → histórico completo);
-`views/admin_promotions` (l. 142–143); `views/lgpd.unsubscribe`; `admin.py` (l. 190–249:
+`views/painel/promocoes` (l. 142–143); `views/publico/lgpd.unsubscribe`; `admin.py` (l. 190–249:
 `_CONSENTS`, fieldsets, `list_filter`); `forms/cliente.py` (l. 31) e
 `templates/painel/cliente_detalhe.html` (l. 181: "Aceita comunicação" vira o estado por canal com
 ação "Revogar", `origem='PAINEL'`, autor = usuário); `domain/handlers.py` (docstring).
@@ -2181,7 +2181,7 @@ e aceita a minimização; do zero ok; reverso 0051 → 0049 → 0051 ok (estado 
 
 **Hoje há dois sistemas:** (1) perguntas do prontuário em `configuracao.prontuario_perguntas`
 (JSON `[{chave, texto, tipo: TEXTO|BOOLEAN}]`, lido por `utils/saude.perguntas_prontuario`,
-editado em `views/admin_config`) com respostas em `prontuario.respostas_extras`; (2)
+editado em `views/painel/configuracoes`) com respostas em `prontuario.respostas_extras`; (2)
 `formulario_anamnese` (`schema_json [{key, tipo, label, obrigatorio, opcoes}]`, 9 tipos, validado
 por `services/anamnese.validar_respostas`) com respostas em `resposta_anamnese`.
 
@@ -2195,9 +2195,9 @@ por `services/anamnese.validar_respostas`) com respostas em `resposta_anamnese`.
 
 - No máximo **1 PRONTUARIO ativo** (`uq_formulario_prontuario_ativo`), sempre GLOBAL, nunca
   obrigatório (`ck_formulario_prontuario_global`). Editar perguntas = editar esse formulário no
-  mesmo CRUD das anamneses (`views/admin_anamnese`); a chave `key` é estável — renomear o rótulo
+  mesmo CRUD das anamneses (`views/painel/anamneses`); a chave `key` é estável — renomear o rótulo
   não mexe nas respostas.
-- `prontuario_salvar` (`views/prontuario.py` l. 308–326) passa a usar `validar_respostas(perguntas,
+- `prontuario_salvar` (`views/painel/prontuario.py` l. 308–326) passa a usar `validar_respostas(perguntas,
   POST)` — o `bool` aceita `sim`/`nao` (já está em `_BOOL_SIM/_BOOL_NAO`), então o formulário atual
   continua funcionando.
 - **Convivência com `prontuario_versao`:** nada muda — a foto continua com a chave
@@ -2221,10 +2221,10 @@ não cria, mantém a linha e registra `LogAuditoria` (nada se perde). `longtext`
 Reverso: formulário PRONTUARIO → volta a ser a linha de `Configuracao`.
 
 **Impacto no código:** `models/anamnese.py` (TIPO_CHOICES + constraints + manager
-`prontuario_ativo()`); `utils/saude.py` (`perguntas_prontuario`, `alertas_saude`); `views/prontuario.py`
+`prontuario_ativo()`); `utils/saude.py` (`perguntas_prontuario`, `alertas_saude`); `views/painel/prontuario.py`
 (`_perguntas_configuradas`, `prontuario_salvar`, `_historico_prontuario`) e o template da ficha
-(`p.chave/p.texto/p.tipo` → `key/label/tipo`); `views/admin_config.py` (sai `prontuario_perguntas`);
-`views/admin_anamnese.py` (aceita PRONTUARIO e trava escopo/obrigatório); `services/anamnese.py`
+(`p.chave/p.texto/p.tipo` → `key/label/tipo`); `views/painel/configuracoes.py` (sai `prontuario_perguntas`);
+`views/painel/anamneses.py` (aceita PRONTUARIO e trava escopo/obrigatório); `services/anamnese.py`
 (`alerta_saude` no schema); `seed.py`. `utils/fichas.py` e `services/alertas.py` já filtram
 `tipo='ANAMNESE'` — sem mudança.
 
@@ -2279,7 +2279,7 @@ pergunta inativa), alertas iguais; reverso devolve a Configuração.
 **Problema hoje:** `CompraPacote` não guarda o que foi vendido; saldo (`saldo_por_procedimento`),
 finalização (`verificar_finalizacao`), débito (`signals.processar_mudanca_status`) e comissão
 (`ComissaoService.base_calculo`) leem `pacote.itens` **na hora** — por isso
-`views/pacotes.admin_editar_pacote` (l. 141–206) proíbe mexer em nome/itens de pacote vendido.
+`views/painel/pacotes.admin_editar_pacote` (l. 141–206) proíbe mexer em nome/itens de pacote vendido.
 
 **Modelo** (DDL no §2.8): `compra_pacote.pacote_nome` (snapshot), `compra_pacote_item`
 (procedimento + `procedimento_nome` + `qtd_sessoes` + `valor_unitario` congelados) e
@@ -2315,7 +2315,7 @@ Colunas nascem nulas, são preenchidas e viram `NOT NULL` na mesma migration. Re
 itens e colunas (sem perda: o catálogo continua lá).
 
 **Impacto no código:** `models/pacotes.py` (novo `CompraPacoteItem`, `vender`, `saldo_por_procedimento`,
-`verificar_finalizacao`), `signals.py`, `services/comissao_service.base_calculo`, `views/pacotes.py`
+`verificar_finalizacao`), `signals.py`, `services/comissao.base_calculo`, `views/painel/pacotes.py`
 (`admin_vender_pacote`, `admin_editar_pacote`), `templates/painel/pacotes.html`,
 `views/admin_management._contexto_cliente` (prefetch `itens` em vez de `pacote__itens__procedimento`),
 `tasks.job_verificar_pacotes_expirando` (idem), `services/lgpd.exportar_dados_cliente` (`pacote_nome`
@@ -2434,9 +2434,9 @@ Aborta (lista) se houver linha com `valor <= 0` (o validator aceitava 0; o servi
 linhas não-CREDITO (o reverso derruba os triggers antes).
 
 **Impacto no código:** `models/extras.py` (`MovimentoComissao`: tipos, FK de origem, autor,
-queryset), `services/comissao_service.py`, `views/relatorios.py` (`painel_comissoes`,
-`admin_comissao_pagar` passa `request.user`), `views/admin_financeiro.py`,
-`views/admin_agendamento.py` (l. 348: `filter(atendimento=at)` → `filter(atendimento=at, tipo=CREDITO)`),
+queryset), `services/comissao.py`, `views/painel/relatorios.py` (`painel_comissoes`,
+`admin_comissao_pagar` passa `request.user`), `views/painel/financeiro.py`,
+`views/painel/agendamentos.py` (l. 348: `filter(atendimento=at)` → `filter(atendimento=at, tipo=CREDITO)`),
 `templates/painel/comissoes.html`, `dashboard_financeiro.html`, `admin.py` (só leitura, sem
 excluir), testes (`test_retorno_cashback_comissao.py`, `test_comissao_resolver_regra.py`,
 `test_relatorios.py`).
@@ -2470,7 +2470,7 @@ excluir), testes (`test_retorno_cashback_comissao.py`, `test_comissao_resolver_r
   funcionando no template. `save()` de linha existente, `delete()`, `QuerySet.update()/delete()`
   recusam (`ValidationError`); lançamento novo não-CREDITO é validado como o trigger (origem
   CREDITO, mesmo profissional/atendimento/valor, estornado não se paga).
-- **Serviço** (`services/comissao_service.py`): `calcular_comissao` lança o CREDITO (idempotente por
+- **Serviço** (`services/comissao.py`): `calcular_comissao` lança o CREDITO (idempotente por
   `tipo=CREDITO`, savepoint na corrida); `marcar_paga(movimento_id, usuario=None)` devolve o
   PAGAMENTO (ou `None`: não é crédito, já pago/estornado) — a view grava o autor e o id do pagamento
   na auditoria; `estornar_comissao(atendimento, usuario=None)` lança o ESTORNO do crédito (pago ou
@@ -2937,7 +2937,7 @@ class ContextoBancoMiddleware:
 ```
 
 Complementos: (1) `connection_created` (em `AppConfig.ready`) chama `definir_contexto_banco` na
-conexão nova (valor inicial vazio, defesa em profundidade); (2) `views/cron.py` chama
+conexão nova (valor inicial vazio, defesa em profundidade); (2) `views/infra/cron.py` chama
 `definir_contexto_banco('', ip, f'cron:{job}')` antes de rodar o job (o `finally` do middleware
 limpa); (3) Celery real (`CELERY_WORKER_ENABLED`): sinais `task_prerun`/`task_postrun` com
 `origem=f'celery:{task.name}'`; (4) `migrate_atomico`: `SET LOCAL app.origem = 'migracao'` logo após o
@@ -3764,7 +3764,7 @@ de efeito.
   `OTPMiddleware`, com dois acréscimos: **`/healthz/` não toca o banco** (liveness do Railway não pode
   depender do Postgres) e, se definir/limpar falhar (`DatabaseError`), loga e **fecha a conexão**
   (fora de `atomic`) — nunca segue com o contexto de outra pessoa. IP desconhecido
-  (`client_ip` → `0.0.0.0`) vira `''` (= `NULL` na trilha). Cron: `views/cron.py` grava
+  (`client_ip` → `0.0.0.0`) vira `''` (= `NULL` na trilha). Cron: `views/infra/cron.py` grava
   `cron:<job>` + IP antes de `job.apply()` (o `finally` do middleware limpa). Celery
   (`aranha_estetica/sinais_celery.py`): `task_prerun`/`task_postrun` com `celery:<task>` **só em task
   não-eager** — a eager (produção sem worker, testes) roda dentro do request/cron que a disparou e

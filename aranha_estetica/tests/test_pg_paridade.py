@@ -28,7 +28,7 @@ from aranha_estetica.models import (
     RespostaAnamnese, Usuario,
 )
 from aranha_estetica.services import consentimentos, financeiro
-from aranha_estetica.services.comissao_service import ComissaoService
+from aranha_estetica.services.comissao import ComissaoService
 from aranha_estetica.services.disponibilidade import SlotService
 from aranha_estetica.services.lgpd import LgpdService
 from aranha_estetica.utils.nps import resumo_nps

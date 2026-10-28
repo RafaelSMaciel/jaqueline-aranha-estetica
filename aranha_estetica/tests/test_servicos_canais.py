@@ -372,7 +372,7 @@ class AlertaDetratorTests(TestCase):
 # ─── Auditoria e push ─────────────────────────────────────────────────
 class AuditoriaIpTests(TestCase):
     def test_registrar_log_grava_ip_do_request(self):
-        from aranha_estetica.utils.audit import registrar_log
+        from aranha_estetica.utils.auditoria import registrar_log
         request = RequestFactory().get('/', REMOTE_ADDR='203.0.113.7')
         request.user = None
         registrar_log(None, 'teste ip', 'cliente', 1, request=request)
@@ -505,7 +505,7 @@ class ListaEsperaAvisoPrivacidadeTests(TestCase):
         self.assertIn('Valeria Vitima Sobrenome', mail.outbox[0].alternatives[0][0])
 
     def test_nome_para_helper(self):
-        from aranha_estetica.services.lista_espera_service import _nome_para
+        from aranha_estetica.services.lista_espera import _nome_para
         espera = self._inscrever('atacante@example.com')
         self.assertEqual(_nome_para(espera, 'atacante@example.com'), '')
         self.assertEqual(_nome_para(espera, ' Vitima@Example.com '), 'Valeria Vitima Sobrenome')
@@ -551,7 +551,7 @@ class DsarOtpQuotaTests(TestCase):
         self.url = reverse('aranha:lgpd_meus_dados')
 
     def _post(self):
-        with patch('aranha_estetica.views.lgpd.sms_disponivel', return_value=True):
+        with patch('aranha_estetica.views.publico.lgpd.sms_disponivel', return_value=True):
             return self.client.post(self.url, {'telefone': self.TEL})
 
     def test_quota_do_telefone_esgotada_nao_invalida_codigo_vigente(self):

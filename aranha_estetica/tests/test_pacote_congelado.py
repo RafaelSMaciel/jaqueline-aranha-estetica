@@ -17,7 +17,7 @@ from aranha_estetica.models import (
     Atendimento, CompraPacote, CompraPacoteItem, ConsumoSessao, ItemPacote, MovimentoComissao, RegraComissao,
 )
 from aranha_estetica.models.pacotes import rateio_por_sessao
-from aranha_estetica.services.comissao_service import ComissaoService
+from aranha_estetica.services.comissao import ComissaoService
 
 from .factories import (
     criar_atendimento,

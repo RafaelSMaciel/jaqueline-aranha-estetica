@@ -1,12 +1,12 @@
 """Quem esta agindo agora — usuario, IP e origem — num contexto so p/ as duas trilhas.
 
-LogAuditoria (utils/audit.registrar_log) e historico_alteracao (trigger do PG, GUCs ``app.*``)
+LogAuditoria (utils/auditoria.registrar_log) e historico_alteracao (trigger do PG, GUCs ``app.*``)
 liam o autor de lugares diferentes: o ``request`` passado a mao em cada chamada, o
 ``_autor_e_ip`` do LGPD, as GUCs definidas no middleware e no cron. Agora a BORDA abre o contexto
 uma vez e o resto le dele:
 
     with atuando(Ator.do_request(request)):     # ContextoBancoMiddleware
-    with atuando(Ator(ip=ip, origem='cron:x')):  # views/cron
+    with atuando(Ator(ip=ip, origem='cron:x')):  # views/infra/cron
 
 ``atuando`` guarda o Ator num ContextVar (por thread/request) e, no Postgres, espelha nas GUCs da
 sessao (utils/banco.definir_contexto_banco); na saida volta ao contexto de fora — aninhar (cron
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 def ip_valido(valor) -> str | None:
     """IP textual valido ou None (GenericIPAddressField rejeitaria; 0.0.0.0 = desconhecido)."""
-    from .utils.security import IP_FALLBACK
+    from .utils.seguranca import IP_FALLBACK
 
     if not valor or str(valor).strip() == IP_FALLBACK:
         return None
@@ -50,7 +50,7 @@ class Ator:
 
     @classmethod
     def do_request(cls, request, origem='web') -> Ator:
-        from .utils.security import client_ip
+        from .utils.seguranca import client_ip
         return cls(usuario=autenticado(getattr(request, 'user', None)), ip=ip_valido(client_ip(request)),
                    origem=origem)
 

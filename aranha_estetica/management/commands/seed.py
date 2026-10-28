@@ -259,7 +259,7 @@ class Command(BaseCommand):
 
     def _demo_comissao(self, prof, atendimento):
         """Regra demo (se nao ha nenhuma do profissional) + CREDITO do realizado."""
-        from aranha_estetica.services.comissao_service import ComissaoService
+        from aranha_estetica.services.comissao import ComissaoService
 
         if not RegraComissao.objects.filter(profissional=prof).exists():
             RegraComissao.objects.create(profissional=prof, percentual=REGRA_COMISSAO_DEMO, ativo=True)

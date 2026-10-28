@@ -106,20 +106,28 @@ aranha_estetica/
 ├── db/              peças de banco usadas por migrations (Indice, PadronizarNomes) — congelado
 ├── migrations/sql/  texto SQL das rotinas por versão (v0056 triggers, v0057 leitura/views, v0058
 │                    procedures, v0059 trilhas append-only) — congelado, importado só pela migration da versão
-├── views/           public, booking_public/_otp/_reagendar/_api, agenda_publica, anamnese_publica,
-│                    notificacoes (confirmar presença), lgpd, profissional, prontuario, auth, admin_2fa,
-│                    dashboard, admin_* (um módulo por tela: bloqueios, procedimentos, clientes,
-│                    lista_espera, aprovacao, email_preview…), termos, nps_publico, pacotes, relatorios,
-│                    cron, health, whatsapp, webpush_views
+├── urls/            uma lista de rotas por área (publico, conta, painel, profissional, infra), todas no
+│                    namespace `aranha` — espelha views/
+├── views/publico/   site (páginas institucionais), agendamento + agendamento_api (wizard e horários),
+│                    verificacao (OTP), portal (meus agendamentos, reagendar por link), confirmacao
+│                    (presença), agenda_profissional (link/ICS/embed), formularios (anamnese/pesquisa),
+│                    nps, termos (aceite), lgpd, lista_espera
+├── views/conta/     autenticacao (login, logout, recuperação de senha), dois_fatores (2FA TOTP)
+├── views/painel/    um módulo por tela da equipe: visao_geral, agendamentos, aprovacao, calendario,
+│                    clientes, prontuario, anamneses, procedimentos, profissionais, excecoes, bloqueios,
+│                    pacotes, promocoes, lista_espera, financeiro, relatorios, termos,
+│                    conformidade_termos, notificacoes, usuarios, configuracoes, marca, google_agenda,
+│                    previa_email, auditoria
+├── views/profissional/  portal (agenda do profissional, aprovar, realizar, anotar)
+├── views/infra/     healthcheck, cron (HTTP), webhooks (WhatsApp/Zenvia), webpush
 ├── services/        agenda (reservar/reagendar/mover), atendimento (efeitos de criar/mudar status),
-│                    comunicacao (canais, fila de e-mail), agendamento_service, disponibilidade (SlotService),
-│                    otp, lgpd, termos, alertas,
-│                    comissao_service, fidelidade_service, retorno_service, lista_espera_service,
-│                    anamnese, push, gcal
-├── utils/           branding, email, sms, whatsapp, precos, saude, fichas, security, dois_fatores,
-│                    pii, captcha, datas, parse, busca (trigram no PG), audit, recorrencia (RRULE do
+│                    comunicacao (canais, fila de e-mail), agendamento (avisos), disponibilidade
+│                    (SlotService), otp, lgpd, termos, alertas, comissao, fidelidade, retorno,
+│                    lista_espera, financeiro, links, consentimentos, anamnese, push, gcal
+├── utils/           branding, email, sms, whatsapp, precos, saude, fichas, seguranca, dois_fatores,
+│                    pii, captcha, datas, parse, busca (trigram no PG), auditoria, recorrencia (RRULE do
 │                    subconjunto), nps (calculo unico, meio p/ cima), banco (GUCs app.* e CALL das
-│                    procedures)
+│                    procedures), cifragem, formatos
 ├── forms/           cliente.py (ClientePainelForm), painel.py (ProcedimentoForm, BloqueioForm, TermoForm, parse_preco)
 ├── management/commands/  seed, bootstrap_admin, migrate_atomico, setup_2fa, carregar_feriados
 ├── templatetags/    painel_tags, atendimento_tags, gcal_tags, dict_extras
@@ -171,7 +179,7 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   e pelo "adicionar" do Django admin) manda push e sincroniza o Google Calendar no
   `on_commit`. `status = X; save()` não aplica regra nenhuma. `cancelar(..., pela_cliente=True)`
   só nos fluxos da própria cliente (link/portal) — fica na trilha (`[pela cliente]`).
-- **Aviso de cancelamento** (`services/agendamento_service.avisar_cancelamento`): e-mail à
+- **Aviso de cancelamento** (`services/agendamento.avisar_cancelamento`): e-mail à
   cliente quando a clínica cancela — painel, rejeição, Django admin e pedido PENDENTE que venceu
   sem aprovação. Cancelamento pela própria cliente não avisa.
 - **Disponibilidade**: fonte única `services/disponibilidade.py::SlotService` (slots de 30
@@ -390,7 +398,7 @@ fallback das procedures). Texto SQL versionado em `aranha_estetica/migrations/sq
 **Contexto da sessão (GUCs `app.*`)** lido pela trilha: `app.usuario_id`, `app.ip_origem`,
 `app.origem`. Quem define (`utils/banco.definir_contexto_banco`, `set_config(..., false)` = nível de
 sessão) e **sempre limpa**: o `Ator` (`ator.atuando`) aberto pelo `ContextoBancoMiddleware` (`web`
-+ usuário + IP; o `/healthz/` não toca o banco) e por `views/cron.py` (`cron:<job>`; aninhado, volta
++ usuário + IP; o `/healthz/` não toca o banco) e por `views/infra/cron.py` (`cron:<job>`; aninhado, volta
 ao do request na saída) — o mesmo autor/IP vai à `LogAuditoria` —, `rodar_job` (`comando:<job>`),
 `migrate_atomico` (`SET LOCAL app.origem = 'migracao'`); conexão nova nasce limpa
 (`connection_created`). SQL manual sai com autor `NULL` e origem `''`. **PgBouncer em modo
@@ -406,7 +414,7 @@ só-Postgres.
 
 ## 6. Rotas
 
-Namespace `aranha` (`aranha_estetica/urls.py`) + `clinica/urls.py`. Rotas removidas nesta
+Namespace `aranha` (`aranha_estetica/urls/`) + `clinica/urls.py`. Rotas removidas nesta
 versão: `/account/*` (django-two-factor), `/api/schema/redoc/`, `/servicos/produtos/`,
 `/ajax/verificar-telefone/`, `/ajax/buscar-procedimentos/`, `/ajax/buscar-horarios/`,
 `/painel/cancelar-agendamento/`.
@@ -510,7 +518,7 @@ Detalhe de login, 2FA, OTP e tokens em [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO
   `Clear-Site-Data: "cache"`; o access log do gunicorn redige tokens (`LoggerSemTokens`).
 - **Cookies:** HttpOnly, SameSite=Lax, Secure em prod; sessão da equipe 8h deslizantes que
   expira ao fechar o navegador.
-- **IP do cliente:** `utils/security.client_ip` lê `CLIENT_IP_HEADER` (prod: `HTTP_X_REAL_IP`
+- **IP do cliente:** `utils/seguranca.client_ip` lê `CLIENT_IP_HEADER` (prod: `HTTP_X_REAL_IP`
   do Railway; nunca X-Forwarded-For). Rate-limit, axes e auditoria usam a mesma função.
 - **Entradas:** uploads ≤ 5 MB, ≤ 200 campos, IDs só com dígitos ASCII (`utils/parse.id_int`),
   células de Excel com texto forçado (anti-fórmula), JSON injetado via `json_script`.
@@ -1196,7 +1204,7 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
   índice), nunca `campo__date=`.
 - Lista com dado por linha (alerta de saúde, contagem...): carregue em lote (`alertas_em_lote`,
   `select_related`/`annotate`), nunca uma consulta por linha — `tests/test_consultas_por_tela.py`.
-- Ação sensível → `utils/audit.registrar_log(usuario, acao, tabela, pk, detalhes)` — registrador
+- Ação sensível → `utils/auditoria.registrar_log(usuario, acao, tabela, pk, detalhes)` — registrador
   único; autor e IP vêm do `Ator` da borda (`ator.py`: middleware `web`, cron `cron:<job>`),
   `usuario`/`request` explícitos só quando o Ator não basta (sem nome de cliente
   no texto — use pk em `detalhes`).

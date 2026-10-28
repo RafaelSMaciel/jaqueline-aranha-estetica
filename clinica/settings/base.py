@@ -105,12 +105,12 @@ MIDDLEWARE = [
 USE_X_FORWARDED_HOST = os.environ.get('USE_X_FORWARDED_HOST', 'True') == 'True'
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-# IP do cliente (utils/security.client_ip): header escrito pelo proxy de borda.
+# IP do cliente (utils/seguranca.client_ip): header escrito pelo proxy de borda.
 # Vazio em dev/testes (REMOTE_ADDR; header seria forjavel sem proxy na frente).
 # prod.py liga 'HTTP_X_REAL_IP' (Railway). Rate-limit e axes usam a mesma funcao.
 CLIENT_IP_HEADER = os.environ.get('CLIENT_IP_HEADER', '')
-RATELIMIT_IP_META_KEY = 'aranha_estetica.utils.security.client_ip'
-AXES_CLIENT_IP_CALLABLE = 'aranha_estetica.utils.security.client_ip'
+RATELIMIT_IP_META_KEY = 'aranha_estetica.utils.seguranca.client_ip'
+AXES_CLIENT_IP_CALLABLE = 'aranha_estetica.utils.seguranca.client_ip'
 
 AUTHENTICATION_BACKENDS = [
     'axes.backends.AxesStandaloneBackend',
@@ -351,7 +351,7 @@ SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
 
 RATELIMIT_USE_CACHE = 'default'
 RATELIMIT_FAIL_OPEN = False
-RATELIMIT_VIEW = 'aranha_estetica.views.public.limite_excedido'
+RATELIMIT_VIEW = 'aranha_estetica.views.publico.site.limite_excedido'
 
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
@@ -455,7 +455,7 @@ LOGGING = {
 
 # ─── CACHE ───────────────────────────────────────────────────────────
 # REDIS_URL = cache/sessao compartilhados entre workers do gunicorn. Sem fila de tarefas: os
-# jobs sao funcoes chamadas pelo cron HTTP (views/cron.py) e o e-mail tem fila no banco
+# jobs sao funcoes chamadas pelo cron HTTP (views/infra/cron.py) e o e-mail tem fila no banco
 # (services/comunicacao).
 REDIS_URL = os.environ.get('REDIS_URL', '')
 
@@ -504,7 +504,7 @@ CIFRAGEM_EXIGE_CHAVE = False
 OTP_HMAC_KEY = os.environ.get('OTP_HMAC_KEY', '').strip()
 
 
-# Monitor dos jobs do cron (healthchecks.io: https://hc-ping.com/<ping key>): views/cron avisa
+# Monitor dos jobs do cron (healthchecks.io: https://hc-ping.com/<ping key>): views/infra/cron avisa
 # <url>/<job> a cada execucao ok e <url>/<job>/fail na falha. Vazio = sem monitor.
 CRON_MONITOR_URL = os.environ.get('CRON_MONITOR_URL', '').strip()
 

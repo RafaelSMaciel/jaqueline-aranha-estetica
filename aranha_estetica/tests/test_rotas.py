@@ -5,7 +5,7 @@ perfil de acesso; rota nova sem entrada reprova em test_toda_rota_esta_no_mapa. 
 (anonimo, ADMIN, PROFISSIONAL) a resposta nunca e 500 (o client do teste propaga a excecao), as
 paginas do papel certo abrem com 200 e as privadas nunca abrem (200) para quem nao pode.
 """
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 
 from django.contrib.auth.tokens import default_token_generator
@@ -226,7 +226,9 @@ def montar_dados():
     prof = criar_profissional('Jaqueline Aranha')
     proc = criar_procedimento(profissional=prof)
     cliente = criar_cliente(email='maria@exemplo.com')
-    at = criar_atendimento(cliente, prof, proc)
+    # longe o bastante p/ o link de reagendar valer (antecedencia minima) a qualquer hora do dia
+    at = criar_atendimento(cliente, prof, proc, data_hora=timezone.make_aware(
+        datetime.combine(hoje + timedelta(days=4), time(10, 0))))
     pendente = criar_atendimento(cliente, prof, proc, data_hora=agora + timedelta(days=3), status='PENDENTE')
     realizado = criar_atendimento(cliente, prof, proc, data_hora=agora - timedelta(days=2), status='REALIZADO')
     pacote = criar_pacote(procedimento=proc)

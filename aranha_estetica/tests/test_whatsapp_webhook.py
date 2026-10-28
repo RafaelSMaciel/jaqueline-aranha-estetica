@@ -8,7 +8,7 @@ from unittest.mock import patch
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
-import aranha_estetica.views.whatsapp as whatsapp_mod
+import aranha_estetica.views.infra.webhooks as whatsapp_mod
 from aranha_estetica.models import AvaliacaoNPS, Notificacao
 
 from .factories import (

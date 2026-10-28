@@ -189,7 +189,7 @@ class ListaEsperaPublicaTests(TestCase):
 
     def test_integrity_error_vira_mensagem_e_nao_500(self):
         from django.db import IntegrityError
-        with patch('aranha_estetica.views.public.ListaEspera.objects.create', side_effect=IntegrityError('x')):
+        with patch('aranha_estetica.views.publico.lista_espera.ListaEspera.objects.create', side_effect=IntegrityError('x')):
             resp = self._post()
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(any('Não foi possível' in str(m) for m in resp.context['messages']))

@@ -204,7 +204,7 @@ class AceiteTermo(models.Model):
             return None
         ip, user_agent = None, ''
         if request is not None:
-            from ..utils.security import IP_FALLBACK, client_ip
+            from ..utils.seguranca import IP_FALLBACK, client_ip
             ip = client_ip(request)
             if ip == IP_FALLBACK:  # sem IP real: NULL, nao um IP inventado
                 ip = None

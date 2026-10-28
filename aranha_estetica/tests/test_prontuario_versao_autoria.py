@@ -9,7 +9,7 @@ from django.db import DatabaseError, connection, transaction
 from django.test import RequestFactory, TestCase
 
 from aranha_estetica.models import LogAuditoria, Prontuario, ProntuarioVersao, Usuario
-from aranha_estetica.utils.audit import registrar_log
+from aranha_estetica.utils.auditoria import registrar_log
 
 from .factories import criar_cliente
 

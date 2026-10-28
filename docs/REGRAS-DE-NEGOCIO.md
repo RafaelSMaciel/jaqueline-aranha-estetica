@@ -412,22 +412,22 @@ consentimento; **push** para a equipe. Sem credencial do canal nada é marcado c
 | Antecedência máxima | 60 dias (1–365) | `Profissional.max_advance_dias` |
 | Intervalo dos slots | 30 min | `SlotService.INTERVALO` |
 | Buffer do procedimento | 0–120 min | `Procedimento.buffer_minutos` |
-| Idade mínima (online) | 18 anos | `views/booking_public` |
+| Idade mínima (online) | 18 anos | `views/publico/agendamento` |
 | Reagendar pela cliente | ≥ 24 h antes | `constants.JANELA_MINIMA_REAGENDAMENTO` |
 | Faltas até bloquear online | 3 | `Configuracao MAX_FALTAS_BLOQUEIO` > `constants.MAX_FALTAS_ANTES_BLOQUEIO` |
 | OTP: validade / tentativas / reenvio | 10 min / 5 / 60 s | env `OTP_TTL_SEGUNDOS`, `OTP_MAX_TENTATIVAS`, `OTP_REENVIO_MINIMO_SEG` |
 | SMS por hora: telefone / IP / global | 3 / 10 / 60 | env `SMS_MAX_POR_HORA`, `SMS_MAX_POR_IP_HORA`, `SMS_MAX_GLOBAL_HORA` |
-| Verificação OTP no wizard / sessão do portal | 30 min / 1 h | `services/otp`, `views/booking_otp` |
+| Verificação OTP no wizard / sessão do portal | 30 min / 1 h | `services/otp`, `views/publico/verificacao` |
 | Duração padrão do retorno | 30 min | `Procedimento.duracao_retorno_minutos` |
 | Cashback por indicação | R$ 50,00 | `constants.VALOR_CASHBACK_INDICACAO` |
-| NPS: janela / validade do link / tentativas | 24 h–7 dias / 7 dias / 3 | `jobs.py`, `views/nps_publico.py` |
+| NPS: janela / validade do link / tentativas | 24 h–7 dias / 7 dias / 3 | `jobs.py`, `views/publico/nps.py` |
 | Detrator | nota ≤ 6 | `tasks.job_alerta_detrator_nps` |
-| Depoimento | nota ≥ 9 + opt-in + aprovação | `views/public.depoimentos` |
-| Link de ficha/pesquisa | 60 dias | `views/anamnese_publica` |
+| Depoimento | nota ≥ 9 + opt-in + aprovação | `views/publico/site.depoimentos` |
+| Link de ficha/pesquisa | 60 dias | `views/publico/formularios` |
 | Link do termo | até o fim do atendimento | `services/termos.aceita_assinatura` |
 | Retenção: OTP / notificação / auditoria / axes | 24 h / 12 meses / 5 anos / 90 dias | env `RETENCAO_*` |
 | Retenção: cliente inativa / soft delete / ficha sem atendimento / saúde | 5 anos / 30 dias / 90 dias / 20 anos | `LgpdService` (+ env `LGPD_RETENCAO_CLIENTE_DIAS`) |
-| Lote de e-mail de promoção | 25 | `views/admin_promotions.LOTE_PROMOCAO` |
+| Lote de e-mail de promoção | 25 | `views/painel/promocoes.LOTE_PROMOCAO` |
 | Sessão da equipe (prod) | 8 h deslizantes | env `SESSION_COOKIE_AGE` |
 
 ---

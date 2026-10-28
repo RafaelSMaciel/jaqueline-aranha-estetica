@@ -46,7 +46,7 @@ def _client_ip(request: Optional['HttpRequest']) -> Optional[str]:
     """Extrai IP do request via helper canonico (None se request ausente)."""
     if request is None:
         return None
-    from ..utils.security import client_ip
+    from ..utils.seguranca import client_ip
     return client_ip(request) or None
 
 

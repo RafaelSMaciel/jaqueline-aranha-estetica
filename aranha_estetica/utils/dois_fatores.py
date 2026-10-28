@@ -7,7 +7,7 @@ por compatibilidade (nao e mais consultada).
 """
 from django.conf import settings
 
-from .security import safe_next  # noqa: F401  (re-export: validador unico de ?next=)
+from .seguranca import safe_next  # noqa: F401  (re-export: validador unico de ?next=)
 
 SESSION_VERIFICADO = 'otp_verified'
 # Marcado no login de ADMIN sem TOTP quando o 2FA e obrigatorio: o middleware

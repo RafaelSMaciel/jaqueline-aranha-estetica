@@ -14,7 +14,7 @@ from django.utils import timezone
 from aranha_estetica.forms import ClientePainelForm
 from aranha_estetica.models import Atendimento, Notificacao
 from aranha_estetica.services import consentimentos
-from aranha_estetica.services.agendamento_service import AgendamentoService, formatar_brl
+from aranha_estetica.services.agendamento import AgendamentoService, formatar_brl
 
 from .factories import (
     criar_cliente, criar_link, criar_notificacao_com_link, criar_procedimento, criar_profissional,
@@ -503,7 +503,7 @@ class PainelNotificacoesTests(TestCase):
         from django.http import HttpResponse
         from django.test import RequestFactory
 
-        from aranha_estetica.views import notificacoes
+        from aranha_estetica.views.painel import notificacoes
 
         prof = criar_profissional()
         proc = criar_procedimento(profissional=prof)
@@ -514,7 +514,7 @@ class PainelNotificacoesTests(TestCase):
         request = RequestFactory().get('/painel/notificacoes/')
         view = getattr(notificacoes.painel_notificacoes, '__wrapped__', None)
         self.assertIsNotNone(view, 'staff_required deve preservar __wrapped__ (functools.wraps)')
-        with patch('aranha_estetica.views.notificacoes.render', return_value=HttpResponse('ok')) as render:
+        with patch('aranha_estetica.views.painel.notificacoes.render', return_value=HttpResponse('ok')) as render:
             view(request)
         ctx = render.call_args.args[2]
         self.assertEqual(ctx['total'], 2)
@@ -528,7 +528,7 @@ class PainelNotificacoesTests(TestCase):
         from django.http import HttpResponse
         from django.test import RequestFactory
 
-        from aranha_estetica.views import notificacoes
+        from aranha_estetica.views.painel import notificacoes
 
         prof = criar_profissional()
         proc = criar_procedimento(profissional=prof)
@@ -539,7 +539,7 @@ class PainelNotificacoesTests(TestCase):
         Notificacao.objects.create(atendimento=at, tipo='LEMBRETE', canal='WHATSAPP', status='FALHOU')
 
         request = RequestFactory().get('/painel/notificacoes/', {'status': 'pendente'})
-        with patch('aranha_estetica.views.notificacoes.render', return_value=HttpResponse('ok')) as render:
+        with patch('aranha_estetica.views.painel.notificacoes.render', return_value=HttpResponse('ok')) as render:
             notificacoes.painel_notificacoes.__wrapped__(request)
         ctx = render.call_args.args[2]
         self.assertEqual(ctx['sem_resposta'], 1)
@@ -676,9 +676,9 @@ class MeusAgendamentosMensagensTests(TestCase):
 
     def test_aviso_sem_sms_no_login_do_portal(self):
         url = reverse('aranha:meus_agendamentos')
-        with patch('aranha_estetica.views.booking_reagendar.sms_disponivel', return_value=False):
+        with patch('aranha_estetica.views.publico.portal.sms_disponivel', return_value=False):
             html = self.client.get(url).content.decode()
         self.assertIn('id="aviso-sms-indisponivel"', html)
         self.assertLess(html.index('id="aviso-sms-indisponivel"'), html.index('id="btn-enviar-codigo"'))
-        with patch('aranha_estetica.views.booking_reagendar.sms_disponivel', return_value=True):
+        with patch('aranha_estetica.views.publico.portal.sms_disponivel', return_value=True):
             self.assertNotIn('id="aviso-sms-indisponivel"', self.client.get(url).content.decode())

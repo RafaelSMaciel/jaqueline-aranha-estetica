@@ -22,7 +22,7 @@ from django.utils import timezone
 
 from aranha_estetica.models import Cliente, LogAuditoria
 from aranha_estetica.services.lgpd import LgpdService
-from aranha_estetica.utils.audit import registrar_log
+from aranha_estetica.utils.auditoria import registrar_log
 from ...utils.datas import ler_data
 
 ACAO_ANONIMIZADO = 'Cliente anonimizado'

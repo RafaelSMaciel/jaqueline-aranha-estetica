@@ -17,8 +17,8 @@ from aranha_estetica.models import (
     Atendimento, ConsumoSessao, LogAuditoria, MovimentoCarteira, MovimentoComissao, RegraComissao, Usuario,
 )
 from aranha_estetica.services import financeiro
-from aranha_estetica.services.comissao_service import ComissaoService
-from aranha_estetica.services.fidelidade_service import FidelidadeService
+from aranha_estetica.services.comissao import ComissaoService
+from aranha_estetica.services.fidelidade import FidelidadeService
 
 from .factories import (
     criar_atendimento,

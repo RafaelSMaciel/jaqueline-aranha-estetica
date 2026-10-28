@@ -21,7 +21,7 @@ from django.test import Client, RequestFactory, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-import aranha_estetica.views.whatsapp as whatsapp_mod
+import aranha_estetica.views.infra.webhooks as whatsapp_mod
 from aranha_estetica.middleware import SecurityHeadersMiddleware
 from aranha_estetica.models import (
     Atendimento,
@@ -42,10 +42,10 @@ from aranha_estetica.models import (
     Usuario,
     VersaoTermo,
 )
-from aranha_estetica.services.fidelidade_service import FidelidadeService
-from aranha_estetica.views.admin_professional import _ids_procedimentos
-from aranha_estetica.views.admin_usuarios import _ler_profissional_id
-from aranha_estetica.views.prontuario import _vinculo
+from aranha_estetica.services.fidelidade import FidelidadeService
+from aranha_estetica.views.painel.profissionais import _ids_procedimentos
+from aranha_estetica.views.painel.usuarios import _ler_profissional_id
+from aranha_estetica.views.painel.prontuario import _vinculo
 
 from .factories import (
     criar_notificacao_com_link,
