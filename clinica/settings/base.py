@@ -379,6 +379,9 @@ EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 # 'Jaqueline Aranha Estetica <contato@seudominio.com.br>'. O default e so
 # placeholder: provedor HTTP recusa remetente de dominio nao verificado.
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@clinica.com.br')
+# Avisos internos a clinica (alerta de NPS detrator) quando a tela de configuracoes nao define
+# email_admin; vazio = e-mail de contato da marca. O bootstrap_admin le a mesma env.
+ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', '').strip()
 # Sem timeout o socket SMTP pendura a thread do gunicorn (o envio roda no request/cron)
 EMAIL_TIMEOUT = int(os.environ.get('EMAIL_TIMEOUT') or 10)
 

@@ -17,6 +17,7 @@ from ..views.painel import (
     lista_espera,
     marca,
     notificacoes,
+    nps,
     pacotes,
     previa_email,
     procedimentos,
@@ -64,8 +65,8 @@ urlpatterns = [
     path('painel/promocoes/<int:pk>/disparar/', promocoes.disparar, name='admin_disparar_promocao'),
     # ─── Relatórios (Financeiro / NPS / Comissões) ───
     path('painel/financeiro/', financeiro.dashboard_financeiro, name='dashboard_financeiro'),
-    path('painel/nps/', relatorios.painel_nps, name='painel_nps'),
-    path('painel/nps/<int:pk>/publicacao/', relatorios.admin_nps_publicacao, name='admin_nps_publicacao'),
+    path('painel/nps/', nps.tela, name='painel_nps'),
+    path('painel/nps/<int:pk>/publicacao/', nps.publicacao, name='admin_nps_publicacao'),
     path('painel/comissoes/', relatorios.painel_comissoes, name='painel_comissoes'),
     path('painel/comissoes/<int:pk>/pagar/', relatorios.admin_comissao_pagar, name='admin_comissao_pagar'),
     # ─── Notificações ───

@@ -34,6 +34,11 @@ VALIDADE_LINK_NPS = timedelta(days=7)
 VALIDADE_LINK_FORMULARIO = timedelta(days=60)
 
 
+# ─── Comunicacao com a cliente (D19, D20) ─────────────────────────────────
+# NPS: no maximo 1 pesquisa por cliente neste intervalo (e nunca em retorno): services/nps.
+NPS_INTERVALO_DIAS = 90
+
+
 # ─── No-show ───────────────────────────────────────────────────────────
 # Default de Cliente.registrar_falta; sobrescrito por Configuracao
 # chave='MAX_FALTAS_BLOQUEIO' (tela Configuracoes do painel).
