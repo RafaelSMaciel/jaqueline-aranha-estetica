@@ -3,6 +3,7 @@ entre Dockerfile, railway.json e .env.example."""
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -139,6 +140,34 @@ class EnvExampleTests(SimpleTestCase):
         texto = (BASE_DIR / '.env.example').read_text(encoding='utf-8')
         self.assertRegex(texto, r'(?m)^DJANGO_SECRET_KEY=$')
         self.assertRegex(texto, r'(?m)^# DJANGO_ENV=dev$')  # dev nunca ativo: o exemplo vai p/ o Railway
+
+
+class ImagemTests(SimpleTestCase):
+    """Dockerfile x railway.json: o Railway sobrescreve o CMD com o startCommand (os dois tem de ser
+    o mesmo comando) e a imagem roda sem poder reescrever o proprio codigo."""
+
+    def _dockerfile(self):
+        return (BASE_DIR / 'Dockerfile').read_text(encoding='utf-8')
+
+    def test_start_command_igual_ao_cmd(self):
+        cmd = [linha for linha in self._dockerfile().splitlines() if linha.startswith('CMD ')]
+        self.assertEqual(len(cmd), 1)
+        railway = json.loads((BASE_DIR / 'railway.json').read_text(encoding='utf-8'))
+        self.assertEqual(shlex.split(railway['deploy']['startCommand']), json.loads(cmd[0][len('CMD '):]))
+
+    def test_codigo_do_root_e_runtime_sem_shell_nem_curl(self):
+        dockerfile = self._dockerfile()
+        self.assertNotIn('--chown=app:app . .', dockerfile)
+        self.assertNotRegex(dockerfile, r'COPY --from=front --chown')
+        self.assertIn('--shell /usr/sbin/nologin app', dockerfile)
+        self.assertNotRegex(dockerfile, r'(?m)^\s+curl \\$')
+        self.assertIn('USER app', dockerfile)
+
+    def test_contexto_do_build_filtra_em_qualquer_pasta(self):
+        ignorados = (BASE_DIR / '.dockerignore').read_text(encoding='utf-8').splitlines()
+        for padrao in ('**/__pycache__', '**/*.sqlite3*', '**/*.dump*', '**/*.log', 'aranha_estetica/tests/'):
+            with self.subTest(padrao=padrao):
+                self.assertIn(padrao, ignorados)
 
 
 class CsrfEmProducaoTests(SimpleTestCase):
