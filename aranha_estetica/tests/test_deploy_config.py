@@ -559,10 +559,10 @@ class BootstrapAdminTests(TestCase):
         U = get_user_model()
         self._outro_admin()
         u = U.objects.create_user('dona@clinica.com.br', SENHA_FORTE, nome='Dona',
-                                  papel=U.PAPEL_RECEPCAO)
+                                  papel=U.PAPEL_PROFISSIONAL)
         _, err = self._run(ADMIN_EMAIL='dona@clinica.com.br', ADMIN_PASSWORD=SENHA_FORTE)
         u.refresh_from_db()
-        self.assertEqual(u.papel, U.PAPEL_RECEPCAO)
+        self.assertEqual(u.papel, U.PAPEL_PROFISSIONAL)
         self.assertIn('mantido', err)
         self._run(ADMIN_EMAIL='dona@clinica.com.br', ADMIN_PASSWORD=SENHA_FORTE,
                   ADMIN_PASSWORD_RESET='true')
@@ -907,7 +907,8 @@ class SettingsProdTests(SimpleTestCase):
             'import clinica.settings.prod as s\n'
             'print(json.dumps({'
             '"debug": s.DEBUG, "vite_dev": s.DJANGO_VITE["default"]["dev_mode"],'
-            '"cookie_2fa": s.TWO_FACTOR_REMEMBER_COOKIE_SECURE, "axes_verbose": s.AXES_VERBOSE,'
+            '"mortas": [n for n in ("TWO_FACTOR_REMEMBER_COOKIE_SECURE", "MEDIA_ROOT", "MEDIA_URL",'
+            ' "AWS_QUERYSTRING_AUTH") if hasattr(s, n)], "axes_verbose": s.AXES_VERBOSE,'
             '"loader_cached": "cached" in str(s.TEMPLATES[0]["OPTIONS"]["loaders"]),'
             '"static": s.STORAGES["staticfiles"]["BACKEND"], "static_root": str(s.STATIC_ROOT),'
             '"hosts": s.ALLOWED_HOSTS, "ip_header": s.CLIENT_IP_HEADER,'
@@ -923,7 +924,7 @@ class SettingsProdTests(SimpleTestCase):
         s = json.loads(proc.stdout.strip().splitlines()[-1])
         self.assertFalse(s['debug'])
         self.assertFalse(s['vite_dev'])
-        self.assertTrue(s['cookie_2fa'])
+        self.assertEqual(s['mortas'], [])   # 2FA "lembrar", MEDIA e S3 sem uso sairam da config
         self.assertFalse(s['axes_verbose'])
         self.assertTrue(s['loader_cached'])
         self.assertEqual(s['static'], 'whitenoise.storage.CompressedManifestStaticFilesStorage')
@@ -1132,9 +1133,28 @@ class AxesBloqueioTests(TestCase):
         self.assertNotContains(r, 'Account locked', status_code=429)
 
 
+# ─── Runner unico (manage.py test) ───────────────────────────────────
+class RunnerUnicoTests(SimpleTestCase):
+    """O runner e so o `manage.py test`: teste em funcao solta (estilo pytest) nunca seria
+    coletado, e pytest/pytest-django/conftest sairam do projeto."""
+
+    def test_nenhum_teste_fora_de_testcase(self):
+        soltos = [
+            f'{arq.name}: {m.group(1)}'
+            for arq in sorted((BASE_DIR / 'aranha_estetica' / 'tests').glob('test_*.py'))
+            for m in re.finditer(r'^(?:async\s+)?def (test_\w+)', arq.read_text(encoding='utf-8'), re.M)
+        ]
+        self.assertEqual(soltos, [])
+
+    def test_sem_pytest_no_projeto(self):
+        self.assertFalse((BASE_DIR / 'aranha_estetica' / 'tests' / 'conftest.py').exists())
+        self.assertNotIn('pytest', (BASE_DIR / 'requirements-dev.txt').read_text(encoding='utf-8'))
+        self.assertNotIn('[tool.pytest', (BASE_DIR / 'pyproject.toml').read_text(encoding='utf-8'))
+
+
 # ─── Access log do gunicorn sem tokens ───────────────────────────────
 class GunicornLoggerTests(SimpleTestCase):
-    """rev_security-13 / rev_infra-02: o access log padrao gravava /reagendar/<token>/,
+    """rev_security-13 / rev_infra-02: o access log padrao gravava /confirmar/<token>/,
     reset de senha, ?token= do feed ICS e o Referer em claro nos logs do Railway."""
 
     def test_start_do_docker_e_do_railway_usam_o_logger(self):
@@ -1171,14 +1191,14 @@ class GunicornLoggerTests(SimpleTestCase):
             }
 
         dt = datetime.timedelta(milliseconds=1)
-        logger.access(resp, req, environ('/reagendar/abc123/'), dt)
+        logger.access(resp, req, environ('/confirmar/abc123/'), dt)
         logger.access(resp, req, environ('/agenda/dra-x/feed.ics', 'token=FEED777&x=1'), dt)
         logger.access(resp, req, environ('/admin-login/recuperar/MQ/cabc12-deadbeef/'), dt)
         logger.access(resp, req, environ('/anamnese/obrigado/'), dt)
         log = saida.getvalue()
         for segredo in ('abc123', 'zzz999', 'FEED777', 'deadbeef'):
             self.assertNotIn(segredo, log)
-        self.assertIn('/reagendar/[token]/', log)
+        self.assertIn('/confirmar/[token]/', log)
         self.assertIn('token=[token]&x=1', log)
         self.assertIn('/anamnese/obrigado/', log)
 

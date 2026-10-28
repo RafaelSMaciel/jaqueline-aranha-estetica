@@ -206,8 +206,6 @@ def _expira_padrao(finalidade, alvo):
         return alvo.atendimento.data_hora_fim
     if finalidade == LinkAcesso.CONFIRMAR_PRESENCA:
         return alvo.atendimento.data_hora_inicio
-    if finalidade == LinkAcesso.GERENCIAR_AGENDAMENTO:
-        return alvo.data_hora_inicio
     if finalidade == LinkAcesso.FORMULARIO:
         return timezone.now() + VALIDADE_LINK_FORMULARIO
     return None
@@ -230,7 +228,7 @@ def criar_link(finalidade, alvo, token=None, *, expira_em=_PADRAO, **campos):
 
 _FINALIDADE_DA_NOTIFICACAO = {
     'NPS': 'NPS', 'TERMO': 'TERMO',
-    'LEMBRETE': 'CONFIRMAR_PRESENCA', 'LEMBRETE_2H': 'CONFIRMAR_PRESENCA', 'CONFIRMACAO': 'CONFIRMAR_PRESENCA',
+    'LEMBRETE': 'CONFIRMAR_PRESENCA', 'CONFIRMACAO': 'CONFIRMAR_PRESENCA',
 }
 
 

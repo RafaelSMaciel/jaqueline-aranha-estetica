@@ -1,16 +1,16 @@
 """Caso de uso do atendimento: TODOS os efeitos de criar e de mudar status, em ordem, num lugar.
 
 Antes os efeitos moravam em dois mecanismos implicitos: post_save (signals.py — faltas, pacote,
-lista de espera, push/gcal) e EventBus (comissao, cashback, retorno — assinantes registrados por
+lista de espera, push) e EventBus (comissao, cashback, retorno — assinantes registrados por
 import no apps.ready, ordem = ordem dos imports). Saber o que acontece ao marcar REALIZADO exigia
 abrir cinco arquivos. Agora:
 
 - ``ao_mudar_status``: chamado pela FSM (Atendimento._transicionar) na MESMA transacao do status
   — efeito que falha desfaz a transicao inteira (status + livro-razao gravam juntos ou nada grava);
 - ``ao_criar``: chamado por services.agenda.reservar (as 5 portas) e pelo "adicionar" do Django
-  admin — push e Google Calendar da profissional.
+  admin — push p/ a profissional.
 
-I/O externo (e-mail, WhatsApp, push, gcal) so no on_commit, best-effort.
+I/O externo (e-mail, WhatsApp, push) so no on_commit, best-effort.
 """
 from __future__ import annotations
 
@@ -123,9 +123,8 @@ def cancelar_pendentes_vencidos(agora=None) -> int:
 
 
 def ao_criar(at) -> None:
-    """Novo atendimento: push p/ a profissional e evento no Google Calendar dela (on_commit)."""
+    """Novo atendimento: push p/ a profissional (on_commit)."""
     transaction.on_commit(lambda: _push_profissional(at, 'Novo agendamento'))
-    transaction.on_commit(lambda: _sync_gcal(at))
 
 
 def debitar_sessao_de_pacote(at) -> None:
@@ -191,11 +190,3 @@ def _push_profissional(at, titulo) -> None:
     except Exception:  # noqa: BLE001 — push e best-effort
         logger.exception('push_profissional_falhou', extra={'atendimento_id': at.pk})
 
-
-def _sync_gcal(at) -> None:
-    try:
-        from .gcal import gcal_disponivel, push_atendimento
-        if gcal_disponivel() and at.profissional.gcal_refresh_token:
-            push_atendimento(at)
-    except Exception:  # noqa: BLE001 — sync e best-effort
-        logger.exception('gcal_push_falhou', extra={'atendimento_id': at.pk})

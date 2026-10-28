@@ -712,8 +712,8 @@ class ListaEsperaPainelTests(_AdminTestCase):
         self.assertTrue(any('Nenhum e-mail foi enviado' in m for m in _mensagens(resp)))
 
 
-# ─── Paginacao / Google Calendar ──────────────────────────────────────
-class PaginacaoGcalTests(_AdminTestCase):
+# ─── Paginacao / Google Agenda removido ───────────────────────────────
+class PaginacaoAgendamentosTests(_AdminTestCase):
     def test_agendamentos_pagina_2_preserva_filtro(self):
         prof = criar_profissional()
         proc = criar_procedimento(profissional=prof)
@@ -729,21 +729,20 @@ class PaginacaoGcalTests(_AdminTestCase):
         self.assertContains(resp, 'status=agendado')
         self.assertContains(resp, 'page=2')
 
-    def test_gcal_escondido_sem_configuracao(self):
+    def test_painel_profissionais_sem_google_agenda(self):
         criar_profissional()
         resp = self.client.get(reverse('aranha:painel_profissionais'))
         self.assertEqual(resp.status_code, 200)
-        self.assertNotContains(resp, 'Google Calendar')
+        self.assertNotContains(resp, 'Google')
+        self.assertContains(resp, 'ICS feed')
 
-    def test_rotas_gcal_404_sem_configuracao(self):
+    def test_rotas_google_agenda_removidas(self):
         prof = criar_profissional()
-        self.assertEqual(self.client.get(reverse('aranha:gcal_connect', args=[prof.pk])).status_code, 404)
-        self.assertEqual(self.client.post(reverse('aranha:gcal_pull', args=[prof.pk])).status_code, 404)
-
-    def test_gcal_pull_exige_post(self):
-        prof = criar_profissional()
-        with patch('aranha_estetica.services.gcal.gcal_disponivel', return_value=True):
-            self.assertEqual(self.client.get(reverse('aranha:gcal_pull', args=[prof.pk])).status_code, 405)
+        for url in (f'/painel/integrations/google/connect/{prof.pk}/', '/painel/integrations/google/callback/',
+                    f'/painel/integrations/google/pull/{prof.pk}/'):
+            with self.subTest(url=url):
+                self.assertEqual(self.client.get(url).status_code, 404)
+                self.assertEqual(self.client.post(url).status_code, 404)
 
 
 # ─── NPS web: opt-in de publicacao (contrato 4) ───────────────────────

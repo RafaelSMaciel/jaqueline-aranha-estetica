@@ -35,8 +35,6 @@ class Cliente(models.Model):
     cpf = models.CharField(
         max_length=11, blank=True, null=True, validators=[validate_cpf],
     )
-    rg = models.CharField(max_length=20, blank=True, null=True)
-    profissao = models.CharField(max_length=100, blank=True, null=True)
     # lookups usam email__iexact (UPPER(email)) -> o UNIQUE parcial uq_cliente_email_ativo
     # (UPPER) serve de indice e garante unicidade entre ativos; ausente = NULL (nunca '')
     email = models.EmailField(max_length=254, blank=True, null=True)
@@ -52,10 +50,7 @@ class Cliente(models.Model):
     )
     bloqueado_online = models.BooleanField(default=False, db_default=False, db_column='eh_bloqueado_online')
 
-    # Estetica/CRM
-    foto_url = models.URLField(
-        max_length=600, blank=True, default='', db_default='', help_text='URL S3 / storage', db_column='url_foto',
-    )
+    # Fidelidade (programa de indicacao)
     indicado_por = models.ForeignKey(
         'self', on_delete=models.SET_NULL, blank=True, null=True,
         related_name='indicacoes',
@@ -140,7 +135,7 @@ class Cliente(models.Model):
         # Forma canonica de identidade (remodelagem v2.1 fase 3) — telefone e
         # cpf sempre digits-only; lookups das views comparam normalizado.
         # Tamanho NAO e validado aqui (ValidationError no save vira 500): a
-        # borda valida com validators.validar_telefone/validar_cpf.
+        # borda valida com validators.validate_telefone_br/validate_cpf (forms/cliente.py).
         # Ausente = NULL, nunca '' (0054: ck_cliente_email_nao_vazio e os CHECK de
         # formato do PG nao aceitam vazio; os UNIQUE parciais so valem p/ NOT NULL).
         self.telefone = (normalizar_telefone(self.telefone) or None) if self.telefone else None

@@ -48,7 +48,7 @@ class ServicoLinksTests(_Base):
 
     def test_finalidade_errada_nao_resolve(self):
         token = criar_link('DESCADASTRO', self.cli)
-        for finalidade in ('GERENCIAR_AGENDAMENTO', 'CONFIRMAR_PRESENCA', 'NPS', 'TERMO', 'FORMULARIO', 'FEED_ICS'):
+        for finalidade in ('CONFIRMAR_PRESENCA', 'NPS', 'TERMO', 'FORMULARIO', 'FEED_ICS'):
             with self.subTest(finalidade=finalidade):
                 self.assertIsNone(links.resolver(finalidade, token))
         self.assertIsNotNone(links.resolver('DESCADASTRO', token))
@@ -139,14 +139,14 @@ class ModeloLinkAcessoTests(_Base):
             {'finalidade': 'DESCADASTRO', 'profissional': self.prof},
             {'finalidade': 'FEED_ICS'},                                         # sem alvo
             {'finalidade': 'TERMO', 'notificacao': notif, 'cliente': self.cli},  # 2 alvos
-            {'finalidade': 'GERENCIAR_AGENDAMENTO', 'notificacao': notif},
             {'finalidade': 'OUTRA', 'cliente': self.cli},
+            {'finalidade': 'GERENCIAR_AGENDAMENTO', 'cliente': self.cli},          # link legado (0069)
         ]
         for kw in ruins:
             with self.subTest(kw=kw), self.assertRaises(IntegrityError):
                 self._criar(**kw)
         for finalidade, alvo in (('CONFIRMAR_PRESENCA', {'notificacao': notif}), ('NPS', {'notificacao': notif}),
-                                 ('TERMO', {'notificacao': notif}), ('GERENCIAR_AGENDAMENTO', {'atendimento': self.at}),
+                                 ('TERMO', {'notificacao': notif}),
                                  ('DESCADASTRO', {'cliente': self.cli}), ('FEED_ICS', {'profissional': self.prof})):
             self._criar(finalidade=finalidade, **alvo)
 
@@ -180,7 +180,6 @@ class RotasPublicasSoAceitamASuaFinalidadeTests(_Base):
         form = FormularioAnamnese.objects.create(nome='Ficha', tipo='ANAMNESE', schema_json=[])
         ficha = RespostaAnamnese.objects.create(formulario=form, cliente=self.cli, atendimento=self.at)
         self.tokens = {
-            'GERENCIAR_AGENDAMENTO': criar_link('GERENCIAR_AGENDAMENTO', self.at),
             'CONFIRMAR_PRESENCA': criar_notificacao_com_link(self.at)[1],
             'NPS': criar_notificacao_com_link(realizado, 'NPS')[1],
             'TERMO': criar_notificacao_com_link(self.at, 'TERMO', 'EMAIL')[1],
@@ -191,8 +190,6 @@ class RotasPublicasSoAceitamASuaFinalidadeTests(_Base):
 
     def _status(self, finalidade_da_rota, token):
         rotas = {
-            'GERENCIAR_AGENDAMENTO': lambda t: self.client.get(reverse('aranha:reagendar_horarios', args=[t]),
-                                                               {'data': '2031-01-01'}),
             'CONFIRMAR_PRESENCA': lambda t: self.client.get(reverse('aranha:confirmar_presenca', args=[t])),
             'NPS': lambda t: self.client.get(reverse('aranha:nps_web', args=[t])),
             'TERMO': lambda t: self.client.get(reverse('aranha:termo_assinatura', args=[t])),

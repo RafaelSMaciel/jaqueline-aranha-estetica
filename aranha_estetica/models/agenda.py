@@ -142,13 +142,11 @@ class AgendaExcecao(models.Model):
     ORIGEM_FERIADO_NACIONAL = 'FERIADO_NACIONAL'
     ORIGEM_FERIADO_LOCAL = 'FERIADO_LOCAL'
     ORIGEM_RECESSO = 'RECESSO'
-    ORIGEM_GCAL = 'GCAL'
     ORIGEM_CHOICES = [
         (ORIGEM_MANUAL, 'Manual (painel)'),
         (ORIGEM_FERIADO_NACIONAL, 'Feriado nacional'),
         (ORIGEM_FERIADO_LOCAL, 'Feriado local (estadual/municipal)'),
         (ORIGEM_RECESSO, 'Recesso da clínica'),
-        (ORIGEM_GCAL, 'Google Agenda'),
     ]
     ORIGENS_GLOBAIS = (ORIGEM_FERIADO_NACIONAL, ORIGEM_FERIADO_LOCAL, ORIGEM_RECESSO)
 
@@ -161,11 +159,7 @@ class AgendaExcecao(models.Model):
     origem = models.CharField(
         max_length=20, choices=ORIGEM_CHOICES, default=ORIGEM_MANUAL, db_default=ORIGEM_MANUAL,
         db_comment='MANUAL (painel) | FERIADO_NACIONAL/FERIADO_LOCAL (carregar_feriados) | '
-                   'RECESSO (clinica) | GCAL (importado do Google Calendar).',
-    )
-    origem_ref = models.CharField(
-        max_length=255, null=True, blank=True,
-        db_comment='Id do evento no sistema de origem (GCAL): torna a importacao idempotente.',
+                   'RECESSO (clinica).',
     )
     data_inicio = models.DateField(
         null=True, blank=True,
@@ -218,7 +212,7 @@ class AgendaExcecao(models.Model):
                 name='ck_agenda_excecao_tipo',
             ),
             models.CheckConstraint(
-                condition=Q(origem__in=['MANUAL', 'FERIADO_NACIONAL', 'FERIADO_LOCAL', 'RECESSO', 'GCAL']),
+                condition=Q(origem__in=['MANUAL', 'FERIADO_NACIONAL', 'FERIADO_LOCAL', 'RECESSO']),
                 name='ck_agenda_excecao_origem',
             ),
             models.CheckConstraint(
@@ -258,10 +252,6 @@ class AgendaExcecao(models.Model):
                 | Q(profissional__isnull=True, tipo='FOLGA'),
                 name='ck_agenda_excecao_feriado_global',
             ),
-            models.CheckConstraint(
-                condition=~Q(origem='GCAL') | Q(tipo='BLOQUEIO', profissional__isnull=False),
-                name='ck_agenda_excecao_gcal',
-            ),
             models.UniqueConstraint(
                 fields=['profissional', 'data_inicio'],
                 condition=Q(tipo='HORARIO_DIFERENTE', ativo=True),
@@ -271,11 +261,6 @@ class AgendaExcecao(models.Model):
                 fields=['origem', 'data_inicio'],
                 condition=Q(origem__in=['FERIADO_NACIONAL', 'FERIADO_LOCAL']),
                 name='uq_agenda_excecao_feriado',
-            ),
-            models.UniqueConstraint(
-                fields=['profissional', 'origem_ref'],
-                condition=Q(origem='GCAL', origem_ref__isnull=False),
-                name='uq_agenda_excecao_gcal_evento',
             ),
         ]
         indexes = [
@@ -315,8 +300,6 @@ class AgendaExcecao(models.Model):
         erros = {}
         if self.regra_recorrencia is not None and not self.regra_recorrencia.strip():
             self.regra_recorrencia = None
-        if self.origem_ref is not None and not self.origem_ref.strip():
-            self.origem_ref = None
         if self.tipo in self.TIPOS_POR_DATA:
             if self.tipo == self.TIPO_HORARIO_DIFERENTE:
                 self.data_fim = self.data_inicio
@@ -361,8 +344,6 @@ class AgendaExcecao(models.Model):
             erros['data_fim_recorrencia'] = 'Fim da recorrência sem regra de recorrência.'
         if self.origem in self.ORIGENS_GLOBAIS and (self.profissional_id or self.tipo != self.TIPO_FOLGA):
             erros['origem'] = 'Feriado/recesso é FOLGA da clínica inteira (sem profissional).'
-        if self.origem == self.ORIGEM_GCAL and (self.tipo != self.TIPO_BLOQUEIO or not self.profissional_id):
-            erros['origem'] = 'Evento do Google Agenda é BLOQUEIO de um profissional.'
         if (self.tipo == self.TIPO_FOLGA and self.ativo and self.profissional_id
                 and self.data_inicio and self.data_fim and 'data_fim' not in erros):
             # espelho do ex_agenda_excecao_folga_sobreposta (so existe no PG)

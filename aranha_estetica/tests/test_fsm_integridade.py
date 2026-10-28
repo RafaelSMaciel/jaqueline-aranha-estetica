@@ -218,7 +218,7 @@ class RegraComissaoPercentualTests(TestCase):
 
 class DefaultsRodada2Tests(TestCase):
     def test_papel_default_e_profissional(self):
-        # RECEPCAO nao tem login; ADMIN nunca e implicito
+        # ADMIN nunca e implicito (create_superuser/bootstrap_admin setam ADMIN)
         self.assertEqual(Usuario(email='x@x.com', nome='X').papel, Usuario.PAPEL_PROFISSIONAL)
 
     def test_vigencia_do_preco_usa_data_local(self):

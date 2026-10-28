@@ -1,4 +1,4 @@
-"""Filtros de template p/ dicts — usado pelo questionario JSONB do prontuario."""
+"""Filtros de template p/ dicts (painel/agendamentos.html: alerta de saude por atendimento)."""
 from django import template
 
 register = template.Library()

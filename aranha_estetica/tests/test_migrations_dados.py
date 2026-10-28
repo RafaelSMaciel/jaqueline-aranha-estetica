@@ -104,6 +104,11 @@ class PapelUsuario0029Tests(_MigracaoBase):
         )
         self.assertTrue(all(log.tabela_afetada == 'usuario' for log in logs))
 
+    def tearDown(self):
+        # o papel RECEPCAO saiu na 0069, que aborta se ainda houver um: o legado do teste sai antes
+        self.apps.get_model(APP, 'Usuario').objects.filter(papel='RECEPCAO').delete()
+        super().tearDown()
+
 
 @tag('migracoes')
 class Remodelagem0034a0037Tests(_MigracaoBase):
@@ -1274,7 +1279,8 @@ class LinksEmHash0049Tests(_MigracaoBase):
         with self.settings(RATELIMIT_ENABLE=False):
             get = self.client.get
             self.assertEqual(get('/confirmar/tok-d1/').status_code, 200)
-            self.assertIs(get('/confirmar/tok-2h/').context['nao_editavel'], False)
+            # LEMBRETE_2H saiu na 0070 (sem job que o enviasse): o nao respondido e apagado com o link
+            self.assertEqual(get('/confirmar/tok-2h/').status_code, 404)
             self.assertEqual(get('/termo/tok-termo/').status_code, 200)
             self.assertEqual(get('/termo/tok-termo-legado/').status_code, 200)
             resp = get('/nps/tok-nps/')
@@ -1285,8 +1291,9 @@ class LinksEmHash0049Tests(_MigracaoBase):
                                  fetch_redirect_response=False)
             self.assertEqual(get('/lgpd/unsubscribe/tok-descad/').status_code, 200)
             self.assertEqual(get('/agenda/prof-l/feed.ics', {'token': 'tok-ics-prof'}).status_code, 200)
+            # o link legado de reagendar (GERENCIAR_AGENDAMENTO) saiu na 0069: rota e link
             dia = (self.ini + timedelta(days=1)).date().isoformat()
-            self.assertEqual(get('/reagendar/tok-gerenciar/horarios/', {'data': dia}).status_code, 200)
+            self.assertEqual(get('/reagendar/tok-gerenciar/horarios/', {'data': dia}).status_code, 404)
             # o que nao abria antes continua nao abrindo
             self.assertEqual(get('/confirmar/tok-lembrete-sms/').status_code, 404)
             self.assertEqual(get('/lgpd/unsubscribe/tok-descad-excluida/').status_code, 404)

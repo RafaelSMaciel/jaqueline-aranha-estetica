@@ -45,9 +45,8 @@ _PROVA = 'prova do aceite/consentimento (exercicio de direitos, art. 7º VI)'
 COLUNAS = {
     # cadastro
     ('cliente', 'nome'): ANONIMIZA, ('cliente', 'data_nascimento'): ANONIMIZA,
-    ('cliente', 'cpf'): ANONIMIZA, ('cliente', 'rg'): ANONIMIZA, ('cliente', 'profissao'): ANONIMIZA,
-    ('cliente', 'email'): ANONIMIZA, ('cliente', 'telefone'): ANONIMIZA, ('cliente', 'cep'): ANONIMIZA,
-    ('cliente', 'endereco'): ANONIMIZA, ('cliente', 'url_foto'): ANONIMIZA,
+    ('cliente', 'cpf'): ANONIMIZA, ('cliente', 'email'): ANONIMIZA, ('cliente', 'telefone'): ANONIMIZA,
+    ('cliente', 'cep'): ANONIMIZA, ('cliente', 'endereco'): ANONIMIZA,
     # consentimento: o historico fica (prova), IP e user-agent saem
     ('consentimento', 'ip_origem'): ANONIMIZA, ('consentimento', 'user_agent'): ANONIMIZA,
     # mensagens e contatos

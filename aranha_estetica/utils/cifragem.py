@@ -3,8 +3,9 @@
 Fernet (AES-128-CBC + HMAC-SHA256, lib `cryptography`) com as chaves mestras de
 settings.CHAVES_CIFRAGEM (env, separadas por virgula): a 1a cifra, todas decifram — trocar a
 chave = pôr a nova na frente, rodar `manage.py rotacionar_chave_cifragem` e so depois tirar a
-antiga. Cada finalidade usa uma subchave derivada por HKDF ('saude' p/ prontuario/fichas,
-'segredos' p/ token OAuth): o texto de uma nao abre com a outra.
+antiga. Cada finalidade usa uma subchave derivada por HKDF ('saude' p/ prontuario/fichas;
+'segredos' p/ segredo de integracao — hoje sem campo: era o token OAuth do Google Agenda, removido
+na 0068, e fica porque a 0060 ainda o cifra): o texto de uma nao abre com a outra.
 
 Formato gravado: 'cif1:' + token Fernet (texto) ou {"_cifra": "<token>"} (JSON). Texto sem o
 prefixo e legado em claro: le como esta e o proximo save cifra. Vazio ('' / {}) fica vazio — os

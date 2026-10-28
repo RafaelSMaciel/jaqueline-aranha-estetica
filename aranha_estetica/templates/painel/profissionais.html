@@ -1,5 +1,4 @@
 {% extends 'painel/base_v2.html' %}
-{% load gcal_tags %}
 
 {% block titulo %}Profissionais — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Profissionais{% endblock %}
@@ -15,7 +14,6 @@
 {% endblock %}
 
 {% block admin_content %}
-{% gcal_disponivel as gcal_ativo %}
 
 {# ── Contador ── #}
 <p class="text-[0.78rem] font-bold text-texto-suave mb-3 flex items-center gap-1">
@@ -83,7 +81,7 @@
           <svg class="w-3.5 h-3.5 text-aviso flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 5c7.18 0 13 5.82 13 13M6 11a7 7 0 017 7M6 17a1 1 0 011 1"/></svg>
           <span class="font-bold text-texto-suave">ICS feed</span>
           <span class="flex-1 min-w-0 text-[0.7rem] text-texto-suave">
-            {% if prof.ics_migrado %}Link ativo (criado antes da atualização){% elif prof.ics_ativo_desde %}Link ativo desde {{ prof.ics_ativo_desde|date:"d/m/Y" }}{% else %}Sem link{% endif %}
+            {% if prof.ics_ativo_desde %}Link ativo desde {{ prof.ics_ativo_desde|date:"d/m/Y" }}{% else %}Sem link{% endif %}
           </span>
           <form method="post" action="{% url 'aranha:profissional_rotacionar_ics' prof.pk %}" class="flex-shrink-0 m-0"
                 {% if prof.ics_ativo_desde %}data-confirm="Gerar um novo link do calendário? O link atual deixará de funcionar."{% endif %}>
@@ -93,23 +91,6 @@
                     aria-label="{% if prof.ics_ativo_desde %}Gerar novo link do ICS{% else %}Gerar link do ICS{% endif %}">{% if prof.ics_ativo_desde %}Novo link{% else %}Gerar link{% endif %}</button>
           </form>
         </div>
-
-        {% if gcal_ativo %}
-        {# Google Calendar so aparece com a integracao configurada (libs + env OAuth) #}
-        <div class="flex items-center gap-2 text-[0.75rem]">
-          <svg class="w-3.5 h-3.5 text-info flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          <span class="font-bold text-texto-suave">Google Calendar</span>
-          {% if prof.gcal_refresh_token %}
-          <span class="text-sucesso font-bold text-[0.7rem]">Conectado</span>
-          <form method="post" action="{% url 'aranha:gcal_pull' prof.pk %}" class="ml-auto m-0">
-            {% csrf_token %}
-            <button type="submit" class="bg-info-fundo text-info px-2 py-0.5 rounded-md text-[0.7rem] font-bold border-none cursor-pointer hover:bg-info-fundo transition-colors">Sincronizar</button>
-          </form>
-          {% else %}
-          <a href="{% url 'aranha:gcal_connect' prof.pk %}" class="ml-auto bg-superficie border border-info text-info px-2 py-0.5 rounded-md text-[0.7rem] font-bold no-underline hover:bg-info-fundo transition-colors">Conectar</a>
-          {% endif %}
-        </div>
-        {% endif %}
       </div>
     </div>
   </div>

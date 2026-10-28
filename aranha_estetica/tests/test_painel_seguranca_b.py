@@ -45,7 +45,7 @@ from aranha_estetica.models import (
 from aranha_estetica.services.fidelidade import FidelidadeService
 from aranha_estetica.views.painel.profissionais import _ids_procedimentos
 from aranha_estetica.views.painel.usuarios import _ler_profissional_id
-from aranha_estetica.views.painel.prontuario import _vinculo
+from aranha_estetica.services.prontuario import vinculo_clinico
 
 from .factories import (
     criar_notificacao_com_link,
@@ -406,18 +406,18 @@ class VinculoJanelaFuturaTests(TestCase):
     def test_antecedencia_maior_que_60_amplia_a_janela(self):
         prof = criar_profissional(nome='Dra. Longe', max_advance_dias=120)
         at = self._marcado_em(prof, 100)
-        self.assertEqual(_vinculo(prof, self.cli), at)
-        self.assertEqual(_vinculo(prof, self.cli, escrita=True), at)
+        self.assertEqual(vinculo_clinico(prof, self.cli), at)
+        self.assertEqual(vinculo_clinico(prof, self.cli, escrita=True), at)
 
     def test_antecedencia_menor_mantem_60_dias(self):
         prof = criar_profissional(nome='Dra. Perto', max_advance_dias=30)
         at = self._marcado_em(prof, 50)
-        self.assertEqual(_vinculo(prof, self.cli), at)
+        self.assertEqual(vinculo_clinico(prof, self.cli), at)
         Atendimento.objects.filter(pk=at.pk).update(
             data_hora_inicio=at.data_hora_inicio + timedelta(days=40),
             data_hora_fim=at.data_hora_fim + timedelta(days=40),
         )
-        self.assertIsNone(_vinculo(prof, self.cli))
+        self.assertIsNone(vinculo_clinico(prof, self.cli))
 
 
 # ════════════════════════════════════════════════════════════════════

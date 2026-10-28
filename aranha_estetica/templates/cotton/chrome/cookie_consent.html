@@ -1,8 +1,7 @@
-{# Escolha persistida em cookie de 1 ano (app.js/cookieConsent) — nao na sessao, que expira em 30 min #}
-{% if not request.COOKIES.cookie_consent and not request.session.cookie_consent %}
+{# Aviso informativo: o site so usa cookies essenciais. "Entendi" grava cookie_consent=essenciais
+   (1 ano) no proprio navegador (app.js/cookieConsent) — nada vai ao servidor, nenhuma sessao e aberta #}
+{% if not request.COOKIES.cookie_consent %}
 <div x-data="cookieConsent"
-     data-url="{% url 'aranha:lgpd_aceitar_cookies' %}"
-     data-csrf="{{ csrf_token }}"
      class="fixed inset-x-0 bottom-0 z-50 px-4 pb-4"
      role="dialog" aria-live="polite" aria-label="Aviso de cookies">
   <div class="mx-auto max-w-3xl rounded-2xl border border-borda bg-superficie p-5 shadow-xl shadow-black/10
@@ -12,7 +11,7 @@
       Consulte a <a href="{% url 'aranha:politica_privacidade' %}" class="font-medium text-marca underline">Política de Privacidade</a>.
     </p>
     <div class="flex shrink-0 gap-2">
-      <button type="button" x-on:click="soEssenciais"
+      <button type="button" x-on:click="entendi"
               class="rounded-full bg-marca-forte px-5 py-2 text-sm font-semibold text-sobre-marca hover:opacity-90 transition">Entendi</button>
     </div>
   </div>

@@ -141,8 +141,7 @@ class Atendimento(models.Model):
         max_length=20, default=StatusAtendimento.PENDENTE, db_default=StatusAtendimento.PENDENTE,
         choices=StatusAtendimento.choices,
     )
-    # Link publico de reagendar/cancelar: link_acesso (GERENCIAR_AGENDAMENTO, so
-    # os migrados da 0049). O portal "Meus agendamentos" usa id + sessao do OTP.
+    # Reagendar/cancelar pela cliente: portal "Meus agendamentos" (id + sessao do OTP), sem token.
     criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
     atualizado_em = models.DateTimeField(auto_now=True, db_default=Now(), db_comment=ATUALIZADO_EM_BACKFILL)
 

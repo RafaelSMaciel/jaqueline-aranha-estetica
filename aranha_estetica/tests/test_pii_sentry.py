@@ -38,7 +38,7 @@ def _evento_erro():
         'logentry': {'message': 'falha ao avisar %s', 'formatted': 'falha ao avisar maria.silva@gmail.com',
                      'params': ['maria.silva@gmail.com']},
         'request': {
-            'url': f'https://clinica.test/reagendar/{TOKEN}/',
+            'url': f'https://clinica.test/anamnese/{TOKEN}/',
             'query_string': f'token={TOKEN}',
             'data': {'telefone': '17991234567'},
             'headers': {'Referer': f'https://clinica.test/termo/{TOKEN}/'},
@@ -72,13 +72,13 @@ class FiltroEventoTests(SimpleTestCase):
     def test_transacao_amostrada_passa_pelo_mesmo_filtro(self):
         ev = sentry_before_send_transaction({
             'type': 'transaction',
-            'transaction': '/reagendar/<str:token>/',
-            'request': {'url': f'https://clinica.test/reagendar/{TOKEN}/',
+            'transaction': '/pesquisa/<str:token>/',
+            'request': {'url': f'https://clinica.test/pesquisa/{TOKEN}/',
                         'query_string': '', 'headers': {}},
             'spans': [{'op': 'http.client', 'description': f'GET https://clinica.test/feed.ics?token={TOKEN}'}],
         }, {})
         self.assertNotIn(TOKEN, repr(ev))
-        self.assertEqual(ev['request']['url'], 'https://clinica.test/reagendar/[token]/')
+        self.assertEqual(ev['request']['url'], 'https://clinica.test/pesquisa/[token]/')
 
     def test_breadcrumb_avulso(self):
         crumb = sentry_before_breadcrumb({'category': 'log', 'message': 'OTP para (17) 99123-4567'}, {})

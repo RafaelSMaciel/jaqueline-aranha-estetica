@@ -298,13 +298,17 @@ class AnamneseEditorTests(_AdminBase):
         self.form.refresh_from_db()
         self.assertEqual(self.form.schema_json[0]['key'], 'nota')
 
-    def test_escopo_modalidade_grava_modalidade(self):
-        self.client.post(self.url, {
+    def test_escopo_modalidade_e_recusado(self):
+        """Todo atendimento e presencial (0070): o escopo MODALIDADE nao existe mais."""
+        resp = self.client.post(self.url, {
             'nome': 'Online', 'tipo': 'ANAMNESE', 'escopo': 'MODALIDADE', 'modalidade': 'ONLINE',
             'schema_json': json.dumps(self.form.schema_json), 'ativo': '1',
         })
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'Escopo inválido.')
+        self.assertNotContains(resp, 'name="modalidade"')
         self.form.refresh_from_db()
-        self.assertEqual((self.form.escopo, self.form.modalidade), ('MODALIDADE', 'ONLINE'))
+        self.assertEqual((self.form.nome, self.form.tipo, self.form.escopo), ('Pesquisa pós', 'PESQUISA', 'GLOBAL'))
 
     def test_excluir_com_respostas_desativa_em_vez_de_500(self):
         RespostaAnamnese.objects.create(formulario=self.form, cliente=criar_cliente(), respostas_json={})
@@ -722,7 +726,7 @@ class PainelDiversosTests(_AdminBase):
     def test_nao_staff_com_profissional_ativo_vai_ao_portal(self):
         user = Usuario.objects.create_user(
             email='recep@insights.com', password='x', nome='R',
-            papel=Usuario.PAPEL_RECEPCAO, profissional=self.prof,
+            papel=Usuario.PAPEL_PROFISSIONAL, profissional=self.prof,
         )
         c = Client()
         c.force_login(user)

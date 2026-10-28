@@ -11,11 +11,9 @@ from .mixins import atualizado_em_legado
 
 class TipoNotificacao(models.TextChoices):
     LEMBRETE = 'LEMBRETE', 'Lembrete D-1'
-    LEMBRETE_2H = 'LEMBRETE_2H', 'Lembrete T-2h'
     CONFIRMACAO = 'CONFIRMACAO', 'Confirmação'
     CANCELAMENTO = 'CANCELAMENTO', 'Cancelamento'
     NPS = 'NPS', 'Pesquisa NPS'
-    PESQUISA = 'PESQUISA', 'Pesquisa de satisfação detalhada'
     APROVACAO = 'APROVACAO', 'Aprovação Profissional'
     # Link de assinatura do termo (/termo/<token>, LinkAcesso TERMO)
     TERMO = 'TERMO', 'Termo de consentimento'

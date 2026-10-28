@@ -1,4 +1,7 @@
-"""Pre-visualizacao dos e-mails (staff) com dados ficticios."""
+"""Pre-visualizacao dos e-mails (staff) com dados ficticios.
+
+So os templates que utils/email.py envia de verdade (tests: EmailPreviewTests). OTP sai por SMS e
+o NPS por WhatsApp: nao ha e-mail deles."""
 import logging
 
 from django.conf import settings
@@ -9,11 +12,6 @@ logger = logging.getLogger(__name__)
 
 
 EMAIL_PREVIEW_FIXTURES = {
-    'otp': {
-        'template': 'email/otp.html',
-        'contexto': {'codigo': '123456', 'clinic_name': 'Jaqueline Aranha Estética',
-                     'preheader': 'Seu codigo de verificacao'},
-    },
     'confirmacao': {
         'template': 'email/confirmacao.html',
         'contexto': {'dados': {
@@ -55,18 +53,19 @@ EMAIL_PREVIEW_FIXTURES = {
             'data_hora': '20/04/2026 as 14:00', 'profissional': 'Jaqueline Aranha',
         }, 'clinic_name': 'Jaqueline Aranha Estética'},
     },
-    'nps': {
-        'template': 'email/nps.html',
-        'contexto': {'dados': {
-            'nome': 'Maria Silva', 'procedimento': 'Limpeza de Pele',
-            'link_nps': '#preview',
-        }, 'clinic_name': 'Jaqueline Aranha Estética'},
-    },
     'fila_espera': {
         'template': 'email/fila_espera.html',
         'contexto': {'dados': {
             'nome': 'Maria Silva', 'procedimento': 'Limpeza de Pele',
             'data': '20/04/2026',
+        }, 'clinic_name': 'Jaqueline Aranha Estética'},
+    },
+    'aprovacao_profissional': {
+        'template': 'email/aprovacao_profissional.html',
+        'contexto': {'dados': {
+            'profissional': 'Jaqueline Aranha', 'cliente': 'Maria Silva',
+            'procedimento': 'Limpeza de Pele', 'data_hora': '20/04/2026 as 14:00',
+            'link_revisar': '#preview',
         }, 'clinic_name': 'Jaqueline Aranha Estética'},
     },
     'pacote_expirando': {
