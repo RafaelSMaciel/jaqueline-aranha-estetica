@@ -1,4 +1,4 @@
-"""Forms do financeiro do painel: catalogo e compra de pacote.
+"""Forms do financeiro do painel: catalogo e compra de pacote, regra de comissao e repasse.
 
 Mesma convencao de forms/painel: a view valida pelo Form e, se invalido, ``avisar_erros`` +
 redirect. Antes criar e editar pacote tinham parsers proprios e uma mensagem generica ("Dados
@@ -6,9 +6,12 @@ invalidos: verifique preco, validade e itens"); aqui cada campo diz o que esta e
 """
 from __future__ import annotations
 
+from decimal import Decimal
+
 from django import forms
 
-from ..models import Procedimento
+from ..models import Procedimento, Profissional, RegraComissao
+from ..utils.datas import hoje
 from ..utils.parse import id_int
 from .painel import CampoPreco
 
@@ -125,3 +128,61 @@ class ProrrogarValidadeForm(forms.Form):
         if not texto:
             raise forms.ValidationError('Descreva o motivo da prorrogação.')
         return texto
+
+
+class RegraComissaoForm(forms.Form):
+    """Regra nova: profissional e procedimento opcionais (vazio = qualquer), percentual XOR valor fixo.
+    Nao ha edicao de regra: mudar o percentual = regra nova (e desativar a antiga)."""
+    profissional = forms.ModelChoiceField(queryset=Profissional.objects.none(), required=False,
+                                          error_messages={'invalid_choice': 'Profissional inválida.'})
+    procedimento = forms.ModelChoiceField(queryset=Procedimento.objects.none(), required=False,
+                                          error_messages={'invalid_choice': 'Procedimento inválido.'})
+    percentual = forms.DecimalField(required=False, min_value=Decimal('0.01'), max_value=Decimal('100'),
+                                    max_digits=5, decimal_places=2, error_messages={
+                                        'invalid': 'Percentual inválido.', 'min_value': 'Percentual de 0,01 a 100.',
+                                        'max_value': 'Percentual de 0,01 a 100.',
+                                        'max_decimal_places': 'Percentual com até 2 casas decimais.',
+                                        'max_digits': 'Percentual de 0,01 a 100.'})
+    valor = CampoPreco(required=False, error_messages={'invalid': 'Valor fixo inválido: use números, ex.: 50,00.'})
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['profissional'].queryset = Profissional.objects.filter(ativo=True)
+        self.fields['procedimento'].queryset = Procedimento.objects.filter(ativo=True)
+        # o painel manda "30,5": o DecimalField do Django so aceita ponto
+        if self.is_bound and 'percentual' in self.data:
+            dados = self.data.copy()
+            dados['percentual'] = (dados.get('percentual') or '').replace(',', '.').strip()
+            self.data = dados
+
+    def clean(self):
+        dados = super().clean()
+        percentual, valor = dados.get('percentual'), dados.get('valor')
+        if 'percentual' in self.errors or 'valor' in self.errors:
+            return dados
+        if (percentual is None) == (valor is None):
+            raise forms.ValidationError('Informe o percentual OU o valor fixo da comissão (só um dos dois).')
+        if valor is not None and valor <= 0:
+            raise forms.ValidationError('Valor fixo da comissão maior que zero.')
+        return dados
+
+    def salvar(self) -> RegraComissao:
+        dados = self.cleaned_data
+        return RegraComissao.objects.create(
+            profissional=dados.get('profissional'), procedimento=dados.get('procedimento'),
+            percentual=dados.get('percentual'), valor=dados.get('valor'), ativo=True,
+        )
+
+
+class RepasseForm(forms.Form):
+    """'Pagar pendentes ate <data>' de uma profissional (ativa ou nao: quem saiu tambem recebe)."""
+    profissional = forms.ModelChoiceField(queryset=Profissional.objects.all(), error_messages={
+        'required': 'Escolha a profissional do repasse.', 'invalid_choice': 'Profissional inválida.',
+    })
+    ate = forms.DateField(error_messages={'required': 'Informe até que data pagar.', 'invalid': 'Data inválida.'})
+
+    def clean_ate(self):
+        ate = self.cleaned_data['ate']
+        if ate > hoje():
+            raise forms.ValidationError('O repasse vai até hoje, no máximo (atendimento futuro não tem comissão).')
+        return ate
