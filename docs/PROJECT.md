@@ -211,6 +211,8 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   inputs), `--cor-foco` (anel `:focus-visible` global), erro/sucesso/aviso/info/destaque com `-fundo`
   e o status do atendimento (`--st-<status>-fundo/-texto`, classes `.status-<STATUS>`); nada de cor
   crua do Tailwind (`bg-red-50`…) fora de botão sólido. `prefers-reduced-motion` zera animações.
+  Modal = `<dialog class="dialogo">` nativo (`showModal`: foco preso, Esc fecha, fundo inerte);
+  no Alpine, componente `modal` (ou `comDialogo({...})` em `app.js`) com `x-ref="dialogo"`.
 - **PWA**: `/manifest.json` + `/sw.js` (service worker v8: cacheia só páginas públicas e
   estáticos; nunca HTML privado) e `/painel/manifest.json` para o app da equipe.
 

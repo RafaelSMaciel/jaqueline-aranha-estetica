@@ -290,13 +290,7 @@
     }
 
     /* ═══ CANCEL MODAL ═══ */
-    .cancel-modal-overlay {
-        position: fixed; inset: 0; z-index: 9999;
-        background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
-        display: none; align-items: center; justify-content: center;
-        padding: 1rem;
-    }
-    .cancel-modal-overlay.active { display: flex; }
+    #cancelModal::backdrop { background: rgb(0 0 0 / .5); backdrop-filter: blur(4px); }
     .cancel-modal-box {
         background: var(--cor-superficie); border-radius: 24px; padding: 2rem;
         max-width: 400px; width: 100%; text-align: center;
@@ -636,12 +630,12 @@
         </div>
 
         <!-- Cancel confirmation modal -->
-        <div class="cancel-modal-overlay" id="cancelModal" role="dialog" aria-modal="true" aria-labelledby="cancelModalTitle" aria-describedby="cancelModalProcedure">
+        <dialog class="dialogo" id="cancelModal" aria-labelledby="cancelModalTitle" aria-describedby="cancelModalProcedure">
             <div class="cancel-modal-box">
                 <div style="width:64px;height:64px;background:color-mix(in srgb,var(--cor-erro) 8%,transparent);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:1rem;" aria-hidden="true">
                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--cor-erro);"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                 </div>
-                <h5 class="font-bold mb-2" id="cancelModalTitle" style="font-family:'Playfair Display',serif;color:var(--cor-texto);">Cancelar Agendamento?</h5>
+                <h5 class="font-bold mb-2" id="cancelModalTitle" style="font-family:'Playfair Display',serif;color:var(--cor-texto);">Cancelar agendamento?</h5>
                 <p class="text-texto-suave" style="font-size:0.85rem;margin-bottom:0.25rem;" id="cancelModalProcedure"></p>
                 <p class="text-texto-suave" style="font-size:0.85rem;margin-bottom:0.75rem;" id="cancelModalDate"></p>
                 <p style="font-size:0.85rem;margin-bottom:1.5rem;color:var(--cor-erro);background:color-mix(in srgb,var(--cor-erro) 8%,transparent);padding:0.5rem 1rem;border-radius:12px;display:inline-block;">
@@ -656,11 +650,11 @@
                     <button id="btnConfirmCancel"
                             style="background:var(--cor-erro);color:white;font-size:0.85rem;font-weight:700;padding:0.5rem 1rem;border-radius:9999px;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:0.3rem;">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                        Sim, Cancelar
+                        Sim, cancelar
                     </button>
                 </div>
             </div>
-        </div>
+        </dialog>
         {% endif %}
 
     </div><!-- /booking-card -->
@@ -874,15 +868,13 @@ var CSRF_TOKEN = '{{ csrf_token }}';
         forte.textContent = nome || '';
         alvo.replaceChildren(forte);
         document.getElementById('cancelModalDate').textContent = 'Data: ' + data;
-        var modal = document.getElementById('cancelModal');
-        modal.classList.add('active');
-        // Move focus to modal for a11y
-        var firstBtn = modal.querySelector('button');
-        if (firstBtn) firstBtn.focus();
+        // <dialog>: foco preso, Esc fecha, fundo inerte; o foco volta ao botao que abriu
+        document.getElementById('cancelModal').showModal();
     }
 
     function closeCancelModal() {
-        document.getElementById('cancelModal').classList.remove('active');
+        var modal = document.getElementById('cancelModal');
+        if (modal.open) modal.close();
         cancelAtendimentoId = null;
     }
 
@@ -900,21 +892,14 @@ var CSRF_TOKEN = '{{ csrf_token }}';
         btnCloseModal.addEventListener('click', closeCancelModal);
     }
 
-    // Close modal on overlay click
+    // Clique no fundo fecha; Esc e nativo (evento close zera o alvo)
     var overlay = document.getElementById('cancelModal');
     if (overlay) {
         overlay.addEventListener('click', function(e) {
             if (e.target === overlay) closeCancelModal();
         });
+        overlay.addEventListener('close', function() { cancelAtendimentoId = null; });
     }
-
-    // Close modal on Esc key
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            var modal = document.getElementById('cancelModal');
-            if (modal && modal.classList.contains('active')) closeCancelModal();
-        }
-    });
 
     var btnConfirmCancel = document.getElementById('btnConfirmCancel');
     if (btnConfirmCancel) {

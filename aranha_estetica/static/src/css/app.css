@@ -75,6 +75,15 @@
   }
 }
 
+/* <dialog class="dialogo">: o painel (filho) traz fundo/borda; o dialog so posiciona */
+dialog.dialogo {
+  margin: auto;   /* o reset do Tailwind zera a margem que centraliza o modal */
+  padding: 0; border: none; background: transparent; color: inherit;
+  width: calc(100% - 2rem); max-width: 42rem; max-height: calc(100vh - 2rem); overflow: visible;
+}
+dialog.dialogo::backdrop { background: rgb(0 0 0 / .45); }
+dialog.dialogo > * { margin-inline: auto; }
+
 /* Selo de status do atendimento (partials/_status_badge.html, ficha da cliente, calendario) */
 .status-PENDENTE   { background: var(--st-pendente-fundo);   color: var(--st-pendente-texto); }
 .status-AGENDADO   { background: var(--st-agendado-fundo);   color: var(--st-agendado-texto); }

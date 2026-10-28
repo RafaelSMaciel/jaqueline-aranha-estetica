@@ -20,7 +20,7 @@
 {% else %}
 
 {% for promo in promocoes %}
-<div x-data="modal" x-on:keydown.escape.window="fechar"
+<div x-data="modal"
      class="relative overflow-hidden bg-superficie rounded-2xl shadow-sm p-4 mb-3 border-l-4 {% if promo.ativa %}border-sucesso{% else %}border-borda opacity-70{% endif %}">
   <div class="absolute top-3 right-3 px-3 py-1 rounded-full bg-gradient-to-br from-[#C9A84C] to-[#e8c94f] text-white font-extrabold text-[0.8rem]">{% if promo.preco_promocional is not None %}{{ promo.preco_promocional|brl }}{% else %}-{{ promo.desconto_percentual|floatformat:"-2" }}%{% endif %}</div>
   <div class="font-bold text-[1rem] text-texto mb-0.5 pr-16">{{ promo.nome }}</div>
@@ -86,9 +86,8 @@
   </div>
 
   {# Modal de edição #}
-  <div x-show="aberto" x-cloak role="dialog" aria-modal="true" aria-label="Editar promoção"
-       class="fixed inset-0 z-[10000] flex items-center justify-center p-4" style="background:rgba(0,0,0,.45)">
-    <div x-on:click.outside="fechar"
+  <dialog x-ref="dialogo" x-on:click="cliqueFora" x-on:close="aoFechar" aria-label="Editar promoção" class="dialogo">
+    <div
          class="bg-superficie text-texto rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl">
       <div class="flex items-center justify-between px-5 py-4 border-b border-borda rounded-t-2xl">
         <h5 class="font-bold text-[0.95rem] text-texto">Editar Promoção</h5>
@@ -159,14 +158,14 @@
                 class="w-full py-2.5 rounded-full bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">Salvar Alterações</button>
       </form>
     </div>
-  </div>
+  </dialog>
 </div>
 {% endfor %}
 {% include 'partials/_paginacao.html' with page=promocoes %}
 {% endif %}
 
 {# ── FAB + Modal criar ── #}
-<div x-data="modal" x-on:keydown.escape.window="fechar">
+<div x-data="modal">
   <button type="button" x-on:click="abrir" aria-label="Nova promoção"
           class="fixed bottom-6 right-6 z-[9000] w-14 h-14 rounded-full bg-gradient-to-br from-[#C9A84C] to-[#e8c94f] text-white shadow-lg flex items-center justify-center border-none cursor-pointer hover:opacity-90 transition-opacity">
     <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
@@ -174,9 +173,8 @@
     </svg>
   </button>
 
-  <div x-show="aberto" x-cloak role="dialog" aria-modal="true" aria-label="Nova promoção"
-       class="fixed inset-0 z-[10000] flex items-center justify-center p-4" style="background:rgba(0,0,0,.45)">
-    <div x-on:click.outside="fechar"
+  <dialog x-ref="dialogo" x-on:click="cliqueFora" x-on:close="aoFechar" aria-label="Nova promoção" class="dialogo">
+    <div
          class="bg-superficie text-texto rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl">
       <div class="flex items-center justify-between px-5 py-4 border-b border-borda rounded-t-2xl">
         <h5 class="flex items-center gap-2 font-bold text-[0.95rem] text-texto">
@@ -239,7 +237,7 @@
                 class="w-full py-2.5 rounded-full bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">Criar Promoção</button>
       </form>
     </div>
-  </div>
+  </dialog>
 </div>
 
 {% endblock %}
