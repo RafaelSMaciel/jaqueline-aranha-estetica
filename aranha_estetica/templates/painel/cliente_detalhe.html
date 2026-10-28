@@ -1,4 +1,5 @@
 {% extends 'painel/base_v2.html' %}
+{% load l10n %}
 
 {% block titulo %}{{ cliente.nome }} — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}{{ cliente.nome }}{% endblock %}
@@ -384,8 +385,9 @@
       <summary class="cursor-pointer text-[0.75rem] font-bold text-erro">Cancelar pacote</summary>
       <form method="post" action="{% url 'aranha:admin_cancelar_compra_pacote' compra.pk %}" class="mt-2">
         {% csrf_token %}
-        <label for="reembCancel{{ compra.pk }}" class="block text-[0.72rem] font-bold text-texto-suave mb-1">Valor devolvido à cliente (R$; 0 se nada foi devolvido)</label>
-        <input id="reembCancel{{ compra.pk }}" type="text" name="valor_reembolsado" inputmode="decimal" required placeholder="0,00"
+        <label for="reembCancel{{ compra.pk }}" class="block text-[0.72rem] font-bold text-texto-suave mb-1">Valor devolvido à cliente em dinheiro (R$; 0 se nada foi devolvido)</label>
+        <p class="text-[0.7rem] text-texto-suave mb-1">Sugestão: sessões restantes × valor da sessão = {{ compra.reembolso_sugerido|brl }}. O reembolso entra no faturamento do mês do cancelamento.</p>
+        <input id="reembCancel{{ compra.pk }}" type="text" name="valor_reembolsado" inputmode="decimal" required placeholder="0,00" value="{{ compra.reembolso_sugerido|unlocalize }}"
                class="w-32 px-3 py-2 mb-2 rounded-xl border border-borda bg-fundo text-[0.8rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40">
         <label for="obsCancel{{ compra.pk }}" class="block text-[0.72rem] font-bold text-texto-suave mb-1">Motivo e reembolso/acordo (vai para a auditoria)</label>
         <textarea id="obsCancel{{ compra.pk }}" name="observacao" rows="2" required maxlength="500"
@@ -393,6 +395,23 @@
         <button type="submit" data-confirm="Cancelar este pacote? As sessões restantes deixam de ser debitadas."
                 class="mt-2 px-3 py-1.5 rounded-lg bg-red-700 text-white text-[0.75rem] font-bold border-none cursor-pointer hover:bg-red-800 transition-colors">
           Confirmar cancelamento
+        </button>
+      </form>
+    </details>
+    {% endif %}
+    {% if compra.status == 'ATIVO' or compra.status == 'EXPIRADO' %}
+    <details class="mt-2">
+      <summary class="cursor-pointer text-[0.75rem] font-bold text-marca-forte">Prorrogar validade</summary>
+      <form method="post" action="{% url 'aranha:admin_prorrogar_compra_pacote' compra.pk %}" class="mt-2">
+        {% csrf_token %}
+        <label for="validadeNova{{ compra.pk }}" class="block text-[0.72rem] font-bold text-texto-suave mb-1">Nova validade{% if compra.status == 'EXPIRADO' %} (o pacote volta a ficar ativo){% endif %}</label>
+        <input id="validadeNova{{ compra.pk }}" type="date" name="nova_data" required min="{% now 'Y-m-d' %}"
+               class="px-3 py-2 mb-2 rounded-xl border border-borda bg-fundo text-[0.8rem] text-texto outline-none focus:ring-2 focus:ring-marca-forte/40">
+        <label for="motivoValidade{{ compra.pk }}" class="block text-[0.72rem] font-bold text-texto-suave mb-1">Motivo (vai para a auditoria)</label>
+        <textarea id="motivoValidade{{ compra.pk }}" name="motivo" rows="2" required maxlength="500"
+                  class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.8rem] text-texto outline-none focus:ring-2 focus:ring-marca-forte/40 resize-y"></textarea>
+        <button type="submit" class="mt-2 px-3 py-1.5 rounded-lg bg-marca-forte text-sobre-marca text-[0.75rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
+          Prorrogar
         </button>
       </form>
     </details>

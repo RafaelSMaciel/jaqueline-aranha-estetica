@@ -298,15 +298,18 @@ class ReembolsoPacoteTests(_AdminBase):
         self._cancelar(integral, '1000,00')
         cache.clear()
         ctx = self.client.get(reverse('aranha:dashboard_financeiro')).context
-        # sessoes de pacote nao somam; a venda cancelada entra com os 500 retidos
-        self.assertEqual(ctx['fat_hoje_total'], Decimal('500.00'))
-        self.assertEqual(ctx['fat_hoje_pacotes'], 1)
-        self.assertEqual(ctx['fat_mes_pacotes_total'], Decimal('500.00'))
+        # competencia: as 2 vendas (2000) entram no mes da venda e os 2 reembolsos (1500) no mes do
+        # cancelamento — aqui o mesmo mes; sessoes de pacote nao somam
+        self.assertEqual(ctx['receita']['pacotes'], {
+            'vendas': Decimal('2000.00'), 'qtd_vendas': 2, 'reembolsos': Decimal('1500.00'), 'qtd_reembolsos': 2,
+            'total': Decimal('500.00'),
+        })
+        self.assertEqual(ctx['receita']['total'], Decimal('500.00'))
 
     def test_financeiro_pacote_ativo_segue_com_valor_pago(self):
         criar_compra_pacote(self.cli, self.pacote)
         ctx = self.client.get(reverse('aranha:dashboard_financeiro')).context
-        self.assertEqual(ctx['fat_hoje_total'], Decimal('1000.00'))
+        self.assertEqual(ctx['receita']['total'], Decimal('1000.00'))
 
     def test_overview_receita_mensal_liquida_do_reembolso(self):
         compra = criar_compra_pacote(self.cli, self.pacote)
@@ -314,8 +317,8 @@ class ReembolsoPacoteTests(_AdminBase):
         self._cancelar(compra, '750,00')
         criar_compra_pacote(criar_cliente('Ativa'), criar_pacote('Outro', preco=Decimal('300.00')))
         resp = self.client.get(reverse('aranha:painel_overview'))
-        # 250 retidos do cancelado + 300 do ativo
-        self.assertEqual(resp.context['receita_mensal'], '550,00')
+        # 250 retidos do cancelado + 300 do ativo (venda e cancelamento no mesmo mes)
+        self.assertEqual(resp.context['receita_mes'], Decimal('550.00'))
 
 
 # ════════════════════════════════════════════════════════════════════

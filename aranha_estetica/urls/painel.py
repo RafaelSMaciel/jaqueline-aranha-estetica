@@ -80,6 +80,8 @@ urlpatterns = [
     path('painel/pacotes/<int:pk>/editar/', pacotes.admin_editar_pacote, name='admin_editar_pacote'),
     path('painel/pacotes/vender/', pacotes.admin_vender_pacote, name='admin_vender_pacote'),
     path('painel/pacotes/compras/<int:pk>/cancelar/', pacotes.admin_cancelar_compra_pacote, name='admin_cancelar_compra_pacote'),
+    path('painel/pacotes/compras/<int:pk>/prorrogar/', pacotes.admin_prorrogar_compra_pacote,
+         name='admin_prorrogar_compra_pacote'),
     # ─── Bloqueios de Agenda ───
     path('painel/bloqueios/', bloqueios.admin_bloqueios, name='admin_bloqueios'),
     path('painel/bloqueios/criar/', bloqueios.admin_criar_bloqueio, name='admin_criar_bloqueio'),
