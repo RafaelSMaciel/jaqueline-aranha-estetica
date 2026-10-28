@@ -110,22 +110,22 @@
 
 {# ── Charts ── #}
 <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 mb-3">
-  <div class="lg:col-span-7">
+  <div class="lg:col-span-7 min-w-0">
     <div class="bg-superficie rounded-2xl shadow-sm p-5">
       <div class="flex items-center gap-1.5 text-[0.75rem] font-extrabold uppercase tracking-wider text-texto-suave mb-4">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
-        Agendamentos por Dia da Semana
+        Agendamentos por dia da semana
       </div>
-      <div class="relative h-[200px]"><canvas id="chartSemana"></canvas></div>
+      <div class="relative h-[200px] [&>canvas]:max-w-full"><canvas id="chartSemana" role="img" aria-label="Gráfico de agendamentos por dia da semana"></canvas></div>
     </div>
   </div>
-  <div class="lg:col-span-5">
+  <div class="lg:col-span-5 min-w-0">
     <div class="bg-superficie rounded-2xl shadow-sm p-5">
       <div class="flex items-center gap-1.5 text-[0.75rem] font-extrabold uppercase tracking-wider text-texto-suave mb-4">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M21.21 15.89A10 10 0 118 2.83"/><path d="M22 12A10 10 0 0012 2v10z"/></svg>
-        Status dos Agendamentos
+        Status dos agendamentos
       </div>
-      <div class="relative h-[200px]"><canvas id="chartStatus"></canvas></div>
+      <div class="relative h-[200px] [&>canvas]:max-w-full"><canvas id="chartStatus" role="img" aria-label="Gráfico de agendamentos por status"></canvas></div>
     </div>
   </div>
 </div>

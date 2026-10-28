@@ -85,6 +85,7 @@
     var filtroProfissional = document.getElementById('filtroProfissional');
     var calendarEl = document.getElementById('calendar');
     var modal = document.getElementById('calModal');
+    var celular = window.matchMedia('(max-width: 640px)').matches;
     var calendar;
 
     function eventsSource(info, success, failure) {
@@ -148,12 +149,11 @@
     document.addEventListener('DOMContentLoaded', function(){
         calendar = new FullCalendar.Calendar(calendarEl, {
             locale: 'pt-br',
-            initialView: 'timeGridWeek',
-            headerToolbar: {
-                left: 'prev,next today',
-                center: 'title',
-                right: 'dayGridMonth,timeGridWeek,timeGridDay',
-            },
+            // celular: lista da semana (a grade de 7 colunas nao cabe em 375px)
+            initialView: celular ? 'listWeek' : 'timeGridWeek',
+            headerToolbar: celular
+                ? { left: 'prev,next', center: 'title', right: 'listWeek,timeGridDay' }
+                : { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' },
             nowIndicator: true,
             editable: true,
             eventDurationEditable: false,
