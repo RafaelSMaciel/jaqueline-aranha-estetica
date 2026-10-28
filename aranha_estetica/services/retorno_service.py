@@ -21,12 +21,12 @@ from django.utils import timezone
 
 from ..domain.event_bus import EventBus
 from ..domain.events import AtendimentoRealizado, RetornoSugerido
+from ..excecoes import HorarioIndisponivel
 from ..models import Atendimento
+from .agenda import reservar
 
 logger = logging.getLogger(__name__)
 
-# Duracao padrao do atendimento de retorno quando o procedimento nao define.
-DURACAO_RETORNO_PADRAO_MINUTOS = 30
 # Minimo de dias ate o retorno sugerido quando retorno_minimo_dias nao
 # esta configurado — evita sugerir retorno no mesmo instante do fim do
 # atendimento de origem (janela colapsada).
@@ -92,7 +92,6 @@ class RetornoService:
         # mesmo instante do fim do atendimento de origem (janela colapsada).
         min_dias = proc.retorno_minimo_dias or RETORNO_MINIMO_DIAS_PADRAO
         max_dias = max(proc.retorno_maximo_dias or min_dias, min_dias)
-        duracao = proc.duracao_retorno_minutos or DURACAO_RETORNO_PADRAO_MINUTOS
         sugerida = _primeiro_horario_livre(atendimento_origem, min_dias, max_dias)
         if sugerida is None:
             logger.info(
@@ -103,24 +102,18 @@ class RetornoService:
 
         from django.db import IntegrityError
         try:
-            # savepoint: a EXCLUDE (slot ocupado) nao aborta a transacao da transicao
-            with transaction.atomic():
-                retorno = Atendimento.objects.create(
-                    cliente=atendimento_origem.cliente,
-                    profissional=atendimento_origem.profissional,
-                    procedimento=proc,
-                    data_hora_inicio=sugerida,
-                    data_hora_fim=sugerida + timedelta(minutes=duracao),
-                    valor_cobrado=0,
-                    valor_original=0,
-                    descricao_preco='Retorno obrigatorio (sem cobranca)',
-                    status=Atendimento.STATUS_PENDENTE,
-                    eh_retorno=True,
-                    atendimento_origem=atendimento_origem,
-                )
-        except IntegrityError:
-            # ex_atendimento_sobreposicao: slot sugerido ja ocupado.
-            # Best-effort — recepcao agenda o retorno manualmente.
+            # duracao de retorno; INSERT em savepoint: slot ocupado nao aborta a transicao
+            retorno = reservar(
+                cliente=atendimento_origem.cliente, profissional=atendimento_origem.profissional,
+                procedimento=proc, inicio=sugerida, status=Atendimento.STATUS_PENDENTE,
+                eh_retorno=True, atendimento_origem=atendimento_origem,
+                preco={
+                    'valor_cobrado': 0, 'valor_original': 0, 'promocao': None,
+                    'descricao_preco': 'Retorno obrigatorio (sem cobranca)',
+                },
+            )
+        except (HorarioIndisponivel, IntegrityError):
+            # Slot sugerido ja ocupado. Best-effort — recepcao agenda o retorno manualmente.
             logger.warning(
                 'retorno_slot_sugerido_ocupado',
                 extra={'atendimento_origem_id': atendimento_origem.pk},

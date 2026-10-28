@@ -15,7 +15,7 @@ Preco gravado = preco com promocao NA DATA DO ATENDIMENTO (utils.precos).
 """
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from django.conf import settings
 from django.contrib import messages
@@ -31,7 +31,6 @@ from django_ratelimit.decorators import ratelimit
 
 from ..models import (
     AceiteTermo,
-    AgendaExcecao,
     Atendimento,
     Cliente,
     FormularioAnamnese,
@@ -42,11 +41,11 @@ from ..models import (
     VersaoTermo,
 )
 from ..models.termos import TEXTO_CONSENTIMENTO_SAUDE
-from ..services import consentimentos
+from ..excecoes import RegraDeNegocio
+from ..services import agenda, consentimentos
 from ..services import otp as otp_service
 from ..services.agendamento_service import formatar_brl, formatar_data_hora
 from ..services.anamnese import validar_respostas
-from ..services.disponibilidade import profissional_habilitado, slot_disponivel
 from ..utils.audit import registrar_log
 from ..utils.captcha import turnstile_enabled, turnstile_site_key
 from ..utils.datas import data_local
@@ -54,7 +53,7 @@ from ..utils.datas import hoje as hoje_local
 from ..utils.email import email_configurado
 from ..utils.parse import id_int
 from ..utils.pii import mask_email, mask_telefone
-from ..utils.precos import aplicar_promocao, preco_base_map, preco_com_promocao, promocao_vigente
+from ..utils.precos import aplicar_promocao, preco_base_map, promocao_vigente
 from ..utils.security import client_ip as _client_ip
 from ..utils.sms import sms_disponivel
 from ..validators import validate_data_nascimento
@@ -74,10 +73,6 @@ MSG_SEM_TERMO_LGPD = (
 MAX_ANAMNESE_BYTES = 20_000
 # Consentimentos de comunicacao: checkbox do wizard -> par finalidade x canal
 # (services/consentimentos.PARES; historico append-only na tabela consentimento).
-
-
-class _Recusa(Exception):
-    """Recusa dentro do atomic: desfaz o que foi gravado e volta com a mensagem."""
 
 
 def _voltar_com_erro(request, mensagem):
@@ -102,12 +97,6 @@ def _enfileirar_email(funcao, destinatario, dados):
         send_email_async.delay(funcao, destinatario, dados)
     except Exception:  # noqa: BLE001 — notificacao nao pode virar 500 pos-commit
         logger.warning('booking_email_falhou', extra={'funcao': funcao}, exc_info=True)
-
-
-def _eh_sobreposicao(exc) -> bool:
-    """IntegrityError da exclusion constraint (23P01) = corrida de slot perdida."""
-    causa = getattr(exc, '__cause__', None)
-    return getattr(causa, 'pgcode', None) == '23P01' or 'ex_atendimento_sobreposicao' in str(exc)
 
 
 def _formularios_aplicaveis(procedimento):
@@ -387,19 +376,12 @@ def confirmar_agendamento(request):
     except (Procedimento.DoesNotExist, Profissional.DoesNotExist, ValueError, TypeError, OverflowError):
         return _voltar_com_erro(request, 'Dados do agendamento inválidos. Refaça a seleção.')
 
-    if not profissional_habilitado(profissional, procedimento):
-        return _voltar_com_erro(request, 'Este profissional não realiza o procedimento escolhido.')
-
-    if data_hora <= timezone.now():
-        return _voltar_com_erro(request, 'Escolha uma data e horário futuros.')
-
-    if AgendaExcecao.objects.folga_global_em(data_hora.date()).exists():
-        return _voltar_com_erro(request, 'Esta data é feriado/recesso — escolha outro dia.')
-
-    # Slot precisa ser um dos oferecidos (expediente, folga, bloqueio, buffer,
-    # antecedencia minima/maxima, sobreposicao com a duracao inteira).
-    if not slot_disponivel(profissional, procedimento, data_hora):
-        return _voltar_com_erro(request, 'Este horário não está mais disponível. Escolha outro.')
+    # Habilitacao, horario futuro, feriado/recesso e o slot oferecido (expediente, folga,
+    # bloqueio, buffer, antecedencia, duracao inteira) — a mesma regra das outras portas.
+    try:
+        agenda.validar_horario(profissional, procedimento, data_hora)
+    except RegraDeNegocio as recusa:
+        return _voltar_com_erro(request, recusa.mensagem)
 
     anamneses, erro_anamnese = _validar_anamnese(
         (request.POST.get('anamnese_respostas') or '').strip(), procedimento,
@@ -440,7 +422,6 @@ def confirmar_agendamento(request):
             'Este e-mail já está vinculado a outro cadastro. Use outro e-mail ou deixe em branco.',
         )
 
-    data_hora_fim = data_hora + timedelta(minutes=procedimento.duracao_minutos)
     slot_key = f'booking_slot:{profissional.pk}:{data_hora.isoformat()}'
     if not cache.add(slot_key, '1', timeout=30):
         return _voltar_com_erro(
@@ -463,7 +444,7 @@ def confirmar_agendamento(request):
             )
             if not created and (cliente.bloqueado_online or not cliente.ativo):
                 # Regra das 3 faltas / bloqueio manual do painel.
-                raise _Recusa(MSG_BLOQUEADO_ONLINE)
+                raise RegraDeNegocio(MSG_BLOQUEADO_ONLINE, codigo='bloqueado_online')
             if not created:
                 atualizar = False
                 if cliente.nome != nome:
@@ -489,30 +470,10 @@ def confirmar_agendamento(request):
                 cadastro_novo=created, request=request,
             )
 
-            conflito = Atendimento.objects.select_for_update().filter(
-                profissional=profissional,
-                data_hora_inicio__lt=data_hora_fim,
-                data_hora_fim__gt=data_hora,
-                status__in=Atendimento.STATUS_ATIVOS,
-            ).exists()
-            if conflito:
-                raise _Recusa('Este horário já foi reservado. Por favor, escolha outro.')
-
-            # Preco da DATA DO ATENDIMENTO (profissional > base) com a promocao
-            # vigente nesse dia — o mesmo valor do resumo do wizard.
-            valor, promocao, valor_cheio = preco_com_promocao(procedimento, profissional, data_hora)
-
-            atendimento = Atendimento.objects.create(
-                cliente=cliente,
-                profissional=profissional,
-                procedimento=procedimento,
-                data_hora_inicio=data_hora,
-                data_hora_fim=data_hora_fim,
-                valor_cobrado=valor,
-                valor_original=valor_cheio if promocao else None,
-                promocao=promocao,
-                descricao_preco=f'Promoção {promocao.nome}' if promocao else '',
-                status=Atendimento.STATUS_PENDENTE,
+            # Conflito com lock + preco da data (promocao do dia, o mesmo do resumo do wizard).
+            atendimento = agenda.reservar(
+                cliente=cliente, profissional=profissional, procedimento=procedimento,
+                inicio=data_hora, status=Atendimento.STATUS_PENDENTE,
             )
 
             # Aceites com prova (IP, user-agent, SHA-256 do texto): Politica de
@@ -547,13 +508,11 @@ def confirmar_agendamento(request):
                     request=request,
                 )
             email_cliente = cliente.email
-    except _Recusa as recusa:
-        return _voltar_com_erro(request, str(recusa))
-    except IntegrityError as exc:
-        if _eh_sobreposicao(exc):
-            # Outro request reservou janela sobreposta entre o check e o INSERT.
+    except RegraDeNegocio as recusa:
+        if recusa.codigo == 'horario_ocupado':
             logger.info('booking_slot_corrida_perdida', extra={'telefone': mask_telefone(telefone)})
-            return _voltar_com_erro(request, 'Este horário acabou de ser reservado. Por favor, escolha outro.')
+        return _voltar_com_erro(request, recusa.mensagem)
+    except IntegrityError as exc:
         logger.error(
             'booking_confirmar_falha',
             extra={
@@ -599,10 +558,10 @@ def confirmar_agendamento(request):
         'procedimento': procedimento.nome,
         'profissional': profissional.nome,
         'data_hora': data_formatada,
-        'valor': formatar_brl(valor) if valor is not None else 'A consultar',
+        'valor': formatar_brl(atendimento.valor_cobrado) if atendimento.valor_cobrado is not None else 'A consultar',
         # cheio riscado + nome da promo quando a promocao reduziu o valor
-        'valor_cheio': formatar_brl(valor_cheio) if promocao else '',
-        'promocao': promocao.nome if promocao else '',
+        'valor_cheio': formatar_brl(atendimento.valor_original) if atendimento.promocao else '',
+        'promocao': atendimento.promocao.nome if atendimento.promocao else '',
         'pendente': True,
         # So promete acompanhamento por e-mail se o backend entrega de fato
         'email': bool(email_cliente) and email_configurado(),

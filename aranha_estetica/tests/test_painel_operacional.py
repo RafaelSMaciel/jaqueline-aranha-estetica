@@ -1081,7 +1081,8 @@ class AgendamentoInternoTests(_AdminTestCase):
         resp = self._post()
         self.assertEqual(resp.status_code, 200)
         self.assertFalse(Atendimento.objects.filter(cliente=self.cli).exists())
-        self.assertTrue(any('não está livre' in m for m in _mensagens(resp)))
+        # a recepcao ve o motivo (services.agenda, detalhado)
+        self.assertTrue(any('já existe um atendimento' in m for m in _mensagens(resp)))
 
     def test_valor_combinado_fica_registrado(self):
         self._post(valor='99,90')

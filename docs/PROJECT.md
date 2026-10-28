@@ -82,7 +82,8 @@ aranha_estetica/
 ├── views/           public, booking_public/_otp/_reagendar/_api, agenda_publica, anamnese_publica,
 │                    notificacoes (confirmar presença), lgpd, profissional, prontuario, auth, admin_2fa,
 │                    dashboard, admin*, pacotes, relatorios, cron, health, whatsapp, webpush_views
-├── services/        agendamento_service, disponibilidade (SlotService), otp, lgpd, termos, alertas,
+├── services/        agenda (reservar/reagendar/mover), agendamento_service, disponibilidade (SlotService),
+│                    otp, lgpd, termos, alertas,
 │                    comissao_service, fidelidade_service, retorno_service, lista_espera_service,
 │                    anamnese, auditoria, push, gcal
 ├── domain/          event_bus.py (EventBus síncrono, na transação da FSM), events.py, handlers.py (logging)
@@ -105,6 +106,7 @@ aranha_estetica/
 ├── middleware.py    Enforce2FAMiddleware, SecurityHeadersMiddleware, ContentSecurityPolicyMiddleware,
 │                    ContextoBancoMiddleware (autor/IP/origem p/ a trilha historico_alteracao)
 ├── checks.py        system checks de produção aranha.W001–W009
+├── excecoes.py      RegraDeNegocio (mensagem + codigo), HorarioIndisponivel, TransicaoInvalida
 ├── context_processors.py · decorators.py · validators.py · constants.py · sitemaps.py · admin.py
 clinica/             settings/{base,dev,prod}.py, urls.py, celery.py, wsgi.py, apps.py, gunicorn_logger.py
 ```
@@ -148,6 +150,17 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   horário diferente, bloqueios pontuais/recorrentes do profissional ou globais —, buffers,
   `min_notice_horas`, `max_advance_dias`). Usada pelo wizard, pelo
   reagendamento, pelo agendamento interno e pela validação do servidor.
+- **Agenda** (`services/agenda.py`): as 5 portas que gravam horário (wizard, agendamento pelo
+  painel, reagendamento pelo portal/link, arrasto do calendário, retorno automático) passam por
+  `validar_horario` (habilitação, horário futuro, feriado/recesso, SlotService; `detalhado=True`
+  dá o motivo à equipe — conflito, bloqueio, folga, expediente — e o site vê a mensagem
+  genérica), `reservar` (conflito com `select_for_update`, preço da data, INSERT em savepoint;
+  corrida perdida para o EXCLUDE vira `HorarioIndisponivel`), `reagendar` (antigo REAGENDADO +
+  novo com preço/promoção e ficha) e `mover`. O que é só de uma porta fica nela (OTP e
+  consentimentos do wizard, valor combinado do painel, link e e-mails do portal).
+- **Recusas** (`excecoes.py`): service diz "não" levantando `RegraDeNegocio(mensagem, codigo=)`
+  (ou `HorarioIndisponivel`/`TransicaoInvalida`); a view só mostra `exc.mensagem` (ou
+  `json_recusa(exc)`). `Atendimento.TransicaoInvalida` é a mesma classe.
 - **Preço**: `utils/precos.py` — preço vigente por data (profissional > base) e promoção
   vigente na data; `preco_com_promocao()` é o valor gravado no atendimento e o mesmo que a
   vitrine (`/promocoes/`, `/especialidades/`, cards do wizard) mostra.
@@ -1068,6 +1081,8 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 ## 15. Convenções de código
 
 - Regra de negócio em `services/`/`utils/`, não em view; mudança de status só pela FSM.
+- Recusa de regra = `excecoes.RegraDeNegocio` com mensagem pronta para a tela (nunca `None`/
+  `False`/exceção privada da view); horário de atendimento só por `services/agenda`.
 - Toda escrita multi-tabela em `transaction.atomic`; I/O externo (e-mail, WhatsApp, push) só no
   `on_commit`, best-effort.
 - Datas "hoje/amanhã" sempre no fuso da clínica (`utils/datas`), nunca `date.today()`.
