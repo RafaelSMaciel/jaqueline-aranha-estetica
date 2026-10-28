@@ -17,7 +17,7 @@ ORIGENS = [
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('aranha_estetica', '0065_promocao_disparo'),
+        ('aranha_estetica', '0072_promocao_disparo'),
     ]
 
     operations = [

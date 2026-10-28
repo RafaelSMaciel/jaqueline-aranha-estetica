@@ -74,12 +74,6 @@ def url_descadastro(token: str) -> str:
     return url_absoluta(reverse('aranha:lgpd_unsubscribe', args=[token]))
 
 
-def link_agendar(procedimento_id: int | None = None) -> str:
-    """Wizard de agendamento, com o procedimento ja escolhido quando houver."""
-    caminho = reverse('aranha:agendamento_publico')
-    return url_absoluta(f'{caminho}?procedimento={procedimento_id}' if procedimento_id else caminho)
-
-
 # ─── Dados das mensagens ──────────────────────────────────────────────────
 
 def _valor(at) -> str:

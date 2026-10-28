@@ -25,6 +25,7 @@ from html import unescape
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
+from django.urls import reverse
 from django.utils.html import strip_tags
 
 from .pii import mask_email
@@ -119,6 +120,22 @@ def _remetente() -> str:
     return getattr(settings, 'DEFAULT_FROM_EMAIL', '') or 'noreply@localhost'
 
 
+def link_agendar(procedimento_id: int | None = None) -> str:
+    """Destino do botao "Agendar" dos e-mails = o dos botoes do site (site_tags.agendar_link).
+
+    O wizard pede codigo por SMS: sem SMS ele nao conclui, e o site manda p/ o WhatsApp da
+    clinica (context_processors._agendar_whatsapp). Antes o e-mail tinha '/agendamento/' fixo.
+    procedimento_id: o wizard ja abre com o procedimento escolhido (CTA da promocao)."""
+    from ..context_processors import _agendar_whatsapp
+    from .branding import get_branding
+
+    whatsapp = _agendar_whatsapp(get_branding().get('WHATSAPP_NUMERO', ''))
+    if whatsapp:
+        return whatsapp
+    url = settings.SITE_URL.rstrip('/') + reverse('aranha:agendamento_publico')
+    return f'{url}?procedimento={procedimento_id}' if procedimento_id else url
+
+
 def _enviar_email(destinatario, assunto, template, contexto,
                   marketing=False, preheader='', unsub_url=None):
     """Envia email HTML. Marketing inclui List-Unsubscribe (RFC 8058 one-click).
@@ -140,6 +157,7 @@ def _enviar_email(destinatario, assunto, template, contexto,
     contexto.setdefault('clinic_name', _nome_clinica())
     contexto.setdefault('site_url', settings.SITE_URL.rstrip('/'))
     contexto.setdefault('preheader', preheader)
+    contexto.setdefault('link_agendar', link_agendar())
 
     remetente = _remetente()
     headers = {}

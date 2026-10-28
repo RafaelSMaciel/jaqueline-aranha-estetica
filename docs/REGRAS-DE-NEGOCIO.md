@@ -201,9 +201,12 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 
 - Pacote = itens (procedimento × sessões), preço total e validade em meses. O **catálogo é
   editável a qualquer momento** (nome, itens, preço, validade, ativo): a **venda congela** o que foi
-  vendido — nome do pacote e, por item, procedimento, nome, sessões e **valor de 1 sessão** =
-  `valor_pago` ÷ total de sessões (centavos, meio p/ cima). Editar o catálogo só vale para as
-  próximas vendas; quem já comprou mantém o que comprou. Pacote inativo não é vendido.
+  vendido — nome do pacote e, por item, procedimento, nome, sessões e **valor de 1 sessão**.
+  O valor pago é **rateado em proporção ao preço de tabela** de cada procedimento na data da venda
+  (`rateio_ponderado`: peso = preço × sessões; centavos meio p/ cima, o resto de centavos no item de
+  maior peso); se algum item não tem preço de tabela, o rateio é uniforme (valor ÷ sessões). Ex.:
+  R$ 1.800 por 1 toxina + 5 drenagens → 1.107,70 e 138,46 por sessão. Editar o catálogo só vale
+  para as próximas vendas; quem já comprou mantém o que comprou. Pacote inativo não é vendido.
 - Venda (ficha da cliente ou Painel > Pacotes): `valor_pago`, expiração = data local da venda +
   validade.
 - Sessão REALIZADA de procedimento **do que foi vendido** **debita 1 sessão** daquele item
@@ -216,8 +219,12 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
   já marcadas) aparece como "Pacote · restam N" no painel e "Sessão do pacote X" no portal, no
   e-mail de confirmação e na página de sucesso — nunca o preço cheio.
 - Status: **ATIVO** → **FINALIZADO** (todas as sessões usadas) | **EXPIRADO** (job
-  `pacote_expirar`: vencimento < hoje) | **CANCELADO** (painel: exige o **valor devolvido**, de 0
-  até o valor pago, e o motivo; auditado; sessões usadas continuam registradas).
+  `pacote_expirar`: vencimento < hoje) | **CANCELADO** (`services/pacotes.cancelar_compra`: valor
+  devolvido **em dinheiro** de 0 até o valor pago — sugerido = sessões restantes × valor da sessão,
+  editável —, motivo obrigatório, auditado sem o nome da cliente; grava `cancelado_em`; sessões
+  usadas continuam registradas). Reembolso nunca vira crédito na carteira.
+- **Prorrogar validade** (só ADMIN, `prorrogar_validade`): compra ATIVA ou EXPIRADA, nova data
+  depois da atual e não no passado, motivo obrigatório, auditoria de/para; EXPIRADA volta a ATIVA.
 - Aviso por e-mail 7 e 1 dia antes do vencimento, se houver saldo ("Sessões realizadas até dd/mm
   contam no seu pacote").
 - A ficha da cliente mostra por pacote (nome da venda): sessões usadas/total por item vendido e
@@ -248,12 +255,16 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
   `valor_original`). Recusado para CANCELADO/FALTOU/REAGENDADO, para retorno (sempre 0) e para
   REALIZADO que já tem comissão lançada. Em REALIZADO sem comissão, calcula a comissão e o
   cashback na hora.
-- **Faturamento** (financeiro/overview) = atendimentos **avulsos** REALIZADOS com valor > 0 (sem
-  retornos, **sem sessões de pacote**) + **vendas de pacote** na data da compra, líquidas do valor
-  devolvido (cancelada entra com o que a clínica reteve; devolvida integral = 0).
+- **Competência mensal** (`services/financeiro.competencia`, `?mes=AAAA-MM`, padrão o mês local
+  corrente): o financeiro, a visão geral e o Excel usam o mesmo período, escrito na tela.
+- **Faturamento do mês** = atendimentos **avulsos** REALIZADOS com valor > 0 (sem retornos, **sem
+  sessões de pacote**) pela data do atendimento + **pacotes**: vendas pela data da venda **menos
+  reembolsos pela data do cancelamento** (`cancelado_em`). Mês fechado não muda; um mês pode ter
+  pacotes negativos (reembolso de venda antiga). Tabela "últimos 12 meses" no financeiro.
 - **Ticket médio** = média dos avulsos faturados (mesma regra acima). Uma função só
-  (`services/financeiro`) para a visão geral (mês corrente), o financeiro (30 dias) e a ficha da
-  cliente.
+  (`services/financeiro`) para a visão geral, o financeiro e a ficha da cliente.
+- **Excel mensal** (`?mes=`): abas Resumo, Atendimentos (origem avulso/pacote/retorno, faturado?,
+  comissão), Pacotes (vendas +, reembolsos −) e Comissões; total igual ao card; exportação auditada.
 - **LTV da ficha** = avulsos faturados + pacotes líquidos: a sessão de pacote não soma de novo a
   preço cheio (a receita dela já entrou na venda).
 - Taxa de faltas do mês = FALTOU / (REALIZADO + FALTOU).
@@ -265,19 +276,26 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 - Calculada ao marcar **REALIZADO** (não em retorno). Regra mais específica primeiro
   (`RegraComissao` ativa): (profissional + procedimento) → (profissional) → (procedimento) →
   global; empate = a editada por último.
-- Valor = **percentual** (0–100) **ou** valor fixo, sobre a **base**: `valor_cobrado` no avulso;
-  na sessão de pacote, **`valor_pago` do pacote ÷ total de sessões do pacote** (rateio).
+- Valor = **percentual** (0–100) **ou** valor fixo (limitado à base), sobre a **base**:
+  `valor_cobrado` no avulso; na sessão de pacote, o **valor de 1 sessão congelado no item** da
+  venda (rateio ponderado, §12). Cada CRÉDITO guarda a base e o percentual aplicados (explica o
+  valor mesmo se a regra mudar).
 - **Livro-razão** (append-only, imutável no banco): o cálculo lança um **CRÉDITO** (1 por
   atendimento, nunca um 2º — nem depois de estornado); a baixa no Painel > Comissões > pagar lança
   um **PAGAMENTO** (valor integral, sem baixa parcial; autor e auditoria); o cancelamento posterior
   lança um **ESTORNO** do crédito, pago ou não. Status derivado: ESTORNADA (há estorno) > PAGA
   (há pagamento) > PENDENTE. Estornada não pode ser paga.
-- **Saldo a pagar** por profissional = créditos − pagamentos − estornos (todo o histórico). Fica
-  **negativo** quando uma comissão já paga é estornada: a diferença é **descontada do próximo
-  repasse** (o painel de comissões e o financeiro mostram isso). Comissões ESTORNADAS de antes da
-  0053 ganharam data **estimada** (o sistema nunca gravou quando estornou).
-- Regras de comissão são cadastradas no Django admin; regra **já usada não se exclui** (o
-  lançamento guarda a regra) — desative.
+- **Comissão paga nunca é estornada**: cancelar ou desfazer a realização de atendimento com
+  comissão paga é recusado (o acerto é no repasse); valor corrigido antes do pagamento = estorno +
+  novo crédito. Comissões no mês contam pela **data do atendimento**.
+- **Repasse em lote**: Painel > Comissões > "Pagar pendentes até dd/mm" por profissional — um
+  PAGAMENTO por crédito pendente na mesma transação, auditado, com **recibo para imprimir** (sem
+  nome de cliente). O filtro inclui profissional inativa com saldo. No portal, "Minhas comissões"
+  (só leitura).
+- **Regras de comissão no painel** (Comissões › Regras): percentual XOR fixo, especificidade e
+  número de usos à vista; regra **já usada não muda nem se exclui** — só desativa (o model e o
+  trigger `tg_regra_comissao_validar` recusam); o Django admin é só leitura para ela. Comissões e
+  financeiro avisam quando não há regra ativa.
 
 ---
 
@@ -289,8 +307,11 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 - Carteira é ledger **imutável** (trigger): correção = novo movimento. A observação do cashback
   guarda só o **id** da indicada (`Indicacao (cli #<id>)`), nunca o nome — o ledger não pode ser
   anonimizado (a 0053 saneou as linhas antigas).
-- **Hoje inerte:** nenhuma tela preenche `indicado_por` e não há fluxo de uso do saldo (pendência
-  no ARCHITECTURE).
+- A ficha da cliente registra quem indicou (código de indicação) e mostra saldo, extrato e as
+  indicadas; o portal mostra o código e o saldo. O crédito é **usado** no valor de um atendimento
+  (até o saldo e o valor; 1 uso por atendimento; não em retorno) e **volta** se o atendimento é
+  cancelado, falta ou é remarcado. A comissão continua sobre o valor cheio.
+- Origens da carteira: só as que têm fluxo (cashback de indicação, estorno, uso e devolução).
 
 ---
 

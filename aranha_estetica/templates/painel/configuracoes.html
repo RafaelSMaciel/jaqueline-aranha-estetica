@@ -22,12 +22,13 @@
   <form method="post" action="{% url 'aranha:admin_criar_configuracao' %}">
     {% csrf_token %}
     <div class="grid grid-cols-1 sm:grid-cols-[1fr_1fr_2fr_auto] gap-2">
-      <input type="text" name="chave" placeholder="chave_exemplo" required
-             class="px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
-      <input type="text" name="valor" placeholder="valor"
-             class="px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
-      <input type="text" name="descricao" placeholder="Descrição (opcional)"
-             class="px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
+      {# placeholder nao e rotulo (some ao digitar): nome acessivel explicito #}
+      <input type="text" name="chave" placeholder="chave_exemplo" aria-label="Chave" required
+             class="px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
+      <input type="text" name="valor" placeholder="valor" aria-label="Valor"
+             class="px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
+      <input type="text" name="descricao" placeholder="Descrição (opcional)" aria-label="Descrição (opcional)"
+             class="px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
       <button type="submit"
               class="px-4 py-2 rounded-lg bg-[#1a1a2e] text-white text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">Criar</button>
     </div>
@@ -49,10 +50,10 @@
     {% csrf_token %}
     <input type="hidden" name="chave" value="{{ s.chave }}">
     <input type="hidden" name="descricao" value="{{ s.descricao }}">
-    <input type="text" name="valor" value="{{ s.valor }}"
-           class="flex-1 px-3 py-1.5 rounded-lg border border-aviso bg-superficie text-[0.85rem] text-texto outline-none">
+    <input type="text" name="valor" value="{{ s.valor }}" aria-label="Valor de {{ s.chave }}"
+           class="flex-1 px-3 py-1.5 rounded-lg border border-aviso bg-superficie text-[0.85rem] text-texto">
     <button type="submit"
-            class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 text-white text-[0.75rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
+            class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-aviso text-superficie text-[0.75rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
       </svg>
@@ -77,10 +78,10 @@
   {% if c.descricao %}<div class="text-[0.72rem] text-texto-suave mb-2">{{ c.descricao }}</div>{% endif %}
   <form method="post" action="{% url 'aranha:admin_editar_configuracao' c.pk %}" class="grid grid-cols-[1fr_auto_auto] gap-1.5 items-center">
     {% csrf_token %}
-    <input type="text" name="valor" value="{{ c.valor|default:'' }}"
-           class="px-3 py-1.5 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
-    <button type="submit" title="Salvar"
-            class="inline-flex items-center px-3 py-1.5 rounded-lg bg-green-600 text-white border-none cursor-pointer hover:opacity-90 transition-opacity">
+    <input type="text" name="valor" value="{{ c.valor|default:'' }}" aria-label="Valor de {{ c.chave }}"
+           class="px-3 py-1.5 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
+    <button type="submit" title="Salvar" aria-label="Salvar"
+            class="inline-flex items-center px-3 py-1.5 rounded-lg bg-sucesso-forte text-sobre-sucesso border-none cursor-pointer hover:opacity-90 transition-opacity">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
       </svg>

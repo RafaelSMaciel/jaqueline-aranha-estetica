@@ -1,31 +1,31 @@
 {% extends "email/base_email.html" %}
 {% block header_sub %}<div style="color:rgba(255,255,255,0.88);font-size:13px;letter-spacing:2.4px;text-transform:uppercase;margin-top:6px;">Seu horário é amanhã</div>{% endblock %}
 {% block content %}
-<h1 class="hero-title text-main" style="margin:0 0 12px;color:#2c2418;font-size:26px;font-weight:700;line-height:1.25;">Olá, {{ dados.nome }}!</h1>
-<p class="text-soft" style="margin:0 0 28px;color:#6b6256;font-size:15px;line-height:1.6;">
+<h1 class="hero-title text-main" style="margin:0 0 12px;color:{{ cor_texto }};font-size:26px;font-weight:700;line-height:1.25;">Olá, {{ dados.nome }}!</h1>
+<p class="text-soft" style="margin:0 0 28px;color:{{ cor_suave }};font-size:15px;line-height:1.6;">
   Passando para lembrar do seu momento de cuidado amanhã. Conte para a gente se você vem &mdash; leva só um clique.
 </p>
 
-<table bgcolor="#FFFEF5" role="presentation" width="100%" cellpadding="0" cellspacing="0" class="card-inner" style="background-color:#FFFEF5;border:2px solid #C9A84C;border-radius:16px;margin-bottom:24px;">
+<table bgcolor="#FFFEF5" role="presentation" width="100%" cellpadding="0" cellspacing="0" class="card-inner" style="background-color:#FFFEF5;border:2px solid {{ cor_marca }};border-radius:16px;margin-bottom:24px;">
 <tr><td style="padding:24px 28px;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-    <tr><td class="text-soft" style="padding:4px 0;color:#6b6256;font-size:12px;font-weight:700;">Procedimento</td></tr>
-    <tr><td class="text-main" style="padding:0 0 14px;color:#2c2418;font-size:17px;font-weight:700;">{{ dados.procedimento }}</td></tr>
+    <tr><td class="text-soft" style="padding:4px 0;color:{{ cor_suave }};font-size:12px;font-weight:700;">Procedimento</td></tr>
+    <tr><td class="text-main" style="padding:0 0 14px;color:{{ cor_texto }};font-size:17px;font-weight:700;">{{ dados.procedimento }}</td></tr>
 
-    <tr><td class="text-soft" style="padding:4px 0;color:#6b6256;font-size:12px;font-weight:700;">Profissional</td></tr>
-    <tr><td class="text-main" style="padding:0 0 14px;color:#2c2418;font-size:15px;">{{ dados.profissional }}</td></tr>
+    <tr><td class="text-soft" style="padding:4px 0;color:{{ cor_suave }};font-size:12px;font-weight:700;">Profissional</td></tr>
+    <tr><td class="text-main" style="padding:0 0 14px;color:{{ cor_texto }};font-size:15px;">{{ dados.profissional }}</td></tr>
 
-    <tr><td class="text-soft" style="padding:4px 0;color:#6b6256;font-size:12px;font-weight:700;">Data e horário</td></tr>
-    <tr><td class="text-main" style="padding:0;color:#2c2418;font-size:18px;font-weight:800;">{{ dados.data_hora }}</td></tr>
+    <tr><td class="text-soft" style="padding:4px 0;color:{{ cor_suave }};font-size:12px;font-weight:700;">Data e horário</td></tr>
+    <tr><td class="text-main" style="padding:0;color:{{ cor_texto }};font-size:18px;font-weight:800;">{{ dados.data_hora }}</td></tr>
   </table>
 </td></tr>
 </table>
 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:4px 0 12px;">
-  <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;"><tr><td bgcolor="#C9A84C" style="border-radius:999px;background-color:#C9A84C;mso-padding-alt:14px 36px;"><a href="{{ dados.link_confirmar }}" style="display:inline-block;background-color:#C9A84C;color:#23200f;padding:14px 36px;border-radius:999px;text-decoration:none;font-weight:700;font-size:15px;">Confirmar presença</a></td></tr></table>
+  <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;"><tr><td bgcolor="{{ cor_marca }}" style="border-radius:999px;background-color:{{ cor_marca }};mso-padding-alt:14px 36px;"><a href="{{ dados.link_confirmar }}" style="display:inline-block;background-color:{{ cor_marca }};color:{{ cor_sobre_marca }};padding:14px 36px;border-radius:999px;text-decoration:none;font-weight:700;font-size:15px;">Confirmar presença</a></td></tr></table>
 </td></tr></table>
 
-<p class="text-soft" style="margin:8px 0 0;color:#6b6256;font-size:13px;line-height:1.6;text-align:center;">
-  Não vai conseguir vir? <a href="{{ dados.link_cancelar }}" style="color:#7a5f1f;">Cancele por aqui</a> e o horário fica livre para outra pessoa.
+<p class="text-soft" style="margin:8px 0 0;color:{{ cor_suave }};font-size:13px;line-height:1.6;text-align:center;">
+  Não vai conseguir vir? <a href="{{ dados.link_cancelar }}" style="color:{{ cor_marca_texto }};">Cancele por aqui</a> e o horário fica livre para outra pessoa.
 </p>
 {% endblock %}

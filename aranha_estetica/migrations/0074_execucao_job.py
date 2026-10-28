@@ -11,7 +11,7 @@ from aranha_estetica.db.operacoes import PadronizarNomes
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('aranha_estetica', '0066_consentimento_origem_whatsapp'),
+        ('aranha_estetica', '0073_consentimento_origem_whatsapp'),
     ]
 
     operations = [

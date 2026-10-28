@@ -32,6 +32,15 @@
   --cor-sucesso: #1D7A4F;
   --cor-aviso: #8A5A00;
   --cor-sobre-marca: #23200f;   /* texto sobre fundo marca-forte (dourado) — igual nos 2 temas */
+  /* preenchimento de acao de confirmar/aprovar + texto sobre ele (5,3:1 — igual nos 2 temas) */
+  --cor-sucesso-forte: #1D7A4F;
+  --cor-sobre-sucesso: #ffffff;
+  /* rodape do site: escuro nos 2 temas (por isso so aqui). Sobre o fundo: titulo 15:1,
+     texto 11:1, suave 6,1:1 (o #7e7a70 da barra inferior dava 3,9:1) */
+  --cor-rodape-fundo: #16181c;
+  --cor-rodape-titulo: #ece8df;
+  --cor-rodape-texto: #cfcabf;
+  --cor-rodape-suave: #9a958a;
   /* mensagens/estado (texto sobre o fundo do mesmo nome >= 4,5:1) */
   --cor-erro-fundo: #FBE8E8;
   --cor-sucesso-fundo: #E3F2E9;
@@ -64,6 +73,8 @@
   --cor-erro: #E07A7A;
   --cor-sucesso: #5DCAA5;
   --cor-aviso: #F2D27A;
+  --cor-sucesso-forte: #1D7A4F;
+  --cor-sobre-sucesso: #ffffff;
   --cor-erro-fundo: #3F1F21;
   --cor-sucesso-fundo: #183528;
   --cor-aviso-fundo: #3A3115;
@@ -92,6 +103,8 @@
     --cor-erro: #E07A7A;
     --cor-sucesso: #5DCAA5;
     --cor-aviso: #F2D27A;
+    --cor-sucesso-forte: #1D7A4F;
+    --cor-sobre-sucesso: #ffffff;
     --cor-erro-fundo: #3F1F21;
     --cor-sucesso-fundo: #183528;
     --cor-aviso-fundo: #3A3115;

@@ -80,7 +80,8 @@ def _contexto(promo: Promocao, cliente: Cliente) -> dict:
         'oferta': oferta(promo),
         'data_inicio': promo.data_inicio.strftime(FORMATO_DATA),
         'data_fim': promo.data_fim.strftime(FORMATO_DATA),
-        'link_agendar': comunicacao.link_agendar(promo.procedimento_id),
+        # o 'Agendar' dos e-mails (wizard com o procedimento; sem SMS, o WhatsApp da clinica)
+        'link_agendar': canal_email.link_agendar(promo.procedimento_id),
     }
 
 

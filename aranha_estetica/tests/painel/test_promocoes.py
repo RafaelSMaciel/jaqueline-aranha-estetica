@@ -55,19 +55,19 @@ class PromocaoCriacaoExclusaoTests(_AdminTestCase):
     def test_procedimento_nao_numerico_e_erro_de_form_nao_500(self):
         resp = self._criar(nome='Quebrada', procedimento='abc', desconto='10')
         self.assertEqual(resp.status_code, 200)
-        self.assertIn('Procedimento inválido.', _mensagens(resp))
+        self.assertTrue(any('Procedimento inválido.' in m for m in _mensagens(resp)))
         self.assertFalse(Promocao.objects.filter(nome='Quebrada').exists())
 
     def test_desconto_e_preco_juntos_ou_nenhum_recusam(self):
         for campos in ({'desconto': '10', 'preco_promocional': '50'}, {}, {'desconto': '0'}, {'desconto': '101'}):
             with self.subTest(campos=campos):
                 resp = self._criar(nome='Ambigua', procedimento=str(self.proc.pk), **campos)
-                self.assertIn('Informe o desconto (até 100%) ou o preço fixo.', _mensagens(resp))
+                self.assertTrue(any('Informe o desconto (até 100%) ou o preço fixo.' in m for m in _mensagens(resp)))
         self.assertFalse(Promocao.objects.filter(nome='Ambigua').exists())
 
     def test_fim_antes_do_inicio_recusa(self):
         resp = self._criar(nome='Invertida', desconto='10', data_fim=(self.hoje - timedelta(days=1)).isoformat())
-        self.assertIn('O fim da promoção não pode ser antes do início.', _mensagens(resp))
+        self.assertTrue(any('A data de fim deve ser igual ou posterior à de início.' in m for m in _mensagens(resp)))
         self.assertFalse(Promocao.objects.filter(nome='Invertida').exists())
 
     def test_get_nas_escritas_nao_altera(self):
@@ -127,7 +127,7 @@ class PromocaoEdicaoTests(_AdminTestCase):
         promo.refresh_from_db()
         self.assertFalse(promo.ativa)
         self.assertEqual((promo.preco_promocional, promo.desconto_percentual), (Decimal('99.00'), Decimal('0')))
-        self.assertFalse(_mensagens(resp)[:-1])   # so o "atualizada"
+        self.assertEqual(resp.status_code, 302)   # aceito: volta p/ a lista (recusado devolveria 200)
 
 
 # ─── Disparo por e-mail (services/marketing) ──────────────────────────

@@ -64,6 +64,7 @@ TRIGGERS_SO_PG = {
     'tg_anotacao_sessao_imutavel': ('0056', 'anotacao_sessao'),
     'tg_historico_alteracao_imutavel': ('0056', 'historico_alteracao'),
     'tg_log_auditoria_imutavel': ('0059', 'log_auditoria'),
+    'tg_regra_comissao_validar': ('0066', 'regra_comissao'),
     **{f'tg_{t}_atualizado_em': ('0056', t) for t in (
         'usuario', 'assinatura_push', 'cliente', 'profissional', 'procedimento', 'preco', 'promocao',
         'agenda_horario', 'agenda_excecao', 'atendimento', 'notificacao', 'lista_espera', 'avaliacao_nps',
@@ -84,6 +85,7 @@ ROTINAS_SO_PG = {
         'fn_recorrencia_casa_dia', 'fn_ocorrencias_recorrencia', 'fn_horarios_livres', 'fn_saldo_pacote',
         'fn_nps_periodo', 'fn_saldo_comissao', 'fn_tem_consentimento', 'fn_clientes_para_anonimizar',
         'fn_log_auditoria_imutavel',                                                                 # 0059
+        'fn_regra_comissao_validar',                                                                 # 0066
     ), 'f'),
     **dict.fromkeys(('sp_anonimizar_cliente', 'sp_aplicar_retencao_lgpd', 'sp_purgar_dados_expirados',
                      'sp_expirar_pacotes'), 'p'),                                                    # 0058
@@ -123,7 +125,7 @@ class DDLSoPostgresTests(TestCase):
         self.assertEqual(triggers, {nome: tabela for nome, (_, tabela) in TRIGGERS_SO_PG.items()})
 
     def test_logica_no_banco_rotinas_views_e_indice_trigram(self):
-        """L1-L3 (0056-0059, spec §5): 46 triggers, 23 funcoes, 4 procedures, 9 views, trigram."""
+        """L1-L3 (0056-0059, spec §5) + 0066: 47 triggers, 24 funcoes, 4 procedures, 9 views, trigram."""
         with connection.cursor() as cursor:
             cursor.execute(
                 "SELECT p.proname, p.prokind FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
@@ -145,7 +147,7 @@ class DDLSoPostgresTests(TestCase):
         self.assertEqual(rotinas, ROTINAS_SO_PG)
         self.assertEqual(views, VIEWS_SO_PG)
         self.assertEqual(qtd_triggers, len(TRIGGERS_SO_PG))
-        self.assertEqual(len(TRIGGERS_SO_PG), 46)
+        self.assertEqual(len(TRIGGERS_SO_PG), 47)
         self.assertEqual(extensoes, {'pg_trgm', 'unaccent'})
         self.assertIn('fn_sem_acento', indice)
         self.assertEqual(sem_acento, ('joao avila', 'joao avila'))
@@ -384,10 +386,32 @@ class DDLSoPostgresTests(TestCase):
             with self.subTest(sql=sql), self.assertRaises(IntegrityError), transaction.atomic():
                 self._sql(sql)
 
+    def test_regra_de_comissao_usada_nao_muda_no_banco(self):
+        """tg_regra_comissao_validar (0066): so o eh_ativo muda depois que um CREDITO cita a regra."""
+        from aranha_estetica.models import RegraComissao
+        from aranha_estetica.tests.factories import criar_comissao
+
+        usada = RegraComissao.objects.create(percentual=Decimal('30'), ativo=True)
+        livre = RegraComissao.objects.create(percentual=Decimal('10'), ativo=True)
+        criar_comissao(self.at, regra=usada)
+        for sql, params in (('UPDATE regra_comissao SET percentual = 40 WHERE id = %s', [usada.pk]),
+                            ('UPDATE regra_comissao SET procedimento_id = %s WHERE id = %s', [self.proc.pk, usada.pk])):
+            with self.subTest(sql=sql), self.assertRaises(IntegrityError), transaction.atomic():
+                self._sql(sql, params)
+        self._sql('UPDATE regra_comissao SET eh_ativo = false WHERE id = %s', [usada.pk])
+        self._sql('UPDATE regra_comissao SET percentual = 15 WHERE id = %s', [livre.pk])
+        self.assertEqual(RegraComissao.objects.get(pk=livre.pk).percentual, Decimal('15.00'))
+        # comissao nunca acima da base congelada (ck_movimento_comissao_valor_ate_base_calculo, 0066)
+        outro = criar_atendimento(self.cli, self.prof, self.proc)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            self._sql("INSERT INTO movimento_comissao (tipo, profissional_id, atendimento_id, valor, "
+                      "valor_base_calculo, observacao) VALUES ('CREDITO', %s, %s, 50, 40, '')",
+                      [self.prof.pk, outro.pk])
+
     def test_ledger_imutavel(self):
         carteira = Carteira.objects.create(cliente=self.cli, saldo=Decimal('10'))
         mov = MovimentoCarteira.objects.create(
-            carteira=carteira, tipo='CREDITO', origem='OUTRO',
+            carteira=carteira, tipo='CREDITO', origem='AJUSTE_MANUAL',
             valor=Decimal('10'), saldo_resultante=Decimal('10'),
         )
         # fn_bloquear_mutacao (0054): SQLSTATE 23000 -> IntegrityError (antes P0001/InternalError)
@@ -687,7 +711,7 @@ class DDLSoPostgresTests(TestCase):
             ("UPDATE codigo_otp SET codigo_hash = repeat('G', 64) WHERE id = %s", [otp.pk]),
             ("UPDATE codigo_otp SET qtd_tentativas = -1 WHERE id = %s", [otp.pk]),
             ("INSERT INTO movimento_carteira (carteira_id, tipo, origem, valor, valor_saldo_resultante, observacao) "
-             "VALUES (%s, 'CREDITO', 'OUTRO', 0, 0, '')", [carteira.pk]),
+             "VALUES (%s, 'CREDITO', 'AJUSTE_MANUAL', 0, 0, '')", [carteira.pk]),
         )
         Notificacao.objects.create(atendimento=self.at, tipo='NPS')
         for sql, params in casos:
