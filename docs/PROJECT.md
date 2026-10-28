@@ -657,7 +657,7 @@ curl -fsS -X POST -H "X-Cron-Token: $CRON_TOKEN" https://<dominio>/cron/run/<job
 | `aniversario` | 09:00 | `0 9 * * *` | `0 12 * * *` | E-mail de felicitação (sem desconto) com consentimento de marketing; 29/02 comemora em 28/02 |
 | `nps_24h` | 10:00 | `0 10 * * *` | `0 13 * * *` | WhatsApp de NPS para REALIZADO entre 24h e 7 dias, com consentimento; até 3 tentativas |
 | `detrator_alerta` | 10:30 | `30 10 * * *` | `30 13 * * *` | E-mail de NPS ≤ 6 para `email_admin` > `ADMIN_EMAIL` > `CLINIC_EMAIL` |
-| `limpeza_status` | 23:00 | `0 23 * * *` | `0 2 * * *` | PENDENTE cujo horário já começou → CANCELADO (FSM) + e-mail à cliente; AGENDADO/CONFIRMADO vencidos há 24 h sem desfecho **só vão para o log** (a equipe decide falta/realizado) |
+| `limpeza_status` | de hora em hora | `0 * * * *` | `0 * * * *` | PENDENTE a menos de 1 h do início → CANCELADO (FSM) + e-mail à cliente ("não conseguimos confirmar a tempo"), vaga para a lista de espera; AGENDADO/CONFIRMADO vencidos há 24 h sem desfecho **só vão para o log** (a equipe decide falta/realizado) |
 | `lgpd_purgar` | dom 03:00 | `0 3 * * 0` | `0 6 * * 0` | Anonimização por retenção (confirmada cliente a cliente), fichas de pedidos não realizados, lista de espera vencida (`sp_aplicar_retencao_lgpd`) |
 | `housekeeping` | 04:00 | `0 4 * * *` | `0 7 * * *` | Sessões, OTP > 24h, texto de notificação > 12 meses, auditoria e trilha `historico_alteracao` > 5 anos (prontuário fica), link público vencido/revogado > 90 dias (`sp_purgar_dados_expirados`), axes > 90 dias (etapas independentes; falha de uma → 500 no fim) |
 

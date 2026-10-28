@@ -467,25 +467,28 @@ def job_expirar_pacotes():
 def job_limpeza_status_atendimentos():
     """Pedidos que venceram e atendimentos sem desfecho.
 
-    - PENDENTE cujo horario ja comecou -> CANCELADO + e-mail a cliente: a clinica nao aprovou a
-      tempo (nao e falta dela). Antes esperava 24 h depois do FIM — a cliente ficava sem resposta.
+    - PENDENTE a menos de PRAZO_DECISAO_PENDENTE (1 h) do inicio -> CANCELADO + e-mail a cliente
+      ("nao conseguimos confirmar a tempo"): a clinica nao decidiu (nao e falta dela) e a vaga
+      volta p/ a lista de espera. Roda de hora em hora. Antes esperava 24 h depois do FIM.
     - AGENDADO/CONFIRMADO vencidos ha 24 h: NAO vira FALTOU automaticamente. Falta e terminal
       na FSM, conta no bloqueio de agendamento online e impede corrigir para
       REALIZADO (comissao, pacote, NPS) — so a equipe decide. O job apenas
       lista os atendimentos sem desfecho no log para a equipe resolver.
     Usa a FSM do model (valida transicao + auditoria).
     """
+    from .constants import MSG_PEDIDO_EXPIRADO, PRAZO_DECISAO_PENDENTE
     from .services.agendamento import avisar_cancelamento
 
     agora = timezone.now()
     limite = agora - timedelta(hours=24)
 
-    pendentes = Atendimento.objects.filter(data_hora_inicio__lt=agora, status=StatusAtendimento.PENDENTE)
+    pendentes = Atendimento.objects.filter(
+        data_hora_inicio__lt=agora + PRAZO_DECISAO_PENDENTE, status=StatusAtendimento.PENDENTE)
     cancelados = 0
     for atendimento in pendentes:
         try:
             atendimento.cancelar(motivo='expirado sem aprovacao')
-            avisar_cancelamento(atendimento)   # a cliente pediu e ficou sem resposta
+            avisar_cancelamento(atendimento, MSG_PEDIDO_EXPIRADO)   # a cliente pediu e ficou sem resposta
             cancelados += 1
             logger.info(f"[LIMPEZA] Atendimento {atendimento.pk} -> CANCELADO (expirado)")
         except Atendimento.TransicaoInvalida as exc:

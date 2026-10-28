@@ -2440,7 +2440,7 @@
    {
     "de": "PENDENTE",
     "para": "CANCELADO",
-    "acao": "cancelar() — rejeitar pedido, cliente cancela (portal) ou job limpeza_status (horário começou sem aprovação)",
+    "acao": "cancelar() — rejeitar pedido, cliente cancela (portal) ou job limpeza_status (1 h antes do início, sem aprovação)",
     "guarda": "TRANSICOES['PENDENTE']"
    },
    {
@@ -2538,7 +2538,7 @@
    "Lista de espera: seleção dos compatíveis em savepoint na transação de quem liberou a vaga; e-mail e WhatsApp no on_commit; falha no aviso nunca desfaz o cancelamento.",
    "Aprovação (PENDENTE → AGENDADO) e rejeição geram e-mail à cliente pela fila de e-mail (Notificacao EMAIL na mesma transação, envio no on_commit, reenvio pelo job emails).",
    "NPS e lembrete D-1 não são disparados por transição: vêm dos jobs nps_24h e lembrete_diario (cron HTTP).",
-   "PENDENTE cujo horário começou sem aprovação → CANCELADO pelo job limpeza_status; AGENDADO/CONFIRMADO sem desfecho só vão para o log (a equipe decide falta ou realizado).",
+   "PENDENTE sem aprovação a 1 h do início → CANCELADO pelo job limpeza_status (de hora em hora); AGENDADO/CONFIRMADO sem desfecho só vão para o log (a equipe decide falta ou realizado).",
    "Toda escrita em atendimento entra na trilha historico_alteracao (trigger) com autor, IP e origem."
   ]
  },
