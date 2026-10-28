@@ -7,6 +7,8 @@ on:
     branches: [main, dev]
   workflow_dispatch:
 
+# Token so de leitura em todos os jobs. Actions fixadas por SHA e imagens por digest (o
+# comentario diz a versao): tag movida nao muda o CI em silencio. Atualizacao: .github/dependabot.yml.
 permissions:
   contents: read
 
@@ -29,8 +31,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -43,14 +45,21 @@ jobs:
         run: python manage.py check
       - name: Migrations em dia com os models
         run: python manage.py makemigrations --check --dry-run
+      # lista fixa em pyproject.toml [tool.ruff.lint]: erros reais + fuso (DTZ: date.today() e
+      # datetime.now() sem fuso erram o dia entre 21h e 24h com o servidor em UTC)
+      - name: ruff (erros + fuso)
+        run: ruff check .
       - name: Camadas (import-linter)
         run: lint-imports
       - name: Tipos dos services (mypy)
         run: mypy
       # tests/test_migrations_dados.py (tag `migracoes`, ~3/4 do tempo) roda no job
       # `migracoes-sqlite`, em paralelo; localmente a suite padrao continua rodando TUDO
-      - name: Suite Django (sem a tag migracoes)
-        run: python manage.py test aranha_estetica --exclude-tag migracoes
+      # catraca: pyproject.toml [tool.coverage.report] fail_under (so sobe)
+      - name: Suite Django (sem a tag migracoes) + cobertura
+        run: |
+          coverage run manage.py test aranha_estetica --exclude-tag migracoes
+          coverage report
       - name: check --deploy com settings de producao
         env:
           DJANGO_ENV: prod
@@ -66,10 +75,10 @@ jobs:
   migracoes-sqlite:
     name: Django (SQLite) — data migrations (tag migracoes)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -77,9 +86,10 @@ jobs:
             requirements*.txt
             requirements.lock
       - run: pip install -r requirements-dev.txt -c requirements.lock
-      # desce e sobe a cadeia 0028 -> ultima com dados "sujos" (reverso de toda migration)
+      # desce e sobe a cadeia 0028 -> ultima com dados "sujos" (reverso de toda migration).
+      # --parallel: uma classe por worker (banco clonado por worker; tblib traz o traceback)
       - name: Data migrations (tests/test_migrations_dados.py)
-        run: python manage.py test aranha_estetica --tag migracoes
+        run: python manage.py test aranha_estetica --tag migracoes --parallel auto
 
   postgres:
     name: Postgres 18 — cadeia de migrations + suite
@@ -87,7 +97,7 @@ jobs:
     timeout-minutes: 30
     services:
       postgres:
-        image: postgres:18
+        image: postgres:18@sha256:bc8d7bdd54dc38115ef954fef07f30a96bb2b5b080effa692e0093f03eabac8f
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -103,8 +113,8 @@ jobs:
       # (tests/test_pg_ddl.py reprova se ela sumir, em vez de pular).
       PG_EXIGE_ICU: '1'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -130,10 +140,10 @@ jobs:
   postgres-migracoes:
     name: Postgres 18 — data migrations (tag migracoes)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 25
     services:
       postgres:
-        image: postgres:18
+        image: postgres:18@sha256:bc8d7bdd54dc38115ef954fef07f30a96bb2b5b080effa692e0093f03eabac8f
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -147,8 +157,8 @@ jobs:
       TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/ci
       PG_EXIGE_ICU: '1'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -156,17 +166,18 @@ jobs:
             requirements*.txt
             requirements.lock
       - run: pip install -r requirements-dev.txt -c requirements.lock
-      # reverso/ida de cada migration no Postgres (triggers, funcoes, views, procedures 0056-0058)
+      # reverso/ida de cada migration no Postgres (triggers, funcoes, views, procedures 0056-0058);
+      # --parallel: um banco test_ci_N (CREATE DATABASE ... TEMPLATE) por worker
       - name: Data migrations no Postgres (tests/test_migrations_dados.py)
-        run: python manage.py test aranha_estetica --tag migracoes
+        run: python manage.py test aranha_estetica --tag migracoes --parallel auto
 
   front:
     name: Front (Vite + Tailwind)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -175,23 +186,60 @@ jobs:
       - name: Manifest do Vite gerado
         run: test -f aranha_estetica/static/dist/manifest.json
 
+  navegador:
+    name: Navegador (Playwright) — wizard de agendamento
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # bundle do `npm run build` em vez do Vite dev server (settings/test.py)
+      TESTE_VITE_BUILD: '1'
+      # sem Playwright/Chromium/bundle o teste reprova em vez de pular
+      EXIGE_NAVEGADOR: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements*.txt
+            requirements.lock
+      - run: pip install -r requirements-dev.txt -c requirements.lock
+      - run: python -m playwright install --with-deps chromium
+      # regras que so existem no JS: ficha/consentimento, grupo obrigatorio, calendario
+      - name: Wizard no Chromium (tests/test_wizard_browser.py)
+        run: python manage.py test aranha_estetica.tests.test_wizard_browser
+
   docker:
     name: Imagem de producao (Dockerfile)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      # Build completo: stage Node, collectstatic com manifest e check de staticfiles
-      - run: docker build -t shivazen:ci .
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      # Build completo: stage Node, collectstatic com manifest e check de staticfiles. Camadas no
+      # cache do Actions: so refaz o que mudou (npm ci / pip wheel ficam em cache entre commits).
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: false
+          tags: shivazen:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   auditoria-deps:
-    name: pip-audit (informativo)
+    name: pip-audit (bloqueante)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: pip install pip-audit==2.10.1

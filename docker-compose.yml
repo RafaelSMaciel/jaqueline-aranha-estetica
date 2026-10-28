@@ -12,7 +12,8 @@
 # Senha so local (porta presa ao 127.0.0.1). Dados no volume `pgdata` (docker compose down -v apaga).
 services:
   db:
-    image: postgres:18
+    # mesmo digest do CI (.github/workflows/ci.yml); o Dependabot atualiza
+    image: postgres:18@sha256:bc8d7bdd54dc38115ef954fef07f30a96bb2b5b080effa692e0093f03eabac8f
     environment:
       POSTGRES_USER: shivazen
       POSTGRES_PASSWORD: shivazen

@@ -1,0 +1,41 @@
+# Atualizacoes semanais em PR p/ a dev (fluxo do repo: dev -> main). Actions e imagens ficam
+# fixadas por SHA/digest; o Dependabot reescreve o pin e o comentario da versao.
+# Python: requirements*.txt (diretas). Ao aceitar um PR, regerar o requirements.lock (ver o
+# cabecalho dele) — o CI instala com -c requirements.lock.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    target-branch: dev
+    schedule: {interval: weekly, day: monday}
+    open-pull-requests-limit: 5
+    groups:
+      ferramentas-dev:
+        patterns: [pytest*, ruff, mypy, django-stubs*, import-linter, coverage, tblib, playwright, pre-commit, pip-audit]
+
+  - package-ecosystem: npm
+    directory: /
+    target-branch: dev
+    schedule: {interval: weekly, day: monday}
+    open-pull-requests-limit: 5
+    groups:
+      front:
+        patterns: ['*']
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: dev
+    schedule: {interval: weekly, day: monday}
+    groups:
+      actions:
+        patterns: ['*']
+
+  - package-ecosystem: docker
+    directory: /
+    target-branch: dev
+    schedule: {interval: weekly, day: monday}
+
+  - package-ecosystem: docker-compose
+    directory: /
+    target-branch: dev
+    schedule: {interval: weekly, day: monday}

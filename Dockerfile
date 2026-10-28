@@ -1,7 +1,8 @@
 # ─── Stage 0: front (Vite + Tailwind -> aranha_estetica/static/dist) ────
 # static/dist e gitignored: sem este stage a imagem sai sem manifest e todo
 # template com {% vite_asset %} da 500. Tailwind v4 exige Node >= 20.
-FROM node:22-slim AS front
+# Imagens base fixadas por digest (multi-arch; o Dependabot atualiza): tag movida nao muda a imagem.
+FROM node:22-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS front
 
 WORKDIR /src
 COPY package.json package-lock.json ./
@@ -13,7 +14,7 @@ RUN npm run build && test -f aranha_estetica/static/dist/manifest.json
 
 
 # ─── Stage 1: builder (compila wheels) ──────────────────────────────────
-FROM python:3.12-slim AS builder
+FROM python:3.12-slim@sha256:12316debbfb86890f6b2d825820612741ba527ad5a44e3902759141d572bfe8f AS builder
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -26,14 +27,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
-# requirements.lock fixa as transitivas (kombu, cryptography, django-otp...):
+# requirements.lock fixa as transitivas (cryptography, django-otp, pywebpush...):
 # a imagem sai igual ao que o CI testou, build apos build do mesmo commit.
 COPY requirements.txt requirements.lock ./
 RUN pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt -c requirements.lock
 
 
 # ─── Stage 2: runtime (imagem final, leve) ──────────────────────────────
-FROM python:3.12-slim AS runtime
+FROM python:3.12-slim@sha256:12316debbfb86890f6b2d825820612741ba527ad5a44e3902759141d572bfe8f AS runtime
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
