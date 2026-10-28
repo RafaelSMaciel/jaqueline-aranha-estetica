@@ -25,6 +25,7 @@ from aranha_estetica.models import (
     ListaEspera,
     LogAuditoria,
     MovimentoComissao,
+    Notificacao,
     Preco,
     Procedimento,
     Profissional,
@@ -1126,6 +1127,13 @@ class AgendamentoInternoTests(_AdminTestCase):
         self.assertIsNotNone(at.promocao_id)
         log = LogAuditoria.objects.get(tabela='atendimento', registro_id=at.pk, acao__startswith='Agendou pelo painel')
         self.assertIsNotNone(log.ip_origem)
+
+    def test_cliente_recebe_confirmacao_do_agendamento_pelo_painel(self):
+        self.cli.email = 'balcao@exemplo.test'
+        self.cli.save(update_fields=['email'])
+        self._post()
+        at = Atendimento.objects.get(cliente=self.cli)
+        self.assertTrue(Notificacao.objects.filter(atendimento=at, tipo='CONFIRMACAO', canal='EMAIL').exists())
 
     def test_cliente_nova_com_telefone_validado(self):
         resp = self._post(cliente_id='', novo_nome='Nova Cliente', novo_telefone='(17) 98877-6655')

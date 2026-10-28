@@ -456,10 +456,14 @@ def confirmar_agendamento(request):
             # Conflito com lock + preco da data (promocao do dia, o mesmo do resumo do wizard).
             atendimento = agenda.reservar(
                 cliente=cliente, profissional=profissional, procedimento=procedimento,
-                inicio=data_hora, status=Atendimento.STATUS_PENDENTE,
+                inicio=data_hora, status=agenda.status_inicial_publico(cliente),
             )
-            # Pedido p/ a profissional aprovar (fila de e-mail; o link so leva a agenda do dia)
-            comunicacao.enfileirar_email(atendimento, Notificacao.Tipo.APROVACAO)
+            if atendimento.status == Atendimento.STATUS_PENDENTE:
+                # Pedido p/ a profissional aprovar (fila de e-mail; o link so leva a agenda do dia)
+                comunicacao.enfileirar_email(atendimento, Notificacao.Tipo.APROVACAO)
+            else:
+                # Cliente de confianca (D8): horario ja garantido, confirmacao na hora
+                comunicacao.enfileirar_email(atendimento, Notificacao.Tipo.CONFIRMACAO)
 
             # Aceites com prova (IP, user-agent, SHA-256 do texto): Politica de
             # Privacidade (versao LGPD vigente) + termo(s) do procedimento.
@@ -534,7 +538,7 @@ def confirmar_agendamento(request):
         # cheio riscado + nome da promo quando a promocao reduziu o valor
         'valor_cheio': formatar_brl(atendimento.valor_original) if atendimento.promocao else '',
         'promocao': atendimento.promocao.nome if atendimento.promocao else '',
-        'pendente': True,
+        'pendente': atendimento.status == Atendimento.STATUS_PENDENTE,
         # So promete acompanhamento por e-mail se o backend entrega de fato
         'email': bool(email_cliente) and email_configurado(),
     }

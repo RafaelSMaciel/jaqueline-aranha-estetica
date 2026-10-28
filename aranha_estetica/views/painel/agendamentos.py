@@ -10,6 +10,7 @@ AGENDADO — a propria clinica confirmou — com auditoria.
 import json
 import logging
 from datetime import datetime
+from functools import partial
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
@@ -23,11 +24,12 @@ from django.views.decorators.http import require_POST
 from django_ratelimit.decorators import ratelimit
 
 from ...decorators import staff_required
-from ...models import Atendimento, Cliente, Procedimento, Profissional
+from ...models import Atendimento, Cliente, Notificacao, Procedimento, Profissional
 from ...models.agendamentos import StatusAtendimento
 from ...excecoes import RegraDeNegocio
 from ...services import agenda
-from ...services.agendamento import avisar_cancelamento
+from ...services import comunicacao
+from ...services.agendamento import AgendamentoService, avisar_cancelamento
 from ...services.disponibilidade import SlotService, profissionais_para
 from ...services.termos import termos_pendentes
 from ...utils.auditoria import registrar_log
@@ -262,6 +264,8 @@ def admin_agendamento_novo(request):
                 cliente=cliente, profissional=profissional, procedimento=procedimento,
                 inicio=inicio, status=Atendimento.STATUS_AGENDADO, preco=precos,
             )
+            # marcado por telefone/WhatsApp: a cliente recebe a confirmacao com data, valor e links
+            comunicacao.enfileirar_email(atendimento, Notificacao.Tipo.CONFIRMACAO)
     except (RegraDeNegocio, IntegrityError) as exc:
         if isinstance(exc, RegraDeNegocio):
             messages.error(request, exc.mensagem)
@@ -426,9 +430,10 @@ def admin_atualizar_status(request):
         StatusAtendimento.REALIZADO: atendimento.marcar_realizado,
         StatusAtendimento.CANCELADO: atendimento.cancelar,
         StatusAtendimento.FALTOU: atendimento.marcar_falta,
-        StatusAtendimento.AGENDADO: atendimento.aprovar,
     }
-    acao = metodos.get(novo_status)
+    pedido = status_anterior == StatusAtendimento.PENDENTE and novo_status in (
+        StatusAtendimento.AGENDADO, StatusAtendimento.CONFIRMADO, StatusAtendimento.CANCELADO)
+    acao = partial(_decidir_pedido, atendimento, novo_status, request=request) if pedido else metodos.get(novo_status)
     if acao is None:
         return JsonResponse(
             {'erro': f'Transição para "{novo_status}" não suportada.'}, status=400
@@ -454,6 +459,9 @@ def admin_atualizar_status(request):
         logger.exception('atualizar_status_falhou', extra={'atendimento_id': atendimento.pk})
         return JsonResponse({'erro': 'Ocorreu um erro interno. Tente novamente.'}, status=500)
 
+    if pedido:   # aprovar/recusar ja auditou e avisou a cliente
+        return JsonResponse({'sucesso': True, 'status_anterior': status_anterior, 'status_novo': novo_status})
+
     registrar_log(
         request.user,
         f'Status alterado: {status_anterior} → {novo_status}',
@@ -477,6 +485,22 @@ def admin_atualizar_status(request):
         'status_anterior': status_anterior,
         'status_novo': novo_status,
     })
+
+
+def _decidir_pedido(atendimento, novo_status, by_user=None, request=None) -> None:
+    """Pedido PENDENTE pelo seletor de status = mesmo caso de uso dos botoes Aprovar/Recusar
+    (AgendamentoService: auditoria + e-mail de confirmacao ou de cancelamento a cliente). Antes o
+    seletor chamava a FSM direto e a cliente nunca sabia que o pedido foi aceito."""
+    servico = AgendamentoService()
+    with transaction.atomic():
+        if novo_status == StatusAtendimento.CANCELADO:
+            decidido = servico.rejeitar(atendimento, by_user=by_user, request=request)
+        else:
+            decidido = servico.aprovar(atendimento, by_user=by_user, request=request)
+            if decidido and novo_status == StatusAtendimento.CONFIRMADO:
+                atendimento.confirmar(by_user=by_user)
+        if not decidido:
+            raise Atendimento.TransicaoInvalida('Este pedido já foi decidido em outra tela.')
 
 
 @staff_required

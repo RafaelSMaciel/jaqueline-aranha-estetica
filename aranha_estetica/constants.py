@@ -14,6 +14,11 @@ JANELA_MINIMA_REAGENDAMENTO = timedelta(hours=24)
 # antes, um clique na agenda do mes seguinte gerava comissao, debitava pacote e contava falta.
 TOLERANCIA_DESFECHO = timedelta(minutes=30)
 
+# ─── Pedido pelo site (D8) ──────────────────────────────────────────────
+# Cliente ja atendida, sem falta em aberto, com menos que isto de horarios futuros: o pedido
+# nasce AGENDADO (sem fila de aprovacao). Primeira vez ou acima do limite: PENDENTE.
+LIMITE_AUTOAPROVACAO = 2
+
 
 # ─── Links publicos (link_acesso.expira_em, gravado na emissao) ───────────
 # NPS: 7 dias do envio. Ficha/pesquisa: 60 dias do convite. Confirmacao D-1,

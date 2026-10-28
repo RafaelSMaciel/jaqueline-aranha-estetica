@@ -23,7 +23,7 @@
     <p class="text-xs font-bold uppercase tracking-widest text-marca mb-2">Confirmado</p>
     <h1 class="text-2xl font-bold text-texto mb-2">Agendamento confirmado!</h1>
     {% endif %}
-    <p class="text-texto-suave">{% if dados.pendente %}Seu horário fica reservado enquanto a profissional confirma.{% else %}Seu novo horário está reservado.{% endif %}</p>
+    <p class="text-texto-suave">{% if dados.pendente %}Seu horário fica reservado enquanto a profissional confirma.{% else %}Seu {% if dados.reagendamento %}novo {% endif %}horário está garantido. Até lá!{% endif %}</p>
   </div>
 
   <!-- Card de detalhes -->

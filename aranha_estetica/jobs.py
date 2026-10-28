@@ -465,10 +465,11 @@ def job_expirar_pacotes():
 # ═══════════════════════════════════════
 
 def job_limpeza_status_atendimentos():
-    """Atendimentos vencidos ha 24h.
+    """Pedidos que venceram e atendimentos sem desfecho.
 
-    - PENDENTE -> CANCELADO: a clinica nunca aprovou (nao e falta do cliente).
-    - AGENDADO/CONFIRMADO: NAO vira FALTOU automaticamente. Falta e terminal
+    - PENDENTE cujo horario ja comecou -> CANCELADO + e-mail a cliente: a clinica nao aprovou a
+      tempo (nao e falta dela). Antes esperava 24 h depois do FIM — a cliente ficava sem resposta.
+    - AGENDADO/CONFIRMADO vencidos ha 24 h: NAO vira FALTOU automaticamente. Falta e terminal
       na FSM, conta no bloqueio de agendamento online e impede corrigir para
       REALIZADO (comissao, pacote, NPS) — so a equipe decide. O job apenas
       lista os atendimentos sem desfecho no log para a equipe resolver.
@@ -476,9 +477,10 @@ def job_limpeza_status_atendimentos():
     """
     from .services.agendamento import avisar_cancelamento
 
-    limite = timezone.now() - timedelta(hours=24)
+    agora = timezone.now()
+    limite = agora - timedelta(hours=24)
 
-    pendentes = Atendimento.objects.filter(data_hora_fim__lt=limite, status=StatusAtendimento.PENDENTE)
+    pendentes = Atendimento.objects.filter(data_hora_inicio__lt=agora, status=StatusAtendimento.PENDENTE)
     cancelados = 0
     for atendimento in pendentes:
         try:
