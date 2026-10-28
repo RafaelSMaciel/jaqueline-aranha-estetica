@@ -152,6 +152,8 @@ def painel_overview(request):
         'dados_grafico_semana': dados_grafico_list,
         'status_labels': [rotulos_status.get(s['status'], s['status']) for s in agendamentos_por_status],
         'status_totais': [s['total'] for s in agendamentos_por_status],
+        # cor de cada fatia = token do selo do status (--st-<status>-texto), lida no template
+        'status_codigos': [s['status'] for s in agendamentos_por_status],
         'pendentes_aprovacao': pendentes_aprovacao,
         'total_pendentes': total_pendentes,
         'total_sem_desfecho': total_sem_desfecho,

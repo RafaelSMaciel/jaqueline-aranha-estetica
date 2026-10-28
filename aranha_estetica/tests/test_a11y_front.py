@@ -81,3 +81,22 @@ class ContrasteMarcaTests(SimpleTestCase):
         self.assertEqual(tokens.count('--cor-sobre-sucesso:'), 3)
         app = (_CSS / 'app.css').read_text(encoding='utf-8')
         self.assertIn('--color-sucesso-forte: var(--cor-sucesso-forte);', app)
+
+
+class TemaEscuroTests(SimpleTestCase):
+    """Achado 163: cor fixa de tema claro (hex) no wizard e no painel ignorava o tokens.css."""
+
+    def test_wizard_js_sem_cor_fixa(self):
+        js = (_JS / 'wizard.js').read_text(encoding='utf-8')
+        codigo = re.sub(r'//[^\n]*|/\*.*?\*/', '', js, flags=re.S)
+        self.assertEqual(re.findall(r'#[0-9a-fA-F]{3,6}\b', codigo), [])
+        self.assertNotIn('cssText', codigo)
+
+    def test_wizard_e_visao_geral_sem_cor_de_texto_ou_fundo_fixos(self):
+        for nome in ('agendamento/agendamento_publico.html', 'painel/overview.html'):
+            html = (_TEMPLATES / nome).read_text(encoding='utf-8')
+            # cor de texto/fundo inline em hex e gradiente de tema claro (fallback de var() pode)
+            fixos = re.findall(r'(?<![\w-])(?:color|background):\s*#[0-9a-fA-F]{3,6}\b'
+                               r'|(?:from|to|bg|text)-\[#[0-9a-fA-F]{3,6}\]'
+                               r'|linear-gradient\([^)]*#[0-9a-fA-F]{3,6}', html)
+            self.assertEqual(fixos, [], nome)
