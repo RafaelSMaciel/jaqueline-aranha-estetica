@@ -103,19 +103,21 @@ class RetornoService:
 
         from django.db import IntegrityError
         try:
-            retorno = Atendimento.objects.create(
-                cliente=atendimento_origem.cliente,
-                profissional=atendimento_origem.profissional,
-                procedimento=proc,
-                data_hora_inicio=sugerida,
-                data_hora_fim=sugerida + timedelta(minutes=duracao),
-                valor_cobrado=0,
-                valor_original=0,
-                descricao_preco='Retorno obrigatorio (sem cobranca)',
-                status=Atendimento.STATUS_PENDENTE,
-                eh_retorno=True,
-                atendimento_origem=atendimento_origem,
-            )
+            # savepoint: a EXCLUDE (slot ocupado) nao aborta a transacao da transicao
+            with transaction.atomic():
+                retorno = Atendimento.objects.create(
+                    cliente=atendimento_origem.cliente,
+                    profissional=atendimento_origem.profissional,
+                    procedimento=proc,
+                    data_hora_inicio=sugerida,
+                    data_hora_fim=sugerida + timedelta(minutes=duracao),
+                    valor_cobrado=0,
+                    valor_original=0,
+                    descricao_preco='Retorno obrigatorio (sem cobranca)',
+                    status=Atendimento.STATUS_PENDENTE,
+                    eh_retorno=True,
+                    atendimento_origem=atendimento_origem,
+                )
         except IntegrityError:
             # ex_atendimento_sobreposicao: slot sugerido ja ocupado.
             # Best-effort — recepcao agenda o retorno manualmente.

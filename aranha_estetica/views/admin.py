@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 
 from django.core.paginator import Paginator
-from django.db import DatabaseError, transaction
+from django.db import DatabaseError
 from django.db.models import Count, Exists, OuterRef
 from django.http import JsonResponse
 from django.shortcuts import render
@@ -18,10 +18,10 @@ from ..models import (
     Prontuario,
     RespostaAnamnese,
 )
+from ..services.agendamento_service import avisar_cancelamento
 from ..services.termos import termos_pendentes
 from ..utils.audit import registrar_log
 from ..utils.busca import filtrar_clientes
-from ..utils.datas import fmt_local
 from ..utils.parse import id_int
 from ..utils.saude import alertas_saude
 
@@ -132,31 +132,6 @@ def admin_auditoria(request):
 #   STATUS DE AGENDAMENTO
 # ═══════════════════════════════════════
 
-def _avisar_cancelamento(atendimento):
-    """E-mail ao cliente quando a equipe cancela pelo painel (best-effort).
-
-    Enfileirado apos o commit; falha de envio nunca desfaz o cancelamento.
-    """
-    email = atendimento.cliente.email
-    if not email:
-        return
-    dados = {
-        'nome': atendimento.cliente.nome,
-        'procedimento': atendimento.procedimento.nome,
-        'profissional': atendimento.profissional.nome,
-        'data_hora': fmt_local(atendimento.data_hora_inicio, '%d/%m/%Y às %H:%M'),
-    }
-
-    def _enfileirar():
-        try:
-            from ..tasks import send_email_async
-            send_email_async.delay('enviar_cancelamento_email', email, dados)
-        except Exception:  # noqa: BLE001 — aviso e best-effort
-            logger.exception('aviso_cancelamento_falhou', extra={'atendimento_id': atendimento.pk})
-
-    transaction.on_commit(_enfileirar)
-
-
 @staff_required
 @ratelimit(key='user', rate='60/m', method='POST', block=True)
 def admin_atualizar_status(request):
@@ -249,7 +224,7 @@ def admin_atualizar_status(request):
         )
 
     if novo_status == 'CANCELADO':
-        _avisar_cancelamento(atendimento)
+        avisar_cancelamento(atendimento)
 
     return JsonResponse({
         'sucesso': True,

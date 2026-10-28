@@ -69,17 +69,19 @@ class FidelidadeService:
         novo_saldo = carteira.saldo + VALOR_CASHBACK_INDICACAO
 
         try:
-            movimento = MovimentoCarteira.objects.create(
-                carteira=carteira,
-                tipo='CREDITO',
-                origem='CASHBACK_INDICACAO',
-                valor=VALOR_CASHBACK_INDICACAO,
-                saldo_resultante=novo_saldo,
-                atendimento=atendimento,
-                # So o id: o ledger e imutavel (trigger) e o esquecimento LGPD nunca
-                # apagaria o nome da indicada daqui (a 0053 saneou as linhas antigas).
-                observacoes=f'Indicacao (cli #{cliente.pk})',
-            )
+            # savepoint: o credito duplicado (UNIQUE) nao aborta a transacao da transicao
+            with transaction.atomic():
+                movimento = MovimentoCarteira.objects.create(
+                    carteira=carteira,
+                    tipo='CREDITO',
+                    origem='CASHBACK_INDICACAO',
+                    valor=VALOR_CASHBACK_INDICACAO,
+                    saldo_resultante=novo_saldo,
+                    atendimento=atendimento,
+                    # So o id: o ledger e imutavel (trigger) e o esquecimento LGPD nunca
+                    # apagaria o nome da indicada daqui (a 0053 saneou as linhas antigas).
+                    observacoes=f'Indicacao (cli #{cliente.pk})',
+                )
         except IntegrityError:
             logger.info(
                 'cashback_credito_duplicado_ignorado',

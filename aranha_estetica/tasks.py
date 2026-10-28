@@ -520,6 +520,8 @@ def job_limpeza_status_atendimentos(self):
     Usa a FSM do model (valida transicao + auditoria).
     """
     try:
+        from .services.agendamento_service import avisar_cancelamento
+
         limite = timezone.now() - timedelta(hours=24)
 
         pendentes = Atendimento.objects.filter(data_hora_fim__lt=limite, status='PENDENTE')
@@ -527,6 +529,7 @@ def job_limpeza_status_atendimentos(self):
         for atendimento in pendentes:
             try:
                 atendimento.cancelar(motivo='expirado sem aprovacao')
+                avisar_cancelamento(atendimento)   # a cliente pediu e ficou sem resposta
                 cancelados += 1
                 logger.info(f"[LIMPEZA] Atendimento {atendimento.pk} -> CANCELADO (expirado)")
             except Atendimento.TransicaoInvalida as exc:

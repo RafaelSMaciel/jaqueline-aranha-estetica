@@ -583,7 +583,7 @@ class AtendimentoAdmin(admin.ModelAdmin):
         # retorno/NPS. O novo usa o default do model (PENDENTE).
         return (*super().get_readonly_fields(request, obj), 'status')
 
-    def _transicionar(self, request, queryset, metodo, rotulo, sem_termo=0, **kwargs):
+    def _transicionar(self, request, queryset, metodo, rotulo, sem_termo=0, apos=None, **kwargs):
         ok = ignorados = 0
         for at in queryset:
             try:
@@ -591,6 +591,9 @@ class AtendimentoAdmin(admin.ModelAdmin):
                 ok += 1
             except Atendimento.TransicaoInvalida:
                 ignorados += 1
+                continue
+            if apos is not None:
+                apos(at)
         msg = f'{ok} atendimento(s) {rotulo}.'
         if ignorados:
             msg += f' {ignorados} ignorado(s): transição de status não permitida.'
@@ -617,8 +620,11 @@ class AtendimentoAdmin(admin.ModelAdmin):
 
     @admin.action(description='Cancelar selecionados')
     def acao_marcar_cancelado(self, request, queryset):
+        from .services.agendamento_service import avisar_cancelamento
+        # como o cancelamento pelo painel: a cliente recebe o e-mail
         self._transicionar(
             request, queryset, 'cancelar', 'cancelado(s)', motivo='Cancelado via Django admin',
+            apos=avisar_cancelamento,
         )
 
     @admin.action(description='Marcar como FALTOU')

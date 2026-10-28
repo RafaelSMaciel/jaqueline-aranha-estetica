@@ -144,9 +144,9 @@ class Atendimento(models.Model):
         # Valida contra o status ATUAL do banco com a linha travada
         # (select_for_update): duplo clique / link da cliente + recepcao ao
         # mesmo tempo nao passam os dois pela checagem nem publicam o mesmo
-        # evento 2x. Mudanca de status + auditoria sao atomicas entre si; os
-        # efeitos de _publish_event (chamados pelos metodos publicos APOS o
-        # _transicionar) sao best-effort.
+        # evento 2x. Os metodos publicos rodam este passo E o _publish_event na
+        # MESMA transacao: comissao, cashback e retorno gravam junto com o status
+        # ou nada grava (I/O externo dos handlers vai em on_commit).
         with transaction.atomic():
             if self.pk is not None:
                 atual = (
@@ -185,28 +185,38 @@ class Atendimento(models.Model):
                 )
 
     def confirmar(self, by_user=None):
-        self._transicionar('CONFIRMADO', by_user=by_user)
-        self._publish_event('AtendimentoConfirmado', confirmado_por_id=getattr(by_user, 'pk', None))
+        from ..domain.events import AtendimentoConfirmado
+        with transaction.atomic():
+            self._transicionar('CONFIRMADO', by_user=by_user)
+            self._publish_event(AtendimentoConfirmado, confirmado_por_id=getattr(by_user, 'pk', None))
 
-    def cancelar(self, motivo='', by_user=None):
-        self._transicionar('CANCELADO', motivo=motivo, by_user=by_user)
-        self._publish_event(
-            'AtendimentoCancelado',
-            motivo=motivo or '',
-            cancelado_por_cliente=(by_user is None),
-        )
+    def cancelar(self, motivo='', by_user=None, *, pela_cliente=False):
+        """pela_cliente: so os fluxos da propria cliente (link/portal) passam True — job e
+        equipe nao (antes `by_user is None` marcava o cancelamento automatico como da cliente)."""
+        from ..domain.events import AtendimentoCancelado
+        with transaction.atomic():
+            self._transicionar('CANCELADO', motivo=motivo, by_user=by_user)
+            self._publish_event(
+                AtendimentoCancelado,
+                motivo=motivo or '',
+                cancelado_por_cliente=pela_cliente,
+            )
 
     def marcar_realizado(self, by_user=None):
-        self._transicionar('REALIZADO', by_user=by_user)
-        self._publish_event(
-            'AtendimentoRealizado',
-            cliente_id=self.cliente_id,
-            profissional_id=self.profissional_id,
-        )
+        from ..domain.events import AtendimentoRealizado
+        with transaction.atomic():
+            self._transicionar('REALIZADO', by_user=by_user)
+            self._publish_event(
+                AtendimentoRealizado,
+                cliente_id=self.cliente_id,
+                profissional_id=self.profissional_id,
+            )
 
     def marcar_falta(self, by_user=None):
-        self._transicionar('FALTOU', by_user=by_user)
-        self._publish_event('AtendimentoFaltou', cliente_id=self.cliente_id)
+        from ..domain.events import AtendimentoFaltou
+        with transaction.atomic():
+            self._transicionar('FALTOU', by_user=by_user)
+            self._publish_event(AtendimentoFaltou, cliente_id=self.cliente_id)
 
     def marcar_reagendado(self, by_user=None):
         self._transicionar('REAGENDADO', by_user=by_user)
@@ -214,25 +224,12 @@ class Atendimento(models.Model):
     def aprovar(self, by_user=None):
         self._transicionar('AGENDADO', by_user=by_user)
 
-    def _publish_event(self, event_name: str, **fields) -> None:
-        """Publica DomainEvent via bus. Best-effort — falha nao quebra transicao."""
-        try:
-            from ..domain import event_bus, events as domain_events
-            event_cls = getattr(domain_events, event_name, None)
-            if not event_cls:
-                return
-            event_bus.EventBus.publish(event_cls(
-                occurred_at=timezone.now(),
-                atendimento_id=self.pk,
-                **fields,
-            ))
-        except Exception as exc:  # pylint: disable=broad-except
-            # Bus best-effort — mantem o fluxo, mas deixa rastro para diagnostico
-            # (caso contrario efeitos como comissao/cashback/notificacao somem em silencio).
-            logging.getLogger(__name__).warning(
-                'event_publish_falhou',
-                extra={'event': event_name, 'atendimento_id': self.pk, 'erro': str(exc)},
-            )
+    def _publish_event(self, event_cls, **fields) -> None:
+        """Publica o DomainEvent (classe, nao nome: erro de digitacao vira ImportError) na
+        transacao da transicao. Handler que falha propaga e desfaz a transicao inteira — antes a
+        falha de comissao/cashback/retorno virava so uma linha de log com o status ja gravado."""
+        from ..domain.event_bus import EventBus
+        EventBus.publish(event_cls(occurred_at=timezone.now(), atendimento_id=self.pk, **fields))
 
     objects = AtendimentoManager()
 
