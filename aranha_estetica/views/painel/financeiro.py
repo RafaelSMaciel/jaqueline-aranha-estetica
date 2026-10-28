@@ -101,19 +101,17 @@ def _calcular_metricas(agora, hoje) -> dict:
         (no_show_mes * 100 / total_finalizados_mes) if total_finalizados_mes else 0
     )
 
-    # Top 5 procedimentos no mes (por faturamento)
+    # Top 5 por PRODUCAO (competencia: sessao de pacote pelo valor unitario da venda) — o
+    # faturamento (caixa) zeraria quem so atende pacote ao lado da comissao dela
+    produzido = financeiro.producao(Atendimento.objects.filter(data_hora_inicio__gte=inicio_mes))
     top_procs = (
-        base_pago.filter(data_hora_inicio__gte=inicio_mes)
-        .values('procedimento__nome')
-        .annotate(total=Sum('valor_cobrado'), count=Count('id'))
+        produzido.values('procedimento__nome')
+        .annotate(total=Sum('valor_produzido'), count=Count('id'))
         .order_by('-total')[:5]
     )
-
-    # Top 5 profissionais no mes (por faturamento)
     top_profs = (
-        base_pago.filter(data_hora_inicio__gte=inicio_mes)
-        .values('profissional__nome')
-        .annotate(total=Sum('valor_cobrado'), count=Count('id'))
+        produzido.values('profissional__nome')
+        .annotate(total=Sum('valor_produzido'), count=Count('id'))
         .order_by('-total')[:5]
     )
 

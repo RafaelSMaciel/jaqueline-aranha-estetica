@@ -309,3 +309,20 @@ class FaturamentoUnificadoTests(_Base):
                          (Decimal('850.00'), Decimal('200.00'), Decimal('650.00')))
         self.assertEqual(stats['qtd_realizados'], 3)
         self.assertEqual(financeiro.valor_gasto_cliente(self.cli)['total'], Decimal('850.00'))
+
+
+class ProducaoRankingTests(TestCase):
+    """Ranking por producao: sessao de pacote conta pelo valor unitario da venda (nao zera)."""
+
+    def test_sessao_de_pacote_conta_pelo_valor_unitario(self):
+        prof = criar_profissional()
+        proc = criar_procedimento(profissional=prof)
+        cli = criar_cliente()
+        compra = criar_compra_pacote(cli, criar_pacote(preco=Decimal('400.00'), procedimento=proc, sessoes=4))
+        sessao = criar_atendimento(cli, prof, proc, data_hora=timezone.now() - timedelta(days=1))
+        sessao.marcar_realizado()
+        self.assertTrue(compra.itens.first().consumos.exists())
+        linha = financeiro.producao().get(pk=sessao.pk)
+        self.assertEqual(linha.valor_produzido, Decimal('100.00'))
+        self.assertEqual(financeiro.resumo_avulsos(Atendimento.objects.filter(pk=sessao.pk))['total'],
+                         Decimal('0.00'))   # no faturamento (caixa) a sessao nao soma de novo
