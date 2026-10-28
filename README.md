@@ -66,14 +66,16 @@ modelos, rotas, env vars, jobs, deploy e runbook de go-live).
 
 ## Rodando localmente
 
-Pré-requisitos: Python 3.12, Node ≥ 20 (o repositório usa 22 — `.nvmrc`). Postgres é
-opcional em dev.
+Pré-requisitos: Python 3.12 (o do CI e da imagem; `uv venv --python 3.12` baixa se faltar),
+Node ≥ 20 (o repositório usa 22 — `.nvmrc`). Postgres é opcional em dev. Guia do dia a dia
+(venv igual ao lock, testes rápidos, ganchos, regra de fuso): [docs/DESENVOLVIMENTO.md](docs/DESENVOLVIMENTO.md).
 
 ```bash
 # 1. Python
-python -m venv .venv
+python -m venv .venv                 # Python 3.12 (Windows: py -3.12 -m venv .venv)
 source .venv/bin/activate            # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt -c requirements.lock
+pre-commit install                   # ruff + camadas + migrations antes de cada commit
 
 # 2. Ambiente
 cp .env.example .env                 # DEBUG=True basta p/ dev; o resto tem default
@@ -110,16 +112,20 @@ python manage.py runserver           # http://127.0.0.1:8000
 ```bash
 python manage.py check
 python manage.py makemigrations --check --dry-run
-python manage.py test aranha_estetica                 # SQLite (db_test.sqlite3), rápido
+ruff check .
+python manage.py test aranha_estetica --exclude-tag migracoes   # SQLite, ~40 s (--keepdb: reaproveita o banco)
+python manage.py test aranha_estetica                 # tudo, inclusive as data migrations (lento)
 
 # Mesma suíte no Postgres (como a CI): EXCLUDE, CHECK, triggers e collation só existem lá
-TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/ci PG_EXIGE_ICU=1 \
+docker compose up -d db
+TEST_DATABASE_URL=postgres://shivazen:shivazen@localhost:5432/shivazen PG_EXIGE_ICU=1 \
   python manage.py test aranha_estetica
 ```
 
-São ~1.060 testes em 52 arquivos (`aranha_estetica/tests/`). A CI também roda
-`migrate_atomico` do zero no Postgres, `check --deploy` com settings de produção, o build
-do Vite e o `docker build`.
+São ~1.500 testes em 77 arquivos (`aranha_estetica/tests/`). A CI também roda
+`migrate_atomico` do zero no Postgres, `check --deploy` com settings de produção, cobertura
+com catraca, o wizard no Chromium (Playwright), o build do Vite, o `docker build` e o
+`pip-audit` — detalhes em [docs/DESENVOLVIMENTO.md](docs/DESENVOLVIMENTO.md).
 
 ---
 
@@ -153,6 +159,7 @@ requirements.txt · requirements-dev.txt · requirements.lock · .env.example
 | Documento | Conteúdo |
 |---|---|
 | [docs/PROJECT.md](docs/PROJECT.md) | Fonte viva: stack, arquitetura, modelos/tabelas, rotas, env vars, comandos, jobs, testes, deploy e **runbook de go-live** |
+| [docs/DESENVOLVIMENTO.md](docs/DESENVOLVIMENTO.md) | Dia a dia: ambiente igual ao lock, testes rápidos (`--keepdb`, paralelo, Postgres, navegador), ganchos, regra de fuso, o que o CI confere |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Decisões (ADR-lite) e checkpoint de progresso/pendências |
 | [docs/AUTENTICACAO-E-ACESSO.md](docs/AUTENTICACAO-E-ACESSO.md) | Login da equipe, 2FA, OTP da cliente, links por token, sessões |
 | [docs/REGRAS-DE-NEGOCIO.md](docs/REGRAS-DE-NEGOCIO.md) | Regras funcionais com os valores reais do código |

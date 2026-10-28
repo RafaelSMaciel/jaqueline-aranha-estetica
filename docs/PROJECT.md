@@ -138,7 +138,7 @@ aranha_estetica/
 ├── ator.py          Ator (usuário, IP, origem) da borda em ContextVar → LogAuditoria + GUCs app.*
 ├── inventario_lgpd.py  tabela → classe (titular/equipe/sistema); coluna pessoal → anonimiza/apaga/purga/retém
 ├── context_processors.py · decorators.py · validators.py · constants.py · sitemaps.py · admin.py
-clinica/             settings/{base,dev,prod}.py, urls.py, wsgi.py, apps.py, gunicorn_logger.py
+clinica/             settings/{base,dev,prod,test}.py, urls.py, wsgi.py, apps.py, gunicorn_logger.py
 ```
 
 ### 3.2 Camadas e fluxo de uma requisição
@@ -229,10 +229,14 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
 
 ## 4. Setup local e comandos
 
-Passo a passo em [`README.md`](../README.md#rodando-localmente). Resumo:
+Passo a passo em [`README.md`](../README.md#rodando-localmente); dia a dia (venv Python 3.12 igual
+ao lock, `--keepdb`, paralelo, Postgres, navegador, ganchos, regra de fuso) em
+[`DESENVOLVIMENTO.md`](DESENVOLVIMENTO.md). Resumo:
 
 ```bash
+uv venv --python 3.12 .venv              # ou py -3.12 -m venv .venv
 pip install -r requirements-dev.txt -c requirements.lock
+pre-commit install
 cp .env.example .env                    # DEBUG=True
 python manage.py migrate
 python manage.py seed --demo
@@ -666,7 +670,7 @@ Lista completa e comentada em [`.env.example`](../.env.example). Em produção:
 |---|---|
 | `DJANGO_SECRET_KEY` | Chave do Django (sessões, reset; HMAC do OTP se não houver `OTP_HMAC_KEY`). Sem ela o boot falha fora de DEBUG |
 | `CHAVES_CIFRAGEM` | Chave(s) Fernet da cifragem em repouso do dado de saúde e do token OAuth (`manage.py gerar_chave_cifragem`). **Sem ela o deploy para** (check `aranha.E001` no pre-deploy). Várias, por vírgula: a 1ª cifra, todas decifram. **Cópia offline com a dona**: sem a chave o prontuário não abre |
-| `DJANGO_ENV=prod` | Carrega `settings/prod.py` (a imagem já define; qualquer valor fora de `dev`/`prod` derruba o boot) |
+| `DJANGO_ENV=prod` | Carrega `settings/prod.py` (a imagem já define; qualquer valor fora de `dev`/`prod`/`test` derruba o boot; `manage.py test` sempre usa `settings/test.py`) |
 | `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS` | Domínio próprio (o `RAILWAY_PUBLIC_DOMAIN` e o host do healthcheck entram sozinhos) |
 | `SITE_URL` | URL pública https sem barra final — links de e-mail/WhatsApp/termos/JSON-LD (W001) |
 | `DATABASE_URL` | Injetada pelo Postgres do Railway |
@@ -722,13 +726,25 @@ Só dev/testes: `DEBUG`, `SMS_DEV_LOG_ONLY` (em prod gera W002), `DB_ENGINE`/`DB
 
 ## 12. Testes e CI
 
-- `python manage.py test aranha_estetica` — suíte Django (SQLite `db_test.sqlite3`, ~1.390
-  testes em 64 arquivos — roda **tudo**, inclusive as data migrations). Nos testes: SMS em modo log, avisos `aranha.W00x` silenciados (testados à parte em
-  `test_deploy_config.py`), django-vite em `dev_mode` (não precisa do build).
-- **Atalho do dia a dia**: `python manage.py test aranha_estetica --exclude-tag migracoes` pula
-  `tests/test_migrations_dados.py` (tag `migracoes`: desce e sobe a cadeia de migrations dezenas
-  de vezes, ~3/4 do tempo da suíte); `--tag migracoes` roda só ele. Antes do merge, rode tudo (o
-  CI roda as duas partes em jobs paralelos).
+- `python manage.py test aranha_estetica` — suíte Django (SQLite `db_test.sqlite3`, ~1.500
+  testes em 77 arquivos — roda **tudo**, inclusive as data migrations). `manage.py test` sempre
+  carrega `clinica/settings/test.py` (única detecção de teste, em `settings/__init__.py`; o pytest
+  aponta para o mesmo módulo): hash de senha MD5, SMS em modo log, avisos `aranha.W001`–`W013`
+  silenciados (testados à parte em `test_deploy_config.py`), django-vite em `dev_mode` (não
+  precisa do build; `TESTE_VITE_BUILD=1` usa o bundle).
+- **Atalho do dia a dia**: `python manage.py test aranha_estetica --exclude-tag migracoes` (~40 s)
+  pula `tests/test_migrations_dados.py` (tag `migracoes`: desce e sobe a cadeia de migrations
+  dezenas de vezes); `--tag migracoes` roda só ele. `--keepdb` reaproveita o banco de teste em
+  arquivo (um módulo: ~15 s → ~2 s); `--parallel` no Windows/macOS exige
+  `TESTE_SQLITE_MEMORIA=1`. Antes do merge, rode tudo (o CI roda as duas partes em jobs paralelos).
+- **Navegador**: `tests/test_wizard_browser.py` (Playwright + Chromium) cobre as regras que só
+  existem no `wizard.js`; local com `npm run build` + `TESTE_VITE_BUILD=1`, no CI com
+  `EXIGE_NAVEGADOR=1` (faltou navegador ou bundle = reprova, não pula).
+- **Cobertura**: `coverage run manage.py test ... && coverage report`; `fail_under` em
+  `pyproject.toml` é catraca (87 %; só sobe).
+- **Lint**: `ruff check .` com lista fixa (F, E4/E7/E9 e **DTZ** — `date.today()`/`datetime.now()`
+  sem fuso erram o dia entre 21h e 24h; use `utils/datas`); `pre-commit install` liga ruff,
+  `lint-imports` e `makemigrations --check` antes do commit.
 - **Postgres local** (`docker-compose.yml`, PG 18 com ICU): `docker compose up -d db` e
   `TEST_DATABASE_URL=postgres://shivazen:shivazen@localhost:5432/shivazen PG_EXIGE_ICU=1 python
   manage.py test aranha_estetica`. No SQLite os testes do esquecimento, da retenção, do housekeeping
@@ -753,17 +769,21 @@ Só dev/testes: `DEBUG`, `SMS_DEV_LOG_ONLY` (em prod gera W002), `DB_ENGINE`/`DB
 **CI** (`.github/workflows/ci.yml`, push em `main` e `dev` ou manual; sem gatilho de PR — o PR
 `dev` → `main` mostra os checks do push do mesmo commit). Commit novo na `dev` cancela a execução
 anterior; na `main` toda execução termina. `permissions: contents: read` e `timeout-minutes` em
-todos os jobs:
+todos os jobs; actions fixadas por SHA e imagens (`postgres:18`, `python:3.12-slim`,
+`node:22-slim`, também no `Dockerfile` e no `docker-compose.yml`) por digest — o Dependabot
+(`.github/dependabot.yml`: pip, npm, actions, docker, compose; PRs semanais na `dev`) atualiza o
+pin; `tests/test_deploy_config.CiFixadoTests` reprova pin solto:
 
 | Job | Passos |
 |---|---|
-| `testes` | `check`, `makemigrations --check`, `lint-imports` (camadas), `mypy` (services), suíte Django (SQLite, `--exclude-tag migracoes`), `check --deploy --fail-level ERROR` com settings de prod |
-| `migracoes-sqlite` | `tests/test_migrations_dados.py` (`--tag migracoes`) no SQLite, em paralelo |
+| `testes` | `check`, `makemigrations --check`, `ruff check` (erros + fuso), `lint-imports` (camadas), `mypy` (services), suíte Django (SQLite, `--exclude-tag migracoes`) sob `coverage` com catraca (`fail_under`), `check --deploy --fail-level ERROR` com settings de prod |
+| `migracoes-sqlite` | `tests/test_migrations_dados.py` (`--tag migracoes --parallel auto`) no SQLite |
 | `postgres` | Postgres 18: `migrate_atomico` do zero, `bootstrap_admin`, suíte Django no Postgres sem a tag `migracoes` (bloqueante; inclui conformidade, trilha e paridade) |
-| `postgres-migracoes` | `tests/test_migrations_dados.py` no Postgres 18 (reverso/ida de cada migration, inclusive triggers/funções/views/procedures), em paralelo |
+| `postgres-migracoes` | `tests/test_migrations_dados.py` no Postgres 18 (reverso/ida de cada migration, inclusive triggers/funções/views/procedures), `--parallel auto` (um `test_ci_N` por worker) |
 | `front` | `npm ci`, `npm run build`, confere o manifest |
-| `docker` | `docker build` da imagem de produção |
-| `auditoria-deps` | `pip-audit` no `requirements.lock` (informativo) |
+| `navegador` | `npm run build` + Playwright/Chromium: `tests/test_wizard_browser.py` com o bundle (`TESTE_VITE_BUILD=1`, `EXIGE_NAVEGADOR=1`) |
+| `docker` | `docker build` (buildx) da imagem de produção, camadas no cache do Actions |
+| `auditoria-deps` | `pip-audit` no `requirements.lock` (bloqueante) |
 
 ---
 
@@ -1146,7 +1166,8 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
   `False`/exceção privada da view); horário de atendimento só por `services/agenda`.
 - Toda escrita multi-tabela em `transaction.atomic`; I/O externo (e-mail, WhatsApp, push) só no
   `on_commit`, best-effort.
-- Datas "hoje/amanhã" sempre no fuso da clínica (`utils/datas`), nunca `date.today()`.
+- Datas "hoje/amanhã" sempre no fuso da clínica (`utils/datas.hoje`), nunca `date.today()`; data/hora
+  de formulário por `utils/datas.ler_data`/`ler_hora`. O ruff (`DTZ`) barra no CI e no pre-commit.
 - Ação sensível → `utils/audit.registrar_log(usuario, acao, tabela, pk, detalhes)` — registrador
   único; autor e IP vêm do `Ator` da borda (`ator.py`: middleware `web`, cron `cron:<job>`),
   `usuario`/`request` explícitos só quando o Ator não basta (sem nome de cliente
