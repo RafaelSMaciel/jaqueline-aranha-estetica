@@ -7,6 +7,8 @@ ids_com_ficha_pendente marca quem ainda nao respondeu a ficha obrigatoria.
 """
 from __future__ import annotations
 
+from typing import Any
+
 from django.db.models import Q
 
 from ..utils.saude import alertas_saude, perguntas_prontuario
@@ -16,7 +18,7 @@ def alertas_por_cliente(clientes) -> dict[int, list[dict]]:
     """{cliente_id: [{'label','valor','origem'}]} so p/ quem tem alerta."""
     from ..models import Prontuario, RespostaAnamnese
 
-    por_id = {}
+    por_id: dict[int, Any] = {}
     for cli in clientes:
         if cli is not None and getattr(cli, 'pk', None):
             por_id.setdefault(cli.pk, cli)

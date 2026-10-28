@@ -9,6 +9,7 @@ from django.core.cache import cache
 from django.db import IntegrityError, transaction
 from django.template.loader import render_to_string
 from django.test import Client, RequestFactory, TestCase, override_settings
+from django.utils import timezone
 from django.urls import NoReverseMatch, reverse
 
 from aranha_estetica.models import AvaliacaoNPS, Preco, Promocao
@@ -301,7 +302,7 @@ class DepoimentosTests(TestCase):
     def _avaliacao(self, nome, autoriza, aprovado, nota=10, comentario='Amei o cuidado!'):
         cli = criar_cliente(nome=nome)
         at = criar_atendimento(cli, self.prof, self.proc, status='REALIZADO',
-                               data_hora=datas.agora_local() - timedelta(days=AvaliacaoNPS.objects.count() + 1))
+                               data_hora=timezone.localtime() - timedelta(days=AvaliacaoNPS.objects.count() + 1))
         return AvaliacaoNPS.objects.create(atendimento=at, nota=nota, comentario=comentario,
                                            autoriza_publicacao=autoriza, aprovado_publicacao=aprovado)
 
@@ -676,7 +677,7 @@ class DepoimentoAposEsquecimentoTests(TestCase):
     def _avaliacao(self, nome, comentario):
         cli = criar_cliente(nome=nome)
         at = criar_atendimento(cli, self.prof, self.proc, status='REALIZADO',
-                               data_hora=datas.agora_local() - timedelta(days=AvaliacaoNPS.objects.count() + 1))
+                               data_hora=timezone.localtime() - timedelta(days=AvaliacaoNPS.objects.count() + 1))
         AvaliacaoNPS.objects.create(atendimento=at, nota=10, comentario=comentario,
                                     autoriza_publicacao=True, aprovado_publicacao=True)
         return cli

@@ -65,7 +65,6 @@ ROTULOS_PAR = {
     LEMBRETE_WHATSAPP: 'Lembrete do agendamento por WhatsApp',
 }
 TEXTO_DESCADASTRO = 'Descadastro pelo link do e-mail (promoções e pesquisas).'
-TEXTO_ESQUECIMENTO = 'Revogacao automatica (direito ao esquecimento)'
 MIN_JUSTIFICATIVA = 10
 
 _ORDEM = ('-registrado_em', '-id')
@@ -80,12 +79,12 @@ def _validar_par(finalidade, canal):
         raise ValueError(f'Par de consentimento inexistente: {finalidade}/{canal}')
 
 
-def _prova(request):
+def _prova(request) -> tuple[str | None, str]:
     """(ip, user_agent) do titular; IP desconhecido = NULL (nunca inventado)."""
     if request is None:
         return None, ''
     from ..utils.security import IP_FALLBACK, client_ip
-    ip = client_ip(request)
+    ip: str | None = client_ip(request)
     if not ip or ip == IP_FALLBACK:
         ip = None
     return ip, (request.META.get('HTTP_USER_AGENT') or '')[:500]
@@ -238,11 +237,7 @@ def resumo_painel(cliente) -> list[dict]:
 
 def par_da_chave(chave: str) -> tuple[str, str] | None:
     """'MARKETING:EMAIL' (POST do painel) -> par valido ou None."""
-    partes = tuple((chave or '').split(':'))
-    return partes if partes in PARES_VALIDOS else None
+    finalidade, _sep, canal = (chave or '').partition(':')
+    return (finalidade, canal) if (finalidade, canal) in PARES_VALIDOS else None
 
 
-def esquecer(cliente) -> int:
-    """Anonimizacao: revoga o concedido (ESQUECIMENTO) e minimiza IP/UA. Historico fica."""
-    revogar_todos(cliente, origem=Consentimento.ORIGEM_ESQUECIMENTO, texto=TEXTO_ESQUECIMENTO)
-    return Consentimento.objects.do_titular(cliente).minimizar_dados_de_origem()

@@ -9,6 +9,7 @@ from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.messages import get_messages
+from django.core import mail
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
@@ -293,8 +294,7 @@ class PoliticaETermosBookingTests(_BaseBooking):
         resp = self._post()
         self.assertIn('sucesso', resp.url)
 
-    @patch('aranha_estetica.utils.email.enviar_termos_pendentes_email')
-    def test_booking_nao_cria_notificacao_nem_email_de_termo(self, termos):
+    def test_booking_nao_cria_notificacao_nem_email_de_termo(self):
         _lgpd_vigente()
         termo = VersaoTermo.objects.create(
             tipo='PROCEDIMENTO', procedimento=self.proc, titulo='Termo Toxina',
@@ -304,7 +304,7 @@ class PoliticaETermosBookingTests(_BaseBooking):
             resp = self._post(email='dora@example.com', **{f'aceite_termo_{termo.pk}': 'on'})
         self.assertIn('sucesso', resp.url)
         self.assertEqual(Notificacao.objects.count(), 0)   # profissional sem usuario: nem o pedido
-        termos.assert_not_called()
+        self.assertEqual(mail.outbox, [])
 
     @patch('aranha_estetica.utils.email.enviar_aprovacao_profissional_email', return_value=True)
     def test_email_da_profissional_leva_so_link_revisar_do_dia_local(self, enviar):

@@ -35,6 +35,8 @@ class ListaEsperaService:
         profissional_desejado vazio ou igual ao do horario, ainda nao notificado.
         """
         slot_data = data_local(atendimento_liberado.data_hora_inicio)
+        if slot_data is None:
+            return []
         return [
             espera for espera in (
                 ListaEspera.objects.select_related('cliente', 'procedimento', 'profissional_desejado')

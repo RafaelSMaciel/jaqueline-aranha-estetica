@@ -73,8 +73,8 @@ def _limpar_campo(campo: dict, valor):
         texto, erro = _texto(valor, MAX_TEXTO, label)
         if erro:
             return None, erro
-        opcoes = [str(o) for o in (campo.get('opcoes') or [])]
-        if opcoes and texto not in opcoes:
+        validas = [str(o) for o in (campo.get('opcoes') or [])]
+        if validas and texto not in validas:
             return None, f'"{label}": opção inválida.'
         return texto, None
 

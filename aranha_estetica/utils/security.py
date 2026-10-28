@@ -1,5 +1,4 @@
 """Utilitarios de seguranca: masking de PII, comparacoes time-constant, IP do cliente."""
-import hmac
 import ipaddress
 import re
 
@@ -37,13 +36,6 @@ def mask_telefone(tel: str) -> str:
     if len(digits) < 8:
         return "***"
     return f"***-{digits[-4:]}"
-
-
-def safe_str_compare(a: str, b: str) -> bool:
-    """Comparacao time-constant (previne timing attacks em tokens/OTP)."""
-    if a is None or b is None:
-        return False
-    return hmac.compare_digest(str(a).encode("utf-8"), str(b).encode("utf-8"))
 
 
 IP_FALLBACK = "0.0.0.0"

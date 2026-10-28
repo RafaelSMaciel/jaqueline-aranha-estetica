@@ -86,9 +86,6 @@ class FilaEmailTests(_Base):
         self.assertEqual(self._notif().status, 'FALHOU')
         self.assertEqual(mail.outbox, [])
 
-    def test_canais_disponiveis(self):
-        self.assertEqual(set(comunicacao.canais_disponiveis()), {'EMAIL', 'WHATSAPP', 'SMS'})
-
 
 class RodarJobTests(_Base):
     def test_rodar_job_emails(self):

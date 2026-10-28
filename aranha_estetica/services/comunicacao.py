@@ -16,6 +16,7 @@ jobs — cada um ja e idempotente e o proprio cron e o reenvio.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from datetime import timedelta
 
 from django.conf import settings
@@ -35,18 +36,6 @@ LOTE_REENVIO = 200
 FORMATO_DATA_HORA = '%d/%m/%Y às %H:%M'
 
 Tipo = Notificacao.Tipo
-
-
-def canais_disponiveis() -> dict:
-    """Canal -> entrega de verdade (falha fechada: sem credencial fora de DEBUG = False)."""
-    from ..utils.email import email_configurado
-    from ..utils.sms import sms_disponivel
-    from ..utils.whatsapp import pode_enviar_whatsapp
-    return {
-        Notificacao.Canal.EMAIL: email_configurado(),
-        Notificacao.Canal.WHATSAPP: pode_enviar_whatsapp(),
-        Notificacao.Canal.SMS: sms_disponivel(),
-    }
 
 
 def link_revisar_agenda(data_hora) -> str:
@@ -73,7 +62,7 @@ def _email_profissional(at) -> str:
 
 
 # tipo -> (funcao de utils.email, destino(at), dados(at))
-MENSAGENS_EMAIL = {
+MENSAGENS_EMAIL: dict[str, tuple[str, Callable[[Atendimento], str | None], Callable[[Atendimento], dict]]] = {
     Tipo.CONFIRMACAO: (
         'enviar_confirmacao_agendamento_email', lambda at: at.cliente.email,
         lambda at: {**_base(at), 'valor': _valor(at)},

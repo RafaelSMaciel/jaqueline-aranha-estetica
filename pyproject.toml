@@ -33,3 +33,19 @@ source_modules = [
     "aranha_estetica.jobs", "aranha_estetica.jobs_manutencao", "aranha_estetica.management",
 ]
 forbidden_modules = ["aranha_estetica.views"]
+
+# Tipos nos services (mypy + django-stubs; CI job Django SQLite). So services/: o resto do app entra
+# como dependencia (follow_imports=silent) sem cobrar anotacao.
+[tool.mypy]
+python_version = "3.12"
+files = ["aranha_estetica/services"]
+plugins = ["mypy_django_plugin.main"]
+follow_imports = "silent"
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+check_untyped_defs = true
+
+[tool.django-stubs]
+django_settings_module = "clinica.settings"
