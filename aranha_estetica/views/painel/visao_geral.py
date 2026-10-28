@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
@@ -11,13 +11,14 @@ from django.utils import timezone
 from django.views.decorators.cache import never_cache
 
 from ...models import (
-    AgendaHorario, AvaliacaoNPS, Cliente, CompraPacote, Atendimento, LinkAcesso, Profissional,
+    AvaliacaoNPS, Cliente, CompraPacote, Atendimento, LinkAcesso, Profissional,
 )
 from ...models.agendamentos import STATUS_ATIVOS, StatusAtendimento
 from ...decorators import staff_required
 from ...services import financeiro, links
 from ...utils.busca import filtrar_clientes
 from ...utils.nps import resumo_nps
+from ...services.indicadores import ocupacao_semana
 from ...utils.auditoria import registrar_log
 from ...utils.datas import dias_locais, hoje as hoje_local, inicio_do_dia, ler_data
 from ...utils.parse import id_int
@@ -85,20 +86,7 @@ def painel_overview(request):
     receita_mensal = _brl(avulsos_mes['total'] + pacotes_mes['total'])
     ticket_medio = _brl(avulsos_mes['ticket_medio'])
 
-    realizados_semana = Atendimento.objects.filter(
-        **dias_locais('data_hora_inicio', inicio_semana, fim_semana),
-        status=StatusAtendimento.REALIZADO,
-    ).count()
-    # Cada AgendaHorario representa uma janela de UM dia da semana (campo
-    # dia_semana), entao a soma de todas as janelas ativas ja e a capacidade
-    # semanal de slots. Usa total_seconds() (nao .seconds, que zera o
-    # componente de dias) para janelas que possam cruzar/exceder 24h.
-    slots_semana = 0
-    for d in AgendaHorario.objects.filter(profissional__ativo=True):
-        duracao = datetime.combine(hoje, d.hora_fim) - datetime.combine(hoje, d.hora_inicio)
-        minutos_janela = int(duracao.total_seconds()) // 60
-        slots_semana += minutos_janela // 30
-    taxa_ocupacao = round((realizados_semana / slots_semana) * 100, 1) if slots_semana else 0
+    ocupacao = ocupacao_semana(inicio_semana, fim_semana)   # definicao em services/indicadores
 
     limite_90d = timezone.now() - timedelta(days=90)
     clientes_ativos_90d = Cliente.objects.filter(
@@ -153,7 +141,8 @@ def painel_overview(request):
         'novos_clientes': novos_clientes,
         'receita_mensal': receita_mensal,
         'ticket_medio': ticket_medio,
-        'taxa_ocupacao': taxa_ocupacao,
+        'taxa_ocupacao': ocupacao['percentual'],
+        'ocupacao': ocupacao,
         'clientes_ativos_90d': clientes_ativos_90d,
         'nps_30d': nps_30d,
         'proximos_agendamentos': proximos_agendamentos,
