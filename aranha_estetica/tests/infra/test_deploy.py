@@ -170,6 +170,35 @@ class ImagemTests(SimpleTestCase):
                 self.assertIn(padrao, ignorados)
 
 
+class CiDoDeployTests(SimpleTestCase):
+    """O CI sobe a imagem de producao com os comandos do railway.json (nunca uma copia) e audita
+    dependencias do front e segredos commitados."""
+
+    def _ci(self):
+        return (BASE_DIR / '.github' / 'workflows' / 'ci.yml').read_text(encoding='utf-8')
+
+    def test_smoke_usa_os_comandos_do_railway_json(self):
+        ci = self._ci()
+        self.assertIn("jq -r '.deploy.preDeployCommand[0]' railway.json", ci)
+        self.assertIn("jq -r '.deploy.startCommand' railway.json", ci)
+        self.assertIn('load: true', ci)
+        self.assertIn('-c ssl=on', ci)
+        self.assertIn("-H 'Host: healthcheck.railway.app' http://localhost:8080/healthz/", ci)
+
+    def test_auditoria_do_front_e_de_segredos(self):
+        ci = self._ci()
+        self.assertIn('npm audit --package-lock-only --audit-level=high', ci)
+        self.assertRegex(ci, r'gitleaks/gitleaks-action@[0-9a-f]{40}')
+        self.assertTrue((BASE_DIR / '.gitleaks.toml').exists())
+        self.assertIn('gitleaks/gitleaks', (BASE_DIR / '.pre-commit-config.yaml').read_text(encoding='utf-8'))
+
+    def test_cobertura_combinada_dos_dois_bancos(self):
+        ci = self._ci()
+        self.assertIn('needs: [testes, postgres]', ci)
+        self.assertEqual(ci.count('coverage run manage.py test aranha_estetica --exclude-tag migracoes'), 2)
+        self.assertIn('coverage combine', ci)
+
+
 class CsrfEmProducaoTests(SimpleTestCase):
     def test_so_origens_https_sao_confiaveis(self):
         env = {k: v for k, v in os.environ.items() if k not in ('DEBUG', 'RAILWAY_PUBLIC_DOMAIN')}

@@ -83,12 +83,16 @@ check_untyped_defs = true
 [tool.django-stubs]
 django_settings_module = "clinica.settings"
 
-# Catraca de cobertura (CI job Django SQLite: coverage run ... && coverage report). fail_under e o
-# piso atual: subiu a cobertura, suba o numero junto; nunca desca p/ caber um PR.
+# Catraca de cobertura (CI: `coverage run` nos jobs SQLite e Postgres, `coverage combine` +
+# `coverage report` no job cobertura). Local: coverage run ... && coverage combine && coverage report.
+# fail_under e o piso atual: subiu a cobertura, suba o numero junto; nunca desca p/ caber um PR.
 [tool.coverage.run]
 source = ["aranha_estetica"]
 data_file = ".cache/coverage"
 omit = ["*/migrations/*", "*/tests/*"]
+# um arquivo por execucao (.cache/coverage.<maquina>.<pid>...), combinados entre os jobs do CI
+parallel = true
+relative_files = true
 
 [tool.coverage.report]
 fail_under = 86.9
