@@ -1,78 +1,43 @@
-"""Fluxo publico de agendamento — 3 steps (procedimento, data/horario, confirmar).
+"""Fluxo publico de agendamento — 3 passos (procedimento, data/horario, confirmar).
 
-Identidade do booking = TELEFONE verificado por OTP (SMS) na sessao — exigido
-de TODO agendamento (cliente novo ou recorrente). O servidor revalida o slot
-(SlotService), procedimento/profissional ativos + habilitacao, regra de
-bloqueio online e anamnese obrigatoria. Slot lock via cache + SELECT FOR
-UPDATE + exclusion constraint (Postgres). E-mail a profissional pela fila (services/comunicacao).
-
-LGPD: aceite da Politica de Privacidade obrigatorio (grava AceiteTermo da
-versao LGPD vigente; sem versao vigente o booking recusa — nada sem prova);
-ficha de anamnese (dado de saude, art. 11) so com consentimento especifico,
-gravado como AceiteTermo da versao SAUDE vigente; termo(s) de procedimento
-aceitos no proprio wizard.
-Preco gravado = preco com promocao NA DATA DO ATENDIMENTO (utils.precos).
+Porta HTTP do caso de uso ``services/agendamento_online.solicitar``: o GET monta o wizard; o POST
+passa pelo ``AgendamentoPublicoForm`` (campos + celular verificado por SMS NESTA sessao, exigido de
+todo agendamento) e chama o service, que tem a regra inteira (termo LGPD, horario, fichas com
+consentimento de saude, termos de procedimento, cadastro, reserva com o preco da data, e-mails e
+provas). Aqui so honeypot, form, service e a pagina de sucesso.
 """
-import json
 import logging
-from datetime import datetime
 
 from django.contrib import messages
-from django.core.cache import cache
-from django.core.exceptions import ValidationError
-from django.core.validators import validate_email
-from django.db import DatabaseError, IntegrityError, OperationalError, ProgrammingError, transaction
-from django.db.models import Q
+from django.db import DatabaseError, OperationalError, ProgrammingError
 from django.shortcuts import redirect, render
-from django.utils import timezone
 from django_ratelimit.decorators import ratelimit
 
+from ...excecoes import RegraDeNegocio
+from ...forms.agendamento import AgendamentoPublicoForm
 from ...models import (
-    AceiteTermo,
-    Atendimento,
-    Cliente,
     FormularioAnamnese,
-    Notificacao,
-    Procedimento,
     Profissional,
     Promocao,
-    RespostaAnamnese,
     VersaoTermo,
 )
 from ...models.termos import TEXTO_CONSENTIMENTO_SAUDE
-from ...excecoes import RegraDeNegocio
-from ...services import agenda, comunicacao, consentimentos
+from ...services import agendamento_online, consentimentos
 from ...services import otp as otp_service
 from ...services.disponibilidade import procedimentos_agendaveis
-from ...services.agendamento import formatar_data_hora, formatar_valor_atendimento
-from ...utils.formatos import formatar_brl
-from ...services.anamnese import validar_respostas
-from ...utils.auditoria import registrar_log
 from ...utils.captcha import turnstile_enabled, turnstile_site_key
-from ...utils.datas import hoje as hoje_local, ler_data
-from ...utils.email import email_configurado
+from ...utils.datas import hoje as hoje_local
 from ...utils.parse import id_int
 from ...utils.pii import mask_email, mask_telefone
 from ...utils.precos import aplicar_promocao, preco_base_map, promocao_vigente
 from ...utils.seguranca import client_ip as _client_ip
 from ...utils.sms import sms_disponivel
-from ...validators import validate_data_nascimento
 
 logger = logging.getLogger(__name__)
 
 SESSAO_REHIDRATAR = 'booking_rehidratar'
-MSG_BLOQUEADO_ONLINE = (
-    'Seu cadastro está com agendamento online suspenso. '
-    'Fale conosco pelo WhatsApp para marcar seu horário.'
-)
-MSG_SEM_TERMO_LGPD = (
-    'Não foi possível concluir o agendamento online agora. '
-    'Fale conosco pelo WhatsApp para marcar seu horário.'
-)
-# Teto do JSON da anamnese (todos os formularios somados) — acima disso e abuso.
-MAX_ANAMNESE_BYTES = 20_000
-# Consentimentos de comunicacao: checkbox do wizard -> par finalidade x canal
-# (services/consentimentos.PARES; historico append-only na tabela consentimento).
+SESSAO_SUCESSO = 'agendamento_sucesso'
+MSG_FALHA = 'Ocorreu um erro ao confirmar o agendamento. Tente novamente.'
 
 
 def _voltar_com_erro(request, mensagem):
@@ -80,62 +45,6 @@ def _voltar_com_erro(request, mensagem):
     messages.error(request, mensagem)
     request.session[SESSAO_REHIDRATAR] = True
     return redirect('aranha:agendamento_publico')
-
-
-def _formularios_aplicaveis(procedimento):
-    """Anamneses pre-atendimento ativas que valem p/ o procedimento."""
-    return FormularioAnamnese.objects.filter(tipo='ANAMNESE', ativo=True).aplicaveis_a(procedimento)
-
-
-def _resposta_preenchida(valor) -> bool:
-    if isinstance(valor, list):
-        return any(str(v).strip() for v in valor)
-    return valor is not None and str(valor).strip() != ''
-
-
-def _validar_anamnese(raw, procedimento):
-    """Parse + validacao das respostas. Retorna (lista[(form, respostas)], erro|None).
-
-    Ignora formularios fora do conjunto aplicavel; valida o conteudo contra o
-    schema (services.anamnese.validar_respostas: so chaves do schema, tipo,
-    opcoes, tamanho, bool normalizado) e exige os obrigatorios.
-    """
-    if len(raw) > MAX_ANAMNESE_BYTES:
-        return [], 'As respostas do questionário ficaram longas demais. Resuma e tente novamente.'
-    try:
-        dados = json.loads(raw) if raw else {}
-    except (TypeError, ValueError):
-        logger.warning('booking_anamnese_json_invalido')
-        dados = {}
-    if not isinstance(dados, dict):
-        dados = {}
-
-    salvar = []
-    for form in _formularios_aplicaveis(procedimento):
-        brutas = dados.get(str(form.pk))
-        if not isinstance(brutas, dict):
-            brutas = {}
-        schema = form.schema_json if isinstance(form.schema_json, list) else []
-        chaves = {c.get('key') for c in schema if isinstance(c, dict)}
-        preenchido = any(_resposta_preenchida(v) for k, v in brutas.items() if k in chaves)
-        if not (form.obrigatorio or preenchido):
-            continue
-        respostas, erros = validar_respostas(schema, brutas)
-        if erros:
-            return [], f'Questionário "{form.nome}": {" ".join(erros[:3])}'
-        if respostas:
-            salvar.append((form, respostas))
-    return salvar, None
-
-
-def _termos_procedimento(procedimento):
-    """Termos de procedimento ativos que valem p/ o procedimento (proprio + geral)."""
-    return list(
-        VersaoTermo.objects.filter(
-            Q(procedimento=procedimento) | Q(procedimento__isnull=True),
-            tipo='PROCEDIMENTO', ativa=True,
-        ).order_by('pk')
-    )
 
 
 def _precos_card(procedimentos):
@@ -272,7 +181,8 @@ def agendamento_publico(request):
 
 @ratelimit(key='ip', rate='10/m', method='POST', block=True)
 def confirmar_agendamento(request):
-    """Processa confirmacao SEM login (telefone verificado por OTP na sessao)."""
+    """Pedido de agendamento SEM login: form (entrada + celular verificado por SMS) -> caso de uso
+    (services/agendamento_online) -> pagina de sucesso. Recusa volta ao wizard com a mensagem."""
     if request.method != 'POST':
         return redirect('aranha:agendamento_publico')
 
@@ -280,273 +190,44 @@ def confirmar_agendamento(request):
         logger.info('booking_honeypot_triggered', extra={'ip': _client_ip(request)})
         return redirect('aranha:agendamento_publico')
 
-    nome = (request.POST.get('nome') or '').strip()[:150]
-    telefone_raw = (request.POST.get('telefone') or '').strip()
-    data_nascimento_str = (request.POST.get('data_nascimento') or '').strip()
-    email = (request.POST.get('email') or '').strip().lower() or None
-    procedimento_id = str(request.POST.get('procedimento') or '').strip()
-    profissional_id = str(request.POST.get('profissional') or '').strip()
-    datetime_str = (request.POST.get('datetime') or '').strip()
-    consents = {campo: request.POST.get(campo) == 'on' for campo in consentimentos.PARES}
-    # '1' = os checkboxes mostravam o estado atual do cadastro (prefill do OTP):
-    # so entao desmarcar revoga. Sem isso o POST so concede (nunca revoga as cegas).
-    consents_sincronizados = request.POST.get('consents_sincronizados') == '1'
-    aceite_politica = request.POST.get('aceite_politica') == 'on'
-    consent_dados_saude = request.POST.get('consent_dados_saude') == 'on'
-
-    if not all([nome, telefone_raw, data_nascimento_str, procedimento_id, profissional_id, datetime_str]):
-        return _voltar_com_erro(request, 'Preencha todos os campos obrigatórios.')
-
-    if not aceite_politica:
-        return _voltar_com_erro(
-            request, 'Para agendar, confirme que leu e aceita a Política de Privacidade.'
-        )
-
-    # Sem versao LGPD vigente nao ha o que registrar em AceiteTermo: recusa em
-    # vez de gravar o agendamento sem a prova do aceite (Painel > Termos).
-    termo_lgpd = VersaoTermo.lgpd_vigente()
-    if termo_lgpd is None:
-        logger.error('booking_sem_termo_lgpd_vigente')
-        return _voltar_com_erro(request, MSG_SEM_TERMO_LGPD)
-
-    telefone = otp_service.normalizar_telefone_br(telefone_raw)
-    if not telefone:
-        return _voltar_com_erro(request, 'Informe um celular válido com DDD, ex.: (17) 99999-9999.')
-
-    # Gate unico: o telefone do agendamento precisa ser o verificado por SMS
-    # nesta sessao (vale p/ cliente novo e recorrente; e-mail nunca e identidade).
-    if otp_service.telefone_verificado_agendamento(request) != telefone:
-        return _voltar_com_erro(
-            request, 'Confirme seu celular com o código enviado por SMS antes de concluir.'
-        )
-
-    if email:
-        try:
-            validate_email(email)
-        except ValidationError:
-            return _voltar_com_erro(request, 'Informe um e-mail válido ou deixe o campo em branco.')
+    form = AgendamentoPublicoForm(request.POST, request=request)
+    if not form.is_valid():
+        return _voltar_com_erro(request, form.primeiro_erro())
+    pedido = form.pedido()
 
     try:
-        data_nascimento = ler_data(data_nascimento_str)
-        validate_data_nascimento(data_nascimento)
-    except (ValueError, ValidationError):
-        return _voltar_com_erro(request, 'Data de nascimento inválida.')
-
-    hoje = hoje_local()
-    idade = hoje.year - data_nascimento.year - (
-        (hoje.month, hoje.day) < (data_nascimento.month, data_nascimento.day)
-    )
-    if idade < 18:
-        return _voltar_com_erro(request, 'É necessário ter pelo menos 18 anos para agendar.')
-
-    proc_pk, prof_pk = id_int(procedimento_id), id_int(profissional_id)
-    if proc_pk is None or prof_pk is None:
-        return _voltar_com_erro(request, 'Dados do agendamento inválidos. Refaça a seleção.')
-    try:
-        procedimento = Procedimento.objects.get(pk=proc_pk, ativo=True)
-        profissional = Profissional.objects.get(pk=prof_pk, ativo=True)
-        data_hora = datetime.fromisoformat(datetime_str)
-        if timezone.is_naive(data_hora):
-            data_hora = timezone.make_aware(data_hora)
-        data_hora = timezone.localtime(data_hora)
-    except (Procedimento.DoesNotExist, Profissional.DoesNotExist, ValueError, TypeError, OverflowError):
-        return _voltar_com_erro(request, 'Dados do agendamento inválidos. Refaça a seleção.')
-
-    # Habilitacao, horario futuro, feriado/recesso e o slot oferecido (expediente, folga,
-    # bloqueio, buffer, antecedencia, duracao inteira) — a mesma regra das outras portas.
-    try:
-        agenda.validar_horario(profissional, procedimento, data_hora)
-    except RegraDeNegocio as recusa:
-        return _voltar_com_erro(request, recusa.mensagem)
-
-    anamneses, erro_anamnese = _validar_anamnese(
-        (request.POST.get('anamnese_respostas') or '').strip(), procedimento,
-    )
-    if erro_anamnese:
-        return _voltar_com_erro(request, erro_anamnese)
-    if anamneses and not consent_dados_saude:
-        # Dado de saude (LGPD art. 11): nada e gravado sem o consentimento destacado.
-        return _voltar_com_erro(
-            request,
-            'Para enviar o questionário pré-atendimento, marque a autorização de uso '
-            'das suas informações de saúde.',
-        )
-
-    # Termo(s) de procedimento: aceite no proprio wizard (o link por e-mail nao
-    # chegava a quem nao informa e-mail). Versao ja aceita antes nao e exigida.
-    termos_proc = _termos_procedimento(procedimento)
-    ja_aceitos = set(
-        AceiteTermo.objects.filter(
-            cliente__telefone=telefone, versao_termo__in=termos_proc,
-        ).values_list('versao_termo_id', flat=True)
-    ) if termos_proc else set()
-    termo_faltando = next(
-        (t for t in termos_proc
-         if t.pk not in ja_aceitos and request.POST.get(f'aceite_termo_{t.pk}') != 'on'),
-        None,
-    )
-    if termo_faltando is not None:
-        return _voltar_com_erro(
-            request,
-            f'Leia e aceite o termo "{termo_faltando.titulo}" para concluir o agendamento.',
-        )
-
-    # E-mail de outro cadastro nao e reaproveitado (evita sequestro + IntegrityError)
-    if email and Cliente.objects.filter(email__iexact=email).exclude(telefone=telefone).exists():
-        return _voltar_com_erro(
-            request,
-            'Este e-mail já está vinculado a outro cadastro. Use outro e-mail ou deixe em branco.',
-        )
-
-    slot_key = f'booking_slot:{profissional.pk}:{data_hora.isoformat()}'
-    if not cache.add(slot_key, '1', timeout=30):
-        return _voltar_com_erro(
-            request, 'Este horário está sendo confirmado por outra pessoa. Tente outro.'
-        )
-
-    try:
-        with transaction.atomic():
-            agora = timezone.now()
-            defaults = {
-                'nome': nome,
-                'data_nascimento': data_nascimento,
-                'email': email,
-                'ativo': True,
-            }
-
-            cliente, created = Cliente.objects.select_for_update().get_or_create(
-                telefone=telefone,
-                defaults=defaults,
-            )
-            if not created and (cliente.bloqueado_online or not cliente.ativo):
-                # Regra das 3 faltas / bloqueio manual do painel.
-                raise RegraDeNegocio(MSG_BLOQUEADO_ONLINE, codigo='bloqueado_online')
-            if not created:
-                atualizar = False
-                if cliente.nome != nome:
-                    cliente.nome = nome
-                    atualizar = True
-                if not cliente.data_nascimento and data_nascimento:
-                    cliente.data_nascimento = data_nascimento
-                    atualizar = True
-                if email and cliente.email != email:
-                    # Telefone acabou de ser provado por SMS: o e-mail informado
-                    # pela dona do celular substitui o do cadastro (inclusive um
-                    # plantado por terceiro sem verificacao). Em branco = mantem.
-                    cliente.email = email
-                    atualizar = True
-                if atualizar:
-                    cliente.save()
-            # Opt-ins -> historico (prova: texto do checkbox, IP, user-agent).
-            # Concede ao marcar; revoga ao desmarcar SO se o checkbox mostrava o
-            # estado do cadastro. Ultimo registro manda: quem se descadastrou e
-            # marca de novo volta a receber (reconsentimento).
-            consentimentos.registrar_do_wizard(
-                cliente, consents, sincronizados=consents_sincronizados,
-                cadastro_novo=created, request=request,
-            )
-
-            # Conflito com lock + preco da data (promocao do dia, o mesmo do resumo do wizard).
-            atendimento = agenda.reservar(
-                cliente=cliente, profissional=profissional, procedimento=procedimento,
-                inicio=data_hora, status=agenda.status_inicial_publico(cliente),
-            )
-            if atendimento.status == Atendimento.STATUS_PENDENTE:
-                # Pedido p/ a profissional aprovar (fila de e-mail; o link so leva a agenda do dia)
-                comunicacao.enfileirar_email(atendimento, Notificacao.Tipo.APROVACAO)
-            else:
-                # Cliente de confianca (D8): horario ja garantido, confirmacao na hora
-                comunicacao.enfileirar_email(atendimento, Notificacao.Tipo.CONFIRMACAO)
-
-            # Aceites com prova (IP, user-agent, SHA-256 do texto): Politica de
-            # Privacidade (versao LGPD vigente) + termo(s) do procedimento.
-            AceiteTermo.registrar(cliente, termo_lgpd, request, atendimento)
-            for termo in termos_proc:
-                if request.POST.get(f'aceite_termo_{termo.pk}') == 'on':
-                    AceiteTermo.registrar(cliente, termo, request, atendimento)
-
-            for form, respostas in anamneses:
-                RespostaAnamnese.objects.create(
-                    formulario=form, cliente=cliente,
-                    atendimento=atendimento, respostas_json=respostas,
-                    respondida_em=agora,
-                )
-            if anamneses:
-                # Consentimento art. 11 = aceite da versao SAUDE vigente (prova
-                # no banco) + trilha de auditoria com o texto consentido.
-                termo_saude, texto_saude = VersaoTermo.texto_saude_vigente()
-                aceite_saude = AceiteTermo.registrar(cliente, termo_saude, request, atendimento)
-                if aceite_saude is None:
-                    logger.warning('booking_sem_termo_saude_vigente', extra={'atendimento_id': atendimento.pk})
-                registrar_log(
-                    None, 'Consentimento de dados de saude (LGPD art. 11) no agendamento',
-                    'atendimento', atendimento.pk,
-                    detalhes={
-                        'cliente_id': cliente.pk,
-                        'formularios': [form.pk for form, _respostas in anamneses],
-                        'texto': texto_saude,
-                        'aceite_id': getattr(aceite_saude, 'pk', None),
-                    },
-                    request=request,
-                )
-            email_cliente = cliente.email
+        atendimento = agendamento_online.solicitar(pedido, request=request)
     except RegraDeNegocio as recusa:
         if recusa.codigo == 'horario_ocupado':
-            logger.info('booking_slot_corrida_perdida', extra={'telefone': mask_telefone(telefone)})
+            logger.info('booking_slot_corrida_perdida', extra={'telefone': mask_telefone(pedido.telefone)})
         return _voltar_com_erro(request, recusa.mensagem)
-    except IntegrityError as exc:
-        logger.error(
-            'booking_confirmar_falha',
-            extra={
-                'erro': str(exc),
-                'email': mask_email(email) if email else None,
-                'telefone': mask_telefone(telefone),
-            },
-            exc_info=True,
-        )
-        return _voltar_com_erro(request, 'Ocorreu um erro ao confirmar o agendamento. Tente novamente.')
     except DatabaseError as exc:
         logger.error(
             'booking_confirmar_falha',
             extra={
                 'erro': str(exc),
-                'email': mask_email(email) if email else None,
-                'telefone': mask_telefone(telefone),
+                'email': mask_email(pedido.email) if pedido.email else None,
+                'telefone': mask_telefone(pedido.telefone),
             },
             exc_info=True,
         )
-        return _voltar_com_erro(request, 'Ocorreu um erro ao confirmar o agendamento. Tente novamente.')
-    finally:
-        # Lock so serializa confirmacoes simultaneas; depois o banco decide.
-        cache.delete(slot_key)
+        return _voltar_com_erro(request, MSG_FALHA)
 
-    data_formatada = formatar_data_hora(data_hora)
-    valor_texto = formatar_valor_atendimento(atendimento)
-    em_pacote = valor_texto.startswith('Sessão do pacote')
+    return _concluir(request, atendimento)
 
-    request.session['agendamento_sucesso'] = {
-        'nome': nome,
-        'procedimento': procedimento.nome,
-        'profissional': profissional.nome,
-        'data_hora': data_formatada,
-        # 'Sessão do pacote X' quando um pacote dela cobre (nunca o preco cheio), senao o valor
-        'valor': valor_texto,
-        # cheio riscado + nome da promo quando a promocao reduziu o valor
-        'valor_cheio': formatar_brl(atendimento.valor_original) if atendimento.promocao and not em_pacote else '',
-        'promocao': atendimento.promocao.nome if atendimento.promocao and not em_pacote else '',
-        'pendente': atendimento.status == Atendimento.STATUS_PENDENTE,
-        # So promete acompanhamento por e-mail se o backend entrega de fato
-        'email': bool(email_cliente) and email_configurado(),
-    }
+
+def _concluir(request, atendimento):
+    """Ponto unico depois de um pedido aceito: resumo p/ a pagina de sucesso e fim da verificacao
+    do celular (o proximo agendamento pede outro SMS)."""
+    request.session[SESSAO_SUCESSO] = agendamento_online.resumo_confirmacao(atendimento)
     otp_service.limpar_verificacao_agendamento(request)
     request.session.pop(SESSAO_REHIDRATAR, None)
-
     return redirect('aranha:agendamento_sucesso')
 
 
 def agendamento_sucesso(request):
     """Pagina de sucesso apos agendamento/reagendamento."""
-    dados = request.session.pop('agendamento_sucesso', None)
+    dados = request.session.pop(SESSAO_SUCESSO, None)
     if not dados:
         return redirect('aranha:agendamento_publico')
     return render(request, 'agendamento/agendamento_sucesso.html', {'dados': dados})

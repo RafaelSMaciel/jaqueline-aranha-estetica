@@ -185,7 +185,7 @@ class FichaSaudeBookingTests(_BaseBooking):
         """Termo SAUDE arquivado (aviso aranha.W010): o log com o texto segue como registro."""
         VersaoTermo.objects.filter(tipo='SAUDE').update(ativa=False)
         form = self._ficha()
-        with self.assertLogs('aranha_estetica.views.publico.agendamento', 'WARNING'):
+        with self.assertLogs('aranha_estetica.services.agendamento_online', 'WARNING'):
             resp = self._post(anamnese_respostas=json.dumps({str(form.pk): {'gestante': 'nao'}}),
                               consent_dados_saude='on')
         self.assertIn('sucesso', resp.url)
@@ -237,7 +237,7 @@ class PoliticaETermosBookingTests(_BaseBooking):
     def test_sem_termo_lgpd_vigente_recusa_sem_gravar(self):
         """Contrato 3: sem versao LGPD nao ha prova do aceite -> nada e gravado."""
         VersaoTermo.objects.filter(tipo='LGPD').update(ativa=False)
-        with self.assertLogs('aranha_estetica.views.publico.agendamento', 'ERROR') as logs:
+        with self.assertLogs('aranha_estetica.services.agendamento_online', 'ERROR') as logs:
             resp = self._post()
         self.assertNotIn('sucesso', resp.url)
         self.assertIn('booking_sem_termo_lgpd_vigente', logs.output[0])
