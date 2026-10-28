@@ -8,8 +8,15 @@ export default defineConfig({
     manifest: 'manifest.json',
     outDir: 'aranha_estetica/static/dist',
     emptyOutDir: true,
+    // Uma entrada por tela: o nome sai com hash no manifest (cache do navegador e do service
+    // worker nunca serve JS velho depois de um deploy; o static/js/ antigo nao tinha versao).
     rollupOptions: {
-      input: 'aranha_estetica/static/src/js/app.js',
+      input: {
+        app: 'aranha_estetica/static/src/js/app.js',
+        wizard: 'aranha_estetica/static/src/js/wizard.js',
+        'admin-search': 'aranha_estetica/static/src/js/admin-search.js',
+        webpush: 'aranha_estetica/static/src/js/webpush.js',
+      },
     },
   },
   server: { origin: 'http://localhost:5173' },

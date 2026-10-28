@@ -1,5 +1,5 @@
 {% extends 'estrutura/base_v2.html' %}
-{% load static l10n %}
+{% load static l10n django_vite %}
 
 {% block titulo %}Agendamento Online | {{ CLINIC_NAME }}{% endblock %}
 
@@ -755,7 +755,7 @@
     whatsappNumero:  "{{ WHATSAPP_NUMERO|escapejs }}"
   };
 </script>
-<script src="{% static 'js/wizard.js' %}" defer nonce="{{ csp_nonce }}"></script>
+{% vite_asset 'aranha_estetica/static/src/js/wizard.js' %}
 {% if turnstile_enabled %}
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer nonce="{{ csp_nonce }}"></script>
 {% endif %}

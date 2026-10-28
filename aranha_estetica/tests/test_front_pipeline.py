@@ -64,7 +64,7 @@ class FrontPipelineGuards(TestCase):
         self.assertNotIn('logo-sem-fundo', sw)
 
 
-_WEBPUSH_JS = Path(settings.BASE_DIR) / 'aranha_estetica' / 'static' / 'js' / 'webpush.js'
+_WEBPUSH_JS = Path(settings.BASE_DIR) / 'aranha_estetica' / 'static' / 'src' / 'js' / 'webpush.js'
 
 
 class WebpushCsrfTests(TestCase):
