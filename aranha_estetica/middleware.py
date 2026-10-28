@@ -186,10 +186,11 @@ class ContentSecurityPolicyMiddleware:
     @xframe_options_exempt (widget /embed/agendar/), que usam
     settings.EMBED_FRAME_ANCESTORS (default: qualquer origem https).
 
-    Hosts externos: so os realmente usados (Google Fonts; Turnstile). O
+    Hosts externos: so os realmente usados (Turnstile; libs do painel no jsdelivr). O
     jsdelivr serve QUALQUER pacote npm/GitHub — liberar o host inteiro deixaria
     um <script src> injetado rodar apesar do nonce. Por isso so os caminhos
-    das libs em uso (JSDELIVR_PATHS).
+    das libs em uso (JSDELIVR_PATHS), e so em script-src: nenhum template carrega CSS de la.
+    Os <script> das libs levam nonce e integrity (SRI).
     Trocou a versao da lib no template? Atualize aqui (test_csp confere
     templates x allowlist).
     """
@@ -206,7 +207,6 @@ class ContentSecurityPolicyMiddleware:
     ]
     ALLOWED_STYLE_SRCS = [
         "'self'",
-        *JSDELIVR_PATHS,
     ]
     ALLOWED_FONT_SRCS = [
         "'self'",
