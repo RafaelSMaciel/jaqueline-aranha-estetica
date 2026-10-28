@@ -56,6 +56,14 @@ class AtendimentoQuerySet(models.QuerySet):
     def pendentes_aprovacao(self):
         return self.filter(status=StatusAtendimento.PENDENTE)
 
+    def sem_desfecho(self, ate=None):
+        """Ja terminaram e seguem AGENDADO/CONFIRMADO: ninguem marcou Realizado, Faltou ou Cancelado
+        (sem desfecho nao gera comissao, nao debita pacote, nao dispara NPS nem entra no faturamento)."""
+        return self.filter(
+            data_hora_fim__lt=ate or timezone.now(),
+            status__in=(StatusAtendimento.AGENDADO, StatusAtendimento.CONFIRMADO),
+        )
+
     def realizados(self):
         return self.filter(status=StatusAtendimento.REALIZADO)
 
