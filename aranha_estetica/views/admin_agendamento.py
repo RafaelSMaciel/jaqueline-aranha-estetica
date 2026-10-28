@@ -8,7 +8,7 @@ recepcao pode informar outro valor combinado; fica registrado). Nasce
 AGENDADO — a propria clinica confirmou — com auditoria.
 """
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
@@ -22,7 +22,9 @@ from django_ratelimit.decorators import ratelimit
 
 from ..decorators import staff_required
 from ..models import Atendimento, Cliente, Procedimento, Profissional
-from ..services.disponibilidade import SlotService, profissionais_para, slot_disponivel
+from ..excecoes import RegraDeNegocio
+from ..services import agenda
+from ..services.disponibilidade import SlotService, profissionais_para
 from ..utils.audit import registrar_log
 from ..utils.busca import filtrar_clientes
 from ..utils.datas import hoje
@@ -35,12 +37,6 @@ from .admin_management import _normalizar_telefone_br, _parse_preco
 logger = logging.getLogger(__name__)
 
 ACOES = ('buscar', 'horarios', 'agendar')
-
-
-def _eh_sobreposicao(exc) -> bool:
-    """IntegrityError da exclusion constraint do PG (23P01) = horario ja ocupado."""
-    causa = getattr(exc, '__cause__', None)
-    return getattr(causa, 'pgcode', None) == '23P01' or 'ex_atendimento_sobreposicao' in str(exc)
 
 
 def _int(valor):
@@ -232,48 +228,39 @@ def admin_agendamento_novo(request):
     inicio = None
     if not erros:
         inicio = timezone.make_aware(datetime.combine(data, hora))
-        # Mesmo SlotService do site: expediente, folga, bloqueio, buffer, antecedencia
-        if not slot_disponivel(profissional, procedimento, inicio):
-            erros.append('Este horário não está livre para o profissional. Escolha outro da lista.')
+        # Mesma regra do site (SlotService: expediente, folga, bloqueio, buffer, antecedencia),
+        # com o motivo da recusa p/ a recepcao. Habilitacao ja veio do profissionais_para.
+        try:
+            agenda.validar_horario(profissional, procedimento, inicio, checar_habilitacao=False, detalhado=True)
+        except RegraDeNegocio as recusa:
+            erros.append(recusa.mensagem)
 
     if erros:
         for erro in erros:
             messages.error(request, erro)
         return render(request, 'painel/agendamento_novo.html', context)
 
-    final, promo, cheio = preco['final'], preco['promocao'], preco['cheio']
-    valor_original, descricao_preco = None, ''
-    if valor_informado is not None and valor_informado != final:
+    precos = agenda.preco_do_dia(procedimento, profissional, inicio)
+    if valor_informado is not None and valor_informado != precos['valor_cobrado']:
         # Valor combinado com a cliente (desconto negociado, cortesia...)
-        valor_cobrado, promo = valor_informado, None
-        valor_original = cheio
-        descricao_preco = 'Valor combinado pela recepção'
-    else:
-        valor_cobrado = final
-        if promo is not None:
-            valor_original = cheio
-            descricao_preco = f'Promoção {promo.nome}'
+        precos = {
+            'valor_cobrado': valor_informado, 'valor_original': preco['cheio'],
+            'promocao': None, 'descricao_preco': 'Valor combinado pela recepção',
+        }
+    valor_cobrado, promo = precos['valor_cobrado'], precos['promocao']
 
     cliente_novo = cliente is None
     try:
         with transaction.atomic():
             if cliente_novo:
                 cliente = Cliente.objects.create(**dados_novo)
-            atendimento = Atendimento.objects.create(
-                cliente=cliente,
-                profissional=profissional,
-                procedimento=procedimento,
-                data_hora_inicio=inicio,
-                data_hora_fim=inicio + timedelta(minutes=procedimento.duracao_minutos),
-                valor_cobrado=valor_cobrado,
-                valor_original=valor_original,
-                promocao=promo,
-                descricao_preco=descricao_preco,
-                status=Atendimento.STATUS_AGENDADO,
+            atendimento = agenda.reservar(
+                cliente=cliente, profissional=profissional, procedimento=procedimento,
+                inicio=inicio, status=Atendimento.STATUS_AGENDADO, preco=precos,
             )
-    except IntegrityError as exc:
-        if _eh_sobreposicao(exc):
-            messages.error(request, 'Este horário acabou de ser ocupado. Escolha outro.')
+    except (RegraDeNegocio, IntegrityError) as exc:
+        if isinstance(exc, RegraDeNegocio):
+            messages.error(request, exc.mensagem)
         else:
             logger.warning('agendamento_painel_integridade', exc_info=True)
             messages.error(request, 'Telefone, e-mail ou CPF já cadastrado para outra cliente. Busque a cliente.')

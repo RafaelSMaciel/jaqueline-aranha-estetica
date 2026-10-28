@@ -1,7 +1,7 @@
 """Visao de calendario (FullCalendar) para agendamentos — alternativa a lista."""
 from datetime import datetime, timedelta
 
-from django.db import IntegrityError, transaction
+from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render
@@ -10,8 +10,9 @@ from django.views.decorators.http import require_POST
 from django_ratelimit.decorators import ratelimit
 
 from ..decorators import staff_required
+from ..excecoes import RegraDeNegocio, TransicaoInvalida
 from ..models import AgendaExcecao, Atendimento, Profissional
-from ..services.disponibilidade import STATUS_OCUPAM_AGENDA, slot_disponivel
+from ..services import agenda
 from ..utils.audit import registrar_log
 from ..utils.datas import data_local, fmt_local
 from ..utils.parse import id_int
@@ -140,13 +141,11 @@ def admin_calendar_events(request):
 @require_POST
 @ratelimit(key='user', rate='60/m', method='POST', block=True)
 def admin_calendar_mover(request):
-    """Reagenda atendimento via drag-drop no calendario.
+    """Reagenda atendimento via drag-drop no calendario (services.agenda.mover).
 
-    Mesma regra de horario do site, do agendamento pelo painel e do reagendamento pelo portal
-    (SlotService): expediente/horario diferente do dia, folga do profissional OU feriado/recesso
-    da clinica, bloqueios, buffer, antecedencia e limite de dias. Os 409 especificos (conflito,
-    bloqueio, folga) vem antes so p/ a mensagem dizer o motivo. O preco/promocao combinados
-    seguem com o atendimento (como no portal). A duracao nao muda (eventDurationEditable=false).
+    Mesma regra de horario do site, do painel e do portal (SlotService), com o motivo da recusa
+    p/ a equipe (conflito, bloqueio, folga, feriado, fora do expediente). Preco/promocao e
+    duracao combinados ficam (eventDurationEditable=false).
     """
     import json
     try:
@@ -160,86 +159,18 @@ def admin_calendar_mover(request):
     if novo_fim <= novo_inicio:
         return JsonResponse({'sucesso': False, 'erro': 'O fim deve ser depois do início.'}, status=400)
 
-    with transaction.atomic():
-        try:
-            at = Atendimento.objects.select_for_update().get(pk=pk)
-        except Atendimento.DoesNotExist:
-            return JsonResponse({'sucesso': False, 'erro': 'Atendimento não encontrado.'}, status=404)
-
-        if at.status in ('REALIZADO', 'CANCELADO', 'FALTOU'):
-            return JsonResponse({
-                'sucesso': False,
-                'erro': f'Não é possível mover um atendimento {at.get_status_display().lower()}.',
-            }, status=400)
-
-        novo_fim = novo_inicio + (at.data_hora_fim - at.data_hora_inicio)
-        # Bloqueia double-booking: nao mover para janela que sobrepoe outro
-        # atendimento ativo do mesmo profissional, um bloqueio ou uma folga.
-        conflito_atendimento = Atendimento.objects.filter(
-            profissional_id=at.profissional_id,
-            data_hora_inicio__lt=novo_fim,
-            data_hora_fim__gt=novo_inicio,
-            status__in=STATUS_OCUPAM_AGENDA,
-        ).exclude(pk=at.pk).exists()
-        if conflito_atendimento:
-            return JsonResponse({
-                'sucesso': False,
-                'erro': 'Conflito: já existe um atendimento nesse horário para o profissional.',
-            }, status=409)
-
-        # Inclui bloqueios globais (profissional nulo = vale p/ todos) e
-        # expande os recorrentes (mesma regra do SlotService).
-        conflito_bloqueio = any(
-            bl.ocorrencias(novo_inicio, novo_fim)
-            for bl in AgendaExcecao.objects.ativas()
-            .do_profissional_ou_global(at.profissional_id)
-            .bloqueios_no_intervalo(novo_inicio, novo_fim)
-        )
-        if conflito_bloqueio:
-            return JsonResponse({
-                'sucesso': False,
-                'erro': 'Conflito: o horário cai dentro de um bloqueio de agenda.',
-            }, status=409)
-
-        # folga do profissional OU feriado/recesso/fechamento da clinica (profissional nulo)
-        folga = (
-            AgendaExcecao.objects.ativas().do_profissional_ou_global(at.profissional_id)
-            .filter(tipo=AgendaExcecao.TIPO_FOLGA)
-            .cobrindo(timezone.localtime(novo_inicio).date()).first()
-        )
-        if folga is not None:
-            return JsonResponse({
-                'sucesso': False,
-                'erro': ('Conflito: o profissional está de folga nesse dia.' if folga.profissional_id
-                         else 'Conflito: a clínica não atende nesse dia (feriado ou recesso).'),
-            }, status=409)
-
-        if not slot_disponivel(at.profissional, at.procedimento, novo_inicio, ignorar_atendimento_id=at.pk):
-            return JsonResponse({
-                'sucesso': False,
-                'erro': ('Fora do horário de atendimento do profissional (expediente, intervalo entre '
-                         'sessões, antecedência mínima ou dias liberados para agendar).'),
-            }, status=409)
-
-        antigo = at.data_hora_inicio.isoformat()
-        at.data_hora_inicio = novo_inicio
-        at.data_hora_fim = novo_fim
-        try:
-            # savepoint: a EXCLUDE ex_atendimento_sobreposicao (PG) pode
-            # disparar numa corrida com o booking entre a checagem e o save
-            with transaction.atomic():
-                at.save(update_fields=['data_hora_inicio', 'data_hora_fim', 'atualizado_em'])
-        except IntegrityError:
-            return JsonResponse({
-                'sucesso': False,
-                'erro': 'Conflito: o horário acabou de ser ocupado. Atualize o calendário.',
-            }, status=409)
-
-        registrar_log(
-            request.user, 'Moveu agendamento via calendario',
-            'atendimento', at.pk,
-            detalhes={'de': antigo, 'para': novo_inicio.isoformat()}, request=request,
-        )
+    try:
+        with transaction.atomic():
+            at, antigo = agenda.mover(pk, novo_inicio)
+            registrar_log(
+                request.user, 'Moveu agendamento via calendario',
+                'atendimento', at.pk,
+                detalhes={'de': antigo.isoformat(), 'para': novo_inicio.isoformat()}, request=request,
+            )
+    except RegraDeNegocio as recusa:
+        status = (404 if recusa.codigo == 'nao_encontrado'
+                  else 400 if isinstance(recusa, TransicaoInvalida) else 409)
+        return JsonResponse({'sucesso': False, 'erro': recusa.mensagem}, status=status)
 
     return JsonResponse({
         'sucesso': True,

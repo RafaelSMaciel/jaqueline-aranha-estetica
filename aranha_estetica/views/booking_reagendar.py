@@ -10,7 +10,7 @@ import logging
 from datetime import datetime, timedelta
 
 from django.contrib import messages
-from django.db import DatabaseError, IntegrityError, transaction
+from django.db import DatabaseError, transaction
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
@@ -19,11 +19,11 @@ from django.utils import timezone
 from django_ratelimit.decorators import ratelimit
 
 from ..constants import JANELA_MINIMA_REAGENDAMENTO
-from ..models import AgendaExcecao, Atendimento, Cliente, Profissional, RespostaAnamnese
-from ..services import links
+from ..models import Atendimento, Cliente, Profissional
+from ..excecoes import RegraDeNegocio, TransicaoInvalida
+from ..services import agenda, links
 from ..services.agendamento_service import formatar_brl, formatar_data_hora
-from ..services.disponibilidade import profissionais_para, profissional_habilitado, slot_disponivel
-from ..services.retorno_service import DURACAO_RETORNO_PADRAO_MINUTOS
+from ..services.disponibilidade import profissionais_para
 from ..utils.audit import registrar_log
 from ..utils.captcha import turnstile_enabled, turnstile_site_key
 from ..utils.datas import hoje
@@ -35,7 +35,6 @@ from .booking_api import agrupar_horarios
 from .booking_otp import SESSAO_MEUS_AGENDAMENTOS
 from .booking_public import (
     MSG_BLOQUEADO_ONLINE,
-    _eh_sobreposicao,
     _enfileirar_email,
     link_revisar_agenda,
 )
@@ -239,101 +238,22 @@ def _reagendar(request, atendimento, *, link, url_voltar, url_horarios):
         return redirect(url_voltar)
 
     procedimento = atendimento.procedimento
-    if not profissional_habilitado(profissional, procedimento):
-        messages.error(request, 'Este profissional não realiza este procedimento.')
-        return redirect(url_voltar)
-
-    if AgendaExcecao.objects.folga_global_em(nova_data.date()).exists():
-        messages.error(request, 'A data escolhida é feriado/recesso. Escolha outro dia.')
-        return redirect(url_voltar)
-
-    # O proprio horario antigo nao bloqueia o novo (ignorar_atendimento_id).
-    if not slot_disponivel(profissional, procedimento, nova_data,
-                           ignorar_atendimento_id=atendimento.pk):
-        messages.error(request, 'Este horário não está disponível. Escolha outro.')
-        return redirect(url_voltar)
-
-    # Retorno gratuito ocupa so a duracao de retorno (igual ao RetornoService).
-    duracao = (
-        procedimento.duracao_retorno_minutos or DURACAO_RETORNO_PADRAO_MINUTOS
-        if atendimento.eh_retorno else procedimento.duracao_minutos
-    )
-    nova_data_fim = nova_data + timedelta(minutes=duracao)
-
     try:
         with transaction.atomic():
-            antigo = Atendimento.objects.select_for_update().select_related('cliente').get(pk=atendimento.pk)
-
-            if antigo.status in STATUS_FINALIZADOS:
-                messages.error(request, 'Este atendimento já foi processado em outra operação.')
-                return redirect('aranha:meus_agendamentos')
-
-            conflito = Atendimento.objects.select_for_update().filter(
-                profissional=profissional,
-                data_hora_inicio__lt=nova_data_fim,
-                data_hora_fim__gt=nova_data,
-                status__in=Atendimento.STATUS_ATIVOS,
-            ).exclude(pk=antigo.pk).exists()
-
-            if conflito:
-                messages.error(request, 'Este horário acabou de ser reservado. Escolha outro.')
-                return redirect(url_voltar)
-
-            # Aprovacao continua valendo so se o original ja estava aprovado e
-            # a profissional e a mesma; senao volta p/ a fila (PENDENTE).
-            mesmo_profissional = profissional.pk == antigo.profissional_id
-            novo_status = (
-                Atendimento.STATUS_AGENDADO
-                if antigo.status in (Atendimento.STATUS_AGENDADO, Atendimento.STATUS_CONFIRMADO)
-                and mesmo_profissional
-                else Atendimento.STATUS_PENDENTE
-            )
-
-            # Antigo sai da agenda ANTES do novo entrar (FSM + auditoria) — senao
-            # a ex_atendimento_sobreposicao (Postgres) bloqueia mover o horario
-            # p/ janela que sobrepoe o proprio slot antigo. Rollback do atomic
-            # restaura tudo se o INSERT falhar.
-            antigo.marcar_reagendado()
-
-            # Preco/promocao combinados e o vinculo de retorno seguem no novo
-            # (sem eh_retorno o retorno reagendado viraria sessao normal e
-            # geraria outro retorno gratuito ao ser realizado).
-            novo = Atendimento.objects.create(
-                cliente=antigo.cliente,
-                profissional=profissional,
-                procedimento=procedimento,
-                promocao=antigo.promocao,
-                reagendado_de=antigo,
-                eh_retorno=antigo.eh_retorno,
-                atendimento_origem=antigo.atendimento_origem,
-                data_hora_inicio=nova_data,
-                data_hora_fim=nova_data_fim,
-                valor_cobrado=antigo.valor_cobrado,
-                valor_original=antigo.valor_original,
-                descricao_preco=antigo.descricao_preco,
-                status=novo_status,
-            )
-            # Ficha de anamnese (alergias etc.) acompanha o atendimento vivo.
-            RespostaAnamnese.objects.filter(atendimento=antigo).update(atendimento=novo)
+            # Mesma regra de horario das outras portas; antigo -> REAGENDADO + novo com o preco
+            # combinado (services.agenda). O proprio horario antigo nao bloqueia o novo.
+            novo = agenda.reagendar(atendimento, nova_data, profissional)
             if link is not None:
                 links.marcar_usado(link)
             registrar_log(
                 None, 'Cliente reagendou pelo link' if link is not None else 'Cliente reagendou pelo portal',
-                'atendimento', novo.pk, detalhes={'reagendado_de': antigo.pk}, request=request,
+                'atendimento', novo.pk, detalhes={'reagendado_de': atendimento.pk}, request=request,
             )
-    except Atendimento.TransicaoInvalida:
-        messages.error(request, 'Este atendimento não pode mais ser reagendado.')
+    except TransicaoInvalida as recusa:
+        messages.error(request, recusa.mensagem)
         return redirect('aranha:meus_agendamentos')
-    except IntegrityError as exc:
-        if _eh_sobreposicao(exc):
-            messages.error(request, 'Este horário acabou de ser reservado. Escolha outro.')
-            return redirect(url_voltar)
-        logger.error(
-            'reagendamento_falha',
-            extra={'atendimento_id': atendimento.pk, 'erro': str(exc)},
-            exc_info=True,
-        )
-        messages.error(request, 'Ocorreu um erro ao reagendar. Tente novamente.')
+    except RegraDeNegocio as recusa:
+        messages.error(request, recusa.mensagem)
         return redirect(url_voltar)
     except DatabaseError as exc:
         logger.error(
@@ -343,6 +263,7 @@ def _reagendar(request, atendimento, *, link, url_voltar, url_horarios):
         )
         messages.error(request, 'Ocorreu um erro ao reagendar. Tente novamente.')
         return redirect(url_voltar)
+    antigo = novo.reagendado_de
 
     data_fmt = formatar_data_hora(nova_data)
     pendente = novo.status == Atendimento.STATUS_PENDENTE

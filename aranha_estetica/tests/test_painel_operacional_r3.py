@@ -508,12 +508,12 @@ class AgendamentoInternoExcludePgTests(_AdminTestCase):
         criar_atendimento(criar_cliente('Ocupa'), prof, proc,
                           data_hora=timezone.make_aware(datetime.combine(dia, time(10, 0))))
         cli = criar_cliente('Perdeu a corrida')
-        # pre-checagem do app "perde" a corrida: so o EXCLUDE do banco segura
-        with mock.patch('aranha_estetica.views.admin_agendamento.slot_disponivel', return_value=True):
+        # pre-checagens do app "perdem" a corrida: so o EXCLUDE do banco segura
+        with mock.patch('aranha_estetica.services.agenda.slot_disponivel', return_value=True),                 mock.patch('aranha_estetica.services.agenda._conflito', return_value=False):
             resp = self.client.post(reverse('aranha:admin_agendamento_novo'), {
                 'acao': 'agendar', 'cliente_id': str(cli.pk), 'procedimento_id': str(proc.pk),
                 'profissional_id': str(prof.pk), 'data': dia.isoformat(), 'hora': '10:00',
             })
         self.assertEqual(resp.status_code, 200)
-        self.assertTrue(any('acabou de ser ocupado' in m for m in _mensagens(resp)))
+        self.assertTrue(any('acabou de ser reservado' in m for m in _mensagens(resp)))
         self.assertFalse(Atendimento.objects.filter(cliente=cli).exists())

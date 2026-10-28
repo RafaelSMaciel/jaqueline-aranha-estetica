@@ -8,6 +8,7 @@ from django.db.models.functions import Now
 from django.utils import timezone
 
 from ..db.indices import Indice
+from ..excecoes import TransicaoInvalida
 from ..utils.datas import fmt_local
 from .clientes import Cliente
 from .mixins import ATUALIZADO_EM_BACKFILL, atualizado_em_legado
@@ -193,8 +194,8 @@ class Atendimento(models.Model):
         StatusAtendimento.REAGENDADO: set(),
     }
 
-    class TransicaoInvalida(Exception):
-        pass
+    # Atendimento.TransicaoInvalida segue valendo (views/admin/tasks); e a RegraDeNegocio comum.
+    TransicaoInvalida = TransicaoInvalida
 
     def _transicionar(self, novo_status, motivo=None, by_user=None):
         # Valida contra o status ATUAL do banco com a linha travada
@@ -216,7 +217,8 @@ class Atendimento(models.Model):
             permitido = self.TRANSICOES.get(atual, set())
             if novo_status not in permitido:
                 raise self.TransicaoInvalida(
-                    f'Transição {atual} → {novo_status} não permitida'
+                    f'Não é possível passar de {StatusAtendimento(atual).label.lower()} para '
+                    f'{StatusAtendimento(novo_status).label.lower()}.'
                 )
             anterior = atual
             self.status = novo_status
