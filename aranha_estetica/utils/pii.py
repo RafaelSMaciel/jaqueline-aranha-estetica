@@ -39,6 +39,17 @@ def mask_telefone(value: Optional[str]) -> str:
     return _mascarar_telefone(value)
 
 
+def nome_publico(nome: Optional[str]) -> str:
+    """Nome para fora da clinica (depoimento no site, evento no calendario externo): primeiro nome +
+    inicial do ultimo. 'Maria da Silva' -> 'Maria S.'; pseudonimo '[ANONIMIZADO-n]' -> 'Cliente'."""
+    partes = (nome or '').split()
+    if not partes or partes[0].startswith('['):
+        return 'Cliente'
+    if len(partes) == 1:
+        return partes[0]
+    return f'{partes[0]} {partes[-1][0].upper()}.'
+
+
 def mask_cpf(value: Optional[str]) -> str:
     """Mascara meio do CPF. `12345678900` -> `123*****00`."""
     if not value:

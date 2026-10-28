@@ -20,7 +20,7 @@ from ...models import (
 from ...utils import datas
 from ...utils.branding import get_branding
 from ...utils.email import email_configurado
-from ...utils.pii import mask_email
+from ...utils.pii import mask_email, nome_publico
 from ...utils.precos import _promocao_aplicavel, aplicar_promocao, preco_base_map, promocao_vigente
 
 logger = logging.getLogger(__name__)
@@ -410,16 +410,6 @@ def especialidades(request):
     return render(request, 'publico/especialidades.html', {'grupos': grupos})
 
 
-def _nome_publico(nome: str) -> str:
-    """'Maria da Silva' -> 'Maria S.' (depoimento publico: primeiro nome + inicial)."""
-    partes = (nome or '').split()
-    if not partes or partes[0].startswith('['):  # pseudonimo '[ANONIMIZADO-n]'
-        return 'Cliente'
-    if len(partes) == 1:
-        return partes[0]
-    return f'{partes[0]} {partes[-1][0].upper()}.'
-
-
 def depoimentos(request):
     """Depoimentos NPS publicados: so com opt-in do cliente E aprovacao da clinica (LGPD)."""
     avaliacoes = []
@@ -439,7 +429,7 @@ def depoimentos(request):
         logger.warning('Tabela AvaliacaoNPS nao encontrada.')
 
     for av in avaliacoes:
-        av.autor = _nome_publico(av.atendimento.cliente.nome if av.atendimento_id else '')
+        av.autor = nome_publico(av.atendimento.cliente.nome if av.atendimento_id else '')
         av.estrelas = int(av.nota or 0) // 2  # escala 0-10 -> 0-5
 
     return render(request, 'publico/depoimentos.html', {'avaliacoes': avaliacoes})
