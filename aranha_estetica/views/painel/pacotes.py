@@ -1,4 +1,8 @@
-"""Views para gestao de pacotes (CRUD admin + venda)."""
+"""Views para gestao de pacotes (catalogo, venda, cancelamento e prorrogacao da compra).
+
+Validacao nos forms (forms/financeiro) e regra nos casos de uso (CompraPacote.vender,
+services/pacotes.cancelar_compra / prorrogar_validade): a view le, chama e mostra.
+"""
 import logging
 
 from django.contrib import messages
@@ -10,6 +14,8 @@ from django.views.decorators.http import require_POST
 
 from ...decorators import staff_required
 from ...excecoes import RegraDeNegocio
+from ...forms.financeiro import CancelarCompraForm, PacoteForm, ProrrogarValidadeForm
+from ...forms.painel import avisar_erros, parse_preco
 from ...models import (
     Cliente,
     ItemPacote,
@@ -17,81 +23,11 @@ from ...models import (
     CompraPacote,
     Procedimento,
 )
+from ...services import pacotes as pacotes_service
 from ...utils.auditoria import registrar_log
 from ...utils.parse import id_int
-from ...forms.painel import parse_preco as _parse_preco
 
 logger = logging.getLogger(__name__)
-
-
-def _parse_valor(valor):
-    """'1350,50' / '1350.50' -> Decimal em [0, VALOR_MAX]. ValueError se vazio/invalido.
-
-    Mesmo parser dos precos do painel (forms.painel.parse_preco): teto
-    dos campos conferido antes do quantize ('1e30' dava 500).
-    """
-    numero = _parse_preco(valor)
-    if numero is None:
-        raise ValueError('valor invalido')
-    return numero
-
-
-def _parse_validade(valor):
-    meses = int(valor)
-    if meses < 1 or meses > 120:
-        raise ValueError('validade invalida')
-    return meses
-
-
-def _ler_itens(post):
-    """[(procedimento_id, quantidade)] do POST; linha com procedimento vazio e ignorada.
-
-    ValueError se quantidade invalida ou procedimento repetido
-    (ItemPacote e unico por pacote+procedimento).
-    """
-    itens, vistos = [], set()
-    proc_ids = post.getlist('procedimento_ids')
-    qtds = post.getlist('quantidades')
-    for proc_id, qtd in zip(proc_ids, qtds, strict=False):
-        if not proc_id:
-            continue
-        pid, quantidade = id_int(proc_id), int(qtd)
-        if pid is None:
-            raise ValueError('procedimento invalido')
-        if quantidade < 1:
-            raise ValueError('quantidade invalida')
-        if pid in vistos:
-            raise ValueError('procedimento repetido')
-        vistos.add(pid)
-        itens.append((pid, quantidade))
-    if itens:
-        existentes = set(
-            Procedimento.objects.filter(pk__in=vistos).values_list('pk', flat=True)
-        )
-        if existentes != vistos:
-            raise ValueError('procedimento inexistente')
-    return itens
-
-
-MSG_DADOS_INVALIDOS = 'Dados inválidos: verifique preço, validade e itens (sem procedimento repetido).'
-
-
-def _erros_dos_campos(post, valor_padrao=None, validade_padrao='12'):
-    """Mesmos parsers da gravacao, campo a campo, so p/ dizer na tela QUAL campo foi recusado."""
-    erros = {}
-    try:
-        _parse_valor(post.get('preco_total', valor_padrao))
-    except (ValueError, TypeError):
-        erros['preco_total'] = 'Informe o preço total, ex.: 1350,00.'
-    try:
-        _parse_validade(post.get('validade_meses', validade_padrao))
-    except (ValueError, TypeError):
-        erros['validade_meses'] = 'Validade de 1 a 120 meses.'
-    try:
-        _ler_itens(post)
-    except (ValueError, TypeError):
-        erros['itens'] = 'Confira os itens: quantidade de 1 sessão ou mais e sem procedimento repetido.'
-    return erros
 
 
 def _itens_digitados(post):
@@ -140,14 +76,23 @@ def _contexto_lista():
     }
 
 
-def _devolver_com_erro(request, mensagem, erros, editar=None):
+def _erros_do_form(form) -> dict:
+    """{campo: 1a mensagem} p/ o <c-campo erro=...>; erro geral do PacoteForm (clean) e dos itens."""
+    erros = {campo: str(lista[0]) for campo, lista in form.errors.items() if campo != '__all__'}
+    if form.non_field_errors():
+        erros['itens'] = str(form.non_field_errors()[0])
+    return erros
+
+
+def _devolver_com_erro(request, form, editar=None):
     """Envio recusado: a lista volta SEM redirect, com o modal aberto, o digitado e o erro no campo.
 
-    Antes o redirect fechava o modal e perdia tudo, inclusive as linhas de item. `mensagem` (o texto
-    de sempre) vai p/ o aviso do topo e p/ dentro do modal (o resto da tela fica inerte com ele
-    aberto). editar = o pacote do modal de edicao; None = modal de novo pacote."""
-    messages.error(request, mensagem)
-    erros = {**erros, 'geral': mensagem}
+    Antes o redirect fechava o modal e perdia tudo, inclusive as linhas de item. Os erros do form
+    vao p/ o aviso do topo (avisar_erros, com o rotulo do campo) e p/ dentro do modal (o resto da
+    tela fica inerte com ele aberto). editar = o pacote do modal de edicao; None = novo pacote."""
+    avisar_erros(request, form)
+    erros = _erros_do_form(form)
+    erros['geral'] = next(iter(erros.values()), 'Confira os dados do pacote.')
     contexto = _contexto_lista()
     valores = _valores_digitados(request.POST)
     if editar is None:
@@ -167,53 +112,39 @@ def admin_pacotes(request):
     return render(request, 'painel/pacotes.html', _contexto_lista())
 
 
+def _gravar_itens(pacote, itens):
+    """Substitui os itens do CATALOGO (compras ja feitas tem os proprios itens congelados)."""
+    ItemPacote.objects.filter(pacote=pacote).delete()
+    ItemPacote.objects.bulk_create([
+        ItemPacote(pacote=pacote, procedimento_id=pid, quantidade_sessoes=qtd) for pid, qtd in itens
+    ])
+
+
 @staff_required
+@require_POST
 def admin_criar_pacote(request):
-    """Cria novo pacote via POST."""
-    if request.method != 'POST':
-        return redirect('aranha:admin_pacotes')
-
-    nome = request.POST.get('nome', '').strip()
-    descricao = request.POST.get('descricao', '').strip()
-
-    if not nome:
-        return _devolver_com_erro(request, 'Nome do pacote é obrigatório.',
-                                  {'nome': 'Informe o nome do pacote.'})
-
-    try:
-        preco_total = _parse_valor(request.POST.get('preco_total', ''))
-        validade_meses = _parse_validade(request.POST.get('validade_meses', '12'))
-        itens = _ler_itens(request.POST)
-    except (ValueError, TypeError):
-        return _devolver_com_erro(request, MSG_DADOS_INVALIDOS, _erros_dos_campos(request.POST, ''))
-    if not itens:
-        return _devolver_com_erro(request, 'Inclua ao menos um procedimento no pacote.',
-                                  {'itens': 'Escolha ao menos um procedimento.'})
-
+    """Cria pacote do catalogo (ao menos 1 procedimento)."""
+    form = PacoteForm(request.POST)
+    if not form.is_valid():
+        return _devolver_com_erro(request, form)
+    dados = form.cleaned_data
     try:
         with transaction.atomic():
             pacote = Pacote.objects.create(
-                nome=nome,
-                descricao=descricao,
-                preco_total=preco_total,
-                validade_meses=validade_meses,
-                ativo=True,
+                nome=dados['nome'], descricao=dados['descricao'], preco_total=dados['preco_total'],
+                validade_meses=dados['validade_meses'], ativo=True,
             )
-            ItemPacote.objects.bulk_create([
-                ItemPacote(pacote=pacote, procedimento_id=pid, quantidade_sessoes=qtd)
-                for pid, qtd in itens
-            ])
-
+            _gravar_itens(pacote, dados['itens'])
         registrar_log(request.user, f'Criou pacote: {pacote.nome}', 'pacote', pacote.pk, request=request)
-        messages.success(request, f'Pacote "{nome}" criado com sucesso!')
-    except (DatabaseError, ValidationError) as e:
-        logger.error(f'Erro ao criar pacote: {e}', exc_info=True)
+        messages.success(request, f'Pacote "{pacote.nome}" criado com sucesso!')
+    except (DatabaseError, ValidationError):
+        logger.exception('pacote_criar_falhou')
         messages.error(request, 'Erro ao criar pacote.')
-
     return redirect('aranha:admin_pacotes')
 
 
 @staff_required
+@require_POST
 def admin_editar_pacote(request, pk):
     """Edita pacote do catalogo (dados, itens e ativo/inativo) — sempre.
 
@@ -223,60 +154,32 @@ def admin_editar_pacote(request, pk):
     a validade gravada em data_expiracao.
     """
     pacote = get_object_or_404(Pacote, pk=pk)
-
-    if request.method != 'POST':
-        return redirect('aranha:admin_pacotes')
-
-    nome = request.POST.get('nome', pacote.nome).strip()
-    if not nome:
-        return _devolver_com_erro(request, 'Nome do pacote é obrigatório.',
-                                  {'nome': 'Informe o nome do pacote.'}, editar=pacote)
-
-    try:
-        preco_total = _parse_valor(request.POST.get('preco_total', str(pacote.preco_total)))
-        validade_meses = _parse_validade(request.POST.get('validade_meses', pacote.validade_meses))
-        itens = _ler_itens(request.POST)
-    except (ValueError, TypeError):
-        erros = _erros_dos_campos(request.POST, str(pacote.preco_total), pacote.validade_meses)
-        return _devolver_com_erro(request, MSG_DADOS_INVALIDOS, erros, editar=pacote)
-    if 'procedimento_ids' in request.POST and not itens:
-        return _devolver_com_erro(request, 'O pacote precisa de ao menos um procedimento.',
-                                  {'itens': 'Escolha ao menos um procedimento.'}, editar=pacote)
-
+    form = PacoteForm(request.POST, editando=True)
+    if not form.is_valid():
+        return _devolver_com_erro(request, form, editar=pacote)
+    dados = form.cleaned_data
     try:
         with transaction.atomic():
-            pacote.nome = nome
-            pacote.descricao = request.POST.get('descricao', '').strip()
-            pacote.preco_total = preco_total
-            pacote.validade_meses = validade_meses
-            pacote.ativo = request.POST.get('ativo') in ('1', 'on')
+            pacote.nome = dados['nome']
+            pacote.descricao = dados['descricao']
+            pacote.preco_total = dados['preco_total']
+            pacote.validade_meses = dados['validade_meses']
+            pacote.ativo = dados['ativo']
             pacote.save()
-
-            # Itens do catalogo: substitui o conjunto (form sem a lista de itens =
-            # mantem os atuais). Compras ja feitas tem os proprios itens congelados.
-            if 'procedimento_ids' in request.POST:
-                ItemPacote.objects.filter(pacote=pacote).delete()
-                ItemPacote.objects.bulk_create([
-                    ItemPacote(pacote=pacote, procedimento_id=pid, quantidade_sessoes=qtd)
-                    for pid, qtd in itens
-                ])
-
+            if dados['itens'] is not None:
+                _gravar_itens(pacote, dados['itens'])
         registrar_log(request.user, f'Editou pacote: {pacote.nome}', 'pacote', pacote.pk, request=request)
         messages.success(request, f'Pacote "{pacote.nome}" atualizado!')
-    except (DatabaseError, ValidationError) as e:
-        logger.error(f'Erro ao editar pacote: {e}', exc_info=True)
+    except (DatabaseError, ValidationError):
+        logger.exception('pacote_editar_falhou', extra={'pacote_id': pacote.pk})
         messages.error(request, 'Erro ao editar pacote.')
-
     return redirect('aranha:admin_pacotes')
 
 
 @staff_required
+@require_POST
 def admin_vender_pacote(request):
     """Vende pacote para um cliente."""
-    if request.method != 'POST':
-        return redirect('aranha:admin_pacotes')
-
-    # id_int: isdigit() aceitava '²' e o int() dava 500
     pacote_id = id_int(request.POST.get('pacote_id'))
     cliente_id = id_int(request.POST.get('cliente_id'))
     if pacote_id is None or cliente_id is None:
@@ -292,17 +195,18 @@ def admin_vender_pacote(request):
         return redirect('aranha:admin_pacotes')
 
     try:
-        valor_pago = _parse_valor(request.POST.get('valor_pago', ''))
+        valor_pago = parse_preco(request.POST.get('valor_pago', ''))
     except ValueError:
+        valor_pago = None
+    if valor_pago is None:
         messages.error(request, 'Valor pago inválido.')
         return redirect('aranha:admin_pacotes')
 
     try:
         # vender() congela nome e itens do catalogo (CompraPacoteItem) e o valor
-        # de cada sessao; data_expiracao fica a cargo de CompraPacote.save()
-        # (localdate + validade em meses civis).
+        # de cada sessao (rateio pelo preco de tabela); data_expiracao fica a cargo de
+        # CompraPacote.save() (localdate + validade em meses civis).
         pc = CompraPacote.vender(pacote, cliente, valor_pago)
-
         # sem o nome da cliente no texto (o log sobrevive ao esquecimento LGPD)
         registrar_log(
             request.user,
@@ -312,8 +216,8 @@ def admin_vender_pacote(request):
         messages.success(request, f'Pacote vendido para {cliente.nome}!')
     except RegraDeNegocio as e:
         messages.error(request, e.mensagem)
-    except (DatabaseError, ValidationError) as e:
-        logger.error(f'Erro ao vender pacote: {e}', exc_info=True)
+    except (DatabaseError, ValidationError):
+        logger.exception('pacote_vender_falhou', extra={'pacote_id': pacote.pk})
         messages.error(request, 'Erro ao vender pacote.')
 
     return redirect('aranha:admin_pacotes')
@@ -322,53 +226,45 @@ def admin_vender_pacote(request):
 @staff_required
 @require_POST
 def admin_cancelar_compra_pacote(request, pk):
-    """Cancela uma compra de pacote ATIVA (ex.: desistencia com reembolso).
-
-    Exige o valor devolvido (0 a valor_pago) e a observacao do acordo, que vao
-    para a auditoria. Sessoes ja usadas continuam registradas; so compra ATIVA
-    pode ser cancelada.
-    """
+    """Cancela uma compra de pacote ATIVA (desistencia) com o valor devolvido em dinheiro e o motivo
+    (services/pacotes.cancelar_compra). O reembolso deduz a receita do mes do cancelamento."""
     compra = get_object_or_404(CompraPacote.objects.select_related('cliente'), pk=pk)
     destino = redirect('aranha:admin_cliente_detalhe', pk=compra.cliente_id)
-    observacao = (request.POST.get('observacao') or '').strip()[:500]
-    if not observacao:
-        messages.error(request, 'Descreva o motivo e o reembolso/acordo para cancelar o pacote.')
+    form = CancelarCompraForm(request.POST, compra=compra)
+    if not form.is_valid():
+        avisar_erros(request, form)
         return destino
     try:
-        reembolso = _parse_valor(request.POST.get('valor_reembolsado'))
-    except ValueError:
-        reembolso = None
-    if reembolso is None or reembolso > compra.valor_pago:
-        from ...utils.formatos import formatar_brl
-        messages.error(
-            request,
-            'Informe o valor devolvido à cliente (0 se nada foi devolvido), '
-            f'até o valor pago de {formatar_brl(compra.valor_pago)}.',
+        pacotes_service.cancelar_compra(
+            compra, form.cleaned_data['valor_reembolsado'], motivo=form.cleaned_data['observacao'],
+            por=request.user, request=request,
         )
+    except RegraDeNegocio as exc:
+        messages.warning(request, exc.mensagem)
         return destino
-
-    # valor_reembolsado gravado na compra (CHECK 0 <= reembolso <= valor_pago):
-    # a receita dos dashboards e valor_pago - valor_reembolsado.
-    with transaction.atomic():
-        atualizadas = CompraPacote.objects.filter(pk=compra.pk, status=CompraPacote.STATUS_ATIVO).update(
-            status=CompraPacote.STATUS_CANCELADO, valor_reembolsado=reembolso,
-        )
-    if not atualizadas:
-        messages.warning(
-            request, f'O pacote "{compra.pacote_nome}" não está ativo ({compra.get_status_display().lower()}).',
-        )
-        return destino
-
-    # Reembolso tambem na auditoria (quem cancelou e o acordo). Sem o nome da
-    # cliente no texto (LGPD).
-    registrar_log(
-        request.user,
-        f'Cancelou pacote "{compra.pacote_nome}"',
-        'compra_pacote', compra.pk,
-        {'cliente': compra.cliente_id, 'observacao': observacao,
-         'valor_pago': str(compra.valor_pago), 'valor_reembolsado': str(reembolso),
-         'sessoes_restantes': compra.sessoes_restantes()},
-        request=request,
-    )
     messages.success(request, f'Pacote "{compra.pacote_nome}" cancelado.')
+    return destino
+
+
+@staff_required
+@require_POST
+def admin_prorrogar_compra_pacote(request, pk):
+    """Prorroga a validade da compra (ATIVA ou EXPIRADA; EXPIRADA volta a ATIVA), com motivo e
+    auditoria de/para (services/pacotes.prorrogar_validade). Painel = so ADMIN (staff_required)."""
+    compra = get_object_or_404(CompraPacote, pk=pk)
+    destino = redirect('aranha:admin_cliente_detalhe', pk=compra.cliente_id)
+    form = ProrrogarValidadeForm(request.POST)
+    if not form.is_valid():
+        avisar_erros(request, form)
+        return destino
+    try:
+        pacotes_service.prorrogar_validade(
+            compra, form.cleaned_data['nova_data'], motivo=form.cleaned_data['motivo'],
+            por=request.user, request=request,
+        )
+    except RegraDeNegocio as exc:
+        messages.error(request, exc.mensagem)
+        return destino
+    messages.success(request, f'Validade do pacote "{compra.pacote_nome}" prorrogada até '
+                              f'{compra.data_expiracao:%d/%m/%Y}.')
     return destino

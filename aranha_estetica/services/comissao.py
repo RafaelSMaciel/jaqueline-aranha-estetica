@@ -3,7 +3,8 @@
 Lancamentos append-only em ``movimento_comissao``:
   CREDITO   — calcular_comissao (AtendimentoRealizado); 1 por atendimento, mesmo
               depois de estornado (UNIQUE parcial = idempotencia)
-  PAGAMENTO — marcar_paga (baixa no painel, com autor); referencia o CREDITO
+  PAGAMENTO — marcar_paga (baixa de 1 no painel) ou pagar_pendentes (repasse em lote por
+              profissional ate uma data, mesmo instante = comprovante); com autor; referencia o CREDITO
   ESTORNO   — estornar_comissao (AtendimentoCancelado); referencia o CREDITO,
               pago ou nao
 Status (PENDENTE/PAGA/ESTORNADA) e saldo sao derivados. Saldo a pagar por
@@ -20,13 +21,16 @@ Regra mais especifica vence:
 from __future__ import annotations
 
 import logging
+from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Optional
 
 from django.db import IntegrityError, transaction
 from django.db.models import Case, DecimalField, F, Q, Sum, When
+from django.utils import timezone
 
 from ..models import Atendimento, ConsumoSessao, MovimentoComissao, Profissional, RegraComissao
+from ..utils.datas import inicio_do_dia
 
 logger = logging.getLogger(__name__)
 
@@ -84,9 +88,10 @@ class ComissaoService:
         """Valor sobre o qual incide a comissao.
 
         Sessao debitada de pacote: valor unitario CONGELADO na venda
-        (compra_pacote_item.valor_unitario = valor pago / sessoes da compra) — o
-        valor_cobrado da sessao e o preco cheio do procedimento e inflaria a
-        comissao. Avulso: valor_cobrado.
+        (compra_pacote_item.valor_unitario = valor pago rateado pelo preco de tabela de
+        cada procedimento, CompraPacote.congelar_itens) — o valor_cobrado da sessao e o
+        preco cheio do procedimento e inflaria a comissao. Avulso: valor_cobrado (cheio
+        mesmo com credito de indicacao abatido: o credito e custo de marketing da clinica).
         """
         consumo = (
             ConsumoSessao.objects.select_related('compra_pacote_item')
@@ -114,6 +119,7 @@ class ComissaoService:
         if not regra:
             return None
 
+        percentual: Optional[Decimal] = None
         if regra.percentual is not None:
             percentual = regra.percentual
             if percentual > CEM:
@@ -149,6 +155,8 @@ class ComissaoService:
                     atendimento=atendimento,
                     regra=regra,
                     valor=valor,
+                    base_calculo=base,              # snapshot: o credito se explica sozinho
+                    percentual_aplicado=percentual,
                 )
         except IntegrityError:
             logger.info(
@@ -168,7 +176,7 @@ class ComissaoService:
         return movimento
 
     @staticmethod
-    def _derivado(credito: MovimentoComissao, tipo: str, usuario=None, observacoes: str = ''):
+    def _derivado(credito: MovimentoComissao, tipo: str, usuario=None, observacoes: str = '', criado_em=None):
         return MovimentoComissao.objects.create(
             tipo=tipo,
             movimento_origem=credito,
@@ -177,6 +185,7 @@ class ComissaoService:
             valor=credito.valor,
             usuario_autor=usuario if getattr(usuario, 'pk', None) else None,
             observacoes=observacoes,
+            criado_em=criado_em or timezone.now(),
         )
 
     @staticmethod
@@ -238,6 +247,63 @@ class ComissaoService:
 
     @staticmethod
     @transaction.atomic
+    def pagar_pendentes(profissional_id: int, ate: date, usuario=None) -> list[MovimentoComissao]:
+        """Repasse em lote: PAGAMENTO de cada CREDITO PENDENTE da profissional com atendimento ate
+        ``ate`` (dia local, inclusive — a data do atendimento, a mesma da competencia do financeiro).
+
+        Uma transacao e um instante so: os PAGAMENTOs do lote tem o mesmo ``criado_em`` (o
+        comprovante, ``repasse``, junta o lote por ele — sem tabela de repasse). Cada credito e
+        travado e conferido de novo (pagar x estornar concorrentes; no PG o trigger trava outra vez):
+        estornado ou ja pago fica de fora. Lista vazia = nada pendente ate a data.
+        """
+        limite = inicio_do_dia(ate + timedelta(days=1))
+        ids = list(
+            MovimentoComissao.objects.creditos_com_status()
+            .filter(profissional_id=profissional_id, status=MovimentoComissao.STATUS_PENDENTE,
+                    atendimento__data_hora_inicio__lt=limite)
+            .values_list('pk', flat=True)
+        )
+        agora = timezone.now()
+        observacao = f'repasse até {ate:%d/%m/%Y}'
+        pagamentos = []
+        for credito in MovimentoComissao.objects.select_for_update().filter(pk__in=ids).order_by('pk'):
+            if MovimentoComissao.objects.filter(movimento_origem=credito, tipo__in=(PAGAMENTO, ESTORNO)).exists():
+                continue
+            pagamentos.append(ComissaoService._derivado(credito, PAGAMENTO, usuario, observacao, criado_em=agora))
+        if pagamentos:
+            logger.info('comissao_repasse', extra={
+                'profissional_id': profissional_id, 'qtd': len(pagamentos),
+                'valor': str(sum((p.valor for p in pagamentos), ZERO)),
+            })
+        return pagamentos
+
+    @staticmethod
+    def repasse(pagamento_id: int) -> Optional[dict]:
+        """Comprovante do lote de um PAGAMENTO: os PAGAMENTOs da mesma profissional no mesmo
+        instante (pagar_pendentes; a baixa individual e um lote de 1), com o credito de cada um."""
+        pagamento = (MovimentoComissao.objects.select_related('profissional', 'usuario_autor')
+                     .filter(pk=pagamento_id, tipo=PAGAMENTO).first())
+        if pagamento is None:
+            return None
+        lote = list(
+            MovimentoComissao.objects.filter(tipo=PAGAMENTO, profissional_id=pagamento.profissional_id,
+                                             criado_em=pagamento.criado_em)
+            .select_related('movimento_origem', 'movimento_origem__regra',
+                            'atendimento__procedimento')
+            .order_by('atendimento__data_hora_inicio', 'pk')
+        )
+        return {
+            'pagamento': pagamento,
+            'profissional': pagamento.profissional,
+            'pago_em': pagamento.criado_em,
+            'usuario': pagamento.usuario_autor,
+            'observacao': pagamento.observacoes,
+            'itens': lote,
+            'total': sum((p.valor for p in lote), ZERO),
+        }
+
+    @staticmethod
+    @transaction.atomic
     def estornar_comissao(atendimento: Atendimento, usuario=None) -> int:
         """Lanca o ESTORNO do credito ainda nao estornado do atendimento (pago ou nao).
 
@@ -288,6 +354,30 @@ class ComissaoService:
         return ComissaoService.saldos_por_profissional(pk).get(pk, ZERO)
 
     @staticmethod
+    def ha_regra_ativa() -> bool:
+        """Sem nenhuma regra ativa nenhuma comissao e gerada — Comissoes e Financeiro avisam."""
+        return RegraComissao.objects.filter(ativo=True).exists()
+
+    @staticmethod
+    def totais_por_status(creditos) -> dict:
+        """{status: {'total', 'qtd'}} dos CREDITOs (``creditos_com_status()`` ja filtrado), com os
+        3 status sempre presentes."""
+        totais: dict[str, dict[str, Any]] = {
+            status: {'total': ZERO, 'qtd': 0} for status in MovimentoComissao.Status.values
+        }
+        for status, valor in creditos.order_by().values_list('status', 'valor'):
+            totais[status]['total'] += valor
+            totais[status]['qtd'] += 1
+        return totais
+
+    @staticmethod
+    def profissionais_do_filtro():
+        """Profissionais do filtro de Comissoes: as ativas e as INATIVAS com saldo a pagar != 0 (quem
+        saiu com comissao pendente precisa do repasse)."""
+        com_saldo = [pk for pk, saldo in ComissaoService.saldos_por_profissional().items() if saldo]
+        return Profissional.objects.filter(Q(ativo=True) | Q(pk__in=com_saldo)).order_by('-ativo', 'nome')
+
+    @staticmethod
     def resumo_por_profissional(creditos, profissional_id: Optional[int] = None) -> list:
         """Linhas do painel por profissional: pendente/paga/qtd dos CREDITOs do filtro
         (``creditos`` = creditos_com_status() ja filtrado) + saldo a pagar do ledger
@@ -314,6 +404,7 @@ class ComissaoService:
             linhas[prof_id] = {'profissional_id': prof_id, 'profissional__nome': nome,
                                'pendente': ZERO, 'paga': ZERO, 'qtd': 0}
         for linha in linhas.values():
+            linha['gerada'] = linha['pendente'] + linha['paga']
             linha['saldo'] = saldos.get(linha['profissional_id'], ZERO)
             linha['saldo_negativo'] = linha['saldo'] < 0
         return sorted(linhas.values(), key=lambda r: (-r['pendente'], r['profissional__nome'] or ''))

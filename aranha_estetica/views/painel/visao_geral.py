@@ -11,7 +11,7 @@ from django.utils import timezone
 from django.views.decorators.cache import never_cache
 
 from ...models import (
-    AvaliacaoNPS, Cliente, CompraPacote, Atendimento, LinkAcesso, Profissional,
+    AvaliacaoNPS, Cliente, Atendimento, LinkAcesso, Profissional,
 )
 from ...models.agendamentos import STATUS_ATIVOS, StatusAtendimento
 from ...decorators import staff_required
@@ -23,10 +23,6 @@ from ...utils.auditoria import registrar_log
 from ...utils.datas import dias_locais, hoje as hoje_local, inicio_do_dia, ler_data
 from ...utils.parse import id_int
 from ...utils.saude import alertas_em_lote
-
-
-def _brl(valor) -> str:
-    return f"{valor:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
 
 
 def _anexar_alertas_saude(atendimentos):
@@ -60,10 +56,10 @@ def painel(request):
 def painel_overview(request):
     """Dashboard principal — Overview com estatísticas"""
     hoje = hoje_local()  # data local — timezone.now().date() vira o dia seguinte apos 21h BRT
+    # semana CIVIL (seg-dom) p/ agenda e ocupacao; mes = a competencia do financeiro (mesma funcao)
     inicio_semana = hoje - timedelta(days=hoje.weekday())
     fim_semana = inicio_semana + timedelta(days=6)
-    inicio_mes = hoje.replace(day=1)
-    inicio_mes_dt = inicio_do_dia(inicio_mes)
+    mes = financeiro.competencia(hoje)
 
     agendamentos_hoje = Atendimento.objects.filter(
         **dias_locais('data_hora_inicio', hoje),
@@ -76,15 +72,10 @@ def painel_overview(request):
     ).count()
 
     total_clientes = Cliente.objects.filter(ativo=True).count()
-    novos_clientes = Cliente.objects.filter(criado_em__gte=inicio_mes_dt).count()
+    novos_clientes = Cliente.objects.filter(**mes.filtro('criado_em')).count()
 
-    # Receita (D20, services/financeiro — mesma regra do financeiro e da ficha):
-    # avulsos faturados (sem retorno, sem valor zero e sem sessao de pacote, que
-    # ja entrou na venda do pacote) + pacotes vendidos no mes, liquidos do reembolso.
-    avulsos_mes = financeiro.resumo_avulsos(Atendimento.objects.filter(data_hora_inicio__gte=inicio_mes_dt))
-    pacotes_mes = financeiro.resumo_pacotes(CompraPacote.objects.filter(criado_em__gte=inicio_mes_dt))
-    receita_mensal = _brl(avulsos_mes['total'] + pacotes_mes['total'])
-    ticket_medio = _brl(avulsos_mes['ticket_medio'])
+    # Receita do mes = a mesma conta e o mesmo periodo do financeiro (services/financeiro, D20)
+    receita = financeiro.resumo_receita(mes)
 
     ocupacao = ocupacao_semana(inicio_semana, fim_semana)   # definicao em services/indicadores
 
@@ -133,7 +124,7 @@ def painel_overview(request):
 
     rotulos_status = dict(Atendimento.STATUS_CHOICES)
     agendamentos_por_status = list(Atendimento.objects.filter(
-        data_hora_inicio__gte=inicio_mes_dt
+        **mes.filtro('data_hora_inicio')
     ).values('status').annotate(total=Count('pk')).order_by('status'))
 
     context = {
@@ -141,8 +132,9 @@ def painel_overview(request):
         'agendamentos_semana': agendamentos_semana,
         'total_clientes': total_clientes,
         'novos_clientes': novos_clientes,
-        'receita_mensal': receita_mensal,
-        'ticket_medio': ticket_medio,
+        'mes': mes,
+        'receita_mes': receita['total'],
+        'ticket_medio': receita['ticket_medio'],
         'taxa_ocupacao': ocupacao['percentual'],
         'ocupacao': ocupacao,
         'clientes_ativos_90d': clientes_ativos_90d,
@@ -268,28 +260,19 @@ def painel_profissionais(request):
     return render(request, 'painel/profissionais.html', context)
 
 
+@never_cache
 @staff_required
 def exportar_relatorio_excel(request):
-    """Relatorio gerencial (Resumo, Atendimentos, Pacotes vendidos) do periodo — mesmos numeros do
-    painel (services/relatorios). ?inicio=AAAA-MM-DD&fim=AAAA-MM-DD; padrao: ultimos 30 dias.
-    Exportar nomes de clientes em lote fica na auditoria (LGPD art. 37)."""
+    """Relatorio gerencial do MES (?mes=AAAA-MM; padrao = mes corrente): Resumo, Atendimentos,
+    Pacotes e Comissoes — os mesmos numeros do financeiro (services/relatorios). Exportar nomes de
+    clientes em lote fica na auditoria (LGPD art. 37)."""
     from ...services.relatorios import planilha_gerencial
 
-    fim = hoje_local()
-    inicio = fim - timedelta(days=29)
-    try:
-        if request.GET.get('fim'):
-            fim = ler_data(request.GET['fim'])
-        if request.GET.get('inicio'):
-            inicio = ler_data(request.GET['inicio'])
-    except ValueError:
-        pass
-    if inicio > fim:
-        inicio, fim = fim, inicio
-    wb, contagem = planilha_gerencial(inicio, fim)
+    mes = financeiro.competencia_do_param(request.GET.get('mes'))
+    wb, contagem = planilha_gerencial(mes)
     registrar_log(request.user, 'Exportou relatório gerencial', 'atendimento', None,
-                  {'inicio': inicio.isoformat(), 'fim': fim.isoformat(), **contagem}, request=request)
+                  {'mes': mes.param, **contagem}, request=request)
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = f'attachment; filename="relatorio_{inicio:%Y%m%d}_{fim:%Y%m%d}.xlsx"'
+    response['Content-Disposition'] = f'attachment; filename="relatorio_{mes.param}.xlsx"'
     wb.save(response)
     return response

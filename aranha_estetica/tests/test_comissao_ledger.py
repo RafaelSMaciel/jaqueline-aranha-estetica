@@ -235,15 +235,21 @@ class PainelComissoesLedgerTests(_Base):
         self.assertEqual((log.registro_id, log.detalhes['pagamento']), (credito.pk, pagamento.pk))
 
     def test_financeiro_pendentes_e_valor_a_descontar(self):
-        criar_comissao(self._realizado(dias=2), valor='10.00')
-        criar_comissao(self._realizado(dias=1), valor='40.00', status='PAGA_ESTORNADA')
         from django.core.cache import cache
+
+        from aranha_estetica.utils.datas import data_local
+
+        pendente = self._realizado(dias=2)
+        criar_comissao(pendente, valor='10.00')
+        criar_comissao(self._realizado(dias=1), valor='40.00', status='PAGA_ESTORNADA')
         cache.clear()
-        ctx = self.client.get(reverse('aranha:dashboard_financeiro')).context
+        mes = financeiro.competencia(data_local(pendente.data_hora_inicio))   # comissao do mes = data do atendimento
+        ctx = self.client.get(reverse('aranha:dashboard_financeiro'), {'mes': mes.param}).context
         self.assertEqual((ctx['comissoes_pendentes_total'], ctx['comissoes_pendentes_count']), (Decimal('10.00'), 1))
         # saldo = 10 + 40 creditados − 40 pago − 40 estornado = −30
         self.assertEqual(ctx['comissoes_a_descontar'], Decimal('30.00'))
-        self.assertEqual([(r['total'], r['count']) for r in ctx['comissoes_por_prof']], [(Decimal('10.00'), 1)])
+        # do mes: so a nao estornada
+        self.assertEqual([(r['gerada'], r['qtd']) for r in ctx['comissoes_por_prof']], [(Decimal('10.00'), 1)])
 
     def test_admin_somente_leitura_com_tipo(self):
         from django.contrib import admin as django_admin
@@ -277,9 +283,9 @@ class FaturamentoUnificadoTests(_Base):
     def setUp(self):
         super().setUp()
         self.client.force_login(self.admin)
-        # adiante de "agora": cai no mes corrente E nos ultimos 30 dias (as duas telas
-        # so tem limite inferior) — horarios em sequencia (EXCLUDE do PG)
-        self.quando = timezone.now() + timedelta(hours=1)
+        # dentro do mes corrente (a competencia da visao geral e do financeiro), qualquer que seja o
+        # dia de hoje — horarios em sequencia (EXCLUDE do PG)
+        self.quando = financeiro.competencia().inicio_dt + timedelta(hours=10)
 
     def _feito(self, valor, cliente=None, **campos):
         at = criar_atendimento(cliente or self.cli, self.prof, self.proc, status='AGENDADO', data_hora=self.quando)
@@ -306,10 +312,13 @@ class FaturamentoUnificadoTests(_Base):
         cache.clear()
         fin = self.client.get(reverse('aranha:dashboard_financeiro')).context
         ficha = self.client.get(reverse('aranha:admin_cliente_detalhe', args=[self.cli.pk])).context
-        self.assertEqual(overview['ticket_medio'], '150,33')
-        self.assertEqual(fin['ticket_medio_mes'], esperado)
+        self.assertEqual(overview['ticket_medio'], esperado)
+        self.assertEqual(fin['receita']['ticket_medio'], esperado)
         self.assertEqual(ficha['cliente_stats']['ticket_medio'], esperado)
-        self.assertEqual(overview['receita_mensal'], '1.051,00')  # 451 avulsos + 600 do pacote
+        # receita do mes: a mesma na visao geral e no financeiro (451 avulsos + 600 do pacote)
+        self.assertEqual(overview['receita_mes'], Decimal('1051.00'))
+        self.assertEqual(fin['receita']['total'], overview['receita_mes'])
+        self.assertEqual(overview['mes'], fin['periodo'])
 
     def test_ltv_da_ficha_nao_soma_sessao_de_pacote_a_preco_cheio(self):
         self._feito('200.00')
@@ -321,7 +330,8 @@ class FaturamentoUnificadoTests(_Base):
             Atendimento.objects.filter(pk=sessao.pk).update(status='REALIZADO', valor_cobrado=Decimal('150.00'))
         # pacote cancelado com reembolso parcial: entra o liquido
         outra = criar_compra_pacote(self.cli, criar_pacote('Outro', preco=Decimal('300.00'), procedimento=self.proc))
-        type(outra).objects.filter(pk=outra.pk).update(status='CANCELADO', valor_reembolsado=Decimal('250.00'))
+        type(outra).objects.filter(pk=outra.pk).update(status='CANCELADO', valor_reembolsado=Decimal('250.00'),
+                                                       cancelado_em=timezone.now())
         stats = self.client.get(reverse('aranha:admin_cliente_detalhe', args=[self.cli.pk])).context['cliente_stats']
         # 200 avulso + 600 pacote + 50 retido; as 2 sessoes (300 a preco cheio) nao somam
         self.assertEqual((stats['ltv'], stats['ltv_avulsos'], stats['ltv_pacotes']),
