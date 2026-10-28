@@ -35,8 +35,8 @@ class SessaoPrevistaTests(TestCase):
         self.assertEqual(previstas[a1.pk], {'pacote': 'Glow', 'restam': 1})
         self.assertEqual(previstas[a2.pk], {'pacote': 'Glow', 'restam': 0})
         self.assertNotIn(a3.pk, previstas)   # o pacote acabou: essa e cobrada
-        self.assertEqual(formatar_valor_atendimento(a1), 'Sessão do pacote Glow')
-        self.assertNotEqual(formatar_valor_atendimento(a3), 'Sessão do pacote Glow')
+        self.assertEqual(formatar_valor_atendimento(a1), 'Sessão do pacote Glow (restam 1)')
+        self.assertFalse(formatar_valor_atendimento(a3).startswith('Sessão do pacote'))
 
     def test_pacote_vencido_na_data_nao_cobre(self):
         self.compra.data_expiracao = timezone.localdate() + timedelta(days=3)

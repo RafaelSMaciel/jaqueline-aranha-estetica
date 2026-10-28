@@ -107,7 +107,7 @@ class ListaEsperaPublicaTests(TestCase):
         self._post(email='atacante@evil.test')
         self.assertIsNone(ListaEspera.objects.get().email_contato)
 
-    @patch('aranha_estetica.utils.whatsapp.enviar_template_whatsapp', return_value=False)
+    @patch('aranha_estetica.utils.whatsapp.enviar_template', return_value=False)
     @patch('aranha_estetica.utils.email.enviar_fila_espera_email', return_value=True)
     def test_aviso_de_vaga_nao_vai_para_email_plantado(self, mock_email, _mock_wa):
         """Regressao rev_security-01 (ponta a ponta): vaga cancelada nao manda

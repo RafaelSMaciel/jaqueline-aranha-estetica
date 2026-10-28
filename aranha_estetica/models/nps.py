@@ -5,6 +5,7 @@ from django.db import models
 from django.db.models.functions import Now
 
 from ..db.indices import Indice
+from ..excecoes import RegraDeNegocio
 from .mixins import atualizado_em_legado
 
 
@@ -43,7 +44,7 @@ class AvaliacaoNPS(models.Model):
         ]
         indexes = [
             Indice(fields=['criado_em'], name='ix_avaliacao_nps_criado_em'),
-            # job_alerta_detrator_nps: quase sempre vazio
+            # services/nps.alertar_detratores: quase sempre vazio
             Indice(
                 fields=['criado_em'], condition=models.Q(nota__lte=6, alerta_enviado=False),
                 name='ix_avaliacao_nps_alerta_pendente_parcial',
@@ -64,6 +65,20 @@ class AvaliacaoNPS(models.Model):
             raise ValidationError(
                 {'aprovado_publicacao': 'A cliente não autorizou publicar este depoimento: não dá para aprovar.'}
             )
+
+    def aprovar_publicacao(self) -> None:
+        """Depoimento vai p/ o site (/depoimentos/): so com o opt-in da cliente (LGPD) e comentario."""
+        if not self.autoriza_publicacao:
+            raise RegraDeNegocio('A cliente não autorizou publicar este depoimento.', codigo='sem_autorizacao')
+        if not (self.comentario or '').strip():
+            raise RegraDeNegocio('Avaliação sem comentário não vira depoimento.', codigo='sem_comentario')
+        self.aprovado_publicacao = True
+        self.save(update_fields=['aprovado_publicacao', 'atualizado_em'])
+
+    def retirar_publicacao(self) -> None:
+        """Tira o depoimento do site (a cliente pode pedir a qualquer momento)."""
+        self.aprovado_publicacao = False
+        self.save(update_fields=['aprovado_publicacao', 'atualizado_em'])
 
     def __str__(self):
         cliente_nome = (

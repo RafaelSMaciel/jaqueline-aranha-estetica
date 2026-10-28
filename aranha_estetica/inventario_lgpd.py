@@ -35,6 +35,7 @@ TABELAS = {
     # catalogo e configuracao
     'procedimento': SISTEMA, 'preco': SISTEMA, 'promocao': SISTEMA, 'versao_termo': SISTEMA,
     'pacote': SISTEMA, 'pacote_item': SISTEMA, 'configuracao': SISTEMA, 'formulario': SISTEMA,
+    'execucao_job': SISTEMA,
 }
 
 _SAUDE = 'registro de saude: 20 anos (cifrado em repouso)'

@@ -1,63 +1,16 @@
-"""Carrega feriados nacionais brasileiros para o ano informado.
+"""Carrega feriados nacionais brasileiros (regra em services/feriados).
 
-Feriado = AgendaExcecao FOLGA da clinica inteira (profissional NULL, origem
-FERIADO_NACIONAL). Idempotente (get_or_create por origem+data, o mesmo par do
-uq_agenda_excecao_feriado): pode rodar todo mes via cron (a migration 0012 so
-carregou 2026-2027). Feriado em que a clinica abre fica com ativo=False (eh_ativo)
-e nao e recriado nem reativado aqui.
+Feriado = AgendaExcecao FOLGA da clinica inteira (profissional NULL, origem FERIADO_NACIONAL).
+Idempotente: pode rodar a qualquer hora (o job ``feriados`` roda todo mes). Feriado em que a
+clinica abre fica com ativo=False e nao e recriado nem reativado.
 
 Uso:
   python manage.py carregar_feriados          # ano atual + proximo (fuso local)
   python manage.py carregar_feriados --ano 2027
 """
-from datetime import date, timedelta
-
 from django.core.management.base import BaseCommand
 
-from aranha_estetica.models import AgendaExcecao
-from aranha_estetica.utils.datas import hoje
-
-
-FERIADOS_FIXOS = [
-    ((1, 1), 'Confraternização Universal'),
-    ((4, 21), 'Tiradentes'),
-    ((5, 1), 'Dia do Trabalho'),
-    ((9, 7), 'Independência do Brasil'),
-    ((10, 12), 'Nossa Senhora Aparecida'),
-    ((11, 2), 'Finados'),
-    ((11, 15), 'Proclamação da República'),
-    ((11, 20), 'Consciência Negra'),
-    ((12, 25), 'Natal'),
-]
-
-
-def pascoa(ano: int) -> date:
-    """Algoritmo de Meeus/Jones/Butcher para domingo de Pascoa."""
-    a = ano % 19
-    b = ano // 100
-    c = ano % 100
-    d = b // 4
-    e = b % 4
-    f = (b + 8) // 25
-    g = (b - f + 1) // 3
-    h = (19 * a + b - d - g + 15) % 30
-    i = c // 4
-    k = c % 4
-    el = (32 + 2 * e + 2 * i - h - k) % 7  # noqa: E741 substituido (era 'l' ambiguo)
-    m = (a + 11 * h + 22 * el) // 451
-    mes = (h + el - 7 * m + 114) // 31
-    dia = ((h + el - 7 * m + 114) % 31) + 1
-    return date(ano, mes, dia)
-
-
-def feriados_moveis(ano: int):
-    p = pascoa(ano)
-    return [
-        (p - timedelta(days=48), 'Carnaval (segunda)'),
-        (p - timedelta(days=47), 'Carnaval (terça)'),
-        (p - timedelta(days=2), 'Sexta-feira Santa'),
-        (p + timedelta(days=60), 'Corpus Christi'),
-    ]
+from aranha_estetica.services import feriados
 
 
 class Command(BaseCommand):
@@ -67,34 +20,7 @@ class Command(BaseCommand):
         parser.add_argument('--ano', type=int, help='Ano a carregar (default: atual + proximo)')
 
     def handle(self, *args, **options):
-        ano_alvo = options.get('ano')
-        ano_atual = hoje().year
-        anos = [ano_alvo] if ano_alvo else [ano_atual, ano_atual + 1]
-
-        criados, existentes = 0, 0
-        for ano in anos:
-            entradas = [
-                (date(ano, m, d), nome) for (m, d), nome in FERIADOS_FIXOS
-            ] + feriados_moveis(ano)
-
-            for dt, nome in entradas:
-                _obj, created = AgendaExcecao.objects.get_or_create(
-                    origem=AgendaExcecao.ORIGEM_FERIADO_NACIONAL,
-                    data_inicio=dt,
-                    defaults={
-                        'tipo': AgendaExcecao.TIPO_FOLGA,
-                        'profissional': None,
-                        'data_fim': dt,
-                        'motivo': nome,
-                        'ativo': True,
-                    },
-                )
-                if created:
-                    criados += 1
-                else:
-                    existentes += 1
-                    self.stdout.write(f'  ja existe: {dt} {nome}')
-
-        self.stdout.write(self.style.SUCCESS(
-            f'Feriados: {criados} criados, {existentes} ja existiam.'
-        ))
+        anos = [options['ano']] if options.get('ano') else feriados.anos_padrao()
+        criados = feriados.carregar(anos)
+        existentes = sum(len(feriados.feriados_do_ano(ano)) for ano in anos) - criados
+        self.stdout.write(self.style.SUCCESS(f'Feriados: {criados} criados, {existentes} ja existiam.'))

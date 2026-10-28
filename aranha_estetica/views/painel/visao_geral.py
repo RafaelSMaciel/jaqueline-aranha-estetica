@@ -17,7 +17,7 @@ from ...models.agendamentos import STATUS_ATIVOS, StatusAtendimento
 from ...decorators import staff_required
 from ...services import financeiro, links
 from ...utils.busca import filtrar_clientes
-from ...utils.nps import resumo_nps
+from ...services.nps import resumo_nps
 from ...services.indicadores import ocupacao_semana
 from ...utils.auditoria import registrar_log
 from ...utils.datas import dias_locais, hoje as hoje_local, inicio_do_dia, ler_data
@@ -85,8 +85,8 @@ def painel_overview(request):
         atendimento__status__in=(StatusAtendimento.REALIZADO, StatusAtendimento.CONFIRMADO),
     ).distinct().count()
 
-    # NPS de verdade (%promotores - %detratores), mesma formula de relatorios.painel_nps
-    # (utils/nps: meio p/ cima, = fn_nps_periodo do Postgres)
+    # NPS de verdade (%promotores - %detratores), mesma formula da tela de NPS (views/painel/nps)
+    # (services/nps: meio p/ cima, = fn_nps_periodo do Postgres)
     limite_30d = timezone.now() - timedelta(days=30)
     nps_30d = resumo_nps(AvaliacaoNPS.objects.filter(criado_em__gte=limite_30d))['nps']
 

@@ -1,5 +1,6 @@
 """Helpers para montar objetos de teste sem repetir boilerplate."""
 import itertools
+from contextlib import contextmanager
 from datetime import time, timedelta
 from decimal import Decimal
 
@@ -240,8 +241,23 @@ def criar_notificacao_com_link(atendimento, tipo='LEMBRETE', canal='WHATSAPP', t
 
     notif = Notificacao.objects.create(atendimento=atendimento, tipo=tipo, canal=canal, **campos)
     if finalidade is None:
-        finalidade = 'TERMO' if (tipo, canal) == ('LEMBRETE', 'EMAIL') else _FINALIDADE_DA_NOTIFICACAO[tipo]
+        finalidade = _FINALIDADE_DA_NOTIFICACAO[tipo]
     return notif, criar_link(finalidade, notif, token, expira_em=expira_em)
+
+
+@contextmanager
+def email_da_fila(tipo, retorno=True):
+    """Troca a funcao do canal de um tipo da fila de e-mail (services/comunicacao.MENSAGENS_EMAIL guarda
+    a funcao, nao o nome) por um Mock. ``enviar.call_args.args`` = (email, dados)."""
+    from dataclasses import replace
+    from unittest import mock
+
+    from aranha_estetica.services import comunicacao
+
+    enviar = mock.Mock(return_value=retorno)
+    with mock.patch.dict(comunicacao.MENSAGENS_EMAIL,
+                         {tipo: replace(comunicacao.MENSAGENS_EMAIL[tipo], enviar=enviar)}):
+        yield enviar
 
 
 def ja_comecou(atendimento):

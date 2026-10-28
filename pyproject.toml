@@ -48,6 +48,16 @@ source_modules = [
 ]
 forbidden_modules = ["aranha_estetica.views"]
 
+# utils = adaptadores de canal (e-mail, WhatsApp, SMS) e helpers: so transporte/formato. O caso de uso
+# (quem recebe, link, Notificacao) mora em services; utils que importasse services inverteria a camada.
+[[tool.importlinter.contracts]]
+name = "utils nao importa services"
+type = "forbidden"
+source_modules = ["aranha_estetica.utils"]
+forbidden_modules = ["aranha_estetica.services"]
+# so o import direto: utils -> models -> services ja e coberto (e excecao consciente) no contrato de camadas
+allow_indirect_imports = true
+
 # Tipos nos services (mypy + django-stubs; CI job Django SQLite). So services/: o resto do app entra
 # como dependencia (follow_imports=silent) sem cobrar anotacao.
 [tool.mypy]
