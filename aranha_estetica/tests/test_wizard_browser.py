@@ -5,14 +5,16 @@ e do consentimento de saude (rev_booking-01), mensagem do grupo de multipla
 escolha junto da ficha (rev_booking-08) e calendario sem pular mes / sem
 resposta AJAX fora de ordem (rev_booking-07).
 
-Pulado quando o Playwright ou o Chromium nao estao instalados (ex.: imagem
-Docker de producao, CI sem navegador).
+Pulado quando o Playwright, o Chromium ou o bundle do Vite faltam (ex.: imagem Docker de
+producao). No CI (job navegador) roda com EXIGE_NAVEGADOR=1: faltou algo, reprova em vez de pular.
+Local: `npm run build`, `playwright install chromium` e TESTE_VITE_BUILD=1 (settings/test.py).
 """
 import json
 import os
 from datetime import datetime, timedelta
 from unittest import SkipTest
 
+from django.conf import settings
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from django.core.cache import cache
 from django.test import override_settings
@@ -31,6 +33,12 @@ except ImportError:  # pragma: no cover - depende do ambiente
 TZ = 'America/Sao_Paulo'
 
 
+def _pular(motivo):
+    if os.environ.get('EXIGE_NAVEGADOR', '').strip() == '1':
+        raise RuntimeError(f'EXIGE_NAVEGADOR=1: {motivo}')
+    raise SkipTest(motivo)
+
+
 @override_settings(RATELIMIT_ENABLE=False)
 class WizardNavegadorTests(StaticLiveServerTestCase):
     serialized_rollback = True  # preserva dados das data migrations p/ os proximos testes
@@ -38,7 +46,10 @@ class WizardNavegadorTests(StaticLiveServerTestCase):
     @classmethod
     def setUpClass(cls):
         if sync_playwright is None:
-            raise SkipTest('Playwright nao instalado')
+            _pular('Playwright nao instalado')
+        if settings.DJANGO_VITE['default']['dev_mode']:
+            # dev_mode: wizard.js viria do Vite dev server (localhost:5173), fora do live server
+            _pular('sem bundle do Vite: npm run build e TESTE_VITE_BUILD=1')
         # Playwright sync mantem um event loop no thread do teste: o ORM do
         # proprio teste (setUp) precisa desta liberacao; o servidor roda em
         # outro thread e nao e afetado.
@@ -50,7 +61,7 @@ class WizardNavegadorTests(StaticLiveServerTestCase):
         except Exception as exc:  # noqa: BLE001 - navegador ausente = pular
             cls._pw.stop()
             cls._restaurar_env()
-            raise SkipTest(f'Chromium indisponivel: {exc}')
+            _pular(f'Chromium indisponivel: {exc}')
         super().setUpClass()
 
     @classmethod
@@ -84,7 +95,7 @@ class WizardNavegadorTests(StaticLiveServerTestCase):
         self.page.wait_for_selector('#step-2.active')
 
     def _ir_para_passo_3(self):
-        """Escolhe um dia >= 2 dias a frente e o primeiro horario (1 profissional -> passo 3)."""
+        """Escolhe um dia >= 2 dias a frente e o primeiro horario; Continuar leva ao passo 3."""
         self._abrir()
         minimo = (timezone.localdate() + timedelta(days=2)).isoformat()
         for _ in range(3):
@@ -101,6 +112,7 @@ class WizardNavegadorTests(StaticLiveServerTestCase):
         self.assertTrue(dias, 'nenhum dia disponivel no calendario')
         self.page.click(f'.cal-day[data-date="{dias[0]}"]')
         self.page.click('.slot-btn >> nth=0')
+        self.page.click('#btn-continuar-2')  # sem avanco automatico (1 profissional ja escolhido)
         self.page.wait_for_selector('#step-3.active')
         self.page.fill('#form-telefone', '17999998888')
         self.page.check('#form-aceite-politica')
