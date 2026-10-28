@@ -100,3 +100,19 @@ class TemaEscuroTests(SimpleTestCase):
                                r'|(?:from|to|bg|text)-\[#[0-9a-fA-F]{3,6}\]'
                                r'|linear-gradient\([^)]*#[0-9a-fA-F]{3,6}', html)
             self.assertEqual(fixos, [], nome)
+
+
+class PaletaDeStatusTests(SimpleTestCase):
+    """Achado 167: status do atendimento pintado com 4 paletas (Material) fora dos tokens --st-*."""
+
+    def test_status_so_pelos_tokens(self):
+        agenda = (_TEMPLATES / 'profissional' / 'agenda.html').read_text(encoding='utf-8')
+        self.assertNotIn('.badge-', agenda)
+        self.assertIn("partials/_status_badge.html' with status=atd.status", agenda)
+        self.assertEqual(re.findall(r'\.atn-card-\w+\s*\{[^}]*#[0-9a-fA-F]{3,6}', agenda), [])
+        lista = (_TEMPLATES / 'painel' / 'agendamentos.html').read_text(encoding='utf-8')
+        self.assertIn('status-{{ agend.status }}', lista)
+        ficha = (_TEMPLATES / 'painel' / 'cliente_detalhe.html').read_text(encoding='utf-8')
+        self.assertEqual(re.findall(r'\.cli-tl-item[^{]*\{[^}]*#[0-9a-fA-F]{3,6}', ficha), [])
+        visao = (_TEMPLATES / 'painel' / 'overview.html').read_text(encoding='utf-8')
+        self.assertIn("'--st-' + s.toLowerCase() + '-texto'", visao)

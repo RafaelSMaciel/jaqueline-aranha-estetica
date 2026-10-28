@@ -7,21 +7,14 @@
 {# webpush.js le o token daqui: o cookie csrftoken e HttpOnly (sem ele o POST de inscricao da 403) #}
 <meta name="csrf-token" content="{{ csrf_token }}">
 <style nonce="{{ csp_nonce }}">
-    /* Status border colors */
-    .atn-card-CONFIRMADO { border-left-color: #4caf50; }
-    .atn-card-REALIZADO  { border-left-color: #1565c0; }
-    .atn-card-CANCELADO  { border-left-color: #c62828; opacity: 0.6; }
-    .atn-card-FALTOU     { border-left-color: #7b1fa2; opacity: 0.6; }
-    .atn-card-REAGENDADO { border-left-color: #ff8f00; opacity: 0.6; }
-    .atn-card-PENDENTE   { border-left-color: #f9a825; background: rgba(249, 168, 37, 0.08); }
-
-    /* Status badge colors */
-    .badge-AGENDADO   { background: #fff8e1; color: #f57f17; }
-    .badge-CONFIRMADO { background: #e8f5e9; color: #2e7d32; }
-    .badge-REALIZADO  { background: #e3f2fd; color: #1565c0; }
-    .badge-CANCELADO  { background: #fce4ec; color: #c62828; }
-    .badge-FALTOU     { background: #f3e5f5; color: #7b1fa2; }
-    .badge-REAGENDADO { background: #fff3e0; color: #ff8f00; }
+    /* Borda do card na cor do status: mesma paleta dos selos (tokens --st-*, claro/escuro) */
+    .atn-card-AGENDADO   { border-left-color: var(--st-agendado-texto); }
+    .atn-card-CONFIRMADO { border-left-color: var(--st-confirmado-texto); }
+    .atn-card-REALIZADO  { border-left-color: var(--st-realizado-texto); }
+    .atn-card-CANCELADO  { border-left-color: var(--st-cancelado-texto); opacity: 0.6; }
+    .atn-card-FALTOU     { border-left-color: var(--st-faltou-texto); opacity: 0.6; }
+    .atn-card-REAGENDADO { border-left-color: var(--st-reagendado-texto); opacity: 0.6; }
+    .atn-card-PENDENTE   { border-left-color: var(--st-pendente-texto); background: var(--st-pendente-fundo); }
 
     @media (max-width: 768px) {
         .week-grid { grid-template-columns: 1fr !important; }
@@ -209,9 +202,7 @@
                 {% include 'partials/_alerta_saude.html' with alertas=atd.alertas %}
                 {% if atd.termo_pendente %}{% include 'profissional/_termo_pendente.html' %}{% endif %}
                 {% if atd.ficha_pendente %}{% include 'partials/_ficha_pendente.html' %}{% endif %}
-                <span class="inline-block text-xs font-black uppercase px-2 py-0.5 rounded mt-1 badge-{{ atd.status }}">
-                    {{ atd.get_status_display }}
-                </span>
+                <div class="mt-1">{% include 'partials/_status_badge.html' with status=atd.status %}</div>
             </div>
             <div class="atn-actions flex gap-2 flex-shrink-0">
                 {% if atd.status == 'AGENDADO' or atd.status == 'CONFIRMADO' %}{% if atd.data_hora_inicio <= limite_desfecho %}

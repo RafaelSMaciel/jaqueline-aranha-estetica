@@ -114,10 +114,9 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
        id="appt-{{ agend.pk }}"
        data-search-text="{{ agend.cliente.nome }} {{ agend.procedimento.nome }} {{ agend.profissional.nome }} {{ agend.status }}">
     {% if agend.status == 'PENDENTE' %}
-    <input type="checkbox" name="ids" value="{{ agend.pk }}" form="bulkForm" aria-label="Selecionar agendamento de {{ agend.cliente.nome }}" class="bulk-checkbox w-[18px] h-[18px] shrink-0 cursor-pointer" style="accent-color:#8b6f47;">
+    <input type="checkbox" name="ids" value="{{ agend.pk }}" form="bulkForm" aria-label="Selecionar agendamento de {{ agend.cliente.nome }}" class="bulk-checkbox w-[18px] h-[18px] shrink-0 cursor-pointer accent-marca">
     {% endif %}
-    <div class="w-11 h-11 rounded-xl flex items-center justify-center font-extrabold text-[0.75rem] shrink-0"
-         style="background:{% if agend.status == 'CONFIRMADO' %}#e8f5e9;color:#2e7d32{% elif agend.status == 'CANCELADO' %}#fce4ec;color:#c62828{% elif agend.status == 'REALIZADO' %}#e3f2fd;color:#1565c0{% elif agend.status == 'FALTOU' %}#f3e5f5;color:#7b1fa2{% else %}#fff8e1;color:#f57f17{% endif %}">
+    <div class="w-11 h-11 rounded-xl flex items-center justify-center font-extrabold text-[0.75rem] shrink-0 status-{{ agend.status }}">
       {{ agend.cliente.nome|make_list|first }}{{ agend.cliente.nome|make_list|last }}
     </div>
     <div class="flex-1 min-w-[8rem]">
