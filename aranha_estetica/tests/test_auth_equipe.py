@@ -603,7 +603,8 @@ class DjangoAdminTests(TestCase):
         from .factories import criar_atendimento, criar_cliente, criar_procedimento, criar_profissional
         prof = criar_profissional()
         proc = criar_procedimento(profissional=prof)
-        ok = criar_atendimento(criar_cliente(), prof, proc, status='AGENDADO')
+        from .factories import ja_comecou
+        ok = ja_comecou(criar_atendimento(criar_cliente(), prof, proc, status='AGENDADO'))
         cancelado = criar_atendimento(
             criar_cliente(), prof, proc, status='CANCELADO',
             data_hora=ok.data_hora_inicio + timedelta(hours=2),
@@ -1080,7 +1081,8 @@ class DjangoAdminWave3Tests(TestCase):
             tipo='PROCEDIMENTO', procedimento=self.proc, titulo='Termo Limpeza',
             conteudo='Riscos do procedimento.', versao='1.0', vigente_desde=date(2026, 1, 1),
         )
-        pendente = criar_atendimento(self.cliente, self.prof, self.proc)
+        from .factories import ja_comecou
+        pendente = ja_comecou(criar_atendimento(self.cliente, self.prof, self.proc))
         livre = criar_atendimento(
             self.cliente, self.prof, proc_sem_termo,
             data_hora=pendente.data_hora_inicio + timedelta(hours=2),

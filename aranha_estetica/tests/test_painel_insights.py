@@ -36,6 +36,7 @@ from aranha_estetica.utils.branding import get_branding
 from aranha_estetica.utils.saude import alertas_saude
 
 from .factories import (
+    ja_comecou,
     criar_atendimento,
     criar_cliente,
     criar_compra_pacote,
@@ -706,7 +707,7 @@ class AtualizarStatusTermoTests(_AdminBase):
     def setUp(self):
         super().setUp()
         self.cli = criar_cliente(nome='Rita')
-        self.at = criar_atendimento(self.cli, self.prof, self.proc, status='AGENDADO')
+        self.at = ja_comecou(criar_atendimento(self.cli, self.prof, self.proc, status='AGENDADO'))
         self.termo = VersaoTermo.objects.create(
             tipo='PROCEDIMENTO', procedimento=self.proc, titulo='Termo do procedimento',
             conteudo='Riscos e cuidados.', versao='1.0', vigente_desde=timezone.localdate(),

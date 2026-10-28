@@ -8,6 +8,7 @@ from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
+from ...constants import TOLERANCIA_DESFECHO
 from ...decorators import profissional_required
 from ...models import AnotacaoSessao, Atendimento
 from ...models.agendamentos import StatusAtendimento
@@ -138,6 +139,8 @@ def agenda(request):
         'agenda_por_dia': agenda_por_dia,
         'dias_semana': dias_semana,
         'pendentes': pendentes,
+        # Realizado so depois do inicio (constants.TOLERANCIA_DESFECHO): o botao some antes
+        'limite_desfecho': timezone.now() + TOLERANCIA_DESFECHO,
     }
     return render(request, 'profissional/agenda.html', context)
 

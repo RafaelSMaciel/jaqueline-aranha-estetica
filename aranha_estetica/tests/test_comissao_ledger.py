@@ -21,6 +21,7 @@ from aranha_estetica.services.comissao import ComissaoService
 from aranha_estetica.services.fidelidade import FidelidadeService
 
 from .factories import (
+    ja_comecou,
     criar_atendimento,
     criar_cliente,
     criar_comissao,
@@ -338,7 +339,7 @@ class ProducaoRankingTests(TestCase):
         cli = criar_cliente()
         compra = criar_compra_pacote(cli, criar_pacote(preco=Decimal('400.00'), procedimento=proc, sessoes=4))
         sessao = criar_atendimento(cli, prof, proc, data_hora=timezone.now() - timedelta(days=1))
-        sessao.marcar_realizado()
+        ja_comecou(sessao).marcar_realizado()
         self.assertTrue(compra.itens.first().consumos.exists())
         linha = financeiro.producao().get(pk=sessao.pk)
         self.assertEqual(linha.valor_produzido, Decimal('100.00'))

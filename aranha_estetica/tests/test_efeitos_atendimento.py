@@ -10,6 +10,7 @@ from aranha_estetica.models import Atendimento, ConsumoSessao, LogAuditoria
 from aranha_estetica.services import agenda
 
 from .factories import (
+    ja_comecou,
     criar_atendimento,
     criar_cliente,
     criar_compra_pacote,
@@ -37,7 +38,7 @@ class _Base(TestCase):
 class FaltasTests(_Base):
     def test_falta_incrementa_e_tres_bloqueiam_online(self):
         for i in range(3):
-            self._at(horas=i).marcar_falta()
+            ja_comecou(self._at(horas=i)).marcar_falta()
         self.cli.refresh_from_db()
         self.assertEqual(self.cli.faltas_consecutivas, 3)
         self.assertTrue(self.cli.bloqueado_online)
@@ -45,7 +46,7 @@ class FaltasTests(_Base):
     def test_realizado_zera_as_faltas(self):
         self.cli.faltas_consecutivas = 2
         self.cli.save()
-        self._at().marcar_realizado()
+        ja_comecou(self._at()).marcar_realizado()
         self.cli.refresh_from_db()
         self.assertEqual(self.cli.faltas_consecutivas, 0)
         self.assertFalse(self.cli.bloqueado_online)
@@ -66,20 +67,20 @@ class PacoteTests(_Base):
 
     def test_realizado_debita_e_finaliza_o_pacote(self):
         for i in range(3):
-            self._at(horas=i).marcar_realizado()
+            ja_comecou(self._at(horas=i)).marcar_realizado()
         self.assertEqual(ConsumoSessao.objects.filter(compra_pacote=self.pc).count(), 3)
         self.pc.refresh_from_db()
         self.assertEqual(self.pc.status, 'FINALIZADO')
 
     def test_retorno_nao_consome_sessao(self):
         origem = self._at()
-        origem.marcar_realizado()
+        ja_comecou(origem).marcar_realizado()
         retorno = criar_atendimento(self.cli, self.prof, self.proc, status='CONFIRMADO',
                                     data_hora=origem.data_hora_inicio + timedelta(days=10))
         Atendimento.objects.filter(pk=retorno.pk).update(eh_retorno=True, atendimento_origem=origem,
                                                         valor_cobrado=0)
         retorno.refresh_from_db()
-        retorno.marcar_realizado()
+        ja_comecou(retorno).marcar_realizado()
         self.assertEqual(ConsumoSessao.objects.filter(compra_pacote=self.pc).count(), 1)
 
 
@@ -92,8 +93,8 @@ class ListaDeEsperaTests(_Base):
 
     @patch(NOTIFICAR)
     def test_realizado_e_falta_nao_liberam(self, notificar):
-        self._at().marcar_realizado()
-        self._at(horas=2).marcar_falta()
+        ja_comecou(self._at()).marcar_realizado()
+        ja_comecou(self._at(horas=2)).marcar_falta()
         notificar.assert_not_called()
 
     @patch(NOTIFICAR, side_effect=RuntimeError('smtp'))
@@ -169,7 +170,7 @@ class DesfazerRealizacaoTests(_Base):
         at = self._at(horas=-2)
         Atendimento.objects.filter(pk=at.pk).update(valor_cobrado=100)
         at.refresh_from_db()
-        at.marcar_realizado()
+        ja_comecou(at).marcar_realizado()
         return at
 
     def test_volta_para_agendado_estorna_e_devolve_sessao(self):
@@ -185,7 +186,7 @@ class DesfazerRealizacaoTests(_Base):
         self.assertEqual(self.compra.status, 'ATIVO')
         self.assertFalse(MovimentoComissao.objects.creditos_ativos().filter(atendimento=at).exists())
         self.assertTrue(LogAuditoria.objects.filter(acao__contains='realização desfeita: marcado na cliente errada').exists())
-        at.marcar_realizado()   # refeito: novo debito e novo credito
+        ja_comecou(at).marcar_realizado()   # refeito: novo debito e novo credito
         self.assertTrue(ConsumoSessao.objects.filter(atendimento=at).exists())
         self.assertTrue(MovimentoComissao.objects.creditos_ativos().filter(atendimento=at).exists())
 

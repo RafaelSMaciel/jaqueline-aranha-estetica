@@ -36,6 +36,7 @@ from aranha_estetica.models import (
 from aranha_estetica.services import consentimentos
 
 from .factories import (
+    ja_comecou,
     criar_atendimento,
     criar_cliente,
     criar_compra_pacote,
@@ -358,7 +359,7 @@ class PortalProfissionalTests(TestCase):
     def test_marcar_realizado_gera_comissao_via_fsm(self):
         RegraComissao.objects.create(profissional=self.prof, procedimento=self.proc,
                                      percentual=Decimal('30.00'), ativo=True)
-        at = criar_atendimento(self.cliente, self.prof, self.proc, status='AGENDADO')
+        at = ja_comecou(criar_atendimento(self.cliente, self.prof, self.proc, status='AGENDADO'))
         at.valor_cobrado = Decimal('200.00')
         at.save()
         resp = self.client.post(reverse('aranha:profissional_marcar_realizado', args=[at.pk]))
@@ -414,7 +415,7 @@ class PortalProfissionalTests(TestCase):
         self.assertIn('10:00', dados['data_hora'])
 
     def test_agenda_tem_botao_sair_e_mensagens(self):
-        at = criar_atendimento(self.cliente, self.prof, self.proc, status='AGENDADO')
+        at = ja_comecou(criar_atendimento(self.cliente, self.prof, self.proc, status='AGENDADO'))
         resp = self.client.post(reverse('aranha:profissional_marcar_realizado', args=[at.pk]), follow=True)
         self.assertContains(resp, reverse('aranha:usuario_logout'))
         self.assertContains(resp, 'marcado como realizado')
@@ -1037,6 +1038,7 @@ class TermoLinkEPendenciaTests(_AdminTestCase):
         self.assertContains(resp, reverse('aranha:admin_gerar_link_termo', args=[self.at.pk]))
 
     def test_portal_realizado_sem_termo_exige_confirmacao_e_audita(self):
+        ja_comecou(self.at)
         user = Usuario.objects.create_user(
             email='prof-termo@test.com', password='senha-forte-123', nome='Prof',
             papel=Usuario.PAPEL_PROFISSIONAL, profissional=self.prof,

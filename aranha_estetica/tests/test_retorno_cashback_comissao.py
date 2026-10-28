@@ -19,6 +19,7 @@ from aranha_estetica.services.fidelidade import FidelidadeService
 from aranha_estetica.services.retorno import RetornoService
 
 from .factories import (
+    ja_comecou,
     criar_atendimento, criar_cliente, criar_procedimento, criar_profissional,
 )
 
@@ -37,7 +38,7 @@ class RetornoServiceTests(TestCase):
 
     def test_cria_retorno_quando_procedimento_requer(self):
         atend = criar_atendimento(self.cliente, self.prof, self.proc, status='AGENDADO')
-        atend.marcar_realizado()
+        ja_comecou(atend).marcar_realizado()
         atend.refresh_from_db()
         retorno = Atendimento.objects.filter(atendimento_origem=atend, eh_retorno=True).first()
         self.assertIsNotNone(retorno)
@@ -46,7 +47,7 @@ class RetornoServiceTests(TestCase):
 
     def test_idempotente_nao_duplica_retorno(self):
         atend = criar_atendimento(self.cliente, self.prof, self.proc, status='AGENDADO')
-        atend.marcar_realizado()
+        ja_comecou(atend).marcar_realizado()
         # Tenta sugerir de novo direto
         RetornoService.sugerir_retorno(atend)
         count = Atendimento.objects.filter(atendimento_origem=atend, eh_retorno=True).count()
@@ -55,7 +56,7 @@ class RetornoServiceTests(TestCase):
     def test_nao_cria_se_procedimento_nao_requer(self):
         proc_simples = criar_procedimento(nome='Drenagem', profissional=self.prof)
         atend = criar_atendimento(self.cliente, self.prof, proc_simples, status='AGENDADO')
-        atend.marcar_realizado()
+        ja_comecou(atend).marcar_realizado()
         self.assertFalse(
             Atendimento.objects.filter(atendimento_origem=atend, eh_retorno=True).exists(),
         )
@@ -66,7 +67,7 @@ class RetornoServiceTests(TestCase):
         self.proc.retorno_maximo_dias = 14
         self.proc.save()
         atend = criar_atendimento(self.cliente, self.prof, self.proc, status='AGENDADO')
-        atend.marcar_realizado()
+        ja_comecou(atend).marcar_realizado()
         retorno = Atendimento.objects.get(atendimento_origem=atend, eh_retorno=True)
         inicio_local = timezone.localtime(retorno.data_hora_inicio)
         # criar_profissional: expediente 09h-18h todos os dias
@@ -82,14 +83,14 @@ class RetornoServiceTests(TestCase):
         from aranha_estetica.models import AgendaHorario
         AgendaHorario.objects.filter(profissional=self.prof).delete()
         atend = criar_atendimento(self.cliente, self.prof, self.proc, status='AGENDADO')
-        atend.marcar_realizado()
+        ja_comecou(atend).marcar_realizado()
         self.assertFalse(
             Atendimento.objects.filter(atendimento_origem=atend, eh_retorno=True).exists(),
         )
 
     def test_retorno_data_dentro_da_janela(self):
         atend = criar_atendimento(self.cliente, self.prof, self.proc, status='AGENDADO')
-        atend.marcar_realizado()
+        ja_comecou(atend).marcar_realizado()
         retorno = Atendimento.objects.get(atendimento_origem=atend, eh_retorno=True)
         delta = (retorno.data_hora_inicio - atend.data_hora_fim).days
         self.assertGreaterEqual(delta, 15)
@@ -102,10 +103,10 @@ class RetornoServiceTests(TestCase):
 
         compra = criar_compra_pacote(self.cliente, criar_pacote(procedimento=self.proc, sessoes=3))
         atend = criar_atendimento(self.cliente, self.prof, self.proc, status='AGENDADO')
-        atend.marcar_realizado()
+        ja_comecou(atend).marcar_realizado()
         retorno = Atendimento.objects.get(atendimento_origem=atend, eh_retorno=True)
         retorno.aprovar()
-        retorno.marcar_realizado()
+        ja_comecou(retorno).marcar_realizado()
 
         self.assertEqual(compra.sessoes_realizadas.count(), 1)
         self.assertFalse(ConsumoSessao.objects.filter(atendimento=retorno).exists())
@@ -127,7 +128,7 @@ class FidelidadeServiceTests(TestCase):
         atend = criar_atendimento(cliente, self.prof, self.proc, status='AGENDADO')
         atend.valor_cobrado = valor
         atend.save()
-        atend.marcar_realizado()
+        ja_comecou(atend).marcar_realizado()
         atend.refresh_from_db()
         return atend
 
@@ -154,7 +155,7 @@ class FidelidadeServiceTests(TestCase):
         atend = criar_atendimento(self.indicada, self.prof, self.proc, status='AGENDADO')
         atend.valor_cobrado = Decimal('0.00')
         atend.save()
-        atend.marcar_realizado()
+        ja_comecou(atend).marcar_realizado()
         self.assertFalse(Carteira.objects.filter(cliente=self.indicadora).exists())
 
     def test_estorna_em_cancelamento(self):
@@ -185,7 +186,7 @@ class ComissaoServiceTests(TestCase):
         atend = criar_atendimento(self.cliente, self.prof, self.proc, status='AGENDADO')
         atend.valor_cobrado = Decimal('1000.00')
         atend.save()
-        atend.marcar_realizado()
+        ja_comecou(atend).marcar_realizado()
         atend.refresh_from_db()
         mov = MovimentoComissao.objects.filter(atendimento=atend).first()
         self.assertIsNotNone(mov)
@@ -204,7 +205,7 @@ class ComissaoServiceTests(TestCase):
         atend = criar_atendimento(self.cliente, self.prof, self.proc, status='AGENDADO')
         atend.valor_cobrado = Decimal('1000.00')
         atend.save()
-        atend.marcar_realizado()
+        ja_comecou(atend).marcar_realizado()
         # Tenta calcular de novo
         ComissaoService.calcular_comissao(atend)
         count = MovimentoComissao.objects.filter(atendimento=atend).count()

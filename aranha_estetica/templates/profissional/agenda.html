@@ -214,7 +214,7 @@
                 </span>
             </div>
             <div class="atn-actions flex gap-2 flex-shrink-0">
-                {% if atd.status == 'AGENDADO' or atd.status == 'CONFIRMADO' %}
+                {% if atd.status == 'AGENDADO' or atd.status == 'CONFIRMADO' %}{% if atd.data_hora_inicio <= limite_desfecho %}
                 <form method="post" action="{% url 'aranha:profissional_marcar_realizado' pk=atd.pk %}" class="m-0 flex flex-col items-end gap-1">
                     {% csrf_token %}
                     <input type="hidden" name="next" value="{% url 'aranha:profissional_agenda' %}?data={{ dia|date:'Y-m-d' }}">
@@ -236,7 +236,7 @@
                         Realizado
                     </button>
                 </form>
-                {% endif %}
+                {% endif %}{% endif %}
                 {% if atd.tem_vinculo %}
                 {# mesma regra do prontuario (_vinculo): sem vinculo o link so daria 403 #}
                 <a href="{% url 'aranha:prontuario_detalhe' atd.cliente_id %}"

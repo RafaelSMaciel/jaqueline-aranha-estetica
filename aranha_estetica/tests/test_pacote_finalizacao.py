@@ -7,6 +7,7 @@ from django.utils import timezone
 from aranha_estetica.models import ConsumoSessao
 
 from .factories import (
+    ja_comecou,
     criar_atendimento,
     criar_cliente,
     criar_pacote,
@@ -31,7 +32,7 @@ class PacoteFinalizacaoTests(TestCase):
 
     def test_realizado_debita_sessao_do_pacote(self):
         atd = criar_atendimento(self.cliente, self.prof, self.proc)
-        atd.marcar_realizado()
+        ja_comecou(atd).marcar_realizado()
 
         self.assertTrue(ConsumoSessao.objects.filter(atendimento=atd).exists())
         self.pc.refresh_from_db()
@@ -40,7 +41,7 @@ class PacoteFinalizacaoTests(TestCase):
     def test_ultima_sessao_finaliza_pacote(self):
         for _ in range(3):
             atd = criar_atendimento(self.cliente, self.prof, self.proc)
-            atd.marcar_realizado()
+            ja_comecou(atd).marcar_realizado()
 
         self.pc.refresh_from_db()
         self.assertEqual(self.pc.status, 'FINALIZADO')

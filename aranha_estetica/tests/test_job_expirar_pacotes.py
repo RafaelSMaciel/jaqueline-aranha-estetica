@@ -11,6 +11,7 @@ from aranha_estetica.models import CompraPacote, ConsumoSessao
 from aranha_estetica.jobs import job_expirar_pacotes
 
 from .factories import (
+    ja_comecou,
     criar_atendimento,
     criar_cliente,
     criar_pacote,
@@ -113,7 +114,7 @@ class ValidadePelaDataDaSessaoTests(TestCase):
         return criar_atendimento(self.cliente, self.prof, self.proc, data_hora=inicio)
 
     def _realizar(self, atd):
-        atd.marcar_realizado()
+        ja_comecou(atd).marcar_realizado()
 
     def test_sessao_no_ultimo_dia_marcada_no_dia_seguinte_debita(self):
         CompraPacote.objects.filter(pk=self.pc.pk).update(data_expiracao=self.ontem)
