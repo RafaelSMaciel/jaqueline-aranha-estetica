@@ -2,6 +2,7 @@
 bootstrap_admin, migrate_atomico, jobs de retencao e coerencia dos settings."""
 import json
 import os
+import re
 import subprocess
 import sys
 from datetime import timedelta
@@ -1099,6 +1100,35 @@ class GunicornLoggerTests(SimpleTestCase):
 
 
 # ─── Lock das dependencias ───────────────────────────────────────────
+class CiFixadoTests(SimpleTestCase):
+    """CI e imagem nao mudam em silencio: action por SHA, imagem por digest, token so leitura."""
+
+    def _ler(self, *partes):
+        return BASE_DIR.joinpath(*partes).read_text(encoding='utf-8')
+
+    def test_actions_por_sha_e_imagens_por_digest(self):
+        ci = self._ler('.github', 'workflows', 'ci.yml')
+        actions = re.findall(r'uses:\s*(\S+)', ci)
+        self.assertTrue(actions)
+        for action in actions:
+            self.assertRegex(action, r'^[\w.-]+/[\w.-]+@[0-9a-f]{40}$')
+        imagens = (re.findall(r'image:\s*(\S+)', ci)
+                   + re.findall(r'image:\s*(\S+)', self._ler('docker-compose.yml'))
+                   + re.findall(r'^FROM\s+(\S+)', self._ler('Dockerfile'), re.M))
+        self.assertEqual(len(imagens), 6)   # 2 servicos do CI, compose, 3 stages do Dockerfile
+        for imagem in imagens:
+            self.assertRegex(imagem, r'@sha256:[0-9a-f]{64}$')
+
+    def test_token_so_leitura_e_todo_job_com_timeout(self):
+        ci = self._ler('.github', 'workflows', 'ci.yml')
+        self.assertIn('\npermissions:\n  contents: read\n', ci)
+        jobs = re.findall(r'^  ([\w-]+):\n    name:', ci, re.M)
+        self.assertGreaterEqual(len(jobs), 8)
+        self.assertEqual(ci.count('    timeout-minutes:'), len(jobs))
+        self.assertNotIn('continue-on-error', ci)   # pip-audit bloqueia
+        self.assertTrue((BASE_DIR / '.github' / 'dependabot.yml').exists())
+
+
 class LockDependenciasTests(SimpleTestCase):
     """rev_infra-05: transitivas sem pin -> imagem de prod nao reprodutivel."""
 
@@ -1136,5 +1166,6 @@ class LockDependenciasTests(SimpleTestCase):
         ci = (BASE_DIR / '.github' / 'workflows' / 'ci.yml').read_text(encoding='utf-8')
         instalacoes = [linha.strip() for linha in ci.splitlines() if 'pip install -r requirements' in linha]
         # testes, migracoes-sqlite, postgres, postgres-migracoes (tag migracoes em jobs paralelos)
-        self.assertEqual(len(instalacoes), 4)
+        # e navegador (Playwright)
+        self.assertEqual(len(instalacoes), 5)
         self.assertTrue(all(linha.endswith('-r requirements-dev.txt -c requirements.lock') for linha in instalacoes))
