@@ -16,10 +16,11 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from .utils import telefone
 
 _NAO_DIGITO_RE = re.compile(r"\D+")
 
-MSG_TELEFONE_INVALIDO = 'Informe DDD + número (10 ou 11 dígitos).'
+MSG_TELEFONE_INVALIDO = telefone.MSG_INVALIDO
 MSG_CPF_INVALIDO = 'CPF inválido.'
 
 
@@ -28,58 +29,29 @@ def _clean_digits(value: str) -> str:
 
 
 # ─── Telefone ───────────────────────────────────────────────────────────
+# A regra mora em utils/telefone (fonte unica). Estes nomes ficam porque migrations e o model
+# Cliente os importam (validate_telefone_br no campo, normalizar_telefone no save).
 
 def normalizar_telefone(value: str) -> str:
-    """Forma canonica de telefone BR: so digitos, sem DDI (+55) e sem zero de tronco.
-
-    '+55 (17) 99999-0001' -> '17999990001'; '017 3333-0000' -> '1733330000'.
-    DDD 55 (RS) nao e afetado: '55999990000' tem 11 digitos e fica como esta.
-    NAO valida tamanho — use telefone_valido()/validar_telefone() na borda.
-    Telefone e chave natural do booking publico: toda escrita (Cliente.save)
-    e todo lookup passam por aqui. DDI p/ envio e responsabilidade de
-    utils/sms e utils/whatsapp, nao do armazenamento.
-    """
-    d = _clean_digits(value or '')
-    if len(d) in (12, 13) and d.startswith('55'):
-        d = d[2:]
-    if len(d) in (11, 12) and d.startswith('0'):
-        d = d[1:]
-    return d
-
-
-# alias explicito (nome usado em alguns achados/chamadores)
-normalizar_telefone_br = normalizar_telefone
+    """Forma canonica de telefone BR (utils/telefone.normalizar): so digitos, sem DDI e sem zero
+    de tronco. NAO valida tamanho — use telefone_valido()/validar_telefone() na borda."""
+    return telefone.normalizar(value)
 
 
 def validate_telefone_br(value: str) -> None:
-    """Valida telefone BR (10 ou 11 digitos com DDD). Aceita mascara e +55."""
-    if not value:
-        return
-    digits = normalizar_telefone(value)
-    if len(digits) not in (10, 11):
-        raise ValidationError(_("Telefone deve ter 10 ou 11 dígitos com DDD."), code="invalid_phone")
-    ddd = int(digits[:2])
-    if ddd < 11 or ddd > 99:
-        raise ValidationError(_("DDD inválido."), code="invalid_phone")
+    """Validator de campo: telefone BR (DDD + 8 ou 9 digitos). Aceita mascara e +55. Vazio passa."""
+    if value:
+        telefone.validar(value)
 
 
 def telefone_valido(value: str) -> bool:
     """True se `value` (qualquer mascara) normaliza p/ telefone BR valido."""
-    if not value:
-        return False
-    try:
-        validate_telefone_br(value)
-    except ValidationError:
-        return False
-    return True
+    return bool(telefone.valido_ou_vazio(value))
 
 
 def validar_telefone(value: str) -> str:
-    """Normaliza e valida; retorna a forma canonica ou levanta ValidationError
-    com mensagem pronta p/ o usuario (MSG_TELEFONE_INVALIDO)."""
-    if not telefone_valido(value):
-        raise ValidationError(MSG_TELEFONE_INVALIDO, code="invalid_phone")
-    return normalizar_telefone(value)
+    """Forma canonica ou ValidationError com MSG_TELEFONE_INVALIDO (pronta p/ o usuario)."""
+    return telefone.validar(value)
 
 
 # ─── CPF ────────────────────────────────────────────────────────────────

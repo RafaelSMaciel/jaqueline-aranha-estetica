@@ -45,8 +45,6 @@ class ClientePainelForm(forms.ModelForm):
 
     def clean_telefone(self):
         digitos = normalizar_telefone(self.cleaned_data.get('telefone') or '')
-        if len(digitos) in (12, 13) and digitos.startswith('55'):
-            digitos = digitos[2:]
         if not digitos:
             return None
         validate_telefone_br(digitos)
