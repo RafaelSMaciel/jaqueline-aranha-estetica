@@ -255,6 +255,7 @@ python manage.py runserver              # terminal 2
 | `setup_2fa <email> [--force] [--name]` | Cria TOTP confirmado, imprime URI `otpauth://` + QR ASCII e 10 códigos de backup. `--force` = reset completo (apaga todos os devices OTP do usuário; auditado). Recuperação de acesso da equipe. |
 | `carregar_feriados [--ano N]` | Feriados nacionais (fixos + móveis via Páscoa), idempotente; sem `--ano` = ano atual e seguinte. |
 | `gerar_chave_cifragem` | Imprime uma chave nova para `CHAVES_CIFRAGEM`. |
+| `consultas_lentas [--top N] [--ordem total\|media\|chamadas\|linhas] [--zerar]` | Top do `pg_stat_statements` (texto normalizado, sem valores): mede antes de criar índice; `--zerar` recomeça a contagem. Sem a extensão, explica como ligar (§14 h). Só Postgres. |
 | `rotacionar_chave_cifragem [--dry-run]` | Recifra tudo com a 1ª chave de `CHAVES_CIFRAGEM` (inclusive a trilha do prontuário), numa transação, com os triggers de usuário das tabelas desligados durante o UPDATE; auditado. Passo do meio da rotação (nova na frente → rodar → tirar a antiga). |
 
 Úteis do Django/libs: `check`, `check --deploy`, `check --database default` (roda também o
@@ -713,10 +714,14 @@ Lista completa e comentada em [`.env.example`](../.env.example). Em produção:
 `RETENCAO_LOG_AUDITORIA_DIAS` (também a trilha `historico_alteracao`), `RETENCAO_LINK_ACESSO_DIAS`
 (90), `RETENCAO_AXES_LOG_DIAS` · `DJANGO_LOG_LEVEL` ·
 `EMAIL_TIMEOUT` (10; vale também para as chamadas HTTP do anymail) · `MAILGUN_SENDER_DOMAIN`
-(Mailgun; padrão = domínio do remetente).
+(Mailgun; padrão = domínio do remetente) · `DB_STATEMENT_TIMEOUT_MS` (30000; teto por statement na
+conexão Postgres, abaixo do `WEB_TIMEOUT`; `0` desliga; o `migrate_atomico` roda sem teto),
+`DB_APPLICATION_NAME` (`shivazen`; nome da conexão no `pg_stat_activity` e no log — ex.:
+`shivazen-cron` no serviço do cron, `shivazen-staging`).
 
 Só dev/testes: `DEBUG`, `SMS_DEV_LOG_ONLY` (em prod gera W002), `DB_ENGINE`/`DB_*`,
-`TEST_DATABASE_URL`, `PG_EXIGE_ICU`.
+`TEST_DATABASE_URL`, `PG_EXIGE_ICU`, `TESTE_SQLITE_MEMORIA`, `TESTE_VITE_BUILD`, `EXIGE_NAVEGADOR`
+([`DESENVOLVIMENTO.md`](DESENVOLVIMENTO.md)).
 
 **Legada — remover do Railway:** `STATIC_ROOT` (era `/tmp`; `settings/prod.py` ignora e usa
 `/app/staticfiles`, preenchido no build). Também não existem mais `ZENVIA_API_KEY` (use
@@ -741,7 +746,7 @@ Só dev/testes: `DEBUG`, `SMS_DEV_LOG_ONLY` (em prod gera W002), `DB_ENGINE`/`DB
   existem no `wizard.js`; local com `npm run build` + `TESTE_VITE_BUILD=1`, no CI com
   `EXIGE_NAVEGADOR=1` (faltou navegador ou bundle = reprova, não pula).
 - **Cobertura**: `coverage run manage.py test ... && coverage report`; `fail_under` em
-  `pyproject.toml` é catraca (87 %; só sobe).
+  `pyproject.toml` é catraca (86,9 %, uma casa; só sobe).
 - **Lint**: `ruff check .` com lista fixa (F, E4/E7/E9 e **DTZ** — `date.today()`/`datetime.now()`
   sem fuso erram o dia entre 21h e 24h; use `utils/datas`); `pre-commit install` liga ruff,
   `lint-imports` e `makemigrations --check` antes do commit.
@@ -1114,6 +1119,25 @@ Não use `migrate aranha_estetica <anterior>`.
   banco guarda só o hash); o antigo para de funcionar; auditado.
 - **Escalar**: mais de 1 worker gunicorn exige `REDIS_URL` (rate-limit, axes, lock de slot e quota
   de SMS são por processo no LocMem).
+- **Consulta lenta / índice novo**: meça antes. Uma vez no Postgres do Railway (superusuário):
+  `ALTER SYSTEM SET shared_preload_libraries = 'pg_stat_statements';` + reiniciar o serviço +
+  `CREATE EXTENSION IF NOT EXISTS pg_stat_statements;` (opcional: `ALTER SYSTEM SET
+  log_min_duration_statement = '500ms'` e `log_line_prefix` com `%a` — o `application_name` diz se
+  foi web ou cron). Depois `python manage.py consultas_lentas` (top por tempo total; `--ordem
+  media`), crie o índice numa migration e `--zerar` para comparar. Toda conexão já sai com
+  `statement_timeout` de 30 s (`DB_STATEMENT_TIMEOUT_MS`): query fora de controle cai sozinha e
+  aparece no Sentry/log em vez de segurar worker e locks. Filtro por dia em `DateTimeField` é
+  sempre intervalo (`utils/datas.dias_locais`), nunca `campo__date` (que não usa o índice); lista
+  com alerta de saúde por linha usa `utils/saude.alertas_em_lote` (3 consultas para a página toda;
+  `tests/test_consultas_por_tela.py` reprova N+1 no painel e nos prontuários).
+- **Staging** (quando o Railway voltar; hoje não existe): um *environment* `staging` no mesmo
+  projeto do Railway, com Postgres próprio e deploy da `dev` (produção segue da `main`).
+  `DJANGO_ENV=prod` (não existe `staging` — o boot recusa), `ALLOWED_HOSTS`/`CSRF_TRUSTED_ORIGINS`
+  do domínio de staging, `CHAVES_CIFRAGEM` e `DJANGO_SECRET_KEY` **próprias**,
+  `DB_APPLICATION_NAME=shivazen-staging`, e-mail para um provedor de teste (ou `dummy`), SMS e
+  WhatsApp sem credencial real (falham fechados) e `SENTRY_ENVIRONMENT=staging`. **Nunca** dados
+  reais de cliente: `seed --demo --force` ou dump anonimizado. Serve para ensaiar o go-live (§14 a)
+  e cada migration nova num banco que já tem dados antes da `main`.
 - **Backups** (fora do Railway e cifrados): `scripts/backup/backup_postgres.sh` todo dia (serviço
   Cron do Railway com `postgresql-client`, `age` e `rclone`, ou outra máquina) para um bucket com
   versionamento/*object lock*. Lá fica só a chave **pública** do age; a privada fica offline com a
@@ -1168,6 +1192,10 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
   `on_commit`, best-effort.
 - Datas "hoje/amanhã" sempre no fuso da clínica (`utils/datas.hoje`), nunca `date.today()`; data/hora
   de formulário por `utils/datas.ler_data`/`ler_hora`. O ruff (`DTZ`) barra no CI e no pre-commit.
+  Filtro "do dia" em `DateTimeField` = `filter(**dias_locais('campo', dia))` (intervalo que usa o
+  índice), nunca `campo__date=`.
+- Lista com dado por linha (alerta de saúde, contagem...): carregue em lote (`alertas_em_lote`,
+  `select_related`/`annotate`), nunca uma consulta por linha — `tests/test_consultas_por_tela.py`.
 - Ação sensível → `utils/audit.registrar_log(usuario, acao, tabela, pk, detalhes)` — registrador
   único; autor e IP vêm do `Ator` da borda (`ator.py`: middleware `web`, cron `cron:<job>`),
   `usuario`/`request` explícitos só quando o Ator não basta (sem nome de cliente
@@ -1202,6 +1230,8 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 | 2026-10-26 | Padrão SQL, fases (e) e (f): pacote congelado na venda (`compra_pacote_item`, 0052 — catálogo volta a ser editável) e comissão como livro-razão (CREDITO/PAGAMENTO/ESTORNO, 0053 — saldo negativo visível, regra usada só desativa); nome da indicada fora do ledger da carteira; ticket médio e LTV pela mesma regra (`services/financeiro`) ([`specs/padrao-sql.md`](specs/padrao-sql.md) §4.e/§4.f) |
 | 2026-10-26 | Padrão SQL, fase de nomes (N1/N2): 3 tabelas e 64 colunas renomeadas só no banco (0054 — tipos `bigint`/`char(64)`, `NULL`↔`''`, `criado_em`/`atualizado_em` completados, `db_default`, collation no estado, triggers `tg_`/`fn_`) e todas as constraints/índices no padrão (0055 — 15 índices e 39 constraints renomeados, unique de campo no `Meta`, índices das queries reais, CHECKs novos com pré-checagem, PK/FK com `ON DELETE` real, `COMMENT` em todas as tabelas); `tests/test_nomes_padrao.py` ([`specs/padrao-sql.md`](specs/padrao-sql.md) §3) |
 | 2026-10-26 | Padrão SQL, fase de lógica (L1–L3): trilha de dados `historico_alteracao` por trigger com autor/IP/origem da sessão (`ContextoBancoMiddleware`, cron, Celery, `migrate_atomico`) e `atualizado_em` por trigger (0056); `pg_trgm`/`unaccent`, busca de cliente sem acento, 8 funções de leitura e 9 views com paridade testada contra o Python, NPS "meio p/ cima" (0057); 4 procedures como fonte única da retenção/LGPD (0058); data migrations em jobs paralelos do CI (tag `migracoes`) ([`specs/padrao-sql.md`](specs/padrao-sql.md) §5) |
+| 2026-10-27 | Revisão, fases 3 e 4: regras de agenda num lugar só (`services/agenda`), efeitos de status explícitos (`services/atendimento`, sem signals), auditoria pelo `Ator` da borda, e-mail como fila na própria `notificacao` (0061) e saída do Celery (`jobs.py`/`rodar_job`), Django Forms no painel, inventário LGPD testado, camadas (import-linter) e mypy nos services; front com tokens/foco/tema automático, wizard com botão Continuar, entradas do Vite por tela, fontes locais, `<dialog>`, formulários acessíveis, e-mails para o Outlook, componentes cotton e PWA |
+| 2026-10-28 | Revisão, fases 2 e 5: `settings/test.py` único (hash MD5: suíte de ~4 min para ~40 s; `--keepdb`), ruff com regra de fuso + pre-commit, catraca de cobertura (87 %), wizard no Chromium no CI (achou o link pré-selecionado parado na etapa 1), data migrations em paralelo (25 → 10 min), CI com pins por SHA/digest, Dependabot e `pip-audit` bloqueante, `aranha.W014` (ambiente fora do lock), [`DESENVOLVIMENTO.md`](DESENVOLVIMENTO.md); banco: alertas de saúde em lote (painel 38 → 20 consultas, prontuários 28 → 8 com 10 clientes), filtros por dia como intervalo (14 `__date`), `statement_timeout`/`application_name` na conexão, `consultas_lentas` (pg_stat_statements) e roteiro de staging |
 | 2026-09-23 | Auditoria pré-produção completa (~450 correções em ~30 commits, `b5fd681..182e2e9`): OTP preso ao telefone em todo agendamento, consentimentos LGPD/art. 11 com prova, 2FA obrigatório do ADMIN, histórico do prontuário, prova de aceite imutável, deploy por Dockerfile + `migrate_atomico`, retenção LGPD efetiva, migrations 0040–0046. Detalhe em [`ARCHITECTURE.md`](ARCHITECTURE.md#6-progresso-checkpoint) |
 
-**Mantenedor:** Rafael Maciel · **Última atualização:** 2026-10-27
+**Mantenedor:** Rafael Maciel · **Última atualização:** 2026-10-28
