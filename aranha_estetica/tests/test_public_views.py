@@ -25,7 +25,7 @@ class PublicViewsTests(TestCase):
 
     def test_home(self):
         r = self.client.get(reverse('aranha:inicio'))
-        self.assertIn(r.status_code, (200, 301, 302))
+        self.assertEqual(r.status_code, 200)
 
     def test_healthcheck_ok(self):
         r = self.client.get('/health/')
