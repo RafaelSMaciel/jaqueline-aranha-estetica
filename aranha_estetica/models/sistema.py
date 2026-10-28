@@ -20,13 +20,32 @@ from .profissionais import Profissional
 
 
 class ListaEspera(models.Model):
+    """Pedido de aviso de vaga (decisao 17).
+
+    O formulario publico e anonimo: a inscricao guarda so nome_contato e telefone_contato e NAO cria
+    Cliente. Ela se liga a um Cliente (e aceita email_contato) apenas quando o celular foi verificado
+    por OTP (services/lista_espera.inscrever). O aviso grava ultimo_aviso_em e a cliente continua na
+    fila ate a data passar (retencao) ou ate agendar (encerrar_atendidas).
+    """
+    TURNO_MANHA, TURNO_TARDE, TURNO_NOITE = 'MANHA', 'TARDE', 'NOITE'
     TURNO_CHOICES = [
-        ('MANHA', 'Manhã'),
-        ('TARDE', 'Tarde'),
-        ('NOITE', 'Noite'),
+        (TURNO_MANHA, 'Manhã'),
+        (TURNO_TARDE, 'Tarde'),
+        (TURNO_NOITE, 'Noite'),
     ]
 
-    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, db_index=False)
+    cliente = models.ForeignKey(
+        Cliente, on_delete=models.CASCADE, db_index=False, blank=True, null=True,
+        db_comment='So com o celular verificado por OTP; NULL = inscricao anonima (nome/telefone_contato).',
+    )
+    nome_contato = models.CharField(
+        max_length=150, blank=True, default='', db_default='',
+        db_comment='Nome informado na inscricao anonima (sem cadastro).',
+    )
+    telefone_contato = models.CharField(
+        max_length=11, blank=True, null=True,
+        db_comment='Celular (so digitos) da inscricao anonima; o aviso so vai por aqui com consentimento.',
+    )
     procedimento = models.ForeignKey(Procedimento, on_delete=models.CASCADE, db_index=False)
     profissional_desejado = models.ForeignKey(
         Profissional, on_delete=models.SET_NULL, blank=True, null=True, db_index=False,
@@ -35,13 +54,15 @@ class ListaEspera(models.Model):
     turno_desejado = models.CharField(
         max_length=20, blank=True, null=True, choices=TURNO_CHOICES, db_comment='NULL = qualquer turno.',
     )
-    notificado = models.BooleanField(default=False, db_default=False, db_column='eh_notificado')
-    # E-mail informado no formulario publico quando o cliente ja existe: avisar
-    # por aqui sem reescrever o cadastro (uso: email_contato or cliente.email).
+    ultimo_aviso_em = models.DateTimeField(
+        blank=True, null=True, db_comment='Ultimo aviso de vaga entregue; a inscricao continua na fila.',
+    )
+    # E-mail informado no formulario publico, aceito SO com o celular verificado (cliente preenchido):
+    # avisar por aqui sem reescrever o cadastro (uso: email_contato or cliente.email).
     # Ausente = NULL (nunca ''; ck_lista_espera_email_contato_nao_vazio).
     email_contato = models.EmailField(
         blank=True, null=True,
-        db_comment='E-mail digitado no formulario publico quando o cliente ja existe (nao reescreve o cadastro).',
+        db_comment='E-mail digitado no formulario publico com o celular verificado (nao reescreve o cadastro).',
     )
     criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
     atualizado_em = atualizado_em_legado()
@@ -49,7 +70,10 @@ class ListaEspera(models.Model):
     class Meta:
         managed = True
         db_table = 'lista_espera'
-        db_table_comment = 'Pedido de aviso de vaga. Apagado quando data_desejada passa (sp_aplicar_retencao_lgpd).'
+        db_table_comment = (
+            'Pedido de aviso de vaga. Anonima (nome/telefone_contato) ou ligada a cliente verificada por OTP. '
+            'Apagado quando data_desejada passa (sp_aplicar_retencao_lgpd) ou quando a cliente agenda.'
+        )
         constraints = [
             models.CheckConstraint(
                 condition=(
@@ -62,16 +86,38 @@ class ListaEspera(models.Model):
                 condition=models.Q(email_contato__isnull=True) | ~models.Q(email_contato=''),
                 name='ck_lista_espera_email_contato_nao_vazio',
             ),
-            # cliente nao entra 2x na mesma fila enquanto nao notificado
+            # quem e: a cliente verificada ou o contato da inscricao anonima
+            models.CheckConstraint(
+                condition=(
+                    models.Q(cliente__isnull=False)
+                    | (models.Q(telefone_contato__isnull=False) & ~models.Q(nome_contato=''))
+                ),
+                name='ck_lista_espera_cliente_ou_contato',
+            ),
+            # e-mail so com posse do celular provada (senao a clinica mandaria e-mail a terceiros)
+            models.CheckConstraint(
+                condition=models.Q(email_contato__isnull=True) | models.Q(cliente__isnull=False),
+                name='ck_lista_espera_email_contato_so_verificado',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(telefone_contato__isnull=True) | models.Q(telefone_contato__regex=r'^[0-9]{10,11}$'),
+                name='ck_lista_espera_telefone_contato_formato',
+            ),
+            # ninguem entra 2x na mesma fila (procedimento + dia)
             models.UniqueConstraint(
                 fields=['cliente', 'procedimento', 'data_desejada'],
-                condition=models.Q(notificado=False),
-                name='uq_lista_espera_pendente',
+                condition=models.Q(cliente__isnull=False),
+                name='uq_lista_espera_cliente',
+            ),
+            models.UniqueConstraint(
+                fields=['telefone_contato', 'procedimento', 'data_desejada'],
+                condition=models.Q(telefone_contato__isnull=False),
+                name='uq_lista_espera_telefone_contato',
             ),
         ]
         indexes = [
             Indice(fields=['cliente'], name='ix_lista_espera_cliente'),
-            # candidatos FIFO (procedimento + data, nao notificado): o UNIQUE parcial tambem cobre
+            # candidatos FIFO (procedimento + data)
             Indice(fields=['procedimento', 'data_desejada'], name='ix_lista_espera_procedimento_data_desejada'),
             Indice(fields=['data_desejada'], name='ix_lista_espera_data_desejada'),
             Indice(
@@ -82,13 +128,33 @@ class ListaEspera(models.Model):
 
     def save(self, *args, **kwargs):
         self.email_contato = self.email_contato or None  # '' -> NULL (CHECK nao vazio)
+        self.telefone_contato = self.telefone_contato or None
         super().save(*args, **kwargs)
 
     def __str__(self):
-        cliente_nome = self.cliente.nome if self.cliente_id else 's/ cliente'
         proc_nome = self.procedimento.nome if self.procedimento_id else 's/ procedimento'
         data = self.data_desejada.strftime('%d/%m/%Y') if self.data_desejada else 's/ data'
-        return f'{cliente_nome} — {proc_nome} ({data})'
+        return f'{self.nome or "s/ nome"} — {proc_nome} ({data})'
+
+    @property
+    def nome(self) -> str:
+        """Nome p/ a equipe: o do cadastro (verificada) ou o informado na inscricao anonima."""
+        return self.cliente.nome if self.cliente_id else self.nome_contato
+
+    @property
+    def telefone(self) -> str:
+        return (self.cliente.telefone if self.cliente_id else self.telefone_contato) or ''
+
+    @property
+    def avisada(self) -> bool:
+        return self.ultimo_aviso_em is not None
+
+    @property
+    def email_aviso(self) -> str:
+        """Destino do e-mail de vaga: so de quem confirmou o celular (inscricao ligada ao cadastro)."""
+        if self.cliente is None:
+            return ''
+        return self.email_contato or self.cliente.email or ''
 
 
 def rotulo_usuario(usuario) -> str:

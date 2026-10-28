@@ -699,7 +699,7 @@ class ListaEsperaPainelTests(_AdminTestCase):
         resp = self.client.post(reverse('aranha:admin_notificar_espera', args=[item.pk]))
         self.assertEqual(resp.status_code, 302)
         item.refresh_from_db()
-        self.assertTrue(item.notificado)
+        self.assertIsNotNone(item.ultimo_aviso_em)
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ['espera@test.com'])
 
@@ -707,9 +707,25 @@ class ListaEsperaPainelTests(_AdminTestCase):
         item = self._item()
         resp = self.client.post(reverse('aranha:admin_notificar_espera', args=[item.pk]))
         item.refresh_from_db()
-        self.assertTrue(item.notificado)
+        self.assertIsNotNone(item.ultimo_aviso_em)
         self.assertEqual(len(mail.outbox), 0)
         self.assertTrue(any('Nenhum e-mail foi enviado' in m for m in _mensagens(resp)))
+        self.assertTrue(ListaEspera.objects.filter(pk=item.pk).exists())   # avisada continua na fila
+
+    def test_inscricao_anonima_aparece_com_o_contato(self):
+        ListaEspera.objects.create(nome_contato='Joana Sem Cadastro', telefone_contato='17988881234',
+                                   procedimento=self.proc, data_desejada=timezone.localdate() + timedelta(days=2))
+        resp = self.client.get(reverse('aranha:admin_lista_espera'))
+        self.assertContains(resp, 'Joana Sem Cadastro')
+        self.assertContains(resp, 'Sem cadastro')
+        self.assertContains(resp, 'https://wa.me/5517988881234')
+
+    def test_avisar_por_get_nao_altera(self):
+        item = self._item(email='espera@test.com')
+        resp = self.client.get(reverse('aranha:admin_notificar_espera', args=[item.pk]))
+        self.assertEqual(resp.status_code, 405)
+        item.refresh_from_db()
+        self.assertIsNone(item.ultimo_aviso_em)
 
 
 # ─── Paginacao / Google Agenda removido ───────────────────────────────

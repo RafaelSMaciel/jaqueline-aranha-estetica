@@ -52,7 +52,8 @@ COLUNAS = {
     # mensagens e contatos
     ('notificacao', 'mensagem'): ANONIMIZA,
     ('avaliacao_nps', 'comentario'): ANONIMIZA,
-    ('lista_espera', 'email_contato'): APAGA,
+    ('lista_espera', 'email_contato'): APAGA, ('lista_espera', 'nome_contato'): APAGA,
+    ('lista_espera', 'telefone_contato'): APAGA,
     ('codigo_otp', 'identificador'): APAGA, ('codigo_otp', 'telefone'): APAGA,
     ('codigo_otp', 'ip_origem'): APAGA,
     # saude
