@@ -155,3 +155,37 @@ class CascaDoPainelTests(TestCase):
         self.assertIn('x-bind:inert="navInerte()"', html)
         js = (_JS / 'app.js').read_text(encoding='utf-8')
         self.assertIn('navInerte()', js)
+
+
+class TitulosEAbasTests(SimpleTestCase):
+    """Achado 170: h1 -> h5/h6 no painel, h3 sem h2 no rodape e tablist sem tabs."""
+
+    def test_titulos_nao_pulam_nivel(self):
+        """Pagina (extends) nao pula nivel: o h1 vem da casca (painel) ou da propria pagina."""
+        pulos = []
+        for arq in _templates_html():
+            rel = arq.relative_to(_TEMPLATES).as_posix()
+            html = arq.read_text(encoding='utf-8')
+            if rel.startswith(('email/', 'cotton/', 'partials/')) or '{% extends' not in html:
+                continue
+            anterior = 1
+            for nivel in (int(n) for n in re.findall(r'<h([1-6])[\s>]', html)):
+                if nivel > anterior + 1:
+                    pulos.append(f'{rel}: h{anterior} -> h{nivel}')
+                    break
+                anterior = nivel
+        self.assertEqual(pulos, [])
+
+    def test_rodape_comeca_em_h2(self):
+        rodape = (_TEMPLATES / 'cotton' / 'chrome' / 'rodape.html').read_text(encoding='utf-8')
+        self.assertNotRegex(rodape, r'<h[3-6][\s>]')
+
+    def test_sem_papel_de_aba_sem_aba_de_verdade(self):
+        for nome in ('agendamento/agendamento_publico.html', 'publico/especialidades.html'):
+            html = (_TEMPLATES / nome).read_text(encoding='utf-8')
+            self.assertNotRegex(html, r'role="(tablist|tab|tabpanel)"', nome)
+        wizard = (_TEMPLATES / 'agendamento' / 'agendamento_publico.html').read_text(encoding='utf-8')
+        self.assertIn('class="cat-tab" data-cat="" aria-pressed="true"', wizard)
+        self.assertIn("setAttribute('aria-pressed'", (_JS / 'wizard.js').read_text(encoding='utf-8'))
+        esp = (_TEMPLATES / 'publico' / 'especialidades.html').read_text(encoding='utf-8')
+        self.assertIn(':focus-visible ~ * label[for=', esp)

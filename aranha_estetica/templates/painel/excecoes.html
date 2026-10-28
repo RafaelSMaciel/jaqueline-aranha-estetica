@@ -26,12 +26,12 @@
 
 {# ── Formulário de criação ── #}
 <div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
-  <h3 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-4">
+  <h2 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-4">
     <svg class="w-4 h-4 text-marca-forte" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
     </svg>
     Nova exceção
-  </h3>
+  </h2>
   <form method="post" action="{% url 'aranha:admin_excecao_criar' prof.pk %}">
     {% csrf_token %}
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
@@ -121,7 +121,7 @@
       <polyline points="9 14 12 17 15 14"/>
     </svg>
   </div>
-  <h5 class="font-bold text-texto mb-1">Nenhuma exceção futura</h5>
+  <p class="font-serif font-bold text-texto mb-1">Nenhuma exceção futura</p>
   <p class="text-[0.85rem] text-texto-suave">Use o formulário acima para folgas ou horários diferentes.</p>
 </div>
 {% endfor %}

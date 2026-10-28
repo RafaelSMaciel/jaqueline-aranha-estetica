@@ -21,7 +21,7 @@
   .fc-event:active { cursor: grabbing; }
 
   #calModal .modal-box { background: var(--cor-superficie, #fff); color: var(--cor-texto, #333); border-radius: 16px; padding: 1.25rem; max-width: 420px; width: 100%; }
-  #calModal h4 { font-weight: 800; margin-bottom: 0.75rem; }
+  #calModal h2 { font-weight: 800; margin-bottom: 0.75rem; }
   #calModal .row-info { display: flex; padding: 0.35rem 0; border-bottom: 1px solid var(--cor-borda, #f0f0f0); font-size: 0.85rem; }
   #calModal .row-info:last-child { border: none; }
   #calModal .lbl { color: var(--cor-texto-suave, #999); min-width: 110px; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; }
@@ -61,7 +61,7 @@
 {# Modal de evento (CSS custom + classList, CSP-safe) #}
 <dialog id="calModal" class="dialogo" aria-labelledby="cmClienteNome">
   <div class="modal-box">
-    <h4 id="cmClienteNome">–</h4>
+    <h2 id="cmClienteNome">–</h2>
     <div class="row-info"><div class="lbl">Status</div><div class="val"><span id="cmStatus" class="status-pill">–</span></div></div>
     <div class="row-info"><div class="lbl">Procedimento</div><div class="val" id="cmProcedimento">–</div></div>
     <div class="row-info"><div class="lbl">Profissional</div><div class="val" id="cmProfissional">–</div></div>

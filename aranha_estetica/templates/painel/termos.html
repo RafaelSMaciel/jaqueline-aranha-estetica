@@ -17,12 +17,12 @@
 
 {# ── Formulário de criação ── #}
 <div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
-  <h3 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-4">
+  <h2 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-4">
     <svg class="w-4 h-4 text-marca-forte" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
       <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
     </svg>
     Publicar nova versão
-  </h3>
+  </h2>
   <p class="text-[0.78rem] text-texto-suave -mt-2 mb-4">Ao publicar, a versão ativa do mesmo tipo (e procedimento) é arquivada e os clientes passam a ter a nova versão pendente de aceite.</p>
   <form method="post" action="{% url 'aranha:admin_criar_termo' %}">
     {% csrf_token %}
@@ -113,7 +113,7 @@
       <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
     </svg>
   </div>
-  <h5 class="font-bold text-texto mb-1">Nenhum termo cadastrado</h5>
+  <p class="font-serif font-bold text-texto mb-1">Nenhum termo cadastrado</p>
   <p class="text-[0.85rem] text-texto-suave">Use o formulário acima para cadastrar o primeiro termo.</p>
 </div>
 {% endfor %}
