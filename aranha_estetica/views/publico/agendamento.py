@@ -84,12 +84,7 @@ def _voltar_com_erro(request, mensagem):
 
 def _formularios_aplicaveis(procedimento):
     """Anamneses pre-atendimento ativas que valem p/ o procedimento."""
-    return FormularioAnamnese.objects.filter(
-        Q(escopo='GLOBAL')
-        | Q(escopo='CATEGORIA', categoria=procedimento.categoria)
-        | Q(escopo='PROCEDIMENTO', procedimento=procedimento),
-        tipo='ANAMNESE', ativo=True,
-    )
+    return FormularioAnamnese.objects.filter(tipo='ANAMNESE', ativo=True).aplicaveis_a(procedimento)
 
 
 def _resposta_preenchida(valor) -> bool:
@@ -177,6 +172,7 @@ def _precos_card(procedimentos):
 def agendamento_publico(request):
     """Pagina publica de agendamento (wizard)."""
     procedimentos_com_preco = []
+    procedimentos = []
     try:
         procedimentos = list(procedimentos_agendaveis())   # so quem tem profissional habilitado
         precos = _precos_card(procedimentos)
@@ -215,20 +211,17 @@ def agendamento_publico(request):
 
     formularios_anamnese = []
     try:
+        # 'procedimentos': onde a ficha vale, decidido aqui (FormularioAnamnese.aplica_a) — o JS
+        # so consulta; antes repetia a regra e ignorava o escopo por modalidade
         formularios_anamnese = [
             {
-                'id': row['id'],
-                'nome': row['nome'],
-                'escopo': row['escopo'],
-                'categoria': row['categoria'],
-                'procedimento_id': row['procedimento_id'],
-                'obrigatorio': row['obrigatorio'],
-                'schema': row['schema_json'],
+                'id': form.pk,
+                'nome': form.nome,
+                'obrigatorio': form.obrigatorio,
+                'schema': form.schema_json,
+                'procedimentos': [proc.pk for proc in procedimentos if form.aplica_a(proc)],
             }
-            for row in FormularioAnamnese.objects.filter(ativo=True, tipo='ANAMNESE').values(
-                'id', 'nome', 'escopo', 'categoria',
-                'procedimento_id', 'obrigatorio', 'schema_json',
-            )
+            for form in FormularioAnamnese.objects.filter(ativo=True, tipo='ANAMNESE')
         ]
     except (OperationalError, ProgrammingError):
         pass

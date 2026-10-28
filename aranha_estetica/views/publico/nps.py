@@ -7,7 +7,7 @@ from django.shortcuts import render
 from django_ratelimit.decorators import ratelimit
 
 from ...models import AvaliacaoNPS
-from ...services import links
+from ...services import anamnese, links
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +51,8 @@ def nps_web(request, token):
             return render(request, 'publico/nps_obrigado.html', {
                 'nota': nota,
                 'cliente': atendimento.cliente,
+                # pesquisa pos-atendimento (opcional) no mesmo link, sem outra mensagem
+                'link_pesquisa': anamnese.convite_pesquisa(atendimento),
             })
         erro = 'Escolha uma nota de 0 a 10.'
 

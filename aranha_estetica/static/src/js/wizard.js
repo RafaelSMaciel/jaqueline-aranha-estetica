@@ -630,11 +630,9 @@
         ) || [];
     } catch (e) { FORMULARIOS_ANAMNESE = []; }
 
+    // O servidor decide onde cada ficha vale (FormularioAnamnese.aplica_a, os 4 escopos)
     function formularioAplicaAoProc(form, proc) {
-        if (form.escopo === 'GLOBAL') return true;
-        if (form.escopo === 'CATEGORIA') return !!proc.categoria && form.categoria === proc.categoria;
-        if (form.escopo === 'PROCEDIMENTO') return String(form.procedimento_id) === String(proc.id);
-        return false;
+        return (form.procedimentos || []).map(String).indexOf(String(proc.id)) !== -1;
     }
 
     function criarSelect(opcoes) {

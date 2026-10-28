@@ -18,6 +18,16 @@ _ANAMNESE_TIPOS_CAMPO = {
 
 
 class FormularioAnamneseQuerySet(models.QuerySet):
+    def aplicaveis_a(self, procedimento):
+        """Formularios que valem p/ o procedimento — regra unica do wizard, dos alertas do painel e
+        dos convites (os 4 escopos; espelho em memoria: FormularioAnamnese.aplica_a)."""
+        return self.filter(
+            models.Q(escopo='GLOBAL')
+            | models.Q(escopo='CATEGORIA', categoria=procedimento.categoria)
+            | models.Q(escopo='PROCEDIMENTO', procedimento=procedimento)
+            | models.Q(escopo='MODALIDADE', modalidade=procedimento.modalidade)
+        )
+
     def prontuario_ativo(self):
         """O formulario PRONTUARIO ativo (no maximo 1 — uq_formulario_prontuario_ativo) ou None."""
         return self.filter(tipo=FormularioAnamnese.TIPO_PRONTUARIO, ativo=True).order_by('pk').first()
@@ -145,6 +155,15 @@ class FormularioAnamnese(models.Model):
 
     def __str__(self):
         return f'{self.nome} ({self.get_tipo_display()} | {self.get_escopo_display()})'
+
+    def aplica_a(self, procedimento) -> bool:
+        """Mesma regra de FormularioAnamneseQuerySet.aplicaveis_a, sem query (listas ja carregadas)."""
+        return (
+            self.escopo == 'GLOBAL'
+            or (self.escopo == 'CATEGORIA' and self.categoria == procedimento.categoria)
+            or (self.escopo == 'PROCEDIMENTO' and self.procedimento_id == procedimento.pk)
+            or (self.escopo == 'MODALIDADE' and self.modalidade == procedimento.modalidade)
+        )
 
     @property
     def eh_prontuario(self) -> bool:

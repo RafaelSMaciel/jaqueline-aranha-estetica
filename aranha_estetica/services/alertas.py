@@ -18,8 +18,7 @@ def ids_com_ficha_pendente(atendimentos) -> set[int]:
     """pk dos atendimentos ativos sem a ficha de anamnese OBRIGATORIA respondida.
 
     Ficha obrigatoria = FormularioAnamnese ANAMNESE ativo e obrigatorio que vale
-    p/ o procedimento (mesmo escopo do booking: GLOBAL, CATEGORIA ou
-    PROCEDIMENTO). Pendente quando a cliente nunca respondeu aquele formulario
+    p/ o procedimento (FormularioAnamnese.aplica_a — a mesma regra do wizard). Pendente quando a cliente nunca respondeu aquele formulario
     — o agendamento pela recepcao nao coleta a ficha e, sem ela, os alertas de
     saude ficam vazios. 2 queries p/ a lista inteira.
     """
@@ -32,21 +31,14 @@ def ids_com_ficha_pendente(atendimentos) -> set[int]:
     if not ativos:
         return set()
     formularios = list(
-        FormularioAnamnese.objects.filter(
-            tipo='ANAMNESE', ativo=True, obrigatorio=True,
-            escopo__in=('GLOBAL', 'CATEGORIA', 'PROCEDIMENTO'),
-        ).only('pk', 'escopo', 'categoria', 'procedimento_id')
+        FormularioAnamnese.objects.filter(tipo='ANAMNESE', ativo=True, obrigatorio=True)
+        .only('pk', 'escopo', 'categoria', 'modalidade', 'procedimento_id')
     )
     if not formularios:
         return set()
 
     def aplicaveis(procedimento):
-        return {
-            f.pk for f in formularios
-            if f.escopo == 'GLOBAL'
-            or (f.escopo == 'CATEGORIA' and f.categoria == procedimento.categoria)
-            or (f.escopo == 'PROCEDIMENTO' and f.procedimento_id == procedimento.pk)
-        }
+        return {f.pk for f in formularios if f.aplica_a(procedimento)}
 
     respondidas = set(
         RespostaAnamnese.objects.filter(

@@ -149,3 +149,53 @@ def validar_respostas(schema, dados: Mapping) -> tuple[dict, list[str]]:
             continue
         limpas[key] = limpo
     return limpas, erros
+
+
+# ─── Convites (link publico /anamnese/<token>/ ou /pesquisa/<token>/) ──────
+
+def convidar(formulario, atendimento) -> str:
+    """Caminho do link p/ a cliente responder ``formulario`` sobre o atendimento (60 dias).
+
+    Reaproveita o convite em aberto (RespostaAnamnese sem resposta); cada chamada emite um token
+    novo e os anteriores seguem valendo — so o hash fica no banco (link_acesso)."""
+    from ..models import RespostaAnamnese
+    from . import links
+
+    resposta = RespostaAnamnese.objects.filter(
+        formulario=formulario, atendimento=atendimento, respondida_em__isnull=True,
+    ).first()
+    if resposta is None:
+        resposta = RespostaAnamnese.objects.create(
+            formulario=formulario, cliente_id=atendimento.cliente_id, atendimento=atendimento,
+        )
+    return links.emitir_link_formulario(resposta)
+
+
+def fichas_pendentes(atendimento) -> list:
+    """Fichas ANAMNESE obrigatorias que valem p/ o procedimento e a cliente nunca respondeu
+    (as mesmas de services.alertas.ids_com_ficha_pendente, p/ um atendimento)."""
+    from ..models import FormularioAnamnese, RespostaAnamnese
+
+    respondidas = RespostaAnamnese.objects.filter(
+        cliente_id=atendimento.cliente_id, respondida_em__isnull=False,
+    ).values('formulario_id')
+    return list(
+        FormularioAnamnese.objects.filter(tipo=FormularioAnamnese.TIPO_ANAMNESE, ativo=True, obrigatorio=True)
+        .aplicaveis_a(atendimento.procedimento).exclude(pk__in=respondidas).order_by('pk')
+    )
+
+
+def convite_pesquisa(atendimento) -> str | None:
+    """Pesquisa pos-atendimento oferecida no fim do NPS: a PESQUISA ativa que vale p/ o
+    procedimento, se a cliente ainda nao respondeu sobre este atendimento. Sem mensagem extra —
+    o convite vai no link do NPS que ela ja recebeu."""
+    from ..models import FormularioAnamnese, RespostaAnamnese
+
+    formulario = (
+        FormularioAnamnese.objects.filter(tipo=FormularioAnamnese.TIPO_PESQUISA, ativo=True)
+        .aplicaveis_a(atendimento.procedimento).order_by('pk').first()
+    )
+    if formulario is None or RespostaAnamnese.objects.filter(
+            formulario=formulario, atendimento=atendimento, respondida_em__isnull=False).exists():
+        return None
+    return convidar(formulario, atendimento)
