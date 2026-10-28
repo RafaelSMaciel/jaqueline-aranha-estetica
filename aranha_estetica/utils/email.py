@@ -15,6 +15,8 @@ entrega real quando a chave do ESP esta em settings.ANYMAIL (montado da env em
 settings/base.py); sem ela todo envio falharia -> tambem "nao configurado".
 """
 import logging
+import re
+from html import unescape
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
@@ -23,6 +25,29 @@ from django.urls import reverse
 from django.utils.html import strip_tags
 
 from .pii import mask_email
+
+_RX_SEM_TEXTO = re.compile(r'<(head|style|script)\b.*?</\1\s*>|<!--.*?-->', re.S | re.I)
+_RX_LINK = re.compile(r'<a\b[^>]*?\bhref\s*=\s*["\']([^"\']+)["\'][^>]*>(.*?)</a\s*>', re.S | re.I)
+_RX_QUEBRA = re.compile(r'<br\s*/?>|</(p|div|tr|li|h[1-6]|table)\s*>', re.I)
+
+
+def html_para_texto(html: str) -> str:
+    """Versao texto do e-mail (multipart/alternative): sem o CSS do <head>/<style> nem
+    comentario condicional do Outlook, links como "texto: URL" (strip_tags perdia o href) e
+    quebras de linha nos blocos. E o que filtro anti-spam, preview e relogio leem."""
+    texto = _RX_SEM_TEXTO.sub('', html)
+
+    def _link(m):
+        url, rotulo = m.group(1).strip(), strip_tags(m.group(2)).strip()
+        if not rotulo or rotulo == url or url.startswith('mailto:'):
+            return rotulo or url
+        return f'{rotulo}: {url}'
+
+    texto = _RX_LINK.sub(_link, texto)
+    texto = _RX_QUEBRA.sub('\n', texto)
+    texto = unescape(strip_tags(texto))
+    linhas = [' '.join(linha.split()) for linha in texto.splitlines()]
+    return re.sub(r'\n{3,}', '\n\n', '\n'.join(linhas)).strip() + '\n'
 
 logger = logging.getLogger(__name__)
 
@@ -129,7 +154,7 @@ def _enviar_email(destinatario, assunto, template, contexto,
 
     try:
         html = render_to_string(template, contexto)
-        texto = strip_tags(html)
+        texto = html_para_texto(html)
         msg = EmailMultiAlternatives(
             subject=assunto,
             body=texto,
