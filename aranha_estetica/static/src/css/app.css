@@ -69,6 +69,10 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
    (dourado escuro) some no fundo escuro; la o anel e o dourado da marca (~8:1). */
 .cromo-escuro :focus-visible { outline-color: var(--ouro-500); }
 
+/* Campo recusado pelo servidor (aria-invalid, ex.: <c-campo erro=...>): borda no token de erro.
+   Sem camada, como o foco: vence o border-* utilitario do template. */
+:is(input, select, textarea)[aria-invalid="true"] { border-color: var(--cor-erro); }
+
 /* Campo de formulario com a borda de cartao (border-borda) usa a de campo (3:1). Na camada de
    utilitarios: ganha do .border-borda (mais especifico) e perde do focus:border-* (pseudo-classe). */
 @layer utilities {
