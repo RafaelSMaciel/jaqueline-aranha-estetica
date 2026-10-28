@@ -72,8 +72,29 @@ Alpine.data('adminShell', () => ({
 
 // Fecha o alerta pai (CSP-safe: logica no metodo, nao inline em x-on).
 Alpine.data('alertaDismiss', () => ({
-  fechar() { const a = this.$el.closest('[role=alert]'); if (a) a.remove() },
+  fechar() { const a = this.$el.closest('[data-toast], [role=alert]'); if (a) a.remove() },
 }))
+
+// Rotulo sem `for` logo antes do campo (padrao dos formularios do painel): associa label -> campo
+// (o leitor de tela le o nome do campo e clicar no rotulo foca o campo). Id gerado e unico mesmo
+// em lista (um modal de edicao por item).
+let seqCampo = 0
+function associarRotulos(raiz = document) {
+  raiz.querySelectorAll('label:not([for])').forEach((label) => {
+    if (label.querySelector('input, select, textarea')) return   // ja envolve o campo
+    // o campo e o proximo irmao; uma dica (<p>/<small>) no meio vira a descricao do campo
+    const dicas = []
+    let campo = label.nextElementSibling
+    while (campo && dicas.length < 2 && campo.matches('p, small, span')) { dicas.push(campo); campo = campo.nextElementSibling }
+    if (!campo || !campo.matches('input:not([type=hidden]), select, textarea')) return
+    if (!campo.id) campo.id = `campo-${++seqCampo}`
+    label.htmlFor = campo.id
+    if (dicas.length && !campo.hasAttribute('aria-describedby')) {
+      campo.setAttribute('aria-describedby', dicas.map((d) => d.id || (d.id = `dica-${++seqCampo}`)).join(' '))
+    }
+  })
+}
+document.addEventListener('DOMContentLoaded', () => associarRotulos())
 
 // Modal de anotacao clinica (prontuario): guarda atendimento e faz fetch.
 // CSP-safe: abrir(e) le data-atendimento-id do botao clicado; sem expressao inline.
