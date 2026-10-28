@@ -23,6 +23,7 @@ from ..models import Procedimento, Profissional
 from ..services import consentimentos
 from ..services import otp as otp_service
 from ..services.agendamento_online import PedidoAgendamento
+from ..utils import telefone as telefone_br
 from ..utils.datas import hoje as hoje_local, ler_data
 from ..utils.parse import id_int
 from ..validators import validate_data_nascimento
@@ -96,7 +97,7 @@ class AgendamentoPublicoForm(forms.Form):
         return self.cleaned_data['nome'][:150]
 
     def clean_telefone(self) -> str:
-        telefone = otp_service.normalizar_telefone_br(self.cleaned_data['telefone'])
+        telefone = telefone_br.valido_ou_vazio(self.cleaned_data['telefone'])
         if not telefone:
             raise ValidationError(MSG_CELULAR, code='celular')
         # Gate unico: o telefone do agendamento precisa ser o verificado por SMS nesta sessao
