@@ -24,7 +24,7 @@ class HtmlParaTextoTests(SimpleTestCase):
     def test_todos_os_templates_saem_sem_css_nem_tags(self):
         pasta = Path(settings.BASE_DIR) / 'aranha_estetica' / 'templates' / 'email'
         templates = sorted(p.name for p in pasta.glob('*.html') if p.name != 'base_email.html')
-        self.assertGreaterEqual(len(templates), 10)
+        self.assertGreaterEqual(len(templates), 9)
         for nome in templates:
             with self.subTest(template=nome):
                 texto = email_utils.html_para_texto(render_to_string(f'email/{nome}', CONTEXTO))

@@ -303,11 +303,3 @@ def enviar_aprovacao_profissional_email(email, dados):
     )
 
 
-def enviar_termos_pendentes_email(email, dados):
-    """Notifica cliente sobre termos pendentes por email."""
-    return _enviar_email(
-        destinatario=email,
-        assunto=f'{_nome_clinica()} — Termos de consentimento pendentes',
-        template='email/termos_pendentes.html',
-        contexto={'dados': dados},
-    )

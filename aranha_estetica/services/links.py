@@ -19,7 +19,6 @@ import hashlib
 import secrets
 from collections.abc import Iterable
 
-from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
 from django.urls import reverse
@@ -112,16 +111,6 @@ def vigente(finalidade: str, alvo) -> LinkAcesso | None:
     )
 
 
-def revogar_do_cliente(cliente_pk: int) -> int:
-    """Anonimizacao (LGPD): todo link publico ligado ao titular deixa de funcionar."""
-    return LinkAcesso.objects.filter(revogado_em__isnull=True).filter(
-        Q(cliente_id=cliente_pk)
-        | Q(atendimento__cliente_id=cliente_pk)
-        | Q(notificacao__atendimento__cliente_id=cliente_pk)
-        | Q(resposta_formulario__cliente_id=cliente_pk)
-    ).update(revogado_em=timezone.now())
-
-
 def gerar_link_feed_ics(profissional) -> str:
     """Rotacao do feed ICS: revoga o link vigente e emite outro. Devolve o token.
 
@@ -146,10 +135,6 @@ def aplicada_em_0049():
 
 
 # ─── URLs absolutas (o token so vive nelas) ────────────────────────────────
-
-def url_absoluta(caminho: str) -> str:
-    return f"{settings.SITE_URL.rstrip('/')}{caminho}"
-
 
 def emitir_link_formulario(resposta) -> str:
     """Convite da ficha/pesquisa: emite o link FORMULARIO e devolve o caminho publico.

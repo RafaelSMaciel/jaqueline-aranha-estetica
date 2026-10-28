@@ -10,11 +10,6 @@ from datetime import date, datetime
 from django.utils import timezone
 
 
-def agora_local() -> datetime:
-    """Datetime aware no fuso local."""
-    return timezone.localtime(timezone.now())
-
-
 def hoje() -> date:
     """Data de hoje no fuso local (nao UTC)."""
     return timezone.localdate()

@@ -45,6 +45,8 @@ jobs:
         run: python manage.py makemigrations --check --dry-run
       - name: Camadas (import-linter)
         run: lint-imports
+      - name: Tipos dos services (mypy)
+        run: mypy
       # tests/test_migrations_dados.py (tag `migracoes`, ~3/4 do tempo) roda no job
       # `migracoes-sqlite`, em paralelo; localmente a suite padrao continua rodando TUDO
       - name: Suite Django (sem a tag migracoes)

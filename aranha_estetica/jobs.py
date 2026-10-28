@@ -390,15 +390,12 @@ def validade_promocao(validade_dias: int = 30, data_fim=None) -> str:
     return limite.strftime('%d/%m/%Y')
 
 
-def job_promocao_mensal(assunto: str, corpo_html_partial: str, cupom: str = None,
-                        validade_dias: int = 30, data_fim=None):
+def job_promocao_mensal(assunto: str, corpo_html_partial: str, validade_dias: int = 30, data_fim=None):
     """Envia email promocional para clientes com MARKETING/EMAIL vigente.
 
     Parametros:
       assunto: subject do email
       corpo_html_partial: snippet HTML inserido no template base de promocao
-      cupom: IGNORADO — nenhum fluxo aceita cupom (promessa sem mecanismo nao
-        vai no e-mail); aceito so p/ nao quebrar chamadas antigas
       validade_dias: dias de validade anunciada (default 30)
       data_fim: fim da promocao (date ou ISO) — teto da validade anunciada
     """

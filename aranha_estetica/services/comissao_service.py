@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import logging
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Optional
+from typing import Any, Optional
 
 from django.db import IntegrityError, transaction
 from django.db.models import Case, DecimalField, F, Q, Sum, When
@@ -258,7 +258,7 @@ class ComissaoService:
         (``creditos`` = creditos_com_status() ja filtrado) + saldo a pagar do ledger
         inteiro. Profissional sem credito no periodo mas com saldo != 0 tambem aparece
         (saldo negativo nao some do painel)."""
-        linhas = {}
+        linhas: dict[int, dict[str, Any]] = {}
         for prof_id, nome, status, valor in creditos.order_by().values_list(
             'profissional_id', 'profissional__nome', 'status', 'valor',
         ):

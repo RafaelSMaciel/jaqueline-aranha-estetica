@@ -190,7 +190,7 @@ class LgpdService:
                 {'procedimento': e.procedimento.nome, 'data_desejada': _iso(e.data_desejada),
                  'turno': e.turno_desejado, 'notificado': e.notificado,
                  'profissional_desejado': (
-                     e.profissional_desejado.nome if e.profissional_desejado_id else None
+                     e.profissional_desejado.nome if e.profissional_desejado else None
                  ),
                  'email_contato': e.email_contato,
                  'criado_em': _iso(e.criado_em)}
@@ -210,7 +210,7 @@ class LgpdService:
         from aranha_estetica.services import links
 
         link = links.resolver(links.DESCADASTRO, token, select_related=('cliente',))
-        if link is None or link.cliente.deletado_em is not None:
+        if link is None or link.cliente is None or link.cliente.deletado_em is not None:
             return None
         return link
 

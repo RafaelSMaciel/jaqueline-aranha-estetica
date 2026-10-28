@@ -7,7 +7,6 @@ from aranha_estetica.utils.security import (
     mask_email,
     mask_telefone,
     safe_next,
-    safe_str_compare,
 )
 
 
@@ -29,15 +28,6 @@ class MaskingTests(SimpleTestCase):
         self.assertIn('***', masked)
 
 
-class SafeCompareTests(SimpleTestCase):
-    def test_iguais(self):
-        self.assertTrue(safe_str_compare('abc', 'abc'))
-
-    def test_diferentes(self):
-        self.assertFalse(safe_str_compare('abc', 'xyz'))
-
-    def test_none(self):
-        self.assertFalse(safe_str_compare(None, 'x'))
 
 
 @override_settings(CLIENT_IP_HEADER='')

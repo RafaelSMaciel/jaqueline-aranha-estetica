@@ -40,10 +40,6 @@ SQL_CONTEXTO = (
 )
 
 
-def eh_postgres(alias=DEFAULT_DB_ALIAS) -> bool:
-    return connections[alias].vendor == 'postgresql'
-
-
 def definir_contexto_banco(usuario_id='', ip='', origem='', alias=DEFAULT_DB_ALIAS) -> None:
     """Define (ou limpa, sem argumentos) app.usuario_id/app.ip_origem/app.origem. No-op fora do PG."""
     conexao = connections[alias]

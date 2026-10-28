@@ -48,6 +48,8 @@ def _primeiro_horario_livre(origem: Atendimento, min_dias: int, max_dias: int):
     fim_origem = origem.data_hora_fim
     limite_inicio = fim_origem + timedelta(days=min_dias)
     base = data_local(fim_origem)
+    if base is None:
+        return None
     alvo = (min_dias + max_dias) // 2
     for dias in sorted(range(min_dias, max_dias + 1), key=lambda d: (abs(d - alvo), d)):
         dia = base + timedelta(days=dias)

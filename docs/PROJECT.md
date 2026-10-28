@@ -715,7 +715,7 @@ todos os jobs:
 
 | Job | Passos |
 |---|---|
-| `testes` | `check`, `makemigrations --check`, `lint-imports` (camadas), suíte Django (SQLite, `--exclude-tag migracoes`), `check --deploy --fail-level ERROR` com settings de prod |
+| `testes` | `check`, `makemigrations --check`, `lint-imports` (camadas), `mypy` (services), suíte Django (SQLite, `--exclude-tag migracoes`), `check --deploy --fail-level ERROR` com settings de prod |
 | `migracoes-sqlite` | `tests/test_migrations_dados.py` (`--tag migracoes`) no SQLite, em paralelo |
 | `postgres` | Postgres 18: `migrate_atomico` do zero, `bootstrap_admin`, suíte Django no Postgres sem a tag `migracoes` (bloqueante; inclui conformidade, trilha e paridade) |
 | `postgres-migracoes` | `tests/test_migrations_dados.py` no Postgres 18 (reverso/ida de cada migration, inclusive triggers/funções/views/procedures), em paralelo |

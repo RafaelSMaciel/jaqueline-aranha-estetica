@@ -5,11 +5,8 @@ IntegrityError com pgcode lido na view. Agora o service levanta uma destas (mens
 a tela + `codigo` p/ teste e JSON) e a view so mostra:
 
     except RegraDeNegocio as exc:
-        messages.error(request, exc.mensagem)        # ou json_recusa(exc)
+        messages.error(request, exc.mensagem)        # JSON: {'erro': exc.mensagem, 'codigo': exc.codigo}
 """
-from django.http import JsonResponse
-
-
 class RegraDeNegocio(Exception):
     codigo = 'regra_de_negocio'
 
@@ -37,5 +34,3 @@ def eh_sobreposicao(exc) -> bool:
     return getattr(causa, 'pgcode', None) == '23P01' or 'ex_atendimento_sobreposicao' in str(exc)
 
 
-def json_recusa(exc: RegraDeNegocio, status=409) -> JsonResponse:
-    return JsonResponse({'erro': exc.mensagem, 'codigo': exc.codigo}, status=status)

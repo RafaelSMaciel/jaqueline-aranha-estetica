@@ -174,22 +174,11 @@ class EmailFalhaFechadaTests(TestCase):
             validade_promocao(5, fim), (timezone.localdate() + timedelta(days=5)).strftime('%d/%m/%Y'),
         )
         criar_cliente(nome='Promo', email='promo@example.com', consent_email_marketing=True)
-        job_promocao_mensal('Setembro Glow', '<p>Oferta</p>', cupom='VIP15', validade_dias=60,
-                            data_fim=fim.isoformat())
+        job_promocao_mensal('Setembro Glow', '<p>Oferta</p>', validade_dias=60, data_fim=fim.isoformat())
         corpo = mail.outbox[0].alternatives[0][0]
-        self.assertNotIn('VIP15', corpo)
+        self.assertNotIn('cupom', corpo.lower())
         self.assertIn(f'Oferta válida até {fim.strftime("%d/%m/%Y")}', corpo)
 
-    def test_email_de_termo_informa_procedimento_data_e_validade(self):
-        ok = email_utils.enviar_termos_pendentes_email('ana@example.com', {
-            'nome': 'Ana', 'link_termo': 'https://clinica.example.com/termo/tok/',
-            'procedimento': 'Limpeza de Pele', 'data_hora': '20/10/2026 14:00',
-            'valido_ate': '20/10/2026 14:00',
-        })
-        self.assertTrue(ok)
-        corpo = mail.outbox[0].alternatives[0][0]
-        for trecho in ('Limpeza de Pele', '20/10/2026 14:00', 'Este link vale até', '/termo/tok/'):
-            self.assertIn(trecho, corpo)
 
     def test_job_pacote_expirando_usa_o_saldo_da_compra(self):
         from aranha_estetica.jobs import job_verificar_pacotes_expirando
