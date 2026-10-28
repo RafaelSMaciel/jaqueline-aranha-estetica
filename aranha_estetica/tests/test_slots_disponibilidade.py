@@ -327,3 +327,29 @@ class ApiDisponibilidadeTests(TestCase):
         self.assertTrue(all(
             [p['id'] for p in h['profissionais']] == [outra.pk] for h in so_outra
         ))
+
+
+class HabilitacaoObrigatoriaTests(TestCase):
+    """So atende quem esta habilitado: sem habilitacao o procedimento some do agendamento."""
+
+    def setUp(self):
+        from .factories import criar_procedimento, criar_profissional
+        self.ana = criar_profissional('Ana')
+        self.bia = criar_profissional('Bia')
+        self.toxina = criar_procedimento('Toxina', profissional=self.ana)
+        self.sem_ninguem = criar_procedimento('Novo protocolo')
+
+    def test_profissionais_para_so_habilitados(self):
+        from aranha_estetica.services.disponibilidade import procedimentos_agendaveis, profissionais_para
+        self.assertEqual(list(profissionais_para(self.toxina)), [self.ana])
+        self.assertEqual(list(profissionais_para(self.sem_ninguem)), [])
+        self.assertIn(self.toxina, procedimentos_agendaveis())
+        self.assertNotIn(self.sem_ninguem, procedimentos_agendaveis())
+        self.ana.ativo = False
+        self.ana.save(update_fields=['ativo'])
+        self.assertNotIn(self.toxina, procedimentos_agendaveis())
+
+    def test_wizard_nao_oferece_procedimento_sem_habilitado(self):
+        html = self.client.get(reverse('aranha:agendamento_publico')).content.decode()
+        self.assertIn('Toxina', html)
+        self.assertNotIn('Novo protocolo', html)

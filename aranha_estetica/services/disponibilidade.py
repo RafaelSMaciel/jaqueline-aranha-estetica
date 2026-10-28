@@ -150,18 +150,22 @@ def slot_disponivel(profissional, procedimento, data_hora, ignorar_atendimento_i
 
 
 def profissionais_para(procedimento):
-    """Profissionais ativos que realizam o procedimento.
+    """Profissionais ativos HABILITADOS no procedimento (so atende quem esta habilitado).
 
-    Sem nenhuma Habilitacao cadastrada p/ o procedimento, qualquer ativo atende
-    (compat com clinica que ainda nao configurou habilitacoes).
+    Procedimento sem habilitacao nao tem quem atenda: some do agendamento online e o painel avisa.
+    Antes, sem nenhuma linha, qualquer ativo atendia — tirar a ultima habilitacao (p/ suspender um
+    injetavel, por ex.) liberava o procedimento p/ a equipe inteira.
     """
-    habilitados = Habilitacao.objects.filter(procedimento=procedimento).values_list(
-        'profissional_id', flat=True
-    )
-    qs = Profissional.objects.filter(ativo=True)
-    if Habilitacao.objects.filter(procedimento=procedimento).exists():
-        qs = qs.filter(pk__in=habilitados)
-    return qs.order_by('nome')
+    habilitados = Habilitacao.objects.filter(procedimento=procedimento).values('profissional_id')
+    return Profissional.objects.filter(ativo=True, pk__in=habilitados).order_by('nome')
+
+
+def procedimentos_agendaveis(qs=None):
+    """Procedimentos ativos com ao menos 1 profissional ativo habilitado (os que o wizard oferece)."""
+    from ..models import Procedimento
+
+    qs = qs if qs is not None else Procedimento.objects.all()
+    return qs.filter(ativo=True, habilitacao__profissional__ativo=True).distinct()
 
 
 def profissional_habilitado(profissional, procedimento) -> bool:

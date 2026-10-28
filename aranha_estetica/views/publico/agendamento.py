@@ -43,6 +43,7 @@ from ...models.termos import TEXTO_CONSENTIMENTO_SAUDE
 from ...excecoes import RegraDeNegocio
 from ...services import agenda, comunicacao, consentimentos
 from ...services import otp as otp_service
+from ...services.disponibilidade import procedimentos_agendaveis
 from ...services.agendamento import formatar_data_hora
 from ...utils.formatos import formatar_brl
 from ...services.anamnese import validar_respostas
@@ -177,7 +178,7 @@ def agendamento_publico(request):
     """Pagina publica de agendamento (wizard)."""
     procedimentos_com_preco = []
     try:
-        procedimentos = list(Procedimento.objects.filter(ativo=True))
+        procedimentos = list(procedimentos_agendaveis())   # so quem tem profissional habilitado
         precos = _precos_card(procedimentos)
         for proc in procedimentos:
             final, promo, cheio = precos.get(proc.pk, (None, None, None))

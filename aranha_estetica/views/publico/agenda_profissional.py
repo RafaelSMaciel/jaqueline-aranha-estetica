@@ -14,9 +14,10 @@ from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.clickjacking import xframe_options_exempt
 
-from ...models import Atendimento, Procedimento, Profissional
+from ...models import Atendimento, Profissional
 from ...models.agendamentos import StatusAtendimento
 from ...services import links
+from ...services.disponibilidade import procedimentos_agendaveis
 
 
 def agendar_por_profissional(request, slug):
@@ -126,7 +127,7 @@ def embed_agendar(request):
     try:
         # "A partir de" = mesma conta do wizard (promocao vigente hoje inclusa)
         from .agendamento import _precos_card
-        procs_qs = list(Procedimento.objects.filter(ativo=True))
+        procs_qs = list(procedimentos_agendaveis())
         precos = _precos_card(procs_qs)
         for p in procs_qs:
             valor, promo, _cheio = precos.get(p.pk, (None, None, None))

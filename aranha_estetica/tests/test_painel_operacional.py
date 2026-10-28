@@ -26,6 +26,7 @@ from aranha_estetica.models import (
     LogAuditoria,
     MovimentoComissao,
     Preco,
+    Procedimento,
     Profissional,
     Promocao,
     RegraComissao,
@@ -142,6 +143,42 @@ class EditarProfissionalTests(_AdminTestCase):
         inativo.save()
         self._post_roundtrip()
         self.assertTrue(Habilitacao.objects.filter(profissional=self.prof, procedimento=inativo).exists())
+
+
+class ProcedimentoHabilitacaoTests(_AdminTestCase):
+    """Quem realiza o procedimento sai do cadastro do procedimento (Habilitacao obrigatoria)."""
+
+    def setUp(self):
+        super().setUp()
+        self.ana = criar_profissional('Ana')
+        self.bia = criar_profissional('Bia')
+
+    def test_criar_com_profissionais_habilita_e_sem_ninguem_avisa(self):
+        self.client.post(reverse('aranha:admin_criar_procedimento'), {
+            'nome': 'Peeling', 'duracao_minutos': '40', 'profissionais': [self.ana.pk, self.bia.pk]})
+        proc = Procedimento.objects.get(nome='Peeling')
+        self.assertEqual(set(Habilitacao.objects.filter(procedimento=proc).values_list('profissional_id', flat=True)),
+                         {self.ana.pk, self.bia.pk})
+        resp = self.client.post(reverse('aranha:admin_criar_procedimento'), {'nome': 'Sem time'}, follow=True)
+        self.assertTrue(any('não aparece no agendamento' in m for m in _mensagens(resp)))
+
+    def test_editar_tira_habilitacao_mas_nao_de_quem_tem_atendimento_futuro(self):
+        proc = criar_procedimento('Toxina', profissional=self.ana)
+        Habilitacao.objects.create(profissional=self.bia, procedimento=proc)
+        url = reverse('aranha:admin_editar_procedimento', args=[proc.pk])
+        criar_atendimento(criar_cliente(), self.ana, proc)
+        resp = self.client.post(url, {'nome': 'Toxina', 'profissionais_enviado': '1', 'profissionais': [self.bia.pk],
+                                      'ativo': '1'}, follow=True)
+        self.assertTrue(any('atendimento(s) futuro(s)' in m for m in _mensagens(resp)))
+        self.assertTrue(Habilitacao.objects.filter(profissional=self.ana, procedimento=proc).exists())
+        # sem o grupo no formulario (edicao parcial), as habilitacoes ficam como estao
+        self.client.post(url, {'nome': 'Toxina', 'ativo': '1'})
+        self.assertEqual(Habilitacao.objects.filter(procedimento=proc).count(), 2)
+        Atendimento.objects.filter(procedimento=proc).update(status='CANCELADO')
+        self.client.post(url, {'nome': 'Toxina', 'profissionais_enviado': '1', 'profissionais': [self.bia.pk],
+                               'ativo': '1'})
+        self.assertEqual(list(Habilitacao.objects.filter(procedimento=proc).values_list('profissional_id', flat=True)),
+                         [self.bia.pk])
 
 
 class CadastrarProfissionalTests(_AdminTestCase):

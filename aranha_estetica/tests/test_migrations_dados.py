@@ -2196,3 +2196,33 @@ class CifragemReversa0060Tests(_MigracaoBase):
     def test_reverso_decifra(self):
         self.assertEqual(_cru('prontuario', 'alergias', self.pk), 'Latex')
         self.assertEqual(_cru('prontuario', 'respostas', self.pk), {'x': 1})
+
+
+@tag('migracoes')
+class HabilitacaoObrigatoria0062Tests(_MigracaoBase):
+    """0062: procedimento ativo sem habilitacao recebe a de todos os profissionais ativos (o mesmo
+    conjunto que o atendia pela regra antiga); quem ja tinha habilitacao nao muda."""
+    migrate_from = '0061_fila_email_notificacao'
+    migrate_to = '0062_habilitacao_obrigatoria'
+
+    def preparar(self, apps):
+        Procedimento = apps.get_model(APP, 'Procedimento')
+        Profissional = apps.get_model(APP, 'Profissional')
+        Habilitacao = apps.get_model(APP, 'Habilitacao')
+        self.ana = Profissional.objects.create(nome='Ana 0062', slug='ana-0062').pk
+        self.bia = Profissional.objects.create(nome='Bia 0062', slug='bia-0062').pk
+        self.inativa = Profissional.objects.create(nome='Cris 0062', slug='cris-0062', ativo=False).pk
+        self.aberto = Procedimento.objects.create(nome='Drenagem 0062', slug='drenagem-0062', duracao_minutos=60).pk
+        self.restrito = Procedimento.objects.create(nome='Toxina 0062', slug='toxina-0062', duracao_minutos=30).pk
+        self.inativo = Procedimento.objects.create(nome='Antigo 0062', slug='antigo-0062', duracao_minutos=30, ativo=False).pk
+        Habilitacao.objects.create(procedimento_id=self.restrito, profissional_id=self.ana)
+
+    def test_sem_habilitacao_vira_todos_os_ativos(self):
+        Habilitacao = self.apps.get_model(APP, 'Habilitacao')
+
+        def quem(proc):
+            return set(Habilitacao.objects.filter(procedimento_id=proc).values_list('profissional_id', flat=True))
+        self.assertTrue({self.ana, self.bia} <= quem(self.aberto))
+        self.assertNotIn(self.inativa, quem(self.aberto))
+        self.assertEqual(quem(self.restrito), {self.ana})
+        self.assertEqual(quem(self.inativo), set())

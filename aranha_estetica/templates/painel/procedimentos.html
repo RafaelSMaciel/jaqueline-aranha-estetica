@@ -46,6 +46,17 @@
                class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
       </div>
     </div>
+    <fieldset class="mb-3">
+      <legend class="block text-[0.75rem] font-bold text-texto-suave mb-1">Quem realiza</legend>
+      <div class="flex flex-wrap gap-x-4 gap-y-1">
+        {% for prof in profissionais %}
+        <label class="inline-flex items-center gap-2 text-[0.85rem] text-texto cursor-pointer">
+          <input type="checkbox" name="profissionais" value="{{ prof.pk }}" class="rounded border-borda"> {{ prof.nome }}
+        </label>
+        {% empty %}<span class="text-[0.8rem] text-texto-suave">Cadastre um profissional primeiro.</span>{% endfor %}
+      </div>
+      <p class="text-[0.7rem] text-texto-suave mt-1">Só quem está marcado atende este procedimento; sem ninguém, ele não aparece no agendamento.</p>
+    </fieldset>
     <button type="submit"
             class="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-gradient-to-r from-[#C9A84C] to-[#e8c94f] text-white text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
       Criar Procedimento
@@ -70,6 +81,14 @@
         {{ proc.duracao_minutos }} min
         {% if proc.preco_base is not None %} &middot; {{ proc.preco_base|brl }}{% endif %}
         {% if not proc.ativo %} &middot; <span class="text-erro">Inativo</span>{% endif %}
+      </div>
+      <div class="text-[0.8rem] mt-1">
+        {% if proc.habilitados %}
+        <span class="text-texto-suave">Quem realiza:</span>
+        <span class="text-texto">{% for prof in profissionais %}{% if prof.pk in proc.habilitados %}{{ prof.nome }}{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}</span>
+        {% else %}
+        <span class="text-erro font-bold">Nenhum profissional habilitado — fora do agendamento</span>
+        {% endif %}
       </div>
       {% if proc.descricao %}
       <div class="text-[0.8rem] text-texto-suave mt-1">{{ proc.descricao|truncatewords:20 }}</div>
@@ -127,6 +146,17 @@
           <input type="number" name="preco" value="{{ proc.preco_base|default_if_none:''|unlocalize }}" step="0.01" min="0"
                  class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto outline-none focus:ring-2 focus:ring-[#C9A84C]/40 transition">
         </div>
+        <fieldset class="mb-3">
+          <legend class="block text-[0.75rem] font-bold text-texto-suave mb-1">Quem realiza</legend>
+          <input type="hidden" name="profissionais_enviado" value="1">
+          <div class="flex flex-wrap gap-x-4 gap-y-1">
+            {% for prof in profissionais %}
+            <label class="inline-flex items-center gap-2 text-[0.85rem] text-texto cursor-pointer">
+              <input type="checkbox" name="profissionais" value="{{ prof.pk }}" {% if prof.pk in proc.habilitados %}checked{% endif %} class="rounded border-borda"> {{ prof.nome }}
+            </label>
+            {% endfor %}
+          </div>
+        </fieldset>
         <div class="mb-4">
           <label class="inline-flex items-center gap-2 text-[0.85rem] text-texto cursor-pointer">
             <input type="checkbox" name="ativo" value="1" {% if proc.ativo %}checked{% endif %} class="rounded border-borda">

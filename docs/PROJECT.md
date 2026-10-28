@@ -49,7 +49,7 @@ O papel **RECEPCAO** existe no modelo, mas ainda não tem telas nem login (ver
 | Cliente | `Cliente` | Quem é atendida (nunca "paciente"); identidade = celular + OTP |
 | Atendimento | `Atendimento` | Uma sessão marcada. Status: **PENDENTE** (pedido esperando a profissional), **AGENDADO** (aprovado), **CONFIRMADO** (a cliente confirmou presença), **REALIZADO**, **CANCELADO**, **FALTOU**, **REAGENDADO** (substituído por outro) — FSM em `Atendimento.TRANSICOES` |
 | Retorno | `eh_retorno`, `atendimento_origem` | Sessão gratuita de acompanhamento criada ao marcar REALIZADO um procedimento com retorno obrigatório |
-| Habilitação | `Habilitacao` | A profissional realiza o procedimento (sem nenhuma cadastrada, todas realizam) |
+| Habilitação | `Habilitacao` | A profissional realiza o procedimento — só atende quem está habilitado (sem ninguém, o procedimento sai do agendamento; 0062) |
 | Grade / exceção | `AgendaHorario` / `AgendaExcecao` | Expediente semanal / o que muda numa data: **FOLGA** (da profissional, ou feriado/recesso da clínica), **HORARIO_DIFERENTE**, **BLOQUEIO** |
 | Horário livre (slot) | `SlotService`, `services/agenda` | Horário oferecido (grade, exceções, buffer, antecedência); reservar/reagendar/mover só por `services/agenda` |
 | Pacote | `Pacote` → `CompraPacote` + `CompraPacoteItem` + `ConsumoSessao` | Combo de sessões; na venda o nome e os valores ficam **congelados** e cada REALIZADO debita uma sessão |
