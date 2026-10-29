@@ -19,6 +19,7 @@ function nomearSetas() {
   calendarEl.querySelectorAll('.fc-scroller-liquid-absolute, .fc-scroller').forEach(function (r) {
     if (r.scrollHeight > r.clientHeight && !r.hasAttribute('tabindex')) {
       r.setAttribute('tabindex', '0');
+      r.setAttribute('role', 'region');
       r.setAttribute('aria-label', 'Grade da agenda (role com as setas)');
     }
   });
