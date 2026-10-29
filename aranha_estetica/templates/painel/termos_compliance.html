@@ -2,176 +2,128 @@
 {% load l10n %}
 
 {% block titulo %}Compliance — {{ CLINIC_NAME }}{% endblock %}
+{% block page_voltar %}<a href="{% url 'aranha:admin_termos' %}" class="voltar-pagina"><c-icone nome="voltar" class="" />Termos de consentimento</a>{% endblock %}
 {% block page_title %}Compliance de termos{% endblock %}
 {% block page_subtitle %}Quem assinou · pendências por termo{% endblock %}
 
 {% block admin_content %}
 
-{# ── Filtros ── #}
-<form method="get" class="bg-superficie rounded-2xl shadow-sm p-3 mb-3 flex gap-2 flex-wrap items-center">
-  <select name="tipo" aria-label="Tipo de termo"
-          class="px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.8rem] text-texto transition">
-    <option value="">Todos tipos</option>
-    {% for code, label in tipos %}
-    <option value="{{ code }}" {% if tipo_filter == code %}selected{% endif %}>{{ label }}</option>
+{# ── Filtro ── #}
+<c-card class="mb-6">
+  <form method="get" class="barra-filtros">
+    <div class="grupo-campo">
+      <label for="filtroTipo" class="rotulo">Tipo de termo</label>
+      <select name="tipo" aria-label="Tipo de termo" id="filtroTipo" class="campo">
+        <option value="">Todos os tipos</option>
+        {% for code, label in tipos %}
+        <option value="{{ code }}" {% if tipo_filter == code %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="barra-filtros-acoes">
+      <c-botao tipo="submit" variante="secundario" icone="filtro">Filtrar</c-botao>
+    </div>
+  </form>
+</c-card>
+
+{# ── Resumo por versao ativa ── #}
+<c-card titulo="Termos ativos ({{ resumo_versoes|length }})" icone="termos" espaco="nenhum" class="mb-6">
+  {% if resumo_versoes %}
+  <ul class="lista-itens">
+    {% for r in resumo_versoes %}
+    <li class="px-5 py-4">
+      <div class="flex flex-wrap items-center gap-2">
+        <p class="item-lista-titulo">{{ r.versao.titulo|truncatechars:90 }}</p>
+        {% if r.versao.tipo == 'LGPD' %}<c-selo tom="info">LGPD</c-selo>{% elif r.versao.tipo == 'SAUDE' %}<c-selo tom="aviso">Dados de saúde</c-selo>{% else %}<c-selo tom="destaque">Procedimento</c-selo>{% endif %}
+      </div>
+      <p class="item-lista-meta mt-1">
+        v{{ r.versao.versao }} · Vigente desde {{ r.versao.vigente_desde|date:"d/m/Y" }}{% if r.versao.procedimento %} · {{ r.versao.procedimento.nome }}{% endif %}
+      </p>
+
+      <div class="mt-3 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+        <dl class="flex flex-wrap gap-x-6 gap-y-2">
+          <div><dt class="text-legenda font-bold text-texto-suave">Assinados</dt><dd class="text-lg font-bold tabular-nums text-sucesso">{{ r.assinados }}</dd></div>
+          <div><dt class="text-legenda font-bold text-texto-suave">Pendentes</dt><dd class="text-lg font-bold tabular-nums {% if r.pendentes %}text-erro{% else %}text-texto{% endif %}">{{ r.pendentes }}</dd></div>
+          <div><dt class="text-legenda font-bold text-texto-suave">Clientes alvo</dt><dd class="text-lg font-bold tabular-nums text-texto">{{ r.relevantes }}</dd></div>
+        </dl>
+        <p class="text-2xl font-bold tabular-nums text-marca">{{ r.pct|floatformat:1 }}%</p>
+      </div>
+      <progress value="{{ r.pct|unlocalize }}" max="100" aria-label="Assinaturas de {{ r.versao.titulo|truncatechars:60 }}: {{ r.pct|floatformat:1 }}%"
+                class="mt-2 block h-2 w-full appearance-none overflow-hidden rounded-full border-0 bg-fundo-realce
+                       [&::-webkit-progress-bar]:bg-fundo-realce [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-marca-forte
+                       [&::-moz-progress-bar]:rounded-full [&::-moz-progress-bar]:bg-marca-forte">{{ r.pct|floatformat:1 }}%</progress>
+      {% if r.pendentes > 0 %}
+      <c-botao variante="secundario" tamanho="sm" icone="lista" href="?versao={{ r.versao.pk }}#pendentes" class="mt-3">Ver {{ r.pendentes }} pendente(s)</c-botao>
+      {% endif %}
+    </li>
     {% endfor %}
-  </select>
-  <button type="submit"
-          class="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.8rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
-    Filtrar
-  </button>
-</form>
-
-<div class="flex items-center gap-1.5 text-[0.8rem] font-extrabold uppercase tracking-wider text-texto-suave mt-4 mb-2">
-  Termos ativos ({{ resumo_versoes|length }})
-</div>
-
-{% for r in resumo_versoes %}
-<div class="bg-superficie rounded-2xl shadow-sm p-4 mb-2">
-  <div class="font-extrabold text-[0.92rem] text-texto mb-1">
-    {{ r.versao.titulo|truncatechars:90 }}
-    {% if r.versao.tipo == 'LGPD' %}
-    <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-extrabold uppercase tracking-wide bg-info-fundo text-info ml-1">LGPD</span>
-    {% else %}
-    <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-extrabold uppercase tracking-wide bg-destaque-fundo text-destaque ml-1">Procedimento</span>
-    {% endif %}
-  </div>
-  <div class="text-[0.72rem] text-texto-suave">
-    v{{ r.versao.versao }} · Vigente desde {{ r.versao.vigente_desde|date:"d/m/Y" }}
-    {% if r.versao.procedimento %} · {{ r.versao.procedimento.nome }}{% endif %}
-  </div>
-  <div class="flex gap-4 mt-2.5 flex-wrap items-center">
-    <div class="text-center min-w-[75px]">
-      <div class="text-[1.1rem] font-extrabold leading-none text-sucesso">{{ r.assinados }}</div>
-      <div class="text-[0.6rem] font-bold text-texto-suave uppercase tracking-wide mt-1">Assinados</div>
-    </div>
-    <div class="text-center min-w-[75px]">
-      <div class="text-[1.1rem] font-extrabold leading-none text-erro">{{ r.pendentes }}</div>
-      <div class="text-[0.6rem] font-bold text-texto-suave uppercase tracking-wide mt-1">Pendentes</div>
-    </div>
-    <div class="text-center min-w-[75px]">
-      <div class="text-[1.1rem] font-extrabold leading-none text-texto-suave">{{ r.relevantes }}</div>
-      <div class="text-[0.6rem] font-bold text-texto-suave uppercase tracking-wide mt-1">Clientes alvo</div>
-    </div>
-    <div class="flex-1"></div>
-    <div class="text-[1.3rem] font-extrabold text-marca">{{ r.pct|floatformat:1 }}%</div>
-  </div>
-  <div class="bg-superficie rounded-[10px] h-2 overflow-hidden mt-2">
-    <div class="progress-bar-fill h-full rounded-[10px] bg-marca-forte transition-[width] duration-300" data-pct="{{ r.pct|unlocalize }}"></div>
-  </div>
-  {% if r.pendentes > 0 %}
-  <a href="?versao={{ r.versao.pk }}" class="inline-flex items-center gap-1.5 mt-2 text-marca font-bold text-[0.78rem] no-underline hover:opacity-90 transition-opacity">
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
-    </svg>
-    Ver {{ r.pendentes }} pendente(s) →
-  </a>
+  </ul>
+  {% else %}
+  <c-vazio titulo="Nenhuma versão de termo ativa" texto="Cadastre em Termos." icone="termos">
+    <c-botao variante="secundario" href="{% url 'aranha:admin_termos' %}" icone="mais">Publicar termo</c-botao>
+  </c-vazio>
   {% endif %}
-</div>
-{% empty %}
-<div class="bg-superficie rounded-2xl p-12 text-center shadow-sm">
-  <p class="text-[0.85rem] text-texto-suave">Nenhuma versão de termo ativa. Cadastre em Termos.</p>
-</div>
-{% endfor %}
+</c-card>
 
+{# ── Pendentes da versao escolhida ── #}
 {% if versao_obj %}
-<div class="flex items-center gap-1.5 text-[0.8rem] font-extrabold uppercase tracking-wider text-texto-suave mt-4 mb-2">
-  Pendentes — {{ versao_obj.titulo|truncatechars:70 }}
-</div>
-<div class="bg-aviso-fundo border-l-[3px] border-aviso rounded-[10px] px-4 py-2.5 mb-3 flex items-center gap-2 text-[0.82rem] text-aviso">
-  <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-    <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-  </svg>
-  {{ pendentes_lista.paginator.count|default:0 }} cliente(s) ainda não assinaram este termo.
-</div>
-
-{% for c in pendentes_lista %}
-<div class="bg-superficie rounded-xl px-4 py-2.5 mb-1.5 flex items-center gap-3 border-l-[3px] border-red-700">
-  <div class="flex-1 min-w-0">
-    <div class="font-bold text-[0.88rem] text-texto">
-      <a href="{% url 'aranha:admin_cliente_detalhe' c.pk %}" class="text-texto no-underline hover:text-marca transition-colors">
-        {{ c.nome }}
-      </a>
-    </div>
-    <div class="flex items-center gap-1.5 text-[0.7rem] text-texto-suave mt-0.5 flex-wrap">
-      {% if c.telefone %}
-      <span class="inline-flex items-center gap-1">
-        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
-        </svg>
-        {{ c.telefone }}
-      </span>
-      {% endif %}
-      {% if c.email %}
-      <span>·</span>
-      <span class="inline-flex items-center gap-1">
-        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-        </svg>
-        {{ c.email }}
-      </span>
-      {% endif %}
-    </div>
+<c-card titulo="Pendentes — {{ versao_obj.titulo|truncatechars:70 }}" icone="alerta" espaco="nenhum" id="pendentes">
+  {% if pendentes_lista %}
+  <div class="px-5 py-4 border-b border-borda">
+    <c-nota tom="aviso">{{ pendentes_lista.paginator.count|default:0 }} cliente(s) ainda não assinaram este termo.</c-nota>
   </div>
-  <div class="flex gap-1.5 flex-shrink-0 flex-wrap justify-end">
-    {% if c.proximo_atendimento_id %}
-    {# Link do termo vale ate o fim do proximo atendimento ativo da cliente #}
-    <form method="post" action="{% url 'aranha:admin_gerar_link_termo' c.proximo_atendimento_id %}" class="m-0">
-      {% csrf_token %}
-      <button type="submit"
-              class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[0.72rem] font-bold border-none cursor-pointer bg-aviso-fundo text-aviso hover:bg-aviso-fundo transition-colors">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
-        </svg>
-        Gerar link do termo
-      </button>
-    </form>
-    {% else %}
-    <span class="self-center text-[0.68rem] text-texto-suave">Sem agendamento ativo: o termo é aceito no próximo agendamento.</span>
-    {% endif %}
-    {% if c.telefone %}
-    <a href="https://wa.me/55{{ c.telefone|cut:'(' |cut:')' |cut:'-' |cut:' ' }}?text=Ol%C3%A1%20{{ c.nome|urlencode }}%2C%20precisamos%20que%20voc%C3%AA%20assine%20o%20termo%20de%20consentimento."
-       target="_blank"
-       class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[0.72rem] font-bold no-underline bg-sucesso-fundo text-sucesso">
-      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 4v-4z"/>
-      </svg>
-      WhatsApp
-    </a>
-    {% endif %}
-    {% if c.email %}
-    <a href="mailto:{{ c.email }}?subject=Termo%20de%20consentimento%20pendente"
-       class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[0.72rem] font-bold no-underline bg-info-fundo text-info">
-      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-      </svg>
-      E-mail
-    </a>
-    {% endif %}
-  </div>
-</div>
-{% endfor %}
-
-{% if pendentes_lista.has_other_pages %}
-<nav class="mt-3 text-center flex items-center justify-center gap-2">
-  {% if pendentes_lista.has_previous %}
-  <a href="?versao={{ versao_obj.pk }}&page={{ pendentes_lista.previous_page_number }}"
-     class="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-borda bg-superficie text-texto hover:bg-superficie transition-colors no-underline">‹</a>
+  <c-tabela legenda="Clientes com o termo pendente" responsiva="1">
+    <thead>
+      <tr>
+        <th scope="col">Cliente</th>
+        <th scope="col">Contato</th>
+        <th scope="col"><span class="sr-only">Ações</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in pendentes_lista %}
+      <tr>
+        <td>
+          <a href="{% url 'aranha:admin_cliente_detalhe' c.pk %}" class="font-bold text-texto no-underline hover:text-marca hover:underline">{{ c.nome }}</a>
+        </td>
+        <td data-rotulo="Contato">
+          <div class="min-w-0 text-sm">
+            {% if c.telefone %}<p class="tabular-nums">{{ c.telefone }}</p>{% endif %}
+            {% if c.email %}<p class="text-texto-suave break-all">{{ c.email }}</p>{% endif %}
+            {% if not c.telefone and not c.email %}<p class="text-texto-suave">Sem contato</p>{% endif %}
+          </div>
+        </td>
+        <td class="acoes">
+          {% if c.proximo_atendimento_id %}
+          {# Link do termo vale ate o fim do proximo atendimento ativo da cliente #}
+          <form method="post" action="{% url 'aranha:admin_gerar_link_termo' c.proximo_atendimento_id %}" class="inline-flex">
+            {% csrf_token %}
+            <c-botao tipo="submit" tamanho="sm" icone="link">Gerar link do termo</c-botao>
+          </form>
+          {% else %}
+          <span class="inline-block max-w-56 whitespace-normal text-left text-legenda text-texto-suave">Sem agendamento ativo: o termo é aceito no próximo agendamento.</span>
+          {% endif %}
+          {% if c.telefone %}
+          <c-botao variante="secundario" tamanho="sm" icone="whatsapp" target="_blank" rel="noopener"
+                   href="https://wa.me/55{{ c.telefone|cut:'('|cut:')'|cut:'-'|cut:' ' }}?text=Ol%C3%A1%20{{ c.nome|urlencode }}%2C%20precisamos%20que%20voc%C3%AA%20assine%20o%20termo%20de%20consentimento."
+                   aria-label="WhatsApp para {{ c.nome }} (abre em nova aba)">WhatsApp</c-botao>
+          {% endif %}
+          {% if c.email %}
+          <c-botao variante="secundario" tamanho="sm" icone="email"
+                   href="mailto:{{ c.email }}?subject=Termo%20de%20consentimento%20pendente"
+                   aria-label="E-mail para {{ c.nome }}">E-mail</c-botao>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </c-tabela>
+  {% if pendentes_lista.has_other_pages %}
+  <div class="border-t border-borda px-5 pb-5">{% include 'partials/_paginacao.html' with page=pendentes_lista %}</div>
   {% endif %}
-  <span class="text-[0.8rem] font-bold text-texto-suave">{{ pendentes_lista.number }} / {{ pendentes_lista.paginator.num_pages }}</span>
-  {% if pendentes_lista.has_next %}
-  <a href="?versao={{ versao_obj.pk }}&page={{ pendentes_lista.next_page_number }}"
-     class="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-borda bg-superficie text-texto hover:bg-superficie transition-colors no-underline">›</a>
+  {% else %}
+  <c-vazio titulo="Ninguém pendente" texto="Todas as clientes alvo já assinaram este termo." icone="check-circulo" />
   {% endif %}
-</nav>
+</c-card>
 {% endif %}
-{% endif %}
-{% endblock %}
-
-{% block js %}
-<script nonce="{{ csp_nonce }}">
-document.querySelectorAll('.progress-bar-fill').forEach(function(bar){
-    bar.style.width = (bar.dataset.pct || 0) + '%';
-});
-</script>
 {% endblock %}
