@@ -115,4 +115,28 @@ document.addEventListener('keydown', (e) => {
   }
 })
 
+// ── Tabela que rola na horizontal (cotton/tabela.html sem `responsiva`) ──
+// So quando de fato rola (celular): recebe foco p/ rolar pelo teclado (WCAG 2.1.1) e um nome
+// (o caption da tabela). Sem rolagem nao vira parada extra do Tab.
+function marcarRolagens() {
+  document.querySelectorAll('.tabela-rolagem').forEach((el) => {
+    const rola = el.scrollWidth > el.clientWidth + 1
+    if (rola && !el.hasAttribute('tabindex')) {
+      const legenda = el.querySelector('caption')?.textContent.trim()
+      el.setAttribute('tabindex', '0')
+      el.setAttribute('role', 'region')
+      el.setAttribute('aria-label', (legenda || 'Tabela') + ' (role para os lados)')
+    } else if (!rola && el.getAttribute('role') === 'region') {
+      el.removeAttribute('tabindex')
+      el.removeAttribute('role')
+      el.removeAttribute('aria-label')
+    }
+  })
+}
+let quadroRolagem = 0
+window.addEventListener('resize', () => { cancelAnimationFrame(quadroRolagem); quadroRolagem = requestAnimationFrame(marcarRolagens) })
+
 document.querySelectorAll('[data-abas]').forEach(iniciarAbas)
+marcarRolagens()
+// tabela dentro de aba escondida so tem largura quando a aba abre
+document.addEventListener('click', (e) => { if (e.target.closest('[data-aba]')) requestAnimationFrame(marcarRolagens) })
