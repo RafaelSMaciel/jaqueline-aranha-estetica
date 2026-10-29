@@ -4,11 +4,16 @@
     <a {% agendar_link procedimento=proc.pk %} ...>          (pre-seleciona no wizard)
     {% menu_publico as itens %}{% for i in itens %}...{% endfor %}
     {{ termo.conteudo|texto_termo }}                       (texto do termo LGPD, sanitizado)
+    {% foto 'facial-3' alt='...' sizes='(min-width: 768px) 50vw, 100vw' classe='...' prioridade=True %}
 """
+import json
 import re
+from functools import lru_cache
+from pathlib import Path
 from urllib.parse import urlencode
 
 from django import template
+from django.templatetags.static import static
 from django.urls import reverse
 from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
@@ -24,6 +29,9 @@ MENU = (
     ('/#faq', 'Dúvidas'),
     ('aranha:agenda_contato', 'Contato'),
 )
+
+FOTOS = 'assets/clinica'
+VARIANTES = f'{FOTOS}/variantes'   # gerado por scripts/imagens.py
 
 
 @register.simple_tag(takes_context=True)
@@ -47,6 +55,42 @@ def menu_publico(context):
         {'href': alvo if alvo.startswith('/') else reverse(alvo), 'rotulo': rotulo, 'atual': alvo == atual}
         for alvo, rotulo in MENU
     ]
+
+
+@lru_cache(maxsize=1)
+def manifest_fotos() -> dict:
+    """{nome: {largura, altura, larguras}} das variantes (scripts/imagens.py); {} se nao houver."""
+    caminho = Path(__file__).resolve().parents[1] / 'static' / VARIANTES / 'manifest.json'
+    try:
+        return json.loads(caminho.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return {}
+
+
+@register.simple_tag
+def foto(nome, alt, sizes='100vw', classe='', prioridade=False):
+    """<picture> de uma foto de static/assets/clinica: WebP no srcset + JPEG de fallback, com
+    width/height reais (o navegador reserva o espaco: sem CLS; .foto = display: contents no site.css,
+    o <img> ocupa a moldura). prioridade=True e a foto do topo
+    (LCP): fetchpriority="high" e sem lazy; as demais carregam so perto da tela (loading="lazy")."""
+    carregar = mark_safe('fetchpriority="high"' if prioridade else 'loading="lazy"')  # noqa: S308 — literal fixo
+    dados = manifest_fotos().get(nome)
+    if dados is None:   # foto nova ainda sem variantes: a original, sem srcset
+        return format_html('<img src="{}" alt="{}" class="{}" decoding="async" {}>',
+                           static(f'{FOTOS}/{nome}.webp'), alt, classe, carregar)
+
+    def _srcset(ext):
+        return ', '.join(f'{static(f"{VARIANTES}/{nome}-{w}.{ext}")} {w}w' for w in dados['larguras'])
+
+    larguras = dados['larguras']
+    padrao = larguras[len(larguras) // 2]   # fallback sem srcset: a do meio
+    return format_html(
+        '<picture class="foto"><source type="image/webp" srcset="{}" sizes="{}">'
+        '<img src="{}" srcset="{}" sizes="{}" width="{}" height="{}" alt="{}" class="{}" decoding="async" {}>'
+        '</picture>',
+        _srcset('webp'), sizes, static(f'{VARIANTES}/{nome}-{padrao}.jpg'), _srcset('jpg'), sizes,
+        dados['largura'], dados['altura'], alt, classe, carregar,
+    )
 
 
 _TITULO_SECAO = re.compile(r'^\d{1,2}\. \S')

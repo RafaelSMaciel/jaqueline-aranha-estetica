@@ -39,3 +39,46 @@ class MenuPublicoTests(TestCase):
         self.assertIn('Início:False;', html)
         pagina = self.client.get('/equipe/').content.decode()
         self.assertEqual(pagina.count('aria-current="page"'), 2)   # nav desktop + celular
+
+
+class FotoResponsivaTests(TestCase):
+    """{% foto %}: <picture> WebP + JPEG das variantes do scripts/imagens.py, sem CLS."""
+
+    def test_variantes_geradas_e_em_dia(self):
+        import importlib.util
+        from pathlib import Path
+
+        from django.conf import settings
+        caminho = Path(settings.BASE_DIR) / 'scripts' / 'imagens.py'
+        spec = importlib.util.spec_from_file_location('imagens', caminho)
+        try:
+            modulo = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(modulo)
+        except ImportError:   # Pillow so no requirements-dev: confere so o manifest
+            from aranha_estetica.templatetags.site_tags import manifest_fotos
+            self.assertTrue(manifest_fotos())
+            return
+        self.assertEqual(modulo.verificar(), [])
+
+    def test_picture_com_webp_fallback_jpeg_e_dimensoes(self):
+        html = _render("{% foto 'facial-2' alt='Cuidado facial' sizes='50vw' classe='w-full' %}")
+        self.assertIn('<picture class="foto"><source type="image/webp" srcset="', html)
+        for w in (480, 768, 1024):
+            self.assertIn(f'assets/clinica/variantes/facial-2-{w}.webp {w}w', html)
+            self.assertIn(f'assets/clinica/variantes/facial-2-{w}.jpg {w}w', html)
+        self.assertIn('src="/static/assets/clinica/variantes/facial-2-768.jpg"', html)
+        self.assertIn('width="1024" height="683"', html)
+        self.assertIn('sizes="50vw"', html)
+        self.assertIn('alt="Cuidado facial"', html)
+        self.assertIn('loading="lazy"', html)
+        self.assertNotIn('fetchpriority', html)
+
+    def test_foto_do_topo_tem_prioridade_e_nao_e_lazy(self):
+        html = _render("{% foto 'facial-3' alt='x' prioridade=True %}")
+        self.assertIn('fetchpriority="high"', html)
+        self.assertNotIn('loading="lazy"', html)
+
+    def test_alt_escapado_e_foto_sem_variante_cai_na_original(self):
+        html = _render("{% foto 'nova' alt=nome %}", nome='<b>"x"</b>')
+        self.assertIn('src="/static/assets/clinica/nova.webp"', html)
+        self.assertIn('alt="&lt;b&gt;&quot;x&quot;&lt;/b&gt;"', html)

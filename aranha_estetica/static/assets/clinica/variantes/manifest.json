@@ -1,0 +1,38 @@
+{
+  "atendimento-1": {
+    "largura": 1024,
+    "altura": 683,
+    "larguras": [
+      480,
+      768,
+      1024
+    ]
+  },
+  "espaco-2": {
+    "largura": 1024,
+    "altura": 683,
+    "larguras": [
+      480,
+      768,
+      1024
+    ]
+  },
+  "facial-2": {
+    "largura": 1024,
+    "altura": 683,
+    "larguras": [
+      480,
+      768,
+      1024
+    ]
+  },
+  "facial-3": {
+    "largura": 1024,
+    "altura": 683,
+    "larguras": [
+      480,
+      768,
+      1024
+    ]
+  }
+}

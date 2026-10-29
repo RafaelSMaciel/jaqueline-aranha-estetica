@@ -310,11 +310,7 @@
       </div>
 
       <div class="group rounded-xl overflow-hidden aspect-[4/3]">
-        <img src="{% static 'assets/clinica/espaco-2.webp' %}"
-             alt="Tratamentos Corporais {{ CLINIC_NAME }}"
-             width="800" height="600"
-             loading="lazy" decoding="async"
-             class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
+        {% foto 'espaco-2' alt="Recepção da clínica" sizes="(min-width: 1152px) 590px, (min-width: 768px) 56vw, 112vw" classe="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" %}
       </div>
     </div>
 
