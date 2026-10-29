@@ -176,9 +176,12 @@ class ViolacoesDoAxeTests(SimpleTestCase):
         self.assertIn('<select name="tipo" aria-label=', compliance)
 
     def test_setas_do_calendario_com_nome(self):
+        # o JS do calendario saiu do template p/ o modulo do Vite (painel-calendario.js)
         cal = (_TEMPLATES / 'painel' / 'calendar.html').read_text(encoding='utf-8')
-        self.assertIn('buttonHints', cal)
-        self.assertIn("setAttribute('aria-hidden', 'true')", cal)
+        self.assertIn("vite_asset 'aranha_estetica/static/src/js/painel-calendario.js'", cal)
+        js = (_JS / 'painel-calendario.js').read_text(encoding='utf-8')
+        self.assertIn('buttonHints', js)
+        self.assertIn("setAttribute('aria-hidden', 'true')", js)
 
     def test_rodape_sem_cor_crua(self):
         rodape = (_TEMPLATES / 'cotton' / 'chrome' / 'rodape.html').read_text(encoding='utf-8')
