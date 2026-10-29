@@ -46,7 +46,12 @@
         if (match) visible++;
       });
       if (counterEl) counterEl.textContent = visible;
-      if (emptyEl) emptyEl.style.display = visible === 0 && q ? '' : 'none';
+      if (emptyEl) {
+        // estado vazio comeca com o atributo `hidden` (sem style inline); legado: style="display:none"
+        var vazio = visible === 0 && !!q;
+        emptyEl.hidden = !vazio;
+        emptyEl.style.display = vazio ? '' : 'none';
+      }
     }
 
     var t;

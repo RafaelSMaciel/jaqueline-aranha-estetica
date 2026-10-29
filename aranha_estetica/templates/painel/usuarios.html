@@ -4,191 +4,109 @@
 {% block page_title %}Usuários{% endblock %}
 {% block page_subtitle %}Gerencie a equipe com acesso ao sistema{% endblock %}
 {% block page_actions %}
-<a href="{% url 'aranha:admin_criar_usuario' %}"
-   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold bg-marca-forte text-sobre-marca hover:opacity-90 transition-colors no-underline">
-  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-  </svg>
-  Novo usuário
-</a>
+<c-botao href="{% url 'aranha:admin_criar_usuario' %}" icone="mais">Novo usuário</c-botao>
 {% endblock %}
 
 {% block admin_content %}
 
-{# ── Busca servidor (GET) ── #}
-<div class="bg-superficie rounded-2xl shadow-sm p-4 mb-3">
-  <form method="get" class="flex gap-2 flex-wrap items-end">
-    <div class="flex-1 min-w-[160px]">
-      <label for="buscaInput" class="sr-only">Buscar usuário</label>
-      <input type="text" id="buscaInput" name="q" value="{{ busca }}"
-             placeholder="Buscar nome ou e-mail..."
-             class="w-full px-3 py-2 rounded-xl border border-borda text-[0.875rem] text-texto bg-fundo placeholder-texto-suave transition">
-    </div>
-    <div class="min-w-[140px]">
-      <label for="papelSelect" class="sr-only">Papel</label>
-      <select id="papelSelect" name="papel"
-              class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
-        <option value="">Todos papéis</option>
-        {% for valor, rotulo in papeis %}
-        <option value="{{ valor }}" {% if papel_filter == valor %}selected{% endif %}>{{ rotulo }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <button type="submit"
-            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.82rem] font-bold hover:opacity-90 transition-opacity">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-      </svg>
-      Filtrar
-    </button>
-    {% if busca or papel_filter %}
-    <a href="{% url 'aranha:admin_usuarios' %}"
-       class="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-borda text-[0.82rem] text-texto-suave no-underline hover:text-texto hover:border-texto-suave transition-colors"
-       title="Limpar filtros" aria-label="Limpar filtros">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-      </svg>
-    </a>
-    {% endif %}
-  </form>
-</div>
-
-{# ── Filtro instantâneo client-side ── #}
-<div class="bg-superficie rounded-2xl shadow-sm px-4 py-2 mb-3">
-  <input type="text" id="filtroUsuariosInstant"
-         class="w-full px-0 py-1.5 text-[0.85rem] text-texto bg-transparent border-none placeholder-texto-suave"
-         placeholder="Filtrar visíveis..."
-         data-search-filter="#listaUsuarios"
-         data-search-counter="#cntUsuariosVisiveis"
-         data-search-empty="#emptyFiltroUsuarios">
-</div>
-
-{# ── Contador ── #}
-<p class="text-[0.78rem] font-bold text-texto-suave mb-2 flex items-center gap-1">
-  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-    <path stroke-linecap="round" stroke-linejoin="round" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
-    <path stroke-linecap="round" stroke-linejoin="round" d="M23 21v-2a4 4 0 00-3-3.87"/><path stroke-linecap="round" stroke-linejoin="round" d="M16 3.13a4 4 0 010 7.75"/>
-  </svg>
-  <span id="cntUsuariosVisiveis">{{ usuarios.paginator.count }}</span> usuário(s)
-</p>
-
-{# ── Lista de usuários ── #}
-<div id="listaUsuarios" data-search-rows=".user-card">
-  {% for u in usuarios %}
-  <div class="user-card flex items-center gap-3 bg-superficie rounded-2xl shadow-sm px-4 py-3 mb-2 {% if not u.ativo %}opacity-60{% endif %} hover:shadow-md hover:-translate-y-px transition-all duration-200"
-       data-search-text="{{ u.nome }} {{ u.email }} {{ u.get_papel_display }}">
-
-    {# Avatar com iniciais #}
-    <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 font-extrabold text-[0.75rem] bg-info-fundo text-info" aria-hidden="true">
-      {{ u.nome|make_list|first }}{{ u.nome|make_list|slice:"1:2"|join:"" }}
-    </div>
-
-    {# Info #}
-    <div class="flex-1 min-w-0">
-      <div class="flex items-center gap-1.5 flex-wrap">
-        <span class="font-bold text-[0.9rem] truncate text-texto">{{ u.nome }}</span>
-        {% if u.papel == "ADMIN" %}
-        <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-info-fundo text-info uppercase tracking-wide">ADM</span>
-        {% elif u.papel == "PROFISSIONAL" %}
-        <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-sucesso-fundo text-sucesso uppercase tracking-wide">Prof</span>
-        {% endif %}
-        {% if not u.ativo %}
-        <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-erro-fundo text-erro uppercase tracking-wide">Inativo</span>
-        {% endif %}
-      </div>
-      <div class="text-[0.72rem] text-texto-suave mt-0.5 flex items-center gap-1 flex-wrap">
-        <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-        </svg>
-        {{ u.email }}
-        {% if u.profissional %}
-        &bull;
-        <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-        </svg>
-        {{ u.profissional.nome }}
-        {% endif %}
-      </div>
-    </div>
-
-    {# Ações #}
-    <div class="flex gap-1.5 flex-shrink-0 flex-wrap justify-end">
-      <a href="{% url 'aranha:admin_editar_usuario' u.pk %}"
-         class="w-8 h-8 rounded-lg flex items-center justify-center bg-info-fundo text-info hover:bg-info-fundo transition-colors no-underline"
-         title="Editar">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-        </svg>
-      </a>
-      <form method="post" action="{% url 'aranha:admin_resetar_senha_usuario' u.pk %}" class="m-0">
-        {% csrf_token %}
-        <button type="submit"
-                class="w-8 h-8 rounded-lg flex items-center justify-center bg-aviso-fundo text-aviso hover:bg-aviso-fundo transition-colors border-none cursor-pointer"
-                title="Enviar reset de senha"
-                data-confirm="Enviar e-mail de redefinição de senha para {{ u.email }}?">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
-          </svg>
-        </button>
-      </form>
-      {% if u.pk != request.user.pk %}
-      <form method="post" action="{% url 'aranha:admin_desativar_usuario' u.pk %}" class="m-0">
-        {% csrf_token %}
-        <button type="submit"
-                class="w-8 h-8 rounded-lg flex items-center justify-center {% if u.ativo %}bg-erro-fundo text-erro hover:bg-erro-fundo{% else %}bg-sucesso-fundo text-sucesso hover:bg-sucesso-fundo{% endif %} transition-colors border-none cursor-pointer"
-                title="{% if u.ativo %}Desativar{% else %}Ativar{% endif %}"
-                data-confirm="{% if u.ativo %}Desativar{% else %}Ativar{% endif %} acesso de {{ u.nome }}?">
-          {% if u.ativo %}
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
-          </svg>
-          {% else %}
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-            <polyline points="20 6 9 17 4 12"/>
-          </svg>
-          {% endif %}
-        </button>
-      </form>
+{# ── Busca no servidor (GET) ── #}
+<c-card class="mb-6">
+  <form method="get" class="barra-filtros">
+    <c-campo nome="q" id="buscaInput" label="Buscar usuário" value="{{ busca }}" placeholder="Nome ou e-mail"></c-campo>
+    <c-campo nome="papel" id="papelSelect" label="Papel" tipo="select">
+      <option value="">Todos os papéis</option>
+      {% for valor, rotulo in papeis %}
+      <option value="{{ valor }}" {% if papel_filter == valor %}selected{% endif %}>{{ rotulo }}</option>
+      {% endfor %}
+    </c-campo>
+    <div class="barra-filtros-acoes">
+      <c-botao tipo="submit" variante="secundario" icone="filtro">Filtrar</c-botao>
+      {% if busca or papel_filter %}
+      <c-botao variante="fantasma" href="{% url 'aranha:admin_usuarios' %}" icone="fechar">Limpar</c-botao>
       {% endif %}
     </div>
-  </div>
-  {% empty %}
-  <div class="bg-superficie rounded-2xl p-12 text-center shadow-sm">
-    <div class="w-16 h-16 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mx-auto mb-4">
-      <svg class="w-7 h-7 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-      </svg>
+  </form>
+</c-card>
+
+{# ── Lista de usuarios ── #}
+<c-card espaco="nenhum">
+  <div class="cartao-cabecalho">
+    <p class="flex items-center gap-2 text-sm font-bold text-texto-suave">
+      <c-icone nome="usuarios" class="w-4 h-4" />
+      <span><span id="cntUsuariosVisiveis">{{ usuarios.paginator.count }}</span> usuário(s)</span>
+    </p>
+    {# Filtro instantaneo (painel-busca.js): esconde as linhas que nao batem, sem recarregar #}
+    <div class="w-full sm:w-64">
+      <label for="filtroUsuariosInstant" class="sr-only">Filtrar usuários desta página</label>
+      <input type="search" id="filtroUsuariosInstant" class="campo campo-sm"
+             placeholder="Filtrar visíveis..."
+             data-search-filter="#listaUsuarios"
+             data-search-counter="#cntUsuariosVisiveis"
+             data-search-empty="#emptyFiltroUsuarios">
     </div>
-    <p class="font-serif font-bold text-texto mb-1">Nenhum usuário encontrado</p>
-    <p class="text-[0.85rem] text-texto-suave">Ajuste os filtros ou cadastre um novo usuário.</p>
   </div>
-  {% endfor %}
-</div>
 
-{# ── Empty state do filtro instantâneo ── #}
-<div id="emptyFiltroUsuarios" class="bg-superficie rounded-2xl p-10 text-center shadow-sm" style="display:none;">
-  <div class="w-14 h-14 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mx-auto mb-3">
-    <svg class="w-6 h-6 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
-      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-    </svg>
-  </div>
-  <p class="font-serif font-bold text-texto mb-1">Nenhum usuário bate com o filtro</p>
-  <p class="text-[0.85rem] text-texto-suave">Ajuste o termo ou limpe o campo.</p>
-</div>
-
-{# ── Paginação ── #}
-{% if usuarios.has_other_pages %}
-<div class="flex justify-center gap-1.5 mt-4">
-  {% if usuarios.has_previous %}
-  <a href="?page={{ usuarios.previous_page_number }}&q={{ busca }}&papel={{ papel_filter }}"
-     class="px-3 py-1.5 rounded-lg bg-fundo border border-borda text-[0.8rem] font-bold text-texto no-underline hover:bg-marca-forte hover:text-sobre-marca hover:border-marca-forte transition-colors">&laquo;</a>
+  {% if usuarios %}
+  <c-tabela legenda="Usuários da equipe" responsiva="1">
+    <thead>
+      <tr>
+        <th scope="col">Usuário</th>
+        <th scope="col">Papel</th>
+        <th scope="col">Profissional vinculado</th>
+        <th scope="col">Situação</th>
+        <th scope="col"><span class="sr-only">Ações</span></th>
+      </tr>
+    </thead>
+    <tbody id="listaUsuarios" data-search-rows=".user-card">
+      {% for u in usuarios %}
+      <tr class="user-card{% if not u.ativo %} text-texto-suave{% endif %}" data-search-text="{{ u.nome }} {{ u.email }} {{ u.get_papel_display }}">
+        <td>
+          <div class="flex items-center gap-3">
+            <span class="avatar{% if not u.ativo %} bg-fundo-realce text-texto-suave{% endif %}" aria-hidden="true">{{ u.nome|make_list|first }}{{ u.nome|make_list|slice:"1:2"|join:"" }}</span>
+            <div class="min-w-0">
+              <p class="font-bold break-words">{{ u.nome }}</p>
+              <p class="text-sm text-texto-suave break-all">{{ u.email }}</p>
+            </div>
+          </div>
+        </td>
+        <td data-rotulo="Papel">{% if u.papel == "ADMIN" %}<c-selo tom="marca">{{ u.get_papel_display }}</c-selo>{% elif u.papel == "PROFISSIONAL" %}<c-selo tom="info">{{ u.get_papel_display }}</c-selo>{% else %}<c-selo>{{ u.get_papel_display }}</c-selo>{% endif %}</td>
+        <td data-rotulo="Profissional vinculado" class="text-sm">{{ u.profissional.nome|default:"—" }}</td>
+        <td data-rotulo="Situação">{% if u.ativo %}<c-selo tom="sucesso">Ativo</c-selo>{% else %}<c-selo tom="erro">Inativo</c-selo>{% endif %}</td>
+        <td class="acoes">
+          <c-botao variante="secundario" tamanho="sm" icone="editar" href="{% url 'aranha:admin_editar_usuario' u.pk %}">Editar</c-botao>
+          <c-menu-acoes rotulo="Mais ações para {{ u.nome }}">
+            <form method="post" action="{% url 'aranha:admin_resetar_senha_usuario' u.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="menu-item" data-confirm="Enviar e-mail de redefinição de senha para {{ u.email }}?"><c-icone nome="chave" class="" />Enviar reset de senha</button>
+            </form>
+            {% if u.pk != request.user.pk %}
+            <div class="menu-separador"></div>
+            <form method="post" action="{% url 'aranha:admin_desativar_usuario' u.pk %}">
+              {% csrf_token %}
+              {% if u.ativo %}
+              <button type="submit" class="menu-item menu-item-perigo" data-confirm="Desativar acesso de {{ u.nome }}?"><c-icone nome="cadeado" class="" />Desativar acesso</button>
+              {% else %}
+              <button type="submit" class="menu-item" data-confirm="Ativar acesso de {{ u.nome }}?"><c-icone nome="check-circulo" class="" />Ativar acesso</button>
+              {% endif %}
+            </form>
+            {% endif %}
+          </c-menu-acoes>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </c-tabela>
+  {% else %}
+  <c-vazio titulo="Nenhum usuário encontrado" icone="usuarios"
+           texto="Ajuste os filtros ou cadastre um novo usuário.">
+    <c-botao href="{% url 'aranha:admin_criar_usuario' %}" icone="mais">Novo usuário</c-botao>
+  </c-vazio>
   {% endif %}
-  <span class="px-3 py-1.5 text-[0.8rem] text-texto-suave font-bold">{{ usuarios.number }} / {{ usuarios.paginator.num_pages }}</span>
-  {% if usuarios.has_next %}
-  <a href="?page={{ usuarios.next_page_number }}&q={{ busca }}&papel={{ papel_filter }}"
-     class="px-3 py-1.5 rounded-lg bg-fundo border border-borda text-[0.8rem] font-bold text-texto no-underline hover:bg-marca-forte hover:text-sobre-marca hover:border-marca-forte transition-colors">&raquo;</a>
-  {% endif %}
-</div>
-{% endif %}
 
+  {# Vazio do filtro instantaneo: painel-busca.js tira o hidden quando nenhuma linha bate #}
+  <c-vazio id="emptyFiltroUsuarios" hidden titulo="Nenhum usuário bate com o filtro" icone="filtro"
+           texto="Ajuste o termo ou limpe o campo." />
+</c-card>
+
+{% include 'partials/_paginacao.html' with page=usuarios %}
 {% endblock %}

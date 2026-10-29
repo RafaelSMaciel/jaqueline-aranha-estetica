@@ -1,19 +1,24 @@
-<c-vars nome="" id="" label="" tipo="text" erro="" class="" classe_rotulo="text-sm font-medium text-texto" classe_campo="rounded-md border border-borda bg-superficie px-3 py-2 text-texto" />
+<c-vars nome="" id="" label="" tipo="text" erro="" ajuda="" opcional="" valor="" class="" classe_grupo="" classe_rotulo="rotulo" classe_campo="campo" />
 {% comment %}
-Campo com rotulo associado e erro acessivel (aria-invalid + aria-describedby).
-`id` (opcional, padrao = nome): em lista com um modal por item o id precisa ser unico.
-`classe_rotulo`/`classe_campo` trocam o visual base (ex.: o dos formularios do painel);
-`class` e somado ao do campo.
+Campo com rotulo associado, ajuda e erro acessiveis (aria-describedby + aria-invalid).
+  tipo: text|email|number|date|... (input) | select (as <option> vao no slot) | textarea (texto em `valor`)
+  erro: mensagem do servidor (o campo fica aria-invalid e com a borda de erro)
+  ajuda: dica abaixo do campo    opcional: mostra "(opcional)" no rotulo
+  id: opcional (padrao = nome) — em lista com um modal por item o id precisa ser unico
+  value, required, min, placeholder, inputmode... vao direto (attrs) p/ o controle.
+`classe_rotulo`/`classe_campo` trocam o visual base; `class` e somado ao do controle.
 {% endcomment %}
 {% with cid=id|default:nome %}
-<div class="flex flex-col gap-1">
-  <label for="{{ cid }}" class="{{ classe_rotulo }}">{{ label }}</label>
-  <input id="{{ cid }}" name="{{ nome }}" type="{{ tipo }}"
-         class="{{ classe_campo }} {{ class }}"
-         {% if erro %}aria-invalid="true" aria-describedby="{{ cid }}-erro"{% endif %}
-         {{ attrs }}>
-  {% if erro %}
-    <span id="{{ cid }}-erro" class="text-erro text-sm">{{ erro }}</span>
+<div class="grupo-campo{% if classe_grupo %} {{ classe_grupo }}{% endif %}">
+  <label for="{{ cid }}" class="{{ classe_rotulo }}">{{ label }}{% if opcional %} <span class="rotulo-opcional">(opcional)</span>{% endif %}</label>
+  {% if tipo == 'select' %}
+  <select id="{{ cid }}" name="{{ nome }}" class="{{ classe_campo }}{% if class %} {{ class }}{% endif %}"{% if erro %} aria-invalid="true"{% endif %}{% if erro or ajuda %} aria-describedby="{% if ajuda %}{{ cid }}-ajuda{% endif %}{% if erro and ajuda %} {% endif %}{% if erro %}{{ cid }}-erro{% endif %}"{% endif %} {{ attrs }}>{{ slot }}</select>
+  {% elif tipo == 'textarea' %}
+  <textarea id="{{ cid }}" name="{{ nome }}" class="{{ classe_campo }}{% if class %} {{ class }}{% endif %}"{% if erro %} aria-invalid="true"{% endif %}{% if erro or ajuda %} aria-describedby="{% if ajuda %}{{ cid }}-ajuda{% endif %}{% if erro and ajuda %} {% endif %}{% if erro %}{{ cid }}-erro{% endif %}"{% endif %} {{ attrs }}>{{ valor }}</textarea>
+  {% else %}
+  <input id="{{ cid }}" name="{{ nome }}" type="{{ tipo }}" class="{{ classe_campo }}{% if class %} {{ class }}{% endif %}"{% if erro %} aria-invalid="true"{% endif %}{% if erro or ajuda %} aria-describedby="{% if ajuda %}{{ cid }}-ajuda{% endif %}{% if erro and ajuda %} {% endif %}{% if erro %}{{ cid }}-erro{% endif %}"{% endif %} {{ attrs }}>
   {% endif %}
+  {% if ajuda %}<p id="{{ cid }}-ajuda" class="ajuda">{{ ajuda }}</p>{% endif %}
+  {% if erro %}<p id="{{ cid }}-erro" class="erro-campo">{{ erro }}</p>{% endif %}
 </div>
 {% endwith %}

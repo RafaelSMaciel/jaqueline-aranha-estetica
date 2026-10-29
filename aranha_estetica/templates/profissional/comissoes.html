@@ -1,76 +1,62 @@
-{% extends 'estrutura/base_v2.html' %}
+{% extends 'profissional/base.html' %}
 
 {% block titulo %}Minhas comissões | {{ CLINIC_NAME }}{% endblock %}
 
+{% block page_title %}Minhas comissões{% endblock %}
+{% block page_subtitle %}{{ periodo.rotulo|capfirst }} · pela data do atendimento{% endblock %}
+
+{% block page_actions %}
+<nav class="flex flex-wrap items-center gap-2" aria-label="Escolher o mês">
+  <c-botao href="?mes={{ periodo_anterior.param }}" variante="secundario" icone="chevron-esquerda">{{ periodo_anterior.rotulo|capfirst }}</c-botao>
+  {% if periodo_seguinte %}
+  <c-botao href="?mes={{ periodo_seguinte.param }}" variante="secundario">{{ periodo_seguinte.rotulo|capfirst }}<c-icone nome="chevron-direita" class="" /></c-botao>
+  {% endif %}
+</nav>
+{% endblock %}
+
 {% block conteudo %}
-<div class="min-h-screen bg-fundo py-8 pb-20">
-<div class="max-w-4xl mx-auto px-4">
-
-    <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
-        <h1 class="font-serif text-2xl font-bold text-texto">Minhas comissões</h1>
-        <a href="{% url 'aranha:profissional_agenda' %}"
-           class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-borda bg-superficie text-texto-suave hover:text-texto font-bold text-sm no-underline transition-colors">&larr; Minha agenda</a>
-    </div>
-
-    <nav class="flex items-center gap-2 flex-wrap mb-4" aria-label="Escolher o mês">
-        <a href="?mes={{ periodo_anterior.param }}" class="px-3 py-1.5 rounded-full border border-borda bg-superficie text-sm font-bold text-texto-suave no-underline hover:text-texto">&larr; {{ periodo_anterior.rotulo }}</a>
-        <span class="px-3 py-1.5 rounded-full bg-marca-forte text-sobre-marca text-sm font-bold" aria-current="page">{{ periodo.rotulo }}</span>
-        {% if periodo_seguinte %}
-        <a href="?mes={{ periodo_seguinte.param }}" class="px-3 py-1.5 rounded-full border border-borda bg-superficie text-sm font-bold text-texto-suave no-underline hover:text-texto">{{ periodo_seguinte.rotulo }} &rarr;</a>
-        {% endif %}
-    </nav>
-
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <div class="bg-superficie rounded-2xl shadow-sm p-4">
-            <p class="text-[0.72rem] font-bold uppercase tracking-wide text-texto-suave">A receber (todas)</p>
-            <p class="text-xl font-extrabold text-marca mt-1 tabular-nums">{{ saldo_a_receber|brl }}</p>
-        </div>
-        <div class="bg-superficie rounded-2xl shadow-sm p-4">
-            <p class="text-[0.72rem] font-bold uppercase tracking-wide text-texto-suave">Gerada no mês</p>
-            <p class="text-xl font-extrabold text-texto mt-1 tabular-nums">{{ gerada_mes|brl }}</p>
-        </div>
-        <div class="bg-superficie rounded-2xl shadow-sm p-4">
-            <p class="text-[0.72rem] font-bold uppercase tracking-wide text-texto-suave">Paga</p>
-            <p class="text-xl font-extrabold text-sucesso mt-1 tabular-nums">{{ paga_mes|brl }}</p>
-        </div>
-        <div class="bg-superficie rounded-2xl shadow-sm p-4">
-            <p class="text-[0.72rem] font-bold uppercase tracking-wide text-texto-suave">Pendente</p>
-            <p class="text-xl font-extrabold text-texto mt-1 tabular-nums">{{ pendente_mes|brl }}</p>
-        </div>
-    </div>
-
-    <div class="bg-superficie rounded-2xl shadow-sm overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full text-[0.85rem]">
-                <thead>
-                    <tr class="text-texto-suave text-[0.75rem] uppercase tracking-wide border-b border-borda">
-                        <th scope="col" class="text-left font-bold px-4 py-2">Atendimento</th>
-                        <th scope="col" class="text-left font-bold px-4 py-2">Procedimento</th>
-                        <th scope="col" class="text-right font-bold px-4 py-2">Base</th>
-                        <th scope="col" class="text-right font-bold px-4 py-2">Regra</th>
-                        <th scope="col" class="text-right font-bold px-4 py-2">Comissão</th>
-                        <th scope="col" class="text-left font-bold px-4 py-2">Situação</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for c in creditos %}
-                    <tr class="border-t border-borda text-texto{% if c.status == 'ESTORNADA' %} text-texto-suave line-through{% endif %}">
-                        <td class="px-4 py-2">{{ c.atendimento.data_hora_inicio|date:"d/m/Y" }}</td>
-                        <td class="px-4 py-2">{{ c.atendimento.procedimento.nome }}</td>
-                        <td class="px-4 py-2 text-right tabular-nums">{{ c.base_calculo|brl|default:"—" }}</td>
-                        <td class="px-4 py-2 text-right tabular-nums">{% if c.percentual_aplicado is not None %}{{ c.percentual_aplicado }}%{% elif c.base_calculo is not None %}valor fixo{% else %}—{% endif %}</td>
-                        <td class="px-4 py-2 text-right font-semibold tabular-nums">{{ c.valor|brl }}</td>
-                        <td class="px-4 py-2">{{ c.get_status_display }}{% if c.pago_em %} em {{ c.pago_em|date:"d/m" }}{% endif %}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="6" class="text-texto-suave text-center px-4 py-6">Nenhuma comissão de atendimento em {{ periodo.rotulo }}.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        <p class="text-[0.72rem] text-texto-suave px-4 py-3 border-t border-borda">Comissão de cada atendimento realizado, pela data do atendimento. Base = valor cobrado do atendimento avulso ou valor da sessão do pacote. Dúvidas sobre um valor: fale com a administração da clínica.</p>
-    </div>
-
+{# Extrato so de leitura, sem nome de cliente (minimizacao: o extrato e financeiro) #}
+<div class="grade-kpis mb-6">
+  <c-kpi rotulo="A receber" valor="{{ saldo_a_receber|brl }}" detalhe="Pendente, somando todos os meses" icone="financeiro" />
+  <c-kpi rotulo="Gerada no mês" valor="{{ gerada_mes|brl }}" icone="comissoes" />
+  <c-kpi rotulo="Paga no mês" valor="{{ paga_mes|brl }}" icone="check-circulo" />
+  <c-kpi rotulo="Pendente no mês" valor="{{ pendente_mes|brl }}" icone="relogio" />
 </div>
-</div>
+
+<c-card titulo="Comissões por atendimento" icone="comissoes" espaco="nenhum">
+  {% if creditos %}
+  <c-tabela legenda="Comissões de {{ periodo.rotulo }}" responsiva="1">
+    <thead>
+      <tr>
+        <th scope="col">Atendimento</th>
+        <th scope="col">Procedimento</th>
+        <th scope="col" class="num">Base</th>
+        <th scope="col" class="num">Regra</th>
+        <th scope="col" class="num">Comissão</th>
+        <th scope="col">Situação</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in creditos %}
+      <tr>
+        <td data-rotulo="Atendimento" class="tabular-nums">{{ c.atendimento.data_hora_inicio|date:"d/m/Y" }}</td>
+        <td data-rotulo="Procedimento">{{ c.atendimento.procedimento.nome }}</td>
+        <td data-rotulo="Base" class="num">{{ c.base_calculo|brl|default:"—" }}</td>
+        <td data-rotulo="Regra" class="num">{% if c.percentual_aplicado is not None %}{{ c.percentual_aplicado }}%{% elif c.base_calculo is not None %}valor fixo{% else %}—{% endif %}</td>
+        <td data-rotulo="Comissão" class="num font-bold">{% if c.status == 'ESTORNADA' %}<s class="font-normal text-texto-suave">{{ c.valor|brl }}</s>{% else %}{{ c.valor|brl }}{% endif %}</td>
+        <td data-rotulo="Situação"><c-selo tom="{% if c.status == 'PAGA' %}sucesso{% elif c.status == 'ESTORNADA' %}neutro{% else %}aviso{% endif %}">{{ c.get_status_display }}{% if c.pago_em %} em {{ c.pago_em|date:"d/m" }}{% endif %}</c-selo></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </c-tabela>
+  {% else %}
+  <c-vazio titulo="Nenhuma comissão de atendimento em {{ periodo.rotulo }}" icone="comissoes"
+           texto="A comissão aparece aqui quando um atendimento seu é marcado como realizado." />
+  {% endif %}
+</c-card>
+
+<p class="mt-4 text-sm text-texto-suave">
+  Comissão de cada atendimento realizado, pela data do atendimento. Base = valor cobrado do atendimento
+  avulso ou valor da sessão do pacote. Dúvidas sobre um valor: fale com a administração da clínica.
+</p>
 {% endblock %}

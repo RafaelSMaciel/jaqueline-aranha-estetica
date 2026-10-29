@@ -4,173 +4,156 @@
 {% block page_title %}Financeiro{% endblock %}
 {% block page_subtitle %}Competência de {{ periodo.rotulo }} ({{ periodo.inicio|date:"d/m" }} a {{ periodo.ultimo_dia|date:"d/m/Y" }}){% if eh_mes_corrente %} — mês em andamento{% endif %}{% endblock %}
 {% block page_actions %}
-<nav class="flex items-center gap-2 flex-wrap" aria-label="Escolher o mês">
-  <a href="?mes={{ periodo_anterior.param }}" class="px-3 py-1.5 rounded-lg border border-borda text-[0.82rem] font-bold text-texto-suave no-underline hover:text-texto transition-colors">&larr; {{ periodo_anterior.rotulo }}</a>
-  <form method="get" class="flex items-center gap-1 m-0">
+<nav class="flex flex-wrap items-center gap-2" aria-label="Escolher o mês">
+  <c-botao variante="secundario" href="?mes={{ periodo_anterior.param }}" icone="chevron-esquerda">{{ periodo_anterior.rotulo }}</c-botao>
+  <form method="get" class="m-0 flex items-center gap-2">
     <label for="fMes" class="sr-only">Mês</label>
-    <input id="fMes" type="month" name="mes" value="{{ periodo.param }}" required
-           class="px-2 py-1 rounded-lg border border-borda bg-fundo text-[0.82rem] text-texto">
-    <button type="submit" class="px-3 py-1.5 rounded-lg bg-marca-forte text-sobre-marca text-[0.82rem] font-bold">Ver</button>
+    <input id="fMes" type="month" name="mes" value="{{ periodo.param }}" required class="campo w-auto">
+    <c-botao tipo="submit" variante="secundario">Ver</c-botao>
   </form>
   {% if periodo_seguinte %}
-  <a href="?mes={{ periodo_seguinte.param }}" class="px-3 py-1.5 rounded-lg border border-borda text-[0.82rem] font-bold text-texto-suave no-underline hover:text-texto transition-colors">{{ periodo_seguinte.rotulo }} &rarr;</a>
+  <c-botao variante="secundario" href="?mes={{ periodo_seguinte.param }}">{{ periodo_seguinte.rotulo }}<c-icone nome="chevron-direita" class="" /></c-botao>
   {% endif %}
-  <a href="{% url 'aranha:exportar_relatorio_excel' %}?mes={{ periodo.param }}"
-     class="px-3 py-1.5 rounded-lg border border-borda text-[0.82rem] font-bold text-texto-suave no-underline hover:text-texto transition-colors">Excel do mês</a>
+  <c-botao href="{% url 'aranha:exportar_relatorio_excel' %}?mes={{ periodo.param }}" icone="planilha">Excel do mês</c-botao>
 </nav>
 {% endblock %}
 
 {% block admin_content %}
 
 {% if sem_regra_comissao %}
-<div class="bg-aviso-fundo border-l-4 border-aviso rounded-xl px-4 py-3 mb-4 text-[0.85rem] text-texto" role="status">
-  <strong class="text-aviso">Nenhuma regra de comissão ativa:</strong> nenhum atendimento realizado gera comissão.
-  <a href="{% url 'aranha:painel_comissao_regras' %}" class="font-bold text-marca">Cadastrar regra</a>
-</div>
+<c-nota tom="aviso" titulo="Nenhuma regra de comissão ativa" class="mb-6">
+  <p>Nenhum atendimento realizado gera comissão. <a href="{% url 'aranha:painel_comissao_regras' %}" class="font-bold text-marca underline underline-offset-4">Cadastrar regra</a></p>
+</c-nota>
 {% endif %}
 
-{# ── Faturamento do mes ── #}
-<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-  <div class="bg-superficie rounded-2xl shadow-sm p-4 border-l-4 border-sucesso">
-    <h2 class="font-sans text-[0.72rem] font-bold uppercase tracking-wide text-texto-suave">Faturamento do mês</h2>
-    <div class="text-2xl font-extrabold text-sucesso my-1">{{ receita.total|brl }}</div>
-    <span class="text-[0.75rem] text-texto-suave">atendimentos avulsos + pacotes (vendas − reembolsos)</span>
-  </div>
-  <div class="bg-superficie rounded-2xl shadow-sm p-4 border-l-4 border-info">
-    <h2 class="font-sans text-[0.72rem] font-bold uppercase tracking-wide text-texto-suave">Atendimentos avulsos</h2>
-    <div class="text-2xl font-extrabold text-info my-1">{{ receita.avulsos.total|brl }}</div>
-    <span class="text-[0.75rem] text-texto-suave">{{ receita.avulsos.qtd }} atendimento{{ receita.avulsos.qtd|pluralize }} · ticket médio {{ receita.ticket_medio|brl }}</span>
-  </div>
-  <div class="bg-superficie rounded-2xl shadow-sm p-4 border-l-4 border-aviso">
-    <h2 class="font-sans text-[0.72rem] font-bold uppercase tracking-wide text-texto-suave">Pacotes</h2>
-    <div class="text-2xl font-extrabold {% if receita.pacotes.total < 0 %}text-erro{% else %}text-aviso{% endif %} my-1">{{ receita.pacotes.total|brl }}</div>
-    <span class="text-[0.75rem] text-texto-suave">{{ receita.pacotes.qtd_vendas }} venda{{ receita.pacotes.qtd_vendas|pluralize }} ({{ receita.pacotes.vendas|brl }}){% if receita.pacotes.qtd_reembolsos %} − {{ receita.pacotes.qtd_reembolsos }} reembolso{{ receita.pacotes.qtd_reembolsos|pluralize }} ({{ receita.pacotes.reembolsos|brl }}){% endif %}</span>
-  </div>
-</div>
-
-<p class="text-[0.72rem] text-texto-suave -mt-2 mb-4">Competência = mês civil. Atendimento avulso entra no mês em que aconteceu (realizado, com valor, sem retorno e sem sessão de pacote). Pacote entra pelo valor pago no mês da venda; o reembolso de um cancelamento sai do mês em que o cancelamento aconteceu — um mês fechado não muda depois, e um mês com mais reembolsos que vendas fica com pacotes negativo. Nos rankings, produção = valor de cada sessão realizada (sessão de pacote pelo valor unitário da venda).{% if creditos_indicacao_mes %} Crédito de indicação abatido no mês: <strong>{{ creditos_indicacao_mes|brl }}</strong> (desconto dado às clientes; o faturamento acima é o valor cheio).{% endif %}</p>
-
-{# ── No-show / Comissões ── #}
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-  <div class="bg-superficie rounded-2xl shadow-sm p-4 border-l-4 border-erro">
-    <h2 class="font-sans text-[0.72rem] font-bold uppercase tracking-wide text-texto-suave">Faltas no mês</h2>
-    <div class="text-2xl font-extrabold text-erro my-1">{{ no_show.faltas }} <span class="text-[0.9rem] text-texto-suave font-normal">({{ no_show.percentual }}% de {{ no_show.finalizados }} atendimento{{ no_show.finalizados|pluralize }} com desfecho)</span></div>
-  </div>
-  <div class="bg-superficie rounded-2xl shadow-sm p-4 border-l-4 border-marca-forte">
-    <h2 class="font-sans text-[0.72rem] font-bold uppercase tracking-wide text-texto-suave">Comissões a repassar (todas)</h2>
-    <div class="text-2xl font-extrabold text-marca my-1">{{ comissoes_pendentes_total|brl }} <span class="text-[0.9rem] text-texto-suave font-normal">({{ comissoes_pendentes_count }})</span></div>
-    <a href="{% url 'aranha:painel_comissoes' %}?status=PENDENTE" class="text-[0.75rem] font-bold text-marca">Repassar em Comissões &rarr;</a>
+{# ── Indicadores do mes: 2+2+1 (sm), 3+2 (lg, comissoes ocupa 2) e uma linha so (2xl) ── #}
+<div class="grade-kpis mb-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+  <c-kpi rotulo="Faturamento do mês" valor="{{ receita.total|brl }}" icone="financeiro"
+         detalhe="Atendimentos avulsos + pacotes (vendas − reembolsos)" />
+  <c-kpi rotulo="Atendimentos avulsos" valor="{{ receita.avulsos.total|brl }}" icone="agenda"
+         detalhe="{{ receita.avulsos.qtd }} atendimento{{ receita.avulsos.qtd|pluralize }} · ticket médio {{ receita.ticket_medio|brl }}" />
+  <c-kpi rotulo="Pacotes" valor="{{ receita.pacotes.total|brl }}" icone="pacotes"
+         class="{% if receita.pacotes.total < 0 %} [&_.kpi-valor]:text-erro{% endif %}"
+         detalhe="{{ receita.pacotes.qtd_vendas }} venda{{ receita.pacotes.qtd_vendas|pluralize }} ({{ receita.pacotes.vendas|brl }}){% if receita.pacotes.qtd_reembolsos %} − {{ receita.pacotes.qtd_reembolsos }} reembolso{{ receita.pacotes.qtd_reembolsos|pluralize }} ({{ receita.pacotes.reembolsos|brl }}){% endif %}" />
+  <c-kpi rotulo="Faltas no mês" valor="{{ no_show.faltas }}" icone="alerta"
+         detalhe="{{ no_show.percentual }}% de {{ no_show.finalizados }} atendimento{{ no_show.finalizados|pluralize }} com desfecho" />
+  <c-kpi rotulo="Comissões a repassar" valor="{{ comissoes_pendentes_total|brl }}" icone="comissoes"
+         class="sm:col-span-2 2xl:col-span-1"
+         detalhe="{{ comissoes_pendentes_count }} pendente{{ comissoes_pendentes_count|pluralize }} (todos os meses)">
+    <a href="{% url 'aranha:painel_comissoes' %}?status=PENDENTE" class="mt-1 inline-flex self-start items-center gap-1 text-sm font-bold text-marca">Repassar em comissões<c-icone nome="avancar" class="w-4 h-4" /></a>
     {% if comissoes_a_descontar %}
-    <p class="text-[0.75rem] text-erro font-bold mt-1">Saldo negativo de {{ comissoes_a_descontar|brl }} (comissão paga e depois estornada): a descontar do próximo repasse.</p>
+    <p class="mt-1 text-legenda font-bold text-erro">Saldo negativo de {{ comissoes_a_descontar|brl }} (comissão paga e depois estornada): a descontar do próximo repasse.</p>
     {% endif %}
-  </div>
+  </c-kpi>
 </div>
 
-{# ── Top procedimentos / profissionais ── #}
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
-  <div class="bg-superficie rounded-2xl shadow-sm overflow-hidden">
-    <h2 class="px-4 py-3 border-b border-borda font-bold text-[0.9rem] text-texto">Procedimentos que mais produziram no mês</h2>
-    <table class="w-full text-[0.85rem]">
+<p class="ajuda mb-6 max-w-4xl">Competência = mês civil. Atendimento avulso entra no mês em que aconteceu (realizado, com valor, sem retorno e sem sessão de pacote). Pacote entra pelo valor pago no mês da venda; o reembolso de um cancelamento sai do mês em que o cancelamento aconteceu — um mês fechado não muda depois, e um mês com mais reembolsos que vendas fica com pacotes negativo. Nos rankings, produção = valor de cada sessão realizada (sessão de pacote pelo valor unitário da venda).{% if creditos_indicacao_mes %} Crédito de indicação abatido no mês: <strong class="text-texto">{{ creditos_indicacao_mes|brl }}</strong> (desconto dado às clientes; o faturamento acima é o valor cheio).{% endif %}</p>
+
+{# ── Rankings do mes ── #}
+<div class="grid gap-6 lg:grid-cols-2 mb-6">
+  <c-card titulo="Procedimentos que mais produziram" descricao="No mês, pelo valor de cada sessão realizada" icone="procedimentos" espaco="nenhum">
+    {% if top_procedimentos %}
+    <c-tabela legenda="Procedimentos que mais produziram no mês">
       <thead>
-        <tr class="text-texto-suave text-[0.75rem] uppercase tracking-wide">
-          <th scope="col" class="text-left font-bold px-4 py-2">Procedimento</th>
-          <th scope="col" class="text-right font-bold px-4 py-2">Produção</th>
-          <th scope="col" class="text-right font-bold px-4 py-2">Qtd</th>
+        <tr>
+          <th scope="col">Procedimento</th>
+          <th scope="col" class="num">Produção</th>
+          <th scope="col" class="num">Qtd</th>
         </tr>
       </thead>
       <tbody>
         {% for p in top_procedimentos %}
-        <tr class="border-t border-borda text-texto">
-          <td class="px-4 py-2">{{ p.procedimento__nome }}</td>
-          <td class="px-4 py-2 text-right tabular-nums">{{ p.total|brl }}</td>
-          <td class="px-4 py-2 text-right tabular-nums">{{ p.count }}</td>
+        <tr>
+          <td>{{ p.procedimento__nome }}</td>
+          <td class="num">{{ p.total|brl }}</td>
+          <td class="num">{{ p.count }}</td>
         </tr>
-        {% empty %}
-        <tr><td colspan="3" class="text-texto-suave text-center px-4 py-3">Sem atendimentos realizados no mês</td></tr>
         {% endfor %}
       </tbody>
-    </table>
-  </div>
+    </c-tabela>
+    {% else %}
+    <c-vazio titulo="Sem atendimentos realizados no mês" icone="procedimentos" />
+    {% endif %}
+  </c-card>
 
-  <div class="bg-superficie rounded-2xl shadow-sm overflow-hidden">
-    <h2 class="px-4 py-3 border-b border-borda font-bold text-[0.9rem] text-texto">Profissionais que mais produziram no mês</h2>
-    <table class="w-full text-[0.85rem]">
+  <c-card titulo="Profissionais que mais produziram" descricao="No mês, pelo valor de cada sessão realizada" icone="profissionais" espaco="nenhum">
+    {% if top_profissionais %}
+    <c-tabela legenda="Profissionais que mais produziram no mês">
       <thead>
-        <tr class="text-texto-suave text-[0.75rem] uppercase tracking-wide">
-          <th scope="col" class="text-left font-bold px-4 py-2">Profissional</th>
-          <th scope="col" class="text-right font-bold px-4 py-2">Produção</th>
-          <th scope="col" class="text-right font-bold px-4 py-2">Qtd</th>
+        <tr>
+          <th scope="col">Profissional</th>
+          <th scope="col" class="num">Produção</th>
+          <th scope="col" class="num">Qtd</th>
         </tr>
       </thead>
       <tbody>
         {% for p in top_profissionais %}
-        <tr class="border-t border-borda text-texto">
-          <td class="px-4 py-2">{{ p.profissional__nome }}</td>
-          <td class="px-4 py-2 text-right tabular-nums">{{ p.total|brl }}</td>
-          <td class="px-4 py-2 text-right tabular-nums">{{ p.count }}</td>
+        <tr>
+          <td>{{ p.profissional__nome }}</td>
+          <td class="num">{{ p.total|brl }}</td>
+          <td class="num">{{ p.count }}</td>
         </tr>
-        {% empty %}
-        <tr><td colspan="3" class="text-texto-suave text-center px-4 py-3">Sem atendimentos realizados no mês</td></tr>
         {% endfor %}
       </tbody>
-    </table>
-  </div>
+    </c-tabela>
+    {% else %}
+    <c-vazio titulo="Sem atendimentos realizados no mês" icone="profissionais" />
+    {% endif %}
+  </c-card>
 </div>
 
-{# ── Comissões do mês por profissional (data do atendimento) ── #}
-<div class="bg-superficie rounded-2xl shadow-sm overflow-hidden mb-4">
-  <h2 class="px-4 py-3 border-b border-borda font-bold text-[0.9rem] text-texto">Comissões do mês por profissional <span class="font-normal text-texto-suave text-[0.78rem]">(pela data do atendimento; estornadas fora)</span></h2>
-  <table class="w-full text-[0.85rem]">
+{# ── Comissoes do mes por profissional (data do atendimento) ── #}
+<c-card titulo="Comissões do mês por profissional" descricao="Pela data do atendimento; estornadas ficam fora" icone="comissoes" espaco="nenhum" class="mb-6">
+  {% if comissoes_por_prof %}
+  <c-tabela legenda="Comissões do mês por profissional" responsiva="1">
     <thead>
-      <tr class="text-texto-suave text-[0.75rem] uppercase tracking-wide">
-        <th scope="col" class="text-left font-bold px-4 py-2">Profissional</th>
-        <th scope="col" class="text-right font-bold px-4 py-2">Gerada</th>
-        <th scope="col" class="text-right font-bold px-4 py-2">Pendente</th>
-        <th scope="col" class="text-right font-bold px-4 py-2">Qtd</th>
+      <tr>
+        <th scope="col">Profissional</th>
+        <th scope="col" class="num">Gerada</th>
+        <th scope="col" class="num">Pendente</th>
+        <th scope="col" class="num">Qtd</th>
       </tr>
     </thead>
     <tbody>
       {% for c in comissoes_por_prof %}
-      <tr class="border-t border-borda text-texto">
-        <td class="px-4 py-2">{{ c.profissional__nome }}</td>
-        <td class="px-4 py-2 text-right tabular-nums">{{ c.gerada|brl }}</td>
-        <td class="px-4 py-2 text-right tabular-nums">{{ c.pendente|brl }}</td>
-        <td class="px-4 py-2 text-right tabular-nums">{{ c.qtd }}</td>
+      <tr>
+        <td class="font-bold">{{ c.profissional__nome }}</td>
+        <td data-rotulo="Gerada" class="num">{{ c.gerada|brl }}</td>
+        <td data-rotulo="Pendente" class="num">{{ c.pendente|brl }}</td>
+        <td data-rotulo="Qtd" class="num">{{ c.qtd }}</td>
       </tr>
-      {% empty %}
-      <tr><td colspan="4" class="text-texto-suave text-center px-4 py-3">Sem comissões no mês</td></tr>
       {% endfor %}
     </tbody>
-  </table>
-</div>
+  </c-tabela>
+  {% else %}
+  <c-vazio titulo="Sem comissões no mês" icone="comissoes" />
+  {% endif %}
+</c-card>
 
-{# ── Últimos 12 meses ── #}
-<div class="bg-superficie rounded-2xl shadow-sm overflow-hidden mb-4">
-  <h2 class="px-4 py-3 border-b border-borda font-bold text-[0.9rem] text-texto">Últimos 12 meses</h2>
-  <div class="overflow-x-auto">
-    <table class="w-full text-[0.85rem]">
-      <thead>
-        <tr class="text-texto-suave text-[0.75rem] uppercase tracking-wide">
-          <th scope="col" class="text-left font-bold px-4 py-2">Mês</th>
-          <th scope="col" class="text-right font-bold px-4 py-2">Avulsos</th>
-          <th scope="col" class="text-right font-bold px-4 py-2">Pacotes</th>
-          <th scope="col" class="text-right font-bold px-4 py-2">Faturamento</th>
-          <th scope="col" class="text-right font-bold px-4 py-2">Ticket médio</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for m in ultimos_12_meses %}
-        <tr class="border-t border-borda text-texto{% if m.periodo == periodo %} bg-fundo font-bold{% endif %}">
-          <th scope="row" class="text-left font-normal px-4 py-2"><a href="?mes={{ m.periodo.param }}" class="text-marca">{{ m.periodo.rotulo }}</a></th>
-          <td class="px-4 py-2 text-right tabular-nums">{{ m.avulsos|brl }}</td>
-          <td class="px-4 py-2 text-right tabular-nums {% if m.pacotes < 0 %}text-erro{% endif %}">{{ m.pacotes|brl }}</td>
-          <td class="px-4 py-2 text-right tabular-nums">{{ m.total|brl }}</td>
-          <td class="px-4 py-2 text-right tabular-nums">{{ m.ticket_medio|brl }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
+{# ── Ultimos 12 meses ── #}
+<c-card titulo="Últimos 12 meses" icone="grafico" espaco="nenhum">
+  <c-tabela legenda="Faturamento dos últimos 12 meses">
+    <thead>
+      <tr>
+        <th scope="col">Mês</th>
+        <th scope="col" class="num">Avulsos</th>
+        <th scope="col" class="num">Pacotes</th>
+        <th scope="col" class="num">Faturamento</th>
+        <th scope="col" class="num">Ticket médio</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in ultimos_12_meses %}
+      <tr{% if m.periodo == periodo %} class="bg-marca-suave font-bold"{% endif %}>
+        <th scope="row" class="align-middle text-corpo font-normal text-texto [tr:last-child>&]:border-b-0"><a href="?mes={{ m.periodo.param }}" class="text-marca underline-offset-4 hover:underline{% if m.periodo == periodo %} font-bold{% endif %}"{% if m.periodo == periodo %} aria-current="true"{% endif %}>{{ m.periodo.rotulo }}</a></th>
+        <td class="num">{{ m.avulsos|brl }}</td>
+        <td class="num{% if m.pacotes < 0 %} text-erro{% endif %}">{{ m.pacotes|brl }}</td>
+        <td class="num">{{ m.total|brl }}</td>
+        <td class="num">{{ m.ticket_medio|brl }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </c-tabela>
+</c-card>
 
 {% endblock %}

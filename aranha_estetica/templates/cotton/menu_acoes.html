@@ -1,0 +1,15 @@
+<c-vars rotulo="Mais ações" texto="" tamanho="sm" class="" />
+{% comment %}
+Menu "⋯" de acoes secundarias (disclosure: <details> nativo — abre sem JS; painel.js fecha os
+outros, fecha no clique fora e no Esc devolvendo o foco). Itens no slot, com a classe .menu-item:
+  <c-menu-acoes rotulo="Mais ações para Maria">
+    <a href="..." class="menu-item">(icone) Abrir</a>
+    <form method="post" action="...">(csrf) <button type="submit" class="menu-item">Gerar link</button></form>
+    <button type="button" class="menu-item" data-abrir-dialogo="dlg-x">Registrar valor</button>
+  </c-menu-acoes>
+`texto`: botao com texto + seta (sem texto: so o icone, nomeado por `rotulo`).
+{% endcomment %}
+<details class="menu-acoes{% if class %} {{ class }}{% endif %}" data-menu-acoes {{ attrs }}>
+  <summary class="btn btn-{% if texto %}secundario{% else %}fantasma btn-icone{% endif %}{% if tamanho %} btn-{{ tamanho }}{% endif %}"{% if not texto %} aria-label="{{ rotulo }}" title="{{ rotulo }}"{% endif %}>{% if texto %}{{ texto }}<c-icone nome="chevron-baixo" class="" />{% else %}<c-icone nome="opcoes" class="" />{% endif %}</summary>
+  <div class="menu-acoes-lista">{{ slot }}</div>
+</details>

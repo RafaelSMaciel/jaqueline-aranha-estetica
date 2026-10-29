@@ -5,160 +5,120 @@
 {% block page_subtitle %}Proteja sua conta com código de 6 dígitos{% endblock %}
 
 {% block admin_content %}
-<div class="max-w-xl mx-auto">
-
 {% if cadastro_obrigatorio %}
-  <div class="flex items-center gap-2 px-4 py-3 rounded-xl bg-aviso-fundo text-aviso font-bold text-[0.85rem] mb-4" role="alert">
-    O 2FA é obrigatório para a sua conta. Ative-o para continuar.
-  </div>
+<c-nota tom="aviso" papel="alert" class="mb-6">O 2FA é obrigatório para a sua conta. Ative-o para continuar.</c-nota>
 {% endif %}
 
 {% if device_confirmado %}
-  <div class="flex items-center gap-2 px-4 py-3 rounded-xl bg-sucesso-fundo text-sucesso font-bold text-[0.85rem] mb-4">
-    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-    </svg>
-    2FA ATIVO · dispositivo: {{ device_confirmado.name }}
-  </div>
-  <div class="bg-superficie rounded-2xl shadow-sm p-5">
-    <p class="text-[0.88rem] text-texto-suave mb-4">
+{# ── Ativo: trocar/desativar e codigos de backup (os dois pedem o codigo atual) ── #}
+<c-nota tom="sucesso" icone="escudo" titulo="2FA ativo" class="mb-6">
+  <p>Dispositivo: {{ device_confirmado.name }}</p>
+</c-nota>
+
+<div class="grid gap-6 lg:grid-cols-2 lg:items-start">
+  <c-card titulo="Aplicativo autenticador" icone="escudo">
+    <p class="mb-4 text-texto-suave">
       Sua conta está protegida com autenticação de 2 fatores. A cada login você precisará digitar o código de 6 dígitos gerado pelo app.
     </p>
-    <form method="post" id="form-desativar-2fa">
+    <form method="post" id="form-desativar-2fa" class="flex flex-col gap-4">
       {% csrf_token %}
       <input type="hidden" name="acao" value="desativar">
-      <label for="token-desativar" class="block text-[0.85rem] font-bold text-texto mb-1">Código atual do app</label>
-      <input type="text" id="token-desativar" name="token"
-             maxlength="8" autocomplete="one-time-code" autocapitalize="off" spellcheck="false"
-             placeholder="000000" required
-             class="w-full px-4 py-3 mb-3 rounded-xl border-2 border-borda bg-fundo text-texto text-2xl text-center font-bold font-mono tracking-[0.4em] focus:border-marca transition-colors">
-      <button type="submit"
-              data-confirm="{% if obrigatorio %}Remover o aparelho atual? Você cadastrará o novo em seguida.{% else %}Desativar o 2FA? Sua conta ficará menos segura.{% endif %}"
-              class="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-erro-fundo text-erro text-[0.9rem] font-bold border-none cursor-pointer hover:bg-erro-fundo transition-colors">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
-        </svg>
-        {% if obrigatorio %}Trocar de aparelho{% else %}Desativar 2FA{% endif %}
-      </button>
+      <c-campo nome="token" id="token-desativar" label="Código atual do app"
+               class="text-2xl text-center font-bold font-mono tracking-[0.4em]"
+               maxlength="8" autocomplete="one-time-code" autocapitalize="off" spellcheck="false"
+               placeholder="000000" required></c-campo>
+      <c-botao tipo="submit" variante="perigo-contorno" class="self-start"
+               data-confirm="{% if obrigatorio %}Remover o aparelho atual? Você cadastrará o novo em seguida.{% else %}Desativar o 2FA? Sua conta ficará menos segura.{% endif %}">{% if obrigatorio %}Trocar de aparelho{% else %}Desativar 2FA{% endif %}</c-botao>
     </form>
-  </div>
+  </c-card>
 
-  <div class="bg-superficie rounded-2xl shadow-sm p-5 mt-4">
-    <h2 class="font-extrabold text-texto mb-1">Códigos de backup</h2>
+  <c-card titulo="Códigos de backup" icone="chave">
     {% if codigos_backup %}
-      <div class="px-4 py-3 rounded-xl bg-aviso-fundo text-aviso font-bold text-[0.85rem] mb-3" role="alert">
-        Guarde estes códigos agora, fora do celular (impressos ou num gerenciador de senhas).
-        Eles não serão mostrados de novo e cada um vale uma única vez.
-      </div>
-      <ul class="grid grid-cols-2 gap-2 font-mono text-[1rem] font-bold text-texto mb-4" aria-label="Códigos de backup">
-        {% for codigo in codigos_backup %}<li class="px-3 py-2 rounded-lg bg-fundo border border-borda text-center">{{ codigo }}</li>{% endfor %}
-      </ul>
+    <c-nota tom="aviso" papel="alert" class="mb-4">
+      <p>Guarde estes códigos agora, fora do celular (impressos ou num gerenciador de senhas).
+      Eles não serão mostrados de novo e cada um vale uma única vez.</p>
+    </c-nota>
+    <ul class="mb-4 grid grid-cols-2 gap-2 font-mono text-base font-bold text-texto" aria-label="Códigos de backup">
+      {% for codigo in codigos_backup %}<li class="rounded-lg border border-borda bg-fundo px-3 py-2 text-center">{{ codigo }}</li>{% endfor %}
+    </ul>
     {% else %}
-      <p class="text-[0.88rem] text-texto-suave mb-3">
-        Use um código de backup para entrar se perder o celular.
-        {% if codigos_restantes %}Você tem <strong>{{ codigos_restantes }}</strong> código{{ codigos_restantes|pluralize }} sem uso.{% else %}Você ainda não tem códigos de backup.{% endif %}
-        Gerar novos invalida os anteriores.
-      </p>
+    <p class="mb-4 text-texto-suave">
+      Use um código de backup para entrar se perder o celular.
+      {% if codigos_restantes %}Você tem <strong class="text-texto">{{ codigos_restantes }}</strong> código{{ codigos_restantes|pluralize }} sem uso.{% else %}Você ainda não tem códigos de backup.{% endif %}
+      Gerar novos invalida os anteriores.
+    </p>
     {% endif %}
-    <form method="post">
+    <form method="post" class="flex flex-col gap-4">
       {% csrf_token %}
       <input type="hidden" name="acao" value="codigos">
-      <label for="token-codigos" class="block text-[0.85rem] font-bold text-texto mb-1">Código atual do app</label>
-      <input type="text" id="token-codigos" name="token"
-             maxlength="8" autocomplete="one-time-code" autocapitalize="off" spellcheck="false"
-             placeholder="000000" required
-             class="w-full px-4 py-3 mb-3 rounded-xl border-2 border-borda bg-fundo text-texto text-2xl text-center font-bold font-mono tracking-[0.4em] focus:border-marca transition-colors">
-      <button type="submit"
-              class="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.9rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
-        {% if codigos_restantes or codigos_backup %}Gerar novos códigos{% else %}Gerar códigos de backup{% endif %}
-      </button>
+      <c-campo nome="token" id="token-codigos" label="Código atual do app"
+               class="text-2xl text-center font-bold font-mono tracking-[0.4em]"
+               maxlength="8" autocomplete="one-time-code" autocapitalize="off" spellcheck="false"
+               placeholder="000000" required></c-campo>
+      <c-botao tipo="submit" class="self-start">{% if codigos_restantes or codigos_backup %}Gerar novos códigos{% else %}Gerar códigos de backup{% endif %}</c-botao>
     </form>
-  </div>
+  </c-card>
+</div>
 
 {% elif device_pendente and qr_b64 %}
-  <div class="flex items-center gap-2 px-4 py-3 rounded-xl bg-aviso-fundo text-aviso font-bold text-[0.85rem] mb-4">
-    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-    </svg>
-    2FA PENDENTE · confirme o código para ativar
-  </div>
+{# ── Pendente: escanear o QR e confirmar o primeiro codigo ── #}
+<c-nota tom="aviso" titulo="2FA pendente" class="mb-6">
+  <p>Confirme o código para ativar.</p>
+</c-nota>
 
-  <div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
-    <h2 class="font-extrabold text-texto mb-1">Passo 1: escaneie o QR code</h2>
-    <p class="text-[0.85rem] text-texto-suave mb-3">
-      Abra <strong>Google Authenticator</strong>, <strong>Authy</strong> ou <strong>Microsoft Authenticator</strong> e escaneie:
+<div class="grid gap-6 lg:grid-cols-2 lg:items-start">
+  <c-card titulo="Passo 1: escaneie o QR code">
+    <p class="mb-4 text-texto-suave">
+      Abra <strong class="text-texto">Google Authenticator</strong>, <strong class="text-texto">Authy</strong> ou <strong class="text-texto">Microsoft Authenticator</strong> e escaneie:
     </p>
-    <div class="text-center p-6 bg-[#f5efe8] rounded-2xl mb-2">
-      {# SVG (sem Pillow na imagem de producao); w-full escala o viewBox ate 240px #}
+    <div class="mb-4 rounded-xl bg-fundo p-4 text-center sm:p-6">
+      {# SVG com fundo branco proprio (sem Pillow na imagem de producao); w-full escala o viewBox ate 240px #}
       <img src="data:image/svg+xml;base64,{{ qr_b64 }}" alt="QR code TOTP" width="240" height="240"
-           class="w-full max-w-[240px] border-[6px] border-white rounded-xl shadow-md mx-auto">
+           class="mx-auto w-full max-w-60 rounded-lg">
     </div>
     <details>
-      <summary class="cursor-pointer text-marca font-bold text-[0.85rem]">
-        Não consegue escanear? Digite manualmente
-      </summary>
-      <div class="font-mono text-[0.9rem] bg-fundo px-3 py-2 rounded-lg border border-dashed border-marca-forte break-all mt-3 text-marca font-bold">{{ secret_b32 }}</div>
+      <summary class="cursor-pointer text-sm font-bold text-marca">Não consegue escanear? Digite manualmente</summary>
+      <p class="mt-3 break-all rounded-lg border border-dashed border-marca-forte bg-fundo px-3 py-2 font-mono text-base font-bold text-marca">{{ secret_b32 }}</p>
     </details>
-  </div>
+  </c-card>
 
-  <div class="bg-superficie rounded-2xl shadow-sm p-5">
-    <h2 class="font-extrabold text-texto mb-1">Passo 2: confirme o código gerado</h2>
-    <p class="text-[0.85rem] text-texto-suave mb-3">
-      Digite os 6 dígitos que apareceram no app:
-    </p>
-    <form method="post">
+  <c-card titulo="Passo 2: confirme o código gerado">
+    <form method="post" class="flex flex-col gap-4">
       {% csrf_token %}
       <input type="hidden" name="next" value="{{ next }}">
       <input type="hidden" name="acao" value="confirmar">
-      <input type="text" name="token"
-             maxlength="6" pattern="\d{6}" autocomplete="one-time-code"
-             placeholder="000000" required autofocus
-             class="w-full px-4 py-3 rounded-xl border-2 border-borda bg-fundo text-texto text-2xl text-center font-bold font-mono tracking-[0.4em] focus:border-marca transition-colors">
-      <div class="flex gap-2 mt-4">
-        <button type="submit"
-                class="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.9rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-          </svg>
-          Confirmar e ativar
-        </button>
-        <button type="submit" name="acao" value="gerar" formnovalidate
-                class="px-4 py-2 rounded-xl bg-superficie text-texto-suave text-[0.9rem] font-bold border border-borda cursor-pointer hover:bg-fundo transition-colors">
-          Gerar novo QR
-        </button>
+      <c-campo nome="token" id="token-confirmar" label="Código de 6 dígitos" ajuda="O número que aparece agora no app autenticador."
+               class="text-2xl text-center font-bold font-mono tracking-[0.4em]"
+               maxlength="6" pattern="\d{6}" inputmode="numeric" autocomplete="one-time-code"
+               placeholder="000000" required autofocus></c-campo>
+      <div class="flex flex-wrap gap-2">
+        <c-botao tipo="submit" icone="check">Confirmar e ativar</c-botao>
+        <c-botao tipo="submit" variante="secundario" name="acao" value="gerar" formnovalidate>Gerar novo QR</c-botao>
       </div>
     </form>
-  </div>
+  </c-card>
+</div>
 
 {% else %}
-  <div class="flex items-center gap-2 px-4 py-3 rounded-xl bg-aviso-fundo text-aviso font-bold text-[0.85rem] mb-4">
-    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-    </svg>
-    2FA DESATIVADO · sua conta está protegida só pela senha
-  </div>
-  <div class="bg-superficie rounded-2xl shadow-sm p-5">
-    <p class="text-[0.9rem] text-texto-suave mb-4">
-      Autenticação de 2 fatores adiciona uma camada extra de segurança: além da senha,
-      você precisará digitar um código de 6 dígitos gerado a cada 30 segundos pelo app.
-    </p>
-    <p class="text-[0.88rem] text-texto-suave mb-4">
-      Apps compatíveis: <strong>Google Authenticator</strong>, <strong>Authy</strong>, <strong>Microsoft Authenticator</strong>, <strong>1Password</strong>.
-    </p>
-    <form method="post">
-      {% csrf_token %}
-      <input type="hidden" name="next" value="{{ next }}">
-      <input type="hidden" name="acao" value="gerar">
-      <button type="submit"
-              class="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.9rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-        </svg>
-        Ativar 2FA agora
-      </button>
-    </form>
-  </div>
-{% endif %}
+{# ── Desativado ── #}
+<c-nota tom="aviso" icone="cadeado" titulo="2FA desativado" class="mb-6">
+  <p>Sua conta está protegida só pela senha.</p>
+</c-nota>
 
-</div>
+<c-card titulo="Ative a verificação em duas etapas" icone="escudo" class="max-w-2xl">
+  <p class="mb-3 text-texto-suave">
+    Autenticação de 2 fatores adiciona uma camada extra de segurança: além da senha,
+    você precisará digitar um código de 6 dígitos gerado a cada 30 segundos pelo app.
+  </p>
+  <p class="mb-4 text-texto-suave">
+    Apps compatíveis: <strong class="text-texto">Google Authenticator</strong>, <strong class="text-texto">Authy</strong>, <strong class="text-texto">Microsoft Authenticator</strong>, <strong class="text-texto">1Password</strong>.
+  </p>
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    <input type="hidden" name="acao" value="gerar">
+    <c-botao tipo="submit" icone="escudo">Ativar 2FA agora</c-botao>
+  </form>
+</c-card>
+{% endif %}
 {% endblock %}

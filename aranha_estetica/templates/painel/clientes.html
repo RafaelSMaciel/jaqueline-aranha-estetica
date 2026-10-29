@@ -1,184 +1,121 @@
 {% extends 'painel/base_v2.html' %}
+{% load painel_tags %}
 
+{% block titulo %}Clientes — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Clientes{% endblock %}
 {% block page_subtitle %}Gerencie todos os clientes da clínica{% endblock %}
 {% block page_actions %}
-<a href="{% url 'aranha:admin_lista_espera' %}"
-   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold border-2 border-marca-forte text-marca bg-superficie hover:bg-marca-forte hover:text-sobre-marca transition-colors no-underline">
-  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-  </svg>
-  Lista de espera
-</a>
+<c-botao variante="secundario" href="{% url 'aranha:admin_lista_espera' %}" icone="espera">Lista de espera</c-botao>
 {% endblock %}
 
 {% block admin_content %}
 
-{# ── Busca servidor (GET) ── #}
-<div class="bg-superficie rounded-2xl shadow-sm p-4 mb-3">
-  <form method="GET" class="flex gap-2 items-end">
-    <div class="flex-1">
-      <label for="searchInput" class="sr-only">Buscar cliente</label>
-      <input
-        type="text"
-        id="searchInput"
-        name="search"
-        class="w-full px-3 py-2 rounded-xl border border-borda text-[0.875rem] text-texto bg-fundo placeholder-texto-suave transition"
-        placeholder="Buscar por nome, CPF, email ou telefone..."
-        value="{{ search }}"
-      >
+{# ── Busca no servidor (GET): todas as paginas ── #}
+<c-card class="mb-6">
+  <form method="get" role="search" class="barra-filtros">
+    <div class="grupo-campo">
+      <label for="searchInput" class="rotulo">Buscar cliente</label>
+      <input type="search" id="searchInput" name="search" class="campo" value="{{ search }}"
+             placeholder="Nome, CPF, e-mail ou telefone">
     </div>
-    <button
-      type="submit"
-      class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.82rem] font-bold hover:opacity-90 transition-opacity"
-    >
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-      </svg>
-      Buscar
-    </button>
-    {% if search %}
-    <a href="{% url 'aranha:painel_clientes' %}"
-       class="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-borda text-[0.82rem] text-texto-suave hover:text-texto hover:border-texto-suave transition-colors no-underline"
-       title="Limpar busca" aria-label="Limpar busca">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-      </svg>
-    </a>
-    {% endif %}
+    <div class="barra-filtros-acoes">
+      <c-botao tipo="submit" icone="busca">Buscar</c-botao>
+      {% if search %}<c-botao variante="secundario" href="{% url 'aranha:painel_clientes' %}" icone="fechar">Limpar busca</c-botao>{% endif %}
+    </div>
   </form>
-</div>
+</c-card>
 
-{# ── Filtro instantâneo (client-side via painel-busca.js) ── #}
-<div class="bg-superficie rounded-2xl shadow-sm px-4 py-2 mb-3">
-  <input
-    type="text"
-    id="filtroClientesInstant" aria-label="Filtrar clientes visíveis"
-    class="w-full px-0 py-1.5 text-[0.85rem] text-texto bg-transparent border-none placeholder-texto-suave"
-    placeholder="Filtrar visíveis..."
-    data-search-filter="#listaClientes"
-    data-search-counter="#cntClientesVisiveis"
-    data-search-empty="#emptyFiltroClientes"
-  >
-</div>
-
-{# ── Contador ── #}
-<p class="text-[0.78rem] font-bold text-texto-suave mb-2 flex items-center gap-1">
-  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-    <path stroke-linecap="round" stroke-linejoin="round" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
-    <path stroke-linecap="round" stroke-linejoin="round" d="M23 21v-2a4 4 0 00-3-3.87"/><path stroke-linecap="round" stroke-linejoin="round" d="M16 3.13a4 4 0 010 7.75"/>
-  </svg>
-  <span id="cntClientesVisiveis">{{ clientes|length }}</span> cliente(s)
-  {% if clientes.has_other_pages %}<span class="font-normal">nesta página · {{ clientes.paginator.count }} no total</span>{% endif %}
-</p>
-
-{# ── Lista de clientes ── #}
-<div id="listaClientes" data-search-rows=".cliente-card">
-  {% for cliente in clientes %}
-  <div class="cliente-card flex items-center gap-3 bg-superficie rounded-2xl shadow-sm px-4 py-3 mb-2 hover:shadow-md hover:-translate-y-px transition-all duration-200"
-       data-search-text="{{ cliente.nome }} {{ cliente.cpf|default:'' }} {{ cliente.email|default:'' }} {{ cliente.telefone|default:'' }}">
-
-    {# Avatar com iniciais #}
-    <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 font-extrabold text-[0.75rem] bg-destaque-fundo text-destaque" aria-hidden="true">
-      {{ cliente.nome|make_list|first }}{{ cliente.nome|make_list|last }}
+<c-card titulo="{% if search %}Resultado da busca{% else %}Clientes cadastrados{% endif %}" icone="clientes" espaco="nenhum">
+  {# Filtro instantaneo so nas linhas desta pagina (static/src/js/painel-busca.js) #}
+  <c-slot name="acoes">{% if clientes %}
+    <div class="relative w-full sm:w-64">
+      <c-icone nome="filtro" class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-texto-suave" />
+      <input type="search" id="filtroClientesInstant" aria-label="Filtrar clientes desta página"
+             class="campo campo-sm pl-8" placeholder="Filtrar nesta página"
+             data-search-filter="#listaClientes"
+             data-search-counter="#cntClientesVisiveis"
+             data-search-empty="#emptyFiltroClientes">
     </div>
+  {% endif %}</c-slot>
 
-    {# Info #}
-    <div class="flex-1 min-w-0">
-      <div class="font-bold text-[0.9rem] truncate">
-        <a href="{% url 'aranha:admin_cliente_detalhe' cliente.pk %}" class="text-texto no-underline hover:text-marca transition-colors">
-          {{ cliente.nome }}
-        </a>
-      </div>
-      <div class="text-[0.72rem] text-texto-suave mt-0.5">
-        {% if cliente.telefone %}
-        <span class="inline-flex items-center gap-1">
-          <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
-          {{ cliente.telefone }}
-        </span>
-        {% endif %}
-        {% if cliente.email %}
-        <span class="inline-flex items-center gap-1 ml-1">
-          <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-          {{ cliente.email }}
-        </span>
-        {% endif %}
-      </div>
-      <div class="text-[0.72rem] text-texto-suave mt-0.5">
-        {% if cliente.cpf %}CPF: {{ cliente.cpf }} &bull; {% endif %}
-        {% if cliente.data_nascimento %}Nasc: {{ cliente.data_nascimento|date:"d/m/Y" }} &bull; {% endif %}
-        Cadastro: {{ cliente.criado_em|date:"d/m/Y" }}
-        &bull;
-        <span class="font-extrabold {% if cliente.ativo %}text-sucesso{% else %}text-erro{% endif %}">
-          {% if cliente.ativo %}ATIVO{% else %}INATIVO{% endif %}
-        </span>
-      </div>
-    </div>
+  {% if clientes %}
+  <p class="px-5 py-3 border-b border-borda text-legenda text-texto-suave" role="status">
+    <span id="cntClientesVisiveis" class="font-bold text-texto">{{ clientes|length }}</span> cliente(s)
+    {% if clientes.has_other_pages %}nesta página · {{ clientes.paginator.count }} no total{% endif %}
+  </p>
 
-    {# Ações rápidas #}
-    <div class="flex gap-1.5 flex-shrink-0">
-      {% if cliente.telefone %}
-      <a href="https://wa.me/55{{ cliente.telefone|cut:'('|cut:')'|cut:'-'|cut:' ' }}"
-         target="_blank" rel="noopener"
-         class="w-8 h-8 rounded-lg flex items-center justify-center bg-sucesso-fundo text-sucesso hover:bg-sucesso-fundo transition-colors no-underline"
-         title="WhatsApp">
-        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-        </svg>
-      </a>
-      {% endif %}
-      {% if cliente.email %}
-      <a href="mailto:{{ cliente.email }}"
-         class="w-8 h-8 rounded-lg flex items-center justify-center bg-info-fundo text-info hover:bg-info-fundo transition-colors no-underline"
-         title="Email">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-        </svg>
-      </a>
-      {% endif %}
-    </div>
+  <c-tabela legenda="Clientes" responsiva="1" id="listaClientes" data-search-rows=".cliente-card">
+    <thead>
+      <tr>
+        <th scope="col">Cliente</th>
+        <th scope="col">Contato</th>
+        <th scope="col">Cadastro</th>
+        <th scope="col">Situação</th>
+        <th scope="col"><span class="sr-only">Ações</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for cliente in clientes %}
+      <tr class="cliente-card"
+          data-search-text="{{ cliente.nome }} {{ cliente.cpf|default:'' }} {{ cliente.email|default:'' }} {{ cliente.telefone|default:'' }}">
+        <td>
+          <div class="flex items-center gap-3 min-w-0">
+            <span class="avatar" aria-hidden="true">{{ cliente.nome|iniciais }}</span>
+            <div class="min-w-0">
+              <a href="{% url 'aranha:admin_cliente_detalhe' cliente.pk %}" class="font-bold text-texto no-underline hover:text-marca hover:underline">{{ cliente.nome }}</a>
+              {% if cliente.cpf or cliente.data_nascimento %}
+              <p class="text-legenda text-texto-suave">
+                {% if cliente.cpf %}CPF {{ cliente.cpf }}{% endif %}{% if cliente.cpf and cliente.data_nascimento %} · {% endif %}{% if cliente.data_nascimento %}Nasc. {{ cliente.data_nascimento|date:"d/m/Y" }}{% endif %}
+              </p>
+              {% endif %}
+            </div>
+          </div>
+        </td>
+        <td data-rotulo="Contato">
+          <div class="min-w-0 text-sm">
+            {% if cliente.telefone %}<p class="text-texto tabular-nums">{{ cliente.telefone }}</p>{% endif %}
+            {% if cliente.email %}<p class="text-texto-suave break-all">{{ cliente.email }}</p>{% endif %}
+            {% if not cliente.telefone and not cliente.email %}<p class="text-texto-suave">Sem contato</p>{% endif %}
+          </div>
+        </td>
+        <td data-rotulo="Cadastro" class="text-sm tabular-nums">{{ cliente.criado_em|date:"d/m/Y" }}</td>
+        <td data-rotulo="Situação">
+          {% if cliente.ativo %}<c-selo tom="sucesso">Ativo</c-selo>{% else %}<c-selo tom="erro">Inativo</c-selo>{% endif %}
+        </td>
+        <td class="acoes">
+          {% if cliente.telefone %}
+          <c-botao variante="fantasma" tamanho="sm" so_icone="1" icone="whatsapp"
+                   href="https://wa.me/55{{ cliente.telefone|cut:'('|cut:')'|cut:'-'|cut:' ' }}"
+                   target="_blank" rel="noopener"
+                   aria-label="WhatsApp de {{ cliente.nome }} (abre em nova aba)" title="WhatsApp"></c-botao>
+          {% endif %}
+          {% if cliente.email %}
+          <c-botao variante="fantasma" tamanho="sm" so_icone="1" icone="email" href="mailto:{{ cliente.email }}"
+                   aria-label="Enviar e-mail para {{ cliente.nome }}" title="E-mail"></c-botao>
+          {% endif %}
+          <c-botao variante="secundario" tamanho="sm" href="{% url 'aranha:admin_cliente_detalhe' cliente.pk %}"
+                   aria-label="Abrir a ficha de {{ cliente.nome }}">Abrir ficha</c-botao>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </c-tabela>
+
+  {# Estado vazio do filtro instantaneo (painel-busca.js mostra quando nenhuma linha bate) #}
+  <div id="emptyFiltroClientes" hidden>
+    <c-vazio titulo="Nenhum cliente bate com o filtro" texto="Ajuste o termo ou limpe o campo." icone="filtro" />
   </div>
-  {% empty %}
-  <div class="bg-superficie rounded-2xl p-12 text-center shadow-sm">
-    <div class="w-16 h-16 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mx-auto mb-4">
-      <svg class="w-7 h-7 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
-        <path stroke-linecap="round" stroke-linejoin="round" d="M23 21v-2a4 4 0 00-3-3.87"/><path stroke-linecap="round" stroke-linejoin="round" d="M16 3.13a4 4 0 010 7.75"/>
-      </svg>
-    </div>
-    <p class="font-serif font-bold text-texto mb-1">
-      {% if search %}Nada encontrado{% else %}Nenhum cliente cadastrado{% endif %}
-    </p>
-    <p class="text-[0.85rem] text-texto-suave mb-4">
-      {% if search %}
-        Nenhum cliente para "{{ search }}". Tente outro termo.
-      {% else %}
-        Cadastre o primeiro cliente para começar a registrar agendamentos.
-      {% endif %}
-    </p>
-    {% if search %}
-    <a href="{% url 'aranha:painel_clientes' %}"
-       class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.82rem] font-bold hover:opacity-90 transition-opacity no-underline">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-      </svg>
-      Limpar busca
-    </a>
-    {% endif %}
-  </div>
-  {% endfor %}
-</div>
-
-{# ── Empty state do filtro instantâneo ── #}
-<div id="emptyFiltroClientes" class="bg-superficie rounded-2xl p-10 text-center shadow-sm" style="display:none;">
-  <div class="w-14 h-14 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mx-auto mb-3">
-    <svg class="w-6 h-6 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
-      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-    </svg>
-  </div>
-  <p class="font-serif font-bold text-texto mb-1">Nenhum cliente bate com o filtro</p>
-  <p class="text-[0.85rem] text-texto-suave">Ajuste o termo ou limpe o campo.</p>
-</div>
+  {% else %}
+  {% if search %}
+  <c-vazio titulo="Nada encontrado" texto="Nenhum cliente para “{{ search }}”. Tente outro termo." icone="busca">
+    <c-botao variante="secundario" href="{% url 'aranha:painel_clientes' %}" icone="fechar">Limpar busca</c-botao>
+  </c-vazio>
+  {% else %}
+  <c-vazio titulo="Nenhum cliente cadastrado" icone="clientes"
+           texto="Cadastre o primeiro cliente para começar a registrar agendamentos." />
+  {% endif %}
+  {% endif %}
+</c-card>
 
 {% include 'partials/_paginacao.html' with page=clientes %}
 

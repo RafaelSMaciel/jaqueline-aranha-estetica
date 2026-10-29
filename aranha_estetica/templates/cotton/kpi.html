@@ -1,0 +1,15 @@
+<c-vars rotulo="" valor="" detalhe="" icone="" href="" variacao="" tendencia="igual" comparacao="" class="" />
+{% comment %}
+Indicador (.kpi) num cartao. `variacao` (ex.: "+12%") + `tendencia` sobe|desce|igual + `comparacao`
+("vs. semana passada"): seta, sinal e texto — nunca so a cor. `href` torna o cartao um link.
+{% endcomment %}
+{% if href %}<a href="{{ href }}"{% else %}<div{% endif %} class="cartao kpi{% if class %} {{ class }}{% endif %}" {{ attrs }}>
+  <div class="kpi-topo">
+    <p class="kpi-rotulo">{{ rotulo }}</p>
+    {% if icone %}<span class="kpi-icone"><c-icone nome="{{ icone }}" class="" /></span>{% endif %}
+  </div>
+  <p class="kpi-valor">{{ valor }}</p>
+  {% if variacao %}<p class="kpi-variacao kpi-variacao-{{ tendencia }}"><c-icone nome="{% if tendencia == 'desce' %}tendencia-desce{% elif tendencia == 'sobe' %}tendencia-sobe{% else %}avancar{% endif %}" class="" />{{ variacao }}{% if comparacao %} <span class="font-normal text-texto-suave">{{ comparacao }}</span>{% endif %}</p>{% endif %}
+  {% if detalhe %}<p class="kpi-detalhe">{{ detalhe }}</p>{% endif %}
+  {{ slot }}
+{% if href %}</a>{% else %}</div>{% endif %}

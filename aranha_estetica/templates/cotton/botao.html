@@ -1,8 +1,12 @@
-<c-vars variante="solido" tipo="button" loading="" class="" />
+<c-vars variante="primario" tamanho="" tipo="button" href="" icone="" so_icone="" loading="" class="" />
 {% comment %}
-Botao da marca. `class` e declarado em c-vars p/ ser MESCLADO ao class base
-(sem isso sairia um 2o atributo class via {{ attrs }} e o navegador o ignoraria).
+Botao do design system (static/src/css/componentes.css: .btn).
+  variante: primario (padrao) | secundario | perigo | perigo-contorno | sucesso | fantasma | link
+            (legado: solido = primario, ghost = secundario)
+  tamanho: sm | lg (vazio = medio, 40px)    icone: nome do <c-icone> antes do texto
+  so_icone: so o icone (passe aria-label)   href: vira <a> (link com cara de botao)
+  loading: desabilita e mostra o giro       tipo: button (padrao) | submit
+`class` fica em c-vars p/ ser MESCLADO ao class base (sem isso sairia um 2o atributo class via
+attrs e o navegador o ignoraria); o resto (name, value, form, data-confirm, aria-*) vai em attrs.
 {% endcomment %}
-<button type="{{ tipo }}"{% if loading %} disabled{% endif %}
-        class="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition {% if variante == 'ghost' %}border border-borda text-texto hover:bg-fundo{% elif variante == 'link' %}text-marca underline underline-offset-4{% else %}bg-marca-forte text-sobre-marca hover:opacity-90{% endif %}{% if loading %} opacity-60 cursor-not-allowed{% endif %} {{ class }}"
-        {{ attrs }}>{% if loading %}<span aria-hidden="true" class="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></span>{% endif %}{{ slot }}</button>
+{% if href %}<a href="{{ href }}"{% else %}<button type="{{ tipo }}"{% if loading %} disabled aria-busy="true"{% endif %}{% endif %} class="btn btn-{% if variante == 'solido' or not variante %}primario{% elif variante == 'ghost' %}secundario{% else %}{{ variante }}{% endif %}{% if tamanho %} btn-{{ tamanho }}{% endif %}{% if so_icone %} btn-icone{% endif %}{% if class %} {{ class }}{% endif %}" {{ attrs }}>{% if loading %}<span aria-hidden="true" class="btn-girando"></span>{% endif %}{% if icone %}<c-icone nome="{{ icone }}" class="" />{% endif %}{{ slot }}{% if href %}</a>{% else %}</button>{% endif %}

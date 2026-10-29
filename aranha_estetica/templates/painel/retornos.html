@@ -5,36 +5,37 @@
 {% block page_subtitle %}Retorno sem custo dos procedimentos que pedem acompanhamento — marque com a cliente dentro do prazo{% endblock %}
 
 {% block admin_content %}
-<div class="bg-superficie rounded-2xl shadow-sm overflow-hidden max-w-4xl">
+<c-card titulo="Retornos dentro do prazo" icone="retornos" espaco="nenhum"
+        descricao="{% if devidos %}Do prazo mais curto ao mais longo{% endif %}">
   {% if devidos %}
-  <table class="w-full text-[0.85rem]">
-    <caption class="sr-only">Retornos a marcar, do prazo mais curto ao mais longo</caption>
-    <thead class="bg-fundo text-left text-[0.72rem] uppercase tracking-wide text-texto-suave">
+  <c-tabela legenda="Retornos a marcar, do prazo mais curto ao mais longo" responsiva="1">
+    <thead>
       <tr>
-        <th scope="col" class="px-4 py-2">Cliente</th>
-        <th scope="col" class="px-4 py-2">Procedimento</th>
-        <th scope="col" class="px-4 py-2">Realizado em</th>
-        <th scope="col" class="px-4 py-2">Marcar entre</th>
-        <th scope="col" class="px-4 py-2"><span class="sr-only">Ação</span></th>
+        <th scope="col">Cliente</th>
+        <th scope="col">Procedimento</th>
+        <th scope="col">Realizado em</th>
+        <th scope="col">Marcar entre</th>
+        <th scope="col"><span class="sr-only">Ação</span></th>
       </tr>
     </thead>
     <tbody>
       {% for r in devidos %}
-      <tr class="border-t border-borda">
-        <td class="px-4 py-2.5"><a href="{% url 'aranha:admin_cliente_detalhe' r.origem.cliente_id %}" class="font-bold text-texto no-underline hover:underline">{{ r.origem.cliente.nome }}</a></td>
-        <td class="px-4 py-2.5 text-texto">{{ r.origem.procedimento.nome }}</td>
-        <td class="px-4 py-2.5 text-texto-suave">{{ r.origem.data_hora_inicio|date:"d/m/Y" }}</td>
-        <td class="px-4 py-2.5 text-texto">{{ r.de|date:"d/m" }} a <strong>{{ r.ate|date:"d/m/Y" }}</strong></td>
-        <td class="px-4 py-2.5 text-right">
-          <a href="{% url 'aranha:admin_agendar_retorno' r.origem.pk %}"
-             class="inline-flex px-3 py-1.5 rounded-lg bg-marca-forte text-sobre-marca text-[0.78rem] font-bold no-underline hover:opacity-90">Marcar retorno</a>
+      <tr>
+        <td><a href="{% url 'aranha:admin_cliente_detalhe' r.origem.cliente_id %}" class="font-bold text-texto no-underline hover:text-marca hover:underline">{{ r.origem.cliente.nome }}</a></td>
+        <td data-rotulo="Procedimento">{{ r.origem.procedimento.nome }}</td>
+        <td data-rotulo="Realizado em" class="tabular-nums text-texto-suave">{{ r.origem.data_hora_inicio|date:"d/m/Y" }}</td>
+        <td data-rotulo="Marcar entre" class="tabular-nums">{{ r.de|date:"d/m" }} a <strong>{{ r.ate|date:"d/m/Y" }}</strong></td>
+        <td class="acoes">
+          <c-botao tamanho="sm" icone="agenda" href="{% url 'aranha:admin_agendar_retorno' r.origem.pk %}"
+                   aria-label="Marcar retorno de {{ r.origem.cliente.nome }}">Marcar retorno</c-botao>
         </td>
       </tr>
       {% endfor %}
     </tbody>
-  </table>
+  </c-tabela>
   {% else %}
-  <p class="p-6 text-[0.9rem] text-texto-suave">Nenhum retorno a marcar. Quando um procedimento com retorno é realizado, ele aparece aqui até o fim do prazo.</p>
+  <c-vazio titulo="Nenhum retorno a marcar" icone="retornos"
+           texto="Quando um procedimento com retorno é realizado, ele aparece aqui até o fim do prazo." />
   {% endif %}
-</div>
+</c-card>
 {% endblock %}

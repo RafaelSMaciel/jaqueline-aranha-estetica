@@ -1,84 +1,112 @@
 // painel-calendario.js — FullCalendar do painel (painel/calendar.html).
 //
-// A biblioteca vem do CDN (script classico com SRI e nonce, antes deste modulo). Daqui saem:
-// eventos por AJAX (data-url-eventos), arrasto para reagendar (data-url-mover, resposta no
-// contrato de utils/respostas) e o modal do atendimento. Sem handler inline (CSP com nonce).
-import { postJson } from './lib/requisicao.js';
+// A biblioteca vem do npm, empacotada pelo Vite (nada de CDN: sem host externo na CSP e o arquivo
+// sai com hash no manifest). O FullCalendar 6 injeta o proprio CSS: o template traz um
+// <style data-fullcalendar nonce> vazio que ele reaproveita (CSP com nonce, sem 'unsafe-inline').
+// Daqui saem: eventos por AJAX (data-url-eventos), arrasto para reagendar (data-url-mover, resposta
+// no contrato de utils/respostas) e o modal do atendimento. Sem handler inline.
+import { Calendar } from '@fullcalendar/core'
+import ptBrLocale from '@fullcalendar/core/locales/pt-br'
+import dayGridPlugin from '@fullcalendar/daygrid'
+import timeGridPlugin from '@fullcalendar/timegrid'
+import listPlugin from '@fullcalendar/list'
+import interactionPlugin from '@fullcalendar/interaction'
+import { postJson } from './lib/requisicao.js'
 
-const calendarEl = document.getElementById('calendar');
+const calendarEl = document.getElementById('calendar')
+const ROTULOS_STATUS = {
+  PENDENTE: 'Pendente', AGENDADO: 'Agendado', CONFIRMADO: 'Confirmado', REALIZADO: 'Realizado',
+  CANCELADO: 'Cancelado', FALTOU: 'Faltou', REAGENDADO: 'Reagendado',
+}
 
-// Setas do FullCalendar: o <span class="fc-icon" role="img"> sai sem nome (axe role-img-alt).
-// O nome fica no botao (aria-label) e o icone vira decorativo. Reaplica a cada troca de periodo.
-const NOMES_SETAS = { 'fc-prev-button': 'Período anterior', 'fc-next-button': 'Próximo período' };
-function nomearSetas() {
-  Object.keys(NOMES_SETAS).forEach(function (cls) {
-    calendarEl.querySelectorAll('.' + cls).forEach(function (b) { b.setAttribute('aria-label', NOMES_SETAS[cls]); });
-  });
-  calendarEl.querySelectorAll('.fc-icon').forEach(function (i) { i.setAttribute('aria-hidden', 'true'); });
-  // area com rolagem precisa receber foco p/ rolar pelo teclado (WCAG 2.1.1)
-  calendarEl.querySelectorAll('.fc-scroller-liquid-absolute, .fc-scroller').forEach(function (r) {
-    if (r.scrollHeight > r.clientHeight && !r.hasAttribute('tabindex')) {
-      r.setAttribute('tabindex', '0');
-      r.setAttribute('role', 'region');
-      r.setAttribute('aria-label', 'Grade da agenda (role com as setas)');
+// Acessibilidade do que o FullCalendar desenha (axe: role-img-alt, aria-required-children,
+// scrollable-region-focusable, aria-prohibited-attr). Reaplicado a cada troca de periodo/visao.
+const NOMES_SETAS = { 'fc-prev-button': 'Período anterior', 'fc-next-button': 'Próximo período' }
+function ajustarAcessibilidade() {
+  Object.keys(NOMES_SETAS).forEach((cls) => {
+    calendarEl.querySelectorAll('.' + cls).forEach((b) => b.setAttribute('aria-label', NOMES_SETAS[cls]))
+  })
+  calendarEl.querySelectorAll('.fc-icon').forEach((i) => i.setAttribute('aria-hidden', 'true'))
+  // A grade e um <table role="grid"> de LAYOUT cujo cabecalho e corpo sao OUTRAS tabelas, dentro
+  // de celulas role=presentation: o grid externo fica sem linhas (aria-required-children) e as
+  // linhas internas sem grid (aria-required-parent). O ARIA de grade do FullCalendar 6 nao fecha;
+  // tudo vira tabela de layout (presentation) e a informacao segue no texto: dia da semana, hora
+  // e os eventos (links com o nome da cliente e o horario).
+  calendarEl.querySelectorAll('[role="grid"], [role="rowgroup"], [role="row"], [role="columnheader"], [role="rowheader"], [role="gridcell"]')
+    .forEach((el) => el.setAttribute('role', 'presentation'))
+  // area com rolagem precisa receber foco p/ rolar pelo teclado (WCAG 2.1.1); nome so com papel
+  calendarEl.querySelectorAll('.fc-scroller').forEach((r) => {
+    const rola = r.scrollHeight > r.clientHeight + 1
+    if (rola && !r.hasAttribute('tabindex')) {
+      r.setAttribute('tabindex', '0')
+      r.setAttribute('role', 'region')
+      r.setAttribute('aria-label', 'Grade da agenda (role com as setas)')
+    } else if (!rola && r.getAttribute('role') === 'region') {
+      r.removeAttribute('tabindex')
+      r.removeAttribute('role')
+      r.removeAttribute('aria-label')
     }
-  });
+  })
 }
 
 function iniciar() {
-  const filtroProfissional = document.getElementById('filtroProfissional');
-  const modal = document.getElementById('calModal');
-  const celular = window.matchMedia('(max-width: 640px)').matches;
-  const urlEventos = calendarEl.dataset.urlEventos;
-  const urlMover = calendarEl.dataset.urlMover;
+  const filtroProfissional = document.getElementById('filtroProfissional')
+  const modal = document.getElementById('calModal')
+  const celular = window.matchMedia('(max-width: 640px)').matches
+  const urlEventos = calendarEl.dataset.urlEventos
+  const urlMover = calendarEl.dataset.urlMover
 
   function eventsSource(info, success, failure) {
-    let url = urlEventos + '?start=' + encodeURIComponent(info.startStr) + '&end=' + encodeURIComponent(info.endStr);
-    if (filtroProfissional.value) url += '&profissional=' + encodeURIComponent(filtroProfissional.value);
+    let url = urlEventos + '?start=' + encodeURIComponent(info.startStr) + '&end=' + encodeURIComponent(info.endStr)
+    if (filtroProfissional.value) url += '&profissional=' + encodeURIComponent(filtroProfissional.value)
     fetch(url, { credentials: 'same-origin' })
-      .then(function (r) { return r.json(); })
+      .then((r) => r.json())
       .then(success)
-      .catch(failure);
+      .catch(failure)
   }
 
-  function texto(id, valor) { document.getElementById(id).textContent = valor; }
+  function texto(id, valor) { document.getElementById(id).textContent = valor }
 
   function showEvent(info) {
-    const e = info.event;
-    const p = e.extendedProps || {};
-    if (!p.status) return;   // bloqueio/folga (evento de fundo): nao ha atendimento p/ mostrar
-    texto('cmClienteNome', p.cliente_nome || e.title);
-    const statusEl = document.getElementById('cmStatus');
-    statusEl.textContent = p.status || '–';
-    statusEl.className = 'status-pill status-' + (p.status || 'X');
-    texto('cmProcedimento', p.procedimento || '–');
-    texto('cmProfissional', p.profissional || '–');
-    texto('cmData', e.start ? e.start.toLocaleString('pt-BR') : '–');
-    texto('cmTelefone', p.cliente_telefone || '–');
-    texto('cmValor', p.valor ? 'R$ ' + p.valor.toFixed(2).replace('.', ',') : '–');
-    modal.showModal();
+    const e = info.event
+    const p = e.extendedProps || {}
+    if (!p.status) return   // bloqueio/folga (evento de fundo): nao ha atendimento p/ mostrar
+    info.jsEvent?.preventDefault()
+    texto('cmClienteNome', p.cliente_nome || e.title)
+    const statusEl = document.getElementById('cmStatus')
+    statusEl.textContent = ROTULOS_STATUS[p.status] || p.status || '–'
+    statusEl.className = 'selo status-' + (p.status || 'X')
+    texto('cmProcedimento', p.procedimento || '–')
+    texto('cmProfissional', p.profissional || '–')
+    texto('cmData', e.start ? e.start.toLocaleString('pt-BR', { dateStyle: 'full', timeStyle: 'short' }) : '–')
+    texto('cmTelefone', p.cliente_telefone || '–')
+    texto('cmValor', p.valor ? p.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '–')
+    modal.showModal()
   }
 
   function moverEvento(info) {
     if (!confirm('Reagendar para ' + info.event.start.toLocaleString('pt-BR') + '?')) {
-      info.revert();
-      return;
+      info.revert()
+      return
     }
-    const fim = info.event.end || info.event.start;
+    const fim = info.event.end || info.event.start
     postJson(urlMover, { id: info.event.id, start: info.event.start.toISOString(), end: fim.toISOString() })
-      .then(function (data) {
+      .then((data) => {
         if (!data.ok) {
-          alert('Erro: ' + (data.mensagem || 'Falha ao mover'));
-          info.revert();
+          alert('Erro: ' + (data.mensagem || 'Falha ao mover'))
+          info.revert()
         }
       })
-      .catch(function () { alert('Erro de rede.'); info.revert(); });
+      .catch(() => { alert('Erro de rede.'); info.revert() })
   }
 
-  const calendar = new window.FullCalendar.Calendar(calendarEl, {
-    locale: 'pt-br',
+  const calendar = new Calendar(calendarEl, {
+    plugins: [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin],
+    locale: ptBrLocale,
     buttonHints: { prev: 'Período anterior', next: 'Próximo período', today: 'Ir para hoje' },
-    datesSet: nomearSetas,
+    datesSet: ajustarAcessibilidade,
+    viewDidMount: ajustarAcessibilidade,
+    eventsSet: () => requestAnimationFrame(ajustarAcessibilidade),
     // celular: lista da semana (a grade de 7 colunas nao cabe em 375px)
     initialView: celular ? 'listWeek' : 'timeGridWeek',
     headerToolbar: celular
@@ -90,17 +118,17 @@ function iniciar() {
     slotMinTime: '07:00:00',
     slotMaxTime: '21:00:00',
     slotDuration: '00:30:00',
-    height: 700,
+    height: celular ? 'auto' : 720,
+    expandRows: true,
     events: eventsSource,
     eventClick: showEvent,
     eventDrop: moverEvento,
-  });
-  calendar.render();
+  })
+  calendar.render()
+  calendarEl.calendario = calendar   // testes no navegador conferem a instancia
 
-  filtroProfissional.addEventListener('change', function () { calendar.refetchEvents(); });
-  document.getElementById('cmFechar').addEventListener('click', function () { modal.close(); });
-  modal.addEventListener('click', function (e) { if (e.target === modal) modal.close(); });
+  filtroProfissional.addEventListener('change', () => calendar.refetchEvents())
+  window.addEventListener('resize', () => requestAnimationFrame(ajustarAcessibilidade))
 }
 
-// Modulo roda depois do parse (defer); o FullCalendar do CDN ja carregou (script classico antes).
-if (calendarEl && window.FullCalendar) iniciar();
+if (calendarEl) iniciar()

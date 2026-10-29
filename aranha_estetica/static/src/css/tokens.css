@@ -56,6 +56,30 @@
   --st-cancelado-fundo: #FBE8E8;  --st-cancelado-texto: #9B2B2B;
   --st-faltou-fundo: #FCEBD7;     --st-faltou-texto: #83470A;
   --st-reagendado-fundo: #EFEAF6; --st-reagendado-texto: #583B85;
+
+  /* ── Design system do painel (equipe) ──
+     Cromo = menu lateral: escuro quente derivado da marca (cafe/ouro) nos 2 temas — nunca o
+     azul-marinho antigo. Sobre --cor-cromo-fundo: texto 13:1, suave 7,3:1, ativo 10:1 (AA). */
+  --cor-cromo-fundo: #1F1A14;
+  --cor-cromo-elevado: #2A231B;       /* hover do item / cartao do usuario */
+  --cor-cromo-borda: #3A3127;
+  --cor-cromo-texto: #E8E1D5;
+  --cor-cromo-suave: #B3A794;
+  --cor-cromo-ativo-fundo: #3A2F1C;   /* item da tela aberta (ouro sobre cafe) */
+  --cor-cromo-ativo-texto: #E3C674;   /* 7,9:1 sobre o fundo ativo */
+  /* realce neutro (hover de linha/botao fantasma, selo neutro): texto-suave 5,2:1 sobre ele */
+  --cor-fundo-realce: #F1EFE8;
+  /* borda de botao secundario e divisoria marcada (a de campo continua --cor-borda-campo) */
+  --cor-borda-forte: #D3CEC3;
+  /* ouro claro de fundo (selo/realce da marca): text-marca 5,2:1 sobre ele */
+  --cor-marca-suave: #F6EFDC;
+  --cor-marca-forte-hover: #B8963C;   /* hover do botao primario: sobre-marca 5,8:1 */
+  /* acao destrutiva preenchida + texto sobre ela (7:1 — igual nos 2 temas, como sucesso-forte) */
+  --cor-perigo-forte: #A32D2D;
+  --cor-perigo-forte-hover: #8E2626;
+  --cor-sobre-perigo: #ffffff;
+  --sombra-cartao: 0 1px 2px rgb(31 26 20 / 0.05), 0 1px 3px rgb(31 26 20 / 0.04);
+  --sombra-flutuante: 0 12px 32px rgb(31 26 20 / 0.14), 0 2px 6px rgb(31 26 20 / 0.08);
 }
 
 /* Escuro — o mesmo bloco duas vezes: escolha explicita (cookie) e sistema sem escolha. */
@@ -87,6 +111,22 @@
   --st-cancelado-fundo: #3F1F21;  --st-cancelado-texto: #F0A3A3;
   --st-faltou-fundo: #3E2A16;     --st-faltou-texto: #F3B97A;
   --st-reagendado-fundo: #2F2640; --st-reagendado-texto: #C9B3EE;
+  --cor-cromo-fundo: #15120E;
+  --cor-cromo-elevado: #211C16;
+  --cor-cromo-borda: #2E271F;
+  --cor-cromo-texto: #E8E1D5;
+  --cor-cromo-suave: #A89C89;
+  --cor-cromo-ativo-fundo: #33291A;
+  --cor-cromo-ativo-texto: #E3C674;
+  --cor-fundo-realce: #252B30;
+  --cor-borda-forte: #3A4045;
+  --cor-marca-suave: #2B2416;
+  --cor-marca-forte-hover: #B8963C;
+  --cor-perigo-forte: #A32D2D;
+  --cor-perigo-forte-hover: #8E2626;
+  --cor-sobre-perigo: #ffffff;
+  --sombra-cartao: 0 1px 2px rgb(0 0 0 / 0.3);
+  --sombra-flutuante: 0 12px 32px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.3);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
@@ -117,5 +157,21 @@
     --st-cancelado-fundo: #3F1F21;  --st-cancelado-texto: #F0A3A3;
     --st-faltou-fundo: #3E2A16;     --st-faltou-texto: #F3B97A;
     --st-reagendado-fundo: #2F2640; --st-reagendado-texto: #C9B3EE;
+    --cor-cromo-fundo: #15120E;
+    --cor-cromo-elevado: #211C16;
+    --cor-cromo-borda: #2E271F;
+    --cor-cromo-texto: #E8E1D5;
+    --cor-cromo-suave: #A89C89;
+    --cor-cromo-ativo-fundo: #33291A;
+    --cor-cromo-ativo-texto: #E3C674;
+    --cor-fundo-realce: #252B30;
+    --cor-borda-forte: #3A4045;
+    --cor-marca-suave: #2B2416;
+    --cor-marca-forte-hover: #B8963C;
+    --cor-perigo-forte: #A32D2D;
+    --cor-perigo-forte-hover: #8E2626;
+    --cor-sobre-perigo: #ffffff;
+    --sombra-cartao: 0 1px 2px rgb(0 0 0 / 0.3);
+    --sombra-flutuante: 0 12px 32px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.3);
   }
 }

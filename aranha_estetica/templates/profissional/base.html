@@ -1,6 +1,10 @@
 {% load static django_vite %}
-{# Casca do portal da profissional: area de trabalho logada, sem rodape, CTA, WhatsApp, SEO nem #}
-{# aviso de cookies do site publico. Mesmos tokens e bundle do site (tema claro/escuro). #}
+{% comment %}
+Casca do portal da profissional: area de trabalho logada (celular primeiro), sem rodape, CTA,
+WhatsApp, SEO nem aviso de cookies do site publico. Mesmo design system do painel (tela da
+equipe: componentes.css + cotton) e mesmo cabecalho de pagina (blocos page_title/page_subtitle/
+page_actions). Tema claro/escuro pelos mesmos tokens.
+{% endcomment %}
 <!doctype html>
 <html lang="pt-br" {% if tema %}data-theme="{{ tema }}"{% endif %}>
 <head>
@@ -17,30 +21,67 @@
   {% vite_asset 'aranha_estetica/static/src/js/app.js' %}
   {% block css %}{% endblock %}
 </head>
-<body class="bg-fundo text-texto antialiased">
-{% if AMBIENTE_TESTE %}<div role="note" class="bg-aviso text-superficie text-center text-[0.8rem] font-bold py-1.5 px-4">Ambiente de testes — os agendamentos daqui não são reais.</div>{% endif %}
-  <a href="#conteudo" class="sr-only focus:not-sr-only">Pular para o conteúdo</a>
-  <header class="border-b border-borda bg-superficie">
-    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
-      <div class="flex items-center gap-3 min-w-0">
-        <a href="{% url 'aranha:profissional_agenda' %}" class="font-serif text-lg font-bold text-texto no-underline truncate">{{ CLINIC_NAME }}</a>
-        <span class="hidden sm:inline text-[0.75rem] font-bold uppercase tracking-wider text-texto-suave">Portal da profissional</span>
-      </div>
-      <nav aria-label="Portal da profissional" class="flex items-center gap-2">
-        <a href="{% url 'aranha:profissional_agenda' %}"
-           class="px-3 py-1.5 rounded-full text-sm font-bold no-underline {% if request.resolver_match.url_name == 'profissional_agenda' %}bg-fundo text-texto{% else %}text-texto-suave hover:text-texto{% endif %}"
-           {% if request.resolver_match.url_name == 'profissional_agenda' %}aria-current="page"{% endif %}>Minha agenda</a>
+<body class="painel-admin bg-fundo text-texto antialiased">
+<a href="#conteudo"
+   class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[10100] focus:px-4 focus:py-2 focus:rounded-lg focus:bg-superficie focus:text-texto focus:font-bold focus:shadow-lg">Pular para o conteúdo</a>
+{% if AMBIENTE_TESTE %}<div role="note" class="bg-aviso text-superficie text-center text-sm font-bold py-1.5 px-4">Ambiente de testes — os agendamentos daqui não são reais.</div>{% endif %}
+
+  {% with rota=request.resolver_match.url_name %}
+  <header class="cromo-escuro sticky top-0 z-[100] bg-cromo-fundo text-cromo-texto border-b border-cromo-borda">
+    <div class="max-w-5xl mx-auto flex items-center gap-3 px-4 sm:px-6 h-16">
+      <a href="{% url 'aranha:profissional_agenda' %}" class="flex min-w-0 items-center gap-3 no-underline">
+        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-marca-forte/60 font-serif text-base font-semibold text-cromo-ativo-texto" aria-hidden="true">{{ CLINIC_NAME|make_list|first }}</span>
+        <span class="min-w-0">
+          <span class="block truncate font-serif text-base font-semibold leading-tight text-cromo-texto">{{ CLINIC_NAME }}</span>
+          <span class="block text-xs font-bold uppercase tracking-widest text-cromo-suave">Portal da profissional</span>
+        </span>
+      </a>
+      <div class="ml-auto flex items-center gap-1">
+        <button type="button" x-data="temaToggle" x-on:click="alternar" aria-label="Alternar tema claro/escuro" title="Alternar tema"
+                class="flex h-10 w-10 items-center justify-center rounded-lg text-cromo-suave hover:bg-cromo-elevado hover:text-cromo-texto transition-colors cursor-pointer">
+          <c-icone nome="tema" class="w-5 h-5" />
+        </button>
         <form method="post" action="{% url 'aranha:usuario_logout' %}" class="m-0">
           {% csrf_token %}
-          <button type="submit" class="px-3 py-1.5 rounded-full border border-borda bg-superficie text-sm font-bold text-texto-suave hover:text-texto cursor-pointer">Sair</button>
+          <button type="submit" class="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-bold text-cromo-suave hover:bg-cromo-elevado hover:text-cromo-texto transition-colors cursor-pointer">
+            <c-icone nome="sair" class="w-5 h-5" /><span class="hidden sm:inline">Sair</span><span class="sr-only sm:hidden">Sair</span>
+          </button>
         </form>
-      </nav>
+      </div>
     </div>
+    <nav aria-label="Portal da profissional" class="max-w-5xl mx-auto flex gap-1 overflow-x-auto px-3 sm:px-5">
+      <a href="{% url 'aranha:profissional_agenda' %}" class="menu-portal-link"
+         {% if rota == 'profissional_agenda' %}aria-current="page"{% endif %}><c-icone nome="agenda" class="" />Minha agenda</a>
+      <a href="{% url 'aranha:profissional_comissoes' %}" class="menu-portal-link"
+         {% if rota == 'profissional_comissoes' %}aria-current="page"{% endif %}><c-icone nome="comissoes" class="" />Minhas comissões</a>
+    </nav>
   </header>
-  <main id="conteudo">
-    {% block mensagens %}{% include 'cotton/chrome/mensagens.html' %}{% endblock %}
+  {% endwith %}
+
+  <main id="conteudo" tabindex="-1" class="max-w-5xl mx-auto w-full px-4 py-6 sm:px-6 sm:py-8">
+    {% block mensagens %}
+    {% if messages %}
+    <div class="mb-6 flex flex-col gap-2">
+      {% for m in messages %}
+      <c-nota tom="{% if m.level >= 40 %}erro{% elif m.level == 25 %}sucesso{% elif m.level == 30 %}aviso{% else %}info{% endif %}"
+              papel="{% if m.level >= 40 %}alert{% else %}status{% endif %}">{{ m }}</c-nota>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% endblock %}
+    {% block cabecalho_pagina %}
+    <div class="cabecalho-pagina">
+      <div class="cabecalho-pagina-texto">
+        {% block page_voltar %}{% endblock %}
+        <h1 class="titulo-pagina">{% block page_title %}Minha agenda{% endblock %}</h1>
+        <p class="subtitulo-pagina">{% block page_subtitle %}{% endblock %}</p>
+      </div>
+      <div class="acoes-pagina">{% block page_actions %}{% endblock %}</div>
+    </div>
+    {% endblock %}
     {% block conteudo %}{% endblock %}
   </main>
+  {% vite_asset 'aranha_estetica/static/src/js/painel.js' %}
   {% block js %}{% endblock %}
 <script nonce="{{ csp_nonce }}">
   if ('serviceWorker' in navigator) {
