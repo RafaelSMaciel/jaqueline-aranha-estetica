@@ -47,9 +47,13 @@ class RetornoServiceTests(TestCase):
         return atend
 
     def _inicio_na_janela(self, atend, dias=17):
+        """1o horario livre a partir de ``dias`` apos o atendimento (pula dia sem expediente)."""
         de, ate = retorno.janela(atend)
         dia = data_local(atend.data_hora_fim) + timedelta(days=dias)
         self.assertTrue(de <= dia <= ate)
+        while not retorno.horarios(atend, dia):
+            dia += timedelta(days=1)
+            self.assertLessEqual(dia, ate, 'janela de retorno sem nenhum horario livre')
         hhmm = retorno.horarios(atend, dia)[0]
         return timezone.make_aware(datetime.combine(dia, ler_hora(hhmm)))
 
