@@ -185,8 +185,8 @@
 
     {# ── Django messages como toasts ── #}
     {% if messages %}
-    {# Erro = alert (anuncia na hora); o resto = status (educado). Sem sumir sozinho: quem le devagar
-       ou usa leitor de tela fecha quando quiser. #}
+    {% comment %}Erro = alert (anuncia na hora); o resto = status (educado). Sem sumir sozinho: quem le devagar
+       ou usa leitor de tela fecha quando quiser.{% endcomment %}
     <div id="adminToasts" class="fixed top-[70px] right-5 left-5 sm:left-auto z-[10060] flex flex-col gap-2 sm:max-w-[360px]">
       {% for message in messages %}
       <div data-toast class="flex items-start gap-3 bg-superficie rounded-xl shadow-lg px-4 py-3 text-[0.85rem] border-l-4

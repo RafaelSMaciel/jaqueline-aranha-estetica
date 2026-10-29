@@ -220,3 +220,17 @@ class TitulosEAbasTests(SimpleTestCase):
         self.assertIn("setAttribute('aria-pressed'", (_JS / 'wizard.js').read_text(encoding='utf-8'))
         esp = (_TEMPLATES / 'publico' / 'especialidades.html').read_text(encoding='utf-8')
         self.assertIn(':focus-visible ~ * label[for=', esp)
+
+
+class ComentarioDeTemplateTests(SimpleTestCase):
+    """{# #} do Django e de UMA linha: quebrado em duas, o texto vaza para a pagina."""
+
+    def test_nenhum_comentario_curto_em_varias_linhas(self):
+        import pathlib
+        import re
+        quebrados = []
+        for caminho in pathlib.Path(__file__).resolve().parents[1].joinpath('templates').rglob('*.html'):
+            texto = caminho.read_text(encoding='utf-8')
+            for m in re.finditer(r'\{#(?:(?!#\}).)*$', texto, re.M):
+                quebrados.append(f'{caminho.name}:{texto[:m.start()].count(chr(10)) + 1}')
+        self.assertEqual(quebrados, [], 'use {% comment %} para comentario de varias linhas')
