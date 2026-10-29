@@ -8,8 +8,11 @@ from datetime import timedelta
 from decimal import Decimal
 
 
-# ─── Reagendamento self-service ────────────────────────────────────────
-JANELA_MINIMA_REAGENDAMENTO = timedelta(hours=24)
+# ─── Alteracao pela cliente (decisao 10) ───────────────────────────────
+# Remarcar online exige esta antecedencia; cancelar online e sempre permitido (a vaga volta p/ a
+# lista de espera), mas com menos que isto vira cancelamento tardio e conta como falta
+# (services/agenda.cancelar_pela_cliente). O FAQ do site le daqui (conteudo/faq.py).
+JANELA_MINIMA_ALTERACAO = timedelta(hours=24)
 # Realizado/Faltou so a partir do inicio do atendimento (menos esta folga p/ quem marca na hora):
 # antes, um clique na agenda do mes seguinte gerava comissao, debitava pacote e contava falta.
 TOLERANCIA_DESFECHO = timedelta(minutes=30)

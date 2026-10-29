@@ -215,12 +215,12 @@ def limpar_verificacao_agendamento(request) -> None:
 # ─── Anti-enumeracao ────────────────────────────────────────────────────
 
 def esperar_latencia_minima(inicio: float) -> None:
-    """Completa settings.OTP_LATENCIA_MINIMA_SEGUNDOS desde `inicio` (time.monotonic()).
+    """Completa settings.OTP_LATENCIA_MINIMA_SEGUNDOS desde `inicio` (time.perf_counter()).
 
     O pedido de codigo do portal e do "Meus dados" responde o mesmo texto exista ou nao o cadastro;
     sem isto o tempo de resposta (o ramo cadastrado gera o codigo e chama a Zenvia) revelaria quem e
     cliente.
     """
-    restante = float(settings.OTP_LATENCIA_MINIMA_SEGUNDOS or 0) - (time.monotonic() - inicio)
+    restante = float(settings.OTP_LATENCIA_MINIMA_SEGUNDOS or 0) - (time.perf_counter() - inicio)
     if restante > 0:
         time.sleep(restante)

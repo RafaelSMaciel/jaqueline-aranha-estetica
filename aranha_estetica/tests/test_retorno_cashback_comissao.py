@@ -396,7 +396,7 @@ class RetornoTelasTests(TestCase):
     def test_portal_avisa_a_cliente(self):
         from django.urls import reverse
 
-        from aranha_estetica.views.publico.portal import SESSAO_MEUS_AGENDAMENTOS
+        from aranha_estetica.services.portal_cliente import SESSAO_MEUS_AGENDAMENTOS
         cliente = Client()
         sessao = cliente.session
         sessao[SESSAO_MEUS_AGENDAMENTOS] = self.cliente.telefone

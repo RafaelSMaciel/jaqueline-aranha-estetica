@@ -13,8 +13,9 @@ from django.views.decorators.http import require_http_methods
 from django_ratelimit.decorators import ratelimit
 
 from ...models import Atendimento, Notificacao
+from ...excecoes import RegraDeNegocio
 from ...models.agendamentos import StatusAtendimento
-from ...services import links
+from ...services import agenda, links
 from ...utils.auditoria import registrar_log
 
 logger = logging.getLogger(__name__)
@@ -61,6 +62,7 @@ def confirmar_presenca(request, token):
     if acao not in ('confirmar', 'cancelar'):
         acao = ''
     atendimento = notif.atendimento
+    foi_tardio = False
 
     if request.method == 'POST' and notif.resposta is None:
         acao_post = request.POST.get('acao', '')
@@ -81,9 +83,12 @@ def confirmar_presenca(request, token):
                                 atendimento.confirmar()
                             resposta = 'CONFIRMOU'
                         else:
-                            atendimento.cancelar(motivo='Cancelado pelo cliente via link', pela_cliente=True)
+                            # decisao 10: com menos de 24 h e cancelamento tardio (conta como falta)
+                            atendimento, foi_tardio = agenda.cancelar_pela_cliente(
+                                atendimento.pk, origem='link', so_aprovados=True,
+                            )
                             resposta = 'CANCELOU'
-                    except Atendimento.TransicaoInvalida:
+                    except RegraDeNegocio:   # inclui Atendimento.TransicaoInvalida
                         resposta = None
                     if resposta:
                         notif.resposta = resposta
@@ -107,5 +112,8 @@ def confirmar_presenca(request, token):
         'ja_respondeu': ja_respondeu,
         'resposta': notif.resposta,
         'nao_editavel': not ja_respondeu and not _alteravel_pelo_link(atendimento),
+        # aviso antes de cancelar: com menos de 24 h o cancelamento conta como falta
+        'cancelamento_tardio': not ja_respondeu and agenda.cancelamento_tardio(atendimento),
+        'foi_tardio': foi_tardio,
     }
     return render(request, 'agendamento/confirmar_presenca.html', context)
