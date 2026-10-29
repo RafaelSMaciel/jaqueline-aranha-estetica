@@ -1,404 +1,79 @@
 {% extends 'estrutura/base_v2.html' %}
 {% load static dict_extras %}
 
-{% block titulo %}Meus Agendamentos | {{ CLINIC_NAME }}{% endblock %}
+{% block titulo %}Meus agendamentos | {{ CLINIC_NAME }}{% endblock %}
 
-{% block css %}
-<style nonce="{{ csp_nonce }}">
-    /* ═══ VARS ═══ */
-    :root {
-        --gold: var(--cor-marca-forte);
-        --gold-glow: color-mix(in srgb, var(--cor-marca-forte) 35%, transparent);
-        --gold-subtle: color-mix(in srgb, var(--cor-marca-forte) 12%, var(--cor-superficie));
-        --earth: var(--cor-texto);
-        --earth-mid: var(--cor-texto-suave);
-        --bg: var(--cor-fundo);
-    }
-
-    /* ═══ BASE ═══ */
-    .booking-page { background: var(--bg); min-height: 100vh; }
-
-    /* ═══ HERO ═══ */
-    .booking-banner {
-        background: var(--cor-fundo);
-        padding: 4rem 0 7rem;
-        text-align: center;
-        color: var(--earth);
-        position: relative;
-        overflow: hidden;
-    }
-    .booking-banner::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background:
-            radial-gradient(circle at 20% 80%, color-mix(in srgb, var(--cor-marca-forte) 10%, transparent) 0%, transparent 50%),
-            radial-gradient(circle at 80% 20%, color-mix(in srgb, var(--cor-marca-forte) 6%, transparent) 0%, transparent 50%);
-    }
-    .booking-banner-inner { position: relative; z-index: 2; max-width: 600px; margin: 0 auto; padding: 0 1.5rem; }
-    .booking-pill {
-        display: inline-flex; align-items: center; gap: 0.5rem;
-        background: color-mix(in srgb, var(--cor-marca-forte) 15%, transparent);
-        border: 1px solid color-mix(in srgb, var(--cor-marca-forte) 40%, transparent);
-        color: var(--cor-marca); padding: 0.4rem 1.25rem; border-radius: 50px;
-        font-size: 0.72rem; font-weight: 700; letter-spacing: 2.5px;
-        text-transform: uppercase; margin-bottom: 1.25rem;
-    }
-    .booking-banner h1 {
-        font-family: 'Playfair Display', serif;
-        font-size: clamp(2rem, 5vw, 3rem);
-        font-weight: 700; margin-bottom: 0.75rem;
-        color: var(--cor-marca);
-    }
-    .booking-banner p { opacity: 0.85; font-size: 1.05rem; max-width: 460px; margin: 0 auto; }
-
-    /* ═══ FLOATING CARD ═══ */
-    .booking-float {
-        margin-top: -4.5rem; padding: 0 1.5rem 3rem;
-        position: relative; z-index: 10;
-    }
-    .booking-card {
-        background: var(--cor-superficie); border-radius: 24px;
-        box-shadow: 0 16px 60px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.06);
-        overflow: hidden; max-width: 1000px; margin: 0 auto;
-    }
-
-    /* ═══ STEP 1: VERIFY CARD ═══ */
-    .verify-card {
-        max-width: 500px; margin: 0 auto;
-        background: var(--cor-superficie); border-radius: 28px;
-        box-shadow: 0 20px 70px rgba(0,0,0,0.08);
-        overflow: hidden;
-    }
-    .verify-body { padding: 2rem 2rem 2.5rem; }
-
-    .phone-input-wrap { position: relative; }
-    .phone-input-wrap .field-input {
-        padding-left: 3.2rem; font-weight: 600; font-size: 1.1rem;
-        background: var(--cor-fundo); border: 2px solid var(--cor-borda-campo); border-radius: 16px;
-        height: 56px; color: var(--cor-texto); transition: all 0.25s;
-        width: 100%; outline: none;
-    }
-    .phone-input-wrap .field-input:focus {
-        border-color: var(--cor-foco); background: var(--cor-superficie);
-        box-shadow: 0 0 0 3px color-mix(in srgb, var(--cor-foco) 45%, transparent);
-    }
-    .phone-input-wrap .phone-icon {
-        position: absolute; left: 1rem; top: 50%; transform: translateY(-50%);
-        color: var(--cor-marca-forte);
-    }
-
-    .helper-steps {
-        display: flex; gap: 0.75rem; margin-top: 1.5rem;
-    }
-    .helper-step {
-        flex: 1; display: flex; align-items: flex-start; gap: 0.5rem;
-        padding: 0.75rem; border-radius: 12px; background: var(--cor-fundo);
-    }
-    .helper-step-icon {
-        width: 28px; height: 28px; min-width: 28px; border-radius: 50%;
-        background: color-mix(in srgb, var(--cor-marca-forte) 12%, transparent);
-        display: flex; align-items: center; justify-content: center;
-        color: var(--cor-marca); font-size: 0.7rem; font-weight: 700;
-    }
-    .helper-step-text {
-        font-size: 0.72rem; color: var(--cor-texto-suave); line-height: 1.35;
-    }
-
-    /* ═══ CODE INPUT ═══ */
-    .code-section-inner {
-        background: var(--cor-fundo); border-radius: 20px; padding: 1.5rem;
-        border: 1px solid var(--cor-borda); margin-top: 1.5rem;
-    }
-    .code-inputs {
-        display: flex; gap: 0.6rem; justify-content: center; margin: 1.25rem 0 1.5rem;
-    }
-    .code-input {
-        width: 52px; height: 62px; border: 2px solid var(--cor-borda-campo);
-        border-radius: 14px; text-align: center; font-size: 1.5rem;
-        font-weight: 700; color: var(--cor-texto); background: var(--cor-superficie);
-        transition: all 0.2s; font-family: 'Lato', monospace;
-    }
-    .code-input:focus {
-        outline: none; border-color: var(--cor-foco);
-        box-shadow: 0 0 0 3px color-mix(in srgb, var(--cor-foco) 45%, transparent);
-        transform: scale(1.05);
-    }
-    .code-input.filled {
-        border-color: var(--cor-marca-forte);
-        background: color-mix(in srgb, var(--cor-marca-forte) 4%, var(--cor-superficie));
-    }
-
-    /* ═══ SUMMARY CARD ═══ */
-    .summary-row {
-        display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 1rem; margin-bottom: 2rem;
-    }
-    .summary-card {
-        background: var(--cor-superficie); border-radius: 20px; padding: 1.25rem 1rem;
-        text-align: center; border: 1.5px solid var(--cor-borda);
-        box-shadow: 0 4px 16px rgba(0,0,0,0.03);
-        transition: all 0.25s;
-    }
-    .summary-card:hover {
-        border-color: color-mix(in srgb, var(--cor-marca-forte) 30%, transparent);
-        transform: translateY(-2px);
-    }
-    .summary-icon {
-        width: 44px; height: 44px; border-radius: 50%; margin: 0 auto 0.6rem;
-        display: flex; align-items: center; justify-content: center; font-size: 1.1rem;
-    }
-    .summary-number {
-        font-family: 'Playfair Display', serif; font-size: 1.5rem; font-weight: 700;
-        color: var(--cor-texto); line-height: 1;
-    }
-    .summary-label { font-size: 0.72rem; color: var(--cor-texto-suave); margin-top: 0.2rem; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
-
-    /* ═══ SECTION DIVIDER ═══ */
-    .section-divider {
-        display: flex; align-items: center; gap: 1rem; margin: 2rem 0 1.25rem;
-    }
-    .section-divider-line { flex: 1; height: 1px; background: linear-gradient(90deg, var(--cor-borda), transparent); }
-    .section-divider-line.right { background: linear-gradient(270deg, var(--cor-borda), transparent); }
-    .section-divider-label {
-        display: inline-flex; align-items: center; gap: 0.5rem;
-        padding: 0.4rem 1rem; border-radius: 50px;
-        font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-
-    /* ═══ APPOINTMENT CARD ═══ */
-    .agend-card {
-        background: var(--cor-superficie); border: 1.5px solid var(--cor-borda); border-radius: 20px;
-        margin-bottom: 1rem; transition: all 0.25s; overflow: hidden;
-    }
-    .agend-card:hover {
-        border-color: color-mix(in srgb, var(--cor-marca-forte) 30%, transparent);
-        box-shadow: 0 12px 32px rgba(0,0,0,0.06);
-        transform: translateY(-2px);
-    }
-    .agend-card-body {
-        display: flex; gap: 1rem; padding: 1.25rem;
-        align-items: flex-start;
-    }
-    .agend-date-block {
-        min-width: 64px; text-align: center;
-        background: var(--cor-fundo);
-        border-radius: 14px; padding: 0.6rem 0.75rem;
-        border: 1px solid var(--cor-borda);
-    }
-    .agend-date-day {
-        font-family: 'Playfair Display', serif; font-size: 1.6rem;
-        font-weight: 700; color: var(--cor-texto); line-height: 1;
-    }
-    .agend-date-month {
-        font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
-        letter-spacing: 1px; color: var(--cor-marca);
-    }
-    .agend-date-weekday {
-        font-size: 0.6rem; color: var(--cor-texto-suave); text-transform: uppercase;
-        letter-spacing: 0.5px; margin-top: 0.15rem;
-    }
-    .agend-info { flex: 1; min-width: 0; }
-    .agend-procedure {
-        font-family: 'Playfair Display', serif; font-weight: 700;
-        font-size: 1.05rem; color: var(--cor-texto); margin-bottom: 0.25rem;
-    }
-    .agend-meta {
-        display: flex; flex-wrap: wrap; gap: 0.5rem 1rem;
-        font-size: 0.82rem; color: var(--cor-texto-suave);
-    }
-    .agend-meta-icon { color: var(--cor-marca-forte); margin-right: 0.2rem; }
-
-    .agend-card-footer {
-        display: flex; justify-content: space-between; align-items: center;
-        flex-wrap: wrap; gap: 0.5rem;
-        padding: 0.75rem 1.25rem; background: var(--cor-fundo);
-        border-top: 1px solid var(--cor-borda);
-    }
-
-    /* ═══ BUTTONS ═══ */
-    .btn-gold {
-        background: var(--cor-marca-forte); color: var(--cor-sobre-marca); border: none;
-        transition: all 0.25s;
-        box-shadow: 0 6px 20px color-mix(in srgb, var(--cor-marca-forte) 35%, transparent);
-        display: inline-flex; align-items: center; gap: 0.4rem;
-        padding: 0.5rem 1.25rem; border-radius: 9999px; font-weight: 700;
-        font-size: 0.9rem; cursor: pointer; text-decoration: none;
-    }
-    .btn-gold:hover {
-        filter: brightness(0.9);
-        transform: translateY(-2px);
-        box-shadow: 0 10px 28px color-mix(in srgb, var(--cor-marca-forte) 45%, transparent);
-        color: var(--cor-sobre-marca);
-    }
-    .btn-earth {
-        background: var(--cor-texto); color: var(--cor-fundo); border: none;
-        transition: all 0.25s;
-        display: inline-flex; align-items: center; gap: 0.4rem;
-        padding: 0.75rem 1.5rem; border-radius: 9999px; font-weight: 700;
-        font-size: 0.88rem; cursor: pointer; width: 100%; justify-content: center;
-        letter-spacing: 1px; text-transform: uppercase;
-    }
-    .btn-earth:hover { filter: brightness(1.15); transform: translateY(-2px); }
-
-    .btn-cancel-agend {
-        background: transparent;
-        border: 1.5px solid color-mix(in srgb, var(--cor-erro) 40%, transparent);
-        color: var(--cor-erro);
-        font-size: 0.75rem; font-weight: 600; border-radius: 50px;
-        padding: 0.3rem 0.85rem; transition: all 0.25s; cursor: pointer;
-        display: inline-flex; align-items: center; gap: 0.3rem;
-    }
-    .btn-cancel-agend:hover {
-        background: color-mix(in srgb, var(--cor-erro) 12%, transparent);
-        border-color: color-mix(in srgb, var(--cor-erro) 60%, transparent);
-    }
-
-    /* ═══ REFRESH ═══ */
-    .btn-refresh {
-        width: 40px; height: 40px; border-radius: 50%;
-        border: 1.5px solid var(--cor-borda); background: var(--cor-superficie);
-        display: inline-flex; align-items: center; justify-content: center;
-        color: var(--cor-texto-suave); transition: all 0.25s; cursor: pointer;
-    }
-    .btn-refresh:hover { border-color: var(--cor-marca-forte); color: var(--cor-marca-forte); transform: rotate(90deg); }
-
-    /* ═══ EMPTY STATE ═══ */
-    .empty-state {
-        text-align: center; padding: 4rem 2rem;
-        background: var(--cor-superficie); border-radius: 28px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.04);
-        border: 1.5px solid var(--cor-borda);
-    }
-    .empty-illustration {
-        width: 120px; height: 120px; margin: 0 auto 1.5rem;
-        background: color-mix(in srgb, var(--cor-marca-forte) 10%, var(--cor-superficie));
-        border-radius: 50%; display: flex; align-items: center; justify-content: center;
-        position: relative;
-    }
-    .empty-illustration::after {
-        content: ''; position: absolute; inset: -8px;
-        border: 2px dashed color-mix(in srgb, var(--cor-marca-forte) 20%, transparent); border-radius: 50%;
-    }
-
-    /* ═══ HISTORY CARD (dimmed) ═══ */
-    .agend-card.history { opacity: 0.72; }
-    .agend-card.history:hover { opacity: 0.9; }
-    .agend-card.history .agend-date-block {
-        background: var(--cor-fundo);
-    }
-
-    /* ═══ CANCEL MODAL ═══ */
-    #cancelModal::backdrop { background: rgb(0 0 0 / .5); backdrop-filter: blur(4px); }
-    .cancel-modal-box {
-        background: var(--cor-superficie); border-radius: 24px; padding: 2rem;
-        max-width: 400px; width: 100%; text-align: center;
-        box-shadow: 0 24px 80px rgba(0,0,0,0.15);
-        animation: modalIn 0.3s ease;
-    }
-    @keyframes modalIn {
-        from { transform: scale(0.9) translateY(20px); opacity: 0; }
-        to { transform: scale(1) translateY(0); opacity: 1; }
-    }
-
-    /* ═══ RESPONSIVE ═══ */
-    @media (max-width: 575.98px) {
-        .verify-body { padding: 1.5rem; }
-        .code-input { width: 44px; height: 54px; font-size: 1.3rem; }
-        .code-inputs { gap: 0.4rem; }
-        .helper-steps { flex-direction: column; }
-        .agend-card-body { flex-direction: column; gap: 0.75rem; }
-        .agend-date-block {
-            display: flex; align-items: center; gap: 0.5rem;
-            min-width: unset; padding: 0.5rem 0.75rem;
-        }
-        .agend-date-day { font-size: 1.2rem; }
-        .summary-row { grid-template-columns: repeat(2, 1fr); }
-        .agend-card-footer { flex-direction: column; align-items: stretch; }
-    }
-</style>
-{% endblock %}
+{# CSS da pagina: static/src/css/site.css (.pagina-portal) #}
 
 {% block conteudo %}
-<div class="booking-page">
+<div class="booking-page pagina-portal">
 
-<!-- Hero -->
 <div class="booking-banner">
-    <div class="booking-banner-inner">
-        <div class="booking-pill">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>
-            {{ CLINIC_NAME }} — Meus Agendamentos
-        </div>
+    <div class="booking-banner-inner mx-auto max-w-xl px-6">
         {% if step == '1' %}
-        <h1>Acesse seus<br>agendamentos</h1>
-        <p>Informe seu celular ou e-mail cadastrado e receba um código por SMS no celular do seu cadastro.</p>
+        <h1>Acesse seus agendamentos</h1>
+        <p>Informe seu celular e receba um código por SMS para ver, remarcar ou cancelar seus horários.</p>
         {% else %}
-        <h1>Seus<br>agendamentos</h1>
+        <h1>Seus agendamentos</h1>
         <p>Gerencie seus atendimentos, reagende ou cancele quando precisar.</p>
         {% endif %}
     </div>
 </div>
 
-<!-- Floating Card -->
 <div class="booking-float">
-    <div class="booking-card" style="padding: 2rem 1.5rem;">
+    <div class="booking-card portal-card">
 
         {% if step == '1' %}
-        <!-- ═══════════════════════════════════════════ -->
-        <!-- ═══ STEP 1: Informar celular/e-mail + Codigo ═══ -->
-        <!-- ═══════════════════════════════════════════ -->
-        <div class="verify-card" style="box-shadow:none;max-width:540px;">
-            <div class="verify-body" style="padding:0.5rem 1rem 1rem;">
+        {# ═══ PASSO 1: celular + codigo por SMS ═══ #}
+        <div class="verify-card">
+            <div class="verify-body">
                 {% if not sms_disponivel %}
                 {# Sem provedor de SMS o codigo de acesso nao sai: avisa antes de a pessoa tentar #}
-                <div id="aviso-sms-indisponivel" role="alert" style="border:1px solid var(--cor-erro,#b42318);color:var(--cor-erro,#b42318);border-radius:12px;padding:0.75rem 1rem;font-size:0.85rem;margin-bottom:0.75rem;">
+                <div id="aviso-sms-indisponivel" role="alert" class="aviso-indisponivel">
                     No momento não conseguimos enviar o código de acesso por SMS.
-                    {% if WHATSAPP_NUMERO %}<a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text={{ 'Olá! Gostaria de ver meus agendamentos.'|urlencode }}" target="_blank" rel="noopener" style="font-weight:700;text-decoration:underline;">Fale com a gente pelo WhatsApp</a>.{% else %}Tente novamente mais tarde.{% endif %}
+                    {% if WHATSAPP_NUMERO %}<a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text={{ 'Olá! Gostaria de ver meus agendamentos.'|urlencode }}" target="_blank" rel="noopener">Fale com a gente pelo WhatsApp</a>.{% else %}Tente novamente mais tarde.{% endif %}
                 </div>
                 {% endif %}
-                <!-- Celular ou e-mail -->
-                <div style="margin-bottom:0.75rem;">
-                    <label class="block font-bold uppercase mb-2 text-texto-suave" style="letter-spacing:1px;font-size:0.72rem;" for="ident-input">
-                        Celular ou e-mail cadastrado
-                    </label>
+
+                {# O codigo so vai por SMS: o campo e o celular (o e-mail do cadastro ainda e aceito, sem destaque) #}
+                <div class="portal-campo">
+                    <label class="portal-rotulo" for="ident-input">Seu celular</label>
                     <div class="phone-input-wrap">
                         <span class="phone-icon" aria-hidden="true">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="2" width="12" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
                         </span>
-                        <input type="text" id="ident-input" class="field-input"
-                               placeholder="(17) 99999-9999 ou seu@email.com" autocomplete="username" autofocus>
+                        <input type="tel" id="ident-input" class="field-input" inputmode="tel"
+                               placeholder="(17) 99999-9999" autocomplete="tel" aria-describedby="ident-dica" autofocus>
                     </div>
+                    <small id="ident-dica" class="portal-dica">Com DDD. O código chega por SMS no celular do seu cadastro.</small>
                 </div>
 
                 {% if turnstile_enabled %}
-                <div style="margin-bottom:0.75rem;">
+                <div class="portal-campo">
                     <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" data-theme="auto"></div>
                 </div>
                 {% endif %}
 
-                <button id="btn-enviar-codigo" class="btn-gold" style="width:100%;justify-content:center;padding:0.75rem 1.5rem;">
+                <button id="btn-enviar-codigo" type="button" class="btn-gold btn-gold--largo">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                    Enviar Código
+                    Enviar código
                 </button>
 
-                <div id="error-msg" class="rounded-md border border-erro text-erro mt-3 px-4 py-3 text-sm flex items-center gap-2" style="display:none !important;" role="alert">
+                <div id="error-msg" class="portal-erro rounded-md border border-erro bg-erro-fundo text-erro mt-3 px-4 py-3 text-sm" role="alert" hidden>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                     <span id="error-msg-text"></span>
-                    <a id="error-msg-wpp" href="#" target="_blank" rel="noopener" style="display:none;font-weight:700;text-decoration:underline;">Fale pelo WhatsApp</a>
+                    <a id="error-msg-wpp" href="#" target="_blank" rel="noopener" hidden>Fale pelo WhatsApp</a>
                 </div>
 
-                <!-- Step 2: Codigo (aparece apos enviar) -->
-                <div id="code-section" style="display:none;">
+                {# Codigo (aparece depois do envio) #}
+                <div id="code-section" hidden>
                     <div class="code-section-inner">
-                        <div class="text-center mb-1">
-                            <div style="width:48px;height:48px;background:color-mix(in srgb,var(--cor-marca-forte) 10%,transparent);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:0.5rem;">
-                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--cor-marca-forte);" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                            </div>
-                            <p class="font-bold mb-0" style="color:var(--cor-texto);font-size:0.92rem;">Confira seu celular</p>
-                            <p class="text-texto-suave" style="font-size:0.85rem;margin:0;">
-                                Se houver cadastro, enviamos um código de 6 dígitos por SMS para o celular cadastrado.
-                            </p>
+                        <div class="code-aviso">
+                            <span class="code-aviso__icone" aria-hidden="true">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            </span>
+                            <p class="code-aviso__titulo">Confira seu celular</p>
+                            <p class="code-aviso__texto">Se houver cadastro, enviamos um código de 6 dígitos por SMS para o celular cadastrado.</p>
                         </div>
                         <div class="code-inputs">
                             <input type="text" class="code-input" maxlength="1" data-idx="0" inputmode="numeric" autocomplete="one-time-code" aria-label="Dígito 1 do código">
@@ -408,12 +83,12 @@
                             <input type="text" class="code-input" maxlength="1" data-idx="4" inputmode="numeric" aria-label="Dígito 5 do código">
                             <input type="text" class="code-input" maxlength="1" data-idx="5" inputmode="numeric" aria-label="Dígito 6 do código">
                         </div>
-                        <button id="btn-verificar" class="btn-earth">
+                        <button id="btn-verificar" type="button" class="btn-earth">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-                            Verificar Código
+                            Verificar código
                         </button>
                         <p class="text-center mt-3 mb-0">
-                            <button id="btn-reenviar" class="text-texto-suave text-decoration-none" style="background:none;border:none;cursor:pointer;font-size:0.78rem;padding:0;display:inline-flex;align-items:center;gap:0.25rem;" disabled>
+                            <button id="btn-reenviar" type="button" class="btn-reenviar" disabled>
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.03"/></svg>
                                 Reenviar código <span id="resend-timer">(60s)</span>
                             </button>
@@ -424,40 +99,35 @@
         </div>
 
         {% elif step == '3' %}
-        <!-- ═══════════════════════════════════════ -->
-        <!-- ═══ STEP 3: Lista de Agendamentos ═══ -->
-        <!-- ═══════════════════════════════════════ -->
-        <div style="max-width:900px;margin:0 auto;">
+        {# ═══ PASSO 3: lista de agendamentos ═══ #}
+        <div class="portal-lista">
 
-            <!-- Header row -->
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:0.75rem;">
+            <div class="portal-topo">
                 <div>
-                    <h2 style="font-family:'Playfair Display',serif;color:var(--cor-texto);font-size:1.5rem;font-weight:700;margin:0 0 0.25rem;">
-                        Seus agendamentos
-                    </h2>
-                    <div style="display:flex;align-items:center;gap:0.5rem;">
-                        <small class="text-texto-suave" style="display:inline-flex;align-items:center;gap:0.25rem;">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--cor-marca-forte);" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+                    <h2 class="portal-titulo">Seus agendamentos</h2>
+                    <div class="portal-sessao">
+                        <span class="inline-flex items-center gap-1">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
                             Celular {{ telefone_mascarado }}
-                        </small>
-                        <span style="color:var(--cor-borda);" aria-hidden="true">|</span>
+                        </span>
+                        <span class="portal-sessao__fio" aria-hidden="true">|</span>
                         {# sair so por POST com CSRF (GET de outro site nao derruba a sessao) #}
                         <form method="post" action="{% url 'aranha:meus_agendamentos_logout' %}" class="m-0 inline">
                             {% csrf_token %}
-                            <button type="submit" class="text-texto-suave inline-flex items-center gap-1 border-0 bg-transparent p-0 text-[0.78rem] cursor-pointer">
+                            <button type="submit" class="btn-sair">
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                                 Sair
                             </button>
                         </form>
                     </div>
                 </div>
-                <div style="display:flex;align-items:center;gap:0.5rem;">
-                    <button class="btn-refresh" id="btn-refresh" title="Atualizar" aria-label="Atualizar lista de agendamentos">
+                <div class="portal-acoes">
+                    <button class="btn-refresh" id="btn-refresh" type="button" title="Atualizar" aria-label="Atualizar lista de agendamentos">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
                     </button>
                     <a {% agendar_link %} class="btn-gold">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                        Novo Agendamento
+                        Novo agendamento
                     </a>
                 </div>
             </div>
@@ -482,44 +152,41 @@
             </div>
             {% endif %}
 
-            <!-- Summary cards -->
             <div class="summary-row">
                 <div class="summary-card">
-                    <div class="summary-icon" style="background:color-mix(in srgb,var(--cor-marca-forte) 10%,transparent);">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--cor-marca-forte);" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 16 11 18 15 14"/></svg>
+                    <div class="summary-icon" aria-hidden="true">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 16 11 18 15 14"/></svg>
                     </div>
                     <div class="summary-number">{{ agendamentos_futuros|length|default:"0" }}</div>
                     <div class="summary-label">Próximos</div>
                 </div>
                 <div class="summary-card">
-                    <div class="summary-icon" style="background:color-mix(in srgb,var(--cor-texto-suave) 12%,transparent);">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--cor-texto-suave);" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                    <div class="summary-icon summary-icon--neutro" aria-hidden="true">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
                     </div>
                     <div class="summary-number">{{ agendamentos_passados|length|default:"0" }}</div>
                     <div class="summary-label">Histórico</div>
                 </div>
                 {% if agendamentos_futuros %}
-                <div class="summary-card" style="border-color:color-mix(in srgb,var(--cor-marca-forte) 25%,transparent);">
-                    <div class="summary-icon" style="background:color-mix(in srgb,var(--cor-marca-forte) 10%,transparent);">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--cor-marca-forte);" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <div class="summary-card summary-card--destaque">
+                    <div class="summary-icon" aria-hidden="true">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                     </div>
-                    <div class="summary-number" style="font-size:1rem;">
-                        {% with prox=agendamentos_futuros.0 %}
-                        {{ prox.data_hora_inicio|date:"d/m" }}
-                        {% endwith %}
+                    <div class="summary-number summary-number--data">
+                        {% with prox=agendamentos_futuros.0 %}{{ prox.data_hora_inicio|date:"d/m" }}{% endwith %}
                     </div>
                     <div class="summary-label">Próximo</div>
                 </div>
                 {% endif %}
             </div>
 
-            <!-- ═══ PROXIMOS ═══ -->
+            {# ═══ PROXIMOS ═══ #}
             {% if agendamentos_futuros %}
             <div class="section-divider">
                 <div class="section-divider-line"></div>
-                <div class="section-divider-label" style="background:color-mix(in srgb,var(--cor-marca-forte) 8%,transparent);color:var(--cor-marca);">
+                <div class="section-divider-label">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                    Próximos Agendamentos
+                    Próximos agendamentos
                 </div>
                 <div class="section-divider-line right"></div>
             </div>
@@ -527,13 +194,11 @@
             {% for ag in agendamentos_futuros %}
             <div class="agend-card" id="agend-{{ ag.pk }}">
                 <div class="agend-card-body">
-                    <!-- Date block -->
                     <div class="agend-date-block" role="group" aria-label="{{ ag.data_hora_inicio|date:'d M Y' }}">
                         <div class="agend-date-day">{{ ag.data_hora_inicio|date:"d" }}</div>
                         <div class="agend-date-month">{{ ag.data_hora_inicio|date:"M" }}</div>
                         <div class="agend-date-weekday">{{ ag.data_hora_inicio|date:"D" }}</div>
                     </div>
-                    <!-- Info -->
                     <div class="agend-info">
                         <div class="agend-procedure">{{ ag.procedimento.nome }}</div>
                         <div class="agend-meta">
@@ -555,22 +220,20 @@
                             {% endwith %}
                         </div>
                     </div>
-                    <!-- Status -->
-                    <div style="min-width:fit-content;">
+                    <div class="agend-status">
                         {% include 'partials/_status_badge.html' with status=ag.status size='md' %}
                     </div>
                 </div>
                 <div class="agend-card-footer">
                     {% if ag.status in status_editaveis %}
                     {% if ag.data_hora_inicio > limite_reagendar %}
-                    <a href="{% url 'aranha:reagendar_agendamento_portal' ag.pk %}"
-                       style="font-size:0.75rem;border:1.5px solid color-mix(in srgb,var(--cor-sucesso) 45%,transparent);color:var(--cor-sucesso);background:color-mix(in srgb,var(--cor-sucesso) 8%,transparent);border-radius:9999px;padding:0.3rem 0.85rem;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:0.3rem;">
+                    <a href="{% url 'aranha:reagendar_agendamento_portal' ag.pk %}" class="btn-reagendar">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                         Reagendar
                     </a>
                     {% else %}
-                    <span class="text-texto-suave" style="font-size:0.75rem;">
-                        Faltam menos de 24h para reagendar online{% if WHATSAPP_NUMERO %} — <a href="https://wa.me/{{ WHATSAPP_NUMERO }}" target="_blank" rel="noopener" style="text-decoration:underline;">fale conosco pelo WhatsApp</a>{% endif %}.
+                    <span class="agend-aviso">
+                        Faltam menos de 24h para reagendar online{% if WHATSAPP_NUMERO %} — <a href="https://wa.me/{{ WHATSAPP_NUMERO }}" target="_blank" rel="noopener">fale conosco pelo WhatsApp</a>{% endif %}.
                     </span>
                     {% endif %}
                     {% endif %}
@@ -591,11 +254,11 @@
             {% endfor %}
             {% endif %}
 
-            <!-- ═══ HISTORICO ═══ -->
+            {# ═══ HISTORICO ═══ #}
             {% if agendamentos_passados %}
             <div class="section-divider">
                 <div class="section-divider-line"></div>
-                <div class="section-divider-label" style="background:rgba(0,0,0,0.04);color:var(--cor-texto-suave);">
+                <div class="section-divider-label section-divider-label--neutro">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                     Histórico
                 </div>
@@ -605,14 +268,12 @@
             {% for ag in agendamentos_passados %}
             <div class="agend-card history">
                 <div class="agend-card-body">
-                    <!-- Date block -->
                     <div class="agend-date-block">
                         <div class="agend-date-day">{{ ag.data_hora_inicio|date:"d" }}</div>
                         <div class="agend-date-month">{{ ag.data_hora_inicio|date:"M" }}</div>
                     </div>
-                    <!-- Info -->
                     <div class="agend-info">
-                        <div class="agend-procedure" style="font-size:0.95rem;">{{ ag.procedimento.nome }}</div>
+                        <div class="agend-procedure">{{ ag.procedimento.nome }}</div>
                         <div class="agend-meta">
                             <span>
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="agend-meta-icon" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -624,8 +285,7 @@
                             </span>
                         </div>
                     </div>
-                    <!-- Status -->
-                    <div style="min-width:fit-content;">
+                    <div class="agend-status">
                         {% include 'partials/_status_badge.html' with status=ag.status size='md' %}
                     </div>
                 </div>
@@ -633,24 +293,18 @@
             {% endfor %}
             {% endif %}
 
-            <!-- ═══ EMPTY STATE ═══ -->
+            {# ═══ VAZIO ═══ #}
             {% if not agendamentos_futuros and not agendamentos_passados %}
             <div class="empty-state">
-                <div class="empty-illustration">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--cor-marca-forte);" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="10" y1="14" x2="14" y2="18"/><line x1="14" y1="14" x2="10" y2="18"/></svg>
+                <div class="empty-illustration" aria-hidden="true">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="10" y1="14" x2="14" y2="18"/><line x1="14" y1="14" x2="10" y2="18"/></svg>
                 </div>
-                <h2 class="font-bold mb-2" style="color:var(--cor-texto);font-family:'Playfair Display',serif;">
-                    Nenhum agendamento encontrado
-                </h2>
-                <p class="text-texto-suave mb-1" style="max-width:320px;margin:0 auto;">
-                    Você ainda não possui agendamentos neste cadastro.
-                </p>
-                <p class="text-texto-suave mb-4" style="max-width:320px;margin:0 auto;font-size:0.9rem;">
-                    Que tal agendar seu primeiro atendimento?
-                </p>
-                <a {% agendar_link %} class="btn-gold" style="padding:0.75rem 2rem;">
+                <h2>Nenhum agendamento encontrado</h2>
+                <p class="mb-1">Você ainda não possui agendamentos neste cadastro.</p>
+                <p class="mb-4 text-sm">Que tal agendar seu primeiro atendimento?</p>
+                <a {% agendar_link %} class="btn-gold">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="12" y1="14" x2="12" y2="18"/><line x1="10" y1="16" x2="14" y2="16"/></svg>
-                    Agendar Agora
+                    Agendar agora
                 </a>
             </div>
             {% endif %}
@@ -719,31 +373,30 @@
             </section>
         </div>
 
-        <!-- Cancel confirmation modal -->
+        {# Confirmacao do cancelamento #}
         <dialog class="dialogo" id="cancelModal" aria-labelledby="cancelModalTitle" aria-describedby="cancelModalProcedure">
             <div class="cancel-modal-box">
-                <div style="width:64px;height:64px;background:color-mix(in srgb,var(--cor-erro) 8%,transparent);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:1rem;" aria-hidden="true">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--cor-erro);"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <div class="cancel-modal-icone" aria-hidden="true">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                 </div>
-                <h2 class="font-bold mb-2" id="cancelModalTitle" style="font-family:'Playfair Display',serif;color:var(--cor-texto);">Cancelar agendamento?</h2>
-                <p class="text-texto-suave" style="font-size:0.85rem;margin-bottom:0.25rem;" id="cancelModalProcedure"></p>
-                <p class="text-texto-suave" style="font-size:0.85rem;margin-bottom:0.75rem;" id="cancelModalDate"></p>
+                <h2 id="cancelModalTitle">Cancelar agendamento?</h2>
+                <p class="cancel-modal-info" id="cancelModalProcedure"></p>
+                <p class="cancel-modal-info mb-3" id="cancelModalDate"></p>
                 {# decisao 10: com menos de 24 h o cancelamento conta como falta (agenda.cancelar_pela_cliente) #}
                 <p id="cancelModalTardio" hidden class="mb-3 rounded-xl border border-aviso bg-aviso-fundo px-4 py-2 text-sm text-texto">
                     Faltam menos de 24 horas: o cancelamento conta como falta. Depois de algumas faltas seguidas,
                     o agendamento online fica suspenso e você agenda pela recepção.
                 </p>
-                <p style="font-size:0.85rem;margin-bottom:1.5rem;color:var(--cor-erro);background:color-mix(in srgb,var(--cor-erro) 8%,transparent);padding:0.5rem 1rem;border-radius:12px;display:inline-block;">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:0.2rem;" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <p class="cancel-modal-alerta">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                     Esta ação não pode ser desfeita.
                 </p>
-                <div style="display:flex;gap:0.5rem;justify-content:center;">
-                    <button id="btnCloseCancelModal" style="border:1.5px solid var(--cor-borda);color:var(--cor-texto-suave);font-size:0.85rem;font-weight:700;padding:0.5rem 1rem;border-radius:9999px;background:transparent;cursor:pointer;display:inline-flex;align-items:center;gap:0.3rem;">
+                <div class="cancel-modal-acoes">
+                    <button id="btnCloseCancelModal" type="button" class="btn-modal btn-modal--voltar">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
                         Voltar
                     </button>
-                    <button id="btnConfirmCancel"
-                            style="background:var(--cor-erro);color:white;font-size:0.85rem;font-weight:700;padding:0.5rem 1rem;border-radius:9999px;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:0.3rem;">
+                    <button id="btnConfirmCancel" type="button" class="btn-modal btn-modal--cancelar">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
                         Sim, cancelar
                     </button>
@@ -752,11 +405,10 @@
         </dialog>
         {% endif %}
 
-    </div><!-- /booking-card -->
-</div><!-- /booking-float -->
+    </div>
+</div>
 
-</div><!-- /booking-page -->
-
+</div>
 {% endblock %}
 
 {% block js %}
@@ -764,8 +416,14 @@
 var CSRF_TOKEN = '{{ csrf_token }}';
 (function() {
     var WHATSAPP = '{{ WHATSAPP_NUMERO|escapejs }}';
-    var SPIN = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true" style="margin-right:0.4rem;"><path d="M21 12a9 9 0 1 1-6.219-8.56"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite"/></path></svg>';
-    /* ═══ REFRESH BUTTON ═══ */
+    // icones estaticos (sem dado do usuario); espacamento pelo gap dos botoes (site.css)
+    var SPIN = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite"/></path></svg>';
+    var ICONE_ENVIAR = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Enviar código';
+    var ICONE_VERIFICAR = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> Verificar código';
+    var ICONE_CANCELAR = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Sim, cancelar';
+    var MSG_CELULAR = 'Informe seu celular com DDD.';
+
+    /* ═══ ATUALIZAR ═══ */
     var btnRefresh = document.getElementById('btn-refresh');
     if (btnRefresh) {
         btnRefresh.addEventListener('click', function() { window.location.reload(); });
@@ -774,7 +432,8 @@ var CSRF_TOKEN = '{{ csrf_token }}';
     var identForVerify = '';
     var resendTimer = null;
 
-    /* ═══ SEND CODE ═══ */
+    /* ═══ ENVIAR CODIGO ═══ */
+    // O campo e o celular; o e-mail do cadastro continua aceito (o codigo vai p/ o celular dele)
     var btnEnviar = document.getElementById('btn-enviar-codigo');
     if (btnEnviar) {
         btnEnviar.addEventListener('click', function() {
@@ -782,7 +441,7 @@ var CSRF_TOKEN = '{{ csrf_token }}';
             var ident = (identEl.value || '').trim();
             var digitos = ident.replace(/\D/g, '');
             if (ident.indexOf('@') < 0 && (digitos.length < 10 || digitos.length > 13)) {
-                showError('Informe seu celular com DDD ou o e-mail cadastrado.');
+                showError(MSG_CELULAR);
                 return;
             }
             identForVerify = ident.indexOf('@') >= 0 ? ident.toLowerCase() : digitos;
@@ -806,31 +465,32 @@ var CSRF_TOKEN = '{{ csrf_token }}';
                 if (window.turnstile && typeof window.turnstile.reset === 'function') {
                     try { window.turnstile.reset(); } catch (e) {}
                 }
-                btnEnviar.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Enviar Código';
+                btnEnviar.innerHTML = ICONE_ENVIAR;
                 if (!res.ok) {
                     var erro = res.data.erro;
                     if (erro === 'captcha') showError('Confirme a verificação de segurança e tente novamente.');
                     else if (erro === 'aguarde' || erro === 'limite') showError('Aguarde um minuto antes de pedir outro código.');
-                    else if (erro === 'identificador_invalido') showError('Informe seu celular com DDD ou o e-mail cadastrado.');
+                    else if (erro === 'identificador_invalido') showError(MSG_CELULAR);
                     else if (erro === 'sms_falha') showError('Não conseguimos enviar o código agora.', true);
                     else showError('Não foi possível enviar o código. Tente novamente.', true);
                 } else {
                     hideError();
-                    document.getElementById('code-section').style.display = 'block';
-                    document.getElementById('code-section').scrollIntoView({behavior: 'smooth', block: 'center'});
+                    var secao = document.getElementById('code-section');
+                    secao.hidden = false;
+                    secao.scrollIntoView({behavior: 'smooth', block: 'center'});
                     document.querySelector('.code-input[data-idx="0"]').focus();
                     startResendTimer();
                 }
             })
             .catch(function() {
                 btnEnviar.disabled = false;
-                btnEnviar.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Enviar Código';
+                btnEnviar.innerHTML = ICONE_ENVIAR;
                 showError('Erro de conexão. Tente novamente.');
             });
         });
     }
 
-    /* ═══ RESEND TIMER ═══ */
+    /* ═══ REENVIO (60 s) ═══ */
     function startResendTimer() {
         var seconds = 60;
         var btnResend = document.getElementById('btn-reenviar');
@@ -842,9 +502,8 @@ var CSRF_TOKEN = '{{ csrf_token }}';
             timerSpan.textContent = '(' + seconds + 's)';
             if (seconds <= 0) {
                 clearInterval(resendTimer);
-                btnResend.disabled = false;
+                btnResend.disabled = false;   // a cor de "disponivel" vem do :disabled no site.css
                 timerSpan.textContent = '';
-                btnResend.style.color = 'var(--cor-marca-forte)';
             }
         }, 1000);
     }
@@ -856,7 +515,7 @@ var CSRF_TOKEN = '{{ csrf_token }}';
         });
     }
 
-    /* ═══ CODE INPUTS ═══ */
+    /* ═══ DIGITOS DO CODIGO ═══ */
     document.querySelectorAll('.code-input').forEach(function(input) {
         input.addEventListener('input', function() {
             this.value = this.value.replace(/\D/g, '');
@@ -866,7 +525,7 @@ var CSRF_TOKEN = '{{ csrf_token }}';
                 var next = this.nextElementSibling;
                 if (next && next.classList.contains('code-input')) next.focus();
             }
-            // Auto-verify when all 6 filled
+            // os 6 preenchidos: verifica sozinho
             var allFilled = true;
             document.querySelectorAll('.code-input').forEach(function(ci) {
                 if (!ci.value) allFilled = false;
@@ -900,7 +559,7 @@ var CSRF_TOKEN = '{{ csrf_token }}';
         });
     });
 
-    /* ═══ VERIFY CODE ═══ */
+    /* ═══ VERIFICAR CODIGO ═══ */
     var btnVerificar = document.getElementById('btn-verificar');
     if (btnVerificar) {
         btnVerificar.addEventListener('click', function() {
@@ -924,7 +583,7 @@ var CSRF_TOKEN = '{{ csrf_token }}';
             .then(lerJson)
             .then(function(res) {
                 btnVerificar.disabled = false;
-                btnVerificar.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> Verificar Código';
+                btnVerificar.innerHTML = ICONE_VERIFICAR;
                 if (!res.ok) {
                     var msg = 'Código inválido.';
                     if (res.data.erro && res.data.erro.indexOf('incorreto') === 0) {
@@ -933,12 +592,12 @@ var CSRF_TOKEN = '{{ csrf_token }}';
                     else if (res.data.erro === 'expirado') msg = 'Código inválido ou expirado. Solicite um novo.';
                     else if (res.data.erro === 'limite') msg = 'Muitas tentativas. Aguarde um minuto.';
                     showError(msg);
-                    // Shake the code inputs
+                    // campos do codigo marcados por 1,5 s e limpos
                     document.querySelectorAll('.code-input').forEach(function(ci) {
-                        ci.style.borderColor = 'var(--cor-erro)';
+                        ci.classList.add('recusado');
                         ci.value = '';
                         ci.classList.remove('filled');
-                        setTimeout(function() { ci.style.borderColor = ''; }, 1500);
+                        setTimeout(function() { ci.classList.remove('recusado'); }, 1500);
                     });
                     document.querySelector('.code-input[data-idx="0"]').focus();
                 }
@@ -946,13 +605,13 @@ var CSRF_TOKEN = '{{ csrf_token }}';
             })
             .catch(function() {
                 btnVerificar.disabled = false;
-                btnVerificar.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> Verificar Código';
+                btnVerificar.innerHTML = ICONE_VERIFICAR;
                 showError('Erro de conexão. Tente novamente.');
             });
         });
     }
 
-    /* ═══ CANCEL APPOINTMENT ═══ */
+    /* ═══ CANCELAR AGENDAMENTO ═══ */
     var cancelAtendimentoId = null;
 
     function openCancelModal(id, nome, data, tardio) {
@@ -975,7 +634,7 @@ var CSRF_TOKEN = '{{ csrf_token }}';
         cancelAtendimentoId = null;
     }
 
-    // Delegated listener for cancel buttons
+    // Botoes "Cancelar" (delegado)
     document.addEventListener('click', function(e) {
         var el = e.target.closest('[data-cancel]');
         if (el) {
@@ -983,7 +642,6 @@ var CSRF_TOKEN = '{{ csrf_token }}';
         }
     });
 
-    // Close modal buttons
     var btnCloseModal = document.getElementById('btnCloseCancelModal');
     if (btnCloseModal) {
         btnCloseModal.addEventListener('click', closeCancelModal);
@@ -1015,19 +673,16 @@ var CSRF_TOKEN = '{{ csrf_token }}';
             .then(lerJson)
             .then(function(res) {
                 btn.disabled = false;
-                btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Sim, Cancelar';
+                btn.innerHTML = ICONE_CANCELAR;
                 if (res.ok && res.data.ok) {
                     var savedId = cancelAtendimentoId;
                     closeCancelModal();
-                    // Remove card with animation
+                    // o cartao sai deslizando (.saindo no site.css)
                     var card = document.getElementById('agend-' + savedId);
                     if (card) {
-                        card.style.transition = 'all 0.4s ease';
-                        card.style.opacity = '0';
-                        card.style.transform = 'translateX(-20px)';
+                        card.classList.add('saindo');
                         setTimeout(function() { card.remove(); }, 400);
                     }
-                    // Show success toast
                     showToast(res.data.mensagem || 'Agendamento cancelado com sucesso.');
                 } else {
                     closeCancelModal();
@@ -1037,29 +692,27 @@ var CSRF_TOKEN = '{{ csrf_token }}';
             })
             .catch(function() {
                 btn.disabled = false;
-                btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Sim, Cancelar';
+                btn.innerHTML = ICONE_CANCELAR;
                 closeCancelModal();
                 showToast('Erro de conexão. Tente novamente.', true);
             });
         });
     }
 
-    /* ═══ TOAST ═══ */
+    /* ═══ AVISO FLUTUANTE (.portal-toast no site.css) ═══ */
     function showToast(msg, isError) {
         var toast = document.createElement('div');
-        toast.style.cssText = 'position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);z-index:10000;padding:0.75rem 1.5rem;border-radius:50px;font-size:0.88rem;font-weight:600;color:white;box-shadow:0 8px 32px rgba(0,0,0,0.15);animation:toastIn 0.4s ease;max-width:90vw;text-align:center;';
-        toast.style.background = isError ? 'var(--cor-erro)' : 'var(--cor-sucesso)';
+        toast.className = 'portal-toast' + (isError ? ' portal-toast--erro' : '');
+        toast.setAttribute('role', isError ? 'alert' : 'status');
         toast.textContent = msg;
         document.body.appendChild(toast);
         setTimeout(function() {
-            toast.style.transition = 'all 0.4s ease';
-            toast.style.opacity = '0';
-            toast.style.transform = 'translateX(-50%) translateY(20px)';
+            toast.classList.add('saindo');
             setTimeout(function() { toast.remove(); }, 400);
         }, 3500);
     }
 
-    /* ═══ HELPERS ═══ */
+    /* ═══ AUXILIARES ═══ */
     // Resposta nao-JSON (pagina 403/429 de CSRF/ratelimit, 500 HTML) -> lerJson
     // devolve um codigo interno; nunca mostrar o codigo cru ao usuario.
     var MSGS_ERRO = {
@@ -1081,32 +734,19 @@ var CSRF_TOKEN = '{{ csrf_token }}';
         if (el && textEl) {
             textEl.textContent = msg;
             if (wpp) {
-                if (comWhatsApp && WHATSAPP) {
-                    wpp.href = 'https://wa.me/' + encodeURIComponent(WHATSAPP);
-                    wpp.style.display = '';
-                } else {
-                    wpp.style.display = 'none';
-                }
+                var mostrar = !!(comWhatsApp && WHATSAPP);
+                if (mostrar) wpp.href = 'https://wa.me/' + encodeURIComponent(WHATSAPP);
+                wpp.hidden = !mostrar;
             }
-            el.style.display = 'flex';
-            el.style.setProperty('display', 'flex', 'important');
+            el.hidden = false;
         }
     }
     function hideError() {
         var el = document.getElementById('error-msg');
-        if (el) {
-            el.style.display = 'none';
-            el.style.setProperty('display', 'none', 'important');
-        }
+        if (el) el.hidden = true;
     }
 })();
 </script>
-<style nonce="{{ csp_nonce }}">
-@keyframes toastIn {
-    from { opacity: 0; transform: translateX(-50%) translateY(20px); }
-    to { opacity: 1; transform: translateX(-50%) translateY(0); }
-}
-</style>
 {% if turnstile_enabled and step == '1' %}
 {# Sem o script o widget nao renderiza e todo envio falharia no captcha #}
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer nonce="{{ csp_nonce }}"></script>

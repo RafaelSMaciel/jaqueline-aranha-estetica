@@ -52,12 +52,17 @@ class ContrasteDouradoTests(SimpleTestCase):
 
         base = Path(settings.BASE_DIR) / 'aranha_estetica'
         regra = re.compile(r'background:\s*var\(--(gold|cor-marca-forte)[^;{}]*;[^{}]*?color:\s*(white|#fff)\b', re.I)
-        for rel in ('templates/agendamento/agendamento_publico.html', 'templates/agendamento/reagendar.html'):
+        # o CSS do wizard saiu do template p/ o static/src/css/site.css (.pagina-agendamento)
+        for rel in ('templates/agendamento/agendamento_publico.html', 'templates/agendamento/reagendar.html',
+                    'static/src/css/site.css'):
             with self.subTest(arquivo=rel):
                 self.assertIsNone(regra.search((base / rel).read_text(encoding='utf-8')))
         js = (base / 'static' / 'src' / 'js' / 'wizard.js').read_text(encoding='utf-8')
         self.assertNotIn("style.color = 'white'", js)
-        # filtro de categoria: o escolhido (aria-pressed) pinta pelo CSS do template, com sobre-marca
+        # filtro de categoria: o escolhido (aria-pressed) pinta pelo site.css, com sobre-marca
+        css = (base / 'static' / 'src' / 'css' / 'site.css').read_text(encoding='utf-8')
+        self.assertRegex(css, r'\.cat-tab\[aria-pressed="true"\]\s*\{[^}]*color:\s*var\(--cor-sobre-marca\)')
         html = (base / 'templates' / 'agendamento' / 'agendamento_publico.html').read_text(encoding='utf-8')
-        self.assertRegex(html, r'\.cat-tab\[aria-pressed="true"\]\s*\{[^}]*color:\s*var\(--cor-sobre-marca\)')
+        self.assertIn('class="booking-page pagina-agendamento"', html)
+        self.assertNotIn('<style', html)
 

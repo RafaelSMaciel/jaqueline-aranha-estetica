@@ -1,434 +1,17 @@
 {% extends 'estrutura/base_v2.html' %}
 {% load static l10n django_vite %}
 
-{% block titulo %}Agendamento Online | {{ CLINIC_NAME }}{% endblock %}
+{% block titulo %}Agendamento online | {{ CLINIC_NAME }}{% endblock %}
 
-{% block css %}
-<style nonce="{{ csp_nonce }}">
-    :root {
-        --gold: var(--cor-marca-forte);
-        --gold-light: color-mix(in srgb, var(--cor-marca-forte) 12%, var(--cor-superficie));
-        --gold-mid: color-mix(in srgb, var(--cor-marca-forte) 15%, transparent);
-        --earth: var(--cor-texto);
-        --earth-mid: var(--cor-texto-suave);
-        --bg: var(--cor-fundo);
-    }
-
-    .booking-page { background: var(--bg); min-height: 100vh; }
-
-    /* ─── HERO ─── */
-    .booking-banner {
-        background: var(--cor-fundo);
-        padding: 4rem 0 7rem;
-        text-align: center;
-        color: var(--earth);
-        position: relative;
-        overflow: hidden;
-    }
-    .booking-banner::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background:
-            radial-gradient(circle at 20% 80%, color-mix(in srgb, var(--cor-marca-forte) 10%, transparent) 0%, transparent 50%),
-            radial-gradient(circle at 80% 20%, color-mix(in srgb, var(--cor-marca-forte) 6%, transparent) 0%, transparent 50%);
-    }
-    .booking-banner-inner { position: relative; z-index: 2; }
-    .booking-pill {
-        display: inline-flex; align-items: center; gap: 0.5rem;
-        background: color-mix(in srgb, var(--cor-marca-forte) 15%, transparent);
-        border: 1px solid color-mix(in srgb, var(--cor-marca-forte) 40%, transparent);
-        color: var(--cor-marca); padding: 0.4rem 1.25rem; border-radius: 50px;
-        font-size: 0.72rem; font-weight: 700; letter-spacing: 2.5px;
-        text-transform: uppercase; margin-bottom: 1.25rem;
-    }
-    .booking-banner h1 {
-        font-family: var(--heading-font, 'Playfair Display', serif);
-        font-size: clamp(2rem, 5vw, 3rem);
-        font-weight: 700; margin-bottom: 0.75rem;
-        color: var(--cor-marca);
-    }
-    .booking-banner p { opacity: 0.85; font-size: 1.05rem; max-width: 460px; margin: 0 auto; color: var(--earth); }
-
-    /* ─── FLOATING CARD ─── */
-    .booking-float {
-        margin-top: -4.5rem; padding: 0 1.5rem 3rem;
-        position: relative; z-index: 10;
-    }
-    .booking-card {
-        background: var(--cor-superficie); border-radius: 24px;
-        box-shadow: 0 16px 60px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.06);
-        overflow: hidden; max-width: 1000px; margin: 0 auto;
-    }
-
-    /* ─── STEP INDICATOR ─── */
-    .steps-bar {
-        display: flex; background: var(--cor-superficie); border-bottom: 1px solid var(--cor-borda);
-        padding: 0;
-    }
-    .step-item {
-        flex: 1; text-align: center; padding: 1.1rem 0.5rem;
-        font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
-        letter-spacing: 1.5px; color: var(--cor-texto-suave); position: relative;
-        transition: color 0.3s; cursor: default;
-    }
-    .step-item.active { color: var(--earth); }
-    .step-item.active::after {
-        content: ''; position: absolute; bottom: 0; left: 20%; right: 20%;
-        height: 3px; background: var(--gold); border-radius: 2px 2px 0 0;
-    }
-    .step-item.done { color: var(--cor-marca); }   /* dourado de texto (o --gold como texto dava 2,2:1) */
-    .step-num {
-        display: inline-flex; align-items: center; justify-content: center;
-        width: 28px; height: 28px; border-radius: 50%;
-        background: var(--cor-borda); color: var(--cor-texto-suave); font-size: 0.72rem; font-weight: 800;
-        margin-right: 0.5rem; vertical-align: middle; transition: all 0.3s;
-    }
-    .step-item.active .step-num { background: var(--gold); color: var(--cor-sobre-marca); }
-    .step-item.done .step-num { background: var(--gold); color: var(--cor-sobre-marca); }
-
-    /* ─── STEP PANELS — CRITICAL HIDE/SHOW ─── */
-    .step-panel { display: none !important; padding: 2rem; }
-    .step-panel.active { display: block !important; }
-    .step-titulo:focus { outline: none; }   /* recebe o foco ao trocar de etapa (leitor de tela) */
-    .btn-continuar { margin-top: 1.5rem; }
-    .btn-continuar:disabled { opacity: .55; cursor: not-allowed; box-shadow: none; }
-
-    /* ─── FILTRO DE CATEGORIA (botoes com aria-pressed; o escolhido = preenchido) ─── */
-    .cat-tabs { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1rem; }
-    .cat-tab {
-        background: var(--cor-superficie); color: var(--cor-marca); border: 1px solid var(--cor-marca-forte);
-        border-radius: 999px; padding: 0.4rem 1rem; font-size: 0.78rem; font-weight: 700; cursor: pointer;
-    }
-    .cat-tab[aria-pressed="true"] { background: var(--cor-marca-forte); color: var(--cor-sobre-marca); }
-
-    /* ─── PROCEDURE CARDS ─── */
-    .proc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
-    .proc-card {
-        border: 2px solid var(--cor-borda); border-radius: 16px; padding: 1.5rem;
-        cursor: pointer; transition: all 0.25s ease; background: var(--cor-superficie);
-        appearance: none; -webkit-appearance: none;
-        font: inherit; color: inherit; text-align: left; width: 100%;
-    }
-    .proc-card:hover {
-        border-color: var(--gold); transform: translateY(-3px);
-        box-shadow: 0 8px 24px rgba(201,168,76,0.15);
-    }
-    .proc-card.selected {
-        border-color: var(--gold); background: var(--gold-light);   /* token: legivel no tema escuro */
-        box-shadow: 0 8px 24px rgba(201,168,76,0.2);
-    }
-    .proc-icon {
-        width: 48px; height: 48px; border-radius: 50%; background: var(--gold-light);
-        display: flex; align-items: center; justify-content: center; margin-bottom: 1rem;
-    }
-    .proc-icon i, .proc-icon svg { color: var(--gold); font-size: 1.2rem; }
-    .proc-name { font-weight: 700; font-size: 1rem; color: var(--earth); margin-bottom: 0.3rem; }
-    .proc-desc { font-size: 0.82rem; color: var(--cor-texto-suave); margin-bottom: 0.8rem; line-height: 1.45; }
-    .proc-meta { display: flex; align-items: center; gap: 1rem; }
-    .proc-price { font-weight: 800; color: var(--cor-marca); font-size: 1.1rem; }
-    .proc-price-cheio {
-        font-size: 0.78rem; font-weight: 600; color: var(--cor-texto-suave);
-        text-decoration: line-through; margin-right: 0.2rem;
-    }
-    .proc-promo {
-        display: inline-block; margin-top: 0.65rem; padding: 0.2rem 0.7rem;
-        border-radius: 999px; background: var(--gold-light); color: var(--cor-marca);
-        font-size: 0.72rem; font-weight: 700;
-    }
-    .proc-duration {
-        font-size: 0.75rem; color: var(--cor-texto-suave); font-weight: 600;
-        display: flex; align-items: center; gap: 0.3rem;
-    }
-
-    /* ─── CALENDAR ─── */
-    .cal-header {
-        display: flex; align-items: center; justify-content: space-between;
-        margin-bottom: 1.5rem;
-    }
-    .cal-title {
-        font-family: var(--heading-font, 'Playfair Display', serif); font-size: 1.3rem;
-        font-weight: 700; color: var(--earth); text-transform: capitalize;
-    }
-    .cal-nav { display: flex; gap: 0.5rem; }
-    .cal-nav-btn {
-        width: 36px; height: 36px; border-radius: 50%;
-        border: 1.5px solid var(--cor-borda); background: var(--cor-superficie);
-        display: flex; align-items: center; justify-content: center;
-        cursor: pointer; transition: all 0.2s; color: var(--earth);
-    }
-    .cal-nav-btn:hover { background: var(--gold); border-color: var(--gold); color: var(--cor-sobre-marca); }
-
-    .cal-weekdays {
-        display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
-        margin-bottom: 0.5rem;
-    }
-    .cal-weekday {
-        text-align: center; font-size: 0.7rem; font-weight: 800;
-        text-transform: uppercase; letter-spacing: 1px; color: var(--cor-texto-suave); padding: 0.5rem 0;
-    }
-    .cal-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-    .cal-day {
-        aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
-        border-radius: 12px; transition: all 0.2s;
-        cursor: default; color: var(--cor-borda);
-        appearance: none; -webkit-appearance: none;
-        font: inherit; font-weight: 600; font-size: 0.9rem;
-        text-align: center; width: 100%;
-        background: transparent; border: none; padding: 0;
-    }
-    .cal-day.available {
-        color: var(--earth); cursor: pointer; background: var(--cor-fundo);
-        border: 1.5px solid transparent;
-    }
-    .cal-day.available:hover {
-        background: var(--gold-light); border-color: var(--gold); transform: scale(1.1);
-    }
-    .cal-day.selected {
-        background: var(--gold) !important; color: var(--cor-sobre-marca) !important;
-        border-color: var(--gold) !important;
-        transform: scale(1.1); box-shadow: 0 4px 12px rgba(201,168,76,0.3);
-    }
-    .cal-day.today { border: 2px solid var(--gold); }
-    .cal-day.empty { border: none; }
-
-    /* ─── FOCO VISÍVEL (teclado — WCAG 2.1.1) ─── */
-    .proc-card:focus-visible,
-    .cal-day:focus-visible,
-    .slot-btn:focus-visible,
-    .prof-btn:focus-visible {
-        outline: 2px solid var(--cor-marca); outline-offset: 2px;
-    }
-
-    /* ─── TIME SLOTS ─── */
-    .slots-container { margin-top: 1.5rem; }
-    .slots-title { font-weight: 700; color: var(--earth); margin-bottom: 1rem; font-size: 0.95rem; }
-    .slots-grid { display: flex; flex-wrap: wrap; gap: 0.6rem; }
-    .slot-btn {
-        padding: 0.7rem 1.2rem; border-radius: 12px;
-        border: 1.5px solid var(--cor-borda); background: var(--cor-superficie);
-        font-weight: 700; font-size: 0.85rem; color: var(--earth);
-        cursor: pointer; transition: all 0.2s; min-width: 80px; text-align: center;
-    }
-    .slot-btn:hover { border-color: var(--gold); background: var(--gold-light); }
-    .slot-btn.selected {
-        background: var(--gold); color: var(--cor-sobre-marca); border-color: var(--gold);
-        box-shadow: 0 4px 12px rgba(201,168,76,0.3);
-    }
-    .slots-loading { text-align: center; padding: 2rem; color: var(--cor-texto-suave); }
-    .lista-espera-link {
-        display: inline-block; margin-top: 0.85rem; padding: 0.5rem 1rem; border-radius: 999px;
-        border: 2px solid var(--gold); color: var(--cor-marca); font-weight: 700; font-size: 0.85rem;
-        text-decoration: none;
-    }
-    .lista-espera-link:hover { background: var(--gold-light); }
-
-    /* ─── PROFISSIONAL SELECT ─── */
-    .prof-options { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1rem; }
-    .prof-btn {
-        padding: 0.6rem 1.2rem; border-radius: 12px;
-        border: 1.5px solid var(--cor-borda); background: var(--cor-superficie);
-        font-weight: 600; font-size: 0.85rem; color: var(--earth);
-        cursor: pointer; transition: all 0.2s;
-    }
-    .prof-btn:hover { border-color: var(--gold); background: var(--gold-light); }
-    .prof-btn.selected { background: var(--gold); color: var(--cor-sobre-marca); border-color: var(--gold); }
-
-    /* ─── STEP 3 FORM ─── */
-    .booking-recap {
-        background: var(--cor-fundo); border: 1px solid var(--cor-borda); border-radius: 16px;
-        padding: 1.25rem 1.5rem; margin-bottom: 1.75rem;
-    }
-    .recap-row {
-        display: flex; justify-content: space-between; align-items: baseline;
-        padding: 0.55rem 0; border-bottom: 1px solid var(--cor-borda);
-        font-size: 0.9rem; gap: 1rem;
-    }
-    .recap-row:last-child { border-bottom: none; }
-    .recap-label {
-        color: var(--cor-texto-suave); font-size: 0.72rem; font-weight: 700;
-        text-transform: uppercase; letter-spacing: 1.2px; flex-shrink: 0;
-    }
-    .recap-value { color: var(--earth); font-weight: 600; text-align: right; }
-    .recap-price .recap-value {
-        font-family: 'Playfair Display', serif; font-size: 1.35rem;
-        font-weight: 700; color: var(--cor-marca);
-    }
-    .recap-price .recap-cheio {
-        display: block; font-family: inherit; font-size: 0.8rem; font-weight: 600;
-        color: var(--cor-texto-suave); text-decoration: line-through;
-    }
-    .recap-price .recap-promo {
-        display: block; font-family: inherit; font-size: 0.72rem; font-weight: 700;
-        color: var(--cor-marca);
-    }
-
-    /* ─── POLITICA / TERMOS / CONSENTIMENTO DE SAUDE ─── */
-    .aceite-box {
-        border: 1px solid var(--cor-borda); border-radius: 14px; background: var(--cor-fundo);
-        padding: 0.9rem 1rem; margin: 1rem 0;
-    }
-    .aceite-box.destaque { border: 2px solid var(--gold); background: var(--gold-light); }
-    .aceite-titulo { font-weight: 700; color: var(--earth); font-size: 0.88rem; margin: 0 0 0.45rem; }
-    .aceite-titulo small { font-weight: 600; color: var(--cor-texto-suave); }
-    .aceite-texto {
-        max-height: 11rem; overflow-y: auto; white-space: pre-line;
-        font-size: 0.8rem; line-height: 1.5; color: var(--cor-texto-suave);
-        background: var(--cor-superficie); border: 1px solid var(--cor-borda); border-radius: 10px;
-        padding: 0.65rem 0.8rem; margin: 0.5rem 0 0.6rem;
-    }
-    .aceite-texto:focus-visible { outline: 2px solid var(--cor-marca); outline-offset: 2px; }
-    .aceite-check {
-        display: flex; align-items: flex-start; gap: 8px; cursor: pointer;
-        font-size: 0.84rem; color: var(--earth); font-weight: 600; line-height: 1.45;
-    }
-    .aceite-check input { width: auto; margin-top: 3px; flex-shrink: 0; }
-    .aceite-check a { color: var(--cor-marca); text-decoration: underline; }
-    .aceite-resumo summary {
-        cursor: pointer; font-size: 0.78rem; font-weight: 700; color: var(--cor-marca);
-        margin-top: 0.5rem;
-    }
-
-    .fields-divider {
-        display: flex; align-items: center; gap: 0.85rem;
-        margin: 1.5rem 0 1rem; color: var(--cor-texto-suave);
-        font-size: 0.7rem; font-weight: 700;
-        text-transform: uppercase; letter-spacing: 1.8px;
-    }
-    .fields-divider::before, .fields-divider::after {
-        content: ''; flex: 1; height: 1px; background: var(--cor-borda);
-    }
-    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    @media (max-width: 576px) { .field-row { grid-template-columns: 1fr; gap: 0; } }
-
-    /* OTP row: grid 1fr + botao fixo — evita reflow quando texto do botao muda */
-    .otp-row {
-        display: grid;
-        grid-template-columns: 1fr 150px;
-        gap: 8px;
-        align-items: stretch;
-    }
-    .otp-row .form-input { width: 100%; min-width: 0; box-sizing: border-box; }
-    .otp-btn {
-        white-space: nowrap; min-width: 150px; max-width: 150px;
-        display: flex; align-items: center; justify-content: center; gap: 0.4rem;
-    }
-    @media (max-width: 420px) {
-        .otp-row { grid-template-columns: 1fr 110px; }
-        .otp-btn { min-width: 110px; max-width: 110px; padding: 0.45rem 0.55rem; font-size: 0.8rem; }
-        .otp-btn-text { font-size: 0.78rem; }
-    }
-
-    .cliente-badge {
-        display: flex; align-items: center; gap: 0.6rem;
-        padding: 0.7rem 1rem; border-radius: 12px; margin-bottom: 1rem;
-        font-size: 0.85rem; font-weight: 600;
-    }
-    .cliente-badge[data-state="existing"] {
-        background: var(--cor-sucesso-fundo); color: var(--cor-sucesso);
-        border: 1px solid color-mix(in srgb, var(--cor-sucesso) 35%, transparent);
-    }
-    .cliente-badge[data-state="new"] {
-        background: var(--cor-aviso-fundo); color: var(--cor-aviso);
-        border: 1px solid color-mix(in srgb, var(--cor-aviso) 35%, transparent);
-    }
-    /* consentimentos de comunicacao (LGPD): texto suave do tema, sem o caixa-alta do .form-field label */
-    .form-field label.consent-check {
-        display: flex; align-items: flex-start; gap: 8px; cursor: pointer;
-        font-size: 0.82rem; color: var(--cor-texto-suave);
-        text-transform: none; letter-spacing: 0; font-weight: 500;
-    }
-    .consent-check input { width: auto; margin-top: 3px; }
-    /* ficha de anamnese montada pelo wizard.js (classes, sem cor fixa) */
-    .ficha-anamnese {
-        border: 1px solid var(--cor-borda); border-radius: 10px; padding: 0.75rem;
-        margin-bottom: 0.6rem; background: var(--cor-fundo);
-    }
-    .ficha-titulo { font-weight: 700; color: var(--cor-texto); font-size: 0.85rem; margin-bottom: 0.5rem; }
-    .ficha-campo { margin-bottom: 0.5rem; }
-    .ficha-em-dia { font-size: 0.82rem; color: var(--cor-texto-suave); margin: 0 0 0.25rem; }
-    .ficha-atualizar {
-        background: none; border: 0; padding: 0; color: var(--cor-marca); font-weight: 700;
-        text-decoration: underline; cursor: pointer; font-size: inherit;
-    }
-    .ficha-rotulo { display: block; font-size: 0.78rem; color: var(--cor-texto-suave); font-weight: 600; margin-bottom: 0.2rem; }
-    .ficha-opcao { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--cor-texto); }
-    .ficha-entrada {
-        width: 100%; padding: 0.45rem; border: 1px solid var(--cor-borda-campo); border-radius: 6px;
-        font-size: 0.85rem; background: var(--cor-superficie); color: var(--cor-texto);
-    }
-    /* mensagens do SMS/codigo (wizard.js alterna as classes) */
-    .msg-ok { color: var(--cor-sucesso); }
-    .msg-erro { color: var(--cor-erro); }
-    .msg-ok a, .msg-erro a { font-weight: 700; text-decoration: underline; margin-left: 4px; color: inherit; }
-
-    .confirm-subnote {
-        display: block; text-align: center; margin-top: 0.75rem;
-        font-size: 0.76rem; color: var(--cor-texto-suave); line-height: 1.5;
-    }
-    .confirm-subnote i, .confirm-subnote svg { color: var(--gold); margin-right: 0.3rem; vertical-align: -0.125em; }
-
-    .form-field { margin-bottom: 1.25rem; }
-    .form-field label {
-        font-size: 0.72rem; font-weight: 800; text-transform: uppercase;
-        letter-spacing: 1.5px; color: var(--cor-texto-suave); display: flex;
-        align-items: center; gap: 0.4rem; margin-bottom: 0.5rem;
-    }
-    .form-field label i, .form-field label svg { color: var(--gold); }
-    .form-input {
-        width: 100%; padding: 0.85rem 1rem; border: 2px solid var(--cor-borda-campo);
-        border-radius: 14px; font-size: 0.95rem; background: var(--cor-fundo);
-        color: var(--earth); font-weight: 500; transition: border-color 0.2s;
-    }
-    .form-input[readonly]:not(#form-telefone) { background: var(--cor-superficie); color: var(--cor-texto-suave); }
-    .form-input:focus {
-        outline: none; border-color: var(--cor-foco);
-        box-shadow: 0 0 0 3px color-mix(in srgb, var(--cor-foco) 45%, transparent); background: var(--cor-superficie);
-    }
-
-    .btn-confirm-booking {
-        width: 100%; padding: 0.95rem; background: var(--gold);
-        color: var(--cor-sobre-marca); border: none; border-radius: 50px;
-        font-size: 0.92rem; font-weight: 800; text-transform: uppercase;
-        letter-spacing: 1.2px; cursor: pointer; transition: all 0.25s;
-        box-shadow: 0 6px 20px rgba(201,168,76,0.35);
-    }
-    .btn-confirm-booking:hover {
-        background: var(--cor-marca); transform: translateY(-2px);
-        box-shadow: 0 10px 28px rgba(201,168,76,0.45);
-    }
-    .btn-back-step {
-        display: inline-flex; align-items: center; gap: 0.5rem;
-        padding: 0.7rem 1.4rem; background: var(--cor-superficie); border: 1.5px solid var(--cor-borda);
-        border-radius: 50px; color: var(--earth); font-weight: 600;
-        font-size: 0.85rem; cursor: pointer; transition: all 0.2s;
-        margin-top: 0.75rem;
-    }
-    .btn-back-step:hover { background: var(--cor-fundo); }
-
-    .empty-procs {
-        text-align: center; padding: 3rem 1rem; color: var(--cor-texto-suave);
-    }
-    .empty-procs i, .empty-procs svg { font-size: 3rem; margin-bottom: 1rem; color: var(--cor-borda); }
-
-    @media (max-width: 768px) {
-        .booking-banner { padding: 3rem 0 6rem; }
-        .booking-float { padding: 0 0.75rem 2rem; }
-        .step-panel { padding: 1.25rem !important; }
-        .proc-grid { grid-template-columns: 1fr; }
-        .step-text { display: none; }
-    }
-</style>
-{% endblock %}
+{# CSS da pagina: static/src/css/site.css (.pagina-agendamento) #}
 
 {% block conteudo %}
 {# Mensagens (erro do "Confirmar") vem do bloco global de base_v2 #}
-<div class="booking-page">
+<div class="booking-page pagina-agendamento">
 
 <!-- Hero -->
 <div class="booking-banner">
     <div class="booking-banner-inner mx-auto max-w-5xl px-6">
-        <div class="booking-pill"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18 16l.6 1.6L20 18l-1.4.6L18 20l-.6-1.4L16 18l1.4-.4z"/></svg>{{ CLINIC_NAME }} — Agendamento Online</div>
         <h1>Agende seu espaço<br>de bem-estar</h1>
         <p>Escolha seu tratamento, selecione a data e confirme — tudo sem precisar criar conta.</p>
     </div>
@@ -439,14 +22,14 @@
     <div class="booking-card">
 
         <!-- Steps Bar -->
-        <ol class="steps-bar" aria-label="Etapas do agendamento" style="list-style:none;margin:0;">
+        <ol class="steps-bar" aria-label="Etapas do agendamento">
             <li class="step-item active" id="step-ind-1" aria-current="step">
                 <span class="step-num" aria-hidden="true">1</span>
-                <span class="step-text"><span class="sr-only">Etapa 1 de 3: </span>Procedimento</span>
+                <span class="step-text"><span class="sr-only">Etapa 1 de 3: </span>Serviço</span>
             </li>
             <li class="step-item" id="step-ind-2">
                 <span class="step-num" aria-hidden="true">2</span>
-                <span class="step-text"><span class="sr-only">Etapa 2 de 3: </span>Data e horário</span>
+                <span class="step-text"><span class="sr-only">Etapa 2 de 3: </span>Data<span class="sr-only"> e horário</span></span>
             </li>
             <li class="step-item" id="step-ind-3">
                 <span class="step-num" aria-hidden="true">3</span>
@@ -457,18 +40,18 @@
 
         <!-- ═══ STEP 1: Escolher Procedimento ═══ -->
         <div class="step-panel active" id="step-1" role="region" aria-labelledby="step-1-titulo">
-            <h2 id="step-1-titulo" class="step-titulo" tabindex="-1" style="font-family:'Playfair Display',serif;font-weight:700;color:var(--earth);margin-bottom:0.3rem;">
+            <h2 id="step-1-titulo" class="step-titulo" tabindex="-1">
                 Escolha seu tratamento
             </h2>
-            <p style="color:var(--cor-texto-suave);font-size:0.9rem;margin-bottom:1.5rem;">
-                Selecione o procedimento desejado para ver as datas disponíveis.
+            <p class="step-sub">
+                Selecione o tratamento para ver as datas disponíveis.
             </p>
 
             {% if not sms_disponivel %}
             {# Sem SMS o passo 3 (codigo no celular) e impossivel: avisa ANTES de escolher tratamento/horario #}
-            <div id="aviso-sms-indisponivel" role="alert" style="border:1px solid var(--cor-erro,#b42318);color:var(--cor-erro,#b42318);border-radius:12px;padding:0.75rem 1rem;font-size:0.85rem;margin-bottom:1.25rem;">
+            <div id="aviso-sms-indisponivel" role="alert" class="aviso-indisponivel">
                 No momento o agendamento online está indisponível: não conseguimos enviar o código de confirmação por SMS.
-                {% if WHATSAPP_NUMERO %}<a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text={{ 'Olá! Gostaria de agendar um horário.'|urlencode }}" target="_blank" rel="noopener" style="font-weight:700;text-decoration:underline;">Agende pelo WhatsApp</a>.{% else %}Tente novamente mais tarde.{% endif %}
+                {% if WHATSAPP_NUMERO %}<a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text={{ 'Olá! Gostaria de agendar um horário.'|urlencode }}" target="_blank" rel="noopener">Agende pelo WhatsApp</a>.{% else %}Tente novamente mais tarde.{% endif %}
             </div>
             {% endif %}
 
@@ -495,11 +78,11 @@
                     <div class="proc-meta">
                         <span class="proc-price">
                             {% if proc.preco_base > 0 %}
-                                <small style="font-size:0.65rem;font-weight:600;color:var(--cor-texto-suave);letter-spacing:0.5px;">A partir de</small>
+                                <small class="proc-a-partir">A partir de</small>
                                 {% if proc.preco_cheio %}<s class="proc-price-cheio">{{ proc.preco_cheio|brl }}</s>{% endif %}
                                 {{ proc.preco|brl }}
                             {% else %}
-                                <small style="font-size:0.78rem;font-weight:700;color:var(--cor-marca);">A consultar</small>
+                                <small class="proc-consultar">A consultar</small>
                             {% endif %}
                         </span>
                         <span class="proc-duration">
@@ -516,15 +99,14 @@
                 Continuar
             </button>
             {% else %}
-            <div class="empty-procs" style="padding:4rem 2rem;">
-                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="font-size:3.5rem;color:var(--cor-marca);display:block;margin:0 auto 1.25rem;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M12 18.5l-2.3-2.2a1.6 1.6 0 0 1 2.3-2.3 1.6 1.6 0 0 1 2.3 2.3z"/></svg>
-                <h2 style="font-weight:700;color:var(--cor-texto);font-family:var(--heading-font);font-size:1.4rem;">Em breve</h2>
-                <p style="color:var(--cor-texto-suave);max-width:360px;margin:0.5rem auto 1.5rem;">Nossos tratamentos estarão disponíveis para agendamento online em breve.</p>
+            <div class="empty-procs">
+                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="empty-procs__icone"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M12 18.5l-2.3-2.2a1.6 1.6 0 0 1 2.3-2.3 1.6 1.6 0 0 1 2.3 2.3z"/></svg>
+                <h2>Em breve</h2>
+                <p>Nossos tratamentos estarão disponíveis para agendamento online em breve.</p>
                 {% if WHATSAPP_NUMERO %}
                 <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text={{ 'Olá! Gostaria de agendar um horário.'|urlencode }}" target="_blank" rel="noopener"
-                   class="inline-flex items-center gap-2 px-4 py-2 rounded-full font-bold"
-                   style="background:var(--cor-sucesso-forte);color:var(--cor-sobre-sucesso);font-size:0.9rem;box-shadow:0 4px 16px rgba(37,211,102,0.3);">
-                    <svg width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="font-size:1.1rem;"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M11.999 2C6.477 2 2 6.477 2 12c0 1.89.525 3.659 1.438 5.168L2 22l4.984-1.407A9.945 9.945 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.95 7.95 0 01-4.055-1.109l-.291-.173-3.007.849.85-2.932-.19-.301A7.94 7.94 0 014 12c0-4.418 3.582-8 8-8s8 3.582 8 8-3.582 8-8 8z"/></svg>Agendar via WhatsApp
+                   class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-sm bg-whatsapp text-sobre-whatsapp shadow-md">
+                    <svg width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" class="text-lg"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M11.999 2C6.477 2 2 6.477 2 12c0 1.89.525 3.659 1.438 5.168L2 22l4.984-1.407A9.945 9.945 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.95 7.95 0 01-4.055-1.109l-.291-.173-3.007.849.85-2.932-.19-.301A7.94 7.94 0 014 12c0-4.418 3.582-8 8-8s8 3.582 8 8-3.582 8-8 8z"/></svg>Agendar pelo WhatsApp
                 </a>
                 {% endif %}
             </div>
@@ -556,7 +138,7 @@
                     <div class="cal-days" id="cal-days-grid" role="group" aria-labelledby="cal-month-label"></div>
 
                     <button class="btn-back-step" type="button" data-goto="1">
-                        <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Voltar aos Procedimentos
+                        <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Voltar aos serviços
                     </button>
                 </div>
 
@@ -564,15 +146,15 @@
                 <div>
                     <div class="slots-container" id="slots-container">
                         <div class="slots-loading">
-                            <svg width="32" height="32" fill="none" stroke="var(--cor-borda)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true" style="display:block;margin:0 auto 0.75rem;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                            <span style="font-size:0.9rem;">Selecione uma data no calendário</span>
+                            <svg class="slots-icone" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                            <span>Selecione uma data no calendário</span>
                         </div>
                     </div>
 
                     <!-- Profissional (aparece após selecionar horário) -->
-                    <div id="prof-section" style="display:none !important;margin-top:1.5rem;">
+                    <div id="prof-section" class="prof-section" hidden>
                         <div class="slots-title">
-                            <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--gold);margin-right:0.25rem;vertical-align:-0.125em;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Escolha o Profissional
+                            <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Escolha a profissional
                         </div>
                         <div class="prof-options" id="prof-options" role="group" aria-label="Profissional"></div>
                     </div>
@@ -587,7 +169,7 @@
         <div class="step-panel" id="step-3" role="region" aria-labelledby="step-3-titulo">
             <div class="flex justify-center">
                 <div class="w-full max-w-lg">
-                    <h2 id="step-3-titulo" class="step-titulo" tabindex="-1" style="font-family:'Playfair Display',serif;font-weight:700;color:var(--earth);margin-bottom:1.5rem;text-align:center;">
+                    <h2 id="step-3-titulo" class="step-titulo step-titulo--centro" tabindex="-1">
                         Confirme seu agendamento
                     </h2>
 
@@ -598,7 +180,7 @@
                             <span class="recap-value" id="sum-proc">—</span>
                         </div>
                         <div class="recap-row">
-                            <span class="recap-label">Data & Horário</span>
+                            <span class="recap-label">Data e horário</span>
                             <span class="recap-value" id="sum-datetime">—</span>
                         </div>
                         <div class="recap-row">
@@ -619,11 +201,10 @@
                         {# '1' = checkboxes de comunicacao mostram o estado do cadastro (desmarcar revoga) #}
                         <input type="hidden" name="consents_sincronizados" id="form-consents-sincronizados" value="">
                         {# honeypot — humano não ve, bot preenche #}
-                        <input type="text" name="website" tabindex="-1" autocomplete="off"
-                               style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
+                        <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="campo-isca">
 
                         <!-- Badge status cliente (aparece apos OTP) -->
-                        <div id="cliente-badge" class="cliente-badge" style="display:none;"></div>
+                        <div id="cliente-badge" class="cliente-badge" role="status" hidden></div>
 
                         {% if turnstile_enabled %}
                         {# Verificacao anti-robo exigida ao pedir o SMS (visivel antes do botao) #}
@@ -633,77 +214,77 @@
                         {% endif %}
 
                         {% if not sms_disponivel %}
-                        <div role="alert" class="form-field" style="border:1px solid var(--cor-erro,#b42318);color:var(--cor-erro,#b42318);border-radius:12px;padding:0.75rem 1rem;font-size:0.85rem;">
+                        <div role="alert" class="aviso-indisponivel">
                             No momento não conseguimos enviar o código de confirmação por SMS.
-                            {% if WHATSAPP_NUMERO %}<a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text={{ 'Olá! Gostaria de agendar um horário.'|urlencode }}" target="_blank" rel="noopener" style="font-weight:700;text-decoration:underline;">Agende pelo WhatsApp</a>.{% else %}Tente novamente mais tarde.{% endif %}
+                            {% if WHATSAPP_NUMERO %}<a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text={{ 'Olá! Gostaria de agendar um horário.'|urlencode }}" target="_blank" rel="noopener">Agende pelo WhatsApp</a>.{% else %}Tente novamente mais tarde.{% endif %}
                         </div>
                         {% endif %}
 
                         <!-- ─── Celular + OTP via SMS ─── -->
                         <div class="form-field">
-                            <label><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>Celular</label>
+                            <label for="form-telefone"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>Celular</label>
                             <div class="otp-row">
-                                <input type="tel" name="telefone" class="form-input" placeholder="(00) 00000-0000" required id="form-telefone" aria-label="Telefone celular" inputmode="tel" autocomplete="tel">
+                                <input type="tel" name="telefone" class="form-input" placeholder="(17) 99999-9999" required id="form-telefone" aria-describedby="dica-celular" inputmode="tel" autocomplete="tel">
                                 <button type="button" id="btn-enviar-otp"{% if not sms_disponivel %} disabled{% endif %} class="otp-btn border border-borda rounded-lg px-3 py-2 text-sm font-semibold text-texto-suave bg-superficie hover:border-marca-forte cursor-pointer">
                                     <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="7" y1="9" x2="15" y2="9"/><line x1="7" y1="13" x2="12" y2="13"/></svg><span class="otp-btn-text">Enviar SMS</span>
                                 </button>
                             </div>
-                            <small style="color:var(--cor-texto-suave);font-size:0.72rem;margin-top:0.35rem;display:block;">
+                            <small id="dica-celular" class="form-dica">
                                 Enviaremos um SMS com código de 6 dígitos para validar seu celular. Se já for cliente, seus dados serão preenchidos automaticamente.
                             </small>
-                            <small id="otp-status" role="status" aria-live="polite" style="display:block;margin-top:0.4rem;font-size:0.78rem;"></small>
+                            <small id="otp-status" role="status" aria-live="polite" class="form-status"></small>
                         </div>
 
-                        <div class="form-field" id="otp-field" style="display:none;">
-                            <label><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Código de verificação</label>
+                        <div class="form-field" id="otp-field" hidden>
+                            <label for="otp-codigo"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Código de verificação</label>
                             <div class="otp-row">
-                                <input type="text" id="otp-codigo" class="form-input" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code" aria-label="Código de verificação de 6 dígitos" style="letter-spacing:6px;font-size:1.2rem;text-align:center;">
+                                <input type="text" id="otp-codigo" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code" aria-label="Código de verificação de 6 dígitos" class="form-input otp-codigo-input">
                                 <button type="button" id="btn-verificar-otp" class="otp-btn bg-marca-forte text-sobre-marca border-0 rounded-lg px-3 py-2 text-sm font-semibold cursor-pointer">
                                     <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg><span class="otp-btn-text">Verificar</span>
                                 </button>
                             </div>
-                            <small id="otp-msg" role="status" aria-live="polite" style="display:block;margin-top:0.4rem;font-size:0.78rem;"></small>
+                            <small id="otp-msg" role="status" aria-live="polite" class="form-status"></small>
                         </div>
 
                         <!-- ─── Dados pessoais (mostra apos OTP ou se novo) ─── -->
-                        <div id="dados-fields" style="display:none;">
+                        <div id="dados-fields" hidden>
                             <div class="fields-divider">Seus dados</div>
 
                             <div class="form-field">
-                                <label><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Nome completo</label>
+                                <label for="form-nome"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Nome completo</label>
                                 <input type="text" name="nome" class="form-input" placeholder="Nome completo" id="form-nome" aria-label="Nome completo" aria-describedby="nome-titular-aviso">
                                 {# D16: o agendamento e da titular do celular verificado (cadastro existente: nome so leitura) #}
-                                <small id="nome-titular-aviso" hidden style="color:var(--cor-texto-suave);font-size:0.72rem;margin-top:0.35rem;display:block;">
+                                <small id="nome-titular-aviso" hidden class="form-dica">
                                     Vai agendar para outra pessoa? Use o celular dela ou fale conosco pelo WhatsApp.
                                 </small>
                             </div>
 
                             <div class="field-row">
                                 <div class="form-field">
-                                    <label><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M12 18.5l-2.3-2.2a1.6 1.6 0 0 1 2.3-2.3 1.6 1.6 0 0 1 2.3 2.3z"/></svg>Nascimento</label>
-                                    <input type="date" name="data_nascimento" class="form-input" id="form-nascimento" aria-label="Data de nascimento" style="color-scheme: light;">
+                                    <label for="form-nascimento"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M12 18.5l-2.3-2.2a1.6 1.6 0 0 1 2.3-2.3 1.6 1.6 0 0 1 2.3 2.3z"/></svg>Nascimento</label>
+                                    <input type="date" name="data_nascimento" class="form-input" id="form-nascimento" aria-label="Data de nascimento">
                                 </div>
                                 <div class="form-field">
-                                    <label><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/></svg>E-mail</label>
+                                    <label for="form-email"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/></svg>E-mail</label>
                                     <input type="email" name="email" class="form-input" placeholder="seu@email.com" id="form-email" aria-label="E-mail" autocomplete="email">
                                 </div>
                             </div>
 
-                            <div class="form-field" style="margin-bottom:0.5rem;">
+                            <div class="form-field form-field--consent">
                                 <label class="consent-check">
                                     <input type="checkbox" name="consent_email_marketing" id="form-consent-email">
                                     <span>{{ textos_consentimento.consent_email_marketing }}</span>
                                 </label>
                             </div>
 
-                            <div class="form-field" style="margin-bottom:0.5rem;">
+                            <div class="form-field form-field--consent">
                                 <label class="consent-check">
                                     <input type="checkbox" name="consent_whatsapp_confirmacao" id="form-consent-wa-d1">
                                     <span>{{ textos_consentimento.consent_whatsapp_confirmacao }}</span>
                                 </label>
                             </div>
 
-                            <div class="form-field" style="margin-bottom:0;">
+                            <div class="form-field form-field--consent">
                                 <label class="consent-check">
                                     <input type="checkbox" name="consent_whatsapp_nps" id="form-consent-nps">
                                     <span>{{ textos_consentimento.consent_whatsapp_nps }}</span>
@@ -712,13 +293,13 @@
                         </div>
 
                         <!-- Anamnese dinamica (preenchida via JS conforme procedimento) -->
-                        <div id="anamneseContainer" style="display:none;">
-                            <div style="font-weight:700;color:var(--cor-marca);margin:1rem 0 0.5rem;font-size:0.9rem;">
-                                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-0.125em;"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M12 17l-2.3-2.2a1.6 1.6 0 0 1 2.3-2.3 1.6 1.6 0 0 1 2.3 2.3z"/></svg> Questionário pré-atendimento
+                        <div id="anamneseContainer" hidden>
+                            <div class="anamnese-titulo">
+                                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M12 17l-2.3-2.2a1.6 1.6 0 0 1 2.3-2.3 1.6 1.6 0 0 1 2.3 2.3z"/></svg> Questionário pré-atendimento
                             </div>
                             <div id="anamneseFields"></div>
                             {# Erro de pergunta de multipla escolha obrigatoria: aparece junto da ficha #}
-                            <p id="anamnese-msg" role="alert" style="color:var(--cor-erro,#b42318);font-size:0.8rem;font-weight:600;margin:0.25rem 0 0.5rem;"></p>
+                            <p id="anamnese-msg" role="alert" class="anamnese-msg"></p>
                             <input type="hidden" name="anamnese_respostas" id="anamneseRespostasJson" value="">
                             {# Consentimento especifico e destacado p/ dado de saude (LGPD art. 11) #}
                             <div class="aceite-box destaque" id="consent-saude-box">
@@ -731,7 +312,7 @@
                         </div>
 
                         <!-- Termo(s) do procedimento (preenchido via JS conforme procedimento) -->
-                        <div id="termosContainer" style="display:none;">
+                        <div id="termosContainer" hidden>
                             <div class="fields-divider">Termo de consentimento</div>
                             <div id="termosFields"></div>
                         </div>
@@ -751,10 +332,10 @@
                         </div>
 
                         <button type="submit" class="btn-confirm-booking" id="btn-confirmar" disabled title="Verifique o código enviado por SMS ao seu telefone primeiro">
-                            <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right:0.5rem;vertical-align:-0.125em;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 16 11 18 15 14"/></svg>Confirmar Agendamento
+                            <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 16 11 18 15 14"/></svg>Confirmar agendamento
                         </button>
                         <small class="confirm-subnote">
-                            <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>Na primeira vez, seu horário fica reservado até a profissional confirmar; para quem já é cliente, ele é confirmado na hora. O status aparece em Meus Agendamentos.
+                            <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>Na primeira vez, seu horário fica reservado até a profissional confirmar; para quem já é cliente, ele é confirmado na hora. O status aparece em Meus agendamentos.
                         </small>
                     </form>
 
