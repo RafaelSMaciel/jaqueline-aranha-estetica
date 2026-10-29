@@ -3,154 +3,115 @@
 {% block titulo %}NPS — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}NPS — Satisfação{% endblock %}
 {% block page_subtitle %}Net Promoter Score, distribuição de notas e comentários{% endblock %}
+{% block page_actions %}
+{# Periodo: controle segmentado (o selecionado leva aria-current) #}
+<nav class="inline-flex gap-1 rounded-xl border border-borda bg-superficie p-1" aria-label="Período">
+  <c-botao tamanho="sm" variante="{% if periodo == '30' %}primario{% else %}fantasma{% endif %}" href="?periodo=30" aria-current="{% if periodo == '30' %}true{% else %}false{% endif %}">30 dias</c-botao>
+  <c-botao tamanho="sm" variante="{% if periodo == '90' %}primario{% else %}fantasma{% endif %}" href="?periodo=90" aria-current="{% if periodo == '90' %}true{% else %}false{% endif %}">90 dias</c-botao>
+  <c-botao tamanho="sm" variante="{% if periodo == 'tudo' %}primario{% else %}fantasma{% endif %}" href="?periodo=tudo" aria-current="{% if periodo == 'tudo' %}true{% else %}false{% endif %}">Tudo</c-botao>
+</nav>
+{% endblock %}
 
 {% block admin_content %}
 
-{# ── Filtro de período ── #}
-<div class="flex items-center gap-1.5 mb-4">
-  {% with seg="px-3.5 py-1.5 rounded-full text-sm font-semibold no-underline border transition" %}
-  <a href="?periodo=30" class="{{ seg }} {% if periodo == '30' %}border-marca-forte text-marca bg-marca-forte/[0.1]{% else %}border-borda text-texto-suave hover:border-marca{% endif %}">30 dias</a>
-  <a href="?periodo=90" class="{{ seg }} {% if periodo == '90' %}border-marca-forte text-marca bg-marca-forte/[0.1]{% else %}border-borda text-texto-suave hover:border-marca{% endif %}">90 dias</a>
-  <a href="?periodo=tudo" class="{{ seg }} {% if periodo == 'tudo' %}border-marca-forte text-marca bg-marca-forte/[0.1]{% else %}border-borda text-texto-suave hover:border-marca{% endif %}">Tudo</a>
-  {% endwith %}
-</div>
-
-{# ── Moderação de depoimentos (opt-in do cliente + aprovação da equipe) ── #}
+{# ── Moderacao de depoimentos (opt-in do cliente + aprovacao da equipe) ── #}
 {% if aguardando_moderacao %}
-<div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4 border-l-4 border-marca-forte">
-  <h2 class="text-base font-bold text-texto mb-1">Depoimentos aguardando aprovação</h2>
-  <p class="text-[0.78rem] text-texto-suave mb-4">O cliente autorizou a publicação. Aprovados aparecem em Depoimentos no site com o primeiro nome e a inicial do sobrenome.</p>
-  <div class="space-y-3">
+<c-card titulo="Depoimentos aguardando aprovação" icone="estrela" espaco="nenhum" class="cartao-destaque mb-6"
+        descricao="O cliente autorizou a publicação. Aprovados aparecem em Depoimentos no site com o primeiro nome e a inicial do sobrenome.">
+  <ul class="lista-itens">
     {% for a in aguardando_moderacao %}
-    <div class="flex flex-wrap items-start gap-3 p-3 rounded-xl bg-fundo">
-      <span class="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm
-        {% if a.nota >= 9 %}bg-sucesso text-superficie{% elif a.nota >= 7 %}bg-marca-forte text-sobre-marca{% else %}bg-erro text-superficie{% endif %}">{{ a.nota }}</span>
-      <div class="min-w-0 flex-1">
-        <p class="text-sm text-texto leading-relaxed">{{ a.comentario }}</p>
-        <p class="text-[0.72rem] text-texto-suave mt-1">
-          {{ a.atendimento.cliente.nome|default:"Cliente" }}{% if a.atendimento.profissional %} · {{ a.atendimento.profissional.nome }}{% endif %} · {{ a.criado_em|date:"d/m/Y" }}
-        </p>
+    <li class="item-lista items-start">
+      <span class="avatar {% if a.nota >= 9 %}bg-sucesso-fundo text-sucesso{% elif a.nota >= 7 %}bg-marca-suave text-marca{% else %}bg-erro-fundo text-erro{% endif %}"><span class="sr-only">Nota </span>{{ a.nota }}</span>
+      <div class="item-lista-corpo">
+        <p class="text-texto">{{ a.comentario }}</p>
+        <p class="item-lista-meta mt-1">{{ a.atendimento.cliente.nome|default:"Cliente" }}{% if a.atendimento.profissional %} · {{ a.atendimento.profissional.nome }}{% endif %} · {{ a.criado_em|date:"d/m/Y" }}</p>
       </div>
-      <form method="post" action="{% url 'aranha:admin_nps_publicacao' a.pk %}" class="m-0 flex-shrink-0">
-        {% csrf_token %}
-        <input type="hidden" name="periodo" value="{{ periodo }}">
-        <button type="submit" name="acao" value="aprovar"
-                class="px-3 py-1.5 rounded-lg bg-sucesso-forte text-sobre-sucesso text-[0.78rem] font-semibold hover:opacity-90 transition">
-          Publicar no site
-        </button>
-      </form>
-    </div>
+      <div class="item-lista-acoes">
+        <form method="post" action="{% url 'aranha:admin_nps_publicacao' a.pk %}" class="m-0">
+          {% csrf_token %}
+          <input type="hidden" name="periodo" value="{{ periodo }}">
+          <c-botao tipo="submit" variante="sucesso" tamanho="sm" icone="check" name="acao" value="aprovar">Publicar no site</c-botao>
+        </form>
+      </div>
+    </li>
     {% endfor %}
-  </div>
-</div>
+  </ul>
+</c-card>
 {% endif %}
 
 {% if total %}
 
-{# ── NPS score + resumo ── #}
-<div class="grid lg:grid-cols-[280px_1fr] gap-4 mb-4">
-
-  {# Score grande #}
-  <div class="bg-superficie rounded-2xl shadow-sm p-6 flex flex-col items-center justify-center text-center">
-    <p class="text-[0.72rem] font-bold text-texto-suave uppercase tracking-wide mb-2">NPS</p>
-    <p class="font-serif font-bold leading-none text-[4rem] {% if nps_score >= 50 %}text-sucesso{% elif nps_score >= 0 %}text-marca{% else %}text-erro{% endif %}">{{ nps_score }}</p>
-    <p class="mt-2 text-sm font-semibold
-      {% if nps_score >= 75 %}text-sucesso{% elif nps_score >= 50 %}text-sucesso{% elif nps_score >= 0 %}text-marca{% else %}text-erro{% endif %}">
+{# ── NPS + promotores / neutros / detratores ── #}
+<div class="grid gap-4 mb-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
+  <c-card class="flex flex-col items-center justify-center text-center">
+    <p class="kpi-rotulo">NPS</p>
+    <p class="mt-1 font-serif text-6xl font-bold leading-none tabular-nums {% if nps_score >= 50 %}text-sucesso{% elif nps_score >= 0 %}text-marca{% else %}text-erro{% endif %}">{{ nps_score }}</p>
+    <p class="mt-2 text-sm font-bold {% if nps_score >= 50 %}text-sucesso{% elif nps_score >= 0 %}text-marca{% else %}text-erro{% endif %}">
       {% if nps_score >= 75 %}Excelente{% elif nps_score >= 50 %}Muito bom{% elif nps_score >= 0 %}Razoável{% else %}Crítico{% endif %}
     </p>
-    <p class="text-[0.72rem] text-texto-suave mt-1">{{ total }} avaliaç{{ total|pluralize:"ão,ões" }} · média {{ media }}</p>
-  </div>
+    <p class="kpi-detalhe mt-1">{{ total }} avaliaç{{ total|pluralize:"ão,ões" }} · média {{ media }}</p>
+  </c-card>
 
-  {# Promotores / Neutros / Detratores #}
-  <div class="grid grid-cols-3 gap-3">
-    <div class="bg-superficie rounded-2xl shadow-sm p-4 flex flex-col justify-center">
-      <p class="text-2xl font-extrabold text-sucesso leading-none">{{ promotores_pct }}%</p>
-      <p class="text-sm font-bold text-texto mt-1">Promotores</p>
-      <p class="text-[0.72rem] text-texto-suave">{{ promotores }} · notas 9–10</p>
-    </div>
-    <div class="bg-superficie rounded-2xl shadow-sm p-4 flex flex-col justify-center">
-      <p class="text-2xl font-extrabold text-marca leading-none">{{ neutros_pct }}%</p>
-      <p class="text-sm font-bold text-texto mt-1">Neutros</p>
-      <p class="text-[0.72rem] text-texto-suave">{{ neutros }} · notas 7–8</p>
-    </div>
-    <div class="bg-superficie rounded-2xl shadow-sm p-4 flex flex-col justify-center">
-      <p class="text-2xl font-extrabold text-erro leading-none">{{ detratores_pct }}%</p>
-      <p class="text-sm font-bold text-texto mt-1">Detratores</p>
-      <p class="text-[0.72rem] text-texto-suave">{{ detratores }} · notas 0–6</p>
-    </div>
+  <div class="grid gap-4 sm:grid-cols-3">
+    <c-kpi rotulo="Promotores" valor="{{ promotores_pct }}%" detalhe="{{ promotores }} · notas 9–10" icone="tendencia-sobe" class="[&_.kpi-valor]:text-sucesso" />
+    <c-kpi rotulo="Neutros" valor="{{ neutros_pct }}%" detalhe="{{ neutros }} · notas 7–8" icone="avancar" class="[&_.kpi-valor]:text-marca" />
+    <c-kpi rotulo="Detratores" valor="{{ detratores_pct }}%" detalhe="{{ detratores }} · notas 0–6" icone="tendencia-desce" class="[&_.kpi-valor]:text-erro" />
   </div>
 </div>
 
-{# ── Distribuição por nota ── #}
-<div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
-  <h2 class="text-base font-bold text-texto mb-4">Distribuição de notas</h2>
-  <div class="space-y-1.5">
+{# ── Distribuicao por nota (barra em SVG: largura sem style inline) ── #}
+<c-card titulo="Distribuição de notas" icone="grafico" class="mb-6">
+  <ul class="flex flex-col gap-2">
     {% for d in distribuicao %}
-    <div class="flex items-center gap-3">
-      <span class="w-6 text-right text-sm font-bold {% if d.classe == 'promotor' %}text-sucesso{% elif d.classe == 'neutro' %}text-marca{% else %}text-erro{% endif %}">{{ d.nota }}</span>
-      <div class="flex-1 h-5 rounded-full bg-fundo overflow-hidden">
-        <div class="h-full rounded-full {% if d.classe == 'promotor' %}bg-sucesso{% elif d.classe == 'neutro' %}bg-marca-forte{% else %}bg-erro{% endif %}" style="width:{{ d.altura }}%"></div>
-      </div>
-      <span class="w-8 text-right text-sm text-texto-suave tabular-nums">{{ d.count }}</span>
-    </div>
+    <li class="flex items-center gap-3">
+      <span class="w-6 shrink-0 text-right text-sm font-bold tabular-nums {% if d.classe == 'promotor' %}text-sucesso{% elif d.classe == 'neutro' %}text-marca{% else %}text-erro{% endif %}"><span class="sr-only">Nota </span>{{ d.nota }}</span>
+      <svg class="block h-4 min-w-0 flex-1 overflow-hidden rounded-full bg-fundo-realce" viewBox="0 0 100 1" preserveAspectRatio="none" aria-hidden="true" focusable="false"><rect x="0" y="0" width="{{ d.altura }}" height="1" class="{% if d.classe == 'promotor' %}fill-sucesso{% elif d.classe == 'neutro' %}fill-marca-forte{% else %}fill-erro{% endif %}"/></svg>
+      <span class="w-10 shrink-0 text-right text-sm text-texto-suave tabular-nums">{{ d.count }}<span class="sr-only"> avaliaç{{ d.count|pluralize:"ão,ões" }}</span></span>
+    </li>
     {% endfor %}
-  </div>
-</div>
+  </ul>
+</c-card>
 
-{# ── Comentários ── #}
-<div class="bg-superficie rounded-2xl shadow-sm p-5">
-  <h2 class="text-base font-bold text-texto mb-4">Comentários recentes</h2>
+{# ── Comentarios ── #}
+<c-card titulo="Comentários recentes" icone="nps" espaco="nenhum">
   {% if comentarios %}
-  <div class="space-y-3">
+  <ul class="lista-itens">
     {% for a in comentarios %}
-    <div class="flex gap-3 p-3 rounded-xl bg-fundo">
-      <span class="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm
-        {% if a.nota >= 9 %}bg-sucesso text-superficie{% elif a.nota >= 7 %}bg-marca-forte text-sobre-marca{% else %}bg-erro text-superficie{% endif %}">{{ a.nota }}</span>
-      <div class="min-w-0 flex-1">
-        <p class="text-sm text-texto leading-relaxed">{{ a.comentario }}</p>
-        <p class="text-[0.72rem] text-texto-suave mt-1">
-          {{ a.atendimento.cliente.nome|default:"Cliente" }}
-          {% if a.atendimento.profissional %} · {{ a.atendimento.profissional.nome }}{% endif %}
-          · {{ a.criado_em|date:"d/m/Y" }}
-        </p>
+    <li class="item-lista items-start">
+      <span class="avatar {% if a.nota >= 9 %}bg-sucesso-fundo text-sucesso{% elif a.nota >= 7 %}bg-marca-suave text-marca{% else %}bg-erro-fundo text-erro{% endif %}"><span class="sr-only">Nota </span>{{ a.nota }}</span>
+      <div class="item-lista-corpo">
+        <p class="text-texto">{{ a.comentario }}</p>
+        <p class="item-lista-meta mt-1">{{ a.atendimento.cliente.nome|default:"Cliente" }}{% if a.atendimento.profissional %} · {{ a.atendimento.profissional.nome }}{% endif %} · {{ a.criado_em|date:"d/m/Y" }}</p>
         {% if a.autoriza_publicacao %}
-        <div class="flex flex-wrap items-center gap-2 mt-2">
-          {% if a.aprovado_publicacao %}
-          <span class="inline-block px-2 py-0.5 rounded-full text-[0.65rem] font-bold bg-sucesso/[0.12] text-sucesso">Publicado no site</span>
-          {% else %}
-          <span class="inline-block px-2 py-0.5 rounded-full text-[0.65rem] font-bold bg-marca-forte/[0.12] text-marca">Autorizou publicar</span>
-          {% endif %}
-          <form method="post" action="{% url 'aranha:admin_nps_publicacao' a.pk %}" class="m-0">
-            {% csrf_token %}
-            <input type="hidden" name="periodo" value="{{ periodo }}">
-            {% if a.aprovado_publicacao %}
-            <button type="submit" name="acao" value="reprovar"
-                    class="px-2.5 py-1 rounded-lg border border-borda text-texto-suave text-[0.72rem] font-semibold hover:text-texto transition">Retirar do site</button>
-            {% else %}
-            <button type="submit" name="acao" value="aprovar"
-                    class="px-2.5 py-1 rounded-lg bg-sucesso-forte text-sobre-sucesso text-[0.72rem] font-semibold hover:opacity-90 transition">Publicar no site</button>
-            {% endif %}
-          </form>
-        </div>
+        <p class="mt-2">{% if a.aprovado_publicacao %}<c-selo tom="sucesso" icone="check">Publicado no site</c-selo>{% else %}<c-selo tom="marca">Autorizou publicar</c-selo>{% endif %}</p>
         {% endif %}
       </div>
-    </div>
+      {% if a.autoriza_publicacao %}
+      <div class="item-lista-acoes">
+        <form method="post" action="{% url 'aranha:admin_nps_publicacao' a.pk %}" class="m-0">
+          {% csrf_token %}
+          <input type="hidden" name="periodo" value="{{ periodo }}">
+          {% if a.aprovado_publicacao %}
+          <c-botao tipo="submit" variante="secundario" tamanho="sm" name="acao" value="reprovar">Retirar do site</c-botao>
+          {% else %}
+          <c-botao tipo="submit" variante="sucesso" tamanho="sm" icone="check" name="acao" value="aprovar">Publicar no site</c-botao>
+          {% endif %}
+        </form>
+      </div>
+      {% endif %}
+    </li>
     {% endfor %}
-  </div>
+  </ul>
   {% else %}
-  <p class="text-sm text-texto-suave text-center py-6">Nenhum comentário no período.</p>
+  <c-vazio titulo="Nenhum comentário no período" icone="nps" />
   {% endif %}
-</div>
+</c-card>
 
 {% else %}
-{# ── Empty state ── #}
-<div class="bg-superficie rounded-2xl shadow-sm text-center py-16">
-  <div class="mx-auto w-16 h-16 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mb-4">
-    <svg class="w-8 h-8 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/></svg>
-  </div>
-  <p class="font-serif font-bold text-texto mb-1">Sem avaliações no período</p>
-  <p class="text-sm text-texto-suave">As avaliações NPS aparecem aqui após o envio das pesquisas pós-atendimento.</p>
-</div>
+<c-card espaco="nenhum">
+  <c-vazio titulo="Sem avaliações no período" icone="estrela"
+           texto="As avaliações NPS aparecem aqui após o envio das pesquisas pós-atendimento." />
+</c-card>
 {% endif %}
 
 {% endblock %}
