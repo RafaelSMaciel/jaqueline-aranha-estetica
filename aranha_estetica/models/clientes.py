@@ -168,7 +168,7 @@ class Cliente(models.Model):
 
         Configuracao 'MAX_FALTAS_BLOQUEIO' (painel) > MAX_FALTAS_ANTES_BLOQUEIO.
         """
-        from .sistema import Configuracao
+        from .configuracao import Configuracao
         valor = (
             Configuracao.objects.filter(chave='MAX_FALTAS_BLOQUEIO')
             .values_list('valor', flat=True).first()

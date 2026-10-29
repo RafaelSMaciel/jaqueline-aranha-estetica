@@ -1,4 +1,4 @@
-# aranha_estetica/models/sistema.py — Auditoria, configuracao, lista de espera, verificacao
+# aranha_estetica/models/sistema.py — Auditoria, lista de espera, verificacao
 import hashlib
 import hmac
 import secrets
@@ -14,7 +14,7 @@ from ..db.campos import HashSha256Field
 from ..db.indices import Indice
 
 from .clientes import Cliente
-from .mixins import atualizado_em_legado, criado_em_legado
+from .mixins import atualizado_em_legado
 from .procedimentos import Procedimento
 from .profissionais import Profissional
 
@@ -221,26 +221,7 @@ class LogAuditoria(models.Model):
 # FERIADO_NACIONAL/FERIADO_LOCAL/RECESSO) — models/agenda.py, migration 0048.
 
 
-class Configuracao(models.Model):
-    chave = models.CharField(max_length=100)
-    valor = models.TextField(blank=True, default='', db_default='')
-    descricao = models.TextField(blank=True, default='', db_default='')
-    criado_em = criado_em_legado()
-    atualizado_em = atualizado_em_legado()
-
-    class Meta:
-        managed = True
-        db_table = 'configuracao'
-        db_table_comment = (
-            'Chave-valor editavel no painel: Branding, email_admin, MAX_FALTAS_BLOQUEIO. '
-            '(prontuario_perguntas saiu p/ formulario tipo PRONTUARIO.)'
-        )
-        constraints = [
-            models.UniqueConstraint(fields=['chave'], name='uq_configuracao_chave'),
-        ]
-
-    def __str__(self):
-        return f'{self.chave}: {self.valor}'
+# Configuracao (regras operacionais + marca) e o registro tipado das chaves: models/configuracao.py.
 
 
 # CodigoVerificacao removido na remodelagem v2.1 fase 1b — guardava OTP em
