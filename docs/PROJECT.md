@@ -405,8 +405,11 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   erro = `role="alert"`, o resto `role="status"`; nenhum some sozinho.
 - **PWA**: `/manifest.json` + `/sw.js` (service worker v10: cacheia só páginas públicas — lista
   fixa, inclusive `/duvidas/`, e `/servicos/detalhe/` — e estáticos; nunca HTML privado; sem rede,
-  página offline com a marca) e `/painel/manifest.json` para
-  o app da equipe. Registrado no site público e no painel. Ícones em `static/assets/pwa/` (192 e 512
+  página offline com a marca), `/painel/manifest.json` (app "Painel": abre a visão geral,
+  atalhos Agenda/Novo agendamento/Clientes/Calendário) e `/profissional/manifest.json` (app "Minha
+  agenda" da profissional) — cada um no próprio escopo, sem trava de orientação, `lang` pt-BR e
+  splash no cromo da marca; no iPhone, `apple-touch-icon` e barra de status `default` (o conteúdo
+  não fica sob o relógio). Registrado no site público, no painel e no portal. Ícones em `static/assets/pwa/` (192 e 512
   "any" e 512 "maskable" com margem de segurança — só o monograma "JA"; o texto da logo some em ícone
   pequeno). Subir `VERSION` no `sw.js` a cada mudança dele.
 

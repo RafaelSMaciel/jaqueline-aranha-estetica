@@ -177,7 +177,13 @@ original, sem `srcset`.
 
 ## 7. PWA
 
-- `/manifest.json` (site e portal) e `/painel/manifest.json` (equipe); ícones em `static/assets/pwa/`.
+- Três apps instaláveis, cada um no próprio escopo (Chrome sem `installabilityErrors`):
+  `/manifest.json` (site, `short_name` = nome curto da clínica), `/painel/manifest.json` ("Painel",
+  abre `/painel/overview/`, 4 atalhos) e `/profissional/manifest.json` ("Minha agenda"). Rótulo do
+  ícone ≤ 12 caracteres, `lang` pt-BR, sem `orientation` (agenda no tablet deitado), nome com
+  `escapejs` (JSON válido com aspas), splash `#1F1A14` (cromo) nos apps da equipe. Painel e portal:
+  `apple-touch-icon`, `mobile-web-app-capable` e barra de status `default` no iPhone. Ícones em
+  `static/assets/pwa/` (`test_public_views` confere os manifests da equipe).
 - `/sw.js` **v10**: precache de estáticos e cache só de **páginas públicas** (lista fixa — inclusive
   `/duvidas/` — + `/servicos/detalhe/`); nunca HTML do painel/portal/LGPD; página offline própria.
   Subir `VERSION` a cada mudança do `sw.js` (o `activate` apaga os caches antigos).

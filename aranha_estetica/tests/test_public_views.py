@@ -41,6 +41,25 @@ class PublicViewsTests(TestCase):
         data = json.loads(r.content)
         self.assertLessEqual(len(data['short_name']), 12)
 
+    def test_manifests_da_equipe_instalaveis_e_no_proprio_escopo(self):
+        """Painel e portal: JSON valido mesmo com aspas no nome, rotulo curto no icone, sem trava de
+        orientacao (agenda no tablet deitado) e start_url/atalhos dentro do escopo (abre a tela certa)."""
+        import json
+
+        from aranha_estetica.models import Configuracao
+
+        Configuracao.objects.create(chave='CLINIC_NAME', valor='Clínica "Bem" Estar')
+        cache.clear()
+        for nome, escopo in (('aranha:manifest_admin', '/painel/'), ('aranha:manifest_profissional', '/profissional/')):
+            with self.subTest(manifesto=nome):
+                data = json.loads(self.client.get(reverse(nome)).content)
+                self.assertIn('Clínica "Bem" Estar', data['name'])
+                self.assertLessEqual(len(data['short_name']), 12)
+                self.assertNotIn('orientation', data)
+                self.assertEqual((data['scope'], data['lang']), (escopo, 'pt-BR'))
+                self.assertTrue(data['start_url'].startswith(escopo))
+                self.assertTrue(all(a['url'].startswith(escopo) for a in data.get('shortcuts', [])))
+
     def test_favicon_ico_redireciona_para_png(self):
         r = self.client.get('/favicon.ico')
         self.assertEqual(r.status_code, 301)

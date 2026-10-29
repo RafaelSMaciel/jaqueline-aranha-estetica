@@ -9,10 +9,14 @@
 
   <!-- PWA / Mobile Web App -->
   <link rel="manifest" href="{% url 'aranha:manifest_admin' %}">
-  <meta name="theme-color" content="#C9A84C">
+  <link rel="icon" type="image/png" href="{% static 'assets/favicon.png' %}">
+  <link rel="apple-touch-icon" href="{% static 'assets/pwa/apple-touch-icon.png' %}">
+  <meta name="theme-color" content="{{ THEME_COLOR|default:'#C9A84C' }}">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="{{ CLINIC_NAME }} Admin">
+  {# default: no iPhone a barra de status fica acima da barra do topo, nao por cima dela #}
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Painel">
   <meta name="csrf-token" content="{{ csrf_token }}">
 
   {% vite_hmr_client %}

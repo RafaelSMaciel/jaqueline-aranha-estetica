@@ -82,6 +82,7 @@ urlpatterns = [
     # ─── PWA ───
     path('manifest.json', TemplateView.as_view(template_name='pwa/manifest.json', content_type='application/json'), name='manifest'),
     path('painel/manifest.json', TemplateView.as_view(template_name='pwa/manifest_admin.json', content_type='application/json'), name='manifest_admin'),
+    path('profissional/manifest.json', TemplateView.as_view(template_name='pwa/manifest_profissional.json', content_type='application/json'), name='manifest_profissional'),
     path('sw.js', TemplateView.as_view(template_name='pwa/sw.js', content_type='application/javascript'), name='sw'),
     # ─── LGPD ───
     path('lgpd/meus-dados/', lgpd.meus_dados, name='lgpd_meus_dados'),
