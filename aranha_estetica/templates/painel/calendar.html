@@ -3,86 +3,61 @@
 
 {% block titulo %}Calendário — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Calendário{% endblock %}
-{% block page_subtitle %}Visão semanal · arraste para reagendar{% endblock %}
+{% block page_subtitle %}Semana da clínica · arraste um atendimento para reagendar{% endblock %}
+{% block page_actions %}
+<c-botao href="{% url 'aranha:painel_agendamentos' %}" variante="secundario" icone="lista">Ver como lista</c-botao>
+<c-botao href="{% url 'aranha:admin_agendamento_novo' %}" icone="mais">Novo agendamento</c-botao>
+{% endblock %}
 
 {% block css %}
-{# FullCalendar 6 injeta o proprio CSS via JS (nao existe main.min.css na v6) #}
-<style nonce="{{ csp_nonce }}">
-  #calendar {
-    background: var(--cor-superficie, #fff); color: var(--cor-texto, #333);
-    border-radius: 14px; padding: 0.75rem;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-    --fc-border-color: var(--cor-borda, #ddd);
-    --fc-page-bg-color: var(--cor-superficie, #fff);
-    --fc-neutral-bg-color: var(--cor-fundo, #f5f5f5);
-    --fc-today-bg-color: rgba(201, 168, 76, 0.12);
-  }
-  .fc .fc-toolbar-title { font-size: 1.1rem !important; font-weight: 800; }
-  .fc-event { cursor: grab; font-size: 0.75rem; padding: 2px 4px; }
-  .fc-event:active { cursor: grabbing; }
-
-  #calModal .modal-box { background: var(--cor-superficie, #fff); color: var(--cor-texto, #333); border-radius: 16px; padding: 1.25rem; max-width: 420px; width: 100%; }
-  #calModal h2 { font-weight: 800; margin-bottom: 0.75rem; }
-  #calModal .row-info { display: flex; padding: 0.35rem 0; border-bottom: 1px solid var(--cor-borda, #f0f0f0); font-size: 0.85rem; }
-  #calModal .row-info:last-child { border: none; }
-  #calModal .lbl { color: var(--cor-texto-suave, #999); min-width: 110px; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; }
-  #calModal .val { flex: 1; }
-  #calModal .status-pill { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.7rem; font-weight: 800; }
-</style>
+{# FullCalendar 6 injeta o proprio CSS: reaproveita este <style> (o nonce libera na CSP) #}
+<style data-fullcalendar nonce="{{ csp_nonce }}"></style>
 {% endblock %}
 
 {% block admin_content %}
-<div class="flex items-center gap-2 flex-wrap bg-superficie rounded-2xl shadow-sm p-3 mb-3">
-  <label for="filtroProfissional" class="text-[0.8rem] font-bold text-texto-suave">Profissional:</label>
-  <select id="filtroProfissional"
-          class="px-3 py-1.5 rounded-lg border border-borda bg-fundo text-[0.8rem] text-texto transition">
-    <option value="">Todos</option>
-    {% for p in profissionais %}
-    <option value="{{ p.pk }}">{{ p.nome }}</option>
-    {% endfor %}
-  </select>
-  <div class="flex-1"></div>
-  <a href="{% url 'aranha:painel_agendamentos' %}"
-     class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-borda text-texto text-[0.8rem] no-underline hover:bg-fundo transition-colors">
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
-    </svg>
-    Ver como lista
-  </a>
-</div>
-
-<ul class="flex gap-2 flex-wrap mb-2" aria-label="Legenda das cores">
-  {% for status in status_colors %}
-  <li>{% include 'partials/_status_badge.html' with status=status %}</li>
-  {% endfor %}
-</ul>
-
-{# JS em static/src/js/painel-calendario.js: as rotas chegam por data-* (nada de URL dentro do JS) #}
-<div id="calendar" data-url-eventos="{% url 'aranha:admin_calendar_events' %}"
-     data-url-mover="{% url 'aranha:admin_calendar_mover' %}"></div>
-
-{# Modal de evento (CSS custom + classList, CSP-safe) #}
-<dialog id="calModal" class="dialogo" aria-labelledby="cmClienteNome">
-  <div class="modal-box">
-    <h2 id="cmClienteNome">–</h2>
-    <div class="row-info"><div class="lbl">Status</div><div class="val"><span id="cmStatus" class="status-pill">–</span></div></div>
-    <div class="row-info"><div class="lbl">Procedimento</div><div class="val" id="cmProcedimento">–</div></div>
-    <div class="row-info"><div class="lbl">Profissional</div><div class="val" id="cmProfissional">–</div></div>
-    <div class="row-info"><div class="lbl">Data</div><div class="val" id="cmData">–</div></div>
-    <div class="row-info"><div class="lbl">Telefone</div><div class="val" id="cmTelefone">–</div></div>
-    <div class="row-info"><div class="lbl">Valor</div><div class="val" id="cmValor">–</div></div>
-    <div class="flex gap-2 mt-4">
-      <button type="button" id="cmFechar" class="flex-1 px-4 py-2 rounded-lg border border-borda bg-superficie text-texto text-[0.85rem] font-bold cursor-pointer hover:bg-fundo transition-colors">Fechar</button>
+<c-card espaco="nenhum">
+  <div class="flex flex-wrap items-end justify-between gap-4 border-b border-borda px-5 py-4">
+    <div class="grupo-campo w-full sm:w-64">
+      <label for="filtroProfissional" class="rotulo">Profissional</label>
+      <select id="filtroProfissional" class="campo">
+        <option value="">Todas as profissionais</option>
+        {% for p in profissionais %}
+        <option value="{{ p.pk }}">{{ p.nome }}</option>
+        {% endfor %}
+      </select>
     </div>
+    <ul class="flex flex-wrap gap-2" aria-label="Legenda das cores">
+      {% for status in status_colors %}
+      <li>{% include 'partials/_status_badge.html' with status=status %}</li>
+      {% endfor %}
+    </ul>
   </div>
-</dialog>
+
+  {# JS em static/src/js/painel-calendario.js (FullCalendar do npm via Vite): rotas por data-* #}
+  <div id="calendar" class="calendario-painel"
+       data-url-eventos="{% url 'aranha:admin_calendar_events' %}"
+       data-url-mover="{% url 'aranha:admin_calendar_mover' %}"></div>
+</c-card>
+
+{# Detalhe do atendimento (preenchido pelo JS ao clicar no evento) #}
+<c-dialogo id="calModal" titulo="Atendimento" tamanho="sm">
+  <div class="dialogo-corpo">
+    <p id="cmClienteNome" class="font-serif text-xl font-semibold text-texto">–</p>
+    <dl class="flex flex-col gap-3">
+      <div class="flex items-center justify-between gap-4"><dt class="text-legenda font-bold text-texto-suave">Status</dt><dd><span id="cmStatus" class="selo">–</span></dd></div>
+      <div class="flex justify-between gap-4"><dt class="text-legenda font-bold text-texto-suave">Procedimento</dt><dd id="cmProcedimento" class="text-right">–</dd></div>
+      <div class="flex justify-between gap-4"><dt class="text-legenda font-bold text-texto-suave">Profissional</dt><dd id="cmProfissional" class="text-right">–</dd></div>
+      <div class="flex justify-between gap-4"><dt class="text-legenda font-bold text-texto-suave">Data</dt><dd id="cmData" class="text-right">–</dd></div>
+      <div class="flex justify-between gap-4"><dt class="text-legenda font-bold text-texto-suave">Telefone</dt><dd id="cmTelefone" class="text-right">–</dd></div>
+      <div class="flex justify-between gap-4"><dt class="text-legenda font-bold text-texto-suave">Valor</dt><dd id="cmValor" class="text-right tabular-nums">–</dd></div>
+    </dl>
+  </div>
+  <div class="dialogo-rodape">
+    <c-botao variante="secundario" id="cmFechar" data-fechar-dialogo>Fechar</c-botao>
+  </div>
+</c-dialogo>
 {% endblock %}
 
 {% block js %}
-{# SRI: versao fixa do jsDelivr (arquivo estatico do pacote npm, nao o .min gerado) #}
-<script nonce="{{ csp_nonce }}" src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js" integrity="sha384-5JIwZN3kuxX2zKsavvNmbZ3zhZZMUtu/eQiK3BbXukpSXp0Cd2ZP4OAYKx7mrPgI" crossorigin="anonymous"></script>
-<script nonce="{{ csp_nonce }}" src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.11/locales/pt-br.global.min.js" integrity="sha384-EnDmL1vzWaulolGLeEzjsg5pqgwFtAE2qxU/9nupVnkomz65CqX5cfxyvJP5O3vP" crossorigin="anonymous"></script>
-
-{# FullCalendar acima e classico (carrega antes); o modulo roda depois do parse #}
 {% vite_asset 'aranha_estetica/static/src/js/painel-calendario.js' %}
 {% endblock %}

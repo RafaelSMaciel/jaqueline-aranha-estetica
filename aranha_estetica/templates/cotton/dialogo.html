@@ -1,0 +1,17 @@
+<c-vars id="" titulo="" tamanho="" class="" />
+{% comment %}
+Modal do design system: dialog nativo (showModal = foco preso, Esc fecha, fundo inerte).
+Cabecalho com o titulo (h2, nomeia o dialogo) e o botao Fechar; o conteudo vai no slot, em geral
+um form com .dialogo-corpo e .dialogo-rodape. Abrir: botao com data-abrir-dialogo="(id)"
+(static/src/js/painel.js) ou o componente Alpine "modal" (x-ref="dialogo"; reabre com erro do servidor).
+  tamanho: sm (28rem) | lg (56rem) — vazio = 42rem
+{% endcomment %}
+<dialog id="{{ id }}" class="dialogo{% if tamanho %} dialogo-{{ tamanho }}{% endif %}{% if class %} {{ class }}{% endif %}" aria-labelledby="{{ id }}-titulo" {{ attrs }}>
+  <div class="dialogo-painel">
+    <div class="dialogo-cabecalho">
+      <h2 id="{{ id }}-titulo" class="dialogo-titulo">{{ titulo }}</h2>
+      <button type="button" class="btn btn-fantasma btn-icone btn-sm" data-fechar-dialogo aria-label="Fechar"><c-icone nome="fechar" class="" /></button>
+    </div>
+    {{ slot }}
+  </div>
+</dialog>

@@ -1,128 +1,76 @@
 {% extends 'painel/base_v2.html' %}
 
 {% block titulo %}{% if modo == 'editar' %}Editar usuário{% else %}Novo usuário{% endif %} — {{ CLINIC_NAME }}{% endblock %}
+{% block page_voltar %}<a href="{% url 'aranha:admin_usuarios' %}" class="voltar-pagina"><c-icone nome="voltar" class="" />Usuários</a>{% endblock %}
 {% block page_title %}{% if modo == 'editar' %}Editar usuário{% else %}Novo usuário{% endif %}{% endblock %}
 {% block page_subtitle %}{% if modo == 'editar' %}{{ usuario.nome }}{% else %}Cadastre administradores e profissionais da equipe{% endif %}{% endblock %}
 
-{% block page_actions %}
-<a href="{% url 'aranha:admin_usuarios' %}"
-   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold border border-borda text-texto-suave hover:text-texto hover:border-texto-suave transition-colors no-underline">
-  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-    <polyline points="15 18 9 12 15 6"/>
-  </svg>
-  Voltar
-</a>
-{% endblock %}
+{% block admin_content %}
+<div class="grid gap-6 xl:items-start {% if modo == 'editar' and usuario %}max-w-6xl xl:grid-cols-[minmax(0,1fr)_22rem]{% else %}max-w-3xl{% endif %}">
 
-{% block conteudo %}
-<div class="max-w-2xl mx-auto">
-
-  {# ── Form principal: criar/editar usuário ── #}
-  <div class="bg-superficie rounded-lg border border-borda p-6 mb-4">
-    <form method="post">
+  {# ── Form principal: criar/editar usuario ── #}
+  <c-card titulo="Dados de acesso" icone="usuario">
+    <form method="post" class="flex flex-col gap-4">
       {% csrf_token %}
 
-      <div class="mb-4">
-        <c-campo nome="nome" label="Nome completo *" tipo="text" erro="{{ erros.nome }}"
-                 value="{% firstof form_data.nome usuario.nome %}"
-                 required></c-campo>
-      </div>
+      <c-campo nome="nome" label="Nome completo" erro="{{ erros.nome }}"
+               value="{% firstof form_data.nome usuario.nome %}" required></c-campo>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-        <div>
-          <c-campo nome="email" label="E-mail *" tipo="email" erro="{{ erros.email }}"
-                   value="{% firstof form_data.email usuario.email %}"
-                   required></c-campo>
-        </div>
-        <div>
-          <label for="papel" class="block text-sm font-medium text-texto mb-1">Papel</label>
-          <select id="papel" name="papel"
-                  {% if erros.papel %}aria-invalid="true" aria-describedby="papel-erro"{% endif %}
-                  class="w-full rounded-md border border-borda bg-superficie px-3 py-2 text-texto text-sm">
-            {% for valor, rotulo in papeis %}
-              <option value="{{ valor }}"
-                {% if form_data.papel %}{% if form_data.papel == valor %}selected{% endif %}{% elif usuario.papel == valor %}selected{% elif not usuario and valor == 'PROFISSIONAL' %}selected{% endif %}>
-                {{ rotulo }}
-              </option>
-            {% endfor %}
-          </select>
-          {% if erros.papel %}<span id="papel-erro" class="text-erro text-sm">{{ erros.papel }}</span>{% endif %}
-          <p class="text-xs text-texto-suave mt-1">Administrador: painel completo · Profissional: portal com a própria agenda</p>
-        </div>
-      </div>
+      <c-campo nome="email" label="E-mail" tipo="email" erro="{{ erros.email }}"
+               value="{% firstof form_data.email usuario.email %}" required></c-campo>
 
-      <div class="mb-4">
-        <label for="profissional_id" class="block text-sm font-medium text-texto mb-1">Profissional vinculado</label>
-        <select id="profissional_id" name="profissional_id"
-                {% if erros.profissional_id %}aria-invalid="true" aria-describedby="profissional_id-erro"{% endif %}
-                class="w-full rounded-md border border-borda bg-superficie px-3 py-2 text-texto text-sm">
+      <div class="grade-campos grade-campos-2">
+        <c-campo nome="papel" label="Papel" tipo="select" erro="{{ erros.papel }}"
+                 ajuda="Administrador: painel completo · Profissional: portal com a própria agenda">
+          {% for valor, rotulo in papeis %}
+          <option value="{{ valor }}" {% if form_data.papel %}{% if form_data.papel == valor %}selected{% endif %}{% elif usuario.papel == valor %}selected{% elif not usuario and valor == 'PROFISSIONAL' %}selected{% endif %}>{{ rotulo }}</option>
+          {% endfor %}
+        </c-campo>
+        <c-campo nome="profissional_id" label="Profissional vinculado" tipo="select" erro="{{ erros.profissional_id }}"
+                 ajuda="Obrigatório para o papel Profissional: é a agenda que a pessoa verá no portal.">
           <option value="">— nenhum —</option>
           {% for pr in profissionais %}
-            <option value="{{ pr.pk }}"
-              {% if form_data %}{% if form_data.profissional_id == pr.pk|stringformat:"s" %}selected{% endif %}{% elif usuario.profissional_id == pr.pk %}selected{% endif %}>
-              {{ pr.nome }}{% if not pr.ativo %} (inativo){% endif %}
-            </option>
+          <option value="{{ pr.pk }}" {% if form_data %}{% if form_data.profissional_id == pr.pk|stringformat:"s" %}selected{% endif %}{% elif usuario.profissional_id == pr.pk %}selected{% endif %}>{{ pr.nome }}{% if not pr.ativo %} (inativo){% endif %}</option>
           {% endfor %}
-        </select>
-        {% if erros.profissional_id %}<span id="profissional_id-erro" class="text-erro text-sm">{{ erros.profissional_id }}</span>{% endif %}
-        <p class="text-xs text-texto-suave mt-1">Obrigatório para o papel Profissional: é a agenda que a pessoa verá no portal.</p>
+        </c-campo>
       </div>
 
       {% if modo == 'criar' %}
-      <div class="mb-4">
-        {% if email_configurado %}
-        <c-campo nome="senha" label="Senha inicial (opcional)" tipo="password" erro="{{ erros.senha }}"
-                 autocomplete="new-password"
-                 placeholder="Deixe vazio para enviar um link por e-mail"></c-campo>
-        <p class="text-xs text-texto-suave mt-1">Se vazio, enviamos por e-mail um link para a pessoa definir a própria senha.</p>
-        {% else %}
-        <c-campo nome="senha" label="Senha inicial *" tipo="password" erro="{{ erros.senha }}"
-                 autocomplete="new-password" required></c-campo>
-        <p class="text-xs text-texto-suave mt-1">O envio de e-mail não está configurado: defina a senha e informe-a à pessoa.</p>
-        {% endif %}
-      </div>
+      {% if email_configurado %}
+      <c-campo nome="senha" label="Senha inicial" tipo="password" opcional="1" erro="{{ erros.senha }}"
+               autocomplete="new-password" placeholder="Deixe vazio para enviar um link por e-mail"
+               ajuda="Se vazio, enviamos por e-mail um link para a pessoa definir a própria senha."></c-campo>
       {% else %}
-      <div class="mb-4">
-        <label class="inline-flex items-center gap-2 text-sm text-texto cursor-pointer">
-          <input type="checkbox" name="ativo" value="1"
-                 {% if form_data %}{% if form_data.ativo %}checked{% endif %}{% elif usuario.ativo %}checked{% endif %}
-                 class="rounded border-borda">
+      <c-campo nome="senha" label="Senha inicial" tipo="password" erro="{{ erros.senha }}"
+               autocomplete="new-password" required
+               ajuda="O envio de e-mail não está configurado: defina a senha e informe-a à pessoa."></c-campo>
+      {% endif %}
+      {% else %}
+      <div class="grupo-campo">
+        <label class="opcao">
+          <input type="checkbox" name="ativo" value="1" {% if form_data %}{% if form_data.ativo %}checked{% endif %}{% elif usuario.ativo %}checked{% endif %}{% if usuario.profissional_id %} aria-describedby="ativo-ajuda"{% endif %}>
           Ativo (pode entrar no sistema)
         </label>
-        {% if usuario.profissional_id %}<p class="text-xs text-texto-suave mt-1">Desativar o acesso também desativa o link do calendário (feed ICS) de {{ usuario.profissional.nome }}.</p>{% endif %}
+        {% if usuario.profissional_id %}<p id="ativo-ajuda" class="ajuda">Desativar o acesso também desativa o link do calendário (feed ICS) de {{ usuario.profissional.nome }}.</p>{% endif %}
       </div>
       {% endif %}
 
-      <div class="flex gap-3 mt-6">
-        <c-botao variante="solido" tipo="submit">
-          {% if modo == 'editar' %}Salvar alterações{% else %}Criar usuário{% endif %}
-        </c-botao>
-        <a href="{% url 'aranha:admin_usuarios' %}"
-           class="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium border border-borda text-texto hover:bg-fundo transition no-underline">
-          Cancelar
-        </a>
+      <div class="flex flex-wrap gap-2 pt-2">
+        <c-botao tipo="submit" icone="{% if modo == 'editar' %}check{% else %}mais{% endif %}">{% if modo == 'editar' %}Salvar alterações{% else %}Criar usuário{% endif %}</c-botao>
+        <c-botao variante="secundario" href="{% url 'aranha:admin_usuarios' %}">Cancelar</c-botao>
       </div>
-
     </form>
+  </c-card>
 
-    {% if modo == 'editar' and usuario %}
-    <hr class="my-6 border-borda">
-    <div class="flex gap-2 flex-wrap">
-      {# Form proprio, FORA do form de edicao (form aninhado era descartado pelo parser) #}
-      <form method="post" action="{% url 'aranha:admin_resetar_senha_usuario' usuario.pk %}" class="m-0">
-        {% csrf_token %}
-        <button type="submit"
-                class="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium border border-borda text-texto hover:bg-fundo transition cursor-pointer"
-                data-confirm="Enviar e-mail de redefinição de senha para {{ usuario.email }}?">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
-          </svg>
-          Enviar reset de senha
-        </button>
-      </form>
-    </div>
-    {% endif %}
-  </div>
-
+  {% if modo == 'editar' and usuario %}
+  {# Form proprio, FORA do form de edicao (form aninhado era descartado pelo parser) #}
+  <c-card titulo="Senha" icone="chave" descricao="A pessoa recebe por e-mail um link para definir uma nova senha.">
+    <form method="post" action="{% url 'aranha:admin_resetar_senha_usuario' usuario.pk %}" class="m-0">
+      {% csrf_token %}
+      <c-botao tipo="submit" variante="secundario" icone="email"
+               data-confirm="Enviar e-mail de redefinição de senha para {{ usuario.email }}?">Enviar reset de senha</c-botao>
+    </form>
+  </c-card>
+  {% endif %}
 </div>
 {% endblock %}

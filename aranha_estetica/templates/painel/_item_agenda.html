@@ -1,0 +1,28 @@
+{% comment %}
+Linha de atendimento das listas da visao geral (Hoje, Amanha, Proximos dias). Uso:
+  {% include 'painel/_item_agenda.html' with at=at limite=limite_desfecho com_data=True %}
+Marcadores (alertas_saude, termo_pendente, ficha_pendente) vem da view (services.alertas, em lote).
+O select de status so aparece quando ha o que decidir (partials/_select_status.html).
+{% endcomment %}
+<li class="item-lista items-start">
+  <div class="item-lista-hora pt-0.5{% if com_data %} w-[5rem]{% endif %}">
+    {% if com_data %}<span class="block text-legenda font-bold uppercase text-texto-suave">{{ at.data_hora_inicio|date:"D d/m" }}</span>{% endif %}
+    <span>{{ at.data_hora_inicio|time:"H:i" }}</span>
+  </div>
+  <div class="item-lista-corpo">
+    <a href="{% url 'aranha:admin_cliente_detalhe' at.cliente_id %}" class="item-lista-titulo no-underline hover:text-marca">{{ at.cliente.nome }}</a>
+    <p class="item-lista-meta">{{ at.procedimento.nome }} · {{ at.profissional.nome }}</p>
+    {% include 'partials/_alerta_saude.html' with alertas=at.alertas_saude %}
+    {% if at.ficha_pendente %}{% include 'partials/_ficha_pendente.html' %}{% endif %}
+  </div>
+  <div class="item-lista-acoes">
+    {% if at.status != 'PENDENTE' %}{% include 'partials/_status_badge.html' with status=at.status %}{% endif %}
+    {% include 'partials/_select_status.html' with agend=at limite=limite termo_pendente=at.termo_pendente %}
+    {% if at.cliente.telefone and at.status != 'REALIZADO' and at.status != 'FALTOU' %}
+    <a href="https://wa.me/55{{ at.cliente.telefone|cut:'(' |cut:')' |cut:'-' |cut:' ' }}?text=Ol%C3%A1%20{{ at.cliente.nome|urlencode }}%2C%20confirmamos%20seu%20agendamento%20de%20{{ at.procedimento.nome|urlencode }}%20para%20{{ at.data_hora_inicio|date:'d/m/Y' }}%20%C3%A0s%20{{ at.data_hora_inicio|time:'H:i' }}.%20{{ CLINIC_NAME|urlencode }}"
+       target="_blank" rel="noopener" title="Confirmar pelo WhatsApp"
+       aria-label="Confirmar pelo WhatsApp com {{ at.cliente.nome }} (abre em nova aba)"
+       class="btn btn-secundario btn-sm btn-icone text-sucesso"><c-icone nome="whatsapp" class="" /></a>
+    {% endif %}
+  </div>
+</li>

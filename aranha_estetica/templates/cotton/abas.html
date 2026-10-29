@@ -1,0 +1,11 @@
+<c-vars rotulo="Seções" class="" />
+{% comment %}
+Abas acessiveis. Sem JS: links de ancora p/ secoes visiveis (tudo funciona). painel.js liga o
+padrao WAI-ARIA Tabs: role=tablist/tab/tabpanel, aria-selected, setas/Home/End e #hash na URL.
+Uso: c-abas com o slot nomeado "lista" (um c-abas.aba por secao, alvo = id do painel) e, no slot
+padrao, um c-abas.painel por secao.
+{% endcomment %}
+<div class="abas{% if class %} {{ class }}{% endif %}" data-abas {{ attrs }}>
+  <nav class="abas-lista" aria-label="{{ rotulo }}" data-abas-lista>{{ lista }}</nav>
+  {{ slot }}
+</div>

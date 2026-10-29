@@ -153,8 +153,12 @@ class PaletaDeStatusTests(SimpleTestCase):
         self.assertIn('status-{{ agend.status }}', lista)
         ficha = (_TEMPLATES / 'painel' / 'cliente_detalhe.html').read_text(encoding='utf-8')
         self.assertEqual(re.findall(r'\.cli-tl-item[^{]*\{[^}]*#[0-9a-fA-F]{3,6}', ficha), [])
+        # graficos da visao geral: modulo do Vite (Chart.js do npm) com a cor do selo de cada status
         visao = (_TEMPLATES / 'painel' / 'overview.html').read_text(encoding='utf-8')
-        self.assertIn("'--st-' + s.toLowerCase() + '-texto'", visao)
+        self.assertIn("vite_asset 'aranha_estetica/static/src/js/painel-visao-geral.js'", visao)
+        graficos = (_JS / 'painel-visao-geral.js').read_text(encoding='utf-8')
+        self.assertIn("'--st-' + s.toLowerCase() + '-texto'", graficos)
+        self.assertEqual(re.findall(r'#[0-9a-fA-F]{3,6}\b', graficos), [])
 
 
 class CascaDoPainelTests(TestCase):

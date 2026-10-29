@@ -1,99 +1,74 @@
 {% extends 'painel/base_v2.html' %}
 
 {% block titulo %}Cadastrar profissional — {{ CLINIC_NAME }}{% endblock %}
+{% block page_voltar %}<a href="{% url 'aranha:painel_profissionais' %}" class="voltar-pagina"><c-icone nome="voltar" class="" />Profissionais</a>{% endblock %}
 {% block page_title %}Cadastrar profissional{% endblock %}
 {% block page_subtitle %}Adicione um novo profissional à equipe{% endblock %}
 
-{% block page_actions %}
-<a href="{% url 'aranha:painel_profissionais' %}"
-   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold border border-borda text-texto-suave hover:text-texto hover:border-texto-suave transition-colors no-underline">
-  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-    <polyline points="15 18 9 12 15 6"/>
-  </svg>
-  Voltar
-</a>
-{% endblock %}
+{% block admin_content %}
+<form method="post" action="{% url 'aranha:profissional_cadastro' %}" class="flex flex-col gap-6">
+  {% csrf_token %}
 
-{% block conteudo %}
-<div class="max-w-2xl mx-auto">
-
-  <form method="post" action="{% url 'aranha:profissional_cadastro' %}">
-    {% csrf_token %}
-
-    {# ── Dados do Profissional ── #}
-    <div class="bg-superficie rounded-lg border border-borda p-6 mb-4">
-      <p class="text-[0.7rem] font-bold uppercase tracking-widest text-marca mb-4">Dados do Profissional</p>
-
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-        <div>
-          <c-campo nome="nome" label="Nome Completo *" tipo="text" erro="{{ erros.nome }}"
-                   value="{{ form_nome|default:'' }}" required></c-campo>
+  <div class="grid gap-6 xl:grid-cols-2 xl:items-start">
+    <div class="flex flex-col gap-6">
+      {# ── Dados do profissional ── #}
+      <c-card titulo="Dados do profissional" icone="usuario">
+        <div class="flex flex-col gap-4">
+          <div class="grade-campos grade-campos-2">
+            <c-campo nome="nome" label="Nome completo" erro="{{ erros.nome }}"
+                     value="{{ form_nome|default:'' }}" required></c-campo>
+            <c-campo nome="especialidade" label="Especialidade" opcional="1"
+                     value="{{ form_especialidade|default:'' }}" placeholder="Ex.: Estética avançada"></c-campo>
+          </div>
+          <div>
+            <label class="opcao">
+              <input type="checkbox" name="ativo" value="1" {% if form_ativo %}checked{% endif %} aria-describedby="ativo-ajuda"> Ativo
+            </label>
+            <p id="ativo-ajuda" class="ajuda mt-1">Profissional inativo não aparece no agendamento online.</p>
+          </div>
         </div>
-        <div>
-          <c-campo nome="especialidade" label="Especialidade" tipo="text"
-                   value="{{ form_especialidade|default:'' }}"
-                   placeholder="Ex: Estética Avançada"></c-campo>
-        </div>
-      </div>
+      </c-card>
 
-      <div>
-        <label class="inline-flex items-center gap-2 text-sm text-texto cursor-pointer">
-          <input type="checkbox" name="ativo" value="1" {% if form_ativo %}checked{% endif %}
-                 class="rounded border-borda">
-          Ativo
-        </label>
-        <p class="text-xs text-texto-suave mt-1">Profissional inativo não aparece no agendamento online.</p>
-      </div>
+      {# ── Procedimentos ── #}
+      <c-card titulo="Procedimentos" icone="procedimentos" descricao="Marque o que este profissional realiza.">
+        <div class="grid gap-x-4 gap-y-2 sm:grid-cols-2">
+          {% for proc in procedimentos %}
+          <label class="opcao">
+            <input type="checkbox" name="procedimentos" value="{{ proc.pk }}" id="proc_{{ proc.pk }}"
+                   {% if proc.pk in procedimentos_marcados %}checked{% endif %}> {{ proc.nome }}
+          </label>
+          {% empty %}
+          <p class="text-sm text-texto-suave">Nenhum procedimento ativo cadastrado.</p>
+          {% endfor %}
+        </div>
+      </c-card>
     </div>
 
-    {# ── Disponibilidade Semanal ── #}
-    <div class="bg-superficie rounded-lg border border-borda p-6 mb-4">
-      <p class="text-[0.7rem] font-bold uppercase tracking-widest text-marca mb-4">Disponibilidade Semanal</p>
-
-      {% for d in dias %}
-      <div class="flex items-center gap-3 mb-3">
-        <input type="checkbox" name="trabalha_{{ d.key }}" id="dia_{{ d.key }}"
-               class="peer rounded border-borda" {% if d.marcado %}checked{% endif %}>
-        <label for="dia_{{ d.key }}" class="font-bold text-sm text-texto min-w-[110px] cursor-pointer">{{ d.nome }}</label>
-        <div class="hidden peer-checked:flex items-center gap-2">
-          <input type="time" name="hora_inicio_{{ d.key }}" aria-label="{{ d.nome }}: início"
-                 class="rounded-md border border-borda bg-superficie px-2 py-1 text-sm text-texto"
-                 value="{{ d.hora_inicio }}">
-          <span class="text-xs text-texto-suave">até</span>
-          <input type="time" name="hora_fim_{{ d.key }}" aria-label="{{ d.nome }}: fim"
-                 class="rounded-md border border-borda bg-superficie px-2 py-1 text-sm text-texto"
-                 value="{{ d.hora_fim }}">
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-
-    {# ── Procedimentos ── #}
-    <div class="bg-superficie rounded-lg border border-borda p-6 mb-4">
-      <p class="text-[0.7rem] font-bold uppercase tracking-widest text-marca mb-4">Procedimentos</p>
-
-      <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        {% for proc in procedimentos %}
-        <label class="inline-flex items-center gap-2 text-sm text-texto cursor-pointer">
-          <input type="checkbox" name="procedimentos" value="{{ proc.pk }}"
-                 id="proc_{{ proc.pk }}" class="rounded border-borda"
-                 {% if proc.pk in procedimentos_marcados %}checked{% endif %}>
-          {{ proc.nome }}
-        </label>
+    {# ── Disponibilidade semanal: marcar o dia mostra o horario (peer-checked) ── #}
+    <c-card titulo="Disponibilidade semanal" icone="agenda" descricao="Dias e horários de atendimento." espaco="nenhum">
+      <ul class="lista-itens">
+        {% for d in dias %}
+        <li class="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3">
+          <input type="checkbox" name="trabalha_{{ d.key }}" id="dia_{{ d.key }}"
+                 class="peer size-4.5 shrink-0 cursor-pointer accent-marca-forte" {% if d.marcado %}checked{% endif %}>
+          <label for="dia_{{ d.key }}" class="w-32 cursor-pointer font-bold">{{ d.nome }}</label>
+          <div class="hidden items-center gap-2 peer-checked:flex">
+            <input type="time" name="hora_inicio_{{ d.key }}" aria-label="{{ d.nome }}: início"
+                   class="campo campo-sm w-auto" value="{{ d.hora_inicio }}">
+            <span class="text-sm text-texto-suave">até</span>
+            <input type="time" name="hora_fim_{{ d.key }}" aria-label="{{ d.nome }}: fim"
+                   class="campo campo-sm w-auto" value="{{ d.hora_fim }}">
+          </div>
+          <span class="text-sm text-texto-suave peer-checked:hidden">Não atende</span>
+        </li>
         {% endfor %}
-      </div>
-    </div>
+      </ul>
+    </c-card>
+  </div>
 
-    {# ── Ações ── #}
-    <div class="flex gap-3">
-      <c-botao variante="solido" tipo="submit">Cadastrar Profissional</c-botao>
-      <a href="{% url 'aranha:painel_profissionais' %}"
-         class="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium border border-borda text-texto hover:bg-fundo transition no-underline">
-        Cancelar
-      </a>
-    </div>
-
-  </form>
-
-</div>
+  <div class="flex flex-wrap gap-3">
+    <c-botao tipo="submit" icone="check">Cadastrar profissional</c-botao>
+    <c-botao href="{% url 'aranha:painel_profissionais' %}" variante="secundario">Cancelar</c-botao>
+  </div>
+</form>
 {% endblock %}

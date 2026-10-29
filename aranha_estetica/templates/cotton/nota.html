@@ -1,0 +1,9 @@
+<c-vars tom="info" titulo="" icone="" href="" papel="note" class="" />
+{% comment %}
+Aviso em bloco (.nota): tom info|aviso|erro|sucesso|marca. `href` vira um link inteiro (ex.: atalho
+"3 atendimentos sem desfecho"); sem href e role=note (papel="status" ou "alert" p/ mensagem viva).
+{% endcomment %}
+{% if href %}<a href="{{ href }}"{% else %}<div role="{{ papel }}"{% endif %} class="nota nota-{{ tom }}{% if class %} {{ class }}{% endif %}" {{ attrs }}>
+  <c-icone nome="{% if icone %}{{ icone }}{% elif tom == 'aviso' or tom == 'erro' %}alerta{% elif tom == 'sucesso' %}check-circulo{% elif tom == 'marca' %}sparkle{% else %}info{% endif %}" class="" />
+  <div class="nota-corpo">{% if titulo %}<p class="nota-titulo">{{ titulo }}</p>{% endif %}{{ slot }}</div>
+{% if href %}</a>{% else %}</div>{% endif %}

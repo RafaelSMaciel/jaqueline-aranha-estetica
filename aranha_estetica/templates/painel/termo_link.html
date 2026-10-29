@@ -1,57 +1,52 @@
 {% extends 'painel/base_v2.html' %}
 
 {% block titulo %}Link do termo — {{ CLINIC_NAME }}{% endblock %}
+{% block page_voltar %}<a href="{% url 'aranha:admin_cliente_detalhe' cliente.pk %}" class="voltar-pagina"><c-icone nome="voltar" class="" />Ficha de {{ cliente.nome }}</a>{% endblock %}
 {% block page_title %}Link do termo{% endblock %}
 {% block page_subtitle %}{{ cliente.nome }} · {{ atendimento.procedimento.nome }} · {{ atendimento.data_hora_inicio|date:"d/m/Y H:i" }}{% endblock %}
 
 {% block admin_content %}
-<div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4 max-w-2xl">
-  <p class="text-[0.85rem] text-texto mb-3">
-    Envie este link para {{ cliente.nome }} ler e aceitar
-    {% if pendentes|length == 1 %}o termo pendente{% else %}os {{ pendentes|length }} termos pendentes{% endif %}.
-    Ele vale até o fim do atendimento ({{ atendimento.data_hora_fim|date:"d/m/Y H:i" }}).
-  </p>
-  <ul class="mb-4 list-disc pl-5 text-[0.82rem] text-texto-suave">
-    {% for t in pendentes %}
-    <li>{{ t.titulo }} <span class="text-[0.72rem]">({{ t.get_tipo_display }} · v{{ t.versao }})</span></li>
-    {% endfor %}
-  </ul>
+<c-card titulo="Enviar para a cliente" icone="enviar" class="max-w-3xl">
+  <div class="flex flex-col gap-5">
+    <div>
+      <p>
+        Envie este link para {{ cliente.nome }} ler e aceitar
+        {% if pendentes|length == 1 %}o termo pendente{% else %}os {{ pendentes|length }} termos pendentes{% endif %}.
+        Ele vale até o fim do atendimento ({{ atendimento.data_hora_fim|date:"d/m/Y H:i" }}).
+      </p>
+      <ul class="mt-3 flex flex-col gap-2">
+        {% for t in pendentes %}
+        <li class="flex flex-wrap items-center gap-2 text-sm">
+          <c-icone nome="termos" class="w-4 h-4 shrink-0 text-marca" />
+          <span class="font-bold">{{ t.titulo }}</span>
+          <c-selo>{{ t.get_tipo_display }} · v{{ t.versao }}</c-selo>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
 
-  <label for="linkTermo" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Link</label>
-  <div class="flex gap-2 flex-wrap">
-    <input id="linkTermo" type="text" readonly value="{{ link }}"
-           class="flex-1 min-w-[16rem] px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.8rem] text-texto">
-    <button type="button" id="copiarLinkTermo"
-            class="px-4 py-2 rounded-xl border border-borda bg-superficie text-texto text-[0.8rem] font-bold cursor-pointer hover:bg-fundo transition-colors">
-      Copiar
-    </button>
-  </div>
-  <p id="copiadoLinkTermo" class="hidden text-[0.75rem] text-sucesso font-bold mt-1" role="status">Link copiado.</p>
+    <div class="grupo-campo">
+      <label for="linkTermo" class="rotulo">Link</label>
+      <div class="flex flex-wrap gap-2">
+        <input id="linkTermo" type="text" readonly value="{{ link }}" class="campo min-w-0 flex-[1_1_16rem]">
+        <c-botao variante="secundario" icone="copiar" id="copiarLinkTermo">Copiar</c-botao>
+      </div>
+      <p id="copiadoLinkTermo" class="ajuda min-h-5 font-bold text-sucesso" role="status"></p>
+    </div>
 
-  <div class="flex gap-2 flex-wrap mt-4">
-    {% if telefone_wa %}
-    <a href="https://wa.me/55{{ telefone_wa }}?text={{ 'Olá '|urlencode }}{{ cliente.nome|urlencode }}{{ ', antes do seu atendimento de '|urlencode }}{{ atendimento.procedimento.nome|urlencode }}{{ ', leia e aceite o termo neste link: '|urlencode }}{{ link|urlencode }}"
-       target="_blank" rel="noopener"
-       class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sucesso-fundo text-sucesso text-[0.82rem] font-bold no-underline hover:opacity-80 transition-opacity">
-      Enviar pelo WhatsApp
-    </a>
-    {% endif %}
-    {% if cliente.email %}
-    <a href="mailto:{{ cliente.email }}?subject={{ 'Termo de consentimento'|urlencode }}&body={{ 'Olá, leia e aceite o termo do seu atendimento neste link: '|urlencode }}{{ link|urlencode }}"
-       class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-info-fundo text-info text-[0.82rem] font-bold no-underline hover:opacity-80 transition-opacity">
-      Enviar por e-mail
-    </a>
-    {% endif %}
-    <a href="{{ link }}" target="_blank" rel="noopener"
-       class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-borda text-texto text-[0.82rem] font-bold no-underline hover:bg-fundo transition-colors">
-      Abrir aqui (aceite no balcão)
-    </a>
+    <div class="flex flex-wrap gap-2">
+      {% if telefone_wa %}
+      <c-botao icone="whatsapp" target="_blank" rel="noopener"
+               href="https://wa.me/55{{ telefone_wa }}?text={{ 'Olá '|urlencode }}{{ cliente.nome|urlencode }}{{ ', antes do seu atendimento de '|urlencode }}{{ atendimento.procedimento.nome|urlencode }}{{ ', leia e aceite o termo neste link: '|urlencode }}{{ link|urlencode }}">Enviar pelo WhatsApp</c-botao>
+      {% endif %}
+      {% if cliente.email %}
+      <c-botao variante="secundario" icone="email"
+               href="mailto:{{ cliente.email }}?subject={{ 'Termo de consentimento'|urlencode }}&body={{ 'Olá, leia e aceite o termo do seu atendimento neste link: '|urlencode }}{{ link|urlencode }}">Enviar por e-mail</c-botao>
+      {% endif %}
+      <c-botao variante="secundario" icone="externo" href="{{ link }}" target="_blank" rel="noopener">Abrir aqui (aceite no balcão)</c-botao>
+    </div>
   </div>
-
-  <div class="mt-5">
-    <a href="{% url 'aranha:admin_cliente_detalhe' cliente.pk %}" class="text-[0.8rem] font-bold text-marca no-underline hover:opacity-90">← Ficha de {{ cliente.nome }}</a>
-  </div>
-</div>
+</c-card>
 {% endblock %}
 
 {% block js %}
@@ -63,7 +58,7 @@
   if (!btn || !campo) return;
   btn.addEventListener('click', function () {
     campo.select();
-    var feito = function () { ok.classList.remove('hidden'); };
+    var feito = function () { ok.textContent = 'Link copiado.'; };
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(campo.value).then(feito).catch(function () {});
     } else {

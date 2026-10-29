@@ -3,197 +3,126 @@
 
 {% block titulo %}Procedimentos — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Procedimentos{% endblock %}
-{% block page_subtitle %}Gerencie serviços e preços{% endblock %}
+{% block page_subtitle %}Serviços oferecidos, duração, preço e quem realiza cada um{% endblock %}
 
 {% block admin_content %}
+<div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-start">
 
-{# ── Formulário de criação ── #}
-<div class="bg-fundo rounded-2xl p-5 mb-6">
-  <h2 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-4">
-    <svg class="w-4 h-4 text-marca" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
-    </svg>
-    Novo procedimento
-  </h2>
-  <form method="post" action="{% url 'aranha:admin_criar_procedimento' %}">
-    {% csrf_token %}
-    {# Envio recusado: a view devolve a tela (sem redirect) com novo.valores (o digitado) e novo.erros #}
-    <div class="mb-3">
+  {# ── Lista ── #}
+  <c-card titulo="Serviços cadastrados" icone="procedimentos" espaco="nenhum" class="xl:order-1">
+    {% if procedimentos %}
+    <ul class="lista-itens">
+      {% for proc in procedimentos %}
+      <li x-data="modal"{% if proc.reabrir %} data-erro="1"{% endif %} class="item-lista items-start{% if not proc.ativo %} opacity-75{% endif %}">
+        <div class="item-lista-corpo">
+          <div class="flex flex-wrap items-center gap-2">
+            <p class="item-lista-titulo">{{ proc.nome }}</p>
+            <c-selo>{{ proc.get_categoria_display }}</c-selo>
+            {% if not proc.ativo %}<c-selo tom="erro">Inativo</c-selo>{% endif %}
+          </div>
+          <p class="item-lista-meta mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span class="inline-flex items-center gap-1"><c-icone nome="relogio" class="w-4 h-4" />{{ proc.duracao_minutos }} min</span>
+            {% if proc.preco_base is not None %}<span class="font-bold text-texto tabular-nums">{{ proc.preco_base|brl }}</span>{% endif %}
+          </p>
+          <p class="mt-1 text-sm">
+            {% if proc.habilitados %}
+            <span class="text-texto-suave">Quem realiza:</span>
+            <span class="text-texto">{% for prof in profissionais %}{% if prof.pk in proc.habilitados %}{{ prof.nome }}{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}</span>
+            {% else %}
+            <span class="font-bold text-erro">Nenhum profissional habilitado — fora do agendamento</span>
+            {% endif %}
+          </p>
+          {% if proc.descricao %}<p class="mt-1 text-sm text-texto-suave">{{ proc.descricao|truncatewords:20 }}</p>{% endif %}
+        </div>
+        <div class="item-lista-acoes">
+          <c-botao variante="secundario" tamanho="sm" icone="editar" x-on:click="abrir">Editar</c-botao>
+        </div>
+
+        {# Modal de edicao (Alpine CSP; valores renderizados no servidor, reabre com erro) #}
+        <c-dialogo id="dlg-proc-{{ proc.pk }}" titulo="Editar procedimento" tamanho="sm"
+                   x-ref="dialogo" x-on:click="cliqueFora" x-on:close="aoFechar">
+          <form method="post" action="{% url 'aranha:admin_editar_procedimento' proc.pk %}">
+            {% csrf_token %}
+            {# proc.valores = o salvo; no envio recusado, o digitado (e proc.erros, por campo) #}
+            <div class="dialogo-corpo">
+              <c-campo nome="nome" id="proc-{{ proc.pk }}-nome" label="Nome" erro="{{ proc.erros.nome }}"
+                       value="{{ proc.valores.nome }}" required></c-campo>
+              <c-campo nome="descricao" id="proc-{{ proc.pk }}-descricao" label="Descrição" tipo="textarea" opcional="1"
+                       valor="{{ proc.valores.descricao }}" rows="2"></c-campo>
+              <div class="grade-campos grade-campos-2">
+                <c-campo nome="duracao_minutos" id="proc-{{ proc.pk }}-duracao" label="Duração (min)" tipo="number" erro="{{ proc.erros.duracao_minutos }}"
+                         value="{{ proc.valores.duracao_minutos }}" min="5" required></c-campo>
+                <c-campo nome="categoria" id="proc-{{ proc.pk }}-categoria" label="Categoria" tipo="select">
+                  {% for val, label in categorias %}<option value="{{ val }}" {% if val == proc.valores.categoria %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                </c-campo>
+              </div>
+              <c-campo nome="preco" id="proc-{{ proc.pk }}-preco" label="Preço (R$)" tipo="number" erro="{{ proc.erros.preco }}"
+                       ajuda="Mudar o preço cria uma nova vigência a partir de hoje (o histórico é mantido)."
+                       value="{{ proc.valores.preco|default_if_none:''|unlocalize }}" step="0.01" min="0"></c-campo>
+              <fieldset class="conjunto"{% if proc.erros.profissionais %} aria-describedby="proc-{{ proc.pk }}-profissionais-erro"{% endif %}>
+                <legend class="rotulo">Quem realiza</legend>
+                <input type="hidden" name="profissionais_enviado" value="1">
+                <div class="flex flex-wrap gap-x-5 gap-y-2">
+                  {% for prof in profissionais %}
+                  <label class="opcao">
+                    <input type="checkbox" name="profissionais" value="{{ prof.pk }}" {% if prof.pk in proc.valores.habilitados %}checked{% endif %}{% if proc.erros.profissionais and forloop.first %} aria-invalid="true"{% endif %}> {{ prof.nome }}
+                  </label>
+                  {% endfor %}
+                </div>
+                {% if proc.erros.profissionais %}<p id="proc-{{ proc.pk }}-profissionais-erro" class="erro-campo mt-1">{{ proc.erros.profissionais }}</p>{% endif %}
+              </fieldset>
+              <label class="opcao">
+                <input type="checkbox" name="ativo" value="1" {% if proc.valores.ativo %}checked{% endif %}> Ativo (aparece no agendamento)
+              </label>
+            </div>
+            <div class="dialogo-rodape">
+              <c-botao variante="secundario" data-fechar-dialogo>Cancelar</c-botao>
+              <c-botao tipo="submit">Salvar alterações</c-botao>
+            </div>
+          </form>
+        </c-dialogo>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <c-vazio titulo="Nenhum procedimento cadastrado" icone="procedimentos"
+             texto="Use o formulário ao lado para criar o primeiro procedimento." />
+    {% endif %}
+  </c-card>
+
+  {# ── Novo procedimento ── #}
+  <c-card titulo="Novo procedimento" icone="mais" class="xl:order-2 xl:sticky xl:top-24">
+    <form method="post" action="{% url 'aranha:admin_criar_procedimento' %}" class="flex flex-col gap-4">
+      {% csrf_token %}
+      {# Envio recusado: a view devolve a tela (sem redirect) com novo.valores (o digitado) e novo.erros #}
       <c-campo nome="nome" id="novo_nome" label="Nome" erro="{{ novo.erros.nome }}"
-               classe_rotulo="block text-[0.75rem] font-bold text-texto-suave"
-               classe_campo="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
-               value="{{ novo.valores.nome }}" required placeholder="Ex: Limpeza de Pele"></c-campo>
-    </div>
-    <div class="mb-3">
-      <label for="novo_descricao" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Descrição</label>
-      <textarea name="descricao" id="novo_descricao" rows="2" placeholder="Descrição do procedimento..."
-                class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition resize-y">{{ novo.valores.descricao }}</textarea>
-    </div>
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-      <div>
+               value="{{ novo.valores.nome }}" required placeholder="Ex.: Limpeza de pele"></c-campo>
+      <c-campo nome="descricao" id="novo_descricao" label="Descrição" tipo="textarea" opcional="1"
+               valor="{{ novo.valores.descricao }}" rows="2" placeholder="O que o procedimento faz"></c-campo>
+      <div class="grade-campos grade-campos-2">
         <c-campo nome="duracao_minutos" id="novo_duracao" label="Duração (min)" tipo="number" erro="{{ novo.erros.duracao_minutos }}"
-                 classe_rotulo="block text-[0.75rem] font-bold text-texto-suave"
-                 classe_campo="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
                  value="{{ novo.valores.duracao_minutos|default:'30' }}" min="5" required></c-campo>
-      </div>
-      <div>
-        <label for="novo_categoria" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Categoria</label>
-        <select name="categoria" id="novo_categoria"
-                class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
-          {% for val, label in categorias %}<option value="{{ val }}" {% if val == novo.valores.categoria %}selected{% endif %}>{{ label }}</option>{% endfor %}
-        </select>
-      </div>
-      <div>
         <c-campo nome="preco" id="novo_preco" label="Preço (R$)" tipo="number" erro="{{ novo.erros.preco }}"
-                 classe_rotulo="block text-[0.75rem] font-bold text-texto-suave"
-                 classe_campo="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
-                 value="{{ novo.valores.preco }}" step="0.01" min="0" placeholder="0.00"></c-campo>
+                 value="{{ novo.valores.preco }}" step="0.01" min="0" placeholder="0,00"></c-campo>
       </div>
-    </div>
-    <fieldset class="mb-3">
-      <legend class="block text-[0.75rem] font-bold text-texto-suave mb-1">Quem realiza</legend>
-      <div class="flex flex-wrap gap-x-4 gap-y-1">
-        {% for prof in profissionais %}
-        <label class="inline-flex items-center gap-2 text-[0.85rem] text-texto cursor-pointer">
-          <input type="checkbox" name="profissionais" value="{{ prof.pk }}" {% if prof.pk in novo.valores.habilitados %}checked{% endif %} class="rounded border-borda"> {{ prof.nome }}
-        </label>
-        {% empty %}<span class="text-[0.8rem] text-texto-suave">Cadastre um profissional primeiro.</span>{% endfor %}
-      </div>
-      <p class="text-[0.7rem] text-texto-suave mt-1">Só quem está marcado atende este procedimento; sem ninguém, ele não aparece no agendamento.</p>
-    </fieldset>
-    <button type="submit"
-            class="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
-      Criar Procedimento
-    </button>
-  </form>
-</div>
-
-{# ── Lista de procedimentos ── #}
-{% for proc in procedimentos %}
-<div x-data="modal"{% if proc.reabrir %} data-erro="1"{% endif %}
-     class="bg-superficie rounded-2xl shadow-sm p-4 mb-3 border-l-4 {% if proc.ativo %}border-sucesso{% else %}border-borda opacity-70{% endif %}">
-  <div class="flex items-start justify-between gap-2">
-    <div class="min-w-0">
-      <div class="flex items-center gap-2 flex-wrap">
-        <span class="font-bold text-[1rem] text-texto">{{ proc.nome }}</span>
-        <span class="text-[0.7rem] px-2 py-0.5 rounded-full bg-fundo text-texto-suave font-bold">{{ proc.get_categoria_display }}</span>
-      </div>
-      <div class="flex items-center gap-1.5 text-[0.8rem] text-texto-suave mt-1">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/>
-        </svg>
-        {{ proc.duracao_minutos }} min
-        {% if proc.preco_base is not None %} &middot; {{ proc.preco_base|brl }}{% endif %}
-        {% if not proc.ativo %} &middot; <span class="text-erro">Inativo</span>{% endif %}
-      </div>
-      <div class="text-[0.8rem] mt-1">
-        {% if proc.habilitados %}
-        <span class="text-texto-suave">Quem realiza:</span>
-        <span class="text-texto">{% for prof in profissionais %}{% if prof.pk in proc.habilitados %}{{ prof.nome }}{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}</span>
-        {% else %}
-        <span class="text-erro font-bold">Nenhum profissional habilitado — fora do agendamento</span>
-        {% endif %}
-      </div>
-      {% if proc.descricao %}
-      <div class="text-[0.8rem] text-texto-suave mt-1">{{ proc.descricao|truncatewords:20 }}</div>
-      {% endif %}
-    </div>
-    <button type="button" x-on:click="abrir"
-            class="inline-flex items-center gap-1 shrink-0 px-3 py-1.5 rounded-lg bg-info-fundo text-info text-[0.75rem] font-bold border-none cursor-pointer hover:bg-info-fundo transition-colors">
-      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-      </svg>
-      Editar
-    </button>
-  </div>
-
-  {# Modal de edição (Alpine CSP, valores renderizados no servidor) #}
-  <dialog x-ref="dialogo" x-on:click="cliqueFora" x-on:close="aoFechar" aria-label="Editar procedimento" class="dialogo">
-    <div
-         class="bg-superficie text-texto rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-xl">
-      <div class="flex items-center justify-between px-5 py-4 border-b border-borda">
-        <h2 class="font-bold text-[0.95rem]">Editar Procedimento</h2>
-        <button type="button" x-on:click="fechar" aria-label="Fechar"
-                class="text-texto-suave hover:text-texto text-2xl leading-none border-none bg-transparent cursor-pointer">&times;</button>
-      </div>
-      <form method="post" action="{% url 'aranha:admin_editar_procedimento' proc.pk %}" class="p-5">
-        {% csrf_token %}
-        {# proc.valores = o salvo; no envio recusado, o digitado (e proc.erros, por campo) #}
-        <div class="mb-3">
-          <c-campo nome="nome" id="proc-{{ proc.pk }}-nome" label="Nome" erro="{{ proc.erros.nome }}"
-                   classe_rotulo="block text-[0.75rem] font-bold text-texto-suave"
-                   classe_campo="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
-                   value="{{ proc.valores.nome }}" required></c-campo>
-        </div>
-        <div class="mb-3">
-          <label for="proc-{{ proc.pk }}-descricao" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Descrição</label>
-          <textarea name="descricao" id="proc-{{ proc.pk }}-descricao" rows="2"
-                    class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition resize-y">{{ proc.valores.descricao }}</textarea>
-        </div>
-        <div class="grid grid-cols-2 gap-3 mb-3">
-          <div>
-            <c-campo nome="duracao_minutos" id="proc-{{ proc.pk }}-duracao" label="Duração (min)" tipo="number" erro="{{ proc.erros.duracao_minutos }}"
-                     classe_rotulo="block text-[0.75rem] font-bold text-texto-suave"
-                     classe_campo="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
-                     value="{{ proc.valores.duracao_minutos }}" min="5" required></c-campo>
-          </div>
-          <div>
-            <label for="proc-{{ proc.pk }}-categoria" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Categoria</label>
-            <select name="categoria" id="proc-{{ proc.pk }}-categoria"
-                    class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
-              {% for val, label in categorias %}
-              <option value="{{ val }}" {% if val == proc.valores.categoria %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-        </div>
-        <div class="mb-3">
-          <p class="text-[0.7rem] text-texto-suave mb-1">Mudar o preço cria uma nova vigência a partir de hoje (o histórico é mantido).</p>
-          <c-campo nome="preco" id="proc-{{ proc.pk }}-preco" label="Preço (R$)" tipo="number" erro="{{ proc.erros.preco }}"
-                   classe_rotulo="block text-[0.75rem] font-bold text-texto-suave"
-                   classe_campo="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
-                   value="{{ proc.valores.preco|default_if_none:''|unlocalize }}" step="0.01" min="0"></c-campo>
-        </div>
-        <fieldset class="mb-3"{% if proc.erros.profissionais %} aria-describedby="proc-{{ proc.pk }}-profissionais-erro"{% endif %}>
-          <legend class="block text-[0.75rem] font-bold text-texto-suave mb-1">Quem realiza</legend>
-          <input type="hidden" name="profissionais_enviado" value="1">
-          <div class="flex flex-wrap gap-x-4 gap-y-1">
-            {% for prof in profissionais %}
-            <label class="inline-flex items-center gap-2 text-[0.85rem] text-texto cursor-pointer">
-              <input type="checkbox" name="profissionais" value="{{ prof.pk }}" {% if prof.pk in proc.valores.habilitados %}checked{% endif %} class="rounded border-borda"{% if proc.erros.profissionais and forloop.first %} aria-invalid="true"{% endif %}> {{ prof.nome }}
-            </label>
-            {% endfor %}
-          </div>
-          {% if proc.erros.profissionais %}<p id="proc-{{ proc.pk }}-profissionais-erro" class="text-erro text-sm mt-1">{{ proc.erros.profissionais }}</p>{% endif %}
-        </fieldset>
-        <div class="mb-4">
-          <label class="inline-flex items-center gap-2 text-[0.85rem] text-texto cursor-pointer">
-            <input type="checkbox" name="ativo" value="1" {% if proc.valores.ativo %}checked{% endif %} class="rounded border-borda">
-            Ativo
+      <c-campo nome="categoria" id="novo_categoria" label="Categoria" tipo="select">
+        {% for val, label in categorias %}<option value="{{ val }}" {% if val == novo.valores.categoria %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </c-campo>
+      <fieldset class="conjunto">
+        <legend class="rotulo">Quem realiza</legend>
+        <div class="flex flex-wrap gap-x-5 gap-y-2">
+          {% for prof in profissionais %}
+          <label class="opcao">
+            <input type="checkbox" name="profissionais" value="{{ prof.pk }}" {% if prof.pk in novo.valores.habilitados %}checked{% endif %}> {{ prof.nome }}
           </label>
+          {% empty %}<span class="text-sm text-texto-suave">Cadastre um profissional primeiro.</span>{% endfor %}
         </div>
-        <div class="flex justify-end gap-2">
-          <button type="button" x-on:click="fechar"
-                  class="px-4 py-2 rounded-xl border border-borda text-texto text-[0.85rem] font-bold bg-superficie cursor-pointer hover:bg-fundo transition-colors">Cancelar</button>
-          <button type="submit"
-                  class="px-5 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">Salvar</button>
-        </div>
-      </form>
-    </div>
-  </dialog>
+        <p class="ajuda mt-1">Só quem está marcado atende este procedimento; sem ninguém, ele não aparece no agendamento.</p>
+      </fieldset>
+      <c-botao tipo="submit" icone="mais" class="self-start">Criar procedimento</c-botao>
+    </form>
+  </c-card>
 </div>
-{% empty %}
-<div class="bg-superficie rounded-2xl p-12 text-center shadow-sm">
-  <div class="w-16 h-16 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mx-auto mb-4">
-    <svg class="w-7 h-7 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
-    </svg>
-  </div>
-  <p class="font-serif font-bold text-texto mb-1">Nenhum procedimento cadastrado</p>
-  <p class="text-[0.85rem] text-texto-suave">Use o formulário acima para criar o primeiro procedimento.</p>
-</div>
-{% endfor %}
 
 {% include 'partials/_paginacao.html' with page=procedimentos %}
-
 {% endblock %}

@@ -1,0 +1,8 @@
+<c-vars titulo="" texto="" icone="sparkle" class="" />
+{# Estado vazio (.vazio): icone da marca, titulo, explicacao e — no slot — a proxima acao (botao/link) #}
+<div class="vazio{% if class %} {{ class }}{% endif %}" {{ attrs }}>
+  <div class="vazio-icone"><c-icone nome="{{ icone }}" class="" /></div>
+  <p class="vazio-titulo">{{ titulo }}</p>
+  {% if texto %}<p class="vazio-texto">{{ texto }}</p>{% endif %}
+  {% if slot.strip %}<div class="vazio-acoes">{{ slot }}</div>{% endif %}
+</div>
