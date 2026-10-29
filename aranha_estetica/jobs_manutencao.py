@@ -71,7 +71,8 @@ ETAPAS_HOUSEKEEPING = [
 
 def job_housekeeping():
     """Limpeza diaria: sessoes expiradas, o sp_purgar_dados_expirados (OTP, texto de
-    notificacoes, auditoria e trilha alem da retencao, links vencidos/revogados) e logs do axes.
+    notificacoes, auditoria e trilha alem da retencao, links vencidos/revogados, e a etapa "saude":
+    registro de saude 20 anos apos o ultimo evento) e logs do axes.
     Cada etapa e independente; se alguma falhar, as outras rodam e o job termina em erro (cron
     ve 500)."""
     resumo, falhas = {}, []

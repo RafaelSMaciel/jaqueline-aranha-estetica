@@ -14,7 +14,7 @@ from ...excecoes import TermoPendente
 from ...models import AnotacaoSessao, Atendimento
 from ...models.agendamentos import StatusAtendimento
 from ...services import atendimento as casos_atendimento
-from ...services.alertas import alertas_por_cliente, ids_com_ficha_pendente
+from ...services.alertas import alertas_por_cliente, ids_com_ficha_pendente, registrar_leitura_saude
 from ...services.prontuario import vinculo_clinico
 from ...services.termos import ids_com_termo_procedimento_pendente
 from ...utils.auditoria import registrar_log
@@ -124,6 +124,7 @@ def agenda(request):
     clientes = {at.cliente_id: at.cliente for at in todos}
     com_vinculo = _clientes_com_vinculo(request.user, prof, clientes)
     alertas = alertas_por_cliente(cli for cid, cli in clientes.items() if cid in com_vinculo)
+    registrar_leitura_saude(request, (cid for cid, lista in alertas.items() if lista), 'profissional.agenda')
     sem_termo = ids_com_termo_procedimento_pendente(todos)
     sem_ficha = ids_com_ficha_pendente(todos)
     for at in todos:

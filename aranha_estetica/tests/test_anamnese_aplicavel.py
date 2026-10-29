@@ -128,3 +128,19 @@ class PesquisaNoFimDoNpsTests(_Base):
         resp = self.client.post(url, {'nota': '9'}, follow=True)   # PRG: o convite sai no obrigado
         self.assertIsNone(resp.context['link_pesquisa'])
         self.assertNotContains(resp, 'Tem mais um minutinho?')
+
+
+class RevogacaoInvalidaFichaTests(_Base):
+    """Revogou o consentimento de saude: a ficha anterior nao vale mais (o proximo atendimento pede outra)."""
+
+    def test_ficha_anterior_a_revogacao_deixa_de_valer(self):
+        form = _form()
+        RespostaAnamnese.objects.create(formulario=form, cliente=self.cli, respostas_json={'alergias': 'não'},
+                                        respondida_em=timezone.now() - timedelta(days=30))
+        at = criar_atendimento(self.cli, self.prof, self.proc)
+        self.assertIn(form.pk, anamnese.fichas_em_dia(self.cli))
+        self.assertEqual(ids_com_ficha_pendente([at]), set())
+        self.cli.saude_revogada_em = timezone.now() - timedelta(days=1)
+        self.cli.save(update_fields=['saude_revogada_em'])
+        self.assertEqual(anamnese.fichas_em_dia(self.cli.pk), {})
+        self.assertEqual(ids_com_ficha_pendente([at]), {at.pk})

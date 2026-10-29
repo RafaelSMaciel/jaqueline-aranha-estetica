@@ -29,7 +29,7 @@ def ids_com_ficha_pendente(atendimentos) -> set[int]:
     """
     from django.db.models import Max
 
-    from ..models import Atendimento, FormularioAnamnese, RespostaAnamnese
+    from ..models import Atendimento, Cliente, FormularioAnamnese, RespostaAnamnese
     from .anamnese import valida_desde
 
     ativos = [
@@ -58,9 +58,15 @@ def ids_com_ficha_pendente(atendimentos) -> set[int]:
         .values_list('cliente_id', 'formulario_id', 'ultima')
     }
 
+    # revogou o consentimento de saude: ficha anterior a revogacao nao vale mais
+    revogadas = dict(
+        Cliente.all_objects.filter(pk__in={at.cliente_id for at in ativos}, saude_revogada_em__isnull=False)
+        .values_list('pk', 'saude_revogada_em')
+    )
+
     def em_dia(at, fid) -> bool:
         quando = ultima.get((at.cliente_id, fid))
-        return quando is not None and quando >= valida_desde(at.data_hora_inicio)
+        return quando is not None and quando >= valida_desde(at.data_hora_inicio, revogadas.get(at.cliente_id))
 
     pendentes = set()
     for at in ativos:

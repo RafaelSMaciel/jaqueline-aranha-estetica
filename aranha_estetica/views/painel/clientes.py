@@ -11,11 +11,20 @@ from ...decorators import staff_required
 from ...models import Atendimento, Carteira, Cliente, MovimentoCarteira
 from ...models.agendamentos import StatusAtendimento
 from ...services import consentimentos, retorno
+from ...services.alertas import registrar_leitura_saude
 from ...services.termos import aceita_assinatura
 from ...utils.auditoria import registrar_log
 from ...utils.datas import hoje
 
 logger = logging.getLogger(__name__)
+
+
+def _render_ficha(request, cliente):
+    """Ficha da cliente; o alerta de saude exibido vai p/ a trilha (RIPD: cada leitura registrada)."""
+    contexto = _contexto_cliente(cliente)
+    if contexto.get('alertas'):
+        registrar_leitura_saude(request, [cliente.pk], 'painel.cliente_detalhe')
+    return render(request, 'painel/cliente_detalhe.html', contexto)
 
 
 def _contexto_cliente(cliente):
@@ -254,10 +263,10 @@ def admin_cliente_detalhe(request, pk):
             # Nada gravado: re-renderiza com o que foi digitado + erros
             for erro in erros:
                 messages.error(request, erro)
-            return render(request, 'painel/cliente_detalhe.html', _contexto_cliente(cliente))
+            return _render_ficha(request, cliente)
         # sem o nome no texto: o log sobrevive ao esquecimento (LGPD); o pk basta
         registrar_log(request.user, 'Editou cliente', 'cliente', cliente.pk, request=request)
         messages.success(request, 'Cliente atualizado!')
         return redirect('aranha:admin_cliente_detalhe', pk=pk)
 
-    return render(request, 'painel/cliente_detalhe.html', _contexto_cliente(cliente))
+    return _render_ficha(request, cliente)

@@ -276,3 +276,31 @@ class AcaoPseudonimizarAdminTests(TestCase):
         self._post()
         self.assertEqual(sorted(Cliente.all_objects.filter(pk__in=[self.a.pk, self.b.pk])
                                 .values_list('nome', flat=True)), ['Ana Lote', 'Bia Lote'])
+
+
+class AcaoExportarCompletoAdminTests(TestCase):
+    """Pedido de acesso da titular entregue pela clinica: export completo, uma por vez, na trilha."""
+    URL = '/django-admin-sv/aranha_estetica/cliente/'
+
+    def setUp(self):
+        self.admin = _admin()
+        self.device = _com_totp(self.admin)
+        self.c = Client()
+        self.c.force_login(self.admin)
+        self.c.post(reverse('aranha:admin_2fa_verify'), {'token': _token(self.device)})
+        self.a = criar_cliente(nome='Ana Export')
+        self.b = criar_cliente(nome='Bia Export')
+
+    def test_exporta_uma_titular_com_saude_e_registra(self):
+        from aranha_estetica.models import LogAuditoria
+        resp = self.c.post(self.URL, {'action': 'acao_exportar_dados_completos', '_selected_action': [self.a.pk]})
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('attachment; filename="dados-cliente-', resp['Content-Disposition'])
+        self.assertIn('Ana Export', resp.content.decode())
+        self.assertTrue(LogAuditoria.objects.filter(
+            acao='LGPD: exportou dados completos (com saúde)', registro_id=self.a.pk).exists())
+
+    def test_mais_de_uma_recusa(self):
+        resp = self.c.post(self.URL, {'action': 'acao_exportar_dados_completos',
+                                      '_selected_action': [self.a.pk, self.b.pk]}, follow=True)
+        self.assertContains(resp, 'Selecione exatamente uma cliente')

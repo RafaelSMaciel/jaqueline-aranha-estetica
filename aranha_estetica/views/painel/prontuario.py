@@ -21,6 +21,7 @@ from ...models import (
     ProntuarioVersao,
     RespostaAnamnese,
 )
+from ...services.alertas import registrar_leitura_saude
 from ...services.anamnese import validar_respostas
 from ...services.prontuario import vinculo_clinico
 from ...utils.auditoria import registrar_log
@@ -429,6 +430,7 @@ def prontuario_consentimento(request):
 
     # Alerta visivel na lista; so quem tem algum dado de saude, em lote (3 consultas p/ a pagina)
     alertas = alertas_em_lote(c.pk for c in clientes_page if c.tem_prontuario or c.tem_ficha)
+    registrar_leitura_saude(request, (pk for pk, lista in alertas.items() if lista), 'painel.prontuarios')
     clientes_list = [
         {
             'cliente': c,

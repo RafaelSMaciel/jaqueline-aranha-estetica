@@ -46,7 +46,7 @@ urlpatterns = [
     path('agendamento/otp/verificar/', verificacao.verificar_otp_agendamento, name='verificar_otp_agendamento'),
     # ─── Confirmação de Presença (link público via WhatsApp) ───
     path('confirmar/<str:token>/', confirmacao.confirmar_presenca, name='confirmar_presenca'),
-    # ─── Meus Agendamentos (login via OTP email) ───
+    # ─── Meus Agendamentos (login via OTP por SMS) ───
     path('meus-agendamentos/', portal.meus_agendamentos, name='meus_agendamentos'),
     path('meus-agendamentos/otp/enviar/', verificacao.meus_agendamentos_enviar_otp, name='meus_agendamentos_enviar_otp'),
     path('meus-agendamentos/otp/verificar/', verificacao.meus_agendamentos_verificar_otp, name='meus_agendamentos_verificar_otp'),

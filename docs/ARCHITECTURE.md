@@ -106,7 +106,7 @@ jQuery, AOS, Swiper, FontAwesome/Bootstrap Icons: fora. Ícones SVG inline.
 O plano do wizard (`plans/onda2-wizard.md`) foi concluído e removido: o contrato preservado
 (nomes de campos, ids `#step-1..3`, endpoints `api_dias_disponiveis`,
 `api_horarios_disponiveis`, `solicitar_otp_agendamento`, `verificar_otp_agendamento`,
-`confirmar_agendamento`) segue válido; `static/js/wizard.js` é JS estático (fora do Vite),
+`confirmar_agendamento`) segue válido; `static/src/js/wizard.js` é uma entrada do Vite,
 cards e dias são `<button>` (teclado) e o estado sobrevive a recusa do servidor
 (`sessionStorage` + reidratação).
 
@@ -164,7 +164,7 @@ cards e dias são `<button>` (teclado) e o estado sobrevive a recusa do servidor
 | D46 | **Lista de espera sem cadastro e formulários públicos com anti-abuso**: a inscrição é anônima (nome + celular) e só se liga à cliente — e só aceita e-mail — com o celular verificado por OTP; o aviso não tira da fila e agendar encerra a inscrição. Lista e contato com captcha, honeypot e limite por IP (contato: teto global diário); o contato não tem caixa de marketing e o mapa não carrega nada do Google | Um formulário sem login não pode criar nem alterar cadastro, nem prender um e-mail ao telefone de outra pessoa; a cota de e-mail é compartilhada com o reset de senha; opt-in de marketing só onde há prova |
 | D47 | **Agenda do painel por casos de uso**: `agenda.agendar_pela_recepcao` (cliente nova na mesma transação, preço do dia ou combinado, AGENDADO, e-mail de confirmação), `atendimento.marcar_realizado` (a regra do termo igual no painel e no portal, `TermoPendente`), `atendimento.registrar_valor_cobrado` e `AgendamentoService.decidir_em_lote` (item a item, cada um na sua transação); a entrada é Django Form (`forms/agenda`) e a view só traduz HTTP | A view do novo agendamento tinha 191 linhas (hoje 43; complexidade do mccabe 27 → 7) e o lote numa transação só desfazia tudo por um item decidido em outra tela |
 | D48 | **Seletor de status só com o que há para decidir**: sem PENDENTE (decide nos botões, pelo `AgendamentoService`) nem status final; Realizado/Faltou só a partir do início (a FSM recusa com `desfecho_antes_do_inicio`, 409). O JS da agenda e do calendário são entradas do Vite (`painel-status`, `painel-calendario`, `lib/requisicao.js`) no contrato `utils/respostas`; as ações da agenda (status, valor, desfazer realização, aprovar/recusar/lote, mover, exceções e bloqueios) usam `@escrita_painel` (POST + 30/min por usuário) | Um clique na agenda da semana seguinte gerava comissão, debitava pacote e contava falta; o mesmo JS existia em duas cópias inline |
-| D49 | **Leitura de alerta de saúde auditada**: a agenda e a visão geral do painel gravam "Leu alertas de saúde" (tabela `prontuario`, `{clientes, tela}`, sem nome) quando mostram alerta | O RIPD promete que cada leitura de dado de saúde vai para a trilha (art. 37); o alerta na lista também é leitura |
+| D49 | **Leitura de alerta de saúde auditada**: toda tela que mostra alerta (agenda e visão geral do painel, ficha da cliente, lista de prontuários, agenda do portal da profissional) grava "Leu alertas de saúde" (tabela `prontuario`, `{clientes, tela}`, sem nome) | O RIPD promete que cada leitura de dado de saúde vai para a trilha (art. 37); o alerta na lista também é leitura |
 
 ---
 
@@ -270,15 +270,13 @@ verde em SQLite e Postgres).
 - [ ] Baixa: docstring de `utils/dois_fatores.verificar_token` ainda descreve o `--force` antigo
       ("device novo ao lado do antigo"; hoje o `--force` apaga todos)
 - [ ] Baixa: `painel/termo_link.html` oferece `mailto:` para o e-mail do cadastro (não verificado)
-- [ ] Revogar o consentimento de saúde não invalida a ficha em dia: `services/anamnese.fichas_em_dia`
-      ignora `cliente.saude_revogada_em`, então o wizard não pede ficha nova dentro dos 12 meses —
-      mas a política (§4), o portal e o alerta dizem que "um novo atendimento pede uma nova ficha"
-      (decidir: exigir ficha + aceite SAÚDE depois da revogação, ou mudar o texto)
-- [ ] O export completo com a ficha de saúde (`LgpdService.exportar_dados_cliente`) não tem tela:
-      a política e o export do site dizem que a ficha "é enviada ao e-mail cadastrado ou entregue
-      mediante pedido na clínica", e hoje a equipe só a gera pelo `manage.py shell`
-- [ ] "Leu alertas de saúde" só na agenda e na visão geral do painel: a agenda do portal da
-      profissional, a lista de prontuários e a ficha da cliente também mostram alerta sem essa trilha
+- [x] ~~Revogar o consentimento de saúde não invalidava a ficha em dia~~ resolvido: `valida_desde`
+      considera `saude_revogada_em` (wizard e marcador do painel) — o próximo atendimento pede ficha
+      e aceite SAÚDE novos.
+- [x] ~~Export completo com a ficha de saúde sem tela~~ resolvido: ação "Exportar dados completos da
+      titular (LGPD, com saúde)" no Django admin (uma por vez, JSON, na trilha).
+- [x] ~~"Leu alertas de saúde" só no painel~~ resolvido: também na agenda do portal da profissional,
+      na lista de prontuários e na ficha da cliente.
 - [ ] `style-src-attr 'unsafe-inline'`: migrar ~160 atributos `style=""` (fora dos e-mails) para classes
 - [ ] Registry de regras (spec 5.1) e sessão única de cliente verificado (5.3) — ver
       [`specs/regras-negocio-registry.md`](specs/regras-negocio-registry.md)
