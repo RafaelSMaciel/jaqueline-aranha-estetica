@@ -63,16 +63,15 @@ def admin_excecao_criar(request, prof_id):
     return voltar
 
 
-@staff_required
+@escrita_painel
 def admin_excecao_excluir(request, pk):
-    # so folga/horario diferente de profissional (bloqueio e feriado tem tela propria)
+    """Remove folga/horario diferente de profissional (bloqueio e feriado tem tela propria)."""
     excecao = get_object_or_404(
         AgendaExcecao, pk=pk, profissional__isnull=False, tipo__in=AgendaExcecao.TIPOS_POR_DATA,
     )
     prof_id = excecao.profissional_id
-    if request.method == 'POST':
-        info = f'{excecao.tipo} {excecao.periodo_display} prof={excecao.profissional.nome}'
-        excecao.delete()
-        registrar_log(request.user, f'Excluiu exceção: {info}', 'agenda_excecao', pk, request=request)
-        messages.success(request, 'Exceção removida.')
+    info = f'{excecao.tipo} {excecao.periodo_display} prof={excecao.profissional.nome}'
+    excecao.delete()
+    registrar_log(request.user, f'Excluiu exceção: {info}', 'agenda_excecao', pk, request=request)
+    messages.success(request, 'Exceção removida.')
     return redirect('aranha:admin_excecoes', prof_id=prof_id)

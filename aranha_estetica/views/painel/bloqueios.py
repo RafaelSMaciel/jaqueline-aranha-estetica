@@ -55,12 +55,9 @@ def admin_criar_bloqueio(request):
     return redirect('aranha:admin_bloqueios')
 
 
-@staff_required
+@escrita_painel
 def admin_excluir_bloqueio(request, bloqueio_id):
     """Exclui bloqueio de agenda via POST."""
-    if request.method != 'POST':
-        return redirect('aranha:admin_bloqueios')
-
     bloqueio = get_object_or_404(AgendaExcecao, pk=bloqueio_id, tipo=AgendaExcecao.TIPO_BLOQUEIO)
     # profissional nulo = bloqueio global ('Todos os profissionais')
     alvo = bloqueio.profissional.nome if bloqueio.profissional_id else 'todos os profissionais'
