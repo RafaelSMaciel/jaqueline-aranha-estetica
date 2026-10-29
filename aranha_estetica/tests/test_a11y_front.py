@@ -16,6 +16,10 @@ _CSS = _APP / 'static' / 'src' / 'css'
 _JS = _APP / 'static' / 'src' / 'js'
 
 
+def _sem_comentarios(css):
+    return re.sub(r'/\*.*?\*/', '', css, flags=re.S)
+
+
 def _templates_html():
     return sorted(_TEMPLATES.rglob('*.html'))
 
@@ -101,6 +105,9 @@ class TemaEscuroTests(SimpleTestCase):
                                r'|(?:from|to|bg|text)-\[#[0-9a-fA-F]{3,6}\]'
                                r'|linear-gradient\([^)]*#[0-9a-fA-F]{3,6}', html)
             self.assertEqual(fixos, [], nome)
+        # o CSS do agendamento e de Meus agendamentos mora no site.css: so tokens, nenhum hex
+        site = _sem_comentarios((_CSS / 'site.css').read_text(encoding='utf-8'))
+        self.assertEqual(re.findall(r'#[0-9a-fA-F]{3,6}\b', site), [])
 
 
 class PaletaDeStatusTests(SimpleTestCase):

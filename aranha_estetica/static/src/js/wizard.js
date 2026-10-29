@@ -22,10 +22,10 @@
     tabs.forEach(function(tab){
         tab.addEventListener('click', function(){
             var cat = tab.dataset.cat;
-            // Botoes liga/desliga (nao abas): o estado e o aria-pressed; o visual vem do CSS do template
+            // Botoes liga/desliga (nao abas): o estado e o aria-pressed; o visual vem do site.css
             tabs.forEach(function(t){ t.setAttribute('aria-pressed', t === tab ? 'true' : 'false'); });
             cards.forEach(function(c){
-                c.style.display = (!cat || c.dataset.categoria === cat) ? '' : 'none';
+                c.hidden = !(!cat || c.dataset.categoria === cat);
             });
         });
     });
@@ -379,8 +379,9 @@
         loadMonth();
     });
 
-    var SVG_LOADING = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" style="display:block;margin:0 auto 0.75rem;" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite"/></path></svg>';
-    var SVG_INFO = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto 0.75rem;" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+    // icones estaticos (sem dado do usuario); cor e margem pelas classes do site.css
+    var SVG_LOADING = '<svg class="slots-icone slots-icone--carregando" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite"/></path></svg>';
+    var SVG_INFO = '<svg class="slots-icone" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
 
     function mensagemSlots(container, svg, texto) {
         var box = document.createElement('div');
@@ -420,7 +421,7 @@
     }
 
     function carregarHorarios(dateStr) {
-        document.getElementById('prof-section').style.setProperty('display', 'none', 'important');
+        document.getElementById('prof-section').hidden = true;
         var container = document.getElementById('slots-container');
         mensagemSlots(container, SVG_LOADING, 'Carregando horários...');
 
@@ -492,7 +493,7 @@
 
         var profSection = document.getElementById('prof-section');
         var profOptions = document.getElementById('prof-options');
-        profSection.style.setProperty('display', 'block', 'important');
+        profSection.hidden = false;
         profOptions.textContent = '';
 
         if (selectedSlot.profissionais.length === 1) {
@@ -605,7 +606,7 @@
         var aplicaveis = TERMOS_PROCEDIMENTO.filter(function(t) {
             return valeParaProc(t, selectedProc);
         });
-        container.style.display = aplicaveis.length ? '' : 'none';
+        container.hidden = !aplicaveis.length;
         aplicaveis.forEach(function(t) {
             var box = document.createElement('div');
             box.className = 'aceite-box';
@@ -672,10 +673,10 @@
         setAnamneseMsg('');
         atualizarConsentSaude();
         if (aplicaveis.length === 0) {
-            container.style.display = 'none';
+            container.hidden = true;
             return;
         }
-        container.style.display = '';
+        container.hidden = false;
 
         aplicaveis.forEach(function(form){
             var formWrap = document.createElement('div');
@@ -983,7 +984,7 @@
     function setStatusMsg(texto, ok, comWhatsApp) { escreverMsg('otp-status', texto, ok, comWhatsApp); }
     function setOtpMsg(texto, ok, comWhatsApp) {
         var field = document.getElementById('otp-field');
-        if (field && field.style.display === 'none') { setStatusMsg(texto, ok, comWhatsApp); return; }
+        if (field && field.hidden) { setStatusMsg(texto, ok, comWhatsApp); return; }
         escreverMsg('otp-msg', texto, ok, comWhatsApp);
     }
 
@@ -1007,7 +1008,7 @@
     function mostrarDados(prefill, clienteExistente) {
         var dados = document.getElementById('dados-fields');
         var badge = document.getElementById('cliente-badge');
-        dados.style.display = '';
+        dados.hidden = false;
         var nome = document.getElementById('form-nome');
         var nasc = document.getElementById('form-nascimento');
         var email = document.getElementById('form-email');
@@ -1022,15 +1023,15 @@
         nasc.required = true;
         titularDoCelular(clienteExistente);
         if (clienteExistente) {
-            badge.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px;" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+            badge.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
             badge.appendChild(document.createTextNode('Bem-vindo(a) de volta — seus dados foram carregados.'));
             badge.setAttribute('data-state', 'existing');
         } else {
-            badge.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px;" aria-hidden="true"><path d="M12 3l1.9 5.5L19.5 10l-5.6 1.5L12 17l-1.9-5.5L4.5 10l5.6-1.5z"/></svg>';
+            badge.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.5L19.5 10l-5.6 1.5L12 17l-1.9-5.5L4.5 10l5.6-1.5z"/></svg>';
             badge.appendChild(document.createTextNode('Novo por aqui — preencha seus dados abaixo.'));
             badge.setAttribute('data-state', 'new');
         }
-        badge.style.display = '';
+        badge.hidden = false;
         if (btnConfirmar) {
             btnConfirmar.disabled = false;
             btnConfirmar.title = '';
@@ -1056,12 +1057,12 @@
         tel.setAttribute('aria-readonly', 'true');
         var bEnv = document.getElementById('btn-enviar-otp');
         var bVer = document.getElementById('btn-verificar-otp');
-        if (bEnv) bEnv.style.display = 'none';
-        if (bVer) bVer.style.display = 'none';
+        if (bEnv) bEnv.hidden = true;
+        if (bVer) bVer.hidden = true;
         var otpField = document.getElementById('otp-field');
-        if (otpField) otpField.style.display = 'none';
+        if (otpField) otpField.hidden = true;
         var cap = document.getElementById('captcha-field');
-        if (cap) cap.style.display = 'none';
+        if (cap) cap.hidden = true;
         setStatusMsg('Celular verificado.', true);
     }
 
@@ -1091,7 +1092,7 @@
                     resetCaptcha();  // token Turnstile é de uso único
                     var codigo = res.data.codigo;
                     if (res.data.ok) {
-                        document.getElementById('otp-field').style.display = '';
+                        document.getElementById('otp-field').hidden = false;
                         setStatusMsg('Código enviado por SMS para seu celular. Válido por 10 minutos.', true);
                         var txt = btnEnviar.querySelector('.otp-btn-text');
                         if (txt) txt.textContent = 'Reenviar';
@@ -1101,7 +1102,7 @@
                         setStatusMsg('Aguarde um minuto antes de pedir outro código.', false);
                     } else {
                         // Nenhum código novo no limite da hora: o último recebido ainda vale
-                        if (codigo === 'limite_sms') document.getElementById('otp-field').style.display = '';
+                        if (codigo === 'limite_sms') document.getElementById('otp-field').hidden = false;
                         // Erro que a pessoa resolve sozinha não oferece o WhatsApp
                         var resolveSozinha = ['aguarde', 'captcha', 'telefone_invalido'].indexOf(codigo) !== -1;
                         setStatusMsg(res.data.mensagem || 'Não foi possível enviar o código. Tente novamente.', false, !resolveSozinha);
@@ -1173,7 +1174,7 @@
             mostrarDados(null, false);
             titularDoCelular(!!cfg.otpTitular);
             var badge = document.getElementById('cliente-badge');
-            if (badge) badge.style.display = 'none';
+            if (badge) badge.hidden = true;
         }
     }
 
