@@ -20,6 +20,17 @@ Só dois papéis de equipe (`usuario.papel`, CHECK no banco):
 
 O papel RECEPCAO saiu (migration 0072): a dona faz a recepção pelo painel.
 
+- **Usuários da equipe** (Painel > Usuários): e-mail único (sem diferença de caixa); papel
+  PROFISSIONAL exige o profissional vinculado, e um profissional tem no máximo um login; ninguém
+  muda o próprio papel nem desativa a própria conta, e o último ADMIN ativo não é rebaixado nem
+  desativado (a equipe nunca fica trancada fora).
+- **Profissionais / desligamento:** desativar a profissional, desativar o login dela ou trocar o
+  profissional vinculado ao login **revoga o feed ICS** dela na hora (auditado): o calendário de
+  quem saiu para de receber os nomes das clientes. Reativar não devolve o link — é preciso gerar um
+  novo (Painel > Profissionais). A edição que deixaria atendimentos futuros dela sem quem atenda
+  (desativar, tirar o dia ou mudar a janela para fora do horário marcado, tirar a habilitação do
+  procedimento) é recusada listando-os: reagende ou cancele antes.
+
 ---
 
 ## 2. Cliente
@@ -33,8 +44,11 @@ O papel RECEPCAO saiu (migration 0072): a dona faz a recepção pelo painel.
   coletados (saíram na 0074).
 - **Idade mínima para agendar online: 18 anos** (data de nascimento obrigatória no wizard).
 - **Bloqueio por faltas:** cada FALTOU soma 1 em `faltas_consecutivas`; ao atingir o limite
-  (`Configuracao` `MAX_FALTAS_BLOQUEIO`, padrão **3** = `MAX_FALTAS_ANTES_BLOQUEIO`) a cliente
-  fica `bloqueado_online` e o wizard recusa ("fale conosco pelo WhatsApp"). Comparecer
+  (regra operacional `MAX_FALTAS_BLOQUEIO`, Painel > Regras operacionais: inteiro de **1 a 10**,
+  padrão **3** = `MAX_FALTAS_ANTES_BLOQUEIO`; valor não numérico ou menor que 1 gravado por fora da
+  tela vale como 3) a cliente fica `bloqueado_online` e o wizard recusa com o motivo e o caminho de
+  revisão ("suspenso depois de faltas seguidas sem aviso ou por decisão da clínica; para pedir a
+  revisão ou marcar, fale conosco pelo WhatsApp" — decisão automatizada, LGPD art. 20). Comparecer
   (REALIZADO) zera o contador **e** desbloqueia. O painel ainda agenda cliente bloqueada.
 - **Exclusão:** `Cliente.delete()` é soft delete (`deletado_em`); apagar de verdade só com
   `hard=True`. Anonimização: §22.
@@ -45,8 +59,19 @@ O papel RECEPCAO saiu (migration 0072): a dona faz a recepção pelo painel.
 
 Fluxo: **procedimento → data/horário (e profissional) → dados + código SMS → confirmar**.
 
+Caso de uso único: `services/agendamento_online.solicitar` (o form do wizard só lê o POST e
+confere o OTP; a regra inteira mora no service, e cada recusa tem um `codigo`).
+
 - **Código OTP obrigatório em todo agendamento** (cliente nova ou recorrente), preso ao celular
   informado; o telefone do formulário tem de ser o verificado na sessão (30 min).
+- **O pedido é da titular do celular:** com cadastro existente, o nome do cadastro fica — nome
+  diferente digitado no wizard é ignorado (vai só para o log; renomear é pelo painel, auditado).
+  Assim quem agenda para outra pessoa não mistura a ficha de saúde dela no cadastro da titular.
+  Nascimento vazio no cadastro é preenchido; o e-mail segue a regra abaixo.
+- **Teto de pedidos pelo site:** quem já tem **3 horários futuros ativos** (`MAX_ATIVOS_ONLINE`;
+  PENDENTE/AGENDADO/CONFIRMADO, de qualquer canal) não marca outro pelo site ("fale conosco pelo
+  WhatsApp") — o PENDENTE trava a agenda, e sem teto um celular verificado reservaria a semana. A
+  recepção segue marcando pelo painel.
 - **Horários** vêm do `SlotService` (§5) e o servidor **revalida** no confirmar: procedimento e
   profissional ativos, profissional habilitado, horário futuro, não é feriado/recesso ativo, slot
   ainda livre para a duração inteira.
@@ -62,13 +87,24 @@ Fluxo: **procedimento → data/horário (e profissional) → dados + código SMS
   recebe o e-mail de aprovação (§7). A página de sucesso diz qual dos dois aconteceu.
 - **Preço gravado** = preço vigente na **data do atendimento** (profissional > base) com a
   promoção que vale nesse dia (§13): `valor_cobrado`, `valor_original` (cheio, se houve
-  promoção), `promocao`, `descricao_preco`. É o mesmo valor mostrado no resumo, nos cards e em
-  `/promocoes/`.
+  promoção), `promocao`, `descricao_preco`. É o mesmo valor mostrado no resumo do wizard (preço na
+  data por profissional).
+- **Preço de vitrine** ("A partir de", nos cards do wizard, no widget, em `/especialidades/`, na
+  página do serviço e em `/promocoes/`): o preço **base do dia** (sem base, o menor entre os
+  profissionais) com a promoção que o agendamento aplicaria — e só se ela reduz o valor
+  (`services/precos.precos_de_vitrine`). Sem preço: "A consultar".
 - **LGPD no wizard:** aceite obrigatório da Política de Privacidade (grava `AceiteTermo` da versão
-  LGPD vigente com IP, navegador e SHA-256 do texto); termos de PROCEDIMENTO (do procedimento +
-  gerais) aceitos ali mesmo (versão já aceita antes não é pedida de novo); ficha de anamnese
-  (dado de saúde) só é gravada com o **consentimento específico do art. 11** marcado, registrado
-  na auditoria com o texto e o IP.
+  LGPD vigente com IP, navegador e SHA-256 do texto; sem versão LGPD vigente o pedido é recusado);
+  termos de PROCEDIMENTO (do procedimento + gerais) aceitos ali mesmo (versão já aceita antes não é
+  pedida de novo); ficha de anamnese (dado de saúde) só é gravada com o **consentimento específico
+  do art. 11** marcado, registrado na auditoria com o texto e o IP.
+- **Ficha vale 12 meses** (`VALIDADE_FICHA_MESES`): a obrigatória que a titular respondeu nos 12
+  meses antes do horário escolhido não é exigida de novo (o wizard mostra "Sua ficha de dd/mm/aaaa
+  está em dia — algo mudou?"); só a obrigatória pendente ou vencida é exigida. Se a cliente começa a
+  responder uma ficha em dia ou opcional ("Atualizar"), as respostas são validadas e gravadas como
+  uma resposta nova.
+- **Dia sem horário livre:** a lista de horários oferece "Avise-me se vagar", que abre a lista de
+  espera (§17) já com o procedimento, a data e a profissional (quando escolhida) preenchidos.
 - **Comunicação:** caixas de e-mail marketing, lembrete por WhatsApp e pesquisa por WhatsApp
   **nunca vêm marcadas**; marcar concede (data + IP); desmarcar revoga só quando a caixa mostrava
   o estado do cadastro.
@@ -259,6 +295,11 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 - **Preço** versionado por `vigente_desde`: vale a vigência mais recente ≤ hoje (fuso local); só
   vigência futura → usa a mais próxima. Preço do profissional > preço base; sem base, o menor
   preço vigente entre profissionais.
+- **Mudar o preço base** (Painel > Procedimentos, `services/catalogo`): abre uma vigência nova a
+  partir de hoje, só se o valor mudou (salvar sem mexer no preço não cria vigência; já havendo uma
+  de hoje, ela é ajustada); o histórico fica e o atendimento já marcado guarda o próprio valor.
+- **Quem realiza** = as profissionais marcadas no procedimento (habilitação); tirar a habilitação
+  de quem ainda tem atendimento futuro dele é recusado (reagende ou cancele antes).
 - **Promoção:** desconto **0–100% XOR** preço fixo (CHECK no banco), período `data_inicio`–
   `data_fim`, ligada a um procedimento. Promoção **geral** (sem procedimento) só vale como
   **percentual** — preço fixo geral é ignorado pelo agendamento e escondido em `/promocoes/`.
@@ -365,8 +406,9 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
   `/nps/<token>/obrigado/` (cumprimenta pelo primeiro nome e oferece a pesquisa pós-atendimento, se
   houver — §20). A nota também pode chegar respondendo o WhatsApp (0–10): as duas portas passam pelo
   mesmo `services/nps.registrar_avaliacao`.
-- **Detrator** (nota ≤ 6): e-mail de alerta para `email_admin` (Configurações) > `ADMIN_EMAIL` >
-  e-mail de contato do Branding (job `detrator_alerta`, 10:30).
+- **Detrator** (nota ≤ 6): e-mail de alerta para `email_admin` (Painel > Regras operacionais; a
+  tela só aceita e-mail válido, e um inválido gravado antes conta como vazio) > `ADMIN_EMAIL` >
+  e-mail de contato da Identidade visual (job `detrator_alerta`, 10:30).
 - **Depoimento no site** (`/depoimentos/`): só com opt-in da cliente (`autoriza_publicacao`),
   aprovação da equipe (Painel > NPS > publicação), nota ≥ 9 e comentário; cliente excluída ou
   anonimizada nunca aparece. Autor exibido com nome abreviado.
@@ -510,9 +552,11 @@ enviado. A agenda da profissional vai para o calendário dela só pelo feed ICS 
 | Antecedência máxima | 60 dias (1–365) | `Profissional.max_advance_dias` |
 | Intervalo dos slots | 30 min | `SlotService.INTERVALO` |
 | Buffer do procedimento | 0–120 min | `Procedimento.buffer_minutos` |
-| Idade mínima (online) | 18 anos | `views/publico/agendamento` |
+| Idade mínima (online) | 18 anos | `forms/agendamento.IDADE_MINIMA` |
+| Horários futuros ativos para pedir pelo site | até 3 (o 4º é recusado) | `constants.MAX_ATIVOS_ONLINE` |
+| Validade da ficha de anamnese respondida | 12 meses | `services/anamnese.VALIDADE_FICHA_MESES` |
 | Reagendar pela cliente | ≥ 24 h antes | `constants.JANELA_MINIMA_REAGENDAMENTO` |
-| Faltas até bloquear online | 3 | `Configuracao MAX_FALTAS_BLOQUEIO` > `constants.MAX_FALTAS_ANTES_BLOQUEIO` |
+| Faltas até bloquear online | 3 (ajustável de 1 a 10) | regra operacional `MAX_FALTAS_BLOQUEIO` (`models/configuracao.CHAVES`) > `constants.MAX_FALTAS_ANTES_BLOQUEIO` |
 | OTP: validade / tentativas / reenvio | 10 min / 5 / 60 s | env `OTP_TTL_SEGUNDOS`, `OTP_MAX_TENTATIVAS`, `OTP_REENVIO_MINIMO_SEG` |
 | SMS por hora: telefone / IP / global | 3 / 10 / 60 | env `SMS_MAX_POR_HORA`, `SMS_MAX_POR_IP_HORA`, `SMS_MAX_GLOBAL_HORA` |
 | Verificação OTP no wizard / sessão do portal | 30 min / 1 h | `services/otp`, `views/publico/verificacao` |
@@ -532,6 +576,6 @@ enviado. A agenda da profissional vai para o calendário dela só pelo feed ICS 
 
 ---
 
-_Última atualização: 2026-10-28 — conferido no código até a migration 0074 (papéis, lembrete por
+_Última atualização: 2026-10-29 — conferido no código até a migration 0074 e os pacotes do pedido online e dos cadastros (papéis, lembrete por
 e-mail, sem desfecho, NPS, promoção, "PARAR", ficha em 3 escopos, acesso da cliente só pelo
 portal)._
