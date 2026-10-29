@@ -5,6 +5,15 @@ from django.urls import reverse
 register = template.Library()
 
 
+@register.filter
+def iniciais(nome):
+    """'Maria da Silva' -> 'MS' (primeira e ultima palavra) — avatar das listas do painel."""
+    partes = str(nome or '').split()
+    if not partes:
+        return ''
+    return (partes[0][0] + (partes[-1][0] if len(partes) > 1 else '')).upper()
+
+
 @register.simple_tag
 def webpush_configurado():
     """True se a chave VAPID publica existe — so entao o painel oferece ativar push."""

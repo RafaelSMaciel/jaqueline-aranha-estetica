@@ -3,7 +3,7 @@
 
 {% block titulo %}Visão geral — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Visão geral{% endblock %}
-{% block page_subtitle %}Olá, {{ request.user.nome|default:"equipe" }} · {{ hoje|date:"l, j \d\e F" }}{% endblock %}
+{% block page_subtitle %}Olá, {{ request.user.nome|default:"equipe" }} · {{ hoje|date:"l, j \d\e F"|lower }}{% endblock %}
 {% block page_actions %}
 <c-botao href="{% url 'aranha:exportar_relatorio_excel' %}" variante="secundario" icone="planilha">Exportar mês</c-botao>
 <c-botao href="{% url 'aranha:admin_agendamento_novo' %}" icone="mais">Novo agendamento</c-botao>

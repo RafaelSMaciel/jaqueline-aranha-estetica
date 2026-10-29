@@ -160,6 +160,12 @@ class ComponentesDeTelaTests(SimpleTestCase):
         self.assertIn('aria-hidden="true"', html)
         self.assertIn('class="w-4 h-4"', html)
 
+    def test_iniciais_do_avatar(self):
+        from aranha_estetica.templatetags.painel_tags import iniciais
+        self.assertEqual(iniciais('Mariana da Costa'), 'MC')   # antes: 1a e ultima LETRA ("MA")
+        self.assertEqual(iniciais('ana'), 'A')
+        self.assertEqual(iniciais(None), '')
+
     def test_tabela_responsiva_tem_legenda(self):
         html = render("<c-tabela legenda='Agenda' responsiva='1'><tbody></tbody></c-tabela>")
         self.assertIn('class="tabela tabela-responsiva"', html)
