@@ -1,14 +1,18 @@
-"""Forms dos cadastros do painel: equipe (usuario, profissional + grade semanal) e regras operacionais
-(configuracao).
+"""Forms dos cadastros do painel: equipe (usuario, profissional + grade semanal), catalogo
+(procedimento), regras operacionais (configuracao) e identidade visual (marca).
 
 A regra de dominio fica no clean() do Form; a view so faz is_valid() e persiste. Mesmo contrato de
 forms/painel: invalido -> avisar_erros(request, form) + a tela de volta com o digitado e o erro no campo.
 """
+import re
+
 from django import forms
 from django.contrib.auth.password_validation import validate_password
+from django.core.validators import URLValidator, validate_email
 
 from ..models import Procedimento, Profissional, Usuario
 from ..models.configuracao import CHAVES, chave_do_registro
+from ..utils.branding import BRANDING_FIELDS, normalizar_whatsapp
 from ..utils.email import email_configurado
 from ..utils.parse import id_int
 from .painel import MSG_DURACAO_OU_PRECO, CampoPreco
@@ -325,4 +329,75 @@ class ConfiguracaoForm(forms.Form):
             dados['valor'] = CHAVES[nome].validar(dados.get('valor', ''))
         except forms.ValidationError as exc:
             self.add_error('valor', exc)
+        return dados
+
+
+# ─── Identidade visual (marca e contatos) ─────────────────────────────
+
+_HEX_COR = re.compile(r'^#[0-9a-fA-F]{6}$')
+
+
+def _valor_da_marca(chave: str, valor: str) -> str:
+    """Valor normalizado de um campo da marca; ValidationError com a mensagem da tela. Vazio e sempre
+    valido (volta ao padrao: env ou default de utils/branding)."""
+    if not valor:
+        return ''
+    if chave == 'WHATSAPP_NUMERO':
+        digitos = normalizar_whatsapp(valor)  # 10-11 digitos ganham o DDI 55
+        if not digitos:
+            raise forms.ValidationError(
+                'WhatsApp: informe DDD + número (ex: 17 99123-4567) ou com DDI (5517991234567).')
+        return digitos
+    if chave in ('CLINIC_EMAIL', 'ENCARREGADO_EMAIL'):
+        try:
+            validate_email(valor)
+        except forms.ValidationError as exc:
+            raise forms.ValidationError('E-mail de contato inválido.' if chave == 'CLINIC_EMAIL'
+                                        else 'E-mail do encarregado de dados inválido.') from exc
+    if chave == 'CLINIC_CNPJ':
+        digitos = re.sub(r'\D', '', valor)
+        if len(digitos) == 14:
+            return f'{digitos[:2]}.{digitos[2:5]}.{digitos[5:8]}/{digitos[8:12]}-{digitos[12:]}'
+        if len(digitos) == 11:
+            return f'{digitos[:3]}.{digitos[3:6]}.{digitos[6:9]}-{digitos[9:]}'
+        raise forms.ValidationError('CNPJ (14 dígitos) ou CPF (11 dígitos) inválido.')
+    if chave == 'INSTAGRAM_URL':
+        try:
+            URLValidator(schemes=['https', 'http'])(valor)
+        except forms.ValidationError as exc:
+            raise forms.ValidationError('URL do Instagram inválida (ex: https://instagram.com/suaclinica).') from exc
+    if chave == 'THEME_COLOR' and not _HEX_COR.match(valor):
+        raise forms.ValidationError('Cor da marca: use o formato hexadecimal #RRGGBB.')
+    return valor
+
+
+class MarcaForm(forms.Form):
+    """Tela Identidade visual: um campo por utils/branding.BRANDING_FIELDS, cada um com a regra de antes.
+
+    Campo ausente do POST ou igual ao valor em uso nao e alteracao (input type=color sempre envia algo;
+    um WHATSAPP_NUMERO invalido vindo do env nao trava os outros campos) e nao e validado. `alteracoes`
+    = {chave: valor normalizado} so do que muda o valor em uso; '' = tirar o ajuste (volta ao padrao).
+    Sem rotulo nos campos: as mensagens ja dizem o campo (avisar_erros nao prefixa)."""
+
+    def __init__(self, *args, efetivos, salvos, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.efetivos, self.salvos, self.alteracoes = efetivos, salvos, {}
+        for chave, _rotulo, _tipo in BRANDING_FIELDS:
+            self.fields[chave] = forms.CharField(required=False)
+
+    def clean(self):
+        dados = super().clean()
+        self.alteracoes = {}
+        for chave, _rotulo, _tipo in BRANDING_FIELDS:
+            em_uso = self.efetivos.get(chave, '')
+            if chave not in self.data or dados.get(chave, '') == em_uso:
+                continue
+            try:
+                valor = _valor_da_marca(chave, dados.get(chave, ''))
+            except forms.ValidationError as exc:
+                self.add_error(chave, exc)
+                continue
+            if valor == em_uso or (not valor and not self.salvos.get(chave)):
+                continue   # normalizado = o em uso, ou ja estava sem ajuste (segue env/padrao)
+            self.alteracoes[chave] = valor
         return dados
