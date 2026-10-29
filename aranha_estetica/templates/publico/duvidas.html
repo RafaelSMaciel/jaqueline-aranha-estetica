@@ -1,0 +1,36 @@
+{% extends 'estrutura/base_v2.html' %}
+
+{% block titulo %}Perguntas frequentes | {{ CLINIC_NAME }}{% endblock %}
+{% block meta_description %}Dúvidas sobre agendamento, pagamentos, tratamentos e privacidade na {{ CLINIC_NAME }}: respostas diretas, de acordo com as regras que o agendamento online segue.{% endblock %}
+
+{% block conteudo %}
+
+<section id="duvidas" class="py-12 md:py-20 bg-fundo">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="text-center max-w-2xl mx-auto mb-10 space-y-4">
+      <h1 class="text-4xl md:text-5xl font-bold text-texto">Perguntas frequentes</h1>
+      <p class="text-texto-suave text-lg leading-relaxed">
+        Agendamento, pagamentos, tratamentos e o cuidado com os seus dados. Toque na pergunta para ver a resposta.
+      </p>
+    </div>
+    {% include 'partials/faq_accordion.html' with faq_categorias=faq_categorias faq_nivel=2 faq_schema=True %}
+  </div>
+</section>
+
+<section id="duvidas-contato" class="pb-16 md:pb-24 bg-fundo">
+  <div class="max-w-3xl mx-auto px-6">
+    <div class="rounded-2xl border border-borda bg-superficie p-8 text-center space-y-4">
+      <h2 class="text-2xl font-bold text-texto">Não encontrou a sua dúvida?</h2>
+      <p class="text-texto-suave leading-relaxed">Fale com a gente: respondemos com calma, antes de você marcar qualquer horário.</p>
+      <div class="flex flex-wrap justify-center gap-3 pt-1">
+        <a href="{% url 'aranha:agenda_contato' %}"
+           class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto font-semibold hover:bg-fundo transition-colors">
+          Ir para o contato
+        </a>
+        <c-cta-agendar texto="Agendar avaliação" class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold no-underline hover:opacity-90 transition-opacity" />
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

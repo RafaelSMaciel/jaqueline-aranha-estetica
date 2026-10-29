@@ -3,7 +3,7 @@
 // profissional, django-admin, meus agendamentos, links com token) NUNCA vai
 // para o Cache Storage — ele sobrevive ao logout em computador compartilhado.
 // Subir VERSION a cada mudanca: o activate apaga os caches antigos.
-const VERSION = 'v9';   // v9: icones novos (192/maskable) e pagina offline; v8: JS das telas no build do Vite
+const VERSION = 'v10';  // v10: /duvidas/ e site com novo layout; v9: icones novos (192/maskable) e pagina offline; v8: JS das telas no build do Vite
 const STATIC_CACHE = `aranha-static-${VERSION}`;
 const RUNTIME_CACHE = `aranha-runtime-${VERSION}`;
 const IMAGE_CACHE = `aranha-img-${VERSION}`;
@@ -27,6 +27,7 @@ const PUBLIC_PAGES = new Set([
   '/galeria/',
   '/contato/',
   '/promocoes/',
+  '/duvidas/',
   '/termos-de-uso/',
   '/politica-de-privacidade/',
 ]);

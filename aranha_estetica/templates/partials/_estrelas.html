@@ -1,0 +1,17 @@
+{% comment %}
+5 estrelas da nota media (services/prova_social.estrelas: 'cheia' | 'meia' | 'vazia', nunca
+arredonda p/ cima). O numero vai no aria-label; o desenho e decorativo.
+Uso: {% include 'partials/_estrelas.html' with nota=numeros.nota_media estrelas=numeros.estrelas %}
+{% endcomment %}
+<p class="flex justify-center gap-0.5 text-marca" role="img" aria-label="Nota média {{ nota|floatformat:1 }} de 5">
+  {% for e in estrelas %}
+  <svg class="w-4 h-4" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true" focusable="false">
+    {% if e == 'meia' %}
+    <path d="M12 2 9.91 8.26 4 9.27l4.91 4.78L7.73 21 12 17.77Z" fill="currentColor"/>
+    <path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78L16.27 21 12 17.77 7.73 21l1.18-6.95L4 9.27l5.91-1.01Z" fill="none"/>
+    {% else %}
+    <path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78L16.27 21 12 17.77 7.73 21l1.18-6.95L4 9.27l5.91-1.01Z" fill="{% if e == 'cheia' %}currentColor{% else %}none{% endif %}"/>
+    {% endif %}
+  </svg>
+  {% endfor %}
+</p>

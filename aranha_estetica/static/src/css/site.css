@@ -4,5 +4,70 @@
    (.pagina-agendamento, .pagina-portal): nome de classe generico (.agend-card) tambem existe no
    painel, e este arquivo vai para todas as telas. */
 
+/* ── Tokens so do site (derivados dos de tokens.css) ── */
+:root {
+  --site-dourado-vela: color-mix(in srgb, var(--cor-marca-forte) 18%, transparent);
+  --site-dourado-fio: color-mix(in srgb, var(--cor-marca-forte) 55%, transparent);
+  /* WhatsApp: o verde de acao do sistema (5,3:1 com o texto); o #25D366 da marca dava 2:1 */
+  --site-whatsapp: var(--cor-sucesso-forte);
+  --site-sobre-whatsapp: var(--cor-sobre-sucesso);
+}
+@theme {
+  --color-whatsapp: var(--site-whatsapp);
+  --color-sobre-whatsapp: var(--site-sobre-whatsapp);
+}
+
 /* {% foto %} (site_tags): o <picture> nao vira caixa; o <img> preenche a moldura do template */
 .foto { display: contents; }
+
+/* ── Arte da marca (partials/_arte_marca.html): moldura sem foto real ── */
+.arte-marca {
+  position: relative; isolation: isolate; overflow: hidden;
+  width: 100%; height: 100%; min-height: 9rem;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .9rem;
+  color: var(--cor-marca);
+  background:
+    radial-gradient(110% 85% at 12% 8%, var(--site-dourado-vela), transparent 62%),
+    radial-gradient(90% 80% at 92% 100%, color-mix(in srgb, var(--cor-marca-forte) 13%, transparent), transparent 66%),
+    linear-gradient(160deg, var(--cor-superficie), var(--cor-fundo));
+}
+.arte-marca::before {   /* trama fina, que some nas bordas */
+  content: ''; position: absolute; inset: 0; z-index: -1;
+  background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--cor-marca-forte) 9%, transparent) 0 1px, transparent 1px 13px);
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, black, transparent 72%);
+          mask-image: radial-gradient(circle at 50% 50%, black, transparent 72%);
+}
+.arte-marca__ramo {
+  position: absolute; z-index: -1; right: -6%; bottom: -12%;
+  width: 58%; max-width: 19rem; color: var(--cor-marca-forte); opacity: .45;
+}
+.arte-marca__ramo--eco { right: auto; bottom: auto; left: -8%; top: -14%; width: 40%; transform: rotate(180deg); opacity: .25; }
+.arte-marca__selo {
+  display: grid; place-items: center; width: clamp(4rem, 24%, 6.5rem); aspect-ratio: 1; border-radius: 999px;
+  background: color-mix(in srgb, var(--cor-superficie) 72%, transparent);
+  border: 1px solid var(--site-dourado-fio);
+  box-shadow: 0 0 0 7px color-mix(in srgb, var(--cor-marca-forte) 9%, transparent),
+              0 14px 30px -14px color-mix(in srgb, var(--cor-marca-forte) 70%, transparent);
+}
+.arte-marca__icone { width: 46%; height: 46%; }
+.arte-marca__rotulo {
+  font-family: var(--heading-font); font-style: italic; font-weight: 500;
+  font-size: clamp(1.05rem, 2.2vw, 1.4rem); color: var(--cor-marca); letter-spacing: .01em;
+}
+
+/* ── Numeros da clinica (partials/_numeros_site.html): numero grande + rotulo, fio entre eles ── */
+.numeros-site { display: flex; flex-wrap: wrap; gap: 1rem 0; padding-top: .25rem; }
+.numeros-site li { display: flex; flex-direction: column; padding-inline: 1.5rem; }
+.numeros-site li:first-child { padding-left: 0; }
+.numeros-site li + li { border-left: 1px solid var(--cor-borda); }
+.numeros-site strong { font-family: var(--heading-font); font-size: 1.875rem; line-height: 1.1; font-weight: 700; color: var(--cor-marca); }
+.numeros-site span { margin-top: .25rem; font-size: .875rem; color: var(--cor-texto-suave); }
+
+/* ── Monograma da profissional sem foto (iniciais em serifa, aro dourado) ── */
+.monograma {
+  display: grid; place-items: center; aspect-ratio: 1; border-radius: 999px;
+  font-family: var(--heading-font); font-weight: 600; letter-spacing: .04em; color: var(--cor-marca);
+  background: radial-gradient(circle at 30% 25%, var(--site-dourado-vela), transparent 70%), var(--cor-superficie);
+  border: 1px solid var(--site-dourado-fio);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--cor-marca-forte) 8%, transparent);
+}

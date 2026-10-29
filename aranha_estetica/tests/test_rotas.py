@@ -51,6 +51,7 @@ ROTAS = {
     'aranha:politica_privacidade': (SEM, '', PUBLICA),
     'aranha:agenda_contato': (SEM, '', PUBLICA),
     'aranha:promocoes': (SEM, '', PUBLICA),
+    'aranha:duvidas': (SEM, '', PUBLICA),
     'aranha:favicon': (SEM, '', OUTRA),
     'aranha:servicos_faciais': (SEM, '', PUBLICA),
     'aranha:servicos_corporais': (SEM, '', PUBLICA),

@@ -1,0 +1,18 @@
+{% comment %}
+Numeros da clinica (services/prova_social.numeros_do_site): cada um so aparece com dado real —
+anos de experiencia (regra anos_experiencia do painel), clientes atendidas (a partir de 50,
+arredondado p/ baixo) e tratamentos agendaveis. Sem nenhum, a faixa inteira some.
+{% endcomment %}
+{% if numeros.anos_experiencia or numeros.clientes_atendidas or numeros.tratamentos %}
+<ul class="numeros-site" aria-label="A clínica em números">
+  {% if numeros.anos_experiencia %}
+  <li><strong>{{ numeros.anos_experiencia }}</strong> <span>ano{{ numeros.anos_experiencia|pluralize }} de experiência</span></li>
+  {% endif %}
+  {% if numeros.clientes_atendidas %}
+  <li><strong>{{ numeros.clientes_atendidas }}+</strong> <span>clientes atendidas</span></li>
+  {% endif %}
+  {% if numeros.tratamentos %}
+  <li><strong>{{ numeros.tratamentos }}</strong> <span>tratamento{{ numeros.tratamentos|pluralize }} para agendar</span></li>
+  {% endif %}
+</ul>
+{% endif %}

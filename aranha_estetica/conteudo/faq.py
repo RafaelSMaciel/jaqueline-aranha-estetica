@@ -1,4 +1,5 @@
-"""Perguntas frequentes do site (home e o JSON-LD FAQPage do partials/faq_accordion.html).
+"""Perguntas frequentes do site (/duvidas/, as em destaque na home, e o JSON-LD FAQPage do
+partials/faq_accordion.html).
 
 As respostas que sao regra saem das constantes que o sistema aplica — a janela de 24 h para
 remarcar, o cancelamento tardio que conta falta, o retorno combinado, o credito de indicacao —, para o
@@ -25,7 +26,8 @@ def _brl(valor) -> str:
 
 def montar_faq(*, canais_agendar: list[str], canais_exclusao: list[str],
                limite_faltas: int = MAX_FALTAS_ANTES_BLOQUEIO) -> list[dict]:
-    """[{slug, nome, itens: [{q, a}]}]. canais_*: os que existem; limite_faltas: o efetivo (painel)."""
+    """[{slug, nome, itens: [{q, a, destaque?}]}]. canais_*: os que existem; limite_faltas: o efetivo
+    (painel). destaque=True: pergunta que tambem aparece na pagina inicial (em_destaque)."""
     janela = _horas(JANELA_MINIMA_ALTERACAO)
     como_agendar = 'Você pode agendar online pelo nosso site (disponível 24h)'
     if canais_agendar:
@@ -41,11 +43,11 @@ def montar_faq(*, canais_agendar: list[str], canais_exclusao: list[str],
             'slug': 'agendamento',
             'nome': 'Agendamento',
             'itens': [
-                {'q': 'Como faço para agendar um atendimento?', 'a': como_agendar},
-                {'q': 'Preciso criar uma conta para agendar?',
+                {'q': 'Como faço para agendar um atendimento?', 'a': como_agendar, 'destaque': True},
+                {'q': 'Preciso criar uma conta para agendar?', 'destaque': True,
                  'a': 'Não. O agendamento é sem cadastro: você se identifica pelo celular e confirma com um '
                       'código enviado por SMS. Rápido e sem senha.'},
-                {'q': 'Posso cancelar ou remarcar meu horário?',
+                {'q': 'Posso cancelar ou remarcar meu horário?', 'destaque': True,
                  'a': f'Sim, pela área "Meus agendamentos" (link no rodapé do site). Remarcar online vale até '
                       f'{janela} antes do horário. Cancelar é sempre possível — o horário volta para quem está '
                       f'na lista de espera —, mas com menos de {janela} de antecedência o cancelamento conta '
@@ -54,7 +56,7 @@ def montar_faq(*, canais_agendar: list[str], canais_exclusao: list[str],
                 {'q': 'Não achei horário no dia que eu queria. E agora?',
                  'a': 'Entre na lista de espera escolhendo o dia e o turno. Se um horário compatível vagar, '
                       'avisamos você; você continua na lista até a data passar ou até agendar.'},
-                {'q': 'Como funciona a avaliação inicial?',
+                {'q': 'Como funciona a avaliação inicial?', 'destaque': True,
                  'a': 'Antes de qualquer procedimento, fazemos uma avaliação individualizada para entender seu '
                       'objetivo e indicar o cuidado mais adequado para você.'},
             ],
@@ -63,7 +65,7 @@ def montar_faq(*, canais_agendar: list[str], canais_exclusao: list[str],
             'slug': 'pagamentos',
             'nome': 'Pagamentos e Pacotes',
             'itens': [
-                {'q': 'Quais são as formas de pagamento?',
+                {'q': 'Quais são as formas de pagamento?', 'destaque': True,
                  'a': 'Aceitamos PIX, cartão de débito, cartão de crédito (com parcelamento) e dinheiro.'},
                 {'q': 'Como funcionam os pacotes de sessões?',
                  'a': 'Os pacotes reúnem um número de sessões por um valor fechado, com validade definida e '
@@ -108,3 +110,9 @@ def montar_faq(*, canais_agendar: list[str], canais_exclusao: list[str],
             ],
         },
     ]
+
+
+def em_destaque(categorias: list[dict]) -> list[dict]:
+    """As perguntas da pagina inicial (destaque=True), na ordem do FAQ; a lista completa fica em
+    /duvidas/. O JSON-LD de cada pagina leva so as perguntas que ela mostra."""
+    return [item for cat in categorias for item in cat['itens'] if item.get('destaque')]

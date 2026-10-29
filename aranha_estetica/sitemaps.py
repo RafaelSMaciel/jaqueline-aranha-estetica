@@ -16,6 +16,7 @@ class StaticViewSitemap(Sitemap):
             'aranha:quem_somos',
             'aranha:agenda_contato',
             'aranha:promocoes',
+            'aranha:duvidas',
             'aranha:equipe',
             'aranha:especialidades',
             # depoimentos: so exibe NPS com opt-in do cliente + aprovacao da clinica

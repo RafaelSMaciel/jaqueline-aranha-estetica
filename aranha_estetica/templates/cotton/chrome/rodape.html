@@ -38,7 +38,7 @@
           <li><a href="{% url 'aranha:promocoes' %}" class="{{ lc }}">Promoções</a></li>
           <li><a href="{% url 'aranha:galeria' %}" class="{{ lc }}">Galeria</a></li>
           <li><a href="{% url 'aranha:depoimentos' %}" class="{{ lc }}">Depoimentos</a></li>
-          <li><a href="/#faq" class="{{ lc }}">Dúvidas</a></li>
+          <li><a href="{% url 'aranha:duvidas' %}" class="{{ lc }}">Dúvidas</a></li>
           {% endwith %}
         </ul>
       </nav>
