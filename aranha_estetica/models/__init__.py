@@ -16,8 +16,9 @@ from .termos import VersaoTermo, AceiteTermo
 from .nps import AvaliacaoNPS
 from .pacotes import Pacote, ItemPacote, CompraPacote, CompraPacoteItem, ConsumoSessao, StatusCompraPacote
 from .sistema import (
-    ListaEspera, LogAuditoria, Configuracao, CodigoOtp,
+    ListaEspera, LogAuditoria, CodigoOtp,
 )
+from .configuracao import Configuracao
 from .push import AssinaturaPush
 from .anamnese import FormularioAnamnese, RespostaAnamnese
 from .links import LinkAcesso
