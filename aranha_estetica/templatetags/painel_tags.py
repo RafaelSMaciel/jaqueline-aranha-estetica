@@ -14,13 +14,13 @@ def webpush_configurado():
 
 # Menu lateral do painel: (secao, [(rota, rotulo, icone, telas em que o item fica ativo)]).
 # "Telas": nome exato da url ou, com '*', trecho do nome (ex.: '*procedimento' cobre criar/editar).
-# O icone e o nome do desenho em painel/_icone_menu.html.
+# O icone e o nome do desenho em cotton/icone.html (<c-icone nome=...>).
 MENU_PAINEL = (
     ('Operação', (
         ('aranha:painel_overview', 'Visão geral', 'visao-geral', ('painel_overview', 'painel')),
         ('aranha:painel_agendamentos', 'Agenda', 'agenda', ('painel_agendamentos',)),
         ('aranha:admin_calendar', 'Calendário', 'calendario', ('admin_calendar',)),
-        ('aranha:painel_retornos', 'Retornos', 'agenda', ('painel_retornos', 'admin_agendar_retorno')),
+        ('aranha:painel_retornos', 'Retornos', 'retornos', ('painel_retornos', 'admin_agendar_retorno')),
         ('aranha:painel_clientes', 'Clientes', 'clientes', ('painel_clientes',)),
         ('aranha:prontuario_consentimento', 'Prontuário', 'prontuario', ('*prontuario',)),
         ('aranha:painel_notificacoes', 'Notificações', 'notificacoes', ('painel_notificacoes',)),
