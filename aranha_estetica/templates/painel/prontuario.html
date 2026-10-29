@@ -57,7 +57,7 @@
           <div class="item-lista-corpo">
             <p class="item-lista-titulo">{{ item.cliente.nome }}</p>
             <p class="item-lista-meta">
-              {{ item.cliente.telefone|default:"Sem telefone" }}{% if item.cliente.cpf %} · {{ item.cliente.cpf }}{% endif %}
+              {{ item.cliente.telefone|telefone|default:"Sem telefone" }}{% if item.cliente.cpf %} · {{ item.cliente.cpf }}{% endif %}
             </p>
             {# Selos: prontuario, ficha online e termos #}
             <p class="mt-2 flex flex-wrap gap-1.5">

@@ -57,7 +57,7 @@
     <tbody>
       {% for cliente in clientes %}
       <tr class="cliente-card"
-          data-search-text="{{ cliente.nome }} {{ cliente.cpf|default:'' }} {{ cliente.email|default:'' }} {{ cliente.telefone|default:'' }}">
+          data-search-text="{{ cliente.nome }} {{ cliente.cpf|default:'' }} {{ cliente.email|default:'' }} {{ cliente.telefone|default:'' }} {{ cliente.telefone|telefone }}">
         <td>
           <div class="flex items-center gap-3 min-w-0">
             <span class="avatar" aria-hidden="true">{{ cliente.nome|iniciais }}</span>
