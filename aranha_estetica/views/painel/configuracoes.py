@@ -1,142 +1,125 @@
-"""CRUD de Configuracao (chave-valor editavel via painel)."""
+"""Regras operacionais: as chaves do registro tipado (models/configuracao.CHAVES), uma por linha.
+
+A tela lista SO o registro (nao a tabela inteira: marca e estado interno ficam fora) e nao cria chave
+livre. Gravar valida pelo tipo/faixa da regra (forms/cadastros.ConfiguracaoForm); "Restaurar padrao"
+apaga a linha e a regra volta ao padrao do registro. Nome, contatos e cor: tela Identidade visual
+(views/painel/marca). As perguntas do prontuario sao o formulario PRONTUARIO (Anamneses) desde a 0051.
+"""
 from django.contrib import messages
 from django.core.exceptions import ValidationError
-from django.core.validators import validate_email
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
 
-from ...decorators import staff_required
+from ...decorators import escrita_painel, staff_required
+from ...forms.cadastros import ConfiguracaoForm
+from ...forms.painel import avisar_erros
 from ...models import Configuracao
+from ...models.configuracao import CHAVES, TIPO_EMAIL, chave_do_registro
 from ...utils.auditoria import registrar_log
 
 
-# Somente chaves que o codigo de fato le (grep antes de acrescentar outra):
-#   email_admin -> jobs.py (alerta de NPS detrator)
-# Marca/contatos ficam na tela Branding (utils/branding.BRANDING_FIELDS). As
-# perguntas extras do prontuario sao o formulario tipo PRONTUARIO (Painel >
-# Anamneses) desde a migration 0051 — a antiga chave fica recusada aqui.
-CONFIG_SUGERIDAS = [
-    ('email_admin', '', 'E-mail que recebe o alerta de avaliação NPS negativa (detrator)'),
-]
-CHAVES_RESERVADAS = {
-    'prontuario_perguntas': (
-        'As perguntas do prontuário agora ficam em Anamneses (formulário do tipo '
-        '"Questionário do prontuário").'
-    ),
-}
+def _recusado(definicao, gravado) -> bool:
+    """Valor gravado antes da validacao (ou pelo Django admin) que o registro recusa: vale o padrao."""
+    if not gravado.strip():
+        return False
+    try:
+        definicao.validar(gravado)
+    except ValidationError:
+        return True
+    return False
 
 
-def _normalizar_chave(chave: str) -> str:
-    # Sem upper(): as chaves lidas pelo codigo sao minusculas (email_admin...)
-    return chave.strip().replace(' ', '_')
+def _regras(recusa=None):
+    """Linhas da tela, na ordem do registro. recusa = (chave, digitado, erro) do envio recusado."""
+    salvas = Configuracao.das_regras()
+    regras = []
+    for nome, definicao in CHAVES.items():
+        linha = salvas.get(nome)
+        gravado = linha.valor if linha is not None else ''
+        regra = {
+            'chave': nome, 'rotulo': definicao.rotulo, 'descricao': definicao.descricao,
+            'email': definicao.tipo == TIPO_EMAIL, 'minimo': definicao.minimo, 'maximo': definicao.maximo,
+            'padrao': definicao.default, 'linha': linha, 'valor': gravado,
+            'gravado_invalido': _recusado(definicao, gravado),
+            'erro': '',
+        }
+        if recusa is not None and recusa[0] == nome:
+            regra['valor'], regra['erro'] = recusa[1], recusa[2]
+        regras.append(regra)
+    return regras
 
 
-def _validar_valor(chave: str, valor: str) -> str | None:
-    """Mensagem de erro se o valor nao serve p/ a chave; None se ok."""
-    chave_l = chave.lower()
-    if chave_l == 'email_admin' and valor:
-        try:
-            validate_email(valor)
-        except ValidationError:
-            return 'email_admin: informe um e-mail válido.'
-    return None
+def _tela(request, recusa=None, status=200):
+    return render(request, 'painel/configuracoes.html', {'regras': _regras(recusa)}, status=status)
+
+
+def _devolver_recusa(request, form):
+    """Envio recusado: a tela volta (sem redirect) com o digitado e o erro no campo da regra."""
+    avisar_erros(request, form)
+    nome = form.cleaned_data.get('chave') or chave_do_registro(form.chave_fixa or form.data.get('chave'))
+    erro = (form.errors.get('valor') or [''])[0]
+    return _tela(request, recusa=(nome, form.data.get('valor', ''), erro) if nome else None)
+
+
+def _gravar(request, nome, valor, linha=None):
+    definicao = CHAVES[nome]
+    texto = str(valor)
+    if linha is None:
+        linha = Configuracao.das_regras().get(nome)
+    antes = linha.valor if linha is not None else None
+    if linha is None:
+        linha = Configuracao.objects.create(chave=nome, valor=texto, descricao=definicao.descricao)
+        registrar_log(request.user, f'Criou configuracao: {nome}', 'configuracao', linha.pk,
+                      detalhes={'valor': texto}, request=request)
+    else:
+        linha.valor, linha.descricao = texto, definicao.descricao
+        linha.save(update_fields=['valor', 'descricao', 'atualizado_em'])
+        registrar_log(request.user, f'Editou configuracao: {linha.chave}', 'configuracao', linha.pk,
+                      detalhes={'valor_antigo': antes, 'valor_novo': texto}, request=request)
+    messages.success(request, f'"{definicao.rotulo}" atualizada.')
+    return redirect('aranha:admin_configuracoes')
+
+
+def _linha_do_registro(pk):
+    """Linha gravada de uma regra do registro; outra chave (marca, legado) nao e editavel aqui: 404."""
+    linha = get_object_or_404(Configuracao, pk=pk)
+    if chave_do_registro(linha.chave) is None:
+        raise Http404('Configuração fora das regras operacionais')
+    return linha
 
 
 @staff_required
 def admin_configuracoes(request):
-    """Lista todas configuracoes + sugestoes de chaves nao cadastradas."""
-    configs = Configuracao.objects.order_by('chave')
-    chaves_existentes = {c.lower() for c in configs.values_list('chave', flat=True)}
-
-    sugestoes = [
-        {'chave': c, 'valor': v, 'descricao': d}
-        for c, v, d in CONFIG_SUGERIDAS
-        if c.lower() not in chaves_existentes
-    ]
-
-    context = {
-        'configs': configs,
-        'sugestoes': sugestoes,
-    }
-    return render(request, 'painel/configuracoes.html', context)
+    """Lista as regras operacionais (o registro), com o valor gravado ou o padrao."""
+    return _tela(request)
 
 
-@staff_required
+@escrita_painel
 def admin_criar_configuracao(request):
-    """Cria nova chave de configuracao."""
-    if request.method == 'POST':
-        chave = _normalizar_chave(request.POST.get('chave', ''))
-        valor = request.POST.get('valor', '').strip()
-        descricao = request.POST.get('descricao', '').strip()
-
-        if not chave:
-            messages.error(request, 'Chave é obrigatória.')
-            return redirect('aranha:admin_configuracoes')
-        if chave.lower() in CHAVES_RESERVADAS:
-            messages.error(request, CHAVES_RESERVADAS[chave.lower()])
-            return redirect('aranha:admin_configuracoes')
-
-        if Configuracao.objects.filter(chave__iexact=chave).exists():
-            messages.warning(request, f'Chave "{chave}" já existe. Edite em vez de duplicar.')
-            return redirect('aranha:admin_configuracoes')
-
-        erro = _validar_valor(chave, valor)
-        if erro:
-            messages.error(request, erro)
-            return redirect('aranha:admin_configuracoes')
-
-        config = Configuracao.objects.create(
-            chave=chave, valor=valor, descricao=descricao
-        )
-        registrar_log(
-            request.user, f'Criou configuracao: {chave}',
-            'configuracao', config.pk,
-            detalhes={'valor': valor}, request=request,
-        )
-        messages.success(request, f'Configuração "{chave}" criada.')
-
-    return redirect('aranha:admin_configuracoes')
+    """Primeira gravacao de uma regra do registro (chave livre e recusada)."""
+    form = ConfiguracaoForm(request.POST)
+    if not form.is_valid():
+        return _devolver_recusa(request, form)
+    return _gravar(request, form.cleaned_data['chave'], form.cleaned_data['valor'])
 
 
-@staff_required
-@require_POST
+@escrita_painel
 def admin_editar_configuracao(request, pk):
-    """Edita valor/descricao de configuracao existente."""
-    config = get_object_or_404(Configuracao, pk=pk)
-    valor_antigo = config.valor
-
-    novo_valor = request.POST.get('valor', '').strip()
-    erro = _validar_valor(config.chave, novo_valor)
-    if erro:
-        messages.error(request, erro)
-        return redirect('aranha:admin_configuracoes')
-
-    config.valor = novo_valor
-    descricao = request.POST.get('descricao', '').strip()
-    if descricao:
-        config.descricao = descricao
-    config.save()
-
-    registrar_log(
-        request.user, f'Editou configuracao: {config.chave}',
-        'configuracao', config.pk,
-        detalhes={'valor_antigo': valor_antigo, 'valor_novo': config.valor},
-        request=request,
-    )
-    messages.success(request, f'"{config.chave}" atualizada.')
-    return redirect('aranha:admin_configuracoes')
+    """Novo valor de uma regra ja gravada."""
+    linha = _linha_do_registro(pk)
+    form = ConfiguracaoForm(request.POST, chave=linha.chave)
+    if not form.is_valid():
+        return _devolver_recusa(request, form)
+    return _gravar(request, form.cleaned_data['chave'], form.cleaned_data['valor'], linha=linha)
 
 
-@staff_required
-@require_POST
+@escrita_painel
 def admin_excluir_configuracao(request, pk):
-    """Remove configuracao."""
-    config = get_object_or_404(Configuracao, pk=pk)
-    chave = config.chave
-    config.delete()
-    registrar_log(
-        request.user, f'Excluiu configuracao: {chave}',
-        'configuracao', pk, request=request,
-    )
-    messages.success(request, f'"{chave}" removida.')
+    """Restaurar padrao: apaga a linha da regra (vale o padrao do registro)."""
+    linha = _linha_do_registro(pk)
+    definicao = CHAVES[chave_do_registro(linha.chave)]
+    chave = linha.chave
+    linha.delete()
+    registrar_log(request.user, f'Excluiu configuracao: {chave}', 'configuracao', pk, request=request)
+    messages.success(request, f'"{definicao.rotulo}" voltou ao padrão.')
     return redirect('aranha:admin_configuracoes')
