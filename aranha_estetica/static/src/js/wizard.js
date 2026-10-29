@@ -5,8 +5,10 @@
  *   procPreselect   — id do procedimento pré-selecionado (ou vazio)
  *   profPreselect   — id do profissional pré-selecionado (link "Agendar com X")
  *   otpTelefone     — celular já verificado nesta sessão (dígitos) ou vazio
+ *   otpTitular      — esse celular já tem cadastro (nome só leitura — D16)
  *   rehidratar      — true quando o servidor devolveu erro do "Confirmar"
  *   whatsappNumero  — dígitos p/ CTA de WhatsApp (vazio = sem CTA)
+ *   urlListaEspera  — inscrição na lista de espera (dia sem horário: "Avise-me se vagar")
  *
  * Identidade do agendamento = CELULAR verificado por SMS. O e-mail é só um
  * dado de contato — nunca é enviado no OTP.
@@ -389,6 +391,19 @@
         container.appendChild(box);
     }
 
+    // Dia sem horário: inscrição na lista de espera já com o tratamento, a profissional e o dia
+    function oferecerListaEspera(container, dateStr) {
+        if (!cfg.urlListaEspera || !selectedProc) return;
+        var a = document.createElement('a');
+        a.className = 'lista-espera-link';
+        a.id = 'lista-espera-link';
+        a.href = cfg.urlListaEspera + '?' + query({procedimento: selectedProc.id, profissional: profPreselect, data: dateStr});
+        a.textContent = 'Avise-me se vagar';
+        var box = container.querySelector('.slots-loading') || container;
+        box.appendChild(document.createElement('br'));
+        box.appendChild(a);
+    }
+
     function selectDate(dateStr) {
         selectedDate = dateStr;
         selectedSlot = null;
@@ -420,12 +435,13 @@
                 var data = res.data;
                 if (!res.ok) {
                     // 4xx/5xx: mostra o motivo do servidor (antes virava "Nenhum horario disponivel")
-                    mensagemSlots(container, SVG_INFO, data.erro || 'Não foi possível carregar os horários. Tente de novo.');
+                    mensagemSlots(container, SVG_INFO, data.mensagem || 'Não foi possível carregar os horários. Tente de novo.');
                     return;
                 }
                 horariosData = data.horarios || [];
                 if (horariosData.length === 0) {
                     mensagemSlots(container, SVG_INFO, 'Nenhum horário disponível nesta data.');
+                    oferecerListaEspera(container, dateStr);
                     return;
                 }
 
@@ -566,6 +582,12 @@
         }
     }
 
+    // Ficha/termo -> procedimentos onde vale: lista calculada no servidor (FormularioAnamnese.aplica_a,
+    // services/termos.vale_para); o JS nunca repete a regra
+    function valeParaProc(item, proc) {
+        return (item.procedimentos || []).map(String).indexOf(String(proc.id)) !== -1;
+    }
+
     // ═══ TERMO(S) DO PROCEDIMENTO (JSON via json_script p/ XSS-safe) ═══
     var TERMOS_PROCEDIMENTO = [];
     try {
@@ -579,8 +601,9 @@
         var fields = document.getElementById('termosFields');
         if (!container || !fields || !selectedProc) return;
         fields.textContent = '';
+        // O servidor decide onde cada termo vale (services/termos.vale_para) — aqui só consulta
         var aplicaveis = TERMOS_PROCEDIMENTO.filter(function(t) {
-            return t.procedimento_id == null || String(t.procedimento_id) === String(selectedProc.id);
+            return valeParaProc(t, selectedProc);
         });
         container.style.display = aplicaveis.length ? '' : 'none';
         aplicaveis.forEach(function(t) {
@@ -623,10 +646,6 @@
         ) || [];
     } catch (e) { FORMULARIOS_ANAMNESE = []; }
 
-    // O servidor decide onde cada ficha vale (FormularioAnamnese.aplica_a, os 4 escopos)
-    function formularioAplicaAoProc(form, proc) {
-        return (form.procedimentos || []).map(String).indexOf(String(proc.id)) !== -1;
-    }
 
     function criarSelect(opcoes) {
         var sel = document.createElement('select');
@@ -648,7 +667,7 @@
         fields.textContent = '';
 
         var aplicaveis = FORMULARIOS_ANAMNESE.filter(function(f){
-            return formularioAplicaAoProc(f, selectedProc);
+            return valeParaProc(f, selectedProc);
         });
         setAnamneseMsg('');
         atualizarConsentSaude();
@@ -736,6 +755,52 @@
             });
             fields.appendChild(formWrap);
         });
+        aplicarFichasEmDia();
+    }
+
+    // ═══ FICHA EM DIA (D14: vale 12 meses) ═══
+    // {id da ficha: 'dd/mm/aaaa'} — decidido no servidor (OTP ou celular já verificado na sessão).
+    // Ficha obrigatória em dia não é pedida de novo; "Atualizar" abre as perguntas (e, se a pessoa
+    // responder, ela é validada e gravada como a opcional).
+    var FICHAS_EM_DIA = {};
+    try {
+        FICHAS_EM_DIA = JSON.parse(document.getElementById('fichas-em-dia-data').textContent) || {};
+    } catch (e) { FICHAS_EM_DIA = {}; }
+
+    function aplicarFichasEmDia() {
+        var wraps = document.querySelectorAll('#anamneseFields [data-ficha-id]');
+        for (var i = 0; i < wraps.length; i++) {
+            var wrap = wraps[i];
+            var data = FICHAS_EM_DIA[wrap.dataset.fichaId];
+            if (!data || wrap.dataset.emDia || !wrap.dataset.fichaObrigatoria) continue;
+            if (fichaPreenchida(wrap.dataset.fichaId)) continue;  // já começou a responder
+            marcarEmDia(wrap, data);
+        }
+        sincronizarObrigatorios();
+        atualizarConsentSaude();
+    }
+
+    function marcarEmDia(wrap, data) {
+        wrap.dataset.emDia = '1';
+        wrap.dataset.fichaObrigatoria = '';
+        var campos = wrap.querySelectorAll('.ficha-campo');
+        for (var k = 0; k < campos.length; k++) campos[k].hidden = true;
+        var nota = document.createElement('p');
+        nota.className = 'ficha-em-dia';
+        nota.textContent = 'Sua ficha de ' + data + ' está em dia — algo mudou? ';
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ficha-atualizar';
+        btn.textContent = 'Atualizar';
+        btn.addEventListener('click', function() {
+            for (var j = 0; j < campos.length; j++) campos[j].hidden = false;
+            nota.remove();
+            var primeiro = wrap.querySelector('[data-form-id]');
+            if (primeiro) primeiro.focus();
+        });
+        nota.appendChild(btn);
+        var titulo = wrap.querySelector('.ficha-titulo');
+        wrap.insertBefore(nota, titulo ? titulo.nextSibling : wrap.firstChild);
     }
 
     function temResposta(campos) {
@@ -922,11 +987,13 @@
         escreverMsg('otp-msg', texto, ok, comWhatsApp);
     }
 
+    // Contrato do servidor (utils/respostas): {ok, codigo, mensagem}. Resposta que não é JSON
+    // (bloqueio do rate limit, queda de rede) vira um código local.
     function lerJson(r) {
         return r.text().then(function(t) {
             var data;
             try { data = JSON.parse(t); }
-            catch (e) { data = {ok: false, erro: (r.status === 403 || r.status === 429) ? 'limite' : 'rede'}; }
+            catch (e) { data = {ok: false, codigo: (r.status === 403 || r.status === 429) ? 'limite' : 'rede'}; }
             return {status: r.status, data: data};
         });
     }
@@ -953,6 +1020,7 @@
         }
         nome.required = true;
         nasc.required = true;
+        titularDoCelular(clienteExistente);
         if (clienteExistente) {
             badge.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px;" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
             badge.appendChild(document.createTextNode('Bem-vindo(a) de volta — seus dados foram carregados.'));
@@ -967,6 +1035,18 @@
             btnConfirmar.disabled = false;
             btnConfirmar.title = '';
         }
+    }
+
+    // D16: o agendamento é da titular do celular verificado — com cadastro, o nome não muda por
+    // aqui (o servidor ignora nome diferente); agendar p/ outra pessoa = usar o celular dela.
+    function titularDoCelular(existente) {
+        var nome = document.getElementById('form-nome');
+        var aviso = document.getElementById('nome-titular-aviso');
+        if (!nome) return;
+        nome.readOnly = !!existente;
+        if (existente) nome.setAttribute('aria-readonly', 'true');
+        else nome.removeAttribute('aria-readonly');
+        if (aviso) aviso.hidden = !existente;
     }
 
     function marcarVerificado() {
@@ -1009,7 +1089,7 @@
                 .then(function(res) {
                     btnEnviar.disabled = false;
                     resetCaptcha();  // token Turnstile é de uso único
-                    var erro = res.data.erro;
+                    var codigo = res.data.codigo;
                     if (res.data.ok) {
                         document.getElementById('otp-field').style.display = '';
                         setStatusMsg('Código enviado por SMS para seu celular. Válido por 10 minutos.', true);
@@ -1017,20 +1097,14 @@
                         if (txt) txt.textContent = 'Reenviar';
                         var campoCodigo = document.getElementById('otp-codigo');
                         if (campoCodigo) campoCodigo.focus();
-                    } else if (erro === 'aguarde' || erro === 'limite') {
+                    } else if (codigo === 'limite') {
                         setStatusMsg('Aguarde um minuto antes de pedir outro código.', false);
-                    } else if (erro === 'limite_sms') {
-                        // Nenhum código novo foi gerado: o último recebido ainda vale
-                        document.getElementById('otp-field').style.display = '';
-                        setStatusMsg('Você atingiu o limite de códigos nesta hora. Use o último código recebido.', false, true);
-                    } else if (erro === 'captcha') {
-                        setStatusMsg('Confirme a verificação de segurança e tente novamente.', false);
-                    } else if (erro === 'telefone_invalido') {
-                        setStatusMsg(MSG_CELULAR, false);
-                    } else if (erro === 'sms_falha') {
-                        setStatusMsg('Não conseguimos enviar o código agora.', false, true);
                     } else {
-                        setStatusMsg('Não foi possível enviar o código. Tente novamente.', false, true);
+                        // Nenhum código novo no limite da hora: o último recebido ainda vale
+                        if (codigo === 'limite_sms') document.getElementById('otp-field').style.display = '';
+                        // Erro que a pessoa resolve sozinha não oferece o WhatsApp
+                        var resolveSozinha = ['aguarde', 'captcha', 'telefone_invalido'].indexOf(codigo) !== -1;
+                        setStatusMsg(res.data.mensagem || 'Não foi possível enviar o código. Tente novamente.', false, !resolveSozinha);
                     }
                 })
                 .catch(function() {
@@ -1053,30 +1127,28 @@
             var fd = new FormData();
             fd.append('telefone', digitos);
             fd.append('codigo', codigo);
+            // horário escolhido: o servidor diz quais fichas ainda estarão em dia nele (D14)
+            if (selectedSlot && selectedSlot.iso) fd.append('inicio', selectedSlot.iso);
             fd.append('csrfmiddlewaretoken', OTP_CSRF);
             fetch(cfg.urlOtpVerificar, {method:'POST', body: fd, headers:{'X-CSRFToken': OTP_CSRF}})
                 .then(lerJson)
                 .then(function(res) {
                     btnVerif.disabled = false;
-                    var erro = res.data.erro || '';
                     if (res.data.ok) {
                         marcarVerificado();
                         if (res.data.aviso === 'bloqueado_online') {
-                            setStatusMsg('Seu cadastro está com agendamento online suspenso. Fale conosco para marcar seu horário.', false, true);
+                            setStatusMsg(res.data.aviso_mensagem, false, true);
                             return;
                         }
                         // checkboxes agora refletem o cadastro (ou cliente novo)
                         consentsSincronizados(true);
                         mostrarDados(res.data.prefill, !!res.data.prefill);
-                    } else if (erro.indexOf('incorreto') === 0) {
-                        var restante = erro.split(':')[1] || '';
-                        setOtpMsg('Código incorreto. Tentativas restantes: ' + restante, false);
-                    } else if (erro === 'bloqueado') {
-                        setOtpMsg('Muitas tentativas. Solicite um novo código.', false);
-                    } else if (erro === 'limite') {
+                        FICHAS_EM_DIA = res.data.fichas_em_dia || {};
+                        aplicarFichasEmDia();
+                    } else if (res.data.codigo === 'limite') {
                         setOtpMsg('Muitas tentativas. Aguarde um minuto.', false);
                     } else {
-                        setOtpMsg('Código expirado. Solicite um novo.', false);
+                        setOtpMsg(res.data.mensagem || 'Código expirado. Solicite um novo.', false);
                     }
                 })
                 .catch(function() {
@@ -1099,6 +1171,7 @@
         if (atual === cfg.otpTelefone) {
             marcarVerificado();
             mostrarDados(null, false);
+            titularDoCelular(!!cfg.otpTitular);
             var badge = document.getElementById('cliente-badge');
             if (badge) badge.style.display = 'none';
         }

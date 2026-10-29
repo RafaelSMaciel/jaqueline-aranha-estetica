@@ -3,8 +3,11 @@
 Fonte UNICA de disponibilidade: o wizard publico (api_horarios_disponiveis),
 o reagendamento e a validacao server-side de confirmar/reagendar usam
 slots_livres/slot_disponivel — nada de recalcular agenda em outra view.
+``horarios_agrupados`` (horarios do dia por profissional) e ``dias_com_expediente`` (calendario
+do mes) tambem moram aqui: as views so leem os parametros e devolvem o JSON.
 """
-from datetime import datetime, time, timedelta
+from collections import defaultdict
+from datetime import date, datetime, time, timedelta
 
 from django.db.models import Q
 from django.utils import timezone
@@ -17,6 +20,7 @@ from ..models import (
     Profissional,
 )
 from ..models.agendamentos import STATUS_ATIVOS
+from ..utils.precos import preco_com_promocao
 
 STATUS_OCUPAM_AGENDA = STATUS_ATIVOS
 
@@ -170,3 +174,121 @@ def procedimentos_agendaveis(qs=None):
 
 def profissional_habilitado(profissional, procedimento) -> bool:
     return profissionais_para(procedimento).filter(pk=profissional.pk).exists()
+
+
+# ─── Wizard: horarios do dia e calendario do mes ────────────────────────────
+
+def _preco_json(procedimento, profissional, dia) -> dict:
+    """{'valor', 'valor_cheio', 'promocao'} (strings decimais; None = a consultar)."""
+    valor, promocao, cheio = preco_com_promocao(procedimento, profissional, dia)
+    return {
+        'valor': str(valor) if valor is not None else None,
+        'valor_cheio': str(cheio) if promocao is not None else None,
+        'promocao': promocao.nome if promocao is not None else '',
+    }
+
+
+def horarios_agrupados(procedimento, profissionais, dia, ignorar_atendimento_id=None, com_preco=True) -> list[dict]:
+    """[{'horario', 'datetime_iso', 'profissionais': [...]}] ordenado por horario (SlotService).
+
+    ignorar_atendimento_id: o atendimento sendo reagendado nao ocupa o proprio horario (mesma
+    regra do POST do reagendamento). com_preco: preco NA DATA p/ cada profissional (promocao
+    inclusa) — o resumo do wizard mostra o valor que o booking grava; o reagendamento omite
+    (mantem o valor combinado).
+    """
+    agrupados: dict[str, dict] = {}
+    for prof in profissionais:
+        slots = SlotService.slots_livres(prof, dia, procedimento, ignorar_atendimento_id=ignorar_atendimento_id)
+        if not slots:
+            continue
+        info = {'id': prof.pk, 'nome': prof.nome}
+        if com_preco:
+            info.update(_preco_json(procedimento, prof, dia))
+        for hhmm in slots:
+            if hhmm not in agrupados:
+                inicio = timezone.make_aware(datetime.combine(dia, time.fromisoformat(hhmm)))
+                agrupados[hhmm] = {'horario': hhmm, 'datetime_iso': inicio.isoformat(), 'profissionais': []}
+            agrupados[hhmm]['profissionais'].append(info)
+    return [agrupados[k] for k in sorted(agrupados)]
+
+
+def _coberta(inicio, fim, bloqueios) -> bool:
+    """[inicio, fim) inteiro dentro da uniao dos intervalos bloqueados."""
+    cursor = inicio
+    for b_ini, b_fim in sorted(bloqueios):
+        if b_ini > cursor:
+            return False
+        cursor = max(cursor, b_fim)
+        if cursor >= fim:
+            return True
+    return cursor >= fim
+
+
+def dias_com_expediente(profissionais, inicio: date, fim: date) -> list[date]:
+    """Dias de [inicio, fim] (a partir de hoje) com expediente de ao menos uma das profissionais.
+
+    Calendario do wizard, em 2 consultas p/ o mes: fora feriado/recesso da clinica, folga dela e
+    o max_advance; vale a grade semanal ou o horario diferente do dia, desde que alguma janela
+    nao esteja inteira coberta por bloqueio (pontual ou recorrente, dela ou da clinica). Os
+    horarios livres de cada dia (ocupacao, buffer, antecedencia) vem do SlotService quando a
+    cliente clica no dia.
+    """
+    hoje = timezone.localdate()
+    inicio = max(inicio, hoje)
+    profissionais = list(profissionais)
+    if not profissionais or inicio > fim:
+        return []
+    ids = [p.pk for p in profissionais]
+    grade = defaultdict(list)
+    for prof_id, dia_semana, hora_ini, hora_fim in AgendaHorario.objects.filter(profissional_id__in=ids).values_list(
+            'profissional_id', 'dia_semana', 'hora_inicio', 'hora_fim'):
+        grade[(prof_id, dia_semana)].append((hora_ini, hora_fim))
+
+    periodo_ini = _aware(datetime.combine(inicio, time.min))
+    periodo_fim = _aware(datetime.combine(fim + timedelta(days=1), time.min))
+    excecoes = list(
+        AgendaExcecao.objects.ativas().filter(Q(profissional_id__in=ids) | Q(profissional__isnull=True)).filter(
+            Q(tipo__in=AgendaExcecao.TIPOS_POR_DATA, data_inicio__lte=fim, data_fim__gte=inicio)
+            | (Q(tipo=AgendaExcecao.TIPO_BLOQUEIO, data_hora_inicio__lt=periodo_fim)
+               & (Q(regra_recorrencia__isnull=False) | Q(data_hora_fim__gt=periodo_ini)))
+        )
+    )
+    # profissional NULL = feriado/recesso/fechamento da clinica (vale p/ todas)
+    feriados, folgas, diferente = set(), set(), {}
+    for exc in excecoes:
+        if exc.tipo not in AgendaExcecao.TIPOS_POR_DATA:
+            continue
+        dia = max(exc.data_inicio, inicio)
+        while dia <= min(exc.data_fim, fim):
+            if exc.profissional_id is None:
+                feriados.add(dia)
+            elif exc.tipo == AgendaExcecao.TIPO_FOLGA:
+                folgas.add((exc.profissional_id, dia))
+            else:
+                diferente[(exc.profissional_id, dia)] = (exc.hora_inicio, exc.hora_fim)
+            dia += timedelta(days=1)
+    bloqueios = [exc for exc in excecoes if exc.tipo == AgendaExcecao.TIPO_BLOQUEIO]
+
+    def atende(prof, dia) -> bool:
+        if dia > hoje + timedelta(days=prof.max_advance_dias) or (prof.pk, dia) in folgas:
+            return False
+        janelas = [diferente[(prof.pk, dia)]] if (prof.pk, dia) in diferente else grade.get((prof.pk, dia.isoweekday()), [])
+        if not janelas:
+            return False
+        dia_ini = _aware(datetime.combine(dia, time.min))
+        bloqueado = [
+            intervalo for exc in bloqueios if exc.profissional_id in (None, prof.pk)
+            for intervalo in exc.ocorrencias(dia_ini, dia_ini + timedelta(days=1))
+        ]
+        return any(
+            not _coberta(_aware(datetime.combine(dia, hora_ini)), _aware(datetime.combine(dia, hora_fim)), bloqueado)
+            for hora_ini, hora_fim in janelas
+        )
+
+    dias = []
+    dia = inicio
+    while dia <= fim:
+        if dia not in feriados and any(atende(prof, dia) for prof in profissionais):
+            dias.append(dia)
+        dia += timedelta(days=1)
+    return dias

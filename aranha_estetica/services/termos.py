@@ -35,6 +35,13 @@ def q_termos_aplicaveis(procedimento_id) -> Q:
     )
 
 
+def vale_para(versao, procedimento) -> bool:
+    """Mesma regra de q_termos_aplicaveis, sem query (listas ja carregadas, ex.: o wizard)."""
+    if versao.tipo == 'LGPD':
+        return versao.procedimento_id is None
+    return versao.tipo == 'PROCEDIMENTO' and versao.procedimento_id in (None, getattr(procedimento, 'pk', procedimento))
+
+
 def termos_aplicaveis(procedimento):
     """Versoes ATIVAS que valem para o procedimento (LGPD primeiro)."""
     pid = getattr(procedimento, 'pk', procedimento)
