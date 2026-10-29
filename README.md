@@ -26,12 +26,18 @@ modelos, rotas, env vars, jobs, deploy e runbook de go-live).
   termos do procedimento no próprio wizard.
 - Preço gravado = preço com a promoção vigente **na data do atendimento**.
 - "Meus agendamentos" com login por celular ou e-mail (o código vai sempre ao celular do
-  cadastro): consultar, reagendar (até 24h antes) e cancelar.
+  cadastro; abre também no fim do agendamento, sem novo SMS): consultar, reagendar (até 24h antes)
+  e cancelar (com menos de 24h de um horário aprovado, conta como falta), mudar as preferências de
+  comunicação, revogar o consentimento de saúde, pedir correção ou exclusão e baixar os próprios
+  dados (sem a ficha de saúde).
 - Links por token: confirmar presença (lembrete D-1 por WhatsApp ou e-mail), NPS, termo,
   ficha de anamnese, descadastro. Reagendar e cancelar só pelo "Meus agendamentos".
-- Lista de espera, promoções, depoimentos (só com autorização da cliente e aprovação da
+- Lista de espera sem cadastro (com turno; aviso de vaga sem tirar da fila), contato com
+  captcha e limites, promoções, depoimentos (só com autorização da cliente e aprovação da
   clínica), páginas institucionais, PWA e widget `/embed/agendar/`.
-- LGPD: "Meus dados" (exportação com OTP), descadastro de marketing em um clique.
+- LGPD: Política de Privacidade = termo aceito no agendamento (`aranha_estetica/conteudo/lgpd.py`,
+  **revisão jurídica pendente antes do go-live**), "Meus dados" (exportação com OTP),
+  descadastro de marketing em um clique, pseudonimização e expurgo do registro de saúde aos 20 anos.
 
 **Painel da equipe** (`/admin-login/`)
 - ADMIN: painel completo com **2FA obrigatório** (TOTP). PROFISSIONAL: portal
@@ -124,7 +130,7 @@ TEST_DATABASE_URL=postgres://shivazen:shivazen@localhost:5432/shivazen PG_EXIGE_
   python manage.py test aranha_estetica
 ```
 
-São ~1.850 testes (fora a tag `migracoes`) em 112 arquivos (`aranha_estetica/tests/`); o runner
+São ~1.950 testes (fora a tag `migracoes`) em 122 arquivos (`aranha_estetica/tests/`); o runner
 é só o `manage.py test`. A CI também roda `migrate_atomico` do zero no Postgres, `check --deploy`
 com settings de produção e de staging, cobertura combinada (SQLite + Postgres) com catraca, o
 wizard no Chromium (Playwright), o build do Vite, o `docker build` com o smoke do pre-deploy e do
@@ -147,11 +153,13 @@ aranha_estetica/                 app Django
 │                                PII, respostas (contrato JSON)...
 ├── management/commands/         seed, bootstrap_admin, migrate_atomico, setup_2fa, carregar_feriados,
 │                                rodar_job, rodar_jobs_devidos, rotação da chave de cifragem...
-├── migrations/                  0001–0074 (+ migrations/sql/: texto das rotinas do Postgres)
+├── migrations/                  0001–0078 (+ migrations/sql/: texto das rotinas do Postgres)
 ├── templates/                   estrutura/ (site), painel/ (equipe), profissional/ (casca própria),
 │                                agendamento/, publico/, conta/, cotton/ (componentes), email/, pwa/,
 │                                erros 400/403/404/429/500
-├── static/src/                  fonte do Vite (tokens.css, app.css; JS por tela: app/wizard/painel-busca/webpush)
+├── conteudo/                    textos que também são regra: política de privacidade (lgpd.py) e FAQ
+├── static/src/                  fonte do Vite (tokens.css, app.css; JS por tela: app/wizard/painel-busca/
+│                                painel-status/painel-calendario/webpush)
 ├── signals.py · jobs.py · jobs_manutencao.py · middleware.py · checks.py
 └── tests/                       por área: conta/, infra/, jobs/, painel/, publico/, servicos/, utils/ + raiz
 clinica/                         settings (base/dev/prod/staging/test), urls, wsgi, gunicorn_logger,
