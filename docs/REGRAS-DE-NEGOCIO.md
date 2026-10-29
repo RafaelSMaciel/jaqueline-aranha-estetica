@@ -1,6 +1,6 @@
 # Regras de Negócio — Shiva Zen
 
-> Referência funcional do sistema, com os valores **reais** do código (branch `front-fundacao`).
+> Referência funcional do sistema, com os valores **reais** do código (branch `dev`).
 > Fonte: `models/`, `services/`, `views/`, `constants.py`, `settings` e `Configuracao`. Mudou regra
 > ou valor? Atualize aqui, no código e em `docs/_dados_requisitos.json` (requisitos do TCC).
 > Arquitetura e pendências: [`ARCHITECTURE.md`](ARCHITECTURE.md). Acesso: [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO-E-ACESSO.md).
@@ -9,12 +9,27 @@
 
 ## 1. Atores e papéis
 
-- **ADMIN** — a Jaqueline/gestão: painel completo (inclui o que seria da recepção: agendar,
-  aprovar, confirmar, clientes). 2FA obrigatório.
+Só dois papéis de equipe (`usuario.papel`, CHECK no banco):
+
+- **ADMIN** — a Jaqueline/gestão: painel completo, inclusive a recepção (agendar, aprovar,
+  confirmar, clientes, retornos). 2FA obrigatório.
 - **PROFISSIONAL** — portal `/profissional/`: própria agenda, aprova/rejeita os próprios
-  pedidos, marca Realizado, anota a sessão, lê a ficha só de quem atende (vínculo — §20).
-- **RECEPCAO** — papel reservado, **sem login** até existirem telas próprias.
+  pedidos, marca Realizado, anota a sessão, lê a ficha só de quem atende (vínculo — §20), vê as
+  próprias comissões. 2FA obrigatório em produção.
 - **Cliente** — nunca é usuário: identifica-se pelo **celular** + código OTP por SMS, sem senha.
+
+O papel RECEPCAO saiu (migration 0072): a dona faz a recepção pelo painel.
+
+- **Usuários da equipe** (Painel > Usuários): e-mail único (sem diferença de caixa); papel
+  PROFISSIONAL exige o profissional vinculado, e um profissional tem no máximo um login; ninguém
+  muda o próprio papel nem desativa a própria conta, e o último ADMIN ativo não é rebaixado nem
+  desativado (a equipe nunca fica trancada fora).
+- **Profissionais / desligamento:** desativar a profissional, desativar o login dela ou trocar o
+  profissional vinculado ao login **revoga o feed ICS** dela na hora (auditado): o calendário de
+  quem saiu para de receber os nomes das clientes. Reativar não devolve o link — é preciso gerar um
+  novo (Painel > Profissionais). A edição que deixaria atendimentos futuros dela sem quem atenda
+  (desativar, tirar o dia ou mudar a janela para fora do horário marcado, tirar a habilitação do
+  procedimento) é recusada listando-os: reagende ou cancele antes.
 
 ---
 
@@ -22,11 +37,18 @@
 
 - **Identidade:** telefone canônico (só dígitos, 10–11, sem DDI/zero de tronco); e-mail e CPF
   opcionais. Únicos entre clientes ativos (UNIQUE parcial no banco). CPF/telefone com máscara são
-  normalizados.
+  normalizados (telefone: `utils/telefone`, a mesma forma no cadastro, no OTP e no WhatsApp).
+- **Cadastro mínimo:** nome e celular (o nascimento é exigido no agendamento online); e-mail, CPF,
+  CEP e endereço opcionais — CPF,
+  CEP e endereço só pela finalidade (nota fiscal e contrato de pacote). RG, profissão e foto não são
+  coletados (saíram na 0074).
 - **Idade mínima para agendar online: 18 anos** (data de nascimento obrigatória no wizard).
 - **Bloqueio por faltas:** cada FALTOU soma 1 em `faltas_consecutivas`; ao atingir o limite
-  (`Configuracao` `MAX_FALTAS_BLOQUEIO`, padrão **3** = `MAX_FALTAS_ANTES_BLOQUEIO`) a cliente
-  fica `bloqueado_online` e o wizard recusa ("fale conosco pelo WhatsApp"). Comparecer
+  (regra operacional `MAX_FALTAS_BLOQUEIO`, Painel > Regras operacionais: inteiro de **1 a 10**,
+  padrão **3** = `MAX_FALTAS_ANTES_BLOQUEIO`; valor não numérico ou menor que 1 gravado por fora da
+  tela vale como 3) a cliente fica `bloqueado_online` e o wizard recusa com o motivo e o caminho de
+  revisão ("suspenso depois de faltas seguidas sem aviso ou por decisão da clínica; para pedir a
+  revisão ou marcar, fale conosco pelo WhatsApp" — decisão automatizada, LGPD art. 20). Comparecer
   (REALIZADO) zera o contador **e** desbloqueia. O painel ainda agenda cliente bloqueada.
 - **Exclusão:** `Cliente.delete()` é soft delete (`deletado_em`); apagar de verdade só com
   `hard=True`. Anonimização: §22.
@@ -37,8 +59,19 @@
 
 Fluxo: **procedimento → data/horário (e profissional) → dados + código SMS → confirmar**.
 
+Caso de uso único: `services/agendamento_online.solicitar` (o form do wizard só lê o POST e
+confere o OTP; a regra inteira mora no service, e cada recusa tem um `codigo`).
+
 - **Código OTP obrigatório em todo agendamento** (cliente nova ou recorrente), preso ao celular
   informado; o telefone do formulário tem de ser o verificado na sessão (30 min).
+- **O pedido é da titular do celular:** com cadastro existente, o nome do cadastro fica — nome
+  diferente digitado no wizard é ignorado (vai só para o log; renomear é pelo painel, auditado).
+  Assim quem agenda para outra pessoa não mistura a ficha de saúde dela no cadastro da titular.
+  Nascimento vazio no cadastro é preenchido; o e-mail segue a regra abaixo.
+- **Teto de pedidos pelo site:** quem já tem **3 horários futuros ativos** (`MAX_ATIVOS_ONLINE`;
+  PENDENTE/AGENDADO/CONFIRMADO, de qualquer canal) não marca outro pelo site ("fale conosco pelo
+  WhatsApp") — o PENDENTE trava a agenda, e sem teto um celular verificado reservaria a semana. A
+  recepção segue marcando pelo painel.
 - **Horários** vêm do `SlotService` (§5) e o servidor **revalida** no confirmar: procedimento e
   profissional ativos, profissional habilitado, horário futuro, não é feriado/recesso ativo, slot
   ainda livre para a duração inteira.
@@ -54,20 +87,32 @@ Fluxo: **procedimento → data/horário (e profissional) → dados + código SMS
   recebe o e-mail de aprovação (§7). A página de sucesso diz qual dos dois aconteceu.
 - **Preço gravado** = preço vigente na **data do atendimento** (profissional > base) com a
   promoção que vale nesse dia (§13): `valor_cobrado`, `valor_original` (cheio, se houve
-  promoção), `promocao`, `descricao_preco`. É o mesmo valor mostrado no resumo, nos cards e em
-  `/promocoes/`.
+  promoção), `promocao`, `descricao_preco`. É o mesmo valor mostrado no resumo do wizard (preço na
+  data por profissional).
+- **Preço de vitrine** ("A partir de", nos cards do wizard, no widget, em `/especialidades/`, na
+  página do serviço e em `/promocoes/`): o preço **base do dia** (sem base, o menor entre os
+  profissionais) com a promoção que o agendamento aplicaria — e só se ela reduz o valor
+  (`services/precos.precos_de_vitrine`). Sem preço: "A consultar".
 - **LGPD no wizard:** aceite obrigatório da Política de Privacidade (grava `AceiteTermo` da versão
-  LGPD vigente com IP, navegador e SHA-256 do texto); termos de PROCEDIMENTO (do procedimento +
-  gerais) aceitos ali mesmo (versão já aceita antes não é pedida de novo); ficha de anamnese
-  (dado de saúde) só é gravada com o **consentimento específico do art. 11** marcado, registrado
-  na auditoria com o texto e o IP.
+  LGPD vigente com IP, navegador e SHA-256 do texto; sem versão LGPD vigente o pedido é recusado);
+  termos de PROCEDIMENTO (do procedimento + gerais) aceitos ali mesmo (versão já aceita antes não é
+  pedida de novo); ficha de anamnese (dado de saúde) só é gravada com o **consentimento específico
+  do art. 11** marcado, registrado na auditoria com o texto e o IP.
+- **Ficha vale 12 meses** (`VALIDADE_FICHA_MESES`): a obrigatória que a titular respondeu nos 12
+  meses antes do horário escolhido não é exigida de novo (o wizard mostra "Sua ficha de dd/mm/aaaa
+  está em dia — algo mudou?"); só a obrigatória pendente ou vencida é exigida. Se a cliente começa a
+  responder uma ficha em dia ou opcional ("Atualizar"), as respostas são validadas e gravadas como
+  uma resposta nova.
+- **Dia sem horário livre:** a lista de horários oferece "Avise-me se vagar", que abre a lista de
+  espera (§17) já com o procedimento, a data e a profissional (quando escolhida) preenchidos.
 - **Comunicação:** caixas de e-mail marketing, lembrete por WhatsApp e pesquisa por WhatsApp
   **nunca vêm marcadas**; marcar concede (data + IP); desmarcar revoga só quando a caixa mostrava
   o estado do cadastro.
 - **E-mail:** o digitado por quem provou o celular substitui o do cadastro; e-mail de outro
   cadastro é recusado.
-- Ao concluir: e-mail ao profissional com link para a agenda do dia; push ao profissional; sync
-  do Google Calendar (se conectado).
+- Ao concluir: push "Novo agendamento" à profissional (se ela ativou) e o e-mail do status —
+  pedido PENDENTE = e-mail de aprovação à profissional com link para a agenda do dia; de confiança
+  = e-mail de confirmação à cliente (§7).
 - **Sem SMS configurado** o agendamento online fica indisponível e os botões "Agendar" levam ao
   WhatsApp da clínica.
 
@@ -141,10 +186,10 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 
 ## 8. Reagendamento e cancelamento
 
-- **Pela cliente** ("Meus agendamentos", por sessão do OTP; ou link legado `/reagendar/<token>/`,
-  só para tokens anteriores à 0049): reagendar só com
-  **≥ 24 h** de antecedência (`JANELA_MINIMA_REAGENDAMENTO`) e status ativo; cancelar a qualquer
-  momento **antes do início**.
+- **Pela cliente**, só pelo portal **"Meus agendamentos"** (id do atendimento + sessão do OTP, só
+  agendamentos do telefone verificado; não há link de reagendar — o legado saiu na 0072): reagendar
+  só com **≥ 24 h** de antecedência (`JANELA_MINIMA_REAGENDAMENTO`) e status ativo; cancelar a
+  qualquer momento **antes do início** (também pelo link do lembrete D-1, §9).
 - Reagendar: o antigo vira **REAGENDADO** antes de o novo entrar (a constraint não acusa conflito
   consigo mesma); o novo herda preço/promoção, `eh_retorno` e `atendimento_origem` (retorno
   continua retorno, com a duração de retorno) e a **ficha de anamnese** passa para o novo
@@ -158,13 +203,21 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 
 ## 9. Lembrete D-1 e confirmação de presença
 
-- Job `lembrete_diario` (08:00): WhatsApp (template `confirmacao_d1`) para atendimentos
-  **AGENDADO** de amanhã cuja cliente autoriza hoje o lembrete por WhatsApp (LEMBRETE_AGENDAMENTO/
-  WHATSAPP vigente no histórico de consentimento); não reenvia a quem já recebeu.
+- Job `lembrete_diario` (**08:00 e 18:00** — a rodada da noite pega quem marcou depois das 8h)
+  para atendimentos **AGENDADO** de amanhã:
+  - **WhatsApp** (template `confirmacao_d1`) se a cliente autoriza hoje o lembrete por WhatsApp
+    (LEMBRETE_AGENDAMENTO/WHATSAPP vigente no histórico de consentimento — o WhatsApp é opt-in pela
+    política da Meta), tem telefone e o canal está configurado;
+  - senão, **e-mail** (se houver), pela fila de e-mail, com os mesmos links — aviso do serviço
+    contratado, não marketing (`services/lembretes`).
+  Uma vez por atendimento: WhatsApp enviado ou e-mail na fila/enviado = já lembrado; WhatsApp que
+  falhou é tentado de novo na rodada seguinte. Lembrete de atendimento já cancelado ou passado não
+  sai.
 - O lembrete traz dois links (`/confirmar/<token>/?acao=confirmar|cancelar`): confirmar
   (AGENDADO → CONFIRMADO) ou cancelar, **uma resposta só**; PENDENTE, terminal ou passado não é
   editável.
-- O descadastro de marketing **não** desliga o lembrete (é aviso do serviço).
+- O descadastro de marketing **não** desliga o lembrete (é aviso do serviço); o "PARAR" no
+  WhatsApp desliga só o WhatsApp — o lembrete passa a ir por e-mail (§21).
 
 ---
 
@@ -172,9 +225,11 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 
 - Só a **equipe** marca FALTOU (AGENDADO/CONFIRMADO → FALTOU) — soma falta e pode bloquear o
   online (§2).
-- O job `limpeza_status` **não** marca falta: AGENDADO/CONFIRMADO vencidos há 24 h sem desfecho
-  vão só para o log, para a equipe decidir (FALTOU é terminal e bloquearia a correção para
-  REALIZADO).
+- O sistema **não** marca falta sozinho (FALTOU é terminal e bloquearia a correção para
+  REALIZADO): todo dia às 08:00 (job `sem_desfecho`) cada profissional recebe um **push** com
+  "N atendimentos aguardam desfecho" — os AGENDADO/CONFIRMADO dela que já terminaram sem
+  Realizado/Faltou/Cancelado. O painel mostra os mesmos no card "sem desfecho" da visão geral.
+  Sem desfecho não gera comissão, não debita pacote, não dispara NPS nem entra no faturamento.
 - Não há cobrança de taxa de no-show no sistema.
 
 ---
@@ -240,12 +295,18 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 - **Preço** versionado por `vigente_desde`: vale a vigência mais recente ≤ hoje (fuso local); só
   vigência futura → usa a mais próxima. Preço do profissional > preço base; sem base, o menor
   preço vigente entre profissionais.
+- **Mudar o preço base** (Painel > Procedimentos, `services/catalogo`): abre uma vigência nova a
+  partir de hoje, só se o valor mudou (salvar sem mexer no preço não cria vigência; já havendo uma
+  de hoje, ela é ajustada); o histórico fica e o atendimento já marcado guarda o próprio valor.
+- **Quem realiza** = as profissionais marcadas no procedimento (habilitação); tirar a habilitação
+  de quem ainda tem atendimento futuro dele é recusado (reagende ou cancele antes).
 - **Promoção:** desconto **0–100% XOR** preço fixo (CHECK no banco), período `data_inicio`–
   `data_fim`, ligada a um procedimento. Promoção **geral** (sem procedimento) só vale como
   **percentual** — preço fixo geral é ignorado pelo agendamento e escondido em `/promocoes/`.
   Só se aplica quando **reduz** o valor; nunca deixa negativo.
-- O agendamento grava a promoção **da data do atendimento**; `/promocoes/` e `/especialidades/`
-  mostram exatamente o preço que o agendamento gravaria.
+- O agendamento grava a promoção **da data do atendimento** (não da data em que se agenda);
+  `/promocoes/` e `/especialidades/` mostram exatamente o preço que o agendamento gravaria. Por isso
+  o e-mail da promoção anuncia o período dos atendimentos (§19), nunca "válido por N dias".
 
 ---
 
@@ -280,8 +341,8 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
   `valor_cobrado` no avulso; na sessão de pacote, o **valor de 1 sessão congelado no item** da
   venda (rateio ponderado, §12). Cada CRÉDITO guarda a base e o percentual aplicados (explica o
   valor mesmo se a regra mudar).
-- **Livro-razão** (append-only, imutável no banco): o cálculo lança um **CRÉDITO** (1 por
-  atendimento, nunca um 2º — nem depois de estornado); a baixa no Painel > Comissões > pagar lança
+- **Livro-razão** (append-only, imutável no banco): o cálculo lança um **CRÉDITO** (no máximo 1
+  ativo por atendimento — só depois de estornado pode nascer outro, 0063); a baixa no Painel > Comissões > pagar lança
   um **PAGAMENTO** (valor integral, sem baixa parcial; autor e auditoria); o cancelamento posterior
   lança um **ESTORNO** do crédito, pago ou não. Status derivado: ESTORNADA (há estorno) > PAGA
   (há pagamento) > PENDENTE. Estornada não pode ser paga.
@@ -334,13 +395,20 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 
 ## 18. NPS e depoimentos
 
-- Job `nps_24h` (10:00): WhatsApp (template `nps_pos_atendimento`) para atendimento REALIZADO
-  que terminou **entre 24 h e 7 dias** atrás, sem avaliação, com a pesquisa por WhatsApp
-  autorizada (PESQUISA_SATISFACAO/WHATSAPP vigente — o descadastro revoga); até 3 tentativas com falha.
-- Link `/nps/<token>/` vale **7 dias**; 1 avaliação por atendimento; nota **0–10** (CHECK). A nota
-  também pode chegar respondendo o WhatsApp (0–10).
-- **Detrator** (nota ≤ 6): e-mail de alerta para `email_admin` (Configurações) > `ADMIN_EMAIL` >
-  e-mail de contato do Branding (job `detrator_alerta`, 10:30).
+- Job `nps_24h` (10:00, uma vez por dia): WhatsApp (template `nps_pos_atendimento`) para
+  atendimento REALIZADO que terminou **entre 24 h e 7 dias** atrás, sem avaliação, com a pesquisa
+  por WhatsApp autorizada (PESQUISA_SATISFACAO/WHATSAPP vigente — o descadastro e o "PARAR"
+  revogam); até 3 tentativas com falha. **Nunca em retorno** (gratuito: distorce a média e cansa
+  quem faz pacote) e **no máximo 1 pesquisa por cliente a cada 90 dias** (`NPS_INTERVALO_DIAS`);
+  duas sessões da mesma cliente na rodada geram uma pesquisa só.
+- Link `/nps/<token>/` vale **7 dias**; 1 avaliação por atendimento (clique duplo devolve a que já
+  existe); nota **0–10** (CHECK) e comentário até 2.000 caracteres. Depois da nota a cliente vai para
+  `/nps/<token>/obrigado/` (cumprimenta pelo primeiro nome e oferece a pesquisa pós-atendimento, se
+  houver — §20). A nota também pode chegar respondendo o WhatsApp (0–10): as duas portas passam pelo
+  mesmo `services/nps.registrar_avaliacao`.
+- **Detrator** (nota ≤ 6): e-mail de alerta para `email_admin` (Painel > Regras operacionais; a
+  tela só aceita e-mail válido, e um inválido gravado antes conta como vazio) > `ADMIN_EMAIL` >
+  e-mail de contato da Identidade visual (job `detrator_alerta`, 10:30).
 - **Depoimento no site** (`/depoimentos/`): só com opt-in da cliente (`autoriza_publicacao`),
   aprovação da equipe (Painel > NPS > publicação), nota ≥ 9 e comentário; cliente excluída ou
   anonimizada nunca aparece. Autor exibido com nome abreviado.
@@ -349,13 +417,20 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 
 ## 19. Aniversário e e-mails de promoção
 
-- **Aniversário** (job 09:00): e-mail de **felicitação, sem desconto** (não há mecanismo de
-  cupom), só com marketing por e-mail autorizado (MARKETING/EMAIL vigente); 29/02 comemora em 28/02 em ano
-  não bissexto. Não há WhatsApp de aniversário.
-- **Promoção por e-mail** (Painel > Promoções > Disparar e job mensal): só para marketing por e-mail autorizado,
-  **sem cupom** (a promoção vale sozinha no agendamento), validade anunciada ≤ `data_fim` da
-  promoção, HTML sanitizado, link e header de descadastro; envio em lotes de 25 com cursor (sem
-  reenvio).
+- **Aniversário** (job 09:00, uma vez por dia): e-mail de **felicitação, sem desconto** (não há
+  mecanismo de cupom), só com marketing por e-mail autorizado (MARKETING/EMAIL vigente); 29/02
+  comemora em 28/02 em ano não bissexto. Não há WhatsApp de aniversário nem de marketing.
+- **Promoção por e-mail** (só pelo painel: Promoções > Disparar; não há job): só para cliente
+  ativa com e-mail e marketing por e-mail autorizado, **sem cupom** (a promoção vale sozinha no
+  agendamento). O e-mail diz a oferta e **"para atendimentos de dd/mm/aaaa a dd/mm/aaaa"** (o preço
+  vale pela data do atendimento — §13), com o "Agendar" já no procedimento; HTML sanitizado, link e
+  header de descadastro. Só promoção vigente hoje é disparada.
+- **Disparo único** (`services/marketing`): o envio roda no request, em lotes de 25 por clique
+  ("Continuar envio"), com o cursor na própria promoção (`envio_cursor`). Cada lote é reservado
+  (cursor gravado, linha travada) **antes** de sair: clique duplo ou queda no meio nunca repetem um
+  e-mail — no pior caso quem estava no lote interrompido fica sem a oferta. Concluído o envio, mandar
+  de novo exige marcar **"reenviar para todos"** (confirmação explícita). Não há "validade em dias"
+  na tela.
 
 ---
 
@@ -375,13 +450,13 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
   e negativa é auditada.
 - **Anotação de sessão:** por atendimento, com autor preservado (PROTECT + `autor_nome`).
 - **Fichas de anamnese** (`FormularioAnamnese`, schema JSON, tipos ANAMNESE/PESQUISA, escopo
-  global/categoria/procedimento/modalidade, `obrigatorio`): respondidas no wizard ou por link
+  global/categoria/procedimento, `obrigatorio`): respondidas no wizard ou por link
   `/anamnese/<token>/` (60 dias; consentimento art. 11 obrigatório). Formulário com respostas cujo
   schema muda vira nova versão (o antigo é desativado).
 - **Onde a ficha vale** — regra única `FormularioAnamnese.aplica_a` / `aplicaveis_a` (wizard,
-  alertas do painel, convites): global; categoria do procedimento; o procedimento; a **modalidade**
-  do procedimento (presencial/online/híbrido). O wizard recebe do servidor a lista de procedimentos
-  de cada ficha (não repete a regra no JS).
+  alertas do painel, convites), **3 escopos**: global; categoria do procedimento; o procedimento.
+  Todo atendimento é presencial (o escopo por modalidade saiu na 0073). O wizard recebe do servidor
+  a lista de procedimentos de cada ficha (não repete a regra no JS).
 - **Cliente agendada pelo painel** (não passa pelo wizard): o botão **"Link da ficha"** na agenda
   gera o convite de cada ficha obrigatória pendente (WhatsApp, e-mail ou "abrir no balcão"); o
   segundo clique reaproveita o convite em aberto.
@@ -417,6 +492,12 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
   descadastrou e marca de novo no agendamento volta a receber). **Descadastro** (link) revoga
   marketing e pesquisa e mantém o lembrete D-1. A equipe, na ficha do cliente, **revoga** a
   pedido; registrar autorização pelo painel exige justificativa (fica com o autor).
+- **"PARAR" no WhatsApp:** a cliente que responde com a mensagem inteira "parar", "sair", "stop",
+  "cancelar mensagens" ou "descadastrar" (sem diferença de acento, caixa ou pontuação final) tem o
+  lembrete e a pesquisa **por WhatsApp** revogados (origem WHATSAPP; revogar tão fácil quanto
+  consentir — LGPD art. 8º §5), auditado, e recebe a confirmação dizendo como voltar (marcar ao
+  agendar ou pedir à recepção). "Vou sair mais cedo" não revoga nada. O e-mail não muda: o lembrete
+  D-1 segue por e-mail (§9).
 - **Auditoria** (`log_auditoria`): ação sensível com autor (+ nome gravado), tabela, registro,
   detalhes (PII mascarada) e IP — LGPD art. 37.
 
@@ -448,7 +529,7 @@ aceites, prontuário e pacotes ficam, ligados a um titular não identificável.
 
 | Evento | Efeito |
 |---|---|
-| Atendimento criado | Push ao profissional + sync Google Calendar (após o commit) |
+| Atendimento criado | Push "Novo agendamento" ao profissional (após o commit) |
 | → REALIZADO | Zera faltas e desbloqueia; debita sessão de pacote (não em retorno); comissão; cashback da indicadora (1º pago); retorno fica devido se o procedimento exige (a recepção marca) |
 | → FALTOU | Soma falta (bloqueio online no limite) |
 | → CANCELADO | Lança o estorno da comissão e do cashback; avisa lista de espera (se futuro) |
@@ -456,8 +537,10 @@ aceites, prontuário e pacotes ficam, ligados a um titular não identificável.
 | → CONFIRMADO | Só log |
 
 Canais de mensagem: **SMS** só para OTP; **WhatsApp** para lembrete D-1, NPS e aviso de vaga
-(templates aprovados, com consentimento); **e-mail** para transacionais e marketing com
-consentimento; **push** para a equipe. Sem credencial do canal nada é marcado como enviado.
+(templates aprovados, com consentimento); **e-mail** para transacionais (inclusive o lembrete D-1
+de quem não autorizou o WhatsApp) e marketing com consentimento; **push** para a equipe (novo
+agendamento, cliente cancelou/remarcou, sem desfecho). Sem credencial do canal nada é marcado como
+enviado. A agenda da profissional vai para o calendário dela só pelo feed ICS (sem Google Agenda).
 
 ---
 
@@ -469,26 +552,30 @@ consentimento; **push** para a equipe. Sem credencial do canal nada é marcado c
 | Antecedência máxima | 60 dias (1–365) | `Profissional.max_advance_dias` |
 | Intervalo dos slots | 30 min | `SlotService.INTERVALO` |
 | Buffer do procedimento | 0–120 min | `Procedimento.buffer_minutos` |
-| Idade mínima (online) | 18 anos | `views/publico/agendamento` |
+| Idade mínima (online) | 18 anos | `forms/agendamento.IDADE_MINIMA` |
+| Horários futuros ativos para pedir pelo site | até 3 (o 4º é recusado) | `constants.MAX_ATIVOS_ONLINE` |
+| Validade da ficha de anamnese respondida | 12 meses | `services/anamnese.VALIDADE_FICHA_MESES` |
 | Reagendar pela cliente | ≥ 24 h antes | `constants.JANELA_MINIMA_REAGENDAMENTO` |
-| Faltas até bloquear online | 3 | `Configuracao MAX_FALTAS_BLOQUEIO` > `constants.MAX_FALTAS_ANTES_BLOQUEIO` |
+| Faltas até bloquear online | 3 (ajustável de 1 a 10) | regra operacional `MAX_FALTAS_BLOQUEIO` (`models/configuracao.CHAVES`) > `constants.MAX_FALTAS_ANTES_BLOQUEIO` |
 | OTP: validade / tentativas / reenvio | 10 min / 5 / 60 s | env `OTP_TTL_SEGUNDOS`, `OTP_MAX_TENTATIVAS`, `OTP_REENVIO_MINIMO_SEG` |
 | SMS por hora: telefone / IP / global | 3 / 10 / 60 | env `SMS_MAX_POR_HORA`, `SMS_MAX_POR_IP_HORA`, `SMS_MAX_GLOBAL_HORA` |
 | Verificação OTP no wizard / sessão do portal | 30 min / 1 h | `services/otp`, `views/publico/verificacao` |
 | Duração padrão do retorno | 30 min | `Procedimento.duracao_retorno_minutos` |
 | Cashback por indicação | R$ 50,00 | `constants.VALOR_CASHBACK_INDICACAO` |
-| NPS: janela / validade do link / tentativas | 24 h–7 dias / 7 dias / 3 | `jobs.py`, `views/publico/nps.py` |
-| Detrator | nota ≤ 6 | `tasks.job_alerta_detrator_nps` |
+| NPS: janela / validade do link / tentativas | 24 h–7 dias / 7 dias / 3 | `services/nps` (`NPS_JANELA_DIAS`, `NPS_MAX_FALHAS`), `views/publico/nps.py` |
+| NPS: intervalo mínimo por cliente | 90 dias (nunca em retorno) | `constants.NPS_INTERVALO_DIAS` |
+| Detrator | nota ≤ 6 | `services/nps.NOTA_MAXIMA_DETRATOR` (job `detrator_alerta`) |
+| Lembrete D-1 | 08:00 e 18:00 (WhatsApp ou e-mail) | `jobs.JOB_AGENDA`, `services/lembretes` |
 | Depoimento | nota ≥ 9 + opt-in + aprovação | `views/publico/site.depoimentos` |
 | Link de ficha/pesquisa | 60 dias | `views/publico/formularios` |
 | Link do termo | até o fim do atendimento | `services/termos.aceita_assinatura` |
 | Retenção: OTP / notificação / auditoria / axes | 24 h / 12 meses / 5 anos / 90 dias | env `RETENCAO_*` |
 | Retenção: cliente inativa / soft delete / ficha sem atendimento / saúde | 5 anos / 30 dias / 90 dias / 20 anos | `LgpdService` (+ env `LGPD_RETENCAO_CLIENTE_DIAS`) |
-| Lote de e-mail de promoção | 25 | `views/painel/promocoes.LOTE_PROMOCAO` |
+| Lote de e-mail de promoção | 25 por clique | `services/marketing.LOTE_PROMOCAO` |
 | Sessão da equipe (prod) | 8 h deslizantes | env `SESSION_COOKIE_AGE` |
 
 ---
 
-_Última atualização: 2026-09-23 — reescrito a partir do código após a auditoria pré-produção
-(removidos valores que não existem mais: antecedência máxima global de 90 dias, reserva de 30 min
-da lista de espera, cupom de aniversário, taxa de no-show, saldo mínimo de cashback)._
+_Última atualização: 2026-10-29 — conferido no código até a migration 0074 e os pacotes do pedido online e dos cadastros (papéis, lembrete por
+e-mail, sem desfecho, NPS, promoção, "PARAR", ficha em 3 escopos, acesso da cliente só pelo
+portal)._

@@ -29,8 +29,9 @@ Um único design system (tokens Tailwind v4) → duas "peles": site editorial e 
 
 ## 2. Banco de dados — CONCLUÍDO (remodelagem v2.1 + auditoria pré-produção + padrão SQL)
 
-Migrations `0027`–`0058` (produção ainda na `0026`; o go-live aplica todas de uma vez —
-runbook em [`PROJECT.md` §14](PROJECT.md#14-go-live--operação-runbook)). Da `0048` em diante:
+Migrations `0027`–`0074` (não há produção: o go-live cria o banco novo e aplica `0001`→`0074` de
+uma vez; o banco de desenvolvimento antigo está na `0026` — runbook em
+[`PROJECT.md` §14](PROJECT.md#14-go-live--operação-runbook)). Da `0048` em diante:
 padrão SQL, reestruturações e lógica no banco em [`specs/padrao-sql.md`](specs/padrao-sql.md)
 (estado atual do banco: [`PROJECT.md` §5](PROJECT.md#5-banco-de-dados)).
 
@@ -62,6 +63,8 @@ padrão SQL, reestruturações e lógica no banco em [`specs/padrao-sql.md`](spe
 | (b)–(f) | Tokens em hash (`link_acesso`), consentimentos com histórico, questionário único, pacote congelado, comissão em livro-razão | ✅ 0049–0053 |
 | N1–N2 | Padrão de nomes (tabelas, colunas, constraints, índices, PK/FK com `ON DELETE` real) | ✅ 0054–0055 |
 | L1–L3 | Lógica no banco: trilha `historico_alteracao` + triggers, funções de leitura e views com paridade, procedures como fonte única | ✅ 0056–0058 |
+| — | Trilhas append-only, cifragem do dado de saúde, fila de e-mail na `notificacao` | ✅ 0059–0061 |
+| — | Revisão funcional: habilitação obrigatória, crédito de comissão ativo único, competência mensal, snapshot e regras de comissão, origens da carteira (0062–0067); disparo de promoção, origem WHATSAPP, `execucao_job` (0068–0070); remoções — Google Agenda, RECEPCAO e link legado, modalidade e notificações sem produtor, RG/profissão/foto (0071–0074) | ✅ 0062–0074 |
 
 ---
 
@@ -81,7 +84,9 @@ jQuery, AOS, Swiper, FontAwesome/Bootstrap Icons: fora. Ícones SVG inline.
   `script-src-attr`). Resta `style-src-attr 'unsafe-inline'` (~160 atributos `style=""` fora dos
   e-mails, onde a CSP não se aplica).
 - Páginas de erro próprias (400/403/403_csrf/404/429/500), página pt-BR do bloqueio do axes.
-- Service worker v7: cacheia só páginas públicas e estáticos. Rodapé com coluna "Para você".
+- Service worker v9: cacheia só páginas públicas e estáticos. Rodapé com coluna "Para você".
+  O portal da profissional tem casca própria (`profissional/base.html`: sem rodapé, CTA, WhatsApp,
+  SEO nem aviso de cookies); o menu do painel é uma lista só (`painel_tags.MENU_PAINEL`).
 - E-mails: 10 templates sobre `email/base_email.html` (email-safe, dark mode), sem cupom/desconto
   prometido sem mecanismo.
 
@@ -117,24 +122,39 @@ cards e dias são `<button>` (teclado) e o estado sobrevive a recusa do servidor
 | D5 | Painel como PWA app-shell | Uso como app instalado |
 | D6 | Fase 7 do banco em PR dedicada | Mexe no cálculo de slots |
 | D7 | **Todo agendamento público exige OTP do celular**; a identidade é o telefone, e-mail nunca é identidade | Anti-sequestro de cadastro; sem enumeração |
-| D8 | Agendamento público nasce **PENDENTE** (clínica aprova), exceto cliente de confiança (já atendida, sem falta, < 2 horários futuros) que nasce AGENDADO; interno nasce AGENDADO. Toda decisão sobre o pedido passa pelo `AgendamentoService` (botão ou seletor) | Tira o gargalo da aprovação de quem já é cliente sem abrir a agenda a desconhecidos; a cliente sempre recebe a resposta |
+| D8 | Agendamento público nasce **PENDENTE** (clínica aprova), exceto cliente de confiança (já atendida, sem falta, < 2 horários futuros) que nasce AGENDADO; interno nasce AGENDADO. Pelo site, no máximo 3 horários futuros ativos por cliente (`MAX_ATIVOS_ONLINE`; a recepção marca além disso). Toda decisão sobre o pedido passa pelo `AgendamentoService` (botão ou seletor) | Tira o gargalo da aprovação de quem já é cliente sem abrir a agenda a desconhecidos (o PENDENTE trava o horário: sem teto, um celular verificado reservaria a semana); a cliente sempre recebe a resposta |
 | D9 | **2FA obrigatório para ADMIN e PROFISSIONAL** em prod (válvulas `ADMIN_2FA_OBRIGATORIO=false` / `PROFISSIONAL_2FA_OBRIGATORIO=false`, avisos W008/W012); códigos de backup gerados no painel | Painel e portal leem dado de saúde (LGPD art. 11/46) |
 | D10 | Rotas do django-two-factor (`/account/*`) e ReDoc não publicadas | 2ª tela de login burlava o 2FA; ReDoc exige `unsafe-inline` |
-| D11 | RECEPCAO sem login até existirem telas próprias | Papel sem superfície própria = acesso indevido ao painel |
+| D11 | ~~RECEPCAO sem login até existirem telas próprias~~ — substituída pela D27 (o papel saiu) | Papel sem superfície própria = acesso indevido ao painel |
 | D12 | Prova de aceite imutável (SHA-256 do texto + trigger) e termo aceito imutável | Evidência legal (LGPD art. 8) |
 | D13 | Histórico append-only do prontuário (`prontuario_versao`) | CFM 1.638/2002 — edição não apaga o anterior |
-| D14 | `limpeza_status` não marca FALTOU sozinho | Falta é terminal e bloqueia online; só a equipe decide |
-| D15 | Aniversário = felicitação sem desconto; promoção sem cupom; validade anunciada ≤ fim da promoção | Nada é prometido sem mecanismo que aplique |
+| D14 | O sistema nunca marca FALTOU sozinho: atendimento sem desfecho vira um push diário à profissional (job `sem_desfecho`, 08:00), não falta | Falta é terminal e bloqueia online; só a equipe decide — e a pendência precisa chegar a quem decide, não só ao log |
+| D15 | Aniversário = felicitação sem desconto; promoção sem cupom, anunciada pela **data do atendimento** (o período em que o preço vale), disparo único em lotes com o cursor na própria promoção (reenvio só confirmado) | Nada é prometido sem mecanismo que aplique; clique duplo ou queda no meio nunca repetem e-mail |
 | D16 | Deploy por Dockerfile + `migrate_atomico` no pre-deploy; **rollback = restaurar dump** | Upgrade 0026→0046 tudo-ou-nada; reverses não recuperam dados |
-| D17 | **Sem Celery** (saiu em 2026-10-27): jobs são funções chamadas pelo cron HTTP (`X-Cron-Token`) ou `rodar_job`; e-mail transacional é fila na própria `notificacao` (0061, reenvio pelo job `emails`) | Custo; 1 serviço; nada roda "em segundo plano" sem rastro |
+| D17 | **Sem Celery** (saiu em 2026-10-27): jobs são funções com horário na `jobs.JOB_AGENDA` (fonte única), rodadas por um serviço Cron do Railway (`rodar_jobs_devidos` a cada 15 min), pelo cron HTTP (`X-Cron-Token`) ou `rodar_job`; job de mensagem sem marca por destinatário roda 1×/dia (`execucao_job`, 409 na 2ª); e-mail transacional é fila na própria `notificacao` (0061, reenvio pelo job `emails`) | Custo; um serviço de jobs no lugar de um por horário; nada roda "em segundo plano" sem rastro nem manda duas vezes |
 | D18 | `/anamnese/<token>/` e `/pesquisa/<token>/` **com produtor**: "Link da ficha" na agenda do painel (cliente agendada pela recepção) e convite da pesquisa no fim do NPS | Ficha obrigatória chega a quem não passou pelo wizard; a pesquisa reaproveita o link do NPS (sem segunda mensagem) |
 | D19 | Site só pt-BR (sem LocaleMiddleware); sessão da equipe 8h deslizantes | Sem traduções; 30 min fixos deslogavam no meio do atendimento |
 | D20 | Faturamento = avulsos + venda de pacote; sessão de pacote não soma; comissão da sessão de pacote = `valor_pago / total de sessões` (congelado na venda, `compra_pacote_item.valor_unitario`); ticket médio e LTV da ficha pela mesma regra (`services/financeiro`) | Evita contar a receita duas vezes e inflar comissão |
-| D21 | Dado de saúde e token OAuth **cifrados na aplicação** (Fernet, `CHAVES_CIFRAGEM`, subchave por finalidade; 0060), sem busca no banco por conteúdo | Dump/backup vazado não expõe a ficha (LGPD art. 46/48 §3); pgcrypto deixaria a chave no SQL de toda consulta |
+| D21 | Dado de saúde **cifrado na aplicação** (Fernet, `CHAVES_CIFRAGEM`, subchave por finalidade; 0060), sem busca no banco por conteúdo (o token OAuth do Google, também cifrado, saiu com a D26) | Dump/backup vazado não expõe a ficha (LGPD art. 46/48 §3); pgcrypto deixaria a chave no SQL de toda consulta |
 | D22 | Trilhas append-only no banco: `log_auditoria` imutável e expurgo só com 180+ dias (0059) | Mesmo usuário do banco p/ app e migrations: SQL injetado não apaga a prova (art. 37) |
 | D23 | **Postgres é a fonte única da escrita** de esquecimento, retenção LGPD, limpeza e expiração de pacotes (procedures 0058, sem fallback Python); funções de leitura seguem como espelho testado do Python | Decisão do dono (2026-10-27): uma regra, um lugar; custa exigir Postgres (Docker) para rodar esses testes e rotinas localmente |
 | D24 | Ambiente de testes publicado = **perfil `staging`** (`prod.py` + travas: SMS só em log com a prévia, e-mail/WhatsApp só p/ `DESTINATARIOS_TESTE`, noindex, faixa, `seed --demo`); `DJANGO_ENV=dev` no Railway derruba o boot e produção sem Postgres é Error (`aranha.E002`) | Testar o fluxo inteiro (wizard + OTP) na internet sem mandar mensagem a cliente real nem expor DEBUG |
 | D25 | Financeiro por **competência mensal** (`services/financeiro.competencia`): pacote = vendas pela data da venda − reembolsos pela data do cancelamento (`compra_pacote.cancelado_em`); comissão pela data do atendimento; rateio da venda **ponderado pelo preço de tabela**; CRÉDITO de comissão congela base e percentual; regra usada é imutável (trigger) | Mês fechado não muda; o valor de cada sessão reflete o procedimento; comissão explicável depois |
+| D26 | **Google Agenda removido** (0071): a agenda da profissional sai só pelo feed ICS assinado (`link_acesso` FEED_ICS, nome público da cliente); sem OAuth, sem importação de eventos como bloqueio | O feed cobre Google, Apple e Outlook sem guardar token de terceiro nem manter sincronização em dois sentidos; um operador e um segredo a menos |
+| D27 | Papéis da equipe só **ADMIN e PROFISSIONAL** (0072; substitui a D11): a dona faz a recepção pelo painel | YAGNI: o papel RECEPCAO não tinha tela nem login e só existia como risco de acesso indevido |
+| D28 | **Todo atendimento é presencial** (0073): sem modalidade nem link de videoconferência; a ficha vale por 3 escopos (global, categoria, procedimento) | Nenhum serviço online no catálogo; o escopo MODALIDADE só repetia o GLOBAL |
+| D29 | A cliente tem **um acesso só**: o portal "Meus agendamentos" por OTP (reagendar/cancelar por id + sessão). O link legado de reagendar (GERENCIAR_AGENDAMENTO) e o alvo atendimento do `link_acesso` saíram (0072) | Os tokens legados vinham do banco da 0026, descartado no go-live; dois caminhos eram duas superfícies de ataque para a mesma ação |
+| D30 | **Minimização do cadastro** (0074): RG, profissão e foto da cliente não são coletados; CPF, CEP e endereço ficam pela finalidade (nota fiscal, contrato de pacote) | LGPD art. 6º III (necessidade): dado sem finalidade é risco sem benefício e entra no esquecimento à toa |
+| D31 | **Cookies só essenciais**: o aviso é informativo e "Entendi" grava só no navegador; nada é registrado no servidor (saiu `/lgpd/aceitar-cookies/`) | Sem cookie de análise ou de terceiro não há consentimento a provar; guardar a resposta era dado pessoal sem finalidade |
+| D32 | **Runner único** `manage.py test` (pytest, pytest-django e conftest saíram; teste em função solta reprova) | Dois runners coletavam conjuntos diferentes: teste só do pytest ficava fora do CI |
+| D33 | **Áreas de views independentes** (publico, painel, profissional, conta, infra não se importam — import-linter); o que mais de uma área renderiza igual mora em `views/comum.py`, a regra em `services/` | Mudar uma tela não quebra outra área; o acoplamento entre áreas fica explícito num lugar só |
+| D34 | **Configuração só nos settings**: a env é lida e validada em `clinica/settings` e o código lê `settings.X` na chamada (ruff `TID251`); o `.env.example` é conferido contra o código; segredo fraco num perfil publicado é erro (E003) | Valor inválido derruba o boot com o nome da variável em vez de virar 500 no meio de um fluxo; `override_settings` vale nos testes; o exemplo não sobe segredo para o Railway |
+| D35 | **`utils/telefone` é a fonte única do telefone**: forma canônica sem DDI (a do cadastro, do OTP e das buscas), E.164 só para telefone BR válido, máscara de log | O telefone é a identidade da cliente: cópias da normalização em OTP, lista de espera, formulário e webhook divergiam, e número estrangeiro virava destino de SMS |
+| D36 | **Contrato JSON único** (`utils/respostas`): `{"ok": true, ...}` ou `{"ok": false, "codigo", "mensagem"}`; o front decide pelo `codigo` | Cada view respondia num formato; o texto da mensagem não é contrato |
+| D37 | **Logs redigidos e imagem endurecida**: filtro `RedigirLog` (token de link, DETAIL do Postgres, e-mail, CPF, telefone) no log da aplicação; imagem sem `curl`, usuário sem shell, código do root só leitura, testes e scripts fora | O `django.request` levava `/confirmar/<token>/` para o log do Railway em todo 4xx/5xx; um RCE não reescreve código nem baixa ferramenta |
+| D38 | **Pedido online como caso de uso**: `services/agendamento_online.solicitar(PedidoAgendamento)` tem a regra inteira (termo LGPD, horário, fichas válidas por 12 meses, termos, cadastro da titular do celular, teto, reserva, e-mails e provas); `forms/agendamento.AgendamentoPublicoForm` lê o POST e confere o OTP; a view só liga os dois. Recusa = `RegraDeNegocio` com código (`sem_termo_lgpd`, `ficha_invalida`, `consent_saude_ausente`, `termo_pendente`, `email_de_outro_cadastro`, `horario_em_confirmacao`, `bloqueado_online`, `limite_online`, `horario_ocupado`) | A view tinha complexidade ciclomática 71 (hoje 9) e a regra só era testável por HTTP; outra porta (painel, API) reusa o service |
+| D39 | **Regras operacionais em registro tipado** (`models/configuracao.CHAVES`: `email_admin` e `MAX_FALTAS_BLOQUEIO` 1–10), lidas por `Configuracao.ler`; a tela grava só essas chaves (sem chave livre) e a marca tem a tela Identidade visual | A chave-valor livre listava estado interno, aceitava chave inventada e um valor inválido caía no padrão em silêncio |
+| D40 | **Desligamento revoga o feed ICS**: desativar a profissional, o login dela ou trocar o vínculo do login revoga o link na hora (auditado); reativar exige link novo | O calendário de quem saiu continuaria recebendo nome de cliente (o feed é um operador fora da clínica) |
 
 ---
 
@@ -170,8 +190,9 @@ verde em SQLite e Postgres).
   sessão (catálogo editável, 0052), comissão em livro-razão com saldo negativo visível (0053), bloqueio global "Todos os profissionais", alertas de saúde visíveis (portal,
   agendamentos, ficha), prontuário com acesso restrito por vínculo + trilha de leitura +
   histórico de versões, moderação de depoimentos, Branding sem upload de logo (Configuracao >
-  env > padrão), Configurações só com `email_admin` sugerida (as perguntas do prontuário viraram
-  o formulário PRONTUARIO na 0051).
+  env > padrão), Regras operacionais = registro tipado de 2 chaves (`email_admin`,
+  `MAX_FALTAS_BLOQUEIO` 1–10), sem chave livre (D39; as perguntas do prontuário viraram o
+  formulário PRONTUARIO na 0051).
 - **Serviços/LGPD:** canais falham fechado (nada marcado como enviado sem entrega), lista de
   espera em mecanismo único (signal → service, envio no `on_commit`, `notificado` só com
   entrega), retenção efetiva (fichas de pedido não realizado 90 dias, lista de espera vencida,
@@ -190,13 +211,16 @@ verde em SQLite e Postgres).
 ### 6.2 Pendências reais (verificadas no código em 2026-09-23)
 
 **Operação / go-live (fora do código)**
-- [ ] Backup `pg_dump` + ensaio do upgrade 0026→0053 num Postgres 18 (runbook §14.a)
-- [ ] Env no Railway (ADMIN_*, CRON_TOKEN, SITE_URL, ZENVIA_*, EMAIL_BACKEND + provedor,
-      WHATSAPP_*, TURNSTILE_*, SENTRY_DSN, CLINIC_EMAIL) e remover `STATIC_ROOT`
+- [ ] Backup configurado antes do 1º cliente real (o go-live cria o banco novo; ensaio
+      0026→0074 só se o banco antigo for reaproveitado — runbook §14 a.1)
+- [ ] Env no Railway (`DATABASE_URL` por referência, ADMIN_*, SITE_URL, ZENVIA_*, EMAIL_BACKEND +
+      provedor, WHATSAPP_*, TURNSTILE_*, SENTRY_DSN, CLINIC_EMAIL; CRON_TOKEN só com o cron HTTP)
+      e remover `STATIC_ROOT` e as legadas (`GOOGLE_OAUTH_*`, `AWS_*`)
 - [ ] Provedor de e-mail: `django-anymail` já instalado — escolher o provedor (ex.: Resend) e
       definir `EMAIL_BACKEND` + chave + `DEFAULT_FROM_EMAIL` de domínio verificado (check W011)
 - [x] Merge `front-fundacao` → `main` (fast-forward) — 2026-09-23
-- [ ] Cron externo dos jobs (`/cron/run/<job>/` + `X-Cron-Token`, runbook)
+- [ ] Serviço Cron dos jobs (`railway.cron.json` + `rodar_jobs_devidos`, runbook §13.2) e o
+      monitor (`CRON_MONITOR_URL`)
 - [ ] Pós-deploy: 2FA do ADMIN, apagar `ADMIN_PASSWORD`, `axes_reset`, Branding real, revisar
       termo LGPD v1.0, mesclar duplicatas logadas pela 0034, `VALIDATE CONSTRAINT` dos CHECKs
       `NOT VALID` da 0043
@@ -226,14 +250,14 @@ verde em SQLite e Postgres).
 - [ ] Hardening opcional do 2FA: settings de teste com `ADMIN_2FA_OBRIGATORIO=False` e tirar a
       dependência do marcador `usuario_id` no `Enforce2FAMiddleware`
 - [x] ~~Baixa: `isdigit()` aceita "²"~~ resolvido (`utils/parse.id_int` e nota NPS por regex).
-- [ ] Baixa: remover `ListaEspera.token_reserva`/`expira_em` (legado sem uso); fallback
-      `LEMBRETE/EMAIL` em `services/termos.Q_NOTIF_TERMO` pode sair depois da 0045 em prod;
-      docstring de `utils/dois_fatores.verificar_token` ainda descreve o `--force` antigo
+- [x] ~~Baixa: `ListaEspera.token_reserva`/`expira_em` e o fallback `LEMBRETE/EMAIL` de
+      `services/termos.Q_NOTIF_TERMO`~~ saíram (o lembrete D-1 por e-mail é LEMBRETE/EMAIL de verdade).
+- [ ] Baixa: docstring de `utils/dois_fatores.verificar_token` ainda descreve o `--force` antigo
+      ("device novo ao lado do antigo"; hoje o `--force` apaga todos)
 - [ ] Baixa: `painel/termo_link.html` oferece `mailto:` para o e-mail do cadastro (não verificado)
 - [ ] `style-src-attr 'unsafe-inline'`: migrar ~160 atributos `style=""` (fora dos e-mails) para classes
 - [ ] Registry de regras (spec 5.1) e sessão única de cliente verificado (5.3) — ver
       [`specs/regras-negocio-registry.md`](specs/regras-negocio-registry.md)
-- [ ] RECEPCAO: telas próprias (hoje sem login)
 - [ ] Decidido não fazer (por ora): UNIQUE de regra de comissão ativa (quebraria o desempate por
       "mais recente"); consentimento de WhatsApp para marketing. (O trigger de `atualizado_em`
       entrou na 0056.)
@@ -253,5 +277,5 @@ verde em SQLite e Postgres).
 
 ---
 
-_Última atualização: 2026-09-23 — auditoria pré-produção concluída; pendências da seção 6.2
-conferidas no código._
+_Última atualização: 2026-10-29 — decisões D26–D40 dos pacotes de revisão (0062–0074, pedido online e cadastros) e
+pendências da seção 6.2 conferidas no código._

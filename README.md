@@ -27,24 +27,26 @@ modelos, rotas, env vars, jobs, deploy e runbook de go-live).
 - Preço gravado = preço com a promoção vigente **na data do atendimento**.
 - "Meus agendamentos" com login por celular ou e-mail (o código vai sempre ao celular do
   cadastro): consultar, reagendar (até 24h antes) e cancelar.
-- Links por token: confirmar presença (lembrete D-1 do WhatsApp), reagendar, NPS, termo,
-  ficha de anamnese, descadastro.
+- Links por token: confirmar presença (lembrete D-1 por WhatsApp ou e-mail), NPS, termo,
+  ficha de anamnese, descadastro. Reagendar e cancelar só pelo "Meus agendamentos".
 - Lista de espera, promoções, depoimentos (só com autorização da cliente e aprovação da
   clínica), páginas institucionais, PWA e widget `/embed/agendar/`.
 - LGPD: "Meus dados" (exportação com OTP), descadastro de marketing em um clique.
 
 **Painel da equipe** (`/admin-login/`)
 - ADMIN: painel completo com **2FA obrigatório** (TOTP). PROFISSIONAL: portal
-  `/profissional/` com a própria agenda, aprovação dos pedidos, "Realizado", anotações e
-  acesso à ficha só de quem ela atende.
+  `/profissional/` com a própria agenda, aprovação dos pedidos, "Realizado", anotações,
+  acesso à ficha só de quem ela atende, "Minhas comissões" e o link do feed ICS da agenda.
 - Agenda (lista + calendário arrastar-e-soltar), agendamento interno pela recepção,
   aprovação de pedidos, valor cobrado, link do termo por atendimento.
 - Clientes com alertas de saúde visíveis, ficha/prontuário com **histórico de versões**,
-  pacotes (venda, saldo, validade, cancelamento com reembolso), promoções e disparo por
-  e-mail, comissões, NPS e moderação de depoimentos, termos versionados (imutáveis após o
-  1º aceite), auditoria (LGPD art. 37), Branding, usuários.
-- Jobs periódicos por cron HTTP (lembrete D-1, NPS, pacotes, aniversário, limpeza,
-  retenção LGPD, feriados).
+  pacotes (venda, saldo, validade, prorrogação, cancelamento com reembolso), promoções e
+  disparo por e-mail, financeiro por competência mensal, comissões (regras, repasse em lote),
+  NPS e moderação de depoimentos, termos versionados (imutáveis após o 1º aceite), auditoria
+  (LGPD art. 37), Branding, usuários.
+- Jobs periódicos pelo serviço Cron do Railway (`rodar_jobs_devidos`) ou cron HTTP (fila de
+  e-mail, lembrete D-1, sem desfecho, NPS, pacotes, aniversário, limpeza, retenção LGPD,
+  feriados).
 
 ---
 
@@ -55,12 +57,12 @@ modelos, rotas, env vars, jobs, deploy e runbook de go-live).
 | Backend | Python 3.12, Django 5.2 (server-render, sem SPA) |
 | Banco | PostgreSQL 18 em produção/CI (EXCLUDE, CHECK, triggers, collation ICU); SQLite em dev/testes rápidos |
 | Front-end | Vite 6 + Tailwind CSS v4 + Alpine.js (build **CSP**, `@alpinejs/csp`) + componentes django-cotton. **Sem HTMX, sem Bootstrap, sem jQuery** |
-| Jobs / fila | Sem Celery: jobs periódicos via cron HTTP `/cron/run/<job>/` (ou `manage.py rodar_job`); fila de e-mail no banco |
+| Jobs / fila | Sem Celery: jobs com horário em `jobs.JOB_AGENDA`, rodados pelo serviço Cron do Railway (`manage.py rodar_jobs_devidos`), pelo cron HTTP `/cron/run/<job>/` ou por `manage.py rodar_job`; fila de e-mail no banco |
 | Cache/sessão | LocMem + sessão no banco (1 worker gunicorn); Redis opcional via `REDIS_URL` |
 | Segurança | CSP com nonce, django-axes, django-ratelimit, django-otp (TOTP), Cloudflare Turnstile |
-| Integrações | Zenvia (SMS/OTP), WhatsApp Business (Meta), e-mail (backend Django), Web Push (VAPID), Google Calendar (opcional), Sentry |
+| Integrações | Zenvia (SMS/OTP), WhatsApp Business (Meta), e-mail (backend Django), Web Push (VAPID), Sentry; a agenda da profissional sai pelo feed ICS (sem Google Calendar) |
 | Deploy | Railway: Dockerfile multi-stage (Node 22 → Python 3.12), gunicorn 1 worker × 4 threads, WhiteNoise |
-| CI | GitHub Actions (`.github/workflows/ci.yml`): SQLite, Postgres 18, build do front, build da imagem, pip-audit |
+| CI | GitHub Actions (`.github/workflows/ci.yml`): SQLite, Postgres 18, cobertura combinada, build do front, build e smoke da imagem, pip-audit, npm audit e gitleaks |
 
 ---
 
@@ -122,10 +124,11 @@ TEST_DATABASE_URL=postgres://shivazen:shivazen@localhost:5432/shivazen PG_EXIGE_
   python manage.py test aranha_estetica
 ```
 
-São ~1.500 testes em 77 arquivos (`aranha_estetica/tests/`). A CI também roda
-`migrate_atomico` do zero no Postgres, `check --deploy` com settings de produção, cobertura
-com catraca, o wizard no Chromium (Playwright), o build do Vite, o `docker build` e o
-`pip-audit` — detalhes em [docs/DESENVOLVIMENTO.md](docs/DESENVOLVIMENTO.md).
+São ~1.850 testes (fora a tag `migracoes`) em 112 arquivos (`aranha_estetica/tests/`); o runner
+é só o `manage.py test`. A CI também roda `migrate_atomico` do zero no Postgres, `check --deploy`
+com settings de produção e de staging, cobertura combinada (SQLite + Postgres) com catraca, o
+wizard no Chromium (Playwright), o build do Vite, o `docker build` com o smoke do pre-deploy e do
+start, `pip-audit`, `npm audit` e gitleaks — detalhes em [docs/DESENVOLVIMENTO.md](docs/DESENVOLVIMENTO.md).
 
 ---
 
@@ -133,22 +136,28 @@ com catraca, o wizard no Chromium (Playwright), o build do Vite, o `docker build
 
 ```
 aranha_estetica/                 app Django
-├── models/                      20 módulos, 34 tabelas de domínio (ver docs/PROJECT.md §5)
-├── views/                       site público, booking, portal do profissional, painel, cron, health
-├── services/                    regras de negócio (agendamento, disponibilidade, OTP, LGPD, termos,
-│                                comissão, cashback, retorno, lista de espera, alertas, gcal, push)
-├── domain/                      EventBus + eventos (comissão, cashback, retorno reagem a eles)
-├── utils/                       branding, e-mail, SMS, WhatsApp, preços, saúde, segurança, PII...
-├── management/commands/         seed, bootstrap_admin, migrate_atomico, setup_2fa, carregar_feriados
-├── migrations/                  0001–0046
-├── templates/                   estrutura/ (site), painel/ (equipe), profissional/, agenda/, publico/,
-│                                cotton/ (componentes), email/, pwa/, usuario/, erros 400/403/404/429/500
+├── models/                      21 módulos, 37 tabelas de domínio (ver docs/PROJECT.md §5)
+├── views/                       uma pasta por área (publico, conta, painel, profissional, infra) +
+│                                comum.py; as áreas não se importam (import-linter)
+├── urls/                        as rotas de cada área, no namespace `aranha`
+├── services/                    regras de negócio (agenda, atendimento, disponibilidade, OTP, LGPD,
+│                                termos, comissão, financeiro, pacotes, cashback, retorno, lista de
+│                                espera, lembretes, NPS, marketing, alertas, prontuário, push...)
+├── utils/                       branding, e-mail, SMS, WhatsApp, telefone, preços, saúde, segurança,
+│                                PII, respostas (contrato JSON)...
+├── management/commands/         seed, bootstrap_admin, migrate_atomico, setup_2fa, carregar_feriados,
+│                                rodar_job, rodar_jobs_devidos, rotação da chave de cifragem...
+├── migrations/                  0001–0074 (+ migrations/sql/: texto das rotinas do Postgres)
+├── templates/                   estrutura/ (site), painel/ (equipe), profissional/ (casca própria),
+│                                agendamento/, publico/, conta/, cotton/ (componentes), email/, pwa/,
+│                                erros 400/403/404/429/500
 ├── static/src/                  fonte do Vite (tokens.css, app.css; JS por tela: app/wizard/painel-busca/webpush)
 ├── signals.py · jobs.py · jobs_manutencao.py · middleware.py · checks.py
-└── tests/
-clinica/                         settings (base/dev/prod), urls, wsgi, gunicorn_logger
+└── tests/                       por área: conta/, infra/, jobs/, painel/, publico/, servicos/, utils/ + raiz
+clinica/                         settings (base/dev/prod/staging/test), urls, wsgi, gunicorn_logger,
+                                 logging_filtros
 docs/                            documentação (abaixo)
-Dockerfile · railway.json · .github/workflows/ci.yml · package.json · vite.config.js
+Dockerfile · railway.json · railway.cron.json · .github/workflows/ci.yml · package.json · vite.config.js
 requirements.txt · requirements-dev.txt · requirements.lock · .env.example
 ```
 
@@ -164,7 +173,7 @@ requirements.txt · requirements-dev.txt · requirements.lock · .env.example
 | [docs/AUTENTICACAO-E-ACESSO.md](docs/AUTENTICACAO-E-ACESSO.md) | Login da equipe, 2FA, OTP da cliente, links por token, sessões |
 | [docs/REGRAS-DE-NEGOCIO.md](docs/REGRAS-DE-NEGOCIO.md) | Regras funcionais com os valores reais do código |
 | [docs/LGPD.md](docs/LGPD.md) | Registro das operações (art. 37), operadores, relatório de impacto do dado de saúde, plano de incidente |
-| [docs/specs/](docs/specs/) | Specs por assunto: banco (migrations 0027–0046), front, registry de regras |
+| [docs/specs/](docs/specs/) | Specs por assunto: banco (remodelagem 0027–0047 e padrão SQL 0048+), front, registry de regras |
 | [docs/uml/](docs/uml/README.md) + [docs/gerar_documentacao.py](docs/gerar_documentacao.py) | UML completa (PlantUML: casos de uso, classes geradas do código, sequência, estados, atividades, componentes, implantação, ER) e a documentação técnica do TCC (`ShivaZen-Documentacao.docx/.pdf`) |
 
 ---
