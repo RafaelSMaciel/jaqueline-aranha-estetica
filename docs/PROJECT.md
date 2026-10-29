@@ -70,7 +70,9 @@ atendimento é presencial.
 | Ator / trilhas | `ator.py`; `LogAuditoria`, `HistoricoAlteracao` | Quem agiu (usuário, IP, origem) / registro das ações e das alterações de dado |
 | Recusa de regra | `excecoes.RegraDeNegocio` (`HorarioIndisponivel`, `TransicaoInvalida`) | O "não" de um service, com a mensagem pronta para a tela |
 | Job | `jobs.py` (`JOB_MAP`, `JOB_AGENDA`), `rodar_jobs_devidos`, `/cron/run/<job>/`, `rodar_job` | Tarefa periódica: o serviço Cron do Railway roda os devidos a cada 15 min (horários na `JOB_AGENDA`) |
-| Branding | `Configuracao`, `utils/branding` | Nome, contatos e dados legais da clínica editáveis no painel |
+| Branding / identidade visual | `Configuracao`, `utils/branding`, `forms/cadastros.MarcaForm` | Nome, contatos e dados legais da clínica editáveis no painel (tela Identidade visual) |
+| Regras operacionais | `models/configuracao.CHAVES`, `Configuracao.ler` | As poucas regras que a dona ajusta (registro tipado: `email_admin`, `MAX_FALTAS_BLOQUEIO`); sem chave livre |
+| Pedido online | `services/agendamento_online.solicitar`, `PedidoAgendamento` | O caso de uso do wizard: o pedido da titular do celular verificado, do termo LGPD às provas |
 
 ---
 
@@ -106,7 +108,8 @@ aranha_estetica/
 ├── models/          acesso, clientes, profissionais, agenda (AgendaHorario/AgendaExcecao), procedimentos,
 │                    agendamentos (Atendimento/FSM), notificacoes, links (LinkAcesso), consentimentos,
 │                    prontuario, anamnese, termos, nps, pacotes, sistema, push, carteira, comissao,
-│                    historico (trilha historico_alteracao), execucoes (ExecucaoJob), mixins
+│                    historico (trilha historico_alteracao), execucoes (ExecucaoJob), configuracao
+│                    (Configuracao + o registro tipado das regras operacionais), mixins
 ├── db/              peças de banco usadas por migrations (Indice, PadronizarNomes) — congelado
 ├── migrations/sql/  texto SQL das rotinas por versão (v0056 triggers, v0057 leitura/views, v0058
 │                    procedures, v0059 trilhas append-only, v0065 faturamento por competência, v0066
@@ -128,8 +131,10 @@ aranha_estetica/
 ├── views/comum.py   helpers de view usados por mais de uma área (link do feed ICS do painel e do portal);
 │                    as áreas não se importam (contrato "Áreas de views independentes" do import-linter)
 ├── services/        agenda (reservar/reagendar/mover), atendimento (efeitos de criar/mudar status),
-│                    comunicacao (canais, fila de e-mail), agendamento (avisos), disponibilidade
-│                    (SlotService), otp, lgpd, termos, alertas, prontuario (vínculo clínico), comissao,
+│                    agendamento_online (o pedido pelo site), comunicacao (canais, fila de e-mail),
+│                    agendamento (avisos), disponibilidade (SlotService, horários agrupados, dias com
+│                    expediente), precos (vitrine), catalogo (preço base e habilitações), otp, lgpd,
+│                    termos, alertas, prontuario (vínculo clínico), comissao,
 │                    fidelidade, retorno, lista_espera, financeiro (competência), relatorios (Excel),
 │                    indicadores, pacotes, links, consentimentos, anamnese, push, lembretes (D-1 e sem
 │                    desfecho), nps (cálculo, envio, detrator), marketing (promoção e aniversário), feriados
@@ -137,9 +142,11 @@ aranha_estetica/
 │                    saude, fichas, seguranca, dois_fatores, pii, captcha, datas, parse, busca (trigram no
 │                    PG), auditoria, recorrencia (RRULE do subconjunto), respostas (contrato JSON), banco
 │                    (GUCs app.* e CALL das procedures), cifragem, formatos
-├── forms/           cliente.py (ClientePainelForm), painel.py (ProcedimentoForm, BloqueioForm, TermoForm,
-│                    parse_preco), financeiro.py (pacote, cancelar/prorrogar compra, regra de comissão,
-│                    repasse), promocoes.py, nps.py
+├── forms/           agendamento.py (AgendamentoPublicoForm: o POST do wizard → PedidoAgendamento),
+│                    cadastros.py (Usuario/UsuarioEdicao, Profissional, GradeSemanal, Procedimento,
+│                    Configuracao, Marca), cliente.py (ClientePainelForm), painel.py (BloqueioForm,
+│                    TermoForm, CampoPreco/parse_preco, avisar_erros), financeiro.py (pacote,
+│                    cancelar/prorrogar compra, regra de comissão, repasse), promocoes.py, nps.py
 ├── management/commands/  seed, bootstrap_admin, migrate_atomico, setup_2fa, carregar_feriados, rodar_job,
 │                    rodar_jobs_devidos, gerar_chave_cifragem, rotacionar_chave_cifragem,
 │                    reaplicar_esquecimentos, consultas_lentas
@@ -202,19 +209,39 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   min; grade semanal `AgendaHorario` e exceções `AgendaExcecao` — folga/feriado/recesso,
   horário diferente, bloqueios pontuais/recorrentes do profissional ou globais —, buffers,
   `min_notice_horas`, `max_advance_dias`). Usada pelo wizard, pelo
-  reagendamento, pelo agendamento interno e pela validação do servidor.
+  reagendamento, pelo agendamento interno e pela validação do servidor. Em volta dele, no mesmo
+  módulo: `horarios_agrupados` (horários do dia com as profissionais livres e o preço na data — o
+  reagendamento omite o preço) e `dias_com_expediente` (o calendário do mês do wizard em 2
+  consultas: fora feriado/recesso, folga, `max_advance` e dia todo bloqueado);
+  `procedimentos_agendaveis` = ativos com ao menos 1 profissional ativa habilitada.
 - **Agenda** (`services/agenda.py`): as 5 portas que gravam horário (wizard, agendamento pelo
   painel, reagendamento pelo portal, arrasto do calendário, retorno marcado pela recepção) passam por
   `validar_horario` (habilitação, horário futuro, feriado/recesso, SlotService; `detalhado=True`
   dá o motivo à equipe — conflito, bloqueio, folga, expediente — e o site vê a mensagem
   genérica), `reservar` (conflito com `select_for_update`, preço da data, INSERT em savepoint;
   corrida perdida para o EXCLUDE vira `HorarioIndisponivel`), `reagendar` (antigo REAGENDADO +
-  novo com preço/promoção e ficha) e `mover`. O que é só de uma porta fica nela (OTP e
-  consentimentos do wizard, valor combinado do painel, e-mails do portal).
+  novo com preço/promoção e ficha) e `mover`. O que é só de uma porta fica nela (o pedido do
+  wizard, valor combinado do painel, e-mails do portal).
+- **Pedido online** (caso de uso, `services/agendamento_online.solicitar(PedidoAgendamento,
+  request=)`): o `forms/agendamento.AgendamentoPublicoForm` lê o POST do wizard, valida formato,
+  idade e o gate do OTP (o celular tem de ser o verificado **nesta** sessão) e entrega um
+  `PedidoAgendamento`; o service tem a regra inteira, testável sem HTTP — termo LGPD vigente →
+  `validar_horario` → fichas (validade de 12 meses; consentimento de saúde se houver resposta) →
+  termos do procedimento → e-mail de outro cadastro → trava do horário no cache → numa transação:
+  cadastro da **titular** do celular, bloqueio online, teto de 3 horários ativos, opt-ins,
+  `reservar`, e-mail (APROVACAO ou CONFIRMACAO), aceites com prova e fichas com a trilha do art. 11.
+  Toda recusa é `RegraDeNegocio` com `codigo` (`sem_termo_lgpd`, `ficha_invalida`,
+  `consent_saude_ausente`, `termo_pendente`, `email_de_outro_cadastro`, `horario_em_confirmacao`,
+  `bloqueado_online`, `limite_online`, `horario_ocupado`...); a view (`views/publico/agendamento`)
+  só faz honeypot, form, service e a página de sucesso.
+- **Catálogo** (`services/catalogo`): o preço base muda abrindo uma vigência nova a partir de hoje
+  (só quando o valor muda; o histórico fica) e tirar a habilitação de quem ainda tem atendimento
+  futuro do procedimento é recusado (`habilitacao_em_uso`).
 - **Recusas** (`excecoes.py`): service diz "não" levantando `RegraDeNegocio(mensagem, codigo=)`
   (ou `HorarioIndisponivel`/`TransicaoInvalida`); a view só mostra `exc.mensagem` (ou
   `json_recusa(exc)`). `Atendimento.TransicaoInvalida` é a mesma classe.
-- **Respostas JSON** (`utils/respostas.py`, contrato único das APIs do site, do painel e da infra):
+- **Respostas JSON** (`utils/respostas.py`, contrato único das APIs do site — inclusive as do
+  wizard, `/ajax/dias-disponiveis/`, `/ajax/horarios-disponiveis/` e o OTP —, do painel e da infra):
   sucesso `{"ok": true, ...}`, erro `{"ok": false, "codigo": "<estável>", "mensagem": "<texto>"}`
   (`json_ok`, `json_erro`, `json_recusa`) — o front decide pelo `codigo`, nunca pelo texto. Webhooks
   de provedor respondem no formato que o provedor espera.
@@ -222,10 +249,16 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   usada no OTP, nas buscas e no webhook do WhatsApp (só dígitos, DDD + número, sem DDI/zero de
   tronco), E.164 só para telefone BR válido (destino de SMS/WhatsApp) e a máscara de log.
 - **Preço**: `utils/precos.py` — preço vigente por data (profissional > base) e promoção
-  vigente na data; `preco_com_promocao()` é o valor gravado no atendimento e o mesmo que a
-  vitrine (`/promocoes/`, `/especialidades/`, cards do wizard) mostra.
-- **Branding**: `utils/branding.get_branding()` — precedência **tela Branding (tabela
-  `configuracao`) > env > padrão**; contatos vazios escondem o item no site.
+  vigente na data; `preco_com_promocao()` é o valor gravado no atendimento. A vitrine (cards do
+  wizard, widget embutido, `/especialidades/`, página do serviço, `/promocoes/`) sai de uma função
+  só, `services/precos.precos_de_vitrine` (2 consultas para o catálogo inteiro): preço base do dia
+  (sem base, o menor entre os profissionais) com a promoção que o agendamento aplicaria — e só se
+  ela reduz o valor (a vitrine nunca anuncia o que o atendimento não grava).
+- **Branding**: `utils/branding.get_branding()` — precedência **tela Identidade visual ("Branding";
+  tabela `configuracao`, `forms/cadastros.MarcaForm`) > env > padrão**; contatos vazios escondem o
+  item no site; campo igual ao valor em uso não conta como alteração e apagar o ajuste volta ao
+  padrão. As regras operacionais (`email_admin`, `MAX_FALTAS_BLOQUEIO`) são outra tela, com o
+  registro tipado de `models/configuracao.py`.
 - **Comunicação** (`services/comunicacao.py`): toda mensagem ligada a um atendimento é uma
   `Notificacao` (tipo × canal × status) — o histórico do que a cliente e a equipe receberam.
   Os e-mails de confirmação, cancelamento, lembrete D-1 (quem não autorizou o WhatsApp) e o pedido
@@ -368,7 +401,7 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 | | `consumo_sessao` (ConsumoSessao) | 1 sessão consumida por atendimento (OneToOne) de 1 item da compra (`compra_pacote_item`) |
 | Financeiro | `carteira` / `movimento_carteira` | Saldo da cliente (`valor_saldo`, CHECK ≥ 0) e ledger append-only (trigger; `valor` > 0, `valor_saldo_resultante` ≥ 0, autor `usuario_autor_id`) — programa de indicação: origem CASHBACK_INDICACAO/CASHBACK_ESTORNO, USO_AGENDAMENTO (crédito usado no valor do atendimento), CANCELAMENTO (devolução) e AJUSTE_MANUAL, sempre explícita (sem default; VALE_PRESENTE e OUTRO saíram na 0067). Reembolso de pacote é em dinheiro, nunca crédito |
 | | `regra_comissao` / `movimento_comissao` | Regra (`percentual` 0–100 XOR `valor_fixo`; usada não muda nem se exclui — só desativa: `tg_regra_comissao_validar`, 0066) e **livro-razão** de comissão (0053): CREDITO (no máximo 1 ativo — não estornado — por atendimento, 0063; `regra_comissao_id` + snapshot `valor_base_calculo`/`percentual_aplicado`, 0066), PAGAMENTO (baixa ou repasse em lote) e ESTORNO (referenciam o crédito, `usuario_autor`). Status PENDENTE/PAGA/ESTORNADA e saldo (pode ficar negativo) são derivados (`creditos_com_status`, `ComissaoService.saldos_por_profissional`) |
-| Infra | `configuracao` (Configuracao) | Chave-valor: campos do Branding, `email_admin`, `MAX_FALTAS_BLOQUEIO` (opcional). As perguntas do prontuário saíram daqui na 0051 (formulário PRONTUARIO) e o cursor do disparo de promoção na 0068 (vai na `promocao`) |
+| Infra | `configuracao` (Configuracao, `models/configuracao.py`) | Chave-valor com dois donos: a marca e os contatos (`utils/branding.BRANDING_FIELDS`, tela Identidade visual, validação própria) e as **regras operacionais** — registro tipado `CHAVES` (`email_admin`: e-mail válido ou vazio; `MAX_FALTAS_BLOQUEIO`: inteiro de 1 a 10, padrão 3), lido por `Configuracao.ler` (valor em branco ou recusado pelo registro → padrão, com aviso no log). A tela Regras operacionais lista e grava só o registro, sem chave livre; "Restaurar padrão" apaga a linha. As perguntas do prontuário saíram daqui na 0051 (formulário PRONTUARIO) e o cursor do disparo de promoção na 0068 (vai na `promocao`) |
 | | `execucao_job` (ExecucaoJob) | Uma linha por job de mensagem sem marca por destinatário (`aniversario`, `pacote_expirando`, `nps_24h`) e dia local: UNIQUE `job`+`dia` faz a 2ª chamada do dia receber 409 em vez de reenviar tudo (`jobs.executar`); `concluido_em` NULL = em andamento ou falhou, `resultado` = resumo ou tipo do erro. Sem dado pessoal (0070) |
 
 ### 5.3 Invariantes garantidas pelo banco
@@ -503,14 +536,14 @@ portal), `/lgpd/aceitar-cookies/` (o aviso de cookies não grava nada no servido
 | `/painel/calendario/` (+ `eventos/`, `mover/`) | Calendário FullCalendar com arrastar-e-soltar |
 | `/painel/clientes/`, `/painel/clientes/<pk>/` | Clientes e ficha do cliente (pacotes, alertas, histórico) |
 | `/painel/prontuario/` (+ `<cliente_id>/`, `<cliente_id>/salvar/`), `/painel/anotacao/<id>/salvar/` | Prontuário com histórico de versões e anotações |
-| `/painel/profissionais/` (+ `<pk>/ics/novo-token/`, `<prof_id>/excecoes/...`), `/painel/cadastrar-profissional/`, `/painel/editar-profissional/<pk>/` | Profissionais, exceções, gerar link do ICS (a lista mostra só "ativo desde"; a URL aparece uma vez, na geração) |
+| `/painel/profissionais/` (+ `<pk>/ics/novo-token/`, `<prof_id>/excecoes/...`), `/painel/cadastrar-profissional/`, `/painel/editar-profissional/<pk>/` | Profissionais, grade semanal, exceções, gerar link do ICS (a lista mostra só "ativo desde"; a URL aparece uma vez, na geração). Desligamento — profissional desativada, login dela desativado ou vínculo do login trocado — revoga o feed ICS (auditado); reativar exige gerar um link novo |
 | `/painel/procedimentos/...`, `/painel/pacotes/...` (+ `vender/`, `compras/<pk>/cancelar/`, `compras/<pk>/prorrogar/`), `/painel/promocoes/...` (+ `<pk>/disparar/`) | Catálogo, pacotes (venda, cancelamento com reembolso, prorrogação da validade), promoções (disparo em lotes; reenvio só confirmado) |
 | `/painel/bloqueios/...`, `/painel/lista-espera/` (+ `<pk>/notificar/`) | Bloqueios de agenda e lista de espera |
 | `/painel/financeiro/?mes=AAAA-MM`, `/painel/exportar-relatorio/?mes=AAAA-MM` | Financeiro do mês (competência; padrão o mês corrente) e o Excel gerencial do mesmo mês (exportação auditada com o mês) |
 | `/painel/comissoes/` (+ `<pk>/pagar/`, `repasse/`, `repasse/<pk>/`, `regras/`, `regras/criar/`, `regras/<pk>/ativo/`, `regras/<pk>/excluir/`) | Comissões: baixa de um crédito, repasse em lote ("pagar pendentes até") e o recibo para imprimir (sem nome de cliente), regras de comissão (usada só desativa) |
 | `/painel/nps/` (+ `<pk>/publicacao/`) | NPS e moderação de depoimentos |
 | `/painel/anamneses/...`, `/painel/termos/` (+ `criar/`, `compliance/`) | Formulários e termos |
-| `/painel/notificacoes/`, `/painel/auditoria/`, `/painel/usuarios/...`, `/painel/configuracoes/...`, `/painel/branding/`, `/painel/email-preview/[<nome>/]` | Sistema |
+| `/painel/notificacoes/`, `/painel/auditoria/`, `/painel/usuarios/...`, `/painel/configuracoes/` (+ `criar/`, `<pk>/editar/`, `<pk>/excluir/` = restaurar padrão), `/painel/branding/`, `/painel/email-preview/[<nome>/]` | Sistema: notificações, auditoria, usuários (ninguém muda o próprio papel; o último ADMIN ativo não é rebaixado nem desativado), **Regras operacionais** (só o registro tipado), **Identidade visual** (marca e contatos). As escritas de usuários, profissionais, procedimentos e regras usam `@escrita_painel` (POST + 30/min por usuário) |
 | `/webpush/{public-key,subscribe,unsubscribe}/` | Web Push da equipe |
 | `/django-admin-sv/` | Django admin (só ADMIN com sessão 2FA verificada) |
 
@@ -1253,12 +1286,12 @@ uma falha no dia).
    profissional faz o mesmo no primeiro login (o 2FA dele também é obrigatório em prod).
 2. **Remova `ADMIN_PASSWORD` do Railway** (fica em texto puro; o comando não faz nada sem ela).
 3. Rode `python manage.py axes_reset` (limpa bloqueios de login herdados do deploy antigo).
-4. **Painel > Branding**: telefone, WhatsApp (DDI+DDD+número), e-mail de contato, endereço e
+4. **Painel > Identidade visual** (Branding): telefone, WhatsApp (DDI+DDD+número), e-mail de contato, endereço e
    horário reais — a tela vence a env; campo vazio esconde o item no site.
 5. **Painel > Termos**: revise o **termo LGPD v1.0** criado pela `0045` (resumo da política de
    privacidade). Depois do primeiro aceite ele fica imutável — correções viram nova versão. Crie
    os termos de PROCEDIMENTO necessários.
-6. Confira Configurações (`email_admin` do alerta de detrator), profissionais (expediente,
+6. Confira Regras operacionais (`email_admin` do alerta de detrator, faltas para pausar o online), profissionais (expediente,
    `max_advance_dias`), procedimentos/preços e a `LogAuditoria` com `migration 0034:` (duplicatas
    a mesclar e telefones inválidos a corrigir).
 7. Faça um agendamento real de ponta a ponta (SMS chega, e-mail sai, aprovação no painel).
@@ -1463,6 +1496,7 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 | 2026-10-27 | Revisão, fases 3 e 4: regras de agenda num lugar só (`services/agenda`), efeitos de status explícitos (`services/atendimento`, sem signals), auditoria pelo `Ator` da borda, e-mail como fila na própria `notificacao` (0061) e saída do Celery (`jobs.py`/`rodar_job`), Django Forms no painel, inventário LGPD testado, camadas (import-linter) e mypy nos services; front com tokens/foco/tema automático, wizard com botão Continuar, entradas do Vite por tela, fontes locais, `<dialog>`, formulários acessíveis, e-mails para o Outlook, componentes cotton e PWA |
 | 2026-10-28 | Revisão, fases 2 e 5: `settings/test.py` único (hash MD5: suíte de ~4 min para ~40 s; `--keepdb`), ruff com regra de fuso + pre-commit, catraca de cobertura (87 %), wizard no Chromium no CI (achou o link pré-selecionado parado na etapa 1), data migrations em paralelo (25 → 10 min), CI com pins por SHA/digest, Dependabot e `pip-audit` bloqueante, `aranha.W014` (ambiente fora do lock), [`DESENVOLVIMENTO.md`](DESENVOLVIMENTO.md); banco: alertas de saúde em lote (painel 38 → 20 consultas, prontuários 28 → 8 com 10 clientes), filtros por dia como intervalo (14 `__date`), `statement_timeout`/`application_name` na conexão, `consultas_lentas` (pg_stat_statements) e roteiro de staging |
 | 2026-10-28 | Pacotes da revisão funcional (0062–0074): financeiro por competência mensal, rateio ponderado do pacote, prorrogar/cancelar compra, regras de comissão no painel, snapshot e repasse em lote, "Minhas comissões" (0065–0067); jobs com agenda única (`JOB_AGENDA`) e serviço Cron do Railway, lembrete D-1 por e-mail, push de sem desfecho, NPS 1×/90 dias, promoção de disparo único, "PARAR" no WhatsApp, trava diária `execucao_job` (0068–0070); remoções — Google Agenda, papel RECEPCAO, link legado de reagendar, modalidade/videoconferência, tipos de notificação sem produtor, RG/profissão/foto, gravação do aviso de cookies, pytest (0071–0074); borda — checks E002–E004/W015, segredos fortes, `.env.example` testado, configuração só nos settings (TID251), `utils/telefone` e `utils/respostas`, redação de logs, imagem endurecida, axes por IP, 2FA falha fechado, gitleaks/npm audit e cobertura combinada no CI |
+| 2026-10-29 | Pedido online como caso de uso (`services/agendamento_online` + `forms/agendamento`, view fina; teto de 3 horários pelo site, ficha válida por 12 meses, pedido sempre da titular, vitrine em `services/precos`, "Avise-me se vagar"); equipe, catálogo e configurações com Django Forms (`forms/cadastros`), `services/catalogo`, regras operacionais em registro tipado (`models/configuracao`) e feed ICS revogado no desligamento |
 | 2026-09-23 | Auditoria pré-produção completa (~450 correções em ~30 commits, `b5fd681..182e2e9`): OTP preso ao telefone em todo agendamento, consentimentos LGPD/art. 11 com prova, 2FA obrigatório do ADMIN, histórico do prontuário, prova de aceite imutável, deploy por Dockerfile + `migrate_atomico`, retenção LGPD efetiva, migrations 0040–0046. Detalhe em [`ARCHITECTURE.md`](ARCHITECTURE.md#6-progresso-checkpoint) |
 
-**Mantenedor:** Rafael Maciel · **Última atualização:** 2026-10-28
+**Mantenedor:** Rafael Maciel · **Última atualização:** 2026-10-29
