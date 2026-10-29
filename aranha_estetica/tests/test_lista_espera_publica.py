@@ -56,7 +56,7 @@ class InscricaoPublicaTests(_Base):
     def test_get_renderiza_formulario(self):
         resp = self.client.get(self.url)
         self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, 'Lista de Espera')
+        self.assertContains(resp, 'Lista de espera')
         self.assertContains(resp, self.proc.nome)
         self.assertContains(resp, 'name="email"')
         self.assertContains(resp, 'name="website"')   # honeypot

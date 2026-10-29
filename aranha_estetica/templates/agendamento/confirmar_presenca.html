@@ -54,7 +54,7 @@
       <h2 class="text-xl font-bold text-texto">Este agendamento não pode mais ser alterado por este link</h2>
       <p class="mt-2 text-sm text-texto-suave">
         Situação atual: <strong class="text-texto">{{ atendimento.get_status_display }}</strong>.
-        Para ajustes, acesse Meus Agendamentos{% if WHATSAPP_NUMERO %} ou fale conosco pelo WhatsApp{% endif %}.
+        Para ajustes, acesse Meus agendamentos{% if WHATSAPP_NUMERO %} ou fale conosco pelo WhatsApp{% endif %}.
       </p>
     </div>
 
@@ -86,7 +86,7 @@
         </div>
       </div>
 
-      <!-- Data e Horário -->
+      <!-- Data e horário -->
       <div class="flex items-center gap-3 py-4">
         <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-superficie border border-borda">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-texto-suave" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -94,7 +94,7 @@
           </svg>
         </div>
         <div>
-          <p class="text-xs font-medium uppercase tracking-wide text-texto-suave">Data e Horário</p>
+          <p class="text-xs font-medium uppercase tracking-wide text-texto-suave">Data e horário</p>
           <p class="font-bold text-texto">
             {{ atendimento.data_hora_inicio|date:"d/m/Y" }} às {{ atendimento.data_hora_inicio|time:"H:i" }}
           </p>
@@ -126,14 +126,14 @@
           <svg xmlns="http://www.w3.org/2000/svg" class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
-          Confirmar Presença
+          Confirmar presença
         </button>
         <button type="submit" name="acao" value="cancelar"
                 class="inline-flex w-full items-center justify-center rounded-full border-2 border-erro bg-fundo px-4 py-3 text-sm font-bold text-erro transition hover:bg-erro-fundo hover:border-erro">
           <svg xmlns="http://www.w3.org/2000/svg" class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
-          Cancelar Agendamento
+          Cancelar agendamento
         </button>
         {% if cancelamento_tardio %}
         {# decisao 10: aviso antes de confirmar o cancelamento com menos de 24 h #}
@@ -155,7 +155,7 @@
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
           </svg>
-          Meus Agendamentos
+          Meus agendamentos
         </a>
         {% if resposta == 'CANCELOU' or atendimento.status == 'CANCELADO' %}
         <a {% agendar_link %}
