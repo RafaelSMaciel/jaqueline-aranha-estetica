@@ -43,7 +43,8 @@ O papel RECEPCAO saiu (migration 0072): a dona faz a recepção pelo painel.
   CEP e endereço só pela finalidade (nota fiscal e contrato de pacote). RG, profissão e foto não são
   coletados (saíram na 0074).
 - **Idade mínima para agendar online: 18 anos** (data de nascimento obrigatória no wizard).
-- **Bloqueio por faltas:** cada FALTOU soma 1 em `faltas_consecutivas`; ao atingir o limite
+- **Bloqueio por faltas:** cada FALTOU soma 1 em `faltas_consecutivas` — e cada **cancelamento
+  tardio** da própria cliente também (§8: menos de 24 h de um horário já aprovado); ao atingir o limite
   (regra operacional `MAX_FALTAS_BLOQUEIO`, Painel > Regras operacionais: inteiro de **1 a 10**,
   padrão **3** = `MAX_FALTAS_ANTES_BLOQUEIO`; valor não numérico ou menor que 1 gravado por fora da
   tela vale como 3) a cliente fica `bloqueado_online` e o wizard recusa com o motivo e o caminho de
@@ -51,7 +52,7 @@ O papel RECEPCAO saiu (migration 0072): a dona faz a recepção pelo painel.
   revisão ou marcar, fale conosco pelo WhatsApp" — decisão automatizada, LGPD art. 20). Comparecer
   (REALIZADO) zera o contador **e** desbloqueia. O painel ainda agenda cliente bloqueada.
 - **Exclusão:** `Cliente.delete()` é soft delete (`deletado_em`); apagar de verdade só com
-  `hard=True`. Anonimização: §22.
+  `hard=True`. Pseudonimização (o "esquecimento"): §22.
 
 ---
 
@@ -112,7 +113,9 @@ confere o OTP; a regra inteira mora no service, e cada recusa tem um `codigo`).
   cadastro é recusado.
 - Ao concluir: push "Novo agendamento" à profissional (se ela ativou) e o e-mail do status —
   pedido PENDENTE = e-mail de aprovação à profissional com link para a agenda do dia; de confiança
-  = e-mail de confirmação à cliente (§7).
+  = e-mail de confirmação à cliente (§7). A cliente sai da lista de espera daquele procedimento
+  (§17) e a área **"Meus agendamentos"** já abre sem novo SMS (o celular acabou de ser verificado;
+  §8).
 - **Sem SMS configurado** o agendamento online fica indisponível e os botões "Agendar" levam ao
   WhatsApp da clínica.
 
@@ -120,11 +123,24 @@ confere o OTP; a regra inteira mora no service, e cada recusa tem um `codigo`).
 
 ## 4. Agendamento interno (recepção, no painel)
 
-- Painel > Agendamentos > **Novo agendamento**: cliente existente (busca) ou nova (nome +
-  telefone validado), procedimento, profissional habilitado, horário do **mesmo SlotService**.
-- Sem OTP da cliente; nasce **AGENDADO** (a própria clínica confirmou); auditado.
-- Valor = preço com promoção na data; a recepção pode informar outro valor combinado (fica
-  registrado). Mostra aviso de **ficha de anamnese obrigatória pendente**, quando houver.
+Caso de uso `services/agenda.agendar_pela_recepcao`; a tela valida pelos Forms
+(`forms/agenda.AgendamentoPainelForm`, `forms/cliente.ClienteRapidoForm`).
+
+- Painel > Agendamentos > **Novo agendamento**: cliente existente (busca sem acento) ou nova
+  (nome, telefone obrigatório com DDD, e-mail opcional — gravada na mesma transação do
+  atendimento), procedimento, profissional **que realiza o procedimento**, dia e um dos horários
+  livres do **mesmo SlotService** do site; no "agendar" o servidor revalida tudo
+  (`validar_horario`, com o motivo detalhado para a equipe). Cliente inativa não agenda: a tela
+  avisa e leva à ficha para reativar; telefone ou e-mail de cliente já cadastrada é recusado
+  ("busque a cliente cadastrada").
+- Sem OTP da cliente; nasce **AGENDADO** (a própria clínica confirmou), a cliente recebe o e-mail
+  de **confirmação** (data, valor e links) e fica na auditoria (`Agendou pelo painel`).
+- Valor = preço da data com a promoção (`preco_da_recepcao`); valor informado diferente vira
+  "Valor combinado pela recepção" (o preço cheio fica em `valor_original`, sem promoção). Depois de
+  agendar, avisa quando há **ficha de anamnese obrigatória pendente** ("Link da ficha", §20).
+- Corrida pelo horário (outro pedido reservou no meio) → "Este horário acabou de ser reservado";
+  outro cadastro com o mesmo telefone/e-mail/CPF no meio do caminho → recusa
+  (`cliente_duplicada`).
 
 ---
 
@@ -154,19 +170,37 @@ Semântica: **PENDENTE** = pedido aguardando a clínica; **AGENDADO** = horário
 trava a linha, valida a tabela acima, grava `LogAuditoria` e dispara os efeitos (§23). Transição
 inválida → `Atendimento.TransicaoInvalida` (a tela mostra a mensagem, nunca 500).
 
+**Desfecho só depois do início:** REALIZADO e FALTOU só valem a partir do início do atendimento
+(menos `TOLERANCIA_DESFECHO`, **30 min**, para quem marca na hora) — a FSM recusa antes
+(`desfecho_antes_do_inicio`; o painel responde 409): um clique na agenda da semana seguinte não
+gera comissão, não debita pacote nem conta falta.
+
+**Seletor de status** (listas do painel — agenda e visão geral, `partials/_select_status.html`): só
+aparece para **AGENDADO** (Confirmar presença, Realizado, Cancelar, Faltou) e **CONFIRMADO**
+(Realizado, Cancelar, Faltou); Realizado e Faltou só entram na lista a partir do mesmo limite. Pedido
+PENDENTE mostra o selo "Aguardando aprovação" e se decide nos botões (§7); status final não tem
+seletor (Realizado tem o "Desfazer realização", com motivo: estorna a comissão pendente e o
+cashback, devolve a sessão do pacote; comissão já paga recusa). Cancelar pelo seletor avisa a
+cliente por e-mail.
+
 **Termo pendente:** marcar REALIZADO com termo de procedimento ainda não aceito é recusado
-(painel responde 409 `termo_pendente`); a equipe pode confirmar explicitamente **"Realizado sem
-termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
+(`excecoes.TermoPendente`; o painel responde 409 `termo_pendente` com a lista dos termos); a equipe
+pode confirmar explicitamente **"Realizado sem termo aceito"** (ex.: assinado em papel), o que fica
+na auditoria. A regra é a mesma no painel e no portal da profissional
+(`services/atendimento.marcar_realizado`).
 
 ---
 
 ## 7. Aprovação e rejeição
 
 - PENDENTE → **aprovar** = AGENDADO + e-mail de confirmação à cliente; **rejeitar** = CANCELADO +
-  e-mail de cancelamento. Pelo painel (botões, em lote **ou o seletor de status** — Agendado/
-  Confirmado aprova, Cancelado recusa, pelo mesmo `AgendamentoService`) ou pelo portal (só os
-  próprios pedidos do profissional). Auditado com IP. Pedido não pode ir direto a CONFIRMADO
-  (confirmar presença é da cliente, depois de aprovado).
+  e-mail de cancelamento. Pelo painel (botões Aprovar/Recusar da agenda e da visão geral, ou **em
+  lote**: marcar os pendentes e aprovar/recusar todos) ou pelo portal (só os próprios pedidos do
+  profissional), sempre pelo `AgendamentoService`. Auditado com IP. O lote decide **item a item**
+  (`decidir_em_lote`, cada um na sua transação): o pedido que outra tela decidiu no meio do caminho
+  (ou que falhou no banco) fica de fora sem desfazer os outros, e a tela diz quantos foram
+  decididos. Pedido já decidido em outra tela vira aviso ("já está como …"), nunca erro. Pedido não
+  pode ir direto a CONFIRMADO (confirmar presença é da cliente, depois de aprovado).
 - PENDENTE sem decisão a **menos de 1 h do início** (`PRAZO_DECISAO_PENDENTE`) → CANCELADO pelo
   job `limpeza_status` (de hora em hora; "expirado sem aprovação") + e-mail à cliente "não
   conseguimos confirmar o seu pedido a tempo", e a vaga volta para a lista de espera.
@@ -188,15 +222,30 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 
 - **Pela cliente**, só pelo portal **"Meus agendamentos"** (id do atendimento + sessão do OTP, só
   agendamentos do telefone verificado; não há link de reagendar — o legado saiu na 0072): reagendar
-  só com **≥ 24 h** de antecedência (`JANELA_MINIMA_REAGENDAMENTO`) e status ativo; cancelar a
-  qualquer momento **antes do início** (também pelo link do lembrete D-1, §9).
+  só com **≥ 24 h** de antecedência (`JANELA_MINIMA_ALTERACAO`) e status ativo; cancelar a
+  qualquer momento **antes do início** (também pelo link do lembrete D-1, §9, que só mexe em
+  AGENDADO/CONFIRMADO), pela regra única `services/agenda.cancelar_pela_cliente` (linha travada:
+  clique duplo não cancela nem conta falta duas vezes).
+- **Cancelamento tardio:** cancelar com **menos de 24 h** um horário **já aprovado** (AGENDADO ou
+  CONFIRMADO) conta como falta — soma 1 em `faltas_consecutivas` e pode suspender o agendamento
+  online (§2) —, sem virar FALTOU (o atendimento fica CANCELADO e a vaga volta para a lista de
+  espera). Pedido ainda PENDENTE não conta (a clínica não tinha confirmado). O modal do portal e a
+  página do link avisam antes; a resposta diz quando contou como falta, e a trilha registra
+  "Cancelado pela cliente (portal|link) — cancelamento tardio, conta como falta".
+- **Área da cliente** ("Meus agendamentos", sessão do OTP de 1 h, aberta também no fim do wizard
+  sem novo SMS): agendamentos futuros e passados, reagendar e cancelar, retornos sem custo a
+  combinar, código e saldo de indicação, **Minhas preferências** (as 3 autorizações de
+  comunicação, §21), **revogar o consentimento de saúde** (§21), **pedir correção ou exclusão** e
+  **baixar meus dados** (§22).
 - Reagendar: o antigo vira **REAGENDADO** antes de o novo entrar (a constraint não acusa conflito
   consigo mesma); o novo herda preço/promoção, `eh_retorno` e `atendimento_origem` (retorno
   continua retorno, com a duração de retorno) e a **ficha de anamnese** passa para o novo
   atendimento. Status do novo: **AGENDADO** se o original já estava aprovado (AGENDADO/
   CONFIRMADO) **e** a profissional é a mesma; senão volta a **PENDENTE**.
-- **Pelo painel:** mudança de status pela FSM; arrastar no calendário move o horário (não move
-  REALIZADO/CANCELADO/FALTOU; conflito → 409).
+- **Pelo painel:** mudança de status pela FSM (seletor, §6); arrastar no calendário move o horário
+  no lugar (`services/agenda.mover`: só PENDENTE/AGENDADO/CONFIRMADO; duração e preço combinados
+  ficam), com a mesma validação do site e o motivo da recusa para a equipe — conflito, bloqueio,
+  folga, feriado, fora do expediente (409); status final → 400.
 - Cancelamento e reagendamento **liberam a vaga** para a lista de espera (§17).
 
 ---
@@ -215,7 +264,8 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
   sai.
 - O lembrete traz dois links (`/confirmar/<token>/?acao=confirmar|cancelar`): confirmar
   (AGENDADO → CONFIRMADO) ou cancelar, **uma resposta só**; PENDENTE, terminal ou passado não é
-  editável.
+  editável. Cancelar por ali com menos de 24 h é cancelamento tardio e conta como falta (§8): a
+  página avisa antes.
 - O descadastro de marketing **não** desliga o lembrete (é aviso do serviço); o "PARAR" no
   WhatsApp desliga só o WhatsApp — o lembrete passa a ir por e-mail (§21).
 
@@ -223,8 +273,9 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 
 ## 10. Faltas (no-show)
 
-- Só a **equipe** marca FALTOU (AGENDADO/CONFIRMADO → FALTOU) — soma falta e pode bloquear o
-  online (§2).
+- Só a **equipe** marca FALTOU (AGENDADO/CONFIRMADO → FALTOU, a partir do início — §6) — soma
+  falta e pode bloquear o online (§2). O cancelamento tardio da própria cliente (§8) também soma
+  falta, sem virar FALTOU.
 - O sistema **não** marca falta sozinho (FALTOU é terminal e bloquearia a correção para
   REALIZADO): todo dia às 08:00 (job `sem_desfecho`) cada profissional recebe um **push** com
   "N atendimentos aguardam desfecho" — os AGENDADO/CONFIRMADO dela que já terminaram sem
@@ -312,10 +363,12 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 
 ## 14. Valor cobrado e faturamento
 
-- Painel > Agendamentos > **valor**: registra o valor combinado (guarda o anterior em
-  `valor_original`). Recusado para CANCELADO/FALTOU/REAGENDADO, para retorno (sempre 0) e para
-  REALIZADO que já tem comissão lançada. Em REALIZADO sem comissão, calcula a comissão e o
-  cashback na hora.
+- Painel > Agendamentos > **valor** (`services/atendimento.registrar_valor_cobrado`): registra o
+  valor combinado ("Valor combinado pela recepção"; guarda o anterior em `valor_original`) e pode
+  abater o crédito de indicação da cliente (até o saldo e o valor). Recusado para
+  CANCELADO/FALTOU/REAGENDADO e para retorno (sempre 0). Em REALIZADO, recalcula a comissão — o
+  crédito PENDENTE é estornado e lançado de novo com a base nova; comissão já **paga** recusa (o
+  repasse saiu) — e libera o cashback da indicadora se ainda não tinha saído.
 - **Competência mensal** (`services/financeiro.competencia`, `?mes=AAAA-MM`, padrão o mês local
   corrente): o financeiro, a visão geral e o Excel usam o mesmo período, escrito na tela.
 - **Faturamento do mês** = atendimentos **avulsos** REALIZADOS com valor > 0 (sem retornos, **sem
@@ -367,7 +420,7 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
   Idempotente; cancelamento do atendimento estorna (`CASHBACK_ESTORNO`), saldo nunca negativo.
 - Carteira é ledger **imutável** (trigger): correção = novo movimento. A observação do cashback
   guarda só o **id** da indicada (`Indicacao (cli #<id>)`), nunca o nome — o ledger não pode ser
-  anonimizado (a 0053 saneou as linhas antigas).
+  pseudonimizado (a 0053 saneou as linhas antigas).
 - A ficha da cliente registra quem indicou (código de indicação) e mostra saldo, extrato e as
   indicadas; o portal mostra o código e o saldo. O crédito é **usado** no valor de um atendimento
   (até o saldo e o valor; 1 uso por atendimento; não em retorno) e **volta** se o atendimento é
@@ -378,18 +431,36 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 
 ## 17. Lista de espera
 
-- Formulário público: nome, celular, procedimento, data desejada (futura), turno e profissional
-  (opcionais), e-mail opcional. 1 pedido ativo por cliente/procedimento/data (UNIQUE parcial).
-- O e-mail digitado vai só para a inscrição (`email_contato`), **nunca** para o cadastro; para
-  telefone já cadastrado, só se o telefone foi provado por SMS na sessão (senão o aviso usa o
-  contato do cadastro). A página de sucesso é igual em todos os casos (sem enumeração).
+Regra em `services/lista_espera` (form público em `forms/publico.ListaEsperaForm`).
+
+- **Formulário público** (`/lista-espera/`, ou "Avise-me se vagar" do wizard, que já chega com
+  procedimento, data e profissional): nome, celular, procedimento, data desejada (a partir de
+  hoje), turno (manhã, tarde, noite ou qualquer) e profissional (opcionais), e-mail opcional.
+  Anti-abuso: captcha (Turnstile, quando configurado), campo-isca (honeypot: robô é descartado em
+  silêncio) e **20 inscrições por dia por IP**. A página de sucesso é igual em todos os casos
+  (inscrição nova, repetida ou descartada — sem enumeração).
+- **Não cria cadastro.** A inscrição é **anônima** (`nome_contato` + `telefone_contato`, sem
+  e-mail); só se liga à cliente — e só então guarda o e-mail digitado em `email_contato`, nunca no
+  cadastro — quando o celular foi **verificado por SMS nesta sessão** (o OTP do wizard). Uma
+  inscrição por pessoa (cliente ou celular) + procedimento + dia (UNIQUE); repetir devolve a que
+  já existe.
 - **Aviso de vaga** (mecanismo único): quando um atendimento ativo futuro vira CANCELADO ou
-  REAGENDADO, todos os pedidos compatíveis (mesmo procedimento, mesmo dia, profissional vazio ou
-  igual), em ordem de chegada, recebem e-mail (`email_contato` ou do cadastro) e WhatsApp
-  (template `lista_espera_vaga`, só com o lembrete por WhatsApp autorizado) com link para agendar.
-  Não há reserva do horário: quem agendar primeiro leva. `notificado` só com entrega real; sem
-  entrega o pedido fica para contato manual (Painel > Lista de espera > notificar).
-- Pedido com data passada é apagado pelo job semanal de LGPD.
+  REAGENDADO, os pedidos compatíveis — mesmo procedimento e dia, profissional vazio ou igual,
+  turno vazio ou o da vaga (manhã antes das 12h, tarde das 12h às 18h, noite a partir das 18h) e
+  só se a vaga respeita a antecedência mínima da profissional (o site não deixaria marcar antes) —,
+  em ordem de chegada. Recebem aviso automático só as inscrições **ligadas ao cadastro**: e-mail
+  (`email_contato` ou o do cadastro; o nome só vai quando o destino é o e-mail do cadastro) e
+  WhatsApp (template `lista_espera_vaga`, só com o lembrete por WhatsApp autorizado), com link para
+  o wizard já no procedimento, na profissional e no dia. Não há reserva do horário: quem agendar
+  primeiro leva. A entrega grava `ultimo_aviso_em` e **a inscrição continua na fila** (quem não
+  conseguiu a vaga segue esperando).
+- **Inscrição anônima** não tem canal automático: a recepção vê nome e celular no painel e faz o
+  contato. **Painel > Lista de espera > Avisar**: e-mail quando há destino (mesma regra) e o aviso
+  fica registrado mesmo sem e-mail (a recepção completa pelo WhatsApp ou telefone); auditado.
+- **Sai da fila** quando a data passa (job semanal de LGPD) ou quando a pessoa **agenda** o
+  procedimento (por qualquer porta: as inscrições dela — pelo cadastro ou pelo mesmo celular — para
+  aquele procedimento, de hoje em diante, são apagadas). A pseudonimização apaga também a inscrição
+  anônima com o celular da titular.
 
 ---
 
@@ -411,7 +482,7 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
   e-mail de contato da Identidade visual (job `detrator_alerta`, 10:30).
 - **Depoimento no site** (`/depoimentos/`): só com opt-in da cliente (`autoriza_publicacao`),
   aprovação da equipe (Painel > NPS > publicação), nota ≥ 9 e comentário; cliente excluída ou
-  anonimizada nunca aparece. Autor exibido com nome abreviado.
+  pseudonimizada nunca aparece. Autor exibido com nome abreviado.
 
 ---
 
@@ -467,7 +538,15 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
   a equipe registrou no prontuário (alergias, contraindicações, medicamentos, perguntas extras) +
   respostas de risco declaradas pela cliente nas fichas (alergia, gestação, anticoagulante,
   diabetes, etc.). Marcador **"ficha pendente"** quando a ficha obrigatória do procedimento não foi
-  respondida.
+  respondida. Cliente que **revogou o consentimento de saúde** (§21) tem no topo dos alertas
+  "Consentimento de saúde revogado em dd/mm/aaaa" (o registro já feito continua visível). Os
+  marcadores da linha (alerta, termo pendente, ficha pendente e, na agenda, pacote e crédito) saem
+  em lote (`services/alertas.marcar_atendimentos`, quantidade fixa de consultas por página); a
+  agenda (lista) e a visão geral do painel registram na auditoria **"Leu alertas de saúde"** (tabela
+  `prontuario`, com os ids das clientes e a tela, sem nome) quando mostram algum alerta.
+- **Retorno devido na agenda:** o atendimento REALIZADO com retorno obrigatório ainda dentro da
+  janela e sem retorno marcado mostra o botão **"Agendar retorno (até dd/mm)"**, que abre a mesma
+  tela de Retornos a marcar (§11).
 
 ---
 
@@ -483,15 +562,34 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
   procedimento. Faltou algum → marcador **"Termo pendente"** no painel/portal e **link do termo**
   por atendimento (Painel > Agendamentos > termo-link): válido **até o fim do atendimento**, para
   aceitar no balcão ou enviar por WhatsApp/e-mail.
-- **Termo LGPD v1.0** (resumo da política de privacidade, `constants.TERMO_LGPD_*`): criado pela
-  migration 0045 em banco que já tem clientes e nenhum termo LGPD ativo; instalação nova recebe
-  pelo `seed` ou Painel > Termos.
+- **Política de Privacidade = termo LGPD.** O texto completo da v1.0 (dados, finalidades e bases
+  legais, saúde, mensagens, decisões automatizadas, operadores, cookies, segurança, direitos e a
+  tabela de prazos) mora em `conteudo/lgpd.py` — fonte única do termo, da página
+  `/politica-de-privacidade/` (que mostra o texto da **versão LGPD vigente**, com versão e data, só
+  emoldurado pela identificação da clínica e o contato do encarregado da tela Identidade visual) e
+  da declaração do "baixar meus dados". A migration 0045 grava a v1.0 sempre que não há termo LGPD
+  ativo (banco novo inclusive) e o `seed` também; a 0078 reescreveu a v1.0 sem aceite. **Antes do
+  go-live o texto precisa da revisão jurídica da dona** (de preferência com advogado); depois do
+  primeiro aceite, mudar = versão nova. Os prazos publicados têm de bater com `settings.RETENCAO_*`
+  (check `aranha.W016`).
 - **Consentimentos de comunicação** com histórico (tabela `consentimento`, append-only): promoções
   por e-mail, pesquisa por WhatsApp e lembrete por WhatsApp. Cada concessão/revogação é uma linha
   com texto exibido, IP, user-agent, origem e data; **vale o registro mais recente** (quem se
   descadastrou e marca de novo no agendamento volta a receber). **Descadastro** (link) revoga
-  marketing e pesquisa e mantém o lembrete D-1. A equipe, na ficha do cliente, **revoga** a
-  pedido; registrar autorização pelo painel exige justificativa (fica com o autor).
+  marketing e pesquisa e mantém o lembrete D-1. A cliente muda as três em **"Minhas preferências"**
+  do portal (o checkbox mostra o estado vigente; marcar concede com o mesmo texto do agendamento,
+  desmarcar revoga; origem PORTAL, com IP e navegador; par sem mudança não grava nada). A equipe, na
+  ficha do cliente, **revoga** a pedido; registrar autorização pelo painel exige justificativa
+  (fica com o autor).
+- **Consentimento de dado de saúde** (art. 11 I) fica fora da tabela `consentimento`: a concessão é
+  o aceite do termo SAÚDE (na ficha do wizard ou do link) e a **revogação** é
+  `cliente.saude_revogada_em` (`services/consentimentos.revogar_saude`) — pelo portal ("Revogar
+  consentimento de saúde", origem PORTAL) ou pela equipe a pedido da cliente (ação do Django admin,
+  com motivo obrigatório, origem ADMIN), com a trilha `LGPD: consentimento de saude revogado`. A
+  revogação vale dali em diante: a ficha já preenchida fica pelo prazo de guarda (§22) e os alertas
+  mostram a revogação (§20). Um aceite SAÚDE novo (ficha respondida com a caixa marcada) reativa.
+  O wizard **não** volta a exigir a ficha só por causa da revogação: a ficha em dia (12 meses, §3)
+  continua valendo.
 - **"PARAR" no WhatsApp:** a cliente que responde com a mensagem inteira "parar", "sair", "stop",
   "cancelar mensagens" ou "descadastrar" (sem diferença de acento, caixa ou pontuação final) tem o
   lembrete e a pesquisa **por WhatsApp** revogados (origem WHATSAPP; revogar tão fácil quanto
@@ -505,23 +603,48 @@ termo aceito"** (ex.: assinado em papel), o que fica na auditoria.
 
 ## 22. Retenção e esquecimento
 
+Os prazos LGPD são os publicados na política (§21) e ficam **fixos** em `settings.RETENCAO_*`, sem
+variável de ambiente (mudar = versão nova do termo; `aranha.W016` avisa a divergência); os de
+limpeza técnica (OTP, mensagens, auditoria, axes, links) seguem ajustáveis por env.
+
 | Dado | Regra |
 |---|---|
 | Código OTP | Apagado após 24 h |
 | Texto de notificação | Limpo após 12 meses |
-| Log de auditoria | Apagado após 5 anos |
+| Log de auditoria (com o IP) | Apagado após 5 anos |
 | Logs de login (axes) | Apagados após 90 dias |
-| Cliente sem atendimento há 5 anos (`LGPD_RETENCAO_CLIENTE_DIAS`) | Anonimizada (job semanal) — **exceto** com prontuário com conteúdo, pacote comprado ou atendimento REALIZADO nos últimos 20 anos |
-| Cliente excluída (soft delete) | Anonimizada após 30 dias (mesmas exceções) |
-| Ficha de anamnese de pedido não realizado (CANCELADO, PENDENTE vencido, convite não respondido) | Apagada após **90 dias** |
-| Lista de espera com data passada | Apagada |
-| Atendimento realizado, prontuário e histórico, aceites | Retidos (registro de saúde, ~20 anos); nunca apagados |
+| Cliente sem atendimento há 5 anos (`RETENCAO_CLIENTE_INATIVO_DIAS`) | **Pseudonimizada** (job semanal) — **exceto** enquanto houver registro de saúde dentro da janela de 20 anos (atendimento REALIZADO, versão do prontuário ou prontuário com conteúdo editado nesse período) ou pacote a menos de **5 anos** do fim (cancelamento, validade ou, sem validade, a compra — `RETENCAO_PACOTE_APOS_EXPIRAR_DIAS`). Aceite de termo não retém |
+| Cliente excluída (soft delete) | Pseudonimizada após **30 dias** de carência (`RETENCAO_CARENCIA_SOFT_DELETE_DIAS`; mesmas exceções) |
+| Ficha de anamnese de pedido não realizado (CANCELADO, PENDENTE vencido, convite não respondido ou vazio de horário passado) | Apagada após **90 dias** (`RETENCAO_FICHA_SEM_ATENDIMENTO_DIAS`); a respondida de FALTOU/REAGENDADO fica |
+| Lista de espera | Apagada quando a data passa ou quando a pessoa agenda o procedimento (§17) |
+| Registro de saúde (prontuário, versões, anotações, fichas de atendimento realizado e a trilha do prontuário) | **Expurgado 20 anos depois do último evento de saúde** da cliente — último REALIZADO, edição ou versão do prontuário, anotação ou ficha (`RETENCAO_ATENDIMENTO_SAUDE_DIAS`, etapa `saude` do `housekeeping`); o banco só aceita esse DELETE com 20 anos ou mais |
+| Aceites de termo | Nunca apagados; o do termo LGPD perde IP e navegador na pseudonimização; os de SAÚDE/procedimento, quando não há mais registro de saúde |
+| Atendimentos e pacotes | Ficam (contrato), ligados ao titular pseudonimizado |
 
-**Esquecimento** (ação no Django admin e job): nome → `[ANONIMIZADO-<pk>]`, dados de contato e
-documentos zerados, consentimentos vigentes revogados (o histórico fica, sem IP/user-agent), soft delete; apaga OTPs, lista de espera, texto das
-notificações e as fichas que não são de atendimento REALIZADO; tira o depoimento do site e apaga o
-comentário do NPS; troca o nome do titular pelo pseudônimo nos textos da auditoria. Atendimentos,
-aceites, prontuário e pacotes ficam, ligados a um titular não identificável.
+**Pseudonimização** (o "esquecimento": ação "Pseudonimizar" do Django admin e o job semanal, a
+mesma procedure): nome → `[ANONIMIZADO-<pk>]`; contato, documentos, nascimento, endereço, **código
+de indicação e quem indicou** zerados; consentimentos vigentes revogados (o histórico fica, sem
+IP/user-agent); IP e navegador do aceite LGPD apagados; soft delete; apaga OTPs, a lista de espera
+(inclusive a inscrição anônima com o mesmo celular), o texto das notificações e as fichas que não
+são de atendimento REALIZADO; tira o depoimento do site e apaga o comentário do NPS; revoga os
+links; troca o nome pelo pseudônimo nos textos da auditoria e apaga os detalhes das trilhas LGPD da
+titular (pedidos e revogações). Atendimentos, aceites, pacotes e o registro de saúde (até o expurgo)
+ficam ligados a esse id — por isso é pseudonimização, não anonimização.
+
+**Direitos pela área da cliente** ("Meus agendamentos", §8):
+
+- **Baixar meus dados** (JSON): cadastro, preferências, consentimentos (estado e histórico),
+  atendimentos, NPS, aceites, pacotes, carteira, lista de espera (inclusive a anônima pelo mesmo
+  celular), notificações e a declaração do tratamento (finalidades, bases, operadores e prazos
+  efetivos — a mesma fonte da política). **Sem a ficha de saúde** (o celular pode ter mudado de
+  dono): o arquivo diz que ela sai por e-mail ou na clínica, a pedido. No portal, exige o código
+  confirmado há **até 10 minutos** (sessão mais antiga pede código novo); `/lgpd/meus-dados/` faz
+  a mesma exportação só com o código. Auditado (`DSAR: exportacao de dados`).
+- **Pedir correção ou exclusão** (com descrição livre opcional): fica na auditoria como `LGPD:
+  pedido de correcao|exclusao` com o prazo de resposta de **15 dias** (art. 19) — a descrição vai
+  só no e-mail — e o pedido vai por e-mail ao encarregado (Identidade visual) > `email_admin` >
+  `ADMIN_EMAIL` > e-mail da marca. A equipe confirma a identidade e corrige pela ficha ou
+  pseudonimiza pelo Django admin.
 
 ---
 
@@ -529,10 +652,10 @@ aceites, prontuário e pacotes ficam, ligados a um titular não identificável.
 
 | Evento | Efeito |
 |---|---|
-| Atendimento criado | Push "Novo agendamento" ao profissional (após o commit) |
+| Atendimento criado | Push "Novo agendamento" ao profissional (após o commit); as inscrições da cliente na lista de espera do procedimento (de hoje em diante) saem da fila |
 | → REALIZADO | Zera faltas e desbloqueia; debita sessão de pacote (não em retorno); comissão; cashback da indicadora (1º pago); retorno fica devido se o procedimento exige (a recepção marca) |
 | → FALTOU | Soma falta (bloqueio online no limite) |
-| → CANCELADO | Lança o estorno da comissão e do cashback; avisa lista de espera (se futuro) |
+| → CANCELADO | Lança o estorno da comissão e do cashback; avisa lista de espera (se futuro); pela própria cliente com menos de 24 h de horário aprovado, soma 1 falta (cancelamento tardio, §8) |
 | → REAGENDADO | Avisa lista de espera (se futuro) |
 | → CONFIRMADO | Só log |
 
@@ -555,11 +678,16 @@ enviado. A agenda da profissional vai para o calendário dela só pelo feed ICS 
 | Idade mínima (online) | 18 anos | `forms/agendamento.IDADE_MINIMA` |
 | Horários futuros ativos para pedir pelo site | até 3 (o 4º é recusado) | `constants.MAX_ATIVOS_ONLINE` |
 | Validade da ficha de anamnese respondida | 12 meses | `services/anamnese.VALIDADE_FICHA_MESES` |
-| Reagendar pela cliente | ≥ 24 h antes | `constants.JANELA_MINIMA_REAGENDAMENTO` |
+| Reagendar pela cliente | ≥ 24 h antes | `constants.JANELA_MINIMA_ALTERACAO` |
+| Cancelamento tardio (conta falta) | < 24 h de horário AGENDADO/CONFIRMADO (PENDENTE não) | `constants.JANELA_MINIMA_ALTERACAO`, `services/agenda.cancelamento_tardio` |
+| Realizado/Faltou a partir de | início − 30 min | `constants.TOLERANCIA_DESFECHO` |
 | Faltas até bloquear online | 3 (ajustável de 1 a 10) | regra operacional `MAX_FALTAS_BLOQUEIO` (`models/configuracao.CHAVES`) > `constants.MAX_FALTAS_ANTES_BLOQUEIO` |
 | OTP: validade / tentativas / reenvio | 10 min / 5 / 60 s | env `OTP_TTL_SEGUNDOS`, `OTP_MAX_TENTATIVAS`, `OTP_REENVIO_MINIMO_SEG` |
 | SMS por hora: telefone / IP / global | 3 / 10 / 60 | env `SMS_MAX_POR_HORA`, `SMS_MAX_POR_IP_HORA`, `SMS_MAX_GLOBAL_HORA` |
-| Verificação OTP no wizard / sessão do portal | 30 min / 1 h | `services/otp`, `views/publico/verificacao` |
+| Verificação OTP no wizard / sessão do portal / código para baixar os dados | 30 min / 1 h / até 10 min | `services/otp`, `services/portal_cliente` (`DURACAO_SESSAO_SEGUNDOS`, `JANELA_DADOS`) |
+| Pedido de correção/exclusão: prazo de resposta | 15 dias | `services/portal_cliente.PRAZO_RESPOSTA` |
+| Lista de espera pelo site | 20 inscrições/dia por IP | `views/publico/lista_espera.LIMITE_DIARIO_POR_IP` |
+| Formulário de contato | 5/min e 20/dia por IP; teto de 50 mensagens/dia no site todo | `views/publico/contato` (`TETO_DIARIO_GLOBAL`) |
 | Duração padrão do retorno | 30 min | `Procedimento.duracao_retorno_minutos` |
 | Cashback por indicação | R$ 50,00 | `constants.VALOR_CASHBACK_INDICACAO` |
 | NPS: janela / validade do link / tentativas | 24 h–7 dias / 7 dias / 3 | `services/nps` (`NPS_JANELA_DIAS`, `NPS_MAX_FALHAS`), `views/publico/nps.py` |
@@ -570,12 +698,14 @@ enviado. A agenda da profissional vai para o calendário dela só pelo feed ICS 
 | Link de ficha/pesquisa | 60 dias | `views/publico/formularios` |
 | Link do termo | até o fim do atendimento | `services/termos.aceita_assinatura` |
 | Retenção: OTP / notificação / auditoria / axes | 24 h / 12 meses / 5 anos / 90 dias | env `RETENCAO_*` |
-| Retenção: cliente inativa / soft delete / ficha sem atendimento / saúde | 5 anos / 30 dias / 90 dias / 20 anos | `LgpdService` (+ env `LGPD_RETENCAO_CLIENTE_DIAS`) |
+| Retenção LGPD: cliente inativa / soft delete / ficha sem atendimento / saúde / pacote | 5 anos / 30 dias / 90 dias / 20 anos do último evento / 5 anos do fim | `settings.RETENCAO_*` fixos (sem env; publicados na política — `aranha.W016`) |
 | Lote de e-mail de promoção | 25 por clique | `services/marketing.LOTE_PROMOCAO` |
 | Sessão da equipe (prod) | 8 h deslizantes | env `SESSION_COOKIE_AGE` |
 
 ---
 
-_Última atualização: 2026-10-29 — conferido no código até a migration 0074 e os pacotes do pedido online e dos cadastros (papéis, lembrete por
-e-mail, sem desfecho, NPS, promoção, "PARAR", ficha em 3 escopos, acesso da cliente só pelo
-portal)._
+_Última atualização: 2026-10-29 — conferido no código até a migration 0078: pedido online e
+cadastros (papéis, lembrete por e-mail, sem desfecho, NPS, promoção, "PARAR", ficha em 3 escopos,
+acesso da cliente só pelo portal), LGPD e área da cliente (política como fonte única,
+pseudonimização, saúde revogável e expurgo aos 20 anos, cancelamento tardio, lista de espera sem
+cadastro) e a agenda do painel (agendamento pela recepção, seletor de status, lote item a item)._
