@@ -52,6 +52,11 @@ HISTORICO = [
                           '90 dias, retenção de saúde por 20 anos e área da cliente (preferências, '
                           'revogação, pedidos LGPD), pedido online como caso de uso, remoção de legado '
                           '(Google Agenda, link antigo, papel RECEPCAO) e endurecimento de segurança.'),
+    ('3.1', '29/10/2026', 'Interface: design system único das telas da equipe (tokens claro/escuro, '
+                          'componentes cotton, agenda em tabela, ficha da cliente em abas), FullCalendar e '
+                          'Chart.js empacotados sem CDN, site com números reais (avaliação, clientes, '
+                          'tratamentos), página de dúvidas, fotos responsivas e varredura visual com axe-core '
+                          'de todas as rotas no CI.'),
 ]
 GOLD = RGBColor(0xC4, 0xA3, 0x5A)
 DARK = RGBColor(0x4A, 0x34, 0x25)
@@ -321,12 +326,13 @@ h2('2.1 Tecnologias')
 add_table(['Camada', 'Tecnologia', 'Uso'], [
     ['Back-end', 'Python 3.12, Django 5.2', 'Monólito renderizado no servidor; regras nos serviços'],
     ['Banco de dados', 'PostgreSQL 18', 'Constraints, EXCLUDE, triggers, procedures e views'],
-    ['Front-end', 'Vite, Tailwind CSS 4, Alpine.js (CSP), django-cotton', 'Bundle versionado, tokens de design, PWA'],
+    ['Front-end', 'Vite, Tailwind CSS 4, Alpine.js (CSP), django-cotton, FullCalendar e Chart.js (npm)',
+     'Design system único (tokens claro/escuro, componentes), sem CDN, PWA'],
     ['Servidor', 'gunicorn + WhiteNoise em Docker', 'Contêiner não-root, estáticos com hash'],
     ['Hospedagem', 'Railway', 'Ambiente de produção (main) e de testes (dev)'],
     ['Autenticação', 'Django auth + django-otp (TOTP) + django-axes', 'Equipe com 2FA obrigatório'],
     ['Mensageria', 'Resend (anymail), Zenvia, WhatsApp Cloud API, Web Push', 'E-mail, SMS do OTP, lembretes, push'],
-    ['Qualidade', 'Django test runner, ruff, mypy, import-linter, Playwright, pip-audit', 'CI com 8 jobs'],
+    ['Qualidade', 'Django test runner, ruff, mypy, import-linter, Playwright, axe-core, pip-audit', 'CI com 9 jobs'],
 ], widths=[1.3, 2.4, 3.0])
 h2('2.2 Perfis de acesso')
 par('Três perfis usam o sistema: a cliente (sem senha, identificada pelo celular verificado por SMS), '
@@ -534,7 +540,10 @@ h1('16. Qualidade e Testes')
 par(f'A suíte tem {N_TESTES} testes automatizados (Django test runner), executados no SQLite e no '
     'PostgreSQL 18 — onde também são testadas as constraints, triggers, procedures e a paridade das '
     'funções SQL com o Python. Há testes de data migrations, de rotas (toda URL mapeada é exercida com '
-    'cada perfil de acesso) e um teste de navegador (Playwright) do wizard de agendamento.')
+    'cada perfil de acesso) e testes de navegador (Playwright): o wizard de agendamento, a agenda do '
+    'painel e uma varredura visual de todas as rotas do site, do painel e do portal (desktop no tema '
+    'claro e celular no escuro) que reprova erro de JavaScript ou de CSP, rolagem lateral no celular, '
+    'sintaxe de template vazada e violação grave de acessibilidade (axe-core).')
 figura('07-implantacao/02-pipeline-ci.png', 'Atividade — pipeline de integração contínua.')
 add_table(['Verificação', 'Ferramenta', 'Garante'], [
     ['Estilo e erros', 'ruff', 'código sem erro estático; datas sempre com fuso'],
@@ -543,7 +552,7 @@ add_table(['Verificação', 'Ferramenta', 'Garante'], [
     ['Migrations', 'makemigrations --check', 'models e banco em dia'],
     ['Cobertura', 'coverage (mínimo no CI)', 'regressão de cobertura bloqueia o merge'],
     ['Dependências', 'pip-audit', 'nenhuma vulnerabilidade conhecida'],
-    ['Navegador', 'Playwright + axe-core', 'fluxo real do wizard e acessibilidade'],
+    ['Navegador', 'Playwright + axe-core', 'wizard, agenda e todas as rotas sem erro nem violação grave de acessibilidade'],
 ], widths=[1.4, 1.8, 3.5])
 
 # ===================== 17. IMPLANTACAO =====================

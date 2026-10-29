@@ -104,6 +104,16 @@ class "services.lista_espera" as lista_espera <<módulo>> {
 class "services.indicadores" as indicadores <<módulo>> {
   + ocupacao_semana(inicio, fim)
 }
+class "services.prova_social" as prova_social <<módulo>> {
+  + estrelas(nota)
+  + arredondar_para_baixo(n)
+  + calcular()
+  + numeros_do_site()
+  + invalidar_cache()
+}
+class NumerosDoSite <<serviço>> {
+}
+prova_social *-- NumerosDoSite
 class "services.anamnese" as anamnese #F2F2F2
 hide anamnese members
 class "services.comissao" as comissao #F2F2F2
@@ -136,6 +146,7 @@ atendimento ..> lista_espera
 atendimento ..> push
 atendimento ..> termos
 lista_espera ..> consentimentos
+prova_social ..> disponibilidade
 retorno ..> agenda
 retorno ..> disponibilidade
 @enduml
