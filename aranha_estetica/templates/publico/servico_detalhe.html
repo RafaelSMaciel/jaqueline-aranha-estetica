@@ -141,8 +141,13 @@
 <section class="py-16 md:py-24 bg-fundo">
   <div class="max-w-6xl mx-auto px-6">
     <div class="text-center mb-12">
+      {% if profissionais|length == 1 %}
+      <h2 class="text-3xl font-bold text-texto">Quem vai cuidar de você</h2>
+      <p class="text-texto-suave mt-3">A profissional que faz este tratamento</p>
+      {% else %}
       <h2 class="text-3xl font-bold text-texto">Profissionais especializados</h2>
       <p class="text-texto-suave mt-3">Conheça quem vai cuidar de você</p>
+      {% endif %}
     </div>
     <div class="flex flex-wrap justify-center gap-6">
       {% for prof in profissionais %}
