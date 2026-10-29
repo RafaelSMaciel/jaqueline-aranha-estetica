@@ -36,11 +36,11 @@ função solta, estilo pytest, nunca seria coletado; `test_deploy_config.RunnerU
 volta). Ele sempre usa `clinica/settings/test.py` (única detecção de "estou em teste", em
 `settings/__init__.py`): senha com hash MD5 (rápido; produção não muda), SMS só em log, avisos de
 produção silenciados, django-vite em `dev_mode` (não precisa do build). Testes novos de uma área
-vão na pasta dela (`tests/conta/`, `infra/`, `jobs/`, `painel/`, `publico/`, `utils/`).
+vão na pasta dela (`tests/conta/`, `infra/`, `jobs/`, `painel/`, `publico/`, `servicos/`, `utils/`).
 
 | Comando | Quando |
 |---|---|
-| `python manage.py test aranha_estetica --exclude-tag migracoes` | Dia a dia — ~1.750 testes em ~40 s |
+| `python manage.py test aranha_estetica --exclude-tag migracoes` | Dia a dia — ~1.850 testes em ~40 s |
 | `python manage.py test aranha_estetica.tests.test_x --keepdb` | Um módulo: o banco de teste (`.cache/db_test.sqlite3`) fica pronto entre execuções (~15 s → ~2 s) |
 | `python manage.py test aranha_estetica --tag migracoes` | Data migrations (descem e sobem a cadeia; lento) — antes do merge |
 | `python manage.py test aranha_estetica` | Tudo |
