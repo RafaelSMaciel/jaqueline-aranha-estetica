@@ -103,7 +103,11 @@ de `/profissional/`. PROFISSIONAL que abre `/painel/` volta para o próprio port
   `ana@shivazen.com`) se ainda usarem a senha padrão, apagando também o 2FA delas.
 - **Novo usuário (Painel > Usuários):** com e-mail configurado, recebe **link** para definir a
   senha (nunca a senha por e-mail); sem backend de e-mail real a **senha inicial é obrigatória**
-  na criação.
+  na criação. Validação no `forms/cadastros.UsuarioForm`: e-mail único (sem diferença de caixa),
+  PROFISSIONAL exige o profissional vinculado e cada profissional tem no máximo um login. Na edição
+  ninguém muda o próprio papel nem desativa a própria conta, e o último ADMIN ativo não é rebaixado
+  nem desativado. Desativar o login ou trocar o profissional vinculado revoga o feed ICS de quem
+  saiu.
 - **Reset de senha** (`/admin-login/recuperar/`): token de 1 h (`PASSWORD_RESET_TIMEOUT_SECONDS`),
   3 pedidos/15 min por IP, resposta sempre genérica, auditado com e-mail mascarado. Sem
   `EMAIL_BACKEND` real o link **não é enviado** (falha fechada — nunca vai para o log).
@@ -174,7 +178,7 @@ anonimização) = 404; token de outra finalidade = 404.
 | NPS | `/nps/<token>/` | 7 dias, uma resposta | Dar nota 0–10, comentário e autorizar depoimento |
 | FORMULARIO | `/anamnese/<token>/`, `/pesquisa/<token>/` | 60 dias, uma resposta | Responder ficha/pesquisa (ficha de saúde com consentimento art. 11) |
 | DESCADASTRO | `/lgpd/unsubscribe/<token>/` | sem expiração; um por e-mail de marketing; revogado na anonimização | Descadastro de marketing e pesquisas |
-| FEED_ICS | `/agenda/<slug>/feed.ics?token=` | até gerar outro (painel "Novo link" ou portal do profissional) | Feed iCal da agenda do profissional, com o nome público da cliente (primeiro nome + inicial) e o procedimento |
+| FEED_ICS | `/agenda/<slug>/feed.ics?token=` | até gerar outro (painel "Novo link" ou portal do profissional) ou até o **desligamento** — profissional desativada, login dela desativado ou vínculo do login trocado revogam o link na hora (auditado); reativar exige gerar um novo | Feed iCal da agenda do profissional, com o nome público da cliente (primeiro nome + inicial) e o procedimento |
 | Reset de senha (equipe) | `/admin-login/recuperar/<uid>/<token>/` | 1 h, uso único | Definir nova senha |
 
 Reagendar e cancelar **não têm link**: a cliente usa o portal "Meus agendamentos" (id do
