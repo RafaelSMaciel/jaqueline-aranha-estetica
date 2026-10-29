@@ -240,9 +240,28 @@ def servico_detalhe(request, slug):
 
 # ─── Servicos por categoria: cartoes do catalogo, texto editorial no template (decisao 46) ───
 
+def _destaques(procedimentos, limite=4) -> list:
+    """Bloco "em destaque" das paginas de servico: so procedimento ativo do catalogo, com descricao;
+    primeiro os que tem foto propria (imagem_destaque) ou pagina detalhada (descricao_longa). O texto
+    e o do catalogo — a pagina nunca anuncia tratamento que a clinica nao oferece."""
+    com_texto = [p for p in procedimentos if (p.descricao or '').strip() and p.slug]
+    ordem = sorted(com_texto, key=lambda p: (not p.imagem_destaque, not p.descricao_longa.strip(), p.nome))
+    vistos, destaques = set(), []
+    for proc in ordem:   # um por familia: 'Botox 1 região' e 'Botox 2 regiões' nao ocupam 2 lugares
+        familia = proc.nome.split()[0].lower()
+        if familia not in vistos:
+            vistos.add(familia)
+            destaques.append(proc)
+    return destaques[:limite]
+
+
 def _servicos_da_categoria(request, categoria, template):
     procedimentos = list(Procedimento.objects.filter(ativo=True, categoria=categoria).order_by('nome'))
-    return render(request, template, {'servicos': _cartoes(procedimentos)})
+    return render(request, template, {
+        'servicos': _cartoes(procedimentos),
+        'destaques': _destaques(procedimentos),
+        'numeros': numeros_do_site(),
+    })
 
 
 def servicos_faciais(request):

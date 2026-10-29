@@ -255,6 +255,34 @@ class FaqDaHomeTests(TestCase):
         self.assertGreaterEqual(html.count(f'href="{reverse("aranha:duvidas")}"'), 3)   # nav, celular, rodape
 
 
+class PaginasDeServicoDoCatalogoTests(TestCase):
+    """Faciais/corporais: numero = tratamentos ativos da linha e "em destaque" so do catalogo."""
+
+    def setUp(self):
+        cache.clear()
+
+    def test_destaque_e_contagem_saem_do_catalogo(self):
+        from aranha_estetica.models import Procedimento
+        prof = criar_profissional()
+        botox = criar_procedimento(nome='Botox Teste', profissional=prof)
+        Procedimento.objects.filter(pk=botox.pk).update(descricao='Suaviza linhas de expressão.',
+                                                         descricao_longa='Como funciona...')
+        criar_procedimento(nome='Limpeza Teste', profissional=prof)   # sem descricao: fora do destaque
+        html = self.client.get(reverse('aranha:servicos_faciais')).content.decode()
+        self.assertIn('<strong>2</strong> <span>tratamentos faciais</span>', html)
+        self.assertIn('Cuidados em destaque', html)
+        self.assertIn('Suaviza linhas de expressão.', html)
+        self.assertIn(f'?procedimento={botox.pk}', html)
+        for fora in ('Microagulhamento', 'Skinbooster', 'Bioestimulador de Colágeno', '6+', '5.0/5'):
+            self.assertNotIn(fora, html)
+
+    def test_sem_procedimento_elegivel_a_secao_some(self):
+        html = self.client.get(reverse('aranha:servicos_corporais')).content.decode()
+        self.assertNotIn('Cuidados em destaque', html)
+        for fora in ('Depilação a Laser', 'Ventosaterapia', '8+', '5.0/5'):
+            self.assertNotIn(fora, html)
+
+
 class EquipeTests(TestCase):
     """Uma profissional: "Sobre a profissional" (sem a grade de um card so); 2+: a grade."""
 
