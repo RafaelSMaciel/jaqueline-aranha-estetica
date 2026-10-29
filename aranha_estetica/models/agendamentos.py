@@ -201,7 +201,8 @@ class Atendimento(models.Model):
             if (novo_status in (StatusAtendimento.REALIZADO, StatusAtendimento.FALTOU) and inicio
                     and inicio > timezone.now() + TOLERANCIA_DESFECHO):
                 raise self.TransicaoInvalida(
-                    'Só é possível marcar realizado ou falta depois do início do atendimento.')
+                    'Só é possível marcar realizado ou falta depois do início do atendimento.',
+                    codigo='desfecho_antes_do_inicio')
             permitido = (self.DESFAZER_REALIZACAO if desfazendo and atual == StatusAtendimento.REALIZADO
                          else self.TRANSICOES.get(atual, set()))
             if novo_status not in permitido:

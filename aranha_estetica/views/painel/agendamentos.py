@@ -10,33 +10,32 @@ AGENDADO — a propria clinica confirmou — com auditoria.
 import json
 import logging
 from datetime import datetime
-from functools import partial
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import DatabaseError, IntegrityError, transaction
-from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django_ratelimit.decorators import ratelimit
 
-from ...decorators import staff_required
+from ...decorators import escrita_painel, staff_required
 from ...models import Atendimento, Cliente, Notificacao, Procedimento, Profissional
 from ...models.agendamentos import StatusAtendimento
-from ...excecoes import RegraDeNegocio
+from ...excecoes import RegraDeNegocio, TermoPendente, TransicaoInvalida
 from ...services import agenda
+from ...services import atendimento as casos_atendimento
 from ...services import comunicacao
 from ...services.agendamento import AgendamentoService, avisar_cancelamento
 from ...services.disponibilidade import SlotService, profissionais_para
-from ...services.termos import termos_pendentes
 from ...utils.auditoria import registrar_log
 from ...utils.busca import filtrar_clientes
 from ...utils.datas import hoje, ler_data, ler_hora
 from ...utils.parse import id_int
 from ...utils.precos import preco_com_promocao
+from ...utils.respostas import json_erro, json_ok, json_recusa
 from ...utils.seguranca import safe_next
 from ...validators import normalizar_telefone, validate_telefone_br
 from ...forms.painel import parse_preco as _parse_preco
@@ -382,109 +381,87 @@ def admin_atendimento_valor(request, pk):
     return voltar
 
 
-@staff_required
-@ratelimit(key='user', rate='60/m', method='POST', block=True)
-def admin_atualizar_status(request):
-    """Atualiza status de um agendamento via AJAX.
+# Select de status (partials/_select_status.html) -> metodo da FSM. AGENDADO nao e opcao do select:
+# so chega nele a aprovacao de um pedido (AgendamentoService); Realizado tem caso de uso proprio.
+ACOES_DO_SELECT = {
+    StatusAtendimento.CONFIRMADO: 'confirmar',
+    StatusAtendimento.CANCELADO: 'cancelar',
+    StatusAtendimento.FALTOU: 'marcar_falta',
+}
+DECISOES_DE_PEDIDO = (StatusAtendimento.AGENDADO, StatusAtendimento.CONFIRMADO, StatusAtendimento.CANCELADO)
 
-    Entrada invalida -> 400/404 (antes virava 500 + traceback no Sentry).
-    REALIZADO com termo de PROCEDIMENTO nao aceito: nao bloqueia duro (a
-    cliente pode ter assinado em papel), mas exige o override explicito
-    'sem_termo': true e deixa 'Realizado sem termo aceito' na trilha — mesma
-    regra do portal do profissional.
-    """
-    if request.method != 'POST':
-        return JsonResponse({'erro': 'Método não permitido'}, status=405)
 
+def _ler_pedido_status(corpo: bytes) -> tuple[int, str, bool]:
+    """(atendimento_id, status, sem_termo) do JSON do select. RegraDeNegocio se invalido.
+
+    id_int: isdigit() aceitava '²' e o int() dava 500; bool/float/lista -> invalido. O override do
+    termo so vale com o booleano true (nao 'true' nem 1)."""
     try:
-        data = json.loads(request.body)
-    except ValueError:  # JSONDecodeError e corpo que nao e UTF-8
-        return JsonResponse({'erro': 'Dados inválidos'}, status=400)
-    if not isinstance(data, dict):
-        return JsonResponse({'erro': 'Dados inválidos'}, status=400)
+        dados = json.loads(corpo)   # JSONDecodeError e corpo que nao e UTF-8 sao ValueError
+    except ValueError:
+        raise RegraDeNegocio('Dados inválidos.', codigo='dados_invalidos') from None
+    if not isinstance(dados, dict):
+        raise RegraDeNegocio('Dados inválidos.', codigo='dados_invalidos')
+    bruto = dados.get('atendimento_id')
+    pk = id_int(bruto) if isinstance(bruto, (int, str)) and not isinstance(bruto, bool) else None
+    if pk is None:
+        raise RegraDeNegocio('Agendamento inválido.', codigo='atendimento_invalido')
+    status = dados.get('status')
+    if not isinstance(status, str) or not status.strip():
+        raise RegraDeNegocio('Status inválido.', codigo='status_invalido')
+    return pk, status.strip().upper(), dados.get('sem_termo') is True
 
-    # id_int: isdigit() aceitava '²' e o int() dava 500; bool/float/lista -> 400
-    bruto_id = data.get('atendimento_id')
-    atendimento_id = (
-        id_int(bruto_id) if isinstance(bruto_id, (int, str)) and not isinstance(bruto_id, bool) else None
-    )
-    if atendimento_id is None:
-        return JsonResponse({'erro': 'Agendamento inválido'}, status=400)
-    novo_status = data.get('status')
-    if not isinstance(novo_status, str) or not novo_status.strip():
-        return JsonResponse({'erro': 'Status inválido'}, status=400)
-    novo_status = novo_status.strip().upper()
 
-    atendimento = (
-        Atendimento.objects.select_related('cliente', 'procedimento')
-        .filter(pk=atendimento_id).first()
-    )
-    if atendimento is None:
-        return JsonResponse({'erro': 'Agendamento não encontrado'}, status=404)
-    status_anterior = atendimento.status
-
-    # Usa a FSM do model: valida a transicao e publica os eventos colaterais
-    # (no-show, etc.). Evita transicoes invalidas como REALIZADO -> PENDENTE.
-    metodos = {
-        StatusAtendimento.CONFIRMADO: atendimento.confirmar,
-        StatusAtendimento.REALIZADO: atendimento.marcar_realizado,
-        StatusAtendimento.CANCELADO: atendimento.cancelar,
-        StatusAtendimento.FALTOU: atendimento.marcar_falta,
-    }
-    pedido = status_anterior == StatusAtendimento.PENDENTE and novo_status in (
-        StatusAtendimento.AGENDADO, StatusAtendimento.CONFIRMADO, StatusAtendimento.CANCELADO)
-    acao = partial(_decidir_pedido, atendimento, novo_status, request=request) if pedido else metodos.get(novo_status)
-    if acao is None:
-        return JsonResponse(
-            {'erro': f'Transição para "{novo_status}" não suportada.'}, status=400
-        )
-
-    sem_termo = []
-    if novo_status == StatusAtendimento.REALIZADO and status_anterior in (StatusAtendimento.AGENDADO, StatusAtendimento.CONFIRMADO):
-        sem_termo = termos_pendentes(
-            atendimento.cliente, atendimento.procedimento, so_procedimento=True,
-        )
-    if sem_termo and data.get('sem_termo') is not True:
-        return JsonResponse({
-            'erro': 'A cliente ainda não aceitou o termo do procedimento.',
-            'termo_pendente': True,
-            'codigo': 'termo_pendente',
-        }, status=409)
-
-    try:
-        acao(by_user=request.user)
-    except Atendimento.TransicaoInvalida as exc:
-        return JsonResponse({'erro': str(exc)}, status=400)
-    except DatabaseError:
-        logger.exception('atualizar_status_falhou', extra={'atendimento_id': atendimento.pk})
-        return JsonResponse({'erro': 'Ocorreu um erro interno. Tente novamente.'}, status=500)
-
-    if pedido:   # aprovar/recusar ja auditou e avisou a cliente
-        return JsonResponse({'sucesso': True, 'status_anterior': status_anterior, 'status_novo': novo_status})
-
+def _aplicar_status(request, atendimento, novo_status: str, sem_termo: bool) -> None:
+    """Uma porta por destino: pedido PENDENTE -> AgendamentoService (auditoria + e-mail a cliente);
+    Realizado -> services.atendimento.marcar_realizado (regra do termo, igual ao portal); o resto ->
+    FSM + trilha, e o cancelamento pela clinica avisa a cliente."""
+    anterior = atendimento.status
+    if anterior == StatusAtendimento.PENDENTE and novo_status in DECISOES_DE_PEDIDO:
+        _decidir_pedido(atendimento, novo_status, by_user=request.user, request=request)
+        return   # aprovar/recusar ja auditou e avisou a cliente
+    if novo_status == StatusAtendimento.REALIZADO:
+        casos_atendimento.marcar_realizado(atendimento, por=request.user, aceitar_sem_termo=sem_termo,
+                                           request=request)
+    elif novo_status in ACOES_DO_SELECT:
+        getattr(atendimento, ACOES_DO_SELECT[novo_status])(by_user=request.user)
+    else:
+        raise TransicaoInvalida(f'Transição para "{novo_status}" não suportada.', codigo='status_nao_suportado')
     registrar_log(
-        request.user,
-        f'Status alterado: {status_anterior} → {novo_status}',
-        'atendimento',
-        atendimento.pk,
-        {'status_anterior': status_anterior, 'status_novo': novo_status,
-         'cliente': atendimento.cliente_id},
+        request.user, f'Status alterado: {anterior} → {novo_status}', 'atendimento', atendimento.pk,
+        {'status_anterior': anterior, 'status_novo': novo_status, 'cliente': atendimento.cliente_id},
         request=request,
     )
-    if sem_termo:
-        registrar_log(
-            request.user, 'Realizado sem termo aceito', 'atendimento', atendimento.pk,
-            {'termos': [t.pk for t in sem_termo]}, request=request,
-        )
-
     if novo_status == StatusAtendimento.CANCELADO:
         avisar_cancelamento(atendimento)
 
-    return JsonResponse({
-        'sucesso': True,
-        'status_anterior': status_anterior,
-        'status_novo': novo_status,
-    })
+
+@escrita_painel
+def admin_atualizar_status(request):
+    """Select de status das listas do painel (AJAX, contrato de utils/respostas).
+
+    Entrada invalida -> 400/404. Termo do procedimento nao aceito -> 409 'termo_pendente' (o front
+    pede a confirmacao e reenvia com sem_termo=true, que fica na trilha). Realizado/Faltou antes do
+    horario -> 409 com a mensagem da FSM; outra transicao recusada -> 400.
+    """
+    try:
+        pk, novo_status, sem_termo = _ler_pedido_status(request.body)
+    except RegraDeNegocio as invalido:
+        return json_recusa(invalido)
+    atendimento = Atendimento.objects.select_related('cliente', 'procedimento').filter(pk=pk).first()
+    if atendimento is None:
+        return json_erro('nao_encontrado', 'Agendamento não encontrado.', status=404)
+    anterior = atendimento.status
+    try:
+        _aplicar_status(request, atendimento, novo_status, sem_termo)
+    except TermoPendente as exc:
+        return json_erro(exc.codigo, exc.mensagem, status=409, termos=[t.pk for t in exc.termos])
+    except RegraDeNegocio as recusa:   # TransicaoInvalida da FSM, pedido ja decidido, efeito recusado
+        return json_recusa(recusa, status=409 if recusa.codigo == 'desfecho_antes_do_inicio' else 400)
+    except DatabaseError:
+        logger.exception('atualizar_status_falhou', extra={'atendimento_id': atendimento.pk})
+        return json_erro('erro_interno', 'Ocorreu um erro interno. Tente novamente.', status=500)
+    return json_ok(status_anterior=anterior, status_novo=novo_status)
 
 
 def _decidir_pedido(atendimento, novo_status, by_user=None, request=None) -> None:

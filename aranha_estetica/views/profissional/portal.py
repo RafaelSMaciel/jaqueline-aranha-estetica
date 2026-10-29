@@ -10,11 +10,13 @@ from django.views.decorators.http import require_POST
 
 from ...constants import TOLERANCIA_DESFECHO
 from ...decorators import profissional_required
+from ...excecoes import TermoPendente
 from ...models import AnotacaoSessao, Atendimento
 from ...models.agendamentos import StatusAtendimento
+from ...services import atendimento as casos_atendimento
 from ...services.alertas import alertas_por_cliente, ids_com_ficha_pendente
 from ...services.prontuario import vinculo_clinico
-from ...services.termos import ids_com_termo_procedimento_pendente, termos_pendentes
+from ...services.termos import ids_com_termo_procedimento_pendente
 from ...utils.auditoria import registrar_log
 from ...utils.saude import alertas_saude
 from ...utils.seguranca import safe_next
@@ -196,18 +198,18 @@ def marcar_realizado(request, pk):
     atendimento = _atendimento_do_profissional(
         request.user, pk, select_related=['cliente', 'procedimento'],
     )
-    sem_termo = []
-    if atendimento.status in (StatusAtendimento.AGENDADO, StatusAtendimento.CONFIRMADO):
-        sem_termo = termos_pendentes(atendimento.cliente, atendimento.procedimento, so_procedimento=True)
-    if sem_termo and request.POST.get('sem_termo') != '1':
+    try:
+        # mesma regra do painel (services/atendimento): termo pendente pede o override auditado
+        casos_atendimento.marcar_realizado(
+            atendimento, por=request.user, aceitar_sem_termo=request.POST.get('sem_termo') == '1',
+            request=request,
+        )
+    except TermoPendente:
         messages.warning(
             request,
             f'{atendimento.cliente.nome} ainda não aceitou o termo do procedimento. '
             'Para concluir mesmo assim, marque "Realizado sem termo aceito".'
         )
-        return _redirect_seguro(request, request.POST.get('next'))
-    try:
-        atendimento.marcar_realizado(by_user=request.user)
     except Atendimento.TransicaoInvalida:
         messages.warning(
             request,
@@ -215,11 +217,6 @@ def marcar_realizado(request, pk):
             f'{atendimento.get_status_display().lower()}.'
         )
     else:
-        if sem_termo:
-            registrar_log(
-                request.user, 'Realizado sem termo aceito', 'atendimento', atendimento.pk,
-                {'termos': [t.pk for t in sem_termo]}, request=request,
-            )
         messages.success(request, f'Atendimento de {atendimento.cliente.nome} marcado como realizado.')
 
     return _redirect_seguro(request, request.POST.get('next'))
