@@ -50,6 +50,12 @@ Alpine.data('navMenu', () => ({
   aberto: false,
   alternar() { this.aberto = !this.aberto },
   fechar() { this.aberto = false },
+  // Esc fecha o menu do celular e devolve o foco ao botao (padrao de disclosure)
+  fecharTeclado() {
+    if (!this.aberto) return
+    this.aberto = false
+    this.$refs.botao?.focus()
+  },
 }))
 
 // Aviso de cookies (LGPD): o site so usa cookies essenciais. "Entendi" grava cookie_consent de
