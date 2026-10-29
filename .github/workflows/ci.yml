@@ -235,9 +235,9 @@ jobs:
         run: test -f aranha_estetica/static/dist/manifest.json
 
   navegador:
-    name: Navegador (Playwright) — wizard de agendamento
+    name: Navegador (Playwright) — wizard, painel e varredura visual
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     env:
       # bundle do `npm run build` em vez do Vite dev server (settings/test.py)
       TESTE_VITE_BUILD: '1'
@@ -263,6 +263,13 @@ jobs:
       # regras que so existem no JS: ficha/consentimento, grupo obrigatorio, calendario
       - name: Wizard no Chromium (tests/test_wizard_browser.py)
         run: python manage.py test aranha_estetica.tests.test_wizard_browser
+      # select de status, lote de aprovacao e FullCalendar do bundle (sem CDN)
+      - name: Painel no Chromium (tests/painel/test_status_navegador.py)
+        run: python manage.py test aranha_estetica.tests.painel.test_status_navegador
+      # toda rota publica/equipe/profissional em 1366px (claro) e 390px (escuro): erro HTTP/JS/console,
+      # rolagem lateral, template vazando e axe-core serious/critical (node_modules, devDependency)
+      - name: Varredura visual + axe (tests/test_crawl_visual.py)
+        run: python manage.py test aranha_estetica.tests.test_crawl_visual
 
   docker:
     name: Imagem de producao — build, pre-deploy e start (smoke)

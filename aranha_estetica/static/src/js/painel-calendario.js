@@ -27,15 +27,13 @@ function ajustarAcessibilidade() {
     calendarEl.querySelectorAll('.' + cls).forEach((b) => b.setAttribute('aria-label', NOMES_SETAS[cls]))
   })
   calendarEl.querySelectorAll('.fc-icon').forEach((i) => i.setAttribute('aria-hidden', 'true'))
-  // A grade e um <table role="grid"> de LAYOUT (cabecalho e corpo sao outras tabelas dentro de
-  // celulas role=presentation): o grid fica sem linhas (aria-required-children). Como tabela de
-  // layout ela vira presentation; a informacao (dia, hora, evento) segue nas tabelas internas e
-  // nos links dos eventos, que tem nome.
-  calendarEl.querySelectorAll('table.fc-scrollgrid[role="grid"]').forEach((t) => {
-    t.setAttribute('role', 'presentation')
-    t.querySelectorAll(':scope > thead[role="rowgroup"], :scope > tbody[role="rowgroup"]')
-      .forEach((g) => g.setAttribute('role', 'presentation'))
-  })
+  // A grade e um <table role="grid"> de LAYOUT cujo cabecalho e corpo sao OUTRAS tabelas, dentro
+  // de celulas role=presentation: o grid externo fica sem linhas (aria-required-children) e as
+  // linhas internas sem grid (aria-required-parent). O ARIA de grade do FullCalendar 6 nao fecha;
+  // tudo vira tabela de layout (presentation) e a informacao segue no texto: dia da semana, hora
+  // e os eventos (links com o nome da cliente e o horario).
+  calendarEl.querySelectorAll('[role="grid"], [role="rowgroup"], [role="row"], [role="columnheader"], [role="rowheader"], [role="gridcell"]')
+    .forEach((el) => el.setAttribute('role', 'presentation'))
   // area com rolagem precisa receber foco p/ rolar pelo teclado (WCAG 2.1.1); nome so com papel
   calendarEl.querySelectorAll('.fc-scroller').forEach((r) => {
     const rola = r.scrollHeight > r.clientHeight + 1
