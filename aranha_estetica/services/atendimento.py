@@ -15,14 +15,19 @@ I/O externo (e-mail, WhatsApp, push) so no on_commit, best-effort.
 from __future__ import annotations
 
 import logging
+from decimal import Decimal
+from typing import Any, NamedTuple
 
 from django.db import transaction
 from django.db.models import F, Q
 
-from ..excecoes import TermoPendente
+from ..excecoes import RegraDeNegocio, TermoPendente
 from ..models.agendamentos import STATUS_ATIVOS, StatusAtendimento
 
 logger = logging.getLogger(__name__)
+
+# Valor informado pela equipe (agendamento pelo painel ou 'Registrar valor' na agenda).
+DESCRICAO_VALOR_COMBINADO = 'Valor combinado pela recepção'
 
 # Saidas que devolvem o horario p/ a lista de espera.
 STATUS_LIBERAM_VAGA = (StatusAtendimento.CANCELADO, StatusAtendimento.REAGENDADO)
@@ -84,6 +89,51 @@ def marcar_realizado(at, *, por=None, aceitar_sem_termo=False, request=None) -> 
         if sem_termo:
             registrar_log(por, 'Realizado sem termo aceito', 'atendimento', at.pk,
                           {'termos': [t.pk for t in sem_termo]}, request=request)
+
+
+class ValorRegistrado(NamedTuple):
+    antigo: Decimal | None
+    comissao: Any = None        # MovimentoComissao recalculado (atendimento ja realizado)
+    cashback: Any = None        # MovimentoCarteira do cashback da indicadora (1o pago)
+    credito_usado: Any = None   # MovimentoCarteira do credito de indicacao abatido
+
+
+STATUS_SEM_VALOR = (StatusAtendimento.CANCELADO, StatusAtendimento.FALTOU, StatusAtendimento.REAGENDADO)
+
+
+def registrar_valor_cobrado(at, valor: Decimal, *, usar_credito: bool = False, por=None) -> ValorRegistrado:
+    """Valor cobrado registrado pela equipe (desconto combinado, 'a consultar'), numa transacao.
+
+    Antes de realizado: so grava (o preco anterior fica em valor_original). Realizado: grava e
+    recalcula a comissao — credito PENDENTE e estornado e lancado de novo; comissao ja PAGA recusa
+    (o repasse saiu) — e libera o cashback da indicadora se ainda nao saiu (sem valor ele tinha
+    sido pulado). usar_credito abate o credito de indicacao da propria cliente (ate o saldo e o
+    valor). Recusa com RegraDeNegocio: status final e retorno gratuito (sempre zero)."""
+    from .comissao import ComissaoService
+    from .fidelidade import FidelidadeService
+
+    if at.status in STATUS_SEM_VALOR:
+        raise RegraDeNegocio(f'Atendimento {at.get_status_display().lower()}: o valor não pode ser alterado.',
+                             codigo='status_sem_valor')
+    if at.eh_retorno and valor != 0:
+        raise RegraDeNegocio('Retorno gratuito fica sempre com valor zero.', codigo='retorno_gratuito')
+    antigo = at.valor_cobrado
+    comissao = cashback = credito_usado = None
+    with transaction.atomic():
+        if at.valor_original is None and antigo is not None and antigo != valor:
+            at.valor_original = antigo
+        at.valor_cobrado = valor
+        at.descricao_preco = DESCRICAO_VALOR_COMBINADO
+        at.save(update_fields=['valor_cobrado', 'valor_original', 'descricao_preco', 'atualizado_em'])
+        if usar_credito:
+            saldo = FidelidadeService.saldos([at.cliente_id]).get(at.cliente_id, 0)
+            if saldo:
+                credito_usado = FidelidadeService.usar_credito(at, min(saldo, valor), por)
+        if at.status == StatusAtendimento.REALIZADO:
+            comissao = ComissaoService.recalcular(at, por)
+            # Mesmo gatilho do REALIZADO; idempotente (UNIQUE carteira+atendimento+origem)
+            cashback = FidelidadeService.liberar_cashback_indicacao(at)
+    return ValorRegistrado(antigo, comissao, cashback, credito_usado)
 
 
 def _desfazer_realizacao(at) -> None:

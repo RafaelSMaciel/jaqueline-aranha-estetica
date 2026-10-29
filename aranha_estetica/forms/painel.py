@@ -18,6 +18,7 @@ from django.contrib import messages
 
 from ..models import AgendaExcecao, Procedimento, Profissional, VersaoTermo
 from ..utils.datas import hoje
+from ..utils.parse import id_int
 
 # Teto dos campos de valor (DecimalField max_digits=10, decimal_places=2)
 VALOR_MAX = Decimal('99999999.99')
@@ -63,6 +64,18 @@ class CampoPreco(forms.CharField):
         if not preco.is_finite() or preco < 0 or preco > VALOR_MAX:
             raise forms.ValidationError(self.error_messages['invalid'], code='invalid')
         return preco.quantize(Decimal('0.01'))
+
+
+class EscolhaPorId(forms.ModelChoiceField):
+    """ModelChoiceField que so consulta id numerico ASCII (utils.parse.id_int): '²', texto e numero
+    gigante (URL ou POST manipulado) viram 'escolha invalida' em vez de erro de banco."""
+
+    def to_python(self, value):
+        if value in self.empty_values:
+            return None
+        if id_int(value) is None:
+            raise forms.ValidationError(self.error_messages['invalid_choice'], code='invalid_choice')
+        return super().to_python(value)
 
 
 def parse_preco(valor):

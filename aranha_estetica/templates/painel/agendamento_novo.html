@@ -145,10 +145,10 @@ SlotService; "Agendar" valida tudo de novo no servidor.
     {% endif %}
 
     <div class="mt-4 text-[0.85rem] text-texto">
-      {% if preco and preco.final is not None %}
+      {% if preco and preco.valor_cobrado is not None %}
       Valor:
-      {% if preco.promocao %}<s class="text-texto-suave">{{ preco.cheio|brl }}</s>{% endif %}
-      <strong>{{ preco.final|brl }}</strong>
+      {% if preco.promocao %}<s class="text-texto-suave">{{ preco.valor_original|brl }}</s>{% endif %}
+      <strong>{{ preco.valor_cobrado|brl }}</strong>
       {% if preco.promocao %}<span class="ml-1 px-2 py-0.5 rounded-full text-[0.7rem] font-bold bg-sucesso-fundo text-sucesso">Promoção {{ preco.promocao.nome }}</span>{% endif %}
       {% else %}
       Procedimento sem preço cadastrado (valor a consultar).
@@ -156,7 +156,7 @@ SlotService; "Agendar" valida tudo de novo no servidor.
     </div>
     <div class="mt-2 max-w-xs">
       <label for="inpValor" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Valor combinado (opcional)</label>
-      <input id="inpValor" type="text" name="valor" value="{{ valor }}" inputmode="decimal" placeholder="{% if preco and preco.final is not None %}{{ preco.final|unlocalize }}{% else %}0,00{% endif %}"
+      <input id="inpValor" type="text" name="valor" value="{{ valor }}" inputmode="decimal" placeholder="{% if preco and preco.valor_cobrado is not None %}{{ preco.valor_cobrado|unlocalize }}{% else %}0,00{% endif %}"
              class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto">
       <p class="text-[0.7rem] text-texto-suave mt-1">Deixe vazio para usar o valor acima. Um valor diferente fica registrado como combinado pela recepção.</p>
     </div>

@@ -1,117 +1,115 @@
-"""Agendamento interno pela recepcao (painel) — sem o OTP da cliente.
+"""Agenda do painel: agendamento pela recepcao, valor cobrado, select de status e desfazer
+realizacao.
 
-A recepcao agenda pelo telefone/WhatsApp/balcao: cliente existente (busca) ou
-nova (nome + telefone validado), procedimento, profissional e horario. O
-horario passa pelo MESMO SlotService do site (services.disponibilidade) e o
-valor sai de utils.precos.preco_com_promocao na data do atendimento (a
-recepcao pode informar outro valor combinado; fica registrado). Nasce
-AGENDADO — a propria clinica confirmou — com auditoria.
+A recepcao agenda pelo telefone/WhatsApp/balcao (sem o OTP da cliente): cliente existente (busca)
+ou nova (ClienteRapidoForm), procedimento, profissional e horario (AgendamentoPainelForm: o MESMO
+SlotService do site). O caso de uso e services.agenda.agendar_pela_recepcao (preco do dia ou
+combinado, AGENDADO, CONFIRMACAO a cliente, trilha); as views so traduzem HTTP.
 """
 import json
 import logging
-from datetime import datetime
 
 from django.contrib import messages
-from django.core.exceptions import ValidationError
-from django.core.validators import validate_email
-from django.db import DatabaseError, IntegrityError, transaction
+from django.db import DatabaseError, transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_POST
 from django_ratelimit.decorators import ratelimit
 
 from ...decorators import escrita_painel, staff_required
-from ...models import Atendimento, Cliente, Notificacao, Procedimento, Profissional
-from ...models.agendamentos import StatusAtendimento
 from ...excecoes import RegraDeNegocio, TermoPendente, TransicaoInvalida
+from ...forms.agenda import AgendamentoPainelForm, ValorAtendimentoForm
+from ...forms.cliente import ClienteRapidoForm
+from ...forms.painel import avisar_erros
+from ...models import Atendimento, Cliente
+from ...models.agendamentos import StatusAtendimento
 from ...services import agenda
 from ...services import atendimento as casos_atendimento
-from ...services import comunicacao
 from ...services.agendamento import AgendamentoService, avisar_cancelamento
-from ...services.disponibilidade import SlotService, profissionais_para
+from ...services.alertas import ids_com_ficha_pendente
+from ...services.disponibilidade import SlotService
 from ...utils.auditoria import registrar_log
 from ...utils.busca import filtrar_clientes
-from ...utils.datas import hoje, ler_data, ler_hora
+from ...utils.datas import hoje
+from ...utils.formatos import formatar_brl
 from ...utils.parse import id_int
-from ...utils.precos import preco_com_promocao
 from ...utils.respostas import json_erro, json_ok, json_recusa
-from ...utils.seguranca import safe_next
-from ...validators import normalizar_telefone, validate_telefone_br
-from ...forms.painel import parse_preco as _parse_preco
+from .comum import voltar_para_origem
 
 logger = logging.getLogger(__name__)
 
-ACOES = ('buscar', 'horarios', 'agendar')
-
-def _int(valor):
-    # id_int: isdigit() aceitava '²' e o int() dava 500
-    return id_int(valor)
-
-
-def _data(valor):
-    try:
-        return ler_data((valor or '').strip())
-    except ValueError:
-        return None
+TEMPLATE_NOVO = 'painel/agendamento_novo.html'
+MSG_FALHA_AGENDAR = 'Não foi possível salvar o agendamento. Tente novamente.'
+MSG_FICHA_PENDENTE = (
+    'Ficha de anamnese obrigatória pendente: use "Link da ficha" na agenda para a cliente '
+    'responder antes do procedimento (ou confirme alergias e contraindicações no balcão).'
+)
 
 
-def _hora(valor):
-    try:
-        return ler_hora((valor or '').strip())
-    except ValueError:
-        return None
+def _cliente_escolhida(request, dados):
+    """(ativa, inativa) do radio da busca ou do atalho ?cliente= da ficha. Inativa nao agenda: o
+    aviso explica e a tela leva a ficha p/ reativar (em vez de ignorar o atalho)."""
+    pk = id_int(dados.get('cliente_id') or dados.get('cliente'))
+    cliente = Cliente.objects.filter(pk=pk).first() if pk else None
+    if cliente is not None and not cliente.ativo:
+        messages.warning(request, f'{cliente.nome} está com o cadastro inativo: reative na ficha para agendar.')
+        return None, cliente
+    return cliente, None
 
 
-def _validar_cliente_novo(nome, telefone_raw, email):
-    """(dados_limpos, erros, inativa) do cadastro rapido — mesmas regras da ficha do cliente.
+def _buscar_clientes(q):
+    """(ativas, inativas) da busca: inativas aparecem sem selecao, com o link p/ reativar na ficha."""
+    if not q:
+        return [], []
+    ativas = list(filtrar_clientes(Cliente.objects.filter(ativo=True), q).order_by('nome')[:20])
+    inativas = list(filtrar_clientes(Cliente.objects.filter(ativo=False), q).order_by('nome')[:5])
+    return ativas, inativas
 
-    inativa: Cliente com cadastro INATIVO dono do telefone/e-mail — a busca so
-    lista ativas, entao a recepcao precisa do caminho p/ reativar na ficha.
-    """
-    erros = []
-    inativa = None
-    nome = (nome or '').strip()
-    if not nome:
-        erros.append('Informe o nome da cliente nova.')
-    elif len(nome) > 150:
-        erros.append('O nome aceita no máximo 150 caracteres.')
 
-    telefone = normalizar_telefone(telefone_raw)
-    try:
-        validate_telefone_br(telefone)
-    except ValidationError:
-        erros.append('Telefone inválido: informe DDD + número (10 ou 11 dígitos).')
-    else:
-        existente = Cliente.objects.filter(telefone=telefone).first()
-        if existente is not None and not existente.ativo:
-            inativa = existente
-            erros.append(
-                f'Este telefone é de {existente.nome}, com cadastro inativo: '
-                'reative a cliente na ficha (link abaixo) para agendar.'
-            )
-        elif existente is not None:
-            erros.append(
-                f'Este telefone já é de {existente.nome}: busque e selecione a cliente cadastrada.'
-            )
+def _contexto_agendamento(request, dados, form) -> dict:
+    """O que a tela mostra em qualquer etapa (busca, horarios livres do SlotService, preco do dia),
+    sem validar nada: so 'agendar' valida."""
+    q = (dados.get('q') or '').strip()[:100]
+    resultados, inativas = _buscar_clientes(q)
+    cliente, inativa = _cliente_escolhida(request, dados)
+    procedimento, profissional, data = form.lido('procedimento'), form.lido('profissional'), form.lido('data')
+    viu_horarios = bool(procedimento and profissional and data)
+    return {
+        'q': q, 'resultados': resultados, 'inativas': inativas,
+        'cliente': cliente, 'cliente_inativa': inativa,
+        'novo': {campo: (request.POST.get(f'novo_{campo}') or '').strip() for campo in ('nome', 'telefone', 'email')},
+        'procedimentos': form.fields['procedimento'].queryset, 'procedimento': procedimento,
+        'profissionais': form.fields['profissional'].queryset, 'profissional': profissional,
+        'data': data, 'data_min': hoje(), 'hora': (dados.get('hora') or '').strip(),
+        'valor': (dados.get('valor') or '').strip(),
+        'slots': SlotService.slots_livres(profissional, data, procedimento) if viu_horarios else [],
+        'preco': agenda.preco_do_dia(procedimento, profissional, data) if viu_horarios else None,
+        'buscou': request.POST.get('acao') == 'buscar' or bool(q),
+        'viu_horarios': viu_horarios,
+    }
 
-    email = (email or '').strip().lower() or None
-    if email:
-        try:
-            validate_email(email)
-        except ValidationError:
-            erros.append('E-mail inválido.')
-        else:
-            dono = Cliente.objects.filter(email__iexact=email).first()
-            if dono is not None and not dono.ativo:
-                inativa = inativa or dono
-                erros.append(
-                    f'Este e-mail é de {dono.nome}, com cadastro inativo: '
-                    'reative a cliente na ficha (link abaixo) para agendar.'
-                )
-            elif dono is not None:
-                erros.append('Este e-mail já pertence a outra cliente: busque a cliente cadastrada.')
-    return {'nome': nome, 'telefone': telefone, 'email': email}, erros, inativa
+
+def _form_cliente_nova(request, context):
+    """ClienteRapidoForm validado (None se a tela nao tem cliente nova a cadastrar) + o erro de
+    quando nao ha cliente nenhuma. Dono inativo do telefone/e-mail vai p/ o aviso com a ficha."""
+    if context['cliente'] is not None:
+        return None, None
+    novo = context['novo']
+    if not (novo['nome'] or novo['telefone']):
+        if context['cliente_inativa'] is not None:   # o aviso de cadastro inativo ja foi dado
+            return None, 'Reative a cliente na ficha antes de agendar.'
+        return None, 'Selecione a cliente na busca ou preencha o cadastro da cliente nova.'
+    form = ClienteRapidoForm(request.POST)
+    if not form.is_valid() and form.dono_inativo is not None:
+        context['cliente_inativa'] = form.dono_inativo
+    return form, None
+
+
+def _mensagem_falha(exc) -> str:
+    if isinstance(exc, RegraDeNegocio):
+        return exc.mensagem
+    logger.error('agendamento_painel_falha', exc_info=True)
+    return MSG_FALHA_AGENDAR
 
 
 @staff_required
@@ -119,266 +117,81 @@ def _validar_cliente_novo(nome, telefone_raw, email):
 def admin_agendamento_novo(request):
     """Tela unica (POST com `acao`: buscar | horarios | agendar).
 
-    Busca e horarios so re-renderizam (telefone/nome digitados nao vao p/ a
-    URL); `agendar` valida tudo de novo no servidor e cria o atendimento.
+    Busca e horarios so re-renderizam (telefone/nome digitados nao vao p/ a URL); `agendar` valida
+    tudo de novo no servidor (Forms) e chama agenda.agendar_pela_recepcao.
     GET aceita ?cliente=<pk> (atalho da ficha do cliente) e ?data=AAAA-MM-DD.
     """
-    post = request.method == 'POST'
-    dados = request.POST if post else request.GET
-    acao = request.POST.get('acao', '') if post else ''
-    if acao not in ACOES:
-        acao = ''
+    dados = request.POST if request.method == 'POST' else request.GET
+    form = AgendamentoPainelForm(dados)
+    context = _contexto_agendamento(request, dados, form)
+    if request.method != 'POST' or request.POST.get('acao') != 'agendar':
+        return render(request, TEMPLATE_NOVO, context)
 
-    q = (dados.get('q') or '').strip()[:100]
-    cliente = None
-    cliente_inativa = None
-    cliente_id = _int(dados.get('cliente_id') or dados.get('cliente'))
-    if cliente_id:
-        cliente = Cliente.objects.filter(pk=cliente_id).first()
-        if cliente is not None and not cliente.ativo:
-            # atalho da ficha / selecao de inativa: explica em vez de ignorar
-            cliente_inativa, cliente = cliente, None
-            messages.warning(
-                request,
-                f'{cliente_inativa.nome} está com o cadastro inativo: reative na ficha para agendar.',
-            )
-    novo = {
-        'nome': (request.POST.get('novo_nome') or '').strip() if post else '',
-        'telefone': (request.POST.get('novo_telefone') or '').strip() if post else '',
-        'email': (request.POST.get('novo_email') or '').strip() if post else '',
-    }
+    form_cliente, sem_cliente = _form_cliente_nova(request, context)
+    cliente_ok = sem_cliente is None and (form_cliente is None or form_cliente.is_valid())
+    form.checar_horario = cliente_ok   # um erro de cada vez: horario so com a cliente resolvida
+    if sem_cliente:
+        messages.error(request, sem_cliente)
+    if form_cliente is not None:
+        avisar_erros(request, form_cliente)
+    if not form.is_valid() or not cliente_ok:
+        avisar_erros(request, form)
+        return render(request, TEMPLATE_NOVO, context)
 
-    procedimentos = Procedimento.objects.filter(ativo=True).order_by('nome')
-    procedimento = procedimentos.filter(pk=_int(dados.get('procedimento_id'))).first()
-    profissionais = (
-        profissionais_para(procedimento) if procedimento
-        else Profissional.objects.filter(ativo=True).order_by('nome')
-    )
-    # So profissional habilitado p/ o procedimento (profissionais_para)
-    profissional = profissionais.filter(pk=_int(dados.get('profissional_id'))).first()
-    data = _data(dados.get('data'))
-    hora_str = (dados.get('hora') or '').strip()
-    valor_str = (dados.get('valor') or '').strip()
-
-    resultados, inativas = [], []
-    if q:
-        resultados = list(
-            filtrar_clientes(Cliente.objects.filter(ativo=True), q).order_by('nome')[:20]
-        )
-        # inativas aparecem (nao selecionaveis) com o link p/ reativar na ficha
-        inativas = list(
-            filtrar_clientes(Cliente.objects.filter(ativo=False), q).order_by('nome')[:5]
-        )
-
-    slots, preco = [], None
-    if procedimento and profissional and data:
-        slots = SlotService.slots_livres(profissional, data, procedimento)
-        final, promo, cheio = preco_com_promocao(procedimento, profissional, data)
-        preco = {'final': final, 'promocao': promo, 'cheio': cheio}
-
-    context = {
-        'q': q,
-        'resultados': resultados,
-        'inativas': inativas,
-        'cliente_inativa': cliente_inativa,
-        'cliente': cliente,
-        'novo': novo,
-        'procedimentos': procedimentos,
-        'procedimento': procedimento,
-        'profissionais': profissionais,
-        'profissional': profissional,
-        'data': data,
-        'data_min': hoje(),
-        'hora': hora_str,
-        'slots': slots,
-        'preco': preco,
-        'valor': valor_str,
-        'buscou': acao == 'buscar' or bool(q),
-        'viu_horarios': bool(procedimento and profissional and data),
-    }
-
-    if acao != 'agendar':
-        return render(request, 'painel/agendamento_novo.html', context)
-
-    # ── agendar: valida tudo no servidor ──
-    erros = []
-    dados_novo = None
-    if cliente is None:
-        if novo['nome'] or novo['telefone']:
-            dados_novo, erros_novo, inativa = _validar_cliente_novo(
-                novo['nome'], novo['telefone'], novo['email'],
-            )
-            erros.extend(erros_novo)
-            if inativa is not None:
-                context['cliente_inativa'] = inativa
-        elif cliente_inativa is not None:
-            # o aviso de cadastro inativo ja foi dado acima; nada e gravado
-            erros.append('Reative a cliente na ficha antes de agendar.')
-        else:
-            erros.append('Selecione a cliente na busca ou preencha o cadastro da cliente nova.')
-    if procedimento is None:
-        erros.append('Selecione o procedimento.')
-    if profissional is None:
-        erros.append('Selecione um profissional que realize o procedimento.')
-    hora = _hora(hora_str)
-    if data is None or hora is None:
-        erros.append('Escolha a data e um dos horários livres.')
-
-    valor_informado = None
+    d = form.cleaned_data
     try:
-        valor_informado = _parse_preco(valor_str)
-    except ValueError:
-        erros.append('Valor inválido: use números, ex.: 150,00.')
+        at = agenda.agendar_pela_recepcao(
+            cliente=context['cliente'], dados_cliente_nova=form_cliente and form_cliente.cleaned_data,
+            profissional=d['profissional'], procedimento=d['procedimento'], inicio=d['inicio'],
+            valor_informado=d['valor'], por=request.user, request=request,
+        )
+    except (RegraDeNegocio, DatabaseError) as exc:
+        messages.error(request, _mensagem_falha(exc))
+        return render(request, TEMPLATE_NOVO, context)
 
-    inicio = None
-    if not erros:
-        inicio = timezone.make_aware(datetime.combine(data, hora))
-        # Mesma regra do site (SlotService: expediente, folga, bloqueio, buffer, antecedencia),
-        # com o motivo da recusa p/ a recepcao. Habilitacao ja veio do profissionais_para.
-        try:
-            agenda.validar_horario(profissional, procedimento, inicio, checar_habilitacao=False, detalhado=True)
-        except RegraDeNegocio as recusa:
-            erros.append(recusa.mensagem)
-
-    if erros:
-        for erro in erros:
-            messages.error(request, erro)
-        return render(request, 'painel/agendamento_novo.html', context)
-
-    precos = agenda.preco_do_dia(procedimento, profissional, inicio)
-    if valor_informado is not None and valor_informado != precos['valor_cobrado']:
-        # Valor combinado com a cliente (desconto negociado, cortesia...)
-        precos = {
-            'valor_cobrado': valor_informado, 'valor_original': preco['cheio'],
-            'promocao': None, 'descricao_preco': 'Valor combinado pela recepção',
-        }
-    valor_cobrado, promo = precos['valor_cobrado'], precos['promocao']
-
-    cliente_novo = cliente is None
-    try:
-        with transaction.atomic():
-            if cliente_novo:
-                cliente = Cliente.objects.create(**dados_novo)
-            atendimento = agenda.reservar(
-                cliente=cliente, profissional=profissional, procedimento=procedimento,
-                inicio=inicio, status=Atendimento.STATUS_AGENDADO, preco=precos,
-            )
-            # marcado por telefone/WhatsApp: a cliente recebe a confirmacao com data, valor e links
-            comunicacao.enfileirar_email(atendimento, Notificacao.Tipo.CONFIRMACAO)
-    except (RegraDeNegocio, IntegrityError) as exc:
-        if isinstance(exc, RegraDeNegocio):
-            messages.error(request, exc.mensagem)
-        else:
-            logger.warning('agendamento_painel_integridade', exc_info=True)
-            messages.error(request, 'Telefone, e-mail ou CPF já cadastrado para outra cliente. Busque a cliente.')
-        if cliente_novo:
-            context['cliente'] = None
-        return render(request, 'painel/agendamento_novo.html', context)
-    except DatabaseError:
-        logger.error('agendamento_painel_falha', exc_info=True)
-        messages.error(request, 'Não foi possível salvar o agendamento. Tente novamente.')
-        if cliente_novo:
-            context['cliente'] = None
-        return render(request, 'painel/agendamento_novo.html', context)
-
-    registrar_log(
-        request.user,
-        f'Agendou pelo painel: {procedimento.nome}',
-        'atendimento', atendimento.pk,
-        {
-            'cliente': cliente.pk, 'cliente_novo': cliente_novo,
-            'profissional': profissional.pk,
-            'valor_cobrado': str(valor_cobrado) if valor_cobrado is not None else None,
-            'promocao': promo.pk if promo else None,
-        },
-        request=request,
-    )
     messages.success(
         request,
-        f'Agendado: {cliente.nome} — {procedimento.nome} com {profissional.nome} em '
-        f'{timezone.localtime(inicio).strftime("%d/%m/%Y às %H:%M")}.',
+        f'Agendado: {at.cliente.nome} — {at.procedimento.nome} com {at.profissional.nome} em '
+        f'{timezone.localtime(at.data_hora_inicio).strftime("%d/%m/%Y às %H:%M")}.',
     )
-    # O agendamento pela recepcao nao coleta a ficha de anamnese do site
-    from ...services.alertas import ids_com_ficha_pendente
-    if ids_com_ficha_pendente([atendimento]):
-        messages.warning(
-            request,
-            'Ficha de anamnese obrigatória pendente: use "Link da ficha" na agenda para a cliente '
-            'responder antes do procedimento (ou confirme alergias e contraindicações no balcão).',
-        )
-    return redirect(f"{reverse('aranha:painel_agendamentos')}?data={data.isoformat()}")
+    if ids_com_ficha_pendente([at]):   # o agendamento pela recepcao nao coleta a ficha do site
+        messages.warning(request, MSG_FICHA_PENDENTE)
+    return redirect(f"{reverse('aranha:painel_agendamentos')}?data={d['data'].isoformat()}")
 
 
-@staff_required
-@require_POST
-@ratelimit(key='user', rate='60/m', method='POST', block=True)
+@escrita_painel
 def admin_atendimento_valor(request, pk):
-    """Registra o valor cobrado de um atendimento (desconto combinado, 'a consultar').
-
-    Antes de realizado: so grava. Realizado: grava e (re)calcula a comissao — com credito
-    PENDENTE, estorna e lanca o novo com o valor corrigido; comissao ja PAGA recusa (o repasse
-    saiu). Cancelado/faltou/reagendado e retorno gratuito (sempre 0): recusado com a explicacao.
-    """
-    from ...services.comissao import ComissaoService
-    from ...services.fidelidade import FidelidadeService
-
+    """'Registrar valor' da agenda (desconto combinado, 'a consultar'): services.atendimento.
+    registrar_valor_cobrado decide (status final e retorno recusam; realizado recalcula a comissao
+    e libera o cashback); aqui o parse (ValorAtendimentoForm), a trilha e o aviso."""
     at = get_object_or_404(Atendimento.objects.select_related('cliente', 'procedimento'), pk=pk)
-    voltar = redirect(safe_next(request, request.META.get('HTTP_REFERER'), 'aranha:painel_agendamentos'))
+    form = ValorAtendimentoForm(request.POST)
+    if not form.is_valid():
+        avisar_erros(request, form)
+        return voltar_para_origem(request)
+    valor = form.cleaned_data['valor']
     try:
-        valor = _parse_preco(request.POST.get('valor'))
-    except ValueError:
-        valor = None
-    if valor is None:
-        messages.error(request, 'Valor inválido: use números, ex.: 150,00.')
-        return voltar
-    if at.status in (StatusAtendimento.CANCELADO, StatusAtendimento.FALTOU, StatusAtendimento.REAGENDADO):
-        messages.error(request, f'Atendimento {at.get_status_display().lower()}: o valor não pode ser alterado.')
-        return voltar
-    if at.eh_retorno and valor != 0:
-        messages.error(request, 'Retorno gratuito fica sempre com valor zero.')
-        return voltar
-
-    antigo = at.valor_cobrado
-    comissao = cashback = credito_usado = None
-    try:
-        with transaction.atomic():
-            if at.valor_original is None and antigo is not None and antigo != valor:
-                at.valor_original = antigo
-            at.valor_cobrado = valor
-            at.descricao_preco = 'Valor combinado pela recepção'
-            at.save(update_fields=['valor_cobrado', 'valor_original', 'descricao_preco', 'atualizado_em'])
-            if request.POST.get('usar_credito') == '1':
-                # credito de indicacao da propria cliente: abate ate o saldo e ate o valor
-                saldo = FidelidadeService.saldos([at.cliente_id]).get(at.cliente_id, 0)
-                if saldo:
-                    credito_usado = FidelidadeService.usar_credito(at, min(saldo, valor), request.user)
-            if at.status == Atendimento.STATUS_REALIZADO:
-                comissao = ComissaoService.recalcular(at, request.user)
-                # Mesmo gatilho do REALIZADO: sem valor o cashback da indicadora
-                # tinha sido pulado e o evento nao roda de novo. Idempotente
-                # (UNIQUE carteira+atendimento+origem; 1o pago exclui o proprio pk).
-                cashback = FidelidadeService.liberar_cashback_indicacao(at)
-    except RegraDeNegocio as e:
-        messages.error(request, e.mensagem)
-        return voltar
+        r = casos_atendimento.registrar_valor_cobrado(
+            at, valor, usar_credito=form.cleaned_data['usar_credito'], por=request.user)
+    except RegraDeNegocio as recusa:
+        messages.error(request, recusa.mensagem)
+        return voltar_para_origem(request)
     except DatabaseError:
         logger.error('atendimento_valor_falha', exc_info=True, extra={'atendimento_id': at.pk})
         messages.error(request, 'Não foi possível registrar o valor. Confira o número e tente novamente.')
-        return voltar
+        return voltar_para_origem(request)
 
     registrar_log(
         request.user, 'Registrou valor cobrado', 'atendimento', at.pk,
-        {'de': str(antigo) if antigo is not None else None, 'para': str(valor),
-         'comissao': comissao.pk if comissao else None,
-         'cashback': cashback.pk if cashback else None,
-         'credito_usado': str(credito_usado.valor) if credito_usado else None},
+        {'de': str(r.antigo) if r.antigo is not None else None, 'para': str(valor),
+         'comissao': r.comissao.pk if r.comissao else None,
+         'cashback': r.cashback.pk if r.cashback else None,
+         'credito_usado': str(r.credito_usado.valor) if r.credito_usado else None},
         request=request,
     )
-    from ...utils.formatos import formatar_brl
-    messages.success(request, f'Valor de {at.cliente.nome} registrado: {formatar_brl(valor)}'
-                     + (f' (crédito de indicação abatido: {formatar_brl(credito_usado.valor)}).' if credito_usado
-                        else '.'))
-    return voltar
+    abatido = f' (crédito de indicação abatido: {formatar_brl(r.credito_usado.valor)}).' if r.credito_usado else '.'
+    messages.success(request, f'Valor de {at.cliente.nome} registrado: {formatar_brl(valor)}{abatido}')
+    return voltar_para_origem(request)
 
 
 # Select de status (partials/_select_status.html) -> metodo da FSM. AGENDADO nao e opcao do select:
@@ -480,18 +293,15 @@ def _decidir_pedido(atendimento, novo_status, by_user=None, request=None) -> Non
             raise Atendimento.TransicaoInvalida('Este pedido já foi decidido em outra tela.')
 
 
-@staff_required
-@require_POST
-@ratelimit(key='user', rate='30/m', method='POST', block=True)
+@escrita_painel
 def admin_desfazer_realizacao(request, pk):
     """Realizado marcado por engano -> Agendado, Faltou ou Cancelado, com motivo obrigatorio.
     Estorna comissao pendente e cashback, devolve a sessao do pacote e cancela o retorno sugerido
     (services/atendimento); comissao ja paga recusa."""
     at = get_object_or_404(Atendimento.objects.select_related('cliente'), pk=pk)
-    voltar = redirect(safe_next(request, request.META.get('HTTP_REFERER'), 'aranha:painel_agendamentos'))
-    destinos = {'AGENDADO': StatusAtendimento.AGENDADO, 'FALTOU': StatusAtendimento.FALTOU,
-                'CANCELADO': StatusAtendimento.CANCELADO}
-    destino = destinos.get((request.POST.get('destino') or '').upper())
+    voltar = voltar_para_origem(request)
+    bruto = (request.POST.get('destino') or '').strip().upper()
+    destino = next((s for s in Atendimento.DESFAZER_REALIZACAO if s == bruto), None)
     if destino is None:
         messages.error(request, 'Escolha para onde o atendimento volta: agendado, faltou ou cancelado.')
         return voltar
