@@ -91,7 +91,7 @@ def _pedir_codigo(request, telefone):
             'A verificação por SMS está indisponível no momento. Fale com a clínica para solicitar seus dados.',
         )
         return render(request, TEMPLATE_DSAR, _contexto(sms_indisponivel=True))
-    inicio = time.monotonic()
+    inicio = time.perf_counter()
     if Cliente.objects.filter(telefone=telefone).exists():
         # cooldown e quota ANTES de gerar ficam no services/otp (o codigo anterior continua valendo)
         ok, motivo, _canal = otp_service.solicitar_otp_telefone(

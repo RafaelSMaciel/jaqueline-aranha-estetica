@@ -538,6 +538,9 @@ def confirmar_agendamento(request):
         # So promete acompanhamento por e-mail se o backend entrega de fato
         'email': bool(email_cliente) and email_configurado(),
     }
+    # P10 (decisao 39): a area da cliente abre aqui, sem novo SMS — o celular acabou de ser verificado
+    from ...services.portal_cliente import abrir_sessao_do_wizard
+    abrir_sessao_do_wizard(request, telefone)
     otp_service.limpar_verificacao_agendamento(request)
     request.session.pop(SESSAO_REHIDRATAR, None)
 

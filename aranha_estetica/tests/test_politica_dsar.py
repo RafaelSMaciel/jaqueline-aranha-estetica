@@ -157,6 +157,17 @@ class LatenciaAntiEnumeracaoTests(TestCase):
         with patch('aranha_estetica.utils.sms.requests.post') as zenvia:
             zenvia.return_value.status_code = 200
             for tel in ('17933338888', '17911110000'):
-                inicio = time.monotonic()
+                inicio = time.perf_counter()
                 self.client.post(url, {'telefone': tel})
-                self.assertGreaterEqual(time.monotonic() - inicio, 0.8, tel)
+                self.assertGreaterEqual(time.perf_counter() - inicio, 0.8, tel)
+
+    def test_portal_cadastrado_e_desconhecido_demoram_o_mesmo_minimo(self):
+        criar_cliente(nome='Portal Cadastrada', telefone='17933339999')
+        url = reverse('aranha:meus_agendamentos_enviar_otp')
+        with patch('aranha_estetica.utils.sms.requests.post') as zenvia:
+            zenvia.return_value.status_code = 200
+            for tel in ('17933339999', '17911112222'):
+                inicio = time.perf_counter()
+                resp = self.client.post(url, {'identificador': tel})
+                self.assertIs(resp.json()['ok'], True, tel)   # mesma resposta nos dois casos
+                self.assertGreaterEqual(time.perf_counter() - inicio, 0.8, tel)

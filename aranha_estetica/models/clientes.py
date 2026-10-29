@@ -179,6 +179,11 @@ class Cliente(models.Model):
             return MAX_FALTAS_ANTES_BLOQUEIO
         return limite if limite >= 1 else MAX_FALTAS_ANTES_BLOQUEIO
 
+    def registrar_cancelamento_tardio(self):
+        """Cancelamento pela cliente com menos de JANELA_MINIMA_ALTERACAO (decisao 10): conta como
+        falta para o bloqueio do agendamento online (soma 1 e pode bloquear), sem virar FALTOU."""
+        self.registrar_falta()
+
     def registrar_falta(self):
         # Lock da row p/ evitar lost-update sob no-shows concorrentes; grava
         # so os campos afetados (evita reprocessar normalizacao/tokens no save()).

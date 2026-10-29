@@ -5,6 +5,7 @@ recebe o SMS: e-mail digitado nunca vira identidade (senao qualquer um
 receberia no proprio celular o codigo que libera o cadastro de outra pessoa).
 """
 import logging
+import time
 
 from django.http import JsonResponse
 from django.shortcuts import redirect
@@ -15,6 +16,7 @@ from django_ratelimit.decorators import ratelimit
 from ...models import Cliente, CodigoOtp
 from ...services import consentimentos
 from ...services import otp as otp_service
+from ...services import portal_cliente
 from ...utils.captcha import turnstile_enabled, verificar_turnstile
 from ...utils.pii import mask_telefone
 from ...utils.seguranca import client_ip as _client_ip
@@ -22,7 +24,7 @@ from ...utils.sms import sms_disponivel
 
 logger = logging.getLogger(__name__)
 
-SESSAO_MEUS_AGENDAMENTOS = 'meus_agendamentos_telefone'
+SESSAO_MEUS_AGENDAMENTOS = portal_cliente.SESSAO_MEUS_AGENDAMENTOS
 
 
 def _captcha_invalido(request):
@@ -150,6 +152,7 @@ def meus_agendamentos_enviar_otp(request):
     if not sms_disponivel():
         return JsonResponse({'ok': False, 'erro': 'sms_falha'}, status=503)
 
+    inicio = time.perf_counter()
     digitos, cliente = _telefone_do_identificador(ident)
     if cliente and digitos:
         ok, motivo, _canal = otp_service.solicitar_otp_telefone(
@@ -159,6 +162,7 @@ def meus_agendamentos_enviar_otp(request):
             logger.warning('otp_login_sms_falha', extra={
                 'telefone': mask_telefone(digitos), 'motivo': motivo,
             })
+    otp_service.esperar_latencia_minima(inicio)   # cadastrado e desconhecido levam o mesmo tempo
     return JsonResponse({
         'ok': True,
         'mensagem': 'Se houver cadastro, o código chegará por SMS no celular cadastrado.',
@@ -182,14 +186,12 @@ def meus_agendamentos_verificar_otp(request):
     if not ok:
         return JsonResponse({'ok': False, 'erro': motivo}, status=400)
 
-    request.session.cycle_key()  # anti session-fixation
-    request.session.pop('meus_agendamentos_email', None)  # chave legada
-    request.session[SESSAO_MEUS_AGENDAMENTOS] = digitos
-    request.session.set_expiry(3600)
+    portal_cliente.abrir_sessao(request, digitos)   # cycle_key, 1 h, hora da verificacao
     return JsonResponse({'ok': True, 'redirect': reverse('aranha:meus_agendamentos')})
 
 
+@require_POST
 def meus_agendamentos_logout(request):
-    request.session.pop(SESSAO_MEUS_AGENDAMENTOS, None)
-    request.session.pop('meus_agendamentos_email', None)
+    """Sair do portal: so POST com CSRF (um <img src> de outro site nao derruba a sessao)."""
+    portal_cliente.encerrar_sessao(request)
     return redirect('aranha:meus_agendamentos')

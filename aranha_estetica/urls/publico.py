@@ -50,6 +50,10 @@ urlpatterns = [
     path('meus-agendamentos/otp/enviar/', verificacao.meus_agendamentos_enviar_otp, name='meus_agendamentos_enviar_otp'),
     path('meus-agendamentos/otp/verificar/', verificacao.meus_agendamentos_verificar_otp, name='meus_agendamentos_verificar_otp'),
     path('meus-agendamentos/sair/', verificacao.meus_agendamentos_logout, name='meus_agendamentos_logout'),
+    path('meus-agendamentos/preferencias/', portal.portal_preferencias, name='portal_preferencias'),
+    path('meus-agendamentos/saude/revogar/', portal.portal_revogar_saude, name='portal_revogar_saude'),
+    path('meus-agendamentos/pedido/', portal.portal_pedido, name='portal_pedido'),
+    path('meus-agendamentos/meus-dados/', portal.portal_meus_dados, name='portal_meus_dados'),
     # reagendar pelo portal: id + sessao do OTP (anti-IDOR), sem token
     path('meus-agendamentos/<int:pk>/reagendar/', portal.reagendar_agendamento_portal,
          name='reagendar_agendamento_portal'),

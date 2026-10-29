@@ -164,7 +164,7 @@ class CancelarPeloPortalTests(TestCase):
                       json.dumps({'atendimento_id': 'x'})):
             with self.subTest(corpo=corpo):
                 resp = self._post_cru(corpo)
-                self.assertEqual((resp.status_code, resp.json()), (400, {'erro': 'Agendamento não informado'}))
+                self.assertEqual((resp.status_code, resp.json()['codigo']), (400, 'sem_atendimento'))
         for corpo in ('[1]', '"x"', 'nao-json'):
             with self.subTest(corpo=corpo):
                 self.assertEqual(self._post_cru(corpo).status_code, 400)
@@ -662,7 +662,7 @@ class MeusAgendamentosMensagensTests(TestCase):
         prof = criar_profissional()
         _atendimento(cli, prof, criar_procedimento(profissional=prof), _local(5, 10))
         html = self.client.get(reverse('aranha:meus_agendamentos')).content.decode()
-        self.assertIn('MSGS_ERRO[res.data.erro]', html)
+        self.assertIn('MSGS_ERRO[res.data.codigo]', html)   # contrato utils/respostas: codigo + mensagem
         self.assertNotIn('showToast(res.data.erro ||', html)
 
     def test_aviso_sem_sms_no_login_do_portal(self):
