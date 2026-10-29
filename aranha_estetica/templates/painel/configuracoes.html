@@ -6,63 +6,67 @@
 
 {% block admin_content %}
 
-<div class="flex items-start gap-2 px-4 py-3 rounded-xl bg-fundo text-texto-suave text-[0.8rem] mb-4 border-l-[3px] border-marca">
-  <span>Cada regra tem um padrão: deixe como está ou ajuste ao jeito da clínica. Nome, contatos e cor da clínica ficam em
-  <a href="{% url 'aranha:admin_branding' %}" class="font-bold text-marca">Identidade visual</a>.</span>
-</div>
+<c-nota tom="info" class="mb-6">
+  <p>Cada regra tem um padrão: deixe como está ou ajuste ao jeito da clínica. Nome, contatos e cor da clínica ficam em
+  <a href="{% url 'aranha:admin_branding' %}" class="font-bold text-marca underline underline-offset-4">Identidade visual</a>.</p>
+</c-nota>
 
-{% for r in regras %}
-<section class="bg-superficie rounded-2xl shadow-sm p-5 mb-3" aria-labelledby="regra-{{ r.chave }}-titulo">
-  <h2 id="regra-{{ r.chave }}-titulo" class="font-bold text-[0.95rem] text-texto">{{ r.rotulo }}</h2>
-  <p id="regra-{{ r.chave }}-ajuda" class="text-[0.8rem] text-texto-suave mt-1 mb-3">{{ r.descricao }}</p>
-
-  {% if r.gravado_invalido and not r.erro %}
-  <p class="text-[0.8rem] text-aviso bg-aviso-fundo rounded-lg px-3 py-2 mb-3">
-    O valor gravado ({{ r.linha.valor }}) não vale para esta regra: o sistema está usando o padrão. Salve um valor válido.
-  </p>
-  {% endif %}
-
-  <form method="post"
-        action="{% if r.linha %}{% url 'aranha:admin_editar_configuracao' r.linha.pk %}{% else %}{% url 'aranha:admin_criar_configuracao' %}{% endif %}"
-        class="flex flex-wrap items-end gap-2">
-    {% csrf_token %}
-    {% if not r.linha %}<input type="hidden" name="chave" value="{{ r.chave }}">{% endif %}
-    <div class="flex flex-col gap-1 flex-1 min-w-[14rem]">
-      <label for="regra-{{ r.chave }}" class="text-[0.75rem] font-bold text-texto-suave">
-        {% if r.email %}E-mail{% else %}Número (de {{ r.minimo }} a {{ r.maximo }}){% endif %}
-      </label>
-      {% if r.email %}
-      <input type="email" name="valor" id="regra-{{ r.chave }}" value="{{ r.valor }}" autocomplete="off"
-             placeholder="Em branco: e-mail de contato da clínica"
-             aria-describedby="regra-{{ r.chave }}-ajuda{% if r.erro %} regra-{{ r.chave }}-erro{% endif %}"
-             {% if r.erro %}aria-invalid="true"{% endif %}
-             class="px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
-      {% else %}
-      <input type="number" name="valor" id="regra-{{ r.chave }}" value="{{ r.valor|default:r.padrao }}"
-             min="{{ r.minimo }}" max="{{ r.maximo }}" step="1" inputmode="numeric" required
-             aria-describedby="regra-{{ r.chave }}-ajuda{% if r.erro %} regra-{{ r.chave }}-erro{% endif %}"
-             {% if r.erro %}aria-invalid="true"{% endif %}
-             class="px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
+<div class="cartao lista-itens">
+  {% for r in regras %}
+  <section class="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_24rem] lg:gap-8" aria-labelledby="regra-{{ r.chave }}-titulo">
+    {# O que a regra faz + o padrao #}
+    <div class="min-w-0">
+      <div class="flex flex-wrap items-center gap-2">
+        <h2 id="regra-{{ r.chave }}-titulo" class="text-base font-bold text-texto">{{ r.rotulo }}</h2>
+        {% if r.linha %}<c-selo tom="marca">Ajustada</c-selo>{% endif %}
+      </div>
+      <p id="regra-{{ r.chave }}-ajuda" class="mt-1 text-sm text-texto-suave">{{ r.descricao }}</p>
+      <p class="mt-2 text-legenda text-texto-suave">
+        {% if r.email %}Padrão: em branco.{% else %}Padrão: {{ r.padrao }}.{% endif %}
+        {% if not r.linha %}Sem ajuste: vale o padrão.{% endif %}
+      </p>
+      {% if r.gravado_invalido and not r.erro %}
+      <c-nota tom="aviso" class="mt-3">
+        <p>O valor gravado ({{ r.linha.valor }}) não vale para esta regra: o sistema está usando o padrão. Salve um valor válido.</p>
+      </c-nota>
       {% endif %}
-      {% if r.erro %}<span id="regra-{{ r.chave }}-erro" class="text-erro text-sm">{{ r.erro }}</span>{% endif %}
     </div>
-    <button type="submit"
-            class="px-4 py-2 rounded-lg bg-marca-forte text-sobre-marca text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
-      Salvar
-    </button>
-    {% if r.linha %}
-    <button type="submit" formaction="{% url 'aranha:admin_excluir_configuracao' r.linha.pk %}" formnovalidate
-            data-confirm="Voltar &quot;{{ r.rotulo }}&quot; ao padrão?"
-            class="px-4 py-2 rounded-lg border border-borda bg-superficie text-texto text-[0.85rem] font-bold cursor-pointer hover:bg-fundo transition-colors">
-      Restaurar padrão
-    </button>
-    {% endif %}
-  </form>
-  <p class="text-[0.72rem] text-texto-suave mt-2">
-    {% if r.email %}Padrão: em branco.{% else %}Padrão: {{ r.padrao }}.{% endif %}
-    {% if not r.linha %}Sem ajuste: vale o padrão.{% endif %}
-  </p>
-</section>
-{% endfor %}
+
+    {# Ajuste #}
+    <form method="post"
+          action="{% if r.linha %}{% url 'aranha:admin_editar_configuracao' r.linha.pk %}{% else %}{% url 'aranha:admin_criar_configuracao' %}{% endif %}"
+          class="flex flex-col gap-3">
+      {% csrf_token %}
+      {% if not r.linha %}<input type="hidden" name="chave" value="{{ r.chave }}">{% endif %}
+      <div class="grupo-campo">
+        <label for="regra-{{ r.chave }}" class="rotulo">
+          {% if r.email %}E-mail{% else %}Número (de {{ r.minimo }} a {{ r.maximo }}){% endif %}
+        </label>
+        {% if r.email %}
+        <input type="email" name="valor" id="regra-{{ r.chave }}" value="{{ r.valor }}" autocomplete="off"
+               placeholder="Em branco: e-mail de contato da clínica"
+               aria-describedby="regra-{{ r.chave }}-ajuda{% if r.erro %} regra-{{ r.chave }}-erro{% endif %}"
+               {% if r.erro %}aria-invalid="true"{% endif %}
+               class="campo">
+        {% else %}
+        <input type="number" name="valor" id="regra-{{ r.chave }}" value="{{ r.valor|default:r.padrao }}"
+               min="{{ r.minimo }}" max="{{ r.maximo }}" step="1" inputmode="numeric" required
+               aria-describedby="regra-{{ r.chave }}-ajuda{% if r.erro %} regra-{{ r.chave }}-erro{% endif %}"
+               {% if r.erro %}aria-invalid="true"{% endif %}
+               class="campo">
+        {% endif %}
+        {% if r.erro %}<p id="regra-{{ r.chave }}-erro" class="erro-campo">{{ r.erro }}</p>{% endif %}
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <c-botao tipo="submit" icone="check">Salvar</c-botao>
+        {% if r.linha %}
+        <c-botao tipo="submit" variante="secundario" icone="desfazer" formaction="{% url 'aranha:admin_excluir_configuracao' r.linha.pk %}" formnovalidate
+                 data-confirm="Voltar &quot;{{ r.rotulo }}&quot; ao padrão?">Restaurar padrão</c-botao>
+        {% endif %}
+      </div>
+    </form>
+  </section>
+  {% endfor %}
+</div>
 
 {% endblock %}

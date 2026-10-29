@@ -4,185 +4,153 @@
 {% block page_title %}Comissões{% endblock %}
 {% block page_subtitle %}Comissões dos profissionais por atendimento{% endblock %}
 {% block page_actions %}
-<a href="{% url 'aranha:painel_comissao_regras' %}"
-   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold border border-borda text-texto-suave no-underline hover:text-texto transition-colors">Regras de comissão</a>
+<c-botao variante="secundario" href="{% url 'aranha:painel_comissao_regras' %}" icone="configuracoes">Regras de comissão</c-botao>
+<c-botao icone="dinheiro" data-abrir-dialogo="dlg-repasse">Repassar pendentes</c-botao>
 {% endblock %}
 
 {% block admin_content %}
 
 {% if sem_regra_comissao %}
-<div class="bg-aviso-fundo border-l-4 border-aviso rounded-xl px-4 py-3 mb-4 text-[0.85rem] text-texto" role="status">
-  <strong class="text-aviso">Nenhuma regra de comissão ativa:</strong> nenhum atendimento realizado gera comissão.
-  <a href="{% url 'aranha:painel_comissao_regras' %}" class="font-bold text-marca">Cadastrar regra</a>
-</div>
+<c-nota tom="aviso" titulo="Nenhuma regra de comissão ativa" class="mb-6">
+  <p>Nenhum atendimento realizado gera comissão. <a href="{% url 'aranha:painel_comissao_regras' %}" class="font-bold text-marca underline underline-offset-4">Cadastrar regra</a></p>
+</c-nota>
 {% endif %}
 
-{# ── Repasse em lote ── #}
-<div class="bg-superficie rounded-2xl shadow-sm p-4 mb-4">
-  <h2 class="text-base font-bold text-texto mb-1">Repasse</h2>
-  <p class="text-[0.75rem] text-texto-suave mb-3">Paga de uma vez as comissões pendentes da profissional com atendimento até a data (inclusive) e abre o comprovante para imprimir.</p>
-  <form method="POST" action="{% url 'aranha:admin_comissao_repasse' %}" class="flex gap-2 flex-wrap items-end">
-    {% csrf_token %}
-    <div class="flex-1 min-w-[160px]">
-      <label for="repasseProf" class="block text-[0.72rem] font-bold text-texto-suave mb-1">Profissional</label>
-      <select id="repasseProf" name="profissional" required class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo">
-        {% for p in profissionais %}
-        <option value="{{ p.pk }}" {% if prof_filter == p.pk|stringformat:'s' %}selected{% endif %}>{{ p.nome }}{% if not p.ativo %} (inativa){% endif %}</option>
-        {% endfor %}
-      </select>
+{# ── Filtros (periodo e profissional valem tambem p/ os totais e o resumo) ── #}
+<c-card class="mb-6">
+  <form method="GET" class="barra-filtros">
+    <c-campo nome="status" id="fStatus" label="Status" tipo="select">
+      <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Todos os status</option>
+      <option value="PENDENTE" {% if status_filter == 'PENDENTE' %}selected{% endif %}>Pendentes</option>
+      <option value="PAGA" {% if status_filter == 'PAGA' %}selected{% endif %}>Pagas</option>
+      <option value="ESTORNADA" {% if status_filter == 'ESTORNADA' %}selected{% endif %}>Estornadas</option>
+    </c-campo>
+    <c-campo nome="profissional" id="fProf" label="Profissional" tipo="select">
+      <option value="all" {% if prof_filter == 'all' %}selected{% endif %}>Todos os profissionais</option>
+      {% for p in profissionais %}
+      <option value="{{ p.pk }}" {% if prof_filter == p.pk|stringformat:'s' %}selected{% endif %}>{{ p.nome }}{% if not p.ativo %} (inativa){% endif %}</option>
+      {% endfor %}
+    </c-campo>
+    <c-campo nome="periodo" id="fPeriodo" label="Período" tipo="select">
+      <option value="30" {% if periodo == '30' %}selected{% endif %}>Atendimentos de 30 dias</option>
+      <option value="90" {% if periodo == '90' %}selected{% endif %}>Atendimentos de 90 dias</option>
+      <option value="tudo" {% if periodo == 'tudo' %}selected{% endif %}>Tudo</option>
+    </c-campo>
+    <div class="barra-filtros-acoes">
+      <c-botao tipo="submit" variante="secundario" icone="filtro">Filtrar</c-botao>
+      <c-botao variante="fantasma" href="{% url 'aranha:painel_comissoes' %}">Limpar</c-botao>
     </div>
-    <div>
-      <label for="repasseAte" class="block text-[0.72rem] font-bold text-texto-suave mb-1">Atendimentos até</label>
-      <input id="repasseAte" type="date" name="ate" required value="{{ hoje|date:'Y-m-d' }}" max="{{ hoje|date:'Y-m-d' }}"
-             class="px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo">
-    </div>
-    <button type="submit" data-confirm="Pagar todas as comissões pendentes desta profissional até a data escolhida?"
-            class="px-4 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.85rem] font-semibold hover:opacity-90 transition">Pagar pendentes até a data</button>
   </form>
+</c-card>
+
+{# ── Totais do periodo (ignoram o filtro de status) ── #}
+<div class="grade-kpis mb-6">
+  <c-kpi rotulo="A pagar (pendente)" valor="{{ pendente_total|brl }}" icone="comissoes"
+         detalhe="{{ pendente_count }} comiss{{ pendente_count|pluralize:'ão,ões' }}" />
+  <c-kpi rotulo="Pagas" valor="{{ paga_total|brl }}" icone="check-circulo"
+         detalhe="{{ paga_count }} comiss{{ paga_count|pluralize:'ão,ões' }}" />
+  <c-kpi rotulo="Estornadas" valor="{{ estornada_count }}" icone="desfazer" detalhe="no período" />
 </div>
 
-{# ── Cards de totais ── #}
-<div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-  <div class="bg-superficie rounded-2xl shadow-sm p-4">
-    <p class="text-[0.72rem] font-bold text-texto-suave uppercase tracking-wide">A pagar (pendente)</p>
-    <p class="text-2xl font-extrabold text-marca mt-1 leading-none">{{ pendente_total|brl }}</p>
-    <p class="text-[0.72rem] text-texto-suave mt-1">{{ pendente_count }} comissã{{ pendente_count|pluralize:"o,ões" }}</p>
-  </div>
-  <div class="bg-superficie rounded-2xl shadow-sm p-4">
-    <p class="text-[0.72rem] font-bold text-texto-suave uppercase tracking-wide">Pagas</p>
-    <p class="text-2xl font-extrabold text-sucesso mt-1 leading-none">{{ paga_total|brl }}</p>
-    <p class="text-[0.72rem] text-texto-suave mt-1">{{ paga_count }} comissã{{ paga_count|pluralize:"o,ões" }}</p>
-  </div>
-  <div class="bg-superficie rounded-2xl shadow-sm p-4">
-    <p class="text-[0.72rem] font-bold text-texto-suave uppercase tracking-wide">Estornadas</p>
-    <p class="text-2xl font-extrabold text-texto-suave mt-1 leading-none">{{ estornada_count }}</p>
-    <p class="text-[0.72rem] text-texto-suave mt-1">no período</p>
-  </div>
-</div>
-
-{# ── Filtros ── #}
-<div class="bg-superficie rounded-2xl shadow-sm p-4 mb-4">
-  <form method="GET" class="flex gap-2 flex-wrap items-end">
-    <div class="flex-1 min-w-[140px]">
-      <label for="fStatus" class="sr-only">Status</label>
-      <select id="fStatus" name="status" class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
-        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Todos os status</option>
-        <option value="PENDENTE" {% if status_filter == 'PENDENTE' %}selected{% endif %}>Pendentes</option>
-        <option value="PAGA" {% if status_filter == 'PAGA' %}selected{% endif %}>Pagas</option>
-        <option value="ESTORNADA" {% if status_filter == 'ESTORNADA' %}selected{% endif %}>Estornadas</option>
-      </select>
-    </div>
-    <div class="flex-1 min-w-[140px]">
-      <label for="fProf" class="sr-only">Profissional</label>
-      <select id="fProf" name="profissional" class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
-        <option value="all" {% if prof_filter == 'all' %}selected{% endif %}>Todos os profissionais</option>
-        {% for p in profissionais %}
-        <option value="{{ p.pk }}" {% if prof_filter == p.pk|stringformat:'s' %}selected{% endif %}>{{ p.nome }}{% if not p.ativo %} (inativa){% endif %}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="flex-1 min-w-[120px]">
-      <label for="fPeriodo" class="sr-only">Período</label>
-      <select id="fPeriodo" name="periodo" class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
-        <option value="30" {% if periodo == '30' %}selected{% endif %}>Atendimentos de 30 dias</option>
-        <option value="90" {% if periodo == '90' %}selected{% endif %}>Atendimentos de 90 dias</option>
-        <option value="tudo" {% if periodo == 'tudo' %}selected{% endif %}>Tudo</option>
-      </select>
-    </div>
-    <button type="submit" class="px-4 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.85rem] font-semibold hover:opacity-90 transition">Filtrar</button>
-    <a href="{% url 'aranha:painel_comissoes' %}" class="px-4 py-2 rounded-xl border border-borda text-texto-suave text-[0.85rem] font-medium hover:bg-fundo transition no-underline">Limpar</a>
-  </form>
-</div>
-
-{# ── Resumo por profissional ── #}
+{# ── Resumo por profissional (saldo do historico inteiro) ── #}
 {% if por_profissional %}
-<div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
-  <h2 class="text-base font-bold text-texto mb-3">Por profissional</h2>
-  <div class="overflow-x-auto">
-    <table class="w-full text-sm">
-      <thead>
-        <tr class="text-[0.72rem] uppercase tracking-wide text-texto-suave text-left border-b border-borda">
-          <th class="py-2 font-bold">Profissional</th>
-          <th class="py-2 font-bold text-right">Pendente</th>
-          <th class="py-2 font-bold text-right">Paga</th>
-          <th class="py-2 font-bold text-right">Qtd</th>
-          <th class="py-2 font-bold text-right">Saldo a pagar</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in por_profissional %}
-        <tr class="border-b border-borda/60 last:border-0">
-          <td class="py-2 text-texto">{{ r.profissional__nome }}</td>
-          <td class="py-2 text-right text-marca font-semibold tabular-nums">{{ r.pendente|default:0|brl }}</td>
-          <td class="py-2 text-right text-sucesso tabular-nums">{{ r.paga|default:0|brl }}</td>
-          <td class="py-2 text-right text-texto-suave tabular-nums">{{ r.qtd }}</td>
-          <td class="py-2 text-right font-semibold tabular-nums {% if r.saldo_negativo %}text-erro{% else %}text-texto{% endif %}">{{ r.saldo|brl }}</td>
-        </tr>
+<c-card titulo="Por profissional" icone="profissionais" espaco="nenhum" class="mb-6">
+  <c-tabela legenda="Resumo de comissões por profissional" responsiva="1">
+    <thead>
+      <tr>
+        <th scope="col">Profissional</th>
+        <th scope="col" class="num">Pendente</th>
+        <th scope="col" class="num">Paga</th>
+        <th scope="col" class="num">Qtd</th>
+        <th scope="col" class="num">Saldo a pagar</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in por_profissional %}
+      <tr>
+        <td class="font-bold">{{ r.profissional__nome }}</td>
+        <td data-rotulo="Pendente" class="num font-bold text-marca">{{ r.pendente|default:0|brl }}</td>
+        <td data-rotulo="Paga" class="num text-sucesso">{{ r.paga|default:0|brl }}</td>
+        <td data-rotulo="Qtd" class="num text-texto-suave">{{ r.qtd }}</td>
+        <td data-rotulo="Saldo a pagar" class="num font-bold{% if r.saldo_negativo %} text-erro{% endif %}">{{ r.saldo|brl }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </c-tabela>
+  <p class="ajuda border-t border-borda px-5 py-3">Saldo a pagar = comissões geradas − pagas − estornadas (todo o histórico, não só o período).{% if tem_saldo_negativo %} <strong class="text-erro">Saldo negativo = comissão já paga e depois estornada: a descontar do próximo repasse.</strong>{% endif %}</p>
+</c-card>
+{% endif %}
+
+{# ── Lista de comissoes ── #}
+<c-card titulo="Lançamentos" icone="lista" espaco="nenhum">
+  {% if comissoes %}
+  <c-tabela legenda="Comissões do filtro" responsiva="1">
+    <thead>
+      <tr>
+        <th scope="col">Profissional</th>
+        <th scope="col">Atendimento</th>
+        <th scope="col">Cálculo</th>
+        <th scope="col">Situação</th>
+        <th scope="col" class="num">Valor</th>
+        <th scope="col"><span class="sr-only">Ações</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in comissoes %}
+      <tr>
+        <td>
+          <p class="font-bold">{{ c.profissional.nome }}</p>
+          <p class="text-sm text-texto-suave">{{ c.atendimento.cliente.nome|default:"—" }} · {{ c.atendimento.procedimento.nome|default:"—" }}</p>
+        </td>
+        <td data-rotulo="Atendimento" class="whitespace-nowrap tabular-nums">{{ c.atendimento.data_hora_inicio|date:"d/m/Y" }}</td>
+        <td data-rotulo="Cálculo" class="text-sm">{% if c.base_calculo is not None %}{% if c.percentual_aplicado is not None %}{{ c.percentual_aplicado }}% de {{ c.base_calculo|brl }}{% else %}valor fixo sobre {{ c.base_calculo|brl }}{% endif %}{% else %}—{% endif %}</td>
+        <td data-rotulo="Situação">
+          <div class="flex flex-col items-end gap-1 md:items-start">
+            <c-selo tom="{% if c.status == 'PENDENTE' %}marca{% elif c.status == 'PAGA' %}sucesso{% else %}neutro{% endif %}">{{ c.get_status_display }}</c-selo>
+            <p class="text-legenda text-texto-suave">gerada {{ c.criado_em|date:"d/m/Y" }}{% if c.pago_em %} · paga {{ c.pago_em|date:"d/m/Y" }}{% if c.pagamento_pk %} (<a href="{% url 'aranha:painel_comissao_repasse' c.pagamento_pk %}" class="text-marca underline">comprovante</a>){% endif %}{% endif %}{% if c.estornado_em %} · estornada {{ c.estornado_em|date:"d/m/Y" }}{% if c.pago_em %} (a descontar do próximo repasse){% endif %}{% endif %}</p>
+          </div>
+        </td>
+        <td data-rotulo="Valor" class="num font-bold">{{ c.valor|brl }}</td>
+        <td class="acoes{% if c.status != 'PENDENTE' %} max-md:hidden{% endif %}">
+          {% if c.status == 'PENDENTE' %}
+          <form method="POST" action="{% url 'aranha:admin_comissao_pagar' c.pk %}" class="m-0 inline">
+            {% csrf_token %}
+            <c-botao tipo="submit" variante="sucesso" tamanho="sm" icone="check"
+                     data-confirm="Marcar esta comissão de {{ c.valor|brl }} como paga?">Marcar paga</c-botao>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </c-tabela>
+  {% else %}
+  <c-vazio titulo="Nenhuma comissão no filtro" icone="comissoes"
+           texto="As comissões são geradas automaticamente quando um atendimento pago é marcado como realizado." />
+  {% endif %}
+</c-card>
+
+{% include 'partials/_paginacao.html' with page=comissoes %}
+
+{# ── Repasse em lote (aberto pelo botao do cabecalho) ── #}
+<c-dialogo id="dlg-repasse" titulo="Repassar comissões pendentes" tamanho="sm">
+  <form method="POST" action="{% url 'aranha:admin_comissao_repasse' %}">
+    {% csrf_token %}
+    <div class="dialogo-corpo">
+      <p class="text-sm text-texto-suave">Paga de uma vez as comissões pendentes da profissional com atendimento até a data (inclusive) e abre o comprovante para imprimir.</p>
+      <c-campo nome="profissional" id="repasseProf" label="Profissional" tipo="select" required>
+        {% for p in profissionais %}
+        <option value="{{ p.pk }}" {% if prof_filter == p.pk|stringformat:'s' %}selected{% endif %}>{{ p.nome }}{% if not p.ativo %} (inativa){% endif %}</option>
         {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  <p class="text-[0.72rem] text-texto-suave mt-2">Saldo a pagar = comissões geradas − pagas − estornadas (todo o histórico, não só o período).{% if tem_saldo_negativo %} <strong class="text-erro">Saldo negativo = comissão já paga e depois estornada: a descontar do próximo repasse.</strong>{% endif %}</p>
-</div>
-{% endif %}
-
-{# ── Lista de comissões ── #}
-{% if comissoes %}
-<div class="space-y-2">
-  {% for c in comissoes %}
-  <div class="bg-superficie rounded-2xl shadow-sm p-4 flex flex-wrap items-center gap-4">
-    <div class="min-w-0 flex-1">
-      <p class="text-texto font-bold text-sm truncate">{{ c.profissional.nome }}</p>
-      <p class="text-[0.78rem] text-texto-suave truncate">
-        {{ c.atendimento.cliente.nome|default:"—" }} · {{ c.atendimento.procedimento.nome|default:"—" }}
-      </p>
-      <p class="text-[0.72rem] text-texto-suave mt-0.5">
-        Atendimento {{ c.atendimento.data_hora_inicio|date:"d/m/Y" }}{% if c.base_calculo is not None %} · {% if c.percentual_aplicado is not None %}{{ c.percentual_aplicado }}% de {{ c.base_calculo|brl }}{% else %}valor fixo sobre {{ c.base_calculo|brl }}{% endif %}{% endif %} ·
-        gerada {{ c.criado_em|date:"d/m/Y" }}{% if c.pago_em %} · paga {{ c.pago_em|date:"d/m/Y" }}{% if c.pagamento_pk %} (<a href="{% url 'aranha:painel_comissao_repasse' c.pagamento_pk %}" class="text-marca underline">comprovante</a>){% endif %}{% endif %}{% if c.estornado_em %} · estornada {{ c.estornado_em|date:"d/m/Y" }}{% if c.pago_em %} (a descontar do próximo repasse){% endif %}{% endif %}
-      </p>
+      </c-campo>
+      <c-campo nome="ate" id="repasseAte" label="Atendimentos até" tipo="date" required
+               value="{{ hoje|date:'Y-m-d' }}" max="{{ hoje|date:'Y-m-d' }}"></c-campo>
     </div>
-    <div class="text-right">
-      <p class="text-lg font-extrabold text-texto tabular-nums leading-none">{{ c.valor|brl }}</p>
-      <span class="inline-block mt-1 text-[0.68rem] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full
-        {% if c.status == 'PENDENTE' %}bg-marca-forte/[0.12] text-marca
-        {% elif c.status == 'PAGA' %}bg-sucesso/[0.12] text-sucesso
-        {% else %}bg-fundo text-texto-suave{% endif %}">{{ c.get_status_display }}</span>
+    <div class="dialogo-rodape">
+      <c-botao variante="secundario" data-fechar-dialogo>Cancelar</c-botao>
+      <c-botao tipo="submit" data-confirm="Pagar todas as comissões pendentes desta profissional até a data escolhida?">Pagar pendentes até a data</c-botao>
     </div>
-    {% if c.status == 'PENDENTE' %}
-    <form method="POST" action="{% url 'aranha:admin_comissao_pagar' c.pk %}" class="flex-shrink-0">
-      {% csrf_token %}
-      <button type="submit" data-confirm="Marcar esta comissão de {{ c.valor|brl }} como paga?"
-              class="px-4 py-2 rounded-xl bg-sucesso-forte text-sobre-sucesso text-[0.8rem] font-semibold hover:opacity-90 transition">
-        Marcar paga
-      </button>
-    </form>
-    {% endif %}
-  </div>
-  {% endfor %}
-</div>
-
-{# ── Paginação ── #}
-{% if comissoes.has_other_pages %}
-<div class="flex items-center justify-center gap-2 mt-5">
-  {% if comissoes.has_previous %}
-  <a href="{% querystring page=comissoes.previous_page_number %}" class="px-3 py-1.5 rounded-lg border border-borda text-sm text-texto hover:bg-fundo transition no-underline">Anterior</a>
-  {% endif %}
-  <span class="text-sm text-texto-suave">Página {{ comissoes.number }} de {{ comissoes.paginator.num_pages }}</span>
-  {% if comissoes.has_next %}
-  <a href="{% querystring page=comissoes.next_page_number %}" class="px-3 py-1.5 rounded-lg border border-borda text-sm text-texto hover:bg-fundo transition no-underline">Próximo</a>
-  {% endif %}
-</div>
-{% endif %}
-
-{% else %}
-{# ── Empty state ── #}
-<div class="bg-superficie rounded-2xl shadow-sm text-center py-16">
-  <div class="mx-auto w-16 h-16 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mb-4">
-    <svg class="w-8 h-8 text-marca" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-  </div>
-  <p class="font-serif font-bold text-texto mb-1">Nenhuma comissão no filtro</p>
-  <p class="text-sm text-texto-suave">As comissões são geradas automaticamente quando um atendimento pago é marcado como realizado.</p>
-</div>
-{% endif %}
+  </form>
+</c-dialogo>
 
 {% endblock %}
