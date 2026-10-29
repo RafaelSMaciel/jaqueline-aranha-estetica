@@ -1,7 +1,7 @@
 {% extends 'estrutura/base_v2.html' %}
 {% load static %}
 
-{% block titulo %}Tratamentos Corporais | {{ CLINIC_NAME }}{% endblock %}
+{% block titulo %}Tratamentos corporais | {{ CLINIC_NAME }}{% endblock %}
 {% block meta_description %}Tratamentos corporais na {{ CLINIC_NAME }}: enzimas para gordura localizada, flacidez e estrias, drenagem linfática, endermoterapia, ventosaterapia e massagens.{% endblock %}
 
 {% block conteudo %}
@@ -20,7 +20,7 @@
           <svg class="w-4 h-4 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
           </svg>
-          Tratamentos Corporais
+          Tratamentos corporais
         </div>
 
         {# h1 #}
@@ -173,12 +173,12 @@
         <div class="flex flex-wrap gap-4">
           <a {% agendar_link %}
              class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
-            Agendar Avaliação
+            Agendar avaliação
             <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </a>
           <a href="{% url 'aranha:servicos_faciais' %}"
              class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto font-semibold hover:bg-superficie transition-colors">
-            Ver Tratamentos Faciais
+            Ver tratamentos faciais
             <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </a>
         </div>
