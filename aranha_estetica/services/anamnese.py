@@ -178,11 +178,15 @@ def convidar(formulario, atendimento) -> str:
 VALIDADE_FICHA_MESES = 12
 
 
-def valida_desde(em):
-    """Resposta dada a partir deste instante ainda vale num atendimento em ``em``."""
+def valida_desde(em, saude_revogada_em=None):
+    """Resposta dada a partir deste instante ainda vale num atendimento em ``em``.
+
+    Consentimento de saude revogado: ficha respondida antes da revogacao deixa de valer — o
+    proximo atendimento pede ficha nova (com novo consentimento), como a politica e o portal dizem."""
     from dateutil.relativedelta import relativedelta  # type: ignore[import-untyped]
 
-    return em - relativedelta(months=VALIDADE_FICHA_MESES)
+    desde = em - relativedelta(months=VALIDADE_FICHA_MESES)
+    return max(desde, saude_revogada_em) if saude_revogada_em else desde
 
 
 def fichas_em_dia(cliente, em=None) -> dict:
@@ -193,12 +197,17 @@ def fichas_em_dia(cliente, em=None) -> dict:
 
     from ..models import FormularioAnamnese, RespostaAnamnese
 
+    from ..models import Cliente
+
     if cliente is None or getattr(cliente, 'pk', cliente) is None:
         return {}
     em = em or timezone.now()
+    cliente_id = getattr(cliente, 'pk', cliente)
+    revogada = (getattr(cliente, 'saude_revogada_em', None) if hasattr(cliente, 'pk')
+                else Cliente.all_objects.filter(pk=cliente_id).values_list('saude_revogada_em', flat=True).first())
     linhas = (
         RespostaAnamnese.objects.filter(
-            cliente_id=getattr(cliente, 'pk', cliente), respondida_em__gte=valida_desde(em),
+            cliente_id=cliente_id, respondida_em__gte=valida_desde(em, revogada),
             formulario__tipo=FormularioAnamnese.TIPO_ANAMNESE,
         ).values('formulario_id').annotate(ultima=Max('respondida_em'))
     )

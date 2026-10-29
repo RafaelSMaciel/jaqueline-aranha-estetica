@@ -272,8 +272,8 @@ class ClienteAdmin(admin.ModelAdmin):
         }),
     )
     actions = [
-        'acao_excluir_soft', 'acao_pseudonimizar_lgpd', 'acao_revogar_comunicacao',
-        'acao_revogar_saude', 'acao_bloquear_online', 'acao_resetar_faltas',
+        'acao_excluir_soft', 'acao_pseudonimizar_lgpd', 'acao_exportar_dados_completos',
+        'acao_revogar_comunicacao', 'acao_revogar_saude', 'acao_bloquear_online', 'acao_resetar_faltas',
     ]
 
     def get_queryset(self, request):
@@ -314,6 +314,30 @@ class ClienteAdmin(admin.ModelAdmin):
             request, f'{count} cliente(s) pseudonimizado(s): contato, documento e indicação removidos; '
                      'o registro de saúde fica pelo prazo legal.', messages.SUCCESS,
         )
+
+    @admin.action(description='Exportar dados completos da titular (LGPD, com saúde)')
+    def acao_exportar_dados_completos(self, request, queryset):
+        """Pedido de acesso (art. 18 II) entregue pela clinica: o export COMPLETO, com o registro de
+        saude que o self-service nao leva. Uma titular por vez; o download fica na trilha."""
+        import json
+
+        from django.http import HttpResponse
+
+        from .services import LgpdService
+        from .utils.auditoria import registrar_log
+
+        if queryset.count() != 1:
+            self.message_user(request, 'Selecione exatamente uma cliente para exportar.', messages.ERROR)
+            return None
+        cliente = queryset.first()
+        dados = LgpdService.exportar_dados_cliente(cliente)
+        registrar_log(request.user, 'LGPD: exportou dados completos (com saúde)', 'cliente', cliente.pk,
+                      {'secoes': sorted(dados)}, request=request)
+        resposta = HttpResponse(json.dumps(dados, ensure_ascii=False, indent=2, default=str),
+                                content_type='application/json; charset=utf-8')
+        resposta['Content-Disposition'] = f'attachment; filename="dados-cliente-{cliente.pk}.json"'
+        resposta['Cache-Control'] = 'no-store'
+        return resposta
 
     @admin.action(description='Revogar consentimentos de comunicação (todos os canais)')
     def acao_revogar_comunicacao(self, request, queryset):

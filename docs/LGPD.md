@@ -129,9 +129,8 @@ em diante os alertas de saúde (agenda e visão geral do painel, ficha da client
 portal da profissional) mostram no topo "Consentimento de saúde revogado em dd/mm/aaaa"; o
 registro já feito continua guardado pelo prazo (art. 7º VI, art. 11 II "d", art. 16). Um aceite
 SAÚDE novo — uma ficha respondida com o consentimento marcado — reativa.
-☐ Hoje a revogação **não** invalida a ficha ainda em dia (12 meses): o wizard só pede ficha nova se
-ela estiver pendente ou vencida, embora a política, o portal e o próprio alerta digam que "um novo
-atendimento pede uma nova ficha" (pendência no [`ARCHITECTURE.md`](ARCHITECTURE.md) §6.2).
+A revogação invalida a ficha ainda em dia: respondida antes de `saude_revogada_em` não conta
+(`services/anamnese.valida_desde`), então o próximo atendimento pede ficha e aceite SAÚDE novos.
 
 **Necessidade e proporcionalidade.** Só as perguntas configuradas pela clínica (formulário
 PRONTUARIO/ANAMNESE) e só da cliente atendida. A ficha de quem não chegou a ser atendida sai em 90
@@ -150,7 +149,7 @@ etapa falhar, nunca apagar antes.
 | Acesso indevido pela equipe | 2FA obrigatório para ADMIN e PROFISSIONAL; profissional só vê prontuário de cliente com vínculo de atendimento; cada leitura do prontuário vai para a `log_auditoria`, e a agenda (lista) e a visão geral do painel registram **"Leu alertas de saúde"** (tabela `prontuario`, detalhes `{clientes, tela}`, sem nome) quando a tela mostra alerta. ☐ A agenda do portal da profissional, a lista de prontuários e a ficha da cliente também mostram alertas e ainda não registram essa leitura |
 | Alteração ou apagamento da prova | versões do prontuário e anotações append-only (trigger; DELETE só no expurgo aos 20 anos); aceite só perde IP/user-agent (minimização); `log_auditoria` e `historico_alteracao` append-only, expurgo só por idade (0059, 0077) |
 | Envio a terceiros | Sentry sem saúde nem contato; e-mails e WhatsApp sem dado de saúde |
-| Identificação por SIM-swap no "Meus agendamentos"/"Meus dados" | o export do site **não leva a ficha de saúde** (só cadastro, agendamentos, consentimentos, aceites, pacotes etc. e o aviso de como pedir a ficha); no portal, baixar exige código confirmado há até 10 min. ☐ Risco aceito no resto do cadastro (1 fator). A ficha completa sai só pela equipe a pedido (`LgpdService.exportar_dados_cliente`, que ainda não tem tela) |
+| Identificação por SIM-swap no "Meus agendamentos"/"Meus dados" | o export do site **não leva a ficha de saúde** (só cadastro, agendamentos, consentimentos, aceites, pacotes etc. e o aviso de como pedir a ficha); no portal, baixar exige código confirmado há até 10 min. ☐ Risco aceito no resto do cadastro (1 fator). A ficha completa sai só pela equipe a pedido: ação "Exportar dados completos da titular (LGPD, com saúde)" do Django admin (uma titular por vez, JSON, registrada na trilha) |
 | Perda da chave de cifragem | ☐ cópia offline da chave com a dona; rotação documentada (`rotacionar_chave_cifragem`) |
 
 **Risco residual.** Quem controla a hospedagem (conta do Railway) ou uma conta de ADMIN tem a chave

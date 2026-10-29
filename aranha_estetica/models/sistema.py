@@ -264,7 +264,7 @@ class CodigoOtp(models.Model):
     )
     telefone = models.CharField(max_length=20, blank=True, null=True)
     canal = models.CharField(max_length=10, choices=CANAL_CHOICES, default=CANAL_SMS, db_default=CANAL_SMS)
-    codigo_hash = HashSha256Field()  # HMAC-SHA256 hex (chave = SECRET_KEY), char(64)
+    codigo_hash = HashSha256Field()  # HMAC-SHA256 hex (chave OTP_HMAC_KEY; sem ela, SECRET_KEY), char(64)
     proposito = models.CharField(
         max_length=20, choices=PROPOSITO_CHOICES, default=PROPOSITO_AGENDAMENTO, db_default=PROPOSITO_AGENDAMENTO,
     )

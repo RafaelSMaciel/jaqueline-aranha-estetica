@@ -321,7 +321,7 @@ class LgpdService:
 
     @staticmethod
     def exportar_dados_cliente(cliente: Cliente) -> dict[str, Any]:
-        """Export COMPLETO (com saude) para a equipe — painel/Django admin, a pedido da titular."""
+        """Export COMPLETO (com saude) para a equipe — acao do Django admin, a pedido da titular."""
         return exportar_dados(cliente, incluir_saude=True)
 
     @staticmethod
