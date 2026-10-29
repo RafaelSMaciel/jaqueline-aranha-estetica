@@ -3,363 +3,225 @@
 
 {% block titulo %}Pacotes — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Pacotes{% endblock %}
-{% block page_subtitle %}Gerenciamento de pacotes de serviços{% endblock %}
-
-{% block css %}
-<style nonce="{{ csp_nonce }}">
-  #dlgVender::backdrop { background: rgba(0, 0, 0, .45); }
-</style>
+{% block page_subtitle %}Pacotes de sessões: catálogo, preço, validade e venda{% endblock %}
+{% block page_actions %}
+<c-botao icone="mais" data-abrir-dialogo="dlg-pacote-novo">Novo pacote</c-botao>
 {% endblock %}
 
 {% block admin_content %}
 
-{# ── Stats ── #}
-<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-  <div class="bg-superficie rounded-2xl shadow-sm p-4">
-    <div class="w-9 h-9 rounded-xl bg-sucesso-fundo flex items-center justify-center mb-2">
-      <svg class="w-5 h-5 text-sucesso" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
-      </svg>
-    </div>
-    <div class="text-[1.5rem] font-extrabold text-sucesso leading-none">{{ pacotes|length }}</div>
-    <div class="text-[0.65rem] font-bold uppercase tracking-wide text-texto-suave mt-1">Pacotes</div>
-  </div>
+{# ── Resumo ── #}
+<div class="grade-kpis mb-6">
+  <c-kpi rotulo="Pacotes cadastrados" valor="{{ pacotes|length }}" icone="pacotes" />
+  <c-kpi rotulo="Disponíveis para venda" valor="{{ pacotes_ativos|length }}" icone="dinheiro" />
 </div>
 
-{# ── Pacotes ── #}
-{% for pacote in pacotes %}
-<div x-data="pacoteCriar"{% if pacote.reabrir %} data-erro="1"{% endif %} class="bg-superficie rounded-2xl shadow-sm p-4 mb-3 {% if not pacote.ativo %}opacity-75{% endif %}">
-  <div class="flex items-start justify-between gap-2 flex-wrap">
-    <div class="min-w-0">
-      <h2 class="font-sans flex items-center gap-2 flex-wrap font-bold text-texto mb-1">
-        {{ pacote.nome }}
-        {% if pacote.ativo %}
-        <span class="px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-sucesso-fundo text-sucesso uppercase tracking-wide">Ativo</span>
-        {% else %}
-        <span class="px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-erro-fundo text-erro uppercase tracking-wide">Inativo</span>
-        {% endif %}
-      </h2>
-      <p class="text-[0.8rem] text-texto-suave mb-1">{{ pacote.descricao|default:"Sem descrição" }}</p>
-      <div class="text-[0.8rem] text-texto">
-        <strong>{{ pacote.preco_total|brl }}</strong> &middot;
-        Validade: {{ pacote.validade_meses }} {{ pacote.validade_meses|pluralize:"mês,meses" }} &middot;
-        {{ pacote.total_vendas }} venda{{ pacote.total_vendas|pluralize:"s" }}
-      </div>
-    </div>
-    <div class="flex gap-2 shrink-0">
-      <button type="button" x-on:click="abrir"
-              class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-info-fundo text-info text-[0.75rem] font-bold border-none cursor-pointer hover:bg-info-fundo transition-colors">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-        </svg>
-        Editar
-      </button>
-      {% if pacote.ativo %}
-      <button type="button" data-vender-pacote="{{ pacote.pk }}" data-valor="{{ pacote.preco_total|unlocalize }}"
-              class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-borda text-texto text-[0.75rem] font-bold bg-superficie cursor-pointer hover:bg-fundo transition-colors">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/>
-        </svg>
-        Vender
-      </button>
-      {% endif %}
-    </div>
-  </div>
-
-  {% if pacote.itens.all %}
-  <div class="mt-2 pt-2 border-t border-borda">
-    <span class="text-[0.75rem] text-texto-suave font-bold">Itens:</span>
-    {% for item in pacote.itens.all %}
-    <span class="inline-block ml-1 px-2 py-0.5 rounded-full text-[0.65rem] font-bold bg-info-fundo text-info">
-      {{ item.procedimento.nome }} ({{ item.quantidade_sessoes }}x)
-    </span>
-    {% endfor %}
-  </div>
-  {% endif %}
-
-  {# Modal editar (pacoteCriar = abrir/fechar + addItem) #}
-  <dialog x-ref="dialogo" x-on:click="cliqueFora" x-on:close="aoFechar" aria-label="Editar pacote" class="dialogo">
-    <div
-         class="bg-superficie text-texto rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
-      <form method="post" action="{% url 'aranha:admin_editar_pacote' pacote.pk %}">
-        {% csrf_token %}
-        <div class="flex items-center justify-between px-5 py-4 border-b border-borda">
-          <h2 class="font-bold text-[0.95rem]">Editar "{{ pacote.nome }}"</h2>
-          <button type="button" x-on:click="fechar" aria-label="Fechar"
-                  class="text-texto-suave hover:text-texto text-2xl leading-none border-none bg-transparent cursor-pointer">&times;</button>
+{# ── Catalogo ── #}
+<c-card titulo="Catálogo de pacotes" icone="pacotes" espaco="nenhum">
+  {% if pacotes %}
+  <ul class="lista-itens">
+    {% for pacote in pacotes %}
+    <li x-data="pacoteCriar"{% if pacote.reabrir %} data-erro="1"{% endif %} class="item-lista items-start{% if not pacote.ativo %} opacity-75{% endif %}">
+      <div class="item-lista-corpo">
+        <div class="flex flex-wrap items-center gap-2">
+          <p class="item-lista-titulo">{{ pacote.nome }}</p>
+          {% if pacote.ativo %}<c-selo tom="sucesso">Ativo</c-selo>{% else %}<c-selo tom="erro">Inativo</c-selo>{% endif %}
         </div>
-        <div class="p-5">
+        <p class="item-lista-meta mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
+          <span class="font-bold text-texto tabular-nums">{{ pacote.preco_total|brl }}</span>
+          <span class="inline-flex items-center gap-1"><c-icone nome="relogio" class="w-4 h-4" />Validade: {{ pacote.validade_meses }} {{ pacote.validade_meses|pluralize:"mês,meses" }}</span>
+          <span class="inline-flex items-center gap-1"><c-icone nome="recibo" class="w-4 h-4" />{{ pacote.total_vendas }} venda{{ pacote.total_vendas|pluralize:"s" }}</span>
+        </p>
+        {% if pacote.descricao %}<p class="mt-1 text-sm text-texto-suave">{{ pacote.descricao }}</p>{% endif %}
+        {% if pacote.itens.all %}
+        <div class="mt-2 flex flex-wrap items-center gap-1.5">
+          <span class="text-sm text-texto-suave">Itens:</span>
+          {% for item in pacote.itens.all %}
+          <c-selo tom="info">{{ item.procedimento.nome }} ({{ item.quantidade_sessoes }}x)</c-selo>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      <div class="item-lista-acoes">
+        <c-botao variante="secundario" tamanho="sm" icone="editar" x-on:click="abrir">Editar</c-botao>
+        {% if pacote.ativo %}
+        <c-botao variante="secundario" tamanho="sm" icone="dinheiro" data-vender-pacote="{{ pacote.pk }}" data-valor="{{ pacote.preco_total|unlocalize }}">Vender</c-botao>
+        {% endif %}
+      </div>
+
+      {# Modal editar (pacoteCriar = abrir/fechar + addItem) #}
+      <c-dialogo id="dlg-pacote-{{ pacote.pk }}" titulo="Editar pacote"
+                 x-ref="dialogo" x-on:click="cliqueFora" x-on:close="aoFechar">
+        <form method="post" action="{% url 'aranha:admin_editar_pacote' pacote.pk %}">
+          {% csrf_token %}
           {# pacote.valores = o salvo; no envio recusado, o digitado (pacote.erros por campo + geral) #}
-          {% if pacote.erros.geral %}<p data-resumo-erro tabindex="-1" class="mb-3 rounded-lg border border-erro bg-erro-fundo px-3 py-2 text-[0.8rem] text-erro">{{ pacote.erros.geral }}</p>{% endif %}
-          <div class="grid grid-cols-1 sm:grid-cols-12 gap-3">
-            <div class="sm:col-span-6">
-              <c-campo nome="nome" id="pacote-{{ pacote.pk }}-nome" label="Nome" erro="{{ pacote.erros.nome }}"
-                       classe_rotulo="block text-[0.75rem] font-bold text-texto-suave"
-                       classe_campo="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
-                       value="{{ pacote.valores.nome }}" required maxlength="150"></c-campo>
-            </div>
-            <div class="sm:col-span-3">
+          <div class="dialogo-corpo">
+            {% if pacote.erros.geral %}<c-nota tom="erro" data-resumo-erro tabindex="-1">{{ pacote.erros.geral }}</c-nota>{% endif %}
+            <c-campo nome="nome" id="pacote-{{ pacote.pk }}-nome" label="Nome" erro="{{ pacote.erros.nome }}"
+                     value="{{ pacote.valores.nome }}" required maxlength="150"></c-campo>
+            <div class="grade-campos grade-campos-2">
               <c-campo nome="preco_total" id="pacote-{{ pacote.pk }}-preco" label="Preço total (R$)" tipo="number" erro="{{ pacote.erros.preco_total }}"
-                       classe_rotulo="block text-[0.75rem] font-bold text-texto-suave"
-                       classe_campo="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
                        value="{{ pacote.valores.preco_total|unlocalize }}" step="0.01" min="0" required></c-campo>
-            </div>
-            <div class="sm:col-span-3">
               <c-campo nome="validade_meses" id="pacote-{{ pacote.pk }}-validade" label="Validade (meses)" tipo="number" erro="{{ pacote.erros.validade_meses }}"
-                       classe_rotulo="block text-[0.75rem] font-bold text-texto-suave"
-                       classe_campo="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
                        value="{{ pacote.valores.validade_meses|unlocalize }}" min="1" max="120" required></c-campo>
             </div>
-            <div class="sm:col-span-12">
-              <label for="pacote-{{ pacote.pk }}-descricao" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Descrição</label>
-              <textarea name="descricao" id="pacote-{{ pacote.pk }}-descricao" rows="2"
-                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition resize-y">{{ pacote.valores.descricao }}</textarea>
-            </div>
-            <div class="sm:col-span-12">
-              <label class="inline-flex items-center gap-2 text-[0.85rem] text-texto cursor-pointer">
-                <input type="checkbox" name="ativo" value="1" {% if pacote.valores.ativo %}checked{% endif %} class="rounded border-borda">
-                Ativo (disponível para venda)
-              </label>
-            </div>
-          </div>
+            <c-campo nome="descricao" id="pacote-{{ pacote.pk }}-descricao" label="Descrição" tipo="textarea" opcional="1"
+                     valor="{{ pacote.valores.descricao }}" rows="2"></c-campo>
+            <label class="opcao">
+              <input type="checkbox" name="ativo" value="1" {% if pacote.valores.ativo %}checked{% endif %}> Ativo (disponível para venda)
+            </label>
 
-          <h2 class="font-bold text-texto mt-4 mb-1">Itens do pacote</h2>
-          {% if pacote.total_vendas %}
-          {# A venda congela nome/itens/valor por sessao (CompraPacoteItem): editar so vale p/ vendas futuras #}
-          <p class="text-[0.75rem] font-bold text-aviso bg-aviso-fundo rounded-lg px-3 py-2 mb-2">
-            Já vendido {{ pacote.total_vendas }} vez{{ pacote.total_vendas|pluralize:"es" }}: as mudanças valem só para as próximas vendas. Quem já comprou mantém o que comprou.
-          </p>
-          {% endif %}
-          <p class="text-[0.75rem] text-texto-suave mb-2">Para remover um item, deixe o procedimento em branco.</p>
-          <div x-ref="itens">
-            {% for item in pacote.valores.itens %}
-            <div class="grid grid-cols-12 gap-2 mb-2 item-row">
-              <div class="col-span-8">
-                <select name="procedimento_ids" aria-label="Procedimento"
-                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
-                        {% if pacote.erros.itens and forloop.first %}aria-invalid="true" aria-describedby="pacote-{{ pacote.pk }}-itens-erro"{% endif %}>
-                  <option value="">Procedimento...</option>
-                  {% for proc in procedimentos_todos %}
-                  <option value="{{ proc.pk }}" {% if proc.pk == item.procedimento_id %}selected{% endif %}>{{ proc.nome }}{% if not proc.ativo %} (inativo){% endif %}</option>
-                  {% endfor %}
-                </select>
+            <fieldset class="conjunto">
+              <legend class="rotulo">Itens do pacote</legend>
+              {% if pacote.total_vendas %}
+              {# A venda congela nome/itens/valor por sessao (CompraPacoteItem): editar so vale p/ vendas futuras #}
+              <c-nota tom="aviso" class="mb-3">Já vendido {{ pacote.total_vendas }} vez{{ pacote.total_vendas|pluralize:"es" }}: as mudanças valem só para as próximas vendas. Quem já comprou mantém o que comprou.</c-nota>
+              {% endif %}
+              <p class="ajuda mb-2">Para remover um item, deixe o procedimento em branco.</p>
+              <div x-ref="itens" class="flex flex-col gap-2">
+                {% for item in pacote.valores.itens %}
+                <div class="item-row flex gap-2">
+                  <select name="procedimento_ids" aria-label="Procedimento" class="campo min-w-0 flex-1"
+                          {% if pacote.erros.itens and forloop.first %}aria-invalid="true" aria-describedby="pacote-{{ pacote.pk }}-itens-erro"{% endif %}>
+                    <option value="">Procedimento…</option>
+                    {% for proc in procedimentos_todos %}
+                    <option value="{{ proc.pk }}" {% if proc.pk == item.procedimento_id %}selected{% endif %}>{{ proc.nome }}{% if not proc.ativo %} (inativo){% endif %}</option>
+                    {% endfor %}
+                  </select>
+                  <input type="number" name="quantidades" value="{{ item.quantidade|unlocalize }}" min="1" aria-label="Quantidade de sessões" class="campo w-24 shrink-0">
+                </div>
+                {% empty %}
+                <div class="item-row flex gap-2">
+                  <select name="procedimento_ids" aria-label="Procedimento" class="campo min-w-0 flex-1">
+                    <option value="">Procedimento…</option>
+                    {% for proc in procedimentos %}
+                    <option value="{{ proc.pk }}">{{ proc.nome }}</option>
+                    {% endfor %}
+                  </select>
+                  <input type="number" name="quantidades" value="1" min="1" aria-label="Quantidade de sessões" class="campo w-24 shrink-0">
+                </div>
+                {% endfor %}
               </div>
-              <div class="col-span-4">
-                <input type="number" name="quantidades" value="{{ item.quantidade|unlocalize }}" min="1" aria-label="Quantidade de sessões"
-                       class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
-              </div>
-            </div>
-            {% empty %}
-            <div class="grid grid-cols-12 gap-2 mb-2 item-row">
-              <div class="col-span-8">
-                <select name="procedimento_ids" aria-label="Procedimento"
-                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
-                  <option value="">Procedimento...</option>
-                  {% for proc in procedimentos %}
-                  <option value="{{ proc.pk }}">{{ proc.nome }}</option>
-                  {% endfor %}
-                </select>
-              </div>
-              <div class="col-span-4">
-                <input type="number" name="quantidades" value="1" min="1" aria-label="Quantidade de sessões"
-                       class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
-              </div>
-            </div>
-            {% endfor %}
+              {% if pacote.erros.itens %}<p id="pacote-{{ pacote.pk }}-itens-erro" class="erro-campo mt-1">{{ pacote.erros.itens }}</p>{% endif %}
+              <c-botao variante="secundario" tamanho="sm" icone="mais" class="mt-3" x-on:click="addItem">Adicionar item</c-botao>
+            </fieldset>
           </div>
-          {% if pacote.erros.itens %}<p id="pacote-{{ pacote.pk }}-itens-erro" class="text-erro text-sm mb-1">{{ pacote.erros.itens }}</p>{% endif %}
-          <button type="button" x-on:click="addItem"
-                  class="inline-flex items-center gap-1 mt-1 px-3 py-1.5 rounded-lg border border-borda text-texto text-[0.75rem] font-bold bg-superficie cursor-pointer hover:bg-fundo transition-colors">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Adicionar Item
-          </button>
-        </div>
-        <div class="flex justify-end gap-2 px-5 py-4 border-t border-borda">
-          <button type="button" x-on:click="fechar"
-                  class="px-4 py-2 rounded-xl border border-borda text-texto text-[0.85rem] font-bold bg-superficie cursor-pointer hover:bg-fundo transition-colors">Cancelar</button>
-          <button type="submit"
-                  class="px-5 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">Salvar</button>
-        </div>
-      </form>
-    </div>
-  </dialog>
-</div>
-{% endfor %}
+          <div class="dialogo-rodape">
+            <c-botao variante="secundario" data-fechar-dialogo>Cancelar</c-botao>
+            <c-botao tipo="submit">Salvar alterações</c-botao>
+          </div>
+        </form>
+      </c-dialogo>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <c-vazio titulo="Nenhum pacote cadastrado" icone="pacotes"
+           texto="Monte pacotes de sessões com preço fechado e validade para vender às clientes.">
+    <c-botao icone="mais" data-abrir-dialogo="dlg-pacote-novo">Novo pacote</c-botao>
+  </c-vazio>
+  {% endif %}
+</c-card>
 
-{# ── Modal ÚNICO de venda (a lista de clientes é renderizada uma só vez) ── #}
+{# ── Modal UNICO de venda (a lista de clientes e renderizada uma so vez) ── #}
 {% if pacotes_ativos %}
-<dialog id="dlgVender" aria-label="Vender pacote"
-        class="bg-superficie text-texto rounded-2xl w-[calc(100%-2rem)] max-w-md max-h-[90vh] p-0 m-auto shadow-xl">
+<c-dialogo id="dlgVender" titulo="Vender pacote" tamanho="sm">
   <form method="post" action="{% url 'aranha:admin_vender_pacote' %}">
     {% csrf_token %}
-    <div class="flex items-center justify-between px-5 py-4 border-b border-borda">
-      <h2 class="font-bold text-[0.95rem]">Vender pacote</h2>
-      <button type="button" data-fechar-dialog aria-label="Fechar"
-              class="text-texto-suave hover:text-texto text-2xl leading-none border-none bg-transparent cursor-pointer">&times;</button>
+    <div class="dialogo-corpo">
+      <c-campo nome="pacote_id" id="venderPacote" label="Pacote" tipo="select" required>
+        {% for p in pacotes_ativos %}
+        <option value="{{ p.pk }}" data-valor="{{ p.preco_total|unlocalize }}">{{ p.nome }}</option>
+        {% endfor %}
+      </c-campo>
+      <c-campo nome="cliente_id" id="venderCliente" label="Cliente" tipo="select" required>
+        <option value="">Selecione…</option>
+        {% for c in clientes_ativos %}
+        <option value="{{ c.pk }}">{{ c.nome }}{% if c.telefone %} — {{ c.telefone }}{% endif %}</option>
+        {% endfor %}
+      </c-campo>
+      <c-campo nome="valor_pago" id="venderValor" label="Valor pago (R$)" tipo="number"
+               value="{{ pacotes_ativos.0.preco_total|unlocalize }}" step="0.01" min="0" required></c-campo>
     </div>
-    <div class="p-5">
-      <div class="mb-3">
-        <label for="venderPacote" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Pacote</label>
-        <select id="venderPacote" name="pacote_id" required
-                class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
-          {% for p in pacotes_ativos %}
-          <option value="{{ p.pk }}" data-valor="{{ p.preco_total|unlocalize }}">{{ p.nome }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="mb-3">
-        <label for="venderCliente" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Cliente</label>
-        <select id="venderCliente" name="cliente_id" required
-                class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
-          <option value="">Selecione...</option>
-          {% for c in clientes_ativos %}
-          <option value="{{ c.pk }}">{{ c.nome }}{% if c.telefone %} — {{ c.telefone }}{% endif %}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="mb-1">
-        <label for="venderValor" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Valor Pago (R$)</label>
-        <input id="venderValor" type="number" step="0.01" min="0" name="valor_pago" value="{{ pacotes_ativos.0.preco_total|unlocalize }}" required
-               class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
-      </div>
-    </div>
-    <div class="flex justify-end gap-2 px-5 py-4 border-t border-borda">
-      <button type="button" data-fechar-dialog
-              class="px-4 py-2 rounded-xl border border-borda text-texto text-[0.85rem] font-bold bg-superficie cursor-pointer hover:bg-fundo transition-colors">Cancelar</button>
-      <button type="submit"
-              class="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-        Confirmar Venda
-      </button>
+    <div class="dialogo-rodape">
+      <c-botao variante="secundario" data-fechar-dialogo>Cancelar</c-botao>
+      <c-botao tipo="submit" icone="check">Confirmar venda</c-botao>
     </div>
   </form>
-</dialog>
+</c-dialogo>
 {% endif %}
 
-{% if not pacotes %}
-<div class="text-center py-12">
-  <div class="w-16 h-16 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mx-auto mb-4">
-    <svg class="w-7 h-7 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
-    </svg>
-  </div>
-  <p class="font-serif font-bold text-texto-suave">Nenhum pacote cadastrado</p>
-</div>
-{% endif %}
-
-{# ── FAB + Modal novo pacote (novo.valores/novo.erros: em branco ou o envio recusado) ── #}
+{# ── Modal novo pacote (novo.valores/novo.erros: em branco ou o envio recusado) ── #}
+{# Aberto pelo botao do cabecalho (data-abrir-dialogo); pacoteCriar reabre com o erro e clona as linhas de item #}
 <div x-data="pacoteCriar"{% if novo.erros %} data-erro="1"{% endif %}>
-  <button type="button" x-on:click="abrir" aria-label="Novo pacote"
-          class="fixed bottom-6 right-6 z-[9000] w-14 h-14 rounded-full bg-marca-forte text-sobre-marca shadow-lg flex items-center justify-center border-none cursor-pointer hover:opacity-90 transition-opacity">
-    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
-      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-    </svg>
-  </button>
-
-  <dialog x-ref="dialogo" x-on:click="cliqueFora" x-on:close="aoFechar" aria-label="Novo pacote" class="dialogo">
-    <div
-         class="bg-superficie text-texto rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
-      <form method="post" action="{% url 'aranha:admin_criar_pacote' %}">
-        {% csrf_token %}
-        <div class="flex items-center justify-between px-5 py-4 border-b border-borda">
-          <h2 class="font-bold text-[0.95rem]">Novo Pacote</h2>
-          <button type="button" x-on:click="fechar" aria-label="Fechar"
-                  class="text-texto-suave hover:text-texto text-2xl leading-none border-none bg-transparent cursor-pointer">&times;</button>
+  <c-dialogo id="dlg-pacote-novo" titulo="Novo pacote"
+             x-ref="dialogo" x-on:click="cliqueFora" x-on:close="aoFechar">
+    <form method="post" action="{% url 'aranha:admin_criar_pacote' %}">
+      {% csrf_token %}
+      <div class="dialogo-corpo">
+        {% if novo.erros.geral %}<c-nota tom="erro" data-resumo-erro tabindex="-1">{{ novo.erros.geral }}</c-nota>{% endif %}
+        <c-campo nome="nome" id="pacote-novo-nome" label="Nome" erro="{{ novo.erros.nome }}"
+                 value="{{ novo.valores.nome }}" required placeholder="Ex.: Pacote harmonização 5 sessões"></c-campo>
+        <div class="grade-campos grade-campos-2">
+          <c-campo nome="preco_total" id="pacote-novo-preco" label="Preço total (R$)" tipo="number" erro="{{ novo.erros.preco_total }}"
+                   value="{{ novo.valores.preco_total }}" step="0.01" required></c-campo>
+          <c-campo nome="validade_meses" id="pacote-novo-validade" label="Validade (meses)" tipo="number" erro="{{ novo.erros.validade_meses }}"
+                   value="{{ novo.valores.validade_meses }}"></c-campo>
         </div>
-        <div class="p-5">
-          {% if novo.erros.geral %}<p data-resumo-erro tabindex="-1" class="mb-3 rounded-lg border border-erro bg-erro-fundo px-3 py-2 text-[0.8rem] text-erro">{{ novo.erros.geral }}</p>{% endif %}
-          <div class="grid grid-cols-1 sm:grid-cols-12 gap-3">
-            <div class="sm:col-span-6">
-              <c-campo nome="nome" id="pacote-novo-nome" label="Nome" erro="{{ novo.erros.nome }}"
-                       classe_rotulo="block text-[0.75rem] font-bold text-texto-suave"
-                       classe_campo="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
-                       value="{{ novo.valores.nome }}" required placeholder="Ex: Pacote Harmonização 5 sessões"></c-campo>
-            </div>
-            <div class="sm:col-span-3">
-              <c-campo nome="preco_total" id="pacote-novo-preco" label="Preço total (R$)" tipo="number" erro="{{ novo.erros.preco_total }}"
-                       classe_rotulo="block text-[0.75rem] font-bold text-texto-suave"
-                       classe_campo="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
-                       value="{{ novo.valores.preco_total }}" step="0.01" required></c-campo>
-            </div>
-            <div class="sm:col-span-3">
-              <c-campo nome="validade_meses" id="pacote-novo-validade" label="Validade (meses)" tipo="number" erro="{{ novo.erros.validade_meses }}"
-                       classe_rotulo="block text-[0.75rem] font-bold text-texto-suave"
-                       classe_campo="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
-                       value="{{ novo.valores.validade_meses }}"></c-campo>
-            </div>
-            <div class="sm:col-span-12">
-              <label for="pacote-novo-descricao" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Descrição</label>
-              <textarea name="descricao" id="pacote-novo-descricao" rows="2"
-                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition resize-y">{{ novo.valores.descricao }}</textarea>
-            </div>
-          </div>
+        <c-campo nome="descricao" id="pacote-novo-descricao" label="Descrição" tipo="textarea" opcional="1"
+                 valor="{{ novo.valores.descricao }}" rows="2"></c-campo>
 
-          <h2 class="font-bold text-texto mt-4 mb-2">Itens do pacote</h2>
-          <div x-ref="itens">
+        <fieldset class="conjunto">
+          <legend class="rotulo">Itens do pacote</legend>
+          <div x-ref="itens" class="flex flex-col gap-2">
             {% for item in novo.valores.itens %}
-            <div class="grid grid-cols-12 gap-2 mb-2 item-row">
-              <div class="col-span-8">
-                <select name="procedimento_ids" aria-label="Procedimento"
-                        class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition"
-                        {% if novo.erros.itens and forloop.first %}aria-invalid="true" aria-describedby="pacote-novo-itens-erro"{% endif %}>
-                  <option value="">Procedimento...</option>
-                  {% for proc in procedimentos %}
-                  <option value="{{ proc.pk }}" {% if proc.pk == item.procedimento_id %}selected{% endif %}>{{ proc.nome }}</option>
-                  {% endfor %}
-                </select>
-              </div>
-              <div class="col-span-4">
-                <input type="number" name="quantidades" value="{{ item.quantidade }}" min="1" placeholder="Qtd sessões" aria-label="Quantidade de sessões"
-                       class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
-              </div>
+            <div class="item-row flex gap-2">
+              <select name="procedimento_ids" aria-label="Procedimento" class="campo min-w-0 flex-1"
+                      {% if novo.erros.itens and forloop.first %}aria-invalid="true" aria-describedby="pacote-novo-itens-erro"{% endif %}>
+                <option value="">Procedimento…</option>
+                {% for proc in procedimentos %}
+                <option value="{{ proc.pk }}" {% if proc.pk == item.procedimento_id %}selected{% endif %}>{{ proc.nome }}</option>
+                {% endfor %}
+              </select>
+              <input type="number" name="quantidades" value="{{ item.quantidade }}" min="1" placeholder="Sessões" aria-label="Quantidade de sessões" class="campo w-24 shrink-0">
             </div>
             {% endfor %}
           </div>
-          {% if novo.erros.itens %}<p id="pacote-novo-itens-erro" class="text-erro text-sm mb-1">{{ novo.erros.itens }}</p>{% endif %}
-          <button type="button" x-on:click="addItem"
-                  class="inline-flex items-center gap-1 mt-1 px-3 py-1.5 rounded-lg border border-borda text-texto text-[0.75rem] font-bold bg-superficie cursor-pointer hover:bg-fundo transition-colors">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Adicionar Item
-          </button>
-        </div>
-        <div class="flex justify-end gap-2 px-5 py-4 border-t border-borda">
-          <button type="button" x-on:click="fechar"
-                  class="px-4 py-2 rounded-xl border border-borda text-texto text-[0.85rem] font-bold bg-superficie cursor-pointer hover:bg-fundo transition-colors">Cancelar</button>
-          <button type="submit"
-                  class="px-5 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">Criar Pacote</button>
-        </div>
-      </form>
-    </div>
-  </dialog>
+          {% if novo.erros.itens %}<p id="pacote-novo-itens-erro" class="erro-campo mt-1">{{ novo.erros.itens }}</p>{% endif %}
+          <c-botao variante="secundario" tamanho="sm" icone="mais" class="mt-3" x-on:click="addItem">Adicionar item</c-botao>
+        </fieldset>
+      </div>
+      <div class="dialogo-rodape">
+        <c-botao variante="secundario" data-fechar-dialogo>Cancelar</c-botao>
+        <c-botao tipo="submit" icone="mais">Criar pacote</c-botao>
+      </div>
+    </form>
+  </c-dialogo>
 </div>
 
 {% endblock %}
 
 {% block js %}
 <script nonce="{{ csp_nonce }}">
-// Modal unico de venda: o botao "Vender" do card pre-seleciona o pacote.
+// Modal unico de venda: o botao "Vender" do item pre-seleciona o pacote e o valor.
+// Fechar (botao, Cancelar, clique no fundo, Esc) fica com o painel.js (data-fechar-dialogo).
 (function () {
   var dlg = document.getElementById('dlgVender');
   if (!dlg) return;
   var selPacote = document.getElementById('venderPacote');
   var valor = document.getElementById('venderValor');
-  function abrir() { if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', ''); }
-  function fechar() { if (dlg.close) dlg.close(); else dlg.removeAttribute('open'); }
   document.addEventListener('click', function (e) {
     var b = e.target.closest('[data-vender-pacote]');
-    if (b) {
-      selPacote.value = b.getAttribute('data-vender-pacote');
-      valor.value = b.getAttribute('data-valor') || '';
-      abrir();
-      return;
-    }
-    if (e.target.closest('[data-fechar-dialog]')) fechar();
+    if (!b) return;
+    selPacote.value = b.getAttribute('data-vender-pacote');
+    valor.value = b.getAttribute('data-valor') || '';
+    if (!dlg.open) dlg.showModal();
+    document.getElementById('venderCliente').focus();
   });
   selPacote.addEventListener('change', function () {
     var o = selPacote.options[selPacote.selectedIndex];
     if (o && o.getAttribute('data-valor')) valor.value = o.getAttribute('data-valor');
   });
-  dlg.addEventListener('click', function (e) { if (e.target === dlg) fechar(); });
 })();
 </script>
 {% endblock %}
