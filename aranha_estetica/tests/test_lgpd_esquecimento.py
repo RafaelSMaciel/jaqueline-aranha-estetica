@@ -432,7 +432,8 @@ class ExportDsarTests(TestCase):
         pessoal = LgpdService.exportar_dados_cliente(cliente)['pessoal']
         self.assertEqual(
             set(pessoal),
-            {'nome', 'data_nascimento', 'cpf', 'email', 'telefone', 'cep', 'endereco', 'criado_em'},
+            {'nome', 'data_nascimento', 'cpf', 'email', 'telefone', 'cep', 'endereco', 'criado_em',
+             'atualizado_em', 'codigo_indicacao', 'indicada_por_outra_cliente'},
         )
         self.assertEqual(pessoal['cpf'], '52998224725')
 

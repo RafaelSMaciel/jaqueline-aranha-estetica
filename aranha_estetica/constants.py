@@ -56,54 +56,13 @@ TRILHA_RETENCAO_MINIMA_DIAS = 180
 
 
 # ─── Termo LGPD padrao (v1.0) ───────────────────────────────────────────
-# Resumo fiel da pagina /politica-de-privacidade/ (publico/politica_privacidade.html).
-# Usado pela migration 0045 (banco em operacao sem termo LGPD) e pelo `seed` —
-# nao remover. Mudou a politica? Publique nova versao em Painel > Termos: a
-# versao ja aceita e imutavel (VersaoTermo.save).
-TERMO_LGPD_VERSAO = '1.0'
-TERMO_LGPD_TITULO = 'Política de Privacidade e tratamento de dados pessoais (LGPD)'
-TERMO_LGPD_CONTEUDO = (
-    'Este é o resumo da Política de Privacidade da clínica. A versão completa está em '
-    '/politica-de-privacidade/.\n\n'
-    '1. Dados que coletamos: nome, celular e, quando você informa, e-mail e data de '
-    'nascimento; dados dos agendamentos (procedimento, profissional, data, horário, '
-    'histórico, faltas e cancelamentos); a ficha de avaliação (anamnese), com '
-    'informações de saúde — dado pessoal sensível, com proteção reforçada; o registro '
-    'de aceite de termos e das suas preferências de comunicação; a nota e o comentário '
-    'da pesquisa de satisfação; mensagens de contato e da lista de espera; e dados '
-    'técnicos de acesso (endereço IP, data e hora).\n\n'
-    '2. Para que usamos: agendar, confirmar, lembrar e realizar o atendimento '
-    '(execução do serviço, art. 7º, V); ficha de avaliação e histórico de cuidados, '
-    'para a segurança do procedimento (consentimento e tutela da saúde, art. 11, I e '
-    'II, "f"); guardar registros de atendimento e de aceites (obrigação legal e '
-    'exercício regular de direitos, art. 7º, II e VI); pesquisa de satisfação e '
-    'segurança do site (legítimo interesse, art. 7º, IX). Depoimentos no site e '
-    'novidades e promoções só com o seu consentimento (art. 7º, I), que pode ser '
-    'revogado a qualquer momento.\n\n'
-    '3. Compartilhamento: não vendemos seus dados. Eles são compartilhados apenas com '
-    'fornecedores que ajudam a prestar o serviço — hospedagem em nuvem (com servidores '
-    'que podem ficar fora do Brasil), envio de SMS, WhatsApp e e-mail, verificação '
-    'contra robôs, monitoramento de erros, os calendários usados pela profissional e '
-    'fontes e mapa do Google — ou quando exigido por lei ou autoridade competente.\n\n'
-    '4. Cookies: apenas os essenciais (sessão, proteção contra envios falsos, '
-    'preferência de tema e registro do aviso de cookies).\n\n'
-    '5. Segurança: conexão criptografada (HTTPS); ficha de avaliação, histórico de '
-    'saúde e anotações gravados cifrados; o acesso ao painel da clínica exige login '
-    'individual com segundo fator e fica registrado; a ficha de avaliação só é vista '
-    'pela equipe que cuida do seu atendimento.\n\n'
-    '6. Seus direitos: confirmar o tratamento, acessar, corrigir, pedir portabilidade, '
-    'anonimização ou exclusão do que não for obrigatório guardar, saber com quem '
-    'compartilhamos e revogar consentimentos — pela área Meus dados do site ou pelos '
-    'canais de contato da clínica. Respondemos em até 15 dias.\n\n'
-    '7. Por quanto tempo guardamos: ficha de avaliação, histórico de saúde, registro dos '
-    'atendimentos realizados e termos aceitos por 20 anos (registro de saúde); o '
-    'cadastro, enquanto você for cliente — sem atendimento por 5 anos, ele é '
-    'anonimizado; ficha de agendamento que não aconteceu, até 90 dias; texto das '
-    'mensagens enviadas, 12 meses; registros técnicos de acesso, até 6 meses.\n\n'
-    '8. Alterações: se a política mudar, uma nova versão será publicada com nova data '
-    'de vigência, e o que depender do seu consentimento será pedido novamente.'
+# A Politica de Privacidade completa (texto, bases legais, operadores e prazos) mora em
+# conteudo/lgpd.py e e a fonte unica do termo LGPD e da declaracao do DSAR (art. 19 II). Usado pela
+# migration 0045/0078 (banco sem termo LGPD) e pelo `seed` — nao remover. Mudou a politica depois do
+# go-live? Publique nova versao em Painel > Termos: a versao ja aceita e imutavel (VersaoTermo.save).
+from .conteudo.lgpd import (  # noqa: E402,F401  (re-export; modulo puro, sem Django)
+    BASES_LEGAIS, TERMO_LGPD_CONTEUDO, TERMO_LGPD_TITULO, TERMO_LGPD_VERSAO,
 )
 
-
-# Prazos de retencao (OTP, notificacao, auditoria) vivem em settings.RETENCAO_*
-# (ajustaveis por env) — ver clinica/settings/base.py e jobs_manutencao.py.
+# Prazos de retencao vivem em settings.RETENCAO_* — os LGPD sao fixos (publicados no termo; check
+# aranha.W016) e os de housekeeping (OTP, notificacao, auditoria) ajustaveis por env.

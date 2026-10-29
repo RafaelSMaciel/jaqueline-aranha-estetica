@@ -159,9 +159,12 @@ class DsarExportTests(TestCase):
         dados = json.loads(resp.content)
         self.assertEqual(dados['avaliacoes_nps'][0]['nota'], 9)
         self.assertIsNotNone(dados['avaliacoes_nps'][0]['respondida_em'])
-        for chave in ('consentimentos', 'prontuario', 'anotacoes_sessao', 'anamneses',
-                      'aceites_termos', 'pacotes', 'carteira', 'lista_espera', 'notificacoes'):
+        for chave in ('consentimentos', 'aceites_termos', 'pacotes', 'carteira', 'lista_espera',
+                      'notificacoes', 'sobre_o_tratamento', 'ficha_de_saude'):
             self.assertIn(chave, dados)
+        # self-service sem a ficha de saude (decisao 38): vai ao e-mail ou e entregue na clinica
+        for chave in ('prontuario', 'prontuario_versoes', 'anotacoes_sessao', 'anamneses'):
+            self.assertNotIn(chave, dados)
 
     def test_dsar_mensagem_sem_termo_clinico(self):
         resp = self.client.post(self.url, {'telefone': '17933334444'})

@@ -774,20 +774,19 @@ class PoliticaPrivacidadeTests(TestCase):
 
     def test_operadores_e_retencao_reais(self):
         resp = self.client.get(reverse('aranha:politica_privacidade'))
-        self.assertContains(resp, 'Cloudflare Turnstile')
+        self.assertContains(resp, 'Cloudflare (Turnstile)')
         self.assertContains(resp, 'calendário')
         self.assertContains(resp, '20 anos')
         self.assertContains(resp, 'gravados cifrados')
         self.assertNotContains(resp, 'até 5 anos após o último atendimento')
-        # sem dados da Branding: nada de placeholder de razao social/encarregado
-        self.assertNotContains(resp, 'CNPJ')
-        self.assertContains(resp, 'fale com a responsável pela clínica')
+        # sem dados da Branding: nada de placeholder de razao social/CNPJ/encarregado
+        self.assertNotRegex(resp.content.decode(), r'(CNPJ|CPF) [0-9X]')
+        self.assertNotContains(resp, 'Encarregado pelo tratamento de dados (art. 41):')
 
-    @override_settings(SENTRY_ATIVO=True, EMAIL_BACKEND='anymail.backends.resend.EmailBackend')
-    def test_sentry_e_provedor_de_email_quando_configurados(self):
+    def test_operadores_opcionais_aparecem_como_condicionais(self):
         resp = self.client.get(reverse('aranha:politica_privacidade'))
-        self.assertContains(resp, 'Sentry')
-        self.assertContains(resp, '(Resend)')
+        self.assertContains(resp, 'Sentry, quando ativado')
+        self.assertContains(resp, 'Provedor de envio de e-mail contratado pela clínica')
 
 
 class ContratoErroApiAgendamentoTests(TestCase):

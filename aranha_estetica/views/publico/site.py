@@ -133,20 +133,6 @@ def termos_uso(request):
     return render(request, 'publico/termos_uso.html')
 
 
-_NOMES_PROVEDOR_EMAIL = {
-    'resend': 'Resend', 'brevo': 'Brevo', 'sendgrid': 'SendGrid', 'mailgun': 'Mailgun', 'postmark': 'Postmark',
-}
-
-
-def politica_privacidade(request):
-    # operadores reais da instalacao (LGPD art. 9, V): provedor de e-mail configurado e Sentry
-    from ...utils.email import esp_anymail
-    return render(request, 'publico/politica_privacidade.html', {
-        'provedor_email': _NOMES_PROVEDOR_EMAIL.get(esp_anymail(getattr(settings, 'EMAIL_BACKEND', ''))),
-        'sentry_ativo': getattr(settings, 'SENTRY_ATIVO', False),
-    })
-
-
 def quem_somos(request):
     return render(request, 'publico/quem_somos.html')
 

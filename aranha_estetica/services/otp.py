@@ -10,9 +10,11 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import time
 from datetime import datetime, timedelta
 from typing import Optional, Tuple, TYPE_CHECKING
 
+from django.conf import settings
 from django.utils import timezone
 
 from ..models import CodigoOtp
@@ -208,3 +210,17 @@ def telefone_verificado_agendamento(request) -> str:
 def limpar_verificacao_agendamento(request) -> None:
     request.session.pop(SESSAO_AGENDAMENTO, None)
     request.session.pop(SESSAO_AGENDAMENTO_EXPIRA, None)
+
+
+# ─── Anti-enumeracao ────────────────────────────────────────────────────
+
+def esperar_latencia_minima(inicio: float) -> None:
+    """Completa settings.OTP_LATENCIA_MINIMA_SEGUNDOS desde `inicio` (time.monotonic()).
+
+    O pedido de codigo do portal e do "Meus dados" responde o mesmo texto exista ou nao o cadastro;
+    sem isto o tempo de resposta (o ramo cadastrado gera o codigo e chama a Zenvia) revelaria quem e
+    cliente.
+    """
+    restante = float(settings.OTP_LATENCIA_MINIMA_SEGUNDOS or 0) - (time.monotonic() - inicio)
+    if restante > 0:
+        time.sleep(restante)

@@ -583,6 +583,9 @@ CIFRAGEM_EXIGE_CHAVE = False
 # HMAC dos codigos OTP com chave propria (vazar/rotacionar a SECRET_KEY nao mexe nos OTP e
 # vice-versa). Vazia: usa a SECRET_KEY, como antes.
 OTP_HMAC_KEY = os.environ.get('OTP_HMAC_KEY', '').strip()
+# Anti-enumeracao: o pedido de codigo do portal e do "Meus dados" responde em no minimo este tempo,
+# exista ou nao o cadastro (o ramo que envia SMS nao fica mensuravelmente mais lento). 0 = desliga.
+OTP_LATENCIA_MINIMA_SEGUNDOS = 0.8
 
 
 # Monitor dos jobs do cron (healthchecks.io: https://hc-ping.com/<ping key>): views/infra/cron avisa
