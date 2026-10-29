@@ -22,7 +22,7 @@
       </div>
       <p id="regra-{{ r.chave }}-ajuda" class="mt-1 text-sm text-texto-suave">{{ r.descricao }}</p>
       <p class="mt-2 text-legenda text-texto-suave">
-        {% if r.email %}Padrão: em branco.{% else %}Padrão: {{ r.padrao }}.{% endif %}
+        {% if r.email or r.opcional %}Padrão: em branco.{% else %}Padrão: {{ r.padrao }}.{% endif %}
         {% if not r.linha %}Sem ajuste: vale o padrão.{% endif %}
       </p>
       {% if r.gravado_invalido and not r.erro %}
@@ -50,7 +50,8 @@
                class="campo">
         {% else %}
         <input type="number" name="valor" id="regra-{{ r.chave }}" value="{{ r.valor|default:r.padrao }}"
-               min="{{ r.minimo }}" max="{{ r.maximo }}" step="1" inputmode="numeric" required
+               min="{{ r.minimo }}" max="{{ r.maximo }}" step="1" inputmode="numeric"
+               {% if r.opcional %}placeholder="Em branco: não aparece"{% else %}required{% endif %}
                aria-describedby="regra-{{ r.chave }}-ajuda{% if r.erro %} regra-{{ r.chave }}-erro{% endif %}"
                {% if r.erro %}aria-invalid="true"{% endif %}
                class="campo">
