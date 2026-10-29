@@ -29,7 +29,9 @@
       <div class="mb-3">
         <label for="campo_{{ c.chave }}" class="block text-[0.72rem] font-bold uppercase tracking-wide text-texto-suave mb-1">{{ c.label }}</label>
         <input type="{{ c.tipo }}" name="{{ c.chave }}" id="campo_{{ c.chave }}" value="{{ c.valor }}" autocomplete="off"
+               {% if c.erro %}aria-invalid="true" aria-describedby="campo_{{ c.chave }}-erro"{% endif %}
                class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.88rem] text-texto transition">
+        {% if c.erro %}<span id="campo_{{ c.chave }}-erro" class="text-erro text-sm">{{ c.erro }}</span>{% endif %}
       </div>
       {% endif %}
     {% endfor %}
@@ -50,9 +52,11 @@
         <label for="cor_{{ c.chave }}" class="block text-[0.72rem] font-bold uppercase tracking-wide text-texto-suave mb-1">{{ c.label }}</label>
         <div class="inline-flex items-center gap-2">
           <input type="color" name="{{ c.chave }}" id="cor_{{ c.chave }}" value="{{ c.valor }}"
+                 {% if c.erro %}aria-invalid="true" aria-describedby="cor_{{ c.chave }}-erro"{% endif %}
                  class="js-color-input w-[60px] h-[40px] rounded-xl border border-borda bg-superficie cursor-pointer">
           <span class="js-color-hex font-mono text-[0.85rem] text-marca font-bold px-2 py-1 bg-fundo rounded-lg">{{ c.valor }}</span>
         </div>
+        {% if c.erro %}<span id="cor_{{ c.chave }}-erro" class="block text-erro text-sm">{{ c.erro }}</span>{% endif %}
       </div>
       {% endif %}
     {% endfor %}
