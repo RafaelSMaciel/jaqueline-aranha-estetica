@@ -2,461 +2,339 @@
 {% load l10n %}
 
 {% block titulo %}{{ cliente.nome }} — {{ CLINIC_NAME }}{% endblock %}
+{% block page_voltar %}<a href="{% url 'aranha:painel_clientes' %}" class="voltar-pagina"><c-icone nome="voltar" class="" />Clientes</a>{% endblock %}
 {% block page_title %}{{ cliente.nome }}{% endblock %}
-{% block page_subtitle %}Ficha do cliente{% endblock %}
-
-{% block css %}
-<style nonce="{{ csp_nonce }}">
-    /* Timeline (vertical line + dots via pseudo-elements) */
-    .cli-timeline { position: relative; padding-left: 1.6rem; }
-    .cli-timeline::before {
-        content: ''; position: absolute; top: 0.3rem; bottom: 0.3rem;
-        left: 0.55rem; width: 2px; background: var(--cor-borda);
-    }
-    .cli-tl-item { position: relative; padding-bottom: 0.85rem; }
-    .cli-tl-item::before {
-        content: ''; position: absolute; left: -1.4rem; top: 0.3rem;
-        width: 12px; height: 12px; border-radius: 50%;
-        background: var(--cor-superficie); border: 3px solid var(--cor-marca-forte);
-    }
-    .cli-tl-item.is-FALTOU::before { border-color: var(--st-faltou-texto); }
-    .cli-tl-item.is-CANCELADO::before { border-color: var(--st-cancelado-texto); }
-    .cli-tl-item.is-REALIZADO::before { border-color: var(--st-realizado-texto); }
-    .cli-tl-item.is-CONFIRMADO::before { border-color: var(--st-confirmado-texto); }
-    .cli-tl-item.is-AGENDADO::before { border-color: var(--st-agendado-texto); }
-    .cli-tl-item.is-PENDENTE::before { border-color: var(--st-pendente-texto); }
-    .cli-tl-item.is-REAGENDADO::before { border-color: var(--st-reagendado-texto); }
-</style>
-{% endblock %}
+{% block page_subtitle %}Ficha da cliente · cadastrada em {{ cliente.criado_em|date:"d/m/Y" }}{% if cliente.telefone %} · {{ cliente.telefone }}{% endif %}{% endblock %}
 
 {% block page_actions %}
+<c-botao href="{% url 'aranha:prontuario_detalhe' cliente.pk %}" variante="secundario" icone="prontuario">Prontuário</c-botao>
 {% if cliente.ativo %}
-<a href="{% url 'aranha:admin_agendamento_novo' %}?cliente={{ cliente.pk }}"
-   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold bg-marca-forte text-sobre-marca no-underline hover:opacity-90 transition-opacity">
-  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-  Agendar
-</a>
+<c-botao href="{% url 'aranha:admin_agendamento_novo' %}?cliente={{ cliente.pk }}" icone="mais">Agendar</c-botao>
 {% else %}
-{# Cadastro inativo nao agenda: reative marcando "Ativo" abaixo e salvando #}
-<span class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold bg-fundo text-texto-suave">
-  Cadastro inativo: marque "Ativo" e salve para agendar
-</span>
+{# Cadastro inativo nao agenda: reative marcando "Ativo" na aba Dados e salvando #}
+<c-selo tom="aviso" tamanho="md" icone="alerta">Cadastro inativo: marque "Ativo" e salve para agendar</c-selo>
 {% endif %}
 {% endblock %}
 
 {% block admin_content %}
 
-{# ── Alerta de saude (prontuario + fichas de anamnese): visivel, nao tooltip ── #}
+{# ── Alerta de saude (prontuario + fichas de anamnese): visivel no topo, nao tooltip ── #}
 {% if alertas %}
-<div class="mb-4 text-[0.85rem]">
+<div class="mb-4 max-w-3xl">
   {% include 'partials/_alerta_saude.html' with alertas=alertas %}
 </div>
 {% endif %}
 
 {# ── Retorno sem custo a marcar (services/retorno) ── #}
 {% for r in retornos %}
-<div class="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border-l-4 border-info bg-superficie px-4 py-3 text-[0.85rem] text-texto" role="note">
-  <span>Retorno de <strong>{{ r.origem.procedimento.nome }}</strong> sem custo a marcar entre {{ r.de|date:"d/m" }} e <strong>{{ r.ate|date:"d/m/Y" }}</strong>.</span>
-  <a href="{% url 'aranha:admin_agendar_retorno' r.origem.pk %}" class="inline-flex px-3 py-1.5 rounded-lg bg-marca-forte text-sobre-marca text-[0.78rem] font-bold no-underline hover:opacity-90">Marcar retorno</a>
-</div>
+<c-nota tom="info" icone="retornos" class="mb-4">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <p>Retorno de <strong>{{ r.origem.procedimento.nome }}</strong> sem custo a marcar entre {{ r.de|date:"d/m" }} e <strong>{{ r.ate|date:"d/m/Y" }}</strong>.</p>
+    <c-botao href="{% url 'aranha:admin_agendar_retorno' r.origem.pk %}" tamanho="sm">Marcar retorno</c-botao>
+  </div>
+</c-nota>
 {% endfor %}
 
-{# ── KPIs do cliente ── #}
-<div class="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-2.5 mb-4">
-  <div class="relative bg-superficie rounded-2xl shadow-sm p-3.5">
-    <svg class="absolute top-2.5 right-2.5 w-4 h-4 text-aviso opacity-40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-    </svg>
-    <div class="text-[0.65rem] text-texto-suave font-bold uppercase tracking-wide">LTV</div>
-    <div class="text-[1.15rem] font-extrabold text-texto mt-0.5 break-words" title="Atendimentos avulsos {{ cliente_stats.ltv_avulsos|brl }} + pacotes {{ cliente_stats.ltv_pacotes|brl }} (sessão de pacote não soma de novo)">{{ cliente_stats.ltv|brl }}</div>
-  </div>
-  <div class="relative bg-superficie rounded-2xl shadow-sm p-3.5">
-    <svg class="absolute top-2.5 right-2.5 w-4 h-4 text-destaque opacity-40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-    </svg>
-    <div class="text-[0.65rem] text-texto-suave font-bold uppercase tracking-wide">Atendimentos</div>
-    <div class="text-[1.15rem] font-extrabold text-texto mt-0.5 break-words">{{ cliente_stats.qtd_realizados }}</div>
-  </div>
-  <div class="relative bg-superficie rounded-2xl shadow-sm p-3.5">
-    <svg class="absolute top-2.5 right-2.5 w-4 h-4 text-erro opacity-40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/>
-    </svg>
-    <div class="text-[0.65rem] text-texto-suave font-bold uppercase tracking-wide">Ticket Médio</div>
-    <div class="text-[1.15rem] font-extrabold text-texto mt-0.5 break-words">{{ cliente_stats.ticket_medio|brl }}</div>
-  </div>
-  <div class="relative bg-superficie rounded-2xl shadow-sm p-3.5">
-    <svg class="absolute top-2.5 right-2.5 w-4 h-4 text-info opacity-40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m-6.5-5.5h.01M5 8h14M5 8a2 2 0 00-2 2v8a2 2 0 002 2h14a2 2 0 002-2v-8a2 2 0 00-2-2M7 3v2m10-2v2"/>
-    </svg>
-    <div class="text-[0.65rem] text-texto-suave font-bold uppercase tracking-wide">Última Visita</div>
-    <div class="text-[0.85rem] font-extrabold text-texto mt-0.5 break-words">
-      {% if cliente_stats.ultima_visita %}{{ cliente_stats.ultima_visita|date:"d/m/Y" }}{% else %}—{% endif %}
-    </div>
-  </div>
-  {% if cliente_stats.procedimento_mais_frequente %}
-  <div class="relative bg-superficie rounded-2xl shadow-sm p-3.5">
-    <svg class="absolute top-2.5 right-2.5 w-4 h-4 text-marca opacity-40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
-    </svg>
-    <div class="text-[0.65rem] text-texto-suave font-bold uppercase tracking-wide">Top Procedimento</div>
-    <div class="text-[0.8rem] font-extrabold text-texto mt-0.5 break-words">{{ cliente_stats.procedimento_mais_frequente }}</div>
-  </div>
-  {% endif %}
-  {% if cliente_stats.no_show_count or cliente_stats.cancelados_count %}
-  <div class="relative bg-superficie rounded-2xl shadow-sm p-3.5">
-    <svg class="absolute top-2.5 right-2.5 w-4 h-4 text-erro opacity-40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-    </svg>
-    <div class="text-[0.65rem] text-texto-suave font-bold uppercase tracking-wide">No-show / Cancel</div>
-    <div class="text-[0.95rem] font-extrabold text-texto mt-0.5 break-words">
-      {{ cliente_stats.no_show_count }} / {{ cliente_stats.cancelados_count }}
-    </div>
-  </div>
-  {% endif %}
+{# ── Indicadores da cliente ── #}
+<div class="grade-kpis mb-8">
+  <c-kpi rotulo="Valor total (LTV)" valor="{{ cliente_stats.ltv|brl }}" icone="dinheiro"
+         detalhe="avulsos {{ cliente_stats.ltv_avulsos|brl }} + pacotes {{ cliente_stats.ltv_pacotes|brl }}" />
+  <c-kpi rotulo="Atendimentos realizados" valor="{{ cliente_stats.qtd_realizados }}" icone="check-circulo"
+         detalhe="{% if cliente_stats.procedimento_mais_frequente %}mais feito: {{ cliente_stats.procedimento_mais_frequente }}{% endif %}" />
+  <c-kpi rotulo="Ticket médio" valor="{{ cliente_stats.ticket_medio|brl }}" icone="recibo" />
+  <c-kpi rotulo="Última visita" valor="{% if cliente_stats.ultima_visita %}{{ cliente_stats.ultima_visita|date:'d/m/Y' }}{% else %}—{% endif %}" icone="calendario"
+         detalhe="{% if cliente_stats.no_show_count or cliente_stats.cancelados_count %}{{ cliente_stats.no_show_count }} falta{{ cliente_stats.no_show_count|pluralize }} · {{ cliente_stats.cancelados_count }} cancelamento{{ cliente_stats.cancelados_count|pluralize }}{% endif %}" />
 </div>
 
-{# ── Dados do cliente ── #}
-<div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
-  <h2 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-4">
-    <svg class="w-4 h-4 text-marca" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-    </svg>
-    Dados pessoais
-  </h2>
-  <form method="post">
-    {% csrf_token %}
-    <div class="mb-3">
-      <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Nome Completo</label>
-      <input type="text" name="nome" value="{{ cliente.nome }}" required
-             class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto transition">
-    </div>
-    <div class="grid grid-cols-2 gap-3">
-      <div class="mb-3">
-        <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Telefone</label>
-        <input type="tel" name="telefone" value="{{ cliente.telefone|default_if_none:'' }}" inputmode="tel" autocomplete="tel"
-               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto transition">
-      </div>
-      <div class="mb-3">
-        <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">CPF</label>
-        <input type="text" name="cpf" value="{{ cliente.cpf|default_if_none:'' }}"
-               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto transition">
-      </div>
-    </div>
-    <div class="grid grid-cols-2 gap-3">
-      <div class="mb-3">
-        <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">E-mail</label>
-        <input type="email" name="email" value="{{ cliente.email|default_if_none:'' }}"
-               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto transition">
-      </div>
-      <div class="mb-3">
-        <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Data de Nascimento</label>
-        <input type="date" name="data_nascimento" value="{{ cliente.data_nascimento|date:'Y-m-d' }}"
-               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto transition">
-      </div>
-    </div>
-    <div class="grid grid-cols-[1fr_2fr] gap-3">
-      <div class="mb-3">
-        <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">CEP</label>
-        <input type="text" name="cep" value="{{ cliente.cep|default_if_none:'' }}" placeholder="00000-000"
-               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto placeholder-texto-suave transition">
-      </div>
-      <div class="mb-3">
-        <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Endereço</label>
-        <input type="text" name="endereco" value="{{ cliente.endereco|default_if_none:'' }}" placeholder="Rua, nº - Bairro"
-               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto placeholder-texto-suave transition">
-      </div>
-    </div>
-    <div class="flex gap-6 flex-wrap mb-3">
-      <label class="inline-flex items-center gap-1.5 cursor-pointer text-[0.85rem] text-texto">
-        <input type="checkbox" name="ativo" value="1" {% if cliente.ativo %}checked{% endif %}> Ativo
-      </label>
-    </div>
+<c-abas rotulo="Seções da ficha da cliente">
+  <c-slot name="lista">
+    <c-abas.aba alvo="dados">Dados</c-abas.aba>
+    <c-abas.aba alvo="agendamentos" contador="{{ atendimentos|length }}">Agendamentos</c-abas.aba>
+    <c-abas.aba alvo="pacotes" contador="{% if pacotes %}{{ pacotes|length }}{% endif %}">Pacotes e crédito</c-abas.aba>
+    <c-abas.aba alvo="saude">Saúde{% if alertas %} <c-selo tom="erro" icone="alerta">alerta</c-selo>{% endif %}</c-abas.aba>
+    <c-abas.aba alvo="consentimentos">Consentimentos</c-abas.aba>
+  </c-slot>
 
-    <div class="flex items-center gap-4 flex-wrap mt-2">
-      {% if cliente.bloqueado_online %}
-      <span class="inline-flex items-center gap-1 text-[0.7rem] px-2.5 py-1 rounded-lg font-bold bg-erro-fundo text-erro">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
-        </svg>
-        Bloqueado online ({{ cliente.faltas_consecutivas }} faltas)
-      </span>
-      {% endif %}
-      <span class="inline-flex items-center gap-1 text-[0.7rem] px-2.5 py-1 rounded-lg font-bold bg-superficie text-texto-suave">
-        Cadastro: {{ cliente.criado_em|date:"d/m/Y" }}
-      </span>
-    </div>
-
-    <div class="flex gap-3 mt-4">
-      <button type="submit"
-              class="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
-        Salvar Alterações
-      </button>
-      <a href="{% url 'aranha:prontuario_detalhe' cliente.pk %}"
-         class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sucesso-fundo text-sucesso text-[0.85rem] font-bold no-underline hover:opacity-90 transition-opacity">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-        </svg>
-        Ver Prontuário
-      </a>
-    </div>
-  </form>
-</div>
-
-{# ── Consentimentos de comunicacao (LGPD art. 8): estado vigente + revogar; conceder exige justificativa ── #}
-<div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4" id="consentimentos">
-  <h2 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-3">
-    <svg class="w-4 h-4 text-marca" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-    </svg>
-    Comunicação autorizada
-  </h2>
-  {% for c in consentimentos %}
-  <div class="border border-borda rounded-xl p-3 mb-2">
-    <div class="flex items-start justify-between gap-2 flex-wrap">
-      <div>
-        <div class="font-bold text-[0.85rem] text-texto">{{ c.rotulo }}</div>
-        <div class="text-[0.72rem] text-texto-suave">
-          {% if c.registro %}
-          {% if c.concedido %}Autorizado{% else %}Revogado{% endif %} em {{ c.registro.registrado_em|date:"d/m/Y H:i" }} · {{ c.registro.get_origem_display }}
-          {% else %}
-          Nunca autorizado
+  {# ── Dados ── #}
+  <c-abas.painel id="dados">
+    <c-card titulo="Dados pessoais" icone="usuario" class="max-w-4xl">
+      <form method="post" class="flex flex-col gap-4">
+        {% csrf_token %}
+        <c-campo nome="nome" id="cliNome" label="Nome completo" value="{{ cliente.nome }}" required autocomplete="name"></c-campo>
+        <div class="grade-campos grade-campos-2">
+          <c-campo nome="telefone" id="cliTelefone" label="Telefone" tipo="tel" value="{{ cliente.telefone|default_if_none:'' }}" inputmode="tel" autocomplete="tel"></c-campo>
+          <c-campo nome="cpf" id="cliCpf" label="CPF" value="{{ cliente.cpf|default_if_none:'' }}" inputmode="numeric"></c-campo>
+          <c-campo nome="email" id="cliEmail" label="E-mail" tipo="email" value="{{ cliente.email|default_if_none:'' }}" autocomplete="email"></c-campo>
+          <c-campo nome="data_nascimento" id="cliNascimento" label="Data de nascimento" tipo="date" value="{{ cliente.data_nascimento|date:'Y-m-d' }}"></c-campo>
+        </div>
+        <div class="grade-campos sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+          <c-campo nome="cep" id="cliCep" label="CEP" value="{{ cliente.cep|default_if_none:'' }}" placeholder="00000-000" inputmode="numeric"></c-campo>
+          <c-campo nome="endereco" id="cliEndereco" label="Endereço" value="{{ cliente.endereco|default_if_none:'' }}" placeholder="Rua, nº - Bairro"></c-campo>
+        </div>
+        <label class="opcao">
+          <input type="checkbox" name="ativo" value="1" {% if cliente.ativo %}checked{% endif %}> Ativo (pode agendar)
+        </label>
+        <div class="flex flex-wrap items-center gap-2">
+          {% if cliente.bloqueado_online %}
+          <c-selo tom="erro" icone="cadeado">Bloqueado online ({{ cliente.faltas_consecutivas }} faltas)</c-selo>
           {% endif %}
+          <c-selo icone="calendario">Cadastro: {{ cliente.criado_em|date:"d/m/Y" }}</c-selo>
         </div>
-      </div>
-      <span class="px-2 py-0.5 rounded-full text-[0.65rem] font-bold uppercase tracking-wide {% if c.concedido %}bg-sucesso-fundo text-sucesso{% else %}bg-fundo text-texto-suave{% endif %}">
-        {% if c.concedido %}Autorizado{% else %}Não autorizado{% endif %}
-      </span>
-    </div>
-    {% if c.concedido %}
-    <form method="post" class="mt-2">
-      {% csrf_token %}
-      <input type="hidden" name="acao" value="consentimento">
-      <input type="hidden" name="operacao" value="revogar">
-      <input type="hidden" name="par" value="{{ c.chave }}">
-      <button type="submit" data-confirm="Revogar esta autorização? A cliente deixa de receber essa comunicação."
-              class="px-3 py-2 rounded-xl bg-fundo text-texto-suave text-[0.8rem] font-bold border border-borda cursor-pointer hover:opacity-90">
-        Revogar
-      </button>
-    </form>
-    {% else %}
-    <details class="mt-2">
-      <summary class="cursor-pointer text-[0.75rem] font-bold text-texto-suave">Registrar autorização da cliente</summary>
-      <form method="post" class="mt-2">
-        {% csrf_token %}
-        <input type="hidden" name="acao" value="consentimento">
-        <input type="hidden" name="operacao" value="conceder">
-        <input type="hidden" name="par" value="{{ c.chave }}">
-        <label for="justificativa-{{ forloop.counter }}" class="block text-[0.72rem] font-bold text-texto-suave mb-1">O que a cliente autorizou e como (fica registrado com seu nome)</label>
-        <textarea id="justificativa-{{ forloop.counter }}" name="justificativa" rows="2" required minlength="10" maxlength="1000"
-                  placeholder="Ex.: pediu por telefone em 10/11 para receber promoções por e-mail"
-                  class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.82rem] text-texto placeholder-texto-suave"></textarea>
-        <button type="submit"
-                class="mt-2 px-4 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.8rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
-          Registrar autorização
-        </button>
+        <div class="flex flex-wrap gap-2 border-t border-borda pt-4">
+          <c-botao tipo="submit">Salvar alterações</c-botao>
+        </div>
       </form>
-    </details>
-    {% endif %}
-  </div>
-  {% endfor %}
-  <p class="text-[0.72rem] text-texto-suave mt-2 mb-0">A cliente autoriza no agendamento online e cancela pelo link do e-mail. Cada mudança fica no histórico (Django admin &gt; Consentimentos).</p>
-</div>
+    </c-card>
+  </c-abas.painel>
 
-{# ── Indicacao: quem indicou esta cliente (cashback no 1o atendimento pago) ── #}
-<div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
-  <h2 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-3">
-    <svg class="w-4 h-4 text-marca" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
-    </svg>
-    Indicação
-  </h2>
-  <p class="text-[0.8rem] text-texto m-0 mb-2">
-    Código de indicação desta cliente: <strong>{{ cliente.codigo_indicacao|default:"—" }}</strong>
-  </p>
-  <p class="text-[0.8rem] text-texto m-0 mb-3">
-    Indicada por:
-    {% if cliente.indicado_por %}
-    <a href="{% url 'aranha:admin_cliente_detalhe' cliente.indicado_por.pk %}" class="font-bold text-marca">{{ cliente.indicado_por.nome }}</a>
-    ({{ cliente.indicado_por.codigo_indicacao }})
-    {% else %}
-    <span class="text-texto-suave">ninguém registrado</span>
-    {% endif %}
-  </p>
-  {% if indicacao_travada %}
-  <p class="text-[0.75rem] text-texto-suave m-0">Essa indicação já gerou cashback para quem indicou e não pode mais ser alterada.</p>
-  {% else %}
-  <form method="post" class="flex items-end gap-2 flex-wrap">
-    {% csrf_token %}
-    <input type="hidden" name="acao" value="indicacao">
-    <div>
-      <label for="indicadoPorBusca" class="block text-[0.72rem] font-bold text-texto-suave mb-1">Código de indicação ou nome de quem indicou</label>
-      <input id="indicadoPorBusca" type="text" name="indicado_por_busca" maxlength="150" placeholder="Ex.: A1B2C3D4"
-             class="w-64 max-w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.82rem] text-texto placeholder-texto-suave">
-    </div>
-    <button type="submit"
-            class="px-4 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.8rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
-      Salvar indicação
-    </button>
-    {% if cliente.indicado_por_id %}
-    <button type="submit" name="remover" value="1" formnovalidate
-            class="px-3 py-2 rounded-xl bg-fundo text-texto-suave text-[0.8rem] font-bold border border-borda cursor-pointer hover:opacity-90">
-      Remover indicação
-    </button>
-    {% endif %}
-  </form>
-  <p class="text-[0.72rem] text-texto-suave mt-2 mb-0">Quem indicou recebe o cashback de indicação no 1º atendimento pago desta cliente.</p>
-  {% endif %}
+  {# ── Agendamentos (linha do tempo) ── #}
+  <c-abas.painel id="agendamentos">
+    <c-card titulo="Linha do tempo" icone="relogio" descricao="Últimos 20 atendimentos, do mais recente ao mais antigo" class="max-w-4xl">
+      <c-slot name="acoes">{% if cliente.ativo %}<c-botao href="{% url 'aranha:admin_agendamento_novo' %}?cliente={{ cliente.pk }}" variante="secundario" tamanho="sm" icone="mais">Agendar</c-botao>{% endif %}</c-slot>
+      {% if atendimentos %}
+      <ol class="linha-tempo">
+        {% for a in atendimentos %}
+        <li class="linha-tempo-item is-{{ a.status }}">
+          <p class="text-legenda font-bold text-texto-suave">{{ a.data_hora_inicio|date:"D, d/m/Y \à\s H:i" }}</p>
+          <p class="mt-0.5 font-bold text-texto">{{ a.procedimento.nome }}</p>
+          <p class="flex items-center gap-1.5 text-sm text-texto-suave"><c-icone nome="usuario" class="h-4 w-4" />{{ a.profissional.nome }}</p>
+          <div class="mt-2 flex flex-wrap items-center gap-2">
+            {% include 'partials/_status_badge.html' with status=a.status %}
+            {% if a.de_pacote %}
+            <c-selo tom="info" icone="pacotes">Sessão de pacote</c-selo>
+            {% elif a.valor_cobrado is not None %}
+            <c-selo tom="marca">{{ a.valor_cobrado|brl }}</c-selo>
+            {% endif %}
+            {% if a.termo_pendente %}<c-selo tom="aviso" icone="documento">Termo pendente</c-selo>{% endif %}
+            {% if a.termo_link %}
+            <form method="post" action="{% url 'aranha:admin_gerar_link_termo' a.pk %}" class="m-0 inline">
+              {% csrf_token %}
+              <c-botao tipo="submit" variante="secundario" tamanho="sm" icone="link">Link do termo</c-botao>
+            </form>
+            {% endif %}
+          </div>
+        </li>
+        {% endfor %}
+      </ol>
+      {% else %}
+      <c-vazio titulo="Nenhum atendimento registrado" icone="agenda" class="py-6" />
+      {% endif %}
+    </c-card>
+  </c-abas.painel>
 
-  {# Credito de indicacao desta cliente: saldo, quem ela indicou e extrato (ledger) #}
-  <div class="mt-4 pt-4 border-t border-borda">
-    <p class="text-[0.8rem] text-texto m-0 mb-1">
-      Crédito de indicação disponível: <strong class="text-sucesso">{{ carteira.saldo|default:0|brl }}</strong>
-      <span class="text-texto-suave">— abate no valor de um atendimento (Agendamentos &rsaquo; Valor &rsaquo; "Abater crédito").</span>
-    </p>
-    {% if indicadas %}
-    <p class="text-[0.8rem] text-texto m-0 mb-2">Indicou:
-      {% for ind in indicadas %}<a href="{% url 'aranha:admin_cliente_detalhe' ind.pk %}" class="font-bold text-marca">{{ ind.nome }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}
-    </p>
-    {% endif %}
-    {% if extrato_credito %}
-    <div class="overflow-x-auto">
-      <table class="w-full text-[0.78rem]">
-        <caption class="sr-only">Extrato do crédito de indicação</caption>
-        <thead><tr class="text-left text-texto-suave">
-          <th class="py-1 pr-3 font-bold">Data</th><th class="py-1 pr-3 font-bold">Movimento</th>
-          <th class="py-1 pr-3 font-bold text-right">Valor</th><th class="py-1 font-bold text-right">Saldo</th>
-        </tr></thead>
-        <tbody>
-          {% for mov in extrato_credito %}
-          <tr class="border-t border-borda">
-            <td class="py-1 pr-3 text-texto-suave">{{ mov.criado_em|date:"d/m/Y" }}</td>
-            <td class="py-1 pr-3 text-texto">{{ mov.get_origem_display }}{% if mov.atendimento_id %} <span class="text-texto-suave">(atendimento #{{ mov.atendimento_id }})</span>{% endif %}</td>
-            <td class="py-1 pr-3 text-right font-bold {% if mov.tipo == 'CREDITO' %}text-sucesso{% else %}text-erro{% endif %}">{% if mov.tipo == 'CREDITO' %}+{% else %}−{% endif %} {{ mov.valor|brl }}</td>
-            <td class="py-1 text-right text-texto">{{ mov.saldo_resultante|brl }}</td>
-          </tr>
+  {# ── Pacotes e credito ── #}
+  <c-abas.painel id="pacotes">
+    <div class="grid gap-6 xl:grid-cols-2 xl:items-start">
+      <c-card titulo="Pacotes" icone="pacotes" descricao="Saldo por procedimento e validade" espaco="nenhum">
+        {% if pacotes %}
+        <ul class="lista-itens">
+          {% for compra in pacotes %}
+          <li class="px-5 py-4">
+            <div class="flex flex-wrap items-start justify-between gap-2">
+              <div class="min-w-0">
+                <p class="font-bold text-texto">{{ compra.pacote_nome }}</p>
+                <p class="text-sm text-texto-suave">
+                  Comprado em {{ compra.criado_em|date:"d/m/Y" }} · {{ compra.valor_pago|brl }}
+                  {% if compra.data_expiracao %} · Válido até {{ compra.data_expiracao|date:"d/m/Y" }}{% endif %}
+                  {% if compra.status == 'CANCELADO' and compra.valor_reembolsado %} · Devolvido {{ compra.valor_reembolsado|brl }}{% endif %}
+                </p>
+              </div>
+              {% if compra.vencido %}<c-selo tom="erro">Vencido</c-selo>{% elif compra.status == 'ATIVO' %}<c-selo tom="sucesso">{{ compra.get_status_display }}</c-selo>{% else %}<c-selo>{{ compra.get_status_display }}</c-selo>{% endif %}
+            </div>
+            <ul class="mt-2 flex flex-col gap-1 text-sm text-texto">
+              {% for linha in compra.saldo %}
+              <li><strong>{{ linha.procedimento_nome }}:</strong> {{ linha.usadas }}/{{ linha.total }} usadas · <strong>{{ linha.restantes }}</strong> restante{{ linha.restantes|pluralize }}</li>
+              {% endfor %}
+            </ul>
+            {% if compra.status == 'ATIVO' or compra.status == 'EXPIRADO' %}
+            <div class="mt-3 flex flex-wrap gap-2">
+              <c-botao variante="secundario" tamanho="sm" icone="calendario" data-abrir-dialogo="dlg-prorrogar-{{ compra.pk }}">Prorrogar validade</c-botao>
+              {% if compra.status == 'ATIVO' %}
+              <c-botao variante="perigo-contorno" tamanho="sm" icone="fechar" data-abrir-dialogo="dlg-cancelar-{{ compra.pk }}">Cancelar pacote</c-botao>
+              {% endif %}
+            </div>
+            {% endif %}
+
+            {% if compra.status == 'ATIVO' %}
+            <c-dialogo id="dlg-cancelar-{{ compra.pk }}" titulo="Cancelar pacote" tamanho="sm">
+              <form method="post" action="{% url 'aranha:admin_cancelar_compra_pacote' compra.pk %}">
+                {% csrf_token %}
+                <div class="dialogo-corpo">
+                  <p class="text-sm text-texto-suave">{{ compra.pacote_nome }} · comprado em {{ compra.criado_em|date:"d/m/Y" }}</p>
+                  <c-campo nome="valor_reembolsado" id="reembCancel{{ compra.pk }}" label="Valor devolvido à cliente em dinheiro (R$; 0 se nada foi devolvido)"
+                           inputmode="decimal" required placeholder="0,00" value="{{ compra.reembolso_sugerido|unlocalize }}"
+                           ajuda="Sugestão: sessões restantes × valor da sessão = {{ compra.reembolso_sugerido|brl }}. O reembolso entra no faturamento do mês do cancelamento."></c-campo>
+                  <c-campo nome="observacao" id="obsCancel{{ compra.pk }}" label="Motivo e reembolso/acordo (vai para a auditoria)" tipo="textarea"
+                           rows="2" required maxlength="500"></c-campo>
+                </div>
+                <div class="dialogo-rodape">
+                  <c-botao variante="secundario" data-fechar-dialogo>Voltar</c-botao>
+                  <c-botao tipo="submit" variante="perigo" data-confirm="Cancelar este pacote? As sessões restantes deixam de ser debitadas.">Confirmar cancelamento</c-botao>
+                </div>
+              </form>
+            </c-dialogo>
+            {% endif %}
+            {% if compra.status == 'ATIVO' or compra.status == 'EXPIRADO' %}
+            <c-dialogo id="dlg-prorrogar-{{ compra.pk }}" titulo="Prorrogar validade" tamanho="sm">
+              <form method="post" action="{% url 'aranha:admin_prorrogar_compra_pacote' compra.pk %}">
+                {% csrf_token %}
+                <div class="dialogo-corpo">
+                  <p class="text-sm text-texto-suave">{{ compra.pacote_nome }}{% if compra.data_expiracao %} · hoje vale até {{ compra.data_expiracao|date:"d/m/Y" }}{% endif %}</p>
+                  <c-campo nome="nova_data" id="validadeNova{{ compra.pk }}" tipo="date" required min="{% now 'Y-m-d' %}"
+                           label="Nova validade{% if compra.status == 'EXPIRADO' %} (o pacote volta a ficar ativo){% endif %}"></c-campo>
+                  <c-campo nome="motivo" id="motivoValidade{{ compra.pk }}" label="Motivo (vai para a auditoria)" tipo="textarea"
+                           rows="2" required maxlength="500"></c-campo>
+                </div>
+                <div class="dialogo-rodape">
+                  <c-botao variante="secundario" data-fechar-dialogo>Voltar</c-botao>
+                  <c-botao tipo="submit">Prorrogar</c-botao>
+                </div>
+              </form>
+            </c-dialogo>
+            {% endif %}
+          </li>
           {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    {% endif %}
-  </div>
-</div>
-
-{# ── Pacotes comprados: saldo por procedimento e validade ── #}
-<div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
-  <h2 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-4">
-    <svg class="w-4 h-4 text-marca" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
-    </svg>
-    Pacotes
-  </h2>
-  {% for compra in pacotes %}
-  <div class="border border-borda rounded-xl p-3 mb-2">
-    <div class="flex items-start justify-between gap-2 flex-wrap">
-      <div>
-        <div class="font-bold text-[0.88rem] text-texto">{{ compra.pacote_nome }}</div>
-        <div class="text-[0.72rem] text-texto-suave">
-          Comprado em {{ compra.criado_em|date:"d/m/Y" }} · {{ compra.valor_pago|brl }}
-          {% if compra.data_expiracao %} · Válido até {{ compra.data_expiracao|date:"d/m/Y" }}{% endif %}
-          {% if compra.status == 'CANCELADO' and compra.valor_reembolsado %} · Devolvido {{ compra.valor_reembolsado|brl }}{% endif %}
-        </div>
-      </div>
-      <span class="px-2 py-0.5 rounded-full text-[0.65rem] font-bold uppercase tracking-wide
-                   {% if compra.vencido %}bg-erro-fundo text-erro{% elif compra.status == 'ATIVO' %}bg-sucesso-fundo text-sucesso{% else %}bg-fundo text-texto-suave{% endif %}">
-        {% if compra.vencido %}Vencido{% else %}{{ compra.get_status_display }}{% endif %}
-      </span>
-    </div>
-    <ul class="mt-2 mb-0 pl-0 list-none text-[0.8rem] text-texto">
-      {% for linha in compra.saldo %}
-      <li><strong>{{ linha.procedimento_nome }}:</strong> {{ linha.usadas }}/{{ linha.total }} usadas · <strong>{{ linha.restantes }}</strong> restante{{ linha.restantes|pluralize }}</li>
-      {% endfor %}
-    </ul>
-    {% if compra.status == 'ATIVO' %}
-    <details class="mt-2">
-      <summary class="cursor-pointer text-[0.75rem] font-bold text-erro">Cancelar pacote</summary>
-      <form method="post" action="{% url 'aranha:admin_cancelar_compra_pacote' compra.pk %}" class="mt-2">
-        {% csrf_token %}
-        <label for="reembCancel{{ compra.pk }}" class="block text-[0.72rem] font-bold text-texto-suave mb-1">Valor devolvido à cliente em dinheiro (R$; 0 se nada foi devolvido)</label>
-        <p class="text-[0.7rem] text-texto-suave mb-1">Sugestão: sessões restantes × valor da sessão = {{ compra.reembolso_sugerido|brl }}. O reembolso entra no faturamento do mês do cancelamento.</p>
-        <input id="reembCancel{{ compra.pk }}" type="text" name="valor_reembolsado" inputmode="decimal" required placeholder="0,00" value="{{ compra.reembolso_sugerido|unlocalize }}"
-               class="w-32 px-3 py-2 mb-2 rounded-xl border border-borda bg-fundo text-[0.8rem] text-texto">
-        <label for="obsCancel{{ compra.pk }}" class="block text-[0.72rem] font-bold text-texto-suave mb-1">Motivo e reembolso/acordo (vai para a auditoria)</label>
-        <textarea id="obsCancel{{ compra.pk }}" name="observacao" rows="2" required maxlength="500"
-                  class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.8rem] text-texto resize-y"></textarea>
-        <button type="submit" data-confirm="Cancelar este pacote? As sessões restantes deixam de ser debitadas."
-                class="mt-2 px-3 py-1.5 rounded-lg bg-red-700 text-white text-[0.75rem] font-bold border-none cursor-pointer hover:bg-red-800 transition-colors">
-          Confirmar cancelamento
-        </button>
-      </form>
-    </details>
-    {% endif %}
-    {% if compra.status == 'ATIVO' or compra.status == 'EXPIRADO' %}
-    <details class="mt-2">
-      <summary class="cursor-pointer text-[0.75rem] font-bold text-marca">Prorrogar validade</summary>
-      <form method="post" action="{% url 'aranha:admin_prorrogar_compra_pacote' compra.pk %}" class="mt-2">
-        {% csrf_token %}
-        <label for="validadeNova{{ compra.pk }}" class="block text-[0.72rem] font-bold text-texto-suave mb-1">Nova validade{% if compra.status == 'EXPIRADO' %} (o pacote volta a ficar ativo){% endif %}</label>
-        <input id="validadeNova{{ compra.pk }}" type="date" name="nova_data" required min="{% now 'Y-m-d' %}"
-               class="px-3 py-2 mb-2 rounded-xl border border-borda bg-fundo text-[0.8rem] text-texto">
-        <label for="motivoValidade{{ compra.pk }}" class="block text-[0.72rem] font-bold text-texto-suave mb-1">Motivo (vai para a auditoria)</label>
-        <textarea id="motivoValidade{{ compra.pk }}" name="motivo" rows="2" required maxlength="500"
-                  class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.8rem] text-texto resize-y"></textarea>
-        <button type="submit" class="mt-2 px-3 py-1.5 rounded-lg bg-marca-forte text-sobre-marca text-[0.75rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
-          Prorrogar
-        </button>
-      </form>
-    </details>
-    {% endif %}
-  </div>
-  {% empty %}
-  <p class="text-[0.82rem] text-texto-suave m-0">Nenhum pacote comprado.</p>
-  {% endfor %}
-</div>
-
-{# ── Timeline de atendimentos ── #}
-<div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
-  <h2 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-4">
-    <svg class="w-4 h-4 text-marca" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-    </svg>
-    Linha do tempo (últimos 20)
-  </h2>
-  {% if atendimentos %}
-  <div class="cli-timeline">
-    {% for a in atendimentos %}
-    <div class="cli-tl-item is-{{ a.status }}">
-      <div class="text-[0.7rem] text-texto-suave font-bold">{{ a.data_hora_inicio|date:"D, d/m/Y H:i" }}</div>
-      <div class="text-[0.88rem] font-bold text-texto mt-0.5">{{ a.procedimento.nome }}</div>
-      <div class="flex items-center gap-1 text-[0.75rem] text-texto-suave mt-0.5">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-        </svg>
-        {{ a.profissional.nome }}
-      </div>
-      <div class="flex gap-1.5 mt-1 flex-wrap items-center">
-        <span class="status-{{ a.status }} text-[0.65rem] px-2 py-0.5 rounded-[10px] font-bold">{{ a.get_status_display }}</span>
-        {% if a.de_pacote %}
-        <span class="text-[0.7rem] px-2 py-0.5 rounded-lg font-bold bg-info-fundo text-info">Sessão de pacote</span>
-        {% elif a.valor_cobrado is not None %}
-        <span class="text-[0.7rem] px-2 py-0.5 rounded-lg font-bold bg-aviso-fundo text-aviso">{{ a.valor_cobrado|brl }}</span>
+        </ul>
+        {% else %}
+        <c-vazio titulo="Nenhum pacote comprado" icone="pacotes" class="py-6" />
         {% endif %}
-        {% if a.termo_pendente %}
-        <span class="text-[0.7rem] px-2 py-0.5 rounded-lg font-bold bg-aviso-fundo text-aviso">Termo pendente</span>
-        {% endif %}
-        {% if a.termo_link %}
-        <form method="post" action="{% url 'aranha:admin_gerar_link_termo' a.pk %}" class="m-0 inline">
+      </c-card>
+
+      {# Indicacao: quem indicou esta cliente (cashback no 1o atendimento pago) + credito dela #}
+      <c-card titulo="Indicação e crédito" icone="presente">
+        <dl class="dados mb-4">
+          <div><dt>Código de indicação desta cliente</dt><dd class="font-bold tabular-nums">{{ cliente.codigo_indicacao|default:"—" }}</dd></div>
+          <div><dt>Indicada por</dt><dd>
+            {% if cliente.indicado_por %}
+            <a href="{% url 'aranha:admin_cliente_detalhe' cliente.indicado_por.pk %}" class="font-bold text-marca">{{ cliente.indicado_por.nome }}</a>
+            <span class="text-texto-suave">({{ cliente.indicado_por.codigo_indicacao }})</span>
+            {% else %}<span class="text-texto-suave">ninguém registrado</span>{% endif %}
+          </dd></div>
+        </dl>
+        {% if indicacao_travada %}
+        <p class="ajuda">Essa indicação já gerou cashback para quem indicou e não pode mais ser alterada.</p>
+        {% else %}
+        <form method="post" class="flex flex-col gap-3">
           {% csrf_token %}
-          <button type="submit" class="text-[0.7rem] px-2 py-0.5 rounded-lg font-bold bg-superficie border border-aviso text-aviso cursor-pointer hover:bg-aviso-fundo">Link do termo</button>
+          <input type="hidden" name="acao" value="indicacao">
+          <c-campo nome="indicado_por_busca" id="indicadoPorBusca" label="Código de indicação ou nome de quem indicou"
+                   maxlength="150" placeholder="Ex.: A1B2C3D4"
+                   ajuda="Quem indicou recebe o cashback de indicação no 1º atendimento pago desta cliente."></c-campo>
+          <div class="flex flex-wrap gap-2">
+            <c-botao tipo="submit">Salvar indicação</c-botao>
+            {% if cliente.indicado_por_id %}
+            <c-botao tipo="submit" variante="secundario" name="remover" value="1" formnovalidate>Remover indicação</c-botao>
+            {% endif %}
+          </div>
         </form>
         {% endif %}
-      </div>
+
+        {# Credito de indicacao desta cliente: saldo, quem ela indicou e extrato (ledger) #}
+        <div class="mt-5 border-t border-borda pt-5">
+          <p>Crédito de indicação disponível: <strong class="text-sucesso">{{ carteira.saldo|default:0|brl }}</strong></p>
+          <p class="ajuda mt-1">Abate no valor de um atendimento (Agenda › ⋯ › Registrar valor › "Abater crédito").</p>
+          {% if indicadas %}
+          <p class="mt-3 text-sm">Indicou:
+            {% for ind in indicadas %}<a href="{% url 'aranha:admin_cliente_detalhe' ind.pk %}" class="font-bold text-marca">{{ ind.nome }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}
+          </p>
+          {% endif %}
+          {% if extrato_credito %}
+          <div class="mt-4 -mx-5">
+            <c-tabela legenda="Extrato do crédito de indicação" compacta="1">
+              <thead><tr>
+                <th scope="col">Data</th><th scope="col">Movimento</th>
+                <th scope="col" class="num">Valor</th><th scope="col" class="num">Saldo</th>
+              </tr></thead>
+              <tbody>
+                {% for mov in extrato_credito %}
+                <tr>
+                  <td class="text-texto-suave whitespace-nowrap">{{ mov.criado_em|date:"d/m/Y" }}</td>
+                  <td>{{ mov.get_origem_display }}{% if mov.atendimento_id %} <span class="text-texto-suave">(atendimento #{{ mov.atendimento_id }})</span>{% endif %}</td>
+                  <td class="num font-bold {% if mov.tipo == 'CREDITO' %}text-sucesso{% else %}text-erro{% endif %}">{% if mov.tipo == 'CREDITO' %}+{% else %}−{% endif %} {{ mov.valor|brl }}</td>
+                  <td class="num">{{ mov.saldo_resultante|brl }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </c-tabela>
+          </div>
+          {% endif %}
+        </div>
+      </c-card>
     </div>
-    {% endfor %}
-  </div>
-  {% else %}
-  <div class="text-center py-6 text-texto-suave text-[0.85rem]">
-    Nenhum atendimento registrado.
-  </div>
-  {% endif %}
-</div>
+  </c-abas.painel>
+
+  {# ── Saude ── #}
+  <c-abas.painel id="saude">
+    <c-card titulo="Saúde" icone="saude" descricao="Alergias e contraindicações do prontuário e das fichas de anamnese respondidas" class="max-w-3xl">
+      {% if alertas %}
+      {% include 'partials/_alerta_saude.html' with alertas=alertas %}
+      {% else %}
+      <c-nota tom="sucesso"><p>Nenhum alerta de saúde registrado no prontuário nem nas fichas desta cliente.</p></c-nota>
+      {% endif %}
+      <p class="ajuda mt-4">O prontuário guarda o histórico de saúde, as anotações das sessões e os termos assinados — o acesso fica registrado na auditoria (LGPD).</p>
+      <div class="mt-4 flex flex-wrap gap-2">
+        <c-botao href="{% url 'aranha:prontuario_detalhe' cliente.pk %}" icone="prontuario">Abrir prontuário</c-botao>
+      </div>
+    </c-card>
+  </c-abas.painel>
+
+  {# ── Consentimentos de comunicacao (LGPD art. 8): estado vigente + revogar; conceder exige justificativa ── #}
+  <c-abas.painel id="consentimentos">
+    <c-card titulo="Comunicação autorizada" icone="email" espaco="nenhum" class="max-w-4xl"
+            descricao="A cliente autoriza no agendamento online e cancela pelo link do e-mail. Cada mudança fica no histórico (Django admin › Consentimentos).">
+      <ul class="lista-itens">
+        {% for c in consentimentos %}
+        <li class="px-5 py-4">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="font-bold text-texto">{{ c.rotulo }}</p>
+              <p class="text-sm text-texto-suave">
+                {% if c.registro %}
+                {% if c.concedido %}Autorizado{% else %}Revogado{% endif %} em {{ c.registro.registrado_em|date:"d/m/Y H:i" }} · {{ c.registro.get_origem_display }}
+                {% else %}
+                Nunca autorizado
+                {% endif %}
+              </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              {% if c.concedido %}<c-selo tom="sucesso" icone="check">Autorizado</c-selo>{% else %}<c-selo>Não autorizado</c-selo>{% endif %}
+              {% if c.concedido %}
+              <form method="post" class="m-0">
+                {% csrf_token %}
+                <input type="hidden" name="acao" value="consentimento">
+                <input type="hidden" name="operacao" value="revogar">
+                <input type="hidden" name="par" value="{{ c.chave }}">
+                <c-botao tipo="submit" variante="secundario" tamanho="sm" data-confirm="Revogar esta autorização? A cliente deixa de receber essa comunicação.">Revogar</c-botao>
+              </form>
+              {% else %}
+              <c-botao variante="secundario" tamanho="sm" icone="check" data-abrir-dialogo="dlg-consent-{{ forloop.counter }}">Registrar autorização</c-botao>
+              {% endif %}
+            </div>
+          </div>
+          {% if not c.concedido %}
+          <c-dialogo id="dlg-consent-{{ forloop.counter }}" titulo="Registrar autorização da cliente" tamanho="sm">
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="acao" value="consentimento">
+              <input type="hidden" name="operacao" value="conceder">
+              <input type="hidden" name="par" value="{{ c.chave }}">
+              <div class="dialogo-corpo">
+                <p class="text-sm text-texto-suave">{{ c.rotulo }}</p>
+                <c-campo nome="justificativa" id="justificativa-{{ forloop.counter }}" tipo="textarea" rows="3" required minlength="10" maxlength="1000"
+                         label="O que a cliente autorizou e como (fica registrado com seu nome)"
+                         placeholder="Ex.: pediu por telefone em 10/11 para receber promoções por e-mail"></c-campo>
+              </div>
+              <div class="dialogo-rodape">
+                <c-botao variante="secundario" data-fechar-dialogo>Cancelar</c-botao>
+                <c-botao tipo="submit">Registrar autorização</c-botao>
+              </div>
+            </form>
+          </c-dialogo>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </c-card>
+  </c-abas.painel>
+</c-abas>
 {% endblock %}
