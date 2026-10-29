@@ -579,7 +579,8 @@ class ReagendarHorariosTests(TestCase):
         self.assertEqual(self._horarios(alheio.pk).status_code, 404)
         self.assertEqual(self._horarios(999999).status_code, 404)
         resp = self._horarios(self.at.pk, data='lixo')
-        self.assertEqual((resp.status_code, resp.json()), (400, {'erro': 'Data inválida'}))  # a tela mostra o motivo
+        self.assertEqual((resp.status_code, resp.json()),  # a tela mostra o motivo
+                         (400, {'ok': False, 'codigo': 'data_invalida', 'mensagem': 'Data inválida'}))
         self.cli.bloqueado_online = True
         self.cli.save()
         self.assertEqual(self._horarios(self.at.pk).status_code, 400)

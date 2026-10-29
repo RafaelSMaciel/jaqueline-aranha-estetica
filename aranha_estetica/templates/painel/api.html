@@ -1,0 +1,27 @@
+{% extends 'painel/base_v2.html' %}
+{% load django_vite %}
+
+{% block titulo %}API — {{ CLINIC_NAME }}{% endblock %}
+{% block page_title %}Documentação da API{% endblock %}
+{% block page_subtitle %}OpenAPI 3.1 · rotas JSON, webhooks, cron e feed de calendário{% endblock %}
+{% block page_actions %}
+<c-botao href="{% url 'aranha:painel_api_spec' %}" variante="secundario" icone="baixar" download="openapi.yaml">Baixar openapi.yaml</c-botao>
+{% endblock %}
+
+{% block admin_content %}
+<c-nota tom="info" titulo="Leitura, não escrita" class="mb-4">
+  “Try it out” só está liberado para consultas (GET), com a sua sessão. As rotas que gravam mudam dados
+  reais da clínica: use as telas do sistema. A especificação fica em <code>aranha_estetica/api/openapi.yaml</code>.
+</c-nota>
+
+<c-card espaco="nenhum">
+  {# JS em static/src/js/painel-api.js (swagger-ui-dist do npm via Vite) #}
+  <div id="swagger" class="swagger-painel" data-url-spec="{% url 'aranha:painel_api_spec' %}">
+    <p class="p-5 text-sm text-texto-suave">Carregando a documentação…</p>
+  </div>
+</c-card>
+{% endblock %}
+
+{% block js %}
+{% vite_asset 'aranha_estetica/static/src/js/painel-api.js' %}
+{% endblock %}

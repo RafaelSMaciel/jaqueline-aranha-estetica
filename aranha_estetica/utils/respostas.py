@@ -11,6 +11,9 @@ from django.http import JsonResponse
 
 from ..excecoes import RegraDeNegocio
 
+# Sessao so com senha de quem deve o 2FA (middleware e Web Push): o front reconhece pelo codigo
+MSG_2FA = 'Confirme o código de verificação em duas etapas.'
+
 
 def json_ok(status: int = 200, **dados) -> JsonResponse:
     return JsonResponse({'ok': True, **dados}, status=status)

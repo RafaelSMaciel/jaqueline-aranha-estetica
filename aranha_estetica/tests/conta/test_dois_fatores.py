@@ -9,6 +9,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from aranha_estetica.models import AssinaturaPush
+from aranha_estetica.utils.respostas import MSG_2FA
 
 TEM_2FA = 'aranha_estetica.utils.dois_fatores.tem_2fa'
 QUEDA = OperationalError('canceling statement due to statement timeout')
@@ -40,7 +41,7 @@ class Enforce2FAFalhaFechadaTests(TestCase):
             resp = self.client.post(reverse('aranha:webpush_subscribe'), data=corpo,
                                     content_type='application/json')
         self.assertEqual(resp.status_code, 403)
-        self.assertEqual(resp.json(), {'detail': '2fa_required'})
+        self.assertEqual(resp.json(), {'ok': False, 'codigo': '2fa_required', 'mensagem': MSG_2FA})
         self.assertFalse(AssinaturaPush.objects.exists())
 
 

@@ -467,12 +467,10 @@ var CSRF_TOKEN = '{{ csrf_token }}';
                 }
                 btnEnviar.innerHTML = ICONE_ENVIAR;
                 if (!res.ok) {
-                    var erro = res.data.erro;
-                    if (erro === 'captcha') showError('Confirme a verificação de segurança e tente novamente.');
-                    else if (erro === 'aguarde' || erro === 'limite') showError('Aguarde um minuto antes de pedir outro código.');
-                    else if (erro === 'identificador_invalido') showError(MSG_CELULAR);
-                    else if (erro === 'sms_falha') showError('Não conseguimos enviar o código agora.', true);
-                    else showError('Não foi possível enviar o código. Tente novamente.', true);
+                    // contrato {ok, codigo, mensagem}: decide pelo codigo, mostra a mensagem
+                    var codigo = res.data.codigo;
+                    if (codigo === 'identificador_invalido') showError(MSG_CELULAR);
+                    else showError(res.data.mensagem || MSGS_ERRO.rede, codigo !== 'captcha' && codigo !== 'limite');
                 } else {
                     hideError();
                     var secao = document.getElementById('code-section');
@@ -585,13 +583,8 @@ var CSRF_TOKEN = '{{ csrf_token }}';
                 btnVerificar.disabled = false;
                 btnVerificar.innerHTML = ICONE_VERIFICAR;
                 if (!res.ok) {
-                    var msg = 'Código inválido.';
-                    if (res.data.erro && res.data.erro.indexOf('incorreto') === 0) {
-                        msg = 'Código incorreto. Restam: ' + (res.data.erro.split(':')[1] || '');
-                    } else if (res.data.erro === 'bloqueado') msg = 'Muitas tentativas. Solicite outro código.';
-                    else if (res.data.erro === 'expirado') msg = 'Código inválido ou expirado. Solicite um novo.';
-                    else if (res.data.erro === 'limite') msg = 'Muitas tentativas. Aguarde um minuto.';
-                    showError(msg);
+                    // incorreto (com restantes), bloqueado, expirado, dados_ausentes ou limite/rede do lerJson
+                    showError(res.data.mensagem || 'Código inválido.');
                     // campos do codigo marcados por 1,5 s e limpos
                     document.querySelectorAll('.code-input').forEach(function(ci) {
                         ci.classList.add('recusado');
@@ -723,7 +716,10 @@ var CSRF_TOKEN = '{{ csrf_token }}';
         return r.text().then(function(t) {
             var d;
             try { d = JSON.parse(t); }
-            catch (e) { d = {erro: (r.status === 403 || r.status === 429) ? 'limite' : 'rede'}; d.codigo = d.erro; }
+            catch (e) {
+                var codigo = (r.status === 403 || r.status === 429) ? 'limite' : 'rede';
+                d = {ok: false, codigo: codigo, mensagem: MSGS_ERRO[codigo]};
+            }
             return {ok: r.ok, data: d};
         });
     }

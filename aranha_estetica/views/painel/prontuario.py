@@ -8,7 +8,6 @@ from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Prefetch
-from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 
@@ -29,6 +28,7 @@ from ...utils.datas import fmt_local
 from ...utils.fichas import fichas_do_cliente
 from ...decorators import staff_required
 from ...utils.busca import filtrar_clientes
+from ...utils.respostas import json_erro, json_ok
 from ...utils.saude import alertas_em_lote, alertas_saude, perguntas_prontuario, rotulo_da_chave
 
 logger = logging.getLogger(__name__)
@@ -361,7 +361,7 @@ def prontuario_salvar(request, cliente_id):
 def anotacao_sessao_salvar(request, atendimento_id):
     """Adiciona anotacao clinica a um atendimento — admin ou profissional do atendimento."""
     if request.method != 'POST':
-        return JsonResponse({'erro': 'Método não permitido'}, status=405)
+        return json_erro('metodo_nao_permitido', 'Método não permitido.', status=405)
 
     atendimento = get_object_or_404(Atendimento, pk=atendimento_id)
     user = request.user
@@ -375,12 +375,12 @@ def anotacao_sessao_salvar(request, atendimento_id):
             tabela='anotacao_sessao', id_registro=atendimento_id,
             request=request,
         )
-        return JsonResponse({'erro': 'Sem permissão'}, status=403)
+        return json_erro('sem_permissao', 'Sem permissão.', status=403)
 
     texto = request.POST.get('texto', '').strip()
 
     if not texto:
-        return JsonResponse({'erro': 'Texto obrigatório'}, status=400)
+        return json_erro('texto_obrigatorio', 'Texto obrigatório.')
 
     anotacao = AnotacaoSessao.objects.create(
         atendimento=atendimento,
@@ -393,12 +393,11 @@ def anotacao_sessao_salvar(request, atendimento_id):
         request=request,
     )
 
-    return JsonResponse({
-        'sucesso': True,
-        'anotacao_id': anotacao.pk,
-        'texto': anotacao.texto,
-        'data': fmt_local(anotacao.criado_em),  # hora local, nao UTC
-    })
+    return json_ok(
+        anotacao_id=anotacao.pk,
+        texto=anotacao.texto,
+        data=fmt_local(anotacao.criado_em),  # hora local, nao UTC
+    )
 
 
 @never_cache  # lista mostra alertas de saude

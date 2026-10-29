@@ -98,7 +98,7 @@
             const json = await resp.json();
             if (!resp.ok) {
                 // motivo do servidor (link vencido, data invalida...) em vez de "sem horarios"
-                gridHorarios.textContent = json.erro || 'Erro ao carregar horários.';
+                gridHorarios.textContent = json.mensagem || 'Erro ao carregar horários.';
                 return;
             }
 

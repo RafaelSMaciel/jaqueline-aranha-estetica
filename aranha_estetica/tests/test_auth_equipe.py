@@ -36,6 +36,7 @@ from aranha_estetica.models import (
     AceiteTermo, AnotacaoSessao, Cliente, LogAuditoria, Profissional, Prontuario, Usuario,
     VersaoTermo,
 )
+from aranha_estetica.utils.respostas import MSG_2FA
 
 SENHA = 'Senha-Forte-2026!'
 
@@ -286,7 +287,7 @@ class Enforce2FAApiEObrigatorioTests(TestCase):
         c.force_login(admin_user)
         resp = c.get('/webpush/subscribe/')
         self.assertEqual(resp.status_code, 403)
-        self.assertEqual(resp.json(), {'detail': '2fa_required'})
+        self.assertEqual(resp.json(), {'ok': False, 'codigo': '2fa_required', 'mensagem': MSG_2FA})
 
     @override_settings(ADMIN_2FA_OBRIGATORIO=True)
     def test_login_admin_sem_totp_vai_para_cadastro_obrigatorio(self):
@@ -898,7 +899,7 @@ class Obrigatoriedade2FAPorRequestTests(TestCase):
                 self.assertTrue(resp['Location'].startswith(setup), resp['Location'])
         resp = c.get('/webpush/subscribe/')
         self.assertEqual(resp.status_code, 403)
-        self.assertEqual(resp.json(), {'detail': '2fa_required'})
+        self.assertEqual(resp.json(), {'ok': False, 'codigo': '2fa_required', 'mensagem': MSG_2FA})
         # a tela de cadastro abre e explica o bloqueio
         resp = c.get(setup)
         self.assertEqual(resp.status_code, 200)
@@ -969,7 +970,7 @@ class WebpushExige2FATests(TestCase):
             with self.subTest(rota=rota):
                 resp = c.post(rota, data=payload, content_type='application/json')
                 self.assertEqual(resp.status_code, 403)
-                self.assertEqual(resp.json(), {'detail': '2fa_required'})
+                self.assertEqual(resp.json(), {'ok': False, 'codigo': '2fa_required', 'mensagem': MSG_2FA})
         self.assertFalse(AssinaturaPush.objects.exists())
 
 

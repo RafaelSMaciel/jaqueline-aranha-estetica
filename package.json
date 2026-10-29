@@ -27,6 +27,10 @@
     "@fullcalendar/interaction": "6.1.21",
     "@fullcalendar/list": "6.1.21",
     "@fullcalendar/timegrid": "6.1.21",
-    "chart.js": "4.5.1"
+    "chart.js": "4.5.1",
+    "swagger-ui-dist": "5.34.0"
+  },
+  "scarfSettings": {
+    "enabled": false
   }
 }

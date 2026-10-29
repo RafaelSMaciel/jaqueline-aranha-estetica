@@ -5,7 +5,8 @@ diagramas UML (docs/uml/png), arquitetura, modelo de dados, segurança/LGPD, qua
 
 Fontes: docs/_dados_requisitos.json (requisitos, regras, casos de uso, entidades, rotas — extraídos
 do código), docs/uml/png (render do PlantUML: python docs/uml/gerar_uml.py), docs/ARCHITECTURE.md
-(decisões) e o próprio código (contagens, docstrings dos serviços).
+(decisões), aranha_estetica/api/openapi.yaml (capítulo da API) e o próprio código (contagens,
+docstrings dos serviços).
 
 Uso (Python com python-docx; no Windows o PDF sai pelo Word, com o sumário atualizado):
     python docs/gerar_documentacao.py
@@ -15,6 +16,8 @@ import json
 import os
 import re
 from datetime import date
+
+import yaml
 
 from docx import Document
 from docx.enum.section import WD_ORIENT, WD_SECTION
@@ -31,8 +34,8 @@ PNG = os.path.join(BASE, 'uml', 'png')
 DADOS = os.path.join(BASE, '_dados_requisitos.json')
 APP = os.path.join(RAIZ, 'aranha_estetica')
 
-VERSAO = '3.0'
-DATA = date(2026, 10, 28).strftime('%d/%m/%Y')
+VERSAO = '3.2'
+DATA = date(2026, 10, 29).strftime('%d/%m/%Y')
 # (versao, data, descricao) — acrescente uma linha a cada regeneracao relevante
 HISTORICO = [
     ('2.1', '21/06/2026', 'Documento de requisitos + modelagem UML gerado a partir do código '
@@ -57,6 +60,10 @@ HISTORICO = [
                           'Chart.js empacotados sem CDN, site com números reais (avaliação, clientes, '
                           'tratamentos), página de dúvidas, fotos responsivas e varredura visual com axe-core '
                           'de todas as rotas no CI.'),
+    ('3.2', '29/10/2026', 'API documentada em OpenAPI 3.1 (rotas JSON, webhooks, cron, feed ICS e saúde, '
+                          'com parâmetros, corpos, códigos de erro, autenticação e limites), Swagger UI no '
+                          'painel e teste que reprova rota sem documentação; contrato único das respostas '
+                          'JSON em todas as rotas do app.'),
 ]
 GOLD = RGBColor(0xC4, 0xA3, 0x5A)
 DARK = RGBColor(0x4A, 0x34, 0x25)
@@ -553,6 +560,7 @@ add_table(['Verificação', 'Ferramenta', 'Garante'], [
     ['Cobertura', 'coverage (mínimo no CI)', 'regressão de cobertura bloqueia o merge'],
     ['Dependências', 'pip-audit', 'nenhuma vulnerabilidade conhecida'],
     ['Navegador', 'Playwright + axe-core', 'wizard, agenda e todas as rotas sem erro nem violação grave de acessibilidade'],
+    ['Contrato da API', 'openapi-spec-validator', 'OpenAPI 3.1 válido e toda rota JSON documentada'],
 ], widths=[1.4, 1.8, 3.5])
 
 # ===================== 17. IMPLANTACAO =====================
@@ -584,6 +592,49 @@ add_table(['Job', 'Quando', 'O que faz'], [
 h1('18. Rotas')
 add_table(['Área', 'Rota', 'Função'], [[r['grupo'], r['rota'], r['funcao']] for r in D['arquitetura']['rotas']],
           widths=[1.0, 2.9, 2.8])
+
+# ===================== 19. API =====================
+API = yaml.safe_load(open(os.path.join(APP, 'api', 'openapi.yaml'), encoding='utf-8'))
+ACESSO = {
+    'sessaoEquipe': 'Equipe (ADMIN)', 'sessaoProfissional': 'Profissional', 'sessaoCliente': 'Cliente (sessão SMS)',
+    'cronToken': 'X-Cron-Token', 'assinaturaMeta': 'Assinatura HMAC da Meta', 'segredoZenvia': 'Segredo da Zenvia',
+    'tokenFeed': 'Token do link',
+}
+
+
+def _acesso(op):
+    nomes = [ACESSO[n] for req in op.get('security', []) for n in req if n in ACESSO]
+    return ' ou '.join(dict.fromkeys(nomes)) or 'Pública'
+
+
+h1('19. API (OpenAPI 3.1)')
+par('O sistema não expõe uma API REST pública: as telas são renderizadas no servidor. As rotas de máquina '
+    '— chamadas pelo JavaScript do wizard, do portal da cliente e do painel, pelos provedores (Meta e '
+    'Zenvia), pelo agendador dos jobs e pelos calendários externos — estão descritas no contrato '
+    f'aranha_estetica/api/openapi.yaml (OpenAPI {API["openapi"]}, {len(API["paths"])} caminhos), '
+    'navegável no Swagger UI do painel (/painel/api/, só a equipe; "Try it out" apenas em GET). Um teste '
+    'automatizado reprova rota JSON nova sem documentação, caminho que não corresponde à rota do Django e '
+    'lista de jobs divergente do código.')
+h2('19.1 Contrato das respostas')
+add_table(['Caso', 'Corpo JSON', 'Uso'], [
+    ['Sucesso', '{"ok": true, ...dados}', 'o front segue com os dados'],
+    ['Erro', '{"ok": false, "codigo", "mensagem", ...extra}', 'o front decide pelo código (estável) e mostra a mensagem'],
+    ['Fora do envelope', 'formato do provedor / do FullCalendar / text/calendar', 'webhooks, saúde, eventos do calendário, feed ICS, manifests'],
+], widths=[1.3, 2.7, 2.7])
+h2('19.2 Autenticação')
+add_table(['Esquema', 'Onde', 'Descrição'], [
+    [nome, f'{e.get("in", "")}: {e.get("name", "")}', e.get('description', '').replace('`', '')]
+    for nome, e in API['components']['securitySchemes'].items()
+], widths=[1.4, 1.7, 3.6])
+h2('19.3 Operações')
+linhas = []
+for caminho, item in API['paths'].items():
+    for metodo in ('get', 'post'):
+        if metodo in item:
+            op = item[metodo]
+            linhas.append([op['tags'][0], f'{metodo.upper()} {caminho}', _acesso(op), op['summary']])
+linhas.sort(key=lambda linha: [t['name'] for t in API['tags']].index(linha[0]))
+add_table(['Grupo', 'Operação', 'Acesso', 'Descrição'], linhas, widths=[1.2, 2.3, 1.2, 2.0])
 
 # ===================== GLOSSARIO E HISTORICO =====================
 h1('Glossário')

@@ -56,6 +56,7 @@ MENU_PAINEL = (
         ('aranha:admin_branding', 'Identidade visual', 'marca', ('admin_branding',)),
         ('aranha:admin_auditoria', 'Auditoria', 'auditoria', ('admin_auditoria',)),
         ('aranha:admin_2fa_setup', 'Segurança / 2FA', 'seguranca', ('*admin_2fa',)),
+        ('aranha:painel_api', 'API', 'codigo', ('*painel_api',)),
     )),
 )
 

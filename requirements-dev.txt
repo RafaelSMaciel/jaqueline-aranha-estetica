@@ -17,3 +17,6 @@ mypy==1.18.2
 django-stubs[compatible-mypy]==5.2.7
 # variantes responsivas das fotos do site (scripts/imagens.py; saida versionada em static/assets/clinica/variantes)
 Pillow==12.3.0
+# contrato da API (tests/test_openapi.py): le e valida aranha_estetica/api/openapi.yaml (OpenAPI 3.1)
+PyYAML==6.0.3
+openapi-spec-validator==0.9.0

@@ -150,7 +150,7 @@ Alpine.data('anotacaoModal', () => comDialogo({
     fd.append('csrfmiddlewaretoken', this.$root.dataset.csrf)
     fetch('/painel/anotacao/' + this.atendId + '/salvar/', { method: 'POST', body: fd })
       .then((r) => r.json())
-      .then((d) => { if (d.sucesso) location.reload(); else { this.erro = d.erro || 'Erro ao salvar.' } })
+      .then((d) => { if (d.ok) location.reload(); else { this.erro = d.mensagem || 'Erro ao salvar.' } })
       .catch(() => { this.erro = 'Erro de conexao.' })
   },
 }))

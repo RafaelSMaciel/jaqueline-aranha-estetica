@@ -67,6 +67,7 @@ modelos, rotas, env vars, jobs, deploy e runbook de go-live).
 | Cache/sessão | LocMem + sessão no banco (1 worker gunicorn); Redis opcional via `REDIS_URL` |
 | Segurança | CSP com nonce, django-axes, django-ratelimit, django-otp (TOTP), Cloudflare Turnstile |
 | Integrações | Zenvia (SMS/OTP), WhatsApp Business (Meta), e-mail (backend Django), Web Push (VAPID), Sentry; a agenda da profissional sai pelo feed ICS (sem Google Calendar) |
+| API | Rotas JSON, webhooks, cron e feed ICS descritos em OpenAPI 3.1 (`aranha_estetica/api/openapi.yaml`) com Swagger UI em `/painel/api/` (só a equipe) |
 | Deploy | Railway: Dockerfile multi-stage (Node 22 → Python 3.12), gunicorn 1 worker × 4 threads, WhiteNoise |
 | CI | GitHub Actions (`.github/workflows/ci.yml`): SQLite, Postgres 18, cobertura combinada, build do front, build e smoke da imagem, pip-audit, npm audit e gitleaks |
 
@@ -130,7 +131,7 @@ TEST_DATABASE_URL=postgres://shivazen:shivazen@localhost:5432/shivazen PG_EXIGE_
   python manage.py test aranha_estetica
 ```
 
-São ~2.020 testes (fora a tag `migracoes`) em 124 arquivos (`aranha_estetica/tests/`); o runner
+São ~2.020 testes (fora a tag `migracoes`) em 125 arquivos (`aranha_estetica/tests/`); o runner
 é só o `manage.py test`. A CI também roda `migrate_atomico` do zero no Postgres, `check --deploy`
 com settings de produção e de staging, cobertura combinada (SQLite + Postgres) com catraca, o
 wizard no Chromium (Playwright), o build do Vite, o `docker build` com o smoke do pre-deploy e do
@@ -180,6 +181,7 @@ requirements.txt · requirements-dev.txt · requirements.lock · .env.example
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Decisões (ADR-lite) e checkpoint de progresso/pendências |
 | [docs/AUTENTICACAO-E-ACESSO.md](docs/AUTENTICACAO-E-ACESSO.md) | Login da equipe, 2FA, OTP da cliente, links por token, sessões |
 | [docs/REGRAS-DE-NEGOCIO.md](docs/REGRAS-DE-NEGOCIO.md) | Regras funcionais com os valores reais do código |
+| [aranha_estetica/api/openapi.yaml](aranha_estetica/api/openapi.yaml) | Contrato HTTP (OpenAPI 3.1) das rotas de máquina: wizard, portal, painel, webhooks, cron, ICS, saúde. Navegável no Swagger UI em `/painel/api/` |
 | [docs/LGPD.md](docs/LGPD.md) | Registro das operações (art. 37), operadores, relatório de impacto do dado de saúde, plano de incidente |
 | [docs/specs/](docs/specs/) | Specs por assunto: banco (remodelagem 0027–0047 e padrão SQL 0048+), front, registry de regras |
 | [docs/uml/](docs/uml/README.md) + [docs/gerar_documentacao.py](docs/gerar_documentacao.py) | UML completa (PlantUML: casos de uso, classes geradas do código, sequência, estados, atividades, componentes, implantação, ER) e a documentação técnica do TCC (`ShivaZen-Documentacao.docx/.pdf`) |

@@ -88,12 +88,12 @@ atendimento é presencial.
 | Web | Django 5.2 (MVT, server-render), gunicorn 23, WhiteNoise 6 (estáticos `CompressedManifest` em prod) |
 | Banco | PostgreSQL 18 em produção e CI; SQLite (`db_dev.sqlite3`; testes em `.cache/db_test.sqlite3`) em dev e testes rápidos |
 | Front-end | Vite 6 + Tailwind CSS v4 (`@tailwindcss/vite`) + Alpine.js via `@alpinejs/csp` + django-vite 3 + django-cotton 2. **Sem HTMX, Bootstrap ou jQuery** |
-| Libs de terceiros no front | FullCalendar 6.1.21 (`painel/calendar.html`) e Chart.js 4.5.1 (`painel/overview.html`): dependências npm com versão exata, empacotadas pelo Vite (entradas `painel-calendario` e `painel-visao-geral`) — **nenhum CDN** |
+| Libs de terceiros no front | FullCalendar 6.1.21 (`painel/calendar.html`), Chart.js 4.5.1 (`painel/overview.html`) e swagger-ui-dist 5.34.0 (`painel/api.html`): dependências npm com versão exata, empacotadas pelo Vite (entradas `painel-calendario`, `painel-visao-geral` e `painel-api`) — **nenhum CDN**. A telemetria de instalação do Swagger (`@scarf/scarf`) está desligada em `package.json` (`scarfSettings`) |
 | Fontes | Playfair Display + Lato servidas pelo próprio site (`@fontsource`, subconjunto latin, no build do Vite; sem Google Fonts) — tokens em `static/src/css/tokens.css` |
 | Jobs / fila | Sem Celery: jobs são funções (`jobs.py`) com horário na `JOB_AGENDA`, chamadas pelo serviço Cron do Railway (`manage.py rodar_jobs_devidos`, a cada 15 min), pelo cron HTTP `/cron/run/<job>/` ou por `manage.py rodar_job`; e-mail transacional com fila no banco (`Notificacao` EMAIL, reenvio pelo job `emails`) |
 | Cache / sessão | LocMemCache + sessão no banco (padrão, 1 worker). `REDIS_URL` troca para django-redis + sessão em cache |
 | Auth | Usuário próprio (`AbstractBaseUser`, e-mail), django-axes 8, django-otp + django-two-factor-auth (só models/TOTP; rotas `/account/*` **não** publicadas), django-ratelimit 4 |
-| API | Sem API REST (a DRF saiu: não tinha consumidor). Endpoints JSON do próprio site (wizard, painel) são views Django |
+| API | Sem API REST pública (a DRF saiu: não tinha consumidor). As rotas de máquina — JSON do wizard, do portal e do painel, webhooks, cron, feed ICS, saúde — são views Django no contrato `utils/respostas`, descritas em **OpenAPI 3.1** (`aranha_estetica/api/openapi.yaml`, escrito à mão e conferido por `tests/test_openapi.py`) e navegáveis no **Swagger UI** em `/painel/api/` (só ADMIN) |
 | Integrações | Zenvia SMS (OTP), WhatsApp Cloud API (Meta), e-mail (backend Django), pywebpush (VAPID), Cloudflare Turnstile, Sentry. A agenda da profissional sai só pelo feed ICS assinado (sem Google Calendar) |
 | Outros | bleach (HTML de promoção), openpyxl (Excel), python-dateutil (RRULE), python-json-logger (logs JSON em prod), qrcode (QR SVG do 2FA, sem Pillow) |
 | Deploy | Railway (Dockerfile multi-stage + `railway.json` do serviço web e `railway.cron.json` do serviço Cron) |
@@ -132,7 +132,7 @@ aranha_estetica/
 │                    retornos, clientes, prontuario, anamneses, procedimentos, profissionais, excecoes,
 │                    bloqueios, pacotes, promocoes, lista_espera, financeiro, comissoes, nps, termos,
 │                    conformidade_termos, notificacoes, usuarios, configuracoes, marca, previa_email,
-│                    auditoria
+│                    auditoria, api (Swagger UI + o openapi.yaml)
 ├── views/profissional/  portal (agenda do profissional, aprovar, realizar, anotar, link do ICS, minhas comissões)
 ├── views/infra/     healthcheck, cron (HTTP), webhooks (WhatsApp/Zenvia), webpush, feed_ics
 ├── views/comum.py   helpers de view usados por mais de uma área (link do feed ICS do painel e do portal);
@@ -181,12 +181,15 @@ aranha_estetica/
 │                    telas da equipe) e css/site.css (páginas do site público), e uma entrada JS por tela
 │                    (app.js, wizard.js, painel.js — abas, menu "⋯", modais, Ctrl+K —, painel-busca.js,
 │                    painel-status.js — seletor de status e lote da agenda —, painel-calendario.js
-│                    (FullCalendar), painel-visao-geral.js (Chart.js), webpush.js; nome com hash no build)
+│                    (FullCalendar), painel-visao-geral.js (Chart.js), painel-api.js (Swagger UI) e
+│                    webpush.js; nome com hash no build)
 │                    + lib/requisicao.js (POST JSON com CSRF no contrato utils/respostas) — fora do
 │                    collectstatic
 ├── static/assets/clinica/variantes/  fotos do site em WebP + JPEG (480/768/1024 px) e o manifest.json
 │                    lido pelo `{% foto %}` — geradas por `scripts/imagens.py` e versionadas
 ├── static/dist/     build do Vite (gitignored; gerado no Docker/CI)
+├── api/openapi.yaml contrato HTTP das rotas de máquina (OpenAPI 3.1): parâmetros, corpos, códigos de erro,
+│                    autenticação e limites; `x-url-name` liga cada caminho à rota do Django
 ├── signals.py       só os caches que dependem de Configuracao (post_save/post_delete): Branding e números
 │                    do site (`services/prova_social`)
 ├── jobs.py / jobs_manutencao.py     jobs periódicos (`JOB_MAP`, `JOB_AGENDA` = horários, `executar`)
@@ -303,10 +306,15 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   `ADMIN_EMAIL` > e-mail da marca); "baixar meus dados" = o export sem saúde de
   `services/lgpd.exportar_dados`, só com verificação de até 10 min.
 - **Respostas JSON** (`utils/respostas.py`, contrato único das APIs do site — inclusive as do
-  wizard, `/ajax/dias-disponiveis/`, `/ajax/horarios-disponiveis/` e o OTP —, do painel e da infra):
-  sucesso `{"ok": true, ...}`, erro `{"ok": false, "codigo": "<estável>", "mensagem": "<texto>"}`
-  (`json_ok`, `json_erro`, `json_recusa`) — o front decide pelo `codigo`, nunca pelo texto. Webhooks
-  de provedor respondem no formato que o provedor espera.
+  wizard, `/ajax/dias-disponiveis/`, `/ajax/horarios-disponiveis/` e o OTP —, do portal da cliente
+  (login, horários do reagendamento, cancelar), do painel (status, calendário, anotação clínica), da
+  infra e do 403 `2fa_required` do middleware): sucesso `{"ok": true, ...}`, erro
+  `{"ok": false, "codigo": "<estável>", "mensagem": "<texto>"}` (`json_ok`, `json_erro`,
+  `json_recusa`) — o front decide pelo `codigo`, nunca pelo texto. Fora do envelope, de propósito:
+  webhooks (formato do provedor), healthchecks, eventos do FullCalendar, feed ICS e manifests.
+  Cada rota está em `api/openapi.yaml` (Swagger UI em `/painel/api/`); `tests/test_openapi.py`
+  reprova rota JSON/ICS nova sem entrada, caminho que não resolve para o `x-url-name`, `$ref`
+  quebrado e jobs do cron diferentes do `JOB_MAP`.
 - **Telefone** (`utils/telefone.py`, fonte única): forma canônica gravada em `Cliente.telefone` e
   usada no OTP, nas buscas e no webhook do WhatsApp (só dígitos, DDD + número, sem DDI/zero de
   tronco), E.164 só para telefone BR válido (destino de SMS/WhatsApp), a exibição
@@ -675,6 +683,7 @@ portal), `/lgpd/aceitar-cookies/` (o aviso de cookies não grava nada no servido
 | `/painel/anamneses/...`, `/painel/termos/` (+ `criar/`, `compliance/`) | Formulários e termos |
 | `/painel/notificacoes/`, `/painel/auditoria/`, `/painel/usuarios/...`, `/painel/configuracoes/` (+ `criar/`, `<pk>/editar/`, `<pk>/excluir/` = restaurar padrão), `/painel/branding/`, `/painel/email-preview/[<nome>/]` | Sistema: notificações, auditoria, usuários (ninguém muda o próprio papel; o último ADMIN ativo não é rebaixado nem desativado), **Regras operacionais** (só o registro tipado), **Identidade visual** (marca e contatos). As escritas de usuários, profissionais, procedimentos e regras usam `@escrita_painel` (POST + 30/min por usuário) |
 | `/webpush/{public-key,subscribe,unsubscribe}/` | Web Push da equipe |
+| `/painel/api/` (+ `openapi.yaml`) | **Documentação da API**: Swagger UI (swagger-ui-dist do npm, tema claro/escuro do painel) do `api/openapi.yaml`; "Try it out" só em GET (as escritas mudam dados reais), sem validador externo. Só ADMIN (e 2FA); o YAML também baixa daqui |
 | `/django-admin-sv/` | Django admin (só ADMIN com sessão 2FA verificada) |
 
 ### 6.4 Webhooks e infraestrutura
@@ -1050,7 +1059,7 @@ Fixos no settings, sem env (mudar = código + versão nova do termo, quando for 
 ## 12. Testes e CI
 
 - `python manage.py test aranha_estetica` — suíte Django (SQLite `.cache/db_test.sqlite3`, ~2.020
-  testes fora a tag `migracoes`, em 124 arquivos, alguns em pastas por área — `tests/conta/`,
+  testes fora a tag `migracoes`, em 125 arquivos, alguns em pastas por área — `tests/conta/`,
   `infra/`, `jobs/`, `painel/`, `publico/`, `servicos/`, `utils/` — roda **tudo**, inclusive as data
   migrations). `manage.py test` sempre
   carrega `clinica/settings/test.py` (única detecção de teste, em `settings/__init__.py`; é o runner
@@ -1074,6 +1083,10 @@ Fixos no settings, sem env (mudar = código + versão nova do termo, quando for 
   serious/critical do axe-core (WCAG 2.0/2.1 A e AA; `axe-core` é devDependency, `npm ci`). Exceção de
   terceiro só pela lista `PERMITIDOS` do teste, com o motivo (hoje vazia); `VARREDURA_ROTAS=<trecho>`
   filtra as rotas para depurar uma tela.
+- **Contrato da API** (`tests/test_openapi.py`): o `api/openapi.yaml` é OpenAPI 3.1 válido
+  (`openapi-spec-validator`), cada caminho resolve para o `x-url-name` declarado, toda view que
+  responde JSON/ICS/export LGPD (detectada pelo código da view e dos helpers do módulo) está
+  documentada, o enum de jobs é o `JOB_MAP` e só a equipe abre `/painel/api/`.
 - **Cobertura**: modo paralelo (um arquivo `.cache/coverage.*` por execução):
   `coverage run manage.py test ... && coverage combine && coverage report`; no CI o job `cobertura`
   junta SQLite + Postgres (o código só-Postgres — procedures, paridades, LGPD — conta como testado)
@@ -1740,6 +1753,7 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 | 2026-10-29 | Pedido online como caso de uso (`services/agendamento_online` + `forms/agendamento`, view fina; teto de 3 horários pelo site, ficha válida por 12 meses, pedido sempre da titular, vitrine em `services/precos`, "Avise-me se vagar"); equipe, catálogo e configurações com Django Forms (`forms/cadastros`), `services/catalogo`, regras operacionais em registro tipado (`models/configuracao`) e feed ICS revogado no desligamento |
 | 2026-10-29 | LGPD e área da cliente (0075–0078): Política de Privacidade como fonte única (`conteudo/lgpd.py` = termo LGPD = página = declaração do DSAR, prazos fixos e `aranha.W016`), consentimento de saúde revogável, expurgo do registro de saúde aos 20 anos do último evento e pacote retido 5 anos, pseudonimização completa, export do site sem a ficha de saúde, "Meus agendamentos" com preferências, revogação, pedidos LGPD e sessão aberta no fim do wizard, cancelamento tardio conta falta, lista de espera sem cadastro (turno, aviso que mantém na fila), contato com captcha/honeypot/teto diário e mapa sem Google, FAQ das constantes; agenda do painel por casos de uso (`agendar_pela_recepcao`, `marcar_realizado`, `registrar_valor_cobrado`, lote item a item), Forms em `forms/agenda`, seletor de status sem PENDENTE nem finais e Realizado/Faltou só após o início, JS em módulos do Vite e leitura de alerta de saúde auditada |
 | 2026-10-29 | Front: design system das telas da equipe (tokens do cromo café/ouro e do painel, `componentes.css` em `@layer components`, componentes cotton — botão, campo, cartão, selo, nota, KPI, vazio, ícone, menu "⋯", diálogo, tabela responsiva, abas — e `painel.js` vanilla), painel e portal da profissional sem estilo inline e em caixa de frase, agenda em tabela com o "⋯" e modais, ficha da cliente em abas, visão geral com Hoje/Amanhã e KPIs comparados, FullCalendar 6.1.21 e Chart.js 4.5.1 do npm (jsDelivr fora da CSP), varredura visual com axe-core no CI; site com números reais (`services/prova_social`, regra `anos_experiencia`; saíram o "5.0/5 · 32 avaliações" e os "5+ / 500+ / 20+" fixos), fotos responsivas (`scripts/imagens.py`, `{% foto %}`) e arte da marca, `/duvidas/` (SW v10), "Sobre a profissional", destaques do catálogo, CSS das páginas no `site.css` e ajustes de celular (etapas do wizard, "Continuar" fixo, "Seu celular", aviso de cookies em faixa) |
+| 2026-10-29 | API documentada: OpenAPI 3.1 escrito à mão (`api/openapi.yaml`: 27 caminhos — wizard, portal, LGPD, painel, Web Push, ICS, webhooks, cron, saúde, PWA — com parâmetros, corpos, códigos de erro, autenticação e limites) + Swagger UI no painel (`/painel/api/`, só ADMIN, "Try it out" só GET) e catraca `tests/test_openapi.py`; contrato `{ok, codigo, mensagem}` também no login do portal, nos horários do reagendamento, na anotação clínica e no 403 de 2FA |
 | 2026-09-23 | Auditoria pré-produção completa (~450 correções em ~30 commits, `b5fd681..182e2e9`): OTP preso ao telefone em todo agendamento, consentimentos LGPD/art. 11 com prova, 2FA obrigatório do ADMIN, histórico do prontuário, prova de aceite imutável, deploy por Dockerfile + `migrate_atomico`, retenção LGPD efetiva, migrations 0040–0046. Detalhe em [`ARCHITECTURE.md`](ARCHITECTURE.md#6-progresso-checkpoint) |
 
 **Mantenedor:** Rafael Maciel · **Última atualização:** 2026-10-29

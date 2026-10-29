@@ -8,7 +8,7 @@ from django.views.decorators.http import require_POST, require_GET
 
 from ...models import AssinaturaPush
 from ...services.push import get_vapid_public_key
-from ...utils.respostas import json_erro, json_ok
+from ...utils.respostas import MSG_2FA, json_erro, json_ok
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ def _falta_2fa(request) -> bool:
 @login_required
 def webpush_subscribe(request):
     if _falta_2fa(request):
-        return json_erro('2fa_required', 'Confirme o código de verificação em duas etapas.', status=403)
+        return json_erro('2fa_required', MSG_2FA, status=403)
     payload = _payload_json(request)
     if payload is None:
         return _payload_invalido()

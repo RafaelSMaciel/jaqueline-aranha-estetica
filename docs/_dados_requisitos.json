@@ -3817,8 +3817,8 @@
    },
    {
     "grupo": "Painel",
-    "rota": "/painel/notificacoes/, /painel/auditoria/, /painel/usuarios/…, /painel/configuracoes/…, /painel/branding/, /painel/email-preview/",
-    "funcao": "Sistema: notificações, auditoria, usuários, Regras operacionais (registro tipado), Identidade visual (marca e contatos), prévia dos e-mails"
+    "rota": "/painel/notificacoes/, /painel/auditoria/, /painel/usuarios/…, /painel/configuracoes/…, /painel/branding/, /painel/email-preview/, /painel/api/ (+ openapi.yaml)",
+    "funcao": "Sistema: notificações, auditoria, usuários, Regras operacionais (registro tipado), Identidade visual (marca e contatos), prévia dos e-mails, documentação da API (Swagger UI do OpenAPI 3.1)"
    },
    {
     "grupo": "Painel",
