@@ -171,17 +171,50 @@ def convidar(formulario, atendimento) -> str:
     return links.emitir_link_formulario(resposta)
 
 
-def fichas_pendentes(atendimento) -> list:
-    """Fichas ANAMNESE obrigatorias que valem p/ o procedimento e a cliente nunca respondeu
-    (as mesmas de services.alertas.ids_com_ficha_pendente, p/ um atendimento)."""
+# ─── Validade da ficha (D14) ────────────────────────────────────────────
+
+# Ficha respondida vale 12 meses: so a obrigatoria pendente ou vencida e pedida de novo (antes a
+# cliente de pacote preenchia a cada sessao no wizard, e o painel aceitava uma de 5 anos atras).
+VALIDADE_FICHA_MESES = 12
+
+
+def valida_desde(em):
+    """Resposta dada a partir deste instante ainda vale num atendimento em ``em``."""
+    from dateutil.relativedelta import relativedelta  # type: ignore[import-untyped]
+
+    return em - relativedelta(months=VALIDADE_FICHA_MESES)
+
+
+def fichas_em_dia(cliente, em=None) -> dict:
+    """{formulario_id: ultima respondida_em} das fichas ANAMNESE que a cliente respondeu dentro
+    da validade (num atendimento em ``em``; padrao agora). Sem cliente: {}."""
+    from django.db.models import Max
+    from django.utils import timezone
+
     from ..models import FormularioAnamnese, RespostaAnamnese
 
-    respondidas = RespostaAnamnese.objects.filter(
-        cliente_id=atendimento.cliente_id, respondida_em__isnull=False,
-    ).values('formulario_id')
+    if cliente is None or getattr(cliente, 'pk', cliente) is None:
+        return {}
+    em = em or timezone.now()
+    linhas = (
+        RespostaAnamnese.objects.filter(
+            cliente_id=getattr(cliente, 'pk', cliente), respondida_em__gte=valida_desde(em),
+            formulario__tipo=FormularioAnamnese.TIPO_ANAMNESE,
+        ).values('formulario_id').annotate(ultima=Max('respondida_em'))
+    )
+    return {linha['formulario_id']: linha['ultima'] for linha in linhas}
+
+
+def fichas_pendentes(atendimento) -> list:
+    """Fichas ANAMNESE obrigatorias que valem p/ o procedimento e a cliente nao respondeu dentro
+    da validade no dia do atendimento (as mesmas de services.alertas.ids_com_ficha_pendente, p/
+    um atendimento; o wizard usa ``fichas_em_dia``)."""
+    from ..models import FormularioAnamnese
+
+    em_dia = fichas_em_dia(atendimento.cliente_id, atendimento.data_hora_inicio)
     return list(
         FormularioAnamnese.objects.filter(tipo=FormularioAnamnese.TIPO_ANAMNESE, ativo=True, obrigatorio=True)
-        .aplicaveis_a(atendimento.procedimento).exclude(pk__in=respondidas).order_by('pk')
+        .aplicaveis_a(atendimento.procedimento).exclude(pk__in=em_dia).order_by('pk')
     )
 
 

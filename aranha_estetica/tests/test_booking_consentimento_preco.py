@@ -185,7 +185,7 @@ class FichaSaudeBookingTests(_BaseBooking):
         """Termo SAUDE arquivado (aviso aranha.W010): o log com o texto segue como registro."""
         VersaoTermo.objects.filter(tipo='SAUDE').update(ativa=False)
         form = self._ficha()
-        with self.assertLogs('aranha_estetica.views.publico.agendamento', 'WARNING'):
+        with self.assertLogs('aranha_estetica.services.agendamento_online', 'WARNING'):
             resp = self._post(anamnese_respostas=json.dumps({str(form.pk): {'gestante': 'nao'}}),
                               consent_dados_saude='on')
         self.assertIn('sucesso', resp.url)
@@ -237,7 +237,7 @@ class PoliticaETermosBookingTests(_BaseBooking):
     def test_sem_termo_lgpd_vigente_recusa_sem_gravar(self):
         """Contrato 3: sem versao LGPD nao ha prova do aceite -> nada e gravado."""
         VersaoTermo.objects.filter(tipo='LGPD').update(ativa=False)
-        with self.assertLogs('aranha_estetica.views.publico.agendamento', 'ERROR') as logs:
+        with self.assertLogs('aranha_estetica.services.agendamento_online', 'ERROR') as logs:
             resp = self._post()
         self.assertNotIn('sucesso', resp.url)
         self.assertIn('booking_sem_termo_lgpd_vigente', logs.output[0])
@@ -284,6 +284,20 @@ class PoliticaETermosBookingTests(_BaseBooking):
         resp = self._post()
         self.assertNotIn('sucesso', resp.url)
         self.assertEqual(Atendimento.objects.count(), 0)
+
+    def test_wizard_recebe_onde_cada_termo_vale(self):
+        """O servidor decide onde o termo vale (services/termos.vale_para); o JS so consulta."""
+        outro = criar_procedimento(nome='Drenagem', profissional=self.prof)
+        hoje = timezone.localdate()
+        proprio = VersaoTermo.objects.create(tipo='PROCEDIMENTO', procedimento=self.proc, titulo='Próprio',
+                                             conteudo='x', versao='1', vigente_desde=hoje)
+        geral = VersaoTermo.objects.create(tipo='PROCEDIMENTO', procedimento=None, titulo='Geral',
+                                           conteudo='y', versao='1', vigente_desde=hoje)
+        dados = {t['id']: t for t in self.client.get(reverse('aranha:agendamento_publico'))
+                 .context['termos_procedimento_data']}
+        self.assertEqual(dados[proprio.pk]['procedimentos'], [self.proc.pk])
+        self.assertEqual(sorted(dados[geral.pk]['procedimentos']), sorted([self.proc.pk, outro.pk]))
+        self.assertNotIn('procedimento_id', dados[geral.pk])
 
     def test_termo_ja_aceito_nao_e_exigido_de_novo(self):
         termo = VersaoTermo.objects.create(
@@ -542,7 +556,7 @@ class CardComPrecoDoProfissionalTests(_BaseBooking):
     def test_card_aplica_percentual_sobre_o_preco_do_profissional(self):
         from aranha_estetica.models import Preco
         from aranha_estetica.utils.precos import preco_com_promocao
-        from aranha_estetica.views.publico.agendamento import _precos_card
+        from aranha_estetica.services.precos import precos_de_vitrine
 
         Preco.objects.create(procedimento=self.proc, profissional=self.prof, valor=Decimal('1000.00'))
         hoje = timezone.localdate()
@@ -550,7 +564,8 @@ class CardComPrecoDoProfissionalTests(_BaseBooking):
             procedimento=self.proc, nome='Vinte', desconto_percentual=Decimal('20'),
             data_inicio=hoje, data_fim=hoje + timedelta(days=30), ativa=True,
         )
-        final, promo_card, cheio = _precos_card([self.proc])[self.proc.pk]
+        vitrine = precos_de_vitrine([self.proc])[self.proc.pk]
+        final, promo_card, cheio = vitrine.final, vitrine.promocao, vitrine.cheio
         self.assertEqual((final, promo_card, cheio), (Decimal('800.00'), promo, Decimal('1000.00')))
         # O mesmo valor que o agendamento grava para a profissional
         self.assertEqual(preco_com_promocao(self.proc, self.prof, hoje)[0], final)
