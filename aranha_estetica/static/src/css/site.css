@@ -71,3 +71,12 @@
   border: 1px solid var(--site-dourado-fio);
   box-shadow: 0 0 0 6px color-mix(in srgb, var(--cor-marca-forte) 8%, transparent);
 }
+.arte-marca__monograma { width: clamp(6rem, 48%, 13rem); font-size: clamp(2.5rem, 7vw, 4.5rem); }
+
+/* Itens da especialidade ("Biomédica · Injetáveis") como selos */
+.selo-credencial {
+  display: inline-flex; align-items: center; padding: .3rem .8rem; border-radius: 999px;
+  font-size: .8125rem; font-weight: 600; color: var(--cor-marca);
+  background: color-mix(in srgb, var(--cor-marca-forte) 10%, var(--cor-superficie));
+  border: 1px solid color-mix(in srgb, var(--cor-marca-forte) 30%, transparent);
+}

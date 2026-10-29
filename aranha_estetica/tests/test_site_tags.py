@@ -82,3 +82,14 @@ class FotoResponsivaTests(TestCase):
         html = _render("{% foto 'nova' alt=nome %}", nome='<b>"x"</b>')
         self.assertIn('src="/static/assets/clinica/nova.webp"', html)
         self.assertIn('alt="&lt;b&gt;&quot;x&quot;&lt;/b&gt;"', html)
+
+
+class NomeDaProfissionalTests(TestCase):
+    def test_iniciais_primeiro_nome_e_itens(self):
+        self.assertEqual(_render('{{ n|iniciais }}', n='Jaqueline Aranha'), 'JA')
+        self.assertEqual(_render('{{ n|iniciais }}', n='Dra. Ana de Souza'), 'AS')
+        self.assertEqual(_render('{{ n|iniciais }}', n='Ana'), 'A')
+        self.assertEqual(_render('{{ n|primeiro_nome }}', n='Dra. Ana de Souza'), 'Ana')
+        self.assertEqual(_render('{% for i in t|itens_especialidade %}[{{ i }}]{% endfor %}',
+                                 t='Biomédica · Estética facial ; Injetáveis'),
+                         '[Biomédica][Estética facial][Injetáveis]')

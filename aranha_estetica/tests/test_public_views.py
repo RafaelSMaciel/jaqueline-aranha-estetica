@@ -255,6 +255,39 @@ class FaqDaHomeTests(TestCase):
         self.assertGreaterEqual(html.count(f'href="{reverse("aranha:duvidas")}"'), 3)   # nav, celular, rodape
 
 
+class EquipeTests(TestCase):
+    """Uma profissional: "Sobre a profissional" (sem a grade de um card so); 2+: a grade."""
+
+    def setUp(self):
+        cache.clear()
+
+    def test_uma_profissional_vira_apresentacao(self):
+        prof = criar_profissional(nome='Jaqueline Aranha', especialidade='Biomédica · Injetáveis',
+                                  bio='Cuida de cada cliente pessoalmente.')
+        proc = criar_procedimento(nome='Skinbooster', profissional=prof)
+        criar_procedimento(nome='Outro Sem Ela')
+        html = self.client.get(reverse('aranha:equipe')).content.decode()
+        self.assertIn('Sobre a profissional', html)
+        self.assertRegex(html, r'<h1[^>]*>Jaqueline Aranha</h1>')
+        self.assertIn('<li class="selo-credencial">Biomédica</li>', html)
+        self.assertIn('Cuida de cada cliente pessoalmente.', html)
+        self.assertIn('>JA</span>', html)                         # monograma sem foto
+        self.assertIn('Agendar com Jaqueline', html)
+        self.assertIn(f'?profissional={prof.pk}', html)
+        self.assertIn(reverse('aranha:servico_detalhe', args=[proc.slug]), html)
+        self.assertNotIn('Outro Sem Ela', html)
+        self.assertNotIn('Profissional Especializado', html)
+
+    def test_duas_ou_mais_mantem_a_grade(self):
+        criar_profissional(nome='Ana Lima')
+        criar_profissional(nome='Bia Souza')
+        html = self.client.get(reverse('aranha:equipe')).content.decode()
+        self.assertRegex(html, r'<h1[^>]*>\s*Nossa <span class="text-marca">equipe</span>')
+        self.assertEqual(html.count('<article class="rounded-2xl'), 2)
+        self.assertIn('Agendar com Ana', html)
+        self.assertIn('Agendar com Bia', html)
+
+
 class SeoBaseTests(TestCase):
     def setUp(self):
         cache.clear()
