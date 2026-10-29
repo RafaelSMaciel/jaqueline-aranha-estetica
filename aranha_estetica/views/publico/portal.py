@@ -1,6 +1,8 @@
-"""Portal "Meus agendamentos": listagem, reagendamento e cancelamento pela cliente.
+"""Area da cliente "Meus agendamentos" (decisao 39): agendamentos, reagendar e cancelar, preferencias
+de comunicacao, revogacao do consentimento de saude, pedido de correcao/exclusao e "baixar meus dados".
 
-Acesso unico: id do atendimento + sessao do OTP (telefone do cadastro), anti-IDOR. Nenhum
+Acesso unico: sessao do OTP (do portal ou do fim do wizard) presa ao telefone do cadastro
+(services/portal_cliente), e cada atendimento so pelo id dentro dessa sessao (anti-IDOR). Nenhum
 token e emitido (o link /reagendar/<token>/ antigo saiu com a 0069).
 """
 import json
@@ -14,13 +16,14 @@ from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 from django_ratelimit.decorators import ratelimit
 
-from ...constants import JANELA_MINIMA_REAGENDAMENTO
-from ...models import Atendimento, Cliente, Notificacao, Profissional
+from ...constants import JANELA_MINIMA_ALTERACAO
+from ...models import Atendimento, Consentimento, Notificacao, Profissional
 from ...models.agendamentos import STATUS_FINALIZADOS
 from ...excecoes import RegraDeNegocio, TransicaoInvalida
-from ...services import agenda, agendamento_online, comunicacao
+from ...services import agenda, agendamento_online, comunicacao, consentimentos, portal_cliente
 from ...services.agendamento_online import MSG_BLOQUEADO_ONLINE
 from ...utils.datas import ler_data
 from ...services.disponibilidade import horarios_agrupados, profissionais_para
@@ -29,9 +32,10 @@ from ...utils.captcha import turnstile_enabled, turnstile_site_key
 from ...utils.datas import hoje
 from ...utils.parse import id_int
 from ...utils.pii import mask_telefone
+from ...utils.respostas import json_erro, json_ok, json_recusa
 from ...utils.sms import sms_disponivel
-from .verificacao import SESSAO_MEUS_AGENDAMENTOS
 from .agendamento import SESSAO_SUCESSO
+from .lgpd import resposta_export
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +43,8 @@ logger = logging.getLogger(__name__)
 
 
 def meus_agendamentos(request):
-    """Listagem autenticada via OTP (sessao presa ao telefone do cadastro)."""
-    telefone = request.session.get(SESSAO_MEUS_AGENDAMENTOS)
+    """Area da cliente autenticada via OTP (sessao presa ao telefone do cadastro)."""
+    telefone = portal_cliente.telefone_da_sessao(request)
     if not telefone:
         return render(request, 'agendamento/meus_agendamentos.html', {
             'step': '1',
@@ -51,7 +55,7 @@ def meus_agendamentos(request):
         })
 
     agora = timezone.now()
-    clientes = Cliente.objects.filter(telefone=telefone, ativo=True)
+    clientes = portal_cliente.clientes_da_sessao(request)
     agendamentos = Atendimento.objects.filter(
         cliente__in=clientes
     ).select_related('profissional', 'procedimento').order_by('-data_hora_inicio')
@@ -68,6 +72,7 @@ def meus_agendamentos(request):
     # programa de indicacao: o codigo da cliente e o credito dela (antes so a recepcao via)
     from ...constants import VALOR_CASHBACK_INDICACAO
     from ...services.fidelidade import FidelidadeService
+    titular = portal_cliente.cliente_da_sessao(request)
     cliente = clientes.exclude(codigo_indicacao__isnull=True).exclude(codigo_indicacao='').first()
     indicacao = {
         'codigo': cliente.codigo_indicacao, 'valor': VALOR_CASHBACK_INDICACAO,
@@ -87,20 +92,18 @@ def meus_agendamentos(request):
         'pacotes_previstos': sessoes_previstas(futuros),   # "Sessão do pacote X" no lugar do preco
         'agendamentos_passados': agendamentos_passados.distinct()[:20],
         'status_editaveis': Atendimento.STATUS_ATIVOS,
-        'limite_reagendar': agora + JANELA_MINIMA_REAGENDAMENTO,
+        'limite_reagendar': agora + JANELA_MINIMA_ALTERACAO,
+        # cancelar antes deste instante e sem falta; depois (aprovado) e cancelamento tardio
+        'limite_cancelar_sem_falta': agora + JANELA_MINIMA_ALTERACAO,
+        'status_aprovados': agenda.STATUS_APROVADOS,
+        'preferencias': consentimentos.preferencias_portal(titular) if titular else [],
+        'saude_consentida': bool(titular) and consentimentos.saude_consentida(titular),
+        'texto_revogacao_saude': consentimentos.TEXTO_REVOGACAO_SAUDE,
+        'tipos_pedido': portal_cliente.TIPOS_PEDIDO,
     })
 
 
-def atendimento_da_sessao(request, pk, *select_related):
-    """Atendimento `pk` de um cliente ativo com o telefone da sessao do OTP (None = nao e dela)."""
-    telefone = request.session.get(SESSAO_MEUS_AGENDAMENTOS)
-    if not telefone or pk is None:
-        return None
-    return (
-        Atendimento.objects.select_related(*select_related)
-        .filter(pk=pk, cliente__in=Cliente.objects.filter(telefone=telefone, ativo=True))
-        .first()
-    )
+atendimento_da_sessao = portal_cliente.atendimento_da_sessao
 
 
 def _motivo_sem_reagendamento(atendimento, agora):
@@ -109,7 +112,7 @@ def _motivo_sem_reagendamento(atendimento, agora):
         return 'Não é possível reagendar atendimentos passados.'
     if atendimento.status in STATUS_FINALIZADOS:
         return f'Este atendimento está {atendimento.get_status_display().lower()} e não pode ser reagendado.'
-    if (atendimento.data_hora_inicio - agora) < JANELA_MINIMA_REAGENDAMENTO:
+    if (atendimento.data_hora_inicio - agora) < JANELA_MINIMA_ALTERACAO:
         return (
             'O reagendamento online requer no mínimo 24h de antecedência. '
             'Fale conosco pelo WhatsApp para ajustes de última hora.'
@@ -155,7 +158,7 @@ def reagendar_horarios_portal(request, pk):
 @ratelimit(key='ip', rate='10/m', method='POST', block=True)
 def reagendar_agendamento_portal(request, pk):
     """Reagendamento pelo portal "Meus agendamentos" (id + sessao do OTP, anti-IDOR)."""
-    if not request.session.get(SESSAO_MEUS_AGENDAMENTOS):
+    if not portal_cliente.telefone_da_sessao(request):
         return redirect('aranha:meus_agendamentos')
     atendimento = atendimento_da_sessao(request, pk, 'cliente', 'profissional', 'procedimento')
     if atendimento is None:
@@ -244,51 +247,113 @@ def _reagendar(request, atendimento, *, url_voltar, url_horarios):
     return redirect('aranha:agendamento_sucesso')
 
 
+@require_POST
 @ratelimit(key='ip', rate='10/m', method='POST', block=True)
 def cancelar_agendamento(request):
-    """Cancela pelo portal (POST JSON {"atendimento_id": N}) pela FSM, anti-IDOR: so agendamento
-    de cliente com o telefone da sessao do OTP."""
-    if request.method != 'POST':
-        return JsonResponse({'erro': 'Método não permitido'}, status=405)
+    """Cancela pelo portal (POST JSON {"atendimento_id": N}) — agenda.cancelar_pela_cliente.
 
+    Anti-IDOR: so atendimento de cliente com o telefone da sessao do OTP. Com menos de 24 h e
+    cancelamento tardio (conta como falta; o modal avisa antes). Resposta: utils/respostas.
+    """
     try:
         data = json.loads(request.body)
     except (json.JSONDecodeError, UnicodeDecodeError):
-        return JsonResponse({'erro': 'Dados inválidos'}, status=400)
+        return json_erro('dados_invalidos', 'Dados inválidos.')
     if not isinstance(data, dict):
-        return JsonResponse({'erro': 'Dados inválidos'}, status=400)
+        return json_erro('dados_invalidos', 'Dados inválidos.')
     atendimento_id = id_int(data.get('atendimento_id'))
     if atendimento_id is None:
-        return JsonResponse({'erro': 'Agendamento não informado'}, status=400)
+        return json_erro('sem_atendimento', 'Agendamento não informado.')
     alvo = atendimento_da_sessao(request, atendimento_id)
     if alvo is None:
-        return JsonResponse({'erro': 'Agendamento não encontrado'}, status=404)
-
+        return json_erro('nao_encontrado', 'Agendamento não encontrado.', status=404)
     try:
-        with transaction.atomic():
-            atendimento = (
-                Atendimento.objects.select_for_update()
-                .select_related('procedimento')
-                .get(pk=alvo.pk)
-            )
-
-            if atendimento.data_hora_inicio <= timezone.now():
-                return JsonResponse(
-                    {'erro': 'Não é possível cancelar agendamentos passados'}, status=400
-                )
-            if atendimento.status not in Atendimento.STATUS_ATIVOS:
-                return JsonResponse({'erro': 'Este agendamento não pode mais ser cancelado'}, status=400)
-            try:
-                # FSM: auditoria + efeitos (lista de espera, aviso a profissional)
-                atendimento.cancelar(motivo='Cancelado pelo cliente (portal)', pela_cliente=True)
-            except Atendimento.TransicaoInvalida:
-                return JsonResponse({'erro': 'Este agendamento não pode mais ser cancelado'}, status=400)
-            procedimento_nome = atendimento.procedimento.nome
+        atendimento, tardio = agenda.cancelar_pela_cliente(alvo.pk, origem='portal')
+    except RegraDeNegocio as recusa:
+        return json_recusa(recusa)
     except DatabaseError:
         logger.error('cancelar_agendamento_falha', exc_info=True)
-        return JsonResponse({'erro': 'Ocorreu um erro interno. Tente novamente.'}, status=500)
+        return json_erro('erro_interno', 'Ocorreu um erro interno. Tente novamente.', status=500)
+    mensagem = f'Agendamento de {atendimento.procedimento.nome} cancelado.'
+    if tardio:
+        mensagem += ' Como faltavam menos de 24 h, o cancelamento conta como falta.'
+    return json_ok(mensagem=mensagem, tardio=tardio)
 
-    return JsonResponse({
-        'sucesso': True,
-        'mensagem': f'Agendamento de {procedimento_nome} cancelado com sucesso.',
-    })
+
+# ─── Preferencias, consentimento de saude, pedidos e dados (LGPD) ───────────────────────────
+
+def _titular_ou_login(request):
+    """(cliente, None) ou (None, redirect p/ o login do portal)."""
+    cliente = portal_cliente.cliente_da_sessao(request)
+    if cliente is None:
+        portal_cliente.encerrar_sessao(request)
+        return None, redirect('aranha:meus_agendamentos')
+    return cliente, None
+
+
+@require_POST
+@ratelimit(key='ip', rate='20/h', method='POST', block=True)
+def portal_preferencias(request):
+    """"Minhas preferencias": os 3 pares de comunicacao, origem PORTAL (IP e user-agent como prova)."""
+    cliente, fora = _titular_ou_login(request)
+    if fora:
+        return fora
+    novas = consentimentos.registrar_do_portal(
+        cliente, {campo: campo in request.POST for campo in consentimentos.PARES}, request=request,
+    )
+    messages.success(request, 'Preferências atualizadas.' if novas else 'Nenhuma preferência mudou.')
+    return redirect(reverse('aranha:meus_agendamentos') + '#preferencias')
+
+
+@require_POST
+@ratelimit(key='ip', rate='10/h', method='POST', block=True)
+def portal_revogar_saude(request):
+    """Revoga o consentimento de dado de saude (art. 8 §5): consentimentos.revogar_saude."""
+    cliente, fora = _titular_ou_login(request)
+    if fora:
+        return fora
+    if consentimentos.revogar_saude(cliente, origem=Consentimento.ORIGEM_PORTAL, request=request):
+        messages.success(
+            request, 'Consentimento de saúde revogado. A ficha já preenchida fica guardada pelo prazo legal; '
+                     'um novo atendimento vai pedir uma nova ficha.',
+        )
+    else:
+        messages.info(request, 'Não há consentimento de saúde vigente para revogar.')
+    return redirect(reverse('aranha:meus_agendamentos') + '#privacidade')
+
+
+@require_POST
+@ratelimit(key='ip', rate='5/h', method='POST', block=True)
+def portal_pedido(request):
+    """Pedido de correcao ou exclusao: trilha + e-mail a clinica (services/portal_cliente)."""
+    cliente, fora = _titular_ou_login(request)
+    if fora:
+        return fora
+    tipo = request.POST.get('tipo', '')
+    if tipo not in portal_cliente.TIPOS_PEDIDO:
+        messages.error(request, 'Escolha o tipo de pedido.')
+        return redirect(reverse('aranha:meus_agendamentos') + '#privacidade')
+    prazo = portal_cliente.registrar_pedido(cliente, tipo, request.POST.get('descricao', ''), request=request)
+    messages.success(
+        request, f'Pedido de {portal_cliente.TIPOS_PEDIDO[tipo]} registrado. A clínica responde até '
+                 f'{prazo.strftime("%d/%m/%Y")}.',
+    )
+    return redirect(reverse('aranha:meus_agendamentos') + '#privacidade')
+
+
+@require_POST
+@ratelimit(key='ip', rate='10/h', method='POST', block=True)
+def portal_meus_dados(request):
+    """"Baixar meus dados" sem a ficha de saude; exige codigo confirmado ha ate 10 min (o mesmo
+    export e trilha do "Meus dados"). Sessao mais antiga: pede um codigo novo."""
+    cliente, fora = _titular_ou_login(request)
+    if fora:
+        return fora
+    if not portal_cliente.sessao_recente(request):
+        portal_cliente.encerrar_sessao(request)
+        messages.info(
+            request, 'Por segurança, confirme o código por SMS de novo para baixar os seus dados '
+                     '(vale por 10 minutos).',
+        )
+        return redirect('aranha:meus_agendamentos')
+    return resposta_export(request, cliente)

@@ -21,7 +21,7 @@ from ...models import (
     Profissional,
     VersaoTermo,
 )
-from ...services import agendamento_online, consentimentos, termos
+from ...services import agendamento_online, consentimentos, portal_cliente, termos
 from ...services import otp as otp_service
 from ...services.disponibilidade import procedimentos_agendaveis
 from ...services.precos import precos_de_vitrine
@@ -187,6 +187,8 @@ def _concluir(request, atendimento):
     """Ponto unico depois de um pedido aceito: resumo p/ a pagina de sucesso e fim da verificacao
     do celular (o proximo agendamento pede outro SMS)."""
     request.session[SESSAO_SUCESSO] = agendamento_online.resumo_confirmacao(atendimento)
+    # P10 (decisao 39): a area da cliente abre aqui, sem novo SMS — o celular acabou de ser verificado
+    portal_cliente.abrir_sessao_do_wizard(request, atendimento.cliente.telefone)
     otp_service.limpar_verificacao_agendamento(request)
     request.session.pop(SESSAO_REHIDRATAR, None)
     return redirect('aranha:agendamento_sucesso')

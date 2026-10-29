@@ -101,10 +101,15 @@ def alertas_em_lote(cliente_ids, limite_fichas: int = 5,
     ids = {int(i) for i in cliente_ids if i}
     if not ids:
         return {}
-    prontuarios = {
-        p.cliente_id: p for p in Prontuario.objects.filter(cliente_id__in=ids).only(
-            'cliente_id', 'alergias', 'contraindicacoes', 'medicamentos_uso', 'respostas_extras')
-    }
+    # revogacao do consentimento de saude (cliente.saude_revogada_em) vem no JOIN das mesmas consultas
+    revogados: dict[int, object] = {}
+    prontuarios = {}
+    for p in (Prontuario.objects.filter(cliente_id__in=ids)
+              .only('cliente_id', 'alergias', 'contraindicacoes', 'medicamentos_uso', 'respostas_extras')
+              .annotate(revogada_em=F('cliente__saude_revogada_em'))):
+        prontuarios[p.cliente_id] = p
+        if p.revogada_em is not None:
+            revogados[p.cliente_id] = p.revogada_em
     fichas: dict[int, list] = {}
     for ficha in (
         RespostaAnamnese.objects.filter(
@@ -112,11 +117,14 @@ def alertas_em_lote(cliente_ids, limite_fichas: int = 5,
         )
         .select_related('formulario')
         .annotate(ordem=Window(RowNumber(), partition_by=[F('cliente_id')],
-                               order_by=[F('respondida_em').desc(), F('pk').desc()]))
+                               order_by=[F('respondida_em').desc(), F('pk').desc()]),
+                  revogada_em=F('cliente__saude_revogada_em'))
         .filter(ordem__lte=limite_fichas)
         .order_by('cliente_id', '-respondida_em', '-pk')
     ):
         fichas.setdefault(ficha.cliente_id, []).append(ficha)
+        if ficha.revogada_em is not None:
+            revogados[ficha.cliente_id] = ficha.revogada_em
 
     if perguntas is None and any(
         isinstance(p.respostas_extras, dict) and p.respostas_extras for p in prontuarios.values()
@@ -127,9 +135,26 @@ def alertas_em_lote(cliente_ids, limite_fichas: int = 5,
     mapa = {}
     for cliente_id in ids:
         alertas = _montar_alertas(prontuarios.get(cliente_id), fichas.get(cliente_id, []), por_key)
+        if cliente_id in revogados:
+            alertas.insert(0, marcador_revogado(revogados[cliente_id]))
         if alertas:
             mapa[cliente_id] = alertas
     return mapa
+
+
+def marcador_revogado(em) -> dict:
+    """Item da lista de alertas quando a cliente revogou o consentimento de saude (art. 11 I).
+
+    Leva label/valor como os outros itens (toda tela que lista alertas o mostra) e o 'tipo' p/ o
+    destaque no partials/_alerta_saude.html. O registro ja feito continua visivel (prazo de guarda).
+    """
+    from django.utils import timezone
+
+    data = timezone.localtime(em).strftime('%d/%m/%Y') if timezone.is_aware(em) else em.strftime('%d/%m/%Y')
+    return {
+        'tipo': 'revogado', 'em': em, 'origem': 'consentimento',
+        'label': 'Consentimento de saúde', 'valor': f'revogado em {data}',
+    }
 
 
 def _montar_alertas(pront, fichas, perguntas_por_key) -> list[dict]:

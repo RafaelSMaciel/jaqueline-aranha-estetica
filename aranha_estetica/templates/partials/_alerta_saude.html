@@ -2,7 +2,8 @@
 Alerta de saude VISIVEL (texto, nao tooltip): funciona no toque e em leitor de tela.
 Uso: {% include 'partials/_alerta_saude.html' with alertas=lista %}
 lista = utils.saude.alertas_saude(cliente) / services.alertas.alertas_por_cliente
-({'label','valor','origem'}: prontuario ou ficha de anamnese respondida).
+({'label','valor','origem'}: prontuario ou ficha de anamnese respondida; o item com
+tipo='revogado' e a revogacao do consentimento de saude, utils.saude.marcador_revogado).
 {% endcomment %}
 {% if alertas %}
 <div role="note" class="mt-1.5 rounded-lg border border-erro bg-erro-fundo px-2.5 py-1.5 text-xs leading-snug text-erro">
@@ -14,7 +15,11 @@ lista = utils.saude.alertas_saude(cliente) / services.alertas.alertas_por_client
   </p>
   <ul class="m-0 mt-0.5 list-none p-0">
     {% for a in alertas %}
+    {% if a.tipo == 'revogado' %}
+    <li class="break-words font-bold">Consentimento de saúde revogado em {{ a.em|date:"d/m/Y" }} <span class="font-normal opacity-80">(o registro já feito continua guardado; novo atendimento pede ficha nova)</span></li>
+    {% else %}
     <li class="break-words"><strong>{{ a.label }}:</strong> {{ a.valor }}{% if a.origem == 'anamnese' %} <span class="font-normal opacity-80">(ficha da cliente)</span>{% endif %}</li>
+    {% endif %}
     {% endfor %}
   </ul>
 </div>

@@ -759,7 +759,7 @@ class ParidadeManutencaoTests(TestCase):
         antes = self._foto()
         (resumo, falhas), depois = _rodar_e_fotografar(tm._purgar_no_banco, self._foto)
         self.assertEqual(falhas, [])
-        self.assertEqual(resumo, {'otp': 1, 'notificacoes': 1, 'auditoria': 1, 'links': 3, 'historico': 1})
+        self.assertEqual(resumo, {'otp': 1, 'notificacoes': 1, 'auditoria': 1, 'links': 3, 'historico': 1, 'saude': 0})
         for tabela, etapa in (('codigo_otp', 'otp'), ('log_auditoria', 'auditoria'),
                               ('link_acesso', 'links'), ('historico_alteracao', 'historico')):
             self.assertEqual(len(antes[tabela]) - len(depois[tabela]), resumo[etapa], tabela)

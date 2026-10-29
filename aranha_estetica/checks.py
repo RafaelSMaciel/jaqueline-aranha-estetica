@@ -107,6 +107,31 @@ def termos_sem_versao_ativa():
     return [tipo for tipo, vigente in vigentes if vigente() is None]
 
 
+def prazos_fora_do_termo(conteudo: str | None = None) -> list[str]:
+    """Prazos de settings.RETENCAO_* que o texto do termo LGPD vigente nao publica: ['CHAVE=valor'].
+
+    A linha esperada ('- O que: prazo, complemento.') sai de conteudo/lgpd.linha_prazo com o valor
+    EFETIVO do settings — a mesma que a politica v1.0 imprime com o padrao. Sem termo vigente: [] (o
+    W010 ja avisa). Levanta DatabaseError antes do migrate.
+    """
+    from .conteudo.lgpd import PRAZOS_RETENCAO, linha_prazo
+    from .models import VersaoTermo
+
+    if conteudo is None:
+        termo = VersaoTermo.lgpd_vigente()
+        if termo is None:
+            return []
+        conteudo = termo.conteudo
+    faltando = []
+    for rotulo, chave, _padrao, unidade, complemento in PRAZOS_RETENCAO:
+        if chave is None:
+            continue
+        valor = getattr(settings, chave)
+        if linha_prazo(rotulo, valor, unidade, complemento) not in conteudo:
+            faltando.append(f'{chave}={valor}')
+    return faltando
+
+
 def _aviso_anymail(backend):
     """W011: backend anymail que nao vai entregar — chave do ESP ausente (o
     runtime ja trata como nao configurado) ou remetente de exemplo (o ESP recusa)."""
@@ -353,6 +378,18 @@ def check_config_producao(app_configs=None, databases=None, **kwargs):
                      'migrations 0045/0047 criam as v1.0 quando nao ha ativa — no pre-deploy '
                      'este aviso roda antes delas; confira com `check --database default`.',
                 id='aranha.W010',
+            ))
+        try:
+            divergentes = prazos_fora_do_termo()
+        except DatabaseError:  # banco antes do migrate
+            divergentes = []
+        if divergentes:
+            avisos.append(checks.Warning(
+                f'Prazo de retencao diferente do publicado no termo LGPD vigente: {", ".join(divergentes)}. '
+                'A cliente aceitou o prazo do texto; a procedure aplica o do settings.',
+                hint='Volte o settings.RETENCAO_* ao prazo publicado ou publique uma nova versao do termo '
+                     'LGPD (Painel > Termos) com a tabela de prazos atualizada (conteudo/lgpd.py).',
+                id='aranha.W016',
             ))
 
     if '@' not in _config_efetiva('CLINIC_EMAIL', databases):

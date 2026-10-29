@@ -265,7 +265,7 @@ class ContentSecurityPolicyMiddleware:
             f"font-src {' '.join(font_src)}",
             f"img-src {' '.join(self.ALLOWED_IMG_SRCS)}",
             f"connect-src {' '.join(connect_src)}",
-            "frame-src 'self' https://www.google.com https://challenges.cloudflare.com",
+            "frame-src 'self' https://challenges.cloudflare.com",
             f"frame-ancestors {frame_ancestors}",
             "form-action 'self'",
             "base-uri 'self'",

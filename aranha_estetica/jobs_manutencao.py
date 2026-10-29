@@ -32,7 +32,7 @@ def _purgar_logs_axes():
 
 
 # etapas que o sp_purgar_dados_expirados faz (na ordem dos INOUT da procedure)
-ETAPAS_DO_BANCO = ('otp', 'notificacoes', 'auditoria', 'links', 'historico')
+ETAPAS_DO_BANCO = ('otp', 'notificacoes', 'auditoria', 'links', 'historico', 'saude')
 
 
 def _purgar_no_banco():
@@ -40,16 +40,19 @@ def _purgar_no_banco():
 
     OTP com mais de RETENCAO_OTP_HORAS, texto de notificacao com mais de
     RETENCAO_NOTIFICACAO_DIAS, log_auditoria e historico_alteracao (menos prontuario) alem de
-    RETENCAO_LOG_AUDITORIA_DIAS e link_acesso vencido/revogado ha mais de
-    RETENCAO_LINK_ACESSO_DIAS (link sem validade e nao revogado fica: feed ICS). Cada etapa e uma
-    subtransacao na procedure: a falha de uma nao impede as outras.
+    RETENCAO_LOG_AUDITORIA_DIAS, link_acesso vencido/revogado ha mais de
+    RETENCAO_LINK_ACESSO_DIAS (link sem validade e nao revogado fica: feed ICS) e o registro de
+    saude (prontuario, versoes, anotacoes, fichas e a trilha do prontuario) de quem teve o ultimo
+    evento de saude ha mais de RETENCAO_ATENDIMENTO_SAUDE_DIAS (0077; 'saude' = qtd de clientes).
+    Cada etapa e uma subtransacao na procedure: a falha de uma nao impede as outras.
     """
     from .utils.banco import chamar
     *qtds, falhas = chamar(
         'sp_purgar_dados_expirados',
         settings.RETENCAO_OTP_HORAS, settings.RETENCAO_NOTIFICACAO_DIAS,
         settings.RETENCAO_LOG_AUDITORIA_DIAS, settings.RETENCAO_LINK_ACESSO_DIAS,
-        None, None, None, None, None, None,
+        settings.RETENCAO_ATENDIMENTO_SAUDE_DIAS,
+        None, None, None, None, None, None, None,
     )
     falhas = list(falhas or [])
     resumo = {

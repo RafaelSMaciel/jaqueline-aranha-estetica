@@ -23,14 +23,13 @@ select = ["E4", "E7", "E9", "F", "DTZ", "TID251"]
 "aranha_estetica/tests/**" = ["DTZ001", "DTZ007", "TID251"]
 "docs/gerar_requisitos.py" = ["E702"]
 # quem le o ambiente: os settings, os pontos de entrada (DJANGO_SETTINGS_MODULE), os geradores da
-# documentacao, os comandos do pre-deploy (ADMIN_*), as opcoes do Sentry (montadas durante o import
-# dos settings) e o modulo que ainda le o ambiente direto (lgpd: LGPD_RETENCAO_CLIENTE_DIAS)
+# documentacao, os comandos do pre-deploy (ADMIN_*) e as opcoes do Sentry (montadas durante o import
+# dos settings). Os prazos LGPD sairam do ambiente: settings.RETENCAO_* (fixos, publicados no termo).
 "clinica/**" = ["TID251"]
 "manage.py" = ["TID251"]
 "docs/**" = ["TID251"]
 "aranha_estetica/management/commands/**" = ["TID251"]
 "aranha_estetica/utils/pii.py" = ["TID251"]
-"aranha_estetica/services/lgpd.py" = ["TID251"]
 
 # Camadas (lint-imports; CI job Django SQLite): views > services > models. Para baixo pode, para
 # cima nao — cada excecao abaixo e uma inversao consciente (import tardio dentro da funcao).
