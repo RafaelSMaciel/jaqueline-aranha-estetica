@@ -3697,8 +3697,8 @@
    },
    {
     "grupo": "Site público",
-    "rota": "/sitemap.xml, /robots.txt, /manifest.json, /sw.js, /favicon.ico",
-    "funcao": "SEO e PWA"
+    "rota": "/sitemap.xml, /robots.txt, /manifest.json, /painel/manifest.json, /profissional/manifest.json, /sw.js, /favicon.ico",
+    "funcao": "SEO e PWA (três apps instaláveis: site, painel e agenda da profissional)"
    },
    {
     "grupo": "Agendamento",

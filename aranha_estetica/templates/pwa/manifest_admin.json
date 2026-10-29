@@ -1,15 +1,15 @@
 {
-  "name": "{{ CLINIC_NAME }} — Painel",
-  "short_name": "{{ CLINIC_NAME }} Admin",
+  "name": "{{ CLINIC_NAME|escapejs }} — Painel",
+  "short_name": "Painel",
   "id": "/painel/",
-  "start_url": "/painel/",
+  "start_url": "/painel/overview/",
   "scope": "/painel/",
+  "lang": "pt-BR",
   "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#1a1a2e",
-  "theme_color": "#C9A84C",
-  "description": "Painel administrativo {{ CLINIC_NAME }} — agenda, clientes, prontuário.",
-  "categories": ["business", "lifestyle", "productivity"],
+  "background_color": "#1F1A14",
+  "theme_color": "{{ THEME_COLOR|default:'#C9A84C' }}",
+  "description": "Painel da equipe {{ CLINIC_NAME|escapejs }} — agenda, clientes e relatórios.",
+  "categories": ["business", "productivity"],
   "icons": [
     {
       "src": "/static/assets/pwa/icon-192.png",
@@ -32,28 +32,28 @@
   ],
   "shortcuts": [
     {
-      "name": "Calendário",
+      "name": "Agenda",
       "short_name": "Agenda",
-      "url": "/painel/calendario/",
-      "description": "Calendário de agendamentos"
+      "url": "/painel/agendamentos/",
+      "description": "Atendimentos para aprovar, confirmar e registrar"
     },
     {
-      "name": "Agendamentos",
-      "short_name": "Lista",
-      "url": "/painel/agendamentos/",
-      "description": "Lista de agendamentos"
+      "name": "Novo agendamento",
+      "short_name": "Agendar",
+      "url": "/painel/agendamentos/novo/",
+      "description": "Marcar um horário pela recepção"
     },
     {
       "name": "Clientes",
       "short_name": "Clientes",
       "url": "/painel/clientes/",
-      "description": "Gestão de clientes"
+      "description": "Buscar e abrir a ficha da cliente"
     },
     {
-      "name": "Dashboard",
-      "short_name": "Início",
-      "url": "/painel/",
-      "description": "Visão geral"
+      "name": "Calendário",
+      "short_name": "Calendário",
+      "url": "/painel/calendario/",
+      "description": "Semana e mês da agenda"
     }
   ],
   "prefer_related_applications": false

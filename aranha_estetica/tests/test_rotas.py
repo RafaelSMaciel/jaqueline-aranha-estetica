@@ -33,7 +33,7 @@ SO_POST = 'so_post'            # acao (POST): GET nunca da 200 (405 ou redirect)
 OUTRA = 'outra'                # redirect/JSON/infra: so nao pode quebrar (e privada nao abre p/ anonimo)
 
 PRIVADOS = ('/painel/', '/profissional/', '/django-admin-sv/')
-PUBLICOS_EM_PREFIXO_PRIVADO = {'aranha:manifest_admin'}   # manifesto do PWA: JSON estatico
+PUBLICOS_EM_PREFIXO_PRIVADO = {'aranha:manifest_admin', 'aranha:manifest_profissional'}   # PWA: JSON estatico
 
 
 def _d(**kw):
@@ -64,6 +64,7 @@ ROTAS = {
     'aranha:lista_espera_sucesso': (SEM, '', OUTRA),
     'aranha:manifest': (SEM, '', OUTRA),
     'aranha:manifest_admin': (SEM, '', OUTRA),
+    'aranha:manifest_profissional': (SEM, '', OUTRA),
     'aranha:sw': (SEM, '', OUTRA),
     'django.contrib.sitemaps.views.sitemap': (SEM, '', OUTRA),
     # ─── agendamento e portal da cliente ───

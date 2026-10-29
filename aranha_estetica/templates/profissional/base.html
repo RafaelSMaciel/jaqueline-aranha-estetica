@@ -15,8 +15,13 @@ page_actions). Tema claro/escuro pelos mesmos tokens.
   <title>{% block titulo %}Minha agenda | {{ CLINIC_NAME }}{% endblock %}</title>
   <link rel="icon" type="image/png" href="{% static 'assets/favicon.png' %}">
   <link rel="apple-touch-icon" href="{% static 'assets/pwa/apple-touch-icon.png' %}">
-  <link rel="manifest" href="{% url 'aranha:manifest' %}">
+  {# manifesto proprio: instalado na tela inicial, abre a agenda dela (nao o site publico) #}
+  <link rel="manifest" href="{% url 'aranha:manifest_profissional' %}">
   <meta name="theme-color" content="{{ THEME_COLOR|default:'#C9A84C' }}">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Minha agenda">
   {% vite_hmr_client %}
   {% vite_asset 'aranha_estetica/static/src/js/app.js' %}
   {% block css %}{% endblock %}
