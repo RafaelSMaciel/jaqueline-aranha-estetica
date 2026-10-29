@@ -74,7 +74,8 @@ atendimento é presencial.
 | Recusa de regra | `excecoes.RegraDeNegocio` (`HorarioIndisponivel`, `TransicaoInvalida`) | O "não" de um service, com a mensagem pronta para a tela |
 | Job | `jobs.py` (`JOB_MAP`, `JOB_AGENDA`), `rodar_jobs_devidos`, `/cron/run/<job>/`, `rodar_job` | Tarefa periódica: o serviço Cron do Railway roda os devidos a cada 15 min (horários na `JOB_AGENDA`) |
 | Branding / identidade visual | `Configuracao`, `utils/branding`, `forms/cadastros.MarcaForm` | Nome, contatos e dados legais da clínica editáveis no painel (tela Identidade visual) |
-| Regras operacionais | `models/configuracao.CHAVES`, `Configuracao.ler` | As poucas regras que a dona ajusta (registro tipado: `email_admin`, `MAX_FALTAS_BLOQUEIO`); sem chave livre |
+| Regras operacionais | `models/configuracao.CHAVES`, `Configuracao.ler` | As poucas regras que a dona ajusta (registro tipado: `email_admin`, `MAX_FALTAS_BLOQUEIO`, `anos_experiencia`); sem chave livre |
+| Números do site | `services/prova_social.numeros_do_site` | Nota média, clientes atendidas, tratamentos e anos de experiência do site público — cada um só com dado real (abaixo do mínimo, não aparece) |
 | Pedido online | `services/agendamento_online.solicitar`, `PedidoAgendamento` | O caso de uso do wizard: o pedido da titular do celular verificado, do termo LGPD às provas |
 
 ---
@@ -87,7 +88,7 @@ atendimento é presencial.
 | Web | Django 5.2 (MVT, server-render), gunicorn 23, WhiteNoise 6 (estáticos `CompressedManifest` em prod) |
 | Banco | PostgreSQL 18 em produção e CI; SQLite (`db_dev.sqlite3`; testes em `.cache/db_test.sqlite3`) em dev e testes rápidos |
 | Front-end | Vite 6 + Tailwind CSS v4 (`@tailwindcss/vite`) + Alpine.js via `@alpinejs/csp` + django-vite 3 + django-cotton 2. **Sem HTMX, Bootstrap ou jQuery** |
-| Libs no CDN (com SRI) | FullCalendar 6.1.11 (`painel/calendar.html`), Chart.js 4.4.0 (`painel/overview.html`) |
+| Libs de terceiros no front | FullCalendar 6.1.21 (`painel/calendar.html`) e Chart.js 4.5.1 (`painel/overview.html`): dependências npm com versão exata, empacotadas pelo Vite (entradas `painel-calendario` e `painel-visao-geral`) — **nenhum CDN** |
 | Fontes | Playfair Display + Lato servidas pelo próprio site (`@fontsource`, subconjunto latin, no build do Vite; sem Google Fonts) — tokens em `static/src/css/tokens.css` |
 | Jobs / fila | Sem Celery: jobs são funções (`jobs.py`) com horário na `JOB_AGENDA`, chamadas pelo serviço Cron do Railway (`manage.py rodar_jobs_devidos`, a cada 15 min), pelo cron HTTP `/cron/run/<job>/` ou por `manage.py rodar_job`; e-mail transacional com fila no banco (`Notificacao` EMAIL, reenvio pelo job `emails`) |
 | Cache / sessão | LocMemCache + sessão no banco (padrão, 1 worker). `REDIS_URL` troca para django-redis + sessão em cache |
@@ -120,7 +121,7 @@ aranha_estetica/
 │                    pseudonimização) — congelado, importado só pela migration da versão
 ├── urls/            uma lista de rotas por área (publico, conta, painel, profissional, infra), todas no
 │                    namespace `aranha` — espelha views/
-├── views/publico/   site (páginas institucionais, FAQ), agendamento + agendamento_api (wizard e horários),
+├── views/publico/   site (páginas institucionais, `/duvidas/`), agendamento + agendamento_api (wizard e horários),
 │                    verificacao (OTP), portal (meus agendamentos: reagendar/cancelar pela sessão do OTP,
 │                    preferências, revogação de saúde, pedidos LGPD, baixar meus dados), confirmacao
 │                    (presença), agenda_profissional (agendar por profissional/embed), formularios
@@ -146,7 +147,7 @@ aranha_estetica/
 │                    cliente), financeiro (competência), relatorios (Excel), indicadores, pacotes,
 │                    links, consentimentos (inclusive o de saúde), anamnese, push, lembretes (D-1 e
 │                    sem desfecho), nps (cálculo, envio, detrator), marketing (promoção e aniversário),
-│                    feriados
+│                    feriados, prova_social (números do site público só com dado real, cache de 10 min)
 ├── utils/           branding, email, sms, whatsapp, telefone (forma canônica, E.164, máscara), precos,
 │                    saude (alertas em lote e o marcador de consentimento revogado), fichas, seguranca,
 │                    dois_fatores, pii, captcha (Turnstile e `captcha_invalido`), datas (inclusive
@@ -155,7 +156,8 @@ aranha_estetica/
 │                    CALL das procedures), cifragem, formatos
 ├── conteudo/        textos que também são regra, gerados de constantes (sem Django): lgpd.py (Política
 │                    de Privacidade v1.0 — texto, TRATAMENTOS, OPERADORES, PRAZOS_RETENCAO: fonte do
-│                    termo LGPD, da página e do DSAR) e faq.py (perguntas frequentes da home)
+│                    termo LGPD, da página e do DSAR) e faq.py (perguntas frequentes de `/duvidas/`;
+│                    `em_destaque` = as 5 da home)
 ├── forms/           agendamento.py (AgendamentoPublicoForm: o POST do wizard → PedidoAgendamento),
 │                    agenda.py (AgendamentoPainelForm do novo agendamento pela recepção,
 │                    ValorAtendimentoForm, AgendaExcecaoForm e TIPOS_PAINEL), cadastros.py
@@ -167,18 +169,26 @@ aranha_estetica/
 ├── management/commands/  seed, bootstrap_admin, migrate_atomico, setup_2fa, carregar_feriados, rodar_job,
 │                    rodar_jobs_devidos, gerar_chave_cifragem, rotacionar_chave_cifragem,
 │                    reaplicar_esquecimentos, consultas_lentas
-├── templatetags/    painel_tags (`MENU_PAINEL`: menu do painel), site_tags (inclusive o filtro
-│                    `texto_termo` da política), formatos, dict_extras
-├── templates/       estrutura/ (bases), cotton/ (componentes), publico/ (site; servicos/), agendamento/
-│                    (wizard, portal da cliente, links), conta/ (login, senha), painel/, profissional/
-│                    (`base.html` = casca do portal), partials/, email/, pwa/, erros
-│                    (400/403/403_csrf/404/429/500), axes_bloqueio.html, robots.txt
-├── static/src/      fonte do Vite — css/tokens.css, css/app.css e uma entrada JS por tela (app.js,
-│                    wizard.js, painel-busca.js, painel-status.js — seletor de status e lote da agenda —,
-│                    painel-calendario.js, webpush.js; nome com hash no build) + lib/requisicao.js (POST
-│                    JSON com CSRF no contrato utils/respostas) — fora do collectstatic
+├── templatetags/    painel_tags (`MENU_PAINEL`: menu do painel; filtro `iniciais` do avatar), site_tags
+│                    (inclusive o filtro `texto_termo` da política, a tag `{% foto %}` e o monograma da
+│                    profissional sem foto), formatos, dict_extras
+├── templates/       estrutura/ (bases), cotton/ (componentes do site e do design system da equipe),
+│                    publico/ (site; servicos/), agendamento/ (wizard, portal da cliente, links), conta/
+│                    (login, senha), painel/ (`base_v2.html` = casca), profissional/ (`base.html` = casca
+│                    do portal), partials/, email/, pwa/, erros (400/403/403_csrf/404/429/500),
+│                    axes_bloqueio.html, robots.txt
+├── static/src/      fonte do Vite — css/tokens.css, css/app.css, css/componentes.css (design system das
+│                    telas da equipe) e css/site.css (páginas do site público), e uma entrada JS por tela
+│                    (app.js, wizard.js, painel.js — abas, menu "⋯", modais, Ctrl+K —, painel-busca.js,
+│                    painel-status.js — seletor de status e lote da agenda —, painel-calendario.js
+│                    (FullCalendar), painel-visao-geral.js (Chart.js), webpush.js; nome com hash no build)
+│                    + lib/requisicao.js (POST JSON com CSRF no contrato utils/respostas) — fora do
+│                    collectstatic
+├── static/assets/clinica/variantes/  fotos do site em WebP + JPEG (480/768/1024 px) e o manifest.json
+│                    lido pelo `{% foto %}` — geradas por `scripts/imagens.py` e versionadas
 ├── static/dist/     build do Vite (gitignored; gerado no Docker/CI)
-├── signals.py       só o cache do Branding (post_save/post_delete de Configuracao)
+├── signals.py       só os caches que dependem de Configuracao (post_save/post_delete): Branding e números
+│                    do site (`services/prova_social`)
 ├── jobs.py / jobs_manutencao.py     jobs periódicos (`JOB_MAP`, `JOB_AGENDA` = horários, `executar`)
 ├── middleware.py    Enforce2FAMiddleware, SecurityHeadersMiddleware, ContentSecurityPolicyMiddleware,
 │                    ContextoBancoMiddleware (abre o Ator do request)
@@ -189,6 +199,8 @@ aranha_estetica/
 ├── context_processors.py · decorators.py · validators.py · constants.py · sitemaps.py · admin.py
 clinica/             settings/{base,dev,prod,staging,test}.py (leem e validam a env; §15), urls.py,
                      wsgi.py, apps.py, gunicorn_logger.py, logging_filtros.py (redação de token/PII no log)
+scripts/             backup/ (dump cifrado e teste de restauração, §14 h) e imagens.py (variantes
+                     responsivas das fotos do site; Pillow do requirements-dev) — fora da imagem Docker
 ```
 
 ### 3.2 Camadas e fluxo de uma requisição
@@ -307,8 +319,15 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
 - **Branding**: `utils/branding.get_branding()` — precedência **tela Identidade visual ("Branding";
   tabela `configuracao`, `forms/cadastros.MarcaForm`) > env > padrão**; contatos vazios escondem o
   item no site; campo igual ao valor em uso não conta como alteração e apagar o ajuste volta ao
-  padrão. As regras operacionais (`email_admin`, `MAX_FALTAS_BLOQUEIO`) são outra tela, com o
-  registro tipado de `models/configuracao.py`.
+  padrão. As regras operacionais (`email_admin`, `MAX_FALTAS_BLOQUEIO`, `anos_experiencia`) são
+  outra tela, com o registro tipado de `models/configuracao.py`.
+- **Números do site** (`services/prova_social.numeros_do_site`, home, "Sobre" e páginas de
+  serviço): só o que o banco ou a dona sustentam — nota média do NPS em 5 estrelas (÷ 2) só com 10+
+  respostas, clientes distintas com atendimento REALIZADO só a partir de 50 e arredondadas para
+  baixo ("120+"), tratamentos = procedimentos agendáveis online, anos de experiência = regra
+  `anos_experiencia` (em branco, some). Uma conta a cada 10 min (cache), zerada quando `Configuracao`
+  muda (`signals.py`); o template esconde o número que vier `None`. Regras em
+  [`REGRAS-DE-NEGOCIO.md` §18](REGRAS-DE-NEGOCIO.md).
 - **Comunicação** (`services/comunicacao.py`): toda mensagem ligada a um atendimento é uma
   `Notificacao` (tipo × canal × status) — o histórico do que a cliente e a equipe receberam.
   Os e-mails de confirmação, cancelamento, lembrete D-1 (quem não autorizou o WhatsApp) e o pedido
@@ -321,33 +340,71 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   roda em segundo plano).
 - **Front**: `static/src/js/app.js` registra componentes Alpine CSP-safe (`temaToggle`,
   `modal`, `navMenu`, `cookieConsent`, `adminShell`, `alertaDismiss`, `anotacaoModal`,
-  `pacoteCriar`) + `data-confirm` global e a busca instantânea do painel. A agenda do painel tem
-  módulos próprios: `painel-status.js` (seletor de status de `partials/_select_status.html` — só
-  AGENDADO/CONFIRMADO, Realizado/Faltou só a partir do início — e a barra de aprovar/recusar em
-  lote; `termo_pendente` pede a confirmação e reenvia com `sem_termo`) e `painel-calendario.js`
-  (FullCalendar: recusa do arrasto desfaz o movimento e mostra a `mensagem`), ambos com
-  `lib/requisicao.js` (POST JSON com o CSRF da `<meta>`; resposta não-JSON vira `falha_http`).
-  Componentes cotton:
-  `<c-botao>`, `<c-card>`, `<c-campo>`, `<c-cta-agendar>` (o "Agendar" do site: wizard ou, sem SMS, o
-  WhatsApp — tag `{% agendar_link %}`, builtin, usada em todo link p/ o wizard), `<c-servico.passo>`,
-  `<c-servico.cartao>`/`<c-servico.item>` (páginas de serviço) e o chrome do site (`cabecalho` com o menu de
-  `{% menu_publico %}` — uma lista p/ desktop e celular, `aria-current` —, `rodape`, `mensagens`,
-  `cookie_consent` — aviso informativo: o site só usa cookies essenciais; "Entendi" grava
-  `cookie_consent=essenciais` no próprio navegador e nada vai ao servidor). Menu do painel numa
-  lista só, `templatetags/painel_tags.MENU_PAINEL` (Operação: visão geral, agenda, calendário,
-  retornos, clientes, prontuário, notificações; Cadastros; Relatórios: financeiro, comissões,
-  NPS; Sistema). O portal da profissional tem casca própria (`profissional/base.html`). Tema: sem escolha segue o sistema (`prefers-color-scheme`); o botão grava o cookie `tema` (`data-theme="claro|escuro"`) sem FOUC.
+  `pacoteCriar`) + `data-confirm` global. As telas da equipe (painel e portal da profissional)
+  carregam também `painel.js` — **vanilla, por delegação no `document`, sem Alpine**: abas no padrão
+  WAI-ARIA (setas, Home/End, aba lembrada por página, aba com erro do servidor abre sozinha), menu
+  "⋯" (`<details>` nativo: fecha os outros, no clique fora e no Esc devolvendo o foco), modais
+  (`data-abrir-dialogo`/`data-fechar-dialogo`), Ctrl+K na busca do topo e foco/nome na tabela que
+  rola na horizontal. A agenda tem módulos próprios: `painel-status.js` (seletor de status de
+  `partials/_select_status.html` — só AGENDADO/CONFIRMADO, Realizado/Faltou só a partir do início —
+  e a barra de aprovar/recusar em lote; `termo_pendente` pede a confirmação e reenvia com
+  `sem_termo`) e `painel-calendario.js` (FullCalendar do npm: recusa do arrasto desfaz o movimento e
+  mostra a `mensagem`; o ARIA de grade que o FullCalendar não fecha vira `presentation`), ambos com
+  `lib/requisicao.js` (POST JSON com o CSRF da `<meta>`; resposta não-JSON vira `falha_http`); os
+  gráficos da visão geral são `painel-visao-geral.js` (Chart.js do npm, cores dos tokens). Libs de
+  terceiros entram pelo `package.json` (as do painel com versão exata) e saem no bundle — nenhum
+  `<script src>` externo (`test_csp` reprova).
+  **CSS em duas camadas sobre os tokens**: `componentes.css` (design system das telas da equipe:
+  `.btn`, `.campo`, `.cartao`, `.selo`, `.nota`, `.kpi`, `.tabela`, `.aba`, `.menu-acoes`, `.dialogo-*`,
+  `.vazio`... em `@layer components`, então o utilitário do template sempre vence sem `!important`;
+  texto base 15px, rótulo/meta 13px, nada abaixo de 12px) e `site.css` (o CSS das páginas do site
+  público que antes vinha em `<style>` por template — wizard, "Meus agendamentos", reagendar, aviso de
+  cookies, arte da marca, números —, só `var(--cor-*)`, sem hex). Componentes cotton do site:
+  `<c-cta-agendar>` (o "Agendar" do site: wizard ou, sem SMS, o WhatsApp — tag `{% agendar_link %}`,
+  builtin, usada em todo link p/ o wizard), `<c-servico.passo>`, `<c-servico.cartao>`/`<c-servico.item>`
+  (páginas de serviço) e o chrome (`cabecalho` com o menu de `{% menu_publico %}` — uma lista p/
+  desktop e celular, `aria-current` —, `rodape`, `mensagens`, `cookie_consent` — faixa fina no pé,
+  informativa: o site só usa cookies essenciais; "Entendi" grava `cookie_consent=essenciais` no próprio
+  navegador e nada vai ao servidor). Componentes do design system da equipe: `<c-botao>` (`variante`
+  primario/secundario/perigo/perigo-contorno/sucesso/fantasma/link, `tamanho` sm/lg, `href` vira
+  `<a>`, `icone`, `so_icone`, `loading`), `<c-campo>`, `<c-card>`, `<c-selo>`, `<c-nota>`, `<c-kpi>`
+  (variação com seta e texto), `<c-vazio>`, `<c-icone>`, `<c-menu-acoes>` ("⋯"), `<c-dialogo>`,
+  `<c-tabela>` (`responsiva`: tabela no desktop, cartões empilhados < 768px com `data-rotulo`) e
+  `<c-abas>` + `<c-abas.aba>`/`<c-abas.painel>` (sem JS, links de âncora para seções visíveis).
+  Fotos do site pela tag `{% foto 'nome' alt=... sizes=... prioridade=... %}` (`site_tags`): `<picture>`
+  com WebP no `srcset` e JPEG de reserva das variantes de `scripts/imagens.py`, `width`/`height` reais
+  (sem salto de layout), `loading="lazy"` — ou `fetchpriority="high"` na foto do topo; moldura sem foto
+  real usa a arte da marca (`partials/_arte_marca.html`), nunca foto inventada. Casca do painel
+  `painel/base_v2.html` (menu lateral no cromo escuro quente da marca — café/ouro, tokens `--cor-cromo-*`
+  —, barra do topo com a busca global, cabeçalho de página igual em toda tela) e do portal
+  `profissional/base.html` (mesmo design system, abas de navegação na barra escura). Telas-chave: a
+  agenda é tabela no desktop e cartões no celular, com as ações secundárias no "⋯" e valor/desfazer
+  realização em modal; a ficha da cliente em abas (Dados · Agendamentos · Pacotes e crédito · Saúde ·
+  Consentimentos); a visão geral abre com os atalhos "sem desfecho" e "retornos a marcar", depois
+  Hoje/Amanhã e pendentes de aprovação, depois os KPIs comparados com o período anterior. Painel,
+  portal e páginas do site sem `style="..."` — sobram só o widget `agendamento/embed.html` (fora do
+  bundle), as páginas de erro autossuficientes (400/403_csrf/500), a página offline do `sw.js` e os
+  e-mails; no site, `test_a11y_front.SitePublicoSemEstiloInlineTests` barra atributo, `<style>` por
+  página e cor crua em classe. Títulos, botões e rótulos em caixa de frase.
+  Menu do painel numa lista só, `templatetags/painel_tags.MENU_PAINEL` (Operação: visão geral,
+  agenda, calendário, retornos, clientes, prontuário, notificações; Cadastros; Relatórios:
+  financeiro, comissões, NPS; Sistema). Tema: sem escolha segue o sistema (`prefers-color-scheme`); o
+  botão grava o cookie `tema` (`data-theme="claro|escuro"`) sem FOUC.
   Tokens em `tokens.css` (contraste AA conferido nos 2 temas): texto, `--cor-borda-campo` (3:1 nos
-  inputs), `--cor-foco` (anel `:focus-visible` global), erro/sucesso/aviso/info/destaque com `-fundo`
-  e o status do atendimento (`--st-<status>-fundo/-texto`, classes `.status-<STATUS>`); nada de cor
-  crua do Tailwind (`bg-red-50`…) fora de botão sólido. `prefers-reduced-motion` zera animações.
-  Modal = `<dialog class="dialogo">` nativo (`showModal`: foco preso, Esc fecha, fundo inerte);
-  no Alpine, componente `modal` (ou `comDialogo({...})` em `app.js`) com `x-ref="dialogo"`.
+  inputs), `--cor-foco` (anel `:focus-visible` global), erro/sucesso/aviso/info/destaque com `-fundo`,
+  o status do atendimento (`--st-<status>-fundo/-texto`, classes `.status-<STATUS>`) e os do design
+  system da equipe (cromo, `--cor-fundo-realce`, `--cor-borda-forte`, `--cor-marca-suave`,
+  `--cor-perigo-forte`, sombras); o verde do WhatsApp é um token do `site.css` (`--site-whatsapp` =
+  o verde de ação, 5,3:1). Nada de cor crua do Tailwind (`bg-red-50`…) fora de preenchimento
+  sólido. `prefers-reduced-motion` zera animações. Modal = `<dialog class="dialogo">` nativo
+  (`showModal`: foco preso, Esc fecha, fundo inerte): `<c-dialogo>` aberto pelo `painel.js` ou, no
+  Alpine, componente `modal` (ou `comDialogo({...})` em `app.js`) com `x-ref="dialogo"`.
   Formulário: todo campo tem nome acessível — `<label for>` (o `app.js` associa o rótulo solto ao campo
   seguinte e a dica no meio vira `aria-describedby`) ou `aria-label` nos filtros. Toast do painel:
   erro = `role="alert"`, o resto `role="status"`; nenhum some sozinho.
-- **PWA**: `/manifest.json` + `/sw.js` (service worker v9: cacheia só páginas públicas e
-  estáticos; nunca HTML privado; sem rede, página offline com a marca) e `/painel/manifest.json` para
+- **PWA**: `/manifest.json` + `/sw.js` (service worker v10: cacheia só páginas públicas — lista
+  fixa, inclusive `/duvidas/`, e `/servicos/detalhe/` — e estáticos; nunca HTML privado; sem rede,
+  página offline com a marca) e `/painel/manifest.json` para
   o app da equipe. Registrado no site público e no painel. Ícones em `static/assets/pwa/` (192 e 512
   "any" e 512 "maskable" com margem de segurança — só o monograma "JA"; o texto da logo some em ícone
   pequeno). Subir `VERSION` no `sw.js` a cada mudança dele.
@@ -371,6 +428,15 @@ ADMIN_EMAIL=... ADMIN_PASSWORD=... python manage.py bootstrap_admin
 npm ci && npm run dev                   # terminal 1 (Vite :5173)
 python manage.py runserver              # terminal 2
 ```
+
+**Fotos do site:** foto nova (ou trocada) em `aranha_estetica/static/assets/clinica/*.webp` →
+`python scripts/imagens.py` gera as variantes WebP + JPEG (480/768/1024 px, sem ampliar) e o
+`manifest.json` em `static/assets/clinica/variantes/` (versionados no git; Pillow vem do
+`requirements-dev.txt`, a imagem de produção não precisa dele). `python scripts/imagens.py
+--verificar` só confere (sai 1 se faltar variante ou o manifest estiver velho) — a suíte faz a mesma
+conferência (`test_site_tags.FotoResponsivaTests`), então foto nova sem as variantes reprova no CI.
+Com a mesma versão do Pillow, rodar de novo sem foto nova não muda nenhum arquivo. Em produção, foto
+sem variante ainda aparece: o `{% foto %}` cai na original, sem `srcset`.
 
 ### Comandos de gerenciamento próprios
 
@@ -457,7 +523,7 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 | | `consumo_sessao` (ConsumoSessao) | 1 sessão consumida por atendimento (OneToOne) de 1 item da compra (`compra_pacote_item`) |
 | Financeiro | `carteira` / `movimento_carteira` | Saldo da cliente (`valor_saldo`, CHECK ≥ 0) e ledger append-only (trigger; `valor` > 0, `valor_saldo_resultante` ≥ 0, autor `usuario_autor_id`) — programa de indicação: origem CASHBACK_INDICACAO/CASHBACK_ESTORNO, USO_AGENDAMENTO (crédito usado no valor do atendimento), CANCELAMENTO (devolução) e AJUSTE_MANUAL, sempre explícita (sem default; VALE_PRESENTE e OUTRO saíram na 0067). Reembolso de pacote é em dinheiro, nunca crédito |
 | | `regra_comissao` / `movimento_comissao` | Regra (`percentual` 0–100 XOR `valor_fixo`; usada não muda nem se exclui — só desativa: `tg_regra_comissao_validar`, 0066) e **livro-razão** de comissão (0053): CREDITO (no máximo 1 ativo — não estornado — por atendimento, 0063; `regra_comissao_id` + snapshot `valor_base_calculo`/`percentual_aplicado`, 0066), PAGAMENTO (baixa ou repasse em lote) e ESTORNO (referenciam o crédito, `usuario_autor`). Status PENDENTE/PAGA/ESTORNADA e saldo (pode ficar negativo) são derivados (`creditos_com_status`, `ComissaoService.saldos_por_profissional`) |
-| Infra | `configuracao` (Configuracao, `models/configuracao.py`) | Classe EQUIPE no inventário LGPD (guarda o contato do encarregado e o `email_admin`). Chave-valor com dois donos: a marca e os contatos (`utils/branding.BRANDING_FIELDS`, tela Identidade visual, validação própria) e as **regras operacionais** — registro tipado `CHAVES` (`email_admin`: e-mail válido ou vazio; `MAX_FALTAS_BLOQUEIO`: inteiro de 1 a 10, padrão 3), lido por `Configuracao.ler` (valor em branco ou recusado pelo registro → padrão, com aviso no log). A tela Regras operacionais lista e grava só o registro, sem chave livre; "Restaurar padrão" apaga a linha. As perguntas do prontuário saíram daqui na 0051 (formulário PRONTUARIO) e o cursor do disparo de promoção na 0068 (vai na `promocao`) |
+| Infra | `configuracao` (Configuracao, `models/configuracao.py`) | Classe EQUIPE no inventário LGPD (guarda o contato do encarregado e o `email_admin`). Chave-valor com dois donos: a marca e os contatos (`utils/branding.BRANDING_FIELDS`, tela Identidade visual, validação própria) e as **regras operacionais** — registro tipado `CHAVES` (`email_admin`: e-mail válido ou vazio; `MAX_FALTAS_BLOQUEIO`: inteiro de 1 a 10, padrão 3; `anos_experiencia`: inteiro **opcional** de 1 a 60, padrão em branco — vazio esconde o número no site), lido por `Configuracao.ler` (valor em branco ou recusado pelo registro → padrão, com aviso no log). A tela Regras operacionais lista e grava só o registro, sem chave livre; "Restaurar padrão" apaga a linha. As perguntas do prontuário saíram daqui na 0051 (formulário PRONTUARIO) e o cursor do disparo de promoção na 0068 (vai na `promocao`) |
 | | `execucao_job` (ExecucaoJob) | Uma linha por job de mensagem sem marca por destinatário (`aniversario`, `pacote_expirando`, `nps_24h`) e dia local: UNIQUE `job`+`dia` faz a 2ª chamada do dia receber 409 em vez de reenviar tudo (`jobs.executar`); `concluido_em` NULL = em andamento ou falhou, `resultado` = resumo ou tipo do erro. Sem dado pessoal (0070) |
 
 ### 5.3 Invariantes garantidas pelo banco
@@ -555,8 +621,9 @@ portal), `/lgpd/aceitar-cookies/` (o aviso de cookies não grava nada no servido
 
 | Rota | Função |
 |---|---|
-| `/`, `/quem-somos/`, `/equipe/`, `/especialidades/`, `/galeria/`, `/depoimentos/`, `/promocoes/` | Páginas institucionais; depoimentos só com opt-in + aprovação; promoções com o mesmo preço do agendamento |
-| `/servicos/faciais/`, `/servicos/corporais/`, `/servicos/detalhe/<slug>/` | Catálogo (cartões dos procedimentos ativos por categoria, com o "Agendar" já no procedimento) |
+| `/`, `/quem-somos/`, `/equipe/`, `/especialidades/`, `/galeria/`, `/depoimentos/`, `/promocoes/` | Páginas institucionais; números do site só com dado real (`services/prova_social`); com uma profissional ativa, `/equipe/` vira "Sobre a profissional" (foto ou monograma, especialidade, bio e os tratamentos que ela realiza, do catálogo); depoimentos só com opt-in + aprovação; promoções com o mesmo preço do agendamento |
+| `/duvidas/` | Perguntas frequentes por categoria (`conteudo/faq.py`, respostas geradas das constantes que o sistema aplica; JSON-LD `FAQPage`); a home mostra só as 5 em destaque e leva para cá. No menu, no rodapé, no sitemap e no cache do SW |
+| `/servicos/faciais/`, `/servicos/corporais/`, `/servicos/detalhe/<slug>/` | Catálogo (cartões dos procedimentos ativos por categoria, com o "Agendar" já no procedimento; "Cuidados em destaque" saem do catálogo — até 4, só ativos com descrição, um por família) |
 | `/contato/` | Formulário de contato (`views/publico/contato`, `forms/publico.ContatoForm`): vai ao e-mail de contato da Identidade visual (`CLINIC_EMAIL`; sem ele, o `DEFAULT_FROM_EMAIL` se não for "noreply"), com o e-mail da pessoa no reply-to; aceite da política obrigatório e **sem caixa de marketing**; captcha (Turnstile, quando configurado), honeypot, 5/min e 20/dia por IP e teto de 50 mensagens/dia no site todo (acima dele, ou com o e-mail fora do ar, a página mantém o texto e oferece o WhatsApp). Mapa = ilustração local + link "Abrir no Google Maps" (nada do Google carrega na página) |
 | `/termos-de-uso/`, `/politica-de-privacidade/` | Textos legais; a política é o texto da **VersaoTermo LGPD vigente** (filtro `texto_termo`, sanitizado), com versão e vigência, emoldurado pela identificação da clínica e o encarregado (Identidade visual); sem versão ativa, o texto padrão da v1.0 |
 | `/lista-espera/` (+ `/sucesso/`) | Pedido de aviso de vaga **sem criar cadastro** (`forms/publico.ListaEsperaForm` + `services/lista_espera.inscrever`): `?procedimento=&profissional=&data=` preenche (o "Avise-me se vagar" do wizard); captcha, honeypot e 20/dia por IP; sucesso igual em todos os casos |
@@ -655,8 +722,9 @@ Detalhe de login, 2FA, OTP e tokens em [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO
   honeypot `website` (robô descartado em silêncio) e limite por IP; o contato tem ainda o teto
   diário global (protege a cota de e-mail do reset de senha e dos avisos).
 - **Headers:** CSP com nonce por request (sem `unsafe-inline` em `script-src`/`style-src`, sem
-  handlers inline; `style-src-attr 'unsafe-inline'` ainda permitido), jsdelivr liberado só nos
-  caminhos das libs usadas, `frame-ancestors 'none'` (exceto o widget), HSTS 1 ano com preload,
+  handlers inline; `style-src-attr 'unsafe-inline'` ainda permitido), nenhum CDN (o único host
+  externo de script é o Turnstile; FullCalendar e Chart.js vêm do npm no bundle do Vite),
+  `frame-ancestors 'none'` (exceto o widget), HSTS 1 ano com preload,
   X-Frame-Options DENY, nosniff, COOP/CORP, Permissions-Policy.
 - **Privacidade no navegador:** `/painel/`, `/profissional/`, `/meus-agendamentos/`, `/lgpd/`,
   `/api/`, `/django-admin-sv/` saem com `Cache-Control: no-store` (e views sensíveis com
@@ -957,7 +1025,8 @@ conexão Postgres, abaixo do `WEB_TIMEOUT`; `0` desliga; o `migrate_atomico` rod
 `shivazen-cron` no serviço do cron, `shivazen-staging`).
 
 Só dev/testes: `DEBUG`, `SMS_DEV_LOG_ONLY` (em prod gera W002), `DB_ENGINE`/`DB_*`,
-`TEST_DATABASE_URL`, `PG_EXIGE_ICU`, `TESTE_SQLITE_MEMORIA`, `TESTE_VITE_BUILD`, `EXIGE_NAVEGADOR`.
+`TEST_DATABASE_URL`, `PG_EXIGE_ICU`, `TESTE_SQLITE_MEMORIA`, `TESTE_VITE_BUILD`, `EXIGE_NAVEGADOR`,
+`VARREDURA_ROTAS` (filtro opcional da varredura visual: só as rotas cujo nome contém o texto).
 Só no ambiente de testes publicado (`DJANGO_ENV=staging`, §13.1): `DESTINATARIOS_TESTE`
 (e-mails/celulares separados por vírgula — os únicos que recebem mensagem)
 ([`DESENVOLVIMENTO.md`](DESENVOLVIMENTO.md)).
@@ -976,8 +1045,8 @@ Fixos no settings, sem env (mudar = código + versão nova do termo, quando for 
 
 ## 12. Testes e CI
 
-- `python manage.py test aranha_estetica` — suíte Django (SQLite `.cache/db_test.sqlite3`, ~1.950
-  testes fora a tag `migracoes`, em 122 arquivos, alguns em pastas por área — `tests/conta/`,
+- `python manage.py test aranha_estetica` — suíte Django (SQLite `.cache/db_test.sqlite3`, ~2.020
+  testes fora a tag `migracoes`, em 124 arquivos, alguns em pastas por área — `tests/conta/`,
   `infra/`, `jobs/`, `painel/`, `publico/`, `servicos/`, `utils/` — roda **tudo**, inclusive as data
   migrations). `manage.py test` sempre
   carrega `clinica/settings/test.py` (única detecção de teste, em `settings/__init__.py`; é o runner
@@ -990,9 +1059,17 @@ Fixos no settings, sem env (mudar = código + versão nova do termo, quando for 
   dezenas de vezes); `--tag migracoes` roda só ele. `--keepdb` reaproveita o banco de teste em
   arquivo (um módulo: ~15 s → ~2 s); `--parallel` no Windows/macOS exige
   `TESTE_SQLITE_MEMORIA=1`. Antes do merge, rode tudo (o CI roda as duas partes em jobs paralelos).
-- **Navegador**: `tests/test_wizard_browser.py` (Playwright + Chromium) cobre as regras que só
-  existem no `wizard.js`; local com `npm run build` + `TESTE_VITE_BUILD=1`, no CI com
-  `EXIGE_NAVEGADOR=1` (faltou navegador ou bundle = reprova, não pula).
+- **Navegador** (Playwright + Chromium; local com `npm run build` + `TESTE_VITE_BUILD=1`, no CI com
+  `EXIGE_NAVEGADOR=1` — faltou navegador ou bundle = reprova, não pula):
+  `tests/test_wizard_browser.py` cobre as regras que só existem no `wizard.js`;
+  `tests/painel/test_status_navegador.py`, o seletor de status, a barra do lote e o FullCalendar do
+  bundle; `tests/test_crawl_visual.py` (varredura visual) abre **toda** rota pública, da equipe e da
+  profissional de `tests/test_rotas.ROTAS` no papel certo, em 1366px (tema claro) e 390px (tema
+  escuro), e reprova em erro HTTP (da página ou de recurso do site), erro de JS/console (inclui
+  violação de CSP), rolagem lateral no celular, sintaxe de template vazando no texto e violação
+  serious/critical do axe-core (WCAG 2.0/2.1 A e AA; `axe-core` é devDependency, `npm ci`). Exceção de
+  terceiro só pela lista `PERMITIDOS` do teste, com o motivo (hoje vazia); `VARREDURA_ROTAS=<trecho>`
+  filtra as rotas para depurar uma tela.
 - **Cobertura**: modo paralelo (um arquivo `.cache/coverage.*` por execução):
   `coverage run manage.py test ... && coverage combine && coverage report`; no CI o job `cobertura`
   junta SQLite + Postgres (o código só-Postgres — procedures, paridades, LGPD — conta como testado)
@@ -1018,8 +1095,12 @@ Fixos no settings, sem env (mudar = código + versão nova do termo, quando for 
   redação da senha, append-only) e `tests/test_pg_paridade.py` compara cada `fn_*`/`vw_*` com o
   Python (mudou a regra no Python → atualize a função numa migration nova) e confere o efeito de
   cada `sp_*`.
-- Guardas de regressão relevantes: `test_csp.py` (CSP x templates, allowlist do jsdelivr),
-  `test_front_pipeline.py` (Vite/cotton/webpush), `test_deploy_config.py` (checks, migrate
+- Guardas de regressão relevantes: `test_csp.py` (CSP x templates; nenhum script ou CSS de outro
+  host além do Turnstile; libs do painel com versão exata no `package.json`), `test_front_pipeline.py` (Vite/cotton/webpush), `test_componentes.py` (os
+  componentes cotton: nome acessível, classe mesclada, abas, menu, diálogo, KPI, tabela),
+  `test_a11y_front.py` (tokens, tema escuro sem cor fixa, site sem `style=`/`<style>`/hex),
+  `test_site_tags.py` (`{% foto %}` e variantes em dia), `tests/servicos/test_prova_social.py`
+  (mínimos, arredondamento e cache dos números do site), `test_deploy_config.py` (checks, migrate
   atômico, runner único, pins do CI), `tests/infra/test_deploy.py` (perfis prod/staging, E001–E004,
   `.env.example` × código, Dockerfile × `railway.json`), `tests/infra/test_logs.py` (redação de
   token/PII no log), `tests/jobs/` (agenda dos jobs, 409 do 2º disparo, lembretes, NPS),
@@ -1041,7 +1122,7 @@ pin; `tests/test_deploy_config.CiFixadoTests` reprova pin solto:
 | `cobertura` | Depois de `testes` e `postgres`: `coverage combine` dos dois e `coverage report` com a catraca (`fail_under`) no total |
 | `postgres-migracoes` | `tests/test_migrations_dados.py` no Postgres 18 (reverso/ida de cada migration, inclusive triggers/funções/views/procedures), `--parallel auto` (um `test_ci_N` por worker) |
 | `front` | `npm ci`, `npm run build`, confere o manifest |
-| `navegador` | `npm run build` + Playwright/Chromium: `tests/test_wizard_browser.py` com o bundle (`TESTE_VITE_BUILD=1`, `EXIGE_NAVEGADOR=1`) |
+| `navegador` | `npm ci` + `npm run build` + Playwright/Chromium, com o bundle (`TESTE_VITE_BUILD=1`, `EXIGE_NAVEGADOR=1`): `tests/test_wizard_browser.py` (wizard), `tests/painel/test_status_navegador.py` (seletor de status, lote e FullCalendar do bundle) e `tests/test_crawl_visual.py` (varredura visual de toda rota pública/equipe/profissional em 1366px claro e 390px escuro: HTTP, JS/console/CSP, rolagem lateral, template vazando e axe-core serious/critical) |
 | `docker` | `docker build` (buildx, camadas no cache do Actions) e o smoke do 1º deploy: Postgres 18 exigindo SSL, o `preDeployCommand` e o `startCommand` **lidos do `railway.json`**, `/healthz/` com o Host do healthcheck do Railway, `/health/` e gunicorn fora do root |
 | `auditoria-deps` | `pip-audit` no `requirements.lock`, `npm audit --package-lock-only --audit-level=high` e gitleaks no histórico do push (allowlist dos dados sintéticos em `.gitleaks.toml`) — bloqueante |
 
@@ -1439,7 +1520,8 @@ uma falha no dia).
    e que `/politica-de-privacidade/` mostra a versão e a vigência com a razão social, o CNPJ e o
    encarregado da Identidade visual (passo 4). Depois do primeiro aceite ele fica imutável —
    correções viram nova versão. Crie os termos de PROCEDIMENTO necessários.
-6. Confira Regras operacionais (`email_admin` do alerta de detrator, faltas para pausar o online), profissionais (expediente,
+6. Confira Regras operacionais (`email_admin` do alerta de detrator, faltas para pausar o online,
+   anos de experiência do site — em branco, o site não mostra), profissionais (expediente,
    `max_advance_dias`), procedimentos/preços e a `LogAuditoria` com `migration 0034:` (duplicatas
    a mesclar e telefones inválidos a corrigir).
 7. Faça um agendamento real de ponta a ponta (SMS chega, e-mail sai, aprovação no painel).
@@ -1612,8 +1694,11 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
   `usuario`/`request` explícitos só quando o Ator não basta (sem nome de cliente
   no texto — use pk em `detalhes`).
 - Templates: CSP estrita (sem `onclick`, `<script>`/`<style>` com `nonce`), lógica Alpine em
-  `Alpine.data()` no `app.js`, tokens de cor do `tokens.css` (nunca cor crua). Lib nova no CDN =
-  atualizar `JSDELIVR_PATHS` + SRI.
+  `Alpine.data()` no `app.js` (nas telas da equipe, comportamento de componente no `painel.js`,
+  vanilla), tokens de cor do `tokens.css` (nunca cor crua), sem `style="..."` (classe do
+  `componentes.css`/`site.css` ou utilitário). Tela da equipe usa os componentes cotton do design
+  system antes de classe solta. Lib de terceiro entra pelo `package.json` e sai no bundle do Vite —
+  nunca por CDN (`test_csp` reprova).
 - Copy do site em tom de estética/bem-estar (cliente, atendimento, avaliação — nunca
   "paciente/consulta médica"). Texto que também é regra (política de privacidade, FAQ) mora em
   `conteudo/` e sai das mesmas constantes/settings que o sistema aplica — nunca número escrito à mão
@@ -1649,6 +1734,7 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 | 2026-10-28 | Pacotes da revisão funcional (0062–0074): financeiro por competência mensal, rateio ponderado do pacote, prorrogar/cancelar compra, regras de comissão no painel, snapshot e repasse em lote, "Minhas comissões" (0065–0067); jobs com agenda única (`JOB_AGENDA`) e serviço Cron do Railway, lembrete D-1 por e-mail, push de sem desfecho, NPS 1×/90 dias, promoção de disparo único, "PARAR" no WhatsApp, trava diária `execucao_job` (0068–0070); remoções — Google Agenda, papel RECEPCAO, link legado de reagendar, modalidade/videoconferência, tipos de notificação sem produtor, RG/profissão/foto, gravação do aviso de cookies, pytest (0071–0074); borda — checks E002–E004/W015, segredos fortes, `.env.example` testado, configuração só nos settings (TID251), `utils/telefone` e `utils/respostas`, redação de logs, imagem endurecida, axes por IP, 2FA falha fechado, gitleaks/npm audit e cobertura combinada no CI |
 | 2026-10-29 | Pedido online como caso de uso (`services/agendamento_online` + `forms/agendamento`, view fina; teto de 3 horários pelo site, ficha válida por 12 meses, pedido sempre da titular, vitrine em `services/precos`, "Avise-me se vagar"); equipe, catálogo e configurações com Django Forms (`forms/cadastros`), `services/catalogo`, regras operacionais em registro tipado (`models/configuracao`) e feed ICS revogado no desligamento |
 | 2026-10-29 | LGPD e área da cliente (0075–0078): Política de Privacidade como fonte única (`conteudo/lgpd.py` = termo LGPD = página = declaração do DSAR, prazos fixos e `aranha.W016`), consentimento de saúde revogável, expurgo do registro de saúde aos 20 anos do último evento e pacote retido 5 anos, pseudonimização completa, export do site sem a ficha de saúde, "Meus agendamentos" com preferências, revogação, pedidos LGPD e sessão aberta no fim do wizard, cancelamento tardio conta falta, lista de espera sem cadastro (turno, aviso que mantém na fila), contato com captcha/honeypot/teto diário e mapa sem Google, FAQ das constantes; agenda do painel por casos de uso (`agendar_pela_recepcao`, `marcar_realizado`, `registrar_valor_cobrado`, lote item a item), Forms em `forms/agenda`, seletor de status sem PENDENTE nem finais e Realizado/Faltou só após o início, JS em módulos do Vite e leitura de alerta de saúde auditada |
+| 2026-10-29 | Front: design system das telas da equipe (tokens do cromo café/ouro e do painel, `componentes.css` em `@layer components`, componentes cotton — botão, campo, cartão, selo, nota, KPI, vazio, ícone, menu "⋯", diálogo, tabela responsiva, abas — e `painel.js` vanilla), painel e portal da profissional sem estilo inline e em caixa de frase, agenda em tabela com o "⋯" e modais, ficha da cliente em abas, visão geral com Hoje/Amanhã e KPIs comparados, FullCalendar 6.1.21 e Chart.js 4.5.1 do npm (jsDelivr fora da CSP), varredura visual com axe-core no CI; site com números reais (`services/prova_social`, regra `anos_experiencia`; saíram o "5.0/5 · 32 avaliações" e os "5+ / 500+ / 20+" fixos), fotos responsivas (`scripts/imagens.py`, `{% foto %}`) e arte da marca, `/duvidas/` (SW v10), "Sobre a profissional", destaques do catálogo, CSS das páginas no `site.css` e ajustes de celular (etapas do wizard, "Continuar" fixo, "Seu celular", aviso de cookies em faixa) |
 | 2026-09-23 | Auditoria pré-produção completa (~450 correções em ~30 commits, `b5fd681..182e2e9`): OTP preso ao telefone em todo agendamento, consentimentos LGPD/art. 11 com prova, 2FA obrigatório do ADMIN, histórico do prontuário, prova de aceite imutável, deploy por Dockerfile + `migrate_atomico`, retenção LGPD efetiva, migrations 0040–0046. Detalhe em [`ARCHITECTURE.md`](ARCHITECTURE.md#6-progresso-checkpoint) |
 
 **Mantenedor:** Rafael Maciel · **Última atualização:** 2026-10-29

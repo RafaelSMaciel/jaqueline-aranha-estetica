@@ -483,6 +483,28 @@ Regra em `services/lista_espera` (form público em `forms/publico.ListaEsperaFor
 - **Depoimento no site** (`/depoimentos/`): só com opt-in da cliente (`autoriza_publicacao`),
   aprovação da equipe (Painel > NPS > publicação), nota ≥ 9 e comentário; cliente excluída ou
   pseudonimizada nunca aparece. Autor exibido com nome abreviado.
+- **Números do site** (home, "Sobre" e páginas de serviço; `services/prova_social.numeros_do_site`):
+  só aparece o que o banco ou a dona sustentam — o número que não atinge a regra some da página (e,
+  sem nenhum, a faixa inteira). Não há mais número escrito à mão (saíram o "5.0/5 · 32 avaliações" e
+  os "5+ / 500+ / 20+" fixos).
+  - **Nota média:** média das notas do NPS (0–10) dividida por 2 (escala de 5 estrelas), uma casa
+    decimal arredondada "meio para cima", **só com 10 respostas ou mais** (`MIN_AVALIACOES`: com 3
+    notas 10 o "5,0" diz mais sobre o acaso que sobre a clínica). As estrelas são desenhadas em
+    meias pela fração da nota: de ,25 a ,74 a estrela fica meia, de ,75 em diante fica cheia — 4,7 =
+    4 cheias e meia (nunca 5), 4,8 = 5 cheias, 4,2 = 4 cheias.
+  - **Clientes atendidas:** clientes distintas com ao menos um atendimento REALIZADO, **só a partir
+    de 50** (`MIN_CLIENTES`) e arredondadas **para baixo** — dezenas até 999, centenas dali em diante
+    ("127" vira "120+", "1.234" vira "1.200+": o "+" nunca promete mais do que houve).
+  - **Tratamentos:** os procedimentos que o agendamento online oferece hoje (ativos com profissional
+    ativa habilitada — `procedimentos_agendaveis`), no total e por categoria.
+  - **Anos de experiência:** regra operacional `anos_experiencia` (Painel > Regras operacionais
+    "Anos de experiência (site)": inteiro **opcional** de **1 a 60**, padrão **em branco**; salvar
+    vazio ou "Restaurar padrão" volta ao branco, e um valor recusado gravado por fora da tela vale
+    como em branco). Em branco, o site não mostra o número (o "Sobre" diz só "em estética facial e
+    corporal").
+  - Uma conta a cada **10 minutos** (cache; 4 consultas agregadas, nenhuma por item), não a cada
+    visita; mudar qualquer `Configuracao` zera o cache na hora. Nota e clientes novas aparecem em até
+    10 minutos.
 
 ---
 
@@ -697,6 +719,9 @@ enviado. A agenda da profissional vai para o calendário dela só pelo feed ICS 
 | Detrator | nota ≤ 6 | `services/nps.NOTA_MAXIMA_DETRATOR` (job `detrator_alerta`) |
 | Lembrete D-1 | 08:00 e 18:00 (WhatsApp ou e-mail) | `jobs.JOB_AGENDA`, `services/lembretes` |
 | Depoimento | nota ≥ 9 + opt-in + aprovação | `views/publico/site.depoimentos` |
+| Números do site: nota média / clientes atendidas | 10+ respostas do NPS / a partir de 50, arredondado para baixo | `services/prova_social` (`MIN_AVALIACOES`, `MIN_CLIENTES`) |
+| Números do site: anos de experiência | 1 a 60, opcional (em branco = não aparece) | regra operacional `anos_experiencia` (`models/configuracao.CHAVES`) |
+| Números do site: atualização | a cada 10 min (cache zerado quando `Configuracao` muda) | `services/prova_social.CACHE_TTL`, `signals.py` |
 | Link de ficha/pesquisa | 60 dias | `views/publico/formularios` |
 | Link do termo | até o fim do atendimento | `services/termos.aceita_assinatura` |
 | Retenção: OTP / notificação / auditoria / axes | 24 h / 12 meses / 5 anos / 90 dias | env `RETENCAO_*` |
@@ -710,4 +735,5 @@ _Última atualização: 2026-10-29 — conferido no código até a migration 007
 cadastros (papéis, lembrete por e-mail, sem desfecho, NPS, promoção, "PARAR", ficha em 3 escopos,
 acesso da cliente só pelo portal), LGPD e área da cliente (política como fonte única,
 pseudonimização, saúde revogável e expurgo aos 20 anos, cancelamento tardio, lista de espera sem
-cadastro) e a agenda do painel (agendamento pela recepção, seletor de status, lote item a item)._
+cadastro), a agenda do painel (agendamento pela recepção, seletor de status, lote item a item) e
+os números do site com dado real (§18, regra `anos_experiencia`)._

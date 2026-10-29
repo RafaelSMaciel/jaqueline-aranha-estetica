@@ -76,16 +76,22 @@ avaliado e **removido** (nenhum `hx-*` no projeto e injetava `<style>` sem nonce
 jQuery, AOS, Swiper, FontAwesome/Bootstrap Icons: fora. Ícones SVG inline.
 
 - Site público 100% em `estrutura/base_v2.html`; painel 100% em `painel/base_v2.html`
-  (app-shell com drawer Alpine, manifest próprio, busca instantânea).
-- Componentes cotton atuais: `<c-botao>`, `<c-card>`, `<c-campo>` (atributo `class` mesclado via
-  `c-vars`) + chrome (`cabecalho`, `rodape`, `mensagens`, `cookie_consent`). `<c-badge>`,
-  `<c-toast>` e `<c-modal>` saíram — status usa `partials/_status_badge.html`, modais usam
-  `x-data="modal"`, mensagens usam `cotton/chrome/mensagens.html`.
-- CSP estrita: sem `unsafe-inline` em `script-src`/`style-src` e sem handlers inline (sem
-  `script-src-attr`). Resta `style-src-attr 'unsafe-inline'` (~160 atributos `style=""` fora dos
-  e-mails, onde a CSP não se aplica).
+  (app-shell com drawer Alpine no cromo escuro quente da marca, manifest próprio, busca instantânea
+  com Ctrl+K); portal da profissional em `profissional/base.html`, no mesmo design system.
+- **Design system das telas da equipe** (painel e portal, D50): `static/src/css/componentes.css`
+  em `@layer components` + componentes cotton `<c-botao>`, `<c-campo>`, `<c-card>`, `<c-selo>`,
+  `<c-nota>`, `<c-kpi>`, `<c-vazio>`, `<c-icone>`, `<c-menu-acoes>`, `<c-dialogo>`, `<c-tabela>` e
+  `<c-abas>` (atributo `class` mesclado via `c-vars`), com o comportamento no `painel.js` (vanilla).
+  O site tem o chrome (`cabecalho`, `rodape`, `mensagens`, `cookie_consent`), `<c-cta-agendar>` e
+  `<c-servico.*>`, e o CSS das páginas no `site.css`. `<c-badge>`, `<c-toast>` e `<c-modal>`
+  saíram — status usa `partials/_status_badge.html`, mensagens usam `cotton/chrome/mensagens.html`.
+- CSP estrita: sem `unsafe-inline` em `script-src`/`style-src`, sem handlers inline (sem
+  `script-src-attr`) e sem CDN (FullCalendar e Chart.js vêm do npm no bundle). Resta
+  `style-src-attr 'unsafe-inline'` só para o que não tem bundle nem nonce: o widget
+  `agendamento/embed.html`, as páginas de erro autossuficientes (400/403_csrf/500), a página
+  offline do `sw.js` e os e-mails (onde a CSP não se aplica) — painel, portal e site estão sem `style=""`.
 - Páginas de erro próprias (400/403/403_csrf/404/429/500), página pt-BR do bloqueio do axes.
-- Service worker v9: cacheia só páginas públicas e estáticos. Rodapé com coluna "Para você".
+- Service worker v10 (`/duvidas/` entrou na lista): cacheia só páginas públicas e estáticos. Rodapé com coluna "Para você".
   O portal da profissional tem casca própria (`profissional/base.html`: sem rodapé, CTA, WhatsApp,
   SEO nem aviso de cookies); o menu do painel é uma lista só (`painel_tags.MENU_PAINEL`).
 - E-mails: 10 templates sobre `email/base_email.html` (email-safe, dark mode), sem cupom/desconto
@@ -154,7 +160,7 @@ cards e dias são `<button>` (teclado) e o estado sobrevive a recusa do servidor
 | D36 | **Contrato JSON único** (`utils/respostas`): `{"ok": true, ...}` ou `{"ok": false, "codigo", "mensagem"}`; o front decide pelo `codigo` | Cada view respondia num formato; o texto da mensagem não é contrato |
 | D37 | **Logs redigidos e imagem endurecida**: filtro `RedigirLog` (token de link, DETAIL do Postgres, e-mail, CPF, telefone) no log da aplicação; imagem sem `curl`, usuário sem shell, código do root só leitura, testes e scripts fora | O `django.request` levava `/confirmar/<token>/` para o log do Railway em todo 4xx/5xx; um RCE não reescreve código nem baixa ferramenta |
 | D38 | **Pedido online como caso de uso**: `services/agendamento_online.solicitar(PedidoAgendamento)` tem a regra inteira (termo LGPD, horário, fichas válidas por 12 meses, termos, cadastro da titular do celular, teto, reserva, e-mails e provas); `forms/agendamento.AgendamentoPublicoForm` lê o POST e confere o OTP; a view só liga os dois. Recusa = `RegraDeNegocio` com código (`sem_termo_lgpd`, `ficha_invalida`, `consent_saude_ausente`, `termo_pendente`, `email_de_outro_cadastro`, `horario_em_confirmacao`, `bloqueado_online`, `limite_online`, `horario_ocupado`) | A view tinha complexidade ciclomática 71 (hoje 9) e a regra só era testável por HTTP; outra porta (painel, API) reusa o service |
-| D39 | **Regras operacionais em registro tipado** (`models/configuracao.CHAVES`: `email_admin` e `MAX_FALTAS_BLOQUEIO` 1–10), lidas por `Configuracao.ler`; a tela grava só essas chaves (sem chave livre) e a marca tem a tela Identidade visual | A chave-valor livre listava estado interno, aceitava chave inventada e um valor inválido caía no padrão em silêncio |
+| D39 | **Regras operacionais em registro tipado** (`models/configuracao.CHAVES`: `email_admin`, `MAX_FALTAS_BLOQUEIO` 1–10 e, com a D51, `anos_experiencia` 1–60 opcional), lidas por `Configuracao.ler`; a tela grava só essas chaves (sem chave livre) e a marca tem a tela Identidade visual | A chave-valor livre listava estado interno, aceitava chave inventada e um valor inválido caía no padrão em silêncio |
 | D40 | **Desligamento revoga o feed ICS**: desativar a profissional, o login dela ou trocar o vínculo do login revoga o link na hora (auditado); reativar exige link novo | O calendário de quem saiu continuaria recebendo nome de cliente (o feed é um operador fora da clínica) |
 | D41 | **Política de Privacidade como fonte única** (`conteudo/lgpd.py`): o mesmo texto é o termo LGPD aceito no wizard (0045/0078 e `seed`), a página `/politica-de-privacidade/` (renderiza a versão LGPD **vigente**) e a declaração do "baixar meus dados" (finalidades, bases, operadores, prazos). Os prazos LGPD ficam fixos em `settings.RETENCAO_*`, sem env, e o check `aranha.W016` compara com o texto da versão vigente. Revisão jurídica da dona antes do go-live | A página e o termo eram dois textos que divergiam, e o prazo que a procedure aplicava podia não ser o que a cliente leu; a prova do aceite (SHA-256) agora cobre exatamente o que a página mostra |
 | D42 | **Retenção por janela e pseudonimização completa** (0077): o registro de saúde é expurgado 20 anos depois do último evento de saúde (etapa `saude` do `sp_purgar_dados_expirados`), o pacote retém a cliente 5 anos depois de expirar/cancelar, e a pseudonimização tira também o código de indicação, quem indicou, IP/user-agent do aceite LGPD e a inscrição anônima da lista de espera. Os triggers só aceitam o expurgo com a flag local **e** 20 anos de idade | Quem tinha ficha ou pacote ficava identificada para sempre (contra os arts. 15/16 e a política); o mínimo legal do registro de saúde fica garantido pelo banco mesmo com um prazo errado no settings. É pseudonimização (art. 13 §4), não anonimização: a saúde e os contratos seguem ligados ao id |
@@ -165,6 +171,8 @@ cards e dias são `<button>` (teclado) e o estado sobrevive a recusa do servidor
 | D47 | **Agenda do painel por casos de uso**: `agenda.agendar_pela_recepcao` (cliente nova na mesma transação, preço do dia ou combinado, AGENDADO, e-mail de confirmação), `atendimento.marcar_realizado` (a regra do termo igual no painel e no portal, `TermoPendente`), `atendimento.registrar_valor_cobrado` e `AgendamentoService.decidir_em_lote` (item a item, cada um na sua transação); a entrada é Django Form (`forms/agenda`) e a view só traduz HTTP | A view do novo agendamento tinha 191 linhas (hoje 43; complexidade do mccabe 27 → 7) e o lote numa transação só desfazia tudo por um item decidido em outra tela |
 | D48 | **Seletor de status só com o que há para decidir**: sem PENDENTE (decide nos botões, pelo `AgendamentoService`) nem status final; Realizado/Faltou só a partir do início (a FSM recusa com `desfecho_antes_do_inicio`, 409). O JS da agenda e do calendário são entradas do Vite (`painel-status`, `painel-calendario`, `lib/requisicao.js`) no contrato `utils/respostas`; as ações da agenda (status, valor, desfazer realização, aprovar/recusar/lote, mover, exceções e bloqueios) usam `@escrita_painel` (POST + 30/min por usuário) | Um clique na agenda da semana seguinte gerava comissão, debitava pacote e contava falta; o mesmo JS existia em duas cópias inline |
 | D49 | **Leitura de alerta de saúde auditada**: toda tela que mostra alerta (agenda e visão geral do painel, ficha da cliente, lista de prontuários, agenda do portal da profissional) grava "Leu alertas de saúde" (tabela `prontuario`, `{clientes, tela}`, sem nome) | O RIPD promete que cada leitura de dado de saúde vai para a trilha (art. 37); o alerta na lista também é leitura |
+| D50 | **Design system das telas da equipe** (painel e portal da profissional): classes de componente em `static/src/css/componentes.css` na camada `@layer components` (o utilitário do template sempre vence, sem `!important`), emitidas por componentes cotton (`<c-botao>`, `<c-campo>`, `<c-card>`, `<c-selo>`, `<c-nota>`, `<c-kpi>`, `<c-vazio>`, `<c-icone>`, `<c-menu-acoes>`, `<c-dialogo>`, `<c-tabela>`, `<c-abas>`); abas WAI-ARIA, menu "⋯", modais, Ctrl+K e foco da tabela que rola num `painel.js` **vanilla** por delegação, não em Alpine; lib de terceiro só pelo npm no bundle do Vite (FullCalendar 6.1.21, Chart.js 4.5.1 — nenhum CDN na CSP); o ARIA de grade do FullCalendar achatado para `presentation`; caixa de frase, texto base 15px, rótulo 13px e nada abaixo de 12px, sem `style=""`; toda rota pública, da equipe e da profissional varrida no CI (1366px claro e 390px escuro) com axe-core serious/critical | As telas repetiam classe utilitária longa e ~160 `style=""`, com cor fixa de tema claro que o escuro não alcançava, e cada uma resolvia modal e menu do seu jeito: o componente é um ponto de mudança só, com o padrão acessível embutido. Sem JS as abas são âncoras para seções visíveis e o "⋯" é `<details>` nativo; com Alpine cada instância pediria `x-data` e nada funcionaria antes do JS. O jsDelivr serviria qualquer pacote npm com o nonce da página. O FullCalendar 6 desenha um `role="grid"` de layout sem linhas (axe `aria-required-children`/`aria-required-parent`): como tabela de layout, a informação segue no texto. A varredura pega erro de JS/CSP, rolagem lateral no celular e regressão de acessibilidade que só apareceriam olhando tela por tela |
+| D51 | **Prova social só com dado real** (`services/prova_social`): nota = média do NPS ÷ 2 (escala de 5), só com **10+ respostas**, e as estrelas desenhadas em meias, sem arredondar 4,7 para 5; clientes atendidas = clientes distintas com atendimento REALIZADO, só a partir de **50** e arredondadas **para baixo** ("127" vira "120+", "1.234" vira "1.200+"); tratamentos = procedimentos agendáveis online (no total e por categoria); anos de experiência = regra operacional `anos_experiencia` (1–60, opcional; em branco não aparece). O que não atinge o mínimo some do template. Uma conta a cada 10 min (cache), zerada quando `Configuracao` muda. A "decisão do dono: manter" o selo fixo "5.0/5 · 32 avaliações" (e os "5+ / 500+ / 20+") foi revertida a pedido do dono ao aplicar a revisão do front | Número sem lastro no site de uma clínica de estética é promessa que a cliente não tem como conferir (e o selo fixo nunca mudava); com 3 notas 10 a média "5,0" diz mais sobre o acaso que sobre a clínica, e o "+" nunca promete mais do que houve. O cache evita 4 agregações a cada visita da home |
 
 ---
 
@@ -277,7 +285,18 @@ verde em SQLite e Postgres).
       titular (LGPD, com saúde)" no Django admin (uma por vez, JSON, na trilha).
 - [x] ~~"Leu alertas de saúde" só no painel~~ resolvido: também na agenda do portal da profissional,
       na lista de prontuários e na ficha da cliente.
-- [ ] `style-src-attr 'unsafe-inline'`: migrar ~160 atributos `style=""` (fora dos e-mails) para classes
+- [x] ~~`style-src-attr 'unsafe-inline'`: migrar ~160 atributos `style=""` (fora dos e-mails) para
+      classes~~ resolvido (2026-10-29, D50): painel, portal e site sem `style=""` (guarda
+      `test_a11y_front.SitePublicoSemEstiloInlineTests` no site). A diretiva fica por design: o
+      widget `embed.html` (sem bundle), as páginas de erro 400/403_csrf/500 (renderizadas sem
+      contexto, sem nonce), a página offline do `sw.js` e os e-mails ainda usam `style=""`.
+- [x] ~~Libs do painel no jsDelivr (FullCalendar 6.1.11, Chart.js 4.4.0, com SRI) e a grade do
+      FullCalendar reprovada no axe~~ resolvido (2026-10-29, D50): FullCalendar 6.1.21 e Chart.js 4.5.1
+      do npm no bundle do Vite, jsDelivr fora da CSP; ARIA de grade achatado no `painel-calendario.js`;
+      varredura visual com axe-core no CI (`tests/test_crawl_visual.py`).
+- [ ] Tirar o jsDelivr da lista de operadores da política (`conteudo/lgpd.OPERADORES`, cobrado em
+      `tests/test_politica_dsar.py`) e da tabela de [`LGPD.md`](LGPD.md) §3: desde a D50 nenhuma
+      página carrega nada dele. Junto com a revisão jurídica da política (item da operação, acima)
 - [ ] Registry de regras (spec 5.1) e sessão única de cliente verificado (5.3) — ver
       [`specs/regras-negocio-registry.md`](specs/regras-negocio-registry.md)
 - [ ] Decidido não fazer (por ora): UNIQUE de regra de comissão ativa (quebraria o desempate por
@@ -300,4 +319,5 @@ verde em SQLite e Postgres).
 ---
 
 _Última atualização: 2026-10-29 — decisões D26–D49 dos pacotes de revisão (0062–0078: pedido online,
-cadastros, LGPD e área da cliente, agenda do painel) e pendências da seção 6.2 conferidas no código._
+cadastros, LGPD e área da cliente, agenda do painel), D50–D51 dos pacotes de front (design system das
+telas da equipe; site com números reais) e pendências da seção 6.2 conferidas no código._

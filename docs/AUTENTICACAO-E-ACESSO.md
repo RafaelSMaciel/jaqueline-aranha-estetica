@@ -198,7 +198,8 @@ atendimento + sessão do OTP, só agendamentos do telefone verificado). O link l
 - HTTPS obrigatório em produção (`SECURE_SSL_REDIRECT`, exceto healthchecks), HSTS 1 ano com
   subdomínios e preload, proxy SSL header do Railway.
 - CSP com nonce por request, sem `unsafe-inline` em scripts/estilos e sem handlers inline;
-  jsdelivr só nos caminhos das libs usadas; `frame-ancestors 'none'` (exceto `/embed/agendar/`,
+  nenhum CDN (FullCalendar e Chart.js vêm do npm no bundle do Vite; o único host externo de script
+  é o Turnstile); `frame-ancestors 'none'` (exceto `/embed/agendar/`,
   que usa `EMBED_FRAME_ANCESTORS`).
 - `X-Frame-Options: DENY`, `nosniff`, COOP/CORP `same-origin`, Permissions-Policy restritiva,
   `Referrer-Policy: strict-origin-when-cross-origin` (e `no-referrer` nas rotas com token).
@@ -237,4 +238,4 @@ portal para o wizard e "lembrar este aparelho".
 _Última atualização: 2026-10-29 — papéis só ADMIN/PROFISSIONAL, vínculo da ficha em
 `services/prontuario`, axes por IP, 2FA falhando fechado, sem o link legado de reagendar; sessão
 do portal aberta no fim do wizard, logout da cliente por POST, latência mínima anti-enumeração e
-export do site sem a ficha de saúde._
+export do site sem a ficha de saúde; CSP sem CDN (libs do painel no bundle do Vite)._
