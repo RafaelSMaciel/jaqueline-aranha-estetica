@@ -21,22 +21,34 @@ dado de saúde pesa contra a dispensa e nomear não custa nada: a recomendação
 
 | # | Operação | Dados | Titulares | Base legal | Onde fica | Retenção |
 |---|---|---|---|---|---|---|
-| 1 | Agendar, confirmar, lembrar e realizar o atendimento | nome, celular, e-mail e nascimento (opcionais), procedimento, profissional, horário, faltas | clientes | execução de contrato (art. 7º V) | `cliente`, `atendimento`, `notificacao` | cadastro: anonimizado após 5 anos sem atendimento; texto das mensagens: 12 meses |
+| 1 | Agendar, confirmar, lembrar e realizar o atendimento (o lembrete D-1 vai por e-mail a quem não autorizou o WhatsApp: aviso do serviço contratado) | nome, celular; nascimento (exigido no agendamento online), e-mail, CPF, CEP e endereço opcionais (CPF, CEP e endereço só para nota fiscal e contrato de pacote; RG, profissão e foto **não são coletados**); procedimento, profissional, horário, faltas | clientes | execução de contrato (art. 7º V) | `cliente`, `atendimento`, `notificacao` | cadastro: anonimizado após 5 anos sem atendimento; texto das mensagens: 12 meses |
 | 2 | Confirmar a identidade no agendamento e no "Meus dados" | celular, código OTP (só o HMAC), IP | clientes | execução de contrato / legítimo interesse (segurança) | `codigo_otp` | 24 h |
 | 3 | Ficha de avaliação (anamnese), prontuário, anotações dos atendimentos | **dado de saúde** (alergias, contraindicações, histórico, medicamentos, respostas) | clientes | art. 11 I (consentimento específico, com prova em `aceite_termo`) e II "f" (tutela da saúde) | `prontuario`, `prontuario_versao`, `anotacao_sessao`, `resposta_formulario` — **cifrados** | 20 anos (registro de saúde); ficha de pedido não realizado: 90 dias |
-| 4 | Provas de aceite de termos e de consentimento | versão do termo, data, IP, user-agent, canal | clientes | obrigação legal e exercício de direitos (art. 7º II e VI) | `aceite_termo`, `consentimento` | 20 anos (aceite); consentimento: histórico append-only, IP e user-agent apagados no esquecimento |
+| 4 | Provas de aceite de termos e de consentimento (inclusive a revogação pelo "PARAR" no WhatsApp, origem WHATSAPP) | versão do termo, data, IP, user-agent, canal, origem | clientes | obrigação legal e exercício de direitos (art. 7º II e VI) | `aceite_termo`, `consentimento` | 20 anos (aceite); consentimento: histórico append-only, IP e user-agent apagados no esquecimento |
 | 5 | Pesquisa de satisfação e depoimento no site | nota, comentário, autorização de publicação | clientes | legítimo interesse (nota); consentimento (publicação) | `avaliacao_nps` | comentário apagado no esquecimento |
 | 6 | Promoções e aniversário por e-mail | nome, e-mail | clientes com consentimento | consentimento (art. 7º I) | `consentimento` + envio | até revogar (link de descadastro) |
 | 7 | Lista de espera e contato | nome, contato, mensagem | visitantes/clientes | legítimo interesse / procedimentos preliminares | `lista_espera`, e-mail da clínica | até a data desejada passar |
 | 8 | Contas da equipe, 2FA, trilha de auditoria | nome, e-mail, papel, ações, IP | equipe | execução de contrato / obrigação legal | `usuario`, dispositivos OTP, `log_auditoria`, `historico_alteracao` | trilha: 5 anos (mínimo do banco: 180 dias); prontuário na trilha: 20 anos |
-| 9 | Segurança do site | IP, data e hora, tentativas de login | visitantes/equipe | legítimo interesse (art. 7º IX) | django-axes, logs da aplicação | até 6 meses |
-| 10 | Comissões e financeiro | valores por atendimento e profissional; crédito de indicação | profissionais e clientes | execução de contrato | `movimento_comissao`, `carteira`, `movimento_carteira` | livro-razão append-only |
+| 9 | Segurança do site | IP, data e hora, tentativas de login (e-mail mascarado no log) | visitantes/equipe | legítimo interesse (art. 7º IX) | django-axes, logs da aplicação (token de link, e-mail, CPF e telefone redigidos) | até 6 meses |
+| 10 | Comissões e financeiro | valores por atendimento e profissional; crédito de indicação | profissionais e clientes | execução de contrato | `movimento_comissao`, `carteira`, `movimento_carteira` | livro-razão append-only. O Excel gerencial do mês tem nomes de cliente: a exportação vai para a `log_auditoria` com o mês (`{'mes': ...}`). O recibo do repasse e o "Minhas comissões" da profissional não mostram nome de cliente |
 | 11 | Pacotes de sessões | pacote comprado (nome e valores congelados na venda), sessões feitas | clientes | execução de contrato | `compra_pacote`, `compra_pacote_item`, `consumo_sessao` | enquanto houver o cadastro; quem comprou pacote nos últimos 20 anos não é anonimizado pela retenção |
-| 12 | Links das mensagens (confirmar, avaliar, assinar termo, reagendar) | só o hash do token + vínculo ao atendimento | clientes | execução de contrato | `link_acesso` | revogados no esquecimento; vencido ou revogado: apagado após 90 dias |
+| 12 | Links das mensagens (confirmar presença, avaliar, assinar termo, responder a ficha, descadastrar) e o feed ICS da profissional | só o hash do token + vínculo à mensagem, ficha, cliente ou profissional | clientes | execução de contrato | `link_acesso` | revogados no esquecimento; vencido ou revogado: apagado após 90 dias |
 
 O inventário coluna a coluna (o que o esquecimento anonimiza, apaga, purga por idade ou retém por
 obrigação legal) fica em `aranha_estetica/inventario_lgpd.py`; o teste `test_inventario_lgpd`
-reprova coluna nova com dado pessoal sem tratamento e tratamento que a procedure não faz.
+reprova coluna nova com dado pessoal sem tratamento e tratamento que a procedure não faz. Tabelas
+sem dado pessoal (catálogo, configuração e `execucao_job`, a trava diária dos jobs de mensagem)
+são classe SISTEMA no inventário e ficam fora deste registro.
+
+**Revogação pelo WhatsApp.** A cliente que responde "PARAR" (ou "sair", "stop", "cancelar
+mensagens", "descadastrar" — a mensagem inteira) tem o lembrete e a pesquisa por WhatsApp
+revogados na hora (linha nova em `consentimento`, origem WHATSAPP; art. 8º §5: revogar tão fácil
+quanto consentir). A confirmação é uma resposta em texto livre, que a Meta só aceita dentro da
+janela de 24 h aberta pela própria mensagem da cliente, e diz como voltar a receber.
+
+**Cookies.** O site só usa cookies essenciais (sessão, segurança/CSRF, tema). O aviso é
+informativo: "Entendi" grava `cookie_consent=essenciais` no próprio navegador e nada é registrado
+no servidor — não há cookie de análise nem de terceiro a consentir.
 
 ## 3. Operadores e transferência internacional
 
@@ -44,12 +56,12 @@ reprova coluna nova com dado pessoal sem tratamento e tratamento que a procedure
 |---|---|---|---|---|
 | Railway | hospedagem do site e do Postgres | todos (o dado de saúde chega cifrado ao banco) | sim (EUA/Europa, conforme a região) | ☐ conferir DPA e região |
 | Zenvia | SMS com o código | celular, texto do SMS | não | ☐ contrato |
-| Meta (WhatsApp Business) | confirmação, lembrete, NPS, aviso de vaga | celular, nome, dados do horário | sim | ☐ termos de processamento da Meta |
+| Meta (WhatsApp Business) | lembrete D-1 com confirmação, NPS, aviso de vaga e as respostas da cliente (nota, "PARAR") | celular, nome, dados do horário | sim | ☐ termos de processamento da Meta |
 | Provedor de e-mail (Resend, Brevo… o que for configurado) | e-mails transacionais e de marketing | e-mail, nome, conteúdo da mensagem | depende do provedor | ☐ DPA |
 | Cloudflare (Turnstile) | verificação contra robôs no pedido do código | IP, dados técnicos do navegador | sim | ☐ DPA |
 | Sentry (se ligado) | erros do site | eventos sem contato nem saúde (filtrados em `utils/pii.opcoes_sentry`) | sim | ☐ DPA, região de dados |
-| Google (mapa; Calendar se a profissional conectar) | mapa do endereço (embutido na página de contato); agenda da profissional | IP de quem abre a página de contato; no Calendar, horário, procedimento e nome | sim | ☐ termos do Google Workspace/Calendar |
-| Apple/Microsoft/Google (feed ICS do calendário) | agenda da profissional | horário, procedimento, nome | sim | assinatura feita pela profissional |
+| Google (só o mapa) | mapa do endereço (embutido na página de contato) | IP e dados técnicos do navegador de quem abre a página de contato | sim | ☐ termos do Google Maps |
+| Apple/Microsoft/Google (feed ICS do calendário) | agenda da profissional — o único caminho da agenda para fora do sistema (sem integração por OAuth) | horário, procedimento e o nome público da cliente (primeiro nome + inicial) | sim | assinatura feita pela profissional |
 | Provedor do backup (bucket) | cópia do banco | dump **cifrado com age** (sem a chave privada não abre) | depende | ☐ escolher e registrar |
 
 Transferência internacional (art. 33): para cada operador fora do Brasil ☐ confirmar que o contrato
