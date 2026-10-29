@@ -5,7 +5,7 @@ from django.db.models.functions import Now
 
 from ..db.indices import Indice
 from ..utils.datas import fmt_local
-from .agendamentos import Atendimento
+from .agendamentos import Atendimento, StatusAtendimento
 from .mixins import atualizado_em_legado
 
 
@@ -119,3 +119,16 @@ class Notificacao(models.Model):
             else 's/ cliente'
         )
         return f'{self.get_tipo_display()} — {cliente_nome} ({data_fmt})'
+
+
+# Notificacoes que pedem resposta pelo link /confirmar/ (LinkAcesso CONFIRMAR_PRESENCA, emitido no
+# lembrete por WhatsApp). Link de termo e de NPS nao valem la (finalidade diferente -> 404).
+TIPOS_LINK_CONFIRMACAO = (TipoNotificacao.LEMBRETE, TipoNotificacao.CONFIRMACAO)
+# Pelo link a cliente so mexe em agendamento ja aprovado (PENDENTE segue p/ a profissional).
+STATUS_ALTERAVEIS_PELO_LINK = (StatusAtendimento.AGENDADO, StatusAtendimento.CONFIRMADO)
+# "Sem resposta" so vale p/ o que pede resposta (link de confirmacao enviado): termo, NPS,
+# cancelamento e falha de envio nao contam.
+AGUARDANDO_RESPOSTA = models.Q(
+    tipo__in=TIPOS_LINK_CONFIRMACAO, canal=CanalNotificacao.WHATSAPP, status=StatusNotificacao.ENVIADO,
+    resposta__isnull=True,
+)

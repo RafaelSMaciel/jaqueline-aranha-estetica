@@ -1,7 +1,4 @@
-"""
-Views de notificacao — confirmacao/cancelamento via link (lembrete WhatsApp)
-e historico no painel.
-"""
+"""Historico de notificacoes no painel (envios, falhas e respostas pelo link de confirmacao)."""
 import logging
 
 from django.core.paginator import Paginator
@@ -10,20 +7,9 @@ from django.shortcuts import render
 
 from ...decorators import staff_required
 from ...models import Notificacao
-from ...models.agendamentos import StatusAtendimento
+from ...models.notificacoes import AGUARDANDO_RESPOSTA
 
 logger = logging.getLogger(__name__)
-
-# Notificacoes que pedem resposta pelo link /confirmar/ (LinkAcesso
-# CONFIRMAR_PRESENCA, emitido no lembrete WhatsApp). Link de termo e NPS NAO
-# valem aqui (finalidade diferente -> 404).
-TIPOS_LINK_CONFIRMACAO = ('LEMBRETE', 'CONFIRMACAO')
-STATUS_ALTERAVEIS_PELO_LINK = (StatusAtendimento.AGENDADO, StatusAtendimento.CONFIRMADO)
-# "Sem resposta" so faz sentido p/ o que pede resposta (link de confirmacao
-# enviado): termo, NPS, cancelamento e falhas de envio nao contam.
-AGUARDA_RESPOSTA = Q(
-    tipo__in=TIPOS_LINK_CONFIRMACAO, canal=Notificacao.Canal.WHATSAPP, status=Notificacao.Status.ENVIADO, resposta__isnull=True,
-)
 
 
 @staff_required
@@ -43,16 +29,16 @@ def painel_notificacoes(request):
         if status_filter == 'respondido':
             notifs = notifs.exclude(resposta__isnull=True).exclude(resposta='')
         elif status_filter == 'pendente':
-            notifs = notifs.filter(AGUARDA_RESPOSTA)
+            notifs = notifs.filter(AGUARDANDO_RESPOSTA)
 
     # Stats — agregacao condicional unica.
     stats = notifs.aggregate(
         total=Count('id'),
         enviadas=Count('id', filter=Q(status=Notificacao.Status.ENVIADO)),
         falhas=Count('id', filter=Q(status=Notificacao.Status.FALHOU)),
-        confirmados=Count('id', filter=Q(resposta='CONFIRMOU')),
-        cancelados=Count('id', filter=Q(resposta='CANCELOU')),
-        sem_resposta=Count('id', filter=AGUARDA_RESPOSTA),
+        confirmados=Count('id', filter=Q(resposta=Notificacao.Resposta.CONFIRMOU)),
+        cancelados=Count('id', filter=Q(resposta=Notificacao.Resposta.CANCELOU)),
+        sem_resposta=Count('id', filter=AGUARDANDO_RESPOSTA),
     )
 
     paginator = Paginator(notifs, 50)
