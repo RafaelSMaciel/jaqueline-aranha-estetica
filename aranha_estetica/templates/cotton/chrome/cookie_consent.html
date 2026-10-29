@@ -1,5 +1,5 @@
-{# Aviso informativo: o site so usa cookies essenciais. "Entendi" grava cookie_consent=essenciais
-   (1 ano) no proprio navegador (app.js/cookieConsent) — nada vai ao servidor, nenhuma sessao e aberta #}
+{% comment %}Aviso informativo: o site so usa cookies essenciais. "Entendi" grava cookie_consent=essenciais
+(1 ano) no proprio navegador (app.js/cookieConsent) — nada vai ao servidor, nenhuma sessao e aberta.{% endcomment %}
 {% if not request.COOKIES.cookie_consent %}
 <div x-data="cookieConsent"
      class="fixed inset-x-0 bottom-0 z-50 px-4 pb-4"

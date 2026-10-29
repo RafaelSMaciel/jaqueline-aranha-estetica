@@ -40,8 +40,8 @@
       {% if forloop.first %}checked{% endif %}>
     {% endfor %}
 
-    {# — Barra de tabs — (radios + label: o teclado usa as setas do grupo de radios; sem role=tab,
-       que pedia um label focavel com aria-selected) #}
+    {% comment %}Barra de tabs (radios + label: o teclado usa as setas do grupo de radios; sem role=tab,
+       que pedia um label focavel com aria-selected){% endcomment %}
     <div class="flex flex-wrap gap-2 mb-10 border-b border-borda pb-2">
       {% for grupo in grupos %}
       <label
