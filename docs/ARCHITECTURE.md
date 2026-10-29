@@ -29,7 +29,7 @@ Um único design system (tokens Tailwind v4) → duas "peles": site editorial e 
 
 ## 2. Banco de dados — CONCLUÍDO (remodelagem v2.1 + auditoria pré-produção + padrão SQL)
 
-Migrations `0027`–`0074` (não há produção: o go-live cria o banco novo e aplica `0001`→`0074` de
+Migrations `0027`–`0078` (não há produção: o go-live cria o banco novo e aplica `0001`→`0078` de
 uma vez; o banco de desenvolvimento antigo está na `0026` — runbook em
 [`PROJECT.md` §14](PROJECT.md#14-go-live--operação-runbook)). Da `0048` em diante:
 padrão SQL, reestruturações e lógica no banco em [`specs/padrao-sql.md`](specs/padrao-sql.md)
@@ -65,6 +65,7 @@ padrão SQL, reestruturações e lógica no banco em [`specs/padrao-sql.md`](spe
 | L1–L3 | Lógica no banco: trilha `historico_alteracao` + triggers, funções de leitura e views com paridade, procedures como fonte única | ✅ 0056–0058 |
 | — | Trilhas append-only, cifragem do dado de saúde, fila de e-mail na `notificacao` | ✅ 0059–0061 |
 | — | Revisão funcional: habilitação obrigatória, crédito de comissão ativo único, competência mensal, snapshot e regras de comissão, origens da carteira (0062–0067); disparo de promoção, origem WHATSAPP, `execucao_job` (0068–0070); remoções — Google Agenda, RECEPCAO e link legado, modalidade e notificações sem produtor, RG/profissão/foto (0071–0074) | ✅ 0062–0074 |
+| — | LGPD e área da cliente: origem PORTAL e consentimento de saúde revogável (0075), lista de espera sem cadastro (0076), retenção de saúde (expurgo aos 20 anos) e de pacote (5 anos) com pseudonimização completa (0077), política v1.0 completa como termo LGPD (0078) | ✅ 0075–0078 |
 
 ---
 
@@ -155,6 +156,15 @@ cards e dias são `<button>` (teclado) e o estado sobrevive a recusa do servidor
 | D38 | **Pedido online como caso de uso**: `services/agendamento_online.solicitar(PedidoAgendamento)` tem a regra inteira (termo LGPD, horário, fichas válidas por 12 meses, termos, cadastro da titular do celular, teto, reserva, e-mails e provas); `forms/agendamento.AgendamentoPublicoForm` lê o POST e confere o OTP; a view só liga os dois. Recusa = `RegraDeNegocio` com código (`sem_termo_lgpd`, `ficha_invalida`, `consent_saude_ausente`, `termo_pendente`, `email_de_outro_cadastro`, `horario_em_confirmacao`, `bloqueado_online`, `limite_online`, `horario_ocupado`) | A view tinha complexidade ciclomática 71 (hoje 9) e a regra só era testável por HTTP; outra porta (painel, API) reusa o service |
 | D39 | **Regras operacionais em registro tipado** (`models/configuracao.CHAVES`: `email_admin` e `MAX_FALTAS_BLOQUEIO` 1–10), lidas por `Configuracao.ler`; a tela grava só essas chaves (sem chave livre) e a marca tem a tela Identidade visual | A chave-valor livre listava estado interno, aceitava chave inventada e um valor inválido caía no padrão em silêncio |
 | D40 | **Desligamento revoga o feed ICS**: desativar a profissional, o login dela ou trocar o vínculo do login revoga o link na hora (auditado); reativar exige link novo | O calendário de quem saiu continuaria recebendo nome de cliente (o feed é um operador fora da clínica) |
+| D41 | **Política de Privacidade como fonte única** (`conteudo/lgpd.py`): o mesmo texto é o termo LGPD aceito no wizard (0045/0078 e `seed`), a página `/politica-de-privacidade/` (renderiza a versão LGPD **vigente**) e a declaração do "baixar meus dados" (finalidades, bases, operadores, prazos). Os prazos LGPD ficam fixos em `settings.RETENCAO_*`, sem env, e o check `aranha.W016` compara com o texto da versão vigente. Revisão jurídica da dona antes do go-live | A página e o termo eram dois textos que divergiam, e o prazo que a procedure aplicava podia não ser o que a cliente leu; a prova do aceite (SHA-256) agora cobre exatamente o que a página mostra |
+| D42 | **Retenção por janela e pseudonimização completa** (0077): o registro de saúde é expurgado 20 anos depois do último evento de saúde (etapa `saude` do `sp_purgar_dados_expirados`), o pacote retém a cliente 5 anos depois de expirar/cancelar, e a pseudonimização tira também o código de indicação, quem indicou, IP/user-agent do aceite LGPD e a inscrição anônima da lista de espera. Os triggers só aceitam o expurgo com a flag local **e** 20 anos de idade | Quem tinha ficha ou pacote ficava identificada para sempre (contra os arts. 15/16 e a política); o mínimo legal do registro de saúde fica garantido pelo banco mesmo com um prazo errado no settings. É pseudonimização (art. 13 §4), não anonimização: a saúde e os contratos seguem ligados ao id |
+| D43 | **Consentimento de saúde revogável** (art. 11 I, art. 8 §5): a concessão é o aceite SAÚDE e a revogação é `cliente.saude_revogada_em` (portal ou Django admin com motivo), fora da tabela `consentimento`; os alertas mostram a revogação e um aceite SAÚDE novo reativa | Com base só no consentimento, revogar tem de ser possível e tão fácil quanto dar; a ficha já feita fica pelo prazo de guarda (exercício de direitos) |
+| D44 | **Direitos pela área da cliente, sem a ficha de saúde no site**: "Meus agendamentos" concentra preferências (origem PORTAL), revogação de saúde, pedido de correção/exclusão (trilha com prazo de 15 dias + e-mail ao encarregado) e "baixar meus dados"; o export self-service (portal e `/lgpd/meus-dados/`) não leva saúde e, no portal, exige código de até 10 min; a sessão do portal abre no fim do wizard sem novo SMS | O celular é um fator só (SIM-swap): o dado sensível não sai pelo site. Um lugar para tudo o que a titular pede, sem e-mail solto nem segundo login |
+| D45 | **Cancelamento tardio conta falta**: a cliente sempre pode cancelar online antes do início (a vaga volta para a lista), mas com menos de 24 h de um horário aprovado soma 1 falta para o bloqueio online, sem virar FALTOU (`agenda.cancelar_pela_cliente`, portal e link); pedido PENDENTE não conta | Cancelar em cima da hora tem o mesmo efeito de faltar para a agenda; o aviso antes de confirmar e a política (art. 20) deixam a regra explícita |
+| D46 | **Lista de espera sem cadastro e formulários públicos com anti-abuso**: a inscrição é anônima (nome + celular) e só se liga à cliente — e só aceita e-mail — com o celular verificado por OTP; o aviso não tira da fila e agendar encerra a inscrição. Lista e contato com captcha, honeypot e limite por IP (contato: teto global diário); o contato não tem caixa de marketing e o mapa não carrega nada do Google | Um formulário sem login não pode criar nem alterar cadastro, nem prender um e-mail ao telefone de outra pessoa; a cota de e-mail é compartilhada com o reset de senha; opt-in de marketing só onde há prova |
+| D47 | **Agenda do painel por casos de uso**: `agenda.agendar_pela_recepcao` (cliente nova na mesma transação, preço do dia ou combinado, AGENDADO, e-mail de confirmação), `atendimento.marcar_realizado` (a regra do termo igual no painel e no portal, `TermoPendente`), `atendimento.registrar_valor_cobrado` e `AgendamentoService.decidir_em_lote` (item a item, cada um na sua transação); a entrada é Django Form (`forms/agenda`) e a view só traduz HTTP | A view do novo agendamento tinha 191 linhas (hoje 43; complexidade do mccabe 27 → 7) e o lote numa transação só desfazia tudo por um item decidido em outra tela |
+| D48 | **Seletor de status só com o que há para decidir**: sem PENDENTE (decide nos botões, pelo `AgendamentoService`) nem status final; Realizado/Faltou só a partir do início (a FSM recusa com `desfecho_antes_do_inicio`, 409). O JS da agenda e do calendário são entradas do Vite (`painel-status`, `painel-calendario`, `lib/requisicao.js`) no contrato `utils/respostas`; as ações da agenda (status, valor, desfazer realização, aprovar/recusar/lote, mover, exceções e bloqueios) usam `@escrita_painel` (POST + 30/min por usuário) | Um clique na agenda da semana seguinte gerava comissão, debitava pacote e contava falta; o mesmo JS existia em duas cópias inline |
+| D49 | **Leitura de alerta de saúde auditada**: a agenda e a visão geral do painel gravam "Leu alertas de saúde" (tabela `prontuario`, `{clientes, tela}`, sem nome) quando mostram alerta | O RIPD promete que cada leitura de dado de saúde vai para a trilha (art. 37); o alerta na lista também é leitura |
 
 ---
 
@@ -211,8 +221,12 @@ verde em SQLite e Postgres).
 ### 6.2 Pendências reais (verificadas no código em 2026-09-23)
 
 **Operação / go-live (fora do código)**
+- [ ] **Revisão jurídica da Política de Privacidade** (`aranha_estetica/conteudo/lgpd.py`: texto,
+      `TRATAMENTOS`, `OPERADORES`, `PRAZOS_RETENCAO`) pela dona, de preferência com um advogado,
+      **antes do primeiro deploy de produção** — a `0045` grava esse texto no banco novo e, depois do
+      1º aceite, mudar exige versão nova (runbook §14 a; [`LGPD.md`](LGPD.md))
 - [ ] Backup configurado antes do 1º cliente real (o go-live cria o banco novo; ensaio
-      0026→0074 só se o banco antigo for reaproveitado — runbook §14 a.1)
+      0026→0078 só se o banco antigo for reaproveitado — runbook §14 a.1)
 - [ ] Env no Railway (`DATABASE_URL` por referência, ADMIN_*, SITE_URL, ZENVIA_*, EMAIL_BACKEND +
       provedor, WHATSAPP_*, TURNSTILE_*, SENTRY_DSN, CLINIC_EMAIL; CRON_TOKEN só com o cron HTTP)
       e remover `STATIC_ROOT` e as legadas (`GOOGLE_OAUTH_*`, `AWS_*`)
@@ -221,9 +235,10 @@ verde em SQLite e Postgres).
 - [x] Merge `front-fundacao` → `main` (fast-forward) — 2026-09-23
 - [ ] Serviço Cron dos jobs (`railway.cron.json` + `rodar_jobs_devidos`, runbook §13.2) e o
       monitor (`CRON_MONITOR_URL`)
-- [ ] Pós-deploy: 2FA do ADMIN, apagar `ADMIN_PASSWORD`, `axes_reset`, Branding real, revisar
-      termo LGPD v1.0, mesclar duplicatas logadas pela 0034, `VALIDATE CONSTRAINT` dos CHECKs
-      `NOT VALID` da 0043
+- [ ] Pós-deploy: 2FA do ADMIN, apagar `ADMIN_PASSWORD`, `axes_reset`, Branding real (razão
+      social, CNPJ e encarregado aparecem na moldura da política), conferir que o termo LGPD v1.0
+      ativo é o texto revisado, mesclar duplicatas logadas pela 0034, `VALIDATE CONSTRAINT` dos
+      CHECKs `NOT VALID` da 0043
 
 **Produto / código**
 - [x] ~~**Fase 7** — agenda 3→2~~ feita como fase (a) do padrão SQL: agenda 4→2 (grade,
@@ -255,6 +270,15 @@ verde em SQLite e Postgres).
 - [ ] Baixa: docstring de `utils/dois_fatores.verificar_token` ainda descreve o `--force` antigo
       ("device novo ao lado do antigo"; hoje o `--force` apaga todos)
 - [ ] Baixa: `painel/termo_link.html` oferece `mailto:` para o e-mail do cadastro (não verificado)
+- [ ] Revogar o consentimento de saúde não invalida a ficha em dia: `services/anamnese.fichas_em_dia`
+      ignora `cliente.saude_revogada_em`, então o wizard não pede ficha nova dentro dos 12 meses —
+      mas a política (§4), o portal e o alerta dizem que "um novo atendimento pede uma nova ficha"
+      (decidir: exigir ficha + aceite SAÚDE depois da revogação, ou mudar o texto)
+- [ ] O export completo com a ficha de saúde (`LgpdService.exportar_dados_cliente`) não tem tela:
+      a política e o export do site dizem que a ficha "é enviada ao e-mail cadastrado ou entregue
+      mediante pedido na clínica", e hoje a equipe só a gera pelo `manage.py shell`
+- [ ] "Leu alertas de saúde" só na agenda e na visão geral do painel: a agenda do portal da
+      profissional, a lista de prontuários e a ficha da cliente também mostram alerta sem essa trilha
 - [ ] `style-src-attr 'unsafe-inline'`: migrar ~160 atributos `style=""` (fora dos e-mails) para classes
 - [ ] Registry de regras (spec 5.1) e sessão única de cliente verificado (5.3) — ver
       [`specs/regras-negocio-registry.md`](specs/regras-negocio-registry.md)
@@ -277,5 +301,5 @@ verde em SQLite e Postgres).
 
 ---
 
-_Última atualização: 2026-10-29 — decisões D26–D40 dos pacotes de revisão (0062–0074, pedido online e cadastros) e
-pendências da seção 6.2 conferidas no código._
+_Última atualização: 2026-10-29 — decisões D26–D49 dos pacotes de revisão (0062–0078: pedido online,
+cadastros, LGPD e área da cliente, agenda do painel) e pendências da seção 6.2 conferidas no código._
