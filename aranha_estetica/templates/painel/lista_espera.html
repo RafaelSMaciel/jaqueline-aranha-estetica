@@ -29,7 +29,7 @@
           {% if item.telefone %}
           <span class="inline-flex items-center gap-1.5">
             <c-icone nome="telefone" class="w-4 h-4 shrink-0" />
-            <a href="tel:{{ item.telefone }}" class="text-texto-suave no-underline hover:text-texto hover:underline">{{ item.telefone }}</a>
+            <a href="tel:{{ item.telefone }}" class="text-texto-suave no-underline hover:text-texto hover:underline">{{ item.telefone|telefone }}</a>
           </span>
           {% endif %}
           {% if email_aviso %}

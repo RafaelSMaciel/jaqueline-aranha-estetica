@@ -7,7 +7,8 @@ O telefone e a identidade da cliente no agendamento e no OTP: toda regra sobre e
   O CHECK ck_cliente_telefone_formato do Postgres exige 10-11 digitos.
 - E.164 sem '+' (envio por SMS/WhatsApp): '55' + canonica, so para telefone BR valido —
   numero estrangeiro, curto ou lixo nunca vira destino (evita SMS pumping).
-- href_tel: '+55...' para link de discagem; mascarar: '17****0001' para log.
+- href_tel: '+55...' para link de discagem; formatar: '(17) 99999-0001' para exibir;
+  mascarar: '17****0001' para log.
 
 DDD 55 (RS) nao e confundido com o DDI: '55999990000' tem 11 digitos e ja e canonico.
 """
@@ -66,6 +67,15 @@ def href_tel(valor) -> str:
     """'(17) 3222-1111' -> '+551732221111' (link tel:). '' se nao for telefone BR valido."""
     destino = e164(valor)
     return f'+{destino}' if destino else ''
+
+
+def formatar(valor) -> str:
+    """Telefone para exibir: '17999990001' -> '(17) 99999-0001', '1733330000' -> '(17) 3333-0000'.
+    Fora do padrao BR (estrangeiro, lixo) volta como veio, sem perder o que foi digitado."""
+    digitos = valido_ou_vazio(valor)
+    if not digitos:
+        return '' if valor is None else str(valor)
+    return f'({digitos[:2]}) {digitos[2:-4]}-{digitos[-4:]}'
 
 
 def mascarar(valor) -> str:

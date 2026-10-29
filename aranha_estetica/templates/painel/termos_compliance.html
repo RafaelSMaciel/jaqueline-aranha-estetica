@@ -88,7 +88,7 @@
         </td>
         <td data-rotulo="Contato">
           <div class="min-w-0 text-sm">
-            {% if c.telefone %}<p class="tabular-nums">{{ c.telefone }}</p>{% endif %}
+            {% if c.telefone %}<p class="tabular-nums">{{ c.telefone|telefone }}</p>{% endif %}
             {% if c.email %}<p class="text-texto-suave break-all">{{ c.email }}</p>{% endif %}
             {% if not c.telefone and not c.email %}<p class="text-texto-suave">Sem contato</p>{% endif %}
           </div>

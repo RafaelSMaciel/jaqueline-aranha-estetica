@@ -137,7 +137,7 @@
       <c-campo nome="cliente_id" id="venderCliente" label="Cliente" tipo="select" required>
         <option value="">Selecione…</option>
         {% for c in clientes_ativos %}
-        <option value="{{ c.pk }}">{{ c.nome }}{% if c.telefone %} — {{ c.telefone }}{% endif %}</option>
+        <option value="{{ c.pk }}">{{ c.nome }}{% if c.telefone %} — {{ c.telefone|telefone }}{% endif %}</option>
         {% endfor %}
       </c-campo>
       <c-campo nome="valor_pago" id="venderValor" label="Valor pago (R$)" tipo="number"
