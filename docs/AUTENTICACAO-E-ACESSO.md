@@ -135,14 +135,18 @@ texto). ADMIN lê todas e não passa pela regra. O link "Ficha" no portal só ap
   telefone** que recebe o SMS (chave `sms+<dígitos>@shivazen.local`); o e-mail digitado nunca é
   identidade. Só **celular** recebe SMS (`[DDD]9XXXXXXXX`); fixo é recusado sem gastar cota.
 - Geração: `secrets.randbelow(10^6)` → 6 dígitos; armazenamento **HMAC-SHA256 com a
-  `SECRET_KEY`** (um dump do banco não permite testar os códigos offline); comparação
+  `OTP_HMAC_KEY`** (vazia = a `SECRET_KEY`; um dump do banco não permite testar os códigos offline); comparação
   `hmac.compare_digest`. Nunca logado (no dev só a prévia no log de modo dev).
 - Validade 10 min (`OTP_TTL_SEGUNDOS`), **5 tentativas** (`OTP_MAX_TENTATIVAS`) e o código é
   inutilizado, reenvio ≥ 60 s (`OTP_REENVIO_MINIMO_SEG`), gerar um novo invalida o anterior.
 - Cotas de SMS (checadas **antes** de gerar o código — sem SMS saindo, o código anterior continua
   valendo): 3/h por telefone, 10/h por IP, 60/h global (`SMS_MAX_*`), alerta no log a 80%.
-  Rate-limit HTTP nos endpoints (5–10/min por IP). **Turnstile** no pedido de código quando
-  configurado.
+  Rate-limit HTTP nos endpoints (5–10/min por IP). **Turnstile** no pedido de código (wizard,
+  portal e "Meus dados") quando configurado.
+- **Anti-enumeração:** o pedido de código do portal e do "Meus dados" responde o mesmo texto
+  exista ou não o cadastro e leva **no mínimo** `OTP_LATENCIA_MINIMA_SEGUNDOS` (0,8 s, fixo no
+  settings; 0 nos testes) — sem isso o ramo que gera o código e chama a Zenvia seria
+  mensuravelmente mais lento e revelaria quem é cliente.
 - Propósitos isolados: `AGENDAMENTO`, `LOGIN_CLIENTE` (portal), `DSAR` — um código não vale em
   outro fluxo.
 - Sem provedor de SMS (produção sem `ZENVIA_*`): falha fechada; o site avisa e os botões
@@ -152,14 +156,15 @@ texto). ADMIN lê todas e não passa pela regra. O link "Ficha" no portal só ap
 
 | Fluxo | Chave de sessão | Duração | Observação |
 |---|---|---|---|
-| Wizard de agendamento | `otp_agendamento_telefone` | 30 min após o código | `confirmar_agendamento` exige que o telefone do formulário seja **o** verificado; troca o id da sessão; limpa ao concluir |
-| "Meus agendamentos" | `meus_agendamentos_telefone` | 1 h | Login por **celular ou e-mail cadastrado** — com e-mail o código vai sempre ao celular do cadastro. Resposta idêntica exista ou não o cadastro. `sair/` limpa |
-| DSAR (`/lgpd/meus-dados/`) | — (código consumido na hora) | 10 min | Telefone → código → download do JSON; auditado |
+| Wizard de agendamento | `otp_agendamento_telefone` | 30 min após o código | `confirmar_agendamento` exige que o telefone do formulário seja **o** verificado; troca o id da sessão; ao concluir limpa a verificação e **abre a sessão do portal** (linha abaixo) |
+| "Meus agendamentos" (`services/portal_cliente`) | `meus_agendamentos_telefone` + `meus_agendamentos_verificado_em` | 1 h | Aberta pelo OTP do próprio portal (login por **celular ou e-mail cadastrado** — com e-mail o código vai sempre ao celular do cadastro; resposta idêntica exista ou não o cadastro) **ou no fim do wizard, sem novo SMS** — com a hora da verificação do wizard, não a do fim. `cycle_key()` na abertura (anti session-fixation); presa ao **telefone** do cadastro: cada atendimento só pelo id dentro dessa sessão (anti-IDOR). **"Baixar meus dados" exige verificação de até 10 min** (`JANELA_DADOS`): sessão mais antiga é encerrada e pede código novo. Sair (`sair/`) **só por POST com CSRF** (um `<img src>` de outro site não derruba a sessão). Ações com limite por IP: preferências 20/h, revogar saúde 10/h, pedido LGPD 5/h, baixar dados 10/h |
+| DSAR (`/lgpd/meus-dados/`) | — (código consumido na hora) | 10 min (validade do código) | Telefone → código (captcha; cota e intervalo do OTP do portal; 10/h por IP e **5/h por telefone**, com máscara ou sem contando no mesmo balde) → download do JSON **sem a ficha de saúde**; auditado |
 
 Telefone provado no wizard **substitui o e-mail do cadastro** pelo digitado (um e-mail plantado
-por terceiro sai); e-mail de outro cadastro é recusado. O formulário anônimo da lista de espera
-nunca grava e-mail no cadastro (só na inscrição, e para telefone já cadastrado só se o telefone
-foi provado por OTP na sessão).
+por terceiro sai); e-mail de outro cadastro é recusado. A lista de espera nunca cria nem altera
+cadastro: sem o celular provado por OTP na sessão a inscrição é anônima (nome e celular, sem
+e-mail — senão qualquer um prenderia o próprio e-mail ao telefone de outra pessoa); com ele, a
+inscrição se liga ao cadastro e guarda o e-mail digitado só nela.
 
 ### 2.3 Links por token
 
@@ -169,7 +174,7 @@ Todos com `secrets.token_urlsafe(32)` (≈ 256 bits). Desde a migration 0049 o b
 SECRET_KEY num incidente não derruba links enviados). O token em claro só existe na URL
 entregue — o feed ICS é exibido uma única vez, na geração. `Referrer-Policy: no-referrer` nas
 páginas; o access log do gunicorn e o Sentry redigem os tokens. Revogado (rotação do ICS,
-anonimização) = 404; token de outra finalidade = 404.
+pseudonimização) = 404; token de outra finalidade = 404.
 
 | Finalidade (`link_acesso`) | Onde | Validade | Dá acesso a |
 |---|---|---|---|
@@ -177,7 +182,7 @@ anonimização) = 404; token de outra finalidade = 404.
 | TERMO | `/termo/<token>/` | até o **fim do atendimento**; cada "Gerar link" emite outro e os anteriores continuam valendo | Aceitar os termos pendentes daquele atendimento |
 | NPS | `/nps/<token>/` | 7 dias, uma resposta | Dar nota 0–10, comentário e autorizar depoimento |
 | FORMULARIO | `/anamnese/<token>/`, `/pesquisa/<token>/` | 60 dias, uma resposta | Responder ficha/pesquisa (ficha de saúde com consentimento art. 11) |
-| DESCADASTRO | `/lgpd/unsubscribe/<token>/` | sem expiração; um por e-mail de marketing; revogado na anonimização | Descadastro de marketing e pesquisas |
+| DESCADASTRO | `/lgpd/unsubscribe/<token>/` | sem expiração; um por e-mail de marketing; revogado na pseudonimização | Descadastro de marketing e pesquisas |
 | FEED_ICS | `/agenda/<slug>/feed.ics?token=` | até gerar outro (painel "Novo link" ou portal do profissional) ou até o **desligamento** — profissional desativada, login dela desativado ou vínculo do login trocado revogam o link na hora (auditado); reativar exige gerar um novo | Feed iCal da agenda do profissional, com o nome público da cliente (primeiro nome + inicial) e o procedimento |
 | Reset de senha (equipe) | `/admin-login/recuperar/<uid>/<token>/` | 1 h, uso único | Definir nova senha |
 
@@ -206,7 +211,7 @@ atendimento + sessão do OTP, só agendamentos do telefone verificado). O link l
 ## 4. Avaliação
 
 **Forte hoje:** OTP com HMAC + cotas + propósito isolado + preso ao telefone; anti-enumeração no
-portal, no DSAR e na lista de espera; 2FA obrigatório do ADMIN e do PROFISSIONAL conferido a cada
+portal, no DSAR (mesma resposta e latência mínima) e na lista de espera; 2FA obrigatório do ADMIN e do PROFISSIONAL conferido a cada
 request e falhando fechado, sem tela de login paralela; axes por IP + usuário e por IP (sem
 trancar a dona por e-mail); sessão/HSTS/CSP estritos; no-store e no-referrer onde há dado
 sensível; tokens longos e redigidos no access log, no log da aplicação e no Sentry; segredos de
@@ -216,17 +221,20 @@ header (cron, webhooks) comparados em tempo constante; trilha de auditoria com I
 
 | Sev | Ponto | Situação |
 |---|---|---|
-| média | DSAR e portal liberados com 1 fator (SMS) — SIM-swap expõe o cadastro | Aceito por ora (público de estética, sem senha); evolução: 2º canal ou entrega do export por e-mail |
-| baixa | Link de descadastro não expira | Escopo limitado (opt-out); revogado na anonimização. Reagendar/cancelar não têm token: só o portal por sessão do OTP |
+| média | DSAR e portal liberados com 1 fator (SMS) — SIM-swap expõe o cadastro | Mitigado: o export do site **não leva a ficha de saúde** (sai só pela equipe, a pedido) e, no portal, exige código de até 10 min. Aceito por ora no resto do cadastro (público de estética, sem senha); evolução: 2º canal |
+| baixa | Link de descadastro não expira | Escopo limitado (opt-out); revogado na pseudonimização. Reagendar/cancelar não têm token: só o portal por sessão do OTP |
 | baixa | `Enforce2FAMiddleware` depende do marcador de sessão do login da equipe | Em produção a única porta é `/admin-login/` (equivalente); hardening listado no ARCHITECTURE |
 | baixa | Link do termo pode ser enviado por `mailto:` ao e-mail do cadastro | Pendência listada no ARCHITECTURE |
 
 **Decisão sobre o login da cliente (fechada):** *passwordless* por celular + OTP (opção A da
-versão anterior deste documento), com regra única de OTP para todo agendamento. Evoluções
-possíveis (não implementadas): sessão única de "cliente verificada" para wizard + portal,
-"lembrar este aparelho" e step-up no DSAR.
+versão anterior deste documento), com regra única de OTP para todo agendamento. O fim do wizard
+já abre a área da cliente sem novo SMS, e o download dos dados pede verificação recente (≤ 10
+min). Evoluções possíveis (não implementadas): sessão única de "cliente verificada" também do
+portal para o wizard e "lembrar este aparelho".
 
 ---
 
-_Última atualização: 2026-10-28 — papéis só ADMIN/PROFISSIONAL, vínculo da ficha em
-`services/prontuario`, axes por IP, 2FA falhando fechado e sem o link legado de reagendar._
+_Última atualização: 2026-10-29 — papéis só ADMIN/PROFISSIONAL, vínculo da ficha em
+`services/prontuario`, axes por IP, 2FA falhando fechado, sem o link legado de reagendar; sessão
+do portal aberta no fim do wizard, logout da cliente por POST, latência mínima anti-enumeração e
+export do site sem a ficha de saúde._
