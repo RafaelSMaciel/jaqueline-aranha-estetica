@@ -3091,7 +3091,7 @@
    {
     "id": "RNF18",
     "categoria": "Qualidade",
-    "descricao": "Cerca de 1.750 testes automatizados em 104 arquivos, num runner só (manage.py test); CI com SQLite, Postgres 18 (conformidade do padrão SQL, trilha e paridade das funções com o Python), data migrations em paralelo, build do front, wizard no Chromium (Playwright), imagem Docker com smoke do pre-deploy e do start, pip-audit, npm audit e gitleaks bloqueantes; ruff, import-linter, mypy nos services e cobertura combinada (SQLite + Postgres) com catraca (≈ 87 %)."
+    "descricao": "Cerca de 1.850 testes automatizados em 112 arquivos, num runner só (manage.py test); CI com SQLite, Postgres 18 (conformidade do padrão SQL, trilha e paridade das funções com o Python), data migrations em paralelo, build do front, wizard no Chromium (Playwright), imagem Docker com smoke do pre-deploy e do start, pip-audit, npm audit e gitleaks bloqueantes; ruff, import-linter, mypy nos services e cobertura combinada (SQLite + Postgres) com catraca (≈ 87 %)."
    },
    {
     "id": "RNF19",

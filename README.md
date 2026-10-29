@@ -124,7 +124,7 @@ TEST_DATABASE_URL=postgres://shivazen:shivazen@localhost:5432/shivazen PG_EXIGE_
   python manage.py test aranha_estetica
 ```
 
-São ~1.750 testes (fora a tag `migracoes`) em 104 arquivos (`aranha_estetica/tests/`); o runner
+São ~1.850 testes (fora a tag `migracoes`) em 112 arquivos (`aranha_estetica/tests/`); o runner
 é só o `manage.py test`. A CI também roda `migrate_atomico` do zero no Postgres, `check --deploy`
 com settings de produção e de staging, cobertura combinada (SQLite + Postgres) com catraca, o
 wizard no Chromium (Playwright), o build do Vite, o `docker build` com o smoke do pre-deploy e do
@@ -153,7 +153,7 @@ aranha_estetica/                 app Django
 │                                erros 400/403/404/429/500
 ├── static/src/                  fonte do Vite (tokens.css, app.css; JS por tela: app/wizard/painel-busca/webpush)
 ├── signals.py · jobs.py · jobs_manutencao.py · middleware.py · checks.py
-└── tests/                       por área: conta/, infra/, jobs/, painel/, publico/, utils/ + raiz
+└── tests/                       por área: conta/, infra/, jobs/, painel/, publico/, servicos/, utils/ + raiz
 clinica/                         settings (base/dev/prod/staging/test), urls, wsgi, gunicorn_logger,
                                  logging_filtros
 docs/                            documentação (abaixo)

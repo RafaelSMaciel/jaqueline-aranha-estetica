@@ -866,9 +866,9 @@ removido), `AWS_*` (sem upload), `TWO_FACTOR_REMEMBER_COOKIE_AGE`, `ZENVIA_API_K
 
 ## 12. Testes e CI
 
-- `python manage.py test aranha_estetica` — suíte Django (SQLite `.cache/db_test.sqlite3`, ~1.750
-  testes fora a tag `migracoes`, em 104 arquivos, alguns em pastas por área — `tests/conta/`,
-  `infra/`, `jobs/`, `painel/`, `publico/`, `utils/` — roda **tudo**, inclusive as data
+- `python manage.py test aranha_estetica` — suíte Django (SQLite `.cache/db_test.sqlite3`, ~1.850
+  testes fora a tag `migracoes`, em 112 arquivos, alguns em pastas por área — `tests/conta/`,
+  `infra/`, `jobs/`, `painel/`, `publico/`, `servicos/`, `utils/` — roda **tudo**, inclusive as data
   migrations). `manage.py test` sempre
   carrega `clinica/settings/test.py` (única detecção de teste, em `settings/__init__.py`; é o runner
   único — pytest/pytest-django/conftest saíram, e `test_deploy_config.RunnerUnicoTests` reprova a
