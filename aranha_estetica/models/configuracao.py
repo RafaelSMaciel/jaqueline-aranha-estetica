@@ -33,17 +33,23 @@ _INTEIRO = re.compile(r'-?[0-9]{1,9}')
 
 @dataclass(frozen=True)
 class Chave:
-    """Uma regra operacional: rotulo e explicacao p/ a tela, tipo (TIPO_EMAIL ou int), faixa e padrao."""
+    """Uma regra operacional: rotulo e explicacao p/ a tela, tipo (TIPO_EMAIL ou int), faixa e padrao.
+
+    opcional: inteiro que pode ficar em branco ('' = a dona nao informou; quem le esconde o que
+    dependeria dele, ex.: os anos de experiencia do site)."""
     rotulo: str
     descricao: str
     tipo: type | str
     default: str | int = ''
     minimo: int | None = None
     maximo: int | None = None
+    opcional: bool = False
 
     def validar(self, bruto) -> str | int:
         """Texto da tela/banco -> valor tipado. ValidationError com a mensagem p/ a equipe."""
         texto = str(bruto if bruto is not None else '').strip()
+        if self.opcional and not texto:
+            return ''
         if self.tipo == TIPO_EMAIL:
             if texto:
                 try:
@@ -61,7 +67,8 @@ class Chave:
 
 
 # Somente o que o codigo de fato le (grep antes de acrescentar outra). Quem le: services/nps.destino_alerta
-# (email_admin) e Cliente.limite_faltas_bloqueio (MAX_FALTAS_BLOQUEIO, ainda direto; P14 passa p/ ler()).
+# (email_admin), Cliente.limite_faltas_bloqueio (MAX_FALTAS_BLOQUEIO, ainda direto; P14 passa p/ ler())
+# e services/prova_social.numeros_do_site (anos_experiencia).
 CHAVES: dict[str, Chave] = {
     'email_admin': Chave(
         rotulo='E-mail do alerta de avaliação negativa',
@@ -78,6 +85,16 @@ CHAVES: dict[str, Chave] = {
         minimo=1,
         maximo=10,
         default=MAX_FALTAS_ANTES_BLOQUEIO,
+    ),
+    'anos_experiencia': Chave(
+        rotulo='Anos de experiência (site)',
+        descricao=('Aparece na página inicial e em "Sobre" como "X anos de experiência". Use "Restaurar '
+                   'padrão" para deixar em branco: sem o número, o site não mostra essa informação.'),
+        tipo=int,
+        minimo=1,
+        maximo=60,
+        default='',
+        opcional=True,
     ),
 }
 

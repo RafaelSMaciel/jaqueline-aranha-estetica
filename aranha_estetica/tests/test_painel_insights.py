@@ -359,7 +359,7 @@ class ConfiguracoesTests(_AdminBase):
         """A tela lista o registro tipado (models/configuracao.CHAVES): o que o codigo de fato le."""
         resp = self.client.get(reverse('aranha:admin_configuracoes'))
         chaves = {r['chave'] for r in resp.context['regras']}
-        self.assertEqual(chaves, {'email_admin', 'MAX_FALTAS_BLOQUEIO'})
+        self.assertEqual(chaves, {'email_admin', 'MAX_FALTAS_BLOQUEIO', 'anos_experiencia'})
 
 
 class BrandingTests(_AdminBase):
