@@ -1,19 +1,16 @@
 {% comment %}Aviso informativo: o site so usa cookies essenciais. "Entendi" grava cookie_consent=essenciais
-(1 ano) no proprio navegador (app.js/cookieConsent) — nada vai ao servidor, nenhuma sessao e aberta.{% endcomment %}
+(1 ano) no proprio navegador (app.js/cookieConsent) — nada vai ao servidor, nenhuma sessao e aberta.
+Faixa fina no pe da tela (nao cobre o "Agendar" do topo no celular), "Entendi" a direita, acima da
+barra do iPhone (safe-area no site.css: .aviso-cookies). Regiao, nao dialogo: nao prende o foco.{% endcomment %}
 {% if not request.COOKIES.cookie_consent %}
-<div x-data="cookieConsent"
-     class="fixed inset-x-0 bottom-0 z-50 px-4 pb-4"
-     role="dialog" aria-live="polite" aria-label="Aviso de cookies">
-  <div class="mx-auto max-w-3xl rounded-2xl border border-borda bg-superficie p-5 shadow-xl shadow-black/10
-              flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-    <p class="text-sm leading-relaxed text-texto-suave">
-      Usamos apenas cookies essenciais para o funcionamento do site (sessão, segurança e tema).
-      Consulte a <a href="{% url 'aranha:politica_privacidade' %}" class="font-medium text-marca underline">Política de Privacidade</a>.
+<div x-data="cookieConsent" class="aviso-cookies" role="region" aria-label="Aviso de cookies">
+  <div class="mx-auto flex max-w-6xl items-center gap-3 px-4 sm:px-6">
+    <p class="flex-1 text-xs leading-snug text-texto-suave sm:text-sm">
+      Usamos só cookies essenciais (sessão, segurança e tema).
+      <a href="{% url 'aranha:politica_privacidade' %}" class="font-medium text-marca underline">Política de privacidade</a>
     </p>
-    <div class="flex shrink-0 gap-2">
-      <button type="button" x-on:click="entendi"
-              class="rounded-full bg-marca-forte px-5 py-2 text-sm font-semibold text-sobre-marca hover:opacity-90 transition">Entendi</button>
-    </div>
+    <button type="button" x-on:click="entendi"
+            class="shrink-0 rounded-full bg-marca-forte px-4 py-2 text-sm font-semibold text-sobre-marca hover:opacity-90 transition">Entendi</button>
   </div>
 </div>
 {% endif %}
