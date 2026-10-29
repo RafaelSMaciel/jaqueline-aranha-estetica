@@ -196,7 +196,7 @@
   .kpi-variacao-igual { color: var(--cor-texto-suave); }
   a.kpi { text-decoration: none; transition: border-color .15s ease; }
   a.kpi:hover { border-color: var(--cor-borda-campo); }
-  .grade-kpis { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr)); }
+  .grade-kpis { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); }
 
   /* ── Tabela: <c-tabela legenda responsiva> — tabela no desktop; cartoes empilhados < 768px ── */
   .tabela-rolagem { overflow-x: auto; }
@@ -224,13 +224,18 @@
     .tabela-responsiva tbody tr:last-child { border-bottom: 0; }
     .tabela-responsiva tbody tr:hover > td { background: none; }
     .tabela-responsiva td { padding: 0.25rem 0; border: 0; }
+    /* rotulo na 1a coluna; TODO o conteudo da celula empilhado na 2a, alinhado a direita (varios
+       filhos — hora + data, servico + profissional — nao se espalham pela linha) */
     .tabela-responsiva td[data-rotulo] {
-      display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; text-align: right;
+      display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 1rem;
+      align-items: baseline; justify-items: end; text-align: right;
     }
     .tabela-responsiva td[data-rotulo]::before {
-      content: attr(data-rotulo); flex-shrink: 0; text-align: left;
+      content: attr(data-rotulo); grid-column: 1; grid-row: 1 / span 12; align-self: start; justify-self: start;
+      max-width: 9rem; text-align: left;
       font-size: var(--text-legenda); font-weight: 700; color: var(--cor-texto-suave);
     }
+    .tabela-responsiva td[data-rotulo] > * { grid-column: 2; max-width: 100%; }
     .tabela-responsiva td.num { white-space: normal; }
     .tabela-responsiva td.acoes { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; padding-top: 0.75rem; white-space: normal; }
     .tabela-responsiva .linha-destaque { box-shadow: inset 4px 0 0 var(--cor-aviso); }
@@ -421,7 +426,7 @@
   padding: 1rem 1.25rem 1.25rem; color: var(--cor-texto); font-size: var(--text-corpo);
 }
 .calendario-painel.fc .fc-toolbar { flex-wrap: wrap; gap: 0.75rem; }
-.calendario-painel.fc .fc-toolbar-title { font-family: var(--heading-font); font-size: 1.25rem; font-weight: 600; text-transform: capitalize; }
+.calendario-painel.fc .fc-toolbar-title { font-family: var(--heading-font); font-size: 1.25rem; font-weight: 600; }
 .calendario-painel.fc .fc-button {
   padding: 0.4375rem 0.875rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 700; text-transform: none; box-shadow: none;
 }

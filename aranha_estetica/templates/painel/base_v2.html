@@ -54,7 +54,7 @@ bundle JS falhar o painel (forms) continua visivel.
     <a href="{% url 'aranha:painel_overview' %}" class="flex items-center gap-3 px-6 pt-6 pb-4 no-underline">
       <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-marca-forte/60 font-serif text-lg font-semibold text-cromo-ativo-texto" aria-hidden="true">{{ CLINIC_NAME|make_list|first }}</span>
       <span class="min-w-0">
-        <span class="block font-serif text-lg font-semibold leading-tight text-cromo-texto truncate">{{ CLINIC_NAME }}</span>
+        <span class="block font-serif text-lg font-semibold leading-tight text-cromo-texto line-clamp-2">{{ CLINIC_NAME }}</span>
         <span class="block text-xs font-bold uppercase tracking-widest text-cromo-suave">Painel da equipe</span>
       </span>
     </a>

@@ -1,5 +1,5 @@
 {% extends 'painel/base_v2.html' %}
-{% load django_vite l10n %}
+{% load django_vite l10n painel_tags %}
 
 {% block titulo %}Agenda — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Agenda{% endblock %}
@@ -114,11 +114,11 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
         </td>
         <td data-rotulo="Horário" class="whitespace-nowrap">
           <span class="font-bold tabular-nums text-texto">{{ agend.data_hora_inicio|time:"H:i" }}–{{ agend.data_hora_fim|time:"H:i" }}</span>
-          <span class="block text-legenda text-texto-suave max-md:inline max-md:ml-1">{{ agend.data_hora_inicio|date:"D, d/m/Y" }}</span>
+          <span class="block text-legenda text-texto-suave">{{ agend.data_hora_inicio|date:"D, d/m/Y" }}</span>
         </td>
         <td class="min-w-[12rem] max-md:order-first max-md:pb-2">
           <div class="flex items-start gap-3">
-            <span class="avatar h-9 w-9 text-xs status-{{ agend.status }}" aria-hidden="true">{{ agend.cliente.nome|make_list|first }}{{ agend.cliente.nome|make_list|last }}</span>
+            <span class="avatar h-9 w-9 text-xs status-{{ agend.status }}" aria-hidden="true">{{ agend.cliente.nome|iniciais }}</span>
             <div class="min-w-0">
               <a href="{% url 'aranha:admin_cliente_detalhe' agend.cliente_id %}" class="font-bold text-texto no-underline hover:text-marca">{{ agend.cliente.nome }}</a>
               {% if agend.cliente.telefone %}<span class="block text-legenda text-texto-suave tabular-nums">{{ agend.cliente.telefone }}</span>{% endif %}
@@ -137,9 +137,22 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
           <span class="block text-legenda text-texto-suave">{{ agend.profissional.nome }}</span>
         </td>
         <td data-rotulo="Status">
-          <div class="flex flex-wrap items-center gap-2 max-md:justify-end">
+          <div class="flex flex-col items-start gap-2 max-md:items-end">
             <span class="status-text-{{ agend.pk }}">{% include 'partials/_status_badge.html' with status=agend.status %}</span>
             {% include 'partials/_select_status.html' with agend=agend limite=limite_desfecho termo_pendente=agend.termo_pendente pendente_com_botoes=True %}
+          {% if agend.status == 'PENDENTE' %}
+          {# pedido do site: a decisao (aprovar/rejeitar, com e-mail a cliente) fica junto do status #}
+          <div class="flex flex-wrap gap-2 max-md:justify-end">
+            <form method="post" action="{% url 'aranha:admin_aprovar_agendamento' pk=agend.pk %}" class="m-0">
+              {% csrf_token %}
+              <c-botao tipo="submit" variante="sucesso" tamanho="sm" icone="check" data-confirm="Aprovar agendamento?">Aprovar</c-botao>
+            </form>
+            <form method="post" action="{% url 'aranha:admin_rejeitar_agendamento' pk=agend.pk %}" class="m-0">
+              {% csrf_token %}
+              <c-botao tipo="submit" variante="perigo-contorno" tamanho="sm" icone="fechar" data-confirm="Rejeitar agendamento?">Rejeitar</c-botao>
+            </form>
+          </div>
+          {% endif %}
           </div>
         </td>
         <td data-rotulo="Valor" class="num">
@@ -163,17 +176,7 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
           {% endif %}
         </td>
         <td class="acoes">
-          <div class="inline-flex flex-wrap items-center justify-end gap-2">
-            {% if agend.status == 'PENDENTE' %}
-            <form method="post" action="{% url 'aranha:admin_aprovar_agendamento' pk=agend.pk %}" class="m-0">
-              {% csrf_token %}
-              <c-botao tipo="submit" variante="sucesso" tamanho="sm" icone="check" data-confirm="Aprovar agendamento?">Aprovar</c-botao>
-            </form>
-            <form method="post" action="{% url 'aranha:admin_rejeitar_agendamento' pk=agend.pk %}" class="m-0">
-              {% csrf_token %}
-              <c-botao tipo="submit" variante="perigo-contorno" tamanho="sm" icone="fechar" data-confirm="Rejeitar agendamento?">Rejeitar</c-botao>
-            </form>
-            {% endif %}
+          <div class="inline-flex items-center justify-end gap-2">
             {% if agend.cliente.telefone %}
             <a href="https://wa.me/55{{ agend.cliente.telefone|cut:'(' |cut:')' |cut:'-' |cut:' ' }}?text=Ol%C3%A1%20{{ agend.cliente.nome|urlencode }}%2C%20confirmamos%20seu%20agendamento%20de%20{{ agend.procedimento.nome|urlencode }}%20para%20{{ agend.data_hora_inicio|date:'d/m/Y' }}%20%C3%A0s%20{{ agend.data_hora_inicio|time:'H:i' }}.%20{{ CLINIC_NAME|urlencode }}"
                target="_blank" rel="noopener" title="WhatsApp"

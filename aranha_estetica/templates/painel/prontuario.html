@@ -1,4 +1,5 @@
 {% extends 'painel/base_v2.html' %}
+{% load painel_tags %}
 
 {% block titulo %}Prontuário & consentimento — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Prontuário & consentimento{% endblock %}
@@ -52,7 +53,7 @@
       <li>
         <a href="{% url 'aranha:prontuario_detalhe' cliente_id=item.cliente.pk %}"
            class="item-lista items-start no-underline text-texto transition-colors hover:bg-fundo">
-          <span class="avatar" aria-hidden="true">{% with partes=item.cliente.nome.split %}{{ partes|first|slice:":1" }}{% if partes|length > 1 %}{{ partes|last|slice:":1" }}{% endif %}{% endwith %}</span>
+          <span class="avatar" aria-hidden="true">{{ item.cliente.nome|iniciais }}</span>
           <div class="item-lista-corpo">
             <p class="item-lista-titulo">{{ item.cliente.nome }}</p>
             <p class="item-lista-meta">

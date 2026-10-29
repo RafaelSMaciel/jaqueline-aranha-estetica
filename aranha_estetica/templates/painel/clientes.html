@@ -1,4 +1,5 @@
 {% extends 'painel/base_v2.html' %}
+{% load painel_tags %}
 
 {% block titulo %}Clientes — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Clientes{% endblock %}
@@ -59,7 +60,7 @@
           data-search-text="{{ cliente.nome }} {{ cliente.cpf|default:'' }} {{ cliente.email|default:'' }} {{ cliente.telefone|default:'' }}">
         <td>
           <div class="flex items-center gap-3 min-w-0">
-            <span class="avatar" aria-hidden="true">{% with partes=cliente.nome.split %}{{ partes|first|slice:":1" }}{% if partes|length > 1 %}{{ partes|last|slice:":1" }}{% endif %}{% endwith %}</span>
+            <span class="avatar" aria-hidden="true">{{ cliente.nome|iniciais }}</span>
             <div class="min-w-0">
               <a href="{% url 'aranha:admin_cliente_detalhe' cliente.pk %}" class="font-bold text-texto no-underline hover:text-marca hover:underline">{{ cliente.nome }}</a>
               {% if cliente.cpf or cliente.data_nascimento %}
