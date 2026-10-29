@@ -18,6 +18,14 @@ function iniciarAbas(raiz) {
     paineis[i].setAttribute('tabindex', '0')
   })
 
+  // ultima aba desta pagina (sessionStorage, so conveniencia): um POST que volta por redirect
+  // (sem #hash) reabre a aba onde a pessoa estava, nao a primeira
+  const chave = 'aba:' + location.pathname
+  function lembrar(id) { try { sessionStorage.setItem(chave, id) } catch (e) { /* modo privado */ } }
+  function lembrada() {
+    try { return abas.find((a) => a.dataset.aba === sessionStorage.getItem(chave)) || null } catch (e) { return null }
+  }
+
   function selecionar(alvo, { foco = false, hash = true } = {}) {
     abas.forEach((aba, i) => {
       const ativa = aba === alvo
@@ -27,6 +35,7 @@ function iniciarAbas(raiz) {
     })
     if (foco) alvo.focus()
     if (hash) history.replaceState(null, '', '#' + alvo.dataset.aba)
+    lembrar(alvo.dataset.aba)
   }
 
   lista.addEventListener('click', (e) => {
@@ -52,7 +61,7 @@ function iniciarAbas(raiz) {
     const painel = alvoHash && paineis.find((p) => p === alvoHash || p.contains(alvoHash))
     return painel ? abas[paineis.indexOf(painel)] : null
   }
-  selecionar(pelaUrl() || abas[0], { hash: false })
+  selecionar(pelaUrl() || lembrada() || abas[0], { hash: false })
   window.addEventListener('hashchange', () => { const a = pelaUrl(); if (a) selecionar(a, { hash: false }) })
   // erro de formulario devolvido pelo servidor dentro de um painel escondido: abre o painel
   const recusado = raiz.querySelector('[aria-invalid="true"]')
