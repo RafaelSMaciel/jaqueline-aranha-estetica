@@ -1,4 +1,5 @@
 {% extends 'painel/base_v2.html' %}
+{% load django_vite %}
 
 {% block titulo %}Visão geral — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Visão geral{% endblock %}
@@ -188,14 +189,7 @@
       {% include 'partials/_alerta_saude.html' with alertas=agend.alertas_saude %}
     </div>
     <div class="flex items-center gap-1.5 shrink-0">
-      <select data-atend-id="{{ agend.pk }}" title="Alterar status" aria-label="Alterar status do agendamento de {{ agend.cliente.nome }}"
-              class="px-1.5 py-1 rounded-lg border-2 border-borda bg-superficie text-[0.7rem] font-bold text-texto cursor-pointer">
-        <option value="">⚡</option>
-        <option value="CONFIRMADO" {% if agend.status == 'CONFIRMADO' %}disabled{% endif %}>✅ Confirmar</option>
-        <option value="REALIZADO" {% if agend.status == 'REALIZADO' %}disabled{% endif %}>✔️ Realizado</option>
-        <option value="CANCELADO" {% if agend.status == 'CANCELADO' %}disabled{% endif %}>❌ Cancelar</option>
-        <option value="FALTOU">⛔ Faltou</option>
-      </select>
+      {% include 'partials/_select_status.html' with agend=agend limite=limite_desfecho termo_pendente=agend.termo_pendente %}
       {% if agend.cliente.telefone %}
       <a href="https://wa.me/55{{ agend.cliente.telefone|cut:'(' |cut:')' |cut:'-' |cut:' ' }}?text=Ol%C3%A1%20{{ agend.cliente.nome|urlencode }}%2C%20confirmamos%20seu%20agendamento%20de%20{{ agend.procedimento.nome|urlencode }}%20para%20{{ agend.data_hora_inicio|date:'d/m/Y' }}%20%C3%A0s%20{{ agend.data_hora_inicio|time:'H:i' }}.%20{{ CLINIC_NAME|urlencode }}"
          target="_blank" rel="noopener" title="Confirmar via WhatsApp" aria-label="Confirmar via WhatsApp com {{ agend.cliente.nome }}"
@@ -216,6 +210,8 @@
 {% endblock %}
 
 {% block js %}
+{# select de status dos proximos agendamentos: static/src/js/painel-status.js #}
+{% vite_asset 'aranha_estetica/static/src/js/painel-status.js' %}
 {{ dias_semana|json_script:"id_dias_semana" }}
 {{ dados_grafico_semana|json_script:"id_dados_grafico_semana" }}
 {{ status_labels|json_script:"id_status_labels" }}
@@ -283,35 +279,5 @@ new Chart(ctxStatus, {
     }
 });
 
-// Atualizacao de status via AJAX (delegado, CSP-safe). Recarrega na sucesso.
-// REALIZADO com termo do procedimento pendente: o servidor responde
-// termo_pendente e so aceita o override explicito (sem_termo), que ele audita.
-function enviarStatus(sel, payload) {
-    fetch('{% url "aranha:admin_atualizar_status" %}', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
-        body: JSON.stringify(payload)
-    })
-    .then(function (r) { return r.json(); })
-    .then(function (data) {
-        if (data.sucesso) { location.reload(); return; }
-        if (data.termo_pendente && !payload.sem_termo) {
-            if (confirm('A cliente ainda não aceitou o termo do procedimento. Marcar como realizado mesmo assim?')) {
-                payload.sem_termo = true;
-                enviarStatus(sel, payload);
-            } else { sel.value = ''; }
-            return;
-        }
-        alert('Erro: ' + (data.erro || 'Falha ao atualizar')); sel.value = '';
-    })
-    .catch(function () { alert('Erro de rede'); sel.value = ''; });
-}
-document.addEventListener('change', function (e) {
-    var sel = e.target.closest('select[data-atend-id]');
-    if (!sel || !sel.value) return;
-    var status = sel.value;
-    if (!confirm('Alterar status para ' + status + '?')) { sel.value = ''; return; }
-    enviarStatus(sel, { atendimento_id: sel.getAttribute('data-atend-id'), status: status });
-});
 </script>
 {% endblock %}

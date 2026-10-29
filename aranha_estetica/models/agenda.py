@@ -118,6 +118,14 @@ class AgendaExcecaoQuerySet(models.QuerySet):
             tipo=AgendaExcecao.TIPO_FOLGA, profissional__isnull=True,
         ).cobrindo(dia)
 
+    def vigente_para(self, profissional, tipo, data_inicio, data_fim=None):
+        """A excecao ativa que o painel atualiza ao reenviar o mesmo periodo (upsert): HORARIO_DIFERENTE
+        pelo dia; FOLGA pelo mesmo intervalo [data_inicio, data_fim]. None se nao ha."""
+        qs = self.ativas().filter(profissional=profissional, tipo=tipo, data_inicio=data_inicio)
+        if tipo != AgendaExcecao.TIPO_HORARIO_DIFERENTE:
+            qs = qs.filter(data_fim=data_fim or data_inicio)
+        return qs.first()
+
     def bloqueios_no_intervalo(self, inicio, fim):
         """BLOQUEIO que pode ter ocorrencia em [inicio, fim): pontual que
         intersecta ou recorrente iniciado antes do fim (expandir com
@@ -295,65 +303,89 @@ class AgendaExcecao(models.Model):
         return f'{self.data_inicio:%d/%m/%Y}'
 
     def clean(self):
-        """Espelho dos CHECKs (mensagem legivel) + RRULE normalizada."""
+        """Espelho dos CHECKs (mensagem legivel) + RRULE normalizada. Uma regra por metodo; os erros
+        de todas se juntam num ValidationError so (campo -> mensagem)."""
         super().clean()
-        erros = {}
+        erros: dict[str, str] = {}
+        self._normalizar_vazios()
+        if self.tipo in self.TIPOS_POR_DATA:
+            self._validar_por_data(erros)
+        elif self.tipo == self.TIPO_BLOQUEIO:
+            self._validar_bloqueio(erros)
+        self._validar_origem(erros)
+        self._validar_folga_sobreposta(erros)
+        if erros:
+            raise ValidationError(erros)
+
+    def _normalizar_vazios(self) -> None:
+        """RRULE vazia = sem recorrencia; HORARIO_DIFERENTE vale um dia; FOLGA sem fim = um dia."""
         if self.regra_recorrencia is not None and not self.regra_recorrencia.strip():
             self.regra_recorrencia = None
-        if self.tipo in self.TIPOS_POR_DATA:
-            if self.tipo == self.TIPO_HORARIO_DIFERENTE:
-                self.data_fim = self.data_inicio
-            elif self.data_inicio and not self.data_fim:
-                self.data_fim = self.data_inicio
-            if not self.data_inicio:
-                erros['data_inicio'] = 'Informe a data.'
-            elif self.data_fim < self.data_inicio:
-                erros['data_fim'] = 'A data final deve ser igual ou posterior à inicial.'
-            if self.data_hora_inicio or self.data_hora_fim:
-                erros['data_hora_inicio'] = 'Folga/horário diferente usam datas, não data e hora.'
-            if self.regra_recorrencia or self.data_fim_recorrencia:
-                erros['regra_recorrencia'] = 'Recorrência só vale para BLOQUEIO.'
-            if self.tipo == self.TIPO_FOLGA and (self.hora_inicio or self.hora_fim):
-                erros['hora_inicio'] = 'Folga ocupa o dia inteiro (sem horas).'
-            if self.tipo == self.TIPO_HORARIO_DIFERENTE:
-                if not self.profissional_id:
-                    erros['profissional'] = 'Horário diferente é sempre de um profissional.'
-                if not self.hora_inicio or not self.hora_fim:
-                    erros['hora_inicio'] = 'Informe a hora de início e a de fim.'
-                elif self.hora_fim <= self.hora_inicio:
-                    erros['hora_fim'] = 'A hora de fim deve ser depois da hora de início.'
-        elif self.tipo == self.TIPO_BLOQUEIO:
-            if not self.data_hora_inicio or not self.data_hora_fim:
-                erros['data_hora_inicio'] = 'Informe início e fim do bloqueio.'
-            elif self.data_hora_fim <= self.data_hora_inicio:
-                erros['data_hora_fim'] = 'O fim deve ser posterior ao início.'
-            if self.data_inicio or self.data_fim or self.hora_inicio or self.hora_fim:
-                erros['data_inicio'] = 'Bloqueio usa data e hora de início/fim (não datas soltas).'
-            if self.regra_recorrencia and 'data_hora_inicio' not in erros:
-                try:
-                    regra, limite = normalizar_regra_recorrencia(
-                        self.regra_recorrencia, dtstart=self.data_hora_inicio,
-                    )
-                except RegraNaoSuportada as exc:
-                    erros['regra_recorrencia'] = f'Recorrência não suportada: {exc}.'
-                else:
-                    self.regra_recorrencia = regra
-                    if limite and (not self.data_fim_recorrencia or limite < self.data_fim_recorrencia):
-                        self.data_fim_recorrencia = limite
+        if self.tipo == self.TIPO_HORARIO_DIFERENTE:
+            self.data_fim = self.data_inicio
+        elif self.tipo == self.TIPO_FOLGA and self.data_inicio and not self.data_fim:
+            self.data_fim = self.data_inicio
+
+    def _validar_por_data(self, erros: dict) -> None:
+        """FOLGA e HORARIO_DIFERENTE: datas, sem data e hora nem recorrencia (ck_agenda_excecao_folga e
+        ck_agenda_excecao_horario_diferente)."""
+        if not self.data_inicio:
+            erros['data_inicio'] = 'Informe a data.'
+        elif self.data_fim < self.data_inicio:
+            erros['data_fim'] = 'A data final deve ser igual ou posterior à inicial.'
+        if self.data_hora_inicio or self.data_hora_fim:
+            erros['data_hora_inicio'] = 'Folga/horário diferente usam datas, não data e hora.'
+        if self.regra_recorrencia or self.data_fim_recorrencia:
+            erros['regra_recorrencia'] = 'Recorrência só vale para BLOQUEIO.'
+        if self.tipo == self.TIPO_FOLGA and (self.hora_inicio or self.hora_fim):
+            erros['hora_inicio'] = 'Folga ocupa o dia inteiro (sem horas).'
+        if self.tipo == self.TIPO_HORARIO_DIFERENTE:
+            if not self.profissional_id:
+                erros['profissional'] = 'Horário diferente é sempre de um profissional.'
+            if not self.hora_inicio or not self.hora_fim:
+                erros['hora_inicio'] = 'Informe a hora de início e a de fim.'
+            elif self.hora_fim <= self.hora_inicio:
+                erros['hora_fim'] = 'A hora de fim deve ser depois da hora de início.'
+
+    def _validar_bloqueio(self, erros: dict) -> None:
+        """BLOQUEIO: intervalo exato (ck_agenda_excecao_bloqueio) e a RRULE no subconjunto suportado
+        (normalizada; o limite da regra vira data_fim_recorrencia)."""
+        if not self.data_hora_inicio or not self.data_hora_fim:
+            erros['data_hora_inicio'] = 'Informe início e fim do bloqueio.'
+        elif self.data_hora_fim <= self.data_hora_inicio:
+            erros['data_hora_fim'] = 'O fim deve ser posterior ao início.'
+        if self.data_inicio or self.data_fim or self.hora_inicio or self.hora_fim:
+            erros['data_inicio'] = 'Bloqueio usa data e hora de início/fim (não datas soltas).'
+        if not self.regra_recorrencia or 'data_hora_inicio' in erros:
+            return
+        try:
+            regra, limite = normalizar_regra_recorrencia(self.regra_recorrencia, dtstart=self.data_hora_inicio)
+        except RegraNaoSuportada as exc:
+            erros['regra_recorrencia'] = f'Recorrência não suportada: {exc}.'
+            return
+        self.regra_recorrencia = regra
+        if limite and (not self.data_fim_recorrencia or limite < self.data_fim_recorrencia):
+            self.data_fim_recorrencia = limite
+
+    def _validar_origem(self, erros: dict) -> None:
+        """Fim de recorrencia sem regra (ck_agenda_excecao_recorrencia) e feriado/recesso so como FOLGA
+        da clinica inteira (ck_agenda_excecao_feriado_global)."""
         if self.data_fim_recorrencia and not self.regra_recorrencia:
             erros['data_fim_recorrencia'] = 'Fim da recorrência sem regra de recorrência.'
         if self.origem in self.ORIGENS_GLOBAIS and (self.profissional_id or self.tipo != self.TIPO_FOLGA):
             erros['origem'] = 'Feriado/recesso é FOLGA da clínica inteira (sem profissional).'
-        if (self.tipo == self.TIPO_FOLGA and self.ativo and self.profissional_id
+
+    def _validar_folga_sobreposta(self, erros: dict) -> None:
+        """Espelho do ex_agenda_excecao_folga_sobreposta (so existe no PG): duas folgas ativas do mesmo
+        profissional nao se cruzam."""
+        if not (self.tipo == self.TIPO_FOLGA and self.ativo and self.profissional_id
                 and self.data_inicio and self.data_fim and 'data_fim' not in erros):
-            # espelho do ex_agenda_excecao_folga_sobreposta (so existe no PG)
-            if AgendaExcecao.objects.ativas().filter(
-                profissional_id=self.profissional_id, tipo=self.TIPO_FOLGA,
-                data_inicio__lte=self.data_fim, data_fim__gte=self.data_inicio,
-            ).exclude(pk=self.pk).exists():
-                erros['data_inicio'] = 'Já existe folga deste profissional nesse período.'
-        if erros:
-            raise ValidationError(erros)
+            return
+        if AgendaExcecao.objects.ativas().filter(
+            profissional_id=self.profissional_id, tipo=self.TIPO_FOLGA,
+            data_inicio__lte=self.data_fim, data_fim__gte=self.data_inicio,
+        ).exclude(pk=self.pk).exists():
+            erros['data_inicio'] = 'Já existe folga deste profissional nesse período.'
 
     def ocorrencias(self, range_inicio, range_fim):
         """Intervalos (inicio, fim) aware desta excecao que intersectam [range_inicio, range_fim).

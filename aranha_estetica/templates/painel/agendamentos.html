@@ -1,5 +1,5 @@
 {% extends 'painel/base_v2.html' %}
-{% load atendimento_tags dict_extras l10n %}
+{% load django_vite l10n %}
 
 {% block titulo %}Agendamentos — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Agendamentos{% endblock %}
@@ -18,8 +18,7 @@
 {% endblock %}
 
 {% block admin_content %}
-{# Alerta de saude, termo pendente e sessao de pacote: calculados em lote p/ a pagina #}
-{% marcadores_atendimentos agendamentos as marc %}
+{# Alerta de saude, termo, ficha, pacote e credito: atributos da linha (services.alertas.marcar_atendimentos, na view) #}
 
 {# ── Filtros ── #}
 <div class="bg-superficie rounded-2xl shadow-sm p-4 mb-3">
@@ -128,13 +127,13 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
         {{ agend.data_hora_inicio|date:"d/m/Y" }} {{ agend.data_hora_inicio|time:"H:i" }}-{{ agend.data_hora_fim|time:"H:i" }} &bull;
         <span class="status-text-{{ agend.pk }}">{% include 'partials/_status_badge.html' with status=agend.status %}</span>
       </div>
-      {% include 'partials/_alerta_saude.html' with alertas=marc.alertas|get_item:agend.cliente_id %}
-      {% if agend.pk in marc.termo_pendente %}
+      {% include 'partials/_alerta_saude.html' with alertas=agend.alertas_saude %}
+      {% if agend.termo_pendente %}
       <p class="m-0 mt-1 inline-flex items-center gap-1 rounded-lg border border-aviso bg-aviso-fundo px-2 py-0.5 text-[0.7rem] font-bold text-aviso" role="note">
         Termo pendente: o termo do procedimento ainda não foi aceito
       </p>
       {% endif %}
-      {% if agend.pk in marc.ficha_pendente %}{% include 'partials/_ficha_pendente.html' %}{% endif %}
+      {% if agend.ficha_pendente %}{% include 'partials/_ficha_pendente.html' %}{% endif %}
       {% if agend.cliente.telefone %}
       <div class="flex items-center gap-1 text-[0.72rem] text-texto-suave mt-0.5">
         <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.13.81.36 1.6.7 2.34a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.74-1.74a2 2 0 012.11-.45c.74.34 1.53.57 2.34.7A2 2 0 0122 16.92z"/></svg>
@@ -143,21 +142,21 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
       {% endif %}
     </div>
     <div class="flex flex-wrap items-center justify-end gap-1.5 w-full sm:w-auto sm:shrink-0">
-      {% if agend.pk in marc.pacote %}
+      {% if agend.de_pacote %}
       {# Sessao debitada de pacote ja pago: nao cobrar de novo #}
       <span class="px-2 py-0.5 rounded-full text-[0.7rem] font-bold bg-info-fundo text-info">Pacote</span>
-      {% elif agend.pk in marc.pacote_previsto %}
+      {% elif agend.pacote_previsto %}
       {# Ainda nao realizado, mas um pacote da cliente cobre: nao cobrar (debita no Realizado) #}
-      {% with p=marc.pacote_previsto|get_item:agend.pk %}
+      {% with p=agend.pacote_previsto %}
       <span class="px-2 py-0.5 rounded-full text-[0.7rem] font-bold bg-info-fundo text-info" title="Sessão do pacote {{ p.pacote }}: não cobrar — debita no Realizado">Pacote · restam {{ p.restam }}</span>
       {% endwith %}
       {% elif agend.valor_cobrado is not None %}
       <span class="text-[0.78rem] font-bold text-sucesso">{{ agend.valor_cobrado|brl }}</span>
-      {% with usado=marc.credito_usado|get_item:agend.pk %}{% if usado %}
+      {% with usado=agend.credito_usado %}{% if usado %}
       <span class="text-[0.72rem] font-bold text-info" title="Crédito de indicação abatido">− {{ usado|brl }} crédito</span>
       {% endif %}{% endwith %}
       {% endif %}
-      {% if agend.pk not in marc.pacote and agend.pk not in marc.pacote_previsto and not agend.eh_retorno and agend.status != 'CANCELADO' and agend.status != 'FALTOU' and agend.status != 'REAGENDADO' %}
+      {% if not agend.de_pacote and not agend.pacote_previsto and not agend.eh_retorno and agend.status != 'CANCELADO' and agend.status != 'FALTOU' and agend.status != 'REAGENDADO' %}
       {# Valor combinado / "a consultar": registrado aqui (realizado: a comissao pendente e recalculada) #}
       {# No celular o popover entra no fluxo (largura da linha): absolute right-0 saia da tela pela esquerda #}
       <details class="relative w-full sm:w-auto">
@@ -171,7 +170,7 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
           <input id="valor-{{ agend.pk }}" type="text" name="valor" inputmode="decimal" required placeholder="150,00"
                  {% if agend.valor_cobrado is not None %}value="{{ agend.valor_cobrado|unlocalize }}"{% endif %}
                  class="w-24 px-2 py-1 rounded-lg border border-borda bg-fundo text-[0.8rem] text-texto">
-          {% with saldo=marc.saldo|get_item:agend.cliente_id %}{% if saldo and not marc.credito_usado|get_item:agend.pk %}
+          {% with saldo=agend.saldo_credito %}{% if saldo and not agend.credito_usado %}
           <label class="inline-flex items-center gap-1 text-[0.7rem] text-texto whitespace-nowrap">
             <input type="checkbox" name="usar_credito" value="1" class="rounded border-borda"> Abater crédito ({{ saldo|brl }})
           </label>
@@ -206,7 +205,14 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
         </form>
       </details>
       {% endif %}
-      {% if agend.pk in marc.ficha_pendente %}
+      {% if agend.retorno_ate %}
+      {# Retorno sem custo devido (services/retorno): combinado com a cliente, dentro da janela #}
+      <a href="{% url 'aranha:admin_agendar_retorno' agend.pk %}"
+         class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-info bg-info-fundo text-info text-[0.7rem] font-bold no-underline hover:opacity-90">
+        Agendar retorno (até {{ agend.retorno_ate|date:"d/m" }})
+      </a>
+      {% endif %}
+      {% if agend.ficha_pendente %}
       <form method="post" action="{% url 'aranha:admin_link_ficha' agend.pk %}" class="m-0">
         {% csrf_token %}
         <button type="submit"
@@ -215,7 +221,7 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
         </button>
       </form>
       {% endif %}
-      {% if agend.pk in marc.termo_link %}
+      {% if agend.termo_link %}
       <form method="post" action="{% url 'aranha:admin_gerar_link_termo' agend.pk %}" class="m-0">
         {% csrf_token %}
         <button type="submit"
@@ -240,14 +246,7 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
         </button>
       </form>
       {% endif %}
-      <select data-atend-id="{{ agend.pk }}"{% if agend.pk in marc.termo_pendente %} data-termo-pendente="1"{% endif %} title="Alterar status" aria-label="Alterar status"
-              class="px-1.5 py-1 rounded-lg border-2 border-borda bg-superficie text-[0.7rem] font-bold text-texto cursor-pointer">
-        <option value="">⚡</option>
-        <option value="CONFIRMADO" {% if agend.status == 'CONFIRMADO' %}disabled{% endif %}>✅ Confirmar</option>
-        <option value="REALIZADO" {% if agend.status == 'REALIZADO' %}disabled{% endif %}>✔️ Realizado</option>
-        <option value="CANCELADO" {% if agend.status == 'CANCELADO' %}disabled{% endif %}>❌ Cancelar</option>
-        <option value="FALTOU" {% if agend.status == 'FALTOU' %}disabled{% endif %}>⛔ Faltou</option>
-      </select>
+      {% include 'partials/_select_status.html' with agend=agend limite=limite_desfecho termo_pendente=agend.termo_pendente pendente_com_botoes=True %}
       {% if agend.cliente.telefone %}
       <a href="https://wa.me/55{{ agend.cliente.telefone|cut:'(' |cut:')' |cut:'-' |cut:' ' }}?text=Ol%C3%A1%20{{ agend.cliente.nome|urlencode }}%2C%20confirmamos%20seu%20agendamento%20de%20{{ agend.procedimento.nome|urlencode }}%20para%20{{ agend.data_hora_inicio|date:'d/m/Y' }}%20%C3%A0s%20{{ agend.data_hora_inicio|time:'H:i' }}.%20{{ CLINIC_NAME|urlencode }}"
          target="_blank" rel="noopener" title="WhatsApp" aria-label="WhatsApp"
@@ -284,81 +283,6 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
 {% endblock %}
 
 {% block js %}
-<script nonce="{{ csp_nonce }}">
-// Atualizacao de status via AJAX (delegado, CSP-safe). Recarrega na sucesso.
-var MSG_SEM_TERMO = 'A cliente ainda não aceitou o termo do procedimento. Marcar como realizado mesmo assim?';
-function enviarStatus(sel, payload) {
-    fetch('{% url "aranha:admin_atualizar_status" %}', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
-        body: JSON.stringify(payload)
-    })
-    .then(function (r) { return r.json(); })
-    .then(function (data) {
-        if (data.sucesso) { location.reload(); return; }
-        // Servidor recusou por termo pendente (ex.: publicado depois de abrir a
-        // pagina): pede a confirmacao explicita e reenvia com o override auditado
-        if (data.termo_pendente && !payload.sem_termo) {
-            if (confirm(MSG_SEM_TERMO)) {
-                payload.sem_termo = true;
-                enviarStatus(sel, payload);
-            } else { sel.value = ''; }
-            return;
-        }
-        alert('Erro: ' + (data.erro || 'Erro desconhecido')); sel.value = '';
-    })
-    .catch(function () { alert('Erro de rede'); sel.value = ''; });
-}
-document.addEventListener('change', function (e) {
-    var sel = e.target.closest('select[data-atend-id]');
-    if (!sel || !sel.value) return;
-    var id = sel.getAttribute('data-atend-id');
-    var status = sel.value;
-    var payload = { atendimento_id: id, status: status };
-    if (status === 'REALIZADO' && sel.getAttribute('data-termo-pendente') === '1') {
-        // Override explicito (auditado no servidor): termo do procedimento nao aceito
-        if (!confirm(MSG_SEM_TERMO)) { sel.value = ''; return; }
-        payload.sem_termo = true;
-    } else if (!confirm('Alterar status para ' + status + '?')) { sel.value = ''; return; }
-    enviarStatus(sel, payload);
-});
-
-// Bulk actions: mostra toolbar quando >=1 pendente selecionado
-(function () {
-    var toolbar = document.getElementById('bulkToolbar');
-    var counter = document.getElementById('bulkCount');
-    var selectAll = document.getElementById('bulkSelectAll');
-    var clear = document.getElementById('bulkClear');
-    if (!toolbar) return;
-
-    function atualizar() {
-        var checks = document.querySelectorAll('.bulk-checkbox:checked');
-        if (checks.length > 0) {
-            toolbar.style.display = 'flex';
-            counter.textContent = checks.length + ' selecionado(s)';
-        } else {
-            toolbar.style.display = 'none';
-        }
-    }
-
-    document.addEventListener('change', function (e) {
-        if (e.target.classList.contains('bulk-checkbox')) atualizar();
-    });
-
-    if (selectAll) {
-        selectAll.addEventListener('change', function () {
-            document.querySelectorAll('.bulk-checkbox').forEach(function (c) { c.checked = selectAll.checked; });
-            atualizar();
-        });
-    }
-
-    if (clear) {
-        clear.addEventListener('click', function () {
-            document.querySelectorAll('.bulk-checkbox').forEach(function (c) { c.checked = false; });
-            if (selectAll) selectAll.checked = false;
-            atualizar();
-        });
-    }
-})();
-</script>
+{# select de status e barra do lote: static/src/js/painel-status.js #}
+{% vite_asset 'aranha_estetica/static/src/js/painel-status.js' %}
 {% endblock %}

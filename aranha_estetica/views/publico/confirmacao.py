@@ -1,11 +1,7 @@
-"""
-Views de notificacao — confirmacao/cancelamento via link (lembrete WhatsApp)
-e historico no painel.
-"""
+"""Link publico do lembrete: a cliente confirma ou cancela o agendamento (LinkAcesso CONFIRMAR_PRESENCA)."""
 import logging
 
 from django.db import transaction
-from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import render
 from django.utils import timezone
@@ -14,22 +10,11 @@ from django_ratelimit.decorators import ratelimit
 
 from ...models import Atendimento, Notificacao
 from ...excecoes import RegraDeNegocio
-from ...models.agendamentos import StatusAtendimento
+from ...models.notificacoes import STATUS_ALTERAVEIS_PELO_LINK
 from ...services import agenda, links
 from ...utils.auditoria import registrar_log
 
 logger = logging.getLogger(__name__)
-
-# Notificacoes que pedem resposta pelo link /confirmar/ (LinkAcesso
-# CONFIRMAR_PRESENCA, emitido no lembrete WhatsApp). Link de termo e NPS NAO
-# valem aqui (finalidade diferente -> 404).
-TIPOS_LINK_CONFIRMACAO = ('LEMBRETE', 'CONFIRMACAO')
-STATUS_ALTERAVEIS_PELO_LINK = (StatusAtendimento.AGENDADO, StatusAtendimento.CONFIRMADO)
-# "Sem resposta" so faz sentido p/ o que pede resposta (link de confirmacao
-# enviado): termo, NPS, cancelamento e falhas de envio nao contam.
-AGUARDA_RESPOSTA = Q(
-    tipo__in=TIPOS_LINK_CONFIRMACAO, canal=Notificacao.Canal.WHATSAPP, status=Notificacao.Status.ENVIADO, resposta__isnull=True,
-)
 
 
 def _alteravel_pelo_link(atendimento) -> bool:
@@ -81,13 +66,13 @@ def confirmar_presenca(request, token):
                         if acao == 'confirmar':
                             if atendimento.status == Atendimento.STATUS_AGENDADO:
                                 atendimento.confirmar()
-                            resposta = 'CONFIRMOU'
+                            resposta = Notificacao.Resposta.CONFIRMOU
                         else:
                             # decisao 10: com menos de 24 h e cancelamento tardio (conta como falta)
                             atendimento, foi_tardio = agenda.cancelar_pela_cliente(
                                 atendimento.pk, origem='link', so_aprovados=True,
                             )
-                            resposta = 'CANCELOU'
+                            resposta = Notificacao.Resposta.CANCELOU
                     except RegraDeNegocio:   # inclui Atendimento.TransicaoInvalida
                         resposta = None
                     if resposta:

@@ -9,13 +9,15 @@ a traducao do 23P01 — e o calendario tinha regra propria. Aqui:
 - ``reservar``: na transacao do chamador — conflito com lock, preco da data (promocao), INSERT;
   corrida perdida para o EXCLUDE vira ``HorarioIndisponivel``;
 - ``reagendar``: antigo -> REAGENDADO e novo com o preco/promocao combinados (portal e link);
-- ``mover``: o arrasto do calendario (edita o horario no lugar), com a mesma validacao.
+- ``mover``: o arrasto do calendario (edita o horario no lugar), com a mesma validacao;
+- ``agendar_pela_recepcao``: a porta do painel (cliente nova, valor combinado, CONFIRMACAO).
 
-O que e so de uma porta fica nela: OTP, cadastro e consentimentos do wizard; cliente nova e
-valor combinado do painel; link e e-mails do portal.
+O que e so de uma porta fica nela: OTP, cadastro e consentimentos do wizard; a validacao do
+formulario do painel (forms/agenda); link e e-mails do portal.
 """
 from __future__ import annotations
 
+import logging
 from datetime import timedelta
 
 from django.db import IntegrityError, transaction
@@ -26,8 +28,10 @@ from ..models import AgendaExcecao, Atendimento, RespostaAnamnese
 from ..constants import JANELA_MINIMA_ALTERACAO, LIMITE_AUTOAPROVACAO
 from ..models.agendamentos import STATUS_ATIVOS, STATUS_FINALIZADOS, StatusAtendimento
 from ..utils.precos import preco_com_promocao
-from .atendimento import ao_criar
+from .atendimento import DESCRICAO_VALOR_COMBINADO, ao_criar
 from .disponibilidade import profissional_habilitado, slot_disponivel
+
+logger = logging.getLogger(__name__)
 
 # Duracao do atendimento de retorno quando o procedimento nao define (= RetornoService).
 DURACAO_RETORNO_PADRAO_MINUTOS = 30
@@ -258,3 +262,54 @@ def mover(atendimento_id, novo_inicio) -> tuple[Atendimento, object]:
                 ) from exc
             raise
     return at, antigo_inicio
+
+
+# ─── agendamento pela recepcao (painel) ─────────────────────────────────
+MSG_CLIENTE_DUPLICADA = 'Telefone, e-mail ou CPF já cadastrado para outra cliente. Busque a cliente.'
+
+
+def preco_da_recepcao(procedimento, profissional, inicio, valor_informado=None) -> dict:
+    """Preco do dia (promocao) ou o valor combinado pela recepcao, quando diferente: fica registrado
+    como combinado, com o preco cheio em valor_original. Campos prontos p/ ``reservar``."""
+    preco = preco_do_dia(procedimento, profissional, inicio)
+    if valor_informado is None or valor_informado == preco['valor_cobrado']:
+        return preco
+    cheio = preco['valor_original'] if preco['promocao'] else preco['valor_cobrado']
+    return {'valor_cobrado': valor_informado, 'valor_original': cheio, 'promocao': None,
+            'descricao_preco': DESCRICAO_VALOR_COMBINADO}
+
+
+def agendar_pela_recepcao(*, cliente=None, dados_cliente_nova=None, profissional, procedimento, inicio,
+                          valor_informado=None, por=None, request=None) -> Atendimento:
+    """Agendamento pelo painel (telefone, WhatsApp, balcao): nasce AGENDADO — a clinica confirmou.
+
+    Cliente existente ou nova (``dados_cliente_nova``: o cleaned_data do ClienteRapidoForm, gravada
+    na mesma transacao do atendimento). O horario ja passou por ``validar_horario`` (o Form do
+    painel); aqui: preco (preco_da_recepcao), reserva com lock, CONFIRMACAO por e-mail a cliente e a
+    trilha. Recusa: HorarioIndisponivel (corrida pelo slot) ou RegraDeNegocio 'cliente_duplicada'
+    (outro cadastro com o mesmo telefone/e-mail/CPF entrou no meio do caminho)."""
+    from ..models import Cliente, Notificacao
+    from ..utils.auditoria import registrar_log
+    from .comunicacao import enfileirar_email
+
+    preco = preco_da_recepcao(procedimento, profissional, inicio, valor_informado)
+    cliente_nova = cliente is None
+    try:
+        with transaction.atomic():
+            if cliente_nova:
+                cliente = Cliente.objects.create(**dados_cliente_nova)
+            at = reservar(cliente=cliente, profissional=profissional, procedimento=procedimento,
+                          inicio=inicio, status=StatusAtendimento.AGENDADO, preco=preco)
+            # marcado por telefone/WhatsApp: a cliente recebe a confirmacao com data, valor e links
+            enfileirar_email(at, Notificacao.Tipo.CONFIRMACAO)
+    except IntegrityError as exc:
+        logger.warning('agendamento_painel_integridade', exc_info=True)
+        raise RegraDeNegocio(MSG_CLIENTE_DUPLICADA, codigo='cliente_duplicada') from exc
+    registrar_log(
+        por, f'Agendou pelo painel: {procedimento.nome}', 'atendimento', at.pk,
+        {'cliente': cliente.pk, 'cliente_novo': cliente_nova, 'profissional': profissional.pk,
+         'valor_cobrado': str(at.valor_cobrado) if at.valor_cobrado is not None else None,
+         'promocao': at.promocao_id},
+        request=request,
+    )
+    return at

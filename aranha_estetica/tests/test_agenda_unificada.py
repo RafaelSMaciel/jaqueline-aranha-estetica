@@ -303,7 +303,7 @@ class CalendarioAgendaTests(_Admin):
             'id': at.pk, 'start': _local(alvo, 12, 30).isoformat(), 'end': _local(alvo, 13, 30).isoformat(),
         }), content_type='application/json')
         self.assertEqual(resp.status_code, 409)
-        self.assertIn('bloqueio', resp.json()['erro'])
+        self.assertIn('bloqueio', resp.json()['mensagem'])
 
     def test_bloqueios_mostra_recorrencia(self):
         AgendaExcecao.objects.create(

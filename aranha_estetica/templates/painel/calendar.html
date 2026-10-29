@@ -1,4 +1,5 @@
 {% extends 'painel/base_v2.html' %}
+{% load django_vite %}
 
 {% block titulo %}Calendário — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Calendário{% endblock %}
@@ -56,7 +57,9 @@
   {% endfor %}
 </ul>
 
-<div id="calendar"></div>
+{# JS em static/src/js/painel-calendario.js: as rotas chegam por data-* (nada de URL dentro do JS) #}
+<div id="calendar" data-url-eventos="{% url 'aranha:admin_calendar_events' %}"
+     data-url-mover="{% url 'aranha:admin_calendar_mover' %}"></div>
 
 {# Modal de evento (CSS custom + classList, CSP-safe) #}
 <dialog id="calModal" class="dialogo" aria-labelledby="cmClienteNome">
@@ -80,116 +83,6 @@
 <script nonce="{{ csp_nonce }}" src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js" integrity="sha384-5JIwZN3kuxX2zKsavvNmbZ3zhZZMUtu/eQiK3BbXukpSXp0Cd2ZP4OAYKx7mrPgI" crossorigin="anonymous"></script>
 <script nonce="{{ csp_nonce }}" src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.11/locales/pt-br.global.min.js" integrity="sha384-EnDmL1vzWaulolGLeEzjsg5pqgwFtAE2qxU/9nupVnkomz65CqX5cfxyvJP5O3vP" crossorigin="anonymous"></script>
 
-<script nonce="{{ csp_nonce }}">
-(function(){
-    var filtroProfissional = document.getElementById('filtroProfissional');
-    var calendarEl = document.getElementById('calendar');
-    var modal = document.getElementById('calModal');
-    var celular = window.matchMedia('(max-width: 640px)').matches;
-    var calendar;
-
-    function eventsSource(info, success, failure) {
-        var url = '{% url "aranha:admin_calendar_events" %}?start=' + encodeURIComponent(info.startStr) +
-                  '&end=' + encodeURIComponent(info.endStr);
-        if (filtroProfissional.value) {
-            url += '&profissional=' + encodeURIComponent(filtroProfissional.value);
-        }
-        fetch(url, { credentials: 'same-origin' })
-            .then(function(r){ return r.json(); })
-            .then(success)
-            .catch(failure);
-    }
-
-    function showEvent(info) {
-        var e = info.event;
-        var p = e.extendedProps || {};
-        if (!p.status) return;   // bloqueio/folga (evento de fundo): nao ha atendimento p/ mostrar
-        document.getElementById('cmClienteNome').textContent = p.cliente_nome || e.title;
-        var statusEl = document.getElementById('cmStatus');
-        statusEl.textContent = p.status || '–';
-        statusEl.className = 'status-pill status-' + (p.status || 'X');
-        document.getElementById('cmProcedimento').textContent = p.procedimento || '–';
-        document.getElementById('cmProfissional').textContent = p.profissional || '–';
-        document.getElementById('cmData').textContent =
-            e.start ? e.start.toLocaleString('pt-BR') : '–';
-        document.getElementById('cmTelefone').textContent = p.cliente_telefone || '–';
-        document.getElementById('cmValor').textContent =
-            p.valor ? 'R$ ' + p.valor.toFixed(2).replace('.', ',') : '–';
-        modal.showModal();
-    }
-
-    function moverEvento(info) {
-        if (!confirm('Reagendar para ' + info.event.start.toLocaleString('pt-BR') + '?')) {
-            info.revert();
-            return;
-        }
-        fetch('{% url "aranha:admin_calendar_mover" %}', {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}',
-            },
-            body: JSON.stringify({
-                id: info.event.id,
-                start: info.event.start.toISOString(),
-                end: info.event.end ? info.event.end.toISOString() : info.event.start.toISOString(),
-            }),
-        })
-        .then(function(r){ return r.json(); })
-        .then(function(data){
-            if (!data.sucesso) {
-                alert('Erro: ' + (data.erro || 'Falha ao mover'));
-                info.revert();
-            }
-        })
-        .catch(function(){ alert('Erro de rede.'); info.revert(); });
-    }
-
-    // Setas do FullCalendar: o <span class="fc-icon" role="img"> sai sem nome (axe role-img-alt).
-    // O nome fica no botao (aria-label) e o icone vira decorativo. Reaplica a cada troca de periodo.
-    var NOMES_SETAS = { 'fc-prev-button': 'Período anterior', 'fc-next-button': 'Próximo período' };
-    function nomearSetas() {
-        Object.keys(NOMES_SETAS).forEach(function (cls) {
-            calendarEl.querySelectorAll('.' + cls).forEach(function (b) { b.setAttribute('aria-label', NOMES_SETAS[cls]); });
-        });
-        calendarEl.querySelectorAll('.fc-icon').forEach(function (i) { i.setAttribute('aria-hidden', 'true'); });
-    }
-
-    document.addEventListener('DOMContentLoaded', function(){
-        calendar = new FullCalendar.Calendar(calendarEl, {
-            locale: 'pt-br',
-            buttonHints: { prev: 'Período anterior', next: 'Próximo período', today: 'Ir para hoje' },
-            datesSet: nomearSetas,
-            // celular: lista da semana (a grade de 7 colunas nao cabe em 375px)
-            initialView: celular ? 'listWeek' : 'timeGridWeek',
-            headerToolbar: celular
-                ? { left: 'prev,next', center: 'title', right: 'listWeek,timeGridDay' }
-                : { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' },
-            nowIndicator: true,
-            editable: true,
-            eventDurationEditable: false,
-            slotMinTime: '07:00:00',
-            slotMaxTime: '21:00:00',
-            slotDuration: '00:30:00',
-            height: 700,
-            events: eventsSource,
-            eventClick: showEvent,
-            eventDrop: moverEvento,
-        });
-        calendar.render();
-
-        filtroProfissional.addEventListener('change', function(){
-            calendar.refetchEvents();
-        });
-
-        document.getElementById('cmFechar').addEventListener('click', function(){
-            modal.close();
-        });
-        modal.addEventListener('click', function(e){
-            if (e.target === modal) modal.close();
-        });
-    });
-})();
-</script>
+{# FullCalendar acima e classico (carrega antes); o modulo roda depois do parse #}
+{% vite_asset 'aranha_estetica/static/src/js/painel-calendario.js' %}
 {% endblock %}

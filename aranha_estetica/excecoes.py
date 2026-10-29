@@ -27,6 +27,16 @@ class TransicaoInvalida(RegraDeNegocio):
     codigo = 'transicao_invalida'
 
 
+class TermoPendente(RegraDeNegocio):
+    """REALIZADO com termo de procedimento ainda nao aceito: so passa com o override explicito
+    (auditado) — a cliente pode ter assinado em papel. `termos` = as VersaoTermo pendentes."""
+    codigo = 'termo_pendente'
+
+    def __init__(self, termos):
+        super().__init__('A cliente ainda não aceitou o termo do procedimento.')
+        self.termos = list(termos)
+
+
 def eh_sobreposicao(exc) -> bool:
     """IntegrityError da ex_atendimento_sobreposicao (SQLSTATE 23P01): outro request reservou a
     janela entre a checagem e o INSERT."""

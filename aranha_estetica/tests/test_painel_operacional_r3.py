@@ -460,9 +460,12 @@ class TemplatesPainelTests(TestCase):
         self.assertNotIn('class="absolute right-0', html)
 
     def test_status_reenvia_com_override_quando_servidor_pede_termo(self):
+        # JS do select: modulo do Vite (painel-status.js), incluido pela agenda e pela visao geral
         html = (TEMPLATES / 'painel' / 'agendamentos.html').read_text(encoding='utf-8')
-        self.assertIn('data.termo_pendente', html)
-        self.assertIn('payload.sem_termo = true', html)
+        self.assertIn("vite_asset 'aranha_estetica/static/src/js/painel-status.js'", html)
+        js = (TEMPLATES.parent / 'static' / 'src' / 'js' / 'painel-status.js').read_text(encoding='utf-8')
+        self.assertIn("data.codigo === 'termo_pendente'", js)
+        self.assertIn('payload.sem_termo = true', js)
 
     def test_calendario_com_sri(self):
         html = (TEMPLATES / 'painel' / 'calendar.html').read_text(encoding='utf-8')

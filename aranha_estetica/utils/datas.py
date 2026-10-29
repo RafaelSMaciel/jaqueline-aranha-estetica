@@ -92,3 +92,16 @@ def ler_hora(valor: str) -> time:
         except ValueError:
             continue
     raise ValueError(f'hora invalida: {valor!r}')
+
+
+def ler_instante_iso(valor) -> datetime:
+    """ISO 8601 do navegador (FullCalendar, toISOString) -> datetime aware no fuso local.
+
+    Aceita o 'Z' de UTC; sem offset vale o fuso da clinica (naive deslocaria o horario salvo).
+    ValueError se nao for texto ISO valido (None/numero/lista tambem)."""
+    if not isinstance(valor, str):
+        raise ValueError(f'instante invalido: {valor!r}')
+    dt = datetime.fromisoformat(valor.strip().replace('Z', '+00:00'))
+    if timezone.is_naive(dt):
+        dt = timezone.make_aware(dt)
+    return timezone.localtime(dt)

@@ -14,7 +14,7 @@ from ...models import Atendimento, Procedimento, VersaoTermo
 from ...services.termos import aceita_assinatura, obter_link_termo, termos_pendentes
 from ...utils.auditoria import registrar_log
 from ...validators import normalizar_telefone
-from .aprovacao import _voltar
+from .comum import voltar_para_origem as _voltar
 
 logger = logging.getLogger(__name__)
 

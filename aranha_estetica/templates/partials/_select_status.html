@@ -1,0 +1,25 @@
+{% comment %}
+  Select de status das listas do painel (JS: static/src/js/painel-status.js, POST em
+  admin_atualizar_status). So aparece quando ha o que decidir:
+  - PENDENTE: o pedido se decide em Aprovar/Recusar (AgendamentoService, com e-mail a cliente);
+    aqui fica so o selo "Aguardando aprovação" (pendente_com_botoes=True quando a linha ja tem os botoes);
+  - status final (realizado, cancelado, faltou, reagendado): nada (Realizado tem o "Desfazer realização");
+  - Realizado/Faltou so a partir de `limite` (= agora + TOLERANCIA_DESFECHO, calculado na view): a
+    mesma regra da FSM — um clique na agenda da semana seguinte nao gera comissao nem falta.
+  Uso: {% include 'partials/_select_status.html' with agend=agend limite=limite_desfecho termo_pendente=True %}
+{% endcomment %}
+{% if agend.status == 'PENDENTE' %}
+  {% if not pendente_com_botoes %}
+  <span class="px-2 py-0.5 rounded-full text-[0.7rem] font-bold border border-aviso bg-aviso-fundo text-aviso whitespace-nowrap">Aguardando aprovação</span>
+  {% endif %}
+{% elif agend.status == 'AGENDADO' or agend.status == 'CONFIRMADO' %}
+<select data-atend-id="{{ agend.pk }}" data-url="{% url 'aranha:admin_atualizar_status' %}"{% if termo_pendente %} data-termo-pendente="1"{% endif %}
+        title="Alterar status" aria-label="Alterar status do agendamento de {{ agend.cliente.nome }}"
+        class="px-1.5 py-1 rounded-lg border-2 border-borda bg-superficie text-[0.7rem] font-bold text-texto cursor-pointer">
+  <option value="">⚡ Status</option>
+  {% if agend.status == 'AGENDADO' %}<option value="CONFIRMADO">Confirmar presença</option>{% endif %}
+  {% if agend.data_hora_inicio <= limite %}<option value="REALIZADO">Realizado</option>{% endif %}
+  <option value="CANCELADO">Cancelar</option>
+  {% if agend.data_hora_inicio <= limite %}<option value="FALTOU">Faltou</option>{% endif %}
+</select>
+{% endif %}

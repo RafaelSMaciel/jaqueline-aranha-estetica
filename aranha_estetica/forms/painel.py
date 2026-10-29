@@ -19,6 +19,7 @@ from django.contrib import messages
 
 from ..models import AgendaExcecao, Procedimento, Profissional, VersaoTermo
 from ..utils.datas import hoje
+from ..utils.parse import id_int
 
 # Teto dos campos de valor (DecimalField max_digits=10, decimal_places=2)
 VALOR_MAX = Decimal('99999999.99')
@@ -66,6 +67,18 @@ class CampoPreco(forms.CharField):
         return preco.quantize(Decimal('0.01'))
 
 
+class EscolhaPorId(forms.ModelChoiceField):
+    """ModelChoiceField que so consulta id numerico ASCII (utils.parse.id_int): '²', texto e numero
+    gigante (URL ou POST manipulado) viram 'escolha invalida' em vez de erro de banco."""
+
+    def to_python(self, value):
+        if value in self.empty_values:
+            return None
+        if id_int(value) is None:
+            raise forms.ValidationError(self.error_messages['invalid_choice'], code='invalid_choice')
+        return super().to_python(value)
+
+
 def parse_preco(valor):
     """Mesmo parse do CampoPreco p/ quem nao usa Form (agendamento pelo painel). ValueError se invalido."""
     try:
@@ -77,28 +90,27 @@ def parse_preco(valor):
 # ProcedimentoForm (ModelForm) esta em forms/cadastros, com os demais cadastros do painel.
 
 
+class ProfissionalOuTodos(EscolhaPorId):
+    """Profissional do bloqueio ou 'todos' (o <option> da clinica inteira) = None. Vazio continua
+    obrigatorio: a tela sempre manda uma das opcoes."""
+    TODOS = 'todos'
+
+    def clean(self, value):
+        return None if value == self.TODOS else super().clean(value)
+
+
 class BloqueioForm(forms.Form):
     """Bloqueio pontual de agenda (AgendaExcecao BLOQUEIO). profissional_id='todos' = global."""
-    profissional_id = forms.CharField(label='Profissional')
+    profissional_id = ProfissionalOuTodos(label='Profissional', queryset=Profissional.objects.all(), error_messages={
+        'required': 'Escolha o profissional ou "Todos os profissionais".',
+        'invalid_choice': 'Profissional não encontrado: escolha um da lista.',
+    })
     # ISO 8601 (o datetime-local da tela); sem fuso = fuso da clinica (o Form torna aware)
-    data_hora_inicio = forms.DateTimeField(label='Início')
-    data_hora_fim = forms.DateTimeField(label='Fim')
+    data_hora_inicio = forms.DateTimeField(label='Início', error_messages={
+        'required': 'Informe a data e a hora.', 'invalid': 'Data e hora inválidas.'})
+    data_hora_fim = forms.DateTimeField(label='Fim', error_messages={
+        'required': 'Informe a data e a hora.', 'invalid': 'Data e hora inválidas.'})
     motivo = forms.CharField(label='Motivo', required=False)
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        for campo in self.fields.values():
-            campo.error_messages = {**campo.error_messages, 'required': 'Erro ao criar bloqueio.',
-                                    'invalid': 'Erro ao criar bloqueio.'}
-
-    def clean_profissional_id(self):
-        valor = self.cleaned_data['profissional_id']
-        if valor == 'todos':
-            return None
-        prof = Profissional.objects.filter(pk=valor).first() if valor.isascii() and valor.isdigit() else None
-        if prof is None:
-            raise forms.ValidationError('Erro ao criar bloqueio.')
-        return prof
 
     def clean(self):
         dados = super().clean()
