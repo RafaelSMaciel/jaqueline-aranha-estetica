@@ -15,12 +15,28 @@ from ...services import lista_espera
 from ...services import otp as otp_service
 from ...utils import datas
 from ...utils.captcha import captcha_invalido, turnstile_enabled, turnstile_site_key
+from ...utils.datas import ler_data
+from ...utils.parse import id_int
 
 logger = logging.getLogger(__name__)
 
 TEMPLATE = 'publico/lista_espera.html'
 # 20 inscricoes por IP por dia (decisao 17): uma pessoa nao precisa de mais que isso
 LIMITE_DIARIO_POR_IP = '20/d'
+
+
+def _prefill_do_wizard(params) -> dict:
+    """?procedimento=&profissional=&data= do wizard ("Avise-me se vagar") -> form_data (so ids e data
+    validos). O link do aviso de vaga usa os mesmos parametros."""
+    prefill = {campo: str(id_int(params.get(campo))) for campo in ('procedimento', 'profissional')
+               if id_int(params.get(campo)) is not None}
+    try:
+        dia = ler_data(params.get('data', ''))
+    except ValueError:
+        dia = None
+    if dia is not None and dia >= datas.hoje():
+        prefill['data_desejada'] = dia.isoformat()
+    return prefill
 
 
 def _contexto(form_data=None):
@@ -44,7 +60,8 @@ def lista_espera_publica(request):
     A pagina de sucesso e a mesma para inscricao nova, repetida ou descartada (nao revela cadastro).
     """
     if request.method != 'POST':
-        return render(request, TEMPLATE, _contexto())
+        # Vindo do wizard ("Avise-me se vagar" num dia sem horario): ja chega preenchido
+        return render(request, TEMPLATE, _contexto(_prefill_do_wizard(request.GET)))
 
     form = ListaEsperaForm(request.POST)
     form_data = {campo: str(request.POST.get(campo, ''))[:254] for campo in (

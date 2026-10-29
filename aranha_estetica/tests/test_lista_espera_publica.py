@@ -62,6 +62,18 @@ class InscricaoPublicaTests(_Base):
         self.assertContains(resp, 'name="website"')   # honeypot
         self.assertContains(resp, 'Manhã')
 
+    def test_vindo_do_wizard_chega_preenchido(self):
+        """'Avise-me se vagar' (dia sem horario no wizard) leva o procedimento, a profissional e o dia."""
+        dia = (datas.hoje() + timedelta(days=4)).isoformat()
+        resp = self.client.get(self.url, {'procedimento': self.proc.pk, 'profissional': self.prof.pk, 'data': dia})
+        self.assertEqual(resp.context['form_data'], {
+            'procedimento': str(self.proc.pk), 'profissional': str(self.prof.pk), 'data_desejada': dia,
+        })
+        self.assertContains(resp, f'value="{dia}"')
+        ontem = (datas.hoje() - timedelta(days=1)).isoformat()
+        lixo = self.client.get(self.url, {'procedimento': 'x', 'profissional': '²', 'data': ontem})
+        self.assertEqual(lixo.context['form_data'], {})
+
     def test_inscricao_anonima_nao_cria_cliente_nem_guarda_email(self):
         resp = self._post()
         self.assertRedirects(resp, reverse('aranha:lista_espera_sucesso'))

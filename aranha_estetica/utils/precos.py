@@ -29,19 +29,20 @@ def _vigente_qs(qs, hoje):
     return atual
 
 
-def preco_base_map(procedimentos=None):
+def preco_base_map(procedimentos=None, dia=None):
     """Retorna dict {procedimento_id: Decimal} do preco base vigente (sem profissional).
 
     Fallback: se um procedimento so tiver preco com profissional, usa o menor
     preco vigente entre os profissionais.
     Aceita um queryset/iterable de procedimentos para limitar o escopo.
+    dia: data das vigencias (default hoje local).
     """
     qs = Preco.objects.all()
     if procedimentos is not None:
         ids = [getattr(p, 'pk', p) for p in procedimentos]
         qs = qs.filter(procedimento_id__in=ids)
 
-    hoje = hoje_local()
+    hoje = dia or hoje_local()
     base = defaultdict(list)
     por_prof = defaultdict(list)
     for p in qs.only('pk', 'procedimento_id', 'profissional_id', 'valor', 'vigente_desde'):
@@ -102,12 +103,28 @@ def preco_para(procedimento, profissional=None, data=None):
     return base
 
 
-def _promocao_aplicavel(promocao) -> bool:
+def promocao_aplicavel(promocao) -> bool:
     """Promocao geral (sem procedimento) so vale por percentual: preco fixo
     geral viraria teto para todo o catalogo."""
     if promocao.procedimento_id:
         return promocao.preco_promocional is not None or bool(promocao.desconto_percentual)
     return promocao.preco_promocional is None and bool(promocao.desconto_percentual)
+
+
+def melhor_promocao(candidatas, base):
+    """Das promocoes aplicaveis ao procedimento (do proprio + gerais), a que o agendamento usa.
+
+    Funcao pura (a vitrine carrega as candidatas de todo o catalogo numa consulta): vence a de
+    menor valor final sobre ``base`` (empate: menor pk) e so se reduzir o valor. Sem base (sem
+    preco), so promocao de preco fixo do proprio procedimento faz sentido.
+    """
+    if not candidatas:
+        return None
+    if base is None:
+        fixas = [p for p in candidatas if p.preco_promocional is not None and p.procedimento_id]
+        return min(fixas, key=lambda p: p.pk) if fixas else None
+    melhor = min(candidatas, key=lambda p: (aplicar_promocao(base, p), p.pk))
+    return melhor if aplicar_promocao(base, melhor) < base else None
 
 
 def promocao_vigente(procedimento, data=None, valor_base=None):
@@ -127,7 +144,7 @@ def promocao_vigente(procedimento, data=None, valor_base=None):
         p for p in Promocao.objects.filter(ativa=True, data_inicio__lte=dia, data_fim__gte=dia)
         .filter(Q(procedimento=procedimento) | Q(procedimento__isnull=True))
         .order_by('pk')
-        if _promocao_aplicavel(p)
+        if promocao_aplicavel(p)
     ]
     if not candidatas:
         return None
@@ -136,12 +153,7 @@ def promocao_vigente(procedimento, data=None, valor_base=None):
     else:
         preco = preco_para(procedimento, data=dia)
         base = preco.valor if preco is not None else None
-    if base is None:
-        # sem preco base: so promocao de preco fixo do proprio procedimento faz sentido
-        fixas = [p for p in candidatas if p.preco_promocional is not None and p.procedimento_id]
-        return fixas[0] if fixas else None
-    melhor = min(candidatas, key=lambda p: (aplicar_promocao(base, p), p.pk))
-    return melhor if aplicar_promocao(base, melhor) < base else None
+    return melhor_promocao(candidatas, base)
 
 
 def aplicar_promocao(valor, promocao):
@@ -151,7 +163,7 @@ def aplicar_promocao(valor, promocao):
     if valor is None or promocao is None:
         return valor
     valor = Decimal(valor)
-    if not _promocao_aplicavel(promocao):
+    if not promocao_aplicavel(promocao):
         final = valor
     elif promocao.preco_promocional is not None:
         final = min(Decimal(promocao.preco_promocional), valor)

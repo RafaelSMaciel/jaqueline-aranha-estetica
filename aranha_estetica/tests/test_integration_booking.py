@@ -161,9 +161,9 @@ class IntegrationBookingFlowTests(TestCase):
         self.assertIsNotNone(atd, 'An Atendimento should have been created')
         self.assertEqual(atd.cliente.pk, existing.pk)
 
-        # The name was updated on the existing client (view updates name when different)
+        # D16: o agendamento e da titular do celular — o nome do cadastro nao muda pelo site
         existing.refresh_from_db()
-        self.assertEqual(existing.nome, 'Nome Atualizado')
+        self.assertEqual(existing.nome, 'Nome Antigo')
 
     # ------------------------------------------------------------------
     # 2b. Existing client WITHOUT OTP is blocked (anti-sequestro gate)
