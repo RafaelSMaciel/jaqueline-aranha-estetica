@@ -42,9 +42,8 @@ from aranha_estetica.models import (
     Usuario,
     VersaoTermo,
 )
+from aranha_estetica.forms.cadastros import ProfissionalForm, UsuarioForm
 from aranha_estetica.services.fidelidade import FidelidadeService
-from aranha_estetica.views.painel.profissionais import _ids_procedimentos
-from aranha_estetica.views.painel.usuarios import _ler_profissional_id
 from aranha_estetica.services.prontuario import vinculo_clinico
 
 from .factories import (
@@ -160,10 +159,9 @@ class IdsInvalidosTests(_AdminBase):
         self.assertContains(resp, 'Escolha o procedimento do escopo.')
 
     def test_cadastro_profissional_ignora_procedimento_sobrescrito(self):
-        self.assertEqual(
-            _ids_procedimentos(QueryDict(f'procedimentos={SOBRESCRITO}&procedimentos={self.proc.pk}')),
-            {self.proc.pk},
-        )
+        form = ProfissionalForm(QueryDict(f'nome=X&procedimentos={SOBRESCRITO}&procedimentos={self.proc.pk}'))
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data['procedimentos'], {self.proc.pk})
         resp = self.client.post(reverse('aranha:profissional_cadastro'), {
             'nome': 'Dra. Nova', 'especialidade': '', 'ativo': 'on',
             'trabalha_segunda': 'on', 'hora_inicio_segunda': '09:00', 'hora_fim_segunda': '18:00',
@@ -182,8 +180,14 @@ class IdsInvalidosTests(_AdminBase):
         self.assertEqual(resp.status_code, 200)
 
     def test_usuario_com_profissional_sobrescrito(self):
-        self.assertEqual(_ler_profissional_id(SOBRESCRITO), (None, 'Profissional inválido.'))
-        self.assertEqual(_ler_profissional_id(str(self.prof.pk)), (self.prof.pk, None))
+        dados = {'nome': 'Nova', 'email': 'nova@test.com', 'papel': Usuario.PAPEL_PROFISSIONAL,
+                 'senha': 'Senha-Forte-2026!'}
+        form = UsuarioForm({**dados, 'profissional_id': SOBRESCRITO})
+        self.assertFalse(form.is_valid())
+        self.assertEqual(form.errors['profissional_id'], ['Profissional inválido.'])
+        form = UsuarioForm({**dados, 'profissional_id': str(self.prof.pk)})
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data['profissional'], self.prof)
         resp = self.client.post(reverse('aranha:admin_criar_usuario'), {
             'nome': 'Nova', 'email': 'nova@test.com', 'papel': Usuario.PAPEL_PROFISSIONAL,
             'senha': 'Senha-Forte-2026!', 'profissional_id': SOBRESCRITO,
